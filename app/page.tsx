@@ -1,12 +1,11 @@
 "use client";
+
 import Image from "next/image";
 import { useState } from "react";
 
-
 export default function HomePage() {
-
-    const [submitted, setSubmitted] = useState(false);
-
+  const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   const mailchimpAction = process.env.NEXT_PUBLIC_MAILCHIMP_ACTION_URL || "#";
 
@@ -23,6 +22,34 @@ export default function HomePage() {
 
   const anchorOffset = "scroll-mt-[calc(var(--nav-h,72px)+32px)]";
 
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    if (!mailchimpAction || mailchimpAction === "#") return;
+
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+
+    try {
+      setSubmitting(true);
+
+      await fetch(mailchimpAction, {
+        method: "POST",
+        mode: "no-cors",
+        body: fd,
+      });
+
+      // No podemos leer respuesta por CORS,
+      // pero si action y fields están bien, Mailchimp lo guarda.
+      setSubmitted(true);
+      form.reset();
+    } catch (err) {
+      alert("No se pudo enviar. Intenta de nuevo.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-white">
       {/* HERO */}
@@ -36,7 +63,6 @@ export default function HomePage() {
               IA para ordenar, accionar y optimizar agendas clínicas
             </div>
 
-            {/* Título un poco más chico para que “La inteligencia artificial” se vea más compacto */}
             <h1 className="mt-6 text-[42px] font-extrabold tracking-tight text-slate-900 leading-[1.06] sm:text-5xl lg:text-[58px] xl:text-[60px]">
               La inteligencia artificial{" "}
               <span className="block">que se encarga de tu</span>
@@ -158,7 +184,6 @@ export default function HomePage() {
             desde el inicio y se gestiona con foco.
           </p>
 
-          {/* items-start para que arranquen alineadas arriba */}
           <div className="mt-12 grid gap-10 md:grid-cols-2 items-start">
             <div className="min-w-0">
               <h3 className="mb-4 text-lg font-semibold text-slate-900">Antes 😵‍💫</h3>
@@ -284,112 +309,112 @@ export default function HomePage() {
             </p>
 
             <div className="mt-10 fyllio-card-soft p-8 sm:p-10">
-  {submitted ? (
-    <div className="rounded-2xl bg-white/80 p-8 text-center">
-      <h3 className="text-2xl font-bold text-slate-900">¡Listo! ✅</h3>
-      <p className="mt-3 text-slate-600">
-        Gracias — te contactaremos pronto.
-      </p>
+              {submitted ? (
+                <div className="rounded-2xl bg-white/80 p-8 text-center">
+                  <h3 className="text-2xl font-bold text-slate-900">¡Listo! ✅</h3>
+                  <p className="mt-3 text-slate-600">Gracias — te contactaremos pronto.</p>
 
-      <button
-        type="button"
-        className="btn-fyllio mt-6"
-        onClick={() => setSubmitted(false)}
-      >
-        Enviar otra respuesta
-      </button>
-    </div>
-  ) : (
-    <form
-      action={mailchimpAction}
-      method="post"
-      target="mailchimp_hidden_iframe"
-      className="grid gap-4"
-      onSubmit={() => setSubmitted(true)}
-    >
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-600">
-            Nombre <span className="text-red-500">*</span>
-          </label>
-          <input
-            name="FNAME"
-            type="text"
-            required
-            className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
-            placeholder="Tu nombre"
-          />
-        </div>
+                  <button
+                    type="button"
+                    className="btn-fyllio mt-6"
+                    onClick={() => setSubmitted(false)}
+                  >
+                    Enviar otra respuesta
+                  </button>
+                </div>
+              ) : (
+                <form className="grid gap-4" onSubmit={handleSubmit}>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slate-600">
+                        Nombre <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        name="FNAME"
+                        type="text"
+                        required
+                        className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
+                        placeholder="Tu nombre"
+                      />
+                    </div>
 
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-600">
-            Email <span className="text-red-500">*</span>
-          </label>
-          <input
-            name="EMAIL"
-            type="email"
-            required
-            className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
-            placeholder="tu@email.com"
-          />
-        </div>
-      </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slate-600">
+                        Email <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        name="EMAIL"
+                        type="email"
+                        required
+                        className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
+                        placeholder="tu@email.com"
+                      />
+                    </div>
+                  </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-600">
-            Rol <span className="text-red-500">*</span>
-          </label>
-          <select
-            name="ROLE"
-            required
-            className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
-            defaultValue=""
-          >
-            <option value="" disabled>
-              Selecciona…
-            </option>
-            <option value="Dentista">Dentista</option>
-            <option value="Recepción">Recepción</option>
-            <option value="Dirección">Dirección</option>
-            <option value="Otro">Otro</option>
-          </select>
-        </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slate-600">
+                        Rol <span className="text-red-500">*</span>
+                      </label>
+                      <select
+                        name="ROLE"
+                        required
+                        className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
+                        defaultValue=""
+                      >
+                        <option value="" disabled>
+                          Selecciona…
+                        </option>
+                        <option value="Dentista">Dentista</option>
+                        <option value="Recepción">Recepción</option>
+                        <option value="Dirección">Dirección</option>
+                        <option value="Otro">Otro</option>
+                      </select>
+                    </div>
 
-        <div>
-          <label className="mb-1 block text-xs font-semibold text-slate-600">
-            Clínica / consultorio
-          </label>
-          <input
-            name="CLINIC"
-            type="text"
-            className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
-            placeholder="Opcional"
-          />
-        </div>
-      </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-semibold text-slate-600">
+                        Clínica / consultorio
+                      </label>
+                      <input
+                        name="CLINIC"
+                        type="text"
+                        className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
+                        placeholder="Opcional"
+                      />
+                    </div>
+                  </div>
 
-      <p className="text-center text-xs text-slate-500">
-        <span className="text-red-500">*</span> Los campos con asterisco son obligatorios.
-      </p>
+                  <p className="text-center text-xs text-slate-500">
+                    <span className="text-red-500">*</span> Los campos con asterisco son obligatorios.
+                  </p>
 
-      <button type="submit" className="btn-fyllio mt-2 w-full">
-        Enviar
-      </button>
+                  <button
+                    type="submit"
+                    disabled={submitting || mailchimpAction === "#"}
+                    className={
+                      submitting
+                        ? "btn-fyllio mt-2 w-full opacity-70 cursor-not-allowed"
+                        : "btn-fyllio mt-2 w-full"
+                    }
+                  >
+                    {submitting ? "Enviando..." : "Enviar"}
+                  </button>
 
-      <p className="text-center text-xs text-slate-500">
-        Al enviar, aceptas que te contactemos para una breve conversación. Sin spam.
-      </p>
+                  <p className="text-center text-xs text-slate-500">
+                    Al enviar, aceptas que te contactemos para una breve conversación. Sin spam.
+                  </p>
 
-      <iframe
-        name="mailchimp_hidden_iframe"
-        className="hidden"
-        aria-hidden="true"
-      />
-    </form>
-  )}
-</div>
-
+                  {mailchimpAction === "#" ? (
+                    <p className="mt-2 text-center text-xs text-amber-700">
+                      ⚠️ Falta configurar Mailchimp: define{" "}
+                      <b>NEXT_PUBLIC_MAILCHIMP_ACTION_URL</b>.
+                    </p>
+                  ) : null}
+                </form>
+              )}
+            </div>
           </div>
         </div>
       </section>
