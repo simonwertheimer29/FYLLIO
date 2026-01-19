@@ -1,26 +1,89 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Si usas @apply en este archivo (o Tailwind se queja), deja esta línea: */
+@reference "tailwindcss";
+
+/* ================================
+   FYLLIO BRAND UTILITIES
+================================ */
+
+.fyllio-text-gradient {
+  background: linear-gradient(90deg, #2563eb, #06b6d4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+.fyllio-bg-gradient {
+  background: linear-gradient(135deg, #2563eb, #06b6d4);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.fyllio-card-soft {
+  background: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.btn-fyllio {
+  background: linear-gradient(135deg, #2563eb, #06b6d4);
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-fyllio:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+}
+/* ================================
+   FYLLIO LOGO GLOW
+================================ */
+
+.fyllio-logo-glow {
+  border-radius: 1rem;
+  box-shadow:
+    0 4px 14px rgba(0, 119, 255, 0.35),
+    0 0 0 1px rgba(0, 167, 255, 0.15);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.fyllio-logo-glow:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 6px 22px rgba(0, 119, 255, 0.45),
+    0 0 0 1px rgba(0, 224, 255, 0.25);
+}
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-padding-top: var(--nav-h, 72px);
+}
+/* Card estilo IA glass */
+.card-ai {
+  background: linear-gradient(
+    135deg,
+    rgba(15, 23, 42, 0.55),
+    rgba(15, 23, 42, 0.35)
+  );
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  box-shadow:
+    0 10px 30px rgba(15, 23, 42, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  border-radius: 1rem;
+}
+@keyframes gradmove {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--nav-h, 72px);
 }
