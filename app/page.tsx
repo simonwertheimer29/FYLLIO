@@ -1,6 +1,12 @@
 import Image from "next/image";
+import { useState } from "react";
+
 
 export default function HomePage() {
+
+    const [submitted, setSubmitted] = useState(false);
+
+
   const mailchimpAction = process.env.NEXT_PUBLIC_MAILCHIMP_ACTION_URL || "#";
 
   const cardSoft =
@@ -277,7 +283,17 @@ export default function HomePage() {
             </p>
 
             <div className="mt-10 fyllio-card-soft p-8 sm:p-10">
-              <form action={mailchimpAction} method="post" target="_blank" className="grid gap-4">
+              <form
+  action={mailchimpAction}
+  method="post"
+  target="mailchimp_hidden_iframe"
+  className="grid gap-4"
+  onSubmit={() => {
+    setSubmitted(true);
+    window.setTimeout(() => setSubmitted(false), 5000);
+  }}
+>
+
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div>
                     <label className="mb-1 block text-xs font-semibold text-slate-600">
@@ -351,6 +367,13 @@ export default function HomePage() {
                   Enviar
                 </button>
 
+                {submitted ? (
+  <p className="text-center text-sm text-slate-700">
+    ✅ Listo. Gracias — te contactaremos pronto.
+  </p>
+) : null}
+
+
                 <p className="text-center text-xs text-slate-500">
                   Al enviar, aceptas que te contactemos para una breve conversación. Sin spam.
                 </p>
@@ -360,6 +383,13 @@ export default function HomePage() {
                     ⚠️ Falta configurar Mailchimp: define <b>NEXT_PUBLIC_MAILCHIMP_ACTION_URL</b>.
                   </p>
                 ) : null}
+
+                <iframe
+  name="mailchimp_hidden_iframe"
+  className="hidden"
+  aria-hidden="true"
+/>
+
               </form>
             </div>
           </div>
