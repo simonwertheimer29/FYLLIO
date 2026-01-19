@@ -284,115 +284,112 @@ export default function HomePage() {
             </p>
 
             <div className="mt-10 fyllio-card-soft p-8 sm:p-10">
-              <form
-  action={mailchimpAction}
-  method="post"
-  target="mailchimp_hidden_iframe"
-  className="grid gap-4"
-  onSubmit={() => {
-    setSubmitted(true);
-    window.setTimeout(() => setSubmitted(false), 5000);
-  }}
->
+  {submitted ? (
+    <div className="rounded-2xl bg-white/80 p-8 text-center">
+      <h3 className="text-2xl font-bold text-slate-900">¡Listo! ✅</h3>
+      <p className="mt-3 text-slate-600">
+        Gracias — te contactaremos pronto.
+      </p>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-600">
-                      Nombre <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      name="FNAME"
-                      type="text"
-                      required
-                      className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
-                      placeholder="Tu nombre"
-                    />
-                  </div>
+      <button
+        type="button"
+        className="btn-fyllio mt-6"
+        onClick={() => setSubmitted(false)}
+      >
+        Enviar otra respuesta
+      </button>
+    </div>
+  ) : (
+    <form
+      action={mailchimpAction}
+      method="post"
+      target="mailchimp_hidden_iframe"
+      className="grid gap-4"
+      onSubmit={() => setSubmitted(true)}
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-slate-600">
+            Nombre <span className="text-red-500">*</span>
+          </label>
+          <input
+            name="FNAME"
+            type="text"
+            required
+            className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
+            placeholder="Tu nombre"
+          />
+        </div>
 
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-600">
-                      Email <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      name="EMAIL"
-                      type="email"
-                      required
-                      className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
-                      placeholder="tu@email.com"
-                    />
-                  </div>
-                </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-slate-600">
+            Email <span className="text-red-500">*</span>
+          </label>
+          <input
+            name="EMAIL"
+            type="email"
+            required
+            className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
+            placeholder="tu@email.com"
+          />
+        </div>
+      </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-600">
-                      Rol <span className="text-red-500">*</span>
-                    </label>
-                    <select
-                      name="ROLE"
-                      required
-                      className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
-                      defaultValue=""
-                    >
-                      <option value="" disabled>
-                        Selecciona…
-                      </option>
-                      <option value="Dentista">Dentista</option>
-                      <option value="Recepción">Recepción</option>
-                      <option value="Dirección">Dirección</option>
-                      <option value="Otro">Otro</option>
-                    </select>
-                  </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-slate-600">
+            Rol <span className="text-red-500">*</span>
+          </label>
+          <select
+            name="ROLE"
+            required
+            className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
+            defaultValue=""
+          >
+            <option value="" disabled>
+              Selecciona…
+            </option>
+            <option value="Dentista">Dentista</option>
+            <option value="Recepción">Recepción</option>
+            <option value="Dirección">Dirección</option>
+            <option value="Otro">Otro</option>
+          </select>
+        </div>
 
-                  <div>
-                    <label className="mb-1 block text-xs font-semibold text-slate-600">
-                      Clínica / consultorio
-                    </label>
-                    <input
-                      name="CLINIC"
-                      type="text"
-                      className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
-                      placeholder="Opcional"
-                    />
-                  </div>
-                </div>
+        <div>
+          <label className="mb-1 block text-xs font-semibold text-slate-600">
+            Clínica / consultorio
+          </label>
+          <input
+            name="CLINIC"
+            type="text"
+            className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
+            placeholder="Opcional"
+          />
+        </div>
+      </div>
 
-                <p className="text-center text-xs text-slate-500">
-                  <span className="text-red-500">*</span> Los campos con asterisco son obligatorios.
-                </p>
+      <p className="text-center text-xs text-slate-500">
+        <span className="text-red-500">*</span> Los campos con asterisco son obligatorios.
+      </p>
 
-                <button
-                  type="submit"
-                  className="btn-fyllio mt-2 w-full"
-                >
-                  Enviar
-                </button>
+      <button type="submit" className="btn-fyllio mt-2 w-full">
+        Enviar
+      </button>
 
-                {submitted ? (
-  <p className="text-center text-sm text-slate-700">
-    ✅ Listo. Gracias — te contactaremos pronto.
-  </p>
-) : null}
+      <p className="text-center text-xs text-slate-500">
+        Al enviar, aceptas que te contactemos para una breve conversación. Sin spam.
+      </p>
 
+      <iframe
+        name="mailchimp_hidden_iframe"
+        className="hidden"
+        aria-hidden="true"
+      />
+    </form>
+  )}
+</div>
 
-                <p className="text-center text-xs text-slate-500">
-                  Al enviar, aceptas que te contactemos para una breve conversación. Sin spam.
-                </p>
-
-                {mailchimpAction === "#" ? (
-                  <p className="mt-2 text-center text-xs text-amber-700">
-                    ⚠️ Falta configurar Mailchimp: define <b>NEXT_PUBLIC_MAILCHIMP_ACTION_URL</b>.
-                  </p>
-                ) : null}
-
-                <iframe
-  name="mailchimp_hidden_iframe"
-  className="hidden"
-  aria-hidden="true"
-/>
-
-              </form>
-            </div>
           </div>
         </div>
       </section>
