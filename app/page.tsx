@@ -59,42 +59,59 @@ export default function HomePage() {
           style={{ minHeight: "calc(92vh - var(--nav-h,72px))" }}
         >
           <div className="w-full">
-            <div className="inline-flex items-center rounded-full bg-white/70 px-3 py-1 text-xs font-medium text-slate-600 ring-1 ring-slate-200">
-              IA para ordenar, accionar y optimizar agendas clínicas
-            </div>
 
             <h1 className="mt-6 text-[42px] font-extrabold tracking-tight text-slate-900 leading-[1.06] sm:text-5xl lg:text-[58px] xl:text-[60px]">
-              La inteligencia artificial{" "}
-              <span className="block">que se encarga de tu</span>
-              <span className="block">
-                <span className="fyllio-text-gradient">agenda clínica</span>.
-              </span>
-            </h1>
+  La inteligencia artificial{" "}
+  <span className="block">que se encarga de tu</span>
+  <span className="block">
+    <span className="fyllio-text-gradient">agenda clínica y personal</span>.
+  </span>
+</h1>
+
 
             <p className="mt-5 max-w-2xl text-sm text-slate-600 sm:text-base">
-              FYLLIO crea, ajusta y mantiene tu agenda automáticamente: confirma
-              citas, gestiona cancelaciones, acciona sobre huecos y reduce
-              no-shows, para que tu equipo se enfoque en el paciente, no en el
-              caos.
-            </p>
+  FYLLIO automatiza y optimiza tu agenda para mejorar la ocupación, reducir
+  capacidad no utilizada y disminuir el tiempo operativo.
+  <br className="hidden sm:block" />
+  Te da orden y previsión para identificar ventanas de agenda aprovechables y
+  recuperar tiempo personal sin perder eficiencia.
+</p>
+
 
             <div className="mt-7 space-y-4">
-              <p className="text-xl font-semibold text-slate-900 sm:text-2xl">
-                ¿Cansado de reprogramar, llamadas constantes y vacíos inesperados en la agenda?
-              </p>
-              <p className="text-xl font-semibold text-slate-900 sm:text-2xl">
-                Gestionar la agenda clínica día a día es frustrante. FYLLIO lo resuelve con IA.
-              </p>
-            </div>
+  <p className="text-xl font-semibold text-slate-900 sm:text-2xl">
+    ¿Cansado de reprogramaciones, cancelaciones de último minuto y capacidad no
+    utilizada inesperada en la agenda?
+  </p>
+  <p className="text-xl font-semibold text-slate-900 sm:text-2xl">
+    ¿Cansado de no poder proteger tu tiempo personal porque la agenda se
+    desordena y termina controlando tu día?
+  </p>
+
+  <p className="pt-1 text-base text-slate-700 sm:text-lg">
+    No son excluyentes: con FYLLIO puedes ser{" "}
+    <span className="font-semibold">más rentable y eficiente</span>, y a la vez{" "}
+    <span className="font-semibold">mantener el balance</span> entre tu vida
+    profesional y personal gracias a una agenda{" "}
+    <span className="font-semibold">optimizada, ordenada y bajo control</span>.
+  </p>
+</div>
+
 
             <div className="mt-8">
-              <a href="#acceso" className="btn-fyllio">
-                Estoy interesado
-              </a>
-              <p className="mt-3 text-xs text-slate-500">
-                Fase temprana. Buscamos clínicas piloto y feedback real.
-              </p>
-            </div>
+  <a href="#acceso" className="btn-fyllio">
+    Estoy interesado
+  </a>
+
+  <p className="mt-3 text-sm font-medium text-slate-700">
+    ¿Qué esperas para recuperar el control de tu agenda?
+  </p>
+
+  <p className="mt-2 text-xs text-slate-500">
+    Fase temprana. Buscamos clínicas piloto y feedback real.
+  </p>
+</div>
+
           </div>
 
           <div className="w-full">
