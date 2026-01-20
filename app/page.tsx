@@ -206,75 +206,90 @@ export default function HomePage() {
 </section>
 
 
+{/* POR QUÉ ESCOGER FYLLIO */}
+<section
+  id="antes-despues"
+  className={`${anchorOffset} border-b border-slate-100 bg-[radial-gradient(1100px_540px_at_15%_0%,rgba(37,99,235,0.10),transparent_60%),radial-gradient(900px_520px_at_90%_10%,rgba(6,182,212,0.10),transparent_55%),linear-gradient(to_bottom,rgba(241,245,249,0.75),#ffffff)]`}
+>
+  <div className="mx-auto flex min-h-[85vh] max-w-7xl flex-col justify-center px-4 py-16 sm:px-6">
+    <h2 className="text-center text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+      Por qué escoger FYLLIO
+    </h2>
 
-      {/* ANTES vs DESPUÉS */}
-      <section
-        id="antes-despues"
-        className={`${anchorOffset} border-b border-slate-100 bg-[radial-gradient(1100px_540px_at_15%_0%,rgba(37,99,235,0.10),transparent_60%),radial-gradient(900px_520px_at_90%_10%,rgba(6,182,212,0.10),transparent_55%),linear-gradient(to_bottom,rgba(241,245,249,0.75),#ffffff)]`}
-      >
-        <div className="mx-auto flex min-h-[85vh] max-w-7xl flex-col justify-center px-4 py-16 sm:px-6">
-          <h2 className="text-center text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-            Antes vs Después: la agenda como{" "}
-            <span className="fyllio-text-gradient">sistema activo</span>
-          </h2>
+    <p className="mx-auto mt-4 max-w-3xl text-center text-sm text-slate-600 sm:text-base">
+      Tu agenda antes y después de tener control sobre ella
+    </p>
 
-          <p className="mx-auto mt-4 max-w-3xl text-center text-sm text-slate-600 sm:text-base">
-            La agenda deja de ocupar tiempo efectivo de trabajo. Ya no se construye “sobre la marcha”: se entiende
-            desde el inicio y se gestiona con foco.
-          </p>
-
-          <div className="mt-12 grid gap-10 md:grid-cols-2 items-start">
-            <div className="min-w-0">
-              <h3 className="mb-4 text-lg font-semibold text-slate-900">Antes 😵‍💫</h3>
-              <div className="space-y-4">
-                <div className={cardSoft}>La agenda se crea conforme llegan llamadas y mensajes</div>
-                <div className={cardSoft}>No hay visión clara de cómo quedará el día hasta que llega</div>
-                <div className={cardSoft}>Huecos que se pierden por falta de tiempo para actuar</div>
-                <div className={cardSoft}>Automatizaciones inexistentes o hechas manualmente</div>
-                <div className={cardSoft}>Mucho esfuerzo operativo, poco control</div>
-              </div>
-            </div>
-
-            <div className="min-w-0">
-              <div className="mb-4 flex items-center gap-3">
-                <h3 className="text-lg font-semibold text-slate-900">Después 😌</h3>
-                <span className="rounded-full bg-sky-50 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-sky-700 ring-1 ring-sky-200">
-                  Con FYLLIO
-                </span>
-              </div>
-
-              <div className="space-y-4">
-                <div className={cardGlow}>
-                  <span className="relative z-10">
-                    La agenda se genera sola de forma optimizada desde el inicio
-                  </span>
-                </div>
-                <div className={cardGlow}>
-                  <span className="relative z-10">
-                    El trabajo pasa de crear a <b>supervisar y decidir</b>
-                  </span>
-                </div>
-                <div className={cardGlow}>
-                  <span className="relative z-10">
-                    Ya no tienes que preocuparte por encontrar soluciones a cancelaciones repentinas o huecos. FYLLIO
-                    genera accionables inteligentes que se encargan de encontrar la mejor solución posible.
-                  </span>
-                </div>
-                <div className={cardGlow}>
-                  <span className="relative z-10">
-                    Automatizaciones activas: confirmaciones, reagendamientos, recordatorios
-                  </span>
-                </div>
-                <div className={cardGlow}>
-                  <span className="relative z-10">
-                    Orden incluso con cambios: el día se mantiene claro y estable
-                  </span>
-                </div>
-              </div>
-            </div>
+    <div className="mt-12 grid gap-10 md:grid-cols-2 items-start">
+      {/* ANTES */}
+      <div className="min-w-0">
+        <h3 className="mb-4 text-lg font-semibold text-slate-900">Antes 😵‍💫</h3>
+        <div className="space-y-4">
+          <div className={cardSoft}>
+            Capacidad no utilizada que se pierde por falta de tiempo y reacción
+          </div>
+          <div className={cardSoft}>
+            Gran parte del tiempo se dedica a reprogramar y actuar frente a imprevistos
+          </div>
+          <div className={cardSoft}>
+            La agenda se construye “sobre la marcha”, llamada a llamada
+          </div>
+          <div className={cardSoft}>
+            Poca visibilidad de cómo quedará el día hasta que sucede
+          </div>
+          <div className={cardSoft}>
+            La agenda domina el día y se extiende fuera del horario laboral
           </div>
         </div>
-      </section>
+      </div>
+
+      {/* DESPUÉS */}
+      <div className="min-w-0">
+        <div className="mb-4 flex items-center gap-3">
+          <h3 className="text-lg font-semibold text-slate-900">Después 😌</h3>
+          <span className="rounded-full bg-sky-50 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-sky-700 ring-1 ring-sky-200">
+            Con FYLLIO
+          </span>
+        </div>
+
+        <div className="space-y-4">
+          <div className={cardGlow}>
+            <span className="relative z-10">
+              Mayor ocupación y rentabilidad gracias a la activación inteligente de ventanas de agenda
+            </span>
+          </div>
+
+          <div className={cardGlow}>
+            <span className="relative z-10">
+              Menos tiempo operativo: el trabajo pasa de reaccionar a{" "}
+              <b>supervisar y decidir</b>
+            </span>
+          </div>
+
+          <div className={cardGlow}>
+            <span className="relative z-10">
+              La creación de la agenda se automatiza y se mantiene optimizada ante cambios, incluso fuera del horario
+              laboral
+            </span>
+          </div>
+
+          <div className={cardGlow}>
+            <span className="relative z-10">
+              Control y previsión: sabes cómo será el día y cómo reaccionar ante cambios antes de que ocurran
+            </span>
+          </div>
+
+          <div className={cardGlow}>
+            <span className="relative z-10">
+              Más control sobre tu tiempo y el de tu equipo, sin perder eficiencia ni rentabilidad
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 
       {/* CÓMO FUNCIONA */}
       <section
