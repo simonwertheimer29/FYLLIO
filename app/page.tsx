@@ -138,57 +138,71 @@ export default function HomePage() {
 </section>
 
 
-      {/* BLOQUE ÚNICO: problema → solución → FYLLIO */}
-      <section
-        id="que-es"
-        className={`${anchorOffset} border-b border-slate-100 bg-[radial-gradient(1100px_540px_at_15%_0%,rgba(37,99,235,0.10),transparent_60%),radial-gradient(900px_520px_at_90%_10%,rgba(6,182,212,0.10),transparent_55%),linear-gradient(to_bottom,rgba(241,245,249,0.75),#ffffff)]`}
-      >
-        <div className="mx-auto flex min-h-[78vh] max-w-7xl flex-col justify-center px-4 py-16 sm:px-6">
-          <h2 className="text-center text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-            El problema no es la agenda.
-            <span className="block">
-              Es la <span className="fyllio-text-gradient">carga diaria</span> que crea.
-            </span>
-          </h2>
+      {/* BLOQUE ÚNICO: problema → impacto → FYLLIO (valores) */}
+<section
+  id="que-es"
+  className={`${anchorOffset} border-b border-slate-100 bg-[radial-gradient(1100px_540px_at_15%_0%,rgba(37,99,235,0.10),transparent_60%),radial-gradient(900px_520px_at_90%_10%,rgba(6,182,212,0.10),transparent_55%),linear-gradient(to_bottom,rgba(241,245,249,0.75),#ffffff)]`}
+>
+  <div className="mx-auto flex min-h-[72vh] max-w-7xl flex-col justify-center px-4 py-14 sm:px-6">
+    <h2 className="text-center text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+      El problema no es la agenda.
+      <span className="block">Es el poco control sobre ella.</span>
+    </h2>
 
-          <p className="mx-auto mt-5 max-w-3xl text-center text-sm text-slate-600 sm:text-base">
-            La agenda clínica no falla por falta de pacientes: falla porque todo depende de decisiones humanas
-            constantes, interrupciones y reacción en tiempo real.
+    <div className="mx-auto mt-10 grid w-full max-w-5xl gap-6 md:grid-cols-3">
+      {/* PILL 1 */}
+      <div className="group relative rounded-2xl p-[1px]">
+        <div className="absolute inset-0 rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.75),rgba(6,182,212,0.75),rgba(37,99,235,0.75))] bg-[length:200%_200%] opacity-60 blur-[0.5px] animate-gradient" />
+        <div className="relative rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)]">
+          <p className="text-base leading-relaxed text-slate-700">
+            Cuando la agenda no está bajo control, la clínica pierde claridad. Aparecen{" "}
+            <span className="font-semibold">ventanas de agenda sin plan</span>, cambios de último minuto,
+            reprogramaciones constantes y decisiones que se toman “sobre la marcha”.
+            <br />
+            <br />
+            El día deja de ser previsible, el <span className="font-semibold">tiempo operativo aumenta</span> y la
+            <span className="font-semibold"> rentabilidad</span> depende más de reaccionar que de planificar.
           </p>
-
-          <div className="mx-auto mt-10 grid w-full max-w-5xl gap-6 md:grid-cols-3">
-            <div className="fyllio-card-soft p-7">
-              <p className="text-sm font-extrabold uppercase tracking-wide text-slate-500">
-                El problema real
-              </p>
-              <p className="mt-3 text-base leading-relaxed text-slate-700">
-                Reprogramaciones, llamadas y mensajes constantes, huecos que aparecen sin aviso, no-shows y
-                una agenda que se corrige “sobre la marcha”.
-              </p>
-            </div>
-
-            <div className="fyllio-card-soft p-7">
-              <p className="text-sm font-extrabold uppercase tracking-wide text-slate-500">
-                La solución
-              </p>
-              <p className="mt-3 text-base leading-relaxed text-slate-700">
-                Un sistema que entiende reglas, recursos y prioridades, y mantiene la agenda ordenada ante cambios,
-                generando acciones claras para proteger el día.
-              </p>
-            </div>
-
-            <div className="fyllio-card-soft p-7">
-              <p className="text-sm font-extrabold uppercase tracking-wide text-slate-500">
-                ¿Qué es FYLLIO?
-              </p>
-              <p className="mt-3 text-base leading-relaxed text-slate-700">
-                FYLLIO es una IA diseñada para encargarse de la agenda clínica: crea una planificación óptima,
-                la mantiene viva cuando hay cambios y propone o ejecuta accionables inteligentes con control humano.
-              </p>
-            </div>
-          </div>
         </div>
-      </section>
+      </div>
+
+      {/* PILL 2 */}
+      <div className="group relative rounded-2xl p-[1px]">
+        <div className="absolute inset-0 rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.75),rgba(6,182,212,0.75),rgba(37,99,235,0.75))] bg-[length:200%_200%] opacity-60 blur-[0.5px] animate-gradient" />
+        <div className="relative rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)]">
+          <p className="text-base leading-relaxed text-slate-700">
+            La falta de control no solo afecta a la ocupación.
+            <br />
+            Afecta al equipo, al foco y a tu <span className="font-semibold">tiempo personal</span>.
+            <br />
+            <br />
+            Cuando todo depende de estar corrigiendo la agenda en tiempo real, la clínica nunca se detiene… y tú
+            tampoco.
+          </p>
+        </div>
+      </div>
+
+      {/* PILL 3 */}
+      <div className="group relative rounded-2xl p-[1px]">
+        <div className="absolute inset-0 rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.75),rgba(6,182,212,0.75),rgba(37,99,235,0.75))] bg-[length:200%_200%] opacity-60 blur-[0.5px] animate-gradient" />
+        <div className="relative rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)]">
+          <p className="text-base leading-relaxed text-slate-700">
+            Somos FYLLIO.
+            <br />
+            <br />
+            Creemos que una clínica bien gestionada no solo es más rentable, sino también más saludable para quienes
+            la hacen funcionar.
+            <br />
+            <br />
+            Nuestro compromiso es ayudarte a crecer con <span className="font-semibold">orden, previsión y control</span>,
+            cuidando tanto de tu clínica como de tu <span className="font-semibold">tiempo personal</span>.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 
       {/* ANTES vs DESPUÉS */}
       <section
