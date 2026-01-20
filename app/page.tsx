@@ -60,13 +60,11 @@ export default function HomePage() {
   >
     {/* TITULO ARRIBA CENTRADO */}
   <div className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 text-center">
-  <h1 className="w-full text-[42px] font-extrabold tracking-tight text-slate-900 leading-[1.02] sm:text-6xl lg:text-[64px] xl:text-[72px]">
-    La inteligencia artificial{" "}
-    <span className="block">que se encarga de tu</span>
-    <span className="block">
-      <span className="fyllio-text-gradient">agenda clínica y personal</span>.
-    </span>
-  </h1>
+  <h1 className="text-[40px] font-extrabold tracking-tight text-slate-900 leading-[1.02] sm:text-5xl lg:text-[58px] xl:text-[60px]">
+  La inteligencia artificial que se encarga de tu{" "}
+  <span className="fyllio-text-gradient">agenda clínica y personal</span>.
+</h1>
+
 </div>
 
 
