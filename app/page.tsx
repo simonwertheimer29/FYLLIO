@@ -59,17 +59,16 @@ export default function HomePage() {
     style={{ minHeight: "calc(90vh - var(--nav-h,72px))" }}
   >
     {/* TITULO ARRIBA CENTRADO */}
-    <div className="mx-auto w-full text-center">
+   <div className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 text-center">
+  <h1 className="text-[40px] font-extrabold tracking-tight text-slate-900 leading-[1.06] sm:text-5xl lg:text-[58px] xl:text-[60px]">
+    La inteligencia artificial{" "}
+    <span className="block">que se encarga de tu</span>
+    <span className="block">
+      <span className="fyllio-text-gradient">agenda clínica y personal</span>.
+    </span>
+  </h1>
+</div>
 
-
-      <h1 className="text-[40px] font-extrabold tracking-tight text-slate-900 leading-[1.06] sm:text-5xl lg:text-[58px] xl:text-[60px]">
-        La inteligencia artificial{" "}
-        <span className="block">que se encarga de tu</span>
-        <span className="block">
-          <span className="fyllio-text-gradient">agenda clínica y personal</span>.
-        </span>
-      </h1>
-    </div>
 
     {/* 2 COLUMNAS: TEXTO + IMAGEN */}
     <div className="mt-6 grid items-center gap-8 lg:grid-cols-2">
