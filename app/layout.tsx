@@ -45,10 +45,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {/* Nav derecha */}
             <nav className="hidden md:flex items-center gap-6 text-sm text-slate-600">
               <a href="#que-es" className="hover:text-slate-900">
-                Qué es FYLLIO
+                Sobre nosotros
               </a>
               <a href="#antes-despues" className="hover:text-slate-900">
-                Antes vs Después
+                Por qué FYLLIO
               </a>
               <a href="#como-funciona" className="hover:text-slate-900">
                 Cómo funciona
