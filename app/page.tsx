@@ -54,84 +54,89 @@ export default function HomePage() {
     <main className="min-h-screen bg-white">
       {/* HERO */}
       <section className="border-b border-slate-100 bg-[radial-gradient(1200px_600px_at_20%_0%,rgba(37,99,235,0.18),transparent_60%),radial-gradient(900px_520px_at_90%_10%,rgba(6,182,212,0.18),transparent_55%),linear-gradient(to_bottom,rgba(241,245,249,0.75),#ffffff)]">
-        <div
-          className="mx-auto grid min-h-[calc(92vh-var(--nav-h,72px))] max-w-7xl items-center gap-10 px-4 py-14 sm:px-6 lg:grid-cols-2"
-          style={{ minHeight: "calc(92vh - var(--nav-h,72px))" }}
-        >
-          <div className="w-full">
+  <div
+    className="mx-auto max-w-7xl px-4 pt-8 pb-6 sm:px-6 lg:px-8"
+    style={{ minHeight: "calc(90vh - var(--nav-h,72px))" }}
+  >
+    {/* TITULO ARRIBA CENTRADO */}
+    <div className="mx-auto max-w-4xl text-center">
+      <h1 className="text-[40px] font-extrabold tracking-tight text-slate-900 leading-[1.06] sm:text-5xl lg:text-[58px] xl:text-[60px]">
+        La inteligencia artificial{" "}
+        <span className="block">que se encarga de tu</span>
+        <span className="block">
+          <span className="fyllio-text-gradient">agenda clínica y personal</span>.
+        </span>
+      </h1>
+    </div>
 
-            <h1 className="mt-6 text-[42px] font-extrabold tracking-tight text-slate-900 leading-[1.06] sm:text-5xl lg:text-[58px] xl:text-[60px]">
-  La inteligencia artificial{" "}
-  <span className="block">que se encarga de tu</span>
-  <span className="block">
-    <span className="fyllio-text-gradient">agenda clínica y personal</span>.
-  </span>
-</h1>
+    {/* 2 COLUMNAS: TEXTO + IMAGEN */}
+    <div className="mt-6 grid items-center gap-8 lg:grid-cols-2">
+      {/* COLUMNA IZQUIERDA */}
+      <div className="mx-auto w-full max-w-2xl lg:mx-0">
+        <p className="mt-4 max-w-2xl text-sm text-slate-600 sm:text-base">
+          FYLLIO automatiza y optimiza tu agenda para mejorar la ocupación, reducir
+          capacidad no utilizada y disminuir el tiempo operativo.
+          <br className="hidden sm:block" />
+          Te da orden y previsión para identificar ventanas de agenda aprovechables y
+          recuperar tiempo personal sin perder eficiencia.
+        </p>
 
+        <div className="mt-5 space-y-3">
+          <p className="text-lg font-semibold text-slate-900 sm:text-xl">
+            ¿Cansado de reprogramaciones, cancelaciones de último minuto y capacidad no
+            utilizada inesperada en la agenda?
+          </p>
+          <p className="text-lg font-semibold text-slate-900 sm:text-xl">
+            ¿Cansado de no poder proteger tu tiempo personal porque la agenda se
+            desordena y termina controlando tu día?
+          </p>
 
-            <p className="mt-5 max-w-2xl text-sm text-slate-600 sm:text-base">
-  FYLLIO automatiza y optimiza tu agenda para mejorar la ocupación, reducir
-  capacidad no utilizada y disminuir el tiempo operativo.
-  <br className="hidden sm:block" />
-  Te da orden y previsión para identificar ventanas de agenda aprovechables y
-  recuperar tiempo personal sin perder eficiencia.
-</p>
+          <p className="pt-1 text-sm text-slate-700 sm:text-base">
+            No son excluyentes: con FYLLIO puedes ser{" "}
+            <span className="font-semibold">más rentable y eficiente</span>, y a la vez{" "}
+            <span className="font-semibold">mantener el balance</span> entre tu vida
+            profesional y personal gracias a una agenda{" "}
+            <span className="font-semibold">optimizada, ordenada y bajo control</span>.
+          </p>
+        </div>
+      </div>
 
-
-            <div className="mt-7 space-y-4">
-  <p className="text-xl font-semibold text-slate-900 sm:text-2xl">
-    ¿Cansado de reprogramaciones, cancelaciones de último minuto y capacidad no
-    utilizada inesperada en la agenda?
-  </p>
-  <p className="text-xl font-semibold text-slate-900 sm:text-2xl">
-    ¿Cansado de no poder proteger tu tiempo personal porque la agenda se
-    desordena y termina controlando tu día?
-  </p>
-
-  <p className="pt-1 text-base text-slate-700 sm:text-lg">
-    No son excluyentes: con FYLLIO puedes ser{" "}
-    <span className="font-semibold">más rentable y eficiente</span>, y a la vez{" "}
-    <span className="font-semibold">mantener el balance</span> entre tu vida
-    profesional y personal gracias a una agenda{" "}
-    <span className="font-semibold">optimizada, ordenada y bajo control</span>.
-  </p>
-</div>
-
-
-            <div className="mt-8">
-  <a href="#acceso" className="btn-fyllio">
-    Estoy interesado
-  </a>
-
-  <p className="mt-3 text-sm font-medium text-slate-700">
-    ¿Qué esperas para recuperar el control de tu agenda?
-  </p>
-
-  <p className="mt-2 text-xs text-slate-500">
-    Fase temprana. Buscamos clínicas piloto y feedback real.
-  </p>
-</div>
-
-          </div>
-
-          <div className="w-full">
-            <div className="relative mx-auto w-full max-w-xl">
-              <div className="absolute -inset-6 rounded-[28px] bg-[radial-gradient(500px_220px_at_20%_10%,rgba(56,189,248,0.25),transparent_60%),radial-gradient(500px_220px_at_90%_20%,rgba(37,99,235,0.22),transparent_55%)] blur-2xl" />
-              <div className="relative overflow-hidden rounded-[24px] border border-slate-200/60 bg-white/40 p-3 shadow-[0_18px_55px_rgba(2,6,23,0.10)] backdrop-blur-xl">
-                <div className="relative aspect-[16/10] w-full">
-                  <Image
-                    src="/fyllio-laptop.png"
-                    alt="FYLLIO en agenda clínica"
-                    fill
-                    className="object-contain"
-                    priority
-                  />
-                </div>
-              </div>
+      {/* COLUMNA DERECHA: IMAGEN */}
+      <div className="w-full">
+        <div className="relative mx-auto w-full max-w-xl">
+          <div className="absolute -inset-6 rounded-[28px] bg-[radial-gradient(500px_220px_at_20%_10%,rgba(56,189,248,0.25),transparent_60%),radial-gradient(500px_220px_at_90%_20%,rgba(37,99,235,0.22),transparent_55%)] blur-2xl" />
+          <div className="relative overflow-hidden rounded-[24px] border border-slate-200/60 bg-white/40 p-3 shadow-[0_18px_55px_rgba(2,6,23,0.10)] backdrop-blur-xl">
+            <div className="relative aspect-[16/10] w-full">
+              <Image
+                src="/fyllio-laptop.png"
+                alt="FYLLIO en agenda clínica"
+                fill
+                className="object-contain"
+                priority
+              />
             </div>
           </div>
         </div>
-      </section>
+      </div>
+    </div>
+
+    {/* CTA ABAJO CENTRADO */}
+    <div className="mt-6 text-center">
+      <a href="#acceso" className="btn-fyllio inline-flex">
+        Estoy interesado
+      </a>
+
+      <p className="mt-3 text-sm font-semibold text-slate-900">
+        ¿Qué esperas para recuperar el control de tu agenda?
+      </p>
+
+      <p className="mt-2 text-xs text-slate-500">
+        Fase temprana. Buscamos clínicas piloto y feedback real.
+      </p>
+    </div>
+  </div>
+</section>
+
 
       {/* BLOQUE ÚNICO: problema → solución → FYLLIO */}
       <section
