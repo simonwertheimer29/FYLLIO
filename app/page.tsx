@@ -144,37 +144,34 @@ export default function HomePage() {
   className={`${anchorOffset} border-b border-slate-100 bg-[radial-gradient(1100px_540px_at_15%_0%,rgba(37,99,235,0.10),transparent_60%),radial-gradient(900px_520px_at_90%_10%,rgba(6,182,212,0.10),transparent_55%),linear-gradient(to_bottom,rgba(241,245,249,0.75),#ffffff)]`}
 >
   <div className="mx-auto flex min-h-[72vh] max-w-7xl flex-col justify-center px-4 py-14 sm:px-6">
-    <h2 className="text-center text-4xl font-extrabold tracking-tight sm:text-5xl">
-  <span className="fyllio-text-gradient">
-    El problema no es la agenda.
-  </span>
-  <span className="block text-slate-900">
-    Es el poco control sobre ella.
-  </span>
-</h2>
-
+    <h2 className="text-center text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+      El{" "}
+      <span className="fyllio-text-gradient">problema</span> no es la agenda.
+      <span className="block">
+        Es el{" "}
+        <span className="fyllio-text-gradient">poco control</span> sobre ella.
+      </span>
+    </h2>
 
     <div className="mx-auto mt-10 grid w-full max-w-5xl gap-6 md:grid-cols-3">
       {/* PILL 1 */}
-      <div className="group relative rounded-2xl p-[1px]">
-<div className="absolute inset-0 rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.75),rgba(6,182,212,0.75),rgba(37,99,235,0.75))] bg-[length:200%_200%] opacity-55 animate-gradient" />
-        <div className="relative rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)]">
+      <div className="rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.70),rgba(6,182,212,0.70),rgba(37,99,235,0.70))] bg-[length:200%_200%] p-[1px] animate-gradient">
+        <div className="rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)]">
           <p className="text-base leading-relaxed text-slate-700">
             Cuando la agenda no está bajo control, la clínica pierde claridad. Aparecen{" "}
             <span className="font-semibold">ventanas de agenda sin plan</span>, cambios de último minuto,
             reprogramaciones constantes y decisiones que se toman “sobre la marcha”.
             <br />
             <br />
-            El día deja de ser previsible, el <span className="font-semibold">tiempo operativo aumenta</span> y la
-            <span className="font-semibold"> rentabilidad</span> depende más de reaccionar que de planificar.
+            El día deja de ser previsible, el <span className="font-semibold">tiempo operativo aumenta</span> y la{" "}
+            <span className="font-semibold">rentabilidad</span> depende más de reaccionar que de planificar.
           </p>
         </div>
       </div>
 
       {/* PILL 2 */}
-      <div className="group relative rounded-2xl p-[1px]">
-<div className="absolute inset-0 rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.75),rgba(6,182,212,0.75),rgba(37,99,235,0.75))] bg-[length:200%_200%] opacity-55 animate-gradient" />
-        <div className="relative rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)]">
+      <div className="rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.70),rgba(6,182,212,0.70),rgba(37,99,235,0.70))] bg-[length:200%_200%] p-[1px] animate-gradient">
+        <div className="rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)]">
           <p className="text-base leading-relaxed text-slate-700">
             La falta de control no solo afecta a la ocupación.
             <br />
@@ -188,23 +185,20 @@ export default function HomePage() {
       </div>
 
       {/* PILL 3 */}
-      <div className="group relative rounded-2xl p-[1px]">
-<div className="absolute inset-0 rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.75),rgba(6,182,212,0.75),rgba(37,99,235,0.75))] bg-[length:200%_200%] opacity-55 animate-gradient" />
-        <div className="relative rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)]">
+      <div className="rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.70),rgba(6,182,212,0.70),rgba(37,99,235,0.70))] bg-[length:200%_200%] p-[1px] animate-gradient">
+        <div className="rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)]">
           <p className="text-base leading-relaxed text-slate-700">
-  <span className="font-extrabold fyllio-text-gradient">
-    Somos FYLLIO.
-  </span>
-  <br />
-  <br />
-  Creemos que una clínica bien gestionada no solo es más rentable, sino también más saludable para quienes la hacen funcionar.
-  <br />
-  <br />
-  Nuestro compromiso es ayudarte a crecer con{" "}
-  <span className="font-semibold">orden, previsión y control</span>, cuidando tanto de tu clínica como de tu{" "}
-  <span className="font-semibold">tiempo personal</span>.
-</p>
-
+            <span className="font-extrabold fyllio-text-gradient">Somos FYLLIO.</span>
+            <br />
+            <br />
+            Creemos que una clínica bien gestionada no solo es más rentable, sino también más saludable para quienes
+            la hacen funcionar.
+            <br />
+            <br />
+            Nuestro compromiso es ayudarte a crecer con{" "}
+            <span className="font-semibold">orden, previsión y control</span>, cuidando tanto de tu clínica como de tu{" "}
+            <span className="font-semibold">tiempo personal</span>.
+          </p>
         </div>
       </div>
     </div>
