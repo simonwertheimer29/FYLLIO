@@ -293,59 +293,68 @@ export default function HomePage() {
 </section>
 
 
-      {/* CÓMO FUNCIONA */}
-      <section
-        id="como-funciona"
-        className={`${anchorOffset} border-b border-slate-100 bg-[radial-gradient(900px_520px_at_15%_10%,rgba(6,182,212,0.14),transparent_55%),radial-gradient(1100px_560px_at_85%_0%,rgba(37,99,235,0.12),transparent_60%),linear-gradient(to_bottom,#ffffff,rgba(241,245,249,0.75))]`}
-      >
-        <div className="mx-auto flex min-h-[75vh] max-w-7xl flex-col justify-center px-4 py-16 sm:px-6">
-          <h2 className="text-center text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-            ¿Cómo funciona <span className="fyllio-text-gradient">FYLLIO</span>?
-          </h2>
+     {/* CÓMO FUNCIONA */}
+<section
+  id="como-funciona"
+  className={`${anchorOffset} border-b border-slate-100 bg-[radial-gradient(900px_520px_at_15%_10%,rgba(6,182,212,0.14),transparent_55%),radial-gradient(1100px_560px_at_85%_0%,rgba(37,99,235,0.12),transparent_60%),linear-gradient(to_bottom,#ffffff,rgba(241,245,249,0.75))]`}
+>
+  <div className="mx-auto flex min-h-[75vh] max-w-7xl flex-col justify-center px-4 py-16 sm:px-6">
+    <h2 className="text-center text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+      ¿Cómo funciona <span className="fyllio-text-gradient">FYLLIO</span>?
+    </h2>
 
-          <div className="mt-12 grid gap-8 md:grid-cols-4">
-            <div className="fyllio-card-soft p-8 text-center">
-              <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
-                1 · Entiende tu clínica
-              </p>
-              <p className="text-base text-slate-700">
-                Horarios, reglas, recursos, tipos de cita y forma real de operar.
-              </p>
-            </div>
+    <div className="mt-12 grid gap-8 md:grid-cols-4">
+      <div className="fyllio-card-soft p-8 text-center">
+        <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
+          Se integra y entiende tu clínica
+        </p>
+        <p className="text-base text-slate-700">
+          Horarios, sillones, profesionales, tipos de cita, reglas y prioridades.
+          FYLLIO se adapta a tu forma real de operar para optimizar sin romper tu flujo.
+        </p>
+      </div>
 
-            <div className="fyllio-card-soft p-8 text-center">
-              <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
-                2 · Crea la agenda
-              </p>
-              <p className="text-base text-slate-700">
-                Genera una agenda optimizada desde el inicio, con orden y visión previa.
-              </p>
-            </div>
+      <div className="fyllio-card-soft p-8 text-center">
+        <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
+          Crea la agenda por ti
+        </p>
+        <p className="text-base text-slate-700">
+          Genera una agenda optimizada desde el inicio y automatiza la comunicación
+          básica con el paciente (confirmaciones, cambios y recordatorios).
+          Puedes generar y ajustar citas a cualquier hora, sin cargar al equipo.
+        </p>
+      </div>
 
-            <div className="fyllio-card-soft p-8 text-center">
-              <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
-                3 · Detecta riesgos
-              </p>
-              <p className="text-base text-slate-700">
-                Detecta huecos, cambios y riesgos a medida que ocurren.
-              </p>
-            </div>
+      <div className="fyllio-card-soft p-8 text-center">
+        <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
+          Detecta oportunidades y riesgos
+        </p>
+        <p className="text-base text-slate-700">
+          Identifica ventanas de agenda aprovechables para aumentar ocupación
+          o proteger tiempo personal.
+          Detecta riesgos como cancelaciones o no-shows y activa acciones
+          para mantener el día estable.
+        </p>
+      </div>
 
-            <div className="fyllio-card-soft p-8 text-center">
-              <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
-                4 · Acciona o recomienda
-              </p>
-              <p className="text-base text-slate-700">
-                Automatiza o sugiere acciones. El equipo supervisa y decide.
-              </p>
-            </div>
-          </div>
+      <div className="fyllio-card-soft p-8 text-center">
+        <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
+          Mantiene la agenda junto a ti
+        </p>
+        <p className="text-base text-slate-700">
+          Con el control recuperado, más orden y recomendaciones inteligentes,
+          la agenda se mantiene optimizada incluso cuando hay cambios.
+          Tú supervisas y decides; FYLLIO se encarga del trabajo operativo.
+        </p>
+      </div>
+    </div>
 
-          <p className="mt-10 text-center text-sm text-slate-600">
-            <b>La IA hace el trabajo pesado.</b> El humano mantiene el control.
-          </p>
-        </div>
-      </section>
+    <p className="mt-10 text-center text-sm text-slate-600">
+      <b>FYLLIO hace el trabajo operativo.</b> Tú recuperas control y tiempo.
+    </p>
+  </div>
+</section>
+
 
       {/* FORM FINAL */}
       <section
