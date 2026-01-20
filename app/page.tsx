@@ -212,9 +212,11 @@ export default function HomePage() {
   className={`${anchorOffset} border-b border-slate-100 bg-[radial-gradient(1100px_540px_at_15%_0%,rgba(37,99,235,0.10),transparent_60%),radial-gradient(900px_520px_at_90%_10%,rgba(6,182,212,0.10),transparent_55%),linear-gradient(to_bottom,rgba(241,245,249,0.75),#ffffff)]`}
 >
   <div className="mx-auto flex min-h-[85vh] max-w-7xl flex-col justify-center px-4 py-16 sm:px-6">
-    <h2 className="text-center text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-      Por qué escoger FYLLIO
-    </h2>
+   <h2 className="text-center text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+  Por qué escoger{" "}
+  <span className="fyllio-text-gradient">FYLLIO</span>
+</h2>
+
 
     <p className="mx-auto mt-4 max-w-3xl text-center text-sm text-slate-600 sm:text-base">
       Tu agenda antes y después de tener control sobre ella
