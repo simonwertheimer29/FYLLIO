@@ -25,7 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Script
           defer
           data-domain="fyllio-theta.vercel.app"
-          src="https://plausible.io/js/pa-J8CRB6mQ3FNWuXSX8H7tf.js"
+          src="https://plausible.io/js/script.js"
         />
       </head>
 
