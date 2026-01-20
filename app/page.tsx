@@ -304,17 +304,21 @@ export default function HomePage() {
     </h2>
 
     <div className="mt-12 grid gap-8 md:grid-cols-4">
-      <div className="fyllio-card-soft p-8 text-center">
+      <div className="fyllio-card-soft p-8 text-left">
+
         <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
           Se integra y entiende tu clínica
         </p>
         <p className="text-base text-slate-700">
           Horarios, sillones, profesionales, tipos de cita, reglas y prioridades.
-          FYLLIO se adapta a tu forma real de operar para optimizar sin romper tu flujo.
+          {" "}
+<span className="fyllio-text-gradient font-semibold">FYLLIO</span>{" "}
+se adapta a tu forma real de operar para optimizar sin romper tu flujo.
         </p>
       </div>
 
-      <div className="fyllio-card-soft p-8 text-center">
+    <div className="fyllio-card-soft p-8 text-left">
+
         <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
           Crea la agenda por ti
         </p>
@@ -325,7 +329,8 @@ export default function HomePage() {
         </p>
       </div>
 
-      <div className="fyllio-card-soft p-8 text-center">
+     <div className="fyllio-card-soft p-8 text-left">
+
         <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
           Detecta oportunidades y riesgos
         </p>
@@ -336,21 +341,26 @@ export default function HomePage() {
           para mantener el día estable.
         </p>
       </div>
+<div className="fyllio-card-soft p-8 text-left">
 
-      <div className="fyllio-card-soft p-8 text-center">
         <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
           Mantiene la agenda junto a ti
         </p>
         <p className="text-base text-slate-700">
           Con el control recuperado, más orden y recomendaciones inteligentes,
           la agenda se mantiene optimizada incluso cuando hay cambios.
-          Tú supervisas y decides; FYLLIO se encarga del trabajo operativo.
+          Tú supervisas y decides;{" "}
+<span className="fyllio-text-gradient font-semibold">FYLLIO</span>{" "}
+se encarga del trabajo operativo.
+
         </p>
       </div>
     </div>
 
     <p className="mt-10 text-center text-sm text-slate-600">
-      <b>FYLLIO hace el trabajo operativo.</b> Tú recuperas control y tiempo.
+      <span className="fyllio-text-gradient font-semibold">FYLLIO</span>{" "}
+hace el trabajo operativo. Tú recuperas control y tiempo.
+
     </p>
   </div>
 </section>
