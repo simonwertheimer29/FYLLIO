@@ -59,7 +59,8 @@ export default function HomePage() {
     style={{ minHeight: "calc(90vh - var(--nav-h,72px))" }}
   >
     {/* TITULO ARRIBA CENTRADO */}
-    <div className="mx-auto max-w-4xl text-center">
+    <div className="mx-auto max-w-7xl text-center">
+
       <h1 className="text-[40px] font-extrabold tracking-tight text-slate-900 leading-[1.06] sm:text-5xl lg:text-[58px] xl:text-[60px]">
         La inteligencia artificial{" "}
         <span className="block">que se encarga de tu</span>
