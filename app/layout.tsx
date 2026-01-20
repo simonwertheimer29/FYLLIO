@@ -1,6 +1,8 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import Image from "next/image";
+import Script from "next/script";
+import TrackedCta from "@/components/TrackedCta";
 
 export const metadata: Metadata = {
   title: "FYLLIO – La IA que ordena tu día en la clínica",
@@ -19,14 +21,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         scrollPaddingTop: `${scrollOffset}px`,
       }}
     >
+      <head>
+        <Script
+          defer
+          data-domain="fyllio-theta.vercel.app"
+          src="https://plausible.io/js/pa-J8CRB6mQ3FNWuXSX8H7tf.js"
+        />
+      </head>
+
       <body className="bg-white text-slate-900 overflow-x-hidden">
         <header
           className="sticky top-0 z-50 border-b border-slate-200 bg-white"
           style={{ height: navH }}
         >
-          {/* Menos padding para “pegar” el logo al margen */}
           <div className="mx-auto flex h-full max-w-7xl items-center px-3 sm:px-6">
-            {/* Logo (más grande + compensación de whitespace del PNG) */}
+            {/* Logo */}
             <a href="/" className="flex items-center -ml-1">
               <div className="relative h-12 w-[300px] overflow-hidden">
                 <Image
@@ -55,9 +64,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               </a>
             </nav>
 
-            <a href="#acceso" className="btn-fyllio ml-4 text-xs px-4 py-2">
+            {/* CTA Navbar (trackeado) */}
+            <TrackedCta
+              href="#acceso"
+              source="navbar"
+              className="btn-fyllio ml-4 text-xs px-4 py-2"
+            >
               Estoy interesado
-            </a>
+            </TrackedCta>
           </div>
         </header>
 

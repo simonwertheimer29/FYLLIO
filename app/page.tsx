@@ -2,6 +2,8 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import TrackedCta from "@/components/TrackedCta";
+
 
 export default function HomePage() {
   const [submitted, setSubmitted] = useState(false);
@@ -120,9 +122,10 @@ export default function HomePage() {
 
     {/* CTA ABAJO CENTRADO */}
     <div className="mt-12 text-center">
-      <a href="#acceso" className="btn-fyllio inline-flex">
-        Estoy interesado
-      </a>
+      <TrackedCta href="#acceso" source="hero" className="btn-fyllio inline-flex">
+  Estoy interesado
+</TrackedCta>
+
 
       <p className="mt-4 text-sm font-semibold text-slate-900">
         ¿Qué esperas para recuperar el control de tu agenda?
