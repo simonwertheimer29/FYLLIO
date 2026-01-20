@@ -153,10 +153,10 @@ export default function HomePage() {
       </span>
     </h2>
 
-    <div className="mx-auto mt-10 grid w-full max-w-5xl gap-6 md:grid-cols-3">
+    <div className="mx-auto mt-10 grid w-full max-w-5xl gap-6 md:grid-cols-3 items-stretch">
       {/* PILL 1 */}
-      <div className="rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.70),rgba(6,182,212,0.70),rgba(37,99,235,0.70))] bg-[length:200%_200%] p-[1px] animate-gradient">
-        <div className="rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)]">
+      <div className="h-full rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.70),rgba(6,182,212,0.70),rgba(37,99,235,0.70))] bg-[length:200%_200%] p-[1px] animate-gradient">
+        <div className="h-full rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)] flex flex-col">
           <p className="text-base leading-relaxed text-slate-700">
             Cuando la agenda no está bajo control, la clínica pierde claridad. Aparecen{" "}
             <span className="font-semibold">ventanas de agenda sin plan</span>, cambios de último minuto,
@@ -170,8 +170,8 @@ export default function HomePage() {
       </div>
 
       {/* PILL 2 */}
-      <div className="rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.70),rgba(6,182,212,0.70),rgba(37,99,235,0.70))] bg-[length:200%_200%] p-[1px] animate-gradient">
-        <div className="rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)]">
+      <div className="h-full rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.70),rgba(6,182,212,0.70),rgba(37,99,235,0.70))] bg-[length:200%_200%] p-[1px] animate-gradient">
+        <div className="h-full rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)] flex flex-col">
           <p className="text-base leading-relaxed text-slate-700">
             La falta de control no solo afecta a la ocupación.
             <br />
@@ -185,8 +185,8 @@ export default function HomePage() {
       </div>
 
       {/* PILL 3 */}
-      <div className="rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.70),rgba(6,182,212,0.70),rgba(37,99,235,0.70))] bg-[length:200%_200%] p-[1px] animate-gradient">
-        <div className="rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)]">
+      <div className="h-full rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.70),rgba(6,182,212,0.70),rgba(37,99,235,0.70))] bg-[length:200%_200%] p-[1px] animate-gradient">
+        <div className="h-full rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)] flex flex-col">
           <p className="text-base leading-relaxed text-slate-700">
             <span className="font-extrabold fyllio-text-gradient">Somos FYLLIO.</span>
             <br />
@@ -204,6 +204,7 @@ export default function HomePage() {
     </div>
   </div>
 </section>
+
 
 
       {/* ANTES vs DESPUÉS */}
