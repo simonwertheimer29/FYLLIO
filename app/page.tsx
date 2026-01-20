@@ -52,28 +52,25 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen bg-white">
-      {/* HERO */}
-      <section className="border-b border-slate-100 bg-[radial-gradient(1200px_600px_at_20%_0%,rgba(37,99,235,0.18),transparent_60%),radial-gradient(900px_520px_at_90%_10%,rgba(6,182,212,0.18),transparent_55%),linear-gradient(to_bottom,rgba(241,245,249,0.75),#ffffff)]">
+     {/* HERO */}
+<section className="border-b border-slate-100 bg-[radial-gradient(1200px_600px_at_20%_0%,rgba(37,99,235,0.18),transparent_60%),radial-gradient(900px_520px_at_90%_10%,rgba(6,182,212,0.18),transparent_55%),linear-gradient(to_bottom,rgba(241,245,249,0.75),#ffffff)]">
   <div
-    className="mx-auto max-w-7xl px-4 pt-8 pb-6 sm:px-6 lg:px-8"
-    style={{ minHeight: "calc(90vh - var(--nav-h,72px))" }}
+    className="mx-auto max-w-7xl px-4 pt-12 pb-10 sm:px-6 lg:px-8"
+    style={{ minHeight: "calc(92vh - var(--nav-h,72px))" }}
   >
     {/* TITULO ARRIBA CENTRADO */}
-  <div className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 text-center">
-  <h1 className="text-[40px] font-extrabold tracking-tight text-slate-900 leading-[1.02] sm:text-5xl lg:text-[58px] xl:text-[60px]">
-  La inteligencia artificial que se encarga de tu{" "}
-  <span className="fyllio-text-gradient">agenda clínica y personal</span>.
-</h1>
-
-</div>
-
-
+    <div className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 text-center">
+      <h1 className="text-[40px] font-extrabold tracking-tight text-slate-900 leading-[1.02] sm:text-5xl lg:text-[58px] xl:text-[60px]">
+        La inteligencia artificial que se encarga de tu{" "}
+        <span className="fyllio-text-gradient">agenda clínica y personal</span>.
+      </h1>
+    </div>
 
     {/* 2 COLUMNAS: TEXTO + IMAGEN */}
-    <div className="mt-6 grid items-center gap-8 lg:grid-cols-2">
+    <div className="mt-12 grid items-center gap-10 lg:grid-cols-2">
       {/* COLUMNA IZQUIERDA */}
       <div className="mx-auto w-full max-w-2xl lg:mx-0">
-        <p className="mt-4 max-w-2xl text-sm text-slate-600 sm:text-base">
+        <p className="mt-6 max-w-2xl text-sm text-slate-600 sm:text-base">
           FYLLIO automatiza y optimiza tu agenda para mejorar la ocupación, reducir
           capacidad no utilizada y disminuir el tiempo operativo.
           <br className="hidden sm:block" />
@@ -81,17 +78,18 @@ export default function HomePage() {
           recuperar tiempo personal sin perder eficiencia.
         </p>
 
-        <div className="mt-5 space-y-3">
+        <div className="mt-8 space-y-4">
           <p className="text-lg font-semibold text-slate-900 sm:text-xl">
             ¿Cansado de reprogramaciones, cancelaciones de último minuto y capacidad no
             utilizada inesperada en la agenda?
           </p>
+
           <p className="text-lg font-semibold text-slate-900 sm:text-xl">
             ¿Cansado de no poder proteger tu tiempo personal porque la agenda se
             desordena y termina controlando tu día?
           </p>
 
-          <p className="pt-1 text-sm text-slate-700 sm:text-base">
+          <p className="pt-2 text-sm text-slate-700 sm:text-base">
             No son excluyentes: con FYLLIO puedes ser{" "}
             <span className="font-semibold">más rentable y eficiente</span>, y a la vez{" "}
             <span className="font-semibold">mantener el balance</span> entre tu vida
@@ -121,12 +119,12 @@ export default function HomePage() {
     </div>
 
     {/* CTA ABAJO CENTRADO */}
-    <div className="mt-6 text-center">
+    <div className="mt-12 text-center">
       <a href="#acceso" className="btn-fyllio inline-flex">
         Estoy interesado
       </a>
 
-      <p className="mt-3 text-sm font-semibold text-slate-900">
+      <p className="mt-4 text-sm font-semibold text-slate-900">
         ¿Qué esperas para recuperar el control de tu agenda?
       </p>
 
