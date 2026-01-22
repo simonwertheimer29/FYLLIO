@@ -1,22 +1,14 @@
-// app/api/waitlist/[id]/route.ts
 import { NextResponse, type NextRequest } from "next/server";
 import { base, TABLES } from "../../../lib/airtable";
 
-export async function PATCH(
-  req: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
-  const { id } = await context.params;
+export async function PATCH(req: NextRequest, context: any) {
+  const params = await Promise.resolve(context?.params);
+  const id = params?.id as string;
 
   const body = await req.json().catch(() => ({}));
-  const { estado, ultimoContacto } = body as {
-    estado?: string;
-    ultimoContacto?: string;
-  };
+  const { estado, ultimoContacto } = body as { estado?: string; ultimoContacto?: string };
 
-  if (!estado) {
-    return NextResponse.json({ error: "estado required" }, { status: 400 });
-  }
+  if (!estado) return NextResponse.json({ error: "estado required" }, { status: 400 });
 
   const updated = await base(TABLES.waitlist).update(id, {
     Estado: estado,
