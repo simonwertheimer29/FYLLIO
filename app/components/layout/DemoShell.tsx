@@ -2,13 +2,19 @@
 
 import { ReactNode } from "react";
 
-export type DemoSectionKey = "RULES" | "AGENDA" | "ACTIONS" | "IMPACT";
+export type DemoSectionKey = "RULES" | "AGENDA" | "ACTIONS" | "IMPACT" | "WAITLIST";
 
 type Section = {
   key: DemoSectionKey;
   label: string;
   icon: ReactNode;
 };
+
+const IconBox = ({ children }: { children: ReactNode }) => (
+  <div className="h-10 w-10 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white font-bold">
+    {children}
+  </div>
+);
 
 export default function DemoShell({
   section,
@@ -22,10 +28,11 @@ export default function DemoShell({
   children: ReactNode;
 }) {
   const sections: Section[] = [
-    { key: "RULES", label: "Reglas", icon: <div className="h-10 w-10 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white font-bold">R</div> },
-    { key: "AGENDA", label: "Agenda", icon: <div className="h-10 w-10 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white font-bold">A</div> },
-    { key: "ACTIONS", label: "Acciones", icon: <div className="h-10 w-10 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white font-bold">✓</div> },
-    { key: "IMPACT", label: "Impacto", icon: <div className="h-10 w-10 rounded-2xl bg-white/15 border border-white/20 flex items-center justify-center text-white font-bold">$</div> },
+    { key: "RULES", label: "Reglas", icon: <IconBox>R</IconBox> },
+    { key: "AGENDA", label: "Agenda", icon: <IconBox>A</IconBox> },
+    { key: "ACTIONS", label: "Acciones", icon: <IconBox>✓</IconBox> },
+    { key: "IMPACT", label: "Impacto", icon: <IconBox>$</IconBox> },
+    { key: "WAITLIST", label: "Lista de espera", icon: <IconBox>⏳</IconBox> },
   ];
 
   return (
@@ -46,7 +53,10 @@ export default function DemoShell({
                   key={s.key}
                   type="button"
                   onClick={() => onChangeSection(s.key)}
-                  className={["w-full rounded-3xl p-2 transition", active ? "bg-white/18 border border-white/25" : "hover:bg-white/12"].join(" ")}
+                  className={[
+                    "w-full rounded-3xl p-2 transition",
+                    active ? "bg-white/18 border border-white/25" : "hover:bg-white/12",
+                  ].join(" ")}
                   title={s.label}
                   aria-label={s.label}
                 >

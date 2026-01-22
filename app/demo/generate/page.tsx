@@ -21,6 +21,8 @@ import { validateRules } from "../../lib/rules/validateRules";
 import { computeImpact } from "../../lib/agenda/impact";
 import { addMinutesLocal, parseLocal } from "../../lib/time";
 import AiPrimaryButton from "../../components/ui/AiPrimaryButton";
+import WaitlistPanel from "../../components/waitlist/WaitlistPanel";
+
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
@@ -2023,6 +2025,21 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
           )}
         </div>
       ) : null}
+
+      {section === "WAITLIST" ? (
+  <div className="space-y-6">
+    <div className="rounded-3xl border border-slate-200 bg-white p-6">
+      <h2 className="text-2xl font-extrabold text-slate-900">Lista de espera</h2>
+      <p className="mt-2 text-slate-600">
+        Vista manual para marcar <b>Contactado</b> (simulación). Luego n8n hará el contacto real y,
+        si acepta, se agenda y sale de la lista.
+      </p>
+    </div>
+
+    <WaitlistPanel clinicRecordId={"DEMO"} />
+  </div>
+) : null}
+
 
       {section === "IMPACT" ? (
   <div className="space-y-6">
