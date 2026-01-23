@@ -1,19 +1,33 @@
-import { NextResponse, type NextRequest } from "next/server";
+// app/api/waitlist/[id]/route.ts
+import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../lib/airtable";
 
-export async function PATCH(req: NextRequest, context: any) {
-  const params = await Promise.resolve(context?.params);
-  const id = params?.id as string;
+type ParamsPromise = Promise<{ id: string }>;
 
-  const body = await req.json().catch(() => ({}));
-  const { estado, ultimoContacto } = body as { estado?: string; ultimoContacto?: string };
+export async function PATCH(req: Request, { params }: { params: ParamsPromise }) {
+  try {
+    const { id } = await params;
 
-  if (!estado) return NextResponse.json({ error: "estado required" }, { status: 400 });
+    const body = await req.json().catch(() => ({}));
+    const { estado, ultimoContacto } = body as {
+      estado?: string;
+      ultimoContacto?: string;
+    };
 
-  const updated = await base(TABLES.waitlist).update(id, {
-    Estado: estado,
-    ...(ultimoContacto ? { "Último contacto": ultimoContacto } : {}),
-  });
+    if (!estado) {
+      return NextResponse.json({ error: "estado required" }, { status: 400 });
+    }
 
-  return NextResponse.json({ ok: true, id: updated.id });
+    const updated = await base(TABLES.waitlist).update(id, {
+      Estado: estado,
+      ...(ultimoContacto ? { "Último contacto": ultimoContacto } : {}),
+    });
+
+    return NextResponse.json({ ok: true, id: updated.id });
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: e?.message ?? "Failed to update waitlist" },
+      { status: 500 }
+    );
+  }
 }
