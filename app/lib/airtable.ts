@@ -34,8 +34,15 @@ export function base(tableName: TableName) {
   return _base(tableName);
 }
 
-const apiKey = process.env.AIRTABLE_API_KEY?.trim();
+const rawKey = process.env.AIRTABLE_API_KEY ?? "";
 
-if (!apiKey) {
-  throw new Error("Missing AIRTABLE_API_KEY");
+// limpia CR/LF y espacios al inicio/fin
+const apiKey = rawKey.replace(/\r?\n/g, "").trim();
+
+if (!apiKey) throw new Error("Missing AIRTABLE_API_KEY");
+
+// opcional: si detectas espacios dentro, también lo limpias
+if (/\s/.test(apiKey)) {
+  throw new Error("AIRTABLE_API_KEY contains whitespace (likely pasted with newline)");
 }
+
