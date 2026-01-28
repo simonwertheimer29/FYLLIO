@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo, useState } from "react";
 
 import DemoToast, { type ToastKind } from "../../components/ui/DemoToast";
 import RulesForm from "../../components/rules/RulesForm";
@@ -22,11 +21,14 @@ import { computeImpact } from "../../lib/agenda/impact";
 import { addMinutesLocal, parseLocal } from "../../lib/time";
 import AiPrimaryButton from "../../components/ui/AiPrimaryButton";
 import WaitlistPanel from "../../components/waitlist/WaitlistPanel";
+import { useEffect, useMemo, useState } from "react";
+
 
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
+
 
 const SNAP_MIN = 10;
 
@@ -836,6 +838,108 @@ export default function DemoGeneratePage() {
     title: "Tiempo interno",
     note: "",
   });
+const simulate = async () => {
+  const v = validateRules(rules);
+  if (!v.ready) {
+    popToast("WARN", "Reglas incompletas", "Completa reglas antes de simular.");
+    return;
+  }
+  if ((rules.treatments ?? []).length === 0) {
+    popToast("WARN", "Faltan tratamientos", "Agrega al menos 1 tratamiento para simular.");
+    return;
+  }
+
+  setLoading(true);
+  popToast("INFO", "Simulando…", `IA creando semana (${weekKey}).`);
+
+  try {
+    const seed = Date.now();
+
+    const res = await fetch("/api/ai-suggestions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rules, anchorDayIso, seed, providerId }),
+    });
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`API error ${res.status}: ${txt}`);
+    }
+
+    const data: AiResult = await res.json();
+
+    const workSat = !!rules.workSat;
+    const apptsNoSat = workSat
+      ? data.appointments
+      : (data.appointments ?? []).filter((a) => {
+          const d = new Date(`${a.start.slice(0, 10)}T00:00:00`);
+          return d.getDay() !== 6;
+        });
+
+    const compactedAppointments = compactAppointments({ appointments: apptsNoSat, rules });
+
+    const base = buildAgendaItems({
+      baseAppointments: compactedAppointments,
+      selectedReschedules: [],
+      rules,
+      includeRuleBlocks: true,
+    }).items;
+
+    const monday = startOfWeekMondayLocalFromAnchor(anchorDayIso);
+    const daysCount = rules.workSat ? 6 : 5;
+    const days = Array.from({ length: daysCount }).map((_, i) => addDaysIso(monday, i));
+
+    const weeklyAvailRaw: AgendaItem[] = [];
+    for (const d of days) {
+      const dayStartIso = `${d}T${rules.dayStartTime}:00`;
+      const dayEndIso = `${d}T${rules.dayEndTime}:00`;
+      const itemsForDay = base.filter((x) => x.start.slice(0, 10) === d);
+
+      const avail = buildAvailabilityItems({
+        items: itemsForDay,
+        dayStartIso,
+        dayEndIso,
+        rules,
+      });
+
+      weeklyAvailRaw.push(...avail);
+    }
+
+    const weeklyAvail = enrichAvailabilityWithAiPanels({
+      availability: weeklyAvailRaw,
+      actions: data.actions ?? [],
+    });
+
+    const merged = [...base, ...weeklyAvail].sort(
+      (a, b) => parseLocal(a.start).getTime() - parseLocal(b.start).getTime()
+    );
+
+    const gaps = merged.filter((x) => x.kind === "GAP") as Extract<AgendaItem, { kind: "GAP" }>[];
+    const logs: ActionLog[] = gaps.map((g) => ({
+      id: actionIdForGap(g.id),
+      gapId: g.id,
+      chairId: g.chairId,
+      start: g.start,
+      end: g.end,
+      durationMin: g.durationMin,
+      stage: "PENDING",
+      status: (g.meta?.status ?? "OPEN") as any,
+      recommendation: (g.meta as any)?.recommendation,
+      rationale: g.meta?.rationale,
+      messagesCount: g.meta?.messagesCount ?? 0,
+      callsCount: g.meta?.callsCount ?? 0,
+      updatedAtIso: new Date().toISOString(),
+    }));
+
+    setWeekStatePatch(providerId, weekKey, { ai: data, items: merged, actions: logs });
+    setSection("AGENDA");
+    popToast("SUCCESS", "Agenda lista ✅", `Se simuló semana (${weekKey}).`);
+  } catch (e: any) {
+    popToast("WARN", "Error simulando", e?.message ?? "Algo falló.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const setWeekStatePatch = (provider: string, wk: string, patch: Partial<WeekState>) => {
     setStoreByProvider((prev) => {
@@ -882,6 +986,17 @@ export default function DemoGeneratePage() {
         [providerId]: { ...prevProv, [weekKey]: { ...curWeek, actions: nextActions } },
       };
     });
+    useEffect(() => {
+  if (section !== "AGENDA") return;
+
+  const ws = ensureWeekState(storeByProvider, providerId, weekKey);
+  const alreadyLoaded = !!ws.items;
+
+  if (!alreadyLoaded) {
+    loadWeekFromDb();
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [section, providerId, weekKey]);
   };
 
   const replaceGapWith = (gapId: string, insert: AgendaItem[]) => {
@@ -962,102 +1077,85 @@ export default function DemoGeneratePage() {
   /* Simulate / Next week (igual que antes)                           */
   /* -------------------------------------------------------------- */
 
-  const simulate = async () => {
-    const v = validateRules(rules);
-    if (!v.ready) {
-      popToast("WARN", "Reglas incompletas", v.errors[0] ?? "Corrige las reglas antes de simular.");
-      setSection("RULES");
-      return;
-    }
-    if ((rules.treatments ?? []).length === 0) {
-      popToast("WARN", "Faltan tratamientos", "Agrega al menos 1 tratamiento (duración) para poder generar agenda.");
-      setSection("RULES");
-      return;
+  const loadWeekFromDb = async () => {
+  setLoading(true);
+
+  try {
+    const res = await fetch(`/api/db/week?week=${weekKey}&providerId=${providerId}`, { cache: "no-store" });
+
+    if (!res.ok) {
+      const txt = await res.text().catch(() => "");
+      throw new Error(`Error cargando agenda desde BD (${res.status}): ${txt}`);
     }
 
-    setLoading(true);
-    popToast("INFO", "Generando semana…", `IA creando semana (${weekKey}) con huecos accionables.`);
+    const { appointments } = await res.json();
 
-    try {
-  const res = await fetch(`/api/db/week?week=${weekKey}&providerId=${providerId}`);
+    const compactedAppointments = compactAppointments({ appointments, rules });
 
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`Error cargando agenda desde BD (${res.status}): ${txt}`);
-  }
-
-  const { appointments } = await res.json();
-
-  const compactedAppointments = compactAppointments({ appointments, rules });
-
-  const base = buildAgendaItems({
-    baseAppointments: compactedAppointments,
-    selectedReschedules: [],
-    rules,
-    includeRuleBlocks: true,
-  }).items;
-
-  const monday = startOfWeekMondayLocalFromAnchor(anchorDayIso);
-  const daysCount = rules.workSat ? 6 : 5;
-  const days = Array.from({ length: daysCount }).map((_, i) => addDaysIso(monday, i));
-
-  const weeklyAvailRaw: AgendaItem[] = [];
-  for (const d of days) {
-    const dayStartIso = `${d}T${rules.dayStartTime}:00`;
-    const dayEndIso = `${d}T${rules.dayEndTime}:00`;
-    const itemsForDay = base.filter((x) => x.start.slice(0, 10) === d);
-
-    const avail = buildAvailabilityItems({
-      items: itemsForDay,
-      dayStartIso,
-      dayEndIso,
+    const base = buildAgendaItems({
+      baseAppointments: compactedAppointments,
+      selectedReschedules: [],
       rules,
+      includeRuleBlocks: true,
+    }).items;
+
+    const monday = startOfWeekMondayLocalFromAnchor(anchorDayIso);
+    const daysCount = rules.workSat ? 6 : 5;
+    const days = Array.from({ length: daysCount }).map((_, i) => addDaysIso(monday, i));
+
+    const weeklyAvailRaw: AgendaItem[] = [];
+    for (const d of days) {
+      const dayStartIso = `${d}T${rules.dayStartTime}:00`;
+      const dayEndIso = `${d}T${rules.dayEndTime}:00`;
+      const itemsForDay = base.filter((x) => x.start.slice(0, 10) === d);
+
+      const avail = buildAvailabilityItems({
+        items: itemsForDay,
+        dayStartIso,
+        dayEndIso,
+        rules,
+      });
+
+      weeklyAvailRaw.push(...avail);
+    }
+
+    const weeklyAvail = enrichAvailabilityWithAiPanels({
+      availability: weeklyAvailRaw,
+      actions: [], // BD sin IA
     });
 
-    weeklyAvailRaw.push(...avail);
+    const merged = [...base, ...weeklyAvail].sort(
+      (a, b) => parseLocal(a.start).getTime() - parseLocal(b.start).getTime()
+    );
+
+    const gaps = merged.filter((x) => x.kind === "GAP") as Extract<AgendaItem, { kind: "GAP" }>[];
+
+    const logs: ActionLog[] = gaps.map((g) => ({
+      id: actionIdForGap(g.id),
+      gapId: g.id,
+      chairId: g.chairId,
+      start: g.start,
+      end: g.end,
+      durationMin: g.durationMin,
+      stage: "PENDING",
+      status: (g.meta?.status ?? "OPEN") as any,
+      recommendation: (g.meta as any)?.recommendation,
+      rationale: g.meta?.rationale,
+      messagesCount: g.meta?.messagesCount ?? 0,
+      callsCount: g.meta?.callsCount ?? 0,
+      updatedAtIso: new Date().toISOString(),
+    }));
+
+    setWeekStatePatch(providerId, weekKey, { ai: null, items: merged, actions: logs });
+    setSection("AGENDA");
+    popToast("SUCCESS", "Agenda cargada ✅", `Semana ${weekKey} cargada desde BD.`);
+  } catch (e: any) {
+    popToast("WARN", "Error cargando agenda", e?.message ?? "Algo falló.");
+    console.error(e);
+  } finally {
+    setLoading(false);
   }
-
-  // ✅ Aquí NO hay IA todavía, así que actions: []
-  const weeklyAvail = enrichAvailabilityWithAiPanels({
-    availability: weeklyAvailRaw,
-    actions: [],
-  });
-
-  // ✅ merged ANTES de usarlo
-  const merged = [...base, ...weeklyAvail].sort(
-    (a, b) => parseLocal(a.start).getTime() - parseLocal(b.start).getTime()
-  );
-
-  const gaps = merged.filter((x) => x.kind === "GAP") as Extract<AgendaItem, { kind: "GAP" }>[];
-
-  // ✅ logs ANTES de usarlo
-  const logs: ActionLog[] = gaps.map((g) => ({
-    id: actionIdForGap(g.id),
-    gapId: g.id,
-    chairId: g.chairId,
-    start: g.start,
-    end: g.end,
-    durationMin: g.durationMin,
-    stage: "PENDING",
-    status: (g.meta?.status ?? "OPEN") as any,
-    recommendation: (g.meta as any)?.recommendation,
-    rationale: g.meta?.rationale,
-    messagesCount: g.meta?.messagesCount ?? 0,
-    callsCount: g.meta?.callsCount ?? 0,
-    updatedAtIso: new Date().toISOString(),
-  }));
-
-  // ✅ Aquí ya no existe `data`, así que guarda ai: null
-  setWeekStatePatch(providerId, weekKey, { ai: null, items: merged, actions: logs });
-
-  setSection("AGENDA");
-  popToast("SUCCESS", "Semana lista ✅", `Agenda semanal (${weekKey}) cargada desde BD.`);
-} catch (e: any) {
-  popToast("WARN", "Error al simular semana", e?.message ?? "Algo falló.");
-} finally {
-  setLoading(false);
-}
-  };
+};
 
 
   const simulateNextWeek = async () => {
@@ -1603,9 +1701,10 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
             </button>
           </div>
 
-          <AiPrimaryButton recommended onClick={simulate} disabled={loading || !validation.ready} className="text-xs px-4 py-2">
-            {loading ? "Simulando..." : validation.ready ? "Simular con IA" : "⚠️ Reglas requeridas"}
-          </AiPrimaryButton>
+         <AiPrimaryButton recommended onClick={loadWeekFromDb} disabled={loading} className="text-xs px-4 py-2">
+  {loading ? "Cargando..." : "Cargar agenda"}
+</AiPrimaryButton>
+
         </div>
         
       ) : (
@@ -1620,9 +1719,10 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
             </button>
           </div>
 
-          <AiPrimaryButton recommended onClick={simulate} disabled={loading || !validation.ready} className="text-xs px-4 py-2">
-            {loading ? "Simulando..." : "Simular con IA"}
-          </AiPrimaryButton>
+          <AiPrimaryButton recommended onClick={loadWeekFromDb} disabled={loading} className="text-xs px-4 py-2">
+  {loading ? "Cargando..." : "Cargar agenda"}
+</AiPrimaryButton>
+
         </div>
       )}
     </>
