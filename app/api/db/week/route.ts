@@ -96,13 +96,14 @@ async function fetchByRecordIds(tableName: TableName, ids: string[]) {
 }
 
 export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const staffId = searchParams.get("staffId"); // STF_001
-  const week = searchParams.get("week");       // "YYYY-MM-DD" (lunes)
+  try {
+    const { searchParams } = new URL(req.url);
+    const staffId = searchParams.get("staffId");
+    const week = searchParams.get("week");
 
-  if (!staffId || !week) {
-    return NextResponse.json({ error: "Missing staffId or week" }, { status: 400 });
-  }
+    if (!staffId || !week) {
+      return NextResponse.json({ error: "Missing staffId or week" }, { status: 400 });
+    }
 
   // 1) resolver Staff recordId desde Staff ID (STF_001)
   const staffRec = await findByField(TABLES.staff as TableName, FIELDS.staffId, staffId);
@@ -119,10 +120,10 @@ export async function GET(req: Request) {
   const to = `${sundayPlus1}T00:00:00`;
 
   const formula = `AND(
-    IS_AFTER({${FIELDS.inicio}}, DATETIME_PARSE('${from}')),
-    IS_BEFORE({${FIELDS.inicio}}, DATETIME_PARSE('${to}')),
-    FIND('${staffRec.id}', ARRAYJOIN({${FIELDS.profesional}}))
-  )`;
+  {${FIELDS.inicio}} >= DATETIME_PARSE('${from}'),
+  {${FIELDS.inicio}} < DATETIME_PARSE('${to}'),
+  FIND('${staffRec.id}', ARRAYJOIN({${FIELDS.profesional}}))
+)`;
 
   const citas = await base(TABLES.appointments as TableName)
     .select({ filterByFormula: formula, maxRecords: 500 })
@@ -187,4 +188,11 @@ export async function GET(req: Request) {
   });
 
   return NextResponse.json({ week, staffId, appointments });
+  } catch (err: any) {
+    console.error("[/api/db/week] ERROR:", err);
+    return NextResponse.json(
+      { error: err?.message ?? "Unknown error" },
+      { status: 500 }
+    );
+  }
 }
