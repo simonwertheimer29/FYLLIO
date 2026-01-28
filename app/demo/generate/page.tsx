@@ -1081,7 +1081,7 @@ const simulate = async () => {
   setLoading(true);
 
   try {
-    const res = await fetch(`/api/db/week?week=${weekKey}&providerId=${providerId}`, { cache: "no-store" });
+const res = await fetch(`/api/db/week?week=${weekKey}&staffId=${providerId}`, { cache: "no-store" });
 
     if (!res.ok) {
       const txt = await res.text().catch(() => "");
