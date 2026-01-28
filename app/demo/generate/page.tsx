@@ -1057,6 +1057,7 @@ export default function DemoGeneratePage() {
 } finally {
   setLoading(false);
 }
+  };
 
 
   const simulateNextWeek = async () => {
@@ -2143,4 +2144,4 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
       />
     </DemoShell>
   );
-}}
+}
