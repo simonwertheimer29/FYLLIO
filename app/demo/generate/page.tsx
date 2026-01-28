@@ -792,16 +792,37 @@ export default function DemoGeneratePage() {
   };
 
   const [section, setSection] = useState<DemoSectionKey>("RULES");
-  const [providerId, setProviderId] = useState<string>(DEMO_PROVIDERS[0]!.id);
+type Provider = { id: string; name: string };
+
+const [providers, setProviders] = useState<Provider[]>([]);
+const [providerId, setProviderId] = useState<string>("");
 
   const [storeByProvider, setStoreByProvider] = useState<ProviderWeekStore>({});
-  const [rulesByProvider, setRulesByProvider] = useState<Record<string, RulesState>>(() => {
-    const init: Record<string, RulesState> = {};
-    for (const p of DEMO_PROVIDERS) init[p.id] = DEFAULT_RULES;
-    return init;
+  const [rulesByProvider, setRulesByProvider] = useState<Record<string, RulesState>>({});
+
+  useEffect(() => {
+  if (!providers.length) return;
+
+  setRulesByProvider((prev) => {
+    const next = { ...prev };
+    for (const p of providers) {
+      if (!next[p.id]) next[p.id] = DEFAULT_RULES;
+    }
+    return next;
   });
+}, [providers]);
+
 
   const rules = rulesByProvider[providerId] ?? DEFAULT_RULES;
+
+  if (!providerId) {
+  return (
+    <DemoShell section={section} onChangeSection={setSection} headerRight={null}>
+      <div className="p-8 text-slate-600">Cargando profesionales...</div>
+    </DemoShell>
+  );
+}
+
 
   const setRules = (next: RulesState) => setRulesByProvider((prev) => ({ ...prev, [providerId]: next }));
   const resetRulesForCurrent = () => setRulesByProvider((prev) => ({ ...prev, [providerId]: DEFAULT_RULES }));
@@ -998,6 +1019,33 @@ const simulate = async () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [section, providerId, weekKey]);
   };
+
+  useEffect(() => {
+  const run = async () => {
+    try {
+      const res = await fetch("/api/db/staff", { cache: "no-store" });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+
+      const list: Provider[] = (data.staff ?? []).map((x: any) => ({
+        id: String(x.id),
+        name: String(x.name),
+      }));
+
+      setProviders(list);
+
+      // setear default si no hay provider aún
+      setProviderId((prev) => prev || (list[0]?.id ?? ""));
+    } catch (e) {
+      console.error(e);
+      // fallback opcional (si quieres)
+      setProviders([]);
+    }
+  };
+
+  run();
+}, []);
+
 
   const replaceGapWith = (gapId: string, insert: AgendaItem[]) => {
     setStoreByProvider((prev) => {
@@ -1669,7 +1717,7 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
 
   const headerRight = (
     <>
-      <ProviderSelect providers={DEMO_PROVIDERS} value={providerId} onChange={setProviderId} />
+<ProviderSelect providers={providers} value={providerId} onChange={setProviderId} />
 
       {section === "AGENDA" ? (
       
