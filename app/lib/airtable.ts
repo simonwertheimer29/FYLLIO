@@ -33,3 +33,9 @@ export function base(tableName: TableName) {
 
   return _base(tableName);
 }
+
+const apiKey = process.env.AIRTABLE_API_KEY?.trim();
+
+if (!apiKey) {
+  throw new Error("Missing AIRTABLE_API_KEY");
+}
