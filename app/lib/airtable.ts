@@ -8,6 +8,8 @@ export const TABLES = {
   treatments: "Tratamientos",
   staff: "Staff",
   appointments: "Citas",
+  sillones: "Sillones",
+
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];

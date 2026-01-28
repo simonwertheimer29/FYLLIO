@@ -979,86 +979,85 @@ export default function DemoGeneratePage() {
     popToast("INFO", "Generando semana…", `IA creando semana (${weekKey}) con huecos accionables.`);
 
     try {
-      const seed = Date.now();
+  const res = await fetch(`/api/db/week?week=${weekKey}&providerId=${providerId}`);
 
-      const res = await fetch("/api/ai-suggestions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rules, anchorDayIso, seed, providerId }),
-      });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(`Error cargando agenda desde BD (${res.status}): ${txt}`);
+  }
 
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(`API error ${res.status}: ${txt}`);
-      }
+  const { appointments } = await res.json();
 
-      const data: AiResult = await res.json();
-      const compactedAppointments = compactAppointments({ appointments: data.appointments, rules });
+  const compactedAppointments = compactAppointments({ appointments, rules });
 
+  const base = buildAgendaItems({
+    baseAppointments: compactedAppointments,
+    selectedReschedules: [],
+    rules,
+    includeRuleBlocks: true,
+  }).items;
 
-      const base = buildAgendaItems({
-  baseAppointments: compactedAppointments,
-  selectedReschedules: [],
-  rules,
-  includeRuleBlocks: true,
-}).items;
+  const monday = startOfWeekMondayLocalFromAnchor(anchorDayIso);
+  const daysCount = rules.workSat ? 6 : 5;
+  const days = Array.from({ length: daysCount }).map((_, i) => addDaysIso(monday, i));
 
+  const weeklyAvailRaw: AgendaItem[] = [];
+  for (const d of days) {
+    const dayStartIso = `${d}T${rules.dayStartTime}:00`;
+    const dayEndIso = `${d}T${rules.dayEndTime}:00`;
+    const itemsForDay = base.filter((x) => x.start.slice(0, 10) === d);
 
+    const avail = buildAvailabilityItems({
+      items: itemsForDay,
+      dayStartIso,
+      dayEndIso,
+      rules,
+    });
 
-      const monday = startOfWeekMondayLocalFromAnchor(anchorDayIso);
-const daysCount = rules.workSat ? 6 : 5;
-const days = Array.from({ length: daysCount }).map((_, i) => addDaysIso(monday, i));
+    weeklyAvailRaw.push(...avail);
+  }
 
-      const weeklyAvailRaw: AgendaItem[] = [];
-      for (const d of days) {
-        const dayStartIso = `${d}T${rules.dayStartTime}:00`;
-        const dayEndIso = `${d}T${rules.dayEndTime}:00`;
-        const itemsForDay = base.filter((x) => x.start.slice(0, 10) === d);
+  // ✅ Aquí NO hay IA todavía, así que actions: []
+  const weeklyAvail = enrichAvailabilityWithAiPanels({
+    availability: weeklyAvailRaw,
+    actions: [],
+  });
 
-        const avail = buildAvailabilityItems({
-          items: itemsForDay,
-          dayStartIso,
-          dayEndIso,
-          rules,
-        });
+  // ✅ merged ANTES de usarlo
+  const merged = [...base, ...weeklyAvail].sort(
+    (a, b) => parseLocal(a.start).getTime() - parseLocal(b.start).getTime()
+  );
 
-        weeklyAvailRaw.push(...avail);
-      }
+  const gaps = merged.filter((x) => x.kind === "GAP") as Extract<AgendaItem, { kind: "GAP" }>[];
 
-      const weeklyAvail = enrichAvailabilityWithAiPanels({
-        availability: weeklyAvailRaw,
-        actions: data.actions ?? [],
-      });
+  // ✅ logs ANTES de usarlo
+  const logs: ActionLog[] = gaps.map((g) => ({
+    id: actionIdForGap(g.id),
+    gapId: g.id,
+    chairId: g.chairId,
+    start: g.start,
+    end: g.end,
+    durationMin: g.durationMin,
+    stage: "PENDING",
+    status: (g.meta?.status ?? "OPEN") as any,
+    recommendation: (g.meta as any)?.recommendation,
+    rationale: g.meta?.rationale,
+    messagesCount: g.meta?.messagesCount ?? 0,
+    callsCount: g.meta?.callsCount ?? 0,
+    updatedAtIso: new Date().toISOString(),
+  }));
 
-      const merged = [...base, ...weeklyAvail].sort((a, b) => parseLocal(a.start).getTime() - parseLocal(b.start).getTime());
+  // ✅ Aquí ya no existe `data`, así que guarda ai: null
+  setWeekStatePatch(providerId, weekKey, { ai: null, items: merged, actions: logs });
 
-      const gaps = merged.filter((x) => x.kind === "GAP") as Extract<AgendaItem, { kind: "GAP" }>[];
-      const logs: ActionLog[] = gaps.map((g) => ({
-        id: actionIdForGap(g.id),
-        gapId: g.id,
-        chairId: g.chairId,
-        start: g.start,
-        end: g.end,
-        durationMin: g.durationMin,
-        stage: "PENDING",
-        status: (g.meta?.status ?? "OPEN") as any,
-        recommendation: (g.meta as any)?.recommendation,
-        rationale: g.meta?.rationale,
-        messagesCount: g.meta?.messagesCount ?? 0,
-        callsCount: g.meta?.callsCount ?? 0,
-        updatedAtIso: new Date().toISOString(),
-      }));
+  setSection("AGENDA");
+  popToast("SUCCESS", "Semana lista ✅", `Agenda semanal (${weekKey}) cargada desde BD.`);
+} catch (e: any) {
+  popToast("WARN", "Error al simular semana", e?.message ?? "Algo falló.");
+} finally {
+  setLoading(false);
+}
 
-      setWeekStatePatch(providerId, weekKey, { ai: data, items: merged, actions: logs });
-
-      setSection("AGENDA");
-      popToast("SUCCESS", "Semana lista ✅", `Agenda semanal (${weekKey}) generada.`);
-    } catch (e: any) {
-      popToast("WARN", "Error al simular semana", e?.message ?? "Algo falló.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const simulateNextWeek = async () => {
     const nextAnchor = addWeeksAnchor(anchorDayIso, 1);
@@ -2144,4 +2143,4 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
       />
     </DemoShell>
   );
-}
+}}
