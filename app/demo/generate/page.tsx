@@ -856,7 +856,11 @@ const validation = useMemo(() => validateRules(rules), [rules]);
 const [loading, setLoading] = useState(false);
 
 const [view, setView] = useState<"WEEK" | "LIST">("WEEK");
-const [anchorDayIso, setAnchorDayIso] = useState<string>(() => new Date().toISOString());
+const [anchorDayIso, setAnchorDayIso] = useState<string>(() => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return toLocalIsoNoTz(d); // ya devuelve YYYY-MM-DDTHH:mm:ss
+});
 const anchorDayOnly = anchorDayIso.slice(0, 10);
 
 const weekKey = useMemo(() => startOfWeekMondayLocalFromAnchor(anchorDayIso), [anchorDayIso]);
