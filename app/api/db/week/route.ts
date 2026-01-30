@@ -114,16 +114,16 @@ export async function GET(req: Request) {
   const monday = mondayFromWeekKey(week);
   const sundayPlus1 = addDays(monday, 7);
 
-  // 2) traer citas de esa semana (filtrando por profesional link + rango fechas)
-  // Airtable formula: AND({Hora inicio} >= DATETIME_PARSE('...'), {Hora inicio} < DATETIME_PARSE('...'), FIND('recXXX', ARRAYJOIN({Profesional})) )
-  const from = `${monday}T00:00:00`;
-  const to = `${sundayPlus1}T00:00:00`;
+  const fromDate = monday;      // YYYY-MM-DD
+  const toDate = sundayPlus1;   // YYYY-MM-DD
 
   const formula = `AND(
-  {${FIELDS.inicio}} >= DATETIME_PARSE('${from}'),
-  {${FIELDS.inicio}} < DATETIME_PARSE('${to}'),
-  FIND('${staffRec.id}', ARRAYJOIN({${FIELDS.profesional}}))
-)`;
+    IS_AFTER({${FIELDS.inicio}}, '${fromDate}'),
+    IS_BEFORE({${FIELDS.inicio}}, '${toDate}'),
+    FIND('${staffRec.id}', ARRAYJOIN({${FIELDS.profesional}})) > 0
+  )`;
+
+  console.log("[/api/db/week] staffId:", staffId, "staffRecId:", staffRec.id, "week:", week, "formula:", formula);
 
   const citas = await base(TABLES.appointments as TableName)
     .select({ filterByFormula: formula, maxRecords: 500 })
