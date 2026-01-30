@@ -885,6 +885,8 @@ const [openDays, setOpenDays] = useState<Record<string, boolean>>({});
 
 const daysPerWeek = rules.workSat ? 6 : 5;
 
+
+
 // ✅ y ahora renderizas condicionalmente DENTRO del return:
 
 
