@@ -198,7 +198,8 @@ const appointments = citasFiltradas.map((c) => {
     const chairIdRaw = (sRec?.get(FIELDS.sillonId) as string) ?? "CHR_01";
 
     // tu UI usa chairId number; convertimos CHR_02 -> 2
-    const chairId = Number(chairIdRaw.replace("CHR_", "")) || 1;
+   const chairId = 1;
+
 
     return {
       id: (c.get(FIELDS.citaId) as string) ?? c.id,
