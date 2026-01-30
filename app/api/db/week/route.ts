@@ -114,11 +114,8 @@ const to = `DATETIME_PARSE('${toLocal}', 'YYYY-MM-DDTHH:mm:ss', '${tz}')`;
 const startInTz = `SET_TIMEZONE({${FIELDS.inicio}}, '${tz}')`;
 const endInTz = `SET_TIMEZONE({${FIELDS.fin}}, '${tz}')`;
 
-const formula = `AND(
-  {${FIELDS.profesionalId}}='${staffId}',
-  ${startInTz} < ${to},
-  ${endInTz} > ${from}
-)`;
+const formula = `{${FIELDS.profesionalId}}='${staffId}'`;
+
 
 
 
@@ -128,6 +125,33 @@ const formula = `AND(
   const citas = await base(TABLES.appointments as TableName)
     .select({ filterByFormula: formula, maxRecords: 500 })
     .firstPage();
+
+    const weekStart = DateTime.fromISO(monday, { zone: tz }).startOf("day");
+const weekEnd = weekStart.plus({ days: 7 });
+
+const citasFiltradas = citas.filter((c) => {
+  const rawStart = c.get(FIELDS.inicio);
+  const rawEnd = c.get(FIELDS.fin);
+  if (!rawStart || !rawEnd) return false;
+
+  const s = DateTime.fromISO(
+    rawStart instanceof Date ? rawStart.toISOString() : String(rawStart),
+    { setZone: true }
+  ).setZone(tz);
+
+  const e = DateTime.fromISO(
+    rawEnd instanceof Date ? rawEnd.toISOString() : String(rawEnd),
+    { setZone: true }
+  ).setZone(tz);
+
+  if (!s.isValid || !e.isValid) return false;
+
+  // overlap: [s,e) intersecta [weekStart, weekEnd)
+  return s < weekEnd && e > weekStart;
+});
+
+console.log("[/api/db/week] fetched:", citas.length, "filtered:", citasFiltradas.length);
+
 
   // 3) recolectar recordIds linkeados
   const pacienteIds = new Set<string>();
@@ -156,9 +180,9 @@ const formula = `AND(
   const sillonById = new Map(sillones.map((r: any) => [r.id, r]));
 
   // 5) map al formato Appointment que tu UI ya usa
-  const appointments = citas.map((c) => {
-const start = toClinicIsoNoTz(c.get(FIELDS.inicio), tz);
-const end = toClinicIsoNoTz(c.get(FIELDS.fin), tz);
+const appointments = citasFiltradas.map((c) => {
+  const start = toClinicIsoNoTz(c.get(FIELDS.inicio), tz);
+  const end = toClinicIsoNoTz(c.get(FIELDS.fin), tz);
 
 
     const pIds = (c.get(FIELDS.paciente) as string[] | undefined) ?? [];
