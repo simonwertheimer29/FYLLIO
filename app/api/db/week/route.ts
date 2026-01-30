@@ -51,19 +51,17 @@ function addDays(dateIso: string, days: number) {
 // Convierte a formato sin tz si te llega Date (Airtable a veces lo devuelve como string)
 
 
-function toClinicIsoNoTz(value: any, tz = "Europe/Madrid") {
+function toUtcMillis(value: any) {
   if (!value) return null;
-
   const iso =
     value instanceof Date ? value.toISOString()
     : typeof value === "string" ? value
     : String(value);
 
-  const dt = DateTime.fromISO(iso, { setZone: true }).setZone(tz);
-  if (!dt.isValid) return null;
-
-  return dt.toFormat("yyyy-LL-dd'T'HH:mm:ss");
+  const dt = DateTime.fromISO(iso, { setZone: true }); // respeta Z / +01
+  return dt.isValid ? dt.toMillis() : null;
 }
+
 
 
 
@@ -181,8 +179,9 @@ console.log("[/api/db/week] fetched:", citas.length, "filtered:", citasFiltradas
 
   // 5) map al formato Appointment que tu UI ya usa
 const appointments = citasFiltradas.map((c) => {
-  const start = toClinicIsoNoTz(c.get(FIELDS.inicio), tz);
-  const end = toClinicIsoNoTz(c.get(FIELDS.fin), tz);
+const startMs = toUtcMillis(c.get(FIELDS.inicio));
+const endMs = toUtcMillis(c.get(FIELDS.fin));
+
 
 
     const pIds = (c.get(FIELDS.paciente) as string[] | undefined) ?? [];
@@ -198,17 +197,20 @@ const appointments = citasFiltradas.map((c) => {
     const chairIdRaw = (sRec?.get(FIELDS.sillonId) as string) ?? "CHR_01";
 
     // tu UI usa chairId number; convertimos CHR_02 -> 2
-   const chairId = 1;
+const chairId = Number(chairIdRaw.replace("CHR_", "")) || 1;
+const chairLabel = chairIdRaw; // "CHR_02"
 
 
     return {
       id: (c.get(FIELDS.citaId) as string) ?? c.id,
-      start,
-      end,
+      startMs,
+      endMs,
+      tz: "Europe/Madrid",
       patientName,
       type,
       chairId,
       providerId: staffId,
+        chairLabel,
       // si tu tipo Appointment lleva más campos, agrégalos aquí
     };
   });

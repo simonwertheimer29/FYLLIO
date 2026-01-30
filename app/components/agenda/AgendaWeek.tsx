@@ -3,6 +3,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { AgendaItem, RulesState } from "../../lib/types";
 import { parseLocal } from "../../lib/time";
+import { DateTime } from "luxon";
+
+type Props = {
+  items: AgendaItem[];
+  rules: RulesState;
+  anchorDayIso: string;
+  onItemOpen?: (item: AgendaItem) => void;
+  onItemChange?: (nextItem: AgendaItem) => void;
+};
+
+function msToLocalIsoNoTz(ms: number, tz: string) {
+  return DateTime.fromMillis(ms).setZone(tz).toFormat("yyyy-LL-dd'T'HH:mm:ss");
+}
 
 function hashStringToHue(s: string) {
   let h = 0;
@@ -21,14 +34,6 @@ function treatmentTextColor(treatment: string) {
   const hue = TREATMENT_HUES[h % TREATMENT_HUES.length];
   return `hsl(${hue} 85% 32%)`;
 }
-
-type Props = {
-  items: AgendaItem[];
-  rules: RulesState;
-  anchorDayIso: string;
-  onItemOpen?: (item: AgendaItem) => void;
-  onItemChange?: (nextItem: AgendaItem) => void; // (no usado aquí aún)
-};
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -51,7 +56,6 @@ function clampInt(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
-// ✅ detecta almuerzo por id (tu builder usa RULE_LUNCH:${date})
 function isLunchBlock(it: AgendaItem) {
   return it.kind === "AI_BLOCK" && String(it.id).startsWith("RULE_LUNCH:");
 }
@@ -60,7 +64,6 @@ function isSimFilledAppt(it: AgendaItem) {
   return it.kind === "APPOINTMENT" && String(it.id).startsWith("SIM_");
 }
 
-/** ✅ lee la “nota/info” del bloque sin asumir el campo exacto */
 function getBlockNote(it: AgendaItem) {
   const anyIt = it as any;
 
@@ -82,10 +85,8 @@ function getBlockNote(it: AgendaItem) {
 function labelForBlock(it: AgendaItem) {
   if (it.kind !== "AI_BLOCK") return "";
 
-  // ✅ prioridad: almuerzo
   if (isLunchBlock(it)) return "Almuerzo";
 
-  // ✅ INTERNAL / PERSONAL respetan label si existe
   if ((it as any).blockType === "INTERNAL") return (it.label ?? "").trim() || "Tiempo interno";
   if ((it as any).blockType === "PERSONAL") return (it.label ?? "").trim() || "Tiempo personal";
 
@@ -270,7 +271,7 @@ function FilledBlockText({ text, fontSizePx = 12, lineHeightPx = 16 }: { text: s
 }
 
 function renderContent(params: { it: AgendaItem; heightPx: number; chairs: number }) {
-  const { it, heightPx, chairs } = params;
+  const { it, heightPx } = params;
 
   const isAppt = it.kind === "APPOINTMENT";
 
@@ -287,31 +288,15 @@ function renderContent(params: { it: AgendaItem; heightPx: number; chairs: numbe
 
   const primary = itemPrimaryText(it);
 
-  const tall = heightPx >= 140;
-  const narrow = chairs >= 2;
-
   const isBuffer = it.kind === "AI_BLOCK" && it.blockType === "BUFFER";
   const note = getBlockNote(it);
   const isInternalOrPersonal = it.kind === "AI_BLOCK" && (it.blockType === "INTERNAL" || it.blockType === "PERSONAL");
   const hasBlockNote = isInternalOrPersonal && note.length > 0;
 
-  // ✅ no usar FilledBlockText en internal/personal o si hay nota
-  const shouldFill =
-    (it.kind === "GAP" || it.kind === "AI_BLOCK") &&
-    tall &&
-    narrow &&
-    !isBuffer &&
-    !isInternalOrPersonal &&
-    !hasBlockNote;
-
-  const blockRange = `${it.start.slice(11, 16)}–${it.end.slice(11, 16)}`;
-  const primaryCompact = isBuffer ? "Buf" : primary;
-
   // ---------- NO APPOINTMENT (GAP / AI_BLOCK) ----------
   if (!isAppt) {
     const range = `${it.start.slice(11, 16)}–${it.end.slice(11, 16)}`;
 
-    // buffers chicos
     if (isBuffer && heightPx < 30) {
       return (
         <div className="h-full w-full flex items-center px-2">
@@ -322,12 +307,16 @@ function renderContent(params: { it: AgendaItem; heightPx: number; chairs: numbe
       );
     }
 
-    // relleno bonito para GAP/bloques genéricos
-    if (shouldFill) {
-      return <FilledBlockText text={primary} fontSizePx={12} lineHeightPx={16} />;
-    }
+    const tall = heightPx >= 140;
+    const shouldFill =
+      (it.kind === "GAP" || it.kind === "AI_BLOCK") &&
+      tall &&
+      !isBuffer &&
+      !isInternalOrPersonal &&
+      !hasBlockNote;
 
-    // buffer ultra-mini
+    if (shouldFill) return <FilledBlockText text={primary} fontSizePx={12} lineHeightPx={16} />;
+
     if (isBuffer && heightPx < 18) {
       return (
         <div className="h-full w-full flex items-center px-2">
@@ -338,21 +327,21 @@ function renderContent(params: { it: AgendaItem; heightPx: number; chairs: numbe
       );
     }
 
-    // normal: título + hora + nota
+    const blockRange = `${it.start.slice(11, 16)}–${it.end.slice(11, 16)}`;
+    const primaryCompact = isBuffer ? "Buf" : primary;
+
     return (
       <div className={`h-full w-full flex flex-col items-start justify-start ${compact ? "px-2 py-1" : "px-2.5 py-1.5"}`}>
         <div className="w-full font-extrabold text-slate-900 truncate" style={{ fontSize: "clamp(9px, 1.05vw, 12px)", lineHeight: "1" }} title={primary}>
           {primaryCompact}
         </div>
 
-        {/* hora (para buffers muy chicos puede ocultarse) */}
         {!isBuffer || heightPx >= 26 ? (
           <div className="w-full text-slate-600 truncate" style={{ fontSize: "clamp(9px, 1.0vw, 11px)", lineHeight: "1" }} title={blockRange}>
             {blockRange}
           </div>
         ) : null}
 
-        {/* nota solo para INTERNAL/PERSONAL */}
         {(() => {
           const noteNow = getBlockNote(it);
           const isIP = it.kind === "AI_BLOCK" && (it.blockType === "INTERNAL" || it.blockType === "PERSONAL");
@@ -381,6 +370,13 @@ function renderContent(params: { it: AgendaItem; heightPx: number; chairs: numbe
   }
 
   // ---------- APPOINTMENT ----------
+  const chairLabel = String((it as any).chairLabel ?? "").trim();
+  const chairText = chairLabel
+    ? chairLabel.startsWith("CHR_")
+      ? `Sillón: ${chairLabel.replace("CHR_", "")}`
+      : `Sillón: ${chairLabel}`
+    : `Sillón: ${it.chairId ?? 1}`;
+
   return (
     <div className={`h-full w-full flex flex-col items-start justify-start ${compact ? "px-1 py-0.5 gap-0" : "px-1.5 py-1 gap-0.5"}`}>
       <div className="w-full font-extrabold text-slate-900 truncate" style={{ fontSize: "clamp(10px, 1.35vw, 14px)", lineHeight: "1.05" }} title={name}>
@@ -403,6 +399,10 @@ function renderContent(params: { it: AgendaItem; heightPx: number; chairs: numbe
         {timeRange}
       </div>
 
+      <div className="w-full text-slate-500 truncate" style={{ fontSize: "clamp(9px, 1.0vw, 11px)", lineHeight: "1" }} title={chairText}>
+        {chairText}
+      </div>
+
       {showReason ? (
         <div className="w-full text-slate-700 truncate" style={{ fontSize: "clamp(9px, 1.0vw, 11px)", lineHeight: "1.1" }} title={reason}>
           {reason}
@@ -413,10 +413,32 @@ function renderContent(params: { it: AgendaItem; heightPx: number; chairs: numbe
 }
 
 function uniqueRenderKey(it: AgendaItem) {
-  return `${it.kind}:C${it.chairId ?? 1}:${String(it.id)}`;
+  return `${it.kind}:${String(it.id)}`;
 }
 
 export default function AgendaWeek({ items, rules, anchorDayIso, onItemOpen }: Props) {
+  const tz = "Europe/Madrid";
+
+  // ✅ normaliza items: si vienen startMs/endMs (epoch), conviértelos a start/end string en hora Madrid
+  const normalizedItems = useMemo(() => {
+    return items.map((it) => {
+      const anyIt = it as any;
+
+      if (typeof it.start === "string" && typeof it.end === "string") return it;
+
+      if (typeof anyIt.startMs === "number" && typeof anyIt.endMs === "number") {
+        const zone = String(anyIt.tz ?? tz);
+        return {
+          ...it,
+          start: msToLocalIsoNoTz(anyIt.startMs, zone),
+          end: msToLocalIsoNoTz(anyIt.endMs, zone),
+        };
+      }
+
+      return it;
+    });
+  }, [items, tz]);
+
   const mondayDate = useMemo(() => startOfWeekMondayLocal(anchorDayIso), [anchorDayIso]);
 
   const days = useMemo(() => {
@@ -435,7 +457,8 @@ export default function AgendaWeek({ items, rules, anchorDayIso, onItemOpen }: P
     return out;
   }, [mondayDate, rules.workSat]);
 
-  const chairs = Math.max(1, Math.floor(rules.chairsCount || 1));
+  // ✅ 1 sola columna (no por sillón)
+  const chairs = 1;
 
   const dayStartMin = hhmmToMin(rules.dayStartTime);
   const dayEndMin = hhmmToMin(rules.dayEndTime);
@@ -455,17 +478,19 @@ export default function AgendaWeek({ items, rules, anchorDayIso, onItemOpen }: P
   const itemsByDay = useMemo(() => {
     const map = new Map<string, AgendaItem[]>();
     for (const d of days) map.set(d.date, []);
-    for (const it of items) {
+
+    for (const it of normalizedItems) {
       const d = dateOnly(it.start);
       if (!map.has(d)) continue;
       map.get(d)!.push(it);
     }
+
     for (const [k, arr] of map.entries()) {
       arr.sort((a, b) => parseLocal(a.start).getTime() - parseLocal(b.start).getTime());
       map.set(k, arr);
     }
     return map;
-  }, [items, days]);
+  }, [normalizedItems, days]);
 
   const dayStartIsoFromMin = (date: string) => {
     const hh = Math.floor(dayStartMin / 60);
@@ -478,12 +503,14 @@ export default function AgendaWeek({ items, rules, anchorDayIso, onItemOpen }: P
       <div className="px-6 py-5 border-b border-slate-100 flex items-start justify-between gap-6 flex-wrap">
         <div>
           <h2 className="text-2xl font-bold text-slate-900">Agenda · Semana</h2>
-          <p className="mt-1 text-sm text-slate-600">{rules.workSat ? "L–S" : "L–V"} por sillón. Click en cualquier bloque para detalle.</p>
+          <p className="mt-1 text-sm text-slate-600">
+            {rules.workSat ? "L–S" : "L–V"} en una vista semanal. Click en cualquier bloque para detalle.
+          </p>
         </div>
 
         <div className="text-[12px] text-slate-600">
           Horario: <span className="font-semibold">{rules.dayStartTime}–{rules.dayEndTime}</span> · Sillones:{" "}
-          <span className="font-semibold">{chairs}</span>
+          <span className="font-semibold">—</span>
         </div>
       </div>
 
@@ -500,7 +527,7 @@ export default function AgendaWeek({ items, rules, anchorDayIso, onItemOpen }: P
                   {!d.enabled ? (
                     <p className="text-[11px] text-slate-400">No laborable</p>
                   ) : (
-                    <p className="text-[11px] text-slate-500">{chairs === 1 ? "1 sillón" : `${chairs} sillones`}</p>
+                    <p className="text-[11px] text-slate-500">Agenda</p>
                   )}
                 </div>
               ))}
@@ -530,84 +557,73 @@ export default function AgendaWeek({ items, rules, anchorDayIso, onItemOpen }: P
                   <div key={d.key} className="relative border-l border-slate-100 bg-white" style={{ height: gridHeight }}>
                     {!d.enabled ? <div className="absolute inset-0 bg-slate-50/60" /> : null}
 
-                    <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${chairs}, 1fr)` }}>
-                      {Array.from({ length: chairs }).map((_, ci) => (
-                        <div key={ci} className="relative border-r border-slate-100 last:border-r-0">
-                          <div className="absolute inset-0 pointer-events-none">
-                            {hours.map((h) => {
-                              const y = (h * 60 - dayStartMin) * PX_PER_MIN;
-                              if (y < 0 || y > gridHeight) return null;
-                              return <div key={h} className="absolute left-0 right-0 border-t border-slate-50" style={{ top: y }} />;
-                            })}
-                          </div>
+                    <div className="absolute inset-0">
+                      <div className="absolute inset-0 pointer-events-none">
+                        {hours.map((h) => {
+                          const y = (h * 60 - dayStartMin) * PX_PER_MIN;
+                          if (y < 0 || y > gridHeight) return null;
+                          return <div key={h} className="absolute left-0 right-0 border-t border-slate-50" style={{ top: y }} />;
+                        })}
+                      </div>
 
-                          {dayItems
-                            .filter((it) => (it.chairId ?? 1) === ci + 1)
-                            .map((it, idx) => {
-                              const startMin = Math.max(0, diffMinutesExact(dayStartIso, it.start));
-                              const endMin = Math.max(0, diffMinutesExact(dayStartIso, it.end));
+                      {dayItems.map((it, idx) => {
+                        const startMin = Math.max(0, diffMinutesExact(dayStartIso, it.start));
+                        const endMin = Math.max(0, diffMinutesExact(dayStartIso, it.end));
 
-                              const isBuffer = it.kind === "AI_BLOCK" && it.blockType === "BUFFER";
+                        const isBuffer = it.kind === "AI_BLOCK" && it.blockType === "BUFFER";
 
-                              const durMin = Math.max(1, endMin - startMin);
-                              const visualMin = durMin;
+                        const durMin = Math.max(1, endMin - startMin);
+                        const startY = startMin * PX_PER_MIN;
+                        const endY = endMin * PX_PER_MIN;
 
-                              const startY = startMin * PX_PER_MIN;
-                              const endY = endMin * PX_PER_MIN;
+                        let height = Math.ceil(durMin * PX_PER_MIN);
 
-                              let height = Math.ceil(visualMin * PX_PER_MIN);
+                        const MIN_APPT_PX = 24;
+                        const MIN_BLOCK_PX = 8;
+                        height = it.kind === "APPOINTMENT" ? Math.max(MIN_APPT_PX, height) : Math.max(MIN_BLOCK_PX, height);
 
-                              const MIN_APPT_PX = 24;
-                              const MIN_BLOCK_PX = 8;
-                              height = it.kind === "APPOINTMENT" ? Math.max(MIN_APPT_PX, height) : Math.max(MIN_BLOCK_PX, height);
+                        const gapPx = it.kind === "GAP" ? 2 : 0;
+                        height = Math.max(MIN_BLOCK_PX, height - gapPx);
 
-                              const gapPx = it.kind === "GAP" ? 2 : 0;
-                              height = Math.max(MIN_BLOCK_PX, height - gapPx);
+                        let top = startY;
+                        if (isBuffer && durMin < 10) top = endY - height;
 
-                              let top = startY;
-                              if (isBuffer && durMin < 10) {
-                                top = endY - height;
-                              }
+                        top = Math.max(0, Math.min(top, gridHeight - height));
+                        height = Math.max(MIN_BLOCK_PX, Math.min(height, gridHeight - top));
 
-                              top = Math.max(0, Math.min(top, gridHeight - height));
-                              height = Math.max(MIN_BLOCK_PX, Math.min(height, gridHeight - top));
+                        const cls = itemCardClass(it);
+                        const z =
+                          it.kind === "AI_BLOCK" && it.blockType === "BUFFER" ? 40 :
+                          it.kind === "APPOINTMENT" ? 30 :
+                          it.kind === "GAP" ? 20 :
+                          10;
 
-                              const cls = itemCardClass(it);
-                              const z =
-                                it.kind === "AI_BLOCK" && it.blockType === "BUFFER" ? 40 :
-                                it.kind === "APPOINTMENT" ? 30 :
-                                it.kind === "GAP" ? 20 :
-                                10;
+                        if (it.kind === "AI_BLOCK" && it.blockType === "BUFFER" && !rules.enableBuffers) return null;
 
-                              if (it.kind === "AI_BLOCK" && it.blockType === "BUFFER" && !rules.enableBuffers) {
-                                return null;
-                              }
-
-                              return (
-                                <button
-                                  key={`${uniqueRenderKey(it)}::${idx}`}
-                                  type="button"
-                                  onClick={() => onItemOpen?.(it)}
-                                  className={[
-                                    "absolute left-1 right-5 rounded-lg border text-left",
-                                    "shadow-[0_6px_16px_rgba(0,0,0,0.08)]",
-                                    "transition hover:shadow-[0_10px_22px_rgba(0,0,0,0.12)]",
-                                    "overflow-hidden",
-                                    cls,
-                                  ].join(" ")}
-                                  style={{ top, height, padding: "0px", zIndex: z }}
-                                >
-                                  {renderContent({ it, heightPx: height, chairs })}
-                                </button>
-                              );
-                            })}
-                        </div>
-                      ))}
+                        return (
+                          <button
+                            key={`${uniqueRenderKey(it)}::${idx}`}
+                            type="button"
+                            onClick={() => onItemOpen?.(it)}
+                            className={[
+                              "absolute left-1 right-5 rounded-lg border text-left",
+                              "shadow-[0_6px_16px_rgba(0,0,0,0.08)]",
+                              "transition hover:shadow-[0_10px_22px_rgba(0,0,0,0.12)]",
+                              "overflow-hidden",
+                              cls,
+                            ].join(" ")}
+                            style={{ top, height, padding: "0px", zIndex: z }}
+                          >
+                            {renderContent({ it, heightPx: height, chairs })}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 );
               })}
             </div>
+
           </div>
         </div>
       </div>

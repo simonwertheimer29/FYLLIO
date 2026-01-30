@@ -31,7 +31,7 @@ export default function ItemModal({
       ? item.label
       : item.label ?? `Tiempo disponible · ${item.durationMin} min`;
 
-  const timeText = `${formatTime(item.start)} – ${formatTime(item.end)} · ${item.durationMin} min · S${item.chairId}`;
+const timeText = `${formatTime(item.start)} – ${formatTime(item.end)} · ${item.durationMin} min · Sillón: ${item.chairId}`;
 
   const treatmentText = isAppt ? (item.type ?? "Tratamiento") : null;
 
