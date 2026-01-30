@@ -797,6 +797,32 @@ type Provider = { id: string; name: string };
 const [providers, setProviders] = useState<Provider[]>([]);
 const [providerId, setProviderId] = useState<string>("");
 
+ useEffect(() => {
+  const run = async () => {
+    try {
+      const res = await fetch("/api/db/staff", { cache: "no-store" });
+      if (!res.ok) throw new Error(await res.text());
+      const data = await res.json();
+
+      const list: Provider[] = (data.staff ?? []).map((x: any) => ({
+        id: String(x.id),
+        name: String(x.name),
+      }));
+
+      setProviders(list);
+
+      // setear default si no hay provider aún
+      setProviderId((prev) => prev || (list[0]?.id ?? ""));
+    } catch (e) {
+      console.error(e);
+      // fallback opcional (si quieres)
+      setProviders([]);
+    }
+  };
+
+  run();
+}, []);
+
   const [storeByProvider, setStoreByProvider] = useState<ProviderWeekStore>({});
   const [rulesByProvider, setRulesByProvider] = useState<Record<string, RulesState>>({});
 
@@ -1019,33 +1045,6 @@ const simulate = async () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [section, providerId, weekKey]);
   };
-
-  useEffect(() => {
-  const run = async () => {
-    try {
-      const res = await fetch("/api/db/staff", { cache: "no-store" });
-      if (!res.ok) throw new Error(await res.text());
-      const data = await res.json();
-
-      const list: Provider[] = (data.staff ?? []).map((x: any) => ({
-        id: String(x.id),
-        name: String(x.name),
-      }));
-
-      setProviders(list);
-
-      // setear default si no hay provider aún
-      setProviderId((prev) => prev || (list[0]?.id ?? ""));
-    } catch (e) {
-      console.error(e);
-      // fallback opcional (si quieres)
-      setProviders([]);
-    }
-  };
-
-  run();
-}, []);
-
 
   const replaceGapWith = (gapId: string, insert: AgendaItem[]) => {
     setStoreByProvider((prev) => {
