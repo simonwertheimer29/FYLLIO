@@ -8,24 +8,21 @@ const FIELDS = {
   citaId: "Cita ID",
   inicio: "Hora inicio",
   fin: "Hora final",
-  estado: "Estado",
-  origen: "Origen",
 
   paciente: "Paciente",
   tratamiento: "Tratamiento",
   profesional: "Profesional",
   sillon: "Sillón",
 
+  // ✅ esto existe en tu tabla (según screenshot)
+  profesionalId: "Profesional_id",
+
   staffId: "Staff ID",
-
-  pacienteId: "Paciente ID",
   pacienteNombre: "Nombre",
-
-  tratId: "Tratamientos ID",
   tratCategoria: "Categoria",
-
   sillonId: "Sillón ID",
 };
+
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];
 
@@ -111,17 +108,20 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: `Staff not found for ${staffId}` }, { status: 404 });
   }
 
-  const monday = mondayFromWeekKey(week);
-  const sundayPlus1 = addDays(monday, 7);
+  const monday = mondayFromWeekKey(week);     // "YYYY-MM-DD"
+const sundayPlus1 = addDays(monday, 7);     // "YYYY-MM-DD"
 
-  const fromDate = monday;      // YYYY-MM-DD
-  const toDate = sundayPlus1;   // YYYY-MM-DD
+const fromIso = `${monday}T00:00:00`;
+const toIso = `${sundayPlus1}T00:00:00`;
 
-  const formula = `AND(
-    IS_AFTER({${FIELDS.inicio}}, '${fromDate}'),
-    IS_BEFORE({${FIELDS.inicio}}, '${toDate}'),
-    FIND('${staffRec.id}', ARRAYJOIN({${FIELDS.profesional}})) > 0
-  )`;
+// Airtable suele funcionar mejor con SET_TIMEZONE + DATETIME_PARSE
+const formula = `AND(
+  IS_AFTER({${FIELDS.inicio}}, DATETIME_PARSE('${fromIso}')),
+  IS_BEFORE({${FIELDS.inicio}}, DATETIME_PARSE('${toIso}')),
+  {${FIELDS.profesionalId}}='${staffId}'
+)`;
+
+
 
   console.log("[/api/db/week] staffId:", staffId, "staffRecId:", staffRec.id, "week:", week, "formula:", formula);
 
