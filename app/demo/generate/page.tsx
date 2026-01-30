@@ -232,7 +232,7 @@ for (let i = 0; i < gapsCount; i++) {
   const raw =
     left === 1
       ? remainingIdle // el último se queda con lo que sobra
-      : minGapMin + Math.floor(Math.random() * (maxForThis - minGapMin + 1));
+: minGapMin + Math.floor(rng() * (maxForThis - minGapMin + 1));
 
   // --- 2) snap a múltiplos de 10 ---
   let sizeSnapped = snapMinToStep(raw, SNAP_MIN, "ROUND");
@@ -1139,14 +1139,17 @@ const res = await fetch(`/api/db/week?week=${weekKey}&staffId=${providerId}`, { 
 
     const { appointments } = await res.json();
 
-    const compactedAppointments = compactAppointments({ appointments, rules });
+// ✅ BD = agenda real, NO compactar/mover
+const baseAppointments = (appointments ?? []).slice().sort(
+  (a: any, b: any) => parseLocal(a.start).getTime() - parseLocal(b.start).getTime()
+);
 
-    const base = buildAgendaItems({
-      baseAppointments: compactedAppointments,
-      selectedReschedules: [],
-      rules,
-      includeRuleBlocks: true,
-    }).items;
+const base = buildAgendaItems({
+  baseAppointments,
+  selectedReschedules: [],
+  rules,
+  includeRuleBlocks: true,
+}).items;
 
     const monday = startOfWeekMondayLocalFromAnchor(anchorDayIso);
     const daysCount = rules.workSat ? 6 : 5;

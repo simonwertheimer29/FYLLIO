@@ -210,14 +210,22 @@ const appointments = citasFiltradas
     const type = (tRec?.get(FIELDS.tratCategoria) as string) ?? "Tratamiento";
     const chairIdRaw = (sRec?.get(FIELDS.sillonId) as string) ?? "CHR_01";
     const chairId = Number(String(chairIdRaw).replace("CHR_", "")) || 1;
+   const durationMin =
+  typeof startMs === "number" && typeof endMs === "number"
+    ? Math.max(1, Math.round((endMs - startMs) / 60000))
+    : null;
+
+
 
     return {
+        
       id: (c.get(FIELDS.citaId) as string) ?? c.id,
       start,
       end,
       startMs,
       endMs,
       tz: zone,
+      durationMin: durationMin ?? undefined,
       patientName,
       type,
       chairId,

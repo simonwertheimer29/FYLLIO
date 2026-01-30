@@ -286,7 +286,12 @@ function renderContent(params: { it: AgendaItem; heightPx: number; chairs: numbe
 
   const compact = heightPx < 44;
 
-  const primary = itemPrimaryText(it);
+let primary = itemPrimaryText(it);
+
+// ✅ blindaje: si por algún motivo viene contaminado
+primary = primary.replace(/sill[oó]n\s*:?\s*\d+/gi, "").trim();
+primary = primary.replace(/\s{2,}/g, " ");
+
 
   const isBuffer = it.kind === "AI_BLOCK" && it.blockType === "BUFFER";
   const note = getBlockNote(it);
@@ -308,12 +313,17 @@ function renderContent(params: { it: AgendaItem; heightPx: number; chairs: numbe
     }
 
     const tall = heightPx >= 140;
+    const narrow = false;
+
+
     const shouldFill =
-      (it.kind === "GAP" || it.kind === "AI_BLOCK") &&
-      tall &&
-      !isBuffer &&
-      !isInternalOrPersonal &&
-      !hasBlockNote;
+  (it.kind === "AI_BLOCK") &&
+  tall &&
+  narrow &&
+  !isBuffer &&
+  !isInternalOrPersonal &&
+  !hasBlockNote;
+
 
     if (shouldFill) return <FilledBlockText text={primary} fontSizePx={12} lineHeightPx={16} />;
 
@@ -567,8 +577,9 @@ export default function AgendaWeek({ items, rules, anchorDayIso, onItemOpen }: P
                       </div>
 
                       {dayItems.map((it, idx) => {
-                        const startMin = Math.max(0, diffMinutesExact(dayStartIso, it.start));
-                        const endMin = Math.max(0, diffMinutesExact(dayStartIso, it.end));
+                       const startMin = Math.max(0, Math.round(diffMinutesExact(dayStartIso, it.start)));
+const endMin = Math.max(0, Math.round(diffMinutesExact(dayStartIso, it.end)));
+
 
                         const isBuffer = it.kind === "AI_BLOCK" && it.blockType === "BUFFER";
 

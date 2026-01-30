@@ -58,9 +58,10 @@ export function applyReschedules(base: Appointment[], selected: AiAction[]) {
     if (action.type !== "RESCHEDULE") continue;
     for (const c of action.changes || []) {
       if (!c.newStart || !c.newEnd) continue;
-      const id = Number(c.appointmentId);
-      updated = updated.map((a) => (a.id === id ? { ...a, start: c.newStart!, end: c.newEnd! } : a));
-      changedBy.set(id, action.id);
+      const id = String(c.appointmentId);
+updated = updated.map((a) => (String(a.id) === id ? { ...a, start: c.newStart!, end: c.newEnd! } : a));
+changedBy.set(Number.isFinite(Number(id)) ? Number(id) : (id as any), action.id);
+
     }
   }
 
@@ -170,7 +171,8 @@ export function buildAvailabilityItems(params: {
 }): AgendaItem[] {
   const { items, dayStartIso, dayEndIso, rules } = params;
 
-  const chairs = Math.max(1, Math.min(12, Math.floor(rules.chairsCount || 1)));
+// ✅ Si tu AgendaWeek es 1 columna, la disponibilidad también debe ser 1 “chair lane”
+const chairs = 1;
   const minBookable = Math.max(10, Math.floor(rules.minBookableSlotMin || 30));
   const date = dayStartIso.slice(0, 10);
 
@@ -184,6 +186,8 @@ export function buildAvailabilityItems(params: {
   };
 
   type Interval = { start: string; end: string };
+
+  const USELESS_GAP_MAX_MIN = 15; // ✅ absorbe minutos muertos contiguos hasta 15
 
   function intersectsDayRange(it: AgendaItem) {
     const a0 = parseLocal(it.start).getTime();
@@ -309,7 +313,7 @@ function expandLunchForChair(params: { chairId: number; targetStart: string; tar
     seen.add(k);
     out.push(it);
   }
-const USELESS_GAP_MAX_MIN = 15; // ✅ absorbe minutos muertos contiguos hasta 15
+
 
   // almuerzo por sillón (si no existe ya)
   if (lunchValid) {
