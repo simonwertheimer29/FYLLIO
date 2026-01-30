@@ -839,43 +839,50 @@ const [providerId, setProviderId] = useState<string>("");
 }, [providers]);
 
 
-  const rules = rulesByProvider[providerId] ?? DEFAULT_RULES;
+ const rules = rulesByProvider[providerId] ?? DEFAULT_RULES;
 
-  if (!providerId) {
-  return (
-    <DemoShell section={section} onChangeSection={setSection} headerRight={null}>
-      <div className="p-8 text-slate-600">Cargando profesionales...</div>
-    </DemoShell>
-  );
-}
+// ✅ NO return temprano. Solo una bandera:
+const isProviderReady = !!providerId;
 
+// Estas funciones pueden depender de providerId, pero no se ejecutarán si no hay providerId
+const setRules = (next: RulesState) =>
+  setRulesByProvider((prev) => ({ ...prev, [providerId]: next }));
 
-  const setRules = (next: RulesState) => setRulesByProvider((prev) => ({ ...prev, [providerId]: next }));
-  const resetRulesForCurrent = () => setRulesByProvider((prev) => ({ ...prev, [providerId]: DEFAULT_RULES }));
+const resetRulesForCurrent = () =>
+  setRulesByProvider((prev) => ({ ...prev, [providerId]: DEFAULT_RULES }));
 
-  const validation = useMemo(() => validateRules(rules), [rules]);
-  const [loading, setLoading] = useState(false);
+// ✅ Hooks SIEMPRE se declaran, siempre en el mismo orden:
+const validation = useMemo(() => validateRules(rules), [rules]);
+const [loading, setLoading] = useState(false);
 
-  const [view, setView] = useState<"WEEK" | "LIST">("WEEK");
+const [view, setView] = useState<"WEEK" | "LIST">("WEEK");
+const [anchorDayIso, setAnchorDayIso] = useState<string>("2025-12-11T00:00:00");
+const anchorDayOnly = anchorDayIso.slice(0, 10);
 
-  const [anchorDayIso, setAnchorDayIso] = useState<string>("2025-12-11T00:00:00");
-  const anchorDayOnly = anchorDayIso.slice(0, 10);
+const weekKey = useMemo(() => startOfWeekMondayLocalFromAnchor(anchorDayIso), [anchorDayIso]);
+const nextWeekKey = useMemo(() => startOfWeekMondayLocalFromAnchor(addWeeksAnchor(anchorDayIso, 1)), [anchorDayIso]);
 
-  const weekKey = useMemo(() => startOfWeekMondayLocalFromAnchor(anchorDayIso), [anchorDayIso]);
-  const nextWeekKey = useMemo(() => startOfWeekMondayLocalFromAnchor(addWeeksAnchor(anchorDayIso, 1)), [anchorDayIso]);
+const weekState = useMemo(
+  () => ensureWeekState(storeByProvider, providerId, weekKey),
+  [storeByProvider, providerId, weekKey]
+);
+const nextWeekState = useMemo(
+  () => ensureWeekState(storeByProvider, providerId, nextWeekKey),
+  [storeByProvider, providerId, nextWeekKey]
+);
 
-  const weekState = useMemo(() => ensureWeekState(storeByProvider, providerId, weekKey), [storeByProvider, providerId, weekKey]);
-  const nextWeekState = useMemo(() => ensureWeekState(storeByProvider, providerId, nextWeekKey), [storeByProvider, providerId, nextWeekKey]);
+const items = weekState.items;
+const ai = weekState.ai;
+const actionLogs = weekState.actions;
 
-  const items = weekState.items;
-  const ai = weekState.ai;
-  const actionLogs = weekState.actions;
+const [openItem, setOpenItem] = useState<AgendaItem | null>(null);
+const [actionTab, setActionTab] = useState<ActionStage>("PENDING");
+const [openDays, setOpenDays] = useState<Record<string, boolean>>({});
 
-  const [openItem, setOpenItem] = useState<AgendaItem | null>(null);
-  const [actionTab, setActionTab] = useState<ActionStage>("PENDING");
-  const [openDays, setOpenDays] = useState<Record<string, boolean>>({});
+const daysPerWeek = rules.workSat ? 6 : 5;
 
-  const daysPerWeek = rules.workSat ? 6 : 5;
+// ✅ y ahora renderizas condicionalmente DENTRO del return:
+
 
   /** ✅ NUEVO: estado modal personalización */
   const [blockDraft, setBlockDraft] = useState<BlockDraft>({
