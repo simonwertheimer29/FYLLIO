@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../lib/airtable";
-
+import { DateTime } from "luxon";
 
 
 // Ajusta si tus nombres difieren
@@ -42,37 +42,29 @@ function mondayFromWeekKey(weekKey: string) {
   return weekKey;
 }
 function addDays(dateIso: string, days: number) {
-  const d = new Date(`${dateIso}T00:00:00`);
-  d.setDate(d.getDate() + days);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
+  return DateTime.fromISO(dateIso, { zone: "Europe/Madrid" })
+    .plus({ days })
+    .toISODate();
 }
+
 
 // Convierte a formato sin tz si te llega Date (Airtable a veces lo devuelve como string)
-function toLocalIsoNoTz(value: any) {
+
+
+function toClinicIsoNoTz(value: any, tz = "Europe/Madrid") {
   if (!value) return null;
 
-  // Airtable casi siempre devuelve string ISO (con Z) o Date
-  const d =
-    value instanceof Date
-      ? value
-      : typeof value === "string"
-      ? new Date(value) // <-- esto convierte correctamente si viene con Z
-      : new Date(String(value));
+  const iso =
+    value instanceof Date ? value.toISOString()
+    : typeof value === "string" ? value
+    : String(value);
 
-  if (Number.isNaN(d.getTime())) return null;
+  const dt = DateTime.fromISO(iso, { setZone: true }).setZone(tz);
+  if (!dt.isValid) return null;
 
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mi = String(d.getMinutes()).padStart(2, "0");
-  const ss = String(d.getSeconds()).padStart(2, "0");
-
-  return `${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}`;
+  return dt.toFormat("yyyy-LL-dd'T'HH:mm:ss");
 }
+
 
 
 async function fetchByRecordIds(tableName: TableName, ids: string[]) {
@@ -113,14 +105,19 @@ export async function GET(req: Request) {
 const sundayPlus1 = addDays(monday, 7);     // "YYYY-MM-DD"
 
 const tz = "Europe/Madrid";
-
 const fromLocal = `${monday}T00:00:00`;
 const toLocal = `${sundayPlus1}T00:00:00`;
 
+const from = `DATETIME_PARSE('${fromLocal}', 'YYYY-MM-DDTHH:mm:ss', '${tz}')`;
+const to = `DATETIME_PARSE('${toLocal}', 'YYYY-MM-DDTHH:mm:ss', '${tz}')`;
+
+const startInTz = `SET_TIMEZONE({${FIELDS.inicio}}, '${tz}')`;
+const endInTz = `SET_TIMEZONE({${FIELDS.fin}}, '${tz}')`;
+
 const formula = `AND(
-  SET_TIMEZONE({${FIELDS.inicio}}, '${tz}') >= DATETIME_PARSE('${fromLocal}'),
-  SET_TIMEZONE({${FIELDS.inicio}}, '${tz}') <  DATETIME_PARSE('${toLocal}'),
-  {${FIELDS.profesionalId}}='${staffId}'
+  {${FIELDS.profesionalId}}='${staffId}',
+  ${startInTz} < ${to},
+  ${endInTz} > ${from}
 )`;
 
 
@@ -160,8 +157,9 @@ const formula = `AND(
 
   // 5) map al formato Appointment que tu UI ya usa
   const appointments = citas.map((c) => {
-    const start = toLocalIsoNoTz(c.get(FIELDS.inicio));
-    const end = toLocalIsoNoTz(c.get(FIELDS.fin));
+const start = toClinicIsoNoTz(c.get(FIELDS.inicio), tz);
+const end = toClinicIsoNoTz(c.get(FIELDS.fin), tz);
+
 
     const pIds = (c.get(FIELDS.paciente) as string[] | undefined) ?? [];
     const tIds = (c.get(FIELDS.tratamiento) as string[] | undefined) ?? [];
