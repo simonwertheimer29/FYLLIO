@@ -1033,17 +1033,6 @@ const simulate = async () => {
         [providerId]: { ...prevProv, [weekKey]: { ...curWeek, actions: nextActions } },
       };
     });
-    useEffect(() => {
-  if (section !== "AGENDA") return;
-
-  const ws = ensureWeekState(storeByProvider, providerId, weekKey);
-  const alreadyLoaded = !!ws.items;
-
-  if (!alreadyLoaded) {
-    loadWeekFromDb();
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [section, providerId, weekKey]);
   };
 
   const replaceGapWith = (gapId: string, insert: AgendaItem[]) => {
@@ -1145,6 +1134,18 @@ const res = await fetch(`/api/db/week?week=${weekKey}&staffId=${providerId}`, { 
       rules,
       includeRuleBlocks: true,
     }).items;
+
+    useEffect(() => {
+  if (section !== "AGENDA") return;
+  if (!providerId) return;
+
+  const ws = ensureWeekState(storeByProvider, providerId, weekKey);
+  if (!ws.items) {
+    loadWeekFromDb();
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [section, providerId, weekKey]);
+
 
     const monday = startOfWeekMondayLocalFromAnchor(anchorDayIso);
     const daysCount = rules.workSat ? 6 : 5;
@@ -1798,7 +1799,8 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
           <div className="rounded-3xl border border-slate-200 bg-white p-6">
             <h1 className="text-3xl font-extrabold text-slate-900">Reglas</h1>
             <p className="mt-2 text-slate-600 max-w-3xl">
-              Define cómo opera la clínica para <b>{DEMO_PROVIDERS.find((p) => p.id === providerId)?.name ?? "el dentista"}</b>. Las reglas quedan guardadas por dentista.
+              Define cómo opera la clínica para <b>{providers.find((p) => p.id === providerId)?.name ?? "el dentista"}</b>
+. Las reglas quedan guardadas por dentista.
             </p>
           </div>
 
