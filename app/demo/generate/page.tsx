@@ -1135,18 +1135,6 @@ const res = await fetch(`/api/db/week?week=${weekKey}&staffId=${providerId}`, { 
       includeRuleBlocks: true,
     }).items;
 
-    useEffect(() => {
-  if (section !== "AGENDA") return;
-  if (!providerId) return;
-
-  const ws = ensureWeekState(storeByProvider, providerId, weekKey);
-  if (!ws.items) {
-    loadWeekFromDb();
-  }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [section, providerId, weekKey]);
-
-
     const monday = startOfWeekMondayLocalFromAnchor(anchorDayIso);
     const daysCount = rules.workSat ? 6 : 5;
     const days = Array.from({ length: daysCount }).map((_, i) => addDaysIso(monday, i));
@@ -1204,6 +1192,17 @@ const res = await fetch(`/api/db/week?week=${weekKey}&staffId=${providerId}`, { 
     setLoading(false);
   }
 };
+
+useEffect(() => {
+  if (section !== "AGENDA") return;
+  if (!providerId) return;
+
+  const ws = ensureWeekState(storeByProvider, providerId, weekKey);
+  if (!ws.items) {
+    loadWeekFromDb();
+  }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [section, providerId, weekKey]);
 
 
   const simulateNextWeek = async () => {
