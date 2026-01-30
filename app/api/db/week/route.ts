@@ -54,25 +54,26 @@ function addDays(dateIso: string, days: number) {
 function toLocalIsoNoTz(value: any) {
   if (!value) return null;
 
-  // Si ya es string tipo "2026-02-09T09:30:00.000Z" o "2026-02-09T09:30:00"
-  if (typeof value === "string") {
-    // quita Z si existe
-    return value.replace(".000Z", "").replace("Z", "");
-  }
+  // Airtable casi siempre devuelve string ISO (con Z) o Date
+  const d =
+    value instanceof Date
+      ? value
+      : typeof value === "string"
+      ? new Date(value) // <-- esto convierte correctamente si viene con Z
+      : new Date(String(value));
 
-  // Si es Date
-  if (value instanceof Date) {
-    const yyyy = value.getFullYear();
-    const mm = String(value.getMonth() + 1).padStart(2, "0");
-    const dd = String(value.getDate()).padStart(2, "0");
-    const hh = String(value.getHours()).padStart(2, "0");
-    const mi = String(value.getMinutes()).padStart(2, "0");
-    const ss = String(value.getSeconds()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}`;
-  }
+  if (Number.isNaN(d.getTime())) return null;
 
-  return String(value);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  const ss = String(d.getSeconds()).padStart(2, "0");
+
+  return `${yyyy}-${mm}-${dd}T${hh}:${mi}:${ss}`;
 }
+
 
 async function fetchByRecordIds(tableName: TableName, ids: string[]) {
   if (!ids.length) return [];
@@ -111,15 +112,17 @@ export async function GET(req: Request) {
   const monday = mondayFromWeekKey(week);     // "YYYY-MM-DD"
 const sundayPlus1 = addDays(monday, 7);     // "YYYY-MM-DD"
 
-const fromIso = `${monday}T00:00:00`;
-const toIso = `${sundayPlus1}T00:00:00`;
+const tz = "Europe/Madrid";
 
-// Airtable suele funcionar mejor con SET_TIMEZONE + DATETIME_PARSE
+const fromLocal = `${monday}T00:00:00`;
+const toLocal = `${sundayPlus1}T00:00:00`;
+
 const formula = `AND(
-  IS_AFTER({${FIELDS.inicio}}, DATETIME_PARSE('${fromIso}')),
-  IS_BEFORE({${FIELDS.inicio}}, DATETIME_PARSE('${toIso}')),
+  SET_TIMEZONE({${FIELDS.inicio}}, '${tz}') >= DATETIME_PARSE('${fromLocal}'),
+  SET_TIMEZONE({${FIELDS.inicio}}, '${tz}') <  DATETIME_PARSE('${toLocal}'),
   {${FIELDS.profesionalId}}='${staffId}'
 )`;
+
 
 
 
