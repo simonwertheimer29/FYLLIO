@@ -178,12 +178,26 @@ console.log("[/api/db/week] fetched:", citas.length, "filtered:", citasFiltradas
   const sillonById = new Map(sillones.map((r: any) => [r.id, r]));
 
   // 5) map al formato Appointment que tu UI ya usa
-const appointments = citasFiltradas.map((c) => {
-const startMs = toUtcMillis(c.get(FIELDS.inicio));
-const endMs = toUtcMillis(c.get(FIELDS.fin));
+const appointments = citasFiltradas
+  .map((c) => {
+    const startMs = toUtcMillis(c.get(FIELDS.inicio));
+    const endMs = toUtcMillis(c.get(FIELDS.fin));
 
+    const zone = "Europe/Madrid";
 
+    const start =
+      typeof startMs === "number"
+        ? DateTime.fromMillis(startMs).setZone(zone).toFormat("yyyy-LL-dd'T'HH:mm:ss")
+        : null;
 
+    const end =
+      typeof endMs === "number"
+        ? DateTime.fromMillis(endMs).setZone(zone).toFormat("yyyy-LL-dd'T'HH:mm:ss")
+        : null;
+
+    if (!start || !end) return null;
+
+    // ✅ expand links
     const pIds = (c.get(FIELDS.paciente) as string[] | undefined) ?? [];
     const tIds = (c.get(FIELDS.tratamiento) as string[] | undefined) ?? [];
     const sIds = (c.get(FIELDS.sillon) as string[] | undefined) ?? [];
@@ -195,27 +209,26 @@ const endMs = toUtcMillis(c.get(FIELDS.fin));
     const patientName = (pRec?.get(FIELDS.pacienteNombre) as string) ?? "Paciente";
     const type = (tRec?.get(FIELDS.tratCategoria) as string) ?? "Tratamiento";
     const chairIdRaw = (sRec?.get(FIELDS.sillonId) as string) ?? "CHR_01";
-
-    // tu UI usa chairId number; convertimos CHR_02 -> 2
-const chairId = Number(chairIdRaw.replace("CHR_", "")) || 1;
-const chairLabel = chairIdRaw; // "CHR_02"
-
+    const chairId = Number(String(chairIdRaw).replace("CHR_", "")) || 1;
 
     return {
       id: (c.get(FIELDS.citaId) as string) ?? c.id,
+      start,
+      end,
       startMs,
       endMs,
-      tz: "Europe/Madrid",
+      tz: zone,
       patientName,
       type,
       chairId,
+      chairLabel: chairIdRaw,
       providerId: staffId,
-        chairLabel,
-      // si tu tipo Appointment lleva más campos, agrégalos aquí
     };
-  });
+  })
+  .filter(Boolean);
 
-  return NextResponse.json({ week, staffId, appointments });
+return NextResponse.json({ week, staffId, appointments });
+
   } catch (err: any) {
     console.error("[/api/db/week] ERROR:", err);
     return NextResponse.json(
