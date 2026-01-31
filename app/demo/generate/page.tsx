@@ -825,6 +825,7 @@ const [providerId, setProviderId] = useState<string>("");
 
   const [storeByProvider, setStoreByProvider] = useState<ProviderWeekStore>({});
   const [rulesByProvider, setRulesByProvider] = useState<Record<string, RulesState>>({});
+  const [dbRulesByProvider, setDbRulesByProvider] = useState<Record<string, Partial<RulesState>>>({});
 
   useEffect(() => {
   if (!providers.length) return;
@@ -840,6 +841,10 @@ const [providerId, setProviderId] = useState<string>("");
 
 
  const rules = rulesByProvider[providerId] ?? DEFAULT_RULES;
+ const rulesEffective = (dbRulesByProvider[providerId]
+  ? ({ ...rules, ...dbRulesByProvider[providerId] } as RulesState)
+  : rules);
+
 
 // ✅ NO return temprano. Solo una bandera:
 const isProviderReady = !!providerId;
@@ -950,20 +955,23 @@ const simulate = async () => {
     const days = Array.from({ length: daysCount }).map((_, i) => addDaysIso(monday, i));
 
     const weeklyAvailRaw: AgendaItem[] = [];
-    for (const d of days) {
-      const dayStartIso = `${d}T${rules.dayStartTime}:00`;
-      const dayEndIso = `${d}T${rules.dayEndTime}:00`;
-      const itemsForDay = base.filter((x) => x.start.slice(0, 10) === d);
+for (const d of days) {
+  const dayStartIso = `${d}T${rules.dayStartTime}:00`;
+  const dayEndIso   = `${d}T${rules.dayEndTime}:00`;
 
-      const avail = buildAvailabilityItems({
-        items: itemsForDay,
-        dayStartIso,
-        dayEndIso,
-        rules,
-      });
+  const itemsForDay = base.filter((x) => x.start.slice(0, 10) === d);
 
-      weeklyAvailRaw.push(...avail);
-    }
+  const avail = buildAvailabilityItems({
+    items: itemsForDay,
+    dayStartIso,
+    dayEndIso,
+    rules,
+  });
+
+  weeklyAvailRaw.push(...avail);
+}
+
+
 
     const weeklyAvail = enrichAvailabilityWithAiPanels({
       availability: weeklyAvailRaw,
@@ -1137,7 +1145,27 @@ const res = await fetch(`/api/db/week?week=${weekKey}&staffId=${providerId}`, { 
       throw new Error(`Error cargando agenda desde BD (${res.status}): ${txt}`);
     }
 
-    const { appointments } = await res.json();
+    const data = await res.json();
+const appointments = data.appointments;
+const schedule = data.schedule;
+
+// ✅ rules efectivas para renderizar agenda desde BD (horario real del staff)
+const hasLunch = !!schedule?.lunchStart && !!schedule?.lunchEnd;
+
+const rulesDb: RulesState = {
+  ...rules, // mantiene buffers, treatments, etc
+  dayStartTime: String(schedule?.workStart ?? rules.dayStartTime ?? "08:30").trim(),
+  dayEndTime: String(schedule?.workEnd ?? rules.dayEndTime ?? "19:00").trim(),
+
+  enableLunch: hasLunch,
+  lunchStartTime: hasLunch ? String(schedule.lunchStart).trim() : "",
+  lunchEndTime: hasLunch ? String(schedule.lunchEnd).trim() : "",
+};
+
+// ✅ (2.2) Guardar reglas BD para que el render use horario real
+setDbRulesByProvider((prev) => ({ ...prev, [providerId]: rulesDb }));
+
+
 
 // ✅ BD = agenda real, NO compactar/mover
 const baseAppointments = (appointments ?? []).slice().sort(
@@ -1147,29 +1175,33 @@ const baseAppointments = (appointments ?? []).slice().sort(
 const base = buildAgendaItems({
   baseAppointments,
   selectedReschedules: [],
-  rules,
+  rules: rulesDb,
   includeRuleBlocks: true,
 }).items;
 
+
     const monday = startOfWeekMondayLocalFromAnchor(anchorDayIso);
-    const daysCount = rules.workSat ? 6 : 5;
+    const daysCount = rulesDb.workSat ? 6 : 5;
+
     const days = Array.from({ length: daysCount }).map((_, i) => addDaysIso(monday, i));
 
     const weeklyAvailRaw: AgendaItem[] = [];
-    for (const d of days) {
-      const dayStartIso = `${d}T${rules.dayStartTime}:00`;
-      const dayEndIso = `${d}T${rules.dayEndTime}:00`;
-      const itemsForDay = base.filter((x) => x.start.slice(0, 10) === d);
+for (const d of days) {
+  const dayStartIso = `${d}T${rulesDb.dayStartTime}:00`;
+  const dayEndIso   = `${d}T${rulesDb.dayEndTime}:00`;
 
-      const avail = buildAvailabilityItems({
-        items: itemsForDay,
-        dayStartIso,
-        dayEndIso,
-        rules,
-      });
+  const itemsForDay = base.filter((x) => x.start.slice(0, 10) === d);
 
-      weeklyAvailRaw.push(...avail);
-    }
+  const avail = buildAvailabilityItems({
+    items: itemsForDay,
+    dayStartIso,
+    dayEndIso,
+    rules: rulesDb,
+  });
+
+  weeklyAvailRaw.push(...avail);
+}
+
 
     const weeklyAvail = enrichAvailabilityWithAiPanels({
       availability: weeklyAvailRaw,
@@ -1219,6 +1251,18 @@ useEffect(() => {
   }
   // eslint-disable-next-line react-hooks/exhaustive-deps
 }, [section, providerId, weekKey]);
+
+useEffect(() => {
+  if (!providerId) return;
+
+  // al cambiar provider o week, limpiamos el horario BD para evitar “arrastre”
+  setDbRulesByProvider((prev) => {
+    const next = { ...prev };
+    delete next[providerId];
+    return next;
+  });
+}, [providerId, weekKey]);
+
 
 
   const simulateNextWeek = async () => {
@@ -1846,7 +1890,7 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
             view === "WEEK" ? (
               <AgendaWeek
                 items={items}
-                rules={rules}
+                rules={rulesEffective}
                 anchorDayIso={anchorDayIso}
                 onItemOpen={(it) => setOpenItem(it)}
                 onItemChange={(next) => {
@@ -1857,9 +1901,9 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
             ) : (
               <AgendaTimeline
   items={items}
-  rules={rules}
-  dayStartIso={`${anchorDayOnly}T${rules.dayStartTime}:00`}
-  dayEndIso={`${anchorDayOnly}T${rules.dayEndTime}:00`}
+  rules={rulesEffective}
+  dayStartIso={`${anchorDayOnly}T${rulesEffective.dayStartTime}:00`}
+  dayEndIso={`${anchorDayOnly}T${rulesEffective.dayEndTime}:00`}
   onItemOpen={(it) => setOpenItem(it)}
 />
 

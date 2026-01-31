@@ -21,6 +21,12 @@ const FIELDS = {
   pacienteNombre: "Nombre",
   tratCategoria: "Categoria",
   sillonId: "Sillón ID",
+
+    // ✅ horarios en Staff (según tu screenshot)
+  staffHorario: "Horario laboral",
+  staffAlmuerzoInicio: "Almuerzo_inicio",
+  staffAlmuerzoFin: "Almuerzo_fin",
+
 };
 
 
@@ -62,6 +68,56 @@ function toUtcMillis(value: any) {
   return dt.isValid ? dt.toMillis() : null;
 }
 
+function timeToHHMM(value: any): string | null {
+  if (!value) return null;
+
+  // Airtable puede devolver Date, o string ISO, o "13:30"
+  if (value instanceof Date) {
+    const hh = String(value.getHours()).padStart(2, "0");
+    const mm = String(value.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+  }
+
+  const s = String(value).trim();
+  if (!s) return null;
+
+  // Si viene "YYYY-MM-DDTHH:mm:ss..." -> extraemos HH:mm
+  if (s.length >= 16 && s.includes("T")) {
+    const hhmm = s.slice(11, 16);
+    if (/^\d{2}:\d{2}$/.test(hhmm)) return hhmm;
+  }
+
+  // Si viene "13:30"
+  if (/^\d{2}:\d{2}$/.test(s)) return s;
+
+  return null;
+}
+
+function parseWorkRange(raw: any): { start: string; end: string } | null {
+  const s = String(raw ?? "").trim();
+  // acepta "08:30-19:00" o "08:30 - 19:00"
+  const m = /^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/.exec(s);
+  if (!m) return null;
+  return { start: m[1], end: m[2] };
+}
+
+function getStaffScheduleFromRecord(staffRec: any) {
+  const workParsed = parseWorkRange(staffRec.get(FIELDS.staffHorario));
+
+  const lunchStart = timeToHHMM(staffRec.get(FIELDS.staffAlmuerzoInicio));
+  const lunchEnd = timeToHHMM(staffRec.get(FIELDS.staffAlmuerzoFin));
+
+  // Fallback demo si el staff no tiene nada cargado
+  const workStart = workParsed?.start ?? "08:30";
+  const workEnd = workParsed?.end ?? "19:00";
+
+  return {
+    workStart,      // "08:30"
+    workEnd,        // "19:00"
+    lunchStart,     // "13:30" | null
+    lunchEnd,       // "14:30" | null
+  };
+}
 
 
 
@@ -98,6 +154,7 @@ export async function GET(req: Request) {
   if (!staffRec) {
     return NextResponse.json({ error: `Staff not found for ${staffId}` }, { status: 404 });
   }
+  const schedule = getStaffScheduleFromRecord(staffRec);
 
   const monday = mondayFromWeekKey(week);     // "YYYY-MM-DD"
 const sundayPlus1 = addDays(monday, 7);     // "YYYY-MM-DD"
@@ -156,7 +213,7 @@ console.log("[/api/db/week] fetched:", citas.length, "filtered:", citasFiltradas
   const tratIds = new Set<string>();
   const sillonIds = new Set<string>();
 
-  for (const c of citas) {
+  for (const c of citasFiltradas) {
     const p = (c.get(FIELDS.paciente) as string[] | undefined) ?? [];
     const t = (c.get(FIELDS.tratamiento) as string[] | undefined) ?? [];
     const s = (c.get(FIELDS.sillon) as string[] | undefined) ?? [];
@@ -235,7 +292,8 @@ const appointments = citasFiltradas
   })
   .filter(Boolean);
 
-return NextResponse.json({ week, staffId, appointments });
+return NextResponse.json({ week, staffId, schedule, appointments });
+
 
   } catch (err: any) {
     console.error("[/api/db/week] ERROR:", err);

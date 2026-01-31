@@ -15,6 +15,49 @@ type TableName = (typeof TABLES)[keyof typeof TABLES];
 /**
  * Helpers
  */
+
+function getStaffSchedule(staff: any, day: string) {
+  const rawWork = String(staff.get("Horario laboral") ?? "").trim();
+  const lunchStartRaw = String(staff.get("Almuerzo_inicio") ?? "").trim();
+  const lunchEndRaw = String(staff.get("Almuerzo_fin") ?? "").trim();
+
+  // defaults
+  let workStartHHMM = "08:30";
+  let workEndHHMM = "19:00";
+
+  // acepta "08:30-19:00" o "08:30 - 19:00"
+  const m = /^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/.exec(rawWork);
+  if (m) {
+    workStartHHMM = m[1];
+    workEndHHMM = m[2];
+  }
+
+  return {
+    workStart: `${day}T${workStartHHMM}:00`,
+    workEnd: `${day}T${workEndHHMM}:00`,
+    lunchStart: lunchStartRaw ? `${day}T${lunchStartRaw}:00` : null,
+    lunchEnd: lunchEndRaw ? `${day}T${lunchEndRaw}:00` : null,
+  };
+}
+
+
+
+function overlaps(aStart: string, aEnd: string, bStart: string, bEnd: string) {
+  const a0 = new Date(aStart).getTime();
+  const a1 = new Date(aEnd).getTime();
+  const b0 = new Date(bStart).getTime();
+  const b1 = new Date(bEnd).getTime();
+  return a1 > b0 && a0 < b1;
+}
+
+function inside(start: string, end: string, min: string, max: string) {
+  return (
+    new Date(start).getTime() >= new Date(min).getTime() &&
+    new Date(end).getTime()   <= new Date(max).getTime()
+  );
+}
+
+
 function pad2(n: number) {
   return String(n).padStart(2, "0");
 }
@@ -179,6 +222,19 @@ const FIELDS = {
   tratBuffer: "Buffer despues",
 } as const;
 
+const WORK_START = "08:30";
+const WORK_END   = "19:00";
+const LUNCH_START = "13:30";
+const LUNCH_END   = "14:30";
+
+const seededAppointments: {
+  start: string;
+  end: string;
+  sillonId: string;
+  profesionalId: string;
+}[] = [];
+
+
 /**
  * MAIN
  */
@@ -329,63 +385,122 @@ async function seed() {
   const toUpdate: any[] = [];
 
   for (let i = 0; i < 80; i++) {
-    const citaId = `APT_${pad2(i + 1)}`;
-    const existing = await findByField(TABLES.appointments as TableName, FIELDS.citaId, citaId);
+  const citaId = `APT_${pad2(i + 1)}`;
+  const existing = await findByField(TABLES.appointments as TableName, FIELDS.citaId, citaId);
 
-    const start = new Date(today);
-    start.setDate(today.getDate() + randInt(0, 14));
-    start.setHours(8 + randInt(0, 10), pick([0, 10, 20, 30, 40, 50] as const));
+  // 1) primero elige cosas que NO dependen del slot
+  const estado = pick(["Agendado", "Confirmado"] as const);
+  if (!CITA_ESTADOS.includes(estado as any)) throw new Error(`Estado inválido: ${estado}`);
+
+  const origen = pick(CITA_ORIGENES);
+
+  const paciente = pick(patients);
+  const tratamiento = pick(treatments);
+
+  // 2) crea nextFields con lo que ya sabes (sin start/end todavía)
+  const nextFields: Record<string, any> = {
+    [FIELDS.citaNombre]: "Cita demo",
+    [FIELDS.citaClinica]: [clinic.id],
+
+    // LINKS (estos sí puedes decidirlos ya)
+    [FIELDS.citaPaciente]: [paciente.id],
+    [FIELDS.citaTratamiento]: [tratamiento.id],
+
+    // SELECTS
+    [FIELDS.citaEstado]: estado,
+    [FIELDS.citaOrigen]: origen,
+  };
+
+  // 3) ahora busca un slot válido (esto rellena start/end + profesional + sillón)
+  let placed = false;
+
+  for (let tries = 0; tries < 40 && !placed; tries++) {
+    const dayOffset = randInt(0, 14);
+    const date = new Date(today);
+    date.setDate(today.getDate() + dayOffset);
+
+    const hh = randInt(8, 18);
+    const mm = pick([0, 10, 20, 30, 40, 50]);
+
+    const start = new Date(date);
+    start.setHours(hh, mm, 0, 0);
 
     const end = new Date(start);
     end.setMinutes(start.getMinutes() + 30);
 
-    const estado = pick(["Agendado", "Confirmado"] as const);
-    if (!CITA_ESTADOS.includes(estado as any)) throw new Error(`Estado inválido: ${estado}`);
+   const startIso = isoLocal(start);
+const endIso = isoLocal(end);
 
-    const origen = pick(CITA_ORIGENES);
+const day = startIso.slice(0, 10);
 
-    const paciente = pick(patients);
-    const tratamiento = pick(treatments);
-    const profesional = pick(profesionales);
-    const sillon = pick(sillones);
+// Elegimos recursos UNA sola vez
+const profesional = pick(profesionales);
+const sillon = pick(sillones);
 
-    const nextFields = {
-      [FIELDS.citaNombre]: "Cita demo",
-      [FIELDS.citaClinica]: [clinic.id],
+// Horario del profesional desde Airtable (con fallback si está vacío)
+const schedule = getStaffSchedule(profesional, day);
 
-      // LINKS
-      [FIELDS.citaPaciente]: [paciente.id],
-      [FIELDS.citaTratamiento]: [tratamiento.id],
-      [FIELDS.citaProfesional]: [profesional.id],
-      [FIELDS.citaSillon]: [sillon.id],
+// ❌ fuera del horario laboral del profesional
+if (!inside(startIso, endIso, schedule.workStart, schedule.workEnd)) continue;
 
-      // FECHAS
-      [FIELDS.citaInicio]: isoLocal(start),
-      [FIELDS.citaFinal]: isoLocal(end),
+// ❌ dentro del almuerzo del profesional (si tiene)
+if (
+  schedule.lunchStart &&
+  schedule.lunchEnd &&
+  overlaps(startIso, endIso, schedule.lunchStart, schedule.lunchEnd)
+) continue;
 
-      // SELECTS
-      [FIELDS.citaEstado]: estado,
-      [FIELDS.citaOrigen]: origen,
-    };
+// ❌ solape con algo ya creado (por sillón o por profesional)
+const conflict = seededAppointments.some((a) =>
+  (a.sillonId === sillon.id || a.profesionalId === profesional.id) &&
+  overlaps(startIso, endIso, a.start, a.end)
+);
 
-    if (!existing) {
-      toCreate.push({
-        fields: {
-          [FIELDS.citaId]: citaId,
-          ...nextFields,
-        },
-      });
-      continue;
-    }
+if (conflict) continue;
 
-    const patch = mergeOnlyEmpty((existing as any).fields, nextFields, FORCE_OVERWRITE);
-    if (Object.keys(patch).length === 0) continue;
+// ✅ válido: guardamos la reserva en memoria
+seededAppointments.push({
+  start: startIso,
+  end: endIso,
+  sillonId: sillon.id,
+  profesionalId: profesional.id,
+});
 
-    toUpdate.push({
-      id: existing.id,
-      fields: patch,
-    });
+// ✅ llenamos nextFields para esta cita
+nextFields[FIELDS.citaInicio] = startIso;
+nextFields[FIELDS.citaFinal] = endIso;
+nextFields[FIELDS.citaProfesional] = [profesional.id];
+nextFields[FIELDS.citaSillon] = [sillon.id];
+
+placed = true;
+
   }
+
+  if (!placed) {
+    console.warn(`⚠️ No se pudo colocar la cita ${citaId}`);
+    continue;
+  }
+
+  // 4) upsert/create como ya hacías
+  if (!existing) {
+    toCreate.push({
+      fields: {
+        [FIELDS.citaId]: citaId,
+        ...nextFields,
+      },
+    });
+    continue;
+  }
+
+  const patch = mergeOnlyEmpty((existing as any).fields, nextFields, FORCE_OVERWRITE);
+  if (Object.keys(patch).length === 0) continue;
+
+  toUpdate.push({
+    id: existing.id,
+    fields: patch,
+  });
+}
+
 
   for (const group of chunk(toCreate, 10)) {
     if (group.length) await base(TABLES.appointments as TableName).create(group);

@@ -470,8 +470,9 @@ export default function AgendaWeek({ items, rules, anchorDayIso, onItemOpen }: P
   // ✅ 1 sola columna (no por sillón)
   const chairs = 1;
 
-  const dayStartMin = hhmmToMin(rules.dayStartTime);
-  const dayEndMin = hhmmToMin(rules.dayEndTime);
+  const dayStartMin = hhmmToMin("05:00")!;
+const dayEndMin = hhmmToMin("23:00")!;
+
   const totalMin = Math.max(60, dayEndMin - dayStartMin);
 
   const PX_PER_MIN = 2;
