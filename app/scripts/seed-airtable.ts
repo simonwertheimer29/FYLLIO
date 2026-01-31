@@ -16,10 +16,18 @@ type TableName = (typeof TABLES)[keyof typeof TABLES];
  * Helpers
  */
 
+function isoForDayAt(day: string, hhmm: string) {
+  // day = "YYYY-MM-DD", hhmm = "HH:MM"
+  return `${day}T${hhmm}:00.000Z`;
+}
+
+
 function getStaffSchedule(staff: any, day: string) {
   const rawWork = String(staff.get("Horario laboral") ?? "").trim();
-  const lunchStartRaw = String(staff.get("Almuerzo_inicio") ?? "").trim();
-  const lunchEndRaw = String(staff.get("Almuerzo_fin") ?? "").trim();
+
+  // En Airtable estos campos son Date/DateTime, te llega algo parseable por new Date(...)
+  const lunchStartVal = staff.get("Almuerzo_inicio");
+  const lunchEndVal = staff.get("Almuerzo_fin");
 
   // defaults
   let workStartHHMM = "08:30";
@@ -35,10 +43,11 @@ function getStaffSchedule(staff: any, day: string) {
   return {
     workStart: `${day}T${workStartHHMM}:00`,
     workEnd: `${day}T${workEndHHMM}:00`,
-    lunchStart: lunchStartRaw ? `${day}T${lunchStartRaw}:00` : null,
-    lunchEnd: lunchEndRaw ? `${day}T${lunchEndRaw}:00` : null,
+    lunchStart: lunchStartVal ? new Date(lunchStartVal as any).toISOString() : null,
+    lunchEnd: lunchEndVal ? new Date(lunchEndVal as any).toISOString() : null,
   };
 }
+
 
 
 
@@ -219,7 +228,8 @@ const FIELDS = {
   // Tratamientos
   tratId: "Tratamientos ID",
   tratCategoria: "Categoria",
-  tratBuffer: "Buffer despues",
+  tratBufferAntes: "Buffer antes",
+  tratBufferDespues: "Buffer despues",
 } as const;
 
 const WORK_START = "08:30";
@@ -292,22 +302,33 @@ async function seed() {
   ] as const;
 
   for (const s of staffRows) {
-    if (!STAFF_ROLES.includes(s.rol as any)) throw new Error(`Rol inválido: ${s.rol}`);
+  if (!STAFF_ROLES.includes(s.rol as any)) throw new Error(`Rol inválido: ${s.rol}`);
 
-    await upsertByField({
-      table: TABLES.staff as TableName,
-      uniqueField: FIELDS.staffId,
-      uniqueValue: s.id,
-      fields: {
-        [FIELDS.staffNombre]: s.nombre,
-        [FIELDS.citaClinica]: [clinic.id],
-        [FIELDS.staffRol]: s.rol,
-        [FIELDS.staffActivo]: true,
-      },
-      force: FORCE_OVERWRITE,
-    });
-  }
-  console.log("✔ Staff OK");
+  await upsertByField({
+    table: TABLES.staff as TableName,
+    uniqueField: FIELDS.staffId,
+    uniqueValue: s.id,
+    fields: {
+      [FIELDS.staffNombre]: s.nombre,
+      [FIELDS.citaClinica]: [clinic.id],
+      [FIELDS.staffRol]: s.rol,
+      [FIELDS.staffActivo]: true,
+
+      // ✅ HORARIOS (esto es lo que te falta)
+      ["Horario laboral"]: `${WORK_START}-${WORK_END}`,
+
+      // OJO: en Airtable se ven con icono de calendario.
+      // Si son campos "Time", usa "13:30" / "14:30".
+      // Si son "Date", usa ISO completo. (más abajo te digo cómo elegir)
+      // como Airtable quiere Date/DateTime, usamos ISO completo
+["Almuerzo_inicio"]: isoForDayAt("2026-01-01", LUNCH_START),
+["Almuerzo_fin"]: isoForDayAt("2026-01-01", LUNCH_END),
+
+    },
+    force: FORCE_OVERWRITE,
+  });
+}
+console.log("✔ Staff OK (con horarios)");
 
   /**
    * 4) PACIENTES (UPSERT en batch update/create)
@@ -337,21 +358,36 @@ async function seed() {
    * 5) TRATAMIENTOS (UPSERT)
    * Importante: Categoria debe ser una de TRAT_CATEGORIAS
    */
-  for (let i = 1; i <= 6; i++) {
-    const tid = `SRV_${pad2(i)}`;
+ /**
+ * 5) TRATAMIENTOS (UPSERT) - sin repetir categorías
+ */
+const uniqueCats = [...TRAT_CATEGORIAS];
 
-    await upsertByField({
-      table: TABLES.treatments as TableName,
-      uniqueField: FIELDS.tratId,
-      uniqueValue: tid,
-      fields: {
-        [FIELDS.tratBuffer]: 10,
-        [FIELDS.tratCategoria]: pick(TRAT_CATEGORIAS),
-      },
-      force: FORCE_OVERWRITE,
-    });
-  }
-  console.log("✔ Tratamientos OK");
+// shuffle simple
+for (let i = uniqueCats.length - 1; i > 0; i--) {
+  const j = Math.floor(Math.random() * (i + 1));
+  [uniqueCats[i], uniqueCats[j]] = [uniqueCats[j], uniqueCats[i]];
+}
+
+for (let i = 1; i <= 6; i++) {
+  const tid = `SRV_${pad2(i)}`;
+  const cat = uniqueCats[i - 1] ?? TRAT_CATEGORIAS[0];
+
+  await upsertByField({
+    table: TABLES.treatments as TableName,
+    uniqueField: FIELDS.tratId,
+    uniqueValue: tid,
+   fields: {
+  [FIELDS.tratCategoria]: cat,
+  [FIELDS.tratBufferAntes]: 0,
+  [FIELDS.tratBufferDespues]: 10,
+},
+
+    force: FORCE_OVERWRITE,
+  });
+}
+console.log("✔ Tratamientos OK (sin repetir)");
+
 
   /**
    * 6) CARGAR IDS para links
