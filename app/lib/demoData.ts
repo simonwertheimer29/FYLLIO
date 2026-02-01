@@ -9,8 +9,8 @@ export const APPOINTMENTS: Appointment[] = [
 export const DEFAULT_RULES: RulesState = {
   dayStartTime: "08:30",
   dayEndTime: "19:00",
-    lunchStartTime: "13:30",
-  lunchEndTime: "14:30",
+    lunchStartTime: "",
+  lunchEndTime: "",
   // enableLunch: true, // si lo añadiste
 
   minBookableSlotMin: 30,

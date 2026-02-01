@@ -283,13 +283,17 @@ function expandLunchForChair(params: { chairId: number; targetStart: string; tar
 
   // ✅ Almuerzo como BUSY
   const lunchEnabled = (rules as any).enableLunch !== false; // default true si no existe
-const lunchStart = lunchEnabled && (rules as any).lunchStartTime
-  ? `${date}T${String((rules as any).lunchStartTime).trim()}:00`
-  : null;
+// ✅ Almuerzo como BUSY (SOLO si enableLunch está ON)
+const lunchStart =
+  rules.enableLunch && (rules as any).lunchStartTime
+    ? `${date}T${String((rules as any).lunchStartTime).trim()}:00`
+    : null;
 
-const lunchEnd = lunchEnabled && (rules as any).lunchEndTime
-  ? `${date}T${String((rules as any).lunchEndTime).trim()}:00`
-  : null;
+const lunchEnd =
+  rules.enableLunch && (rules as any).lunchEndTime
+    ? `${date}T${String((rules as any).lunchEndTime).trim()}:00`
+    : null;
+
 
 
   const lunchValid =

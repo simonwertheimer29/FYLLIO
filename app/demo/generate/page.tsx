@@ -1155,7 +1155,7 @@ const hasLunch = !!schedule?.lunchStart && !!schedule?.lunchEnd;
 function toHHMM(value: any): string {
   if (!value) return "";
 
-  // Date real (Airtable suele devolver esto)
+  // Date real
   if (value instanceof Date) {
     const hh = String(value.getHours()).padStart(2, "0");
     const mm = String(value.getMinutes()).padStart(2, "0");
@@ -1165,11 +1165,24 @@ function toHHMM(value: any): string {
   if (typeof value === "string") {
     const s = value.trim();
 
-    // HH:MM
+    // 1) ISO con timezone (Z o +HH:MM) -> convertir con Date SIEMPRE (evita el bug de 1h)
+    const looksTzIso =
+      /Z$/i.test(s) ||
+      /[+-]\d{2}:\d{2}$/i.test(s) ||
+      (s.includes("T") && (s.includes("Z") || s.includes("+") || s.includes("-")));
+
+    if (looksTzIso) {
+      const d = new Date(s);
+      if (!Number.isNaN(d.getTime())) {
+        return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+      }
+    }
+
+    // 2) HH:MM
     const m1 = s.match(/^(\d{1,2}):(\d{2})$/);
     if (m1) return `${m1[1].padStart(2, "0")}:${m1[2]}`;
 
-    // h:mm am/pm  (3:30pm)
+    // 3) h:mm am/pm  (3:30pm)
     const m2 = s.match(/^(\d{1,2}):(\d{2})\s*([ap]m)$/i);
     if (m2) {
       let hh = Number(m2[1]);
@@ -1180,19 +1193,20 @@ function toHHMM(value: any): string {
       return `${String(hh).padStart(2, "0")}:${mm}`;
     }
 
-    // Fecha con hora dentro → extrae HH:MM
-    const m3 = s.match(/(\d{1,2}):(\d{2})/);
-    if (m3) return `${m3[1].padStart(2, "0")}:${m3[2]}`;
-
-    // último intento
+    // 4) Si es una fecha parseable sin timezone explícito
     const d = new Date(s);
     if (!Number.isNaN(d.getTime())) {
       return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     }
+
+    // 5) fallback: extraer HH:MM (solo si no era ISO con TZ)
+    const m3 = s.match(/(\d{1,2}):(\d{2})/);
+    if (m3) return `${m3[1].padStart(2, "0")}:${m3[2]}`;
   }
 
   return "";
 }
+
 
 
 console.log("RAW lunchStart:", schedule.lunchStart);
