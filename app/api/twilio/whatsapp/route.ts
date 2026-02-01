@@ -70,7 +70,7 @@ export async function POST(req: Request) {
     const clinicId = process.env.DEMO_CLINIC_ID || "DEMO_CLINIC";
     const clinicRecordId = process.env.DEMO_CLINIC_RECORD_ID; // opcional pero ideal
     const rules = getDemoRules(); // 👇 abajo
-    const treatmentType = "revision";
+    const treatmentType = "Revisión";
 
     // 2) Preferencias MUY básicas a partir del texto
 const preferences = parsePreferences(text); // ✅ tipado, sin any

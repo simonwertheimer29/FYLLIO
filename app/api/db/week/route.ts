@@ -93,10 +93,13 @@ function timeToHHMM(value: any, zone = "Europe/Madrid"): string | null {
 
 function parseWorkRange(raw: any): { start: string; end: string } | null {
   const s = String(raw ?? "").trim();
-  // acepta "08:30-19:00" o "08:30 - 19:00"
-  const m = /^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/.exec(s);
+
+  // acepta: "08:30-19:00", "08:30 - 19:00", "08:30–19:00", "08:30 — 19:00"
+  const m = /^(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})$/.exec(s);
   if (!m) return null;
-  return { start: m[1], end: m[2] };
+
+  const hhmm = (x: string) => x.trim().padStart(5, "0"); // "8:30" -> "08:30"
+  return { start: hhmm(m[1]), end: hhmm(m[2]) };
 }
 
 function getStaffScheduleFromRecord(staffRec: any) {
@@ -176,8 +179,15 @@ const to = `DATETIME_PARSE('${toLocal}', 'YYYY-MM-DDTHH:mm:ss', '${tz}')`;
 const startInTz = `SET_TIMEZONE({${FIELDS.inicio}}, '${tz}')`;
 const endInTz = `SET_TIMEZONE({${FIELDS.fin}}, '${tz}')`;
 
-const formula = `{${FIELDS.profesionalId}}='${staffId}'`;
+const formula =
+  `AND(` +
+    `{${FIELDS.profesionalId}}='${staffId}',` +
+    `IS_AFTER(${startInTz}, ${from}),` +
+    `IS_BEFORE(${startInTz}, ${to})` +
+  `)`;
 
+
+console.log("[week] formula:", formula);
 
 
 
@@ -185,8 +195,9 @@ const formula = `{${FIELDS.profesionalId}}='${staffId}'`;
   console.log("[/api/db/week] staffId:", staffId, "staffRecId:", staffRec.id, "week:", week, "formula:", formula);
 
   const citas = await base(TABLES.appointments as TableName)
-    .select({ filterByFormula: formula, maxRecords: 500 })
-    .firstPage();
+  .select({ filterByFormula: formula, maxRecords: 500 })
+  .firstPage();
+
 
     const weekStart = DateTime.fromISO(monday, { zone: tz }).startOf("day");
 const weekEnd = weekStart.plus({ days: 7 });

@@ -99,6 +99,19 @@ export function computeAvailableSlots(params: {
   return slots;
 }
 
+function todayIsoLocal() {
+  const d = new Date();
+  const pad2 = (n:number) => String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+
+function addDaysIso(baseIso: string, days: number) {
+  const d = new Date(`${baseIso}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  const pad2 = (n:number) => String(n).padStart(2,"0");
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+}
+
 export async function getAvailableSlots(
   input: GetAvailableSlotsInput,
   listAppointments: (dayIso: string) => Promise<Appointment[]>
@@ -110,31 +123,20 @@ export async function getAvailableSlots(
     ? [preferences.chairId]
     : Array.from({ length: chairs }, (_, i) => i + 1);
 
-  // helper date
-  const pad2 = (n: number) => String(n).padStart(2, "0");
-  const toDateIso = (d: Date) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-  const addDaysIso = (base: Date, days: number) => {
-    const d = new Date(base.getTime() + days * 24 * 60 * 60 * 1000);
-    return toDateIso(d);
-  };
+  const daysToCheck = 10; // tunable
+  const startDay = preferences.dateIso ?? todayIsoLocal();
 
-  const startDayIso = preferences.dateIso ?? toDateIso(new Date());
-
-  // Si no vino dateIso, buscamos hasta 7 días (o lo que quieras)
-  const daysToSearch = preferences.dateIso ? 1 : 7;
-
-  for (let i = 0; i < daysToSearch; i++) {
-    const dayIso = preferences.dateIso ? startDayIso : addDaysIso(new Date(), i);
+  for (let i = 0; i < daysToCheck; i++) {
+    const dayIso = addDaysIso(startDay, i);
 
     const appointments = await listAppointments(dayIso);
 
-    const all = chairIds.flatMap((chairId) =>
+    const slots = chairIds.flatMap((chairId) =>
       computeAvailableSlots({ dayIso, rules, treatmentType, appointments, chairId })
     );
 
-    if (all.length) return all;
+    if (slots.length) return slots;
   }
 
   return [];
 }
-
