@@ -179,15 +179,8 @@ const to = `DATETIME_PARSE('${toLocal}', 'YYYY-MM-DDTHH:mm:ss', '${tz}')`;
 const startInTz = `SET_TIMEZONE({${FIELDS.inicio}}, '${tz}')`;
 const endInTz = `SET_TIMEZONE({${FIELDS.fin}}, '${tz}')`;
 
-const formula =
-  `AND(` +
-    `{${FIELDS.profesionalId}}='${staffId}',` +
-    `IS_AFTER(${startInTz}, ${from}),` +
-    `IS_BEFORE(${startInTz}, ${to})` +
-  `)`;
+const formula = `{${FIELDS.profesionalId}}='${staffId}'`;
 
-
-console.log("[week] formula:", formula);
 
 
 
@@ -195,9 +188,8 @@ console.log("[week] formula:", formula);
   console.log("[/api/db/week] staffId:", staffId, "staffRecId:", staffRec.id, "week:", week, "formula:", formula);
 
   const citas = await base(TABLES.appointments as TableName)
-  .select({ filterByFormula: formula, maxRecords: 500 })
-  .firstPage();
-
+    .select({ filterByFormula: formula, maxRecords: 500 })
+    .firstPage();
 
     const weekStart = DateTime.fromISO(monday, { zone: tz }).startOf("day");
 const weekEnd = weekStart.plus({ days: 7 });
