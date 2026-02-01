@@ -1152,19 +1152,46 @@ const schedule = data.schedule;
 // ✅ rules efectivas para renderizar agenda desde BD (horario real del staff)
 const hasLunch = !!schedule?.lunchStart && !!schedule?.lunchEnd;
 
+function toHHMM(value: any): string {
+  if (!value) return "";
+
+  // Si ya viene "HH:MM"
+  if (typeof value === "string" && /^\d{2}:\d{2}$/.test(value.trim())) {
+    return value.trim();
+  }
+
+  // Si viene Date o ISO
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+
 const rulesDb: RulesState = {
   ...rules, // mantiene buffers, treatments, etc
- dayStartTime: String(schedule?.workStart ?? rules.dayStartTime ?? "").trim(),
 
+  dayStartTime:
+    toHHMM(schedule?.workStart) ||
+    String(rules.dayStartTime ?? "08:30").trim(),
 
-  dayEndTime: String(schedule?.workEnd ?? rules.dayEndTime ?? "").trim(),
+  dayEndTime:
+    toHHMM(schedule?.workEnd) ||
+    String(rules.dayEndTime ?? "19:00").trim(),
 
   enableLunch: hasLunch,
-  lunchStartTime: hasLunch ? String(schedule.lunchStart).trim() : "",
-  lunchEndTime: hasLunch ? String(schedule.lunchEnd).trim() : "",
 
-  
+  lunchStartTime: hasLunch
+    ? toHHMM(schedule?.lunchStart)
+    : "",
+
+  lunchEndTime: hasLunch
+    ? toHHMM(schedule?.lunchEnd)
+    : "",
 };
+
 
 if (!rulesDb.dayStartTime) throw new Error("dayStartTime vacío");
 if (!rulesDb.dayEndTime) {

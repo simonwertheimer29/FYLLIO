@@ -282,8 +282,15 @@ function expandLunchForChair(params: { chairId: number; targetStart: string; tar
 
 
   // ✅ Almuerzo como BUSY
-  const lunchStart = (rules as any).lunchStartTime ? `${date}T${String((rules as any).lunchStartTime).trim()}:00` : null;
-  const lunchEnd = (rules as any).lunchEndTime ? `${date}T${String((rules as any).lunchEndTime).trim()}:00` : null;
+  const lunchEnabled = (rules as any).enableLunch !== false; // default true si no existe
+const lunchStart = lunchEnabled && (rules as any).lunchStartTime
+  ? `${date}T${String((rules as any).lunchStartTime).trim()}:00`
+  : null;
+
+const lunchEnd = lunchEnabled && (rules as any).lunchEndTime
+  ? `${date}T${String((rules as any).lunchEndTime).trim()}:00`
+  : null;
+
 
   const lunchValid =
     !!lunchStart &&
@@ -317,7 +324,9 @@ function expandLunchForChair(params: { chairId: number; targetStart: string; tar
 
   // almuerzo por sillón (si no existe ya)
   if (lunchValid) {
-    for (let chairId = 1; chairId <= chairs; chairId++) {
+  const lunchChairs = chairs === 1 ? [1] : Array.from({ length: chairs }, (_, i) => i + 1);
+  for (const chairId of lunchChairs) {
+
       const ex = expandLunchForChair({ chairId, targetStart: lunchStart!, targetEnd: lunchEnd! });
       const lb: AgendaItem = {
         kind: "AI_BLOCK",
@@ -342,12 +351,14 @@ function expandLunchForChair(params: { chairId: number; targetStart: string; tar
   }
 
   // gaps por sillón = [dayStart,dayEnd] - union(busy)
-  for (let chairId = 1; chairId <= chairs; chairId++) {
-    const busyIntervals: Interval[] = out
-      .filter((x) => (x.chairId ?? 1) === chairId)
-      .filter((x) => intersectsDayRange(x))
-      .map((x) => clipInterval(x.start, x.end))
-      .filter(Boolean) as Interval[];
+for (let chairId = 1; chairId <= chairs; chairId++) {
+  const busyIntervals: Interval[] = out
+    // ✅ si la agenda es 1 columna, NO filtramos por chairId
+    .filter((x) => (chairs === 1 ? true : (x.chairId ?? 1) === chairId))
+    .filter((x) => intersectsDayRange(x))
+    .map((x) => clipInterval(x.start, x.end))
+    .filter(Boolean) as Interval[];
+
 
     const busy = mergeIntervals(busyIntervals);
 
