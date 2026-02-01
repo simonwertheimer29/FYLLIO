@@ -1155,19 +1155,21 @@ const hasLunch = !!schedule?.lunchStart && !!schedule?.lunchEnd;
 function toHHMM(value: any): string {
   if (!value) return "";
 
-  // 1) Si ya viene HH:MM
+  // Date real (Airtable suele devolver esto)
+  if (value instanceof Date) {
+    const hh = String(value.getHours()).padStart(2, "0");
+    const mm = String(value.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+  }
+
   if (typeof value === "string") {
     const s = value.trim();
 
     // HH:MM
     const m1 = s.match(/^(\d{1,2}):(\d{2})$/);
-    if (m1) {
-      const hh = String(Number(m1[1])).padStart(2, "0");
-      const mm = m1[2];
-      return `${hh}:${mm}`;
-    }
+    if (m1) return `${m1[1].padStart(2, "0")}:${m1[2]}`;
 
-    // h:mm am/pm  (ej: 3:30pm, 3:30 PM)
+    // h:mm am/pm  (3:30pm)
     const m2 = s.match(/^(\d{1,2}):(\d{2})\s*([ap]m)$/i);
     if (m2) {
       let hh = Number(m2[1]);
@@ -1178,34 +1180,25 @@ function toHHMM(value: any): string {
       return `${String(hh).padStart(2, "0")}:${mm}`;
     }
 
-    // si viene con fecha, intenta extraer la hora "HH:MM" dentro del string
+    // Fecha con hora dentro → extrae HH:MM
     const m3 = s.match(/(\d{1,2}):(\d{2})/);
-    if (m3) {
-      const hh = String(Number(m3[1])).padStart(2, "0");
-      const mm = m3[2];
-      return `${hh}:${mm}`;
-    }
+    if (m3) return `${m3[1].padStart(2, "0")}:${m3[2]}`;
 
-    // último intento: parse Date
-    const dTry = new Date(s);
-    if (!Number.isNaN(dTry.getTime())) {
-      const hh = String(dTry.getHours()).padStart(2, "0");
-      const mm = String(dTry.getMinutes()).padStart(2, "0");
-      return `${hh}:${mm}`;
+    // último intento
+    const d = new Date(s);
+    if (!Number.isNaN(d.getTime())) {
+      return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
     }
-
-    return "";
   }
 
-  // 2) Date real
-  const d = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(d.getTime())) return "";
-
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${hh}:${mm}`;
+  return "";
 }
 
+
+console.log("RAW lunchStart:", schedule.lunchStart);
+console.log("RAW lunchEnd:", schedule.lunchEnd);
+console.log("PARSED lunchStart:", toHHMM(schedule.lunchStart));
+console.log("PARSED lunchEnd:", toHHMM(schedule.lunchEnd));
 
 
 const rulesDb: RulesState = {
@@ -1221,13 +1214,9 @@ const rulesDb: RulesState = {
 
   enableLunch: hasLunch,
 
-  lunchStartTime: hasLunch
-    ? toHHMM(schedule?.lunchStart)
-    : "",
+  lunchStartTime: hasLunch ? toHHMM(schedule.lunchStart) : "",
+lunchEndTime: hasLunch ? toHHMM(schedule.lunchEnd) : "",
 
-  lunchEndTime: hasLunch
-    ? toHHMM(schedule?.lunchEnd)
-    : "",
 };
 
 
