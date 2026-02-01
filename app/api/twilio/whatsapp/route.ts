@@ -6,6 +6,10 @@ import { twimlMessage } from "../../../lib/twilio/twiml";
 import { getAvailableSlots, createHold, confirmHoldToAppointment } from "../../../lib/scheduler";
 import { listAppointmentsByDay, createAppointment } from "../../../lib/scheduler/repo/airtableRepo";
 import type { Preferences } from "../../../lib/scheduler/types";
+import { DEFAULT_RULES } from "../../../lib/demoData";
+import type { RulesState } from "../../../lib/types";
+
+
 
 function parsePreferences(text: string): Preferences {
   // dateIso básico
@@ -70,7 +74,29 @@ export async function POST(req: Request) {
     const clinicId = process.env.DEMO_CLINIC_ID || "DEMO_CLINIC";
     const clinicRecordId = process.env.DEMO_CLINIC_RECORD_ID; // opcional pero ideal
     const rules = getDemoRules(); // 👇 abajo
-    const treatmentType = "Revisión";
+    
+    if (!rules?.dayStartTime || !rules?.dayEndTime) {
+  const xml = twimlMessage("⚠️ Config incompleta: faltan horarios (dayStartTime/dayEndTime).");
+  return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+}
+
+function getDemoRules(): RulesState {
+  const raw = process.env.DEMO_RULES_JSON;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      return { ...DEFAULT_RULES, ...parsed };
+    } catch {
+      return DEFAULT_RULES;
+    }
+  }
+  return DEFAULT_RULES;
+}
+
+
+
+    const treatmentType = rules.treatments?.[0]?.type ?? "Revisión";
+
 
     // 2) Preferencias MUY básicas a partir del texto
 const preferences = parsePreferences(text); // ✅ tipado, sin any

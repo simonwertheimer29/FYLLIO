@@ -112,6 +112,8 @@ function addDaysIso(baseIso: string, days: number) {
   return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
 }
 
+
+
 export async function getAvailableSlots(
   input: GetAvailableSlotsInput,
   listAppointments: (dayIso: string) => Promise<Appointment[]>
@@ -137,6 +139,8 @@ export async function getAvailableSlots(
 
     if (slots.length) return slots;
   }
+
+  
 
   return [];
 }
