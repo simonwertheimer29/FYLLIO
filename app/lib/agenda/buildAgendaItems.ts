@@ -413,7 +413,59 @@ function expandLunchForChair(params: { chairId: number; targetStart: string; tar
     }
   }
 
-  return sortByStart(out);
+
+  function mergeAdjacentGaps(items: AgendaItem[]): AgendaItem[] {
+  const sorted = sortByStart(items);
+
+  const outMerged: AgendaItem[] = [];
+  for (const it of sorted) {
+    if (it.kind !== "GAP") {
+      outMerged.push(it);
+      continue;
+    }
+
+    const last = outMerged[outMerged.length - 1];
+    if (
+      last &&
+      last.kind === "GAP" &&
+      (last.chairId ?? 1) === (it.chairId ?? 1)
+    ) {
+      const gapBetweenMin = minutesBetween(last.end, it.start);
+
+      // Si se tocan o hay un micro-salto, los unimos
+      if (gapBetweenMin >= 0 && gapBetweenMin <= USELESS_GAP_MAX_MIN) {
+        const newStart = last.start;
+        const newEnd = it.end;
+        const durationMin = minutesBetween(newStart, newEnd);
+
+        // reemplaza el último
+        outMerged[outMerged.length - 1] = {
+          ...last,
+          end: newEnd,
+          durationMin,
+          label: `Tiempo disponible · ${durationMin} min`,
+          meta: buildAvailabilityMeta({
+            id: (last as any)?.meta?.gapKey ?? String(last.id),
+            start: newStart,
+            end: newEnd,
+            durationMin,
+            chairId: last.chairId ?? 1,
+            isEndOfDay: (it as any)?.meta?.isEndOfDay ?? false,
+          }) as any,
+        } as any;
+
+        continue;
+      }
+    }
+
+    outMerged.push(it);
+  }
+
+  return outMerged;
+}
+
+  return sortByStart(mergeAdjacentGaps(out));
+
 }
 
 /** ---------------- BUILD AGENDA ITEMS ---------------- */
@@ -464,8 +516,17 @@ const updatedFiltered = updated.filter((a) => {
     sourceActionId: "BUF_BEFORE",
   });
 
+  
+
   // ✅ NO breaks globales, solo buffers before + citas
-  return { items: sortByStart([...apptItems, ...beforeBlocks]) };
+  const afterBlocks = buildBuffersAfterAppointments({
+  appointments: updatedFiltered,
+  rules: params.rules,
+});
+
+return {
+  items: sortByStart([...apptItems, ...beforeBlocks, ...afterBlocks]),
+};
 }
 
 function dayStartIsoForAppointment(apptStartIso: string, rules: RulesState) {
@@ -539,6 +600,7 @@ const overlapsAny = sorted.some((b) => {
 if (overlapsAny) continue;
 
 
+
 out.push({
   kind: "AI_BLOCK",
   id: `BUF_BEFORE:${a.id}:${a.start}`,
@@ -552,8 +614,46 @@ out.push({
   chairId,
 } as any);
 
+
+
   }
+
+  
+
 
   return sortByStart(out);
 }
 
+
+function buildBuffersAfterAppointments(params: {
+  appointments: Appointment[];
+  rules: RulesState;
+  sourceActionId?: string;
+}): Extract<AgendaItem, { kind: "AI_BLOCK" }>[] {
+  const { appointments, rules } = params;
+  const out: Extract<AgendaItem, { kind: "AI_BLOCK" }>[] = [];
+
+  for (const a of appointments) {
+    const chairId = Number(a.chairId) || 1;
+    const buf = bufferForTreatment(rules, a.type);
+    if (buf <= 0) continue;
+
+    const start = a.end;
+    const end = addMinutesLocal(start, buf);
+
+    out.push({
+      kind: "AI_BLOCK",
+      id: `BUF_AFTER:${a.id}:${a.end}`,
+      start,
+      end,
+      label: "Buffer",
+      note: `Después de ${a.type}`,
+      durationMin: buf,
+      sourceActionId: "BUF_AFTER",
+      blockType: "BUFFER",
+      chairId,
+    });
+  }
+
+  return out;
+}

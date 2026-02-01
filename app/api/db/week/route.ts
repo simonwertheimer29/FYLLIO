@@ -109,7 +109,8 @@ function getStaffScheduleFromRecord(staffRec: any) {
 
   // Fallback demo si el staff no tiene nada cargado
   const workStart = workParsed?.start ?? "08:30";
-  const workEnd = workParsed?.end ?? "19:00";
+  if (!workParsed) throw new Error("Staff sin horario laboral");
+const workEnd = workParsed.end;
 
   return {
     workStart,      // "08:30"

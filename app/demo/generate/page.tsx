@@ -841,8 +841,8 @@ const [providerId, setProviderId] = useState<string>("");
 
 
  const rules = rulesByProvider[providerId] ?? DEFAULT_RULES;
- const rulesEffective = (dbRulesByProvider[providerId]
-  ? ({ ...rules, ...dbRulesByProvider[providerId] } as RulesState)
+const rulesEffective = (dbRulesByProvider[providerId]
+  ? ({ ...dbRulesByProvider[providerId], ...rules } as RulesState)
   : rules);
 
 
@@ -1154,13 +1154,22 @@ const hasLunch = !!schedule?.lunchStart && !!schedule?.lunchEnd;
 
 const rulesDb: RulesState = {
   ...rules, // mantiene buffers, treatments, etc
-  dayStartTime: String(schedule?.workStart ?? rules.dayStartTime ?? "08:30").trim(),
-  dayEndTime: String(schedule?.workEnd ?? rules.dayEndTime ?? "19:00").trim(),
+ dayStartTime: String(schedule?.workStart ?? rules.dayStartTime ?? "").trim(),
+
+
+  dayEndTime: String(schedule?.workEnd ?? rules.dayEndTime ?? "").trim(),
 
   enableLunch: hasLunch,
   lunchStartTime: hasLunch ? String(schedule.lunchStart).trim() : "",
   lunchEndTime: hasLunch ? String(schedule.lunchEnd).trim() : "",
+
+  
 };
+
+if (!rulesDb.dayStartTime) throw new Error("dayStartTime vacío");
+if (!rulesDb.dayEndTime) {
+  throw new Error("dayEndTime vacío: schedule.workEnd o rules.dayEndTime no están definidos");
+}
 
 // ✅ (2.2) Guardar reglas BD para que el render use horario real
 setDbRulesByProvider((prev) => ({ ...prev, [providerId]: rulesDb }));
