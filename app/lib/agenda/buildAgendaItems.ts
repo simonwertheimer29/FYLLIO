@@ -52,16 +52,21 @@ function windowsForTreatment(rules: RulesState, apptType: string) {
 /** ---------------- APPLY RESCHEDULES ---------------- */
 export function applyReschedules(base: Appointment[], selected: AiAction[]) {
   let updated = [...base];
-  const changedBy = new Map<number, string>();
+  const changedBy = new Map<string, string>(); // ✅ string
 
   for (const action of selected) {
     if (action.type !== "RESCHEDULE") continue;
+
     for (const c of action.changes || []) {
       if (!c.newStart || !c.newEnd) continue;
-      const id = String(c.appointmentId);
-updated = updated.map((a) => (String(a.id) === id ? { ...a, start: c.newStart!, end: c.newEnd! } : a));
-changedBy.set(Number.isFinite(Number(id)) ? Number(id) : (id as any), action.id);
 
+      const id = String(c.appointmentId);
+
+      updated = updated.map((a) =>
+        String(a.id) === id ? { ...a, start: c.newStart!, end: c.newEnd! } : a
+      );
+
+      changedBy.set(id, action.id);
     }
   }
 
@@ -500,13 +505,13 @@ const updatedFiltered = updated.filter((a) => {
   return isIntervalFullyInsideAnyWindow(a.start, a.end, wins);
 });
 
-  const originalById = new Map<number, Appointment>();
-  params.baseAppointments.forEach((a) => originalById.set(a.id, a));
+  const originalById = new Map<string, Appointment>();
+params.baseAppointments.forEach((a) => originalById.set(String(a.id), a));
 
   const apptItems: Extract<AgendaItem, { kind: "APPOINTMENT" }>[] = sortByStart(
     updatedFiltered.map((a) => {
-      const orig = originalById.get(a.id);
-      const changed = !!orig && (orig.start !== a.start || orig.end !== a.end);
+      const orig = originalById.get(String(a.id));
+const changed = !!orig && (orig.start !== a.start || orig.end !== a.end);
 
       const chairId = Number.isFinite(Number(a.chairId)) ? Number(a.chairId) : 1;
 

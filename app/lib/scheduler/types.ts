@@ -17,12 +17,13 @@ export type Hold = {
 };
 
 export type Preferences = {
-  dateIso: string; // "2026-01-27"
-  preferredStartHHMM?: string; // opcional (para filtrar)
+  dateIso?: string; // ✅ ahora opcional
+  preferredStartHHMM?: string;
   preferredEndHHMM?: string;
-  chairId?: number; // si el paciente quiere con X
-  providerId?: string; // futuro
+  chairId?: number;
+  providerId?: string;
 };
+
 
 export type GetAvailableSlotsInput = {
   rules: import("../types").RulesState;

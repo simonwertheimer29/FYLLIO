@@ -50,7 +50,6 @@ export async function listAppointmentsByDay(params: {
     .all();
 
   const out: Appointment[] = [];
-  let seqId = 1;
 
   for (const r of records) {
     const f: any = r.fields;
@@ -58,8 +57,6 @@ export async function listAppointmentsByDay(params: {
     const start = toIso(f["Hora inicio"]);
     const end = toIso(f["Hora final"]);
     if (!start || !end) continue;
-
-    // Filtra por día (ISO empieza con YYYY-MM-DD)
     if (!start.startsWith(dayIso)) continue;
 
     // (Opcional) filtra por clínica si lo pasas
@@ -82,13 +79,13 @@ export async function listAppointmentsByDay(params: {
     const patientName = firstString(f["Paciente_nombre"]) || firstString(f["Nombre"]) || "Paciente";
     const type = firstString(f["Tratamiento_nombre"]) || "Tratamiento";
 
-    const sillonId = firstString(f["Sillon_id"]); // "CHR_01"
+    const sillonId = firstString(f["Sillon_id"]);
     const chairId = normalizeChairIdFromSillonId(sillonId) ?? undefined;
 
     const providerId = firstString(f["Profesional_id"]) || undefined;
 
     out.push({
-      id: seqId++,
+      id: r.id,                 // ✅ string (recordId Airtable)
       patientName,
       start,
       end,

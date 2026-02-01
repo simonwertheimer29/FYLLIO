@@ -15,14 +15,15 @@ export type TreatmentScheduleRule = {
 
 
 export type Appointment = {
-  id: number;
+  id: string;          // ✅ antes number
   patientName: string;
   start: string;
   end: string;
   type: string;
   chairId?: number;
-  providerId?: string; // ✅ NUEVO
+  providerId?: string;
 };
+
 
 
 export type RulesState = {

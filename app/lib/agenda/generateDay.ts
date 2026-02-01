@@ -159,7 +159,7 @@ export function generateDemoAppointments(params: {
   const treatments = activeTreatments(rules);
 
   const appts: Appointment[] = [];
-  let id = 1;
+  let seq = 1;
 
   for (let chairId = 1; chairId <= chairs; chairId++) {
     let cursorIso = dayStartIso;
@@ -229,16 +229,18 @@ export function generateDemoAppointments(params: {
       }
 
       appts.push({
-        id,
-        patientName: patientName(seed + id * 31),
-        start: startIso,
-        end: endIso,
-        type: tr.type,
-        chairId, // appointment chairId es opcional en types, pero aquí lo ponemos
-      });
+  id: `DEMO_${dayIso}_${chairId}_${seq}`,  // ✅ string estable
+  patientName: patientName(seed + seq * 31),
+  start: startIso,
+  end: endIso,
+  type: tr.type,
+  chairId,
+});
+
+seq++;
 
       cursorIso = toLocalIso(parseLocal(endIso));
-      id++;
+    
       created++;
     }
 
@@ -251,16 +253,18 @@ export function generateDemoAppointments(params: {
 
       const endIso = ceilToStep(addMinutesLocal(startIso, dur), STEP_MIN);
       if (parseLocal(endIso).getTime() <= dayEnd) {
-        appts.push({
-          id,
-          patientName: patientName(seed + id * 31),
-          start: startIso,
-          end: endIso,
-          type: treatments[0]?.type ?? "Revisión",
-          chairId,
-        });
-        id++;
-      }
+  appts.push({
+    id: `DEMO_${dayIso}_${chairId}_${seq}`,
+    patientName: patientName(seed + seq * 31),
+    start: startIso,
+    end: endIso,
+    type: treatments[0]?.type ?? "Revisión",
+    chairId,
+  });
+
+  seq++;
+}
+
     }
   }
 
