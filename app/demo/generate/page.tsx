@@ -1155,12 +1155,49 @@ const hasLunch = !!schedule?.lunchStart && !!schedule?.lunchEnd;
 function toHHMM(value: any): string {
   if (!value) return "";
 
-  // Si ya viene "HH:MM"
-  if (typeof value === "string" && /^\d{2}:\d{2}$/.test(value.trim())) {
-    return value.trim();
+  // 1) Si ya viene HH:MM
+  if (typeof value === "string") {
+    const s = value.trim();
+
+    // HH:MM
+    const m1 = s.match(/^(\d{1,2}):(\d{2})$/);
+    if (m1) {
+      const hh = String(Number(m1[1])).padStart(2, "0");
+      const mm = m1[2];
+      return `${hh}:${mm}`;
+    }
+
+    // h:mm am/pm  (ej: 3:30pm, 3:30 PM)
+    const m2 = s.match(/^(\d{1,2}):(\d{2})\s*([ap]m)$/i);
+    if (m2) {
+      let hh = Number(m2[1]);
+      const mm = m2[2];
+      const ap = m2[3].toLowerCase();
+      if (ap === "pm" && hh < 12) hh += 12;
+      if (ap === "am" && hh === 12) hh = 0;
+      return `${String(hh).padStart(2, "0")}:${mm}`;
+    }
+
+    // si viene con fecha, intenta extraer la hora "HH:MM" dentro del string
+    const m3 = s.match(/(\d{1,2}):(\d{2})/);
+    if (m3) {
+      const hh = String(Number(m3[1])).padStart(2, "0");
+      const mm = m3[2];
+      return `${hh}:${mm}`;
+    }
+
+    // último intento: parse Date
+    const dTry = new Date(s);
+    if (!Number.isNaN(dTry.getTime())) {
+      const hh = String(dTry.getHours()).padStart(2, "0");
+      const mm = String(dTry.getMinutes()).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+
+    return "";
   }
 
-  // Si viene Date o ISO
+  // 2) Date real
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return "";
 
@@ -1168,6 +1205,7 @@ function toHHMM(value: any): string {
   const mm = String(d.getMinutes()).padStart(2, "0");
   return `${hh}:${mm}`;
 }
+
 
 
 const rulesDb: RulesState = {
