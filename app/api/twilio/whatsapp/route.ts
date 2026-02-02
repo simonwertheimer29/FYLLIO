@@ -2,10 +2,10 @@
 import { NextResponse } from "next/server";
 import { twimlMessage } from "../../../lib/twilio/twiml";
 
-import { getAvailableSlots } from "../../../lib/scheduler";
-import { listAppointmentsByDay } from "../../../lib/scheduler/repo/airtableRepo";
+import { getAvailableSlots, createHold, confirmHoldToAppointment } from "../../../lib/scheduler";
+import { listAppointmentsByDay, createAppointment } from "../../../lib/scheduler/repo/airtableRepo";
 
-import type { Preferences } from "../../../lib/scheduler/types";
+import type { Preferences, Slot } from "../../../lib/scheduler/types";
 import { DEFAULT_RULES } from "../../../lib/demoData";
 import type { RulesState } from "../../../lib/types";
 import { DEMO_PROVIDERS } from "../../../lib/clinic/demoClinic";
@@ -14,8 +14,38 @@ import { formatTime } from "../../../lib/time";
 // ⚠️ Recomendado en Vercel
 export const runtime = "nodejs";
 
+/** -----------------------------
+ *  Estado en memoria (MVP)
+ *  -----------------------------
+ *  key: whatsapp phone ("+34...")
+ *  value: últimas opciones ofrecidas
+ */
+type Session = {
+  createdAtMs: number;
+  clinicId: string;
+  clinicRecordId?: string;
+  rules: RulesState;
+  treatmentType: string;
+  slotsTop: Slot[]; // las 3 opciones que mostramos
+};
+
+const SESSIONS = new Map<string, Session>();
+const SESSION_TTL_MS = 10 * 60 * 1000; // 10 min
+
 function safe(v: any) {
   return typeof v === "string" ? v : v ? String(v) : "";
+}
+
+function normalizeWhatsAppFrom(from: string) {
+  // "whatsapp:+346..." -> "+346..."
+  return safe(from).replace("whatsapp:", "").trim();
+}
+
+function cleanupSessions() {
+  const now = Date.now();
+  for (const [k, s] of SESSIONS.entries()) {
+    if (now - s.createdAtMs > SESSION_TTL_MS) SESSIONS.delete(k);
+  }
 }
 
 function getDemoRules(): RulesState {
@@ -35,8 +65,6 @@ function resolveProvidersForTreatment(treatmentType: string) {
   const withSpecialization = DEMO_PROVIDERS.filter((p) =>
     p.treatments?.includes(treatmentType)
   );
-
-  // fallback: si nadie tiene especialización definida
   return withSpecialization.length > 0 ? withSpecialization : DEMO_PROVIDERS;
 }
 
@@ -69,28 +97,109 @@ function parsePreferences(text: string): Preferences {
   return { dateIso, preferredStartHHMM, preferredEndHHMM };
 }
 
+function isChoice(text: string) {
+  const t = text.trim();
+  return t === "1" || t === "2" || t === "3";
+}
+
 export async function POST(req: Request) {
+  cleanupSessions();
+
   const form = await req.formData();
-  const from = safe(form.get("From")); // "whatsapp:+34..."
-  const body = safe(form.get("Body")).trim();
+  const fromRaw = safe(form.get("From")); // "whatsapp:+34..."
+  const bodyRaw = safe(form.get("Body")).trim();
   const msgSid = safe(form.get("MessageSid"));
 
-  console.log("[twilio/whatsapp] inbound", { from, body, msgSid });
+  const from = normalizeWhatsAppFrom(fromRaw);
+  const text = bodyRaw.toLowerCase();
+
+  console.log("[twilio/whatsapp] inbound", { from: fromRaw, fromNorm: from, body: bodyRaw, msgSid });
 
   try {
-    const text = body.toLowerCase();
+    // 0) Si responde 1/2/3 -> crear cita desde sesión
+    if (isChoice(text)) {
+      const sess = SESSIONS.get(from);
+      if (!sess) {
+        const xmlNoSess = twimlMessage(
+          "No tengo opciones activas 🙂 Escribe: 'cita' o 'cita mañana por la mañana' para que te muestre horarios."
+        );
+        return new NextResponse(xmlNoSess, {
+          status: 200,
+          headers: { "Content-Type": "text/xml; charset=utf-8" },
+        });
+      }
 
-    // 0) Si no habla de "cita", respondemos normal
+      const idx = Number(text) - 1;
+      const chosen = sess.slotsTop[idx];
+      if (!chosen) {
+        const xmlBad = twimlMessage("Esa opción no existe. Responde 1, 2 o 3 🙂");
+        return new NextResponse(xmlBad, {
+          status: 200,
+          headers: { "Content-Type": "text/xml; charset=utf-8" },
+        });
+      }
+
+      // ✅ MVP: confirmamos directo (sin pedir “confirmar” todavía)
+      const patientId = from;
+      const hold = createHold({
+        slot: chosen,
+        patientId,
+        treatmentType: sess.treatmentType,
+        ttlMinutes: 10,
+      });
+
+      const out = await confirmHoldToAppointment({
+        holdId: hold.id,
+        rules: sess.rules,
+        patientName: "Paciente WhatsApp",
+        createAppointment: async (appt) => {
+          const res = await createAppointment({
+            name: appt.patientName ?? "Paciente WhatsApp",
+            startIso: appt.start,
+            endIso: appt.end,
+            clinicRecordId: sess.clinicRecordId,
+          });
+          return res.recordId;
+        },
+      });
+
+      // limpiamos sesión para que no re-confirme lo mismo
+      SESSIONS.delete(from);
+
+      const start = safe(chosen.start);
+      const end = safe(chosen.end);
+      const appointmentId = safe((out as any)?.appointmentId ?? "");
+
+      const provider = DEMO_PROVIDERS.find((p) => p.id === chosen.providerId);
+      const providerName = provider?.name ?? "Doctor";
+
+      const xmlDone = twimlMessage(
+        `🗓️ Cita creada ✅\n` +
+          `Con: ${providerName}\n` +
+          (start ? `Inicio: ${start}\n` : "") +
+          (end ? `Fin: ${end}\n` : "") +
+          (appointmentId ? `ID: ${appointmentId}\n` : "") +
+          `Si quieres cambiarla, escribe: "reagendar"`
+      );
+
+      return new NextResponse(xmlDone, {
+        status: 200,
+        headers: { "Content-Type": "text/xml; charset=utf-8" },
+      });
+    }
+
+    // 1) Si no habla de cita, respondemos normal
     if (!text.includes("cita")) {
-      const xmlEcho = twimlMessage(`✅ Recibido: "${body}"`);
+      const xmlEcho = twimlMessage(`✅ Recibido: "${bodyRaw}"`);
       return new NextResponse(xmlEcho, {
         status: 200,
         headers: { "Content-Type": "text/xml; charset=utf-8" },
       });
     }
 
-    // 1) Contexto demo
+    // 2) Contexto demo
     const clinicId = process.env.DEMO_CLINIC_ID || "DEMO_CLINIC";
+    const clinicRecordId = process.env.DEMO_CLINIC_RECORD_ID;
     const rules = getDemoRules();
 
     if (!rules.dayStartTime || !rules.dayEndTime) {
@@ -103,17 +212,17 @@ export async function POST(req: Request) {
       });
     }
 
-    // 2) Treatment demo (por ahora)
+    // 3) Treatment demo
     const treatmentType = rules.treatments?.[0]?.type ?? "Revisión";
 
-    // 3) Providers válidos para el treatment
+    // 4) Providers válidos por tratamiento (si seed no separa, fallback mantiene todo)
     const providers = resolveProvidersForTreatment(treatmentType);
     const providerIds = providers.map((p) => p.id);
 
-    // 4) Preferencias desde el texto
+    // 5) Preferencias
     const preferences = parsePreferences(text);
 
-    // 5) Buscar slots reales
+    // 6) Buscar slots reales
     const slots = await getAvailableSlots(
       { rules, treatmentType, preferences, providerIds },
       (dayIso) => listAppointmentsByDay({ dayIso, clinicId })
@@ -129,8 +238,18 @@ export async function POST(req: Request) {
       });
     }
 
-    // ✅ PASO 2: devolver opciones (sin crear cita todavía)
-    const options = slots.slice(0, 3).map((slot, i) => {
+    // 7) Guardar sesión con top 3
+    const top = slots.slice(0, 3);
+    SESSIONS.set(from, {
+      createdAtMs: Date.now(),
+      clinicId,
+      clinicRecordId,
+      rules,
+      treatmentType,
+      slotsTop: top,
+    });
+
+    const options = top.map((slot, i) => {
       const provider = DEMO_PROVIDERS.find((p) => p.id === slot.providerId);
       const name = provider?.name ?? "Doctor";
       return `${i + 1}️⃣ ${formatTime(slot.start)} con ${name}`;
