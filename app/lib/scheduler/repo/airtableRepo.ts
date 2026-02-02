@@ -1,6 +1,7 @@
 // app/lib/scheduler/repo/airtableRepo.ts
 import type { Appointment } from "../../types";
 import { base, TABLES } from "../../airtable";
+import { DateTime } from "luxon";
 
 /**
  * Helpers simples para leer fields de Airtable sin rompernos.
@@ -28,10 +29,19 @@ function firstString(x: unknown): string {
   return "";
 }
 
-function toIso(x: unknown): string {
-  if (typeof x === "string") return x;
-  if (x instanceof Date) return x.toISOString();
-  return "";
+
+
+const ZONE = "Europe/Madrid";
+
+function toLocalNaiveIso(x: unknown): string {
+  // Airtable suele devolver ISO en UTC con Z. Lo convertimos a hora local Madrid
+  if (typeof x !== "string" || !x) return "";
+
+  const dt = DateTime.fromISO(x, { setZone: true }).setZone(ZONE);
+  if (!dt.isValid) return "";
+
+  // devolvemos sin offset y sin ms: "YYYY-MM-DDTHH:mm:ss"
+  return dt.toFormat("yyyy-MM-dd'T'HH:mm:ss");
 }
 
 
@@ -73,8 +83,9 @@ export async function listAppointmentsByDay(params: {
   for (const r of records) {
     const f: any = r.fields;
 
-    const start = toIso(f["Hora inicio"]);
-    const end = toIso(f["Hora final"]);
+    const start = toLocalNaiveIso(f["Hora inicio"]);
+const end = toLocalNaiveIso(f["Hora final"]);
+
     if (!start || !end) continue;
     if (!start.startsWith(dayIso)) continue;
 
