@@ -10,6 +10,7 @@ export type StaffRow = {
   almuerzoInicio?: any;    // puede ser date o string según Airtable
   almuerzoFin?: any;
   treatments?: string[];   // si lo tienes como multi-select o lookup
+  rol?: string;
 };
 
 function firstString(x: unknown): string {
@@ -32,6 +33,7 @@ export async function listStaff(): Promise<StaffRow[]> {
     const staffId = String(f["Staff ID"] ?? "").trim();
     const name = String(f["Nombre"] ?? "").trim();
     const activo = firstBool(f["Activo"]);
+    const rol = String(f["Rol"] ?? "").trim();
 
     // opcional: treatments (depende cómo lo tengas)
     const treatments =

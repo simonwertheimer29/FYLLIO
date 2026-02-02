@@ -42,6 +42,20 @@ type Session = {
 const SESSIONS = new Map<string, Session>();
 const SESSION_TTL_MS = 10 * 60 * 1000; // 10 min
 
+export function toAirtableDateTime(isoLocal: string, zone = "Europe/Madrid"): string {
+  if (!isoLocal) throw new Error("toAirtableDateTime: isoLocal vacío");
+
+  // Interpretar como hora local de Madrid (NO UTC)
+  const dt = DateTime.fromISO(isoLocal, { zone });
+
+  if (!dt.isValid) {
+    throw new Error(`toAirtableDateTime: fecha inválida: ${isoLocal}`);
+  }
+
+  // Airtable acepta ISO con offset perfectamente
+  return dt.toISO({ suppressMilliseconds: true })!;
+}
+
 function chairIdToSillonId(chairId: number) {
   const n = Math.max(1, Math.floor(chairId || 1));
   return `CHR_${String(n).padStart(2, "0")}`;
@@ -205,13 +219,14 @@ if (!staffRecordId) {
         patientName: "Paciente WhatsApp",
         createAppointment: async (appt) => {
           const res = await createAppointment({
-            name: appt.patientName ?? "Paciente WhatsApp",
-            startIso: appt.start,
-            endIso: appt.end,
-            clinicRecordId: sess.clinicRecordId,
-            staffRecordId,
-            sillonRecordId,
-          });
+  name: appt.patientName ?? "Paciente WhatsApp",
+  startIso: toAirtableDateTime(appt.start),
+  endIso: toAirtableDateTime(appt.end),
+  clinicRecordId: sess.clinicRecordId,
+  staffRecordId,
+  sillonRecordId,
+});
+
           return res.recordId;
         },
       });
@@ -266,9 +281,11 @@ if (!staffRecordId) {
     const activeStaff = staff.filter((s: any) => s.activo);
 
     // quedarnos con los que tienen horario válido
-    const eligible = activeStaff
-      .map((s: any) => ({ s, work: parseWorkRange(s.horarioLaboral) }))
-      .filter(({ work }: any) => !!work);
+   const eligible = activeStaff
+  .filter((s: any) => !!parseWorkRange(s.horarioLaboral))
+  .filter((s: any) => (s.rol || "").toLowerCase() !== "recepcionista");
+
+
 
     if (!eligible.length) {
       const xmlNoStaff = twimlMessage("⚠️ No encontré profesionales activos con horario laboral configurado en Airtable.");
