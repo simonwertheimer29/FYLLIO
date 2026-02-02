@@ -31,4 +31,5 @@ export type GetAvailableSlotsInput = {
   treatmentType: string;
   preferences: Preferences;
   providerIds?: string[];
+  providerRulesById?: Record<string, import("../types").RulesState>;
 };

@@ -2,42 +2,56 @@
 import { NextResponse } from "next/server";
 import { twimlMessage } from "../../../lib/twilio/twiml";
 
-import { getAvailableSlots, createHold, confirmHoldToAppointment } from "../../../lib/scheduler";
-import { listAppointmentsByDay, createAppointment } from "../../../lib/scheduler/repo/airtableRepo";
+import {
+  getAvailableSlots,
+  createHold,
+  confirmHoldToAppointment,
+} from "../../../lib/scheduler";
+
+import {
+  listAppointmentsByDay,
+  createAppointment,
+  getStaffRecordIdByStaffId,
+  getSillonRecordIdBySillonId,
+} from "../../../lib/scheduler/repo/airtableRepo";
 
 import type { Preferences, Slot } from "../../../lib/scheduler/types";
 import { DEFAULT_RULES } from "../../../lib/demoData";
 import type { RulesState } from "../../../lib/types";
-import { DEMO_PROVIDERS } from "../../../lib/clinic/demoClinic";
 import { formatTime } from "../../../lib/time";
+
+import { listStaff } from "../../../lib/scheduler/repo/staffRepo";
+import { DateTime } from "luxon";
 
 // ⚠️ Recomendado en Vercel
 export const runtime = "nodejs";
 
 /** -----------------------------
  *  Estado en memoria (MVP)
- *  -----------------------------
- *  key: whatsapp phone ("+34...")
- *  value: últimas opciones ofrecidas
- */
+ *  ----------------------------- */
 type Session = {
   createdAtMs: number;
   clinicId: string;
   clinicRecordId?: string;
   rules: RulesState;
   treatmentType: string;
-  slotsTop: Slot[]; // las 3 opciones que mostramos
+  slotsTop: Slot[]; // top 3 opciones mostradas
+  staffById: Record<string, { name: string; recordId?: string }>; // nombres y links
 };
 
 const SESSIONS = new Map<string, Session>();
 const SESSION_TTL_MS = 10 * 60 * 1000; // 10 min
+
+function chairIdToSillonId(chairId: number) {
+  const n = Math.max(1, Math.floor(chairId || 1));
+  return `CHR_${String(n).padStart(2, "0")}`;
+}
 
 function safe(v: any) {
   return typeof v === "string" ? v : v ? String(v) : "";
 }
 
 function normalizeWhatsAppFrom(from: string) {
-  // "whatsapp:+346..." -> "+346..."
   return safe(from).replace("whatsapp:", "").trim();
 }
 
@@ -61,11 +75,26 @@ function getDemoRules(): RulesState {
   return DEFAULT_RULES;
 }
 
-function resolveProvidersForTreatment(treatmentType: string) {
-  const withSpecialization = DEMO_PROVIDERS.filter((p) =>
-    p.treatments?.includes(treatmentType)
-  );
-  return withSpecialization.length > 0 ? withSpecialization : DEMO_PROVIDERS;
+function parseWorkRange(raw: string | undefined): { start: string; end: string } | null {
+  const s = String(raw ?? "").trim();
+  const m = /^(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})$/.exec(s);
+  if (!m) return null;
+  const hhmm = (x: string) => x.trim().padStart(5, "0"); // "8:30" -> "08:30"
+  return { start: hhmm(m[1]), end: hhmm(m[2]) };
+}
+
+function timeToHHMM(value: any, zone = "Europe/Madrid"): string | null {
+  if (!value) return null;
+  const raw = typeof value === "string" ? value.trim() : "";
+  if (/^\d{2}:\d{2}$/.test(raw)) return raw;
+
+  const iso =
+    value instanceof Date ? value.toISOString()
+    : typeof value === "string" ? value
+    : String(value);
+
+  const dt = DateTime.fromISO(iso, { setZone: true }).setZone(zone);
+  return dt.isValid ? dt.toFormat("HH:mm") : null;
 }
 
 function parsePreferences(text: string): Preferences {
@@ -84,8 +113,7 @@ function parsePreferences(text: string): Preferences {
   let preferredStartHHMM: string | undefined;
   let preferredEndHHMM: string | undefined;
 
-  const saysMorning =
-    text.includes("por la mañana") || text.includes("en la mañana");
+  const saysMorning = text.includes("por la mañana") || text.includes("en la mañana");
   if (saysMorning) {
     preferredStartHHMM = "09:00";
     preferredEndHHMM = "13:00";
@@ -106,7 +134,7 @@ export async function POST(req: Request) {
   cleanupSessions();
 
   const form = await req.formData();
-  const fromRaw = safe(form.get("From")); // "whatsapp:+34..."
+  const fromRaw = safe(form.get("From"));
   const bodyRaw = safe(form.get("Body")).trim();
   const msgSid = safe(form.get("MessageSid"));
 
@@ -139,7 +167,7 @@ export async function POST(req: Request) {
         });
       }
 
-      // ✅ MVP: confirmamos directo (sin pedir “confirmar” todavía)
+      // HOLD
       const patientId = from;
       const hold = createHold({
         slot: chosen,
@@ -148,6 +176,29 @@ export async function POST(req: Request) {
         ttlMinutes: 10,
       });
 
+      // Nombre + recordId del staff (preferimos cache; si no, lookup)
+      const providerName = sess.staffById?.[chosen.providerId]?.name ?? chosen.providerId ?? "Profesional";
+
+     let staffRecordId: string | undefined =
+  sess.staffById?.[chosen.providerId]?.recordId ?? undefined;
+
+if (!staffRecordId) {
+  const found = await getStaffRecordIdByStaffId(chosen.providerId);
+  if (!found) {
+    throw new Error(`No staff recordId for ${chosen.providerId}`);
+  }
+  staffRecordId = found;
+}
+
+
+      // Sillón recordId
+      const sillonId = chairIdToSillonId(chosen.chairId);
+      const sillonRecordId = await getSillonRecordIdBySillonId(sillonId);
+
+      if (!staffRecordId) throw new Error(`No staff recordId for ${chosen.providerId}`);
+      if (!sillonRecordId) throw new Error(`No sillon recordId for ${sillonId}`);
+
+      // CONFIRM -> Airtable
       const out = await confirmHoldToAppointment({
         holdId: hold.id,
         rules: sess.rules,
@@ -158,26 +209,23 @@ export async function POST(req: Request) {
             startIso: appt.start,
             endIso: appt.end,
             clinicRecordId: sess.clinicRecordId,
+            staffRecordId,
+            sillonRecordId,
           });
           return res.recordId;
         },
       });
 
-      // limpiamos sesión para que no re-confirme lo mismo
+      // limpiamos sesión para que no confirme dos veces
       SESSIONS.delete(from);
 
-      const start = safe(chosen.start);
-      const end = safe(chosen.end);
       const appointmentId = safe((out as any)?.appointmentId ?? "");
-
-      const provider = DEMO_PROVIDERS.find((p) => p.id === chosen.providerId);
-      const providerName = provider?.name ?? "Doctor";
 
       const xmlDone = twimlMessage(
         `🗓️ Cita creada ✅\n` +
           `Con: ${providerName}\n` +
-          (start ? `Inicio: ${start}\n` : "") +
-          (end ? `Fin: ${end}\n` : "") +
+          `Inicio: ${chosen.start}\n` +
+          `Fin: ${chosen.end}\n` +
           (appointmentId ? `ID: ${appointmentId}\n` : "") +
           `Si quieres cambiarla, escribe: "reagendar"`
       );
@@ -203,28 +251,61 @@ export async function POST(req: Request) {
     const rules = getDemoRules();
 
     if (!rules.dayStartTime || !rules.dayEndTime) {
-      const xmlConfig = twimlMessage(
-        "⚠️ Config incompleta: faltan horarios (dayStartTime/dayEndTime)."
-      );
+      const xmlConfig = twimlMessage("⚠️ Config incompleta: faltan horarios (dayStartTime/dayEndTime).");
       return new NextResponse(xmlConfig, {
         status: 200,
         headers: { "Content-Type": "text/xml; charset=utf-8" },
       });
     }
 
-    // 3) Treatment demo
+    // 3) Treatment (por ahora)
     const treatmentType = rules.treatments?.[0]?.type ?? "Revisión";
 
-    // 4) Providers válidos por tratamiento (si seed no separa, fallback mantiene todo)
-    const providers = resolveProvidersForTreatment(treatmentType);
-    const providerIds = providers.map((p) => p.id);
+    // 4) Staff desde Airtable
+    const staff = await listStaff();
+    const activeStaff = staff.filter((s: any) => s.activo);
+
+    // quedarnos con los que tienen horario válido
+    const eligible = activeStaff
+      .map((s: any) => ({ s, work: parseWorkRange(s.horarioLaboral) }))
+      .filter(({ work }: any) => !!work);
+
+    if (!eligible.length) {
+      const xmlNoStaff = twimlMessage("⚠️ No encontré profesionales activos con horario laboral configurado en Airtable.");
+      return new NextResponse(xmlNoStaff, {
+        status: 200,
+        headers: { "Content-Type": "text/xml; charset=utf-8" },
+      });
+    }
+
+    const providerRulesById: Record<string, RulesState> = {};
+    const staffById: Record<string, { name: string; recordId?: string }> = {};
+
+    for (const { s, work } of eligible as any[]) {
+      const lunchStart = timeToHHMM(s.almuerzoInicio, "Europe/Madrid");
+      const lunchEnd = timeToHHMM(s.almuerzoFin, "Europe/Madrid");
+      const enableLunch = !!(lunchStart && lunchEnd);
+
+      providerRulesById[s.staffId] = {
+        ...rules,
+        dayStartTime: work.start,
+        dayEndTime: work.end,
+        enableLunch,
+        lunchStartTime: lunchStart ?? "",
+        lunchEndTime: lunchEnd ?? "",
+      };
+
+      staffById[s.staffId] = { name: s.name || s.staffId, recordId: s.recordId };
+    }
+
+    const providerIds = Object.keys(providerRulesById);
 
     // 5) Preferencias
     const preferences = parsePreferences(text);
 
     // 6) Buscar slots reales
     const slots = await getAvailableSlots(
-      { rules, treatmentType, preferences, providerIds },
+      { rules, treatmentType, preferences, providerIds, providerRulesById } as any,
       (dayIso) => listAppointmentsByDay({ dayIso, clinicId })
     );
 
@@ -247,11 +328,11 @@ export async function POST(req: Request) {
       rules,
       treatmentType,
       slotsTop: top,
+      staffById,
     });
 
     const options = top.map((slot, i) => {
-      const provider = DEMO_PROVIDERS.find((p) => p.id === slot.providerId);
-      const name = provider?.name ?? "Doctor";
+      const name = staffById?.[slot.providerId]?.name ?? slot.providerId ?? "Profesional";
       return `${i + 1}️⃣ ${formatTime(slot.start)} con ${name}`;
     });
 
@@ -267,9 +348,7 @@ export async function POST(req: Request) {
     });
   } catch (err: any) {
     console.error("[twilio/whatsapp] ERROR", err);
-    const xmlErr = twimlMessage(
-      "⚠️ Hubo un error. Mira los logs de Vercel y lo arreglamos."
-    );
+    const xmlErr = twimlMessage("⚠️ Hubo un error. Mira los logs de Vercel y lo arreglamos.");
     return new NextResponse(xmlErr, {
       status: 200,
       headers: { "Content-Type": "text/xml; charset=utf-8" },

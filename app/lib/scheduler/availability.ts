@@ -121,19 +121,15 @@ function addDaysIso(baseIso: string, days: number) {
 }
 
 export async function getAvailableSlots(
-  input: GetAvailableSlotsInput & { providerIds?: string[] },
+  input: GetAvailableSlotsInput,
   listAppointments: (dayIso: string) => Promise<Appointment[]>
 ) {
   const { rules, treatmentType, preferences } = input;
 
-  // providerIds: si paciente pide uno -> ese; si nos pasan lista -> esa; si no -> vacío
-  const providerIds: string[] = preferences.providerId
-    ? [preferences.providerId]
-    : (input.providerIds ?? []).filter(Boolean);
+  const providerIds = (input.providerIds && input.providerIds.length)
+    ? input.providerIds
+    : []; // ✅ sin fallback raro
 
-  if (!providerIds.length) return []; // no inventamos doctor
-
-  // chairs
   const chairs = clampInt(rules.chairsCount || 1, 1, 12);
   const chairIds = preferences.chairId
     ? [preferences.chairId]
@@ -144,26 +140,27 @@ export async function getAvailableSlots(
 
   for (let i = 0; i < daysToCheck; i++) {
     const dayIso = addDaysIso(startDay, i);
-    const dayAppointments = await listAppointments(dayIso);
+    const appointments = await listAppointments(dayIso);
 
-    // buscamos el primer día que tenga huecos para algún provider
+    if (!providerIds.length) continue;
+
     for (const providerId of providerIds) {
-      const providerAppointments = dayAppointments.filter(
-        (a) => (a.providerId ?? "") === providerId
-      );
+      const providerRules = input.providerRulesById?.[providerId] ?? rules;
 
-      const candidateSlots = chairIds.flatMap((chairId) =>
+      const filtered = appointments.filter(a => a.providerId === providerId);
+
+      const slots = chairIds.flatMap(chairId =>
         computeAvailableSlots({
           dayIso,
-          rules,
+          rules: providerRules,
           treatmentType,
-          appointments: providerAppointments,
+          appointments: filtered,
           chairId,
-          providerId, // ✅ aquí estaba el error
+          providerId,
         })
       );
 
-      if (candidateSlots.length) return candidateSlots;
+      if (slots.length) return slots;
     }
   }
 

@@ -5,6 +5,23 @@ import { base, TABLES } from "../../airtable";
 /**
  * Helpers simples para leer fields de Airtable sin rompernos.
  */
+
+async function findRecordIdByField(tableName: any, fieldName: string, value: string): Promise<string | null> {
+  const safe = String(value).replace(/'/g, "\\'");
+  const formula = `{${fieldName}}='${safe}'`;
+  const recs = await base(tableName).select({ maxRecords: 1, filterByFormula: formula }).firstPage();
+  return recs?.[0]?.id ?? null;
+}
+
+export async function getStaffRecordIdByStaffId(staffId: string) {
+  return findRecordIdByField(TABLES.staff, "Staff ID", staffId);
+}
+
+export async function getSillonRecordIdBySillonId(sillonId: string) {
+  return findRecordIdByField(TABLES.sillones, "Sillón ID", sillonId);
+}
+
+
 function firstString(x: unknown): string {
   if (typeof x === "string") return x;
   if (Array.isArray(x) && typeof x[0] === "string") return x[0];
@@ -12,9 +29,11 @@ function firstString(x: unknown): string {
 }
 
 function toIso(x: unknown): string {
-  // Airtable devuelve datetime como string ISO (normalmente).
-  return typeof x === "string" ? x : "";
+  if (typeof x === "string") return x;
+  if (x instanceof Date) return x.toISOString();
+  return "";
 }
+
 
 function normalizeChairIdFromSillonId(sillonId: string): number | undefined {
   // Convierte "CHR_01" -> 1, "CHR_02" -> 2
@@ -105,13 +124,17 @@ export async function listAppointmentsByDay(params: {
  * no los textos. Para el MVP podemos crear una cita "simple" con Nombre + horas.
  */
 export async function createAppointment(params: {
-  name: string;          // campo "Nombre" en Citas
-  startIso: string;      // "2026-01-27T10:30:00.000Z" (o local ISO si tu sistema lo usa)
+  name: string;
+  startIso: string;
   endIso: string;
-  clinicRecordId?: string; // opcional: recordId real del link "Clínica"
+  clinicRecordId?: string;
   notes?: string;
+
+  // ✅ NUEVO
+  staffRecordId?: string;   // link "Profesional"
+  sillonRecordId?: string;  // link "Sillón"
 }): Promise<{ recordId: string }> {
-  const { name, startIso, endIso, clinicRecordId, notes } = params;
+  const { name, startIso, endIso, clinicRecordId, notes, staffRecordId, sillonRecordId } = params;
 
   const fields: any = {
     "Nombre": name,
@@ -120,9 +143,11 @@ export async function createAppointment(params: {
   };
 
   if (notes) fields["Notas"] = notes;
-
-  // Link: para setearlo necesitas recordId real (recXXXX)
   if (clinicRecordId) fields["Clínica"] = [clinicRecordId];
+
+  // ✅ links para que la agenda lo detecte
+  if (staffRecordId) fields["Profesional"] = [staffRecordId];
+  if (sillonRecordId) fields["Sillón"] = [sillonRecordId];
 
   const created = await base(TABLES.appointments).create([{ fields }]);
   const rec = created?.[0];
