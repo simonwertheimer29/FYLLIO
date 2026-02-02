@@ -4,7 +4,6 @@ import type { Slot, GetAvailableSlotsInput } from "./types";
 import { addMinutesLocal, parseLocal, toLocalIso } from "../time";
 import { bufferForTreatment, fitsAllowedWindowsAt, getTreatmentRule } from "./rules";
 
-
 const STEP_MIN = 10;
 
 function timeToIso(dayIso: string, hhmm: string) {
@@ -45,13 +44,17 @@ export function computeAvailableSlots(params: {
   dayIso: string;
   rules: RulesState;
   treatmentType: string;
-  appointments: Appointment[]; // ya filtradas por día
+  appointments: Appointment[];
   chairId: number;
+  providerId: string;
 }): Slot[] {
-  const { dayIso, rules, treatmentType, appointments, chairId } = params;
+  const { dayIso, rules, treatmentType, appointments, chairId, providerId } = params;
 
   const tr = getTreatmentRule(rules, treatmentType);
-  const durMin = Math.max(STEP_MIN, Math.round((tr.durationMin ?? 25) / STEP_MIN) * STEP_MIN);
+  const durMin = Math.max(
+    STEP_MIN,
+    Math.round((tr.durationMin ?? 25) / STEP_MIN) * STEP_MIN
+  );
   const bufBefore = bufferForTreatment(rules, treatmentType);
 
   const dayStartIso = ceilToStep(timeToIso(dayIso, rules.dayStartTime), STEP_MIN);
@@ -59,14 +62,18 @@ export function computeAvailableSlots(params: {
 
   const lunch = getLunchWindow(dayIso, rules);
 
-  // solo citas del sillón
-  const appts = appointments.filter(a => (a.chairId ?? 1) === chairId);
+  // solo citas del mismo doctor y del mismo sillón
+  const appts = appointments.filter(
+    (a) => (a.providerId ?? "") === providerId && (a.chairId ?? 1) === chairId
+  );
 
   const slots: Slot[] = [];
-  // cursor = inicio del día
   let cursor = dayStartIso;
 
-  while (parseLocal(cursor).getTime() + (bufBefore + durMin) * 60000 <= parseLocal(dayEndIso).getTime()) {
+  while (
+    parseLocal(cursor).getTime() + (bufBefore + durMin) * 60000 <=
+    parseLocal(dayEndIso).getTime()
+  ) {
     const start = ceilToStep(addMinutesLocal(cursor, bufBefore), STEP_MIN);
     const end = ceilToStep(addMinutesLocal(start, durMin), STEP_MIN);
 
@@ -82,14 +89,15 @@ export function computeAvailableSlots(params: {
       continue;
     }
 
-    // colisiones con citas
-    const collides = appts.some(a => overlaps(start, end, a.start, a.end));
+    // colisiones
+    const collides = appts.some((a) => overlaps(start, end, a.start, a.end));
     if (!collides) {
       slots.push({
-        slotId: `${dayIso}|chair:${chairId}|${start}`,
+        slotId: `${dayIso}|prov:${providerId}|chair:${chairId}|${start}`,
         start,
         end,
         chairId,
+        providerId,
       });
     }
 
@@ -101,46 +109,63 @@ export function computeAvailableSlots(params: {
 
 function todayIsoLocal() {
   const d = new Date();
-  const pad2 = (n:number) => String(n).padStart(2,"0");
-  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
 function addDaysIso(baseIso: string, days: number) {
   const d = new Date(`${baseIso}T00:00:00`);
   d.setDate(d.getDate() + days);
-  const pad2 = (n:number) => String(n).padStart(2,"0");
-  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 }
 
-
-
 export async function getAvailableSlots(
-  input: GetAvailableSlotsInput,
+  input: GetAvailableSlotsInput & { providerIds?: string[] },
   listAppointments: (dayIso: string) => Promise<Appointment[]>
 ) {
   const { rules, treatmentType, preferences } = input;
 
+  // providerIds: si paciente pide uno -> ese; si nos pasan lista -> esa; si no -> vacío
+  const providerIds: string[] = preferences.providerId
+    ? [preferences.providerId]
+    : (input.providerIds ?? []).filter(Boolean);
+
+  if (!providerIds.length) return []; // no inventamos doctor
+
+  // chairs
   const chairs = clampInt(rules.chairsCount || 1, 1, 12);
   const chairIds = preferences.chairId
     ? [preferences.chairId]
     : Array.from({ length: chairs }, (_, i) => i + 1);
 
-  const daysToCheck = 10; // tunable
+  const daysToCheck = 10;
   const startDay = preferences.dateIso ?? todayIsoLocal();
 
   for (let i = 0; i < daysToCheck; i++) {
     const dayIso = addDaysIso(startDay, i);
+    const dayAppointments = await listAppointments(dayIso);
 
-    const appointments = await listAppointments(dayIso);
+    // buscamos el primer día que tenga huecos para algún provider
+    for (const providerId of providerIds) {
+      const providerAppointments = dayAppointments.filter(
+        (a) => (a.providerId ?? "") === providerId
+      );
 
-    const slots = chairIds.flatMap((chairId) =>
-      computeAvailableSlots({ dayIso, rules, treatmentType, appointments, chairId })
-    );
+      const candidateSlots = chairIds.flatMap((chairId) =>
+        computeAvailableSlots({
+          dayIso,
+          rules,
+          treatmentType,
+          appointments: providerAppointments,
+          chairId,
+          providerId, // ✅ aquí estaba el error
+        })
+      );
 
-    if (slots.length) return slots;
+      if (candidateSlots.length) return candidateSlots;
+    }
   }
-
-  
 
   return [];
 }

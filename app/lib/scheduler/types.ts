@@ -4,7 +4,7 @@ export type Slot = {
   start: string;         // ISO local
   end: string;           // ISO local
   chairId: number;
-  providerId?: string;
+  providerId: string;
 };
 
 export type Hold = {
@@ -30,4 +30,5 @@ export type GetAvailableSlotsInput = {
   // tratamiento: se resuelve por type en tu RulesState.treatments
   treatmentType: string;
   preferences: Preferences;
+  providerIds?: string[];
 };
