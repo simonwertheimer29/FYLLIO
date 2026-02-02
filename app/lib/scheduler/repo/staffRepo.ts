@@ -46,6 +46,7 @@ export async function listStaff(): Promise<StaffRow[]> {
       staffId,
       name,
       activo,
+      rol,
       horarioLaboral: String(f["Horario laboral"] ?? "").trim() || undefined,
       almuerzoInicio: f["Almuerzo_inicio"],
       almuerzoFin: f["Almuerzo_fin"],

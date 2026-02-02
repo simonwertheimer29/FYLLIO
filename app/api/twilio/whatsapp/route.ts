@@ -296,24 +296,27 @@ if (!staffRecordId) {
     }
 
     const providerRulesById: Record<string, RulesState> = {};
-    const staffById: Record<string, { name: string; recordId?: string }> = {};
+const staffById: Record<string, { name: string; recordId?: string }> = {};
 
-    for (const { s, work } of eligible as any[]) {
-      const lunchStart = timeToHHMM(s.almuerzoInicio, "Europe/Madrid");
-      const lunchEnd = timeToHHMM(s.almuerzoFin, "Europe/Madrid");
-      const enableLunch = !!(lunchStart && lunchEnd);
+for (const s of eligible as any[]) {
+  const work = parseWorkRange(s.horarioLaboral);
+  if (!work) continue;
 
-      providerRulesById[s.staffId] = {
-        ...rules,
-        dayStartTime: work.start,
-        dayEndTime: work.end,
-        enableLunch,
-        lunchStartTime: lunchStart ?? "",
-        lunchEndTime: lunchEnd ?? "",
-      };
+  const lunchStart = timeToHHMM(s.almuerzoInicio, "Europe/Madrid");
+  const lunchEnd = timeToHHMM(s.almuerzoFin, "Europe/Madrid");
+  const enableLunch = !!(lunchStart && lunchEnd);
 
-      staffById[s.staffId] = { name: s.name || s.staffId, recordId: s.recordId };
-    }
+  providerRulesById[s.staffId] = {
+    ...rules,
+    dayStartTime: work.start,
+    dayEndTime: work.end,
+    enableLunch,
+    lunchStartTime: lunchStart ?? "",
+    lunchEndTime: lunchEnd ?? "",
+  };
+
+  staffById[s.staffId] = { name: s.name || s.staffId, recordId: s.recordId };
+}
 
     const providerIds = Object.keys(providerRulesById);
 
