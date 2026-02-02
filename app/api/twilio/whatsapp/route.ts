@@ -26,31 +26,41 @@ import { DateTime } from "luxon";
 // ⚠️ Recomendado en Vercel
 export const runtime = "nodejs";
 
+/* ---------------------------------------
+   Helpers para selección “humana” top-3
+---------------------------------------- */
 function hhmmToMin(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;
 }
 
 function isoToMin(isoLocal: string) {
-  // "YYYY-MM-DDTHH:mm:ss"
+  // "YYYY-MM-DDTHH:mm:ss" o "...+01:00"
   const hhmm = isoLocal.slice(11, 16);
   return hhmmToMin(hhmm);
 }
 
 type Window = { key: string; startMin: number; endMin: number };
 
-function pickDiversifiedTop3(slots: Slot[], rules: RulesState, preferences: Preferences): Slot[] {
+function pickDiversifiedTop3(
+  slots: Slot[],
+  rules: RulesState,
+  preferences: Preferences
+): Slot[] {
   if (!slots.length) return [];
 
-  // ✅ ventanas “humanas” (ajústalas si tu clínica difiere)
+  // ✅ ventanas “humanas”
   const windows: Window[] = [
     { key: "AM_EARLY", startMin: 8 * 60, endMin: 11 * 60 },
-    { key: "AM_LATE",  startMin: 11 * 60, endMin: 14 * 60 },
-    { key: "PM",       startMin: 16 * 60, endMin: 20 * 60 },
+    { key: "AM_LATE", startMin: 11 * 60, endMin: 14 * 60 },
+    { key: "PM", startMin: 16 * 60, endMin: 20 * 60 },
   ];
 
   // ✅ separación mínima entre opciones ofrecidas
-  const minGap = Math.max(60, (rules.minBookableSlotMin ?? 30) + (rules.bufferMin ?? 0));
+  const minGap = Math.max(
+    60,
+    (rules.minBookableSlotMin ?? 30) + (rules.bufferMin ?? 0)
+  );
 
   const picked: Slot[] = [];
   const usedWindows = new Set<string>();
@@ -72,7 +82,9 @@ function pickDiversifiedTop3(slots: Slot[], rules: RulesState, preferences: Pref
   };
 
   const pickLastFromWindow = (w: Window) => {
-    const cand = [...slots].filter((s) => inWindow(s, w) && !tooClose(s)).slice(-1)[0];
+    const cand = [...slots]
+      .filter((s) => inWindow(s, w) && !tooClose(s))
+      .slice(-1)[0];
     if (cand) {
       picked.push(cand);
       usedWindows.add(w.key);
@@ -80,7 +92,9 @@ function pickDiversifiedTop3(slots: Slot[], rules: RulesState, preferences: Pref
   };
 
   // prioridad por preferencia del usuario (si dijo mañana/tarde)
-  const prefStart = preferences.preferredStartHHMM ? hhmmToMin(preferences.preferredStartHHMM) : null;
+  const prefStart = preferences.preferredStartHHMM
+    ? hhmmToMin(preferences.preferredStartHHMM)
+    : null;
   const wantsAfternoon = prefStart !== null && prefStart >= 14 * 60;
   const wantsMorning = prefStart !== null && prefStart < 14 * 60;
 
@@ -100,7 +114,7 @@ function pickDiversifiedTop3(slots: Slot[], rules: RulesState, preferences: Pref
     pickFirstFromWindow(w);
   }
 
-  // 3) último “razonable” del tramo donde ya hay algo (para dar opción “tarde/fin de turno”)
+  // 3) último del tramo donde ya hay algo (opción “fin del turno”)
   for (const w of priority) {
     if (picked.length >= 3) break;
     if (usedWindows.has(w.key)) {
@@ -118,34 +132,33 @@ function pickDiversifiedTop3(slots: Slot[], rules: RulesState, preferences: Pref
   return picked.slice(0, 3);
 }
 
-
-/** -----------------------------
- *  Estado en memoria (MVP)
- *  ----------------------------- */
+/* ---------------------------------------
+   Sesiones en memoria (MVP)
+---------------------------------------- */
 type Session = {
   createdAtMs: number;
   clinicId: string;
   clinicRecordId?: string;
   rules: RulesState;
   treatmentType: string;
-  slotsTop: Slot[]; // top 3 opciones mostradas
-  staffById: Record<string, { name: string; recordId?: string }>; // nombres y links
+  slotsTop: Slot[];
+  staffById: Record<string, { name: string; recordId?: string }>;
 };
 
 const SESSIONS = new Map<string, Session>();
 const SESSION_TTL_MS = 10 * 60 * 1000; // 10 min
 
-export function toAirtableDateTime(isoLocal: string, zone = "Europe/Madrid"): string {
+export function toAirtableDateTime(
+  isoLocal: string,
+  zone = "Europe/Madrid"
+): string {
   if (!isoLocal) throw new Error("toAirtableDateTime: isoLocal vacío");
 
-  // Interpretar como hora local de Madrid (NO UTC)
   const dt = DateTime.fromISO(isoLocal, { zone });
-
   if (!dt.isValid) {
     throw new Error(`toAirtableDateTime: fecha inválida: ${isoLocal}`);
   }
 
-  // Airtable acepta ISO con offset perfectamente
   return dt.toISO({ suppressMilliseconds: true })!;
 }
 
@@ -182,11 +195,13 @@ function getDemoRules(): RulesState {
   return DEFAULT_RULES;
 }
 
-function parseWorkRange(raw: string | undefined): { start: string; end: string } | null {
+function parseWorkRange(
+  raw: string | undefined
+): { start: string; end: string } | null {
   const s = String(raw ?? "").trim();
   const m = /^(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})$/.exec(s);
   if (!m) return null;
-  const hhmm = (x: string) => x.trim().padStart(5, "0"); // "8:30" -> "08:30"
+  const hhmm = (x: string) => x.trim().padStart(5, "0");
   return { start: hhmm(m[1]), end: hhmm(m[2]) };
 }
 
@@ -196,9 +211,11 @@ function timeToHHMM(value: any, zone = "Europe/Madrid"): string | null {
   if (/^\d{2}:\d{2}$/.test(raw)) return raw;
 
   const iso =
-    value instanceof Date ? value.toISOString()
-    : typeof value === "string" ? value
-    : String(value);
+    value instanceof Date
+      ? value.toISOString()
+      : typeof value === "string"
+      ? value
+      : String(value);
 
   const dt = DateTime.fromISO(iso, { setZone: true }).setZone(zone);
   return dt.isValid ? dt.toFormat("HH:mm") : null;
@@ -220,7 +237,8 @@ function parsePreferences(text: string): Preferences {
   let preferredStartHHMM: string | undefined;
   let preferredEndHHMM: string | undefined;
 
-  const saysMorning = text.includes("por la mañana") || text.includes("en la mañana");
+  const saysMorning =
+    text.includes("por la mañana") || text.includes("en la mañana");
   if (saysMorning) {
     preferredStartHHMM = "09:00";
     preferredEndHHMM = "13:00";
@@ -248,10 +266,17 @@ export async function POST(req: Request) {
   const from = normalizeWhatsAppFrom(fromRaw);
   const text = bodyRaw.toLowerCase();
 
-  console.log("[twilio/whatsapp] inbound", { from: fromRaw, fromNorm: from, body: bodyRaw, msgSid });
+  console.log("[twilio/whatsapp] inbound", {
+    from: fromRaw,
+    fromNorm: from,
+    body: bodyRaw,
+    msgSid,
+  });
 
   try {
-    // 0) Si responde 1/2/3 -> crear cita desde sesión
+    /* ---------------------------------------
+       0) Si responde 1/2/3 -> confirmar
+    ---------------------------------------- */
     if (isChoice(text)) {
       const sess = SESSIONS.get(from);
       if (!sess) {
@@ -267,7 +292,9 @@ export async function POST(req: Request) {
       const idx = Number(text) - 1;
       const chosen = sess.slotsTop[idx];
       if (!chosen) {
-        const xmlBad = twimlMessage("Esa opción no existe. Responde 1, 2 o 3 🙂");
+        const xmlBad = twimlMessage(
+          "Esa opción no existe. Responde 1, 2 o 3 🙂"
+        );
         return new NextResponse(xmlBad, {
           status: 200,
           headers: { "Content-Type": "text/xml; charset=utf-8" },
@@ -283,26 +310,25 @@ export async function POST(req: Request) {
         ttlMinutes: 10,
       });
 
-      // Nombre + recordId del staff (preferimos cache; si no, lookup)
-      const providerName = sess.staffById?.[chosen.providerId]?.name ?? chosen.providerId ?? "Profesional";
+      // Nombre + recordId del staff (cache; si no, lookup)
+      const providerName =
+        sess.staffById?.[chosen.providerId]?.name ??
+        chosen.providerId ??
+        "Profesional";
 
-     let staffRecordId: string | undefined =
-  sess.staffById?.[chosen.providerId]?.recordId ?? undefined;
+      let staffRecordId: string | undefined =
+        sess.staffById?.[chosen.providerId]?.recordId ?? undefined;
 
-if (!staffRecordId) {
-  const found = await getStaffRecordIdByStaffId(chosen.providerId);
-  if (!found) {
-    throw new Error(`No staff recordId for ${chosen.providerId}`);
-  }
-  staffRecordId = found;
-}
-
+      if (!staffRecordId) {
+        const found = await getStaffRecordIdByStaffId(chosen.providerId);
+        if (!found) throw new Error(`No staff recordId for ${chosen.providerId}`);
+        staffRecordId = found;
+      }
 
       // Sillón recordId
       const sillonId = chairIdToSillonId(chosen.chairId);
       const sillonRecordId = await getSillonRecordIdBySillonId(sillonId);
 
-      if (!staffRecordId) throw new Error(`No staff recordId for ${chosen.providerId}`);
       if (!sillonRecordId) throw new Error(`No sillon recordId for ${sillonId}`);
 
       // CONFIRM -> Airtable
@@ -312,19 +338,18 @@ if (!staffRecordId) {
         patientName: "Paciente WhatsApp",
         createAppointment: async (appt) => {
           const res = await createAppointment({
-  name: appt.patientName ?? "Paciente WhatsApp",
-  startIso: toAirtableDateTime(appt.start),
-  endIso: toAirtableDateTime(appt.end),
-  clinicRecordId: sess.clinicRecordId,
-  staffRecordId,
-  sillonRecordId,
-});
-
+            name: appt.patientName ?? "Paciente WhatsApp",
+            startIso: toAirtableDateTime(appt.start),
+            endIso: toAirtableDateTime(appt.end),
+            clinicRecordId: sess.clinicRecordId,
+            staffRecordId,
+            sillonRecordId,
+          });
           return res.recordId;
         },
       });
 
-      // limpiamos sesión para que no confirme dos veces
+      // limpiar sesión
       SESSIONS.delete(from);
 
       const appointmentId = safe((out as any)?.appointmentId ?? "");
@@ -344,7 +369,9 @@ if (!staffRecordId) {
       });
     }
 
-    // 1) Si no habla de cita, respondemos normal
+    /* ---------------------------------------
+       1) Si no habla de cita
+    ---------------------------------------- */
     if (!text.includes("cita")) {
       const xmlEcho = twimlMessage(`✅ Recibido: "${bodyRaw}"`);
       return new NextResponse(xmlEcho, {
@@ -353,35 +380,40 @@ if (!staffRecordId) {
       });
     }
 
-    // 2) Contexto demo
+    /* ---------------------------------------
+       2) Contexto demo
+    ---------------------------------------- */
     const clinicId = process.env.DEMO_CLINIC_ID || "DEMO_CLINIC";
     const clinicRecordId = process.env.DEMO_CLINIC_RECORD_ID;
     const rules = getDemoRules();
 
     if (!rules.dayStartTime || !rules.dayEndTime) {
-      const xmlConfig = twimlMessage("⚠️ Config incompleta: faltan horarios (dayStartTime/dayEndTime).");
+      const xmlConfig = twimlMessage(
+        "⚠️ Config incompleta: faltan horarios (dayStartTime/dayEndTime)."
+      );
       return new NextResponse(xmlConfig, {
         status: 200,
         headers: { "Content-Type": "text/xml; charset=utf-8" },
       });
     }
 
-    // 3) Treatment (por ahora)
+    // Treatment (por ahora)
     const treatmentType = rules.treatments?.[0]?.type ?? "Revisión";
 
-    // 4) Staff desde Airtable
+    /* ---------------------------------------
+       3) Staff desde Airtable
+    ---------------------------------------- */
     const staff = await listStaff();
     const activeStaff = staff.filter((s: any) => s.activo);
 
-    // quedarnos con los que tienen horario válido
-   const eligible = activeStaff
-  .filter((s: any) => !!parseWorkRange(s.horarioLaboral))
-  .filter((s: any) => (s.rol || "").toLowerCase() !== "recepcionista");
-
-
+    const eligible = activeStaff
+      .filter((s: any) => !!parseWorkRange(s.horarioLaboral))
+      .filter((s: any) => (s.rol || "").toLowerCase() !== "recepcionista");
 
     if (!eligible.length) {
-      const xmlNoStaff = twimlMessage("⚠️ No encontré profesionales activos con horario laboral configurado en Airtable.");
+      const xmlNoStaff = twimlMessage(
+        "⚠️ No encontré profesionales activos con horario laboral configurado en Airtable."
+      );
       return new NextResponse(xmlNoStaff, {
         status: 200,
         headers: { "Content-Type": "text/xml; charset=utf-8" },
@@ -389,38 +421,83 @@ if (!staffRecordId) {
     }
 
     const providerRulesById: Record<string, RulesState> = {};
-const staffById: Record<string, { name: string; recordId?: string }> = {};
+    const staffById: Record<string, { name: string; recordId?: string }> = {};
 
-for (const s of eligible as any[]) {
-  const work = parseWorkRange(s.horarioLaboral);
-  if (!work) continue;
+    for (const s of eligible as any[]) {
+      const work = parseWorkRange(s.horarioLaboral);
+      if (!work) continue;
 
-  const lunchStart = timeToHHMM(s.almuerzoInicio, "Europe/Madrid");
-  const lunchEnd = timeToHHMM(s.almuerzoFin, "Europe/Madrid");
-  const enableLunch = !!(lunchStart && lunchEnd);
+      const lunchStart = timeToHHMM(s.almuerzoInicio, "Europe/Madrid");
+      const lunchEnd = timeToHHMM(s.almuerzoFin, "Europe/Madrid");
+      const enableLunch = !!(lunchStart && lunchEnd);
 
-  providerRulesById[s.staffId] = {
-    ...rules,
-    dayStartTime: work.start,
-    dayEndTime: work.end,
-    enableLunch,
-    lunchStartTime: lunchStart ?? "",
-    lunchEndTime: lunchEnd ?? "",
-  };
+      providerRulesById[s.staffId] = {
+        ...rules,
+        dayStartTime: work.start,
+        dayEndTime: work.end,
+        enableLunch,
+        lunchStartTime: lunchStart ?? "",
+        lunchEndTime: lunchEnd ?? "",
+      };
 
-  staffById[s.staffId] = { name: s.name || s.staffId, recordId: s.recordId };
-}
+      staffById[s.staffId] = { name: s.name || s.staffId, recordId: s.recordId };
+    }
 
     const providerIds = Object.keys(providerRulesById);
 
-    // 5) Preferencias
+    /* ---------------------------------------
+       4) Preferencias
+    ---------------------------------------- */
     const preferences = parsePreferences(text);
 
-    // 6) Buscar slots reales
+    /* ---------------------------------------
+       ✅ Console 1: citas ocupadas del día (peek)
+       Esto te deja comprobar si Airtable devuelve bien
+    ---------------------------------------- */
+    const peekDayIso =
+      preferences.dateIso ?? DateTime.now().setZone("Europe/Madrid").toISODate()!;
+    const peekAppointments = await listAppointmentsByDay({ dayIso: peekDayIso, clinicId });
+
+    console.log("[peekAppointments] occupied slots", {
+      dayIso: peekDayIso,
+      clinicId,
+      count: peekAppointments.length,
+      appts: peekAppointments.map((a) => ({
+        start: a.start,
+        end: a.end,
+        providerId: a.providerId,
+        chairId: a.chairId,
+      })),
+    });
+
+    /* ---------------------------------------
+       5) Buscar slots reales
+    ---------------------------------------- */
     const slots = await getAvailableSlots(
       { rules, treatmentType, preferences, providerIds, providerRulesById } as any,
       (dayIso) => listAppointmentsByDay({ dayIso, clinicId })
     );
+
+    /* ---------------------------------------
+       ✅ Console 2: slots generados + top3 elegido
+    ---------------------------------------- */
+    const top = pickDiversifiedTop3(slots, rules, preferences);
+
+    console.log("[slots] generated + top3", {
+      totalSlots: slots.length,
+      sampleSlots: slots.slice(0, 10).map((s) => ({
+        start: s.start,
+        end: s.end,
+        providerId: s.providerId,
+        chairId: s.chairId,
+      })),
+      top3: top.map((s) => ({
+        start: s.start,
+        end: s.end,
+        providerId: s.providerId,
+        chairId: s.chairId,
+      })),
+    });
 
     if (!slots.length) {
       const xmlNoSlots = twimlMessage(
@@ -432,8 +509,9 @@ for (const s of eligible as any[]) {
       });
     }
 
-    // 7) Guardar sesión con top 3
-   const top = pickDiversifiedTop3(slots, rules, preferences);
+    /* ---------------------------------------
+       6) Guardar sesión con top 3
+    ---------------------------------------- */
     SESSIONS.set(from, {
       createdAtMs: Date.now(),
       clinicId,
@@ -445,7 +523,8 @@ for (const s of eligible as any[]) {
     });
 
     const options = top.map((slot, i) => {
-      const name = staffById?.[slot.providerId]?.name ?? slot.providerId ?? "Profesional";
+      const name =
+        staffById?.[slot.providerId]?.name ?? slot.providerId ?? "Profesional";
       return `${i + 1}️⃣ ${formatTime(slot.start)} con ${name}`;
     });
 
@@ -461,7 +540,9 @@ for (const s of eligible as any[]) {
     });
   } catch (err: any) {
     console.error("[twilio/whatsapp] ERROR", err);
-    const xmlErr = twimlMessage("⚠️ Hubo un error. Mira los logs de Vercel y lo arreglamos.");
+    const xmlErr = twimlMessage(
+      "⚠️ Hubo un error. Mira los logs de Vercel y lo arreglamos."
+    );
     return new NextResponse(xmlErr, {
       status: 200,
       headers: { "Content-Type": "text/xml; charset=utf-8" },
