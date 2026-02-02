@@ -470,12 +470,28 @@ export async function POST(req: Request) {
       })),
     });
 
+    console.log("[DEBUG] before getAvailableSlots", {
+  providerIds,
+  dateIso: preferences.dateIso,
+});
+
+
     /* ---------------------------------------
        5) Buscar slots reales
     ---------------------------------------- */
     const slots = await getAvailableSlots(
       { rules, treatmentType, preferences, providerIds, providerRulesById } as any,
-      (dayIso) => listAppointmentsByDay({ dayIso, clinicId })
+      async (dayIso) => {
+  const appts = await listAppointmentsByDay({ dayIso, clinicId });
+  console.log("[peekAppointments] occupied slots", appts.map(a => ({
+    start: a.start,
+    end: a.end,
+    providerId: a.providerId,
+    chairId: a.chairId,
+  })));
+  return appts;
+}
+
     );
 
     /* ---------------------------------------
