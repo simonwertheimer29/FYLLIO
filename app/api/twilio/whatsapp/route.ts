@@ -26,6 +26,99 @@ import { DateTime } from "luxon";
 // ⚠️ Recomendado en Vercel
 export const runtime = "nodejs";
 
+function hhmmToMin(hhmm: string) {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function isoToMin(isoLocal: string) {
+  // "YYYY-MM-DDTHH:mm:ss"
+  const hhmm = isoLocal.slice(11, 16);
+  return hhmmToMin(hhmm);
+}
+
+type Window = { key: string; startMin: number; endMin: number };
+
+function pickDiversifiedTop3(slots: Slot[], rules: RulesState, preferences: Preferences): Slot[] {
+  if (!slots.length) return [];
+
+  // ✅ ventanas “humanas” (ajústalas si tu clínica difiere)
+  const windows: Window[] = [
+    { key: "AM_EARLY", startMin: 8 * 60, endMin: 11 * 60 },
+    { key: "AM_LATE",  startMin: 11 * 60, endMin: 14 * 60 },
+    { key: "PM",       startMin: 16 * 60, endMin: 20 * 60 },
+  ];
+
+  // ✅ separación mínima entre opciones ofrecidas
+  const minGap = Math.max(60, (rules.minBookableSlotMin ?? 30) + (rules.bufferMin ?? 0));
+
+  const picked: Slot[] = [];
+  const usedWindows = new Set<string>();
+
+  const inWindow = (s: Slot, w: Window) => {
+    const m = isoToMin(s.start);
+    return m >= w.startMin && m < w.endMin;
+  };
+
+  const tooClose = (s: Slot) =>
+    picked.some((p) => Math.abs(isoToMin(p.start) - isoToMin(s.start)) < minGap);
+
+  const pickFirstFromWindow = (w: Window) => {
+    const cand = slots.find((s) => inWindow(s, w) && !tooClose(s));
+    if (cand) {
+      picked.push(cand);
+      usedWindows.add(w.key);
+    }
+  };
+
+  const pickLastFromWindow = (w: Window) => {
+    const cand = [...slots].filter((s) => inWindow(s, w) && !tooClose(s)).slice(-1)[0];
+    if (cand) {
+      picked.push(cand);
+      usedWindows.add(w.key);
+    }
+  };
+
+  // prioridad por preferencia del usuario (si dijo mañana/tarde)
+  const prefStart = preferences.preferredStartHHMM ? hhmmToMin(preferences.preferredStartHHMM) : null;
+  const wantsAfternoon = prefStart !== null && prefStart >= 14 * 60;
+  const wantsMorning = prefStart !== null && prefStart < 14 * 60;
+
+  const priority: Window[] = wantsAfternoon
+    ? [windows[2]!, windows[0]!, windows[1]!]
+    : wantsMorning
+    ? [windows[0]!, windows[1]!, windows[2]!]
+    : windows;
+
+  // 1) primera del tramo prioritario
+  pickFirstFromWindow(priority[0]!);
+
+  // 2) primera de un tramo distinto
+  for (const w of priority) {
+    if (picked.length >= 2) break;
+    if (usedWindows.has(w.key)) continue;
+    pickFirstFromWindow(w);
+  }
+
+  // 3) último “razonable” del tramo donde ya hay algo (para dar opción “tarde/fin de turno”)
+  for (const w of priority) {
+    if (picked.length >= 3) break;
+    if (usedWindows.has(w.key)) {
+      pickLastFromWindow(w);
+      break;
+    }
+  }
+
+  // fallback: rellena con slots separados
+  for (const s of slots) {
+    if (picked.length >= 3) break;
+    if (!tooClose(s) && !picked.includes(s)) picked.push(s);
+  }
+
+  return picked.slice(0, 3);
+}
+
+
 /** -----------------------------
  *  Estado en memoria (MVP)
  *  ----------------------------- */
@@ -340,7 +433,7 @@ for (const s of eligible as any[]) {
     }
 
     // 7) Guardar sesión con top 3
-    const top = slots.slice(0, 3);
+   const top = pickDiversifiedTop3(slots, rules, preferences);
     SESSIONS.set(from, {
       createdAtMs: Date.now(),
       clinicId,
