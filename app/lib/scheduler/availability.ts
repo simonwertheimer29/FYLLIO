@@ -67,10 +67,11 @@ export function computeAvailableSlots(params: {
 // - mismo sillón (aunque sea otro doctor)
 // - mismo doctor (aunque sea otro sillón)
 const appts = appointments.filter((a) => {
-  const sameChair = (a.chairId ?? -1) === chairId;
   const sameProvider = (a.providerId ?? "") === providerId;
-  return sameChair || sameProvider;
+  const sameChair = (a.chairId ?? -1) === chairId;
+  return sameProvider || sameChair; // ✅ OR
 });
+
 
 
   const slots: Slot[] = [];
