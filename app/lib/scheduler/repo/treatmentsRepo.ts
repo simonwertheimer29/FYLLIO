@@ -2,14 +2,12 @@
 import { base, TABLES } from "../../airtable";
 
 export type TreatmentRow = {
-  recordId: string;        // recXXXX
-  treatmentId: string;     // SRV_01
-  name: string;            // "Empaste"
-  durationMin?: number;    // 40
-  bufferBeforeMin?: number;// 0
-  bufferAfterMin?: number; // 10
-  category?: string;       // "Empaste"
-  clinicRecordIds?: string[]; // links (record ids) desde Airtable
+  recordId: string;            // recXXXX
+  serviceId: string;           // SRV_01
+  name: string;                // Empaste, Limpieza...
+  durationMin?: number;        // Duración (min)
+  bufferBeforeMin?: number;    // Buffer antes
+  bufferAfterMin?: number;     // Buffer despues
 };
 
 function firstString(x: unknown): string {
@@ -18,51 +16,61 @@ function firstString(x: unknown): string {
   return "";
 }
 
-function asNumber(x: unknown): number | undefined {
-  const n = typeof x === "number" ? x : Number(String(x));
+function toNum(x: unknown): number | undefined {
+  const n = typeof x === "number" ? x : Number(String(x ?? ""));
   return Number.isFinite(n) ? n : undefined;
 }
 
-export async function listTreatments(params?: {
-  clinicRecordId?: string;
-}): Promise<TreatmentRow[]> {
-  const clinicRecordId = params?.clinicRecordId;
+export async function listTreatments(params: { clinicRecordId?: string }): Promise<TreatmentRow[]> {
+  const { clinicRecordId } = params;
 
-  const records = await base(TABLES.treatments).select({ maxRecords: 500 }).all();
+  const records = await base(TABLES.treatments).select({ maxRecords: 200 }).all();
 
-  const mapped: TreatmentRow[] = records.map((r: any) => {
+  const out: TreatmentRow[] = records.map((r: any) => {
     const f: any = r.fields;
 
-    // En tu screenshot la primera columna parece ser "Tratamientos" con SRV_01, SRV_02...
-    const treatmentId = String(f["Tratamientos"] ?? f["Treatment ID"] ?? f["ID"] ?? "").trim();
+    const serviceId = String(f["Tratamientos"] ?? "").trim();
     const name = String(f["Nombre"] ?? "").trim();
 
-    const clinicLinks = Array.isArray(f["Clínica"]) ? f["Clínica"].map(String) : [];
+    const durationMin = toNum(f["Duración"]);
+    const bufferBeforeMin = toNum(f["Buffer antes"]);
+    const bufferAfterMin = toNum(f["Buffer despues"]);
 
     return {
       recordId: r.id,
-      treatmentId,
+      serviceId,
       name,
-      durationMin: asNumber(f["Duración"]),
-      bufferBeforeMin: asNumber(f["Buffer antes"]),
-      bufferAfterMin: asNumber(f["Buffer despues"]),
-      category: firstString(f["Categoria"]) || firstString(f["Categoría"]) || "",
-      clinicRecordIds: clinicLinks,
+      durationMin,
+      bufferBeforeMin,
+      bufferAfterMin,
     };
   });
 
-  const filtered = mapped
-    .filter(t => !!t.treatmentId && !!t.name)
-    .filter(t => {
-      if (!clinicRecordId) return true;
-      // Si el tratamiento tiene link a clínica, filtramos por ese recordId
-      if (t.clinicRecordIds?.length) return t.clinicRecordIds.includes(clinicRecordId);
-      // si no hay link, no filtramos (para no romper en demo)
-      return true;
+  // Filtro defensivo: solo los válidos
+  let filtered = out.filter((t) => !!t.serviceId && !!t.name);
+
+  // Si quieres filtrar por clínica: ideal tener lookup "Clínica ID"
+  // Si NO lo tienes, lo dejamos sin filtrar (para no romper).
+  if (clinicRecordId) {
+    // intento 1: lookup "Clínica ID"
+    // (si no existe, firstString devuelve "")
+    const withClinic = records.map((r: any) => {
+      const f: any = r.fields;
+      const clinicIdLookup = firstString(f["Clínica ID"]);
+      return { recordId: r.id, clinicIdLookup };
     });
 
-  // orden estable por nombre
-  filtered.sort((a, b) => a.name.localeCompare(b.name, "es"));
+    const allowed = new Set(
+      withClinic.filter((x) => x.clinicIdLookup && x.clinicIdLookup.length > 0).map((x) => x.recordId)
+    );
 
+    // si hay lookup en alguno, filtramos; si no, no filtramos
+    if (allowed.size > 0) {
+      filtered = filtered.filter((t) => allowed.has(t.recordId));
+    }
+  }
+
+  // orden (por serviceId)
+  filtered.sort((a, b) => a.serviceId.localeCompare(b.serviceId));
   return filtered;
 }
