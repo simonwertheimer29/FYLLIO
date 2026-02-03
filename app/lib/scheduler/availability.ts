@@ -63,9 +63,15 @@ export function computeAvailableSlots(params: {
   const lunch = getLunchWindow(dayIso, rules);
 
   // solo citas del mismo doctor y del mismo sillón
-  const appts = appointments.filter(
-    (a) => (a.providerId ?? "") === providerId && (a.chairId ?? 1) === chairId
-  );
+  // 🚫 bloquea por:
+// - mismo sillón (aunque sea otro doctor)
+// - mismo doctor (aunque sea otro sillón)
+const appts = appointments.filter((a) => {
+  const sameChair = (a.chairId ?? -1) === chairId;
+  const sameProvider = (a.providerId ?? "") === providerId;
+  return sameChair || sameProvider;
+});
+
 
   const slots: Slot[] = [];
   let cursor = dayStartIso;
@@ -147,18 +153,18 @@ export async function getAvailableSlots(
     for (const providerId of providerIds) {
       const providerRules = input.providerRulesById?.[providerId] ?? rules;
 
-      const filtered = appointments.filter(a => a.providerId === providerId);
 
       const slots = chairIds.flatMap(chairId =>
-        computeAvailableSlots({
-          dayIso,
-          rules: providerRules,
-          treatmentType,
-          appointments: filtered,
-          chairId,
-          providerId,
-        })
-      );
+  computeAvailableSlots({
+    dayIso,
+    rules: providerRules,
+    treatmentType,
+    appointments, // ✅ sin filtrar
+    chairId,
+    providerId,
+  })
+);
+
 
       if (slots.length) return slots;
     }

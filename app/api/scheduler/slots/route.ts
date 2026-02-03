@@ -95,6 +95,8 @@ export async function POST(req: Request) {
       (dayIso) => listAppointmentsByDay({ dayIso, clinicId })
     );
 
+    
+
     return NextResponse.json({ slots });
   } catch (err: any) {
     return NextResponse.json({ error: err?.message ?? "Unknown error" }, { status: 500 });
