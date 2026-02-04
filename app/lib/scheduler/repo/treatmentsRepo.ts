@@ -3,11 +3,11 @@ import { base, TABLES } from "../../airtable";
 
 export type TreatmentRow = {
   recordId: string;            // recXXXX
-  serviceId?: string;          // SRV_01 (si existe)
+  serviceId?: string;          // SRV_01
   name: string;                // Empaste, Limpieza...
   durationMin?: number;        // Duración (min)
   bufferBeforeMin?: number;    // Buffer antes
-  bufferAfterMin?: number;     // Buffer después
+  bufferAfterMin?: number;     // Buffer despues
 };
 
 function firstString(x: unknown): string {
@@ -22,22 +22,6 @@ function toNum(x: unknown): number | undefined {
   if (!s) return undefined;
   const n = Number(s);
   return Number.isFinite(n) ? n : undefined;
-}
-
-function firstNonEmptyFieldString(fields: any, candidates: string[]): string {
-  for (const key of candidates) {
-    const v = firstString(fields?.[key]);
-    if (v && v.trim()) return v.trim();
-  }
-  return "";
-}
-
-function firstNonEmptyFieldNumber(fields: any, candidates: string[]): number | undefined {
-  for (const key of candidates) {
-    const v = toNum(fields?.[key]);
-    if (typeof v === "number") return v;
-  }
-  return undefined;
 }
 
 export async function listTreatments(params: { clinicRecordId?: string }): Promise<TreatmentRow[]> {
@@ -55,55 +39,15 @@ export async function listTreatments(params: { clinicRecordId?: string }): Promi
   const out: TreatmentRow[] = records.map((r: any) => {
     const f: any = r.fields || {};
 
-    // ✅ ID / código del servicio (SRV_01…) — intentamos varios nombres
-    const serviceId = firstNonEmptyFieldString(f, [
-      "Tratamientos",
-      "Tratamiento_id",
-      "Tratamiento ID",
-      "Service ID",
-      "Servicio ID",
-      "ID",
-      "Codigo",
-      "Código",
-    ]);
+    // ✅ en TU base
+    const serviceId = String(firstString(f["Tratamientos ID"]) || "").trim();
 
-    // ✅ Nombre del tratamiento — intentamos varios nombres
-    const name = firstNonEmptyFieldString(f, [
-      "Nombre",
-      "Name",
-      "Tratamiento",
-      "Servicio",
-      "Title",
-    ]);
+    // ✅ en TU base, el “nombre” está en Categoria (single select)
+    const name = String(firstString(f["Categoria"]) || "").trim();
 
-    // ✅ Duración y buffers — intentamos variantes
-    const durationMin = firstNonEmptyFieldNumber(f, [
-      "Duración",
-      "Duracion",
-      "Duración (min)",
-      "Duracion (min)",
-      "Duracion_min",
-      "Duración_min",
-    ]);
-
-    const bufferBeforeMin = firstNonEmptyFieldNumber(f, [
-      "Buffer antes",
-      "Buffer_antes",
-      "Buffer Antes",
-      "BufferBefore",
-      "Buffer before",
-    ]);
-
-    const bufferAfterMin = firstNonEmptyFieldNumber(f, [
-      "Buffer despues",
-      "Buffer después",
-      "Buffer_despues",
-      "Buffer_después",
-      "Buffer Despues",
-      "Buffer Después",
-      "BufferAfter",
-      "Buffer after",
-    ]);
+    const durationMin = toNum(f["Duración"]);
+    const bufferBeforeMin = toNum(f["Buffer antes"]);
+    const bufferAfterMin = toNum(f["Buffer despues"]);
 
     return {
       recordId: r.id,
@@ -115,10 +59,10 @@ export async function listTreatments(params: { clinicRecordId?: string }): Promi
     };
   });
 
-  // ✅ mínimo: que haya nombre decente (no filtramos por serviceId)
+  // ✅ mínimo: que exista name
   let filtered = out.filter((t) => t.name && t.name !== "(Sin nombre)");
 
-  // (Opcional) filtro por clínica solo si existe lookup "Clínica ID"
+  // (Opcional) filtro por clínica solo si existe lookup "Clínica ID" en Tratamientos
   if (clinicRecordId) {
     const withClinic = records.map((r: any) => {
       const f: any = r.fields || {};
@@ -132,22 +76,16 @@ export async function listTreatments(params: { clinicRecordId?: string }): Promi
         .map((x) => x.recordId)
     );
 
-    // si hay lookup en alguno, filtramos; si no, no filtramos
     if (allowed.size > 0) {
       filtered = filtered.filter((t) => allowed.has(t.recordId));
     }
   }
 
-  // orden estable: por serviceId si existe, si no por name
-  filtered.sort((a, b) => {
-    const ak = a.serviceId || a.name;
-    const bk = b.serviceId || b.name;
-    return ak.localeCompare(bk);
-  });
+  filtered.sort((a, b) => (a.serviceId || a.name).localeCompare(b.serviceId || b.name));
 
   console.log("[treatmentsRepo] normalized", {
     count: filtered.length,
-    sample: filtered.slice(0, 5).map((t) => ({
+    sample: filtered.slice(0, 6).map((t) => ({
       recordId: t.recordId,
       serviceId: t.serviceId,
       name: t.name,
