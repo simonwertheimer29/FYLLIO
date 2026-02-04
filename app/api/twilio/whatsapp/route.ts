@@ -25,11 +25,13 @@ import { formatTime } from "../../../lib/time";
 import { DateTime } from "luxon";
 
 import { getSession, setSession, deleteSession } from "../../../lib/scheduler/sessionStore";
+import { isDuplicateMessage } from "../../../lib/scheduler/idempotency";
+
 
 // ⚠️ Recomendado en Vercel
 export const runtime = "nodejs";
 
-const SESSION_TTL_SECONDS = 10 * 60; // 10 min
+const SESSION_TTL_SECONDS = 15 * 60; // 10 min
 
 /* ---------------------------------------
    Helpers para top-3 “humano”
@@ -131,7 +133,7 @@ function pickDiversifiedTop3(
 /* ---------------------------------------
    Sesión persistente (KV)
 ---------------------------------------- */
-type SessionStage = "ASK_TREATMENT" | "OFFER_SLOTS";
+type SessionStage = "ASK_TREATMENT" | "OFFER_SLOTS"| "ASK_PATIENT_NAME";
 
 type Session = {
   createdAtMs: number;
@@ -145,6 +147,14 @@ type Session = {
   treatmentType?: string;
   treatmentRecordId?: string; 
 
+   patientName?: string;
+pendingHoldId?: string;
+pendingProviderName?: string; // opcional para mensaje final
+pendingStart?: string;        // opcional
+pendingEnd?: string;          // opcional
+pendingStaffRecordId?: string;
+pendingSillonRecordId?: string;
+
   treatments?: {
     recordId: string;
     serviceId?: string;
@@ -152,6 +162,8 @@ type Session = {
     durationMin?: number;
     bufferBeforeMin?: number;
     bufferAfterMin?: number;
+
+
   }[];
 
   lastPreferences?: Preferences;
@@ -393,6 +405,12 @@ export async function POST(req: Request) {
   const bodyRaw = safe(form.get("Body")).trim();
   const msgSid = safe(form.get("MessageSid"));
 
+if (await isDuplicateMessage(msgSid)) {
+  const xml = twimlMessage("✅ Recibido.");
+  return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+}
+
+
   const from = normalizeWhatsAppFrom(fromRaw);
   const textLower = bodyRaw.toLowerCase();
 
@@ -462,6 +480,75 @@ export async function POST(req: Request) {
       return await buildAndOfferSlots({ from, sess: nextSess, preferences: prefs });
     }
 
+    // 2) Si hay sesión en ASK_PATIENT_NAME -> el usuario responde con su nombre
+if (sess?.stage === "ASK_PATIENT_NAME") {
+  const name = bodyRaw.trim();
+
+  if (name.length < 3) {
+    const xml = twimlMessage("¿Me lo repites? Nombre y apellido 🙂");
+    return new NextResponse(xml, {
+      status: 200,
+      headers: { "Content-Type": "text/xml; charset=utf-8" },
+    });
+  }
+
+  if (!sess.pendingHoldId) {
+    await deleteSession(from);
+    const xml = twimlMessage("Ups, se me perdió el contexto 😅 Escribe 'cita mañana' para empezar de nuevo.");
+    return new NextResponse(xml, {
+      status: 200,
+      headers: { "Content-Type": "text/xml; charset=utf-8" },
+    });
+  }
+
+  try {
+    const out = await confirmHoldToAppointment({
+      holdId: sess.pendingHoldId,
+      rules: sess.rules,
+      patientName: name,
+      createAppointment: async (appt) => {
+        const res = await createAppointment({
+          name,
+          startIso: toAirtableDateTime(appt.start),
+          endIso: toAirtableDateTime(appt.end),
+          clinicRecordId: sess.clinicRecordId,
+          staffRecordId: sess.pendingStaffRecordId,
+          sillonRecordId: sess.pendingSillonRecordId,
+          treatmentRecordId: sess.treatmentRecordId,
+        });
+        return res.recordId;
+      },
+    });
+
+    const appointmentId = safe((out as any)?.appointmentId ?? "");
+
+    await deleteSession(from);
+
+    const xmlDone = twimlMessage(
+      `🗓️ Cita creada ✅\n` +
+        `Paciente: ${name}\n` +
+        `Tratamiento: ${sess.treatmentType ?? "Tratamiento"}\n` +
+        `Con: ${sess.pendingProviderName ?? "Profesional"}\n` +
+        (sess.pendingStart ? `Inicio: ${sess.pendingStart}\n` : "") +
+        (sess.pendingEnd ? `Fin: ${sess.pendingEnd}\n` : "") +
+        (appointmentId ? `ID: ${appointmentId}\n` : "")
+    );
+
+    return new NextResponse(xmlDone, {
+      status: 200,
+      headers: { "Content-Type": "text/xml; charset=utf-8" },
+    });
+  } catch (err: any) {
+    await deleteSession(from);
+    const xml = twimlMessage("Ese hueco ya no está disponible 😕 Escribe 'cita mañana' y te doy nuevas opciones.");
+    return new NextResponse(xml, {
+      status: 200,
+      headers: { "Content-Type": "text/xml; charset=utf-8" },
+    });
+  }
+}
+
+
     // 2) Si hay sesión en OFFER_SLOTS y manda 1/2/3 -> confirmar
     if (sess?.stage === "OFFER_SLOTS") {
       const idx = parseIndex(bodyRaw);
@@ -505,40 +592,28 @@ export async function POST(req: Request) {
       const sillonRecordId = await getSillonRecordIdBySillonId(sillonId);
       if (!sillonRecordId) throw new Error(`No sillon recordId for ${sillonId}`);
 
-      const out = await confirmHoldToAppointment({
-        holdId: hold.id,
-        rules: sess.rules,
-        patientName: "Paciente WhatsApp",
-        createAppointment: async (appt) => {
-          const res = await createAppointment({
-            name: appt.patientName ?? "Paciente WhatsApp",
-            startIso: toAirtableDateTime(appt.start),
-            endIso: toAirtableDateTime(appt.end),
-            clinicRecordId: sess.clinicRecordId,
-            staffRecordId,
-            sillonRecordId,
-            treatmentRecordId: sess.treatmentRecordId,
-          });
-          return res.recordId;
-        },
-      });
+      const nextSess: Session = {
+  ...sess,
+  createdAtMs: Date.now(),
+  stage: "ASK_PATIENT_NAME",
 
-      const appointmentId = safe((out as any)?.appointmentId ?? "");
+  pendingHoldId: hold.id,
+  pendingStaffRecordId: staffRecordId,
+  pendingSillonRecordId: sillonRecordId,
+  pendingProviderName: providerName,
+  pendingStart: chosen.start,
+  pendingEnd: chosen.end,
+};
 
-      // ✅ borrar sesión en KV (ya no se puede reconfirmar)
-      await deleteSession(from);
+await setSession(from, nextSess, SESSION_TTL_SECONDS);
 
-      const xmlDone = twimlMessage(
-        `🗓️ Cita creada ✅\n` +
-          `Tratamiento: ${sess.treatmentType ?? "Revisión"}\n` +
-          `Con: ${providerName}\n` +
-          `Inicio: ${chosen.start}\n` +
-          `Fin: ${chosen.end}\n` +
-          (appointmentId ? `ID: ${appointmentId}\n` : "") +
-          `Si quieres cambiarla, escribe: "reagendar"`
-      );
+const xmlAskName = twimlMessage("Perfecto 🙂 ¿Cuál es tu nombre y apellido?");
+return new NextResponse(xmlAskName, {
+  status: 200,
+  headers: { "Content-Type": "text/xml; charset=utf-8" },
+});
 
-      return new NextResponse(xmlDone, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+
     }
 
     // 3) Flujo "cita"
