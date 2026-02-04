@@ -520,12 +520,13 @@ export async function POST(req: Request) {
       }
 
       const mapped = treatments.map((t) => ({
-        id: t.serviceId,
-        name: t.name,
-        durationMin: t.durationMin,
-        bufferBeforeMin: t.bufferBeforeMin ?? 0,
-        bufferAfterMin: t.bufferAfterMin ?? 0,
-      }));
+  id: t.serviceId ?? t.recordId,   // ✅ fallback seguro
+  name: t.name,
+  durationMin: t.durationMin,
+  bufferBeforeMin: t.bufferBeforeMin ?? 0,
+  bufferAfterMin: t.bufferAfterMin ?? 0,
+}));
+
 
       const newSess: Session = {
         createdAtMs: Date.now(),

@@ -30,8 +30,9 @@ function firstString(x: unknown): string {
 }
 
 
-
 const ZONE = "Europe/Madrid";
+
+
 
 function toLocalNaiveIso(x: unknown): string {
   // Airtable suele devolver ISO en UTC con Z. Lo convertimos a hora local Madrid
