@@ -40,16 +40,23 @@ function isoToMin(isoLocal: string) {
 }
 type Window = { key: string; startMin: number; endMin: number };
 
-function pickDiversifiedTop3(slots: Slot[], rules: RulesState, preferences: Preferences): Slot[] {
+function pickDiversifiedTop3(
+  slots: Slot[],
+  rules: RulesState,
+  preferences: Preferences
+): Slot[] {
   if (!slots.length) return [];
 
   const windows: Window[] = [
-    { key: "AM_EARLY", startMin: 8 * 60,  endMin: 11 * 60 },
-    { key: "AM_LATE",  startMin: 11 * 60, endMin: 14 * 60 },
-    { key: "PM",       startMin: 16 * 60, endMin: 20 * 60 },
+    { key: "AM_EARLY", startMin: 8 * 60, endMin: 11 * 60 },
+    { key: "AM_LATE", startMin: 11 * 60, endMin: 14 * 60 },
+    { key: "PM", startMin: 16 * 60, endMin: 20 * 60 },
   ];
 
-  const minGap = Math.max(60, (rules.minBookableSlotMin ?? 30) + (rules.bufferMin ?? 0));
+  const minGap = Math.max(
+    60,
+    (rules.minBookableSlotMin ?? 30) + (rules.bufferMin ?? 0)
+  );
 
   const picked: Slot[] = [];
   const usedWindows = new Set<string>();
@@ -71,14 +78,19 @@ function pickDiversifiedTop3(slots: Slot[], rules: RulesState, preferences: Pref
   };
 
   const pickLastFromWindow = (w: Window) => {
-    const cand = [...slots].filter((s) => inWindow(s, w) && !tooClose(s)).slice(-1)[0];
+    const cand = [...slots]
+      .filter((s) => inWindow(s, w) && !tooClose(s))
+      .slice(-1)[0];
     if (cand) {
       picked.push(cand);
       usedWindows.add(w.key);
     }
   };
 
-  const prefStart = preferences.preferredStartHHMM ? hhmmToMin(preferences.preferredStartHHMM) : null;
+  const prefStart = preferences.preferredStartHHMM
+    ? hhmmToMin(preferences.preferredStartHHMM)
+    : null;
+
   const wantsAfternoon = prefStart !== null && prefStart >= 14 * 60;
   const wantsMorning = prefStart !== null && prefStart < 14 * 60;
 
@@ -126,10 +138,8 @@ type Session = {
 
   stage: SessionStage;
 
-  // tratamiento elegido
   treatmentType?: string;
 
-  // tratamientos disponibles
   treatments?: {
     id: string;
     name: string;
@@ -138,13 +148,10 @@ type Session = {
     bufferAfterMin?: number;
   }[];
 
-  // últimas preferencias del usuario (mañana/tarde/etc)
   lastPreferences?: Preferences;
 
-  // slots ofrecidos (cuando stage=OFFER_SLOTS)
   slotsTop: Slot[];
 
-  // mapping staffId -> {name, recordId}
   staffById: Record<string, { name: string; recordId?: string }>;
 };
 
@@ -265,7 +272,6 @@ async function buildAndOfferSlots(params: {
 }): Promise<NextResponse> {
   const { from, sess, preferences } = params;
 
-  // 1) Staff desde Airtable
   const staff = await listStaff();
   const activeStaff = staff.filter((s: any) => s.activo);
 
@@ -303,7 +309,6 @@ async function buildAndOfferSlots(params: {
 
   const providerIds = Object.keys(providerRulesById);
 
-  // 2) Buscar slots
   const treatmentType = sess.treatmentType ?? (sess.rules.treatments?.[0]?.type ?? "Revisión");
 
   const slots = await getAvailableSlots(
@@ -323,7 +328,6 @@ async function buildAndOfferSlots(params: {
 
   const top = pickDiversifiedTop3(slots, sess.rules, preferences);
 
-  // 3) Guardar sesión (sin pisar stage)
   const nextSess: Session = {
     ...sess,
     createdAtMs: Date.now(),
@@ -334,8 +338,8 @@ async function buildAndOfferSlots(params: {
     staffById,
   };
   SESSIONS.set(from, nextSess);
+  console.log("[session] set", { from, stage: nextSess.stage, treatments: nextSess.treatments?.length, slotsTop: nextSess.slotsTop?.length });
 
-  // 4) Responder
   const options = top.map((slot, i) => {
     const name = staffById?.[slot.providerId]?.name ?? slot.providerId ?? "Profesional";
     return `${i + 1}️⃣ ${formatTime(slot.start)} con ${name}`;
@@ -364,13 +368,15 @@ export async function POST(req: Request) {
   const from = normalizeWhatsAppFrom(fromRaw);
   const textLower = bodyRaw.toLowerCase();
 
+  // ✅ SOLO AQUÍ se calculan (una vez)
+  const idxAny = parseIndex(bodyRaw);
+  const sess = SESSIONS.get(from);
+
   console.log("[twilio/whatsapp] inbound", { from: fromRaw, fromNorm: from, body: bodyRaw, msgSid });
+  console.log("[session] lookup", { from, has: SESSIONS.has(from), size: SESSIONS.size, idxAny, stage: sess?.stage });
 
   try {
-    const idxAny = parseIndex(bodyRaw);
-    const sess = SESSIONS.get(from);
-
-    // Contexto demo (una sola vez)
+    // Contexto demo
     const clinicId = process.env.DEMO_CLINIC_ID || "DEMO_CLINIC";
     const clinicRecordId = process.env.DEMO_CLINIC_RECORD_ID;
     const baseRules = getDemoRules();
@@ -378,6 +384,14 @@ export async function POST(req: Request) {
     if (!baseRules.dayStartTime || !baseRules.dayEndTime) {
       const xmlConfig = twimlMessage("⚠️ Config incompleta: faltan horarios (dayStartTime/dayEndTime).");
       return new NextResponse(xmlConfig, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+    }
+
+    // ✅ FIX inmediato: llegó número pero no hay sesión => no hacemos echo
+    if (idxAny !== null && !sess) {
+      const xml = twimlMessage(
+        "Se me fue la sesión 😅 Escribe 'cita mañana' otra vez y te muestro tratamientos."
+      );
+      return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
     }
 
     /* ======================================================
@@ -394,13 +408,11 @@ export async function POST(req: Request) {
           return new NextResponse(xmlBad, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
         }
 
-        // Derivar rules por tratamiento (sin cambiar tu core)
         const durationMin = chosenT.durationMin ?? 30;
         const bufferMin = (chosenT.bufferBeforeMin ?? 0) + (chosenT.bufferAfterMin ?? 0);
 
         const derivedRules: RulesState = {
           ...sess.rules,
-          // ponemos este tratamiento como el “activo”
           treatments: [
             {
               type: chosenT.name,
@@ -419,6 +431,7 @@ export async function POST(req: Request) {
           slotsTop: [],
         };
         SESSIONS.set(from, nextSess);
+        console.log("[session] set", { from, stage: nextSess.stage, treatments: nextSess.treatments?.length, slotsTop: nextSess.slotsTop?.length });
 
         const prefs = nextSess.lastPreferences ?? { dateIso: undefined };
         return await buildAndOfferSlots({ from, sess: nextSess, preferences: prefs });
@@ -437,7 +450,6 @@ export async function POST(req: Request) {
           return new NextResponse(xmlBad, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
         }
 
-        // HOLD
         const hold = createHold({
           slot: chosen,
           patientId: from,
@@ -478,10 +490,10 @@ export async function POST(req: Request) {
           },
         });
 
+        const appointmentId = safe((out as any)?.appointmentId ?? "");
+
         // cerrar sesión para evitar doble confirmación
         SESSIONS.delete(from);
-
-        const appointmentId = safe((out as any)?.appointmentId ?? "");
 
         const xmlDone = twimlMessage(
           `🗓️ Cita creada ✅\n` +
@@ -520,13 +532,12 @@ export async function POST(req: Request) {
       }
 
       const mapped = treatments.map((t) => ({
-  id: t.serviceId ?? t.recordId,   // ✅ fallback seguro
-  name: t.name,
-  durationMin: t.durationMin,
-  bufferBeforeMin: t.bufferBeforeMin ?? 0,
-  bufferAfterMin: t.bufferAfterMin ?? 0,
-}));
-
+        id: t.serviceId || t.recordId,
+        name: t.name,
+        durationMin: t.durationMin,
+        bufferBeforeMin: t.bufferBeforeMin ?? 0,
+        bufferAfterMin: t.bufferAfterMin ?? 0,
+      }));
 
       const newSess: Session = {
         createdAtMs: Date.now(),
@@ -541,6 +552,7 @@ export async function POST(req: Request) {
         staffById: {},
       };
       SESSIONS.set(from, newSess);
+      console.log("[session] set", { from, stage: newSess.stage, treatments: newSess.treatments?.length, slotsTop: newSess.slotsTop?.length });
 
       const xmlAsk = twimlMessage(renderTreatmentsList(mapped));
       return new NextResponse(xmlAsk, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
@@ -551,9 +563,10 @@ export async function POST(req: Request) {
       const updated: Session = {
         ...sess,
         createdAtMs: Date.now(),
-        lastPreferences: preferences.dateIso || preferences.preferredStartHHMM || preferences.preferredEndHHMM
-          ? preferences
-          : sess.lastPreferences,
+        lastPreferences:
+          preferences.dateIso || preferences.preferredStartHHMM || preferences.preferredEndHHMM
+            ? preferences
+            : sess.lastPreferences,
       };
       SESSIONS.set(from, updated);
 
@@ -573,7 +586,6 @@ export async function POST(req: Request) {
       return await buildAndOfferSlots({ from, sess: updated, preferences });
     }
 
-    // fallback
     const xmlFallback = twimlMessage("Escribe 'cita' para empezar 🙂");
     return new NextResponse(xmlFallback, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
   } catch (err: any) {
