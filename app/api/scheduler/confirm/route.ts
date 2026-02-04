@@ -12,15 +12,19 @@ export async function POST(req: Request) {
     patientName: body.patientName,
 
     // ✅ adaptador: el core te pasa un "appt", Airtable quiere {name,startIso,endIso,...}
-    createAppointment: async (appt) => {
-      const res = await createAppointment({
-        name: appt.patientName ?? body.patientName ?? "Paciente",
-        startIso: appt.start,
-        endIso: appt.end,
-        clinicRecordId: body.clinicRecordId, // si lo tienes
-      });
-      return res.recordId; // el core espera string
-    },
+    // body: { holdId, rules, patientName, clinicRecordId?, treatmentRecordId? }
+
+createAppointment: async (appt) => {
+  const res = await createAppointment({
+    name: appt.patientName ?? body.patientName ?? "Paciente",
+    startIso: appt.start,
+    endIso: appt.end,
+    clinicRecordId: body.clinicRecordId,
+    treatmentRecordId: body.treatmentRecordId, // ✅
+  });
+  return res.recordId;
+},
+
   });
 
   return NextResponse.json(out);

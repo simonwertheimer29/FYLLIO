@@ -142,11 +142,13 @@ export async function createAppointment(params: {
   clinicRecordId?: string;
   notes?: string;
 
-  // ✅ NUEVO
   staffRecordId?: string;   // link "Profesional"
   sillonRecordId?: string;  // link "Sillón"
+
+  // ✅ NUEVO
+  treatmentRecordId?: string; // link "Tratamiento"
 }): Promise<{ recordId: string }> {
-  const { name, startIso, endIso, clinicRecordId, notes, staffRecordId, sillonRecordId } = params;
+  const { name, startIso, endIso, clinicRecordId, notes, staffRecordId, sillonRecordId, treatmentRecordId } = params;
 
   const fields: any = {
     "Nombre": name,
@@ -157,9 +159,11 @@ export async function createAppointment(params: {
   if (notes) fields["Notas"] = notes;
   if (clinicRecordId) fields["Clínica"] = [clinicRecordId];
 
-  // ✅ links para que la agenda lo detecte
   if (staffRecordId) fields["Profesional"] = [staffRecordId];
   if (sillonRecordId) fields["Sillón"] = [sillonRecordId];
+
+  // ✅ esto arregla tu problema
+  if (treatmentRecordId) fields["Tratamiento"] = [treatmentRecordId];
 
   const created = await base(TABLES.appointments).create([{ fields }]);
   const rec = created?.[0];

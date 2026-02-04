@@ -4,7 +4,7 @@ import { twimlMessage } from "../../../lib/twilio/twiml";
 
 import {
   getAvailableSlots,
-  createHold,
+  createHoldKV,
   confirmHoldToAppointment,
 } from "../../../lib/scheduler";
 
@@ -143,9 +143,11 @@ type Session = {
   stage: SessionStage;
 
   treatmentType?: string;
+  treatmentRecordId?: string; 
 
   treatments?: {
-    id: string;
+    recordId: string;
+    serviceId?: string;
     name: string;
     durationMin?: number;
     bufferBeforeMin?: number;
@@ -450,6 +452,7 @@ export async function POST(req: Request) {
         clinicRecordId: sess.clinicRecordId || clinicRecordId,
         rules: derivedRules,
         treatmentType: chosenT.name,
+        treatmentRecordId: chosenT.recordId,
         slotsTop: [],
       };
 
@@ -479,7 +482,7 @@ export async function POST(req: Request) {
         return new NextResponse(xmlBad, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
       }
 
-      const hold = createHold({
+      const hold = await createHoldKV({
         slot: chosen,
         patientId: from,
         treatmentType: sess.treatmentType ?? "Revisión",
@@ -514,6 +517,7 @@ export async function POST(req: Request) {
             clinicRecordId: sess.clinicRecordId,
             staffRecordId,
             sillonRecordId,
+            treatmentRecordId: sess.treatmentRecordId,
           });
           return res.recordId;
         },
@@ -555,12 +559,14 @@ export async function POST(req: Request) {
       }
 
       const mapped = treatments.map((t) => ({
-        id: t.serviceId || t.recordId,
-        name: t.name,
-        durationMin: t.durationMin,
-        bufferBeforeMin: t.bufferBeforeMin ?? 0,
-        bufferAfterMin: t.bufferAfterMin ?? 0,
-      }));
+  recordId: t.recordId,           // ✅
+  serviceId: t.serviceId,
+  name: t.name,
+  durationMin: t.durationMin,
+  bufferBeforeMin: t.bufferBeforeMin ?? 0,
+  bufferAfterMin: t.bufferAfterMin ?? 0,
+}));
+
 
       const newSess: Session = {
         createdAtMs: Date.now(),
