@@ -2,7 +2,11 @@
 import { NextResponse } from "next/server";
 import { twimlMessage } from "../../../lib/twilio/twiml";
 
-import { getAvailableSlots, createHold, confirmHoldToAppointment } from "../../../lib/scheduler";
+import {
+  getAvailableSlots,
+  createHold,
+  confirmHoldToAppointment,
+} from "../../../lib/scheduler";
 
 import {
   listAppointmentsByDay,
@@ -20,11 +24,15 @@ import { DEFAULT_RULES } from "../../../lib/demoData";
 import { formatTime } from "../../../lib/time";
 import { DateTime } from "luxon";
 
+import { getSession, setSession, deleteSession } from "../../../lib/scheduler/sessionStore";
+
 // ⚠️ Recomendado en Vercel
 export const runtime = "nodejs";
 
+const SESSION_TTL_SECONDS = 10 * 60; // 10 min
+
 /* ---------------------------------------
-   Helpers top-3 “humano”
+   Helpers para top-3 “humano”
 ---------------------------------------- */
 function hhmmToMin(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number);
@@ -36,7 +44,11 @@ function isoToMin(isoLocal: string) {
 }
 type Window = { key: string; startMin: number; endMin: number };
 
-function pickDiversifiedTop3(slots: Slot[], rules: RulesState, preferences: Preferences): Slot[] {
+function pickDiversifiedTop3(
+  slots: Slot[],
+  rules: RulesState,
+  preferences: Preferences
+): Slot[] {
   if (!slots.length) return [];
 
   const windows: Window[] = [
@@ -45,7 +57,10 @@ function pickDiversifiedTop3(slots: Slot[], rules: RulesState, preferences: Pref
     { key: "PM", startMin: 16 * 60, endMin: 20 * 60 },
   ];
 
-  const minGap = Math.max(60, (rules.minBookableSlotMin ?? 30) + (rules.bufferMin ?? 0));
+  const minGap = Math.max(
+    60,
+    (rules.minBookableSlotMin ?? 30) + (rules.bufferMin ?? 0)
+  );
 
   const picked: Slot[] = [];
   const usedWindows = new Set<string>();
@@ -67,14 +82,19 @@ function pickDiversifiedTop3(slots: Slot[], rules: RulesState, preferences: Pref
   };
 
   const pickLastFromWindow = (w: Window) => {
-    const cand = [...slots].filter((s) => inWindow(s, w) && !tooClose(s)).slice(-1)[0];
+    const cand = [...slots]
+      .filter((s) => inWindow(s, w) && !tooClose(s))
+      .slice(-1)[0];
     if (cand) {
       picked.push(cand);
       usedWindows.add(w.key);
     }
   };
 
-  const prefStart = preferences.preferredStartHHMM ? hhmmToMin(preferences.preferredStartHHMM) : null;
+  const prefStart = preferences.preferredStartHHMM
+    ? hhmmToMin(preferences.preferredStartHHMM)
+    : null;
+
   const wantsAfternoon = prefStart !== null && prefStart >= 14 * 60;
   const wantsMorning = prefStart !== null && prefStart < 14 * 60;
 
@@ -109,17 +129,20 @@ function pickDiversifiedTop3(slots: Slot[], rules: RulesState, preferences: Pref
 }
 
 /* ---------------------------------------
-   Sesiones (MVP en memoria)
-   (OJO: serverless puede perderlo)
+   Sesión persistente (KV)
 ---------------------------------------- */
 type SessionStage = "ASK_TREATMENT" | "OFFER_SLOTS";
 
 type Session = {
   createdAtMs: number;
+
   clinicId: string;
   clinicRecordId?: string;
   rules: RulesState;
+
   stage: SessionStage;
+
+  treatmentType?: string;
 
   treatments?: {
     id: string;
@@ -129,16 +152,12 @@ type Session = {
     bufferAfterMin?: number;
   }[];
 
-  treatmentType?: string;
   lastPreferences?: Preferences;
 
   slotsTop: Slot[];
 
   staffById: Record<string, { name: string; recordId?: string }>;
 };
-
-const SESSIONS = new Map<string, Session>();
-const SESSION_TTL_MS = 10 * 60 * 1000;
 
 /* ---------------------------------------
    Utils
@@ -149,13 +168,6 @@ function safe(v: any) {
 
 function normalizeWhatsAppFrom(from: string) {
   return safe(from).replace("whatsapp:", "").trim();
-}
-
-function cleanupSessions() {
-  const now = Date.now();
-  for (const [k, s] of SESSIONS.entries()) {
-    if (now - s.createdAtMs > SESSION_TTL_MS) SESSIONS.delete(k);
-  }
 }
 
 function getDemoRules(): RulesState {
@@ -241,52 +253,43 @@ function parseIndex(text: string): number | null {
   return n - 1;
 }
 
-function parseHHMM(text: string): string | null {
-  const m = text.trim().match(/\b([01]?\d|2[0-3]):([0-5]\d)\b/);
-  if (!m) return null;
-  const hh = String(m[1]).padStart(2, "0");
-  const mm = m[2];
-  return `${hh}:${mm}`;
-}
-
 function normalizeText(s: string) {
-  return (s ?? "")
+  return s
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "") // quita acentos
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
     .trim();
 }
 
-function findTreatmentByUserText(
-  treatments: { id: string; name: string }[],
-  userText: string
-) {
-  const u = normalizeText(userText);
-
-  // exacto
-  let hit = treatments.find((t) => normalizeText(t.name) === u);
-  if (hit) return hit;
-
-  // contiene
-  hit = treatments.find((t) => u.includes(normalizeText(t.name)));
-  if (hit) return hit;
-
-  return null;
-}
-
-/* ---------------------------------------
-   Builders de respuesta
----------------------------------------- */
 function renderTreatmentsList(treatments: Session["treatments"]) {
   const list = treatments ?? [];
   const lines = list.slice(0, 12).map((t, i) => `${i + 1}️⃣ ${t.name}`);
   return (
     `Perfecto 🙂 ¿Qué tratamiento necesitas?\n\n` +
     (lines.length ? lines.join("\n") : "No hay tratamientos disponibles.") +
-    `\n\nResponde con el *nombre* (ej: Empaste) o con el número.`
+    `\n\nResponde con el nombre (ej: Empaste) o con el número.`
   );
+}
+
+function findTreatmentByUserInput(sess: Session, bodyRaw: string) {
+  const list = sess.treatments ?? [];
+  if (!list.length) return null;
+
+  // 1) si mandó número
+  const idx = parseIndex(bodyRaw);
+  if (idx !== null) return list[idx] ?? null;
+
+  // 2) si mandó texto (nombre)
+  const raw = normalizeText(bodyRaw);
+  if (!raw) return null;
+
+  // match exacto (normalizado)
+  const exact = list.find((t) => normalizeText(t.name) === raw);
+  if (exact) return exact;
+
+  // match parcial (por si ponen "emp" o "limpie")
+  const partial = list.find((t) => normalizeText(t.name).includes(raw));
+  return partial ?? null;
 }
 
 async function buildAndOfferSlots(params: {
@@ -333,10 +336,9 @@ async function buildAndOfferSlots(params: {
   }
 
   const providerIds = Object.keys(providerRulesById);
-
-  // 2) Buscar slots
   const treatmentType = sess.treatmentType ?? (sess.rules.treatments?.[0]?.type ?? "Revisión");
 
+  // 2) Buscar slots
   const slots = await getAvailableSlots(
     { rules: sess.rules, treatmentType, preferences, providerIds, providerRulesById } as any,
     async (dayIso) => {
@@ -363,19 +365,18 @@ async function buildAndOfferSlots(params: {
     slotsTop: top,
     staffById,
   };
-  SESSIONS.set(from, nextSess);
 
-  // 3) Respuesta: pedimos HORA (más fácil), pero aceptamos 1/2/3 igual
+  await setSession(from, nextSess, SESSION_TTL_SECONDS);
+
   const options = top.map((slot, i) => {
     const name = staffById?.[slot.providerId]?.name ?? slot.providerId ?? "Profesional";
-    const hhmm = slot.start.slice(11, 16);
-    return `${i + 1}️⃣ ${hhmm} con ${name}`;
+    return `${i + 1}️⃣ ${formatTime(slot.start)} con ${name}`;
   });
 
   const xmlOptions = twimlMessage(
     `Perfecto 🙂 Estas son las opciones disponibles:\n\n` +
       options.join("\n") +
-      `\n\nResponde con la *hora* (ej: 09:30) o con 1/2/3.`
+      `\n\nResponde con 1, 2 o 3.`
   );
 
   return new NextResponse(xmlOptions, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
@@ -385,8 +386,6 @@ async function buildAndOfferSlots(params: {
    Handler principal
 ---------------------------------------- */
 export async function POST(req: Request) {
-  cleanupSessions();
-
   const form = await req.formData();
   const fromRaw = safe(form.get("From"));
   const bodyRaw = safe(form.get("Body")).trim();
@@ -395,16 +394,13 @@ export async function POST(req: Request) {
   const from = normalizeWhatsAppFrom(fromRaw);
   const textLower = bodyRaw.toLowerCase();
 
-  // ✅ SOLO una vez
-  const idxAny = parseIndex(bodyRaw);
-  const hhmm = parseHHMM(bodyRaw);
-  const sess = SESSIONS.get(from);
+  // Sesión desde KV (persistente)
+  const sess = await getSession<Session>(from);
 
   console.log("[twilio/whatsapp] inbound", { from: fromRaw, fromNorm: from, body: bodyRaw, msgSid });
-  console.log("[session] lookup", { from, has: SESSIONS.has(from), size: SESSIONS.size, idxAny, hhmm, stage: sess?.stage });
+  console.log("[session] lookup(kv)", { from, has: !!sess, stage: sess?.stage, ttlSec: SESSION_TTL_SECONDS });
 
   try {
-    // Contexto demo
     const clinicId = process.env.DEMO_CLINIC_ID || "DEMO_CLINIC";
     const clinicRecordId = process.env.DEMO_CLINIC_RECORD_ID;
     const baseRules = getDemoRules();
@@ -414,162 +410,142 @@ export async function POST(req: Request) {
       return new NextResponse(xmlConfig, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
     }
 
-    // ✅ Si llegó número/hora pero no hay sesión => mensaje claro
-    if ((idxAny !== null || hhmm) && !sess) {
-      const xml = twimlMessage(
-        "Se me fue la sesión 😅 Escribe 'cita mañana' otra vez y seguimos."
-      );
-      return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
-    }
-
-    /* ======================================================
-       A) Hay sesión: resolver selección
-    ======================================================= */
-    if (sess) {
-      // A1) Estamos pidiendo tratamiento
-      if (sess.stage === "ASK_TREATMENT") {
-        const list = sess.treatments ?? [];
-
-        // puede venir por índice
-        const byIndex = idxAny !== null ? list[idxAny] : undefined;
-
-        // o por nombre
-        const byName = !byIndex ? findTreatmentByUserText(list.map(t => ({ id: t.id, name: t.name })), bodyRaw) : null;
-        const chosenT = byIndex ?? (byName ? list.find(t => t.id === byName.id) : undefined);
-
-        if (!chosenT) {
-          const xmlBad = twimlMessage(
-            "No entendí el tratamiento. Responde con el nombre (ej: Empaste) o con un número de la lista 🙂"
-          );
-          return new NextResponse(xmlBad, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
-        }
-
-        // Derivar rules por tratamiento
-        const durationMin = chosenT.durationMin ?? 30;
-        const bufferMin = (chosenT.bufferBeforeMin ?? 0) + (chosenT.bufferAfterMin ?? 0);
-
-        const derivedRules: RulesState = {
-          ...sess.rules,
-          treatments: [
-            {
-              type: chosenT.name,
-              durationMin,
-              bufferMin: bufferMin || (sess.rules.bufferMin ?? 0),
-            },
-          ],
-        };
-
-        const nextSess: Session = {
-          ...sess,
-          createdAtMs: Date.now(),
-          stage: "OFFER_SLOTS",
-          treatmentType: chosenT.name,
-          rules: derivedRules,
-          slotsTop: [],
-        };
-        SESSIONS.set(from, nextSess);
-
-        const prefs = nextSess.lastPreferences ?? { dateIso: undefined };
-        return await buildAndOfferSlots({ from, sess: nextSess, preferences: prefs });
-      }
-
-      // A2) Estamos ofreciendo slots
-      if (sess.stage === "OFFER_SLOTS") {
-        // elegir por 1/2/3
-        let chosenSlot: Slot | undefined;
-
-        if (idxAny !== null) {
-          if (idxAny > 2) {
-            const xmlBad = twimlMessage("Responde 1, 2 o 3 🙂 (o escribe la hora, ej: 09:30)");
-            return new NextResponse(xmlBad, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
-          }
-          chosenSlot = sess.slotsTop[idxAny];
-        }
-
-        // elegir por hora HH:MM
-        if (!chosenSlot && hhmm) {
-          chosenSlot = sess.slotsTop.find(s => s.start.slice(11, 16) === hhmm);
-        }
-
-        if (!chosenSlot) {
-          const xmlBad = twimlMessage("No entendí tu elección. Responde con la hora (ej: 09:30) o con 1/2/3 🙂");
-          return new NextResponse(xmlBad, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
-        }
-
-        // HOLD
-        const hold = createHold({
-          slot: chosenSlot,
-          patientId: from,
-          treatmentType: sess.treatmentType ?? "Revisión",
-          ttlMinutes: 10,
-        });
-
-        const providerName =
-          sess.staffById?.[chosenSlot.providerId]?.name ?? chosenSlot.providerId ?? "Profesional";
-
-        let staffRecordId: string | undefined =
-          sess.staffById?.[chosenSlot.providerId]?.recordId ?? undefined;
-
-        if (!staffRecordId) {
-          const found = await getStaffRecordIdByStaffId(chosenSlot.providerId);
-          if (!found) throw new Error(`No staff recordId for ${chosenSlot.providerId}`);
-          staffRecordId = found;
-        }
-
-        const sillonId = chairIdToSillonId(chosenSlot.chairId);
-        const sillonRecordId = await getSillonRecordIdBySillonId(sillonId);
-        if (!sillonRecordId) throw new Error(`No sillon recordId for ${sillonId}`);
-
-        const out = await confirmHoldToAppointment({
-          holdId: hold.id,
-          rules: sess.rules,
-          patientName: "Paciente WhatsApp",
-          createAppointment: async (appt) => {
-            const res = await createAppointment({
-              name: appt.patientName ?? "Paciente WhatsApp",
-              startIso: toAirtableDateTime(appt.start),
-              endIso: toAirtableDateTime(appt.end),
-              clinicRecordId: sess.clinicRecordId,
-              staffRecordId,
-              sillonRecordId,
-            });
-            return res.recordId;
-          },
-        });
-
-        const appointmentId = safe((out as any)?.appointmentId ?? "");
-
-        // cerrar sesión para evitar doble confirmación
-        SESSIONS.delete(from);
-
-        const xmlDone = twimlMessage(
-          `🗓️ Cita creada ✅\n` +
-            `Tratamiento: ${sess.treatmentType ?? "Revisión"}\n` +
-            `Con: ${providerName}\n` +
-            `Inicio: ${chosenSlot.start}\n` +
-            `Fin: ${chosenSlot.end}\n` +
-            (appointmentId ? `ID: ${appointmentId}\n` : "") +
-            `Si quieres cambiarla, escribe: "reagendar"`
-        );
-
-        return new NextResponse(xmlDone, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
-      }
-    }
-
-    /* ======================================================
-       B) Si no habla de "cita", echo simple
-    ======================================================= */
-    if (!textLower.includes("cita")) {
+    // 0) Si no habla de “cita” y tampoco está respondiendo a una sesión -> echo
+    // (Pero si está en ASK_TREATMENT y manda texto, eso sí lo procesamos)
+    if (!textLower.includes("cita") && !sess) {
       const xmlEcho = twimlMessage(`✅ Recibido: "${bodyRaw}"`);
       return new NextResponse(xmlEcho, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
     }
 
-    /* ======================================================
-       C) Flujo "cita": pedir tratamiento si falta, o mostrar slots
-    ======================================================= */
+    // 1) Si hay sesión en ASK_TREATMENT: aceptar número O nombre
+    if (sess?.stage === "ASK_TREATMENT") {
+      const chosenT = findTreatmentByUserInput(sess, bodyRaw);
+
+      if (!chosenT) {
+        const xmlBad = twimlMessage(
+          "No encontré ese tratamiento 😅 Responde con el nombre exacto (ej: Empaste) o con el número."
+        );
+        return new NextResponse(xmlBad, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+      }
+
+      const durationMin = chosenT.durationMin ?? 30;
+      const bufferMin = (chosenT.bufferBeforeMin ?? 0) + (chosenT.bufferAfterMin ?? 0);
+
+      const derivedRules: RulesState = {
+        ...sess.rules,
+        treatments: [
+          {
+            type: chosenT.name,
+            durationMin,
+            bufferMin: bufferMin || (sess.rules.bufferMin ?? 0),
+          },
+        ],
+      };
+
+      const nextSess: Session = {
+        ...sess,
+        createdAtMs: Date.now(),
+        stage: "OFFER_SLOTS",
+        clinicId: sess.clinicId || clinicId,
+        clinicRecordId: sess.clinicRecordId || clinicRecordId,
+        rules: derivedRules,
+        treatmentType: chosenT.name,
+        slotsTop: [],
+      };
+
+      await setSession(from, nextSess, SESSION_TTL_SECONDS);
+
+      const prefs = nextSess.lastPreferences ?? parsePreferences(textLower);
+      return await buildAndOfferSlots({ from, sess: nextSess, preferences: prefs });
+    }
+
+    // 2) Si hay sesión en OFFER_SLOTS y manda 1/2/3 -> confirmar
+    if (sess?.stage === "OFFER_SLOTS") {
+      const idx = parseIndex(bodyRaw);
+
+      // si no es número, le pedimos 1/2/3 (para evitar líos)
+      if (idx === null) {
+        const xmlBad = twimlMessage("Responde con 1, 2 o 3 🙂");
+        return new NextResponse(xmlBad, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+      }
+      if (idx > 2) {
+        const xmlBad = twimlMessage("Responde 1, 2 o 3 🙂");
+        return new NextResponse(xmlBad, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+      }
+
+      const chosen = sess.slotsTop[idx];
+      if (!chosen) {
+        const xmlBad = twimlMessage("Esa opción no existe. Responde 1, 2 o 3 🙂");
+        return new NextResponse(xmlBad, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+      }
+
+      const hold = createHold({
+        slot: chosen,
+        patientId: from,
+        treatmentType: sess.treatmentType ?? "Revisión",
+        ttlMinutes: 10,
+      });
+
+      const providerName =
+        sess.staffById?.[chosen.providerId]?.name ?? chosen.providerId ?? "Profesional";
+
+      let staffRecordId: string | undefined =
+        sess.staffById?.[chosen.providerId]?.recordId ?? undefined;
+
+      if (!staffRecordId) {
+        const found = await getStaffRecordIdByStaffId(chosen.providerId);
+        if (!found) throw new Error(`No staff recordId for ${chosen.providerId}`);
+        staffRecordId = found;
+      }
+
+      const sillonId = chairIdToSillonId(chosen.chairId);
+      const sillonRecordId = await getSillonRecordIdBySillonId(sillonId);
+      if (!sillonRecordId) throw new Error(`No sillon recordId for ${sillonId}`);
+
+      const out = await confirmHoldToAppointment({
+        holdId: hold.id,
+        rules: sess.rules,
+        patientName: "Paciente WhatsApp",
+        createAppointment: async (appt) => {
+          const res = await createAppointment({
+            name: appt.patientName ?? "Paciente WhatsApp",
+            startIso: toAirtableDateTime(appt.start),
+            endIso: toAirtableDateTime(appt.end),
+            clinicRecordId: sess.clinicRecordId,
+            staffRecordId,
+            sillonRecordId,
+          });
+          return res.recordId;
+        },
+      });
+
+      const appointmentId = safe((out as any)?.appointmentId ?? "");
+
+      // ✅ borrar sesión en KV (ya no se puede reconfirmar)
+      await deleteSession(from);
+
+      const xmlDone = twimlMessage(
+        `🗓️ Cita creada ✅\n` +
+          `Tratamiento: ${sess.treatmentType ?? "Revisión"}\n` +
+          `Con: ${providerName}\n` +
+          `Inicio: ${chosen.start}\n` +
+          `Fin: ${chosen.end}\n` +
+          (appointmentId ? `ID: ${appointmentId}\n` : "") +
+          `Si quieres cambiarla, escribe: "reagendar"`
+      );
+
+      return new NextResponse(xmlDone, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+    }
+
+    // 3) Flujo "cita"
+    if (!textLower.includes("cita")) {
+      const xml = twimlMessage("Escribe 'cita mañana' para empezar 🙂");
+      return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+    }
+
     const preferences = parsePreferences(textLower);
 
-    // Si no hay sesión -> cargar tratamientos y pedir elección
+    // 3.1) Si no hay sesión -> pedir tratamiento
     if (!sess) {
       const treatments = await listTreatments({ clinicRecordId });
 
@@ -598,7 +574,8 @@ export async function POST(req: Request) {
         slotsTop: [],
         staffById: {},
       };
-      SESSIONS.set(from, newSess);
+
+      await setSession(from, newSess, SESSION_TTL_SECONDS);
 
       const xmlAsk = twimlMessage(renderTreatmentsList(mapped));
       return new NextResponse(xmlAsk, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
