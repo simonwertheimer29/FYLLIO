@@ -26,6 +26,8 @@ import { DateTime } from "luxon";
 
 import { getSession, setSession, deleteSession } from "../../../lib/scheduler/sessionStore";
 import { isDuplicateMessage } from "../../../lib/scheduler/idempotency";
+import { upsertPatientByPhone } from "../../../lib/scheduler/repo/airtableRepo";
+
 
 
 // ⚠️ Recomendado en Vercel
@@ -484,6 +486,8 @@ if (await isDuplicateMessage(msgSid)) {
 if (sess?.stage === "ASK_PATIENT_NAME") {
   const name = bodyRaw.trim();
 
+  
+
   if (name.length < 3) {
     const xml = twimlMessage("¿Me lo repites? Nombre y apellido 🙂");
     return new NextResponse(xml, {
@@ -500,6 +504,13 @@ if (sess?.stage === "ASK_PATIENT_NAME") {
       headers: { "Content-Type": "text/xml; charset=utf-8" },
     });
   }
+  const patient = await upsertPatientByPhone({
+  name,
+  phoneE164: from, // ✅ from ya está normalizado (sin "whatsapp:")
+  clinicRecordId: sess.clinicRecordId,
+});
+
+
 
   try {
     const out = await confirmHoldToAppointment({
@@ -515,6 +526,7 @@ if (sess?.stage === "ASK_PATIENT_NAME") {
           staffRecordId: sess.pendingStaffRecordId,
           sillonRecordId: sess.pendingSillonRecordId,
           treatmentRecordId: sess.treatmentRecordId,
+           patientRecordId: patient.recordId,
         });
         return res.recordId;
       },

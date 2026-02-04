@@ -18,6 +18,55 @@ export async function getStaffRecordIdByStaffId(staffId: string) {
   return findRecordIdByField(TABLES.staff, "Staff ID", staffId);
 }
 
+export async function getPatientRecordIdByPhone(phoneE164: string) {
+  // ✅ según tu captura el campo se llama "Teléfono"
+  return findRecordIdByField(TABLES.patients, "Teléfono", phoneE164);
+}
+
+export async function createPatient(params: {
+  name: string;
+  phoneE164: string;
+  clinicRecordId?: string;
+}): Promise<{ recordId: string }> {
+  const { name, phoneE164, clinicRecordId } = params;
+
+  // ✅ nombres de campos según tu captura
+  const fields: any = {
+    "Nombre": name,
+    "Teléfono": phoneE164,
+  };
+
+  // "Clínica" existe en tu tabla Pacientes (link)
+  if (clinicRecordId) fields["Clínica"] = [clinicRecordId];
+
+  // opcional pero recomendado (si quieres que quede bien desde el MVP):
+  // si "Canal preferido" es single select, puedes setearlo:
+  // fields["Canal preferido"] = "WhatsApp";
+  // si "Consentimiento Whatsapp" es checkbox:
+  // fields["Consentimiento Whatsapp"] = true;
+
+  const created = await base(TABLES.patients).create([{ fields }]);
+  const rec = created?.[0];
+  if (!rec?.id) throw new Error("Airtable: no se pudo crear paciente (sin id).");
+
+  return { recordId: rec.id };
+}
+
+export async function upsertPatientByPhone(params: {
+  name: string;
+  phoneE164: string;
+  clinicRecordId?: string;
+}): Promise<{ recordId: string; created: boolean }> {
+  const { name, phoneE164, clinicRecordId } = params;
+
+  const existing = await getPatientRecordIdByPhone(phoneE164);
+  if (existing) return { recordId: existing, created: false };
+
+  const created = await createPatient({ name, phoneE164, clinicRecordId });
+  return { recordId: created.recordId, created: true };
+}
+
+
 export async function getSillonRecordIdBySillonId(sillonId: string) {
   return findRecordIdByField(TABLES.sillones, "Sillón ID", sillonId);
 }
@@ -147,8 +196,10 @@ export async function createAppointment(params: {
 
   // ✅ NUEVO
   treatmentRecordId?: string; // link "Tratamiento"
+  patientRecordId?: string; // link "Paciente"
+
 }): Promise<{ recordId: string }> {
-  const { name, startIso, endIso, clinicRecordId, notes, staffRecordId, sillonRecordId, treatmentRecordId } = params;
+  const { name, startIso, endIso, clinicRecordId, notes, staffRecordId, sillonRecordId, treatmentRecordId,patientRecordId, } = params;
 
   const fields: any = {
     "Nombre": name,
@@ -164,6 +215,8 @@ export async function createAppointment(params: {
 
   // ✅ esto arregla tu problema
   if (treatmentRecordId) fields["Tratamiento"] = [treatmentRecordId];
+  if (patientRecordId) fields["Paciente"] = [patientRecordId];
+
 
   const created = await base(TABLES.appointments).create([{ fields }]);
   const rec = created?.[0];
