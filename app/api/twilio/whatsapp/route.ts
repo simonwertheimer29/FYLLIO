@@ -138,7 +138,13 @@ function pickDiversifiedTop3(
 /* ---------------------------------------
    Sesión persistente (KV)
 ---------------------------------------- */
-type SessionStage = "ASK_TREATMENT" | "OFFER_SLOTS"| "ASK_PATIENT_NAME";
+type SessionStage =
+  | "ASK_TREATMENT"
+  | "OFFER_SLOTS"
+  | "ASK_BOOKING_FOR"
+  | "ASK_OTHER_PHONE"
+  | "ASK_PATIENT_NAME";
+
 
 type Session = {
   createdAtMs: number;
@@ -520,6 +526,129 @@ if (await isDuplicateMessage(msgSid)) {
       const prefs = nextSess.lastPreferences ?? parsePreferences(textLower);
       return await buildAndOfferSlots({ from, sess: nextSess, preferences: prefs });
     }
+
+    if (sess?.stage === "ASK_BOOKING_FOR") {
+  const t = normalizeText(bodyRaw);
+
+  // acepta "1", "para mi", "mio", etc.
+  const isSelf =
+    t === "1" ||
+    t.includes("para mi") ||
+    t.includes("para mí") ||
+    t.includes("mio") ||
+    t.includes("yo");
+
+  const isOther =
+    t === "2" ||
+    t.includes("otra") ||
+    t.includes("para otra") ||
+    t.includes("para alguien") ||
+    t.includes("hijo") ||
+    t.includes("hija");
+
+  if (!isSelf && !isOther) {
+    const xml = twimlMessage("Responde 1) Para mí  o  2) Para otra persona 🙂");
+    return new NextResponse(xml, {
+      status: 200,
+      headers: { "Content-Type": "text/xml; charset=utf-8" },
+    });
+  }
+
+  if (isSelf) {
+    const nextSess: Session = {
+      ...sess,
+      createdAtMs: Date.now(),
+      bookingFor: "SELF",
+      otherPhoneE164: undefined,
+      useTutorPhone: undefined,
+      stage: "ASK_PATIENT_NAME",
+    };
+
+    await setSession(from, nextSess, SESSION_TTL_SECONDS);
+
+    const xml = twimlMessage("Perfecto 🙂 ¿Cuál es tu nombre y apellido?");
+    return new NextResponse(xml, {
+      status: 200,
+      headers: { "Content-Type": "text/xml; charset=utf-8" },
+    });
+  }
+
+  // OTHER
+  const nextSess: Session = {
+    ...sess,
+    createdAtMs: Date.now(),
+    bookingFor: "OTHER",
+    stage: "ASK_OTHER_PHONE",
+  };
+
+  await setSession(from, nextSess, SESSION_TTL_SECONDS);
+
+  const xml = twimlMessage(
+    "Perfecto 🙂 ¿Cuál es el teléfono de la otra persona en formato +34...?\n\nSi no tiene, responde: *no tiene*"
+  );
+  return new NextResponse(xml, {
+    status: 200,
+    headers: { "Content-Type": "text/xml; charset=utf-8" },
+  });
+}
+
+if (sess?.stage === "ASK_OTHER_PHONE") {
+  const t = normalizeText(bodyRaw);
+
+  const saidNoPhone =
+    t.includes("no tiene") ||
+    t.includes("no") ||
+    t.includes("sin telefono") ||
+    t.includes("sin teléfono");
+
+  // Si no tiene teléfono => usar tutor (from)
+  if (saidNoPhone) {
+    const nextSess: Session = {
+      ...sess,
+      createdAtMs: Date.now(),
+      useTutorPhone: true,
+      otherPhoneE164: undefined,
+      stage: "ASK_PATIENT_NAME",
+    };
+
+    await setSession(from, nextSess, SESSION_TTL_SECONDS);
+
+    const xml = twimlMessage("Perfecto 🙂 ¿Cuál es el nombre y apellido de la persona?");
+    return new NextResponse(xml, {
+      status: 200,
+      headers: { "Content-Type": "text/xml; charset=utf-8" },
+    });
+  }
+
+  // Si mandan teléfono
+  const phone = bodyRaw.trim();
+  const isE164 = /^\+\d{8,15}$/.test(phone);
+
+  if (!isE164) {
+    const xml = twimlMessage("Pásamelo así porfa: +346XXXXXXXX 🙂 o responde *no tiene*");
+    return new NextResponse(xml, {
+      status: 200,
+      headers: { "Content-Type": "text/xml; charset=utf-8" },
+    });
+  }
+
+  const nextSess: Session = {
+    ...sess,
+    createdAtMs: Date.now(),
+    otherPhoneE164: phone,
+    useTutorPhone: false,
+    stage: "ASK_PATIENT_NAME",
+  };
+
+  await setSession(from, nextSess, SESSION_TTL_SECONDS);
+
+  const xml = twimlMessage("Perfecto 🙂 ¿Cuál es el nombre y apellido de la persona?");
+  return new NextResponse(xml, {
+    status: 200,
+    headers: { "Content-Type": "text/xml; charset=utf-8" },
+  });
+}
+
 
     // 2) Si hay sesión en ASK_PATIENT_NAME -> el usuario responde con su nombre
 if (sess?.stage === "ASK_PATIENT_NAME") {
