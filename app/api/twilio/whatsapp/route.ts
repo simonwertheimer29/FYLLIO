@@ -947,54 +947,69 @@ return new NextResponse(xmlAskFor, {
     const preferences = parsePreferences(textLower);
 
     // 3.1) Si no hay sesión -> pedir tratamiento
-    if (!sess) {
-        console.log("[whatsapp] about to listTreatments");
-      const treatments = await listTreatments({ clinicRecordId });
-      console.log("[whatsapp] listTreatments done", { count: treatments.length });
-console.log("[whatsapp] about to setSession");
+if (!sess) {
+  console.log("[whatsapp] about to listTreatments");
+  const treatments = await listTreatments({ clinicRecordId });
+  console.log("[whatsapp] listTreatments done", { count: treatments.length });
 
-
-      if (!treatments.length) {
-        const xmlNoT = twimlMessage("⚠️ No encontré tratamientos en Airtable (tabla Tratamientos).");
-        return new NextResponse(xmlNoT, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
-      }
-
-      const mapped = treatments.map((t) => ({
-  recordId: t.recordId,           // ✅
-  serviceId: t.serviceId,
-  name: t.name,
-  durationMin: t.durationMin,
-  bufferBeforeMin: t.bufferBeforeMin ?? 0,
-  bufferAfterMin: t.bufferAfterMin ?? 0,
-}));
-
-
-      const newSess: Session = {
-        createdAtMs: Date.now(),
-        clinicId,
-        clinicRecordId,
-        rules: baseRules,
-        stage: "ASK_TREATMENT",
-        treatmentType: undefined,
-        treatments: mapped,
-        lastPreferences: preferences,
-        slotsTop: [],
-        staffById: {},
-      };
-
-      await setSession(from, newSess, SESSION_TTL_SECONDS);
-console.log("[whatsapp] setSession done");
-
-      const xmlAsk = twimlMessage(renderTreatmentsList(mapped));
-      return new NextResponse(xmlAsk, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
-    }
-
-    // fallback
-    const xmlFallback = twimlMessage("Escribe 'cita mañana' para empezar 🙂");
-    return new NextResponse(xmlFallback, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
-  } catch (err: any) {
-    console.error("[twilio/whatsapp] ERROR", err);
-    const xmlErr = twimlMessage("⚠️ Hubo un error. Mira los logs de Vercel y lo arreglamos.");
-    return new NextResponse(xmlErr, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+  if (!treatments.length) {
+    const xmlNoT = twimlMessage("⚠️ No encontré tratamientos en Airtable (tabla Tratamientos).");
+    return new NextResponse(xmlNoT, {
+      status: 200,
+      headers: { "Content-Type": "text/xml; charset=utf-8" },
+    });
   }
+
+  const mapped = treatments.map((t) => ({
+    recordId: t.recordId,
+    serviceId: t.serviceId,
+    name: t.name,
+    durationMin: t.durationMin,
+    bufferBeforeMin: t.bufferBeforeMin ?? 0,
+    bufferAfterMin: t.bufferAfterMin ?? 0,
+  }));
+
+  const newSess: Session = {
+    createdAtMs: Date.now(),
+    clinicId,
+    clinicRecordId,
+    rules: baseRules,
+    stage: "ASK_TREATMENT",
+    treatmentType: undefined,
+    treatments: mapped,
+    lastPreferences: preferences,
+    slotsTop: [],
+    staffById: {},
+  };
+
+  console.log("[whatsapp] about to setSession");
+  await setSession(from, newSess, SESSION_TTL_SECONDS);
+  console.log("[whatsapp] setSession done");
+
+  const msg = renderTreatmentsList(mapped);
+  const xmlAsk = twimlMessage(msg);
+  console.log("[whatsapp] xmlAsk preview", xmlAsk.slice(0, 200));
+
+  return new NextResponse(xmlAsk, {
+    status: 200,
+    headers: { "Content-Type": "text/xml; charset=utf-8" },
+  });
+}
+
+// ✅ fallback FUERA del if (!sess)
+// ✅ fallback FUERA del if (!sess)
+const xmlFallback = twimlMessage("Escribe 'cita mañana' para empezar 🙂");
+return new NextResponse(xmlFallback, {
+  status: 200,
+  headers: { "Content-Type": "text/xml; charset=utf-8" },
+});
+
+} catch (err: any) {
+  console.error("[twilio/whatsapp] ERROR", err);
+  const xmlErr = twimlMessage("⚠️ Hubo un error. Mira los logs de Vercel y lo arreglamos.");
+  return new NextResponse(xmlErr, {
+    status: 200,
+    headers: { "Content-Type": "text/xml; charset=utf-8" },
+  });
+}
 }
