@@ -13,7 +13,7 @@ import {
   createAppointment,
   getStaffRecordIdByStaffId,
   getSillonRecordIdBySillonId,
-  findNextAppointmentByPatient,
+findNextAppointmentByContactPhone,
   cancelAppointment,
   upsertPatientWithoutPhone,
 } from "../../../lib/scheduler/repo/airtableRepo";
@@ -435,20 +435,20 @@ if (await isDuplicateMessage(msgSid)) {
   // Sesión desde KV (persistente)
   const sess = await getSession<Session>(from);
 
-   if (textLower.includes("cancelar")) {
-  const patient = await upsertPatientByPhone({
-    name: sess?.patientName ?? "Paciente WhatsApp",
+  if (textLower.includes("cancelar")) {
+  const appt = await findNextAppointmentByContactPhone({
     phoneE164: from,
-    clinicRecordId: sess?.clinicRecordId,
-  });
-
-  const appt = await findNextAppointmentByPatient({
-    patientRecordId: patient.recordId,
+    clinicId: sess?.clinicId,
   });
 
   if (!appt) {
-    const xml = twimlMessage("No encontré ninguna cita futura para cancelar 🙂");
-    return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml" } });
+    const xml = twimlMessage(
+      "No encontré ninguna cita futura asociada a este número 🙂"
+    );
+    return new NextResponse(xml, {
+      status: 200,
+      headers: { "Content-Type": "text/xml; charset=utf-8" },
+    });
   }
 
   await cancelAppointment({
@@ -458,9 +458,16 @@ if (await isDuplicateMessage(msgSid)) {
 
   await deleteSession(from);
 
-  const xml = twimlMessage("✅ Tu cita ha sido cancelada. Si quieres reagendar, escribe: *reagendar*");
-  return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml" } });
+  const xml = twimlMessage(
+    "✅ Tu cita ha sido cancelada correctamente.\n\nSi quieres reagendar, escribe: *cita mañana* 🙂"
+  );
+
+  return new NextResponse(xml, {
+    status: 200,
+    headers: { "Content-Type": "text/xml; charset=utf-8" },
+  });
 }
+
 
 
 
