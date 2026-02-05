@@ -13,6 +13,8 @@ import {
   createAppointment,
   getStaffRecordIdByStaffId,
   getSillonRecordIdBySillonId,
+  findNextAppointmentByPatient,
+  cancelAppointment,
 } from "../../../lib/scheduler/repo/airtableRepo";
 
 import { listStaff } from "../../../lib/scheduler/repo/staffRepo";
@@ -175,6 +177,7 @@ pendingSillonRecordId?: string;
   staffById: Record<string, { name: string; recordId?: string }>;
 };
 
+
 /* ---------------------------------------
    Utils
 ---------------------------------------- */
@@ -323,6 +326,7 @@ async function buildAndOfferSlots(params: {
     .filter((s: any) => !!parseWorkRange(s.horarioLaboral))
     .filter((s: any) => (s.rol || "").toLowerCase() !== "recepcionista");
 
+   
   if (!eligible.length) {
     const xmlNoStaff = twimlMessage("⚠️ No encontré profesionales activos con horario laboral configurado en Airtable.");
     return new NextResponse(xmlNoStaff, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
@@ -418,6 +422,35 @@ if (await isDuplicateMessage(msgSid)) {
 
   // Sesión desde KV (persistente)
   const sess = await getSession<Session>(from);
+
+   if (textLower.includes("cancelar")) {
+  const patient = await upsertPatientByPhone({
+    name: sess?.patientName ?? "Paciente WhatsApp",
+    phoneE164: from,
+    clinicRecordId: sess?.clinicRecordId,
+  });
+
+  const appt = await findNextAppointmentByPatient({
+    patientRecordId: patient.recordId,
+  });
+
+  if (!appt) {
+    const xml = twimlMessage("No encontré ninguna cita futura para cancelar 🙂");
+    return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml" } });
+  }
+
+  await cancelAppointment({
+    appointmentRecordId: appt.recordId,
+    origin: "WhatsApp",
+  });
+
+  await deleteSession(from);
+
+  const xml = twimlMessage("✅ Tu cita ha sido cancelada. Si quieres reagendar, escribe: *reagendar*");
+  return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml" } });
+}
+
+
 
   console.log("[twilio/whatsapp] inbound", { from: fromRaw, fromNorm: from, body: bodyRaw, msgSid });
   console.log("[session] lookup(kv)", { from, has: !!sess, stage: sess?.stage, ttlSec: SESSION_TTL_SECONDS });

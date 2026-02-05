@@ -78,6 +78,50 @@ function firstString(x: unknown): string {
   return "";
 }
 
+export async function findNextAppointmentByPatient(params: {
+  patientRecordId: string;
+}): Promise<{ recordId: string } | null> {
+  const records = await base(TABLES.appointments)
+    .select({ maxRecords: 20 })
+    .all();
+
+  const now = Date.now();
+
+  for (const r of records) {
+    const f: any = r.fields;
+
+    const patientLinks = f["Paciente"];
+    if (!Array.isArray(patientLinks)) continue;
+    if (!patientLinks.includes(params.patientRecordId)) continue;
+
+    const estado = String(f["Estado"] || "").toLowerCase();
+    if (["cancelado", "no-show", "completado"].includes(estado)) continue;
+
+    const start = Date.parse(f["Hora inicio"]);
+    if (!isNaN(start) && start > now) {
+      return { recordId: r.id };
+    }
+  }
+
+  return null;
+}
+
+export async function cancelAppointment(params: {
+  appointmentRecordId: string;
+  origin?: string;
+}) {
+  await base(TABLES.appointments).update([
+    {
+      id: params.appointmentRecordId,
+      fields: {
+        Estado: "Cancelado",
+        ...(params.origin ? { Origen: params.origin } : {}),
+      },
+    },
+  ]);
+}
+
+
 
 const ZONE = "Europe/Madrid";
 
