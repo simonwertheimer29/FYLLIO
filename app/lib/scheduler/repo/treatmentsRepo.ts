@@ -30,82 +30,30 @@ function toNum(x: unknown): number | undefined {
 let _cache: { atMs: number; data: TreatmentRow[] } | null = null;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
 
-export async function listTreatments(params: { clinicRecordId?: string }): Promise<TreatmentRow[]> {
-  const { clinicRecordId } = params;
-
-  // ✅ Cache hit
-  if (_cache && Date.now() - _cache.atMs < CACHE_TTL_MS) {
-    return clinicRecordId ? filterByClinic(_cache.data, clinicRecordId) : _cache.data;
-  }
-
+export async function listTreatments(_: { clinicRecordId?: string }): Promise<TreatmentRow[]> {
   const table = TABLES.treatments;
-
-  // ✅ Reduce payload: solo los fields que usas
-  const records = await base(table)
-    .select({
-      maxRecords: 200,
-      fields: [
-        "Tratamientos ID",
-        "Categoria",
-        "Duración",
-        "Buffer antes",
-        "Buffer despues",
-        "Clínica ID", // solo por si existe; si no existe, Airtable simplemente no lo devuelve
-      ],
-    })
-    .firstPage();
-
-  console.log("[treatmentsRepo] fetched", {
-    table,
-    count: records.length,
-    sampleFieldKeys: records[0] ? Object.keys(records[0].fields || {}) : [],
-  });
+  const records = await base(table).select({ maxRecords: 200 }).all();
 
   const out: TreatmentRow[] = records.map((r: any) => {
     const f: any = r.fields || {};
-
     const serviceId = String(firstString(f["Tratamientos ID"]) || "").trim();
     const name = String(firstString(f["Categoria"]) || "").trim();
-
-    const durationMin = toNum(f["Duración"]);
-    const bufferBeforeMin = toNum(f["Buffer antes"]);
-    const bufferAfterMin = toNum(f["Buffer despues"]);
 
     return {
       recordId: r.id,
       serviceId: serviceId || undefined,
       name: name || "(Sin nombre)",
-      durationMin,
-      bufferBeforeMin,
-      bufferAfterMin,
+      durationMin: toNum(f["Duración"]),
+      bufferBeforeMin: toNum(f["Buffer antes"]),
+      bufferAfterMin: toNum(f["Buffer despues"]),
     };
   });
 
-  // ✅ mínimo: que exista name
-  let filtered = out.filter((t) => t.name && t.name !== "(Sin nombre)");
-
-  // orden estable
+  const filtered = out.filter((t) => t.name && t.name !== "(Sin nombre)");
   filtered.sort((a, b) => (a.serviceId || a.name).localeCompare(b.serviceId || b.name));
-
-  // ✅ guarda cache (sin filtro por clínica; se filtra al devolver)
-  _cache = { atMs: Date.now(), data: filtered };
-
-  const final = clinicRecordId ? filterByClinic(filtered, clinicRecordId) : filtered;
-
-  console.log("[treatmentsRepo] normalized", {
-    count: final.length,
-    sample: final.slice(0, 6).map((t) => ({
-      recordId: t.recordId,
-      serviceId: t.serviceId,
-      name: t.name,
-      durationMin: t.durationMin,
-      bufferBeforeMin: t.bufferBeforeMin,
-      bufferAfterMin: t.bufferAfterMin,
-    })),
-  });
-
-  return final;
+  return filtered;
 }
+
 
 function filterByClinic(rows: TreatmentRow[], clinicRecordId: string): TreatmentRow[] {
   // ⚠️ Tu filtro anterior dependía de "Clínica ID" como lookup en Tratamientos.
