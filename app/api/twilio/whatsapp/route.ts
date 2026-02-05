@@ -15,6 +15,7 @@ import {
   getSillonRecordIdBySillonId,
   findNextAppointmentByPatient,
   cancelAppointment,
+  upsertPatientWithoutPhone,
 } from "../../../lib/scheduler/repo/airtableRepo";
 
 import { listStaff } from "../../../lib/scheduler/repo/staffRepo";
@@ -158,6 +159,11 @@ pendingStart?: string;        // opcional
 pendingEnd?: string;          // opcional
 pendingStaffRecordId?: string;
 pendingSillonRecordId?: string;
+
+bookingFor?: "SELF" | "OTHER";
+otherPhoneE164?: string;     // si la otra persona SÍ tiene teléfono
+useTutorPhone?: boolean;     // true si NO tiene teléfono propio
+
 
   treatments?: {
     recordId: string;
@@ -537,11 +543,23 @@ if (sess?.stage === "ASK_PATIENT_NAME") {
       headers: { "Content-Type": "text/xml; charset=utf-8" },
     });
   }
-  const patient = await upsertPatientByPhone({
-  name,
-  phoneE164: from, // ✅ from ya está normalizado (sin "whatsapp:")
-  clinicRecordId: sess.clinicRecordId,
-});
+ // Decide a qué "teléfono" asociar el paciente
+const isOther = sess.bookingFor === "OTHER";
+const hasOtherPhone = !!sess.otherPhoneE164 && /^\+\d{8,15}$/.test(sess.otherPhoneE164);
+const shouldUseTutor = isOther && (sess.useTutorPhone === true || !hasOtherPhone);
+
+// 1) Si es para otra persona y NO tiene teléfono -> upsert por (Nombre + Tutor teléfono + Clínica)
+const patient = shouldUseTutor
+  ? await upsertPatientWithoutPhone({
+      name,
+      tutorPhoneE164: from, // ✅ el WhatsApp del tutor
+      clinicRecordId: sess.clinicRecordId,
+    })
+  : await upsertPatientByPhone({
+      name,
+      phoneE164: isOther ? (sess.otherPhoneE164 as string) : from,
+      clinicRecordId: sess.clinicRecordId,
+    });
 
 
 

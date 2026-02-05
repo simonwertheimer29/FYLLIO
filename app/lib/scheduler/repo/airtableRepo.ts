@@ -66,6 +66,75 @@ export async function upsertPatientByPhone(params: {
   return { recordId: created.recordId, created: true };
 }
 
+export async function getPatientRecordIdByNameAndTutorPhone(params: {
+  name: string;
+  tutorPhoneE164: string;
+  clinicRecordId?: string;
+}): Promise<string | null> {
+  const { name, tutorPhoneE164, clinicRecordId } = params;
+
+  const safeName = String(name).replace(/'/g, "\\'");
+  const safeTutor = String(tutorPhoneE164).replace(/'/g, "\\'");
+
+  // OJO: "Clínica" es LINK, así que se compara con recordId si lo pasas
+  const parts = [
+    `{Nombre}='${safeName}'`,
+    `{Tutor teléfono}='${safeTutor}'`,
+  ];
+
+  if (clinicRecordId) parts.push(`FIND('${clinicRecordId}', ARRAYJOIN({Clínica}))`);
+
+  const formula = `AND(${parts.join(",")})`;
+
+  const recs = await base(TABLES.patients)
+    .select({ maxRecords: 1, filterByFormula: formula })
+    .firstPage();
+
+  return recs?.[0]?.id ?? null;
+}
+
+export async function createPatientWithoutPhone(params: {
+  name: string;
+  tutorPhoneE164: string;
+  clinicRecordId?: string;
+}): Promise<{ recordId: string }> {
+  const { name, tutorPhoneE164, clinicRecordId } = params;
+
+  const fields: any = {
+    "Nombre": name,
+    "Tutor teléfono": tutorPhoneE164,
+    // "Teléfono": (no lo seteamos)
+  };
+
+  if (clinicRecordId) fields["Clínica"] = [clinicRecordId];
+
+  const created = await base(TABLES.patients).create([{ fields }]);
+  const rec = created?.[0];
+  if (!rec?.id) throw new Error("Airtable: no se pudo crear paciente sin teléfono (sin id).");
+
+  return { recordId: rec.id };
+}
+
+export async function upsertPatientWithoutPhone(params: {
+  name: string;
+  tutorPhoneE164: string;
+  clinicRecordId?: string;
+}): Promise<{ recordId: string; created: boolean }> {
+  const { name, tutorPhoneE164, clinicRecordId } = params;
+
+  const existing = await getPatientRecordIdByNameAndTutorPhone({
+    name,
+    tutorPhoneE164,
+    clinicRecordId,
+  });
+
+  if (existing) return { recordId: existing, created: false };
+
+  const created = await createPatientWithoutPhone({ name, tutorPhoneE164, clinicRecordId });
+  return { recordId: created.recordId, created: true };
+}
+
+
 
 export async function getSillonRecordIdBySillonId(sillonId: string) {
   return findRecordIdByField(TABLES.sillones, "Sillón ID", sillonId);
@@ -243,7 +312,7 @@ export async function createAppointment(params: {
   patientRecordId?: string; // link "Paciente"
 
 }): Promise<{ recordId: string }> {
-  const { name, startIso, endIso, clinicRecordId, notes, staffRecordId, sillonRecordId, treatmentRecordId,patientRecordId, } = params;
+const { name, startIso, endIso, clinicRecordId, notes, staffRecordId, sillonRecordId, treatmentRecordId, patientRecordId } = params;
 
   const fields: any = {
     "Nombre": name,
