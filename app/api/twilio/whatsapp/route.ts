@@ -423,6 +423,9 @@ export async function POST(req: Request) {
   const bodyRaw = safe(form.get("Body")).trim();
   const msgSid = safe(form.get("MessageSid"));
 
+  console.log("[twilio/whatsapp] inbound(raw)", { fromRaw, bodyRaw, msgSid });
+
+
 if (await isDuplicateMessage(msgSid)) {
   const xml = twimlMessage("✅ Recibido.");
   return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
@@ -434,42 +437,6 @@ if (await isDuplicateMessage(msgSid)) {
 
   // Sesión desde KV (persistente)
   const sess = await getSession<Session>(from);
-
-  if (textLower.includes("cancelar")) {
-  const appt = await findNextAppointmentByContactPhone({
-    phoneE164: from,
-    clinicId: sess?.clinicId,
-  });
-
-  if (!appt) {
-    const xml = twimlMessage(
-      "No encontré ninguna cita futura asociada a este número 🙂"
-    );
-    return new NextResponse(xml, {
-      status: 200,
-      headers: { "Content-Type": "text/xml; charset=utf-8" },
-    });
-  }
-
-  await cancelAppointment({
-    appointmentRecordId: appt.recordId,
-    origin: "WhatsApp",
-  });
-
-  await deleteSession(from);
-
-  const xml = twimlMessage(
-    "✅ Tu cita ha sido cancelada correctamente.\n\nSi quieres reagendar, escribe: *cita mañana* 🙂"
-  );
-
-  return new NextResponse(xml, {
-    status: 200,
-    headers: { "Content-Type": "text/xml; charset=utf-8" },
-  });
-}
-
-
-
 
   console.log("[twilio/whatsapp] inbound", { from: fromRaw, fromNorm: from, body: bodyRaw, msgSid });
   console.log("[session] lookup(kv)", { from, has: !!sess, stage: sess?.stage, ttlSec: SESSION_TTL_SECONDS });
@@ -483,6 +450,65 @@ if (await isDuplicateMessage(msgSid)) {
       const xmlConfig = twimlMessage("⚠️ Config incompleta: faltan horarios (dayStartTime/dayEndTime).");
       return new NextResponse(xmlConfig, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
     }
+
+   // ✅ CANCELAR (dentro del try, bien cerrado)
+if (textLower.includes("cancelar")) {
+  const appt = await findNextAppointmentByContactPhone({
+    phoneE164: from,
+    clinicId: sess?.clinicId, // opcional
+  });
+
+  if (!appt) {
+    const xml = twimlMessage("No encontré ninguna cita futura para cancelar 🙂");
+    return new NextResponse(xml, {
+      status: 200,
+      headers: { "Content-Type": "text/xml; charset=utf-8" },
+    });
+  }
+
+  await cancelAppointment({
+    appointmentRecordId: appt.recordId,
+    origin: "WhatsApp",
+  });
+
+  await deleteSession(from);
+
+  const xml = twimlMessage("✅ Tu cita ha sido cancelada. Si quieres reagendar, escribe: *reagendar*");
+  return new NextResponse(xml, {
+    status: 200,
+    headers: { "Content-Type": "text/xml; charset=utf-8" },
+  });
+}
+
+// ✅ REAGENDAR (MVP)
+if (textLower.includes("reagendar")) {
+  const appt = await findNextAppointmentByContactPhone({
+    phoneE164: from,
+    clinicId: sess?.clinicId,
+  });
+
+  if (!appt) {
+    const xml = twimlMessage("No encontré ninguna cita futura para reagendar 🙂");
+    return new NextResponse(xml, {
+      status: 200,
+      headers: { "Content-Type": "text/xml; charset=utf-8" },
+    });
+  }
+
+  await cancelAppointment({
+    appointmentRecordId: appt.recordId,
+    origin: "WhatsApp",
+  });
+
+  await deleteSession(from);
+
+  const xml = twimlMessage("✅ Listo. Cancelé tu cita. Ahora dime: *cita mañana* (o tu preferencia) 🙂");
+  return new NextResponse(xml, {
+    status: 200,
+    headers: { "Content-Type": "text/xml; charset=utf-8" },
+  });
+}
+
 
     // 0) Si no habla de “cita” y tampoco está respondiendo a una sesión -> echo
     // (Pero si está en ASK_TREATMENT y manda texto, eso sí lo procesamos)
