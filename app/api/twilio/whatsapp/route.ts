@@ -226,7 +226,7 @@ function timeToHHMM(value: any, zone = "Europe/Madrid"): string | null {
 
 function chairIdToSillonId(chairId: number) {
   const n = Math.max(1, Math.floor(chairId || 1));
-  return `CHR_${String(n).padStart(2, "0")}`;
+  return `CHR_${String(n).padStart(3, "0")}`;
 }
 
 export function toAirtableDateTime(isoLocal: string, zone = "Europe/Madrid"): string {
