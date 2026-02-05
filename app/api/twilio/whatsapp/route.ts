@@ -791,6 +791,30 @@ const patient = shouldUseTutor
 
     // 2) Si hay sesión en OFFER_SLOTS y manda 1/2/3 -> confirmar
     if (sess?.stage === "OFFER_SLOTS") {
+        const t = normalizeText(bodyRaw);
+
+// 🔁 usuario escribe "cita" en OFFER_SLOTS → repetir opciones
+if (t.includes("cita")) {
+  const options = sess.slotsTop.map((slot, i) => {
+    const name =
+      sess.staffById?.[slot.providerId]?.name ??
+      slot.providerId ??
+      "Profesional";
+    return `${i + 1}️⃣ ${formatTime(slot.start)} con ${name}`;
+  });
+
+  const xml = twimlMessage(
+    `Ya tenemos opciones 🙂 Elige una:\n\n` +
+    options.join("\n") +
+    `\n\nResponde con 1, 2 o 3.`
+  );
+
+  return new NextResponse(xml, {
+    status: 200,
+    headers: { "Content-Type": "text/xml; charset=utf-8" },
+  });
+}
+
       const idx = parseIndex(bodyRaw);
 
       // si no es número, le pedimos 1/2/3 (para evitar líos)
