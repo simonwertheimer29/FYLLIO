@@ -787,7 +787,7 @@ const patient = shouldUseTutor
       const nextSess: Session = {
   ...sess,
   createdAtMs: Date.now(),
-  stage: "ASK_PATIENT_NAME",
+  stage: "ASK_BOOKING_FOR",
 
   pendingHoldId: hold.id,
   pendingStaffRecordId: staffRecordId,
@@ -795,15 +795,22 @@ const patient = shouldUseTutor
   pendingProviderName: providerName,
   pendingStart: chosen.start,
   pendingEnd: chosen.end,
+
+  bookingFor: undefined,
+  otherPhoneE164: undefined,
+  useTutorPhone: undefined,
 };
 
 await setSession(from, nextSess, SESSION_TTL_SECONDS);
 
-const xmlAskName = twimlMessage("Perfecto 🙂 ¿Cuál es tu nombre y apellido?");
-return new NextResponse(xmlAskName, {
+const xmlAskFor = twimlMessage(
+  "Perfecto 🙂 ¿La cita es para *ti* o para *otra persona*?\n\nResponde: 1) Para mí  2) Para otra persona"
+);
+return new NextResponse(xmlAskFor, {
   status: 200,
   headers: { "Content-Type": "text/xml; charset=utf-8" },
 });
+
 
 
     }
