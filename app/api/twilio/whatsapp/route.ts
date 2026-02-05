@@ -522,18 +522,16 @@ if (textLower.includes("reagendar")) {
 
 const t = normalizeText(bodyRaw);
 
-  // 🔁 usuario intenta reiniciar flujo
-  if (t.includes("cita")) {
-    const xml = twimlMessage(
-      "Estamos agendando una cita 🙂\n\n" +
-      "Dime qué tratamiento necesitas:\n\n" +
-      renderTreatmentsList(sess.treatments)
-    );
-    return new NextResponse(xml, {
-      status: 200,
-      headers: { "Content-Type": "text/xml; charset=utf-8" },
-    });
-  }
+// 🔁 usuario intenta reiniciar flujo
+if (t.includes("cita")) {
+    console.log("[whatsapp] ASK_TREATMENT reset -> resend list", { from, bodyRaw });
+  const xml = twimlMessage(renderTreatmentsList(sess.treatments));
+  return new NextResponse(xml, {
+    status: 200,
+    headers: { "Content-Type": "text/xml; charset=utf-8" },
+  });
+}
+
 
 
       const chosenT = findTreatmentByUserInput(sess, bodyRaw);
