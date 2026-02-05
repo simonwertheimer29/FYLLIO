@@ -417,6 +417,8 @@ async function buildAndOfferSlots(params: {
 /* ---------------------------------------
    Handler principal
 ---------------------------------------- */
+console.log("[whatsapp] BUILD_TAG", "OFFER_SLOTS_REPEAT_V1");
+
 export async function POST(req: Request) {
   const form = await req.formData();
   const fromRaw = safe(form.get("From"));
