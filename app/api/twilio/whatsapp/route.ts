@@ -858,7 +858,11 @@ return new NextResponse(xmlAskFor, {
 
     // 3.1) Si no hay sesión -> pedir tratamiento
     if (!sess) {
+        console.log("[whatsapp] about to listTreatments");
       const treatments = await listTreatments({ clinicRecordId });
+      console.log("[whatsapp] listTreatments done", { count: treatments.length });
+console.log("[whatsapp] about to setSession");
+
 
       if (!treatments.length) {
         const xmlNoT = twimlMessage("⚠️ No encontré tratamientos en Airtable (tabla Tratamientos).");
@@ -889,6 +893,7 @@ return new NextResponse(xmlAskFor, {
       };
 
       await setSession(from, newSess, SESSION_TTL_SECONDS);
+console.log("[whatsapp] setSession done");
 
       const xmlAsk = twimlMessage(renderTreatmentsList(mapped));
       return new NextResponse(xmlAsk, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
