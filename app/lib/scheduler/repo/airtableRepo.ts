@@ -150,37 +150,43 @@ function firstString(x: unknown): string {
 export async function findNextAppointmentByContactPhone(params: {
   phoneE164: string;
   clinicId?: string;
-}): Promise<{ recordId: string } | null> {
+}) {
   const { phoneE164, clinicId } = params;
 
-  const phone = String(phoneE164).replace(/'/g, "\\'");
+  const table = TABLES.appointments;
 
-  const clauses = [
-    `{Paciente_teléfono}='${phone}'`,
-    `{Paciente_tutor_teléfono}='${phone}'`,
+  // OJO: ajusta "Inicio" si tu campo se llama distinto (Start/Inicio/Fecha inicio)
+  const nowIso = new Date().toISOString();
+
+  const parts: string[] = [
+    `OR({Paciente_teléfono}='${phoneE164}', {Paciente_tutor_teléfono}='${phoneE164}')`,
+    `IS_AFTER({Inicio}, '${nowIso}')`,
   ];
 
-  if (clinicId) {
-    clauses.forEach((c, i) => {
-      clauses[i] = `AND(${c}, {Clinica_id}='${clinicId}')`;
-    });
-  }
+  if (clinicId) parts.push(`{Clínica_id}='${clinicId}'`);
 
-  const formula = `OR(${clauses.join(",")})`;
+  // si tienes estado:
+  // parts.push(`{Estado}!='Cancelado'`);
 
-  const records = await base(TABLES.appointments)
+  const filterByFormula = `AND(${parts.join(",")})`;
+
+  const recs = await base(table)
     .select({
-      filterByFormula: formula,
-      sort: [{ field: "Hora inicio", direction: "asc" }],
       maxRecords: 1,
+      sort: [{ field: "Inicio", direction: "asc" }],
+      filterByFormula,
     })
-    .firstPage();
+    .all();
 
-  const rec = records?.[0];
-  if (!rec) return null;
+  const r = recs[0];
+  if (!r) return null;
 
-  return { recordId: rec.id };
+  return {
+    recordId: r.id,
+    fields: r.fields,
+  };
 }
+
 
 
 export async function cancelAppointment(params: {

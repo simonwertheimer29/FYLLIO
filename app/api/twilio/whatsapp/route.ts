@@ -440,6 +440,55 @@ if (await isDuplicateMessage(msgSid)) {
   // Sesión desde KV (persistente)
   const sess = await getSession<Session>(from);
 
+  // después de: const sess = await getSession<Session>(from);
+
+const t = normalizeText(bodyRaw);
+
+// 🔥 Anti-mudo: si hay sesión y el usuario escribe "cita", re-mandamos el prompt del paso actual
+if (sess && t.includes("cita")) {
+  const stage = sess.stage;
+
+  if (stage === "ASK_TREATMENT") {
+    const xml = twimlMessage(renderTreatmentsList(sess.treatments));
+    return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+  }
+
+  if (stage === "OFFER_SLOTS") {
+    const options = (sess.slotsTop || []).map((slot, i) => {
+      const name = sess.staffById?.[slot.providerId]?.name ?? slot.providerId ?? "Profesional";
+      return `${i + 1}️⃣ ${formatTime(slot.start)} con ${name}`;
+    });
+
+    const xml = twimlMessage(
+      options.length
+        ? `Ya tenemos opciones 🙂 Elige una:\n\n${options.join("\n")}\n\nResponde con 1, 2 o 3.`
+        : "No tengo opciones guardadas 😅 Escribe: *cita mañana* para empezar de nuevo."
+    );
+
+    return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+  }
+
+  if (stage === "ASK_BOOKING_FOR") {
+    const xml = twimlMessage(
+      "Perfecto 🙂 ¿La cita es para *ti* o para *otra persona*?\n\nResponde: 1) Para mí  2) Para otra persona"
+    );
+    return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+  }
+
+  if (stage === "ASK_OTHER_PHONE") {
+    const xml = twimlMessage(
+      "¿Cuál es el teléfono de la otra persona en formato +34...?\n\nSi no tiene, responde: *no tiene*"
+    );
+    return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+  }
+
+  if (stage === "ASK_PATIENT_NAME") {
+    const xml = twimlMessage("Perfecto 🙂 ¿Cuál es el nombre y apellido?");
+    return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+  }
+}
+
+
   console.log("[twilio/whatsapp] inbound", { from: fromRaw, fromNorm: from, body: bodyRaw, msgSid });
   console.log("[session] lookup(kv)", { from, has: !!sess, stage: sess?.stage, ttlSec: SESSION_TTL_SECONDS });
 
