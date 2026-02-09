@@ -15,7 +15,7 @@ const FIELDS = {
 
   // ✅ esto existe en tu tabla (según screenshot)
   profesionalId: "Profesional_id",
-
+  
   staffId: "Staff ID",
   pacienteNombre: "Nombre",
   tratCategoria: "Categoria",
