@@ -273,12 +273,22 @@ const end = toLocalNaiveIso(f["Hora final"]);
     }
 
     // (Opcional) filtra por estado
-    if (onlyActive) {
-      const estado = firstString(f["Estado"]).toUpperCase();
-      // ajusta esta lista a tus valores reales si quieres
-      const isCancelled = ["CANCELADA", "CANCELLED", "NO_SHOW"].includes(estado);
-      if (isCancelled) continue;
-    }
+   if (onlyActive) {
+  const estado = firstString(f["Estado"]).trim().toUpperCase();
+
+  const isCancelled = [
+    "CANCELADO",
+    "CANCELADA",
+    "CANCELLED",
+    "CANCELED",
+    "NO_SHOW",
+    "NO SHOW",
+    "NOSHOW",
+  ].includes(estado);
+
+  if (isCancelled) continue;
+}
+
 
     const patientName = firstString(f["Paciente_nombre"]) || firstString(f["Nombre"]) || "Paciente";
     const type = firstString(f["Tratamiento_nombre"]) || "Tratamiento";
