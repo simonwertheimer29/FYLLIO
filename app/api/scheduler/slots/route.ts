@@ -92,7 +92,8 @@ export async function POST(req: Request) {
 
     const slots = await getAvailableSlots(
       { rules, treatmentType, preferences, providerIds, providerRulesById } as any,
-      (dayIso) => listAppointmentsByDay({ dayIso, clinicId })
+      (dayIso) => listAppointmentsByDay({ dayIso, clinicId, onlyActive: true })
+
     );
 
     

@@ -8,9 +8,10 @@ export async function POST(req: Request) {
   // body: { clinicId, rules, treatmentType, preferences }
   const { clinicId, ...input } = body;
 
-  const slots = await getAvailableSlots(input, (dayIso) =>
-    listAppointmentsByDay({ dayIso, clinicId })
-  );
+ const slots = await getAvailableSlots(input, (dayIso) =>
+  listAppointmentsByDay({ dayIso, clinicId, onlyActive: true })
+);
+
 
   return NextResponse.json({ slots });
 }
