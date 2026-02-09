@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 
-
 // Ajusta si tus nombres difieren
 const FIELDS = {
   citaId: "Cita ID",
@@ -22,13 +21,14 @@ const FIELDS = {
   tratCategoria: "Categoria",
   sillonId: "Sillón ID",
 
-    // ✅ horarios en Staff (según tu screenshot)
+  // ✅ horarios en Staff (según tu screenshot)
   staffHorario: "Horario laboral",
   staffAlmuerzoInicio: "Almuerzo_inicio",
   staffAlmuerzoFin: "Almuerzo_fin",
 
+  // ✅ estado en Citas
+  estado: "Estado",
 };
-
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];
 
@@ -47,15 +47,10 @@ function mondayFromWeekKey(weekKey: string) {
   // weekKey = "YYYY-MM-DD" (lunes)
   return weekKey;
 }
+
 function addDays(dateIso: string, days: number) {
-  return DateTime.fromISO(dateIso, { zone: "Europe/Madrid" })
-    .plus({ days })
-    .toISODate();
+  return DateTime.fromISO(dateIso, { zone: "Europe/Madrid" }).plus({ days }).toISODate();
 }
-
-
-// Convierte a formato sin tz si te llega Date (Airtable a veces lo devuelve como string)
-
 
 function toUtcMillis(value: any) {
   if (!value) return null;
@@ -71,30 +66,22 @@ function toUtcMillis(value: any) {
 function timeToHHMM(value: any, zone = "Europe/Madrid"): string | null {
   if (!value) return null;
 
-  // Si viene HH:MM puro, lo respetamos
   const raw = typeof value === "string" ? value.trim() : "";
   if (/^\d{2}:\d{2}$/.test(raw)) return raw;
 
-  // Normaliza a ISO string
   const iso =
-    value instanceof Date
-      ? value.toISOString() // ojo: esto es UTC, pero luego lo convertimos a zone
-      : typeof value === "string"
-      ? value
-      : String(value);
+    value instanceof Date ? value.toISOString()
+    : typeof value === "string" ? value
+    : String(value);
 
-  // Parse respetando zona de origen si viene con Z/+offset, y luego convertir a Madrid
   const dt = DateTime.fromISO(iso, { setZone: true }).setZone(zone);
   if (!dt.isValid) return null;
 
   return dt.toFormat("HH:mm");
 }
 
-
 function parseWorkRange(raw: any): { start: string; end: string } | null {
   const s = String(raw ?? "").trim();
-
-  // acepta: "08:30-19:00", "08:30 - 19:00", "08:30–19:00", "08:30 — 19:00"
   const m = /^(\d{1,2}:\d{2})\s*[-–—]\s*(\d{1,2}:\d{2})$/.exec(s);
   if (!m) return null;
 
@@ -104,37 +91,32 @@ function parseWorkRange(raw: any): { start: string; end: string } | null {
 
 function getStaffScheduleFromRecord(staffRec: any) {
   const workParsed = parseWorkRange(staffRec.get(FIELDS.staffHorario));
-const zone = "Europe/Madrid";
-const lunchStart = timeToHHMM(staffRec.get(FIELDS.staffAlmuerzoInicio), zone);
-const lunchEnd = timeToHHMM(staffRec.get(FIELDS.staffAlmuerzoFin), zone);
 
+  const zone = "Europe/Madrid";
+  const lunchStart = timeToHHMM(staffRec.get(FIELDS.staffAlmuerzoInicio), zone);
+  const lunchEnd = timeToHHMM(staffRec.get(FIELDS.staffAlmuerzoFin), zone);
 
-  // Fallback demo si el staff no tiene nada cargado
-  const workStart = workParsed?.start ?? "08:30";
   if (!workParsed) throw new Error("Staff sin horario laboral");
-const workEnd = workParsed.end;
+
+  const workStart = workParsed.start ?? "08:30";
+  const workEnd = workParsed.end;
 
   return {
-    workStart,      // "08:30"
-    workEnd,        // "19:00"
-    lunchStart,     // "13:30" | null
-    lunchEnd,       // "14:30" | null
+    workStart,
+    workEnd,
+    lunchStart,
+    lunchEnd,
   };
 }
 
-
-
 async function fetchByRecordIds(tableName: TableName, ids: string[]) {
   if (!ids.length) return [];
-  // Airtable formula OR(RECORD_ID()='x', RECORD_ID()='y', ...)
-  // chunk por seguridad
   const out: any[] = [];
   const chunkSize = 40;
 
   for (let i = 0; i < ids.length; i += chunkSize) {
     const slice = ids.slice(i, i + chunkSize);
     const formula = `OR(${slice.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
-
     const page = await base(tableName).select({ filterByFormula: formula, maxRecords: slice.length }).firstPage();
     out.push(...page);
   }
@@ -152,164 +134,173 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing staffId or week" }, { status: 400 });
     }
 
-  // 1) resolver Staff recordId desde Staff ID (STF_001)
-  const staffRec = await findByField(TABLES.staff as TableName, FIELDS.staffId, staffId);
-  if (!staffRec) {
-    return NextResponse.json({ error: `Staff not found for ${staffId}` }, { status: 404 });
-  }
-  const schedule = getStaffScheduleFromRecord(staffRec);
+    // 1) resolver Staff recordId desde Staff ID (STF_001)
+    const staffRec = await findByField(TABLES.staff as TableName, FIELDS.staffId, staffId);
+    if (!staffRec) {
+      return NextResponse.json({ error: `Staff not found for ${staffId}` }, { status: 404 });
+    }
 
-  console.log("[/api/db/week] schedule:", schedule);
-console.log("[/api/db/week] raw lunch fields:",
-  staffRec.get(FIELDS.staffAlmuerzoInicio),
-  staffRec.get(FIELDS.staffAlmuerzoFin)
-);
+    const schedule = getStaffScheduleFromRecord(staffRec);
 
+    console.log("[/api/db/week] schedule:", schedule);
+    console.log(
+      "[/api/db/week] raw lunch fields:",
+      staffRec.get(FIELDS.staffAlmuerzoInicio),
+      staffRec.get(FIELDS.staffAlmuerzoFin)
+    );
 
-  const monday = mondayFromWeekKey(week);     // "YYYY-MM-DD"
-const sundayPlus1 = addDays(monday, 7);     // "YYYY-MM-DD"
+    const monday = mondayFromWeekKey(week); // "YYYY-MM-DD"
+    const sundayPlus1 = addDays(monday, 7); // "YYYY-MM-DD"
 
-const tz = "Europe/Madrid";
-const fromLocal = `${monday}T00:00:00`;
-const toLocal = `${sundayPlus1}T00:00:00`;
-
-const from = `DATETIME_PARSE('${fromLocal}', 'YYYY-MM-DDTHH:mm:ss', '${tz}')`;
-const to = `DATETIME_PARSE('${toLocal}', 'YYYY-MM-DDTHH:mm:ss', '${tz}')`;
-
-const startInTz = `SET_TIMEZONE({${FIELDS.inicio}}, '${tz}')`;
-const endInTz = `SET_TIMEZONE({${FIELDS.fin}}, '${tz}')`;
-
-const formula = `{${FIELDS.profesionalId}}='${staffId}'`;
-
-
-
-
-
-  console.log("[/api/db/week] staffId:", staffId, "staffRecId:", staffRec.id, "week:", week, "formula:", formula);
-
-  const citas = await base(TABLES.appointments as TableName)
-    .select({ filterByFormula: formula, maxRecords: 500 })
-    .firstPage();
-
+    const tz = "Europe/Madrid";
     const weekStart = DateTime.fromISO(monday, { zone: tz }).startOf("day");
-const weekEnd = weekStart.plus({ days: 7 });
+    const weekEnd = weekStart.plus({ days: 7 });
 
-const citasFiltradas = citas.filter((c) => {
-  const rawStart = c.get(FIELDS.inicio);
-  const rawEnd = c.get(FIELDS.fin);
-  if (!rawStart || !rawEnd) return false;
+    const formula = `{${FIELDS.profesionalId}}='${staffId}'`;
 
-  const s = DateTime.fromISO(
-    rawStart instanceof Date ? rawStart.toISOString() : String(rawStart),
-    { setZone: true }
-  ).setZone(tz);
+    console.log("[/api/db/week] staffId:", staffId, "staffRecId:", staffRec.id, "week:", week, "formula:", formula);
 
-  const e = DateTime.fromISO(
-    rawEnd instanceof Date ? rawEnd.toISOString() : String(rawEnd),
-    { setZone: true }
-  ).setZone(tz);
+    // 2) traer citas del profesional (luego filtramos por overlap con semana)
+    const citas = await base(TABLES.appointments as TableName)
+      .select({ filterByFormula: formula, maxRecords: 500 })
+      .firstPage();
 
-  if (!s.isValid || !e.isValid) return false;
+    const citasFiltradas = citas.filter((c) => {
+      const rawStart = c.get(FIELDS.inicio);
+      const rawEnd = c.get(FIELDS.fin);
+      if (!rawStart || !rawEnd) return false;
 
-  // overlap: [s,e) intersecta [weekStart, weekEnd)
-  return s < weekEnd && e > weekStart;
-});
+      const s = DateTime.fromISO(
+        rawStart instanceof Date ? rawStart.toISOString() : String(rawStart),
+        { setZone: true }
+      ).setZone(tz);
 
-console.log("[/api/db/week] fetched:", citas.length, "filtered:", citasFiltradas.length);
+      const e = DateTime.fromISO(
+        rawEnd instanceof Date ? rawEnd.toISOString() : String(rawEnd),
+        { setZone: true }
+      ).setZone(tz);
 
+      if (!s.isValid || !e.isValid) return false;
 
-  // 3) recolectar recordIds linkeados
-  const pacienteIds = new Set<string>();
-  const tratIds = new Set<string>();
-  const sillonIds = new Set<string>();
+      // overlap: [s,e) intersecta [weekStart, weekEnd)
+      return s < weekEnd && e > weekStart;
+    });
 
-  for (const c of citasFiltradas) {
-    const p = (c.get(FIELDS.paciente) as string[] | undefined) ?? [];
-    const t = (c.get(FIELDS.tratamiento) as string[] | undefined) ?? [];
-    const s = (c.get(FIELDS.sillon) as string[] | undefined) ?? [];
+    // 3) ✅ filtrar canceladas (para que NO aparezcan en agenda)
+    const CANCELLED = new Set([
+      "CANCELADO",
+      "CANCELADA",
+      "CANCELED",
+      "CANCELLED",
+      "NO_SHOW",
+      "NO SHOW",
+      "NOSHOW",
+    ]);
 
-    p.forEach((x) => pacienteIds.add(x));
-    t.forEach((x) => tratIds.add(x));
-    s.forEach((x) => sillonIds.add(x));
-  }
+    const citasActivas = citasFiltradas.filter((c) => {
+      const stRaw = c.get(FIELDS.estado);
+      const st = String(stRaw ?? "").trim().toUpperCase();
+      return !CANCELLED.has(st);
+    });
 
-  // 4) fetch expandido
-  const [pacientes, tratamientos, sillones] = await Promise.all([
-    fetchByRecordIds(TABLES.patients as TableName, Array.from(pacienteIds)),
-    fetchByRecordIds(TABLES.treatments as TableName, Array.from(tratIds)),
-    fetchByRecordIds(TABLES.sillones as TableName, Array.from(sillonIds)),
-  ]);
+    console.log("[/api/db/week] fetched:", citas.length, "filtered:", citasFiltradas.length, "active:", citasActivas.length);
 
-  const pacienteById = new Map(pacientes.map((r: any) => [r.id, r]));
-  const tratById = new Map(tratamientos.map((r: any) => [r.id, r]));
-  const sillonById = new Map(sillones.map((r: any) => [r.id, r]));
+    // 4) recolectar recordIds linkeados (✅ usar SOLO activas)
+    const pacienteIds = new Set<string>();
+    const tratIds = new Set<string>();
+    const sillonIds = new Set<string>();
 
-  // 5) map al formato Appointment que tu UI ya usa
-const appointments = citasFiltradas
-  .map((c) => {
-    const startMs = toUtcMillis(c.get(FIELDS.inicio));
-    const endMs = toUtcMillis(c.get(FIELDS.fin));
+    for (const c of citasActivas) {
+      const p = (c.get(FIELDS.paciente) as string[] | undefined) ?? [];
+      const t = (c.get(FIELDS.tratamiento) as string[] | undefined) ?? [];
+      const s = (c.get(FIELDS.sillon) as string[] | undefined) ?? [];
 
-    const zone = "Europe/Madrid";
+      p.forEach((x) => pacienteIds.add(x));
+      t.forEach((x) => tratIds.add(x));
+      s.forEach((x) => sillonIds.add(x));
+    }
 
-    const start =
-      typeof startMs === "number"
-        ? DateTime.fromMillis(startMs).setZone(zone).toFormat("yyyy-LL-dd'T'HH:mm:ss")
-        : null;
+    // 5) fetch expandido
+    const [pacientes, tratamientos, sillones] = await Promise.all([
+      fetchByRecordIds(TABLES.patients as TableName, Array.from(pacienteIds)),
+      fetchByRecordIds(TABLES.treatments as TableName, Array.from(tratIds)),
+      fetchByRecordIds(TABLES.sillones as TableName, Array.from(sillonIds)),
+    ]);
 
-    const end =
-      typeof endMs === "number"
-        ? DateTime.fromMillis(endMs).setZone(zone).toFormat("yyyy-LL-dd'T'HH:mm:ss")
-        : null;
+    const pacienteById = new Map(pacientes.map((r: any) => [r.id, r]));
+    const tratById = new Map(tratamientos.map((r: any) => [r.id, r]));
+    const sillonById = new Map(sillones.map((r: any) => [r.id, r]));
 
-    if (!start || !end) return null;
+    // 6) map al formato Appointment que tu UI ya usa (✅ usar SOLO activas)
+    const appointments = citasActivas
+      .map((c) => {
+        const startMs = toUtcMillis(c.get(FIELDS.inicio));
+        const endMs = toUtcMillis(c.get(FIELDS.fin));
 
-    // ✅ expand links
-    const pIds = (c.get(FIELDS.paciente) as string[] | undefined) ?? [];
-    const tIds = (c.get(FIELDS.tratamiento) as string[] | undefined) ?? [];
-    const sIds = (c.get(FIELDS.sillon) as string[] | undefined) ?? [];
+        const zone = "Europe/Madrid";
 
-    const pRec = pIds[0] ? pacienteById.get(pIds[0]) : null;
-    const tRec = tIds[0] ? tratById.get(tIds[0]) : null;
-    const sRec = sIds[0] ? sillonById.get(sIds[0]) : null;
+        const start =
+          typeof startMs === "number"
+            ? DateTime.fromMillis(startMs).setZone(zone).toFormat("yyyy-LL-dd'T'HH:mm:ss")
+            : null;
 
-    const patientName = (pRec?.get(FIELDS.pacienteNombre) as string) ?? "Paciente";
-    const type = (tRec?.get(FIELDS.tratCategoria) as string) ?? "Tratamiento";
-    const chairIdRaw = (sRec?.get(FIELDS.sillonId) as string) ?? "CHR_01";
-    const chairId = Number(String(chairIdRaw).replace("CHR_", "")) || 1;
-   const durationMin =
-  typeof startMs === "number" && typeof endMs === "number"
-    ? Math.max(1, Math.round((endMs - startMs) / 60000))
-    : null;
+        const end =
+          typeof endMs === "number"
+            ? DateTime.fromMillis(endMs).setZone(zone).toFormat("yyyy-LL-dd'T'HH:mm:ss")
+            : null;
 
+        if (!start || !end) return null;
 
+        const pIds = (c.get(FIELDS.paciente) as string[] | undefined) ?? [];
+        const tIds = (c.get(FIELDS.tratamiento) as string[] | undefined) ?? [];
+        const sIds = (c.get(FIELDS.sillon) as string[] | undefined) ?? [];
 
-    return {
-        
-      id: (c.get(FIELDS.citaId) as string) ?? c.id,
-      start,
-      end,
-      startMs,
-      endMs,
-      tz: zone,
-      durationMin: durationMin ?? undefined,
-      patientName,
-      type,
-      chairId,
-      chairLabel: chairIdRaw,
-      providerId: staffId,
-    };
-  })
-  .filter(Boolean);
+        const pRec = pIds[0] ? pacienteById.get(pIds[0]) : null;
+        const tRec = tIds[0] ? tratById.get(tIds[0]) : null;
+        const sRec = sIds[0] ? sillonById.get(sIds[0]) : null;
 
-return NextResponse.json({ week, staffId, schedule, appointments });
+        const patientName = (pRec?.get(FIELDS.pacienteNombre) as string) ?? "Paciente";
+        const type = (tRec?.get(FIELDS.tratCategoria) as string) ?? "Tratamiento";
 
+        const chairIdRaw = (sRec?.get(FIELDS.sillonId) as string) ?? "CHR_01";
+        const chairId = Number(String(chairIdRaw).replace("CHR_", "")) || 1;
 
+        const durationMin =
+          typeof startMs === "number" && typeof endMs === "number"
+            ? Math.max(1, Math.round((endMs - startMs) / 60000))
+            : undefined;
+
+        const estadoRaw = c.get(FIELDS.estado);
+        const estado = typeof estadoRaw === "string" ? estadoRaw : String(estadoRaw ?? "");
+
+        return {
+          // ✅ UI id
+          id: (c.get(FIELDS.citaId) as string) ?? c.id,
+
+          // ✅ importante para acciones futuras (cancel/reagendar)
+          recordId: c.id,
+
+          start,
+          end,
+          startMs,
+          endMs,
+          tz: zone,
+          durationMin,
+          patientName,
+          type,
+          chairId,
+          chairLabel: chairIdRaw,
+          providerId: staffId,
+
+          status: estado,
+          estado,
+        };
+      })
+      .filter(Boolean);
+
+    return NextResponse.json({ week, staffId, schedule, appointments });
   } catch (err: any) {
     console.error("[/api/db/week] ERROR:", err);
-    return NextResponse.json(
-      { error: err?.message ?? "Unknown error" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: err?.message ?? "Unknown error" }, { status: 500 });
   }
 }

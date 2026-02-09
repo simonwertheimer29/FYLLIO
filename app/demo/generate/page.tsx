@@ -1147,6 +1147,24 @@ const res = await fetch(`/api/db/week?week=${weekKey}&staffId=${providerId}`, { 
 
     const data = await res.json();
 const appointments = data.appointments;
+const isCancelled = (a: any) => {
+  const s = String(
+    a?.status ?? a?.estado ?? a?.Estado ?? a?.state ?? ""
+  ).trim().toUpperCase();
+
+  return [
+    "CANCELADO",
+    "CANCELADA",
+    "CANCELED",
+    "CANCELLED",
+    "NO_SHOW",
+    "NO SHOW",
+    "NOSHOW",
+  ].includes(s);
+};
+
+const appointmentsActive = (appointments ?? []).filter((a: any) => !isCancelled(a));
+
 const schedule = data.schedule;
 
 // ✅ rules efectivas para renderizar agenda desde BD (horario real del staff)
@@ -1245,9 +1263,10 @@ setDbRulesByProvider((prev) => ({ ...prev, [providerId]: rulesDb }));
 
 
 // ✅ BD = agenda real, NO compactar/mover
-const baseAppointments = (appointments ?? []).slice().sort(
+const baseAppointments = appointmentsActive.slice().sort(
   (a: any, b: any) => parseLocal(a.start).getTime() - parseLocal(b.start).getTime()
 );
+
 
 const base = buildAgendaItems({
   baseAppointments,
