@@ -417,6 +417,7 @@ async function buildAndOfferSlots(params: {
 /* ---------------------------------------
    Handler principal
 ---------------------------------------- */
+
 console.log("[whatsapp] BUILD_TAG", "OFFER_SLOTS_REPEAT_V1");
 
 export async function POST(req: Request) {
@@ -989,6 +990,7 @@ if (!sess) {
   const msg = renderTreatmentsList(mapped);
   const xmlAsk = twimlMessage(msg);
   console.log("[whatsapp] xmlAsk preview", xmlAsk.slice(0, 200));
+  
 
   return new NextResponse(xmlAsk, {
     status: 200,

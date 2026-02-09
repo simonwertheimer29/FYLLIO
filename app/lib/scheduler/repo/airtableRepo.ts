@@ -150,7 +150,7 @@ function firstString(x: unknown): string {
 const FIELD_PATIENT_PHONE = "Paciente_teléfono";
 const FIELD_TUTOR_PHONE = "Paciente_tutor_teléfono";
 // (y tu campo de inicio, por ejemplo)
-const FIELD_START = "Inicio"; // ajusta si en tu base se llama distinto
+const FIELD_START = "Hora inicio"; // ajusta si en tu base se llama distinto
 const FIELD_STATUS = "Estado"; // si existe, opcional
 
 function esc(s: string) {
