@@ -16,6 +16,7 @@ import {
 findNextAppointmentByContactPhone,
   cancelAppointment,
   upsertPatientWithoutPhone,
+  getAppointmentByRecordId,
 } from "../../../lib/scheduler/repo/airtableRepo";
 
 import { listStaff } from "../../../lib/scheduler/repo/staffRepo";
@@ -143,7 +144,10 @@ type SessionStage =
   | "OFFER_SLOTS"
   | "ASK_BOOKING_FOR"
   | "ASK_OTHER_PHONE"
-  | "ASK_PATIENT_NAME";
+  | "ASK_PATIENT_NAME"
+  | "RESCHEDULE_ASK_WHEN"
+  | "RESCHEDULE_OFFER_SLOTS";
+
 
 
 type Session = {
@@ -187,6 +191,20 @@ useTutorPhone?: boolean;     // true si NO tiene teléfono propio
   slotsTop: Slot[];
 
   staffById: Record<string, { name: string; recordId?: string }>;
+  rescheduleFromAppointmentRecordId?: string;
+
+  // lo importante: “clonar” datos de la cita vieja
+  reschedulePatientRecordId?: string;
+  reschedulePatientName?: string;
+
+  rescheduleTreatmentRecordId?: string;
+  rescheduleTreatmentName?: string;
+
+  rescheduleStaffId?: string;         // STF_003
+  rescheduleStaffRecordId?: string;   // recXXXXXXXX
+  rescheduleSillonRecordId?: string;
+
+  rescheduleDurationMin?: number;
 };
 
 
@@ -534,32 +552,159 @@ if (textLower.includes("cancelar")) {
 
 // ✅ REAGENDAR (MVP)
 if (textLower.includes("reagendar")) {
-  const appt = await findNextAppointmentByContactPhone({
+  const next = await findNextAppointmentByContactPhone({
     phoneE164: from,
     clinicId: sess?.clinicId,
   });
 
-  if (!appt) {
+  if (!next) {
     const xml = twimlMessage("No encontré ninguna cita futura para reagendar 🙂");
-    return new NextResponse(xml, {
-      status: 200,
-      headers: { "Content-Type": "text/xml; charset=utf-8" },
-    });
+    return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
   }
 
+  const appt = await getAppointmentByRecordId(next.recordId);
+
+  // guardamos contexto de reagendar
+  const nextSess: Session = {
+    createdAtMs: Date.now(),
+    clinicId: sess?.clinicId || clinicId,
+    clinicRecordId: sess?.clinicRecordId || clinicRecordId,
+    rules: sess?.rules || baseRules,
+
+    stage: "RESCHEDULE_ASK_WHEN",
+
+    rescheduleFromAppointmentRecordId: appt.recordId,
+
+    reschedulePatientRecordId: appt.patientRecordId,
+    reschedulePatientName: appt.patientName,
+
+    rescheduleTreatmentRecordId: appt.treatmentRecordId,
+    rescheduleTreatmentName: appt.treatmentName,
+
+    rescheduleStaffId: appt.staffId,
+    rescheduleStaffRecordId: appt.staffRecordId,
+
+    rescheduleSillonRecordId: appt.sillonRecordId,
+    rescheduleDurationMin: appt.durationMin,
+
+    // por si quieres mostrar opciones luego
+    staffById: sess?.staffById || {},
+    slotsTop: [],
+  };
+
+  await setSession(from, nextSess, SESSION_TTL_SECONDS);
+
+  const xml = twimlMessage(
+    `Perfecto 🙂 Vamos a reagendar tu cita:\n` +
+    `👤 ${appt.patientName || "Paciente"}\n` +
+    `🦷 ${appt.treatmentName || "Tratamiento"}\n` +
+    (appt.start ? `📅 Actual: ${formatTime(appt.start)}\n\n` : "\n") +
+    `¿Para cuándo la quieres?\n` +
+    `Ejemplos: "mañana por la mañana", "jueves 17:00", "hoy tarde".`
+  );
+
+  return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+}
+
+if (sess?.stage === "RESCHEDULE_ASK_WHEN") {
+  const preferences = parsePreferences(textLower); // reutilizas lo que ya tienes
+
+  // reglas derivadas desde la cita anterior (duración exacta)
+  const derivedRules: RulesState = {
+    ...sess.rules,
+    treatments: [
+      {
+        type: sess.rescheduleTreatmentName || "Tratamiento",
+        durationMin: sess.rescheduleDurationMin ?? 30,
+        bufferMin: sess.rules.bufferMin ?? 0,
+      },
+    ],
+  };
+
+
+  // normalmente mantenemos el MISMO profesional
+  const providerIds = sess.rescheduleStaffId ? [sess.rescheduleStaffId] : [];
+
+  const slots = await getAvailableSlots(
+    {
+      rules: derivedRules,
+      treatmentType: sess.rescheduleTreatmentName || "Tratamiento",
+      preferences,
+      providerIds,
+      providerRulesById: {}, // si quieres, mete reglas por provider
+    } as any,
+    async (dayIso) => listAppointmentsByDay({ dayIso, clinicId: sess.clinicId, onlyActive: true })
+  );
+
+  if (!slots.length) {
+    const xml = twimlMessage("😕 No encontré huecos. Prueba otro día u horario.");
+    return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+  }
+
+  const top = pickDiversifiedTop3(slots, derivedRules, preferences);
+
+  const nextSess: Session = {
+    ...sess,
+    createdAtMs: Date.now(),
+    stage: "RESCHEDULE_OFFER_SLOTS",
+    rules: derivedRules,
+    lastPreferences: preferences,
+    slotsTop: top,
+  };
+
+  await setSession(from, nextSess, SESSION_TTL_SECONDS);
+
+  const options = top.map((slot, i) => `${i + 1}️⃣ ${formatTime(slot.start)}`);
+  const xml = twimlMessage(
+    `Listo 🙂 Opciones para reagendar:\n\n${options.join("\n")}\n\nResponde 1, 2 o 3.`
+  );
+
+  return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+}
+
+if (sess?.stage === "RESCHEDULE_OFFER_SLOTS") {
+  const idx = parseIndex(bodyRaw);
+  if (idx === null || idx > 2) {
+    const xml = twimlMessage("Responde con 1, 2 o 3 🙂");
+    return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+  }
+
+  const chosen = sess.slotsTop[idx];
+  if (!chosen) { /* ... */ }
+
+  // crea nueva cita con los mismos links
+  const created = await createAppointment({
+    name: sess.reschedulePatientName || "Paciente",
+    startIso: toAirtableDateTime(chosen.start),
+    endIso: toAirtableDateTime(chosen.end),
+    clinicRecordId: sess.clinicRecordId,
+
+    staffRecordId: sess.rescheduleStaffRecordId,
+    sillonRecordId: sess.rescheduleSillonRecordId,
+    treatmentRecordId: sess.rescheduleTreatmentRecordId,
+    patientRecordId: sess.reschedulePatientRecordId,
+  });
+
+  // cancela la anterior (o marca "Reagendada")
   await cancelAppointment({
-    appointmentRecordId: appt.recordId,
+    appointmentRecordId: sess.rescheduleFromAppointmentRecordId!,
     origin: "WhatsApp",
   });
 
   await deleteSession(from);
 
-  const xml = twimlMessage("✅ Listo. Cancelé tu cita. Ahora dime: *cita mañana* (o tu preferencia) 🙂");
-  return new NextResponse(xml, {
-    status: 200,
-    headers: { "Content-Type": "text/xml; charset=utf-8" },
-  });
+  const xml = twimlMessage(
+    `✅ Reagendado.\n` +
+    `📅 Nueva: ${formatTime(chosen.start)}\n` +
+    `🦷 ${sess.rescheduleTreatmentName || "Tratamiento"}\n` +
+    `👤 ${sess.reschedulePatientName || "Paciente"}\n` +
+    `ID: ${created.recordId}`
+  );
+  return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
 }
+
+
+
 
 
     // 0) Si no habla de “cita” y tampoco está respondiendo a una sesión -> echo

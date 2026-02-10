@@ -140,6 +140,45 @@ export async function getSillonRecordIdBySillonId(sillonId: string) {
   return findRecordIdByField(TABLES.sillones, "Sillón ID", sillonId);
 }
 
+export async function getAppointmentByRecordId(appointmentRecordId: string) {
+  const r = await base(TABLES.appointments).find(appointmentRecordId);
+  const f: any = r.fields;
+
+  // LINKS (en Airtable vienen como array de recordIds)
+  const patientRecordId = Array.isArray(f["Paciente"]) ? f["Paciente"][0] : undefined;
+  const treatmentRecordId = Array.isArray(f["Tratamiento"]) ? f["Tratamiento"][0] : undefined;
+  const staffRecordId = Array.isArray(f["Profesional"]) ? f["Profesional"][0] : undefined;
+  const sillonRecordId = Array.isArray(f["Sillón"]) ? f["Sillón"][0] : undefined;
+
+  // Lookups si los tienes (en tu screenshot sí hay *_nombre y *_id)
+  const patientName = firstString(f["Paciente_nombre"]) || firstString(f["Nombre"]) || "";
+  const treatmentName = firstString(f["Tratamiento_nombre"]) || "";
+  const staffId = firstString(f["Profesional_id"]) || "";
+
+  // duración
+  const start = toLocalNaiveIso(f["Hora inicio"]);
+  const end = toLocalNaiveIso(f["Hora final"]);
+  const durMin =
+    start && end
+      ? Math.max(1, Math.round((new Date(end).getTime() - new Date(start).getTime()) / 60000))
+      : undefined;
+
+  return {
+    recordId: r.id,
+    patientRecordId,
+    patientName,
+    treatmentRecordId,
+    treatmentName,
+    staffRecordId,
+    staffId,
+    sillonRecordId,
+    durationMin: durMin,
+    start,
+    end,
+    fields: f,
+  };
+}
+
 
 function firstString(x: unknown): string {
   if (typeof x === "string") return x;
