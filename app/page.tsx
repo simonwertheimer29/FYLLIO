@@ -78,58 +78,38 @@ const IconCheck = () => (
 
   return (
     <main className="min-h-screen bg-white">
-     {/* HERO */}
+    {/* HERO */}
 <section className="border-b border-slate-100 bg-[radial-gradient(1200px_600px_at_20%_0%,rgba(37,99,235,0.18),transparent_60%),radial-gradient(900px_520px_at_90%_10%,rgba(6,182,212,0.18),transparent_55%),linear-gradient(to_bottom,rgba(241,245,249,0.75),#ffffff)]">
   <div
-    className="mx-auto max-w-7xl px-4 pt-12 pb-10 sm:px-6 lg:px-8"
+    className="mx-auto max-w-7xl px-4 pt-16 pb-16 sm:px-6 lg:px-8"
     style={{ minHeight: "calc(92vh - var(--nav-h,72px))" }}
   >
-    <div className="grid items-center gap-12 lg:grid-cols-2">
-      {/* IZQUIERDA: TÍTULO + COPY + CTA */}
-      <div className="mx-auto w-full max-w-xl lg:mx-0">
-        <h1 className="text-[44px] font-extrabold tracking-tight leading-[1.02] sm:text-6xl lg:text-[72px]">
-          <span className="fyllio-text-gradient">
-            Deja de perder dinero
-            <span className="block">por tu agenda.</span>
-          </span>
-        </h1>
+    <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
+      <h1 className="text-[44px] font-extrabold tracking-tight leading-[1.02] sm:text-6xl lg:text-[72px]">
+        <span className="fyllio-text-gradient">
+          Deja de perder dinero
+          <span className="block">por tu agenda.</span>
+        </span>
+      </h1>
 
-        <p className="mt-6 text-base text-slate-600 sm:text-lg">
-          <span className="fyllio-text-gradient font-semibold">FYLLIO</span> mantiene la ocupación,
-          reduce cancelaciones y ahorra horas de trabajo cada día.
-        </p>
+      <p className="mt-6 max-w-3xl text-base text-slate-600 sm:text-lg">
+        <span className="fyllio-text-gradient font-semibold">FYLLIO</span> mantiene la ocupación,
+        reduce cancelaciones y ahorra horas de trabajo cada día.
+      </p>
 
-        <div className="mt-8">
-          <TrackedCta
-            href="/early-access"
-            source="hero"
-            className="btn-fyllio inline-flex px-8 py-4 text-base sm:px-10 sm:py-5 sm:text-lg"
-          >
-            Estoy interesado
-          </TrackedCta>
-        </div>
-      </div>
-
-      {/* DERECHA: IMAGEN */}
-      <div className="w-full">
-        <div className="relative mx-auto w-full max-w-2xl">
-          <div className="absolute -inset-6 rounded-[28px] bg-[radial-gradient(500px_220px_at_20%_10%,rgba(56,189,248,0.25),transparent_60%),radial-gradient(500px_220px_at_90%_20%,rgba(37,99,235,0.22),transparent_55%)] blur-2xl" />
-          <div className="relative overflow-hidden rounded-[24px] border border-slate-200/60 bg-white/40 p-4 shadow-[0_18px_55px_rgba(2,6,23,0.10)] backdrop-blur-xl">
-            <div className="relative aspect-[16/10] w-full">
-              <Image
-                src="/fyllio-laptop.png"
-                alt="FYLLIO en agenda clínica"
-                fill
-                className="object-contain"
-                priority
-              />
-            </div>
-          </div>
-        </div>
+      <div className="mt-10">
+        <TrackedCta
+          href="/early-access"
+          source="hero"
+          className="btn-fyllio inline-flex px-10 py-5 text-base sm:px-12 sm:py-6 sm:text-lg"
+        >
+          Estoy interesado
+        </TrackedCta>
       </div>
     </div>
   </div>
 </section>
+
 
 
 
