@@ -11,6 +11,13 @@ export default function HomePage() {
 
   const mailchimpAction = process.env.NEXT_PUBLIC_MAILCHIMP_ACTION_URL || "#";
 
+  const cardBad =
+  "flex items-center gap-3 rounded-2xl bg-rose-50/70 px-4 py-3 text-sm text-rose-900 ring-1 ring-rose-200";
+
+const cardGood =
+  "flex items-center gap-3 rounded-2xl bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900 ring-1 ring-emerald-200";
+
+
   const cardSoft =
     "fyllio-card-soft bg-white/70 p-6 text-base text-slate-700 ring-1 ring-slate-200";
 
@@ -23,6 +30,23 @@ export default function HomePage() {
     "after:opacity-70";
 
   const anchorOffset = "scroll-mt-[calc(var(--nav-h,72px)+32px)]";
+
+  const IconX = () => (
+  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-rose-100 ring-1 ring-rose-200">
+    <svg viewBox="0 0 24 24" className="h-4 w-4 text-rose-600" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  </span>
+);
+
+const IconCheck = () => (
+  <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-100 ring-1 ring-emerald-200">
+    <svg viewBox="0 0 24 24" className="h-4 w-4 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="2.5">
+      <path strokeLinecap="round" d="M20 6L9 17l-5-5" />
+    </svg>
+  </span>
+);
+
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -122,9 +146,10 @@ export default function HomePage() {
 
     {/* CTA ABAJO CENTRADO */}
     <div className="mt-12 text-center">
-      <TrackedCta href="#acceso" source="hero" className="btn-fyllio inline-flex">
+      <TrackedCta href="/early-access" source="hero" className="btn-fyllio inline-flex">
   Estoy interesado
 </TrackedCta>
+
 
 
       <p className="mt-4 text-sm font-semibold text-slate-900">
@@ -223,74 +248,48 @@ export default function HomePage() {
       Tu agenda antes y después de tener control sobre ella
     </p>
 
-    <div className="mt-12 grid gap-10 md:grid-cols-2 items-start">
+   <div className="mt-12">
+  <p className="mx-auto max-w-2xl text-center text-sm text-slate-600 sm:text-base">
+    De gestión manual a control automático.
+  </p>
+
+  <div className="mx-auto mt-10 max-w-4xl">
+    <div className="grid gap-6 md:grid-cols-2">
       {/* ANTES */}
       <div className="min-w-0">
-        <h3 className="mb-4 text-lg font-semibold text-slate-900">Antes 😵‍💫</h3>
-        <div className="space-y-4">
-          <div className={cardSoft}>
-            Capacidad no utilizada que se pierde por falta de tiempo y reacción
-          </div>
-          <div className={cardSoft}>
-            Gran parte del tiempo se dedica a reprogramar y actuar frente a imprevistos
-          </div>
-          <div className={cardSoft}>
-            La agenda se construye “sobre la marcha”, llamada a llamada
-          </div>
-          <div className={cardSoft}>
-            Poca visibilidad de cómo quedará el día hasta que sucede
-          </div>
-          <div className={cardSoft}>
-            La agenda domina el día y se extiende fuera del horario laboral
-          </div>
+        <div className="mb-4 flex items-center gap-3">
+          <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-rose-700 ring-1 ring-rose-200">
+            Antes
+          </span>
+        </div>
+
+        <div className="space-y-3">
+          <div className={cardBad}><IconX />Llamadas manuales</div>
+          <div className={cardBad}><IconX />Gestión reactiva</div>
+          <div className={cardBad}><IconX />Cancelaciones desordenadas</div>
+          <div className={cardBad}><IconX />Tiempo perdido en reorganizar</div>
         </div>
       </div>
 
-      {/* DESPUÉS */}
+      {/* CON FYLLIO */}
       <div className="min-w-0">
         <div className="mb-4 flex items-center gap-3">
-          <h3 className="text-lg font-semibold text-slate-900">Después 😌</h3>
-          <span className="rounded-full bg-sky-50 px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-sky-700 ring-1 ring-sky-200">
+          <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 ring-1 ring-emerald-200">
             Con FYLLIO
           </span>
         </div>
 
-        <div className="space-y-4">
-          <div className={cardGlow}>
-            <span className="relative z-10">
-              Mayor ocupación y rentabilidad gracias a la activación inteligente de ventanas de agenda
-            </span>
-          </div>
-
-          <div className={cardGlow}>
-            <span className="relative z-10">
-              Menos tiempo operativo: el trabajo pasa de reaccionar a{" "}
-              <b>supervisar y decidir</b>
-            </span>
-          </div>
-
-          <div className={cardGlow}>
-            <span className="relative z-10">
-              La creación de la agenda se automatiza y se mantiene optimizada ante cambios, incluso fuera del horario
-              laboral
-            </span>
-          </div>
-
-          <div className={cardGlow}>
-            <span className="relative z-10">
-              Control y previsión: sabes cómo será el día y cómo reaccionar ante cambios antes de que ocurran
-            </span>
-          </div>
-
-          <div className={cardGlow}>
-            <span className="relative z-10">
-              Más control sobre tu tiempo y el de tu equipo, sin perder eficiencia ni rentabilidad
-            </span>
-          </div>
+        <div className="space-y-3">
+          <div className={cardGood}><IconCheck />Recordatorios automáticos</div>
+          <div className={cardGood}><IconCheck />Reasignación inteligente</div>
+          <div className={cardGood}><IconCheck />Más estabilidad en el día</div>
+          <div className={cardGood}><IconCheck />Más control operativo</div>
         </div>
       </div>
     </div>
   </div>
+</div>
+    </div>
 </section>
 
 
@@ -367,133 +366,23 @@ hace el trabajo operativo. Tú recuperas control y tiempo.
 </section>
 
 
-      {/* FORM FINAL */}
-      <section
-        id="acceso"
-        className={`${anchorOffset} bg-[radial-gradient(900px_520px_at_20%_0%,rgba(37,99,235,0.16),transparent_60%),radial-gradient(900px_520px_at_90%_10%,rgba(6,182,212,0.14),transparent_55%),linear-gradient(to_bottom,#ffffff,rgba(241,245,249,0.85))]`}
-      >
-        <div className="mx-auto flex min-h-[80vh] max-w-7xl flex-col justify-center px-4 py-16 sm:px-6">
-          <div className="mx-auto w-full max-w-3xl">
-            <h2 className="text-center text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-              Quiero ver cómo funcionaría{" "}
-              <span className="fyllio-text-gradient">FYLLIO</span> en mi clínica
-            </h2>
+     {/* CTA FINAL (SIN TEXTO DE CORREO) */}
+<section
+  className={`${anchorOffset} bg-[radial-gradient(900px_520px_at_20%_0%,rgba(37,99,235,0.16),transparent_60%),radial-gradient(900px_520px_at_90%_10%,rgba(6,182,212,0.14),transparent_55%),linear-gradient(to_bottom,#ffffff,rgba(241,245,249,0.85))]`}
+>
+  <div className="mx-auto flex min-h-[60vh] max-w-7xl flex-col justify-center px-4 py-16 sm:px-6 text-center">
+    <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+      ¿Listo para simplificar tu clínica?
+    </h2>
 
-            <p className="mt-4 text-center text-sm text-slate-600 sm:text-base">
-              Estamos construyendo FYLLIO junto a clínicas reales. Déjanos tus datos y te contactamos para entender tu
-              caso y mostrarte cómo encajaría.
-            </p>
+    <div className="mt-10">
+      <TrackedCta href="/early-access" source="final-cta" className="btn-fyllio inline-flex">
+        Estoy interesado
+      </TrackedCta>
+    </div>
+  </div>
+</section>
 
-            <div className="mt-10 fyllio-card-soft p-8 sm:p-10">
-              {submitted ? (
-                <div className="rounded-2xl bg-white/80 p-8 text-center">
-                  <h3 className="text-2xl font-bold text-slate-900">¡Listo! ✅</h3>
-                  <p className="mt-3 text-slate-600">Gracias — te contactaremos pronto.</p>
-
-                  <button
-                    type="button"
-                    className="btn-fyllio mt-6"
-                    onClick={() => setSubmitted(false)}
-                  >
-                    Enviar otra respuesta
-                  </button>
-                </div>
-              ) : (
-                <form className="grid gap-4" onSubmit={handleSubmit}>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-slate-600">
-                        Nombre <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        name="FNAME"
-                        type="text"
-                        required
-                        className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
-                        placeholder="Tu nombre"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-slate-600">
-                        Email <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        name="EMAIL"
-                        type="email"
-                        required
-                        className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
-                        placeholder="tu@email.com"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-slate-600">
-                        Rol <span className="text-red-500">*</span>
-                      </label>
-                      <select
-                        name="ROLE"
-                        required
-                        className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
-                        defaultValue=""
-                      >
-                        <option value="" disabled>
-                          Selecciona…
-                        </option>
-                        <option value="Dentista">Dentista</option>
-                        <option value="Recepción">Recepción</option>
-                        <option value="Dirección">Dirección</option>
-                        <option value="Otro">Otro</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="mb-1 block text-xs font-semibold text-slate-600">
-                        Clínica / consultorio
-                      </label>
-                      <input
-                        name="CLINIC"
-                        type="text"
-                        className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none ring-0 focus:border-sky-300"
-                        placeholder="Opcional"
-                      />
-                    </div>
-                  </div>
-
-                  <p className="text-center text-xs text-slate-500">
-                    <span className="text-red-500">*</span> Los campos con asterisco son obligatorios.
-                  </p>
-
-                  <button
-                    type="submit"
-                    disabled={submitting || mailchimpAction === "#"}
-                    className={
-                      submitting
-                        ? "btn-fyllio mt-2 w-full opacity-70 cursor-not-allowed"
-                        : "btn-fyllio mt-2 w-full"
-                    }
-                  >
-                    {submitting ? "Enviando..." : "Enviar"}
-                  </button>
-
-                  <p className="text-center text-xs text-slate-500">
-                    Al enviar, aceptas que te contactemos para una breve conversación. Sin spam.
-                  </p>
-
-                  {mailchimpAction === "#" ? (
-                    <p className="mt-2 text-center text-xs text-amber-700">
-                      ⚠️ Falta configurar Mailchimp: define{" "}
-                      <b>NEXT_PUBLIC_MAILCHIMP_ACTION_URL</b>.
-                    </p>
-                  ) : null}
-                </form>
-              )}
-            </div>
-          </div>
-        </div>
-      </section>
     </main>
   );
 }

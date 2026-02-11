@@ -8,10 +8,12 @@ declare global {
   }
 }
 
+type CtaSource = "navbar" | "hero" | "final-cta" | "early-access-back";
+
 type Props = {
   href: string;
   className?: string;
-  source: "navbar" | "hero";
+  source: CtaSource;
   children: React.ReactNode;
 };
 
