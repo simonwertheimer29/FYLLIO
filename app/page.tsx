@@ -84,30 +84,37 @@ const IconCheck = () => (
     className="mx-auto max-w-7xl px-4 pt-12 pb-10 sm:px-6 lg:px-8"
     style={{ minHeight: "calc(92vh - var(--nav-h,72px))" }}
   >
-    {/* TITULO ARRIBA CENTRADO */}
-    <div className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 text-center">
-      <h1 className="text-[44px] font-extrabold tracking-tight text-slate-900 leading-[1.02] sm:text-6xl lg:text-[72px]">
-  Deja de perder dinero
-  <span className="block">por tu agenda.</span>
-</h1>
+    <div className="grid items-center gap-12 lg:grid-cols-2">
+      {/* IZQUIERDA: TÍTULO + COPY + CTA */}
+      <div className="mx-auto w-full max-w-xl lg:mx-0">
+        <h1 className="text-[44px] font-extrabold tracking-tight leading-[1.02] sm:text-6xl lg:text-[72px]">
+          <span className="fyllio-text-gradient">
+            Deja de perder dinero
+            <span className="block">por tu agenda.</span>
+          </span>
+        </h1>
 
-    </div>
+        <p className="mt-6 text-base text-slate-600 sm:text-lg">
+          <span className="fyllio-text-gradient font-semibold">FYLLIO</span> mantiene la ocupación,
+          reduce cancelaciones y ahorra horas de trabajo cada día.
+        </p>
 
-    {/* 2 COLUMNAS: TEXTO + IMAGEN */}
-    <div className="mt-12 grid items-center gap-10 lg:grid-cols-2">
-      {/* COLUMNA IZQUIERDA */}
-      <div className="mx-auto w-full max-w-2xl lg:mx-0">
-        <p className="mt-6 max-w-2xl text-base text-slate-600 sm:text-lg">
-  <span className="fyllio-text-gradient font-semibold">FYLLIO</span> mantiene la ocupación, reduce cancelaciones y ahorra horas de trabajo cada día.
-</p>
-
+        <div className="mt-8">
+          <TrackedCta
+            href="/early-access"
+            source="hero"
+            className="btn-fyllio inline-flex px-8 py-4 text-base sm:px-10 sm:py-5 sm:text-lg"
+          >
+            Estoy interesado
+          </TrackedCta>
+        </div>
       </div>
 
-      {/* COLUMNA DERECHA: IMAGEN */}
+      {/* DERECHA: IMAGEN */}
       <div className="w-full">
-        <div className="relative mx-auto w-full max-w-xl">
+        <div className="relative mx-auto w-full max-w-2xl">
           <div className="absolute -inset-6 rounded-[28px] bg-[radial-gradient(500px_220px_at_20%_10%,rgba(56,189,248,0.25),transparent_60%),radial-gradient(500px_220px_at_90%_20%,rgba(37,99,235,0.22),transparent_55%)] blur-2xl" />
-          <div className="relative overflow-hidden rounded-[24px] border border-slate-200/60 bg-white/40 p-3 shadow-[0_18px_55px_rgba(2,6,23,0.10)] backdrop-blur-xl">
+          <div className="relative overflow-hidden rounded-[24px] border border-slate-200/60 bg-white/40 p-4 shadow-[0_18px_55px_rgba(2,6,23,0.10)] backdrop-blur-xl">
             <div className="relative aspect-[16/10] w-full">
               <Image
                 src="/fyllio-laptop.png"
@@ -121,25 +128,9 @@ const IconCheck = () => (
         </div>
       </div>
     </div>
-
-    {/* CTA ABAJO CENTRADO */}
-    <div className="mt-12 text-center">
-      <TrackedCta href="/early-access" source="hero" className="btn-fyllio inline-flex">
-  Estoy interesado
-</TrackedCta>
-
-
-
-      <p className="mt-4 text-sm font-semibold text-slate-900">
-        ¿Qué esperas para recuperar el control de tu agenda?
-      </p>
-
-      <p className="mt-2 text-xs text-slate-500">
-        Fase temprana. Buscamos clínicas piloto y feedback real.
-      </p>
-    </div>
   </div>
 </section>
+
 
 
       {/* BLOQUE ÚNICO: problema → impacto → FYLLIO (valores) */}
