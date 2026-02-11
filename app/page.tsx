@@ -78,37 +78,34 @@ const IconCheck = () => (
 
   return (
     <main className="min-h-screen bg-white">
-    {/* HERO */}
-<section className="border-b border-slate-100 bg-[radial-gradient(1200px_600px_at_20%_0%,rgba(37,99,235,0.18),transparent_60%),radial-gradient(900px_520px_at_90%_10%,rgba(6,182,212,0.18),transparent_55%),linear-gradient(to_bottom,rgba(241,245,249,0.75),#ffffff)]">
+   {/* HERO */}
+<section className="relative overflow-hidden bg-[radial-gradient(1200px_600px_at_20%_0%,rgba(37,99,235,0.18),transparent_60%),radial-gradient(900px_520px_at_90%_10%,rgba(6,182,212,0.18),transparent_55%),linear-gradient(to_bottom,rgba(241,245,249,0.75),#ffffff)]">
   <div
-    className="mx-auto max-w-7xl px-4 pt-16 pb-16 sm:px-6 lg:px-8"
-    style={{ minHeight: "calc(92vh - var(--nav-h,72px))" }}
+    className="mx-auto flex min-h-[calc(100vh-72px)] max-w-6xl flex-col items-center justify-center px-4 text-center"
   >
-    <div className="mx-auto flex max-w-4xl flex-col items-center text-center">
-      <h1 className="text-[44px] font-extrabold tracking-tight leading-[1.02] sm:text-6xl lg:text-[72px]">
-        <span className="fyllio-text-gradient">
-          Deja de perder dinero
-          <span className="block">por tu agenda.</span>
-        </span>
-      </h1>
+    <h1 className="text-5xl font-extrabold leading-[1.05] tracking-tight text-slate-900 sm:text-6xl md:text-7xl lg:text-[84px]">
+  Deja de perder dinero
+  <span className="block">por tu agenda.</span>
+</h1>
 
-      <p className="mt-6 max-w-3xl text-base text-slate-600 sm:text-lg">
-        <span className="fyllio-text-gradient font-semibold">FYLLIO</span> mantiene la ocupación,
-        reduce cancelaciones y ahorra horas de trabajo cada día.
-      </p>
+<p className="mt-6 max-w-3xl text-lg text-slate-600 sm:text-xl md:text-2xl">
+  <span className="fyllio-text-gradient font-semibold">FYLLIO</span> mantiene la ocupación,
+  reduce cancelaciones y ahorra horas de trabajo cada día.
+</p>
 
-      <div className="mt-10">
-        <TrackedCta
-          href="/early-access"
-          source="hero"
-          className="btn-fyllio inline-flex px-10 py-5 text-base sm:px-12 sm:py-6 sm:text-lg"
-        >
-          Estoy interesado
-        </TrackedCta>
-      </div>
+
+    <div className="mt-8">
+      <TrackedCta
+        href="/early-access"
+        source="hero"
+        className="btn-fyllio inline-flex px-12 py-6 text-lg sm:text-xl"
+      >
+        Estoy interesado
+      </TrackedCta>
     </div>
   </div>
 </section>
+
 
 
 
