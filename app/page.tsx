@@ -86,43 +86,21 @@ const IconCheck = () => (
   >
     {/* TITULO ARRIBA CENTRADO */}
     <div className="-mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 text-center">
-      <h1 className="text-[40px] font-extrabold tracking-tight text-slate-900 leading-[1.02] sm:text-5xl lg:text-[58px] xl:text-[60px]">
-        La inteligencia artificial que se encarga de tu{" "}
-        <span className="fyllio-text-gradient">agenda clínica y personal</span>.
-      </h1>
+      <h1 className="text-[44px] font-extrabold tracking-tight text-slate-900 leading-[1.02] sm:text-6xl lg:text-[72px]">
+  Deja de perder dinero
+  <span className="block">por tu agenda.</span>
+</h1>
+
     </div>
 
     {/* 2 COLUMNAS: TEXTO + IMAGEN */}
     <div className="mt-12 grid items-center gap-10 lg:grid-cols-2">
       {/* COLUMNA IZQUIERDA */}
       <div className="mx-auto w-full max-w-2xl lg:mx-0">
-        <p className="mt-6 max-w-2xl text-sm text-slate-600 sm:text-base">
-          FYLLIO automatiza y optimiza tu agenda para mejorar la ocupación, reducir
-          capacidad no utilizada y disminuir el tiempo operativo.
-          <br className="hidden sm:block" />
-          Te da orden y previsión para identificar ventanas de agenda aprovechables y
-          recuperar tiempo personal sin perder eficiencia.
-        </p>
+        <p className="mt-6 max-w-2xl text-base text-slate-600 sm:text-lg">
+  <span className="fyllio-text-gradient font-semibold">FYLLIO</span> mantiene la ocupación, reduce cancelaciones y ahorra horas de trabajo cada día.
+</p>
 
-        <div className="mt-8 space-y-4">
-          <p className="text-lg font-semibold text-slate-900 sm:text-xl">
-            ¿Cansado de reprogramaciones, cancelaciones de último minuto y capacidad no
-            utilizada inesperada en la agenda?
-          </p>
-
-          <p className="text-lg font-semibold text-slate-900 sm:text-xl">
-            ¿Cansado de no poder proteger tu tiempo personal porque la agenda se
-            desordena y termina controlando tu día?
-          </p>
-
-          <p className="pt-2 text-sm text-slate-700 sm:text-base">
-            No son excluyentes: con FYLLIO puedes ser{" "}
-            <span className="font-semibold">más rentable y eficiente</span>, y a la vez{" "}
-            <span className="font-semibold">mantener el balance</span> entre tu vida
-            profesional y personal gracias a una agenda{" "}
-            <span className="font-semibold">optimizada, ordenada y bajo control</span>.
-          </p>
-        </div>
       </div>
 
       {/* COLUMNA DERECHA: IMAGEN */}
@@ -171,64 +149,69 @@ const IconCheck = () => (
 >
   <div className="mx-auto flex min-h-[72vh] max-w-7xl flex-col justify-center px-4 py-14 sm:px-6">
     <h2 className="text-center text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-      El{" "}
-      <span className="fyllio-text-gradient">problema</span> no es la agenda.
-      <span className="block">
-        Es el{" "}
-        <span className="fyllio-text-gradient">poco control</span> sobre ella.
-      </span>
-    </h2>
+  El problema no es la agenda
+</h2>
+<p className="mx-auto mt-4 max-w-2xl text-center text-sm text-slate-600 sm:text-base">
+  Es todo lo que la rodea y consume tu tiempo sin que lo notes.
+</p>
 
-    <div className="mx-auto mt-10 grid w-full max-w-5xl gap-6 md:grid-cols-3 items-stretch">
-      {/* PILL 1 */}
-      <div className="h-full rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.70),rgba(6,182,212,0.70),rgba(37,99,235,0.70))] bg-[length:200%_200%] p-[1px] animate-gradient">
-        <div className="h-full rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)] flex flex-col">
-          <p className="text-base leading-relaxed text-slate-700">
-            Cuando la agenda no está bajo control, la clínica pierde claridad. Aparecen{" "}
-            <span className="font-semibold">ventanas de agenda sin plan</span>, cambios de último minuto,
-            reprogramaciones constantes y decisiones que se toman “sobre la marcha”.
-            <br />
-            <br />
-            El día deja de ser previsible, el <span className="font-semibold">tiempo operativo aumenta</span> y la{" "}
-            <span className="font-semibold">rentabilidad</span> depende más de reaccionar que de planificar.
-          </p>
-        </div>
-      </div>
 
-      {/* PILL 2 */}
-      <div className="h-full rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.70),rgba(6,182,212,0.70),rgba(37,99,235,0.70))] bg-[length:200%_200%] p-[1px] animate-gradient">
-        <div className="h-full rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)] flex flex-col">
-          <p className="text-base leading-relaxed text-slate-700">
-            La falta de control no solo afecta a la ocupación.
-            <br />
-            Afecta al equipo, al foco y a tu <span className="font-semibold">tiempo personal</span>.
-            <br />
-            <br />
-            Cuando todo depende de estar corrigiendo la agenda en tiempo real, la clínica nunca se detiene… y tú
-            tampoco.
-          </p>
-        </div>
-      </div>
-
-      {/* PILL 3 */}
-      <div className="h-full rounded-2xl bg-[linear-gradient(90deg,rgba(37,99,235,0.70),rgba(6,182,212,0.70),rgba(37,99,235,0.70))] bg-[length:200%_200%] p-[1px] animate-gradient">
-        <div className="h-full rounded-2xl bg-white/70 p-7 ring-1 ring-slate-200/70 backdrop-blur-xl shadow-[0_18px_55px_rgba(2,6,23,0.08)] flex flex-col">
-          <p className="text-base leading-relaxed text-slate-700">
-            <span className="font-extrabold fyllio-text-gradient">Somos FYLLIO.</span>
-            <br />
-            <br />
-            Creemos que una clínica bien gestionada no solo es más rentable, sino también más saludable para quienes
-            la hacen funcionar.
-            <br />
-            <br />
-            Nuestro compromiso es ayudarte a crecer con{" "}
-            <span className="font-semibold">orden, previsión y control</span>, cuidando tanto de tu clínica como de tu{" "}
-            <span className="font-semibold">tiempo personal</span>.
-          </p>
-        </div>
-      </div>
+   <div className="mx-auto mt-10 grid w-full max-w-6xl gap-6 md:grid-cols-3 items-stretch">
+  {/* CARD 1 */}
+  <div className="rounded-3xl bg-sky-50/55 p-8 ring-1 ring-slate-200/60 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm text-center">
+    <div className="mx-auto mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-100/70 ring-1 ring-sky-200">
+      {/* clock icon */}
+      <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-700" fill="none" stroke="currentColor" strokeWidth="2">
+        <path strokeLinecap="round" d="M12 8v5l3 2" />
+        <path strokeLinecap="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
     </div>
+
+    <p className="text-lg font-extrabold text-slate-900">
+      Horas perdidas en tareas manuales
+    </p>
+    <p className="mt-3 text-sm leading-relaxed text-slate-600">
+      Reorganizar citas, llamar pacientes, cuadrar horarios... cada día.
+    </p>
   </div>
+
+  {/* CARD 2 */}
+  <div className="rounded-3xl bg-sky-50/55 p-8 ring-1 ring-slate-200/60 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm text-center">
+    <div className="mx-auto mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-100/70 ring-1 ring-sky-200">
+      {/* users icon */}
+      <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-700" fill="none" stroke="currentColor" strokeWidth="2">
+        <path strokeLinecap="round" d="M16 11a4 4 0 10-8 0 4 4 0 008 0z" />
+        <path strokeLinecap="round" d="M20 21a8 8 0 00-16 0" />
+      </svg>
+    </div>
+
+    <p className="text-lg font-extrabold text-slate-900">
+      Pacientes que no aparecen
+    </p>
+    <p className="mt-3 text-sm leading-relaxed text-slate-600">
+      Las ausencias desorganizan tu día y reducen ingresos.
+    </p>
+  </div>
+
+  {/* CARD 3 */}
+  <div className="rounded-3xl bg-sky-50/55 p-8 ring-1 ring-slate-200/60 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm text-center">
+    <div className="mx-auto mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-100/70 ring-1 ring-sky-200">
+      {/* trending down icon */}
+      <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-700" fill="none" stroke="currentColor" strokeWidth="2">
+        <path strokeLinecap="round" d="M3 7v14h18" />
+        <path strokeLinecap="round" d="M21 7l-7 7-4-4-5 5" />
+      </svg>
+    </div>
+
+    <p className="text-lg font-extrabold text-slate-900">
+      Sin visibilidad del rendimiento
+    </p>
+    <p className="mt-3 text-sm leading-relaxed text-slate-600">
+      No sabes qué funciona y qué no hasta que es tarde.
+    </p>
+  </div>
+</div>
+</div>
 </section>
 
 
@@ -299,71 +282,108 @@ const IconCheck = () => (
   className={`${anchorOffset} border-b border-slate-100 bg-[radial-gradient(900px_520px_at_15%_10%,rgba(6,182,212,0.14),transparent_55%),radial-gradient(1100px_560px_at_85%_0%,rgba(37,99,235,0.12),transparent_60%),linear-gradient(to_bottom,#ffffff,rgba(241,245,249,0.75))]`}
 >
   <div className="mx-auto flex min-h-[75vh] max-w-7xl flex-col justify-center px-4 py-16 sm:px-6">
-    <h2 className="text-center text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-      ¿Cómo funciona <span className="fyllio-text-gradient">FYLLIO</span>?
+    <h2 className="text-center text-5xl font-extrabold tracking-tight text-slate-900 sm:text-6xl">
+      Cómo funciona
     </h2>
 
-    <div className="mt-12 grid gap-8 md:grid-cols-4">
-      <div className="fyllio-card-soft p-8 text-left">
+    <p className="mt-3 text-center text-base text-slate-600">
+      Cuatro pasos. Sin complicaciones.
+    </p>
 
-        <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
-          Se integra y entiende tu clínica
+    <div className="mt-12 grid gap-6 md:grid-cols-4">
+      {/* 01 */}
+      <div className="relative overflow-hidden rounded-3xl bg-white/70 p-8 ring-1 ring-slate-200/70 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm">
+        <div className="absolute right-6 top-6 text-5xl font-extrabold text-slate-200/70">
+          01
+        </div>
+
+        <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-100/70 ring-1 ring-sky-200">
+          {/* gear icon */}
+          <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-700" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z" />
+            <path strokeLinecap="round" d="M19.4 15a7.8 7.8 0 000-6l-2 1.2a6.2 6.2 0 00-1.5-1.5L17 6.6a7.8 7.8 0 00-6 0l1.2 2a6.2 6.2 0 00-1.5 1.5L6.6 9a7.8 7.8 0 000 6l2-1.2a6.2 6.2 0 001.5 1.5L9 17.4a7.8 7.8 0 006 0l-1.2-2a6.2 6.2 0 001.5-1.5L19.4 15z" />
+          </svg>
+        </div>
+
+        <p className="text-lg font-extrabold text-slate-900">
+          Configura tu clínica
         </p>
-        <p className="text-base text-slate-700">
-          Horarios, sillones, profesionales, tipos de cita, reglas y prioridades.
-          {" "}
-<span className="fyllio-text-gradient font-semibold">FYLLIO</span>{" "}
-se adapta a tu forma real de operar para optimizar sin romper tu flujo.
+        <p className="mt-3 text-sm leading-relaxed text-slate-600">
+          Añade profesionales, horarios y servicios en minutos.
+        </p>
+      </div>
+
+      {/* 02 */}
+      <div className="relative overflow-hidden rounded-3xl bg-white/70 p-8 ring-1 ring-slate-200/70 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm">
+        <div className="absolute right-6 top-6 text-5xl font-extrabold text-slate-200/70">
+          02
+        </div>
+
+        <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-100/70 ring-1 ring-sky-200">
+          {/* bell icon */}
+          <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-700" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" d="M12 22a2 2 0 002-2H10a2 2 0 002 2z" />
+            <path strokeLinecap="round" d="M18 16V11a6 6 0 10-12 0v5l-2 2h16l-2-2z" />
+          </svg>
+        </div>
+
+        <p className="text-lg font-extrabold text-slate-900">
+          Activa recordatorios
+        </p>
+        <p className="mt-3 text-sm leading-relaxed text-slate-600">
+          Tus pacientes reciben avisos automáticos de sus citas.
         </p>
       </div>
 
-    <div className="fyllio-card-soft p-8 text-left">
+      {/* 03 */}
+      <div className="relative overflow-hidden rounded-3xl bg-white/70 p-8 ring-1 ring-slate-200/70 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm">
+        <div className="absolute right-6 top-6 text-5xl font-extrabold text-slate-200/70">
+          03
+        </div>
 
-        <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
-          Crea la agenda por ti
-        </p>
-        <p className="text-base text-slate-700">
-          Genera una agenda optimizada desde el inicio y automatiza la comunicación
-          básica con el paciente (confirmaciones, cambios y recordatorios).
-          Puedes generar y ajustar citas a cualquier hora, sin cargar al equipo.
-        </p>
-      </div>
+        <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-100/70 ring-1 ring-sky-200">
+          {/* bolt icon */}
+          <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-700" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" />
+          </svg>
+        </div>
 
-     <div className="fyllio-card-soft p-8 text-left">
-
-        <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
-          Detecta oportunidades y riesgos
+        <p className="text-lg font-extrabold text-slate-900">
+          Optimiza tu agenda
         </p>
-        <p className="text-base text-slate-700">
-          Identifica ventanas de agenda aprovechables para aumentar ocupación
-          o proteger tiempo personal.
-          Detecta riesgos como cancelaciones o no-shows y activa acciones
-          para mantener el día estable.
+        <p className="mt-3 text-sm leading-relaxed text-slate-600">
+          FYLLIO rellena huecos y reorganiza cancelaciones.
         </p>
       </div>
-<div className="fyllio-card-soft p-8 text-left">
 
-        <p className="mb-3 text-sm font-bold uppercase tracking-wide text-slate-500">
-          Mantiene la agenda junto a ti
+      {/* 04 */}
+      <div className="relative overflow-hidden rounded-3xl bg-white/70 p-8 ring-1 ring-slate-200/70 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm">
+        <div className="absolute right-6 top-6 text-5xl font-extrabold text-slate-200/70">
+          04
+        </div>
+
+        <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-100/70 ring-1 ring-sky-200">
+          {/* chart icon */}
+          <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-700" fill="none" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" d="M4 19V5" />
+            <path strokeLinecap="round" d="M8 19V9" />
+            <path strokeLinecap="round" d="M12 19V12" />
+            <path strokeLinecap="round" d="M16 19V7" />
+            <path strokeLinecap="round" d="M20 19V4" />
+          </svg>
+        </div>
+
+        <p className="text-lg font-extrabold text-slate-900">
+          Mide resultados
         </p>
-        <p className="text-base text-slate-700">
-          Con el control recuperado, más orden y recomendaciones inteligentes,
-          la agenda se mantiene optimizada incluso cuando hay cambios.
-          Tú supervisas y decides;{" "}
-<span className="fyllio-text-gradient font-semibold">FYLLIO</span>{" "}
-se encarga del trabajo operativo.
-
+        <p className="mt-3 text-sm leading-relaxed text-slate-600">
+          Consulta métricas de rendimiento en tiempo real.
         </p>
       </div>
     </div>
-
-    <p className="mt-10 text-center text-sm text-slate-600">
-      <span className="fyllio-text-gradient font-semibold">FYLLIO</span>{" "}
-hace el trabajo operativo. Tú recuperas control y tiempo.
-
-    </p>
   </div>
 </section>
+
 
 
      {/* CTA FINAL (SIN TEXTO DE CORREO) */}
