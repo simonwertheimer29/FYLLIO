@@ -99,31 +99,30 @@ export default function WaitlistPanel({ clinicRecordId }: { clinicRecordId: stri
   const [view, setView] = useState<ViewMode>("TABLE");
 
   async function load() {
-    if (isDemo) {
-      setItems(DEMO_ITEMS);
-      setUsingDemoData(true);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const res = await fetch(`/api/waitlist?clinicRecordId=${encodeURIComponent(clinicRecordId)}`);
-      const json = await res.json();
-      const data = (json?.data ?? []) as WaitItem[];
-
-      if (!data.length) {
-        // si Airtable aún está vacío, mostramos demo para que el dashboard se vea vivo
-        setItems(DEMO_ITEMS);
-        setUsingDemoData(true);
-      } else {
-        setItems(data);
-        setUsingDemoData(false);
-      }
-    } finally {
-      setLoading(false);
-    }
+  if (isDemo) {
+    setItems(DEMO_ITEMS);
+    setUsingDemoData(true);
+    setLoading(false);
+    return;
   }
+
+  setLoading(true);
+  try {
+    const res = await fetch(
+      `/api/db/waitlist?clinicRecordId=${encodeURIComponent(clinicRecordId)}`,
+      { cache: "no-store" }
+    );
+
+    const json = await res.json();
+    const data = (json?.waitlist ?? []) as WaitItem[];
+
+    setItems(data);
+    setUsingDemoData(false);
+  } finally {
+    setLoading(false);
+  }
+}
+
 
   async function setStatus(id: string, estado: "Esperando" | "Contactado" | "Aceptado" | "Expirado") {
     // modo demo: solo actualizar local
@@ -142,7 +141,7 @@ export default function WaitlistPanel({ clinicRecordId }: { clinicRecordId: stri
       return;
     }
 
-    await fetch(`/api/waitlist/${id}`, {
+    await fetch(`/api/db/waitlist/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

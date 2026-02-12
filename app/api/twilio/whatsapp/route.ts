@@ -32,6 +32,9 @@ import { getSession, setSession, deleteSession } from "../../../lib/scheduler/se
 import { isDuplicateMessage } from "../../../lib/scheduler/idempotency";
 import { upsertPatientByPhone } from "../../../lib/scheduler/repo/airtableRepo";
 
+import { getOfferedEntryByPhone, markWaitlistActiveWithResult, markWaitlistBooked, getTreatmentMeta } from "../../../lib/scheduler/repo/waitlistRepo";
+import { onSlotFreed } from "../../../lib/scheduler/waitlist/onSlotFreed";
+
 
 
 // ⚠️ Recomendado en Vercel
@@ -341,6 +344,8 @@ function findTreatmentByUserInput(sess: Session, bodyRaw: string) {
   return partial ?? null;
 }
 
+
+
 async function buildAndOfferSlots(params: {
   from: string;
   sess: Session;
@@ -436,6 +441,9 @@ async function buildAndOfferSlots(params: {
    Handler principal
 ---------------------------------------- */
 
+
+
+
 console.log("[whatsapp] BUILD_TAG", "OFFER_SLOTS_REPEAT_V1");
 
 export async function POST(req: Request) {
@@ -458,6 +466,109 @@ if (await isDuplicateMessage(msgSid)) {
 
   // Sesión desde KV (persistente)
   const sess = await getSession<Session>(from);
+
+  // ✅ WAITLIST: si el usuario tiene una oferta activa, puede aceptar o rechazar
+const offered = await getOfferedEntryByPhone({ phoneE164: from });
+
+if (offered && offered.offerHoldId) {
+  const t = normalizeText(bodyRaw);
+
+  const wantsAccept =
+    t.includes("acepto") || t === "si" || t === "sí" || t === "ok" || t.includes("confirm");
+
+  const wantsReject =
+    t === "no" || t.includes("rechazo") || t.includes("no puedo") || t.includes("otro") || t.includes("paso");
+
+  if (!wantsAccept && !wantsReject) {
+    const xml = twimlMessage(
+      `Tienes una oferta pendiente.\n\nResponde:\n✅ ACEPTO\n❌ NO`
+    );
+    return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+  }
+
+  // RECHAZO -> vuelve a ACTIVE y pasa al siguiente candidato
+  if (wantsReject) {
+    await markWaitlistActiveWithResult({
+      waitlistRecordId: offered.recordId,
+      result: "REJECTED",
+    });
+
+    // re-disparar fill del hueco usando el slotKey guardado
+    // slotKey = start|end|providerId|chairId
+    const key = offered.lastOfferedSlotKey || "";
+    const [start, end, providerId, chairIdRaw] = key.split("|");
+    const chairId = Number(chairIdRaw || "1") || 1;
+
+    if (start && end && providerId) {
+      await onSlotFreed({
+        clinicRecordId: offered.clinicRecordId,
+        treatmentRecordId: offered.treatmentRecordId!,
+        slot: { slotId: key, start, end, providerId, chairId },
+      });
+    }
+
+    const xml = twimlMessage("Perfecto 👍 Se lo ofreceré al siguiente de la lista.");
+    return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+  }
+
+  // ACEPTA -> confirm hold y crea cita con links
+  if (wantsAccept) {
+    if (!offered.patientRecordId || !offered.treatmentRecordId) {
+      const xml = twimlMessage("Me falta info interna para cerrar la cita 😕 (Paciente/Tratamiento).");
+      return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+    }
+
+    const tmeta = await getTreatmentMeta({ treatmentRecordId: offered.treatmentRecordId });
+    const bufferMin = (tmeta.bufferBeforeMin || 0) + (tmeta.bufferAfterMin || 0);
+
+    const derivedRules: any = {
+      ...DEFAULT_RULES,
+      treatments: [
+        {
+          type: tmeta.name,
+          durationMin: tmeta.durationMin || 30,
+          bufferMin,
+        },
+      ],
+    };
+
+    // confirm hold -> createAppointment
+    const out = await confirmHoldToAppointment({
+      holdId: offered.offerHoldId,
+      rules: derivedRules,
+      patientName: "Paciente",
+      createAppointment: async (appt) => {
+        const created = await createAppointment({
+          name: "Cita (waitlist)",
+          startIso: toAirtableDateTime(appt.start),
+          endIso: toAirtableDateTime(appt.end),
+          clinicRecordId: offered.clinicRecordId,
+          staffRecordId: offered.preferredStaffRecordId, // si existiese; si no, igual la cita ya encaja con el slot freed
+          treatmentRecordId: offered.treatmentRecordId,
+          patientRecordId: offered.patientRecordId,
+          // sillon: lo inferimos desde slotKey
+          sillonRecordId: (() => undefined)(),
+        });
+        return created.recordId;
+      },
+    });
+
+    const appointmentRecordId = (out as any)?.appointmentId;
+
+    if (appointmentRecordId) {
+      await markWaitlistBooked({ waitlistRecordId: offered.recordId, appointmentRecordId });
+
+      // Si tiene cita segura, cancelarla
+      if (offered.citaSeguraRecordId) {
+        await cancelAppointment({ appointmentRecordId: offered.citaSeguraRecordId, origin: "Waitlist" });
+      }
+    }
+
+    const xml = twimlMessage("✅ Listo. Te he reservado el hueco.");
+    return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+  }
+}
+
 
   // después de: const sess = await getSession<Session>(from);
 
@@ -521,14 +632,14 @@ if (sess && t.includes("cita")) {
       return new NextResponse(xmlConfig, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
     }
 
-   // ✅ CANCELAR (dentro del try, bien cerrado)
+// ✅ CANCELAR (y disparar waitlist fill)
 if (textLower.includes("cancelar")) {
-  const appt = await findNextAppointmentByContactPhone({
+  const next = await findNextAppointmentByContactPhone({
     phoneE164: from,
     clinicId: sess?.clinicId, // opcional
   });
 
-  if (!appt) {
+  if (!next) {
     const xml = twimlMessage("No encontré ninguna cita futura para cancelar 🙂");
     return new NextResponse(xml, {
       status: 200,
@@ -536,14 +647,55 @@ if (textLower.includes("cancelar")) {
     });
   }
 
+  // 1) Traer cita completa ANTES de cancelarla (para saber slot liberado)
+  const full = await getAppointmentByRecordId(next.recordId);
+
+  // 2) Cancelar cita
   await cancelAppointment({
-    appointmentRecordId: appt.recordId,
+    appointmentRecordId: next.recordId,
     origin: "WhatsApp",
   });
 
+  // 3) Disparar motor de lista de espera (best-effort: no romper cancelar)
+  try {
+    // clinicRecordId: prioriza lo que ya tengas en sesión, si no intenta del appointment
+    const clinicRecordId =
+      sess?.clinicRecordId ||
+      (Array.isArray((full as any)?.fields?.["Clínica"]) ? (full as any).fields["Clínica"][0] : undefined);
+
+    if (
+      clinicRecordId &&
+      full?.start &&
+      full?.end &&
+      full?.treatmentRecordId &&
+      full?.staffId
+    ) {
+      // chairId: si no lo tienes claro aún, usa 1 por ahora (luego lo afinamos)
+      const chairId = 1;
+
+      await onSlotFreed({
+        clinicRecordId,
+        clinicId: sess?.clinicId || process.env.DEMO_CLINIC_ID || "DEMO_CLINIC",
+        treatmentRecordId: full.treatmentRecordId,
+        slot: {
+          slotId: `FREED|${full.start}|${full.end}|${full.staffId}|${chairId}`,
+          start: full.start,
+          end: full.end,
+          providerId: full.staffId,
+          chairId,
+        },
+      });
+    }
+  } catch (e) {
+    console.warn("[waitlist] onSlotFreed failed (ignored)", e);
+  }
+
+  // 4) Limpia sesión
   await deleteSession(from);
 
-  const xml = twimlMessage("✅ Tu cita ha sido cancelada. Si quieres reagendar, escribe: *reagendar*");
+  const xml = twimlMessage(
+    "✅ Tu cita ha sido cancelada. Si quieres reagendar, escribe: *reagendar*"
+  );
   return new NextResponse(xml, {
     status: 200,
     headers: { "Content-Type": "text/xml; charset=utf-8" },
