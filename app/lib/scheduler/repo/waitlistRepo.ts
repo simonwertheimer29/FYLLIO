@@ -333,3 +333,30 @@ export async function getTreatmentMeta(params: { treatmentRecordId: string }) {
     bufferAfterMin: typeof f["Buffer despues"] === "number" ? f["Buffer despues"] : Number(str(f["Buffer despues"]) || 0),
   };
 }
+
+export async function updateWaitlistEntry(params: {
+  waitlistRecordId: string;
+  patch: {
+    estado?: string;
+    ultimoContacto?: string;
+  };
+}) {
+  const { waitlistRecordId, patch } = params;
+
+  const fields: any = {};
+
+  if (patch.estado !== undefined) {
+    fields["Estado"] = patch.estado;
+  }
+
+  if (patch.ultimoContacto !== undefined) {
+    fields["Último contacto"] = patch.ultimoContacto;
+  }
+
+  await base(TABLES.waitlist).update([
+    {
+      id: waitlistRecordId,
+      fields,
+    },
+  ]);
+}
