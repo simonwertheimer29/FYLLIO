@@ -56,6 +56,14 @@ export default function WaitlistPanel({ clinicRecordId }: { clinicRecordId: stri
   const [view, setView] = useState<ViewMode>("TABLE");
 
   async function load() {
+
+    console.log("[waitlist UI] clinicRecordId:", clinicRecordId);
+if (!clinicRecordId) {
+  setItems([]);
+  setLoading(false);
+  return;
+}
+
   setLoading(true);
   try {
     const res = await fetch(
@@ -65,6 +73,8 @@ export default function WaitlistPanel({ clinicRecordId }: { clinicRecordId: stri
 
     const json = await res.json();
     const data = (json?.waitlist ?? []) as WaitItem[];
+    console.log("[waitlist UI] response:", json);
+
 
     setItems(data);
   } finally {
