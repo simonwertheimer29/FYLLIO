@@ -18,46 +18,6 @@ type WaitItem = {
   profesional?: string[] | string;
 };
 
-const DEMO_ITEMS: WaitItem[] = [
-  {
-    id: "demo_1",
-    waitingId: "W-001",
-    estado: "Esperando",
-    prioridad: 5,
-    preferencia: "Mañana",
-    rango: "09:00–12:00",
-    notas: "Dolor / urgencia leve",
-    paciente: "María López",
-    tratamiento: "Endodoncia",
-    profesional: "Dr. A",
-  },
-  {
-    id: "demo_2",
-    waitingId: "W-002",
-    estado: "Esperando",
-    prioridad: 4,
-    preferencia: "Tarde",
-    rango: "16:00–19:00",
-    notas: "Control anual",
-    paciente: "Carlos Ruiz",
-    tratamiento: "Revisión",
-    profesional: "Dr. A",
-  },
-  {
-    id: "demo_3",
-    waitingId: "W-003",
-    estado: "Contactado",
-    prioridad: 3,
-    preferencia: "Indiferente",
-    rango: "Cualquier horario",
-    notas: "Prefiere WhatsApp",
-    ultimoContacto: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
-    paciente: "Sofía Díaz",
-    tratamiento: "Limpieza",
-    profesional: "Dr. B",
-  },
-];
-
 function asText(v: any) {
   if (!v) return "";
   if (Array.isArray(v)) return v.filter(Boolean).join(", ");
@@ -89,23 +49,13 @@ function chipClass(estado: string) {
 type ViewMode = "TABLE" | "CARDS";
 
 export default function WaitlistPanel({ clinicRecordId }: { clinicRecordId: string }) {
-  const isDemo = clinicRecordId === "DEMO";
-
   const [items, setItems] = useState<WaitItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [usingDemoData, setUsingDemoData] = useState<boolean>(isDemo);
 
   // ✅ default: TABLE
   const [view, setView] = useState<ViewMode>("TABLE");
 
   async function load() {
-  if (isDemo) {
-    setItems(DEMO_ITEMS);
-    setUsingDemoData(true);
-    setLoading(false);
-    return;
-  }
-
   setLoading(true);
   try {
     const res = await fetch(
@@ -117,41 +67,40 @@ export default function WaitlistPanel({ clinicRecordId }: { clinicRecordId: stri
     const data = (json?.waitlist ?? []) as WaitItem[];
 
     setItems(data);
-    setUsingDemoData(false);
   } finally {
     setLoading(false);
   }
 }
 
+function toDbEstado(ui: "Esperando" | "Contactado" | "Aceptado" | "Expirado") {
+  if (ui === "Esperando") return "ACTIVE";
+  if (ui === "Contactado") return "OFFERED";
+  if (ui === "Aceptado") return "BOOKED";
+  return "EXPIRED";
+}
 
-  async function setStatus(id: string, estado: "Esperando" | "Contactado" | "Aceptado" | "Expirado") {
-    // modo demo: solo actualizar local
-    if (usingDemoData) {
-      setItems((prev) =>
-        prev.map((x) =>
-          x.id === id
-            ? {
-                ...x,
-                estado,
-                ...(estado === "Contactado" ? { ultimoContacto: new Date().toISOString() } : {}),
-              }
-            : x
-        )
-      );
-      return;
-    }
 
-    await fetch(`/api/db/waitlist/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        estado,
-        ultimoContacto: estado === "Contactado" ? new Date().toISOString() : undefined,
-      }),
-    });
 
-    await load();
-  }
+
+  async function setStatus(
+  id: string,
+  estado: "Esperando" | "Contactado" | "Aceptado" | "Expirado"
+) {
+  const dbEstado = toDbEstado(estado);
+
+  await fetch(`/api/db/waitlist/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      estado: dbEstado,
+      ultimoContacto:
+        estado === "Contactado" ? new Date().toISOString() : undefined,
+    }),
+  });
+
+  await load();
+}
+
 
   const sorted = useMemo(() => {
     const copy = items.slice();
@@ -185,7 +134,8 @@ export default function WaitlistPanel({ clinicRecordId }: { clinicRecordId: stri
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Lista de espera</h2>
-          <p className="text-xs text-slate-600 mt-1">{usingDemoData ? "Modo demo (sin Airtable todavía)" : "Conectado a Airtable"}</p>
+          <p className="text-xs text-slate-600 mt-1">Conectado a Airtable</p>
+
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
@@ -211,15 +161,6 @@ export default function WaitlistPanel({ clinicRecordId }: { clinicRecordId: stri
             Refrescar
           </button>
 
-          {usingDemoData ? (
-            <button
-              className="text-xs px-3 py-2 rounded-full bg-slate-900 text-white hover:bg-slate-800"
-              onClick={() => setItems(DEMO_ITEMS)}
-              type="button"
-            >
-              Cargar demo
-            </button>
-          ) : null}
         </div>
       </div>
 
