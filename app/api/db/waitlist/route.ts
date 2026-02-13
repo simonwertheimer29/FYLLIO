@@ -111,3 +111,69 @@ const staffMap = await fetchByIds("staff", staffIds, ["Nombre"]);
     return new NextResponse(e?.message ?? "Error", { status: 500 });
   }
 }
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json().catch(() => ({}));
+
+    const clinicRecordId = String(body.clinicRecordId || "");
+    const patientRecordId = String(body.patientRecordId || "");
+    const treatmentRecordId = String(body.treatmentRecordId || "");
+
+    if (!clinicRecordId) return new NextResponse("Missing clinicRecordId", { status: 400 });
+    if (!patientRecordId) return new NextResponse("Missing patientRecordId", { status: 400 });
+    if (!treatmentRecordId) return new NextResponse("Missing treatmentRecordId", { status: 400 });
+
+    // campos opcionales
+    const preferredStaffRecordId = body.preferredStaffRecordId ? String(body.preferredStaffRecordId) : undefined;
+    const diasPermitidos = Array.isArray(body.diasPermitidos) ? body.diasPermitidos.map(String) : [];
+    const rangoStart = body.rangoStart ? String(body.rangoStart) : undefined;
+    const rangoEnd = body.rangoEnd ? String(body.rangoEnd) : undefined;
+
+    const estado = String(body.estado || "ACTIVE");
+    const prioridad = body.prioridad ? String(body.prioridad) : undefined; // ALTA/MEDIA/BAJA
+    const urgencia = body.urgencia ? String(body.urgencia) : undefined; // LOW/MED/HIGH
+    const permiteFueraRango = typeof body.permiteFueraRango === "boolean" ? body.permiteFueraRango : false;
+    const notas = body.notas ? String(body.notas) : undefined;
+
+    // 👇 Usa los nombres EXACTOS de tus campos Airtable
+    const F = {
+      clinic: "Clínica",
+      patient: "Paciente",
+      treatment: "Tratamiento",
+      preferredStaff: "Profesional preferido",
+      dias: "Dias_Permitidos",
+      start: "Rango_Deseado_Start",
+      end: "Rango_Deseado_End",
+      estado: "Estado",
+      prioridad: "Prioridad",
+      urgencia: "Urgencia_Nivel",
+      permiteFuera: "Permite_Fuera_Rango",
+      notas: "Notas",
+    };
+
+    const created = await base(TABLES.waitlist).create([
+      {
+        fields: {
+          [F.clinic]: [clinicRecordId],
+          [F.patient]: [patientRecordId],
+          [F.treatment]: [treatmentRecordId],
+          ...(preferredStaffRecordId ? { [F.preferredStaff]: [preferredStaffRecordId] } : {}),
+          [F.dias]: diasPermitidos,
+          ...(rangoStart ? { [F.start]: rangoStart } : {}),
+          ...(rangoEnd ? { [F.end]: rangoEnd } : {}),
+          [F.estado]: estado,
+          ...(prioridad ? { [F.prioridad]: prioridad } : {}),
+          ...(urgencia ? { [F.urgencia]: urgencia } : {}),
+          [F.permiteFuera]: permiteFueraRango,
+          ...(notas ? { [F.notas]: notas } : {}),
+        },
+      },
+    ]);
+
+    return NextResponse.json({ ok: true, id: created?.[0]?.id });
+  } catch (e: any) {
+    console.error(e);
+    return new NextResponse(e?.message ?? "Error", { status: 500 });
+  }
+}

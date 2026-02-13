@@ -35,6 +35,8 @@ import { upsertPatientByPhone } from "../../../lib/scheduler/repo/airtableRepo";
 import { getOfferedEntryByPhone, markWaitlistActiveWithResult, markWaitlistBooked, getTreatmentMeta } from "../../../lib/scheduler/repo/waitlistRepo";
 import { onSlotFreed } from "../../../lib/scheduler/waitlist/onSlotFreed";
 
+import { base, TABLES } from "../../../lib/airtable";
+
 
 
 // ⚠️ Recomendado en Vercel
@@ -463,6 +465,66 @@ if (await isDuplicateMessage(msgSid)) {
 
   const from = normalizeWhatsAppFrom(fromRaw);
   const textLower = bodyRaw.toLowerCase();
+
+// ✅ DEBUG WAITLIST: crear entry desde WhatsApp (solo para test)
+// Formato:
+// WAITLIST <clinicRecordId> <patientRecordId> <treatmentRecordId> <preferredStaffRecordId?>
+if (normalizeText(bodyRaw).startsWith("waitlist")) {
+  const parts = bodyRaw.trim().split(/\s+/);
+
+  const clinicRecordId = parts[1];
+  const patientRecordId = parts[2];
+  const treatmentRecordId = parts[3];
+  const preferredStaffRecordId = parts[4];
+
+  if (!clinicRecordId || !patientRecordId || !treatmentRecordId) {
+    const xml = twimlMessage(
+      "Formato:\nWAITLIST <clinicRec> <patientRec> <treatmentRec> <staffRec opcional>\n\nEj:\nWAITLIST recCLINICA recPACIENTE recTRAT recSTAFF"
+    );
+    return new NextResponse(xml, {
+      status: 200,
+      headers: { "Content-Type": "text/xml; charset=utf-8" },
+    });
+  }
+
+  // 👇 nombres EXACTOS de Airtable (ajusta si alguno difiere)
+  const F = {
+    clinic: "Clínica",
+    patient: "Paciente",
+    treatment: "Tratamiento",
+    preferredStaff: "Profesional preferido",
+    dias: "Dias_Permitidos",
+    estado: "Estado",
+    prioridad: "Prioridad",
+    urgencia: "Urgencia_Nivel",
+    permiteFuera: "Permite_Fuera_Rango",
+    notas: "Notas",
+  };
+
+  await base(TABLES.waitlist).create([
+    {
+      fields: {
+        [F.clinic]: [clinicRecordId],
+        [F.patient]: [patientRecordId],
+        [F.treatment]: [treatmentRecordId],
+        ...(preferredStaffRecordId ? { [F.preferredStaff]: [preferredStaffRecordId] } : {}),
+        [F.dias]: ["LUN", "MAR", "MIE", "JUE", "VIE"],
+        [F.estado]: "ACTIVE",
+        [F.prioridad]: "MEDIA",
+        [F.urgencia]: "LOW",
+        [F.permiteFuera]: false,
+        [F.notas]: "CREATED_FROM_WHATSAPP_TEST",
+      },
+    },
+  ]);
+
+  const xml = twimlMessage("✅ Listo. Te metí en la lista de espera (test). Refresca el dashboard.");
+  return new NextResponse(xml, {
+    status: 200,
+    headers: { "Content-Type": "text/xml; charset=utf-8" },
+  });
+}
+
 
   // Sesión desde KV (persistente)
   const sess = await getSession<Session>(from);
