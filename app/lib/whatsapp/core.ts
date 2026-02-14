@@ -488,24 +488,35 @@ return "Listo ✅ Te apunté en lista de espera. Si se libera un hueco antes, te
 }
 
 export async function handleTwilioWhatsAppPOST(req: Request) {
-  const form = await req.formData();
-  const fromRaw = String(form.get("From") || "");
-  const bodyRaw = String(form.get("Body") || "").trim();
-  const msgSid = String(form.get("MessageSid") || "");
+  // ✅ Twilio manda x-www-form-urlencoded => parse seguro con URLSearchParams
+  const rawBody = await req.text();
+  const params = new URLSearchParams(rawBody);
+
+  const fromRaw = String(params.get("From") || "");
+  const bodyRaw = String(params.get("Body") || "").trim();
+  const msgSid = String(params.get("MessageSid") || "");
 
   const fromE164 = fromRaw.replace("whatsapp:", "").trim();
 
   if (msgSid && (await isDuplicateMessage(msgSid))) {
     const xml = twimlMessage("✅ Recibido.");
-    return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+    return new NextResponse(xml, {
+      status: 200,
+      headers: { "Content-Type": "text/xml; charset=utf-8" },
+    });
   }
 
   const clinicId = process.env.DEMO_CLINIC_ID || "DEMO_CLINIC";
   const clinicRecordId = process.env.DEMO_CLINIC_RECORD_ID;
+
   const rules: RulesState = (() => {
     const raw = process.env.DEMO_RULES_JSON;
     if (!raw) return DEFAULT_RULES;
-    try { return { ...DEFAULT_RULES, ...JSON.parse(raw) }; } catch { return DEFAULT_RULES; }
+    try {
+      return { ...DEFAULT_RULES, ...JSON.parse(raw) };
+    } catch {
+      return DEFAULT_RULES;
+    }
   })();
 
   const replyText = await handleInboundWhatsApp({
@@ -517,5 +528,8 @@ export async function handleTwilioWhatsAppPOST(req: Request) {
   });
 
   const xml = twimlMessage(replyText);
-  return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+  return new NextResponse(xml, {
+    status: 200,
+    headers: { "Content-Type": "text/xml; charset=utf-8" },
+  });
 }
