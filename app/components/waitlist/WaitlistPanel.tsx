@@ -216,7 +216,7 @@ function toDbEstado(ui: "Esperando" | "Contactado" | "Aceptado" | "Expirado") {
                 <th className="px-4 py-3 font-semibold">Tratamiento</th>
                 <th className="px-4 py-3 font-semibold">Profesional</th>
                 <th className="px-4 py-3 font-semibold">Últ. contacto</th>
-                <th className="px-4 py-3 font-semibold text-right">Acciones</th>
+    
               </tr>
             </thead>
 
@@ -251,36 +251,7 @@ function toDbEstado(ui: "Esperando" | "Contactado" | "Aceptado" | "Expirado") {
                     <td className="px-4 py-3 text-slate-700">{asText(it.profesional) || "—"}</td>
                     <td className="px-4 py-3 text-xs text-slate-600">{fmtDate(it.ultimoContacto)}</td>
 
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          className="text-xs px-3 py-2 rounded-full bg-slate-900 text-white font-semibold hover:bg-slate-800 disabled:opacity-50"
-                          onClick={() => setStatus(it.id, "Contactado")}
-                          disabled={disabledContact}
-                          type="button"
-                        >
-                          {estado === "Contactado" ? "Contactado" : "Contactar"}
-                        </button>
-
-                        <button
-                          className="text-xs px-3 py-2 rounded-full border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
-                          onClick={() => setStatus(it.id, "Aceptado")}
-                          disabled={disabledAccepted}
-                          type="button"
-                        >
-                          Aceptado
-                        </button>
-
-                        <button
-                          className="text-xs px-3 py-2 rounded-full border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
-                          onClick={() => setStatus(it.id, "Expirado")}
-                          disabled={disabledExpired}
-                          type="button"
-                        >
-                          Expirar
-                        </button>
-                      </div>
-                    </td>
+                
                   </tr>
                 );
               })}

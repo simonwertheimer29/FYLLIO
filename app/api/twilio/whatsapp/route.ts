@@ -36,6 +36,8 @@ import { getOfferedEntryByPhone, markWaitlistActiveWithResult, markWaitlistBooke
 import { onSlotFreed } from "../../../lib/scheduler/waitlist/onSlotFreed";
 
 import { base, TABLES } from "../../../lib/airtable";
+import { handleTwilioWhatsAppPOST } from "../../../lib/whatsapp/core";
+
 
 
 
@@ -449,6 +451,9 @@ async function buildAndOfferSlots(params: {
 console.log("[whatsapp] BUILD_TAG", "OFFER_SLOTS_REPEAT_V1");
 
 export async function POST(req: Request) {
+
+
+    
   const form = await req.formData();
   const fromRaw = safe(form.get("From"));
   const bodyRaw = safe(form.get("Body")).trim();
@@ -461,6 +466,12 @@ if (await isDuplicateMessage(msgSid)) {
   const xml = twimlMessage("✅ Recibido.");
   return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
 }
+
+// ✅ Switch: usar Core sin borrar el route legacy
+if (process.env.USE_WHATSAPP_CORE === "true") {
+  return await handleTwilioWhatsAppPOST(req);
+}
+
 
 
   const from = normalizeWhatsAppFrom(fromRaw);

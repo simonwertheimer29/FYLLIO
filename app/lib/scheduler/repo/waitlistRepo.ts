@@ -57,6 +57,7 @@ const F = {
   citaCerrada: "Cita cerrada",
 
   createdAt: "Created_At",
+  notas: "Notas",
 };
 
 function firstId(x: any): string | undefined {
@@ -360,3 +361,53 @@ export async function updateWaitlistEntry(params: {
     },
   ]);
 }
+
+export async function createWaitlistEntry(params: {
+  clinicRecordId: string;
+  patientRecordId: string;
+  treatmentRecordId: string;
+  preferredStaffRecordId?: string;
+
+  diasPermitidos?: string[];        // default LUN..VIE
+  rangoStartIso?: string;           // ISO
+  rangoEndIso?: string;             // ISO
+  prioridad?: "ALTA" | "MEDIA" | "BAJA";
+  urgencia?: "LOW" | "MED" | "HIGH";
+  permiteFueraRango?: boolean;
+  notas?: string;
+}) {
+  const {
+    clinicRecordId,
+    patientRecordId,
+    treatmentRecordId,
+    preferredStaffRecordId,
+    diasPermitidos = ["LUN", "MAR", "MIE", "JUE", "VIE"],
+    rangoStartIso,
+    rangoEndIso,
+    prioridad = "MEDIA",
+    urgencia = "LOW",
+    permiteFueraRango = false,
+    notas,
+  } = params;
+
+  const fields: any = {
+    [F.clinic]: [clinicRecordId],
+    [F.patient]: [patientRecordId],
+    [F.treatment]: [treatmentRecordId],
+    [F.dias]: diasPermitidos,
+    [F.estado]: "ACTIVE",
+    [F.prioridad]: prioridad,
+    [F.urgencia]: urgencia,
+    [F.permiteFuera]: permiteFueraRango,
+    ...(preferredStaffRecordId ? { [F.preferredStaff]: [preferredStaffRecordId] } : {}),
+    ...(rangoStartIso ? { [F.start]: rangoStartIso } : {}),
+    ...(rangoEndIso ? { [F.end]: rangoEndIso } : {}),
+    ...(notas ? { [F.notas]: notas } : {}),
+  };
+
+  const created = await base(TABLES.waitlist).create([{ fields }]);
+  const r: any = created?.[0];
+  return { recordId: r?.id as string };
+}
+
+
