@@ -295,25 +295,68 @@ export async function handleInboundWhatsApp(params: {
 
   // 2) Si no hay sesión, iniciamos “captura de intent”
   if (!sess) {
+  const treatments = await listTreatments({ clinicRecordId });
+  if (!treatments.length) return "⚠️ No encontré tratamientos configurados.";
+
+  const list = treatments.map((t: any) => ({
+    recordId: t.recordId,
+    name: t.name,
+  }));
+
+  // 🔥 Intentar detectar tratamiento en mensaje libre
+  const detectedTreatment = findTreatment(list, body);
+
+  const prefs = parseWhen(body);
+
+  // Si detectó tratamiento y además hay fecha/hora → saltamos ASK_TREATMENT
+  if (detectedTreatment) {
     const newSess: Session = {
       createdAtMs: Date.now(),
-      stage: "ASK_TREATMENT",
+      stage: "ASK_WHEN",
       clinicId,
       clinicRecordId,
       rules,
+      treatmentRecordId: detectedTreatment.recordId,
+      treatmentName: detectedTreatment.name,
+      preferredDoctorMode: "ANY",
       slotsTop: [],
       staffById: {},
+      preferences: prefs,
     };
 
     await setSession(fromE164, newSess, SESSION_TTL_SECONDS);
 
-    const treatments = await listTreatments({ clinicRecordId });
-    if (!treatments.length) return "⚠️ No encontré tratamientos configurados.";
+    // 🔥 Simular que ya estamos en ASK_WHEN
+    const fakeParams = {
+      ...newSess,
+      stage: "ASK_WHEN",
+    };
 
-    const list = treatments.map((t: any) => ({ recordId: t.recordId, name: t.name }));
-    // guardarlo en KV sería ideal; por MVP lo pedimos y al siguiente msg volvemos a traer listTreatments
-    return renderTreatmentsList(list);
+    return await handleInboundWhatsApp({
+      fromE164,
+      body,
+      clinicId,
+      clinicRecordId,
+      rules,
+    });
   }
+
+  // Si no detecta tratamiento → flujo normal
+  const newSess: Session = {
+    createdAtMs: Date.now(),
+    stage: "ASK_TREATMENT",
+    clinicId,
+    clinicRecordId,
+    rules,
+    slotsTop: [],
+    staffById: {},
+  };
+
+  await setSession(fromE164, newSess, SESSION_TTL_SECONDS);
+
+  return renderTreatmentsList(list);
+}
+
 
   // 3) Stage: ASK_TREATMENT
   if (sess.stage === "ASK_TREATMENT") {
