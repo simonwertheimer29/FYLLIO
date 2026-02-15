@@ -452,6 +452,10 @@ console.log("[whatsapp] BUILD_TAG", "OFFER_SLOTS_REPEAT_V1");
 
 export async function POST(req: Request) {
 
+// ✅ Switch: usar Core sin borrar el route legacy
+if (process.env.USE_WHATSAPP_CORE === "true") {
+  return await handleTwilioWhatsAppPOST(req);
+}
 
     
   const form = await req.formData();
@@ -467,10 +471,6 @@ if (await isDuplicateMessage(msgSid)) {
   return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
 }
 
-// ✅ Switch: usar Core sin borrar el route legacy
-if (process.env.USE_WHATSAPP_CORE === "true") {
-  return await handleTwilioWhatsAppPOST(req);
-}
 
 
 

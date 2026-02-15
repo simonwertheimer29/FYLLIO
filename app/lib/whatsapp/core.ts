@@ -488,13 +488,25 @@ return "Listo ✅ Te apunté en lista de espera. Si se libera un hueco antes, te
 }
 
 export async function handleTwilioWhatsAppPOST(req: Request) {
-  // ✅ Twilio manda x-www-form-urlencoded => parse seguro con URLSearchParams
-  const rawBody = await req.text();
-  const params = new URLSearchParams(rawBody);
+  const ct = req.headers.get("content-type") || "";
+  let fromRaw = "";
+  let bodyRaw = "";
+  let msgSid = "";
 
-  const fromRaw = String(params.get("From") || "");
-  const bodyRaw = String(params.get("Body") || "").trim();
-  const msgSid = String(params.get("MessageSid") || "");
+  // ✅ Twilio: application/x-www-form-urlencoded
+  if (ct.includes("application/x-www-form-urlencoded")) {
+    const raw = await req.text();
+    const p = new URLSearchParams(raw);
+    fromRaw = String(p.get("From") || "");
+    bodyRaw = String(p.get("Body") || "").trim();
+    msgSid = String(p.get("MessageSid") || "");
+  } else {
+    // fallback por si alguna vez llega multipart
+    const form = await req.formData();
+    fromRaw = String(form.get("From") || "");
+    bodyRaw = String(form.get("Body") || "").trim();
+    msgSid = String(form.get("MessageSid") || "");
+  }
 
   const fromE164 = fromRaw.replace("whatsapp:", "").trim();
 
