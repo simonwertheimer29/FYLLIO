@@ -207,7 +207,11 @@ function findTreatment(treatments: { recordId: string; name: string }[], body: s
   const exact = treatments.find((x) => normalizeText(x.name) === raw);
   if (exact) return exact;
 
-  const partial = treatments.find((x) => normalizeText(x.name).includes(raw));
+// match parcial inteligente
+const partial = treatments.find((t) =>
+  raw.includes(normalizeText(t.name))
+);
+
   return partial ?? null;
 }
 
