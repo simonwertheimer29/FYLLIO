@@ -106,18 +106,54 @@ function parseWhen(body: string): Preferences & { exactTime?: boolean } {
   const t = normalizeText(body);
   const now = DateTime.now().setZone("Europe/Madrid");
 
+  const daysMap: Record<string, number> = {
+    lunes: 1,
+    martes: 2,
+    miercoles: 3,
+    miércoles: 3,
+    jueves: 4,
+    viernes: 5,
+    sabado: 6,
+    sábado: 6,
+    domingo: 7,
+  };
+
   let dateIso: string | undefined;
+
+  // hoy / mañana
   if (t.includes("hoy")) dateIso = now.toISODate()!;
   if (t.includes("manana")) dateIso = now.plus({ days: 1 }).toISODate()!;
 
-  // HH:mm
-  const hhmm = /(\d{1,2}):(\d{2})/.exec(t);
-  // “a las 15”
-  const hOnly = /a las (\d{1,2})\b/.exec(t);
+  // día de la semana
+  for (const key of Object.keys(daysMap)) {
+    if (t.includes(key)) {
+      const targetWeekday = daysMap[key];
+      let diff = targetWeekday - now.weekday;
+      if (diff <= 0) diff += 7;
+      dateIso = now.plus({ days: diff }).toISODate()!;
+      break;
+    }
+  }
+
+  // -------------------
+  // Hora exacta
+  // -------------------
 
   let preferredStartHHMM: string | undefined;
   let preferredEndHHMM: string | undefined;
   let exactTime = false;
+
+  // 15:30
+  const hhmm = /(\d{1,2}):(\d{2})/.exec(t);
+
+  // 15h
+  const hFormat = /(\d{1,2})h\b/.exec(t);
+
+  // 3pm / 3 pm
+  const pmFormat = /(\d{1,2})\s?pm\b/.exec(t);
+
+  // a las 15
+  const aLas = /a las (\d{1,2})\b/.exec(t);
 
   if (hhmm) {
     const h = String(hhmm[1]).padStart(2, "0");
@@ -125,13 +161,24 @@ function parseWhen(body: string): Preferences & { exactTime?: boolean } {
     preferredStartHHMM = `${h}:${m}`;
     preferredEndHHMM = `${h}:${m}`;
     exactTime = true;
-  } else if (hOnly) {
-    const h = String(hOnly[1]).padStart(2, "0");
+  } else if (hFormat) {
+    const h = String(hFormat[1]).padStart(2, "0");
+    preferredStartHHMM = `${h}:00`;
+    preferredEndHHMM = `${h}:00`;
+    exactTime = true;
+  } else if (pmFormat) {
+    let h = Number(pmFormat[1]);
+    if (h < 12) h += 12;
+    preferredStartHHMM = `${String(h).padStart(2, "0")}:00`;
+    preferredEndHHMM = `${String(h).padStart(2, "0")}:00`;
+    exactTime = true;
+  } else if (aLas) {
+    const h = String(aLas[1]).padStart(2, "0");
     preferredStartHHMM = `${h}:00`;
     preferredEndHHMM = `${h}:00`;
     exactTime = true;
   } else {
-    // si no dio hora, intenta mañana/mañana tarde etc (simple)
+    // rangos aproximados
     if (t.includes("manana") || t.includes("por la manana")) {
       preferredStartHHMM = "09:00";
       preferredEndHHMM = "13:00";
@@ -143,6 +190,7 @@ function parseWhen(body: string): Preferences & { exactTime?: boolean } {
 
   return { dateIso, preferredStartHHMM, preferredEndHHMM, exactTime };
 }
+
 
 function renderTreatmentsList(treatments: { recordId: string; name: string }[]) {
   const lines = treatments.slice(0, 12).map((t, i) => `${i + 1}) ${t.name}`);
@@ -344,6 +392,50 @@ export async function handleInboundWhatsApp(params: {
 
       return `😕 No encontré huecos con esas preferencias.\n\nPuedo:\n1) Buscar con otro doctor\n2) Ofrecerte la opción más cercana\n3) Apuntarte en lista de espera y avisarte si se libera antes\n\nResponde 1, 2 o 3.`;
     }
+
+    // 🔥 AUTO-SELECT si pidió hora exacta y existe match exacto
+if (prefs.exactTime && prefs.preferredStartHHMM) {
+  const exactSlot = slots.find((s) =>
+    s.start.slice(11, 16) === prefs.preferredStartHHMM
+  );
+
+  if (exactSlot) {
+    const hold = await createHoldKV({
+      slot: exactSlot,
+      patientId: fromE164,
+      treatmentType: sess.treatmentName || "Tratamiento",
+      ttlMinutes: 10,
+    });
+
+    let staffRecordId =
+      sess.staffById?.[exactSlot.providerId]?.recordId;
+
+    if (!staffRecordId) {
+      const found = await getStaffRecordIdByStaffId(exactSlot.providerId);
+      staffRecordId = found ?? undefined;
+    }
+
+    const sillonRecordId = await getSillonRecordIdBySillonId(
+      chairIdToSillonId(exactSlot.chairId)
+    );
+
+    const next: Session = {
+      ...sess,
+      createdAtMs: Date.now(),
+      stage: "ASK_BOOKING_FOR",
+      pendingHoldId: hold.id,
+      pendingStaffRecordId: staffRecordId,
+      pendingSillonRecordId: sillonRecordId || undefined,
+      pendingStart: exactSlot.start,
+      pendingEnd: exactSlot.end,
+    };
+
+    await setSession(fromE164, next, SESSION_TTL_SECONDS);
+
+    return `Perfecto 🙂 Tengo ese hueco disponible.\n\n¿La cita es para ti o para otra persona?\n1) Para mí\n2) Para otra persona`;
+  }
+}
+
 
     // top 3
     const top = slots.slice(0, 3);
