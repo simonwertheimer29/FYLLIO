@@ -1187,13 +1187,13 @@ if (sess?.stage === "ASK_PATIENT_NAME") {
       `ID: ${out.appointmentId}`
     );
 
-  } catch (err) {
-    console.error("CONFIRM_BOOKING_ERROR", err);
+  } catch (err: any) {
+  console.error("[confirmHoldToAppointment] failed", err);
+  await deleteSession(from);
+  const xml = twimlMessage("Ese hueco ya no está disponible 😕 Escribe 'cita mañana' y te doy nuevas opciones.");
+  return new NextResponse(xml, { status: 200, headers: { "Content-Type": "text/xml; charset=utf-8" } });
+}
 
-    return respond(
-      "Ese hueco ya no está disponible 😕\n\nEscribe 'cita' para buscar otro."
-    );
-  }
 }
 
 
