@@ -49,6 +49,16 @@ const SESSION_TTL_SECONDS = 15 * 60; // 10 min
 /* ---------------------------------------
    Helpers para top-3 “humano”
 ---------------------------------------- */
+
+function respond(message: string) {
+  const xml = twimlMessage(message);
+  return new NextResponse(xml, {
+    status: 200,
+    headers: { "Content-Type": "text/xml; charset=utf-8" },
+  });
+}
+
+
 function hhmmToMin(hhmm: string) {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;
@@ -1124,51 +1134,30 @@ if (sess?.stage === "ASK_OTHER_PHONE") {
 if (sess?.stage === "ASK_PATIENT_NAME") {
   const name = bodyRaw.trim();
 
-  
-
   if (name.length < 3) {
-    const xml = twimlMessage("¿Me lo repites? Nombre y apellido 🙂");
-    return new NextResponse(xml, {
-      status: 200,
-      headers: { "Content-Type": "text/xml; charset=utf-8" },
-    });
+    return respond("¿Me lo repites? Nombre y apellido 🙂");
   }
 
   if (!sess.pendingHoldId) {
     await deleteSession(from);
-    const xml = twimlMessage("Ups, se me perdió el contexto 😅 Escribe 'cita mañana' para empezar de nuevo.");
-    return new NextResponse(xml, {
-      status: 200,
-      headers: { "Content-Type": "text/xml; charset=utf-8" },
-    });
+    return respond("Ese hueco ya no está disponible 😕 Escribe 'cita' para empezar de nuevo.");
   }
- // Decide a qué "teléfono" asociar el paciente
-const isOther = sess.bookingFor === "OTHER";
-const hasOtherPhone = !!sess.otherPhoneE164 && /^\+\d{8,15}$/.test(sess.otherPhoneE164);
-const shouldUseTutor = isOther && (sess.useTutorPhone === true || !hasOtherPhone);
-
-// 1) Si es para otra persona y NO tiene teléfono -> upsert por (Nombre + Tutor teléfono + Clínica)
-const patient = shouldUseTutor
-  ? await upsertPatientWithoutPhone({
-      name,
-      tutorPhoneE164: from, // ✅ el WhatsApp del tutor
-      clinicRecordId: sess.clinicRecordId,
-    })
-  : await upsertPatientByPhone({
-      name,
-      phoneE164: isOther ? (sess.otherPhoneE164 as string) : from,
-      clinicRecordId: sess.clinicRecordId,
-    });
-
-
 
   try {
+    // 1️⃣ Crear / obtener paciente
+    const patient = await upsertPatientByPhone({
+      name,
+      phoneE164: from,
+      clinicRecordId: sess.clinicRecordId,
+    });
+
+    // 2️⃣ Confirmar hold → crear cita
     const out = await confirmHoldToAppointment({
       holdId: sess.pendingHoldId,
       rules: sess.rules,
       patientName: name,
       createAppointment: async (appt) => {
-        const res = await createAppointment({
+        const created = await createAppointment({
           name,
           startIso: toAirtableDateTime(appt.start),
           endIso: toAirtableDateTime(appt.end),
@@ -1176,39 +1165,37 @@ const patient = shouldUseTutor
           staffRecordId: sess.pendingStaffRecordId,
           sillonRecordId: sess.pendingSillonRecordId,
           treatmentRecordId: sess.treatmentRecordId,
-           patientRecordId: patient.recordId,
+          patientRecordId: patient.recordId,
         });
-        return res.recordId;
+
+        return created.recordId;
       },
     });
 
-    const appointmentId = safe((out as any)?.appointmentId ?? "");
+    if (!out?.appointmentId) {
+      throw new Error("No appointmentId returned");
+    }
 
+    // 3️⃣ Limpieza segura
     await deleteSession(from);
 
-    const xmlDone = twimlMessage(
-      `🗓️ Cita creada ✅\n` +
-        `Paciente: ${name}\n` +
-        `Tratamiento: ${sess.treatmentType ?? "Tratamiento"}\n` +
-        `Con: ${sess.pendingProviderName ?? "Profesional"}\n` +
-        (sess.pendingStart ? `Inicio: ${sess.pendingStart}\n` : "") +
-        (sess.pendingEnd ? `Fin: ${sess.pendingEnd}\n` : "") +
-        (appointmentId ? `ID: ${appointmentId}\n` : "")
+    return respond(
+      `🗓️ Cita creada ✅\n\n` +
+      `Paciente: ${name}\n` +
+      `Tratamiento: ${sess.treatmentType}\n` +
+      `Inicio: ${sess.pendingStart}\n` +
+      `ID: ${out.appointmentId}`
     );
 
-    return new NextResponse(xmlDone, {
-      status: 200,
-      headers: { "Content-Type": "text/xml; charset=utf-8" },
-    });
-  } catch (err: any) {
-    await deleteSession(from);
-    const xml = twimlMessage("Ese hueco ya no está disponible 😕 Escribe 'cita mañana' y te doy nuevas opciones.");
-    return new NextResponse(xml, {
-      status: 200,
-      headers: { "Content-Type": "text/xml; charset=utf-8" },
-    });
+  } catch (err) {
+    console.error("CONFIRM_BOOKING_ERROR", err);
+
+    return respond(
+      "Ese hueco ya no está disponible 😕\n\nEscribe 'cita' para buscar otro."
+    );
   }
 }
+
 
 
     // 2) Si hay sesión en OFFER_SLOTS y manda 1/2/3 -> confirmar
