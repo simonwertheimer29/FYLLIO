@@ -201,25 +201,25 @@ function findTreatment(
   treatments: { recordId: string; name: string }[],
   body: string
 ) {
-  const raw = normalizeText(body);
-  if (!raw) return null;
+  const rawNorm = normalizeText(body);
+  if (!rawNorm) return null;
 
   // 1) si mandó número (1..N)
-  if (/^\d+$/.test(raw)) {
-    const n = Number(raw);
+  if (/^\d+$/.test(rawNorm)) {
+    const n = Number(rawNorm);
     if (Number.isFinite(n) && n >= 1 && n <= treatments.length) {
       return treatments[n - 1] ?? null;
     }
   }
 
   // 2) match exacto
-  const exact = treatments.find((t) => normalizeText(t.name) === raw);
+  const exact = treatments.find((t) => normalizeText(t.name) === rawNorm);
   if (exact) return exact;
 
   // 3) match parcial
-  const partial = treatments.find((t) =>
-    normalizeText(t.name).includes(raw)
-  );
+  const partial = treatments.find(t =>
+  rawNorm.includes(normalizeText(t.name))
+);
   return partial ?? null;
 }
 
