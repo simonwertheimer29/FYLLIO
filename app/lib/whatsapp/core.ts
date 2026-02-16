@@ -341,9 +341,18 @@ if (!sess) {
 
     // si ya trae algo de fecha/hora, dile "Dale" y que el usuario no repita nada
 if (when?.dateIso || when?.preferredStartHHMM || when?.preferredEndHHMM) {
-  return `Perfecto 🙂 Para *${chosen.name}*. Dame un segundo y te doy opciones...`;
+  // ✅ saltar directo a ASK_WHEN usando lo guardado
+  return await handleInboundWhatsApp({
+    fromE164,
+    body: "__USE_SAVED_PREFS__",
+    clinicId,
+    clinicRecordId,
+    rules,
+  });
 }
+
 return `Perfecto 🙂 Para *${chosen.name}*.\n¿Para cuándo la quieres?\nEj: "mañana 15:00", "hoy tarde", "martes por la mañana".`;
+
 
   }
 
@@ -414,7 +423,7 @@ return `Perfecto 🙂 Para *${chosen.name}*.\n¿Para cuándo la quieres?\nEj: "m
 await setSession(fromE164, next, SESSION_TTL_SECONDS);
 
 // 🔥 SI YA TENÍAMOS FECHA/HORA DEL PRIMER MENSAJE → NO REPREGUNTAR
-if (next.preferences?.dateIso || next.preferences?.preferredStartHHMM) {
+if (next.preferences?.dateIso || next.preferences?.preferredStartHHMM || next.preferences?.preferredEndHHMM) {
   return await handleInboundWhatsApp({
     fromE164,
     body: "__USE_SAVED_PREFS__",
@@ -424,22 +433,31 @@ if (next.preferences?.dateIso || next.preferences?.preferredStartHHMM) {
   });
 }
 
+
 return `Genial 🙂 ¿Para cuándo la quieres?\nEj: "mañana 15:00", "hoy tarde", "mañana por la mañana".`;
 
   }
 
   // 5) Stage: ASK_WHEN -> buscar huecos y ofertar
   if (sess.stage === "ASK_WHEN") {
-    const prefs =
+    const stored = sess.preferences || {};
+const parsed = parseWhen(body);
+
+const storedHas = !!(stored.dateIso || stored.preferredStartHHMM || stored.preferredEndHHMM);
+const parsedHas = !!(parsed.dateIso || parsed.preferredStartHHMM || parsed.preferredEndHHMM);
+
+const prefs =
   body === "__USE_SAVED_PREFS__"
-    ? (sess.preferences || {})
-    : parseWhen(body);
+    ? stored
+    : (storedHas ? stored : parsed);
+
 
 
     // si no dijo nada útil, repregunta
-    if (!prefs.dateIso && !prefs.preferredStartHHMM && !prefs.preferredEndHHMM) {
-      return "Dime un día u hora aproximada 🙂 Ej: mañana 15:00 / hoy tarde / martes por la mañana.";
-    }
+    if (!storedHas && !parsedHas) {
+  return "Dime un día u hora aproximada 🙂 Ej: mañana 15:00 / hoy tarde / martes por la mañana.";
+}
+
 
     // staff elegible
     const staff = await listStaff();
@@ -677,8 +695,103 @@ if (sess.stage === "ASK_BOOKING_FOR") {
   return "Responde 1 (para mí) o 2 (para otra persona).";
 }
 
+if (sess.stage === "ASK_OTHER_PHONE") {
+  const t = normalizeText(body);
+
+  const saidNoPhone =
+    t.includes("no tiene") ||
+    t.includes("sin telefono") ||
+    t.includes("sin teléfono");
+
+  if (saidNoPhone) {
+    const next: Session = {
+      ...sess,
+      createdAtMs: Date.now(),
+      useTutorPhone: true,
+      otherPhoneE164: undefined,
+      stage: "ASK_PATIENT_NAME",
+    };
+    await setSession(fromE164, next, SESSION_TTL_SECONDS);
+    return "Perfecto 🙂 ¿Cuál es el nombre y apellido de la persona?";
+  }
+
+  const phone = body.trim();
+  const isE164 = /^\+\d{8,15}$/.test(phone);
+  if (!isE164) return "Pásamelo así porfa: +346XXXXXXXX 🙂 o responde *no tiene*";
+
+  const next: Session = {
+    ...sess,
+    createdAtMs: Date.now(),
+    otherPhoneE164: phone,
+    useTutorPhone: false,
+    stage: "ASK_PATIENT_NAME",
+  };
+  await setSession(fromE164, next, SESSION_TTL_SECONDS);
+
+  return "Perfecto 🙂 ¿Cuál es el nombre y apellido de la persona?";
+}
+
+if (sess.stage === "ASK_PATIENT_NAME") {
+  const name = body.trim();
+  if (name.length < 3) return "¿Me lo repites? Nombre y apellido 🙂";
+
+  if (!sess.pendingHoldId || !sess.pendingStart || !sess.pendingEnd) {
+    await deleteSession(fromE164);
+    return "Ese hueco ya no está disponible 😕 Escribe 'cita mañana' y te doy nuevas opciones.";
+  }
+
+  // 📌 cuál teléfono usar para el paciente
+  const patientPhone =
+    sess.bookingFor === "OTHER"
+      ? (sess.useTutorPhone ? fromE164 : (sess.otherPhoneE164 || fromE164))
+      : fromE164;
+
+  try {
+    const patient = await upsertPatientByPhone({
+      name,
+      phoneE164: patientPhone,
+      clinicRecordId: sess.clinicRecordId!,
+    });
+
+    const out = await confirmHoldToAppointment({
+      holdId: sess.pendingHoldId,
+      rules: sess.rules,
+      patientName: name,
+      createAppointment: async (appt) => {
+        const created = await createAppointment({
+          name,
+          startIso: DateTime.fromISO(appt.start).toISO({ suppressMilliseconds: true })!,
+          endIso: DateTime.fromISO(appt.end).toISO({ suppressMilliseconds: true })!,
+          clinicRecordId: sess.clinicRecordId!,
+          staffRecordId: sess.pendingStaffRecordId,
+          sillonRecordId: sess.pendingSillonRecordId,
+          treatmentRecordId: sess.treatmentRecordId!,
+          patientRecordId: patient.recordId,
+        });
+        return created.recordId;
+      },
+    });
+
+    await deleteSession(fromE164);
+
+    return (
+      `✅ Cita creada.\n\n` +
+      `Paciente: ${name}\n` +
+      `Tratamiento: ${sess.treatmentName}\n` +
+      `Inicio: ${formatTime(sess.pendingStart)}`
+    );
+  } catch (e) {
+    console.error("[ASK_PATIENT_NAME] confirm failed", e);
+    await deleteSession(fromE164);
+    return "Ese hueco ya no está disponible 😕 Escribe 'cita mañana' y te doy nuevas opciones.";
+  }
+}
+
+
   return "Escribe 'cita' para empezar 🙂";
 }
+
+
 
 export async function handleTwilioWhatsAppPOST(req: Request) {
   const ct = req.headers.get("content-type") || "";
@@ -738,3 +851,5 @@ export async function handleTwilioWhatsAppPOST(req: Request) {
     headers: { "Content-Type": "text/xml; charset=utf-8" },
   });
 }
+
+
