@@ -383,8 +383,11 @@ if (!sess) {
     };
 
     await setSession(fromE164, newSess, SESSION_TTL_SECONDS);
+    console.log("[START] detected", { hasSess: !!sess, body, chosen: chosen?.name });
+
 
     return `Perfecto 🙂 ¿Para cuándo la quieres?`;
+    
   }
 }
 
