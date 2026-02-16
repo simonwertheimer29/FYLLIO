@@ -197,23 +197,32 @@ function renderTreatmentsList(treatments: { recordId: string; name: string }[]) 
   return `Perfecto 🙂 ¿Qué tratamiento necesitas?\n\n${lines.join("\n")}\n\nResponde con el número o el nombre.`;
 }
 
-function findTreatment(treatments: { recordId: string; name: string }[], body: string) {
+function findTreatment(
+  treatments: { recordId: string; name: string }[],
+  body: string
+) {
   const raw = normalizeText(body);
   if (!raw) return null;
 
-  const n = Number(raw);
-  if (Number.isFinite(n) && n >= 1 && n <= treatments.length) return treatments[n - 1];
+  // 1) si mandó número (1..N)
+  if (/^\d+$/.test(raw)) {
+    const n = Number(raw);
+    if (Number.isFinite(n) && n >= 1 && n <= treatments.length) {
+      return treatments[n - 1] ?? null;
+    }
+  }
 
-  const exact = treatments.find((x) => normalizeText(x.name) === raw);
+  // 2) match exacto
+  const exact = treatments.find((t) => normalizeText(t.name) === raw);
   if (exact) return exact;
 
-// match parcial inteligente
-const partial = treatments.find((t) =>
-  raw.includes(normalizeText(t.name))
-);
-
+  // 3) match parcial
+  const partial = treatments.find((t) =>
+    normalizeText(t.name).includes(raw)
+  );
   return partial ?? null;
 }
+
 
 // --------------------
 // Motor principal
@@ -345,6 +354,41 @@ export async function handleInboundWhatsApp(params: {
     });
   }
 
+  // 🔥 START inteligente: intenta detectar tratamiento en el primer mensaje
+if (!sess) {
+  const treatments = await listTreatments({ clinicRecordId });
+  const list = treatments.map((t: any) => ({
+    recordId: t.recordId,
+    name: t.name,
+  }));
+
+  const chosen = findTreatment(list, body);
+
+  if (chosen) {
+    const when = parseWhen(body);
+
+    const newSess: Session = {
+      createdAtMs: Date.now(),
+      stage: when?.dateIso || when?.preferredStartHHMM
+        ? "ASK_WHEN"
+        : "ASK_WHEN",
+      clinicId,
+      clinicRecordId,
+      rules,
+      treatmentRecordId: chosen.recordId,
+      treatmentName: chosen.name,
+      preferences: when || {},
+      slotsTop: [],
+      staffById: {},
+    };
+
+    await setSession(fromE164, newSess, SESSION_TTL_SECONDS);
+
+    return `Perfecto 🙂 ¿Para cuándo la quieres?`;
+  }
+}
+
+
   // Si no detecta tratamiento → flujo normal
   const newSess: Session = {
     createdAtMs: Date.now(),
@@ -363,6 +407,9 @@ export async function handleInboundWhatsApp(params: {
 
 
   // 3) Stage: ASK_TREATMENT
+
+
+  
   if (sess.stage === "ASK_TREATMENT") {
     const treatments = await listTreatments({ clinicRecordId });
     const list = treatments.map((t: any) => ({ recordId: t.recordId, name: t.name }));
