@@ -225,6 +225,77 @@ function findTreatmentSmart(
   return null;
 }
 
+function findDoctorSmart(
+  staff: { staffId: string; name: string }[],
+  body: string
+) {
+  const raw = normalizeText(body);
+  if (!raw) return null;
+
+  // tokens del mensaje
+  const tokens = raw.split(/\s+/).filter(Boolean);
+
+  for (const s of staff) {
+    const nameN = normalizeText(s.name);
+    if (!nameN) continue;
+
+    // match por nombre completo (incluye)
+    if (raw.includes(nameN)) return s;
+
+    // match por palabras del nombre (>=4)
+    const words = nameN.split(/\s+/).filter(Boolean);
+    for (const w of words) {
+      if (w.length >= 4 && tokens.includes(w)) return s;
+    }
+  }
+
+  return null;
+}
+
+function hhmmToMinutes(hhmm: string) {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+}
+
+function isoToMinutes(iso: string) {
+  // iso tipo "2026-02-16T15:00:00.000+01:00" o "...Z"
+  const hhmm = iso.slice(11, 16);
+  return hhmmToMinutes(hhmm);
+}
+
+/**
+ * Devuelve hasta 2 slots: el inmediatamente ANTERIOR y el inmediatamente POSTERIOR
+ * a la hora pedida (en el mismo día).
+ * Si solo hay uno de los dos, devuelve ese.
+ */
+function pickClosestBeforeAfterSameDay(slots: Slot[], dateIso: string, targetHHMM: string): Slot[] {
+  const targetMin = hhmmToMinutes(targetHHMM);
+
+  // solo slots del mismo día (si tu start es ISO con zona, esto funciona igual porque slice(0,10) es la fecha)
+  const sameDay = slots
+    .filter((s) => s.start.slice(0, 10) === dateIso)
+    .sort((a, b) => isoToMinutes(a.start) - isoToMinutes(b.start));
+
+  if (!sameDay.length) return [];
+
+  // último slot que empieza ANTES de target
+  let before: Slot | undefined;
+  for (const s of sameDay) {
+    if (isoToMinutes(s.start) < targetMin) before = s;
+    else break;
+  }
+
+  // primer slot que empieza DESPUÉS de target
+  const after = sameDay.find((s) => isoToMinutes(s.start) > targetMin);
+
+  const out: Slot[] = [];
+  if (before) out.push(before);
+  if (after) out.push(after);
+  return out;
+}
+
+
+
 
 
 // --------------------
@@ -319,42 +390,64 @@ if (!sess) {
   const chosen = findTreatmentSmart(list, body);
 
   // Si detectó tratamiento => saltar ASK_TREATMENT
-  if (chosen) {
-    const when = parseWhen(body); // puede traer dateIso / HHMM o nada
+ if (chosen) {
+  const when = parseWhen(body);
 
-    const next: Session = {
-      createdAtMs: Date.now(),
-      stage: "ASK_WHEN",
-      clinicId,
-      clinicRecordId,
-      rules,
-      treatmentRecordId: chosen.recordId,
-      treatmentName: chosen.name,
-      preferredDoctorMode: "ANY",
-      slotsTop: [],
-      staffById: {},
-      preferences: when || {},
-    };
+  // ✅ detectar doctor SOLO si viene en el mensaje
+  const staff = await listStaff();
+  const activeStaff = staff.filter(
+    (s: any) => s.activo && (s.rol || "").toLowerCase() !== "recepcionista"
+  );
+  const detectedDoc = findDoctorSmart(
+    activeStaff.map((s: any) => ({ staffId: s.staffId, name: s.name })),
+    body
+  );
 
-    await setSession(fromE164, next, SESSION_TTL_SECONDS);
-    console.log("[START] chosen=", chosen.name, "when=", when);
+  const hasWhen =
+    !!when?.dateIso || !!when?.preferredStartHHMM || !!when?.preferredEndHHMM;
 
-    // si ya trae algo de fecha/hora, dile "Dale" y que el usuario no repita nada
-if (when?.dateIso || when?.preferredStartHHMM || when?.preferredEndHHMM) {
-  // ✅ saltar directo a ASK_WHEN usando lo guardado
-  return await handleInboundWhatsApp({
-    fromE164,
-    body: "__USE_SAVED_PREFS__",
+  const next: Session = {
+    createdAtMs: Date.now(),
+    // ✅ si NO hay doctor -> preguntamos doctor
+    // ✅ si sí hay doctor -> pasamos directo a cuándo (o a buscar slots si ya venía fecha/hora)
+    stage: detectedDoc ? "ASK_WHEN" : "ASK_DOCTOR",
     clinicId,
     clinicRecordId,
     rules,
-  });
+    treatmentRecordId: chosen.recordId,
+    treatmentName: chosen.name,
+
+    // ✅ si doctor venía, lo guardamos ya seteado
+    preferredDoctorMode: detectedDoc ? "SPECIFIC" : undefined,
+    preferredStaffId: detectedDoc ? detectedDoc.staffId : undefined,
+
+    slotsTop: [],
+    staffById: {},
+    preferences: when || {},
+  };
+
+  await setSession(fromE164, next, SESSION_TTL_SECONDS);
+
+  // 1) Si NO venía doctor -> preguntar preferencia de doctor (cualquiera vs específico)
+  if (!detectedDoc) {
+    return `Perfecto 🙂 Para *${chosen.name}*.\n¿Tienes preferencia de doctor?\n\nResponde:\n1) Cualquiera\n2) Quiero uno específico (escribe el nombre)`;
+  }
+
+  // 2) Si venía doctor y también venía fecha/hora -> NO repreguntar nada, busca opciones ya
+  if (hasWhen) {
+    return await handleInboundWhatsApp({
+      fromE164,
+      body: "__USE_SAVED_PREFS__",
+      clinicId,
+      clinicRecordId,
+      rules,
+    });
+  }
+
+  // 3) Si venía doctor pero NO venía fecha/hora -> preguntar cuándo
+  return `Perfecto 🙂 Para *${chosen.name}* con *${detectedDoc.name}*.\n¿Para cuándo la quieres?\nEj: "mañana 15:00", "hoy tarde", "martes por la mañana".`;
 }
 
-return `Perfecto 🙂 Para *${chosen.name}*.\n¿Para cuándo la quieres?\nEj: "mañana 15:00", "hoy tarde", "martes por la mañana".`;
-
-
-  }
 
   // Si NO detectó tratamiento => flujo normal
   const next: Session = {
@@ -404,13 +497,30 @@ return `Perfecto 🙂 Para *${chosen.name}*.\n¿Para cuándo la quieres?\nEj: "m
     if (t === "1" || t.includes("cualquiera")) {
       preferredDoctorMode = "ANY";
     } else {
-      // MVP: si escriben “mateo” lo convertimos a STF_003 por matching contra listStaff
-      const staff = await listStaff();
-      const doc = staff.find((s: any) => normalizeText(s.name).includes(t));
-      if (!doc) return "No encontré ese doctor 😅 Escríbeme el nombre tal cual aparece en la clínica, o responde 1) Cualquiera.";
-      preferredDoctorMode = "SPECIFIC";
-      preferredStaffId = doc.staffId;
-    }
+  // si respondieron "2", todavía no tenemos nombre
+  if (t === "2" || t.includes("especifico") || t.includes("específico")) {
+    return "Dime el nombre del doctor 🙂 (ej: Mateo)";
+  }
+
+  const staff = await listStaff();
+  const activeStaff = staff.filter(
+    (s: any) => s.activo && (s.rol || "").toLowerCase() !== "recepcionista"
+  );
+
+  // match flexible usando el helper
+  const doc = findDoctorSmart(
+    activeStaff.map((s: any) => ({ staffId: s.staffId, name: s.name })),
+    body
+  );
+
+  if (!doc) {
+    return "No encontré ese doctor 😅 Escríbeme el nombre tal cual aparece en la clínica, o responde 1) Cualquiera.";
+  }
+
+  preferredDoctorMode = "SPECIFIC";
+  preferredStaffId = doc.staffId;
+}
+
 
    const next: Session = {
   ...sess,
@@ -485,47 +595,131 @@ const prefs =
     }
 
     // 🔥 AUTO-SELECT si pidió hora exacta y existe match exacto
+// 🔥 AUTO-SELECT si pidió hora exacta y existe match exacto (en zona Europe/Madrid)
 if (prefs.exactTime && prefs.preferredStartHHMM) {
-  const exactSlot = slots.find((s) =>
-    s.start.slice(11, 16) === prefs.preferredStartHHMM
-  );
+  const wanted = prefs.preferredStartHHMM;
 
-  if (exactSlot) {
-    const hold = await createHoldKV({
-      slot: exactSlot,
-      patientId: fromE164,
-      treatmentType: sess.treatmentName || "Tratamiento",
-      ttlMinutes: 10,
-    });
+  // Helper: minutos desde HH:mm
+  const hhmmToMin = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 
-    let staffRecordId =
-      sess.staffById?.[exactSlot.providerId]?.recordId;
+  // Helper: HH:mm local desde ISO
+  const slotHHMM = (iso: string) =>
+    DateTime.fromISO(iso).setZone("Europe/Madrid").toFormat("HH:mm");
 
-    if (!staffRecordId) {
-      const found = await getStaffRecordIdByStaffId(exactSlot.providerId);
-      staffRecordId = found ?? undefined;
+  // Helper: dateIso local (YYYY-MM-DD) desde ISO
+  const slotDateIso = (iso: string) =>
+    DateTime.fromISO(iso).setZone("Europe/Madrid").toISODate();
+
+  // 1) ¿Existe exacto?
+  const exactSlot = slots.find((s) => slotHHMM(s.start) === wanted);
+
+  // 2) Si NO existe exacto: ofrecer BEFORE/AFTER del mismo día (si tenemos dateIso)
+  if (!exactSlot) {
+    // Necesitamos un día para buscar "antes/después" coherente
+    // Si el usuario no dijo día, repreguntamos SOLO el día (rápido)
+    if (!prefs.dateIso) {
+      const next: Session = {
+        ...sess,
+        createdAtMs: Date.now(),
+        stage: "ASK_WHEN",
+        preferences: prefs, // guardamos hora exacta para cuando diga el día
+      };
+      await setSession(fromE164, next, SESSION_TTL_SECONDS);
+      return `Perfecto 🙂 ¿Para qué día exactamente?\nEj: "mañana", "jueves", "hoy".`;
     }
 
-    const sillonRecordId = await getSillonRecordIdBySillonId(
-      chairIdToSillonId(exactSlot.chairId)
-    );
+    const wantedMin = hhmmToMin(wanted);
 
+    // Slots del MISMO día (local) ordenados por hora
+    const sameDay = slots
+      .filter((s) => slotDateIso(s.start) === prefs.dateIso)
+      .sort((a, b) => hhmmToMin(slotHHMM(a.start)) - hhmmToMin(slotHHMM(b.start)));
+
+    // BEFORE = último slot con start < wanted
+    let before: Slot | undefined;
+    for (const s of sameDay) {
+      if (hhmmToMin(slotHHMM(s.start)) < wantedMin) before = s;
+      else break;
+    }
+
+    // AFTER = primer slot con start > wanted
+    const after = sameDay.find((s) => hhmmToMin(slotHHMM(s.start)) > wantedMin);
+
+    const top: Slot[] = [];
+    if (before) top.push(before);
+    if (after) top.push(after);
+
+    if (!top.length) {
+      // No hay slots cercanos ese día -> tu flow de "no slots"
+      const next: Session = { ...sess, createdAtMs: Date.now(), stage: "OFFER_WAITLIST", preferences: prefs };
+      await setSession(fromE164, next, SESSION_TTL_SECONDS);
+
+      return `😕 A las *${wanted}* está ocupado y no encontré huecos cercanos ese día.\n\nPuedo:\n1) Buscar con otro doctor\n2) Proponerte la opción más cercana en otro horario\n3) Apuntarte en lista de espera\n\nResponde 1, 2 o 3.`;
+    }
+
+    // staffById para render
+    const staffById: Session["staffById"] = {};
+    for (const s of active as any[]) {
+      staffById[s.staffId] = { name: s.name || s.staffId, recordId: s.recordId };
+    }
+
+    // Guardar y ofrecer 1 o 2
     const next: Session = {
       ...sess,
       createdAtMs: Date.now(),
-      stage: "ASK_BOOKING_FOR",
-      pendingHoldId: hold.id,
-      pendingStaffRecordId: staffRecordId,
-      pendingSillonRecordId: sillonRecordId || undefined,
-      pendingStart: exactSlot.start,
-      pendingEnd: exactSlot.end,
+      stage: "OFFER_SLOTS",
+      preferences: prefs,
+      slotsTop: top,
+      staffById,
     };
 
     await setSession(fromE164, next, SESSION_TTL_SECONDS);
 
-    return `Perfecto 🙂 Tengo ese hueco disponible.\n\n¿La cita es para ti o para otra persona?\n1) Para mí\n2) Para otra persona`;
+    const lines = top.map((slot, i) => {
+      const name = staffById?.[slot.providerId]?.name ?? slot.providerId;
+      return `${i + 1}) ${formatTime(slot.start)} con ${name}`;
+    });
+
+    const respRange = top.length === 1 ? "Responde 1." : "Responde 1 o 2.";
+
+    return `😕 No tengo exactamente a las *${wanted}*.\nPero estas son las más cercanas:\n\n${lines.join("\n")}\n\n${respRange}`;
   }
+
+  // 3) Si SÍ hay exacto -> HOLD normal y pasar a ASK_BOOKING_FOR
+  const hold = await createHoldKV({
+    slot: exactSlot,
+    patientId: fromE164,
+    treatmentType: sess.treatmentName || "Tratamiento",
+    ttlMinutes: 10,
+  });
+
+  let staffRecordId = sess.staffById?.[exactSlot.providerId]?.recordId;
+  if (!staffRecordId) {
+    const found = await getStaffRecordIdByStaffId(exactSlot.providerId);
+    staffRecordId = found ?? undefined;
+  }
+
+  const sillonRecordId = await getSillonRecordIdBySillonId(
+    chairIdToSillonId(exactSlot.chairId)
+  );
+
+  const next: Session = {
+    ...sess,
+    createdAtMs: Date.now(),
+    stage: "ASK_BOOKING_FOR",
+    pendingHoldId: hold.id,
+    pendingStaffRecordId: staffRecordId,
+    pendingSillonRecordId: sillonRecordId || undefined,
+    pendingStart: exactSlot.start,
+    pendingEnd: exactSlot.end,
+  };
+
+  await setSession(fromE164, next, SESSION_TTL_SECONDS);
+
+  return `Perfecto 🙂 Tengo ese hueco disponible.\n\n¿La cita es para ti o para otra persona?\n1) Para mí\n2) Para otra persona`;
 }
+
+
 
 
     // top 3
@@ -553,8 +747,10 @@ if (prefs.exactTime && prefs.preferredStartHHMM) {
       return `Vale. Dime tu preferencia exacta (día/hora) y lo intento.\nSi no hay, te propongo lista de espera.`;
     }
 
-    const idx = Number(t);
-    if (!Number.isFinite(idx) || idx < 1 || idx > 3) return "Responde 1, 2 o 3 🙂";
+   const idx = Number(t);
+const max = sess.slotsTop?.length || 0;
+if (!Number.isFinite(idx) || idx < 1 || idx > max) return `Responde 1${max >= 2 ? " o 2" : ""} 🙂`;
+
 
     const chosen = sess.slotsTop[idx - 1];
     if (!chosen) return "Esa opción no existe 🙂";
