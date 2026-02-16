@@ -403,15 +403,38 @@ return `Perfecto 🙂 Para *${chosen.name}*.\n¿Para cuándo la quieres?\nEj: "m
       preferredStaffId = doc.staffId;
     }
 
-    const next: Session = { ...sess, createdAtMs: Date.now(), stage: "ASK_WHEN", preferredDoctorMode, preferredStaffId };
-    await setSession(fromE164, next, SESSION_TTL_SECONDS);
+   const next: Session = {
+  ...sess,
+  createdAtMs: Date.now(),
+  stage: "ASK_WHEN",
+  preferredDoctorMode,
+  preferredStaffId,
+};
 
-    return `Genial 🙂 ¿Para cuándo la quieres?\nEj: "mañana 15:00", "hoy tarde", "mañana por la mañana".`;
+await setSession(fromE164, next, SESSION_TTL_SECONDS);
+
+// 🔥 SI YA TENÍAMOS FECHA/HORA DEL PRIMER MENSAJE → NO REPREGUNTAR
+if (next.preferences?.dateIso || next.preferences?.preferredStartHHMM) {
+  return await handleInboundWhatsApp({
+    fromE164,
+    body: "__USE_SAVED_PREFS__",
+    clinicId,
+    clinicRecordId,
+    rules,
+  });
+}
+
+return `Genial 🙂 ¿Para cuándo la quieres?\nEj: "mañana 15:00", "hoy tarde", "mañana por la mañana".`;
+
   }
 
   // 5) Stage: ASK_WHEN -> buscar huecos y ofertar
   if (sess.stage === "ASK_WHEN") {
-    const prefs = parseWhen(body);
+    const prefs =
+  body === "__USE_SAVED_PREFS__"
+    ? (sess.preferences || {})
+    : parseWhen(body);
+
 
     // si no dijo nada útil, repregunta
     if (!prefs.dateIso && !prefs.preferredStartHHMM && !prefs.preferredEndHHMM) {
@@ -625,6 +648,34 @@ return "Listo ✅ Te apunté en lista de espera. Si se libera un hueco antes, te
 
   // 8) booking flow (igual que tú ya lo tienes): ASK_BOOKING_FOR / ASK_OTHER_PHONE / ASK_PATIENT_NAME
   // (lo dejo fuera por espacio, pero tu código actual se pega aquí con pocos cambios)
+// Stage: ASK_BOOKING_FOR
+if (sess.stage === "ASK_BOOKING_FOR") {
+  const t = normalizeText(body);
+
+  if (t === "1" || t.includes("para mi")) {
+    const next: Session = {
+      ...sess,
+      createdAtMs: Date.now(),
+      bookingFor: "SELF",
+      stage: "ASK_PATIENT_NAME",
+    };
+    await setSession(fromE164, next, SESSION_TTL_SECONDS);
+    return "Perfecto 🙂 ¿Cuál es tu nombre y apellido?";
+  }
+
+  if (t === "2" || t.includes("otra")) {
+    const next: Session = {
+      ...sess,
+      createdAtMs: Date.now(),
+      bookingFor: "OTHER",
+      stage: "ASK_OTHER_PHONE",
+    };
+    await setSession(fromE164, next, SESSION_TTL_SECONDS);
+    return "Pásame el número en formato internacional 🙂 Ej: +34600111222";
+  }
+
+  return "Responde 1 (para mí) o 2 (para otra persona).";
+}
 
   return "Escribe 'cita' para empezar 🙂";
 }
