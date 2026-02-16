@@ -197,31 +197,34 @@ function renderTreatmentsList(treatments: { recordId: string; name: string }[]) 
   return `Perfecto 🙂 ¿Qué tratamiento necesitas?\n\n${lines.join("\n")}\n\nResponde con el número o el nombre.`;
 }
 
-function findTreatment(
+function findTreatmentSmart(
   treatments: { recordId: string; name: string }[],
   body: string
 ) {
-  const rawNorm = normalizeText(body);
-  if (!rawNorm) return null;
+  const raw = normalizeText(body);
+  if (!raw) return null;
 
-  // 1) si mandó número (1..N)
-  if (/^\d+$/.test(rawNorm)) {
-    const n = Number(rawNorm);
-    if (Number.isFinite(n) && n >= 1 && n <= treatments.length) {
-      return treatments[n - 1] ?? null;
+  // tokens del mensaje (cita limpieza mañana 15:00 -> ["cita","limpieza","manana","1500"])
+  const tokens = raw.split(/\s+/).filter(Boolean);
+
+  // intenta match por:
+  // 1) raw incluye nombre completo
+  // 2) raw incluye alguna palabra del nombre (>=5 chars)
+  for (const t of treatments) {
+    const nameN = normalizeText(t.name);
+    if (!nameN) continue;
+
+    if (raw.includes(nameN)) return t;
+
+    const nameWords = nameN.split(/\s+/).filter(Boolean);
+    for (const w of nameWords) {
+      if (w.length >= 5 && tokens.includes(w)) return t;
     }
   }
 
-  // 2) match exacto
-  const exact = treatments.find((t) => normalizeText(t.name) === rawNorm);
-  if (exact) return exact;
-
-  // 3) match parcial
-  const partial = treatments.find(t =>
-  rawNorm.includes(normalizeText(t.name))
-);
-  return partial ?? null;
+  return null;
 }
+
 
 
 // --------------------
@@ -306,94 +309,46 @@ export async function handleInboundWhatsApp(params: {
   // 1) Cargar sesión
   const sess = await getSession<Session>(fromE164);
 
-  // 2) Si no hay sesión, iniciamos “captura de intent”
-  if (!sess) {
+  // 2) Si no hay sesión: START inteligente (detecta tratamiento en el primer mensaje)
+if (!sess) {
   const treatments = await listTreatments({ clinicRecordId });
   if (!treatments.length) return "⚠️ No encontré tratamientos configurados.";
 
-  const list = treatments.map((t: any) => ({
-    recordId: t.recordId,
-    name: t.name,
-  }));
+  const list = treatments.map((t: any) => ({ recordId: t.recordId, name: t.name }));
 
-  // 🔥 Intentar detectar tratamiento en mensaje libre
-  const detectedTreatment = findTreatment(list, body);
+  const chosen = findTreatmentSmart(list, body);
 
-  const prefs = parseWhen(body);
-
-  // Si detectó tratamiento y además hay fecha/hora → saltamos ASK_TREATMENT
-  if (detectedTreatment) {
-    const newSess: Session = {
-      createdAtMs: Date.now(),
-      stage: "ASK_WHEN",
-      clinicId,
-      clinicRecordId,
-      rules,
-      treatmentRecordId: detectedTreatment.recordId,
-      treatmentName: detectedTreatment.name,
-      preferredDoctorMode: "ANY",
-      slotsTop: [],
-      staffById: {},
-      preferences: prefs,
-    };
-
-    await setSession(fromE164, newSess, SESSION_TTL_SECONDS);
-
-    // 🔥 Simular que ya estamos en ASK_WHEN
-    const fakeParams = {
-      ...newSess,
-      stage: "ASK_WHEN",
-    };
-
-    return await handleInboundWhatsApp({
-      fromE164,
-      body,
-      clinicId,
-      clinicRecordId,
-      rules,
-    });
-  }
-
-  // 🔥 START inteligente: intenta detectar tratamiento en el primer mensaje
-if (!sess) {
-  const treatments = await listTreatments({ clinicRecordId });
-  const list = treatments.map((t: any) => ({
-    recordId: t.recordId,
-    name: t.name,
-  }));
-
-  const chosen = findTreatment(list, body);
-
+  // Si detectó tratamiento => saltar ASK_TREATMENT
   if (chosen) {
-    const when = parseWhen(body);
+    const when = parseWhen(body); // puede traer dateIso / HHMM o nada
 
-    const newSess: Session = {
+    const next: Session = {
       createdAtMs: Date.now(),
-      stage: when?.dateIso || when?.preferredStartHHMM
-        ? "ASK_WHEN"
-        : "ASK_WHEN",
+      stage: "ASK_WHEN",
       clinicId,
       clinicRecordId,
       rules,
       treatmentRecordId: chosen.recordId,
       treatmentName: chosen.name,
-      preferences: when || {},
+      preferredDoctorMode: "ANY",
       slotsTop: [],
       staffById: {},
+      preferences: when || {},
     };
 
-    await setSession(fromE164, newSess, SESSION_TTL_SECONDS);
-    console.log("[START] detected", { hasSess: !!sess, body, chosen: chosen?.name });
+    await setSession(fromE164, next, SESSION_TTL_SECONDS);
+    console.log("[START] chosen=", chosen.name, "when=", when);
 
-
-    return `Perfecto 🙂 ¿Para cuándo la quieres?`;
-    
-  }
+    // si ya trae algo de fecha/hora, dile "Dale" y que el usuario no repita nada
+if (when?.dateIso || when?.preferredStartHHMM || when?.preferredEndHHMM) {
+  return `Perfecto 🙂 Para *${chosen.name}*. Dame un segundo y te doy opciones...`;
 }
+return `Perfecto 🙂 Para *${chosen.name}*.\n¿Para cuándo la quieres?\nEj: "mañana 15:00", "hoy tarde", "martes por la mañana".`;
 
+  }
 
-  // Si no detecta tratamiento → flujo normal
-  const newSess: Session = {
+  // Si NO detectó tratamiento => flujo normal
+  const next: Session = {
     createdAtMs: Date.now(),
     stage: "ASK_TREATMENT",
     clinicId,
@@ -403,11 +358,9 @@ if (!sess) {
     staffById: {},
   };
 
-  await setSession(fromE164, newSess, SESSION_TTL_SECONDS);
-
+  await setSession(fromE164, next, SESSION_TTL_SECONDS);
   return renderTreatmentsList(list);
 }
-
 
   // 3) Stage: ASK_TREATMENT
 
@@ -416,7 +369,7 @@ if (!sess) {
   if (sess.stage === "ASK_TREATMENT") {
     const treatments = await listTreatments({ clinicRecordId });
     const list = treatments.map((t: any) => ({ recordId: t.recordId, name: t.name }));
-    const chosen = findTreatment(list, body);
+    const chosen = findTreatmentSmart(list, body);
 
     if (!chosen) return "No encontré ese tratamiento 😅 Responde con número o nombre exacto.";
 
