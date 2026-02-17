@@ -799,12 +799,29 @@ if (!staffRecordId) {
     const t = normalizeText(body);
 
     // aquí: si el user mandó nueva preferencia, reintenta (simplificado)
-    if (t.includes("hoy") || t.includes("manana") || /\d{1,2}:\d{2}/.test(t)) {
-      const prefs = parseWhen(body);
-      const next: Session = { ...sess, createdAtMs: Date.now(), stage: "ASK_WHEN", preferences: prefs };
-      await setSession(fromE164, next, SESSION_TTL_SECONDS);
-      return `Dale, lo intento con eso 🙂`;
-    }
+    // ✅ si el user mandó nueva preferencia, reintenta Y RESPONDE EN EL MISMO TURNO
+if (t.includes("hoy") || t.includes("manana") || /\d{1,2}:\d{2}/.test(t)) {
+  const prefs = parseWhen(body);
+
+  const next: Session = {
+    ...sess,
+    createdAtMs: Date.now(),
+    stage: "ASK_WHEN",
+    preferences: prefs,
+  };
+
+  await setSession(fromE164, next, SESSION_TTL_SECONDS);
+
+  // 🔥 ejecutar la búsqueda ya, sin esperar otro mensaje
+  return await handleInboundWhatsApp({
+    fromE164,
+    body: "__USE_SAVED_PREFS__",
+    clinicId,
+    clinicRecordId,
+    rules,
+  });
+}
+
 
     // si elige opción 3 o dice “si”
     const wantsWaitlist = t === "3" || t === "si" || t === "sí" || t.includes("apunta") || t.includes("lista");
