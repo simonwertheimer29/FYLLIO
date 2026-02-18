@@ -345,6 +345,7 @@ const end = toLocalNaiveIso(f["Hora final"]);
       type,
       chairId,
       providerId,
+      patientPhone: firstString(f["Paciente_teléfono"]) || firstString(f["Paciente_tutor_teléfono"]) || undefined,
     });
   }
 

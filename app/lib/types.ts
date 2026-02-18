@@ -22,6 +22,7 @@ export type Appointment = {
   type: string;
   chairId?: number;
   providerId?: string;
+  patientPhone?: string;
 };
 
 

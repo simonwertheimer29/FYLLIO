@@ -29,6 +29,7 @@ import {
 } from "../scheduler/repo/waitlistRepo";
 
 import { onSlotFreed } from "../scheduler/waitlist/onSlotFreed";
+import { sendWhatsAppMessage } from "./send";
 
 import { NextResponse } from "next/server";
 import { twimlMessage } from "../twilio/twiml";
@@ -491,11 +492,16 @@ export async function handleInboundWhatsApp(params: {
       const [start, end, providerId, chairIdRaw] = key.split("|");
       const chairId = Number(chairIdRaw || "1") || 1;
       if (start && end && providerId) {
-        await onSlotFreed({
+        const freed = await onSlotFreed({
           clinicRecordId: offered.clinicRecordId,
           treatmentRecordId: offered.treatmentRecordId!,
           slot: { slotId: key, start, end, providerId, chairId },
         });
+        if (freed?.ok && freed?.messagePreview && freed?.patientHint) {
+          sendWhatsAppMessage(`whatsapp:${freed.patientHint}`, freed.messagePreview).catch((e) =>
+            console.warn("[waitlist] send failed (ignored)", e)
+          );
+        }
       }
       return "Perfecto 👍 Se lo ofrezco al siguiente de la lista.";
     }
@@ -650,7 +656,7 @@ export async function handleInboundWhatsApp(params: {
     try {
       const cliRec = sess.pendingCancelClinicRecordId || sess.clinicRecordId;
       if (cliRec && full?.start && full?.end && full?.treatmentRecordId && full?.staffId) {
-        await onSlotFreed({
+        const freed = await onSlotFreed({
           clinicRecordId: cliRec,
           clinicId: sess.clinicId,
           treatmentRecordId: full.treatmentRecordId,
@@ -662,6 +668,11 @@ export async function handleInboundWhatsApp(params: {
             chairId: 1,
           },
         });
+        if (freed?.ok && freed?.messagePreview && freed?.patientHint) {
+          sendWhatsAppMessage(`whatsapp:${freed.patientHint}`, freed.messagePreview).catch((e) =>
+            console.warn("[cancel] waitlist send failed (ignored)", e)
+          );
+        }
       }
     } catch (e) {
       console.warn("[cancel] onSlotFreed failed (ignored)", e);
