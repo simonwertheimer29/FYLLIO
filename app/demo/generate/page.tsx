@@ -21,6 +21,8 @@ import { computeImpact } from "../../lib/agenda/impact";
 import { addMinutesLocal, parseLocal } from "../../lib/time";
 import AiPrimaryButton from "../../components/ui/AiPrimaryButton";
 import WaitlistPanel from "../../components/waitlist/WaitlistPanel";
+import MessagesPanel from "../../components/dashboard/MessagesPanel";
+import StatsPanel from "../../components/dashboard/StatsPanel";
 import { useEffect, useMemo, useState } from "react";
 
 
@@ -2343,6 +2345,30 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
 <WaitlistPanel clinicRecordId="CLINIC_001" />
   </div>
 ) : null}
+
+      {section === "MENSAJES" ? (
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6">
+            <h2 className="text-2xl font-extrabold text-slate-900">Mensajes WhatsApp</h2>
+            <p className="mt-2 text-slate-600">
+              Sesiones activas de conversación con pacientes. Puedes limpiar sesiones bloqueadas.
+            </p>
+          </div>
+          <MessagesPanel />
+        </div>
+      ) : null}
+
+      {section === "ESTADISTICAS" ? (
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6">
+            <h2 className="text-2xl font-extrabold text-slate-900">Estadísticas</h2>
+            <p className="mt-2 text-slate-600">
+              Métricas de actividad de la clínica en tiempo real.
+            </p>
+          </div>
+          <StatsPanel />
+        </div>
+      ) : null}
 
 
       {section === "IMPACT" ? (
