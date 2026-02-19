@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/reminders",
       "schedule": "0 17 * * *"
+    },
+    {
+      "path": "/api/cron/confirm",
+      "schedule": "0 16 * * *"
+    },
+    {
+      "path": "/api/cron/feedback",
+      "schedule": "0 * * * *"
     }
   ]
 }

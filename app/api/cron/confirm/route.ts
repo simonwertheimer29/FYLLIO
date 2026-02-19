@@ -1,5 +1,6 @@
-// app/api/cron/reminders/route.ts
-// Sends 24h appointment reminders via WhatsApp.
+// app/api/cron/confirm/route.ts
+// Sends 24h appointment confirmation requests via WhatsApp.
+// Patient replies "SÍ" or "NO" — handled by core.ts CONFIRM_ATTENDANCE stage.
 // Triggered daily by Vercel Cron (see vercel.json). Protected via CRON_SECRET header.
 
 import { NextResponse } from "next/server";
@@ -30,23 +31,27 @@ export async function GET(req: Request) {
   for (const appt of appointments) {
     if (!appt.patientPhone) continue;
 
-    const timeHHMM = DateTime.fromISO(appt.start, { zone: "utc" }).setZone("Europe/Madrid").toFormat("HH:mm");
+    const timeHHMM = DateTime.fromISO(appt.start, { zone: "utc" })
+      .setZone(ZONE)
+      .toFormat("HH:mm");
+
     const msg =
-      `📅 Recordatorio de cita\n` +
+      `📅 Confirmación de cita\n` +
       `Mañana tienes cita:\n` +
       `🦷 ${appt.type}\n` +
       `🕒 ${timeHHMM}\n\n` +
-      `¿Necesitas cancelar o reagendar? Solo escríbenos.`;
+      `¿Confirmas tu asistencia?\n` +
+      `Responde *SÍ* para confirmar o *NO* para cancelar.`;
 
     try {
       await sendWhatsAppMessage(`whatsapp:${appt.patientPhone}`, msg);
       sent++;
     } catch (e) {
-      console.error("[reminders] send failed", appt.id, e);
+      console.error("[confirm] send failed", appt.id, e);
       errors.push(`${appt.id}: ${String(e)}`);
     }
   }
 
-  console.log(`[reminders] ${tomorrow} — ${sent}/${appointments.length} sent`);
+  console.log(`[confirm] ${tomorrow} — ${sent}/${appointments.length} sent`);
   return NextResponse.json({ ok: true, tomorrow, total: appointments.length, sent, errors });
 }

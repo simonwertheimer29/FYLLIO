@@ -14,11 +14,18 @@ import {
   cancelAppointment,
   findNextAppointmentByContactPhone,
   getAppointmentByRecordId,
+  getPatientByPhone,
+  markPatientOptOut,
+  isPatientOptedOut,
 } from "../scheduler/repo/airtableRepo";
 
 import { getSession, setSession, deleteSession } from "../scheduler/sessionStore";
 import { DEFAULT_RULES } from "../demoData";
-import { formatTime } from "../time";
+
+/** Muestra un ISO naive UTC (formato slots) como hora Madrid HH:mm */
+function slotTime(iso: string): string {
+  return DateTime.fromISO(iso, { zone: "utc" }).setZone("Europe/Madrid").toFormat("HH:mm");
+}
 
 import {
   createWaitlistEntry,
@@ -30,6 +37,7 @@ import {
 
 import { onSlotFreed } from "../scheduler/waitlist/onSlotFreed";
 import { sendWhatsAppMessage } from "./send";
+import { parseIntentWithLLM, humanizeReply } from "./llm";
 
 import { NextResponse } from "next/server";
 import { twimlMessage } from "../twilio/twiml";
@@ -376,9 +384,10 @@ function detectIntent(text: string): "CANCEL" | "RESCHEDULE" | "BOOK" | "HELP" |
   return null;
 }
 
-function renderHelpMenu() {
+function renderHelpMenu(name?: string) {
+  const greeting = name ? `Hola *${name}* 👋` : `Hola 👋`;
   return (
-    `Hola 👋 Soy el asistente de la clínica. Puedo ayudarte con:\n\n` +
+    `${greeting} Soy el asistente de la clínica. Puedo ayudarte con:\n\n` +
     `📅 *cita* → Reservar una nueva cita\n` +
     `❌ *cancelar* → Cancelar mi próxima cita\n` +
     `🔄 *reagendar* → Cambiar fecha/hora de mi cita\n` +
@@ -457,7 +466,7 @@ async function holdSlotAndAskBookingFor(params: {
 
   return (
     `Perfecto 🙂 Tengo ese hueco disponible:\n\n` +
-    `📅 ${formatTime(slot.start)} con ${providerName}\n\n` +
+    `📅 ${slotTime(slot.start)} con ${providerName}\n\n` +
     `¿La cita es para ti o para otra persona?\n1) Para mí\n2) Para otra persona`
   );
 }
@@ -544,8 +553,21 @@ export async function handleInboundWhatsApp(params: {
   // ── 1) Load session ──────────────────────────────────────────────────────
   const sess = await getSession<Session>(fromE164);
 
-  // ── 2) Global intent detection ───────────────────────────────────────────
-  const intent = detectIntent(text);
+  // Personalized greeting: look up patient name only on first contact (no session)
+  const patientInfo = !sess ? await getPatientByPhone(fromE164).catch(() => null) : null;
+
+  // ── 2) Global intent detection (LLM with regex fallback) ─────────────────
+  const intent = await parseIntentWithLLM(body).catch(() => null) ?? detectIntent(text);
+
+  // ── STOP / opt-out ────────────────────────────────────────────────────────
+  if (intent === "STOP" || text === "stop") {
+    await Promise.all([
+      markPatientOptOut(fromE164).catch(() => null),
+      deleteSession(fromE164).catch(() => null),
+    ]);
+    return "De acuerdo, no te enviaremos más mensajes. Si quieres reactivar el servicio, escríbenos.";
+  }
+  if (await isPatientOptedOut(fromE164).catch(() => false)) return "";
 
   // CANCEL: intercepts regardless of active session (except when already in cancel flow)
   if (
@@ -579,7 +601,7 @@ export async function handleInboundWhatsApp(params: {
     };
     await setSession(fromE164, cancelSess, SESSION_TTL_SECONDS);
 
-    const startStr = apptData?.start ? formatTime(apptData.start) : "—";
+    const startStr = apptData?.start ? slotTime(apptData.start) : "—";
     const treatmentStr = apptData?.treatmentName || "Tratamiento";
     return (
       `Voy a cancelar esta cita:\n\n` +
@@ -619,7 +641,7 @@ export async function handleInboundWhatsApp(params: {
     };
     await setSession(fromE164, reschSess, SESSION_TTL_SECONDS);
 
-    const startStr = apptData?.start ? formatTime(apptData.start) : "—";
+    const startStr = apptData?.start ? slotTime(apptData.start) : "—";
     return (
       `Claro 🙂 Vamos a reagendar:\n\n` +
       `🦷 ${apptData?.treatmentName || "Tratamiento"}\n` +
@@ -630,7 +652,7 @@ export async function handleInboundWhatsApp(params: {
   }
 
   // HELP: only when no active session
-  if (intent === "HELP" && !sess) return renderHelpMenu();
+  if (intent === "HELP" && !sess) return renderHelpMenu(patientInfo?.name);
 
   // ── 3) Cancel flow: CONFIRM_CANCEL ──────────────────────────────────────
   if (sess?.stage === "CONFIRM_CANCEL") {
@@ -766,7 +788,7 @@ export async function handleInboundWhatsApp(params: {
 
     const lines = top.map((slot, i) => {
       const name = staffById?.[slot.providerId]?.name ?? slot.providerId;
-      return `${i + 1}) ${formatTime(slot.start)} con ${name}`;
+      return `${i + 1}) ${slotTime(slot.start)} con ${name}`;
     });
     return `Opciones para reagendar 🙂\n\n${lines.join("\n")}\n\nResponde 1, 2 o 3.`;
   }
@@ -809,7 +831,7 @@ export async function handleInboundWhatsApp(params: {
     await deleteSession(fromE164);
     return (
       `✅ Reagendado.\n\n` +
-      `📅 Nueva cita: ${formatTime(chosen.start)}\n` +
+      `📅 Nueva cita: ${slotTime(chosen.start)}\n` +
       `🦷 ${sess.rescheduleTreatmentName || "Tratamiento"}\n` +
       `👤 ${sess.reschedulePatientName || "Paciente"}`
     );
@@ -817,7 +839,7 @@ export async function handleInboundWhatsApp(params: {
 
   // ── 7) No session: smart START ───────────────────────────────────────────
   if (!sess) {
-    if (!intent || intent === "HELP") return renderHelpMenu();
+    if (!intent || intent === "HELP") return renderHelpMenu(patientInfo?.name);
 
     const treatments = await listTreatments({ clinicRecordId });
     if (!treatments.length) return "⚠️ No encontré tratamientos configurados.";
@@ -1000,7 +1022,7 @@ export async function handleInboundWhatsApp(params: {
 
         const lines = nearby.map((slot, i) => {
           const name = staffById?.[slot.providerId]?.name ?? slot.providerId;
-          return `${i + 1}) ${formatTime(slot.start)} con ${name}`;
+          return `${i + 1}) ${slotTime(slot.start)} con ${name}`;
         });
         return (
           `😕 A las *${wanted}* no tengo hueco.\n\n` +
@@ -1030,7 +1052,7 @@ export async function handleInboundWhatsApp(params: {
 
     const lines = top.map((slot, i) => {
       const name = staffById?.[slot.providerId]?.name ?? slot.providerId;
-      return `${i + 1}) ${formatTime(slot.start)} con ${name}`;
+      return `${i + 1}) ${slotTime(slot.start)} con ${name}`;
     });
 
     // Mention waitlist if best option is far away
@@ -1182,7 +1204,7 @@ export async function handleInboundWhatsApp(params: {
 
     const lines = top.map((slot, i) => {
       const name = staffById?.[slot.providerId]?.name ?? slot.providerId;
-      return `${i + 1}) ${formatTime(slot.start)} con ${name}`;
+      return `${i + 1}) ${slotTime(slot.start)} con ${name}`;
     });
 
     const firstSlot = top[0];
@@ -1279,12 +1301,12 @@ export async function handleInboundWhatsApp(params: {
       });
 
       await deleteSession(fromE164);
-      return (
+      const confirmMsg =
         `✅ Cita confirmada.\n\n` +
         `👤 ${name}\n` +
         `🦷 ${sess.treatmentName}\n` +
-        `📅 ${formatTime(sess.pendingStart)}`
-      );
+        `📅 ${slotTime(sess.pendingStart)}`;
+      return await humanizeReply(confirmMsg, name).catch(() => confirmMsg);
     } catch (e) {
       console.error("[ASK_PATIENT_NAME] confirm failed", e);
       await deleteSession(fromE164);
