@@ -30,7 +30,7 @@ export async function GET(req: Request) {
   for (const appt of appointments) {
     if (!appt.patientPhone) continue;
 
-    const timeHHMM = DateTime.fromISO(appt.start, { zone: "utc" }).setZone("Europe/Madrid").toFormat("HH:mm");
+    const timeHHMM = appt.start.slice(11, 16);
     const msg =
       `📅 Recordatorio de cita\n` +
       `Mañana tienes cita:\n` +

@@ -23,37 +23,6 @@ export async function getPatientRecordIdByPhone(phoneE164: string) {
   return findRecordIdByField(TABLES.patients, "Teléfono", phoneE164);
 }
 
-export async function getPatientByPhone(
-  phoneE164: string
-): Promise<{ recordId: string; name: string } | null> {
-  const formula = `{Teléfono}='${phoneE164}'`;
-  const recs = await base(TABLES.patients)
-    .select({ filterByFormula: formula, fields: ["Nombre"], maxRecords: 1 })
-    .all();
-  if (!recs.length) return null;
-  const r = recs[0] as any;
-  return { recordId: r.id, name: String(r.fields?.["Nombre"] ?? "") };
-}
-
-/** Marks a patient as opted-out from WhatsApp messages (requires "Opt_Out" checkbox field in Pacientes table). */
-export async function markPatientOptOut(phoneE164: string): Promise<void> {
-  const formula = `{Teléfono}='${phoneE164}'`;
-  const recs = await base(TABLES.patients)
-    .select({ filterByFormula: formula, fields: ["Nombre"], maxRecords: 1 })
-    .all();
-  if (!recs.length) return;
-  await base(TABLES.patients).update([{ id: recs[0].id, fields: { Opt_Out: true } as any }]);
-}
-
-/** Returns true if the patient has opted out of WhatsApp messages. */
-export async function isPatientOptedOut(phoneE164: string): Promise<boolean> {
-  const formula = `AND({Teléfono}='${phoneE164}',{Opt_Out}=TRUE())`;
-  const recs = await base(TABLES.patients)
-    .select({ filterByFormula: formula, fields: ["Opt_Out"], maxRecords: 1 })
-    .all();
-  return recs.length > 0;
-}
-
 export async function createPatient(params: {
   name: string;
   phoneE164: string;
@@ -273,13 +242,15 @@ export async function cancelAppointment(params: {
 
 
 
+const ZONE = "Europe/Madrid";
+
+
 
 function toLocalNaiveIso(x: unknown): string {
-  // Airtable devuelve ISO en UTC con Z. Lo convertimos a UTC naive para ser
-  // consistente con los slots generados por availability.ts (también naive UTC).
+  // Airtable suele devolver ISO en UTC con Z. Lo convertimos a hora local Madrid
   if (typeof x !== "string" || !x) return "";
 
-  const dt = DateTime.fromISO(x, { setZone: true }).toUTC();
+  const dt = DateTime.fromISO(x, { setZone: true }).setZone(ZONE);
   if (!dt.isValid) return "";
 
   // devolvemos sin offset y sin ms: "YYYY-MM-DDTHH:mm:ss"
