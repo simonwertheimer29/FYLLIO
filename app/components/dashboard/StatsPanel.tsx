@@ -5,12 +5,17 @@ import { useEffect, useState } from "react";
 type Stats = {
   todayAppointments: number;
   weekAppointments: number;
+  weekCancellations: number;
+  weekNoShows: number;
   activeSessions: number;
   waitlist: {
     active: number;
     offered: number;
     booked: number;
   };
+  channels: { name: string; count: number }[];
+  whatsappAppts: number;
+  conversionPct: number | null;
   generatedAt: string | null;
 };
 
@@ -58,7 +63,7 @@ export default function StatsPanel() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-semibold text-slate-900">Estadísticas</h2>
-          <p className="text-xs text-slate-500 mt-1">Métricas en tiempo real de la clínica</p>
+          <p className="text-xs text-slate-500 mt-1">Métricas en tiempo real · semana actual</p>
         </div>
         <button
           type="button"
@@ -75,9 +80,10 @@ export default function StatsPanel() {
         <p className="text-sm text-slate-500">Error al cargar métricas.</p>
       ) : (
         <>
+          {/* Primary metrics */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             <StatCard label="Citas hoy" value={stats.todayAppointments} sub="activas" accent="border-sky-200" />
-            <StatCard label="Citas esta semana" value={stats.weekAppointments} sub="lun–dom" />
+            <StatCard label="Citas esta semana" value={stats.weekAppointments} sub="lun–dom (activas)" />
             <StatCard
               label="Sesiones WhatsApp"
               value={stats.activeSessions}
@@ -92,6 +98,35 @@ export default function StatsPanel() {
             />
           </div>
 
+          {/* Secondary metrics */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+            <StatCard
+              label="Cancelaciones semana"
+              value={stats.weekCancellations}
+              sub="esta semana"
+              accent="border-red-200"
+            />
+            <StatCard
+              label="No-shows semana"
+              value={stats.weekNoShows}
+              sub="esta semana"
+              accent="border-orange-200"
+            />
+            <StatCard
+              label="Citas WhatsApp"
+              value={stats.whatsappAppts}
+              sub="esta semana"
+              accent="border-green-200"
+            />
+            <StatCard
+              label="Conversión WhatsApp"
+              value={stats.conversionPct !== null ? `${stats.conversionPct}%` : "—"}
+              sub="citas / sesiones activas"
+              accent="border-purple-200"
+            />
+          </div>
+
+          {/* Waitlist breakdown */}
           <div className="rounded-2xl border border-slate-200 bg-white p-5">
             <h3 className="text-sm font-semibold text-slate-900 mb-4">Lista de espera por estado</h3>
             <div className="flex gap-6 flex-wrap">
@@ -109,6 +144,33 @@ export default function StatsPanel() {
               </div>
             </div>
           </div>
+
+          {/* Channel breakdown */}
+          {stats.channels.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <h3 className="text-sm font-semibold text-slate-900 mb-4">Canal de origen (semana)</h3>
+              <div className="space-y-2">
+                {stats.channels.map((ch) => {
+                  const total = stats.channels.reduce((s, c) => s + c.count, 0);
+                  const pct = total > 0 ? Math.round((ch.count / total) * 100) : 0;
+                  return (
+                    <div key={ch.name} className="flex items-center gap-3">
+                      <span className="text-sm text-slate-700 w-28 shrink-0">{ch.name}</span>
+                      <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                        <div
+                          className="h-2 rounded-full bg-sky-500"
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                      <span className="text-xs font-semibold text-slate-600 w-16 text-right">
+                        {ch.count} ({pct}%)
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {stats.generatedAt && (
             <p className="text-[11px] text-slate-400">

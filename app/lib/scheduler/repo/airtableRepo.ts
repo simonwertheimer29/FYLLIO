@@ -271,6 +271,26 @@ export async function cancelAppointment(params: {
   ]);
 }
 
+export async function updateAppointment(params: {
+  appointmentRecordId: string;
+  startIso?: string;
+  endIso?: string;
+  staffRecordId?: string;
+  treatmentRecordId?: string;
+  notes?: string;
+}) {
+  const { appointmentRecordId, startIso, endIso, staffRecordId, treatmentRecordId, notes } = params;
+  const fields: any = {};
+  if (startIso) fields["Hora inicio"] = startIso;
+  if (endIso) fields["Hora final"] = endIso;
+  if (staffRecordId) fields["Profesional"] = [staffRecordId];
+  if (treatmentRecordId) fields["Tratamiento"] = [treatmentRecordId];
+  if (notes !== undefined) fields["Notas"] = notes;
+
+  if (!Object.keys(fields).length) return;
+  await base(TABLES.appointments).update([{ id: appointmentRecordId, fields }]);
+}
+
 
 
 
@@ -379,6 +399,48 @@ const end = toLocalNaiveIso(f["Hora final"]);
   }
 
   out.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  return out;
+}
+
+/**
+ * Lists appointments in a full week (Mon→Sun) returning estado and origen for aggregation.
+ * Makes a single Airtable fetch for efficiency.
+ */
+export async function listAppointmentsByWeek(params: {
+  mondayIso: string; // "YYYY-MM-DD" (Monday)
+  clinicId?: string;
+}): Promise<Array<{ start: string; estado: string; origen: string }>> {
+  const { mondayIso, clinicId } = params;
+  const monday = DateTime.fromISO(mondayIso, { zone: "utc" });
+  const sunday = monday.plus({ days: 6 });
+  const sundayIso = sunday.toISODate()!;
+
+  const records = await base(TABLES.appointments)
+    .select({ maxRecords: 2000 })
+    .all();
+
+  const out: Array<{ start: string; estado: string; origen: string }> = [];
+
+  for (const r of records) {
+    const f: any = r.fields;
+    const start = toLocalNaiveIso(f["Hora inicio"]);
+    if (!start) continue;
+
+    const dayIso = start.slice(0, 10);
+    if (dayIso < mondayIso || dayIso > sundayIso) continue;
+
+    if (clinicId) {
+      const clinicIdLookup = firstString(f["Clínica ID"]);
+      if (clinicIdLookup && clinicIdLookup !== clinicId) continue;
+    }
+
+    out.push({
+      start,
+      estado: firstString(f["Estado"]).trim().toUpperCase(),
+      origen: firstString(f["Origen"]).trim(),
+    });
+  }
+
   return out;
 }
 

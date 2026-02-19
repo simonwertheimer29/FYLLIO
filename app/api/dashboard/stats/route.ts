@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
 import { kv } from "@vercel/kv";
-import { listAppointmentsByDay } from "../../../lib/scheduler/repo/airtableRepo";
+import { listAppointmentsByDay, listAppointmentsByWeek } from "../../../lib/scheduler/repo/airtableRepo";
 import { listWaitlist } from "../../../lib/scheduler/repo/waitlistRepo";
 
 const ZONE = "Europe/Madrid";
@@ -13,11 +13,13 @@ export async function GET() {
   try {
     const now = DateTime.now().setZone(ZONE);
     const todayIso = now.toISODate()!;
+    const monday = now.startOf("week"); // Luxon: Mon
+    const mondayIso = monday.toISODate()!;
     const clinicRecordId = process.env.DEMO_CLINIC_RECORD_ID ?? "";
     const clinicId = process.env.CLINIC_ID;
 
     // Run all fetches in parallel
-    const [todayAppts, sessionKeys, waitlistAll] = await Promise.all([
+    const [todayAppts, sessionKeys, waitlistAll, weekAppts] = await Promise.all([
       listAppointmentsByDay({ dayIso: todayIso, clinicId, onlyActive: true }).catch(() => []),
       kv.keys("wa:sess:*").catch(() => [] as string[]),
       listWaitlist({
@@ -25,19 +27,39 @@ export async function GET() {
         estados: ["ACTIVE", "OFFERED", "BOOKED", "EXPIRED"],
         maxRecords: 500,
       }).catch(() => []),
+      listAppointmentsByWeek({ mondayIso, clinicId }).catch(() => [] as Awaited<ReturnType<typeof listAppointmentsByWeek>>),
     ]);
 
-    // Week appointments: fetch Mon–Sun of current week
-    const monday = now.startOf("week"); // Luxon: Mon
-    const weekDays = Array.from({ length: 7 }, (_, i) =>
-      monday.plus({ days: i }).toISODate()!
+    // Week breakdown by status
+    const weekActive = weekAppts.filter((a) => {
+      const e = a.estado;
+      return !["CANCELADO", "CANCELADA", "CANCELLED", "CANCELED", "NO_SHOW", "NO SHOW", "NOSHOW"].includes(e);
+    });
+    const weekCancelled = weekAppts.filter((a) =>
+      ["CANCELADO", "CANCELADA", "CANCELLED", "CANCELED"].includes(a.estado)
     );
-    const weekApptsByDay = await Promise.all(
-      weekDays.map((d) =>
-        listAppointmentsByDay({ dayIso: d, clinicId, onlyActive: true }).catch(() => [])
-      )
+    const weekNoShows = weekAppts.filter((a) =>
+      ["NO_SHOW", "NO SHOW", "NOSHOW"].includes(a.estado)
     );
-    const weekTotal = weekApptsByDay.reduce((acc, day) => acc + day.length, 0);
+
+    // Channel breakdown (whole week incl. cancelled)
+    const channelCounts: Record<string, number> = {};
+    for (const a of weekAppts) {
+      const ch = a.origen || "Manual";
+      channelCounts[ch] = (channelCounts[ch] ?? 0) + 1;
+    }
+    const channels = Object.entries(channelCounts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+    // WhatsApp conversion: active WhatsApp appts / active sessions
+    const whatsappAppts = weekAppts.filter(
+      (a) => (a.origen ?? "").toLowerCase().includes("whatsapp")
+    ).length;
+    const conversionPct =
+      sessionKeys.length > 0
+        ? Math.min(100, Math.round((whatsappAppts / sessionKeys.length) * 100))
+        : null;
 
     // Waitlist breakdown
     const waitlistByStatus = {
@@ -48,9 +70,14 @@ export async function GET() {
 
     return NextResponse.json({
       todayAppointments: todayAppts.length,
-      weekAppointments: weekTotal,
+      weekAppointments: weekActive.length,
+      weekCancellations: weekCancelled.length,
+      weekNoShows: weekNoShows.length,
       activeSessions: sessionKeys.length,
       waitlist: waitlistByStatus,
+      channels,
+      whatsappAppts,
+      conversionPct,
       generatedAt: now.toISO(),
     });
   } catch (e: any) {

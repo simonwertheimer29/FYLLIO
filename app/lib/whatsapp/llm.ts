@@ -91,7 +91,49 @@ export async function parseWhenWithLLM(
 }
 
 // ─────────────────────────────────────────────
-// 3) HUMANIZE REPLY
+// 3) CHOICE INTERPRETATION
+// ─────────────────────────────────────────────
+
+/**
+ * Interprets a free-text patient reply against a fixed set of options.
+ * Returns the `key` of the best matching option, or null if unclear.
+ */
+export async function parseChoiceWithLLM(
+  body: string,
+  options: { key: string; label: string }[],
+  context?: string
+): Promise<string | null> {
+  if (!process.env.OPENAI_API_KEY) return null;
+
+  const optionsList = options.map((o) => `key:${o.key} → ${o.label}`).join("\n");
+
+  const res = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    temperature: 0,
+    max_tokens: 20,
+    messages: [
+      {
+        role: "system",
+        content:
+          "Eres un clasificador de selección para un asistente de clínica dental. " +
+          "Dado el mensaje de un paciente, determina cuál de estas opciones eligió:\n\n" +
+          optionsList + "\n\n" +
+          "Responde SOLO con la key exacta (mayúsculas, sin espacios). " +
+          "Si no puedes determinarlo, responde NULL." +
+          (context ? ` Contexto adicional: ${context}.` : ""),
+      },
+      { role: "user", content: body },
+    ],
+  });
+
+  const word = (res.choices[0]?.message?.content ?? "").trim().toUpperCase();
+  if (word === "NULL" || !word) return null;
+  const validKeys = options.map((o) => o.key.toUpperCase());
+  return validKeys.includes(word) ? word : null;
+}
+
+// ─────────────────────────────────────────────
+// 4) HUMANIZE REPLY
 // ─────────────────────────────────────────────
 export async function humanizeReply(
   baseReply: string,

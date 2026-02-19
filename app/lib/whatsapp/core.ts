@@ -37,7 +37,7 @@ import {
 
 import { onSlotFreed } from "../scheduler/waitlist/onSlotFreed";
 import { sendWhatsAppMessage } from "./send";
-import { parseIntentWithLLM, humanizeReply } from "./llm";
+import { parseIntentWithLLM, parseWhenWithLLM, parseChoiceWithLLM, humanizeReply } from "./llm";
 
 import { NextResponse } from "next/server";
 import { twimlMessage } from "../twilio/twiml";
@@ -59,7 +59,8 @@ type Stage =
   | "CONFIRM_CANCEL"
   | "CANCEL_OFFER_WAITLIST"
   | "RESCHEDULE_ASK_WHEN"
-  | "RESCHEDULE_OFFER_SLOTS";
+  | "RESCHEDULE_OFFER_SLOTS"
+  | "ASK_NEW_BOOKING_FOR";
 
 type Session = {
   createdAtMs: number;
@@ -192,7 +193,11 @@ function parseWhen(body: string): Preferences & { exactTime?: boolean } {
   const hhmm = /(\d{1,2}):(\d{2})/.exec(t);
   const hFormat = /(\d{1,2})h\b/.exec(t);
   const pmFormat = /(\d{1,2})\s?pm\b/.exec(t);
-  const aLas = /a las (\d{1,2})\b/.exec(t);
+  const aLas = /(?:a )?las (\d{1,2})\b/.exec(t);
+  // bare number between 6-23: "15", "9" — only if no other time pattern matched
+  const numSolo = (!hhmm && !hFormat && !pmFormat && !aLas)
+    ? /\b([6-9]|1\d|2[0-3])\b/.exec(t)
+    : null;
 
   if (hhmm) {
     const h = String(hhmm[1]).padStart(2, "0");
@@ -211,9 +216,16 @@ function parseWhen(body: string): Preferences & { exactTime?: boolean } {
     preferredEndHHMM = `${String(h).padStart(2, "0")}:00`;
     exactTime = true;
   } else if (aLas) {
-    const h = String(aLas[1]).padStart(2, "0");
-    preferredStartHHMM = `${h}:00`;
-    preferredEndHHMM = `${h}:00`;
+    let h = Number(aLas[1]);
+    if (h >= 1 && h <= 6 && (t.includes("tarde") || t.includes("noche"))) h += 12;
+    preferredStartHHMM = `${String(h).padStart(2, "0")}:00`;
+    preferredEndHHMM = `${String(h).padStart(2, "0")}:00`;
+    exactTime = true;
+  } else if (numSolo) {
+    let h = Number(numSolo[1]);
+    if (h >= 1 && h <= 6 && (t.includes("tarde") || t.includes("noche"))) h += 12;
+    preferredStartHHMM = `${String(h).padStart(2, "0")}:00`;
+    preferredEndHHMM = `${String(h).padStart(2, "0")}:00`;
     exactTime = true;
   } else if (t.includes("manana") || t.includes("mañana") || t.includes("por la manana") || t.includes("por la mañana")) {
     preferredStartHHMM = "09:00";
@@ -709,11 +721,12 @@ export async function handleInboundWhatsApp(params: {
     };
     await setSession(fromE164, waitlistSess, SESSION_TTL_SECONDS);
 
-    return (
-      `✅ Cita cancelada.\n\n` +
-      `¿Quieres apuntarte en lista de espera? Si se libra un hueco antes, te aviso por aquí 🙂\n\n` +
-      `Responde *SÍ* o *NO*`
-    );
+    const cancelMsg = await humanizeReply(
+      `✅ Cita cancelada.\n\n¿Quieres apuntarte en lista de espera? Si se libra un hueco antes, te aviso por aquí 🙂\n\nResponde *SÍ* o *NO*`,
+      patientInfo?.name,
+      "confirmación de cancelación de cita"
+    ).catch(() => `✅ Cita cancelada.\n\n¿Quieres apuntarte en lista de espera? Si se libra un hueco antes, te aviso por aquí 🙂\n\nResponde *SÍ* o *NO*`);
+    return cancelMsg;
   }
 
   // ── 4) Cancel flow: CANCEL_OFFER_WAITLIST ───────────────────────────────
@@ -745,7 +758,11 @@ export async function handleInboundWhatsApp(params: {
       notas: "Apuntado tras cancelar (WhatsApp)",
     });
     await deleteSession(fromE164);
-    return "Listo ✅ Te apunté en lista de espera. Si se libra un hueco, te aviso por aquí.";
+    return humanizeReply(
+      "Listo ✅ Te apunté en lista de espera. Si se libra un hueco, te aviso por aquí.",
+      patientInfo?.name,
+      "paciente añadido a lista de espera tras cancelar"
+    ).catch(() => "Listo ✅ Te apunté en lista de espera. Si se libra un hueco, te aviso por aquí.");
   }
 
   // ── 5) Reschedule flow: RESCHEDULE_ASK_WHEN ─────────────────────────────
@@ -795,10 +812,17 @@ export async function handleInboundWhatsApp(params: {
 
   // ── 6) Reschedule flow: RESCHEDULE_OFFER_SLOTS ──────────────────────────
   if (sess?.stage === "RESCHEDULE_OFFER_SLOTS") {
-    const idx = Number(normalizeText(body));
+    let idx = Number(normalizeText(body));
     const max = sess.slotsTop?.length || 0;
     if (!Number.isFinite(idx) || idx < 1 || idx > max) {
-      return `Responde 1${max >= 2 ? ", 2" : ""}${max >= 3 ? " o 3" : ""} 🙂`;
+      const slotOptions = (sess.slotsTop ?? []).map((_s, i) => ({ key: String(i + 1), label: `Opción ${i + 1}` }));
+      const llmKey = await parseChoiceWithLLM(body, slotOptions).catch(() => null);
+      const llmIdx = llmKey ? Number(llmKey) : NaN;
+      if (Number.isFinite(llmIdx) && llmIdx >= 1 && llmIdx <= max) {
+        idx = llmIdx;
+      } else {
+        return `Responde 1${max >= 2 ? ", 2" : ""}${max >= 3 ? " o 3" : ""} 🙂`;
+      }
     }
     const chosen = sess.slotsTop[idx - 1];
     if (!chosen) return "Esa opción no existe 🙂";
@@ -829,17 +853,52 @@ export async function handleInboundWhatsApp(params: {
     }
 
     await deleteSession(fromE164);
-    return (
+    const rescheduleMsg =
       `✅ Reagendado.\n\n` +
       `📅 Nueva cita: ${slotTime(chosen.start)}\n` +
       `🦷 ${sess.rescheduleTreatmentName || "Tratamiento"}\n` +
-      `👤 ${sess.reschedulePatientName || "Paciente"}`
-    );
+      `👤 ${sess.reschedulePatientName || "Paciente"}`;
+    return humanizeReply(rescheduleMsg, sess.reschedulePatientName, "confirmación de reagendado de cita").catch(() => rescheduleMsg);
   }
 
   // ── 7) No session: smart START ───────────────────────────────────────────
   if (!sess) {
     if (!intent || intent === "HELP") return renderHelpMenu(patientInfo?.name);
+
+    // Detect existing appointment before starting a new booking
+    if (intent === "BOOK") {
+      const existing = await findNextAppointmentByContactPhone({ phoneE164: fromE164 }).catch(() => null);
+      if (existing) {
+        const apptData = await getAppointmentByRecordId(existing.recordId).catch(() => null);
+        const isFuture = apptData?.start
+          ? DateTime.fromISO(apptData.start).setZone("Europe/Madrid") > DateTime.now().setZone("Europe/Madrid")
+          : false;
+        if (isFuture && apptData?.start) {
+          const dateStr = DateTime.fromISO(apptData.start)
+            .setZone("Europe/Madrid")
+            .setLocale("es")
+            .toFormat("EEEE d 'de' MMMM");
+          const timeStr = slotTime(apptData.start);
+          const treatStr = apptData.treatmentName || "una cita";
+          const warnSess: Session = {
+            createdAtMs: Date.now(),
+            stage: "ASK_NEW_BOOKING_FOR",
+            clinicId,
+            clinicRecordId,
+            rules,
+            slotsTop: [],
+            staffById: {},
+          };
+          await setSession(fromE164, warnSess, SESSION_TTL_SECONDS);
+          return (
+            `Hola 🙂 Ya tienes *${treatStr}* el *${dateStr}* a las *${timeStr}*.\n\n` +
+            `¿Esta nueva cita también es para ti, o es para otra persona?\n` +
+            `1) También es para mí\n` +
+            `2) Es para otra persona`
+          );
+        }
+      }
+    }
 
     const treatments = await listTreatments({ clinicRecordId });
     if (!treatments.length) return "⚠️ No encontré tratamientos configurados.";
@@ -898,6 +957,47 @@ export async function handleInboundWhatsApp(params: {
     return renderTreatmentsList(list);
   }
 
+  // ── 7b) Stage: ASK_NEW_BOOKING_FOR ───────────────────────────────────────
+  if (sess.stage === "ASK_NEW_BOOKING_FOR") {
+    const t = normalizeText(body);
+    const forOther =
+      t === "2" || t.includes("otra") || t.includes("otro") ||
+      t.includes("para un") || t.includes("para una");
+    const forSelf =
+      t === "1" || t.includes("para mi") || t.includes("para mí") ||
+      t === "yo" || t.includes("tambien") || t.includes("también");
+
+    let isForOther: boolean | null = forOther ? true : forSelf ? false : null;
+    if (isForOther === null) {
+      const llmKey = await parseChoiceWithLLM(
+        body,
+        [
+          { key: "SELF", label: "La cita también es para mí" },
+          { key: "OTHER", label: "La cita es para otra persona" },
+        ]
+      ).catch(() => null);
+      if (llmKey === "OTHER") isForOther = true;
+      else if (llmKey === "SELF") isForOther = false;
+    }
+
+    if (isForOther === null) {
+      return "Responde 1 (también para mí) o 2 (para otra persona) 🙂";
+    }
+
+    const treatments = await listTreatments({ clinicRecordId });
+    if (!treatments.length) return "⚠️ No encontré tratamientos configurados.";
+
+    const treatList = treatments.map((t: any) => ({ recordId: t.recordId, name: t.name }));
+    const nextStage: Session = {
+      ...sess,
+      createdAtMs: Date.now(),
+      stage: "ASK_TREATMENT",
+      bookingFor: isForOther ? "OTHER" : "SELF",
+    };
+    await setSession(fromE164, nextStage, SESSION_TTL_SECONDS);
+    return renderTreatmentsList(treatList);
+  }
+
   // ── 8) Stage: ASK_TREATMENT ──────────────────────────────────────────────
   if (sess.stage === "ASK_TREATMENT") {
     const treatments = await listTreatments({ clinicRecordId });
@@ -923,7 +1023,10 @@ export async function handleInboundWhatsApp(params: {
     let preferredDoctorMode: Session["preferredDoctorMode"] = "ANY";
     let preferredStaffId: string | undefined;
 
-    if (t === "1" || t.includes("cualquiera")) {
+    if (
+      t === "1" || t.includes("cualquiera") || t.includes("da igual") ||
+      t.includes("indiferente") || t.includes("no importa") || t.includes("no me importa")
+    ) {
       preferredDoctorMode = "ANY";
     } else {
       if (t === "2" || t.includes("especifico") || t.includes("específico")) {
@@ -938,10 +1041,24 @@ export async function handleInboundWhatsApp(params: {
         body
       );
       if (!doc) {
-        return "No encontré ese doctor 😅 Escríbeme el nombre tal cual aparece en la clínica, o responde 1) Cualquiera.";
+        const llmKey = await parseChoiceWithLLM(
+          body,
+          [
+            { key: "ANY", label: "Cualquiera, no tengo preferencia de doctor" },
+            { key: "SPECIFIC", label: "Quiero un doctor específico (conozco el nombre)" },
+          ]
+        ).catch(() => null);
+        if (llmKey === "ANY") {
+          preferredDoctorMode = "ANY";
+        } else if (llmKey === "SPECIFIC") {
+          return "Dime el nombre del doctor 🙂 (ej: Mateo)";
+        } else {
+          return "No encontré ese doctor 😅 Escríbeme el nombre tal cual aparece en la clínica, o responde 1) Cualquiera.";
+        }
+      } else {
+        preferredDoctorMode = "SPECIFIC";
+        preferredStaffId = doc.staffId;
       }
-      preferredDoctorMode = "SPECIFIC";
-      preferredStaffId = doc.staffId;
     }
 
     const next: Session = {
@@ -968,13 +1085,19 @@ export async function handleInboundWhatsApp(params: {
     const storedHas = !!(stored.dateIso || stored.preferredStartHHMM);
     const parsedHas = !!(parsed.dateIso || parsed.preferredStartHHMM);
 
-    const prefs: Preferences & { exactTime?: boolean } =
+    let prefs: Preferences & { exactTime?: boolean } =
       body === "__USE_SAVED_PREFS__" ? stored
       : storedHas ? stored
       : parsed;
 
-    if (!storedHas && !parsedHas) {
-      return "Dime un día u hora aproximada 🙂 Ej: mañana 15:00 / hoy tarde / martes por la mañana.";
+    if (!storedHas && !parsedHas && body !== "__USE_SAVED_PREFS__") {
+      const todayIso = DateTime.now().setZone("Europe/Madrid").toISODate()!;
+      const llmParsed = await parseWhenWithLLM(body, todayIso).catch(() => null);
+      if (llmParsed && (llmParsed.dateIso || llmParsed.preferredStartHHMM)) {
+        prefs = { ...prefs, ...llmParsed };
+      } else {
+        return "Dime un día u hora aproximada 🙂 Ej: mañana 15:00 / hoy tarde / martes por la mañana.";
+      }
     }
 
     const filterStaffId = sess.preferredDoctorMode === "SPECIFIC" ? sess.preferredStaffId : undefined;
@@ -1090,10 +1213,17 @@ export async function handleInboundWhatsApp(params: {
       return "¿Quieres apuntarte en lista de espera? Responde *SÍ* y te aviso si se libra un hueco 🙂";
     }
 
-    const idx = Number(t);
+    let idx = Number(t);
     const max = sess.slotsTop?.length || 0;
     if (!Number.isFinite(idx) || idx < 1 || idx > max) {
-      return `Responde 1${max >= 2 ? ", 2" : ""}${max >= 3 ? " o 3" : ""} 🙂`;
+      const slotOptions = (sess.slotsTop ?? []).map((_s, i) => ({ key: String(i + 1), label: `Opción ${i + 1}` }));
+      const llmKey = await parseChoiceWithLLM(body, slotOptions).catch(() => null);
+      const llmIdx = llmKey ? Number(llmKey) : NaN;
+      if (Number.isFinite(llmIdx) && llmIdx >= 1 && llmIdx <= max) {
+        idx = llmIdx;
+      } else {
+        return `Responde 1${max >= 2 ? ", 2" : ""}${max >= 3 ? " o 3" : ""} 🙂`;
+      }
     }
 
     const chosen = sess.slotsTop[idx - 1];
@@ -1167,7 +1297,11 @@ export async function handleInboundWhatsApp(params: {
         notas: "Creado por WhatsApp (core)",
       });
       await deleteSession(fromE164);
-      return "Listo ✅ Te apunté en lista de espera. Si se libra un hueco, te aviso por aquí.";
+      return humanizeReply(
+        "Listo ✅ Te apunté en lista de espera. Si se libra un hueco, te aviso por aquí.",
+        patientInfo?.name,
+        "paciente añadido a lista de espera"
+      ).catch(() => "Listo ✅ Te apunté en lista de espera. Si se libra un hueco, te aviso por aquí.");
     }
 
     // New time preference → re-search
@@ -1226,12 +1360,30 @@ export async function handleInboundWhatsApp(params: {
   if (sess.stage === "ASK_BOOKING_FOR") {
     const t = normalizeText(body);
 
-    if (t === "1" || t.includes("para mi")) {
+    if (t === "1" || t.includes("para mi") || t.includes("para mí") || t === "yo" || t.includes("es para mi")) {
       const next: Session = { ...sess, createdAtMs: Date.now(), bookingFor: "SELF", stage: "ASK_PATIENT_NAME" };
       await setSession(fromE164, next, SESSION_TTL_SECONDS);
       return "Perfecto 🙂 ¿Cuál es tu nombre y apellido?";
     }
-    if (t === "2" || t.includes("otra")) {
+    if (t === "2" || t.includes("otra") || t.includes("otro") || t.includes("para un") || t.includes("para una")) {
+      const next: Session = { ...sess, createdAtMs: Date.now(), bookingFor: "OTHER", stage: "ASK_OTHER_PHONE" };
+      await setSession(fromE164, next, SESSION_TTL_SECONDS);
+      return "Pásame el número en formato internacional 🙂 Ej: +34600111222\nSi no tiene teléfono, responde: *no tiene*";
+    }
+    // LLM fallback
+    const llmBookFor = await parseChoiceWithLLM(
+      body,
+      [
+        { key: "SELF", label: "La cita es para mí mismo" },
+        { key: "OTHER", label: "La cita es para otra persona" },
+      ]
+    ).catch(() => null);
+    if (llmBookFor === "SELF") {
+      const next: Session = { ...sess, createdAtMs: Date.now(), bookingFor: "SELF", stage: "ASK_PATIENT_NAME" };
+      await setSession(fromE164, next, SESSION_TTL_SECONDS);
+      return "Perfecto 🙂 ¿Cuál es tu nombre y apellido?";
+    }
+    if (llmBookFor === "OTHER") {
       const next: Session = { ...sess, createdAtMs: Date.now(), bookingFor: "OTHER", stage: "ASK_OTHER_PHONE" };
       await setSession(fromE164, next, SESSION_TTL_SECONDS);
       return "Pásame el número en formato internacional 🙂 Ej: +34600111222\nSi no tiene teléfono, responde: *no tiene*";

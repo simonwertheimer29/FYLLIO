@@ -5,6 +5,8 @@ import DemoToast, { type ToastKind } from "../../components/ui/DemoToast";
 import RulesForm from "../../components/rules/RulesForm";
 import AgendaTimeline from "../../components/agenda/AgendaTimeline";
 import AgendaWeek from "../../components/agenda/AgendaWeek";
+import InteractiveCalendar from "../../components/agenda/InteractiveCalendar";
+import RecallPanel from "../../components/actions/RecallPanel";
 import DemoShell, { type DemoSectionKey } from "../../components/layout/DemoShell";
 import ItemModal from "../../components/agenda/ItemModal";
 
@@ -862,7 +864,7 @@ const resetRulesForCurrent = () =>
 const validation = useMemo(() => validateRules(rules), [rules]);
 const [loading, setLoading] = useState(false);
 
-const [view, setView] = useState<"WEEK" | "LIST">("WEEK");
+const [view, setView] = useState<"WEEK" | "LIST" | "CALENDAR">("WEEK");
 const [anchorDayIso, setAnchorDayIso] = useState<string>(() => {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
@@ -1894,6 +1896,13 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
             >
               Lista
             </button>
+            <button
+              className={view === "CALENDAR" ? "rounded-full px-3 py-1 bg-slate-900 text-white" : "rounded-full px-3 py-1 text-slate-700"}
+              onClick={() => setView("CALENDAR")}
+              type="button"
+            >
+              Calendario
+            </button>
           </div>
 
           <div className="rounded-full border border-slate-200 bg-white p-1 text-[11px] font-semibold">
@@ -1984,7 +1993,13 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
 
         
 
-          {items ? (
+          {view === "CALENDAR" ? (
+            providerId ? (
+              <InteractiveCalendar staffId={providerId} week={weekKey} />
+            ) : (
+              <p className="text-sm text-slate-500">Selecciona un profesional para ver el calendario.</p>
+            )
+          ) : items ? (
             view === "WEEK" ? (
               <AgendaWeek
                 items={items}
@@ -2008,7 +2023,7 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
             )
           ) : (
             <div className="rounded-3xl border border-dashed border-slate-300 p-10 text-center text-slate-500 bg-white">
-              Semana <b>{weekKey}</b> sin simular. Pulsa <b>“Simular con IA”</b>.
+              Semana <b>{weekKey}</b> sin simular. Pulsa <b>"Simular con IA"</b>.
             </div>
           )}
         </div>
@@ -2329,6 +2344,11 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
               })}
             </div>
           )}
+
+          {/* Recall */}
+          <div className="rounded-3xl border border-slate-200 bg-white p-6">
+            <RecallPanel />
+          </div>
         </div>
       ) : null}
 
