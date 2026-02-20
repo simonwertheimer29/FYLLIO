@@ -275,7 +275,7 @@ export async function GET(req: Request) {
 
     const [patientMap, treatmentMap] = await Promise.all([
       fetchByRecordIds(TABLES.patients as any, patientIds, ["Nombre", "Teléfono"]),
-      fetchByRecordIds(TABLES.treatments as any, treatmentIds, ["Nombre", "Categoría"]),
+      fetchByRecordIds(TABLES.treatments as any, treatmentIds, ["Nombre"]),
     ]);
 
     const waitlistCandidates: Candidate[] = waitlistEntries
@@ -284,7 +284,7 @@ export async function GET(req: Request) {
         const tFields = w.treatmentRecordId ? treatmentMap.get(w.treatmentRecordId) : null;
         const name = String(pFields?.["Nombre"] ?? "Paciente");
         const phone = String(pFields?.["Teléfono"] ?? "");
-        const treatment = String(tFields?.["Nombre"] ?? tFields?.["Categoría"] ?? "Tratamiento");
+        const treatment = String(tFields?.["Nombre"] ?? "Tratamiento");
         if (!phone) return null;
         const createdAt = w.createdAt
           ? DateTime.fromISO(w.createdAt, { setZone: true })

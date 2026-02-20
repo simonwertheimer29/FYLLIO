@@ -43,10 +43,7 @@ export async function DELETE(
     const { id } = await params;
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-    await cancelAppointment({
-      appointmentRecordId: id,
-      origin: "Dashboard manual",
-    });
+    await cancelAppointment({ appointmentRecordId: id });
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {
