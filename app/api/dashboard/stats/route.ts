@@ -18,8 +18,10 @@ export async function GET() {
     const clinicRecordId = process.env.DEMO_CLINIC_RECORD_ID ?? "";
     const clinicId = process.env.CLINIC_ID;
 
+    const lastMondayIso = monday.minus({ weeks: 1 }).toISODate()!;
+
     // Run all fetches in parallel
-    const [todayAppts, sessionKeys, waitlistAll, weekAppts] = await Promise.all([
+    const [todayAppts, sessionKeys, waitlistAll, weekAppts, lastWeekAppts] = await Promise.all([
       listAppointmentsByDay({ dayIso: todayIso, clinicId, onlyActive: true }).catch(() => []),
       kv.keys("wa:sess:*").catch(() => [] as string[]),
       listWaitlist({
@@ -28,6 +30,7 @@ export async function GET() {
         maxRecords: 500,
       }).catch(() => []),
       listAppointmentsByWeek({ mondayIso, clinicId }).catch(() => [] as Awaited<ReturnType<typeof listAppointmentsByWeek>>),
+      listAppointmentsByWeek({ mondayIso: lastMondayIso, clinicId }).catch(() => [] as Awaited<ReturnType<typeof listAppointmentsByWeek>>),
     ]);
 
     // Week breakdown by status
@@ -61,12 +64,28 @@ export async function GET() {
         ? Math.min(100, Math.round((whatsappAppts / sessionKeys.length) * 100))
         : null;
 
+    // Last week breakdown
+    const CANCELLED_SET = new Set(["CANCELADO", "CANCELADA", "CANCELLED", "CANCELED"]);
+    const lastWeekActive = lastWeekAppts.filter((a) => {
+      const e = a.estado;
+      return !["CANCELADO", "CANCELADA", "CANCELLED", "CANCELED", "NO_SHOW", "NO SHOW", "NOSHOW"].includes(e);
+    });
+    const lastWeekCancelled = lastWeekAppts.filter((a) => CANCELLED_SET.has(a.estado));
+
     // Waitlist breakdown
     const waitlistByStatus = {
       active: waitlistAll.filter((w) => (w.estado ?? "").toUpperCase() === "ACTIVE").length,
       offered: waitlistAll.filter((w) => (w.estado ?? "").toUpperCase() === "OFFERED").length,
       booked: waitlistAll.filter((w) => (w.estado ?? "").toUpperCase() === "BOOKED").length,
     };
+
+    // ROI / automation metrics
+    const timeSavedMinByWhatsapp = sessionKeys.length * 5; // ~5 min saved per automated conversation
+    const estimatedWaitlistRevenue = waitlistByStatus.booked * 60; // €60 avg ticket per confirmed WL slot
+    const cancellationRate =
+      weekAppts.length > 0
+        ? Math.round((weekCancelled.length / weekAppts.length) * 100)
+        : null;
 
     return NextResponse.json({
       todayAppointments: todayAppts.length,
@@ -78,6 +97,15 @@ export async function GET() {
       channels,
       whatsappAppts,
       conversionPct,
+      // Last week comparison
+      lastWeekAppointments: lastWeekActive.length,
+      lastWeekCancellations: lastWeekCancelled.length,
+      weekAppointmentsDelta: weekActive.length - lastWeekActive.length,
+      weekCancellationsDelta: weekCancelled.length - lastWeekCancelled.length,
+      // ROI metrics
+      timeSavedMinByWhatsapp,
+      estimatedWaitlistRevenue,
+      cancellationRate,
       generatedAt: now.toISO(),
     });
   } catch (e: any) {

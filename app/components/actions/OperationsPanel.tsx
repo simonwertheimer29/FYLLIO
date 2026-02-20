@@ -34,6 +34,16 @@ type Data = {
 type SendStatus = "idle" | "sending" | "sent" | "error";
 type BlockStatus = "idle" | "blocking" | "blocked" | "error";
 
+const BLOCK_TYPES = [
+  "Tiempo interno",
+  "Descanso",
+  "Reunión de equipo",
+  "Formación",
+  "Admin",
+  "Otro",
+] as const;
+type BlockType = (typeof BLOCK_TYPES)[number];
+
 function buildMessage(
   candidate: Candidate,
   gap: Gap,
@@ -158,32 +168,46 @@ function GapCard({
   staffName,
   staffRecordId,
   onDismiss,
+  onBlocked,
 }: {
   gap: Gap;
   index: number;
   staffName: string;
   staffRecordId?: string;
   onDismiss: () => void;
+  onBlocked: (key: string, durationMin: number) => void;
 }) {
   const [blockStatus, setBlockStatus] = useState<BlockStatus>("idle");
   const [blockError, setBlockError] = useState<string | null>(null);
+  const [blockOpen, setBlockOpen] = useState(false);
+  const [blockType, setBlockType] = useState<BlockType>("Tiempo interno");
+  const [blockTitle, setBlockTitle] = useState("Tiempo interno");
+  const [blockDuration, setBlockDuration] = useState(gap.durationMin);
+  const [blockNotes, setBlockNotes] = useState("");
+
+  const gapKey = `${gap.dayIso}-${gap.start}`;
 
   const isPast = DateTime.fromISO(gap.startIso, { setZone: true })
     .setZone("Europe/Madrid")
     .diffNow("minutes").minutes < 0;
 
-  async function handleBlock(type: "Tiempo interno" | "Descanso") {
+  function handleTypeChange(t: BlockType) {
+    setBlockType(t);
+    setBlockTitle(t);
+  }
+
+  async function handleBlock() {
     setBlockStatus("blocking");
     setBlockError(null);
     try {
       const startDt = DateTime.fromISO(gap.startIso, { setZone: true }).toUTC();
-      const endDt   = startDt.plus({ minutes: gap.durationMin });
+      const endDt = startDt.plus({ minutes: blockDuration });
 
       const body: Record<string, unknown> = {
-        name:     type,
+        name: blockTitle || blockType,
         startIso: startDt.toISO(),
-        endIso:   endDt.toISO(),
-        notes:    `Marcado como "${type}" desde Acciones`,
+        endIso: endDt.toISO(),
+        notes: blockNotes || `Marcado como "${blockTitle || blockType}" desde Acciones`,
       };
       if (staffRecordId) body.staffRecordId = staffRecordId;
 
@@ -194,6 +218,7 @@ function GapCard({
       });
       if (!res.ok) throw new Error(await res.text());
       setBlockStatus("blocked");
+      onBlocked(gapKey, blockDuration);
       setTimeout(onDismiss, 800);
     } catch (e: any) {
       setBlockError(e.message ?? "Error");
@@ -204,10 +229,15 @@ function GapCard({
   if (blockStatus === "blocked") {
     return (
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 font-semibold">
-        ✓ Hueco marcado · se oculta en unos segundos
+        ✓ Hueco bloqueado · se oculta en unos segundos
       </div>
     );
   }
+
+  // Snap blockDuration to nearest 15min step within valid range
+  const minDur = 15;
+  const maxDur = gap.durationMin;
+  const stepCount = Math.floor((maxDur - minDur) / 15);
 
   return (
     <div
@@ -260,29 +290,192 @@ function GapCard({
       )}
 
       {/* Block actions */}
-      <div className="pt-1 border-t border-slate-100 flex items-center gap-2 flex-wrap">
-        <span className="text-xs text-slate-400 font-medium mr-1">Sin paciente:</span>
-        <button
-          onClick={() => handleBlock("Tiempo interno")}
-          disabled={blockStatus === "blocking"}
-          className="text-xs px-3 py-1.5 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-        >
-          {blockStatus === "blocking" ? "..." : "🗂 Tiempo interno"}
-        </button>
-        <button
-          onClick={() => handleBlock("Descanso")}
-          disabled={blockStatus === "blocking"}
-          className="text-xs px-3 py-1.5 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
-        >
-          {blockStatus === "blocking" ? "..." : "☕ Descanso"}
-        </button>
-        {blockError && (
-          <span className="text-xs text-red-500 mt-1 w-full">{blockError}</span>
+      <div className="pt-1 border-t border-slate-100 space-y-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-slate-400 font-medium">Sin paciente:</span>
+          <button
+            onClick={() => setBlockOpen((v) => !v)}
+            className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
+              blockOpen
+                ? "border-violet-300 bg-violet-50 text-violet-700"
+                : "border-slate-200 text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            ⏱ Reservar hueco {blockOpen ? "▲" : "▾"}
+          </button>
+        </div>
+
+        {blockOpen && (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+            {/* Tipo */}
+            <div className="space-y-1">
+              <label className="text-xs text-slate-500 font-medium">Tipo</label>
+              <select
+                value={blockType}
+                onChange={(e) => handleTypeChange(e.target.value as BlockType)}
+                className="w-full text-xs rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
+              >
+                {BLOCK_TYPES.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Título */}
+            <div className="space-y-1">
+              <label className="text-xs text-slate-500 font-medium">Título</label>
+              <input
+                type="text"
+                value={blockTitle}
+                onChange={(e) => setBlockTitle(e.target.value)}
+                placeholder="Ej. Reunión con Dr. López"
+                className="w-full text-xs rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
+              />
+            </div>
+
+            {/* Duración */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <label className="text-xs text-slate-500 font-medium">Duración</label>
+                <span className="text-xs font-semibold text-violet-700">{blockDuration} min</span>
+              </div>
+              {stepCount > 0 ? (
+                <input
+                  type="range"
+                  min={minDur}
+                  max={maxDur}
+                  step={15}
+                  value={blockDuration}
+                  onChange={(e) => setBlockDuration(Number(e.target.value))}
+                  className="w-full accent-violet-600"
+                />
+              ) : (
+                <p className="text-xs text-slate-400 italic">Hueco de {maxDur} min (fijo)</p>
+              )}
+              <div className="flex justify-between text-xs text-slate-400">
+                <span>{minDur} min</span>
+                <span>{maxDur} min</span>
+              </div>
+            </div>
+
+            {/* Notas */}
+            <div className="space-y-1">
+              <label className="text-xs text-slate-500 font-medium">Notas <span className="font-normal">(opcionales)</span></label>
+              <textarea
+                rows={2}
+                value={blockNotes}
+                onChange={(e) => setBlockNotes(e.target.value)}
+                placeholder="Visible al abrir la cita en el calendario"
+                className="w-full text-xs rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-violet-300"
+              />
+            </div>
+
+            {blockError && (
+              <p className="text-xs text-red-500">{blockError}</p>
+            )}
+
+            <button
+              onClick={handleBlock}
+              disabled={blockStatus === "blocking"}
+              className="w-full text-xs px-3 py-2 rounded-full bg-violet-600 text-white font-semibold hover:bg-violet-700 disabled:opacity-50"
+            >
+              {blockStatus === "blocking" ? "Creando..." : "✓ Confirmar bloqueo"}
+            </button>
+          </div>
         )}
       </div>
     </div>
   );
 }
+
+// ── Progress Summary (sticky header) ────────────────────────────────────────
+
+function ProgressSummary({
+  data,
+  dismissed,
+  blockedKeys,
+  blockedMin,
+  staffName,
+  onRefresh,
+}: {
+  data: Data | null;
+  dismissed: Set<string>;
+  blockedKeys: Set<string>;
+  blockedMin: number;
+  staffName: string;
+  onRefresh: () => void;
+}) {
+  if (!data) return null;
+
+  const totalGaps = data.gaps.length;
+  const withCandidates = data.gaps.filter((g) => g.candidates.length > 0).length;
+  const resolvedCount = dismissed.size;
+  const blockedCount = blockedKeys.size;
+  const pct = totalGaps > 0 ? Math.round((resolvedCount / totalGaps) * 100) : 0;
+  const recoveredRevenue = Math.round((blockedMin / 60) * 60);
+
+  return (
+    <div className="sticky top-0 z-20 -mx-6 -mt-6 mb-2 px-6 pt-4 pb-3 bg-white border-b border-slate-100 shadow-sm">
+      {/* Top row */}
+      <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+        <div>
+          <p className="text-sm font-semibold text-slate-900">
+            Semana operativa · {staffName}
+          </p>
+          <p className="text-xs text-slate-500">
+            {totalGaps} {totalGaps === 1 ? "hueco" : "huecos"} ·{" "}
+            {data.totalFreeMin} min libres ·{" "}
+            <span className="font-medium text-amber-700">~€{data.estimatedRevenueImpact} en riesgo</span>
+          </p>
+        </div>
+        <button
+          onClick={onRefresh}
+          className="text-xs px-3 py-1.5 rounded-full border border-slate-200 hover:bg-slate-50 shrink-0"
+        >
+          Refrescar
+        </button>
+      </div>
+
+      {/* Progress bar */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-slate-500">
+            {resolvedCount} de {totalGaps} resueltos
+          </span>
+          <span className="font-semibold text-slate-700">{pct}%</span>
+        </div>
+        <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-500"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Stats chips */}
+      <div className="flex items-center gap-2 mt-2 flex-wrap">
+        <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-100">
+          📋 {withCandidates} con candidatos
+        </span>
+        <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600">
+          {totalGaps - withCandidates} sin candidatos
+        </span>
+        {blockedCount > 0 && (
+          <>
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-violet-50 text-violet-700 border border-violet-100">
+              ⏱ {blockedMin} min cubiertos
+            </span>
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+              💶 €{recoveredRevenue} recuperados
+            </span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export default function OperationsPanel({
   staffId,
@@ -299,11 +492,15 @@ export default function OperationsPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [blockedKeys, setBlockedKeys] = useState<Set<string>>(new Set());
+  const [blockedMin, setBlockedMin] = useState(0);
 
   async function load() {
     setLoading(true);
     setError(null);
     setDismissed(new Set());
+    setBlockedKeys(new Set());
+    setBlockedMin(0);
     try {
       const res = await fetch(`/api/db/gaps?staffId=${staffId}&week=${week}`, {
         cache: "no-store",
@@ -323,11 +520,16 @@ export default function OperationsPanel({
   }, [staffId, week]);
 
   function dismissGap(key: string) {
-    setDismissed(prev => new Set(prev).add(key));
+    setDismissed((prev) => new Set(prev).add(key));
+  }
+
+  function markBlocked(key: string, durationMin: number) {
+    setBlockedKeys((prev) => new Set(prev).add(key));
+    setBlockedMin((prev) => prev + durationMin);
   }
 
   const visibleGaps = data
-    ? data.gaps.filter(g => !dismissed.has(`${g.dayIso}-${g.start}`))
+    ? data.gaps.filter((g) => !dismissed.has(`${g.dayIso}-${g.start}`))
     : [];
 
   const gapsByDay = visibleGaps.reduce<Record<string, Gap[]>>((acc, g) => {
@@ -339,22 +541,16 @@ export default function OperationsPanel({
   const today = DateTime.now().setZone("Europe/Madrid").toISODate();
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h3 className="text-base font-semibold text-slate-900">Tareas operativas</h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Huecos reales de la agenda · Candidatos de lista de espera y recall
-          </p>
-        </div>
-        <button
-          onClick={load}
-          className="text-xs px-3 py-1.5 rounded-full border border-slate-200 hover:bg-slate-50"
-        >
-          Refrescar
-        </button>
-      </div>
+    <div className="space-y-4">
+      {/* Sticky progress summary */}
+      <ProgressSummary
+        data={data}
+        dismissed={dismissed}
+        blockedKeys={blockedKeys}
+        blockedMin={blockedMin}
+        staffName={staffName}
+        onRefresh={load}
+      />
 
       {/* Impact banner */}
       {data && data.totalFreeMin > 0 && (
@@ -383,13 +579,15 @@ export default function OperationsPanel({
       ) : !data || visibleGaps.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center">
           <p className="text-sm text-slate-500">
-            🎉 No hay huecos libres esta semana para {staffName}
+            🎉 {dismissed.size > 0
+              ? `${dismissed.size} ${dismissed.size === 1 ? "tarea resuelta" : "tareas resueltas"} — agenda gestionada`
+              : `No hay huecos libres esta semana para ${staffName}`}
           </p>
         </div>
       ) : (
         <div className="space-y-6">
           {Object.entries(gapsByDay).map(([dayIso, gaps]) => {
-            const isToday  = dayIso === today;
+            const isToday = dayIso === today;
             const isFuture = dayIso > (today ?? "");
             const dayStartIdx =
               Object.entries(gapsByDay)
@@ -421,6 +619,7 @@ export default function OperationsPanel({
                       staffName={staffName}
                       staffRecordId={staffRecordId}
                       onDismiss={() => dismissGap(`${gap.dayIso}-${gap.start}`)}
+                      onBlocked={(key, dur) => markBlocked(key, dur)}
                     />
                   ))}
                 </div>

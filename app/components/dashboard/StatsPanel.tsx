@@ -16,6 +16,15 @@ type Stats = {
   channels: { name: string; count: number }[];
   whatsappAppts: number;
   conversionPct: number | null;
+  // Last week comparison
+  lastWeekAppointments: number;
+  lastWeekCancellations: number;
+  weekAppointmentsDelta: number;
+  weekCancellationsDelta: number;
+  // ROI metrics
+  timeSavedMinByWhatsapp: number;
+  estimatedWaitlistRevenue: number;
+  cancellationRate: number | null;
   generatedAt: string | null;
 };
 
@@ -35,6 +44,43 @@ function StatCard({
       <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{label}</p>
       <p className="mt-2 text-3xl font-extrabold text-slate-900">{value}</p>
       {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
+    </div>
+  );
+}
+
+function Delta({ delta, invert }: { delta: number; invert?: boolean }) {
+  if (delta === 0) return <span className="text-slate-400 text-xs font-semibold">= igual</span>;
+  const good = invert ? delta < 0 : delta > 0;
+  return (
+    <span
+      className={`text-xs font-semibold ${good ? "text-emerald-600" : "text-red-500"}`}
+    >
+      {delta > 0 ? "+" : ""}{delta} {good ? "↑" : "↓"}
+    </span>
+  );
+}
+
+function RoiCard({
+  icon,
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  sub?: string;
+  accent: string;
+}) {
+  return (
+    <div className={`rounded-2xl border p-4 bg-white flex items-start gap-3 ${accent}`}>
+      <span className="text-2xl leading-none mt-0.5">{icon}</span>
+      <div>
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">{label}</p>
+        <p className="mt-1 text-xl font-extrabold text-slate-900">{value}</p>
+        {sub && <p className="mt-0.5 text-xs text-slate-500">{sub}</p>}
+      </div>
     </div>
   );
 }
@@ -103,7 +149,7 @@ export default function StatsPanel() {
             <StatCard
               label="Cancelaciones semana"
               value={stats.weekCancellations}
-              sub="esta semana"
+              sub={stats.cancellationRate !== null ? `${stats.cancellationRate}% tasa` : "esta semana"}
               accent="border-red-200"
             />
             <StatCard
@@ -124,6 +170,75 @@ export default function StatsPanel() {
               sub="citas / sesiones activas"
               accent="border-purple-200"
             />
+          </div>
+
+          {/* ROI de Fyllio */}
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-slate-900">ROI de Fyllio</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <RoiCard
+                icon="⏱"
+                label="Tiempo ahorrado en gestión"
+                value={stats.timeSavedMinByWhatsapp >= 60
+                  ? `${(stats.timeSavedMinByWhatsapp / 60).toFixed(1)} h`
+                  : `${stats.timeSavedMinByWhatsapp} min`}
+                sub={`${stats.activeSessions} conversaciones automatizadas × 5 min`}
+                accent="border-violet-200"
+              />
+              <RoiCard
+                icon="💶"
+                label="Ingresos recuperados (lista espera)"
+                value={`€${stats.estimatedWaitlistRevenue}`}
+                sub={`${stats.waitlist.booked} citas confirmadas × €60 ticket medio`}
+                accent="border-emerald-200"
+              />
+              <RoiCard
+                icon="📋"
+                label="Lista de espera activa"
+                value={String(stats.waitlist.active)}
+                sub={`${stats.waitlist.offered} contactados · ${stats.waitlist.booked} confirmados`}
+                accent="border-sky-200"
+              />
+            </div>
+          </div>
+
+          {/* Evolución vs semana anterior */}
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-slate-900">Evolución vs semana anterior</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="space-y-1">
+                <p className="text-xs text-slate-500 font-medium">Citas esta semana</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-extrabold text-slate-900">{stats.weekAppointments}</span>
+                  <Delta delta={stats.weekAppointmentsDelta} />
+                </div>
+                <p className="text-xs text-slate-400">vs {stats.lastWeekAppointments} la semana pasada</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-slate-500 font-medium">Cancelaciones</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-extrabold text-slate-900">{stats.weekCancellations}</span>
+                  <Delta delta={stats.weekCancellationsDelta} invert />
+                </div>
+                <p className="text-xs text-slate-400">vs {stats.lastWeekCancellations} la semana pasada</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-slate-500 font-medium">Tasa cancelación</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-extrabold text-slate-900">
+                    {stats.cancellationRate !== null ? `${stats.cancellationRate}%` : "—"}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">esta semana</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-slate-500 font-medium">Sesiones WhatsApp</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-extrabold text-slate-900">{stats.activeSessions}</span>
+                </div>
+                <p className="text-xs text-slate-400">activas ahora</p>
+              </div>
+            </div>
           </div>
 
           {/* Waitlist breakdown */}

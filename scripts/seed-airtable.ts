@@ -438,7 +438,6 @@ async function main() {
       "Estado":            "ACTIVE",
       "Prioridad":         entry.priority,
       "Urgencia_Nivel":    entry.urgency,
-      "Dias_Permitidos":   ["LUN", "MAR", "MIE", "JUE", "VIE"],
       "Permite_Fuera_Rango": false,
       "Notas":             entry.notes ? `${entry.notes} [${SEED_TAG}]` : SEED_TAG,
     };

@@ -16,6 +16,13 @@ type Appt = {
   status?: string;
 };
 
+type GapInfo = {
+  dayIso: string;
+  start: string; // "HH:mm"
+  end: string;   // "HH:mm"
+  durationMin: number;
+};
+
 type Props = {
   staffId: string;
   week: string; // YYYY-MM-DD (Monday)
@@ -247,16 +254,23 @@ function NewApptModal({
 // ── Main component ────────────────────────────────────────────────────────────
 export default function InteractiveCalendar({ staffId, week, staffRecordId }: Props) {
   const [appts, setAppts] = useState<Appt[]>([]);
+  const [gaps, setGaps] = useState<GapInfo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showGaps, setShowGaps] = useState(true);
   const [editAppt, setEditAppt] = useState<Appt | null>(null);
   const [newSlot, setNewSlot] = useState<{ start: Date; end: Date } | null>(null);
 
   async function load() {
     setLoading(true);
     try {
-      const res = await fetch(`/api/db/week?staffId=${staffId}&week=${week}`, { cache: "no-store" });
-      const json = await res.json();
-      setAppts(json.appointments ?? []);
+      const [weekRes, gapsRes] = await Promise.all([
+        fetch(`/api/db/week?staffId=${staffId}&week=${week}`, { cache: "no-store" }),
+        fetch(`/api/db/gaps?staffId=${staffId}&week=${week}`, { cache: "no-store" }),
+      ]);
+      const weekJson = await weekRes.json();
+      const gapsJson = await gapsRes.json();
+      setAppts(weekJson.appointments ?? []);
+      setGaps(gapsJson.gaps ?? []);
     } finally {
       setLoading(false);
     }
@@ -266,7 +280,7 @@ export default function InteractiveCalendar({ staffId, week, staffRecordId }: Pr
     if (staffId && week) load();
   }, [staffId, week]);
 
-  const events = appts.map((a) => ({
+  const apptEvents = appts.map((a) => ({
     id: a.recordId,
     title: `${a.patientName}\n${a.type}`,
     start: a.start,
@@ -277,13 +291,44 @@ export default function InteractiveCalendar({ staffId, week, staffRecordId }: Pr
     textColor: "#fff",
   }));
 
+  const gapEvents = showGaps
+    ? gaps.map((g) => ({
+        id: `gap-${g.dayIso}-${g.start}`,
+        start: `${g.dayIso}T${g.start}:00`,
+        end: `${g.dayIso}T${g.end}:00`,
+        display: "background" as const,
+        backgroundColor: "#fef3c7",
+        extendedProps: { isGap: true, durationMin: g.durationMin },
+      }))
+    : [];
+
+  const allEvents = [...apptEvents, ...gapEvents];
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-      {loading && (
-        <div className="px-6 py-3 border-b border-slate-100 text-sm text-slate-500">
-          Cargando agenda...
+      {/* Calendar toolbar */}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          {loading && (
+            <span className="text-xs text-slate-400">Cargando...</span>
+          )}
+          {!loading && gaps.length > 0 && (
+            <span className="text-xs text-slate-400">
+              {gaps.length} {gaps.length === 1 ? "hueco disponible" : "huecos disponibles"} esta semana
+            </span>
+          )}
         </div>
-      )}
+        <button
+          onClick={() => setShowGaps((v) => !v)}
+          className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
+            showGaps
+              ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+              : "text-slate-500 border-slate-200 hover:bg-slate-50"
+          }`}
+        >
+          {showGaps ? "🟡 Ocultar huecos" : "🟡 Mostrar huecos disponibles"}
+        </button>
+      </div>
 
       <div className="p-4">
         <FullCalendar
@@ -302,11 +347,12 @@ export default function InteractiveCalendar({ staffId, week, staffRecordId }: Pr
             right: "timeGridWeek,timeGridDay",
           }}
           buttonText={{ today: "Hoy", week: "Semana", day: "Día" }}
-          events={events}
+          events={allEvents}
           editable={true}
           selectable={true}
           selectMirror={true}
           eventClick={(info) => {
+            if (info.event.extendedProps.isGap) return;
             setEditAppt(info.event.extendedProps.appt as Appt);
           }}
           select={(info) => {
