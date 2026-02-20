@@ -177,6 +177,7 @@ function GapCard({
   onDismiss: () => void;
   onBlocked: (key: string, durationMin: number) => void;
 }) {
+  const [isOpen, setIsOpen] = useState(false);
   const [blockStatus, setBlockStatus] = useState<BlockStatus>("idle");
   const [blockError, setBlockError] = useState<string | null>(null);
   const [blockOpen, setBlockOpen] = useState(false);
@@ -241,20 +242,29 @@ function GapCard({
 
   return (
     <div
-      className={`rounded-2xl border bg-white p-4 space-y-3 ${
+      className={`rounded-2xl border bg-white ${
         isPast ? "border-slate-200 opacity-60" : "border-slate-200"
       }`}
     >
-      {/* Header */}
-      <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+      {/* Collapsed header — always visible, click to expand */}
+      <button
+        type="button"
+        onClick={() => setIsOpen((v) => !v)}
+        className="w-full flex items-center justify-between gap-2 p-4 text-left hover:bg-slate-50 rounded-2xl transition-colors"
+      >
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full shrink-0">
             #{index}
           </span>
           <span className="text-sm font-semibold text-slate-900">
             {gap.start} – {gap.end}
           </span>
-          <span className="text-xs text-slate-500">{gap.durationMin} min libre</span>
+          <span className="text-xs text-slate-500">{gap.durationMin} min</span>
+          {gap.candidates.length > 0 && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 border border-sky-100">
+              {gap.candidates.length} candidato{gap.candidates.length !== 1 ? "s" : ""}
+            </span>
+          )}
           {isPast && (
             <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
               Pasado
@@ -262,128 +272,136 @@ function GapCard({
           )}
         </div>
 
-        <button
-          onClick={onDismiss}
-          className="text-slate-300 hover:text-slate-500 text-sm leading-none shrink-0"
-          title="Descartar tarea"
-        >
-          ✕
-        </button>
-      </div>
-
-      {/* Candidates */}
-      {gap.candidates.length > 0 ? (
-        <div className="space-y-0">
-          {gap.candidates.map((c, i) => (
-            <CandidateRow
-              key={`${c.phone}-${i}`}
-              candidate={c}
-              gap={gap}
-              staffName={staffName}
-            />
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-slate-400 italic">
-          Sin candidatos en lista de espera ni recall.
-        </p>
-      )}
-
-      {/* Block actions */}
-      <div className="pt-1 border-t border-slate-100 space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-400 font-medium">Sin paciente:</span>
+        <div className="flex items-center gap-2 shrink-0">
           <button
-            onClick={() => setBlockOpen((v) => !v)}
-            className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
-              blockOpen
-                ? "border-violet-300 bg-violet-50 text-violet-700"
-                : "border-slate-200 text-slate-600 hover:bg-slate-50"
-            }`}
+            onClick={(e) => { e.stopPropagation(); onDismiss(); }}
+            className="text-slate-300 hover:text-slate-500 text-sm leading-none"
+            title="Descartar tarea"
           >
-            ⏱ Reservar hueco {blockOpen ? "▲" : "▾"}
+            ✕
           </button>
+          <span className="text-slate-400 text-xs">{isOpen ? "▲" : "▾"}</span>
         </div>
+      </button>
 
-        {blockOpen && (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
-            {/* Tipo */}
-            <div className="space-y-1">
-              <label className="text-xs text-slate-500 font-medium">Tipo</label>
-              <select
-                value={blockType}
-                onChange={(e) => handleTypeChange(e.target.value as BlockType)}
-                className="w-full text-xs rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
-              >
-                {BLOCK_TYPES.map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Título */}
-            <div className="space-y-1">
-              <label className="text-xs text-slate-500 font-medium">Título</label>
-              <input
-                type="text"
-                value={blockTitle}
-                onChange={(e) => setBlockTitle(e.target.value)}
-                placeholder="Ej. Reunión con Dr. López"
-                className="w-full text-xs rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
-              />
-            </div>
-
-            {/* Duración */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <label className="text-xs text-slate-500 font-medium">Duración</label>
-                <span className="text-xs font-semibold text-violet-700">{blockDuration} min</span>
-              </div>
-              {stepCount > 0 ? (
-                <input
-                  type="range"
-                  min={minDur}
-                  max={maxDur}
-                  step={15}
-                  value={blockDuration}
-                  onChange={(e) => setBlockDuration(Number(e.target.value))}
-                  className="w-full accent-violet-600"
+      {/* Expanded body */}
+      {isOpen && (
+        <div className="px-4 pb-4 space-y-3 border-t border-slate-100">
+          {/* Candidates */}
+          {gap.candidates.length > 0 ? (
+            <div className="space-y-0 pt-3">
+              {gap.candidates.map((c, i) => (
+                <CandidateRow
+                  key={`${c.phone}-${i}`}
+                  candidate={c}
+                  gap={gap}
+                  staffName={staffName}
                 />
-              ) : (
-                <p className="text-xs text-slate-400 italic">Hueco de {maxDur} min (fijo)</p>
-              )}
-              <div className="flex justify-between text-xs text-slate-400">
-                <span>{minDur} min</span>
-                <span>{maxDur} min</span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-slate-400 italic pt-3">
+              Sin candidatos en lista de espera ni recall para este hueco.
+            </p>
+          )}
+
+          {/* Block actions */}
+          <div className="pt-1 border-t border-slate-100 space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-medium">Sin paciente:</span>
+              <button
+                onClick={() => setBlockOpen((v) => !v)}
+                className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
+                  blockOpen
+                    ? "border-violet-300 bg-violet-50 text-violet-700"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                ⏱ Reservar hueco {blockOpen ? "▲" : "▾"}
+              </button>
+            </div>
+
+            {blockOpen && (
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 space-y-3">
+                {/* Tipo */}
+                <div className="space-y-1">
+                  <label className="text-xs text-slate-500 font-medium">Tipo</label>
+                  <select
+                    value={blockType}
+                    onChange={(e) => handleTypeChange(e.target.value as BlockType)}
+                    className="w-full text-xs rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                  >
+                    {BLOCK_TYPES.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Título */}
+                <div className="space-y-1">
+                  <label className="text-xs text-slate-500 font-medium">Título</label>
+                  <input
+                    type="text"
+                    value={blockTitle}
+                    onChange={(e) => setBlockTitle(e.target.value)}
+                    placeholder="Ej. Reunión con Dr. López"
+                    className="w-full text-xs rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                  />
+                </div>
+
+                {/* Duración */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-slate-500 font-medium">Duración</label>
+                    <span className="text-xs font-semibold text-violet-700">{blockDuration} min</span>
+                  </div>
+                  {stepCount > 0 ? (
+                    <input
+                      type="range"
+                      min={minDur}
+                      max={maxDur}
+                      step={15}
+                      value={blockDuration}
+                      onChange={(e) => setBlockDuration(Number(e.target.value))}
+                      className="w-full accent-violet-600"
+                    />
+                  ) : (
+                    <p className="text-xs text-slate-400 italic">Hueco de {maxDur} min (fijo)</p>
+                  )}
+                  <div className="flex justify-between text-xs text-slate-400">
+                    <span>{minDur} min</span>
+                    <span>{maxDur} min</span>
+                  </div>
+                </div>
+
+                {/* Notas */}
+                <div className="space-y-1">
+                  <label className="text-xs text-slate-500 font-medium">Notas <span className="font-normal">(opcionales)</span></label>
+                  <textarea
+                    rows={2}
+                    value={blockNotes}
+                    onChange={(e) => setBlockNotes(e.target.value)}
+                    placeholder="Visible al abrir la cita en el calendario"
+                    className="w-full text-xs rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-violet-300"
+                  />
+                </div>
+
+                {blockError && (
+                  <p className="text-xs text-red-500">{blockError}</p>
+                )}
+
+                <button
+                  onClick={handleBlock}
+                  disabled={blockStatus === "blocking"}
+                  className="w-full text-xs px-3 py-2 rounded-full bg-violet-600 text-white font-semibold hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {blockStatus === "blocking" ? "Creando..." : "✓ Confirmar bloqueo"}
+                </button>
               </div>
-            </div>
-
-            {/* Notas */}
-            <div className="space-y-1">
-              <label className="text-xs text-slate-500 font-medium">Notas <span className="font-normal">(opcionales)</span></label>
-              <textarea
-                rows={2}
-                value={blockNotes}
-                onChange={(e) => setBlockNotes(e.target.value)}
-                placeholder="Visible al abrir la cita en el calendario"
-                className="w-full text-xs rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-violet-300"
-              />
-            </div>
-
-            {blockError && (
-              <p className="text-xs text-red-500">{blockError}</p>
             )}
-
-            <button
-              onClick={handleBlock}
-              disabled={blockStatus === "blocking"}
-              className="w-full text-xs px-3 py-2 rounded-full bg-violet-600 text-white font-semibold hover:bg-violet-700 disabled:opacity-50"
-            >
-              {blockStatus === "blocking" ? "Creando..." : "✓ Confirmar bloqueo"}
-            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

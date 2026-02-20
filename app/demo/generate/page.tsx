@@ -2062,7 +2062,7 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
       </p>
     </div>
 
-<WaitlistPanel clinicRecordId="CLINIC_001" />
+<WaitlistPanel clinicRecordId="CLINIC_001" onGoToActions={() => setSection("ACTIONS")} />
   </div>
 ) : null}
 

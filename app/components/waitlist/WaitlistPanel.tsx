@@ -48,7 +48,13 @@ function chipClass(estado: string) {
 
 type ViewMode = "TABLE" | "CARDS";
 
-export default function WaitlistPanel({ clinicRecordId }: { clinicRecordId: string }) {
+export default function WaitlistPanel({
+  clinicRecordId,
+  onGoToActions,
+}: {
+  clinicRecordId: string;
+  onGoToActions?: () => void;
+}) {
   const [items, setItems] = useState<WaitItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -130,10 +136,6 @@ function toDbEstado(ui: "Esperando" | "Contactado" | "Aceptado" | "Expirado") {
     return copy;
   }, [items]);
 
-  const nextToContact = useMemo(() => {
-    return sorted.find((x) => (x.estado ?? "") === "Esperando") ?? null;
-  }, [sorted]);
-
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -174,29 +176,6 @@ function toDbEstado(ui: "Esperando" | "Contactado" | "Aceptado" | "Expirado") {
         </div>
       </div>
 
-      {/* CTA FINAL */}
-      <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-center justify-between gap-3 flex-wrap">
-        <div className="min-w-0">
-          <p className="text-xs font-extrabold text-slate-700 uppercase tracking-wide">Siguiente recomendado</p>
-          {nextToContact ? (
-            <p className="mt-1 text-sm font-semibold text-slate-900">
-              {asText(nextToContact.paciente) || nextToContact.waitingId || nextToContact.id} · Prioridad{" "}
-              <b>{priorityNumber(nextToContact.prioridad)}</b> · {nextToContact.preferencia ?? "Indiferente"}
-            </p>
-          ) : (
-            <p className="mt-1 text-sm text-slate-600">No hay pacientes “Esperando”.</p>
-          )}
-        </div>
-
-        <button
-          type="button"
-          disabled={!nextToContact}
-          onClick={() => nextToContact && setStatus(nextToContact.id, "Contactado")}
-          className="text-xs px-4 py-2 rounded-full bg-slate-900 text-white font-semibold hover:bg-slate-800 disabled:opacity-50"
-        >
-          Contactar siguiente
-        </button>
-      </div>
 
       {loading ? (
         <p className="mt-4 text-sm text-slate-500">Cargando...</p>
@@ -216,7 +195,7 @@ function toDbEstado(ui: "Esperando" | "Contactado" | "Aceptado" | "Expirado") {
                 <th className="px-4 py-3 font-semibold">Tratamiento</th>
                 <th className="px-4 py-3 font-semibold">Profesional</th>
                 <th className="px-4 py-3 font-semibold">Últ. contacto</th>
-    
+                <th className="px-4 py-3 font-semibold"></th>
               </tr>
             </thead>
 
@@ -250,8 +229,17 @@ function toDbEstado(ui: "Esperando" | "Contactado" | "Aceptado" | "Expirado") {
                     <td className="px-4 py-3 text-slate-700">{asText(it.tratamiento) || "—"}</td>
                     <td className="px-4 py-3 text-slate-700">{asText(it.profesional) || "—"}</td>
                     <td className="px-4 py-3 text-xs text-slate-600">{fmtDate(it.ultimoContacto)}</td>
-
-                
+                    <td className="px-4 py-3">
+                      {onGoToActions && (
+                        <button
+                          type="button"
+                          onClick={onGoToActions}
+                          className="text-xs px-3 py-1.5 rounded-full border border-slate-200 hover:bg-slate-50 font-medium text-slate-700 whitespace-nowrap"
+                        >
+                          Ver acciones
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
@@ -301,6 +289,15 @@ function toDbEstado(ui: "Esperando" | "Contactado" | "Aceptado" | "Expirado") {
                   </div>
 
                   <div className="flex flex-col gap-2">
+                    {onGoToActions && (
+                      <button
+                        type="button"
+                        onClick={onGoToActions}
+                        className="text-xs px-3 py-2 rounded-full border border-slate-200 hover:bg-slate-50 font-semibold text-slate-700"
+                      >
+                        Ver acciones
+                      </button>
+                    )}
                     <button
                       className="text-xs px-3 py-2 rounded-full bg-slate-900 text-white font-semibold hover:bg-slate-800 disabled:opacity-50"
                       onClick={() => setStatus(it.id, "Contactado")}

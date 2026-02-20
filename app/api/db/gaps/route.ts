@@ -8,7 +8,7 @@ import { DateTime } from "luxon";
 import { listWaitlist } from "../../../lib/scheduler/repo/waitlistRepo";
 
 const ZONE = "Europe/Madrid";
-const MIN_GAP_MIN = 20; // ignore gaps shorter than this
+const MIN_GAP_MIN = 30; // minimum gap to offer as bookable slot (= shortest treatment: Revisión 30 min)
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -116,8 +116,13 @@ export async function GET(req: Request) {
       "CANCELADO", "CANCELADA", "CANCELED", "CANCELLED", "NO_SHOW", "NO SHOW", "NOSHOW",
     ]);
 
+    // Use the staff's Airtable record ID for filtering (more reliable than formula field)
+    const staffRecordId = staffRec.id;
     const apptRecs = await base(TABLES.appointments as any)
-      .select({ filterByFormula: `{Profesional_id}='${escVal(staffId)}'`, maxRecords: 500 })
+      .select({
+        filterByFormula: `FIND('${escVal(staffRecordId)}', ARRAYJOIN({Profesional})) > 0`,
+        maxRecords: 500,
+      })
       .all();
 
     // 3) Build per-day appointment blocks for Mon–Fri
