@@ -91,6 +91,7 @@ type Session = {
   pendingStart?: string;
   pendingEnd?: string;
   bookingFor?: "SELF" | "OTHER";
+  knownPatientName?: string;   // known from ASK_NEW_BOOKING_FOR when patient is already in system
   otherPhoneE164?: string;
   useTutorPhone?: boolean;
 
@@ -436,6 +437,65 @@ async function searchSlots(params: {
   return { slots, staffById };
 }
 
+// Finalizes a booking when patient identity is already known.
+// Extracted from ASK_PATIENT_NAME so it can be called from multiple points.
+async function confirmBookingWithName(params: {
+  fromE164: string;
+  sess: Session;  // must have pendingHoldId, pendingStart, pendingEnd, pendingStaffRecordId set
+  name: string;
+}): Promise<string> {
+  const { fromE164, sess, name } = params;
+
+  if (!sess.pendingHoldId || !sess.pendingStart || !sess.pendingEnd) {
+    await deleteSession(fromE164);
+    return "Ese hueco ya no está disponible 😕 Escribe *cita mañana* y te doy nuevas opciones.";
+  }
+
+  const patientPhone =
+    sess.bookingFor === "OTHER"
+      ? (sess.useTutorPhone ? fromE164 : (sess.otherPhoneE164 || fromE164))
+      : fromE164;
+
+  try {
+    const patient = await upsertPatientByPhone({
+      name,
+      phoneE164: patientPhone,
+      clinicRecordId: sess.clinicRecordId!,
+    });
+
+    await confirmHoldToAppointment({
+      holdId: sess.pendingHoldId,
+      rules: sess.rules,
+      patientName: name,
+      createAppointment: async (appt) => {
+        const created = await createAppointment({
+          name,
+          startIso: DateTime.fromISO(appt.start).toISO({ suppressMilliseconds: true })!,
+          endIso: DateTime.fromISO(appt.end).toISO({ suppressMilliseconds: true })!,
+          clinicRecordId: sess.clinicRecordId!,
+          staffRecordId: sess.pendingStaffRecordId,
+          sillonRecordId: sess.pendingSillonRecordId,
+          treatmentRecordId: sess.treatmentRecordId!,
+          patientRecordId: patient.recordId,
+        });
+        return created.recordId;
+      },
+    });
+
+    await deleteSession(fromE164);
+    const confirmMsg =
+      `✅ Cita confirmada.\n\n` +
+      `👤 ${name}\n` +
+      `🦷 ${sess.treatmentName}\n` +
+      `📅 ${slotTime(sess.pendingStart)}`;
+    return await humanizeReply(confirmMsg, name).catch(() => confirmMsg);
+  } catch (e) {
+    console.error("[confirmBookingWithName] failed", e);
+    await deleteSession(fromE164);
+    return "Ese hueco ya no está disponible 😕 Escribe *cita mañana* y te doy nuevas opciones.";
+  }
+}
+
 // Creates a hold + moves session to ASK_BOOKING_FOR
 async function holdSlotAndAskBookingFor(params: {
   fromE164: string;
@@ -462,10 +522,9 @@ async function holdSlotAndAskBookingFor(params: {
   const sillonRecordId = await getSillonRecordIdBySillonId(chairIdToSillonId(slot.chairId));
   const providerName = staffById?.[slot.providerId]?.name ?? slot.providerId;
 
-  const next: Session = {
+  const holdBase: Session = {
     ...sess,
     createdAtMs: Date.now(),
-    stage: "ASK_BOOKING_FOR",
     slotsTop: [slot],
     staffById,
     pendingHoldId: hold.id,
@@ -474,11 +533,30 @@ async function holdSlotAndAskBookingFor(params: {
     pendingStart: slot.start,
     pendingEnd: slot.end,
   };
-  await setSession(fromE164, next, SESSION_TTL_SECONDS);
 
+  const slotInfo = `📅 ${slotTime(slot.start)} con ${providerName}`;
+
+  // Skip ASK_BOOKING_FOR if bookingFor already determined (from ASK_NEW_BOOKING_FOR)
+  if (sess.bookingFor === "SELF" && sess.knownPatientName) {
+    return confirmBookingWithName({ fromE164, sess: holdBase, name: sess.knownPatientName });
+  }
+  if (sess.bookingFor === "SELF") {
+    const next: Session = { ...holdBase, stage: "ASK_PATIENT_NAME" };
+    await setSession(fromE164, next, SESSION_TTL_SECONDS);
+    return `Perfecto 🙂 Tengo ese hueco:\n\n${slotInfo}\n\n¿Cuál es tu nombre y apellido?`;
+  }
+  if (sess.bookingFor === "OTHER") {
+    const next: Session = { ...holdBase, stage: "ASK_OTHER_PHONE" };
+    await setSession(fromE164, next, SESSION_TTL_SECONDS);
+    return `Perfecto 🙂 Tengo ese hueco:\n\n${slotInfo}\n\nPásame el número de la otra persona 🙂 Ej: +34600111222\nSi no tiene teléfono, responde: *no tiene*`;
+  }
+
+  // Default: ask who the appointment is for
+  const next: Session = { ...holdBase, stage: "ASK_BOOKING_FOR" };
+  await setSession(fromE164, next, SESSION_TTL_SECONDS);
   return (
     `Perfecto 🙂 Tengo ese hueco disponible:\n\n` +
-    `📅 ${slotTime(slot.start)} con ${providerName}\n\n` +
+    `${slotInfo}\n\n` +
     `¿La cita es para ti o para otra persona?\n1) Para mí\n2) Para otra persona`
   );
 }
@@ -888,6 +966,7 @@ export async function handleInboundWhatsApp(params: {
             rules,
             slotsTop: [],
             staffById: {},
+            knownPatientName: patientInfo?.name ?? undefined,
           };
           await setSession(fromE164, warnSess, SESSION_TTL_SECONDS);
           return (
@@ -1245,17 +1324,29 @@ export async function handleInboundWhatsApp(params: {
 
     const sillonRecordId = await getSillonRecordIdBySillonId(chairIdToSillonId(chosen.chairId));
 
-    const next: Session = {
+    const holdBase: Session = {
       ...sess,
       createdAtMs: Date.now(),
-      stage: "ASK_BOOKING_FOR",
       pendingHoldId: hold.id,
       pendingStaffRecordId: staffRecordId,
       pendingSillonRecordId: sillonRecordId || undefined,
       pendingStart: chosen.start,
       pendingEnd: chosen.end,
     };
-    await setSession(fromE164, next, SESSION_TTL_SECONDS);
+
+    // Skip ASK_BOOKING_FOR if bookingFor already determined (from ASK_NEW_BOOKING_FOR)
+    if (sess.bookingFor === "SELF" && sess.knownPatientName) {
+      return confirmBookingWithName({ fromE164, sess: holdBase, name: sess.knownPatientName });
+    }
+    if (sess.bookingFor === "SELF") {
+      await setSession(fromE164, { ...holdBase, stage: "ASK_PATIENT_NAME" }, SESSION_TTL_SECONDS);
+      return "Perfecto 🙂 ¿Cuál es tu nombre y apellido?";
+    }
+    if (sess.bookingFor === "OTHER") {
+      await setSession(fromE164, { ...holdBase, stage: "ASK_OTHER_PHONE" }, SESSION_TTL_SECONDS);
+      return "Pásame el número de la otra persona 🙂 Ej: +34600111222\nSi no tiene teléfono, responde: *no tiene*";
+    }
+    await setSession(fromE164, { ...holdBase, stage: "ASK_BOOKING_FOR" }, SESSION_TTL_SECONDS);
     return `Perfecto 🙂 ¿La cita es para ti o para otra persona?\n1) Para mí\n2) Para otra persona`;
   }
 
@@ -1415,55 +1506,7 @@ export async function handleInboundWhatsApp(params: {
   if (sess.stage === "ASK_PATIENT_NAME") {
     const name = body.trim();
     if (name.length < 3) return "¿Me lo repites? Nombre y apellido 🙂";
-
-    if (!sess.pendingHoldId || !sess.pendingStart || !sess.pendingEnd) {
-      await deleteSession(fromE164);
-      return "Ese hueco ya no está disponible 😕 Escribe *cita mañana* y te doy nuevas opciones.";
-    }
-
-    const patientPhone =
-      sess.bookingFor === "OTHER"
-        ? (sess.useTutorPhone ? fromE164 : (sess.otherPhoneE164 || fromE164))
-        : fromE164;
-
-    try {
-      const patient = await upsertPatientByPhone({
-        name,
-        phoneE164: patientPhone,
-        clinicRecordId: sess.clinicRecordId!,
-      });
-
-      await confirmHoldToAppointment({
-        holdId: sess.pendingHoldId,
-        rules: sess.rules,
-        patientName: name,
-        createAppointment: async (appt) => {
-          const created = await createAppointment({
-            name,
-            startIso: DateTime.fromISO(appt.start).toISO({ suppressMilliseconds: true })!,
-            endIso: DateTime.fromISO(appt.end).toISO({ suppressMilliseconds: true })!,
-            clinicRecordId: sess.clinicRecordId!,
-            staffRecordId: sess.pendingStaffRecordId,
-            sillonRecordId: sess.pendingSillonRecordId,
-            treatmentRecordId: sess.treatmentRecordId!,
-            patientRecordId: patient.recordId,
-          });
-          return created.recordId;
-        },
-      });
-
-      await deleteSession(fromE164);
-      const confirmMsg =
-        `✅ Cita confirmada.\n\n` +
-        `👤 ${name}\n` +
-        `🦷 ${sess.treatmentName}\n` +
-        `📅 ${slotTime(sess.pendingStart)}`;
-      return await humanizeReply(confirmMsg, name).catch(() => confirmMsg);
-    } catch (e) {
-      console.error("[ASK_PATIENT_NAME] confirm failed", e);
-      await deleteSession(fromE164);
-      return "Ese hueco ya no está disponible 😕 Escribe *cita mañana* y te doy nuevas opciones.";
-    }
+    return confirmBookingWithName({ fromE164, sess, name });
   }
 
   // ── Fallback ─────────────────────────────────────────────────────────────

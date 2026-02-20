@@ -19,6 +19,7 @@ type Appt = {
 type Props = {
   staffId: string;
   week: string; // YYYY-MM-DD (Monday)
+  staffRecordId?: string; // Airtable record ID for the Profesional link
 };
 
 // Convert JS Date → UTC ISO string for Airtable PATCH
@@ -142,12 +143,14 @@ function NewApptModal({
   start,
   end,
   staffId,
+  staffRecordId,
   onClose,
   onSaved,
 }: {
   start: Date;
   end: Date;
   staffId: string;
+  staffRecordId?: string;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -168,6 +171,7 @@ function NewApptModal({
           name: patientName,
           startIso: toUtcIso(start),
           endIso: toUtcIso(end),
+          staffRecordId,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -241,7 +245,7 @@ function NewApptModal({
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function InteractiveCalendar({ staffId, week }: Props) {
+export default function InteractiveCalendar({ staffId, week, staffRecordId }: Props) {
   const [appts, setAppts] = useState<Appt[]>([]);
   const [loading, setLoading] = useState(true);
   const [editAppt, setEditAppt] = useState<Appt | null>(null);
@@ -314,6 +318,7 @@ export default function InteractiveCalendar({ staffId, week }: Props) {
               await patchAppt(recordId, {
                 startIso: toUtcIso(info.event.start!),
                 endIso: toUtcIso(info.event.end!),
+                ...(staffRecordId ? { staffRecordId } : {}),
               });
               load();
             } catch (e) {
@@ -327,6 +332,7 @@ export default function InteractiveCalendar({ staffId, week }: Props) {
               await patchAppt(recordId, {
                 startIso: toUtcIso(info.event.start!),
                 endIso: toUtcIso(info.event.end!),
+                ...(staffRecordId ? { staffRecordId } : {}),
               });
               load();
             } catch (e) {
@@ -350,6 +356,7 @@ export default function InteractiveCalendar({ staffId, week }: Props) {
           start={newSlot.start}
           end={newSlot.end}
           staffId={staffId}
+          staffRecordId={staffRecordId}
           onClose={() => setNewSlot(null)}
           onSaved={() => { setNewSlot(null); load(); }}
         />

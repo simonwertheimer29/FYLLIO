@@ -7,6 +7,7 @@ import AgendaTimeline from "../../components/agenda/AgendaTimeline";
 import AgendaWeek from "../../components/agenda/AgendaWeek";
 import InteractiveCalendar from "../../components/agenda/InteractiveCalendar";
 import RecallPanel from "../../components/actions/RecallPanel";
+import OperationsPanel from "../../components/actions/OperationsPanel";
 import DemoShell, { type DemoSectionKey } from "../../components/layout/DemoShell";
 import ItemModal from "../../components/agenda/ItemModal";
 
@@ -796,7 +797,7 @@ export default function DemoGeneratePage() {
   };
 
   const [section, setSection] = useState<DemoSectionKey>("RULES");
-type Provider = { id: string; name: string };
+type Provider = { id: string; name: string; recordId?: string };
 
 const [providers, setProviders] = useState<Provider[]>([]);
 const [providerId, setProviderId] = useState<string>("");
@@ -811,6 +812,7 @@ const [providerId, setProviderId] = useState<string>("");
       const list: Provider[] = (data.staff ?? []).map((x: any) => ({
         id: String(x.id),
         name: String(x.name),
+        recordId: x.recordId ?? undefined,
       }));
 
       setProviders(list);
@@ -1995,7 +1997,11 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
 
           {view === "CALENDAR" ? (
             providerId ? (
-              <InteractiveCalendar staffId={providerId} week={weekKey} />
+              <InteractiveCalendar
+                staffId={providerId}
+                week={weekKey}
+                staffRecordId={providers.find(p => p.id === providerId)?.recordId}
+              />
             ) : (
               <p className="text-sm text-slate-500">Selecciona un profesional para ver el calendario.</p>
             )
@@ -2032,322 +2038,15 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
       {section === "ACTIONS" ? (
         <div className="space-y-6">
           <div className="rounded-3xl border border-slate-200 bg-white p-6">
-  <div className="flex items-start justify-between flex-wrap gap-3">
-    <div>
-      <h2 className="text-2xl font-bold text-slate-900">Acciones · Semana {weekKey}</h2>
-      <p className="mt-2 text-slate-600">
-        Segmentado en <b>Pendiente</b>, <b>En curso</b> e <b>Historial</b>. Todo queda registrado (mensajes/llamadas/resultado/decisión).
-      </p>
-    </div>
-
-    {/* Anticipación */}
-    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 min-w-[260px]">
-      <p className="text-xs font-extrabold text-slate-900">Próxima semana</p>
-      <p className="mt-1 text-[11px] text-slate-600">{nextWeekKey}</p>
-
-      {nextWeekState.items ? (
-        <p className="mt-2 text-[11px] text-slate-600">
-          Ya generada ✅ · Acciones: <b>{nextWeekState.actions.length}</b>
-        </p>
-      ) : (
-        <p className="mt-2 text-[11px] text-slate-600">Aún no generada.</p>
-      )}
-
-      <div className="mt-3 flex items-center gap-2">
-        <button
-          type="button"
-          onClick={simulateNextWeek}
-          disabled={loading}
-          className="text-xs px-3 py-2 rounded-full bg-white border border-slate-200 text-slate-800 font-semibold hover:bg-slate-50 disabled:opacity-50"
-        >
-          {loading ? "Generando…" : "Generar próxima"}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setAnchorDayIso(addWeeksAnchor(anchorDayIso, 1))}
-          className="text-xs px-3 py-2 rounded-full bg-slate-900 text-white font-semibold hover:bg-slate-800"
-        >
-          Ver semana →
-        </button>
-      </div>
-    </div>
-  </div>
-
-  {/* ✅ Barra Pendiente / En curso / Historial */}
-  <div className="mt-5">
-    <div className="rounded-full border border-slate-200 bg-white p-1 inline-flex text-[12px] font-semibold">
-      <button
-        type="button"
-        onClick={() => setActionTab("PENDING")}
-        className={actionTab === "PENDING" ? "rounded-full px-4 py-2 bg-slate-900 text-white" : "rounded-full px-4 py-2 text-slate-700"}
-      >
-        Pendiente
-      </button>
-      <button
-        type="button"
-        onClick={() => setActionTab("IN_PROGRESS")}
-        className={actionTab === "IN_PROGRESS" ? "rounded-full px-4 py-2 bg-slate-900 text-white" : "rounded-full px-4 py-2 text-slate-700"}
-      >
-        En curso
-      </button>
-      <button
-        type="button"
-        onClick={() => setActionTab("DONE")}
-        className={actionTab === "DONE" ? "rounded-full px-4 py-2 bg-slate-900 text-white" : "rounded-full px-4 py-2 text-slate-700"}
-      >
-        Historial
-      </button>
-    </div>
-  </div>
-</div>
-
-
-          {!items ? (
-            <div className="rounded-3xl border border-dashed border-slate-300 p-10 text-center text-slate-500 bg-white">Primero simula una agenda para esta semana.</div>
-          ) : actionLogs.length === 0 ? (
-            <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center text-slate-600">No hay acciones todavía.</div>
-          ) : actionsFiltered.length === 0 ? (
-            <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center text-slate-600">No hay acciones en este segmento.</div>
-          ) : (
-            <div className="space-y-6">
-              {actionsGrouped.map((group) => {
-                const isOpen = openDays[group.day] ?? false;
-
-                return (
-                  <div key={group.day} className="rounded-3xl border border-slate-200 bg-white overflow-hidden">
-                    <button
-                      type="button"
-                      onClick={() => setOpenDays((prev) => ({ ...prev, [group.day]: !isOpen }))}
-                      className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-slate-50"
-                    >
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-extrabold text-slate-900">{group.label}</span>
-                        <span className="text-[11px] px-3 py-1 rounded-full bg-slate-100 border border-slate-200 font-semibold text-slate-700">
-                          {group.items.length} acciones
-                        </span>
-                      </div>
-
-                      <span className="text-slate-500 text-sm font-semibold">{isOpen ? "▾" : "▸"}</span>
-                    </button>
-
-                    {isOpen ? (
-                      <div className="px-5 pb-5">
-                        <div className="grid gap-4">
-                          {group.items.map((a) => {
-                            const msgs = a.messagesCount ?? 0;
-                            const calls = a.callsCount ?? 0;
-                            const showCounters = shouldShowCounters({ stage: a.stage, msgs, calls, decision: a.decision });
-
-                            const gap = (items ?? []).find((x) => x.kind === "GAP" && x.id === a.gapId) as
-                              | Extract<AgendaItem, { kind: "GAP" }>
-                              | undefined;
-
-                            const st = (gap?.meta?.status ?? a.status) as any;
-                            const progress = (gap?.meta as any)?.contactingProgressPct ?? (a.stage === "IN_PROGRESS" ? 20 : 100);
-                            const offer = (gap?.meta as any)?.switchOffer as any;
-
-                            return (
-                              <div key={a.id} className="rounded-3xl border border-slate-200 bg-white p-5">
-                                <div className="min-w-0">
-                                  <p className="text-sm font-extrabold text-slate-900">
-                                    Acción · {a.durationMin} min · Sillón {a.chairId}
-                                  </p>
-                                  <p className="mt-1 text-xs text-slate-600">
-                                    {fmtTime(a.start)}–{fmtTime(a.end)}
-                                  </p>
-
-                                  <div className="mt-2 flex items-center gap-2 flex-wrap">
-                                    <span className={`text-[11px] px-3 py-1 rounded-full border font-semibold ${statusChip(String(st))}`}>
-                                      {statusLabel(String(st))}
-                                    </span>
-                                  </div>
-
-                                  {a.rationale ? (
-                                    <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                      <p className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wide">Recomendación</p>
-                                      <p className="mt-1 text-sm font-semibold text-slate-900">{a.rationale}</p>
-                                    </div>
-                                  ) : null}
-
-                                  {a.stage === "IN_PROGRESS" ? (
-                                    <div className="mt-3">
-                                      <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-                                        <div className="h-2 bg-sky-500" style={{ width: `${Math.max(0, Math.min(100, Math.floor(progress ?? 0)))}%` }} />
-                                      </div>
-                                      <p className="mt-1 text-[11px] text-slate-500">
-                                        Progreso: {Math.max(0, Math.min(100, Math.floor(progress ?? 0)))}%
-                                        {showCounters ? (
-                                          <>
-                                            {" "}
-                                            · Mensajes: <b>{msgs}</b> · Llamadas: <b>{calls}</b>
-                                          </>
-                                        ) : null}
-                                      </p>
-                                    </div>
-                                  ) : showCounters ? (
-                                    <p className="mt-3 text-[11px] text-slate-500">
-                                      Mensajes: <b>{msgs}</b> · Llamadas: <b>{calls}</b>
-                                      {a.decision ? (
-                                        <span className="ml-2">
-                                          · Resultado: <b>{a.decision}</b>
-                                        </span>
-                                      ) : null}
-                                    </p>
-                                  ) : null}
-
-                                  {offer ? (
-                                    <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-700">
-                                      <p className="font-semibold">Propuesta de switch</p>
-                                      <p className="mt-1">{offer.reason}</p>
-                                      <p className="mt-2">
-                                        Mover cita → {fmtTime(offer.toStart)}–{fmtTime(offer.toEnd)}
-                                      </p>
-                                      <p className="mt-1">
-                                        Entraría nuevo → {fmtTime(offer.newStart)}–{fmtTime(offer.newEnd)}
-                                      </p>
-                                    </div>
-                                  ) : null}
-
-                                  {gap ? (
-                                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                                      <button
-                                        type="button"
-                                        onClick={() => setOpenItem(gap)}
-                                        className="text-xs px-3 py-2 rounded-full bg-slate-100 hover:bg-slate-200 font-semibold"
-                                      >
-                                        Ver detalle
-                                      </button>
-
-                                      {/* ✅ Acciones recomendadas + secundarias SIN DUPLICAR */}
-                                      <div className="flex flex-wrap items-center gap-2">
-                                        <span className="text-[11px] font-extrabold text-slate-700 uppercase tracking-wide mr-1">Acción recomendada</span>
-
-                                        {(() => {
-                                          const rec = pickRecommendedCta({ offer, status: String(st), stage: a.stage });
-
-                                          const contactDisabled = gap.meta?.status === "CONTACTING" || gap.meta?.status === "FILLED";
-                                          const contactLabel =
-                                            gap.meta?.status === "FILLED" ? "✅ Llenado" : gap.meta?.status === "CONTACTING" ? "Contactando…" : "Contactar";
-
-                                          const showSecondarySwitch = !!offer && rec !== "SWITCH";
-                                          const showSecondaryContact = rec !== "CONTACT";
-                                          const showSecondaryInternal = rec !== "INTERNAL" && rec !== "BOTH_BLOCKS";
-                                          const showSecondaryPersonal = rec !== "PERSONAL" && rec !== "BOTH_BLOCKS";
-
-                                          // --- RECOMENDADAS ---
-                                          const recommendedButtons = (() => {
-                                            if (rec === "SWITCH" && offer) {
-                                              return (
-                                                <AiPrimaryButton recommended onClick={() => onSwitchAttempt(gap.id)}>
-                                                  Intentar switch
-                                                </AiPrimaryButton>
-                                              );
-                                            }
-
-                                            if (rec === "BOTH_BLOCKS") {
-                                              return (
-                                                <>
-                                                  <AiPrimaryButton
-                                                    recommended
-                                                    onClick={() => onGapAlternative(gap.id, "INTERNAL_MEETING")}
-                                                    className="bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500"
-                                                  >
-                                                    Tiempo interno
-                                                  </AiPrimaryButton>
-                                                  <AiPrimaryButton
-                                                    recommended
-                                                    onClick={() => onGapAlternative(gap.id, "PERSONAL_TIME")}
-                                                    className="bg-gradient-to-r from-violet-600 via-fuchsia-600 to-pink-600"
-                                                  >
-                                                    Tiempo personal
-                                                  </AiPrimaryButton>
-                                                </>
-                                              );
-                                            }
-
-                                            if (rec === "CONTACT") {
-                                              return (
-                                                <AiPrimaryButton recommended onClick={() => onGapContact(gap.id)} disabled={contactDisabled}>
-                                                  {contactLabel}
-                                                </AiPrimaryButton>
-                                              );
-                                            }
-
-                                            return (
-                                              <AiPrimaryButton recommended onClick={() => onGapContact(gap.id)} disabled={contactDisabled}>
-                                                {contactLabel}
-                                              </AiPrimaryButton>
-                                            );
-                                          })();
-
-                                          // --- SECUNDARIAS (sin repetir lo recomendado) ---
-                                          return (
-                                            <>
-                                              {recommendedButtons}
-
-                                              {showSecondarySwitch ? (
-                                                <button
-                                                  type="button"
-                                                  onClick={() => onSwitchAttempt(gap.id)}
-                                                  className="text-xs px-3 py-2 rounded-full bg-white border border-slate-200 text-slate-800 font-semibold hover:bg-slate-50"
-                                                >
-                                                  Intentar switch
-                                                </button>
-                                              ) : null}
-
-                                              {showSecondaryContact ? (
-                                                <button
-                                                  type="button"
-                                                  onClick={() => onGapContact(gap.id)}
-                                                  disabled={contactDisabled}
-                                                  className="text-xs px-3 py-2 rounded-full bg-white border border-slate-200 text-slate-800 font-semibold hover:bg-slate-50 disabled:opacity-50"
-                                                >
-                                                  Contactar
-                                                </button>
-                                              ) : null}
-
-                                              {showSecondaryInternal ? (
-                                                <button
-                                                  type="button"
-                                                  onClick={() => onGapAlternative(gap.id, "INTERNAL_MEETING")}
-                                                  className="text-xs px-3 py-2 rounded-full bg-white border border-slate-200 text-slate-800 font-semibold hover:bg-slate-50"
-                                                >
-                                                  Tiempo interno
-                                                </button>
-                                              ) : null}
-
-                                              {showSecondaryPersonal ? (
-                                                <button
-                                                  type="button"
-                                                  onClick={() => onGapAlternative(gap.id, "PERSONAL_TIME")}
-                                                  className="text-xs px-3 py-2 rounded-full bg-white border border-slate-200 text-slate-800 font-semibold hover:bg-slate-50"
-                                                >
-                                                  Tiempo personal
-                                                </button>
-                                              ) : null}
-                                            </>
-                                          );
-                                        })()}
-                                      </div>
-                                    </div>
-                                  ) : null}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Recall */}
-          <div className="rounded-3xl border border-slate-200 bg-white p-6">
-            <RecallPanel />
+            {providerId ? (
+              <OperationsPanel
+                staffId={providerId}
+                staffName={providers.find(p => p.id === providerId)?.name ?? providerId}
+                week={weekKey}
+              />
+            ) : (
+              <p className="text-sm text-slate-500">Selecciona un profesional para ver las tareas.</p>
+            )}
           </div>
         </div>
       ) : null}
