@@ -116,11 +116,10 @@ export async function GET(req: Request) {
       "CANCELADO", "CANCELADA", "CANCELED", "CANCELLED", "NO_SHOW", "NO SHOW", "NOSHOW",
     ]);
 
-    // Use the staff's Airtable record ID for filtering (more reliable than formula field)
-    const staffRecordId = staffRec.id;
+    // Filter by Profesional_id formula field (same approach used by week/route.ts — works reliably)
     const apptRecs = await base(TABLES.appointments as any)
       .select({
-        filterByFormula: `FIND('${escVal(staffRecordId)}', ARRAYJOIN({Profesional})) > 0`,
+        filterByFormula: `{Profesional_id}='${escVal(staffId)}'`,
         maxRecords: 500,
       })
       .all();
