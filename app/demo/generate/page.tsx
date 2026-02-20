@@ -2042,6 +2042,7 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
               <OperationsPanel
                 staffId={providerId}
                 staffName={providers.find(p => p.id === providerId)?.name ?? providerId}
+                staffRecordId={providers.find(p => p.id === providerId)?.recordId}
                 week={weekKey}
               />
             ) : (

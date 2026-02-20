@@ -31,8 +31,8 @@ type Data = {
   waitlistTotal: number;
 };
 
-// State per (phone + startIso): "idle" | "sending" | "sent" | "error"
 type SendStatus = "idle" | "sending" | "sent" | "error";
+type BlockStatus = "idle" | "blocking" | "blocked" | "error";
 
 function buildMessage(
   candidate: Candidate,
@@ -156,17 +156,58 @@ function GapCard({
   gap,
   index,
   staffName,
+  staffRecordId,
+  onDismiss,
 }: {
   gap: Gap;
   index: number;
   staffName: string;
+  staffRecordId?: string;
+  onDismiss: () => void;
 }) {
-  const [dismissed, setDismissed] = useState(false);
-  if (dismissed) return null;
+  const [blockStatus, setBlockStatus] = useState<BlockStatus>("idle");
+  const [blockError, setBlockError] = useState<string | null>(null);
 
   const isPast = DateTime.fromISO(gap.startIso, { setZone: true })
     .setZone("Europe/Madrid")
     .diffNow("minutes").minutes < 0;
+
+  async function handleBlock(type: "Tiempo interno" | "Descanso") {
+    setBlockStatus("blocking");
+    setBlockError(null);
+    try {
+      const startDt = DateTime.fromISO(gap.startIso, { setZone: true }).toUTC();
+      const endDt   = startDt.plus({ minutes: gap.durationMin });
+
+      const body: Record<string, unknown> = {
+        name:     type,
+        startIso: startDt.toISO(),
+        endIso:   endDt.toISO(),
+        notes:    `Marcado como "${type}" desde Acciones`,
+      };
+      if (staffRecordId) body.staffRecordId = staffRecordId;
+
+      const res = await fetch("/api/db/appointments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setBlockStatus("blocked");
+      setTimeout(onDismiss, 800);
+    } catch (e: any) {
+      setBlockError(e.message ?? "Error");
+      setBlockStatus("error");
+    }
+  }
+
+  if (blockStatus === "blocked") {
+    return (
+      <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 font-semibold">
+        ✓ Hueco marcado · se oculta en unos segundos
+      </div>
+    );
+  }
 
   return (
     <div
@@ -174,26 +215,25 @@ function GapCard({
         isPast ? "border-slate-200 opacity-60" : "border-slate-200"
       }`}
     >
+      {/* Header */}
       <div className="flex items-start justify-between gap-2">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-              #{index}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+            #{index}
+          </span>
+          <span className="text-sm font-semibold text-slate-900">
+            {gap.start} – {gap.end}
+          </span>
+          <span className="text-xs text-slate-500">{gap.durationMin} min libre</span>
+          {isPast && (
+            <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
+              Pasado
             </span>
-            <span className="text-sm font-semibold text-slate-900">
-              {gap.start} – {gap.end}
-            </span>
-            <span className="text-xs text-slate-500">{gap.durationMin} min libre</span>
-            {isPast && (
-              <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">
-                Pasado
-              </span>
-            )}
-          </div>
+          )}
         </div>
 
         <button
-          onClick={() => setDismissed(true)}
+          onClick={onDismiss}
           className="text-slate-300 hover:text-slate-500 text-sm leading-none shrink-0"
           title="Descartar tarea"
         >
@@ -201,11 +241,8 @@ function GapCard({
         </button>
       </div>
 
-      {gap.candidates.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">
-          Sin candidatos · Puedes marcar como tiempo interno desde el calendario.
-        </p>
-      ) : (
+      {/* Candidates */}
+      {gap.candidates.length > 0 ? (
         <div className="space-y-0">
           {gap.candidates.map((c, i) => (
             <CandidateRow
@@ -216,7 +253,33 @@ function GapCard({
             />
           ))}
         </div>
+      ) : (
+        <p className="text-xs text-slate-400 italic">
+          Sin candidatos en lista de espera ni recall.
+        </p>
       )}
+
+      {/* Block actions */}
+      <div className="pt-1 border-t border-slate-100 flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-slate-400 font-medium mr-1">Sin paciente:</span>
+        <button
+          onClick={() => handleBlock("Tiempo interno")}
+          disabled={blockStatus === "blocking"}
+          className="text-xs px-3 py-1.5 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+        >
+          {blockStatus === "blocking" ? "..." : "🗂 Tiempo interno"}
+        </button>
+        <button
+          onClick={() => handleBlock("Descanso")}
+          disabled={blockStatus === "blocking"}
+          className="text-xs px-3 py-1.5 rounded-full border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+        >
+          {blockStatus === "blocking" ? "..." : "☕ Descanso"}
+        </button>
+        {blockError && (
+          <span className="text-xs text-red-500 mt-1 w-full">{blockError}</span>
+        )}
+      </div>
     </div>
   );
 }
@@ -224,19 +287,23 @@ function GapCard({
 export default function OperationsPanel({
   staffId,
   staffName,
+  staffRecordId,
   week,
 }: {
   staffId: string;
   staffName: string;
+  staffRecordId?: string;
   week: string;
 }) {
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
 
   async function load() {
     setLoading(true);
     setError(null);
+    setDismissed(new Set());
     try {
       const res = await fetch(`/api/db/gaps?staffId=${staffId}&week=${week}`, {
         cache: "no-store",
@@ -255,14 +322,19 @@ export default function OperationsPanel({
     if (staffId && week) load();
   }, [staffId, week]);
 
-  // Group gaps by day
-  const gapsByDay = data
-    ? data.gaps.reduce<Record<string, Gap[]>>((acc, g) => {
-        if (!acc[g.dayIso]) acc[g.dayIso] = [];
-        acc[g.dayIso].push(g);
-        return acc;
-      }, {})
-    : {};
+  function dismissGap(key: string) {
+    setDismissed(prev => new Set(prev).add(key));
+  }
+
+  const visibleGaps = data
+    ? data.gaps.filter(g => !dismissed.has(`${g.dayIso}-${g.start}`))
+    : [];
+
+  const gapsByDay = visibleGaps.reduce<Record<string, Gap[]>>((acc, g) => {
+    if (!acc[g.dayIso]) acc[g.dayIso] = [];
+    acc[g.dayIso].push(g);
+    return acc;
+  }, {});
 
   const today = DateTime.now().setZone("Europe/Madrid").toISODate();
 
@@ -308,7 +380,7 @@ export default function OperationsPanel({
         <p className="text-sm text-slate-500">Cargando tareas...</p>
       ) : error ? (
         <p className="text-sm text-red-500">{error}</p>
-      ) : !data || data.gaps.length === 0 ? (
+      ) : !data || visibleGaps.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center">
           <p className="text-sm text-slate-500">
             🎉 No hay huecos libres esta semana para {staffName}
@@ -317,10 +389,8 @@ export default function OperationsPanel({
       ) : (
         <div className="space-y-6">
           {Object.entries(gapsByDay).map(([dayIso, gaps]) => {
-            const isToday = dayIso === today;
+            const isToday  = dayIso === today;
             const isFuture = dayIso > (today ?? "");
-            let taskCounter = 0;
-            // Count global task index across all days
             const dayStartIdx =
               Object.entries(gapsByDay)
                 .filter(([d]) => d < dayIso)
@@ -349,6 +419,8 @@ export default function OperationsPanel({
                       gap={gap}
                       index={dayStartIdx + i}
                       staffName={staffName}
+                      staffRecordId={staffRecordId}
+                      onDismiss={() => dismissGap(`${gap.dayIso}-${gap.start}`)}
                     />
                   ))}
                 </div>
