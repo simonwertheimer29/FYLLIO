@@ -110,6 +110,14 @@ function madridToUtcIso(dateIso: string, hhMM: string): string {
   return d.toISOString();
 }
 
+/** Convert Madrid local HH:MM → UTC ISO string for summer (CEST = UTC+2). */
+function madridToUtcIsoCEST(dateIso: string, hhMM: string): string {
+  const [h, m] = hhMM.split(":").map(Number);
+  const d = new Date(`${dateIso}T00:00:00Z`);
+  d.setUTCHours(h - 2, m, 0, 0);   // UTC+2 summer
+  return d.toISOString();
+}
+
 function addMin(iso: string, minutes: number): string {
   const d = new Date(iso);
   d.setMinutes(d.getMinutes() + minutes);
@@ -122,6 +130,15 @@ function nextMonday(fromIso: string): string {
   const dow = d.getUTCDay(); // 0=Sun,1=Mon,...,6=Sat
   const daysToMon = dow === 0 ? 1 : (8 - dow) % 7 || 7;
   d.setUTCDate(d.getUTCDate() + daysToMon);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Get the Monday of the current week (or today if today is Monday) */
+function currentMonday(fromIso: string): string {
+  const d = new Date(`${fromIso}T00:00:00Z`);
+  const dow = d.getUTCDay(); // 0=Sun,1=Mon,...,6=Sat
+  const daysBack = dow === 0 ? 6 : dow - 1; // go back to Monday
+  d.setUTCDate(d.getUTCDate() - daysBack);
   return d.toISOString().slice(0, 10);
 }
 
@@ -334,11 +351,12 @@ async function main() {
   console.log("\n📅  Generando citas...");
 
   const today    = new Date().toISOString().slice(0, 10);
-  const monday1  = nextMonday(today);
-  const monday2  = nextMonday(monday1);
+  const monday1  = currentMonday(today);   // this week
+  const monday2  = nextMonday(monday1);    // next week
   const allDays  = [...weekDays(monday1), ...weekDays(monday2)];
 
-  console.log(`   Semana 1: ${monday1}  Semana 2: ${monday2}`);
+  console.log(`   Semana actual (esta semana): ${monday1}`);
+  console.log(`   Semana 2 (próxima semana):   ${monday2}`);
 
   const rng = new RNG(12345);
 
@@ -417,6 +435,67 @@ async function main() {
   console.log(`\n   ✅ Total citas creadas: ${apptTotal}`);
 
   // ──────────────────────────────────────────────────────────────────────────
+  // 5b. Past appointments (June 2025, CEST UTC+2) for recall testing
+  //     Every patient gets 1–2 completed appointments ~8 months ago
+  // ──────────────────────────────────────────────────────────────────────────
+  console.log("\n📅  Generando citas pasadas para recall (junio 2025)...");
+
+  const pastMonday1 = "2025-06-09";
+  const pastMonday2 = "2025-06-16";
+  const pastDays    = [...weekDays(pastMonday1), ...weekDays(pastMonday2)];
+
+  // Fixed morning/afternoon slots to avoid overlap complexity
+  const MORNING_SLOTS = ["09:00", "09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30"];
+  const AFTERNOON_SLOTS = ["16:00", "16:30", "17:00", "17:30"];
+  const ALL_SLOTS = [...MORNING_SLOTS, ...AFTERNOON_SLOTS];
+
+  const rng2 = new RNG(77777);
+  let pastTotal = 0;
+
+  for (let pi = 0; pi < PATIENTS.length; pi++) {
+    const patient  = PATIENTS[pi];
+    const patRecId = patMap.get(patient.phone);
+    if (!patRecId) continue;
+
+    // Each patient gets 1 or 2 past appointments
+    const numAppts = rng2.chance(45) ? 2 : 1;
+
+    for (let n = 0; n < numAppts; n++) {
+      const dayIso    = rng2.pick(pastDays);
+      const s         = rng2.pick(staff);
+      const tx        = rng2.pick(TREATMENTS);
+      const startHHMM = rng2.pick(ALL_SLOTS);
+      const txRecId   = treatMap.get(tx.name)!;
+      const shortName = patient.name.split(" ").slice(0, 2).join(" ");
+
+      const startIso = madridToUtcIsoCEST(dayIso, startHHMM);
+      const endIso   = addMin(startIso, tx.duration);
+
+      const fields: Record<string, unknown> = {
+        "Nombre":      `${tx.name} · ${shortName}`,
+        "Hora inicio": startIso,
+        "Hora final":  endIso,
+        "Estado":      "Completado",
+        "Profesional": [s.recordId],
+        "Paciente":    [patRecId],
+        "Tratamiento": [txRecId],
+        "Notas":       SEED_TAG,
+      };
+      if (CLINIC_REC_ID) fields["Clínica"] = [CLINIC_REC_ID];
+
+      await createRecord(T.appointments, fields);
+      await sleep(90);
+      pastTotal++;
+    }
+
+    if ((pi + 1) % 5 === 0) {
+      console.log(`   ${pi + 1}/${PATIENTS.length} pacientes procesados (${pastTotal} citas pasadas)`);
+    }
+  }
+
+  console.log(`\n   ✅ Total citas pasadas creadas: ${pastTotal}`);
+
+  // ──────────────────────────────────────────────────────────────────────────
   // 6. Waitlist entries
   // ──────────────────────────────────────────────────────────────────────────
   console.log("\n⏳  Creando lista de espera...");
@@ -436,8 +515,6 @@ async function main() {
       "Paciente":          [patRecId],
       "Tratamiento":       [txRecId],
       "Estado":            "ACTIVE",
-      "Prioridad":         entry.priority,
-      "Urgencia_Nivel":    entry.urgency,
       "Permite_Fuera_Rango": false,
       "Notas":             entry.notes ? `${entry.notes} [${SEED_TAG}]` : SEED_TAG,
     };
@@ -461,7 +538,8 @@ async function main() {
   console.log(`   • ${staff.length}  dentistas`);
   console.log(`   • ${treatMap.size}  tratamientos`);
   console.log(`   • ${patMap.size}  pacientes`);
-  console.log(`   • ${apptTotal}  citas (2 semanas, ~90% fill)`);
+  console.log(`   • ${apptTotal}  citas futuras (semana actual + siguiente, ~90% fill)`);
+  console.log(`   • citas pasadas (jun 2025) → recall candidates`);
   console.log(`   • ${wlTotal}  en lista de espera`);
   console.log("\n💡 Recarga el dashboard para ver los datos.");
   console.log("   Para limpiar: npx tsx scripts/seed-airtable.ts --clear\n");

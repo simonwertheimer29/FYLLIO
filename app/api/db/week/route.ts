@@ -292,6 +292,11 @@ export async function GET(req: Request) {
           chairLabel: chairIdRaw,
           providerId: staffId,
 
+          // Block title (Citas."Nombre") and notes
+          nombre:  String(c.get("Nombre") ?? ""),
+          notes:   String(c.get("Notas")  ?? ""),
+          isBlock: pIds.length === 0,
+
           status: estado,
           estado,
         };

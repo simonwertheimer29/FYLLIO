@@ -4,6 +4,7 @@ import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import { useState, useEffect } from "react";
+import { DateTime } from "luxon";
 
 type Appt = {
   id: string;
@@ -14,6 +15,9 @@ type Appt = {
   type: string;
   durationMin?: number;
   status?: string;
+  nombre?: string;   // Citas."Nombre" — block title
+  notes?: string;    // Citas."Notas"
+  isBlock?: boolean; // true = no patient linked = internal block
 };
 
 type GapInfo = {
@@ -23,11 +27,35 @@ type GapInfo = {
   durationMin: number;
 };
 
+type Treatment = { id: string; name: string; duration: number };
+
+type Schedule = {
+  lunchStart?: string | null;
+  lunchEnd?: string | null;
+};
+
 type Props = {
   staffId: string;
   week: string; // YYYY-MM-DD (Monday)
   staffRecordId?: string; // Airtable record ID for the Profesional link
 };
+
+// ── Color helper ──────────────────────────────────────────────────────────────
+function eventColors(appt: Appt): { bg: string; border: string; text: string } {
+  if (appt.isBlock) {
+    const n = (appt.nombre ?? "").toLowerCase();
+    if (
+      n.includes("descanso") ||
+      n.includes("almuerzo") ||
+      n.includes("pausa") ||
+      n.includes("comida")
+    ) {
+      return { bg: "#7c3aed", border: "#6d28d9", text: "#fff" }; // purple
+    }
+    return { bg: "#d97706", border: "#b45309", text: "#fff" }; // amber
+  }
+  return { bg: "#3b82f6", border: "#2563eb", text: "#fff" }; // blue
+}
 
 // Convert JS Date → UTC ISO string for Airtable PATCH
 function toUtcIso(d: Date) {
@@ -58,7 +86,7 @@ function EditModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
-  const [notes, setNotes] = useState("");
+  const [notes, setNotes] = useState(appt.notes ?? "");
   const [saving, setSaving] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,13 +122,15 @@ function EditModal({
   const dateStr = (iso: string) =>
     new Date(iso + "Z").toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
 
+  const title = appt.nombre || (appt.isBlock ? "Bloque" : appt.patientName);
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-base font-semibold text-slate-900">{appt.patientName}</h3>
-            <p className="text-sm text-slate-500">{appt.type}</p>
+            <h3 className="text-base font-semibold text-slate-900">{title}</h3>
+            {!appt.isBlock && <p className="text-sm text-slate-500">{appt.type}</p>}
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
         </div>
@@ -162,9 +192,17 @@ function NewApptModal({
   onSaved: () => void;
 }) {
   const [patientName, setPatientName] = useState("");
-  const [treatment, setTreatment] = useState("");
+  const [treatmentId, setTreatmentId] = useState("");
+  const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/db/treatments")
+      .then((r) => r.json())
+      .then((j) => setTreatments(j.treatments ?? []))
+      .catch(() => {});
+  }, []);
 
   async function handleCreate() {
     if (!patientName.trim()) { setError("Nombre del paciente requerido"); return; }
@@ -179,6 +217,7 @@ function NewApptModal({
           startIso: toUtcIso(start),
           endIso: toUtcIso(end),
           staffRecordId,
+          treatmentRecordId: treatmentId || undefined,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -223,12 +262,18 @@ function NewApptModal({
           </div>
           <div>
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tratamiento</label>
-            <input
-              value={treatment}
-              onChange={(e) => setTreatment(e.target.value)}
-              placeholder="Ej: Limpieza, Ortodoncia..."
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
-            />
+            <select
+              value={treatmentId}
+              onChange={(e) => setTreatmentId(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white"
+            >
+              <option value="">— Sin especificar —</option>
+              {treatments.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}{t.duration ? ` (${t.duration} min)` : ""}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -255,6 +300,7 @@ function NewApptModal({
 export default function InteractiveCalendar({ staffId, week, staffRecordId }: Props) {
   const [appts, setAppts] = useState<Appt[]>([]);
   const [gaps, setGaps] = useState<GapInfo[]>([]);
+  const [schedule, setSchedule] = useState<Schedule | null>(null);
   const [loading, setLoading] = useState(true);
   const [showGaps, setShowGaps] = useState(true);
   const [editAppt, setEditAppt] = useState<Appt | null>(null);
@@ -270,6 +316,7 @@ export default function InteractiveCalendar({ staffId, week, staffRecordId }: Pr
       const weekJson = await weekRes.json();
       const gapsJson = await gapsRes.json();
       setAppts(weekJson.appointments ?? []);
+      setSchedule(weekJson.schedule ?? null);
       setGaps(gapsJson.gaps ?? []);
     } finally {
       setLoading(false);
@@ -280,16 +327,22 @@ export default function InteractiveCalendar({ staffId, week, staffRecordId }: Pr
     if (staffId && week) load();
   }, [staffId, week]);
 
-  const apptEvents = appts.map((a) => ({
-    id: a.recordId,
-    title: `${a.patientName}\n${a.type}`,
-    start: a.start,
-    end: a.end,
-    extendedProps: { appt: a },
-    backgroundColor: "#3b82f6",
-    borderColor: "#2563eb",
-    textColor: "#fff",
-  }));
+  const apptEvents = appts.map((a) => {
+    const colors = eventColors(a);
+    const title = a.isBlock
+      ? (a.nombre || "Bloque")
+      : `${a.patientName}\n${a.type}`;
+    return {
+      id: a.recordId,
+      title,
+      start: a.start,
+      end: a.end,
+      extendedProps: { appt: a },
+      backgroundColor: colors.bg,
+      borderColor: colors.border,
+      textColor: colors.text,
+    };
+  });
 
   const gapEvents = showGaps
     ? gaps.map((g) => ({
@@ -297,36 +350,53 @@ export default function InteractiveCalendar({ staffId, week, staffRecordId }: Pr
         start: `${g.dayIso}T${g.start}:00`,
         end: `${g.dayIso}T${g.end}:00`,
         display: "background" as const,
-        backgroundColor: "#fef3c7",
+        backgroundColor: "#bbf7d0", // green-200
         extendedProps: { isGap: true, durationMin: g.durationMin },
       }))
     : [];
 
-  const allEvents = [...apptEvents, ...gapEvents];
+  // Lunch background bands (violet-100) Mon–Fri
+  const lunchEvents =
+    schedule?.lunchStart && schedule?.lunchEnd
+      ? [0, 1, 2, 3, 4].map((d) => {
+          const dayIso = DateTime.fromISO(week).plus({ days: d }).toISODate()!;
+          return {
+            id: `lunch-${dayIso}`,
+            start: `${dayIso}T${schedule.lunchStart}:00`,
+            end: `${dayIso}T${schedule.lunchEnd}:00`,
+            display: "background" as const,
+            backgroundColor: "#ede9fe", // violet-100
+          };
+        })
+      : [];
+
+  const allEvents = [...apptEvents, ...gapEvents, ...lunchEvents];
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
       {/* Calendar toolbar */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-100 gap-3 flex-wrap">
-        <div className="flex items-center gap-2">
-          {loading && (
-            <span className="text-xs text-slate-400">Cargando...</span>
-          )}
+        <div className="flex items-center gap-3 flex-wrap text-xs text-slate-500">
+          {loading && <span>Cargando...</span>}
           {!loading && gaps.length > 0 && (
-            <span className="text-xs text-slate-400">
+            <span>
               {gaps.length} {gaps.length === 1 ? "hueco disponible" : "huecos disponibles"} esta semana
             </span>
           )}
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-blue-500 inline-block" /> Cita</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-amber-500 inline-block" /> Interno</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-violet-600 inline-block" /> Descanso</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-green-300 inline-block" /> Hueco libre</span>
         </div>
         <button
           onClick={() => setShowGaps((v) => !v)}
           className={`text-xs px-3 py-1.5 rounded-full border font-medium transition-colors ${
             showGaps
-              ? "bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100"
+              ? "bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100"
               : "text-slate-500 border-slate-200 hover:bg-slate-50"
           }`}
         >
-          {showGaps ? "🟡 Ocultar huecos" : "🟡 Mostrar huecos disponibles"}
+          {showGaps ? "🟢 Ocultar huecos" : "🟢 Mostrar huecos disponibles"}
         </button>
       </div>
 

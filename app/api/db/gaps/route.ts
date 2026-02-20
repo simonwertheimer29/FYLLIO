@@ -190,12 +190,43 @@ export async function GET(req: Request) {
       }
     }
 
-    // 5) Fetch recall patients (last visit > 6 months)
+    // helper: expand records by IDs (used in sections 5 + 6)
+    async function fetchByRecordIds(tableName: any, ids: string[], fields: string[]) {
+      if (!ids.length) return new Map<string, any>();
+      const uniq = Array.from(new Set(ids));
+      const map = new Map<string, any>();
+      const chunkSize = 40;
+      for (let i = 0; i < uniq.length; i += chunkSize) {
+        const slice = uniq.slice(i, i + chunkSize);
+        const formula = `OR(${slice.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
+        const recs = await base(tableName)
+          .select({ filterByFormula: formula, fields, maxRecords: slice.length })
+          .all();
+        for (const r of recs as any[]) map.set(r.id, r.fields || {});
+      }
+      return map;
+    }
+
+    // 5) Fetch recall patients (last visit > 6 months), expand by record ID
     const cutoff6m = DateTime.now().setZone(ZONE).minus({ months: 6 }).toISO()!;
     const recallRecs = await base(TABLES.appointments as any)
       .select({ maxRecords: 1000, sort: [{ field: "Hora inicio", direction: "desc" }] })
       .all();
 
+    // Collect linked patient + treatment IDs from recall appointments
+    const recallPatIds = [...new Set(
+      recallRecs.flatMap((r) => ((r.fields as any)["Paciente"] as string[] | undefined) ?? [])
+    )];
+    const recallTxIds = [...new Set(
+      recallRecs.flatMap((r) => ((r.fields as any)["Tratamiento"] as string[] | undefined) ?? [])
+    )];
+
+    const [recallPatMap, recallTxMap] = await Promise.all([
+      fetchByRecordIds(TABLES.patients as any, recallPatIds, ["Nombre", "Teléfono"]),
+      fetchByRecordIds(TABLES.treatments as any, recallTxIds, ["Nombre"]),
+    ]);
+
+    // Build map: patientRecordId → latest completed visit info
     const patientLatest = new Map<
       string,
       { name: string; phone: string; lastTreatment: string; lastVisit: string }
@@ -208,15 +239,21 @@ export async function GET(req: Request) {
       const estado = String(f["Estado"] ?? "").toUpperCase();
       if (CANCELLED.has(estado)) continue;
 
-      const name = String(f["Paciente_nombre"] ?? f["Nombre"] ?? "Paciente");
-      const phone = String(f["Paciente_teléfono"] ?? f["Paciente_tutor_teléfono"] ?? "");
-      const treatment = String(f["Tratamiento_nombre"] ?? f["Tratamiento"] ?? "");
-      const key = phone || name;
+      const pIds: string[] = f["Paciente"] ?? [];
+      const txIds: string[] = f["Tratamiento"] ?? [];
+      if (!pIds.length) continue;
 
-      if (!patientLatest.has(key)) {
-        const startIso =
-          startRaw instanceof Date ? startRaw.toISOString() : String(startRaw);
-        patientLatest.set(key, { name, phone, lastTreatment: treatment, lastVisit: startIso });
+      const patId = pIds[0];
+      const pFields = recallPatMap.get(patId);
+      const txFields = txIds.length ? recallTxMap.get(txIds[0]) : null;
+
+      const name  = String(pFields?.["Nombre"] ?? "Paciente");
+      const phone = String(pFields?.["Teléfono"] ?? "");
+      const treatment = String(txFields?.["Nombre"] ?? "Revisión");
+
+      if (!patientLatest.has(patId)) {
+        const startIso = startRaw instanceof Date ? startRaw.toISOString() : String(startRaw);
+        patientLatest.set(patId, { name, phone, lastTreatment: treatment, lastVisit: startIso });
       }
     }
 
@@ -256,22 +293,6 @@ export async function GET(req: Request) {
     const treatmentIds = waitlistEntries
       .map((w) => w.treatmentRecordId)
       .filter((id): id is string => !!id);
-
-    async function fetchByRecordIds(tableName: any, ids: string[], fields: string[]) {
-      if (!ids.length) return new Map<string, any>();
-      const uniq = Array.from(new Set(ids));
-      const map = new Map<string, any>();
-      const chunkSize = 40;
-      for (let i = 0; i < uniq.length; i += chunkSize) {
-        const slice = uniq.slice(i, i + chunkSize);
-        const formula = `OR(${slice.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
-        const recs = await base(tableName)
-          .select({ filterByFormula: formula, fields, maxRecords: slice.length })
-          .all();
-        for (const r of recs as any[]) map.set(r.id, r.fields || {});
-      }
-      return map;
-    }
 
     const [patientMap, treatmentMap] = await Promise.all([
       fetchByRecordIds(TABLES.patients as any, patientIds, ["Nombre", "Teléfono"]),
@@ -341,6 +362,8 @@ export async function GET(req: Request) {
       estimatedRevenueImpact,
       recallTotal: recallPatients.length,
       waitlistTotal: waitlistCandidates.length,
+      lunchStart,
+      lunchEnd,
     });
   } catch (e: any) {
     console.error("[gaps] error", e);
