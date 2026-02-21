@@ -559,7 +559,52 @@ export default function OperationsPanel({
   const today = DateTime.now().setZone("Europe/Madrid").toISODate();
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* ── Hero gradient ─────────────────────────────────────────── */}
+      <div className="rounded-3xl bg-gradient-to-br from-violet-600 to-indigo-700 p-6 text-white">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <p className="text-xs font-semibold text-violet-200 uppercase tracking-widest">Centro de operaciones</p>
+            <h2 className="mt-1 text-3xl font-extrabold">
+              {data ? data.gaps.length : "—"}
+            </h2>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-sm text-violet-100">{data && data.gaps.length === 1 ? "franja disponible esta semana" : "franjas disponibles esta semana"}</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={load}
+            className="text-xs px-3 py-1.5 rounded-full bg-white/20 border border-white/25 text-white hover:bg-white/30 shrink-0"
+          >
+            Refrescar
+          </button>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="rounded-2xl bg-white/15 border border-white/20 p-3">
+            <p className="text-xs text-violet-200 font-medium">Tiempo libre</p>
+            <p className="text-xl font-extrabold mt-0.5">{data ? data.totalFreeMin : "—"} min</p>
+          </div>
+          <div className={`rounded-2xl border p-3 ${data && data.estimatedRevenueImpact > 0 ? "bg-amber-400/25 border-amber-300/30" : "bg-white/15 border-white/20"}`}>
+            <p className="text-xs text-violet-200 font-medium">Impacto estimado</p>
+            <p className={`text-xl font-extrabold mt-0.5 ${data && data.estimatedRevenueImpact > 0 ? "text-amber-200" : ""}`}>
+              €{data ? data.estimatedRevenueImpact : "—"}
+            </p>
+          </div>
+          <div className="rounded-2xl bg-white/15 border border-white/20 p-3">
+            <p className="text-xs text-violet-200 font-medium">Lista de espera</p>
+            <p className="text-xl font-extrabold mt-0.5">{data ? data.waitlistTotal : "—"}</p>
+            <p className="text-[11px] text-violet-300 mt-0.5">candidatos activos</p>
+          </div>
+          <div className="rounded-2xl bg-white/15 border border-white/20 p-3">
+            <p className="text-xs text-violet-200 font-medium">Recall</p>
+            <p className="text-xl font-extrabold mt-0.5">{data ? data.recallTotal : "—"}</p>
+            <p className="text-[11px] text-violet-300 mt-0.5">pacientes a recuperar</p>
+          </div>
+        </div>
+      </div>
+
       {/* Sticky progress summary */}
       <ProgressSummary
         data={data}
@@ -569,25 +614,6 @@ export default function OperationsPanel({
         staffName={staffName}
         onRefresh={load}
       />
-
-      {/* Impact banner */}
-      {data && data.totalFreeMin > 0 && (
-        <div className="rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <p className="text-sm font-semibold text-amber-800">
-              {data.gaps.length} {data.gaps.length === 1 ? "franja disponible" : "franjas disponibles"} sin cubrir esta semana
-            </p>
-            <p className="text-xs text-amber-600 mt-0.5">
-              {data.totalFreeMin} min libres ·{" "}
-              <span className="font-semibold">~€{data.estimatedRevenueImpact}</span> en ingresos potenciales
-            </p>
-          </div>
-          <div className="flex gap-3 text-xs text-amber-700 font-medium">
-            <span>📋 {data.waitlistTotal} en lista de espera</span>
-            <span>🔔 {data.recallTotal} en recall</span>
-          </div>
-        </div>
-      )}
 
       {/* Content */}
       {loading ? (

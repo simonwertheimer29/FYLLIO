@@ -331,12 +331,17 @@ export default function TodayBriefing({
             {confirmed.map((appt) => {
               const risk = RISK_CONFIG[appt.noShowRisk];
               return (
-                <div key={appt.recordId} className="flex items-center gap-3 px-4 py-2.5">
-                  <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${risk.dot}`} title={risk.label} />
+                <div key={appt.recordId} className="flex items-center gap-3 px-4 py-2.5 flex-wrap">
+                  <div className={`h-2 w-2 rounded-full shrink-0 ${risk.dot}`} />
                   <span className="text-xs text-slate-500 w-20 shrink-0">{appt.start}</span>
                   <span className="text-sm font-medium text-slate-800 min-w-0 truncate">{appt.patientName}</span>
                   {appt.treatmentName && (
                     <span className="text-xs text-slate-400 min-w-0 truncate hidden sm:block">{appt.treatmentName}</span>
+                  )}
+                  {appt.noShowRisk !== "LOW" && (
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${risk.badge}`}>
+                      {risk.label}
+                    </span>
                   )}
                   <span className="text-xs text-slate-400 ml-auto shrink-0">{appt.durationMin} min</span>
                 </div>

@@ -29,6 +29,12 @@ import StatsPanel from "../../components/dashboard/StatsPanel";
 import TodayBriefing from "../../components/dashboard/TodayBriefing";
 import QuotesPanel from "../../components/quotes/QuotesPanel";
 import FeedbackPanel from "../../components/dashboard/FeedbackPanel";
+import RevenuePanel from "../../components/dashboard/RevenuePanel";
+import TreatmentInstructionsPanel from "../../components/rules/TreatmentInstructionsPanel";
+import RecallCampaignPanel from "../../components/actions/RecallCampaignPanel";
+import OngoingTreatmentsPanel from "../../components/treatments/OngoingTreatmentsPanel";
+import DoctorView from "../../components/dashboard/DoctorView";
+import ROIPanel from "../../components/dashboard/ROIPanel";
 import { useEffect, useMemo, useState } from "react";
 
 
@@ -1972,6 +1978,25 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
         />
       ) : null}
 
+      {section === "INGRESOS" ? (
+        <RevenuePanel staffId={providerId} />
+      ) : null}
+
+      {section === "RECALL" ? (
+        <RecallCampaignPanel />
+      ) : null}
+
+      {section === "TRATAMIENTOS" ? (
+        <OngoingTreatmentsPanel staffId={providerId} />
+      ) : null}
+
+      {section === "DOCTOR" ? (
+        <DoctorView
+          staffId={providerId}
+          staffName={providers.find((p) => p.id === providerId)?.name}
+        />
+      ) : null}
+
       {section === "PRESUPUESTOS" ? (
         <div className="space-y-6">
           <div className="rounded-3xl border border-slate-200 bg-white p-6">
@@ -2007,6 +2032,7 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
           </div>
 
           <RulesForm rules={rules} onChange={setRules} onReset={resetRulesForCurrent} onSimulate={simulate} busy={loading} validation={validation} />
+          <TreatmentInstructionsPanel />
         </div>
       ) : null}
 

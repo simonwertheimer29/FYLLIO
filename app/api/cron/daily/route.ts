@@ -9,6 +9,7 @@ import { DateTime } from "luxon";
 import { listAppointmentsByDay } from "../../../lib/scheduler/repo/airtableRepo";
 import { sendWhatsAppMessage } from "../../../lib/whatsapp/send";
 import { kv } from "@vercel/kv";
+import { base, TABLES } from "../../../lib/airtable";
 
 const ZONE = "Europe/Madrid";
 
@@ -29,6 +30,21 @@ export async function GET(req: Request) {
     listAppointmentsByDay({ dayIso: yesterdayIso, clinicId, onlyActive: true }),
   ]);
 
+  // ── Pre-load treatment instructions map ─────────────────────────────────────
+  const txInstructionsMap = new Map<string, string>();
+  try {
+    const txRecs = await base(TABLES.treatments as any)
+      .select({ fields: ["Nombre", "Instrucciones_pre"], maxRecords: 200 })
+      .all();
+    for (const r of txRecs as any[]) {
+      const name = String(r.get("Nombre") ?? "").trim();
+      const instr = String(r.get("Instrucciones_pre") ?? "").trim();
+      if (name && instr) txInstructionsMap.set(name, instr);
+    }
+  } catch {
+    // Instrucciones_pre field not configured yet — continue without
+  }
+
   const errors: string[] = [];
   let remindersSent = 0;
   let confirmsSent = 0;
@@ -42,12 +58,18 @@ export async function GET(req: Request) {
       .setZone(ZONE)
       .toFormat("HH:mm");
 
+    const instructions = txInstructionsMap.get(appt.type);
+    const instrSection = instructions
+      ? `\n\n📋 Instrucciones para tu cita:\n${instructions}`
+      : "";
+
     const msg =
       `📅 Recordatorio de cita\n` +
       `Mañana tienes cita:\n` +
       `🦷 ${appt.type}\n` +
-      `🕒 ${timeHHMM}\n\n` +
-      `¿Necesitas cancelar o reagendar? Solo escríbenos.`;
+      `🕒 ${timeHHMM}` +
+      instrSection +
+      `\n\n¿Necesitas cancelar o reagendar? Solo escríbenos.`;
 
     try {
       await sendWhatsAppMessage(`whatsapp:${appt.patientPhone}`, msg);
