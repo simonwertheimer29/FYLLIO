@@ -2,6 +2,14 @@
 
 import { useEffect, useState } from "react";
 
+type NoShowRisk = "HIGH" | "MED" | "LOW";
+
+const RISK_CONFIG: Record<NoShowRisk, { label: string; dot: string; badge: string }> = {
+  HIGH: { label: "Riesgo alto",  dot: "bg-rose-500",   badge: "text-rose-700 bg-rose-50 border-rose-200" },
+  MED:  { label: "Riesgo medio", dot: "bg-amber-400",  badge: "text-amber-700 bg-amber-50 border-amber-200" },
+  LOW:  { label: "Riesgo bajo",  dot: "bg-emerald-400", badge: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+};
+
 type Appt = {
   recordId: string;
   patientName: string;
@@ -13,6 +21,7 @@ type Appt = {
   durationMin: number;
   confirmed: boolean;
   isBlock: boolean;
+  noShowRisk: NoShowRisk;
 };
 
 type Gap = {
@@ -142,9 +151,15 @@ export default function TodayBriefing({
     );
   }
 
-  const unconfirmed = data.appointments.filter((a) => !a.confirmed && !a.isBlock);
+  const unconfirmed = data.appointments
+    .filter((a) => !a.confirmed && !a.isBlock)
+    .sort((a, b) => {
+      const order: Record<NoShowRisk, number> = { HIGH: 0, MED: 1, LOW: 2 };
+      return order[a.noShowRisk] - order[b.noShowRisk];
+    });
   const confirmed = data.appointments.filter((a) => a.confirmed && !a.isBlock);
   const blocks = data.appointments.filter((a) => a.isBlock);
+  const highRiskConfirmed = confirmed.filter((a) => a.noShowRisk === "HIGH");
   const totalRevenue = data.confirmedRevenue + data.atRiskRevenue;
   const fillRate = totalRevenue > 0
     ? Math.round((data.confirmedRevenue / totalRevenue) * 100)
@@ -204,23 +219,45 @@ export default function TodayBriefing({
             </p>
           </div>
           <div className="divide-y divide-amber-100">
-            {unconfirmed.map((appt) => (
-              <div key={appt.recordId} className="flex items-center justify-between gap-3 px-4 py-3 flex-wrap">
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold text-slate-900">{appt.patientName}</span>
-                    {appt.treatmentName && (
-                      <span className="text-xs text-slate-500">{appt.treatmentName}</span>
-                    )}
+            {unconfirmed.map((appt) => {
+              const risk = RISK_CONFIG[appt.noShowRisk];
+              return (
+                <div key={appt.recordId} className="flex items-center justify-between gap-3 px-4 py-3 flex-wrap">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={`h-2 w-2 rounded-full shrink-0 ${risk.dot}`} />
+                      <span className="text-sm font-semibold text-slate-900">{appt.patientName}</span>
+                      {appt.treatmentName && (
+                        <span className="text-xs text-slate-500">{appt.treatmentName}</span>
+                      )}
+                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${risk.badge}`}>
+                        {risk.label}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 mt-0.5">
+                      {appt.start} – {appt.end} · {appt.durationMin} min
+                      <span className="ml-2 text-amber-700 font-medium">~€{appt.durationMin} en riesgo</span>
+                    </p>
                   </div>
-                  <p className="text-xs text-slate-600 mt-0.5">
-                    {appt.start} – {appt.end} · {appt.durationMin} min
-                    <span className="ml-2 text-amber-700 font-medium">~€{appt.durationMin} en riesgo</span>
-                  </p>
+                  <ReminderButton appt={appt} />
                 </div>
-                <ReminderButton appt={appt} />
-              </div>
-            ))}
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── High-risk confirmed alert ────────────────────────────────── */}
+      {highRiskConfirmed.length > 0 && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 flex items-start gap-3">
+          <span className="text-rose-500 mt-0.5 shrink-0">🔴</span>
+          <div>
+            <p className="text-sm font-semibold text-rose-800">
+              {highRiskConfirmed.length} {highRiskConfirmed.length === 1 ? "cita confirmada con" : "citas confirmadas con"} riesgo alto de no-show
+            </p>
+            <p className="text-xs text-rose-600 mt-0.5">
+              {highRiskConfirmed.map((a) => `${a.patientName} (${a.start})`).join(" · ")}
+            </p>
           </div>
         </div>
       )}
@@ -291,17 +328,20 @@ export default function TodayBriefing({
             </p>
           </div>
           <div className="divide-y divide-slate-100">
-            {confirmed.map((appt) => (
-              <div key={appt.recordId} className="flex items-center gap-3 px-4 py-2.5">
-                <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
-                <span className="text-xs text-slate-500 w-20 shrink-0">{appt.start}</span>
-                <span className="text-sm font-medium text-slate-800 min-w-0 truncate">{appt.patientName}</span>
-                {appt.treatmentName && (
-                  <span className="text-xs text-slate-400 min-w-0 truncate hidden sm:block">{appt.treatmentName}</span>
-                )}
-                <span className="text-xs text-slate-400 ml-auto shrink-0">{appt.durationMin} min</span>
-              </div>
-            ))}
+            {confirmed.map((appt) => {
+              const risk = RISK_CONFIG[appt.noShowRisk];
+              return (
+                <div key={appt.recordId} className="flex items-center gap-3 px-4 py-2.5">
+                  <div className={`h-1.5 w-1.5 rounded-full shrink-0 ${risk.dot}`} title={risk.label} />
+                  <span className="text-xs text-slate-500 w-20 shrink-0">{appt.start}</span>
+                  <span className="text-sm font-medium text-slate-800 min-w-0 truncate">{appt.patientName}</span>
+                  {appt.treatmentName && (
+                    <span className="text-xs text-slate-400 min-w-0 truncate hidden sm:block">{appt.treatmentName}</span>
+                  )}
+                  <span className="text-xs text-slate-400 ml-auto shrink-0">{appt.durationMin} min</span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

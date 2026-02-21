@@ -67,6 +67,45 @@ function isConfirmed(estado: string): boolean {
   return estado.includes("CONFIRM");
 }
 
+type NoShowRisk = "HIGH" | "MED" | "LOW";
+
+const HIGH_VALUE_TREATMENTS = ["implante", "endodoncia", "prótesis", "protesis", "ortodoncia", "periodoncia"];
+
+function computeNoShowRisk(params: {
+  confirmed: boolean;
+  durationMin: number;
+  treatmentName: string;
+  startMin: number;       // minutes from midnight (Madrid)
+  weekday: number;        // 1=Mon … 7=Sun (Luxon)
+}): NoShowRisk {
+  const { confirmed, durationMin, treatmentName, startMin, weekday } = params;
+  const txLower = treatmentName.toLowerCase();
+
+  let score = 0;
+
+  // Unconfirmed is the biggest risk factor
+  if (!confirmed) score += 3;
+
+  // Short treatments cancel more (revisión 30 min, blanqueamiento, empaste 45)
+  if (durationMin <= 30) score += 2;
+  else if (durationMin <= 45) score += 1;
+
+  // Mondays have highest no-show rate
+  if (weekday === 1) score += 1;
+
+  // Very early (before 9:30) or very late (after 17:30) slots
+  if (startMin < 9 * 60 + 30) score += 1;
+  if (startMin >= 17 * 60 + 30) score += 1;
+
+  // High-value / long treatments: patient has more skin in the game
+  const isHighValue = HIGH_VALUE_TREATMENTS.some((t) => txLower.includes(t));
+  if (isHighValue && durationMin >= 60) score -= 2;
+
+  if (score >= 4) return "HIGH";
+  if (score >= 2) return "MED";
+  return "LOW";
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -178,6 +217,7 @@ export async function GET(req: Request) {
       durationMin: number;
       confirmed: boolean;
       isBlock: boolean;
+      noShowRisk: NoShowRisk;
     };
 
     let confirmedRevenue = 0;
@@ -202,6 +242,14 @@ export async function GET(req: Request) {
         else atRiskRevenue += revenue;
       }
 
+      const noShowRisk: NoShowRisk = isBlock ? "LOW" : computeNoShowRisk({
+        confirmed,
+        durationMin,
+        treatmentName,
+        startMin: a.startMin,
+        weekday: a.startDt.weekday,
+      });
+
       return {
         recordId: a.recordId,
         patientName,
@@ -213,6 +261,7 @@ export async function GET(req: Request) {
         durationMin,
         confirmed,
         isBlock,
+        noShowRisk,
       };
     });
 
