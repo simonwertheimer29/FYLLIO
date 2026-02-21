@@ -26,6 +26,7 @@ import AiPrimaryButton from "../../components/ui/AiPrimaryButton";
 import WaitlistPanel from "../../components/waitlist/WaitlistPanel";
 import MessagesPanel from "../../components/dashboard/MessagesPanel";
 import StatsPanel from "../../components/dashboard/StatsPanel";
+import TodayBriefing from "../../components/dashboard/TodayBriefing";
 import { useEffect, useMemo, useState } from "react";
 
 
@@ -1961,6 +1962,13 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
         onClose={() => setBlockDraft((x) => ({ ...x, open: false, gap: null }))}
         onConfirm={confirmBlockCustomizer}
       />
+
+      {section === "HOY" ? (
+        <TodayBriefing
+          staffId={providerId}
+          onGoToActions={() => setSection("ACTIONS")}
+        />
+      ) : null}
 
       {section === "RULES" ? (
         <div className="space-y-6">
