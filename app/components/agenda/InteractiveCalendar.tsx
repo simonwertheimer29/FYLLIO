@@ -380,13 +380,13 @@ export default function InteractiveCalendar({ staffId, week, staffRecordId }: Pr
           {loading && <span>Cargando...</span>}
           {!loading && gaps.length > 0 && (
             <span>
-              {gaps.length} {gaps.length === 1 ? "hueco disponible" : "huecos disponibles"} esta semana
+              {gaps.length} {gaps.length === 1 ? "franja disponible" : "franjas disponibles"} esta semana
             </span>
           )}
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-blue-500 inline-block" /> Cita</span>
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-amber-500 inline-block" /> Interno</span>
           <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-violet-600 inline-block" /> Descanso</span>
-          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-green-300 inline-block" /> Hueco libre</span>
+          <span className="flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-green-300 inline-block" /> Franja disponible</span>
         </div>
         <button
           onClick={() => setShowGaps((v) => !v)}
@@ -396,7 +396,7 @@ export default function InteractiveCalendar({ staffId, week, staffRecordId }: Pr
               : "text-slate-500 border-slate-200 hover:bg-slate-50"
           }`}
         >
-          {showGaps ? "🟢 Ocultar huecos" : "🟢 Mostrar huecos disponibles"}
+          {showGaps ? "🟢 Ocultar franjas" : "🟢 Mostrar franjas disponibles"}
         </button>
       </div>
 

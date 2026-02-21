@@ -39,7 +39,7 @@ const timeText = `${formatTime(item.start)} – ${formatTime(item.end)} · ${ite
     isGap && item.meta?.rationale
       ? item.meta.rationale
       : isGap
-      ? "Hueco aprovechable. Puedes intentar contactar, hacer switch o bloquearlo como interno/personal."
+      ? "Franja disponible. Puedes intentar contactar, hacer switch o reservarla como tiempo interno/personal."
       : isAppt
       ? "Detalle de la cita (demo)."
       : "Bloque informativo (demo).";

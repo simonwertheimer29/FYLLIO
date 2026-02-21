@@ -15,7 +15,7 @@ function whatsappLink(phone: string, name: string, lastTreatment: string) {
   const msg = encodeURIComponent(
     `Hola ${name} 🙂 Desde la clínica queríamos saber cómo estás después de tu última visita` +
       (lastTreatment ? ` de ${lastTreatment}` : "") +
-      `. ¿Te gustaría programar una revisión? Escríbenos y te buscamos hueco 🦷`
+      `. ¿Te gustaría programar una revisión? Escríbenos y te buscamos una franja disponible 🦷`
   );
   const clean = phone.replace(/\s+/g, "");
   return `https://wa.me/${clean.replace("+", "")}?text=${msg}`;

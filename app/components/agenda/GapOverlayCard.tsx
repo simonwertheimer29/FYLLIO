@@ -92,9 +92,9 @@ export default function GapOverlayCard({
           {meta.status === "CONTACTING"
             ? "Contactando…"
             : meta.status === "FILLED"
-            ? "Hueco llenado"
+            ? "Franja cubierta"
             : meta.status === "BLOCKED_INTERNAL"
-            ? "Hueco reservado"
+            ? "Franja reservada"
             : "Contactar pacientes (auto)"}
         </button>
 
@@ -116,7 +116,7 @@ export default function GapOverlayCard({
             onClick={() => onAlternative("WAIT")}
             className="text-xs rounded-full bg-white border border-slate-200 px-3 py-1 font-semibold text-slate-700 hover:bg-slate-50"
           >
-            Reabrir hueco
+            Reabrir franja
           </button>
         ) : null}
       </div>

@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react";
 
-export type DemoSectionKey = "HOY" | "RULES" | "AGENDA" | "ACTIONS" | "IMPACT" | "WAITLIST" | "MENSAJES" | "ESTADISTICAS";
+export type DemoSectionKey = "HOY" | "RULES" | "AGENDA" | "ACTIONS" | "IMPACT" | "WAITLIST" | "MENSAJES" | "ESTADISTICAS" | "PRESUPUESTOS";
 
 type Section = {
   key: DemoSectionKey;
@@ -29,6 +29,7 @@ export default function DemoShell({
 }) {
   const sections: Section[] = [
     { key: "HOY", label: "Hoy", icon: <IconBox>☀</IconBox> },
+    { key: "PRESUPUESTOS", label: "Presupuestos", icon: <IconBox>€</IconBox> },
     { key: "RULES", label: "Reglas", icon: <IconBox>R</IconBox> },
     { key: "AGENDA", label: "Agenda", icon: <IconBox>A</IconBox> },
     { key: "ACTIONS", label: "Acciones", icon: <IconBox>✓</IconBox> },

@@ -185,11 +185,11 @@ export default function TodayBriefing({
             <p className="text-[11px] text-sky-200 mt-0.5">{unconfirmed.length} sin confirmar</p>
           </div>
           <div className={`rounded-2xl border p-3 ${data.gaps.length > 0 ? "bg-red-400/20 border-red-300/30" : "bg-white/15 border-white/20"}`}>
-            <p className="text-xs text-sky-200 font-medium">Huecos (potencial)</p>
+            <p className="text-xs text-sky-200 font-medium">Franjas disponibles</p>
             <p className={`text-xl font-extrabold mt-0.5 ${data.gaps.length > 0 ? "text-red-200" : ""}`}>
               €{data.gapRevenue}
             </p>
-            <p className="text-[11px] text-sky-200 mt-0.5">{data.gaps.length} {data.gaps.length === 1 ? "hueco" : "huecos"}</p>
+            <p className="text-[11px] text-sky-200 mt-0.5">{data.gaps.length} {data.gaps.length === 1 ? "franja" : "franjas"}</p>
           </div>
         </div>
       </div>
@@ -232,7 +232,7 @@ export default function TodayBriefing({
             <div className="flex items-center gap-2">
               <span className="text-base">🕳</span>
               <p className="text-sm font-semibold text-slate-800">
-                {data.gaps.length} {data.gaps.length === 1 ? "hueco libre" : "huecos libres"} hoy
+                {data.gaps.length} {data.gaps.length === 1 ? "franja disponible" : "franjas disponibles"} hoy
               </p>
               <span className="text-xs text-slate-500">
                 · €{data.gapRevenue} potencial sin cubrir
@@ -276,7 +276,7 @@ export default function TodayBriefing({
           <div>
             <p className="text-sm font-semibold text-emerald-800">Todo bajo control</p>
             <p className="text-xs text-emerald-600 mt-0.5">
-              {data.appointments.length} citas confirmadas · €{data.confirmedRevenue} asegurados · Sin huecos ni no-shows pendientes
+              {data.appointments.length} citas confirmadas · €{data.confirmedRevenue} asegurados · Sin franjas libres ni no-shows pendientes
             </p>
           </div>
         </div>

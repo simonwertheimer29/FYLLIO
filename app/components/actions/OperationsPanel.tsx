@@ -57,7 +57,7 @@ function buildMessage(
   if (candidate.type === "WAITLIST") {
     return (
       `Hola ${candidate.patientName} 🙂 Buenas noticias! ` +
-      `Se ha liberado un hueco el ${dayStr} a las ${timeStr} (${dur} min) ` +
+      `Se ha liberado una franja disponible el ${dayStr} a las ${timeStr} (${dur} min) ` +
       `para tu ${candidate.label}. ` +
       `¿Lo reservamos? Responde *SÍ* para confirmar o *NO* si no puedes.`
     );
@@ -65,7 +65,7 @@ function buildMessage(
     return (
       `Hola ${candidate.patientName} 🙂 Desde la clínica queremos saber cómo estás ` +
       `y recordarte que tienes una revisión pendiente de ${candidate.label}. ` +
-      `Tenemos un hueco el ${dayStr} a las ${timeStr} (${dur} min). ` +
+      `Tenemos una franja disponible el ${dayStr} a las ${timeStr} (${dur} min). ` +
       `¿Te viene bien? Responde *SÍ* para confirmar.`
     );
   }
@@ -230,7 +230,7 @@ function GapCard({
   if (blockStatus === "blocked") {
     return (
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-700 font-semibold">
-        ✓ Hueco bloqueado · se oculta en unos segundos
+        ✓ Franja bloqueada · se oculta en unos segundos
       </div>
     );
   }
@@ -301,7 +301,7 @@ function GapCard({
             </div>
           ) : (
             <p className="text-xs text-slate-400 italic pt-3">
-              Sin candidatos en lista de espera ni recall para este hueco.
+              Sin candidatos en lista de espera ni recall para esta franja.
             </p>
           )}
 
@@ -317,7 +317,7 @@ function GapCard({
                     : "border-slate-200 text-slate-600 hover:bg-slate-50"
                 }`}
               >
-                ⏱ Reservar hueco {blockOpen ? "▲" : "▾"}
+                ⏱ Reservar franja {blockOpen ? "▲" : "▾"}
               </button>
             </div>
 
@@ -366,7 +366,7 @@ function GapCard({
                       className="w-full accent-violet-600"
                     />
                   ) : (
-                    <p className="text-xs text-slate-400 italic">Hueco de {maxDur} min (fijo)</p>
+                    <p className="text-xs text-slate-400 italic">Franja de {maxDur} min (fija)</p>
                   )}
                   <div className="flex justify-between text-xs text-slate-400">
                     <span>{minDur} min</span>
@@ -441,7 +441,7 @@ function ProgressSummary({
             Semana operativa · {staffName}
           </p>
           <p className="text-xs text-slate-500">
-            {totalGaps} {totalGaps === 1 ? "hueco" : "huecos"} ·{" "}
+            {totalGaps} {totalGaps === 1 ? "franja" : "franjas"} ·{" "}
             {data.totalFreeMin} min libres ·{" "}
             <span className="font-medium text-amber-700">~€{data.estimatedRevenueImpact} en riesgo</span>
           </p>
@@ -575,7 +575,7 @@ export default function OperationsPanel({
         <div className="rounded-2xl bg-amber-50 border border-amber-200 px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
           <div>
             <p className="text-sm font-semibold text-amber-800">
-              {data.gaps.length} huecos sin cubrir esta semana
+              {data.gaps.length} {data.gaps.length === 1 ? "franja disponible" : "franjas disponibles"} sin cubrir esta semana
             </p>
             <p className="text-xs text-amber-600 mt-0.5">
               {data.totalFreeMin} min libres ·{" "}
@@ -599,7 +599,7 @@ export default function OperationsPanel({
           <p className="text-sm text-slate-500">
             🎉 {dismissed.size > 0
               ? `${dismissed.size} ${dismissed.size === 1 ? "tarea resuelta" : "tareas resueltas"} — agenda gestionada`
-              : `No hay huecos libres esta semana para ${staffName}`}
+              : `No hay franjas disponibles esta semana para ${staffName}`}
           </p>
         </div>
       ) : (

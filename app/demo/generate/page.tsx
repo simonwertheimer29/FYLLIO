@@ -27,6 +27,7 @@ import WaitlistPanel from "../../components/waitlist/WaitlistPanel";
 import MessagesPanel from "../../components/dashboard/MessagesPanel";
 import StatsPanel from "../../components/dashboard/StatsPanel";
 import TodayBriefing from "../../components/dashboard/TodayBriefing";
+import QuotesPanel from "../../components/quotes/QuotesPanel";
 import { useEffect, useMemo, useState } from "react";
 
 
@@ -1968,6 +1969,18 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
           staffId={providerId}
           onGoToActions={() => setSection("ACTIONS")}
         />
+      ) : null}
+
+      {section === "PRESUPUESTOS" ? (
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6">
+            <h2 className="text-2xl font-extrabold text-slate-900">Presupuestos</h2>
+            <p className="mt-2 text-slate-600">
+              Pipeline de presupuestos presentados. Haz seguimiento, marca los aceptados y recupera los que llevan semanas sin respuesta.
+            </p>
+          </div>
+          <QuotesPanel />
+        </div>
       ) : null}
 
       {section === "RULES" ? (
