@@ -28,6 +28,7 @@ import MessagesPanel from "../../components/dashboard/MessagesPanel";
 import StatsPanel from "../../components/dashboard/StatsPanel";
 import TodayBriefing from "../../components/dashboard/TodayBriefing";
 import QuotesPanel from "../../components/quotes/QuotesPanel";
+import FeedbackPanel from "../../components/dashboard/FeedbackPanel";
 import { useEffect, useMemo, useState } from "react";
 
 
@@ -1980,6 +1981,18 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
             </p>
           </div>
           <QuotesPanel />
+        </div>
+      ) : null}
+
+      {section === "REPUTACION" ? (
+        <div className="space-y-6">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6">
+            <h2 className="text-2xl font-extrabold text-slate-900">Reputación y feedback</h2>
+            <p className="mt-2 text-slate-600">
+              Valoraciones post-cita de pacientes. Fyllio envía automáticamente el link de Google Reviews a los que puntúan 4 o 5 estrellas.
+            </p>
+          </div>
+          <FeedbackPanel />
         </div>
       ) : null}
 

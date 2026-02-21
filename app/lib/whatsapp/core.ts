@@ -20,6 +20,7 @@ import {
 } from "../scheduler/repo/airtableRepo";
 
 import { getSession, setSession, deleteSession } from "../scheduler/sessionStore";
+import { kv } from "@vercel/kv";
 import { DEFAULT_RULES } from "../demoData";
 
 /** Muestra un ISO naive UTC (formato slots) como hora Madrid HH:mm */
@@ -60,7 +61,8 @@ type Stage =
   | "CANCEL_OFFER_WAITLIST"
   | "RESCHEDULE_ASK_WHEN"
   | "RESCHEDULE_OFFER_SLOTS"
-  | "ASK_NEW_BOOKING_FOR";
+  | "ASK_NEW_BOOKING_FOR"
+  | "COLLECT_FEEDBACK";
 
 type Session = {
   createdAtMs: number;
@@ -94,6 +96,10 @@ type Session = {
   knownPatientName?: string;   // known from ASK_NEW_BOOKING_FOR when patient is already in system
   otherPhoneE164?: string;
   useTutorPhone?: boolean;
+
+  // feedback
+  feedbackApptRecordId?: string;
+  feedbackPatientName?: string;
 
   // cancel
   pendingCancelRecordId?: string;
@@ -743,6 +749,47 @@ export async function handleInboundWhatsApp(params: {
 
   // HELP: only when no active session
   if (intent === "HELP" && !sess) return renderHelpMenu(patientInfo?.name);
+
+  // ── 2b) Feedback collection ──────────────────────────────────────────────
+  if (sess?.stage === "COLLECT_FEEDBACK") {
+    const score = parseInt(body.trim(), 10);
+    if (isNaN(score) || score < 1 || score > 5) {
+      return "Por favor responde con un número del 1 al 5 ⭐ (1 = muy mejorable, 5 = excelente)";
+    }
+
+    // Store score in KV for dashboard (90 days TTL)
+    await kv.set(
+      `fb:${fromE164}:${Date.now()}`,
+      { score, name: sess.feedbackPatientName ?? "Paciente", apptId: sess.feedbackApptRecordId ?? "" },
+      { ex: 90 * 86400 }
+    );
+
+    await deleteSession(fromE164);
+
+    if (score >= 4) {
+      const googleUrl = process.env.GOOGLE_REVIEWS_URL ?? "";
+      if (googleUrl) {
+        return (
+          `¡Gracias por tu valoración de ${score} ${score === 5 ? "⭐⭐⭐⭐⭐" : "⭐⭐⭐⭐"}!\n\n` +
+          `Nos alegra mucho que hayas tenido una buena experiencia 🙏\n\n` +
+          `¿Te importaría dejar una reseña en Google? Es de gran ayuda para nosotros:\n${googleUrl}`
+        );
+      }
+      return `¡Gracias por tu valoración de ${score} estrellas! 🌟 Nos alegra mucho. ¡Hasta pronto!`;
+    } else {
+      // Low score: store alert for internal dashboard
+      await kv.set(
+        `fb:alert:${fromE164}:${Date.now()}`,
+        { score, name: sess.feedbackPatientName ?? "Paciente", apptId: sess.feedbackApptRecordId ?? "" },
+        { ex: 30 * 86400 }
+      );
+      return (
+        `Gracias por tu sinceridad 🙏\n\n` +
+        `Sentimos mucho que tu experiencia no haya sido la que esperabas. ` +
+        `Nuestro equipo revisará tu comentario y se pondrá en contacto contigo pronto.`
+      );
+    }
+  }
 
   // ── 3) Cancel flow: CONFIRM_CANCEL ──────────────────────────────────────
   if (sess?.stage === "CONFIRM_CANCEL") {

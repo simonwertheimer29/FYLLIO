@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
 import { listAppointmentsByDay } from "../../../lib/scheduler/repo/airtableRepo";
 import { sendWhatsAppMessage } from "../../../lib/whatsapp/send";
+import { kv } from "@vercel/kv";
 
 const ZONE = "Europe/Madrid";
 
@@ -99,6 +100,23 @@ export async function GET(req: Request) {
     try {
       await sendWhatsAppMessage(`whatsapp:${appt.patientPhone}`, msg);
       feedbackSent++;
+      // Create COLLECT_FEEDBACK session so the reply is captured (48h TTL)
+      const phone = appt.patientPhone.startsWith("+") ? appt.patientPhone : `+${appt.patientPhone}`;
+      await kv.set(
+        `wa:sess:${phone}`,
+        {
+          createdAtMs: Date.now(),
+          stage: "COLLECT_FEEDBACK",
+          feedbackApptRecordId: appt.id,
+          feedbackPatientName: appt.patientName,
+          // minimal required session fields
+          clinicId: clinicId ?? "",
+          rules: {},
+          slotsTop: [],
+          staffById: {},
+        },
+        { ex: 48 * 3600 }
+      );
     } catch (e) {
       console.error("[daily] feedback send failed", appt.id, e);
       errors.push(`feedback:${appt.id}: ${String(e)}`);
