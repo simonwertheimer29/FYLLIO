@@ -1997,6 +1997,10 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
         />
       ) : null}
 
+      {section === "ROI" ? (
+        <ROIPanel staffId={providerId} />
+      ) : null}
+
       {section === "PRESUPUESTOS" ? (
         <div className="space-y-6">
           <div className="rounded-3xl border border-slate-200 bg-white p-6">
