@@ -109,15 +109,24 @@ export default function ROIPanel({ staffId }: { staffId?: string }) {
   const timeSavedEur = Math.round(stats.timeSavedMinByWhatsapp * RECEPTIONIST_EUR_PER_MIN);
   const waitlistEur = stats.estimatedWaitlistRevenue;
   const googleReviewsValue = feedback.googleReviewsSent * 8; // ~€8 estimated value per review (new patient acquisition)
-  const noShowSaving = stats.weekNoShows === 0 && stats.weekAppointments > 0
-    ? Math.round(stats.weekAppointments * (INDUSTRY_NOSHOW_PCT / 100) * 60) // saved by avoiding industry avg
-    : 0;
 
-  const totalROI = timeSavedEur + waitlistEur + googleReviewsValue + noShowSaving;
-
+  // clinicNoShowPct must be computed before noShowSaving
   const clinicNoShowPct = stats.weekAppointments > 0
     ? Math.round((stats.weekNoShows / stats.weekAppointments) * 100)
     : null;
+
+  // Show saving whenever clinic rate < industry avg (not only when 0 no-shows)
+  const noShowSaving =
+    clinicNoShowPct !== null &&
+    stats.weekAppointments > 0 &&
+    clinicNoShowPct < INDUSTRY_NOSHOW_PCT
+      ? Math.round(
+          (INDUSTRY_NOSHOW_PCT / 100 - clinicNoShowPct / 100) *
+            stats.weekAppointments * 60
+        )
+      : 0;
+
+  const totalROI = timeSavedEur + waitlistEur + googleReviewsValue + noShowSaving;
 
   return (
     <div className="space-y-5">
@@ -198,7 +207,7 @@ export default function ROIPanel({ staffId }: { staffId?: string }) {
             icon="📉"
             label="Reducción de no-shows"
             value={`~€${noShowSaving}`}
-            sub={`Ahorro estimado vs tasa media del sector (${INDUSTRY_NOSHOW_PCT}%)`}
+            sub={`Tu tasa ${clinicNoShowPct}% vs sector ${INDUSTRY_NOSHOW_PCT}% — ${Math.round((INDUSTRY_NOSHOW_PCT / 100 - (clinicNoShowPct ?? 0) / 100) * stats.weekAppointments * 10) / 10} citas evitadas × €60 ticket medio`}
             highlight
           />
         )}

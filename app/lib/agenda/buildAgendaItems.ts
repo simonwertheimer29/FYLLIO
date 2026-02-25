@@ -237,10 +237,11 @@ const chairs = 1;
 function expandLunchForChair(params: { chairId: number; targetStart: string; targetEnd: string }): { start: string; end: string } {
   const { chairId, targetStart, targetEnd } = params;
 
-  // busy del chair (sin GAPs)
+  // busy del chair (sin GAPs, sin buffers para no impedir expansión del almuerzo)
   const busyIntervals: Interval[] = out
     .filter((x) => (x.chairId ?? 1) === chairId)
     .filter((x) => x.kind === "APPOINTMENT" || x.kind === "AI_BLOCK")
+    .filter((x) => !(x.kind === "AI_BLOCK" && (x as any).blockType === "BUFFER"))
     .filter((x) => intersectsDayRange(x))
     .map((x) => clipInterval(x.start, x.end))
     .filter(Boolean) as Interval[];
@@ -365,6 +366,9 @@ for (let chairId = 1; chairId <= chairs; chairId++) {
     // ✅ si la agenda es 1 columna, NO filtramos por chairId
     .filter((x) => (chairs === 1 ? true : (x.chairId ?? 1) === chairId))
     .filter((x) => intersectsDayRange(x))
+    // ✅ Excluir buffers: representan tiempo de prep/limpieza pero no deben ocultar
+    //    huecos reales entre citas (de lo contrario, double-buffer reduce gaps detectados)
+    .filter((x) => !(x.kind === "AI_BLOCK" && (x as any).blockType === "BUFFER"))
     .map((x) => clipInterval(x.start, x.end))
     .filter(Boolean) as Interval[];
 

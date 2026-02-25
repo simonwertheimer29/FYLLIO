@@ -2,7 +2,7 @@
 
 import { ReactNode } from "react";
 
-export type DemoSectionKey = "HOY" | "RULES" | "AGENDA" | "ACTIONS" | "IMPACT" | "WAITLIST" | "MENSAJES" | "ESTADISTICAS" | "PRESUPUESTOS" | "REPUTACION" | "INGRESOS" | "RECALL" | "TRATAMIENTOS" | "DOCTOR" | "ROI";
+export type DemoSectionKey = "HOY" | "RULES" | "AGENDA" | "ACTIONS" | "IMPACT" | "WAITLIST" | "MENSAJES" | "ESTADISTICAS" | "PRESUPUESTOS" | "REPUTACION" | "INGRESOS" | "RECALL" | "TRATAMIENTOS" | "DOCTOR" | "ROI" | "NOSHOW_RISK";
 
 type Section = {
   key: DemoSectionKey;
@@ -34,6 +34,7 @@ export default function DemoShell({
     { key: "TRATAMIENTOS", label: "Tratamientos", icon: <IconBox>🦷</IconBox> },
     { key: "DOCTOR", label: "Mi vista", icon: <IconBox>👨‍⚕️</IconBox> },
     { key: "ROI", label: "ROI Fyllio", icon: <IconBox>📈</IconBox> },
+    { key: "NOSHOW_RISK", label: "No-shows", icon: <IconBox>⚠</IconBox> },
     { key: "PRESUPUESTOS", label: "Presupuestos", icon: <IconBox>€</IconBox> },
     { key: "REPUTACION", label: "Reputación", icon: <IconBox>⭐</IconBox> },
     { key: "RULES", label: "Reglas", icon: <IconBox>R</IconBox> },

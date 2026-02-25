@@ -35,6 +35,7 @@ import RecallCampaignPanel from "../../components/actions/RecallCampaignPanel";
 import OngoingTreatmentsPanel from "../../components/treatments/OngoingTreatmentsPanel";
 import DoctorView from "../../components/dashboard/DoctorView";
 import ROIPanel from "../../components/dashboard/ROIPanel";
+import NoShowRiskPanel from "../../components/dashboard/NoShowRiskPanel";
 import { useEffect, useMemo, useState } from "react";
 
 
@@ -1999,6 +2000,10 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
 
       {section === "ROI" ? (
         <ROIPanel staffId={providerId} />
+      ) : null}
+
+      {section === "NOSHOW_RISK" ? (
+        <NoShowRiskPanel staffId={providerId} />
       ) : null}
 
       {section === "PRESUPUESTOS" ? (
