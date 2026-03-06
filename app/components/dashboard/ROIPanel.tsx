@@ -259,20 +259,20 @@ export default function ROIPanel({ staffId }: { staffId?: string }) {
         <p className="text-sm font-semibold text-slate-800 mb-4">Rendimiento financiero</p>
         <div className="grid grid-cols-3 gap-3">
           <div className="text-center">
-            <p className="text-2xl font-extrabold text-slate-900">€{revenue.weekRevenue.toLocaleString("es-ES")}</p>
+            <p className="text-2xl font-extrabold text-slate-900">€{(revenue.weekRevenue ?? 0).toLocaleString("es-ES")}</p>
             <p className="text-xs text-slate-500 mt-0.5">esta semana</p>
-            {revenue.weekDelta !== 0 && (
-              <p className={`text-xs font-bold mt-0.5 ${revenue.weekDelta > 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                {revenue.weekDelta > 0 ? "+" : ""}€{Math.abs(revenue.weekDelta)} vs anterior
+            {(revenue.weekDelta ?? 0) !== 0 && (
+              <p className={`text-xs font-bold mt-0.5 ${(revenue.weekDelta ?? 0) > 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                {(revenue.weekDelta ?? 0) > 0 ? "+" : ""}€{Math.abs(revenue.weekDelta ?? 0)} vs anterior
               </p>
             )}
           </div>
           <div className="text-center">
-            <p className="text-2xl font-extrabold text-slate-900">€{revenue.monthRevenue.toLocaleString("es-ES")}</p>
+            <p className="text-2xl font-extrabold text-slate-900">€{(revenue.monthRevenue ?? 0).toLocaleString("es-ES")}</p>
             <p className="text-xs text-slate-500 mt-0.5">este mes</p>
           </div>
           <div className="text-center">
-            <p className="text-2xl font-extrabold text-slate-900">€{revenue.monthProjection.toLocaleString("es-ES")}</p>
+            <p className="text-2xl font-extrabold text-slate-900">€{(revenue.monthProjection ?? 0).toLocaleString("es-ES")}</p>
             <p className="text-xs text-slate-500 mt-0.5">proyección mes</p>
           </div>
         </div>

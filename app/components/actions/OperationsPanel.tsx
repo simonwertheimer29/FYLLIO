@@ -31,6 +31,37 @@ type Data = {
   waitlistTotal: number;
 };
 
+type NoShowRisk = "HIGH" | "MED" | "LOW";
+
+type AtRiskAppt = {
+  recordId: string;
+  patientName: string;
+  phone: string;
+  treatmentName: string;
+  start: string;
+  durationMin: number;
+  noShowRisk: NoShowRisk;
+  confirmed: boolean;
+};
+
+type OngoingPatient = {
+  patientName: string;
+  phone: string;
+  treatmentName: string;
+  lastVisitLabel: string;
+  status: "ALERT" | "WARN" | "OK";
+};
+
+type QuoteItem = {
+  id: string;
+  patientName: string;
+  phone?: string;
+  treatmentName: string;
+  amount: number;
+  daysSince: number;
+  status: string;
+};
+
 type SendStatus = "idle" | "sending" | "sent" | "error";
 type BlockStatus = "idle" | "blocking" | "blocked" | "error";
 
@@ -493,6 +524,129 @@ function ProgressSummary({
   );
 }
 
+// ── AtRiskRow ─────────────────────────────────────────────────────────────────
+
+function AtRiskRow({ appt, staffName }: { appt: AtRiskAppt; staffName: string }) {
+  const [status, setStatus] = useState<SendStatus>("idle");
+
+  async function handleSend() {
+    if (!appt.phone) return;
+    const msg = appt.noShowRisk === "HIGH"
+      ? `Hola ${appt.patientName} 🙏 Tu cita de hoy a las ${appt.start} con ${staffName}${appt.treatmentName ? ` (${appt.treatmentName})` : ""} aún no está confirmada. ¿Puedes confirmarnos que asistirás? Responde *SÍ* o escríbenos si necesitas cambiarla.`
+      : `Hola ${appt.patientName} 🙂 Te recordamos tu cita de hoy a las ${appt.start} con ${staffName}${appt.treatmentName ? ` (${appt.treatmentName})` : ""}. ¿Confirmas asistencia? Responde *SÍ* o escríbenos si necesitas cambiarla.`;
+    if (!confirm(`Enviar WhatsApp a ${appt.patientName}?\n\n"${msg}"`)) return;
+    setStatus("sending");
+    try {
+      const res = await fetch("/api/whatsapp/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: appt.phone, message: msg }) });
+      if (!res.ok) throw new Error();
+      setStatus("sent");
+    } catch { setStatus("error"); }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3 flex-wrap">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-slate-900">{appt.patientName}</p>
+        <p className="text-xs text-slate-500 mt-0.5">
+          {appt.start} · {appt.treatmentName || "Cita"} · {appt.durationMin} min
+          <span className="ml-2 font-medium text-rose-600">~€{appt.durationMin} en riesgo</span>
+        </p>
+      </div>
+      {status === "sent" ? (
+        <span className="text-xs text-emerald-600 font-semibold px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200 shrink-0">✓ Enviado</span>
+      ) : status === "error" ? (
+        <span className="text-xs text-red-500 font-semibold px-2 py-1 rounded-full bg-red-50 border border-red-200 shrink-0">Error</span>
+      ) : appt.phone ? (
+        <button type="button" onClick={handleSend} disabled={status === "sending"}
+          className={`text-xs px-3 py-1.5 rounded-full font-semibold disabled:opacity-50 shrink-0 ${appt.noShowRisk === "HIGH" ? "bg-rose-600 text-white hover:bg-rose-700" : "bg-emerald-600 text-white hover:bg-emerald-700"}`}>
+          {status === "sending" ? "Enviando..." : appt.noShowRisk === "HIGH" ? "⚠️ Recordar ahora" : "💬 Recordatorio"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+// ── OngoingRow ────────────────────────────────────────────────────────────────
+
+function OngoingRow({ patient }: { patient: OngoingPatient }) {
+  const [status, setStatus] = useState<SendStatus>("idle");
+
+  async function handleSend() {
+    if (!patient.phone) return;
+    const msg = `Hola ${patient.patientName} 🙂 Te escribimos para recordarte que tu tratamiento de ${patient.treatmentName} requiere una próxima visita. ¿Cuándo podrías venir? Estamos aquí para ayudarte.`;
+    if (!confirm(`Enviar WhatsApp a ${patient.patientName}?\n\n"${msg}"`)) return;
+    setStatus("sending");
+    try {
+      const res = await fetch("/api/whatsapp/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: patient.phone, message: msg }) });
+      if (!res.ok) throw new Error();
+      setStatus("sent");
+    } catch { setStatus("error"); }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3 flex-wrap">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-slate-900">{patient.patientName}</p>
+        <p className="text-xs text-slate-500 mt-0.5">
+          {patient.treatmentName} · {patient.lastVisitLabel}
+          {patient.status === "ALERT" && <span className="ml-2 text-rose-600 font-semibold">Sin cita próxima</span>}
+          {patient.status === "WARN" && <span className="ml-2 text-amber-600 font-semibold">Próxima cita tardía</span>}
+        </p>
+      </div>
+      {status === "sent" ? (
+        <span className="text-xs text-emerald-600 font-semibold px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200 shrink-0">✓ Enviado</span>
+      ) : status === "error" ? (
+        <span className="text-xs text-red-500 font-semibold px-2 py-1 rounded-full bg-red-50 border border-red-200 shrink-0">Error</span>
+      ) : patient.phone ? (
+        <button type="button" onClick={handleSend} disabled={status === "sending"}
+          className="text-xs px-3 py-1.5 rounded-full font-semibold bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-50 shrink-0">
+          {status === "sending" ? "Enviando..." : "💬 Contactar"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+// ── QuoteRow ──────────────────────────────────────────────────────────────────
+
+function QuoteRow({ quote }: { quote: QuoteItem }) {
+  const [status, setStatus] = useState<SendStatus>("idle");
+
+  async function handleSend() {
+    if (!quote.phone) return;
+    const msg = `Hola ${quote.patientName} 🙂 Queríamos saber si tienes alguna duda sobre el presupuesto de ${quote.treatmentName} que te preparamos. Estamos aquí para ayudarte. ¿Quieres que te llamemos o te explicamos algo por aquí?`;
+    if (!confirm(`Enviar WhatsApp a ${quote.patientName}?\n\n"${msg}"`)) return;
+    setStatus("sending");
+    try {
+      const res = await fetch("/api/whatsapp/send", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ phone: quote.phone, message: msg }) });
+      if (!res.ok) throw new Error();
+      setStatus("sent");
+    } catch { setStatus("error"); }
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 px-4 py-3 flex-wrap">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-slate-900">{quote.patientName}</p>
+        <p className="text-xs text-slate-500 mt-0.5">
+          {quote.treatmentName} · <span className="font-semibold text-slate-700">€{quote.amount.toLocaleString("es")}</span>
+          <span className="ml-2 text-amber-600 font-medium">{quote.daysSince} días sin respuesta</span>
+        </p>
+      </div>
+      {status === "sent" ? (
+        <span className="text-xs text-emerald-600 font-semibold px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200 shrink-0">✓ Enviado</span>
+      ) : status === "error" ? (
+        <span className="text-xs text-red-500 font-semibold px-2 py-1 rounded-full bg-red-50 border border-red-200 shrink-0">Error</span>
+      ) : quote.phone ? (
+        <button type="button" onClick={handleSend} disabled={status === "sending"}
+          className="text-xs px-3 py-1.5 rounded-full font-semibold bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 shrink-0">
+          {status === "sending" ? "Enviando..." : "💬 Recordar presupuesto"}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function OperationsPanel({
@@ -500,11 +654,13 @@ export default function OperationsPanel({
   staffName,
   staffRecordId,
   week,
+  clinicId,
 }: {
   staffId: string;
   staffName: string;
   staffRecordId?: string;
   week: string;
+  clinicId?: string;
 }) {
   const [data, setData] = useState<Data | null>(null);
   const [loading, setLoading] = useState(true);
@@ -512,6 +668,11 @@ export default function OperationsPanel({
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [blockedKeys, setBlockedKeys] = useState<Set<string>>(new Set());
   const [blockedMin, setBlockedMin] = useState(0);
+  const [atRiskToday, setAtRiskToday] = useState<AtRiskAppt[]>([]);
+  const [atRiskTomorrow, setAtRiskTomorrow] = useState<AtRiskAppt[]>([]);
+  const [ongoingAlert, setOngoingAlert] = useState<OngoingPatient[]>([]);
+  const [ongoingWarn, setOngoingWarn] = useState<OngoingPatient[]>([]);
+  const [quotes, setQuotes] = useState<QuoteItem[]>([]);
 
   async function load() {
     setLoading(true);
@@ -519,13 +680,57 @@ export default function OperationsPanel({
     setDismissed(new Set());
     setBlockedKeys(new Set());
     setBlockedMin(0);
+
+    const tomorrowIso = DateTime.now().setZone("Europe/Madrid").plus({ days: 1 }).toISODate()!;
+
     try {
-      const res = await fetch(`/api/db/gaps?staffId=${staffId}&week=${week}`, {
-        cache: "no-store",
-      });
-      const json = await res.json();
-      if (json.error) throw new Error(json.error);
-      setData(json);
+      const gapsUrl = `/api/db/gaps?staffId=${staffId}&week=${week}${clinicId ? `&clinicId=${clinicId}` : ""}`;
+      const [gapsRes, todayRes, tomorrowRes, treatmentsRes, quotesRes] = await Promise.all([
+        fetch(gapsUrl, { cache: "no-store" }),
+        fetch(`/api/db/today?staffId=${staffId}`, { cache: "no-store" }),
+        fetch(`/api/db/today?staffId=${staffId}&date=${tomorrowIso}`, { cache: "no-store" }),
+        fetch(`/api/db/ongoing-treatments?staffId=${staffId}`, { cache: "no-store" }),
+        fetch(`/api/db/quotes`, { cache: "no-store" }),
+      ]);
+
+      const gapsJson = await gapsRes.json();
+      if (gapsJson.error) throw new Error(gapsJson.error);
+      setData(gapsJson);
+
+      if (todayRes.ok) {
+        const todayJson = await todayRes.json();
+        const riskAppts: AtRiskAppt[] = (todayJson.appointments ?? [])
+          .filter((a: any) => !a.isBlock && !a.confirmed && (a.noShowRisk === "HIGH" || a.noShowRisk === "MED"));
+        setAtRiskToday(riskAppts);
+      }
+
+      if (tomorrowRes.ok) {
+        const tomJson = await tomorrowRes.json();
+        const riskTom: AtRiskAppt[] = (tomJson.appointments ?? [])
+          .filter((a: any) => !a.isBlock && !a.confirmed && a.noShowRisk === "HIGH");
+        setAtRiskTomorrow(riskTom);
+      }
+
+      if (treatmentsRes.ok) {
+        const txJson = await treatmentsRes.json();
+        const patients: OngoingPatient[] = (txJson.patients ?? []).map((p: any) => ({
+          patientName: p.patientName,
+          phone: p.phone ?? "",
+          treatmentName: p.treatmentName,
+          lastVisitLabel: p.lastVisitLabel ?? "",
+          status: p.status,
+        }));
+        setOngoingAlert(patients.filter((p) => p.status === "ALERT"));
+        setOngoingWarn(patients.filter((p) => p.status === "WARN"));
+      }
+
+      if (quotesRes.ok) {
+        const quotesJson = await quotesRes.json();
+        const pending: QuoteItem[] = (quotesJson.quotes ?? []).filter(
+          (q: any) => q.status === "PRESENTADO" && (q.daysSince ?? 0) >= 7
+        );
+        setQuotes(pending);
+      }
     } catch (e: any) {
       setError(e.message ?? "Error al cargar tareas");
     } finally {
@@ -566,11 +771,13 @@ export default function OperationsPanel({
           <div>
             <p className="text-xs font-semibold text-violet-200 uppercase tracking-widest">Centro de operaciones</p>
             <h2 className="mt-1 text-3xl font-extrabold">
-              {data ? data.gaps.length : "—"}
+              {atRiskToday.length + atRiskTomorrow.length + (data?.gaps.length ?? 0) + ongoingAlert.length}
             </h2>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-sm text-violet-100">{data && data.gaps.length === 1 ? "franja disponible esta semana" : "franjas disponibles esta semana"}</span>
-            </div>
+            <p className="text-sm text-violet-100 mt-0.5">
+              tareas activas ·{" "}
+              {atRiskToday.length > 0 && <span className="text-rose-300 font-semibold">{atRiskToday.length} urgentes hoy</span>}
+              {atRiskToday.length === 0 && "sin alertas urgentes hoy"}
+            </p>
           </div>
           <button
             type="button"
@@ -582,25 +789,27 @@ export default function OperationsPanel({
         </div>
 
         <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-2xl bg-white/15 border border-white/20 p-3">
-            <p className="text-xs text-violet-200 font-medium">Tiempo libre</p>
-            <p className="text-xl font-extrabold mt-0.5">{data ? data.totalFreeMin : "—"} min</p>
+          <div className={`rounded-2xl border p-3 ${atRiskToday.length > 0 ? "bg-rose-500/30 border-rose-400/40" : "bg-white/15 border-white/20"}`}>
+            <p className="text-xs text-violet-200 font-medium">Sin confirmar hoy</p>
+            <p className="text-xl font-extrabold mt-0.5">{atRiskToday.length}</p>
+            <p className="text-[11px] text-violet-300 mt-0.5">riesgo de no-show</p>
           </div>
-          <div className={`rounded-2xl border p-3 ${data && data.estimatedRevenueImpact > 0 ? "bg-amber-400/25 border-amber-300/30" : "bg-white/15 border-white/20"}`}>
-            <p className="text-xs text-violet-200 font-medium">Impacto estimado</p>
-            <p className={`text-xl font-extrabold mt-0.5 ${data && data.estimatedRevenueImpact > 0 ? "text-amber-200" : ""}`}>
-              €{data ? data.estimatedRevenueImpact : "—"}
+          <div className={`rounded-2xl border p-3 ${(data?.estimatedRevenueImpact ?? 0) > 0 ? "bg-amber-400/25 border-amber-300/30" : "bg-white/15 border-white/20"}`}>
+            <p className="text-xs text-violet-200 font-medium">Huecos esta semana</p>
+            <p className={`text-xl font-extrabold mt-0.5 ${(data?.estimatedRevenueImpact ?? 0) > 0 ? "text-amber-200" : ""}`}>
+              {data ? data.gaps.length : "—"}
             </p>
+            <p className="text-[11px] text-violet-300 mt-0.5">~€{data?.estimatedRevenueImpact ?? 0} sin cubrir</p>
           </div>
           <div className="rounded-2xl bg-white/15 border border-white/20 p-3">
             <p className="text-xs text-violet-200 font-medium">Lista de espera</p>
             <p className="text-xl font-extrabold mt-0.5">{data ? data.waitlistTotal : "—"}</p>
             <p className="text-[11px] text-violet-300 mt-0.5">candidatos activos</p>
           </div>
-          <div className="rounded-2xl bg-white/15 border border-white/20 p-3">
-            <p className="text-xs text-violet-200 font-medium">Recall</p>
-            <p className="text-xl font-extrabold mt-0.5">{data ? data.recallTotal : "—"}</p>
-            <p className="text-[11px] text-violet-300 mt-0.5">pacientes a recuperar</p>
+          <div className={`rounded-2xl border p-3 ${ongoingAlert.length > 0 ? "bg-rose-500/20 border-rose-400/30" : "bg-white/15 border-white/20"}`}>
+            <p className="text-xs text-violet-200 font-medium">Tratamientos alerta</p>
+            <p className="text-xl font-extrabold mt-0.5">{ongoingAlert.length}</p>
+            <p className="text-[11px] text-violet-300 mt-0.5">sin cita próxima</p>
           </div>
         </div>
       </div>
@@ -615,17 +824,84 @@ export default function OperationsPanel({
         onRefresh={load}
       />
 
+      {/* ── SECCIÓN 1: GESTIÓN DE AGENDA ────────────────────────────── */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <h3 className="text-base font-bold text-slate-900">⚡ Gestión de Agenda</h3>
+          <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+            {atRiskToday.length + atRiskTomorrow.length + (data?.gaps.length ?? 0) + ongoingAlert.length} tareas
+          </span>
+        </div>
+
+        {/* At-risk appointments TODAY */}
+        {atRiskToday.length > 0 && (
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 overflow-hidden">
+            <div className="px-4 py-3 border-b border-rose-100 flex items-center gap-2">
+              <span className="text-sm font-semibold text-rose-800">🔴 Citas sin confirmar — HOY</span>
+              <span className="text-xs text-rose-600 ml-1">· Actúa antes de que empiecen</span>
+            </div>
+            <div className="divide-y divide-rose-50">
+              {atRiskToday.map((appt) => (
+                <AtRiskRow key={appt.recordId} appt={appt} staffName={staffName} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* At-risk appointments TOMORROW (HIGH only) */}
+        {atRiskTomorrow.length > 0 && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 overflow-hidden">
+            <div className="px-4 py-3 border-b border-amber-100 flex items-center gap-2">
+              <span className="text-sm font-semibold text-amber-800">🟡 Riesgo alto — MAÑANA</span>
+              <span className="text-xs text-amber-600 ml-1">· Recuerda confirmar hoy</span>
+            </div>
+            <div className="divide-y divide-amber-50">
+              {atRiskTomorrow.map((appt) => (
+                <AtRiskRow key={appt.recordId} appt={appt} staffName={staffName} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Ongoing treatments ALERT */}
+        {ongoingAlert.length > 0 && (
+          <div className="rounded-2xl border border-rose-200 bg-white overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+              <span className="text-sm font-semibold text-slate-800">🦷 Tratamientos sin cita próxima</span>
+              <span className="text-xs text-rose-600 font-semibold bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded-full ml-auto">
+                {ongoingAlert.length} alertas
+              </span>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {ongoingAlert.slice(0, 5).map((p, i) => (
+                <OngoingRow key={i} patient={p} />
+              ))}
+              {ongoingAlert.length > 5 && (
+                <p className="text-xs text-slate-400 px-4 py-2">+{ongoingAlert.length - 5} más en la sección Tratamientos</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Gaps content */}
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest px-1">
+            🕳 Huecos en agenda esta semana
+          </p>
+        </div>
+      </div>
+
       {/* Content */}
       {loading ? (
         <p className="text-sm text-slate-500">Cargando tareas...</p>
       ) : error ? (
         <p className="text-sm text-red-500">{error}</p>
       ) : !data || visibleGaps.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center">
+        <div className="rounded-2xl border border-dashed border-slate-200 p-6 text-center">
           <p className="text-sm text-slate-500">
-            🎉 {dismissed.size > 0
-              ? `${dismissed.size} ${dismissed.size === 1 ? "tarea resuelta" : "tareas resueltas"} — agenda gestionada`
-              : `No hay franjas disponibles esta semana para ${staffName}`}
+            {dismissed.size > 0
+              ? `🎉 ${dismissed.size} ${dismissed.size === 1 ? "tarea resuelta" : "tareas resueltas"} — agenda gestionada`
+              : `Sin huecos disponibles esta semana para ${staffName}`}
           </p>
         </div>
       ) : (
@@ -670,6 +946,49 @@ export default function OperationsPanel({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── SECCIÓN 2: SEGUIMIENTOS ──────────────────────────────────── */}
+      {(quotes.length > 0 || ongoingWarn.length > 0) && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <h3 className="text-base font-bold text-slate-900">📋 Seguimientos</h3>
+            <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
+              {quotes.length + ongoingWarn.length} pendientes
+            </span>
+          </div>
+
+          {/* Pending quotes */}
+          {quotes.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+                <span className="text-sm font-semibold text-slate-800">€ Presupuestos sin respuesta</span>
+                <span className="text-xs text-amber-600 font-semibold bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded-full ml-auto">
+                  {quotes.length} pendientes
+                </span>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {quotes.map((q) => (
+                  <QuoteRow key={q.id} quote={q} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Ongoing WARN treatments */}
+          {ongoingWarn.length > 0 && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 overflow-hidden">
+              <div className="px-4 py-3 border-b border-amber-100 flex items-center gap-2">
+                <span className="text-sm font-semibold text-amber-800">🦷 Tratamientos cerca del umbral</span>
+              </div>
+              <div className="divide-y divide-amber-50">
+                {ongoingWarn.map((p, i) => (
+                  <OngoingRow key={i} patient={p} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

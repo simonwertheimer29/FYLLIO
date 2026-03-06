@@ -101,7 +101,13 @@ function actionIcon(action: string) {
 
 type ToastMsg = { id: number; text: string };
 
-export default function NoShowRiskPanel({ staffId }: { staffId?: string }) {
+export default function NoShowRiskPanel({
+  staffId,
+  onGoToActions,
+}: {
+  staffId?: string;
+  onGoToActions?: () => void;
+}) {
   const [data, setData] = useState<RiskData | null>(null);
   const [loading, setLoading] = useState(true);
   const [toasts, setToasts] = useState<ToastMsg[]>([]);
@@ -324,7 +330,7 @@ export default function NoShowRiskPanel({ staffId }: { staffId?: string }) {
                   )}
 
                   {/* Actions */}
-                  <div className="mt-4 flex flex-wrap gap-2">
+                  <div className="mt-4 flex flex-wrap gap-2 items-center">
                     {appt.actions.map((action) => {
                       const key = `${appt.id}:${action}`;
                       const done = actionsDone.has(key);
@@ -345,6 +351,15 @@ export default function NoShowRiskPanel({ staffId }: { staffId?: string }) {
                         </button>
                       );
                     })}
+                    {onGoToActions && appt.riskLevel !== "LOW" && (
+                      <button
+                        type="button"
+                        onClick={onGoToActions}
+                        className="text-xs px-3 py-1.5 rounded-full border font-semibold transition bg-rose-600 border-rose-600 text-white hover:bg-rose-700 ml-auto shrink-0"
+                      >
+                        ⚡ Ir a Acciones →
+                      </button>
+                    )}
                   </div>
                 </div>
               );

@@ -278,7 +278,7 @@ export async function GET(req: Request) {
     }
     occupied.sort((a, b) => a.startMin - b.startMin);
 
-    const MIN_GAP = 30;
+    const MIN_GAP = 20; // mostrar huecos de 20+ min (antes 30)
     type GapOut = { start: string; end: string; startIso: string; durationMin: number; potentialRevenue: number };
     const gaps: GapOut[] = [];
 

@@ -12,6 +12,7 @@ import DemoShell, { type DemoSectionKey } from "../../components/layout/DemoShel
 import ItemModal from "../../components/agenda/ItemModal";
 
 import ProviderSelect from "../../components/layout/ProviderSelect";
+import ClinicSelector from "../../components/layout/ClinicSelector";
 import { DEMO_PROVIDERS } from "../../lib/clinic/demoClinic";
 
 import { DEFAULT_RULES } from "../../lib/demoData";
@@ -36,6 +37,7 @@ import OngoingTreatmentsPanel from "../../components/treatments/OngoingTreatment
 import DoctorView from "../../components/dashboard/DoctorView";
 import ROIPanel from "../../components/dashboard/ROIPanel";
 import NoShowRiskPanel from "../../components/dashboard/NoShowRiskPanel";
+import GesdenImporter from "../../components/import/GesdenImporter";
 import { useEffect, useMemo, useState } from "react";
 
 
@@ -811,6 +813,10 @@ type Provider = { id: string; name: string; recordId?: string };
 
 const [providers, setProviders] = useState<Provider[]>([]);
 const [providerId, setProviderId] = useState<string>("");
+const [clinicId, setClinicId] = useState<string>(() => {
+  if (typeof window !== "undefined") return localStorage.getItem("selectedClinicId") ?? "";
+  return "";
+});
 
  useEffect(() => {
   const run = async () => {
@@ -1888,6 +1894,7 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
 
   const headerRight = (
     <>
+<ClinicSelector value={clinicId} onChange={setClinicId} />
 <ProviderSelect providers={providers} value={providerId} onChange={setProviderId} />
 
       {section === "AGENDA" ? (
@@ -1973,10 +1980,17 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
       />
 
       {section === "HOY" ? (
-        <TodayBriefing
-          staffId={providerId}
-          onGoToActions={() => setSection("ACTIONS")}
-        />
+        <div className="space-y-6">
+          <TodayBriefing
+            staffId={providerId}
+            onGoToActions={() => setSection("ACTIONS")}
+          />
+          {/* Mi Vista integrada al final de HOY */}
+          <DoctorView
+            staffId={providerId}
+            staffName={providers.find((p) => p.id === providerId)?.name}
+          />
+        </div>
       ) : null}
 
       {section === "INGRESOS" ? (
@@ -2003,7 +2017,7 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
       ) : null}
 
       {section === "NOSHOW_RISK" ? (
-        <NoShowRiskPanel staffId={providerId} />
+        <NoShowRiskPanel staffId={providerId} onGoToActions={() => setSection("ACTIONS")} />
       ) : null}
 
       {section === "PRESUPUESTOS" ? (
@@ -2113,6 +2127,7 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
                 staffName={providers.find(p => p.id === providerId)?.name ?? providerId}
                 staffRecordId={providers.find(p => p.id === providerId)?.recordId}
                 week={weekKey}
+                clinicId={clinicId || undefined}
               />
             ) : (
               <p className="text-sm text-slate-500">Selecciona un profesional para ver las tareas.</p>
@@ -2247,6 +2262,12 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
   </div>
 ) : null}
 
+
+      {section === "IMPORTAR" ? (
+        <div className="space-y-6">
+          <GesdenImporter />
+        </div>
+      ) : null}
 
       <ItemModal
         open={!!openItem}

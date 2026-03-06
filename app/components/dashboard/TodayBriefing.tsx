@@ -7,7 +7,7 @@ type NoShowRisk = "HIGH" | "MED" | "LOW";
 const RISK_CONFIG: Record<NoShowRisk, { label: string; dot: string; badge: string }> = {
   HIGH: { label: "Riesgo alto",  dot: "bg-rose-500",   badge: "text-rose-700 bg-rose-50 border-rose-200" },
   MED:  { label: "Riesgo medio", dot: "bg-amber-400",  badge: "text-amber-700 bg-amber-50 border-amber-200" },
-  LOW:  { label: "Riesgo bajo",  dot: "bg-emerald-400", badge: "text-emerald-700 bg-emerald-50 border-emerald-200" },
+  LOW:  { label: "Riesgo bajo",  dot: "bg-emerald-400", badge: "text-emerald-600 bg-emerald-50 border-emerald-200" },
 };
 
 type Appt = {
@@ -49,15 +49,41 @@ type TodayData = {
 
 type SendStatus = "idle" | "sending" | "sent" | "error";
 
-function ReminderButton({ appt }: { appt: Appt }) {
+function ReminderButton({
+  appt,
+  staffName,
+  variant = "default",
+}: {
+  appt: Appt;
+  staffName?: string;
+  variant?: "default" | "urgent" | "compact";
+}) {
   const [status, setStatus] = useState<SendStatus>("idle");
 
   async function handleSend() {
     if (!appt.phone) return;
-    const message =
-      `Hola ${appt.patientName} 🙂 Te recordamos tu cita de hoy a las ${appt.start}` +
-      (appt.treatmentName ? ` (${appt.treatmentName})` : "") +
-      `. Por favor confirma respondiendo *SÍ* o escríbenos si necesitas cambiarla. ¡Hasta luego!`;
+
+    let message: string;
+    if (appt.noShowRisk === "HIGH") {
+      message =
+        `Hola ${appt.patientName} 🙏 Te escribimos porque tu cita de hoy a las ${appt.start}` +
+        (staffName ? ` con ${staffName}` : "") +
+        (appt.treatmentName ? ` (${appt.treatmentName})` : "") +
+        ` aún no está confirmada. ¿Puedes confirmarnos que asistirás? Responde *SÍ* para confirmar o escríbenos si necesitas cambiarla. ¡Gracias!`;
+    } else if (appt.noShowRisk === "MED") {
+      message =
+        `Hola ${appt.patientName} 🙂 Te recordamos tu cita` +
+        (staffName ? ` con ${staffName}` : "") +
+        ` de hoy a las ${appt.start}` +
+        (appt.treatmentName ? ` — ${appt.treatmentName}` : "") +
+        `. ¿Confirmas que vendrás? Responde *SÍ* o escríbenos si necesitas cambiarla. ¡Hasta luego!`;
+    } else {
+      message =
+        `Hola ${appt.patientName} 🙂 Te recordamos tu cita de hoy a las ${appt.start}` +
+        (staffName ? ` con ${staffName}` : "") +
+        (appt.treatmentName ? ` (${appt.treatmentName})` : "") +
+        `. Por favor confirma respondiendo *SÍ* o escríbenos si necesitas cambiarla. ¡Hasta luego!`;
+    }
 
     if (!confirm(`Enviar WhatsApp a ${appt.patientName}?\n\n"${message}"`)) return;
     setStatus("sending");
@@ -78,26 +104,42 @@ function ReminderButton({ appt }: { appt: Appt }) {
 
   if (status === "sent") {
     return (
-      <span className="text-xs text-emerald-600 font-semibold px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200">
+      <span className="text-xs text-emerald-600 font-semibold px-2 py-1 rounded-full bg-emerald-50 border border-emerald-200 shrink-0">
         ✓ Enviado
       </span>
     );
   }
   if (status === "error") {
     return (
-      <span className="text-xs text-red-500 font-semibold px-2 py-1 rounded-full bg-red-50 border border-red-200">
+      <span className="text-xs text-red-500 font-semibold px-2 py-1 rounded-full bg-red-50 border border-red-200 shrink-0">
         Error
       </span>
     );
   }
+
+  const btnLabel = status === "sending"
+    ? "Enviando..."
+    : variant === "compact"
+    ? "💬"
+    : appt.noShowRisk === "HIGH"
+    ? "⚠️ Recordar ahora"
+    : "💬 Recordatorio";
+
+  const btnClass =
+    variant === "compact"
+      ? "text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-semibold hover:bg-slate-200 disabled:opacity-50 shrink-0"
+      : appt.noShowRisk === "HIGH"
+      ? "text-xs px-3 py-1.5 rounded-full bg-rose-600 text-white font-semibold hover:bg-rose-700 disabled:opacity-50 shrink-0"
+      : "text-xs px-3 py-1.5 rounded-full bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:opacity-50 shrink-0";
+
   return (
     <button
       type="button"
       onClick={handleSend}
       disabled={status === "sending"}
-      className="text-xs px-3 py-1.5 rounded-full bg-emerald-600 text-white font-semibold hover:bg-emerald-700 disabled:opacity-50 shrink-0"
+      className={btnClass}
     >
-      {status === "sending" ? "Enviando..." : "💬 Recordatorio"}
+      {btnLabel}
     </button>
   );
 }
@@ -160,6 +202,7 @@ export default function TodayBriefing({
   const confirmed = data.appointments.filter((a) => a.confirmed && !a.isBlock);
   const blocks = data.appointments.filter((a) => a.isBlock);
   const highRiskConfirmed = confirmed.filter((a) => a.noShowRisk === "HIGH");
+  const medRiskConfirmed = confirmed.filter((a) => a.noShowRisk === "MED");
   const totalRevenue = data.confirmedRevenue + data.atRiskRevenue;
   const fillRate = totalRevenue > 0
     ? Math.round((data.confirmedRevenue / totalRevenue) * 100)
@@ -207,6 +250,28 @@ export default function TodayBriefing({
             <p className="text-[11px] text-sky-200 mt-0.5">{data.gaps.length} {data.gaps.length === 1 ? "franja" : "franjas"}</p>
           </div>
         </div>
+
+        {/* Risk summary bar */}
+        {(highRiskConfirmed.length > 0 || medRiskConfirmed.length > 0 || unconfirmed.length > 0) && (
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] text-sky-300 font-medium">Alertas:</span>
+            {unconfirmed.filter(a => a.noShowRisk === "HIGH").length > 0 && (
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-500/30 border border-rose-400/40 text-rose-200">
+                🔴 {unconfirmed.filter(a => a.noShowRisk === "HIGH").length} sin confirmar · riesgo alto
+              </span>
+            )}
+            {highRiskConfirmed.length > 0 && (
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-400/30 text-rose-200">
+                ⚠️ {highRiskConfirmed.length} confirmadas con riesgo alto
+              </span>
+            )}
+            {data.gaps.length > 0 && (
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-white/15 border border-white/20 text-sky-200">
+                🕳 {data.gaps.length} {data.gaps.length === 1 ? "hueco" : "huecos"} libres
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Unconfirmed appointments ─────────────────────────────────── */}
@@ -215,7 +280,7 @@ export default function TodayBriefing({
           <div className="px-4 py-3 border-b border-amber-200 flex items-center gap-2">
             <span className="text-amber-600 font-bold text-base">⚠️</span>
             <p className="text-sm font-semibold text-amber-800">
-              {unconfirmed.length} {unconfirmed.length === 1 ? "cita sin confirmar" : "citas sin confirmar"} — riesgo de no-show
+              {unconfirmed.length} {unconfirmed.length === 1 ? "cita sin confirmar" : "citas sin confirmar"} — actúa ahora
             </p>
           </div>
           <div className="divide-y divide-amber-100">
@@ -239,7 +304,7 @@ export default function TodayBriefing({
                       <span className="ml-2 text-amber-700 font-medium">~€{appt.durationMin} en riesgo</span>
                     </p>
                   </div>
-                  <ReminderButton appt={appt} />
+                  <ReminderButton appt={appt} staffName={data.staffName} />
                 </div>
               );
             })}
@@ -247,17 +312,27 @@ export default function TodayBriefing({
         </div>
       )}
 
-      {/* ── High-risk confirmed alert ────────────────────────────────── */}
+      {/* ── High-risk confirmed: actionable rows ────────────────────── */}
       {highRiskConfirmed.length > 0 && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 flex items-start gap-3">
-          <span className="text-rose-500 mt-0.5 shrink-0">🔴</span>
-          <div>
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 overflow-hidden">
+          <div className="px-4 py-3 border-b border-rose-200 flex items-center gap-2">
+            <span className="text-rose-500 shrink-0">🔴</span>
             <p className="text-sm font-semibold text-rose-800">
-              {highRiskConfirmed.length} {highRiskConfirmed.length === 1 ? "cita confirmada con" : "citas confirmadas con"} riesgo alto de no-show
+              {highRiskConfirmed.length} {highRiskConfirmed.length === 1 ? "cita confirmada" : "citas confirmadas"} con riesgo alto de no-show
             </p>
-            <p className="text-xs text-rose-600 mt-0.5">
-              {highRiskConfirmed.map((a) => `${a.patientName} (${a.start})`).join(" · ")}
-            </p>
+          </div>
+          <div className="divide-y divide-rose-100">
+            {highRiskConfirmed.map((appt) => (
+              <div key={appt.recordId} className="flex items-center justify-between gap-3 px-4 py-3 flex-wrap">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-900">{appt.patientName}</p>
+                  <p className="text-xs text-rose-600 mt-0.5">
+                    {appt.start} · {appt.treatmentName || "Cita"} · confirmó pero historial sugiere riesgo
+                  </p>
+                </div>
+                <ReminderButton appt={appt} staffName={data.staffName} />
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -297,9 +372,20 @@ export default function TodayBriefing({
                     </p>
                   </div>
                 </div>
-                <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full shrink-0">
-                  +€{gap.potentialRevenue}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded-full shrink-0">
+                    +€{gap.potentialRevenue}
+                  </span>
+                  {onGoToActions && (
+                    <button
+                      type="button"
+                      onClick={onGoToActions}
+                      className="text-xs px-2 py-1 rounded-full bg-slate-100 text-slate-600 font-semibold hover:bg-slate-200 shrink-0"
+                    >
+                      Candidatos →
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -307,25 +393,26 @@ export default function TodayBriefing({
       )}
 
       {/* ── All good banner ──────────────────────────────────────────── */}
-      {unconfirmed.length === 0 && data.gaps.length === 0 && data.appointments.length > 0 && (
+      {unconfirmed.length === 0 && highRiskConfirmed.length === 0 && data.gaps.length === 0 && data.appointments.length > 0 && (
         <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 flex items-center gap-3">
           <span className="text-2xl">✅</span>
           <div>
             <p className="text-sm font-semibold text-emerald-800">Todo bajo control</p>
             <p className="text-xs text-emerald-600 mt-0.5">
-              {data.appointments.length} citas confirmadas · €{data.confirmedRevenue} asegurados · Sin franjas libres ni no-shows pendientes
+              {data.appointments.length} citas · €{data.confirmedRevenue} asegurados · Sin alertas pendientes
             </p>
           </div>
         </div>
       )}
 
-      {/* ── Confirmed appointments (compact list) ───────────────────── */}
+      {/* ── Confirmed appointments (compact list with risk for all) ─── */}
       {confirmed.length > 0 && (
         <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100">
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
             <p className="text-sm font-semibold text-slate-700">
-              ✅ {confirmed.length} citas confirmadas hoy
+              ✅ {confirmed.length} citas confirmadas
             </p>
+            <span className="text-xs text-slate-400">Score de riesgo activo</span>
           </div>
           <div className="divide-y divide-slate-100">
             {confirmed.map((appt) => {
@@ -333,17 +420,20 @@ export default function TodayBriefing({
               return (
                 <div key={appt.recordId} className="flex items-center gap-3 px-4 py-2.5 flex-wrap">
                   <div className={`h-2 w-2 rounded-full shrink-0 ${risk.dot}`} />
-                  <span className="text-xs text-slate-500 w-20 shrink-0">{appt.start}</span>
-                  <span className="text-sm font-medium text-slate-800 min-w-0 truncate">{appt.patientName}</span>
+                  <span className="text-xs text-slate-500 w-16 shrink-0">{appt.start}</span>
+                  <span className="text-sm font-medium text-slate-800 min-w-0 flex-1 truncate">{appt.patientName}</span>
                   {appt.treatmentName && (
                     <span className="text-xs text-slate-400 min-w-0 truncate hidden sm:block">{appt.treatmentName}</span>
                   )}
-                  {appt.noShowRisk !== "LOW" && (
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border shrink-0 ${risk.badge}`}>
-                      {risk.label}
-                    </span>
+                  {/* Risk badge: always visible for all risk levels */}
+                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border shrink-0 ${risk.badge}`}>
+                    {risk.label}
+                  </span>
+                  {/* CTA for HIGH/MED confirmed appointments */}
+                  {appt.noShowRisk !== "LOW" && !appt.isBlock && (
+                    <ReminderButton appt={appt} staffName={data.staffName} variant="compact" />
                   )}
-                  <span className="text-xs text-slate-400 ml-auto shrink-0">{appt.durationMin} min</span>
+                  <span className="text-xs text-slate-400 shrink-0">{appt.durationMin} min</span>
                 </div>
               );
             })}
@@ -362,7 +452,7 @@ export default function TodayBriefing({
           <div className="divide-y divide-slate-100">
             {blocks.map((appt) => (
               <div key={appt.recordId} className="flex items-center gap-3 px-4 py-2.5">
-                <span className="text-xs text-slate-400 w-20 shrink-0">{appt.start}</span>
+                <span className="text-xs text-slate-400 w-16 shrink-0">{appt.start}</span>
                 <span className="text-xs text-slate-600">{appt.patientName}</span>
                 <span className="text-xs text-slate-400 ml-auto shrink-0">{appt.durationMin} min</span>
               </div>

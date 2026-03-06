@@ -8,7 +8,7 @@ import { DateTime } from "luxon";
 import { listWaitlist } from "../../../lib/scheduler/repo/waitlistRepo";
 
 const ZONE = "Europe/Madrid";
-const MIN_GAP_MIN = 30; // minimum gap to offer as bookable slot (= shortest treatment: Revisión 30 min)
+const MIN_GAP_MIN = 20; // minimum gap to offer as bookable slot
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -85,12 +85,14 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const staffId = searchParams.get("staffId");
     const week = searchParams.get("week"); // "YYYY-MM-DD" (Monday)
+    // clinicId: query param takes precedence over env var (multi-clinic support)
+    const clinicId = searchParams.get("clinicId");
 
     if (!staffId || !week) {
       return NextResponse.json({ error: "Missing staffId or week" }, { status: 400 });
     }
 
-    const clinicRecordId = process.env.DEMO_CLINIC_RECORD_ID ?? "";
+    const clinicRecordId = clinicId ?? process.env.DEMO_CLINIC_RECORD_ID ?? "";
     const type = TABLES as any;
 
     // 1) Resolve staff record
@@ -164,9 +166,14 @@ export async function GET(req: Request) {
     const lunchStartMin = lunchStart ? toMinutes(lunchStart) : null;
     const lunchEndMin = lunchEnd ? toMinutes(lunchEnd) : null;
 
+    const todayIsoForFilter = DateTime.now().setZone(ZONE).toISODate()!;
+
     for (let d = 0; d < 5; d++) {
       const dayDt = mondayDt.plus({ days: d });
       const dayIso = dayDt.toISODate()!;
+
+      // Skip days already passed — no point showing historical gaps as "tareas pendientes"
+      if (dayIso < todayIsoForFilter) continue;
 
       const blocks = (dayBlocks[dayIso] ?? []).sort((a, b) => a.startMin - b.startMin);
 

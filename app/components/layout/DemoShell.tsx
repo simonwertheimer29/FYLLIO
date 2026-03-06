@@ -2,7 +2,26 @@
 
 import { ReactNode } from "react";
 
-export type DemoSectionKey = "HOY" | "RULES" | "AGENDA" | "ACTIONS" | "IMPACT" | "WAITLIST" | "MENSAJES" | "ESTADISTICAS" | "PRESUPUESTOS" | "REPUTACION" | "INGRESOS" | "RECALL" | "TRATAMIENTOS" | "DOCTOR" | "ROI" | "NOSHOW_RISK";
+// All section keys — hidden ones kept in code but not shown in sidebar
+export type DemoSectionKey =
+  | "HOY"
+  | "ACTIONS"
+  | "NOSHOW_RISK"
+  | "MENSAJES"
+  | "ESTADISTICAS"
+  | "INGRESOS"
+  | "PRESUPUESTOS"
+  | "REPUTACION"
+  | "WAITLIST"
+  | "ROI"
+  // Hidden from sidebar (accessible via code/links only):
+  | "RULES"
+  | "AGENDA"
+  | "IMPACT"
+  | "RECALL"
+  | "TRATAMIENTOS"
+  | "DOCTOR"
+  | "IMPORTAR";
 
 type Section = {
   key: DemoSectionKey;
@@ -16,6 +35,20 @@ const IconBox = ({ children }: { children: ReactNode }) => (
   </div>
 );
 
+// Only these 10 sections appear in the sidebar
+const VISIBLE_SECTIONS: Section[] = [
+  { key: "HOY",         label: "Hoy",          icon: <IconBox>☀️</IconBox> },
+  { key: "ACTIONS",     label: "Acciones",     icon: <IconBox>⚡</IconBox> },
+  { key: "NOSHOW_RISK", label: "Riesgo",       icon: <IconBox>⚠️</IconBox> },
+  { key: "MENSAJES",    label: "Mensajes",     icon: <IconBox>💬</IconBox> },
+  { key: "ESTADISTICAS",label: "Estadísticas", icon: <IconBox>📊</IconBox> },
+  { key: "INGRESOS",    label: "Ingresos",     icon: <IconBox>💶</IconBox> },
+  { key: "PRESUPUESTOS",label: "Presupuestos", icon: <IconBox>€</IconBox> },
+  { key: "REPUTACION",  label: "Reputación",   icon: <IconBox>⭐</IconBox> },
+  { key: "WAITLIST",    label: "Lista espera", icon: <IconBox>⏳</IconBox> },
+  { key: "ROI",         label: "ROI Fyllio",   icon: <IconBox>📈</IconBox> },
+];
+
 export default function DemoShell({
   section,
   onChangeSection,
@@ -27,37 +60,18 @@ export default function DemoShell({
   headerRight?: ReactNode;
   children: ReactNode;
 }) {
-  const sections: Section[] = [
-    { key: "HOY", label: "Hoy", icon: <IconBox>☀</IconBox> },
-    { key: "INGRESOS", label: "Ingresos", icon: <IconBox>💶</IconBox> },
-    { key: "RECALL", label: "Recuperar", icon: <IconBox>🔔</IconBox> },
-    { key: "TRATAMIENTOS", label: "Tratamientos", icon: <IconBox>🦷</IconBox> },
-    { key: "DOCTOR", label: "Mi vista", icon: <IconBox>👨‍⚕️</IconBox> },
-    { key: "ROI", label: "ROI Fyllio", icon: <IconBox>📈</IconBox> },
-    { key: "NOSHOW_RISK", label: "No-shows", icon: <IconBox>⚠</IconBox> },
-    { key: "PRESUPUESTOS", label: "Presupuestos", icon: <IconBox>€</IconBox> },
-    { key: "REPUTACION", label: "Reputación", icon: <IconBox>⭐</IconBox> },
-    { key: "RULES", label: "Reglas", icon: <IconBox>R</IconBox> },
-    { key: "AGENDA", label: "Agenda", icon: <IconBox>A</IconBox> },
-    { key: "ACTIONS", label: "Acciones", icon: <IconBox>✓</IconBox> },
-    { key: "IMPACT", label: "Impacto", icon: <IconBox>$</IconBox> },
-    { key: "WAITLIST", label: "Lista de espera", icon: <IconBox>⏳</IconBox> },
-    { key: "MENSAJES", label: "Mensajes", icon: <IconBox>💬</IconBox> },
-    { key: "ESTADISTICAS", label: "Estadísticas", icon: <IconBox>📊</IconBox> },
-  ];
-
   return (
     <div className="min-h-[100svh] bg-slate-50">
       <div className="flex min-h-[100svh]">
         <aside className="w-[92px] shrink-0 bg-gradient-to-b from-sky-600 to-blue-700 border-r border-white/10 sticky top-0 h-[100svh] overflow-y-auto">
           <div className="h-[72px] flex items-center justify-center">
-            <div className="h-11 w-11 rounded-2xl bg-white/20 border border-white/25 flex items-center justify-center text-white font-extrabold">
+            <div className="h-11 w-11 rounded-2xl bg-white/20 border border-white/25 flex items-center justify-center text-white font-extrabold text-lg">
               F
             </div>
           </div>
 
-          <div className="px-3 pb-6 pt-2 space-y-3">
-            {sections.map((s) => {
+          <div className="px-3 pb-6 pt-2 space-y-2">
+            {VISIBLE_SECTIONS.map((s) => {
               const active = s.key === section;
               return (
                 <button
@@ -71,9 +85,9 @@ export default function DemoShell({
                   title={s.label}
                   aria-label={s.label}
                 >
-                  <div className="flex flex-col items-center gap-2">
+                  <div className="flex flex-col items-center gap-1.5">
                     {s.icon}
-                    <span className={["text-[11px] font-semibold", active ? "text-white" : "text-white/80"].join(" ")}>
+                    <span className={["text-[10px] font-semibold leading-tight text-center", active ? "text-white" : "text-white/80"].join(" ")}>
                       {s.label}
                     </span>
                   </div>
@@ -86,8 +100,8 @@ export default function DemoShell({
         <div className="flex-1 min-w-0">
           <div className="h-[72px] flex items-center justify-between px-6 bg-white border-b border-slate-200">
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-900">Fyllio · Simulación</p>
-              <p className="text-xs text-slate-500">Reglas → Agenda → Tiempo disponible → Acciones</p>
+              <p className="text-sm font-semibold text-slate-900">Fyllio</p>
+              <p className="text-xs text-slate-500">Plataforma de inteligencia predictiva para clínicas dentales</p>
             </div>
             <div className="flex items-center gap-3">{headerRight}</div>
           </div>
