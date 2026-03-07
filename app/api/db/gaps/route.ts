@@ -166,14 +166,9 @@ export async function GET(req: Request) {
     const lunchStartMin = lunchStart ? toMinutes(lunchStart) : null;
     const lunchEndMin = lunchEnd ? toMinutes(lunchEnd) : null;
 
-    const todayIsoForFilter = DateTime.now().setZone(ZONE).toISODate()!;
-
     for (let d = 0; d < 5; d++) {
       const dayDt = mondayDt.plus({ days: d });
       const dayIso = dayDt.toISODate()!;
-
-      // Skip days already passed — no point showing historical gaps as "tareas pendientes"
-      if (dayIso < todayIsoForFilter) continue;
 
       const blocks = (dayBlocks[dayIso] ?? []).sort((a, b) => a.startMin - b.startMin);
 

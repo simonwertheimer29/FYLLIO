@@ -949,46 +949,20 @@ export default function OperationsPanel({
         </div>
       )}
 
-      {/* ── SECCIÓN 2: SEGUIMIENTOS ──────────────────────────────────── */}
-      {(quotes.length > 0 || ongoingWarn.length > 0) && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <h3 className="text-base font-bold text-slate-900">📋 Seguimientos</h3>
-            <span className="text-xs text-slate-400 bg-slate-100 px-2 py-0.5 rounded-full">
-              {quotes.length + ongoingWarn.length} pendientes
+      {/* ── Presupuestos sin respuesta ───────────────────────────────── */}
+      {quotes.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+          <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+            <span className="text-sm font-semibold text-slate-800">💶 Presupuestos sin respuesta</span>
+            <span className="text-xs text-amber-600 font-semibold bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded-full ml-auto">
+              {quotes.length} pendientes
             </span>
           </div>
-
-          {/* Pending quotes */}
-          {quotes.length > 0 && (
-            <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
-                <span className="text-sm font-semibold text-slate-800">€ Presupuestos sin respuesta</span>
-                <span className="text-xs text-amber-600 font-semibold bg-amber-50 border border-amber-100 px-1.5 py-0.5 rounded-full ml-auto">
-                  {quotes.length} pendientes
-                </span>
-              </div>
-              <div className="divide-y divide-slate-100">
-                {quotes.map((q) => (
-                  <QuoteRow key={q.id} quote={q} />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Ongoing WARN treatments */}
-          {ongoingWarn.length > 0 && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 overflow-hidden">
-              <div className="px-4 py-3 border-b border-amber-100 flex items-center gap-2">
-                <span className="text-sm font-semibold text-amber-800">🦷 Tratamientos cerca del umbral</span>
-              </div>
-              <div className="divide-y divide-amber-50">
-                {ongoingWarn.map((p, i) => (
-                  <OngoingRow key={i} patient={p} />
-                ))}
-              </div>
-            </div>
-          )}
+          <div className="divide-y divide-slate-100">
+            {quotes.map((q) => (
+              <QuoteRow key={q.id} quote={q} />
+            ))}
+          </div>
         </div>
       )}
     </div>

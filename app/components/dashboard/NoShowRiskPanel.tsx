@@ -351,7 +351,7 @@ export default function NoShowRiskPanel({
                         </button>
                       );
                     })}
-                    {onGoToActions && appt.riskLevel !== "LOW" && (
+                    {onGoToActions && (
                       <button
                         type="button"
                         onClick={onGoToActions}

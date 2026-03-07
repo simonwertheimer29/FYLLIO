@@ -808,7 +808,7 @@ export default function DemoGeneratePage() {
     window.setTimeout(() => setToast((t) => ({ ...t, show: false })), 2400);
   };
 
-  const [section, setSection] = useState<DemoSectionKey>("RULES");
+  const [section, setSection] = useState<DemoSectionKey>("HOY");
 type Provider = { id: string; name: string; recordId?: string };
 
 const [providers, setProviders] = useState<Provider[]>([]);
@@ -1980,17 +1980,10 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
       />
 
       {section === "HOY" ? (
-        <div className="space-y-6">
-          <TodayBriefing
-            staffId={providerId}
-            onGoToActions={() => setSection("ACTIONS")}
-          />
-          {/* Mi Vista integrada al final de HOY */}
-          <DoctorView
-            staffId={providerId}
-            staffName={providers.find((p) => p.id === providerId)?.name}
-          />
-        </div>
+        <TodayBriefing
+          staffId={providerId}
+          onGoToActions={() => setSection("ACTIONS")}
+        />
       ) : null}
 
       {section === "INGRESOS" ? (

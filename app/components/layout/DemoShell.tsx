@@ -35,11 +35,12 @@ const IconBox = ({ children }: { children: ReactNode }) => (
   </div>
 );
 
-// Only these 10 sections appear in the sidebar
+// Only these sections appear in the sidebar
 const VISIBLE_SECTIONS: Section[] = [
   { key: "HOY",         label: "Hoy",          icon: <IconBox>☀️</IconBox> },
   { key: "ACTIONS",     label: "Acciones",     icon: <IconBox>⚡</IconBox> },
   { key: "NOSHOW_RISK", label: "Riesgo",       icon: <IconBox>⚠️</IconBox> },
+  { key: "AGENDA",      label: "Agenda",       icon: <IconBox>📅</IconBox> },
   { key: "MENSAJES",    label: "Mensajes",     icon: <IconBox>💬</IconBox> },
   { key: "ESTADISTICAS",label: "Estadísticas", icon: <IconBox>📊</IconBox> },
   { key: "INGRESOS",    label: "Ingresos",     icon: <IconBox>💶</IconBox> },
