@@ -2121,6 +2121,7 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
                 staffRecordId={providers.find(p => p.id === providerId)?.recordId}
                 week={weekKey}
                 clinicId={clinicId || undefined}
+                onGoToSection={(key) => setSection(key as DemoSectionKey)}
               />
             ) : (
               <p className="text-sm text-slate-500">Selecciona un profesional para ver las tareas.</p>
