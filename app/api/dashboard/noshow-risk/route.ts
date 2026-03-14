@@ -174,6 +174,12 @@ export async function GET(req: Request) {
 
     const todayIso = now.toISODate()!;
 
+    // All statuses that count as "patient didn't show / cancelled" in history
+    const RISK_HISTORY_STATUSES = new Set([
+      ...NO_SHOW_STATUSES,
+      "CANCELADO", "CANCELADA", "CANCELED", "CANCELLED",
+    ]);
+
     for (const r of allApptRecs) {
       const f: any = r.fields;
       const startRaw = f["Hora inicio"];
@@ -195,7 +201,8 @@ export async function GET(req: Request) {
       const prev = patientHistory.get(phone) ?? { total: 0, noShows: 0 };
       patientHistory.set(phone, {
         total: prev.total + 1,
-        noShows: prev.noShows + (NO_SHOW_STATUSES.has(estado) ? 1 : 0),
+        // Count no-shows AND past cancellations as attendance risk events
+        noShows: prev.noShows + (RISK_HISTORY_STATUSES.has(estado) ? 1 : 0),
       });
     }
 

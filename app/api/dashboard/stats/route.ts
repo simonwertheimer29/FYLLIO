@@ -56,14 +56,17 @@ export async function GET() {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
 
-    // WhatsApp conversion: active WhatsApp appts / active sessions
+    // WhatsApp conversion: WhatsApp appts / total active appts this week
     const whatsappAppts = weekAppts.filter(
       (a) => (a.origen ?? "").toLowerCase().includes("whatsapp")
     ).length;
+    // Use appointment-based ratio when real data exists; KV-session ratio when available
     const conversionPct =
       sessionKeys.length > 0
         ? Math.min(100, Math.round((whatsappAppts / sessionKeys.length) * 100))
-        : null;
+        : weekActive.length > 0
+          ? Math.min(100, Math.round((whatsappAppts / weekActive.length) * 100))
+          : null;
 
     // Last week breakdown
     const CANCELLED_SET = new Set(["CANCELADO", "CANCELADA", "CANCELLED", "CANCELED"]);
@@ -81,7 +84,11 @@ export async function GET() {
     };
 
     // ROI / automation metrics
-    const timeSavedMinByWhatsapp = sessionKeys.length * 5; // ~5 min saved per automated conversation
+    // Estimate: 5 min saved per WhatsApp appointment (vs manual phone booking)
+    // Falls back to KV session count if available (active conversations)
+    const timeSavedMinByWhatsapp = sessionKeys.length > 0
+      ? sessionKeys.length * 5
+      : whatsappAppts * 5;
     const estimatedWaitlistRevenue = waitlistByStatus.booked * 60; // €60 avg ticket per confirmed WL slot
     const cancellationRate =
       weekAppts.length > 0
