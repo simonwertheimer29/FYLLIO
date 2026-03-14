@@ -7,6 +7,12 @@
 import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
+import {
+  buildDemoTodayAppointments,
+  buildDemoTodayGaps,
+  isDemoMode,
+  DEMO_TODAY_SUMMARY,
+} from "../../../lib/demo/seed";
 
 const ZONE = "Europe/Madrid";
 const TARIFF_PER_MIN = 1; // €1/min = €60/h
@@ -318,6 +324,34 @@ export async function GET(req: Request) {
 
     const gapRevenue = gaps.reduce((s, g) => s + g.potentialRevenue, 0);
     const unconfirmedCount = appointments.filter((a) => !a.confirmed && !a.isBlock).length;
+
+    // ── Demo fallback: inject rich demo data when Airtable has few appointments ──
+    const realApptCount = appointments.filter((a) => !a.isBlock).length;
+    if (isDemoMode(realApptCount, 3) && !dateParam) {
+      const demoAppts = buildDemoTodayAppointments();
+      const demoGaps  = buildDemoTodayGaps().map((g) => ({
+        start: g.start,
+        end: g.end,
+        startIso: g.startIso,
+        durationMin: g.durationMin,
+        potentialRevenue: g.durationMin * TARIFF_PER_MIN,
+      }));
+      return NextResponse.json({
+        todayIso,
+        todayLabel,
+        staffId,
+        staffName,
+        appointments: demoAppts,
+        confirmedRevenue: DEMO_TODAY_SUMMARY.confirmedRevenue,
+        atRiskRevenue:    DEMO_TODAY_SUMMARY.atRiskRevenue,
+        gapRevenue:       DEMO_TODAY_SUMMARY.gapRevenue,
+        unconfirmedCount: DEMO_TODAY_SUMMARY.unconfirmedCount,
+        gaps: demoGaps,
+        workStart,
+        workEnd,
+        _demo: true,
+      });
+    }
 
     return NextResponse.json({
       todayIso,

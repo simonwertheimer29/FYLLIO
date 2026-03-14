@@ -12,6 +12,7 @@ import {
   getSillonRecordIdBySillonId,
   upsertPatientByPhone,
   cancelAppointment,
+  confirmAppointment,
   findNextAppointmentByContactPhone,
   getAppointmentByRecordId,
   getPatientByPhone,
@@ -62,7 +63,8 @@ type Stage =
   | "RESCHEDULE_ASK_WHEN"
   | "RESCHEDULE_OFFER_SLOTS"
   | "ASK_NEW_BOOKING_FOR"
-  | "COLLECT_FEEDBACK";
+  | "COLLECT_FEEDBACK"
+  | "CONFIRM_ATTENDANCE";
 
 type Session = {
   createdAtMs: number;
@@ -100,6 +102,9 @@ type Session = {
   // feedback
   feedbackApptRecordId?: string;
   feedbackPatientName?: string;
+
+  // attendance confirmation (set by cron/daily reminder)
+  attendanceApptRecordId?: string;
 
   // cancel
   pendingCancelRecordId?: string;
@@ -648,6 +653,24 @@ export async function handleInboundWhatsApp(params: {
 
   // ── 1) Load session ──────────────────────────────────────────────────────
   const sess = await getSession<Session>(fromE164);
+
+  // ── CONFIRM_ATTENDANCE: handle SÍ/NO response to 24h cron reminder ───────
+  if (sess?.stage === "CONFIRM_ATTENDANCE" && sess.attendanceApptRecordId) {
+    const isYes = /^(s[ií]|yes|confirmo|ok|claro|perfecto|voy|ahi estare|ahí estaré|estaré)/i.test(body.trim());
+    const isNo  = /^(no|cancel|no puedo|imposible|no voy|no asistiré)/i.test(body.trim());
+
+    if (isYes) {
+      await confirmAppointment({ appointmentRecordId: sess.attendanceApptRecordId }).catch(() => null);
+      await deleteSession(fromE164);
+      return "✅ ¡Perfecto! Tu cita queda confirmada. Hasta mañana 🙂";
+    }
+    if (isNo) {
+      await cancelAppointment({ appointmentRecordId: sess.attendanceApptRecordId, origin: "WhatsApp" });
+      await deleteSession(fromE164);
+      return "Entendido, cancelamos tu cita. Si quieres reprogramar escríbenos cuando quieras. ¡Hasta pronto! 👋";
+    }
+    return "¿Confirmas tu asistencia para mañana? Responde *SÍ* o *NO*";
+  }
 
   // Personalized greeting: look up patient name only on first contact (no session)
   const patientInfo = !sess ? await getPatientByPhone(fromE164).catch(() => null) : null;

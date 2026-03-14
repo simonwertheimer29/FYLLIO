@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
+import { DEMO_REVENUE, DEMO_TODAY_SUMMARY, isDemoMode } from "../../../lib/demo/seed";
 
 const ZONE = "Europe/Madrid";
 const TARIFF_PER_MIN = 1; // €1/min = €60/h
@@ -184,6 +185,38 @@ export async function GET(req: Request) {
 
     // Fill rate this week: revenue vs total potential work time
     const weekTotalMin = weekAppts.reduce((s, a) => s + a.durationMin, 0);
+
+    // ── Demo fallback ─────────────────────────────────────────────────────────
+    if (isDemoMode(weekAppts.length, 3)) {
+      return NextResponse.json({
+        todayConfirmedRevenue: DEMO_TODAY_SUMMARY.confirmedRevenue,
+        todayAtRiskRevenue:    DEMO_TODAY_SUMMARY.atRiskRevenue,
+        todayTotalRevenue:     DEMO_TODAY_SUMMARY.confirmedRevenue + DEMO_TODAY_SUMMARY.atRiskRevenue,
+        weekRevenue:       DEMO_REVENUE.thisWeek,
+        lastWeekRevenue:   DEMO_REVENUE.lastWeek,
+        weekDelta:         DEMO_REVENUE.thisWeek - DEMO_REVENUE.lastWeek,
+        weekDeltaPct:      DEMO_REVENUE.weekDelta,
+        weekTotalMin:      2940,
+        weekAppointments:  49,
+        monthRevenue:      DEMO_REVENUE.thisMonth,
+        lastMonthRevenue:  DEMO_REVENUE.thisMonth - 800,
+        monthProjection:   DEMO_REVENUE.projectedMonth,
+        treatmentBreakdown: [
+          { name: "Ortodoncia invisible", revenue: 960 },
+          { name: "Implante dental",      revenue: 720 },
+          { name: "Prótesis dental",      revenue: 480 },
+          { name: "Blanqueamiento",       revenue: 360 },
+          { name: "Limpieza dental",      revenue: 240 },
+          { name: "Revisión general",     revenue: 180 },
+        ],
+        staffBreakdown: [
+          { id: "DOCTOR_01", revenue: 1920 },
+          { id: "DOCTOR_02", revenue: 1020 },
+        ],
+        generatedAt: now.toISO(),
+        _demo: true,
+      });
+    }
 
     return NextResponse.json({
       // Today

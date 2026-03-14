@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
 import { kv } from "@vercel/kv";
+import { DEMO_STATS, isDemoMode } from "../../../lib/demo/seed";
 import { listAppointmentsByDay, listAppointmentsByWeek } from "../../../lib/scheduler/repo/airtableRepo";
 import { listWaitlist } from "../../../lib/scheduler/repo/waitlistRepo";
 
@@ -86,6 +87,38 @@ export async function GET() {
       weekAppts.length > 0
         ? Math.round((weekCancelled.length / weekAppts.length) * 100)
         : null;
+
+    // ── Demo fallback ─────────────────────────────────────────────────────────
+    if (isDemoMode(weekActive.length, 3)) {
+      return NextResponse.json({
+        todayAppointments: 9,
+        weekAppointments: 47,
+        weekCancellations: 2,
+        weekNoShows: DEMO_STATS.noShowsThisWeek,
+        activeSessions: DEMO_STATS.whatsappConversations,
+        waitlist: { active: 4, offered: 2, booked: DEMO_STATS.confirmedViaWhatsApp },
+        channels: [
+          { name: "WhatsApp", count: 28 },
+          { name: "Manual", count: 15 },
+          { name: "Web", count: 4 },
+        ],
+        whatsappAppts: 28,
+        conversionPct: 62,
+        lastWeekAppointments: 42,
+        lastWeekCancellations: 3,
+        weekAppointmentsDelta: 5,
+        weekCancellationsDelta: -1,
+        timeSavedMinByWhatsapp: DEMO_STATS.timeSavedMin,
+        estimatedWaitlistRevenue: DEMO_STATS.waitlistRevenue,
+        cancellationRate: 4,
+        noShowRateClinic: DEMO_STATS.noShowRateClinic,
+        noShowRateSector: DEMO_STATS.noShowRateSector,
+        googleReviews: DEMO_STATS.googleReviews,
+        totalValueWeek: DEMO_STATS.totalValueWeek,
+        generatedAt: now.toISO(),
+        _demo: true,
+      });
+    }
 
     return NextResponse.json({
       todayAppointments: todayAppts.length,

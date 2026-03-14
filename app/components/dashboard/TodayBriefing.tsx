@@ -200,6 +200,25 @@ export default function TodayBriefing({
       return order[a.noShowRisk] - order[b.noShowRisk];
     });
   const confirmed = data.appointments.filter((a) => a.confirmed && !a.isBlock);
+
+  // Contextual message based on time of day
+  const currentHour = new Date().getHours();
+  const urgentAppt = unconfirmed.find((a) => a.noShowRisk === "HIGH");
+  const contextualMessage = (() => {
+    if (currentHour < 10) {
+      return urgentAppt
+        ? `Buenos días. ${urgentAppt.patientName} (${urgentAppt.start}) tiene riesgo alto — actúa ahora.`
+        : "Buenos días. Buen comienzo de día — agenda sin alertas urgentes.";
+    }
+    if (currentHour < 14) {
+      return data.gaps.length > 0
+        ? `Mañana activa. Tienes ${data.gaps.length} franja${data.gaps.length !== 1 ? "s" : ""} libre${data.gaps.length !== 1 ? "s" : ""} con candidatos esperando.`
+        : "Mañana activa. La agenda está bien cubierta.";
+    }
+    return unconfirmed.length > 0
+      ? `Tarde productiva. Quedan ${unconfirmed.length} cita${unconfirmed.length !== 1 ? "s" : ""} por confirmar antes de cerrar el día.`
+      : "Tarde productiva. La agenda de hoy queda cerrada. ¡Bien hecho!";
+  })();
   const blocks = data.appointments.filter((a) => a.isBlock);
   const highRiskConfirmed = confirmed.filter((a) => a.noShowRisk === "HIGH");
   const medRiskConfirmed = confirmed.filter((a) => a.noShowRisk === "MED");
@@ -249,6 +268,12 @@ export default function TodayBriefing({
             </p>
             <p className="text-[11px] text-sky-200 mt-0.5">{data.gaps.length} {data.gaps.length === 1 ? "franja" : "franjas"}</p>
           </div>
+        </div>
+
+        {/* Contextual message */}
+        <div className="mt-4 rounded-2xl bg-white/10 border border-white/15 px-4 py-3 flex items-center gap-3">
+          <span className="text-base shrink-0">{currentHour < 10 ? "🌅" : currentHour < 14 ? "☀️" : "🌆"}</span>
+          <p className="text-sm text-sky-100">{contextualMessage}</p>
         </div>
 
         {/* Risk summary bar */}

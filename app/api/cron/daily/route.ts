@@ -99,6 +99,22 @@ export async function GET(req: Request) {
     try {
       await sendWhatsAppMessage(`whatsapp:${appt.patientPhone}`, msg);
       confirmsSent++;
+      // Create CONFIRM_ATTENDANCE session so the SÍ/NO reply is handled (20h TTL)
+      const phone = appt.patientPhone.startsWith("+") ? appt.patientPhone : `+${appt.patientPhone}`;
+      await kv.set(
+        `wa:sess:${phone}`,
+        {
+          createdAtMs: Date.now(),
+          stage: "CONFIRM_ATTENDANCE",
+          attendanceApptRecordId: appt.id,
+          // minimal required session fields
+          clinicId: clinicId ?? "",
+          rules: {},
+          slotsTop: [],
+          staffById: {},
+        },
+        { ex: 20 * 3600 }
+      ).catch(() => null);
     } catch (e) {
       console.error("[daily] confirm send failed", appt.id, e);
       errors.push(`confirm:${appt.id}: ${String(e)}`);

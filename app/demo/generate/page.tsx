@@ -3,8 +3,6 @@
 
 import DemoToast, { type ToastKind } from "../../components/ui/DemoToast";
 import RulesForm from "../../components/rules/RulesForm";
-import AgendaTimeline from "../../components/agenda/AgendaTimeline";
-import AgendaWeek from "../../components/agenda/AgendaWeek";
 import InteractiveCalendar from "../../components/agenda/InteractiveCalendar";
 import RecallPanel from "../../components/actions/RecallPanel";
 import OperationsPanel from "../../components/actions/OperationsPanel";
@@ -863,9 +861,6 @@ const [clinicId, setClinicId] = useState<string>(() => {
 
 
  const rules = rulesByProvider[providerId] ?? DEFAULT_RULES;
-const rulesEffective = (dbRulesByProvider[providerId]
-  ? ({ ...dbRulesByProvider[providerId], ...rules } as RulesState)
-  : rules);
 
 
 // ✅ NO return temprano. Solo una bandera:
@@ -882,14 +877,12 @@ const resetRulesForCurrent = () =>
 const validation = useMemo(() => validateRules(rules), [rules]);
 const [loading, setLoading] = useState(false);
 
-const [view, setView] = useState<"WEEK" | "LIST" | "CALENDAR">("WEEK");
+// view state removed — agenda always shows calendar
 const [anchorDayIso, setAnchorDayIso] = useState<string>(() => {
   const d = new Date();
   d.setHours(0, 0, 0, 0);
   return toLocalIsoNoTz(d); // ya devuelve YYYY-MM-DDTHH:mm:ss
 });
-const anchorDayOnly = anchorDayIso.slice(0, 10);
-
 const weekKey = useMemo(() => startOfWeekMondayLocalFromAnchor(anchorDayIso), [anchorDayIso]);
 const nextWeekKey = useMemo(() => startOfWeekMondayLocalFromAnchor(addWeeksAnchor(anchorDayIso, 1)), [anchorDayIso]);
 
@@ -1901,30 +1894,6 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
       
         <div className="flex items-center gap-2 flex-wrap">
           <div className="rounded-full border border-slate-200 bg-white p-1 text-[11px] font-semibold">
-            <button
-              className={view === "WEEK" ? "rounded-full px-3 py-1 bg-slate-900 text-white" : "rounded-full px-3 py-1 text-slate-700"}
-              onClick={() => setView("WEEK")}
-              type="button"
-            >
-              Semana
-            </button>
-            <button
-              className={view === "LIST" ? "rounded-full px-3 py-1 bg-slate-900 text-white" : "rounded-full px-3 py-1 text-slate-700"}
-              onClick={() => setView("LIST")}
-              type="button"
-            >
-              Lista
-            </button>
-            <button
-              className={view === "CALENDAR" ? "rounded-full px-3 py-1 bg-slate-900 text-white" : "rounded-full px-3 py-1 text-slate-700"}
-              onClick={() => setView("CALENDAR")}
-              type="button"
-            >
-              Calendario
-            </button>
-          </div>
-
-          <div className="rounded-full border border-slate-200 bg-white p-1 text-[11px] font-semibold">
             <button type="button" onClick={() => setAnchorDayIso((x) => addWeeksAnchor(x, -1))} className="rounded-full px-3 py-1 text-slate-700 hover:bg-slate-100">
               ← Semana
             </button>
@@ -2071,42 +2040,14 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
 
         
 
-          {view === "CALENDAR" ? (
-            providerId ? (
-              <InteractiveCalendar
-                staffId={providerId}
-                week={weekKey}
-                staffRecordId={providers.find(p => p.id === providerId)?.recordId}
-              />
-            ) : (
-              <p className="text-sm text-slate-500">Selecciona un profesional para ver el calendario.</p>
-            )
-          ) : items ? (
-            view === "WEEK" ? (
-              <AgendaWeek
-                items={items}
-                rules={rulesEffective}
-                anchorDayIso={anchorDayIso}
-                onItemOpen={(it) => setOpenItem(it)}
-                onItemChange={(next) => {
-                  // tu recomputeGapsForDay igual (si lo tienes)
-                  return;
-                }}
-              />
-            ) : (
-              <AgendaTimeline
-  items={items}
-  rules={rulesEffective}
-  dayStartIso={`${anchorDayOnly}T${rulesEffective.dayStartTime}:00`}
-  dayEndIso={`${anchorDayOnly}T${rulesEffective.dayEndTime}:00`}
-  onItemOpen={(it) => setOpenItem(it)}
-/>
-
-            )
+          {providerId ? (
+            <InteractiveCalendar
+              staffId={providerId}
+              week={weekKey}
+              staffRecordId={providers.find(p => p.id === providerId)?.recordId}
+            />
           ) : (
-            <div className="rounded-3xl border border-dashed border-slate-300 p-10 text-center text-slate-500 bg-white">
-              Semana <b>{weekKey}</b> sin simular. Pulsa <b>"Simular con IA"</b>.
-            </div>
+            <p className="text-sm text-slate-500">Selecciona un profesional para ver el calendario.</p>
           )}
         </div>
       ) : null}

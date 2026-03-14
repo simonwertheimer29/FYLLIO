@@ -100,15 +100,24 @@ export default function DemoShell({
 
         <div className="flex-1 min-w-0">
           <div className="h-[72px] flex items-center justify-between px-6 bg-white border-b border-slate-200">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-900">Fyllio</p>
-              <p className="text-xs text-slate-500">Plataforma de inteligencia predictiva para clínicas dentales</p>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900">Fyllio</p>
+                <p className="text-xs text-slate-500">Plataforma de inteligencia predictiva para clínicas dentales</p>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 border border-amber-300 text-amber-700 tracking-widest shrink-0">
+                DEMO
+              </span>
             </div>
             <div className="flex items-center gap-3">{headerRight}</div>
           </div>
 
           <main className="p-6">
-            <div className="mx-auto max-w-[1400px]">{children}</div>
+            <div className="mx-auto max-w-[1400px]">
+              <div key={section} className="animate-fadeIn">
+                {children}
+              </div>
+            </div>
           </main>
         </div>
       </div>

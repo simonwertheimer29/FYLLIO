@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
+import { buildDemoRiskPatients, isDemoMode } from "../../../lib/demo/seed";
 
 const ZONE = "Europe/Madrid";
 
@@ -272,6 +273,46 @@ export async function GET(req: Request) {
       lowRisk: scored.filter((x) => x.riskLevel === "LOW").length,
       totalAppointments: scored.length,
     };
+
+    // ── Demo fallback ─────────────────────────────────────────────────────────
+    if (isDemoMode(scored.length, 3)) {
+      const demoPatients = buildDemoRiskPatients();
+      const demoScored = demoPatients.map((p) => ({
+        id: p.recordId,
+        patientName: p.patientName,
+        patientPhone: p.phone,
+        start: p.start,
+        end: p.start, // same start for display
+        treatmentName: p.treatmentName,
+        dayIso: p.start.slice(0, 10),
+        riskScore: p.riskScore,
+        riskLevel: (p.riskScore >= 60 ? "HIGH" : p.riskScore >= 30 ? "MEDIUM" : "LOW") as RiskLevel,
+        riskBreakdown: p.riskBreakdown,
+        riskFactors: {
+          historicalNoShowRate: p.riskScore >= 60 ? 0.4 : 0,
+          historicalNoShowCount: p.riskScore >= 60 ? 2 : 0,
+          historicalTotalAppts: p.riskScore >= 60 ? 5 : 0,
+          daysSinceBooked: 7,
+          dayOfWeek: 1,
+          hourOfDay: p.riskScore >= 60 ? 10 : 11,
+          treatmentRisk: (p.riskScore >= 60 ? "HIGH" : p.riskScore >= 30 ? "MEDIUM" : "LOW") as RiskLevel,
+          dayTimeLabel: p.riskScore >= 60 ? "Lunes por la mañana" : "",
+        },
+        actions: riskActions(p.riskScore >= 60 ? "HIGH" : p.riskScore >= 30 ? "MEDIUM" : "LOW"),
+      }));
+      return NextResponse.json({
+        staffId,
+        week: mondayIso,
+        appointments: demoScored,
+        summary: {
+          highRisk: demoScored.filter((x) => x.riskLevel === "HIGH").length,
+          mediumRisk: demoScored.filter((x) => x.riskLevel === "MEDIUM").length,
+          lowRisk: demoScored.filter((x) => x.riskLevel === "LOW").length,
+          totalAppointments: demoScored.length,
+        },
+        _demo: true,
+      });
+    }
 
     return NextResponse.json({
       staffId,

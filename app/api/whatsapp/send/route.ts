@@ -14,6 +14,13 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "phone and message are required" }, { status: 400 });
     }
 
+    // Demo mode: if Twilio auth token not configured → simulate success
+    // This ensures all "Send WhatsApp" buttons work during demo presentations
+    if (!process.env.TWILIO_AUTH_TOKEN) {
+      console.info("[whatsapp/send] DEMO MODE — simulating send to", phone);
+      return NextResponse.json({ ok: true, demo: true });
+    }
+
     const to = phone.startsWith("whatsapp:") ? phone : `whatsapp:${phone}`;
     await sendWhatsAppMessage(to, message);
 

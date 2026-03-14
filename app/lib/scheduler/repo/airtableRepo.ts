@@ -271,6 +271,17 @@ export async function cancelAppointment(params: {
   ]);
 }
 
+export async function confirmAppointment(params: {
+  appointmentRecordId: string;
+}) {
+  await base(TABLES.appointments).update([
+    {
+      id: params.appointmentRecordId,
+      fields: { Estado: "Confirmada" },
+    },
+  ]);
+}
+
 export async function updateAppointment(params: {
   appointmentRecordId: string;
   startIso?: string;
