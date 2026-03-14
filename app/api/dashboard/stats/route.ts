@@ -46,27 +46,35 @@ export async function GET() {
       ["NO_SHOW", "NO SHOW", "NOSHOW"].includes(a.estado)
     );
 
-    // Channel breakdown (whole week incl. cancelled)
+    // Map raw Airtable origen values to display names
+    function displayOrigin(raw: string): string {
+      const lc = (raw || "").toLowerCase().trim();
+      if (lc === "whatsapp" || lc === "ia") return "WhatsApp / IA";
+      if (lc === "recepción" || lc === "recepcion") return "Llamadas";
+      if (lc === "paciente") return "Formulario";
+      return raw || "Otro";
+    }
+
+    // Channel breakdown (whole week incl. cancelled), using display names
     const channelCounts: Record<string, number> = {};
     for (const a of weekAppts) {
-      const ch = a.origen || "Manual";
+      const ch = displayOrigin(a.origen);
       channelCounts[ch] = (channelCounts[ch] ?? 0) + 1;
     }
     const channels = Object.entries(channelCounts)
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count);
 
-    // WhatsApp conversion: WhatsApp appts / total active appts this week
-    const whatsappAppts = weekAppts.filter(
-      (a) => (a.origen ?? "").toLowerCase().includes("whatsapp")
-    ).length;
-    // Use appointment-based ratio when real data exists; KV-session ratio when available
-    const conversionPct =
-      sessionKeys.length > 0
-        ? Math.min(100, Math.round((whatsappAppts / sessionKeys.length) * 100))
-        : weekActive.length > 0
-          ? Math.min(100, Math.round((whatsappAppts / weekActive.length) * 100))
-          : null;
+    // WhatsApp + IA count (automated appointments)
+    const whatsappAppts = weekAppts.filter((a) => {
+      const lc = (a.origen ?? "").toLowerCase().trim();
+      return lc === "whatsapp" || lc === "ia";
+    }).length;
+
+    // Conversion: automated appts / total active appts
+    const conversionPct = weekActive.length > 0
+      ? Math.min(100, Math.round((whatsappAppts / weekActive.length) * 100))
+      : null;
 
     // Last week breakdown
     const CANCELLED_SET = new Set(["CANCELADO", "CANCELADA", "CANCELLED", "CANCELED"]);
@@ -84,11 +92,8 @@ export async function GET() {
     };
 
     // ROI / automation metrics
-    // Estimate: 5 min saved per WhatsApp appointment (vs manual phone booking)
-    // Falls back to KV session count if available (active conversations)
-    const timeSavedMinByWhatsapp = sessionKeys.length > 0
-      ? sessionKeys.length * 5
-      : whatsappAppts * 5;
+    // Estimate: 5 min saved per automated (WhatsApp / IA) appointment
+    const timeSavedMinByWhatsapp = whatsappAppts * 5;
     const estimatedWaitlistRevenue = waitlistByStatus.booked * 60; // €60 avg ticket per confirmed WL slot
     const cancellationRate =
       weekAppts.length > 0

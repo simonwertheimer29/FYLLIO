@@ -323,6 +323,191 @@ const THIS_WEEK: ApptEntry[] = [
   { patientIdx:  9, date: "2026-03-13", time: "18:00", tx: "Prótesis dental", status: "Completado", origin: "Recepción" },
 ];
 
+// ── Citas próximas 2 semanas (16-27 mar 2026) — los 3 doctores ───────────────
+// staffId: STF_003=Dr.Mateo, STF_001=Dr.Andrés, STF_002=Dra.Paula
+// Origen: WhatsApp (incluye IA automático), Recepción (llamadas), Paciente (formulario→outbound)
+// 75-80% ocupación por doctor
+//
+// Pacientes de RIESGO en próxima semana (para que el panel RIESGO muestre datos reales):
+//   Ana Redondo  (idx 0) → Lun 16-mar 09:00 Revisión   HIGH score ~70
+//   Pablo Fuentes(idx 2) → Mar 17-mar 09:45 Empaste     MED  score ~48
+//   Carmen Navarro(idx3) → Jue 19-mar 09:00 Blanqueami  MED  score ~37
+//   Diego Herrera(idx 1) → Vie 20-mar 17:00 Limpieza    HIGH score ~75
+
+type FutureAppt = {
+  staffId: string; // STF_001 | STF_002 | STF_003
+  patientIdx: number;
+  date: string;
+  time: string;
+  tx: string;
+  status: "Confirmado" | "Agendado";
+  origin: "WhatsApp" | "Recepción" | "IA" | "Paciente";
+};
+
+const NEXT_WEEK: FutureAppt[] = [
+  // ─ Dr. Mateo López (STF_003) · Lun 16-mar ──────────────────────────────────
+  { staffId:"STF_003", patientIdx: 0, date:"2026-03-16", time:"09:00", tx:"Revisión",        status:"Agendado",   origin:"Recepción" }, // ANA HIGH
+  { staffId:"STF_003", patientIdx: 5, date:"2026-03-16", time:"09:30", tx:"Limpieza dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx: 6, date:"2026-03-16", time:"10:15", tx:"Implante dental", status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx: 7, date:"2026-03-16", time:"11:45", tx:"Revisión",        status:"Agendado",   origin:"Paciente"  },
+  { staffId:"STF_003", patientIdx: 8, date:"2026-03-16", time:"12:15", tx:"Empaste",         status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx: 9, date:"2026-03-16", time:"16:00", tx:"Ortodoncia",      status:"Agendado",   origin:"Recepción" },
+  { staffId:"STF_003", patientIdx:10, date:"2026-03-16", time:"17:00", tx:"Endodoncia",      status:"Confirmado", origin:"WhatsApp"  },
+  // ─ Dr. Mateo López (STF_003) · Mar 17-mar ───────────────────────────────────
+  { staffId:"STF_003", patientIdx:11, date:"2026-03-17", time:"09:00", tx:"Limpieza dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx: 2, date:"2026-03-17", time:"09:45", tx:"Empaste",         status:"Agendado",   origin:"Recepción" }, // PABLO MED
+  { staffId:"STF_003", patientIdx:12, date:"2026-03-17", time:"10:30", tx:"Prótesis dental", status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx:13, date:"2026-03-17", time:"12:00", tx:"Revisión",        status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx:14, date:"2026-03-17", time:"16:00", tx:"Ortodoncia",      status:"Agendado",   origin:"IA"        },
+  { staffId:"STF_003", patientIdx: 4, date:"2026-03-17", time:"17:30", tx:"Implante dental", status:"Confirmado", origin:"WhatsApp"  },
+  // ─ Dr. Mateo López (STF_003) · Mié 18-mar ──────────────────────────────────
+  { staffId:"STF_003", patientIdx: 5, date:"2026-03-18", time:"09:00", tx:"Ortodoncia",      status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx: 6, date:"2026-03-18", time:"10:00", tx:"Empaste",         status:"Agendado",   origin:"Recepción" },
+  { staffId:"STF_003", patientIdx: 7, date:"2026-03-18", time:"10:45", tx:"Limpieza dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx: 8, date:"2026-03-18", time:"12:00", tx:"Revisión",        status:"Agendado",   origin:"Paciente"  },
+  { staffId:"STF_003", patientIdx: 9, date:"2026-03-18", time:"16:00", tx:"Blanqueamiento",  status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx:10, date:"2026-03-18", time:"17:00", tx:"Periodoncia",     status:"Agendado",   origin:"IA"        },
+  // ─ Dr. Mateo López (STF_003) · Jue 19-mar ──────────────────────────────────
+  { staffId:"STF_003", patientIdx: 3, date:"2026-03-19", time:"09:00", tx:"Blanqueamiento",  status:"Agendado",   origin:"Recepción" }, // CARMEN MED
+  { staffId:"STF_003", patientIdx:11, date:"2026-03-19", time:"09:45", tx:"Endodoncia",      status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx:12, date:"2026-03-19", time:"11:00", tx:"Implante dental", status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx:13, date:"2026-03-19", time:"12:30", tx:"Revisión",        status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx:14, date:"2026-03-19", time:"16:00", tx:"Empaste",         status:"Agendado",   origin:"Recepción" },
+  { staffId:"STF_003", patientIdx: 5, date:"2026-03-19", time:"17:00", tx:"Limpieza dental", status:"Confirmado", origin:"WhatsApp"  },
+  // ─ Dr. Mateo López (STF_003) · Vie 20-mar ──────────────────────────────────
+  { staffId:"STF_003", patientIdx: 6, date:"2026-03-20", time:"09:00", tx:"Revisión",        status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx: 7, date:"2026-03-20", time:"09:45", tx:"Prótesis dental", status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx: 8, date:"2026-03-20", time:"11:00", tx:"Ortodoncia",      status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx: 9, date:"2026-03-20", time:"12:30", tx:"Empaste",         status:"Agendado",   origin:"Paciente"  },
+  { staffId:"STF_003", patientIdx:10, date:"2026-03-20", time:"16:00", tx:"Blanqueamiento",  status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx: 1, date:"2026-03-20", time:"17:00", tx:"Limpieza dental", status:"Agendado",   origin:"Recepción" }, // DIEGO HIGH
+
+  // ─ Dr. Andrés Rojas (STF_001) · Lun 16-mar ─────────────────────────────────
+  { staffId:"STF_001", patientIdx:11, date:"2026-03-16", time:"09:00", tx:"Limpieza dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx:12, date:"2026-03-16", time:"09:45", tx:"Empaste",         status:"Agendado",   origin:"Recepción" },
+  { staffId:"STF_001", patientIdx:13, date:"2026-03-16", time:"11:00", tx:"Implante dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx:14, date:"2026-03-16", time:"12:30", tx:"Revisión",        status:"Agendado",   origin:"Paciente"  },
+  { staffId:"STF_001", patientIdx: 4, date:"2026-03-16", time:"16:00", tx:"Blanqueamiento",  status:"Confirmado", origin:"WhatsApp"  },
+  // ─ Dr. Andrés Rojas (STF_001) · Mar 17-mar ──────────────────────────────────
+  { staffId:"STF_001", patientIdx: 5, date:"2026-03-17", time:"09:00", tx:"Periodoncia",     status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx: 6, date:"2026-03-17", time:"10:30", tx:"Endodoncia",      status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx: 7, date:"2026-03-17", time:"12:00", tx:"Limpieza dental", status:"Agendado",   origin:"Recepción" },
+  { staffId:"STF_001", patientIdx: 8, date:"2026-03-17", time:"16:00", tx:"Revisión",        status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx: 9, date:"2026-03-17", time:"17:30", tx:"Ortodoncia",      status:"Agendado",   origin:"IA"        },
+  // ─ Dr. Andrés Rojas (STF_001) · Mié 18-mar ──────────────────────────────────
+  { staffId:"STF_001", patientIdx:10, date:"2026-03-18", time:"09:00", tx:"Empaste",         status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx:11, date:"2026-03-18", time:"10:15", tx:"Prótesis dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx:12, date:"2026-03-18", time:"12:00", tx:"Revisión",        status:"Agendado",   origin:"Recepción" },
+  { staffId:"STF_001", patientIdx:13, date:"2026-03-18", time:"16:00", tx:"Limpieza dental", status:"Confirmado", origin:"WhatsApp"  },
+  // ─ Dr. Andrés Rojas (STF_001) · Jue 19-mar ──────────────────────────────────
+  { staffId:"STF_001", patientIdx: 4, date:"2026-03-19", time:"09:00", tx:"Ortodoncia",      status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx: 5, date:"2026-03-19", time:"10:30", tx:"Blanqueamiento",  status:"Agendado",   origin:"Recepción" },
+  { staffId:"STF_001", patientIdx: 6, date:"2026-03-19", time:"12:00", tx:"Endodoncia",      status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx: 7, date:"2026-03-19", time:"16:00", tx:"Revisión",        status:"Agendado",   origin:"Paciente"  },
+  // ─ Dr. Andrés Rojas (STF_001) · Vie 20-mar ──────────────────────────────────
+  { staffId:"STF_001", patientIdx: 8, date:"2026-03-20", time:"09:00", tx:"Implante dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx: 9, date:"2026-03-20", time:"10:30", tx:"Empaste",         status:"Agendado",   origin:"Recepción" },
+  { staffId:"STF_001", patientIdx:10, date:"2026-03-20", time:"12:00", tx:"Ortodoncia",      status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx:11, date:"2026-03-20", time:"16:00", tx:"Revisión",        status:"Agendado",   origin:"WhatsApp"  },
+
+  // ─ Dra. Paula Díaz (STF_002) · Lun 16-mar ──────────────────────────────────
+  { staffId:"STF_002", patientIdx:13, date:"2026-03-16", time:"09:00", tx:"Empaste",         status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx:14, date:"2026-03-16", time:"10:15", tx:"Revisión",        status:"Agendado",   origin:"Recepción" },
+  { staffId:"STF_002", patientIdx: 4, date:"2026-03-16", time:"11:45", tx:"Blanqueamiento",  status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx: 5, date:"2026-03-16", time:"16:00", tx:"Ortodoncia",      status:"Agendado",   origin:"WhatsApp"  },
+  // ─ Dra. Paula Díaz (STF_002) · Mar 17-mar ───────────────────────────────────
+  { staffId:"STF_002", patientIdx: 6, date:"2026-03-17", time:"09:00", tx:"Limpieza dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx: 7, date:"2026-03-17", time:"09:45", tx:"Prótesis dental", status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx: 8, date:"2026-03-17", time:"11:00", tx:"Revisión",        status:"Confirmado", origin:"Recepción" },
+  { staffId:"STF_002", patientIdx: 9, date:"2026-03-17", time:"12:15", tx:"Empaste",         status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx:10, date:"2026-03-17", time:"16:00", tx:"Implante dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx:11, date:"2026-03-17", time:"17:30", tx:"Blanqueamiento",  status:"Agendado",   origin:"IA"        },
+  // ─ Dra. Paula Díaz (STF_002) · Mié 18-mar ───────────────────────────────────
+  { staffId:"STF_002", patientIdx:12, date:"2026-03-18", time:"09:00", tx:"Revisión",        status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx:13, date:"2026-03-18", time:"10:00", tx:"Endodoncia",      status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx:14, date:"2026-03-18", time:"11:45", tx:"Limpieza dental", status:"Confirmado", origin:"Recepción" },
+  { staffId:"STF_002", patientIdx: 4, date:"2026-03-18", time:"16:00", tx:"Empaste",         status:"Agendado",   origin:"Paciente"  },
+  { staffId:"STF_002", patientIdx: 5, date:"2026-03-18", time:"17:00", tx:"Ortodoncia",      status:"Confirmado", origin:"WhatsApp"  },
+  // ─ Dra. Paula Díaz (STF_002) · Jue 19-mar ───────────────────────────────────
+  { staffId:"STF_002", patientIdx: 6, date:"2026-03-19", time:"09:00", tx:"Periodoncia",     status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx: 7, date:"2026-03-19", time:"10:30", tx:"Implante dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx: 8, date:"2026-03-19", time:"12:00", tx:"Revisión",        status:"Agendado",   origin:"Recepción" },
+  { staffId:"STF_002", patientIdx: 9, date:"2026-03-19", time:"16:00", tx:"Blanqueamiento",  status:"Confirmado", origin:"WhatsApp"  },
+  // ─ Dra. Paula Díaz (STF_002) · Vie 20-mar ───────────────────────────────────
+  { staffId:"STF_002", patientIdx:10, date:"2026-03-20", time:"09:00", tx:"Empaste",         status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx:11, date:"2026-03-20", time:"10:30", tx:"Revisión",        status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx:12, date:"2026-03-20", time:"12:00", tx:"Limpieza dental", status:"Confirmado", origin:"Recepción" },
+  { staffId:"STF_002", patientIdx:13, date:"2026-03-20", time:"16:00", tx:"Ortodoncia",      status:"Agendado",   origin:"IA"        },
+];
+
+const NEXT_NEXT_WEEK: FutureAppt[] = [
+  // ─ Dr. Mateo López (STF_003) · Semana 23-27 mar ─────────────────────────────
+  { staffId:"STF_003", patientIdx: 4, date:"2026-03-23", time:"09:00", tx:"Implante dental", status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx: 5, date:"2026-03-23", time:"10:30", tx:"Ortodoncia",      status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx: 6, date:"2026-03-23", time:"12:00", tx:"Revisión",        status:"Agendado",   origin:"Recepción" },
+  { staffId:"STF_003", patientIdx: 7, date:"2026-03-23", time:"16:00", tx:"Limpieza dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx: 8, date:"2026-03-23", time:"17:00", tx:"Empaste",         status:"Agendado",   origin:"IA"        },
+  { staffId:"STF_003", patientIdx: 9, date:"2026-03-24", time:"09:00", tx:"Blanqueamiento",  status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx:10, date:"2026-03-24", time:"10:15", tx:"Endodoncia",      status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx:11, date:"2026-03-24", time:"12:00", tx:"Revisión",        status:"Confirmado", origin:"Recepción" },
+  { staffId:"STF_003", patientIdx:12, date:"2026-03-24", time:"16:00", tx:"Prótesis dental", status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx:13, date:"2026-03-24", time:"17:30", tx:"Limpieza dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx:14, date:"2026-03-25", time:"09:00", tx:"Empaste",         status:"Agendado",   origin:"Paciente"  },
+  { staffId:"STF_003", patientIdx: 4, date:"2026-03-25", time:"10:00", tx:"Revisión",        status:"Confirmado", origin:"Recepción" },
+  { staffId:"STF_003", patientIdx: 5, date:"2026-03-25", time:"11:15", tx:"Ortodoncia",      status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx: 6, date:"2026-03-25", time:"16:00", tx:"Blanqueamiento",  status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx: 7, date:"2026-03-25", time:"17:00", tx:"Limpieza dental", status:"Agendado",   origin:"IA"        },
+  { staffId:"STF_003", patientIdx: 8, date:"2026-03-26", time:"09:00", tx:"Endodoncia",      status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx: 9, date:"2026-03-26", time:"10:30", tx:"Empaste",         status:"Confirmado", origin:"Recepción" },
+  { staffId:"STF_003", patientIdx:10, date:"2026-03-26", time:"12:00", tx:"Revisión",        status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx:11, date:"2026-03-26", time:"16:00", tx:"Ortodoncia",      status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx:12, date:"2026-03-27", time:"09:00", tx:"Revisión",        status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx:13, date:"2026-03-27", time:"10:15", tx:"Implante dental", status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_003", patientIdx:14, date:"2026-03-27", time:"12:00", tx:"Empaste",         status:"Confirmado", origin:"Recepción" },
+  { staffId:"STF_003", patientIdx: 4, date:"2026-03-27", time:"16:00", tx:"Blanqueamiento",  status:"Agendado",   origin:"WhatsApp"  },
+
+  // ─ Dr. Andrés Rojas (STF_001) · Semana 23-27 mar ────────────────────────────
+  { staffId:"STF_001", patientIdx: 5, date:"2026-03-23", time:"09:00", tx:"Limpieza dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx: 6, date:"2026-03-23", time:"10:30", tx:"Prótesis dental", status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx: 7, date:"2026-03-23", time:"12:00", tx:"Revisión",        status:"Confirmado", origin:"Recepción" },
+  { staffId:"STF_001", patientIdx: 8, date:"2026-03-23", time:"16:00", tx:"Empaste",         status:"Agendado",   origin:"Paciente"  },
+  { staffId:"STF_001", patientIdx: 9, date:"2026-03-24", time:"09:00", tx:"Blanqueamiento",  status:"Agendado",   origin:"Recepción" },
+  { staffId:"STF_001", patientIdx:10, date:"2026-03-24", time:"10:15", tx:"Endodoncia",      status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx:11, date:"2026-03-24", time:"12:00", tx:"Revisión",        status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx:12, date:"2026-03-24", time:"16:00", tx:"Limpieza dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx:13, date:"2026-03-25", time:"09:00", tx:"Implante dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx:14, date:"2026-03-25", time:"10:30", tx:"Ortodoncia",      status:"Agendado",   origin:"Recepción" },
+  { staffId:"STF_001", patientIdx: 4, date:"2026-03-25", time:"12:00", tx:"Revisión",        status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx: 5, date:"2026-03-26", time:"09:00", tx:"Periodoncia",     status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx: 6, date:"2026-03-26", time:"10:15", tx:"Empaste",         status:"Confirmado", origin:"Recepción" },
+  { staffId:"STF_001", patientIdx: 7, date:"2026-03-26", time:"16:00", tx:"Limpieza dental", status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx: 8, date:"2026-03-27", time:"09:00", tx:"Empaste",         status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx: 9, date:"2026-03-27", time:"10:30", tx:"Revisión",        status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_001", patientIdx:10, date:"2026-03-27", time:"12:00", tx:"Ortodoncia",      status:"Confirmado", origin:"Recepción" },
+  { staffId:"STF_001", patientIdx:11, date:"2026-03-27", time:"16:00", tx:"Blanqueamiento",  status:"Agendado",   origin:"WhatsApp"  },
+
+  // ─ Dra. Paula Díaz (STF_002) · Semana 23-27 mar ─────────────────────────────
+  { staffId:"STF_002", patientIdx:12, date:"2026-03-23", time:"09:00", tx:"Limpieza dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx:13, date:"2026-03-23", time:"10:30", tx:"Empaste",         status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx:14, date:"2026-03-23", time:"12:00", tx:"Blanqueamiento",  status:"Confirmado", origin:"Recepción" },
+  { staffId:"STF_002", patientIdx: 4, date:"2026-03-23", time:"16:00", tx:"Ortodoncia",      status:"Agendado",   origin:"Paciente"  },
+  { staffId:"STF_002", patientIdx: 5, date:"2026-03-24", time:"09:00", tx:"Implante dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx: 6, date:"2026-03-24", time:"10:30", tx:"Revisión",        status:"Agendado",   origin:"Recepción" },
+  { staffId:"STF_002", patientIdx: 7, date:"2026-03-24", time:"12:00", tx:"Endodoncia",      status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx: 8, date:"2026-03-24", time:"16:00", tx:"Limpieza dental", status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx: 9, date:"2026-03-25", time:"09:00", tx:"Revisión",        status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx:10, date:"2026-03-25", time:"10:15", tx:"Prótesis dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx:11, date:"2026-03-25", time:"12:00", tx:"Ortodoncia",      status:"Agendado",   origin:"Recepción" },
+  { staffId:"STF_002", patientIdx:12, date:"2026-03-25", time:"16:00", tx:"Blanqueamiento",  status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx:13, date:"2026-03-26", time:"09:00", tx:"Empaste",         status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx:14, date:"2026-03-26", time:"10:30", tx:"Limpieza dental", status:"Agendado",   origin:"Recepción" },
+  { staffId:"STF_002", patientIdx: 4, date:"2026-03-26", time:"12:00", tx:"Implante dental", status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx: 5, date:"2026-03-27", time:"09:00", tx:"Blanqueamiento",  status:"Confirmado", origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx: 6, date:"2026-03-27", time:"10:30", tx:"Periodoncia",     status:"Agendado",   origin:"WhatsApp"  },
+  { staffId:"STF_002", patientIdx: 7, date:"2026-03-27", time:"12:00", tx:"Revisión",        status:"Confirmado", origin:"Recepción" },
+  { staffId:"STF_002", patientIdx: 8, date:"2026-03-27", time:"16:00", tx:"Empaste",         status:"Agendado",   origin:"WhatsApp"  },
+];
+
 // ── Waitlist entries ───────────────────────────────────────────────────────────
 const WAITLIST_ENTRIES = [
   { patientIdx:  4, tx: "Implante dental",  priority: "ALTA",  urgency: "HIGH", notes: "Tratamiento en curso, necesita hueco urgente" },
@@ -513,7 +698,22 @@ async function main() {
   console.log(`   ✅ ${THIS_WEEK.length} citas → ${twActive.length} activas | ${twCancel.length} canceladas`);
   console.log(`   💶 Revenue: €${twRevenue} | WhatsApp: ${twWA.length}/${twActive.length} (${Math.round(twWA.length / twActive.length * 100)}%)`);
 
-  // ── 8. Waitlist ────────────────────────────────────────────────────────────
+  // ── 8. Próximas 2 semanas — todos los doctores ─────────────────────────────
+  console.log("\n📅  Próximas 2 semanas (16-27 mar) — 3 doctores...");
+  const staffByStaffId = new Map(staff.map(s => [s.staffId, s]));
+  const futureAll = [...NEXT_WEEK, ...NEXT_NEXT_WEEK];
+  let futureCount = 0;
+  for (const a of futureAll) {
+    const staffRec = staffByStaffId.get(a.staffId) ?? doctor;
+    await createAppt(a.patientIdx, a.date, a.time, a.tx, a.status, a.origin, staffRec);
+    futureCount++;
+    if (futureCount % 20 === 0) process.stdout.write(`   ${futureCount}/${futureAll.length}\r`);
+  }
+  const fw1 = NEXT_WEEK.length;
+  const fw2 = NEXT_NEXT_WEEK.length;
+  console.log(`\n   ✅ ${futureCount} citas futuras (${fw1} sem.16-20 + ${fw2} sem.23-27)`);
+
+  // ── 9. Waitlist ────────────────────────────────────────────────────────────
   console.log("\n⏳  Lista de espera...");
   let wlCount = 0;
   for (const wl of WAITLIST_ENTRIES) {
@@ -541,14 +741,15 @@ async function main() {
   console.log("\n" + "═".repeat(60));
   console.log("🎉  Seed completado:");
   console.log(`   • ${total} citas creadas en Airtable`);
+  console.log(`   • ${futureCount} futuras (${NEXT_WEEK.length} sem.16-20 + ${NEXT_NEXT_WEEK.length} sem.23-27)`);
   console.log(`   • ${wlCount} entradas en lista de espera`);
 
   console.log("\n📊  Datos esperados en el dashboard:");
-  console.log(`   HOY        → demo mode (sáb, sin citas) → €420 confirmado / €120 en riesgo`);
-  console.log(`   ESTADÍS    → ${twActive.length} activas | ${twCancel.length} canceladas | ${twWA.length} WhatsApp`);
-  console.log(`   INGRESOS   → €${twRevenue} esta semana | €${lwRevenue} sem. pasada | delta +€${twRevenue - lwRevenue}`);
+  console.log(`   HOY (lun 16-mar)→ citas reales para 3 doctores → no usa demo fallback`);
+  console.log(`   ESTADÍS (sem 16-20)→ WhatsApp/IA/Recepción/Formulario en tiempo real`);
   console.log(`   RIESGO     → Ana HIGH (70) | Diego HIGH (75) | Pablo MED (48) | Carmen MED (37)`);
-  console.log(`   ROI timeSaved → ${twWA.length} appts × 5min = ${twWA.length * 5} min (${Math.round(twWA.length * 5 / 60)}h ahorradas)`);
+  console.log(`   HUECOS     → franjas libres reales para cada doctor (próxima semana)`);
+  console.log(`   ROI timeSaved → citas WhatsApp/IA × 5min`);
 
   console.log("\n⚠️  IMPORTANTE: El panel RIESGO usa cancelaciones históricas como factor de");
   console.log("    riesgo. Ejecuta el servidor Next.js y abre el dashboard para verificar.");

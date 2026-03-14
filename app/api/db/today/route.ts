@@ -122,9 +122,15 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing staffId" }, { status: 400 });
     }
 
-    const todayDt = dateParam
+    const realNow = DateTime.now().setZone(ZONE);
+    let todayDt = dateParam
       ? DateTime.fromISO(dateParam, { zone: ZONE }).startOf("day")
-      : DateTime.now().setZone(ZONE).startOf("day");
+      : realNow.startOf("day");
+
+    // On weekends, auto-advance to next Monday so the panel shows actionable data
+    if (!dateParam && todayDt.weekday >= 6) {
+      todayDt = todayDt.startOf("week").plus({ weeks: 1 }); // next Monday
+    }
 
     const tomorrowDt = todayDt.plus({ days: 1 });
     const todayIso = todayDt.toISODate()!;

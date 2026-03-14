@@ -111,7 +111,14 @@ export async function GET(req: Request) {
     const workEnd = workParsed?.end ?? "18:00";
 
     // 2) Fetch week's appointments for this staff
-    const mondayDt = DateTime.fromISO(week, { zone: ZONE }).startOf("day");
+    // Auto-advance to next week if the given week is entirely in the past
+    const nowDt = DateTime.now().setZone(ZONE);
+    let mondayDt = DateTime.fromISO(week, { zone: ZONE }).startOf("day");
+    const fridayOfWeek = mondayDt.plus({ days: 4 });
+    if (fridayOfWeek < nowDt.startOf("day")) {
+      // This week is past — use the NEXT week instead
+      mondayDt = mondayDt.plus({ weeks: 1 });
+    }
     const sundayDt = mondayDt.plus({ days: 7 });
 
     const CANCELLED = new Set([
@@ -166,9 +173,14 @@ export async function GET(req: Request) {
     const lunchStartMin = lunchStart ? toMinutes(lunchStart) : null;
     const lunchEndMin = lunchEnd ? toMinutes(lunchEnd) : null;
 
+    const todayIsoStr = nowDt.toISODate()!;
+
     for (let d = 0; d < 5; d++) {
       const dayDt = mondayDt.plus({ days: d });
       const dayIso = dayDt.toISODate()!;
+
+      // Skip past days
+      if (dayIso < todayIsoStr) continue;
 
       const blocks = (dayBlocks[dayIso] ?? []).sort((a, b) => a.startMin - b.startMin);
 

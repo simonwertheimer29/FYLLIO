@@ -98,11 +98,16 @@ export async function GET(req: Request) {
     }
 
     const now = DateTime.now().setZone(ZONE);
-    const monday = weekParam
+    // Window: next 14 days from today (or from start of next week if today is weekend).
+    // Only FUTURE appointments are shown (actionable for the doctor).
+    const isWeekend = now.weekday >= 6; // 6=Sat, 7=Sun
+    const windowStart = weekParam
       ? DateTime.fromISO(weekParam, { zone: ZONE }).startOf("week")
-      : now.startOf("week");
-    const mondayIso = monday.toISODate()!;
-    const sundayDt = monday.plus({ days: 7 });
+      : isWeekend
+        ? now.startOf("week").plus({ weeks: 1 }) // next Monday
+        : now.startOf("day");
+    const windowEnd = windowStart.plus({ days: 14 });
+    const mondayIso = windowStart.toISODate()!;
 
     // 1) Fetch upcoming appointments for this staff this week (future only)
     const weekApptRecs = await base(TABLES.appointments as any)
@@ -136,7 +141,10 @@ export async function GET(req: Request) {
       if (!startIso) continue;
 
       const dayIso = startIso.slice(0, 10);
-      if (dayIso < mondayIso || dayIso >= sundayDt.toISODate()!) continue;
+      if (dayIso < mondayIso || dayIso >= windowEnd.toISODate()!) continue;
+      // Only future appointments (after now)
+      const startDt = DateTime.fromISO(startIso, { zone: ZONE });
+      if (startDt <= now) continue;
 
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
       if (CANCELLED_STATUSES.has(estado)) continue;

@@ -182,7 +182,7 @@ export default function StatsPanel() {
                 value={stats.timeSavedMinByWhatsapp >= 60
                   ? `${(stats.timeSavedMinByWhatsapp / 60).toFixed(1)} h`
                   : `${stats.timeSavedMinByWhatsapp} min`}
-                sub={`${stats.activeSessions} conversaciones automatizadas × 5 min`}
+                sub={`${stats.whatsappAppts} citas vía WhatsApp/IA × 5 min/cita ahorrado en recepción`}
                 accent="border-violet-200"
               />
               <RoiCard
