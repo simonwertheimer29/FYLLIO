@@ -40,7 +40,8 @@ type AtRiskAppt = {
   patientName: string;
   phone: string;
   treatmentName: string;
-  start: string; // "HH:mm" display
+  start: string;    // "HH:mm" display
+  startIso: string; // full ISO datetime — used for 16h escalation check
   durationMin: number;
   noShowRisk: "HIGH" | "MED" | "LOW";
   confirmed: boolean;
@@ -190,10 +191,19 @@ const CATEGORY_ORDER: Record<ActionTask["category"], number> = {
   REPUTATION: 0.5, // reputation next to no-show urgency
 };
 
+const RISK_LEVEL_ORDER: Record<string, number> = { HIGH: 0, MED: 1, LOW: 2 };
+
 function sortTasksForTable(tasks: ActionTask[]): ActionTask[] {
   return [...tasks].sort((a, b) => {
     const catDiff = CATEGORY_ORDER[a.category] - CATEGORY_ORDER[b.category];
     if (catDiff !== 0) return catDiff;
+    // Within NO_SHOW: HIGH → MED → LOW
+    if (a.category === "NO_SHOW" && b.category === "NO_SHOW") {
+      const rA = a.atRiskAppt?.noShowRisk ?? "LOW";
+      const rB = b.atRiskAppt?.noShowRisk ?? "LOW";
+      const rDiff = (RISK_LEVEL_ORDER[rA] ?? 2) - (RISK_LEVEL_ORDER[rB] ?? 2);
+      if (rDiff !== 0) return rDiff;
+    }
     // PRESUPUESTO: oldest first (most overdue)
     if (a.category === "PRESUPUESTO") {
       return (b.quote?.daysSince ?? 0) - (a.quote?.daysSince ?? 0);
@@ -452,6 +462,19 @@ function ActionCard({
             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${cfg.badge}`}>
               {cfg.label}
             </span>
+            {task.category === "NO_SHOW" && task.atRiskAppt && (
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border ${
+                task.atRiskAppt.noShowRisk === "HIGH"
+                  ? "bg-rose-100 text-rose-700 border-rose-200"
+                  : task.atRiskAppt.noShowRisk === "MED"
+                    ? "bg-amber-100 text-amber-700 border-amber-200"
+                    : "bg-emerald-100 text-emerald-700 border-emerald-100"
+              }`}>
+                {task.atRiskAppt.noShowRisk === "HIGH" ? "🔴 ALTO"
+                  : task.atRiskAppt.noShowRisk === "MED" ? "🟡 MEDIO"
+                  : "🟢 BAJO"}
+              </span>
+            )}
           </div>
           <p className="text-xs text-slate-600 mt-0.5 truncate">{task.description}</p>
           {/* Deadline badge — not for PRESUPUESTO */}
@@ -840,17 +863,25 @@ export default function OperationsPanel({
     });
   });
 
-  // NO_SHOW LOW — soft (always in PENDIENTE via isLow)
+  // NO_SHOW LOW — PENDIENTE normally, but escalate to URGENTE if appt is within 16h
   atRiskLow.forEach((a) => {
-    const dayIso = a.start.length === 5 ? todayIso : a.start.slice(0, 10);
-    const timeStr = a.start.length === 5 ? a.start : a.start.slice(11, 16);
-    const fullIso = `${dayIso}T${timeStr}:00`;
+    const apptDt = a.startIso
+      ? DateTime.fromISO(a.startIso, { setZone: true }).setZone(ZONE)
+      : null;
+    const hoursUntil = apptDt ? apptDt.diff(now, "hours").hours : Infinity;
+    const isImminent = hoursUntil > 0 && hoursUntil <= 16;
+
+    const timeStr = a.start; // "HH:mm"
+    const fullIso = a.startIso ?? `${todayIso}T${timeStr}:00`;
     const deadline = computeDeadline("NO_SHOW", { apptStartIso: fullIso });
     allTasks.push({
       id: `noshow-${a.recordId}`,
-      category: "NO_SHOW", isLow: true,
+      category: "NO_SHOW",
+      isLow: !isImminent, // imminent → not isLow → goes to URGENTE HOY
       patientName: a.patientName, phone: a.phone,
-      description: `${timeStr} · ${a.treatmentName || "Cita"} · bajo riesgo`,
+      description: isImminent
+        ? `${timeStr} · ${a.treatmentName || "Cita"} · bajo riesgo · confirmar por llamada`
+        : `${timeStr} · ${a.treatmentName || "Cita"} · bajo riesgo`,
       deadline, atRiskAppt: a,
     });
   });

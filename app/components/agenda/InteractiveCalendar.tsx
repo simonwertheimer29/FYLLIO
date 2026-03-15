@@ -3,7 +3,7 @@
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { DateTime } from "luxon";
 
 type Appt = {
@@ -216,12 +216,31 @@ function NewApptModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Duration of the selected slot in minutes
+  const slotDurationMin = useMemo(
+    () => Math.round((end.getTime() - start.getTime()) / 60000),
+    [start, end]
+  );
+
+  // Only show treatments that fit within the slot (duration === 0 means unknown → always show)
+  const visibleTreatments = useMemo(
+    () => treatments.filter((t) => t.duration === 0 || t.duration <= slotDurationMin),
+    [treatments, slotDurationMin]
+  );
+
   useEffect(() => {
     fetch("/api/db/treatments")
       .then((r) => r.json())
       .then((j) => setTreatments(j.treatments ?? []))
       .catch(() => {});
   }, []);
+
+  // Reset selected treatment if it no longer fits the slot
+  useEffect(() => {
+    if (treatmentId && !visibleTreatments.some((t) => t.id === treatmentId)) {
+      setTreatmentId("");
+    }
+  }, [visibleTreatments, treatmentId]);
 
   async function handleCreate() {
     if (!patientName.trim()) { setError("Nombre del paciente requerido"); return; }
@@ -301,14 +320,21 @@ function NewApptModal({
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Tratamiento</label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+              Tratamiento
+              {slotDurationMin > 0 && (
+                <span className="ml-1 font-normal text-slate-400 normal-case">
+                  — hueco de {slotDurationMin} min
+                </span>
+              )}
+            </label>
             <select
               value={treatmentId}
               onChange={(e) => setTreatmentId(e.target.value)}
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white"
             >
               <option value="">— Sin especificar —</option>
-              {treatments.map((t) => (
+              {visibleTreatments.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}{t.duration ? ` (${t.duration} min)` : ""}
                 </option>

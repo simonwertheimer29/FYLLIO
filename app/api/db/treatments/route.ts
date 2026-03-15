@@ -11,14 +11,23 @@ export async function GET() {
       .select({ maxRecords: 100 })
       .all();
 
-    return NextResponse.json({
-      treatments: recs.map((r) => ({
-        id: r.id,
-        name: String(r.get("Nombre") ?? ""),
-        duration: Number(r.get("Duración") ?? r.get("Duracion") ?? r.get("Duration") ?? 0),
-        instructions: String(r.get("Instrucciones_pre") ?? r.get("Instrucciones") ?? ""),
-      })),
+    const mapped = recs.map((r) => ({
+      id: r.id,
+      name: String(r.get("Nombre") ?? ""),
+      duration: Number(r.get("Duración") ?? r.get("Duracion") ?? r.get("Duration") ?? 0),
+      instructions: String(r.get("Instrucciones_pre") ?? r.get("Instrucciones") ?? ""),
+    }));
+
+    // Deduplicate by name (case-insensitive) — keep first occurrence
+    const seen = new Set<string>();
+    const treatments = mapped.filter((t) => {
+      const key = t.name.toLowerCase().trim();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
     });
+
+    return NextResponse.json({ treatments });
   } catch (e: any) {
     console.error("[treatments] error", e);
     return NextResponse.json({ error: e?.message ?? "Error" }, { status: 500 });

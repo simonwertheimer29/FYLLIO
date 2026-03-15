@@ -329,6 +329,7 @@ export async function GET(req: Request) {
         riskFactors: {
           historicalNoShowRate: Math.round(noShowRate * 100) / 100, // actual rate for display
           historicalNoShowCount: histNoShows,                        // actual no-show count
+          historicalCancelCount: histCancels,                        // actual cancel count
           historicalTotalAppts: histTotal,
           daysSinceBooked: Math.max(0, daysSinceBooked),
           dayOfWeek: dt.isValid ? dt.weekday : 0,
@@ -376,6 +377,7 @@ export async function GET(req: Request) {
         riskFactors: {
           historicalNoShowRate: p.riskScore >= 60 ? 0.4 : 0,
           historicalNoShowCount: p.riskScore >= 60 ? 2 : 0,
+          historicalCancelCount: 0,
           historicalTotalAppts: p.riskScore >= 60 ? 5 : 0,
           daysSinceBooked: 7,
           dayOfWeek: 1,

@@ -10,6 +10,7 @@ type RiskLevel = "HIGH" | "MEDIUM" | "LOW";
 type RiskFactors = {
   historicalNoShowRate: number;
   historicalNoShowCount: number;
+  historicalCancelCount: number;
   historicalTotalAppts: number;
   daysSinceBooked: number;
   dayOfWeek: number;
@@ -211,8 +212,11 @@ function RiskCard({
               <p className="text-xs text-emerald-700">
                 ✓ Buen historial —{" "}
                 {f.historicalNoShowCount === 0
-                  ? `${f.historicalTotalAppts} citas anteriores sin ausencias`
+                  ? `${f.historicalTotalAppts} citas sin ausencias`
                   : `solo ${f.historicalNoShowCount} ausencia(s) en ${f.historicalTotalAppts} citas`}
+                {(f.historicalCancelCount ?? 0) > 0
+                  ? ` · ${f.historicalCancelCount} cancelación${f.historicalCancelCount !== 1 ? "es" : ""}`
+                  : ""}
               </p>
             )}
             {f.historicalTotalAppts > 0 && f.historicalTotalAppts < 3 && (
@@ -231,8 +235,15 @@ function RiskCard({
           <>
             {f.historicalTotalAppts > 0 && (
               <p className="text-xs text-slate-600">
-                ⚠ <b>{f.historicalNoShowCount}</b> no-show{f.historicalNoShowCount !== 1 ? "s" : ""} en{" "}
-                <b>{f.historicalTotalAppts}</b> citas anteriores ({Math.round(f.historicalNoShowRate * 100)}%)
+                ⚠{" "}
+                {f.historicalNoShowCount > 0
+                  ? <><b>{f.historicalNoShowCount}</b> no-show{f.historicalNoShowCount !== 1 ? "s" : ""}</>
+                  : <>0 no-shows</>}
+                {(f.historicalCancelCount ?? 0) > 0 && (
+                  <> + <b>{f.historicalCancelCount}</b> cancelación{f.historicalCancelCount !== 1 ? "es" : ""}</>
+                )}
+                {" "}en <b>{f.historicalTotalAppts}</b> citas anteriores
+                {f.historicalNoShowCount > 0 && ` (${Math.round(f.historicalNoShowRate * 100)}% no-shows)`}
               </p>
             )}
             {f.historicalTotalAppts === 0 && (
