@@ -271,6 +271,30 @@ export async function cancelAppointment(params: {
   ]);
 }
 
+export async function completeAppointment(params: {
+  appointmentRecordId: string;
+}) {
+  await base(TABLES.appointments).update([
+    {
+      id: params.appointmentRecordId,
+      fields: { Estado: "Completado" },
+    },
+  ]);
+}
+
+export async function markNoShow(params: {
+  appointmentRecordId: string;
+  existingNotes?: string;
+}) {
+  const notes = [params.existingNotes, "[NO_SHOW]"].filter(Boolean).join(" | ");
+  await base(TABLES.appointments).update([
+    {
+      id: params.appointmentRecordId,
+      fields: { Estado: "Cancelado", Notas: notes },
+    },
+  ]);
+}
+
 export async function confirmAppointment(params: {
   appointmentRecordId: string;
 }) {
@@ -420,7 +444,7 @@ const end = toLocalNaiveIso(f["Hora final"]);
 export async function listAppointmentsByWeek(params: {
   mondayIso: string; // "YYYY-MM-DD" (Monday)
   clinicId?: string;
-}): Promise<Array<{ start: string; estado: string; origen: string }>> {
+}): Promise<Array<{ start: string; estado: string; origen: string; notas: string }>> {
   const { mondayIso, clinicId } = params;
   const monday = DateTime.fromISO(mondayIso, { zone: "utc" });
   const sunday = monday.plus({ days: 6 });
@@ -430,7 +454,7 @@ export async function listAppointmentsByWeek(params: {
     .select({ maxRecords: 2000 })
     .all();
 
-  const out: Array<{ start: string; estado: string; origen: string }> = [];
+  const out: Array<{ start: string; estado: string; origen: string; notas: string }> = [];
 
   for (const r of records) {
     const f: any = r.fields;
@@ -449,6 +473,7 @@ export async function listAppointmentsByWeek(params: {
       start,
       estado: firstString(f["Estado"]).trim().toUpperCase(),
       origen: firstString(f["Origen"]).trim(),
+      notas: firstString(f["Notas"]),
     });
   }
 

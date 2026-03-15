@@ -67,6 +67,50 @@ function bookingDaysScore(daysSince: number): number {
   return 0;
 }
 
+/**
+ * actionDeadline: the latest moment to act on a risky appointment.
+ * Logic:
+ *   - Appointment is Monday before 13:00  → deadline = previous Friday 17:00
+ *   - Appointment is any weekday AM (<13h) → deadline = previous workday 17:00
+ *   - Appointment is any weekday PM (≥13h) → deadline = same day 10:00
+ * Returns ISO string (Europe/Madrid) and actionUrgent flag (deadline < 4h away or passed).
+ */
+function computeActionDeadline(startIso: string, now: DateTime): {
+  actionDeadline: string;
+  actionUrgent: boolean;
+} {
+  const apptDt = DateTime.fromISO(startIso, { zone: ZONE });
+  if (!apptDt.isValid) return { actionDeadline: "", actionUrgent: false };
+
+  const dow = apptDt.weekday; // 1=Mon … 7=Sun
+  const hour = apptDt.hour;
+
+  let deadline: DateTime;
+
+  if (hour < 13) {
+    // AM appointment — act the day before (previous workday at 17:00)
+    if (dow === 1) {
+      // Monday AM → previous Friday 17:00
+      deadline = apptDt.minus({ days: 3 }).set({ hour: 17, minute: 0, second: 0, millisecond: 0 });
+    } else if (dow >= 2 && dow <= 5) {
+      // Tue–Fri AM → previous day 17:00
+      deadline = apptDt.minus({ days: 1 }).set({ hour: 17, minute: 0, second: 0, millisecond: 0 });
+    } else {
+      // Weekend (shouldn't happen normally) → day before 17:00
+      deadline = apptDt.minus({ days: 1 }).set({ hour: 17, minute: 0, second: 0, millisecond: 0 });
+    }
+  } else {
+    // PM appointment — act same day at 10:00
+    deadline = apptDt.set({ hour: 10, minute: 0, second: 0, millisecond: 0 });
+  }
+
+  const deadlineIso = deadline.toFormat("yyyy-MM-dd'T'HH:mm:ss");
+  const hoursUntil = deadline.diff(now, "hours").hours;
+  const actionUrgent = hoursUntil < 4; // deadline passed or imminent
+
+  return { actionDeadline: deadlineIso, actionUrgent };
+}
+
 function riskActions(level: RiskLevel): string[] {
   if (level === "HIGH") {
     return [
@@ -177,16 +221,22 @@ export async function GET(req: Request) {
       .select({ maxRecords: 5000 })
       .all();
 
-    // Build per-patient phone → { total, noShows } from PAST appointments
-    const patientHistory = new Map<string, { total: number; noShows: number }>();
+    // Build per-patient phone → { total, weightedBad } from PAST appointments.
+    // weightedBad: no-show (didn't communicate) counts 2x cancellation (did communicate).
+    const CANCELLED_SET = new Set(["CANCELADO", "CANCELADA", "CANCELED", "CANCELLED"]);
+
+    function isHistNoShow(estado: string, notas: string): boolean {
+      // Legacy NO_SHOW statuses OR Cancelado + [NO_SHOW] marker
+      return NO_SHOW_STATUSES.has(estado) ||
+        (CANCELLED_SET.has(estado) && notas.includes("[NO_SHOW]"));
+    }
+    function isHistCancel(estado: string, notas: string): boolean {
+      return CANCELLED_SET.has(estado) && !isHistNoShow(estado, notas);
+    }
+
+    const patientHistory = new Map<string, { total: number; weightedBad: number }>();
 
     const todayIso = now.toISODate()!;
-
-    // All statuses that count as "patient didn't show / cancelled" in history
-    const RISK_HISTORY_STATUSES = new Set([
-      ...NO_SHOW_STATUSES,
-      "CANCELADO", "CANCELADA", "CANCELED", "CANCELLED",
-    ]);
 
     for (const r of allApptRecs) {
       const f: any = r.fields;
@@ -206,11 +256,13 @@ export async function GET(req: Request) {
       if (!phone) continue;
 
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
-      const prev = patientHistory.get(phone) ?? { total: 0, noShows: 0 };
+      const notas = firstString(f["Notas"]);
+      const prev = patientHistory.get(phone) ?? { total: 0, weightedBad: 0 };
+      // No-show (didn't communicate) = weight 2; cancellation (called ahead) = weight 1
+      const weight = isHistNoShow(estado, notas) ? 2 : isHistCancel(estado, notas) ? 1 : 0;
       patientHistory.set(phone, {
         total: prev.total + 1,
-        // Count no-shows AND past cancellations as attendance risk events
-        noShows: prev.noShows + (RISK_HISTORY_STATUSES.has(estado) ? 1 : 0),
+        weightedBad: prev.weightedBad + weight,
       });
     }
 
@@ -223,8 +275,12 @@ export async function GET(req: Request) {
         ? patientHistory.get(appt.patientPhone)
         : null;
       const histTotal = history?.total ?? 0;
-      const histNoShows = history?.noShows ?? 0;
-      const histRate = histTotal > 0 ? histNoShows / histTotal : 0;
+      const histWeightedBad = history?.weightedBad ?? 0;
+      // Effective rate: weightedBad relative to (total + weightedBad) to keep 0-1 range
+      // No-shows count 2x cancellations; total is the denominator floor
+      const histRate = histTotal > 0 ? histWeightedBad / (histTotal + histWeightedBad) : 0;
+      // For display: legacy fields
+      const histNoShows = Math.round(histWeightedBad / 1.5); // approx for UI display
 
       // Factor A: Historical rate (0-40)
       const scoreA = Math.min(40, Math.round(histRate * 200));
@@ -249,6 +305,7 @@ export async function GET(req: Request) {
         totalScore >= RISK_HIGH ? "HIGH" : totalScore >= RISK_MEDIUM ? "MEDIUM" : "LOW";
 
       const dt = DateTime.fromISO(appt.start, { zone: ZONE });
+      const { actionDeadline, actionUrgent } = computeActionDeadline(appt.start, now);
 
       return {
         id: appt.id,
@@ -260,6 +317,8 @@ export async function GET(req: Request) {
         dayIso: appt.dayIso,
         riskScore: totalScore,
         riskLevel,
+        actionDeadline,
+        actionUrgent,
         riskFactors: {
           historicalNoShowRate: Math.round(histRate * 100) / 100,
           historicalNoShowCount: histNoShows,
@@ -292,7 +351,9 @@ export async function GET(req: Request) {
     // ── Demo fallback ─────────────────────────────────────────────────────────
     if (isDemoMode(scored.length, 3)) {
       const demoPatients = buildDemoRiskPatients();
-      const demoScored = demoPatients.map((p) => ({
+      const demoScored = demoPatients.map((p) => {
+        const { actionDeadline: dl, actionUrgent: du } = computeActionDeadline(p.start, now);
+        return {
         id: p.recordId,
         patientName: p.patientName,
         patientPhone: p.phone,
@@ -302,6 +363,8 @@ export async function GET(req: Request) {
         dayIso: p.start.slice(0, 10),
         riskScore: p.riskScore,
         riskLevel: (p.riskScore >= 60 ? "HIGH" : p.riskScore >= 30 ? "MEDIUM" : "LOW") as RiskLevel,
+        actionDeadline: dl,
+        actionUrgent: du,
         riskBreakdown: p.riskBreakdown,
         riskFactors: {
           historicalNoShowRate: p.riskScore >= 60 ? 0.4 : 0,
@@ -314,7 +377,8 @@ export async function GET(req: Request) {
           dayTimeLabel: p.riskScore >= 60 ? "Lunes por la mañana" : "",
         },
         actions: riskActions(p.riskScore >= 60 ? "HIGH" : p.riskScore >= 30 ? "MEDIUM" : "LOW"),
-      }));
+      };
+      });
       return NextResponse.json({
         staffId,
         week: mondayIso,

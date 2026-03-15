@@ -34,17 +34,24 @@ export async function GET() {
       listAppointmentsByWeek({ mondayIso: lastMondayIso, clinicId }).catch(() => [] as Awaited<ReturnType<typeof listAppointmentsByWeek>>),
     ]);
 
+    // Helper: true when appointment was a no-show (Cancelado + [NO_SHOW] marker in Notas)
+    function isNoShow(estado: string, notas: string): boolean {
+      return ["CANCELADO", "CANCELADA", "CANCELLED", "CANCELED"].includes(estado) &&
+        notas.includes("[NO_SHOW]");
+    }
+
     // Week breakdown by status
     const weekActive = weekAppts.filter((a) => {
       const e = a.estado;
       return !["CANCELADO", "CANCELADA", "CANCELLED", "CANCELED", "NO_SHOW", "NO SHOW", "NOSHOW"].includes(e);
     });
+    // Cancellations = voluntarily cancelled (patient called ahead) — excludes no-shows
     const weekCancelled = weekAppts.filter((a) =>
-      ["CANCELADO", "CANCELADA", "CANCELLED", "CANCELED"].includes(a.estado)
+      ["CANCELADO", "CANCELADA", "CANCELLED", "CANCELED"].includes(a.estado) &&
+      !isNoShow(a.estado, a.notas)
     );
-    const weekNoShows = weekAppts.filter((a) =>
-      ["NO_SHOW", "NO SHOW", "NOSHOW"].includes(a.estado)
-    );
+    // No-shows = marked with [NO_SHOW] in Notas
+    const weekNoShows = weekAppts.filter((a) => isNoShow(a.estado, a.notas));
 
     // Map raw Airtable origen values to display names
     function displayOrigin(raw: string): string {

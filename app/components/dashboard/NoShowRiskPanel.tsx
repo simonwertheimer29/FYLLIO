@@ -28,6 +28,8 @@ type RiskyAppt = {
   dayIso: string;
   riskScore: number;
   riskLevel: RiskLevel;
+  actionDeadline?: string;
+  actionUrgent?: boolean;
   riskFactors: RiskFactors;
   actions: string[];
 };
@@ -89,6 +91,25 @@ function riskConfig(level: RiskLevel) {
     barClass: "bg-emerald-400",
     scoreClass: "text-emerald-700",
   };
+}
+
+function deadlineLabel(deadlineIso: string, urgent: boolean): string {
+  const dt = DateTime.fromISO(deadlineIso, { zone: ZONE });
+  if (!dt.isValid) return "";
+  const now = DateTime.now().setZone(ZONE);
+  const hoursUntil = dt.diff(now, "hours").hours;
+
+  if (hoursUntil < 0) {
+    return `⚠️ Deadline pasado (era el ${dt.setLocale("es").toFormat("EEEE 'a las' HH:mm")})`;
+  }
+  const dayStr = dt.toISODate() === now.toISODate()
+    ? `hoy a las ${dt.toFormat("HH:mm")}`
+    : dt.toISODate() === now.minus({ days: -1 }).toISODate()
+      ? `mañana a las ${dt.toFormat("HH:mm")}`
+      : dt.setLocale("es").toFormat("EEEE d/M 'a las' HH:mm");
+
+  if (urgent) return `⏰ Actuar antes de: ${dayStr}`;
+  return `Actuar antes de: ${dayStr}`;
 }
 
 function actionIcon(action: string) {
@@ -294,6 +315,20 @@ export default function NoShowRiskPanel({
                       style={{ width: `${appt.riskScore}%` }}
                     />
                   </div>
+
+                  {/* Action deadline badge */}
+                  {appt.actionDeadline && appt.riskLevel !== "LOW" && (
+                    <div
+                      className={[
+                        "mt-2.5 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full border",
+                        appt.actionUrgent
+                          ? "bg-red-100 border-red-300 text-red-700"
+                          : "bg-slate-100 border-slate-200 text-slate-600",
+                      ].join(" ")}
+                    >
+                      {deadlineLabel(appt.actionDeadline, !!appt.actionUrgent)}
+                    </div>
+                  )}
 
                   {/* Factors (only for medium/high) */}
                   {showFactors && (

@@ -6,6 +6,8 @@ import { NextResponse } from "next/server";
 import {
   updateAppointment,
   cancelAppointment,
+  completeAppointment,
+  markNoShow,
 } from "../../../../lib/scheduler/repo/airtableRepo";
 
 export async function PATCH(
@@ -17,7 +19,17 @@ export async function PATCH(
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
     const body = await req.json();
-    const { startIso, endIso, staffRecordId, treatmentRecordId, notes } = body;
+    const { action, startIso, endIso, staffRecordId, treatmentRecordId, notes } = body;
+
+    // Status actions: complete or noshow
+    if (action === "complete") {
+      await completeAppointment({ appointmentRecordId: id });
+      return NextResponse.json({ ok: true });
+    }
+    if (action === "noshow") {
+      await markNoShow({ appointmentRecordId: id });
+      return NextResponse.json({ ok: true });
+    }
 
     await updateAppointment({
       appointmentRecordId: id,

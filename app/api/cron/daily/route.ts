@@ -6,7 +6,7 @@
 
 import { NextResponse } from "next/server";
 import { DateTime } from "luxon";
-import { listAppointmentsByDay } from "../../../lib/scheduler/repo/airtableRepo";
+import { listAppointmentsByDay, completeAppointment } from "../../../lib/scheduler/repo/airtableRepo";
 import { sendWhatsAppMessage } from "../../../lib/whatsapp/send";
 import { kv } from "@vercel/kv";
 import { base, TABLES } from "../../../lib/airtable";
@@ -24,10 +24,13 @@ export async function GET(req: Request) {
   const yesterdayIso = now.minus({ days: 1 }).toISODate()!;
   const clinicId = process.env.CLINIC_ID;
 
-  // Fetch tomorrow (reminders + confirmations) and yesterday (feedback) in parallel
-  const [tomorrowAppts, yesterdayAppts] = await Promise.all([
+  const todayIso = now.toISODate()!;
+
+  // Fetch tomorrow (reminders + confirmations), yesterday (feedback), and today (autocomplete) in parallel
+  const [tomorrowAppts, yesterdayAppts, todayAppts] = await Promise.all([
     listAppointmentsByDay({ dayIso: tomorrowIso, clinicId, onlyActive: true }),
     listAppointmentsByDay({ dayIso: yesterdayIso, clinicId, onlyActive: true }),
+    listAppointmentsByDay({ dayIso: todayIso, clinicId, onlyActive: true }),
   ]);
 
   // ── Pre-load treatment instructions map ─────────────────────────────────────
@@ -49,6 +52,7 @@ export async function GET(req: Request) {
   let remindersSent = 0;
   let confirmsSent = 0;
   let feedbackSent = 0;
+  let autoCompleted = 0;
 
   // ── 1. REMINDERS ────────────────────────────────────────────────────────────
   for (const appt of tomorrowAppts) {
@@ -161,10 +165,28 @@ export async function GET(req: Request) {
     }
   }
 
+  // ── 4. AUTOCOMPLETE — mark today's past active appointments as Completado ──
+  // Only runs when cron is called at or after 21:00 UTC (22:00 Madrid)
+  if (now.hour >= 21) {
+    const cutoff = now.minus({ minutes: 30 }); // 30-min buffer after end time
+    for (const appt of todayAppts) {
+      const endDt = DateTime.fromISO(appt.end, { zone: "utc" }).setZone(ZONE);
+      if (!endDt.isValid || endDt >= cutoff) continue;
+      try {
+        await completeAppointment({ appointmentRecordId: appt.id });
+        autoCompleted++;
+      } catch (e) {
+        console.error("[daily] autocomplete failed", appt.id, e);
+        errors.push(`autocomplete:${appt.id}: ${String(e)}`);
+      }
+    }
+  }
+
   console.log(
     `[daily] ${now.toISODate()} — reminders: ${remindersSent}/${tomorrowAppts.length}, ` +
     `confirmations: ${confirmsSent}/${tomorrowAppts.length}, ` +
-    `feedback: ${feedbackSent}/${yesterdayAppts.length}`
+    `feedback: ${feedbackSent}/${yesterdayAppts.length}, ` +
+    `autoCompleted: ${autoCompleted}`
   );
 
   return NextResponse.json({
@@ -173,6 +195,7 @@ export async function GET(req: Request) {
     reminders: { sent: remindersSent, total: tomorrowAppts.length },
     confirmations: { sent: confirmsSent, total: tomorrowAppts.length },
     feedback: { sent: feedbackSent, total: yesterdayAppts.length },
+    autoCompleted,
     errors,
   });
 }

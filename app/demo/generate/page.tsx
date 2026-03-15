@@ -1890,43 +1890,23 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
 <ClinicSelector value={clinicId} onChange={setClinicId} />
 <ProviderSelect providers={providers} value={providerId} onChange={setProviderId} />
 
-      {section === "AGENDA" ? (
-      
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="rounded-full border border-slate-200 bg-white p-1 text-[11px] font-semibold">
-            <button type="button" onClick={() => setAnchorDayIso((x) => addWeeksAnchor(x, -1))} className="rounded-full px-3 py-1 text-slate-700 hover:bg-slate-100">
-              ← Semana
-            </button>
-            <span className="px-2 text-slate-600">· {weekKey}</span>
-            <button type="button" onClick={() => setAnchorDayIso((x) => addWeeksAnchor(x, +1))} className="rounded-full px-3 py-1 text-slate-700 hover:bg-slate-100">
-              Semana →
-            </button>
-          </div>
-
-         <AiPrimaryButton recommended onClick={loadWeekFromDb} disabled={loading} className="text-xs px-4 py-2">
-  {loading ? "Cargando..." : "Cargar agenda"}
-</AiPrimaryButton>
-
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="rounded-full border border-slate-200 bg-white p-1 text-[11px] font-semibold">
+          <button type="button" onClick={() => setAnchorDayIso((x) => addWeeksAnchor(x, -1))} className="rounded-full px-3 py-1 text-slate-700 hover:bg-slate-100">
+            ← Semana
+          </button>
+          <span className="px-2 text-slate-600">· {weekKey}</span>
+          <button type="button" onClick={() => setAnchorDayIso((x) => addWeeksAnchor(x, +1))} className="rounded-full px-3 py-1 text-slate-700 hover:bg-slate-100">
+            Semana →
+          </button>
         </div>
-        
-      ) : (
-        <div className="flex items-center gap-2 flex-wrap">
-          <div className="rounded-full border border-slate-200 bg-white p-1 text-[11px] font-semibold">
-            <button type="button" onClick={() => setAnchorDayIso((x) => addWeeksAnchor(x, -1))} className="rounded-full px-3 py-1 text-slate-700 hover:bg-slate-100">
-              ← Semana
-            </button>
-            <span className="px-2 text-slate-600">· {weekKey}</span>
-            <button type="button" onClick={() => setAnchorDayIso((x) => addWeeksAnchor(x, +1))} className="rounded-full px-3 py-1 text-slate-700 hover:bg-slate-100">
-              Semana →
-            </button>
-          </div>
 
+        {section !== "AGENDA" && (
           <AiPrimaryButton recommended onClick={loadWeekFromDb} disabled={loading} className="text-xs px-4 py-2">
-  {loading ? "Cargando..." : "Cargar agenda"}
-</AiPrimaryButton>
-
-        </div>
-      )}
+            {loading ? "Cargando..." : "Cargar agenda"}
+          </AiPrimaryButton>
+        )}
+      </div>
     </>
   );
 

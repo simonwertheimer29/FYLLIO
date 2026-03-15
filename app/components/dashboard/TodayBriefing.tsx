@@ -48,6 +48,7 @@ type TodayData = {
 };
 
 type SendStatus = "idle" | "sending" | "sent" | "error";
+type NoShowStatus = "idle" | "confirming" | "sending" | "done" | "error";
 
 function ReminderButton({
   appt,
@@ -144,6 +145,81 @@ function ReminderButton({
   );
 }
 
+function NoShowButton({
+  appt,
+  onDone,
+}: {
+  appt: Appt;
+  onDone: (recordId: string) => void;
+}) {
+  const [status, setStatus] = useState<NoShowStatus>("idle");
+
+  // Only show after appointment start time
+  const hasStarted = new Date() >= new Date(appt.startIso);
+  if (!hasStarted || appt.isBlock) return null;
+
+  if (status === "done") {
+    return (
+      <span className="text-[11px] font-semibold px-2 py-1 rounded-full bg-red-50 border border-red-200 text-red-600 shrink-0">
+        No-show registrado
+      </span>
+    );
+  }
+  if (status === "error") {
+    return (
+      <span className="text-[11px] text-red-500 font-semibold px-2 py-1 rounded-full bg-red-50 border border-red-200 shrink-0">
+        Error — reintentar
+      </span>
+    );
+  }
+  if (status === "confirming") {
+    return (
+      <div className="flex items-center gap-1.5 shrink-0">
+        <span className="text-[11px] text-slate-600">¿No se presentó?</span>
+        <button
+          type="button"
+          onClick={async () => {
+            setStatus("sending");
+            try {
+              const res = await fetch(`/api/db/appointments/${appt.recordId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ action: "noshow" }),
+              });
+              if (!res.ok) throw new Error(await res.text());
+              setStatus("done");
+              onDone(appt.recordId);
+            } catch {
+              setStatus("error");
+            }
+          }}
+          className="text-[11px] px-2 py-0.5 rounded-full bg-red-600 text-white font-semibold hover:bg-red-700 shrink-0"
+        >
+          Confirmar
+        </button>
+        <button
+          type="button"
+          onClick={() => setStatus("idle")}
+          className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 shrink-0"
+        >
+          Cancelar
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      disabled={status === "sending"}
+      onClick={() => setStatus("confirming")}
+      className="text-[11px] px-2 py-1 rounded-full border border-slate-200 text-slate-500 hover:border-red-300 hover:text-red-600 hover:bg-red-50 font-medium shrink-0 disabled:opacity-50"
+    >
+      {status === "sending" ? "..." : "✗ No vino"}
+    </button>
+  );
+}
+
 export default function TodayBriefing({
   staffId,
   onGoToActions,
@@ -154,6 +230,11 @@ export default function TodayBriefing({
   const [data, setData] = useState<TodayData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [noShowMarked, setNoShowMarked] = useState<Set<string>>(new Set());
+
+  function handleNoShowDone(recordId: string) {
+    setNoShowMarked((prev) => new Set([...prev, recordId]));
+  }
 
   async function load() {
     if (!staffId) return;
@@ -329,7 +410,12 @@ export default function TodayBriefing({
                       <span className="ml-2 text-amber-700 font-medium">~€{appt.durationMin} en riesgo</span>
                     </p>
                   </div>
-                  <ReminderButton appt={appt} staffName={data.staffName} />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <ReminderButton appt={appt} staffName={data.staffName} />
+                    {!noShowMarked.has(appt.recordId) && (
+                      <NoShowButton appt={appt} onDone={handleNoShowDone} />
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -355,7 +441,12 @@ export default function TodayBriefing({
                     {appt.start} · {appt.treatmentName || "Cita"} · confirmó pero historial sugiere riesgo
                   </p>
                 </div>
-                <ReminderButton appt={appt} staffName={data.staffName} />
+                <div className="flex items-center gap-2 shrink-0">
+                  <ReminderButton appt={appt} staffName={data.staffName} />
+                  {!noShowMarked.has(appt.recordId) && (
+                    <NoShowButton appt={appt} onDone={handleNoShowDone} />
+                  )}
+                </div>
               </div>
             ))}
           </div>
@@ -457,6 +548,9 @@ export default function TodayBriefing({
                   {/* CTA for HIGH/MED confirmed appointments */}
                   {appt.noShowRisk !== "LOW" && !appt.isBlock && (
                     <ReminderButton appt={appt} staffName={data.staffName} variant="compact" />
+                  )}
+                  {!noShowMarked.has(appt.recordId) && (
+                    <NoShowButton appt={appt} onDone={handleNoShowDone} />
                   )}
                   <span className="text-xs text-slate-400 shrink-0">{appt.durationMin} min</span>
                 </div>

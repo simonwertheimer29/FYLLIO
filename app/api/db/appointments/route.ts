@@ -1,40 +1,60 @@
 // app/api/db/appointments/route.ts
-// POST → create a new appointment in Airtable
+// POST → create a new appointment in Airtable.
+// If patientPhone is provided, upserts the patient record first (create or find by phone).
 
 import { NextResponse } from "next/server";
-import { createAppointment } from "../../../lib/scheduler/repo/airtableRepo";
+import {
+  createAppointment,
+  upsertPatientByPhone,
+} from "../../../lib/scheduler/repo/airtableRepo";
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const {
       name,
+      patientName,
+      patientPhone,
       startIso,
       endIso,
       clinicRecordId,
       staffRecordId,
       sillonRecordId,
       treatmentRecordId,
-      patientRecordId,
       notes,
     } = body;
 
-    if (!name || !startIso || !endIso) {
+    // name is the appointment title (Nombre field). If not given, derive from patientName.
+    const apptTitle = (name || patientName || "").trim();
+    if (!apptTitle || !startIso || !endIso) {
       return NextResponse.json(
-        { error: "name, startIso, and endIso are required" },
+        { error: "name/patientName, startIso, and endIso are required" },
         { status: 400 }
       );
     }
 
+    // If phone is provided, upsert the patient and link the appointment.
+    let resolvedPatientRecordId: string | undefined;
+    if (patientPhone) {
+      const phone = String(patientPhone).trim();
+      const e164 = phone.startsWith("+") ? phone : `+${phone.replace(/\D/g, "")}`;
+      const { recordId } = await upsertPatientByPhone({
+        name: patientName || apptTitle,
+        phoneE164: e164,
+        clinicRecordId,
+      });
+      resolvedPatientRecordId = recordId;
+    }
+
     const result = await createAppointment({
-      name,
+      name: apptTitle,
       startIso,
       endIso,
       clinicRecordId,
       staffRecordId,
       sillonRecordId,
       treatmentRecordId,
-      patientRecordId,
+      patientRecordId: resolvedPatientRecordId,
       notes,
     });
 

@@ -163,7 +163,7 @@ export async function GET(req: Request) {
     // 2) traer citas del profesional (luego filtramos por overlap con semana)
     const citas = await base(TABLES.appointments as TableName)
       .select({ filterByFormula: formula, maxRecords: 500 })
-      .firstPage();
+      .all();
 
     const citasFiltradas = citas.filter((c) => {
       const rawStart = c.get(FIELDS.inicio);

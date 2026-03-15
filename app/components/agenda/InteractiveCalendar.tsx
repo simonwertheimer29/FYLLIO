@@ -192,7 +192,9 @@ function NewApptModal({
   onSaved: () => void;
 }) {
   const [patientName, setPatientName] = useState("");
+  const [patientPhone, setPatientPhone] = useState("");
   const [treatmentId, setTreatmentId] = useState("");
+  const [notes, setNotes] = useState("");
   const [treatments, setTreatments] = useState<Treatment[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -213,14 +215,20 @@ function NewApptModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: patientName,
+          patientName: patientName.trim(),
+          name: patientName.trim(), // appointment title
+          patientPhone: patientPhone.trim() || undefined,
           startIso: toUtcIso(start),
           endIso: toUtcIso(end),
           staffRecordId,
           treatmentRecordId: treatmentId || undefined,
+          notes: notes.trim() || undefined,
         }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "Error desconocido");
+        throw new Error(txt);
+      }
       onSaved();
     } catch (e: any) {
       setError(e.message ?? "Error al crear");
@@ -252,11 +260,26 @@ function NewApptModal({
 
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Paciente</label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+              Nombre del paciente <span className="text-red-400">*</span>
+            </label>
             <input
               value={patientName}
               onChange={(e) => setPatientName(e.target.value)}
-              placeholder="Nombre del paciente"
+              placeholder="Nombre completo"
+              autoFocus
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+              Teléfono <span className="text-slate-400 font-normal">(para WhatsApp)</span>
+            </label>
+            <input
+              value={patientPhone}
+              onChange={(e) => setPatientPhone(e.target.value)}
+              placeholder="+34 600 000 000"
+              type="tel"
               className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
             />
           </div>
@@ -275,9 +298,18 @@ function NewApptModal({
               ))}
             </select>
           </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">Notas</label>
+            <input
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Notas internas (opcional)"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+            />
+          </div>
         </div>
 
-        {error && <p className="text-sm text-red-500">{error}</p>}
+        {error && <p className="text-sm text-red-500 bg-red-50 rounded-xl px-3 py-2">{error}</p>}
 
         <div className="flex gap-2 pt-1">
           <button onClick={onClose} className="flex-1 border border-slate-200 rounded-xl py-2 text-sm text-slate-600 hover:bg-slate-50">
