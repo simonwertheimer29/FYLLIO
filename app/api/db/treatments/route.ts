@@ -6,16 +6,17 @@ import { base, TABLES } from "../../../lib/airtable";
 
 export async function GET() {
   try {
+    // No fields filter — Airtable may reject if field names have encoding differences
     const recs = await base(TABLES.treatments as any)
-      .select({ fields: ["Nombre", "Duración", "Instrucciones_pre"], maxRecords: 100 })
+      .select({ maxRecords: 100 })
       .all();
 
     return NextResponse.json({
       treatments: recs.map((r) => ({
         id: r.id,
         name: String(r.get("Nombre") ?? ""),
-        duration: Number(r.get("Duración") ?? 0),
-        instructions: String(r.get("Instrucciones_pre") ?? ""),
+        duration: Number(r.get("Duración") ?? r.get("Duracion") ?? r.get("Duration") ?? 0),
+        instructions: String(r.get("Instrucciones_pre") ?? r.get("Instrucciones") ?? ""),
       })),
     });
   } catch (e: any) {

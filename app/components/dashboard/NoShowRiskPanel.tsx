@@ -141,7 +141,6 @@ function RiskCard({
   }
 
   const cfg = riskConfig(appt.riskLevel);
-  const showFactors = appt.riskLevel !== "LOW";
   const f = appt.riskFactors;
 
   const waMsg = appt.riskLevel === "HIGH"
@@ -204,29 +203,53 @@ function RiskCard({
         </div>
       )}
 
-      {/* Risk factors */}
-      {showFactors && (
-        <div className="mt-3 space-y-1">
-          {f.historicalTotalAppts > 0 && (
-            <p className="text-xs text-slate-600">
-              ⚠ <b>{f.historicalNoShowCount}</b> no-show{f.historicalNoShowCount !== 1 ? "s" : ""} en{" "}
-              <b>{f.historicalTotalAppts}</b> citas anteriores ({Math.round(f.historicalNoShowRate * 100)}%)
-            </p>
-          )}
-          {f.historicalTotalAppts === 0 && (
-            <p className="text-xs text-slate-500">Sin historial previo</p>
-          )}
-          {f.daysSinceBooked > 7 && (
-            <p className="text-xs text-slate-600">⚠ Reservado hace <b>{f.daysSinceBooked}</b> días</p>
-          )}
-          {f.dayTimeLabel && (
-            <p className="text-xs text-slate-600">⚠ {f.dayTimeLabel}</p>
-          )}
-          {f.treatmentRisk === "HIGH" && (
-            <p className="text-xs text-slate-600">⚠ {appt.treatmentName} — tratamiento de alta tasa de fuga</p>
-          )}
-        </div>
-      )}
+      {/* Risk factors — positive for LOW, warning for HIGH/MEDIUM */}
+      <div className="mt-3 space-y-1">
+        {appt.riskLevel === "LOW" ? (
+          <>
+            {f.historicalTotalAppts >= 3 && (
+              <p className="text-xs text-emerald-700">
+                ✓ Buen historial —{" "}
+                {f.historicalNoShowCount === 0
+                  ? `${f.historicalTotalAppts} citas anteriores sin ausencias`
+                  : `solo ${f.historicalNoShowCount} ausencia(s) en ${f.historicalTotalAppts} citas`}
+              </p>
+            )}
+            {f.historicalTotalAppts > 0 && f.historicalTotalAppts < 3 && (
+              <p className="text-xs text-emerald-700">
+                ✓ Historial limpio ({f.historicalTotalAppts} {f.historicalTotalAppts === 1 ? "cita" : "citas"} sin ausencias)
+              </p>
+            )}
+            {f.historicalTotalAppts === 0 && f.treatmentRisk === "LOW" && (
+              <p className="text-xs text-emerald-700">✓ Tratamiento de alta implicación — baja tasa de fuga</p>
+            )}
+            {f.historicalTotalAppts === 0 && f.treatmentRisk !== "LOW" && (
+              <p className="text-xs text-slate-500">Sin historial previo — riesgo bajo por horario y tipo de cita</p>
+            )}
+          </>
+        ) : (
+          <>
+            {f.historicalTotalAppts > 0 && (
+              <p className="text-xs text-slate-600">
+                ⚠ <b>{f.historicalNoShowCount}</b> no-show{f.historicalNoShowCount !== 1 ? "s" : ""} en{" "}
+                <b>{f.historicalTotalAppts}</b> citas anteriores ({Math.round(f.historicalNoShowRate * 100)}%)
+              </p>
+            )}
+            {f.historicalTotalAppts === 0 && (
+              <p className="text-xs text-slate-500">Sin historial previo</p>
+            )}
+            {f.daysSinceBooked > 7 && (
+              <p className="text-xs text-slate-600">⚠ Reservado hace <b>{f.daysSinceBooked}</b> días</p>
+            )}
+            {f.dayTimeLabel && (
+              <p className="text-xs text-slate-600">⚠ {f.dayTimeLabel}</p>
+            )}
+            {f.treatmentRisk === "HIGH" && (
+              <p className="text-xs text-slate-600">⚠ {appt.treatmentName} — tratamiento de alta tasa de fuga</p>
+            )}
+          </>
+        )}
+      </div>
 
       {/* ── Actions — concordant with OperationsPanel ── */}
       <div className="mt-4 space-y-3">

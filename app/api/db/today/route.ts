@@ -83,8 +83,11 @@ function computeNoShowRisk(params: {
   treatmentName: string;
   startMin: number;       // minutes from midnight (Madrid)
   weekday: number;        // 1=Mon … 7=Sun (Luxon)
+  histTotal?: number;     // past appointments for this patient
+  histNoShows?: number;   // actual no-show count
 }): NoShowRisk {
-  const { confirmed, durationMin, treatmentName, startMin, weekday } = params;
+  const { confirmed, durationMin, treatmentName, startMin, weekday,
+          histTotal = 0, histNoShows = 0 } = params;
   const txLower = treatmentName.toLowerCase();
 
   let score = 0;
@@ -107,8 +110,14 @@ function computeNoShowRisk(params: {
   const isHighValue = HIGH_VALUE_TREATMENTS.some((t) => txLower.includes(t));
   if (isHighValue && durationMin >= 60) score -= 2;
 
-  if (score >= 4) return "HIGH";
-  if (score >= 2) return "MED";
+  // Loyalty adjustment: patients with clean history get reduced score
+  const noShowRate = histTotal > 0 ? histNoShows / histTotal : 0;
+  const confidence = Math.min(1, histTotal / 5);
+  const loyaltyBonus = confidence * Math.max(0, 1 - noShowRate * 2);
+  const adjustedScore = Math.max(0, score - Math.round(loyaltyBonus * 3));
+
+  if (adjustedScore >= 4) return "HIGH";
+  if (adjustedScore >= 2) return "MED";
   return "LOW";
 }
 
@@ -208,6 +217,38 @@ export async function GET(req: Request) {
 
     todayAppts.sort((a, b) => a.startMin - b.startMin);
 
+    // 2.5) Build per-phone no-show history from ALL staff appointments (past only)
+    //      Uses Paciente_teléfono lookup field — auto-populated by Airtable from linked patient.
+    const phoneHistory = new Map<string, { total: number; noShowCount: number }>();
+    const HIST_NO_SHOW_SET = new Set(["NO_SHOW", "NO SHOW", "NOSHOW"]);
+    const HIST_CANCEL_SET = new Set(["CANCELADO", "CANCELADA", "CANCELED", "CANCELLED"]);
+
+    for (const r of apptRecs) {
+      const f: any = r.fields;
+      const startRaw = f["Hora inicio"];
+      if (!startRaw) continue;
+      const startDtHist = DateTime.fromISO(
+        startRaw instanceof Date ? startRaw.toISOString() : String(startRaw),
+        { setZone: true }
+      ).setZone(ZONE);
+      if (!startDtHist.isValid) continue;
+      if (startDtHist.toISODate()! >= todayIso) continue; // past only
+
+      const histPhone = String(f["Paciente_teléfono"] ?? f["Paciente_tutor_teléfono"] ?? "").trim();
+      if (!histPhone) continue;
+
+      const histEstado = String(f["Estado"] ?? "").trim().toUpperCase();
+      const histNotas = String(f["Notas"] ?? "");
+      const isHistNoShow = HIST_NO_SHOW_SET.has(histEstado) ||
+        (HIST_CANCEL_SET.has(histEstado) && histNotas.includes("[NO_SHOW]"));
+
+      const prev = phoneHistory.get(histPhone) ?? { total: 0, noShowCount: 0 };
+      phoneHistory.set(histPhone, {
+        total: prev.total + 1,
+        noShowCount: prev.noShowCount + (isHistNoShow ? 1 : 0),
+      });
+    }
+
     // 3) Expand patient + treatment names
     const allPatientIds = [...new Set(todayAppts.flatMap((a) => a.patientIds))];
     const allTreatmentIds = [...new Set(todayAppts.flatMap((a) => a.treatmentIds))];
@@ -254,12 +295,15 @@ export async function GET(req: Request) {
         else atRiskRevenue += revenue;
       }
 
+      const hist = phoneHistory.get(phone) ?? { total: 0, noShowCount: 0 };
       const noShowRisk: NoShowRisk = isBlock ? "LOW" : computeNoShowRisk({
         confirmed,
         durationMin,
         treatmentName,
         startMin: a.startMin,
         weekday: a.startDt.weekday,
+        histTotal: hist.total,
+        histNoShows: hist.noShowCount,
       });
 
       return {

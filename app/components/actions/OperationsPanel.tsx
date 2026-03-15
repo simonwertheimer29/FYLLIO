@@ -121,10 +121,15 @@ function computeDeadline(
     if (!dt.isValid) return null;
     const dow = dt.weekday;
     const hour = dt.hour;
+    if (dow === 1) {
+      // Monday (AM or PM) → previous Friday 17:00
+      return dt.minus({ days: 3 }).set({ hour: 17, minute: 0, second: 0, millisecond: 0 });
+    }
     if (hour < 13) {
-      if (dow === 1) return dt.minus({ days: 3 }).set({ hour: 17, minute: 0, second: 0, millisecond: 0 });
+      // Tue–Fri AM → previous workday 17:00
       return dt.minus({ days: 1 }).set({ hour: 17, minute: 0, second: 0, millisecond: 0 });
     }
+    // Tue–Fri PM → same day 10:00
     return dt.set({ hour: 10, minute: 0, second: 0, millisecond: 0 });
   }
 

@@ -87,20 +87,14 @@ function computeActionDeadline(startIso: string, now: DateTime): {
 
   let deadline: DateTime;
 
-  if (hour < 13) {
-    // AM appointment — act the day before (previous workday at 17:00)
-    if (dow === 1) {
-      // Monday AM → previous Friday 17:00
-      deadline = apptDt.minus({ days: 3 }).set({ hour: 17, minute: 0, second: 0, millisecond: 0 });
-    } else if (dow >= 2 && dow <= 5) {
-      // Tue–Fri AM → previous day 17:00
-      deadline = apptDt.minus({ days: 1 }).set({ hour: 17, minute: 0, second: 0, millisecond: 0 });
-    } else {
-      // Weekend (shouldn't happen normally) → day before 17:00
-      deadline = apptDt.minus({ days: 1 }).set({ hour: 17, minute: 0, second: 0, millisecond: 0 });
-    }
+  if (dow === 1) {
+    // Monday (AM or PM) → previous Friday 17:00
+    deadline = apptDt.minus({ days: 3 }).set({ hour: 17, minute: 0, second: 0, millisecond: 0 });
+  } else if (hour < 13) {
+    // Tue–Fri AM → previous workday 17:00
+    deadline = apptDt.minus({ days: 1 }).set({ hour: 17, minute: 0, second: 0, millisecond: 0 });
   } else {
-    // PM appointment — act same day at 10:00
+    // Tue–Fri PM → same day 10:00
     deadline = apptDt.set({ hour: 10, minute: 0, second: 0, millisecond: 0 });
   }
 
@@ -234,7 +228,7 @@ export async function GET(req: Request) {
       return CANCELLED_SET.has(estado) && !isHistNoShow(estado, notas);
     }
 
-    const patientHistory = new Map<string, { total: number; weightedBad: number }>();
+    const patientHistory = new Map<string, { total: number; noShowCount: number; cancelCount: number }>();
 
     const todayIso = now.toISODate()!;
 
@@ -257,12 +251,13 @@ export async function GET(req: Request) {
 
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
       const notas = firstString(f["Notas"]);
-      const prev = patientHistory.get(phone) ?? { total: 0, weightedBad: 0 };
-      // No-show (didn't communicate) = weight 2; cancellation (called ahead) = weight 1
-      const weight = isHistNoShow(estado, notas) ? 2 : isHistCancel(estado, notas) ? 1 : 0;
+      const prev = patientHistory.get(phone) ?? { total: 0, noShowCount: 0, cancelCount: 0 };
+      const isNoShow = isHistNoShow(estado, notas);
+      const isCancel = isHistCancel(estado, notas);
       patientHistory.set(phone, {
         total: prev.total + 1,
-        weightedBad: prev.weightedBad + weight,
+        noShowCount: prev.noShowCount + (isNoShow ? 1 : 0),
+        cancelCount: prev.cancelCount + (isCancel ? 1 : 0),
       });
     }
 
@@ -275,12 +270,15 @@ export async function GET(req: Request) {
         ? patientHistory.get(appt.patientPhone)
         : null;
       const histTotal = history?.total ?? 0;
-      const histWeightedBad = history?.weightedBad ?? 0;
-      // Effective rate: weightedBad relative to (total + weightedBad) to keep 0-1 range
-      // No-shows count 2x cancellations; total is the denominator floor
-      const histRate = histTotal > 0 ? histWeightedBad / (histTotal + histWeightedBad) : 0;
-      // For display: legacy fields
-      const histNoShows = Math.round(histWeightedBad / 1.5); // approx for UI display
+      const histNoShows = history?.noShowCount ?? 0;
+      const histCancels = history?.cancelCount ?? 0;
+
+      // histRate for SCORING: no-shows count 2x cancellations, normalized to [0,1]
+      const histRate = histTotal > 0
+        ? (histNoShows * 2 + histCancels) / (histTotal * 2)
+        : 0;
+      // noShowRate for DISPLAY: actual no-show rate (no weighting)
+      const noShowRate = histTotal > 0 ? histNoShows / histTotal : 0;
 
       // Bayesian confidence: ramps up to 1.0 at 5+ historical appointments
       const confidence = Math.min(1, histTotal / 5);
@@ -329,8 +327,8 @@ export async function GET(req: Request) {
         actionDeadline,
         actionUrgent,
         riskFactors: {
-          historicalNoShowRate: Math.round(histRate * 100) / 100,
-          historicalNoShowCount: histNoShows,
+          historicalNoShowRate: Math.round(noShowRate * 100) / 100, // actual rate for display
+          historicalNoShowCount: histNoShows,                        // actual no-show count
           historicalTotalAppts: histTotal,
           daysSinceBooked: Math.max(0, daysSinceBooked),
           dayOfWeek: dt.isValid ? dt.weekday : 0,
