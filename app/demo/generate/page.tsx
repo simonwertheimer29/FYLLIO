@@ -2025,6 +2025,7 @@ const updateActionsForGap = (actions: ActionLog[], gapId: string, patch: Partial
               staffId={providerId}
               week={weekKey}
               staffRecordId={providers.find(p => p.id === providerId)?.recordId}
+              onWeekChange={(newMonday) => setAnchorDayIso(newMonday)}
             />
           ) : (
             <p className="text-sm text-slate-500">Selecciona un profesional para ver el calendario.</p>

@@ -3,7 +3,7 @@
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DateTime } from "luxon";
 
 type Appt = {
@@ -30,6 +30,8 @@ type GapInfo = {
 type Treatment = { id: string; name: string; duration: number };
 
 type Schedule = {
+  workStart?: string | null;
+  workEnd?: string | null;
   lunchStart?: string | null;
   lunchEnd?: string | null;
 };
@@ -38,6 +40,7 @@ type Props = {
   staffId: string;
   week: string; // YYYY-MM-DD (Monday)
   staffRecordId?: string; // Airtable record ID for the Profesional link
+  onWeekChange?: (weekMondayIso: string) => void; // called when user navigates within FullCalendar
 };
 
 // ── Color helper ──────────────────────────────────────────────────────────────
@@ -343,7 +346,7 @@ function NewApptModal({
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-export default function InteractiveCalendar({ staffId, week, staffRecordId }: Props) {
+export default function InteractiveCalendar({ staffId, week, staffRecordId, onWeekChange }: Props) {
   const [appts, setAppts] = useState<Appt[]>([]);
   const [gaps, setGaps] = useState<GapInfo[]>([]);
   const [schedule, setSchedule] = useState<Schedule | null>(null);
@@ -351,6 +354,10 @@ export default function InteractiveCalendar({ staffId, week, staffRecordId }: Pr
   const [showGaps, setShowGaps] = useState(true);
   const [editAppt, setEditAppt] = useState<Appt | null>(null);
   const [newSlot, setNewSlot] = useState<{ start: Date; end: Date } | null>(null);
+
+  // Ref for programmatic navigation (to distinguish from user-initiated navigation)
+  const calRef = useRef<InstanceType<typeof FullCalendar>>(null);
+  const programmaticRef = useRef(false);
 
   async function load() {
     setLoading(true);
@@ -372,6 +379,14 @@ export default function InteractiveCalendar({ staffId, week, staffRecordId }: Pr
   useEffect(() => {
     if (staffId && week) load();
   }, [staffId, week]);
+
+  // Sync parent's week prop → FullCalendar (when page-level nav buttons are clicked)
+  useEffect(() => {
+    if (calRef.current && week) {
+      programmaticRef.current = true;
+      calRef.current.getApi().gotoDate(week);
+    }
+  }, [week]);
 
   const apptEvents = appts.map((a) => {
     const colors = eventColors(a);
@@ -448,6 +463,7 @@ export default function InteractiveCalendar({ staffId, week, staffRecordId }: Pr
 
       <div className="p-4">
         <FullCalendar
+          ref={calRef}
           plugins={[timeGridPlugin, interactionPlugin]}
           initialView="timeGridWeek"
           timeZone="Europe/Madrid"
@@ -463,10 +479,25 @@ export default function InteractiveCalendar({ staffId, week, staffRecordId }: Pr
             right: "timeGridWeek,timeGridDay",
           }}
           buttonText={{ today: "Hoy", week: "Semana", day: "Día" }}
+          businessHours={{
+            daysOfWeek: [1, 2, 3, 4, 5],
+            startTime: schedule?.workStart ?? "08:00",
+            endTime: schedule?.workEnd ?? "20:00",
+          }}
           events={allEvents}
           editable={true}
           selectable={true}
           selectMirror={true}
+          selectConstraint="businessHours"
+          datesSet={(info) => {
+            if (programmaticRef.current) {
+              programmaticRef.current = false;
+              return; // skip — this was triggered by our own gotoDate call
+            }
+            // User navigated with FullCalendar's own prev/next buttons
+            const newMonday = DateTime.fromJSDate(info.start).toISODate()!;
+            if (onWeekChange) onWeekChange(newMonday);
+          }}
           eventClick={(info) => {
             if (info.event.extendedProps.isGap) return;
             setEditAppt(info.event.extendedProps.appt as Appt);

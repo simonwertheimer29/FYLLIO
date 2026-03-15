@@ -282,23 +282,32 @@ export async function GET(req: Request) {
       // For display: legacy fields
       const histNoShows = Math.round(histWeightedBad / 1.5); // approx for UI display
 
-      // Factor A: Historical rate (0-40)
+      // Bayesian confidence: ramps up to 1.0 at 5+ historical appointments
+      const confidence = Math.min(1, histTotal / 5);
+      // Loyalty bonus: reduces circumstantial scores for patients with clean history.
+      // 0 if bad history or new patient; up to 1.0 for loyal patient with 0 no-shows.
+      const loyaltyBonus = confidence * Math.max(0, 1 - histRate * 2);
+
+      // Factor A: Historical rate (0-40) — unchanged, history IS the signal
       const scoreA = Math.min(40, Math.round(histRate * 200));
 
-      // Factor B: Days since booking (0-25)
+      // Factor B: Days since booking (0-25) — reduced for loyal patients
       const createdDt = appt.createdTime
         ? DateTime.fromISO(appt.createdTime, { setZone: true })
         : null;
       const daysSinceBooked = createdDt
         ? Math.floor(now.diff(createdDt, "days").days)
         : 0;
-      const scoreB = bookingDaysScore(Math.max(0, daysSinceBooked));
+      const rawB = bookingDaysScore(Math.max(0, daysSinceBooked));
+      const scoreB = Math.round(rawB * (1 - loyaltyBonus));
 
-      // Factor C: Day/time (0-20)
-      const { score: scoreC, label: dayTimeLabel } = dayTimeScore(appt.start);
+      // Factor C: Day/time (0-20) — reduced for loyal patients
+      const { score: rawC, label: dayTimeLabel } = dayTimeScore(appt.start);
+      const scoreC = Math.round(rawC * (1 - loyaltyBonus));
 
-      // Factor D: Treatment type (0-15)
-      const { level: txLevel, score: scoreD } = treatmentRisk(appt.treatmentName);
+      // Factor D: Treatment type (0-15) — reduced for loyal patients
+      const { level: txLevel, score: rawD } = treatmentRisk(appt.treatmentName);
+      const scoreD = Math.round(rawD * (1 - loyaltyBonus));
 
       const totalScore = Math.min(100, scoreA + scoreB + scoreC + scoreD);
       const riskLevel: RiskLevel =
