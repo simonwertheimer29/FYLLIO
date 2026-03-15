@@ -57,9 +57,23 @@ function eventColors(appt: Appt): { bg: string; border: string; text: string } {
   return { bg: "#3b82f6", border: "#2563eb", text: "#fff" }; // blue
 }
 
-// Convert JS Date → UTC ISO string for Airtable PATCH
-function toUtcIso(d: Date) {
-  return d.toISOString();
+// FullCalendar with timeZone="Europe/Madrid" creates "fake" dates where the
+// UTC timestamp equals the Madrid local time (not the real UTC equivalent).
+// e.g. user selects 10:00 Madrid → getUTCHours()=10, but real UTC should be 09:00.
+// Fix: re-interpret the UTC components as Madrid local time, then convert to real UTC.
+function toRealUtcIso(fakeMadridDate: Date): string {
+  const dt = DateTime.fromObject(
+    {
+      year: fakeMadridDate.getUTCFullYear(),
+      month: fakeMadridDate.getUTCMonth() + 1,
+      day: fakeMadridDate.getUTCDate(),
+      hour: fakeMadridDate.getUTCHours(),
+      minute: fakeMadridDate.getUTCMinutes(),
+      second: fakeMadridDate.getUTCSeconds(),
+    },
+    { zone: "Europe/Madrid" }
+  );
+  return dt.toUTC().toISO()!;
 }
 
 async function patchAppt(recordId: string, data: { startIso?: string; endIso?: string; notes?: string }) {
@@ -218,8 +232,8 @@ function NewApptModal({
           patientName: patientName.trim(),
           name: patientName.trim(), // appointment title
           patientPhone: patientPhone.trim() || undefined,
-          startIso: toUtcIso(start),
-          endIso: toUtcIso(end),
+          startIso: toRealUtcIso(start),
+          endIso: toRealUtcIso(end),
           staffRecordId,
           treatmentRecordId: treatmentId || undefined,
           notes: notes.trim() || undefined,
@@ -464,8 +478,8 @@ export default function InteractiveCalendar({ staffId, week, staffRecordId }: Pr
             const recordId = info.event.id;
             try {
               await patchAppt(recordId, {
-                startIso: toUtcIso(info.event.start!),
-                endIso: toUtcIso(info.event.end!),
+                startIso: toRealUtcIso(info.event.start!),
+                endIso: toRealUtcIso(info.event.end!),
                 ...(staffRecordId ? { staffRecordId } : {}),
               });
               load();
@@ -478,8 +492,8 @@ export default function InteractiveCalendar({ staffId, week, staffRecordId }: Pr
             const recordId = info.event.id;
             try {
               await patchAppt(recordId, {
-                startIso: toUtcIso(info.event.start!),
-                endIso: toUtcIso(info.event.end!),
+                startIso: toRealUtcIso(info.event.start!),
+                endIso: toRealUtcIso(info.event.end!),
                 ...(staffRecordId ? { staffRecordId } : {}),
               });
               load();
