@@ -25,6 +25,10 @@ function tomorrowAt(hhmm: string): string {
   return tomorrowIso() + "T" + hhmm + ":00";
 }
 
+function plusDaysAt(n: number, hhmm: string): string {
+  return DateTime.now().setZone(ZONE).plus({ days: n }).toISODate()! + "T" + hhmm + ":00";
+}
+
 // ── Patient definitions ───────────────────────────────────────────────────────
 
 export type RiskBreakdown = {
@@ -144,6 +148,8 @@ export function buildDemoTodayAppointments(): DemoAppt[] {
     { recordId: "demo-a2",    patientName: "Laura Sánchez",    phone: "+34666200002", treatmentName: "Revisión general",    start: "09:45", end: "10:15", startIso: todayAt("09:45"), durationMin: 30, confirmed: true,  isBlock: false, noShowRisk: "LOW"  },
     { recordId: "demo-maria", patientName: "María González",   phone: "+34666111001", treatmentName: "Implante dental",     start: "10:30", end: "12:00", startIso: todayAt("10:30"), durationMin: 90, confirmed: false, isBlock: false, noShowRisk: "HIGH", riskBreakdown: DEMO_PATIENTS[0].riskBreakdown },
     { recordId: "demo-a3",    patientName: "Roberto Díaz",     phone: "+34666200003", treatmentName: "Empaste",             start: "12:15", end: "12:45", startIso: todayAt("12:15"), durationMin: 30, confirmed: true,  isBlock: false, noShowRisk: "LOW"  },
+    { recordId: "demo-b1",    patientName: "Marta Iglesias",   phone: "+34666200008", treatmentName: "Revisión urgente",    start: "13:15", end: "14:00", startIso: todayAt("13:15"), durationMin: 45, confirmed: false, isBlock: false, noShowRisk: "HIGH" },
+    { recordId: "demo-b2",    patientName: "Javier Romero",    phone: "+34666200009", treatmentName: "Consulta inicial",    start: "14:15", end: "15:00", startIso: todayAt("14:15"), durationMin: 45, confirmed: false, isBlock: false, noShowRisk: "MED"  },
     { recordId: "demo-a4",    patientName: "Carmen López",     phone: "+34666200004", treatmentName: "Blanqueamiento",      start: "16:00", end: "17:00", startIso: todayAt("16:00"), durationMin: 60, confirmed: true,  isBlock: false, noShowRisk: "MED"  },
     { recordId: "demo-a5",    patientName: "Miguel Torres",    phone: "+34666200005", treatmentName: "Ortodoncia revisión", start: "17:15", end: "17:45", startIso: todayAt("17:15"), durationMin: 30, confirmed: true,  isBlock: false, noShowRisk: "LOW"  },
     { recordId: "demo-a6",    patientName: "Isabel Romero",    phone: "+34666200006", treatmentName: "Revisión general",    start: "18:00", end: "18:30", startIso: todayAt("18:00"), durationMin: 30, confirmed: false, isBlock: false, noShowRisk: "MED"  },
@@ -180,13 +186,13 @@ export function buildDemoTodayGaps() {
 // ── KPI summary for HOY module ────────────────────────────────────────────────
 
 export const DEMO_TODAY_SUMMARY = {
-  confirmedRevenue: 420,   // 7 citas × €60
-  atRiskRevenue: 120,      // 2 sin confirmar × €60
-  gapRevenue: 570,         // 90min + 60min × €1/min
+  confirmedRevenue: 420,   // 7 citas confirmadas × €60
+  atRiskRevenue: 240,      // 4 sin confirmar × €60
+  gapRevenue: 570,         // 90min + 60min huecos
   confirmedCount: 7,
-  unconfirmedCount: 2,
+  unconfirmedCount: 4,
   gapCount: 2,
-  totalAppointments: 9,
+  totalAppointments: 11,
 };
 
 // ── ROI / stats data ──────────────────────────────────────────────────────────
@@ -262,6 +268,60 @@ export function buildDemoRiskPatients() {
       noShowRisk: "MED" as const,
       confirmed: false,
       riskScore: 65,
+      isBlock: false,
+    },
+    {
+      recordId: "demo-risk-roberto",
+      patientName: "Roberto Vázquez",
+      phone: "+34666222001",
+      treatmentName: "Revisión periódica",
+      start: tomorrowAt("10:00"),
+      durationMin: 30,
+      noShowRisk: "HIGH" as const,
+      confirmed: false,
+      riskScore: 74,
+      riskBreakdown: [
+        { factor: "Historial cancelaciones", score: 20, max: 40, description: "2 cancelaciones de última hora en los últimos 3 meses" },
+        { factor: "Sin confirmar",           score: 22, max: 25, description: "Reservó hace 35 días sin confirmar" },
+        { factor: "Tipo de tratamiento",     score: 18, max: 20, description: "Revisión corta — alta tasa de cancelación" },
+        { factor: "Día y hora",              score: 14, max: 15, description: "Martes 10:00 — franja media abandono" },
+      ],
+      isBlock: false,
+    },
+    {
+      recordId: "demo-risk-elena",
+      patientName: "Elena Morales",
+      phone: "+34666222002",
+      treatmentName: "Limpieza dental",
+      start: plusDaysAt(2, "16:30"),
+      durationMin: 45,
+      noShowRisk: "HIGH" as const,
+      confirmed: false,
+      riskScore: 68,
+      riskBreakdown: [
+        { factor: "Historial no-shows",      score: 16, max: 40, description: "1 no-show registrado en los últimos 6 meses" },
+        { factor: "Sin confirmar",           score: 22, max: 25, description: "No ha respondido al recordatorio" },
+        { factor: "Día y hora",              score: 18, max: 20, description: "Viernes 16:30 — franja de mayor abandono" },
+        { factor: "Tipo de tratamiento",     score: 12, max: 15, description: "Limpieza — alta tasa de cancelación de último momento" },
+      ],
+      isBlock: false,
+    },
+    {
+      recordId: "demo-risk-david",
+      patientName: "David Sánchez",
+      phone: "+34666222003",
+      treatmentName: "Empaste",
+      start: tomorrowAt("08:30"),
+      durationMin: 45,
+      noShowRisk: "MED" as const,
+      confirmed: false,
+      riskScore: 48,
+      riskBreakdown: [
+        { factor: "Historial no-shows",      score: 0,  max: 40, description: "Sin no-shows previos registrados" },
+        { factor: "Sin confirmar",           score: 22, max: 25, description: "Reserva sin confirmar" },
+        { factor: "Día y hora",              score: 14, max: 20, description: "Mañana temprano 08:30 — mayor tasa de abandono" },
+        { factor: "Tipo de tratamiento",     score: 12, max: 15, description: "Empaste — compromiso medio" },
+      ],
       isBlock: false,
     },
     {

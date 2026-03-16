@@ -405,6 +405,16 @@ function ActionCard({
   const cfg = isLow ? CAT_CONFIG.LOW_RISK : CAT_CONFIG[task.category];
   const dl = formatDeadline(task.deadline);
 
+  // 72h reminder window
+  const apptDt72 = task.atRiskAppt?.startIso
+    ? DateTime.fromISO(task.atRiskAppt.startIso, { setZone: true }).setZone(ZONE)
+    : null;
+  const hoursUntilAppt = apptDt72
+    ? apptDt72.diff(DateTime.now().setZone(ZONE), "hours").hours
+    : Infinity;
+  const can72h = task.atRiskAppt?.noShowRisk === "HIGH" && hoursUntilAppt > 72;
+  const deadline72h = apptDt72 ? apptDt72.minus({ hours: 72 }) : null;
+
   if (isDone) {
     return (
       <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 flex items-center gap-3 opacity-40">
@@ -505,13 +515,25 @@ function ActionCard({
                 </p>
                 <p className="text-xs text-slate-500">📱 48h antes — programado</p>
                 <p className="text-xs text-slate-500">📱 24h antes — programado</p>
-                {task.atRiskAppt.noShowRisk === "HIGH" && !waAdded72h && (
-                  <button onClick={() => setWaAdded72h(true)}
-                    className="mt-1 text-xs text-sky-600 hover:text-sky-700 font-medium underline underline-offset-2">
-                    + Añadir recordatorio 72h (mayor insistencia)
-                  </button>
+                {can72h && !waAdded72h && (
+                  <div>
+                    <button onClick={() => setWaAdded72h(true)}
+                      className="mt-1 text-xs text-sky-600 hover:text-sky-700 font-medium underline underline-offset-2">
+                      + Añadir recordatorio 72h (mayor insistencia)
+                    </button>
+                    {deadline72h && (
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        ⏰ Configurar antes del {deadline72h.setLocale("es").toFormat("EEE d/M 'a las' HH:mm")}
+                      </p>
+                    )}
+                  </div>
                 )}
                 {waAdded72h && <p className="text-xs text-sky-600">📱 72h antes — añadido ✓</p>}
+                {task.atRiskAppt?.noShowRisk === "HIGH" && !can72h && !waAdded72h && (
+                  <p className="text-xs text-slate-400 italic">
+                    Ventana 72h cerrada — los recordatorios automáticos seguirán activos
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -837,7 +859,13 @@ export default function OperationsPanel({
 
   // NO_SHOW HIGH+MED — today
   atRiskHighMed.today.forEach((a) => {
-    const fullIso = `${todayIso}T${a.start}:00`;
+    // Skip if the appointment has already started
+    const apptDtToday = a.startIso
+      ? DateTime.fromISO(a.startIso, { setZone: true }).setZone(ZONE)
+      : null;
+    if (apptDtToday && apptDtToday <= now) return;
+
+    const fullIso = a.startIso ?? `${todayIso}T${a.start}:00`;
     const deadline = computeDeadline("NO_SHOW", { apptStartIso: fullIso });
     const msg = a.noShowRisk === "HIGH"
       ? `Hola ${a.patientName} 🙏 Tu cita de hoy a las ${a.start} con ${staffName}${a.treatmentName ? ` (${a.treatmentName})` : ""} aún no está confirmada. ¿Puedes confirmarnos que asistirás? Responde *SÍ* o escríbenos si necesitas cambiarla.`
@@ -868,6 +896,9 @@ export default function OperationsPanel({
     const apptDt = a.startIso
       ? DateTime.fromISO(a.startIso, { setZone: true }).setZone(ZONE)
       : null;
+    // Skip if the appointment has already started
+    if (apptDt && apptDt <= now) return;
+
     const hoursUntil = apptDt ? apptDt.diff(now, "hours").hours : Infinity;
     const isImminent = hoursUntil > 0 && hoursUntil <= 16;
 
@@ -899,6 +930,10 @@ export default function OperationsPanel({
 
   // GAP — with ongoing candidates injected
   (data?.gaps ?? []).forEach((g) => {
+    // Skip gaps that have already started
+    const gapDt = DateTime.fromISO(g.startIso, { setZone: true }).setZone(ZONE);
+    if (gapDt <= now) return;
+
     const deadline = computeDeadline("GAP", { gap: g });
     const isToday = g.dayIso === todayIso;
     const enriched = [...g.candidates, ...ongoingCandidates].slice(0, 8);

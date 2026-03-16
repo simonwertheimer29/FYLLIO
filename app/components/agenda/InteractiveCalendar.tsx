@@ -79,6 +79,23 @@ function toRealUtcIso(fakeMadridDate: Date): string {
   return dt.toUTC().toISO()!;
 }
 
+// Helpers to extract Madrid local date/time from FullCalendar's "fake" dates
+function toMadridDateStr(d: Date): string {
+  const year = d.getUTCFullYear();
+  const month = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(d.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+function toMadridTimeStr(d: Date): string {
+  const h = String(d.getUTCHours()).padStart(2, "0");
+  const m = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
+}
+function madridStrToUtcIso(dateStr: string, timeStr: string): string {
+  const dt = DateTime.fromISO(`${dateStr}T${timeStr}:00`, { zone: "Europe/Madrid" });
+  return dt.toUTC().toISO()!;
+}
+
 async function patchAppt(recordId: string, data: { startIso?: string; endIso?: string; notes?: string }) {
   const res = await fetch(`/api/db/appointments/${recordId}`, {
     method: "PATCH",
@@ -216,11 +233,19 @@ function NewApptModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Duration of the selected slot in minutes
-  const slotDurationMin = useMemo(
-    () => Math.round((end.getTime() - start.getTime()) / 60000),
-    [start, end]
-  );
+  // Editable date/time state (initialised from FullCalendar's fake Madrid dates)
+  const [apptDate, setApptDate] = useState(() => toMadridDateStr(start));
+  const [startTimeStr, setStartTimeStr] = useState(() => toMadridTimeStr(start));
+  const [endTimeStr, setEndTimeStr] = useState(() => toMadridTimeStr(end));
+
+  // Duration of the selected slot in minutes (re-computed when strings change)
+  const slotDurationMin = useMemo(() => {
+    const [sh, sm] = startTimeStr.split(":").map(Number);
+    const [eh, em] = endTimeStr.split(":").map(Number);
+    if (isNaN(sh) || isNaN(eh)) return 0;
+    const diff = (eh * 60 + em) - (sh * 60 + sm);
+    return diff > 0 ? diff : 0;
+  }, [startTimeStr, endTimeStr]);
 
   // Only show treatments that fit within the slot (duration === 0 means unknown → always show)
   const visibleTreatments = useMemo(
@@ -244,6 +269,10 @@ function NewApptModal({
 
   async function handleCreate() {
     if (!patientName.trim()) { setError("Nombre del paciente requerido"); return; }
+    if (!apptDate || !startTimeStr || !endTimeStr) { setError("Fecha y hora requeridas"); return; }
+    const [sh, sm] = startTimeStr.split(":").map(Number);
+    const [eh, em] = endTimeStr.split(":").map(Number);
+    if (eh * 60 + em <= sh * 60 + sm) { setError("La hora de fin debe ser posterior al inicio"); return; }
     setSaving(true);
     setError(null);
     try {
@@ -254,8 +283,8 @@ function NewApptModal({
           patientName: patientName.trim(),
           name: patientName.trim(), // appointment title
           patientPhone: patientPhone.trim() || undefined,
-          startIso: toRealUtcIso(start),
-          endIso: toRealUtcIso(end),
+          startIso: madridStrToUtcIso(apptDate, startTimeStr),
+          endIso: madridStrToUtcIso(apptDate, endTimeStr),
           staffRecordId,
           treatmentRecordId: treatmentId || undefined,
           notes: notes.trim() || undefined,
@@ -273,15 +302,6 @@ function NewApptModal({
     }
   }
 
-  const fmt = (d: Date) =>
-    d.toLocaleString("es-ES", {
-      weekday: "short",
-      day: "numeric",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
@@ -290,8 +310,45 @@ function NewApptModal({
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">×</button>
         </div>
 
-        <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
-          <p>📅 {fmt(start)} – {end.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}</p>
+        <div className="space-y-2">
+          <div>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+              Fecha
+            </label>
+            <input
+              type="date"
+              value={apptDate}
+              onChange={(e) => setApptDate(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+            />
+          </div>
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                Inicio
+              </label>
+              <input
+                type="time"
+                value={startTimeStr}
+                onChange={(e) => setStartTimeStr(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                Fin
+              </label>
+              <input
+                type="time"
+                value={endTimeStr}
+                onChange={(e) => setEndTimeStr(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+              />
+            </div>
+          </div>
+          {slotDurationMin > 0 && (
+            <p className="text-xs text-slate-400">⏱ Duración: {slotDurationMin} min</p>
+          )}
         </div>
 
         <div className="space-y-3">
