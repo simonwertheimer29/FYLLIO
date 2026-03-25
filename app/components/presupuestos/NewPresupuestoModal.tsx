@@ -1,0 +1,259 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { Doctor, UserSession, EspecialidadDoctor, TipoPaciente, TipoVisita } from "../../lib/presupuestos/types";
+
+const ESPECIALIDADES: EspecialidadDoctor[] = [
+  "General", "Prostodoncista", "Implantólogo", "Endodoncista", "Ortodoncia"
+];
+
+export default function NewPresupuestoModal({
+  user,
+  onClose,
+  onCreated,
+}: {
+  user: UserSession;
+  onClose: () => void;
+  onCreated: () => void;
+}) {
+  const [doctores, setDoctores] = useState<Doctor[]>([]);
+
+  // Form fields
+  const [patientName, setPatientName] = useState("");
+  const [patientPhone, setPatientPhone] = useState("");
+  const [treatments, setTreatments] = useState("");
+  const [doctor, setDoctor] = useState("");
+  const [doctorEspecialidad, setDoctorEspecialidad] = useState<EspecialidadDoctor>("General");
+  const [tipoPaciente, setTipoPaciente] = useState<TipoPaciente>("Privado");
+  const [tipoVisita, setTipoVisita] = useState<TipoVisita>("Primera Visita");
+  const [amount, setAmount] = useState("");
+  const [fechaPresupuesto, setFechaPresupuesto] = useState(
+    () => new Date().toISOString().slice(0, 10)
+  );
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const url = new URL("/api/presupuestos/doctores", location.href);
+    if (user.rol === "encargada_ventas" && user.clinica) {
+      url.searchParams.set("clinica", user.clinica);
+    }
+    fetch(url.toString())
+      .then((r) => r.json())
+      .then((d) => setDoctores(d.doctores ?? []))
+      .catch(() => {});
+  }, [user]);
+
+  // Auto-fill especialidad when selecting doctor
+  function handleDoctorChange(nombre: string) {
+    setDoctor(nombre);
+    const found = doctores.find((d) => d.nombre === nombre);
+    if (found) setDoctorEspecialidad(found.especialidad);
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+
+    if (!patientName.trim()) { setError("El nombre del paciente es requerido"); return; }
+    if (!treatments.trim()) { setError("Indica al menos un tratamiento"); return; }
+
+    setSaving(true);
+    try {
+      const res = await fetch("/api/presupuestos/kanban", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientName: patientName.trim(),
+          patientPhone: patientPhone.trim() || undefined,
+          treatments: treatments.split(",").map((t) => t.trim()).filter(Boolean),
+          doctor: doctor || undefined,
+          doctorEspecialidad: doctor ? doctorEspecialidad : undefined,
+          tipoPaciente,
+          tipoVisita,
+          amount: amount ? Number(amount) : undefined,
+          fechaPresupuesto,
+          notes: notes.trim() || undefined,
+          clinica: user.clinica,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        setError(d.error ?? "Error al guardar");
+        return;
+      }
+      onCreated();
+      onClose();
+    } catch {
+      setError("Error de red");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-y-auto max-h-[90vh]">
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+          <h3 className="font-bold text-slate-900">Nuevo presupuesto</h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">✕</button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
+          {/* Paciente */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Nombre del paciente *
+              </label>
+              <input
+                type="text"
+                value={patientName}
+                onChange={(e) => setPatientName(e.target.value)}
+                placeholder="Nombre completo"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono</label>
+              <input
+                type="tel"
+                value={patientPhone}
+                onChange={(e) => setPatientPhone(e.target.value)}
+                placeholder="+34 6XX XXX XXX"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">
+                Fecha presupuesto
+              </label>
+              <input
+                type="date"
+                value={fechaPresupuesto}
+                onChange={(e) => setFechaPresupuesto(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              />
+            </div>
+          </div>
+
+          {/* Tratamientos */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">
+              Tratamiento(s) * <span className="text-slate-400 font-normal">(separar por coma)</span>
+            </label>
+            <input
+              type="text"
+              value={treatments}
+              onChange={(e) => setTreatments(e.target.value)}
+              placeholder="Implante dental, Corona cerámica"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+            />
+          </div>
+
+          {/* Doctor + Importe */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Doctor</label>
+              <select
+                value={doctor}
+                onChange={(e) => handleDoctorChange(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              >
+                <option value="">Sin asignar</option>
+                {doctores.map((d) => (
+                  <option key={d.id} value={d.nombre}>{d.nombre}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Especialidad</label>
+              <select
+                value={doctorEspecialidad}
+                onChange={(e) => setDoctorEspecialidad(e.target.value as EspecialidadDoctor)}
+                className="w-full rounded-xl border border-slate-200 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              >
+                {ESPECIALIDADES.map((e) => (
+                  <option key={e} value={e}>{e}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Tipo paciente</label>
+              <select
+                value={tipoPaciente}
+                onChange={(e) => setTipoPaciente(e.target.value as TipoPaciente)}
+                className="w-full rounded-xl border border-slate-200 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              >
+                <option value="Privado">Privado</option>
+                <option value="Adeslas">Adeslas</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Tipo visita</label>
+              <select
+                value={tipoVisita}
+                onChange={(e) => setTipoVisita(e.target.value as TipoVisita)}
+                className="w-full rounded-xl border border-slate-200 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              >
+                <option value="Primera Visita">1ª Visita</option>
+                <option value="Paciente con Historia">Con Historia</option>
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Importe (€)</label>
+              <input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="0"
+                min={0}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              />
+            </div>
+          </div>
+
+          {/* Notas */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 mb-1">Notas</label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Observaciones…"
+              rows={2}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-300"
+            />
+          </div>
+
+          {error && (
+            <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+              {error}
+            </p>
+          )}
+
+          <div className="flex gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold py-2.5 hover:bg-slate-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex-1 rounded-xl bg-violet-600 text-white text-sm font-semibold py-2.5 hover:bg-violet-700 disabled:opacity-50"
+            >
+              {saving ? "Guardando…" : "Crear presupuesto"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}

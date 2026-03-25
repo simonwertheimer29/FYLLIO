@@ -1,0 +1,208 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import type { Doctor, Presupuesto, UserSession } from "../../lib/presupuestos/types";
+import { ESTADO_CONFIG, PIPELINE_ORDEN, ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
+
+const PAGE_SIZE = 25;
+
+export default function DoctorView({ user }: { user: UserSession }) {
+  const [doctores, setDoctores] = useState<Doctor[]>([]);
+  const [selectedDoctor, setSelectedDoctor] = useState<string>("");
+  const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    const url = new URL("/api/presupuestos/doctores", location.href);
+    if (user.rol === "encargada_ventas" && user.clinica) {
+      url.searchParams.set("clinica", user.clinica);
+    }
+    fetch(url.toString())
+      .then((r) => r.json())
+      .then((d) => {
+        setDoctores(d.doctores ?? []);
+        if (d.doctores?.length) setSelectedDoctor(d.doctores[0].nombre);
+      })
+      .catch(() => {});
+  }, [user]);
+
+  useEffect(() => {
+    if (!selectedDoctor) return;
+    setLoading(true);
+    const url = new URL("/api/presupuestos/kanban", location.href);
+    url.searchParams.set("doctor", selectedDoctor);
+    fetch(url.toString())
+      .then((r) => r.json())
+      .then((d) => { setPresupuestos(d.presupuestos ?? []); setPage(0); })
+      .catch(() => setPresupuestos([]))
+      .finally(() => setLoading(false));
+  }, [selectedDoctor]);
+
+  const doctor = doctores.find((d) => d.nombre === selectedDoctor);
+  const ACEPTADOS = ["FINALIZADO", "EN_TRATAMIENTO"] as const;
+  const aceptados = presupuestos.filter((p) => ACEPTADOS.includes(p.estado as any));
+  const tasa = presupuestos.length > 0 ? Math.round((aceptados.length / presupuestos.length) * 100) : 0;
+  const importeTotal = aceptados.reduce((s, p) => s + (p.amount ?? 0), 0);
+  const tiemposDecierre = aceptados.filter((p) => p.daysSince > 0).map((p) => p.daysSince);
+  const tiempoMedio = tiemposDecierre.length
+    ? Math.round(tiemposDecierre.reduce((s, d) => s + d, 0) / tiemposDecierre.length)
+    : 0;
+
+  const paginated = presupuestos.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+  const totalPages = Math.ceil(presupuestos.length / PAGE_SIZE);
+
+  return (
+    <div className="space-y-5">
+      {/* Doctor selector */}
+      <div className="flex items-center gap-3 flex-wrap">
+        <label className="text-xs font-semibold text-slate-600">Doctor:</label>
+        <select
+          value={selectedDoctor}
+          onChange={(e) => setSelectedDoctor(e.target.value)}
+          className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+        >
+          {doctores.map((d) => (
+            <option key={d.id} value={d.nombre}>{d.nombre} — {d.especialidad}</option>
+          ))}
+        </select>
+        {doctor && (
+          <span
+            className="text-xs font-semibold px-2.5 py-1 rounded-full"
+            style={{ background: ESPECIALIDAD_COLOR[doctor.especialidad], color: "#1e293b" }}
+          >
+            {doctor.especialidad}
+          </span>
+        )}
+      </div>
+
+      {/* Metrics */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        {[
+          { label: "Total", value: String(presupuestos.length) },
+          { label: "Aceptados", value: String(aceptados.length) },
+          { label: "% Aceptación", value: `${tasa}%` },
+          { label: "€ Aceptado", value: `€${importeTotal.toLocaleString("es-ES")}` },
+          { label: "Días medio cierre", value: tiempoMedio > 0 ? `${tiempoMedio}d` : "—" },
+        ].map((m) => (
+          <div key={m.label} className="rounded-2xl border border-slate-200 bg-white p-4">
+            <p className="text-xs text-slate-500 font-medium">{m.label}</p>
+            <p className="text-xl font-extrabold text-slate-900 mt-1">{m.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Mini Kanban */}
+      {loading ? (
+        <div className="h-40 rounded-2xl bg-slate-100 animate-pulse" />
+      ) : (
+        <div className="overflow-x-auto pb-2">
+          <div className="flex gap-3 min-w-max">
+            {PIPELINE_ORDEN.map((estado) => {
+              const cols = presupuestos.filter((p) => p.estado === estado);
+              const cfg = ESTADO_CONFIG[estado];
+              return (
+                <div key={estado} className="min-w-[140px]">
+                  <div
+                    className="rounded-xl px-2.5 py-1.5 mb-1.5"
+                    style={{ background: cfg.hex + "22", borderLeft: `3px solid ${cfg.hex}` }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold" style={{ color: cfg.hex === "#FFFF00" ? "#a16207" : cfg.hex }}>
+                        {cfg.label}
+                      </span>
+                      <span className="text-[10px] text-slate-500">{cols.length}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    {cols.slice(0, 3).map((p) => (
+                      <div key={p.id} className="rounded-xl border border-slate-100 bg-white p-2">
+                        <p className="text-[10px] font-bold text-slate-800 truncate">{p.patientName}</p>
+                        {p.amount != null && (
+                          <p className="text-[10px] text-slate-500">€{p.amount.toLocaleString("es-ES")}</p>
+                        )}
+                      </div>
+                    ))}
+                    {cols.length > 3 && (
+                      <p className="text-[10px] text-slate-400 pl-2">+{cols.length - 3} más</p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Full history table */}
+      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        <p className="px-4 py-3 text-sm font-bold text-slate-900 border-b border-slate-100">
+          Historial completo ({presupuestos.length})
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-slate-100">
+                {["Paciente", "Tratamientos", "Importe", "Estado", "Fecha", "Tipo", "Contactos"].map((h) => (
+                  <th key={h} className="px-3 py-2 text-left font-semibold text-slate-500 whitespace-nowrap">
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {paginated.map((p) => {
+                const cfg = ESTADO_CONFIG[p.estado];
+                return (
+                  <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50">
+                    <td className="px-3 py-2 font-medium text-slate-800 whitespace-nowrap">{p.patientName}</td>
+                    <td className="px-3 py-2 text-slate-600 max-w-[160px] truncate">{p.treatments.join(", ")}</td>
+                    <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
+                      {p.amount != null ? `€${p.amount.toLocaleString("es-ES")}` : "—"}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <span
+                        className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold"
+                        style={{ background: cfg.hex, color: cfg.textColor }}
+                      >
+                        {cfg.label}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{p.fechaPresupuesto}</td>
+                    <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{p.tipoPaciente ?? "—"}</td>
+                    <td className="px-3 py-2 text-slate-500">{p.contactCount}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between">
+            <p className="text-xs text-slate-400">
+              Página {page + 1} de {totalPages}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="text-xs px-3 py-1.5 rounded-xl border border-slate-200 disabled:opacity-40"
+              >
+                ← Anterior
+              </button>
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page === totalPages - 1}
+                className="text-xs px-3 py-1.5 rounded-xl border border-slate-200 disabled:opacity-40"
+              >
+                Siguiente →
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

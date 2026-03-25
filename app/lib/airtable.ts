@@ -9,7 +9,11 @@ export const TABLES = {
   staff: "Staff",
   appointments: "Citas",
   sillones: "Sillones",
-
+  // Módulo presupuestos
+  presupuestos: "Presupuestos",
+  contactosPresupuesto: "Contactos_Presupuesto",
+  doctoresPresupuestos: "Doctores_Presupuestos",
+  usuariosPresupuestos: "Usuarios_Presupuestos",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];
