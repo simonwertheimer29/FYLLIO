@@ -1,15 +1,14 @@
 // app/api/presupuestos/kpis/route.ts
-// GET: datos KPI del módulo de presupuestos
 
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import type {
-  Presupuesto, UserSession, KpiData, KpiPorEstado,
-  KpiPorDoctor, KpiPorTratamiento, PresupuestoEstado,
+  Presupuesto, UserSession, KpiData, KpiPorEstado, KpiPorDoctor,
+  KpiPorTratamiento, KpiMensual, KpiComparacion,
 } from "../../../lib/presupuestos/types";
 import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
-import { PIPELINE_ORDEN } from "../../../lib/presupuestos/colors";
+import { PIPELINE_ORDEN, ESTADOS_ACEPTADOS } from "../../../lib/presupuestos/colors";
 
 const COOKIE = "fyllio_presupuestos_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -22,105 +21,148 @@ async function getSession(): Promise<UserSession | null> {
     if (!token) return null;
     const { payload } = await jwtVerify(token, secret);
     return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
+  } catch { return null; }
 }
 
-const ACEPTADOS: PresupuestoEstado[] = ["FINALIZADO", "EN_TRATAMIENTO"];
+const MES_LABEL = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
-function buildKpis(presupuestos: Presupuesto[]): KpiData {
-  const total = presupuestos.length;
-  const aceptados = presupuestos.filter((p) => ACEPTADOS.includes(p.estado));
-  const tasaAceptacion = total > 0 ? Math.round((aceptados.length / total) * 100) : 0;
-  const importeAceptado = aceptados.reduce((s, p) => s + (p.amount ?? 0), 0);
-  const pacientesNuevos = aceptados.filter((p) => p.tipoVisita === "Primera Visita").length;
+function isoToYYYYMM(iso: string): string {
+  return iso.slice(0, 7);
+}
+
+function buildKpis(allPresupuestos: Presupuesto[]): KpiData {
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}`;
+  const thisYear = now.getFullYear();
+  const thisQ = Math.floor(now.getMonth() / 3);
+
+  function inPeriod(p: Presupuesto, period: string) {
+    const m = isoToYYYYMM(p.fechaPresupuesto);
+    const yr = parseInt(m.slice(0, 4));
+    const mo = parseInt(m.slice(5, 7)) - 1;
+    const q = Math.floor(mo / 3);
+    if (period === "month") return m === thisMonth;
+    if (period === "prevMonth") return m === prevMonth;
+    if (period === "quarter") return yr === thisYear && q === thisQ;
+    if (period === "prevQuarter") {
+      const pq = thisQ === 0 ? 3 : thisQ - 1;
+      const pqYear = thisQ === 0 ? thisYear - 1 : thisYear;
+      return yr === pqYear && q === pq;
+    }
+    if (period === "year") return yr === thisYear;
+    if (period === "prevYear") return yr === thisYear - 1;
+    return false;
+  }
+
+  function countAcepted(list: Presupuesto[]) {
+    return list.filter((p) => ESTADOS_ACEPTADOS.includes(p.estado)).length;
+  }
+
+  function mkComparacion(curr: Presupuesto[], prev: Presupuesto[]): KpiComparacion {
+    const a = curr.length;
+    const b = prev.length;
+    return { actual: a, anterior: b, diff: a - b, diffPct: b > 0 ? Math.round(((a - b) / b) * 100) : 0 };
+  }
+
+  const comparacion = {
+    mesActual: mkComparacion(
+      allPresupuestos.filter((p) => inPeriod(p, "month")),
+      allPresupuestos.filter((p) => inPeriod(p, "prevMonth"))
+    ),
+    trimestre: mkComparacion(
+      allPresupuestos.filter((p) => inPeriod(p, "quarter")),
+      allPresupuestos.filter((p) => inPeriod(p, "prevQuarter"))
+    ),
+    anio: mkComparacion(
+      allPresupuestos.filter((p) => inPeriod(p, "year")),
+      allPresupuestos.filter((p) => inPeriod(p, "prevYear"))
+    ),
+  };
+
+  const total = allPresupuestos.length;
+  const primeraVisita = allPresupuestos.filter((p) => p.tipoVisita === "Primera Visita").length;
+  const conHistoria = allPresupuestos.filter((p) => p.tipoVisita === "Paciente con Historia").length;
+  const aceptados = countAcepted(allPresupuestos);
+  const tasaAceptacion = total > 0 ? Math.round((aceptados / total) * 100) : 0;
+  const importeActivos = allPresupuestos
+    .filter((p) => !ESTADOS_ACEPTADOS.includes(p.estado) && p.estado !== "PERDIDO")
+    .reduce((s, p) => s + (p.amount ?? 0), 0);
 
   const porEstado: KpiPorEstado[] = PIPELINE_ORDEN.map((estado) => {
-    const grupo = presupuestos.filter((p) => p.estado === estado);
-    return {
-      estado,
-      count: grupo.length,
-      importe: grupo.reduce((s, p) => s + (p.amount ?? 0), 0),
-    };
+    const g = allPresupuestos.filter((p) => p.estado === estado);
+    return { estado, count: g.length, importe: g.reduce((s, p) => s + (p.amount ?? 0), 0) };
   });
 
-  // Por doctor
   const doctorMap = new Map<string, KpiPorDoctor>();
-  for (const p of presupuestos) {
+  for (const p of allPresupuestos) {
     const key = p.doctor ?? "Sin doctor";
     if (!doctorMap.has(key)) {
-      doctorMap.set(key, {
-        doctor: key,
-        especialidad: p.doctorEspecialidad ?? "General",
-        total: 0,
-        primeraVisita: 0,
-        conHistoria: 0,
-        aceptados: 0,
-        tasa: 0,
-      });
+      doctorMap.set(key, { doctor: key, especialidad: p.doctorEspecialidad ?? "General", total: 0, primeraVisita: 0, conHistoria: 0, aceptados: 0, tasa: 0 });
     }
     const d = doctorMap.get(key)!;
     d.total++;
     if (p.tipoVisita === "Primera Visita") d.primeraVisita++;
     else d.conHistoria++;
-    if (ACEPTADOS.includes(p.estado)) d.aceptados++;
+    if (ESTADOS_ACEPTADOS.includes(p.estado)) d.aceptados++;
   }
-  const porDoctor: KpiPorDoctor[] = [...doctorMap.values()].map((d) => ({
-    ...d,
-    tasa: d.total > 0 ? Math.round((d.aceptados / d.total) * 100) : 0,
-  })).sort((a, b) => b.tasa - a.tasa);
+  const porDoctor: KpiPorDoctor[] = [...doctorMap.values()]
+    .map((d) => ({ ...d, tasa: d.total > 0 ? Math.round((d.aceptados / d.total) * 100) : 0 }))
+    .sort((a, b) => b.tasa - a.tasa);
 
-  // Por tratamiento
   const tratMap = new Map<string, { total: number; aceptados: number; importe: number }>();
-  for (const p of presupuestos) {
+  for (const p of allPresupuestos) {
     for (const t of p.treatments) {
       if (!tratMap.has(t)) tratMap.set(t, { total: 0, aceptados: 0, importe: 0 });
       const g = tratMap.get(t)!;
       g.total++;
-      if (ACEPTADOS.includes(p.estado)) {
-        g.aceptados++;
-        g.importe += p.amount ?? 0;
-      }
+      if (ESTADOS_ACEPTADOS.includes(p.estado)) { g.aceptados++; g.importe += p.amount ?? 0; }
     }
   }
   const porTratamiento: KpiPorTratamiento[] = [...tratMap.entries()]
     .map(([grupo, g]) => ({
-      grupo,
-      total: g.total,
-      aceptados: g.aceptados,
+      grupo, total: g.total, aceptados: g.aceptados,
       tasa: g.total > 0 ? Math.round((g.aceptados / g.total) * 100) : 0,
       importe: g.importe,
     }))
-    .sort((a, b) => b.total - a.total);
+    .sort((a, b) => b.tasa - a.tasa);
 
-  const tipoCount = (tipo: string) => presupuestos.filter((p) => p.tipoPaciente === tipo).length;
-  const visitaCount = (tipo: string) => presupuestos.filter((p) => p.tipoVisita === tipo).length;
+  const tipoFn = (tipo: string) => {
+    const list = allPresupuestos.filter((p) => p.tipoPaciente === tipo);
+    const ac = countAcepted(list);
+    return { tipo, total: list.length, aceptados: ac, tasa: list.length > 0 ? Math.round((ac / list.length) * 100) : 0 };
+  };
+  const visitaFn = (tipo: string) => {
+    const list = allPresupuestos.filter((p) => p.tipoVisita === tipo);
+    const ac = countAcepted(list);
+    return { tipo, total: list.length, aceptados: ac, tasa: list.length > 0 ? Math.round((ac / list.length) * 100) : 0 };
+  };
+
+  const tendenciaMensual: KpiMensual[] = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const list = allPresupuestos.filter((p) => isoToYYYYMM(p.fechaPresupuesto) === mes);
+    tendenciaMensual.push({ mes, label: MES_LABEL[d.getMonth()], total: list.length, aceptados: countAcepted(list) });
+  }
 
   return {
-    resumen: { total, aceptados: aceptados.length, tasaAceptacion, importeAceptado, pacientesNuevos },
+    resumen: { total, primeraVisita, conHistoria, aceptados, tasaAceptacion, importeActivos },
+    comparacion,
     porEstado,
     porDoctor,
     porTratamiento,
-    porTipoPaciente: [
-      { tipo: "Privado", count: tipoCount("Privado") },
-      { tipo: "Adeslas", count: tipoCount("Adeslas") },
-    ],
-    porTipoVisita: [
-      { tipo: "Primera Visita", count: visitaCount("Primera Visita") },
-      { tipo: "Paciente con Historia", count: visitaCount("Paciente con Historia") },
-    ],
+    porTipoPaciente: ["Privado", "Adeslas"].map(tipoFn),
+    porTipoVisita: ["Primera Visita", "Paciente con Historia"].map(visitaFn),
+    tendenciaMensual,
   };
 }
 
 export async function GET(req: Request) {
   const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
-  // For simplicity, KPIs are built from demo data or live data.
-  // In production you'd fetch from Airtable with date/clinic filters.
   const url = new URL(req.url);
   const clinica =
     session.rol === "encargada_ventas" && session.clinica

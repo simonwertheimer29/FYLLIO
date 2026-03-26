@@ -1,36 +1,48 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Doctor, UserSession, EspecialidadDoctor, TipoPaciente, TipoVisita } from "../../lib/presupuestos/types";
+import type {
+  Doctor, Presupuesto, UserSession,
+  EspecialidadDoctor, TipoPaciente, TipoVisita,
+} from "../../lib/presupuestos/types";
 
 const ESPECIALIDADES: EspecialidadDoctor[] = [
-  "General", "Prostodoncista", "Implantólogo", "Endodoncista", "Ortodoncia"
+  "General", "Prostodoncista", "Implantólogo", "Endodoncista", "Ortodoncia",
 ];
 
 export default function NewPresupuestoModal({
   user,
+  presupuesto,
   onClose,
   onCreated,
 }: {
   user: UserSession;
+  presupuesto?: Presupuesto;
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const isEdit = !!presupuesto;
   const [doctores, setDoctores] = useState<Doctor[]>([]);
 
   // Form fields
-  const [patientName, setPatientName] = useState("");
-  const [patientPhone, setPatientPhone] = useState("");
-  const [treatments, setTreatments] = useState("");
-  const [doctor, setDoctor] = useState("");
-  const [doctorEspecialidad, setDoctorEspecialidad] = useState<EspecialidadDoctor>("General");
-  const [tipoPaciente, setTipoPaciente] = useState<TipoPaciente>("Privado");
-  const [tipoVisita, setTipoVisita] = useState<TipoVisita>("Primera Visita");
-  const [amount, setAmount] = useState("");
-  const [fechaPresupuesto, setFechaPresupuesto] = useState(
-    () => new Date().toISOString().slice(0, 10)
+  const [patientName, setPatientName] = useState(presupuesto?.patientName ?? "");
+  const [patientPhone, setPatientPhone] = useState(presupuesto?.patientPhone ?? "");
+  const [treatments, setTreatments] = useState(presupuesto?.treatments.join(", ") ?? "");
+  const [doctor, setDoctor] = useState(presupuesto?.doctor ?? "");
+  const [doctorEspecialidad, setDoctorEspecialidad] = useState<EspecialidadDoctor>(
+    presupuesto?.doctorEspecialidad ?? "General"
   );
-  const [notes, setNotes] = useState("");
+  const [tipoPaciente, setTipoPaciente] = useState<TipoPaciente>(
+    presupuesto?.tipoPaciente ?? "Privado"
+  );
+  const [tipoVisita, setTipoVisita] = useState<TipoVisita>(
+    presupuesto?.tipoVisita ?? "Primera Visita"
+  );
+  const [amount, setAmount] = useState(presupuesto?.amount != null ? String(presupuesto.amount) : "");
+  const [fechaPresupuesto, setFechaPresupuesto] = useState(
+    presupuesto?.fechaPresupuesto ?? new Date().toISOString().slice(0, 10)
+  );
+  const [notes, setNotes] = useState(presupuesto?.notes ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,7 +57,6 @@ export default function NewPresupuestoModal({
       .catch(() => {});
   }, [user]);
 
-  // Auto-fill especialidad when selecting doctor
   function handleDoctorChange(nombre: string) {
     setDoctor(nombre);
     const found = doctores.find((d) => d.nombre === nombre);
@@ -61,23 +72,32 @@ export default function NewPresupuestoModal({
 
     setSaving(true);
     try {
-      const res = await fetch("/api/presupuestos/kanban", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patientName: patientName.trim(),
-          patientPhone: patientPhone.trim() || undefined,
-          treatments: treatments.split(",").map((t) => t.trim()).filter(Boolean),
-          doctor: doctor || undefined,
-          doctorEspecialidad: doctor ? doctorEspecialidad : undefined,
-          tipoPaciente,
-          tipoVisita,
-          amount: amount ? Number(amount) : undefined,
-          fechaPresupuesto,
-          notes: notes.trim() || undefined,
-          clinica: user.clinica,
-        }),
-      });
+      const body = {
+        patientName: patientName.trim(),
+        patientPhone: patientPhone.trim() || undefined,
+        treatments: treatments.split(",").map((t) => t.trim()).filter(Boolean),
+        doctor: doctor || undefined,
+        doctorEspecialidad: doctor ? doctorEspecialidad : undefined,
+        tipoPaciente,
+        tipoVisita,
+        amount: amount ? Number(amount) : undefined,
+        fechaPresupuesto,
+        notes: notes.trim() || undefined,
+        clinica: user.clinica,
+      };
+
+      const res = isEdit
+        ? await fetch(`/api/presupuestos/kanban/${presupuesto!.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          })
+        : await fetch("/api/presupuestos/kanban", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(body),
+          });
+
       if (!res.ok) {
         const d = await res.json();
         setError(d.error ?? "Error al guardar");
@@ -100,7 +120,9 @@ export default function NewPresupuestoModal({
       <div className="w-full max-w-lg rounded-3xl bg-white shadow-2xl overflow-y-auto max-h-[90vh]">
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="font-bold text-slate-900">Nuevo presupuesto</h3>
+          <h3 className="font-bold text-slate-900">
+            {isEdit ? "Editar presupuesto" : "Nuevo presupuesto"}
+          </h3>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">✕</button>
         </div>
 
@@ -249,7 +271,7 @@ export default function NewPresupuestoModal({
               disabled={saving}
               className="flex-1 rounded-xl bg-violet-600 text-white text-sm font-semibold py-2.5 hover:bg-violet-700 disabled:opacity-50"
             >
-              {saving ? "Guardando…" : "Crear presupuesto"}
+              {saving ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear presupuesto"}
             </button>
           </div>
         </form>

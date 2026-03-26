@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import type { Doctor, UserSession } from "../../lib/presupuestos/types";
 
 export type Filters = {
@@ -34,7 +34,13 @@ export default function FiltersBar({
   const [clinicas, setClinicas] = useState<string[]>([]);
   const [doctores, setDoctores] = useState<Doctor[]>([]);
 
-  // Cargar clínicas (solo manager)
+  // Debounce timer for search
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Track latest filters for debounced callback
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+
+  // Load clinicas (manager only)
   useEffect(() => {
     if (user.rol !== "manager_general") return;
     fetch("/api/presupuestos/clinicas")
@@ -43,7 +49,7 @@ export default function FiltersBar({
       .catch(() => {});
   }, [user.rol]);
 
-  // Cargar doctores
+  // Load doctors when clinica changes
   useEffect(() => {
     const url = new URL("/api/presupuestos/doctores", location.href);
     if (user.rol === "encargada_ventas" && user.clinica) {
@@ -57,17 +63,37 @@ export default function FiltersBar({
       .catch(() => {});
   }, [filters.clinica, user.rol, user.clinica]);
 
-  const update = useCallback(
+  // Immediate update for non-search fields
+  const updateImmediate = useCallback(
     (key: keyof Filters, value: string) => {
-      const next = { ...filters, [key]: value };
+      const next = { ...filtersRef.current, [key]: value };
       setFilters(next);
+      filtersRef.current = next;
       onFiltersChange(next);
     },
-    [filters, onFiltersChange]
+    [onFiltersChange]
+  );
+
+  // Debounced update for search field
+  const updateSearch = useCallback(
+    (value: string) => {
+      setFilters((prev) => {
+        const next = { ...prev, q: value };
+        filtersRef.current = next;
+        return next;
+      });
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      debounceRef.current = setTimeout(() => {
+        onFiltersChange({ ...filtersRef.current });
+      }, 300);
+    },
+    [onFiltersChange]
   );
 
   const reset = () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     setFilters(EMPTY_FILTERS);
+    filtersRef.current = EMPTY_FILTERS;
     onFiltersChange(EMPTY_FILTERS);
   };
 
@@ -80,7 +106,7 @@ export default function FiltersBar({
         type="search"
         placeholder="Buscar paciente o tratamiento…"
         value={filters.q}
-        onChange={(e) => update("q", e.target.value)}
+        onChange={(e) => updateSearch(e.target.value)}
         className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
       />
 
@@ -89,7 +115,7 @@ export default function FiltersBar({
         {user.rol === "manager_general" && (
           <select
             value={filters.clinica}
-            onChange={(e) => update("clinica", e.target.value)}
+            onChange={(e) => updateImmediate("clinica", e.target.value)}
             className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
           >
             <option value="">Todas las clínicas</option>
@@ -102,7 +128,7 @@ export default function FiltersBar({
         {/* Doctor */}
         <select
           value={filters.doctor}
-          onChange={(e) => update("doctor", e.target.value)}
+          onChange={(e) => updateImmediate("doctor", e.target.value)}
           className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
         >
           <option value="">Todos los doctores</option>
@@ -114,7 +140,7 @@ export default function FiltersBar({
         {/* Tipo paciente */}
         <select
           value={filters.tipoPaciente}
-          onChange={(e) => update("tipoPaciente", e.target.value)}
+          onChange={(e) => updateImmediate("tipoPaciente", e.target.value)}
           className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
         >
           <option value="">Tipo paciente</option>
@@ -125,7 +151,7 @@ export default function FiltersBar({
         {/* Tipo visita */}
         <select
           value={filters.tipoVisita}
-          onChange={(e) => update("tipoVisita", e.target.value)}
+          onChange={(e) => updateImmediate("tipoVisita", e.target.value)}
           className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
         >
           <option value="">Tipo visita</option>
@@ -138,14 +164,14 @@ export default function FiltersBar({
           <input
             type="date"
             value={filters.fechaDesde}
-            onChange={(e) => update("fechaDesde", e.target.value)}
+            onChange={(e) => updateImmediate("fechaDesde", e.target.value)}
             className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
           />
           <span className="text-xs text-slate-400">–</span>
           <input
             type="date"
             value={filters.fechaHasta}
-            onChange={(e) => update("fechaHasta", e.target.value)}
+            onChange={(e) => updateImmediate("fechaHasta", e.target.value)}
             className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
           />
         </div>

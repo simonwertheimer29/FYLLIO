@@ -1,6 +1,5 @@
 // app/lib/presupuestos/demo.ts
-// Datos de demostración del módulo de presupuestos.
-// 15 presupuestos, 5 doctores, 2 clínicas.
+// 15 presupuestos, 5 doctores, 2 clínicas — nuevos 6 estados.
 
 import type { Presupuesto, Contacto, Doctor } from "./types";
 import { computeUrgencyScore } from "./urgency";
@@ -12,10 +11,6 @@ function ago(n: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-// ------------------------------------------------------------------
-// Doctores demo
-// ------------------------------------------------------------------
-
 export const DEMO_DOCTORES: Doctor[] = [
   { id: "dr1", nombre: "Dr. García",    especialidad: "General",        clinica: "Clínica Madrid Centro", activo: true },
   { id: "dr2", nombre: "Dr. Martínez",  especialidad: "Implantólogo",   clinica: "Clínica Madrid Centro", activo: true },
@@ -24,14 +19,47 @@ export const DEMO_DOCTORES: Doctor[] = [
   { id: "dr5", nombre: "Dra. López",    especialidad: "Endodoncista",   clinica: "Clínica Salamanca",     activo: true },
 ];
 
-// ------------------------------------------------------------------
-// Presupuestos demo (sin urgencyScore todavía — se computa al final)
-// ------------------------------------------------------------------
-
 const raw: Omit<Presupuesto, "urgencyScore">[] = [
-  // ── INTERESADO (3) ──────────────────────────────────────────────
+  // ── PRESENTADO (2) ──────────────────────────────────────────────
   {
     id: "p1",
+    patientName: "Pedro Alonso Torres",
+    patientPhone: "+34611100012",
+    treatments: ["Revisión ortodoncia"],
+    doctor: "Dra. Romero",
+    doctorEspecialidad: "Ortodoncia",
+    tipoPaciente: "Privado",
+    tipoVisita: "Paciente con Historia",
+    amount: 150,
+    estado: "PRESENTADO",
+    fechaPresupuesto: ago(2),
+    fechaAlta: ago(2),
+    daysSince: 2,
+    clinica: "Clínica Madrid Centro",
+    contactCount: 0,
+    createdBy: "ventas@demo.com",
+  },
+  {
+    id: "p2",
+    patientName: "Laura Gómez Blanco",
+    patientPhone: "+34611100011",
+    treatments: ["Limpieza dental"],
+    doctor: "Dr. García",
+    doctorEspecialidad: "General",
+    tipoPaciente: "Adeslas",
+    tipoVisita: "Paciente con Historia",
+    amount: 120,
+    estado: "PRESENTADO",
+    fechaPresupuesto: ago(4),
+    fechaAlta: ago(4),
+    daysSince: 4,
+    clinica: "Clínica Salamanca",
+    contactCount: 0,
+    createdBy: "demo@fyllio.com",
+  },
+  // ── INTERESADO (3) ──────────────────────────────────────────────
+  {
+    id: "p3",
     patientName: "María García López",
     patientPhone: "+34611100001",
     treatments: ["Implante dental", "Corona cerámica"],
@@ -45,14 +73,14 @@ const raw: Omit<Presupuesto, "urgencyScore">[] = [
     fechaAlta: ago(18),
     daysSince: 18,
     clinica: "Clínica Madrid Centro",
-    notes: "Duda sobre tiempo de recuperación",
+    notes: "Muy interesada, pide cita para confirmar",
     lastContactDate: ago(5),
     lastContactDaysAgo: 5,
     contactCount: 2,
     createdBy: "ventas@demo.com",
   },
   {
-    id: "p2",
+    id: "p4",
     patientName: "Carmen Sánchez Torres",
     patientPhone: "+34611100003",
     treatments: ["Ortodoncia invisible"],
@@ -72,7 +100,7 @@ const raw: Omit<Presupuesto, "urgencyScore">[] = [
     createdBy: "ventas@demo.com",
   },
   {
-    id: "p3",
+    id: "p5",
     patientName: "Roberto Fernández Gil",
     patientPhone: "+34611100009",
     treatments: ["Prótesis dental superior"],
@@ -93,7 +121,7 @@ const raw: Omit<Presupuesto, "urgencyScore">[] = [
   },
   // ── EN_DUDA (2) ─────────────────────────────────────────────────
   {
-    id: "p4",
+    id: "p6",
     patientName: "Lucía Pérez Moreno",
     patientPhone: "+34611100007",
     treatments: ["Carillas de porcelana"],
@@ -107,14 +135,14 @@ const raw: Omit<Presupuesto, "urgencyScore">[] = [
     fechaAlta: ago(14),
     daysSince: 14,
     clinica: "Clínica Madrid Centro",
-    notes: "Muy interesada pero pide financiación",
+    notes: "Tiene miedo al dolor, necesita seguridad",
     lastContactDate: ago(3),
     lastContactDaysAgo: 3,
     contactCount: 4,
     createdBy: "ventas@demo.com",
   },
   {
-    id: "p5",
+    id: "p7",
     patientName: "Antonio López Ruiz",
     patientPhone: "+34611100004",
     treatments: ["Implante dental"],
@@ -128,15 +156,58 @@ const raw: Omit<Presupuesto, "urgencyScore">[] = [
     fechaAlta: ago(9),
     daysSince: 9,
     clinica: "Clínica Salamanca",
-    notes: "Consulta si está cubierto por mutua",
+    notes: "Consulta cobertura Adeslas, pendiente confirmar",
     lastContactDate: ago(1),
     lastContactDaysAgo: 1,
     contactCount: 2,
     createdBy: "ventas@demo.com",
   },
-  // ── EN_TRATAMIENTO (2) ──────────────────────────────────────────
+  // ── EN_NEGOCIACION (2) ──────────────────────────────────────────
   {
-    id: "p6",
+    id: "p8",
+    patientName: "Isabel Rodríguez Vega",
+    patientPhone: "+34611100005",
+    treatments: ["Blanqueamiento dental", "Carillas"],
+    doctor: "Dr. García",
+    doctorEspecialidad: "General",
+    tipoPaciente: "Privado",
+    tipoVisita: "Primera Visita",
+    amount: 2400,
+    estado: "EN_NEGOCIACION",
+    fechaPresupuesto: ago(12),
+    fechaAlta: ago(12),
+    daysSince: 12,
+    clinica: "Clínica Madrid Centro",
+    notes: "Pide descuento o pago en cuotas",
+    lastContactDate: ago(2),
+    lastContactDaysAgo: 2,
+    contactCount: 3,
+    createdBy: "ventas@demo.com",
+  },
+  {
+    id: "p9",
+    patientName: "Francisco González Molina",
+    patientPhone: "+34611100006",
+    treatments: ["Ortodoncia invisible"],
+    doctor: "Dra. Romero",
+    doctorEspecialidad: "Ortodoncia",
+    tipoPaciente: "Privado",
+    tipoVisita: "Paciente con Historia",
+    amount: 3900,
+    estado: "EN_NEGOCIACION",
+    fechaPresupuesto: ago(16),
+    fechaAlta: ago(16),
+    daysSince: 16,
+    clinica: "Clínica Madrid Centro",
+    notes: "Quiere comparar con otra clínica, pide mejor precio",
+    lastContactDate: ago(4),
+    lastContactDaysAgo: 4,
+    contactCount: 2,
+    createdBy: "ventas@demo.com",
+  },
+  // ── ACEPTADO (3) ────────────────────────────────────────────────
+  {
+    id: "p10",
     patientName: "Miguel Pérez Jiménez",
     patientPhone: "+34611100008",
     treatments: ["Ortodoncia invisible"],
@@ -145,7 +216,7 @@ const raw: Omit<Presupuesto, "urgencyScore">[] = [
     tipoPaciente: "Privado",
     tipoVisita: "Primera Visita",
     amount: 4500,
-    estado: "EN_TRATAMIENTO",
+    estado: "ACEPTADO",
     fechaPresupuesto: ago(30),
     fechaAlta: ago(30),
     daysSince: 30,
@@ -154,44 +225,7 @@ const raw: Omit<Presupuesto, "urgencyScore">[] = [
     createdBy: "demo@fyllio.com",
   },
   {
-    id: "p7",
-    patientName: "Isabel Rodríguez Vega",
-    patientPhone: "+34611100005",
-    treatments: ["Blanqueamiento dental", "Revisión general"],
-    doctor: "Dr. García",
-    doctorEspecialidad: "General",
-    tipoPaciente: "Adeslas",
-    tipoVisita: "Paciente con Historia",
-    amount: 420,
-    estado: "EN_TRATAMIENTO",
-    fechaPresupuesto: ago(12),
-    fechaAlta: ago(12),
-    daysSince: 12,
-    clinica: "Clínica Madrid Centro",
-    contactCount: 1,
-    createdBy: "ventas@demo.com",
-  },
-  // ── FINALIZADO (2) ──────────────────────────────────────────────
-  {
-    id: "p8",
-    patientName: "José Sánchez Romero",
-    patientPhone: "+34611100010",
-    treatments: ["Implante dental"],
-    doctor: "Dr. Martínez",
-    doctorEspecialidad: "Implantólogo",
-    tipoPaciente: "Privado",
-    tipoVisita: "Primera Visita",
-    amount: 2800,
-    estado: "FINALIZADO",
-    fechaPresupuesto: ago(45),
-    fechaAlta: ago(45),
-    daysSince: 45,
-    clinica: "Clínica Madrid Centro",
-    contactCount: 3,
-    createdBy: "demo@fyllio.com",
-  },
-  {
-    id: "p9",
+    id: "p11",
     patientName: "Ana Martín Díaz",
     patientPhone: "+34611100002",
     treatments: ["Endodoncia molar"],
@@ -200,7 +234,7 @@ const raw: Omit<Presupuesto, "urgencyScore">[] = [
     tipoPaciente: "Adeslas",
     tipoVisita: "Paciente con Historia",
     amount: 850,
-    estado: "FINALIZADO",
+    estado: "ACEPTADO",
     fechaPresupuesto: ago(28),
     fechaAlta: ago(28),
     daysSince: 28,
@@ -208,62 +242,25 @@ const raw: Omit<Presupuesto, "urgencyScore">[] = [
     contactCount: 2,
     createdBy: "demo@fyllio.com",
   },
-  // ── BOCA_SANA (3) ───────────────────────────────────────────────
-  {
-    id: "p10",
-    patientName: "Francisco González Molina",
-    patientPhone: "+34611100006",
-    treatments: ["Revisión general"],
-    doctor: "Dr. García",
-    doctorEspecialidad: "General",
-    tipoPaciente: "Privado",
-    tipoVisita: "Paciente con Historia",
-    amount: 90,
-    estado: "BOCA_SANA",
-    fechaPresupuesto: ago(5),
-    fechaAlta: ago(5),
-    daysSince: 5,
-    clinica: "Clínica Madrid Centro",
-    contactCount: 0,
-    createdBy: "ventas@demo.com",
-  },
-  {
-    id: "p11",
-    patientName: "Laura Gómez Blanco",
-    patientPhone: "+34611100011",
-    treatments: ["Limpieza dental"],
-    doctor: "Dr. García",
-    doctorEspecialidad: "General",
-    tipoPaciente: "Adeslas",
-    tipoVisita: "Paciente con Historia",
-    amount: 120,
-    estado: "BOCA_SANA",
-    fechaPresupuesto: ago(3),
-    fechaAlta: ago(3),
-    daysSince: 3,
-    clinica: "Clínica Salamanca",
-    contactCount: 0,
-    createdBy: "demo@fyllio.com",
-  },
   {
     id: "p12",
-    patientName: "Pedro Alonso Torres",
-    patientPhone: "+34611100012",
-    treatments: ["Revisión ortodoncia"],
-    doctor: "Dra. Romero",
-    doctorEspecialidad: "Ortodoncia",
+    patientName: "José Sánchez Romero",
+    patientPhone: "+34611100010",
+    treatments: ["Implante dental"],
+    doctor: "Dr. Martínez",
+    doctorEspecialidad: "Implantólogo",
     tipoPaciente: "Privado",
-    tipoVisita: "Paciente con Historia",
-    amount: 150,
-    estado: "BOCA_SANA",
-    fechaPresupuesto: ago(6),
-    fechaAlta: ago(6),
-    daysSince: 6,
+    tipoVisita: "Primera Visita",
+    amount: 2800,
+    estado: "ACEPTADO",
+    fechaPresupuesto: ago(45),
+    fechaAlta: ago(45),
+    daysSince: 45,
     clinica: "Clínica Madrid Centro",
-    contactCount: 0,
-    createdBy: "ventas@demo.com",
+    contactCount: 3,
+    createdBy: "demo@fyllio.com",
   },
-  // ── RECHAZADO (3) ───────────────────────────────────────────────
+  // ── PERDIDO (3) ─────────────────────────────────────────────────
   {
     id: "p13",
     patientName: "Marta López Gil",
@@ -273,7 +270,7 @@ const raw: Omit<Presupuesto, "urgencyScore">[] = [
     tipoPaciente: "Privado",
     tipoVisita: "Primera Visita",
     amount: 2400,
-    estado: "RECHAZADO",
+    estado: "PERDIDO",
     fechaPresupuesto: ago(60),
     fechaAlta: ago(60),
     daysSince: 60,
@@ -291,7 +288,7 @@ const raw: Omit<Presupuesto, "urgencyScore">[] = [
     tipoPaciente: "Privado",
     tipoVisita: "Primera Visita",
     amount: 2800,
-    estado: "RECHAZADO",
+    estado: "PERDIDO",
     fechaPresupuesto: ago(35),
     fechaAlta: ago(35),
     daysSince: 35,
@@ -310,7 +307,7 @@ const raw: Omit<Presupuesto, "urgencyScore">[] = [
     tipoPaciente: "Adeslas",
     tipoVisita: "Primera Visita",
     amount: 3900,
-    estado: "RECHAZADO",
+    estado: "PERDIDO",
     fechaPresupuesto: ago(42),
     fechaAlta: ago(42),
     daysSince: 42,
@@ -321,32 +318,25 @@ const raw: Omit<Presupuesto, "urgencyScore">[] = [
   },
 ];
 
-// Añadir urgencyScore
 export const DEMO_PRESUPUESTOS: Presupuesto[] = raw.map((p) => ({
   ...p,
   urgencyScore: computeUrgencyScore({ ...p, urgencyScore: 0 }),
 }));
 
-// ------------------------------------------------------------------
-// Contactos demo (para los INTERESADO y EN_DUDA)
-// ------------------------------------------------------------------
-
 export const DEMO_CONTACTOS: Contacto[] = [
-  // p1 — María García
-  { id: "c1", presupuestoId: "p1", tipo: "llamada",   resultado: "contestó",     fechaHora: `${ago(18)}T09:30:00`, nota: "Primera llamada, muy interesada", registradoPor: "ventas@demo.com" },
-  { id: "c2", presupuestoId: "p1", tipo: "whatsapp",  resultado: "no contestó",  fechaHora: `${ago(5)}T11:00:00`,  registradoPor: "ventas@demo.com" },
-  // p2 — Carmen Sánchez
-  { id: "c3", presupuestoId: "p2", tipo: "llamada",   resultado: "contestó",     fechaHora: `${ago(21)}T10:00:00`, nota: "Interesada, pide tiempo para pensarlo", registradoPor: "ventas@demo.com" },
-  { id: "c4", presupuestoId: "p2", tipo: "whatsapp",  resultado: "no contestó",  fechaHora: `${ago(14)}T10:30:00`, registradoPor: "ventas@demo.com" },
-  { id: "c5", presupuestoId: "p2", tipo: "llamada",   resultado: "pidió tiempo", fechaHora: `${ago(12)}T16:00:00`, nota: "Quiere consultar con su marido", registradoPor: "ventas@demo.com" },
-  // p3 — Roberto Fernández
-  { id: "c6", presupuestoId: "p3", tipo: "llamada",   resultado: "acordó cita",  fechaHora: `${ago(2)}T09:00:00`,  nota: "Cita para el viernes", registradoPor: "ventas@demo.com" },
-  // p4 — Lucía Pérez
-  { id: "c7", presupuestoId: "p4", tipo: "llamada",   resultado: "contestó",     fechaHora: `${ago(14)}T10:00:00`, nota: "Interesada pero pide financiación", registradoPor: "ventas@demo.com" },
-  { id: "c8", presupuestoId: "p4", tipo: "email",     resultado: "contestó",     fechaHora: `${ago(10)}T12:00:00`, nota: "Enviamos opciones de financiación", registradoPor: "ventas@demo.com" },
-  { id: "c9", presupuestoId: "p4", tipo: "llamada",   resultado: "pidió tiempo", fechaHora: `${ago(7)}T11:00:00`,  registradoPor: "ventas@demo.com" },
-  { id: "c10", presupuestoId: "p4", tipo: "whatsapp", resultado: "no contestó",  fechaHora: `${ago(3)}T09:30:00`,  registradoPor: "ventas@demo.com" },
-  // p5 — Antonio López
-  { id: "c11", presupuestoId: "p5", tipo: "llamada",  resultado: "contestó",     fechaHora: `${ago(9)}T16:00:00`,  nota: "Consulta si Adeslas cubre el implante", registradoPor: "ventas@demo.com" },
-  { id: "c12", presupuestoId: "p5", tipo: "llamada",  resultado: "contestó",     fechaHora: `${ago(1)}T10:00:00`,  nota: "Le confirmamos cobertura parcial", registradoPor: "ventas@demo.com" },
+  { id: "c1",  presupuestoId: "p3", tipo: "llamada",  resultado: "contestó",     fechaHora: `${ago(18)}T09:30:00`, nota: "Primera llamada, muy interesada", registradoPor: "ventas@demo.com" },
+  { id: "c2",  presupuestoId: "p3", tipo: "whatsapp", resultado: "no contestó",  fechaHora: `${ago(5)}T11:00:00`,  registradoPor: "ventas@demo.com" },
+  { id: "c3",  presupuestoId: "p4", tipo: "llamada",  resultado: "contestó",     fechaHora: `${ago(21)}T10:00:00`, nota: "Interesada, pide tiempo para pensarlo", registradoPor: "ventas@demo.com" },
+  { id: "c4",  presupuestoId: "p4", tipo: "whatsapp", resultado: "no contestó",  fechaHora: `${ago(14)}T10:30:00`, registradoPor: "ventas@demo.com" },
+  { id: "c5",  presupuestoId: "p4", tipo: "llamada",  resultado: "pidió tiempo", fechaHora: `${ago(12)}T16:00:00`, nota: "Quiere consultar con su marido", registradoPor: "ventas@demo.com" },
+  { id: "c6",  presupuestoId: "p5", tipo: "llamada",  resultado: "acordó cita",  fechaHora: `${ago(2)}T09:00:00`,  nota: "Cita para el viernes", registradoPor: "ventas@demo.com" },
+  { id: "c7",  presupuestoId: "p6", tipo: "llamada",  resultado: "contestó",     fechaHora: `${ago(14)}T10:00:00`, nota: "Tiene miedo, necesita más información", registradoPor: "ventas@demo.com" },
+  { id: "c8",  presupuestoId: "p6", tipo: "email",    resultado: "contestó",     fechaHora: `${ago(10)}T12:00:00`, nota: "Enviamos folleto explicativo del proceso", registradoPor: "ventas@demo.com" },
+  { id: "c9",  presupuestoId: "p6", tipo: "llamada",  resultado: "pidió tiempo", fechaHora: `${ago(7)}T11:00:00`,  registradoPor: "ventas@demo.com" },
+  { id: "c10", presupuestoId: "p6", tipo: "whatsapp", resultado: "no contestó",  fechaHora: `${ago(3)}T09:30:00`,  registradoPor: "ventas@demo.com" },
+  { id: "c11", presupuestoId: "p7", tipo: "llamada",  resultado: "contestó",     fechaHora: `${ago(9)}T16:00:00`,  nota: "Consulta cobertura Adeslas", registradoPor: "ventas@demo.com" },
+  { id: "c12", presupuestoId: "p7", tipo: "llamada",  resultado: "contestó",     fechaHora: `${ago(1)}T10:00:00`,  nota: "Confirmamos cobertura parcial 40%", registradoPor: "ventas@demo.com" },
+  { id: "c13", presupuestoId: "p8", tipo: "visita",   resultado: "pidió tiempo", fechaHora: `${ago(12)}T11:00:00`, nota: "Vino a visita, pide financiación", registradoPor: "ventas@demo.com" },
+  { id: "c14", presupuestoId: "p8", tipo: "email",    resultado: "contestó",     fechaHora: `${ago(6)}T09:00:00`,  nota: "Enviamos opciones de pago fraccionado", registradoPor: "ventas@demo.com" },
+  { id: "c15", presupuestoId: "p8", tipo: "llamada",  resultado: "pidió tiempo", fechaHora: `${ago(2)}T16:00:00`,  nota: "Sigue valorando, decisión la próxima semana", registradoPor: "ventas@demo.com" },
 ];

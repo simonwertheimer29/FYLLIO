@@ -6,8 +6,8 @@ import { ESTADO_CONFIG, PIPELINE_ORDEN, ESPECIALIDAD_COLOR } from "../../lib/pre
 import { daysSinceColor } from "../../lib/presupuestos/urgency";
 
 function actionSuggestion(p: Presupuesto): string | null {
-  if (p.estado === "RECHAZADO") return "⛔ No volver a llamar";
-  if (p.estado === "FINALIZADO" || p.estado === "BOCA_SANA") return null;
+  if (p.estado === "PERDIDO") return "⛔ No procede";
+  if (p.estado === "ACEPTADO") return null;
   if (p.contactCount === 0) return "→ Llamar hoy";
   if (p.contactCount === 1 && p.daysSince <= 7) return "→ Seguimiento";
   if (p.contactCount >= 2 && p.daysSince > 14) return "→ Insistencia final";
@@ -115,7 +115,7 @@ export default function PatientCard({
         {p.contactCount > 0 && (
           <span>{p.contactCount} contacto{p.contactCount !== 1 ? "s" : ""}</span>
         )}
-        {(p.lastContactDaysAgo ?? 0) > 3 && p.estado !== "RECHAZADO" && p.estado !== "FINALIZADO" && p.estado !== "BOCA_SANA" && (
+        {(p.lastContactDaysAgo ?? 0) > 3 && p.estado !== "ACEPTADO" && p.estado !== "PERDIDO" && (
           <span className="text-slate-500">{p.lastContactDaysAgo}d sin contacto</span>
         )}
       </div>

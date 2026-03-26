@@ -2,16 +2,51 @@
 
 import { useEffect, useState } from "react";
 import type { Doctor, Presupuesto, UserSession } from "../../lib/presupuestos/types";
-import { ESTADO_CONFIG, PIPELINE_ORDEN, ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
+import {
+  ESTADO_CONFIG, PIPELINE_ORDEN, ESPECIALIDAD_COLOR, ESTADOS_ACEPTADOS,
+} from "../../lib/presupuestos/colors";
+import PatientDrawer from "./PatientDrawer";
+
+type PeriodoFiltro = "all" | "month" | "prevMonth" | "3months";
+
+const PERIODO_LABEL: Record<PeriodoFiltro, string> = {
+  all: "Todo",
+  month: "Este mes",
+  prevMonth: "Mes anterior",
+  "3months": "Últimos 3 meses",
+};
+
+function isoToYYYYMM(iso: string) {
+  return iso.slice(0, 7);
+}
+
+function filterByPeriod(p: Presupuesto, periodo: PeriodoFiltro): boolean {
+  if (periodo === "all") return true;
+  const now = new Date();
+  const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, "0")}`;
+  const m = isoToYYYYMM(p.fechaPresupuesto);
+  if (periodo === "month") return m === thisMonth;
+  if (periodo === "prevMonth") return m === prevMonth;
+  if (periodo === "3months") {
+    const cutoff = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    const pDate = new Date(p.fechaPresupuesto);
+    return pDate >= cutoff;
+  }
+  return true;
+}
 
 const PAGE_SIZE = 25;
 
 export default function DoctorView({ user }: { user: UserSession }) {
   const [doctores, setDoctores] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<string>("");
-  const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
+  const [allPresupuestos, setAllPresupuestos] = useState<Presupuesto[]>([]);
   const [loading, setLoading] = useState(false);
+  const [periodo, setPeriodo] = useState<PeriodoFiltro>("all");
   const [page, setPage] = useState(0);
+  const [drawerPresupuesto, setDrawerPresupuesto] = useState<Presupuesto | null>(null);
 
   useEffect(() => {
     const url = new URL("/api/presupuestos/doctores", location.href);
@@ -34,15 +69,21 @@ export default function DoctorView({ user }: { user: UserSession }) {
     url.searchParams.set("doctor", selectedDoctor);
     fetch(url.toString())
       .then((r) => r.json())
-      .then((d) => { setPresupuestos(d.presupuestos ?? []); setPage(0); })
-      .catch(() => setPresupuestos([]))
+      .then((d) => { setAllPresupuestos(d.presupuestos ?? []); setPage(0); })
+      .catch(() => setAllPresupuestos([]))
       .finally(() => setLoading(false));
   }, [selectedDoctor]);
 
+  // Reset page when period changes
+  useEffect(() => { setPage(0); }, [periodo]);
+
   const doctor = doctores.find((d) => d.nombre === selectedDoctor);
-  const ACEPTADOS = ["FINALIZADO", "EN_TRATAMIENTO"] as const;
-  const aceptados = presupuestos.filter((p) => ACEPTADOS.includes(p.estado as any));
-  const tasa = presupuestos.length > 0 ? Math.round((aceptados.length / presupuestos.length) * 100) : 0;
+  const presupuestos = allPresupuestos.filter((p) => filterByPeriod(p, periodo));
+
+  const aceptados = presupuestos.filter((p) => ESTADOS_ACEPTADOS.includes(p.estado));
+  const tasa = presupuestos.length > 0
+    ? Math.round((aceptados.length / presupuestos.length) * 100)
+    : 0;
   const importeTotal = aceptados.reduce((s, p) => s + (p.amount ?? 0), 0);
   const tiemposDecierre = aceptados.filter((p) => p.daysSince > 0).map((p) => p.daysSince);
   const tiempoMedio = tiemposDecierre.length
@@ -52,11 +93,22 @@ export default function DoctorView({ user }: { user: UserSession }) {
   const paginated = presupuestos.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const totalPages = Math.ceil(presupuestos.length / PAGE_SIZE);
 
+  // Sync drawer presupuesto with latest data
+  function handleDrawerEstadoChange(id: string) {
+    setAllPresupuestos((prev) => {
+      const updated = prev.find((p) => p.id === id);
+      if (updated && drawerPresupuesto?.id === id) {
+        setDrawerPresupuesto(updated);
+      }
+      return prev;
+    });
+  }
+
   return (
     <div className="space-y-5">
-      {/* Doctor selector */}
+      {/* Doctor selector + period filter */}
       <div className="flex items-center gap-3 flex-wrap">
-        <label className="text-xs font-semibold text-slate-600">Doctor:</label>
+        <label className="text-xs font-semibold text-slate-500">Doctor:</label>
         <select
           value={selectedDoctor}
           onChange={(e) => setSelectedDoctor(e.target.value)}
@@ -74,6 +126,26 @@ export default function DoctorView({ user }: { user: UserSession }) {
             {doctor.especialidad}
           </span>
         )}
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Period filter */}
+        <div className="flex rounded-xl overflow-hidden border border-slate-200 text-xs">
+          {(["all", "month", "prevMonth", "3months"] as PeriodoFiltro[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPeriodo(p)}
+              className={`px-2.5 py-1.5 font-medium transition-colors ${
+                periodo === p
+                  ? "bg-violet-600 text-white"
+                  : "bg-white text-slate-600 hover:bg-slate-50"
+              }`}
+            >
+              {PERIODO_LABEL[p]}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Metrics */}
@@ -108,7 +180,7 @@ export default function DoctorView({ user }: { user: UserSession }) {
                     style={{ background: cfg.hex + "22", borderLeft: `3px solid ${cfg.hex}` }}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold" style={{ color: cfg.hex === "#FFFF00" ? "#a16207" : cfg.hex }}>
+                      <span className="text-[10px] font-bold" style={{ color: cfg.hex }}>
                         {cfg.label}
                       </span>
                       <span className="text-[10px] text-slate-500">{cols.length}</span>
@@ -116,12 +188,16 @@ export default function DoctorView({ user }: { user: UserSession }) {
                   </div>
                   <div className="space-y-1.5">
                     {cols.slice(0, 3).map((p) => (
-                      <div key={p.id} className="rounded-xl border border-slate-100 bg-white p-2">
+                      <button
+                        key={p.id}
+                        onClick={() => setDrawerPresupuesto(p)}
+                        className="w-full text-left rounded-xl border border-slate-100 bg-white p-2 hover:border-violet-200 hover:bg-violet-50 transition-colors"
+                      >
                         <p className="text-[10px] font-bold text-slate-800 truncate">{p.patientName}</p>
                         {p.amount != null && (
                           <p className="text-[10px] text-slate-500">€{p.amount.toLocaleString("es-ES")}</p>
                         )}
-                      </div>
+                      </button>
                     ))}
                     {cols.length > 3 && (
                       <p className="text-[10px] text-slate-400 pl-2">+{cols.length - 3} más</p>
@@ -134,33 +210,51 @@ export default function DoctorView({ user }: { user: UserSession }) {
         </div>
       )}
 
-      {/* Full history table */}
+      {/* Historial table */}
       <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
         <p className="px-4 py-3 text-sm font-bold text-slate-900 border-b border-slate-100">
-          Historial completo ({presupuestos.length})
+          Historial ({presupuestos.length})
+          {periodo !== "all" && (
+            <span className="ml-2 text-[11px] font-normal text-slate-400">
+              — {PERIODO_LABEL[periodo]}
+            </span>
+          )}
         </p>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-slate-100">
-                {["Paciente", "Tratamientos", "Importe", "Estado", "Fecha", "Tipo", "Contactos"].map((h) => (
-                  <th key={h} className="px-3 py-2 text-left font-semibold text-slate-500 whitespace-nowrap">
-                    {h}
-                  </th>
-                ))}
+                {["Paciente", "Tratamientos", "Importe", "Estado", "Fecha", "Tipo", "Cont."].map(
+                  (h) => (
+                    <th
+                      key={h}
+                      className="px-3 py-2 text-left font-semibold text-slate-400 whitespace-nowrap"
+                    >
+                      {h}
+                    </th>
+                  )
+                )}
               </tr>
             </thead>
             <tbody>
               {paginated.map((p) => {
                 const cfg = ESTADO_CONFIG[p.estado];
                 return (
-                  <tr key={p.id} className="border-b border-slate-50 hover:bg-slate-50">
-                    <td className="px-3 py-2 font-medium text-slate-800 whitespace-nowrap">{p.patientName}</td>
-                    <td className="px-3 py-2 text-slate-600 max-w-[160px] truncate">{p.treatments.join(", ")}</td>
-                    <td className="px-3 py-2 text-slate-700 whitespace-nowrap">
+                  <tr
+                    key={p.id}
+                    onClick={() => setDrawerPresupuesto(p)}
+                    className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer"
+                  >
+                    <td className="px-3 py-2.5 font-medium text-slate-800 whitespace-nowrap">
+                      {p.patientName}
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-600 max-w-[160px] truncate">
+                      {p.treatments.join(", ")}
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-700 whitespace-nowrap">
                       {p.amount != null ? `€${p.amount.toLocaleString("es-ES")}` : "—"}
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap">
+                    <td className="px-3 py-2.5 whitespace-nowrap">
                       <span
                         className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold"
                         style={{ background: cfg.hex, color: cfg.textColor }}
@@ -168,17 +262,27 @@ export default function DoctorView({ user }: { user: UserSession }) {
                         {cfg.label}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{p.fechaPresupuesto}</td>
-                    <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{p.tipoPaciente ?? "—"}</td>
-                    <td className="px-3 py-2 text-slate-500">{p.contactCount}</td>
+                    <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">
+                      {p.fechaPresupuesto}
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">
+                      {p.tipoPaciente ?? "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-slate-500">{p.contactCount}</td>
                   </tr>
                 );
               })}
+              {presupuestos.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-3 py-8 text-center text-slate-400 text-sm">
+                    Sin presupuestos en este período
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination */}
         {totalPages > 1 && (
           <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between">
             <p className="text-xs text-slate-400">
@@ -203,6 +307,20 @@ export default function DoctorView({ user }: { user: UserSession }) {
           </div>
         )}
       </div>
+
+      {/* Patient drawer */}
+      {drawerPresupuesto && (
+        <PatientDrawer
+          presupuesto={drawerPresupuesto}
+          onClose={() => setDrawerPresupuesto(null)}
+          onChangeEstado={(id: string, estado) => {
+            setAllPresupuestos((prev) =>
+              prev.map((p) => (p.id === id ? { ...p, estado } : p))
+            );
+            handleDrawerEstadoChange(id);
+          }}
+        />
+      )}
     </div>
   );
 }

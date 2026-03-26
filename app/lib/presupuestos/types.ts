@@ -1,13 +1,12 @@
 // app/lib/presupuestos/types.ts
-// Tipos del módulo de Seguimiento de Presupuestos
 
 export type PresupuestoEstado =
-  | "BOCA_SANA"
-  | "FINALIZADO"
-  | "EN_TRATAMIENTO"
+  | "PRESENTADO"
   | "INTERESADO"
   | "EN_DUDA"
-  | "RECHAZADO";
+  | "EN_NEGOCIACION"
+  | "ACEPTADO"
+  | "PERDIDO";
 
 export type TipoPaciente = "Adeslas" | "Privado";
 export type TipoVisita = "Primera Visita" | "Paciente con Historia";
@@ -36,13 +35,13 @@ export type Presupuesto = {
   tipoVisita?: TipoVisita;
   amount?: number;
   estado: PresupuestoEstado;
-  fechaPresupuesto: string;   // YYYY-MM-DD, editable por encargada
-  fechaAlta: string;          // YYYY-MM-DD, auto-set al crear, no editable
-  daysSince: number;          // días desde fechaPresupuesto
+  fechaPresupuesto: string;   // YYYY-MM-DD
+  fechaAlta: string;          // YYYY-MM-DD, auto-set
+  daysSince: number;
   clinica?: string;
   notes?: string;
-  urgencyScore: number;       // 0-100, computado en cliente
-  lastContactDate?: string;   // ISO del último contacto
+  urgencyScore: number;
+  lastContactDate?: string;
   lastContactDaysAgo?: number;
   contactCount: number;
   createdBy?: string;
@@ -53,7 +52,7 @@ export type Contacto = {
   presupuestoId: string;
   tipo: TipoContacto;
   resultado: ResultadoContacto;
-  fechaHora: string; // ISO
+  fechaHora: string;
   nota?: string;
   registradoPor?: string;
 };
@@ -76,10 +75,11 @@ export type UserSession = {
 // KPI types
 export type KpiResumen = {
   total: number;
+  primeraVisita: number;
+  conHistoria: number;
   aceptados: number;
   tasaAceptacion: number;
-  importeAceptado: number;
-  pacientesNuevos: number; // 1ª Visita aceptados
+  importeActivos: number;
 };
 
 export type KpiPorEstado = { estado: PresupuestoEstado; count: number; importe: number };
@@ -102,11 +102,31 @@ export type KpiPorTratamiento = {
   importe: number;
 };
 
+export type KpiMensual = {
+  mes: string;   // "YYYY-MM"
+  label: string; // "Ene", "Feb", ...
+  total: number;
+  aceptados: number;
+};
+
+export type KpiComparacion = {
+  actual: number;
+  anterior: number;
+  diff: number;
+  diffPct: number;
+};
+
 export type KpiData = {
   resumen: KpiResumen;
+  comparacion: {
+    mesActual: KpiComparacion;
+    trimestre: KpiComparacion;
+    anio: KpiComparacion;
+  };
   porEstado: KpiPorEstado[];
   porDoctor: KpiPorDoctor[];
   porTratamiento: KpiPorTratamiento[];
-  porTipoPaciente: { tipo: string; count: number }[];
-  porTipoVisita: { tipo: string; count: number }[];
+  porTipoPaciente: { tipo: string; total: number; aceptados: number; tasa: number }[];
+  porTipoVisita: { tipo: string; total: number; aceptados: number; tasa: number }[];
+  tendenciaMensual: KpiMensual[];
 };

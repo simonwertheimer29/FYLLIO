@@ -30,7 +30,7 @@ export function daysSinceColor(
   daysSince: number,
   estado: Presupuesto["estado"]
 ): string {
-  if (estado === "RECHAZADO" || estado === "FINALIZADO" || estado === "BOCA_SANA") {
+  if (estado === "ACEPTADO" || estado === "PERDIDO") {
     return "text-slate-400";
   }
   if (daysSince >= 21) return "text-rose-600 font-semibold";

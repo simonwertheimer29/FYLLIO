@@ -2,15 +2,17 @@
 
 import { useState, useCallback, useEffect } from "react";
 import type { Presupuesto, PresupuestoEstado, UserSession } from "../../lib/presupuestos/types";
-import { ESTADO_CONFIG } from "../../lib/presupuestos/colors";
+import { ESTADOS_ACEPTADOS } from "../../lib/presupuestos/colors";
 import KanbanBoard from "./KanbanBoard";
 import FiltersBar, { type Filters } from "./FiltersBar";
 import ContactHistoryModal from "./ContactHistoryModal";
 import NewPresupuestoModal from "./NewPresupuestoModal";
 import KpiView from "./KpiView";
 import DoctorView from "./DoctorView";
+import TareasView from "./TareasView";
+import PatientDrawer from "./PatientDrawer";
 
-type Tab = "kanban" | "kpis" | "doctor";
+type Tab = "kanban" | "tareas" | "kpis" | "doctor";
 
 // ─── Mini hook para cargar presupuestos ──────────────────────────────────────
 
@@ -55,21 +57,20 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   });
   const { presupuestos, setPresupuestos, loading, isDemo, load } = usePresupuestos(user);
 
-  // Modals
+  // Modals / drawers
   const [historyPresupuesto, setHistoryPresupuesto] = useState<Presupuesto | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [editPresupuesto, setEditPresupuesto] = useState<Presupuesto | null>(null);
+  const [drawerPresupuesto, setDrawerPresupuesto] = useState<Presupuesto | null>(null);
 
-  // Load on mount and on filter change
   const handleFiltersChange = useCallback((f: Filters) => {
     setCurrentFilters(f);
     load(f);
   }, [load]);
 
-  // Load initial data
   useEffect(() => { load(currentFilters); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleChangeEstado(id: string, estado: PresupuestoEstado) {
-    // Optimistic update
     setPresupuestos((prev) =>
       prev.map((p) => (p.id === id ? { ...p, estado } : p))
     );
@@ -80,9 +81,12 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         body: JSON.stringify({ estado }),
       });
     } catch {
-      // If it fails, reload
       await load(currentFilters);
     }
+  }
+
+  function handleEdit(p: Presupuesto) {
+    setEditPresupuesto(p);
   }
 
   async function handleLogout() {
@@ -90,21 +94,20 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     location.href = "/presupuestos/login";
   }
 
-  // Summary stats for header
+  // Header stats
   const activos = presupuestos.filter(
-    (p) => p.estado !== "RECHAZADO" && p.estado !== "FINALIZADO" && p.estado !== "BOCA_SANA"
+    (p) => !ESTADOS_ACEPTADOS.includes(p.estado) && p.estado !== "PERDIDO"
   );
   const totalPipeline = activos.reduce((s, p) => s + (p.amount ?? 0), 0);
   const urgentes = activos.filter((p) => p.daysSince >= 14).length;
-  const aceptados = presupuestos.filter(
-    (p) => p.estado === "FINALIZADO" || p.estado === "EN_TRATAMIENTO"
-  );
+  const aceptados = presupuestos.filter((p) => ESTADOS_ACEPTADOS.includes(p.estado));
   const tasa = presupuestos.length > 0
     ? Math.round((aceptados.length / presupuestos.length) * 100)
     : 0;
 
   const TABS: { id: Tab; label: string }[] = [
     { id: "kanban", label: "Panel" },
+    { id: "tareas", label: "Tareas" },
     { id: "kpis", label: "KPIs" },
     { id: "doctor", label: "Doctor" },
   ];
@@ -130,7 +133,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         <div className="hidden sm:flex items-center gap-4">
           <div className="text-center">
             <p className="text-xs font-extrabold text-slate-900">€{totalPipeline.toLocaleString("es-ES")}</p>
-            <p className="text-[9px] text-slate-400">En juego</p>
+            <p className="text-[9px] text-slate-400">Activos</p>
           </div>
           <div className="text-center">
             <p className="text-xs font-extrabold text-slate-900">{urgentes}</p>
@@ -182,7 +185,6 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
       <main className="p-4 space-y-4 max-w-screen-2xl mx-auto">
         {tab === "kanban" && (
           <>
-            {/* Toolbar */}
             <div className="flex items-center justify-between gap-3">
               <div className="flex-1">
                 <FiltersBar user={user} onFiltersChange={handleFiltersChange} />
@@ -195,14 +197,12 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
               </button>
             </div>
 
-            {/* Demo notice */}
             {isDemo && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
                 <span className="font-semibold">Datos de demostración</span> — Conecta las tablas de Airtable para datos reales.
               </div>
             )}
 
-            {/* Kanban */}
             {loading ? (
               <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 animate-pulse">
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -214,10 +214,18 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
                 presupuestos={presupuestos}
                 onChangeEstado={handleChangeEstado}
                 onOpenHistory={(p) => setHistoryPresupuesto(p)}
-                onEdit={() => {}}
+                onEdit={handleEdit}
               />
             )}
           </>
+        )}
+
+        {tab === "tareas" && (
+          <TareasView
+            presupuestos={presupuestos}
+            onOpenDrawer={(p) => setDrawerPresupuesto(p)}
+            onChangeEstado={handleChangeEstado}
+          />
         )}
 
         {tab === "kpis" && <KpiView user={user} />}
@@ -237,6 +245,26 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           user={user}
           onClose={() => setShowNew(false)}
           onCreated={() => load(currentFilters)}
+        />
+      )}
+      {editPresupuesto && (
+        <NewPresupuestoModal
+          user={user}
+          presupuesto={editPresupuesto}
+          onClose={() => setEditPresupuesto(null)}
+          onCreated={() => { load(currentFilters); setEditPresupuesto(null); }}
+        />
+      )}
+      {drawerPresupuesto && (
+        <PatientDrawer
+          presupuesto={drawerPresupuesto}
+          onClose={() => setDrawerPresupuesto(null)}
+          onChangeEstado={(id, estado) => {
+            handleChangeEstado(id, estado);
+            setDrawerPresupuesto((prev) =>
+              prev && prev.id === id ? { ...prev, estado } : prev
+            );
+          }}
         />
       )}
     </div>
