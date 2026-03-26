@@ -2,9 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Doctor, Presupuesto, UserSession } from "../../lib/presupuestos/types";
-import {
-  ESTADO_CONFIG, PIPELINE_ORDEN, ESPECIALIDAD_COLOR, ESTADOS_ACEPTADOS,
-} from "../../lib/presupuestos/colors";
+import { ESTADO_CONFIG, ESPECIALIDAD_COLOR, ESTADOS_ACEPTADOS } from "../../lib/presupuestos/colors";
 import PatientDrawer from "./PatientDrawer";
 
 type PeriodoFiltro = "all" | "month" | "prevMonth" | "3months";
@@ -43,7 +41,6 @@ export default function DoctorView({ user }: { user: UserSession }) {
   const [doctores, setDoctores] = useState<Doctor[]>([]);
   const [selectedDoctor, setSelectedDoctor] = useState<string>("");
   const [allPresupuestos, setAllPresupuestos] = useState<Presupuesto[]>([]);
-  const [loading, setLoading] = useState(false);
   const [periodo, setPeriodo] = useState<PeriodoFiltro>("all");
   const [page, setPage] = useState(0);
   const [drawerPresupuesto, setDrawerPresupuesto] = useState<Presupuesto | null>(null);
@@ -64,14 +61,12 @@ export default function DoctorView({ user }: { user: UserSession }) {
 
   useEffect(() => {
     if (!selectedDoctor) return;
-    setLoading(true);
     const url = new URL("/api/presupuestos/kanban", location.href);
     url.searchParams.set("doctor", selectedDoctor);
     fetch(url.toString())
       .then((r) => r.json())
       .then((d) => { setAllPresupuestos(d.presupuestos ?? []); setPage(0); })
-      .catch(() => setAllPresupuestos([]))
-      .finally(() => setLoading(false));
+      .catch(() => setAllPresupuestos([]));
   }, [selectedDoctor]);
 
   // Reset page when period changes
@@ -163,52 +158,6 @@ export default function DoctorView({ user }: { user: UserSession }) {
           </div>
         ))}
       </div>
-
-      {/* Mini Kanban */}
-      {loading ? (
-        <div className="h-40 rounded-2xl bg-slate-100 animate-pulse" />
-      ) : (
-        <div className="overflow-x-auto pb-2">
-          <div className="flex gap-3 min-w-max">
-            {PIPELINE_ORDEN.map((estado) => {
-              const cols = presupuestos.filter((p) => p.estado === estado);
-              const cfg = ESTADO_CONFIG[estado];
-              return (
-                <div key={estado} className="min-w-[140px]">
-                  <div
-                    className="rounded-xl px-2.5 py-1.5 mb-1.5"
-                    style={{ background: cfg.hex + "22", borderLeft: `3px solid ${cfg.hex}` }}
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold" style={{ color: cfg.hex }}>
-                        {cfg.label}
-                      </span>
-                      <span className="text-[10px] text-slate-500">{cols.length}</span>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    {cols.slice(0, 3).map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => setDrawerPresupuesto(p)}
-                        className="w-full text-left rounded-xl border border-slate-100 bg-white p-2 hover:border-violet-200 hover:bg-violet-50 transition-colors"
-                      >
-                        <p className="text-[10px] font-bold text-slate-800 truncate">{p.patientName}</p>
-                        {p.amount != null && (
-                          <p className="text-[10px] text-slate-500">€{p.amount.toLocaleString("es-ES")}</p>
-                        )}
-                      </button>
-                    ))}
-                    {cols.length > 3 && (
-                      <p className="text-[10px] text-slate-400 pl-2">+{cols.length - 3} más</p>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* Historial table */}
       <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">

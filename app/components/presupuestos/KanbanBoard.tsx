@@ -48,33 +48,49 @@ function CompactCard({
         isDragging ? "opacity-40 shadow-lg" : "hover:shadow-sm border-slate-200"
       }`}
     >
-      <div className="flex items-start gap-2">
+      {/* Name + urgency dot */}
+      <div className="flex items-start gap-1.5">
         <UrgencyDot score={p.urgencyScore} />
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold text-slate-900 truncate leading-tight">{p.patientName}</p>
-          <p className="text-[10px] text-slate-500 truncate mt-0.5">
-            {p.treatments[0]}{p.treatments.length > 1 ? ` +${p.treatments.length - 1}` : ""}
-          </p>
-        </div>
-        <div className="shrink-0 text-right">
-          {p.amount != null && (
-            <p className="text-[11px] font-extrabold text-slate-800">€{p.amount.toLocaleString("es-ES")}</p>
-          )}
-          <p className="text-[10px] text-slate-400">{p.daysSince}d</p>
-        </div>
+        <p className="text-xs font-bold text-slate-900 leading-tight flex-1 min-w-0 truncate">{p.patientName}</p>
       </div>
 
-      {/* Doctor badge */}
-      {p.doctorEspecialidad && (
-        <div className="mt-1.5">
-          <span
-            className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
-            style={{ background: ESPECIALIDAD_COLOR[p.doctorEspecialidad], color: "#1e293b" }}
-          >
-            {p.doctor ?? p.doctorEspecialidad}
+      {/* Treatments — all, no truncate */}
+      <div className="flex flex-wrap gap-1 mt-1.5">
+        {p.treatments.map((t, i) => (
+          <span key={i} className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 leading-tight">
+            {t}
           </span>
+        ))}
+      </div>
+
+      {/* Badges: tipo paciente + tipo visita */}
+      {(p.tipoPaciente || p.tipoVisita) && (
+        <div className="flex flex-wrap gap-1 mt-1">
+          {p.tipoPaciente && (
+            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
+              p.tipoPaciente === "Privado" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"
+            }`}>
+              {p.tipoPaciente}
+            </span>
+          )}
+          {p.tipoVisita && (
+            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+              {p.tipoVisita === "Primera Visita" ? "1ª Visita" : "Con Hist."}
+            </span>
+          )}
         </div>
       )}
+
+      {/* Bottom row: importe + fecha + días */}
+      <div className="flex items-center justify-between mt-1.5 gap-1">
+        <div className="flex items-center gap-2">
+          {p.amount != null && (
+            <span className="text-[11px] font-extrabold text-slate-800">€{p.amount.toLocaleString("es-ES")}</span>
+          )}
+          <span className="text-[9px] text-slate-400">{p.fechaPresupuesto.slice(0, 7)}</span>
+        </div>
+        <span className="text-[9px] text-slate-400 shrink-0">{p.daysSince}d</span>
+      </div>
 
       {/* Quick actions */}
       <div
@@ -178,7 +194,7 @@ function DroppableColumn({
         }`}
         style={{
           borderColor: cfg.hex + "33",
-          height: "calc(100vh - 240px)",
+          height: "calc(100vh - 180px)",
           minHeight: "200px",
         }}
       >

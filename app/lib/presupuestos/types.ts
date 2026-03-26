@@ -116,6 +116,18 @@ export type KpiComparacion = {
   diffPct: number;
 };
 
+export type KpiTendenciaTarifa = {
+  mes: string; label: string;
+  privado: number; privadoAcept: number;
+  adeslas: number; adeslasAcept: number;
+};
+
+export type KpiTendenciaVisita = {
+  mes: string; label: string;
+  primera: number; primeraAcept: number;
+  historia: number; historiaAcept: number;
+};
+
 export type KpiData = {
   resumen: KpiResumen;
   comparacion: {
@@ -126,7 +138,10 @@ export type KpiData = {
   porEstado: KpiPorEstado[];
   porDoctor: KpiPorDoctor[];
   porTratamiento: KpiPorTratamiento[];
-  porTipoPaciente: { tipo: string; total: number; aceptados: number; tasa: number }[];
-  porTipoVisita: { tipo: string; total: number; aceptados: number; tasa: number }[];
+  porTipoPaciente: { tipo: string; total: number; aceptados: number; tasa: number; importe: number }[];
+  porTipoVisita: { tipo: string; total: number; aceptados: number; tasa: number; importe: number }[];
   tendenciaMensual: KpiMensual[];
+  tendenciaPorTarifa: KpiTendenciaTarifa[];
+  tendenciaPorVisita: KpiTendenciaVisita[];
+  doctores: string[];
 };

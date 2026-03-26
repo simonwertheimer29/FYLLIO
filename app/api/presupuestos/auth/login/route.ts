@@ -11,7 +11,7 @@ const secret = new TextEncoder().encode(SECRET_RAW);
 // Demo fallback si la tabla no existe
 const DEMO_USERS: Array<UserSession & { password: string }> = [
   { email: "demo@fyllio.com",   password: "demo2024", nombre: "Admin Demo",    rol: "manager_general",   clinica: null },
-  { email: "ventas@demo.com",   password: "demo2024", nombre: "Ventas Demo",   rol: "encargada_ventas",  clinica: "Clínica 1" },
+  { email: "ventas@demo.com",   password: "demo2024", nombre: "Ventas Demo",   rol: "encargada_ventas",  clinica: "Clínica Salamanca" },
 ];
 
 async function findUser(email: string, password: string): Promise<UserSession | null> {

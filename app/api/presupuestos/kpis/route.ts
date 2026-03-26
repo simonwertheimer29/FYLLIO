@@ -3,16 +3,21 @@
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { base, TABLES } from "../../../lib/airtable";
+import { DateTime } from "luxon";
 import type {
   Presupuesto, UserSession, KpiData, KpiPorEstado, KpiPorDoctor,
   KpiPorTratamiento, KpiMensual, KpiComparacion,
+  KpiTendenciaTarifa, KpiTendenciaVisita,
 } from "../../../lib/presupuestos/types";
 import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
 import { PIPELINE_ORDEN, ESTADOS_ACEPTADOS } from "../../../lib/presupuestos/colors";
+import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 
 const COOKIE = "fyllio_presupuestos_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
 const secret = new TextEncoder().encode(SECRET_RAW);
+const ZONE = "Europe/Madrid";
 
 async function getSession(): Promise<UserSession | null> {
   try {
@@ -22,6 +27,12 @@ async function getSession(): Promise<UserSession | null> {
     const { payload } = await jwtVerify(token, secret);
     return payload as unknown as UserSession;
   } catch { return null; }
+}
+
+function daysSince(iso: string): number {
+  const today = DateTime.now().setZone(ZONE).startOf("day");
+  const d = DateTime.fromISO(iso).startOf("day");
+  return Math.round(today.diff(d, "days").days);
 }
 
 const MES_LABEL = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
@@ -58,6 +69,11 @@ function buildKpis(allPresupuestos: Presupuesto[]): KpiData {
 
   function countAcepted(list: Presupuesto[]) {
     return list.filter((p) => ESTADOS_ACEPTADOS.includes(p.estado)).length;
+  }
+
+  function sumImporte(list: Presupuesto[]) {
+    return list.filter((p) => ESTADOS_ACEPTADOS.includes(p.estado))
+      .reduce((s, p) => s + (p.amount ?? 0), 0);
   }
 
   function mkComparacion(curr: Presupuesto[], prev: Presupuesto[]): KpiComparacion {
@@ -126,26 +142,50 @@ function buildKpis(allPresupuestos: Presupuesto[]): KpiData {
       tasa: g.total > 0 ? Math.round((g.aceptados / g.total) * 100) : 0,
       importe: g.importe,
     }))
-    .sort((a, b) => b.tasa - a.tasa);
+    .sort((a, b) => b.total - a.total);
 
   const tipoFn = (tipo: string) => {
     const list = allPresupuestos.filter((p) => p.tipoPaciente === tipo);
     const ac = countAcepted(list);
-    return { tipo, total: list.length, aceptados: ac, tasa: list.length > 0 ? Math.round((ac / list.length) * 100) : 0 };
+    return { tipo, total: list.length, aceptados: ac, tasa: list.length > 0 ? Math.round((ac / list.length) * 100) : 0, importe: sumImporte(list) };
   };
   const visitaFn = (tipo: string) => {
     const list = allPresupuestos.filter((p) => p.tipoVisita === tipo);
     const ac = countAcepted(list);
-    return { tipo, total: list.length, aceptados: ac, tasa: list.length > 0 ? Math.round((ac / list.length) * 100) : 0 };
+    return { tipo, total: list.length, aceptados: ac, tasa: list.length > 0 ? Math.round((ac / list.length) * 100) : 0, importe: sumImporte(list) };
   };
 
+  // Tendencia mensual (12 meses)
   const tendenciaMensual: KpiMensual[] = [];
+  const tendenciaPorTarifa: KpiTendenciaTarifa[] = [];
+  const tendenciaPorVisita: KpiTendenciaVisita[] = [];
+
   for (let i = 11; i >= 0; i--) {
     const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    const label = MES_LABEL[d.getMonth()];
     const list = allPresupuestos.filter((p) => isoToYYYYMM(p.fechaPresupuesto) === mes);
-    tendenciaMensual.push({ mes, label: MES_LABEL[d.getMonth()], total: list.length, aceptados: countAcepted(list) });
+
+    tendenciaMensual.push({ mes, label, total: list.length, aceptados: countAcepted(list) });
+
+    const privados = list.filter((p) => p.tipoPaciente === "Privado");
+    const adeslas = list.filter((p) => p.tipoPaciente === "Adeslas");
+    tendenciaPorTarifa.push({
+      mes, label,
+      privado: privados.length, privadoAcept: countAcepted(privados),
+      adeslas: adeslas.length, adeslasAcept: countAcepted(adeslas),
+    });
+
+    const primera = list.filter((p) => p.tipoVisita === "Primera Visita");
+    const historia = list.filter((p) => p.tipoVisita === "Paciente con Historia");
+    tendenciaPorVisita.push({
+      mes, label,
+      primera: primera.length, primeraAcept: countAcepted(primera),
+      historia: historia.length, historiaAcept: countAcepted(historia),
+    });
   }
+
+  const doctores = porDoctor.map((d) => d.doctor);
 
   return {
     resumen: { total, primeraVisita, conHistoria, aceptados, tasaAceptacion, importeActivos },
@@ -156,7 +196,66 @@ function buildKpis(allPresupuestos: Presupuesto[]): KpiData {
     porTipoPaciente: ["Privado", "Adeslas"].map(tipoFn),
     porTipoVisita: ["Primera Visita", "Paciente con Historia"].map(visitaFn),
     tendenciaMensual,
+    tendenciaPorTarifa,
+    tendenciaPorVisita,
+    doctores,
   };
+}
+
+async function fetchFromAirtable(session: UserSession, clinica: string | null, doctor: string | null): Promise<Presupuesto[] | null> {
+  try {
+    const filters: string[] = [];
+    if (clinica) filters.push(`{Clinica}='${clinica}'`);
+    if (doctor) filters.push(`{Doctor}='${doctor}'`);
+    const filterByFormula = filters.length === 1 ? filters[0] : filters.length > 1 ? `AND(${filters.join(",")})` : "";
+
+    const selectOpts: Record<string, unknown> = {
+      fields: [
+        "Paciente_Nombre", "Paciente_Telefono", "Tratamiento_nombres",
+        "Doctor", "Doctor_Especialidad", "TipoPaciente", "TipoVisita",
+        "Importe", "Estado", "Fecha", "FechaAlta", "Clinica", "Notas",
+        "UltimoContacto", "ContactCount",
+      ],
+      sort: [{ field: "Fecha", direction: "desc" }],
+      maxRecords: 2000,
+    };
+    if (filterByFormula) selectOpts.filterByFormula = filterByFormula;
+
+    const recs = await base(TABLES.presupuestos as any).select(selectOpts).all();
+    if (recs.length === 0) return null;
+
+    const today = DateTime.now().setZone(ZONE).toISODate()!;
+    return recs.map((r) => {
+      const f = r.fields as any;
+      const fechaPresupuesto = String(f["Fecha"] ?? "").slice(0, 10) || today;
+      const lastContactDate = f["UltimoContacto"] ? String(f["UltimoContacto"]).slice(0, 10) : undefined;
+      const p: Presupuesto = {
+        id: r.id,
+        patientName: String(f["Paciente_Nombre"] ?? "Paciente"),
+        patientPhone: f["Paciente_Telefono"] ? String(f["Paciente_Telefono"]) : undefined,
+        treatments: f["Tratamiento_nombres"] ? String(f["Tratamiento_nombres"]).split(",").map((t: string) => t.trim()) : [],
+        doctor: f["Doctor"] ? String(f["Doctor"]) : undefined,
+        doctorEspecialidad: f["Doctor_Especialidad"] ?? undefined,
+        tipoPaciente: f["TipoPaciente"] ?? undefined,
+        tipoVisita: f["TipoVisita"] ?? undefined,
+        amount: f["Importe"] ? Number(f["Importe"]) : undefined,
+        estado: f["Estado"] ?? "INTERESADO",
+        fechaPresupuesto,
+        fechaAlta: String(f["FechaAlta"] ?? fechaPresupuesto).slice(0, 10),
+        daysSince: daysSince(fechaPresupuesto),
+        clinica: f["Clinica"] ? String(f["Clinica"]) : undefined,
+        notes: f["Notas"] ? String(f["Notas"]) : undefined,
+        urgencyScore: 0,
+        lastContactDate,
+        lastContactDaysAgo: lastContactDate ? daysSince(lastContactDate) : undefined,
+        contactCount: Number(f["ContactCount"] ?? 0),
+      };
+      p.urgencyScore = computeUrgencyScore(p);
+      return p;
+    });
+  } catch {
+    return null;
+  }
 }
 
 export async function GET(req: Request) {
@@ -168,13 +267,23 @@ export async function GET(req: Request) {
     session.rol === "encargada_ventas" && session.clinica
       ? session.clinica
       : url.searchParams.get("clinica") ?? null;
+  const doctor = url.searchParams.get("doctor") ?? null;
 
-  let data = DEMO_PRESUPUESTOS;
-  if (clinica) data = data.filter((p) => p.clinica === clinica);
+  // Try Airtable first
+  const airtableData = await fetchFromAirtable(session, clinica, doctor);
+  let data: Presupuesto[];
+  let isDemo = false;
 
-  const doctor = url.searchParams.get("doctor");
-  if (doctor) data = data.filter((p) => p.doctor === doctor);
+  if (airtableData) {
+    data = airtableData;
+  } else {
+    // Fall back to demo
+    isDemo = true;
+    data = [...DEMO_PRESUPUESTOS];
+    if (clinica) data = data.filter((p) => p.clinica === clinica);
+    if (doctor) data = data.filter((p) => p.doctor === doctor);
+  }
 
   const kpis = buildKpis(data);
-  return NextResponse.json({ kpis, isDemo: true });
+  return NextResponse.json({ kpis, isDemo });
 }

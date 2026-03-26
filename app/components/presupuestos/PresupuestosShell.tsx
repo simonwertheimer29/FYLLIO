@@ -2,7 +2,6 @@
 
 import { useState, useCallback, useEffect } from "react";
 import type { Presupuesto, PresupuestoEstado, UserSession } from "../../lib/presupuestos/types";
-import { ESTADOS_ACEPTADOS } from "../../lib/presupuestos/colors";
 import KanbanBoard from "./KanbanBoard";
 import FiltersBar, { type Filters } from "./FiltersBar";
 import ContactHistoryModal from "./ContactHistoryModal";
@@ -94,17 +93,6 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     location.href = "/presupuestos/login";
   }
 
-  // Header stats
-  const activos = presupuestos.filter(
-    (p) => !ESTADOS_ACEPTADOS.includes(p.estado) && p.estado !== "PERDIDO"
-  );
-  const totalPipeline = activos.reduce((s, p) => s + (p.amount ?? 0), 0);
-  const urgentes = activos.filter((p) => p.daysSince >= 14).length;
-  const aceptados = presupuestos.filter((p) => ESTADOS_ACEPTADOS.includes(p.estado));
-  const tasa = presupuestos.length > 0
-    ? Math.round((aceptados.length / presupuestos.length) * 100)
-    : 0;
-
   const TABS: { id: Tab; label: string }[] = [
     { id: "kanban", label: "Panel" },
     { id: "tareas", label: "Tareas" },
@@ -126,22 +114,6 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           <div>
             <p className="text-xs font-bold text-slate-900 leading-tight">Presupuestos</p>
             <p className="text-[10px] text-slate-400">{user.clinica ?? "Todas las clínicas"}</p>
-          </div>
-        </div>
-
-        {/* Stats strip */}
-        <div className="hidden sm:flex items-center gap-4">
-          <div className="text-center">
-            <p className="text-xs font-extrabold text-slate-900">€{totalPipeline.toLocaleString("es-ES")}</p>
-            <p className="text-[9px] text-slate-400">Activos</p>
-          </div>
-          <div className="text-center">
-            <p className="text-xs font-extrabold text-slate-900">{urgentes}</p>
-            <p className="text-[9px] text-slate-400">Urgentes</p>
-          </div>
-          <div className="text-center">
-            <p className="text-xs font-extrabold text-slate-900">{tasa}%</p>
-            <p className="text-[9px] text-slate-400">Conversión</p>
           </div>
         </div>
 
@@ -222,6 +194,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
 
         {tab === "tareas" && (
           <TareasView
+            user={user}
             presupuestos={presupuestos}
             onOpenDrawer={(p) => setDrawerPresupuesto(p)}
             onChangeEstado={handleChangeEstado}

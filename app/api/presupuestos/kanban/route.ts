@@ -150,12 +150,32 @@ function buildDemoResponse(
 ): Response {
   let data = [...DEMO_PRESUPUESTOS];
 
+  // Clinica filter (role-based or param)
   if (session.rol === "encargada_ventas" && session.clinica) {
     data = data.filter((p) => p.clinica === session.clinica);
   } else if (q.get("clinica")) {
     data = data.filter((p) => p.clinica === q.get("clinica"));
   }
 
+  // Doctor filter
+  const doctor = q.get("doctor");
+  if (doctor) data = data.filter((p) => p.doctor === doctor);
+
+  // TipoPaciente filter
+  const tipoPaciente = q.get("tipoPaciente");
+  if (tipoPaciente) data = data.filter((p) => p.tipoPaciente === tipoPaciente);
+
+  // TipoVisita filter
+  const tipoVisita = q.get("tipoVisita");
+  if (tipoVisita) data = data.filter((p) => p.tipoVisita === tipoVisita);
+
+  // Date range filters
+  const fechaDesde = q.get("fechaDesde");
+  if (fechaDesde) data = data.filter((p) => p.fechaPresupuesto >= fechaDesde);
+  const fechaHasta = q.get("fechaHasta");
+  if (fechaHasta) data = data.filter((p) => p.fechaPresupuesto <= fechaHasta);
+
+  // Text search
   const search = q.get("q")?.toLowerCase() ?? "";
   if (search) {
     data = data.filter(

@@ -23,6 +23,74 @@ const EMPTY_FILTERS: Filters = {
   q: "",
 };
 
+// ─── Period preset selector ────────────────────────────────────────────────────
+
+type Preset = "todo" | "mes" | "3m" | "6m" | "anio";
+const PRESET_LABELS: Record<Preset, string> = {
+  todo: "Todo",
+  mes: "Este mes",
+  "3m": "3 meses",
+  "6m": "6 meses",
+  anio: "Este año",
+};
+
+function computePresetDates(p: Preset): { desde: string; hasta: string } {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const today = fmt(now);
+  if (p === "todo") return { desde: "", hasta: "" };
+  if (p === "mes") {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { desde: fmt(start), hasta: today };
+  }
+  if (p === "3m") {
+    const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+    return { desde: fmt(start), hasta: today };
+  }
+  if (p === "6m") {
+    const start = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    return { desde: fmt(start), hasta: today };
+  }
+  // anio
+  return { desde: `${now.getFullYear()}-01-01`, hasta: today };
+}
+
+function detectPreset(desde: string, hasta: string): Preset | null {
+  if (!desde && !hasta) return "todo";
+  return null; // custom range — no preset selected
+}
+
+function PeriodPreset({
+  fechaDesde, fechaHasta, onChange,
+}: {
+  fechaDesde: string;
+  fechaHasta: string;
+  onChange: (desde: string, hasta: string) => void;
+}) {
+  const active = detectPreset(fechaDesde, fechaHasta);
+  return (
+    <div className="flex rounded-xl overflow-hidden border border-slate-200 text-[11px]">
+      {(["todo", "mes", "3m", "6m", "anio"] as Preset[]).map((p) => (
+        <button
+          key={p}
+          onClick={() => {
+            const { desde, hasta } = computePresetDates(p);
+            onChange(desde, hasta);
+          }}
+          className={`px-2.5 py-1.5 font-medium transition-colors whitespace-nowrap ${
+            active === p
+              ? "bg-violet-600 text-white"
+              : "bg-white text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          {PRESET_LABELS[p]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export default function FiltersBar({
   user,
   onFiltersChange,
@@ -159,22 +227,17 @@ export default function FiltersBar({
           <option value="Paciente con Historia">Con Historia</option>
         </select>
 
-        {/* Fechas */}
-        <div className="flex items-center gap-1">
-          <input
-            type="date"
-            value={filters.fechaDesde}
-            onChange={(e) => updateImmediate("fechaDesde", e.target.value)}
-            className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
-          />
-          <span className="text-xs text-slate-400">–</span>
-          <input
-            type="date"
-            value={filters.fechaHasta}
-            onChange={(e) => updateImmediate("fechaHasta", e.target.value)}
-            className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
-          />
-        </div>
+        {/* Período */}
+        <PeriodPreset
+          fechaDesde={filters.fechaDesde}
+          fechaHasta={filters.fechaHasta}
+          onChange={(desde, hasta) => {
+            const next = { ...filtersRef.current, fechaDesde: desde, fechaHasta: hasta };
+            setFilters(next);
+            filtersRef.current = next;
+            onFiltersChange(next);
+          }}
+        />
 
         {hasActiveFilters && (
           <button

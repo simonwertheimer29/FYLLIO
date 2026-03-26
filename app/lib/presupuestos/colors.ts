@@ -10,7 +10,7 @@ export const ESTADO_CONFIG: Record<
   EN_DUDA:       { label: "En Duda",        hex: "#f59e0b", textColor: "#fff",    order: 2, accionable: true,  hint: "Resolver objeciones" },
   EN_NEGOCIACION:{ label: "En Negociación", hex: "#f97316", textColor: "#fff",    order: 3, accionable: true,  hint: "Negociar precio/condiciones" },
   ACEPTADO:      { label: "Aceptado",       hex: "#22c55e", textColor: "#fff",    order: 4, accionable: false, hint: "Presupuesto aceptado" },
-  PERDIDO:       { label: "Perdido",        hex: "#64748b", textColor: "#fff",    order: 5, accionable: false, hint: "No procede" },
+  PERDIDO:       { label: "Perdido",        hex: "#ef4444", textColor: "#fff",    order: 5, accionable: false, hint: "No procede" },
 } as const;
 
 export const PIPELINE_ORDEN: PresupuestoEstado[] = [
