@@ -5,21 +5,27 @@ import type { Doctor, Presupuesto, UserSession } from "../../lib/presupuestos/ty
 import { ESTADO_CONFIG, ESPECIALIDAD_COLOR, ESTADOS_ACEPTADOS } from "../../lib/presupuestos/colors";
 import PatientDrawer from "./PatientDrawer";
 
-type PeriodoFiltro = "all" | "month" | "prevMonth" | "3months";
+type PeriodoFiltro = "all" | "month" | "prevMonth" | "3months" | "custom";
 
 const PERIODO_LABEL: Record<PeriodoFiltro, string> = {
   all: "Todo",
   month: "Este mes",
   prevMonth: "Mes anterior",
-  "3months": "Últimos 3 meses",
+  "3months": "3 meses",
+  custom: "Personalizado",
 };
 
 function isoToYYYYMM(iso: string) {
   return iso.slice(0, 7);
 }
 
-function filterByPeriod(p: Presupuesto, periodo: PeriodoFiltro): boolean {
+function filterByPeriod(p: Presupuesto, periodo: PeriodoFiltro, customDesde?: string, customHasta?: string): boolean {
   if (periodo === "all") return true;
+  if (periodo === "custom") {
+    if (customDesde && p.fechaPresupuesto < customDesde) return false;
+    if (customHasta && p.fechaPresupuesto > customHasta) return false;
+    return true;
+  }
   const now = new Date();
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -29,8 +35,7 @@ function filterByPeriod(p: Presupuesto, periodo: PeriodoFiltro): boolean {
   if (periodo === "prevMonth") return m === prevMonth;
   if (periodo === "3months") {
     const cutoff = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-    const pDate = new Date(p.fechaPresupuesto);
-    return pDate >= cutoff;
+    return new Date(p.fechaPresupuesto) >= cutoff;
   }
   return true;
 }
@@ -42,6 +47,8 @@ export default function DoctorView({ user }: { user: UserSession }) {
   const [selectedDoctor, setSelectedDoctor] = useState<string>("");
   const [allPresupuestos, setAllPresupuestos] = useState<Presupuesto[]>([]);
   const [periodo, setPeriodo] = useState<PeriodoFiltro>("all");
+  const [customDesde, setCustomDesde] = useState("");
+  const [customHasta, setCustomHasta] = useState("");
   const [page, setPage] = useState(0);
   const [drawerPresupuesto, setDrawerPresupuesto] = useState<Presupuesto | null>(null);
 
@@ -73,7 +80,7 @@ export default function DoctorView({ user }: { user: UserSession }) {
   useEffect(() => { setPage(0); }, [periodo]);
 
   const doctor = doctores.find((d) => d.nombre === selectedDoctor);
-  const presupuestos = allPresupuestos.filter((p) => filterByPeriod(p, periodo));
+  const presupuestos = allPresupuestos.filter((p) => filterByPeriod(p, periodo, customDesde, customHasta));
 
   const aceptados = presupuestos.filter((p) => ESTADOS_ACEPTADOS.includes(p.estado));
   const tasa = presupuestos.length > 0
@@ -126,20 +133,39 @@ export default function DoctorView({ user }: { user: UserSession }) {
         <div className="flex-1" />
 
         {/* Period filter */}
-        <div className="flex rounded-xl overflow-hidden border border-slate-200 text-xs">
-          {(["all", "month", "prevMonth", "3months"] as PeriodoFiltro[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriodo(p)}
-              className={`px-2.5 py-1.5 font-medium transition-colors ${
-                periodo === p
-                  ? "bg-violet-600 text-white"
-                  : "bg-white text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              {PERIODO_LABEL[p]}
-            </button>
-          ))}
+        <div className="flex flex-col items-end gap-1.5">
+          <div className="flex rounded-xl overflow-hidden border border-slate-200 text-xs">
+            {(["all", "month", "prevMonth", "3months", "custom"] as PeriodoFiltro[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriodo(p)}
+                className={`px-2.5 py-1.5 font-medium transition-colors whitespace-nowrap ${
+                  periodo === p
+                    ? "bg-violet-600 text-white"
+                    : "bg-white text-slate-600 hover:bg-slate-50"
+                } ${p !== "all" ? "border-l border-slate-200 first:border-0" : ""}`}
+              >
+                {PERIODO_LABEL[p]}
+              </button>
+            ))}
+          </div>
+          {periodo === "custom" && (
+            <div className="flex items-center gap-1.5">
+              <input
+                type="date"
+                value={customDesde}
+                onChange={(e) => { setCustomDesde(e.target.value); setPage(0); }}
+                className="rounded-xl border border-violet-300 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
+              />
+              <span className="text-xs text-slate-400">–</span>
+              <input
+                type="date"
+                value={customHasta}
+                onChange={(e) => { setCustomHasta(e.target.value); setPage(0); }}
+                className="rounded-xl border border-violet-300 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
+              />
+            </div>
+          )}
         </div>
       </div>
 

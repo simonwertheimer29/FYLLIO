@@ -269,6 +269,16 @@ export async function GET(req: Request) {
       : url.searchParams.get("clinica") ?? null;
   const doctor = url.searchParams.get("doctor") ?? null;
 
+  // Selected month (default: current month)
+  const now = new Date();
+  const defaultMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const mesFiltro = url.searchParams.get("mes") ?? defaultMes;
+
+  // Compute previous month
+  const [mesY, mesM] = mesFiltro.split("-").map(Number);
+  const prevDate = new Date(mesY, mesM - 2, 1);
+  const mesPrevio = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+
   // Try Airtable first
   const airtableData = await fetchFromAirtable(session, clinica, doctor);
   let data: Presupuesto[];
@@ -277,13 +287,18 @@ export async function GET(req: Request) {
   if (airtableData) {
     data = airtableData;
   } else {
-    // Fall back to demo
     isDemo = true;
     data = [...DEMO_PRESUPUESTOS];
     if (clinica) data = data.filter((p) => p.clinica === clinica);
     if (doctor) data = data.filter((p) => p.doctor === doctor);
   }
 
+  const dataMes = data.filter((p) => isoToYYYYMM(p.fechaPresupuesto) === mesFiltro);
+  const dataPrevMes = data.filter((p) => isoToYYYYMM(p.fechaPresupuesto) === mesPrevio);
+
   const kpis = buildKpis(data);
-  return NextResponse.json({ kpis, isDemo });
+  const kpisMes = buildKpis(dataMes);
+  const kpisPrevMes = buildKpis(dataPrevMes);
+
+  return NextResponse.json({ kpis, kpisMes, kpisPrevMes, isDemo, mes: mesFiltro });
 }

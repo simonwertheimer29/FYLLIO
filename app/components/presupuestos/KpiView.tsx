@@ -8,72 +8,56 @@ import {
 import type { KpiData, UserSession } from "../../lib/presupuestos/types";
 import { ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
 
-type SubTab = "general" | "tarifas" | "visita" | "tratamientos" | "doctores";
+type SubTab = "general" | "tarifas" | "paciente" | "tratamientos" | "doctores";
 
 const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: "general", label: "General" },
   { id: "tarifas", label: "Tarifas" },
-  { id: "visita", label: "Tipo Visita" },
+  { id: "paciente", label: "Tipo Paciente" },
   { id: "tratamientos", label: "Tratamientos" },
   { id: "doctores", label: "Doctores" },
 ];
 
-// ─── Shared small components ──────────────────────────────────────────────────
+const MES_LABEL = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
-function HeaderBlock({ title, main, sub1, sub2 }: { title: string; main: string; sub1?: string; sub2?: string }) {
+function formatMesLabel(yyyymm: string): string {
+  const [y, m] = yyyymm.split("-").map(Number);
+  return `${MES_LABEL[m - 1]} ${y}`;
+}
+
+function getLast12Months(): { mes: string; label: string }[] {
+  const now = new Date();
+  return Array.from({ length: 12 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    return { mes, label: formatMesLabel(mes) };
+  });
+}
+
+// ─── Shared components ────────────────────────────────────────────────────────
+
+function HeaderBlock({ title, main, sub1, sub2, highlight }: {
+  title: string; main: string; sub1?: string; sub2?: string; highlight?: boolean;
+}) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5">
+    <div className={`rounded-2xl border p-5 ${highlight ? "border-violet-200 bg-violet-50" : "border-slate-200 bg-white"}`}>
       <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">{title}</p>
-      <p className="text-3xl font-extrabold text-slate-900 leading-tight">{main}</p>
+      <p className={`text-3xl font-extrabold leading-tight ${highlight ? "text-violet-800" : "text-slate-900"}`}>{main}</p>
       {sub1 && <p className="text-xs text-slate-500 mt-1.5">{sub1}</p>}
       {sub2 && <p className="text-xs text-slate-500 mt-0.5">{sub2}</p>}
     </div>
   );
 }
 
-function ComparacionCard({ label, actual, anterior, diffPct }: { label: string; actual: number; anterior: number; diff: number; diffPct: number }) {
-  const up = diffPct >= 0;
+function TrendBadge({ curr, prev, unit = "" }: { curr: number; prev: number; unit?: string }) {
+  if (prev === 0 && curr === 0) return <span className="text-xs text-slate-400">—</span>;
+  const diff = curr - prev;
+  const pct = prev > 0 ? Math.round((diff / prev) * 100) : 0;
+  const up = diff >= 0;
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 flex items-center justify-between gap-3">
-      <div>
-        <p className="text-[11px] font-medium text-slate-500 mb-0.5">{label}</p>
-        <p className="text-xl font-extrabold text-slate-900">{actual}</p>
-        <p className="text-[10px] text-slate-400">anterior: {anterior}</p>
-      </div>
-      <div className={`text-sm font-bold px-2.5 py-1 rounded-xl shrink-0 ${
-        actual === 0 && anterior === 0 ? "text-slate-400 bg-slate-50" : up ? "text-emerald-700 bg-emerald-50" : "text-rose-700 bg-rose-50"
-      }`}>
-        {actual === 0 && anterior === 0 ? "—" : `${up ? "↑" : "↓"} ${Math.abs(diffPct)}%`}
-      </div>
-    </div>
-  );
-}
-
-function SimpleTable({ title, cols, rows }: {
-  title: string;
-  cols: string[];
-  rows: (string | number)[][];
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-      <p className="px-4 py-3 text-xs font-bold text-slate-700 border-b border-slate-100 uppercase tracking-wide">{title}</p>
-      <table className="w-full text-xs">
-        <thead>
-          <tr className="border-b border-slate-100">
-            {cols.map((c) => <th key={c} className="px-3 py-2 text-left font-semibold text-slate-400 whitespace-nowrap">{c}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
-              {row.map((cell, j) => (
-                <td key={j} className={`px-3 py-2.5 ${j === 0 ? "font-medium text-slate-800" : "text-slate-600"}`}>{cell}</td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${up ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"}`}>
+      {up ? "↑" : "↓"} {Math.abs(diff)}{unit} ({Math.abs(pct)}%)
+    </span>
   );
 }
 
@@ -84,27 +68,71 @@ const TOOLTIP_STYLE = {
 
 // ─── Tab: General ─────────────────────────────────────────────────────────────
 
-function TabGeneral({ kpis }: { kpis: KpiData }) {
-  const { resumen, comparacion, tendenciaMensual } = kpis;
+function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
+  kpisMes: KpiData; kpisPrevMes: KpiData; kpis: KpiData; mesLabel: string;
+}) {
+  const { resumen } = kpisMes;
+  const prevRes = kpisPrevMes.resumen;
+  const ytd = kpis.comparacion.anio.actual;
+  const ytdPrev = kpis.comparacion.anio.anterior;
+
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <HeaderBlock title="Presupuestos ofrecidos" main={String(resumen.total)}
-          sub1={`1ª Visita: ${resumen.primeraVisita}`} sub2={`Con Historia: ${resumen.conHistoria}`} />
-        <HeaderBlock title="Tasa de aceptación" main={`${resumen.tasaAceptacion}%`}
-          sub1={`${resumen.aceptados} aceptados de ${resumen.total}`} />
-        <HeaderBlock title="Pipeline activo" main={`€${resumen.importeActivos.toLocaleString("es-ES")}`}
-          sub1="Interesado + En Duda + En Negociación" />
+      {/* Header blocks — datos del mes seleccionado */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        <HeaderBlock
+          title={`Presupuestos ${mesLabel}`}
+          main={String(resumen.total)}
+          sub1={`1ª Visita: ${resumen.primeraVisita} · Con Historia: ${resumen.conHistoria}`}
+          sub2={resumen.total === 0 ? "Sin presupuestos este mes" : undefined}
+        />
+        <HeaderBlock
+          title="Aceptados"
+          main={String(resumen.aceptados)}
+          sub1={`${resumen.tasaAceptacion}% de conversión`}
+          sub2={`vs mes anterior: ${prevRes.aceptados}`}
+        />
+        <HeaderBlock
+          title="Presupuestos activos"
+          main={`€${resumen.importeActivos.toLocaleString("es-ES")}`}
+          sub1="En Interesado + En Duda + En Negociación"
+        />
+        <HeaderBlock
+          title={`Este año (${new Date().getFullYear()})`}
+          main={String(ytd)}
+          highlight
+          sub1={`${kpis.comparacion.anio.actual} presupuestos YTD`}
+          sub2={ytdPrev > 0 ? `vs año anterior: ${ytdPrev}` : undefined}
+        />
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <ComparacionCard label="Este mes vs mes anterior" {...comparacion.mesActual} />
-        <ComparacionCard label="Este trimestre vs anterior" {...comparacion.trimestre} />
-        <ComparacionCard label="Este año vs año anterior" {...comparacion.anio} />
+
+      {/* Comparación vs mes anterior */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+        <p className="text-xs font-bold text-slate-700 mb-3">
+          {mesLabel} vs mes anterior
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          {[
+            { label: "Presupuestos", curr: resumen.total, prev: prevRes.total },
+            { label: "Aceptados", curr: resumen.aceptados, prev: prevRes.aceptados },
+            { label: "Tasa %", curr: resumen.tasaAceptacion, prev: prevRes.tasaAceptacion, unit: "%" },
+            { label: "En juego €", curr: resumen.importeActivos, prev: prevRes.importeActivos, unit: "€" },
+          ].map(({ label, curr, prev, unit }) => (
+            <div key={label}>
+              <p className="text-[10px] text-slate-500 font-medium mb-1">{label}</p>
+              <p className="text-lg font-extrabold text-slate-900">{unit === "€" ? `€${curr.toLocaleString("es-ES")}` : `${curr}${unit ?? ""}`}</p>
+              <TrendBadge curr={curr} prev={prev} unit={unit === "€" ? "" : (unit ?? "")} />
+            </div>
+          ))}
+        </div>
       </div>
+
+      {/* AreaChart — evolución 12 meses */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
-        <p className="text-sm font-bold text-slate-900 mb-4">Evolución mensual (12 meses)</p>
+        <p className="text-sm font-bold text-slate-900 mb-1">Evolución mensual (12 meses)</p>
+        <p className="text-xs text-slate-400 mb-4">Azul = presupuestos ofrecidos · Verde = aceptados</p>
         <ResponsiveContainer width="100%" height={220}>
-          <AreaChart data={tendenciaMensual} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+          <AreaChart data={kpis.tendenciaMensual} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.18} />
@@ -118,7 +146,7 @@ function TabGeneral({ kpis }: { kpis: KpiData }) {
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
-            <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ fontWeight: 700, color: "#0f172a" }} />
+            <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ fontWeight: 700 }} />
             <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
             <Area type="monotone" dataKey="total" name="Ofrecidos" stroke="#3b82f6" strokeWidth={2} fill="url(#g1)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
             <Area type="monotone" dataKey="aceptados" name="Aceptados" stroke="#22c55e" strokeWidth={2} fill="url(#g2)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
@@ -131,145 +159,369 @@ function TabGeneral({ kpis }: { kpis: KpiData }) {
 
 // ─── Tab: Tarifas ─────────────────────────────────────────────────────────────
 
-function TabTarifas({ kpis }: { kpis: KpiData }) {
-  const { porTipoPaciente, tendenciaPorTarifa } = kpis;
-  const privado = porTipoPaciente.find((t) => t.tipo === "Privado");
-  const adeslas = porTipoPaciente.find((t) => t.tipo === "Adeslas");
+function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
+  kpisMes: KpiData; kpisPrevMes: KpiData; kpis: KpiData; mesLabel: string;
+}) {
+  const privadoMes = kpisMes.porTipoPaciente.find((t) => t.tipo === "Privado");
+  const adeslasMes = kpisMes.porTipoPaciente.find((t) => t.tipo === "Adeslas");
+  const privadoPrev = kpisPrevMes.porTipoPaciente.find((t) => t.tipo === "Privado");
+  const adeslasPrev = kpisPrevMes.porTipoPaciente.find((t) => t.tipo === "Adeslas");
 
   return (
     <div className="space-y-5">
+      {/* Bloques del mes */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {[privado, adeslas].filter(Boolean).map((t) => t && (
-          <div key={t.tipo} className="rounded-2xl border border-slate-200 bg-white p-5">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">{t.tipo}</p>
-            <p className="text-3xl font-extrabold text-slate-900">{t.total}</p>
-            <p className="text-xs text-slate-500 mt-1">{t.aceptados} aceptados — {t.tasa}% conversión</p>
-            {t.importe > 0 && <p className="text-xs font-semibold text-emerald-700 mt-0.5">€{t.importe.toLocaleString("es-ES")} aceptado</p>}
+        {[
+          { tipo: "Privado", mes: privadoMes, prev: privadoPrev, color: "bg-blue-50 border-blue-200" },
+          { tipo: "Adeslas", mes: adeslasMes, prev: adeslasPrev, color: "bg-orange-50 border-orange-200" },
+        ].map(({ tipo, mes, prev, color }) => (
+          <div key={tipo} className={`rounded-2xl border p-5 ${color}`}>
+            <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-2">{tipo} — {mesLabel}</p>
+            <p className="text-3xl font-extrabold text-slate-900">{mes?.total ?? 0}</p>
+            <p className="text-xs text-slate-600 mt-1">
+              {mes?.aceptados ?? 0} aceptados · {mes?.tasa ?? 0}% conversión
+            </p>
+            {(mes?.importe ?? 0) > 0 && (
+              <p className="text-xs font-semibold text-emerald-700 mt-0.5">€{(mes?.importe ?? 0).toLocaleString("es-ES")} aceptado</p>
+            )}
+            <div className="mt-2">
+              <TrendBadge curr={mes?.total ?? 0} prev={prev?.total ?? 0} />
+            </div>
           </div>
         ))}
       </div>
+
+      {/* Evolución 12 meses — 4 barras: ofrecido/aceptado por tarifa */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
-        <p className="text-sm font-bold text-slate-900 mb-4">Ofrecidos vs Aceptados por tarifa (12 meses)</p>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={tendenciaPorTarifa} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+        <p className="text-sm font-bold text-slate-900 mb-1">Evolución mensual por tarifa (12 meses)</p>
+        <p className="text-xs text-slate-400 mb-4">Barras claras = ofrecidos · Barras oscuras = aceptados</p>
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={kpis.tendenciaPorTarifa} margin={{ top: 4, right: 8, left: -20, bottom: 0 }} barGap={1} barCategoryGap="25%">
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
             <Tooltip contentStyle={TOOLTIP_STYLE} />
             <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
-            <Bar dataKey="privado" name="Privado" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="adeslas" name="Adeslas" fill="#f97316" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="privado" name="Privado ofrecido" fill="#93c5fd" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="privadoAcept" name="Privado aceptado" fill="#2563eb" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="adeslas" name="Adeslas ofrecido" fill="#fed7aa" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="adeslasAcept" name="Adeslas aceptado" fill="#ea580c" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <SimpleTable
-        title="Resumen por tarifa"
-        cols={["Tarifa", "Total", "Aceptados", "Tasa", "€ Aceptado"]}
-        rows={porTipoPaciente.map((t) => [t.tipo, t.total, t.aceptados, `${t.tasa}%`, `€${t.importe.toLocaleString("es-ES")}`])}
-      />
+
+      {/* Tabla resumen — todos los meses */}
+      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        <p className="px-4 py-3 text-xs font-bold text-slate-700 border-b border-slate-100 uppercase tracking-wide">Resumen por tarifa — {mesLabel}</p>
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-slate-100">
+              {["Tarifa", "Ofrecidos", "Aceptados", "Tasa conv.", "€ Aceptado", "vs mes ant."].map((h) => (
+                <th key={h} className="px-4 py-2.5 text-left font-semibold text-slate-400 whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {kpisMes.porTipoPaciente.map((t) => {
+              const p = kpisPrevMes.porTipoPaciente.find((x) => x.tipo === t.tipo);
+              return (
+                <tr key={t.tipo} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                  <td className="px-4 py-3 font-semibold text-slate-800">{t.tipo}</td>
+                  <td className="px-4 py-3 text-slate-700">{t.total}</td>
+                  <td className="px-4 py-3 font-semibold text-emerald-700">{t.aceptados}</td>
+                  <td className="px-4 py-3 font-bold text-slate-900">{t.tasa}%</td>
+                  <td className="px-4 py-3 text-slate-700">€{t.importe.toLocaleString("es-ES")}</td>
+                  <td className="px-4 py-3"><TrendBadge curr={t.total} prev={p?.total ?? 0} /></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
-// ─── Tab: Tipo Visita ─────────────────────────────────────────────────────────
+// ─── Tab: Tipo Paciente ───────────────────────────────────────────────────────
 
-function TabVisita({ kpis }: { kpis: KpiData }) {
-  const { porTipoVisita, tendenciaPorVisita } = kpis;
+function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
+  kpisMes: KpiData; kpisPrevMes: KpiData; kpis: KpiData; mesLabel: string;
+}) {
+  const tipoLabel = (t: string) => t === "Primera Visita" ? "1ª Visita (Nuevo)" : "Con Historia (Recurrente)";
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {porTipoVisita.map((t) => (
-          <div key={t.tipo} className="rounded-2xl border border-slate-200 bg-white p-5">
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">
-              {t.tipo === "Primera Visita" ? "1ª Visita" : "Con Historia"}
-            </p>
-            <p className="text-3xl font-extrabold text-slate-900">{t.total}</p>
-            <p className="text-xs text-slate-500 mt-1">{t.aceptados} aceptados — {t.tasa}% conversión</p>
-            {t.importe > 0 && <p className="text-xs font-semibold text-emerald-700 mt-0.5">€{t.importe.toLocaleString("es-ES")} aceptado</p>}
-          </div>
-        ))}
+        {kpisMes.porTipoVisita.map((t) => {
+          const prev = kpisPrevMes.porTipoVisita.find((x) => x.tipo === t.tipo);
+          return (
+            <div key={t.tipo} className="rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">{tipoLabel(t.tipo)} — {mesLabel}</p>
+              <p className="text-3xl font-extrabold text-slate-900">{t.total}</p>
+              <p className="text-xs text-slate-500 mt-1">{t.aceptados} aceptados · {t.tasa}% conversión</p>
+              {t.importe > 0 && <p className="text-xs font-semibold text-emerald-700 mt-0.5">€{t.importe.toLocaleString("es-ES")} aceptado</p>}
+              <div className="mt-2"><TrendBadge curr={t.total} prev={prev?.total ?? 0} /></div>
+            </div>
+          );
+        })}
       </div>
+
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
-        <p className="text-sm font-bold text-slate-900 mb-4">Evolución por tipo de visita (12 meses)</p>
+        <p className="text-sm font-bold text-slate-900 mb-1">Evolución mensual por tipo de paciente (12 meses)</p>
+        <p className="text-xs text-slate-400 mb-4">Violeta = 1ª Visita (nuevos) · Cyan = Con Historia (recurrentes)</p>
         <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={tendenciaPorVisita} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
+          <BarChart data={kpis.tendenciaPorVisita} margin={{ top: 4, right: 8, left: -20, bottom: 0 }} barGap={1} barCategoryGap="25%">
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
             <XAxis dataKey="label" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} allowDecimals={false} />
             <Tooltip contentStyle={TOOLTIP_STYLE} />
             <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
-            <Bar dataKey="primera" name="1ª Visita" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-            <Bar dataKey="historia" name="Con Historia" fill="#06b6d4" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="primera" name="1ª Visita ofrecido" fill="#c4b5fd" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="primeraAcept" name="1ª Visita aceptado" fill="#7c3aed" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="historia" name="Con Historia ofrecido" fill="#a5f3fc" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="historiaAcept" name="Con Historia aceptado" fill="#0891b2" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <SimpleTable
-        title="Resumen por tipo de visita"
-        cols={["Tipo", "Total", "Aceptados", "Tasa", "€ Aceptado"]}
-        rows={porTipoVisita.map((t) => [
-          t.tipo === "Primera Visita" ? "1ª Visita" : "Con Historia",
-          t.total, t.aceptados, `${t.tasa}%`, `€${t.importe.toLocaleString("es-ES")}`,
-        ])}
-      />
+
+      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        <p className="px-4 py-3 text-xs font-bold text-slate-700 border-b border-slate-100 uppercase tracking-wide">Resumen por tipo de paciente — {mesLabel}</p>
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-slate-100">
+              {["Tipo", "Ofrecidos", "Aceptados", "Tasa conv.", "€ Aceptado", "vs mes ant."].map((h) => (
+                <th key={h} className="px-4 py-2.5 text-left font-semibold text-slate-400 whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {kpisMes.porTipoVisita.map((t) => {
+              const prev = kpisPrevMes.porTipoVisita.find((x) => x.tipo === t.tipo);
+              return (
+                <tr key={t.tipo} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                  <td className="px-4 py-3 font-semibold text-slate-800">{tipoLabel(t.tipo)}</td>
+                  <td className="px-4 py-3 text-slate-700">{t.total}</td>
+                  <td className="px-4 py-3 font-semibold text-emerald-700">{t.aceptados}</td>
+                  <td className="px-4 py-3 font-bold text-slate-900">{t.tasa}%</td>
+                  <td className="px-4 py-3 text-slate-700">€{t.importe.toLocaleString("es-ES")}</td>
+                  <td className="px-4 py-3"><TrendBadge curr={t.total} prev={prev?.total ?? 0} /></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
 // ─── Tab: Tratamientos ────────────────────────────────────────────────────────
 
-function TabTratamientos({ kpis }: { kpis: KpiData }) {
-  const { porTratamiento } = kpis;
-  const top8 = [...porTratamiento].sort((a, b) => b.tasa - a.tasa).slice(0, 8);
+function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: KpiData; mesLabel: string }) {
+  const top8 = [...kpisMes.porTratamiento].sort((a, b) => b.tasa - a.tasa).slice(0, 8);
+  const top8HistAll = [...kpis.porTratamiento].sort((a, b) => b.tasa - a.tasa).slice(0, 8);
+
   return (
     <div className="space-y-5">
+      {/* Bar chart this month */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
-        <p className="text-sm font-bold text-slate-900 mb-4">Top 8 tratamientos — tasa de aceptación</p>
+        <p className="text-sm font-bold text-slate-900 mb-1">Top 8 tratamientos — tasa de conversión en {mesLabel}</p>
+        <p className="text-xs text-slate-400 mb-4">Ordenados de mayor a menor tasa de aceptación</p>
+        {top8.length === 0 ? (
+          <p className="text-sm text-slate-400 py-8 text-center">Sin datos para este mes</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={top8} layout="vertical" margin={{ top: 4, right: 40, left: 100, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+              <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} unit="%" />
+              <YAxis type="category" dataKey="grupo" tick={{ fontSize: 10, fill: "#475569" }} axisLine={false} tickLine={false} width={100} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`${v}%`, "Tasa"]} />
+              <Bar dataKey="tasa" name="Tasa %" fill="#7c3aed" radius={[0, 4, 4, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* Table this month */}
+      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        <p className="px-4 py-3 text-xs font-bold text-slate-700 border-b border-slate-100 uppercase tracking-wide">Tratamientos — {mesLabel}</p>
+        {kpisMes.porTratamiento.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-slate-400">Sin datos para este mes</p>
+        ) : (
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-slate-100">
+                {["Tratamiento", "Ofrecidos", "Aceptados", "Tasa", "€ Aceptado"].map((h) => (
+                  <th key={h} className="px-4 py-2.5 text-left font-semibold text-slate-400 whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {kpisMes.porTratamiento.map((t) => (
+                <tr key={t.grupo} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                  <td className="px-4 py-3 font-medium text-slate-800">{t.grupo}</td>
+                  <td className="px-4 py-3 text-slate-700">{t.total}</td>
+                  <td className="px-4 py-3 font-semibold text-emerald-700">{t.aceptados}</td>
+                  <td className="px-4 py-3 font-bold text-slate-900">{t.tasa}%</td>
+                  <td className="px-4 py-3 text-slate-700">€{t.importe.toLocaleString("es-ES")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Historical top 8 */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <p className="text-sm font-bold text-slate-900 mb-4">Top 8 tratamientos — histórico (todos los tiempos)</p>
         <ResponsiveContainer width="100%" height={260}>
-          <BarChart data={top8} layout="vertical" margin={{ top: 4, right: 30, left: 80, bottom: 0 }}>
+          <BarChart data={top8HistAll} layout="vertical" margin={{ top: 4, right: 40, left: 100, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
             <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} unit="%" />
-            <YAxis type="category" dataKey="grupo" tick={{ fontSize: 10, fill: "#475569" }} axisLine={false} tickLine={false} width={80} />
+            <YAxis type="category" dataKey="grupo" tick={{ fontSize: 10, fill: "#475569" }} axisLine={false} tickLine={false} width={100} />
             <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`${v}%`, "Tasa"]} />
-            <Bar dataKey="tasa" name="Tasa %" fill="#7c3aed" radius={[0, 4, 4, 0]} />
+            <Bar dataKey="tasa" name="Tasa %" fill="#0891b2" radius={[0, 4, 4, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <SimpleTable
-        title="Todos los tratamientos"
-        cols={["Tratamiento", "Total", "Aceptados", "Tasa", "€ Aceptado"]}
-        rows={porTratamiento.map((t) => [t.grupo, t.total, t.aceptados, `${t.tasa}%`, `€${t.importe.toLocaleString("es-ES")}`])}
-      />
     </div>
   );
 }
 
 // ─── Tab: Doctores ────────────────────────────────────────────────────────────
 
-function TabDoctores({ kpis }: { kpis: KpiData }) {
-  const { porDoctor } = kpis;
+function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
+  kpisMes: KpiData; kpisPrevMes: KpiData; kpis: KpiData; mesLabel: string;
+}) {
+  const [evolDoctor, setEvolDoctor] = useState<string | null>(null);
+  const [evolData, setEvolData] = useState<KpiData | null>(null);
 
   function downloadCsv() {
     const rows = [
-      ["Doctor", "Especialidad", "Total", "1ª", "Hist.", "Aceptados", "%"],
-      ...porDoctor.map((d) => [d.doctor, d.especialidad, d.total, d.primeraVisita, d.conHistoria, d.aceptados, d.tasa + "%"]),
+      ["Doctor", "Especialidad", "Este mes", "Aceptados", "Tasa%", "vs prev mes"],
+      ...kpisMes.porDoctor.map((d) => {
+        const p = kpisPrevMes.porDoctor.find((x) => x.doctor === d.doctor);
+        return [d.doctor, d.especialidad, d.total, d.aceptados, d.tasa + "%", (p ? d.total - p.total : 0)];
+      }),
     ];
     const csv = rows.map((r) => r.join(";")).join("\n");
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "kpis_doctores.csv"; a.click();
+    const a = document.createElement("a"); a.href = url; a.download = "kpis_doctores.csv"; a.click();
     URL.revokeObjectURL(url);
   }
 
+  async function loadDoctorEvol(doctor: string) {
+    if (evolDoctor === doctor) { setEvolDoctor(null); setEvolData(null); return; }
+    try {
+      const url = new URL("/api/presupuestos/kpis", location.href);
+      url.searchParams.set("doctor", doctor);
+      const res = await fetch(url.toString());
+      const d = await res.json();
+      setEvolDoctor(doctor);
+      setEvolData(d.kpis ?? null);
+    } catch { /* ignore */ }
+  }
+
+  const prevMap = new Map(kpisPrevMes.porDoctor.map((d) => [d.doctor, d]));
+
   return (
     <div className="space-y-5">
+      {/* Bar chart — comparativa doctores este mes */}
+      {kpisMes.porDoctor.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <p className="text-sm font-bold text-slate-900 mb-1">Comparativa de doctores — {mesLabel}</p>
+          <p className="text-xs text-slate-400 mb-4">Azul claro = ofrecidos · Azul oscuro = aceptados</p>
+          <ResponsiveContainer width="100%" height={Math.max(180, kpisMes.porDoctor.length * 42)}>
+            <BarChart data={kpisMes.porDoctor} layout="vertical" margin={{ top: 4, right: 40, left: 120, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+              <YAxis type="category" dataKey="doctor" tick={{ fontSize: 10, fill: "#475569" }} axisLine={false} tickLine={false} width={120} />
+              <Tooltip contentStyle={TOOLTIP_STYLE} />
+              <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
+              <Bar dataKey="total" name="Ofrecidos" fill="#93c5fd" radius={[0, 3, 3, 0]} />
+              <Bar dataKey="aceptados" name="Aceptados" fill="#2563eb" radius={[0, 3, 3, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Tabla comparativa */}
       <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-          <p className="text-sm font-bold text-slate-900">Comparativa por doctor</p>
-          <button onClick={downloadCsv} className="text-xs px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50">
-            Descargar CSV
-          </button>
+          <div>
+            <p className="text-sm font-bold text-slate-900">Tabla de doctores — {mesLabel}</p>
+            <p className="text-[10px] text-slate-400 mt-0.5">Clic en un doctor para ver su evolución</p>
+          </div>
+          <button onClick={downloadCsv} className="text-xs px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50">CSV</button>
         </div>
+        {kpisMes.porDoctor.length === 0 ? (
+          <p className="px-4 py-6 text-sm text-slate-400">Sin datos para este mes</p>
+        ) : (
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-slate-100">
+                {["Doctor", "Especialidad", "Ofrecidos", "Aceptados", "Tasa", "vs mes ant."].map((h) => (
+                  <th key={h} className="px-3 py-2 text-left font-semibold text-slate-400 whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {kpisMes.porDoctor.map((d) => {
+                const prev = prevMap.get(d.doctor);
+                const isSelected = evolDoctor === d.doctor;
+                return (
+                  <>
+                    <tr
+                      key={d.doctor}
+                      onClick={() => loadDoctorEvol(d.doctor)}
+                      className={`border-b border-slate-50 cursor-pointer transition-colors ${isSelected ? "bg-violet-50" : "hover:bg-slate-50"}`}
+                      style={{ background: isSelected ? undefined : (ESPECIALIDAD_COLOR[d.especialidad as keyof typeof ESPECIALIDAD_COLOR] ?? "#f8fafc") + "18" }}
+                    >
+                      <td className="px-3 py-2.5 font-medium text-slate-800 whitespace-nowrap">
+                        <span className="mr-1 text-[10px] text-slate-400">{isSelected ? "▼" : "▶"}</span>
+                        {d.doctor}
+                      </td>
+                      <td className="px-3 py-2.5 text-slate-600">{d.especialidad}</td>
+                      <td className="px-3 py-2.5 text-slate-700">{d.total}</td>
+                      <td className="px-3 py-2.5 font-semibold text-emerald-700">{d.aceptados}</td>
+                      <td className="px-3 py-2.5 font-bold text-slate-900">{d.tasa}%</td>
+                      <td className="px-3 py-2.5"><TrendBadge curr={d.total} prev={prev?.total ?? 0} /></td>
+                    </tr>
+                    {isSelected && evolData && (
+                      <tr key={`${d.doctor}-evol`}>
+                        <td colSpan={6} className="px-4 py-4 bg-violet-50 border-b border-violet-100">
+                          <p className="text-xs font-bold text-violet-700 mb-3">Evolución 12 meses — {d.doctor}</p>
+                          <ResponsiveContainer width="100%" height={160}>
+                            <AreaChart data={evolData.tendenciaMensual} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+                              <defs>
+                                <linearGradient id="gd1" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.15} />
+                                  <stop offset="95%" stopColor="#7c3aed" stopOpacity={0} />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" stroke="#ede9fe" />
+                              <XAxis dataKey="label" tick={{ fontSize: 9, fill: "#8b5cf6" }} axisLine={false} tickLine={false} />
+                              <YAxis tick={{ fontSize: 9, fill: "#8b5cf6" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                              <Tooltip contentStyle={{ ...TOOLTIP_STYLE, background: "#faf5ff" }} />
+                              <Area type="monotone" dataKey="total" name="Ofrecidos" stroke="#7c3aed" strokeWidth={2} fill="url(#gd1)" dot={false} />
+                              <Area type="monotone" dataKey="aceptados" name="Aceptados" stroke="#22c55e" strokeWidth={2} fill="none" dot={false} />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Historical comparison table */}
+      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        <p className="px-4 py-3 text-xs font-bold text-slate-700 border-b border-slate-100 uppercase tracking-wide">Histórico total — todos los tiempos</p>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -280,7 +532,7 @@ function TabDoctores({ kpis }: { kpis: KpiData }) {
               </tr>
             </thead>
             <tbody>
-              {porDoctor.map((d) => (
+              {kpis.porDoctor.map((d) => (
                 <tr key={d.doctor} className="border-b border-slate-50 last:border-0 hover:bg-slate-50"
                   style={{ background: (ESPECIALIDAD_COLOR[d.especialidad as keyof typeof ESPECIALIDAD_COLOR] ?? "#f8fafc") + "28" }}>
                   <td className="px-3 py-2.5 font-medium text-slate-800 whitespace-nowrap">{d.doctor}</td>
@@ -303,14 +555,21 @@ function TabDoctores({ kpis }: { kpis: KpiData }) {
 // ─── Main KpiView ─────────────────────────────────────────────────────────────
 
 export default function KpiView({ user }: { user: UserSession }) {
+  const now = new Date();
+  const defaultMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
   const [kpis, setKpis] = useState<KpiData | null>(null);
+  const [kpisMes, setKpisMes] = useState<KpiData | null>(null);
+  const [kpisPrevMes, setKpisPrevMes] = useState<KpiData | null>(null);
   const [loading, setLoading] = useState(true);
   const [clinicas, setClinicas] = useState<string[]>([]);
   const [filterClinica, setFilterClinica] = useState(
     user.rol === "encargada_ventas" && user.clinica ? user.clinica : ""
   );
   const [filterDoctor, setFilterDoctor] = useState("");
+  const [filterMes, setFilterMes] = useState(defaultMes);
   const [subTab, setSubTab] = useState<SubTab>("general");
+  const meses = getLast12Months();
 
   useEffect(() => {
     if (user.rol !== "manager_general") return;
@@ -326,24 +585,30 @@ export default function KpiView({ user }: { user: UserSession }) {
     if (user.rol === "encargada_ventas" && user.clinica) url.searchParams.set("clinica", user.clinica);
     else if (filterClinica) url.searchParams.set("clinica", filterClinica);
     if (filterDoctor) url.searchParams.set("doctor", filterDoctor);
+    url.searchParams.set("mes", filterMes);
     fetch(url.toString())
       .then((r) => r.json())
-      .then((d) => { setKpis(d.kpis); setLoading(false); })
+      .then((d) => {
+        setKpis(d.kpis ?? null);
+        setKpisMes(d.kpisMes ?? null);
+        setKpisPrevMes(d.kpisPrevMes ?? null);
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
-  }, [user, filterClinica, filterDoctor]);
+  }, [user, filterClinica, filterDoctor, filterMes]);
 
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse">
-        <div className="grid grid-cols-3 gap-3">{[1,2,3].map((i) => <div key={i} className="h-28 rounded-2xl bg-slate-100" />)}</div>
+        <div className="grid grid-cols-4 gap-3">{[1,2,3,4].map((i) => <div key={i} className="h-28 rounded-2xl bg-slate-100" />)}</div>
         <div className="h-64 rounded-2xl bg-slate-100" />
       </div>
     );
   }
 
-  if (!kpis) return <p className="text-sm text-slate-500">Error al cargar KPIs</p>;
+  if (!kpis || !kpisMes || !kpisPrevMes) return <p className="text-sm text-slate-500">Error al cargar KPIs</p>;
 
-  // Doctor list loaded independently from kpis.doctores (not from filtered porDoctor)
+  const mesLabel = formatMesLabel(filterMes);
   const doctorOpciones = kpis.doctores;
 
   return (
@@ -352,18 +617,25 @@ export default function KpiView({ user }: { user: UserSession }) {
       <div className="flex flex-wrap gap-2 items-center">
         {user.rol === "manager_general" && (
           <select value={filterClinica} onChange={(e) => setFilterClinica(e.target.value)}
-            className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300">
+            className={`rounded-xl border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300 ${filterClinica ? "border-violet-400 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-700"}`}>
             <option value="">Todas las clínicas</option>
             {clinicas.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         )}
         {doctorOpciones.length > 1 && (
           <select value={filterDoctor} onChange={(e) => setFilterDoctor(e.target.value)}
-            className="rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300">
+            className={`rounded-xl border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300 ${filterDoctor ? "border-violet-400 bg-violet-50 text-violet-700" : "border-slate-200 text-slate-700"}`}>
             <option value="">Todos los doctores</option>
             {doctorOpciones.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
         )}
+        {/* Mes selector */}
+        <select value={filterMes} onChange={(e) => setFilterMes(e.target.value)}
+          className="rounded-xl border border-violet-400 bg-violet-50 px-2.5 py-1.5 text-xs text-violet-700 font-semibold focus:outline-none focus:ring-2 focus:ring-violet-300">
+          {meses.map(({ mes, label }) => (
+            <option key={mes} value={mes}>{label}</option>
+          ))}
+        </select>
       </div>
 
       {/* Sub-tabs */}
@@ -371,7 +643,7 @@ export default function KpiView({ user }: { user: UserSession }) {
         <div className="flex gap-0">
           {SUB_TABS.map((t) => (
             <button key={t.id} onClick={() => setSubTab(t.id)}
-              className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors ${
+              className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap ${
                 subTab === t.id ? "border-violet-600 text-violet-700" : "border-transparent text-slate-500 hover:text-slate-700"
               }`}>
               {t.label}
@@ -381,11 +653,11 @@ export default function KpiView({ user }: { user: UserSession }) {
       </div>
 
       {/* Tab content */}
-      {subTab === "general" && <TabGeneral kpis={kpis} />}
-      {subTab === "tarifas" && <TabTarifas kpis={kpis} />}
-      {subTab === "visita" && <TabVisita kpis={kpis} />}
-      {subTab === "tratamientos" && <TabTratamientos kpis={kpis} />}
-      {subTab === "doctores" && <TabDoctores kpis={kpis} />}
+      {subTab === "general" && <TabGeneral kpisMes={kpisMes} kpisPrevMes={kpisPrevMes} kpis={kpis} mesLabel={mesLabel} />}
+      {subTab === "tarifas" && <TabTarifas kpisMes={kpisMes} kpisPrevMes={kpisPrevMes} kpis={kpis} mesLabel={mesLabel} />}
+      {subTab === "paciente" && <TabPaciente kpisMes={kpisMes} kpisPrevMes={kpisPrevMes} kpis={kpis} mesLabel={mesLabel} />}
+      {subTab === "tratamientos" && <TabTratamientos kpisMes={kpisMes} kpis={kpis} mesLabel={mesLabel} />}
+      {subTab === "doctores" && <TabDoctores kpisMes={kpisMes} kpisPrevMes={kpisPrevMes} kpis={kpis} mesLabel={mesLabel} />}
     </div>
   );
 }

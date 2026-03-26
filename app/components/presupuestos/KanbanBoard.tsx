@@ -158,7 +158,7 @@ function DroppableColumn({
   const total = presupuestos.reduce((s, p) => s + (p.amount ?? 0), 0);
 
   return (
-    <div className="flex flex-col min-w-[190px] w-full">
+    <div className="flex flex-col w-full">
       {/* Column header */}
       <div
         className="rounded-t-xl px-3 py-2 shrink-0 border border-b-0"
@@ -264,16 +264,18 @@ export default function KanbanBoard({
       onDragEnd={handleDragEnd}
     >
       <div className="overflow-x-auto pb-2">
-        <div className="flex gap-3 min-w-max" style={{ minWidth: "1100px" }}>
+        <div
+          className="grid gap-2"
+          style={{ gridTemplateColumns: "repeat(6, minmax(160px, 1fr))", minWidth: "960px" }}
+        >
           {PIPELINE_ORDEN.map((estado) => (
-            <div key={estado} className="w-[190px] flex-shrink-0">
-              <DroppableColumn
-                estado={estado}
-                presupuestos={presupuestos.filter((p) => p.estado === estado)}
-                onOpenHistory={onOpenHistory}
-                onEdit={onEdit}
-              />
-            </div>
+            <DroppableColumn
+              key={estado}
+              estado={estado}
+              presupuestos={presupuestos.filter((p) => p.estado === estado)}
+              onOpenHistory={onOpenHistory}
+              onEdit={onEdit}
+            />
           ))}
         </div>
       </div>
