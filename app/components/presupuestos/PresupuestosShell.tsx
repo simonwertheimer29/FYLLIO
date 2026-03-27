@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState, useCallback, useEffect } from "react";
 import type { Presupuesto, PresupuestoEstado, UserSession } from "../../lib/presupuestos/types";
 import KanbanBoard from "./KanbanBoard";
@@ -20,6 +19,8 @@ function usePresupuestos(user: UserSession) {
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
   const [loading, setLoading] = useState(false);
   const [isDemo, setIsDemo] = useState(false);
+  const [demoReason, setDemoReason] = useState<string | undefined>();
+  const [missingVars, setMissingVars] = useState<string[]>([]);
 
   const load = useCallback(async (filters: Filters) => {
     setLoading(true);
@@ -37,6 +38,8 @@ function usePresupuestos(user: UserSession) {
       const d = await res.json();
       setPresupuestos(d.presupuestos ?? []);
       setIsDemo(d.isDemo ?? false);
+      setDemoReason(d.demoReason);
+      setMissingVars(d.missingVars ?? []);
     } catch {
       setPresupuestos([]);
     } finally {
@@ -44,7 +47,7 @@ function usePresupuestos(user: UserSession) {
     }
   }, []);
 
-  return { presupuestos, setPresupuestos, loading, isDemo, load };
+  return { presupuestos, setPresupuestos, loading, isDemo, demoReason, missingVars, load };
 }
 
 // ─── Main Shell ──────────────────────────────────────────────────────────────
@@ -55,7 +58,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     clinica: "", doctor: "", tipoPaciente: "", tipoVisita: "",
     fechaDesde: "", fechaHasta: "", q: "",
   });
-  const { presupuestos, setPresupuestos, loading, isDemo, load } = usePresupuestos(user);
+  const { presupuestos, setPresupuestos, loading, isDemo, demoReason, missingVars, load } = usePresupuestos(user);
 
   // Modals / drawers
   const [historyPresupuesto, setHistoryPresupuesto] = useState<Presupuesto | null>(null);
@@ -106,13 +109,13 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
       {/* Top bar */}
       <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="relative w-9 h-9 shrink-0">
-            <Image
-              src="/logo-fyllio.png"
+          <div className="w-8 h-8 overflow-hidden shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/fyllio-wordmark.png"
               alt="Fyllio"
-              fill
-              priority
-              className="object-contain"
+              className="h-8 w-auto"
+              style={{ maxWidth: "none" }}
             />
           </div>
           <div className="border-l border-slate-200 pl-3">
@@ -175,7 +178,16 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
 
             {isDemo && (
               <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-                <span className="font-semibold">Datos de demostración</span> — Conecta las tablas de Airtable para datos reales.
+                <span className="font-semibold">Datos de demostración.</span>{" "}
+                {demoReason === "env_missing" ? (
+                  <>
+                    Añade{" "}
+                    <code className="font-mono bg-amber-100 px-1 rounded">{missingVars.join(", ")}</code>
+                    {" "}en Vercel → Settings → Environment Variables y redeploya.
+                  </>
+                ) : (
+                  <>Conecta las tablas de Airtable para datos reales.</>
+                )}
               </div>
             )}
 

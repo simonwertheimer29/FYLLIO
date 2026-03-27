@@ -35,6 +35,45 @@ function daysSince(iso: string): number {
 }
 
 // -------------------------------------------------------------------
+// Demo data helper
+// -------------------------------------------------------------------
+
+function getDemoPresupuestos(session: UserSession, q: URLSearchParams): Presupuesto[] {
+  let data = [...DEMO_PRESUPUESTOS];
+
+  if (session.rol === "encargada_ventas" && session.clinica) {
+    data = data.filter((p) => p.clinica === session.clinica);
+  } else if (q.get("clinica")) {
+    data = data.filter((p) => p.clinica === q.get("clinica"));
+  }
+
+  const doctor = q.get("doctor");
+  if (doctor) data = data.filter((p) => p.doctor === doctor);
+
+  const tipoPaciente = q.get("tipoPaciente");
+  if (tipoPaciente) data = data.filter((p) => p.tipoPaciente === tipoPaciente);
+
+  const tipoVisita = q.get("tipoVisita");
+  if (tipoVisita) data = data.filter((p) => p.tipoVisita === tipoVisita);
+
+  const fechaDesde = q.get("fechaDesde");
+  if (fechaDesde) data = data.filter((p) => p.fechaPresupuesto >= fechaDesde);
+  const fechaHasta = q.get("fechaHasta");
+  if (fechaHasta) data = data.filter((p) => p.fechaPresupuesto <= fechaHasta);
+
+  const search = q.get("q")?.toLowerCase() ?? "";
+  if (search) {
+    data = data.filter(
+      (p) =>
+        p.patientName.toLowerCase().includes(search) ||
+        p.treatments.some((t) => t.toLowerCase().includes(search))
+    );
+  }
+
+  return data;
+}
+
+// -------------------------------------------------------------------
 // GET /api/presupuestos/kanban
 // -------------------------------------------------------------------
 
@@ -46,6 +85,21 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const q = url.searchParams;
+
+  // Detect missing env vars and return actionable demo response
+  const missingEnvs = [
+    !process.env.AIRTABLE_API_KEY && "AIRTABLE_API_KEY",
+    !process.env.AIRTABLE_BASE_ID && "AIRTABLE_BASE_ID",
+  ].filter(Boolean) as string[];
+
+  if (missingEnvs.length > 0) {
+    return NextResponse.json({
+      presupuestos: getDemoPresupuestos(session, q),
+      isDemo: true,
+      demoReason: "env_missing",
+      missingVars: missingEnvs,
+    });
+  }
 
   try {
     // Build Airtable filter
@@ -142,52 +196,12 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ presupuestos, isDemo: false });
   } catch {
-    return buildDemoResponse(session, q);
+    return NextResponse.json({
+      presupuestos: getDemoPresupuestos(session, q),
+      isDemo: true,
+      demoReason: "error",
+    });
   }
-}
-
-function buildDemoResponse(
-  session: UserSession,
-  q: URLSearchParams
-): Response {
-  let data = [...DEMO_PRESUPUESTOS];
-
-  // Clinica filter (role-based or param)
-  if (session.rol === "encargada_ventas" && session.clinica) {
-    data = data.filter((p) => p.clinica === session.clinica);
-  } else if (q.get("clinica")) {
-    data = data.filter((p) => p.clinica === q.get("clinica"));
-  }
-
-  // Doctor filter
-  const doctor = q.get("doctor");
-  if (doctor) data = data.filter((p) => p.doctor === doctor);
-
-  // TipoPaciente filter
-  const tipoPaciente = q.get("tipoPaciente");
-  if (tipoPaciente) data = data.filter((p) => p.tipoPaciente === tipoPaciente);
-
-  // TipoVisita filter
-  const tipoVisita = q.get("tipoVisita");
-  if (tipoVisita) data = data.filter((p) => p.tipoVisita === tipoVisita);
-
-  // Date range filters
-  const fechaDesde = q.get("fechaDesde");
-  if (fechaDesde) data = data.filter((p) => p.fechaPresupuesto >= fechaDesde);
-  const fechaHasta = q.get("fechaHasta");
-  if (fechaHasta) data = data.filter((p) => p.fechaPresupuesto <= fechaHasta);
-
-  // Text search
-  const search = q.get("q")?.toLowerCase() ?? "";
-  if (search) {
-    data = data.filter(
-      (p) =>
-        p.patientName.toLowerCase().includes(search) ||
-        p.treatments.some((t) => t.toLowerCase().includes(search))
-    );
-  }
-
-  return NextResponse.json({ presupuestos: data, isDemo: true });
 }
 
 // -------------------------------------------------------------------

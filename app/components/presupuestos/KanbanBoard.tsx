@@ -352,7 +352,7 @@ export default function KanbanBoard({
         {/* Gray frame container — fixed height, no outer scroll */}
         <div className="bg-slate-100 rounded-2xl p-2 overflow-hidden">
           <div
-            className="grid gap-2 h-[calc(100vh-220px)]"
+            className="grid gap-2 h-[calc(100vh-310px)]"
             style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}
           >
             {PIPELINE_ORDEN.map((estado) => (
