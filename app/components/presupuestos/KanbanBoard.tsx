@@ -91,7 +91,7 @@ function CompactCard({
           {p.amount != null && (
             <span className="text-[11px] font-extrabold text-slate-800">€{p.amount.toLocaleString("es-ES")}</span>
           )}
-          <span className="text-[9px] text-slate-400">{p.fechaPresupuesto.slice(0, 7)}</span>
+          <span className="text-[9px] text-slate-400">{p.fechaPresupuesto.split("-").reverse().join("/")}</span>
         </div>
         <span className="text-[9px] text-slate-400 shrink-0">{p.daysSince}d</span>
       </div>
@@ -193,7 +193,7 @@ function DroppableColumn({
       {/* Cards container — internal scroll */}
       <div
         ref={setNodeRef}
-        className={`flex-1 rounded-b-xl border border-t-0 p-2 space-y-2 overflow-y-auto transition-colors ${
+        className={`flex-1 min-h-0 rounded-b-xl border border-t-0 p-2 space-y-2 overflow-y-auto transition-colors ${
           isOver ? "bg-slate-100" : "bg-slate-50"
         }`}
         style={{ borderColor: cfg.hex + "33" }}

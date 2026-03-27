@@ -80,42 +80,56 @@ function PeriodPreset({
   onChange: (desde: string, hasta: string) => void;
 }) {
   const active = detectPreset(fechaDesde, fechaHasta);
+  const hasCustomDates = !!(fechaDesde || fechaHasta);
 
   return (
-    <div className="space-y-1.5">
-      <div className="flex rounded-xl overflow-hidden border border-slate-200 text-[11px]">
-        {(["todo", "mes", "3m", "6m", "anio"] as Preset[]).map((p) => (
-          <button
-            key={p}
-            onClick={() => {
-              const { desde, hasta } = computePresetDates(p);
-              onChange(desde, hasta);
-            }}
-            className={`px-2.5 py-1.5 font-medium transition-colors whitespace-nowrap ${
-              active === p
-                ? "bg-violet-600 text-white"
-                : "bg-white text-slate-600 hover:bg-slate-50"
-            }`}
-          >
-            {PRESET_LABELS[p]}
-          </button>
-        ))}
-      </div>
-      <div className="flex items-center gap-1.5">
-        <input
-          type="date"
-          value={fechaDesde}
-          onChange={(e) => onChange(e.target.value, fechaHasta)}
-          className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
-        />
-        <span className="text-xs text-slate-400">–</span>
-        <input
-          type="date"
-          value={fechaHasta}
-          onChange={(e) => onChange(fechaDesde, e.target.value)}
-          className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
-        />
-      </div>
+    <div className="flex items-center gap-1 flex-wrap">
+      {/* Preset chips */}
+      {(["todo", "mes", "3m", "6m", "anio"] as Preset[]).map((p) => (
+        <button
+          key={p}
+          onClick={() => {
+            const { desde, hasta } = computePresetDates(p);
+            onChange(desde, hasta);
+          }}
+          className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors whitespace-nowrap ${
+            active === p
+              ? "bg-violet-600 text-white"
+              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+          }`}
+        >
+          {PRESET_LABELS[p]}
+        </button>
+      ))}
+
+      {/* Divider */}
+      <span className="text-slate-300 text-xs select-none px-0.5">|</span>
+
+      {/* Date inputs inline */}
+      <input
+        type="date"
+        value={fechaDesde}
+        onChange={(e) => onChange(e.target.value, fechaHasta)}
+        className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300 w-[120px]"
+      />
+      <span className="text-slate-400 text-[11px]">→</span>
+      <input
+        type="date"
+        value={fechaHasta}
+        onChange={(e) => onChange(fechaDesde, e.target.value)}
+        className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300 w-[120px]"
+      />
+
+      {/* Clear custom dates */}
+      {hasCustomDates && active === "personalizado" && (
+        <button
+          onClick={() => onChange("", "")}
+          className="text-[11px] text-slate-400 hover:text-rose-500 transition-colors px-1"
+          title="Limpiar fechas"
+        >
+          ✕
+        </button>
+      )}
     </div>
   );
 }
@@ -207,7 +221,7 @@ export default function FiltersBar({
         className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
       />
 
-      <div className="flex flex-wrap gap-2 items-end">
+      <div className="flex flex-wrap gap-x-2 gap-y-2 items-center">
         {/* Clínica (solo manager) */}
         {user.rol === "manager_general" && (
           <select
