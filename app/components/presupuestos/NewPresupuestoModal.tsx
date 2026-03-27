@@ -2,12 +2,19 @@
 
 import { useEffect, useState } from "react";
 import type {
-  Doctor, Presupuesto, UserSession,
+  Doctor, Presupuesto, PresupuestoEstado, UserSession,
   EspecialidadDoctor, TipoPaciente, TipoVisita,
 } from "../../lib/presupuestos/types";
 
 const ESPECIALIDADES: EspecialidadDoctor[] = [
   "General", "Prostodoncista", "Implantólogo", "Endodoncista", "Ortodoncia",
+];
+
+const ESTADOS_INICIALES: { value: PresupuestoEstado; label: string }[] = [
+  { value: "PRESENTADO", label: "Presentado" },
+  { value: "INTERESADO", label: "Interesado" },
+  { value: "EN_DUDA", label: "En duda" },
+  { value: "EN_NEGOCIACION", label: "En negociación" },
 ];
 
 export default function NewPresupuestoModal({
@@ -43,6 +50,8 @@ export default function NewPresupuestoModal({
     presupuesto?.fechaPresupuesto ?? new Date().toISOString().slice(0, 10)
   );
   const [notes, setNotes] = useState(presupuesto?.notes ?? "");
+  const [numeroHistoria, setNumeroHistoria] = useState(presupuesto?.numeroHistoria ?? "");
+  const [estadoInicial, setEstadoInicial] = useState<PresupuestoEstado>("PRESENTADO");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,6 +93,8 @@ export default function NewPresupuestoModal({
         fechaPresupuesto,
         notes: notes.trim() || undefined,
         clinica: user.clinica,
+        numeroHistoria: numeroHistoria.trim() || undefined,
+        ...(!isEdit && { estadoInicial }),
       };
 
       const res = isEdit
@@ -142,6 +153,16 @@ export default function NewPresupuestoModal({
               />
             </div>
             <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Nº Historia</label>
+              <input
+                type="text"
+                value={numeroHistoria}
+                onChange={(e) => setNumeroHistoria(e.target.value)}
+                placeholder="HCL-001"
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              />
+            </div>
+            <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono</label>
               <input
                 type="tel"
@@ -162,6 +183,20 @@ export default function NewPresupuestoModal({
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
               />
             </div>
+            {!isEdit && (
+              <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Estado inicial</label>
+                <select
+                  value={estadoInicial}
+                  onChange={(e) => setEstadoInicial(e.target.value as PresupuestoEstado)}
+                  className="w-full rounded-xl border border-slate-200 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                >
+                  {ESTADOS_INICIALES.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Tratamientos */}

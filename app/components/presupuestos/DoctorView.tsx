@@ -87,11 +87,6 @@ export default function DoctorView({ user }: { user: UserSession }) {
     ? Math.round((aceptados.length / presupuestos.length) * 100)
     : 0;
   const importeTotal = aceptados.reduce((s, p) => s + (p.amount ?? 0), 0);
-  const tiemposDecierre = aceptados.filter((p) => p.daysSince > 0).map((p) => p.daysSince);
-  const tiempoMedio = tiemposDecierre.length
-    ? Math.round(tiemposDecierre.reduce((s, d) => s + d, 0) / tiemposDecierre.length)
-    : 0;
-
   const paginated = presupuestos.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const totalPages = Math.ceil(presupuestos.length / PAGE_SIZE);
 
@@ -170,13 +165,12 @@ export default function DoctorView({ user }: { user: UserSession }) {
       </div>
 
       {/* Metrics */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
           { label: "Total", value: String(presupuestos.length) },
           { label: "Aceptados", value: String(aceptados.length) },
           { label: "% Aceptación", value: `${tasa}%` },
           { label: "€ Aceptado", value: `€${importeTotal.toLocaleString("es-ES")}` },
-          { label: "Días medio cierre", value: tiempoMedio > 0 ? `${tiempoMedio}d` : "—" },
         ].map((m) => (
           <div key={m.label} className="rounded-2xl border border-slate-200 bg-white p-4">
             <p className="text-xs text-slate-500 font-medium">{m.label}</p>

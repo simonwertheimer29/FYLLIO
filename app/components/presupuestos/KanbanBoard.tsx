@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -13,10 +13,10 @@ import {
 } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
 import type { Presupuesto, PresupuestoEstado } from "../../lib/presupuestos/types";
-import { ESTADO_CONFIG, PIPELINE_ORDEN, ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
+import { ESTADO_CONFIG, PIPELINE_ORDEN } from "../../lib/presupuestos/colors";
 
 // ------------------------------------------------------------------
-// CompactCard — tarjeta pequeña para el Kanban Panel
+// UrgencyDot
 // ------------------------------------------------------------------
 
 function UrgencyDot({ score }: { score: number }) {
@@ -26,6 +26,10 @@ function UrgencyDot({ score }: { score: number }) {
     "bg-emerald-400";
   return <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${color}`} title={`Urgencia: ${score}`} />;
 }
+
+// ------------------------------------------------------------------
+// CompactCard
+// ------------------------------------------------------------------
 
 function CompactCard({
   presupuesto,
@@ -50,11 +54,11 @@ function CompactCard({
     >
       {/* Name + urgency dot */}
       <div className="flex items-start gap-1.5">
-        <UrgencyDot score={p.urgencyScore} />
+        {p.urgencyScore > 0 && <UrgencyDot score={p.urgencyScore} />}
         <p className="text-xs font-bold text-slate-900 leading-tight flex-1 min-w-0 truncate">{p.patientName}</p>
       </div>
 
-      {/* Treatments — all, no truncate */}
+      {/* Treatments */}
       <div className="flex flex-wrap gap-1 mt-1.5">
         {p.treatments.map((t, i) => (
           <span key={i} className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 leading-tight">
@@ -81,7 +85,7 @@ function CompactCard({
         </div>
       )}
 
-      {/* Bottom row: importe + fecha + días */}
+      {/* Bottom row */}
       <div className="flex items-center justify-between mt-1.5 gap-1">
         <div className="flex items-center gap-2">
           {p.amount != null && (
@@ -158,7 +162,7 @@ function DroppableColumn({
   const total = presupuestos.reduce((s, p) => s + (p.amount ?? 0), 0);
 
   return (
-    <div className="flex flex-col w-full">
+    <div className="flex flex-col min-w-0 h-full">
       {/* Column header */}
       <div
         className="rounded-t-xl px-3 py-2 shrink-0 border border-b-0"
@@ -186,17 +190,13 @@ function DroppableColumn({
         )}
       </div>
 
-      {/* Cards container */}
+      {/* Cards container — internal scroll */}
       <div
         ref={setNodeRef}
         className={`flex-1 rounded-b-xl border border-t-0 p-2 space-y-2 overflow-y-auto transition-colors ${
           isOver ? "bg-slate-100" : "bg-slate-50"
         }`}
-        style={{
-          borderColor: cfg.hex + "33",
-          height: "calc(100vh - 180px)",
-          minHeight: "200px",
-        }}
+        style={{ borderColor: cfg.hex + "33" }}
       >
         {presupuestos.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-200 p-3 text-center mt-1">
@@ -220,8 +220,70 @@ function DroppableColumn({
 }
 
 // ------------------------------------------------------------------
+// ConfirmMoveModal
+// ------------------------------------------------------------------
+
+function ConfirmMoveModal({
+  patientName,
+  targetEstado,
+  onConfirm,
+  onCancel,
+}: {
+  patientName: string;
+  targetEstado: PresupuestoEstado;
+  onConfirm: (skipFuture: boolean) => void;
+  onCancel: () => void;
+}) {
+  const [skipFuture, setSkipFuture] = useState(false);
+  const cfg = ESTADO_CONFIG[targetEstado];
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+        <p className="text-sm font-bold text-slate-900 mb-1">Confirmar cambio de estado</p>
+        <p className="text-xs text-slate-600 mb-4">
+          Mover <span className="font-semibold">{patientName}</span> a{" "}
+          <span className="font-bold" style={{ color: cfg.hex }}>{cfg.label}</span>
+        </p>
+
+        <label className="flex items-center gap-2 text-xs text-slate-500 mb-5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={skipFuture}
+            onChange={(e) => setSkipFuture(e.target.checked)}
+            className="rounded"
+          />
+          No volver a mostrar esta confirmación
+        </label>
+
+        <div className="flex gap-2">
+          <button
+            onClick={onCancel}
+            className="flex-1 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold py-2 hover:bg-slate-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => onConfirm(skipFuture)}
+            className="flex-1 rounded-xl text-white text-sm font-semibold py-2"
+            style={{ background: cfg.hex }}
+          >
+            Confirmar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ------------------------------------------------------------------
 // KanbanBoard (main export)
 // ------------------------------------------------------------------
+
+const SKIP_CONFIRM_KEY = "kanban_skip_confirm";
 
 export default function KanbanBoard({
   presupuestos,
@@ -235,6 +297,13 @@ export default function KanbanBoard({
   onEdit: (p: Presupuesto) => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [pendingChange, setPendingChange] = useState<{ id: string; targetEstado: PresupuestoEstado } | null>(null);
+  const [skipConfirm, setSkipConfirm] = useState(false);
+
+  useEffect(() => {
+    setSkipConfirm(localStorage.getItem(SKIP_CONFIRM_KEY) === "true");
+  }, []);
+
   const activePresupuesto = presupuestos.find((p) => p.id === activeId) ?? null;
 
   const sensors = useSensors(
@@ -254,35 +323,63 @@ export default function KanbanBoard({
     const card = presupuestos.find((p) => p.id === active.id);
     if (!card || card.estado === targetEstado) return;
 
-    onChangeEstado(String(active.id), targetEstado);
+    if (skipConfirm) {
+      onChangeEstado(String(active.id), targetEstado);
+    } else {
+      setPendingChange({ id: String(active.id), targetEstado });
+    }
   }
 
-  return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="overflow-x-auto pb-2">
-        <div
-          className="grid gap-2"
-          style={{ gridTemplateColumns: "repeat(6, minmax(160px, 1fr))", minWidth: "960px" }}
-        >
-          {PIPELINE_ORDEN.map((estado) => (
-            <DroppableColumn
-              key={estado}
-              estado={estado}
-              presupuestos={presupuestos.filter((p) => p.estado === estado)}
-              onOpenHistory={onOpenHistory}
-              onEdit={onEdit}
-            />
-          ))}
-        </div>
-      </div>
+  function handleConfirm(skipFuture: boolean) {
+    if (!pendingChange) return;
+    if (skipFuture) {
+      localStorage.setItem(SKIP_CONFIRM_KEY, "true");
+      setSkipConfirm(true);
+    }
+    onChangeEstado(pendingChange.id, pendingChange.targetEstado);
+    setPendingChange(null);
+  }
 
-      <DragOverlay>
-        {activePresupuesto ? <GhostCard presupuesto={activePresupuesto} /> : null}
-      </DragOverlay>
-    </DndContext>
+  const pendingCard = pendingChange ? presupuestos.find((p) => p.id === pendingChange.id) : null;
+
+  return (
+    <>
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        {/* Gray frame container — fixed height, no outer scroll */}
+        <div className="bg-slate-100 rounded-2xl p-2 overflow-hidden">
+          <div
+            className="grid gap-2 h-[calc(100vh-220px)]"
+            style={{ gridTemplateColumns: "repeat(6, minmax(0, 1fr))" }}
+          >
+            {PIPELINE_ORDEN.map((estado) => (
+              <DroppableColumn
+                key={estado}
+                estado={estado}
+                presupuestos={presupuestos.filter((p) => p.estado === estado)}
+                onOpenHistory={onOpenHistory}
+                onEdit={onEdit}
+              />
+            ))}
+          </div>
+        </div>
+
+        <DragOverlay>
+          {activePresupuesto ? <GhostCard presupuesto={activePresupuesto} /> : null}
+        </DragOverlay>
+      </DndContext>
+
+      {pendingChange && pendingCard && (
+        <ConfirmMoveModal
+          patientName={pendingCard.patientName}
+          targetEstado={pendingChange.targetEstado}
+          onConfirm={handleConfirm}
+          onCancel={() => setPendingChange(null)}
+        />
+      )}
+    </>
   );
 }

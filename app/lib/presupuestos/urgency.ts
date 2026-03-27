@@ -6,6 +6,7 @@ import type { Presupuesto } from "./types";
  * Mayor puntuación = aparece más arriba en la columna Kanban.
  */
 export function computeUrgencyScore(p: Presupuesto): number {
+  if (p.estado === "ACEPTADO" || p.estado === "PERDIDO") return 0;
   let score = 0;
 
   // Días sin respuesta desde fechaPresupuesto (0-40)

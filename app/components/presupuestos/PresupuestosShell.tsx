@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useState, useCallback, useEffect } from "react";
 import type { Presupuesto, PresupuestoEstado, UserSession } from "../../lib/presupuestos/types";
 import KanbanBoard from "./KanbanBoard";
@@ -105,13 +106,16 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
       {/* Top bar */}
       <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded-xl flex items-center justify-center text-white text-sm font-bold"
-            style={{ background: "#7c3aed" }}
-          >
-            P
+          <div className="relative h-8 w-24 shrink-0">
+            <Image
+              src="/fyllio-wordmark.png"
+              alt="Fyllio"
+              fill
+              priority
+              className="object-contain object-left"
+            />
           </div>
-          <div>
+          <div className="border-l border-slate-200 pl-3">
             <p className="text-xs font-bold text-slate-900 leading-tight">Presupuestos</p>
             <p className="text-[10px] text-slate-400">{user.clinica ?? "Todas las clínicas"}</p>
           </div>

@@ -80,7 +80,6 @@ function PeriodPreset({
   onChange: (desde: string, hasta: string) => void;
 }) {
   const active = detectPreset(fechaDesde, fechaHasta);
-  const [showCustom, setShowCustom] = useState(active === "personalizado");
 
   return (
     <div className="space-y-1.5">
@@ -89,7 +88,6 @@ function PeriodPreset({
           <button
             key={p}
             onClick={() => {
-              setShowCustom(false);
               const { desde, hasta } = computePresetDates(p);
               onChange(desde, hasta);
             }}
@@ -102,37 +100,22 @@ function PeriodPreset({
             {PRESET_LABELS[p]}
           </button>
         ))}
-        <button
-          onClick={() => {
-            setShowCustom(true);
-            if (active !== "personalizado") onChange("", "");
-          }}
-          className={`px-2.5 py-1.5 font-medium transition-colors whitespace-nowrap border-l border-slate-200 ${
-            active === "personalizado" || showCustom
-              ? "bg-violet-600 text-white"
-              : "bg-white text-slate-600 hover:bg-slate-50"
-          }`}
-        >
-          Personalizado
-        </button>
       </div>
-      {(showCustom || active === "personalizado") && (
-        <div className="flex items-center gap-1.5">
-          <input
-            type="date"
-            value={fechaDesde}
-            onChange={(e) => onChange(e.target.value, fechaHasta)}
-            className="rounded-xl border border-violet-300 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
-          />
-          <span className="text-xs text-slate-400">–</span>
-          <input
-            type="date"
-            value={fechaHasta}
-            onChange={(e) => onChange(fechaDesde, e.target.value)}
-            className="rounded-xl border border-violet-300 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
-          />
-        </div>
-      )}
+      <div className="flex items-center gap-1.5">
+        <input
+          type="date"
+          value={fechaDesde}
+          onChange={(e) => onChange(e.target.value, fechaHasta)}
+          className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
+        />
+        <span className="text-xs text-slate-400">–</span>
+        <input
+          type="date"
+          value={fechaHasta}
+          onChange={(e) => onChange(fechaDesde, e.target.value)}
+          className="rounded-xl border border-slate-200 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
+        />
+      </div>
     </div>
   );
 }

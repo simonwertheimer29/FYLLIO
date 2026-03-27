@@ -427,22 +427,49 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
 
   return (
     <div className="space-y-5">
-      {/* Bar chart — comparativa doctores este mes */}
+      {/* Visual doctor cards — comparativa */}
       {kpisMes.porDoctor.length > 0 && (
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <p className="text-sm font-bold text-slate-900 mb-1">Comparativa de doctores — {mesLabel}</p>
-          <p className="text-xs text-slate-400 mb-4">Azul claro = ofrecidos · Azul oscuro = aceptados</p>
-          <ResponsiveContainer width="100%" height={Math.max(180, kpisMes.porDoctor.length * 42)}>
-            <BarChart data={kpisMes.porDoctor} layout="vertical" margin={{ top: 4, right: 40, left: 120, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" horizontal={false} />
-              <XAxis type="number" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
-              <YAxis type="category" dataKey="doctor" tick={{ fontSize: 10, fill: "#475569" }} axisLine={false} tickLine={false} width={120} />
-              <Tooltip contentStyle={TOOLTIP_STYLE} />
-              <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
-              <Bar dataKey="total" name="Ofrecidos" fill="#93c5fd" radius={[0, 3, 3, 0]} />
-              <Bar dataKey="aceptados" name="Aceptados" fill="#2563eb" radius={[0, 3, 3, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <p className="text-xs text-slate-400 mb-4">Ordenados por tasa de aceptación</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+            {[...kpisMes.porDoctor].sort((a, b) => b.tasa - a.tasa).map((d) => {
+              const prev = prevMap.get(d.doctor);
+              const espColor = ESPECIALIDAD_COLOR[d.especialidad as keyof typeof ESPECIALIDAD_COLOR] ?? "#e2e8f0";
+              return (
+                <div
+                  key={d.doctor}
+                  onClick={() => loadDoctorEvol(d.doctor)}
+                  className="rounded-xl border border-slate-200 p-4 cursor-pointer hover:shadow-md transition-shadow"
+                  style={{ background: espColor + "18" }}
+                >
+                  <div className="flex items-start justify-between gap-1 mb-2">
+                    <p className="text-xs font-bold text-slate-900 leading-tight">{d.doctor}</p>
+                    {prev && <TrendBadge curr={d.total} prev={prev.total} />}
+                  </div>
+                  <span
+                    className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full mb-3 inline-block"
+                    style={{ background: espColor, color: "#1e293b" }}
+                  >
+                    {d.especialidad}
+                  </span>
+                  {/* Tasa grande */}
+                  <p className="text-3xl font-extrabold text-slate-900 mt-1">{d.tasa}%</p>
+                  <p className="text-[10px] text-slate-400 mb-2">tasa aceptación</p>
+                  {/* Progress bar */}
+                  <div className="w-full bg-slate-200 rounded-full h-1.5 mb-2">
+                    <div
+                      className="h-1.5 rounded-full bg-emerald-500 transition-all"
+                      style={{ width: `${d.tasa}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-600">
+                    {d.aceptados} aceptados / {d.total} totales
+                  </p>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

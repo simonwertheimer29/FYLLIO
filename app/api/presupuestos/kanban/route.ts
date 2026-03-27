@@ -81,8 +81,9 @@ export async function GET(req: Request) {
 
     const recs = await base(TABLES.presupuestos as any).select(selectOpts).all();
 
+    // Airtable is reachable — return real data (even if empty)
     if (recs.length === 0) {
-      return buildDemoResponse(session, q);
+      return NextResponse.json({ presupuestos: [], isDemo: false });
     }
 
     const search = q.get("q")?.toLowerCase() ?? "";
@@ -118,6 +119,7 @@ export async function GET(req: Request) {
         lastContactDaysAgo: lastContactDate ? daysSince(lastContactDate) : undefined,
         contactCount: Number(f["ContactCount"] ?? 0),
         createdBy: f["CreadoPor"] ? String(f["CreadoPor"]) : undefined,
+        numeroHistoria: f["NumHistoria"] ? String(f["NumHistoria"]) : undefined,
       };
       p.urgencyScore = computeUrgencyScore(p);
       return p;
@@ -205,7 +207,7 @@ export async function POST(req: Request) {
     const fields: Record<string, unknown> = {
       Paciente_Nombre: body.patientName,
       Tratamiento_nombres: Array.isArray(body.treatments) ? body.treatments.join(", ") : body.treatments,
-      Estado: "INTERESADO",
+      Estado: body.estadoInicial || "PRESENTADO",
       Fecha: body.fechaPresupuesto || today,
       FechaAlta: today,
       CreadoPor: session.email,
@@ -218,6 +220,7 @@ export async function POST(req: Request) {
     if (body.tipoVisita) fields["TipoVisita"] = body.tipoVisita;
     if (body.amount != null) fields["Importe"] = Number(body.amount);
     if (body.notes) fields["Notas"] = body.notes;
+    if (body.numeroHistoria) fields["NumHistoria"] = body.numeroHistoria;
 
     const clinica = session.rol === "encargada_ventas" ? session.clinica : (body.clinica ?? null);
     if (clinica) fields["Clinica"] = clinica;
@@ -236,7 +239,7 @@ export async function POST(req: Request) {
       tipoPaciente: f["TipoPaciente"] ?? undefined,
       tipoVisita: f["TipoVisita"] ?? undefined,
       amount: f["Importe"] ? Number(f["Importe"]) : undefined,
-      estado: "INTERESADO",
+      estado: (f["Estado"] ?? body.estadoInicial ?? "PRESENTADO") as Presupuesto["estado"],
       fechaPresupuesto,
       fechaAlta: today,
       daysSince: 0,
@@ -245,6 +248,7 @@ export async function POST(req: Request) {
       urgencyScore: 0,
       contactCount: 0,
       createdBy: session.email,
+      numeroHistoria: f["NumHistoria"] ? String(f["NumHistoria"]) : undefined,
     };
     presupuesto.urgencyScore = computeUrgencyScore(presupuesto);
 

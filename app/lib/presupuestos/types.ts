@@ -45,6 +45,7 @@ export type Presupuesto = {
   lastContactDaysAgo?: number;
   contactCount: number;
   createdBy?: string;
+  numeroHistoria?: string;
 };
 
 export type Contacto = {
