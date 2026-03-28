@@ -35,22 +35,16 @@ export async function PATCH(
     const body = await req.json();
 
     const fields: Record<string, unknown> = {};
+    // Only write to fields that exist in the base Airtable schema
     if (body.estado !== undefined) fields["Estado"] = body.estado;
     if (body.fechaPresupuesto !== undefined) fields["Fecha"] = body.fechaPresupuesto;
-    if (body.doctor !== undefined) fields["Doctor"] = body.doctor;
-    if (body.doctorEspecialidad !== undefined) fields["Doctor_Especialidad"] = body.doctorEspecialidad;
-    if (body.tipoPaciente !== undefined) fields["TipoPaciente"] = body.tipoPaciente;
-    if (body.tipoVisita !== undefined) fields["TipoVisita"] = body.tipoVisita;
     if (body.amount !== undefined) fields["Importe"] = Number(body.amount);
     if (body.treatments !== undefined) {
-      fields["Tratamiento_nombres"] = Array.isArray(body.treatments)
-        ? body.treatments.join(", ")
+      fields["Tratamiento_nombre"] = Array.isArray(body.treatments)
+        ? body.treatments.join(" + ")
         : body.treatments;
     }
     if (body.notes !== undefined) fields["Notas"] = body.notes;
-    if (body.clinica !== undefined) fields["Clinica"] = body.clinica;
-    if (body.lastContactDate !== undefined) fields["UltimoContacto"] = body.lastContactDate;
-    if (body.contactCount !== undefined) fields["ContactCount"] = body.contactCount;
 
     await base(TABLES.presupuestos as any).update(id, fields as any);
     return NextResponse.json({ ok: true });

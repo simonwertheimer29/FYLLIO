@@ -102,18 +102,11 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Build Airtable filter
+    // Build Airtable filter — only use fields that exist in the base schema
+    // Clinica, Doctor, TipoPaciente, TipoVisita are filtered client-side below
     const filters: string[] = [];
-    if (session.rol === "encargada_ventas" && session.clinica) {
-      filters.push(`{Clinica}='${session.clinica}'`);
-    } else if (q.get("clinica")) {
-      filters.push(`{Clinica}='${q.get("clinica")}'`);
-    }
-    if (q.get("doctor")) filters.push(`{Doctor}='${q.get("doctor")}'`);
-    if (q.get("tipoPaciente")) filters.push(`{TipoPaciente}='${q.get("tipoPaciente")}'`);
-    if (q.get("tipoVisita")) filters.push(`{TipoVisita}='${q.get("tipoVisita")}'`);
-    if (q.get("fechaDesde")) filters.push(`{Fecha}>='${q.get("fechaDesde")}'`);
-    if (q.get("fechaHasta")) filters.push(`{Fecha}<='${q.get("fechaHasta")}'`);
+    if (q.get("fechaDesde")) filters.push(`IS_AFTER({Fecha},DATEADD('${q.get("fechaDesde")}',- 1,'days'))`);
+    if (q.get("fechaHasta")) filters.push(`IS_BEFORE({Fecha},DATEADD('${q.get("fechaHasta")}',1,'days'))`);
 
     const filterByFormula = filters.length === 1
       ? filters[0]
@@ -123,10 +116,13 @@ export async function GET(req: Request) {
 
     const selectOpts: Record<string, unknown> = {
       fields: [
+        // Existing Airtable fields (base schema)
+        "Paciente_nombre", "Teléfono", "Tratamiento_nombre",
+        "Importe", "Estado", "Fecha", "Notas",
+        // Extended fields (present if user has added them to the table)
         "Paciente_Nombre", "Paciente_Telefono", "Tratamiento_nombres",
         "Doctor", "Doctor_Especialidad", "TipoPaciente", "TipoVisita",
-        "Importe", "Estado", "Fecha", "FechaAlta", "Clinica", "Notas",
-        "UltimoContacto", "ContactCount", "CreadoPor",
+        "FechaAlta", "Clinica", "UltimoContacto", "ContactCount", "CreadoPor",
       ],
       sort: [{ field: "Fecha", direction: "desc" }],
       maxRecords: 500,
@@ -150,24 +146,52 @@ export async function GET(req: Request) {
         ? String(f["UltimoContacto"]).slice(0, 10)
         : undefined;
 
+      // Patient name: prefer extended text field, fall back to lookup array
+      const patientName =
+        f["Paciente_Nombre"]
+          ? String(f["Paciente_Nombre"])
+          : Array.isArray(f["Paciente_nombre"])
+          ? String(f["Paciente_nombre"][0] ?? "Paciente")
+          : "Paciente";
+
+      // Phone: prefer extended text field, fall back to lookup array
+      const patientPhone =
+        f["Paciente_Telefono"]
+          ? String(f["Paciente_Telefono"])
+          : Array.isArray(f["Teléfono"]) && f["Teléfono"][0]
+          ? String(f["Teléfono"][0])
+          : undefined;
+
+      // Treatment: prefer plural extended field, fall back to existing singular field
+      const treatmentRaw = f["Tratamiento_nombres"] ?? f["Tratamiento_nombre"] ?? "";
+
+      // Parse packed metadata from Notas if extended fields not present
+      // Notas format: "...texto... | Doctor: Dr. X | Clínica Y | Privado | 1ª Visita | [SEED_PRES]"
+      const notasStr = f["Notas"] ? String(f["Notas"]) : "";
+      const metaMatch = notasStr.match(/Doctor:\s*([^|]+)\|([^|]+)\|([^|]+)\|([^|]+)\|/);
+      const parsedDoctor   = metaMatch ? metaMatch[1].trim() : undefined;
+      const parsedClinica  = metaMatch ? metaMatch[2].trim() : undefined;
+      const parsedTipoPac  = metaMatch ? metaMatch[3].trim() : undefined;
+      const parsedTipoVis  = metaMatch ? metaMatch[4].trim() : undefined;
+
       const p: Presupuesto = {
         id: r.id,
-        patientName: String(f["Paciente_Nombre"] ?? "Paciente"),
-        patientPhone: f["Paciente_Telefono"] ? String(f["Paciente_Telefono"]) : undefined,
-        treatments: f["Tratamiento_nombres"]
-          ? String(f["Tratamiento_nombres"]).split(",").map((t: string) => t.trim())
+        patientName,
+        patientPhone,
+        treatments: treatmentRaw
+          ? String(treatmentRaw).split(/[,+]/).map((t: string) => t.trim()).filter(Boolean)
           : [],
-        doctor: f["Doctor"] ? String(f["Doctor"]) : undefined,
+        doctor: f["Doctor"] ? String(f["Doctor"]) : parsedDoctor,
         doctorEspecialidad: f["Doctor_Especialidad"] ?? undefined,
-        tipoPaciente: f["TipoPaciente"] ?? undefined,
-        tipoVisita: f["TipoVisita"] ?? undefined,
+        tipoPaciente: f["TipoPaciente"] ?? parsedTipoPac,
+        tipoVisita: f["TipoVisita"] ?? parsedTipoVis,
         amount: f["Importe"] ? Number(f["Importe"]) : undefined,
-        estado: f["Estado"] ?? "INTERESADO",
+        estado: f["Estado"] ?? "PRESENTADO",
         fechaPresupuesto,
         fechaAlta: String(f["FechaAlta"] ?? fechaPresupuesto).slice(0, 10),
         daysSince: daysSince(fechaPresupuesto),
-        clinica: f["Clinica"] ? String(f["Clinica"]) : undefined,
-        notes: f["Notas"] ? String(f["Notas"]) : undefined,
+        clinica: f["Clinica"] ? String(f["Clinica"]) : parsedClinica,
+        notes: notasStr || undefined,
         urgencyScore: 0,
         lastContactDate,
         lastContactDaysAgo: lastContactDate ? daysSince(lastContactDate) : undefined,
@@ -194,6 +218,26 @@ export async function GET(req: Request) {
       );
     }
 
+    // Client-side filters for fields not in base Airtable schema
+    const clinicaFilter = session.rol === "encargada_ventas" && session.clinica
+      ? session.clinica
+      : (q.get("clinica") ?? "");
+    if (clinicaFilter) {
+      presupuestos = presupuestos.filter((p) => p.clinica === clinicaFilter);
+    }
+    const doctorFilter = q.get("doctor");
+    if (doctorFilter) {
+      presupuestos = presupuestos.filter((p) => p.doctor === doctorFilter);
+    }
+    const tipoPacienteFilter = q.get("tipoPaciente");
+    if (tipoPacienteFilter) {
+      presupuestos = presupuestos.filter((p) => p.tipoPaciente === tipoPacienteFilter);
+    }
+    const tipoVisitaFilter = q.get("tipoVisita");
+    if (tipoVisitaFilter) {
+      presupuestos = presupuestos.filter((p) => p.tipoVisita === tipoVisitaFilter);
+    }
+
     return NextResponse.json({ presupuestos, isDemo: false });
   } catch {
     return NextResponse.json({
@@ -218,26 +262,27 @@ export async function POST(req: Request) {
     const body = await req.json();
     const today = DateTime.now().setZone(ZONE).toISODate()!;
 
+    // Pack extra info into Notas since extended fields may not exist
+    const tratamientoStr = Array.isArray(body.treatments)
+      ? body.treatments.join(" + ")
+      : String(body.treatments ?? "");
+    const extraParts: string[] = [];
+    if (body.doctor) extraParts.push(`Doctor: ${body.doctor}`);
+    const clinica = session.rol === "encargada_ventas" ? session.clinica : (body.clinica ?? null);
+    if (clinica) extraParts.push(clinica);
+    if (body.tipoPaciente) extraParts.push(body.tipoPaciente);
+    if (body.tipoVisita) extraParts.push(body.tipoVisita);
+    const notasMeta = extraParts.length > 0 ? ` | ${extraParts.join(" | ")}` : "";
+    const notasValue = `${body.notes ?? ""}${notasMeta}`.trim();
+
     const fields: Record<string, unknown> = {
-      Paciente_Nombre: body.patientName,
-      Tratamiento_nombres: Array.isArray(body.treatments) ? body.treatments.join(", ") : body.treatments,
+      Tratamiento_nombre: tratamientoStr,
       Estado: body.estadoInicial || "PRESENTADO",
       Fecha: body.fechaPresupuesto || today,
-      FechaAlta: today,
-      CreadoPor: session.email,
     };
 
-    if (body.patientPhone) fields["Paciente_Telefono"] = body.patientPhone;
-    if (body.doctor) fields["Doctor"] = body.doctor;
-    if (body.doctorEspecialidad) fields["Doctor_Especialidad"] = body.doctorEspecialidad;
-    if (body.tipoPaciente) fields["TipoPaciente"] = body.tipoPaciente;
-    if (body.tipoVisita) fields["TipoVisita"] = body.tipoVisita;
     if (body.amount != null) fields["Importe"] = Number(body.amount);
-    if (body.notes) fields["Notas"] = body.notes;
-    if (body.numeroHistoria) fields["NumHistoria"] = body.numeroHistoria;
-
-    const clinica = session.rol === "encargada_ventas" ? session.clinica : (body.clinica ?? null);
-    if (clinica) fields["Clinica"] = clinica;
+    if (notasValue) fields["Notas"] = notasValue;
 
     const created = await base(TABLES.presupuestos as any).create(fields as any) as any;
     const f = created.fields as any;
@@ -245,24 +290,24 @@ export async function POST(req: Request) {
 
     const presupuesto: Presupuesto = {
       id: created.id,
-      patientName: String(f["Paciente_Nombre"] ?? body.patientName),
-      patientPhone: f["Paciente_Telefono"] ? String(f["Paciente_Telefono"]) : undefined,
+      patientName: body.patientName,
+      patientPhone: body.patientPhone ?? undefined,
       treatments: body.treatments,
-      doctor: f["Doctor"] ? String(f["Doctor"]) : undefined,
-      doctorEspecialidad: f["Doctor_Especialidad"] ?? undefined,
-      tipoPaciente: f["TipoPaciente"] ?? undefined,
-      tipoVisita: f["TipoVisita"] ?? undefined,
-      amount: f["Importe"] ? Number(f["Importe"]) : undefined,
-      estado: (f["Estado"] ?? body.estadoInicial ?? "PRESENTADO") as Presupuesto["estado"],
+      doctor: body.doctor ?? undefined,
+      doctorEspecialidad: body.doctorEspecialidad ?? undefined,
+      tipoPaciente: body.tipoPaciente ?? undefined,
+      tipoVisita: body.tipoVisita ?? undefined,
+      amount: body.amount != null ? Number(body.amount) : undefined,
+      estado: (body.estadoInicial ?? "PRESENTADO") as Presupuesto["estado"],
       fechaPresupuesto,
       fechaAlta: today,
       daysSince: 0,
-      clinica: f["Clinica"] ? String(f["Clinica"]) : undefined,
-      notes: f["Notas"] ? String(f["Notas"]) : undefined,
+      clinica: clinica ?? undefined,
+      notes: notasValue || undefined,
       urgencyScore: 0,
       contactCount: 0,
       createdBy: session.email,
-      numeroHistoria: f["NumHistoria"] ? String(f["NumHistoria"]) : undefined,
+      numeroHistoria: body.numeroHistoria ?? undefined,
     };
     presupuesto.urgencyScore = computeUrgencyScore(presupuesto);
 
