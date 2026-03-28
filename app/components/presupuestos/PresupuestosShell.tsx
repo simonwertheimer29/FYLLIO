@@ -161,7 +161,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
       </div>
 
       {/* Content */}
-      <main className="flex-1 min-h-0 overflow-hidden flex flex-col p-4 gap-4 w-full">
+      <main className="flex-1 min-h-0 overflow-auto flex flex-col p-4 gap-4 w-full">
         {tab === "kanban" && (
           <div className="flex flex-col flex-1 min-h-0 gap-3">
             <div className="shrink-0 flex items-center justify-between gap-3">
