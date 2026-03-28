@@ -116,13 +116,11 @@ export async function GET(req: Request) {
 
     const selectOpts: Record<string, unknown> = {
       fields: [
-        // Existing Airtable fields (base schema)
         "Paciente_nombre", "Teléfono", "Tratamiento_nombre",
         "Importe", "Estado", "Fecha", "Notas",
-        // Extended fields (present if user has added them to the table)
-        "Paciente_Nombre", "Paciente_Telefono", "Tratamiento_nombres",
-        "Doctor", "Doctor_Especialidad", "TipoPaciente", "TipoVisita",
-        "FechaAlta", "Clinica", "UltimoContacto", "ContactCount", "CreadoPor",
+        "Paciente_Telefono", "Doctor", "Doctor_Especialidad",
+        "TipoPaciente", "TipoVisita", "FechaAlta", "Clinica",
+        "ContactCount", "CreadoPor",
       ],
       sort: [{ field: "Fecha", direction: "desc" }],
       maxRecords: 500,
@@ -142,19 +140,12 @@ export async function GET(req: Request) {
       const f = r.fields as any;
       const fechaPresupuesto = String(f["Fecha"] ?? "").slice(0, 10) ||
         DateTime.now().setZone(ZONE).toISODate()!;
-      const lastContactDate = f["UltimoContacto"]
-        ? String(f["UltimoContacto"]).slice(0, 10)
-        : undefined;
+      // Patient name: lookup array field
+      const patientName = Array.isArray(f["Paciente_nombre"])
+        ? String(f["Paciente_nombre"][0] ?? "Paciente")
+        : "Paciente";
 
-      // Patient name: prefer extended text field, fall back to lookup array
-      const patientName =
-        f["Paciente_Nombre"]
-          ? String(f["Paciente_Nombre"])
-          : Array.isArray(f["Paciente_nombre"])
-          ? String(f["Paciente_nombre"][0] ?? "Paciente")
-          : "Paciente";
-
-      // Phone: prefer extended text field, fall back to lookup array
+      // Phone: prefer dedicated text field, fall back to lookup array
       const patientPhone =
         f["Paciente_Telefono"]
           ? String(f["Paciente_Telefono"])
@@ -162,8 +153,9 @@ export async function GET(req: Request) {
           ? String(f["Teléfono"][0])
           : undefined;
 
-      // Treatment: prefer plural extended field, fall back to existing singular field
-      const treatmentRaw = f["Tratamiento_nombres"] ?? f["Tratamiento_nombre"] ?? "";
+      const treatmentRaw = f["Tratamiento_nombre"] ?? "";
+
+      const lastContactDate: string | undefined = undefined;
 
       // Parse packed metadata from Notas if extended fields not present
       // Notas format: "...texto... | Doctor: Dr. X | Clínica Y | Privado | 1ª Visita | [SEED_PRES]"
