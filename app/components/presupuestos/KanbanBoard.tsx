@@ -12,8 +12,8 @@ import {
   useDroppable,
 } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
-import type { Presupuesto, PresupuestoEstado, MotivoPerdida, OrigenLead } from "../../lib/presupuestos/types";
-import { ESTADO_CONFIG, PIPELINE_ORDEN } from "../../lib/presupuestos/colors";
+import type { Presupuesto, PresupuestoEstado, MotivoPerdida } from "../../lib/presupuestos/types";
+import { ESTADO_CONFIG, PIPELINE_ORDEN, ORIGEN_LABEL } from "../../lib/presupuestos/colors";
 import MotivoPerdidaModal from "./MotivoPerdidaModal";
 
 // ------------------------------------------------------------------
@@ -27,15 +27,6 @@ function UrgencyDot({ score }: { score: number }) {
     "bg-emerald-400";
   return <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${color}`} title={`Riesgo: ${score}`} />;
 }
-
-const ORIGEN_LABEL: Record<OrigenLead, string> = {
-  google_ads:         "Google",
-  seo_organico:       "SEO",
-  referido_paciente:  "Referido",
-  redes_sociales:     "RRSS",
-  walk_in:            "Walk-in",
-  otro:               "Otro",
-};
 
 // ------------------------------------------------------------------
 // CompactCard

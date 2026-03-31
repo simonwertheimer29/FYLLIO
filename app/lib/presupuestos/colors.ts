@@ -1,5 +1,5 @@
 // app/lib/presupuestos/colors.ts
-import type { PresupuestoEstado, EspecialidadDoctor } from "./types";
+import type { PresupuestoEstado, EspecialidadDoctor, OrigenLead } from "./types";
 
 export const ESTADO_CONFIG: Record<
   PresupuestoEstado,
@@ -39,3 +39,12 @@ export const ESPECIALIDAD_COLOR: Record<EspecialidadDoctor, string> = {
 } as const;
 
 export const CHART_COLORS = PIPELINE_ORDEN.map((e) => ESTADO_CONFIG[e].hex);
+
+export const ORIGEN_LABEL: Record<OrigenLead, string> = {
+  google_ads:         "Google Ads",
+  seo_organico:       "SEO",
+  referido_paciente:  "Referido",
+  redes_sociales:     "RRSS",
+  walk_in:            "Walk-in",
+  otro:               "Otro",
+};

@@ -2,12 +2,18 @@
 
 import { useEffect, useState } from "react";
 import type { Presupuesto, Contacto, PresupuestoEstado, TipoContacto, ResultadoContacto, MotivoPerdida } from "../../lib/presupuestos/types";
-import { ESTADO_CONFIG, PIPELINE_ORDEN, ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
+import { ESTADO_CONFIG, PIPELINE_ORDEN, ESPECIALIDAD_COLOR, ORIGEN_LABEL } from "../../lib/presupuestos/colors";
 import MotivoPerdidaModal from "./MotivoPerdidaModal";
 import IAMensajePanel from "./IAMensajePanel";
 
 const TIPO_LABEL: Record<TipoContacto, string> = {
   llamada: "📞 Llamada", whatsapp: "💬 WhatsApp", email: "📧 Email", visita: "🏥 Visita",
+};
+const TIPO_DOT_COLOR: Record<TipoContacto, string> = {
+  llamada:  "bg-slate-500",
+  whatsapp: "bg-emerald-500",
+  email:    "bg-sky-500",
+  visita:   "bg-purple-500",
 };
 const RESULTADO_COLOR: Record<ResultadoContacto, string> = {
   "contestó":     "bg-emerald-50 text-emerald-700",
@@ -105,6 +111,11 @@ export default function PatientDrawer({
                   {p.tipoVisita === "Primera Visita" ? "1ª Visita" : "Historial"}
                 </span>
               )}
+              {p.origenLead && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-600 font-medium">
+                  {ORIGEN_LABEL[p.origenLead]}
+                </span>
+              )}
             </div>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none shrink-0">
@@ -199,31 +210,45 @@ export default function PatientDrawer({
             <IAMensajePanel presupuesto={p} onContactRegistered={loadContactos} />
           )}
 
-          {/* Contact history */}
+          {/* Contact history — timeline */}
           <div className="px-5 py-3 border-b border-slate-100">
-            <p className="text-[10px] text-slate-400 uppercase font-medium mb-2">
+            <p className="text-[10px] text-slate-400 uppercase font-medium mb-3">
               Historial de contactos ({contactos.length})
             </p>
             {loadingC ? (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {[1, 2].map((i) => <div key={i} className="h-10 rounded-lg bg-slate-100 animate-pulse" />)}
               </div>
             ) : contactos.length === 0 ? (
               <p className="text-xs text-slate-400">Sin contactos aún</p>
             ) : (
-              <div className="space-y-2">
-                {contactos.map((c) => (
-                  <div key={c.id} className="rounded-lg border border-slate-100 p-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-semibold text-slate-700">{TIPO_LABEL[c.tipo]}</span>
-                      <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${RESULTADO_COLOR[c.resultado]}`}>
-                        {c.resultado}
-                      </span>
+              <div>
+                {contactos.map((c, idx) => {
+                  const isLast = idx === contactos.length - 1;
+                  return (
+                    <div key={c.id} className="flex gap-3">
+                      {/* Dot + vertical line */}
+                      <div className="flex flex-col items-center">
+                        <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-0.5 ${TIPO_DOT_COLOR[c.tipo]}`} />
+                        {!isLast && <div className="w-0.5 flex-1 bg-slate-200 my-1 min-h-[12px]" />}
+                      </div>
+                      {/* Content */}
+                      <div className={`flex-1 ${isLast ? "pb-1" : "pb-3"}`}>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-[10px] font-semibold text-slate-700">{TIPO_LABEL[c.tipo]}</span>
+                          {c.mensajeIAUsado && (
+                            <span className="text-[9px] px-1 py-0.5 rounded-full bg-violet-100 text-violet-600 font-semibold">✨ IA</span>
+                          )}
+                          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${RESULTADO_COLOR[c.resultado]}`}>
+                            {c.resultado}
+                          </span>
+                        </div>
+                        {c.nota && <p className="text-[10px] text-slate-500 mt-0.5 italic">{c.nota}</p>}
+                        <p className="text-[9px] text-slate-400 mt-0.5">{fmt(c.fechaHora)}</p>
+                      </div>
                     </div>
-                    {c.nota && <p className="text-[10px] text-slate-500 mt-1 italic">{c.nota}</p>}
-                    <p className="text-[9px] text-slate-400 mt-0.5">{fmt(c.fechaHora)}</p>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

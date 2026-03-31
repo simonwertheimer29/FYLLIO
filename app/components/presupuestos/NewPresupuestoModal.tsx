@@ -3,8 +3,9 @@
 import { useEffect, useState } from "react";
 import type {
   Doctor, Presupuesto, PresupuestoEstado, UserSession,
-  EspecialidadDoctor, TipoPaciente, TipoVisita,
+  EspecialidadDoctor, TipoPaciente, TipoVisita, OrigenLead,
 } from "../../lib/presupuestos/types";
+import { ORIGEN_LABEL } from "../../lib/presupuestos/colors";
 
 const ESPECIALIDADES: EspecialidadDoctor[] = [
   "General", "Prostodoncista", "Implantólogo", "Endodoncista", "Ortodoncia",
@@ -51,6 +52,7 @@ export default function NewPresupuestoModal({
   );
   const [notes, setNotes] = useState(presupuesto?.notes ?? "");
   const [numeroHistoria, setNumeroHistoria] = useState(presupuesto?.numeroHistoria ?? "");
+  const [origenLead, setOrigenLead] = useState<OrigenLead | "">(presupuesto?.origenLead ?? "");
   const [estadoInicial, setEstadoInicial] = useState<PresupuestoEstado>("PRESENTADO");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -94,6 +96,7 @@ export default function NewPresupuestoModal({
         notes: notes.trim() || undefined,
         clinica: user.clinica,
         numeroHistoria: numeroHistoria.trim() || undefined,
+        origenLead: origenLead || undefined,
         ...(!isEdit && { estadoInicial }),
       };
 
@@ -275,16 +278,31 @@ export default function NewPresupuestoModal({
             </div>
           </div>
 
-          {/* Notas */}
-          <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">Notas</label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Observaciones…"
-              rows={2}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-300"
-            />
+          {/* Notas + Origen */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Notas</label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Observaciones…"
+                rows={2}
+                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-300"
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Origen del lead</label>
+              <select
+                value={origenLead}
+                onChange={(e) => setOrigenLead(e.target.value as OrigenLead | "")}
+                className="w-full rounded-xl border border-slate-200 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              >
+                <option value="">Sin especificar</option>
+                {(Object.entries(ORIGEN_LABEL) as [OrigenLead, string][]).map(([val, label]) => (
+                  <option key={val} value={val}>{label}</option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {error && (

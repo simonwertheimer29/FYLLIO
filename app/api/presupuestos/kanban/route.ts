@@ -280,6 +280,7 @@ export async function POST(req: Request) {
 
     if (body.amount != null) fields["Importe"] = Number(body.amount);
     if (notasValue) fields["Notas"] = notasValue;
+    if (body.origenLead) fields["OrigenLead"] = body.origenLead;
 
     const created = await base(TABLES.presupuestos as any).create(fields as any) as any;
     const f = created.fields as any;
@@ -305,6 +306,7 @@ export async function POST(req: Request) {
       contactCount: 0,
       createdBy: session.email,
       numeroHistoria: body.numeroHistoria ?? undefined,
+      origenLead: body.origenLead ?? undefined,
     };
     presupuesto.urgencyScore = computeUrgencyScore(presupuesto);
 
