@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Presupuesto, Contacto, PresupuestoEstado, TipoContacto, ResultadoContacto } from "../../lib/presupuestos/types";
+import type { Presupuesto, Contacto, PresupuestoEstado, TipoContacto, ResultadoContacto, MotivoPerdida } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG, PIPELINE_ORDEN, ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
+import MotivoPerdidaModal from "./MotivoPerdidaModal";
 
 const TIPO_LABEL: Record<TipoContacto, string> = {
   llamada: "📞 Llamada", whatsapp: "💬 WhatsApp", email: "📧 Email", visita: "🏥 Visita",
@@ -31,11 +32,12 @@ export default function PatientDrawer({
 }: {
   presupuesto: Presupuesto;
   onClose: () => void;
-  onChangeEstado: (id: string, estado: PresupuestoEstado) => void;
+  onChangeEstado: (id: string, estado: PresupuestoEstado, extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string }) => void;
 }) {
   const p = presupuesto;
   const [contactos, setContactos] = useState<Contacto[]>([]);
   const [loadingC, setLoadingC] = useState(true);
+  const [pendingPerdido, setPendingPerdido] = useState(false);
 
   // New contact form
   const [tipo, setTipo] = useState<TipoContacto>("llamada");
@@ -172,7 +174,14 @@ export default function PatientDrawer({
                 return (
                   <button
                     key={e}
-                    onClick={() => { onChangeEstado(p.id, e); onClose(); }}
+                    onClick={() => {
+                      if (e === "PERDIDO") {
+                        setPendingPerdido(true);
+                      } else {
+                        onChangeEstado(p.id, e);
+                        onClose();
+                      }
+                    }}
                     className="flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1.5 rounded-full border hover:opacity-80 transition-opacity"
                     style={{ borderColor: c.hex + "66", background: c.hex + "11", color: c.hex }}
                   >
@@ -258,6 +267,18 @@ export default function PatientDrawer({
           </div>
         </div>
       </div>
+
+      {pendingPerdido && (
+        <MotivoPerdidaModal
+          patientName={p.patientName}
+          onConfirm={(motivo, texto) => {
+            onChangeEstado(p.id, "PERDIDO", { motivoPerdida: motivo, motivoPerdidaTexto: texto });
+            setPendingPerdido(false);
+            onClose();
+          }}
+          onCancel={() => setPendingPerdido(false)}
+        />
+      )}
     </div>
   );
 }

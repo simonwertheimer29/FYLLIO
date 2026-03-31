@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import type { Presupuesto, PresupuestoEstado, UserSession } from "../../lib/presupuestos/types";
+import type { Presupuesto, PresupuestoEstado, UserSession, MotivoPerdida } from "../../lib/presupuestos/types";
 import KanbanBoard from "./KanbanBoard";
 import FiltersBar, { type Filters } from "./FiltersBar";
 import ContactHistoryModal from "./ContactHistoryModal";
@@ -73,7 +73,11 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
 
   useEffect(() => { load(currentFilters); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function handleChangeEstado(id: string, estado: PresupuestoEstado) {
+  async function handleChangeEstado(
+    id: string,
+    estado: PresupuestoEstado,
+    extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string }
+  ) {
     setPresupuestos((prev) =>
       prev.map((p) => (p.id === id ? { ...p, estado } : p))
     );
@@ -81,7 +85,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
       await fetch(`/api/presupuestos/kanban/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado }),
+        body: JSON.stringify({ estado, ...extra }),
       });
     } catch {
       await load(currentFilters);
@@ -250,8 +254,8 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         <PatientDrawer
           presupuesto={drawerPresupuesto}
           onClose={() => setDrawerPresupuesto(null)}
-          onChangeEstado={(id, estado) => {
-            handleChangeEstado(id, estado);
+          onChangeEstado={(id, estado, extra) => {
+            handleChangeEstado(id, estado, extra);
             setDrawerPresupuesto((prev) =>
               prev && prev.id === id ? { ...prev, estado } : prev
             );

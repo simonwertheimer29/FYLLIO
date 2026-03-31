@@ -9,6 +9,10 @@ export type PresupuestoEstado =
   | "PERDIDO";
 
 export type TipoPaciente = "Adeslas" | "Privado";
+export type OrigenLead = "google_ads" | "seo_organico" | "referido_paciente" | "redes_sociales" | "walk_in" | "otro";
+export type MotivoPerdida = "precio_alto" | "otra_clinica" | "sin_urgencia" | "necesita_financiacion" | "miedo_tratamiento" | "no_responde" | "otro";
+export type MotivoDuda = "precio" | "otra_clinica" | "sin_urgencia" | "financiacion" | "miedo" | "comparando_opciones" | "otro";
+export type TonoIA = "directo" | "empatico" | "urgencia";
 export type TipoVisita = "Primera Visita" | "Paciente con Historia";
 export type EspecialidadDoctor =
   | "General"
@@ -46,6 +50,10 @@ export type Presupuesto = {
   contactCount: number;
   createdBy?: string;
   numeroHistoria?: string;
+  origenLead?: OrigenLead;
+  motivoPerdida?: MotivoPerdida;
+  motivoPerdidaTexto?: string;
+  motivoDuda?: MotivoDuda;
 };
 
 export type Contacto = {
@@ -56,6 +64,8 @@ export type Contacto = {
   fechaHora: string;
   nota?: string;
   registradoPor?: string;
+  mensajeIAUsado?: boolean;
+  tonoUsado?: TonoIA;
 };
 
 export type Doctor = {

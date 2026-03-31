@@ -45,6 +45,10 @@ export async function PATCH(
         : body.treatments;
     }
     if (body.notes !== undefined) fields["Notas"] = body.notes;
+    if (body.motivoPerdida !== undefined) fields["MotivoPerdida"] = body.motivoPerdida;
+    if (body.motivoPerdidaTexto !== undefined) fields["MotivoPerdidaTexto"] = body.motivoPerdidaTexto;
+    if (body.motivoDuda !== undefined) fields["MotivoDuda"] = body.motivoDuda;
+    if (body.origenLead !== undefined) fields["OrigenLead"] = body.origenLead;
 
     await base(TABLES.presupuestos as any).update(id, fields as any);
     return NextResponse.json({ ok: true });

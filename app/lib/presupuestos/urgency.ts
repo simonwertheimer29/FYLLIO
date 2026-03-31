@@ -7,21 +7,22 @@ import type { Presupuesto } from "./types";
  */
 export function computeUrgencyScore(p: Presupuesto): number {
   if (p.estado === "ACEPTADO" || p.estado === "PERDIDO") return 0;
+  const diasSinContacto = p.lastContactDaysAgo ?? p.daysSince;
   let score = 0;
 
-  // Días sin respuesta desde fechaPresupuesto (0-40)
-  score += Math.min(p.daysSince * 2, 40);
+  // Tiempo sin contacto (0-40): sube rápido al mes
+  score += Math.min((diasSinContacto / 30) * 40, 40);
 
-  // Días desde el último contacto (0-30)
-  score += Math.min((p.lastContactDaysAgo ?? 999) * 1.5, 30);
+  // Importe alto = más dinero en riesgo (0-20)
+  score += p.amount != null ? (p.amount > 3000 ? 20 : p.amount > 1000 ? 10 : 0) : 0;
 
-  // Importe alto impulsa urgencia (0-20)
-  score += Math.min(((p.amount ?? 0) / 5000) * 20, 20);
+  // Estado avanzado sin cierre = más riesgo (0-20)
+  score += p.estado === "EN_NEGOCIACION" ? 20 : p.estado === "EN_DUDA" ? 15 : 0;
 
-  // Más intentos de contacto sin resultado = más urgente (0-10)
-  score += Math.min(p.contactCount * 2, 10);
+  // Nunca o poco contactado = oportunidad sin explorar (0-20)
+  score += p.contactCount === 0 ? 20 : p.contactCount === 1 ? 10 : 0;
 
-  return Math.round(score);
+  return Math.min(Math.round(score), 100);
 }
 
 /**

@@ -12,8 +12,9 @@ import {
   useDroppable,
 } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
-import type { Presupuesto, PresupuestoEstado } from "../../lib/presupuestos/types";
+import type { Presupuesto, PresupuestoEstado, MotivoPerdida, OrigenLead } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG, PIPELINE_ORDEN } from "../../lib/presupuestos/colors";
+import MotivoPerdidaModal from "./MotivoPerdidaModal";
 
 // ------------------------------------------------------------------
 // UrgencyDot
@@ -21,11 +22,20 @@ import { ESTADO_CONFIG, PIPELINE_ORDEN } from "../../lib/presupuestos/colors";
 
 function UrgencyDot({ score }: { score: number }) {
   const color =
-    score >= 60 ? "bg-rose-500" :
-    score >= 35 ? "bg-amber-400" :
+    score >= 70 ? "bg-rose-500" :
+    score >= 40 ? "bg-amber-400" :
     "bg-emerald-400";
-  return <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${color}`} title={`Urgencia: ${score}`} />;
+  return <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${color}`} title={`Riesgo: ${score}`} />;
 }
+
+const ORIGEN_LABEL: Record<OrigenLead, string> = {
+  google_ads:         "Google",
+  seo_organico:       "SEO",
+  referido_paciente:  "Referido",
+  redes_sociales:     "RRSS",
+  walk_in:            "Walk-in",
+  otro:               "Otro",
+};
 
 // ------------------------------------------------------------------
 // CompactCard
@@ -82,6 +92,15 @@ function CompactCard({
               {p.tipoVisita === "Primera Visita" ? "1ª Visita" : "Con Hist."}
             </span>
           )}
+        </div>
+      )}
+
+      {/* OrigenLead badge */}
+      {p.origenLead && (
+        <div className="mt-1">
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 font-medium">
+            {ORIGEN_LABEL[p.origenLead]}
+          </span>
         </div>
       )}
 
@@ -292,12 +311,13 @@ export default function KanbanBoard({
   onEdit,
 }: {
   presupuestos: Presupuesto[];
-  onChangeEstado: (id: string, estado: PresupuestoEstado) => void;
+  onChangeEstado: (id: string, estado: PresupuestoEstado, extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string }) => void;
   onOpenHistory: (p: Presupuesto) => void;
   onEdit: (p: Presupuesto) => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pendingChange, setPendingChange] = useState<{ id: string; targetEstado: PresupuestoEstado } | null>(null);
+  const [pendingPerdido, setPendingPerdido] = useState<{ id: string } | null>(null);
   const [skipConfirm, setSkipConfirm] = useState(false);
 
   useEffect(() => {
@@ -323,7 +343,9 @@ export default function KanbanBoard({
     const card = presupuestos.find((p) => p.id === active.id);
     if (!card || card.estado === targetEstado) return;
 
-    if (skipConfirm) {
+    if (targetEstado === "PERDIDO") {
+      setPendingPerdido({ id: String(active.id) });
+    } else if (skipConfirm) {
       onChangeEstado(String(active.id), targetEstado);
     } else {
       setPendingChange({ id: String(active.id), targetEstado });
@@ -340,7 +362,14 @@ export default function KanbanBoard({
     setPendingChange(null);
   }
 
+  function handleConfirmPerdido(motivo: MotivoPerdida, texto?: string) {
+    if (!pendingPerdido) return;
+    onChangeEstado(pendingPerdido.id, "PERDIDO", { motivoPerdida: motivo, motivoPerdidaTexto: texto });
+    setPendingPerdido(null);
+  }
+
   const pendingCard = pendingChange ? presupuestos.find((p) => p.id === pendingChange.id) : null;
+  const pendingPerdidoCard = pendingPerdido ? presupuestos.find((p) => p.id === pendingPerdido.id) : null;
 
   return (
     <>
@@ -375,6 +404,14 @@ export default function KanbanBoard({
           targetEstado={pendingChange.targetEstado}
           onConfirm={handleConfirm}
           onCancel={() => setPendingChange(null)}
+        />
+      )}
+
+      {pendingPerdido && pendingPerdidoCard && (
+        <MotivoPerdidaModal
+          patientName={pendingPerdidoCard.patientName}
+          onConfirm={handleConfirmPerdido}
+          onCancel={() => setPendingPerdido(null)}
         />
       )}
     </>

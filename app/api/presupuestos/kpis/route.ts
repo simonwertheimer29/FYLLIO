@@ -211,10 +211,10 @@ async function fetchFromAirtable(session: UserSession, clinica: string | null, d
 
     const selectOpts: Record<string, unknown> = {
       fields: [
-        "Paciente_Nombre", "Paciente_Telefono", "Tratamiento_nombres",
+        "Paciente_nombre", "Paciente_Telefono", "Tratamiento_nombre",
         "Doctor", "Doctor_Especialidad", "TipoPaciente", "TipoVisita",
         "Importe", "Estado", "Fecha", "FechaAlta", "Clinica", "Notas",
-        "UltimoContacto", "ContactCount",
+        "ContactCount",
       ],
       sort: [{ field: "Fecha", direction: "desc" }],
       maxRecords: 2000,
@@ -228,12 +228,15 @@ async function fetchFromAirtable(session: UserSession, clinica: string | null, d
     return recs.map((r) => {
       const f = r.fields as any;
       const fechaPresupuesto = String(f["Fecha"] ?? "").slice(0, 10) || today;
-      const lastContactDate = f["UltimoContacto"] ? String(f["UltimoContacto"]).slice(0, 10) : undefined;
+      const patientName = Array.isArray(f["Paciente_nombre"])
+        ? String(f["Paciente_nombre"][0] ?? "Paciente")
+        : "Paciente";
+      const treatmentRaw = f["Tratamiento_nombre"] ?? "";
       const p: Presupuesto = {
         id: r.id,
-        patientName: String(f["Paciente_Nombre"] ?? "Paciente"),
+        patientName,
         patientPhone: f["Paciente_Telefono"] ? String(f["Paciente_Telefono"]) : undefined,
-        treatments: f["Tratamiento_nombres"] ? String(f["Tratamiento_nombres"]).split(",").map((t: string) => t.trim()) : [],
+        treatments: treatmentRaw ? String(treatmentRaw).split(/[,+]/).map((t: string) => t.trim()).filter(Boolean) : [],
         doctor: f["Doctor"] ? String(f["Doctor"]) : undefined,
         doctorEspecialidad: f["Doctor_Especialidad"] ?? undefined,
         tipoPaciente: f["TipoPaciente"] ?? undefined,
@@ -246,8 +249,8 @@ async function fetchFromAirtable(session: UserSession, clinica: string | null, d
         clinica: f["Clinica"] ? String(f["Clinica"]) : undefined,
         notes: f["Notas"] ? String(f["Notas"]) : undefined,
         urgencyScore: 0,
-        lastContactDate,
-        lastContactDaysAgo: lastContactDate ? daysSince(lastContactDate) : undefined,
+        lastContactDate: undefined,
+        lastContactDaysAgo: undefined,
         contactCount: Number(f["ContactCount"] ?? 0),
       };
       p.urgencyScore = computeUrgencyScore(p);

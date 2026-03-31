@@ -5,8 +5,8 @@ import type { Presupuesto, PresupuestoEstado, UserSession } from "../../lib/pres
 import { ESTADO_CONFIG, ESTADOS_ACCIONABLES, ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
 
 function urgencyBadge(p: Presupuesto): { label: string; color: string } {
-  if (p.urgencyScore >= 60) return { label: "URGENTE", color: "bg-rose-100 text-rose-700" };
-  if (p.urgencyScore >= 35) return { label: "SEGUIMIENTO", color: "bg-amber-100 text-amber-700" };
+  if (p.urgencyScore >= 70) return { label: "RIESGO ALTO", color: "bg-rose-100 text-rose-700" };
+  if (p.urgencyScore >= 40) return { label: "SEGUIMIENTO", color: "bg-amber-100 text-amber-700" };
   return { label: "RECIENTE", color: "bg-sky-100 text-sky-700" };
 }
 
@@ -110,9 +110,9 @@ function ClinicaGroup({ clinica, items, onOpenDrawer, onChangeEstado, onQuickCon
   onChangeEstado: (id: string, estado: PresupuestoEstado) => void;
   onQuickContact: (id: string) => void;
 }) {
-  const u = items.filter((p) => p.urgencyScore >= 60);
-  const s = items.filter((p) => p.urgencyScore >= 35 && p.urgencyScore < 60);
-  const r = items.filter((p) => p.urgencyScore < 35);
+  const u = items.filter((p) => p.urgencyScore >= 70);
+  const s = items.filter((p) => p.urgencyScore >= 40 && p.urgencyScore < 70);
+  const r = items.filter((p) => p.urgencyScore < 40);
   const dinero = items.reduce((sum, p) => sum + (p.amount ?? 0), 0);
   return (
     <div className="space-y-3">
@@ -121,7 +121,7 @@ function ClinicaGroup({ clinica, items, onOpenDrawer, onChangeEstado, onQuickCon
         <span className="text-xs text-slate-400">{items.length} presupuestos</span>
         {dinero > 0 && <span className="text-xs font-semibold text-violet-700 ml-auto">€{dinero.toLocaleString("es-ES")} en juego</span>}
       </div>
-      <Section title="Urgente — actuar hoy" items={u} color="bg-rose-100 text-rose-700" onOpenDrawer={onOpenDrawer} onChangeEstado={onChangeEstado} onQuickContact={onQuickContact} />
+      <Section title="Riesgo alto — actuar hoy" items={u} color="bg-rose-100 text-rose-700" onOpenDrawer={onOpenDrawer} onChangeEstado={onChangeEstado} onQuickContact={onQuickContact} />
       <Section title="Seguimiento" items={s} color="bg-amber-100 text-amber-700" onOpenDrawer={onOpenDrawer} onChangeEstado={onChangeEstado} onQuickContact={onQuickContact} />
       <Section title="Recientes" items={r} color="bg-sky-100 text-sky-700" onOpenDrawer={onOpenDrawer} onChangeEstado={onChangeEstado} onQuickContact={onQuickContact} />
     </div>
@@ -140,8 +140,8 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
     .filter((p) => ESTADOS_ACCIONABLES.includes(p.estado))
     .sort((a, b) => b.urgencyScore - a.urgencyScore);
 
-  const urgentes = accionables.filter((p) => p.urgencyScore >= 60);
-  const seguimiento = accionables.filter((p) => p.urgencyScore >= 35 && p.urgencyScore < 60);
+  const urgentes = accionables.filter((p) => p.urgencyScore >= 70);
+  const seguimiento = accionables.filter((p) => p.urgencyScore >= 40 && p.urgencyScore < 70);
   const dineroTotal = accionables.reduce((s, p) => s + (p.amount ?? 0), 0);
   const clinicas = [...new Set(accionables.map((p) => p.clinica ?? "Sin clínica"))].sort();
   const isManager = user.rol === "manager_general";
@@ -223,11 +223,11 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
         <div className="space-y-6">
           {(() => {
             const filtered = isManager ? accionables.filter((p) => (p.clinica ?? "Sin clínica") === clinicaFiltro) : accionables;
-            const u = filtered.filter((p) => p.urgencyScore >= 60);
-            const s = filtered.filter((p) => p.urgencyScore >= 35 && p.urgencyScore < 60);
-            const r = filtered.filter((p) => p.urgencyScore < 35);
+            const u = filtered.filter((p) => p.urgencyScore >= 70);
+            const s = filtered.filter((p) => p.urgencyScore >= 40 && p.urgencyScore < 70);
+            const r = filtered.filter((p) => p.urgencyScore < 40);
             return <>
-              <Section title="Urgente — actuar hoy" items={u} color="bg-rose-100 text-rose-700" onOpenDrawer={onOpenDrawer} onChangeEstado={onChangeEstado} onQuickContact={handleQuickContact} />
+              <Section title="Riesgo alto — actuar hoy" items={u} color="bg-rose-100 text-rose-700" onOpenDrawer={onOpenDrawer} onChangeEstado={onChangeEstado} onQuickContact={handleQuickContact} />
               <Section title="Seguimiento" items={s} color="bg-amber-100 text-amber-700" onOpenDrawer={onOpenDrawer} onChangeEstado={onChangeEstado} onQuickContact={handleQuickContact} />
               <Section title="Recientes" items={r} color="bg-sky-100 text-sky-700" onOpenDrawer={onOpenDrawer} onChangeEstado={onChangeEstado} onQuickContact={handleQuickContact} />
             </>;

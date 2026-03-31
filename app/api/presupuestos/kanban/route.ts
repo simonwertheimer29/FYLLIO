@@ -121,6 +121,7 @@ export async function GET(req: Request) {
         "Paciente_Telefono", "Doctor", "Doctor_Especialidad",
         "TipoPaciente", "TipoVisita", "FechaAlta", "Clinica",
         "ContactCount", "CreadoPor",
+        "OrigenLead", "MotivoPerdida", "MotivoPerdidaTexto", "MotivoDuda",
       ],
       sort: [{ field: "Fecha", direction: "desc" }],
       maxRecords: 500,
@@ -190,6 +191,10 @@ export async function GET(req: Request) {
         contactCount: Number(f["ContactCount"] ?? 0),
         createdBy: f["CreadoPor"] ? String(f["CreadoPor"]) : undefined,
         numeroHistoria: f["NumHistoria"] ? String(f["NumHistoria"]) : undefined,
+        origenLead: f["OrigenLead"] ?? undefined,
+        motivoPerdida: f["MotivoPerdida"] ?? undefined,
+        motivoPerdidaTexto: f["MotivoPerdidaTexto"] ? String(f["MotivoPerdidaTexto"]) : undefined,
+        motivoDuda: f["MotivoDuda"] ?? undefined,
       };
       p.urgencyScore = computeUrgencyScore(p);
       return p;
