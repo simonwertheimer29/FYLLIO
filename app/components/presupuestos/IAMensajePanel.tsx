@@ -46,7 +46,7 @@ export default function IAMensajePanel({
       });
       const d = await res.json();
       if (d.error || !d.mensaje) {
-        setError("No se pudo generar el mensaje. Inténtalo de nuevo.");
+        setError(d.error || "No se pudo generar el mensaje. Inténtalo de nuevo.");
       } else {
         setMensaje(d.mensaje);
       }
