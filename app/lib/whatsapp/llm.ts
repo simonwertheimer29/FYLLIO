@@ -4,7 +4,10 @@
 
 import OpenAI from "openai";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Lazy init — never evaluated at build time (Vercel doesn't have runtime env vars during build)
+function getClient(): OpenAI {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY! });
+}
 
 // ─────────────────────────────────────────────
 // 1) INTENT DETECTION
@@ -14,7 +17,7 @@ export type Intent = "CANCEL" | "RESCHEDULE" | "BOOK" | "HELP" | "STOP" | null;
 export async function parseIntentWithLLM(body: string): Promise<Intent> {
   if (!process.env.OPENAI_API_KEY) return null;
 
-  const res = await openai.chat.completions.create({
+  const res = await getClient().chat.completions.create({
     model: "gpt-4o-mini",
     temperature: 0,
     max_tokens: 10,
@@ -61,7 +64,7 @@ export async function parseWhenWithLLM(
 ): Promise<ParsedWhen | null> {
   if (!process.env.OPENAI_API_KEY) return null;
 
-  const res = await openai.chat.completions.create({
+  const res = await getClient().chat.completions.create({
     model: "gpt-4o-mini",
     temperature: 0,
     max_tokens: 80,
@@ -107,7 +110,7 @@ export async function parseChoiceWithLLM(
 
   const optionsList = options.map((o) => `key:${o.key} → ${o.label}`).join("\n");
 
-  const res = await openai.chat.completions.create({
+  const res = await getClient().chat.completions.create({
     model: "gpt-4o-mini",
     temperature: 0,
     max_tokens: 20,
@@ -151,7 +154,7 @@ export async function humanizeReply(
     (patientName ? ` El paciente se llama ${patientName}.` : "") +
     (context ? ` Contexto: ${context}.` : "");
 
-  const res = await openai.chat.completions.create({
+  const res = await getClient().chat.completions.create({
     model: "gpt-4o-mini",
     temperature: 0.7,
     max_tokens: 300,
