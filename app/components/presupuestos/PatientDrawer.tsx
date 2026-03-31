@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Presupuesto, Contacto, PresupuestoEstado, TipoContacto, ResultadoContacto, MotivoPerdida } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG, PIPELINE_ORDEN, ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
 import MotivoPerdidaModal from "./MotivoPerdidaModal";
+import IAMensajePanel from "./IAMensajePanel";
 
 const TIPO_LABEL: Record<TipoContacto, string> = {
   llamada: "📞 Llamada", whatsapp: "💬 WhatsApp", email: "📧 Email", visita: "🏥 Visita",
@@ -192,6 +193,11 @@ export default function PatientDrawer({
               })}
             </div>
           </div>
+
+          {/* Mensaje IA */}
+          {p.patientPhone && (
+            <IAMensajePanel presupuesto={p} onContactRegistered={loadContactos} />
+          )}
 
           {/* Contact history */}
           <div className="px-5 py-3 border-b border-slate-100">

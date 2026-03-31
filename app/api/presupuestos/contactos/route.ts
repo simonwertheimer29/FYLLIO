@@ -100,6 +100,8 @@ export async function POST(req: Request) {
       RegistradoPor: session.email,
     };
     if (nota) fields["Nota"] = nota;
+    if (body.mensajeIAUsado) fields["MensajeIAUsado"] = true;
+    if (body.tonoUsado) fields["TonoUsado"] = body.tonoUsado;
 
     const created = await base(TABLES.contactosPresupuesto as any).create(fields as any) as any;
 
