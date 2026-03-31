@@ -14,11 +14,16 @@
  *   TipoPaciente         → singleSelect (Privado | Adeslas)
  *   TipoVisita           → singleSelect (Primera Visita | Paciente con Historia)
  *   FechaAlta            → fecha YYYY-MM-DD
- *   Notas                → notas del paciente + [SEED_PRES] tag para limpieza
+ *   Notas                → notas + [SEED_PRES] tag
+ *   OrigenLead           → singleSelect
+ *   MotivoPerdida        → singleSelect (solo si PERDIDO)
+ *   MotivoPerdidaTexto   → texto (solo si PERDIDO, algunos)
+ *   MotivoDuda           → singleSelect (solo si EN_DUDA)
+ *   ContactCount         → número
  *
  * Uso:
  *   npx tsx scripts/seed-presupuestos.ts            # crea ~120 presupuestos
- *   npx tsx scripts/seed-presupuestos.ts --clear    # elimina todos y re-seed
+ *   npx tsx scripts/seed-presupuestos.ts --clear    # elimina TODOS y re-seed
  */
 
 import Airtable from "airtable";
@@ -119,7 +124,50 @@ const NOTAS_POOL = [
   "Urgente, tiene boda en 2 meses",
   "Sin respuesta tras primer contacto",
   "Pendiente de informe médico previo",
+  "Habló con la encargada, muy interesado",
+  "Presupuesto enviado por email",
 ];
+
+// ── New field pools ──────────────────────────────────────────────────────────
+
+const ORIGENES_LEAD = [
+  "google_ads",
+  "seo_organico",
+  "referido_paciente",
+  "redes_sociales",
+  "walk_in",
+  "otro",
+] as const;
+
+const MOTIVOS_PERDIDA = [
+  "precio_alto",
+  "otra_clinica",
+  "sin_urgencia",
+  "necesita_financiacion",
+  "miedo_tratamiento",
+  "no_responde",
+  "otro",
+] as const;
+
+const MOTIVOS_PERDIDA_TEXTO: Record<string, string> = {
+  precio_alto:           "Dijo que estaba €400 por encima de la competencia",
+  otra_clinica:          "Se fue a Dental Care de Chamberí",
+  sin_urgencia:          "Dice que lo dejará para el año que viene",
+  necesita_financiacion: "Solicitó 12 meses sin intereses, no llegamos a acuerdo",
+  miedo_tratamiento:     "Tiene fobia a las agujas, no quiso continuar",
+  no_responde:           "3 intentos de contacto sin respuesta",
+  otro:                  "Motivo no especificado",
+};
+
+const MOTIVOS_DUDA = [
+  "precio",
+  "otra_clinica",
+  "sin_urgencia",
+  "financiacion",
+  "miedo",
+  "comparando_opciones",
+  "otro",
+] as const;
 
 // ── RNG determinístico ───────────────────────────────────────────────────────
 
@@ -128,7 +176,7 @@ function rng() {
   seed = (seed * 1664525 + 1013904223) & 0xffffffff;
   return (seed >>> 0) / 0x100000000;
 }
-function pick<T>(arr: T[]): T {
+function pick<T>(arr: readonly T[] | T[]): T {
   return arr[Math.floor(rng() * arr.length)];
 }
 function randInt(min: number, max: number): number {
@@ -197,21 +245,19 @@ async function main() {
   }
   console.log(`   ${pacientes.length} pacientes encontrados`);
 
-  // 2. Clear seed records if --clear
+  // 2. Clear ALL records if --clear
   if (isClear) {
-    console.log("\n🗑  Buscando registros seed existentes...");
+    console.log("\n🗑  Leyendo todos los registros de Presupuestos...");
     const existing = await getAllPresupuestos();
-    const toDelete = existing.filter((r) =>
-      String(r.get("Notas") ?? "").includes(SEED_TAG)
-    );
-    console.log(`   ${toDelete.length} registros seed encontrados`);
-    if (toDelete.length > 0) {
-      for (let i = 0; i < toDelete.length; i += 10) {
-        const batch = toDelete.slice(i, i + 10).map((r) => r.id);
+    console.log(`   ${existing.length} registros encontrados`);
+    if (existing.length > 0) {
+      for (let i = 0; i < existing.length; i += 10) {
+        const batch = existing.slice(i, i + 10).map((r) => r.id);
         await base(T).destroy(batch);
-        await sleep(100);
+        await sleep(150);
+        process.stdout.write(`   Eliminados ${Math.min(i + 10, existing.length)}/${existing.length}\r`);
       }
-      console.log(`   ✅ ${toDelete.length} registros eliminados`);
+      console.log(`\n   ✅ ${existing.length} registros eliminados`);
     }
   }
 
@@ -229,14 +275,22 @@ async function main() {
     tipoPaciente: string;
     tipoVisita: string;
     notas: string;
+    origenLead: string;
+    motivoPerdida?: string;
+    motivoPerdidaTexto?: string;
+    motivoDuda?: string;
+    contactCount: number;
   }> = [];
+
+  // Ensure each origen appears enough times by cycling through them
+  let origenIndex = 0;
 
   for (let monthOffset = 11; monthOffset >= 0; monthOffset--) {
     const targetDate = new Date(today.getFullYear(), today.getMonth() - monthOffset, 1);
     const year = targetDate.getFullYear();
     const month = targetDate.getMonth() + 1;
     const daysInMonth = new Date(year, month, 0).getDate();
-    const count = randInt(8, 12);
+    const count = randInt(10, 13);
 
     for (let i = 0; i < count; i++) {
       const day = randInt(1, daysInMonth);
@@ -260,8 +314,36 @@ async function main() {
       const tipoPaciente = rng() < 0.65 ? "Privado" : "Adeslas";
       const tipoVisita = rng() < 0.45 ? "Primera Visita" : "Paciente con Historia";
       const estado = assignEstado(diff);
-      const notaExtra = rng() < 0.4 ? pick(NOTAS_POOL) : "";
+      const notaExtra = rng() < 0.45 ? pick(NOTAS_POOL) : "";
       const notas = notaExtra ? `${notaExtra} ${SEED_TAG}` : SEED_TAG;
+
+      // OrigenLead: cycle through all values to ensure even distribution
+      const origenLead = ORIGENES_LEAD[origenIndex % ORIGENES_LEAD.length];
+      origenIndex++;
+
+      // MotivoPerdida + MotivoDuda
+      let motivoPerdida: string | undefined;
+      let motivoPerdidaTexto: string | undefined;
+      let motivoDuda: string | undefined;
+
+      if (estado === "PERDIDO") {
+        motivoPerdida = pick(MOTIVOS_PERDIDA);
+        if (rng() < 0.35) {
+          motivoPerdidaTexto = MOTIVOS_PERDIDA_TEXTO[motivoPerdida] ?? "Sin detalle";
+        }
+      }
+      if (estado === "EN_DUDA") {
+        motivoDuda = pick(MOTIVOS_DUDA);
+      }
+
+      // ContactCount by estado
+      const contactCount =
+        estado === "PRESENTADO"     ? 0
+        : estado === "INTERESADO"   ? randInt(1, 2)
+        : estado === "EN_DUDA"      ? randInt(1, 3)
+        : estado === "EN_NEGOCIACION" ? randInt(2, 4)
+        : estado === "ACEPTADO"     ? randInt(2, 5)
+        : randInt(1, 3); // PERDIDO
 
       records.push({
         pacienteId: paciente.id,
@@ -275,6 +357,11 @@ async function main() {
         tipoPaciente,
         tipoVisita,
         notas,
+        origenLead,
+        motivoPerdida,
+        motivoPerdidaTexto,
+        motivoDuda,
+        contactCount,
       });
     }
   }
@@ -285,25 +372,31 @@ async function main() {
   let errors = 0;
 
   for (let i = 0; i < records.length; i += 10) {
-    const batch = records.slice(i, i + 10).map((r) => ({
-      fields: {
-        Paciente:           [r.pacienteId],
-        Tratamiento_nombre: r.tratamiento,
-        Importe:            r.importe,
-        Estado:             r.estado,
-        Fecha:              r.fecha,
-        FechaAlta:          r.fecha,
-        Doctor:             r.doctor,
+    const batch = records.slice(i, i + 10).map((r) => {
+      const fields: Record<string, unknown> = {
+        Paciente:            [r.pacienteId],
+        Tratamiento_nombre:  r.tratamiento,
+        Importe:             r.importe,
+        Estado:              r.estado,
+        Fecha:               r.fecha,
+        FechaAlta:           r.fecha,
+        Doctor:              r.doctor,
         Doctor_Especialidad: r.doctorEspecialidad,
-        Clinica:            r.clinica,
-        TipoPaciente:       r.tipoPaciente,
-        TipoVisita:         r.tipoVisita,
-        Notas:              r.notas,
-      } as any,
-    }));
+        Clinica:             r.clinica,
+        TipoPaciente:        r.tipoPaciente,
+        TipoVisita:          r.tipoVisita,
+        Notas:               r.notas,
+        OrigenLead:          r.origenLead,
+        ContactCount:        r.contactCount,
+      };
+      if (r.motivoPerdida)     fields["MotivoPerdida"]     = r.motivoPerdida;
+      if (r.motivoPerdidaTexto) fields["MotivoPerdidaTexto"] = r.motivoPerdidaTexto;
+      if (r.motivoDuda)        fields["MotivoDuda"]        = r.motivoDuda;
+      return { fields };
+    });
 
     try {
-      await base(T).create(batch);
+      await base(T).create(batch as any);
       created += batch.length;
       process.stdout.write(`   ${created}/${records.length}\r`);
     } catch (err: any) {
@@ -315,18 +408,31 @@ async function main() {
 
   // 5. Summary
   const byEstado: Record<string, number> = {};
+  const byOrigen: Record<string, number> = {};
   let totalImporte = 0;
+  let perdidosConMotivo = 0;
+
   for (const r of records) {
     byEstado[r.estado] = (byEstado[r.estado] ?? 0) + 1;
+    byOrigen[r.origenLead] = (byOrigen[r.origenLead] ?? 0) + 1;
     totalImporte += r.importe;
+    if (r.estado === "PERDIDO" && r.motivoPerdida) perdidosConMotivo++;
   }
 
   console.log(`\n\n✅ ${created} presupuestos creados${errors > 0 ? ` (${errors} errores)` : ""}`);
   console.log("\n📊 Por estado:");
   for (const [e, n] of Object.entries(byEstado).sort((a, b) => b[1] - a[1])) {
-    console.log(`     ${e.padEnd(16)} ${n}`);
+    console.log(`     ${e.padEnd(18)} ${n}`);
   }
-  console.log(`\n   💶 Importe total: €${totalImporte.toLocaleString("es-ES")}`);
+  console.log("\n📣 Por origen de lead:");
+  for (const [o, n] of Object.entries(byOrigen).sort((a, b) => b[1] - a[1])) {
+    console.log(`     ${o.padEnd(22)} ${n}`);
+  }
+  const perdidos = byEstado["PERDIDO"] ?? 0;
+  if (perdidos > 0) {
+    console.log(`\n   🔴 Perdidos con motivo: ${perdidosConMotivo}/${perdidos}`);
+  }
+  console.log(`\n   💶 Importe total generado: €${totalImporte.toLocaleString("es-ES")}`);
   console.log("\n🎉 Listo. Actualiza la página de presupuestos para ver los datos.");
 }
 
