@@ -631,7 +631,7 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10 }} />
                   <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={80} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}%`, "Tasa"]} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => [`${v}%`, "Tasa"]} />
                   <Bar dataKey="tasa" radius={[0, 6, 6, 0]} fill="#7c3aed" />
                 </BarChart>
               </ResponsiveContainer>
@@ -745,7 +745,7 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" tick={{ fontSize: 10 }} />
                   <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={100} />
-                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [v, "Casos"]} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => [v, "Casos"]} />
                   <Bar dataKey="count" radius={[0, 6, 6, 0]} fill="#ef4444" />
                 </BarChart>
               </ResponsiveContainer>
