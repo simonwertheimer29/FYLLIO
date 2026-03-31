@@ -8,7 +8,7 @@ import {
 import type { KpiData, UserSession } from "../../lib/presupuestos/types";
 import { ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
 
-type SubTab = "general" | "tarifas" | "paciente" | "tratamientos" | "doctores";
+type SubTab = "general" | "tarifas" | "paciente" | "tratamientos" | "doctores" | "benchmark";
 
 const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: "general", label: "General" },
@@ -16,6 +16,7 @@ const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: "paciente", label: "Tipo Paciente" },
   { id: "tratamientos", label: "Tratamientos" },
   { id: "doctores", label: "Doctores" },
+  { id: "benchmark", label: "Benchmark" },
 ];
 
 const MES_LABEL = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
@@ -579,6 +580,206 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
   );
 }
 
+// ─── Tab: Benchmark ───────────────────────────────────────────────────────────
+
+const ORIGEN_COLORS = ["#7c3aed","#3b82f6","#10b981","#f59e0b","#ef4444","#8b5cf6","#94a3b8"];
+
+function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }) {
+  const origenData = kpis.porOrigenLead ?? [];
+  const motivoData = kpis.porMotivoPerdida ?? [];
+  const clinicaData = kpis.porClinica ?? [];
+  const totalPerdidos = motivoData.reduce((s, m) => s + m.count, 0);
+
+  return (
+    <div className="space-y-8">
+
+      {/* ── Sección 1: Origen del lead ── */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+          Conversión por origen de lead
+          <span className="text-[10px] font-normal text-slate-400">todos los tiempos</span>
+        </h3>
+
+        {origenData.filter((o) => o.origen !== "sin_origen").length === 0 ? (
+          <p className="text-xs text-slate-400 italic">Sin datos de origen. Empieza a registrar el canal al crear presupuestos.</p>
+        ) : (
+          <>
+            {/* Cards */}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {origenData.filter((o) => o.origen !== "sin_origen").map((o, i) => (
+                <div key={o.origen} className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-center gap-1.5 mb-2">
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: ORIGEN_COLORS[i % ORIGEN_COLORS.length] }} />
+                    <p className="text-[10px] font-bold text-slate-500 uppercase truncate">{o.label}</p>
+                  </div>
+                  <p className="text-2xl font-extrabold text-slate-900">{o.tasa}%</p>
+                  <p className="text-[10px] text-slate-500 mt-1">{o.aceptados}/{o.total} aceptados</p>
+                  {o.importe > 0 && <p className="text-[10px] text-violet-600 font-semibold mt-0.5">€{o.importe.toLocaleString("es-ES")}</p>}
+                </div>
+              ))}
+            </div>
+
+            {/* Bar chart */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <p className="text-[10px] font-semibold text-slate-400 uppercase mb-3">Tasa de conversión %</p>
+              <ResponsiveContainer width="100%" height={Math.max(180, origenData.filter((o) => o.origen !== "sin_origen").length * 44)}>
+                <BarChart
+                  layout="vertical"
+                  data={origenData.filter((o) => o.origen !== "sin_origen")}
+                  margin={{ left: 8, right: 24, top: 4, bottom: 4 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10 }} />
+                  <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={80} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [`${v}%`, "Tasa"]} />
+                  <Bar dataKey="tasa" radius={[0, 6, 6, 0]} fill="#7c3aed" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Table */}
+            <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-2.5 text-left font-semibold text-slate-500">Origen</th>
+                    <th className="px-3 py-2.5 text-right font-semibold text-slate-500">Ofrecidos</th>
+                    <th className="px-3 py-2.5 text-right font-semibold text-slate-500">Aceptados</th>
+                    <th className="px-3 py-2.5 text-right font-semibold text-slate-500">Tasa</th>
+                    <th className="px-4 py-2.5 text-right font-semibold text-slate-500">€</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {origenData.map((o, i) => (
+                    <tr key={o.origen} className={i % 2 === 0 ? "" : "bg-slate-50"}>
+                      <td className="px-4 py-2 font-medium text-slate-700">{o.label}</td>
+                      <td className="px-3 py-2 text-right text-slate-600">{o.total}</td>
+                      <td className="px-3 py-2 text-right text-slate-600">{o.aceptados}</td>
+                      <td className="px-3 py-2 text-right">
+                        <span className={`font-bold ${o.tasa >= 50 ? "text-emerald-700" : o.tasa >= 25 ? "text-amber-700" : "text-rose-600"}`}>
+                          {o.tasa}%
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-right text-slate-600">
+                        {o.importe > 0 ? `€${o.importe.toLocaleString("es-ES")}` : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── Sección 2: Clínicas (solo manager) ── */}
+      {isManager && clinicaData.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="text-sm font-bold text-slate-800">Comparativa de clínicas</h3>
+          <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+            <table className="w-full text-xs">
+              <thead className="bg-slate-50">
+                <tr>
+                  <th className="px-4 py-2.5 text-left font-semibold text-slate-500">#</th>
+                  <th className="px-3 py-2.5 text-left font-semibold text-slate-500">Clínica</th>
+                  <th className="px-3 py-2.5 text-right font-semibold text-slate-500">Total</th>
+                  <th className="px-3 py-2.5 text-right font-semibold text-slate-500">Aceptados</th>
+                  <th className="px-3 py-2.5 text-right font-semibold text-slate-500">Tasa</th>
+                  <th className="px-4 py-2.5 text-right font-semibold text-slate-500">€ aceptado</th>
+                </tr>
+              </thead>
+              <tbody>
+                {clinicaData.map((c, i) => (
+                  <tr key={c.clinica} className={i % 2 === 0 ? "" : "bg-slate-50"}>
+                    <td className="px-4 py-2.5">
+                      {i === 0 ? (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">#1</span>
+                      ) : i === 1 ? (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">#2</span>
+                      ) : i === 2 ? (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-50 text-orange-600">#3</span>
+                      ) : (
+                        <span className="text-[10px] text-slate-400">#{i + 1}</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 font-medium text-slate-700">{c.clinica}</td>
+                    <td className="px-3 py-2.5 text-right text-slate-600">{c.total}</td>
+                    <td className="px-3 py-2.5 text-right text-slate-600">{c.aceptados}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      <span className={`font-bold ${c.tasa >= 50 ? "text-emerald-700" : c.tasa >= 25 ? "text-amber-700" : "text-rose-600"}`}>
+                        {c.tasa}%
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-slate-600">
+                      {c.importe > 0 ? `€${c.importe.toLocaleString("es-ES")}` : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── Sección 3: Motivos de pérdida ── */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+          Motivos de pérdida
+          {totalPerdidos > 0 && (
+            <span className="text-[10px] font-normal text-slate-400">{totalPerdidos} perdidos</span>
+          )}
+        </h3>
+
+        {motivoData.length === 0 ? (
+          <p className="text-xs text-slate-400 italic">Sin presupuestos perdidos registrados.</p>
+        ) : (
+          <>
+            {/* Bar chart */}
+            <div className="rounded-2xl border border-slate-200 bg-white p-5">
+              <ResponsiveContainer width="100%" height={Math.max(160, motivoData.length * 44)}>
+                <BarChart
+                  layout="vertical"
+                  data={motivoData}
+                  margin={{ left: 8, right: 24, top: 4, bottom: 4 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                  <XAxis type="number" tick={{ fontSize: 10 }} />
+                  <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={100} />
+                  <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: number) => [v, "Casos"]} />
+                  <Bar dataKey="count" radius={[0, 6, 6, 0]} fill="#ef4444" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Table */}
+            <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50">
+                  <tr>
+                    <th className="px-4 py-2.5 text-left font-semibold text-slate-500">Motivo</th>
+                    <th className="px-3 py-2.5 text-right font-semibold text-slate-500">Casos</th>
+                    <th className="px-4 py-2.5 text-right font-semibold text-slate-500">%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {motivoData.map((m, i) => (
+                    <tr key={m.motivo} className={i % 2 === 0 ? "" : "bg-slate-50"}>
+                      <td className="px-4 py-2 font-medium text-slate-700">{m.label}</td>
+                      <td className="px-3 py-2 text-right text-slate-600">{m.count}</td>
+                      <td className="px-4 py-2 text-right font-bold text-rose-600">{m.pct}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+
+    </div>
+  );
+}
+
 // ─── Main KpiView ─────────────────────────────────────────────────────────────
 
 export default function KpiView({ user }: { user: UserSession }) {
@@ -637,6 +838,7 @@ export default function KpiView({ user }: { user: UserSession }) {
 
   const mesLabel = formatMesLabel(filterMes);
   const doctorOpciones = kpis.doctores;
+  const isManager = user.rol === "manager_general";
 
   return (
     <div className="space-y-4">
@@ -685,6 +887,7 @@ export default function KpiView({ user }: { user: UserSession }) {
       {subTab === "paciente" && <TabPaciente kpisMes={kpisMes} kpisPrevMes={kpisPrevMes} kpis={kpis} mesLabel={mesLabel} />}
       {subTab === "tratamientos" && <TabTratamientos kpisMes={kpisMes} kpis={kpis} mesLabel={mesLabel} />}
       {subTab === "doctores" && <TabDoctores kpisMes={kpisMes} kpisPrevMes={kpisPrevMes} kpis={kpis} mesLabel={mesLabel} />}
+      {subTab === "benchmark" && <TabBenchmark kpis={kpis} isManager={isManager} />}
     </div>
   );
 }

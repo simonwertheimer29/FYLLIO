@@ -139,6 +139,30 @@ export type KpiTendenciaVisita = {
   historia: number; historiaAcept: number;
 };
 
+export type KpiPorOrigen = {
+  origen: string;
+  label: string;
+  total: number;
+  aceptados: number;
+  tasa: number;
+  importe: number;
+};
+
+export type KpiPorMotivoPerdida = {
+  motivo: string;
+  label: string;
+  count: number;
+  pct: number;
+};
+
+export type KpiPorClinica = {
+  clinica: string;
+  total: number;
+  aceptados: number;
+  tasa: number;
+  importe: number;
+};
+
 export type KpiData = {
   resumen: KpiResumen;
   comparacion: {
@@ -155,4 +179,7 @@ export type KpiData = {
   tendenciaPorTarifa: KpiTendenciaTarifa[];
   tendenciaPorVisita: KpiTendenciaVisita[];
   doctores: string[];
+  porOrigenLead: KpiPorOrigen[];
+  porMotivoPerdida: KpiPorMotivoPerdida[];
+  porClinica: KpiPorClinica[];
 };

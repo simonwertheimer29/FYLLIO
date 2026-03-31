@@ -9,6 +9,7 @@ import type {
   Presupuesto, UserSession, KpiData, KpiPorEstado, KpiPorDoctor,
   KpiPorTratamiento, KpiMensual, KpiComparacion,
   KpiTendenciaTarifa, KpiTendenciaVisita,
+  KpiPorOrigen, KpiPorMotivoPerdida, KpiPorClinica,
 } from "../../../lib/presupuestos/types";
 import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
 import { PIPELINE_ORDEN, ESTADOS_ACEPTADOS } from "../../../lib/presupuestos/colors";
@@ -36,6 +37,16 @@ function daysSince(iso: string): number {
 }
 
 const MES_LABEL = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+
+const ORIGEN_DISPLAY: Record<string, string> = {
+  google_ads: "Google Ads", seo_organico: "SEO", referido_paciente: "Referido",
+  redes_sociales: "RRSS", walk_in: "Walk-in", otro: "Otro", sin_origen: "Sin origen",
+};
+const MOTIVO_DISPLAY: Record<string, string> = {
+  precio_alto: "Precio alto", otra_clinica: "Otra clínica", sin_urgencia: "Sin urgencia",
+  necesita_financiacion: "Financiación", miedo_tratamiento: "Miedo al tratamiento",
+  no_responde: "No responde", otro: "Otro", desconocido: "Sin motivo",
+};
 
 function isoToYYYYMM(iso: string): string {
   return iso.slice(0, 7);
@@ -187,6 +198,57 @@ function buildKpis(allPresupuestos: Presupuesto[]): KpiData {
 
   const doctores = porDoctor.map((d) => d.doctor);
 
+  // porOrigenLead
+  const origenMap = new Map<string, { total: number; aceptados: number; importe: number }>();
+  for (const p of allPresupuestos) {
+    const key = p.origenLead ?? "sin_origen";
+    if (!origenMap.has(key)) origenMap.set(key, { total: 0, aceptados: 0, importe: 0 });
+    const g = origenMap.get(key)!;
+    g.total++;
+    if (ESTADOS_ACEPTADOS.includes(p.estado)) { g.aceptados++; g.importe += p.amount ?? 0; }
+  }
+  const porOrigenLead: KpiPorOrigen[] = [...origenMap.entries()]
+    .map(([origen, g]) => ({
+      origen,
+      label: ORIGEN_DISPLAY[origen] ?? origen,
+      ...g,
+      tasa: g.total > 0 ? Math.round((g.aceptados / g.total) * 100) : 0,
+    }))
+    .sort((a, b) => b.total - a.total);
+
+  // porMotivoPerdida
+  const perdidos = allPresupuestos.filter((p) => p.estado === "PERDIDO");
+  const motivoMap = new Map<string, number>();
+  for (const p of perdidos) {
+    const key = p.motivoPerdida ?? "desconocido";
+    motivoMap.set(key, (motivoMap.get(key) ?? 0) + 1);
+  }
+  const porMotivoPerdida: KpiPorMotivoPerdida[] = [...motivoMap.entries()]
+    .map(([motivo, count]) => ({
+      motivo,
+      label: MOTIVO_DISPLAY[motivo] ?? motivo,
+      count,
+      pct: perdidos.length > 0 ? Math.round((count / perdidos.length) * 100) : 0,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  // porClinica
+  const clinicaMap = new Map<string, { total: number; aceptados: number; importe: number }>();
+  for (const p of allPresupuestos) {
+    const key = p.clinica ?? "Sin clínica";
+    if (!clinicaMap.has(key)) clinicaMap.set(key, { total: 0, aceptados: 0, importe: 0 });
+    const g = clinicaMap.get(key)!;
+    g.total++;
+    if (ESTADOS_ACEPTADOS.includes(p.estado)) { g.aceptados++; g.importe += p.amount ?? 0; }
+  }
+  const porClinica: KpiPorClinica[] = [...clinicaMap.entries()]
+    .map(([clinica, g]) => ({
+      clinica,
+      ...g,
+      tasa: g.total > 0 ? Math.round((g.aceptados / g.total) * 100) : 0,
+    }))
+    .sort((a, b) => b.tasa - a.tasa);
+
   return {
     resumen: { total, primeraVisita, conHistoria, aceptados, tasaAceptacion, importeActivos },
     comparacion,
@@ -199,6 +261,9 @@ function buildKpis(allPresupuestos: Presupuesto[]): KpiData {
     tendenciaPorTarifa,
     tendenciaPorVisita,
     doctores,
+    porOrigenLead,
+    porMotivoPerdida,
+    porClinica,
   };
 }
 
@@ -214,7 +279,7 @@ async function fetchFromAirtable(session: UserSession, clinica: string | null, d
         "Paciente_nombre", "Paciente_Telefono", "Tratamiento_nombre",
         "Doctor", "Doctor_Especialidad", "TipoPaciente", "TipoVisita",
         "Importe", "Estado", "Fecha", "FechaAlta", "Clinica", "Notas",
-        "ContactCount",
+        "ContactCount", "OrigenLead", "MotivoPerdida",
       ],
       sort: [{ field: "Fecha", direction: "desc" }],
       maxRecords: 2000,
@@ -252,6 +317,8 @@ async function fetchFromAirtable(session: UserSession, clinica: string | null, d
         lastContactDate: undefined,
         lastContactDaysAgo: undefined,
         contactCount: Number(f["ContactCount"] ?? 0),
+        origenLead: f["OrigenLead"] ?? undefined,
+        motivoPerdida: f["MotivoPerdida"] ?? undefined,
       };
       p.urgencyScore = computeUrgencyScore(p);
       return p;
