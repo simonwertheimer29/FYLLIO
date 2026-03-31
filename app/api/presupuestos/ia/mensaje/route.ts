@@ -70,14 +70,7 @@ export async function POST(req: Request) {
 
     const apiKey = process.env["ANTHROPIC_API_KEY"];
     if (!apiKey) {
-      // Diagnóstico: ver qué vars están disponibles
-      const jwtDefined = !!process.env["PRESUPUESTOS_JWT_SECRET"];
-      const airtableDefined = !!process.env["AIRTABLE_API_KEY"];
-      const allKeys = Object.keys(process.env).filter(k => !k.startsWith("npm_")).join(", ");
-      return NextResponse.json({
-        mensaje: "",
-        error: `ANTHROPIC_API_KEY no definida. JWT=${jwtDefined}, Airtable=${airtableDefined}. Vars: ${allKeys}`
-      });
+      return NextResponse.json({ mensaje: "", error: "ANTHROPIC_API_KEY no configurada en Vercel" });
     }
 
     const firstName = patientName.split(" ")[0];
