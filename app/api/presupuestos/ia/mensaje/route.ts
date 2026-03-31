@@ -4,7 +4,6 @@
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import Anthropic from "@anthropic-ai/sdk";
 import { ESTADO_CONFIG } from "../../../../lib/presupuestos/colors";
 import type { TonoIA, PresupuestoEstado } from "../../../../lib/presupuestos/types";
 
@@ -69,6 +68,11 @@ export async function POST(req: Request) {
       tono: TonoIA;
     } = body;
 
+    const apiKey = process.env["ANTHROPIC_API_KEY"];
+    if (!apiKey) {
+      return NextResponse.json({ mensaje: "", error: "ANTHROPIC_API_KEY no definida" });
+    }
+
     const firstName = patientName.split(" ")[0];
     const estadoLabel = ESTADO_CONFIG[estado]?.label ?? estado;
     const diasSinContacto = lastContactDaysAgo ?? daysSince;
@@ -87,19 +91,28 @@ export async function POST(req: Request) {
       .filter(Boolean)
       .join("\n");
 
-    const client = new Anthropic({
-      apiKey: process.env.ANTHROPIC_API_KEY,
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 200,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: "user", content: userPrompt }],
+      }),
     });
 
-    const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 200,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: userPrompt }],
-    });
+    if (!res.ok) {
+      const errBody = await res.text();
+      return NextResponse.json({ mensaje: "", error: `API ${res.status}: ${errBody}` });
+    }
 
-    const mensaje =
-      response.content[0]?.type === "text" ? response.content[0].text.trim() : "";
+    const data = await res.json();
+    const mensaje: string = data.content?.[0]?.text?.trim() ?? "";
 
     return NextResponse.json({ mensaje });
   } catch (err) {
