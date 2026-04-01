@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Presupuesto, TonoIA } from "../../lib/presupuestos/types";
+import type { TonosStats } from "../../api/presupuestos/tonos-stats/route";
 
 const TONOS: { valor: TonoIA; label: string; activeClass: string }[] = [
   { valor: "directo",  label: "Directo",  activeClass: "border-slate-400 bg-slate-100 text-slate-700" },
@@ -41,6 +42,29 @@ export default function IAGeneradorDrawer({
   const [generando, setGenerando] = useState(false);
   const [regenerandoTono, setRegenerandoTono] = useState<Partial<Record<TonoIA, boolean>>>({});
   const [error, setError] = useState<string | null>(null);
+  const [tonosStats, setTonosStats] = useState<TonosStats | null>(null);
+
+  // Fetch A/B stats once on mount
+  useEffect(() => {
+    const url = new URL("/api/presupuestos/tonos-stats", location.href);
+    if (p.clinica) url.searchParams.set("clinica", p.clinica);
+    fetch(url.toString())
+      .then((r) => r.json())
+      .then((d) => { if (d.stats) setTonosStats(d.stats); })
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Best tono by historical tasa (only if tasa is not null)
+  const bestTono: TonoIA | null = (() => {
+    if (!tonosStats) return null;
+    let best: TonoIA | null = null;
+    let bestTasa = -1;
+    for (const t of ["directo", "empatico", "urgencia"] as TonoIA[]) {
+      const tasa = tonosStats[t]?.tasa;
+      if (tasa != null && tasa > bestTasa) { bestTasa = tasa; best = t; }
+    }
+    return best;
+  })();
 
   function toggleTono(tono: TonoIA) {
     setSelectedTonos((prev) => {
@@ -163,19 +187,40 @@ export default function IAGeneradorDrawer({
             <div className="flex gap-2">
               {TONOS.map((t) => {
                 const active = selectedTonos.has(t.valor);
+                const isBest = bestTono === t.valor;
                 return (
                   <button
                     key={t.valor}
                     onClick={() => toggleTono(t.valor)}
                     className={`flex-1 rounded-xl border-2 py-2.5 text-xs font-bold transition-all ${
                       active ? t.activeClass : "border-slate-200 bg-white text-slate-400"
-                    }`}
+                    } ${isBest && active ? "ring-2 ring-offset-1 ring-violet-400" : ""}`}
                   >
-                    {active ? "✓ " : ""}{t.label}
+                    {active ? "✓ " : ""}{t.label}{isBest ? " ★" : ""}
                   </button>
                 );
               })}
             </div>
+
+            {/* A/B historical rates */}
+            {tonosStats && (
+              <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
+                Tasa histórica:{" "}
+                {(["directo", "empatico", "urgencia"] as const).map((t, i) => {
+                  const stat = tonosStats[t];
+                  const label = t === "directo" ? "Directo" : t === "empatico" ? "Empático" : "Urgencia";
+                  const isBest = bestTono === t;
+                  return (
+                    <span key={t}>
+                      {i > 0 && <span className="mx-1">·</span>}
+                      <span className={isBest ? "font-bold text-violet-600" : ""}>
+                        {label} {stat.tasa != null ? `${stat.tasa}%` : "—"}{isBest ? " ★" : ""}
+                      </span>
+                    </span>
+                  );
+                })}
+              </p>
+            )}
           </div>
 
           {/* Generar / Regenerar global button */}

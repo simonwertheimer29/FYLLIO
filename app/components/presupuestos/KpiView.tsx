@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import type { TonosStats } from "../../api/presupuestos/tonos-stats/route";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
@@ -8,7 +9,7 @@ import {
 import type { KpiData, UserSession } from "../../lib/presupuestos/types";
 import { ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
 
-type SubTab = "general" | "tarifas" | "paciente" | "tratamientos" | "doctores" | "benchmark";
+type SubTab = "general" | "tarifas" | "paciente" | "tratamientos" | "doctores" | "benchmark" | "ia";
 
 const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: "general", label: "General" },
@@ -17,6 +18,7 @@ const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: "tratamientos", label: "Tratamientos" },
   { id: "doctores", label: "Doctores" },
   { id: "benchmark", label: "Benchmark" },
+  { id: "ia", label: "Motor IA" },
 ];
 
 const MES_LABEL = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
@@ -780,6 +782,165 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
   );
 }
 
+// ─── Tab: Motor IA ───────────────────────────────────────────────────────────
+
+const TONO_META: Record<string, { label: string; color: string; textColor: string; hex: string }> = {
+  directo:  { label: "Directo",  color: "bg-slate-100",   textColor: "text-slate-700", hex: "#64748b" },
+  empatico: { label: "Empático", color: "bg-violet-50",   textColor: "text-violet-700", hex: "#7c3aed" },
+  urgencia: { label: "Urgencia", color: "bg-rose-50",     textColor: "text-rose-700",   hex: "#e11d48" },
+};
+
+function TabMotorIA({ stats, loading, isDemo }: {
+  stats: TonosStats | null;
+  loading: boolean;
+  isDemo: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="space-y-3 animate-pulse">
+        <div className="h-24 rounded-2xl bg-slate-100" />
+        <div className="h-40 rounded-2xl bg-slate-100" />
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-200 p-10 text-center">
+        <p className="text-sm font-semibold text-slate-500">Sin datos de Motor IA todavía</p>
+        <p className="text-xs text-slate-400 mt-1">
+          Los datos aparecen cuando se envían mensajes con el generador IA y los presupuestos se resuelven (Aceptado / Perdido).
+        </p>
+      </div>
+    );
+  }
+
+  // Best tono
+  const tonos = ["directo", "empatico", "urgencia"] as const;
+  const bestTono = tonos.reduce<string | null>((best, t) => {
+    const tasa = stats[t].tasa;
+    if (tasa == null) return best;
+    if (best == null) return t;
+    return (stats[t].tasa! > (stats[best as keyof TonosStats]?.tasa ?? -1)) ? t : best;
+  }, null);
+
+  const total = tonos.reduce((s, t) => s + stats[t].contactados, 0);
+  const totalAcep = tonos.reduce((s, t) => s + stats[t].aceptados, 0);
+  const tasaGlobal = total > 0 ? Math.round((totalAcep / total) * 100) : null;
+
+  return (
+    <div className="space-y-5">
+      {isDemo && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-700">
+          Datos de demostración — conecta Airtable para datos reales.
+        </div>
+      )}
+
+      {/* Summary cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Mensajes IA enviados</p>
+          <p className="text-3xl font-extrabold text-slate-900">{total}</p>
+          <p className="text-xs text-slate-400 mt-1">contactos con motor IA</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+          <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Tasa global IA</p>
+          <p className="text-3xl font-extrabold text-slate-900">{tasaGlobal != null ? `${tasaGlobal}%` : "—"}</p>
+          <p className="text-xs text-slate-400 mt-1">{totalAcep} aceptados de {total}</p>
+        </div>
+        <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5">
+          <p className="text-[11px] font-semibold text-violet-400 uppercase tracking-wide mb-2">Mejor tono ★</p>
+          <p className="text-3xl font-extrabold text-violet-800">
+            {bestTono ? TONO_META[bestTono].label : "—"}
+          </p>
+          <p className="text-xs text-violet-500 mt-1">
+            {bestTono && stats[bestTono as keyof TonosStats].tasa != null
+              ? `${stats[bestTono as keyof TonosStats].tasa}% de conversión`
+              : "Sin datos suficientes"}
+          </p>
+        </div>
+      </div>
+
+      {/* Per-tono table */}
+      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        <p className="px-4 py-3 text-xs font-bold text-slate-700 border-b border-slate-100 uppercase tracking-wide">
+          A/B por tono — histórico acumulado
+        </p>
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-slate-100">
+              {["Tono", "Mensajes enviados", "Presup. aceptados", "Tasa conv.", ""].map((h) => (
+                <th key={h} className="px-4 py-2.5 text-left font-semibold text-slate-400 whitespace-nowrap">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {tonos.map((tono) => {
+              const s = stats[tono];
+              const meta = TONO_META[tono];
+              const isBest = bestTono === tono;
+              return (
+                <tr key={tono} className={`border-b border-slate-50 last:border-0 ${isBest ? "bg-violet-50" : "hover:bg-slate-50"}`}>
+                  <td className="px-4 py-3">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${meta.color} ${meta.textColor}`}>
+                      {meta.label}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-slate-700 font-semibold">{s.contactados}</td>
+                  <td className="px-4 py-3 font-semibold text-emerald-700">{s.aceptados}</td>
+                  <td className="px-4 py-3">
+                    {s.tasa != null ? (
+                      <span className={`font-extrabold text-sm ${s.tasa >= 40 ? "text-emerald-700" : s.tasa >= 20 ? "text-amber-700" : "text-rose-600"}`}>
+                        {s.tasa}%
+                      </span>
+                    ) : (
+                      <span className="text-slate-400 text-[10px]">Insuf. datos (&lt;10)</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {isBest && s.tasa != null && (
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-700">★ Mejor</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <p className="px-4 py-2 text-[10px] text-slate-400 border-t border-slate-50">
+          Se necesitan al menos 10 mensajes por tono para calcular la tasa. Los presupuestos pueden haber recibido mensajes de más de un tono.
+        </p>
+      </div>
+
+      {/* Bar chart */}
+      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <p className="text-sm font-bold text-slate-900 mb-4">Conversión por tono</p>
+        <div className="space-y-3">
+          {tonos.map((tono) => {
+            const s = stats[tono];
+            const meta = TONO_META[tono];
+            const pct = s.tasa ?? 0;
+            return (
+              <div key={tono} className="flex items-center gap-3">
+                <span className={`text-[10px] font-bold w-16 shrink-0 ${meta.textColor}`}>{meta.label}</span>
+                <div className="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden">
+                  <div
+                    className="h-3 rounded-full transition-all"
+                    style={{ width: `${pct}%`, background: meta.hex }}
+                  />
+                </div>
+                <span className="text-xs font-bold text-slate-700 w-12 text-right shrink-0">
+                  {s.tasa != null ? `${s.tasa}%` : "—"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main KpiView ─────────────────────────────────────────────────────────────
 
 export default function KpiView({ user, showBenchmark = true }: { user: UserSession; showBenchmark?: boolean }) {
@@ -799,6 +960,12 @@ export default function KpiView({ user, showBenchmark = true }: { user: UserSess
   const [subTab, setSubTab] = useState<SubTab>("general");
   const meses = getLast12Months();
 
+  // Motor IA tab state
+  const [tonosStats, setTonosStats] = useState<TonosStats | null>(null);
+  const [tonosLoading, setTonosLoading] = useState(false);
+  const [tonosIsDemo, setTonosIsDemo] = useState(false);
+  const tonosFetchedRef = useRef(false);
+
   useEffect(() => {
     if (user.rol !== "manager_general") return;
     fetch("/api/presupuestos/clinicas")
@@ -806,6 +973,24 @@ export default function KpiView({ user, showBenchmark = true }: { user: UserSess
       .then((d) => setClinicas(d.clinicas ?? []))
       .catch(() => {});
   }, [user.rol]);
+
+  // Lazy fetch for Motor IA tab — only once
+  useEffect(() => {
+    if (subTab !== "ia" || tonosFetchedRef.current) return;
+    tonosFetchedRef.current = true;
+    setTonosLoading(true);
+    const url = new URL("/api/presupuestos/tonos-stats", location.href);
+    const clinicaVal = user.rol === "encargada_ventas" && user.clinica ? user.clinica : filterClinica;
+    if (clinicaVal) url.searchParams.set("clinica", clinicaVal);
+    fetch(url.toString())
+      .then((r) => r.json())
+      .then((d) => {
+        setTonosStats(d.stats ?? null);
+        setTonosIsDemo(d.isDemo ?? false);
+      })
+      .catch(() => {})
+      .finally(() => setTonosLoading(false));
+  }, [subTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setLoading(true);
@@ -870,7 +1055,7 @@ export default function KpiView({ user, showBenchmark = true }: { user: UserSess
       {/* Sub-tabs */}
       <div className="bg-white border-b border-slate-200 -mx-4 px-4">
         <div className="flex gap-0">
-          {SUB_TABS.filter((t) => showBenchmark || t.id !== "benchmark").map((t) => (
+          {SUB_TABS.filter((t) => (showBenchmark || t.id !== "benchmark")).map((t) => (
             <button key={t.id} onClick={() => setSubTab(t.id)}
               className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap ${
                 subTab === t.id ? "border-violet-600 text-violet-700" : "border-transparent text-slate-500 hover:text-slate-700"
@@ -888,6 +1073,7 @@ export default function KpiView({ user, showBenchmark = true }: { user: UserSess
       {subTab === "tratamientos" && <TabTratamientos kpisMes={kpisMes} kpis={kpis} mesLabel={mesLabel} />}
       {subTab === "doctores" && <TabDoctores kpisMes={kpisMes} kpisPrevMes={kpisPrevMes} kpis={kpis} mesLabel={mesLabel} />}
       {subTab === "benchmark" && <TabBenchmark kpis={kpis} isManager={isManager} />}
+      {subTab === "ia" && <TabMotorIA stats={tonosStats} loading={tonosLoading} isDemo={tonosIsDemo} />}
     </div>
   );
 }
