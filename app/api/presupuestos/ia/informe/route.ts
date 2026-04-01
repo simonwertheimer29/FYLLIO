@@ -49,25 +49,15 @@ const MOTIVO_DISPLAY: Record<string, string> = {
 
 async function fetchPresupuestosMes(clinica: string | null, mes: string): Promise<Presupuesto[] | null> {
   try {
-    const [y, m] = mes.split("-").map(Number);
-    const startDate = `${y}-${String(m).padStart(2, "0")}-01`;
-    const endDate = new Date(y, m, 0); // last day of month
-    const endDateStr = `${y}-${String(m).padStart(2, "0")}-${String(endDate.getDate()).padStart(2, "0")}`;
-
-    const filters: string[] = [
-      `IS_AFTER({Fecha}, '${y}-${String(m).padStart(2, "0")}-00')`,
-      `IS_BEFORE({Fecha}, '${y}-${String(m).padStart(2, "0")}-${String(endDate.getDate() + 1).padStart(2, "0")}')`,
-    ];
-    if (clinica) filters.push(`{Clinica}='${clinica}'`);
-    const filterByFormula = `AND(${filters.join(",")})`;
-
+    // Fetch all records (optionally filtered by clinica) — date filtering done in JS
+    // This matches the approach used by /api/presupuestos/kpis for reliability
     const selectOpts: Record<string, unknown> = {
       fields: [
         "Paciente_nombre", "Tratamiento_nombre", "Doctor", "Doctor_Especialidad",
         "TipoPaciente", "TipoVisita", "Importe", "Estado", "Fecha", "FechaAlta",
         "Clinica", "ContactCount", "OrigenLead", "MotivoPerdida", "MotivoDuda",
       ],
-      filterByFormula,
+      sort: [{ field: "Fecha", direction: "desc" }],
       maxRecords: 2000,
     };
 
@@ -75,7 +65,7 @@ async function fetchPresupuestosMes(clinica: string | null, mes: string): Promis
     if (recs.length === 0) return null;
 
     const today = DateTime.now().setZone(ZONE).toISODate()!;
-    return recs.map((r) => {
+    const all = recs.map((r) => {
       const f = r.fields as any;
       const fechaPresupuesto = String(f["Fecha"] ?? "").slice(0, 10) || today;
       const patientName = Array.isArray(f["Paciente_nombre"])
@@ -104,6 +94,12 @@ async function fetchPresupuestosMes(clinica: string | null, mes: string): Promis
       p.urgencyScore = computeUrgencyScore(p);
       return p;
     });
+
+    // Filter by month and clinica in JS (more reliable than Airtable date formulas)
+    let filtered = all.filter((p) => p.fechaPresupuesto.startsWith(mes));
+    if (clinica) filtered = filtered.filter((p) => p.clinica === clinica);
+
+    return filtered.length > 0 ? filtered : null;
   } catch {
     return null;
   }
