@@ -1,14 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { Presupuesto, PresupuestoEstado, UserSession } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG, ESTADOS_ACCIONABLES, ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
+import { calcularProbabilidad } from "../../lib/presupuestos/probability";
 import IAGeneradorDrawer from "./IAGeneradorDrawer";
+
+// ─── ProbBadge ────────────────────────────────────────────────────────────────
+
+function ProbBadge({ prob }: { prob: number }) {
+  const color =
+    prob >= 60 ? "bg-emerald-100 text-emerald-700" :
+    prob >= 30 ? "bg-amber-100 text-amber-700" :
+    "bg-rose-100 text-rose-700";
+  return (
+    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${color}`} title={`Prob. cierre ${prob}%`}>
+      {prob}%
+    </span>
+  );
+}
 
 // ─── Compact row ──────────────────────────────────────────────────────────────
 
-function CompactRow({ p, onOpenDrawer, onQuickContact }: {
+function CompactRow({ p, prob, onOpenDrawer, onQuickContact }: {
   p: Presupuesto;
+  prob: number | null;
   onOpenDrawer: (p: Presupuesto) => void;
   onQuickContact: (id: string) => void;
 }) {
@@ -35,6 +51,7 @@ function CompactRow({ p, onOpenDrawer, onQuickContact }: {
         {p.amount != null && (
           <span className="text-sm font-bold text-slate-700 shrink-0">€{p.amount.toLocaleString("es-ES")}</span>
         )}
+        {prob != null && <ProbBadge prob={prob} />}
         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
           {p.patientPhone && (
             <button
@@ -75,8 +92,9 @@ function urgencyBadge(p: Presupuesto): { label: string; color: string } {
   return { label: "RECIENTE", color: "bg-sky-100 text-sky-700" };
 }
 
-function ActionRow({ p, onOpenDrawer, onQuickContact }: {
+function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
   p: Presupuesto;
+  prob: number | null;
   onOpenDrawer: (p: Presupuesto) => void;
   onQuickContact: (id: string) => void;
 }) {
@@ -129,6 +147,7 @@ function ActionRow({ p, onOpenDrawer, onQuickContact }: {
               {p.amount != null && (
                 <p className="font-extrabold text-slate-900">€{p.amount.toLocaleString("es-ES")}</p>
               )}
+              {prob != null && <ProbBadge prob={prob} />}
               {p.doctorEspecialidad && (
                 <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
                   style={{ background: ESPECIALIDAD_COLOR[p.doctorEspecialidad], color: "#1e293b" }}>
@@ -187,8 +206,9 @@ function ActionRow({ p, onOpenDrawer, onQuickContact }: {
   );
 }
 
-function Section({ title, items, color, compact, onChangeEstado, onOpenDrawer, onQuickContact }: {
+function Section({ title, items, color, compact, probMap, onChangeEstado, onOpenDrawer, onQuickContact }: {
   title: string; items: Presupuesto[]; color: string; compact: boolean;
+  probMap: Map<string, number | null>;
   onChangeEstado: (id: string, estado: PresupuestoEstado) => void;
   onOpenDrawer: (p: Presupuesto) => void;
   onQuickContact: (id: string) => void;
@@ -202,15 +222,16 @@ function Section({ title, items, color, compact, onChangeEstado, onOpenDrawer, o
       </div>
       {items.map((p) =>
         compact
-          ? <CompactRow key={p.id} p={p} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
-          : <ActionRow key={p.id} p={p} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
+          ? <CompactRow key={p.id} p={p} prob={probMap.get(p.id) ?? null} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
+          : <ActionRow key={p.id} p={p} prob={probMap.get(p.id) ?? null} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
       )}
     </div>
   );
 }
 
-function ClinicaGroup({ clinica, items, compact, onChangeEstado, onOpenDrawer, onQuickContact }: {
+function ClinicaGroup({ clinica, items, compact, probMap, onChangeEstado, onOpenDrawer, onQuickContact }: {
   clinica: string; items: Presupuesto[]; compact: boolean;
+  probMap: Map<string, number | null>;
   onChangeEstado: (id: string, estado: PresupuestoEstado) => void;
   onOpenDrawer: (p: Presupuesto) => void;
   onQuickContact: (id: string) => void;
@@ -226,9 +247,9 @@ function ClinicaGroup({ clinica, items, compact, onChangeEstado, onOpenDrawer, o
         <span className="text-xs text-slate-400">{items.length} presupuestos</span>
         {dinero > 0 && <span className="text-xs font-semibold text-violet-700 ml-auto">€{dinero.toLocaleString("es-ES")} en juego</span>}
       </div>
-      <Section title="Riesgo alto — actuar hoy" items={u} color="bg-rose-100 text-rose-700" compact={compact} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
-      <Section title="Seguimiento" items={s} color="bg-amber-100 text-amber-700" compact={compact} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
-      <Section title="Recientes" items={r} color="bg-sky-100 text-sky-700" compact={compact} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
+      <Section title="Riesgo alto — actuar hoy" items={u} color="bg-rose-100 text-rose-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
+      <Section title="Seguimiento" items={s} color="bg-amber-100 text-amber-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
+      <Section title="Recientes" items={r} color="bg-sky-100 text-sky-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
     </div>
   );
 }
@@ -241,6 +262,19 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
 }) {
   const [clinicaFiltro, setClinicaFiltro] = useState<string>("__todas__");
   const [compact, setCompact] = useState(false);
+
+  const historico = useMemo(
+    () => presupuestos.filter((p) => p.estado === "ACEPTADO" || p.estado === "PERDIDO"),
+    [presupuestos]
+  );
+  const probMap = useMemo(() => {
+    const map = new Map<string, number | null>();
+    if (historico.length < 5) return map;
+    presupuestos
+      .filter((p) => p.estado !== "ACEPTADO" && p.estado !== "PERDIDO")
+      .forEach((p) => map.set(p.id, calcularProbabilidad(p, historico)));
+    return map;
+  }, [presupuestos, historico]);
 
   const accionables = presupuestos
     .filter((p) => ESTADOS_ACCIONABLES.includes(p.estado))
@@ -332,7 +366,7 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
           {clinicas.map((clinica) => {
             const items = accionables.filter((p) => (p.clinica ?? "Sin clínica") === clinica);
             if (!items.length) return null;
-            return <ClinicaGroup key={clinica} clinica={clinica} items={items} compact={compact}
+            return <ClinicaGroup key={clinica} clinica={clinica} items={items} compact={compact} probMap={probMap}
               onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />;
           })}
         </div>
@@ -344,9 +378,9 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
             const s = filtered.filter((p) => p.urgencyScore >= 40 && p.urgencyScore < 70);
             const r = filtered.filter((p) => p.urgencyScore < 40);
             return <>
-              <Section title="Riesgo alto — actuar hoy" items={u} color="bg-rose-100 text-rose-700" compact={compact} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
-              <Section title="Seguimiento" items={s} color="bg-amber-100 text-amber-700" compact={compact} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
-              <Section title="Recientes" items={r} color="bg-sky-100 text-sky-700" compact={compact} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
+              <Section title="Riesgo alto — actuar hoy" items={u} color="bg-rose-100 text-rose-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
+              <Section title="Seguimiento" items={s} color="bg-amber-100 text-amber-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
+              <Section title="Recientes" items={r} color="bg-sky-100 text-sky-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
             </>;
           })()}
         </div>

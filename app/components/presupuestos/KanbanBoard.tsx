@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -14,6 +14,7 @@ import {
 import { useDraggable } from "@dnd-kit/core";
 import type { Presupuesto, PresupuestoEstado, MotivoPerdida } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG, PIPELINE_ORDEN, ORIGEN_LABEL } from "../../lib/presupuestos/colors";
+import { calcularProbabilidad } from "../../lib/presupuestos/probability";
 import MotivoPerdidaModal from "./MotivoPerdidaModal";
 
 // ------------------------------------------------------------------
@@ -29,15 +30,33 @@ function UrgencyDot({ score }: { score: number }) {
 }
 
 // ------------------------------------------------------------------
+// ProbBadge
+// ------------------------------------------------------------------
+
+function ProbBadge({ prob }: { prob: number }) {
+  const color =
+    prob >= 60 ? "bg-emerald-100 text-emerald-700" :
+    prob >= 30 ? "bg-amber-100 text-amber-700" :
+    "bg-rose-100 text-rose-700";
+  return (
+    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${color}`} title={`Prob. cierre: ${prob}%`}>
+      {prob}%
+    </span>
+  );
+}
+
+// ------------------------------------------------------------------
 // CompactCard
 // ------------------------------------------------------------------
 
 function CompactCard({
   presupuesto,
+  prob,
   onOpenHistory,
   onEdit,
 }: {
   presupuesto: Presupuesto;
+  prob: number | null;
   onOpenHistory: (p: Presupuesto) => void;
   onEdit: (p: Presupuesto) => void;
 }) {
@@ -53,10 +72,11 @@ function CompactCard({
         isDragging ? "opacity-40 shadow-lg" : "hover:shadow-sm border-slate-200"
       }`}
     >
-      {/* Name + urgency dot */}
+      {/* Name + urgency dot + prob badge */}
       <div className="flex items-start gap-1.5">
         {p.urgencyScore > 0 && <UrgencyDot score={p.urgencyScore} />}
         <p className="text-xs font-bold text-slate-900 leading-tight flex-1 min-w-0 truncate">{p.patientName}</p>
+        {prob != null && <ProbBadge prob={prob} />}
       </div>
 
       {/* Treatments */}
@@ -159,11 +179,13 @@ function GhostCard({ presupuesto }: { presupuesto: Presupuesto }) {
 function DroppableColumn({
   estado,
   presupuestos,
+  probMap,
   onOpenHistory,
   onEdit,
 }: {
   estado: PresupuestoEstado;
   presupuestos: Presupuesto[];
+  probMap: Map<string, number | null>;
   onOpenHistory: (p: Presupuesto) => void;
   onEdit: (p: Presupuesto) => void;
 }) {
@@ -219,6 +241,7 @@ function DroppableColumn({
               <CompactCard
                 key={p.id}
                 presupuesto={p}
+                prob={probMap.get(p.id) ?? null}
                 onOpenHistory={onOpenHistory}
                 onEdit={onEdit}
               />
@@ -311,6 +334,20 @@ export default function KanbanBoard({
   const [pendingPerdido, setPendingPerdido] = useState<{ id: string } | null>(null);
   const [skipConfirm, setSkipConfirm] = useState(false);
 
+  // Probabilidad de cierre — calculada una vez con el histórico en memoria
+  const historico = useMemo(
+    () => presupuestos.filter((p) => p.estado === "ACEPTADO" || p.estado === "PERDIDO"),
+    [presupuestos]
+  );
+  const probMap = useMemo(() => {
+    const map = new Map<string, number | null>();
+    if (historico.length < 5) return map; // datos insuficientes
+    presupuestos
+      .filter((p) => p.estado !== "ACEPTADO" && p.estado !== "PERDIDO")
+      .forEach((p) => map.set(p.id, calcularProbabilidad(p, historico)));
+    return map;
+  }, [presupuestos, historico]);
+
   useEffect(() => {
     setSkipConfirm(localStorage.getItem(SKIP_CONFIRM_KEY) === "true");
   }, []);
@@ -377,6 +414,7 @@ export default function KanbanBoard({
                 key={estado}
                 estado={estado}
                 presupuestos={presupuestos.filter((p) => p.estado === estado)}
+                probMap={probMap}
                 onOpenHistory={onOpenHistory}
                 onEdit={onEdit}
               />
