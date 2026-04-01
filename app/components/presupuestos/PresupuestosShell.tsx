@@ -11,6 +11,7 @@ import DoctorView from "./DoctorView";
 import TareasView from "./TareasView";
 import PatientDrawer from "./PatientDrawer";
 import FloatingNewButton from "./FloatingNewButton";
+import CommandCenterView from "./CommandCenterView";
 
 type Tab = "red" | "kanban" | "tareas" | "kpis" | "doctor" | "informes";
 
@@ -239,11 +240,16 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
 
         {/* Manager-only tabs — stubs until Bloque 2/3 */}
         {tab === "red" && (
-          <div className="flex flex-col items-center justify-center flex-1 gap-3 text-slate-400">
-            <p className="text-4xl">🏥</p>
-            <p className="font-semibold text-slate-600">Command Center — próximamente</p>
-            <p className="text-sm">Vista de red de clínicas con semáforo en tiempo real.</p>
-          </div>
+          <CommandCenterView
+            onNavigateToTareas={(clinica) => {
+              setTab("tareas");
+              if (clinica) {
+                const f = { ...currentFilters, clinica };
+                setCurrentFilters(f);
+                load(f);
+              }
+            }}
+          />
         )}
         {tab === "informes" && (
           <div className="flex flex-col items-center justify-center flex-1 gap-3 text-slate-400">
