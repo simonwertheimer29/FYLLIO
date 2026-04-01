@@ -271,21 +271,37 @@ export default function InformesView({ user }: { user: UserSession }) {
 
   // Forecast state
   const [tasaEsperada, setTasaEsperada] = useState(25); // default 25%
-  const [kpisMeses] = useState(new Map<string, KpisMes>()); // simple empty map for now
+  const [kpisMeses, setKpisMeses] = useState(new Map<string, KpisMes>());
 
   const forecasting = useMemo(
     () => calcularForecasting(kpisMeses, tasaEsperada),
     [kpisMeses, tasaEsperada]
   );
 
-  // Load clinica list from kanban data
+  // Load clinica list and compute kpisMeses from kanban data
   useEffect(() => {
     fetch("/api/presupuestos/kanban")
       .then((r) => r.json())
       .then((d) => {
-        const presupuestos = d.presupuestos ?? [];
-        const set = new Set<string>(presupuestos.map((p: { clinica?: string }) => p.clinica ?? "Sin clínica"));
+        const presupuestos: { clinica?: string; fechaPresupuesto: string; estado: string; amount?: number }[] = d.presupuestos ?? [];
+
+        // Build clinica list
+        const set = new Set<string>(presupuestos.map((p) => p.clinica ?? "Sin clínica"));
         setClinicas(Array.from(set).sort());
+
+        // Compute kpisMeses for last 12 months
+        const now = new Date();
+        const map = new Map<string, KpisMes>();
+        for (let i = 0; i < 12; i++) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const mes = getYYYYMM(d);
+          const delMes = presupuestos.filter((p) => p.fechaPresupuesto.startsWith(mes));
+          const aceptados = delMes.filter((p) => p.estado === "ACEPTADO");
+          const importe = aceptados.reduce((s, p) => s + (p.amount ?? 0), 0);
+          const tasa = delMes.length > 0 ? Math.round((aceptados.length / delMes.length) * 100) : 0;
+          map.set(mes, { total: delMes.length, aceptados: aceptados.length, tasa, importe });
+        }
+        setKpisMeses(map);
       })
       .catch(() => {});
   }, []);

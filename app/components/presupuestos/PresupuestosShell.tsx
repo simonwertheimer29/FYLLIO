@@ -10,7 +10,6 @@ import KpiView from "./KpiView";
 import DoctorView from "./DoctorView";
 import TareasView from "./TareasView";
 import PatientDrawer from "./PatientDrawer";
-import FloatingNewButton from "./FloatingNewButton";
 import CommandCenterView from "./CommandCenterView";
 import InformesView from "./InformesView";
 
@@ -68,8 +67,23 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   // Modals / drawers
   const [historyPresupuesto, setHistoryPresupuesto] = useState<Presupuesto | null>(null);
   const [showNew, setShowNew] = useState(false);
+  const [showImportCSV, setShowImportCSV] = useState(false);
   const [editPresupuesto, setEditPresupuesto] = useState<Presupuesto | null>(null);
   const [drawerPresupuesto, setDrawerPresupuesto] = useState<Presupuesto | null>(null);
+
+  // Keyboard shortcut N → Nuevo presupuesto
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key !== "n" && e.key !== "N") return;
+      const tag = (e.target as HTMLElement)?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select") return;
+      if ((e.target as HTMLElement)?.isContentEditable) return;
+      e.preventDefault();
+      setShowNew(true);
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   // Polling banner
   const [newPresupuestosCount, setNewPresupuestosCount] = useState(0);
@@ -170,9 +184,25 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           </div>
         </div>
 
-        {/* User */}
+        {/* Action buttons + User */}
         <div className="flex items-center gap-2">
-          <div className="hidden sm:block text-right">
+          <button
+            onClick={() => setShowImportCSV(true)}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+            title="Importar CSV"
+          >
+            <span>↑</span>
+            <span className="hidden sm:inline">Importar CSV</span>
+          </button>
+          <button
+            onClick={() => setShowNew(true)}
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl bg-violet-600 text-white font-semibold hover:bg-violet-700"
+            title="Nuevo presupuesto (N)"
+          >
+            <span>+</span>
+            <span className="hidden sm:inline">Nuevo</span>
+          </button>
+          <div className="hidden sm:block text-right ml-1">
             <p className="text-xs font-semibold text-slate-700">{user.nombre}</p>
             <p className="text-[10px] text-slate-400">
               {user.rol === "manager_general" ? "Manager" : "Encargada ventas"}
@@ -299,9 +329,6 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         {tab === "informes" && <InformesView user={user} />}
       </main>
 
-      {/* Floating new presupuesto button — all tabs */}
-      <FloatingNewButton onClick={() => setShowNew(true)} />
-
       {/* Modals */}
       {historyPresupuesto && (
         <ContactHistoryModal
@@ -336,6 +363,26 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
             );
           }}
         />
+      )}
+
+      {/* CSV import stub — Fase 2 */}
+      {showImportCSV && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="rounded-2xl bg-white p-8 flex flex-col items-center gap-4 shadow-xl max-w-sm w-full mx-4">
+            <p className="text-3xl">📂</p>
+            <h2 className="font-bold text-lg text-slate-900">Importar CSV Gesden</h2>
+            <p className="text-sm text-slate-500 text-center">
+              La importación masiva desde Gesden estará disponible pronto.<br />
+              Podrás importar presupuestos en 5 pasos con deduplicación automática.
+            </p>
+            <button
+              onClick={() => setShowImportCSV(false)}
+              className="px-5 py-2 rounded-xl bg-violet-600 text-white font-semibold text-sm hover:bg-violet-700"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

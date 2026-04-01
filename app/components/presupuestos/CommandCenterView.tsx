@@ -16,6 +16,7 @@ type ClinicaStats = {
   tasaMTD: number;
   tasaMesAnterior: number;
   deltaTasaPct: number;
+  totalMTD: number;
   peorDoctor: string | null;
   semaforo: Semaforo;
 };
@@ -96,14 +97,18 @@ function calcularClinicasStats(presupuestos: Presupuesto[], mesMTD: string, mesA
       if (t < peorTasa) { peorTasa = t; peorDoctor = k; }
     });
 
+    // Ignore conversion drop in first days of month (< 3 presupuestos MTD)
+    const totalMTD = delMes.length;
+    const deltaSignificativo = totalMTD >= 3 ? deltaTasaPct : 0;
+
     const semaforo: Semaforo =
-      riesgoAltoSinContactar >= 5 || deltaTasaPct <= -20
+      riesgoAltoSinContactar >= 5 || deltaSignificativo <= -20
         ? "rojo"
         : riesgoAltoSinContactar >= 2 || sinActividadHoy >= 8
         ? "naranja"
         : "verde";
 
-    return { clinica, activos: activos.length, enJuego, riesgoAltoSinContactar, sinActividadHoy, tasaMTD, tasaMesAnterior, deltaTasaPct, peorDoctor, semaforo };
+    return { clinica, activos: activos.length, enJuego, riesgoAltoSinContactar, sinActividadHoy, tasaMTD, tasaMesAnterior, deltaTasaPct, totalMTD, peorDoctor, semaforo };
   });
 }
 
@@ -120,7 +125,9 @@ function calcularAlertas(presupuestos: Presupuesto[], clinicasStats: ClinicaStat
         id: `riesgo-${p.id}`,
         tipo: "RIESGO_ALTO",
         clinica: p.clinica,
-        texto: `${p.patientName} — ${p.clinica ?? "Sin clínica"} — Score ${p.urgencyScore}, sin contacto ${p.lastContactDaysAgo ?? "?"} días`,
+        texto: p.lastContactDaysAgo != null
+          ? `${p.patientName} — ${p.clinica ?? "Sin clínica"} — Score ${p.urgencyScore}, sin contacto ${p.lastContactDaysAgo}d`
+          : `${p.patientName} — ${p.clinica ?? "Sin clínica"} — Score ${p.urgencyScore}, sin actividad desde alta ${p.daysSince}d`,
         urgencia: 3,
       })
     );
@@ -208,11 +215,17 @@ function ClinicaCard({ stats, onClick }: { stats: ClinicaStats; onClick: () => v
             <p className="font-semibold text-slate-900 text-sm">{stats.clinica}</p>
           </div>
           <div className="text-right shrink-0">
-            <p className="text-sm font-bold text-slate-900">{stats.tasaMTD}%</p>
-            {stats.tasaMesAnterior > 0 && (
-              <p className={`text-[10px] font-semibold ${stats.deltaTasaPct >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                {stats.deltaTasaPct >= 0 ? "↑" : "↓"} {Math.abs(stats.deltaTasaPct)}pp
-              </p>
+            {stats.totalMTD < 3 ? (
+              <p className="text-xs font-semibold text-slate-400">Mes iniciado</p>
+            ) : (
+              <>
+                <p className="text-sm font-bold text-slate-900">{stats.tasaMTD}%</p>
+                {stats.tasaMesAnterior > 0 && (
+                  <p className={`text-[10px] font-semibold ${stats.deltaTasaPct >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                    {stats.deltaTasaPct >= 0 ? "↑" : "↓"} {Math.abs(stats.deltaTasaPct)}pp
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -323,7 +336,7 @@ export default function CommandCenterView({
     () => presupuestos.filter(isActivo).reduce((s, p) => s + (p.amount ?? 0), 0),
     [presupuestos]
   );
-  const { tasaMTDGlobal, deltaMTDGlobal } = useMemo(() => {
+  const { tasaMTDGlobal, deltaMTDGlobal, totalMTDGlobal } = useMemo(() => {
     const delMes = presupuestos.filter((p) => p.fechaPresupuesto.startsWith(mesMTD));
     const aceptMes = delMes.filter((p) => p.estado === "ACEPTADO").length;
     const tasa = delMes.length > 0 ? Math.round((aceptMes / delMes.length) * 100) : 0;
@@ -333,7 +346,7 @@ export default function CommandCenterView({
     const tasaAnterior =
       delAnterior.length > 0 ? Math.round((aceptAnterior / delAnterior.length) * 100) : 0;
 
-    return { tasaMTDGlobal: tasa, deltaMTDGlobal: tasa - tasaAnterior };
+    return { tasaMTDGlobal: tasa, deltaMTDGlobal: tasa - tasaAnterior, totalMTDGlobal: delMes.length };
   }, [presupuestos, mesMTD, mesAnterior]);
 
   const riesgoAltoPendiente = useMemo(
@@ -375,13 +388,15 @@ export default function CommandCenterView({
         />
         <MetricCard
           title="Tasa MTD"
-          value={`${tasaMTDGlobal}%`}
+          value={totalMTDGlobal < 3 ? "—" : `${tasaMTDGlobal}%`}
           sub={
-            <span className={`text-xs font-semibold ${deltaMTDGlobal >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-              {deltaMTDGlobal >= 0 ? "↑" : "↓"} {Math.abs(deltaMTDGlobal)}pp vs mes anterior
-            </span>
+            totalMTDGlobal < 3
+              ? <span className="text-xs text-slate-400">Mes iniciado ({totalMTDGlobal} presupuestos)</span>
+              : <span className={`text-xs font-semibold ${deltaMTDGlobal >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                  {deltaMTDGlobal >= 0 ? "↑" : "↓"} {Math.abs(deltaMTDGlobal)}pp vs mes anterior
+                </span>
           }
-          highlight={deltaMTDGlobal <= -10 ? "red" : undefined}
+          highlight={totalMTDGlobal >= 3 && deltaMTDGlobal <= -10 ? "red" : undefined}
         />
         <MetricCard
           title="Riesgo alto sin contactar"
