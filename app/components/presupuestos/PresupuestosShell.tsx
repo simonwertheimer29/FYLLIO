@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import type { Presupuesto, PresupuestoEstado, UserSession, MotivoPerdida } from "../../lib/presupuestos/types";
 import KanbanBoard from "./KanbanBoard";
 import FiltersBar, { type Filters } from "./FiltersBar";
@@ -12,6 +12,7 @@ import TareasView from "./TareasView";
 import PatientDrawer from "./PatientDrawer";
 import CommandCenterView from "./CommandCenterView";
 import InformesView from "./InformesView";
+import ImportarCSVModal from "./ImportarCSVModal";
 
 type Tab = "red" | "kanban" | "tareas" | "kpis" | "doctor" | "informes";
 
@@ -63,6 +64,11 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     estado: "", fechaDesde: "", fechaHasta: "", q: "",
   });
   const { presupuestos, setPresupuestos, loading, isDemo, demoReason, missingVars, load } = usePresupuestos(user);
+
+  const clinicasDisponibles = useMemo(() => {
+    const s = new Set<string>(presupuestos.map((p) => p.clinica).filter(Boolean) as string[]);
+    return Array.from(s).sort();
+  }, [presupuestos]);
 
   // Modals / drawers
   const [historyPresupuesto, setHistoryPresupuesto] = useState<Presupuesto | null>(null);
@@ -365,24 +371,14 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         />
       )}
 
-      {/* CSV import stub — Fase 2 */}
       {showImportCSV && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="rounded-2xl bg-white p-8 flex flex-col items-center gap-4 shadow-xl max-w-sm w-full mx-4">
-            <p className="text-3xl">📂</p>
-            <h2 className="font-bold text-lg text-slate-900">Importar CSV Gesden</h2>
-            <p className="text-sm text-slate-500 text-center">
-              La importación masiva desde Gesden estará disponible pronto.<br />
-              Podrás importar presupuestos en 5 pasos con deduplicación automática.
-            </p>
-            <button
-              onClick={() => setShowImportCSV(false)}
-              className="px-5 py-2 rounded-xl bg-violet-600 text-white font-semibold text-sm hover:bg-violet-700"
-            >
-              Cerrar
-            </button>
-          </div>
-        </div>
+        <ImportarCSVModal
+          user={user}
+          existingPresupuestos={presupuestos}
+          clinicas={clinicasDisponibles}
+          onClose={() => setShowImportCSV(false)}
+          onImported={() => load(currentFiltersRef.current)}
+        />
       )}
     </div>
   );
