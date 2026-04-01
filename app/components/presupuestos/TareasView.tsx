@@ -5,6 +5,16 @@ import type { Presupuesto, PresupuestoEstado, UserSession } from "../../lib/pres
 import { ESTADO_CONFIG, ESTADOS_ACCIONABLES, ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
 import IAGeneradorDrawer from "./IAGeneradorDrawer";
 
+const MOTIVO_DUDA_LABEL: Record<string, string> = {
+  precio: "Duda: precio",
+  otra_clinica: "Duda: otra clínica",
+  sin_urgencia: "Duda: sin urgencia",
+  financiacion: "Duda: financiación",
+  miedo: "Duda: miedo",
+  comparando_opciones: "Duda: comparando",
+  otro: "Duda: otro motivo",
+};
+
 function urgencyBadge(p: Presupuesto): { label: string; color: string } {
   if (p.urgencyScore >= 70) return { label: "RIESGO ALTO", color: "bg-rose-100 text-rose-700" };
   if (p.urgencyScore >= 40) return { label: "SEGUIMIENTO", color: "bg-amber-100 text-amber-700" };
@@ -42,6 +52,12 @@ function ActionRow({ p, onOpenDrawer, onQuickContact }: {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-bold text-sm text-slate-900 truncate">{p.patientName}</p>
+              <div className="mt-0.5">
+                {p.motivoDuda
+                  ? <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{MOTIVO_DUDA_LABEL[p.motivoDuda] ?? p.motivoDuda}</span>
+                  : <span className="text-[9px] text-slate-400">Sin duda registrada</span>
+                }
+              </div>
               <div className="flex flex-wrap gap-1 mt-0.5">
                 {p.treatments.map((t, i) => (
                   <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">{t}</span>

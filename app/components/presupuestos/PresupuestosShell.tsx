@@ -10,8 +10,9 @@ import KpiView from "./KpiView";
 import DoctorView from "./DoctorView";
 import TareasView from "./TareasView";
 import PatientDrawer from "./PatientDrawer";
+import FloatingNewButton from "./FloatingNewButton";
 
-type Tab = "kanban" | "tareas" | "kpis" | "doctor";
+type Tab = "red" | "kanban" | "tareas" | "kpis" | "doctor" | "informes";
 
 // ─── Mini hook para cargar presupuestos ──────────────────────────────────────
 
@@ -53,7 +54,8 @@ function usePresupuestos(user: UserSession) {
 // ─── Main Shell ──────────────────────────────────────────────────────────────
 
 export default function PresupuestosShell({ user }: { user: UserSession }) {
-  const [tab, setTab] = useState<Tab>("kanban");
+  const isManager = user.rol === "manager_general" || user.rol === "admin";
+  const [tab, setTab] = useState<Tab>(isManager ? "red" : "tareas");
   const [currentFilters, setCurrentFilters] = useState<Filters>({
     clinica: "", doctor: "", tipoPaciente: "", tipoVisita: "",
     fechaDesde: "", fechaHasta: "", q: "",
@@ -101,12 +103,21 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     location.href = "/presupuestos/login";
   }
 
-  const TABS: { id: Tab; label: string }[] = [
-    { id: "kanban", label: "Panel" },
-    { id: "tareas", label: "Tareas" },
-    { id: "kpis", label: "KPIs" },
-    { id: "doctor", label: "Doctor" },
-  ];
+  const TABS: { id: Tab; label: string }[] = isManager
+    ? [
+        { id: "red",      label: "Red" },
+        { id: "tareas",   label: "Tareas" },
+        { id: "kanban",   label: "Panel" },
+        { id: "kpis",     label: "KPIs" },
+        { id: "doctor",   label: "Doctor" },
+        { id: "informes", label: "Informes" },
+      ]
+    : [
+        { id: "tareas",   label: "Tareas" },
+        { id: "kanban",   label: "Panel" },
+        { id: "kpis",     label: "KPIs" },
+        { id: "doctor",   label: "Doctor" },
+      ];
 
   return (
     <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
@@ -223,9 +234,28 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           />
         )}
 
-        {tab === "kpis" && <KpiView user={user} />}
+        {tab === "kpis" && <KpiView user={user} showBenchmark={isManager} />}
         {tab === "doctor" && <DoctorView user={user} />}
+
+        {/* Manager-only tabs — stubs until Bloque 2/3 */}
+        {tab === "red" && (
+          <div className="flex flex-col items-center justify-center flex-1 gap-3 text-slate-400">
+            <p className="text-4xl">🏥</p>
+            <p className="font-semibold text-slate-600">Command Center — próximamente</p>
+            <p className="text-sm">Vista de red de clínicas con semáforo en tiempo real.</p>
+          </div>
+        )}
+        {tab === "informes" && (
+          <div className="flex flex-col items-center justify-center flex-1 gap-3 text-slate-400">
+            <p className="text-4xl">📊</p>
+            <p className="font-semibold text-slate-600">Informes IA — próximamente</p>
+            <p className="text-sm">Informe mensual generado por IA y forecasting de pipeline.</p>
+          </div>
+        )}
       </main>
+
+      {/* Floating new presupuesto button — all tabs */}
+      <FloatingNewButton onClick={() => setShowNew(true)} />
 
       {/* Modals */}
       {historyPresupuesto && (

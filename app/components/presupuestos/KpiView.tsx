@@ -782,7 +782,7 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
 
 // ─── Main KpiView ─────────────────────────────────────────────────────────────
 
-export default function KpiView({ user }: { user: UserSession }) {
+export default function KpiView({ user, showBenchmark = true }: { user: UserSession; showBenchmark?: boolean }) {
   const now = new Date();
   const defaultMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
@@ -870,7 +870,7 @@ export default function KpiView({ user }: { user: UserSession }) {
       {/* Sub-tabs */}
       <div className="bg-white border-b border-slate-200 -mx-4 px-4">
         <div className="flex gap-0">
-          {SUB_TABS.map((t) => (
+          {SUB_TABS.filter((t) => showBenchmark || t.id !== "benchmark").map((t) => (
             <button key={t.id} onClick={() => setSubTab(t.id)}
               className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap ${
                 subTab === t.id ? "border-violet-600 text-violet-700" : "border-transparent text-slate-500 hover:text-slate-700"
