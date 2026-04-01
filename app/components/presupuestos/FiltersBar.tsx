@@ -8,6 +8,7 @@ export type Filters = {
   doctor: string;
   tipoPaciente: string;
   tipoVisita: string;
+  estado: string;
   fechaDesde: string;
   fechaHasta: string;
   q: string;
@@ -18,10 +19,51 @@ const EMPTY_FILTERS: Filters = {
   doctor: "",
   tipoPaciente: "",
   tipoVisita: "",
+  estado: "",
   fechaDesde: "",
   fechaHasta: "",
   q: "",
 };
+
+// ─── Smart pattern detection ──────────────────────────────────────────────────
+
+type Pattern =
+  | { kind: "amount"; value: number }
+  | { kind: "estado"; estado: string; label: string }
+  | { kind: "origen"; label: string };
+
+const ESTADO_KWS: [string, string, string][] = [
+  ["presentado", "PRESENTADO", "Presentado"],
+  ["interesado", "INTERESADO", "Interesado"],
+  ["duda", "EN_DUDA", "En Duda"],
+  ["negoci", "EN_NEGOCIACION", "En Negociación"],
+  ["aceptado", "ACEPTADO", "Aceptado"],
+  ["perdido", "PERDIDO", "Perdido"],
+];
+
+const ORIGEN_KWS: [string, string][] = [
+  ["google", "Google Ads"],
+  ["seo", "SEO orgánico"],
+  ["referido", "Referido"],
+  ["redes", "Redes sociales"],
+  ["walk", "Walk-in"],
+];
+
+function detectPattern(q: string): Pattern | null {
+  const t = q.trim().toLowerCase();
+  if (!t) return null;
+  const numStr = t.replace(/[€$.,\s]/g, "");
+  if (/^\d+$/.test(numStr) && numStr.length >= 2) {
+    return { kind: "amount", value: parseInt(numStr) };
+  }
+  for (const [kw, val, label] of ESTADO_KWS) {
+    if (t.includes(kw)) return { kind: "estado", estado: val, label };
+  }
+  for (const [kw, label] of ORIGEN_KWS) {
+    if (t.includes(kw)) return { kind: "origen", label };
+  }
+  return null;
+}
 
 // ─── Period preset selector ────────────────────────────────────────────────────
 
@@ -41,24 +83,19 @@ function computePresetDates(p: Preset): { desde: string; hasta: string } {
   const today = fmt(now);
   if (p === "todo") return { desde: "", hasta: "" };
   if (p === "mes") {
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    return { desde: fmt(start), hasta: today };
+    return { desde: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), hasta: today };
   }
   if (p === "3m") {
-    const start = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-    return { desde: fmt(start), hasta: today };
+    return { desde: fmt(new Date(now.getFullYear(), now.getMonth() - 2, 1)), hasta: today };
   }
   if (p === "6m") {
-    const start = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-    return { desde: fmt(start), hasta: today };
+    return { desde: fmt(new Date(now.getFullYear(), now.getMonth() - 5, 1)), hasta: today };
   }
-  // anio
   return { desde: `${now.getFullYear()}-01-01`, hasta: today };
 }
 
 function detectPreset(desde: string, hasta: string): Preset | "personalizado" | null {
   if (!desde && !hasta) return "todo";
-  // Check if it matches a known preset (approximate)
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
   const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -84,7 +121,6 @@ function PeriodPreset({
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
-      {/* Preset chips */}
       {(["todo", "mes", "3m", "6m", "anio"] as Preset[]).map((p) => (
         <button
           key={p}
@@ -101,11 +137,7 @@ function PeriodPreset({
           {PRESET_LABELS[p]}
         </button>
       ))}
-
-      {/* Divider */}
       <span className="text-slate-300 text-xs select-none px-0.5">|</span>
-
-      {/* Date inputs inline */}
       <input
         type="date"
         value={fechaDesde}
@@ -119,8 +151,6 @@ function PeriodPreset({
         onChange={(e) => onChange(fechaDesde, e.target.value)}
         className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300 w-[120px]"
       />
-
-      {/* Clear custom dates */}
       {hasCustomDates && active === "personalizado" && (
         <button
           onClick={() => onChange("", "")}
@@ -134,6 +164,8 @@ function PeriodPreset({
   );
 }
 
+// ─── Main component ───────────────────────────────────────────────────────────
+
 export default function FiltersBar({
   user,
   onFiltersChange,
@@ -145,15 +177,16 @@ export default function FiltersBar({
   const [clinicas, setClinicas] = useState<string[]>([]);
   const [doctores, setDoctores] = useState<Doctor[]>([]);
 
-  // Debounce timer for search
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Track latest filters for debounced callback
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
 
+  // Smart hint — shown below search field
+  const pattern = detectPattern(filters.q);
+
   // Load clinicas (manager only)
   useEffect(() => {
-    if (user.rol !== "manager_general") return;
+    if (user.rol === "encargada_ventas") return;
     fetch("/api/presupuestos/clinicas")
       .then((r) => r.json())
       .then((d) => setClinicas(d.clinicas ?? []))
@@ -174,7 +207,6 @@ export default function FiltersBar({
       .catch(() => {});
   }, [filters.clinica, user.rol, user.clinica]);
 
-  // Immediate update for non-search fields
   const updateImmediate = useCallback(
     (key: keyof Filters, value: string) => {
       const next = { ...filtersRef.current, [key]: value };
@@ -185,7 +217,7 @@ export default function FiltersBar({
     [onFiltersChange]
   );
 
-  // Debounced update for search field
+  // Debounced search — 200ms
   const updateSearch = useCallback(
     (value: string) => {
       setFilters((prev) => {
@@ -196,10 +228,21 @@ export default function FiltersBar({
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => {
         onFiltersChange({ ...filtersRef.current });
-      }, 300);
+      }, 200);
     },
     [onFiltersChange]
   );
+
+  // Apply smart pattern — called when user clicks the hint chip
+  function applyPattern(p: Pattern) {
+    if (p.kind === "estado") {
+      const next = { ...filtersRef.current, estado: p.estado, q: "" };
+      setFilters(next);
+      filtersRef.current = next;
+      onFiltersChange(next);
+    }
+    // amount / origen — just clear the q so the hint disappears (search already fired)
+  }
 
   const reset = () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -213,17 +256,42 @@ export default function FiltersBar({
   return (
     <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2">
       {/* Search */}
-      <input
-        type="search"
-        placeholder="Buscar paciente o tratamiento…"
-        value={filters.q}
-        onChange={(e) => updateSearch(e.target.value)}
-        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
-      />
+      <div className="relative">
+        <input
+          type="search"
+          placeholder="Buscar paciente, tratamiento, importe…"
+          value={filters.q}
+          onChange={(e) => updateSearch(e.target.value)}
+          className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
+        />
+        {/* Smart hint */}
+        {pattern && (
+          <div className="mt-1.5 flex items-center gap-2">
+            {pattern.kind === "amount" && (
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
+                💰 Buscando por importe ≈ €{pattern.value.toLocaleString("es-ES")}
+              </span>
+            )}
+            {pattern.kind === "estado" && (
+              <button
+                onClick={() => applyPattern(pattern)}
+                className="text-[11px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 font-semibold hover:bg-violet-100 transition-colors"
+              >
+                🏷 Filtrar por estado: {pattern.label} →
+              </button>
+            )}
+            {pattern.kind === "origen" && (
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">
+                📢 Canal detectado: {pattern.label}
+              </span>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="flex flex-wrap gap-x-2 gap-y-2 items-center">
-        {/* Clínica (solo manager) */}
-        {user.rol === "manager_general" && (
+        {/* Clínica (manager / admin only) */}
+        {user.rol !== "encargada_ventas" && (
           <select
             value={filters.clinica}
             onChange={(e) => updateImmediate("clinica", e.target.value)}
@@ -246,6 +314,21 @@ export default function FiltersBar({
           {doctores.map((d) => (
             <option key={d.id} value={d.nombre}>{d.nombre}</option>
           ))}
+        </select>
+
+        {/* Estado */}
+        <select
+          value={filters.estado}
+          onChange={(e) => updateImmediate("estado", e.target.value)}
+          className={`rounded-xl border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300 ${filters.estado ? "border-violet-400 bg-violet-50 text-violet-700 font-semibold" : "border-slate-200 text-slate-700"}`}
+        >
+          <option value="">Todos los estados</option>
+          <option value="PRESENTADO">Presentado</option>
+          <option value="INTERESADO">Interesado</option>
+          <option value="EN_DUDA">En Duda</option>
+          <option value="EN_NEGOCIACION">En Negociación</option>
+          <option value="ACEPTADO">Aceptado</option>
+          <option value="PERDIDO">Perdido</option>
         </select>
 
         {/* Tipo paciente */}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { Presupuesto, PresupuestoEstado, UserSession, MotivoPerdida } from "../../lib/presupuestos/types";
 import KanbanBoard from "./KanbanBoard";
 import FiltersBar, { type Filters } from "./FiltersBar";
@@ -33,6 +33,7 @@ function usePresupuestos(user: UserSession) {
       if (filters.doctor) url.searchParams.set("doctor", filters.doctor);
       if (filters.tipoPaciente) url.searchParams.set("tipoPaciente", filters.tipoPaciente);
       if (filters.tipoVisita) url.searchParams.set("tipoVisita", filters.tipoVisita);
+      if (filters.estado) url.searchParams.set("estado", filters.estado);
       if (filters.fechaDesde) url.searchParams.set("fechaDesde", filters.fechaDesde);
       if (filters.fechaHasta) url.searchParams.set("fechaHasta", filters.fechaHasta);
       if (filters.q) url.searchParams.set("q", filters.q);
@@ -60,7 +61,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   const [tab, setTab] = useState<Tab>(isManager ? "red" : "tareas");
   const [currentFilters, setCurrentFilters] = useState<Filters>({
     clinica: "", doctor: "", tipoPaciente: "", tipoVisita: "",
-    fechaDesde: "", fechaHasta: "", q: "",
+    estado: "", fechaDesde: "", fechaHasta: "", q: "",
   });
   const { presupuestos, setPresupuestos, loading, isDemo, demoReason, missingVars, load } = usePresupuestos(user);
 
@@ -70,12 +71,40 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   const [editPresupuesto, setEditPresupuesto] = useState<Presupuesto | null>(null);
   const [drawerPresupuesto, setDrawerPresupuesto] = useState<Presupuesto | null>(null);
 
+  // Polling banner
+  const [newPresupuestosCount, setNewPresupuestosCount] = useState(0);
+  const lastCountRef = useRef<number | null>(null);
+  const currentFiltersRef = useRef(currentFilters);
+  currentFiltersRef.current = currentFilters;
+
   const handleFiltersChange = useCallback((f: Filters) => {
     setCurrentFilters(f);
     load(f);
   }, [load]);
 
   useEffect(() => { load(currentFilters); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Silent polling every 60s — show banner when count changes
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch("/api/presupuestos/kanban");
+        const d = await res.json();
+        const count: number = (d.presupuestos ?? []).length;
+        if (lastCountRef.current !== null && count > lastCountRef.current) {
+          setNewPresupuestosCount(count - lastCountRef.current);
+        }
+        lastCountRef.current = count;
+      } catch { /* silent */ }
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleBannerRefresh() {
+    setNewPresupuestosCount(0);
+    lastCountRef.current = null;
+    load(currentFiltersRef.current);
+  }
 
   async function handleChangeEstado(
     id: string,
@@ -176,6 +205,21 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           ))}
         </div>
       </div>
+
+      {/* Polling banner */}
+      {newPresupuestosCount > 0 && (
+        <div className="shrink-0 bg-violet-600 text-white px-4 py-2 flex items-center justify-between gap-4">
+          <span className="text-xs font-semibold">
+            {newPresupuestosCount} presupuesto{newPresupuestosCount !== 1 ? "s" : ""} nuevo{newPresupuestosCount !== 1 ? "s" : ""} desde tu última carga
+          </span>
+          <button
+            onClick={handleBannerRefresh}
+            className="text-xs font-bold underline hover:no-underline"
+          >
+            Actualizar
+          </button>
+        </div>
+      )}
 
       {/* Content */}
       <main className="flex-1 min-h-0 overflow-auto flex flex-col p-4 gap-4 w-full">

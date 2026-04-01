@@ -70,6 +70,9 @@ function getDemoPresupuestos(session: UserSession, q: URLSearchParams): Presupue
     );
   }
 
+  const estadoFilter = q.get("estado");
+  if (estadoFilter) data = data.filter((p) => p.estado === estadoFilter);
+
   return data;
 }
 
@@ -233,6 +236,10 @@ export async function GET(req: Request) {
     const tipoVisitaFilter = q.get("tipoVisita");
     if (tipoVisitaFilter) {
       presupuestos = presupuestos.filter((p) => p.tipoVisita === tipoVisitaFilter);
+    }
+    const estadoFilter = q.get("estado");
+    if (estadoFilter) {
+      presupuestos = presupuestos.filter((p) => p.estado === estadoFilter);
     }
 
     return NextResponse.json({ presupuestos, isDemo: false });

@@ -5,6 +5,60 @@ import type { Presupuesto, PresupuestoEstado, UserSession } from "../../lib/pres
 import { ESTADO_CONFIG, ESTADOS_ACCIONABLES, ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
 import IAGeneradorDrawer from "./IAGeneradorDrawer";
 
+// ─── Compact row ──────────────────────────────────────────────────────────────
+
+function CompactRow({ p, onOpenDrawer, onQuickContact }: {
+  p: Presupuesto;
+  onOpenDrawer: (p: Presupuesto) => void;
+  onQuickContact: (id: string) => void;
+}) {
+  const cfg = ESTADO_CONFIG[p.estado];
+  const badge = urgencyBadge(p);
+  const [done, setDone] = useState(false);
+  const [iaOpen, setIaOpen] = useState(false);
+  return (
+    <>
+      <div
+        className={`flex items-center gap-2 px-3 rounded-2xl border bg-white transition-opacity cursor-pointer hover:bg-slate-50 ${done ? "opacity-40" : ""}`}
+        style={{ borderLeft: `4px solid ${cfg.hex}`, height: 48 }}
+        onClick={() => onOpenDrawer(p)}
+      >
+        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase shrink-0 ${badge.color}`}>
+          {badge.label}
+        </span>
+        <p className="font-semibold text-sm text-slate-900 truncate flex-1 min-w-0">{p.patientName}</p>
+        {p.treatments[0] && (
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0 hidden sm:inline max-w-[110px] truncate">
+            {p.treatments[0]}
+          </span>
+        )}
+        {p.amount != null && (
+          <span className="text-sm font-bold text-slate-700 shrink-0">€{p.amount.toLocaleString("es-ES")}</span>
+        )}
+        <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {p.patientPhone && (
+            <button
+              onClick={() => setIaOpen(true)}
+              className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-violet-600 text-white hover:bg-violet-700"
+              title="Generar mensaje IA"
+            >
+              ✨
+            </button>
+          )}
+          <button
+            onClick={() => { setDone(true); onQuickContact(p.id); }}
+            disabled={done}
+            className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-40"
+          >
+            {done ? "✓" : "✓ Hecho"}
+          </button>
+        </div>
+      </div>
+      {iaOpen && <IAGeneradorDrawer presupuesto={p} onClose={() => setIaOpen(false)} />}
+    </>
+  );
+}
+
 const MOTIVO_DUDA_LABEL: Record<string, string> = {
   precio: "Duda: precio",
   otra_clinica: "Duda: otra clínica",
@@ -133,28 +187,30 @@ function ActionRow({ p, onOpenDrawer, onQuickContact }: {
   );
 }
 
-function Section({ title, items, color, onChangeEstado, onOpenDrawer, onQuickContact }: {
-  title: string; items: Presupuesto[]; color: string;
+function Section({ title, items, color, compact, onChangeEstado, onOpenDrawer, onQuickContact }: {
+  title: string; items: Presupuesto[]; color: string; compact: boolean;
   onChangeEstado: (id: string, estado: PresupuestoEstado) => void;
   onOpenDrawer: (p: Presupuesto) => void;
   onQuickContact: (id: string) => void;
 }) {
   if (items.length === 0) return null;
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <div className="flex items-center gap-2">
         <span className={`text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${color}`}>{title}</span>
         <span className="text-xs text-slate-400">{items.length}</span>
       </div>
-      {items.map((p) => (
-        <ActionRow key={p.id} p={p} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
-      ))}
+      {items.map((p) =>
+        compact
+          ? <CompactRow key={p.id} p={p} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
+          : <ActionRow key={p.id} p={p} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
+      )}
     </div>
   );
 }
 
-function ClinicaGroup({ clinica, items, onChangeEstado, onOpenDrawer, onQuickContact }: {
-  clinica: string; items: Presupuesto[];
+function ClinicaGroup({ clinica, items, compact, onChangeEstado, onOpenDrawer, onQuickContact }: {
+  clinica: string; items: Presupuesto[]; compact: boolean;
   onChangeEstado: (id: string, estado: PresupuestoEstado) => void;
   onOpenDrawer: (p: Presupuesto) => void;
   onQuickContact: (id: string) => void;
@@ -170,9 +226,9 @@ function ClinicaGroup({ clinica, items, onChangeEstado, onOpenDrawer, onQuickCon
         <span className="text-xs text-slate-400">{items.length} presupuestos</span>
         {dinero > 0 && <span className="text-xs font-semibold text-violet-700 ml-auto">€{dinero.toLocaleString("es-ES")} en juego</span>}
       </div>
-      <Section title="Riesgo alto — actuar hoy" items={u} color="bg-rose-100 text-rose-700" onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
-      <Section title="Seguimiento" items={s} color="bg-amber-100 text-amber-700" onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
-      <Section title="Recientes" items={r} color="bg-sky-100 text-sky-700" onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
+      <Section title="Riesgo alto — actuar hoy" items={u} color="bg-rose-100 text-rose-700" compact={compact} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
+      <Section title="Seguimiento" items={s} color="bg-amber-100 text-amber-700" compact={compact} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
+      <Section title="Recientes" items={r} color="bg-sky-100 text-sky-700" compact={compact} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
     </div>
   );
 }
@@ -184,6 +240,7 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
   onChangeEstado: (id: string, estado: PresupuestoEstado) => void;
 }) {
   const [clinicaFiltro, setClinicaFiltro] = useState<string>("__todas__");
+  const [compact, setCompact] = useState(false);
 
   const accionables = presupuestos
     .filter((p) => ESTADOS_ACCIONABLES.includes(p.estado))
@@ -227,7 +284,7 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
             <p className="text-sm font-semibold text-violet-200 mt-0.5">€{dineroTotal.toLocaleString("es-ES")} en juego</p>
           )}
         </div>
-        <div className="flex gap-4">
+        <div className="flex items-center gap-4">
           {urgentes.length > 0 && (
             <div className="text-center">
               <p className="text-lg font-extrabold text-rose-300">{urgentes.length}</p>
@@ -240,6 +297,17 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
               <p className="text-[10px] text-violet-200">Seguimiento</p>
             </div>
           )}
+          {/* Compact toggle */}
+          <button
+            onClick={() => setCompact((v) => !v)}
+            className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-colors ${
+              compact
+                ? "bg-white text-violet-700 border-white"
+                : "bg-violet-700 text-violet-200 border-violet-600 hover:bg-violet-600"
+            }`}
+          >
+            {compact ? "Vista detallada" : "Vista compacta"}
+          </button>
         </div>
       </div>
 
@@ -264,7 +332,7 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
           {clinicas.map((clinica) => {
             const items = accionables.filter((p) => (p.clinica ?? "Sin clínica") === clinica);
             if (!items.length) return null;
-            return <ClinicaGroup key={clinica} clinica={clinica} items={items}
+            return <ClinicaGroup key={clinica} clinica={clinica} items={items} compact={compact}
               onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />;
           })}
         </div>
@@ -276,9 +344,9 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
             const s = filtered.filter((p) => p.urgencyScore >= 40 && p.urgencyScore < 70);
             const r = filtered.filter((p) => p.urgencyScore < 40);
             return <>
-              <Section title="Riesgo alto — actuar hoy" items={u} color="bg-rose-100 text-rose-700" onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
-              <Section title="Seguimiento" items={s} color="bg-amber-100 text-amber-700" onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
-              <Section title="Recientes" items={r} color="bg-sky-100 text-sky-700" onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
+              <Section title="Riesgo alto — actuar hoy" items={u} color="bg-rose-100 text-rose-700" compact={compact} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
+              <Section title="Seguimiento" items={s} color="bg-amber-100 text-amber-700" compact={compact} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
+              <Section title="Recientes" items={r} color="bg-sky-100 text-sky-700" compact={compact} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
             </>;
           })()}
         </div>
