@@ -12,6 +12,7 @@ import TareasView from "./TareasView";
 import PatientDrawer from "./PatientDrawer";
 import FloatingNewButton from "./FloatingNewButton";
 import CommandCenterView from "./CommandCenterView";
+import InformesView from "./InformesView";
 
 type Tab = "red" | "kanban" | "tareas" | "kpis" | "doctor" | "informes";
 
@@ -251,13 +252,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
             }}
           />
         )}
-        {tab === "informes" && (
-          <div className="flex flex-col items-center justify-center flex-1 gap-3 text-slate-400">
-            <p className="text-4xl">📊</p>
-            <p className="font-semibold text-slate-600">Informes IA — próximamente</p>
-            <p className="text-sm">Informe mensual generado por IA y forecasting de pipeline.</p>
-          </div>
-        )}
+        {tab === "informes" && <InformesView user={user} />}
       </main>
 
       {/* Floating new presupuesto button — all tabs */}
