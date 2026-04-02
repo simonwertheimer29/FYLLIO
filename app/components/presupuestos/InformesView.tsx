@@ -2,6 +2,11 @@
 
 import { useState, useMemo, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import html2canvas from "html2canvas";
+import {
+  LineChart, Line, BarChart, Bar, ComposedChart,
+  XAxis, YAxis, CartesianGrid, Cell, ReferenceLine, Legend,
+} from "recharts";
 import type { UserSession } from "../../lib/presupuestos/types";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -330,6 +335,14 @@ export default function InformesView({ user }: { user: UserSession }) {
     [kpisMeses, tasaEsperada]
   );
 
+  // Media de conversión del informe actual (para colorear gráficos de doctores/clínicas)
+  const mediaRedInforme = useMemo(
+    () => informe?.datosUsados
+      ? (informe.datosUsados.total > 0 ? Math.round(informe.datosUsados.aceptados / informe.datosUsados.total * 100) : 0)
+      : 0,
+    [informe]
+  );
+
   // Load clinica list and compute kpisMeses from kanban data
   useEffect(() => {
     fetch("/api/presupuestos/kanban")
@@ -390,6 +403,33 @@ export default function InformesView({ user }: { user: UserSession }) {
     setDownloading(format);
     setDownloadError(null);
     try {
+      // Capture browser-rendered Recharts charts as PNG base64
+      const captureChart = async (id: string): Promise<string> => {
+        const el = document.getElementById(id);
+        if (!el) return "";
+        try {
+          const canvas = await html2canvas(el, {
+            scale: 2,
+            backgroundColor: "#ffffff",
+            logging: false,
+            useCORS: true,
+          });
+          return canvas.toDataURL("image/png").replace("data:image/png;base64,", "");
+        } catch {
+          return "";
+        }
+      };
+
+      const [linea, clinicas, motivos, doctores, canales, forecast, ab] = await Promise.all([
+        captureChart("chart-linea"),
+        captureChart("chart-clinicas"),
+        captureChart("chart-motivos"),
+        captureChart("chart-doctores"),
+        captureChart("chart-canales"),
+        captureChart("chart-forecast"),
+        captureChart("chart-ab"),
+      ]);
+
       const endpoint = format === "pdf" ? "/api/informes/generar-pdf" : "/api/informes/generar-ppt";
       const clinicaNombre = selectedClinica === "todas" ? "Todas las clínicas" : selectedClinica;
       const res = await fetch(endpoint, {
@@ -400,7 +440,7 @@ export default function InformesView({ user }: { user: UserSession }) {
           clinica: clinicaNombre,
           informe: informe.informe,
           datos: informe.datosUsados,
-          charts: [],
+          charts: { linea, clinicas, motivos, doctores, canales, forecast, ab },
         }),
       });
       if (!res.ok) {
@@ -520,6 +560,150 @@ export default function InformesView({ user }: { user: UserSession }) {
           La confianza disminuye para meses más lejanos.
         </p>
       </div>
+
+      {/* ── Gráficos ocultos para captura PDF/PPT ─────────────────────────────
+          Renderizados fuera de pantalla con Recharts; capturados con html2canvas
+          cuando el usuario descarga el documento.
+      ────────────────────────────────────────────────────────────────────────── */}
+      {informe != null && (
+        <div
+          aria-hidden="true"
+          style={{
+            position: "fixed",
+            left: "-9999px",
+            top: 0,
+            pointerEvents: "none",
+            backgroundColor: "white",
+          }}
+        >
+          {/* Tendencia 12 meses */}
+          <div id="chart-linea" style={{ width: 900, height: 380, backgroundColor: "white", padding: "10px 5px" }}>
+            <LineChart
+              width={880} height={360}
+              data={informe.datosUsados.tendenciaMensual ?? []}
+              margin={{ top: 10, right: 20, left: 10, bottom: 5 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+              <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <Legend />
+              <Line isAnimationActive={false} type="monotone" dataKey="total" name="Ofrecidos" stroke="#7C3AED" strokeWidth={2} dot={{ r: 3 }} />
+              <Line isAnimationActive={false} type="monotone" dataKey="aceptados" name="Aceptados" stroke="#16A34A" strokeWidth={2} dot={{ r: 3 }} />
+            </LineChart>
+          </div>
+
+          {/* Clínicas — tasa de conversión */}
+          {(informe.datosUsados.porClinica?.length ?? 0) > 0 && (
+            <div id="chart-clinicas" style={{ width: 860, height: 320, backgroundColor: "white", padding: "10px 5px" }}>
+              <BarChart
+                layout="vertical" width={840} height={300}
+                data={informe.datosUsados.porClinica}
+                margin={{ top: 5, right: 40, left: 10, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} />
+                <YAxis type="category" dataKey="clinica" width={130} tick={{ fontSize: 10 }} />
+                <Bar isAnimationActive={false} dataKey="tasa" name="Conversión">
+                  {(informe.datosUsados.porClinica ?? []).map((c, i) => (
+                    <Cell key={i} fill={c.tasa >= mediaRedInforme ? "#16A34A" : "#DC2626"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </div>
+          )}
+
+          {/* Motivos de pérdida */}
+          {(informe.datosUsados.porMotivo?.length ?? 0) > 0 && (
+            <div id="chart-motivos" style={{ width: 860, height: 320, backgroundColor: "white", padding: "10px 5px" }}>
+              <BarChart
+                layout="vertical" width={840} height={300}
+                data={informe.datosUsados.porMotivo}
+                margin={{ top: 5, right: 40, left: 10, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11 }} />
+                <YAxis type="category" dataKey="motivo" width={165} tick={{ fontSize: 10 }} />
+                <Bar isAnimationActive={false} dataKey="count" name="Casos" fill="#DC2626" />
+              </BarChart>
+            </div>
+          )}
+
+          {/* Doctores — tasa con línea de media */}
+          {(informe.datosUsados.porDoctor?.length ?? 0) > 0 && (
+            <div id="chart-doctores" style={{ width: 900, height: 360, backgroundColor: "white", padding: "10px 5px" }}>
+              <ComposedChart
+                width={880} height={340}
+                data={informe.datosUsados.porDoctor?.slice(0, 8)}
+                margin={{ top: 10, right: 60, left: 10, bottom: 35 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="doctor" tick={{ fontSize: 10 }} angle={-20} textAnchor="end" height={50} />
+                <YAxis domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} />
+                <Bar isAnimationActive={false} dataKey="tasa" name="Tasa" maxBarSize={60}>
+                  {(informe.datosUsados.porDoctor ?? []).slice(0, 8).map((d, i) => (
+                    <Cell key={i} fill={d.tasa >= mediaRedInforme ? "#16A34A" : "#DC2626"} />
+                  ))}
+                </Bar>
+                <ReferenceLine y={mediaRedInforme} stroke="#7C3AED" strokeDasharray="4 4" label={{ value: `Media ${mediaRedInforme}%`, position: "insideTopRight", fill: "#7C3AED", fontSize: 10 }} />
+              </ComposedChart>
+            </div>
+          )}
+
+          {/* Canales de captación */}
+          {(informe.datosUsados.porOrigen?.length ?? 0) > 0 && (
+            <div id="chart-canales" style={{ width: 860, height: 320, backgroundColor: "white", padding: "10px 5px" }}>
+              <BarChart
+                layout="vertical" width={840} height={300}
+                data={informe.datosUsados.porOrigen}
+                margin={{ top: 5, right: 40, left: 10, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" tick={{ fontSize: 11 }} />
+                <YAxis type="category" dataKey="origen" width={155} tick={{ fontSize: 10 }} />
+                <Bar isAnimationActive={false} dataKey="count" name="Leads" fill="#7C3AED" />
+              </BarChart>
+            </div>
+          )}
+
+          {/* Forecast — próximos 3 meses */}
+          <div id="chart-forecast" style={{ width: 700, height: 300, backgroundColor: "white", padding: "10px 5px" }}>
+            <BarChart
+              width={680} height={280}
+              data={forecasting}
+              margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+              <YAxis tickFormatter={(v: number) => `€${Math.round(v / 1000)}k`} tick={{ fontSize: 11 }} />
+              <Bar isAnimationActive={false} dataKey="importeProyectado" name="Proyectado" maxBarSize={80}>
+                {forecasting.map((_, i) => (
+                  <Cell key={i} fill={(["#16A34A", "#D97706", "#9CA3AF"] as string[])[i] ?? "#9CA3AF"} />
+                ))}
+              </Bar>
+            </BarChart>
+          </div>
+
+          {/* A/B tonos */}
+          {(informe.datosUsados.abTonos?.length ?? 0) > 0 && (
+            <div id="chart-ab" style={{ width: 800, height: 280, backgroundColor: "white", padding: "10px 5px" }}>
+              <BarChart
+                layout="vertical" width={780} height={260}
+                data={informe.datosUsados.abTonos}
+                margin={{ top: 5, right: 50, left: 10, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} />
+                <YAxis type="category" dataKey="tono" width={175} tick={{ fontSize: 10 }} />
+                <Bar isAnimationActive={false} dataKey="tasa" name="Conversión">
+                  {(informe.datosUsados.abTonos ?? []).map((_, i) => (
+                    <Cell key={i} fill={(["#16A34A", "#7C3AED", "#D97706"] as string[])[i % 3]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

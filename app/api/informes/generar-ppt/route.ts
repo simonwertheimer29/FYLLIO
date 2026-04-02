@@ -134,15 +134,19 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { mes, clinica, informe, datos }: {
+    const { mes, clinica, informe, datos, charts: clientCharts } = body as {
       mes: string; clinica: string; informe: string; datos: KpiResumen;
-    } = body;
+      charts?: Record<string, string>;
+    };
 
     if (!mes || !datos) {
       return NextResponse.json({ error: "Faltan parámetros" }, { status: 400 });
     }
 
     // Diagnostic logging — visible in Vercel function logs
+    const clientChartKeys = Object.keys(clientCharts ?? {}).filter(
+      (k) => (clientCharts?.[k]?.length ?? 0) > 100
+    );
     console.log("[generar-ppt] request:", {
       mes,
       clinica,
@@ -150,6 +154,7 @@ export async function POST(req: Request) {
       tendenciaMeses: datos.tendenciaMensual?.length ?? 0,
       porClinica: datos.porClinica?.length ?? 0,
       porDoctor: datos.porDoctor?.length ?? 0,
+      clientCharts: clientChartKeys,
     });
 
     const label = mesLabel(mes);
@@ -159,50 +164,66 @@ export async function POST(req: Request) {
     const mediaRed = datos.total > 0 ? Math.round(datos.aceptados / datos.total * 100) : 0;
     const proyeccion = proyeccionMeses(datos.tendenciaMensual ?? [], mes);
 
-    // Generate charts server-side in parallel (svg-charts returns Buffer | null)
+    // Use client-captured charts (from Recharts/html2canvas) if available; generate server-side as fallback
+    const useChart = (key: string) =>
+      typeof clientCharts?.[key] === "string" && (clientCharts[key] as string).length > 100;
+    const fromClient = (key: string): string => clientCharts?.[key] ?? "";
+
     const [bufLinea, bufClinicas, bufMotivos, bufDoctores, bufCanales, bufForecast, bufAB] =
       await Promise.all([
-        graficoLineas(
+        useChart("linea") ? Promise.resolve(null) : graficoLineas(
           (datos.tendenciaMensual ?? []).map((t) => ({ label: t.label, ofrecidos: t.total, aceptados: t.aceptados }))
         ),
-        graficoBarrasH(
+        useChart("clinicas") ? Promise.resolve(null) : graficoBarrasH(
           (datos.porClinica ?? []).map((c) => ({
             label: c.clinica,
             value: c.tasa,
             color: c.tasa >= mediaRed ? "#16A34A" : "#DC2626",
           }))
         ),
-        graficoBarrasH(
+        useChart("motivos") ? Promise.resolve(null) : graficoBarrasH(
           datos.porMotivo.map((m) => ({ label: m.motivo, value: m.count, color: "#DC2626" }))
         ),
-        graficoBarrasV(
+        useChart("doctores") ? Promise.resolve(null) : graficoBarrasV(
           datos.porDoctor.slice(0, 8).map((d) => ({ label: d.doctor, value: d.tasa })),
           mediaRed
         ),
-        graficoBarrasH(
+        useChart("canales") ? Promise.resolve(null) : graficoBarrasH(
           datos.porOrigen.map((o) => ({ label: o.origen, value: o.count, color: "#7C3AED" }))
         ),
-        graficoForecast(
+        useChart("forecast") ? Promise.resolve(null) : graficoForecast(
           proyeccion.map((p, i) => ({
             mes: p.mes,
             valor: p.valor,
             color: ["#16A34A", "#D97706", "#9CA3AF"][i],
           }))
         ),
-        datos.abTonos && datos.abTonos.length > 0
-          ? graficoAB(datos.abTonos.map((t) => ({ tono: t.tono, tasa: t.tasa, mensajes: t.mensajes })))
-          : Promise.resolve(null),
+        useChart("ab") ? Promise.resolve(null) : (
+          (datos.abTonos?.length ?? 0) > 0
+            ? graficoAB(datos.abTonos!.map((t) => ({ tono: t.tono, tasa: t.tasa, mensajes: t.mensajes })))
+            : Promise.resolve(null)
+        ),
       ]);
 
-    // Convert Buffer to base64 for pptxgenjs addImage
+    // Resolve final base64 strings: prefer client charts, fall back to server-generated
     const toB64 = (b: Buffer | null): string => b ? b.toString("base64") : "";
-    const pngLinea    = toB64(bufLinea);
-    const pngClinicas = toB64(bufClinicas);
-    const pngMotivos  = toB64(bufMotivos);
-    const pngDoctores = toB64(bufDoctores);
-    const pngCanales  = toB64(bufCanales);
-    const pngForecast = toB64(bufForecast);
-    const pngAB       = toB64(bufAB);
+    const pngLinea    = useChart("linea")    ? fromClient("linea")    : toB64(bufLinea);
+    const pngClinicas = useChart("clinicas") ? fromClient("clinicas") : toB64(bufClinicas);
+    const pngMotivos  = useChart("motivos")  ? fromClient("motivos")  : toB64(bufMotivos);
+    const pngDoctores = useChart("doctores") ? fromClient("doctores") : toB64(bufDoctores);
+    const pngCanales  = useChart("canales")  ? fromClient("canales")  : toB64(bufCanales);
+    const pngForecast = useChart("forecast") ? fromClient("forecast") : toB64(bufForecast);
+    const pngAB       = useChart("ab")       ? fromClient("ab")       : toB64(bufAB);
+
+    console.log("[generar-ppt] charts:", {
+      linea:    pngLinea    ? (useChart("linea")    ? "CLIENT" : "SERVER") : "EMPTY",
+      clinicas: pngClinicas ? (useChart("clinicas") ? "CLIENT" : "SERVER") : "EMPTY",
+      motivos:  pngMotivos  ? (useChart("motivos")  ? "CLIENT" : "SERVER") : "EMPTY",
+      doctores: pngDoctores ? (useChart("doctores") ? "CLIENT" : "SERVER") : "EMPTY",
+      canales:  pngCanales  ? (useChart("canales")  ? "CLIENT" : "SERVER") : "EMPTY",
+      forecast: pngForecast ? (useChart("forecast") ? "CLIENT" : "SERVER") : "EMPTY",
+      ab:       pngAB       ? (useChart("ab")       ? "CLIENT" : "SERVER") : "EMPTY",
+    });
 
     const pptx = new PptxGenJS();
     pptx.layout = "LAYOUT_16x9";
