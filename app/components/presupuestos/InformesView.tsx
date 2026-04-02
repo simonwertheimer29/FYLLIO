@@ -43,6 +43,11 @@ type InformeData = {
     tasa: number;
     importeTotal: number;
     importePipeline: number;
+    porDoctor?: { doctor: string; total: number; aceptados: number; tasa: number }[];
+    porOrigen?: { origen: string; count: number }[];
+    porMotivo?: { motivo: string; count: number }[];
+    privados?: { total: number; tasa: number };
+    adeslas?: { total: number; tasa: number };
   };
 };
 
@@ -161,7 +166,7 @@ function ForecastCard({
 }
 
 function InformeCard({
-  informe, generadoEn, clinica, loading, error, onGenerar, onRegenerar,
+  informe, generadoEn, clinica, loading, error, onGenerar, onRegenerar, onDownloadPdf, onDownloadPpt, downloading,
 }: {
   informe: InformeData | null;
   generadoEn?: string;
@@ -170,6 +175,9 @@ function InformeCard({
   error: string | null;
   onGenerar: () => void;
   onRegenerar: () => void;
+  onDownloadPdf?: () => void;
+  onDownloadPpt?: () => void;
+  downloading?: "pdf" | "ppt" | null;
 }) {
   if (loading) {
     return (
@@ -227,13 +235,35 @@ function InformeCard({
             </p>
           )}
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button
             onClick={onRegenerar}
             className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
           >
             Regenerar
           </button>
+          {onDownloadPdf && (
+            <button
+              onClick={onDownloadPdf}
+              disabled={downloading === "pdf"}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60 flex items-center gap-1.5"
+            >
+              {downloading === "pdf" ? (
+                <><span className="w-3 h-3 rounded-full border border-slate-400 border-t-transparent animate-spin inline-block" /> Generando…</>
+              ) : "↓ PDF"}
+            </button>
+          )}
+          {onDownloadPpt && (
+            <button
+              onClick={onDownloadPpt}
+              disabled={downloading === "ppt"}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60 flex items-center gap-1.5"
+            >
+              {downloading === "ppt" ? (
+                <><span className="w-3 h-3 rounded-full border border-slate-400 border-t-transparent animate-spin inline-block" /> Generando…</>
+              ) : "↓ PPT"}
+            </button>
+          )}
         </div>
       </div>
 
@@ -284,6 +314,7 @@ export default function InformesView({ user }: { user: UserSession }) {
 
   const [informe, setInforme] = useState<InformeData | null>(null);
   const [loadingInforme, setLoadingInforme] = useState(false);
+  const [downloading, setDownloading] = useState<"pdf" | "ppt" | null>(null);
   const [errorInforme, setErrorInforme] = useState<string | null>(null);
 
   // Forecast state
@@ -350,6 +381,42 @@ export default function InformesView({ user }: { user: UserSession }) {
 
   const mesLabel = meses.find((m) => m.value === selectedMes)?.label ?? selectedMes;
 
+  async function downloadDocument(format: "pdf" | "ppt") {
+    if (!informe) return;
+    setDownloading(format);
+    try {
+      const endpoint = format === "pdf" ? "/api/informes/generar-pdf" : "/api/informes/generar-ppt";
+      const clinicaNombre = selectedClinica === "todas" ? "Todas las clínicas" : selectedClinica;
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mes: selectedMes,
+          clinica: clinicaNombre,
+          informe: informe.informe,
+          datos: informe.datosUsados,
+          charts: [],
+        }),
+      });
+      if (!res.ok) throw new Error("Error al generar documento");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const cd = res.headers.get("Content-Disposition") ?? "";
+      const filename = cd.match(/filename="([^"]+)"/)?.[1] ?? `informe.${format}`;
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Error descargando documento:", e);
+    } finally {
+      setDownloading(null);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6 w-full pb-6">
       {/* Header + filters */}
@@ -398,6 +465,9 @@ export default function InformesView({ user }: { user: UserSession }) {
         onGenerar={generarInforme}
         onRegenerar={generarInforme}
         generadoEn={informe?.generadoEn}
+        onDownloadPdf={informe ? () => downloadDocument("pdf") : undefined}
+        onDownloadPpt={informe ? () => downloadDocument("ppt") : undefined}
+        downloading={downloading}
       />
 
       {/* Forecasting */}
