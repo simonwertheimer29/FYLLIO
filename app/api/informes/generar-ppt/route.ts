@@ -12,13 +12,11 @@ import { cookies } from "next/headers";
 import PptxGenJS from "pptxgenjs";
 import {
   graficoLineas,
-  graficoBarsHorizontal,
-  graficoBarsVertical,
-  graficoClinicasBars,
-  graficoDoctoresConMedia,
+  graficoBarrasH,
+  graficoBarrasV,
   graficoForecast,
   graficoAB,
-} from "../../../lib/charts/generar";
+} from "../../../lib/charts/svg-charts";
 
 const COOKIE = "fyllio_presupuestos_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -161,30 +159,50 @@ export async function POST(req: Request) {
     const mediaRed = datos.total > 0 ? Math.round(datos.aceptados / datos.total * 100) : 0;
     const proyeccion = proyeccionMeses(datos.tendenciaMensual ?? [], mes);
 
-    // Generate charts server-side in parallel
-    const [pngLinea, pngClinicas, pngMotivos, pngDoctores, pngCanales, pngForecast, pngAB] =
+    // Generate charts server-side in parallel (svg-charts returns Buffer | null)
+    const [bufLinea, bufClinicas, bufMotivos, bufDoctores, bufCanales, bufForecast, bufAB] =
       await Promise.all([
-        graficoLineas(datos.tendenciaMensual ?? [], mes),
-        graficoClinicasBars(
-          (datos.porClinica ?? []).map((c) => ({ label: c.clinica, tasa: c.tasa })),
+        graficoLineas(
+          (datos.tendenciaMensual ?? []).map((t) => ({ label: t.label, ofrecidos: t.total, aceptados: t.aceptados }))
+        ),
+        graficoBarrasH(
+          (datos.porClinica ?? []).map((c) => ({
+            label: c.clinica,
+            value: c.tasa,
+            color: c.tasa >= mediaRed ? "#16A34A" : "#DC2626",
+          }))
+        ),
+        graficoBarrasH(
+          datos.porMotivo.map((m) => ({ label: m.motivo, value: m.count, color: "#DC2626" }))
+        ),
+        graficoBarrasV(
+          datos.porDoctor.slice(0, 8).map((d) => ({ label: d.doctor, value: d.tasa })),
           mediaRed
         ),
-        graficoBarsHorizontal(
-          datos.porMotivo.map((m) => ({ label: m.motivo, value: m.count })),
-          "#DC2626"
+        graficoBarrasH(
+          datos.porOrigen.map((o) => ({ label: o.origen, value: o.count, color: "#7C3AED" }))
         ),
-        graficoDoctoresConMedia(
-          datos.porDoctor.slice(0, 8).map((d) => ({ label: d.doctor, tasa: d.tasa, total: d.total })),
-          mediaRed
+        graficoForecast(
+          proyeccion.map((p, i) => ({
+            mes: p.mes,
+            valor: p.valor,
+            color: ["#16A34A", "#D97706", "#9CA3AF"][i],
+          }))
         ),
-        graficoBarsVertical(
-          datos.porOrigen.map((o) => ({ label: o.origen, total: o.count }))
-        ),
-        graficoForecast(proyeccion),
         datos.abTonos && datos.abTonos.length > 0
-          ? graficoAB(datos.abTonos.map((t) => ({ label: t.tono, tasa: t.tasa })))
-          : Promise.resolve(""),
+          ? graficoAB(datos.abTonos.map((t) => ({ tono: t.tono, tasa: t.tasa, mensajes: t.mensajes })))
+          : Promise.resolve(null),
       ]);
+
+    // Convert Buffer to base64 for pptxgenjs addImage
+    const toB64 = (b: Buffer | null): string => b ? b.toString("base64") : "";
+    const pngLinea    = toB64(bufLinea);
+    const pngClinicas = toB64(bufClinicas);
+    const pngMotivos  = toB64(bufMotivos);
+    const pngDoctores = toB64(bufDoctores);
+    const pngCanales  = toB64(bufCanales);
+    const pngForecast = toB64(bufForecast);
+    const pngAB       = toB64(bufAB);
 
     const pptx = new PptxGenJS();
     pptx.layout = "LAYOUT_16x9";

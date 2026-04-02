@@ -10,13 +10,11 @@ import { renderToBuffer, Document, Page, View, Text, Image, StyleSheet } from "@
 import PptxGenJS from "pptxgenjs";
 import {
   graficoLineas,
-  graficoBarsHorizontal,
-  graficoBarsVertical,
-  graficoClinicasBars,
-  graficoDoctoresConMedia,
+  graficoBarrasH,
+  graficoBarrasV,
   graficoForecast,
   graficoAB,
-} from "../app/lib/charts/generar";
+} from "../app/lib/charts/svg-charts";
 
 // ─── Datos hardcoded Marzo 2026 ───────────────────────────────────────────────
 
@@ -491,7 +489,7 @@ function InformePDF({
             <Text style={S.td}>{p.mes}</Text>
             <Text style={{ ...S.td, textAlign: "right", fontFamily: "Helvetica-Bold" }}>{euro(p.valor)}</Text>
             <Text style={{ ...S.td, color: i === 0 ? C.green : i === 1 ? C.orange : C.muted }}>
-              {["●●● Alta", "●●○ Media", "●○○ Baja"][i]}
+              {["*** Alta", "**  Media", "*   Baja"][i]}
             </Text>
           </View>
         ))}
@@ -746,7 +744,7 @@ async function generarPPT(
       { bg: "FFFBEB", border: ORANGE, numColor: DARK },
       { bg: "F9FAFB", border: "9CA3AF", numColor: MUTED },
     ];
-    const confianzaLabels = ["●●● Alta", "●●○ Media", "●○○ Baja"];
+    const confianzaLabels = ["Alta confianza", "Media confianza", "Baja confianza"];
     const confianzaColors = [GREEN, ORANGE, MUTED];
     proyeccion.forEach((p, i) => {
       const fc = fColors[i];
@@ -804,25 +802,34 @@ async function main() {
   const proyeccion = proyeccionMeses(datos.tendenciaMensual, MES);
 
   console.log("Generando gráficos...");
-  const [pngLinea, pngClinicas, pngMotivos, pngDoctores, pngCanales, pngForecast, pngAB] =
+  const [bufLinea, bufClinicas, bufMotivos, bufDoctores, bufCanales, bufForecast, bufAB] =
     await Promise.all([
-      graficoLineas(datos.tendenciaMensual, MES),
-      graficoClinicasBars(datos.porClinica.map((c) => ({ label: c.clinica, tasa: c.tasa })), mediaRed),
-      graficoBarsHorizontal(datos.porMotivo.map((m) => ({ label: m.motivo, value: m.count })), "#DC2626"),
-      graficoDoctoresConMedia(datos.porDoctor.map((d) => ({ label: d.doctor, tasa: d.tasa, total: d.total })), mediaRed),
-      graficoBarsVertical(datos.porOrigen.map((o) => ({ label: o.origen, total: o.count }))),
-      graficoForecast(proyeccion),
-      graficoAB(datos.abTonos.map((t) => ({ label: t.tono, tasa: t.tasa }))),
+      graficoLineas(datos.tendenciaMensual.map((t) => ({ label: t.label, ofrecidos: t.total, aceptados: t.aceptados }))),
+      graficoBarrasH(datos.porClinica.map((c) => ({ label: c.clinica, value: c.tasa, color: c.tasa >= mediaRed ? "#16A34A" : "#DC2626" }))),
+      graficoBarrasH(datos.porMotivo.map((m) => ({ label: m.motivo, value: m.count, color: "#DC2626" }))),
+      graficoBarrasV(datos.porDoctor.map((d) => ({ label: d.doctor, value: d.tasa })), mediaRed),
+      graficoBarrasH(datos.porOrigen.map((o) => ({ label: o.origen, value: o.count, color: "#7C3AED" }))),
+      graficoForecast(proyeccion.map((p, i) => ({ mes: p.mes, valor: p.valor, color: ["#16A34A", "#D97706", "#9CA3AF"][i] }))),
+      graficoAB(datos.abTonos.map((t) => ({ tono: t.tono, tasa: t.tasa, mensajes: t.mensajes }))),
     ]);
 
+  const toB64 = (b: Buffer | null): string => b ? b.toString("base64") : "";
+  const pngLinea    = toB64(bufLinea);
+  const pngClinicas = toB64(bufClinicas);
+  const pngMotivos  = toB64(bufMotivos);
+  const pngDoctores = toB64(bufDoctores);
+  const pngCanales  = toB64(bufCanales);
+  const pngForecast = toB64(bufForecast);
+  const pngAB       = toB64(bufAB);
+
   console.log("Charts:", {
-    linea: pngLinea ? `${Math.round(pngLinea.length * 3 / 4 / 1024)}KB` : "EMPTY",
-    clinicas: pngClinicas ? `${Math.round(pngClinicas.length * 3 / 4 / 1024)}KB` : "EMPTY",
-    motivos: pngMotivos ? `${Math.round(pngMotivos.length * 3 / 4 / 1024)}KB` : "EMPTY",
-    doctores: pngDoctores ? `${Math.round(pngDoctores.length * 3 / 4 / 1024)}KB` : "EMPTY",
-    canales: pngCanales ? `${Math.round(pngCanales.length * 3 / 4 / 1024)}KB` : "EMPTY",
-    forecast: pngForecast ? `${Math.round(pngForecast.length * 3 / 4 / 1024)}KB` : "EMPTY",
-    ab: pngAB ? `${Math.round(pngAB.length * 3 / 4 / 1024)}KB` : "EMPTY",
+    linea:    bufLinea    ? `${Math.round(bufLinea.byteLength / 1024)}KB`    : "EMPTY",
+    clinicas: bufClinicas ? `${Math.round(bufClinicas.byteLength / 1024)}KB` : "EMPTY",
+    motivos:  bufMotivos  ? `${Math.round(bufMotivos.byteLength / 1024)}KB`  : "EMPTY",
+    doctores: bufDoctores ? `${Math.round(bufDoctores.byteLength / 1024)}KB` : "EMPTY",
+    canales:  bufCanales  ? `${Math.round(bufCanales.byteLength / 1024)}KB`  : "EMPTY",
+    forecast: bufForecast ? `${Math.round(bufForecast.byteLength / 1024)}KB` : "EMPTY",
+    ab:       bufAB       ? `${Math.round(bufAB.byteLength / 1024)}KB`       : "EMPTY",
   });
 
   // PDF

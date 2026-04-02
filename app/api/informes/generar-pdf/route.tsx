@@ -12,13 +12,11 @@ import { cookies } from "next/headers";
 import { renderToBuffer, Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
 import {
   graficoLineas,
-  graficoBarsHorizontal,
-  graficoBarsVertical,
-  graficoClinicasBars,
-  graficoDoctoresConMedia,
+  graficoBarrasH,
+  graficoBarrasV,
   graficoForecast,
   graficoAB,
-} from "../../../lib/charts/generar";
+} from "../../../lib/charts/svg-charts";
 
 const COOKIE = "fyllio_presupuestos_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -531,7 +529,7 @@ function InformePDF({
             <Text style={S.td}>{p.mes}</Text>
             <Text style={{ ...S.td, textAlign: "right", fontFamily: "Helvetica-Bold" }}>{euro(p.valor)}</Text>
             <Text style={{ ...S.td, color: i === 0 ? C.green : i === 1 ? C.orange : C.muted }}>
-              {["●●● Alta", "●●○ Media", "●○○ Baja"][i]}
+              {["*** Alta", "**  Media", "*   Baja"][i]}
             </Text>
           </View>
         ))}
@@ -583,38 +581,58 @@ export async function POST(req: Request) {
     const mediaRed = datos.total > 0 ? Math.round(datos.aceptados / datos.total * 100) : 0;
     const proyeccion = proyeccionMeses(datos.tendenciaMensual ?? [], mes);
 
-    // Generate 7 charts in parallel
-    const [pngLinea, pngClinicas, pngMotivos, pngDoctores, pngCanales, pngForecast, pngAB] =
+    // Generate charts in parallel (svg-charts returns Buffer | null)
+    const [bufLinea, bufClinicas, bufMotivos, bufDoctores, bufCanales, bufForecast, bufAB] =
       await Promise.all([
-        graficoLineas(datos.tendenciaMensual ?? [], mes),
-        graficoClinicasBars(
-          (datos.porClinica ?? []).map((c) => ({ label: c.clinica, tasa: c.tasa })),
+        graficoLineas(
+          (datos.tendenciaMensual ?? []).map((t) => ({ label: t.label, ofrecidos: t.total, aceptados: t.aceptados }))
+        ),
+        graficoBarrasH(
+          (datos.porClinica ?? []).map((c) => ({
+            label: c.clinica,
+            value: c.tasa,
+            color: c.tasa >= mediaRed ? "#16A34A" : "#DC2626",
+          }))
+        ),
+        graficoBarrasH(
+          datos.porMotivo.map((m) => ({ label: m.motivo, value: m.count, color: "#DC2626" }))
+        ),
+        graficoBarrasV(
+          datos.porDoctor.slice(0, 8).map((d) => ({ label: d.doctor, value: d.tasa })),
           mediaRed
         ),
-        graficoBarsHorizontal(
-          datos.porMotivo.map((m) => ({ label: m.motivo, value: m.count })),
-          "#DC2626"
+        graficoBarrasH(
+          datos.porOrigen.map((o) => ({ label: o.origen, value: o.count, color: "#7C3AED" }))
         ),
-        graficoDoctoresConMedia(
-          datos.porDoctor.slice(0, 8).map((d) => ({ label: d.doctor, tasa: d.tasa, total: d.total })),
-          mediaRed
+        graficoForecast(
+          proyeccion.map((p, i) => ({
+            mes: p.mes,
+            valor: p.valor,
+            color: ["#16A34A", "#D97706", "#9CA3AF"][i],
+          }))
         ),
-        graficoBarsVertical(
-          datos.porOrigen.map((o) => ({ label: o.origen, total: o.count }))
-        ),
-        graficoForecast(proyeccion),
         datos.abTonos && datos.abTonos.length > 0
-          ? graficoAB(datos.abTonos.map((t) => ({ label: t.tono, tasa: t.tasa })))
-          : Promise.resolve(""),
+          ? graficoAB(datos.abTonos.map((t) => ({ tono: t.tono, tasa: t.tasa, mensajes: t.mensajes })))
+          : Promise.resolve(null),
       ]);
 
+    // Convert Buffer to base64 for @react-pdf/renderer <Image>
+    const toB64 = (b: Buffer | null): string => b ? b.toString("base64") : "";
+    const pngLinea    = toB64(bufLinea);
+    const pngClinicas = toB64(bufClinicas);
+    const pngMotivos  = toB64(bufMotivos);
+    const pngDoctores = toB64(bufDoctores);
+    const pngCanales  = toB64(bufCanales);
+    const pngForecast = toB64(bufForecast);
+    const pngAB       = toB64(bufAB);
+
     console.log("[generar-pdf] charts:", {
-      linea: pngLinea ? `${Math.round(pngLinea.length * 3/4 / 1024)}KB` : "EMPTY",
-      clinicas: pngClinicas ? `${Math.round(pngClinicas.length * 3/4 / 1024)}KB` : "EMPTY",
-      motivos: pngMotivos ? `${Math.round(pngMotivos.length * 3/4 / 1024)}KB` : "EMPTY",
-      doctores: pngDoctores ? `${Math.round(pngDoctores.length * 3/4 / 1024)}KB` : "EMPTY",
-      canales: pngCanales ? `${Math.round(pngCanales.length * 3/4 / 1024)}KB` : "EMPTY",
-      forecast: pngForecast ? `${Math.round(pngForecast.length * 3/4 / 1024)}KB` : "EMPTY",
+      linea:    pngLinea    ? `${Math.round(bufLinea!.byteLength / 1024)}KB`    : "EMPTY",
+      clinicas: pngClinicas ? `${Math.round(bufClinicas!.byteLength / 1024)}KB` : "EMPTY",
+      motivos:  pngMotivos  ? `${Math.round(bufMotivos!.byteLength / 1024)}KB`  : "EMPTY",
+      doctores: pngDoctores ? `${Math.round(bufDoctores!.byteLength / 1024)}KB` : "EMPTY",
+      canales:  pngCanales  ? `${Math.round(bufCanales!.byteLength / 1024)}KB`  : "EMPTY",
+      forecast: pngForecast ? `${Math.round(bufForecast!.byteLength / 1024)}KB` : "EMPTY",
     });
 
     const generadoEn = new Date().toISOString();
