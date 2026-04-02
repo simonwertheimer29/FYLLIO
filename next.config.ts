@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["chartjs-node-canvas", "canvas"],
+  serverExternalPackages: ["@napi-rs/canvas"],
 };
 
 export default nextConfig;
