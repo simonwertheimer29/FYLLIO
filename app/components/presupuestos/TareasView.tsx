@@ -106,6 +106,8 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
   const [recOpen, setRecOpen] = useState(false);
   const [recomendacion, setRecomendacion] = useState<string | null>(null);
   const [loadingRec, setLoadingRec] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalCopiado, setPortalCopiado] = useState(false);
 
   const cleanPhone = (p.patientPhone ?? "").replace(/\D/g, "");
 
@@ -125,6 +127,23 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
       setRecomendacion(null);
     } finally {
       setLoadingRec(false);
+    }
+  }
+
+  async function sendPortal() {
+    setPortalLoading(true);
+    try {
+      const res = await fetch(`/api/presupuestos/${p.id}/generar-portal`, { method: "POST" });
+      const d = await res.json();
+      if (d.url) {
+        await navigator.clipboard.writeText(d.url);
+        setPortalCopiado(true);
+        setTimeout(() => setPortalCopiado(false), 3000);
+      }
+    } catch {
+      alert("No se pudo generar el portal");
+    } finally {
+      setPortalLoading(false);
     }
   }
 
@@ -209,6 +228,20 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
               ✨ Generar
             </button>
           )}
+          <button
+            onClick={sendPortal}
+            disabled={portalLoading}
+            title="Enviar portal al paciente"
+            className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl transition-colors disabled:opacity-50 ${
+              portalCopiado
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                : "bg-slate-50 text-slate-600 border border-slate-200 hover:border-violet-300 hover:text-violet-600"
+            }`}
+          >
+            {portalLoading ? (
+              <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" /></svg>
+            ) : portalCopiado ? "✓ Link copiado" : "↗ Portal"}
+          </button>
           <button
             onClick={fetchRec}
             disabled={loadingRec}
