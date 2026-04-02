@@ -319,6 +319,7 @@ export default function InformesView({ user }: { user: UserSession }) {
   const [loadingInforme, setLoadingInforme] = useState(false);
   const [downloading, setDownloading] = useState<"pdf" | "ppt" | null>(null);
   const [errorInforme, setErrorInforme] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   // Forecast state
   const [tasaEsperada, setTasaEsperada] = useState(25); // default 25%
@@ -387,6 +388,7 @@ export default function InformesView({ user }: { user: UserSession }) {
   async function downloadDocument(format: "pdf" | "ppt") {
     if (!informe) return;
     setDownloading(format);
+    setDownloadError(null);
     try {
       const endpoint = format === "pdf" ? "/api/informes/generar-pdf" : "/api/informes/generar-ppt";
       const clinicaNombre = selectedClinica === "todas" ? "Todas las clínicas" : selectedClinica;
@@ -401,7 +403,10 @@ export default function InformesView({ user }: { user: UserSession }) {
           charts: [],
         }),
       });
-      if (!res.ok) throw new Error("Error al generar documento");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error ?? `Error del servidor (${res.status})`);
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const cd = res.headers.get("Content-Disposition") ?? "";
@@ -415,6 +420,7 @@ export default function InformesView({ user }: { user: UserSession }) {
       URL.revokeObjectURL(url);
     } catch (e) {
       console.error("Error descargando documento:", e);
+      setDownloadError(e instanceof Error ? e.message : "Error desconocido al generar el documento");
     } finally {
       setDownloading(null);
     }
@@ -472,6 +478,16 @@ export default function InformesView({ user }: { user: UserSession }) {
         onDownloadPpt={informe ? () => downloadDocument("ppt") : undefined}
         downloading={downloading}
       />
+      {downloadError && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 flex items-start gap-3">
+          <span className="text-rose-500 text-lg leading-none mt-0.5">⚠</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-rose-700">Error al generar el documento</p>
+            <p className="text-xs text-rose-600 mt-0.5 break-words">{downloadError}</p>
+          </div>
+          <button onClick={() => setDownloadError(null)} className="text-rose-400 hover:text-rose-600 text-lg leading-none">×</button>
+        </div>
+      )}
 
       {/* Forecasting */}
       <div>
