@@ -129,17 +129,33 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   async function handleChangeEstado(
     id: string,
     estado: PresupuestoEstado,
-    extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string }
+    extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string; reactivar?: boolean }
   ) {
     setPresupuestos((prev) =>
       prev.map((p) => (p.id === id ? { ...p, estado } : p))
     );
     try {
+      const { reactivar, ...patchExtra } = extra ?? {};
       await fetch(`/api/presupuestos/kanban/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado, ...extra }),
+        body: JSON.stringify({ estado, ...patchExtra }),
       });
+      // Si se marcó reactivar: crear contacto futuro en 90 días
+      if (reactivar && estado === "PERDIDO") {
+        const fecha90 = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+        await fetch("/api/presupuestos/contactos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            presupuestoId: id,
+            tipo: "whatsapp",
+            resultado: "pidió tiempo",
+            nota: "Reactivación programada — 90 días",
+            fechaHora: fecha90,
+          }),
+        }).catch(() => {});
+      }
     } catch {
       await load(currentFilters);
     }
@@ -294,6 +310,28 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
                   <div key={i} className="h-96 rounded-2xl bg-slate-100" />
                 ))}
               </div>
+            ) : presupuestos.length === 0 ? (
+              <div className="flex-1 min-h-0 flex items-center justify-center">
+                <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-12 text-center max-w-sm">
+                  <p className="text-2xl mb-3">📋</p>
+                  <p className="text-sm font-bold text-slate-700">Sin presupuestos todavía</p>
+                  <p className="text-xs text-slate-400 mt-1 mb-5">Crea tu primer presupuesto o importa datos desde Gesden.</p>
+                  <div className="flex gap-2 justify-center">
+                    <button
+                      onClick={() => setShowImportCSV(true)}
+                      className="text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold"
+                    >
+                      ↑ Importar CSV
+                    </button>
+                    <button
+                      onClick={() => setShowNew(true)}
+                      className="text-xs px-3 py-2 rounded-xl bg-violet-600 text-white font-bold hover:bg-violet-700"
+                    >
+                      + Nuevo
+                    </button>
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="flex-1 min-h-0">
                 <KanbanBoard
@@ -368,6 +406,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
               prev && prev.id === id ? { ...prev, estado } : prev
             );
           }}
+          onNewForPatient={() => { setDrawerPresupuesto(null); setShowNew(true); }}
         />
       )}
 

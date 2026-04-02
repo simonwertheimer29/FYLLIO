@@ -36,15 +36,21 @@ export default function PatientDrawer({
   presupuesto,
   onClose,
   onChangeEstado,
+  onNewForPatient,
 }: {
   presupuesto: Presupuesto;
   onClose: () => void;
-  onChangeEstado: (id: string, estado: PresupuestoEstado, extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string }) => void;
+  onChangeEstado: (id: string, estado: PresupuestoEstado, extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string; reactivar?: boolean }) => void;
+  onNewForPatient?: () => void;
 }) {
   const p = presupuesto;
   const [contactos, setContactos] = useState<Contacto[]>([]);
   const [loadingC, setLoadingC] = useState(true);
   const [pendingPerdido, setPendingPerdido] = useState(false);
+
+  // Patient history — other presupuestos with the same name
+  const [patientHistory, setPatientHistory] = useState<Presupuesto[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // New contact form
   const [tipo, setTipo] = useState<TipoContacto>("llamada");
@@ -63,6 +69,18 @@ export default function PatientDrawer({
   }
 
   useEffect(() => { loadContactos(); }, [p.id]);
+
+  useEffect(() => {
+    const url = new URL("/api/presupuestos/kanban", location.href);
+    url.searchParams.set("q", p.patientName);
+    fetch(url.toString())
+      .then((r) => r.json())
+      .then((d) => {
+        const all: Presupuesto[] = d.presupuestos ?? [];
+        setPatientHistory(all.filter((h) => h.id !== p.id));
+      })
+      .catch(() => {});
+  }, [p.id, p.patientName]);
 
   async function handleAddContact() {
     setSaving(true);
@@ -253,6 +271,36 @@ export default function PatientDrawer({
             )}
           </div>
 
+          {/* Patient history accordion */}
+          {patientHistory.length > 0 && (
+            <div className="px-5 py-3 border-b border-slate-100">
+              <button
+                className="flex items-center justify-between w-full text-left"
+                onClick={() => setHistoryOpen((v) => !v)}
+              >
+                <span className="text-[10px] text-slate-400 uppercase font-medium">
+                  Historial del paciente ({patientHistory.length})
+                </span>
+                <span className="text-slate-400 text-xs">{historyOpen ? "▲" : "▼"}</span>
+              </button>
+              {historyOpen && (
+                <div className="mt-2 space-y-1.5">
+                  {patientHistory.map((h) => {
+                    const c = ESTADO_CONFIG[h.estado];
+                    return (
+                      <div key={h.id} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0" style={{ background: c.hex + "22", color: c.hex }}>{c.label}</span>
+                        <p className="text-xs text-slate-700 truncate flex-1">{h.treatments[0] ?? "—"}</p>
+                        {h.amount != null && <span className="text-[10px] font-bold text-slate-700 shrink-0">€{h.amount.toLocaleString("es-ES")}</span>}
+                        <span className="text-[9px] text-slate-400 shrink-0">{h.fechaPresupuesto.split("-").reverse().join("/")}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Add contact */}
           <div className="px-5 py-4">
             <p className="text-[10px] text-slate-400 uppercase font-medium mb-2">Registrar contacto</p>
@@ -295,6 +343,14 @@ export default function PatientDrawer({
                 {saving ? "Guardando…" : "Guardar contacto"}
               </button>
             </div>
+            {onNewForPatient && (
+              <button
+                onClick={onNewForPatient}
+                className="w-full mt-2 rounded-xl border border-violet-300 text-violet-700 text-xs font-semibold py-2 hover:bg-violet-50"
+              >
+                + Nuevo presupuesto para este paciente
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -302,8 +358,8 @@ export default function PatientDrawer({
       {pendingPerdido && (
         <MotivoPerdidaModal
           patientName={p.patientName}
-          onConfirm={(motivo, texto) => {
-            onChangeEstado(p.id, "PERDIDO", { motivoPerdida: motivo, motivoPerdidaTexto: texto });
+          onConfirm={(motivo, texto, reactivar) => {
+            onChangeEstado(p.id, "PERDIDO", { motivoPerdida: motivo, motivoPerdidaTexto: texto, reactivar });
             setPendingPerdido(false);
             onClose();
           }}

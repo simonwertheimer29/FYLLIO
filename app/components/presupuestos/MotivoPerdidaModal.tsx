@@ -19,15 +19,16 @@ export default function MotivoPerdidaModal({
   onCancel,
 }: {
   patientName: string;
-  onConfirm: (motivo: MotivoPerdida, texto?: string) => void;
+  onConfirm: (motivo: MotivoPerdida, texto?: string, reactivar?: boolean) => void;
   onCancel: () => void;
 }) {
   const [seleccionado, setSeleccionado] = useState<MotivoPerdida | null>(null);
   const [texto, setTexto] = useState("");
+  const [reactivar, setReactivar] = useState(false);
 
   function handleConfirm() {
     if (!seleccionado) return;
-    onConfirm(seleccionado, seleccionado === "otro" ? texto.trim() || undefined : undefined);
+    onConfirm(seleccionado, seleccionado === "otro" ? texto.trim() || undefined : undefined, reactivar || undefined);
   }
 
   return (
@@ -76,6 +77,18 @@ export default function MotivoPerdidaModal({
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-rose-300 mb-4"
           />
         )}
+
+        {/* Reactivar checkbox */}
+        <label className="flex items-center gap-2.5 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2.5 cursor-pointer mb-4 select-none">
+          <input
+            type="checkbox"
+            checked={reactivar}
+            onChange={(e) => setReactivar(e.target.checked)}
+            className="accent-sky-600 w-3.5 h-3.5 shrink-0"
+          />
+          <span className="text-xs text-sky-800 font-medium">Recordar reactivar en 3 meses</span>
+          <span className="text-[9px] text-sky-500 ml-auto shrink-0">💧 Reactivación</span>
+        </label>
 
         <div className="flex gap-2">
           <button

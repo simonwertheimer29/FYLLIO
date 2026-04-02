@@ -54,6 +54,7 @@ export type Presupuesto = {
   motivoPerdida?: MotivoPerdida;
   motivoPerdidaTexto?: string;
   motivoDuda?: MotivoDuda;
+  reactivacion?: boolean;  // marcado para reactivar en 90 días tras perderse
 };
 
 export type Contacto = {

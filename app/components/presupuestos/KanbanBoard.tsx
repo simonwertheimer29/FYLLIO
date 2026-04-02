@@ -180,12 +180,14 @@ function DroppableColumn({
   estado,
   presupuestos,
   probMap,
+  velocidad,
   onOpenHistory,
   onEdit,
 }: {
   estado: PresupuestoEstado;
   presupuestos: Presupuesto[];
   probMap: Map<string, number | null>;
+  velocidad: { media: number; lenta: boolean } | null;
   onOpenHistory: (p: Presupuesto) => void;
   onEdit: (p: Presupuesto) => void;
 }) {
@@ -215,6 +217,11 @@ function DroppableColumn({
         {presupuestos.length > 0 && total > 0 && (
           <p className="text-[10px] text-slate-500 mt-0.5">
             €{total.toLocaleString("es-ES")}
+          </p>
+        )}
+        {velocidad && velocidad.media > 0 && (
+          <p className={`text-[9px] mt-0.5 ${velocidad.lenta ? "text-amber-600 font-semibold" : "text-slate-400"}`}>
+            media: {velocidad.media}d{velocidad.lenta ? " ⚠" : ""}
           </p>
         )}
         {cfg.accionable && (
@@ -325,7 +332,7 @@ export default function KanbanBoard({
   onEdit,
 }: {
   presupuestos: Presupuesto[];
-  onChangeEstado: (id: string, estado: PresupuestoEstado, extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string }) => void;
+  onChangeEstado: (id: string, estado: PresupuestoEstado, extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string; reactivar?: boolean }) => void;
   onOpenHistory: (p: Presupuesto) => void;
   onEdit: (p: Presupuesto) => void;
 }) {
@@ -390,11 +397,29 @@ export default function KanbanBoard({
     setPendingChange(null);
   }
 
-  function handleConfirmPerdido(motivo: MotivoPerdida, texto?: string) {
+  function handleConfirmPerdido(motivo: MotivoPerdida, texto?: string, reactivar?: boolean) {
     if (!pendingPerdido) return;
-    onChangeEstado(pendingPerdido.id, "PERDIDO", { motivoPerdida: motivo, motivoPerdidaTexto: texto });
+    onChangeEstado(pendingPerdido.id, "PERDIDO", { motivoPerdida: motivo, motivoPerdidaTexto: texto, reactivar });
     setPendingPerdido(null);
   }
+
+  // Velocidad de pipeline: media de daysSince por columna vs. media de ACEPTADOS
+  const velocidadMap = useMemo(() => {
+    const map = new Map<PresupuestoEstado, { media: number; lenta: boolean }>();
+    const aceptados = presupuestos.filter((p) => p.estado === "ACEPTADO");
+    const mediaHistorica = aceptados.length >= 3
+      ? aceptados.reduce((s, p) => s + p.daysSince, 0) / aceptados.length
+      : null;
+    for (const estado of PIPELINE_ORDEN) {
+      if (estado === "ACEPTADO" || estado === "PERDIDO") continue;
+      const enEstado = presupuestos.filter((p) => p.estado === estado);
+      if (enEstado.length === 0) { map.set(estado, { media: 0, lenta: false }); continue; }
+      const media = Math.round(enEstado.reduce((s, p) => s + p.daysSince, 0) / enEstado.length);
+      const lenta = mediaHistorica != null && media > 1.5 * mediaHistorica;
+      map.set(estado, { media, lenta });
+    }
+    return map;
+  }, [presupuestos]);
 
   const pendingCard = pendingChange ? presupuestos.find((p) => p.id === pendingChange.id) : null;
   const pendingPerdidoCard = pendingPerdido ? presupuestos.find((p) => p.id === pendingPerdido.id) : null;
@@ -415,6 +440,7 @@ export default function KanbanBoard({
                 estado={estado}
                 presupuestos={presupuestos.filter((p) => p.estado === estado)}
                 probMap={probMap}
+                velocidad={velocidadMap.get(estado) ?? null}
                 onOpenHistory={onOpenHistory}
                 onEdit={onEdit}
               />
