@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import type { Presupuesto, PresupuestoEstado } from "../../lib/presupuestos/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -306,11 +306,48 @@ export default function CommandCenterView({
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Insights semanales
+  const [insights, setInsights] = useState<string[] | null>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const insightsSemanaRef = useRef<number | null>(null);
+
+  function getISOWeek(d: Date): number {
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+    return Math.ceil(((date.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+  }
+
+  async function fetchInsights(data: Presupuesto[]) {
+    setInsightsLoading(true);
+    try {
+      const res = await fetch("/api/ai/insights-semana", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ presupuestos: data }),
+      });
+      const d = await res.json();
+      if (d.insights?.length) {
+        setInsights(d.insights);
+        insightsSemanaRef.current = d.semana ?? getISOWeek(new Date());
+      }
+    } catch { /* silent */ }
+    finally { setInsightsLoading(false); }
+  }
+
   useEffect(() => {
     setLoading(true);
     fetch("/api/presupuestos/kanban")
       .then((r) => r.json())
-      .then((d) => setPresupuestos(d.presupuestos ?? []))
+      .then((d) => {
+        const data: Presupuesto[] = d.presupuestos ?? [];
+        setPresupuestos(data);
+        // Auto-fetch insights if first load or new week
+        const currentWeek = getISOWeek(new Date());
+        if (insightsSemanaRef.current !== currentWeek) {
+          fetchInsights(data);
+        }
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -448,6 +485,44 @@ export default function CommandCenterView({
           </div>
         </div>
       )}
+
+      {/* Insights de la semana */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+            ✦ Insights de la semana
+          </h2>
+          <button
+            onClick={() => fetchInsights(presupuestos)}
+            disabled={insightsLoading}
+            className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-violet-50 text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+          >
+            {insightsLoading ? "Analizando…" : "↺ Actualizar"}
+          </button>
+        </div>
+        {insightsLoading && !insights ? (
+          <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4 space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-4 rounded-lg bg-violet-100 animate-pulse" style={{ width: `${75 + i * 5}%` }} />
+            ))}
+          </div>
+        ) : insights && insights.length > 0 ? (
+          <div className="rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3 space-y-2.5">
+            {insights.map((ins, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <span className="shrink-0 w-5 h-5 rounded-full bg-violet-200 text-violet-700 text-[9px] font-extrabold flex items-center justify-center mt-0.5">
+                  {i + 1}
+                </span>
+                <p className="text-xs text-violet-900 leading-relaxed">{ins}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-violet-200 p-4 text-center">
+            <p className="text-xs text-slate-400">Pulsa «Actualizar» para generar insights IA de esta semana.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

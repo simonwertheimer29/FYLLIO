@@ -102,8 +102,30 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
   const badge = urgencyBadge(p);
   const [done, setDone] = useState(false);
   const [iaOpen, setIaOpen] = useState(false);
+  const [recOpen, setRecOpen] = useState(false);
+  const [recomendacion, setRecomendacion] = useState<string | null>(null);
+  const [loadingRec, setLoadingRec] = useState(false);
 
   const cleanPhone = (p.patientPhone ?? "").replace(/\D/g, "");
+
+  async function fetchRec() {
+    if (recomendacion) { setRecOpen(true); return; }
+    setLoadingRec(true);
+    setRecOpen(true);
+    try {
+      const res = await fetch("/api/ai/siguiente-accion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ presupuesto: p, contactos: [] }),
+      });
+      const d = await res.json();
+      setRecomendacion(d.accion ?? null);
+    } catch {
+      setRecomendacion(null);
+    } finally {
+      setLoadingRec(false);
+    }
+  }
 
   return (
     <>
@@ -187,6 +209,18 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
             </button>
           )}
           <button
+            onClick={fetchRec}
+            disabled={loadingRec}
+            title="Siguiente acción recomendada"
+            className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl border transition-colors disabled:opacity-50 ${
+              recOpen ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 bg-white text-slate-500 hover:border-violet-200 hover:text-violet-600"
+            }`}
+          >
+            {loadingRec ? (
+              <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" /></svg>
+            ) : "✦"}
+          </button>
+          <button
             onClick={() => { setDone(true); onQuickContact(p.id); }}
             disabled={done}
             className="ml-auto flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-40"
@@ -194,6 +228,23 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
             {done ? "✓ Registrado" : "✓ Contactado"}
           </button>
         </div>
+
+        {/* Recommendation panel */}
+        {recOpen && (
+          <div className="px-4 pb-3" onClick={(e) => e.stopPropagation()}>
+            <div className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 flex items-start gap-2">
+              <span className="text-[10px] font-bold text-violet-400 uppercase tracking-wide shrink-0 mt-0.5">✦ Acción</span>
+              {loadingRec ? (
+                <p className="text-xs text-violet-500 italic">Analizando situación…</p>
+              ) : recomendacion ? (
+                <p className="text-xs text-violet-900 leading-relaxed flex-1">{recomendacion}</p>
+              ) : (
+                <p className="text-xs text-rose-500">No se pudo obtener la recomendación.</p>
+              )}
+              <button onClick={() => setRecOpen(false)} className="text-violet-300 hover:text-violet-500 text-sm leading-none shrink-0">✕</button>
+            </div>
+          </div>
+        )}
       </div>
 
       {iaOpen && (

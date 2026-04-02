@@ -14,6 +14,7 @@ import type {
 import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
 import { PIPELINE_ORDEN, ESTADOS_ACEPTADOS } from "../../../lib/presupuestos/colors";
 import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
+import { detectarTecho } from "../../../lib/presupuestos/priceCeiling";
 
 const COOKIE = "fyllio_presupuestos_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -147,12 +148,26 @@ function buildKpis(allPresupuestos: Presupuesto[]): KpiData {
       if (ESTADOS_ACEPTADOS.includes(p.estado)) { g.aceptados++; g.importe += p.amount ?? 0; }
     }
   }
+  // Prepare per-treatment closed items for ceiling detection
+  const tratItemsMap = new Map<string, { amount?: number | null; aceptado: boolean }[]>();
+  for (const p of allPresupuestos) {
+    if (!ESTADOS_ACEPTADOS.includes(p.estado) && p.estado !== "PERDIDO") continue;
+    for (const t of p.treatments) {
+      if (!tratItemsMap.has(t)) tratItemsMap.set(t, []);
+      tratItemsMap.get(t)!.push({ amount: p.amount, aceptado: ESTADOS_ACEPTADOS.includes(p.estado) });
+    }
+  }
   const porTratamiento: KpiPorTratamiento[] = [...tratMap.entries()]
-    .map(([grupo, g]) => ({
-      grupo, total: g.total, aceptados: g.aceptados,
-      tasa: g.total > 0 ? Math.round((g.aceptados / g.total) * 100) : 0,
-      importe: g.importe,
-    }))
+    .map(([grupo, g]) => {
+      const items = tratItemsMap.get(grupo) ?? [];
+      const techo = detectarTecho(items);
+      return {
+        grupo, total: g.total, aceptados: g.aceptados,
+        tasa: g.total > 0 ? Math.round((g.aceptados / g.total) * 100) : 0,
+        importe: g.importe,
+        techoPrecio: techo?.precio ?? null,
+      };
+    })
     .sort((a, b) => b.total - a.total);
 
   const tipoFn = (tipo: string) => {

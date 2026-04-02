@@ -112,6 +112,7 @@ export type KpiPorTratamiento = {
   aceptados: number;
   tasa: number;
   importe: number;
+  techoPrecio?: number | null; // detected price ceiling (€)
 };
 
 export type KpiMensual = {

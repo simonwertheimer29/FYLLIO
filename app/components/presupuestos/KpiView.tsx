@@ -354,21 +354,38 @@ function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: 
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-slate-100">
-                {["Tratamiento", "Ofrecidos", "Aceptados", "Tasa", "€ Aceptado"].map((h) => (
+                {["Tratamiento", "Ofrecidos", "Aceptados", "Tasa", "€ Aceptado", "Techo precio"].map((h) => (
                   <th key={h} className="px-4 py-2.5 text-left font-semibold text-slate-400 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {kpisMes.porTratamiento.map((t) => (
-                <tr key={t.grupo} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
-                  <td className="px-4 py-3 font-medium text-slate-800">{t.grupo}</td>
-                  <td className="px-4 py-3 text-slate-700">{t.total}</td>
-                  <td className="px-4 py-3 font-semibold text-emerald-700">{t.aceptados}</td>
-                  <td className="px-4 py-3 font-bold text-slate-900">{t.tasa}%</td>
-                  <td className="px-4 py-3 text-slate-700">€{t.importe.toLocaleString("es-ES")}</td>
-                </tr>
-              ))}
+              {kpisMes.porTratamiento.map((t) => {
+                // Prefer historical techo (more data) over monthly
+                const histT = kpis.porTratamiento.find((x) => x.grupo === t.grupo);
+                const techo = histT?.techoPrecio ?? t.techoPrecio;
+                return (
+                  <tr key={t.grupo} className="border-b border-slate-50 last:border-0 hover:bg-slate-50">
+                    <td className="px-4 py-3 font-medium text-slate-800">{t.grupo}</td>
+                    <td className="px-4 py-3 text-slate-700">{t.total}</td>
+                    <td className="px-4 py-3 font-semibold text-emerald-700">{t.aceptados}</td>
+                    <td className="px-4 py-3 font-bold text-slate-900">{t.tasa}%</td>
+                    <td className="px-4 py-3 text-slate-700">€{t.importe.toLocaleString("es-ES")}</td>
+                    <td className="px-4 py-3">
+                      {techo ? (
+                        <span
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 cursor-default"
+                          title="La tasa de conversión cae significativamente a partir de este importe"
+                        >
+                          ~€{techo.toLocaleString("es-ES")}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-300">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

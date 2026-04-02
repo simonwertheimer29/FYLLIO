@@ -52,6 +52,10 @@ export default function PatientDrawer({
   const [patientHistory, setPatientHistory] = useState<Presupuesto[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
 
+  // Siguiente acción IA
+  const [recomendacion, setRecomendacion] = useState<string | null>(null);
+  const [loadingRec, setLoadingRec] = useState(false);
+
   // New contact form
   const [tipo, setTipo] = useState<TipoContacto>("llamada");
   const [resultado, setResultado] = useState<ResultadoContacto>("contestó");
@@ -81,6 +85,23 @@ export default function PatientDrawer({
       })
       .catch(() => {});
   }, [p.id, p.patientName]);
+
+  async function fetchRecomendacion() {
+    setLoadingRec(true);
+    try {
+      const res = await fetch("/api/ai/siguiente-accion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ presupuesto: p, contactos }),
+      });
+      const d = await res.json();
+      setRecomendacion(d.accion ?? null);
+    } catch {
+      setRecomendacion(null);
+    } finally {
+      setLoadingRec(false);
+    }
+  }
 
   async function handleAddContact() {
     setSaving(true);
@@ -225,8 +246,53 @@ export default function PatientDrawer({
 
           {/* Mensaje IA */}
           {p.patientPhone && (
-            <IAMensajePanel presupuesto={p} onContactRegistered={loadContactos} />
+            <div data-ia-panel>
+              <IAMensajePanel presupuesto={p} onContactRegistered={loadContactos} />
+            </div>
           )}
+
+          {/* Siguiente acción IA */}
+          <div className="px-5 py-3 border-b border-slate-100">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] text-slate-400 uppercase font-medium">✦ Siguiente acción</p>
+              {recomendacion && (
+                <button
+                  onClick={() => { setRecomendacion(null); }}
+                  className="text-[9px] text-slate-400 hover:text-slate-600"
+                >
+                  Limpiar
+                </button>
+              )}
+            </div>
+            {recomendacion ? (
+              <div className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5">
+                <p className="text-xs text-violet-900 leading-relaxed">{recomendacion}</p>
+                {p.patientPhone && (
+                  <button
+                    onClick={() => {
+                      /* Re-use IAMensajePanel already on screen — just scroll up */
+                      document.querySelector("[data-ia-panel]")?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="mt-2 text-[10px] font-semibold text-violet-700 hover:underline"
+                  >
+                    ✨ Generar mensaje IA →
+                  </button>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={fetchRecomendacion}
+                disabled={loadingRec}
+                className="w-full rounded-xl border border-violet-200 text-violet-700 text-xs font-semibold py-2 hover:bg-violet-50 disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {loadingRec ? (
+                  <><svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" /></svg> Analizando…</>
+                ) : (
+                  "✦ ¿Qué hacer ahora?"
+                )}
+              </button>
+            )}
+          </div>
 
           {/* Contact history — timeline */}
           <div className="px-5 py-3 border-b border-slate-100">
