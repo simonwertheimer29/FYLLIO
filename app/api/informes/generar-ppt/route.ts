@@ -144,6 +144,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Faltan parámetros" }, { status: 400 });
     }
 
+    // Diagnostic logging — visible in Vercel function logs
+    console.log("[generar-ppt] request:", {
+      mes,
+      clinica,
+      total: datos.total,
+      tendenciaMeses: datos.tendenciaMensual?.length ?? 0,
+      porClinica: datos.porClinica?.length ?? 0,
+      porDoctor: datos.porDoctor?.length ?? 0,
+    });
+
     const label = mesLabel(mes);
     const labelCaps = label.charAt(0).toUpperCase() + label.slice(1);
     const clinicaName = clinica ?? "Clínicas";

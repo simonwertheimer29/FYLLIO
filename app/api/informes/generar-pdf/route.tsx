@@ -238,6 +238,13 @@ function InformePDF({
   const mediaRed = datos.total > 0 ? Math.round(datos.aceptados / datos.total * 100) : 0;
   const tendenciaTxt = tendenciaAnalisis(datos.tendenciaMensual ?? [], mes);
 
+  // Pre-compute plan items to avoid IIFE inside JSX (causes issues in @react-pdf/renderer)
+  const planItems: string[] = (() => {
+    if (!parrafos[4]) return [];
+    const actions = parrafos[4].split(/(?=\d\.)/).filter(Boolean);
+    return (actions.length >= 2 ? actions : [parrafos[4]]).slice(0, 3);
+  })();
+
   const Footer = () => (
     <View style={S.footer} fixed>
       <Text style={S.footerText}>{clinica} · {label}</Text>
@@ -305,7 +312,9 @@ function InformePDF({
         {pngLinea ? (
           <Image style={S.chartImg} src={`data:image/png;base64,${pngLinea}`} />
         ) : (
-          <Text style={{ ...S.small, marginBottom: 8 }}>Gráfico no disponible — sin datos de evolución.</Text>
+          <View style={{ backgroundColor: C.bg, borderRadius: 4, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: C.border }}>
+            <Text style={{ ...S.small, textAlign: "center", color: C.muted }}>Sin datos de evolución para este período</Text>
+          </View>
         )}
         {tendenciaTxt ? (
           <View style={{ ...S.analysisBlock, marginBottom: 10 }}>
@@ -498,19 +507,12 @@ function InformePDF({
       {/* ─── 8. Plan de acción + Forecasting ───────────────────── */}
       <Page size="A4" style={S.page}>
         <Text style={S.sectionTitle}>PLAN DE ACCIÓN</Text>
-        {parrafos[4] ? (
-          (() => {
-            const planText = parrafos[4];
-            const actions = planText.split(/(?=\d\.)/).filter(Boolean);
-            const items = actions.length >= 2 ? actions : [planText];
-            return items.slice(0, 3).map((a, i) => (
-              <View key={i} style={S.planBlock}>
-                <Text style={S.planNum}>ACCIÓN {i + 1}</Text>
-                <Text style={S.planBody}>{a.trim()}</Text>
-              </View>
-            ));
-          })()
-        ) : (
+        {planItems.length > 0 ? planItems.map((a, i) => (
+          <View key={i} style={S.planBlock}>
+            <Text style={S.planNum}>ACCIÓN {i + 1}</Text>
+            <Text style={S.planBody}>{a.trim()}</Text>
+          </View>
+        )) : (
           <Text style={S.small}>Sin recomendaciones disponibles.</Text>
         )}
 
@@ -566,6 +568,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Faltan parámetros" }, { status: 400 });
     }
 
+    // Diagnostic logging — visible in Vercel function logs
+    console.log("[generar-pdf] request:", {
+      mes,
+      clinica,
+      total: datos.total,
+      tendenciaMeses: datos.tendenciaMensual?.length ?? 0,
+      porClinica: datos.porClinica?.length ?? 0,
+      porDoctor: datos.porDoctor?.length ?? 0,
+      porMotivo: datos.porMotivo?.length ?? 0,
+      porOrigen: datos.porOrigen?.length ?? 0,
+    });
+
     const mediaRed = datos.total > 0 ? Math.round(datos.aceptados / datos.total * 100) : 0;
     const proyeccion = proyeccionMeses(datos.tendenciaMensual ?? [], mes);
 
@@ -593,6 +607,15 @@ export async function POST(req: Request) {
           ? graficoAB(datos.abTonos.map((t) => ({ label: t.tono, tasa: t.tasa })))
           : Promise.resolve(""),
       ]);
+
+    console.log("[generar-pdf] charts:", {
+      linea: pngLinea ? `${Math.round(pngLinea.length * 3/4 / 1024)}KB` : "EMPTY",
+      clinicas: pngClinicas ? `${Math.round(pngClinicas.length * 3/4 / 1024)}KB` : "EMPTY",
+      motivos: pngMotivos ? `${Math.round(pngMotivos.length * 3/4 / 1024)}KB` : "EMPTY",
+      doctores: pngDoctores ? `${Math.round(pngDoctores.length * 3/4 / 1024)}KB` : "EMPTY",
+      canales: pngCanales ? `${Math.round(pngCanales.length * 3/4 / 1024)}KB` : "EMPTY",
+      forecast: pngForecast ? `${Math.round(pngForecast.length * 3/4 / 1024)}KB` : "EMPTY",
+    });
 
     const generadoEn = new Date().toISOString();
 
