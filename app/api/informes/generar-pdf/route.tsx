@@ -1,5 +1,5 @@
 // app/api/informes/generar-pdf/route.tsx
-// POST — genera informe ejecutivo mensual en PDF usando @react-pdf/renderer
+// POST — genera informe ejecutivo mensual en PDF — 8 páginas V5c
 // Gráficos generados server-side con chartjs-node-canvas
 //
 // Body: { mes, clinica, informe, datos: KpiResumen }
@@ -10,8 +10,15 @@ import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { renderToBuffer, Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
-import Anthropic from "@anthropic-ai/sdk";
-import { graficoLineas, graficoBarsHorizontal, graficoBarsVertical } from "../../../lib/charts/generar";
+import {
+  graficoLineas,
+  graficoBarsHorizontal,
+  graficoBarsVertical,
+  graficoClinicasBars,
+  graficoDoctoresConMedia,
+  graficoForecast,
+  graficoAB,
+} from "../../../lib/charts/generar";
 
 const COOKIE = "fyllio_presupuestos_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -42,58 +49,88 @@ type KpiResumen = {
   adeslas: { total: number; tasa: number };
   tendenciaMensual?: TendenciaMes[];
   porClinica?: ClinicaKpi[];
+  abTonos?: { tono: string; mensajes: number; aceptados: number; tasa: number }[];
 };
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const COLOR_PRIMARY = "#7C3AED";
-const COLOR_TEXT     = "#1e293b";
-const COLOR_MUTED    = "#64748b";
-const COLOR_BORDER   = "#e2e8f0";
-const COLOR_GREEN    = "#16a34a";
-const COLOR_RED      = "#dc2626";
-const COLOR_ORANGE   = "#ea580c";
+const C = {
+  primary: "#7C3AED",
+  text: "#1E293B",
+  muted: "#64748B",
+  border: "#E2E8F0",
+  green: "#16A34A",
+  red: "#DC2626",
+  orange: "#EA580C",
+  bg: "#F8FAFC",
+  bgPurple: "#F5F3FF",
+};
 
-const styles = StyleSheet.create({
-  page: { fontFamily: "Helvetica", fontSize: 11, color: COLOR_TEXT, paddingTop: 40, paddingBottom: 50, paddingHorizontal: 50 },
-  coverPage: { fontFamily: "Helvetica", backgroundColor: COLOR_PRIMARY, paddingTop: 160, paddingHorizontal: 60, paddingBottom: 60 },
-  coverTitle: { fontSize: 30, fontFamily: "Helvetica-Bold", color: "#ffffff", marginBottom: 10 },
-  coverSubtitle: { fontSize: 17, color: "#ede9fe", marginBottom: 4 },
-  coverMeta: { fontSize: 10, color: "#c4b5fd", marginTop: 40 },
-  coverDivider: { width: 48, height: 3, backgroundColor: "#a78bfa", marginTop: 24, marginBottom: 24 },
-  // Section title
-  sectionTitle: { fontSize: 13, fontFamily: "Helvetica-Bold", color: COLOR_PRIMARY, marginBottom: 12, borderBottomWidth: 1, borderBottomColor: COLOR_PRIMARY, paddingBottom: 4 },
-  // Metric cards
-  metricsRow: { flexDirection: "row", gap: 10, marginBottom: 18 },
-  metricCard: { flex: 1, backgroundColor: "#f8fafc", borderRadius: 6, padding: 10, borderWidth: 1, borderColor: COLOR_BORDER },
-  metricValue: { fontSize: 22, fontFamily: "Helvetica-Bold", color: COLOR_TEXT, marginBottom: 2 },
-  metricLabel: { fontSize: 8, color: COLOR_MUTED, textTransform: "uppercase" },
+const S = StyleSheet.create({
+  page: {
+    fontFamily: "Helvetica", fontSize: 10, color: C.text,
+    paddingTop: 36, paddingBottom: 50, paddingHorizontal: 48,
+  },
+  coverPage: {
+    fontFamily: "Helvetica", backgroundColor: C.primary,
+    paddingTop: 140, paddingHorizontal: 60, paddingBottom: 60,
+  },
+  // Cover
+  coverTitle: { fontSize: 30, fontFamily: "Helvetica-Bold", color: "#FFF", marginBottom: 10 },
+  coverDivider: { width: 48, height: 3, backgroundColor: "#A78BFA", marginBottom: 20 },
+  coverSubtitle: { fontSize: 17, color: "#EDE9FE", marginBottom: 4 },
+  coverMeta: { fontSize: 9.5, color: "#C4B5FD", marginTop: 36 },
+  // Section
+  sectionTitle: {
+    fontSize: 13, fontFamily: "Helvetica-Bold", color: C.primary,
+    marginBottom: 10, borderBottomWidth: 1, borderBottomColor: C.primary, paddingBottom: 3,
+  },
+  subTitle: { fontSize: 11, fontFamily: "Helvetica-Bold", color: C.text, marginBottom: 6, marginTop: 10 },
+  // Metrics
+  metricsRow: { flexDirection: "row", gap: 8, marginBottom: 14 },
+  metricCard: {
+    flex: 1, backgroundColor: C.bg, borderRadius: 5, padding: 9,
+    borderWidth: 1, borderColor: C.border,
+  },
+  metricValue: { fontSize: 20, fontFamily: "Helvetica-Bold", color: C.text, marginBottom: 1 },
+  metricLabel: { fontSize: 7.5, color: C.muted, textTransform: "uppercase" },
   // Text
-  paragraph: { fontSize: 10, lineHeight: 1.7, color: COLOR_TEXT, marginBottom: 10 },
-  label: { fontSize: 8, color: COLOR_MUTED, textTransform: "uppercase", marginBottom: 4 },
+  paragraph: { fontSize: 9.5, lineHeight: 1.65, color: C.text, marginBottom: 8 },
+  small: { fontSize: 8.5, lineHeight: 1.5, color: C.muted, marginBottom: 6 },
   // Table
-  tableHeader: { flexDirection: "row", backgroundColor: "#f1f5f9", paddingVertical: 5, paddingHorizontal: 8, borderRadius: 4, marginBottom: 2 },
-  tableRow: { flexDirection: "row", paddingVertical: 4, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: "#f1f5f9" },
-  tableCell: { flex: 1, fontSize: 9, color: COLOR_TEXT },
-  tableHeaderCell: { flex: 1, fontSize: 8, fontFamily: "Helvetica-Bold", color: COLOR_MUTED, textTransform: "uppercase" },
+  tableHeader: {
+    flexDirection: "row", backgroundColor: "#F1F5F9",
+    paddingVertical: 4, paddingHorizontal: 7, borderRadius: 3, marginBottom: 1,
+  },
+  tableRow: {
+    flexDirection: "row", paddingVertical: 3, paddingHorizontal: 7,
+    borderBottomWidth: 1, borderBottomColor: "#F1F5F9",
+  },
+  th: { flex: 1, fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.muted, textTransform: "uppercase" },
+  td: { flex: 1, fontSize: 8.5, color: C.text },
   // Chart
-  chartImage: { width: "100%", marginBottom: 14, borderRadius: 4 },
+  chartImg: { width: "100%", marginBottom: 10, borderRadius: 3 },
+  chartImgHalf: { width: "100%", marginBottom: 8, borderRadius: 3 },
+  // Plan blocks
+  planBlock: { marginBottom: 12, paddingLeft: 10, borderLeftWidth: 3, borderLeftColor: C.primary },
+  planNum: { fontSize: 8, fontFamily: "Helvetica-Bold", color: C.primary, marginBottom: 2 },
+  planBody: { fontSize: 9.5, lineHeight: 1.6, color: C.text },
   // Footer
-  footer: { position: "absolute", bottom: 20, left: 50, right: 50, flexDirection: "row", justifyContent: "space-between" },
-  footerText: { fontSize: 8, color: COLOR_MUTED },
-  // Plan de acción
-  planBlock: { marginBottom: 16, paddingLeft: 12, borderLeftWidth: 3, borderLeftColor: COLOR_PRIMARY },
-  planNum: { fontSize: 9, fontFamily: "Helvetica-Bold", color: COLOR_PRIMARY, marginBottom: 2, textTransform: "uppercase" },
-  planBody: { fontSize: 10, lineHeight: 1.6, color: COLOR_TEXT },
-  // Semáforo
-  semaforoGreen: { color: COLOR_GREEN, fontFamily: "Helvetica-Bold" },
-  semaforoOrange: { color: COLOR_ORANGE, fontFamily: "Helvetica-Bold" },
-  semaforoRed: { color: COLOR_RED, fontFamily: "Helvetica-Bold" },
+  footer: { position: "absolute", bottom: 18, left: 48, right: 48, flexDirection: "row", justifyContent: "space-between" },
+  footerText: { fontSize: 7.5, color: C.muted },
+  // Análisis block
+  analysisBlock: {
+    backgroundColor: C.bgPurple, borderRadius: 4, padding: 8,
+    borderLeftWidth: 2.5, borderLeftColor: C.primary, marginBottom: 8,
+  },
+  analysisTitle: { fontSize: 8.5, fontFamily: "Helvetica-Bold", color: C.primary, marginBottom: 2 },
+  analysisBody: { fontSize: 8.5, lineHeight: 1.55, color: C.text },
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const MES_LABEL = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+const MES_SHORT = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
 function mesLabel(mes: string): string {
   const [y, m] = mes.split("-").map(Number);
@@ -108,162 +145,188 @@ function plainText(s: string): string {
   return s.replace(/\*\*(.+?)\*\*/g, "$1");
 }
 
-function tasaColor(tasa: number) {
-  if (tasa >= 40) return COLOR_GREEN;
-  if (tasa >= 20) return COLOR_TEXT;
-  return COLOR_RED;
+function tasaColor(tasa: number): string {
+  if (tasa >= 40) return C.green;
+  if (tasa >= 20) return C.text;
+  return C.red;
 }
 
-// ─── Claude analysis helpers ──────────────────────────────────────────────────
-
-async function generarAnalisisTendencia(
-  tendencia: TendenciaMes[],
-  mes: string
-): Promise<string> {
-  try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey || !tendencia.length) return "";
-    const client = new Anthropic({ apiKey });
-    const resumen = tendencia.map(t => `${t.label}: ${t.total} presupuestos, ${t.aceptados} aceptados`).join(" | ");
-    const msg = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 150,
-      messages: [{
-        role: "user",
-        content: `Analiza esta evolución mensual de una clínica dental en 2-3 frases: ${resumen}. Mes de referencia: ${mes}. Indica tendencia general, mejor mes y cualquier cambio significativo. Sin bullets, solo texto.`,
-      }],
-    });
-    return (msg.content[0] as { type: string; text: string }).text?.trim() ?? "";
-  } catch { return ""; }
+function doctorEstado(d: DoctorKpi): string {
+  if (d.total < 3) return "Sin datos";
+  if (d.tasa === 0) return "🔴 Urgente";
+  if (d.tasa >= 50) return "✅ Referencia";
+  if (d.tasa >= 30) return "⚠ Atención";
+  return "⚠ Atención";
 }
 
-async function generarAnalisisMotivos(
-  porMotivo: { motivo: string; count: number }[],
-  totalPerdidos: number
-): Promise<string> {
-  try {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey || !porMotivo.length) return "";
-    const client = new Anthropic({ apiKey });
-    const resumen = porMotivo.map(m => `${m.motivo}: ${m.count} casos (${totalPerdidos > 0 ? Math.round(m.count / totalPerdidos * 100) : 0}%)`).join(", ");
-    const msg = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 150,
-      messages: [{
-        role: "user",
-        content: `Interpreta estos motivos de pérdida de presupuestos dentales en 2-3 frases: ${resumen}. Sugiere qué acción concreta abordar primero. Sin bullets, solo texto.`,
-      }],
-    });
-    return (msg.content[0] as { type: string; text: string }).text?.trim() ?? "";
-  } catch { return ""; }
+function tendenciaAnalisis(tendencia: TendenciaMes[], mes: string): string {
+  if (!tendencia.length) return "";
+  const conDatos = tendencia.filter((t) => t.total > 0);
+  if (!conDatos.length) return "";
+  const mediaTotal = Math.round(conDatos.reduce((s, t) => s + t.total, 0) / conDatos.length);
+  const mediaTasa = Math.round(conDatos.reduce((s, t) => s + (t.total > 0 ? t.aceptados / t.total * 100 : 0), 0) / conDatos.length);
+  const mejor = [...conDatos].sort((a, b) => (b.total > 0 ? b.aceptados / b.total : 0) - (a.total > 0 ? a.aceptados / a.total : 0))[0];
+  const last3 = tendencia.slice(-3);
+  const avg3 = last3.length ? Math.round(last3.reduce((s, t) => s + t.total, 0) / last3.length) : 0;
+  const tendDir = avg3 > mediaTotal ? "ascendente" : avg3 < mediaTotal ? "descendente" : "estable";
+
+  const mesActual = tendencia.find((t) => t.mes === mes);
+  const tasaActual = mesActual && mesActual.total > 0 ? Math.round(mesActual.aceptados / mesActual.total * 100) : 0;
+  const diff = tasaActual - mediaTasa;
+
+  return `Media anual: ${mediaTotal} presupuestos/mes · tasa media ${mediaTasa}%. ` +
+    `Mejor mes: ${mejor.label} con ${mejor.total > 0 ? Math.round(mejor.aceptados / mejor.total * 100) : 0}% de conversión. ` +
+    `Tendencia últimos 3 meses: ${tendDir} (${avg3} pres./mes). ` +
+    (mesActual ? `Mes actual: ${diff >= 0 ? "+" : ""}${diff}pp respecto a la media anual.` : "");
+}
+
+function motivoAnalisis(motivo: string, count: number, totalPerdidos: number): string {
+  const pct = totalPerdidos > 0 ? Math.round(count / totalPerdidos * 100) : 0;
+  const mL = motivo.toLowerCase();
+  if (mL.includes("precio")) {
+    return `${count} casos (${pct}% de las pérdidas). Acción recomendada: presentar opciones de financiación durante la consulta, antes de que el paciente lo rechace. Ejemplo: €4.000 = €167/mes a 24 meses.`;
+  }
+  if (mL.includes("urgencia") || mL.includes("tiempo")) {
+    return `${count} casos (${pct}%). El paciente no percibe consecuencias de posponer. Reforzar en consulta: coste de la inacción y progresión del problema sin tratamiento.`;
+  }
+  if (mL.includes("clínica") || mL.includes("clinica")) {
+    return `${count} casos (${pct}%). Identificar a qué clínicas van los pacientes para ajustar argumentario de diferenciación.`;
+  }
+  if (mL.includes("responde")) {
+    return `${count} casos (${pct}%). Revisión urgente del protocolo de seguimiento: activar motor IA para presupuestos sin respuesta > 3 días.`;
+  }
+  return `${count} casos (${pct}% de las pérdidas).`;
+}
+
+function doctorAnalisis(d: DoctorKpi, mediaRed: number): string {
+  const diff = d.tasa - mediaRed;
+  if (d.total < 3) return `${d.total} presupuesto${d.total !== 1 ? "s" : ""} — muestra insuficiente para análisis estadístico.`;
+  if (d.tasa >= 50) return `${d.aceptados}/${d.total} cierres — ${Math.abs(diff)}pp por encima de la media de la red. Modelo de referencia para el equipo. Documentar su protocolo de presentación.`;
+  if (d.tasa === 0) return `0/${d.total} cierres — resultado crítico. Verificar perfil de pacientes asignados; si es similar al resto del equipo, convocar revisión urgente.`;
+  if (diff < 0) return `${d.aceptados}/${d.total} cierres — ${Math.abs(diff)}pp por debajo de la media. Revisar presupuestos activos; uso sistemático del motor IA podría mejorar 5-8pp en el próximo mes.`;
+  return `${d.aceptados}/${d.total} cierres — en línea con la media de la red (${mediaRed}%).`;
+}
+
+function proyeccionMeses(tendencia: TendenciaMes[], mes: string): { mes: string; valor: number }[] {
+  const last3 = tendencia.slice(-3).filter((t) => t.total > 0);
+  const avgTotal = last3.length ? Math.round(last3.reduce((s, t) => s + t.total, 0) / last3.length) : 0;
+  const avgTasa = last3.length ? last3.reduce((s, t) => s + (t.total > 0 ? t.aceptados / t.total : 0), 0) / last3.length : 0;
+  const avgImporte = 850;
+  const [y, m] = mes.split("-").map(Number);
+  return [1, 2, 3].map((i) => {
+    let mo = m + i; let yr = y;
+    if (mo > 12) { mo -= 12; yr++; }
+    return { mes: `${MES_SHORT[mo - 1]} ${yr}`, valor: Math.round(avgTotal * avgTasa * avgImporte * (1 - i * 0.1)) };
+  });
 }
 
 // ─── PDF Document ─────────────────────────────────────────────────────────────
 
 function InformePDF({
   mes, clinica, informe, datos, generadoEn,
-  pngLinea, pngMotivos, pngDoctores, pngCanales,
-  analisisTendencia, analisisMotivos,
+  pngLinea, pngClinicas, pngMotivos, pngDoctores, pngCanales, pngForecast, pngAB,
+  proyeccion,
 }: {
   mes: string; clinica: string; informe: string; datos: KpiResumen; generadoEn: string;
-  pngLinea: string; pngMotivos: string; pngDoctores: string; pngCanales: string;
-  analisisTendencia: string; analisisMotivos: string;
+  pngLinea: string; pngClinicas: string; pngMotivos: string; pngDoctores: string;
+  pngCanales: string; pngForecast: string; pngAB: string;
+  proyeccion: { mes: string; valor: number }[];
 }) {
   const label = mesLabel(mes);
   const fecha = new Date(generadoEn).toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
-  const parrafos = informe.split("\n\n").filter(Boolean).map(p => plainText(p.trim()));
+  const parrafos = informe.split("\n\n").filter(Boolean).map((p) => plainText(p.trim()));
+  const mediaRed = datos.total > 0 ? Math.round(datos.aceptados / datos.total * 100) : 0;
+  const tendenciaTxt = tendenciaAnalisis(datos.tendenciaMensual ?? [], mes);
 
   const Footer = () => (
-    <View style={styles.footer} fixed>
-      <Text style={styles.footerText}>{clinica} · {label}</Text>
-      <Text style={styles.footerText} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
+    <View style={S.footer} fixed>
+      <Text style={S.footerText}>{clinica} · {label}</Text>
+      <Text style={S.footerText} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
     </View>
   );
 
   return (
     <Document title={`Informe ${label} — ${clinica}`} author="Fyllio" creator="Fyllio CRM">
 
-      {/* ── 1. Portada ─────────────────────────────────────── */}
-      <Page size="A4" style={styles.coverPage}>
-        <Text style={styles.coverTitle}>INFORME MENSUAL{"\n"}DE PRESUPUESTOS</Text>
-        <View style={styles.coverDivider} />
-        <Text style={styles.coverSubtitle}>{label.toUpperCase()}</Text>
-        <Text style={{ ...styles.coverSubtitle, fontSize: 14 }}>{clinica}</Text>
-        <Text style={styles.coverMeta}>Generado el {fecha} · {datos.total} presupuestos analizados</Text>
-        <Text style={{ ...styles.coverMeta, marginTop: 4 }}>Informe generado con IA · Confidencial · Uso interno</Text>
+      {/* ─── 1. Portada ─────────────────────────────────────────── */}
+      <Page size="A4" style={S.coverPage}>
+        <Text style={S.coverTitle}>INFORME MENSUAL{"\n"}DE PRESUPUESTOS</Text>
+        <View style={S.coverDivider} />
+        <Text style={S.coverSubtitle}>{label.toUpperCase()}</Text>
+        <Text style={{ ...S.coverSubtitle, fontSize: 14 }}>{clinica}</Text>
+        <Text style={S.coverMeta}>Generado el {fecha} · {datos.total} presupuestos analizados</Text>
+        <Text style={{ ...S.coverMeta, marginTop: 4 }}>Informe generado con IA · Confidencial · Uso interno</Text>
       </Page>
 
-      {/* ── 2. Resumen ejecutivo ─────────────────────────────── */}
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.sectionTitle}>RESUMEN EJECUTIVO</Text>
-        <View style={styles.metricsRow}>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricValue}>{datos.total}</Text>
-            <Text style={styles.metricLabel}>Presupuestos</Text>
+      {/* ─── 2. Resumen ejecutivo ────────────────────────────────── */}
+      <Page size="A4" style={S.page}>
+        <Text style={S.sectionTitle}>RESUMEN EJECUTIVO</Text>
+        {/* Fila 1: 3 métricas principales */}
+        <View style={S.metricsRow}>
+          <View style={S.metricCard}>
+            <Text style={S.metricValue}>{datos.total}</Text>
+            <Text style={S.metricLabel}>Presupuestos</Text>
           </View>
-          <View style={styles.metricCard}>
-            <Text style={{ ...styles.metricValue, color: COLOR_GREEN }}>{datos.aceptados}</Text>
-            <Text style={styles.metricLabel}>Aceptados ({datos.tasa}%)</Text>
+          <View style={S.metricCard}>
+            <Text style={{ ...S.metricValue, color: C.green }}>{datos.aceptados}</Text>
+            <Text style={S.metricLabel}>Aceptados ({datos.tasa}%)</Text>
           </View>
-          <View style={styles.metricCard}>
-            <Text style={styles.metricValue}>{euro(datos.importeTotal)}</Text>
-            <Text style={styles.metricLabel}>Importe aceptado</Text>
-          </View>
-          <View style={styles.metricCard}>
-            <Text style={{ ...styles.metricValue, color: COLOR_ORANGE }}>{datos.activos}</Text>
-            <Text style={styles.metricLabel}>Pipeline activo</Text>
+          <View style={S.metricCard}>
+            <Text style={S.metricValue}>{euro(datos.importeTotal)}</Text>
+            <Text style={S.metricLabel}>€ Aceptado</Text>
           </View>
         </View>
-        <View style={styles.metricsRow}>
-          <View style={styles.metricCard}>
-            <Text style={{ ...styles.metricValue, fontSize: 16 }}>{euro(datos.importePipeline)}</Text>
-            <Text style={styles.metricLabel}>€ Pipeline activo</Text>
+        {/* Fila 2: 3 métricas secundarias */}
+        <View style={{ ...S.metricsRow, marginBottom: 16 }}>
+          <View style={S.metricCard}>
+            <Text style={{ ...S.metricValue, fontSize: 16, color: C.orange }}>{euro(datos.importePipeline)}</Text>
+            <Text style={S.metricLabel}>Pipeline activo</Text>
           </View>
-          <View style={styles.metricCard}>
-            <Text style={{ ...styles.metricValue, fontSize: 16 }}>{datos.privados.total} ({datos.privados.tasa}%)</Text>
-            <Text style={styles.metricLabel}>Privados</Text>
+          <View style={S.metricCard}>
+            <Text style={{ ...S.metricValue, fontSize: 16 }}>{datos.privados.total} ({datos.privados.tasa}%)</Text>
+            <Text style={S.metricLabel}>Privados</Text>
           </View>
-          <View style={styles.metricCard}>
-            <Text style={{ ...styles.metricValue, fontSize: 16 }}>{datos.adeslas.total} ({datos.adeslas.tasa}%)</Text>
-            <Text style={styles.metricLabel}>Adeslas</Text>
-          </View>
-          <View style={styles.metricCard}>
-            <Text style={{ ...styles.metricValue, fontSize: 16, color: COLOR_RED }}>{datos.perdidos}</Text>
-            <Text style={styles.metricLabel}>Perdidos</Text>
+          <View style={S.metricCard}>
+            <Text style={{ ...S.metricValue, fontSize: 16, color: datos.adeslas.tasa === 0 ? C.red : C.text }}>
+              {datos.adeslas.total} ({datos.adeslas.tasa}%)
+            </Text>
+            <Text style={S.metricLabel}>Adeslas</Text>
           </View>
         </View>
         {parrafos.slice(0, 2).map((p, i) => (
-          <Text key={i} style={styles.paragraph}>{p}</Text>
+          <Text key={i} style={S.paragraph}>{p}</Text>
         ))}
         <Footer />
       </Page>
 
-      {/* ── 3. Evolución 12 meses ─────────────────────────────── */}
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.sectionTitle}>EVOLUCIÓN 12 MESES</Text>
+      {/* ─── 3. Evolución 12 meses ───────────────────────────────── */}
+      <Page size="A4" style={S.page}>
+        <Text style={S.sectionTitle}>EVOLUCIÓN 12 MESES</Text>
         {pngLinea ? (
-          <Image style={styles.chartImage} src={`data:image/png;base64,${pngLinea}`} />
+          <Image style={S.chartImg} src={`data:image/png;base64,${pngLinea}`} />
         ) : (
-          <Text style={{ ...styles.paragraph, color: COLOR_MUTED }}>Sin datos de evolución disponibles.</Text>
+          <Text style={{ ...S.small, marginBottom: 8 }}>Gráfico no disponible — sin datos de evolución.</Text>
         )}
-        {analisisTendencia ? (
-          <Text style={styles.paragraph}>{analisisTendencia}</Text>
+        {tendenciaTxt ? (
+          <View style={{ ...S.analysisBlock, marginBottom: 10 }}>
+            <Text style={S.analysisBody}>{tendenciaTxt}</Text>
+          </View>
         ) : null}
         {datos.tendenciaMensual && datos.tendenciaMensual.length > 0 && (
           <View>
-            <Text style={styles.label}>DATOS MENSUALES</Text>
-            <View style={styles.tableHeader}>
-              <Text style={styles.tableHeaderCell}>Mes</Text>
-              <Text style={{ ...styles.tableHeaderCell, textAlign: "right" }}>Ofrecidos</Text>
-              <Text style={{ ...styles.tableHeaderCell, textAlign: "right" }}>Aceptados</Text>
-              <Text style={{ ...styles.tableHeaderCell, textAlign: "right" }}>Tasa</Text>
+            <Text style={S.subTitle}>Datos mensuales</Text>
+            <View style={S.tableHeader}>
+              <Text style={S.th}>Mes</Text>
+              <Text style={{ ...S.th, textAlign: "right" }}>Ofrecidos</Text>
+              <Text style={{ ...S.th, textAlign: "right" }}>Aceptados</Text>
+              <Text style={{ ...S.th, textAlign: "right" }}>Tasa</Text>
             </View>
-            {datos.tendenciaMensual.slice(-6).map((t, i) => (
-              <View key={i} style={styles.tableRow}>
-                <Text style={styles.tableCell}>{t.label} {t.mes.slice(0, 4)}</Text>
-                <Text style={{ ...styles.tableCell, textAlign: "right" }}>{t.total}</Text>
-                <Text style={{ ...styles.tableCell, textAlign: "right" }}>{t.aceptados}</Text>
-                <Text style={{ ...styles.tableCell, textAlign: "right", color: tasaColor(t.total > 0 ? Math.round(t.aceptados / t.total * 100) : 0) }}>
+            {datos.tendenciaMensual.map((t, i) => (
+              <View key={i} style={S.tableRow}>
+                <Text style={S.td}>{t.label} {t.mes.slice(0, 4)}</Text>
+                <Text style={{ ...S.td, textAlign: "right" }}>{t.total}</Text>
+                <Text style={{ ...S.td, textAlign: "right" }}>{t.aceptados}</Text>
+                <Text style={{ ...S.td, textAlign: "right", color: tasaColor(t.total > 0 ? Math.round(t.aceptados / t.total * 100) : 0) }}>
                   {t.total > 0 ? Math.round(t.aceptados / t.total * 100) : 0}%
                 </Text>
               </View>
@@ -273,134 +336,211 @@ function InformePDF({
         <Footer />
       </Page>
 
-      {/* ── 4. Rendimiento por clínica ──────────────────────── */}
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.sectionTitle}>RENDIMIENTO POR CLÍNICA</Text>
+      {/* ─── 4. Rendimiento por clínica ─────────────────────────── */}
+      <Page size="A4" style={S.page}>
+        <Text style={S.sectionTitle}>RENDIMIENTO POR CLÍNICA</Text>
+        {pngClinicas && datos.porClinica && datos.porClinica.length > 0 ? (
+          <Image style={S.chartImg} src={`data:image/png;base64,${pngClinicas}`} />
+        ) : null}
         {datos.porClinica && datos.porClinica.length > 0 ? (
           <View>
-            <View style={styles.tableHeader}>
-              <Text style={{ ...styles.tableHeaderCell, flex: 2 }}>Clínica</Text>
-              <Text style={{ ...styles.tableHeaderCell, textAlign: "right" }}>Total</Text>
-              <Text style={{ ...styles.tableHeaderCell, textAlign: "right" }}>Aceptados</Text>
-              <Text style={{ ...styles.tableHeaderCell, textAlign: "right" }}>Tasa</Text>
-              <Text style={{ ...styles.tableHeaderCell, textAlign: "right" }}>€ Aceptado</Text>
+            <View style={S.tableHeader}>
+              <Text style={{ ...S.th, flex: 2 }}>Clínica</Text>
+              <Text style={{ ...S.th, textAlign: "right" }}>Total</Text>
+              <Text style={{ ...S.th, textAlign: "right" }}>Acept.</Text>
+              <Text style={{ ...S.th, textAlign: "right" }}>Tasa</Text>
+              <Text style={{ ...S.th, textAlign: "right" }}>€ Aceptado</Text>
             </View>
             {datos.porClinica.map((c, i) => (
-              <View key={i} style={styles.tableRow}>
-                <Text style={{ ...styles.tableCell, flex: 2 }}>{c.clinica}</Text>
-                <Text style={{ ...styles.tableCell, textAlign: "right" }}>{c.total}</Text>
-                <Text style={{ ...styles.tableCell, textAlign: "right" }}>{c.aceptados}</Text>
-                <Text style={{ ...styles.tableCell, textAlign: "right", color: tasaColor(c.tasa) }}>{c.tasa}%</Text>
-                <Text style={{ ...styles.tableCell, textAlign: "right" }}>{euro(c.importeTotal)}</Text>
+              <View key={i} style={S.tableRow}>
+                <Text style={{ ...S.td, flex: 2 }}>{c.clinica}</Text>
+                <Text style={{ ...S.td, textAlign: "right" }}>{c.total}</Text>
+                <Text style={{ ...S.td, textAlign: "right" }}>{c.aceptados}</Text>
+                <Text style={{ ...S.td, textAlign: "right", color: tasaColor(c.tasa) }}>{c.tasa}%</Text>
+                <Text style={{ ...S.td, textAlign: "right" }}>{euro(c.importeTotal)}</Text>
               </View>
             ))}
           </View>
         ) : (
-          <Text style={{ ...styles.paragraph, color: COLOR_MUTED }}>Datos de clínica no disponibles para este filtro.</Text>
+          <Text style={S.small}>Datos de clínica no disponibles para este filtro.</Text>
         )}
         <Footer />
       </Page>
 
-      {/* ── 5. Motivos de pérdida ────────────────────────────── */}
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.sectionTitle}>MOTIVOS DE PÉRDIDA</Text>
-        <View style={{ marginBottom: 14 }}>
-          <View style={styles.tableHeader}>
-            <Text style={{ ...styles.tableHeaderCell, flex: 3 }}>Motivo</Text>
-            <Text style={{ ...styles.tableHeaderCell, textAlign: "right" }}>Casos</Text>
-            <Text style={{ ...styles.tableHeaderCell, textAlign: "right" }}>%</Text>
-          </View>
-          {datos.porMotivo.length > 0 ? datos.porMotivo.map((m, i) => (
-            <View key={i} style={styles.tableRow}>
-              <Text style={{ ...styles.tableCell, flex: 3 }}>{m.motivo}</Text>
-              <Text style={{ ...styles.tableCell, textAlign: "right" }}>{m.count}</Text>
-              <Text style={{ ...styles.tableCell, textAlign: "right" }}>
-                {datos.perdidos > 0 ? Math.round(m.count / datos.perdidos * 100) : 0}%
-              </Text>
-            </View>
-          )) : (
-            <View style={styles.tableRow}><Text style={styles.tableCell}>Sin datos suficientes</Text></View>
-          )}
-        </View>
+      {/* ─── 5. Motivos de pérdida ──────────────────────────────── */}
+      <Page size="A4" style={S.page}>
+        <Text style={S.sectionTitle}>MOTIVOS DE PÉRDIDA</Text>
         {pngMotivos ? (
-          <Image style={styles.chartImage} src={`data:image/png;base64,${pngMotivos}`} />
+          <Image style={S.chartImg} src={`data:image/png;base64,${pngMotivos}`} />
         ) : null}
-        {analisisMotivos ? (
-          <Text style={styles.paragraph}>{analisisMotivos}</Text>
-        ) : parrafos[2] ? (
-          <Text style={styles.paragraph}>{parrafos[2]}</Text>
-        ) : null}
+        {/* Tabla */}
+        {datos.porMotivo.length > 0 && (
+          <View style={{ marginBottom: 10 }}>
+            <View style={S.tableHeader}>
+              <Text style={{ ...S.th, flex: 3 }}>Motivo</Text>
+              <Text style={{ ...S.th, textAlign: "right" }}>Casos</Text>
+              <Text style={{ ...S.th, textAlign: "right" }}>%</Text>
+            </View>
+            {datos.porMotivo.map((m, i) => (
+              <View key={i} style={S.tableRow}>
+                <Text style={{ ...S.td, flex: 3 }}>{m.motivo}</Text>
+                <Text style={{ ...S.td, textAlign: "right" }}>{m.count}</Text>
+                <Text style={{ ...S.td, textAlign: "right" }}>
+                  {datos.perdidos > 0 ? Math.round(m.count / datos.perdidos * 100) : 0}%
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+        {/* Análisis por motivo principal */}
+        {datos.porMotivo.filter((m) => m.count >= 3).slice(0, 3).map((m, i) => (
+          <View key={i} style={S.analysisBlock}>
+            <Text style={S.analysisTitle}>{m.motivo}</Text>
+            <Text style={S.analysisBody}>{motivoAnalisis(m.motivo, m.count, datos.perdidos)}</Text>
+          </View>
+        ))}
+        {parrafos[2] ? <Text style={S.paragraph}>{parrafos[2]}</Text> : null}
         <Footer />
       </Page>
 
-      {/* ── 6. Análisis doctores ─────────────────────────────── */}
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.sectionTitle}>RENDIMIENTO POR DOCTOR</Text>
-        <View style={{ marginBottom: 14 }}>
-          <View style={styles.tableHeader}>
-            <Text style={{ ...styles.tableHeaderCell, flex: 2 }}>Doctor</Text>
-            <Text style={{ ...styles.tableHeaderCell, textAlign: "right" }}>Total</Text>
-            <Text style={{ ...styles.tableHeaderCell, textAlign: "right" }}>Aceptados</Text>
-            <Text style={{ ...styles.tableHeaderCell, textAlign: "right" }}>Tasa</Text>
+      {/* ─── 6. Rendimiento por doctor ──────────────────────────── */}
+      <Page size="A4" style={S.page}>
+        <Text style={S.sectionTitle}>RENDIMIENTO POR DOCTOR</Text>
+        {pngDoctores ? (
+          <Image style={S.chartImg} src={`data:image/png;base64,${pngDoctores}`} />
+        ) : null}
+        {/* Tabla */}
+        <View style={{ marginBottom: 10 }}>
+          <View style={S.tableHeader}>
+            <Text style={{ ...S.th, flex: 2 }}>Doctor</Text>
+            <Text style={{ ...S.th, textAlign: "right" }}>Total</Text>
+            <Text style={{ ...S.th, textAlign: "right" }}>Acept.</Text>
+            <Text style={{ ...S.th, textAlign: "right" }}>Tasa</Text>
+            <Text style={{ ...S.th, flex: 1.2 }}>Estado</Text>
           </View>
           {datos.porDoctor.slice(0, 8).map((d, i) => (
-            <View key={i} style={styles.tableRow}>
-              <Text style={{ ...styles.tableCell, flex: 2 }}>{d.doctor}</Text>
-              <Text style={{ ...styles.tableCell, textAlign: "right" }}>{d.total}</Text>
-              <Text style={{ ...styles.tableCell, textAlign: "right" }}>{d.aceptados}</Text>
-              <Text style={{ ...styles.tableCell, textAlign: "right", color: tasaColor(d.tasa) }}>{d.tasa}%</Text>
+            <View key={i} style={S.tableRow}>
+              <Text style={{ ...S.td, flex: 2 }}>{d.doctor}</Text>
+              <Text style={{ ...S.td, textAlign: "right" }}>{d.total}</Text>
+              <Text style={{ ...S.td, textAlign: "right" }}>{d.aceptados}</Text>
+              <Text style={{ ...S.td, textAlign: "right", color: tasaColor(d.tasa) }}>{d.tasa}%</Text>
+              <Text style={{ ...S.td, flex: 1.2, fontSize: 8 }}>{doctorEstado(d)}</Text>
             </View>
           ))}
         </View>
-        {pngDoctores ? (
-          <Image style={styles.chartImage} src={`data:image/png;base64,${pngDoctores}`} />
-        ) : null}
-        {parrafos[1] ? <Text style={styles.paragraph}>{parrafos[1]}</Text> : null}
+        {/* Análisis por doctor (solo con ≥3 presupuestos) */}
+        {datos.porDoctor.filter((d) => d.total >= 3).slice(0, 4).map((d, i) => (
+          <View key={i} style={S.analysisBlock}>
+            <Text style={S.analysisTitle}>{d.doctor} — {d.tasa}% tasa</Text>
+            <Text style={S.analysisBody}>{doctorAnalisis(d, mediaRed)}</Text>
+          </View>
+        ))}
         <Footer />
       </Page>
 
-      {/* ── 7. Canales de captación ─────────────────────────── */}
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.sectionTitle}>CANALES DE CAPTACIÓN</Text>
-        <View style={{ marginBottom: 14 }}>
-          <View style={styles.tableHeader}>
-            <Text style={{ ...styles.tableHeaderCell, flex: 3 }}>Canal</Text>
-            <Text style={{ ...styles.tableHeaderCell, textAlign: "right" }}>Presupuestos</Text>
-            <Text style={{ ...styles.tableHeaderCell, textAlign: "right" }}>%</Text>
+      {/* ─── 7. Canales + A/B de tonos ─────────────────────────── */}
+      <Page size="A4" style={S.page}>
+        <Text style={S.sectionTitle}>CANALES DE CAPTACIÓN</Text>
+        {pngCanales ? (
+          <Image style={{ ...S.chartImg, marginBottom: 8 }} src={`data:image/png;base64,${pngCanales}`} />
+        ) : null}
+        <View style={{ marginBottom: 12 }}>
+          <View style={S.tableHeader}>
+            <Text style={{ ...S.th, flex: 3 }}>Canal</Text>
+            <Text style={{ ...S.th, textAlign: "right" }}>Vol.</Text>
+            <Text style={{ ...S.th, textAlign: "right" }}>%</Text>
           </View>
           {datos.porOrigen.map((o, i) => (
-            <View key={i} style={styles.tableRow}>
-              <Text style={{ ...styles.tableCell, flex: 3 }}>{o.origen}</Text>
-              <Text style={{ ...styles.tableCell, textAlign: "right" }}>{o.count}</Text>
-              <Text style={{ ...styles.tableCell, textAlign: "right" }}>
+            <View key={i} style={S.tableRow}>
+              <Text style={{ ...S.td, flex: 3 }}>{o.origen}</Text>
+              <Text style={{ ...S.td, textAlign: "right" }}>{o.count}</Text>
+              <Text style={{ ...S.td, textAlign: "right" }}>
                 {datos.total > 0 ? Math.round(o.count / datos.total * 100) : 0}%
               </Text>
             </View>
           ))}
         </View>
-        {pngCanales ? (
-          <Image style={styles.chartImage} src={`data:image/png;base64,${pngCanales}`} />
-        ) : null}
-        {parrafos[3] ? <Text style={styles.paragraph}>{parrafos[3]}</Text> : null}
+        {parrafos[3] ? <Text style={{ ...S.paragraph, marginBottom: 10 }}>{parrafos[3]}</Text> : null}
+
+        {/* A/B sección (si hay datos) */}
+        {datos.abTonos && datos.abTonos.length > 0 ? (
+          <View>
+            <Text style={{ ...S.sectionTitle, marginTop: 4 }}>A/B DE TONOS — MOTOR IA</Text>
+            {pngAB ? (
+              <Image style={S.chartImgHalf} src={`data:image/png;base64,${pngAB}`} />
+            ) : null}
+            <View style={S.tableHeader}>
+              <Text style={{ ...S.th, flex: 2 }}>Tono</Text>
+              <Text style={{ ...S.th, textAlign: "right" }}>Mensajes</Text>
+              <Text style={{ ...S.th, textAlign: "right" }}>Acept.</Text>
+              <Text style={{ ...S.th, textAlign: "right" }}>Tasa</Text>
+            </View>
+            {datos.abTonos.map((t, i) => (
+              <View key={i} style={S.tableRow}>
+                <Text style={{ ...S.td, flex: 2 }}>{i === 0 ? `★ ${t.tono}` : t.tono}</Text>
+                <Text style={{ ...S.td, textAlign: "right" }}>{t.mensajes}</Text>
+                <Text style={{ ...S.td, textAlign: "right" }}>{t.aceptados}</Text>
+                <Text style={{ ...S.td, textAlign: "right", color: tasaColor(t.tasa) }}>{t.tasa}%</Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View>
+            <Text style={{ ...S.sectionTitle, marginTop: 4 }}>PROYECCIÓN — PRÓXIMOS 3 MESES</Text>
+            {pngForecast ? (
+              <Image style={S.chartImgHalf} src={`data:image/png;base64,${pngForecast}`} />
+            ) : null}
+          </View>
+        )}
         <Footer />
       </Page>
 
-      {/* ── 8. Plan de acción ────────────────────────────────── */}
-      <Page size="A4" style={styles.page}>
-        <Text style={styles.sectionTitle}>PLAN DE ACCIÓN</Text>
+      {/* ─── 8. Plan de acción + Forecasting ───────────────────── */}
+      <Page size="A4" style={S.page}>
+        <Text style={S.sectionTitle}>PLAN DE ACCIÓN</Text>
         {parrafos[4] ? (
-          <Text style={styles.paragraph}>{parrafos[4]}</Text>
+          (() => {
+            const planText = parrafos[4];
+            const actions = planText.split(/(?=\d\.)/).filter(Boolean);
+            const items = actions.length >= 2 ? actions : [planText];
+            return items.slice(0, 3).map((a, i) => (
+              <View key={i} style={S.planBlock}>
+                <Text style={S.planNum}>ACCIÓN {i + 1}</Text>
+                <Text style={S.planBody}>{a.trim()}</Text>
+              </View>
+            ));
+          })()
         ) : (
-          <Text style={{ ...styles.paragraph, color: COLOR_MUTED }}>Sin recomendaciones disponibles en este informe.</Text>
+          <Text style={S.small}>Sin recomendaciones disponibles.</Text>
         )}
-        <View style={{ marginTop: 20 }}>
-          <Text style={{ ...styles.paragraph, color: COLOR_MUTED, fontSize: 9 }}>
-            Generado automáticamente el {fecha}. Datos de {datos.total} presupuestos de {label}.
-            Pipeline activo: {euro(datos.importePipeline)}.
-            Privados: {datos.privados.total} (tasa {datos.privados.tasa}%) · Adeslas: {datos.adeslas.total} (tasa {datos.adeslas.tasa}%).
-          </Text>
-          <Text style={{ ...styles.paragraph, color: COLOR_MUTED, fontSize: 9, marginTop: 8 }}>
-            Documento confidencial · Uso interno · Fyllio CRM
+
+        {/* Forecasting */}
+        <Text style={{ ...S.sectionTitle, marginTop: 14 }}>PROYECCIÓN — PRÓXIMOS 3 MESES</Text>
+        {pngForecast ? (
+          <Image style={S.chartImgHalf} src={`data:image/png;base64,${pngForecast}`} />
+        ) : null}
+        <View style={S.tableHeader}>
+          <Text style={S.th}>Mes</Text>
+          <Text style={{ ...S.th, textAlign: "right" }}>€ Proyectado</Text>
+          <Text style={{ ...S.th }}>Confianza</Text>
+        </View>
+        {proyeccion.map((p, i) => (
+          <View key={i} style={S.tableRow}>
+            <Text style={S.td}>{p.mes}</Text>
+            <Text style={{ ...S.td, textAlign: "right", fontFamily: "Helvetica-Bold" }}>{euro(p.valor)}</Text>
+            <Text style={{ ...S.td, color: i === 0 ? C.green : i === 1 ? C.orange : C.muted }}>
+              {["●●● Alta", "●●○ Media", "●○○ Baja"][i]}
+            </Text>
+          </View>
+        ))}
+        <Text style={{ ...S.small, marginTop: 6 }}>
+          Proyección basada en media rolling de últimos 3 meses. La confianza decrece con la distancia temporal.
+        </Text>
+
+        <View style={{ marginTop: 16 }}>
+          <Text style={{ ...S.small, color: C.muted }}>
+            Generado el {fecha} · {datos.total} presupuestos de {label} ·
+            Pipeline activo: {euro(datos.importePipeline)} · Confidencial · Uso interno · Fyllio CRM
           </Text>
         </View>
         <Footer />
@@ -426,15 +566,32 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Faltan parámetros" }, { status: 400 });
     }
 
-    // Generate charts + Claude analysis in parallel
-    const [pngLinea, pngMotivos, pngDoctores, pngCanales, analisisTendencia, analisisMotivos] =
+    const mediaRed = datos.total > 0 ? Math.round(datos.aceptados / datos.total * 100) : 0;
+    const proyeccion = proyeccionMeses(datos.tendenciaMensual ?? [], mes);
+
+    // Generate 7 charts in parallel
+    const [pngLinea, pngClinicas, pngMotivos, pngDoctores, pngCanales, pngForecast, pngAB] =
       await Promise.all([
         graficoLineas(datos.tendenciaMensual ?? [], mes),
-        graficoBarsHorizontal(datos.porMotivo.map(m => ({ label: m.motivo, value: m.count })), "#DC2626"),
-        graficoBarsVertical(datos.porDoctor.slice(0, 8).map(d => ({ label: d.doctor, total: d.total, aceptados: d.aceptados }))),
-        graficoBarsVertical(datos.porOrigen.map(o => ({ label: o.origen, total: o.count }))),
-        generarAnalisisTendencia(datos.tendenciaMensual ?? [], mes),
-        generarAnalisisMotivos(datos.porMotivo, datos.perdidos),
+        graficoClinicasBars(
+          (datos.porClinica ?? []).map((c) => ({ label: c.clinica, tasa: c.tasa })),
+          mediaRed
+        ),
+        graficoBarsHorizontal(
+          datos.porMotivo.map((m) => ({ label: m.motivo, value: m.count })),
+          "#DC2626"
+        ),
+        graficoDoctoresConMedia(
+          datos.porDoctor.slice(0, 8).map((d) => ({ label: d.doctor, tasa: d.tasa, total: d.total })),
+          mediaRed
+        ),
+        graficoBarsVertical(
+          datos.porOrigen.map((o) => ({ label: o.origen, total: o.count }))
+        ),
+        graficoForecast(proyeccion),
+        datos.abTonos && datos.abTonos.length > 0
+          ? graficoAB(datos.abTonos.map((t) => ({ label: t.tono, tasa: t.tasa })))
+          : Promise.resolve(""),
       ]);
 
     const generadoEn = new Date().toISOString();
@@ -447,17 +604,19 @@ export async function POST(req: Request) {
         datos={datos}
         generadoEn={generadoEn}
         pngLinea={pngLinea}
+        pngClinicas={pngClinicas}
         pngMotivos={pngMotivos}
         pngDoctores={pngDoctores}
         pngCanales={pngCanales}
-        analisisTendencia={analisisTendencia}
-        analisisMotivos={analisisMotivos}
+        pngForecast={pngForecast}
+        pngAB={pngAB}
+        proyeccion={proyeccion}
       />
     );
 
     const [y, m] = mes.split("-");
-    const label = `${MES_LABEL[Number(m) - 1]}_${y}`;
-    const filename = `Informe_${label}_${(clinica ?? "Clinicas").replace(/\s+/g, "_")}.pdf`;
+    const fileLabel = `${MES_LABEL[Number(m) - 1]}_${y}`;
+    const filename = `Informe_${fileLabel}_${(clinica ?? "Clinicas").replace(/\s+/g, "_")}.pdf`;
 
     return new Response(new Uint8Array(buffer), {
       headers: {
@@ -467,6 +626,7 @@ export async function POST(req: Request) {
       },
     });
   } catch (err) {
+    console.error("[generar-pdf] error:", err);
     const msg = err instanceof Error ? err.message : "Error desconocido";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
