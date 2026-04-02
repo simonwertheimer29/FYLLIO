@@ -48,6 +48,9 @@ type InformeData = {
     porMotivo?: { motivo: string; count: number }[];
     privados?: { total: number; tasa: number };
     adeslas?: { total: number; tasa: number };
+    tendenciaMensual?: { mes: string; label: string; total: number; aceptados: number }[];
+    porClinica?: { clinica: string; total: number; aceptados: number; importeTotal: number; tasa: number }[];
+    abTonos?: { tono: string; mensajes: number; aceptados: number; tasa: number }[];
   };
 };
 
