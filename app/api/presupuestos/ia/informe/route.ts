@@ -47,7 +47,10 @@ const MOTIVO_DISPLAY: Record<string, string> = {
   no_responde: "No responde", otro: "Otro",
 };
 
-async function fetchPresupuestosMes(clinica: string | null, mes: string): Promise<Presupuesto[] | null> {
+async function fetchPresupuestosMes(
+  clinica: string | null,
+  mes: string
+): Promise<{ filtered: Presupuesto[] | null; all: Presupuesto[] }> {
   try {
     // Fetch all records (optionally filtered by clinica) — date filtering done in JS
     // This matches the approach used by /api/presupuestos/kpis for reliability
@@ -62,7 +65,7 @@ async function fetchPresupuestosMes(clinica: string | null, mes: string): Promis
     };
 
     const recs = await base(TABLES.presupuestos as any).select(selectOpts).all();
-    if (recs.length === 0) return null;
+    if (recs.length === 0) return { filtered: null, all: [] };
 
     const today = DateTime.now().setZone(ZONE).toISODate()!;
     const all = recs.map((r) => {
@@ -99,13 +102,19 @@ async function fetchPresupuestosMes(clinica: string | null, mes: string): Promis
     let filtered = all.filter((p) => p.fechaPresupuesto.startsWith(mes));
     if (clinica) filtered = filtered.filter((p) => p.clinica === clinica);
 
-    return filtered.length > 0 ? filtered : null;
+    return { filtered: filtered.length > 0 ? filtered : null, all };
   } catch {
-    return null;
+    return { filtered: null, all: [] };
   }
 }
 
-function buildDatosResumen(presupuestos: Presupuesto[]) {
+const MES_SHORT = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+
+function buildDatosResumen(
+  presupuestos: Presupuesto[],
+  allPresupuestos: Presupuesto[] = [],
+  mes = ""
+) {
   const total = presupuestos.length;
   const aceptados = presupuestos.filter((p) => ESTADOS_ACEPTADOS.includes(p.estado));
   const perdidos = presupuestos.filter((p) => p.estado === "PERDIDO");
@@ -145,12 +154,45 @@ function buildDatosResumen(presupuestos: Presupuesto[]) {
   const tasaPrivados = privados.length > 0 ? Math.round((privados.filter((p) => ESTADOS_ACEPTADOS.includes(p.estado)).length / privados.length) * 100) : 0;
   const tasaAdeslas = adeslas.length > 0 ? Math.round((adeslas.filter((p) => ESTADOS_ACEPTADOS.includes(p.estado)).length / adeslas.length) * 100) : 0;
 
+  // Tendencia mensual — últimos 12 meses (desde allPresupuestos sin filtro de clínica)
+  const tendenciaMensual: { mes: string; label: string; total: number; aceptados: number }[] = [];
+  if (mes) {
+    const [mesY, mesM] = mes.split("-").map(Number);
+    for (let i = 11; i >= 0; i--) {
+      let y = mesY;
+      let m = mesM - i;
+      while (m <= 0) { m += 12; y--; }
+      const mesStr = `${y}-${String(m).padStart(2, "0")}`;
+      const delMes = allPresupuestos.filter((p) => p.fechaPresupuesto.startsWith(mesStr));
+      const acept = delMes.filter((p) => ESTADOS_ACEPTADOS.includes(p.estado));
+      tendenciaMensual.push({ mes: mesStr, label: MES_SHORT[m - 1], total: delMes.length, aceptados: acept.length });
+    }
+  }
+
+  // Por clínica (desde allPresupuestos sin filtro de mes)
+  const clinicaMap = new Map<string, { total: number; aceptados: number; importeTotal: number }>();
+  allPresupuestos.forEach((p) => {
+    const k = p.clinica ?? "Sin clínica";
+    const v = clinicaMap.get(k) ?? { total: 0, aceptados: 0, importeTotal: 0 };
+    const esAcep = ESTADOS_ACEPTADOS.includes(p.estado);
+    clinicaMap.set(k, {
+      total: v.total + 1,
+      aceptados: v.aceptados + (esAcep ? 1 : 0),
+      importeTotal: v.importeTotal + (esAcep ? (p.amount ?? 0) : 0),
+    });
+  });
+  const porClinica = [...clinicaMap.entries()]
+    .map(([clinica, v]) => ({ clinica, ...v, tasa: v.total > 0 ? Math.round((v.aceptados / v.total) * 100) : 0 }))
+    .sort((a, b) => b.total - a.total);
+
   return {
     total, aceptados: aceptados.length, perdidos: perdidos.length, activos: activos.length,
     tasa, importeTotal, importePipeline,
     porDoctor, porOrigen, porMotivo,
     privados: { total: privados.length, tasa: tasaPrivados },
     adeslas: { total: adeslas.length, tasa: tasaAdeslas },
+    tendenciaMensual,
+    porClinica,
   };
 }
 
@@ -225,12 +267,12 @@ export async function POST(req: Request) {
   const clinicaFiltro = clinicaId === "todas" ? null : clinicaId;
 
   // Fetch data
-  const presupuestos = await fetchPresupuestosMes(clinicaFiltro, mes);
+  const { filtered: presupuestos, all } = await fetchPresupuestosMes(clinicaFiltro, mes);
   if (!presupuestos || presupuestos.length === 0) {
     return NextResponse.json({ error: "No hay datos para el mes y clínica seleccionados." }, { status: 404 });
   }
 
-  const datos = buildDatosResumen(presupuestos);
+  const datos = buildDatosResumen(presupuestos, all, mes);
   const clinicaNombre = clinicaId === "todas" ? "Todas las clínicas" : clinicaId;
   const prompt = buildPrompt(mes, clinicaNombre, datos);
 
