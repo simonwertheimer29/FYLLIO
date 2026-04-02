@@ -234,7 +234,7 @@ function InformePDF({
 
   const planItems: string[] = (() => {
     if (!parrafos[4]) return [];
-    const actions = parrafos[4].split(/(?=\d\.)/).filter(Boolean);
+    const actions = parrafos[4].split(/(?=\d+\. )/).filter(Boolean);
     return (actions.length >= 2 ? actions : [parrafos[4]]).slice(0, 3);
   })();
 
@@ -481,15 +481,15 @@ function InformePDF({
         ) : null}
         <View style={S.tableHeader}>
           <Text style={S.th}>Mes</Text>
-          <Text style={{ ...S.th, textAlign: "right" }}>€ Proyectado</Text>
-          <Text style={{ ...S.th }}>Confianza</Text>
+          <Text style={{ ...S.th, flex: 1.5, textAlign: "right", paddingRight: 12 }}>€ Proyectado</Text>
+          <Text style={{ ...S.th, flex: 1, paddingLeft: 4 }}>Confianza</Text>
         </View>
         {proyeccion.map((p, i) => (
           <View key={i} style={S.tableRow}>
             <Text style={S.td}>{p.mes}</Text>
-            <Text style={{ ...S.td, textAlign: "right", fontFamily: "Helvetica-Bold" }}>{euro(p.valor)}</Text>
-            <Text style={{ ...S.td, color: i === 0 ? C.green : i === 1 ? C.orange : C.muted }}>
-              {["*** Alta", "**  Media", "*   Baja"][i]}
+            <Text style={{ ...S.td, flex: 1.5, textAlign: "right", fontFamily: "Helvetica-Bold", paddingRight: 12 }}>{euro(p.valor)}</Text>
+            <Text style={{ ...S.td, flex: 1, paddingLeft: 4, color: i === 0 ? C.green : i === 1 ? C.orange : C.muted }}>
+              {["Alta", "Media", "Baja"][i]}
             </Text>
           </View>
         ))}
@@ -752,7 +752,7 @@ async function generarPPT(
       s.addShape(pptx.ShapeType.rect, { x: xCard, y: 1.4, w: 4.05, h: 4.55, fill: { color: fc.bg }, line: { color: fc.border, width: 1.5 } });
       s.addText(p.mes.toUpperCase(), { x: xCard + 0.2, y: 1.6, w: 3.65, h: 0.5, fontSize: 13, bold: true, color: fc.border, fontFace: "Calibri" });
       s.addText(euro(p.valor), { x: xCard + 0.15, y: 2.15, w: 3.75, h: 1.2, fontSize: 40, bold: true, color: fc.numColor, fontFace: "Calibri" });
-      s.addText(confianzaLabels[i] + " confianza", { x: xCard + 0.2, y: 3.45, w: 3.65, h: 0.45, fontSize: 14, color: confianzaColors[i], fontFace: "Calibri" });
+      s.addText(confianzaLabels[i], { x: xCard + 0.2, y: 3.45, w: 3.65, h: 0.45, fontSize: 14, color: confianzaColors[i], fontFace: "Calibri" });
       s.addText(i === 0 ? `Pipeline: ${euro(datos.importePipeline)}` : i === 1 ? "Tendencia 6 meses" : "Proyección a 3 meses", { x: xCard + 0.2, y: 4.0, w: 3.65, h: 0.6, fontSize: 12, color: MUTED, fontFace: "Calibri", wrap: true });
     });
     s.addText("* La confianza decrece con la distancia temporal.", { x: 0.4, y: 6.3, w: 12.5, h: 0.4, fontSize: 11, color: MUTED, italic: true, fontFace: "Calibri" });
@@ -765,7 +765,7 @@ async function generarPPT(
     s.addShape(pptx.ShapeType.rect, { x: 0, y: 0, w: 13.33, h: 0.12, fill: { color: PRIMARY } });
     s.addText("Plan de acción", { x: 0.5, y: 0.25, w: 10, h: 0.6, fontSize: 26, bold: true, color: DARK, fontFace: "Calibri" });
     const planText = parrafos[parrafos.length - 1] ?? "";
-    const actions = planText.split(/(?=\d\.)/).filter(Boolean);
+    const actions = planText.split(/(?=\d+\. )/).filter(Boolean);
     const items = actions.length >= 2 ? actions.slice(0, 3) : planText.split(/[.!]/).filter((s) => s.trim().length > 20).slice(0, 3);
     items.forEach((a, i) => {
       const xCol = 0.35 + i * 4.35;

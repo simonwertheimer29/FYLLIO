@@ -598,7 +598,7 @@ export async function POST(req: Request) {
         x: 0.5, y: 0.25, w: 10, h: 0.6, fontSize: 26, bold: true, color: DARK, fontFace: "Calibri",
       });
       const planText = parrafos[parrafos.length - 1] ?? "";
-      const actions = planText.split(/(?=\d\.)/).filter(Boolean);
+      const actions = planText.split(/(?=\d+\. )/).filter(Boolean);
       const items = actions.length >= 2 ? actions.slice(0, 3) : planText.split(/[.!]/).filter((s) => s.trim().length > 20).slice(0, 3);
       items.forEach((a, i) => {
         const xCol = 0.35 + i * 4.35;
