@@ -239,7 +239,7 @@ function InformePDF({
   // Pre-compute plan items to avoid IIFE inside JSX (causes issues in @react-pdf/renderer)
   const planItems: string[] = (() => {
     if (!parrafos[4]) return [];
-    const actions = parrafos[4].split(/(?=\d\.)/).filter(Boolean);
+    const actions = parrafos[4].split(/(?=\d+\. )/).filter(Boolean);
     return (actions.length >= 2 ? actions : [parrafos[4]]).slice(0, 3);
   })();
 
@@ -491,14 +491,7 @@ function InformePDF({
               </View>
             ))}
           </View>
-        ) : (
-          <View>
-            <Text style={{ ...S.sectionTitle, marginTop: 4 }}>PROYECCIÓN — PRÓXIMOS 3 MESES</Text>
-            {pngForecast ? (
-              <Image style={S.chartImgHalf} src={`data:image/png;base64,${pngForecast}`} />
-            ) : null}
-          </View>
-        )}
+        ) : null}
         <Footer />
       </Page>
 
@@ -521,15 +514,15 @@ function InformePDF({
         ) : null}
         <View style={S.tableHeader}>
           <Text style={S.th}>Mes</Text>
-          <Text style={{ ...S.th, textAlign: "right" }}>€ Proyectado</Text>
-          <Text style={{ ...S.th }}>Confianza</Text>
+          <Text style={{ ...S.th, flex: 1.5, textAlign: "right", paddingRight: 12 }}>€ Proyectado</Text>
+          <Text style={{ ...S.th, flex: 1, paddingLeft: 4 }}>Confianza</Text>
         </View>
         {proyeccion.map((p, i) => (
           <View key={i} style={S.tableRow}>
             <Text style={S.td}>{p.mes}</Text>
-            <Text style={{ ...S.td, textAlign: "right", fontFamily: "Helvetica-Bold" }}>{euro(p.valor)}</Text>
-            <Text style={{ ...S.td, color: i === 0 ? C.green : i === 1 ? C.orange : C.muted }}>
-              {["*** Alta", "**  Media", "*   Baja"][i]}
+            <Text style={{ ...S.td, flex: 1.5, textAlign: "right", fontFamily: "Helvetica-Bold", paddingRight: 12 }}>{euro(p.valor)}</Text>
+            <Text style={{ ...S.td, flex: 1, paddingLeft: 4, color: i === 0 ? C.green : i === 1 ? C.orange : C.muted }}>
+              {["Alta", "Media", "Baja"][i]}
             </Text>
           </View>
         ))}
