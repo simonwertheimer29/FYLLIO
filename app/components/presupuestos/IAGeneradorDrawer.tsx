@@ -155,12 +155,17 @@ export default function IAGeneradorDrawer({
   const selectedCount = selectedTonos.size;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
+    <div className="fixed inset-0 z-50 flex lg:justify-end items-end lg:items-stretch">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
 
-      {/* Drawer panel */}
-      <div className="relative w-full max-w-md bg-white shadow-2xl flex flex-col h-full overflow-hidden">
+      {/* Drawer panel — side on desktop, bottom sheet on mobile/tablet */}
+      <div className="relative w-full max-w-md bg-white shadow-2xl flex flex-col lg:h-full h-[78vh] overflow-hidden rounded-t-2xl lg:rounded-none">
+        {/* Drag handle — mobile only */}
+        <div className="lg:hidden flex justify-center pt-3 pb-1 shrink-0">
+          <div className="w-10 h-1 rounded-full bg-slate-200" />
+        </div>
+
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0">
           <div>

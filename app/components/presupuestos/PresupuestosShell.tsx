@@ -170,21 +170,26 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     location.href = "/presupuestos/login";
   }
 
-  const TABS: { id: Tab; label: string }[] = isManager
+  const TABS: { id: Tab; label: string; icon: string }[] = isManager
     ? [
-        { id: "red",      label: "Red" },
-        { id: "tareas",   label: "Tareas" },
-        { id: "kanban",   label: "Panel" },
-        { id: "kpis",     label: "KPIs" },
-        { id: "doctor",   label: "Doctor" },
-        { id: "informes", label: "Informes" },
+        { id: "red",      label: "Red",      icon: "🕸" },
+        { id: "tareas",   label: "Tareas",   icon: "✓" },
+        { id: "kanban",   label: "Panel",    icon: "☰" },
+        { id: "kpis",     label: "KPIs",     icon: "📊" },
+        { id: "doctor",   label: "Doctor",   icon: "🩺" },
+        { id: "informes", label: "Informes", icon: "📋" },
       ]
     : [
-        { id: "tareas",   label: "Tareas" },
-        { id: "kanban",   label: "Panel" },
-        { id: "kpis",     label: "KPIs" },
-        { id: "doctor",   label: "Doctor" },
+        { id: "tareas",   label: "Tareas",   icon: "✓" },
+        { id: "kanban",   label: "Panel",    icon: "☰" },
+        { id: "kpis",     label: "KPIs",     icon: "📊" },
+        { id: "doctor",   label: "Doctor",   icon: "🩺" },
       ];
+
+  // Bottom nav shows up to 4 primary tabs + "+" on mobile/tablet
+  const BOTTOM_TABS = isManager
+    ? TABS.filter((t) => ["red", "tareas", "kanban", "kpis"].includes(t.id))
+    : TABS.slice(0, 4);
 
   return (
     <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
@@ -239,8 +244,8 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         </div>
       </header>
 
-      {/* Tabs */}
-      <div className="bg-white border-b border-slate-200 px-4 shrink-0">
+      {/* Tabs — visible only on desktop */}
+      <div className="hidden lg:block bg-white border-b border-slate-200 px-4 shrink-0">
         <div className="flex gap-0">
           {TABS.map((t) => (
             <button
@@ -274,7 +279,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
       )}
 
       {/* Content */}
-      <main className="flex-1 min-h-0 overflow-auto flex flex-col p-4 gap-4 w-full">
+      <main className="flex-1 min-h-0 overflow-auto flex flex-col p-4 gap-4 w-full pb-20 lg:pb-4">
         {tab === "kanban" && (
           <div className="flex flex-col flex-1 min-h-0 gap-3">
             <div className="shrink-0 flex items-center justify-between gap-3">
@@ -372,6 +377,29 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         )}
         {tab === "informes" && <InformesView user={user} />}
       </main>
+
+      {/* Bottom Navigation — tablet/mobile only */}
+      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 flex items-stretch h-16 safe-area-inset-bottom">
+        {BOTTOM_TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors min-h-[44px] ${
+              tab === t.id ? "text-violet-700 bg-violet-50" : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <span className="text-lg leading-none">{t.icon}</span>
+            <span className="hidden sm:block">{t.label}</span>
+          </button>
+        ))}
+        <button
+          onClick={() => setShowNew(true)}
+          className="flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-violet-600 hover:bg-violet-50 transition-colors min-h-[44px]"
+        >
+          <span className="text-xl leading-none font-light">＋</span>
+          <span className="hidden sm:block">Nuevo</span>
+        </button>
+      </nav>
 
       {/* Modals */}
       {historyPresupuesto && (
