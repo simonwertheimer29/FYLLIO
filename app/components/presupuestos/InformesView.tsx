@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
-import html2canvas from "html2canvas";
+import domtoimage from "dom-to-image-more";
 import {
   LineChart, Line, BarChart, Bar, ComposedChart,
   XAxis, YAxis, CartesianGrid, Cell, ReferenceLine, Legend,
@@ -404,17 +404,25 @@ export default function InformesView({ user }: { user: UserSession }) {
     setDownloadError(null);
     try {
       // Capture browser-rendered Recharts charts as PNG base64
+      // dom-to-image-more works with off-screen elements; give React 600ms to finish rendering
+      await new Promise((resolve) => setTimeout(resolve, 600));
+
       const captureChart = async (id: string): Promise<string> => {
         const el = document.getElementById(id);
         if (!el) return "";
         try {
-          const canvas = await html2canvas(el, {
-            scale: 2,
-            backgroundColor: "#ffffff",
-            logging: false,
-            useCORS: true,
+          const blob = await domtoimage.toBlob(el, {
+            bgcolor: "#ffffff",
+            style: { transform: "scale(1)", "transform-origin": "top left" },
           });
-          return canvas.toDataURL("image/png").replace("data:image/png;base64,", "");
+          return await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const result = reader.result as string;
+              resolve(result.replace("data:image/png;base64,", ""));
+            };
+            reader.readAsDataURL(blob);
+          });
         } catch {
           return "";
         }
@@ -529,6 +537,32 @@ export default function InformesView({ user }: { user: UserSession }) {
         </div>
       )}
 
+      {/* ── TEST: verificación visual de captura de gráficos ───────────────
+          Botón temporal — eliminar cuando se confirme que los gráficos se ven bien en PDF/PPT
+      ──────────────────────────────────────────────────────────────────── */}
+      {informe != null && (
+        <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50 px-4 py-3 flex flex-wrap gap-2 items-center">
+          <span className="text-xs font-semibold text-amber-700">TEST captura gráficos:</span>
+          {["chart-linea", "chart-clinicas", "chart-motivos", "chart-doctores", "chart-canales", "chart-forecast", "chart-ab"].map((id) => (
+            <button
+              key={id}
+              className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-800 hover:bg-amber-200"
+              onClick={async () => {
+                const el = document.getElementById(id);
+                if (!el) { alert(`No encontrado: ${id}`); return; }
+                await new Promise((r) => setTimeout(r, 300));
+                const blob = await domtoimage.toBlob(el, { bgcolor: "#ffffff" });
+                const url = URL.createObjectURL(blob);
+                console.log(`${id}: blob ${Math.round(blob.size / 1024)}KB`);
+                window.open(url);
+              }}
+            >
+              {id.replace("chart-", "")}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Forecasting */}
       <div>
         <div className="flex items-center justify-between mb-3">
@@ -570,9 +604,11 @@ export default function InformesView({ user }: { user: UserSession }) {
           aria-hidden="true"
           style={{
             position: "fixed",
-            left: "-9999px",
-            top: 0,
+            top: "-9999px",
+            left: "0px",
+            opacity: 0,
             pointerEvents: "none",
+            zIndex: -1,
             backgroundColor: "white",
           }}
         >
