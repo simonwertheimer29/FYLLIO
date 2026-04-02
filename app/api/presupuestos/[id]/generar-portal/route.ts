@@ -1,7 +1,6 @@
 // app/api/presupuestos/[id]/generar-portal/route.ts
-// POST — genera o recupera un token de portal para que el paciente acepte/rechace su presupuesto
+// POST — genera token de portal para que el paciente acepte/rechace su presupuesto
 //
-// Body: (vacío o {}) — el ID viene en la URL
 // Returns: { url, token, expiresAt }
 
 import { NextResponse } from "next/server";
@@ -9,6 +8,7 @@ import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { kv } from "@vercel/kv";
 import { randomBytes } from "crypto";
+import Anthropic from "@anthropic-ai/sdk";
 import { base, TABLES } from "../../../../lib/airtable";
 
 const COOKIE = "fyllio_presupuestos_token";
@@ -32,7 +32,10 @@ export interface PortalData {
   treatments: string[];
   amount?: number;
   clinica?: string;
+  clinicaTelefono?: string;
   doctor?: string;
+  tipoPaciente?: string;
+  descripcionHumanizada?: string;
   createdAt: string;
   expiresAt: string;
   visto: boolean;
@@ -45,6 +48,25 @@ export interface PortalData {
 }
 
 const KV_PREFIX = "portal:";
+
+async function generarDescripcion(treatments: string[]): Promise<string> {
+  try {
+    const apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) return "";
+    const client = new Anthropic({ apiKey });
+    const msg = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 150,
+      messages: [{
+        role: "user",
+        content: `Describe este tratamiento dental en 2-3 líneas en español cercano, sin jerga médica, como si se lo explicaras a un amigo. Tratamiento: ${treatments.join(", ")}. Incluye qué es, cómo funciona brevemente, y un beneficio concreto. Sin bullets, solo texto seguido.`,
+      }],
+    });
+    return (msg.content[0] as { type: string; text: string }).text?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
 
 export async function POST(
   _req: Request,
@@ -63,17 +85,22 @@ export async function POST(
       .select({ filterByFormula: `RECORD_ID()='${id}'`, maxRecords: 1 })
       .all();
 
+    const token = randomBytes(16).toString("hex");
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + TTL_DAYS * 86400 * 1000).toISOString();
+
     if (recs.length === 0) {
       // Demo fallback
-      const token = randomBytes(16).toString("hex");
-      const now = new Date();
-      const expiresAt = new Date(now.getTime() + TTL_DAYS * 86400 * 1000).toISOString();
+      const treatments = ["Ortodoncia invisible"];
+      const descripcionHumanizada = await generarDescripcion(treatments);
       const data: PortalData = {
         presupuestoId: id,
         patientName: "Paciente Demo",
-        treatments: ["Tratamiento demo"],
-        amount: 1500,
+        treatments,
+        amount: 4200,
         clinica: "Clínica Demo",
+        tipoPaciente: "Privado",
+        descripcionHumanizada,
         createdAt: now.toISOString(),
         expiresAt,
         visto: false,
@@ -95,10 +122,10 @@ export async function POST(
     const amount = f["Importe"] ? Number(f["Importe"]) : undefined;
     const clinica = f["Clinica"] ? String(f["Clinica"]) : undefined;
     const doctor = f["Doctor"] ? String(f["Doctor"]) : undefined;
+    const tipoPaciente = f["TipoPaciente"] ? String(f["TipoPaciente"]) : undefined;
 
-    const token = randomBytes(16).toString("hex");
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + TTL_DAYS * 86400 * 1000).toISOString();
+    // Generate humanized description in parallel with saving
+    const descripcionHumanizada = await generarDescripcion(treatments);
 
     const data: PortalData = {
       presupuestoId: id,
@@ -106,7 +133,10 @@ export async function POST(
       treatments,
       amount,
       clinica,
+      clinicaTelefono: undefined,   // No clinic phone in Airtable yet
       doctor,
+      tipoPaciente,
+      descripcionHumanizada,
       createdAt: now.toISOString(),
       expiresAt,
       visto: false,
