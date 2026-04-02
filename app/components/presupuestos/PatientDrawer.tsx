@@ -209,12 +209,15 @@ export default function PatientDrawer({
           </div>
 
           {/* Notes */}
-          {p.notes && (
-            <div className="px-5 py-3 border-b border-slate-100">
-              <p className="text-[10px] text-slate-400 uppercase font-medium mb-1">Notas</p>
-              <p className="text-xs text-slate-600 italic">{p.notes}</p>
-            </div>
-          )}
+          {p.notes && (() => {
+            const notasLimpias = p.notes!.replace(/\[SEED_[A-Z_]+\]/g, "").trim();
+            return notasLimpias ? (
+              <div className="px-5 py-3 border-b border-slate-100">
+                <p className="text-[10px] text-slate-400 uppercase font-medium mb-1">Notas</p>
+                <p className="text-xs text-slate-600 italic">{notasLimpias}</p>
+              </div>
+            ) : null;
+          })()}
 
           {/* Move estado */}
           <div className="px-5 py-3 border-b border-slate-100">

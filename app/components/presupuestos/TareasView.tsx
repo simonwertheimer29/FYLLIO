@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import ReactMarkdown from "react-markdown";
 import type { Presupuesto, PresupuestoEstado, UserSession } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG, ESTADOS_ACCIONABLES, ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
 import { calcularProbabilidad } from "../../lib/presupuestos/probability";
@@ -162,7 +163,7 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
                 {(p.lastContactDaysAgo ?? 0) > 0 && <span>{p.lastContactDaysAgo}d sin contacto</span>}
                 {p.contactCount > 0 && <span>{p.contactCount} intentos</span>}
               </div>
-              {p.notes && <p className="text-[10px] text-slate-500 italic mt-1 truncate">{p.notes}</p>}
+              {p.notes && (() => { const n = p.notes!.replace(/\[SEED_[A-Z_]+\]/g, "").trim(); return n ? <p className="text-[10px] text-slate-500 italic mt-1 truncate">{n}</p> : null; })()}
               <p className="text-[10px] text-violet-600 font-semibold mt-1">→ {cfg.hint}</p>
             </div>
             <div className="shrink-0 flex flex-col items-end gap-1">
@@ -237,7 +238,9 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
               {loadingRec ? (
                 <p className="text-xs text-violet-500 italic">Analizando situación…</p>
               ) : recomendacion ? (
-                <p className="text-xs text-violet-900 leading-relaxed flex-1">{recomendacion}</p>
+                <div className="text-xs text-violet-900 leading-relaxed flex-1 [&_p]:mb-1 [&_p:last-child]:mb-0 [&_strong]:font-semibold">
+                  <ReactMarkdown allowedElements={["p","strong","em"]} unwrapDisallowed>{recomendacion}</ReactMarkdown>
+                </div>
               ) : (
                 <p className="text-xs text-rose-500">No se pudo obtener la recomendación.</p>
               )}

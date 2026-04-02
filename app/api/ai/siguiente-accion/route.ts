@@ -32,7 +32,8 @@ REGLAS:
 - Si hay muchos intentos sin respuesta (≥4), recomienda pausar o cambiar de canal.
 - Si motivo de duda es precio, sugiere abordar financiación directamente.
 - Si motivo de duda es miedo, sugiere enfoque empático con testimonios.
-- Emplea un tono profesional y directo. Sin saludos ni despedidas.`;
+- Emplea un tono profesional y directo. Sin saludos ni despedidas.
+- Usa **negritas** solo para énfasis puntual. Sin headers (#), listas (-) ni código.`;
 
 function buildDemoAccion(p: Presupuesto): string {
   const nombre = p.patientName.split(" ")[0];

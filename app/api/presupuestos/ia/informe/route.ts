@@ -169,35 +169,36 @@ function buildPrompt(mes: string, clinicaNombre: string, datos: ReturnType<typeo
     ? datos.porMotivo.slice(0, 3).map((m) => `  - ${m.motivo}: ${m.count}`).join("\n")
     : "  - Sin datos suficientes";
 
-  return `Eres el analista de negocio de una red de clínicas dentales. Genera un informe mensual ejecutivo en español.
+  return `Eres analista de negocio de una red de clínicas dentales en España.
 
 DATOS DE ${periodoLabel.toUpperCase()} — ${clinicaNombre.toUpperCase()}:
-- Total presupuestos presentados: ${datos.total}
-- Aceptados: ${datos.aceptados} (tasa: ${datos.tasa}%)
-- Perdidos: ${datos.perdidos}
-- En pipeline activo: ${datos.activos} (€${datos.importePipeline.toLocaleString("es-ES")} en juego)
-- Importe total aceptado: €${datos.importeTotal.toLocaleString("es-ES")}
+- Total presupuestos: ${datos.total} | Aceptados: ${datos.aceptados} (${datos.tasa}%) | Perdidos: ${datos.perdidos}
+- Importe aceptado: €${datos.importeTotal.toLocaleString("es-ES")} | Pipeline activo: €${datos.importePipeline.toLocaleString("es-ES")}
+- Privado: ${datos.privados.total} presupuestos, tasa ${datos.privados.tasa}% | Adeslas: ${datos.adeslas.total} presupuestos, tasa ${datos.adeslas.tasa}%
 
-Desglose por tarifa:
-  - Privado: ${datos.privados.total} presupuestos, tasa ${datos.privados.tasa}%
-  - Adeslas: ${datos.adeslas.total} presupuestos, tasa ${datos.adeslas.tasa}%
-
-Rendimiento por doctor (top 5):
+Doctores (top 5):
 ${doctoresStr || "  - Sin datos"}
 
-Captación por canal de origen:
+Captación por canal:
 ${origenStr || "  - Sin datos"}
 
-Principales motivos de pérdida:
+Motivos de pérdida:
 ${motivosStr}
 
-INSTRUCCIONES:
-- Redacta un informe narrativo de 3-5 párrafos en español
-- Tono: profesional pero directo, orientado a acción
-- Incluye: resumen ejecutivo, puntos fuertes, áreas de mejora, y 2-3 recomendaciones concretas
-- Usa los números del informe para argumentar cada punto
-- NO incluyas títulos ni encabezados — solo texto corrido en párrafos
-- NO inventes datos que no están en el informe`;
+Genera un informe ejecutivo con EXACTAMENTE esta estructura (5 párrafos, sin títulos):
+
+PÁRRAFO 1 — RESUMEN GLOBAL: tasa del mes, importe aceptado, comparativa si hay datos del mes anterior.
+PÁRRAFO 2 — ANÁLISIS: doctor con mejor tasa y el que más necesita mejora (con números). Diferencia privado/Adeslas si es relevante.
+PÁRRAFO 3 — BARRERAS: motivo de pérdida más frecuente, qué porcentaje representa, hipótesis sobre por qué ocurre.
+PÁRRAFO 4 — CAPTACIÓN: canal con mejor volumen y cualquier patrón relevante en el origen de leads.
+PÁRRAFO 5 — PLAN DE ACCIÓN: exactamente 3 recomendaciones concretas numeradas en una sola oración cada una.
+
+REGLAS DE FORMATO:
+- Usa **negritas** solo para nombres, clínicas, doctores y números clave.
+- NO uses headers (#), listas (-), ni código.
+- Tono directo. Si algo falló, dilo. Si algo funcionó bien, reconócelo.
+- Máximo 400 palabras en total.
+- NO inventes datos que no estén en los datos proporcionados.`;
 }
 
 // ─── Route ────────────────────────────────────────────────────────────────────
@@ -235,8 +236,8 @@ export async function POST(req: Request) {
 
   try {
     const msg = await getClient().messages.create({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 800,
+      model: "claude-sonnet-4-6",
+      max_tokens: 900,
       messages: [{ role: "user", content: prompt }],
     });
 

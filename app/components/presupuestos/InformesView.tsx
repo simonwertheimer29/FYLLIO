@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 import type { UserSession } from "../../lib/presupuestos/types";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -61,38 +62,49 @@ function calcularForecasting(
   const now = new Date();
   const result = [];
 
-  // Promedio de pipeline activo (importePipeline ~ activos * avg importe)
-  // Usamos los últimos 3 meses para estimar el volumen de nuevos presupuestos
+  // Últimos 3 meses completos para la estimación principal
   const last3 = Array.from({ length: 3 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - i - 1, 1);
     return getYYYYMM(d);
   });
 
-  const avgTotal =
-    last3.reduce((s, mes) => s + (kpisMeses.get(mes)?.total ?? 0), 0) / 3;
-  const avgImporte =
-    last3.reduce((s, mes) => {
-      const k = kpisMeses.get(mes);
-      return s + (k && k.total > 0 ? k.importe / k.aceptados || 0 : 0);
-    }, 0) / 3;
+  // Fallback: últimos 12 meses si los 3 más recientes no tienen datos suficientes
+  const allMeses = Array.from(kpisMeses.keys());
+  const totalPresupuestosTodos = allMeses.reduce((s, m) => s + (kpisMeses.get(m)?.total ?? 0), 0);
+  const mesesConDatos = allMeses.filter((m) => (kpisMeses.get(m)?.total ?? 0) > 0).length;
 
-  // Mes 1 (current month): use real pipeline data if available
-  const currentMes = getYYYYMM(now);
-  const currentKpis = kpisMeses.get(currentMes);
-  const currentImporte =
-    currentKpis && currentKpis.total > 0
-      ? (avgTotal * (tasaEsperada / 100) * (avgImporte || 2500))
-      : avgTotal * (tasaEsperada / 100) * (avgImporte || 2500);
+  let avgTotal = last3.reduce((s, mes) => s + (kpisMeses.get(mes)?.total ?? 0), 0) / 3;
+  // Si los últimos 3 meses no tienen datos, usar promedio de todos los meses con datos
+  if (avgTotal === 0 && mesesConDatos > 0) {
+    avgTotal = totalPresupuestosTodos / mesesConDatos;
+  }
+
+  // Importe promedio por presupuesto aceptado (€/aceptado)
+  const importeYAceptados = allMeses.reduce(
+    (acc, m) => {
+      const k = kpisMeses.get(m);
+      if (k && k.aceptados > 0) {
+        acc.importe += k.importe;
+        acc.aceptados += k.aceptados;
+      }
+      return acc;
+    },
+    { importe: 0, aceptados: 0 }
+  );
+  const avgImporteUnit =
+    importeYAceptados.aceptados > 0
+      ? importeYAceptados.importe / importeYAceptados.aceptados
+      : 2500; // fallback €2500 por aceptado si no hay histórico
+
+  const baseImporte = avgTotal * (tasaEsperada / 100) * avgImporteUnit;
 
   for (let i = 0; i < 3; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
     const mes = getYYYYMM(d);
     const label = `${MES_LABEL[d.getMonth()]} ${d.getFullYear()}`;
     const confianza = i === 0 ? 3 : i === 1 ? 2 : 1;
-
-    // Apply decay factor for future months
     const decay = i === 0 ? 1 : i === 1 ? 0.9 : 0.75;
-    const importeProyectado = Math.round(currentImporte * decay);
+    const importeProyectado = Math.round(baseImporte * decay);
 
     result.push({ mes, label, importeProyectado, confianza: confianza as 3 | 2 | 1 });
   }
@@ -244,14 +256,19 @@ function InformeCard({
 
       {/* Narrative */}
       <div
-        className="text-slate-700 leading-relaxed"
+        className="text-slate-700 leading-relaxed prose-sm"
         style={{ fontSize: 15, lineHeight: 1.8 }}
       >
-        {informe.informe.split("\n\n").filter(Boolean).map((para, i) => (
-          <p key={i} className={i > 0 ? "mt-4" : ""}>
-            {para.trim()}
-          </p>
-        ))}
+        <ReactMarkdown
+          allowedElements={["p", "strong", "em", "br"]}
+          unwrapDisallowed
+          components={{
+            p: ({ children }) => <p className="mt-4 first:mt-0">{children}</p>,
+            strong: ({ children }) => <strong className="font-semibold text-slate-900">{children}</strong>,
+          }}
+        >
+          {informe.informe}
+        </ReactMarkdown>
       </div>
     </div>
   );

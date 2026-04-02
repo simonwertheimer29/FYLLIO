@@ -120,17 +120,20 @@ function calcularAlertas(presupuestos: Presupuesto[], clinicasStats: ClinicaStat
     .filter((p) => p.urgencyScore >= 70 && isActivo(p) && (p.lastContactDaysAgo ?? 999) > 2)
     .sort((a, b) => b.urgencyScore - a.urgencyScore)
     .slice(0, 5)
-    .forEach((p) =>
+    .forEach((p) => {
+      const nombre = p.patientName;
+      const clinica = p.clinica ?? "Sin clínica";
+      const importe = p.amount != null ? `€${p.amount.toLocaleString("es-ES")} en juego, ` : "";
       alertas.push({
         id: `riesgo-${p.id}`,
         tipo: "RIESGO_ALTO",
         clinica: p.clinica,
         texto: p.lastContactDaysAgo != null
-          ? `${p.patientName} — ${p.clinica ?? "Sin clínica"} — Score ${p.urgencyScore}, sin contacto ${p.lastContactDaysAgo}d`
-          : `${p.patientName} — ${p.clinica ?? "Sin clínica"} — Score ${p.urgencyScore}, sin actividad desde alta ${p.daysSince}d`,
+          ? `${nombre} (${clinica}) — ${importe}sin contacto en ${p.lastContactDaysAgo} días`
+          : `${nombre} (${clinica}) — ${importe}sin actividad en ${p.daysSince} días`,
         urgencia: 3,
-      })
-    );
+      });
+    });
 
   // CAIDA_CONVERSION — clínicas con caída >20pp
   clinicasStats
@@ -140,7 +143,7 @@ function calcularAlertas(presupuestos: Presupuesto[], clinicasStats: ClinicaStat
         id: `caida-${c.clinica}`,
         tipo: "CAIDA_CONVERSION",
         clinica: c.clinica,
-        texto: `${c.clinica}: tasa cayó ${Math.abs(c.deltaTasaPct)}pp (${c.tasaMesAnterior}% → ${c.tasaMTD}%)`,
+        texto: `${c.clinica}: conversión bajó de ${c.tasaMesAnterior}% a ${c.tasaMTD}% este mes`,
         urgencia: 2,
       })
     );
@@ -150,15 +153,16 @@ function calcularAlertas(presupuestos: Presupuesto[], clinicasStats: ClinicaStat
     .filter((p) => ["PRESENTADO", "INTERESADO"].includes(p.estado) && p.daysSince > 30)
     .sort((a, b) => b.daysSince - a.daysSince)
     .slice(0, 3)
-    .forEach((p) =>
+    .forEach((p) => {
+      const importe = p.amount != null ? ` — €${p.amount.toLocaleString("es-ES")} en juego` : "";
       alertas.push({
         id: `antiguo-${p.id}`,
         tipo: "PRESUPUESTO_ANTIGUO",
         clinica: p.clinica,
-        texto: `${p.patientName} — ${p.daysSince} días sin avanzar (${p.clinica ?? "Sin clínica"})`,
+        texto: `${p.patientName} lleva ${p.daysSince} días en el pipeline sin resolverse${importe}`,
         urgencia: 1,
-      })
-    );
+      });
+    });
 
   return alertas.sort((a, b) => b.urgencia - a.urgencia).slice(0, 10);
 }
