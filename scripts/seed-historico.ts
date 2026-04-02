@@ -221,18 +221,15 @@ async function getAllSeedPresupuestos(): Promise<Airtable.Record<Airtable.FieldS
   return recs;
 }
 
-async function getOrCreatePaciente(nombre: string): Promise<string> {
-  // Try to find existing
-  const found: Airtable.Record<Airtable.FieldSet>[] = [];
-  await base("Pacientes")
-    .select({ filterByFormula: `{Nombre}='${nombre.replace(/'/g, "\\'")}'`, fields: ["Nombre"], maxRecords: 1 })
-    .eachPage((page, next) => { found.push(...page); next(); });
-
-  if (found.length > 0) return found[0].id;
-
-  // Create new patient
-  const rec = await base("Pacientes").create({ Nombre: nombre });
-  return rec.id;
+async function getAllPacientes(): Promise<{ id: string; nombre: string }[]> {
+  const recs: { id: string; nombre: string }[] = [];
+  await base("Pacientes").select({ fields: ["Nombre"] }).eachPage((page, next) => {
+    for (const r of page) {
+      recs.push({ id: r.id, nombre: String(r.get("Nombre") ?? "Paciente") });
+    }
+    next();
+  });
+  return recs;
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────��
@@ -284,14 +281,14 @@ async function main() {
   console.log("\n📤 Creando presupuestos e historial IA...");
 
   let created = 0;
-  for (const r of records) {
-    try {
-      // Get or create paciente
-      const pacienteId = await getOrCreatePaciente(r.nombre);
+  let contactosCreated = 0;
+  let contactosFailed = false;
 
-      // Create presupuesto
+  for (const r of records) {
+    // ── Step 1: Create presupuesto ────────────────────────────────────────────
+    let presId: string | null = null;
+    try {
       const presFields: Airtable.FieldSet = {
-        Paciente:              [pacienteId],
         Tratamiento_nombre:    r.tratamiento,
         Importe:               r.importe,
         Estado:                r.estado,
@@ -306,40 +303,56 @@ async function main() {
         ContactCount:          randInt(1, 4),
         Notas:                 SEED_TAG,
       };
-      if (r.motivoPerdida)     presFields["MotivoPerdida"]     = r.motivoPerdida;
+      if (r.motivoPerdida)      presFields["MotivoPerdida"]      = r.motivoPerdida;
       if (r.motivoPerdidaTexto) presFields["MotivoPerdidaTexto"] = r.motivoPerdidaTexto;
 
       const pres = await base(T_PRES).create(presFields);
-      await sleep(80);
-
-      // Create IA contact
-      const contactoFecha = new Date(r.fecha);
-      contactoFecha.setDate(contactoFecha.getDate() + randInt(1, 5));
-      const fechaHoraISO = contactoFecha.toISOString();
-
-      const resultado = r.estado === "ACEPTADO" ? "acordó cita" : chance(0.5) ? "no contestó" : "rechazó";
-
-      await base(T_CONT).create({
-        PresupuestoId:  pres.id,
-        TipoContacto:   "whatsapp",
-        Resultado:      resultado,
-        FechaHora:      fechaHoraISO,
-        MensajeIAUsado: true,
-        TonoUsado:      r.tono,
-        Nota:           `[SEED_HIST] Contacto IA tono:${r.tono}`,
-      });
-      await sleep(80);
-
+      presId = pres.id;
       created++;
-      if (created % 10 === 0 || created === records.length) {
-        process.stdout.write(`   ${created}/${records.length} creados...\r`);
-      }
+      await sleep(80);
     } catch (err) {
-      console.error(`\n   ⚠  Error en ${r.nombre}: ${err instanceof Error ? err.message : err}`);
+      console.error(`\n   ⚠  Error creando presupuesto ${r.nombre}: ${err instanceof Error ? err.message : err}`);
+      continue;
+    }
+
+    if (created % 10 === 0 || created === records.length) {
+      process.stdout.write(`   ${created}/${records.length} creados...\r`);
+    }
+
+    // ── Step 2: Create IA contact (best-effort — requires PAT write on Contactos_Presupuesto) ─
+    if (!contactosFailed) {
+      try {
+        const contactoFecha = new Date(r.fecha);
+        contactoFecha.setDate(contactoFecha.getDate() + randInt(1, 5));
+        const resultado = r.estado === "ACEPTADO" ? "acordó cita" : chance(0.5) ? "no contestó" : "rechazó";
+
+        await base(T_CONT).create({
+          PresupuestoId:  presId,
+          TipoContacto:   "whatsapp",
+          Resultado:      resultado,
+          FechaHora:      contactoFecha.toISOString(),
+          MensajeIAUsado: true,
+          TonoUsado:      r.tono,
+          Nota:           `[SEED_HIST] Contacto IA tono:${r.tono}`,
+        });
+        contactosCreated++;
+        await sleep(80);
+      } catch (err: any) {
+        if (!contactosFailed) {
+          console.warn(`\n   ⚠️  Contacto IA no disponible (${err.statusCode ?? err.message}) — continuando sin contactos.`);
+          console.warn(`   Para habilitar: añade permiso de escritura a Contactos_Presupuesto en tu PAT de Airtable.`);
+          contactosFailed = true;
+        }
+      }
     }
   }
 
   console.log(`\n\n✅ ${created}/${records.length} presupuestos históricos creados.`);
+  if (contactosCreated > 0) {
+    console.log(`   Contactos IA creados: ${contactosCreated}`);
+  } else if (contactosFailed) {
+    console.log(`   ⚠️  Contactos IA omitidos (PAT sin permisos de escritura en Contactos_Presupuesto).`);
+  }
   console.log(`   ACEPTADO: ${aceptados} | PERDIDO: ${perdidos}`);
   console.log(`   Tonos — directo: ${byTono.directo} | empático: ${byTono.empatico} | urgencia: ${byTono.urgencia}`);
 }
