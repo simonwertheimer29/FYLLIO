@@ -365,6 +365,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         {/* Manager-only tabs — stubs until Bloque 2/3 */}
         {tab === "red" && (
           <CommandCenterView
+            user={user}
             onNavigateToTareas={(clinica) => {
               setTab("tareas");
               if (clinica) {

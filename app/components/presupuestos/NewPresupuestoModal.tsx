@@ -50,7 +50,7 @@ export default function NewPresupuestoModal({
   const [fechaPresupuesto, setFechaPresupuesto] = useState(
     presupuesto?.fechaPresupuesto ?? new Date().toISOString().slice(0, 10)
   );
-  const [notes, setNotes] = useState(presupuesto?.notes ?? "");
+  const [notes, setNotes] = useState((presupuesto?.notes ?? "").replace(/\[SEED_[A-Z_]+\]/g, "").trim());
   const [numeroHistoria, setNumeroHistoria] = useState(presupuesto?.numeroHistoria ?? "");
   const [origenLead, setOrigenLead] = useState<OrigenLead | "">(presupuesto?.origenLead ?? "");
   const [estadoInicial, setEstadoInicial] = useState<PresupuestoEstado>("PRESENTADO");

@@ -104,11 +104,10 @@ export default function PatientCard({
       </div>
 
       {/* Notes */}
-      {p.notes && (
-        <p className="text-xs text-slate-500 italic border-l-2 border-slate-200 pl-2">
-          {p.notes}
-        </p>
-      )}
+      {p.notes && (() => {
+        const n = p.notes!.replace(/\[SEED_[A-Z_]+\]/g, "").trim();
+        return n ? <p className="text-xs text-slate-500 italic border-l-2 border-slate-200 pl-2">{n}</p> : null;
+      })()}
 
       {/* Contact info */}
       <div className="flex items-center gap-2 text-[10px] text-slate-400">

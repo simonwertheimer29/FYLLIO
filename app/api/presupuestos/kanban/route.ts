@@ -188,7 +188,17 @@ export async function GET(req: Request) {
         daysSince: daysSince(fechaPresupuesto),
         clinica: f["Clinica"] ? String(f["Clinica"]) : parsedClinica,
         notes: notasStr || undefined,
-        urgencyScore: 0,
+        urgencyScore: (() => {
+          const active = ["PRESENTADO", "INTERESADO", "EN_DUDA", "EN_NEGOCIACION"].includes(
+            String(f["Estado"] ?? "PRESENTADO")
+          );
+          if (!active) return 0;
+          const d = daysSince(fechaPresupuesto);
+          if (d >= 30) return 85;
+          if (d >= 14) return 75;
+          if (d >= 7)  return 55;
+          return 25;
+        })(),
         lastContactDate,
         lastContactDaysAgo: lastContactDate ? daysSince(lastContactDate) : undefined,
         contactCount: Number(f["ContactCount"] ?? 0),

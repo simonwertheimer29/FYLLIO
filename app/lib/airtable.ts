@@ -14,6 +14,7 @@ export const TABLES = {
   contactosPresupuesto: "Contactos_Presupuesto",
   doctoresPresupuestos: "Doctores_Presupuestos",
   usuariosPresupuestos: "Usuarios_Presupuestos",
+  objetivosMensuales: "Objetivos_Mensuales",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];

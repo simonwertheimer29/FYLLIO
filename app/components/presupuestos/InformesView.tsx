@@ -70,7 +70,8 @@ type KpisMes = {
 
 function calcularForecasting(
   kpisMeses: Map<string, KpisMes>,
-  tasaEsperada: number // 0–100
+  tasaEsperada: number, // 0–100
+  pipelineImporte = 0,
 ): { mes: string; label: string; importeProyectado: number; confianza: 3 | 2 | 1 }[] {
   const now = new Date();
   const result = [];
@@ -109,7 +110,10 @@ function calcularForecasting(
       ? importeYAceptados.importe / importeYAceptados.aceptados
       : 2500; // fallback €2500 por aceptado si no hay histórico
 
-  const baseImporte = avgTotal * (tasaEsperada / 100) * avgImporteUnit;
+  const baseFromHistory = avgTotal * (tasaEsperada / 100) * avgImporteUnit;
+  const baseImporte = baseFromHistory > 0
+    ? baseFromHistory
+    : pipelineImporte * (tasaEsperada / 100);
 
   for (let i = 0; i < 3; i++) {
     const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
@@ -329,10 +333,11 @@ export default function InformesView({ user }: { user: UserSession }) {
   // Forecast state
   const [tasaEsperada, setTasaEsperada] = useState(25); // default 25%
   const [kpisMeses, setKpisMeses] = useState(new Map<string, KpisMes>());
+  const [pipelineImporte, setPipelineImporte] = useState(0);
 
   const forecasting = useMemo(
-    () => calcularForecasting(kpisMeses, tasaEsperada),
-    [kpisMeses, tasaEsperada]
+    () => calcularForecasting(kpisMeses, tasaEsperada, pipelineImporte),
+    [kpisMeses, tasaEsperada, pipelineImporte]
   );
 
   // Media de conversión del informe actual (para colorear gráficos de doctores/clínicas)
@@ -367,6 +372,12 @@ export default function InformesView({ user }: { user: UserSession }) {
           map.set(mes, { total: delMes.length, aceptados: aceptados.length, tasa, importe });
         }
         setKpisMeses(map);
+
+        // Pipeline importe for forecasting fallback
+        const pipeline = presupuestos
+          .filter((p) => ["INTERESADO", "EN_DUDA", "EN_NEGOCIACION"].includes(p.estado))
+          .reduce((s, p) => s + (p.amount ?? 0), 0);
+        setPipelineImporte(pipeline);
       })
       .catch(() => {});
   }, []);

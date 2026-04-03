@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo, useRef } from "react";
-import type { Presupuesto, PresupuestoEstado } from "../../lib/presupuestos/types";
+import type { Presupuesto, PresupuestoEstado, UserSession } from "../../lib/presupuestos/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -17,6 +17,7 @@ type ClinicaStats = {
   tasaMesAnterior: number;
   deltaTasaPct: number;
   totalMTD: number;
+  aceptadosMTD: number;
   peorDoctor: string | null;
   semaforo: Semaforo;
 };
@@ -108,7 +109,13 @@ function calcularClinicasStats(presupuestos: Presupuesto[], mesMTD: string, mesA
         ? "naranja"
         : "verde";
 
-    return { clinica, activos: activos.length, enJuego, riesgoAltoSinContactar, sinActividadHoy, tasaMTD, tasaMesAnterior, deltaTasaPct, totalMTD, peorDoctor, semaforo };
+    return {
+      clinica, activos: activos.length, enJuego,
+      riesgoAltoSinContactar, sinActividadHoy,
+      tasaMTD, tasaMesAnterior, deltaTasaPct,
+      totalMTD, aceptadosMTD: aceptMes,
+      peorDoctor, semaforo,
+    };
   });
 }
 
@@ -204,64 +211,149 @@ const SEMAFORO_STYLES: Record<Semaforo, { dot: string; border: string }> = {
   rojo:    { dot: "bg-rose-500",    border: "border-l-rose-500"    },
 };
 
-function ClinicaCard({ stats, onClick }: { stats: ClinicaStats; onClick: () => void }) {
+function ClinicaCard({
+  stats,
+  objetivo,
+  aceptadosMTD,
+  canEdit,
+  onEditObjetivo,
+  isEditing,
+  editVal,
+  setEditVal,
+  onSave,
+  onCancelEdit,
+  onClick,
+}: {
+  stats: ClinicaStats;
+  objetivo?: number;
+  aceptadosMTD: number;
+  canEdit: boolean;
+  onEditObjetivo: () => void;
+  isEditing: boolean;
+  editVal: string;
+  setEditVal: (v: string) => void;
+  onSave: () => void;
+  onCancelEdit: () => void;
+  onClick: () => void;
+}) {
   const { dot, border } = SEMAFORO_STYLES[stats.semaforo];
   return (
-    <button
-      onClick={onClick}
-      className={`w-full text-left rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-md transition-shadow border-l-4 ${border}`}
-    >
-      <div className="p-4">
-        {/* Header row */}
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2">
-            <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${dot} ${stats.semaforo === "rojo" ? "animate-pulse" : ""}`} />
-            <p className="font-semibold text-slate-900 text-sm">{stats.clinica}</p>
+    <div className="relative">
+      <button
+        onClick={onClick}
+        className={`w-full text-left rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-md transition-shadow border-l-4 ${border}`}
+      >
+        <div className="p-4">
+          {/* Header row */}
+          <div className="flex items-start justify-between gap-2 mb-2">
+            <div className="flex items-center gap-2">
+              <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${dot} ${stats.semaforo === "rojo" ? "animate-pulse" : ""}`} />
+              <p className="font-semibold text-slate-900 text-sm">{stats.clinica}</p>
+            </div>
+            <div className="text-right shrink-0">
+              {stats.totalMTD < 3 ? (
+                <p className="text-xs font-semibold text-slate-400">Mes iniciado</p>
+              ) : (
+                <>
+                  <p className="text-sm font-bold text-slate-900">{stats.tasaMTD}%</p>
+                  {stats.tasaMesAnterior > 0 && (
+                    <p className={`text-[10px] font-semibold ${stats.deltaTasaPct >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                      {stats.deltaTasaPct >= 0 ? "↑" : "↓"} {Math.abs(stats.deltaTasaPct)}pp
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
           </div>
-          <div className="text-right shrink-0">
-            {stats.totalMTD < 3 ? (
-              <p className="text-xs font-semibold text-slate-400">Mes iniciado</p>
-            ) : (
-              <>
-                <p className="text-sm font-bold text-slate-900">{stats.tasaMTD}%</p>
-                {stats.tasaMesAnterior > 0 && (
-                  <p className={`text-[10px] font-semibold ${stats.deltaTasaPct >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                    {stats.deltaTasaPct >= 0 ? "↑" : "↓"} {Math.abs(stats.deltaTasaPct)}pp
-                  </p>
+
+          {/* Stats row */}
+          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-slate-600 mb-2">
+            <span>{stats.activos} activos</span>
+            <span>€{stats.enJuego.toLocaleString("es-ES")}</span>
+          </div>
+
+          {/* Objetivo progress */}
+          {objetivo != null ? (
+            <div className="mt-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] text-slate-500">{aceptadosMTD}/{objetivo} aceptados</span>
+                {canEdit && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onEditObjetivo(); }}
+                    className="text-[10px] text-slate-400 hover:text-violet-600 px-1 leading-none"
+                    title="Editar objetivo"
+                  >✎</button>
                 )}
-              </>
+              </div>
+              <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${
+                    aceptadosMTD >= objetivo ? "bg-emerald-500" :
+                    aceptadosMTD >= objetivo * 0.7 ? "bg-amber-400" : "bg-rose-400"
+                  }`}
+                  style={{ width: `${Math.min(100, Math.round((aceptadosMTD / objetivo) * 100))}%` }}
+                />
+              </div>
+            </div>
+          ) : canEdit ? (
+            <button
+              onClick={(e) => { e.stopPropagation(); onEditObjetivo(); }}
+              className="mt-2 text-[10px] text-violet-500 hover:underline block"
+            >+ Añadir objetivo</button>
+          ) : null}
+
+          {/* Badges */}
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {stats.riesgoAltoSinContactar > 0 && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
+                {stats.riesgoAltoSinContactar} riesgo alto
+              </span>
+            )}
+            {stats.sinActividadHoy > 0 && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                {stats.sinActividadHoy} sin contacto hoy
+              </span>
+            )}
+            {stats.riesgoAltoSinContactar === 0 && stats.sinActividadHoy === 0 && (
+              <span className="text-[10px] text-emerald-600 font-medium">Todo bajo control</span>
             )}
           </div>
-        </div>
 
-        {/* Stats row */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-slate-600 mb-2">
-          <span>{stats.activos} activos</span>
-          <span>€{stats.enJuego.toLocaleString("es-ES")}</span>
-        </div>
-
-        {/* Badges */}
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          {stats.riesgoAltoSinContactar > 0 && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
-              {stats.riesgoAltoSinContactar} riesgo alto
-            </span>
-          )}
-          {stats.sinActividadHoy > 0 && (
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
-              {stats.sinActividadHoy} sin contacto hoy
-            </span>
-          )}
-          {stats.riesgoAltoSinContactar === 0 && stats.sinActividadHoy === 0 && (
-            <span className="text-[10px] text-emerald-600 font-medium">Todo bajo control</span>
+          {stats.peorDoctor && (
+            <p className="text-[10px] text-slate-400 mt-2">Menor tasa: {stats.peorDoctor}</p>
           )}
         </div>
+      </button>
 
-        {stats.peorDoctor && (
-          <p className="text-[10px] text-slate-400 mt-2">Menor tasa: {stats.peorDoctor}</p>
-        )}
-      </div>
-    </button>
+      {/* Edit popover — outside the overflow-hidden button */}
+      {isEditing && (
+        <div
+          className="absolute z-30 bg-white border border-slate-200 shadow-xl rounded-xl p-3 w-44 top-full left-0 mt-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <p className="text-[10px] font-semibold text-slate-500 mb-2">Objetivo mes (aceptados)</p>
+          <input
+            type="number"
+            min={1}
+            value={editVal}
+            onChange={(e) => setEditVal(e.target.value)}
+            className="w-full border border-slate-200 rounded-lg px-2 py-1 text-sm mb-2 focus:outline-none focus:border-violet-400"
+            autoFocus
+            onKeyDown={(e) => { if (e.key === "Enter") onSave(); if (e.key === "Escape") onCancelEdit(); }}
+          />
+          <div className="flex gap-1.5">
+            <button
+              onClick={onSave}
+              className="flex-1 bg-violet-600 text-white text-[11px] rounded-lg py-1 font-semibold hover:bg-violet-700"
+            >Guardar</button>
+            <button
+              onClick={onCancelEdit}
+              className="flex-1 border border-slate-200 text-[11px] rounded-lg py-1 hover:bg-slate-50"
+            >✕</button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -303,17 +395,26 @@ function AlertaRow({ alerta, onAction }: { alerta: Alerta; onAction: () => void 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function CommandCenterView({
+  user,
   onNavigateToTareas,
 }: {
+  user: UserSession;
   onNavigateToTareas: (clinica?: string) => void;
 }) {
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Objetivos mensuales
+  const [objetivos, setObjetivos] = useState<Record<string, number>>({});
+  const [editingObjetivo, setEditingObjetivo] = useState<string | null>(null);
+  const [editVal, setEditVal] = useState("");
+
   // Insights semanales
   const [insights, setInsights] = useState<string[] | null>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const insightsSemanaRef = useRef<number | null>(null);
+
+  const mesMTD = useMemo(() => getYYYYMM(new Date()), []);
 
   function getISOWeek(d: Date): number {
     const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -341,11 +442,21 @@ export default function CommandCenterView({
 
   useEffect(() => {
     setLoading(true);
-    fetch("/api/presupuestos/kanban")
-      .then((r) => r.json())
-      .then((d) => {
-        const data: Presupuesto[] = d.presupuestos ?? [];
+    // Load presupuestos and objetivos in parallel
+    Promise.all([
+      fetch("/api/presupuestos/kanban").then((r) => r.json()),
+      fetch(`/api/presupuestos/objetivos?mes=${mesMTD}`).then((r) => r.json()),
+    ])
+      .then(([kanbanData, objetivosData]) => {
+        const data: Presupuesto[] = kanbanData.presupuestos ?? [];
         setPresupuestos(data);
+
+        const map: Record<string, number> = {};
+        for (const o of (objetivosData.objetivos ?? [])) {
+          map[o.clinica] = o.objetivo_aceptados;
+        }
+        setObjetivos(map);
+
         // Auto-fetch insights if first load or new week
         const currentWeek = getISOWeek(new Date());
         if (insightsSemanaRef.current !== currentWeek) {
@@ -354,9 +465,9 @@ export default function CommandCenterView({
       })
       .catch(() => {})
       .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const mesMTD    = useMemo(() => getYYYYMM(new Date()), []);
   const mesAnterior = useMemo(() => getPrevYYYYMM(mesMTD), [mesMTD]);
 
   const clinicasStats = useMemo(
@@ -395,11 +506,36 @@ export default function CommandCenterView({
     [presupuestos]
   );
 
+  // Objetivo metrics
+  const canEditObjetivos = (user.rol === "manager_general" || user.rol === "admin") && new Date().getDate() <= 5;
+  const clinicasConObjetivo = clinicasStats.filter((c) => objetivos[c.clinica] != null).length;
+  const clinicasEnObjetivo = clinicasStats.filter((c) => {
+    const obj = objetivos[c.clinica];
+    return obj != null && c.aceptadosMTD >= obj;
+  }).length;
+
+  async function saveObjetivo() {
+    if (!editingObjetivo || !editVal) return;
+    try {
+      await fetch("/api/presupuestos/objetivos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clinica: editingObjetivo,
+          mes: mesMTD,
+          objetivo_aceptados: Number(editVal),
+        }),
+      });
+      setObjetivos((prev) => ({ ...prev, [editingObjetivo]: Number(editVal) }));
+    } catch { /* silent */ }
+    setEditingObjetivo(null);
+  }
+
   if (loading) {
     return (
       <div className="flex-1 min-h-0 flex flex-col gap-5 animate-pulse">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="h-28 rounded-2xl bg-slate-100" />
           ))}
         </div>
@@ -415,7 +551,7 @@ export default function CommandCenterView({
   return (
     <div className="flex flex-col gap-6 w-full pb-6">
       {/* Global metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         <MetricCard
           title="Presupuestos activos"
           value={String(activosTotal)}
@@ -445,6 +581,12 @@ export default function CommandCenterView({
           sub={<span className="text-xs text-slate-500">Score ≥70, sin contacto &gt;48h</span>}
           highlight={riesgoAltoPendiente > 0 ? "red" : "green"}
         />
+        <MetricCard
+          title="En objetivo"
+          value={clinicasConObjetivo > 0 ? `${clinicasEnObjetivo}/${clinicasConObjetivo}` : "—"}
+          sub={<span className="text-xs text-slate-500">Clínicas que cumplen objetivo</span>}
+          highlight={clinicasConObjetivo > 0 && clinicasEnObjetivo === clinicasConObjetivo ? "green" : undefined}
+        />
       </div>
 
       {/* Clinic semaphore grid */}
@@ -465,6 +607,18 @@ export default function CommandCenterView({
                 <ClinicaCard
                   key={stats.clinica}
                   stats={stats}
+                  objetivo={objetivos[stats.clinica]}
+                  aceptadosMTD={stats.aceptadosMTD}
+                  canEdit={canEditObjetivos}
+                  onEditObjetivo={() => {
+                    setEditVal(String(objetivos[stats.clinica] ?? ""));
+                    setEditingObjetivo(stats.clinica);
+                  }}
+                  isEditing={editingObjetivo === stats.clinica}
+                  editVal={editVal}
+                  setEditVal={setEditVal}
+                  onSave={saveObjetivo}
+                  onCancelEdit={() => setEditingObjetivo(null)}
                   onClick={() => onNavigateToTareas(stats.clinica)}
                 />
               ))}
