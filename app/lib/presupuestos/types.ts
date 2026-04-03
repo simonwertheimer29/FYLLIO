@@ -55,6 +55,7 @@ export type Presupuesto = {
   motivoPerdidaTexto?: string;
   motivoDuda?: MotivoDuda;
   reactivacion?: boolean;  // marcado para reactivar en 90 días tras perderse
+  portalEnviado?: boolean; // portal de presupuesto enviado al paciente
 };
 
 export type Contacto = {
@@ -164,6 +165,40 @@ export type KpiPorClinica = {
   tasa: number;
   importe: number;
 };
+
+// ─── Automatizaciones ─────────────────────────────────────────────────────────
+
+export type TipoEvento =
+  | "presupuesto_inactivo"
+  | "portal_visto_sin_respuesta"
+  | "reactivacion_programada"
+  | "presupuesto_aceptado_notificacion";
+
+export type SecuenciaEstado = "pendiente" | "enviado" | "descartado";
+
+export interface Secuencia {
+  id: string;
+  presupuestoId: string;
+  clinica: string;
+  pacienteNombre: string;
+  telefono: string;
+  tratamiento: string;
+  tipoEvento: TipoEvento;
+  estado: SecuenciaEstado;
+  mensajeGenerado: string;
+  tonoUsado: string;
+  canalSugerido: "whatsapp" | "email" | "interno";
+  creadoEn: string;
+  actualizadoEn: string;
+}
+
+export interface ConfiguracionAutomatizacion {
+  clinica: string;
+  activa: boolean;
+  diasInactividadAlerta: number;
+  diasPortalSinRespuesta: number;
+  diasReactivacion: number;
+}
 
 export type KpiData = {
   resumen: KpiResumen;

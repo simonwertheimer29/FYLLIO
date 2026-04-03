@@ -13,8 +13,9 @@ import PatientDrawer from "./PatientDrawer";
 import CommandCenterView from "./CommandCenterView";
 import InformesView from "./InformesView";
 import ImportarCSVModal from "./ImportarCSVModal";
+import ConfigAutomatizaciones from "./ConfigAutomatizaciones";
 
-type Tab = "red" | "kanban" | "tareas" | "kpis" | "doctor" | "informes";
+type Tab = "red" | "kanban" | "tareas" | "kpis" | "doctor" | "informes" | "config";
 
 // ─── Mini hook para cargar presupuestos ──────────────────────────────────────
 
@@ -178,6 +179,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         { id: "kpis",     label: "KPIs",     icon: "📊" },
         { id: "doctor",   label: "Doctor",   icon: "🩺" },
         { id: "informes", label: "Informes", icon: "📋" },
+        { id: "config",   label: "Config",   icon: "⚙" },
       ]
     : [
         { id: "tareas",   label: "Tareas",   icon: "✓" },
@@ -377,6 +379,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           />
         )}
         {tab === "informes" && <InformesView user={user} />}
+        {tab === "config"   && <ConfigAutomatizaciones user={user} />}
       </main>
 
       {/* Bottom Navigation — tablet/mobile only */}
