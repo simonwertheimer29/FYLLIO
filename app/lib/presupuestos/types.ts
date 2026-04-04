@@ -195,6 +195,20 @@ export type KpiPorClinica = {
   importe: number;
 };
 
+// ─── Informes guardados ───────────────────────────────────────────────────────
+
+export type InformeGuardado = {
+  id: string;
+  tipo: "semanal" | "mensual";
+  clinica: string;
+  periodo: string;        // "YYYY-MM" for monthly, "YYYY-WNN" for weekly
+  titulo: string;
+  contenidoJson?: string; // JSON string with metrics
+  textoNarrativo?: string;
+  generadoEn: string;
+  generadoPor: string;
+};
+
 // ─── Automatizaciones ─────────────────────────────────────────────────────────
 
 export type TipoEvento =

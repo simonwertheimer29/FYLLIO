@@ -107,6 +107,15 @@ export async function POST() {
     } catch { /* kv optional */ }
   }
 
+  const esLunes = ahoraMadrid.weekday === 1;
+  const semanaKey = `fyllio_informe_semanal:${ahoraMadrid.weekYear}-W${String(ahoraMadrid.weekNumber).padStart(2, "0")}`;
+  let yaEnviadoSemana = false;
+  if (esLunes && esVentanaResumen) {
+    try {
+      yaEnviadoSemana = !!(await kv.get(semanaKey));
+    } catch { /* kv optional */ }
+  }
+
   // Demo mode — sin Airtable
   if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
     return NextResponse.json({ procesados: 0, nuevas: 0, isDemo: true });
@@ -139,7 +148,7 @@ export async function POST() {
         fields: [
           "Paciente_nombre", "Paciente_Telefono", "Teléfono",
           "Tratamiento_nombre", "Estado", "Fecha", "Clinica",
-          "ContactCount", "PortalEnviado", "Reactivacion",
+          "ContactCount", "PortalEnviado", "Reactivacion", "Importe",
         ],
         maxRecords: 1000,
       })
@@ -306,6 +315,125 @@ export async function POST() {
       try {
         await kv.set(hoyKey, 1, { ex: 86400 });
       } catch { /* kv optional */ }
+    }
+
+    // Evento E: informe semanal automático (lunes, 09:00-09:15 Madrid, una vez por semana)
+    if (esLunes && esVentanaResumen && !yaEnviadoSemana) {
+      try {
+        const ACTIVOS_SET = new Set(["PRESENTADO", "INTERESADO", "EN_DUDA", "EN_NEGOCIACION"]);
+
+        // Group metrics by clinica
+        const clinicaMap = new Map<string, {
+          nuevos: number;
+          totalSeguimiento: number;
+          eurosSeguimiento: number;
+          riesgoAlto: number;
+        }>();
+
+        for (const rec of presRecs) {
+          const f = rec.fields as any;
+          const clinicaNombre = String(f["Clinica"] ?? "");
+          if (!clinicaNombre) continue;
+
+          const estado = String(f["Estado"] ?? "");
+          const fecha = String(f["Fecha"] ?? "").slice(0, 10);
+          const importe = f["Importe"] ? Number(f["Importe"]) : 0;
+          const ds = fecha ? daysSince(fecha) : 999;
+
+          if (!clinicaMap.has(clinicaNombre)) {
+            clinicaMap.set(clinicaNombre, {
+              nuevos: 0, totalSeguimiento: 0, eurosSeguimiento: 0, riesgoAlto: 0,
+            });
+          }
+          const stats = clinicaMap.get(clinicaNombre)!;
+
+          if (ds <= 7) stats.nuevos++;
+
+          if (ACTIVOS_SET.has(estado)) {
+            stats.totalSeguimiento++;
+            stats.eurosSeguimiento += importe;
+            if (ds >= 14) stats.riesgoAlto++;
+          }
+        }
+
+        const clinicasData = Array.from(clinicaMap.entries()).map(([clinica, s]) => ({
+          clinica,
+          nuevos: s.nuevos,
+          totalSeguimiento: s.totalSeguimiento,
+          eurosSeguimiento: Math.round(s.eurosSeguimiento),
+          riesgoAlto: s.riesgoAlto,
+        }));
+
+        const totalNuevos = clinicasData.reduce((s, c) => s + c.nuevos, 0);
+        const totalSeguimiento = clinicasData.reduce((s, c) => s + c.totalSeguimiento, 0);
+        const totalEurosSeguimiento = clinicasData.reduce((s, c) => s + c.eurosSeguimiento, 0);
+        const totalRiesgoAlto = clinicasData.reduce((s, c) => s + c.riesgoAlto, 0);
+
+        const alertaPrincipal =
+          totalRiesgoAlto > 0
+            ? `${totalRiesgoAlto} presupuestos de riesgo alto sin contactar — €${totalEurosSeguimiento.toLocaleString("es-ES")} en seguimiento`
+            : `${totalSeguimiento} presupuestos activos — €${totalEurosSeguimiento.toLocaleString("es-ES")} en seguimiento`;
+
+        const periodo = `${ahoraMadrid.weekYear}-W${String(ahoraMadrid.weekNumber).padStart(2, "0")}`;
+        const titulo = `Informe semanal — Semana ${ahoraMadrid.weekNumber}, ${ahoraMadrid.weekYear}`;
+        const contenidoJson = JSON.stringify({
+          clinicas: clinicasData,
+          totalNuevos,
+          totalSeguimiento,
+          eurosSeguimiento: totalEurosSeguimiento,
+          riesgoAlto: totalRiesgoAlto,
+          alertaPrincipal,
+        });
+
+        // Save to Informes_Guardados (upsert)
+        try {
+          const nowISO = new Date().toISOString();
+          const existingRecs = await base(TABLES.informesGuardados as any)
+            .select({
+              filterByFormula: `AND({tipo}='semanal',{periodo}='${periodo}')`,
+              maxRecords: 1,
+              fields: ["tipo"],
+            })
+            .all();
+
+          if (existingRecs.length > 0) {
+            await base(TABLES.informesGuardados as any).update(existingRecs[0].id, {
+              titulo,
+              contenido_json: contenidoJson,
+              generado_en: nowISO,
+              generado_por: "sistema",
+            } as any);
+          } else {
+            await (base(TABLES.informesGuardados as any) as any).create([{
+              fields: {
+                tipo: "semanal",
+                clinica: "todas",
+                periodo,
+                titulo,
+                contenido_json: contenidoJson,
+                generado_en: nowISO,
+                generado_por: "sistema",
+              },
+            }]);
+          }
+        } catch (saveErr) {
+          console.error("[procesar] Error guardando informe semanal:", saveErr);
+        }
+
+        // Push to all managers
+        sendPushToAll({
+          title: "📋 Informe semanal listo",
+          body: alertaPrincipal,
+          url: "/presupuestos",
+          tag: "informe-semanal",
+        }).catch(() => {});
+
+        try {
+          await kv.set(semanaKey, 1, { ex: 7 * 86400 });
+        } catch { /* kv optional */ }
+      } catch (semanaErr) {
+        console.error("[procesar] Error generando informe semanal:", semanaErr);
+      }
     }
 
     return NextResponse.json({ procesados, nuevas });

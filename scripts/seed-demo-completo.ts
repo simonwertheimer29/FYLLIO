@@ -879,6 +879,197 @@ async function createSecuencias(): Promise<number> {
   }
 }
 
+// ── 6. Informes guardados (seed) ──────────────────────────────────────────────
+
+function getISOWeekInfo(d: Date): { year: number; week: number } {
+  const date = new Date(d.getTime());
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + 3 - ((date.getDay() + 6) % 7));
+  const week1 = new Date(date.getFullYear(), 0, 4);
+  const week = 1 + Math.round(
+    ((date.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7
+  );
+  return { year: date.getFullYear(), week };
+}
+
+async function clearInformesGuardados(): Promise<void> {
+  console.log("\n🧹 Buscando informes seed…");
+  const ids: string[] = [];
+  try {
+    await base("Informes_Guardados")
+      .select({
+        fields: ["generado_por"],
+        filterByFormula: `{generado_por}="seed-demo-completo"`,
+      })
+      .eachPage((recs, next) => { ids.push(...recs.map((r) => r.id)); next(); });
+    await deleteInBatches("Informes_Guardados", ids, "Informes_Guardados");
+  } catch (err: any) {
+    console.warn(`   ⚠ No se pudo limpiar Informes_Guardados (${err.message})`);
+  }
+}
+
+async function seedInformesGuardados(): Promise<number> {
+  console.log("\n📋 Creando informes guardados de ejemplo…");
+
+  const now = new Date();
+  const MES_NOMBRES = [
+    "Enero","Febrero","Marzo","Abril","Mayo","Junio",
+    "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"
+  ];
+
+  // Weekly periods: last 2 weeks
+  const d1 = new Date(now); d1.setDate(now.getDate() - 7);
+  const d2 = new Date(now); d2.setDate(now.getDate() - 14);
+  const w1 = getISOWeekInfo(d1);
+  const w2 = getISOWeekInfo(d2);
+  const periodoW1 = `${w1.year}-W${String(w1.week).padStart(2, "0")}`;
+  const periodoW2 = `${w2.year}-W${String(w2.week).padStart(2, "0")}`;
+
+  // Monthly periods: last 2 months
+  const m1 = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const m2 = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+  const periodoM1 = `${m1.getFullYear()}-${String(m1.getMonth() + 1).padStart(2, "0")}`;
+  const periodoM2 = `${m2.getFullYear()}-${String(m2.getMonth() + 1).padStart(2, "0")}`;
+  const mes1Label = `${MES_NOMBRES[m1.getMonth()]} ${m1.getFullYear()}`;
+  const mes2Label = `${MES_NOMBRES[m2.getMonth()]} ${m2.getFullYear()}`;
+
+  const INFORMES = [
+    // ─── 2 semanales ──────────────────────────────────────────────────────────
+    {
+      tipo: "semanal",
+      clinica: "todas",
+      periodo: periodoW1,
+      titulo: `Informe semanal — Semana ${w1.week}, ${w1.year}`,
+      contenido_json: JSON.stringify({
+        clinicas: [
+          { clinica: "Clínica Madrid Centro",       nuevos: 12, totalSeguimiento: 48, eurosSeguimiento: 94000, riesgoAlto: 9  },
+          { clinica: "Clínica Madrid Norte",         nuevos:  8, totalSeguimiento: 32, eurosSeguimiento: 58000, riesgoAlto: 5  },
+          { clinica: "Clínica Barcelona Eixample",   nuevos: 11, totalSeguimiento: 41, eurosSeguimiento: 82000, riesgoAlto: 7  },
+          { clinica: "Clínica Valencia Centro",      nuevos:  6, totalSeguimiento: 27, eurosSeguimiento: 46000, riesgoAlto: 4  },
+          { clinica: "Clínica Sevilla",              nuevos:  5, totalSeguimiento: 21, eurosSeguimiento: 33000, riesgoAlto: 3  },
+        ],
+        totalNuevos: 42,
+        totalSeguimiento: 169,
+        eurosSeguimiento: 313000,
+        riesgoAlto: 28,
+        alertaPrincipal: "28 presupuestos de riesgo alto sin contactar — €313.000 en seguimiento",
+      }),
+      texto_narrativo: null,
+      generado_por: "seed-demo-completo",
+      generado_en: new Date(d1.getFullYear(), d1.getMonth(), d1.getDate() + (1 - d1.getDay() + 7) % 7).toISOString(),
+    },
+    {
+      tipo: "semanal",
+      clinica: "todas",
+      periodo: periodoW2,
+      titulo: `Informe semanal — Semana ${w2.week}, ${w2.year}`,
+      contenido_json: JSON.stringify({
+        clinicas: [
+          { clinica: "Clínica Madrid Centro",       nuevos: 10, totalSeguimiento: 51, eurosSeguimiento: 99000, riesgoAlto: 11 },
+          { clinica: "Clínica Madrid Norte",         nuevos:  7, totalSeguimiento: 35, eurosSeguimiento: 62000, riesgoAlto: 6  },
+          { clinica: "Clínica Barcelona Eixample",   nuevos:  9, totalSeguimiento: 44, eurosSeguimiento: 87000, riesgoAlto: 8  },
+          { clinica: "Clínica Valencia Centro",      nuevos:  5, totalSeguimiento: 29, eurosSeguimiento: 48000, riesgoAlto: 5  },
+          { clinica: "Clínica Sevilla",              nuevos:  4, totalSeguimiento: 23, eurosSeguimiento: 36000, riesgoAlto: 4  },
+        ],
+        totalNuevos: 35,
+        totalSeguimiento: 182,
+        eurosSeguimiento: 332000,
+        riesgoAlto: 34,
+        alertaPrincipal: "34 presupuestos de riesgo alto sin contactar — €332.000 en seguimiento",
+      }),
+      texto_narrativo: null,
+      generado_por: "seed-demo-completo",
+      generado_en: new Date(d2.getFullYear(), d2.getMonth(), d2.getDate() + (1 - d2.getDay() + 7) % 7).toISOString(),
+    },
+    // ─── 2 mensuales ──────────────────────────────────────────────────────────
+    {
+      tipo: "mensual",
+      clinica: "todas",
+      periodo: periodoM1,
+      titulo: `Informe ${mes1Label}`,
+      contenido_json: JSON.stringify({
+        total: 187,
+        aceptados: 52,
+        perdidos: 41,
+        activos: 94,
+        tasa: 28,
+        importeTotal: 138400,
+        importePipeline: 224000,
+      }),
+      texto_narrativo: `**${mes1Label} ha sido un mes de crecimiento moderado**, con 187 presupuestos presentados (+8% respecto al mes anterior) y una tasa de conversión del 28%.
+
+Los implantes dentales y la ortodoncia invisible lideraron en volumen aceptado, representando conjuntamente el 61% del importe facturado. **Clínica Madrid Centro** mantuvo su posición como la clínica con mayor conversión (34%), seguida de Clínica Barcelona Eixample (31%).
+
+El principal área de mejora identificada es el seguimiento en los primeros 7 días: los presupuestos contactados antes del día 5 tienen una tasa de cierre 22 puntos superior a los que superan esa ventana. Se recomienda reforzar el protocolo de primer contacto en Clínica Sevilla y Clínica Bilbao, donde el retraso medio es de 8,4 días.`,
+      generado_por: "seed-demo-completo",
+      generado_en: new Date(m1.getFullYear(), m1.getMonth() + 1, 2, 9, 0, 0).toISOString(),
+    },
+    {
+      tipo: "mensual",
+      clinica: "todas",
+      periodo: periodoM2,
+      titulo: `Informe ${mes2Label}`,
+      contenido_json: JSON.stringify({
+        total: 173,
+        aceptados: 44,
+        perdidos: 38,
+        activos: 91,
+        tasa: 25,
+        importeTotal: 119600,
+        importePipeline: 218000,
+      }),
+      texto_narrativo: `**${mes2Label} mostró señales mixtas**: el volumen de nuevos presupuestos aumentó un 5%, pero la tasa de conversión cayó 3 puntos respecto al mes anterior, situándose en el 25%.
+
+El análisis por motivo de pérdida revela que "precio alto" representó el 38% de los presupuestos perdidos, con una concentración especialmente notable en los tratamientos de implantes múltiples y prótesis fija. Esto sugiere que el umbral de precio detectado en €3.200 para implantes sigue siendo relevante.
+
+**Acción prioritaria**: implementar el protocolo de oferta activa para presupuestos entre €2.800 y €3.500 que lleven más de 10 días sin respuesta. El mes anterior, esta intervención mejoró la conversión en un 12% en las clínicas que la aplicaron sistemáticamente.`,
+      generado_por: "seed-demo-completo",
+      generado_en: new Date(m2.getFullYear(), m2.getMonth() + 1, 2, 9, 0, 0).toISOString(),
+    },
+  ];
+
+  let created = 0;
+  for (const inf of INFORMES) {
+    try {
+      // Check if already exists
+      const existing: string[] = [];
+      await base("Informes_Guardados")
+        .select({
+          filterByFormula: `AND({tipo}="${inf.tipo}",{clinica}="${inf.clinica}",{periodo}="${inf.periodo}")`,
+          maxRecords: 1,
+          fields: ["tipo"],
+        })
+        .eachPage((recs, next) => { existing.push(...recs.map((r) => r.id)); next(); });
+
+      const fields: Record<string, unknown> = {
+        tipo:          inf.tipo,
+        clinica:       inf.clinica,
+        periodo:       inf.periodo,
+        titulo:        inf.titulo,
+        contenido_json: inf.contenido_json,
+        generado_por:  inf.generado_por,
+        generado_en:   inf.generado_en,
+      };
+      if (inf.texto_narrativo) fields["texto_narrativo"] = inf.texto_narrativo;
+
+      if (existing.length > 0) {
+        await base("Informes_Guardados").update(existing[0], fields as any);
+        process.stdout.write(`   ↺ ${inf.titulo}\r`);
+      } else {
+        await (base("Informes_Guardados") as any).create([{ fields }]);
+        created++;
+        process.stdout.write(`   + ${inf.titulo}\r`);
+      }
+      await sleep(200);
+    } catch (err: any) {
+      console.warn(`\n   ⚠ No se pudo crear/actualizar informe '${inf.titulo}': ${err.message}`);
+    }
+  }
+
+  console.log(`\n   ✅ ${INFORMES.length} informes seed disponibles`);
+  return created;
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -890,6 +1081,7 @@ async function main() {
   // 1. Limpieza
   await clearPresupuestos();
   await clearSecuencias();
+  await clearInformesGuardados();
 
   // 2. Pacientes
   const pacientes = await ensurePacientes();
@@ -910,6 +1102,9 @@ async function main() {
   // 6. Secuencias
   const totalSeq = await createSecuencias();
 
+  // 7. Informes guardados
+  await seedInformesGuardados();
+
   // Resumen
   console.log("\n════════════════════════════════════════════");
   console.log("✅ Seed completado:");
@@ -917,6 +1112,7 @@ async function main() {
   console.log(`   - ${totalPres} presupuestos creados`);
   console.log(`   - ${totalObj} objetivos creados`);
   console.log(`   - ${totalSeq} automatizaciones creadas`);
+  console.log("   - 4 informes guardados (2 semanales + 2 mensuales)");
   console.log("════════════════════════════════════════════");
   console.log("\n🎉 Abre el Command Center para ver las 10 clínicas con datos distintos.");
 }

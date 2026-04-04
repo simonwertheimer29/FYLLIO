@@ -22,6 +22,8 @@ export const TABLES = {
   pushSubscriptions: "Push_Subscriptions",
   // Historial de acciones
   historialAcciones: "Historial_Acciones",
+  // Informes guardados (mensuales + semanales automáticos)
+  informesGuardados: "Informes_Guardados",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];

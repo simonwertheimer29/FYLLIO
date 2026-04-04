@@ -7,7 +7,7 @@ import {
   LineChart, Line, BarChart, Bar, ComposedChart,
   XAxis, YAxis, CartesianGrid, Cell, ReferenceLine, Legend,
 } from "recharts";
-import type { UserSession } from "../../lib/presupuestos/types";
+import type { UserSession, InformeGuardado } from "../../lib/presupuestos/types";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -330,6 +330,12 @@ export default function InformesView({ user }: { user: UserSession }) {
   const [errorInforme, setErrorInforme] = useState<string | null>(null);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
+  // Informes guardados
+  const [informesGuardados, setInformesGuardados] = useState<InformeGuardado[]>([]);
+  const [loadingGuardados, setLoadingGuardados] = useState(false);
+  const [historialTab, setHistorialTab] = useState<"mensual" | "semanal">("mensual");
+  const [expandedInformeId, setExpandedInformeId] = useState<string | null>(null);
+
   // Forecast state
   const [tasaEsperada, setTasaEsperada] = useState(25); // default 25%
   const [kpisMeses, setKpisMeses] = useState(new Map<string, KpisMes>());
@@ -388,6 +394,18 @@ export default function InformesView({ user }: { user: UserSession }) {
     setErrorInforme(null);
   }, [selectedMes, selectedClinica]);
 
+  // Load saved informes
+  useEffect(() => {
+    setLoadingGuardados(true);
+    fetch("/api/presupuestos/informes/guardados")
+      .then((r) => r.json())
+      .then((d) => setInformesGuardados(d.informes ?? []))
+      .catch(() => {})
+      .finally(() => setLoadingGuardados(false));
+  }, []);
+
+  const mesLabel = meses.find((m) => m.value === selectedMes)?.label ?? selectedMes;
+
   async function generarInforme() {
     setLoadingInforme(true);
     setErrorInforme(null);
@@ -400,14 +418,41 @@ export default function InformesView({ user }: { user: UserSession }) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Error desconocido");
       setInforme(data);
+
+      // Auto-save to Informes_Guardados (fire-and-forget)
+      const clinicaValue = selectedClinica === "todas" ? "todas" : selectedClinica;
+      const tituloInforme = `Informe ${mesLabel}${clinicaValue !== "todas" ? ` — ${clinicaValue}` : ""}`;
+      fetch("/api/presupuestos/informes/guardados", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tipo: "mensual",
+          clinica: clinicaValue,
+          periodo: selectedMes,
+          titulo: tituloInforme,
+          contenidoJson: JSON.stringify(data.datosUsados),
+          textoNarrativo: data.informe,
+          generadoPor: "usuario",
+        }),
+      })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.informe) {
+            setInformesGuardados((prev) => {
+              const filtered = prev.filter(
+                (i) => !(i.tipo === "mensual" && i.clinica === clinicaValue && i.periodo === selectedMes)
+              );
+              return [d.informe, ...filtered];
+            });
+          }
+        })
+        .catch(() => {}); // Silent fail — don't block UI
     } catch (e: unknown) {
       setErrorInforme(e instanceof Error ? e.message : "Error al generar informe");
     } finally {
       setLoadingInforme(false);
     }
   }
-
-  const mesLabel = meses.find((m) => m.value === selectedMes)?.label ?? selectedMes;
 
   async function downloadDocument(format: "pdf" | "ppt") {
     if (!informe) return;
@@ -548,32 +593,6 @@ export default function InformesView({ user }: { user: UserSession }) {
         </div>
       )}
 
-      {/* ── TEST: verificación visual de captura de gráficos ───────────────
-          Botón temporal — eliminar cuando se confirme que los gráficos se ven bien en PDF/PPT
-      ──────────────────────────────────────────────────────────────────── */}
-      {informe != null && (
-        <div className="rounded-xl border border-dashed border-amber-300 bg-amber-50 px-4 py-3 flex flex-wrap gap-2 items-center">
-          <span className="text-xs font-semibold text-amber-700">TEST captura gráficos:</span>
-          {["chart-linea", "chart-clinicas", "chart-motivos", "chart-doctores", "chart-canales", "chart-forecast", "chart-ab"].map((id) => (
-            <button
-              key={id}
-              className="text-xs px-2 py-1 rounded bg-amber-100 text-amber-800 hover:bg-amber-200"
-              onClick={async () => {
-                const el = document.getElementById(id);
-                if (!el) { alert(`No encontrado: ${id}`); return; }
-                await new Promise((r) => setTimeout(r, 300));
-                const blob = await domtoimage.toBlob(el, { bgcolor: "#ffffff" });
-                const url = URL.createObjectURL(blob);
-                console.log(`${id}: blob ${Math.round(blob.size / 1024)}KB`);
-                window.open(url);
-              }}
-            >
-              {id.replace("chart-", "")}
-            </button>
-          ))}
-        </div>
-      )}
-
       {/* Forecasting */}
       <div>
         <div className="flex items-center justify-between mb-3">
@@ -605,6 +624,143 @@ export default function InformesView({ user }: { user: UserSession }) {
           * Proyección basada en el volumen histórico de los últimos 3 meses y la tasa esperada seleccionada.
           La confianza disminuye para meses más lejanos.
         </p>
+      </div>
+
+      {/* Informes guardados */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+            Informes guardados
+          </h2>
+          <div className="flex gap-1">
+            {(["mensual", "semanal"] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setHistorialTab(tab)}
+                className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
+                  historialTab === tab
+                    ? "bg-violet-600 text-white"
+                    : "text-slate-500 hover:bg-slate-100"
+                }`}
+              >
+                {tab === "mensual" ? "Mensuales" : "Semanales"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {loadingGuardados ? (
+          <div className="rounded-xl border border-slate-200 bg-white p-8 flex justify-center">
+            <div className="w-5 h-5 rounded-full border-2 border-violet-600 border-t-transparent animate-spin" />
+          </div>
+        ) : (() => {
+          const filtrados = informesGuardados.filter((i) => i.tipo === historialTab);
+          if (filtrados.length === 0) {
+            return (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
+                <p className="text-sm text-slate-400">
+                  {historialTab === "mensual"
+                    ? "Genera un informe mensual con IA para guardarlo aquí automáticamente."
+                    : "Los informes semanales se generan automáticamente cada lunes."}
+                </p>
+              </div>
+            );
+          }
+          return (
+            <div className="flex flex-col gap-2">
+              {filtrados.map((inf) => {
+                const isExpanded = expandedInformeId === inf.id;
+                const fechaLabel = inf.generadoEn
+                  ? new Date(inf.generadoEn).toLocaleDateString("es-ES", {
+                      day: "numeric", month: "short", year: "numeric",
+                    })
+                  : "";
+                let semanalData: Record<string, unknown> | null = null;
+                if (inf.tipo === "semanal" && inf.contenidoJson) {
+                  try { semanalData = JSON.parse(inf.contenidoJson); } catch {}
+                }
+                const lineasNarrativo = inf.textoNarrativo
+                  ? inf.textoNarrativo.split("\n").filter(Boolean)
+                  : [];
+                const textoResumen = lineasNarrativo.slice(0, 3).join("\n");
+                const hasMore = lineasNarrativo.length > 3;
+
+                return (
+                  <div key={inf.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                    <div className="flex items-center justify-between px-4 py-3 gap-3">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-800 truncate">{inf.titulo}</p>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {inf.clinica !== "todas" ? inf.clinica : "Todas las clínicas"}
+                          {fechaLabel ? ` · ${fechaLabel}` : ""}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setExpandedInformeId(isExpanded ? null : inf.id)}
+                        className="text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 shrink-0"
+                      >
+                        {isExpanded ? "Ocultar ▴" : "Ver resumen ▾"}
+                      </button>
+                    </div>
+
+                    {isExpanded && (
+                      <div className="px-4 pb-4 border-t border-slate-100 pt-3">
+                        {inf.tipo === "semanal" && semanalData ? (
+                          <div className="flex flex-col gap-2">
+                            <div className="grid grid-cols-3 gap-2">
+                              {[
+                                { label: "Nuevos", value: String(semanalData.totalNuevos ?? "-") },
+                                { label: "Seguimiento", value: String(semanalData.totalSeguimiento ?? "-") },
+                                { label: "Riesgo alto", value: String(semanalData.riesgoAlto ?? "-") },
+                              ].map((item) => (
+                                <div key={item.label} className="rounded-lg bg-slate-50 p-2.5 text-center">
+                                  <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">{item.label}</p>
+                                  <p className="text-base font-bold text-slate-800">{item.value}</p>
+                                </div>
+                              ))}
+                            </div>
+                            {semanalData.eurosSeguimiento != null && (
+                              <p className="text-xs text-slate-500">
+                                €{Number(semanalData.eurosSeguimiento).toLocaleString("es-ES")} en seguimiento
+                              </p>
+                            )}
+                            {semanalData.alertaPrincipal != null && (
+                              <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
+                                ⚠ {String(semanalData.alertaPrincipal)}
+                              </p>
+                            )}
+                          </div>
+                        ) : inf.tipo === "mensual" && textoResumen ? (
+                          <div>
+                            <div className="text-slate-600 text-sm leading-relaxed">
+                              <ReactMarkdown
+                                allowedElements={["p", "strong", "em"]}
+                                unwrapDisallowed
+                                components={{
+                                  p: ({ children }) => <p className="mt-2 first:mt-0">{children}</p>,
+                                  strong: ({ children }) => <strong className="font-semibold text-slate-800">{children}</strong>,
+                                }}
+                              >
+                                {textoResumen}
+                              </ReactMarkdown>
+                            </div>
+                            {hasMore && (
+                              <p className="text-xs text-violet-600 mt-2 font-medium">
+                                Leer informe completo →
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-400">Sin contenido disponible.</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
 
       {/* ── Gráficos ocultos para captura PDF/PPT ─────────────────────────────
