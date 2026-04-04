@@ -141,6 +141,24 @@ async function main() {
     }
   }
 
+  // ─── 4. Reactivacion en Presupuestos ─────────────────────────────────────
+  if (!presupuestosTable) {
+    console.warn("⚠️  No se encontró la tabla 'Presupuestos'. Saltando campo Reactivacion.");
+  } else {
+    const fieldNames = presupuestosTable.fields.map((f) => f.name);
+    if (fieldNames.includes("Reactivacion")) {
+      console.log("✅ Campo 'Reactivacion' ya existe en Presupuestos. Skip.");
+    } else {
+      console.log("🚀 Añadiendo campo 'Reactivacion' (checkbox) a Presupuestos…");
+      await addField(presupuestosTable.id, {
+        name: "Reactivacion",
+        type: "checkbox",
+        options: { icon: "check", color: "orangeBright" },
+      });
+      console.log("   ✅ Campo añadido.");
+    }
+  }
+
   console.log("\n🎉 Setup de automatizaciones completado.");
   console.log("   Añade a app/lib/airtable.ts:");
   console.log("     secuenciasAutomaticas: \"Secuencias_Automaticas\",");
