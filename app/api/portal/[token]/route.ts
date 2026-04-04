@@ -5,6 +5,7 @@
 import { NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import type { PortalData } from "../../presupuestos/[id]/generar-portal/route";
+import { sendPushToClinica } from "../../../lib/push/sender";
 
 const KV_PREFIX = "portal:";
 
@@ -35,6 +36,14 @@ export async function GET(
       } as PortalData, {
         ex: Math.floor((new Date(data.expiresAt).getTime() - Date.now()) / 1000),
       });
+
+      // Evento B: push al equipo cuando el paciente abre el portal
+      sendPushToClinica(data.clinica ?? "", {
+        title: "👁 Portal abierto",
+        body: `${data.patientName} acaba de abrir su presupuesto${data.amount ? ` de €${data.amount.toLocaleString("es-ES")}` : ""}`,
+        url: "/presupuestos",
+        tag: `portal-${token}`,
+      }).catch(() => {});
     }
 
     // Devolver solo datos públicos (sin IDs internos)

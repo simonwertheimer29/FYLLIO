@@ -18,6 +18,8 @@ export const TABLES = {
   // Módulo automatizaciones
   secuenciasAutomaticas: "Secuencias_Automaticas",
   configuracionAutomatizaciones: "Configuracion_Automatizaciones",
+  // Web Push
+  pushSubscriptions: "Push_Subscriptions",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];

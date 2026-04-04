@@ -448,9 +448,20 @@ const DEFAULT_PREFS: NotifPrefs = {
   resumenDiario: false,
 };
 
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(new ArrayBuffer(rawData.length));
+  for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i);
+  return outputArray;
+}
+
 function SectionNotificaciones() {
   const [prefs, setPrefs] = useState<NotifPrefs>(DEFAULT_PREFS);
   const [permGranted, setPermGranted] = useState(false);
+  const [activating, setActivating] = useState(false);
+  const [activateError, setActivateError] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -470,10 +481,60 @@ function SectionNotificaciones() {
     });
   }
 
-  async function requestPermission() {
-    if (!("Notification" in window)) return;
-    const perm = await Notification.requestPermission();
-    setPermGranted(perm === "granted");
+  async function activarNotificaciones() {
+    setActivateError(null);
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+      setActivateError("Tu navegador no soporta notificaciones push.");
+      return;
+    }
+    setActivating(true);
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") {
+        setActivateError("Permiso denegado. Actívalo en la configuración de tu navegador.");
+        return;
+      }
+
+      const registration = await navigator.serviceWorker.ready;
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!vapidKey) {
+        setActivateError("Clave VAPID no configurada.");
+        return;
+      }
+
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vapidKey),
+      });
+
+      await fetch("/api/push/suscribir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription }),
+      });
+
+      setPermGranted(true);
+    } catch (err) {
+      setActivateError(`Error al activar: ${err instanceof Error ? err.message : "desconocido"}`);
+    } finally {
+      setActivating(false);
+    }
+  }
+
+  async function desactivarNotificaciones() {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        await fetch("/api/push/suscribir", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ endpoint: subscription.endpoint }),
+        });
+        await subscription.unsubscribe();
+      }
+      setPermGranted(false);
+    } catch { /* silent */ }
   }
 
   const rows: { key: keyof NotifPrefs; label: string; desc: string }[] = [
@@ -512,26 +573,57 @@ function SectionNotificaciones() {
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
         <div className="flex items-start gap-3">
           <span className="text-lg shrink-0">🔔</span>
-          <div>
+          <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold text-slate-700">Activar notificaciones del navegador</p>
             <p className="text-xs text-slate-500 mt-0.5 mb-3">
               Para recibir notificaciones push necesitas dar permiso al navegador. Las preferencias de arriba se aplicarán una vez activas.
             </p>
+            {activateError && (
+              <p className="text-xs text-rose-600 mb-3">{activateError}</p>
+            )}
             {permGranted ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
-                ✓ Notificaciones activas
-              </span>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
+                  ✓ Notificaciones activas
+                </span>
+                <button
+                  onClick={desactivarNotificaciones}
+                  className="text-xs font-medium text-slate-400 hover:text-slate-600 underline"
+                >
+                  Desactivar
+                </button>
+              </div>
             ) : (
               <button
-                onClick={requestPermission}
-                className="text-xs font-semibold px-3 py-2 rounded-xl border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors"
+                onClick={activarNotificaciones}
+                disabled={activating}
+                className="text-xs font-semibold px-3 py-2 rounded-xl border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors disabled:opacity-50"
               >
-                Activar notificaciones
+                {activating ? "Activando…" : "Activar notificaciones"}
               </button>
             )}
           </div>
         </div>
       </div>
+
+      {process.env.NODE_ENV === "development" && (
+        <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50 p-4">
+          <p className="text-xs font-semibold text-amber-700 mb-2">Dev: probar push</p>
+          <button
+            onClick={() => fetch("/api/push/enviar", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "x-internal-secret": process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "",
+              },
+              body: JSON.stringify({ title: "🧪 Prueba", body: "Notificación de prueba de Fyllio", url: "/presupuestos", tag: "test" }),
+            })}
+            className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors"
+          >
+            Enviar notificación de prueba
+          </button>
+        </div>
+      )}
     </div>
   );
 }

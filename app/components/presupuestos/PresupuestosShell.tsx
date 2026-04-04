@@ -93,6 +93,14 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
+  // Registrar Service Worker para Web Push
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if ("serviceWorker" in navigator && "PushManager" in window) {
+      navigator.serviceWorker.register("/sw.js").catch(console.error);
+    }
+  }, []);
+
   // Polling banner
   const [newPresupuestosCount, setNewPresupuestosCount] = useState(0);
   const lastCountRef = useRef<number | null>(null);

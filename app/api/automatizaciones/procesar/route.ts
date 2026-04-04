@@ -6,8 +6,10 @@
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
+import { kv } from "@vercel/kv";
 import { base, TABLES } from "../../../lib/airtable";
 import type { UserSession, TipoEvento, ConfiguracionAutomatizacion } from "../../../lib/presupuestos/types";
+import { sendPushToClinica, sendPushToAll } from "../../../lib/push/sender";
 import { DateTime } from "luxon";
 
 const COOKIE = "fyllio_presupuestos_token";
@@ -93,6 +95,17 @@ async function generarMensajeIA(prompt: string): Promise<string> {
 export async function POST() {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+  // Resumen diario — comprobar ventana 09:00–09:15 Madrid antes del procesamiento
+  const ahoraMadrid = DateTime.now().setZone(ZONE);
+  const esVentanaResumen = ahoraMadrid.hour === 9 && ahoraMadrid.minute < 15;
+  const hoyKey = `fyllio_resumen_push:${ahoraMadrid.toISODate()}`;
+  let yaEnviadoHoy = false;
+  if (esVentanaResumen) {
+    try {
+      yaEnviadoHoy = !!(await kv.get(hoyKey));
+    } catch { /* kv optional */ }
+  }
 
   // Demo mode — sin Airtable
   if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
@@ -255,6 +268,44 @@ export async function POST() {
 
       pendientesIds.add(rec.id);
       nuevas++;
+
+      // Evento C: push cuando se prepara un mensaje automático
+      sendPushToClinica(clinica, {
+        title: "✦ Mensaje preparado",
+        body: `Mensaje preparado para ${patientName} (${tratamiento}) — revísalo en Automatizaciones`,
+        url: "/presupuestos",
+        tag: `auto-${rec.id}`,
+      }).catch(() => {});
+    }
+
+    // Evento D: resumen diario de riesgo (09:00–09:15 Madrid, una vez al día)
+    if (esVentanaResumen && !yaEnviadoHoy) {
+      const ACTIVOS = ["PRESENTADO", "INTERESADO", "EN_DUDA", "EN_NEGOCIACION"];
+      const riesgoAlto = presRecs.filter((r) => {
+        const f = r.fields as any;
+        const estado = String(f["Estado"] ?? "");
+        if (!ACTIVOS.includes(estado)) return false;
+        const fecha = String(f["Fecha"] ?? "").slice(0, 10);
+        const ds = fecha ? daysSince(fecha) : 0;
+        return ds >= 14; // urgencyScore >= 75
+      });
+      const enJuego = riesgoAlto.reduce((s, r) => {
+        const f = r.fields as any;
+        return s + (f["Importe"] ? Number(f["Importe"]) : 0);
+      }, 0);
+
+      if (riesgoAlto.length > 0) {
+        sendPushToAll({
+          title: "⚠️ Resumen de riesgo",
+          body: `${riesgoAlto.length} presupuestos de riesgo alto sin contactar — €${enJuego.toLocaleString("es-ES")} en juego`,
+          url: "/presupuestos",
+          tag: "resumen-diario",
+        }).catch(() => {});
+      }
+
+      try {
+        await kv.set(hoyKey, 1, { ex: 86400 });
+      } catch { /* kv optional */ }
     }
 
     return NextResponse.json({ procesados, nuevas });

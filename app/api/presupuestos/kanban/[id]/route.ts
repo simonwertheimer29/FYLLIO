@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { base, TABLES } from "../../../../lib/airtable";
+import { sendPushToClinica } from "../../../../lib/push/sender";
 
 const COOKIE = "fyllio_presupuestos_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -53,6 +54,25 @@ export async function PATCH(
     if (body.portalEnviado !== undefined) fields["PortalEnviado"] = body.portalEnviado === true;
 
     await base(TABLES.presupuestos as any).update(id, fields as any);
+
+    // Evento A: push cuando se acepta un presupuesto
+    if (body.estado === "ACEPTADO") {
+      base(TABLES.presupuestos as any).find(id).then((rec) => {
+        const f = (rec as any).fields as Record<string, unknown>;
+        const patientName = Array.isArray(f["Paciente_nombre"])
+          ? String((f["Paciente_nombre"] as unknown[])[0] ?? "Paciente")
+          : "Paciente";
+        const importe = f["Importe"] ? `€${Number(f["Importe"]).toLocaleString("es-ES")}` : "";
+        const clinica = f["Clinica"] ? String(f["Clinica"]) : "";
+        return sendPushToClinica(clinica, {
+          title: "✅ Presupuesto aceptado",
+          body: `${patientName} aceptó su presupuesto${importe ? ` de ${importe}` : ""}${clinica ? ` — ${clinica}` : ""}`,
+          url: "/presupuestos",
+          tag: `aceptado-${id}`,
+        });
+      }).catch(() => {});
+    }
+
     return NextResponse.json({ ok: true });
   } catch {
     // Demo mode
