@@ -49,6 +49,8 @@ export async function PATCH(
     if (body.motivoPerdidaTexto !== undefined) fields["MotivoPerdidaTexto"] = body.motivoPerdidaTexto;
     if (body.motivoDuda !== undefined) fields["MotivoDuda"] = body.motivoDuda;
     if (body.origenLead !== undefined) fields["OrigenLead"] = body.origenLead;
+    if (body.reactivacion !== undefined) fields["Reactivacion"] = body.reactivacion === true;
+    if (body.portalEnviado !== undefined) fields["PortalEnviado"] = body.portalEnviado === true;
 
     await base(TABLES.presupuestos as any).update(id, fields as any);
     return NextResponse.json({ ok: true });

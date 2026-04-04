@@ -215,25 +215,11 @@ function ClinicaCard({
   stats,
   objetivo,
   aceptadosMTD,
-  canEdit,
-  onEditObjetivo,
-  isEditing,
-  editVal,
-  setEditVal,
-  onSave,
-  onCancelEdit,
   onClick,
 }: {
   stats: ClinicaStats;
   objetivo?: number;
   aceptadosMTD: number;
-  canEdit: boolean;
-  onEditObjetivo: () => void;
-  isEditing: boolean;
-  editVal: string;
-  setEditVal: (v: string) => void;
-  onSave: () => void;
-  onCancelEdit: () => void;
   onClick: () => void;
 }) {
   const { dot, border } = SEMAFORO_STYLES[stats.semaforo];
@@ -273,17 +259,10 @@ function ClinicaCard({
           </div>
 
           {/* Objetivo progress */}
-          {objetivo != null ? (
+          {objetivo != null && (
             <div className="mt-2">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-[10px] text-slate-500">{aceptadosMTD}/{objetivo} aceptados</span>
-                {canEdit && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onEditObjetivo(); }}
-                    className="text-[10px] text-slate-400 hover:text-violet-600 px-1 leading-none"
-                    title="Editar objetivo"
-                  >✎</button>
-                )}
               </div>
               <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
                 <div
@@ -295,12 +274,7 @@ function ClinicaCard({
                 />
               </div>
             </div>
-          ) : canEdit ? (
-            <button
-              onClick={(e) => { e.stopPropagation(); onEditObjetivo(); }}
-              className="mt-2 text-[10px] text-violet-500 hover:underline block"
-            >+ Añadir objetivo</button>
-          ) : null}
+          )}
 
           {/* Badges */}
           <div className="flex flex-wrap gap-1.5 mt-2">
@@ -325,34 +299,6 @@ function ClinicaCard({
         </div>
       </button>
 
-      {/* Edit popover — outside the overflow-hidden button */}
-      {isEditing && (
-        <div
-          className="absolute z-30 bg-white border border-slate-200 shadow-xl rounded-xl p-3 w-44 top-full left-0 mt-1"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <p className="text-[10px] font-semibold text-slate-500 mb-2">Objetivo mes (aceptados)</p>
-          <input
-            type="number"
-            min={1}
-            value={editVal}
-            onChange={(e) => setEditVal(e.target.value)}
-            className="w-full border border-slate-200 rounded-lg px-2 py-1 text-sm mb-2 focus:outline-none focus:border-violet-400"
-            autoFocus
-            onKeyDown={(e) => { if (e.key === "Enter") onSave(); if (e.key === "Escape") onCancelEdit(); }}
-          />
-          <div className="flex gap-1.5">
-            <button
-              onClick={onSave}
-              className="flex-1 bg-violet-600 text-white text-[11px] rounded-lg py-1 font-semibold hover:bg-violet-700"
-            >Guardar</button>
-            <button
-              onClick={onCancelEdit}
-              className="flex-1 border border-slate-200 text-[11px] rounded-lg py-1 hover:bg-slate-50"
-            >✕</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -406,8 +352,6 @@ export default function CommandCenterView({
 
   // Objetivos mensuales
   const [objetivos, setObjetivos] = useState<Record<string, number>>({});
-  const [editingObjetivo, setEditingObjetivo] = useState<string | null>(null);
-  const [editVal, setEditVal] = useState("");
 
   // Insights semanales
   const [insights, setInsights] = useState<string[] | null>(null);
@@ -507,29 +451,11 @@ export default function CommandCenterView({
   );
 
   // Objetivo metrics
-  const canEditObjetivos = (user.rol === "manager_general" || user.rol === "admin") && new Date().getDate() <= 5;
   const clinicasConObjetivo = clinicasStats.filter((c) => objetivos[c.clinica] != null).length;
   const clinicasEnObjetivo = clinicasStats.filter((c) => {
     const obj = objetivos[c.clinica];
     return obj != null && c.aceptadosMTD >= obj;
   }).length;
-
-  async function saveObjetivo() {
-    if (!editingObjetivo || !editVal) return;
-    try {
-      await fetch("/api/presupuestos/objetivos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clinica: editingObjetivo,
-          mes: mesMTD,
-          objetivo_aceptados: Number(editVal),
-        }),
-      });
-      setObjetivos((prev) => ({ ...prev, [editingObjetivo]: Number(editVal) }));
-    } catch { /* silent */ }
-    setEditingObjetivo(null);
-  }
 
   if (loading) {
     return (
@@ -609,16 +535,6 @@ export default function CommandCenterView({
                   stats={stats}
                   objetivo={objetivos[stats.clinica]}
                   aceptadosMTD={stats.aceptadosMTD}
-                  canEdit={canEditObjetivos}
-                  onEditObjetivo={() => {
-                    setEditVal(String(objetivos[stats.clinica] ?? ""));
-                    setEditingObjetivo(stats.clinica);
-                  }}
-                  isEditing={editingObjetivo === stats.clinica}
-                  editVal={editVal}
-                  setEditVal={setEditVal}
-                  onSave={saveObjetivo}
-                  onCancelEdit={() => setEditingObjetivo(null)}
                   onClick={() => onNavigateToTareas(stats.clinica)}
                 />
               ))}

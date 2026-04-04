@@ -14,8 +14,9 @@ import CommandCenterView from "./CommandCenterView";
 import InformesView from "./InformesView";
 import ImportarCSVModal from "./ImportarCSVModal";
 import ConfigAutomatizaciones from "./ConfigAutomatizaciones";
+import AutomatizacionesView from "./AutomatizacionesView";
 
-type Tab = "red" | "kanban" | "tareas" | "kpis" | "doctor" | "informes" | "config";
+type Tab = "red" | "kanban" | "tareas" | "kpis" | "doctor" | "informes" | "automatizaciones" | "config";
 
 // ─── Mini hook para cargar presupuestos ──────────────────────────────────────
 
@@ -173,13 +174,14 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
 
   const TABS: { id: Tab; label: string; icon: string }[] = isManager
     ? [
-        { id: "red",      label: "Red",      icon: "🕸" },
-        { id: "tareas",   label: "Tareas",   icon: "✓" },
-        { id: "kanban",   label: "Panel",    icon: "☰" },
-        { id: "kpis",     label: "KPIs",     icon: "📊" },
-        { id: "doctor",   label: "Doctor",   icon: "🩺" },
-        { id: "informes", label: "Informes", icon: "📋" },
-        { id: "config",   label: "Config",   icon: "⚙" },
+        { id: "red",              label: "Red",              icon: "🕸" },
+        { id: "tareas",           label: "Tareas",           icon: "✓" },
+        { id: "kanban",           label: "Panel",            icon: "☰" },
+        { id: "kpis",             label: "KPIs",             icon: "📊" },
+        { id: "doctor",           label: "Doctor",           icon: "🩺" },
+        { id: "informes",         label: "Informes",         icon: "📋" },
+        { id: "automatizaciones", label: "Automatizaciones", icon: "🤖" },
+        { id: "config",           label: "Config",           icon: "⚙" },
       ]
     : [
         { id: "tareas",   label: "Tareas",   icon: "✓" },
@@ -378,8 +380,9 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
             }}
           />
         )}
-        {tab === "informes" && <InformesView user={user} />}
-        {tab === "config"   && <ConfigAutomatizaciones user={user} />}
+        {tab === "informes"         && <InformesView user={user} />}
+        {tab === "automatizaciones" && <AutomatizacionesView user={user} />}
+        {tab === "config"           && <ConfigAutomatizaciones user={user} />}
       </main>
 
       {/* Bottom Navigation — tablet/mobile only */}

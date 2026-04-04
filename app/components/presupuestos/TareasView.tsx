@@ -1,12 +1,11 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import type { Presupuesto, PresupuestoEstado, UserSession } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG, ESTADOS_ACCIONABLES, ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
 import { calcularProbabilidad } from "../../lib/presupuestos/probability";
 import IAGeneradorDrawer from "./IAGeneradorDrawer";
-import ColaMensajes from "./ColaMensajes";
 
 // ─── ProbBadge ────────────────────────────────────────────────────────────────
 
@@ -351,18 +350,6 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
   const [clinicaFiltro, setClinicaFiltro] = useState<string>("__todas__");
   const [compact, setCompact] = useState(false);
 
-  // Trigger automático de procesamiento (debounce 60 min via localStorage)
-  useEffect(() => {
-    const STORAGE_KEY = "fyllio_auto_ultimo_proceso";
-    const INTERVAL_MS = 60 * 60 * 1000; // 60 min
-    const ultimo = Number(localStorage.getItem(STORAGE_KEY) ?? 0);
-    const ahora = Date.now();
-    if (ahora - ultimo > INTERVAL_MS) {
-      localStorage.setItem(STORAGE_KEY, String(ahora));
-      fetch("/api/automatizaciones/procesar", { method: "POST" }).catch(() => {});
-    }
-  }, []);
-
   const historico = useMemo(
     () => presupuestos.filter((p) => p.estado === "ACEPTADO" || p.estado === "PERDIDO"),
     [presupuestos]
@@ -407,9 +394,6 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
 
   return (
     <div className="space-y-6">
-      {/* Cola de mensajes automáticos */}
-      <ColaMensajes clinica={user.rol === "encargada_ventas" ? (user.clinica ?? undefined) : undefined} />
-
       {/* Summary bar */}
       <div className="rounded-2xl bg-gradient-to-r from-violet-600 to-purple-700 p-4 text-white flex items-center justify-between gap-4 flex-wrap">
         <div>
