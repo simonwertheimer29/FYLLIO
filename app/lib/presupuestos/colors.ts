@@ -42,9 +42,9 @@ export const CHART_COLORS = PIPELINE_ORDEN.map((e) => ESTADO_CONFIG[e].hex);
 
 export const ORIGEN_LABEL: Record<OrigenLead, string> = {
   google_ads:         "Google Ads",
-  seo_organico:       "SEO",
+  seo_organico:       "Google orgánico",
   referido_paciente:  "Referido",
-  redes_sociales:     "RRSS",
-  walk_in:            "Walk-in",
+  redes_sociales:     "Redes sociales",
+  walk_in:            "Visita directa",
   otro:               "Otro",
 };

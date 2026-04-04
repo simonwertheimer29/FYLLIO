@@ -74,8 +74,8 @@ function calcWeekStats(presupuestos: Presupuesto[], start: Date, end: Date): Wee
 }
 
 const DEMO_INSIGHTS = [
-  "La tasa de conversión esta semana es 42%, 8pp por encima de la semana anterior — los tratamientos de implantes están cerrando muy bien.",
-  "3 presupuestos de más de €5.000 llevan más de 30 días sin avance; priorizar una llamada de negociación activa esta semana podría recuperar €18.000 en pipeline.",
+  "La tasa de conversión esta semana es 42%, 8% por encima de la semana anterior — los tratamientos de implantes están cerrando muy bien.",
+  "3 presupuestos de más de €5.000 llevan más de 30 días sin avance; priorizar una llamada de negociación activa esta semana podría recuperar €18.000 en seguimiento.",
   "El tono «Empático» sigue siendo el más efectivo (41% de conversión vs. 27% «Directo»); considera usarlo como estilo por defecto para pacientes en duda.",
 ];
 

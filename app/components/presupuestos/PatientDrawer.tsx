@@ -278,7 +278,7 @@ export default function PatientDrawer({
                     }}
                     className="mt-2 text-[10px] font-semibold text-violet-700 hover:underline"
                   >
-                    ✨ Generar mensaje IA →
+                    ✨ Sugerir mensaje →
                   </button>
                 )}
               </div>

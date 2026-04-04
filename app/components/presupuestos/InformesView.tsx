@@ -286,7 +286,7 @@ function InformeCard({
             { label: "Total", value: String(informe.datosUsados.total) },
             { label: "Aceptados", value: `${informe.datosUsados.aceptados} (${informe.datosUsados.tasa}%)` },
             { label: "Importe", value: `€${informe.datosUsados.importeTotal.toLocaleString("es-ES")}` },
-            { label: "Pipeline", value: `€${informe.datosUsados.importePipeline.toLocaleString("es-ES")}` },
+            { label: "Seguimiento", value: `€${informe.datosUsados.importePipeline.toLocaleString("es-ES")}` },
           ].map((item) => (
             <div key={item.label} className="rounded-xl bg-slate-50 p-3">
               <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide mb-0.5">{item.label}</p>
@@ -577,8 +577,9 @@ export default function InformesView({ user }: { user: UserSession }) {
       {/* Forecasting */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-            Forecasting — próximos 3 meses
+          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1">
+            Previsión — próximos 3 meses
+            <span className="text-[10px] text-slate-300 cursor-help normal-case font-normal" title="Estimación basada en el volumen histórico y la tasa de conversión de los últimos 3 meses">ⓘ</span>
           </h2>
           <div className="flex items-center gap-3">
             <label className="text-xs text-slate-500">

@@ -399,7 +399,7 @@ export async function POST(req: Request) {
         if (mL.includes("precio")) accion = "Ofrecer financiación proactiva en consulta.";
         else if (mL.includes("urgencia") || mL.includes("tiempo")) accion = "Comunicar consecuencias de no tratar.";
         else if (mL.includes("clínica") || mL.includes("clinica")) accion = "Reforzar argumentario de diferenciación.";
-        else if (mL.includes("responde")) accion = "Activar motor IA para seguimiento > 3 días.";
+        else if (mL.includes("responde")) accion = "Usar el asistente de mensajes para seguimiento > 3 días.";
         else accion = "Revisar protocolo de consulta.";
         return { titulo: `${pct}% — ${m.motivo}`, texto: accion };
       });
@@ -444,7 +444,7 @@ export async function POST(req: Request) {
           fill: { color: "F5F3FF" }, line: { color: "DDD6FE", width: 1 },
         });
         s.addText(
-          `★ ${topDoc.doctor} (${topDoc.tasa}%) — ${topDoc.tasa - mediaRed}pp por encima de la media de la red (${mediaRed}%). Documentar su protocolo de presentación.`,
+          `★ ${topDoc.doctor} (${topDoc.tasa}%) — ${topDoc.tasa - mediaRed}% por encima de la media de la red (${mediaRed}%). Documentar su protocolo de presentación.`,
           { x: 0.6, y: 4.5, w: 12.1, h: 0.55, fontSize: 13, color: "4C1D95", fontFace: "Calibri", wrap: true }
         );
       }
@@ -578,7 +578,7 @@ export async function POST(req: Request) {
           x: xCard + 0.2, y: 3.45, w: 3.65, h: 0.45,
           fontSize: 14, color: confianzaColors[i], fontFace: "Calibri",
         });
-        s.addText(i === 0 ? `Pipeline activo: ${euro(datos.importePipeline)}` : i === 1 ? "Tendencia 6 meses" : "Proyección a 3 meses", {
+        s.addText(i === 0 ? `En seguimiento: ${euro(datos.importePipeline)}` : i === 1 ? "Tendencia 6 meses" : "Proyección a 3 meses", {
           x: xCard + 0.2, y: 4.0, w: 3.65, h: 0.6,
           fontSize: 12, color: MUTED, fontFace: "Calibri", wrap: true,
         });

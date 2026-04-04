@@ -49,10 +49,10 @@ const SYSTEM_FIELDS: { key: keyof Mapeo; label: string; required: boolean }[] = 
 const ORIGEN_OPTIONS = [
   { value: "",                   label: "Sin especificar" },
   { value: "google_ads",         label: "Google Ads" },
-  { value: "seo_organico",       label: "SEO orgánico" },
+  { value: "seo_organico",       label: "Google orgánico" },
   { value: "referido_paciente",  label: "Referido" },
   { value: "redes_sociales",     label: "Redes sociales" },
-  { value: "walk_in",            label: "Walk-in" },
+  { value: "walk_in",            label: "Visita directa" },
   { value: "otro",               label: "Otro" },
 ];
 
@@ -534,7 +534,7 @@ export default function ImportarCSVModal({
                 )}
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-500 block mb-1.5">Origen lead por defecto</label>
+                  <label className="text-xs font-semibold text-slate-500 block mb-1.5">Origen del paciente por defecto</label>
                   <select
                     value={origenDefault}
                     onChange={(e) => setOrigenDefault(e.target.value)}

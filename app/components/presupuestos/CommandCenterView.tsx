@@ -166,7 +166,7 @@ function calcularAlertas(presupuestos: Presupuesto[], clinicasStats: ClinicaStat
         id: `antiguo-${p.id}`,
         tipo: "PRESUPUESTO_ANTIGUO",
         clinica: p.clinica,
-        texto: `${p.patientName} lleva ${p.daysSince} días en el pipeline sin resolverse${importe}`,
+        texto: `${p.patientName} lleva ${p.daysSince} días en seguimiento sin resolverse${importe}`,
         urgencia: 1,
       });
     });

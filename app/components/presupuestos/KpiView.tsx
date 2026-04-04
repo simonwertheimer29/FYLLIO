@@ -17,8 +17,8 @@ const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: "paciente", label: "Tipo Paciente" },
   { id: "tratamientos", label: "Tratamientos" },
   { id: "doctores", label: "Doctores" },
-  { id: "benchmark", label: "Benchmark" },
-  { id: "ia", label: "Motor IA" },
+  { id: "benchmark", label: "Comparativa" },
+  { id: "ia", label: "Asistente IA" },
 ];
 
 const MES_LABEL = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
@@ -39,12 +39,15 @@ function getLast12Months(): { mes: string; label: string }[] {
 
 // ─── Shared components ────────────────────────────────────────────────────────
 
-function HeaderBlock({ title, main, sub1, sub2, highlight }: {
-  title: string; main: string; sub1?: string; sub2?: string; highlight?: boolean;
+function HeaderBlock({ title, main, sub1, sub2, highlight, tooltip }: {
+  title: string; main: string; sub1?: string; sub2?: string; highlight?: boolean; tooltip?: string;
 }) {
   return (
     <div className={`rounded-2xl border p-5 ${highlight ? "border-violet-200 bg-violet-50" : "border-slate-200 bg-white"}`}>
-      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">{title}</p>
+      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+        {title}
+        {tooltip && <span className="text-[10px] font-normal normal-case cursor-help text-slate-300" title={tooltip}>ⓘ</span>}
+      </p>
       <p className={`text-3xl font-extrabold leading-tight ${highlight ? "text-violet-800" : "text-slate-900"}`}>{main}</p>
       {sub1 && <p className="text-xs text-slate-500 mt-1.5">{sub1}</p>}
       {sub2 && <p className="text-xs text-slate-500 mt-0.5">{sub2}</p>}
@@ -86,7 +89,7 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
         <HeaderBlock
           title={`Presupuestos ${mesLabel}`}
           main={String(resumen.total)}
-          sub1={`1ª Visita: ${resumen.primeraVisita} · Con Historia: ${resumen.conHistoria}`}
+          sub1={`1ª Visita: ${resumen.primeraVisita} · Con historial: ${resumen.conHistoria}`}
           sub2={resumen.total === 0 ? "Sin presupuestos este mes" : undefined}
         />
         <HeaderBlock
@@ -94,11 +97,13 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
           main={String(resumen.aceptados)}
           sub1={`${resumen.tasaAceptacion}% de conversión`}
           sub2={`vs mes anterior: ${prevRes.aceptados}`}
+          tooltip="% de presupuestos presentados que el paciente ha aceptado en el mes seleccionado"
         />
         <HeaderBlock
-          title="Presupuestos activos"
+          title="Presupuestos en seguimiento"
           main={`€${resumen.importeActivos.toLocaleString("es-ES")}`}
-          sub1="En Interesado + En Duda + En Negociación"
+          sub1="Interesado + En Duda + En Negociación"
+          tooltip="Presupuestos activos en etapas Interesado, En Duda o En Negociación"
         />
         <HeaderBlock
           title={`Este año (${new Date().getFullYear()})`}
@@ -250,7 +255,7 @@ function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
 function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
   kpisMes: KpiData; kpisPrevMes: KpiData; kpis: KpiData; mesLabel: string;
 }) {
-  const tipoLabel = (t: string) => t === "Primera Visita" ? "1ª Visita (Nuevo)" : "Con Historia (Recurrente)";
+  const tipoLabel = (t: string) => t === "Primera Visita" ? "1ª Visita (Nuevo)" : "Con historial (Recurrente)";
 
   return (
     <div className="space-y-5">
@@ -271,7 +276,7 @@ function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <p className="text-sm font-bold text-slate-900 mb-1">Evolución mensual por tipo de paciente (12 meses)</p>
-        <p className="text-xs text-slate-400 mb-4">Violeta = 1ª Visita (nuevos) · Cyan = Con Historia (recurrentes)</p>
+        <p className="text-xs text-slate-400 mb-4">Violeta = 1ª Visita (nuevos) · Cyan = Con historial (recurrentes)</p>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={kpis.tendenciaPorVisita} margin={{ top: 4, right: 8, left: -20, bottom: 0 }} barGap={1} barCategoryGap="25%">
             <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
@@ -281,8 +286,8 @@ function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
             <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
             <Bar dataKey="primera" name="1ª Visita ofrecido" fill="#c4b5fd" radius={[3, 3, 0, 0]} />
             <Bar dataKey="primeraAcept" name="1ª Visita aceptado" fill="#7c3aed" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="historia" name="Con Historia ofrecido" fill="#a5f3fc" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="historiaAcept" name="Con Historia aceptado" fill="#0891b2" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="historia" name="Con historial ofrecido" fill="#a5f3fc" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="historiaAcept" name="Con historial aceptado" fill="#0891b2" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -573,7 +578,7 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-slate-100">
-                {["Doctor", "Especialidad", "Total", "1ª Visita", "Con Hist.", "Aceptados", "Tasa"].map((h) => (
+                {["Doctor", "Especialidad", "Total", "1ª Visita", "Con historial", "Aceptados", "Tasa"].map((h) => (
                   <th key={h} className="px-3 py-2 text-left font-semibold text-slate-400 whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -612,10 +617,10 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
   return (
     <div className="space-y-8">
 
-      {/* ── Sección 1: Origen del lead ── */}
+      {/* ── Sección 1: Origen del paciente ── */}
       <div className="space-y-4">
         <h3 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-          Conversión por origen de lead
+          Conversión por origen del paciente
           <span className="text-[10px] font-normal text-slate-400">todos los tiempos</span>
         </h3>
 
@@ -824,9 +829,9 @@ function TabMotorIA({ stats, loading, isDemo }: {
   if (!stats) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-200 p-10 text-center">
-        <p className="text-sm font-semibold text-slate-500">Sin datos de Motor IA todavía</p>
+        <p className="text-sm font-semibold text-slate-500">Sin datos del asistente IA todavía</p>
         <p className="text-xs text-slate-400 mt-1">
-          Los datos aparecen cuando se envían mensajes con el generador IA y los presupuestos se resuelven (Aceptado / Perdido).
+          Los datos aparecen cuando se envían mensajes con el asistente IA y los presupuestos se resuelven (Aceptado / Perdido).
         </p>
       </div>
     );
@@ -858,7 +863,7 @@ function TabMotorIA({ stats, loading, isDemo }: {
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Mensajes IA enviados</p>
           <p className="text-3xl font-extrabold text-slate-900">{total}</p>
-          <p className="text-xs text-slate-400 mt-1">contactos con motor IA</p>
+          <p className="text-xs text-slate-400 mt-1">contactos con asistente IA</p>
         </div>
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
           <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Tasa global IA</p>

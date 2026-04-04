@@ -58,7 +58,7 @@ function CompactRow({ p, prob, onOpenDrawer, onQuickContact }: {
             <button
               onClick={() => setIaOpen(true)}
               className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-violet-600 text-white hover:bg-violet-700"
-              title="Generar mensaje IA"
+              title="Sugerir mensaje"
             >
               ✨
             </button>
@@ -88,7 +88,7 @@ const MOTIVO_DUDA_LABEL: Record<string, string> = {
 };
 
 function urgencyBadge(p: Presupuesto): { label: string; color: string } {
-  if (p.urgencyScore >= 70) return { label: "RIESGO ALTO", color: "bg-rose-100 text-rose-700" };
+  if (p.urgencyScore >= 70) return { label: "ATENCIÓN URGENTE", color: "bg-rose-100 text-rose-700" };
   if (p.urgencyScore >= 40) return { label: "SEGUIMIENTO", color: "bg-amber-100 text-amber-700" };
   return { label: "RECIENTE", color: "bg-sky-100 text-sky-700" };
 }
@@ -160,7 +160,7 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
         >
           <div className="flex items-start gap-3">
             <div className="shrink-0 flex flex-col gap-1 items-start">
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${badge.color}`}>{badge.label}</span>
+              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase cursor-help ${badge.color}`} title="Calculado según días sin contacto, importe y etapa del presupuesto">{badge.label}</span>
               <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full"
                 style={{ background: cfg.hex + "22", color: cfg.hex }}>{cfg.label}</span>
             </div>
@@ -334,7 +334,7 @@ function ClinicaGroup({ clinica, items, compact, probMap, onChangeEstado, onOpen
         <span className="text-xs text-slate-400">{items.length} presupuestos</span>
         {dinero > 0 && <span className="text-xs font-semibold text-violet-700 ml-auto">€{dinero.toLocaleString("es-ES")} en juego</span>}
       </div>
-      <Section title="Riesgo alto — actuar hoy" items={u} color="bg-rose-100 text-rose-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
+      <Section title="Atención urgente — actuar hoy" items={u} color="bg-rose-100 text-rose-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
       <Section title="Seguimiento" items={s} color="bg-amber-100 text-amber-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
       <Section title="Recientes" items={r} color="bg-sky-100 text-sky-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
     </div>
@@ -465,7 +465,7 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
             const s = filtered.filter((p) => p.urgencyScore >= 40 && p.urgencyScore < 70);
             const r = filtered.filter((p) => p.urgencyScore < 40);
             return <>
-              <Section title="Riesgo alto — actuar hoy" items={u} color="bg-rose-100 text-rose-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
+              <Section title="Atención urgente — actuar hoy" items={u} color="bg-rose-100 text-rose-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
               <Section title="Seguimiento" items={s} color="bg-amber-100 text-amber-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
               <Section title="Recientes" items={r} color="bg-sky-100 text-sky-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
             </>;

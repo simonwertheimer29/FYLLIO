@@ -291,7 +291,7 @@ export default function NewPresupuestoModal({
               />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Origen del lead</label>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Origen del paciente</label>
               <select
                 value={origenLead}
                 onChange={(e) => setOrigenLead(e.target.value as OrigenLead | "")}

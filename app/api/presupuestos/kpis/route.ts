@@ -40,8 +40,8 @@ function daysSince(iso: string): number {
 const MES_LABEL = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
 const ORIGEN_DISPLAY: Record<string, string> = {
-  google_ads: "Google Ads", seo_organico: "SEO", referido_paciente: "Referido",
-  redes_sociales: "RRSS", walk_in: "Walk-in", otro: "Otro", sin_origen: "Sin origen",
+  google_ads: "Google Ads", seo_organico: "Google orgánico", referido_paciente: "Referido",
+  redes_sociales: "Redes sociales", walk_in: "Visita directa", otro: "Otro", sin_origen: "Sin origen",
 };
 const MOTIVO_DISPLAY: Record<string, string> = {
   precio_alto: "Precio alto", otra_clinica: "Otra clínica", sin_urgencia: "Sin urgencia",

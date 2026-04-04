@@ -26,7 +26,7 @@ function UrgencyDot({ score }: { score: number }) {
     score >= 70 ? "bg-rose-500" :
     score >= 40 ? "bg-amber-400" :
     "bg-emerald-400";
-  return <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${color}`} title={`Riesgo: ${score}`} />;
+  return <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${color}`} title={`Nivel de atención: ${score}`} />;
 }
 
 // ------------------------------------------------------------------
@@ -100,7 +100,7 @@ function CompactCard({
           )}
           {p.tipoVisita && (
             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
-              {p.tipoVisita === "Primera Visita" ? "1ª Visita" : "Con Hist."}
+              {p.tipoVisita === "Primera Visita" ? "1ª Visita" : "Con historial"}
             </span>
           )}
         </div>

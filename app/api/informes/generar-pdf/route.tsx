@@ -175,7 +175,7 @@ function tendenciaAnalisis(tendencia: TendenciaMes[], mes: string): string {
   return `Media anual: ${mediaTotal} presupuestos/mes · tasa media ${mediaTasa}%. ` +
     `Mejor mes: ${mejor.label} con ${mejor.total > 0 ? Math.round(mejor.aceptados / mejor.total * 100) : 0}% de conversión. ` +
     `Tendencia últimos 3 meses: ${tendDir} (${avg3} pres./mes). ` +
-    (mesActual ? `Mes actual: ${diff >= 0 ? "+" : ""}${diff}pp respecto a la media anual.` : "");
+    (mesActual ? `Este mes: ${diff >= 0 ? "+" : ""}${diff}% respecto a la media anual.` : "");
 }
 
 function motivoAnalisis(motivo: string, count: number, totalPerdidos: number): string {
@@ -191,7 +191,7 @@ function motivoAnalisis(motivo: string, count: number, totalPerdidos: number): s
     return `${count} casos (${pct}%). Identificar a qué clínicas van los pacientes para ajustar argumentario de diferenciación.`;
   }
   if (mL.includes("responde")) {
-    return `${count} casos (${pct}%). Revisión urgente del protocolo de seguimiento: activar motor IA para presupuestos sin respuesta > 3 días.`;
+    return `${count} casos (${pct}%). Revisión urgente del protocolo de seguimiento: usar el asistente de mensajes para presupuestos sin respuesta > 3 días.`;
   }
   return `${count} casos (${pct}% de las pérdidas).`;
 }
@@ -199,9 +199,9 @@ function motivoAnalisis(motivo: string, count: number, totalPerdidos: number): s
 function doctorAnalisis(d: DoctorKpi, mediaRed: number): string {
   const diff = d.tasa - mediaRed;
   if (d.total < 3) return `${d.total} presupuesto${d.total !== 1 ? "s" : ""} — muestra insuficiente para análisis estadístico.`;
-  if (d.tasa >= 50) return `${d.aceptados}/${d.total} cierres — ${Math.abs(diff)}pp por encima de la media de la red. Modelo de referencia para el equipo. Documentar su protocolo de presentación.`;
+  if (d.tasa >= 50) return `${d.aceptados}/${d.total} cierres — ${Math.abs(diff)}% por encima de la media de la red. Modelo de referencia para el equipo. Documentar su protocolo de presentación.`;
   if (d.tasa === 0) return `0/${d.total} cierres — resultado crítico. Verificar perfil de pacientes asignados; si es similar al resto del equipo, convocar revisión urgente.`;
-  if (diff < 0) return `${d.aceptados}/${d.total} cierres — ${Math.abs(diff)}pp por debajo de la media. Revisar presupuestos activos; uso sistemático del motor IA podría mejorar 5-8pp en el próximo mes.`;
+  if (diff < 0) return `${d.aceptados}/${d.total} cierres — ${Math.abs(diff)}% por debajo de la media. Revisar presupuestos activos; el asistente de mensajes puede ayudar a mejorar los resultados el próximo mes.`;
   return `${d.aceptados}/${d.total} cierres — en línea con la media de la red (${mediaRed}%).`;
 }
 
@@ -285,7 +285,7 @@ function InformePDF({
         <View style={{ ...S.metricsRow, marginBottom: 16 }}>
           <View style={S.metricCard}>
             <Text style={{ ...S.metricValue, fontSize: 16, color: C.orange }}>{euro(datos.importePipeline)}</Text>
-            <Text style={S.metricLabel}>Pipeline activo</Text>
+            <Text style={S.metricLabel}>Seguimiento activo</Text>
           </View>
           <View style={S.metricCard}>
             <Text style={{ ...S.metricValue, fontSize: 16 }}>{datos.privados.total} ({datos.privados.tasa}%)</Text>
@@ -533,7 +533,7 @@ function InformePDF({
         <View style={{ marginTop: 16 }}>
           <Text style={{ ...S.small, color: C.muted }}>
             Generado el {fecha} · {datos.total} presupuestos de {label} ·
-            Pipeline activo: {euro(datos.importePipeline)} · Confidencial · Uso interno · Fyllio CRM
+            En seguimiento: {euro(datos.importePipeline)} · Confidencial · Uso interno · Fyllio CRM
           </Text>
         </View>
         <Footer />

@@ -100,7 +100,7 @@ export default function IAMensajePanel({
   return (
     <div className="px-5 py-3 border-b border-slate-100">
       <div className="flex items-center gap-2 mb-2">
-        <p className="text-[10px] text-slate-400 uppercase font-medium">Mensaje IA</p>
+        <p className="text-[10px] text-slate-400 uppercase font-medium">Sugerencia de mensaje</p>
         <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600">
           ✨ Beta
         </span>
@@ -137,7 +137,7 @@ export default function IAMensajePanel({
             </svg>
             Generando…
           </span>
-        ) : mensaje ? "Regenerar" : "Generar mensaje"}
+        ) : mensaje ? "Regenerar sugerencia" : "Sugerir mensaje"}
       </button>
 
       {/* Error */}
