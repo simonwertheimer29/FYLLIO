@@ -57,20 +57,24 @@ export async function PATCH(
 
     // Evento A: push cuando se acepta un presupuesto
     if (body.estado === "ACEPTADO") {
-      base(TABLES.presupuestos as any).find(id).then((rec) => {
+      try {
+        const rec = await base(TABLES.presupuestos as any).find(id);
         const f = (rec as any).fields as Record<string, unknown>;
         const patientName = Array.isArray(f["Paciente_nombre"])
           ? String((f["Paciente_nombre"] as unknown[])[0] ?? "Paciente")
           : "Paciente";
         const importe = f["Importe"] ? `€${Number(f["Importe"]).toLocaleString("es-ES")}` : "";
         const clinica = f["Clinica"] ? String(f["Clinica"]) : "";
-        return sendPushToClinica(clinica, {
+        const result = await sendPushToClinica(clinica, {
           title: "✅ Presupuesto aceptado",
           body: `${patientName} aceptó su presupuesto${importe ? ` de ${importe}` : ""}${clinica ? ` — ${clinica}` : ""}`,
           url: "/presupuestos",
           tag: `aceptado-${id}`,
         });
-      }).catch(() => {});
+        console.log("[kanban PATCH] push aceptado →", result);
+      } catch (pushErr) {
+        console.error("[kanban PATCH] push error:", pushErr);
+      }
     }
 
     return NextResponse.json({ ok: true });
