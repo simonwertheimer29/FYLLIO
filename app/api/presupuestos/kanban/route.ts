@@ -256,7 +256,8 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json({ presupuestos, isDemo: false });
-  } catch {
+  } catch (err) {
+    console.error("[kanban GET] Airtable error:", err);
     return NextResponse.json({
       presupuestos: getDemoPresupuestos(session, q),
       isDemo: true,
