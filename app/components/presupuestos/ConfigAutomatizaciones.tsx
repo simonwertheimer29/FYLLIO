@@ -614,7 +614,7 @@ function SectionNotificaciones() {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",
-                "x-internal-secret": process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "",
+                "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_API_SECRET ?? "",
               },
               body: JSON.stringify({ title: "🧪 Prueba", body: "Notificación de prueba de Fyllio", url: "/presupuestos", tag: "test" }),
             })}
