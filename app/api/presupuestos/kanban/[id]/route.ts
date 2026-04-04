@@ -78,8 +78,8 @@ export async function PATCH(
     }
 
     return NextResponse.json({ ok: true });
-  } catch {
-    // Demo mode
+  } catch (err) {
+    console.error("[kanban PATCH] error (demo mode):", err);
     return NextResponse.json({ ok: true, demo: true });
   }
 }
