@@ -28,6 +28,15 @@ export type ResultadoContacto =
   | "rechazó"
   | "pidió tiempo";
 
+export type TipoAccion =
+  | "cambio_estado"
+  | "contacto"
+  | "portal_generado"
+  | "portal_visto"
+  | "portal_aceptado"
+  | "portal_rechazado"
+  | "mensaje_automatico";
+
 export type Presupuesto = {
   id: string;
   patientName: string;
@@ -56,6 +65,7 @@ export type Presupuesto = {
   motivoDuda?: MotivoDuda;
   reactivacion?: boolean;  // marcado para reactivar en 90 días tras perderse
   portalEnviado?: boolean; // portal de presupuesto enviado al paciente
+  ofertaActiva?: boolean;  // se ha realizado una oferta activa al paciente
 };
 
 export type Contacto = {
@@ -68,6 +78,18 @@ export type Contacto = {
   registradoPor?: string;
   mensajeIAUsado?: boolean;
   tonoUsado?: TonoIA;
+  oferta?: boolean;
+};
+
+export type HistorialAccion = {
+  id: string;
+  presupuestoId: string;
+  tipo: TipoAccion;
+  descripcion: string;
+  metadata?: Record<string, unknown>;
+  registradoPor?: string;
+  clinica?: string;
+  fecha: string;
 };
 
 export type Doctor = {

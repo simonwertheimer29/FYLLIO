@@ -7,6 +7,7 @@ import { NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import { base, TABLES } from "../../../../lib/airtable";
 import type { PortalData } from "../../../presupuestos/[id]/generar-portal/route";
+import { registrarAccion } from "../../../../lib/historial/registrar";
 
 const KV_PREFIX = "portal:";
 
@@ -74,6 +75,15 @@ export async function POST(
     } catch {
       // Airtable update failure is non-fatal (demo mode or field missing)
     }
+
+    // Registrar en historial
+    registrarAccion({
+      presupuestoId: data.presupuestoId,
+      tipo: body.accion === "aceptar" ? "portal_aceptado" : "portal_rechazado",
+      descripcion: body.accion === "aceptar" ? "Paciente aceptó el presupuesto" : "Paciente rechazó el presupuesto",
+      metadata: { motivo: body.motivo, firmaTexto: body.firmaTexto },
+      clinica: data.clinica ?? "",
+    }).catch(() => {});
 
     return NextResponse.json({ ok: true });
   } catch (err) {

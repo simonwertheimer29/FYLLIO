@@ -9,6 +9,7 @@ import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type { Contacto, UserSession } from "../../../lib/presupuestos/types";
 import { DEMO_CONTACTOS } from "../../../lib/presupuestos/demo";
+import { registrarAccion } from "../../../lib/historial/registrar";
 
 const COOKIE = "fyllio_presupuestos_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -62,6 +63,9 @@ export async function GET(req: Request) {
         fechaHora: String(f["FechaHora"] ?? ""),
         nota: f["Nota"] ? String(f["Nota"]) : undefined,
         registradoPor: f["RegistradoPor"] ? String(f["RegistradoPor"]) : undefined,
+        mensajeIAUsado: Boolean(f["MensajeIAUsado"]),
+        tonoUsado: f["TonoUsado"] ? String(f["TonoUsado"]) as Contacto["tonoUsado"] : undefined,
+        oferta: Boolean(f["Oferta"]),
       };
     });
 
@@ -102,6 +106,7 @@ export async function POST(req: Request) {
     if (nota) fields["Nota"] = nota;
     if (body.mensajeIAUsado) fields["MensajeIAUsado"] = true;
     if (body.tonoUsado) fields["TonoUsado"] = body.tonoUsado;
+    if (body.oferta === true) fields["Oferta"] = true;
 
     const created = await base(TABLES.contactosPresupuesto as any).create(fields as any) as any;
 
@@ -119,13 +124,35 @@ export async function POST(req: Request) {
         ? Number((presRecs[0].fields as any)["ContactCount"] ?? 0)
         : 0;
 
-      await base(TABLES.presupuestos as any).update(presupuestoId, {
+      const presupuestoUpdate: Record<string, unknown> = {
         UltimoContacto: fechaHora.slice(0, 10),
         ContactCount: currentCount + 1,
-      } as any);
+      };
+      if (body.oferta === true) presupuestoUpdate["OfertaActiva"] = true;
+
+      await base(TABLES.presupuestos as any).update(presupuestoId, presupuestoUpdate as any);
     } catch {
       // ignorar si falla la actualización secundaria
     }
+
+    // Doble escritura: registrar en Historial_Acciones
+    const TIPO_LABEL: Record<string, string> = {
+      llamada: "Llamada", whatsapp: "WhatsApp", email: "Email", visita: "Visita",
+    };
+    await registrarAccion({
+      presupuestoId,
+      tipo: "contacto",
+      descripcion: `${TIPO_LABEL[tipo] ?? tipo}: ${resultado}`,
+      metadata: {
+        tipo,
+        resultado,
+        nota: nota || undefined,
+        oferta: body.oferta === true,
+        mensajeIAUsado: body.mensajeIAUsado === true,
+        tonoUsado: body.tonoUsado || undefined,
+      },
+      registradoPor: session.nombre || session.email,
+    });
 
     const f = created.fields as any;
     const contacto: Contacto = {
@@ -136,6 +163,7 @@ export async function POST(req: Request) {
       fechaHora,
       nota: f["Nota"] ? String(f["Nota"]) : undefined,
       registradoPor: session.email,
+      oferta: body.oferta === true,
     };
 
     return NextResponse.json({ contacto }, { status: 201 });

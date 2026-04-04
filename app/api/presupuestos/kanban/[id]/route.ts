@@ -6,28 +6,35 @@ import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { base, TABLES } from "../../../../lib/airtable";
 import { sendPushToClinica } from "../../../../lib/push/sender";
+import { registrarAccion } from "../../../../lib/historial/registrar";
+import type { UserSession } from "../../../../lib/presupuestos/types";
 
 const COOKIE = "fyllio_presupuestos_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
 const secret = new TextEncoder().encode(SECRET_RAW);
 
-async function isAuthed(): Promise<boolean> {
+async function getSession(): Promise<UserSession | null> {
   try {
     const cookieStore = await cookies();
     const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return false;
-    await jwtVerify(token, secret);
-    return true;
+    if (!token) return null;
+    const { payload } = await jwtVerify(token, secret);
+    return payload as unknown as UserSession;
   } catch {
-    return false;
+    return null;
   }
+}
+
+async function isAuthed(): Promise<boolean> {
+  return (await getSession()) !== null;
 }
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!(await isAuthed())) {
+  const session = await getSession();
+  if (!session) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 
@@ -54,6 +61,17 @@ export async function PATCH(
     if (body.portalEnviado !== undefined) fields["PortalEnviado"] = body.portalEnviado === true;
 
     await base(TABLES.presupuestos as any).update(id, fields as any);
+
+    // Registrar cambio de estado en historial
+    if (body.estado !== undefined) {
+      await registrarAccion({
+        presupuestoId: id,
+        tipo: "cambio_estado",
+        descripcion: `Estado cambiado a ${body.estado}`,
+        metadata: { estadoNuevo: body.estado },
+        registradoPor: session.nombre || session.email,
+      });
+    }
 
     // Evento A: push cuando se acepta un presupuesto
     if (body.estado === "ACEPTADO") {

@@ -177,10 +177,21 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
                   <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">{t}</span>
                 ))}
               </div>
-              <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-500">
-                <span>{p.daysSince}d desde presupuesto</span>
-                {(p.lastContactDaysAgo ?? 0) > 0 && <span>{p.lastContactDaysAgo}d sin contacto</span>}
-                {p.contactCount > 0 && <span>{p.contactCount} intentos</span>}
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                <span className="text-[10px] text-slate-500">{p.daysSince}d</span>
+                {p.contactCount > 0 && (
+                  <span className="text-[10px] text-slate-500">
+                    {p.contactCount} contacto{p.contactCount !== 1 ? "s" : ""}
+                    {p.lastContactDaysAgo !== undefined && (
+                      <> · último: {p.lastContactDaysAgo === 0 ? "hoy" : p.lastContactDaysAgo === 1 ? "ayer" : `hace ${p.lastContactDaysAgo}d`}</>
+                    )}
+                  </span>
+                )}
+                {p.ofertaActiva && (
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                    Oferta activa
+                  </span>
+                )}
               </div>
               {p.notes && (() => { const n = p.notes!.replace(/\[SEED_[A-Z_]+\]/g, "").trim(); return n ? <p className="text-[10px] text-slate-500 italic mt-1 truncate">{n}</p> : null; })()}
               <p className="text-[10px] text-violet-600 font-semibold mt-1">→ {cfg.hint}</p>
@@ -349,6 +360,7 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
 }) {
   const [clinicaFiltro, setClinicaFiltro] = useState<string>("__todas__");
   const [compact, setCompact] = useState(false);
+  const [soloOferta, setSoloOferta] = useState(false);
 
   const historico = useMemo(
     () => presupuestos.filter((p) => p.estado === "ACEPTADO" || p.estado === "PERDIDO"),
@@ -365,6 +377,7 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
 
   const accionables = presupuestos
     .filter((p) => ESTADOS_ACCIONABLES.includes(p.estado))
+    .filter((p) => !soloOferta || p.ofertaActiva === true)
     .sort((a, b) => b.urgencyScore - a.urgencyScore);
 
   const urgentes = accionables.filter((p) => p.urgencyScore >= 70);
@@ -418,17 +431,30 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
               <p className="text-[10px] text-violet-200">Seguimiento</p>
             </div>
           )}
-          {/* Compact toggle */}
-          <button
-            onClick={() => setCompact((v) => !v)}
-            className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-colors ${
-              compact
-                ? "bg-white text-violet-700 border-white"
-                : "bg-violet-700 text-violet-200 border-violet-600 hover:bg-violet-600"
-            }`}
-          >
-            {compact ? "Vista detallada" : "Vista compacta"}
-          </button>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Oferta activa filter */}
+            <button
+              onClick={() => setSoloOferta((v) => !v)}
+              className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-colors ${
+                soloOferta
+                  ? "bg-amber-400 text-amber-900 border-amber-400"
+                  : "bg-violet-700 text-violet-200 border-violet-600 hover:bg-violet-600"
+              }`}
+            >
+              Oferta activa
+            </button>
+            {/* Compact toggle */}
+            <button
+              onClick={() => setCompact((v) => !v)}
+              className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-colors ${
+                compact
+                  ? "bg-white text-violet-700 border-white"
+                  : "bg-violet-700 text-violet-200 border-violet-600 hover:bg-violet-600"
+              }`}
+            >
+              {compact ? "Vista detallada" : "Vista compacta"}
+            </button>
+          </div>
         </div>
       </div>
 

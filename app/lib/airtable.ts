@@ -20,6 +20,8 @@ export const TABLES = {
   configuracionAutomatizaciones: "Configuracion_Automatizaciones",
   // Web Push
   pushSubscriptions: "Push_Subscriptions",
+  // Historial de acciones
+  historialAcciones: "Historial_Acciones",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];

@@ -10,6 +10,7 @@ import { kv } from "@vercel/kv";
 import { randomBytes } from "crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { base, TABLES } from "../../../../lib/airtable";
+import { registrarAccion } from "../../../../lib/historial/registrar";
 
 const COOKIE = "fyllio_presupuestos_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -144,6 +145,14 @@ export async function POST(
     };
 
     await kv.set(KV_PREFIX + token, data, { ex: TTL_DAYS * 86400 });
+
+    registrarAccion({
+      presupuestoId: id,
+      tipo: "portal_generado",
+      descripcion: "Portal de presupuesto generado",
+      metadata: { token },
+      clinica: clinica ?? "",
+    }).catch(() => {});
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
     return NextResponse.json({ url: `${appUrl}/presupuesto/${token}`, token, expiresAt });

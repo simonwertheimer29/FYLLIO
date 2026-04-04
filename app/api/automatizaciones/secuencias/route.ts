@@ -7,6 +7,7 @@ import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { base, TABLES } from "../../../lib/airtable";
 import type { UserSession, Secuencia } from "../../../lib/presupuestos/types";
+import { registrarAccion } from "../../../lib/historial/registrar";
 
 const COOKIE = "fyllio_presupuestos_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -125,6 +126,25 @@ export async function PATCH(req: Request) {
     }
 
     await base(TABLES.secuenciasAutomaticas as any).update(id, updates as any);
+
+    // Registrar en historial cuando se envía el mensaje
+    if (accion === "enviar") {
+      try {
+        const rec = await base(TABLES.secuenciasAutomaticas as any).find(id);
+        const f = (rec as any).fields as Record<string, unknown>;
+        await registrarAccion({
+          presupuestoId: String(f["presupuesto_id"] ?? ""),
+          tipo: "mensaje_automatico",
+          descripcion: `Mensaje automático enviado vía ${String(f["canal_sugerido"] ?? "whatsapp")}`,
+          metadata: { secuenciaId: id, tipoEvento: f["tipo_evento"] },
+          registradoPor: session.nombre || session.email,
+          clinica: String(f["clinica"] ?? ""),
+        });
+      } catch {
+        // no bloquear
+      }
+    }
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[secuencias PATCH]", err);

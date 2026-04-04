@@ -125,7 +125,7 @@ export async function GET(req: Request) {
         "TipoPaciente", "TipoVisita", "FechaAlta", "Clinica",
         "ContactCount", "CreadoPor",
         "OrigenLead", "MotivoPerdida", "MotivoPerdidaTexto", "MotivoDuda",
-        "Reactivacion", "PortalEnviado",
+        "Reactivacion", "PortalEnviado", "OfertaActiva",
       ],
       sort: [{ field: "Fecha", direction: "desc" }],
       maxRecords: 500,
@@ -211,6 +211,7 @@ export async function GET(req: Request) {
         motivoDuda: f["MotivoDuda"] ?? undefined,
         reactivacion: f["Reactivacion"] === true,
         portalEnviado: f["PortalEnviado"] === true,
+        ofertaActiva: f["OfertaActiva"] === true,
       };
       p.urgencyScore = computeUrgencyScore(p);
       return p;

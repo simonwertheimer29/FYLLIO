@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import type { PortalData } from "../../presupuestos/[id]/generar-portal/route";
 import { sendPushToClinica } from "../../../lib/push/sender";
+import { registrarAccion } from "../../../lib/historial/registrar";
 
 const KV_PREFIX = "portal:";
 
@@ -43,6 +44,13 @@ export async function GET(
         body: `${data.patientName} acaba de abrir su presupuesto${data.amount ? ` de €${data.amount.toLocaleString("es-ES")}` : ""}`,
         url: "/presupuestos",
         tag: `portal-${token}`,
+      }).catch(() => {});
+
+      registrarAccion({
+        presupuestoId: data.presupuestoId,
+        tipo: "portal_visto",
+        descripcion: `${data.patientName} abrió el portal`,
+        clinica: data.clinica ?? "",
       }).catch(() => {});
     }
 

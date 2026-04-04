@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Presupuesto, Contacto, PresupuestoEstado, TipoContacto, ResultadoContacto, MotivoPerdida } from "../../lib/presupuestos/types";
+import type { Presupuesto, Contacto, PresupuestoEstado, TipoContacto, ResultadoContacto, MotivoPerdida, HistorialAccion, TipoAccion } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG, PIPELINE_ORDEN, ESPECIALIDAD_COLOR, ORIGEN_LABEL } from "../../lib/presupuestos/colors";
 import MotivoPerdidaModal from "./MotivoPerdidaModal";
 import IAMensajePanel from "./IAMensajePanel";
@@ -32,6 +32,30 @@ function fmt(iso: string) {
   } catch { return iso; }
 }
 
+const TIPO_ACCION_ICON: Record<TipoAccion, string> = {
+  cambio_estado:     "→",
+  contacto:          "📞",
+  portal_generado:   "🔗",
+  portal_visto:      "👁",
+  portal_aceptado:   "✅",
+  portal_rechazado:  "❌",
+  mensaje_automatico:"✦",
+};
+
+const TIPO_ACCION_DOT: Record<TipoAccion, string> = {
+  cambio_estado:     "bg-slate-400",
+  contacto:          "bg-slate-400",
+  portal_generado:   "bg-blue-400",
+  portal_visto:      "bg-sky-400",
+  portal_aceptado:   "bg-emerald-500",
+  portal_rechazado:  "bg-rose-500",
+  mensaje_automatico:"bg-violet-400",
+};
+
+type TimelineItem =
+  | { kind: "contacto"; contacto: Contacto; date: string }
+  | { kind: "historial"; accion: HistorialAccion; date: string };
+
 export default function PatientDrawer({
   presupuesto,
   onClose,
@@ -46,6 +70,8 @@ export default function PatientDrawer({
   const p = presupuesto;
   const [contactos, setContactos] = useState<Contacto[]>([]);
   const [loadingC, setLoadingC] = useState(true);
+  const [historial, setHistorial] = useState<HistorialAccion[]>([]);
+  const [loadingH, setLoadingH] = useState(true);
   const [pendingPerdido, setPendingPerdido] = useState(false);
 
   // Patient history — other presupuestos with the same name
@@ -60,6 +86,7 @@ export default function PatientDrawer({
   const [tipo, setTipo] = useState<TipoContacto>("llamada");
   const [resultado, setResultado] = useState<ResultadoContacto>("contestó");
   const [nota, setNota] = useState("");
+  const [oferta, setOferta] = useState(false);
   const [saving, setSaving] = useState(false);
 
   async function loadContactos() {
@@ -72,7 +99,20 @@ export default function PatientDrawer({
     finally { setLoadingC(false); }
   }
 
-  useEffect(() => { loadContactos(); }, [p.id]);
+  async function loadHistorial() {
+    setLoadingH(true);
+    try {
+      const r = await fetch(`/api/presupuestos/historial?presupuestoId=${p.id}`);
+      const d = await r.json();
+      setHistorial(Array.isArray(d) ? d : []);
+    } catch { setHistorial([]); }
+    finally { setLoadingH(false); }
+  }
+
+  useEffect(() => {
+    loadContactos();
+    loadHistorial();
+  }, [p.id]);
 
   useEffect(() => {
     const url = new URL("/api/presupuestos/kanban", location.href);
@@ -109,10 +149,11 @@ export default function PatientDrawer({
       await fetch("/api/presupuestos/contactos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ presupuestoId: p.id, tipo, resultado, nota: nota.trim() || undefined }),
+        body: JSON.stringify({ presupuestoId: p.id, tipo, resultado, nota: nota.trim() || undefined, oferta: oferta || undefined }),
       });
       setNota("");
-      await loadContactos();
+      setOferta(false);
+      await Promise.all([loadContactos(), loadHistorial()]);
     } finally { setSaving(false); }
   }
 
@@ -297,47 +338,85 @@ export default function PatientDrawer({
             )}
           </div>
 
-          {/* Contact history — timeline */}
+          {/* Timeline unificado — contactos + historial de acciones */}
           <div className="px-5 py-3 border-b border-slate-100">
-            <p className="text-[10px] text-slate-400 uppercase font-medium mb-3">
-              Historial de contactos ({contactos.length})
-            </p>
-            {loadingC ? (
-              <div className="space-y-3">
-                {[1, 2].map((i) => <div key={i} className="h-10 rounded-lg bg-slate-100 animate-pulse" />)}
-              </div>
-            ) : contactos.length === 0 ? (
-              <p className="text-xs text-slate-400">Sin contactos aún</p>
-            ) : (
-              <div>
-                {contactos.map((c, idx) => {
-                  const isLast = idx === contactos.length - 1;
-                  return (
-                    <div key={c.id} className="flex gap-3">
-                      {/* Dot + vertical line */}
-                      <div className="flex flex-col items-center">
-                        <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-0.5 ${TIPO_DOT_COLOR[c.tipo]}`} />
-                        {!isLast && <div className="w-0.5 flex-1 bg-slate-200 my-1 min-h-[12px]" />}
-                      </div>
-                      {/* Content */}
-                      <div className={`flex-1 ${isLast ? "pb-1" : "pb-3"}`}>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="text-[10px] font-semibold text-slate-700">{TIPO_LABEL[c.tipo]}</span>
-                          {c.mensajeIAUsado && (
-                            <span className="text-[9px] px-1 py-0.5 rounded-full bg-violet-100 text-violet-600 font-semibold">✨ IA</span>
-                          )}
-                          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${RESULTADO_COLOR[c.resultado]}`}>
-                            {c.resultado}
-                          </span>
-                        </div>
-                        {c.nota && <p className="text-[10px] text-slate-500 mt-0.5 italic">{c.nota}</p>}
-                        <p className="text-[9px] text-slate-400 mt-0.5">{fmt(c.fechaHora)}</p>
-                      </div>
+            {(() => {
+              const items: TimelineItem[] = [
+                ...contactos.map((c): TimelineItem => ({ kind: "contacto", contacto: c, date: c.fechaHora })),
+                ...historial.map((h): TimelineItem => ({ kind: "historial", accion: h, date: h.fecha })),
+              ].sort((a, b) => b.date.localeCompare(a.date));
+
+              const loading = loadingC || loadingH;
+              return (
+                <>
+                  <p className="text-[10px] text-slate-400 uppercase font-medium mb-3">
+                    Historial de acciones ({loading ? "…" : items.length})
+                  </p>
+                  {loading ? (
+                    <div className="space-y-3">
+                      {[1, 2].map((i) => <div key={i} className="h-10 rounded-lg bg-slate-100 animate-pulse" />)}
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                  ) : items.length === 0 ? (
+                    <p className="text-xs text-slate-400">Sin acciones aún</p>
+                  ) : (
+                    <div>
+                      {items.map((item, idx) => {
+                        const isLast = idx === items.length - 1;
+                        if (item.kind === "contacto") {
+                          const c = item.contacto;
+                          return (
+                            <div key={`c-${c.id}`} className="flex gap-3">
+                              <div className="flex flex-col items-center">
+                                <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-0.5 ${TIPO_DOT_COLOR[c.tipo]}`} />
+                                {!isLast && <div className="w-0.5 flex-1 bg-slate-200 my-1 min-h-[12px]" />}
+                              </div>
+                              <div className={`flex-1 ${isLast ? "pb-1" : "pb-3"}`}>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="text-[10px] font-semibold text-slate-700">{TIPO_LABEL[c.tipo]}</span>
+                                  {c.mensajeIAUsado && (
+                                    <span className="text-[9px] px-1 py-0.5 rounded-full bg-violet-100 text-violet-600 font-semibold">✨ IA</span>
+                                  )}
+                                  {c.oferta && (
+                                    <span className="text-[9px] px-1 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold">Oferta</span>
+                                  )}
+                                  <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${RESULTADO_COLOR[c.resultado]}`}>
+                                    {c.resultado}
+                                  </span>
+                                </div>
+                                {c.nota && <p className="text-[10px] text-slate-500 mt-0.5 italic">{c.nota}</p>}
+                                <p className="text-[9px] text-slate-400 mt-0.5">{fmt(c.fechaHora)}</p>
+                              </div>
+                            </div>
+                          );
+                        } else {
+                          const h = item.accion;
+                          // Contactos duplicados del historial (doble escritura) se filtran visualmente
+                          if (h.tipo === "contacto") return null;
+                          return (
+                            <div key={`h-${h.id}`} className="flex gap-3">
+                              <div className="flex flex-col items-center">
+                                <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-0.5 ${TIPO_ACCION_DOT[h.tipo]}`} />
+                                {!isLast && <div className="w-0.5 flex-1 bg-slate-200 my-1 min-h-[12px]" />}
+                              </div>
+                              <div className={`flex-1 ${isLast ? "pb-1" : "pb-3"}`}>
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-[10px]">{TIPO_ACCION_ICON[h.tipo]}</span>
+                                  <span className="text-[10px] font-semibold text-slate-600">{h.descripcion}</span>
+                                </div>
+                                {h.registradoPor && (
+                                  <p className="text-[9px] text-slate-400 mt-0.5">Por {h.registradoPor}</p>
+                                )}
+                                <p className="text-[9px] text-slate-400 mt-0.5">{fmt(h.fecha)}</p>
+                              </div>
+                            </div>
+                          );
+                        }
+                      })}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Patient history accordion */}
@@ -404,6 +483,20 @@ export default function PatientDrawer({
                 rows={2}
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs resize-none focus:outline-none focus:ring-2 focus:ring-violet-300"
               />
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={oferta}
+                  onChange={(e) => setOferta(e.target.checked)}
+                  className="w-3.5 h-3.5 accent-amber-500"
+                />
+                <span className="text-xs text-slate-600">Oferta realizada</span>
+                {oferta && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-semibold ml-auto">
+                    Se marcará como oferta activa
+                  </span>
+                )}
+              </label>
               <button
                 onClick={handleAddContact}
                 disabled={saving}
