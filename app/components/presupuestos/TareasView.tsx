@@ -419,6 +419,15 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
 
   return (
     <div className="space-y-6">
+      {/* Greeting for ventas role */}
+      {user.rol === "ventas" && (
+        <p className="text-sm text-slate-500">
+          Buenos días, {user.nombre}. Tienes{" "}
+          <span className="font-semibold text-slate-700">{accionables.length}</span>{" "}
+          presupuesto{accionables.length !== 1 ? "s" : ""} por contactar hoy.
+        </p>
+      )}
+
       {/* Summary bar */}
       <div className="rounded-2xl bg-gradient-to-r from-violet-600 to-purple-700 p-4 text-white flex items-center justify-between gap-4 flex-wrap">
         <div>

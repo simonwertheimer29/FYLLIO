@@ -369,7 +369,10 @@ function pickDaysAgo(): number {
 
 // ── Asignación de estado ──────────────────────────────────────────────────────
 
-function assignEstado(daysAgo: number, tier: Tier, clinica: string, isCurrentMonth: boolean): Estado {
+// priceFactor: 0.0 = precio mínimo del tratamiento, 1.0 = precio máximo
+// Por encima del 35% del rango, la tasa de aceptación cae linealmente.
+// Esto crea la correlación que detectarTecho() necesita para detectar umbrales.
+function assignEstado(daysAgo: number, tier: Tier, clinica: string, isCurrentMonth: boolean, priceFactor = 0.5): Estado {
   // Si es del mes actual y la clínica tiene objetivo alto → más ACEPTADO reciente
   if (isCurrentMonth) {
     const pct = CLINICA_COMPLETADO_PCT[clinica] ?? 0.5;
@@ -391,11 +394,15 @@ function assignEstado(daysAgo: number, tier: Tier, clinica: string, isCurrentMon
     0.12;
 
   if (rng() < closedProb) {
-    // Tasa de aceptación por tier del doctor
-    const acceptRate =
+    // Penalización por precio: por encima del 35% del rango, la tasa cae ~1pp por cada 1% del rango
+    const pricePenalty = priceFactor > 0.35 ? (priceFactor - 0.35) * 1.0 : 0;
+
+    // Tasa base por tier del doctor, ajustada por precio
+    const baseRate =
       tier === "estrella" ? 0.55 + rng() * 0.10 :
       tier === "medio"    ? 0.25 + rng() * 0.10 :
                             0.08 + rng() * 0.10;
+    const acceptRate = Math.max(0.04, baseRate - pricePenalty);
     return rng() < acceptRate ? "ACEPTADO" : "PERDIDO";
   }
 
@@ -510,7 +517,63 @@ async function ensurePacientes(): Promise<{ id: string; nombre: string; telefono
   return created;
 }
 
-// ── 3. Crear presupuestos ──────────────────────────────────────────────────────
+// ── 3. Verificar / crear doctores en Doctores_Presupuestos ────────────────────
+
+async function ensureDoctores(): Promise<void> {
+  console.log("\n🩺 Verificando doctores en Doctores_Presupuestos…");
+
+  // Cargar doctores existentes por nombre
+  const existing = new Set<string>();
+  try {
+    await base("Doctores_Presupuestos")
+      .select({ fields: ["Nombre"] })
+      .eachPage((recs, next) => {
+        for (const r of recs) existing.add(String(r.get("Nombre") ?? "").toLowerCase());
+        next();
+      });
+  } catch (err: any) {
+    console.warn(`   ⚠ No se pudo acceder a Doctores_Presupuestos (${err.message})`);
+    console.warn(`   ℹ  Crea la tabla manualmente en Airtable con campos: Nombre, Especialidad, Clinica, Activo`);
+    return;
+  }
+
+  // Construir lista de doctores a crear
+  const toCreate: { nombre: string; especialidad: string; clinica: string }[] = [];
+  for (const [clinica, doctores] of Object.entries(DOCTORES_POR_CLINICA)) {
+    for (const d of doctores) {
+      if (!existing.has(d.nombre.toLowerCase())) {
+        toCreate.push({ nombre: d.nombre, especialidad: d.especialidad, clinica });
+      }
+    }
+  }
+
+  if (toCreate.length === 0) {
+    console.log(`   ✅ ${existing.size} doctores ya existentes — nada que crear`);
+    return;
+  }
+
+  console.log(`   ℹ  Creando ${toCreate.length} doctores nuevos…`);
+  for (let i = 0; i < toCreate.length; i += 10) {
+    const batch = toCreate.slice(i, i + 10).map((d) => ({
+      fields: {
+        Nombre:       d.nombre,
+        Especialidad: d.especialidad,
+        Clinica:      d.clinica,
+        Activo:       true,
+      },
+    }));
+    try {
+      await (base("Doctores_Presupuestos") as any).create(batch);
+    } catch (err: any) {
+      console.warn(`   ⚠ Error creando doctores: ${err.message}`);
+      return;
+    }
+    await sleep(200);
+  }
+  console.log(`   ✅ ${toCreate.length} doctores creados`);
+}
+
+// ── 4. Crear presupuestos ──────────────────────────────────────────────────────
 
 type PresupuestoRec = {
   pacienteId: string;
@@ -550,7 +613,10 @@ async function createPresupuestos(
       const doctor = pick(doctores);
       const tratamiento = weightedPick(TRATAMIENTOS, TRAT_ACUM, TRAT_TOTAL);
       const importe = randInt(tratamiento.min, tratamiento.max);
-      const estado = assignEstado(daysAgo, doctor.tier, clinica, isCurrentMonth);
+      const priceFactor = tratamiento.max > tratamiento.min
+        ? (importe - tratamiento.min) / (tratamiento.max - tratamiento.min)
+        : 0.5;
+      const estado = assignEstado(daysAgo, doctor.tier, clinica, isCurrentMonth, priceFactor);
       const tipoPaciente = rng() < 0.70 ? "Privado" : "Adeslas";
       const tipoVisita = rng() < 0.55 ? "Primera Visita" : "Paciente con Historia";
       const origenLead = weightedPick(ORIGENES, ORIGEN_ACUM, ORIGEN_TOTAL).v;
@@ -832,13 +898,16 @@ async function main() {
     process.exit(1);
   }
 
-  // 3. Presupuestos
+  // 3. Doctores
+  await ensureDoctores();
+
+  // 4. Presupuestos
   const totalPres = await createPresupuestos(pacientes);
 
-  // 4. Objetivos
+  // 5. Objetivos
   const totalObj = await createObjetivos();
 
-  // 5. Secuencias
+  // 6. Secuencias
   const totalSeq = await createSecuencias();
 
   // Resumen

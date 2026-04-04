@@ -60,6 +60,7 @@ function usePresupuestos(user: UserSession) {
 
 export default function PresupuestosShell({ user }: { user: UserSession }) {
   const isManager = user.rol === "manager_general" || user.rol === "admin";
+  const isVentas = user.rol === "ventas";
   const [tab, setTab] = useState<Tab>(isManager ? "red" : "tareas");
   const [currentFilters, setCurrentFilters] = useState<Filters>({
     clinica: "", doctor: "", tipoPaciente: "", tipoVisita: "",
@@ -191,6 +192,12 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         { id: "automatizaciones", label: "Automatizaciones", icon: "🤖" },
         { id: "config",           label: "Config",           icon: "⚙" },
       ]
+    : isVentas
+    ? [
+        { id: "tareas",           label: "Mis Tareas",       icon: "✓" },
+        { id: "kanban",           label: "Mis Presupuestos", icon: "☰" },
+        { id: "automatizaciones", label: "Automatizaciones", icon: "🤖" },
+      ]
     : [
         { id: "tareas",   label: "Tareas",   icon: "✓" },
         { id: "kanban",   label: "Panel",    icon: "☰" },
@@ -244,7 +251,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           <div className="hidden sm:block text-right ml-1">
             <p className="text-xs font-semibold text-slate-700">{user.nombre}</p>
             <p className="text-[10px] text-slate-400">
-              {user.rol === "manager_general" ? "Manager" : "Encargada ventas"}
+              {user.rol === "manager_general" ? "Manager" : user.rol === "ventas" ? "Ventas" : "Encargada ventas"}
             </p>
           </div>
           <button
@@ -295,9 +302,15 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         {tab === "kanban" && (
           <div className="flex flex-col flex-1 min-h-0 gap-3">
             <div className="shrink-0 flex items-center justify-between gap-3">
-              <div className="flex-1">
-                <FiltersBar user={user} onFiltersChange={handleFiltersChange} />
-              </div>
+              {isVentas ? (
+                <p className="text-sm font-semibold text-slate-600 flex-1">
+                  {user.clinica ?? "Mi clínica"}
+                </p>
+              ) : (
+                <div className="flex-1">
+                  <FiltersBar user={user} onFiltersChange={handleFiltersChange} />
+                </div>
+              )}
               <button
                 onClick={() => setShowNew(true)}
                 className="shrink-0 rounded-2xl bg-violet-600 text-white text-sm font-semibold px-4 py-2.5 hover:bg-violet-700"

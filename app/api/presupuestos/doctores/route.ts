@@ -35,7 +35,7 @@ export async function GET(req: Request) {
   try {
     const filters: string[] = ["{Activo}=1"];
     const clinica =
-      session.rol === "encargada_ventas" && session.clinica
+      (session.rol === "encargada_ventas" || session.rol === "ventas") && session.clinica
         ? session.clinica
         : searchParams.get("clinica") ?? null;
 
@@ -63,12 +63,43 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ doctores });
   } catch {
-    let doctores = DEMO_DOCTORES.filter((d) => d.activo);
+    // Doctores_Presupuestos no existe → extraer doctores únicos del campo Doctor en Presupuestos
     const clinica =
-      session.rol === "encargada_ventas" && session.clinica
+      (session.rol === "encargada_ventas" || session.rol === "ventas") && session.clinica
         ? session.clinica
         : searchParams.get("clinica") ?? null;
-    if (clinica) doctores = doctores.filter((d) => d.clinica === clinica);
-    return NextResponse.json({ doctores, isDemo: true });
+    try {
+      const formula = clinica ? `AND(NOT({Doctor}=""),{Clinica}='${clinica}')` : `NOT({Doctor}="")`;
+      const presRecs = await base(TABLES.presupuestos as any)
+        .select({
+          fields: ["Doctor", "Doctor_Especialidad", "Clinica"],
+          filterByFormula: formula,
+          maxRecords: 500,
+        })
+        .all();
+
+      const doctorMap = new Map<string, Doctor>();
+      for (const r of presRecs) {
+        const f = r.fields as any;
+        const nombre = f["Doctor"] ? String(f["Doctor"]) : null;
+        if (!nombre || doctorMap.has(nombre)) continue;
+        doctorMap.set(nombre, {
+          id: nombre,
+          nombre,
+          especialidad: f["Doctor_Especialidad"] ?? "General",
+          clinica: f["Clinica"] ? String(f["Clinica"]) : undefined,
+          activo: true,
+        });
+      }
+
+      const doctores = Array.from(doctorMap.values())
+        .sort((a, b) => a.nombre.localeCompare(b.nombre));
+      return NextResponse.json({ doctores });
+    } catch {
+      // Final fallback: demo doctores
+      let doctores = DEMO_DOCTORES.filter((d) => d.activo);
+      if (clinica) doctores = doctores.filter((d) => d.clinica === clinica);
+      return NextResponse.json({ doctores, isDemo: true });
+    }
   }
 }

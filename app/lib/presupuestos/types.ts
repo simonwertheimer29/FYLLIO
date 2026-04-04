@@ -103,7 +103,7 @@ export type Doctor = {
 export type UserSession = {
   email: string;
   nombre: string;
-  rol: "manager_general" | "encargada_ventas" | "admin";
+  rol: "manager_general" | "encargada_ventas" | "admin" | "ventas";
   clinica: string | null;
 };
 

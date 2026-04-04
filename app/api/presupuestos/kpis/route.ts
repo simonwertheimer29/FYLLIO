@@ -356,7 +356,7 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const clinica =
-    session.rol === "encargada_ventas" && session.clinica
+    (session.rol === "encargada_ventas" || session.rol === "ventas") && session.clinica
       ? session.clinica
       : url.searchParams.get("clinica") ?? null;
   const doctor = url.searchParams.get("doctor") ?? null;

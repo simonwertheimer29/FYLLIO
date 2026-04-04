@@ -233,7 +233,7 @@ export async function GET(req: Request) {
     }
 
     // Client-side filters for fields not in base Airtable schema
-    const clinicaFilter = session.rol === "encargada_ventas" && session.clinica
+    const clinicaFilter = (session.rol === "encargada_ventas" || session.rol === "ventas") && session.clinica
       ? session.clinica
       : (q.get("clinica") ?? "");
     if (clinicaFilter) {
