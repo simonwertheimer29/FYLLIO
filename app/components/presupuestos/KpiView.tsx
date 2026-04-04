@@ -404,8 +404,8 @@ function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: 
                     </div>
                   </div>
                   <p className="text-[10px] text-slate-400 mt-2">
-                    {info.sampleBelow + info.sampleAbove} presupuestos cerrados analizados
-                    · caída de {info.tasaBelow - info.tasaAbove}pp
+                    {info.sampleBelow + info.sampleAbove} presupuestos analizados
+                    · de {info.tasaBelow}% a {info.tasaAbove}% de aceptación
                   </p>
                 </div>
               );

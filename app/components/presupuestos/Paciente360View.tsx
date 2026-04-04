@@ -175,7 +175,7 @@ export default function Paciente360View({ nombre }: Props) {
                           className="text-[10px] font-bold px-2 py-0.5 rounded-full"
                           style={{ background: estadoCfg?.hex + "22", color: estadoCfg?.hex ?? "#64748b" }}
                         >
-                          {p.estado}
+                          {estadoCfg?.label ?? p.estado}
                         </span>
                         {p.ofertaActiva && (
                           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
@@ -248,8 +248,10 @@ export default function Paciente360View({ nombre }: Props) {
                           Presupuesto creado — {p.treatments.join(", ") || "Sin tratamiento"}
                         </p>
                         <p className="text-[10px] text-slate-400">
-                          Estado: {p.estado}
+                          {ESTADO_CONFIG[p.estado]?.label ?? p.estado}
                           {p.amount != null && ` · €${p.amount.toLocaleString("es-ES")}`}
+                          {p.doctor && ` · ${p.doctor}`}
+                          {p.clinica && ` · ${p.clinica}`}
                         </p>
                       </div>
                       <p className="text-[10px] text-slate-400 shrink-0">{formatFechaCorta(p.fechaAlta)}</p>
