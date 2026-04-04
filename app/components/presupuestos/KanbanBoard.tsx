@@ -75,7 +75,14 @@ function CompactCard({
       {/* Name + urgency dot + prob badge */}
       <div className="flex items-start gap-1.5">
         {p.urgencyScore > 0 && <UrgencyDot score={p.urgencyScore} />}
-        <p className="text-xs font-bold text-slate-900 leading-tight flex-1 min-w-0 truncate">{p.patientName}</p>
+        <a
+          href={`/presupuestos/paciente/${encodeURIComponent(p.patientName)}`}
+          className="text-xs font-bold text-slate-900 leading-tight flex-1 min-w-0 truncate hover:text-violet-700 hover:underline"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {p.patientName}
+        </a>
         {prob != null && <ProbBadge prob={prob} />}
       </div>
 

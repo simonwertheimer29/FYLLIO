@@ -166,6 +166,13 @@ function buildKpis(allPresupuestos: Presupuesto[]): KpiData {
         tasa: g.total > 0 ? Math.round((g.aceptados / g.total) * 100) : 0,
         importe: g.importe,
         techoPrecio: techo?.precio ?? null,
+        techoInfo: techo ? {
+          tasaBelow: techo.tasaBelow,
+          tasaAbove: techo.tasaAbove,
+          confianza: techo.confianza,
+          sampleBelow: techo.sampleBelow,
+          sampleAbove: techo.sampleAbove,
+        } : null,
       };
     })
     .sort((a, b) => b.total - a.total);

@@ -43,7 +43,13 @@ function CompactRow({ p, prob, onOpenDrawer, onQuickContact }: {
         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase shrink-0 ${badge.color}`}>
           {badge.label}
         </span>
-        <p className="font-semibold text-sm text-slate-900 truncate flex-1 min-w-0">{p.patientName}</p>
+        <a
+          href={`/presupuestos/paciente/${encodeURIComponent(p.patientName)}`}
+          className="font-semibold text-sm text-slate-900 truncate flex-1 min-w-0 hover:text-violet-700 hover:underline"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {p.patientName}
+        </a>
         {p.treatments[0] && (
           <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0 hidden sm:inline max-w-[110px] truncate">
             {p.treatments[0]}
@@ -165,7 +171,13 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
                 style={{ background: cfg.hex + "22", color: cfg.hex }}>{cfg.label}</span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-bold text-sm text-slate-900 truncate">{p.patientName}</p>
+              <a
+                href={`/presupuestos/paciente/${encodeURIComponent(p.patientName)}`}
+                className="font-bold text-sm text-slate-900 truncate hover:text-violet-700 hover:underline"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {p.patientName}
+              </a>
               <div className="mt-0.5">
                 {p.motivoDuda
                   ? <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{MOTIVO_DUDA_LABEL[p.motivoDuda] ?? p.motivoDuda}</span>

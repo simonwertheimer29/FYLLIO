@@ -136,6 +136,13 @@ export type KpiPorTratamiento = {
   tasa: number;
   importe: number;
   techoPrecio?: number | null; // detected price ceiling (€)
+  techoInfo?: {
+    tasaBelow: number;
+    tasaAbove: number;
+    confianza: "alta" | "media" | "baja";
+    sampleBelow: number;
+    sampleAbove: number;
+  } | null;
 };
 
 export type KpiMensual = {

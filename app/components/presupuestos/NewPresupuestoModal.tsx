@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   Doctor, Presupuesto, PresupuestoEstado, UserSession,
   EspecialidadDoctor, TipoPaciente, TipoVisita, OrigenLead,
@@ -56,6 +56,29 @@ export default function NewPresupuestoModal({
   const [estadoInicial, setEstadoInicial] = useState<PresupuestoEstado>("PRESENTADO");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [duplicados, setDuplicados] = useState<Presupuesto[]>([]);
+  const dupTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function handlePatientNameChange(value: string) {
+    setPatientName(value);
+    if (isEdit) return;
+    if (dupTimerRef.current) clearTimeout(dupTimerRef.current);
+    if (value.trim().length < 3) { setDuplicados([]); return; }
+    dupTimerRef.current = setTimeout(async () => {
+      try {
+        const url = new URL("/api/presupuestos/kanban", location.href);
+        url.searchParams.set("q", value.trim());
+        const res = await fetch(url.toString());
+        const d = await res.json();
+        const matches: Presupuesto[] = (d.presupuestos ?? []).filter(
+          (p: Presupuesto) => p.patientName.toLowerCase().includes(value.trim().toLowerCase())
+        );
+        setDuplicados(matches.slice(0, 5));
+      } catch {
+        setDuplicados([]);
+      }
+    }, 500);
+  }
 
   useEffect(() => {
     const url = new URL("/api/presupuestos/doctores", location.href);
@@ -150,10 +173,32 @@ export default function NewPresupuestoModal({
               <input
                 type="text"
                 value={patientName}
-                onChange={(e) => setPatientName(e.target.value)}
+                onChange={(e) => handlePatientNameChange(e.target.value)}
                 placeholder="Nombre completo"
                 className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
               />
+              {!isEdit && duplicados.length > 0 && (
+                <div className="mt-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                  <p className="text-[11px] font-semibold text-amber-700 mb-1">
+                    ⚠ Ya existe{duplicados.length > 1 ? "n" : ""} {duplicados.length} presupuesto{duplicados.length > 1 ? "s" : ""} para este paciente:
+                  </p>
+                  <ul className="space-y-0.5">
+                    {duplicados.map((d) => (
+                      <li key={d.id} className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] text-amber-800">{d.patientName} · {d.estado} · {d.fechaPresupuesto.slice(0, 10)}</span>
+                        <a
+                          href={`/presupuestos/paciente/${encodeURIComponent(d.patientName)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[10px] font-semibold text-violet-600 hover:underline shrink-0"
+                        >
+                          Ver →
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Nº Historia</label>

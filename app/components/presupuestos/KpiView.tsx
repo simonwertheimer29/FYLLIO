@@ -325,12 +325,95 @@ function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
 
 // ─── Tab: Tratamientos ────────────────────────────────────────────────────────
 
+const CONFIANZA_BADGE: Record<string, { bg: string; text: string; label: string }> = {
+  alta:  { bg: "bg-emerald-100", text: "text-emerald-700", label: "Alta confianza" },
+  media: { bg: "bg-amber-100",   text: "text-amber-700",   label: "Confianza media" },
+  baja:  { bg: "bg-slate-100",   text: "text-slate-500",   label: "Pocos datos" },
+};
+
 function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: KpiData; mesLabel: string }) {
   const top8 = [...kpisMes.porTratamiento].sort((a, b) => b.tasa - a.tasa).slice(0, 8);
   const top8HistAll = [...kpis.porTratamiento].sort((a, b) => b.tasa - a.tasa).slice(0, 8);
 
+  // Tratamientos con umbral de precio detectado (histórico — más datos)
+  const tratConTecho = [...kpis.porTratamiento]
+    .filter((t) => t.techoInfo != null)
+    .sort((a, b) =>
+      (b.techoInfo!.tasaBelow - b.techoInfo!.tasaAbove) -
+      (a.techoInfo!.tasaBelow - a.techoInfo!.tasaAbove)
+    );
+
   return (
     <div className="space-y-5">
+
+      {/* Umbrales de precio detectados */}
+      {tratConTecho.length > 0 && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
+          <p className="text-sm font-bold text-slate-900 mb-1">Umbrales de precio detectados</p>
+          <p className="text-xs text-slate-500 mb-4">
+            Importe a partir del cual la tasa de aceptación cae significativamente para cada tratamiento.
+          </p>
+          <div className="space-y-4">
+            {tratConTecho.map((t) => {
+              const info = t.techoInfo!;
+              const badge = CONFIANZA_BADGE[info.confianza] ?? CONFIANZA_BADGE.baja;
+              const maxTasa = Math.max(info.tasaBelow, info.tasaAbove, 1);
+              return (
+                <div key={t.grupo} className="bg-white rounded-xl border border-amber-100 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="font-semibold text-sm text-slate-800">{t.grupo}</p>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-amber-700">
+                        ~€{t.techoPrecio!.toLocaleString("es-ES")}
+                      </span>
+                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${badge.bg} ${badge.text}`}>
+                        {badge.label}
+                      </span>
+                    </div>
+                  </div>
+                  {/* Barra inferior al techo */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-slate-500 w-28 shrink-0">
+                        ≤€{t.techoPrecio!.toLocaleString("es-ES")}
+                      </span>
+                      <div className="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-emerald-400 rounded-full transition-all"
+                          style={{ width: `${Math.round((info.tasaBelow / maxTasa) * 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-bold text-emerald-700 w-8 text-right">
+                        {info.tasaBelow}%
+                      </span>
+                    </div>
+                    {/* Barra superior al techo */}
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-slate-500 w-28 shrink-0">
+                        &gt;€{t.techoPrecio!.toLocaleString("es-ES")}
+                      </span>
+                      <div className="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-rose-400 rounded-full transition-all"
+                          style={{ width: `${Math.round((info.tasaAbove / maxTasa) * 100)}%` }}
+                        />
+                      </div>
+                      <span className="text-[11px] font-bold text-rose-600 w-8 text-right">
+                        {info.tasaAbove}%
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-2">
+                    {info.sampleBelow + info.sampleAbove} presupuestos cerrados analizados
+                    · caída de {info.tasaBelow - info.tasaAbove}pp
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Bar chart this month */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5">
         <p className="text-sm font-bold text-slate-900 mb-1">Top 8 tratamientos — tasa de conversión en {mesLabel}</p>
