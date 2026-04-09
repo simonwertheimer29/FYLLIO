@@ -942,19 +942,47 @@ async function seedInformesGuardados(): Promise<number> {
       titulo: `Informe semanal — Semana ${w1.week}, ${w1.year}`,
       contenido_json: JSON.stringify({
         clinicas: [
-          { clinica: "Clínica Madrid Centro",       nuevos: 12, totalSeguimiento: 48, eurosSeguimiento: 94000, riesgoAlto: 9  },
-          { clinica: "Clínica Madrid Norte",         nuevos:  8, totalSeguimiento: 32, eurosSeguimiento: 58000, riesgoAlto: 5  },
-          { clinica: "Clínica Barcelona Eixample",   nuevos: 11, totalSeguimiento: 41, eurosSeguimiento: 82000, riesgoAlto: 7  },
-          { clinica: "Clínica Valencia Centro",      nuevos:  6, totalSeguimiento: 27, eurosSeguimiento: 46000, riesgoAlto: 4  },
-          { clinica: "Clínica Sevilla",              nuevos:  5, totalSeguimiento: 21, eurosSeguimiento: 33000, riesgoAlto: 3  },
+          { clinica: "Clínica Madrid Centro",     nuevos: 12, totalSeguimiento: 48, eurosSeguimiento: 94000, riesgoAlto: 9,  riesgoMuyAlto: 3, aceptadosEstaSemana: 5, perdidosEstaSemana: 2 },
+          { clinica: "Clínica Madrid Norte",       nuevos:  8, totalSeguimiento: 32, eurosSeguimiento: 58000, riesgoAlto: 5,  riesgoMuyAlto: 1, aceptadosEstaSemana: 3, perdidosEstaSemana: 1 },
+          { clinica: "Clínica Barcelona Eixample", nuevos: 11, totalSeguimiento: 41, eurosSeguimiento: 82000, riesgoAlto: 7,  riesgoMuyAlto: 2, aceptadosEstaSemana: 4, perdidosEstaSemana: 3 },
+          { clinica: "Clínica Valencia Centro",    nuevos:  6, totalSeguimiento: 27, eurosSeguimiento: 46000, riesgoAlto: 4,  riesgoMuyAlto: 1, aceptadosEstaSemana: 2, perdidosEstaSemana: 1 },
+          { clinica: "Clínica Sevilla",            nuevos:  5, totalSeguimiento: 21, eurosSeguimiento: 33000, riesgoAlto: 3,  riesgoMuyAlto: 0, aceptadosEstaSemana: 2, perdidosEstaSemana: 0 },
         ],
         totalNuevos: 42,
         totalSeguimiento: 169,
         eurosSeguimiento: 313000,
         riesgoAlto: 28,
+        riesgoMuyAlto: 7,
+        semana: w1.week,
+        anio: w1.year,
+        mesActual: periodoM1,
+        objetivos: {
+          "Clínica Madrid Centro": 22,
+          "Clínica Madrid Norte": 15,
+          "Clínica Barcelona Eixample": 20,
+          "Clínica Valencia Centro": 12,
+          "Clínica Sevilla": 10,
+        },
+        aceptadosMes: {
+          "Clínica Madrid Centro": 14,
+          "Clínica Madrid Norte": 9,
+          "Clínica Barcelona Eixample": 11,
+          "Clínica Valencia Centro": 7,
+          "Clínica Sevilla": 6,
+        },
         alertaPrincipal: "28 presupuestos de riesgo alto sin contactar — €313.000 en seguimiento",
       }),
-      texto_narrativo: null,
+      texto_narrativo: `La semana cerró con **42 nuevos presupuestos** distribuidos en las cinco clínicas, con **Clínica Madrid Centro** liderando en volumen con 12 nuevos casos. El pipeline activo asciende a **169 presupuestos** con €313.000 en seguimiento, un 4% superior a la semana anterior. **Clínica Barcelona Eixample** mostró la mayor actividad en tratamientos de implantes, con 11 nuevos y 4 aceptados, lo que eleva su ratio semanal de conversión al 36%.
+
+El estado del pipeline refleja una concentración en las etapas INTERESADO y EN_DUDA, con escasa progresión hacia ACEPTADO en Madrid Norte y Valencia Centro. El patrón de 7 días sin avance en estas clínicas sugiere que los equipos de seguimiento no trabajaron la semana con la misma intensidad que Madrid Centro y Barcelona.
+
+**28 presupuestos superan los 14 días sin contacto** y entran en riesgo alto. De estos, **7 llevan más de 30 días sin ninguna interacción** y deben tratarse como urgentes. Clínica Madrid Centro concentra el mayor número absoluto de riesgo alto (9), aunque su pipeline total es el más grande. Barcelona y Madrid Norte tienen ratios de riesgo sobre pipeline superiores al 17%, señal de que el seguimiento está siendo insuficiente. Respecto al objetivo mensual, el avance promedio de la red está en el **63%** a falta de dos semanas — lograble si se reactivan los presupuestos en riesgo.
+
+ACCIONES_LUNES:
+1. Convocar revisión de los 7 casos de riesgo muy alto en Clínica Madrid Centro y Clínica Barcelona Eixample antes de las 11h — asignar mensaje personalizado a cada uno.
+2. Revisar los 5 presupuestos en riesgo alto de Clínica Madrid Norte que no han tenido contacto en 14-29 días y enviar seguimiento con el asistente IA en tono empático.
+3. Actualizar el estado de los presupuestos EN_DUDA en Clínica Valencia Centro que llevan más de 7 días sin movimiento — identificar cuáles tienen objeción de precio y preparar oferta de financiación.
+FIN_ACCIONES`,
       generado_por: "seed-demo-completo",
       generado_en: new Date(d1.getFullYear(), d1.getMonth(), d1.getDate() + (1 - d1.getDay() + 7) % 7).toISOString(),
     },
@@ -965,19 +993,47 @@ async function seedInformesGuardados(): Promise<number> {
       titulo: `Informe semanal — Semana ${w2.week}, ${w2.year}`,
       contenido_json: JSON.stringify({
         clinicas: [
-          { clinica: "Clínica Madrid Centro",       nuevos: 10, totalSeguimiento: 51, eurosSeguimiento: 99000, riesgoAlto: 11 },
-          { clinica: "Clínica Madrid Norte",         nuevos:  7, totalSeguimiento: 35, eurosSeguimiento: 62000, riesgoAlto: 6  },
-          { clinica: "Clínica Barcelona Eixample",   nuevos:  9, totalSeguimiento: 44, eurosSeguimiento: 87000, riesgoAlto: 8  },
-          { clinica: "Clínica Valencia Centro",      nuevos:  5, totalSeguimiento: 29, eurosSeguimiento: 48000, riesgoAlto: 5  },
-          { clinica: "Clínica Sevilla",              nuevos:  4, totalSeguimiento: 23, eurosSeguimiento: 36000, riesgoAlto: 4  },
+          { clinica: "Clínica Madrid Centro",     nuevos: 10, totalSeguimiento: 51, eurosSeguimiento: 99000,  riesgoAlto: 11, riesgoMuyAlto: 4, aceptadosEstaSemana: 4, perdidosEstaSemana: 3 },
+          { clinica: "Clínica Madrid Norte",       nuevos:  7, totalSeguimiento: 35, eurosSeguimiento: 62000,  riesgoAlto: 6,  riesgoMuyAlto: 2, aceptadosEstaSemana: 2, perdidosEstaSemana: 2 },
+          { clinica: "Clínica Barcelona Eixample", nuevos:  9, totalSeguimiento: 44, eurosSeguimiento: 87000,  riesgoAlto: 8,  riesgoMuyAlto: 3, aceptadosEstaSemana: 3, perdidosEstaSemana: 2 },
+          { clinica: "Clínica Valencia Centro",    nuevos:  5, totalSeguimiento: 29, eurosSeguimiento: 48000,  riesgoAlto: 5,  riesgoMuyAlto: 1, aceptadosEstaSemana: 2, perdidosEstaSemana: 1 },
+          { clinica: "Clínica Sevilla",            nuevos:  4, totalSeguimiento: 23, eurosSeguimiento: 36000,  riesgoAlto: 4,  riesgoMuyAlto: 1, aceptadosEstaSemana: 1, perdidosEstaSemana: 1 },
         ],
         totalNuevos: 35,
         totalSeguimiento: 182,
         eurosSeguimiento: 332000,
         riesgoAlto: 34,
+        riesgoMuyAlto: 11,
+        semana: w2.week,
+        anio: w2.year,
+        mesActual: periodoM1,
+        objetivos: {
+          "Clínica Madrid Centro": 22,
+          "Clínica Madrid Norte": 15,
+          "Clínica Barcelona Eixample": 20,
+          "Clínica Valencia Centro": 12,
+          "Clínica Sevilla": 10,
+        },
+        aceptadosMes: {
+          "Clínica Madrid Centro": 9,
+          "Clínica Madrid Norte": 5,
+          "Clínica Barcelona Eixample": 7,
+          "Clínica Valencia Centro": 5,
+          "Clínica Sevilla": 2,
+        },
         alertaPrincipal: "34 presupuestos de riesgo alto sin contactar — €332.000 en seguimiento",
       }),
-      texto_narrativo: null,
+      texto_narrativo: `La semana registró **35 nuevos presupuestos** en la red, un 17% menos que la semana siguiente, con **Clínica Madrid Centro** aportando 10 nuevos casos. El pipeline total alcanzó los **182 presupuestos activos** con €332.000 en seguimiento, marcando el punto más alto del mes en volumen acumulado. **Clínica Barcelona Eixample** y **Clínica Madrid Norte** presentaron las mayores ratios de presupuestos por paciente nuevo, señal de que los tratamientos ofrecidos son más completos.
+
+El dato más preocupante de la semana fue el incremento en riesgo: **34 presupuestos superaron los 14 días sin contacto**, un 21% más que la semana anterior. Los 11 casos de riesgo muy alto (>30 días) se distribuyen entre Madrid Centro (4), Barcelona (3) y Madrid Norte (2), lo que indica que el problema no es puntual de una clínica sino sistémico en el proceso de seguimiento. La tasa de conversión semanal (12 aceptados / 35 nuevos) se mantuvo en el 34%, ligeramente por debajo del objetivo del 38%.
+
+El avance hacia objetivos mensuales al cierre de esta semana dejaba la red en un **35% del objetivo** — ritmo insuficiente para alcanzar las metas si no se aceleran los cierres en las dos semanas siguientes. La clínica con mayor brecha fue Clínica Sevilla, con solo 2 aceptados de 10 objetivo (20%).
+
+ACCIONES_LUNES:
+1. Priorizar contacto inmediato a los 11 presupuestos de riesgo muy alto (>30 días) — asignar un coordinador específico en cada clínica responsable de cerrar o descartar cada caso antes del viernes.
+2. Revisar con los directores de Clínica Madrid Norte y Clínica Sevilla el protocolo de seguimiento semanal — definir días y canales de contacto para los presupuestos EN_DUDA con más de 7 días sin respuesta.
+3. Activar campaña de recordatorio personalizado vía WhatsApp para los 23 presupuestos en riesgo alto (14-29 días) usando la plantilla de financiación flexible.
+FIN_ACCIONES`,
       generado_por: "seed-demo-completo",
       generado_en: new Date(d2.getFullYear(), d2.getMonth(), d2.getDate() + (1 - d2.getDay() + 7) % 7).toISOString(),
     },

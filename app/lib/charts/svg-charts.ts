@@ -71,11 +71,11 @@ export async function graficoLineas(
     const val = Math.round((maxVal / 5) * i);
     const y = (pad.top + H - (val / maxVal) * H).toFixed(1);
     return `<line x1="${pad.left}" y1="${y}" x2="${pad.left + W}" y2="${y}" stroke="${C.grisBorde}" stroke-width="1"/>
-<text x="${pad.left - 8}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="11" fill="${C.grisMedio}" font-family="Arial,Helvetica,sans-serif">${val}</text>`;
+<text x="${pad.left - 8}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="11" fill="${C.grisMedio}" font-family="Liberation Sans,DejaVu Sans,sans-serif">${val}</text>`;
   }).join("\n");
 
   const labelsX = datos.map((d, i) =>
-    `<text x="${xs[i].toFixed(1)}" y="${pad.top + H + 20}" text-anchor="middle" font-size="11" fill="${C.grisTexto}" font-family="Arial,Helvetica,sans-serif">${esc(d.label)}</text>`
+    `<text x="${xs[i].toFixed(1)}" y="${pad.top + H + 20}" text-anchor="middle" font-size="11" fill="${C.grisTexto}" font-family="Liberation Sans,DejaVu Sans,sans-serif">${esc(d.label)}</text>`
   ).join("\n");
 
   const circlesOf = xs.map((x, i) =>
@@ -89,9 +89,9 @@ export async function graficoLineas(
   <rect width="${widthPx}" height="${heightPx}" fill="white"/>
   <!-- leyenda -->
   <rect x="${pad.left}" y="10" width="12" height="12" rx="2" fill="${C.azul}"/>
-  <text x="${pad.left + 16}" y="21" font-size="12" fill="${C.grisTexto}" font-family="Arial,Helvetica,sans-serif">Ofrecidos</text>
+  <text x="${pad.left + 16}" y="21" font-size="12" fill="${C.grisTexto}" font-family="Liberation Sans,DejaVu Sans,sans-serif">Ofrecidos</text>
   <rect x="${pad.left + 95}" y="10" width="12" height="12" rx="2" fill="${C.verde}"/>
-  <text x="${pad.left + 111}" y="21" font-size="12" fill="${C.grisTexto}" font-family="Arial,Helvetica,sans-serif">Aceptados</text>
+  <text x="${pad.left + 111}" y="21" font-size="12" fill="${C.grisTexto}" font-family="Liberation Sans,DejaVu Sans,sans-serif">Aceptados</text>
   <!-- grid -->
   ${gridLines}
   <!-- áreas -->
@@ -139,9 +139,9 @@ export async function graficoBarrasH(
     const color = d.color ?? C.morado;
     const labelTrunc = d.label.length > 22 ? d.label.slice(0, 20) + "…" : d.label;
     return `
-<text x="${padL - 10}" y="${(y + barH / 2 + 4).toFixed(1)}" text-anchor="end" font-size="12" fill="${C.grisTexto}" font-family="Arial,Helvetica,sans-serif">${esc(labelTrunc)}</text>
+<text x="${padL - 10}" y="${(y + barH / 2 + 4).toFixed(1)}" text-anchor="end" font-size="12" fill="${C.grisTexto}" font-family="Liberation Sans,DejaVu Sans,sans-serif">${esc(labelTrunc)}</text>
 <rect x="${padL}" y="${y.toFixed(1)}" width="${bW.toFixed(1)}" height="${barH.toFixed(1)}" rx="3" fill="${color}" opacity="0.85"/>
-<text x="${(padL + bW + 8).toFixed(1)}" y="${(y + barH / 2 + 4).toFixed(1)}" font-size="12" font-weight="bold" fill="${color}" font-family="Arial,Helvetica,sans-serif">${d.value}</text>`;
+<text x="${(padL + bW + 8).toFixed(1)}" y="${(y + barH / 2 + 4).toFixed(1)}" font-size="12" font-weight="bold" fill="${color}" font-family="Liberation Sans,DejaVu Sans,sans-serif">${d.value}</text>`;
   }).join("\n");
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${widthPx}" height="${heightPx}" style="background:white">
@@ -177,7 +177,7 @@ export async function graficoBarrasV(
     const val = Math.round((maxVal / 4) * i);
     const y = (padT + H - (val / maxVal) * H).toFixed(1);
     return `<line x1="${padL}" y1="${y}" x2="${padL + W}" y2="${y}" stroke="${C.grisBorde}" stroke-width="1"/>
-<text x="${padL - 8}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="11" fill="${C.grisMedio}" font-family="Arial,Helvetica,sans-serif">${val}%</text>`;
+<text x="${padL - 8}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="11" fill="${C.grisMedio}" font-family="Liberation Sans,DejaVu Sans,sans-serif">${val}%</text>`;
   }).join("\n");
 
   const barras = datos.map((d, i) => {
@@ -190,25 +190,25 @@ export async function graficoBarrasV(
     const line2 = parts.slice(1).join(" ");
     return `
 <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bH.toFixed(1)}" rx="3" fill="${color}"/>
-${d.value > 0 ? `<text x="${(x + barW / 2).toFixed(1)}" y="${(y - 8).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="bold" fill="${color}" font-family="Arial,Helvetica,sans-serif">${d.value}%</text>` : ""}
-<text x="${(x + barW / 2).toFixed(1)}" y="${(padT + H + 20).toFixed(1)}" text-anchor="middle" font-size="11" fill="${C.grisTexto}" font-family="Arial,Helvetica,sans-serif">${esc(line1)}</text>
-${line2 ? `<text x="${(x + barW / 2).toFixed(1)}" y="${(padT + H + 34).toFixed(1)}" text-anchor="middle" font-size="10" fill="${C.grisMedio}" font-family="Arial,Helvetica,sans-serif">${esc(line2)}</text>` : ""}`;
+${d.value > 0 ? `<text x="${(x + barW / 2).toFixed(1)}" y="${(y - 8).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="bold" fill="${color}" font-family="Liberation Sans,DejaVu Sans,sans-serif">${d.value}%</text>` : ""}
+<text x="${(x + barW / 2).toFixed(1)}" y="${(padT + H + 20).toFixed(1)}" text-anchor="middle" font-size="11" fill="${C.grisTexto}" font-family="Liberation Sans,DejaVu Sans,sans-serif">${esc(line1)}</text>
+${line2 ? `<text x="${(x + barW / 2).toFixed(1)}" y="${(padT + H + 34).toFixed(1)}" text-anchor="middle" font-size="10" fill="${C.grisMedio}" font-family="Liberation Sans,DejaVu Sans,sans-serif">${esc(line2)}</text>` : ""}`;
   }).join("\n");
 
   // Línea de media
   const yMedia = (padT + H - (mediaRed / maxVal) * H).toFixed(1);
   const lineaMedia = `
 <line x1="${padL}" y1="${yMedia}" x2="${padL + W}" y2="${yMedia}" stroke="${C.morado}" stroke-width="2.5" stroke-dasharray="6,4"/>
-<text x="${padL + W + 6}" y="${parseFloat(yMedia) + 5}" font-size="11" fill="${C.morado}" font-family="Arial,Helvetica,sans-serif">Media ${mediaRed}%</text>`;
+<text x="${padL + W + 6}" y="${parseFloat(yMedia) + 5}" font-size="11" fill="${C.morado}" font-family="Liberation Sans,DejaVu Sans,sans-serif">Media ${mediaRed}%</text>`;
 
   // Leyenda
   const leyenda = `
 <circle cx="${padL + 8}" cy="22" r="6" fill="${C.verde}"/>
-<text x="${padL + 18}" y="26" font-size="11" fill="${C.grisTexto}" font-family="Arial,Helvetica,sans-serif">Mayor o igual a media</text>
+<text x="${padL + 18}" y="26" font-size="11" fill="${C.grisTexto}" font-family="Liberation Sans,DejaVu Sans,sans-serif">Mayor o igual a media</text>
 <circle cx="${padL + 175}" cy="22" r="6" fill="${C.naranja}"/>
-<text x="${padL + 185}" y="26" font-size="11" fill="${C.grisTexto}" font-family="Arial,Helvetica,sans-serif">Bajo media</text>
+<text x="${padL + 185}" y="26" font-size="11" fill="${C.grisTexto}" font-family="Liberation Sans,DejaVu Sans,sans-serif">Bajo media</text>
 <circle cx="${padL + 270}" cy="22" r="6" fill="${C.rojo}"/>
-<text x="${padL + 280}" y="26" font-size="11" fill="${C.grisTexto}" font-family="Arial,Helvetica,sans-serif">0% - urgente</text>`;
+<text x="${padL + 280}" y="26" font-size="11" fill="${C.grisTexto}" font-family="Liberation Sans,DejaVu Sans,sans-serif">0% - urgente</text>`;
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${widthPx}" height="${heightPx}" style="background:white">
   <rect width="${widthPx}" height="${heightPx}" fill="white"/>
@@ -248,7 +248,7 @@ export async function graficoForecast(
     const y = (padT + H - (val / maxVal) * H).toFixed(1);
     const valFmt = `€${val.toLocaleString("es-ES")}`;
     return `<line x1="${padL}" y1="${y}" x2="${padL + W}" y2="${y}" stroke="${C.grisBorde}" stroke-width="1"/>
-<text x="${padL - 8}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="10" fill="${C.grisMedio}" font-family="Arial,Helvetica,sans-serif">${valFmt}</text>`;
+<text x="${padL - 8}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="10" fill="${C.grisMedio}" font-family="Liberation Sans,DejaVu Sans,sans-serif">${valFmt}</text>`;
   }).join("\n");
 
   const barras = datos.map((d, i) => {
@@ -258,8 +258,8 @@ export async function graficoForecast(
     const valorFmt = `€${d.valor.toLocaleString("es-ES")}`;
     return `
 <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bH.toFixed(1)}" rx="4" fill="${d.color}" opacity="0.85"/>
-<text x="${(x + barW / 2).toFixed(1)}" y="${(y - 10).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="bold" fill="${d.color}" font-family="Arial,Helvetica,sans-serif">${valorFmt}</text>
-<text x="${(x + barW / 2).toFixed(1)}" y="${(padT + H + 22).toFixed(1)}" text-anchor="middle" font-size="12" fill="${C.grisTexto}" font-family="Arial,Helvetica,sans-serif">${esc(d.mes)}</text>`;
+<text x="${(x + barW / 2).toFixed(1)}" y="${(y - 10).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="bold" fill="${d.color}" font-family="Liberation Sans,DejaVu Sans,sans-serif">${valorFmt}</text>
+<text x="${(x + barW / 2).toFixed(1)}" y="${(padT + H + 22).toFixed(1)}" text-anchor="middle" font-size="12" fill="${C.grisTexto}" font-family="Liberation Sans,DejaVu Sans,sans-serif">${esc(d.mes)}</text>`;
   }).join("\n");
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${widthPx}" height="${heightPx}" style="background:white">
