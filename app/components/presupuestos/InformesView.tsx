@@ -335,6 +335,7 @@ export default function InformesView({ user }: { user: UserSession }) {
   const [loadingGuardados, setLoadingGuardados] = useState(false);
   const [historialTab, setHistorialTab] = useState<"mensual" | "semanal">("mensual");
   const [expandedInformeId, setExpandedInformeId] = useState<string | null>(null);
+  const [semanalDownloading, setSemanalDownloading] = useState<string | null>(null);
 
   // Forecast state
   const [tasaEsperada, setTasaEsperada] = useState(25); // default 25%
@@ -530,6 +531,44 @@ export default function InformesView({ user }: { user: UserSession }) {
     }
   }
 
+  async function downloadSemanalPdf(inf: InformeGuardado) {
+    if (!inf.contenidoJson) return;
+    setSemanalDownloading(inf.id);
+    try {
+      const datos = JSON.parse(inf.contenidoJson);
+      const clinicaDisplay = inf.clinica === "todas" ? "Todas las clínicas" : inf.clinica;
+      const res = await fetch("/api/informes/generar-pdf-semanal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          periodo: inf.periodo,
+          clinica: clinicaDisplay,
+          textoNarrativo: inf.textoNarrativo ?? "",
+          datos,
+        }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error((errData as { error?: string }).error ?? `Error del servidor (${res.status})`);
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const cd = res.headers.get("Content-Disposition") ?? "";
+      const filename = cd.match(/filename="([^"]+)"/)?.[1] ?? "informe_semanal.pdf";
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Error descargando PDF semanal:", e);
+    } finally {
+      setSemanalDownloading(null);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6 w-full pb-6">
       {/* Header + filters */}
@@ -679,8 +718,12 @@ export default function InformesView({ user }: { user: UserSession }) {
                 if (inf.tipo === "semanal" && inf.contenidoJson) {
                   try { semanalData = JSON.parse(inf.contenidoJson); } catch {}
                 }
-                const lineasNarrativo = inf.textoNarrativo
-                  ? inf.textoNarrativo.split("\n").filter(Boolean)
+                const rawNarrativo = inf.textoNarrativo ?? "";
+                const narrativoDisplay = rawNarrativo.includes("ACCIONES_LUNES:")
+                  ? rawNarrativo.slice(0, rawNarrativo.indexOf("ACCIONES_LUNES:")).trim()
+                  : rawNarrativo;
+                const lineasNarrativo = narrativoDisplay
+                  ? narrativoDisplay.split("\n").filter(Boolean)
                   : [];
                 const textoResumen = lineasNarrativo.slice(0, 3).join("\n");
                 const hasMore = lineasNarrativo.length > 3;
@@ -695,12 +738,25 @@ export default function InformesView({ user }: { user: UserSession }) {
                           {fechaLabel ? ` · ${fechaLabel}` : ""}
                         </p>
                       </div>
-                      <button
-                        onClick={() => setExpandedInformeId(isExpanded ? null : inf.id)}
-                        className="text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 shrink-0"
-                      >
-                        {isExpanded ? "Ocultar ▴" : "Ver resumen ▾"}
-                      </button>
+                      <div className="flex gap-2 shrink-0">
+                        {inf.tipo === "semanal" && inf.contenidoJson && (
+                          <button
+                            onClick={() => downloadSemanalPdf(inf)}
+                            disabled={semanalDownloading === inf.id}
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60 flex items-center gap-1.5"
+                          >
+                            {semanalDownloading === inf.id ? (
+                              <><span className="w-3 h-3 rounded-full border border-slate-400 border-t-transparent animate-spin inline-block" /> Generando…</>
+                            ) : "↓ PDF"}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setExpandedInformeId(isExpanded ? null : inf.id)}
+                          className="text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                        >
+                          {isExpanded ? "Ocultar ▴" : "Ver resumen ▾"}
+                        </button>
+                      </div>
                     </div>
 
                     {isExpanded && (

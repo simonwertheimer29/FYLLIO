@@ -451,20 +451,26 @@ DATOS SEMANA ${ahoraMadrid.weekNumber}/${ahoraMadrid.weekYear}:
 Por clínica:
 ${clinicasStr}
 
-Genera un informe semanal ejecutivo con EXACTAMENTE 3 secciones (sin títulos visibles en el texto):
+Genera un informe semanal ejecutivo con EXACTAMENTE 2 secciones narrativas, seguidas del bloque estructurado obligatorio:
 
 SECCIÓN 1 — QUÉ PASÓ ESTA SEMANA: 2 párrafos. Resumen de presupuestos nuevos, estado del pipeline y cualquier patrón relevante por clínica.
 
 SECCIÓN 2 — QUÉ ESTÁ EN RIESGO: 1 párrafo. Presupuestos en riesgo alto y muy alto, clínicas más expuestas, progreso vs objetivo mensual. Identifica la situación más crítica en una frase final en negrita.
 
-SECCIÓN 3 — QUÉ HACER EL LUNES: exactamente 3 acciones concretas numeradas, cada una en una sola oración, con nombre de clínica cuando aplique.
-
-REGLAS:
+REGLAS DEL TEXTO NARRATIVO:
 - **Negritas** solo para nombres de clínicas y números clave.
 - Sin headers (#), listas (-) ni código.
 - Tono directo y ejecutivo.
-- 400-600 palabras en total.
-- NO inventes datos que no estén en los datos proporcionados.`;
+- 300-400 palabras en las 2 secciones.
+- NO inventes datos que no estén en los datos proporcionados.
+
+OBLIGATORIO — termina SIEMPRE con este bloque exacto, sin nada después:
+
+ACCIONES_LUNES:
+1. [primera acción concreta con nombre de clínica cuando aplique]
+2. [segunda acción concreta con nombre de clínica cuando aplique]
+3. [tercera acción concreta con nombre de clínica cuando aplique]
+FIN_ACCIONES`;
 
         // ── Llamar a Claude (antes del upsert) ────────────────────────────────
         const textoNarrativo = await generarInformeSemanalIA(promptSemanal);
@@ -483,6 +489,12 @@ REGLAS:
           totalSeguimiento,
           eurosSeguimiento: totalEurosSeguimiento,
           riesgoAlto: totalRiesgoAlto,
+          riesgoMuyAlto: totalRiesgoMuyAlto,
+          semana: ahoraMadrid.weekNumber,
+          anio: ahoraMadrid.weekYear,
+          mesActual,
+          objetivos: Object.fromEntries(objetivosMap),
+          aceptadosMes: Object.fromEntries(aceptadosMesMap),
           alertaPrincipal,
         });
 
