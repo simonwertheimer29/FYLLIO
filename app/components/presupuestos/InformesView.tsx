@@ -705,8 +705,9 @@ export default function InformesView({ user }: { user: UserSession }) {
 
                     {isExpanded && (
                       <div className="px-4 pb-4 border-t border-slate-100 pt-3">
-                        {inf.tipo === "semanal" && semanalData ? (
-                          <div className="flex flex-col gap-2">
+                        {/* Métricas compactas — siempre visibles para semanales */}
+                        {inf.tipo === "semanal" && semanalData && (
+                          <div className="flex flex-col gap-2 mb-3">
                             <div className="grid grid-cols-3 gap-2">
                               {[
                                 { label: "Nuevos", value: String(semanalData.totalNuevos ?? "-") },
@@ -724,13 +725,10 @@ export default function InformesView({ user }: { user: UserSession }) {
                                 €{Number(semanalData.eurosSeguimiento).toLocaleString("es-ES")} en seguimiento
                               </p>
                             )}
-                            {semanalData.alertaPrincipal != null && (
-                              <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2">
-                                ⚠ {String(semanalData.alertaPrincipal)}
-                              </p>
-                            )}
                           </div>
-                        ) : inf.tipo === "mensual" && textoResumen ? (
+                        )}
+                        {/* Texto narrativo (semanal o mensual) */}
+                        {textoResumen ? (
                           <div>
                             <div className="text-slate-600 text-sm leading-relaxed">
                               <ReactMarkdown
@@ -750,9 +748,9 @@ export default function InformesView({ user }: { user: UserSession }) {
                               </p>
                             )}
                           </div>
-                        ) : (
+                        ) : !semanalData ? (
                           <p className="text-xs text-slate-400">Sin contenido disponible.</p>
-                        )}
+                        ) : null}
                       </div>
                     )}
                   </div>

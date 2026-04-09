@@ -90,6 +90,31 @@ async function generarMensajeIA(prompt: string): Promise<string> {
   }
 }
 
+async function generarInformeSemanalIA(prompt: string): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return "";
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 900,
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+    if (!res.ok) return "";
+    const data = await res.json();
+    return (data.content?.[0]?.text ?? "").trim();
+  } catch {
+    return "";
+  }
+}
+
 // ─── POST ─────────────────────────────────────────────────────────────────────
 
 export async function POST() {
@@ -321,13 +346,17 @@ export async function POST() {
     if (esLunes && esVentanaResumen && !yaEnviadoSemana) {
       try {
         const ACTIVOS_SET = new Set(["PRESENTADO", "INTERESADO", "EN_DUDA", "EN_NEGOCIACION"]);
+        const mesActual = ahoraMadrid.toFormat("yyyy-MM");
 
-        // Group metrics by clinica
+        // ── Métricas por clínica ───────────────────────────────────────────────
         const clinicaMap = new Map<string, {
           nuevos: number;
           totalSeguimiento: number;
           eurosSeguimiento: number;
           riesgoAlto: number;
+          riesgoMuyAlto: number;
+          aceptadosEstaSemana: number;
+          perdidosEstaSemana: number;
         }>();
 
         for (const rec of presRecs) {
@@ -342,17 +371,22 @@ export async function POST() {
 
           if (!clinicaMap.has(clinicaNombre)) {
             clinicaMap.set(clinicaNombre, {
-              nuevos: 0, totalSeguimiento: 0, eurosSeguimiento: 0, riesgoAlto: 0,
+              nuevos: 0, totalSeguimiento: 0, eurosSeguimiento: 0,
+              riesgoAlto: 0, riesgoMuyAlto: 0,
+              aceptadosEstaSemana: 0, perdidosEstaSemana: 0,
             });
           }
-          const stats = clinicaMap.get(clinicaNombre)!;
+          const s = clinicaMap.get(clinicaNombre)!;
 
-          if (ds <= 7) stats.nuevos++;
+          if (ds <= 7) s.nuevos++;
+          if (estado === "ACEPTADO" && ds <= 7) s.aceptadosEstaSemana++;
+          if (estado === "PERDIDO"  && ds <= 7) s.perdidosEstaSemana++;
 
           if (ACTIVOS_SET.has(estado)) {
-            stats.totalSeguimiento++;
-            stats.eurosSeguimiento += importe;
-            if (ds >= 14) stats.riesgoAlto++;
+            s.totalSeguimiento++;
+            s.eurosSeguimiento += importe;
+            if (ds >= 14) s.riesgoAlto++;
+            if (ds >= 30) s.riesgoMuyAlto++;
           }
         }
 
@@ -362,13 +396,80 @@ export async function POST() {
           totalSeguimiento: s.totalSeguimiento,
           eurosSeguimiento: Math.round(s.eurosSeguimiento),
           riesgoAlto: s.riesgoAlto,
+          riesgoMuyAlto: s.riesgoMuyAlto,
+          aceptadosEstaSemana: s.aceptadosEstaSemana,
+          perdidosEstaSemana: s.perdidosEstaSemana,
         }));
 
         const totalNuevos = clinicasData.reduce((s, c) => s + c.nuevos, 0);
         const totalSeguimiento = clinicasData.reduce((s, c) => s + c.totalSeguimiento, 0);
         const totalEurosSeguimiento = clinicasData.reduce((s, c) => s + c.eurosSeguimiento, 0);
         const totalRiesgoAlto = clinicasData.reduce((s, c) => s + c.riesgoAlto, 0);
+        const totalRiesgoMuyAlto = clinicasData.reduce((s, c) => s + c.riesgoMuyAlto, 0);
 
+        // ── Objetivos mensuales ────────────────────────────────────────────────
+        const objetivosMap = new Map<string, number>();
+        try {
+          const objRecs = await base(TABLES.objetivosMensuales as any)
+            .select({
+              filterByFormula: `{mes}="${mesActual}"`,
+              fields: ["clinica", "objetivo_aceptados"],
+            })
+            .all();
+          for (const r of objRecs) {
+            const f = r.fields as any;
+            if (f["clinica"]) objetivosMap.set(String(f["clinica"]), Number(f["objetivo_aceptados"] ?? 0));
+          }
+        } catch { /* objetivos opcionales */ }
+
+        // ── Aceptados este mes por clínica (proxy: Fecha del mes actual) ───────
+        const aceptadosMesMap = new Map<string, number>();
+        for (const rec of presRecs) {
+          const f = rec.fields as any;
+          if (f["Estado"] === "ACEPTADO" && String(f["Fecha"] ?? "").startsWith(mesActual)) {
+            const c = String(f["Clinica"] ?? "");
+            if (c) aceptadosMesMap.set(c, (aceptadosMesMap.get(c) ?? 0) + 1);
+          }
+        }
+
+        // ── Prompt para Claude ─────────────────────────────────────────────────
+        const clinicasStr = clinicasData.map((c) => {
+          const obj = objetivosMap.get(c.clinica) ?? 0;
+          const acept = aceptadosMesMap.get(c.clinica) ?? 0;
+          const progreso = obj > 0
+            ? `${acept}/${obj} aceptados este mes (${Math.round(acept / obj * 100)}%)`
+            : `${acept} aceptados este mes`;
+          return `  - ${c.clinica}: ${c.nuevos} nuevos, seguimiento ${c.totalSeguimiento} (€${c.eurosSeguimiento.toLocaleString("es-ES")}), riesgo alto ${c.riesgoAlto}, objetivo: ${progreso}`;
+        }).join("\n");
+
+        const promptSemanal = `Eres analista de negocio de una red de clínicas dentales en España.
+
+DATOS SEMANA ${ahoraMadrid.weekNumber}/${ahoraMadrid.weekYear}:
+- Nuevos presupuestos: ${totalNuevos} | En seguimiento: ${totalSeguimiento} | €${totalEurosSeguimiento.toLocaleString("es-ES")} en juego
+- Riesgo alto (>14 días sin avance): ${totalRiesgoAlto} | Riesgo muy alto (>30 días): ${totalRiesgoMuyAlto}
+
+Por clínica:
+${clinicasStr}
+
+Genera un informe semanal ejecutivo con EXACTAMENTE 3 secciones (sin títulos visibles en el texto):
+
+SECCIÓN 1 — QUÉ PASÓ ESTA SEMANA: 2 párrafos. Resumen de presupuestos nuevos, estado del pipeline y cualquier patrón relevante por clínica.
+
+SECCIÓN 2 — QUÉ ESTÁ EN RIESGO: 1 párrafo. Presupuestos en riesgo alto y muy alto, clínicas más expuestas, progreso vs objetivo mensual. Identifica la situación más crítica en una frase final en negrita.
+
+SECCIÓN 3 — QUÉ HACER EL LUNES: exactamente 3 acciones concretas numeradas, cada una en una sola oración, con nombre de clínica cuando aplique.
+
+REGLAS:
+- **Negritas** solo para nombres de clínicas y números clave.
+- Sin headers (#), listas (-) ni código.
+- Tono directo y ejecutivo.
+- 400-600 palabras en total.
+- NO inventes datos que no estén en los datos proporcionados.`;
+
+        // ── Llamar a Claude (antes del upsert) ────────────────────────────────
+        const textoNarrativo = await generarInformeSemanalIA(promptSemanal);
+
+        // ── Construir payload final ────────────────────────────────────────────
         const alertaPrincipal =
           totalRiesgoAlto > 0
             ? `${totalRiesgoAlto} presupuestos de riesgo alto sin contactar — €${totalEurosSeguimiento.toLocaleString("es-ES")} en seguimiento`
@@ -385,7 +486,7 @@ export async function POST() {
           alertaPrincipal,
         });
 
-        // Save to Informes_Guardados (upsert)
+        // ── Save to Informes_Guardados (upsert, una sola escritura) ───────────
         try {
           const nowISO = new Date().toISOString();
           const existingRecs = await base(TABLES.informesGuardados as any)
@@ -396,31 +497,26 @@ export async function POST() {
             })
             .all();
 
+          const upsertFields: Record<string, unknown> = {
+            titulo,
+            contenido_json: contenidoJson,
+            generado_en: nowISO,
+            generado_por: "sistema",
+          };
+          if (textoNarrativo) upsertFields["texto_narrativo"] = textoNarrativo;
+
           if (existingRecs.length > 0) {
-            await base(TABLES.informesGuardados as any).update(existingRecs[0].id, {
-              titulo,
-              contenido_json: contenidoJson,
-              generado_en: nowISO,
-              generado_por: "sistema",
-            } as any);
+            await base(TABLES.informesGuardados as any).update(existingRecs[0].id, upsertFields as any);
           } else {
             await (base(TABLES.informesGuardados as any) as any).create([{
-              fields: {
-                tipo: "semanal",
-                clinica: "todas",
-                periodo,
-                titulo,
-                contenido_json: contenidoJson,
-                generado_en: nowISO,
-                generado_por: "sistema",
-              },
+              fields: { tipo: "semanal", clinica: "todas", periodo, ...upsertFields },
             }]);
           }
         } catch (saveErr) {
           console.error("[procesar] Error guardando informe semanal:", saveErr);
         }
 
-        // Push to all managers
+        // ── Push notification ─────────────────────────────────────────────────
         sendPushToAll({
           title: "📋 Informe semanal listo",
           body: alertaPrincipal,
