@@ -1,43 +1,27 @@
 // app/lib/charts/svg-charts.ts
-// Generación de gráficos server-side con SVG inline + sharp (PNG output)
-// Fuente embebida en base64 para garantizar texto legible en todos los entornos
-// (Vercel Linux serverless no tiene fuentes del sistema disponibles para sharp/libvips)
+// Generación de gráficos server-side con SVG + @resvg/resvg-js (PNG output)
+// resvg-js tiene soporte nativo de fuentes — no depende de fuentes del sistema
+// La fuente se carga desde public/fonts/chart-font.ttf (Noto Sans, ~27KB)
 
 import fs from "fs";
 import path from "path";
-import sharp from "sharp";
+import { Resvg } from "@resvg/resvg-js";
 
-// ─── Fuente embebida ───────────────────────────────────────────────────────────
-// Se carga una sola vez por módulo (lazy, con caché en variable de módulo)
-// La fuente vive en public/fonts/chart-font.ttf y se despliega con la app
+// ─── Fuente ────────────────────────────────────────────────────────────────────
+// Cacheada en variable de módulo — se lee una sola vez desde public/fonts/
 
-let _fontBase64: string | null = null;
+let _fontBuffer: Buffer | null = null;
 
-function getFontBase64(): string {
-  if (_fontBase64) return _fontBase64;
+function getFontBuffer(): Buffer | null {
+  if (_fontBuffer) return _fontBuffer;
   try {
     const fontPath = path.join(process.cwd(), "public", "fonts", "chart-font.ttf");
-    _fontBase64 = fs.readFileSync(fontPath).toString("base64");
+    _fontBuffer = fs.readFileSync(fontPath);
   } catch {
-    _fontBase64 = "";
+    console.error("[svg-charts] No se pudo cargar chart-font.ttf");
+    _fontBuffer = null;
   }
-  return _fontBase64;
-}
-
-function fontDefs(): string {
-  const b64 = getFontBase64();
-  if (!b64) return "";
-  return `<defs>
-  <style>
-    @font-face {
-      font-family: 'ChartFont';
-      src: url('data:font/truetype;base64,${b64}') format('truetype');
-      font-weight: normal;
-      font-style: normal;
-    }
-    text { font-family: 'ChartFont', sans-serif; }
-  </style>
-</defs>`;
+  return _fontBuffer;
 }
 
 // ─── Paleta ────────────────────────────────────────────────────────────────────
@@ -56,12 +40,14 @@ const C = {
 
 // ─── Core helper ──────────────────────────────────────────────────────────────
 
-async function svgToPng(svg: string, w: number, h: number): Promise<Buffer | null> {
+function svgToPng(svg: string): Buffer | null {
   try {
-    return await sharp(Buffer.from(svg))
-      .resize(w, h, { fit: "fill" })
-      .png()
-      .toBuffer();
+    const fontBuffer = getFontBuffer();
+    const opts = fontBuffer
+      ? { font: { fontBuffers: [fontBuffer], defaultFontFamily: "Noto Sans" } }
+      : { font: { defaultFontFamily: "sans-serif" } };
+    const resvg = new Resvg(svg, opts);
+    return Buffer.from(resvg.render().asPng());
   } catch (err) {
     console.error("[svg-charts] svgToPng error:", err);
     return null;
@@ -106,11 +92,11 @@ export async function graficoLineas(
     const val = Math.round((maxVal / 5) * i);
     const y = (pad.top + H - (val / maxVal) * H).toFixed(1);
     return `<line x1="${pad.left}" y1="${y}" x2="${pad.left + W}" y2="${y}" stroke="${C.grisBorde}" stroke-width="1"/>
-<text x="${pad.left - 8}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="11" fill="${C.grisMedio}">${val}</text>`;
+<text x="${pad.left - 8}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="11" fill="${C.grisMedio}" font-family="Noto Sans">${val}</text>`;
   }).join("\n");
 
   const labelsX = datos.map((d, i) =>
-    `<text x="${xs[i].toFixed(1)}" y="${pad.top + H + 20}" text-anchor="middle" font-size="11" fill="${C.grisTexto}">${esc(d.label)}</text>`
+    `<text x="${xs[i].toFixed(1)}" y="${pad.top + H + 20}" text-anchor="middle" font-size="11" fill="${C.grisTexto}" font-family="Noto Sans">${esc(d.label)}</text>`
   ).join("\n");
 
   const circlesOf = xs.map((x, i) =>
@@ -121,13 +107,12 @@ export async function graficoLineas(
   ).join("\n");
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${widthPx}" height="${heightPx}" style="background:white">
-  ${fontDefs()}
   <rect width="${widthPx}" height="${heightPx}" fill="white"/>
   <!-- leyenda -->
   <rect x="${pad.left}" y="10" width="12" height="12" rx="2" fill="${C.azul}"/>
-  <text x="${pad.left + 16}" y="21" font-size="12" fill="${C.grisTexto}">Ofrecidos</text>
+  <text x="${pad.left + 16}" y="21" font-size="12" fill="${C.grisTexto}" font-family="Noto Sans">Ofrecidos</text>
   <rect x="${pad.left + 95}" y="10" width="12" height="12" rx="2" fill="${C.verde}"/>
-  <text x="${pad.left + 111}" y="21" font-size="12" fill="${C.grisTexto}">Aceptados</text>
+  <text x="${pad.left + 111}" y="21" font-size="12" fill="${C.grisTexto}" font-family="Noto Sans">Aceptados</text>
   <!-- grid -->
   ${gridLines}
   <!-- áreas -->
@@ -146,7 +131,7 @@ export async function graficoLineas(
   ${labelsX}
 </svg>`;
 
-  return svgToPng(svg, widthPx, heightPx);
+  return svgToPng(svg);
 }
 
 // ─── 2. Barras horizontales ────────────────────────────────────────────────────
@@ -175,18 +160,17 @@ export async function graficoBarrasH(
     const color = d.color ?? C.morado;
     const labelTrunc = d.label.length > 22 ? d.label.slice(0, 20) + "…" : d.label;
     return `
-<text x="${padL - 10}" y="${(y + barH / 2 + 4).toFixed(1)}" text-anchor="end" font-size="12" fill="${C.grisTexto}">${esc(labelTrunc)}</text>
+<text x="${padL - 10}" y="${(y + barH / 2 + 4).toFixed(1)}" text-anchor="end" font-size="12" fill="${C.grisTexto}" font-family="Noto Sans">${esc(labelTrunc)}</text>
 <rect x="${padL}" y="${y.toFixed(1)}" width="${bW.toFixed(1)}" height="${barH.toFixed(1)}" rx="3" fill="${color}" opacity="0.85"/>
-<text x="${(padL + bW + 8).toFixed(1)}" y="${(y + barH / 2 + 4).toFixed(1)}" font-size="12" font-weight="bold" fill="${color}">${d.value}</text>`;
+<text x="${(padL + bW + 8).toFixed(1)}" y="${(y + barH / 2 + 4).toFixed(1)}" font-size="12" font-weight="bold" fill="${color}" font-family="Noto Sans">${d.value}</text>`;
   }).join("\n");
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${widthPx}" height="${heightPx}" style="background:white">
-  ${fontDefs()}
   <rect width="${widthPx}" height="${heightPx}" fill="white"/>
   ${barras}
 </svg>`;
 
-  return svgToPng(svg, widthPx, heightPx);
+  return svgToPng(svg);
 }
 
 // ─── 3. Barras verticales con línea de media ──────────────────────────────────
@@ -214,7 +198,7 @@ export async function graficoBarrasV(
     const val = Math.round((maxVal / 4) * i);
     const y = (padT + H - (val / maxVal) * H).toFixed(1);
     return `<line x1="${padL}" y1="${y}" x2="${padL + W}" y2="${y}" stroke="${C.grisBorde}" stroke-width="1"/>
-<text x="${padL - 8}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="11" fill="${C.grisMedio}">${val}%</text>`;
+<text x="${padL - 8}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="11" fill="${C.grisMedio}" font-family="Noto Sans">${val}%</text>`;
   }).join("\n");
 
   const barras = datos.map((d, i) => {
@@ -227,28 +211,27 @@ export async function graficoBarrasV(
     const line2 = parts.slice(1).join(" ");
     return `
 <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bH.toFixed(1)}" rx="3" fill="${color}"/>
-${d.value > 0 ? `<text x="${(x + barW / 2).toFixed(1)}" y="${(y - 8).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="bold" fill="${color}">${d.value}%</text>` : ""}
-<text x="${(x + barW / 2).toFixed(1)}" y="${(padT + H + 20).toFixed(1)}" text-anchor="middle" font-size="11" fill="${C.grisTexto}">${esc(line1)}</text>
-${line2 ? `<text x="${(x + barW / 2).toFixed(1)}" y="${(padT + H + 34).toFixed(1)}" text-anchor="middle" font-size="10" fill="${C.grisMedio}">${esc(line2)}</text>` : ""}`;
+${d.value > 0 ? `<text x="${(x + barW / 2).toFixed(1)}" y="${(y - 8).toFixed(1)}" text-anchor="middle" font-size="12" font-weight="bold" fill="${color}" font-family="Noto Sans">${d.value}%</text>` : ""}
+<text x="${(x + barW / 2).toFixed(1)}" y="${(padT + H + 20).toFixed(1)}" text-anchor="middle" font-size="11" fill="${C.grisTexto}" font-family="Noto Sans">${esc(line1)}</text>
+${line2 ? `<text x="${(x + barW / 2).toFixed(1)}" y="${(padT + H + 34).toFixed(1)}" text-anchor="middle" font-size="10" fill="${C.grisMedio}" font-family="Noto Sans">${esc(line2)}</text>` : ""}`;
   }).join("\n");
 
   // Línea de media
   const yMedia = (padT + H - (mediaRed / maxVal) * H).toFixed(1);
   const lineaMedia = `
 <line x1="${padL}" y1="${yMedia}" x2="${padL + W}" y2="${yMedia}" stroke="${C.morado}" stroke-width="2.5" stroke-dasharray="6,4"/>
-<text x="${padL + W + 6}" y="${parseFloat(yMedia) + 5}" font-size="11" fill="${C.morado}">Media ${mediaRed}%</text>`;
+<text x="${padL + W + 6}" y="${parseFloat(yMedia) + 5}" font-size="11" fill="${C.morado}" font-family="Noto Sans">Media ${mediaRed}%</text>`;
 
   // Leyenda
   const leyenda = `
 <circle cx="${padL + 8}" cy="22" r="6" fill="${C.verde}"/>
-<text x="${padL + 18}" y="26" font-size="11" fill="${C.grisTexto}">Mayor o igual a media</text>
+<text x="${padL + 18}" y="26" font-size="11" fill="${C.grisTexto}" font-family="Noto Sans">Mayor o igual a media</text>
 <circle cx="${padL + 175}" cy="22" r="6" fill="${C.naranja}"/>
-<text x="${padL + 185}" y="26" font-size="11" fill="${C.grisTexto}">Bajo media</text>
+<text x="${padL + 185}" y="26" font-size="11" fill="${C.grisTexto}" font-family="Noto Sans">Bajo media</text>
 <circle cx="${padL + 270}" cy="22" r="6" fill="${C.rojo}"/>
-<text x="${padL + 280}" y="26" font-size="11" fill="${C.grisTexto}">0% - urgente</text>`;
+<text x="${padL + 280}" y="26" font-size="11" fill="${C.grisTexto}" font-family="Noto Sans">0% - urgente</text>`;
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${widthPx}" height="${heightPx}" style="background:white">
-  ${fontDefs()}
   <rect width="${widthPx}" height="${heightPx}" fill="white"/>
   ${leyenda}
   ${gridLines}
@@ -258,7 +241,7 @@ ${line2 ? `<text x="${(x + barW / 2).toFixed(1)}" y="${(padT + H + 34).toFixed(1
   <line x1="${padL}" y1="${padT + H}" x2="${padL + W}" y2="${padT + H}" stroke="${C.grisBorde}" stroke-width="1"/>
 </svg>`;
 
-  return svgToPng(svg, widthPx, heightPx);
+  return svgToPng(svg);
 }
 
 // ─── 4. Forecast — 3 barras verticales con valor encima ───────────────────────
@@ -286,7 +269,7 @@ export async function graficoForecast(
     const y = (padT + H - (val / maxVal) * H).toFixed(1);
     const valFmt = `€${val.toLocaleString("es-ES")}`;
     return `<line x1="${padL}" y1="${y}" x2="${padL + W}" y2="${y}" stroke="${C.grisBorde}" stroke-width="1"/>
-<text x="${padL - 8}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="10" fill="${C.grisMedio}">${valFmt}</text>`;
+<text x="${padL - 8}" y="${parseFloat(y) + 4}" text-anchor="end" font-size="10" fill="${C.grisMedio}" font-family="Noto Sans">${valFmt}</text>`;
   }).join("\n");
 
   const barras = datos.map((d, i) => {
@@ -296,12 +279,11 @@ export async function graficoForecast(
     const valorFmt = `€${d.valor.toLocaleString("es-ES")}`;
     return `
 <rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bH.toFixed(1)}" rx="4" fill="${d.color}" opacity="0.85"/>
-<text x="${(x + barW / 2).toFixed(1)}" y="${(y - 10).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="bold" fill="${d.color}">${valorFmt}</text>
-<text x="${(x + barW / 2).toFixed(1)}" y="${(padT + H + 22).toFixed(1)}" text-anchor="middle" font-size="12" fill="${C.grisTexto}">${esc(d.mes)}</text>`;
+<text x="${(x + barW / 2).toFixed(1)}" y="${(y - 10).toFixed(1)}" text-anchor="middle" font-size="13" font-weight="bold" fill="${d.color}" font-family="Noto Sans">${valorFmt}</text>
+<text x="${(x + barW / 2).toFixed(1)}" y="${(padT + H + 22).toFixed(1)}" text-anchor="middle" font-size="12" fill="${C.grisTexto}" font-family="Noto Sans">${esc(d.mes)}</text>`;
   }).join("\n");
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${widthPx}" height="${heightPx}" style="background:white">
-  ${fontDefs()}
   <rect width="${widthPx}" height="${heightPx}" fill="white"/>
   ${gridLines}
   ${barras}
@@ -309,7 +291,7 @@ export async function graficoForecast(
   <line x1="${padL}" y1="${padT + H}" x2="${padL + W}" y2="${padT + H}" stroke="${C.grisBorde}" stroke-width="1"/>
 </svg>`;
 
-  return svgToPng(svg, widthPx, heightPx);
+  return svgToPng(svg);
 }
 
 // ─── 5. A/B tonos — barras horizontales tricolor ──────────────────────────────
