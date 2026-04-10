@@ -8,6 +8,7 @@ import AgendaView from "./AgendaView";
 import AccionesView from "./AccionesView";
 import KpiView from "./KpiView";
 import InformesView from "./InformesView";
+import ConfigView from "./ConfigView";
 
 type Tab = "hoy" | "riesgo" | "agenda" | "acciones" | "kpis" | "informes" | "config";
 
@@ -16,25 +17,6 @@ const ROLE_LABEL: Record<NoShowsUserSession["rol"], string> = {
   encargada_ventas: "Encargada",
   ventas:           "Ventas",
 };
-
-// ─── Stub placeholders para fases futuras ────────────────────────────────────
-
-function StubView({ tab, emoji, fase }: { tab: string; emoji: string; fase: number }) {
-  return (
-    <div className="flex-1 min-h-0 flex items-center justify-center">
-      <div className="text-center space-y-3 p-8 max-w-xs">
-        <p className="text-4xl">{emoji}</p>
-        <p className="text-base font-bold text-slate-800">{tab}</p>
-        <p className="text-xs text-slate-400 leading-relaxed">
-          Esta sección se implementa en FASE {fase}.
-        </p>
-        <div className="inline-block px-3 py-1 rounded-full bg-cyan-50 border border-cyan-200 text-xs font-semibold text-cyan-700">
-          En construcción
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── Main Shell ───────────────────────────────────────────────────────────────
 
@@ -141,7 +123,7 @@ export default function NoShowsShell({ user }: { user: NoShowsUserSession }) {
         {tab === "acciones" && <AccionesView user={user} />}
         {tab === "kpis"     && <KpiView user={user} />}
         {tab === "informes" && <InformesView user={user} />}
-        {tab === "config"   && <StubView tab="CONFIG"   emoji="⚙"  fase={6} />}
+        {tab === "config"   && <ConfigView user={user} />}
       </main>
 
       {/* ── Bottom Navigation mobile/tablet ── */}
