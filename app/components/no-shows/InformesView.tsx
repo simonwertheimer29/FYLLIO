@@ -15,10 +15,41 @@ function formatPeriod(periodo: string): string {
 // ─── InformeCard ──────────────────────────────────────────────────────────────
 
 function InformeCard({ informe }: { informe: InformeNoShow }) {
-  const [open, setOpen] = useState(false);
-  const json = informe.contenidoJson;
+  const [open,        setOpen]        = useState(false);
+  const [downloading, setDownloading] = useState(false);
+
+  const json    = informe.contenidoJson;
   const tasaPct = Math.round(json.tasa * 1000) / 10;
   const hasAlerts = json.alertas && json.alertas.length > 0;
+
+  async function downloadPDF() {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const res = await fetch("/api/no-shows/informes/generar-pdf", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          titulo:          informe.titulo,
+          periodo:         informe.periodo,
+          textoNarrativo:  informe.textoNarrativo,
+          metricas:        informe.contenidoJson,
+        }),
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement("a");
+        a.href     = url;
+        a.download = `informe-${informe.periodo}.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }
+    } catch { /* silent */ }
+    finally { setDownloading(false); }
+  }
 
   return (
     <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden">
@@ -28,17 +59,15 @@ function InformeCard({ informe }: { informe: InformeNoShow }) {
           <p className="text-sm font-bold text-slate-800">{informe.titulo}</p>
           <p className="text-xs text-slate-400 mt-0.5">{formatPeriod(informe.periodo)}</p>
 
-          {/* Metrics chips */}
+          {/* Metric chips */}
           <div className="flex flex-wrap gap-2 mt-2">
             <span className="px-2 py-0.5 rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
               {json.totalCitas} citas
             </span>
             <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-              json.tasa >= 0.10
-                ? "bg-red-100 text-red-700"
-                : json.tasa >= 0.07
-                ? "bg-amber-100 text-amber-700"
-                : "bg-green-100 text-green-700"
+              json.tasa >= 0.10 ? "bg-red-100 text-red-700"
+              : json.tasa >= 0.07 ? "bg-amber-100 text-amber-700"
+              : "bg-green-100 text-green-700"
             }`}>
               {tasaPct}% no-shows
             </span>
@@ -49,7 +78,7 @@ function InformeCard({ informe }: { informe: InformeNoShow }) {
             )}
           </div>
 
-          {/* Per-clinic breakdown */}
+          {/* Per-clinic */}
           {json.porClinica && json.porClinica.length > 0 && (
             <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
               {json.porClinica.map((c) => (
@@ -61,12 +90,24 @@ function InformeCard({ informe }: { informe: InformeNoShow }) {
           )}
         </div>
 
-        <button
-          onClick={() => setOpen((v) => !v)}
-          className="shrink-0 text-xs font-semibold text-cyan-600 hover:text-cyan-800 transition-colors pt-0.5 whitespace-nowrap"
-        >
-          {open ? "Ocultar ▴" : "Ver resumen ▾"}
-        </button>
+        <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+          {/* PDF download */}
+          <button
+            onClick={downloadPDF}
+            disabled={downloading}
+            className="text-xs font-semibold text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl px-2.5 py-1 transition-colors disabled:opacity-40"
+            title="Descargar HTML (imprimir como PDF)"
+          >
+            {downloading ? "…" : "↓ PDF"}
+          </button>
+          {/* Expand narrative */}
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="text-xs font-semibold text-cyan-600 hover:text-cyan-800 transition-colors whitespace-nowrap"
+          >
+            {open ? "Ocultar ▴" : "Ver resumen ▾"}
+          </button>
+        </div>
       </div>
 
       {/* Expandable narrative */}
@@ -79,14 +120,10 @@ function InformeCard({ informe }: { informe: InformeNoShow }) {
           ) : (
             <p className="text-xs text-slate-400 italic">Sin narrativo disponible para este informe.</p>
           )}
-
-          {/* Alerts */}
           {hasAlerts && (
             <div className="space-y-1">
               {json.alertas!.map((a, i) => (
-                <p key={i} className="text-xs text-red-700 bg-red-50 rounded-xl px-3 py-1.5">
-                  ⚠️ {a}
-                </p>
+                <p key={i} className="text-xs text-red-700 bg-red-50 rounded-xl px-3 py-1.5">⚠️ {a}</p>
               ))}
             </div>
           )}
@@ -96,14 +133,76 @@ function InformeCard({ informe }: { informe: InformeNoShow }) {
   );
 }
 
+// ─── Previsión 4 semanas ──────────────────────────────────────────────────────
+
+function Prevision({ informes }: { informes: InformeNoShow[] }) {
+  const [tasa, setTasa] = useState(10); // %
+
+  // Estimate weekly avg citas from most recent informe, fallback 30
+  const citasSemana = informes.length > 0
+    ? Math.max(10, Math.round(informes[0].contenidoJson.totalCitas / 1))
+    : 30;
+
+  const noShows    = Math.round(citasSemana * tasa / 100);
+  const ingresos   = noShows * 85;
+
+  return (
+    <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-sm font-bold text-slate-800">Previsión próximas 4 semanas</p>
+          <p className="text-xs text-slate-400 mt-0.5">Ajusta la tasa esperada para proyectar el impacto</p>
+        </div>
+        <span className="text-xl font-extrabold text-slate-700">{tasa}%</span>
+      </div>
+
+      {/* Slider */}
+      <div className="space-y-1">
+        <input
+          type="range"
+          min={1}
+          max={25}
+          step={1}
+          value={tasa}
+          onChange={(e) => setTasa(Number(e.target.value))}
+          className="w-full accent-cyan-500"
+        />
+        <div className="flex justify-between text-[10px] text-slate-400">
+          <span>1%</span>
+          <span>Tasa esperada</span>
+          <span>25%</span>
+        </div>
+      </div>
+
+      {/* 4 week cards */}
+      <div className="grid grid-cols-4 gap-2">
+        {[1, 2, 3, 4].map((w) => (
+          <div key={w} className="rounded-xl border border-slate-100 bg-slate-50 p-2.5 text-center">
+            <p className="text-[10px] text-slate-400 font-semibold">+{w} sem.</p>
+            <p className="text-sm font-extrabold text-slate-800 mt-0.5">{noShows}</p>
+            <p className="text-[10px] text-slate-400">no-shows</p>
+            <p className="text-[10px] font-semibold text-red-500 mt-0.5">€{ingresos.toLocaleString("es-ES")}</p>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-[10px] text-slate-400">
+        Basado en ~{citasSemana} citas/semana y €85 de ticket medio.
+      </p>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function InformesView({ user }: { user: NoShowsUserSession }) {
-  const [informes, setInformes] = useState<InformeNoShow[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [isDemo, setIsDemo] = useState(false);
+type InformesTab = "semanales" | "mensuales";
 
-  // user is passed but not used directly (future: clinic filter for managers)
+export default function InformesView({ user }: { user: NoShowsUserSession }) {
+  const [tab,      setTab]      = useState<InformesTab>("semanales");
+  const [informes, setInformes] = useState<InformeNoShow[] | null>(null);
+  const [loading,  setLoading]  = useState(true);
+  const [isDemo,   setIsDemo]   = useState(false);
+
   void user;
 
   useEffect(() => {
@@ -141,30 +240,64 @@ export default function InformesView({ user }: { user: NoShowsUserSession }) {
         </div>
       )}
 
-      {/* Header */}
-      <div className="rounded-2xl bg-white border border-slate-200 p-4">
-        <p className="text-sm font-bold text-slate-800">Informes semanales</p>
-        <p className="text-xs text-slate-400 mt-0.5">
-          Generados automáticamente cada lunes · Análisis IA de no-shows
-        </p>
+      {/* Header + tab strip */}
+      <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
+        <div>
+          <p className="text-sm font-bold text-slate-800">Informes</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Análisis IA · Generados automáticamente cada lunes
+          </p>
+        </div>
+        <div className="flex gap-1">
+          {(["semanales", "mensuales"] as InformesTab[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-colors capitalize ${
+                tab === t
+                  ? "bg-slate-800 text-white border-slate-800"
+                  : "border-slate-200 text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              {t.charAt(0).toUpperCase() + t.slice(1)}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Empty state */}
-      {informes !== null && informes.length === 0 && (
+      {/* ── SEMANALES tab ── */}
+      {tab === "semanales" && (
+        <>
+          {informes !== null && informes.length === 0 && (
+            <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
+              <p className="text-2xl mb-2">📋</p>
+              <p className="text-sm font-bold text-slate-700">Sin informes todavía</p>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-xs mx-auto">
+                Los informes se generan automáticamente cada lunes a las 09:00.
+              </p>
+            </div>
+          )}
+          {informes && informes.map((inf) => (
+            <InformeCard key={inf.id} informe={inf} />
+          ))}
+
+          {/* Previsión — only when there are informes */}
+          {informes && informes.length > 0 && (
+            <Prevision informes={informes} />
+          )}
+        </>
+      )}
+
+      {/* ── MENSUALES tab ── */}
+      {tab === "mensuales" && (
         <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
-          <p className="text-2xl mb-2">📋</p>
-          <p className="text-sm font-bold text-slate-700">Sin informes todavía</p>
+          <p className="text-2xl mb-2">📅</p>
+          <p className="text-sm font-bold text-slate-700">Informes mensuales</p>
           <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-xs mx-auto">
-            Los informes se generan automáticamente cada lunes a las 09:00.
-            El primero aparecerá el próximo lunes.
+            Próximamente. Los informes mensuales consolidan 4 semanas de datos con análisis comparativo.
           </p>
         </div>
       )}
-
-      {/* Informe list */}
-      {informes && informes.map((inf) => (
-        <InformeCard key={inf.id} informe={inf} />
-      ))}
     </div>
   );
 }

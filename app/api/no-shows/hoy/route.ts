@@ -31,6 +31,8 @@ const CANCELLED = new Set([
 const NO_SHOW_SET = new Set(["NO_SHOW", "NO SHOW", "NOSHOW"]);
 const CANCEL_SET = new Set(["CANCELADO", "CANCELADA", "CANCELED", "CANCELLED"]);
 
+const AVG_TICKET = 85; // € ticket medio por cita
+
 function firstString(x: unknown): string {
   if (typeof x === "string") return x;
   if (Array.isArray(x) && typeof x[0] === "string") return x[0];
@@ -258,21 +260,31 @@ export async function GET(req: Request) {
 
     // Demo fallback
     if (isDemoModeNoShows(appointments.length)) {
+      const demoAppts = buildDemoHoyAppointments();
+      const demoHigh = demoAppts.filter((a) => a.riskLevel === "HIGH").length;
+      const demoMed  = demoAppts.filter((a) => a.riskLevel === "MEDIUM").length;
       return NextResponse.json({
         todayIso,
         todayLabel,
-        appointments: buildDemoHoyAppointments(),
+        appointments: demoAppts,
         gaps: buildDemoHoyGaps(),
         recalls: buildDemoRecallAlerts(),
         summary: {
-          total: 10, confirmed: 3,
-          riesgoAlto: 3, riesgoMedio: 3, riesgoBajo: 4,
+          total: demoAppts.length,
+          confirmed: 3,
+          riesgoAlto: demoHigh,
+          riesgoMedio: demoMed,
+          riesgoBajo: demoAppts.filter((a) => a.riskLevel === "LOW").length,
           recalls: 3,
+          eurosEnRiesgo: (demoHigh + demoMed) * AVG_TICKET,
+          objetivoMensual: 0.10,
         },
         isDemo: true,
       });
     }
 
+    const riesgoAlto  = appointments.filter((a) => a.riskLevel === "HIGH").length;
+    const riesgoMedio = appointments.filter((a) => a.riskLevel === "MEDIUM").length;
     return NextResponse.json({
       todayIso,
       todayLabel,
@@ -282,10 +294,12 @@ export async function GET(req: Request) {
       summary: {
         total: appointments.length,
         confirmed: appointments.filter((a) => a.confirmed).length,
-        riesgoAlto: appointments.filter((a) => a.riskLevel === "HIGH").length,
-        riesgoMedio: appointments.filter((a) => a.riskLevel === "MEDIUM").length,
+        riesgoAlto,
+        riesgoMedio,
         riesgoBajo: appointments.filter((a) => a.riskLevel === "LOW").length,
         recalls: recalls.length,
+        eurosEnRiesgo: (riesgoAlto + riesgoMedio) * AVG_TICKET,
+        objetivoMensual: 0.10,
       },
     });
   } catch (e: any) {

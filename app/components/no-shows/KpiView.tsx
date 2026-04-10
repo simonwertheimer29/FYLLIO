@@ -1,161 +1,41 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  BarChart, Bar, XAxis, YAxis, Cell, ReferenceLine, ResponsiveContainer, Tooltip,
+  LineChart, Line,
+} from "recharts";
 import type { NoShowsUserSession, NoShowKpiData, WeeklyTrend } from "../../lib/no-shows/types";
 
-// ─── SVG: Tendencia semanal (barras) ─────────────────────────────────────────
+// ─── Tipos ────────────────────────────────────────────────────────────────────
 
-function WeeklyTrendChart({ data, sector }: { data: WeeklyTrend[]; sector: number }) {
-  const W = 300, H = 82;
-  const PL = 22, PR = 6, PT = 14, PB = 20;
-  const IW = W - PL - PR, IH = H - PT - PB;
-  const maxVal = Math.max(...data.map((d) => d.tasa), sector * 1.3);
-  const n = data.length;
-  const groupW = IW / n;
-  const barW = groupW * 0.6;
-  const barOff = (groupW - barW) / 2;
-  const yLine = H - PB - (sector / maxVal) * IH;
+type KpiTab = "general" | "clinica" | "doctor" | "tratamiento" | "ingresos" | "reputacion" | "ia";
 
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" style={{ maxHeight: 82 }}>
-      {/* Sector dashed line */}
-      <line x1={PL} y1={yLine} x2={W - PR} y2={yLine}
-        stroke="#cbd5e1" strokeWidth={1} strokeDasharray="3,3" />
-      <text x={W - PR - 1} y={yLine - 3} fontSize={6} fill="#94a3b8" textAnchor="end">
-        sector {(sector * 100).toFixed(0)}%
-      </text>
+type DocData = { nombre: string; tasa: number; total: number; noShows: number };
 
-      {/* Bars */}
-      {data.map((d, i) => {
-        const barH = Math.max(1, (d.tasa / maxVal) * IH);
-        const x = PL + i * groupW + barOff;
-        const y = H - PB - barH;
-        const fill = d.tasa > sector ? "#EF4444" : "#06B6D4";
-        return (
-          <g key={d.week}>
-            <rect x={x} y={y} width={barW} height={barH} fill={fill} rx={1.5} />
-            {barH > 10 && (
-              <text x={x + barW / 2} y={y - 2} fontSize={5.5} fill={fill} textAnchor="middle">
-                {(d.tasa * 100).toFixed(1)}
-              </text>
-            )}
-            <text x={x + barW / 2} y={H - PB + 10} fontSize={6.5} fill="#64748b" textAnchor="middle">
-              {d.week}
-            </text>
-          </g>
-        );
-      })}
+type KpiResponse = NoShowKpiData & {
+  isDemo?:    boolean;
+  byDoctor?:  DocData[];
+};
 
-      {/* Y axis ticks */}
-      {[0, maxVal / 2, maxVal].map((v, i) => (
-        <text key={i} x={PL - 2} y={H - PB - (v / maxVal) * IH + 3}
-          fontSize={5.5} fill="#94a3b8" textAnchor="end">
-          {(v * 100).toFixed(0)}%
-        </text>
-      ))}
-    </svg>
-  );
+type ChatMsg = { role: "user" | "assistant"; content: string };
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function fmt(euros: number): string {
+  return `€${euros.toLocaleString("es-ES")}`;
 }
 
-// ─── SVG: Ingresos 12 meses (líneas) ─────────────────────────────────────────
-
-function MonthlyLineChart({ data }: {
-  data: { month: string; real: number; baseline: number }[];
-}) {
-  const W = 340, H = 110;
-  const PL = 44, PR = 10, PT = 16, PB = 22;
-  const IW = W - PL - PR, IH = H - PT - PB;
-
-  const allVals = data.flatMap((d) => [d.real, d.baseline]).filter((v) => v > 0);
-  if (allVals.length === 0) return null;
-  const minY = Math.min(...allVals) * 0.92;
-  const maxY = Math.max(...allVals) * 1.05;
-  const range = maxY - minY || 1;
-
-  const xAt = (i: number) => PL + (i / (data.length - 1)) * IW;
-  const yAt = (v: number) => H - PB - ((v - minY) / range) * IH;
-
-  const realPts  = data.map((d, i) => `${xAt(i).toFixed(1)},${yAt(d.real).toFixed(1)}`).join(" ");
-  const basePts  = data.map((d, i) => `${xAt(i).toFixed(1)},${yAt(d.baseline).toFixed(1)}`).join(" ");
-
-  // Area fill between lines
-  const areaTop  = data.map((d, i) => `${xAt(i).toFixed(1)},${yAt(d.real).toFixed(1)}`).join(" L ");
-  const areaBot  = [...data].reverse().map((d, i) =>
-    `${xAt(data.length - 1 - i).toFixed(1)},${yAt(d.baseline).toFixed(1)}`
-  ).join(" L ");
-
-  // X labels every 3 months
-  const labelIdxs = data.reduce<number[]>((acc, _, i) => {
-    if (i % 3 === 0 || i === data.length - 1) acc.push(i);
-    return acc;
-  }, []);
-
-  const yTickVals = [minY, (minY + maxY) / 2, maxY];
-
-  return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" style={{ maxHeight: 110 }}>
-      {/* Area fill */}
-      <path
-        d={`M ${areaTop} L ${areaBot} Z`}
-        fill="rgba(6,182,212,0.07)"
-      />
-      {/* Grid lines */}
-      {yTickVals.map((v, i) => (
-        <line key={i} x1={PL} y1={yAt(v)} x2={W - PR} y2={yAt(v)}
-          stroke="#f1f5f9" strokeWidth={1} />
-      ))}
-      {/* Baseline dashed line */}
-      <polyline points={basePts} fill="none" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4,3" />
-      {/* Real line */}
-      <polyline points={realPts} fill="none" stroke="#0891b2" strokeWidth={2} />
-      {/* Dots on real line */}
-      {data.map((d, i) => (
-        <circle key={i} cx={xAt(i)} cy={yAt(d.real)} r={2}
-          fill={d.real >= d.baseline ? "#0891b2" : "#EF4444"} />
-      ))}
-      {/* X labels */}
-      {labelIdxs.map((i) => (
-        <text key={i} x={xAt(i)} y={H - PB + 12}
-          fontSize={6.5} fill="#94a3b8" textAnchor="middle">
-          {data[i].month}
-        </text>
-      ))}
-      {/* Y labels */}
-      {yTickVals.map((v, i) => (
-        <text key={i} x={PL - 3} y={yAt(v) + 3}
-          fontSize={6} fill="#94a3b8" textAnchor="end">
-          €{(v / 1000).toFixed(0)}k
-        </text>
-      ))}
-      {/* Legend */}
-      <line x1={PL} y1={PT - 6} x2={PL + 16} y2={PT - 6} stroke="#0891b2" strokeWidth={2} />
-      <text x={PL + 20} y={PT - 3} fontSize={7} fill="#0891b2">Real</text>
-      <line x1={PL + 54} y1={PT - 6} x2={PL + 70} y2={PT - 6}
-        stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4,3" />
-      <text x={PL + 74} y={PT - 3} fontSize={7} fill="#94a3b8">Sin Fyllio</text>
-    </svg>
-  );
-}
-
-// ─── Horizontal mini-bar ─────────────────────────────────────────────────────
+// ─── Reusable: MiniBar horizontal ────────────────────────────────────────────
 
 function MiniBar({
-  label,
-  tasa,
-  sector,
-  maxTasa,
-}: {
-  label: string;
-  tasa: number;
-  sector: number;
-  maxTasa: number;
-}) {
-  const pct = maxTasa > 0 ? (tasa / maxTasa) * 100 : 0;
+  label, tasa, sector, maxTasa,
+}: { label: string; tasa: number; sector: number; maxTasa: number }) {
+  const pct  = maxTasa > 0 ? (tasa / maxTasa) * 100 : 0;
   const over = tasa > sector;
-
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-slate-500 shrink-0" style={{ minWidth: 120 }}>
+      <span className="text-xs text-slate-500 shrink-0 truncate" style={{ minWidth: 100, maxWidth: 130 }}>
         {label}
       </span>
       <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -171,24 +51,228 @@ function MiniBar({
   );
 }
 
-// ─── Context card A / B / C ───────────────────────────────────────────────────
+// ─── Reusable: Stat card ─────────────────────────────────────────────────────
+
+function StatCard({ label, value, color = "text-slate-800" }: { label: string; value: string | number; color?: string }) {
+  return (
+    <div className="text-center py-3 rounded-xl bg-white border border-slate-200">
+      <p className={`text-xl font-extrabold leading-none ${color}`}>{value}</p>
+      <p className="text-[10px] text-slate-400 mt-1">{label}</p>
+    </div>
+  );
+}
+
+// ─── Tab: GENERAL ─────────────────────────────────────────────────────────────
+
+function TabGeneral({ data }: { data: KpiResponse }) {
+  const tasaPct     = (data.tasa * 100).toFixed(1);
+  const sectorPct   = (data.tasaSector * 100).toFixed(0);
+  const mejorSector = data.tasa < data.tasaSector;
+  const diffPts     = Math.abs(data.tasa - data.tasaSector) * 100;
+
+  return (
+    <div className="space-y-4">
+      {/* 3 stat cards */}
+      <div className="grid grid-cols-3 gap-2">
+        <StatCard
+          label="Tasa no-show"
+          value={`${tasaPct}%`}
+          color={mejorSector ? "text-green-700" : "text-red-700"}
+        />
+        <StatCard label="Citas" value={data.totalCitas} />
+        <StatCard label="No-shows" value={data.totalNoShows} color="text-red-700" />
+      </div>
+
+      {/* vs Sector */}
+      <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-2">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">vs Media del Sector</p>
+        <div className="flex items-center gap-3">
+          <div className={`text-2xl font-extrabold ${mejorSector ? "text-green-700" : "text-red-700"}`}>
+            {tasaPct}%
+          </div>
+          <div className="flex-1">
+            <div className="h-3 bg-slate-100 rounded-full overflow-hidden relative">
+              <div
+                className={`h-full rounded-full ${mejorSector ? "bg-green-500" : "bg-red-500"}`}
+                style={{ width: `${Math.min(100, (data.tasa / (data.tasaSector * 1.5)) * 100)}%` }}
+              />
+              <div
+                className="absolute top-0 bottom-0 w-0.5 bg-slate-400"
+                style={{ left: `${(data.tasaSector / (data.tasaSector * 1.5)) * 100}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
+              <span>0%</span>
+              <span>Sector {sectorPct}%</span>
+            </div>
+          </div>
+        </div>
+        <p className={`text-xs font-semibold ${mejorSector ? "text-green-700" : "text-red-700"}`}>
+          {mejorSector
+            ? `✓ ${diffPts.toFixed(1)} puntos por debajo de la media del sector`
+            : `⚠ ${diffPts.toFixed(1)} puntos por encima de la media del sector`}
+        </p>
+      </div>
+
+      {/* Tendencia 8 semanas — Recharts BarChart */}
+      <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-2">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tendencia 8 semanas</p>
+        <ResponsiveContainer width="100%" height={100}>
+          <BarChart data={data.weeklyTrend} margin={{ top: 10, right: 4, left: -20, bottom: 0 }}>
+            <XAxis dataKey="week" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+            <YAxis
+              tickFormatter={(v) => `${(v * 100).toFixed(0)}%`}
+              tick={{ fontSize: 8, fill: "#94a3b8" }}
+              axisLine={false}
+              tickLine={false}
+              width={32}
+            />
+            <Tooltip
+              formatter={(v: any) => [`${(Number(v) * 100).toFixed(1)}%`, "Tasa"]}
+              contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e2e8f0" }}
+            />
+            <ReferenceLine
+              y={data.tasaSector}
+              stroke="#94a3b8"
+              strokeDasharray="3 3"
+              label={{ value: `sector ${sectorPct}%`, fill: "#94a3b8", fontSize: 8, position: "insideTopRight" }}
+            />
+            <Bar dataKey="tasa" radius={[2, 2, 0, 0]}>
+              {data.weeklyTrend.map((entry: WeeklyTrend) => (
+                <Cell
+                  key={entry.week}
+                  fill={entry.tasa > data.tasaSector ? "#EF4444" : "#06B6D4"}
+                />
+              ))}
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+        <div className="flex gap-4 text-[10px] text-slate-400">
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-sm bg-cyan-500" />Bajo sector
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2 h-2 rounded-sm bg-red-400" />Sobre sector
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tab: CLÍNICA ─────────────────────────────────────────────────────────────
+
+function TabClinica({ data, isManager }: { data: KpiResponse; isManager: boolean }) {
+  if (!isManager) {
+    return (
+      <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
+        <p className="text-sm text-slate-400">Solo disponible para managers</p>
+      </div>
+    );
+  }
+  if (!data.byClinica || data.byClinica.length === 0) {
+    return (
+      <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
+        <p className="text-sm text-slate-400">Sin datos suficientes por clínica</p>
+      </div>
+    );
+  }
+  const maxTasa = Math.max(...data.byClinica.map((c) => c.tasa));
+  return (
+    <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ranking por clínica</p>
+      <div className="space-y-2">
+        {data.byClinica.map((c) => (
+          <MiniBar key={c.clinica} label={c.clinica} tasa={c.tasa} sector={data.tasaSector} maxTasa={maxTasa} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Tab: DOCTOR ──────────────────────────────────────────────────────────────
+
+function TabDoctor({ data }: { data: KpiResponse }) {
+  const docs = data.byDoctor;
+  if (!docs || docs.length === 0) {
+    return (
+      <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
+        <p className="text-sm text-slate-400">Sin datos de médico disponibles</p>
+        <p className="text-xs text-slate-300 mt-1">Asegúrate de que el campo "Médico" esté rellenado en Airtable</p>
+      </div>
+    );
+  }
+  const maxTasa = Math.max(...docs.map((d) => d.tasa));
+  return (
+    <div className="space-y-3">
+      <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Por médico (top 5)</p>
+        <div className="space-y-2">
+          {docs.map((d) => (
+            <MiniBar key={d.nombre} label={d.nombre} tasa={d.tasa} sector={data.tasaSector} maxTasa={maxTasa} />
+          ))}
+        </div>
+      </div>
+      {/* Detail table */}
+      <div className="rounded-2xl bg-white border border-slate-200 p-4">
+        <div className="divide-y divide-slate-50">
+          <div className="flex gap-2 pb-1.5 text-[10px] font-semibold text-slate-400 uppercase">
+            <span className="flex-1">Médico</span>
+            <span className="w-14 text-right">Citas</span>
+            <span className="w-14 text-right">No-shows</span>
+            <span className="w-12 text-right">Tasa</span>
+          </div>
+          {docs.map((d) => (
+            <div key={d.nombre} className="flex items-center gap-2 py-2 text-xs">
+              <span className="flex-1 text-slate-700 truncate">{d.nombre}</span>
+              <span className="w-14 text-right text-slate-500">{d.total}</span>
+              <span className="w-14 text-right text-slate-500">{d.noShows}</span>
+              <span className={`w-12 text-right font-semibold ${d.tasa > data.tasaSector ? "text-red-600" : "text-green-700"}`}>
+                {(d.tasa * 100).toFixed(1)}%
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tab: TRATAMIENTO ────────────────────────────────────────────────────────
+
+function TabTratamiento({ data }: { data: KpiResponse }) {
+  if (!data.byTreatment || data.byTreatment.length === 0) {
+    return (
+      <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
+        <p className="text-sm text-slate-400">Sin datos suficientes por tratamiento</p>
+      </div>
+    );
+  }
+  const maxTasa = Math.max(...data.byTreatment.map((t) => t.tasa));
+  return (
+    <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Por tratamiento (top 5)</p>
+      <div className="space-y-2">
+        {data.byTreatment.map((t) => (
+          <MiniBar key={t.treatment} label={t.treatment} tasa={t.tasa} sector={data.tasaSector} maxTasa={maxTasa} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Tab: INGRESOS ────────────────────────────────────────────────────────────
 
 function ContextCard({ real, baseline, delta, prevIngresos }: {
-  real: number;
-  baseline: number;
-  delta: number;
-  prevIngresos: number;
+  real: number; baseline: number; delta: number; prevIngresos: number;
 }) {
   const isMoreActivity = real > prevIngresos;
-  const isDeltaPos = delta > 0;
+  const isDeltaPos     = delta > 0;
 
   if (!isDeltaPos) {
-    // Caso C
     return (
       <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-1">
-        <p className="text-sm font-bold text-red-800">
-          ⚠️ La tasa de no-show aumentó este mes
-        </p>
+        <p className="text-sm font-bold text-red-800">⚠️ La tasa de no-show aumentó este mes</p>
         <p className="text-xs text-red-700 leading-relaxed">
           La proyección sin Fyllio ({fmt(baseline)}) supera los ingresos reales ({fmt(real)}).
           Revisa las alertas y aumenta la gestión preventiva.
@@ -196,51 +280,351 @@ function ContextCard({ real, baseline, delta, prevIngresos }: {
       </div>
     );
   }
-
   if (!isMoreActivity) {
-    // Caso B
     return (
       <div className="rounded-2xl border border-cyan-200 bg-cyan-50 p-4 space-y-1">
-        <p className="text-sm font-bold text-cyan-800">
-          ✨ Fyllio recuperó {fmt(delta)} en un mes con menos actividad
-        </p>
+        <p className="text-sm font-bold text-cyan-800">✨ Fyllio recuperó {fmt(delta)} en un mes con menos actividad</p>
         <p className="text-xs text-cyan-700 leading-relaxed">
-          Los ingresos totales son menores que el mes anterior, pero sin Fyllio habrían sido {fmt(delta)} menos
-          — esas citas habrían quedado vacías.
+          Los ingresos totales son menores que el mes anterior, pero sin Fyllio habrían sido {fmt(delta)} menos.
         </p>
       </div>
     );
   }
-
-  // Caso A
   return (
     <div className="rounded-2xl border border-green-200 bg-green-50 p-4 space-y-1">
-      <p className="text-sm font-bold text-green-800">
-        🎉 Mejor mes: ingresos arriba y Fyllio recuperó {fmt(delta)}
-      </p>
+      <p className="text-sm font-bold text-green-800">🎉 Mejor mes: ingresos arriba y Fyllio recuperó {fmt(delta)}</p>
       <p className="text-xs text-green-700 leading-relaxed">
-        Los ingresos superan el mes anterior ({fmt(prevIngresos)}) y Fyllio evitó perder {fmt(delta)} respecto
-        a la tasa histórica del 15%.
+        Los ingresos superan el mes anterior ({fmt(prevIngresos)}) y Fyllio evitó perder {fmt(delta)} respecto a la tasa histórica.
       </p>
     </div>
   );
 }
 
-function fmt(euros: number): string {
-  return `€${euros.toLocaleString("es-ES")}`;
+function TabIngresos({ data }: { data: KpiResponse }) {
+  const ir = data.ingresosRecuperados;
+  if (!ir) {
+    return (
+      <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
+        <p className="text-sm text-slate-400">Sin datos de ingresos disponibles</p>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-4">
+      <ContextCard
+        real={ir.ingresosReales}
+        baseline={ir.baselineProjection}
+        delta={ir.delta}
+        prevIngresos={ir.mesAnteriorIngresos}
+      />
+      <div className="grid grid-cols-3 gap-2">
+        <StatCard label="Ingresos reales"   value={fmt(ir.ingresosReales)}             />
+        <StatCard label="Sin Fyllio (15%)"  value={fmt(ir.baselineProjection)}  color="text-slate-400" />
+        <StatCard
+          label="Recuperado"
+          value={fmt(Math.abs(ir.delta))}
+          color={ir.delta >= 0 ? "text-green-700" : "text-red-700"}
+        />
+      </div>
+      {/* Recharts LineChart */}
+      <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-2">
+        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ingresos últimos 12 meses</p>
+        <ResponsiveContainer width="100%" height={130}>
+          <LineChart data={ir.monthlyData} margin={{ top: 8, right: 4, left: -10, bottom: 0 }}>
+            <XAxis dataKey="month" tick={{ fontSize: 8, fill: "#94a3b8" }} axisLine={false} tickLine={false} interval={2} />
+            <YAxis
+              tickFormatter={(v) => `€${(v / 1000).toFixed(0)}k`}
+              tick={{ fontSize: 8, fill: "#94a3b8" }}
+              axisLine={false}
+              tickLine={false}
+              width={36}
+            />
+            <Tooltip
+              formatter={(v: any, name: any) => [fmt(Number(v)), name === "real" ? "Real" : "Sin Fyllio"]}
+              contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e2e8f0" }}
+            />
+            <Line type="monotone" dataKey="real"     stroke="#0891b2" strokeWidth={2} dot={{ r: 2 }} name="real" />
+            <Line type="monotone" dataKey="baseline" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4 3" dot={false} name="baseline" />
+          </LineChart>
+        </ResponsiveContainer>
+        <div className="flex gap-4 text-[10px] text-slate-400">
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-4 border-b-2 border-cyan-600" />Real
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-4 border-b-2 border-dashed border-slate-400" />Sin Fyllio
+          </span>
+        </div>
+      </div>
+      <div className="rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs text-slate-500 space-y-0.5">
+        <p>
+          <span className="font-semibold text-slate-600">Tasa pre-Fyllio:</span>{" "}
+          {(ir.tasaPreFyllio * 100).toFixed(0)}% — configurable en Config.
+        </p>
+        <p>Ingreso por cita estimado en €85. Los ingresos reales incluyen citas completadas.</p>
+      </div>
+    </div>
+  );
 }
+
+// ─── Tab: REPUTACIÓN (demo) ────────────────────────────────────────────────────
+
+const DEMO_REP = {
+  rating:  4.2,
+  total:   87,
+  distribution: [
+    { stars: 5, count: 52 },
+    { stars: 4, count: 26 },
+    { stars: 3, count: 7  },
+    { stars: 2, count: 1  },
+    { stars: 1, count: 1  },
+  ],
+  alertas: [
+    { stars: 2, text: "Esperé más de 45 minutos y nadie me informó del retraso.", date: "ayer"        },
+    { stars: 2, text: "No me llegó el recordatorio y no pude cancelar a tiempo.", date: "hace 3 días" },
+  ],
+  respuestaSugerida:
+    "Estimado paciente, lamentamos mucho tu experiencia. La puntualidad y la comunicación son valores fundamentales para nosotros. Hemos tomado nota de tu comentario para mejorar nuestros procesos. Si lo deseas, nos encantaría contactarte directamente para compensar este inconveniente. Un cordial saludo.",
+};
+
+function TabReputacion() {
+  const [showReply, setShowReply] = useState(false);
+  const [replyText, setReplyText] = useState(DEMO_REP.respuestaSugerida);
+
+  return (
+    <div className="space-y-4">
+      {/* Demo notice */}
+      <div className="rounded-2xl border border-violet-100 bg-violet-50 px-4 py-2 text-xs text-violet-700">
+        <span className="font-semibold">Vista previa</span> — Conéctate a la tabla "Valoraciones" para datos reales.
+      </div>
+
+      {/* Rating global */}
+      <div className="rounded-2xl bg-white border border-slate-200 p-4 flex items-center gap-4">
+        <div className="text-center">
+          <p className="text-4xl font-extrabold text-slate-800 leading-none">{DEMO_REP.rating}</p>
+          <p className="text-yellow-400 text-lg mt-0.5">{"★".repeat(4)}☆</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">{DEMO_REP.total} reseñas</p>
+        </div>
+        <div className="flex-1 space-y-1.5">
+          {DEMO_REP.distribution.map((d) => {
+            const pct = Math.round((d.count / DEMO_REP.total) * 100);
+            return (
+              <div key={d.stars} className="flex items-center gap-1.5">
+                <span className="text-[10px] text-slate-400 shrink-0 w-3">{d.stars}</span>
+                <span className="text-yellow-400 text-[9px] shrink-0">★</span>
+                <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${d.stars >= 4 ? "bg-green-400" : d.stars === 3 ? "bg-amber-400" : "bg-red-400"}`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <span className="text-[9px] text-slate-400 shrink-0 w-7 text-right">{pct}%</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Alertas */}
+      <div className="rounded-2xl bg-white border border-red-100 p-4 space-y-2">
+        <p className="text-xs font-semibold text-red-700 uppercase tracking-wider">
+          ⚠️ Alertas — {DEMO_REP.alertas.length} reseñas ≤ 2 estrellas
+        </p>
+        {DEMO_REP.alertas.map((a, i) => (
+          <div key={i} className="rounded-xl bg-red-50 border border-red-100 p-3 space-y-1">
+            <div className="flex items-center gap-1.5">
+              <span className="text-red-400 text-sm">{"★".repeat(a.stars)}{"☆".repeat(5 - a.stars)}</span>
+              <span className="text-[10px] text-slate-400">· Google · {a.date}</span>
+            </div>
+            <p className="text-xs text-slate-600 leading-snug">"{a.text}"</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Reply generator */}
+      <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-slate-700">Respuesta sugerida (Google)</p>
+          <button
+            onClick={() => setShowReply((v) => !v)}
+            className="text-xs font-semibold text-violet-600 hover:text-violet-800 transition-colors"
+          >
+            {showReply ? "Cerrar" : "✦ Generar respuesta"}
+          </button>
+        </div>
+        {showReply && (
+          <>
+            <textarea
+              value={replyText}
+              onChange={(e) => setReplyText(e.target.value)}
+              rows={4}
+              className="w-full text-xs rounded-lg border border-slate-200 px-3 py-2 text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-300 resize-none"
+            />
+            <button
+              onClick={() => { navigator.clipboard.writeText(replyText).catch(() => {}); }}
+              className="text-xs font-semibold text-white bg-slate-700 hover:bg-slate-800 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              Copiar
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── Tab: ASISTENTE IA ────────────────────────────────────────────────────────
+
+function TabIA({ data, period, clinicaFilter }: { data: KpiResponse; period: string; clinicaFilter: string }) {
+  const [msgs,    setMsgs]    = useState<ChatMsg[]>([]);
+  const [input,   setInput]   = useState("");
+  const [loading, setLoading] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [msgs]);
+
+  async function send() {
+    const trimmed = input.trim();
+    if (!trimmed || loading) return;
+    setInput("");
+    setMsgs((prev) => [...prev, { role: "user", content: trimmed }]);
+    setLoading(true);
+    try {
+      const res = await fetch("/api/no-shows/ia/chat", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          mensaje: trimmed,
+          contexto: {
+            tasa:         data.tasa,
+            totalCitas:   data.totalCitas,
+            totalNoShows: data.totalNoShows,
+            tasaSector:   data.tasaSector,
+            clinica:      clinicaFilter || undefined,
+            periodo:      period === "month" ? "30 días" : "90 días",
+            byDayOfWeek:  data.byDayOfWeek,
+            byTreatment:  data.byTreatment,
+            weeklyTrend:  data.weeklyTrend,
+          },
+        }),
+      });
+      const d = await res.json();
+      setMsgs((prev) => [
+        ...prev,
+        { role: "assistant", content: d.respuesta || d.error || "Sin respuesta" },
+      ]);
+    } catch {
+      setMsgs((prev) => [
+        ...prev,
+        { role: "assistant", content: "Error de red. Inténtalo de nuevo." },
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl bg-white border border-slate-200 flex flex-col" style={{ minHeight: 380 }}>
+      {/* Messages area */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ maxHeight: 320 }}>
+        {msgs.length === 0 && (
+          <div className="text-center py-8 space-y-1">
+            <p className="text-2xl">✦</p>
+            <p className="text-sm font-semibold text-slate-700">Asistente IA</p>
+            <p className="text-xs text-slate-400 max-w-xs mx-auto">
+              Pregunta sobre tus datos de no-shows: tendencias, tratamientos, días de riesgo…
+            </p>
+            <div className="flex flex-col gap-1 mt-3">
+              {[
+                "¿Qué día tiene más no-shows?",
+                "¿Cómo está mi tasa vs el sector?",
+                "¿Qué tratamiento tiene mayor riesgo?",
+              ].map((q) => (
+                <button
+                  key={q}
+                  onClick={() => { setInput(q); }}
+                  className="text-xs text-violet-600 hover:text-violet-800 transition-colors"
+                >
+                  → {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+        {msgs.map((m, i) => (
+          <div
+            key={i}
+            className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+          >
+            <div
+              className={`max-w-[80%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${
+                m.role === "user"
+                  ? "bg-slate-800 text-white rounded-br-sm"
+                  : "bg-slate-50 border border-slate-200 text-slate-700 rounded-bl-sm"
+              }`}
+            >
+              {m.role === "assistant" && <span className="text-violet-500 font-bold mr-1">✦</span>}
+              {m.content}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl rounded-bl-sm px-3 py-2 text-xs text-violet-400 animate-pulse">
+              ✦ Pensando…
+            </div>
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div className="border-t border-slate-100 p-3 flex gap-2">
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+          placeholder="Pregunta sobre tus datos…"
+          className="flex-1 text-xs rounded-xl border border-slate-200 px-3 py-2 focus:outline-none focus:ring-1 focus:ring-violet-300"
+          disabled={loading}
+        />
+        <button
+          onClick={send}
+          disabled={loading || !input.trim()}
+          className="text-xs font-bold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-40 px-3 py-2 rounded-xl transition-colors"
+        >
+          Enviar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tab strip ────────────────────────────────────────────────────────────────
+
+const TABS: { id: KpiTab; label: string }[] = [
+  { id: "general",      label: "General"    },
+  { id: "clinica",      label: "Clínica"    },
+  { id: "doctor",       label: "Doctor"     },
+  { id: "tratamiento",  label: "Trat."      },
+  { id: "ingresos",     label: "Ingresos"   },
+  { id: "reputacion",   label: "Reput."     },
+  { id: "ia",           label: "IA ✦"       },
+];
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-type KpiResponse = NoShowKpiData & { isDemo?: boolean };
-
 export default function KpiView({ user }: { user: NoShowsUserSession }) {
   const isManager = user.rol === "manager_general";
-  const [period, setPeriod]       = useState<"month" | "quarter">("month");
-  const [innerTab, setInnerTab]   = useState<"metricas" | "ingresos">("metricas");
-  const [data, setData]           = useState<KpiResponse | null>(null);
-  const [loading, setLoading]     = useState(true);
-  const [clinicaFilter, setClinica] = useState("");
+
+  const [activeTab, setActiveTab]       = useState<KpiTab>("general");
+  const [period, setPeriod]             = useState<"month" | "quarter">("month");
+  const [data, setData]                 = useState<KpiResponse | null>(null);
+  const [loading, setLoading]           = useState(true);
+  const [clinicaFilter, setClinica]     = useState("");
 
   const load = useCallback(async (p: string, clinica?: string) => {
     setLoading(true);
@@ -274,14 +658,6 @@ export default function KpiView({ user }: { user: NoShowsUserSession }) {
     );
   }
 
-  const tasaPct      = (data.tasa * 100).toFixed(1);
-  const sectorPct    = (data.tasaSector * 100).toFixed(0);
-  const mejorSector  = data.tasa < data.tasaSector;
-  const diffPts      = Math.abs(data.tasa - data.tasaSector) * 100;
-  const ir           = data.ingresosRecuperados;
-  const maxByDay     = Math.max(...data.byDayOfWeek.map((d) => d.tasa));
-  const maxByTreat   = Math.max(...data.byTreatment.map((d) => d.tasa));
-
   const clinicas = isManager && data.byClinica
     ? [...new Set(data.byClinica.map((c) => c.clinica))].sort()
     : [];
@@ -296,10 +672,9 @@ export default function KpiView({ user }: { user: NoShowsUserSession }) {
         </div>
       )}
 
-      {/* Header: period + inner tabs + clinic filter */}
+      {/* Controls: period + clinic filter */}
       <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          {/* Period selector */}
           <div className="flex gap-1">
             {(["month", "quarter"] as const).map((p) => (
               <button
@@ -315,26 +690,12 @@ export default function KpiView({ user }: { user: NoShowsUserSession }) {
               </button>
             ))}
           </div>
-
-          {/* Inner tab selector */}
-          <div className="flex gap-1">
-            {(["metricas", "ingresos"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setInnerTab(t)}
-                className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-colors ${
-                  innerTab === t
-                    ? "bg-slate-800 text-white border-slate-800"
-                    : "border-slate-200 text-slate-500 hover:bg-slate-50"
-                }`}
-              >
-                {t === "metricas" ? "Métricas" : "Ingresos"}
-              </button>
-            ))}
-          </div>
+          {/* Quick summary */}
+          <p className="text-xs text-slate-400">
+            {data.totalNoShows} no-shows · {(data.tasa * 100).toFixed(1)}%
+          </p>
         </div>
 
-        {/* Clinic filter */}
         {isManager && clinicas.length > 1 && (
           <select
             value={clinicaFilter}
@@ -347,168 +708,34 @@ export default function KpiView({ user }: { user: NoShowsUserSession }) {
         )}
       </div>
 
-      {/* ── MÉTRICAS TAB ─────────────────────────────────────────────────────── */}
-      {innerTab === "metricas" && (
-        <>
-          {/* Summary chips */}
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { label: "Tasa no-show", value: `${tasaPct}%`, color: mejorSector ? "text-green-700" : "text-red-700" },
-              { label: "Citas",        value: data.totalCitas,   color: "text-slate-700" },
-              { label: "No-shows",     value: data.totalNoShows, color: "text-red-700" },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="text-center py-3 rounded-xl bg-white border border-slate-200">
-                <p className={`text-xl font-extrabold leading-none ${color}`}>{value}</p>
-                <p className="text-[10px] text-slate-400 mt-1">{label}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* vs Sector */}
-          <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-2">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">vs Media del Sector</p>
-            <div className="flex items-center gap-3">
-              <div className={`text-2xl font-extrabold ${mejorSector ? "text-green-700" : "text-red-700"}`}>
-                {tasaPct}%
-              </div>
-              <div className="flex-1">
-                <div className="h-3 bg-slate-100 rounded-full overflow-hidden relative">
-                  <div
-                    className={`h-full rounded-full ${mejorSector ? "bg-green-500" : "bg-red-500"}`}
-                    style={{ width: `${Math.min(100, (data.tasa / (data.tasaSector * 1.5)) * 100)}%` }}
-                  />
-                  {/* Sector marker */}
-                  <div
-                    className="absolute top-0 bottom-0 w-0.5 bg-slate-400"
-                    style={{ left: `${(data.tasaSector / (data.tasaSector * 1.5)) * 100}%` }}
-                  />
-                </div>
-                <div className="flex justify-between text-[10px] text-slate-400 mt-0.5">
-                  <span>0%</span>
-                  <span>Sector {sectorPct}%</span>
-                </div>
-              </div>
-            </div>
-            <p className={`text-xs font-semibold ${mejorSector ? "text-green-700" : "text-red-700"}`}>
-              {mejorSector
-                ? `✓ Estás ${diffPts.toFixed(1)} puntos por debajo de la media del sector`
-                : `⚠ Estás ${diffPts.toFixed(1)} puntos por encima de la media del sector`}
-            </p>
-          </div>
-
-          {/* Tendencia 8 semanas */}
-          <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-2">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Tendencia 8 semanas</p>
-            <WeeklyTrendChart data={data.weeklyTrend} sector={data.tasaSector} />
-            <div className="flex gap-4 text-[10px] text-slate-400">
-              <span className="flex items-center gap-1">
-                <span className="inline-block w-2.5 h-2.5 rounded-sm bg-cyan-500" />
-                Bajo sector
-              </span>
-              <span className="flex items-center gap-1">
-                <span className="inline-block w-2.5 h-2.5 rounded-sm bg-red-400" />
-                Sobre sector
-              </span>
-            </div>
-          </div>
-
-          {/* Desglose por día de semana */}
-          <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Por día de semana</p>
-            <div className="space-y-2">
-              {data.byDayOfWeek.map((d) => (
-                <MiniBar key={d.day} label={d.day} tasa={d.tasa} sector={data.tasaSector} maxTasa={maxByDay} />
-              ))}
-            </div>
-          </div>
-
-          {/* Desglose por tratamiento */}
-          {data.byTreatment.length > 0 && (
-            <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Por tratamiento (top 5)</p>
-              <div className="space-y-2">
-                {data.byTreatment.map((t) => (
-                  <MiniBar
-                    key={t.treatment}
-                    label={t.treatment}
-                    tasa={t.tasa}
-                    sector={data.tasaSector}
-                    maxTasa={maxByTreat}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Por clínica (managers) */}
-          {isManager && data.byClinica && data.byClinica.length > 0 && (
-            <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Ranking por clínica</p>
-              <div className="divide-y divide-slate-100">
-                {data.byClinica.map((c, i) => (
-                  <div key={c.clinica} className="flex items-center gap-3 py-1.5">
-                    <span className="text-xs text-slate-400 font-mono w-4">{i + 1}</span>
-                    <span className="flex-1 text-xs text-slate-700 truncate">{c.clinica}</span>
-                    <span className={`text-xs font-bold ${c.tasa > data.tasaSector ? "text-red-600" : "text-green-700"}`}>
-                      {(c.tasa * 100).toFixed(1)}%
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ── INGRESOS RECUPERADOS TAB ──────────────────────────────────────────── */}
-      {innerTab === "ingresos" && ir && (
-        <>
-          {/* Contexto */}
-          <ContextCard
-            real={ir.ingresosReales}
-            baseline={ir.baselineProjection}
-            delta={ir.delta}
-            prevIngresos={ir.mesAnteriorIngresos}
-          />
-
-          {/* Métricas clave */}
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { label: "Ingresos reales",    value: fmt(ir.ingresosReales),     color: "text-slate-800" },
-              { label: "Sin Fyllio (15%)",   value: fmt(ir.baselineProjection), color: "text-slate-400" },
-              { label: "Recuperado",         value: fmt(Math.abs(ir.delta)),    color: ir.delta >= 0 ? "text-green-700" : "text-red-700" },
-            ].map(({ label, value, color }) => (
-              <div key={label} className="text-center py-3 rounded-xl bg-white border border-slate-200">
-                <p className={`text-base font-extrabold leading-none ${color}`}>{value}</p>
-                <p className="text-[10px] text-slate-400 mt-1 leading-tight px-1">{label}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Gráfico 12 meses */}
-          <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-2">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Ingresos últimos 12 meses
-            </p>
-            <MonthlyLineChart data={ir.monthlyData} />
-          </div>
-
-          {/* Nota pie */}
-          <div className="rounded-2xl bg-slate-50 border border-slate-200 px-4 py-3 text-xs text-slate-500 space-y-0.5">
-            <p>
-              <span className="font-semibold text-slate-600">Tasa pre-Fyllio:</span>{" "}
-              {(ir.tasaPreFyllio * 100).toFixed(0)}% — configurable en la sección Config.
-            </p>
-            <p>El ingreso por cita se estima en €85. Los ingresos reales incluyen todas las citas completadas.</p>
-          </div>
-        </>
-      )}
-
-      {/* Ingresos tab but no data */}
-      {innerTab === "ingresos" && !ir && (
-        <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
-          <p className="text-sm text-slate-400">Sin datos de ingresos disponibles</p>
+      {/* Tab strip — horizontal scroll */}
+      <div className="rounded-2xl bg-white border border-slate-200 p-1.5">
+        <div className="flex gap-1 overflow-x-auto pb-0.5 no-scrollbar">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setActiveTab(t.id)}
+              className={`text-xs px-3 py-2 rounded-xl font-semibold whitespace-nowrap transition-colors flex-shrink-0 ${
+                activeTab === t.id
+                  ? "bg-slate-800 text-white"
+                  : "text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
+      </div>
+
+      {/* Tab content */}
+      {activeTab === "general"     && <TabGeneral     data={data} />}
+      {activeTab === "clinica"     && <TabClinica     data={data} isManager={isManager} />}
+      {activeTab === "doctor"      && <TabDoctor      data={data} />}
+      {activeTab === "tratamiento" && <TabTratamiento data={data} />}
+      {activeTab === "ingresos"    && <TabIngresos    data={data} />}
+      {activeTab === "reputacion"  && <TabReputacion  />}
+      {activeTab === "ia"          && (
+        <TabIA data={data} period={period} clinicaFilter={clinicaFilter} />
       )}
     </div>
   );

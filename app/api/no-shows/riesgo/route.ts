@@ -1,5 +1,6 @@
 // app/api/no-shows/riesgo/route.ts
 // GET: riesgo de no-show para la semana próxima + recall alerts
+// ?incluirFuturas=1 → también devuelve citas semanas 2-3 con score≥70
 // Requiere JWT cookie fyllio_noshows_token
 
 import { NextResponse } from "next/server";
@@ -22,6 +23,8 @@ import {
 const COOKIE = "fyllio_noshows_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
 const secret = new TextEncoder().encode(SECRET_RAW);
+
+const AVG_TICKET = 85; // € ticket medio por cita
 
 const CANCELLED = new Set([
   "CANCELADO", "CANCELADA", "CANCELED", "CANCELLED",
@@ -69,6 +72,7 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const weekParam = searchParams.get("week");
+    const incluirFuturas = searchParams.get("incluirFuturas") === "1";
 
     const clinicaFilter =
       session.rol === "manager_general"
@@ -87,13 +91,18 @@ export async function GET(req: Request) {
     const sundayIso = windowEnd.toISODate()!;
     const todayIso = now.toISODate()!;
 
+    // Ventana para citas futuras (semanas 2-3)
+    const futurasStartIso = windowStart.plus({ weeks: 1 }).toISODate()!;
+    const futurasEndIso   = windowStart.plus({ weeks: 3 }).toISODate()!;
+
     // Fetch all appointments
     const allRecs = await base(TABLES.appointments as any)
       .select({ maxRecords: 2000 })
       .all();
 
-    const weekRecs: any[] = [];
-    const histRecs: any[] = [];
+    const weekRecs:    any[] = [];
+    const futurasRecs: any[] = [];
+    const histRecs:    any[] = [];
 
     for (const r of allRecs) {
       const f: any = r.fields;
@@ -109,12 +118,21 @@ export async function GET(req: Request) {
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
 
       if (dayIso >= mondayIso && dayIso < sundayIso && !CANCELLED.has(estado)) {
-        // Only future appointments (not yet passed)
         const startDt = DateTime.fromISO(startIso, { zone: ZONE });
         if (startDt > now) {
           weekRecs.push({ r, f, startIso, dayIso });
         }
       }
+
+      if (
+        incluirFuturas &&
+        dayIso >= futurasStartIso &&
+        dayIso < futurasEndIso &&
+        !CANCELLED.has(estado)
+      ) {
+        futurasRecs.push({ r, f, startIso, dayIso });
+      }
+
       if (dayIso < todayIso) {
         histRecs.push({ f, startIso });
       }
@@ -139,10 +157,8 @@ export async function GET(req: Request) {
       });
     }
 
-    // Score week appointments
-    weekRecs.sort((a, b) => a.startIso.localeCompare(b.startIso));
-
-    const appointments: RiskyAppt[] = weekRecs.map(({ r, f, startIso }) => {
+    // Helper: build RiskyAppt from a raw record
+    function buildAppt(r: any, f: any, startIso: string): RiskyAppt {
       const phone =
         firstString(f["Paciente_teléfono"]) ||
         firstString(f["Paciente_tutor_teléfono"]) || "";
@@ -153,13 +169,11 @@ export async function GET(req: Request) {
       const endIso = toMadridIso(f["Hora final"]);
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
       const confirmed = estado.includes("CONFIRM");
-
       const history = patientHistory.get(phone) ?? { total: 0, noShowCount: 0, cancelCount: 0 };
       const scored = scoreAppointment(
-        { startIso, treatmentName, createdTime: (r as any)._rawJson?.createdTime, history },
+        { startIso, treatmentName, createdTime: r._rawJson?.createdTime, history },
         now,
       );
-
       return {
         id: r.id,
         patientName,
@@ -173,7 +187,22 @@ export async function GET(req: Request) {
         confirmed,
         ...scored,
       };
-    });
+    }
+
+    // Score week appointments
+    weekRecs.sort((a, b) => a.startIso.localeCompare(b.startIso));
+    const appointments: RiskyAppt[] = weekRecs.map(({ r, f, startIso }) => buildAppt(r, f, startIso));
+
+    // Score futuras (semanas 2-3, score≥70)
+    const futuras: RiskyAppt[] = [];
+    if (incluirFuturas) {
+      futurasRecs.sort((a: any, b: any) => a.startIso.localeCompare(b.startIso));
+      for (const { r, f, startIso } of futurasRecs) {
+        const appt = buildAppt(r, f, startIso);
+        if (appt.riskScore >= 70) futuras.push(appt);
+      }
+      futuras.sort((a, b) => b.riskScore - a.riskScore);
+    }
 
     // Detect recalls
     const futurePhones = new Set(
@@ -217,31 +246,39 @@ export async function GET(req: Request) {
     if (isDemoModeNoShows(appointments.length)) {
       const demoAppts = buildDemoRiesgoAppointments();
       const demoRecalls = buildDemoRecallAlerts();
+      const demoHigh = demoAppts.filter((a) => a.riskLevel === "HIGH").length;
+      const demoMed  = demoAppts.filter((a) => a.riskLevel === "MEDIUM").length;
       return NextResponse.json({
         week: mondayIso,
         appointments: demoAppts,
         recalls: demoRecalls,
+        futuras: [],
         summary: {
-          highRisk:   demoAppts.filter((a) => a.riskLevel === "HIGH").length,
-          mediumRisk: demoAppts.filter((a) => a.riskLevel === "MEDIUM").length,
-          lowRisk:    demoAppts.filter((a) => a.riskLevel === "LOW").length,
+          highRisk:          demoHigh,
+          mediumRisk:        demoMed,
+          lowRisk:           demoAppts.filter((a) => a.riskLevel === "LOW").length,
           totalAppointments: demoAppts.length,
-          recallCount: demoRecalls.length,
+          recallCount:       demoRecalls.length,
+          eurosEnRiesgo:     (demoHigh + demoMed) * AVG_TICKET,
         },
         isDemo: true,
       });
     }
 
+    const highRisk   = appointments.filter((a) => a.riskLevel === "HIGH").length;
+    const mediumRisk = appointments.filter((a) => a.riskLevel === "MEDIUM").length;
     return NextResponse.json({
       week: mondayIso,
       appointments,
       recalls,
+      futuras: incluirFuturas ? futuras : undefined,
       summary: {
-        highRisk:   appointments.filter((a) => a.riskLevel === "HIGH").length,
-        mediumRisk: appointments.filter((a) => a.riskLevel === "MEDIUM").length,
-        lowRisk:    appointments.filter((a) => a.riskLevel === "LOW").length,
+        highRisk,
+        mediumRisk,
+        lowRisk:           appointments.filter((a) => a.riskLevel === "LOW").length,
         totalAppointments: appointments.length,
-        recallCount: recalls.length,
+        recallCount:       recalls.length,
+        eurosEnRiesgo:     (highRisk + mediumRisk) * AVG_TICKET,
       },
     });
   } catch (e: any) {

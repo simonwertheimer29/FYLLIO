@@ -80,6 +80,7 @@ export async function GET(req: Request) {
       isNoShow: boolean;
       treatment: string;
       clinica: string;
+      doctor: string;
     };
 
     const records: RecordData[] = [];
@@ -106,7 +107,8 @@ export async function GET(req: Request) {
         dayIso,
         isNoShow,
         treatment: firstString(f["Tratamiento_nombre"]) || "Otro",
-        clinica: clinicaRec || "Sin clínica",
+        clinica:   clinicaRec || "Sin clínica",
+        doctor:    firstString(f["Médico"]) || firstString(f["Doctor"]) || "Sin asignar",
       });
     }
 
@@ -142,6 +144,26 @@ export async function GET(req: Request) {
     const byTreatment = [...byTreatMap.entries()]
       .filter(([, v]) => v.total >= 3)
       .map(([treatment, v]) => ({ treatment, tasa: v.noShows / v.total }))
+      .sort((a, b) => b.tasa - a.tasa)
+      .slice(0, 5);
+
+    // By doctor (top 5)
+    const byDoctorMap = new Map<string, { total: number; noShows: number }>();
+    for (const r of periodRecs) {
+      const prev = byDoctorMap.get(r.doctor) ?? { total: 0, noShows: 0 };
+      byDoctorMap.set(r.doctor, {
+        total:   prev.total + 1,
+        noShows: prev.noShows + (r.isNoShow ? 1 : 0),
+      });
+    }
+    const byDoctor = [...byDoctorMap.entries()]
+      .filter(([, v]) => v.total >= 3)
+      .map(([nombre, v]) => ({
+        nombre,
+        tasa:    v.total > 0 ? v.noShows / v.total : 0,
+        total:   v.total,
+        noShows: v.noShows,
+      }))
       .sort((a, b) => b.tasa - a.tasa)
       .slice(0, 5);
 
@@ -217,7 +239,7 @@ export async function GET(req: Request) {
       },
     };
 
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, byDoctor });
   } catch (e: any) {
     console.error("[no-shows/kpis] error", e);
     return NextResponse.json({ error: e?.message ?? "Error" }, { status: 500 });

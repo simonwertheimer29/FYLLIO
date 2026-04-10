@@ -2,42 +2,35 @@
 
 import { useState, useEffect } from "react";
 import type { NoShowsUserSession } from "../../lib/no-shows/types";
-import {
-  HIGH_RISK_TREATMENTS,
-  LOW_RISK_TREATMENTS,
-  RISK_HIGH,
-  RISK_MEDIUM,
-} from "../../lib/no-shows/score";
 
 // ─── Types + Storage ──────────────────────────────────────────────────────────
 
-type LocalConfig = {
-  riskHighThreshold: number;
-  riskMediumThreshold: number;
-  highRiskTreatments: string[];
-  lowRiskTreatments: string[];
-  whatsappTemplates: { high: string; medium: string; low: string };
-  reminderRules: { send72h: boolean; send48h: boolean; send24h: boolean; sendHour: number };
-  tasaPreFyllio: number; // %
+type SimpleConfig = {
+  recordatoriosOn: boolean;
+  objetivoMensual: number; // integer % (e.g. 10 = 10%)
+  notificaciones: {
+    noShow:          boolean;
+    confirmada:      boolean;
+    recall:          boolean;
+    valoracionBaja:  boolean;
+  };
 };
 
-const DEFAULT_CONFIG: LocalConfig = {
-  riskHighThreshold: RISK_HIGH,
-  riskMediumThreshold: RISK_MEDIUM,
-  highRiskTreatments: [...HIGH_RISK_TREATMENTS],
-  lowRiskTreatments: [...LOW_RISK_TREATMENTS],
-  whatsappTemplates: {
-    high: "Hola {nombre}, te recordamos tu cita de {tratamiento} mañana a las {hora}. Por favor confirma respondiendo SÍ. Sin respuesta, llamaremos para asegurar tu plaza.",
-    medium: "Hola {nombre}, tu cita de {tratamiento} es mañana a las {hora}. ¡Te esperamos! Confirma respondiendo SÍ.",
-    low: "Hola {nombre}, recordatorio de tu cita de {tratamiento} mañana a las {hora}. ¡Hasta pronto!",
+const DEFAULT_CONFIG: SimpleConfig = {
+  recordatoriosOn: true,
+  objetivoMensual: 10,
+  notificaciones: {
+    noShow:         true,
+    confirmada:     false,
+    recall:         true,
+    valoracionBaja: true,
   },
-  reminderRules: { send72h: true, send48h: true, send24h: true, sendHour: 10 },
-  tasaPreFyllio: 15,
 };
 
 const STORAGE_KEY = "fyllio_noshows_config";
+const OBJETIVO_KEY = "fyllio_noshows_objetivo"; // read by HoyView
 
-function loadConfig(): LocalConfig {
+function loadConfig(): SimpleConfig {
   if (typeof window === "undefined") return DEFAULT_CONFIG;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -46,13 +39,59 @@ function loadConfig(): LocalConfig {
   } catch { return DEFAULT_CONFIG; }
 }
 
-function saveConfig(cfg: LocalConfig) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); } catch { /* silent */ }
+function saveConfig(cfg: SimpleConfig) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg));
+    // sync objetivo key so HoyView reads it correctly
+    localStorage.setItem(OBJETIVO_KEY, String(cfg.objetivoMensual));
+  } catch { /* silent */ }
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Toggle ───────────────────────────────────────────────────────────────────
 
-function SectionCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+function Toggle({
+  checked,
+  onChange,
+  label,
+  description,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  description?: string;
+}) {
+  return (
+    <label className="flex items-start gap-3 cursor-pointer group">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`mt-0.5 w-10 h-5 rounded-full transition-colors relative shrink-0 ${
+          checked ? "bg-cyan-500" : "bg-slate-200"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+            checked ? "translate-x-5" : ""
+          }`}
+        />
+      </button>
+      <div className="min-w-0">
+        <p className="text-sm text-slate-800 leading-tight">{label}</p>
+        {description && (
+          <p className="text-xs text-slate-400 mt-0.5 leading-snug">{description}</p>
+        )}
+      </div>
+    </label>
+  );
+}
+
+// ─── SectionCard ──────────────────────────────────────────────────────────────
+
+function SectionCard({ title, subtitle, children }: {
+  title: string; subtitle?: string; children: React.ReactNode;
+}) {
   return (
     <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-4">
       <div>
@@ -64,95 +103,33 @@ function SectionCard({ title, subtitle, children }: { title: string; subtitle?: 
   );
 }
 
-function TreatmentChips({
-  label,
-  items,
-  onAdd,
-  onRemove,
-  chipColor,
-}: {
-  label: string;
-  items: string[];
-  onAdd: (v: string) => void;
-  onRemove: (v: string) => void;
-  chipColor: "red" | "green";
-}) {
-  const [input, setInput] = useState("");
-
-  function handleAdd() {
-    const v = input.trim().toLowerCase();
-    if (!v || items.includes(v)) { setInput(""); return; }
-    onAdd(v);
-    setInput("");
-  }
-
-  const chipCls = chipColor === "red"
-    ? "bg-red-50 text-red-700 border border-red-200"
-    : "bg-green-50 text-green-700 border border-green-200";
-
-  return (
-    <div className="space-y-2">
-      <p className="text-xs font-semibold text-slate-600">{label}</p>
-      <div className="flex flex-wrap gap-1.5 min-h-[28px]">
-        {items.map((item) => (
-          <span key={item} className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${chipCls}`}>
-            {item}
-            <button
-              onClick={() => onRemove(item)}
-              className="leading-none opacity-60 hover:opacity-100 transition-opacity ml-0.5"
-              title="Eliminar"
-            >
-              ×
-            </button>
-          </span>
-        ))}
-        {items.length === 0 && <span className="text-xs text-slate-400 italic">Sin tratamientos</span>}
-      </div>
-      <div className="flex gap-2">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAdd())}
-          placeholder="Añadir tratamiento..."
-          className="flex-1 rounded-xl border border-slate-200 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-cyan-300 text-slate-700"
-        />
-        <button
-          onClick={handleAdd}
-          className="px-3 py-1.5 rounded-xl bg-slate-100 text-xs font-bold text-slate-600 hover:bg-slate-200 transition-colors"
-        >
-          +
-        </button>
-      </div>
-    </div>
-  );
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function ConfigView({ user }: { user: NoShowsUserSession }) {
   const isManager = user.rol === "manager_general";
-  const [cfg, setCfg] = useState<LocalConfig>(DEFAULT_CONFIG);
+
+  const [cfg,   setCfg]   = useState<SimpleConfig>(DEFAULT_CONFIG);
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
     setCfg(loadConfig());
   }, []);
 
-  function update(patch: Partial<LocalConfig>) {
+  function update(patch: Partial<SimpleConfig>) {
     setCfg((prev) => ({ ...prev, ...patch }));
+    setSaved(false);
+  }
+
+  function updateNotif(key: keyof SimpleConfig["notificaciones"], value: boolean) {
+    setCfg((prev) => ({
+      ...prev,
+      notificaciones: { ...prev.notificaciones, [key]: value },
+    }));
     setSaved(false);
   }
 
   function handleSave() {
     saveConfig(cfg);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
-  }
-
-  function handleReset() {
-    setCfg(DEFAULT_CONFIG);
-    saveConfig(DEFAULT_CONFIG);
     setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   }
@@ -168,177 +145,98 @@ export default function ConfigView({ user }: { user: NoShowsUserSession }) {
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-4 max-w-2xl w-full mx-auto">
 
-      {/* ── 1. Umbrales de riesgo ── */}
-      <SectionCard title="Umbrales de riesgo" subtitle="Puntuación mínima para clasificar una cita como riesgo alto o medio">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs font-semibold text-red-700 block mb-1">
-              ALTO (≥ N puntos)
-            </label>
-            <input
-              type="number"
-              min={31}
-              max={99}
-              value={cfg.riskHighThreshold}
-              onChange={(e) => update({ riskHighThreshold: Number(e.target.value) })}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-red-300"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-semibold text-amber-700 block mb-1">
-              MEDIO (≥ N puntos)
-            </label>
-            <input
-              type="number"
-              min={10}
-              max={cfg.riskHighThreshold - 1}
-              value={cfg.riskMediumThreshold}
-              onChange={(e) => update({ riskMediumThreshold: Number(e.target.value) })}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-amber-300"
-            />
-          </div>
-        </div>
-        <div className="flex gap-2 text-xs text-slate-400">
-          <span className="px-2 py-0.5 rounded-full bg-red-50 text-red-600 font-semibold">ALTO ≥ {cfg.riskHighThreshold}</span>
-          <span className="px-2 py-0.5 rounded-full bg-amber-50 text-amber-600 font-semibold">MEDIO {cfg.riskMediumThreshold}–{cfg.riskHighThreshold - 1}</span>
-          <span className="px-2 py-0.5 rounded-full bg-green-50 text-green-600 font-semibold">BAJO &lt; {cfg.riskMediumThreshold}</span>
-        </div>
-      </SectionCard>
-
-      {/* ── 2. Tratamientos de riesgo ── */}
-      <SectionCard title="Tratamientos de riesgo" subtitle="Clasificación que afecta al factor tratamiento en el score">
-        <TreatmentChips
-          label="Riesgo alto (revisión, limpieza…)"
-          items={cfg.highRiskTreatments}
-          onAdd={(v) => update({ highRiskTreatments: [...cfg.highRiskTreatments, v] })}
-          onRemove={(v) => update({ highRiskTreatments: cfg.highRiskTreatments.filter((t) => t !== v) })}
-          chipColor="red"
-        />
-        <TreatmentChips
-          label="Riesgo bajo (implante, ortodoncia…)"
-          items={cfg.lowRiskTreatments}
-          onAdd={(v) => update({ lowRiskTreatments: [...cfg.lowRiskTreatments, v] })}
-          onRemove={(v) => update({ lowRiskTreatments: cfg.lowRiskTreatments.filter((t) => t !== v) })}
-          chipColor="green"
+      {/* ── 1. Recordatorios ── */}
+      <SectionCard
+        title="Recordatorios"
+        subtitle="Activar o desactivar el envío automático de recordatorios preventivos"
+      >
+        <Toggle
+          checked={cfg.recordatoriosOn}
+          onChange={(v) => update({ recordatoriosOn: v })}
+          label="Recordatorios automáticos"
+          description="El sistema detecta el riesgo de cada cita y gestiona los recordatorios sin intervención manual. Desactivar solo en caso de mantenimiento."
         />
       </SectionCard>
 
-      {/* ── 3. Plantillas WhatsApp ── */}
-      <SectionCard title="Plantillas WhatsApp" subtitle="Variables disponibles: {nombre}, {hora}, {tratamiento}">
-        {(["high", "medium", "low"] as const).map((level) => {
-          const labelMap = { high: "🔴 Riesgo ALTO", medium: "🟡 Riesgo MEDIO", low: "🟢 Riesgo BAJO" };
-          return (
-            <div key={level}>
-              <label className="text-xs font-semibold text-slate-600 block mb-1">{labelMap[level]}</label>
-              <textarea
-                rows={3}
-                value={cfg.whatsappTemplates[level]}
-                onChange={(e) =>
-                  update({
-                    whatsappTemplates: { ...cfg.whatsappTemplates, [level]: e.target.value },
-                  })
-                }
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700 leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-cyan-300"
-              />
-              {/* Variable preview */}
-              <p className="text-[10px] text-slate-400 mt-1">
-                {cfg.whatsappTemplates[level]
-                  .replace("{nombre}", "María")
-                  .replace("{hora}", "10:30")
-                  .replace("{tratamiento}", "ortodoncia")}
-              </p>
-            </div>
-          );
-        })}
-      </SectionCard>
-
-      {/* ── 4. Reglas de recordatorio ── */}
-      <SectionCard title="Reglas de recordatorio" subtitle="Cuándo enviar recordatorios automáticos">
-        <div className="space-y-2">
-          {(
-            [
-              { key: "send72h", label: "72h antes", suffix: "(solo para riesgo ALTO)" },
-              { key: "send48h", label: "48h antes", suffix: "" },
-              { key: "send24h", label: "24h antes", suffix: "" },
-            ] as { key: keyof typeof cfg.reminderRules; label: string; suffix: string }[]
-          ).map(({ key, label, suffix }) => (
-            <label key={key} className="flex items-center gap-3 cursor-pointer">
-              <button
-                type="button"
-                role="switch"
-                aria-checked={cfg.reminderRules[key] as boolean}
-                onClick={() =>
-                  update({
-                    reminderRules: {
-                      ...cfg.reminderRules,
-                      [key]: !(cfg.reminderRules[key] as boolean),
-                    },
-                  })
-                }
-                className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ${
-                  cfg.reminderRules[key] ? "bg-cyan-500" : "bg-slate-200"
-                }`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                    cfg.reminderRules[key] ? "translate-x-5" : ""
-                  }`}
-                />
-              </button>
-              <span className="text-sm text-slate-700">{label}</span>
-              {suffix && <span className="text-xs text-slate-400">{suffix}</span>}
-            </label>
-          ))}
-        </div>
-
+      {/* ── 2. Objetivo mensual ── */}
+      <SectionCard
+        title="Objetivo mensual"
+        subtitle="Tasa de no-show objetivo. Se usa en el semáforo de HOY y en las métricas de KPIs."
+      >
         <div className="flex items-center gap-3">
-          <label className="text-sm text-slate-700 shrink-0">Hora de envío</label>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              min={7}
-              max={20}
-              value={cfg.reminderRules.sendHour}
-              onChange={(e) =>
-                update({ reminderRules: { ...cfg.reminderRules, sendHour: Number(e.target.value) } })
-              }
-              className="w-16 rounded-xl border border-slate-200 px-2 py-1.5 text-sm font-bold text-slate-800 text-center focus:outline-none focus:ring-2 focus:ring-cyan-300"
-            />
-            <span className="text-sm text-slate-400">:00</span>
-          </div>
-        </div>
-      </SectionCard>
-
-      {/* ── 5. ROI — Tasa pre-Fyllio ── */}
-      <SectionCard title="Cálculo de ROI" subtitle="Tasa histórica de no-shows antes de usar Fyllio (para proyección de ingresos recuperados en KPIs)">
-        <div className="flex items-center gap-3">
-          <label className="text-sm text-slate-700 shrink-0">Tasa pre-Fyllio</label>
+          <label className="text-sm text-slate-700 shrink-0">Tasa objetivo</label>
           <div className="flex items-center gap-2">
             <input
               type="number"
               min={1}
-              max={50}
-              step={0.5}
-              value={cfg.tasaPreFyllio}
-              onChange={(e) => update({ tasaPreFyllio: Number(e.target.value) })}
+              max={25}
+              step={1}
+              value={cfg.objetivoMensual}
+              onChange={(e) => update({ objetivoMensual: Number(e.target.value) })}
               className="w-20 rounded-xl border border-slate-200 px-2 py-1.5 text-sm font-bold text-slate-800 text-center focus:outline-none focus:ring-2 focus:ring-cyan-300"
             />
             <span className="text-sm text-slate-400">%</span>
           </div>
-          <p className="text-xs text-slate-400">
-            Por defecto: 15%
-          </p>
+        </div>
+
+        {/* Semáforo preview */}
+        <div className="flex items-center gap-2 text-xs">
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500" />
+            <span className="text-slate-600">
+              Verde: tasa &lt; {cfg.objetivoMensual}%
+            </span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-400" />
+            <span className="text-slate-600">
+              Ámbar: {cfg.objetivoMensual}–{cfg.objetivoMensual + 3}%
+            </span>
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500" />
+            <span className="text-slate-600">
+              Rojo: &gt; {cfg.objetivoMensual + 3}%
+            </span>
+          </span>
         </div>
       </SectionCard>
 
-      {/* ── Actions ── */}
-      <div className="flex items-center justify-between gap-3 pb-4">
-        <button
-          onClick={handleReset}
-          className="text-xs text-slate-400 hover:text-slate-600 transition-colors underline underline-offset-2"
-        >
-          Restablecer valores por defecto
-        </button>
+      {/* ── 3. Notificaciones ── */}
+      <SectionCard
+        title="Notificaciones"
+        subtitle="Eventos sobre los que quieres recibir alerta en el panel"
+      >
+        <div className="space-y-4">
+          <Toggle
+            checked={cfg.notificaciones.noShow}
+            onChange={(v) => updateNotif("noShow", v)}
+            label="No-show detectado"
+            description="Cuando una cita pasa a estado NO_SHOW en Airtable"
+          />
+          <Toggle
+            checked={cfg.notificaciones.confirmada}
+            onChange={(v) => updateNotif("confirmada", v)}
+            label="Cita confirmada"
+            description="Cuando un paciente confirma asistencia"
+          />
+          <Toggle
+            checked={cfg.notificaciones.recall}
+            onChange={(v) => updateNotif("recall", v)}
+            label="Paciente en recall sin cita"
+            description="Paciente en tratamiento activo que lleva más de 3 semanas sin agendar"
+          />
+          <Toggle
+            checked={cfg.notificaciones.valoracionBaja}
+            onChange={(v) => updateNotif("valoracionBaja", v)}
+            label="Valoración ≤ 2 estrellas"
+            description="Nueva reseña con puntuación baja en Google u otras plataformas"
+          />
+        </div>
+      </SectionCard>
+
+      {/* Save button */}
+      <div className="flex justify-end pb-4">
         <button
           onClick={handleSave}
           className={`px-5 py-2.5 rounded-2xl text-sm font-bold transition-all ${

@@ -8,6 +8,8 @@ import { jwtVerify } from "jose";
 import { DateTime } from "luxon";
 import { base, TABLES } from "../../../lib/airtable";
 import type { NoShowsUserSession, AccionTask, RiskyAppt, GapSlot } from "../../../lib/no-shows/types";
+
+type ExtAccionTask = AccionTask & { escalado?: boolean };
 import { scoreAppointment, ZONE } from "../../../lib/no-shows/score";
 import { buildDemoAccionTasks, isDemoModeNoShows } from "../../../lib/no-shows/demo";
 
@@ -192,7 +194,7 @@ export async function GET(req: Request) {
     const tomorrowGaps = detectGaps(tomorrowAppts, tomorrowIso);
 
     // Build task list
-    const tasks: AccionTask[] = [];
+    const tasks: ExtAccionTask[] = [];
     let idx = 1;
 
     // HIGH today → urgent
@@ -224,9 +226,10 @@ export async function GET(req: Request) {
       });
     }
 
-    // MEDIUM today + HIGH/MEDIUM tomorrow → pending
+    // MEDIUM today + HIGH/MEDIUM tomorrow → pending (auto-escalate if score ≥ 80)
     for (const a of todayAppts.filter((x) => x.riskLevel === "MEDIUM")) {
-      const nombre = a.patientName.split(" ")[0];
+      const nombre   = a.patientName.split(" ")[0];
+      const escalado = a.riskScore >= 80;
       tasks.push({
         id: `accion-${idx++}`,
         category: "NO_SHOW",
@@ -234,14 +237,16 @@ export async function GET(req: Request) {
         phone: a.patientPhone,
         description: `Riesgo MEDIO · ${a.treatmentName} hoy a las ${a.startDisplay}`,
         whatsappMsg: `Hola ${nombre}, te recordamos tu cita de ${a.treatmentName} hoy a las ${a.startDisplay}. Responde "OK" para confirmar.`,
-        urgent: false,
+        urgent: escalado,
+        escalado,
         appt: a,
       });
     }
 
     for (const a of tomorrowAppts.filter((x) => x.riskLevel !== "LOW")) {
-      const nombre = a.patientName.split(" ")[0];
-      const level = a.riskLevel === "HIGH" ? "ALTO" : "MEDIO";
+      const nombre   = a.patientName.split(" ")[0];
+      const level    = a.riskLevel === "HIGH" ? "ALTO" : "MEDIO";
+      const escalado = a.riskScore >= 80;
       tasks.push({
         id: `accion-${idx++}`,
         category: "NO_SHOW",
@@ -250,7 +255,8 @@ export async function GET(req: Request) {
         description: `Riesgo ${level} · ${a.treatmentName} mañana a las ${a.startDisplay}`,
         whatsappMsg: `Hola ${nombre}, te recordamos tu cita de ${a.treatmentName} mañana a las ${a.startDisplay}. ¿Confirmas asistencia?`,
         deadlineIso: a.dayIso + "T18:00:00",
-        urgent: false,
+        urgent: escalado,
+        escalado,
         appt: a,
       });
     }
