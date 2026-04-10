@@ -374,6 +374,7 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
   const [selectedDayOffset, setSelectedDayOffset] = useState(0);
   // Driven by FullCalendar's datesSet — source of truth for header label
   const [displayedMonday, setDisplayedMonday]   = useState<string>(getMondayIso);
+  const [displayedLabel, setDisplayedLabel]     = useState<string>(() => weekLabel(getMondayIso()));
 
   // ── Filter state ──
   const [clinicaFilter, setClinicaFilter]       = useState("");
@@ -460,7 +461,7 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
               className="p-1.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors text-sm"
             >←</button>
             <div className="text-center px-1">
-              <p className="text-sm font-bold text-slate-900">{weekLabel(displayedMonday)}</p>
+              <p className="text-sm font-bold text-slate-900">{displayedLabel}</p>
               {isCurrentWeek && <p className="text-[10px] text-cyan-600 font-semibold">Semana actual</p>}
             </div>
             <button onClick={() => goWeek(1)}
@@ -540,7 +541,7 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
         onNewAppt={(dayIso, startMin) => setNewApptState({ dayIso, startMin, durationMin: 45 })}
         onToast={showToast}
         onClinciasAvailable={isManager ? setAvailableClinics : undefined}
-        onDatesSet={setDisplayedMonday}
+        onDatesSet={(mondayIso, label) => { setDisplayedMonday(mondayIso); setDisplayedLabel(label); }}
       />
 
       {/* SidePanel */}

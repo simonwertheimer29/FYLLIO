@@ -30,8 +30,8 @@ export type Props = {
   onNewAppt: (dayIso: string, startMin: number) => void;
   onToast: (msg: string, ok?: boolean) => void;
   onClinciasAvailable?: (clinicas: string[]) => void;
-  /** Fires whenever FullCalendar navigates — provides the monday ISO of the displayed week */
-  onDatesSet?: (mondayIso: string) => void;
+  /** Fires whenever FullCalendar navigates — provides monday ISO + formatted label */
+  onDatesSet?: (mondayIso: string, label: string) => void;
 };
 
 // ── Color helpers ─────────────────────────────────────────────────────────────
@@ -201,6 +201,7 @@ export default function AgendaCalendar({
           slotMaxTime="20:00:00"
           height="100%"
           headerToolbar={false}
+          hiddenDays={[0]}
           views={{
             timeGridFiveDays: {
               type: "timeGrid",
@@ -209,15 +210,23 @@ export default function AgendaCalendar({
           }}
           // datesSet fires after every navigation — keeps parent header in sync
           datesSet={(info) => {
-            const d = info.view.currentStart;
-            const y   = d.getUTCFullYear();
-            const mo  = String(d.getUTCMonth() + 1).padStart(2, "0");
-            const day = String(d.getUTCDate()).padStart(2, "0");
-            onDatesSet?.(`${y}-${mo}-${day}`);
+            // Fake-UTC dates: UTC components = Madrid local time
+            const MONTHS = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+            const s = info.start;
+            const e = new Date(info.end);
+            e.setUTCDate(e.getUTCDate() - 1); // last visible day
+            const sD = s.getUTCDate(), sM = s.getUTCMonth();
+            const eD = e.getUTCDate(), eM = e.getUTCMonth(), eY = e.getUTCFullYear();
+            const label = sM === eM
+              ? `${sD}–${eD} ${MONTHS[sM]} ${eY}`
+              : `${sD} ${MONTHS[sM]}–${eD} ${MONTHS[eM]} ${eY}`;
+            const mondayIso = `${s.getUTCFullYear()}-${String(sM + 1).padStart(2, "0")}-${String(sD).padStart(2, "0")}`;
+            onDatesSet?.(mondayIso, label);
           }}
           allDaySlot={false}
           nowIndicator={true}
           editable={!data?.isDemo}
+          eventResizableFromStart={false}
           selectable={true}
           selectMirror={true}
           events={[...apptEvents, ...gapEvents]}
