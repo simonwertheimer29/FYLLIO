@@ -53,17 +53,23 @@ export async function POST(req: Request) {
       ? DateTime.fromISO(endIso, { zone: ZONE })
       : startDt.plus({ minutes: 30 });
 
-    // "Paciente_nombre" y "Paciente_teléfono" son lookups calculados → no escribibles.
-    // Usamos los campos de texto directo: "Nombre" y "Teléfono" (que la GET usa como fallback).
+    // "Paciente_nombre", "Paciente_teléfono" y "Tratamiento_nombre" son lookups calculados → no escribibles.
+    // Usamos campos de texto directo: "Nombre" y "Teléfono".
+    // El tratamiento se guarda en "Notas" hasta confirmar el campo escribible correcto.
+    const tratamientoStr = treatmentName ?? "Sin especificar";
+    const notasStr = [
+      tratamientoStr !== "Sin especificar" ? `Tratamiento: ${tratamientoStr}` : "",
+      doctor ? `Doctor: ${doctor}` : "",
+    ].filter(Boolean).join(" | ");
+
     const fields: Record<string, unknown> = {
-      "Nombre":             patientNombre,
-      "Tratamiento_nombre": treatmentName ?? "Sin especificar",
-      "Hora inicio":        startDt.toUTC().toISO(),
-      "Hora final":         endDt.toUTC().toISO(),
+      "Nombre":      patientNombre,
+      "Hora inicio": startDt.toUTC().toISO(),
+      "Hora final":  endDt.toUTC().toISO(),
     };
 
     if (patientTelefono) fields["Teléfono"] = patientTelefono;
-    if (doctor)          fields["Doctor"]   = doctor;
+    if (notasStr)        fields["Notas"]    = notasStr;
 
     // Adjuntar clínica: explícita > sesión del usuario (para no-managers)
     const clinica = clinicaId ?? (session.rol !== "manager_general" ? session.clinica : undefined);
