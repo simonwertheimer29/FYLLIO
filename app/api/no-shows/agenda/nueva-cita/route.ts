@@ -36,6 +36,7 @@ export async function POST(req: Request) {
       patientNombre,
       patientTelefono,
       treatmentName,
+      doctor,
       clinicaId,
     } = await req.json();
 
@@ -52,21 +53,27 @@ export async function POST(req: Request) {
       ? DateTime.fromISO(endIso, { zone: ZONE })
       : startDt.plus({ minutes: 30 });
 
+    // "Paciente_nombre" y "Paciente_teléfono" son lookups calculados → no escribibles.
+    // Usamos los campos de texto directo: "Nombre" y "Teléfono" (que la GET usa como fallback).
     const fields: Record<string, unknown> = {
-      "Paciente_nombre":    patientNombre,
+      "Nombre":             patientNombre,
       "Tratamiento_nombre": treatmentName ?? "Sin especificar",
       "Hora inicio":        startDt.toUTC().toISO(),
       "Hora final":         endDt.toUTC().toISO(),
-      "Estado":             "PENDIENTE",
     };
 
-    if (patientTelefono) fields["Paciente_teléfono"] = patientTelefono;
-    if (clinicaId)       fields["Clínica ID"]        = clinicaId;
+    if (patientTelefono) fields["Teléfono"] = patientTelefono;
+    if (doctor)          fields["Doctor"]   = doctor;
+
+    // Adjuntar clínica: explícita > sesión del usuario (para no-managers)
+    const clinica = clinicaId ?? (session.rol !== "manager_general" ? session.clinica : undefined);
+    if (clinica) fields["Clínica ID"] = clinica;
 
     const record = await (base(TABLES.appointments as any).create(fields as any) as any);
     return NextResponse.json({ id: record.id, ok: true }, { status: 201 });
   } catch (e: any) {
-    console.error("[agenda/nueva-cita] error", e);
-    return NextResponse.json({ error: e?.message ?? "Error" }, { status: 500 });
+    const msg = e?.message ?? "Error desconocido";
+    console.error("[agenda/nueva-cita] error", msg, e);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

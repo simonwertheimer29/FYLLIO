@@ -219,7 +219,8 @@ function NewApptModal({
   const [searchLoading, setSearchLoading]   = useState(false);
   const [treatment, setTreatment]           = useState("");
   const [doctor, setDoctor]                 = useState("");
-  const [duration, setDuration]             = useState(state.durationMin);
+  const [startTime, setStartTime]           = useState(minToHHMM(state.startMin));
+  const [endTime, setEndTime]               = useState(minToHHMM(state.startMin + state.durationMin));
   const [submitting, setSubmitting]         = useState(false);
   const [error, setError]                   = useState("");
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -240,13 +241,12 @@ function NewApptModal({
 
   async function handleSubmit() {
     if (!patientSearch) { setError("Introduce el nombre del paciente"); return; }
+    if (!startTime || !endTime) { setError("Introduce la hora de inicio y fin"); return; }
     setSubmitting(true);
     setError("");
     try {
-      const startMin = state.startMin;
-      const endMin   = startMin + duration;
-      const si = `${state.dayIso}T${minToHHMM(startMin)}:00`;
-      const ei = `${state.dayIso}T${minToHHMM(endMin)}:00`;
+      const si = `${state.dayIso}T${startTime}:00`;
+      const ei = `${state.dayIso}T${endTime}:00`;
       const res = await fetch("/api/no-shows/agenda/nueva-cita", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -259,7 +259,10 @@ function NewApptModal({
           doctor:          doctor    || undefined,
         }),
       });
-      if (!res.ok) throw new Error("Error al crear la cita");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data?.error ?? "Error al crear la cita");
+      }
       onCreated();
       onClose();
     } catch (e: any) {
@@ -278,9 +281,29 @@ function NewApptModal({
           <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100">✕</button>
         </div>
 
-        {/* Hora */}
-        <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-600">
-          {state.dayIso} · {minToHHMM(state.startMin)} – {minToHHMM(state.startMin + duration)}
+        {/* Fecha + hora editable */}
+        <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs text-slate-500 font-medium">
+          {state.dayIso}
+        </div>
+        <div className="flex gap-2">
+          <div className="flex-1 space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Inicio</label>
+            <input
+              type="time"
+              value={startTime}
+              onChange={(e) => setStartTime(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300"
+            />
+          </div>
+          <div className="flex-1 space-y-1">
+            <label className="text-xs font-semibold text-slate-600">Fin</label>
+            <input
+              type="time"
+              value={endTime}
+              onChange={(e) => setEndTime(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300"
+            />
+          </div>
         </div>
 
         {/* Búsqueda paciente */}
@@ -328,16 +351,6 @@ function NewApptModal({
           />
         </div>
 
-        {/* Duración */}
-        <div className="space-y-1">
-          <label className="text-xs font-semibold text-slate-600">Duración</label>
-          <select value={duration} onChange={(e) => setDuration(Number(e.target.value))}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300"
-          >
-            {[15, 30, 45, 60, 90].map((d) => <option key={d} value={d}>{d} min</option>)}
-          </select>
-        </div>
-
         {error && <p className="text-xs text-red-600">{error}</p>}
 
         <button onClick={handleSubmit} disabled={submitting}
@@ -357,8 +370,10 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
 
   // ── Week / day state ──
   const [mondayIso, setMondayIso]               = useState<string>(getMondayIso);
-  const [viewMode, setViewMode]                 = useState<"timeGridWeek" | "timeGridDay">("timeGridWeek");
+  const [viewMode, setViewMode]                 = useState<"timeGridFiveDays" | "timeGridDay">("timeGridFiveDays");
   const [selectedDayOffset, setSelectedDayOffset] = useState(0);
+  // Driven by FullCalendar's datesSet — source of truth for header label
+  const [displayedMonday, setDisplayedMonday]   = useState<string>(getMondayIso);
 
   // ── Filter state ──
   const [clinicaFilter, setClinicaFilter]       = useState("");
@@ -388,7 +403,7 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
     d.setUTCDate(d.getUTCDate() + i);
     return { dayIso: d.toISOString().slice(0, 10), num: d.getUTCDate() };
   });
-  const isCurrentWeek = mondayIso === getMondayIso();
+  const isCurrentWeek = displayedMonday === getMondayIso();
 
   // In day mode, pass the specific day to FullCalendar navigation
   const calendarDate = viewMode === "timeGridDay"
@@ -426,33 +441,36 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
       {/* Header */}
       <div className="rounded-2xl bg-white border border-slate-200 p-3 space-y-2.5">
 
-        {/* Week nav + view toggle + + button */}
+        {/* View toggle + Week nav + new button */}
         <div className="flex items-center gap-2">
-          <button onClick={() => goWeek(-1)}
-            className="p-1.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors text-sm"
-          >←</button>
-          <div className="flex-1 text-center">
-            <p className="text-sm font-bold text-slate-900">{weekLabel(mondayIso)}</p>
-            {isCurrentWeek && <p className="text-[10px] text-cyan-600 font-semibold">Semana actual</p>}
-          </div>
-          <button onClick={() => goWeek(1)}
-            className="p-1.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors text-sm"
-          >→</button>
-          {/* View toggle */}
+          {/* View toggle — extremo izquierdo */}
           <div className="flex rounded-xl border border-slate-200 overflow-hidden shrink-0">
             <button
-              onClick={() => setViewMode("timeGridWeek")}
-              className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${viewMode === "timeGridWeek" ? "bg-slate-800 text-white" : "text-slate-500 hover:bg-slate-50"}`}
+              onClick={() => setViewMode("timeGridFiveDays")}
+              className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${viewMode === "timeGridFiveDays" ? "bg-slate-800 text-white" : "text-slate-500 hover:bg-slate-50"}`}
             >Sem.</button>
             <button
               onClick={() => setViewMode("timeGridDay")}
               className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${viewMode === "timeGridDay" ? "bg-slate-800 text-white" : "text-slate-500 hover:bg-slate-50"}`}
             >Día</button>
           </div>
-          {/* New appointment button */}
+          {/* Navegación semana — centro */}
+          <div className="flex-1 flex items-center justify-center gap-1">
+            <button onClick={() => goWeek(-1)}
+              className="p-1.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors text-sm"
+            >←</button>
+            <div className="text-center px-1">
+              <p className="text-sm font-bold text-slate-900">{weekLabel(displayedMonday)}</p>
+              {isCurrentWeek && <p className="text-[10px] text-cyan-600 font-semibold">Semana actual</p>}
+            </div>
+            <button onClick={() => goWeek(1)}
+              className="p-1.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors text-sm"
+            >→</button>
+          </div>
+          {/* Nueva cita — extremo derecho */}
           <button
             onClick={() => setNewApptState({ dayIso: calendarDate, startMin: 10 * 60, durationMin: 45 })}
-            className="p-1.5 rounded-xl bg-cyan-600 text-white text-sm font-bold hover:bg-cyan-700 transition-colors shrink-0"
+            className="w-10 h-10 rounded-xl bg-cyan-600 text-white text-xl font-bold hover:bg-cyan-700 transition-colors shrink-0 flex items-center justify-center"
             title="Nueva cita"
           >+</button>
         </div>
@@ -522,6 +540,7 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
         onNewAppt={(dayIso, startMin) => setNewApptState({ dayIso, startMin, durationMin: 45 })}
         onToast={showToast}
         onClinciasAvailable={isManager ? setAvailableClinics : undefined}
+        onDatesSet={setDisplayedMonday}
       />
 
       {/* SidePanel */}

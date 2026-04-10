@@ -65,15 +65,13 @@ export default function NoShowsShell({ user }: { user: NoShowsUserSession }) {
       {/* ── Header ── */}
       <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 overflow-hidden shrink-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/fyllio-wordmark.png"
-              alt="Fyllio"
-              className="h-8 w-auto"
-              style={{ maxWidth: "none" }}
-            />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/fyllio-wordmark.png"
+            alt="Fyllio"
+            className="shrink-0"
+            style={{ width: 36, height: 36, objectFit: "cover", objectPosition: "left center" }}
+          />
           <div className="border-l border-slate-200 pl-3">
             <p className="text-xs font-bold text-slate-900 leading-tight">No-Shows</p>
             <p className="text-[10px] text-slate-400">

@@ -22,7 +22,7 @@ export type Props = {
   week: string;
   /** Specific date FullCalendar navigates to (= week in week mode, specific day in day mode) */
   calendarDate: string;
-  viewMode: "timeGridWeek" | "timeGridDay";
+  viewMode: "timeGridFiveDays" | "timeGridDay";
   clinicaFilter?: string;
   /** Increment to trigger a data reload */
   refreshKey: number;
@@ -30,6 +30,8 @@ export type Props = {
   onNewAppt: (dayIso: string, startMin: number) => void;
   onToast: (msg: string, ok?: boolean) => void;
   onClinciasAvailable?: (clinicas: string[]) => void;
+  /** Fires whenever FullCalendar navigates — provides the monday ISO of the displayed week */
+  onDatesSet?: (mondayIso: string) => void;
 };
 
 // ── Color helpers ─────────────────────────────────────────────────────────────
@@ -82,6 +84,7 @@ export default function AgendaCalendar({
   onNewAppt,
   onToast,
   onClinciasAvailable,
+  onDatesSet,
 }: Props) {
   const [data, setData]       = useState<AgendaData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -125,16 +128,17 @@ export default function AgendaCalendar({
   useEffect(() => { loadRef.current(); }, [week, clinicaFilter, refreshKey]);
 
   // Navigate FullCalendar to specific date
+  // setTimeout avoids flushSync-inside-render error triggered by FullCalendar internals
   useEffect(() => {
     if (!calRef.current) return;
     programmaticRef.current = true;
-    calRef.current.getApi().gotoDate(calendarDate);
+    setTimeout(() => calRef.current?.getApi().gotoDate(calendarDate), 0);
   }, [calendarDate]);
 
   // Switch FullCalendar between week and day view
   useEffect(() => {
     if (!calRef.current) return;
-    calRef.current.getApi().changeView(viewMode);
+    setTimeout(() => calRef.current?.getApi().changeView(viewMode), 0);
   }, [viewMode]);
 
   // ── Build events ────────────────────────────────────────────────────────────
@@ -142,10 +146,14 @@ export default function AgendaCalendar({
   const apptEvents = (data?.days ?? []).flatMap(({ appointments }) =>
     appointments.map((appt) => {
       const { bg, border } = apptColors(appt);
+      // Ensure end is always after start so blocks are visible and resizable
+      const end = (appt.end && appt.end !== appt.start)
+        ? appt.end
+        : DateTime.fromISO(appt.start, { zone: "Europe/Madrid" }).plus({ minutes: 30 }).toFormat("yyyy-MM-dd'T'HH:mm:ss");
       return {
         id:              appt.id,
-        start:           appt.start,           // naïve Madrid ISO → FullCalendar + timeZone handles it
-        end:             appt.end || appt.start,
+        start:           appt.start,
+        end,
         title:           appt.patientName,
         backgroundColor: bg,
         borderColor:     border,
@@ -168,7 +176,7 @@ export default function AgendaCalendar({
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
-    <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden flex-1 min-h-0">
+    <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden flex-1 min-h-0 flex flex-col">
       {data?.isDemo && !loading && (
         <div className="px-4 py-2 border-b border-amber-200 bg-amber-50 text-xs text-amber-800">
           <span className="font-semibold">Datos de demostración.</span>{" "}
@@ -180,7 +188,7 @@ export default function AgendaCalendar({
           Cargando agenda...
         </div>
       )}
-      <div className="p-2">
+      <div className="flex-1 min-h-0 p-2">
         <FullCalendar
           ref={calRef}
           plugins={[timeGridPlugin, interactionPlugin]}
@@ -191,8 +199,22 @@ export default function AgendaCalendar({
           initialDate={calendarDate}
           slotMinTime="08:00:00"
           slotMaxTime="20:00:00"
-          height="auto"
+          height="100%"
           headerToolbar={false}
+          views={{
+            timeGridFiveDays: {
+              type: "timeGrid",
+              duration: { days: 5 },
+            },
+          }}
+          // datesSet fires after every navigation — keeps parent header in sync
+          datesSet={(info) => {
+            const d = info.view.currentStart;
+            const y   = d.getUTCFullYear();
+            const mo  = String(d.getUTCMonth() + 1).padStart(2, "0");
+            const day = String(d.getUTCDate()).padStart(2, "0");
+            onDatesSet?.(`${y}-${mo}-${day}`);
+          }}
           allDaySlot={false}
           nowIndicator={true}
           editable={!data?.isDemo}
@@ -207,13 +229,13 @@ export default function AgendaCalendar({
             const endStr   = arg.event.end   ? fakeToHHMM(arg.event.end)   : "";
             return (
               <div style={{ padding: "2px 4px", overflow: "hidden", height: "100%", display: "flex", flexDirection: "column", gap: "1px" }}>
-                <div style={{ fontSize: "clamp(9px,1.2vw,13px)", fontWeight: 700, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ fontSize: "11px", fontWeight: 700, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {appt.patientName}
                 </div>
-                <div style={{ fontSize: "clamp(8px,1.0vw,11px)", fontWeight: 600, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.88 }}>
+                <div style={{ fontSize: "10px", fontWeight: 600, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.88 }}>
                   {appt.treatmentName}
                 </div>
-                <div style={{ fontSize: "clamp(8px,0.9vw,10px)", lineHeight: 1, opacity: 0.82 }}>
+                <div style={{ fontSize: "9px", lineHeight: 1, opacity: 0.82 }}>
                   {startStr}{endStr ? `–${endStr}` : ""}
                 </div>
                 {!appt.confirmed && (
