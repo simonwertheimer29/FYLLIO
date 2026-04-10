@@ -70,7 +70,7 @@ export default function NoShowsShell({ user }: { user: NoShowsUserSession }) {
             src="/fyllio-wordmark.png"
             alt="Fyllio"
             className="shrink-0"
-            style={{ width: 36, height: 36, objectFit: "cover", objectPosition: "left center" }}
+            style={{ width: 120, height: 32, objectFit: "contain", objectPosition: "left center" }}
           />
           <div className="border-l border-slate-200 pl-3">
             <p className="text-xs font-bold text-slate-900 leading-tight">No-Shows</p>
