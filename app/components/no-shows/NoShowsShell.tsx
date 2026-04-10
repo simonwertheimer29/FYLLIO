@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import type { NoShowsUserSession } from "../../lib/no-shows/types";
+import HoyView from "./HoyView";
+import RiesgoView from "./RiesgoView";
 
 type Tab = "hoy" | "riesgo" | "agenda" | "acciones" | "kpis" | "informes" | "config";
 
@@ -129,8 +131,8 @@ export default function NoShowsShell({ user }: { user: NoShowsUserSession }) {
 
       {/* ── Content ── */}
       <main className="flex-1 min-h-0 overflow-auto flex flex-col p-4 gap-4 w-full pb-20 lg:pb-4">
-        {tab === "hoy"      && <StubView tab="HOY"      emoji="🏥" fase={2} />}
-        {tab === "riesgo"   && <StubView tab="RIESGO"   emoji="⚠️" fase={2} />}
+        {tab === "hoy"      && <HoyView user={user} />}
+        {tab === "riesgo"   && <RiesgoView user={user} />}
         {tab === "agenda"   && <StubView tab="AGENDA"   emoji="📅" fase={3} />}
         {tab === "acciones" && <StubView tab="ACCIONES" emoji="✓"  fase={3} />}
         {tab === "kpis"     && <StubView tab="KPIs"     emoji="📊" fase={4} />}
