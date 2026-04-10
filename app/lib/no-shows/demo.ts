@@ -2,7 +2,7 @@
 // Datos demo para el módulo no-shows — siempre relativos a "hoy"
 
 import { DateTime } from "luxon";
-import type { RiskyAppt, RecallAlert, GapSlot } from "./types";
+import type { RiskyAppt, RecallAlert, GapSlot, AccionTask } from "./types";
 
 const ZONE = "Europe/Madrid";
 
@@ -219,4 +219,96 @@ export function buildDemoRecallAlerts(): RecallAlert[] {
 
 export function isDemoModeNoShows(count: number, min = 3): boolean {
   return count < min;
+}
+
+// ─── AGENDA (semana) ──────────────────────────────────────────────────────────
+
+export type AgendaDay = { dayIso: string; appointments: RiskyAppt[]; gaps: GapSlot[] };
+
+export function buildDemoAgendaData(): AgendaDay[] {
+  const appts = buildDemoRiesgoAppointments();
+  const byDay = new Map<string, RiskyAppt[]>();
+  for (const a of appts) {
+    if (!byDay.has(a.dayIso)) byDay.set(a.dayIso, []);
+    byDay.get(a.dayIso)!.push(a);
+  }
+
+  const mon = workDayIso(0);
+  const wed = workDayIso(2);
+  const fri = workDayIso(4);
+  const demoGaps: Record<string, GapSlot[]> = {
+    [mon]: [{
+      dayIso: mon, startIso: isoAt(mon, "14:00"), endIso: isoAt(mon, "16:00"),
+      startDisplay: "14:00", endDisplay: "16:00", durationMin: 120,
+      clinica: "Clínica Madrid Centro",
+    }],
+    [wed]: [{
+      dayIso: wed, startIso: isoAt(wed, "13:00"), endIso: isoAt(wed, "15:00"),
+      startDisplay: "13:00", endDisplay: "15:00", durationMin: 120,
+      clinica: "Clínica Madrid Norte",
+    }],
+    [fri]: [{
+      dayIso: fri, startIso: isoAt(fri, "11:00"), endIso: isoAt(fri, "12:00"),
+      startDisplay: "11:00", endDisplay: "12:00", durationMin: 60,
+      clinica: "Clínica Madrid Centro",
+    }],
+  };
+
+  return [...byDay.keys()].sort().map((dayIso) => ({
+    dayIso,
+    appointments: byDay.get(dayIso)!.sort((a, b) => a.startDisplay.localeCompare(b.startDisplay)),
+    gaps: demoGaps[dayIso] ?? [],
+  }));
+}
+
+// ─── ACCIONES ─────────────────────────────────────────────────────────────────
+
+export function buildDemoAccionTasks(): AccionTask[] {
+  const todayAppts = buildDemoHoyAppointments();
+  const todayGaps = buildDemoHoyGaps();
+  const tasks: AccionTask[] = [];
+  let idx = 1;
+
+  for (const a of todayAppts.filter((x) => x.riskLevel === "HIGH")) {
+    const nombre = a.patientName.split(" ")[0];
+    tasks.push({
+      id: `demo-ta-${idx++}`,
+      category: "NO_SHOW",
+      patientName: a.patientName,
+      phone: a.patientPhone,
+      description: `Riesgo ALTO · ${a.treatmentName} hoy a las ${a.startDisplay}`,
+      whatsappMsg: `Hola ${nombre}, queremos confirmar tu cita de ${a.treatmentName} hoy a las ${a.startDisplay}. ¿Confirmas asistencia?`,
+      deadlineIso: `${a.dayIso}T09:00:00`,
+      urgent: true,
+      appt: a,
+    });
+  }
+
+  for (const g of todayGaps) {
+    tasks.push({
+      id: `demo-ta-gap-${idx++}`,
+      category: "GAP",
+      description: `Hueco ${g.startDisplay}–${g.endDisplay} (${g.durationMin} min)`,
+      whatsappMsg: `Hola, tenemos un hueco disponible hoy a las ${g.startDisplay} de ${g.durationMin} min. ¿Te interesa agendar una cita?`,
+      deadlineIso: g.startIso,
+      urgent: true,
+      gap: g,
+    });
+  }
+
+  for (const a of todayAppts.filter((x) => x.riskLevel === "MEDIUM")) {
+    const nombre = a.patientName.split(" ")[0];
+    tasks.push({
+      id: `demo-ta-${idx++}`,
+      category: "NO_SHOW",
+      patientName: a.patientName,
+      phone: a.patientPhone,
+      description: `Riesgo MEDIO · ${a.treatmentName} hoy a las ${a.startDisplay}`,
+      whatsappMsg: `Hola ${nombre}, te recordamos tu cita de ${a.treatmentName} hoy a las ${a.startDisplay}. Responde "OK" para confirmar.`,
+      urgent: false,
+      appt: a,
+    });
+  }
+
+  return tasks;
 }
