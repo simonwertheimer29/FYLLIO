@@ -7,8 +7,8 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
-import { renderToBuffer, Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
-import { graficoBarrasH } from "../../../lib/charts/svg-charts";
+import { renderToBuffer, Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
+import { PdfBarrasH } from "../../../lib/charts/pdf-charts";
 
 const COOKIE = "fyllio_presupuestos_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -106,8 +106,7 @@ const S = StyleSheet.create({
   },
   th: { flex: 1, fontSize: 7.5, fontFamily: "Helvetica-Bold", color: C.muted, textTransform: "uppercase" },
   td: { flex: 1, fontSize: 8.5, color: C.text },
-  chartImg: { width: "100%", marginBottom: 10, borderRadius: 3 },
-  chartImgHalf: { width: "100%", marginBottom: 8, borderRadius: 3 },
+  chartWrap: { marginBottom: 10 },
   planBlock: { marginBottom: 12, paddingLeft: 10, borderLeftWidth: 3, borderLeftColor: C.primary },
   planNum: { fontSize: 8, fontFamily: "Helvetica-Bold", color: C.primary, marginBottom: 2 },
   planBody: { fontSize: 9.5, lineHeight: 1.6, color: C.text },
@@ -160,16 +159,12 @@ function riesgoColor(n: number): string {
 
 function InformeSemanalPDF({
   periodo, clinica, textoNarrativo, datos, generadoEn,
-  pngPipeline, pngRiesgo, pngProgreso,
 }: {
   periodo: string;
   clinica: string;
   textoNarrativo: string;
   datos: SemanalDatos;
   generadoEn: string;
-  pngPipeline: string;
-  pngRiesgo: string;
-  pngProgreso: string;
 }) {
   const acciones = extractAcciones(textoNarrativo);
   const narrativo = narrativoSinAcciones(textoNarrativo);
@@ -260,8 +255,15 @@ function InformeSemanalPDF({
       {/* ─── 3. Pipeline y riesgo por clínica ───────────────────── */}
       <Page size="A4" style={S.page}>
         <Text style={S.sectionTitle}>PIPELINE POR CLÍNICA</Text>
-        {pngPipeline ? (
-          <Image style={S.chartImg} src={`data:image/png;base64,${pngPipeline}`} />
+        {datos.clinicas.filter((c) => c.eurosSeguimiento > 0).length > 0 ? (
+          <View style={S.chartWrap}>
+            <PdfBarrasH
+              datos={datos.clinicas
+                .filter((c) => c.eurosSeguimiento > 0)
+                .map((c) => ({ label: c.clinica, value: c.eurosSeguimiento, color: "#7C3AED" }))}
+              formatValue={(v) => `€${v.toLocaleString("es-ES")}`}
+            />
+          </View>
         ) : (
           <View style={{ ...S.analysisBlock, marginBottom: 10 }}>
             <Text style={S.analysisBody}>Sin datos de pipeline disponibles.</Text>
@@ -269,8 +271,18 @@ function InformeSemanalPDF({
         )}
 
         <Text style={{ ...S.sectionTitle, marginTop: 6 }}>RIESGO POR CLÍNICA</Text>
-        {pngRiesgo ? (
-          <Image style={S.chartImgHalf} src={`data:image/png;base64,${pngRiesgo}`} />
+        {datos.clinicas.filter((c) => c.riesgoAlto > 0).length > 0 ? (
+          <View style={S.chartWrap}>
+            <PdfBarrasH
+              datos={datos.clinicas
+                .filter((c) => c.riesgoAlto > 0)
+                .map((c) => ({
+                  label: c.clinica,
+                  value: c.riesgoAlto,
+                  color: (c.riesgoMuyAlto ?? 0) > 0 ? "#DC2626" : "#EA580C",
+                }))}
+            />
+          </View>
         ) : null}
 
         {/* Tabla detallada */}
@@ -324,8 +336,21 @@ function InformeSemanalPDF({
 
         {/* Progreso mensual */}
         <Text style={{ ...S.sectionTitle, marginTop: 14 }}>PROGRESO MENSUAL POR CLÍNICA</Text>
-        {pngProgreso ? (
-          <Image style={S.chartImgHalf} src={`data:image/png;base64,${pngProgreso}`} />
+        {Object.keys(datos.objetivos ?? {}).length > 0 ? (
+          <View style={S.chartWrap}>
+            <PdfBarrasH
+              datos={Object.entries(datos.objetivos ?? {}).map(([clinicaName, obj]) => {
+                const acept = datos.aceptadosMes?.[clinicaName] ?? 0;
+                const pct = obj > 0 ? Math.round((acept / obj) * 100) : 0;
+                return {
+                  label: clinicaName,
+                  value: pct,
+                  color: pct >= 80 ? "#16A34A" : pct >= 50 ? "#D97706" : "#DC2626",
+                };
+              })}
+              formatValue={(v) => `${v}%`}
+            />
+          </View>
         ) : null}
 
         {objetivosEntries.length > 0 ? (
@@ -385,52 +410,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Faltan parámetros" }, { status: 400 });
     }
 
-    const clinicasData = datos.clinicas ?? [];
-
-    // ── Generar gráficos server-side ─────────────────────────────────────────
-
-    const [bufPipeline, bufRiesgo, bufProgreso] = await Promise.all([
-      // Pipeline: euros en seguimiento por clínica
-      graficoBarrasH(
-        clinicasData
-          .filter((c) => c.eurosSeguimiento > 0)
-          .map((c) => ({ label: c.clinica, value: c.eurosSeguimiento, color: "#7C3AED" }))
-      ),
-
-      // Riesgo alto por clínica
-      graficoBarrasH(
-        clinicasData
-          .filter((c) => c.riesgoAlto > 0)
-          .map((c) => ({
-            label: c.clinica,
-            value: c.riesgoAlto,
-            color: c.riesgoMuyAlto > 0 ? "#DC2626" : "#EA580C",
-          }))
-      ),
-
-      // Progreso mensual por clínica (% hacia objetivo)
-      Object.keys(datos.objetivos ?? {}).length > 0
-        ? graficoBarrasH(
-            Object.entries(datos.objetivos ?? {})
-              .map(([clinicaName, obj]) => {
-                const acept = datos.aceptadosMes?.[clinicaName] ?? 0;
-                const pct = obj > 0 ? Math.round((acept / obj) * 100) : 0;
-                return {
-                  label: clinicaName,
-                  value: pct,
-                  color: pct >= 80 ? "#16A34A" : pct >= 50 ? "#D97706" : "#DC2626",
-                };
-              })
-              .filter((d) => d.value >= 0)
-          )
-        : Promise.resolve(null),
-    ]);
-
-    const toB64 = (b: Buffer | null): string => (b ? b.toString("base64") : "");
-    const pngPipeline = toB64(bufPipeline);
-    const pngRiesgo   = toB64(bufRiesgo);
-    const pngProgreso = toB64(bufProgreso);
-
     const generadoEn = new Date().toISOString();
 
     const buffer = await renderToBuffer(
@@ -440,9 +419,6 @@ export async function POST(req: Request) {
         textoNarrativo={textoNarrativo ?? ""}
         datos={datos}
         generadoEn={generadoEn}
-        pngPipeline={pngPipeline}
-        pngRiesgo={pngRiesgo}
-        pngProgreso={pngProgreso}
       />
     );
 
