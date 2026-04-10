@@ -552,6 +552,144 @@ FIN_ACCIONES`;
       }
     }
 
+    // Evento F: informe semanal de no-shows (lunes, 09:00-09:15, una vez por semana)
+    const noShowSemanaKey = `fyllio_informe_noshow:${ahoraMadrid.weekYear}-W${String(ahoraMadrid.weekNumber).padStart(2, "0")}`;
+    let yaEnviadoNoShowSemana = false;
+    if (esLunes && esVentanaResumen) {
+      try { yaEnviadoNoShowSemana = !!(await kv.get(noShowSemanaKey)); } catch { /* kv optional */ }
+    }
+
+    if (esLunes && esVentanaResumen && !yaEnviadoNoShowSemana) {
+      try {
+        const NO_SHOW_SET_NS = new Set(["NO_SHOW", "NO SHOW", "NOSHOW"]);
+        const CANCEL_SET_NS  = new Set(["CANCELADO", "CANCELADA", "CANCELED", "CANCELLED"]);
+
+        const semanaAnteriorStart = ahoraMadrid.minus({ weeks: 1 }).startOf("week").toISODate()!;
+        const semanaAnteriorEnd   = ahoraMadrid.startOf("week").toISODate()!;
+
+        const apptRecs = await base(TABLES.appointments as any)
+          .select({
+            maxRecords: 500,
+            fields: ["Hora inicio", "Estado", "Notas", "Clínica ID"],
+          })
+          .all();
+
+        type NSRec = { dayIso: string; isNoShow: boolean; clinica: string };
+        const nsRecs: NSRec[] = [];
+
+        for (const r of apptRecs) {
+          const f: any = r.fields;
+          const startRaw = f["Hora inicio"];
+          if (!startRaw) continue;
+          const iso = startRaw instanceof Date ? startRaw.toISOString() : String(startRaw);
+          const dt = DateTime.fromISO(iso, { setZone: true }).setZone(ZONE);
+          if (!dt.isValid) continue;
+          const dayIso = dt.toISODate()!;
+          if (dayIso < semanaAnteriorStart || dayIso >= semanaAnteriorEnd) continue;
+
+          const clinicaField = f["Clínica ID"];
+          const clinica =
+            typeof clinicaField === "string" ? clinicaField
+            : Array.isArray(clinicaField) && typeof clinicaField[0] === "string" ? clinicaField[0]
+            : "Sin clínica";
+
+          const estado = String(f["Estado"] ?? "").trim().toUpperCase();
+          const notas  = typeof f["Notas"] === "string" ? f["Notas"]
+            : Array.isArray(f["Notas"]) ? String(f["Notas"][0] ?? "") : "";
+          const isNoShow = NO_SHOW_SET_NS.has(estado) ||
+            (CANCEL_SET_NS.has(estado) && notas.includes("[NO_SHOW]"));
+
+          nsRecs.push({ dayIso, isNoShow, clinica });
+        }
+
+        const totalCitasNS   = nsRecs.length;
+        const totalNoShowsNS = nsRecs.filter((r) => r.isNoShow).length;
+        const tasaNS         = totalCitasNS > 0 ? totalNoShowsNS / totalCitasNS : 0;
+
+        // Por clínica
+        const porClinicaMap = new Map<string, { total: number; ns: number }>();
+        for (const r of nsRecs) {
+          const p = porClinicaMap.get(r.clinica) ?? { total: 0, ns: 0 };
+          porClinicaMap.set(r.clinica, { total: p.total + 1, ns: p.ns + (r.isNoShow ? 1 : 0) });
+        }
+        const porClinica = [...porClinicaMap.entries()]
+          .filter(([, v]) => v.total >= 3)
+          .map(([clinica, v]) => ({ clinica, tasa: v.ns / v.total }))
+          .sort((a, b) => b.tasa - a.tasa);
+
+        const alertasNS: string[] = [];
+        if (tasaNS >= 0.10) alertasNS.push(`Tasa total por encima del umbral (${Math.round(tasaNS * 100)}%)`);
+        for (const c of porClinica) {
+          if (c.tasa >= 0.10) alertasNS.push(`${c.clinica}: ${Math.round(c.tasa * 100)}% no-shows`);
+        }
+
+        const semanaAnteriorDt = ahoraMadrid.minus({ weeks: 1 });
+        const periodoNS = `${semanaAnteriorDt.weekYear}-W${String(semanaAnteriorDt.weekNumber).padStart(2, "0")}`;
+        const tituloNS  = `No-shows semana ${semanaAnteriorDt.weekNumber} · ${semanaAnteriorStart} – ${DateTime.fromISO(semanaAnteriorEnd).minus({ days: 1 }).toISODate()}`;
+
+        const porClinicaStr = porClinica.map((c) =>
+          `  - ${c.clinica}: ${Math.round(c.tasa * 1000) / 10}%`
+        ).join("\n");
+
+        const promptNoShow = `Eres analista de operaciones de una red de clínicas dentales en España.
+
+DATOS NO-SHOWS SEMANA ${semanaAnteriorDt.weekNumber}/${semanaAnteriorDt.weekYear}:
+- Total citas: ${totalCitasNS}
+- No-shows: ${totalNoShowsNS} (${Math.round(tasaNS * 1000) / 10}%)
+- Media sector: 12%
+${porClinica.length > 0 ? `\nPor clínica:\n${porClinicaStr}` : ""}
+${alertasNS.length > 0 ? `\nAlertas: ${alertasNS.join("; ")}` : ""}
+
+Genera un informe semanal ejecutivo de no-shows con EXACTAMENTE 2 párrafos narrativos:
+
+PÁRRAFO 1 — RESUMEN: Tasa de no-shows de la semana, comparativa vs sector (12%), tendencia respecto a semanas anteriores.
+PÁRRAFO 2 — ANÁLISIS Y ACCIONES: Clínicas más afectadas, patrones observables (día de semana, tipo tratamiento si aplica), 2-3 acciones recomendadas para la próxima semana.
+
+REGLAS:
+- **Negritas** solo para nombres de clínicas y números clave.
+- Sin headers (#) ni listas (-).
+- Tono directo y ejecutivo.
+- 150-220 palabras en total.
+- Si la tasa supera el 10%, el párrafo 2 debe terminar con una recomendación urgente en negrita precedida por ⚠️.`;
+
+        const textoNarrativoNS = await generarInformeSemanalIA(promptNoShow);
+        const contenidoJsonNS = JSON.stringify({ totalCitas: totalCitasNS, totalNoShows: totalNoShowsNS, tasa: tasaNS, porClinica, alertas: alertasNS });
+
+        try {
+          const nowISO = new Date().toISOString();
+          const existingNS = await base(TABLES.informesGuardados as any)
+            .select({
+              filterByFormula: `AND({tipo}='noshow_semanal',{periodo}='${periodoNS}')`,
+              maxRecords: 1,
+              fields: ["tipo"],
+            })
+            .all();
+
+          const upsertNSFields: Record<string, unknown> = {
+            titulo: tituloNS,
+            contenido_json: contenidoJsonNS,
+            generado_en: nowISO,
+            generado_por: "sistema",
+          };
+          if (textoNarrativoNS) upsertNSFields["texto_narrativo"] = textoNarrativoNS;
+
+          if (existingNS.length > 0) {
+            await base(TABLES.informesGuardados as any).update(existingNS[0].id, upsertNSFields as any);
+          } else {
+            await (base(TABLES.informesGuardados as any) as any).create([{
+              fields: { tipo: "noshow_semanal", clinica: "Todas", periodo: periodoNS, ...upsertNSFields },
+            }]);
+          }
+        } catch (saveNSErr) {
+          console.error("[procesar] Error guardando informe noshow_semanal:", saveNSErr);
+        }
+
+        try { await kv.set(noShowSemanaKey, 1, { ex: 7 * 86400 }); } catch { /* kv optional */ }
+      } catch (noShowErr) {
+        console.error("[procesar] Error generando informe noshow_semanal:", noShowErr);
+      }
+    }
+
     return NextResponse.json({ procesados, nuevas });
   } catch (err) {
     console.error("[automatizaciones/procesar POST]", err);
