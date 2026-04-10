@@ -22,7 +22,7 @@ export type Props = {
   week: string;
   /** Specific date FullCalendar navigates to (= week in week mode, specific day in day mode) */
   calendarDate: string;
-  viewMode: "timeGridFiveDays" | "timeGridDay";
+  viewMode: "timeGridWeek" | "timeGridDay";
   clinicaFilter?: string;
   /** Increment to trigger a data reload */
   refreshKey: number;
@@ -30,8 +30,8 @@ export type Props = {
   onNewAppt: (dayIso: string, startMin: number) => void;
   onToast: (msg: string, ok?: boolean) => void;
   onClinciasAvailable?: (clinicas: string[]) => void;
-  /** Fires whenever FullCalendar navigates — provides monday ISO + formatted label */
-  onDatesSet?: (mondayIso: string, label: string) => void;
+  /** Fires whenever FullCalendar navigates — provides raw start/end from datesSet */
+  onDatesSet?: (start: Date, end: Date) => void;
 };
 
 // ── Color helpers ─────────────────────────────────────────────────────────────
@@ -201,31 +201,11 @@ export default function AgendaCalendar({
           slotMaxTime="20:00:00"
           height="100%"
           headerToolbar={false}
-          hiddenDays={[0]}
-          views={{
-            timeGridFiveDays: {
-              type: "timeGrid",
-              duration: { days: 5 },
-            },
-          }}
-          // datesSet fires after every navigation — keeps parent header in sync
-          datesSet={(info) => {
-            // Fake-UTC dates: UTC components = Madrid local time
-            const MONTHS = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-            const s = info.start;
-            const e = new Date(info.end);
-            e.setUTCDate(e.getUTCDate() - 1); // last visible day
-            const sD = s.getUTCDate(), sM = s.getUTCMonth();
-            const eD = e.getUTCDate(), eM = e.getUTCMonth(), eY = e.getUTCFullYear();
-            const label = sM === eM
-              ? `${sD}–${eD} ${MONTHS[sM]} ${eY}`
-              : `${sD} ${MONTHS[sM]}–${eD} ${MONTHS[eM]} ${eY}`;
-            const mondayIso = `${s.getUTCFullYear()}-${String(sM + 1).padStart(2, "0")}-${String(sD).padStart(2, "0")}`;
-            onDatesSet?.(mondayIso, label);
-          }}
+          hiddenDays={[0, 6]}
+          datesSet={(info) => onDatesSet?.(info.start, info.end)}
           allDaySlot={false}
           nowIndicator={true}
-          editable={!data?.isDemo}
+          editable={true}
           eventResizableFromStart={false}
           selectable={true}
           selectMirror={true}

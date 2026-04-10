@@ -370,11 +370,12 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
 
   // ── Week / day state ──
   const [mondayIso, setMondayIso]               = useState<string>(getMondayIso);
-  const [viewMode, setViewMode]                 = useState<"timeGridFiveDays" | "timeGridDay">("timeGridFiveDays");
+  const [viewMode, setViewMode]                 = useState<"timeGridWeek" | "timeGridDay">("timeGridWeek");
   const [selectedDayOffset, setSelectedDayOffset] = useState(0);
   // Driven by FullCalendar's datesSet — source of truth for header label
   const [displayedMonday, setDisplayedMonday]   = useState<string>(getMondayIso);
   const [displayedLabel, setDisplayedLabel]     = useState<string>(() => weekLabel(getMondayIso()));
+  const [displayRange, setDisplayRange]         = useState<string>(() => weekLabel(getMondayIso()));
 
   // ── Filter state ──
   const [clinicaFilter, setClinicaFilter]       = useState("");
@@ -447,8 +448,8 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
           {/* View toggle — extremo izquierdo */}
           <div className="flex rounded-xl border border-slate-200 overflow-hidden shrink-0">
             <button
-              onClick={() => setViewMode("timeGridFiveDays")}
-              className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${viewMode === "timeGridFiveDays" ? "bg-slate-800 text-white" : "text-slate-500 hover:bg-slate-50"}`}
+              onClick={() => setViewMode("timeGridWeek")}
+              className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${viewMode === "timeGridWeek" ? "bg-slate-800 text-white" : "text-slate-500 hover:bg-slate-50"}`}
             >Sem.</button>
             <button
               onClick={() => setViewMode("timeGridDay")}
@@ -461,7 +462,7 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
               className="p-1.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors text-sm"
             >←</button>
             <div className="text-center px-1">
-              <p className="text-sm font-bold text-slate-900">{displayedLabel}</p>
+              <p className="text-sm font-bold text-slate-900">{displayRange}</p>
               {isCurrentWeek && <p className="text-[10px] text-cyan-600 font-semibold">Semana actual</p>}
             </div>
             <button onClick={() => goWeek(1)}
@@ -541,7 +542,17 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
         onNewAppt={(dayIso, startMin) => setNewApptState({ dayIso, startMin, durationMin: 45 })}
         onToast={showToast}
         onClinciasAvailable={isManager ? setAvailableClinics : undefined}
-        onDatesSet={(mondayIso, label) => { setDisplayedMonday(mondayIso); setDisplayedLabel(label); }}
+        onDatesSet={(start, end) => {
+          // Fake-UTC: UTC components = Madrid local time
+          const sD = start.getUTCDate(), sM = start.getUTCMonth(), sY = start.getUTCFullYear();
+          const prev = new Date(end);
+          prev.setUTCDate(prev.getUTCDate() - 1);
+          const eD = prev.getUTCDate(), eM = prev.getUTCMonth(), eY = prev.getUTCFullYear();
+          setDisplayRange(`${sD} ${MONTHS_ES[sM]} – ${eD} ${MONTHS_ES[eM]} ${eY}`);
+          const mondayIso = `${sY}-${String(sM + 1).padStart(2, "0")}-${String(sD).padStart(2, "0")}`;
+          setDisplayedMonday(mondayIso);
+          setDisplayedLabel(`${sD}–${eD} ${MONTHS_ES[sM]} ${eY}`);
+        }}
       />
 
       {/* SidePanel */}
