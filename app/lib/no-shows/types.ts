@@ -31,6 +31,7 @@ export type RiskyAppt = {
   end: string;                       // ISO datetime
   startDisplay: string;              // "HH:mm"
   treatmentName: string;
+  doctor?: string;                   // Médico asignado (opcional)
   clinica?: string;
   dayIso: string;                    // "YYYY-MM-DD"
   riskScore: number;                 // 0–100

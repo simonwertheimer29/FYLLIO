@@ -149,7 +149,7 @@ function SidePanel({
         <div className="p-4 space-y-4 flex-1">
           {/* Treatment + time */}
           <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${bgClass}`}>
                 {riskLabel(appt.riskLevel)} {appt.riskScore}
               </span>
@@ -164,10 +164,21 @@ function SidePanel({
                 </span>
               )}
             </div>
+            {appt.patientPhone && (
+              <a
+                href={`tel:${appt.patientPhone}`}
+                className="text-xs text-cyan-700 hover:underline font-medium"
+              >
+                {appt.patientPhone}
+              </a>
+            )}
             <p className="text-sm text-slate-700 font-semibold">{appt.treatmentName}</p>
             <p className="text-xs text-slate-500">
               {appt.startDisplay}–{endDisplay} · {durationMin} min
             </p>
+            {appt.doctor && (
+              <p className="text-xs text-slate-500">{appt.doctor}</p>
+            )}
             {appt.clinica && (
               <p className="text-xs text-slate-400">{appt.clinica}</p>
             )}
@@ -258,6 +269,7 @@ function NewApptModal({
   const [selectedPatient, setSelectedPatient] = useState<PatientResult | null>(null);
   const [searchLoading, setSearchLoading] = useState(false);
   const [treatment, setTreatment] = useState("");
+  const [doctor, setDoctor] = useState("");
   const [duration, setDuration] = useState(state.durationMin);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -298,6 +310,7 @@ function NewApptModal({
           patientNombre:  selectedPatient?.nombre ?? patientSearch,
           patientTelefono: selectedPatient?.telefono ?? "",
           treatmentName:  treatment || "Sin especificar",
+          doctor:         doctor || undefined,
         }),
       });
       if (!res.ok) throw new Error("Error al crear la cita");
@@ -377,6 +390,18 @@ function NewApptModal({
           />
         </div>
 
+        {/* Doctor */}
+        <div className="space-y-1">
+          <label className="text-xs font-semibold text-slate-600">Doctor (opcional)</label>
+          <input
+            type="text"
+            value={doctor}
+            onChange={(e) => setDoctor(e.target.value)}
+            placeholder="Ej: Dra. García..."
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-300"
+          />
+        </div>
+
         {/* Duración */}
         <div className="space-y-1">
           <label className="text-xs font-semibold text-slate-600">Duración</label>
@@ -430,7 +455,10 @@ function ApptBlock({
 
   return (
     <div
-      style={{ top, height, left: 2, right: 2, backgroundColor: color }}
+      style={{
+        top, height, left: 2, right: 2, backgroundColor: color,
+        outline: !appt.confirmed ? "2px dashed rgba(255,255,255,0.5)" : undefined,
+      }}
       className="absolute rounded overflow-hidden text-white leading-none z-10 cursor-grab active:cursor-grabbing select-none"
       onPointerDown={onPointerDownBody}
       onClick={onClick}
@@ -444,6 +472,16 @@ function ApptBlock({
           </p>
         )}
       </div>
+      {/* Risk score badge */}
+      {height > 80 && (
+        <span className="absolute top-0.5 right-0.5 text-[8px] font-bold bg-black/20 rounded px-1 leading-tight pointer-events-none">
+          {appt.riskScore}
+        </span>
+      )}
+      {/* Unconfirmed indicator */}
+      {!appt.confirmed && height > 40 && (
+        <span className="absolute bottom-3 left-1 text-[8px] opacity-70 pointer-events-none">sin conf.</span>
+      )}
       {/* Resize handle */}
       <div
         className="absolute bottom-0 left-0 right-0 h-2 cursor-ns-resize hover:bg-black/20 transition-colors"
@@ -487,6 +525,7 @@ function CalendarDayColumn({
   onApptResizeDown,
   onApptClick,
   onGapClick,
+  onEmptyDoubleClick,
   wide,
 }: {
   dayLabel: string;
@@ -498,6 +537,7 @@ function CalendarDayColumn({
   onApptResizeDown: (e: React.PointerEvent, appt: RiskyAppt) => void;
   onApptClick: (appt: RiskyAppt) => void;
   onGapClick: (gap: GapSlot) => void;
+  onEmptyDoubleClick: (dayIso: string, startMin: number) => void;
   wide?: boolean;
 }) {
   return (
@@ -513,7 +553,17 @@ function CalendarDayColumn({
       </div>
 
       {/* Calendar body */}
-      <div className="relative border-l border-slate-100" style={{ height: CAL_H }}>
+      <div
+        className="relative border-l border-slate-100"
+        style={{ height: CAL_H }}
+        onDoubleClick={(e) => {
+          const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect();
+          const offsetY = e.clientY - rect.top;
+          const rawMin = START_MIN + offsetY / PX_PER_MIN;
+          const snapped = clamp(snap15(rawMin), 8 * 60, 19 * 60);
+          onEmptyDoubleClick(dayData.dayIso, snapped);
+        }}
+      >
         {/* Hour grid lines */}
         {HOURS.map((h) => (
           <div
@@ -565,7 +615,7 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
   // ── UI state ──
   const [selectedAppt, setSelectedAppt] = useState<RiskyAppt | null>(null);
   const [newApptState, setNewApptState] = useState<NewApptState | null>(null);
-  const [actionMsg, setActionMsg] = useState("");
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   // Stable refs for use in pointer event handlers
   const mondayIsoRef = useRef(mondayIso);
@@ -649,7 +699,10 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
           body: JSON.stringify({ startIso: si, endIso: ei }),
         });
         if (!res.ok) throw new Error();
-      } catch { /* silent rollback via reload */ }
+      } catch {
+        setToast({ msg: "Error al guardar cambio. La cita ha vuelto a su posición original.", ok: false });
+        setTimeout(() => setToast(null), 3000);
+      }
       // Always reload to sync state
       await loadRef.current?.(mondayIsoRef.current, clinicaFilterRef.current || undefined);
     };
@@ -663,6 +716,15 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
   }, []);
 
   // ── Handlers ──
+
+  function showToast(msg: string, ok = false) {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  function handleEmptyDoubleClick(dayIso: string, startMin: number) {
+    setNewApptState({ dayIso, startMin, durationMin: 45 });
+  }
 
   function handleApptPointerDown(e: React.PointerEvent, appt: RiskyAppt, type: "drag" | "resize") {
     e.preventDefault();
@@ -701,10 +763,11 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ estado }),
       });
-      setActionMsg(estado === "CONFIRMADO" ? "Cita confirmada" : "Marcada como no-show");
-      setTimeout(() => setActionMsg(""), 2500);
+      showToast(estado === "CONFIRMADO" ? "Cita confirmada" : "Marcada como no-show", true);
       load(mondayIso, clinicaFilter || undefined);
-    } catch { /* silent */ }
+    } catch {
+      showToast("Error al actualizar la cita.");
+    }
   }
 
   function goWeek(delta: number) {
@@ -758,10 +821,10 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-3 w-full">
 
-      {/* Action flash message */}
-      {actionMsg && (
-        <div className="rounded-2xl bg-green-50 border border-green-200 px-4 py-2 text-sm text-green-800 font-semibold">
-          {actionMsg}
+      {/* Toast */}
+      {toast && (
+        <div className={`rounded-2xl px-4 py-2 text-sm font-semibold ${toast.ok ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-700"}`}>
+          {toast.msg}
         </div>
       )}
 
@@ -802,6 +865,12 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
               className={`px-2.5 py-1.5 text-xs font-semibold transition-colors ${viewMode === "day" ? "bg-slate-800 text-white" : "text-slate-500 hover:bg-slate-50"}`}
             >Día</button>
           </div>
+          {/* New appointment button */}
+          <button
+            onClick={() => setNewApptState({ dayIso: mondayIso, startMin: 10 * 60, durationMin: 45 })}
+            className="p-1.5 rounded-xl bg-cyan-600 text-white text-sm font-bold hover:bg-cyan-700 transition-colors shrink-0"
+            title="Nueva cita"
+          >+</button>
         </div>
 
         {/* Day selector (day mode only) */}
@@ -905,6 +974,7 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
                   onApptResizeDown={(e, appt) => handleApptPointerDown(e, appt, "resize")}
                   onApptClick={handleApptClick}
                   onGapClick={handleGapClick}
+                  onEmptyDoubleClick={handleEmptyDoubleClick}
                 />
               );
             })}

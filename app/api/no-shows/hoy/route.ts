@@ -170,6 +170,7 @@ export async function GET(req: Request) {
         end: endIso,
         startDisplay: toHHMM(startIso),
         treatmentName,
+        doctor: firstString(f["Médico"]) || firstString(f["Doctor"]) || undefined,
         clinica: firstString(f["Clínica ID"]) || undefined,
         dayIso: startIso.slice(0, 10),
         confirmed,
