@@ -6,6 +6,7 @@ import HoyView from "./HoyView";
 import RiesgoView from "./RiesgoView";
 import AgendaView from "./AgendaView";
 import AccionesView from "./AccionesView";
+import KpiView from "./KpiView";
 
 type Tab = "hoy" | "riesgo" | "agenda" | "acciones" | "kpis" | "informes" | "config";
 
@@ -137,7 +138,7 @@ export default function NoShowsShell({ user }: { user: NoShowsUserSession }) {
         {tab === "riesgo"   && <RiesgoView user={user} />}
         {tab === "agenda"   && <AgendaView user={user} />}
         {tab === "acciones" && <AccionesView user={user} />}
-        {tab === "kpis"     && <StubView tab="KPIs"     emoji="📊" fase={4} />}
+        {tab === "kpis"     && <KpiView user={user} />}
         {tab === "informes" && <StubView tab="INFORMES" emoji="📋" fase={5} />}
         {tab === "config"   && <StubView tab="CONFIG"   emoji="⚙"  fase={6} />}
       </main>

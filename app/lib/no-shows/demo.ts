@@ -2,7 +2,7 @@
 // Datos demo para el módulo no-shows — siempre relativos a "hoy"
 
 import { DateTime } from "luxon";
-import type { RiskyAppt, RecallAlert, GapSlot, AccionTask } from "./types";
+import type { RiskyAppt, RecallAlert, GapSlot, AccionTask, NoShowKpiData } from "./types";
 
 const ZONE = "Europe/Madrid";
 
@@ -311,4 +311,72 @@ export function buildDemoAccionTasks(): AccionTask[] {
   }
 
   return tasks;
+}
+
+// ─── KPIs ─────────────────────────────────────────────────────────────────────
+
+export function buildDemoKpiData(period: "month" | "quarter" = "month"): NoShowKpiData {
+  const scale = period === "quarter" ? 3 : 1;
+
+  const monthlyData = [
+    { month: "abr 25", real: 14800, baseline: 14100 },
+    { month: "may 25", real: 15200, baseline: 14500 },
+    { month: "jun 25", real: 16100, baseline: 15200 },
+    { month: "jul 25", real: 12300, baseline: 11600 },
+    { month: "ago 25", real: 10100, baseline:  9400 },
+    { month: "sep 25", real: 15900, baseline: 14800 },
+    { month: "oct 25", real: 16700, baseline: 15500 },
+    { month: "nov 25", real: 17200, baseline: 15900 },
+    { month: "dic 25", real: 14000, baseline: 13000 },
+    { month: "ene 26", real: 16400, baseline: 15200 },
+    { month: "feb 26", real: 16900, baseline: 15500 },
+    { month: "mar 26", real: 17300, baseline: 15900 },
+  ];
+
+  const current = monthlyData[monthlyData.length - 1];
+  const prev    = monthlyData[monthlyData.length - 2];
+
+  return {
+    tasa:        0.082,
+    totalCitas:  220 * scale,
+    totalNoShows: 18 * scale,
+    tasaSector:  0.12,
+    byDayOfWeek: [
+      { day: "Lun", tasa: 0.092 },
+      { day: "Mar", tasa: 0.063 },
+      { day: "Mié", tasa: 0.071 },
+      { day: "Jue", tasa: 0.078 },
+      { day: "Vie", tasa: 0.141 },
+    ],
+    byTreatment: [
+      { treatment: "Revisión general", tasa: 0.143 },
+      { treatment: "Ortodoncia",       tasa: 0.102 },
+      { treatment: "Limpieza dental",  tasa: 0.071 },
+      { treatment: "Empaste",          tasa: 0.058 },
+      { treatment: "Implante dental",  tasa: 0.038 },
+    ],
+    byClinica: [
+      { clinica: "Clínica Madrid Centro",      tasa: 0.075 },
+      { clinica: "Clínica Barcelona Eixample", tasa: 0.091 },
+      { clinica: "Clínica Madrid Norte",       tasa: 0.086 },
+    ],
+    weeklyTrend: [
+      { week: "S-7",  tasa: 0.113 },
+      { week: "S-6",  tasa: 0.095 },
+      { week: "S-5",  tasa: 0.088 },
+      { week: "S-4",  tasa: 0.119 },
+      { week: "S-3",  tasa: 0.079 },
+      { week: "S-2",  tasa: 0.072 },
+      { week: "S-1",  tasa: 0.085 },
+      { week: "Est.", tasa: 0.062 },
+    ],
+    ingresosRecuperados: {
+      tasaPreFyllio:       0.15,
+      ingresosReales:      current.real,
+      baselineProjection:  current.baseline,
+      delta:               current.real - current.baseline,
+      mesAnteriorIngresos: prev.real,
+      monthlyData,
+    },
+  };
 }
