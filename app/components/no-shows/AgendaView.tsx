@@ -420,10 +420,11 @@ function ApptBlock({
   onPointerDownResize: (e: React.PointerEvent) => void;
   onClick: () => void;
 }) {
-  const top    = posOverride?.top    ?? topPx(appt.startDisplay);
-  const height = posOverride?.height ?? heightPx(apptDurationMin(appt));
-  const color  = apptColor(appt);
-  const nombre = appt.patientName.split(" ")[0];
+  const top        = posOverride?.top    ?? topPx(appt.startDisplay);
+  const height     = posOverride?.height ?? heightPx(apptDurationMin(appt));
+  const color      = apptColor(appt);
+  const nombre     = appt.patientName.split(" ")[0];
+  const endDisplay = minToHHMM(apptStartMin(appt) + apptDurationMin(appt));
 
   if (top < 0 || top > CAL_H) return null;
 
@@ -435,7 +436,7 @@ function ApptBlock({
       onClick={onClick}
     >
       <div className="px-1 pt-0.5 pointer-events-none">
-        <p className="text-[9px] font-bold">{appt.startDisplay}</p>
+        <p className="text-[9px] font-bold">{appt.startDisplay}–{endDisplay}</p>
         <p className="text-[10px] font-semibold truncate">{nombre}</p>
         {height > 36 && (
           <p className="text-[9px] opacity-80 truncate">
@@ -715,7 +716,7 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
   if (loading) {
     return (
       <div className="flex-1 min-h-0 flex items-center justify-center">
-        <div className="animate-pulse space-y-3 w-full max-w-4xl">
+        <div className="animate-pulse space-y-3 w-full">
           <div className="h-20 bg-slate-100 rounded-2xl" />
           <div className="h-64 bg-slate-100 rounded-2xl" />
         </div>
@@ -755,7 +756,7 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
     : [daySlots[selectedDayOffset]];
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col gap-3 w-full max-w-4xl mx-auto">
+    <div className="flex-1 min-h-0 flex flex-col gap-3 w-full">
 
       {/* Action flash message */}
       {actionMsg && (

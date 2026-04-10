@@ -233,7 +233,7 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
   if (loading) {
     return (
       <div className="flex-1 min-h-0 flex items-center justify-center">
-        <div className="animate-pulse space-y-3 w-full max-w-2xl">
+        <div className="animate-pulse space-y-3 w-full">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="h-14 bg-slate-100 rounded-xl" />
           ))}
@@ -266,7 +266,7 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
     .sort((a, b) => a.startDisplay.localeCompare(b.startDisplay));
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col gap-4 max-w-2xl w-full mx-auto">
+    <div className="flex-1 min-h-0 flex flex-col gap-4 w-full">
 
       {/* Demo banner */}
       {data.isDemo && (
@@ -291,8 +291,8 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
           </button>
         </div>
 
-        {/* 4 Metric Cards (2×2) */}
-        <div className="grid grid-cols-2 gap-3">
+        {/* 4 Metric Cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
             <p className="text-2xl font-black text-slate-800 leading-none">{data.summary.total}</p>
             <p className="text-xs text-slate-500 mt-1">Citas hoy</p>
@@ -400,6 +400,9 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
         </div>
       )}
 
+      {/* ── Huecos + Recall en 2 cols en md+ ── */}
+      <div className="md:grid md:grid-cols-2 md:gap-4 flex flex-col gap-4">
+
       {/* ── Huecos del día ── */}
       {data.gaps.length > 0 && (
         <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-2">
@@ -433,6 +436,8 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
           </div>
         </details>
       )}
+
+      </div>{/* end 2-col grid */}
 
     </div>
   );

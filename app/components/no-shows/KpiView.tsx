@@ -643,7 +643,7 @@ export default function KpiView({ user }: { user: NoShowsUserSession }) {
   if (loading) {
     return (
       <div className="flex-1 min-h-0 flex items-center justify-center">
-        <div className="animate-pulse space-y-3 w-full max-w-2xl">
+        <div className="animate-pulse space-y-3 w-full">
           {[1, 2, 3].map((i) => <div key={i} className="h-24 bg-slate-100 rounded-xl" />)}
         </div>
       </div>
@@ -663,62 +663,26 @@ export default function KpiView({ user }: { user: NoShowsUserSession }) {
     : [];
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col gap-4 max-w-2xl w-full mx-auto">
+    <div className="flex-1 min-h-0 flex flex-col w-full">
       {/* Demo banner */}
       {data.isDemo && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
+        <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
           <span className="font-semibold">Datos de demostración.</span>{" "}
           Conecta Airtable para ver datos reales.
         </div>
       )}
 
-      {/* Controls: period + clinic filter */}
-      <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex gap-1">
-            {(["month", "quarter"] as const).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPeriod(p)}
-                className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-colors ${
-                  period === p
-                    ? "bg-cyan-600 text-white border-cyan-600"
-                    : "border-slate-200 text-slate-500 hover:bg-slate-50"
-                }`}
-              >
-                {p === "month" ? "30 días" : "Trimestre"}
-              </button>
-            ))}
-          </div>
-          {/* Quick summary */}
-          <p className="text-xs text-slate-400">
-            {data.totalNoShows} no-shows · {(data.tasa * 100).toFixed(1)}%
-          </p>
-        </div>
-
-        {isManager && clinicas.length > 1 && (
-          <select
-            value={clinicaFilter}
-            onChange={(e) => setClinica(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
-          >
-            <option value="">Todas las clínicas</option>
-            {clinicas.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        )}
-      </div>
-
-      {/* Tab strip — horizontal scroll */}
-      <div className="rounded-2xl bg-white border border-slate-200 p-1.5">
-        <div className="flex gap-1 overflow-x-auto pb-0.5 no-scrollbar">
+      {/* ── Secondary navbar — 7 tabs ── */}
+      <div className="bg-white border-b border-slate-200 -mx-4 px-4 shrink-0">
+        <div className="flex gap-0 overflow-x-auto no-scrollbar">
           {TABS.map((t) => (
             <button
               key={t.id}
               onClick={() => setActiveTab(t.id)}
-              className={`text-xs px-3 py-2 rounded-xl font-semibold whitespace-nowrap transition-colors flex-shrink-0 ${
+              className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors flex-shrink-0 ${
                 activeTab === t.id
-                  ? "bg-slate-800 text-white"
-                  : "text-slate-500 hover:bg-slate-50"
+                  ? "border-cyan-600 text-cyan-700"
+                  : "border-transparent text-slate-500 hover:text-slate-700"
               }`}
             >
               {t.label}
@@ -727,16 +691,60 @@ export default function KpiView({ user }: { user: NoShowsUserSession }) {
         </div>
       </div>
 
-      {/* Tab content */}
-      {activeTab === "general"     && <TabGeneral     data={data} />}
-      {activeTab === "clinica"     && <TabClinica     data={data} isManager={isManager} />}
-      {activeTab === "doctor"      && <TabDoctor      data={data} />}
-      {activeTab === "tratamiento" && <TabTratamiento data={data} />}
-      {activeTab === "ingresos"    && <TabIngresos    data={data} />}
-      {activeTab === "reputacion"  && <TabReputacion  />}
-      {activeTab === "ia"          && (
-        <TabIA data={data} period={period} clinicaFilter={clinicaFilter} />
-      )}
+      {/* ── Period filter pills + clinic filter ── */}
+      <div className="flex flex-wrap items-center gap-2 py-3 -mx-4 px-4 border-b border-slate-100 bg-slate-50 shrink-0">
+        {(
+          [
+            { key: "month",    label: "Este mes",  active: true  },
+            { key: "quarter",  label: "Trimestre", active: true  },
+            { key: "semester", label: "Semestre",  active: false },
+            { key: "year",     label: "Año",       active: false },
+          ] as { key: string; label: string; active: boolean }[]
+        ).map((p) => (
+          <button
+            key={p.key}
+            onClick={() => { if (p.active) setPeriod(p.key as "month" | "quarter"); }}
+            disabled={!p.active}
+            className={`text-xs px-3 py-1 rounded-full font-semibold transition-colors ${
+              period === p.key
+                ? "bg-cyan-600 text-white"
+                : !p.active
+                ? "border border-slate-200 text-slate-300 cursor-not-allowed"
+                : "border border-slate-200 text-slate-500 hover:bg-white"
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+
+        {isManager && clinicas.length > 1 && (
+          <select
+            value={clinicaFilter}
+            onChange={(e) => setClinica(e.target.value)}
+            className="ml-1 rounded-xl border border-slate-200 px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-cyan-300 bg-white"
+          >
+            <option value="">Todas las clínicas</option>
+            {clinicas.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
+
+        <span className="ml-auto text-xs text-slate-400">
+          {data.totalNoShows} no-shows · {(data.tasa * 100).toFixed(1)}%
+        </span>
+      </div>
+
+      {/* ── Tab content ── */}
+      <div className="flex flex-col gap-4 pt-4">
+        {activeTab === "general"     && <TabGeneral     data={data} />}
+        {activeTab === "clinica"     && <TabClinica     data={data} isManager={isManager} />}
+        {activeTab === "doctor"      && <TabDoctor      data={data} />}
+        {activeTab === "tratamiento" && <TabTratamiento data={data} />}
+        {activeTab === "ingresos"    && <TabIngresos    data={data} />}
+        {activeTab === "reputacion"  && <TabReputacion  />}
+        {activeTab === "ia"          && (
+          <TabIA data={data} period={period} clinicaFilter={clinicaFilter} />
+        )}
+      </div>
     </div>
   );
 }

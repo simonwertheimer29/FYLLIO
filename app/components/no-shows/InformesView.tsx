@@ -147,7 +147,7 @@ function Prevision({ informes }: { informes: InformeNoShow[] }) {
   const ingresos   = noShows * 85;
 
   return (
-    <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-4">
+    <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm font-bold text-slate-800">Previsión próximas 4 semanas</p>
@@ -156,34 +156,37 @@ function Prevision({ informes }: { informes: InformeNoShow[] }) {
         <span className="text-xl font-extrabold text-slate-700">{tasa}%</span>
       </div>
 
-      {/* Slider */}
-      <div className="space-y-1">
-        <input
-          type="range"
-          min={1}
-          max={25}
-          step={1}
-          value={tasa}
-          onChange={(e) => setTasa(Number(e.target.value))}
-          className="w-full accent-cyan-500"
-        />
-        <div className="flex justify-between text-[10px] text-slate-400">
-          <span>1%</span>
-          <span>Tasa esperada</span>
-          <span>25%</span>
-        </div>
-      </div>
-
-      {/* 4 week cards */}
-      <div className="grid grid-cols-4 gap-2">
-        {[1, 2, 3, 4].map((w) => (
-          <div key={w} className="rounded-xl border border-slate-100 bg-slate-50 p-2.5 text-center">
-            <p className="text-[10px] text-slate-400 font-semibold">+{w} sem.</p>
-            <p className="text-sm font-extrabold text-slate-800 mt-0.5">{noShows}</p>
-            <p className="text-[10px] text-slate-400">no-shows</p>
-            <p className="text-[10px] font-semibold text-red-500 mt-0.5">€{ingresos.toLocaleString("es-ES")}</p>
+      {/* Slider + cards — horizontal en md+ */}
+      <div className="md:flex md:gap-6 md:items-center flex flex-col gap-3">
+        {/* Slider */}
+        <div className="md:w-52 shrink-0 space-y-1">
+          <input
+            type="range"
+            min={1}
+            max={25}
+            step={1}
+            value={tasa}
+            onChange={(e) => setTasa(Number(e.target.value))}
+            className="w-full accent-cyan-500"
+          />
+          <div className="flex justify-between text-[10px] text-slate-400">
+            <span>1%</span>
+            <span>Tasa esperada</span>
+            <span>25%</span>
           </div>
-        ))}
+        </div>
+
+        {/* 4 week cards */}
+        <div className="flex-1 grid grid-cols-4 gap-2">
+          {[1, 2, 3, 4].map((w) => (
+            <div key={w} className="rounded-xl border border-slate-100 bg-slate-50 p-2.5 text-center">
+              <p className="text-[10px] text-slate-400 font-semibold">+{w} sem.</p>
+              <p className="text-sm font-extrabold text-slate-800 mt-0.5">{noShows}</p>
+              <p className="text-[10px] text-slate-400">no-shows</p>
+              <p className="text-[10px] font-semibold text-red-500 mt-0.5">€{ingresos.toLocaleString("es-ES")}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <p className="text-[10px] text-slate-400">
@@ -231,7 +234,7 @@ export default function InformesView({ user }: { user: NoShowsUserSession }) {
   }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col gap-4 max-w-2xl w-full mx-auto">
+    <div className="flex-1 min-h-0 flex flex-col gap-4 w-full">
       {/* Demo banner */}
       {isDemo && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">

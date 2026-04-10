@@ -320,7 +320,7 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
   if (loading) {
     return (
       <div className="flex-1 min-h-0 flex items-center justify-center">
-        <div className="animate-pulse space-y-3 w-full max-w-2xl">
+        <div className="animate-pulse space-y-3 w-full">
           {[1, 2, 3, 4].map((i) => (
             <div key={i} className="h-16 bg-slate-100 rounded-xl" />
           ))}
@@ -362,7 +362,7 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
     : [];
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col gap-4 max-w-2xl w-full mx-auto">
+    <div className="flex-1 min-h-0 flex flex-col gap-4 w-full">
       {/* Demo banner */}
       {data.isDemo && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
@@ -414,35 +414,38 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
         </div>
       )}
 
-      {/* 🔥 URGENTE HOY */}
-      {urgentTasks.length > 0 && (
-        <div className="rounded-2xl bg-red-50 border border-red-200 p-4 space-y-2">
-          <Section
-            title="🔥 URGENTE HOY"
-            subtitle="— requiere acción inmediata"
-            tasks={urgentTasks}
-            done={done}
-            onDone={markDone}
-            startIdx={1}
-            urgent
-          />
-        </div>
-      )}
+      {/* 🔥 URGENTE + 📋 PENDIENTE — 2 cols en lg */}
+      <div className="lg:grid lg:grid-cols-2 lg:gap-4 flex flex-col gap-4 lg:items-start">
+        {/* 🔥 URGENTE HOY */}
+        {urgentTasks.length > 0 && (
+          <div className="rounded-2xl bg-red-50 border border-red-200 p-4 space-y-2">
+            <Section
+              title="🔥 URGENTE HOY"
+              subtitle="— requiere acción inmediata"
+              tasks={urgentTasks}
+              done={done}
+              onDone={markDone}
+              startIdx={1}
+              urgent
+            />
+          </div>
+        )}
 
-      {/* 📋 PENDIENTE */}
-      {pendingTasks.length > 0 && (
-        <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-2">
-          <Section
-            title="📋 PENDIENTE"
-            subtitle="— para antes del final del día"
-            tasks={pendingTasks}
-            done={done}
-            onDone={markDone}
-            startIdx={urgentTasks.length + 1}
-            urgent={false}
-          />
-        </div>
-      )}
+        {/* 📋 PENDIENTE */}
+        {pendingTasks.length > 0 && (
+          <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-2">
+            <Section
+              title="📋 PENDIENTE"
+              subtitle="— para antes del final del día"
+              tasks={pendingTasks}
+              done={done}
+              onDone={markDone}
+              startIdx={urgentTasks.length + 1}
+              urgent={false}
+            />
+          </div>
+        )}
+      </div>
 
       {/* Progreso del día — completadas */}
       {doneCnt > 0 && (

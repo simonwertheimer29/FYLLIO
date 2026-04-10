@@ -409,18 +409,18 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
           >→</button>
         </div>
 
-        {/* 5 Summary chips */}
+        {/* 5 Summary cards */}
         <div className="grid grid-cols-5 gap-2">
           {[
-            { label: "Total",     value: data.summary.totalAppointments,  color: "text-slate-700"  },
-            { label: "Alto",      value: data.summary.highRisk,           color: "text-red-700"    },
-            { label: "Medio",     value: data.summary.mediumRisk,         color: "text-amber-700"  },
-            { label: "€ riesgo",  value: `€${data.summary.eurosEnRiesgo ?? 0}`, color: "text-amber-600" },
-            { label: "Recall",    value: data.summary.recallCount,        color: "text-orange-700" },
-          ].map(({ label, value, color }) => (
-            <div key={label} className="text-center py-2 rounded-xl bg-slate-50 border border-slate-100">
-              <p className={`text-base font-extrabold leading-none ${color}`}>{value}</p>
-              <p className="text-[10px] text-slate-400 mt-1 leading-none">{label}</p>
+            { label: "Total",    value: data.summary.totalAppointments,        bg: "bg-slate-50 border-slate-200",   text: "text-slate-800"  },
+            { label: "Alto",     value: data.summary.highRisk,                 bg: "bg-red-50 border-red-200",       text: "text-red-700"    },
+            { label: "Medio",    value: data.summary.mediumRisk,               bg: "bg-amber-50 border-amber-200",   text: "text-amber-700"  },
+            { label: "€ riesgo", value: `€${data.summary.eurosEnRiesgo ?? 0}`, bg: "bg-orange-50 border-orange-200", text: "text-orange-700" },
+            { label: "Recall",   value: data.summary.recallCount,              bg: "bg-orange-50 border-orange-200", text: "text-orange-700" },
+          ].map(({ label, value, bg, text }) => (
+            <div key={label} className={`text-center py-2.5 rounded-xl border ${bg}`}>
+              <p className={`text-2xl font-black leading-none ${text}`}>{value}</p>
+              <p className="text-[10px] text-slate-500 mt-1 leading-none">{label}</p>
             </div>
           ))}
         </div>
