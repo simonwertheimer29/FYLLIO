@@ -7,6 +7,7 @@ import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import Anthropic from "@anthropic-ai/sdk";
 import { base, TABLES } from "../../../../lib/airtable";
+import { construirMapaAnonimizacion, desanonimizarTexto } from "../../../../lib/anonimizacion";
 import { DateTime } from "luxon";
 import { computeUrgencyScore } from "../../../../lib/presupuestos/urgency";
 import { ESTADOS_ACEPTADOS } from "../../../../lib/presupuestos/colors";
@@ -274,7 +275,13 @@ export async function POST(req: Request) {
 
   const datos = buildDatosResumen(presupuestos, all, mes);
   const clinicaNombre = clinicaId === "todas" ? "Todas las clínicas" : clinicaId;
-  const prompt = buildPrompt(mes, clinicaNombre, datos);
+
+  // ── Anonimización de clínica para Claude API ───────────────────────────────
+  const anonMap = construirMapaAnonimizacion(clinicaId !== "todas" ? [clinicaNombre] : []);
+  const clinicaNombreAnon = anonMap.realToAlias.get(clinicaNombre) ?? clinicaNombre;
+  console.log("[anon] mensual — mapa aliases:", Object.fromEntries(anonMap.realToAlias));
+
+  const prompt = buildPrompt(mes, clinicaNombreAnon, datos);
 
   try {
     const msg = await getClient().messages.create({
@@ -283,7 +290,9 @@ export async function POST(req: Request) {
       messages: [{ role: "user", content: prompt }],
     });
 
-    const informe = (msg.content[0] as { type: string; text: string }).text ?? "";
+    const informeRaw = (msg.content[0] as { type: string; text: string }).text ?? "";
+    // Restaurar nombres reales antes de devolver al cliente
+    const informe = desanonimizarTexto(informeRaw, anonMap);
 
     return NextResponse.json({
       informe,

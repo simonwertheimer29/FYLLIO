@@ -11,6 +11,7 @@ import { base, TABLES } from "../../../lib/airtable";
 import type { UserSession, TipoEvento, ConfiguracionAutomatizacion } from "../../../lib/presupuestos/types";
 import { sendPushToClinica, sendPushToAll } from "../../../lib/push/sender";
 import { DateTime } from "luxon";
+import { construirMapaAnonimizacion, anonimizarTexto, desanonimizarTexto } from "../../../lib/anonimizacion";
 
 const COOKIE = "fyllio_presupuestos_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -432,6 +433,10 @@ export async function POST() {
           }
         }
 
+        // ── Anonimización de clínicas para Claude API ─────────────────────────
+        const anonMap = construirMapaAnonimizacion(clinicasData.map((c) => c.clinica));
+        console.log("[anon] semanal — mapa aliases:", Object.fromEntries(anonMap.realToAlias));
+
         // ── Prompt para Claude ─────────────────────────────────────────────────
         const clinicasStr = clinicasData.map((c) => {
           const obj = objetivosMap.get(c.clinica) ?? 0;
@@ -439,7 +444,8 @@ export async function POST() {
           const progreso = obj > 0
             ? `${acept}/${obj} aceptados este mes (${Math.round(acept / obj * 100)}%)`
             : `${acept} aceptados este mes`;
-          return `  - ${c.clinica}: ${c.nuevos} nuevos, seguimiento ${c.totalSeguimiento} (€${c.eurosSeguimiento.toLocaleString("es-ES")}), riesgo alto ${c.riesgoAlto}, objetivo: ${progreso}`;
+          const alias = anonMap.realToAlias.get(c.clinica) ?? c.clinica;
+          return `  - ${alias}: ${c.nuevos} nuevos, seguimiento ${c.totalSeguimiento} (€${c.eurosSeguimiento.toLocaleString("es-ES")}), riesgo alto ${c.riesgoAlto}, objetivo: ${progreso}`;
         }).join("\n");
 
         const promptSemanal = `Eres analista de negocio de una red de clínicas dentales en España.
@@ -473,7 +479,9 @@ ACCIONES_LUNES:
 FIN_ACCIONES`;
 
         // ── Llamar a Claude (antes del upsert) ────────────────────────────────
-        const textoNarrativo = await generarInformeSemanalIA(promptSemanal);
+        const textoRaw = await generarInformeSemanalIA(promptSemanal);
+        // Restaurar nombres reales antes de guardar en Airtable
+        const textoNarrativo = textoRaw ? desanonimizarTexto(textoRaw, anonMap) : textoRaw;
 
         // ── Construir payload final ────────────────────────────────────────────
         const alertaPrincipal =
