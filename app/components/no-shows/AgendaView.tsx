@@ -13,12 +13,19 @@ const MONTHS_ES  = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct",
 // Mapeo clínica → profesionales disponibles (hardcoded por ahora)
 const PROFESIONALES_POR_CLINICA: Record<string, { id: string; nombre: string }[]> = {
   "CLINIC_001": [
-    { id: "STF_001", nombre: "Dr. Andrés Rojas" },
-    { id: "STF_002", nombre: "Dra. Paula Díaz" },
-    { id: "STF_003", nombre: "Dr. Mateo López" },
+    { id: "STF_006", nombre: "Dr. Andrés Rojas" },
+    { id: "STF_007", nombre: "Dra. Paula Díaz" },
+    { id: "STF_008", nombre: "Dr. Mateo López" },
+  ],
+  "CLINIC_002": [
+    { id: "STF_010", nombre: "Dra. Carmen Vidal" },
+    { id: "STF_011", nombre: "Dr. Jorge Puig" },
   ],
 };
-const ALL_PROFESIONALES = PROFESIONALES_POR_CLINICA["CLINIC_001"];
+const ALL_PROFESIONALES = [
+  ...PROFESIONALES_POR_CLINICA["CLINIC_001"],
+  ...PROFESIONALES_POR_CLINICA["CLINIC_002"],
+];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -391,7 +398,7 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
   const [displayRange, setDisplayRange]         = useState<string>(() => weekLabel(getMondayIso()));
 
   // ── Filter state ──
-  const [clinicaFilter, setClinicaFilter]       = useState("");
+  const [clinicaFilter, setClinicaFilter]       = useState("CLINIC_001");
   const [availableClinics, setAvailableClinics] = useState<string[]>([]);
   const [profesionalFilter, setProfesionalFilter] = useState("");
 
