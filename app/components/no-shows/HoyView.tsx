@@ -358,9 +358,15 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
           >
             <option value="">Todas las clínicas</option>
-            {[...new Set(data.appointments.map((a) => a.clinica).filter(Boolean) as string[])].sort().map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
+            {[...new Map(
+              data.appointments
+                .filter((a) => a.clinica && a.clinicaNombre)
+                .map((a) => [a.clinica!, a.clinicaNombre!] as [string, string])
+            ).entries()]
+              .sort(([, a], [, b]) => a.localeCompare(b))
+              .map(([id, nombre]) => (
+                <option key={id} value={id}>{nombre}</option>
+              ))}
           </select>
         )}
       </div>

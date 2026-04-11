@@ -83,9 +83,15 @@ export async function GET(req: Request) {
     const todayIso = todayDt.toISODate()!;
     const todayLabel = todayDt.setLocale("es").toFormat("EEEE d 'de' MMMM");
 
-    const allRecs = await base(TABLES.appointments as any)
-      .select({ maxRecords: 1000 })
-      .all();
+    const [staffRecs, clinicaRecs, sillonRecs, allRecs] = await Promise.all([
+      base("Staff" as any).select({ fields: ["Staff ID", "Nombre"] }).all(),
+      base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all(),
+      base("Sillones" as any).select({ fields: ["Sillón ID", "Nombre"] }).all(),
+      base(TABLES.appointments as any).select({ maxRecords: 2000 }).all(),
+    ]);
+    const staffMap   = new Map<string, string>((staffRecs as any[]).map((r) => [firstString(r.fields["Staff ID"]),   firstString(r.fields["Nombre"])]));
+    const clinicaMap = new Map<string, string>((clinicaRecs as any[]).map((r) => [firstString(r.fields["Clínica ID"]), firstString(r.fields["Nombre"])]));
+    const sillonMap  = new Map<string, string>((sillonRecs as any[]).map((r) => [firstString(r.fields["Sillón ID"]),  firstString(r.fields["Nombre"])]));
 
     const todayRecs: any[] = [];
     const histRecs: any[] = [];
@@ -98,9 +104,9 @@ export async function GET(req: Request) {
       if (!startIso) continue;
 
       const dayIso = startIso.slice(0, 10);
-      const clinicaRec = firstString(f["Clínica_id"]);
+      const clinicaIdVal = firstString(f["Clínica_id"]);
 
-      if (clinicaFilter && clinicaRec && clinicaRec !== clinicaFilter) continue;
+      if (clinicaFilter && clinicaIdVal !== clinicaFilter) continue;
 
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
 
@@ -144,6 +150,8 @@ export async function GET(req: Request) {
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
       const confirmed = estado.includes("CONFIRM");
       const profesionalId = firstString(f["Profesional_id"]) || undefined;
+      const clinicaId     = firstString(f["Clínica_id"])     || undefined;
+      const sillonId      = firstString(f["Sillon_id"])      || undefined;
 
       const history = patientHistory.get(phone) ?? { total: 0, noShowCount: 0, cancelCount: 0 };
       const scored = scoreAppointment(
@@ -160,8 +168,11 @@ export async function GET(req: Request) {
         startDisplay: toHHMM(startIso),
         treatmentName,
         doctor: profesionalId,
+        doctorNombre: profesionalId ? (staffMap.get(profesionalId) ?? profesionalId) : undefined,
         profesionalId,
-        clinica: firstString(f["Clínica_id"]) || undefined,
+        clinica: clinicaId,
+        clinicaNombre: clinicaId ? (clinicaMap.get(clinicaId) ?? clinicaId) : undefined,
+        sillonNombre: sillonId ? (sillonMap.get(sillonId) ?? sillonId) : undefined,
         dayIso: startIso.slice(0, 10),
         confirmed,
         ...scored,

@@ -369,9 +369,13 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
     if (arr) arr.push(appt);
   }
 
-  const clinicas = isManager
-    ? [...new Set(data.appointments.map((a) => a.clinica).filter(Boolean) as string[])].sort()
-    : [];
+  const clinicasMap = isManager
+    ? new Map(
+        data.appointments
+          .filter((a) => a.clinica && a.clinicaNombre)
+          .map((a) => [a.clinica!, a.clinicaNombre!] as [string, string])
+      )
+    : new Map<string, string>();
 
   const isCurrentWeek = week === getCurrentWeekStr();
 
@@ -426,16 +430,18 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
         </div>
 
         {/* Clinic filter */}
-        {isManager && clinicas.length > 0 && (
+        {isManager && clinicasMap.size > 0 && (
           <select
             value={clinicaFilter}
             onChange={(e) => setClinicaFilter(e.target.value)}
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
           >
             <option value="">Todas las clínicas</option>
-            {clinicas.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
+            {[...clinicasMap.entries()]
+              .sort(([, a], [, b]) => a.localeCompare(b))
+              .map(([id, nombre]) => (
+                <option key={id} value={id}>{nombre}</option>
+              ))}
           </select>
         )}
       </div>
