@@ -43,8 +43,9 @@ export async function GET() {
     return NextResponse.json({
       clinicas: (recs as any[])
         .map((r) => ({
-          id:     firstString(r.fields["Clínica ID"]),
-          nombre: firstString(r.fields["Nombre"]),
+          id:       firstString(r.fields["Clínica ID"]),
+          nombre:   firstString(r.fields["Nombre"]),
+          recordId: (r as any).id, // Airtable native record ID (recXXXXXXXX)
         }))
         .filter((c) => c.id && c.nombre),
     });

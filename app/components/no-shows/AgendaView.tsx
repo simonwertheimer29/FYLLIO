@@ -10,7 +10,8 @@ import AgendaCalendar from "./AgendaCalendar";
 const DAYS_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie"];
 const MONTHS_ES  = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
 
-type StaffEntry = { id: string; nombre: string };
+type StaffEntry    = { id: string; nombre: string };
+type ClinicaEntry  = { id: string; nombre: string; recordId: string };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -386,7 +387,7 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
   const [clinicaFilter, setClinicaFilter]         = useState("CLINIC_001");
   const [availableClinics, setAvailableClinics]   = useState<string[]>([]);
   const [profesionalFilter, setProfesionalFilter] = useState("");
-  const [clinicasDisponibles, setClinicasDisponibles] = useState<{ id: string; nombre: string }[]>([]);
+  const [clinicasDisponibles, setClinicasDisponibles] = useState<ClinicaEntry[]>([]);
   const [staffPorClinica, setStaffPorClinica]         = useState<Record<string, StaffEntry[]>>({});
 
   // ── Calendar refresh ──
@@ -412,9 +413,9 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
         const d = await staffRes.json();
         const byClinica: Record<string, StaffEntry[]> = {};
         for (const s of (d.staff ?? [])) {
-          if (!s.clinicaId) continue;
-          if (!byClinica[s.clinicaId]) byClinica[s.clinicaId] = [];
-          byClinica[s.clinicaId].push({ id: s.id, nombre: s.nombre });
+          if (!s.clinicaRecordId) continue;
+          if (!byClinica[s.clinicaRecordId]) byClinica[s.clinicaRecordId] = [];
+          byClinica[s.clinicaRecordId].push({ id: s.id, nombre: s.nombre });
         }
         setStaffPorClinica(byClinica);
       }
@@ -437,9 +438,13 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
   }
 
   // Profesionales disponibles según clínica seleccionada
+  // staffPorClinica está indexado por Airtable recordId; clinicaFilter es el ID lógico (CLINIC_001)
   const allProfesionales = Object.values(staffPorClinica).flat();
-  const profesionalesDisponibles = clinicaFilter
-    ? (staffPorClinica[clinicaFilter] ?? [])
+  const selectedClinicaRecordId = clinicaFilter
+    ? (clinicasDisponibles.find((c) => c.id === clinicaFilter)?.recordId ?? "")
+    : "";
+  const profesionalesDisponibles = clinicaFilter && selectedClinicaRecordId
+    ? (staffPorClinica[selectedClinicaRecordId] ?? [])
     : allProfesionales;
 
   // Day slots computed purely from mondayIso (no API data needed)

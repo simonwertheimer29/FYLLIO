@@ -318,7 +318,7 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
   const [loading, setLoading] = useState(true);
   const [clinicaFilter, setClinicaFilter]             = useState<string>("");
   const [profesionalFilter, setProfesionalFilter]     = useState<string>("");
-  const [clinicasDisponibles, setClinicasDisponibles] = useState<{ id: string; nombre: string }[]>([]);
+  const [clinicasDisponibles, setClinicasDisponibles] = useState<{ id: string; nombre: string; recordId: string }[]>([]);
   const [staffPorClinica, setStaffPorClinica]         = useState<Record<string, { id: string; nombre: string }[]>>({});
   const [done, setDone] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
@@ -358,9 +358,9 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
         const d = await staffRes.json();
         const byClinica: Record<string, { id: string; nombre: string }[]> = {};
         for (const s of (d.staff ?? [])) {
-          if (!s.clinicaId) continue;
-          if (!byClinica[s.clinicaId]) byClinica[s.clinicaId] = [];
-          byClinica[s.clinicaId].push({ id: s.id, nombre: s.nombre });
+          if (!s.clinicaRecordId) continue;
+          if (!byClinica[s.clinicaRecordId]) byClinica[s.clinicaRecordId] = [];
+          byClinica[s.clinicaRecordId].push({ id: s.id, nombre: s.nombre });
         }
         setStaffPorClinica(byClinica);
       }
@@ -487,18 +487,24 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
         )}
 
         {/* Profesional filter (visible si hay clínica seleccionada y tiene staff) */}
-        {isManager && clinicaFilter && (staffPorClinica[clinicaFilter] ?? []).length > 0 && (
-          <select
-            value={profesionalFilter}
-            onChange={(e) => setProfesionalFilter(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
-          >
-            <option value="">Todos los profesionales</option>
-            {(staffPorClinica[clinicaFilter] ?? []).map((p) => (
-              <option key={p.id} value={p.id}>{p.nombre}</option>
-            ))}
-          </select>
-        )}
+        {(() => {
+          const recId = clinicaFilter
+            ? (clinicasDisponibles.find((c) => c.id === clinicaFilter)?.recordId ?? "")
+            : "";
+          const profesionales = recId ? (staffPorClinica[recId] ?? []) : [];
+          return isManager && clinicaFilter && profesionales.length > 0 ? (
+            <select
+              value={profesionalFilter}
+              onChange={(e) => setProfesionalFilter(e.target.value)}
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
+            >
+              <option value="">Todos los profesionales</option>
+              {profesionales.map((p) => (
+                <option key={p.id} value={p.id}>{p.nombre}</option>
+              ))}
+            </select>
+          ) : null;
+        })()}
       </div>
 
       {/* ── Kanban Lun–Vie ── */}

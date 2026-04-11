@@ -37,17 +37,18 @@ export async function GET() {
     }
 
     const recs = await base("Staff" as any)
-      .select({ fields: ["Staff ID", "Nombre", "Clínica_id", "Rol"] })
+      .select({ fields: ["Staff ID", "Nombre", "Clínica", "Rol"] })
       .all();
 
     return NextResponse.json({
       staff: (recs as any[])
         .filter((r) => firstString(r.fields["Rol"]) !== "Recepcionista")
         .map((r) => ({
-          id:        firstString(r.fields["Staff ID"]),
-          nombre:    firstString(r.fields["Nombre"]),
-          clinicaId: firstString(r.fields["Clínica_id"]),
-          rol:       firstString(r.fields["Rol"]),
+          id:              firstString(r.fields["Staff ID"]),
+          nombre:          firstString(r.fields["Nombre"]),
+          rol:             firstString(r.fields["Rol"]),
+          // "Clínica" es un linked record → array de record IDs de Airtable
+          clinicaRecordId: firstString(r.fields["Clínica"]),
         }))
         .filter((s) => s.id && s.nombre),
     });
