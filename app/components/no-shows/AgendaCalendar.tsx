@@ -14,7 +14,7 @@ import type { NoShowsUserSession, RiskyAppt, GapSlot } from "../../lib/no-shows/
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type AgendaDay = { dayIso: string; appointments: RiskyAppt[]; gaps: GapSlot[] };
-type AgendaData = { week: string; days: AgendaDay[]; isDemo?: boolean };
+type AgendaData = { week: string; days: AgendaDay[] };
 
 export type Props = {
   user: NoShowsUserSession;
@@ -24,6 +24,7 @@ export type Props = {
   calendarDate: string;
   viewMode: "timeGridWeek" | "timeGridDay";
   clinicaFilter?: string;
+  profesionalFilter?: string;
   /** Increment to trigger a data reload */
   refreshKey: number;
   onApptClick: (appt: RiskyAppt) => void;
@@ -79,6 +80,7 @@ export default function AgendaCalendar({
   calendarDate,
   viewMode,
   clinicaFilter,
+  profesionalFilter,
   refreshKey,
   onApptClick,
   onNewAppt,
@@ -92,14 +94,16 @@ export default function AgendaCalendar({
   const programmaticRef = useRef(false);
 
   // Keep stable refs so async callbacks (eventDrop etc.) always use current values
-  const weekRef            = useRef(week);
-  const clinicaFilterRef   = useRef(clinicaFilter);
-  const onClinciasRef      = useRef(onClinciasAvailable);
-  const onToastRef         = useRef(onToast);
-  useEffect(() => { weekRef.current          = week;               }, [week]);
-  useEffect(() => { clinicaFilterRef.current = clinicaFilter;      }, [clinicaFilter]);
-  useEffect(() => { onClinciasRef.current    = onClinciasAvailable; }, [onClinciasAvailable]);
-  useEffect(() => { onToastRef.current       = onToast;             }, [onToast]);
+  const weekRef              = useRef(week);
+  const clinicaFilterRef     = useRef(clinicaFilter);
+  const profesionalFilterRef = useRef(profesionalFilter);
+  const onClinciasRef        = useRef(onClinciasAvailable);
+  const onToastRef           = useRef(onToast);
+  useEffect(() => { weekRef.current              = week;               }, [week]);
+  useEffect(() => { clinicaFilterRef.current     = clinicaFilter;      }, [clinicaFilter]);
+  useEffect(() => { profesionalFilterRef.current = profesionalFilter;  }, [profesionalFilter]);
+  useEffect(() => { onClinciasRef.current        = onClinciasAvailable; }, [onClinciasAvailable]);
+  useEffect(() => { onToastRef.current           = onToast;             }, [onToast]);
 
   async function load() {
     setLoading(true);
@@ -107,6 +111,7 @@ export default function AgendaCalendar({
       const url = new URL("/api/no-shows/agenda", location.href);
       url.searchParams.set("week", weekRef.current);
       if (clinicaFilterRef.current) url.searchParams.set("clinica", clinicaFilterRef.current);
+      if (profesionalFilterRef.current) url.searchParams.set("profesional", profesionalFilterRef.current);
       const res = await fetch(url.toString());
       if (res.ok) {
         const json: AgendaData = await res.json();
@@ -125,7 +130,7 @@ export default function AgendaCalendar({
   useEffect(() => { loadRef.current = load; });
 
   // Reload when week / filter / external refreshKey change
-  useEffect(() => { loadRef.current(); }, [week, clinicaFilter, refreshKey]);
+  useEffect(() => { loadRef.current(); }, [week, clinicaFilter, profesionalFilter, refreshKey]);
 
   // Navigate FullCalendar to specific date
   // setTimeout avoids flushSync-inside-render error triggered by FullCalendar internals
@@ -177,12 +182,6 @@ export default function AgendaCalendar({
 
   return (
     <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden flex-1 min-h-0 flex flex-col">
-      {data?.isDemo && !loading && (
-        <div className="px-4 py-2 border-b border-amber-200 bg-amber-50 text-xs text-amber-800">
-          <span className="font-semibold">Datos de demostración.</span>{" "}
-          Conecta Airtable para ver datos reales. El DnD no persiste en modo demo.
-        </div>
-      )}
       {loading && (
         <div className="px-4 py-1.5 border-b border-slate-100 bg-slate-50 text-xs text-slate-400">
           Cargando agenda...
@@ -209,26 +208,45 @@ export default function AgendaCalendar({
           eventResizableFromStart={false}
           selectable={true}
           selectMirror={true}
+          dragScroll={false}
+          longPressDelay={0}
+          eventDragMinDistance={5}
           events={[...apptEvents, ...gapEvents]}
-          // ── Event block content ───────────────────────────────────────────
+          // ── Event block content (adaptativo por duración) ─────────────────
           eventContent={(arg) => {
             const appt = arg.event.extendedProps.appt as RiskyAppt | undefined;
             if (!appt) return; // background gap events — FullCalendar renders natively
             const startStr = arg.event.start ? fakeToHHMM(arg.event.start) : "";
             const endStr   = arg.event.end   ? fakeToHHMM(arg.event.end)   : "";
+
+            // Calcular duración usando fake-UTC de FullCalendar
+            const sd = arg.event.start!;
+            const ed = arg.event.end!;
+            const sMin = sd.getUTCHours() * 60 + sd.getUTCMinutes();
+            const eMin = ed.getUTCHours() * 60 + ed.getUTCMinutes();
+            const durationMin = eMin > sMin ? eMin - sMin : 30;
+
+            const showTreatment = durationMin >= 35;
+            const showSillon    = durationMin >= 55 && !!appt.sillonNombre;
+            const baseFontSize  = durationMin < 35 ? "9px" : durationMin < 55 ? "10px" : "11px";
+
             return (
               <div style={{ padding: "2px 4px", overflow: "hidden", height: "100%", display: "flex", flexDirection: "column", gap: "1px" }}>
-                <div style={{ fontSize: "11px", fontWeight: 700, lineHeight: 1.15, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ fontSize: baseFontSize, fontWeight: 700, lineHeight: 1.2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {appt.patientName}
                 </div>
-                <div style={{ fontSize: "10px", fontWeight: 600, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.88 }}>
-                  {appt.treatmentName}
-                </div>
+                {showTreatment && (
+                  <div style={{ fontSize: "9px", fontWeight: 600, lineHeight: 1.1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.88 }}>
+                    {appt.treatmentName}
+                  </div>
+                )}
                 <div style={{ fontSize: "9px", lineHeight: 1, opacity: 0.82 }}>
                   {startStr}{endStr ? `–${endStr}` : ""}
                 </div>
-                {!appt.confirmed && (
-                  <div style={{ fontSize: "8px", lineHeight: 1, opacity: 0.72 }}>sin conf.</div>
+                {showSillon && (
+                  <div style={{ fontSize: "8px", lineHeight: 1, opacity: 0.65 }}>
+                    {appt.sillonNombre}
+                  </div>
                 )}
               </div>
             );
@@ -249,8 +267,6 @@ export default function AgendaCalendar({
           eventDrop={async (info) => {
             const appt = info.event.extendedProps.appt as RiskyAppt | undefined;
             if (!appt) { info.revert(); return; }
-            // Modo demo: drag visual permitido, sin persistir
-            if (data?.isDemo) { return; }
             try {
               const res = await fetch(`/api/no-shows/agenda/${appt.id}/mover`, {
                 method: "PATCH",
@@ -275,8 +291,6 @@ export default function AgendaCalendar({
           eventResize={async (info) => {
             const appt = info.event.extendedProps.appt as RiskyAppt | undefined;
             if (!appt) { info.revert(); return; }
-            // Modo demo: resize visual permitido, sin persistir
-            if (data?.isDemo) { return; }
             try {
               const res = await fetch(`/api/no-shows/agenda/${appt.id}/mover`, {
                 method: "PATCH",

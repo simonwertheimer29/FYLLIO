@@ -105,3 +105,9 @@ html {
 .animate-fadeIn {
   animation: fadeIn 150ms ease-out;
 }
+
+/* FullCalendar drag smoothness */
+.fc-event-dragging {
+  opacity: 0.8 !important;
+  transition: none !important;
+}

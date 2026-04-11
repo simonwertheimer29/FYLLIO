@@ -9,7 +9,6 @@ import { DateTime } from "luxon";
 import { base, TABLES } from "../../../lib/airtable";
 import type { NoShowsUserSession, RiskyAppt, GapSlot } from "../../../lib/no-shows/types";
 import { scoreAppointment, ZONE } from "../../../lib/no-shows/score";
-import { buildDemoAgendaData, isDemoModeNoShows } from "../../../lib/no-shows/demo";
 
 const COOKIE = "fyllio_noshows_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -57,6 +56,7 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const weekParam = searchParams.get("week");
+    const profesionalFilter = searchParams.get("profesional") ?? null;
 
     const clinicaFilter =
       session.rol === "manager_general"
@@ -72,9 +72,17 @@ export async function GET(req: Request) {
     const sundayIso = windowEnd.toISODate()!;
     const todayIso  = now.toISODate()!;
 
-    const allRecs = await base(TABLES.appointments as any)
-      .select({ maxRecords: 2000 })
-      .all();
+    // Lookup tables (parallel) — para resolver IDs a nombres legibles
+    const [staffRecs, clinicaRecs, sillonRecs, allRecs] = await Promise.all([
+      base("Staff"    as any).select({ fields: ["Staff ID",   "Nombre"] }).all() as Promise<any[]>,
+      base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all() as Promise<any[]>,
+      base("Sillones" as any).select({ fields: ["Sillón ID",  "Nombre"] }).all() as Promise<any[]>,
+      base(TABLES.appointments as any).select({ maxRecords: 2000 }).all() as Promise<any[]>,
+    ]);
+    const staffMap   = new Map<string, string>(staffRecs.map(  (r: any) => [firstString(r.fields["Staff ID"]),   firstString(r.fields["Nombre"])]));
+    const clinicaMap = new Map<string, string>(clinicaRecs.map((r: any) => [firstString(r.fields["Clínica ID"]), firstString(r.fields["Nombre"])]));
+    const sillonMap  = new Map<string, string>(sillonRecs.map( (r: any) => [firstString(r.fields["Sillón ID"]),  firstString(r.fields["Nombre"])]));
+
 
     const weekRecs: any[] = [];
     const histRecs: any[] = [];
@@ -86,8 +94,14 @@ export async function GET(req: Request) {
       const startIso = toMadridIso(startRaw);
       if (!startIso) continue;
       const dayIso = startIso.slice(0, 10);
-      const clinicaRec = firstString(f["Clínica ID"]);
+      const clinicaRec = firstString(f["Clínica_id"]);
       if (clinicaFilter && clinicaRec && clinicaRec !== clinicaFilter) continue;
+
+      // Filtro por profesional
+      if (profesionalFilter) {
+        const profId = firstString(f["Profesional_id"]);
+        if (profId !== profesionalFilter) continue;
+      }
 
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
       if (dayIso >= mondayIso && dayIso < sundayIso && !CANCELLED.has(estado)) {
@@ -118,33 +132,46 @@ export async function GET(req: Request) {
     weekRecs.sort((a, b) => a.startIso.localeCompare(b.startIso));
 
     const appointments: RiskyAppt[] = weekRecs.map(({ r, f, startIso }) => {
-      const phone       = firstString(f["Paciente_teléfono"]) || firstString(f["Paciente_tutor_teléfono"]) || "";
-      const patientName = firstString(f["Paciente_nombre"]) || firstString(f["Nombre"]) || "Paciente";
-      const treatmentName = firstString(f["Tratamiento_nombre"]) || "Tratamiento";
-      const endIso = toMadridIso(f["Hora final"]);
-      const estado = String(f["Estado"] ?? "").trim().toUpperCase();
-      const confirmed = estado.includes("CONFIRM");
+      const phone = firstString(f["Paciente_teléfono"]) || firstString(f["Paciente_tutor_teléfono"]) || "";
+
+      // Parseo legacy: "Tratamiento · Nombre Paciente" en campo Nombre
+      const nombreCompleto = firstString(f["Nombre"]);
+      const partes = nombreCompleto.split(" · ");
+      const nombreFallback = partes.length > 1 ? partes[partes.length - 1] : nombreCompleto;
+      const tratamientoFallback = partes.length > 1 ? partes[0] : "";
+
+      const patientName   = firstString(f["Paciente_nombre"]) || nombreFallback || "Paciente";
+      const treatmentName = firstString(f["Tratamiento_nombre"]) || tratamientoFallback || "Tratamiento";
+      const endIso        = toMadridIso(f["Hora final"]);
+      const estado        = String(f["Estado"] ?? "").trim().toUpperCase();
+      const confirmed     = estado.includes("CONFIRM");
+      const profesionalId = firstString(f["Profesional_id"]) || undefined;
+      const clinicaId     = firstString(f["Clínica_id"]) || undefined;
+      const sillonId      = firstString(f["Sillon_id"]) || undefined;
+
+      // Resolver IDs a nombres legibles
+      const doctorNombre  = profesionalId ? (staffMap.get(profesionalId)   ?? profesionalId)   : undefined;
+      const clinicaNombre = clinicaId     ? (clinicaMap.get(clinicaId)     ?? clinicaId)       : undefined;
+      const sillonNombre  = sillonId      ? (sillonMap.get(sillonId)       ?? sillonId)        : undefined;
+
       const history = patientHistory.get(phone) ?? { total: 0, noShowCount: 0, cancelCount: 0 };
-      const scored = scoreAppointment(
+      const scored  = scoreAppointment(
         { startIso, treatmentName, createdTime: (r as any)._rawJson?.createdTime, history },
         now,
       );
       return {
         id: r.id, patientName, patientPhone: phone,
         start: startIso, end: endIso, startDisplay: toHHMM(startIso),
-        treatmentName, clinica: firstString(f["Clínica ID"]) || undefined,
+        treatmentName,
+        doctor: profesionalId,
+        doctorNombre,
+        profesionalId,
+        clinica: clinicaId,
+        clinicaNombre,
+        sillonNombre,
         dayIso: startIso.slice(0, 10), confirmed, ...scored,
       };
     });
-
-    // Demo fallback
-    if (isDemoModeNoShows(appointments.length)) {
-      return NextResponse.json({
-        week: mondayIso,
-        days: buildDemoAgendaData(),
-        isDemo: true,
-      });
-    }
 
     // Group by day + detect gaps per day
     const byDay = new Map<string, RiskyAppt[]>();
@@ -175,8 +202,8 @@ export async function GET(req: Request) {
           const s = cursor, e = Math.min(block.start, WORK_END);
           gaps.push({
             dayIso,
-            startIso:    dayDt.set({ hour: Math.floor(s / 60), minute: s % 60 }).toISO()!,
-            endIso:      dayDt.set({ hour: Math.floor(e / 60), minute: e % 60 }).toISO()!,
+            startIso:     dayDt.set({ hour: Math.floor(s / 60), minute: s % 60 }).toISO()!,
+            endIso:       dayDt.set({ hour: Math.floor(e / 60), minute: e % 60 }).toISO()!,
             startDisplay: `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`,
             endDisplay:   `${String(Math.floor(e / 60)).padStart(2, "0")}:${String(e % 60).padStart(2, "0")}`,
             durationMin: e - s,
@@ -187,8 +214,8 @@ export async function GET(req: Request) {
       if (WORK_END - cursor >= MIN_GAP) {
         gaps.push({
           dayIso,
-          startIso:    dayDt.set({ hour: Math.floor(cursor / 60), minute: cursor % 60 }).toISO()!,
-          endIso:      dayDt.set({ hour: WORK_END / 60 | 0, minute: WORK_END % 60 }).toISO()!,
+          startIso:     dayDt.set({ hour: Math.floor(cursor / 60), minute: cursor % 60 }).toISO()!,
+          endIso:       dayDt.set({ hour: WORK_END / 60 | 0, minute: WORK_END % 60 }).toISO()!,
           startDisplay: `${String(Math.floor(cursor / 60)).padStart(2, "0")}:${String(cursor % 60).padStart(2, "0")}`,
           endDisplay: "19:00",
           durationMin: WORK_END - cursor,

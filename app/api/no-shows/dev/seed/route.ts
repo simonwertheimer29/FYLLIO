@@ -1,6 +1,6 @@
 // app/api/no-shows/dev/seed/route.ts
-// TEMPORAL — crea 35 citas de prueba en Airtable "Citas".
-// Eliminar después de verificar que los datos reales funcionan.
+// TEMPORAL — crea 40 citas de prueba en Airtable "Citas".
+// Eliminar después de confirmar que los datos reales funcionan.
 // GET /api/no-shows/dev/seed
 // GET /api/no-shows/dev/seed?delete=true  → elimina los registros creados
 
@@ -9,76 +9,76 @@ import { DateTime } from "luxon";
 import { base, TABLES } from "../../../../lib/airtable";
 
 const ZONE = "Europe/Madrid";
+const MARKER = "SEED_2026_MARKER";
 
-// ── Pacientes ficticios ─────────────────────────────────────────────────────
+// ── Pacientes ficticios ───────────────────────────────────────────────────────
 const PACIENTES = [
-  { nombre: "María García López",     tel: "+34 612 345 678" },
-  { nombre: "Carlos Martínez Ruiz",   tel: "+34 623 456 789" },
-  { nombre: "Ana Sánchez Pérez",      tel: "+34 634 567 890" },
-  { nombre: "Luis Fernández Torres",  tel: "+34 645 678 901" },
-  { nombre: "Elena Rodríguez Gómez",  tel: "+34 656 789 012" },
-  { nombre: "Jorge López Díaz",       tel: "+34 667 890 123" },
-  { nombre: "Isabel Martín Jiménez",  tel: "+34 678 901 234" },
-  { nombre: "Pablo González Moreno",  tel: "+34 689 012 345" },
-  { nombre: "Carmen Álvarez Muñoz",   tel: "+34 690 123 456" },
-  { nombre: "Javier Romero Navarro",  tel: "+34 601 234 567" },
-  { nombre: "Lucía Castro Herrero",   tel: "+34 612 987 654" },
-  { nombre: "Diego Blanco Vega",      tel: "+34 623 876 543" },
-  { nombre: "Sofía Moreno Delgado",   tel: "+34 634 765 432" },
-  { nombre: "Alejandro Ramos Ortiz",  tel: "+34 645 654 321" },
-  { nombre: "Nuria Molina Serrano",   tel: "+34 656 543 210" },
+  "Carmen Rodríguez", "Javier López",   "María Sánchez",   "Roberto García",
+  "Ana Torres",        "David Martín",   "Elena Flores",    "Pablo Díaz",
+  "Isabel Fernández",  "Miguel Herrera", "Sofía Navarro",   "Felipe Castro",
+  "Cristina Vega",     "Tomás Guerrero", "Marta Jiménez",   "Valeria Romero",
+  "Andrés Peña",       "Hugo Sánchez",   "Natalia Cano",    "Carlos Iglesias",
+  "Laura Molina",      "Marcos Reyes",   "Patricia Vidal",  "Sergio Moreno",
 ];
 
-const TRATAMIENTOS = [
-  "Ortodoncia",
-  "Implante dental",
-  "Limpieza dental",
-  "Revisión general",
-  "Blanqueamiento",
-  "Endodoncia",
-  "Extracción",
-  "Carillas de porcelana",
-  "Periodoncia",
+// ── Tratamientos: [record_id_airtable, duracion_min] ─────────────────────────
+// IDs confirmados en la base "Tratamientos"
+const TREATMENTS: [string, number][] = [
+  ["recFUqYID0nTRjXzS", 60],  // Ortodoncia
+  ["rec5uvToPog3Eqkib", 60],  // Blanqueamiento
+  ["rec3TNFSaoKvfEX8D", 45],  // Limpieza dental
+  ["reccCmM5rwhmMYEfT", 45],  // Empaste
 ];
 
-// ── Distribución de citas: [dayOffset desde lunes, hora inicio, duración min] ──
-// Semana actual (offsets 0-4) + semana siguiente (offsets 7-11)
-const SLOTS: [number, number, number, number][] = [
-  // [dayOffset desde monday, horaInicio, minutos inicio, duracion]
-  // Semana actual
-  [0,  8,  0, 45], [0, 10, 0, 60], [0, 12,  0, 45], [0, 16,  0, 60],
-  [1,  9,  0, 45], [1, 11, 0, 60], [1, 14,  0, 45], [1, 17,  0, 45],
-  [2,  8, 30, 60], [2, 11, 30, 45], [2, 15, 0, 60],
-  [3,  9, 30, 45], [3, 11, 0, 60], [3, 13, 30, 45], [3, 16, 30, 60],
-  [4,  8,  0, 45], [4, 10, 30, 60], [4, 12, 30, 45],
-  // Semana siguiente
-  [7,  9,  0, 60], [7, 11, 30, 45], [7, 14, 30, 60],
-  [8,  8, 30, 45], [8, 10,  0, 60], [8, 13,  0, 45], [8, 16,  0, 60],
-  [9,  9, 30, 60], [9, 12,  0, 45], [9, 15, 30, 60],
-  [10, 8,  0, 45], [10, 10, 30, 60], [10, 13, 30, 45], [10, 17, 0, 45],
-  [11, 9,  0, 60], [11, 11, 0, 45],
-  [11, 14,  0, 60],
+// ── Profesionales y sillones (linked record IDs confirmados) ──────────────────
+const PROFESIONALES = [
+  { recId: "reckmPv1LeIt5zwFk", sillonRecId: "recSqRMYnW5UHd8pa" }, // STF_001 / CHR_001
+  { recId: "recz57wPC69oJVe4e", sillonRecId: "recGwDuDixNS3N1Jh" }, // STF_002 / CHR_002
+  { recId: "reci2RJOygH4ymaUe", sillonRecId: "recKdd9KJMLil1A7f" }, // STF_003 / CHR_003
 ];
 
-function getMondayOfCurrentWeek(): DateTime {
-  const now = DateTime.now().setZone(ZONE).startOf("day");
-  const dow = now.weekday; // 1 = Monday … 7 = Sunday
-  return now.minus({ days: dow - 1 });
+const CLINICA_REC_ID = "recYsHCvvOP3vkQiZ"; // CLINIC_001
+
+// ── Slots por día: [hora, minuto, prof_idx, treat_idx] ───────────────────────
+// STF_001/CHR_001 → 09:00 (60min) y 16:00 (60min) — sin solapamiento
+// STF_002/CHR_002 → 10:30 (45min)
+// STF_003/CHR_003 → 12:00 (45min)
+const DAY_SLOTS: [number, number, number, number][] = [
+  [9,  0,  0, 0],  // 09:00 STF_001/CHR_001 → Ortodoncia 60min
+  [10, 30, 1, 3],  // 10:30 STF_002/CHR_002 → Empaste 45min
+  [12, 0,  2, 2],  // 12:00 STF_003/CHR_003 → Limpieza dental 45min
+  [16, 0,  0, 1],  // 16:00 STF_001/CHR_001 → Blanqueamiento 60min
+];
+
+// ── 10 días: lun 14 – vie 18 abr + lun 21 – vie 25 abr 2026 ─────────────────
+const ALL_DATES = [
+  "2026-04-14","2026-04-15","2026-04-16","2026-04-17","2026-04-18",
+  "2026-04-21","2026-04-22","2026-04-23","2026-04-24","2026-04-25",
+];
+
+// ── Estado por índice global de cita ─────────────────────────────────────────
+// Semana 1 (idx 0–19): 40% Confirmado (8), 50% Agendado (10), 10% Cancelado (2)
+// Semana 2 (idx 20–39): 20% Confirmado (4), 80% Agendado (16)
+function getEstado(idx: number): string {
+  if (idx < 20) {
+    if ([0, 1, 4, 5, 8, 9, 12, 13].includes(idx)) return "Confirmado";
+    if ([3, 7].includes(idx)) return "Cancelado";
+    return "Agendado";
+  }
+  if ([20, 24, 28, 32].includes(idx)) return "Confirmado";
+  return "Agendado";
 }
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
 
-  // ── Modo borrado: ?delete=true ──────────────────────────────────────────
+  // ── Modo borrado: ?delete=true ────────────────────────────────────────────
   if (searchParams.get("delete") === "true") {
     try {
-      const key = "SEED_NOTAS_MARKER";
-      // Buscar registros creados por este seed (tienen marker en Notas)
       const recs = await (base(TABLES.appointments as any)
-        .select({ filterByFormula: `FIND("${key}", COALESCE({Notas},"")) > 0`, maxRecords: 200 })
+        .select({ filterByFormula: `FIND("${MARKER}", COALESCE({Notas},"")) > 0`, maxRecords: 200 })
         .all() as any);
       const ids: string[] = recs.map((r: any) => r.id);
-      // Airtable borrar en lotes de 10
       for (let i = 0; i < ids.length; i += 10) {
         await (base(TABLES.appointments as any).destroy(ids.slice(i, i + 10) as any) as any);
       }
@@ -88,42 +88,48 @@ export async function GET(req: Request) {
     }
   }
 
-  // ── Crear citas ─────────────────────────────────────────────────────────
-  const monday = getMondayOfCurrentWeek();
+  // ── Crear 40 citas ────────────────────────────────────────────────────────
   const created: string[] = [];
   const errors: string[] = [];
 
-  for (let i = 0; i < SLOTS.length; i++) {
-    const [dayOffset, h, m, dur] = SLOTS[i];
-    const paciente = PACIENTES[i % PACIENTES.length];
-    const tratamiento = TRATAMIENTOS[i % TRATAMIENTOS.length];
+  let idx = 0;
+  for (const dateStr of ALL_DATES) {
+    for (const [h, m, profIdx, treatIdx] of DAY_SLOTS) {
+      const [treatRecId, durMin] = TREATMENTS[treatIdx];
+      const prof   = PROFESIONALES[profIdx];
+      const nombre = PACIENTES[idx % PACIENTES.length];
+      const estado = getEstado(idx);
 
-    const day = monday.plus({ days: dayOffset });
-    const startDt = day.set({ hour: h, minute: m, second: 0, millisecond: 0 });
-    const endDt   = startDt.plus({ minutes: dur });
+      const startDt = DateTime.fromObject(
+        {
+          year:  parseInt(dateStr.slice(0, 4)),
+          month: parseInt(dateStr.slice(5, 7)),
+          day:   parseInt(dateStr.slice(8, 10)),
+          hour: h, minute: m, second: 0,
+        },
+        { zone: ZONE },
+      );
+      const endDt = startDt.plus({ minutes: durMin });
 
-    // ~60% confirmadas
-    const confirmada = i % 5 !== 0 && i % 5 !== 3;
+      const fields: Record<string, unknown> = {
+        "Nombre":     nombre,
+        "Hora inicio": startDt.toUTC().toISO(),
+        "Hora final":  endDt.toUTC().toISO(),
+        "Estado":      estado,
+        "Profesional": [prof.recId],
+        "Sillón":      [prof.sillonRecId],
+        "Clínica":     [CLINICA_REC_ID],
+        "Tratamiento": [treatRecId],
+        "Notas":       MARKER,
+      };
 
-    const notas = [
-      `Tratamiento: ${tratamiento}`,
-      `Tel: ${paciente.tel}`,
-      "SEED_NOTAS_MARKER",
-      confirmada ? "Confirmada" : "Pendiente confirmación",
-    ].join(" | ");
-
-    const fields: Record<string, unknown> = {
-      "Nombre":      paciente.nombre,
-      "Hora inicio": startDt.toUTC().toISO(),
-      "Hora final":  endDt.toUTC().toISO(),
-      "Notas":       notas,
-    };
-
-    try {
-      const rec = await (base(TABLES.appointments as any).create(fields as any) as any);
-      created.push(rec.id);
-    } catch (e: any) {
-      errors.push(`slot[${i}]: ${e?.message}`);
+      try {
+        const rec = await (base(TABLES.appointments as any).create(fields as any) as any);
+        created.push(rec.id);
+      } catch (e: any) {
+        errors.push(`[${dateStr} ${h}:${String(m).padStart(2, "0")} profIdx=${profIdx}]: ${e?.message}`);
+      }
+      idx++;
     }
   }
 
@@ -132,6 +138,5 @@ export async function GET(req: Request) {
     created: created.length,
     errors,
     createdIds: created,
-    monday: monday.toISODate(),
   }, { status: 201 });
 }

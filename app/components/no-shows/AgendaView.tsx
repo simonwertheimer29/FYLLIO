@@ -10,6 +10,16 @@ import AgendaCalendar from "./AgendaCalendar";
 const DAYS_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie"];
 const MONTHS_ES  = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
 
+// Mapeo clínica → profesionales disponibles (hardcoded por ahora)
+const PROFESIONALES_POR_CLINICA: Record<string, { id: string; nombre: string }[]> = {
+  "CLINIC_001": [
+    { id: "STF_001", nombre: "Dr. Andrés Rojas" },
+    { id: "STF_002", nombre: "Dra. Paula Díaz" },
+    { id: "STF_003", nombre: "Dr. Mateo López" },
+  ],
+};
+const ALL_PROFESIONALES = PROFESIONALES_POR_CLINICA["CLINIC_001"];
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function getMondayIso(): string {
@@ -125,11 +135,14 @@ function SidePanel({
             <p className="text-xs text-slate-500">
               {appt.startDisplay}–{endDisplay} · {durationMin} min
             </p>
-            {appt.doctor && (
-              <p className="text-xs text-slate-500">{appt.doctor}</p>
+            {(appt.doctorNombre ?? appt.doctor) && (
+              <p className="text-xs text-slate-500">{appt.doctorNombre ?? appt.doctor}</p>
             )}
-            {appt.clinica && (
-              <p className="text-xs text-slate-400">{appt.clinica}</p>
+            {appt.sillonNombre && (
+              <p className="text-xs text-slate-400">{appt.sillonNombre}</p>
+            )}
+            {(appt.clinicaNombre ?? appt.clinica) && (
+              <p className="text-xs text-slate-400">{appt.clinicaNombre ?? appt.clinica}</p>
             )}
           </div>
 
@@ -184,13 +197,13 @@ function SidePanel({
           )}
           <div className="flex gap-2">
             <button
-              onClick={() => onAction(appt.id, "CONFIRMADO")}
+              onClick={() => onAction(appt.id, "Confirmado")}
               className="flex-1 text-sm font-bold py-2.5 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition-colors"
             >
               Confirmar
             </button>
             <button
-              onClick={() => onAction(appt.id, "NO_SHOW")}
+              onClick={() => onAction(appt.id, "Cancelado")}
               className="flex-1 text-sm font-bold py-2.5 rounded-xl border border-red-200 text-red-700 hover:bg-red-50 transition-colors"
             >
               No-show
@@ -380,6 +393,7 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
   // ── Filter state ──
   const [clinicaFilter, setClinicaFilter]       = useState("");
   const [availableClinics, setAvailableClinics] = useState<string[]>([]);
+  const [profesionalFilter, setProfesionalFilter] = useState("");
 
   // ── Calendar refresh ──
   const [calRefreshKey, setCalRefreshKey]       = useState(0);
@@ -397,6 +411,16 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
   function goWeek(delta: number) {
     setMondayIso((w) => offsetMondayIso(w, delta));
   }
+
+  function handleClinicaChange(clinica: string) {
+    setClinicaFilter(clinica);
+    setProfesionalFilter(""); // resetear profesional al cambiar clínica
+  }
+
+  // Profesionales disponibles según clínica seleccionada
+  const profesionalesDisponibles = clinicaFilter
+    ? (PROFESIONALES_POR_CLINICA[clinicaFilter] ?? [])
+    : ALL_PROFESIONALES;
 
   // Day slots computed purely from mondayIso (no API data needed)
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -421,7 +445,7 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
         body: JSON.stringify({ estado }),
       });
       if (!res.ok) throw new Error();
-      showToast(estado === "CONFIRMADO" ? "Cita confirmada" : "Marcada como no-show", true);
+      showToast(estado === "Confirmado" ? "Cita confirmada" : "Marcada como cancelada", true);
       setCalRefreshKey((k) => k + 1);
     } catch {
       showToast("Error al actualizar la cita.");
@@ -502,13 +526,26 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
         {isManager && availableClinics.length > 0 && (
           <select
             value={clinicaFilter}
-            onChange={(e) => setClinicaFilter(e.target.value)}
+            onChange={(e) => handleClinicaChange(e.target.value)}
             className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
           >
             <option value="">Todas las clínicas</option>
             {availableClinics.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
         )}
+
+        {/* Profesional filter — obligatorio (sin opción "Todos") */}
+        <select
+          value={profesionalFilter}
+          onChange={(e) => setProfesionalFilter(e.target.value)}
+          disabled={isManager && !clinicaFilter}
+          className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <option value="" disabled>— Selecciona un profesional —</option>
+          {profesionalesDisponibles.map((p) => (
+            <option key={p.id} value={p.id}>{p.nombre}</option>
+          ))}
+        </select>
 
         {/* Legend */}
         <div className="flex flex-wrap gap-x-3 gap-y-1">
@@ -530,30 +567,37 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
         </div>
       </div>
 
-      {/* FullCalendar */}
-      <AgendaCalendar
-        user={user}
-        week={mondayIso}
-        calendarDate={calendarDate}
-        viewMode={viewMode}
-        clinicaFilter={clinicaFilter || undefined}
-        refreshKey={calRefreshKey}
-        onApptClick={setSelectedAppt}
-        onNewAppt={(dayIso, startMin) => setNewApptState({ dayIso, startMin, durationMin: 45 })}
-        onToast={showToast}
-        onClinciasAvailable={isManager ? setAvailableClinics : undefined}
-        onDatesSet={(start, end) => {
-          // Fake-UTC: UTC components = Madrid local time
-          const sD = start.getUTCDate(), sM = start.getUTCMonth(), sY = start.getUTCFullYear();
-          const prev = new Date(end);
-          prev.setUTCDate(prev.getUTCDate() - 1);
-          const eD = prev.getUTCDate(), eM = prev.getUTCMonth(), eY = prev.getUTCFullYear();
-          setDisplayRange(`${sD} ${MONTHS_ES[sM]} – ${eD} ${MONTHS_ES[eM]} ${eY}`);
-          const mondayIso = `${sY}-${String(sM + 1).padStart(2, "0")}-${String(sD).padStart(2, "0")}`;
-          setDisplayedMonday(mondayIso);
-          setDisplayedLabel(`${sD}–${eD} ${MONTHS_ES[sM]} ${eY}`);
-        }}
-      />
+      {/* FullCalendar — solo si hay profesional seleccionado */}
+      {profesionalFilter ? (
+        <AgendaCalendar
+          user={user}
+          week={mondayIso}
+          calendarDate={calendarDate}
+          viewMode={viewMode}
+          clinicaFilter={clinicaFilter || undefined}
+          profesionalFilter={profesionalFilter}
+          refreshKey={calRefreshKey}
+          onApptClick={setSelectedAppt}
+          onNewAppt={(dayIso, startMin) => setNewApptState({ dayIso, startMin, durationMin: 45 })}
+          onToast={showToast}
+          onClinciasAvailable={isManager ? setAvailableClinics : undefined}
+          onDatesSet={(start, end) => {
+            // Fake-UTC: UTC components = Madrid local time
+            const sD = start.getUTCDate(), sM = start.getUTCMonth(), sY = start.getUTCFullYear();
+            const prev = new Date(end);
+            prev.setUTCDate(prev.getUTCDate() - 1);
+            const eD = prev.getUTCDate(), eM = prev.getUTCMonth(), eY = prev.getUTCFullYear();
+            setDisplayRange(`${sD} ${MONTHS_ES[sM]} – ${eD} ${MONTHS_ES[eM]} ${eY}`);
+            const mondayIso = `${sY}-${String(sM + 1).padStart(2, "0")}-${String(sD).padStart(2, "0")}`;
+            setDisplayedMonday(mondayIso);
+            setDisplayedLabel(`${sD}–${eD} ${MONTHS_ES[sM]} ${eY}`);
+          }}
+        />
+      ) : (
+        <div className="rounded-2xl bg-white border border-slate-200 flex-1 min-h-0 flex items-center justify-center">
+          <p className="text-sm text-slate-400 font-medium">Selecciona un profesional para ver su agenda</p>
+        </div>
+      )}
 
       {/* SidePanel */}
       {selectedAppt && (

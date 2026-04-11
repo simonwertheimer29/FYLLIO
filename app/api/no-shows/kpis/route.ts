@@ -9,7 +9,6 @@ import { DateTime } from "luxon";
 import { base, TABLES } from "../../../lib/airtable";
 import type { NoShowsUserSession, NoShowKpiData } from "../../../lib/no-shows/types";
 import { ZONE } from "../../../lib/no-shows/score";
-import { buildDemoKpiData, isDemoModeNoShows } from "../../../lib/no-shows/demo";
 
 const COOKIE = "fyllio_noshows_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -17,8 +16,8 @@ const secret = new TextEncoder().encode(SECRET_RAW);
 
 const NO_SHOW_SET = new Set(["NO_SHOW", "NO SHOW", "NOSHOW"]);
 const CANCEL_SET  = new Set(["CANCELADO", "CANCELADA", "CANCELED", "CANCELLED"]);
-const TASA_PRE_FYLLIO = 0.15; // default hasta que CONFIG esté implementado
-const AVG_TICKET      = 85;   // € por cita completada (estimado)
+const TASA_PRE_FYLLIO = 0.15;
+const AVG_TICKET      = 85;
 
 function firstString(x: unknown): string {
   if (typeof x === "string") return x;
@@ -62,17 +61,10 @@ export async function GET(req: Request) {
     const todayIso = now.toISODate()!;
     const periodDays = period === "quarter" ? 90 : 30;
     const periodStart = now.minus({ days: periodDays }).toISODate()!;
-    const oneYearAgo = now.minus({ years: 1 }).toISODate()!;
 
-    // Fetch all records (up to 2000)
     const allRecs = await base(TABLES.appointments as any)
       .select({ maxRecords: 2000 })
       .all();
-
-    // Demo fallback quickly
-    if (isDemoModeNoShows(allRecs.length, 10)) {
-      return NextResponse.json({ ...buildDemoKpiData(period), isDemo: true });
-    }
 
     type RecordData = {
       startIso: string;
@@ -92,9 +84,9 @@ export async function GET(req: Request) {
       const startIso = toMadridIso(startRaw);
       if (!startIso) continue;
       const dayIso = startIso.slice(0, 10);
-      if (dayIso > todayIso) continue; // skip future
+      if (dayIso > todayIso) continue;
 
-      const clinicaRec = firstString(f["Clínica ID"]);
+      const clinicaRec = firstString(f["Clínica_id"]);
       if (clinicaFilter && clinicaRec && clinicaRec !== clinicaFilter) continue;
 
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
@@ -108,12 +100,8 @@ export async function GET(req: Request) {
         isNoShow,
         treatment: firstString(f["Tratamiento_nombre"]) || "Otro",
         clinica:   clinicaRec || "Sin clínica",
-        doctor:    firstString(f["Médico"]) || firstString(f["Doctor"]) || "Sin asignar",
+        doctor:    firstString(f["Profesional_id"]) || "Sin asignar",
       });
-    }
-
-    if (records.length < 10) {
-      return NextResponse.json({ ...buildDemoKpiData(period), isDemo: true });
     }
 
     // Filter to period for main metrics
@@ -125,7 +113,7 @@ export async function GET(req: Request) {
     // By day of week
     const byDowMap = new Map<number, { total: number; noShows: number }>();
     for (const r of periodRecs) {
-      const dow = DateTime.fromISO(r.dayIso, { zone: ZONE }).weekday % 7; // Luxon: 1=Mon
+      const dow = DateTime.fromISO(r.dayIso, { zone: ZONE }).weekday % 7;
       const prev = byDowMap.get(dow) ?? { total: 0, noShows: 0 };
       byDowMap.set(dow, { total: prev.total + 1, noShows: prev.noShows + (r.isNoShow ? 1 : 0) });
     }
@@ -147,7 +135,7 @@ export async function GET(req: Request) {
       .sort((a, b) => b.tasa - a.tasa)
       .slice(0, 5);
 
-    // By doctor (top 5)
+    // By profesional (top 5)
     const byDoctorMap = new Map<string, { total: number; noShows: number }>();
     for (const r of periodRecs) {
       const prev = byDoctorMap.get(r.doctor) ?? { total: 0, noShows: 0 };
@@ -197,7 +185,7 @@ export async function GET(req: Request) {
       });
     }
 
-    // Monthly data (last 12 months) for ingresos recuperados
+    // Monthly data (last 12 months)
     const monthlyData: { month: string; real: number; baseline: number }[] = [];
     const MONTHS_ES = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
 

@@ -11,7 +11,6 @@ import type { NoShowsUserSession, AccionTask, RiskyAppt, GapSlot } from "../../.
 
 type ExtAccionTask = AccionTask & { escalado?: boolean };
 import { scoreAppointment, ZONE } from "../../../lib/no-shows/score";
-import { buildDemoAccionTasks, isDemoModeNoShows } from "../../../lib/no-shows/demo";
 
 const COOKIE = "fyllio_noshows_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -68,7 +67,6 @@ export async function GET(req: Request) {
     const tomorrowDt = todayDt.plus({ days: 1 });
     const todayIso    = todayDt.toISODate()!;
     const tomorrowIso = tomorrowDt.toISODate()!;
-    const windowEnd   = tomorrowDt.plus({ days: 1 }).toISODate()!;
 
     const allRecs = await base(TABLES.appointments as any)
       .select({ maxRecords: 2000 })
@@ -85,7 +83,7 @@ export async function GET(req: Request) {
       const startIso = toMadridIso(startRaw);
       if (!startIso) continue;
       const dayIso = startIso.slice(0, 10);
-      const clinicaRec = firstString(f["Clínica ID"]);
+      const clinicaRec = firstString(f["Clínica_id"]);
       if (clinicaFilter && clinicaRec && clinicaRec !== clinicaFilter) continue;
 
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
@@ -94,7 +92,6 @@ export async function GET(req: Request) {
       if (dayIso < todayIso) histRecs.push({ f, startIso });
     }
 
-    // Patient history for scoring
     const patientHistory = new Map<string, { total: number; noShowCount: number; cancelCount: number }>();
     for (const { f } of histRecs) {
       const phone = firstString(f["Paciente_teléfono"]) || firstString(f["Paciente_tutor_teléfono"]) || "";
@@ -118,6 +115,7 @@ export async function GET(req: Request) {
       const endIso = toMadridIso(f["Hora final"]);
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
       const confirmed = estado.includes("CONFIRM");
+      const profesionalId = firstString(f["Profesional_id"]) || undefined;
       const history = patientHistory.get(phone) ?? { total: 0, noShowCount: 0, cancelCount: 0 };
       const scored = scoreAppointment(
         { startIso, treatmentName, createdTime: (r as any)._rawJson?.createdTime, history },
@@ -126,7 +124,10 @@ export async function GET(req: Request) {
       return {
         id: r.id, patientName, patientPhone: phone,
         start: startIso, end: endIso, startDisplay: toHHMM(startIso),
-        treatmentName, clinica: firstString(f["Clínica ID"]) || undefined,
+        treatmentName,
+        doctor: profesionalId,
+        profesionalId,
+        clinica: firstString(f["Clínica_id"]) || undefined,
         dayIso: startIso.slice(0, 10), confirmed, ...scored,
       };
     }
@@ -134,21 +135,6 @@ export async function GET(req: Request) {
     const todayAppts    = todayRecs.map(({ r, f, startIso }) => buildAppt(r, f, startIso));
     const tomorrowAppts = tomorrowRecs.map(({ r, f, startIso }) => buildAppt(r, f, startIso));
 
-    // Demo fallback
-    if (isDemoModeNoShows(todayAppts.length + tomorrowAppts.length)) {
-      const demoTasks = buildDemoAccionTasks();
-      return NextResponse.json({
-        tasks: demoTasks,
-        summary: {
-          total:   demoTasks.length,
-          urgent:  demoTasks.filter((t) => t.urgent).length,
-          pending: demoTasks.filter((t) => !t.urgent).length,
-        },
-        isDemo: true,
-      });
-    }
-
-    // Detect gaps (today + tomorrow)
     const WORK_START = 9 * 60, WORK_END = 19 * 60, MIN_GAP = 20;
 
     function isoMin(iso: string): number {
@@ -193,11 +179,9 @@ export async function GET(req: Request) {
     const todayGaps    = detectGaps(todayAppts, todayIso);
     const tomorrowGaps = detectGaps(tomorrowAppts, tomorrowIso);
 
-    // Build task list
     const tasks: ExtAccionTask[] = [];
     let idx = 1;
 
-    // HIGH today → urgent
     for (const a of todayAppts.filter((x) => x.riskLevel === "HIGH")) {
       const nombre = a.patientName.split(" ")[0];
       tasks.push({
@@ -213,7 +197,6 @@ export async function GET(req: Request) {
       });
     }
 
-    // Gaps today → urgent
     for (const g of todayGaps) {
       tasks.push({
         id: `accion-gap-${idx++}`,
@@ -226,7 +209,6 @@ export async function GET(req: Request) {
       });
     }
 
-    // MEDIUM today + HIGH/MEDIUM tomorrow → pending (auto-escalate if score ≥ 80)
     for (const a of todayAppts.filter((x) => x.riskLevel === "MEDIUM")) {
       const nombre   = a.patientName.split(" ")[0];
       const escalado = a.riskScore >= 80;

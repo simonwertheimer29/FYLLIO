@@ -13,12 +13,6 @@ import {
   ZONE,
   MULTI_SESSION_TREATMENTS,
 } from "../../../lib/no-shows/score";
-import {
-  buildDemoHoyAppointments,
-  buildDemoHoyGaps,
-  buildDemoRecallAlerts,
-  isDemoModeNoShows,
-} from "../../../lib/no-shows/demo";
 
 const COOKIE = "fyllio_noshows_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -73,7 +67,6 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const dateParam = searchParams.get("date");
 
-    // Clinic filter: managers can specify via query param, others use session.clinica
     const clinicaFilter =
       session.rol === "manager_general"
         ? (searchParams.get("clinica") ?? null)
@@ -83,7 +76,6 @@ export async function GET(req: Request) {
     let todayDt = dateParam
       ? DateTime.fromISO(dateParam, { zone: ZONE }).startOf("day")
       : now.startOf("day");
-    // Fines de semana → avanzar al siguiente lunes
     if (!dateParam && todayDt.weekday >= 6) {
       todayDt = todayDt.startOf("week").plus({ weeks: 1 });
     }
@@ -91,7 +83,6 @@ export async function GET(req: Request) {
     const todayIso = todayDt.toISODate()!;
     const todayLabel = todayDt.setLocale("es").toFormat("EEEE d 'de' MMMM");
 
-    // Fetch appointments for today
     const allRecs = await base(TABLES.appointments as any)
       .select({ maxRecords: 1000 })
       .all();
@@ -107,9 +98,8 @@ export async function GET(req: Request) {
       if (!startIso) continue;
 
       const dayIso = startIso.slice(0, 10);
-      const clinicaRec = firstString(f["Clínica ID"]);
+      const clinicaRec = firstString(f["Clínica_id"]);
 
-      // Filtrar por clínica si aplica
       if (clinicaFilter && clinicaRec && clinicaRec !== clinicaFilter) continue;
 
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
@@ -122,9 +112,8 @@ export async function GET(req: Request) {
       }
     }
 
-    // Build patient history from past appointments
     const patientHistory = new Map<string, { total: number; noShowCount: number; cancelCount: number }>();
-    for (const { f, startIso: iso } of histRecs) {
+    for (const { f } of histRecs) {
       const phone =
         firstString(f["Paciente_teléfono"]) ||
         firstString(f["Paciente_tutor_teléfono"]) || "";
@@ -141,7 +130,6 @@ export async function GET(req: Request) {
       });
     }
 
-    // Score today's appointments
     todayRecs.sort((a, b) => a.startIso.localeCompare(b.startIso));
 
     const appointments: RiskyAppt[] = todayRecs.map(({ r, f, startIso }) => {
@@ -155,6 +143,7 @@ export async function GET(req: Request) {
       const endIso = toMadridIso(f["Hora final"]);
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
       const confirmed = estado.includes("CONFIRM");
+      const profesionalId = firstString(f["Profesional_id"]) || undefined;
 
       const history = patientHistory.get(phone) ?? { total: 0, noShowCount: 0, cancelCount: 0 };
       const scored = scoreAppointment(
@@ -170,15 +159,16 @@ export async function GET(req: Request) {
         end: endIso,
         startDisplay: toHHMM(startIso),
         treatmentName,
-        doctor: firstString(f["Médico"]) || firstString(f["Doctor"]) || undefined,
-        clinica: firstString(f["Clínica ID"]) || undefined,
+        doctor: profesionalId,
+        profesionalId,
+        clinica: firstString(f["Clínica_id"]) || undefined,
         dayIso: startIso.slice(0, 10),
         confirmed,
         ...scored,
       };
     });
 
-    // Detect gaps (simplified: gaps > 20 min between appointments, 09:00–19:00)
+    // Detect gaps
     const gaps: GapSlot[] = [];
     const WORK_START = 9 * 60;
     const WORK_END = 19 * 60;
@@ -220,7 +210,7 @@ export async function GET(req: Request) {
       });
     }
 
-    // Detect recalls: patients with multi-session treatments and no future appointment
+    // Detect recalls
     const futurePhones = new Set(
       allRecs
         .filter((r) => {
@@ -246,11 +236,10 @@ export async function GET(req: Request) {
         const weeksSince = Math.floor(now.diff(dt, "weeks").weeks);
         if (weeksSince >= 2) {
           recallMap.set(phone, {
-            patientName:
-              firstString(f["Paciente_nombre"]) || "Paciente",
+            patientName: firstString(f["Paciente_nombre"]) || "Paciente",
             patientPhone: phone,
             treatmentName: treatment,
-            clinica: firstString(f["Clínica ID"]) || undefined,
+            clinica: firstString(f["Clínica_id"]) || undefined,
             lastApptIso: iso,
             weeksSinceLast: weeksSince,
           });
@@ -258,31 +247,6 @@ export async function GET(req: Request) {
       }
     }
     const recalls = Array.from(recallMap.values()).slice(0, 10);
-
-    // Demo fallback
-    if (isDemoModeNoShows(appointments.length)) {
-      const demoAppts = buildDemoHoyAppointments();
-      const demoHigh = demoAppts.filter((a) => a.riskLevel === "HIGH").length;
-      const demoMed  = demoAppts.filter((a) => a.riskLevel === "MEDIUM").length;
-      return NextResponse.json({
-        todayIso,
-        todayLabel,
-        appointments: demoAppts,
-        gaps: buildDemoHoyGaps(),
-        recalls: buildDemoRecallAlerts(),
-        summary: {
-          total: demoAppts.length,
-          confirmed: 3,
-          riesgoAlto: demoHigh,
-          riesgoMedio: demoMed,
-          riesgoBajo: demoAppts.filter((a) => a.riskLevel === "LOW").length,
-          recalls: 3,
-          eurosEnRiesgo: (demoHigh + demoMed) * AVG_TICKET,
-          objetivoMensual: 0.10,
-        },
-        isDemo: true,
-      });
-    }
 
     const riesgoAlto  = appointments.filter((a) => a.riskLevel === "HIGH").length;
     const riesgoMedio = appointments.filter((a) => a.riskLevel === "MEDIUM").length;

@@ -31,8 +31,12 @@ export type RiskyAppt = {
   end: string;                       // ISO datetime
   startDisplay: string;              // "HH:mm"
   treatmentName: string;
-  doctor?: string;                   // Médico asignado (opcional)
+  doctor?: string;                   // Profesional_id asignado (opcional)
+  doctorNombre?: string;             // "Dr. Andrés Rojas" (resuelto)
   clinica?: string;
+  clinicaNombre?: string;            // "Clínica Demo FYLLIO" (resuelto)
+  sillonNombre?: string;             // "Sillón 1" (resuelto)
+  profesionalId?: string;            // STF_001, STF_002, STF_003
   dayIso: string;                    // "YYYY-MM-DD"
   riskScore: number;                 // 0–100
   riskLevel: RiskLevel;
