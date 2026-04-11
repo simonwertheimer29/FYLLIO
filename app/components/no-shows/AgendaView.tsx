@@ -17,9 +17,18 @@ type ClinicaEntry  = { id: string; nombre: string; recordId: string };
 
 function getMondayIso(): string {
   const now = new Date();
-  const dow = now.getDay() || 7;
+  const dow = now.getDay(); // 0=Dom, 6=Sáb
   const mon = new Date(now);
-  mon.setDate(now.getDate() - dow + 1);
+  if (dow === 6) {
+    // Sábado → lunes siguiente (+2)
+    mon.setDate(now.getDate() + 2);
+  } else if (dow === 0) {
+    // Domingo → lunes siguiente (+1)
+    mon.setDate(now.getDate() + 1);
+  } else {
+    // Lun–Vie → lunes de esta semana
+    mon.setDate(now.getDate() - dow + 1);
+  }
   return mon.toISOString().slice(0, 10);
 }
 
@@ -414,6 +423,8 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
         const byClinica: Record<string, StaffEntry[]> = {};
         for (const s of (d.staff ?? [])) {
           if (!s.clinicaRecordId) continue;
+          // Salvaguarda client-side: excluir cualquier rol que contenga "recep"
+          if (s.rol && String(s.rol).toLowerCase().includes("recep")) continue;
           if (!byClinica[s.clinicaRecordId]) byClinica[s.clinicaRecordId] = [];
           byClinica[s.clinicaRecordId].push({ id: s.id, nombre: s.nombre });
         }
