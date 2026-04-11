@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { NoShowsUserSession, RiskyAppt } from "../../lib/no-shows/types";
 import { riskBgClass, riskLabel } from "../../lib/no-shows/score";
 import AgendaCalendar from "./AgendaCalendar";
@@ -10,22 +10,7 @@ import AgendaCalendar from "./AgendaCalendar";
 const DAYS_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie"];
 const MONTHS_ES  = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
 
-// Mapeo clínica → profesionales disponibles (hardcoded por ahora)
-const PROFESIONALES_POR_CLINICA: Record<string, { id: string; nombre: string }[]> = {
-  "CLINIC_001": [
-    { id: "STF_006", nombre: "Dr. Andrés Rojas" },
-    { id: "STF_007", nombre: "Dra. Paula Díaz" },
-    { id: "STF_008", nombre: "Dr. Mateo López" },
-  ],
-  "CLINIC_002": [
-    { id: "STF_010", nombre: "Dra. Carmen Vidal" },
-    { id: "STF_011", nombre: "Dr. Jorge Puig" },
-  ],
-};
-const ALL_PROFESIONALES = [
-  ...PROFESIONALES_POR_CLINICA["CLINIC_001"],
-  ...PROFESIONALES_POR_CLINICA["CLINIC_002"],
-];
+type StaffEntry = { id: string; nombre: string };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -398,9 +383,11 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
   const [displayRange, setDisplayRange]         = useState<string>(() => weekLabel(getMondayIso()));
 
   // ── Filter state ──
-  const [clinicaFilter, setClinicaFilter]       = useState("CLINIC_001");
-  const [availableClinics, setAvailableClinics] = useState<string[]>([]);
+  const [clinicaFilter, setClinicaFilter]         = useState("CLINIC_001");
+  const [availableClinics, setAvailableClinics]   = useState<string[]>([]);
   const [profesionalFilter, setProfesionalFilter] = useState("");
+  const [clinicasDisponibles, setClinicasDisponibles] = useState<{ id: string; nombre: string }[]>([]);
+  const [staffPorClinica, setStaffPorClinica]         = useState<Record<string, StaffEntry[]>>({});
 
   // ── Calendar refresh ──
   const [calRefreshKey, setCalRefreshKey]       = useState(0);
@@ -409,6 +396,31 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
   const [selectedAppt, setSelectedAppt]         = useState<RiskyAppt | null>(null);
   const [newApptState, setNewApptState]         = useState<NewApptState | null>(null);
   const [toast, setToast]                       = useState<{ msg: string; ok: boolean } | null>(null);
+
+  // Carga clínicas + staff desde endpoints al montar
+  useEffect(() => {
+    async function loadMeta() {
+      const [clinRes, staffRes] = await Promise.all([
+        fetch("/api/no-shows/clinicas"),
+        fetch("/api/no-shows/staff"),
+      ]);
+      if (clinRes.ok) {
+        const d = await clinRes.json();
+        setClinicasDisponibles(d.clinicas ?? []);
+      }
+      if (staffRes.ok) {
+        const d = await staffRes.json();
+        const byClinica: Record<string, StaffEntry[]> = {};
+        for (const s of (d.staff ?? [])) {
+          if (!s.clinicaId) continue;
+          if (!byClinica[s.clinicaId]) byClinica[s.clinicaId] = [];
+          byClinica[s.clinicaId].push({ id: s.id, nombre: s.nombre });
+        }
+        setStaffPorClinica(byClinica);
+      }
+    }
+    loadMeta();
+  }, []);
 
   function showToast(msg: string, ok = false) {
     setToast({ msg, ok });
@@ -425,9 +437,10 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
   }
 
   // Profesionales disponibles según clínica seleccionada
+  const allProfesionales = Object.values(staffPorClinica).flat();
   const profesionalesDisponibles = clinicaFilter
-    ? (PROFESIONALES_POR_CLINICA[clinicaFilter] ?? [])
-    : ALL_PROFESIONALES;
+    ? (staffPorClinica[clinicaFilter] ?? [])
+    : allProfesionales;
 
   // Day slots computed purely from mondayIso (no API data needed)
   const todayIso = new Date().toISOString().slice(0, 10);
@@ -529,15 +542,17 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
           </div>
         )}
 
-        {/* Clinic filter (manager only, populated dynamically) */}
-        {isManager && availableClinics.length > 0 && (
+        {/* Clinic filter (manager only, populated desde /api/no-shows/clinicas) */}
+        {isManager && clinicasDisponibles.length > 0 && (
           <select
             value={clinicaFilter}
             onChange={(e) => handleClinicaChange(e.target.value)}
             className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
           >
             <option value="">Todas las clínicas</option>
-            {availableClinics.map((c) => <option key={c} value={c}>{c}</option>)}
+            {clinicasDisponibles.map((c) => (
+              <option key={c.id} value={c.id}>{c.nombre}</option>
+            ))}
           </select>
         )}
 

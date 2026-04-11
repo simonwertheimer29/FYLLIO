@@ -192,7 +192,8 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
   const isManager = user.rol === "manager_general";
   const [data, setData] = useState<HoyData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [clinicaFilter, setClinicaFilter] = useState<string>("");
+  const [clinicaFilter, setClinicaFilter]         = useState<string>("");
+  const [clinicasDisponibles, setClinicasDisponibles] = useState<{ id: string; nombre: string }[]>([]);
   const [objetivo, setObjetivo] = useState<number>(10);
   const [done, setDone] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
@@ -222,6 +223,13 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
   }, []);
 
   useEffect(() => { load(clinicaFilter || undefined); }, [load, clinicaFilter]);
+
+  useEffect(() => {
+    fetch("/api/no-shows/clinicas")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d?.clinicas) setClinicasDisponibles(d.clinicas); })
+      .catch(() => {});
+  }, []);
 
   function markDone(id: string) {
     const next = new Set(done);
@@ -358,15 +366,9 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
           >
             <option value="">Todas las clínicas</option>
-            {[...new Map(
-              data.appointments
-                .filter((a) => a.clinica && a.clinicaNombre)
-                .map((a) => [a.clinica!, a.clinicaNombre!] as [string, string])
-            ).entries()]
-              .sort(([, a], [, b]) => a.localeCompare(b))
-              .map(([id, nombre]) => (
-                <option key={id} value={id}>{nombre}</option>
-              ))}
+            {clinicasDisponibles.map((c) => (
+              <option key={c.id} value={c.id}>{c.nombre}</option>
+            ))}
           </select>
         )}
       </div>

@@ -302,7 +302,10 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
   const [week, setWeek] = useState<string>(getCurrentWeekStr);
   const [data, setData] = useState<ExtRiskData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [clinicaFilter, setClinicaFilter] = useState<string>("");
+  const [clinicaFilter, setClinicaFilter]             = useState<string>("");
+  const [profesionalFilter, setProfesionalFilter]     = useState<string>("");
+  const [clinicasDisponibles, setClinicasDisponibles] = useState<{ id: string; nombre: string }[]>([]);
+  const [staffPorClinica, setStaffPorClinica]         = useState<Record<string, { id: string; nombre: string }[]>>({});
   const [done, setDone] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     try {
@@ -327,11 +330,40 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
     load(week, clinicaFilter || undefined);
   }, [load, week, clinicaFilter]);
 
+  useEffect(() => {
+    async function loadMeta() {
+      const [clinRes, staffRes] = await Promise.all([
+        fetch("/api/no-shows/clinicas"),
+        fetch("/api/no-shows/staff"),
+      ]);
+      if (clinRes.ok) {
+        const d = await clinRes.json();
+        setClinicasDisponibles(d.clinicas ?? []);
+      }
+      if (staffRes.ok) {
+        const d = await staffRes.json();
+        const byClinica: Record<string, { id: string; nombre: string }[]> = {};
+        for (const s of (d.staff ?? [])) {
+          if (!s.clinicaId) continue;
+          if (!byClinica[s.clinicaId]) byClinica[s.clinicaId] = [];
+          byClinica[s.clinicaId].push({ id: s.id, nombre: s.nombre });
+        }
+        setStaffPorClinica(byClinica);
+      }
+    }
+    loadMeta();
+  }, []);
+
   function markDone(id: string) {
     const next = new Set(done);
     next.add(id);
     setDone(next);
     try { localStorage.setItem("fyllio_noshows_done", JSON.stringify([...next])); } catch { /* */ }
+  }
+
+  function handleClinicaChange(clinica: string) {
+    setClinicaFilter(clinica);
+    setProfesionalFilter("");
   }
 
   function goWeek(delta: number) {
@@ -361,21 +393,18 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
 
   const days = weekDayIsos(week);
 
+  // Filtro cliente por profesional (clinica ya se filtra en API)
+  const apptsFiltradas = profesionalFilter
+    ? data.appointments.filter((a) => a.profesionalId === profesionalFilter)
+    : data.appointments;
+
   // Agrupar citas por dayIso
   const byDay = new Map<string, RiskyAppt[]>();
   for (const dayIso of days) byDay.set(dayIso, []);
-  for (const appt of data.appointments) {
+  for (const appt of apptsFiltradas) {
     const arr = byDay.get(appt.dayIso);
     if (arr) arr.push(appt);
   }
-
-  const clinicasMap = isManager
-    ? new Map(
-        data.appointments
-          .filter((a) => a.clinica && a.clinicaNombre)
-          .map((a) => [a.clinica!, a.clinicaNombre!] as [string, string])
-      )
-    : new Map<string, string>();
 
   const isCurrentWeek = week === getCurrentWeekStr();
 
@@ -430,18 +459,30 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
         </div>
 
         {/* Clinic filter */}
-        {isManager && clinicasMap.size > 0 && (
+        {isManager && clinicasDisponibles.length > 0 && (
           <select
             value={clinicaFilter}
-            onChange={(e) => setClinicaFilter(e.target.value)}
+            onChange={(e) => handleClinicaChange(e.target.value)}
             className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
           >
             <option value="">Todas las clínicas</option>
-            {[...clinicasMap.entries()]
-              .sort(([, a], [, b]) => a.localeCompare(b))
-              .map(([id, nombre]) => (
-                <option key={id} value={id}>{nombre}</option>
-              ))}
+            {clinicasDisponibles.map((c) => (
+              <option key={c.id} value={c.id}>{c.nombre}</option>
+            ))}
+          </select>
+        )}
+
+        {/* Profesional filter (visible si hay clínica seleccionada y tiene staff) */}
+        {isManager && clinicaFilter && (staffPorClinica[clinicaFilter] ?? []).length > 0 && (
+          <select
+            value={profesionalFilter}
+            onChange={(e) => setProfesionalFilter(e.target.value)}
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
+          >
+            <option value="">Todos los profesionales</option>
+            {(staffPorClinica[clinicaFilter] ?? []).map((p) => (
+              <option key={p.id} value={p.id}>{p.nombre}</option>
+            ))}
           </select>
         )}
       </div>

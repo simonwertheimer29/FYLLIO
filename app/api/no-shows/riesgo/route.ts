@@ -99,11 +99,6 @@ export async function GET(req: Request) {
     const clinicaMap = new Map<string, string>((clinicaRecs as any[]).map((r) => [firstString(r.fields["Clínica ID"]), firstString(r.fields["Nombre"])]));
     const sillonMap  = new Map<string, string>((sillonRecs as any[]).map((r) => [firstString(r.fields["Sillón ID"]),  firstString(r.fields["Nombre"])]));
 
-    console.log("[riesgo] total citas fetched:", allRecs.length);
-    console.log("[riesgo] clinicaFilter:", clinicaFilter);
-    console.log("[riesgo] clinicaMap:", Object.fromEntries(clinicaMap));
-    console.log("[riesgo] primera cita campos:", JSON.stringify(allRecs[0]?.fields));
-
     const weekRecs:    any[] = [];
     const futurasRecs: any[] = [];
     const histRecs:    any[] = [];
