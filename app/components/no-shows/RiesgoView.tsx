@@ -42,7 +42,21 @@ function dateToWeekStr(d: Date): string {
 }
 
 function getCurrentWeekStr(): string {
-  return dateToWeekStr(new Date());
+  const now = new Date();
+  const dow = now.getUTCDay(); // 0=Dom, 6=Sáb
+  if (dow === 6) {
+    // Sábado → avanzar 2 días al lunes siguiente
+    const next = new Date(now);
+    next.setUTCDate(now.getUTCDate() + 2);
+    return dateToWeekStr(next);
+  }
+  if (dow === 0) {
+    // Domingo → avanzar 1 día al lunes siguiente
+    const next = new Date(now);
+    next.setUTCDate(now.getUTCDate() + 1);
+    return dateToWeekStr(next);
+  }
+  return dateToWeekStr(now);
 }
 
 function offsetWeek(weekStr: string, delta: number): string {
