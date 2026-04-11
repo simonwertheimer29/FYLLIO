@@ -67,10 +67,10 @@ export default function NoShowsShell({ user }: { user: NoShowsUserSession }) {
         <div className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/fyllio-wordmark.png"
+            src="/isotipo.png"
             alt="Fyllio"
             className="shrink-0"
-            style={{ width: 120, height: 32, objectFit: "contain", objectPosition: "left center" }}
+            style={{ width: 32, height: 32, objectFit: "contain" }}
           />
           <div className="border-l border-slate-200 pl-3">
             <p className="text-xs font-bold text-slate-900 leading-tight">No-Shows</p>

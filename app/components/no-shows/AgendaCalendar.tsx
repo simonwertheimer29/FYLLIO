@@ -248,7 +248,9 @@ export default function AgendaCalendar({
           // ── Drag to move ──────────────────────────────────────────────────
           eventDrop={async (info) => {
             const appt = info.event.extendedProps.appt as RiskyAppt | undefined;
-            if (!appt || data?.isDemo) { info.revert(); return; }
+            if (!appt) { info.revert(); return; }
+            // Modo demo: drag visual permitido, sin persistir
+            if (data?.isDemo) { return; }
             try {
               const res = await fetch(`/api/no-shows/agenda/${appt.id}/mover`, {
                 method: "PATCH",
@@ -258,7 +260,11 @@ export default function AgendaCalendar({
                   endIso:   toRealUtcIso(info.event.end!),
                 }),
               });
-              if (!res.ok) throw new Error();
+              if (!res.ok) {
+                const err = await res.text();
+                console.error("[eventDrop] error Airtable:", err);
+                throw new Error(err);
+              }
               loadRef.current();
             } catch {
               onToastRef.current("Error al mover la cita.");
@@ -268,7 +274,9 @@ export default function AgendaCalendar({
           // ── Resize duration ───────────────────────────────────────────────
           eventResize={async (info) => {
             const appt = info.event.extendedProps.appt as RiskyAppt | undefined;
-            if (!appt || data?.isDemo) { info.revert(); return; }
+            if (!appt) { info.revert(); return; }
+            // Modo demo: resize visual permitido, sin persistir
+            if (data?.isDemo) { return; }
             try {
               const res = await fetch(`/api/no-shows/agenda/${appt.id}/mover`, {
                 method: "PATCH",
@@ -278,7 +286,11 @@ export default function AgendaCalendar({
                   endIso:   toRealUtcIso(info.event.end!),
                 }),
               });
-              if (!res.ok) throw new Error();
+              if (!res.ok) {
+                const err = await res.text();
+                console.error("[eventResize] error Airtable:", err);
+                throw new Error(err);
+              }
               loadRef.current();
             } catch {
               onToastRef.current("Error al cambiar duración.");

@@ -41,6 +41,16 @@ export async function PATCH(
       estado?: string;
     };
 
+    console.log("[mover] fields a escribir:", { id, startIso, endIso, estado });
+
+    // Leer campos disponibles del registro para diagnosticar nombres exactos
+    try {
+      const existing = await (base(TABLES.appointments as any).find(id) as any);
+      console.log("[mover] campos disponibles:", Object.keys(existing.fields));
+    } catch (findErr: any) {
+      console.warn("[mover] no se pudo leer el registro:", findErr?.message);
+    }
+
     const fields: Record<string, unknown> = {};
 
     if (startIso && endIso) {

@@ -40,6 +40,8 @@ export async function POST(req: Request) {
       clinicaId,
     } = await req.json();
 
+    console.log("[nueva-cita] body recibido:", { startIso, endIso, patientNombre, patientTelefono, treatmentName, doctor, clinicaId });
+
     if (!startIso || !patientNombre) {
       return NextResponse.json({ error: "startIso y patientNombre son requeridos" }, { status: 400 });
     }
@@ -53,12 +55,12 @@ export async function POST(req: Request) {
       ? DateTime.fromISO(endIso, { zone: ZONE })
       : startDt.plus({ minutes: 30 });
 
-    // "Paciente_nombre", "Paciente_teléfono" y "Tratamiento_nombre" son lookups calculados → no escribibles.
-    // Usamos campos de texto directo: "Nombre" y "Teléfono".
-    // El tratamiento se guarda en "Notas" hasta confirmar el campo escribible correcto.
-    const tratamientoStr = treatmentName ?? "Sin especificar";
-    const notasStr = [
-      tratamientoStr !== "Sin especificar" ? `Tratamiento: ${tratamientoStr}` : "",
+    // Solo campos confirmados como escribibles en la tabla "Citas".
+    // Lookups calculados (Paciente_nombre, Paciente_teléfono, Tratamiento_nombre) → no escribibles.
+    // Tratamiento, teléfono y doctor van a "Notas" como texto libre.
+    const parts = [
+      treatmentName && treatmentName !== "Sin especificar" ? `Tratamiento: ${treatmentName}` : "",
+      patientTelefono ? `Tel: ${patientTelefono}` : "",
       doctor ? `Doctor: ${doctor}` : "",
     ].filter(Boolean).join(" | ");
 
@@ -68,12 +70,7 @@ export async function POST(req: Request) {
       "Hora final":  endDt.toUTC().toISO(),
     };
 
-    if (patientTelefono) fields["Teléfono"] = patientTelefono;
-    if (notasStr)        fields["Notas"]    = notasStr;
-
-    // Adjuntar clínica: explícita > sesión del usuario (para no-managers)
-    const clinica = clinicaId ?? (session.rol !== "manager_general" ? session.clinica : undefined);
-    if (clinica) fields["Clínica ID"] = clinica;
+    if (parts) fields["Notas"] = parts;
 
     const record = await (base(TABLES.appointments as any).create(fields as any) as any);
     return NextResponse.json({ id: record.id, ok: true }, { status: 201 });
