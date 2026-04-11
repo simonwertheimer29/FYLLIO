@@ -221,7 +221,7 @@ function RegisterForm({
         <select value={tipo} onChange={(e) => setTipo(e.target.value)}
           className="flex-1 text-xs rounded-lg border border-slate-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-300">
           <option value="">Tipo de acción…</option>
-          <option value="WA enviado">WA enviado</option>
+          <option value="WhatsApp">WhatsApp</option>
           <option value="Llamada">Llamada</option>
           <option value="Sin respuesta">Sin respuesta</option>
           <option value="Confirmado">Confirmado</option>
@@ -230,10 +230,11 @@ function RegisterForm({
         <select value={fase} onChange={(e) => setFase(e.target.value)}
           className="flex-1 text-xs rounded-lg border border-slate-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-300">
           <option value="">Fase…</option>
+          <option value="Sin iniciar">Sin iniciar</option>
           <option value="72h">72h</option>
           <option value="48h">48h</option>
           <option value="24h">24h</option>
-          <option value="Mismo día">Mismo día</option>
+          <option value="Completado">Completado</option>
         </select>
       </div>
       <input type="text" value={notas} onChange={(e) => setNotas(e.target.value)}
