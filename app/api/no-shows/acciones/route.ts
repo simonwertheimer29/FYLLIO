@@ -7,10 +7,10 @@ import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { DateTime } from "luxon";
 import { base, TABLES } from "../../../lib/airtable";
-import type { NoShowsUserSession, AccionTask, RiskyAppt, GapSlot } from "../../../lib/no-shows/types";
+import type { NoShowsUserSession, AccionTask, RiskyAppt, GapSlot, RecallAlert } from "../../../lib/no-shows/types";
 
 type ExtAccionTask = AccionTask & { escalado?: boolean };
-import { scoreAppointment, ZONE } from "../../../lib/no-shows/score";
+import { scoreAppointment, ZONE, MULTI_SESSION_TREATMENTS } from "../../../lib/no-shows/score";
 
 const COOKIE = "fyllio_noshows_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -67,14 +67,18 @@ export async function GET(req: Request) {
     const tomorrowDt = todayDt.plus({ days: 1 });
     const todayIso    = todayDt.toISODate()!;
     const tomorrowIso = tomorrowDt.toISODate()!;
+    const day3Iso     = todayDt.plus({ days: 2 }).toISODate()!;
+    const day8Iso     = todayDt.plus({ days: 7 }).toISODate()!;
 
     const allRecs = await base(TABLES.appointments as any)
       .select({ maxRecords: 2000 })
       .all();
 
-    const todayRecs: any[]    = [];
-    const tomorrowRecs: any[] = [];
-    const histRecs: any[]     = [];
+    const todayRecs: any[]         = [];
+    const tomorrowRecs: any[]      = [];
+    const histRecs: any[]          = [];
+    const canceladosHoyRecs: any[] = [];
+    const proximosDiasRecs: any[]  = [];
 
     for (const r of allRecs) {
       const f: any = r.fields;
@@ -84,12 +88,18 @@ export async function GET(req: Request) {
       if (!startIso) continue;
       const dayIso = startIso.slice(0, 10);
       const clinicaRec = firstString(f["Clínica_id"]);
-      if (clinicaFilter && clinicaRec && clinicaRec !== clinicaFilter) continue;
+      if (clinicaFilter && clinicaRec !== clinicaFilter) continue;
 
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
       if (dayIso === todayIso && !CANCELLED.has(estado))    todayRecs.push({ r, f, startIso });
       if (dayIso === tomorrowIso && !CANCELLED.has(estado)) tomorrowRecs.push({ r, f, startIso });
       if (dayIso < todayIso) histRecs.push({ f, startIso });
+      if (dayIso === todayIso && (CANCEL_SET.has(estado) || NO_SHOW_SET.has(estado))) {
+        canceladosHoyRecs.push({ r, f, startIso });
+      }
+      if (dayIso >= day3Iso && dayIso < day8Iso && !CANCELLED.has(estado)) {
+        proximosDiasRecs.push({ r, f, startIso });
+      }
     }
 
     const patientHistory = new Map<string, { total: number; noShowCount: number; cancelCount: number }>();
@@ -134,6 +144,42 @@ export async function GET(req: Request) {
 
     const todayAppts    = todayRecs.map(({ r, f, startIso }) => buildAppt(r, f, startIso));
     const tomorrowAppts = tomorrowRecs.map(({ r, f, startIso }) => buildAppt(r, f, startIso));
+    const canceladosHoy: RiskyAppt[] = canceladosHoyRecs.map(({ r, f, startIso }) => buildAppt(r, f, startIso));
+    const proximosDias: RiskyAppt[]  = proximosDiasRecs
+      .map(({ r, f, startIso }) => buildAppt(r, f, startIso))
+      .filter((a) => a.riskScore >= 40)
+      .sort((a, b) => a.start.localeCompare(b.start));
+
+    // Recalls para candidatos de huecos
+    const futurePhones = new Set(
+      allRecs
+        .filter((r) => { const iso = toMadridIso((r.fields as any)["Hora inicio"]); return iso && iso.slice(0, 10) >= todayIso; })
+        .map((r) => firstString((r.fields as any)["Paciente_teléfono"]))
+        .filter(Boolean),
+    );
+    const recallMap = new Map<string, RecallAlert>();
+    for (const { f, startIso: iso } of histRecs) {
+      const phone = firstString(f["Paciente_teléfono"]) || firstString(f["Paciente_tutor_teléfono"]) || "";
+      if (!phone || futurePhones.has(phone)) continue;
+      const treatment = firstString(f["Tratamiento_nombre"]);
+      if (!MULTI_SESSION_TREATMENTS.some((t) => treatment.toLowerCase().includes(t))) continue;
+      const existing = recallMap.get(phone);
+      if (!existing || iso > existing.lastApptIso) {
+        const dt = DateTime.fromISO(iso, { zone: ZONE });
+        const weeksSince = Math.floor(now.diff(dt, "weeks").weeks);
+        if (weeksSince >= 2) {
+          recallMap.set(phone, {
+            patientName: firstString(f["Paciente_nombre"]) || "Paciente",
+            patientPhone: phone,
+            treatmentName: treatment,
+            clinica: firstString(f["Clínica_id"]) || undefined,
+            lastApptIso: iso,
+            weeksSinceLast: weeksSince,
+          });
+        }
+      }
+    }
+    const recalls: RecallAlert[] = Array.from(recallMap.values()).slice(0, 20);
 
     const WORK_START = 9 * 60, WORK_END = 19 * 60, MIN_GAP = 20;
 
@@ -257,6 +303,9 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       tasks,
+      canceladosHoy,
+      proximosDias,
+      recalls,
       summary: {
         total:   tasks.length,
         urgent:  tasks.filter((t) => t.urgent).length,
