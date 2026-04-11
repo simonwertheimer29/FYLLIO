@@ -192,6 +192,7 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
   const isManager = user.rol === "manager_general";
   const [data, setData] = useState<HoyData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isMañana, setIsMañana] = useState(false);
   const [clinicaFilter, setClinicaFilter]         = useState<string>("");
   const [clinicasDisponibles, setClinicasDisponibles] = useState<{ id: string; nombre: string }[]>([]);
   const [objetivo, setObjetivo] = useState<number>(10);
@@ -217,7 +218,32 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
       const url = new URL("/api/no-shows/hoy", location.href);
       if (clinica) url.searchParams.set("clinica", clinica);
       const res = await fetch(url.toString());
-      if (res.ok) setData(await res.json());
+      if (!res.ok) return;
+      const todayData: HoyData = await res.json();
+
+      // Fallback: si hoy no hay citas, intentar con mañana
+      if (todayData.appointments.length === 0) {
+        const tomorrowIso = (() => {
+          const d = new Date(todayData.todayIso + "T12:00:00");
+          d.setDate(d.getDate() + 1);
+          return d.toISOString().slice(0, 10);
+        })();
+        const url2 = new URL("/api/no-shows/hoy", location.href);
+        url2.searchParams.set("date", tomorrowIso);
+        if (clinica) url2.searchParams.set("clinica", clinica);
+        const res2 = await fetch(url2.toString());
+        if (res2.ok) {
+          const mañanaData: HoyData = await res2.json();
+          if (mañanaData.appointments.length > 0) {
+            setData(mañanaData);
+            setIsMañana(true);
+            return;
+          }
+        }
+      }
+
+      setData(todayData);
+      setIsMañana(false);
     } catch { /* silent */ }
     finally { setLoading(false); }
   }, []);
@@ -288,8 +314,13 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
       <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">HOY</p>
+            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+              {isMañana ? "MAÑANA" : "HOY"}
+            </p>
             <p className="text-base font-extrabold text-slate-900 capitalize">{data.todayLabel}</p>
+            {isMañana && (
+              <p className="text-[10px] text-blue-500 font-medium">(datos de mañana)</p>
+            )}
           </div>
           <button
             onClick={() => load(clinicaFilter || undefined)}
@@ -303,7 +334,7 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
             <p className="text-2xl font-black text-slate-800 leading-none">{data.summary.total}</p>
-            <p className="text-xs text-slate-500 mt-1">Citas hoy</p>
+            <p className="text-xs text-slate-500 mt-1">{isMañana ? "Citas mañana" : "Citas hoy"}</p>
           </div>
           <div className="rounded-xl border border-green-100 bg-green-50 p-3">
             <p className="text-2xl font-black text-green-700 leading-none">{data.summary.confirmed}</p>
@@ -373,6 +404,18 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
         )}
       </div>
 
+      {/* Banner fallback mañana */}
+      {isMañana && (
+        <div className="rounded-2xl bg-blue-50 border border-blue-200 px-4 py-2.5 flex items-center gap-2">
+          <span className="text-base shrink-0">ℹ️</span>
+          <p className="text-sm text-blue-800">
+            <span className="font-semibold">Mostrando citas de mañana</span>
+            {" · "}
+            <span className="capitalize">{data.todayLabel}</span>
+          </p>
+        </div>
+      )}
+
       {/* ── Riesgo ALTO ── */}
       {highAppts.length > 0 && (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-2">
@@ -404,7 +447,7 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
       {/* Empty state */}
       {data.appointments.length === 0 && (
         <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
-          <p className="text-sm text-slate-400">Sin citas registradas para hoy</p>
+          <p className="text-sm text-slate-400">Sin citas registradas para hoy ni mañana</p>
         </div>
       )}
 
