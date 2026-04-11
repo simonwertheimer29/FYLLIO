@@ -56,7 +56,7 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
-    const { patientName, treatmentName, riskScore, riskLevel, category, hora } =
+    const { patientName, treatmentName, riskScore, riskLevel, category, hora, tone } =
       await req.json();
 
     const apiKey = process.env["ANTHROPIC_API_KEY"];
@@ -67,8 +67,8 @@ export async function POST(req: Request) {
     const firstName = ((patientName ?? "Paciente") as string).split(" ")[0];
 
     const systemPrompt =
-      category === "RECALL"   ? SYSTEM_RECALL :
-      riskLevel === "HIGH"    ? SYSTEM_HIGH   :
+      category === "RECALL" || tone === "motivacional" ? SYSTEM_RECALL :
+      tone === "urgente"    || riskLevel === "HIGH"     ? SYSTEM_HIGH   :
       SYSTEM_MEDIUM;
 
     const userPrompt = [

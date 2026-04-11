@@ -12,6 +12,15 @@ import type { NoShowsUserSession, AccionTask, RiskyAppt, GapSlot, RecallAlert } 
 type ExtAccionTask = AccionTask & { escalado?: boolean };
 import { scoreAppointment, ZONE, MULTI_SESSION_TREATMENTS } from "../../../lib/no-shows/score";
 
+function urgenciaTemporal(startIso: string, now: DateTime, confirmed: boolean): number {
+  const h = DateTime.fromISO(startIso, { zone: ZONE }).diff(now, "hours").hours;
+  if (h <= 0 && !confirmed) return 100; // mismo día sin confirmar
+  if (h < 24)  return 80;
+  if (h < 48)  return 55;
+  if (h < 72)  return 30;
+  return 10;
+}
+
 const COOKIE = "fyllio_noshows_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
 const secret = new TextEncoder().encode(SECRET_RAW);
@@ -230,6 +239,9 @@ export async function GET(req: Request) {
 
     for (const a of todayAppts.filter((x) => x.riskLevel === "HIGH")) {
       const nombre = a.patientName.split(" ")[0];
+      const urgencia = urgenciaTemporal(a.start, now, a.confirmed);
+      const scoreAccion = Math.round(a.riskScore * 0.6 + urgencia * 0.4);
+      const hoursUntil = DateTime.fromISO(a.start, { zone: ZONE }).diff(now, "hours").hours;
       tasks.push({
         id: `accion-${idx++}`,
         category: "NO_SHOW",
@@ -240,10 +252,19 @@ export async function GET(req: Request) {
         deadlineIso: a.dayIso + "T09:00:00",
         urgent: true,
         appt: a,
+        scoreAccion,
+        urgencia,
+        hoursUntil,
       });
     }
 
     for (const g of todayGaps) {
+      const hoursUntilGap = DateTime.fromISO(g.startIso, { zone: ZONE }).diff(now, "hours").hours;
+      const urgencia = hoursUntilGap < 2 ? 100 : hoursUntilGap < 6 ? 80 : 60;
+      const scoreAccion = Math.round(60 * 0.6 + urgencia * 0.4); // score base 60 para gaps hoy
+      const overbooking = g.durationMin >= 30
+        && hoursUntilGap < 48
+        && canceladosHoy.some((c) => c.start >= g.startIso && c.start < g.endIso && c.riskScore >= 80);
       tasks.push({
         id: `accion-gap-${idx++}`,
         category: "GAP",
@@ -252,12 +273,19 @@ export async function GET(req: Request) {
         deadlineIso: g.startIso,
         urgent: true,
         gap: g,
+        scoreAccion,
+        urgencia,
+        hoursUntil: hoursUntilGap,
+        overbooking,
       });
     }
 
     for (const a of todayAppts.filter((x) => x.riskLevel === "MEDIUM")) {
       const nombre   = a.patientName.split(" ")[0];
       const escalado = a.riskScore >= 80;
+      const urgencia = urgenciaTemporal(a.start, now, a.confirmed);
+      const scoreAccion = Math.round(a.riskScore * 0.6 + urgencia * 0.4);
+      const hoursUntil = DateTime.fromISO(a.start, { zone: ZONE }).diff(now, "hours").hours;
       tasks.push({
         id: `accion-${idx++}`,
         category: "NO_SHOW",
@@ -268,6 +296,9 @@ export async function GET(req: Request) {
         urgent: escalado,
         escalado,
         appt: a,
+        scoreAccion,
+        urgencia,
+        hoursUntil,
       });
     }
 
@@ -275,6 +306,9 @@ export async function GET(req: Request) {
       const nombre   = a.patientName.split(" ")[0];
       const level    = a.riskLevel === "HIGH" ? "ALTO" : "MEDIO";
       const escalado = a.riskScore >= 80;
+      const urgencia = urgenciaTemporal(a.start, now, a.confirmed);
+      const scoreAccion = Math.round(a.riskScore * 0.6 + urgencia * 0.4);
+      const hoursUntil = DateTime.fromISO(a.start, { zone: ZONE }).diff(now, "hours").hours;
       tasks.push({
         id: `accion-${idx++}`,
         category: "NO_SHOW",
@@ -286,10 +320,19 @@ export async function GET(req: Request) {
         urgent: escalado,
         escalado,
         appt: a,
+        scoreAccion,
+        urgencia,
+        hoursUntil,
       });
     }
 
     for (const g of tomorrowGaps) {
+      const hoursUntilGap = DateTime.fromISO(g.startIso, { zone: ZONE }).diff(now, "hours").hours;
+      const urgencia = 55; // mañana → tier 24-48h
+      const scoreAccion = Math.round(50 * 0.6 + urgencia * 0.4); // score base 50 para gaps mañana
+      const overbooking = g.durationMin >= 30
+        && hoursUntilGap < 48
+        && canceladosHoy.some((c) => c.start >= g.startIso && c.start < g.endIso && c.riskScore >= 80);
       tasks.push({
         id: `accion-gap-${idx++}`,
         category: "GAP",
@@ -298,6 +341,10 @@ export async function GET(req: Request) {
         deadlineIso: g.startIso,
         urgent: false,
         gap: g,
+        scoreAccion,
+        urgencia,
+        hoursUntil: hoursUntilGap,
+        overbooking,
       });
     }
 

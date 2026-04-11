@@ -79,6 +79,11 @@ export type AccionTask = {
   urgent: boolean;
   appt?: RiskyAppt;
   gap?: GapSlot;
+  // Scoring combinado (riesgo + urgencia temporal)
+  scoreAccion?: number;              // 0–100: riskScore*0.6 + urgencia*0.4
+  urgencia?: number;                 // urgenciaTemporal raw (0–100)
+  hoursUntil?: number;               // horas hasta la cita (negativo = ya pasó)
+  overbooking?: boolean;             // gap con hueco reschedulable detectado
 };
 
 /** Resumen del header HOY */
