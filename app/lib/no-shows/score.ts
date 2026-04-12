@@ -162,3 +162,13 @@ export function riskBgClass(level: RiskLevel): string {
   if (level === "MEDIUM") return "bg-amber-50 border-amber-200 text-amber-700";
   return "bg-green-50 border-green-200 text-green-700";
 }
+
+/** Urgencia temporal: cuánto falta hasta la cita (0–100) */
+export function urgenciaTemporal(startIso: string, now: DateTime, confirmed: boolean): number {
+  const h = DateTime.fromISO(startIso, { zone: ZONE }).diff(now, "hours").hours;
+  if (h <= 0 && !confirmed) return 100; // mismo día sin confirmar
+  if (h < 24) return 80;
+  if (h < 48) return 55;
+  if (h < 72) return 30;
+  return 10;
+}

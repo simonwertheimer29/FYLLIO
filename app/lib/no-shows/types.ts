@@ -39,6 +39,7 @@ export type RiskyAppt = {
   profesionalId?: string;            // STF_001, STF_002, STF_003
   dayIso: string;                    // "YYYY-MM-DD"
   riskScore: number;                 // 0–100
+  scoreAccion?: number;              // riskScore*0.6 + urgenciaTemporal*0.4
   riskLevel: RiskLevel;
   actionDeadline?: string;           // ISO datetime
   actionUrgent?: boolean;

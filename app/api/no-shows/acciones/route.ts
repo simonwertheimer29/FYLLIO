@@ -10,7 +10,7 @@ import { base, TABLES } from "../../../lib/airtable";
 import type { NoShowsUserSession, AccionTask, RiskyAppt, GapSlot, RecallAlert } from "../../../lib/no-shows/types";
 
 type ExtAccionTask = AccionTask & { escalado?: boolean };
-import { scoreAppointment, ZONE, MULTI_SESSION_TREATMENTS } from "../../../lib/no-shows/score";
+import { scoreAppointment, urgenciaTemporal, ZONE, MULTI_SESSION_TREATMENTS } from "../../../lib/no-shows/score";
 
 const STAFF_NOMBRES: Record<string, string> = {
   "STF_006": "Dr. Andrés Rojas",
@@ -19,15 +19,6 @@ const STAFF_NOMBRES: Record<string, string> = {
   "STF_010": "Dra. Carmen Vidal",
   "STF_011": "Dr. Jorge Puig",
 };
-
-function urgenciaTemporal(startIso: string, now: DateTime, confirmed: boolean): number {
-  const h = DateTime.fromISO(startIso, { zone: ZONE }).diff(now, "hours").hours;
-  if (h <= 0 && !confirmed) return 100; // mismo día sin confirmar
-  if (h < 24)  return 80;
-  if (h < 48)  return 55;
-  if (h < 72)  return 30;
-  return 10;
-}
 
 const COOKIE = "fyllio_noshows_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";

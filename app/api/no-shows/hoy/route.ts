@@ -10,6 +10,7 @@ import { base, TABLES } from "../../../lib/airtable";
 import type { NoShowsUserSession, RiskyAppt, GapSlot, RecallAlert } from "../../../lib/no-shows/types";
 import {
   scoreAppointment,
+  urgenciaTemporal,
   ZONE,
   MULTI_SESSION_TREATMENTS,
 } from "../../../lib/no-shows/score";
@@ -172,6 +173,8 @@ export async function GET(req: Request) {
         { startIso, treatmentName, createdTime: (r as any)._rawJson?.createdTime, history },
         now,
       );
+      const urgencia = urgenciaTemporal(startIso, now, confirmed);
+      const scoreAccion = Math.round(scored.riskScore * 0.6 + urgencia * 0.4);
 
       return {
         id: r.id,
@@ -190,6 +193,7 @@ export async function GET(req: Request) {
         dayIso: startIso.slice(0, 10),
         confirmed,
         ...scored,
+        scoreAccion,
       };
     });
 

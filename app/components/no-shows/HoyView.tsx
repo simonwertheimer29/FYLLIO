@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { NoShowsUserSession, RiskyAppt, GapSlot, RecallAlert } from "../../lib/no-shows/types";
-import { riskColor, riskLabel, riskBgClass } from "../../lib/no-shows/score";
+import { riskColor, riskBgClass } from "../../lib/no-shows/score";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -48,6 +48,49 @@ function buildRecallWhatsApp(recall: RecallAlert): string {
   return `Hola ${nombre}, llevamos ${recall.weeksSinceLast} semanas desde tu última cita de ${recall.treatmentName}. ¿Te gustaría agendar tu próxima sesión? Puedes elegir tu horario respondiendo a este mensaje.`;
 }
 
+// ─── computeGaps ─────────────────────────────────────────────────────────────
+
+function computeGaps(appts: RiskyAppt[], todayIso: string): GapSlot[] {
+  const WORK_START = 9 * 60, WORK_END = 19 * 60, MIN_GAP = 30;
+  function toMin(iso: string): number {
+    if (!iso) return 0;
+    const d = new Date(iso);
+    return d.getHours() * 60 + d.getMinutes();
+  }
+  const occupied = appts
+    .filter(a => a.start && a.end)
+    .map(a => ({ start: toMin(a.start), end: toMin(a.end) }))
+    .sort((a, b) => a.start - b.start);
+  const gaps: GapSlot[] = [];
+  let cursor = WORK_START;
+  for (const b of occupied) {
+    if (b.start > cursor && b.start - cursor >= MIN_GAP) {
+      const sm = cursor, em = Math.min(b.start, WORK_END);
+      gaps.push({
+        dayIso: todayIso,
+        startIso: "", endIso: "",
+        startDisplay: `${String(Math.floor(sm / 60)).padStart(2, "0")}:${String(sm % 60).padStart(2, "0")}`,
+        endDisplay: `${String(Math.floor(em / 60)).padStart(2, "0")}:${String(em % 60).padStart(2, "0")}`,
+        durationMin: em - sm,
+      });
+    }
+    cursor = Math.max(cursor, b.end);
+  }
+  if (WORK_END - cursor >= MIN_GAP) {
+    gaps.push({
+      dayIso: todayIso, startIso: "", endIso: "",
+      startDisplay: `${String(Math.floor(cursor / 60)).padStart(2, "0")}:${String(cursor % 60).padStart(2, "0")}`,
+      endDisplay: "19:00",
+      durationMin: WORK_END - cursor,
+    });
+  }
+  return gaps;
+}
+
+// ─── Pill navbars helper ───────────────────────────────────────────────────────
+
+const PILL_SCROLL = "flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
+
 // ─── RecallCard ───────────────────────────────────────────────────────────────
 
 function RecallCard({ recall }: { recall: RecallAlert }) {
@@ -65,22 +108,14 @@ function RecallCard({ recall }: { recall: RecallAlert }) {
         {recall.patientPhone && (
           <a
             href={`https://wa.me/${recall.patientPhone.replace(/\D/g, "")}?text=${encodeURIComponent(buildRecallWhatsApp(recall))}`}
-            target="_blank"
-            rel="noopener noreferrer"
+            target="_blank" rel="noopener noreferrer"
             className="p-1.5 rounded-xl bg-green-600 text-white text-xs hover:bg-green-700 transition-colors"
-            title="WhatsApp"
-          >
-            WA
-          </a>
+          >WA</a>
         )}
         {recall.patientPhone && (
-          <a
-            href={`tel:${recall.patientPhone}`}
+          <a href={`tel:${recall.patientPhone}`}
             className="p-1.5 rounded-xl border border-slate-200 text-slate-600 text-xs hover:bg-slate-50 transition-colors"
-            title="Llamar"
-          >
-            Tel
-          </a>
+          >Tel</a>
         )}
       </div>
     </div>
@@ -90,19 +125,19 @@ function RecallCard({ recall }: { recall: RecallAlert }) {
 // ─── ApptRow ──────────────────────────────────────────────────────────────────
 
 function ApptRow({
-  appt,
-  done,
-  onDone,
-  onNavigate,
+  appt, done, onDone, onNavigate,
 }: {
-  appt: RiskyAppt;
-  done: boolean;
+  appt: RiskyAppt; done: boolean;
   onDone: (id: string) => void;
   onNavigate: (id: string) => void;
 }) {
   const color = riskColor(appt.riskLevel);
-  const label = riskLabel(appt.riskLevel);
-  const bgClass = riskBgClass(appt.riskLevel);
+  const score = appt.scoreAccion ?? appt.riskScore;
+  const scoreColorClass =
+    score >= 80 ? "bg-red-100 text-red-700 border-red-200" :
+    score >= 60 ? "bg-orange-100 text-orange-700 border-orange-200" :
+    score >= 40 ? "bg-blue-100 text-blue-700 border-blue-200" :
+                  "bg-slate-100 text-slate-600 border-slate-200";
 
   return (
     <button
@@ -113,14 +148,10 @@ function ApptRow({
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold text-slate-500 w-12 shrink-0">
-              {appt.startDisplay}
-            </span>
-            <span className="text-sm font-semibold text-slate-800 truncate">
-              {appt.patientName}
-            </span>
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${bgClass}`}>
-              {label} {appt.riskScore}
+            <span className="text-xs font-bold text-slate-500 w-12 shrink-0">{appt.startDisplay}</span>
+            <span className="text-sm font-semibold text-slate-800 truncate">{appt.patientName}</span>
+            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${scoreColorClass}`}>
+              {score}
             </span>
             {!appt.confirmed && (
               <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full font-semibold">
@@ -144,30 +175,20 @@ function ApptRow({
             {appt.patientPhone && (
               <a
                 href={`https://wa.me/${appt.patientPhone.replace(/\D/g, "")}?text=${encodeURIComponent(buildWhatsApp(appt))}`}
-                target="_blank"
-                rel="noopener noreferrer"
+                target="_blank" rel="noopener noreferrer"
                 className="p-1.5 rounded-xl bg-green-600 text-white text-[10px] font-bold hover:bg-green-700 transition-colors"
-                title="WhatsApp"
-              >
-                WA
-              </a>
+              >WA</a>
             )}
             {appt.patientPhone && (
-              <a
-                href={`tel:${appt.patientPhone}`}
+              <a href={`tel:${appt.patientPhone}`}
                 className="p-1.5 rounded-xl border border-slate-200 text-slate-600 text-[10px] hover:bg-slate-50 transition-colors"
-                title="Llamar"
-              >
-                Tel
-              </a>
+              >Tel</a>
             )}
             <button
               onClick={(e) => { e.stopPropagation(); onDone(appt.id); }}
               className="p-1.5 rounded-xl border border-slate-200 text-slate-400 text-[10px] hover:bg-slate-50 transition-colors"
               title="Marcar hecho"
-            >
-              ✓
-            </button>
+            >✓</button>
           </div>
         )}
       </div>
@@ -175,18 +196,28 @@ function ApptRow({
   );
 }
 
-// ─── GapRow ───────────────────────────────────────────────────────────────────
+// ─── 4 Metric Cards ───────────────────────────────────────────────────────────
 
-function GapRow({ gap }: { gap: GapSlot }) {
+function MetricCards({ total, confirmed, enRiesgo, euros, label }: {
+  total: number; confirmed: number; enRiesgo: number; euros: number; label: string;
+}) {
   return (
-    <div className="border-l-4 border-slate-200 pl-3 py-2 rounded-r-xl bg-slate-50">
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-bold text-slate-400 w-12 shrink-0">
-          {gap.startDisplay}
-        </span>
-        <span className="text-xs text-slate-400">
-          Hueco disponible · {gap.durationMin} min
-        </span>
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
+        <p className="text-2xl font-black text-slate-800 leading-none">{total}</p>
+        <p className="text-xs text-slate-500 mt-1">{label}</p>
+      </div>
+      <div className="rounded-xl border border-green-100 bg-green-50 p-3">
+        <p className="text-2xl font-black text-green-700 leading-none">{confirmed}</p>
+        <p className="text-xs text-green-600 mt-1">Confirmadas</p>
+      </div>
+      <div className="rounded-xl border border-red-100 bg-red-50 p-3">
+        <p className="text-2xl font-black text-red-700 leading-none">{enRiesgo}</p>
+        <p className="text-xs text-red-600 mt-1">En riesgo</p>
+      </div>
+      <div className="rounded-xl border border-amber-100 bg-amber-50 p-3">
+        <p className="text-2xl font-black text-amber-700 leading-none">€{euros}</p>
+        <p className="text-xs text-amber-600 mt-1">€ en riesgo</p>
       </div>
     </div>
   );
@@ -208,12 +239,10 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
   const [objetivo, setObjetivo] = useState<number>(10);
   const [done, setDone] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
-    try {
-      return new Set(JSON.parse(localStorage.getItem("fyllio_noshows_done") ?? "[]"));
-    } catch { return new Set(); }
+    try { return new Set(JSON.parse(localStorage.getItem("fyllio_noshows_done") ?? "[]")); }
+    catch { return new Set(); }
   });
 
-  // Leer objetivo mensual de localStorage (guardado por ConfigView)
   useEffect(() => {
     const stored = localStorage.getItem("fyllio_noshows_objetivo");
     if (stored) {
@@ -231,7 +260,6 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
       if (!res.ok) return;
       const todayData: HoyData = await res.json();
 
-      // Fallback: si hoy no hay citas, intentar con mañana
       if (todayData.appointments.length === 0) {
         const tomorrowIso = (() => {
           const d = new Date(todayData.todayIso + "T12:00:00");
@@ -245,33 +273,27 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
         if (res2.ok) {
           const mañanaData: HoyData = await res2.json();
           if (mañanaData.appointments.length > 0) {
-            setData(mañanaData);
-            setIsMañana(true);
-            return;
+            setData(mañanaData); setIsMañana(true); return;
           }
         }
       }
-
-      setData(todayData);
-      setIsMañana(false);
+      setData(todayData); setIsMañana(false);
     } catch { /* silent */ }
     finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(clinicaFilter || undefined); }, [load, clinicaFilter]);
 
-  // Fetch clinicas
   useEffect(() => {
     fetch("/api/no-shows/clinicas")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d?.clinicas) setClinicasDisponibles(d.clinicas); })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.clinicas) setClinicasDisponibles(d.clinicas); })
       .catch(() => {});
   }, []);
 
-  // Fetch staff
   useEffect(() => {
     fetch("/api/no-shows/staff")
-      .then(r => (r.ok ? r.json() : null))
+      .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (!d?.staff) return;
         const byClinica: Record<string, StaffEntry[]> = {};
@@ -286,35 +308,31 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
       .catch(() => {});
   }, []);
 
-  // Auto-seleccionar primera clínica para managers
-  useEffect(() => {
-    if (!isManager || clinicasDisponibles.length === 0) return;
-    if (!clinicaFilter) setClinicaFilter(clinicasDisponibles[0].id);
-  }, [clinicasDisponibles]); // eslint-disable-line
-
-  // Auto-seleccionar primer doctor al cambiar clínica o staff
-  useEffect(() => {
-    const crId = clinicasDisponibles.find(c => c.id === clinicaFilter)?.recordId;
-    const lista: StaffEntry[] = clinicaFilter && crId
-      ? (staffPorClinica[crId] ?? [])
-      : Object.values(staffPorClinica).flat();
-    if (lista.length > 0) setDoctorFilter(lista[0].id);
-  }, [staffPorClinica, clinicaFilter]); // eslint-disable-line
-
   function markDone(id: string) {
-    const next = new Set(done);
-    next.add(id);
-    setDone(next);
+    const next = new Set(done); next.add(id); setDone(next);
     try { localStorage.setItem("fyllio_noshows_done", JSON.stringify([...next])); } catch { /* */ }
   }
 
+  const onNavigate = (id: string) => router.push(`/no-shows?tab=acciones&citaId=${id}`);
+
+  // ── Vista selection ─────────────────────────────────────────────────────────
+  const vista: "todas" | "clinica" | "doctor" =
+    !clinicaFilter ? "todas" :
+    !doctorFilter  ? "clinica" :
+    "doctor";
+
+  // ── Doctores disponibles para la clínica seleccionada ──────────────────────
+  const crId = clinicasDisponibles.find(c => c.id === clinicaFilter)?.recordId;
+  const doctoresDisponibles: StaffEntry[] = clinicaFilter && crId
+    ? (staffPorClinica[crId] ?? [])
+    : Object.values(staffPorClinica).flat();
+
+  // ── First load spinner ──────────────────────────────────────────────────────
   if (loading && !data) {
     return (
       <div className="flex-1 min-h-0 flex items-center justify-center">
         <div className="animate-pulse space-y-3 w-full">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-14 bg-slate-100 rounded-xl" />
-          ))}
+          {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-14 bg-slate-100 rounded-xl" />)}
         </div>
       </div>
     );
@@ -328,40 +346,13 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
     );
   }
 
-  // Filtrar citas por doctor seleccionado
-  const filteredAppts = doctorFilter
-    ? data.appointments.filter(a => (a as any).profesionalId === doctorFilter)
-    : data.appointments;
-
-  // Métricas filtradas
-  const filteredSummary = {
-    total: filteredAppts.length,
-    confirmed: filteredAppts.filter(a => a.confirmed).length,
-    riesgoAlto: filteredAppts.filter(a => a.riskLevel === "HIGH").length,
-    riesgoMedio: filteredAppts.filter(a => a.riskLevel === "MEDIUM").length,
-    eurosEnRiesgo: filteredAppts.filter(a => a.riskLevel !== "LOW").length * 85,
-  };
-
-  // Semáforo objetivo
-  const tasaRiesgoHoy = filteredSummary.total > 0
-    ? Math.round(((filteredSummary.riesgoAlto + filteredSummary.riesgoMedio) / filteredSummary.total) * 100)
+  // ── Semáforo ────────────────────────────────────────────────────────────────
+  const totalEnRiesgo = data.summary.riesgoAlto + data.summary.riesgoMedio;
+  const tasaRiesgoHoy = data.summary.total > 0
+    ? Math.round((totalEnRiesgo / data.summary.total) * 100)
     : 0;
   const semaforoColor =
-    tasaRiesgoHoy < objetivo         ? "green"
-    : tasaRiesgoHoy <= objetivo + 3  ? "amber"
-    : "red";
-
-  // Separar citas por nivel (usando filteredAppts)
-  const highAppts   = filteredAppts.filter((a) => a.riskLevel === "HIGH")
-    .sort((a, b) => a.startDisplay.localeCompare(b.startDisplay));
-  const medLowAppts = filteredAppts.filter((a) => a.riskLevel !== "HIGH")
-    .sort((a, b) => a.startDisplay.localeCompare(b.startDisplay));
-
-  // Lista de doctores disponibles según clínica seleccionada
-  const crId = clinicasDisponibles.find(c => c.id === clinicaFilter)?.recordId;
-  const doctoresDisponibles: StaffEntry[] = clinicaFilter && crId
-    ? (staffPorClinica[crId] ?? [])
-    : Object.values(staffPorClinica).flat();
+    tasaRiesgoHoy < objetivo ? "green" : tasaRiesgoHoy <= objetivo + 3 ? "amber" : "red";
 
   return (
     <div className={`flex-1 min-h-0 flex flex-col gap-4 w-full transition-opacity duration-200 ${loading ? "opacity-50 pointer-events-none" : ""}`}>
@@ -369,77 +360,42 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
       {/* Demo banner */}
       {data.isDemo && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
-          <span className="font-semibold">Datos de demostración.</span>{" "}
-          Conecta Airtable para ver datos reales.
+          <span className="font-semibold">Datos de demostración.</span>{" "}Conecta Airtable para ver datos reales.
         </div>
       )}
 
-      {/* ── Header ── */}
+      {/* ── Header permanente ── */}
       <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-4">
+        {/* Título + actualizar */}
         <div className="flex items-center justify-between">
           <div>
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
               {isMañana ? "MAÑANA" : "HOY"}
             </p>
             <p className="text-base font-extrabold text-slate-900 capitalize">{data.todayLabel}</p>
-            {isMañana && (
-              <p className="text-[10px] text-blue-500 font-medium">(datos de mañana)</p>
-            )}
           </div>
           <button
             onClick={() => load(clinicaFilter || undefined)}
             className="text-xs px-2.5 py-1.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
-          >
-            ↻ Actualizar
-          </button>
+          >↻ Actualizar</button>
         </div>
 
-        {/* 4 Metric Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <p className="text-2xl font-black text-slate-800 leading-none">{filteredSummary.total}</p>
-            <p className="text-xs text-slate-500 mt-1">{isMañana ? "Citas mañana" : "Citas hoy"}</p>
-          </div>
-          <div className="rounded-xl border border-green-100 bg-green-50 p-3">
-            <p className="text-2xl font-black text-green-700 leading-none">{filteredSummary.confirmed}</p>
-            <p className="text-xs text-green-600 mt-1">Confirmadas</p>
-          </div>
-          <div className="rounded-xl border border-red-100 bg-red-50 p-3">
-            <p className="text-2xl font-black text-red-700 leading-none">
-              {filteredSummary.riesgoAlto + filteredSummary.riesgoMedio}
-            </p>
-            <p className="text-xs text-red-600 mt-1">En riesgo</p>
-          </div>
-          <div className="rounded-xl border border-amber-100 bg-amber-50 p-3">
-            <p className="text-2xl font-black text-amber-700 leading-none">
-              €{filteredSummary.eurosEnRiesgo}
-            </p>
-            <p className="text-xs text-amber-600 mt-1">€ en riesgo</p>
-          </div>
-        </div>
-
-        {/* Semáforo objetivo mensual */}
+        {/* Semáforo objetivo */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <p className="text-xs font-semibold text-slate-600">Objetivo mensual no-shows</p>
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
               semaforoColor === "green" ? "bg-green-100 text-green-700" :
-              semaforoColor === "amber" ? "bg-amber-100 text-amber-700" :
-              "bg-red-100 text-red-700"
+              semaforoColor === "amber" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
             }`}>
-              {semaforoColor === "green" ? "En objetivo" :
-               semaforoColor === "amber" ? "Cerca del límite" : "Fuera de objetivo"}
+              {semaforoColor === "green" ? "En objetivo" : semaforoColor === "amber" ? "Cerca del límite" : "Fuera de objetivo"}
             </span>
           </div>
           <div className="relative h-2 rounded-full bg-slate-100 overflow-hidden">
-            <div
-              className="absolute top-0 bottom-0 w-px bg-slate-500 z-10"
-              style={{ left: `${Math.min(98, objetivo)}%` }}
-            />
+            <div className="absolute top-0 bottom-0 w-px bg-slate-500 z-10" style={{ left: `${Math.min(98, objetivo)}%` }} />
             <div
               className={`absolute left-0 top-0 bottom-0 rounded-full transition-all ${
-                semaforoColor === "green" ? "bg-green-400" :
-                semaforoColor === "amber" ? "bg-amber-400" : "bg-red-500"
+                semaforoColor === "green" ? "bg-green-400" : semaforoColor === "amber" ? "bg-amber-400" : "bg-red-500"
               }`}
               style={{ width: `${Math.min(100, tasaRiesgoHoy)}%` }}
             />
@@ -451,32 +407,37 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
           </div>
         </div>
 
-        {/* Navbar clínicas — solo manager */}
+        {/* NAVBAR 1 — Clínicas */}
         {isManager && clinicasDisponibles.length > 0 && (
-          <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <div className={PILL_SCROLL}>
+            <button
+              onClick={() => { setClinicaFilter(""); setDoctorFilter(""); }}
+              className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap ${
+                !clinicaFilter ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+              }`}>
+              Todas las clínicas
+            </button>
             {clinicasDisponibles.map(c => (
               <button key={c.id}
                 onClick={() => { setClinicaFilter(c.id); setDoctorFilter(""); }}
-                className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap
-                  ${clinicaFilter === c.id
-                    ? "bg-slate-900 text-white border-slate-900"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
+                className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap ${
+                  clinicaFilter === c.id ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+                }`}>
                 {c.nombre}
               </button>
             ))}
           </div>
         )}
 
-        {/* Navbar doctores */}
-        {doctoresDisponibles.length > 0 && (
-          <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        {/* NAVBAR 2 — Doctores (solo cuando hay clínica seleccionada) */}
+        {clinicaFilter && doctoresDisponibles.length > 0 && (
+          <div className={PILL_SCROLL}>
             {doctoresDisponibles.map(s => (
               <button key={s.id}
                 onClick={() => setDoctorFilter(s.id)}
-                className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap
-                  ${doctorFilter === s.id
-                    ? "bg-violet-700 text-white border-violet-700"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-violet-300"}`}>
+                className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap ${
+                  doctorFilter === s.id ? "bg-violet-700 text-white border-violet-700" : "bg-white text-slate-600 border-slate-200 hover:border-violet-300"
+                }`}>
                 {s.nombre}
               </button>
             ))}
@@ -484,93 +445,311 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
         )}
       </div>
 
-      {/* Banner fallback mañana */}
+      {/* Banner mañana */}
       {isMañana && (
         <div className="rounded-2xl bg-blue-50 border border-blue-200 px-4 py-2.5 flex items-center gap-2">
           <span className="text-base shrink-0">ℹ️</span>
           <p className="text-sm text-blue-800">
             <span className="font-semibold">Mostrando citas de mañana</span>
-            {" · "}
-            <span className="capitalize">{data.todayLabel}</span>
+            {" · "}<span className="capitalize">{data.todayLabel}</span>
           </p>
         </div>
       )}
 
-      {/* ── Riesgo ALTO ── */}
-      {highAppts.length > 0 && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-2">
-          <p className="text-xs font-bold text-red-700 uppercase tracking-wider">
-            Riesgo ALTO · actuar antes del deadline
-          </p>
-          <div className="space-y-2">
-            {highAppts.map((a) => (
-              <ApptRow key={a.id} appt={a} done={done.has(a.id)} onDone={markDone}
-                onNavigate={(id) => router.push(`/no-shows?tab=acciones&citaId=${id}`)} />
-            ))}
-          </div>
-        </div>
-      )}
+      {/* ════════════════════════════════════════════════════════════════
+          VISTA 1 — TODAS LAS CLÍNICAS
+          ════════════════════════════════════════════════════════════════ */}
+      {vista === "todas" && (() => {
+        // Agrupar por clínica
+        const apptsByClinica = new Map<string, { nombre: string; appts: RiskyAppt[] }>();
+        for (const a of data.appointments) {
+          const k = a.clinica ?? "sin-clinica";
+          const e = apptsByClinica.get(k) ?? { nombre: a.clinicaNombre ?? k, appts: [] };
+          e.appts.push(a);
+          apptsByClinica.set(k, e);
+        }
 
-      {/* ── Resto de citas (MED + LOW) ── */}
-      {medLowAppts.length > 0 && (
-        <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-2">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Resto de citas
-          </p>
-          <div className="space-y-2">
-            {medLowAppts.map((a) => (
-              <ApptRow key={a.id} appt={a} done={done.has(a.id)} onDone={markDone}
-                onNavigate={(id) => router.push(`/no-shows?tab=acciones&citaId=${id}`)} />
-            ))}
-          </div>
-        </div>
-      )}
+        return (
+          <>
+            {/* Header global */}
+            <MetricCards
+              total={data.summary.total}
+              confirmed={data.summary.confirmed}
+              enRiesgo={totalEnRiesgo}
+              euros={data.summary.eurosEnRiesgo ?? 0}
+              label={isMañana ? "Citas mañana" : "Citas hoy"}
+            />
 
-      {/* Empty state */}
-      {filteredAppts.length === 0 && (
-        <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
-          <p className="text-sm text-slate-400">Sin citas para el doctor seleccionado</p>
-        </div>
-      )}
+            {/* Cards por clínica */}
+            {apptsByClinica.size === 0 ? (
+              <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
+                <p className="text-sm text-slate-400">Sin citas para hoy en ninguna clínica</p>
+              </div>
+            ) : [...apptsByClinica.entries()].map(([clinicaId, { nombre, appts }]) => {
+              const enRiesgo = appts.filter(a => a.riskLevel !== "LOW").length;
+              const altoRiesgo = appts.filter(a => a.riskLevel === "HIGH").length;
+              const confirmadas = appts.filter(a => a.confirmed).length;
+              const euros = enRiesgo * 85;
 
-      {/* ── Huecos + Recall en 2 cols en md+ ── */}
-      <div className="md:grid md:grid-cols-2 md:gap-4 flex flex-col gap-4">
+              // Agrupar por doctor dentro de la clínica
+              const porDoctor = new Map<string, { nombre: string; appts: RiskyAppt[] }>();
+              for (const a of appts) {
+                const dk = a.profesionalId ?? "sin-doctor";
+                const de = porDoctor.get(dk) ?? { nombre: a.doctorNombre ?? dk, appts: [] };
+                de.appts.push(a); porDoctor.set(dk, de);
+              }
 
-      {/* ── Huecos del día ── */}
-      {data.gaps.length > 0 && (
-        <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-2">
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-            Huecos del día
-          </p>
-          <div className="space-y-1.5">
-            {data.gaps.map((gap, i) => (
-              <GapRow key={i} gap={gap} />
-            ))}
-          </div>
-        </div>
-      )}
+              return (
+                <div key={clinicaId} className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
+                  {/* Header clínica */}
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-bold text-slate-800">{nombre}</p>
+                    <div className="flex items-center gap-2">
+                      {altoRiesgo > 0 && (
+                        <span className="animate-pulse text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
+                          ATENCIÓN
+                        </span>
+                      )}
+                      {enRiesgo > 0 && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
+                          {enRiesgo} en riesgo
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    {appts.length} citas · {confirmadas} confirmadas · €{euros.toLocaleString("es-ES")} en riesgo
+                  </p>
+                  {/* Filas de doctor */}
+                  <div className="space-y-1">
+                    {[...porDoctor.entries()].map(([doctorId, { nombre: dNombre, appts: dAppts }]) => {
+                      const dRiesgo = dAppts.filter(a => a.riskLevel !== "LOW").length;
+                      return (
+                        <button key={doctorId}
+                          onClick={() => { setClinicaFilter(clinicaId); setDoctorFilter(doctorId); }}
+                          className="w-full flex items-center justify-between text-left px-3 py-2 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all">
+                          <span className="text-xs font-semibold text-slate-700">{dNombre}</span>
+                          <span className="text-xs text-slate-500">
+                            {dAppts.length} citas
+                            {dRiesgo > 0 && <span className="ml-2 text-red-600 font-semibold">· {dRiesgo} en riesgo</span>}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
 
-      {/* ── RECALL (colapsable al final) ── */}
-      {data.recalls.length > 0 && (
-        <details className="rounded-2xl bg-white border border-orange-200 overflow-hidden">
-          <summary className="cursor-pointer px-4 py-3 flex items-center justify-between select-none list-none">
-            <div className="flex items-center gap-2">
-              <span className="text-sm">🔔</span>
-              <p className="text-sm font-semibold text-orange-800">
-                Recall — {data.recalls.length} paciente{data.recalls.length !== 1 ? "s" : ""} sin próxima cita
-              </p>
+            {/* Recall global colapsable */}
+            {data.recalls.length > 0 && (
+              <details className="rounded-2xl bg-white border border-orange-200 overflow-hidden">
+                <summary className="cursor-pointer px-4 py-3 flex items-center justify-between select-none list-none">
+                  <p className="text-sm font-semibold text-orange-800">
+                    🔔 Recall — {data.recalls.length} paciente{data.recalls.length !== 1 ? "s" : ""} sin próxima cita
+                  </p>
+                  <span className="text-xs text-slate-400">Ver ▾</span>
+                </summary>
+                <div className="border-t border-orange-100 p-4 space-y-2">
+                  {data.recalls.map(recall => <RecallCard key={recall.patientPhone} recall={recall} />)}
+                </div>
+              </details>
+            )}
+          </>
+        );
+      })()}
+
+      {/* ════════════════════════════════════════════════════════════════
+          VISTA 2 — UNA CLÍNICA, TODOS SUS DOCTORES
+          ════════════════════════════════════════════════════════════════ */}
+      {vista === "clinica" && (() => {
+        const clinicaNombre = clinicasDisponibles.find(c => c.id === clinicaFilter)?.nombre ?? clinicaFilter;
+        const clinicaAppts = data.appointments;
+        const enRiesgo = clinicaAppts.filter(a => a.riskLevel !== "LOW").length;
+        const euros = enRiesgo * 85;
+
+        // Agrupar por doctor
+        const porDoctor = new Map<string, { nombre: string; appts: RiskyAppt[] }>();
+        for (const a of clinicaAppts) {
+          const dk = a.profesionalId ?? "sin-doctor";
+          const de = porDoctor.get(dk) ?? { nombre: a.doctorNombre ?? dk, appts: [] };
+          de.appts.push(a); porDoctor.set(dk, de);
+        }
+
+        return (
+          <>
+            {/* Header clínica */}
+            <div className="px-1">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{clinicaNombre}</p>
             </div>
-            <span className="text-xs text-slate-400">Ver ▾</span>
-          </summary>
-          <div className="border-t border-orange-100 p-4 space-y-2">
-            {data.recalls.map((recall) => (
-              <RecallCard key={recall.patientPhone} recall={recall} />
-            ))}
-          </div>
-        </details>
-      )}
+            <MetricCards
+              total={clinicaAppts.length}
+              confirmed={clinicaAppts.filter(a => a.confirmed).length}
+              enRiesgo={enRiesgo}
+              euros={euros}
+              label={isMañana ? "Citas mañana" : "Citas hoy"}
+            />
 
-      </div>{/* end 2-col grid */}
+            {/* Cards por doctor */}
+            {porDoctor.size === 0 ? (
+              <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
+                <p className="text-sm text-slate-400">Sin citas para hoy en esta clínica</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {[...porDoctor.entries()].map(([doctorId, { nombre, appts: dAppts }]) => {
+                  const altoRiesgo = dAppts.filter(a => a.riskLevel === "HIGH").length;
+                  const sinConf = dAppts.filter(a => !a.confirmed).length;
+                  const conf = dAppts.filter(a => a.confirmed).length;
+                  return (
+                    <div key={doctorId} className="rounded-2xl bg-white border border-slate-200 p-4 space-y-2">
+                      <p className="text-sm font-bold text-slate-800">{nombre}</p>
+                      <p className="text-xs text-slate-500">{dAppts.length} citas hoy</p>
+                      {altoRiesgo > 0 && <p className="text-xs text-red-600 font-semibold">🔴 {altoRiesgo} en riesgo alto</p>}
+                      {sinConf > 0 && <p className="text-xs text-amber-600 font-semibold">🟡 {sinConf} sin confirmar</p>}
+                      {conf > 0 && <p className="text-xs text-green-600">✅ {conf} confirmada{conf > 1 ? "s" : ""}</p>}
+                      <button
+                        onClick={() => setDoctorFilter(doctorId)}
+                        className="w-full mt-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors px-3 py-1.5 text-xs font-semibold text-slate-700">
+                        Ver agenda del día →
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Resumen huecos */}
+            {data.gaps.length > 0 && (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs text-slate-500">
+                  {data.gaps.length} huecos disponibles hoy
+                  {data.recalls.length > 0 && ` · ${data.recalls.length} pacientes en recall`}
+                </p>
+              </div>
+            )}
+
+            {/* Recall colapsable */}
+            {data.recalls.length > 0 && (
+              <details className="rounded-2xl bg-white border border-orange-200 overflow-hidden">
+                <summary className="cursor-pointer px-4 py-3 flex items-center justify-between select-none list-none">
+                  <p className="text-sm font-semibold text-orange-800">
+                    🔔 Recall — {data.recalls.length} paciente{data.recalls.length !== 1 ? "s" : ""} sin próxima cita
+                  </p>
+                  <span className="text-xs text-slate-400">Ver ▾</span>
+                </summary>
+                <div className="border-t border-orange-100 p-4 space-y-2">
+                  {data.recalls.map(recall => <RecallCard key={recall.patientPhone} recall={recall} />)}
+                </div>
+              </details>
+            )}
+          </>
+        );
+      })()}
+
+      {/* ════════════════════════════════════════════════════════════════
+          VISTA 3 — UN DOCTOR ESPECÍFICO
+          ════════════════════════════════════════════════════════════════ */}
+      {vista === "doctor" && (() => {
+        const doctorAppts = data.appointments
+          .filter(a => a.profesionalId === doctorFilter)
+          .sort((a, b) => a.startDisplay.localeCompare(b.startDisplay));
+
+        const doctorNombre = doctorAppts[0]?.doctorNombre
+          ?? doctoresDisponibles.find(d => d.id === doctorFilter)?.nombre
+          ?? doctorFilter;
+
+        const enRiesgo = doctorAppts.filter(a => a.riskLevel !== "LOW").length;
+        const highAppts = doctorAppts.filter(a => a.riskLevel === "HIGH");
+        const medLowAppts = doctorAppts.filter(a => a.riskLevel !== "HIGH");
+        const doctorGaps = computeGaps(doctorAppts, data.todayIso);
+
+        return (
+          <>
+            {/* Header doctor */}
+            <div className="px-1">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{doctorNombre}</p>
+            </div>
+            <MetricCards
+              total={doctorAppts.length}
+              confirmed={doctorAppts.filter(a => a.confirmed).length}
+              enRiesgo={enRiesgo}
+              euros={enRiesgo * 85}
+              label={isMañana ? "Citas mañana" : "Citas hoy"}
+            />
+
+            {/* Citas HIGH */}
+            {highAppts.length > 0 && (
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-2">
+                <p className="text-xs font-bold text-red-700 uppercase tracking-wider">
+                  Riesgo ALTO · actuar antes del deadline
+                </p>
+                <div className="space-y-2">
+                  {highAppts.map(a => (
+                    <ApptRow key={a.id} appt={a} done={done.has(a.id)} onDone={markDone} onNavigate={onNavigate} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Citas MED + LOW */}
+            {medLowAppts.length > 0 && (
+              <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-2">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                  Resto de citas
+                </p>
+                <div className="space-y-2">
+                  {medLowAppts.map(a => (
+                    <ApptRow key={a.id} appt={a} done={done.has(a.id)} onDone={markDone} onNavigate={onNavigate} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Empty state */}
+            {doctorAppts.length === 0 && (
+              <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
+                <p className="text-sm text-slate-400">Sin citas para este doctor hoy</p>
+              </div>
+            )}
+
+            {/* Huecos del doctor */}
+            {doctorGaps.length > 0 && (
+              <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-2">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Huecos disponibles hoy</p>
+                {doctorGaps.map((gap, i) => (
+                  <div key={i} className="flex items-center gap-3 py-1.5">
+                    <span className="text-xs font-semibold text-slate-600 w-24 shrink-0">
+                      {gap.startDisplay}–{gap.endDisplay}
+                    </span>
+                    <span className="text-xs text-slate-400">{gap.durationMin} min disponibles</span>
+                    <button
+                      onClick={() => router.push("/no-shows?tab=acciones")}
+                      className="ml-auto text-xs text-cyan-600 hover:underline shrink-0">
+                      Ver candidatos →
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Recall colapsable */}
+            {data.recalls.length > 0 && (
+              <details className="rounded-2xl bg-white border border-orange-200 overflow-hidden">
+                <summary className="cursor-pointer px-4 py-3 flex items-center justify-between select-none list-none">
+                  <p className="text-sm font-semibold text-orange-800">
+                    🔔 Pacientes sin próxima cita ({data.recalls.length})
+                  </p>
+                  <span className="text-xs text-slate-400">Ver ▾</span>
+                </summary>
+                <div className="border-t border-orange-100 p-4 space-y-2">
+                  {data.recalls.map(recall => <RecallCard key={recall.patientPhone} recall={recall} />)}
+                </div>
+              </details>
+            )}
+          </>
+        );
+      })()}
 
     </div>
   );
