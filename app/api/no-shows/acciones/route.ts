@@ -85,7 +85,7 @@ export async function GET(req: Request) {
     const todayIso    = todayDt.toISODate()!;
     const tomorrowIso = tomorrowDt.toISODate()!;
     const day3Iso     = todayDt.plus({ days: 2 }).toISODate()!;
-    const day8Iso     = todayDt.plus({ days: 7 }).toISODate()!;
+    const day14Iso    = todayDt.plus({ days: 13 }).toISODate()!;
 
     const allRecs = await base(TABLES.appointments as any)
       .select({ maxRecords: 2000 })
@@ -114,7 +114,7 @@ export async function GET(req: Request) {
       if (dayIso === todayIso && (CANCEL_SET.has(estado) || NO_SHOW_SET.has(estado))) {
         canceladosHoyRecs.push({ r, f, startIso });
       }
-      if (dayIso >= day3Iso && dayIso < day8Iso && !CANCELLED.has(estado)) {
+      if (dayIso >= day3Iso && dayIso <= day14Iso && !CANCELLED.has(estado)) {
         proximosDiasRecs.push({ r, f, startIso });
       }
     }
@@ -399,12 +399,38 @@ export async function GET(req: Request) {
       });
     }
 
+    // PRÓXIMOS DÍAS (días 3–14) — solo citas, sin gaps
+    for (const a of proximosDias) {
+      const nombre     = a.patientName.split(" ")[0];
+      const levelLabel = a.riskLevel === "HIGH" ? "ALTO" : a.riskLevel === "MEDIUM" ? "MEDIO" : "BAJO";
+      const escalado   = a.riskScore >= 80;
+      const urgencia   = urgenciaTemporal(a.start, now, a.confirmed);
+      const scoreAccion = Math.round(a.riskScore * 0.6 + urgencia * 0.4);
+      const hoursUntil  = DateTime.fromISO(a.start, { zone: ZONE }).diff(now, "hours").hours;
+      tasks.push({
+        id: `accion-${idx++}`,
+        category: "NO_SHOW",
+        patientName: a.patientName,
+        phone: a.patientPhone,
+        description: `Riesgo ${levelLabel} · ${a.treatmentName} el ${a.dayIso} a las ${a.startDisplay}`,
+        whatsappMsg: `Hola ${nombre}, te recordamos tu cita de ${a.treatmentName} el ${a.dayIso} a las ${a.startDisplay}. ¿Confirmas asistencia?`,
+        deadlineIso: a.dayIso + "T18:00:00",
+        urgent: escalado,
+        escalado,
+        appt: a,
+        scoreAccion,
+        urgencia,
+        hoursUntil,
+        yaGestionado: isYaGestionado(a),
+      });
+    }
+
     console.log(`[acciones] tasks=${tasks.length} proximosDias=${proximosDias.length} recalls=${recalls.length}`);
 
     return NextResponse.json({
       tasks,
       canceladosHoy,
-      proximosDias,
+      proximosDias: [], // incluidos en tasks desde CAMBIO 4
       recalls,
       summary: {
         total:   tasks.length,

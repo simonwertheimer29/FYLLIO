@@ -15,7 +15,6 @@ import AccionSidePanel, { type HistorialItem } from "./AccionSidePanel";
 type AccionesData = {
   tasks: AccionTask[];
   canceladosHoy: RiskyAppt[];
-  proximosDias: RiskyAppt[];
   recalls: RecallAlert[];
   summary: { total: number; urgent: number; pending: number };
 };
@@ -296,57 +295,52 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
   const allTasks = data ? applyFilters(data.tasks) : [];
   const recalls = data?.recalls ?? [];
 
-  // Fechas necesarias para filtrar (deben ir antes de urgentes/manana)
-  const weekDays    = getCurrentWeekDays();
+  // Fechas para labels
   const todayIso    = getTodayIso();
   const tomorrowIso = getTomorrowIso();
 
-  // HOY: citas + gaps de hoy
-  const urgentes: UnifiedItem[] = allTasks
-    .filter(t => !done.has(t.id) && (
-      (t.category === "NO_SHOW" && t.appt?.dayIso === todayIso) ||
-      (t.category === "GAP"     && t.gap?.dayIso  === todayIso)
-    ))
+  // URGENTE: scoreAccion >= 70 (cualquier día del rango)
+  const urgenteItems: UnifiedItem[] = allTasks
+    .filter(t => !done.has(t.id) && (t.scoreAccion ?? 0) >= 70)
     .sort((a, b) => (b.scoreAccion ?? 0) - (a.scoreAccion ?? 0))
     .map(t => toUnifiedAppt(t, recalls))
     .filter((x): x is UnifiedItem => x !== null);
 
-  // MAÑANA: citas + gaps de mañana
-  const manana: UnifiedItem[] = allTasks
-    .filter(t => !done.has(t.id) && (
-      (t.category === "NO_SHOW" && t.appt?.dayIso === tomorrowIso) ||
-      (t.category === "GAP"     && t.gap?.dayIso  === tomorrowIso)
-    ))
+  // PENDIENTE: scoreAccion 30–69 (cualquier día del rango)
+  const semanaItems: UnifiedItem[] = allTasks
+    .filter(t => !done.has(t.id) && (t.scoreAccion ?? 0) >= 30 && (t.scoreAccion ?? 0) < 70)
     .sort((a, b) => (b.scoreAccion ?? 0) - (a.scoreAccion ?? 0))
     .map(t => toUnifiedAppt(t, recalls))
     .filter((x): x is UnifiedItem => x !== null);
 
-  // Progress bar
-  const totalAcciones = allTasks.length;
-  const pct = totalAcciones > 0 ? Math.round(done.size / totalAcciones * 100) : 100;
-  const pendientes = Math.max(0, urgentes.length + manana.length);
-  const euros = urgentes.filter(i => i.type === "appt").length * 80;
+  // Día más próximo con items PENDIENTE (para label columna derecha)
+  const proximoDiaPendiente: string | null = semanaItems.length > 0
+    ? (semanaItems
+        .map(i => i.type === "appt" ? i.data.dayIso : i.type === "gap" ? i.data.dayIso : null)
+        .filter((d): d is string => d !== null)
+        .sort()[0] ?? null)
+    : null;
 
-  type DayData = { appts: RiskyAppt[]; gaps: GapSlot[]; tasks: AccionTask[] };
-  const byDay = new Map<string, DayData>();
-  for (const d of weekDays) byDay.set(d, { appts: [], gaps: [], tasks: [] });
+  // Progress bar (sobre urgentes)
+  const totalAcciones  = allTasks.length;
+  const totalUrgente   = urgenteItems.length + done.size;
+  const pct = totalUrgente > 0 ? Math.round(done.size / totalUrgente * 100) : 100;
 
+  // SEMANA: agrupar todos los días con tasks
+  const allDaysSet = new Set<string>();
   for (const t of allTasks) {
-    if (t.appt) {
-      const dd = byDay.get(t.appt.dayIso);
-      if (dd) { dd.appts.push(t.appt); dd.tasks.push(t); }
-    }
-    if (t.gap) {
-      const dd = byDay.get(t.gap.dayIso);
-      if (dd) { dd.gaps.push(t.gap); dd.tasks.push(t); }
-    }
+    if (t.appt?.dayIso) allDaysSet.add(t.appt.dayIso);
+    if (t.gap?.dayIso)  allDaysSet.add(t.gap.dayIso);
   }
-  const filteredProximosDias = profesionalFilter
-    ? (data?.proximosDias ?? []).filter(a => a.profesionalId === profesionalFilter)
-    : (data?.proximosDias ?? []);
-  for (const a of filteredProximosDias) {
-    const dd = byDay.get(a.dayIso);
-    if (dd && !dd.appts.find(x => x.id === a.id)) dd.appts.push(a);
+  const allDays = Array.from(allDaysSet).sort();
+
+  type DayData = { tasks: AccionTask[] };
+  const byDay = new Map<string, DayData>();
+  for (const d of allDays) byDay.set(d, { tasks: [] });
+  for (const t of allTasks) {
+    const dayIso = t.appt?.dayIso ?? t.gap?.dayIso;
+    if (!dayIso) continue;
+    byDay.get(dayIso)?.tasks.push(t);
   }
 
   // HISTORIAL fusionado
@@ -377,9 +371,9 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
   }
   histRows.sort((a, b) => b.fecha.localeCompare(a.fecha));
 
-  // Gaps this week for historial tab
+  // Gaps para historial (todos los días del rango)
   const allGaps: UnifiedItem[] = allTasks
-    .filter(t => t.category === "GAP" && t.gap && weekDays.includes(t.gap.dayIso))
+    .filter(t => t.category === "GAP" && t.gap)
     .map(t => toUnifiedAppt(t, recalls))
     .filter((x): x is UnifiedItem => x !== null);
 
@@ -390,17 +384,17 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
     const pid = t.appt?.profesionalId;
     if (!pid || done.has(t.id) || t.yaGestionado) continue;
     const score = t.scoreAccion ?? 0;
-    if (score >= 60) urgentsByDoctor[pid] = (urgentsByDoctor[pid] ?? 0) + 1;
+    if (score >= 70) urgentsByDoctor[pid] = (urgentsByDoctor[pid] ?? 0) + 1;
     else if (score >= 30) pendingByDoctor[pid] = (pendingByDoctor[pid] ?? 0) + 1;
   }
 
-  // Métricas del header
-  const confirmadasHoy = allTasks.filter(
-    t => t.category === "NO_SHOW" && t.appt?.dayIso === todayIso && t.appt?.confirmed
-  );
-  const confirmadasEuros = confirmadasHoy.length * 80;
-  const enRiesgoItems    = urgentes.filter(i => i.type === "appt");
-  const enRiesgoEuros    = enRiesgoItems.length * 80;
+  // Métricas del header (sobre todo el rango 14 días)
+  const confirmadasCount = allTasks.filter(
+    t => t.category === "NO_SHOW" && t.appt?.confirmed
+  ).length;
+  const confirmadasEuros = confirmadasCount * 80;
+  const enRiesgoCount = allTasks.filter(t => (t.scoreAccion ?? 0) >= 40).length;
+  const enRiesgoEuros = enRiesgoCount * 80;
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -425,21 +419,21 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
           <div className="rounded-xl border border-green-100 bg-white p-2.5 text-center">
             <p className="text-[10px] font-semibold text-slate-500 mb-1">Confirmados</p>
             <p className="text-base font-bold text-green-700">€{confirmadasEuros}</p>
-            <p className="text-[10px] text-slate-400">{confirmadasHoy.length} citas</p>
+            <p className="text-[10px] text-slate-400">{confirmadasCount} citas</p>
           </div>
           <div className="rounded-xl border border-red-100 bg-white p-2.5 text-center">
             <p className="text-[10px] font-semibold text-slate-500 mb-1">En riesgo</p>
             <p className="text-base font-bold text-red-600">€{enRiesgoEuros}</p>
-            <p className="text-[10px] text-slate-400">{enRiesgoItems.length} citas</p>
+            <p className="text-[10px] text-slate-400">{enRiesgoCount} citas</p>
           </div>
           <div className="rounded-xl border border-orange-100 bg-white p-2.5 text-center">
-            <p className="text-[10px] font-semibold text-slate-500 mb-1">Urgente hoy</p>
-            <p className="text-base font-bold text-orange-600">{urgentes.length}</p>
+            <p className="text-[10px] font-semibold text-slate-500 mb-1">Urgente</p>
+            <p className="text-base font-bold text-orange-600">{urgenteItems.length}</p>
             <p className="text-[10px] text-slate-400">acciones</p>
           </div>
           <div className="rounded-xl border border-blue-100 bg-white p-2.5 text-center">
             <p className="text-[10px] font-semibold text-slate-500 mb-1">Completadas</p>
-            <p className="text-base font-bold text-blue-600">{done.size}/{totalAcciones}</p>
+            <p className="text-base font-bold text-blue-600">{done.size}/{totalUrgente}</p>
             <p className="text-[10px] text-slate-400">{pct}% del plan</p>
           </div>
         </div>
@@ -447,7 +441,7 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
         {/* Progress bar */}
         <div className="space-y-1">
           <div className="flex justify-between text-xs text-slate-400">
-            <span>{done.size}/{totalAcciones} completadas</span>
+            <span>{done.size}/{totalUrgente} urgentes completadas</span>
             <span>{pct}%</span>
           </div>
           <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
@@ -536,12 +530,12 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
       {activeTab === "hoy" && data && (
         <div className="flex-1 min-h-0 overflow-y-auto space-y-4">
 
-          {/* Nudge HOY completo */}
-          {urgentes.length === 0 && manana.length === 0 && (
+          {/* Nudge sin acciones */}
+          {urgenteItems.length === 0 && semanaItems.length === 0 && (
             <div className="rounded-2xl bg-green-50 border border-green-200 p-5 text-center space-y-2">
-              <p className="text-green-700 font-bold text-base">✓ Hoy completado</p>
-              <p className="text-green-600 text-sm">¿Adelantamos el martes?</p>
-              <button onClick={() => { setActiveTab("semana"); setExpandedDays(new Set([weekDays[1]])); }}
+              <p className="text-green-700 font-bold text-base">✓ Sin acciones urgentes</p>
+              <p className="text-green-600 text-sm">No hay citas con riesgo relevante en los próximos 14 días.</p>
+              <button onClick={() => setActiveTab("semana")}
                 className="mt-1 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700">
                 Ver semana →
               </button>
@@ -549,40 +543,42 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
           )}
 
           <div className="grid grid-cols-2 gap-4">
-            {/* COLUMNA URGENTE HOY */}
+            {/* COLUMNA URGENTE (scoreAccion >= 70) */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-bold text-red-600">URGENTE HOY · {urgentes.length}</h2>
+                <h2 className="text-sm font-bold text-red-600">URGENTE · {urgenteItems.length}</h2>
                 <button onClick={() => setCompactHoy(v => !v)}
                   className="text-xs text-slate-400 hover:text-slate-600">
                   {compactHoy ? "▤ Detallada" : "≡ Compacta"}
                 </button>
               </div>
               <div className="space-y-2">
-                {urgentes.length === 0 && (
-                  <p className="text-xs text-slate-400 py-4 text-center">Sin urgencias para hoy</p>
+                {urgenteItems.length === 0 && (
+                  <p className="text-xs text-slate-400 py-4 text-center">Sin urgencias</p>
                 )}
-                {urgentes.map(item => (
+                {urgenteItems.map(item => (
                   <ItemCard key={item.id} item={item} compact={compactHoy}
                     onClick={() => setSelectedItem(item)} />
                 ))}
               </div>
             </div>
 
-            {/* COLUMNA MAÑANA */}
+            {/* COLUMNA PENDIENTE (scoreAccion 30–69) */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-bold text-amber-600">MAÑANA · {manana.length}</h2>
+                <h2 className="text-sm font-bold text-amber-600 truncate">
+                  PENDIENTE{proximoDiaPendiente ? ` · próximo: ${dayLabel(proximoDiaPendiente)}` : ""} · {semanaItems.length}
+                </h2>
                 <button onClick={() => setCompactHoy(v => !v)}
-                  className="text-xs text-slate-400 hover:text-slate-600">
+                  className="shrink-0 text-xs text-slate-400 hover:text-slate-600">
                   {compactHoy ? "▤ Detallada" : "≡ Compacta"}
                 </button>
               </div>
               <div className="space-y-2">
-                {manana.length === 0 && (
-                  <p className="text-xs text-slate-400 py-4 text-center">Sin citas para mañana</p>
+                {semanaItems.length === 0 && (
+                  <p className="text-xs text-slate-400 py-4 text-center">Sin pendientes</p>
                 )}
-                {manana.map(item => (
+                {semanaItems.map(item => (
                   <ItemCard key={item.id} item={item} compact={compactHoy}
                     onClick={() => setSelectedItem(item)} />
                 ))}
@@ -595,25 +591,21 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
       {/* ── SECCIÓN SEMANA ────────────────────────────────────────────────────── */}
       {activeTab === "semana" && data && (
         <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
-          {weekDays.map(dayIso => {
-            const dd = byDay.get(dayIso) ?? { appts: [], gaps: [], tasks: [] };
-            const numRiesgo = dd.appts.filter(a => a.riskScore >= 40).length;
-            const numHuecos = dd.gaps.length;
-            const dayEuros  = numRiesgo * 80;
-            const badge: "CRÍTICO" | "ATENCIÓN" | "OK" =
-              numRiesgo > 4 || dd.gaps.some(g => g.durationMin > 120) ? "CRÍTICO" :
-              numRiesgo >= 2 || dd.gaps.some(g => g.durationMin > 60)  ? "ATENCIÓN" : "OK";
-            const badgeClass =
-              badge === "CRÍTICO" ? "bg-red-100 text-red-700" :
-              badge === "ATENCIÓN" ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700";
+          {allDays.map(dayIso => {
+            const dd = byDay.get(dayIso) ?? { tasks: [] };
+            const dayItems: UnifiedItem[] = dd.tasks
+              .filter(t => !done.has(t.id) && (t.scoreAccion ?? 0) >= 30)
+              .sort((a, b) => (b.scoreAccion ?? 0) - (a.scoreAccion ?? 0))
+              .map(t => toUnifiedAppt(t, recalls))
+              .filter((x): x is UnifiedItem => x !== null);
+
+            if (dayItems.length === 0) return null; // ocultar días sin items relevantes
+
+            const numUrgente  = dayItems.filter(i => i.scoreAccion >= 70).length;
+            const numPendiente = dayItems.length - numUrgente;
             const isToday    = dayIso === todayIso;
             const isTomorrow = dayIso === tomorrowIso;
             const expanded = expandedDays.has(dayIso);
-
-            const dayItems: UnifiedItem[] = dd.tasks
-              .filter(t => !done.has(t.id))
-              .map(t => toUnifiedAppt(t, recalls))
-              .filter((x): x is UnifiedItem => x !== null);
 
             return (
               <div key={dayIso} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
@@ -625,22 +617,20 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
                     return next;
                   })}>
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className={`text-xs font-bold w-2 h-2 rounded-full ${numRiesgo > 0 ? "bg-red-400" : "bg-green-400"} shrink-0`} />
+                    <span className={`text-xs font-bold w-2 h-2 rounded-full shrink-0 ${numUrgente > 0 ? "bg-red-400" : numPendiente > 0 ? "bg-orange-300" : "bg-green-400"}`} />
                     <span className={`text-sm font-semibold ${isToday ? "text-red-600" : isTomorrow ? "text-amber-600" : "text-slate-700"}`}>
                       {isToday ? "HOY" : isTomorrow ? "MAÑANA" : dayLabel(dayIso)}
                     </span>
                     <span className="text-xs text-slate-400">
-                      {numRiesgo} en riesgo · {numHuecos} huecos · €{dayEuros}
+                      {numUrgente > 0 && `${numUrgente} urgentes`}
+                      {numUrgente > 0 && numPendiente > 0 && " · "}
+                      {numPendiente > 0 && `${numPendiente} pendientes`}
                     </span>
                   </div>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeClass}`}>{badge}</span>
                   <span className="text-slate-300 text-xs">{expanded ? "▲" : "▼"}</span>
                 </button>
                 {expanded && (
                   <div className="border-t border-slate-100 p-3 space-y-2">
-                    {dayItems.length === 0 && (
-                      <p className="text-xs text-slate-400 text-center py-2">Sin acciones pendientes</p>
-                    )}
                     {dayItems.map(item => (
                       <ItemCard key={item.id} item={item} compact={false}
                         onClick={() => setSelectedItem(item)} />
@@ -650,6 +640,12 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
               </div>
             );
           })}
+          {allDays.every(d => {
+            const dd = byDay.get(d);
+            return !dd || dd.tasks.filter(t => !done.has(t.id) && (t.scoreAccion ?? 0) >= 30).length === 0;
+          }) && (
+            <p className="text-xs text-slate-400 py-8 text-center">Sin acciones pendientes esta semana</p>
+          )}
         </div>
       )}
 
