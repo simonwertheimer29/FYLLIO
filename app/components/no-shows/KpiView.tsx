@@ -1030,7 +1030,7 @@ export default function KpiView({ user }: { user: NoShowsUserSession }) {
 
   useEffect(() => { load(period, clinicaFilter || undefined, doctorFilter || undefined); }, [load, period, clinicaFilter, doctorFilter]);
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="flex-1 min-h-0 flex items-center justify-center">
         <div className="animate-pulse space-y-3 w-full">
@@ -1049,7 +1049,7 @@ export default function KpiView({ user }: { user: NoShowsUserSession }) {
   }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col w-full">
+    <div className={`flex-1 min-h-0 flex flex-col w-full transition-opacity duration-200 ${loading ? "opacity-50 pointer-events-none" : ""}`}>
       {/* Demo banner */}
       {data.isDemo && (
         <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">

@@ -472,38 +472,43 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
           ))}
         </div>
 
-        {/* Clinic filter */}
+        {/* Navbar clínicas — pills (solo manager) */}
         {isManager && clinicasDisponibles.length > 0 && (
-          <select
-            value={clinicaFilter}
-            onChange={(e) => handleClinicaChange(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
-          >
-            <option value="">Todas las clínicas</option>
-            {clinicasDisponibles.map((c) => (
-              <option key={c.id} value={c.id}>{c.nombre}</option>
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            {([{ id: "", nombre: "Todas" }, ...clinicasDisponibles]).map((c) => (
+              <button key={c.id}
+                onClick={() => handleClinicaChange(c.id)}
+                className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap
+                  ${clinicaFilter === c.id
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
+                {c.nombre}
+              </button>
             ))}
-          </select>
+          </div>
         )}
 
-        {/* Profesional filter (visible si hay clínica seleccionada y tiene staff) */}
+        {/* Navbar doctores — pills (visible cuando hay clínica seleccionada) */}
         {(() => {
           const recId = clinicaFilter
             ? (clinicasDisponibles.find((c) => c.id === clinicaFilter)?.recordId ?? "")
             : "";
           const profesionales = recId ? (staffPorClinica[recId] ?? []) : [];
-          return isManager && clinicaFilter && profesionales.length > 0 ? (
-            <select
-              value={profesionalFilter}
-              onChange={(e) => setProfesionalFilter(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
-            >
-              <option value="">Todos los profesionales</option>
-              {profesionales.map((p) => (
-                <option key={p.id} value={p.id}>{p.nombre}</option>
+          if (!isManager || !clinicaFilter || profesionales.length === 0) return null;
+          return (
+            <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              {([{ id: "", nombre: "Todos" }, ...profesionales]).map((p) => (
+                <button key={p.id}
+                  onClick={() => setProfesionalFilter(p.id)}
+                  className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap
+                    ${profesionalFilter === p.id
+                      ? "bg-violet-700 text-white border-violet-700"
+                      : "bg-white text-slate-600 border-slate-200 hover:border-violet-300"}`}>
+                  {p.nombre}
+                </button>
               ))}
-            </select>
-          ) : null;
+            </div>
+          );
         })()}
       </div>
 

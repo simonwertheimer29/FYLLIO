@@ -308,7 +308,7 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
     try { localStorage.setItem("fyllio_noshows_done", JSON.stringify([...next])); } catch { /* */ }
   }
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <div className="flex-1 min-h-0 flex items-center justify-center">
         <div className="animate-pulse space-y-3 w-full">
@@ -364,7 +364,7 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
     : Object.values(staffPorClinica).flat();
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col gap-4 w-full">
+    <div className={`flex-1 min-h-0 flex flex-col gap-4 w-full transition-opacity duration-200 ${loading ? "opacity-50 pointer-events-none" : ""}`}>
 
       {/* Demo banner */}
       {data.isDemo && (

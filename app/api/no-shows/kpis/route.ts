@@ -91,9 +91,26 @@ export async function GET(req: Request) {
     const periodStart = now.minus({ days: periodDays }).toISODate()!;
     const midPoint   = now.minus({ days: Math.floor(periodDays / 2) }).toISODate()!;
 
-    const allRecs = await base(TABLES.appointments as any)
-      .select({ maxRecords: 2000 })
-      .all();
+    const [clinicaRecs, staffRecs, allRecs] = await Promise.all([
+      base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all(),
+      base("Staff" as any).select({ fields: ["Staff ID", "Nombre"] }).all(),
+      base(TABLES.appointments as any).select({ maxRecords: 2000 }).all(),
+    ]);
+
+    // Mapas inversos: Airtable record ID → ID canónico (para campos linked record)
+    const clinicaRecordToId = new Map<string, string>(
+      (clinicaRecs as any[]).map((r) => [r.id, firstString(r.fields["Clínica ID"])])
+    );
+    const staffRecordToId = new Map<string, string>(
+      (staffRecs as any[]).map((r) => [r.id, firstString(r.fields["Staff ID"])])
+    );
+
+    // Debug temporal — ver formato real de los campos en Airtable
+    if (allRecs.length > 0) {
+      const sample = (allRecs[0] as any).fields;
+      console.log("[kpis] Sample Clínica_id raw:", JSON.stringify(sample["Clínica_id"]));
+      console.log("[kpis] Sample Profesional_id raw:", JSON.stringify(sample["Profesional_id"]));
+    }
 
     type RecordData = {
       startIso:  string;
@@ -117,10 +134,12 @@ export async function GET(req: Request) {
       const dayIso = startIso.slice(0, 10);
       if (dayIso > todayIso) continue;
 
-      const clinicaRec = firstString(f["Clínica_id"]);
+      const rawClinicaId = firstString(f["Clínica_id"]);
+      const clinicaRec = clinicaRecordToId.get(rawClinicaId) ?? rawClinicaId;
       if (clinicaFilter && clinicaRec && clinicaRec !== clinicaFilter) continue;
 
-      const doctorId = firstString(f["Profesional_id"]);
+      const rawDoctorId = firstString(f["Profesional_id"]);
+      const doctorId = staffRecordToId.get(rawDoctorId) ?? rawDoctorId;
       if (doctorFilter && doctorId !== doctorFilter) continue;
 
       const estado   = String(f["Estado"] ?? "").trim().toUpperCase();

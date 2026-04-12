@@ -93,6 +93,17 @@ export async function GET(req: Request) {
     const clinicaMap = new Map<string, string>((clinicaRecs as any[]).map((r) => [firstString(r.fields["Clínica ID"]), firstString(r.fields["Nombre"])]));
     const sillonMap  = new Map<string, string>((sillonRecs as any[]).map((r) => [firstString(r.fields["Sillón ID"]),  firstString(r.fields["Nombre"])]));
 
+    // Mapas inversos: Airtable record ID → ID canónico (para campos linked record)
+    const staffRecordToId   = new Map<string, string>((staffRecs   as any[]).map((r) => [r.id, firstString(r.fields["Staff ID"])]));
+    const clinicaRecordToId = new Map<string, string>((clinicaRecs as any[]).map((r) => [r.id, firstString(r.fields["Clínica ID"])]));
+
+    // Debug temporal — ver formato real
+    if (allRecs.length > 0) {
+      const sample = (allRecs[0] as any).fields;
+      console.log("[hoy] Sample Clínica_id raw:", JSON.stringify(sample["Clínica_id"]));
+      console.log("[hoy] Sample Profesional_id raw:", JSON.stringify(sample["Profesional_id"]));
+    }
+
     const todayRecs: any[] = [];
     const histRecs: any[] = [];
 
@@ -104,7 +115,8 @@ export async function GET(req: Request) {
       if (!startIso) continue;
 
       const dayIso = startIso.slice(0, 10);
-      const clinicaIdVal = firstString(f["Clínica_id"]);
+      const rawClinicaId = firstString(f["Clínica_id"]);
+      const clinicaIdVal = clinicaRecordToId.get(rawClinicaId) ?? rawClinicaId;
 
       if (clinicaFilter && clinicaIdVal !== clinicaFilter) continue;
 
@@ -149,9 +161,11 @@ export async function GET(req: Request) {
       const endIso = toMadridIso(f["Hora final"]);
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
       const confirmed = estado.includes("CONFIRM");
-      const profesionalId = firstString(f["Profesional_id"]) || undefined;
-      const clinicaId     = firstString(f["Clínica_id"])     || undefined;
-      const sillonId      = firstString(f["Sillon_id"])      || undefined;
+      const rawProfId   = firstString(f["Profesional_id"]);
+      const rawClinId   = firstString(f["Clínica_id"]);
+      const profesionalId = (staffRecordToId.get(rawProfId)   ?? rawProfId)  || undefined;
+      const clinicaId     = (clinicaRecordToId.get(rawClinId) ?? rawClinId)  || undefined;
+      const sillonId      = firstString(f["Sillon_id"])                       || undefined;
 
       const history = patientHistory.get(phone) ?? { total: 0, noShowCount: 0, cancelCount: 0 };
       const scored = scoreAppointment(
