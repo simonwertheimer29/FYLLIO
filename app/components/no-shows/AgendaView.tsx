@@ -435,6 +435,13 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
     loadMeta();
   }, []);
 
+  // Auto-select primera clínica cuando carguen clinicasDisponibles
+  useEffect(() => {
+    if (clinicasDisponibles.length === 0) return;
+    if (clinicaFilter && clinicasDisponibles.find(c => c.id === clinicaFilter)) return;
+    setClinicaFilter(clinicasDisponibles[0].id);
+  }, [clinicasDisponibles]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch acciones para risk dots en navbar de doctores
   useEffect(() => {
     fetch("/api/no-shows/acciones")
@@ -593,18 +600,20 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
           </div>
         )}
 
-        {/* Clinic filter (manager only, populated desde /api/no-shows/clinicas) */}
+        {/* NAVBAR CLÍNICAS — solo manager, sin opción "Todas" */}
         {isManager && clinicasDisponibles.length > 0 && (
-          <select
-            value={clinicaFilter}
-            onChange={(e) => handleClinicaChange(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
-          >
-            <option value="">Todas las clínicas</option>
-            {clinicasDisponibles.map((c) => (
-              <option key={c.id} value={c.id}>{c.nombre}</option>
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            {clinicasDisponibles.map(c => (
+              <button key={c.id}
+                onClick={() => handleClinicaChange(c.id)}
+                className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap
+                  ${clinicaFilter === c.id
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
+                {c.nombre}
+              </button>
             ))}
-          </select>
+          </div>
         )}
 
         {/* NAVBAR DOCTORES */}

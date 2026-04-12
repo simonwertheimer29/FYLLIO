@@ -42,7 +42,11 @@ export async function GET() {
 
     return NextResponse.json({
       staff: (recs as any[])
-        .filter((r) => !firstString(r.fields["Rol"]).toLowerCase().includes("recep"))
+        .filter((r) => {
+          const rol    = firstString(r.fields["Rol"]).toLowerCase();
+          const nombre = firstString(r.fields["Nombre"]).toLowerCase();
+          return !rol.includes("recep") && !nombre.includes("recep");
+        })
         .map((r) => ({
           id:              firstString(r.fields["Staff ID"]),
           nombre:          firstString(r.fields["Nombre"]),

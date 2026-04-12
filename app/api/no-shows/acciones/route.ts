@@ -243,7 +243,7 @@ export async function GET(req: Request) {
       return dt.hour * 60 + dt.minute;
     }
 
-    function detectGaps(appts: RiskyAppt[], dayIso: string): GapSlot[] {
+    function detectGaps(appts: RiskyAppt[], dayIso: string, staffId?: string): GapSlot[] {
       const dayDt   = DateTime.fromISO(dayIso, { zone: ZONE });
       const occupied = appts
         .map((a) => ({ start: isoMin(a.start), end: isoMin(a.end || a.start) + 30 }))
@@ -260,6 +260,7 @@ export async function GET(req: Request) {
             startDisplay: `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`,
             endDisplay:   `${String(Math.floor(e / 60)).padStart(2, "0")}:${String(e % 60).padStart(2, "0")}`,
             durationMin: e - s,
+            ...(staffId ? { staffId } : {}),
           });
         }
         cursor = Math.max(cursor, block.end);
@@ -272,13 +273,27 @@ export async function GET(req: Request) {
           startDisplay: `${String(Math.floor(cursor / 60)).padStart(2, "0")}:${String(cursor % 60).padStart(2, "0")}`,
           endDisplay: "19:00",
           durationMin: WORK_END - cursor,
+          ...(staffId ? { staffId } : {}),
         });
       }
       return gaps;
     }
 
-    const todayGaps    = detectGaps(todayAppts, todayIso);
-    const tomorrowGaps = detectGaps(tomorrowAppts, tomorrowIso);
+    // Gaps per-doctor: todayAppts/tomorrowAppts ya excluyen CANCELLED (filtro en línea ~111)
+    const profIds = new Set<string>(
+      [...todayAppts, ...tomorrowAppts]
+        .map(a => a.profesionalId)
+        .filter((id): id is string => Boolean(id))
+    );
+    const todayGaps: GapSlot[] = [];
+    const tomorrowGaps: GapSlot[] = [];
+    for (const profId of profIds) {
+      const pA = todayAppts.filter(a => a.profesionalId === profId);
+      const mA = tomorrowAppts.filter(a => a.profesionalId === profId);
+      // Solo calcular huecos si el doctor tiene citas activas ese día
+      if (pA.length > 0) todayGaps.push(...detectGaps(pA, todayIso, profId));
+      if (mA.length > 0) tomorrowGaps.push(...detectGaps(mA, tomorrowIso, profId));
+    }
 
     const tasks: ExtAccionTask[] = [];
     let idx = 1;

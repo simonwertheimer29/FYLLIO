@@ -82,6 +82,12 @@ function dayLabel(dayIso: string): string {
   return `${days[d.getUTCDay()]} ${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
 }
 
+function relativeDay(dayIso: string): string {
+  if (dayIso === getTodayIso())    return "Hoy";
+  if (dayIso === getTomorrowIso()) return "Mañana";
+  return dayLabel(dayIso);
+}
+
 function getCurrentWeekDays(): string[] {
   const today = new Date();
   const dow = today.getDay(); // 0=Dom, 6=Sáb
@@ -181,6 +187,8 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
         const d = await staffRes.json();
         const byClinica: Record<string, StaffEntry[]> = {};
         for (const s of (d.staff ?? []) as any[]) {
+          if (!s.clinicaRecordId) continue;
+          if (s.nombre && String(s.nombre).toLowerCase().includes("recep")) continue;
           if (!byClinica[s.clinicaRecordId]) byClinica[s.clinicaRecordId] = [];
           byClinica[s.clinicaRecordId].push({ id: s.id, nombre: s.nombre });
         }
@@ -268,7 +276,10 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
 
   function applyFilters(tasks: AccionTask[]): AccionTask[] {
     if (!profesionalFilter) return tasks;
-    return tasks.filter(t => !t.appt || t.appt.profesionalId === profesionalFilter);
+    return tasks.filter(t => {
+      if (t.category === "GAP") return t.gap?.staffId === profesionalFilter;
+      return t.appt?.profesionalId === profesionalFilter;
+    });
   }
 
   function handleClinicaChange(clinicaId: string) {
@@ -285,16 +296,22 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
   const allTasks = data ? applyFilters(data.tasks) : [];
   const recalls = data?.recalls ?? [];
 
-  // HOY: URGENTE (scoreAccion >= 60 OR hoursUntil < 24)
+  // HOY: citas + gaps de hoy
   const urgentes: UnifiedItem[] = allTasks
-    .filter(t => !done.has(t.id) && ((t.scoreAccion ?? 0) >= 60 || (t.hoursUntil ?? 99) < 24))
+    .filter(t => !done.has(t.id) && (
+      (t.category === "NO_SHOW" && t.appt?.dayIso === todayIso) ||
+      (t.category === "GAP"     && t.gap?.dayIso  === todayIso)
+    ))
     .sort((a, b) => (b.scoreAccion ?? 0) - (a.scoreAccion ?? 0))
     .map(t => toUnifiedAppt(t, recalls))
     .filter((x): x is UnifiedItem => x !== null);
 
-  // HOY: MAÑANA (hoursUntil 24-48)
+  // MAÑANA: citas + gaps de mañana
   const manana: UnifiedItem[] = allTasks
-    .filter(t => !done.has(t.id) && (t.hoursUntil ?? -1) >= 24 && (t.hoursUntil ?? -1) < 48)
+    .filter(t => !done.has(t.id) && (
+      (t.category === "NO_SHOW" && t.appt?.dayIso === tomorrowIso) ||
+      (t.category === "GAP"     && t.gap?.dayIso  === tomorrowIso)
+    ))
     .sort((a, b) => (b.scoreAccion ?? 0) - (a.scoreAccion ?? 0))
     .map(t => toUnifiedAppt(t, recalls))
     .filter((x): x is UnifiedItem => x !== null);
@@ -324,7 +341,10 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
       if (dd) { dd.gaps.push(t.gap); dd.tasks.push(t); }
     }
   }
-  for (const a of (data?.proximosDias ?? [])) {
+  const filteredProximosDias = profesionalFilter
+    ? (data?.proximosDias ?? []).filter(a => a.profesionalId === profesionalFilter)
+    : (data?.proximosDias ?? []);
+  for (const a of filteredProximosDias) {
     const dd = byDay.get(a.dayIso);
     if (dd && !dd.appts.find(x => x.id === a.id)) dd.appts.push(a);
   }
@@ -374,6 +394,14 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
     else if (score >= 30) pendingByDoctor[pid] = (pendingByDoctor[pid] ?? 0) + 1;
   }
 
+  // Métricas del header
+  const confirmadasHoy = allTasks.filter(
+    t => t.category === "NO_SHOW" && t.appt?.dayIso === todayIso && t.appt?.confirmed
+  );
+  const confirmadasEuros = confirmadasHoy.length * 80;
+  const enRiesgoItems    = urgentes.filter(i => i.type === "appt");
+  const enRiesgoEuros    = enRiesgoItems.length * 80;
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -381,19 +409,39 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
 
       {/* HEADER */}
       <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3 shrink-0">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h1 className="text-base font-bold text-slate-800">
-              Centro de control · {formatFechaEs(todayIso)}
-            </h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              {pendientes} acciones pendientes · €{euros} en juego
-            </p>
-          </div>
+        {/* Título + Actualizar */}
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="text-sm font-bold text-slate-700">
+            Centro de control · {formatFechaEs(todayIso)}
+          </h1>
           <button onClick={loadData} disabled={loading}
             className="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-50">
-            {loading ? "…" : "Actualizar"}
+            {loading ? "…" : "↺"}
           </button>
+        </div>
+
+        {/* 4 Metric cards */}
+        <div className="grid grid-cols-4 gap-2">
+          <div className="rounded-xl border border-green-100 bg-white p-2.5 text-center">
+            <p className="text-[10px] font-semibold text-slate-500 mb-1">Confirmados</p>
+            <p className="text-base font-bold text-green-700">€{confirmadasEuros}</p>
+            <p className="text-[10px] text-slate-400">{confirmadasHoy.length} citas</p>
+          </div>
+          <div className="rounded-xl border border-red-100 bg-white p-2.5 text-center">
+            <p className="text-[10px] font-semibold text-slate-500 mb-1">En riesgo</p>
+            <p className="text-base font-bold text-red-600">€{enRiesgoEuros}</p>
+            <p className="text-[10px] text-slate-400">{enRiesgoItems.length} citas</p>
+          </div>
+          <div className="rounded-xl border border-orange-100 bg-white p-2.5 text-center">
+            <p className="text-[10px] font-semibold text-slate-500 mb-1">Urgente hoy</p>
+            <p className="text-base font-bold text-orange-600">{urgentes.length}</p>
+            <p className="text-[10px] text-slate-400">acciones</p>
+          </div>
+          <div className="rounded-xl border border-blue-100 bg-white p-2.5 text-center">
+            <p className="text-[10px] font-semibold text-slate-500 mb-1">Completadas</p>
+            <p className="text-base font-bold text-blue-600">{done.size}/{totalAcciones}</p>
+            <p className="text-[10px] text-slate-400">{pct}% del plan</p>
+          </div>
         </div>
 
         {/* Progress bar */}
@@ -767,7 +815,7 @@ function ItemCard({ item, compact, onClick }: {
         <div className="flex items-center justify-between gap-2">
           <div>
             <p className="text-sm font-semibold text-blue-800">Hueco disponible</p>
-            <p className="text-xs text-blue-600">{g.startDisplay}–{g.endDisplay} · {g.durationMin} min</p>
+            <p className="text-xs text-blue-600">{relativeDay(g.dayIso)} · {g.startDisplay}–{g.endDisplay} · {g.durationMin} min</p>
           </div>
           <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${scoreBgClass(item.scoreAccion)}`}>
             {item.scoreAccion}
@@ -811,9 +859,9 @@ function ItemCard({ item, compact, onClick }: {
           {ci.text && <span className={`text-[10px] font-semibold ${ci.color}`}>{ci.text}</span>}
         </div>
       </div>
-      {(a.doctorNombre ?? a.clinicaNombre) && (
-        <p className="text-xs text-slate-400">{a.doctorNombre ?? a.doctor ?? ""}{a.clinicaNombre ? ` · ${a.clinicaNombre}` : ""}</p>
-      )}
+      <p className="text-xs text-slate-400 truncate">
+        {relativeDay(a.dayIso)}{a.doctorNombre ? ` · ${a.doctorNombre}` : ""}{a.clinicaNombre ? ` · ${a.clinicaNombre}` : ""}
+      </p>
       <div className="flex gap-2">
         <a href={buildWA(a.patientPhone, "")} onClick={e => e.stopPropagation()}
           className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-green-50 border border-green-200 text-green-700 hover:bg-green-100">
