@@ -112,7 +112,8 @@ export async function GET(req: Request) {
     }
 
     const patientHistory = new Map<string, { total: number; noShowCount: number; cancelCount: number }>();
-    for (const { f } of histRecs) {
+    const patientLastAppts = new Map<string, Array<{ fecha: string; tratamiento: string; resultado: "completado" | "cancelado" | "no_show" }>>();
+    for (const { f, startIso } of histRecs) {
       const phone = firstString(f["Paciente_teléfono"]) || firstString(f["Paciente_tutor_teléfono"]) || "";
       if (!phone) continue;
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
@@ -125,6 +126,12 @@ export async function GET(req: Request) {
         noShowCount: prev.noShowCount + (isNoShow ? 1 : 0),
         cancelCount: prev.cancelCount + (isCancel ? 1 : 0),
       });
+      // Track last 3 appointments for patient history panel
+      const resultado: "completado" | "cancelado" | "no_show" = isNoShow ? "no_show" : isCancel ? "cancelado" : "completado";
+      const prevAppts = patientLastAppts.get(phone) ?? [];
+      prevAppts.push({ fecha: startIso.slice(0, 10), tratamiento: firstString(f["Tratamiento_nombre"]) || "Tratamiento", resultado });
+      prevAppts.sort((a, b) => b.fecha.localeCompare(a.fecha));
+      patientLastAppts.set(phone, prevAppts.slice(0, 3));
     }
 
     function buildAppt(r: any, f: any, startIso: string): RiskyAppt {
@@ -140,6 +147,23 @@ export async function GET(req: Request) {
         { startIso, treatmentName, createdTime: (r as any)._rawJson?.createdTime, history },
         now,
       );
+
+      // Confianza score: completados / total (0–1)
+      const completados = history.total - history.noShowCount - history.cancelCount;
+      const confianza = history.total > 0 ? completados / history.total : undefined;
+
+      // Adjust riskScore based on confianza (post-processing)
+      let adjustedScore = scored.riskScore;
+      if (confianza !== undefined) {
+        if (confianza > 0.8)      adjustedScore = Math.round(scored.riskScore * 0.7);
+        else if (confianza < 0.5) adjustedScore = Math.min(100, Math.round(scored.riskScore * 1.2));
+      }
+      const adjustedLevel = adjustedScore >= 60 ? "HIGH" : adjustedScore >= 30 ? "MEDIUM" : "LOW";
+
+      // Última acción registrada en Airtable
+      const ultimaAccion     = firstString(f["Ultima_accion"])      || undefined;
+      const tipoUltimaAccion = firstString(f["Tipo_ultima_accion"]) || undefined;
+
       return {
         id: r.id, patientName, patientPhone: phone,
         start: startIso, end: endIso, startDisplay: toHHMM(startIso),
@@ -147,7 +171,18 @@ export async function GET(req: Request) {
         doctor: profesionalId,
         profesionalId,
         clinica: firstString(f["Clínica_id"]) || undefined,
-        dayIso: startIso.slice(0, 10), confirmed, ...scored,
+        dayIso: startIso.slice(0, 10), confirmed,
+        ...scored,
+        riskScore: adjustedScore,
+        riskLevel: adjustedLevel,
+        histTotal: history.total,
+        histCompletados: completados,
+        histNoShows: history.noShowCount,
+        histCancels: history.cancelCount,
+        confianza,
+        ultimasCitas: patientLastAppts.get(phone) ?? [],
+        ultimaAccion,
+        tipoUltimaAccion,
       };
     }
 
@@ -237,6 +272,11 @@ export async function GET(req: Request) {
     const tasks: ExtAccionTask[] = [];
     let idx = 1;
 
+    // yaGestionado: cita ya tratada (Tipo_ultima_accion = Confirmado/Cancelado)
+    function isYaGestionado(a: RiskyAppt): boolean {
+      return a.tipoUltimaAccion === "Confirmado" || a.tipoUltimaAccion === "Cancelado";
+    }
+
     for (const a of todayAppts.filter((x) => x.riskLevel === "HIGH")) {
       const nombre = a.patientName.split(" ")[0];
       const urgencia = urgenciaTemporal(a.start, now, a.confirmed);
@@ -255,6 +295,7 @@ export async function GET(req: Request) {
         scoreAccion,
         urgencia,
         hoursUntil,
+        yaGestionado: isYaGestionado(a),
       });
     }
 
@@ -299,6 +340,7 @@ export async function GET(req: Request) {
         scoreAccion,
         urgencia,
         hoursUntil,
+        yaGestionado: isYaGestionado(a),
       });
     }
 
@@ -323,6 +365,7 @@ export async function GET(req: Request) {
         scoreAccion,
         urgencia,
         hoursUntil,
+        yaGestionado: isYaGestionado(a),
       });
     }
 

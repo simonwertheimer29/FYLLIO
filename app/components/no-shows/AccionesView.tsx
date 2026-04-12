@@ -8,8 +8,9 @@ import type {
   RecallAlert,
   AccionTask,
 } from "../../lib/no-shows/types";
+import AccionSidePanel, { type HistorialItem } from "./AccionSidePanel";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 type AccionesData = {
   tasks: AccionTask[];
@@ -19,478 +20,151 @@ type AccionesData = {
   summary: { total: number; urgent: number; pending: number };
 };
 
+type SecTab   = "hoy" | "semana" | "historial";
+type HistTab  = "pacientes" | "huecos";
 type StaffEntry   = { id: string; nombre: string };
 type ClinicaEntry = { id: string; nombre: string; recordId: string };
-type ToneType     = "urgente" | "cordial" | "motivacional";
-type BottomTab    = "riesgo" | "huecos";
 
 type UnifiedItem =
   | { type: "appt"; id: string; scoreAccion: number; hoursUntil: number; data: RiskyAppt; task: AccionTask }
-  | { type: "gap";  id: string; scoreAccion: number; hoursUntil: number; data: GapSlot; task: AccionTask; overbooking: boolean; recalls: RecallAlert[] };
+  | { type: "gap"; id: string; scoreAccion: number; hoursUntil: number; data: GapSlot; task: AccionTask; overbooking: boolean; recalls: RecallAlert[] };
 
-// ─── Date helpers ─────────────────────────────────────────────────────────────
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-function getTodayIso(): string { return new Date().toISOString().slice(0, 10); }
+const LS_DONE    = "fyllio_acciones_done_v4";
+const LS_HIST    = "fyllio_acciones_hist_v4";
 
-function getTomorrowIso(): string {
-  const d = new Date(); d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
-}
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function buildWA(phone: string, msg: string): string {
   return `https://wa.me/${phone.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`;
 }
 
-function dayLabel(dayIso: string, todayIso: string, tomorrowIso: string): string {
-  if (dayIso === todayIso) return "HOY";
-  if (dayIso === tomorrowIso) return "MAÑANA";
-  const d = new Date(dayIso + "T12:00:00Z");
-  const days   = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-  const months = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
-  return `${days[d.getUTCDay()]} ${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
-}
-
-function dayBadgeClass(label: string): string {
-  if (label === "HOY")    return "bg-red-100 text-red-700";
-  if (label === "MAÑANA") return "bg-amber-100 text-amber-700";
-  return "bg-slate-100 text-slate-600";
-}
-
-function scoreBorderColor(score: number): string {
+function scoreColor(score: number): string {
   if (score >= 80) return "#ef4444";
   if (score >= 60) return "#f97316";
   if (score >= 40) return "#3b82f6";
   return "#94a3b8";
 }
 
-function scoreBadgeClass(score: number): string {
+function scoreBgClass(score: number): string {
   if (score >= 80) return "bg-red-50 text-red-700 border-red-200";
   if (score >= 60) return "bg-orange-50 text-orange-700 border-orange-200";
   if (score >= 40) return "bg-blue-50 text-blue-700 border-blue-200";
   return "bg-slate-50 text-slate-500 border-slate-200";
 }
 
-function contextualRec(appt: RiskyAppt, todayIso: string, tomorrowIso: string): string {
-  const isToday    = appt.dayIso === todayIso;
-  const isTomorrow = appt.dayIso === tomorrowIso;
-  if (appt.riskLevel === "HIGH" && isToday)    return "Llama ahora. Si no responde, deja mensaje de voz.";
-  if (appt.riskLevel === "HIGH" && isTomorrow) return "Envía WA esta tarde antes de las 18:00";
-  if (appt.riskLevel === "MEDIUM" && isTomorrow) return "WA recordatorio cordial es suficiente";
-  return "Contactar en los próximos 2 días";
+function calcFaseLabel(hoursUntil: number): string {
+  if (hoursUntil <= 0) return "CRÍTICO";
+  if (hoursUntil < 24) return "24h";
+  if (hoursUntil < 48) return "48h";
+  return "72h";
 }
 
-// ─── IA Panel ─────────────────────────────────────────────────────────────────
-
-function IaSection({
-  appt,
-  tone,
-}: {
-  appt: RiskyAppt;
-  tone: ToneType;
-}) {
-  const [loading, setLoading] = useState(false);
-  const [msg,     setMsg]     = useState("");
-  const [error,   setError]   = useState("");
-  const [generated, setGenerated] = useState(false);
-
-  async function generate() {
-    setLoading(true);
-    setError("");
-    try {
-      const res = await fetch("/api/no-shows/acciones/generar-mensaje", {
-        method:  "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          patientName:   appt.patientName,
-          treatmentName: appt.treatmentName,
-          riskScore:     appt.riskScore,
-          riskLevel:     appt.riskLevel,
-          category:      "NO_SHOW",
-          hora:          appt.startDisplay,
-          tone,
-        }),
-      });
-      const data = await res.json();
-      if (data.mensaje) { setMsg(data.mensaje); setGenerated(true); }
-      else setError(data.error ?? "Error al generar");
-    } catch { setError("Error de red"); }
-    finally  { setLoading(false); }
-  }
-
-  const waLink = msg && appt.patientPhone ? buildWA(appt.patientPhone, msg) : null;
-
-  return (
-    <div className="space-y-2">
-      {!generated && !loading && (
-        <button
-          onClick={generate}
-          className="text-xs font-semibold text-violet-700 bg-violet-50 border border-violet-200 rounded-lg px-3 py-1.5 hover:bg-violet-100 transition-colors"
-        >
-          ✦ Generar mensaje IA
-        </button>
-      )}
-      {loading && <p className="text-xs text-violet-400 animate-pulse">Generando…</p>}
-      {error && !loading && <p className="text-xs text-red-500">{error}</p>}
-      {generated && !loading && msg && (
-        <>
-          <textarea
-            value={msg}
-            onChange={(e) => setMsg(e.target.value)}
-            rows={3}
-            className="w-full text-xs rounded-lg border border-violet-200 px-2 py-1.5 text-slate-700 focus:outline-none focus:ring-1 focus:ring-violet-300 resize-none bg-white"
-          />
-          <div className="flex items-center gap-2 flex-wrap">
-            {waLink && (
-              <a href={waLink} target="_blank" rel="noopener noreferrer"
-                className="text-xs font-semibold text-white bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg transition-colors">
-                Enviar WA
-              </a>
-            )}
-            {appt.patientPhone && (
-              <a href={`tel:${appt.patientPhone}`}
-                className="text-xs font-semibold border border-slate-200 text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors">
-                Llamar
-              </a>
-            )}
-            <button onClick={() => navigator.clipboard.writeText(msg).catch(() => {})}
-              className="text-xs text-slate-500 hover:text-slate-700 transition-colors">
-              Copiar
-            </button>
-            <button onClick={() => { setMsg(""); setGenerated(false); generate(); }}
-              className="text-xs text-violet-500 hover:text-violet-700 transition-colors">
-              Regenerar
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  );
+function faseStyle(fase: string): string {
+  if (fase === "CRÍTICO") return "bg-red-100 text-red-700";
+  if (fase === "24h")    return "bg-red-50 text-red-600";
+  if (fase === "48h")    return "bg-amber-50 text-amber-700";
+  return "bg-yellow-50 text-yellow-700";
 }
 
-// ─── RegisterForm ─────────────────────────────────────────────────────────────
-
-function RegisterForm({
-  recordId,
-  onDone,
-}: {
-  recordId: string;
-  onDone: () => void;
-}) {
-  const [tipo,       setTipo]       = useState("");
-  const [fase,       setFase]       = useState("");
-  const [notas,      setNotas]      = useState("");
-  const [saving,     setSaving]     = useState(false);
-  const [saved,      setSaved]      = useState(false);
-  const [error,      setError]      = useState("");
-
-  async function handleRegister() {
-    setSaving(true);
-    setError("");
-    try {
-      const res = await fetch("/api/no-shows/acciones/registrar", {
-        method:  "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ recordId, tipo, fase, notas }),
-      });
-      if (!res.ok) throw new Error((await res.json()).error ?? "Error");
-      setSaved(true);
-    } catch (e: any) {
-      setError(e?.message ?? "Error al registrar");
-    } finally { setSaving(false); }
-  }
-
-  if (saved) {
-    return (
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-1.5">
-          ✓ Acción registrada
-        </span>
-        <button onClick={onDone}
-          className="text-xs text-slate-500 hover:text-slate-700 transition-colors">
-          ✓ Marcar contactado
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2">
-      <div className="flex gap-2">
-        <select value={tipo} onChange={(e) => setTipo(e.target.value)}
-          className="flex-1 text-xs rounded-lg border border-slate-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-300">
-          <option value="">Tipo de acción…</option>
-          <option value="WhatsApp">WhatsApp</option>
-          <option value="Llamada">Llamada</option>
-          <option value="Sin respuesta">Sin respuesta</option>
-          <option value="Confirmado">Confirmado</option>
-          <option value="Cancelado">Cancelado</option>
-        </select>
-        <select value={fase} onChange={(e) => setFase(e.target.value)}
-          className="flex-1 text-xs rounded-lg border border-slate-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-300">
-          <option value="">Fase…</option>
-          <option value="Sin iniciar">Sin iniciar</option>
-          <option value="72h">72h</option>
-          <option value="48h">48h</option>
-          <option value="24h">24h</option>
-          <option value="Completado">Completado</option>
-        </select>
-      </div>
-      <input type="text" value={notas} onChange={(e) => setNotas(e.target.value)}
-        placeholder="Notas (opcional)…"
-        className="w-full text-xs rounded-lg border border-slate-200 px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-cyan-300"
-      />
-      {error && <p className="text-xs text-red-500">{error}</p>}
-      <div className="flex items-center gap-2">
-        <button onClick={handleRegister} disabled={saving || !tipo}
-          className="text-xs font-semibold bg-cyan-600 text-white px-3 py-1.5 rounded-lg hover:bg-cyan-700 transition-colors disabled:opacity-50">
-          {saving ? "Guardando…" : "Registrar acción"}
-        </button>
-        <button onClick={onDone}
-          className="text-xs text-slate-400 hover:text-slate-600 transition-colors">
-          ✓ Solo marcar contactado
-        </button>
-      </div>
-    </div>
-  );
+function confianzaShort(c: number | undefined): { text: string; color: string } {
+  if (c === undefined) return { text: "", color: "" };
+  if (c > 0.8)  return { text: "✓ Fiable",    color: "text-green-600"  };
+  if (c >= 0.5) return { text: "⚠ Mixto",     color: "text-orange-500" };
+  return              { text: "✗ Alto riesgo", color: "text-red-600"    };
 }
 
-// ─── UnifiedCard ──────────────────────────────────────────────────────────────
-
-function UnifiedCard({
-  item,
-  staffById,
-  done,
-  onDone,
-  todayIso,
-  tomorrowIso,
-}: {
-  item: UnifiedItem;
-  staffById: Record<string, string>;
-  done: boolean;
-  onDone: (id: string) => void;
-  todayIso: string;
-  tomorrowIso: string;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const [tone, setTone]         = useState<ToneType>("cordial");
-
-  // ── GAP card ──────────────────────────────────────────────────────────────
-  if (item.type === "gap") {
-    const { data: gap, overbooking, recalls } = item;
-    const dLabel = dayLabel(gap.dayIso, todayIso, tomorrowIso);
-    const candidates = recalls.slice(0, 3);
-
-    return (
-      <div className={`rounded-xl bg-white border border-slate-200 overflow-hidden transition-opacity ${done ? "opacity-40" : ""}`}>
-        <div className="p-3 flex items-start gap-2" style={{ borderLeft: `3px solid #10b981` }}>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-              <span className="text-sm font-bold text-slate-700">{gap.startDisplay}–{gap.endDisplay}</span>
-              <span className="text-xs text-slate-400">{gap.durationMin} min</span>
-              <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${dayBadgeClass(dLabel)}`}>{dLabel}</span>
-              {overbooking && (
-                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-orange-100 text-orange-700">
-                  ⚡ Reschedulable
-                </span>
-              )}
-            </div>
-            <p className="text-[10px] text-slate-400">Hueco disponible</p>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            {!done && (
-              <button onClick={() => setExpanded((o) => !o)}
-                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-50 text-[10px] transition-colors">
-                {expanded ? "▲" : "▼"}
-              </button>
-            )}
-            {!done && (
-              <button onClick={() => onDone(item.id)}
-                className="p-1.5 rounded-xl border border-slate-200 text-slate-400 text-[10px] hover:bg-slate-50 transition-colors">
-                ✓
-              </button>
-            )}
-          </div>
-        </div>
-
-        {expanded && !done && (
-          <div className="border-t border-slate-100 px-3 pb-3">
-            {candidates.length > 0 ? (
-              <>
-                <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mt-2 mb-1.5">Candidatos sugeridos</p>
-                <div className="space-y-1.5">
-                  {candidates.map((r) => (
-                    <div key={r.patientPhone} className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-lg bg-slate-50">
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold text-slate-700 truncate">{r.patientName}</p>
-                        <p className="text-[10px] text-slate-400 truncate">{r.treatmentName} · {r.weeksSinceLast} sem sin cita</p>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {r.patientPhone && (
-                          <a href={buildWA(r.patientPhone, `Hola ${r.patientName.split(" ")[0]}, tenemos un hueco disponible ${dLabel.toLowerCase()} a las ${gap.startDisplay}. ¿Te interesa agendar tu próxima sesión de ${r.treatmentName}?`)}
-                            target="_blank" rel="noopener noreferrer"
-                            className="p-1 rounded-lg bg-green-600 text-white text-[10px] font-bold hover:bg-green-700 transition-colors">WA</a>
-                        )}
-                        {r.patientPhone && (
-                          <a href={`tel:${r.patientPhone}`}
-                            className="p-1 rounded-lg border border-slate-200 text-slate-600 text-[10px] hover:bg-slate-50 transition-colors">Tel</a>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <p className="text-[10px] text-slate-400 mt-2">Sin candidatos disponibles</p>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  // ── APPT card ─────────────────────────────────────────────────────────────
-  const { data: appt, scoreAccion } = item;
-  const dLabel      = dayLabel(appt.dayIso, todayIso, tomorrowIso);
-  const borderColor = scoreBorderColor(scoreAccion);
-  const badgeClass  = scoreBadgeClass(appt.riskScore);
-  const doctorNombre = appt.profesionalId
-    ? (staffById[appt.profesionalId] ?? appt.doctorNombre ?? appt.doctor)
-    : (appt.doctorNombre ?? appt.doctor);
-  const rec = contextualRec(appt, todayIso, tomorrowIso);
-
-  return (
-    <div className={`rounded-xl bg-white border border-slate-100 overflow-hidden transition-opacity ${done ? "opacity-40" : ""}`}>
-      {/* Cabecera */}
-      <div
-        className="flex items-start gap-3 p-3 cursor-pointer"
-        style={{ borderLeft: `3px solid ${borderColor}` }}
-        onClick={() => !done && setExpanded((o) => !o)}
-      >
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-            <span className="text-sm font-semibold text-slate-800 truncate">{appt.patientName}</span>
-            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${badgeClass}`}>
-              {appt.riskScore}
-            </span>
-            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${dayBadgeClass(dLabel)}`}>
-              {dLabel}
-            </span>
-            {!appt.confirmed && (
-              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700">
-                Sin confirmar
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-slate-500 truncate">{appt.treatmentName}</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">
-            {appt.startDisplay}{doctorNombre ? ` · ${doctorNombre}` : ""}
-          </p>
-        </div>
-        {!done && (
-          <span className="text-slate-400 text-[10px] shrink-0 pt-0.5">{expanded ? "▲" : "▼"}</span>
-        )}
-        {done && (
-          <span className="text-green-600 text-xs shrink-0">✓</span>
-        )}
-      </div>
-
-      {/* Panel expandido */}
-      {expanded && !done && (
-        <div className="border-t border-slate-100 px-3 pb-3 space-y-3">
-
-          {/* Historial */}
-          <div className="pt-2">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1">Historial</p>
-            <p className="text-xs text-slate-600">
-              {appt.riskFactors.historicalNoShowCount > 0
-                ? `${appt.riskFactors.historicalNoShowCount} no-show · ${appt.riskFactors.historicalCancelCount} cancelaciones · ${appt.riskFactors.historicalTotalAppts} visitas`
-                : appt.riskFactors.historicalTotalAppts === 0
-                  ? "Sin historial previo"
-                  : `${appt.riskFactors.historicalTotalAppts} visitas sin no-shows`
-              }
-            </p>
-          </div>
-
-          <div className="h-px bg-slate-100" />
-
-          {/* Tono + IA */}
-          <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Mensaje</p>
-            <div className="flex gap-1.5 mb-2">
-              {(["urgente", "cordial", "motivacional"] as ToneType[]).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => setTone(t)}
-                  className={`text-[10px] font-semibold px-2 py-1 rounded-lg capitalize transition-colors ${
-                    tone === t
-                      ? "bg-violet-100 text-violet-700 border border-violet-200"
-                      : "border border-slate-200 text-slate-500 hover:bg-slate-50"
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-            <IaSection appt={appt} tone={tone} />
-          </div>
-
-          <div className="h-px bg-slate-100" />
-
-          {/* Recomendación */}
-          <div className="rounded-lg bg-cyan-50 border border-cyan-100 px-3 py-2">
-            <p className="text-[10px] font-bold text-cyan-700 uppercase tracking-wider mb-0.5">Recomendación</p>
-            <p className="text-xs text-cyan-800">{rec}</p>
-          </div>
-
-          <div className="h-px bg-slate-100" />
-
-          {/* Registro de acción */}
-          <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-2">Registrar acción</p>
-            <RegisterForm recordId={appt.id} onDone={() => onDone(appt.id)} />
-          </div>
-        </div>
-      )}
-    </div>
-  );
+function dayLabel(dayIso: string): string {
+  const d = new Date(dayIso + "T12:00:00Z");
+  const days   = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+  const months = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  return `${days[d.getUTCDay()]} ${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+function getCurrentWeekDays(): string[] {
+  const today = new Date();
+  const mon = new Date(today);
+  const dayOfWeek = today.getDay();
+  const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+  mon.setDate(today.getDate() + diffToMon);
+  return Array.from({ length: 5 }, (_, i) => {
+    const d = new Date(mon);
+    d.setDate(mon.getDate() + i);
+    return d.toISOString().slice(0, 10);
+  });
+}
+
+function getTodayIso(): string { return new Date().toISOString().slice(0, 10); }
+function getTomorrowIso(): string {
+  const d = new Date(); d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function formatFechaEs(iso: string): string {
+  const d = new Date(iso + "T12:00:00Z");
+  const days   = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+  const months = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  return `${days[d.getUTCDay()]} ${d.getUTCDate()} ${months[d.getUTCMonth()]}`;
+}
+
+function toUnifiedAppt(task: AccionTask, recalls: RecallAlert[]): UnifiedItem | null {
+  if (task.category === "NO_SHOW" && task.appt) {
+    return { type: "appt", id: task.id, scoreAccion: task.scoreAccion ?? 0, hoursUntil: task.hoursUntil ?? 999, data: task.appt, task };
+  }
+  if (task.category === "GAP" && task.gap) {
+    return {
+      type: "gap", id: task.id, scoreAccion: task.scoreAccion ?? 0, hoursUntil: task.hoursUntil ?? 999,
+      data: task.gap, task, overbooking: task.overbooking ?? false, recalls,
+    };
+  }
+  return null;
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
 
 export default function AccionesView({ user }: { user: NoShowsUserSession }) {
   const isManager = user.rol === "manager_general";
 
-  const [data,                setData]                = useState<AccionesData | null>(null);
-  const [loading,             setLoading]             = useState(true);
-  const [clinicaFilter,       setClinicaFilter]       = useState("");
-  const [profesionalFilter,   setProfesionalFilter]   = useState("");
-  const [clinicasDisponibles, setClinicasDisponibles] = useState<ClinicaEntry[]>([]);
-  const [staffPorClinica,     setStaffPorClinica]     = useState<Record<string, StaffEntry[]>>({});
-  const [staffById,           setStaffById]           = useState<Record<string, string>>({});
-  const [bottomTab,           setBottomTab]           = useState<BottomTab>("riesgo");
-  const [done, setDone] = useState<Set<string>>(() => {
-    if (typeof window === "undefined") return new Set();
-    try { return new Set(JSON.parse(localStorage.getItem("fyllio_acciones_done") ?? "[]")); }
-    catch { return new Set(); }
-  });
+  // Data
+  const [data, setData] = useState<AccionesData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const todayIso    = getTodayIso();
-  const tomorrowIso = getTomorrowIso();
+  // Navigation
+  const [activeTab, setActiveTab] = useState<SecTab>("hoy");
+  const [histTab, setHistTab] = useState<HistTab>("pacientes");
 
-  const load = useCallback(async (clinica?: string) => {
-    setLoading(true);
-    try {
-      const url = new URL("/api/no-shows/acciones", location.href);
-      if (clinica) url.searchParams.set("clinica", clinica);
-      const res = await fetch(url.toString());
-      if (res.ok) setData(await res.json());
-    } catch { /* silent */ }
-    finally { setLoading(false); }
-  }, []);
+  // Panel
+  const [selectedItem, setSelectedItem] = useState<UnifiedItem | null>(null);
 
-  useEffect(() => { load(clinicaFilter || undefined); }, [load, clinicaFilter]);
+  // Filters
+  const [clinicaFilter, setCF] = useState(user.clinica ?? "");
+  const [profesionalFilter, setPF] = useState("");
+  const [clinicasDisponibles, setClinics] = useState<ClinicaEntry[]>([]);
+  const [staffPorClinica, setStaff] = useState<Record<string, StaffEntry[]>>({});
+
+  // Done set (source of truth = Airtable yaGestionado + localStorage fallback)
+  const [done, setDone] = useState<Set<string>>(new Set());
+
+  // Historial local
+  const [historialLocal, setHistorialLocal] = useState<HistorialItem[]>([]);
+
+  // Compact mode
+  const [compactHoy, setCompactHoy] = useState(false);
+
+  // Expanded days (SEMANA)
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+
+  // Toast
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+
+  function showToast(msg: string, ok = true) {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  // ── Load metadata ─────────────────────────────────────────────────────────
 
   useEffect(() => {
     async function loadMeta() {
@@ -500,374 +174,598 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
       ]);
       if (clinRes.ok) {
         const d = await clinRes.json();
-        setClinicasDisponibles(d.clinicas ?? []);
+        setClinics(d.clinicas ?? []);
       }
       if (staffRes.ok) {
         const d = await staffRes.json();
         const byClinica: Record<string, StaffEntry[]> = {};
-        const byId: Record<string, string> = {};
-        for (const s of (d.staff ?? [])) {
-          byId[s.id] = s.nombre;
-          if (!s.clinicaRecordId) continue;
-          if (s.rol && String(s.rol).toLowerCase().includes("recep")) continue;
+        for (const s of (d.staff ?? []) as any[]) {
           if (!byClinica[s.clinicaRecordId]) byClinica[s.clinicaRecordId] = [];
           byClinica[s.clinicaRecordId].push({ id: s.id, nombre: s.nombre });
         }
-        setStaffPorClinica(byClinica);
-        setStaffById(byId);
+        setStaff(byClinica);
       }
     }
     loadMeta();
+
+    // Load localStorage
+    try {
+      const localDone = JSON.parse(localStorage.getItem(LS_DONE) ?? "[]") as string[];
+      if (localDone.length) setDone(new Set(localDone));
+    } catch {}
+    try {
+      const localHist = JSON.parse(localStorage.getItem(LS_HIST) ?? "[]") as HistorialItem[];
+      setHistorialLocal(localHist);
+    } catch {}
   }, []);
 
+  // ── Load data ─────────────────────────────────────────────────────────────
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const params = new URLSearchParams();
+      if (clinicaFilter) params.set("clinica", clinicaFilter);
+      const res = await fetch(`/api/no-shows/acciones?${params}`);
+      if (!res.ok) throw new Error(`Error ${res.status}`);
+      const d: AccionesData = await res.json();
+      setData(d);
+
+      // Inicializar done desde Airtable (yaGestionado) + localStorage
+      const airtableDone = d.tasks.filter(t => t.yaGestionado).map(t => t.id);
+      const localDone = (() => {
+        try { return JSON.parse(localStorage.getItem(LS_DONE) ?? "[]") as string[]; }
+        catch { return [] as string[]; }
+      })();
+      setDone(new Set([...airtableDone, ...localDone]));
+    } catch (e: any) {
+      setError(e?.message ?? "Error cargando acciones");
+    } finally {
+      setLoading(false);
+    }
+  }, [clinicaFilter]);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // ── Done management ───────────────────────────────────────────────────────
+
   function markDone(id: string) {
-    const next = new Set(done);
-    next.add(id);
-    setDone(next);
-    try { localStorage.setItem("fyllio_acciones_done", JSON.stringify([...next])); } catch { /* */ }
+    setDone(prev => {
+      const next = new Set(prev);
+      next.add(id);
+      try { localStorage.setItem(LS_DONE, JSON.stringify([...next])); } catch {}
+      return next;
+    });
   }
 
-  function handleClinicaChange(c: string) {
-    setClinicaFilter(c);
-    setProfesionalFilter("");
+  function addHistorialItem(item: HistorialItem) {
+    setHistorialLocal(prev => {
+      const next = [item, ...prev].slice(0, 100);
+      try { localStorage.setItem(LS_HIST, JSON.stringify(next)); } catch {}
+      return next;
+    });
   }
 
-  // ── Derived: unifiedItems ──────────────────────────────────────────────────
+  // ── Filters ───────────────────────────────────────────────────────────────
 
-  function profMatchesAppt(appt: RiskyAppt): boolean {
-    if (!profesionalFilter) return true;
-    return appt.profesionalId === profesionalFilter || appt.doctor === profesionalFilter;
+  const selectedClinicaRecordId = clinicasDisponibles.find(c => c.id === clinicaFilter)?.recordId;
+  const profesionalesDisponibles: StaffEntry[] = clinicaFilter && selectedClinicaRecordId
+    ? staffPorClinica[selectedClinicaRecordId] ?? []
+    : Object.values(staffPorClinica).flat();
+
+  function applyFilters(tasks: AccionTask[]): AccionTask[] {
+    if (!profesionalFilter) return tasks;
+    return tasks.filter(t => !t.appt || t.appt.profesionalId === profesionalFilter);
   }
 
-  const allTasks    = data?.tasks ?? [];
-  const allRecalls  = data?.recalls ?? [];
+  // ── Derived data ──────────────────────────────────────────────────────────
 
-  const apptItems: UnifiedItem[] = allTasks
-    .filter((t) => t.category === "NO_SHOW" && t.appt && profMatchesAppt(t.appt))
-    .map((t) => ({
-      type:        "appt" as const,
-      id:          t.id,
-      scoreAccion: t.scoreAccion ?? t.appt!.riskScore,
-      hoursUntil:  t.hoursUntil ?? 99,
-      data:        t.appt!,
-      task:        t,
-    }));
+  const allTasks = data ? applyFilters(data.tasks) : [];
+  const recalls = data?.recalls ?? [];
 
-  const clinicaRecordId = clinicaFilter
-    ? (clinicasDisponibles.find((c) => c.id === clinicaFilter)?.recordId ?? "")
-    : "";
-  const filteredRecalls = clinicaFilter
-    ? allRecalls.filter((r) => !r.clinica || r.clinica === clinicaFilter)
-    : allRecalls;
+  // HOY: URGENTE (scoreAccion >= 60 OR hoursUntil < 24)
+  const urgentes: UnifiedItem[] = allTasks
+    .filter(t => !done.has(t.id) && ((t.scoreAccion ?? 0) >= 60 || (t.hoursUntil ?? 99) < 24))
+    .sort((a, b) => (b.scoreAccion ?? 0) - (a.scoreAccion ?? 0))
+    .map(t => toUnifiedAppt(t, recalls))
+    .filter((x): x is UnifiedItem => x !== null);
 
-  const gapItems: UnifiedItem[] = allTasks
-    .filter((t) => t.category === "GAP" && t.gap)
-    .map((t) => ({
-      type:        "gap" as const,
-      id:          t.id,
-      scoreAccion: t.scoreAccion ?? 50,
-      hoursUntil:  t.hoursUntil ?? 99,
-      data:        t.gap!,
-      task:        t,
-      overbooking: t.overbooking ?? false,
-      recalls:     filteredRecalls,
-    }));
+  // HOY: MAÑANA (hoursUntil 24-48)
+  const manana: UnifiedItem[] = allTasks
+    .filter(t => !done.has(t.id) && (t.hoursUntil ?? -1) >= 24 && (t.hoursUntil ?? -1) < 48)
+    .sort((a, b) => (b.scoreAccion ?? 0) - (a.scoreAccion ?? 0))
+    .map(t => toUnifiedAppt(t, recalls))
+    .filter((x): x is UnifiedItem => x !== null);
 
-  const allItems: UnifiedItem[] = [...apptItems, ...gapItems];
+  // Progress bar
+  const totalAcciones = allTasks.length;
+  const pct = totalAcciones > 0 ? Math.round(done.size / totalAcciones * 100) : 100;
+  const pendientes = Math.max(0, urgentes.length + manana.length);
+  const euros = urgentes.filter(i => i.type === "appt").length * 80;
 
-  const urgenteItems = allItems
-    .filter((i) => i.scoreAccion >= 70 || i.hoursUntil < 24)
-    .sort((a, b) => b.scoreAccion - a.scoreAccion);
+  // SEMANA data
+  const weekDays = getCurrentWeekDays();
+  const todayIso = getTodayIso();
+  const tomorrowIso = getTomorrowIso();
 
-  const semanaItems = allItems
-    .filter((i) => {
-      const apptScore = i.type === "appt" ? i.data.riskScore : 50;
-      return apptScore >= 30 && i.hoursUntil >= 24 && i.hoursUntil <= 120;
-    })
-    .sort((a, b) => b.scoreAccion - a.scoreAccion);
+  type DayData = { appts: RiskyAppt[]; gaps: GapSlot[]; tasks: AccionTask[] };
+  const byDay = new Map<string, DayData>();
+  for (const d of weekDays) byDay.set(d, { appts: [], gaps: [], tasks: [] });
 
-  // ── Metrics ──────────────────────────────────────────────────────────────
-
-  const totalCount    = urgenteItems.length + semanaItems.length;
-  const contactados   = [...urgenteItems, ...semanaItems].filter((i) => done.has(i.id)).length;
-  const pendingCount  = totalCount - contactados;
-  const progreso      = totalCount > 0 ? Math.round((contactados / totalCount) * 100) : 0;
-  const urgentesVivos = urgenteItems.filter((i) => i.type === "appt" && !done.has(i.id)).length;
-  const euroEnJuego   = urgentesVivos * 80;
-
-  // ── Profesionales ─────────────────────────────────────────────────────────
-
-  const allProfesionales = Object.values(staffPorClinica).flat();
-  const profesionalesDisponibles = clinicaFilter && clinicaRecordId
-    ? (staffPorClinica[clinicaRecordId] ?? [])
-    : allProfesionales;
-
-  // ── Loading ───────────────────────────────────────────────────────────────
-
-  if (loading) {
-    return (
-      <div className="flex-1 min-h-0 flex items-center justify-center">
-        <div className="animate-pulse space-y-3 w-full max-w-md">
-          {[1, 2, 3].map((i) => <div key={i} className="h-16 bg-slate-100 rounded-xl" />)}
-        </div>
-      </div>
-    );
+  for (const t of allTasks) {
+    if (t.appt) {
+      const dd = byDay.get(t.appt.dayIso);
+      if (dd) { dd.appts.push(t.appt); dd.tasks.push(t); }
+    }
+    if (t.gap) {
+      const dd = byDay.get(t.gap.dayIso);
+      if (dd) { dd.gaps.push(t.gap); dd.tasks.push(t); }
+    }
+  }
+  for (const a of (data?.proximosDias ?? [])) {
+    const dd = byDay.get(a.dayIso);
+    if (dd && !dd.appts.find(x => x.id === a.id)) dd.appts.push(a);
   }
 
-  if (!data) {
-    return (
-      <div className="flex-1 min-h-0 flex items-center justify-center">
-        <p className="text-sm text-slate-500">Error cargando datos. Intenta refrescar.</p>
-      </div>
-    );
+  // HISTORIAL fusionado
+  const airtableGestionados = data?.tasks.filter(t => t.yaGestionado) ?? [];
+
+  type HistRow = { key: string; paciente: string; tratamiento: string; dayIso: string; hora: string; tipo: string; nota: string; fecha: string };
+  const histRows: HistRow[] = [];
+  const seenIds = new Set<string>();
+
+  for (const t of airtableGestionados) {
+    if (seenIds.has(t.id)) continue;
+    seenIds.add(t.id);
+    histRows.push({
+      key: t.id,
+      paciente: t.appt?.patientName ?? t.patientName ?? "—",
+      tratamiento: t.appt?.treatmentName ?? "—",
+      dayIso: t.appt?.dayIso ?? "—",
+      hora: t.appt?.startDisplay ?? "—",
+      tipo: t.appt?.tipoUltimaAccion ?? "—",
+      nota: "",
+      fecha: t.appt?.ultimaAccion ?? "",
+    });
   }
+  for (const h of historialLocal) {
+    if (seenIds.has(h.id)) continue;
+    seenIds.add(h.id);
+    histRows.push({ key: h.id + h.registradoEn, paciente: h.paciente, tratamiento: h.tratamiento, dayIso: h.dayIso, hora: h.hora, tipo: h.tipo, nota: h.nota, fecha: h.registradoEn });
+  }
+  histRows.sort((a, b) => b.fecha.localeCompare(a.fecha));
 
-  // ── Bottom tables data ────────────────────────────────────────────────────
-
-  const proximosDias = (data.proximosDias ?? []).filter(profMatchesAppt);
-  const gapTasksAll  = allTasks.filter((t) => t.category === "GAP" && t.gap);
+  // Gaps this week for historial tab
+  const allGaps: UnifiedItem[] = allTasks
+    .filter(t => t.category === "GAP" && t.gap && weekDays.includes(t.gap.dayIso))
+    .map(t => toUnifiedAppt(t, recalls))
+    .filter((x): x is UnifiedItem => x !== null);
 
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col gap-4 w-full">
+    <div className="flex-1 min-h-0 flex flex-col gap-3 w-full pb-4">
 
-      {/* ── Header ── */}
-      <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
+      {/* HEADER */}
+      <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3 shrink-0">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">ACCIONES HOY</p>
-            <p className="text-base font-extrabold text-slate-900 leading-tight mt-0.5">
-              {pendingCount} acciones pendientes{euroEnJuego > 0 ? ` · €${euroEnJuego.toLocaleString()} en juego` : ""}
+            <h1 className="text-base font-bold text-slate-800">
+              Centro de control · {formatFechaEs(todayIso)}
+            </h1>
+            <p className="text-sm text-slate-500 mt-0.5">
+              {pendientes} acciones pendientes · €{euros} en juego
             </p>
           </div>
-          <button
-            onClick={() => load(clinicaFilter || undefined)}
-            className="text-xs px-2.5 py-1.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors shrink-0"
-          >
-            ↻ Actualizar
+          <button onClick={loadData} disabled={loading}
+            className="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-50">
+            {loading ? "…" : "Actualizar"}
           </button>
         </div>
 
         {/* Progress bar */}
-        <div>
+        <div className="space-y-1">
+          <div className="flex justify-between text-xs text-slate-400">
+            <span>{done.size}/{totalAcciones} completadas</span>
+            <span>{pct}%</span>
+          </div>
           <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
             <div
-              className="h-full bg-cyan-500 rounded-full transition-all duration-500"
-              style={{ width: `${progreso}%` }}
+              className={`h-full rounded-full transition-all duration-500 ${pct > 60 ? "bg-green-500" : pct > 30 ? "bg-orange-500" : "bg-red-500"}`}
+              style={{ width: `${pct}%` }}
             />
-          </div>
-          <div className="flex justify-between text-[10px] text-slate-400 mt-1">
-            <span>{contactados} contactados</span>
-            <span>{progreso}% completado</span>
           </div>
         </div>
 
         {/* Filtros */}
-        {isManager && clinicasDisponibles.length > 0 && (
-          <div className="flex gap-2">
-            <select
-              value={clinicaFilter}
-              onChange={(e) => handleClinicaChange(e.target.value)}
-              className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
-            >
+        <div className="flex gap-2 flex-wrap">
+          {isManager && (
+            <select value={clinicaFilter} onChange={e => { setCF(e.target.value); setPF(""); }}
+              className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-200">
               <option value="">Todas las clínicas</option>
-              {clinicasDisponibles.map((c) => (
-                <option key={c.id} value={c.id}>{c.nombre}</option>
-              ))}
+              {clinicasDisponibles.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
             </select>
-            {profesionalesDisponibles.length > 0 && (
-              <select
-                value={profesionalFilter}
-                onChange={(e) => setProfesionalFilter(e.target.value)}
-                className="flex-1 rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
-              >
-                <option value="">Todos</option>
-                {profesionalesDisponibles.map((p) => (
-                  <option key={p.id} value={p.id}>{p.nombre}</option>
+          )}
+          {profesionalesDisponibles.length > 0 && (
+            <select value={profesionalFilter} onChange={e => setPF(e.target.value)}
+              className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-200">
+              <option value="">Todos los profesionales</option>
+              {profesionalesDisponibles.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
+            </select>
+          )}
+        </div>
+      </div>
+
+      {/* NAVBAR INTERNA */}
+      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 shrink-0">
+        {(["hoy","semana","historial"] as SecTab[]).map(tab => (
+          <button key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === tab ? "bg-white shadow text-slate-800" : "text-slate-500 hover:text-slate-700"}`}>
+            {tab === "hoy" ? "HOY" : tab === "semana" ? "SEMANA" : "HISTORIAL"}
+          </button>
+        ))}
+      </div>
+
+      {/* Error/loading */}
+      {error && (
+        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
+      )}
+      {loading && !data && (
+        <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Cargando…</div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className={`rounded-xl px-4 py-2 text-sm font-semibold ${toast.ok ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-700"}`}>
+          {toast.msg}
+        </div>
+      )}
+
+      {/* ── SECCIÓN HOY ──────────────────────────────────────────────────────── */}
+      {activeTab === "hoy" && data && (
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-4">
+
+          {/* Nudge HOY completo */}
+          {urgentes.length === 0 && manana.length === 0 && (
+            <div className="rounded-2xl bg-green-50 border border-green-200 p-5 text-center space-y-2">
+              <p className="text-green-700 font-bold text-base">✓ Hoy completado</p>
+              <p className="text-green-600 text-sm">¿Adelantamos el martes?</p>
+              <button onClick={() => { setActiveTab("semana"); setExpandedDays(new Set([weekDays[1]])); }}
+                className="mt-1 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700">
+                Ver semana →
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-4">
+            {/* COLUMNA URGENTE HOY */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-bold text-red-600">URGENTE HOY · {urgentes.length}</h2>
+                <button onClick={() => setCompactHoy(v => !v)}
+                  className="text-xs text-slate-400 hover:text-slate-600">
+                  {compactHoy ? "▤ Detallada" : "≡ Compacta"}
+                </button>
+              </div>
+              <div className="space-y-2">
+                {urgentes.length === 0 && (
+                  <p className="text-xs text-slate-400 py-4 text-center">Sin urgencias para hoy</p>
+                )}
+                {urgentes.map(item => (
+                  <ItemCard key={item.id} item={item} compact={compactHoy}
+                    onClick={() => setSelectedItem(item)} />
                 ))}
-              </select>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* ── Dos columnas ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-
-        {/* Col izquierda: URGENTE HOY */}
-        <section className="space-y-2">
-          <div className="flex items-center gap-2">
-            <h3 className="text-xs font-bold text-red-600 uppercase tracking-wider">
-              Urgente Hoy
-            </h3>
-            {urgenteItems.filter((i) => !done.has(i.id)).length > 0 && (
-              <span className="text-[10px] font-bold bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full">
-                {urgenteItems.filter((i) => !done.has(i.id)).length}
-              </span>
-            )}
-          </div>
-
-          {urgenteItems.length === 0 ? (
-            <div className="rounded-xl bg-white border border-slate-100 py-8 text-center">
-              <p className="text-xl mb-1">✓</p>
-              <p className="text-sm text-slate-400">Sin urgencias hoy</p>
+              </div>
             </div>
-          ) : (
-            [
-              ...urgenteItems.filter((i) => !done.has(i.id)),
-              ...urgenteItems.filter((i) =>  done.has(i.id)),
-            ].map((item) => (
-              <UnifiedCard
-                key={item.id}
-                item={item}
-                staffById={staffById}
-                done={done.has(item.id)}
-                onDone={markDone}
-                todayIso={todayIso}
-                tomorrowIso={tomorrowIso}
-              />
-            ))
-          )}
-        </section>
 
-        {/* Col derecha: ESTA SEMANA */}
-        <section className="space-y-2">
-          <div className="flex items-center gap-2">
-            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              Esta Semana
-            </h3>
-            {semanaItems.filter((i) => !done.has(i.id)).length > 0 && (
-              <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full">
-                {semanaItems.filter((i) => !done.has(i.id)).length}
-              </span>
-            )}
-          </div>
-
-          {semanaItems.length === 0 ? (
-            <div className="rounded-xl bg-white border border-slate-100 py-8 text-center">
-              <p className="text-xl mb-1">✓</p>
-              <p className="text-sm text-slate-400">Sin pendientes esta semana</p>
+            {/* COLUMNA MAÑANA */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-bold text-amber-600">MAÑANA · {manana.length}</h2>
+                <button onClick={() => setCompactHoy(v => !v)}
+                  className="text-xs text-slate-400 hover:text-slate-600">
+                  {compactHoy ? "▤ Detallada" : "≡ Compacta"}
+                </button>
+              </div>
+              <div className="space-y-2">
+                {manana.length === 0 && (
+                  <p className="text-xs text-slate-400 py-4 text-center">Sin citas para mañana</p>
+                )}
+                {manana.map(item => (
+                  <ItemCard key={item.id} item={item} compact={compactHoy}
+                    onClick={() => setSelectedItem(item)} />
+                ))}
+              </div>
             </div>
-          ) : (
-            [
-              ...semanaItems.filter((i) => !done.has(i.id)),
-              ...semanaItems.filter((i) =>  done.has(i.id)),
-            ].map((item) => (
-              <UnifiedCard
-                key={item.id}
-                item={item}
-                staffById={staffById}
-                done={done.has(item.id)}
-                onDone={markDone}
-                todayIso={todayIso}
-                tomorrowIso={tomorrowIso}
-              />
-            ))
-          )}
-        </section>
-      </div>
+          </div>
+        </div>
+      )}
 
-      {/* ── Tablas resumen al fondo ── */}
-      {(proximosDias.length > 0 || gapTasksAll.length > 0) && (
-        <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden">
-          {/* Tab bar */}
-          <div className="flex border-b border-slate-100">
-            {[
-              { id: "riesgo" as BottomTab, label: `Riesgo semana (${proximosDias.length})` },
-              { id: "huecos" as BottomTab, label: `Huecos (${gapTasksAll.length})` },
-            ].map(({ id, label }) => (
-              <button
-                key={id}
-                onClick={() => setBottomTab(id)}
-                className={`px-4 py-2.5 text-xs font-semibold transition-colors border-b-2 ${
-                  bottomTab === id
-                    ? "border-cyan-500 text-cyan-700 bg-cyan-50"
-                    : "border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                {label}
+      {/* ── SECCIÓN SEMANA ────────────────────────────────────────────────────── */}
+      {activeTab === "semana" && data && (
+        <div className="flex-1 min-h-0 overflow-y-auto space-y-2">
+          {weekDays.map(dayIso => {
+            const dd = byDay.get(dayIso) ?? { appts: [], gaps: [], tasks: [] };
+            const numRiesgo = dd.appts.filter(a => a.riskScore >= 40).length;
+            const numHuecos = dd.gaps.length;
+            const dayEuros  = numRiesgo * 80;
+            const badge: "CRÍTICO" | "ATENCIÓN" | "OK" =
+              numRiesgo > 4 || dd.gaps.some(g => g.durationMin > 120) ? "CRÍTICO" :
+              numRiesgo >= 2 || dd.gaps.some(g => g.durationMin > 60)  ? "ATENCIÓN" : "OK";
+            const badgeClass =
+              badge === "CRÍTICO" ? "bg-red-100 text-red-700" :
+              badge === "ATENCIÓN" ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700";
+            const isToday    = dayIso === todayIso;
+            const isTomorrow = dayIso === tomorrowIso;
+            const expanded = expandedDays.has(dayIso);
+
+            const dayItems: UnifiedItem[] = dd.tasks
+              .filter(t => !done.has(t.id))
+              .map(t => toUnifiedAppt(t, recalls))
+              .filter((x): x is UnifiedItem => x !== null);
+
+            return (
+              <div key={dayIso} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50"
+                  onClick={() => setExpandedDays(prev => {
+                    const next = new Set(prev);
+                    expanded ? next.delete(dayIso) : next.add(dayIso);
+                    return next;
+                  })}>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className={`text-xs font-bold w-2 h-2 rounded-full ${numRiesgo > 0 ? "bg-red-400" : "bg-green-400"} shrink-0`} />
+                    <span className={`text-sm font-semibold ${isToday ? "text-red-600" : isTomorrow ? "text-amber-600" : "text-slate-700"}`}>
+                      {isToday ? "HOY" : isTomorrow ? "MAÑANA" : dayLabel(dayIso)}
+                    </span>
+                    <span className="text-xs text-slate-400">
+                      {numRiesgo} en riesgo · {numHuecos} huecos · €{dayEuros}
+                    </span>
+                  </div>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${badgeClass}`}>{badge}</span>
+                  <span className="text-slate-300 text-xs">{expanded ? "▲" : "▼"}</span>
+                </button>
+                {expanded && (
+                  <div className="border-t border-slate-100 p-3 space-y-2">
+                    {dayItems.length === 0 && (
+                      <p className="text-xs text-slate-400 text-center py-2">Sin acciones pendientes</p>
+                    )}
+                    {dayItems.map(item => (
+                      <ItemCard key={item.id} item={item} compact={false}
+                        onClick={() => setSelectedItem(item)} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── SECCIÓN HISTORIAL ─────────────────────────────────────────────────── */}
+      {activeTab === "historial" && (
+        <div className="flex-1 min-h-0 flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          {/* Sub-tabs */}
+          <div className="flex border-b border-slate-100 shrink-0">
+            {(["pacientes","huecos"] as HistTab[]).map(tab => (
+              <button key={tab}
+                onClick={() => setHistTab(tab)}
+                className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-all ${histTab === tab ? "border-cyan-600 text-cyan-700" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
+                {tab === "pacientes" ? "Pacientes" : "Huecos"}
               </button>
             ))}
           </div>
 
-          {/* Tab: Pacientes riesgo semana */}
-          {bottomTab === "riesgo" && (
-            <div className="overflow-x-auto">
-              {proximosDias.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-6">Sin citas de riesgo esta semana</p>
-              ) : (
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
-                      <th className="px-4 py-2">Paciente</th>
-                      <th className="px-4 py-2">Tratamiento</th>
-                      <th className="px-4 py-2">Día</th>
-                      <th className="px-4 py-2">Hora</th>
-                      <th className="px-4 py-2 text-right">Score</th>
+          <div className="flex-1 overflow-auto">
+            {/* Tab Pacientes */}
+            {histTab === "pacientes" && (
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50 sticky top-0">
+                  <tr className="border-b border-slate-100 text-slate-400 text-left">
+                    <th className="px-4 py-2 font-semibold">Paciente</th>
+                    <th className="px-4 py-2 font-semibold">Tratamiento</th>
+                    <th className="px-4 py-2 font-semibold">Día</th>
+                    <th className="px-4 py-2 font-semibold">Hora</th>
+                    <th className="px-4 py-2 font-semibold">Tipo acción</th>
+                    <th className="px-4 py-2 font-semibold">Nota</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {histRows.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                        Sin acciones registradas esta semana
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {proximosDias.map((a) => (
-                      <tr key={a.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                        <td className="px-4 py-2 font-medium text-slate-800">{a.patientName}</td>
-                        <td className="px-4 py-2 text-slate-500 max-w-[140px] truncate">{a.treatmentName}</td>
-                        <td className="px-4 py-2 text-slate-500">
-                          {dayLabel(a.dayIso, todayIso, tomorrowIso)}
-                        </td>
-                        <td className="px-4 py-2 text-slate-500">{a.startDisplay}</td>
-                        <td className="px-4 py-2 text-right">
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${scoreBadgeClass(a.riskScore)}`}>
-                            {a.riskScore}
+                  )}
+                  {histRows.map(h => (
+                    <tr key={h.key} className="border-b border-slate-50 hover:bg-slate-50">
+                      <td className="px-4 py-2 font-medium text-slate-800">{h.paciente}</td>
+                      <td className="px-4 py-2 text-slate-600">{h.tratamiento}</td>
+                      <td className="px-4 py-2 text-slate-500">{h.dayIso}</td>
+                      <td className="px-4 py-2 text-slate-500">{h.hora}</td>
+                      <td className="px-4 py-2">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${h.tipo === "Confirmado" ? "bg-green-100 text-green-700" : h.tipo === "Cancelado" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}>
+                          {h.tipo}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2 text-slate-400 max-w-[120px] truncate">{h.nota}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+
+            {/* Tab Huecos */}
+            {histTab === "huecos" && (
+              <table className="w-full text-xs">
+                <thead className="bg-slate-50 sticky top-0">
+                  <tr className="border-b border-slate-100 text-slate-400 text-left">
+                    <th className="px-4 py-2 font-semibold">Día</th>
+                    <th className="px-4 py-2 font-semibold">Franja</th>
+                    <th className="px-4 py-2 font-semibold">Doctor</th>
+                    <th className="px-4 py-2 font-semibold">Duración</th>
+                    <th className="px-4 py-2 font-semibold">Candidatos</th>
+                    <th className="px-4 py-2 font-semibold">Estado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {allGaps.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-slate-400">Sin huecos esta semana</td>
+                    </tr>
+                  )}
+                  {allGaps.map(item => {
+                    if (item.type !== "gap") return null;
+                    const g = item.data;
+                    const candidatos = recalls.filter(r => !g.clinica || r.clinica === g.clinica).length;
+                    const estado = done.has(item.id) ? "Cubierto" : "Libre";
+                    return (
+                      <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50">
+                        <td className="px-4 py-2 text-slate-600">{formatFechaEs(g.dayIso)}</td>
+                        <td className="px-4 py-2 text-slate-700 font-medium">{g.startDisplay}–{g.endDisplay}</td>
+                        <td className="px-4 py-2 text-slate-500">{g.staffId ?? "—"}</td>
+                        <td className="px-4 py-2 text-slate-500">{g.durationMin} min</td>
+                        <td className="px-4 py-2 text-slate-500">{candidatos}</td>
+                        <td className="px-4 py-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${estado === "Cubierto" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>
+                            {estado}
                           </span>
                         </td>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          )}
-
-          {/* Tab: Huecos */}
-          {bottomTab === "huecos" && (
-            <div className="overflow-x-auto">
-              {gapTasksAll.length === 0 ? (
-                <p className="text-sm text-slate-400 text-center py-6">Sin huecos registrados</p>
-              ) : (
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-left text-[10px] font-semibold text-slate-400 uppercase tracking-wide">
-                      <th className="px-4 py-2">Día</th>
-                      <th className="px-4 py-2">Hora inicio</th>
-                      <th className="px-4 py-2">Duración</th>
-                      <th className="px-4 py-2">Candidatos</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {gapTasksAll.map((t) => {
-                      const g = t.gap!;
-                      const cands = filteredRecalls.slice(0, 2);
-                      return (
-                        <tr key={t.id} className="border-b border-slate-50 hover:bg-slate-50 transition-colors">
-                          <td className="px-4 py-2 text-slate-500">{dayLabel(g.dayIso, todayIso, tomorrowIso)}</td>
-                          <td className="px-4 py-2 font-medium text-slate-800">{g.startDisplay}</td>
-                          <td className="px-4 py-2 text-slate-500">{g.durationMin} min</td>
-                          <td className="px-4 py-2 text-slate-400">
-                            {cands.length > 0
-                              ? cands.map((r) => r.patientName.split(" ")[0]).join(", ")
-                              : "—"}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          )}
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       )}
+
+      {/* PANEL LATERAL */}
+      {selectedItem && (
+        <AccionSidePanel
+          item={selectedItem}
+          recalls={recalls}
+          user={user}
+          onClose={() => setSelectedItem(null)}
+          onMarkDone={id => { markDone(id); setSelectedItem(null); showToast("Acción completada"); }}
+          onRefresh={() => { loadData(); }}
+          onHistorialAction={addHistorialItem}
+        />
+      )}
     </div>
+  );
+}
+
+// ── ItemCard ──────────────────────────────────────────────────────────────────
+
+function ItemCard({ item, compact, onClick }: {
+  item: UnifiedItem;
+  compact: boolean;
+  onClick: () => void;
+}) {
+  if (compact) {
+    return (
+      <button onClick={onClick}
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:border-slate-300 text-left">
+        <span className="text-xs font-bold shrink-0"
+          style={{ color: scoreColor(item.scoreAccion) }}>
+          {item.scoreAccion}
+        </span>
+        {item.type === "appt" ? (
+          <>
+            <span className="text-xs font-semibold text-slate-700 truncate">{item.data.patientName}</span>
+            <span className="text-xs text-slate-400 truncate">· {item.data.treatmentName} · {item.data.startDisplay}</span>
+          </>
+        ) : (
+          <span className="text-xs text-slate-600 truncate">Hueco {item.data.startDisplay}–{item.data.endDisplay}</span>
+        )}
+        <div className="flex gap-1.5 ml-auto shrink-0">
+          {item.type === "appt" && (
+            <>
+              <a href={buildWA(item.data.patientPhone, "")} onClick={e => e.stopPropagation()}
+                className="text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">WA</a>
+              <a href={`tel:${item.data.patientPhone}`} onClick={e => e.stopPropagation()}
+                className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-700 border border-cyan-200">Tel</a>
+            </>
+          )}
+        </div>
+      </button>
+    );
+  }
+
+  // Detailed card
+  if (item.type === "gap") {
+    const g = item.data;
+    return (
+      <button onClick={onClick}
+        className="w-full text-left rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-2 hover:border-blue-300">
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold text-blue-800">Hueco disponible</p>
+            <p className="text-xs text-blue-600">{g.startDisplay}–{g.endDisplay} · {g.durationMin} min</p>
+          </div>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${scoreBgClass(item.scoreAccion)}`}>
+            {item.scoreAccion}
+          </span>
+        </div>
+        {item.overbooking && (
+          <p className="text-xs font-bold text-amber-700">⚡ Overbooking posible</p>
+        )}
+        <p className="text-xs text-blue-500">
+          {item.recalls.length > 0 ? `${item.recalls.length} candidato${item.recalls.length !== 1 ? "s" : ""}` : "Sin candidatos"}
+          {" · "}Ver candidatos →
+        </p>
+      </button>
+    );
+  }
+
+  // Appt card
+  const a = item.data;
+  const fase = calcFaseLabel(item.hoursUntil);
+  const sc = scoreColor(item.scoreAccion);
+  const ci = confianzaShort(a.confianza);
+
+  return (
+    <button onClick={onClick}
+      className="w-full text-left rounded-xl border border-slate-200 bg-white p-3 space-y-2 hover:border-slate-300"
+      style={{ borderLeft: `4px solid ${sc}` }}>
+      <div className="flex items-start gap-2.5">
+        {/* Score circle */}
+        <div className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold border-2 shrink-0"
+          style={{ borderColor: sc, color: sc }}>
+          {item.scoreAccion}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-slate-800 truncate">{a.patientName}</p>
+          <p className="text-xs text-slate-500 truncate">{a.treatmentName} · {a.startDisplay}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1 shrink-0">
+          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${faseStyle(fase)} ${fase === "CRÍTICO" ? "animate-pulse" : ""}`}>
+            {fase}
+          </span>
+          {ci.text && <span className={`text-[10px] font-semibold ${ci.color}`}>{ci.text}</span>}
+        </div>
+      </div>
+      {(a.doctorNombre ?? a.clinicaNombre) && (
+        <p className="text-xs text-slate-400">{a.doctorNombre ?? a.doctor ?? ""}{a.clinicaNombre ? ` · ${a.clinicaNombre}` : ""}</p>
+      )}
+      <div className="flex gap-2">
+        <a href={buildWA(a.patientPhone, "")} onClick={e => e.stopPropagation()}
+          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-green-50 border border-green-200 text-green-700 hover:bg-green-100">
+          WA
+        </a>
+        <a href={`tel:${a.patientPhone}`} onClick={e => e.stopPropagation()}
+          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700 hover:bg-cyan-100">
+          Llamar
+        </a>
+        <span className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-50 border border-slate-200 text-slate-500 ml-auto">
+          Ver detalle →
+        </span>
+      </div>
+    </button>
   );
 }

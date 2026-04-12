@@ -44,6 +44,19 @@ export type RiskyAppt = {
   actionUrgent?: boolean;
   confirmed: boolean;
   riskFactors: RiskFactors;
+  // Confianza e historial (calculados en /api/no-shows/acciones)
+  histTotal?: number;                // Total citas pasadas del paciente
+  histCompletados?: number;          // Citas completadas (asistió)
+  histNoShows?: number;              // No-shows
+  histCancels?: number;              // Cancelaciones (sin [NO_SHOW])
+  confianza?: number;                // 0–1: histCompletados / histTotal
+  ultimasCitas?: Array<{
+    fecha: string;                   // "YYYY-MM-DD"
+    tratamiento: string;
+    resultado: "completado" | "cancelado" | "no_show";
+  }>;
+  ultimaAccion?: string;             // Fecha ISO del último contacto registrado (Airtable)
+  tipoUltimaAccion?: string;         // "WA enviado" | "Llamada" | "Sin respuesta" | etc.
 };
 
 /** Paciente a mitad de tratamiento sin próxima cita agendada */
@@ -84,6 +97,8 @@ export type AccionTask = {
   urgencia?: number;                 // urgenciaTemporal raw (0–100)
   hoursUntil?: number;               // horas hasta la cita (negativo = ya pasó)
   overbooking?: boolean;             // gap con hueco reschedulable detectado
+  // Estado de gestión (source of truth = Airtable)
+  yaGestionado?: boolean;            // true si Tipo_ultima_accion="Confirmado"/"Cancelado" O Estado confirmado/cancelado
 };
 
 /** Resumen del header HOY */
