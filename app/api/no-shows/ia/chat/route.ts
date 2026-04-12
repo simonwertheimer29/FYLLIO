@@ -53,6 +53,9 @@ export async function POST(req: Request) {
     const trendLines = (ctx.weeklyTrend ?? [])
       .map((w: any) => `  ${w.week}: ${(w.tasa * 100).toFixed(1)}%`)
       .join("\n");
+    const franjaLines = (ctx.porFranja ?? [])
+      .map((f: any) => `  ${f.franja}h: ${(f.tasa * 100).toFixed(1)}%`)
+      .join("\n");
 
     const systemPrompt = [
       "Eres el asistente inteligente de Fyllio, experto en análisis de no-shows de clínicas dentales en España.",
@@ -61,12 +64,18 @@ export async function POST(req: Request) {
       "",
       "Datos actuales de la clínica:",
       `- Periodo analizado: ${ctx.periodo ?? "30 días"}`,
-      ctx.clinica ? `- Clínica: ${ctx.clinica}` : "- Clínica: todas",
+      ctx.clinica   ? `- Clínica: ${ctx.clinica}`     : "- Clínica: todas",
+      ctx.doctorId  ? `- Doctor filtrado: ${ctx.doctorId}` : "",
       `- Tasa de no-show: ${tasaPct} (total citas: ${ctx.totalCitas ?? "?"}, no-shows: ${ctx.totalNoShows ?? "?"})`,
       `- Media del sector dental: ${sectorPct}`,
-      byDayLines  ? `- Por día de semana:\n${byDayLines}`   : "",
-      byTreatLines? `- Por tratamiento:\n${byTreatLines}`   : "",
-      trendLines  ? `- Tendencia 8 semanas:\n${trendLines}` : "",
+      ctx.tendencia ? `- Tendencia del periodo: ${ctx.tendencia}` : "",
+      ctx.mejorDoctor  ? `- Doctor con mejor tasa: ${ctx.mejorDoctor}`   : "",
+      ctx.peorDoctor   ? `- Doctor con peor tasa: ${ctx.peorDoctor}`     : "",
+      ctx.topTratamiento ? `- Tratamiento con más no-shows: ${ctx.topTratamiento}` : "",
+      byDayLines   ? `- Por día de semana:\n${byDayLines}`    : "",
+      byTreatLines ? `- Por tratamiento:\n${byTreatLines}`    : "",
+      franjaLines  ? `- Por franja horaria:\n${franjaLines}`  : "",
+      trendLines   ? `- Tendencia 8 semanas:\n${trendLines}`  : "",
     ].filter(Boolean).join("\n");
 
     const res = await fetch("https://api.anthropic.com/v1/messages", {
