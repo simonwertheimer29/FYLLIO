@@ -39,8 +39,8 @@ export type Props = {
 
 function apptColors(appt: RiskyAppt): { bg: string; border: string } {
   if (appt.confirmed)       return { bg: "#2563EB", border: "#1d4ed8" };
-  if (appt.riskScore >= 61) return { bg: "#DC2626", border: "#b91c1c" };
-  if (appt.riskScore >= 31) return { bg: "#D97706", border: "#b45309" };
+  if (appt.riskScore >= 60) return { bg: "#DC2626", border: "#b91c1c" };
+  if (appt.riskScore >= 30) return { bg: "#D97706", border: "#b45309" };
   return                         { bg: "#16A34A", border: "#15803d" };
 }
 

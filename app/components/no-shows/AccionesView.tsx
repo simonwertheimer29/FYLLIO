@@ -296,6 +296,11 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
   const allTasks = data ? applyFilters(data.tasks) : [];
   const recalls = data?.recalls ?? [];
 
+  // Fechas necesarias para filtrar (deben ir antes de urgentes/manana)
+  const weekDays    = getCurrentWeekDays();
+  const todayIso    = getTodayIso();
+  const tomorrowIso = getTomorrowIso();
+
   // HOY: citas + gaps de hoy
   const urgentes: UnifiedItem[] = allTasks
     .filter(t => !done.has(t.id) && (
@@ -321,11 +326,6 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
   const pct = totalAcciones > 0 ? Math.round(done.size / totalAcciones * 100) : 100;
   const pendientes = Math.max(0, urgentes.length + manana.length);
   const euros = urgentes.filter(i => i.type === "appt").length * 80;
-
-  // SEMANA data
-  const weekDays = getCurrentWeekDays();
-  const todayIso = getTodayIso();
-  const tomorrowIso = getTomorrowIso();
 
   type DayData = { appts: RiskyAppt[]; gaps: GapSlot[]; tasks: AccionTask[] };
   const byDay = new Map<string, DayData>();
