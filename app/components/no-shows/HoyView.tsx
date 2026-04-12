@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import type { NoShowsUserSession, RiskyAppt, GapSlot, RecallAlert } from "../../lib/no-shows/types";
-import { riskColor, riskBgClass } from "../../lib/no-shows/score";
+import { riskColor } from "../../lib/no-shows/score";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -41,11 +41,6 @@ function buildWhatsApp(appt: RiskyAppt): string {
     return `Hola ${nombre}, te recordamos tu cita de ${tratamiento} a las ${hora}. Responde "OK" para confirmar.`;
   }
   return `Hola ${nombre}, recordatorio de tu cita a las ${hora} para ${tratamiento}.`;
-}
-
-function buildRecallWhatsApp(recall: RecallAlert): string {
-  const nombre = recall.patientName.split(" ")[0];
-  return `Hola ${nombre}, llevamos ${recall.weeksSinceLast} semanas desde tu última cita de ${recall.treatmentName}. ¿Te gustaría agendar tu próxima sesión? Puedes elegir tu horario respondiendo a este mensaje.`;
 }
 
 // ─── computeGaps ─────────────────────────────────────────────────────────────
@@ -90,37 +85,6 @@ function computeGaps(appts: RiskyAppt[], todayIso: string): GapSlot[] {
 // ─── Pill navbars helper ───────────────────────────────────────────────────────
 
 const PILL_SCROLL = "flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden";
-
-// ─── RecallCard ───────────────────────────────────────────────────────────────
-
-function RecallCard({ recall }: { recall: RecallAlert }) {
-  return (
-    <div className="flex items-center gap-3 py-2 px-3 bg-orange-50 border border-orange-200 rounded-xl">
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-slate-800 truncate">{recall.patientName}</p>
-        <p className="text-xs text-slate-500 truncate">{recall.treatmentName}</p>
-        <p className="text-xs text-orange-700 font-medium mt-0.5">
-          {recall.weeksSinceLast} semanas sin próxima cita
-          {recall.clinica ? ` · ${recall.clinica}` : ""}
-        </p>
-      </div>
-      <div className="flex items-center gap-1.5 shrink-0">
-        {recall.patientPhone && (
-          <a
-            href={`https://wa.me/${recall.patientPhone.replace(/\D/g, "")}?text=${encodeURIComponent(buildRecallWhatsApp(recall))}`}
-            target="_blank" rel="noopener noreferrer"
-            className="p-1.5 rounded-xl bg-green-600 text-white text-xs hover:bg-green-700 transition-colors"
-          >WA</a>
-        )}
-        {recall.patientPhone && (
-          <a href={`tel:${recall.patientPhone}`}
-            className="p-1.5 rounded-xl border border-slate-200 text-slate-600 text-xs hover:bg-slate-50 transition-colors"
-          >Tel</a>
-        )}
-      </div>
-    </div>
-  );
-}
 
 // ─── ApptRow ──────────────────────────────────────────────────────────────────
 
@@ -541,20 +505,6 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
               );
             })}
 
-            {/* Recall global colapsable */}
-            {data.recalls.length > 0 && (
-              <details className="rounded-2xl bg-white border border-orange-200 overflow-hidden">
-                <summary className="cursor-pointer px-4 py-3 flex items-center justify-between select-none list-none">
-                  <p className="text-sm font-semibold text-orange-800">
-                    🔔 Recall — {data.recalls.length} paciente{data.recalls.length !== 1 ? "s" : ""} sin próxima cita
-                  </p>
-                  <span className="text-xs text-slate-400">Ver ▾</span>
-                </summary>
-                <div className="border-t border-orange-100 p-4 space-y-2">
-                  {data.recalls.map(recall => <RecallCard key={recall.patientPhone} recall={recall} />)}
-                </div>
-              </details>
-            )}
           </>
         );
       })()}
@@ -629,20 +579,6 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
               </div>
             )}
 
-            {/* Recall colapsable */}
-            {data.recalls.length > 0 && (
-              <details className="rounded-2xl bg-white border border-orange-200 overflow-hidden">
-                <summary className="cursor-pointer px-4 py-3 flex items-center justify-between select-none list-none">
-                  <p className="text-sm font-semibold text-orange-800">
-                    🔔 Recall — {data.recalls.length} paciente{data.recalls.length !== 1 ? "s" : ""} sin próxima cita
-                  </p>
-                  <span className="text-xs text-slate-400">Ver ▾</span>
-                </summary>
-                <div className="border-t border-orange-100 p-4 space-y-2">
-                  {data.recalls.map(recall => <RecallCard key={recall.patientPhone} recall={recall} />)}
-                </div>
-              </details>
-            )}
           </>
         );
       })()}
@@ -733,20 +669,6 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
               </div>
             )}
 
-            {/* Recall colapsable */}
-            {data.recalls.length > 0 && (
-              <details className="rounded-2xl bg-white border border-orange-200 overflow-hidden">
-                <summary className="cursor-pointer px-4 py-3 flex items-center justify-between select-none list-none">
-                  <p className="text-sm font-semibold text-orange-800">
-                    🔔 Pacientes sin próxima cita ({data.recalls.length})
-                  </p>
-                  <span className="text-xs text-slate-400">Ver ▾</span>
-                </summary>
-                <div className="border-t border-orange-100 p-4 space-y-2">
-                  {data.recalls.map(recall => <RecallCard key={recall.patientPhone} recall={recall} />)}
-                </div>
-              </details>
-            )}
           </>
         );
       })()}

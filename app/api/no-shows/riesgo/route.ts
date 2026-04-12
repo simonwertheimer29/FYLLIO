@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { DateTime } from "luxon";
-import { base, TABLES } from "../../../lib/airtable";
+import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import type { NoShowsUserSession, RiskyAppt, RecallAlert } from "../../../lib/no-shows/types";
 import {
   scoreAppointment,
@@ -32,6 +32,12 @@ function firstString(x: unknown): string {
   if (typeof x === "string") return x;
   if (Array.isArray(x) && typeof x[0] === "string") return x[0];
   return "";
+}
+
+function getField(fields: any, key: string): string {
+  const raw = fields[key];
+  if (Array.isArray(raw)) return String(raw[0] ?? "");
+  return String(raw ?? "");
 }
 
 function toMadridIso(raw: unknown): string {
@@ -91,20 +97,38 @@ export async function GET(req: Request) {
     const ninetyDaysAgoIso = now.minus({ days: 90 }).toISODate()!;
     console.log("[riesgo] todayIso:", todayIso, "| mondayIso:", mondayIso, "| zona:", ZONE, "| filtro desde:", ninetyDaysAgoIso);
 
-    const [staffRecs, clinicaRecs, sillonRecs, allRecs] = await Promise.all([
+    const [staffRecs, clinicaRecs, sillonRecs] = await Promise.all([
       base("Staff" as any).select({ fields: ["Staff ID", "Nombre"] }).all(),
       base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all(),
       base("Sillones" as any).select({ fields: ["Sillón ID", "Nombre"] }).all(),
+    ]);
+    const allRecs = await fetchAll(
       base(TABLES.appointments as any).select({
-        maxRecords: 2000,
         filterByFormula: `IS_AFTER({Hora inicio}, '${ninetyDaysAgoIso}')`,
         sort: [{ field: "Hora inicio", direction: "asc" }],
-      }).all(),
-    ]);
+      }),
+    );
     console.log("[riesgo] allRecs total tras filter:", allRecs.length);
-    const staffMap   = new Map<string, string>((staffRecs as any[]).map((r) => [firstString(r.fields["Staff ID"]),   firstString(r.fields["Nombre"])]));
-    const clinicaMap = new Map<string, string>((clinicaRecs as any[]).map((r) => [firstString(r.fields["Clínica ID"]), firstString(r.fields["Nombre"])]));
-    const sillonMap  = new Map<string, string>((sillonRecs as any[]).map((r) => [firstString(r.fields["Sillón ID"]),  firstString(r.fields["Nombre"])]));
+
+    const staffMap          = new Map<string, string>((staffRecs as any[]).map((r) => [firstString(r.fields["Staff ID"]),    firstString(r.fields["Nombre"])]));
+    const clinicaMap        = new Map<string, string>((clinicaRecs as any[]).map((r) => [firstString(r.fields["Clínica ID"]),  firstString(r.fields["Nombre"])]));
+    const sillonMap         = new Map<string, string>((sillonRecs as any[]).map((r) => [firstString(r.fields["Sillón ID"]),   firstString(r.fields["Nombre"])]));
+    const clinicaByRecordId = new Map<string, string>((clinicaRecs as any[]).map((r) => [r.id, firstString(r.fields["Nombre"])]));
+    const staffByRecordId   = new Map<string, string>((staffRecs as any[]).map((r) => [r.id, firstString(r.fields["Nombre"])]));
+    const clinicaRecordToId = new Map<string, string>((clinicaRecs as any[]).map((r) => [r.id, firstString(r.fields["Clínica ID"])]));
+    const staffRecordToId   = new Map<string, string>((staffRecs as any[]).map((r) => [r.id, firstString(r.fields["Staff ID"])]));
+
+    // Set de record IDs aceptables para el filtro de clínica
+    const clinicaFilterIds = new Set<string>();
+    if (clinicaFilter) {
+      clinicaFilterIds.add(clinicaFilter);
+      for (const r of clinicaRecs as any[]) {
+        if (firstString(r.fields["Clínica ID"]) === clinicaFilter || r.id === clinicaFilter) {
+          clinicaFilterIds.add(r.id);
+          clinicaFilterIds.add(firstString(r.fields["Clínica ID"]));
+        }
+      }
+    }
 
     const weekRecs:    any[] = [];
     const futurasRecs: any[] = [];
@@ -118,8 +142,8 @@ export async function GET(req: Request) {
       if (!startIso) continue;
       const dayIso = startIso.slice(0, 10);
 
-      const clinicaIdVal = firstString(f["Clínica_id"]);
-      if (clinicaFilter && clinicaIdVal !== clinicaFilter) continue;
+      const rawClinId = getField(f, "Clínica_id");
+      if (clinicaFilter && !clinicaFilterIds.has(rawClinId)) continue;
 
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
 
@@ -173,9 +197,11 @@ export async function GET(req: Request) {
       const endIso = toMadridIso(f["Hora final"]);
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
       const confirmed = estado.includes("CONFIRM");
-      const profesionalId = firstString(f["Profesional_id"]) || undefined;
-      const clinicaId     = firstString(f["Clínica_id"])     || undefined;
-      const sillonId      = firstString(f["Sillon_id"])      || undefined;
+      const rawProfId   = getField(f, "Profesional_id");
+      const rawClinId   = getField(f, "Clínica_id");
+      const sillonId    = firstString(f["Sillon_id"]) || undefined;
+      const profesionalId = staffRecordToId.get(rawProfId)   || rawProfId || undefined;
+      const clinicaId     = clinicaRecordToId.get(rawClinId) || rawClinId || undefined;
       const history = patientHistory.get(phone) ?? { total: 0, noShowCount: 0, cancelCount: 0 };
       const scored = scoreAppointment(
         { startIso, treatmentName, createdTime: r._rawJson?.createdTime, history },
@@ -190,10 +216,14 @@ export async function GET(req: Request) {
         startDisplay: toHHMM(startIso),
         treatmentName,
         doctor: profesionalId,
-        doctorNombre: profesionalId ? (staffMap.get(profesionalId) ?? profesionalId) : undefined,
+        doctorNombre: rawProfId
+          ? (staffByRecordId.get(rawProfId) ?? staffMap.get(profesionalId ?? "") ?? profesionalId)
+          : undefined,
         profesionalId,
         clinica: clinicaId,
-        clinicaNombre: clinicaId ? (clinicaMap.get(clinicaId) ?? clinicaId) : undefined,
+        clinicaNombre: rawClinId
+          ? (clinicaByRecordId.get(rawClinId) ?? clinicaMap.get(clinicaId ?? "") ?? clinicaId)
+          : undefined,
         sillonNombre: sillonId ? (sillonMap.get(sillonId) ?? sillonId) : undefined,
         dayIso: startIso.slice(0, 10),
         confirmed,

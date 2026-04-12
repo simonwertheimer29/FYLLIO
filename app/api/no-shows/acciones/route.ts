@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { DateTime } from "luxon";
-import { base, TABLES } from "../../../lib/airtable";
+import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import type { NoShowsUserSession, AccionTask, RiskyAppt, GapSlot, RecallAlert } from "../../../lib/no-shows/types";
 
 type ExtAccionTask = AccionTask & { escalado?: boolean };
@@ -80,13 +80,26 @@ export async function GET(req: Request) {
 
     const ninetyDaysAgoIso = todayDt.minus({ days: 90 }).toISODate()!;
     console.log("[acciones] todayIso:", todayIso, "| zona:", ZONE, "| filtro desde:", ninetyDaysAgoIso);
-    const allRecs = await base(TABLES.appointments as any)
-      .select({
-        maxRecords: 2000,
+
+    const clinicaRecs = await base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all();
+    // Set de record IDs aceptables para el filtro de clínica
+    const clinicaFilterIds = new Set<string>();
+    if (clinicaFilter) {
+      clinicaFilterIds.add(clinicaFilter);
+      for (const r of clinicaRecs as any[]) {
+        if (firstString(r.fields["Clínica ID"]) === clinicaFilter || r.id === clinicaFilter) {
+          clinicaFilterIds.add(r.id);
+          clinicaFilterIds.add(firstString(r.fields["Clínica ID"]));
+        }
+      }
+    }
+
+    const allRecs = await fetchAll(
+      base(TABLES.appointments as any).select({
         filterByFormula: `IS_AFTER({Hora inicio}, '${ninetyDaysAgoIso}')`,
         sort: [{ field: "Hora inicio", direction: "asc" }],
-      })
-      .all();
+      }),
+    );
     console.log("[acciones] allRecs total tras filter:", allRecs.length);
 
     const todayRecs: any[]         = [];
@@ -103,7 +116,7 @@ export async function GET(req: Request) {
       if (!startIso) continue;
       const dayIso = startIso.slice(0, 10);
       const clinicaRec = firstString(f["Clínica_id"]);
-      if (clinicaFilter && clinicaRec !== clinicaFilter) continue;
+      if (clinicaFilter && !clinicaFilterIds.has(clinicaRec)) continue;
 
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
       if (dayIso === todayIso && !CANCELLED.has(estado))    todayRecs.push({ r, f, startIso });

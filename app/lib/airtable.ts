@@ -47,3 +47,18 @@ export function base(tableName: TableName) {
 
   return _base(tableName);
 }
+
+/**
+ * fetchAll — paginación completa garantizada via eachPage.
+ * Usar en lugar de .all() para asegurar que se traen todos los registros.
+ */
+export async function fetchAll(query: any): Promise<any[]> {
+  const records: any[] = [];
+  await new Promise<void>((resolve, reject) => {
+    query.eachPage(
+      (pageRecords: any[], nextPage: () => void) => { records.push(...pageRecords); nextPage(); },
+      (err: Error | null) => (err ? reject(err) : resolve()),
+    );
+  });
+  return records;
+}
