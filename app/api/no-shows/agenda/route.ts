@@ -73,12 +73,19 @@ export async function GET(req: Request) {
     const todayIso  = now.toISODate()!;
 
     // Lookup tables (parallel) — para resolver IDs a nombres legibles
+    const ninetyDaysAgoIso = now.minus({ days: 90 }).toISODate()!;
+    console.log("[agenda] todayIso:", todayIso, "| mondayIso:", mondayIso, "| zona:", ZONE, "| filtro desde:", ninetyDaysAgoIso);
     const [staffRecs, clinicaRecs, sillonRecs, allRecs] = await Promise.all([
       base("Staff"    as any).select({ fields: ["Staff ID",   "Nombre"] }).all() as Promise<any[]>,
       base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all() as Promise<any[]>,
       base("Sillones" as any).select({ fields: ["Sillón ID",  "Nombre"] }).all() as Promise<any[]>,
-      base(TABLES.appointments as any).select({ maxRecords: 2000 }).all() as Promise<any[]>,
+      base(TABLES.appointments as any).select({
+        maxRecords: 2000,
+        filterByFormula: `IS_AFTER({Hora inicio}, '${ninetyDaysAgoIso}')`,
+        sort: [{ field: "Hora inicio", direction: "asc" }],
+      }).all() as Promise<any[]>,
     ]);
+    console.log("[agenda] allRecs total tras filter:", allRecs.length);
     const staffMap   = new Map<string, string>(staffRecs.map(  (r: any) => [firstString(r.fields["Staff ID"]),   firstString(r.fields["Nombre"])]));
     const clinicaMap = new Map<string, string>(clinicaRecs.map((r: any) => [firstString(r.fields["Clínica ID"]), firstString(r.fields["Nombre"])]));
     const sillonMap  = new Map<string, string>(sillonRecs.map( (r: any) => [firstString(r.fields["Sillón ID"]),  firstString(r.fields["Nombre"])]));

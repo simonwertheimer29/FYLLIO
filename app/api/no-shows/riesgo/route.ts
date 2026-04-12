@@ -88,13 +88,20 @@ export async function GET(req: Request) {
 
     const futurasStartIso = windowStart.plus({ weeks: 1 }).toISODate()!;
     const futurasEndIso   = windowStart.plus({ weeks: 3 }).toISODate()!;
+    const ninetyDaysAgoIso = now.minus({ days: 90 }).toISODate()!;
+    console.log("[riesgo] todayIso:", todayIso, "| mondayIso:", mondayIso, "| zona:", ZONE, "| filtro desde:", ninetyDaysAgoIso);
 
     const [staffRecs, clinicaRecs, sillonRecs, allRecs] = await Promise.all([
       base("Staff" as any).select({ fields: ["Staff ID", "Nombre"] }).all(),
       base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all(),
       base("Sillones" as any).select({ fields: ["Sillón ID", "Nombre"] }).all(),
-      base(TABLES.appointments as any).select({ maxRecords: 2000 }).all(),
+      base(TABLES.appointments as any).select({
+        maxRecords: 2000,
+        filterByFormula: `IS_AFTER({Hora inicio}, '${ninetyDaysAgoIso}')`,
+        sort: [{ field: "Hora inicio", direction: "asc" }],
+      }).all(),
     ]);
+    console.log("[riesgo] allRecs total tras filter:", allRecs.length);
     const staffMap   = new Map<string, string>((staffRecs as any[]).map((r) => [firstString(r.fields["Staff ID"]),   firstString(r.fields["Nombre"])]));
     const clinicaMap = new Map<string, string>((clinicaRecs as any[]).map((r) => [firstString(r.fields["Clínica ID"]), firstString(r.fields["Nombre"])]));
     const sillonMap  = new Map<string, string>((sillonRecs as any[]).map((r) => [firstString(r.fields["Sillón ID"]),  firstString(r.fields["Nombre"])]));

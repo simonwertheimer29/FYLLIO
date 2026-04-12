@@ -78,9 +78,16 @@ export async function GET(req: Request) {
     const day3Iso     = todayDt.plus({ days: 2 }).toISODate()!;
     const day14Iso    = todayDt.plus({ days: 13 }).toISODate()!;
 
+    const ninetyDaysAgoIso = todayDt.minus({ days: 90 }).toISODate()!;
+    console.log("[acciones] todayIso:", todayIso, "| zona:", ZONE, "| filtro desde:", ninetyDaysAgoIso);
     const allRecs = await base(TABLES.appointments as any)
-      .select({ maxRecords: 2000 })
+      .select({
+        maxRecords: 2000,
+        filterByFormula: `IS_AFTER({Hora inicio}, '${ninetyDaysAgoIso}')`,
+        sort: [{ field: "Hora inicio", direction: "asc" }],
+      })
       .all();
+    console.log("[acciones] allRecs total tras filter:", allRecs.length);
 
     const todayRecs: any[]         = [];
     const tomorrowRecs: any[]      = [];
