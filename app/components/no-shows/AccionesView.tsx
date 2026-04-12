@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import type {
   NoShowsUserSession,
   RiskyAppt,
@@ -165,6 +165,9 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
   // Toast
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
+  // citaId URL param — auto-abrir panel
+  const pendingCitaIdRef = useRef<string | null>(null);
+
   function showToast(msg: string, ok = true) {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3000);
@@ -218,6 +221,13 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
     if (lista.length > 0) setPF(lista[0].id);
   }, [staffPorClinica, clinicasDisponibles]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Capturar citaId de la URL al montar
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const citaId = params.get("citaId");
+    if (citaId) pendingCitaIdRef.current = citaId;
+  }, []);
+
   // ── Load data ─────────────────────────────────────────────────────────────
 
   const loadData = useCallback(async () => {
@@ -246,6 +256,25 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
   }, [clinicaFilter]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Auto-abrir panel cuando data carga y hay un citaId pendiente
+  useEffect(() => {
+    if (!data || !pendingCitaIdRef.current) return;
+    const citaId = pendingCitaIdRef.current;
+    pendingCitaIdRef.current = null;
+
+    // Buscar en data.tasks (sin aplicar filtros de profesional)
+    const task = data.tasks.find(t => t.appt?.id === citaId || t.id === citaId);
+    if (!task) return;
+
+    // Auto-seleccionar doctor de esa cita
+    const pid = task.appt?.profesionalId;
+    if (pid) setPF(pid);
+
+    // Abrir panel
+    const item = toUnifiedAppt(task, data.recalls ?? []);
+    if (item) setSelectedItem(item);
+  }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Done management ───────────────────────────────────────────────────────
 

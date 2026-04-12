@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import type { NoShowsUserSession, RiskyAppt, GapSlot, RecallAlert } from "../../lib/no-shows/types";
 import { riskColor, riskLabel, riskBgClass } from "../../lib/no-shows/score";
 
@@ -24,6 +25,8 @@ type HoyData = {
   };
   isDemo?: boolean;
 };
+
+type StaffEntry = { id: string; nombre: string };
 
 // ─── WhatsApp helpers ─────────────────────────────────────────────────────────
 
@@ -90,18 +93,21 @@ function ApptRow({
   appt,
   done,
   onDone,
+  onNavigate,
 }: {
   appt: RiskyAppt;
   done: boolean;
   onDone: (id: string) => void;
+  onNavigate: (id: string) => void;
 }) {
   const color = riskColor(appt.riskLevel);
   const label = riskLabel(appt.riskLevel);
   const bgClass = riskBgClass(appt.riskLevel);
 
   return (
-    <div
-      className={`border-l-4 pl-3 py-2 rounded-r-xl transition-opacity ${done ? "opacity-40" : ""}`}
+    <button
+      onClick={() => onNavigate(appt.id)}
+      className={`w-full text-left border-l-4 pl-3 py-2 rounded-r-xl transition-opacity hover:bg-slate-50 ${done ? "opacity-40" : ""}`}
       style={{ borderLeftColor: color }}
     >
       <div className="flex items-start justify-between gap-2">
@@ -134,7 +140,7 @@ function ApptRow({
           </p>
         </div>
         {!done && appt.riskLevel !== "LOW" && (
-          <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
             {appt.patientPhone && (
               <a
                 href={`https://wa.me/${appt.patientPhone.replace(/\D/g, "")}?text=${encodeURIComponent(buildWhatsApp(appt))}`}
@@ -156,7 +162,7 @@ function ApptRow({
               </a>
             )}
             <button
-              onClick={() => onDone(appt.id)}
+              onClick={(e) => { e.stopPropagation(); onDone(appt.id); }}
               className="p-1.5 rounded-xl border border-slate-200 text-slate-400 text-[10px] hover:bg-slate-50 transition-colors"
               title="Marcar hecho"
             >
@@ -165,7 +171,7 @@ function ApptRow({
           </div>
         )}
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -190,11 +196,15 @@ function GapRow({ gap }: { gap: GapSlot }) {
 
 export default function HoyView({ user }: { user: NoShowsUserSession }) {
   const isManager = user.rol === "manager_general";
+  const router = useRouter();
+
   const [data, setData] = useState<HoyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isMañana, setIsMañana] = useState(false);
-  const [clinicaFilter, setClinicaFilter]         = useState<string>("");
-  const [clinicasDisponibles, setClinicasDisponibles] = useState<{ id: string; nombre: string }[]>([]);
+  const [clinicaFilter, setClinicaFilter] = useState<string>("");
+  const [clinicasDisponibles, setClinicasDisponibles] = useState<{ id: string; nombre: string; recordId?: string }[]>([]);
+  const [doctorFilter, setDoctorFilter] = useState<string>("");
+  const [staffPorClinica, setStaffPorClinica] = useState<Record<string, StaffEntry[]>>({});
   const [objetivo, setObjetivo] = useState<number>(10);
   const [done, setDone] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
@@ -250,12 +260,46 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
 
   useEffect(() => { load(clinicaFilter || undefined); }, [load, clinicaFilter]);
 
+  // Fetch clinicas
   useEffect(() => {
     fetch("/api/no-shows/clinicas")
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (d?.clinicas) setClinicasDisponibles(d.clinicas); })
       .catch(() => {});
   }, []);
+
+  // Fetch staff
+  useEffect(() => {
+    fetch("/api/no-shows/staff")
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (!d?.staff) return;
+        const byClinica: Record<string, StaffEntry[]> = {};
+        for (const s of d.staff as any[]) {
+          if (!s.clinicaRecordId) continue;
+          if (s.nombre && String(s.nombre).toLowerCase().includes("recep")) continue;
+          if (!byClinica[s.clinicaRecordId]) byClinica[s.clinicaRecordId] = [];
+          byClinica[s.clinicaRecordId].push({ id: s.id, nombre: s.nombre });
+        }
+        setStaffPorClinica(byClinica);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Auto-seleccionar primera clínica para managers
+  useEffect(() => {
+    if (!isManager || clinicasDisponibles.length === 0) return;
+    if (!clinicaFilter) setClinicaFilter(clinicasDisponibles[0].id);
+  }, [clinicasDisponibles]); // eslint-disable-line
+
+  // Auto-seleccionar primer doctor al cambiar clínica o staff
+  useEffect(() => {
+    const crId = clinicasDisponibles.find(c => c.id === clinicaFilter)?.recordId;
+    const lista: StaffEntry[] = clinicaFilter && crId
+      ? (staffPorClinica[crId] ?? [])
+      : Object.values(staffPorClinica).flat();
+    if (lista.length > 0) setDoctorFilter(lista[0].id);
+  }, [staffPorClinica, clinicaFilter]); // eslint-disable-line
 
   function markDone(id: string) {
     const next = new Set(done);
@@ -284,20 +328,40 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
     );
   }
 
+  // Filtrar citas por doctor seleccionado
+  const filteredAppts = doctorFilter
+    ? data.appointments.filter(a => (a as any).profesionalId === doctorFilter)
+    : data.appointments;
+
+  // Métricas filtradas
+  const filteredSummary = {
+    total: filteredAppts.length,
+    confirmed: filteredAppts.filter(a => a.confirmed).length,
+    riesgoAlto: filteredAppts.filter(a => a.riskLevel === "HIGH").length,
+    riesgoMedio: filteredAppts.filter(a => a.riskLevel === "MEDIUM").length,
+    eurosEnRiesgo: filteredAppts.filter(a => a.riskLevel !== "LOW").length * 85,
+  };
+
   // Semáforo objetivo
-  const tasaRiesgoHoy = data.summary.total > 0
-    ? Math.round(((data.summary.riesgoAlto + data.summary.riesgoMedio) / data.summary.total) * 100)
+  const tasaRiesgoHoy = filteredSummary.total > 0
+    ? Math.round(((filteredSummary.riesgoAlto + filteredSummary.riesgoMedio) / filteredSummary.total) * 100)
     : 0;
   const semaforoColor =
     tasaRiesgoHoy < objetivo         ? "green"
     : tasaRiesgoHoy <= objetivo + 3  ? "amber"
     : "red";
 
-  // Separar citas por nivel
-  const highAppts   = data.appointments.filter((a) => a.riskLevel === "HIGH")
+  // Separar citas por nivel (usando filteredAppts)
+  const highAppts   = filteredAppts.filter((a) => a.riskLevel === "HIGH")
     .sort((a, b) => a.startDisplay.localeCompare(b.startDisplay));
-  const medLowAppts = data.appointments.filter((a) => a.riskLevel !== "HIGH")
+  const medLowAppts = filteredAppts.filter((a) => a.riskLevel !== "HIGH")
     .sort((a, b) => a.startDisplay.localeCompare(b.startDisplay));
+
+  // Lista de doctores disponibles según clínica seleccionada
+  const crId = clinicasDisponibles.find(c => c.id === clinicaFilter)?.recordId;
+  const doctoresDisponibles: StaffEntry[] = clinicaFilter && crId
+    ? (staffPorClinica[crId] ?? [])
+    : Object.values(staffPorClinica).flat();
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-4 w-full">
@@ -333,22 +397,22 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
         {/* 4 Metric Cards */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-            <p className="text-2xl font-black text-slate-800 leading-none">{data.summary.total}</p>
+            <p className="text-2xl font-black text-slate-800 leading-none">{filteredSummary.total}</p>
             <p className="text-xs text-slate-500 mt-1">{isMañana ? "Citas mañana" : "Citas hoy"}</p>
           </div>
           <div className="rounded-xl border border-green-100 bg-green-50 p-3">
-            <p className="text-2xl font-black text-green-700 leading-none">{data.summary.confirmed}</p>
+            <p className="text-2xl font-black text-green-700 leading-none">{filteredSummary.confirmed}</p>
             <p className="text-xs text-green-600 mt-1">Confirmadas</p>
           </div>
           <div className="rounded-xl border border-red-100 bg-red-50 p-3">
             <p className="text-2xl font-black text-red-700 leading-none">
-              {data.summary.riesgoAlto + data.summary.riesgoMedio}
+              {filteredSummary.riesgoAlto + filteredSummary.riesgoMedio}
             </p>
             <p className="text-xs text-red-600 mt-1">En riesgo</p>
           </div>
           <div className="rounded-xl border border-amber-100 bg-amber-50 p-3">
             <p className="text-2xl font-black text-amber-700 leading-none">
-              €{data.summary.eurosEnRiesgo ?? 0}
+              €{filteredSummary.eurosEnRiesgo}
             </p>
             <p className="text-xs text-amber-600 mt-1">€ en riesgo</p>
           </div>
@@ -368,12 +432,10 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
             </span>
           </div>
           <div className="relative h-2 rounded-full bg-slate-100 overflow-hidden">
-            {/* Línea de objetivo */}
             <div
               className="absolute top-0 bottom-0 w-px bg-slate-500 z-10"
               style={{ left: `${Math.min(98, objetivo)}%` }}
             />
-            {/* Barra de riesgo */}
             <div
               className={`absolute left-0 top-0 bottom-0 rounded-full transition-all ${
                 semaforoColor === "green" ? "bg-green-400" :
@@ -389,18 +451,36 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
           </div>
         </div>
 
-        {/* Clinic filter para managers */}
-        {isManager && (
-          <select
-            value={clinicaFilter}
-            onChange={(e) => setClinicaFilter(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300"
-          >
-            <option value="">Todas las clínicas</option>
-            {clinicasDisponibles.map((c) => (
-              <option key={c.id} value={c.id}>{c.nombre}</option>
+        {/* Navbar clínicas — solo manager */}
+        {isManager && clinicasDisponibles.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            {clinicasDisponibles.map(c => (
+              <button key={c.id}
+                onClick={() => { setClinicaFilter(c.id); setDoctorFilter(""); }}
+                className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap
+                  ${clinicaFilter === c.id
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
+                {c.nombre}
+              </button>
             ))}
-          </select>
+          </div>
+        )}
+
+        {/* Navbar doctores */}
+        {doctoresDisponibles.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            {doctoresDisponibles.map(s => (
+              <button key={s.id}
+                onClick={() => setDoctorFilter(s.id)}
+                className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap
+                  ${doctorFilter === s.id
+                    ? "bg-violet-700 text-white border-violet-700"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-violet-300"}`}>
+                {s.nombre}
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
@@ -424,7 +504,8 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
           </p>
           <div className="space-y-2">
             {highAppts.map((a) => (
-              <ApptRow key={a.id} appt={a} done={done.has(a.id)} onDone={markDone} />
+              <ApptRow key={a.id} appt={a} done={done.has(a.id)} onDone={markDone}
+                onNavigate={(id) => router.push(`/no-shows?tab=acciones&citaId=${id}`)} />
             ))}
           </div>
         </div>
@@ -438,16 +519,17 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
           </p>
           <div className="space-y-2">
             {medLowAppts.map((a) => (
-              <ApptRow key={a.id} appt={a} done={done.has(a.id)} onDone={markDone} />
+              <ApptRow key={a.id} appt={a} done={done.has(a.id)} onDone={markDone}
+                onNavigate={(id) => router.push(`/no-shows?tab=acciones&citaId=${id}`)} />
             ))}
           </div>
         </div>
       )}
 
       {/* Empty state */}
-      {data.appointments.length === 0 && (
+      {filteredAppts.length === 0 && (
         <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
-          <p className="text-sm text-slate-400">Sin citas registradas para hoy ni mañana</p>
+          <p className="text-sm text-slate-400">Sin citas para el doctor seleccionado</p>
         </div>
       )}
 

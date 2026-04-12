@@ -21,42 +21,44 @@ async function getSession() {
   } catch { return null; }
 }
 
-const SYSTEM_HIGH = `Eres un coordinador de pacientes de una clínica dental en España.
-Escribe UN mensaje de WhatsApp urgente para confirmar una cita de riesgo alto de no-show.
+const SYSTEM_HIGH = `Eres coordinador de pacientes de una clínica dental española.
+El paciente YA TIENE una cita agendada. Escribe UN mensaje WhatsApp URGENTE para confirmar que acudirá.
 REGLAS ESTRICTAS:
 - Exactamente 2-3 frases. Nada más.
 - Usa solo el primer nombre del paciente.
-- Menciona el tratamiento y la hora si se proporcionan.
+- Menciona el tratamiento, y si se proporciona, el día y la hora de SU CITA ya agendada.
 - Tono: urgente pero cordial, nunca agresivo.
 - Solo español. Sin "Estimado/a". Sin emojis al inicio.
-- Termina con pregunta directa de confirmación.`;
+- Termina con pregunta directa: ¿Confirmamos tu asistencia?
+- NUNCA ofrezcas un nuevo horario ni pidas que elijan hora. La cita ya está agendada.`;
 
-const SYSTEM_MEDIUM = `Eres un coordinador de pacientes de una clínica dental en España.
-Escribe UN recordatorio WhatsApp amable para una cita.
+const SYSTEM_MEDIUM = `Eres coordinador de pacientes de una clínica dental española.
+El paciente YA TIENE una cita agendada. Escribe UN recordatorio WhatsApp amable.
 REGLAS ESTRICTAS:
 - Exactamente 2-3 frases. Nada más.
 - Usa solo el primer nombre del paciente.
-- Menciona el tratamiento y la hora si se proporcionan.
+- Menciona el tratamiento, y si se proporciona, el día y la hora de SU CITA ya agendada.
 - Tono: cordial y cercano.
 - Solo español. Sin "Estimado/a". Sin emojis al inicio.
-- Termina pidiendo confirmación.`;
+- Termina pidiendo confirmación: ¿Confirmamos?
+- NUNCA ofrezcas un nuevo horario. La cita ya está agendada.`;
 
-const SYSTEM_RECALL = `Eres un coordinador de pacientes de una clínica dental en España.
-Escribe UN mensaje WhatsApp para reconectar con un paciente en tratamiento activo que lleva tiempo sin agendar.
+const SYSTEM_RECALL = `Eres coordinador de pacientes de una clínica dental española.
+Este paciente lleva tiempo sin próxima cita agendada. Escribe UN mensaje WhatsApp para animarle a agendar.
 REGLAS ESTRICTAS:
 - Exactamente 2-3 frases. Nada más.
 - Usa solo el primer nombre del paciente.
 - Menciona el tratamiento en curso.
 - Tono: motivacional, cálido, sin presión.
 - Solo español. Sin "Estimado/a". Sin emojis al inicio.
-- Termina con propuesta de agendar.`;
+- Termina con propuesta de agendar (en este caso sí se ofrece elegir horario).`;
 
 export async function POST(req: Request) {
   const session = await getSession();
   if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
-    const { patientName, treatmentName, riskScore, riskLevel, category, hora, tone } =
+    const { patientName, treatmentName, riskScore, riskLevel, category, hora, tone, fecha, doctorNombre } =
       await req.json();
 
     const apiKey = process.env["ANTHROPIC_API_KEY"];
@@ -74,8 +76,10 @@ export async function POST(req: Request) {
     const userPrompt = [
       `Paciente: ${firstName}`,
       `Tratamiento: ${treatmentName ?? "consulta"}`,
+      fecha        ? `Fecha de la cita: ${fecha}`         : null,
+      hora         ? `Hora de la cita: ${hora}`            : null,
+      doctorNombre ? `Doctor: ${doctorNombre}`             : null,
       riskScore != null ? `Score de riesgo: ${riskScore}/100` : null,
-      hora          ? `Hora de la cita: ${hora}`               : null,
     ]
       .filter(Boolean)
       .join("\n");

@@ -38,6 +38,13 @@ function buildWA(phone: string, msg: string): string {
   return `https://wa.me/${phone.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`;
 }
 
+function formatFechaEs(iso: string): string {
+  const d = new Date(iso + "T12:00:00Z");
+  const days   = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+  const months = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  return `${days[d.getUTCDay()]} ${d.getUTCDate()} de ${months[d.getUTCMonth()]}`;
+}
+
 function scoreColor(score: number): string {
   if (score >= 80) return "#ef4444";
   if (score >= 60) return "#f97316";
@@ -131,6 +138,8 @@ export default function AccionSidePanel({ item, recalls, onClose, onMarkDone, on
           riskLevel: a.riskLevel,
           category: "NO_SHOW",
           hora: a.startDisplay,
+          fecha: a.dayIso ? formatFechaEs(a.dayIso) : undefined,
+          doctorNombre: a.doctorNombre ?? a.doctor ?? undefined,
           tone,
         }),
       });
