@@ -398,6 +398,7 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
   const [profesionalFilter, setProfesionalFilter] = useState("");
   const [clinicasDisponibles, setClinicasDisponibles] = useState<ClinicaEntry[]>([]);
   const [staffPorClinica, setStaffPorClinica]         = useState<Record<string, StaffEntry[]>>({});
+  const [riskByDoctor, setRiskByDoctor]               = useState<Record<string, "high" | "medium">>({});
 
   // ── Calendar refresh ──
   const [calRefreshKey, setCalRefreshKey]       = useState(0);
@@ -434,6 +435,36 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
     loadMeta();
   }, []);
 
+  // Fetch acciones para risk dots en navbar de doctores
+  useEffect(() => {
+    fetch("/api/no-shows/acciones")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d?.tasks) return;
+        const map: Record<string, "high" | "medium"> = {};
+        for (const t of d.tasks) {
+          const pid = t.appt?.profesionalId;
+          if (!pid) continue;
+          const score = t.scoreAccion ?? 0;
+          if (score >= 60) map[pid] = "high";
+          else if (score >= 30 && map[pid] !== "high") map[pid] = "medium";
+        }
+        setRiskByDoctor(map);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Auto-select primer profesional tras loadMeta
+  useEffect(() => {
+    if (Object.keys(staffPorClinica).length === 0) return;
+    if (profesionalFilter) return;
+    const crId = clinicasDisponibles.find(c => c.id === clinicaFilter)?.recordId;
+    const lista = clinicaFilter && crId
+      ? (staffPorClinica[crId] ?? [])
+      : Object.values(staffPorClinica).flat();
+    if (lista.length > 0) setProfesionalFilter(lista[0].id);
+  }, [staffPorClinica, clinicasDisponibles]); // eslint-disable-line react-hooks/exhaustive-deps
+
   function showToast(msg: string, ok = false) {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3000);
@@ -445,7 +476,11 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
 
   function handleClinicaChange(clinica: string) {
     setClinicaFilter(clinica);
-    setProfesionalFilter(""); // resetear profesional al cambiar clínica
+    const crId = clinicasDisponibles.find(c => c.id === clinica)?.recordId;
+    const lista = clinica && crId
+      ? (staffPorClinica[crId] ?? [])
+      : Object.values(staffPorClinica).flat();
+    setProfesionalFilter(lista[0]?.id ?? "");
   }
 
   // Profesionales disponibles según clínica seleccionada
@@ -572,18 +607,28 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
           </select>
         )}
 
-        {/* Profesional filter — obligatorio (sin opción "Todos") */}
-        <select
-          value={profesionalFilter}
-          onChange={(e) => setProfesionalFilter(e.target.value)}
-          disabled={isManager && !clinicaFilter}
-          className="w-full rounded-xl border border-slate-200 px-3 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-cyan-300 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <option value="" disabled>— Selecciona un profesional —</option>
-          {profesionalesDisponibles.map((p) => (
-            <option key={p.id} value={p.id}>{p.nombre}</option>
-          ))}
-        </select>
+        {/* NAVBAR DOCTORES */}
+        {profesionalesDisponibles.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            {profesionalesDisponibles.map(p => {
+              const risk = riskByDoctor[p.id];
+              const isActive = profesionalFilter === p.id;
+              return (
+                <button key={p.id}
+                  onClick={() => setProfesionalFilter(p.id)}
+                  className={`shrink-0 flex items-center gap-1 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap
+                    ${isActive
+                      ? "bg-slate-900 text-white border-slate-900"
+                      : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
+                  {p.nombre}
+                  {risk === "high" && (
+                    <span className="inline-block w-2 h-2 bg-red-500 rounded-full mb-0.5 shrink-0" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* Legend */}
         <div className="flex flex-wrap gap-x-3 gap-y-1">

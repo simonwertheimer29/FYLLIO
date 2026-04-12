@@ -200,6 +200,17 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
     } catch {}
   }, []);
 
+  // Auto-select primer doctor al cargar metadata
+  useEffect(() => {
+    if (Object.keys(staffPorClinica).length === 0) return;
+    if (profesionalFilter) return; // ya seleccionado
+    const crId = clinicasDisponibles.find(c => c.id === clinicaFilter)?.recordId;
+    const lista = clinicaFilter && crId
+      ? (staffPorClinica[crId] ?? [])
+      : Object.values(staffPorClinica).flat();
+    if (lista.length > 0) setPF(lista[0].id);
+  }, [staffPorClinica, clinicasDisponibles]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Load data ─────────────────────────────────────────────────────────────
 
   const loadData = useCallback(async () => {
@@ -258,6 +269,15 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
   function applyFilters(tasks: AccionTask[]): AccionTask[] {
     if (!profesionalFilter) return tasks;
     return tasks.filter(t => !t.appt || t.appt.profesionalId === profesionalFilter);
+  }
+
+  function handleClinicaChange(clinicaId: string) {
+    setCF(clinicaId);
+    const crId = clinicasDisponibles.find(c => c.id === clinicaId)?.recordId;
+    const lista = clinicaId && crId
+      ? (staffPorClinica[crId] ?? [])
+      : Object.values(staffPorClinica).flat();
+    setPF(lista[0]?.id ?? "");
   }
 
   // ── Derived data ──────────────────────────────────────────────────────────
@@ -343,6 +363,17 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
     .map(t => toUnifiedAppt(t, recalls))
     .filter((x): x is UnifiedItem => x !== null);
 
+  // Badges por doctor (calculado desde data.tasks completo, no filtrado)
+  const urgentsByDoctor: Record<string, number> = {};
+  const pendingByDoctor: Record<string, number> = {};
+  for (const t of (data?.tasks ?? [])) {
+    const pid = t.appt?.profesionalId;
+    if (!pid || done.has(t.id) || t.yaGestionado) continue;
+    const score = t.scoreAccion ?? 0;
+    if (score >= 60) urgentsByDoctor[pid] = (urgentsByDoctor[pid] ?? 0) + 1;
+    else if (score >= 30) pendingByDoctor[pid] = (pendingByDoctor[pid] ?? 0) + 1;
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
 
   return (
@@ -379,23 +410,52 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
           </div>
         </div>
 
-        {/* Filtros */}
-        <div className="flex gap-2 flex-wrap">
-          {isManager && (
-            <select value={clinicaFilter} onChange={e => { setCF(e.target.value); setPF(""); }}
-              className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-200">
-              <option value="">Todas las clínicas</option>
-              {clinicasDisponibles.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
-          )}
-          {profesionalesDisponibles.length > 0 && (
-            <select value={profesionalFilter} onChange={e => setPF(e.target.value)}
-              className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-cyan-200">
-              <option value="">Todos los profesionales</option>
-              {profesionalesDisponibles.map(s => <option key={s.id} value={s.id}>{s.nombre}</option>)}
-            </select>
-          )}
-        </div>
+        {/* NAVBAR CLÍNICAS — solo manager */}
+        {isManager && clinicasDisponibles.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            {([{ id: "", nombre: "Todas" }, ...clinicasDisponibles] as ClinicaEntry[]).map(c => (
+              <button key={c.id}
+                onClick={() => handleClinicaChange(c.id)}
+                className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap
+                  ${clinicaFilter === c.id
+                    ? "bg-slate-900 text-white border-slate-900"
+                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
+                {c.nombre}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* NAVBAR DOCTORES */}
+        {profesionalesDisponibles.length > 0 && (
+          <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            {profesionalesDisponibles.map(s => {
+              const urgentes = urgentsByDoctor[s.id] ?? 0;
+              const pendientes = pendingByDoctor[s.id] ?? 0;
+              const isActive = profesionalFilter === s.id;
+              return (
+                <button key={s.id}
+                  onClick={() => setPF(s.id)}
+                  className={`shrink-0 flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap
+                    ${isActive
+                      ? "bg-slate-900 text-white border-slate-900"
+                      : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
+                  {s.nombre}
+                  {urgentes > 0 && (
+                    <span className="ml-0.5 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
+                      {urgentes}
+                    </span>
+                  )}
+                  {urgentes === 0 && pendientes > 0 && (
+                    <span className="ml-0.5 bg-orange-400 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
+                      {pendientes}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* NAVBAR INTERNA */}
