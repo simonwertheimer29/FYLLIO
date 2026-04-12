@@ -12,6 +12,14 @@ import type { NoShowsUserSession, AccionTask, RiskyAppt, GapSlot, RecallAlert } 
 type ExtAccionTask = AccionTask & { escalado?: boolean };
 import { scoreAppointment, ZONE, MULTI_SESSION_TREATMENTS } from "../../../lib/no-shows/score";
 
+const STAFF_NOMBRES: Record<string, string> = {
+  "STF_006": "Dr. Andrés Rojas",
+  "STF_007": "Dra. Paula Díaz",
+  "STF_008": "Dr. Mateo López",
+  "STF_010": "Dra. Carmen Vidal",
+  "STF_011": "Dr. Jorge Puig",
+};
+
 function urgenciaTemporal(startIso: string, now: DateTime, confirmed: boolean): number {
   const h = DateTime.fromISO(startIso, { zone: ZONE }).diff(now, "hours").hours;
   if (h <= 0 && !confirmed) return 100; // mismo día sin confirmar
@@ -142,6 +150,7 @@ export async function GET(req: Request) {
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
       const confirmed = estado.includes("CONFIRM");
       const profesionalId = firstString(f["Profesional_id"]) || undefined;
+      const doctorNombre = profesionalId ? (STAFF_NOMBRES[profesionalId] ?? profesionalId) : undefined;
       const history = patientHistory.get(phone) ?? { total: 0, noShowCount: 0, cancelCount: 0 };
       const scored = scoreAppointment(
         { startIso, treatmentName, createdTime: (r as any)._rawJson?.createdTime, history },
@@ -169,6 +178,7 @@ export async function GET(req: Request) {
         start: startIso, end: endIso, startDisplay: toHHMM(startIso),
         treatmentName,
         doctor: profesionalId,
+        doctorNombre,
         profesionalId,
         clinica: firstString(f["Clínica_id"]) || undefined,
         dayIso: startIso.slice(0, 10), confirmed,
@@ -191,8 +201,9 @@ export async function GET(req: Request) {
     const canceladosHoy: RiskyAppt[] = canceladosHoyRecs.map(({ r, f, startIso }) => buildAppt(r, f, startIso));
     const proximosDias: RiskyAppt[]  = proximosDiasRecs
       .map(({ r, f, startIso }) => buildAppt(r, f, startIso))
-      .filter((a) => a.riskScore >= 40)
       .sort((a, b) => a.start.localeCompare(b.start));
+
+    console.log(`[acciones] raw=${allRecs.length} today=${todayRecs.length} tomorrow=${tomorrowRecs.length} prox=${proximosDiasRecs.length} hist=${histRecs.length}`);
 
     // Recalls para candidatos de huecos
     const futurePhones = new Set(
@@ -277,8 +288,11 @@ export async function GET(req: Request) {
       return a.tipoUltimaAccion === "Confirmado" || a.tipoUltimaAccion === "Cancelado";
     }
 
-    for (const a of todayAppts.filter((x) => x.riskLevel === "HIGH")) {
-      const nombre = a.patientName.split(" ")[0];
+    // HOY — todas las citas (sin filtrar por nivel de riesgo)
+    for (const a of todayAppts) {
+      const nombre   = a.patientName.split(" ")[0];
+      const levelLabel = a.riskLevel === "HIGH" ? "ALTO" : a.riskLevel === "MEDIUM" ? "MEDIO" : "BAJO";
+      const escalado = a.riskScore >= 80;
       const urgencia = urgenciaTemporal(a.start, now, a.confirmed);
       const scoreAccion = Math.round(a.riskScore * 0.6 + urgencia * 0.4);
       const hoursUntil = DateTime.fromISO(a.start, { zone: ZONE }).diff(now, "hours").hours;
@@ -287,10 +301,11 @@ export async function GET(req: Request) {
         category: "NO_SHOW",
         patientName: a.patientName,
         phone: a.patientPhone,
-        description: `Riesgo ALTO · ${a.treatmentName} hoy a las ${a.startDisplay}`,
+        description: `Riesgo ${levelLabel} · ${a.treatmentName} hoy a las ${a.startDisplay}`,
         whatsappMsg: `Hola ${nombre}, queremos confirmar tu cita de ${a.treatmentName} hoy a las ${a.startDisplay}. ¿Confirmas asistencia?`,
         deadlineIso: a.dayIso + "T09:00:00",
-        urgent: true,
+        urgent: escalado || a.riskLevel === "HIGH",
+        escalado,
         appt: a,
         scoreAccion,
         urgencia,
@@ -321,32 +336,10 @@ export async function GET(req: Request) {
       });
     }
 
-    for (const a of todayAppts.filter((x) => x.riskLevel === "MEDIUM")) {
+    // MAÑANA — todas las citas (sin filtrar por nivel de riesgo)
+    for (const a of tomorrowAppts) {
       const nombre   = a.patientName.split(" ")[0];
-      const escalado = a.riskScore >= 80;
-      const urgencia = urgenciaTemporal(a.start, now, a.confirmed);
-      const scoreAccion = Math.round(a.riskScore * 0.6 + urgencia * 0.4);
-      const hoursUntil = DateTime.fromISO(a.start, { zone: ZONE }).diff(now, "hours").hours;
-      tasks.push({
-        id: `accion-${idx++}`,
-        category: "NO_SHOW",
-        patientName: a.patientName,
-        phone: a.patientPhone,
-        description: `Riesgo MEDIO · ${a.treatmentName} hoy a las ${a.startDisplay}`,
-        whatsappMsg: `Hola ${nombre}, te recordamos tu cita de ${a.treatmentName} hoy a las ${a.startDisplay}. Responde "OK" para confirmar.`,
-        urgent: escalado,
-        escalado,
-        appt: a,
-        scoreAccion,
-        urgencia,
-        hoursUntil,
-        yaGestionado: isYaGestionado(a),
-      });
-    }
-
-    for (const a of tomorrowAppts.filter((x) => x.riskLevel !== "LOW")) {
-      const nombre   = a.patientName.split(" ")[0];
-      const level    = a.riskLevel === "HIGH" ? "ALTO" : "MEDIO";
+      const level    = a.riskLevel === "HIGH" ? "ALTO" : a.riskLevel === "MEDIUM" ? "MEDIO" : "BAJO";
       const escalado = a.riskScore >= 80;
       const urgencia = urgenciaTemporal(a.start, now, a.confirmed);
       const scoreAccion = Math.round(a.riskScore * 0.6 + urgencia * 0.4);
@@ -390,6 +383,8 @@ export async function GET(req: Request) {
         overbooking,
       });
     }
+
+    console.log(`[acciones] tasks=${tasks.length} proximosDias=${proximosDias.length} recalls=${recalls.length}`);
 
     return NextResponse.json({
       tasks,

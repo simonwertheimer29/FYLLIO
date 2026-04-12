@@ -159,6 +159,18 @@ export async function GET(req: Request) {
         { startIso, treatmentName, createdTime: (r as any)._rawJson?.createdTime, history },
         now,
       );
+
+      // Confianza adjustment (same logic as acciones/route.ts)
+      const completados = history.total - history.noShowCount - history.cancelCount;
+      const confianza = history.total > 0 ? completados / history.total : undefined;
+      let adjustedScore = scored.riskScore;
+      if (confianza !== undefined) {
+        if (confianza > 0.8)      adjustedScore = Math.round(scored.riskScore * 0.7);
+        else if (confianza < 0.5) adjustedScore = Math.min(100, Math.round(scored.riskScore * 1.2));
+      }
+      const adjustedLevel: "HIGH" | "MEDIUM" | "LOW" =
+        adjustedScore >= 60 ? "HIGH" : adjustedScore >= 30 ? "MEDIUM" : "LOW";
+
       return {
         id: r.id, patientName, patientPhone: phone,
         start: startIso, end: endIso, startDisplay: toHHMM(startIso),
@@ -169,7 +181,10 @@ export async function GET(req: Request) {
         clinica: clinicaId,
         clinicaNombre,
         sillonNombre,
-        dayIso: startIso.slice(0, 10), confirmed, ...scored,
+        dayIso: startIso.slice(0, 10), confirmed,
+        ...scored,
+        riskScore: adjustedScore,
+        riskLevel: adjustedLevel,
       };
     });
 

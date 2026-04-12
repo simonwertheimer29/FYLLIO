@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import type { NoShowsUserSession } from "../../lib/no-shows/types";
 import HoyView from "./HoyView";
 import RiesgoView from "./RiesgoView";
@@ -11,6 +12,7 @@ import InformesView from "./InformesView";
 import ConfigView from "./ConfigView";
 
 type Tab = "hoy" | "riesgo" | "agenda" | "acciones" | "kpis" | "informes" | "config";
+const VALID_TABS: Tab[] = ["hoy", "riesgo", "agenda", "acciones", "kpis", "informes", "config"];
 
 const ROLE_LABEL: Record<NoShowsUserSession["rol"], string> = {
   manager_general:  "Manager",
@@ -24,7 +26,11 @@ export default function NoShowsShell({ user }: { user: NoShowsUserSession }) {
   const isManager = user.rol === "manager_general";
   const isEncargada = user.rol === "encargada_ventas";
 
-  const [tab, setTab] = useState<Tab>(isManager ? "riesgo" : "hoy");
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab") as Tab | null;
+  const [tab, setTab] = useState<Tab>(
+    tabParam && VALID_TABS.includes(tabParam) ? tabParam : (isManager ? "riesgo" : "hoy")
+  );
 
   const TABS: { id: Tab; label: string; icon: string }[] = isManager
     ? [

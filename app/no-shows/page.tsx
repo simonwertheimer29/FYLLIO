@@ -4,6 +4,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
+import { Suspense } from "react";
 import type { NoShowsUserSession } from "../lib/no-shows/types";
 import NoShowsShell from "../components/no-shows/NoShowsShell";
 
@@ -29,5 +30,5 @@ export default async function NoShowsPage() {
     redirect("/no-shows/login");
   }
 
-  return <NoShowsShell user={user} />;
+  return <Suspense fallback={null}><NoShowsShell user={user} /></Suspense>;
 }

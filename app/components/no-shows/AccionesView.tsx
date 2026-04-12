@@ -84,10 +84,11 @@ function dayLabel(dayIso: string): string {
 
 function getCurrentWeekDays(): string[] {
   const today = new Date();
+  const dow = today.getDay(); // 0=Dom, 6=Sáb
   const mon = new Date(today);
-  const dayOfWeek = today.getDay();
-  const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  mon.setDate(today.getDate() + diffToMon);
+  if (dow === 6)      mon.setDate(today.getDate() + 2); // Sáb → lunes siguiente
+  else if (dow === 0) mon.setDate(today.getDate() + 1); // Dom → lunes siguiente
+  else                mon.setDate(today.getDate() - dow + 1); // Lun-Vie → este lunes
   return Array.from({ length: 5 }, (_, i) => {
     const d = new Date(mon);
     d.setDate(mon.getDate() + i);
