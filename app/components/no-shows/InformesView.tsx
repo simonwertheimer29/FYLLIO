@@ -6,10 +6,14 @@ import type { NoShowsUserSession, InformeNoShow } from "../../lib/no-shows/types
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+const MESES_ES = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
 function formatPeriod(periodo: string): string {
-  const m = periodo.match(/^(\d{4})-W(\d{2})$/);
-  if (!m) return periodo;
-  return `Semana ${parseInt(m[2])}, ${m[1]}`;
+  const w = periodo.match(/^(\d{4})-W(\d{2})$/);
+  if (w) return `Semana ${parseInt(w[2])}, ${w[1]}`;
+  const m = periodo.match(/^(\d{4})-(\d{2})$/);
+  if (m) return `${MESES_ES[parseInt(m[2]) - 1]} ${m[1]}`;
+  return periodo;
 }
 
 // ─── InformeCard ──────────────────────────────────────────────────────────────
@@ -133,69 +137,6 @@ function InformeCard({ informe }: { informe: InformeNoShow }) {
   );
 }
 
-// ─── Previsión 4 semanas ──────────────────────────────────────────────────────
-
-function Prevision({ informes }: { informes: InformeNoShow[] }) {
-  const [tasa, setTasa] = useState(10); // %
-
-  // Estimate weekly avg citas from most recent informe, fallback 30
-  const citasSemana = informes.length > 0
-    ? Math.max(10, Math.round(informes[0].contenidoJson.totalCitas / 1))
-    : 30;
-
-  const noShows    = Math.round(citasSemana * tasa / 100);
-  const ingresos   = noShows * 85;
-
-  return (
-    <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-bold text-slate-800">Previsión próximas 4 semanas</p>
-          <p className="text-xs text-slate-400 mt-0.5">Ajusta la tasa esperada para proyectar el impacto</p>
-        </div>
-        <span className="text-xl font-extrabold text-slate-700">{tasa}%</span>
-      </div>
-
-      {/* Slider + cards — horizontal en md+ */}
-      <div className="md:flex md:gap-6 md:items-center flex flex-col gap-3">
-        {/* Slider */}
-        <div className="md:w-52 shrink-0 space-y-1">
-          <input
-            type="range"
-            min={1}
-            max={25}
-            step={1}
-            value={tasa}
-            onChange={(e) => setTasa(Number(e.target.value))}
-            className="w-full accent-cyan-500"
-          />
-          <div className="flex justify-between text-[10px] text-slate-400">
-            <span>1%</span>
-            <span>Tasa esperada</span>
-            <span>25%</span>
-          </div>
-        </div>
-
-        {/* 4 week cards */}
-        <div className="flex-1 grid grid-cols-4 gap-2">
-          {[1, 2, 3, 4].map((w) => (
-            <div key={w} className="rounded-xl border border-slate-100 bg-slate-50 p-2.5 text-center">
-              <p className="text-[10px] text-slate-400 font-semibold">+{w} sem.</p>
-              <p className="text-sm font-extrabold text-slate-800 mt-0.5">{noShows}</p>
-              <p className="text-[10px] text-slate-400">no-shows</p>
-              <p className="text-[10px] font-semibold text-red-500 mt-0.5">€{ingresos.toLocaleString("es-ES")}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <p className="text-[10px] text-slate-400">
-        Basado en ~{citasSemana} citas/semana y €85 de ticket medio.
-      </p>
-    </div>
-  );
-}
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 type InformesTab = "semanales" | "mensuales";
@@ -232,6 +173,9 @@ export default function InformesView({ user }: { user: NoShowsUserSession }) {
       </div>
     );
   }
+
+  const semanales = (informes ?? []).filter((i) => i.tipo === "noshow_semanal");
+  const mensuales = (informes ?? []).filter((i) => i.tipo === "noshow_mensual");
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-4 w-full">
@@ -271,35 +215,37 @@ export default function InformesView({ user }: { user: NoShowsUserSession }) {
       {/* ── SEMANALES tab ── */}
       {tab === "semanales" && (
         <>
-          {informes !== null && informes.length === 0 && (
+          {semanales.length === 0 && (
             <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
               <p className="text-2xl mb-2">📋</p>
-              <p className="text-sm font-bold text-slate-700">Sin informes todavía</p>
+              <p className="text-sm font-bold text-slate-700">Sin informes semanales</p>
               <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-xs mx-auto">
                 Los informes se generan automáticamente cada lunes a las 09:00.
               </p>
             </div>
           )}
-          {informes && informes.map((inf) => (
+          {semanales.map((inf) => (
             <InformeCard key={inf.id} informe={inf} />
           ))}
-
-          {/* Previsión — only when there are informes */}
-          {informes && informes.length > 0 && (
-            <Prevision informes={informes} />
-          )}
         </>
       )}
 
       {/* ── MENSUALES tab ── */}
       {tab === "mensuales" && (
-        <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
-          <p className="text-2xl mb-2">📅</p>
-          <p className="text-sm font-bold text-slate-700">Informes mensuales</p>
-          <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-xs mx-auto">
-            Próximamente. Los informes mensuales consolidan 4 semanas de datos con análisis comparativo.
-          </p>
-        </div>
+        <>
+          {mensuales.length === 0 && (
+            <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
+              <p className="text-2xl mb-2">📅</p>
+              <p className="text-sm font-bold text-slate-700">Sin informes mensuales</p>
+              <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-xs mx-auto">
+                Los informes mensuales se generan automáticamente el primer día de cada mes.
+              </p>
+            </div>
+          )}
+          {mensuales.map((inf) => (
+            <InformeCard key={inf.id} informe={inf} />
+          ))}
+        </>
       )}
     </div>
   );

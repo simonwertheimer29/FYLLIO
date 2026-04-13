@@ -138,10 +138,10 @@ export type NoShowKpiData = {
   ingresosRecuperados?: IngresosRecuperados;
 };
 
-/** Informe semanal de no-shows guardado en Airtable */
+/** Informe de no-shows guardado en Airtable */
 export type InformeNoShow = {
   id: string;
-  tipo: "noshow_semanal";
+  tipo: "noshow_semanal" | "noshow_mensual";
   clinica: string;
   periodo: string;                   // "2026-W15"
   titulo: string;

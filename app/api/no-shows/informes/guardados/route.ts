@@ -8,6 +8,9 @@ import { cookies } from "next/headers";
 import { base, TABLES } from "../../../../lib/airtable";
 import type { NoShowsUserSession, InformeNoShow } from "../../../../lib/no-shows/types";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const COOKIE = "fyllio_noshows_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
 const secret = new TextEncoder().encode(SECRET_RAW);
@@ -32,7 +35,7 @@ function mapRecord(r: { id: string; fields: Record<string, unknown> }): InformeN
   const f = r.fields;
   return {
     id: r.id,
-    tipo: "noshow_semanal",
+    tipo: String(f["tipo"] ?? "noshow_semanal") as InformeNoShow["tipo"],
     clinica: String(f["clinica"] ?? ""),
     periodo: String(f["periodo"] ?? ""),
     titulo: String(f["titulo"] ?? ""),
@@ -53,17 +56,18 @@ export async function GET() {
       : session.clinica;
 
   try {
-    const filters = [`{tipo}='noshow_semanal'`];
+    const filters: string[] = [];
     if (clinicaFilter) filters.push(`OR({clinica}='${clinicaFilter}',{clinica}='Todas')`);
 
-    const formula = `AND(${filters.join(",")})`;
+    const selectOpts: Record<string, unknown> = {
+      fields: ["tipo", "clinica", "periodo", "titulo", "contenido_json", "texto_narrativo", "generado_en", "generado_por"],
+      sort: [{ field: "generado_en", direction: "desc" }],
+      maxRecords: 50,
+    };
+    if (filters.length > 0) selectOpts.filterByFormula = `AND(${filters.join(",")})`;
+
     const recs = await base(TABLES.informesGuardados as any)
-      .select({
-        filterByFormula: formula,
-        fields: ["tipo", "clinica", "periodo", "titulo", "contenido_json", "texto_narrativo", "generado_en", "generado_por"],
-        sort: [{ field: "generado_en", direction: "desc" }],
-        maxRecords: 20,
-      })
+      .select(selectOpts)
       .all();
 
     return NextResponse.json({
