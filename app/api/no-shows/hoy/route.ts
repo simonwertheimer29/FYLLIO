@@ -95,7 +95,7 @@ export async function GET(req: Request) {
     console.log("[hoy] todayIso:", todayIso, "| zona:", ZONE, "| filtro desde:", ninetyDaysAgoIso);
 
     const [staffRecs, clinicaRecs, sillonRecs] = await Promise.all([
-      base("Staff" as any).select({ fields: ["Staff ID", "Nombre"] }).all(),
+      base("Staff" as any).select({ fields: ["Staff ID", "Nombre", "Clínica"] }).all(),
       base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all(),
       base("Sillones" as any).select({ fields: ["Sillón ID", "Nombre"] }).all(),
     ]);
@@ -109,23 +109,31 @@ export async function GET(req: Request) {
     console.log("[hoy] allRecs total tras filter:", allRecs.length);
     if (allRecs.length > 0) {
       const sample = (allRecs[0] as any).fields;
-      console.log("[hoy] Sample Hora inicio raw:", JSON.stringify(sample["Hora inicio"]));
-      console.log("[hoy] Sample Clínica_id raw:", JSON.stringify(sample["Clínica_id"]));
-      console.log("[hoy] Sample Profesional_id raw:", JSON.stringify(sample["Profesional_id"]));
+      console.log("[hoy] Sample fields:", JSON.stringify({
+        "Profesional": sample["Profesional"],
+        "Profesional_id": sample["Profesional_id"],
+        "Clínica_id": sample["Clínica_id"],
+        "Hora inicio": sample["Hora inicio"],
+      }));
     }
 
-    // Mapas por ID canónico (texto) — para cuando el campo tiene el ID directamente
-    const staffMap   = new Map<string, string>((staffRecs as any[]).map((r) => [firstString(r.fields["Staff ID"]),   firstString(r.fields["Nombre"])]));
-    const clinicaMap = new Map<string, string>((clinicaRecs as any[]).map((r) => [firstString(r.fields["Clínica ID"]), firstString(r.fields["Nombre"])]));
-    const sillonMap  = new Map<string, string>((sillonRecs as any[]).map((r) => [firstString(r.fields["Sillón ID"]),  firstString(r.fields["Nombre"])]));
-
-    // Mapas por Airtable record ID — para cuando el campo es un linked record (recXXXXX)
-    const clinicaByRecordId = new Map<string, string>((clinicaRecs as any[]).map((r) => [r.id, firstString(r.fields["Nombre"])]));
+    // Mapas por Airtable record ID — la fuente de verdad para resolver linked records
     const staffByRecordId   = new Map<string, string>((staffRecs   as any[]).map((r) => [r.id, firstString(r.fields["Nombre"])]));
+    const clinicaByRecordId = new Map<string, string>((clinicaRecs as any[]).map((r) => [r.id, firstString(r.fields["Nombre"])]));
+    const sillonMap         = new Map<string, string>((sillonRecs  as any[]).map((r) => [firstString(r.fields["Sillón ID"]),  firstString(r.fields["Nombre"])]));
 
     // Mapas inversos: Airtable record ID → ID canónico
     const staffRecordToId   = new Map<string, string>((staffRecs   as any[]).map((r) => [r.id, firstString(r.fields["Staff ID"])]));
     const clinicaRecordToId = new Map<string, string>((clinicaRecs as any[]).map((r) => [r.id, firstString(r.fields["Clínica ID"])]));
+
+    // Staff record ID → Clínica record ID (a través del linked record "Clínica" en Staff)
+    const staffToClinicaRec = new Map<string, string>(
+      (staffRecs as any[]).map((r) => [r.id, firstString(r.fields["Clínica"])])
+    );
+
+    // Mapas por ID canónico (para fallback si los formula fields funcionan)
+    const staffMap   = new Map<string, string>((staffRecs   as any[]).map((r) => [firstString(r.fields["Staff ID"]),   firstString(r.fields["Nombre"])]));
+    const clinicaMap = new Map<string, string>((clinicaRecs as any[]).map((r) => [firstString(r.fields["Clínica ID"]), firstString(r.fields["Nombre"])]));
 
     // Set de record IDs aceptables para el filtro de clínica
     // Soporta: clinicaFilter como ID canónico ("CLINIC_001") O como record ID ("recXXXXX")
@@ -151,10 +159,14 @@ export async function GET(req: Request) {
       if (!startIso) continue;
 
       const dayIso = startIso.slice(0, 10);
-      const rawClinicaId = getField(f, "Clínica_id");
 
-      // Acepta tanto ID canónico ("CLINIC_001") como Airtable record ID ("recXXXXX")
-      if (clinicaFilter && !clinicaFilterIds.has(rawClinicaId)) continue;
+      // Resolver clínica via linked records: Cita.Profesional → Staff → Staff.Clínica → Clínicas
+      const profRecId     = firstString(f["Profesional"]);
+      const clinicaRecId  = profRecId ? (staffToClinicaRec.get(profRecId) ?? "") : "";
+      const resolvedClinicaId = clinicaRecordToId.get(clinicaRecId) || getField(f, "Clínica_id") || "";
+
+      if (clinicaFilter && resolvedClinicaId && !clinicaFilterIds.has(resolvedClinicaId) && !clinicaFilterIds.has(clinicaRecId)) continue;
+      if (clinicaFilter && !resolvedClinicaId && !clinicaRecId) continue;
 
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
 
@@ -197,13 +209,13 @@ export async function GET(req: Request) {
       const endIso = toMadridIso(f["Hora final"]);
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
       const confirmed = estado.includes("CONFIRM");
-      const rawProfId = getField(f, "Profesional_id");
-      const rawClinId = getField(f, "Clínica_id");
       const sillonId  = firstString(f["Sillon_id"]) || undefined;
 
-      // Resolver IDs: linked record ID → ID canónico (con fallback al record ID)
-      const profesionalId = staffRecordToId.get(rawProfId) || rawProfId || undefined;
-      const clinicaId     = clinicaRecordToId.get(rawClinId) || rawClinId || undefined;
+      // Resolver via linked records (fuente de verdad)
+      const profRecId    = firstString(f["Profesional"]);
+      const profesionalId = (profRecId ? staffRecordToId.get(profRecId) : null) || getField(f, "Profesional_id") || undefined;
+      const clinicaRecId  = profRecId ? (staffToClinicaRec.get(profRecId) ?? "") : "";
+      const clinicaId     = (clinicaRecId ? clinicaRecordToId.get(clinicaRecId) : null) || getField(f, "Clínica_id") || undefined;
 
       const history = patientHistory.get(phone) ?? { total: 0, noShowCount: 0, cancelCount: 0 };
       const scored = scoreAppointment(
@@ -222,14 +234,13 @@ export async function GET(req: Request) {
         startDisplay: toHHMM(startIso),
         treatmentName,
         doctor: profesionalId,
-        // Resolver nombre: primero por Airtable record ID (directo), luego por ID canónico
-        doctorNombre: rawProfId
-          ? (staffByRecordId.get(rawProfId) ?? staffMap.get(profesionalId ?? "") ?? profesionalId)
+        doctorNombre: profRecId
+          ? (staffByRecordId.get(profRecId) ?? staffMap.get(profesionalId ?? "") ?? profesionalId)
           : undefined,
         profesionalId,
         clinica: clinicaId,
-        clinicaNombre: rawClinId
-          ? (clinicaByRecordId.get(rawClinId) ?? clinicaMap.get(clinicaId ?? "") ?? clinicaId)
+        clinicaNombre: clinicaRecId
+          ? (clinicaByRecordId.get(clinicaRecId) ?? clinicaMap.get(clinicaId ?? "") ?? clinicaId)
           : undefined,
         sillonNombre: sillonId ? (sillonMap.get(sillonId) ?? sillonId) : undefined,
         dayIso: startIso.slice(0, 10),
@@ -310,7 +321,11 @@ export async function GET(req: Request) {
             patientName: firstString(f["Paciente_nombre"]) || "Paciente",
             patientPhone: phone,
             treatmentName: treatment,
-            clinica: firstString(f["Clínica_id"]) || undefined,
+            clinica: (() => {
+              const pId = firstString(f["Profesional"]);
+              const cRec = pId ? (staffToClinicaRec.get(pId) ?? "") : "";
+              return clinicaRecordToId.get(cRec) || firstString(f["Clínica_id"]) || undefined;
+            })(),
             lastApptIso: iso,
             weeksSinceLast: weeksSince,
           });

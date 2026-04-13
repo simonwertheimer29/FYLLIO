@@ -81,8 +81,21 @@ export async function GET(req: Request) {
     const ninetyDaysAgoIso = todayDt.minus({ days: 90 }).toISODate()!;
     console.log("[acciones] todayIso:", todayIso, "| zona:", ZONE, "| filtro desde:", ninetyDaysAgoIso);
 
-    const clinicaRecs = await base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all();
-    // Set de record IDs aceptables para el filtro de clínica
+    const [staffRecs, clinicaRecs] = await Promise.all([
+      base("Staff" as any).select({ fields: ["Staff ID", "Nombre", "Clínica"] }).all(),
+      base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all(),
+    ]);
+
+    // Mapas por Airtable record ID
+    const staffByRecordId   = new Map<string, string>((staffRecs   as any[]).map((r: any) => [r.id, firstString(r.fields["Nombre"])]));
+    const staffRecordToId   = new Map<string, string>((staffRecs   as any[]).map((r: any) => [r.id, firstString(r.fields["Staff ID"])]));
+    const clinicaRecordToId = new Map<string, string>((clinicaRecs as any[]).map((r: any) => [r.id, firstString(r.fields["Clínica ID"])]));
+    // Staff record ID → Clínica record ID (via linked record "Clínica" en Staff)
+    const staffToClinicaRec = new Map<string, string>(
+      (staffRecs as any[]).map((r: any) => [r.id, firstString(r.fields["Clínica"])])
+    );
+
+    // Set de IDs aceptables para el filtro de clínica (canonical + record IDs)
     const clinicaFilterIds = new Set<string>();
     if (clinicaFilter) {
       clinicaFilterIds.add(clinicaFilter);
@@ -115,8 +128,13 @@ export async function GET(req: Request) {
       const startIso = toMadridIso(startRaw);
       if (!startIso) continue;
       const dayIso = startIso.slice(0, 10);
-      const clinicaRec = firstString(f["Clínica_id"]);
-      if (clinicaFilter && !clinicaFilterIds.has(clinicaRec)) continue;
+
+      // Resolver clínica via linked records: Cita.Profesional → Staff → Staff.Clínica
+      const profRecId     = firstString(f["Profesional"]);
+      const clinicaRecId  = profRecId ? (staffToClinicaRec.get(profRecId) ?? "") : "";
+      const resolvedClinicaId = clinicaRecordToId.get(clinicaRecId) || firstString(f["Clínica_id"]) || "";
+      if (clinicaFilter && resolvedClinicaId && !clinicaFilterIds.has(resolvedClinicaId) && !clinicaFilterIds.has(clinicaRecId)) continue;
+      if (clinicaFilter && !resolvedClinicaId && !clinicaRecId) continue;
 
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
       if (dayIso === todayIso && !CANCELLED.has(estado))    todayRecs.push({ r, f, startIso });
@@ -160,8 +178,15 @@ export async function GET(req: Request) {
       const endIso = toMadridIso(f["Hora final"]);
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
       const confirmed = estado.includes("CONFIRM");
-      const profesionalId = firstString(f["Profesional_id"]) || undefined;
-      const doctorNombre = profesionalId ? (STAFF_NOMBRES[profesionalId] ?? profesionalId) : undefined;
+
+      // Resolver via linked records (fuente de verdad)
+      const profRecId     = firstString(f["Profesional"]);
+      const profesionalId = (profRecId ? staffRecordToId.get(profRecId) : null) || firstString(f["Profesional_id"]) || undefined;
+      const doctorNombre  = profRecId
+        ? (staffByRecordId.get(profRecId) ?? (profesionalId ? STAFF_NOMBRES[profesionalId] : undefined) ?? profesionalId)
+        : (profesionalId ? (STAFF_NOMBRES[profesionalId] ?? profesionalId) : undefined);
+      const cRecId  = profRecId ? (staffToClinicaRec.get(profRecId) ?? "") : "";
+      const clinicaId = (cRecId ? clinicaRecordToId.get(cRecId) : null) || firstString(f["Clínica_id"]) || undefined;
       const history = patientHistory.get(phone) ?? { total: 0, noShowCount: 0, cancelCount: 0 };
       const scored = scoreAppointment(
         { startIso, treatmentName, createdTime: (r as any)._rawJson?.createdTime, history },
@@ -191,7 +216,7 @@ export async function GET(req: Request) {
         doctor: profesionalId,
         doctorNombre,
         profesionalId,
-        clinica: firstString(f["Clínica_id"]) || undefined,
+        clinica: clinicaId,
         dayIso: startIso.slice(0, 10), confirmed,
         ...scored,
         riskScore: adjustedScore,
@@ -238,7 +263,11 @@ export async function GET(req: Request) {
             patientName: firstString(f["Paciente_nombre"]) || "Paciente",
             patientPhone: phone,
             treatmentName: treatment,
-            clinica: firstString(f["Clínica_id"]) || undefined,
+            clinica: (() => {
+              const pId = firstString(f["Profesional"]);
+              const cRec = pId ? (staffToClinicaRec.get(pId) ?? "") : "";
+              return clinicaRecordToId.get(cRec) || firstString(f["Clínica_id"]) || undefined;
+            })(),
             lastApptIso: iso,
             weeksSinceLast: weeksSince,
           });
