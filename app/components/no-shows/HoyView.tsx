@@ -134,7 +134,7 @@ function ApptRow({
               : ""}
           </p>
         </div>
-        {!done && appt.riskLevel !== "LOW" && (
+        {!done && isEnRiesgo(appt) && (
           <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
             {appt.patientPhone && (
               <a
@@ -186,6 +186,12 @@ function MetricCards({ total, confirmed, enRiesgo, euros, label }: {
     </div>
   );
 }
+
+// ─── Constantes de riesgo ─────────────────────────────────────────────────────
+
+const RIESGO_THRESHOLD = 40;
+const AVG_TICKET = 85;
+const isEnRiesgo = (a: RiskyAppt) => (a.scoreAccion ?? a.riskScore) >= RIESGO_THRESHOLD;
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -311,7 +317,7 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
   }
 
   // ── Semáforo ────────────────────────────────────────────────────────────────
-  const totalEnRiesgo = data.summary.riesgoAlto + data.summary.riesgoMedio;
+  const totalEnRiesgo = data.appointments.filter(isEnRiesgo).length;
   const tasaRiesgoHoy = data.summary.total > 0
     ? Math.round((totalEnRiesgo / data.summary.total) * 100)
     : 0;
@@ -440,7 +446,7 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
               total={data.summary.total}
               confirmed={data.summary.confirmed}
               enRiesgo={totalEnRiesgo}
-              euros={data.summary.eurosEnRiesgo ?? 0}
+              euros={totalEnRiesgo * AVG_TICKET}
               label={isMañana ? "Citas mañana" : "Citas hoy"}
             />
 
@@ -450,10 +456,10 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
                 <p className="text-sm text-slate-400">Sin citas para hoy en ninguna clínica</p>
               </div>
             ) : [...apptsByClinica.entries()].map(([clinicaId, { nombre, appts }]) => {
-              const enRiesgo = appts.filter(a => a.riskLevel !== "LOW").length;
-              const altoRiesgo = appts.filter(a => a.riskLevel === "HIGH").length;
+              const enRiesgo = appts.filter(isEnRiesgo).length;
+              const altoRiesgo = appts.filter(a => (a.scoreAccion ?? a.riskScore) >= 80).length;
               const confirmadas = appts.filter(a => a.confirmed).length;
-              const euros = enRiesgo * 85;
+              const euros = enRiesgo * AVG_TICKET;
 
               // Agrupar por doctor dentro de la clínica
               const porDoctor = new Map<string, { nombre: string; appts: RiskyAppt[] }>();
@@ -487,7 +493,7 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
                   {/* Filas de doctor */}
                   <div className="space-y-1">
                     {[...porDoctor.entries()].map(([doctorId, { nombre: dNombre, appts: dAppts }]) => {
-                      const dRiesgo = dAppts.filter(a => a.riskLevel !== "LOW").length;
+                      const dRiesgo = dAppts.filter(isEnRiesgo).length;
                       return (
                         <button key={doctorId}
                           onClick={() => { setClinicaFilter(clinicaId); setDoctorFilter(doctorId); }}
@@ -515,8 +521,8 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
       {vista === "clinica" && (() => {
         const clinicaNombre = clinicasDisponibles.find(c => c.id === clinicaFilter)?.nombre ?? clinicaFilter;
         const clinicaAppts = data.appointments;
-        const enRiesgo = clinicaAppts.filter(a => a.riskLevel !== "LOW").length;
-        const euros = enRiesgo * 85;
+        const enRiesgo = clinicaAppts.filter(isEnRiesgo).length;
+        const euros = enRiesgo * AVG_TICKET;
 
         // Agrupar por doctor
         const porDoctor = new Map<string, { nombre: string; appts: RiskyAppt[] }>();
@@ -548,14 +554,14 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[...porDoctor.entries()].map(([doctorId, { nombre, appts: dAppts }]) => {
-                  const altoRiesgo = dAppts.filter(a => a.riskLevel === "HIGH").length;
+                  const dEnRiesgo = dAppts.filter(isEnRiesgo).length;
                   const sinConf = dAppts.filter(a => !a.confirmed).length;
                   const conf = dAppts.filter(a => a.confirmed).length;
                   return (
                     <div key={doctorId} className="rounded-2xl bg-white border border-slate-200 p-4 space-y-2">
                       <p className="text-sm font-bold text-slate-800">{nombre}</p>
                       <p className="text-xs text-slate-500">{dAppts.length} citas hoy</p>
-                      {altoRiesgo > 0 && <p className="text-xs text-red-600 font-semibold">🔴 {altoRiesgo} en riesgo alto</p>}
+                      {dEnRiesgo > 0 && <p className="text-xs text-red-600 font-semibold">🔴 {dEnRiesgo} en riesgo</p>}
                       {sinConf > 0 && <p className="text-xs text-amber-600 font-semibold">🟡 {sinConf} sin confirmar</p>}
                       {conf > 0 && <p className="text-xs text-green-600">✅ {conf} confirmada{conf > 1 ? "s" : ""}</p>}
                       <button
@@ -595,8 +601,8 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
           ?? doctoresDisponibles.find(d => d.id === doctorFilter)?.nombre
           ?? doctorFilter;
 
-        const enRiesgo = doctorAppts.filter(a => a.riskLevel !== "LOW").length;
-        const highAppts = doctorAppts.filter(a => a.riskLevel === "HIGH");
+        const enRiesgo = doctorAppts.filter(isEnRiesgo).length;
+        const highAppts = doctorAppts.filter(a => (a.scoreAccion ?? a.riskScore) >= 80);
         const medLowAppts = doctorAppts.filter(a => a.riskLevel !== "HIGH");
         const doctorGaps = computeGaps(doctorAppts, data.todayIso);
 
@@ -610,7 +616,7 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
               total={doctorAppts.length}
               confirmed={doctorAppts.filter(a => a.confirmed).length}
               enRiesgo={enRiesgo}
-              euros={enRiesgo * 85}
+              euros={enRiesgo * AVG_TICKET}
               label={isMañana ? "Citas mañana" : "Citas hoy"}
             />
 
