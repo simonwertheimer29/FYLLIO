@@ -15,6 +15,9 @@ import {
   MULTI_SESSION_TREATMENTS,
 } from "../../../lib/no-shows/score";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 const COOKIE = "fyllio_noshows_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
 const secret = new TextEncoder().encode(SECRET_RAW);
@@ -162,10 +165,7 @@ export async function GET(req: Request) {
       const estado = String(f["Estado"] ?? "").trim().toUpperCase();
 
       if (dayIso >= mondayIso && dayIso < sundayIso && !CANCELLED.has(estado)) {
-        const startDt = DateTime.fromISO(startIso, { zone: ZONE });
-        if (startDt > now) {
-          weekRecs.push({ r, f, startIso, dayIso });
-        }
+        weekRecs.push({ r, f, startIso, dayIso });
       }
 
       if (

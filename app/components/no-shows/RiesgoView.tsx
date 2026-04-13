@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { NoShowsUserSession, RiskyAppt, RecallAlert, RiskData } from "../../lib/no-shows/types";
-import { riskBgClass } from "../../lib/no-shows/score";
+
 
 // ─── Tipo extendido (API v2) ──────────────────────────────────────────────────
 
@@ -15,7 +15,6 @@ type ExtRiskData = Omit<RiskData, "summary"> & {
     recallCount: number;
     eurosEnRiesgo?: number;
   };
-  futuras?: RiskyAppt[];
 };
 
 // ─── Helpers de semana ────────────────────────────────────────────────────────
@@ -332,7 +331,6 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
     try {
       const url = new URL("/api/no-shows/riesgo", location.href);
       url.searchParams.set("week", w);
-      url.searchParams.set("incluirFuturas", "1");
       if (clinica) url.searchParams.set("clinica", clinica);
       const res = await fetch(url.toString());
       if (res.ok) setData(await res.json());
@@ -526,43 +524,6 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
           ))}
         </div>
       </div>
-
-      {/* ── Próximas semanas (score ≥ 70) ── */}
-      {data.futuras && data.futuras.length > 0 && (
-        <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
-          <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">
-            Próximas semanas — score ≥ 70
-          </p>
-          <div className="space-y-2">
-            {data.futuras.map((appt) => {
-              const bg = riskBgClass(appt.riskLevel);
-              return (
-                <div
-                  key={appt.id}
-                  className="flex items-center gap-3 rounded-xl border border-slate-200 p-3"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-slate-800">{appt.patientName}</p>
-                    <p className="text-xs text-slate-500">
-                      {appt.treatmentName} · {formatDayLabel(appt.dayIso)} {appt.startDisplay}
-                    </p>
-                  </div>
-                  <span className={`shrink-0 text-xs font-bold px-2 py-0.5 rounded-full border ${bg}`}>
-                    {appt.riskScore}
-                  </span>
-                  {appt.patientPhone && (
-                    <a
-                      href={`https://wa.me/${appt.patientPhone.replace(/\D/g, "")}?text=${encodeURIComponent(buildWhatsApp(appt))}`}
-                      target="_blank" rel="noopener noreferrer"
-                      className="p-1.5 rounded-xl bg-green-600 text-white text-xs hover:bg-green-700 transition-colors"
-                    >WA</a>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* ── RECALL (colapsable al fondo) ── */}
       {data.recalls.length > 0 && (
