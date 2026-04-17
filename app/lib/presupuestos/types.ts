@@ -243,6 +243,71 @@ export interface ConfiguracionAutomatizacion {
   diasReactivacion: number;
 }
 
+// ─── Cola de Intervención ─────────────────────────────────────────────────────
+
+export type IntencionDetectada =
+  | "Acepta sin condiciones"
+  | "Acepta pero pregunta pago"
+  | "Tiene duda sobre tratamiento"
+  | "Pide oferta/descuento"
+  | "Quiere pensarlo"
+  | "Rechaza"
+  | "Sin clasificar";
+
+export type UrgenciaIntervencion = "CRÍTICO" | "ALTO" | "MEDIO" | "BAJO" | "NINGUNO";
+
+export type FaseSeguimiento =
+  | "Inicial"
+  | "Recordatorio 3d"
+  | "Recordatorio 7d"
+  | "Recordatorio 10d"
+  | "Esperando respuesta"
+  | "En intervención"
+  | "Cerrado";
+
+export type TipoUltimaAccionIntervencion =
+  | "WhatsApp enviado"
+  | "Llamada realizada"
+  | "Mensaje recibido"
+  | "Sin respuesta tras llamada";
+
+export type PresupuestoIntervencion = Presupuesto & {
+  ultimaRespuestaPaciente?: string;
+  fechaUltimaRespuesta?: string;
+  intencionDetectada?: IntencionDetectada;
+  urgenciaIntervencion?: UrgenciaIntervencion;
+  accionSugerida?: string;
+  mensajeSugerido?: string;
+  faseSeguimiento?: FaseSeguimiento;
+  ultimaAccionRegistrada?: string;
+  tipoUltimaAccion?: TipoUltimaAccionIntervencion;
+  diasDesdeUltimoContacto?: number;
+};
+
+export type SeccionIntervencion = {
+  id: string;
+  titulo: string;
+  color: string;
+  icono: string;
+  hexAccent: string;
+  items: PresupuestoIntervencion[];
+};
+
+export type IntervencionResponse = {
+  secciones: SeccionIntervencion[];
+  totalPendientes: number;
+  completadasHoy: number;
+  casosCompletados: PresupuestoIntervencion[];
+  isDemo?: boolean;
+};
+
+export type ClasificacionIA = {
+  intencion: IntencionDetectada;
+  urgencia: UrgenciaIntervencion;
+  accionSugerida: string;
+  mensajeSugerido: string;
+};
+
 export type KpiData = {
   resumen: KpiResumen;
   comparacion: {

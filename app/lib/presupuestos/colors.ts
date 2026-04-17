@@ -1,5 +1,5 @@
 // app/lib/presupuestos/colors.ts
-import type { PresupuestoEstado, EspecialidadDoctor, OrigenLead } from "./types";
+import type { PresupuestoEstado, EspecialidadDoctor, OrigenLead, IntencionDetectada, UrgenciaIntervencion } from "./types";
 
 export const ESTADO_CONFIG: Record<
   PresupuestoEstado,
@@ -47,4 +47,64 @@ export const ORIGEN_LABEL: Record<OrigenLead, string> = {
   redes_sociales:     "Redes sociales",
   walk_in:            "Visita directa",
   otro:               "Otro",
+};
+
+// ─── Cola de Intervención ─────────────────────────────────────────────────────
+
+export const INTENCION_SECTIONS: {
+  id: string;
+  titulo: string;
+  icono: string;
+  intenciones: IntencionDetectada[];
+  color: string;
+  hexAccent: string;
+}[] = [
+  {
+    id: "acepta_pago",
+    titulo: "Aceptan pero no saben cómo pagar",
+    icono: "💰",
+    intenciones: ["Acepta sin condiciones", "Acepta pero pregunta pago"],
+    color: "bg-red-100 text-red-700",
+    hexAccent: "#ef4444",
+  },
+  {
+    id: "duda_tratamiento",
+    titulo: "Tienen duda sobre el tratamiento",
+    icono: "❓",
+    intenciones: ["Tiene duda sobre tratamiento"],
+    color: "bg-amber-100 text-amber-700",
+    hexAccent: "#f59e0b",
+  },
+  {
+    id: "pide_oferta",
+    titulo: "Piden oferta o descuento",
+    icono: "🏷",
+    intenciones: ["Pide oferta/descuento"],
+    color: "bg-orange-100 text-orange-700",
+    hexAccent: "#f97316",
+  },
+  {
+    id: "pensarlo",
+    titulo: "Quieren pensarlo",
+    icono: "⏳",
+    intenciones: ["Quiere pensarlo"],
+    color: "bg-sky-100 text-sky-700",
+    hexAccent: "#0ea5e9",
+  },
+  {
+    id: "sin_respuesta",
+    titulo: "Sin respuesta / Sin clasificar",
+    icono: "📭",
+    intenciones: ["Rechaza", "Sin clasificar"],
+    color: "bg-slate-100 text-slate-600",
+    hexAccent: "#94a3b8",
+  },
+];
+
+export const URGENCIA_INTERVENCION_COLOR: Record<UrgenciaIntervencion, string> = {
+  "CRÍTICO": "bg-red-100 text-red-700 border-red-200",
+  "ALTO":    "bg-orange-100 text-orange-700 border-orange-200",
+  "MEDIO":   "bg-amber-100 text-amber-700 border-amber-200",
+  "BAJO":    "bg-sky-100 text-sky-700 border-sky-200",
+  "NINGUNO": "bg-slate-100 text-slate-500 border-slate-200",
 };

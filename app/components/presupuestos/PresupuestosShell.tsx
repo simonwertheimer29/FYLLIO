@@ -15,8 +15,11 @@ import InformesView from "./InformesView";
 import ImportarCSVModal from "./ImportarCSVModal";
 import ConfigAutomatizaciones from "./ConfigAutomatizaciones";
 import AutomatizacionesView from "./AutomatizacionesView";
+import IntervencionView from "./IntervencionView";
+import IntervencionSidePanel from "./IntervencionSidePanel";
+import type { PresupuestoIntervencion } from "../../lib/presupuestos/types";
 
-type Tab = "red" | "kanban" | "tareas" | "kpis" | "doctor" | "informes" | "automatizaciones" | "config";
+type Tab = "red" | "intervencion" | "kanban" | "tareas" | "kpis" | "doctor" | "informes" | "automatizaciones" | "config";
 
 // ─── Mini hook para cargar presupuestos ──────────────────────────────────────
 
@@ -79,6 +82,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   const [showImportCSV, setShowImportCSV] = useState(false);
   const [editPresupuesto, setEditPresupuesto] = useState<Presupuesto | null>(null);
   const [drawerPresupuesto, setDrawerPresupuesto] = useState<Presupuesto | null>(null);
+  const [intervencionItem, setIntervencionItem] = useState<PresupuestoIntervencion | null>(null);
 
   // Keyboard shortcut N → Nuevo presupuesto
   useEffect(() => {
@@ -184,6 +188,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   const TABS: { id: Tab; label: string; icon: string }[] = isManager
     ? [
         { id: "red",              label: "Red",              icon: "🕸" },
+        { id: "intervencion",     label: "Intervención",     icon: "🎯" },
         { id: "tareas",           label: "Tareas",           icon: "✓" },
         { id: "kanban",           label: "Panel",            icon: "☰" },
         { id: "kpis",             label: "KPIs",             icon: "📊" },
@@ -194,11 +199,13 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
       ]
     : isVentas
     ? [
+        { id: "intervencion",     label: "Intervención",     icon: "🎯" },
         { id: "tareas",           label: "Mis Tareas",       icon: "✓" },
         { id: "kanban",           label: "Mis Presupuestos", icon: "☰" },
         { id: "automatizaciones", label: "Automatizaciones", icon: "🤖" },
       ]
     : [
+        { id: "intervencion", label: "Intervención", icon: "🎯" },
         { id: "tareas",   label: "Tareas",   icon: "✓" },
         { id: "kanban",   label: "Panel",    icon: "☰" },
         { id: "kpis",     label: "KPIs",     icon: "📊" },
@@ -207,7 +214,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
 
   // Bottom nav shows up to 4 primary tabs + "+" on mobile/tablet
   const BOTTOM_TABS = isManager
-    ? TABS.filter((t) => ["red", "tareas", "kanban", "kpis"].includes(t.id))
+    ? TABS.filter((t) => ["red", "intervencion", "tareas", "kanban"].includes(t.id))
     : TABS.slice(0, 4);
 
   return (
@@ -375,6 +382,13 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           </div>
         )}
 
+        {tab === "intervencion" && (
+          <IntervencionView
+            user={user}
+            onOpenDrawer={(p) => setIntervencionItem(p)}
+          />
+        )}
+
         {tab === "tareas" && (
           <TareasView
             user={user}
@@ -463,6 +477,21 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
             );
           }}
           onNewForPatient={() => { setDrawerPresupuesto(null); setShowNew(true); }}
+        />
+      )}
+
+      {intervencionItem && (
+        <IntervencionSidePanel
+          item={intervencionItem}
+          onClose={() => setIntervencionItem(null)}
+          onChangeEstado={(id, estado) => {
+            handleChangeEstado(id, estado);
+            setIntervencionItem(null);
+          }}
+          onRefresh={() => {
+            // IntervencionView handles its own refresh via interval
+            setIntervencionItem(null);
+          }}
         />
       )}
 
