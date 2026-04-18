@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type {
   PresupuestoIntervencion,
   PresupuestoEstado,
   Contacto,
   HistorialAccion,
   ClasificacionIA,
+  MensajeWhatsApp,
 } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG, URGENCIA_INTERVENCION_COLOR } from "../../lib/presupuestos/colors";
 
@@ -36,6 +37,10 @@ export default function IntervencionSidePanel({
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [notaInterna, setNotaInterna] = useState("");
   const [guardandoNota, setGuardandoNota] = useState(false);
+  const [mensajes, setMensajes] = useState<MensajeWhatsApp[]>([]);
+  const [loadingMensajes, setLoadingMensajes] = useState(true);
+  const [historialAbierto, setHistorialAbierto] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const cleanPhone = (item.patientPhone ?? "").replace(/\D/g, "");
   const urgenciaColor = item.urgenciaIntervencion
@@ -43,18 +48,29 @@ export default function IntervencionSidePanel({
     : "bg-slate-100 text-slate-500";
   const estadoCfg = ESTADO_CONFIG[item.estado];
 
-  // Load contact + action history
+  // Load contact + action history + mensajes
   useEffect(() => {
     setLoadingHistory(true);
+    setLoadingMensajes(true);
     Promise.all([
       fetch(`/api/presupuestos/contactos?presupuestoId=${item.id}`).then((r) => r.json()).catch(() => ({ contactos: [] })),
       fetch(`/api/presupuestos/historial?presupuestoId=${item.id}`).then((r) => r.json()).catch(() => ({ historial: [] })),
-    ]).then(([cData, hData]) => {
+      fetch(`/api/presupuestos/mensajes?presupuestoId=${item.id}`).then((r) => r.json()).catch(() => ({ mensajes: [] })),
+    ]).then(([cData, hData, mData]) => {
       setContactos(cData.contactos ?? []);
       setHistorial(hData.historial ?? []);
       setLoadingHistory(false);
+      setMensajes(mData.mensajes ?? []);
+      setLoadingMensajes(false);
     });
   }, [item.id]);
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    if (!loadingMensajes && mensajes.length > 0) {
+      chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [mensajes, loadingMensajes]);
 
   // Sync mensajeEditable when item changes
   useEffect(() => {
@@ -356,38 +372,78 @@ export default function IntervencionSidePanel({
             </div>
           </div>
 
-          {/* Section 4: Message history */}
+          {/* Section 4: WhatsApp conversation */}
           <div className="px-5 py-4 border-b border-slate-100">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Historial</p>
-            {loadingHistory ? (
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Conversación</p>
+            {loadingMensajes ? (
               <div className="space-y-2 animate-pulse">
-                <div className="h-8 rounded bg-slate-100" />
-                <div className="h-8 rounded bg-slate-100" />
+                <div className="h-10 rounded-2xl bg-slate-100 ml-8" />
+                <div className="h-10 rounded-2xl bg-slate-100 mr-8" />
+                <div className="h-10 rounded-2xl bg-slate-100 ml-8" />
               </div>
-            ) : timeline.length === 0 ? (
-              <p className="text-xs text-slate-400 italic">Sin historial de contacto</p>
+            ) : mensajes.length === 0 ? (
+              <p className="text-xs text-slate-400 italic text-center py-6">Sin mensajes registrados</p>
             ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {timeline.map((entry) => (
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                {mensajes.map((msg) => (
                   <div
-                    key={entry.id}
-                    className={`rounded-lg px-3 py-2 text-xs ${
-                      entry.direction === "sent"
-                        ? "bg-blue-50 text-blue-800 ml-6"
-                        : entry.direction === "received"
-                          ? "bg-slate-50 text-slate-700 mr-6"
-                          : "bg-slate-50 text-slate-500"
-                    }`}
+                    key={msg.id}
+                    className={`flex ${msg.direccion === "Saliente" ? "justify-end" : "justify-start"}`}
                   >
-                    <p className="leading-relaxed">{entry.texto}</p>
-                    <p className="text-[9px] text-slate-400 mt-0.5">
-                      {new Date(entry.fecha).toLocaleString("es-ES", {
-                        day: "numeric", month: "short",
-                        hour: "2-digit", minute: "2-digit",
-                      })}
-                    </p>
+                    <div
+                      className={`max-w-[85%] px-3 py-2 ${
+                        msg.direccion === "Saliente"
+                          ? "ml-8 bg-blue-500 text-white rounded-2xl rounded-br-sm"
+                          : "mr-8 bg-slate-100 text-slate-900 rounded-2xl rounded-bl-sm"
+                      }`}
+                    >
+                      <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{msg.contenido}</p>
+                      <p
+                        className={`text-[9px] text-right mt-0.5 ${
+                          msg.direccion === "Saliente" ? "text-blue-200" : "text-slate-400"
+                        }`}
+                      >
+                        {msg.timestamp
+                          ? new Date(msg.timestamp).toLocaleString("es-ES", {
+                              day: "numeric", month: "short",
+                              hour: "2-digit", minute: "2-digit",
+                            })
+                          : ""}
+                      </p>
+                    </div>
                   </div>
                 ))}
+                <div ref={chatEndRef} />
+              </div>
+            )}
+
+            {/* Collapsible full historial */}
+            {!loadingHistory && timeline.length > 0 && (
+              <div className="mt-3">
+                <button
+                  onClick={() => setHistorialAbierto(!historialAbierto)}
+                  className="text-[10px] font-semibold text-slate-400 hover:text-slate-600 uppercase tracking-wide"
+                >
+                  {historialAbierto ? "▾ Historial completo" : "▸ Historial completo"} ({timeline.length})
+                </button>
+                {historialAbierto && (
+                  <div className="space-y-1.5 mt-2 max-h-40 overflow-y-auto">
+                    {timeline.map((entry) => (
+                      <div
+                        key={entry.id}
+                        className="rounded-lg px-3 py-1.5 text-xs bg-slate-50 text-slate-500"
+                      >
+                        <p className="leading-relaxed">{entry.texto}</p>
+                        <p className="text-[9px] text-slate-400 mt-0.5">
+                          {new Date(entry.fecha).toLocaleString("es-ES", {
+                            day: "numeric", month: "short",
+                            hour: "2-digit", minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
