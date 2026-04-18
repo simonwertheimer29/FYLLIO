@@ -30,6 +30,8 @@ export const TABLES = {
   plantillasMensaje: "Plantillas_Mensaje",
   configuracionRecordatorios: "Configuracion_Recordatorios",
   colaEnvios: "Cola_Envios",
+  // Notificaciones in-app
+  notificaciones: "Notificaciones",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];

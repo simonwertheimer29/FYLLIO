@@ -438,6 +438,26 @@ export type EnvioItem = {
   doctor?: string;
 };
 
+// ─── Notificaciones in-app ───────────────────────────────────────────────────
+
+export type TipoNotificacion =
+  | "Intervencion_urgente"
+  | "Nuevo_mensaje_paciente"
+  | "Presupuesto_aceptado"
+  | "Recordatorio_envio"
+  | "Sistema";
+
+export type Notificacion = {
+  id: string;
+  usuario: string;
+  tipo: TipoNotificacion;
+  titulo: string;
+  mensaje: string;
+  link: string;
+  leida: boolean;
+  fechaCreacion: string;
+};
+
 export type KpiData = {
   resumen: KpiResumen;
   comparacion: {
