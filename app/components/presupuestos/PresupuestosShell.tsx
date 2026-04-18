@@ -17,9 +17,10 @@ import ConfigAutomatizaciones from "./ConfigAutomatizaciones";
 import AutomatizacionesView from "./AutomatizacionesView";
 import IntervencionView from "./IntervencionView";
 import IntervencionSidePanel from "./IntervencionSidePanel";
+import MaximaView from "./MaximaView";
 import type { PresupuestoIntervencion } from "../../lib/presupuestos/types";
 
-type Tab = "red" | "intervencion" | "kanban" | "tareas" | "kpis" | "doctor" | "informes" | "automatizaciones" | "config";
+type Tab = "red" | "intervencion" | "maxima" | "kanban" | "tareas" | "kpis" | "doctor" | "informes" | "automatizaciones" | "config";
 
 // ─── Mini hook para cargar presupuestos ──────────────────────────────────────
 
@@ -189,6 +190,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     ? [
         { id: "red",              label: "Red",              icon: "🕸" },
         { id: "intervencion",     label: "Intervención",     icon: "🎯" },
+        { id: "maxima",           label: "Máxima",           icon: "" },
         { id: "tareas",           label: "Tareas",           icon: "✓" },
         { id: "kanban",           label: "Panel",            icon: "☰" },
         { id: "kpis",             label: "KPIs",             icon: "📊" },
@@ -200,12 +202,14 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     : isVentas
     ? [
         { id: "intervencion",     label: "Intervención",     icon: "🎯" },
+        { id: "maxima",           label: "Máxima",           icon: "" },
         { id: "tareas",           label: "Mis Tareas",       icon: "✓" },
         { id: "kanban",           label: "Mis Presupuestos", icon: "☰" },
         { id: "automatizaciones", label: "Automatizaciones", icon: "🤖" },
       ]
     : [
         { id: "intervencion", label: "Intervención", icon: "🎯" },
+        { id: "maxima",       label: "Máxima",       icon: "" },
         { id: "tareas",   label: "Tareas",   icon: "✓" },
         { id: "kanban",   label: "Panel",    icon: "☰" },
         { id: "kpis",     label: "KPIs",     icon: "📊" },
@@ -384,6 +388,13 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
 
         {tab === "intervencion" && (
           <IntervencionView
+            user={user}
+            onOpenDrawer={(p) => setIntervencionItem(p)}
+          />
+        )}
+
+        {tab === "maxima" && (
+          <MaximaView
             user={user}
             onOpenDrawer={(p) => setIntervencionItem(p)}
           />
