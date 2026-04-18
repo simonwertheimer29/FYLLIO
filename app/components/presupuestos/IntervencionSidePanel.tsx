@@ -80,6 +80,14 @@ export default function IntervencionSidePanel({
     setDetallesPagoEnviado(false);
   }, [item.id, item.mensajeSugerido]);
 
+  // Auto-generate IA message when panel opens without a suggestion
+  useEffect(() => {
+    if (!item.mensajeSugerido && !mensajeEditable) {
+      handleRegenerar();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.id]);
+
   // --- Actions ---
 
   async function handleCopiar() {
@@ -312,7 +320,13 @@ export default function IntervencionSidePanel({
               </div>
               <div>
                 <p className="text-slate-400 text-[10px] uppercase tracking-wide font-semibold">Días sin contacto</p>
-                <p className="font-semibold text-slate-700">{item.diasDesdeUltimoContacto ?? "—"}</p>
+                <p className="font-semibold text-slate-700">
+                  {typeof item.diasDesdeUltimoContacto === "number"
+                    ? `${item.diasDesdeUltimoContacto} días`
+                    : item.contactCount === 0
+                      ? "Nunca contactado"
+                      : "Sin datos"}
+                </p>
               </div>
             </div>
           </div>
@@ -380,6 +394,7 @@ export default function IntervencionSidePanel({
               value={mensajeEditable}
               onChange={(e) => setMensajeEditable(e.target.value)}
               rows={4}
+              placeholder={regenerando ? "Generando mensaje..." : "Escribe un mensaje..."}
               className="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 bg-violet-50 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none resize-none"
             />
 
