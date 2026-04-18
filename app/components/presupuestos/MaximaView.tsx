@@ -37,6 +37,47 @@ function formatDate(iso: string): string {
   return `${d}/${m}/${y?.slice(2)}`;
 }
 
+// ─── CSV Export ──────────────────────────────────────────────────────────────
+
+function exportCSV(items: PresupuestoMaxima[]) {
+  const BOM = "\uFEFF";
+  const SEP = ";";
+  const headers = [
+    "Fecha", "Paciente", "Doctor", "Tratamiento", "Importe",
+    "Estado", "Estado Visual", "Clínica", "Última Acción",
+    "Próxima Acción", "Urgencia", "Días Activo", "Contactos",
+  ];
+
+  const rows = items.map((p) => [
+    p.fechaPresupuesto,
+    p.patientName,
+    p.doctor ?? "",
+    p.treatments.join(", "),
+    p.amount != null ? String(p.amount).replace(".", ",") : "",
+    p.estado,
+    p.estadoVisual,
+    p.clinica ?? "",
+    p.ultimaAccionTexto ?? "",
+    p.proximaAccionTexto ?? "",
+    String(p.urgencyScore),
+    String(p.daysSince),
+    String(p.contactCount),
+  ]);
+
+  const csv = BOM + [headers, ...rows].map((r) =>
+    r.map((c) => `"${c.replace(/"/g, '""')}"`).join(SEP)
+  ).join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const today = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `presupuestos_maxima_${today}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function MaximaView({
@@ -210,12 +251,20 @@ export default function MaximaView({
               {formatCurrency(data.totales.importeTotal)} pipeline
             </p>
           </div>
-          <button
-            onClick={fetchData}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-          >
-            Actualizar
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => exportCSV(filtered)}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              Exportar CSV
+            </button>
+            <button
+              onClick={fetchData}
+              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              Actualizar
+            </button>
+          </div>
         </div>
       </div>
 
