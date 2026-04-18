@@ -385,6 +385,59 @@ export type MaximaResponse = {
   clinicasUnicas: string[];
 };
 
+// ─── Plantillas y Cola de Envíos ──────────────────────────────────────────────
+
+export type TipoPlantilla = "Primer contacto" | "Recordatorio" | "Detalles de pago" | "Reactivacion";
+
+export type PlantillaMensaje = {
+  id: string;
+  nombre: string;
+  tipo: TipoPlantilla;
+  clinica: string;       // "Todas" o nombre clínica
+  doctor: string;        // "" = todos
+  tratamiento: string;   // "" = todos
+  contenido: string;     // con {nombre}, {tratamiento}, etc.
+  activa: boolean;
+  fechaCreacion: string;
+};
+
+export type ConfigRecordatorios = {
+  id?: string;
+  clinica: string;
+  secuenciaDias: number[];  // [3, 7, 10]
+  recordatorioMax: number;
+  horaEnvio: string;        // "09:00"
+  diasRechazoAuto: number;
+  activa: boolean;
+};
+
+export type TipoEnvio =
+  | "Primer contacto"
+  | "Recordatorio 1"
+  | "Recordatorio 2"
+  | "Recordatorio 3"
+  | "Detalles de pago"
+  | "Reactivacion";
+
+export type EstadoEnvio = "Pendiente" | "Enviado" | "Fallido" | "Cancelado";
+
+export type EnvioItem = {
+  id: string;
+  presupuestoId: string;
+  paciente: string;
+  telefono: string;
+  contenido: string;
+  tipo: TipoEnvio;
+  estado: EstadoEnvio;
+  programadoPara: string;
+  enviadoEn?: string;
+  plantillaUsada: string;
+  // Campos extra para UI (no en Airtable)
+  tratamiento?: string;
+  importe?: number;
+  doctor?: string;
+};
+
 export type KpiData = {
   resumen: KpiResumen;
   comparacion: {

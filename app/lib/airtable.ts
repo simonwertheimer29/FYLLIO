@@ -26,6 +26,10 @@ export const TABLES = {
   informesGuardados: "Informes_Guardados",
   // Mensajes WhatsApp
   mensajesWhatsApp: "Mensajes_WhatsApp",
+  // Plantillas y cola de envíos
+  plantillasMensaje: "Plantillas_Mensaje",
+  configuracionRecordatorios: "Configuracion_Recordatorios",
+  colaEnvios: "Cola_Envios",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];
