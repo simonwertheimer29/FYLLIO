@@ -1,5 +1,5 @@
 // app/lib/presupuestos/colors.ts
-import type { PresupuestoEstado, EspecialidadDoctor, OrigenLead, IntencionDetectada, UrgenciaIntervencion } from "./types";
+import type { PresupuestoEstado, EspecialidadDoctor, OrigenLead, IntencionDetectada, UrgenciaIntervencion, IntervencionTab } from "./types";
 
 export const ESTADO_CONFIG: Record<
   PresupuestoEstado,
@@ -108,3 +108,18 @@ export const URGENCIA_INTERVENCION_COLOR: Record<UrgenciaIntervencion, string> =
   "BAJO":    "bg-sky-100 text-sky-700 border-sky-200",
   "NINGUNO": "bg-slate-100 text-slate-500 border-slate-200",
 };
+
+export const INTERVENCION_TABS: {
+  id: IntervencionTab;
+  label: string;
+  intenciones?: IntencionDetectada[];
+}[] = [
+  { id: "actuar",        label: "Actuar ahora" },
+  { id: "cerrados",      label: "Casi cerrados",  intenciones: ["Acepta sin condiciones", "Acepta pero pregunta pago"] },
+  { id: "todas",         label: "Todas" },
+  { id: "pago",          label: "Pago",            intenciones: ["Acepta pero pregunta pago"] },
+  { id: "dudas",         label: "Dudas trat.",     intenciones: ["Tiene duda sobre tratamiento"] },
+  { id: "oferta",        label: "Oferta",          intenciones: ["Pide oferta/descuento"] },
+  { id: "pensarlo",      label: "Pensarlo",        intenciones: ["Quiere pensarlo"] },
+  { id: "sin_respuesta", label: "Sin respuesta",   intenciones: ["Rechaza", "Sin clasificar"] },
+];

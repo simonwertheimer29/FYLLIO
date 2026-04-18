@@ -15,6 +15,7 @@ import type {
   SeccionIntervencion,
   IntencionDetectada,
   UrgenciaIntervencion,
+  UrgenciaBidireccional,
   FaseSeguimiento,
   TipoUltimaAccionIntervencion,
   PresupuestoEstado,
@@ -54,6 +55,64 @@ const URGENCIA_ORDER: Record<string, number> = {
 };
 
 // -------------------------------------------------------------------
+// Urgencia bidireccional (3 ejes)
+// -------------------------------------------------------------------
+
+const INTENCION_SCORE: Record<string, number> = {
+  "Acepta sin condiciones": 40,
+  "Acepta pero pregunta pago": 35,
+  "Pide oferta/descuento": 25,
+  "Tiene duda sobre tratamiento": 20,
+  "Sin clasificar": 15,
+  "Quiere pensarlo": 10,
+  "Rechaza": 5,
+};
+
+function computeUrgenciaBidireccional(p: PresupuestoIntervencion): UrgenciaBidireccional {
+  // Eje 1 — Intención del paciente (0-40)
+  const scoreIntencion = INTENCION_SCORE[p.intencionDetectada ?? "Sin clasificar"] ?? 15;
+
+  // Eje 2 — Tiempo de respuesta de la clínica (0-30)
+  let scoreRespClinica = 0;
+  if (p.fechaUltimaRespuesta) {
+    const respuestaMs = new Date(p.fechaUltimaRespuesta).getTime();
+    const accionMs = p.ultimaAccionRegistrada
+      ? new Date(p.ultimaAccionRegistrada).getTime()
+      : 0;
+    // Solo cuenta si la clínica no ha respondido después de la última respuesta del paciente
+    if (accionMs < respuestaMs) {
+      const horasSinRespuesta = (Date.now() - respuestaMs) / (1000 * 60 * 60);
+      if (horasSinRespuesta > 48) scoreRespClinica = 30;
+      else if (horasSinRespuesta > 24) scoreRespClinica = 25;
+      else if (horasSinRespuesta > 12) scoreRespClinica = 20;
+      else if (horasSinRespuesta > 6) scoreRespClinica = 15;
+      else if (horasSinRespuesta > 2) scoreRespClinica = 10;
+      else scoreRespClinica = 5;
+    }
+  }
+
+  // Eje 3 — Oportunidad de cierre (0-30)
+  let importeScore = 0;
+  if (p.amount != null) {
+    if (p.amount > 5000) importeScore = 15;
+    else if (p.amount > 2000) importeScore = 10;
+    else if (p.amount > 500) importeScore = 5;
+  }
+  let estadoScore = 0;
+  if (p.estado === "EN_NEGOCIACION") estadoScore = 15;
+  else if (p.estado === "EN_DUDA") estadoScore = 10;
+  else if (p.estado === "INTERESADO") estadoScore = 5;
+  const scoreCierre = Math.min(importeScore + estadoScore, 30);
+
+  return {
+    scoreFinal: scoreIntencion + scoreRespClinica + scoreCierre,
+    scoreIntencion,
+    scoreRespClinica,
+    scoreCierre,
+  };
+}
+
+// -------------------------------------------------------------------
 // GET /api/presupuestos/intervencion
 // -------------------------------------------------------------------
 
@@ -70,9 +129,13 @@ export async function GET(req: Request) {
   if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
     return NextResponse.json({
       secciones: [],
+      allItems: [],
       totalPendientes: 0,
       completadasHoy: 0,
       casosCompletados: [],
+      clinicas: [],
+      doctores: [],
+      tratamientos: [],
       isDemo: true,
     });
   }
@@ -225,6 +288,7 @@ export async function GET(req: Request) {
       };
 
       p.urgencyScore = computeUrgencyScore(p);
+      p.urgenciaBidireccional = computeUrgenciaBidireccional(p);
       return p;
     });
 
@@ -300,20 +364,32 @@ export async function GET(req: Request) {
       };
     }).filter((s) => s.items.length > 0);
 
+    // Extract unique filter values
+    const clinicas = [...new Set(items.map((p) => p.clinica).filter(Boolean) as string[])].sort();
+    const doctores = [...new Set(items.map((p) => p.doctor).filter(Boolean) as string[])].sort();
+    const tratamientos = [...new Set(items.flatMap((p) => p.treatments))].sort();
+
     return NextResponse.json({
       secciones,
+      allItems: pendientes,
       totalPendientes: pendientes.length,
       completadasHoy: completadosHoy.length,
       casosCompletados: completadosHoy,
+      clinicas,
+      doctores,
+      tratamientos,
     });
   } catch (err) {
     console.error("[intervencion] GET error:", err);
     return NextResponse.json({
       secciones: [],
+      allItems: [],
       totalPendientes: 0,
       completadasHoy: 0,
       casosCompletados: [],
-      isDemo: false,
+      clinicas: [],
+      doctores: [],
+      tratamientos: [],
       error: "Error al cargar cola de intervención",
     });
   }

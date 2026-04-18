@@ -271,6 +271,25 @@ export type TipoUltimaAccionIntervencion =
   | "Mensaje recibido"
   | "Sin respuesta tras llamada";
 
+// Pestañas secundarias de la cola
+export type IntervencionTab =
+  | "actuar"
+  | "cerrados"
+  | "todas"
+  | "pago"
+  | "dudas"
+  | "oferta"
+  | "pensarlo"
+  | "sin_respuesta";
+
+// Urgencia bidireccional (3 ejes)
+export type UrgenciaBidireccional = {
+  scoreFinal: number;         // 0-100, composite
+  scoreIntencion: number;     // 0-40, por intención del paciente
+  scoreRespClinica: number;   // 0-30, por tiempo sin respuesta de la clínica
+  scoreCierre: number;        // 0-30, por oportunidad de cierre (importe+estado)
+};
+
 export type PresupuestoIntervencion = Presupuesto & {
   ultimaRespuestaPaciente?: string;
   fechaUltimaRespuesta?: string;
@@ -282,6 +301,7 @@ export type PresupuestoIntervencion = Presupuesto & {
   ultimaAccionRegistrada?: string;
   tipoUltimaAccion?: TipoUltimaAccionIntervencion;
   diasDesdeUltimoContacto?: number;
+  urgenciaBidireccional?: UrgenciaBidireccional;
 };
 
 export type SeccionIntervencion = {
@@ -295,9 +315,13 @@ export type SeccionIntervencion = {
 
 export type IntervencionResponse = {
   secciones: SeccionIntervencion[];
+  allItems: PresupuestoIntervencion[];
   totalPendientes: number;
   completadasHoy: number;
   casosCompletados: PresupuestoIntervencion[];
+  clinicas: string[];
+  doctores: string[];
+  tratamientos: string[];
   isDemo?: boolean;
 };
 
