@@ -241,7 +241,29 @@ export interface ConfiguracionAutomatizacion {
   diasInactividadAlerta: number;
   diasPortalSinRespuesta: number;
   diasReactivacion: number;
+  modoWhatsapp?: ModoWhatsApp;
 }
+
+// ─── Mensajería WhatsApp ─────────────────────────────────────────────────────
+
+export type FuenteMensaje = "Modo_A_manual" | "Modo_B_WABA" | "Plantilla_automatica" | "Respuesta_IA";
+export type DireccionMensaje = "Entrante" | "Saliente";
+export type ModoWhatsApp = "manual" | "waba";
+
+export type MensajeWhatsApp = {
+  id: string;
+  pacienteId?: string;
+  presupuestoId?: string;
+  telefono: string;
+  direccion: DireccionMensaje;
+  contenido: string;
+  timestamp: string;
+  fuente: FuenteMensaje;
+  procesadoPorIA: boolean;
+  intencionDetectada?: IntencionDetectada;
+  wabaMessageId?: string;
+  notas?: string;
+};
 
 // ─── Cola de Intervención ─────────────────────────────────────────────────────
 
