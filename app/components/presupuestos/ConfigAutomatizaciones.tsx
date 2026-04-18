@@ -4,13 +4,13 @@
 // Centro de control: Automatizaciones · Objetivos · Notificaciones · Clínica
 
 import { useState, useEffect } from "react";
-import type { UserSession, ConfiguracionAutomatizacion } from "../../lib/presupuestos/types";
+import type { UserSession, ConfiguracionAutomatizacion, ModoWhatsApp } from "../../lib/presupuestos/types";
 
 interface Props {
   user: UserSession;
 }
 
-type SidebarSection = "automatizaciones" | "objetivos" | "notificaciones" | "clinica";
+type SidebarSection = "automatizaciones" | "objetivos" | "notificaciones" | "clinica" | "whatsapp";
 
 const DEFAULTS: Omit<ConfiguracionAutomatizacion, "clinica"> = {
   activa: true,
@@ -701,11 +701,156 @@ function SectionClinica({ user }: { user: UserSession }) {
   );
 }
 
+// ─── Section ⑤: Integración WhatsApp ──────────────────────────────────────────
+
+function SectionWhatsApp({ user }: { user: UserSession }) {
+  const [modo, setModo] = useState<ModoWhatsApp>("manual");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const res = await fetch("/api/automatizaciones/configuracion");
+        const data = await res.json();
+        const configs = data.configuraciones ?? (data.configuracion ? [data.configuracion] : []);
+        // Use first config with modoWhatsapp, or default to manual
+        const cfg = configs.find((c: ConfiguracionAutomatizacion) => c.modoWhatsapp);
+        if (cfg?.modoWhatsapp) setModo(cfg.modoWhatsapp);
+      } catch { /* silent */ }
+      finally { setLoading(false); }
+    }
+    load();
+  }, []);
+
+  async function handleSave(nuevoModo: ModoWhatsApp) {
+    setModo(nuevoModo);
+    setSaving(true);
+    try {
+      // Get current config for the user's clinic or first clinic
+      const clinica = user.clinica ?? "default";
+      await fetch("/api/automatizaciones/configuracion", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clinica, modoWhatsapp: nuevoModo }),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch { /* silent */ }
+    finally { setSaving(false); }
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-4 animate-pulse">
+        <div className="h-32 rounded-2xl bg-slate-100" />
+        <div className="h-32 rounded-2xl bg-slate-100" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-sm font-bold text-slate-900 mb-1">Integración WhatsApp</h3>
+        <p className="text-xs text-slate-500 mb-4">Elige cómo se envían y reciben los mensajes de WhatsApp</p>
+      </div>
+
+      <div className="space-y-3">
+        {/* Manual mode */}
+        <button
+          onClick={() => handleSave("manual")}
+          disabled={saving}
+          className={`w-full text-left rounded-2xl border-2 p-5 transition-colors ${
+            modo === "manual"
+              ? "border-violet-500 bg-violet-50"
+              : "border-slate-200 bg-white hover:border-slate-300"
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <div className={`w-4 h-4 mt-0.5 rounded-full border-2 shrink-0 flex items-center justify-center ${
+              modo === "manual" ? "border-violet-500" : "border-slate-300"
+            }`}>
+              {modo === "manual" && <div className="w-2 h-2 rounded-full bg-violet-500" />}
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-900">Manual (gratis)</p>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                La clínica envía los mensajes manualmente con un clic.
+                Se abre WhatsApp Web con el mensaje prellenado. Sin coste, sin configuración.
+              </p>
+              {modo === "manual" && (
+                <span className="inline-flex items-center gap-1.5 mt-2 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                  Activo
+                </span>
+              )}
+            </div>
+          </div>
+        </button>
+
+        {/* WABA mode */}
+        <div
+          className={`w-full text-left rounded-2xl border-2 p-5 transition-colors ${
+            modo === "waba"
+              ? "border-violet-500 bg-violet-50"
+              : "border-slate-200 bg-white"
+          } opacity-70`}
+        >
+          <div className="flex items-start gap-3">
+            <div className={`w-4 h-4 mt-0.5 rounded-full border-2 shrink-0 flex items-center justify-center ${
+              modo === "waba" ? "border-violet-500" : "border-slate-300"
+            }`}>
+              {modo === "waba" && <div className="w-2 h-2 rounded-full bg-violet-500" />}
+            </div>
+            <div>
+              <p className="text-sm font-bold text-slate-900">Automático con WABA</p>
+              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                Integración completa con WhatsApp Business API.
+                Los mensajes se envían y reciben automáticamente.
+                Requiere aprobación de Meta.
+              </p>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Coste estimado: 0,05 EUR por conversación
+              </p>
+              <span className="inline-flex items-center gap-1.5 mt-2 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                Disponible en Sprint 4
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {saved && (
+        <p className="text-xs text-emerald-600 font-semibold text-center">Modo guardado correctamente</p>
+      )}
+
+      {/* Status */}
+      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Estado actual</p>
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-emerald-500" />
+          <p className="text-sm font-semibold text-slate-700">
+            {modo === "manual" ? "Manual activo" : "WABA activo"}
+          </p>
+        </div>
+        <p className="text-xs text-slate-500 mt-1">
+          {modo === "manual"
+            ? "Los mensajes se envían manualmente desde la cola de intervención."
+            : "Los mensajes se envían automáticamente via WhatsApp Business API."}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const SIDEBAR_ITEMS: { id: SidebarSection; label: string; icon: string }[] = [
   { id: "automatizaciones", label: "Automatizaciones", icon: "🤖" },
   { id: "objetivos",        label: "Objetivos del mes", icon: "🎯" },
+  { id: "whatsapp",         label: "WhatsApp",          icon: "💬" },
   { id: "notificaciones",   label: "Notificaciones",    icon: "🔔" },
   { id: "clinica",          label: "Clínica y equipo",  icon: "🏥" },
 ];
@@ -739,6 +884,7 @@ export default function ConfigAutomatizaciones({ user }: Props) {
       <div className="flex-1 min-w-0 overflow-auto pb-6">
         {activeSection === "automatizaciones" && <SectionAutomatizaciones user={user} />}
         {activeSection === "objetivos"        && <SectionObjetivos user={user} />}
+        {activeSection === "whatsapp"         && <SectionWhatsApp user={user} />}
         {activeSection === "notificaciones"   && <SectionNotificaciones />}
         {activeSection === "clinica"          && <SectionClinica user={user} />}
       </div>
