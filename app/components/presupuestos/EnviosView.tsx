@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { UserSession, EnvioItem, TipoEnvio } from "../../lib/presupuestos/types";
+import CampanasEspeciales from "./CampanasEspeciales";
 
 interface Props {
   user: UserSession;
@@ -43,6 +44,8 @@ export default function EnviosView({ user }: Props) {
   const [loading, setLoading] = useState(true);
   const [generando, setGenerando] = useState(false);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const [showCampanas, setShowCampanas] = useState(false);
 
   // Batch wizard state
   const [batchTipo, setBatchTipo] = useState<string | null>(null);
@@ -188,6 +191,12 @@ export default function EnviosView({ user }: Props) {
               className="text-xs px-3 py-1.5 rounded-xl bg-violet-600 text-white font-semibold hover:bg-violet-700 disabled:opacity-50"
             >
               {generando ? "Generando..." : "Generar cola del día"}
+            </button>
+            <button
+              onClick={() => setShowCampanas(true)}
+              className="text-xs px-3 py-1.5 rounded-xl border border-violet-200 text-violet-600 hover:bg-violet-50 font-semibold"
+            >
+              Campañas especiales
             </button>
             <button
               onClick={fetchEnvios}
@@ -402,6 +411,10 @@ export default function EnviosView({ user }: Props) {
           </div>
         );
       })()}
+
+      {showCampanas && (
+        <CampanasEspeciales onClose={() => setShowCampanas(false)} />
+      )}
     </div>
   );
 }

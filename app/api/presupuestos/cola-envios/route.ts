@@ -89,6 +89,55 @@ export async function GET(req: Request) {
   }
 }
 
+// POST — crear un envío individual (desde campañas de reactivación, etc.)
+export async function POST(req: Request) {
+  const session = await getSession();
+  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+
+  try {
+    const body = await req.json();
+    const { presupuestoId, paciente, telefono, contenido, tipo, plantillaUsada, tratamiento, importe, doctor } = body as {
+      presupuestoId: string;
+      paciente: string;
+      telefono: string;
+      contenido: string;
+      tipo: string;
+      plantillaUsada?: string;
+      tratamiento?: string;
+      importe?: number;
+      doctor?: string;
+    };
+
+    if (!presupuestoId || !paciente) {
+      return NextResponse.json({ error: "presupuestoId y paciente requeridos" }, { status: 400 });
+    }
+
+    const now = DateTime.now().setZone(ZONE);
+    const programadoPara = `${now.toISODate()!}T09:00:00`;
+
+    const fields: Record<string, any> = {
+      Presupuesto: presupuestoId,
+      Paciente: paciente,
+      Telefono: telefono || "",
+      Contenido: contenido || "",
+      Tipo: tipo || "Reactivacion",
+      Estado: "Pendiente",
+      Programado_para: programadoPara,
+      Plantilla_usada: plantillaUsada || "",
+    };
+    if (tratamiento) fields.Tratamiento = tratamiento;
+    if (importe != null) fields.Importe = importe;
+    if (doctor) fields.Doctor = doctor;
+
+    await (base(TABLES.colaEnvios as any).create as any)(fields);
+
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("[cola-envios] POST error:", err);
+    return NextResponse.json({ error: "Error al crear envío" }, { status: 500 });
+  }
+}
+
 // PATCH — actualizar estado de un envío
 export async function PATCH(req: Request) {
   const session = await getSession();
