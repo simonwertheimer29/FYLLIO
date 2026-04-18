@@ -354,6 +354,37 @@ export type ClasificacionIA = {
   mensajeSugerido: string;
 };
 
+// ─── Vista Máxima ────────────────────────────────────────────────────────────
+
+export type EstadoVisual =
+  | "Inicial"
+  | "Primer contacto"
+  | "Segundo contacto"
+  | "Necesita intervención"
+  | "Acepta sin pagar"
+  | "Con cita sin pagar"
+  | "Tratamiento iniciado"
+  | "Cerrado ganado"
+  | "Cerrado perdido";
+
+export type PresupuestoMaxima = PresupuestoIntervencion & {
+  estadoVisual: EstadoVisual;
+  ultimaAccionTexto?: string;    // "WA enviado hace 3d"
+  proximaAccionTexto?: string;   // "Recordatorio en 2d"
+};
+
+export type MaximaResponse = {
+  presupuestos: PresupuestoMaxima[];
+  totales: {
+    total: number;
+    importeTotal: number;
+    porEstadoVisual: Record<string, number>;
+  };
+  doctoresUnicos: string[];
+  tratamientosUnicos: string[];
+  clinicasUnicas: string[];
+};
+
 export type KpiData = {
   resumen: KpiResumen;
   comparacion: {

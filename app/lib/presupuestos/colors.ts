@@ -1,5 +1,5 @@
 // app/lib/presupuestos/colors.ts
-import type { PresupuestoEstado, EspecialidadDoctor, OrigenLead, IntencionDetectada, UrgenciaIntervencion, IntervencionTab } from "./types";
+import type { PresupuestoEstado, EspecialidadDoctor, OrigenLead, IntencionDetectada, UrgenciaIntervencion, IntervencionTab, EstadoVisual } from "./types";
 
 export const ESTADO_CONFIG: Record<
   PresupuestoEstado,
@@ -47,6 +47,23 @@ export const ORIGEN_LABEL: Record<OrigenLead, string> = {
   redes_sociales:     "Redes sociales",
   walk_in:            "Visita directa",
   otro:               "Otro",
+};
+
+// ─── Vista Máxima ────────────────────────────────────────────────────────────
+
+export const ESTADO_VISUAL_CONFIG: Record<
+  EstadoVisual,
+  { hex: string; badgeClass: string; bgClass: string }
+> = {
+  "Inicial":                  { hex: "#3b82f6", badgeClass: "bg-blue-100 text-blue-700",     bgClass: "bg-blue-50" },
+  "Primer contacto":          { hex: "#eab308", badgeClass: "bg-yellow-100 text-yellow-700", bgClass: "bg-yellow-50" },
+  "Segundo contacto":         { hex: "#f97316", badgeClass: "bg-orange-100 text-orange-700", bgClass: "bg-orange-50" },
+  "Necesita intervención":    { hex: "#ef4444", badgeClass: "bg-red-100 text-red-700",       bgClass: "bg-red-50" },
+  "Acepta sin pagar":         { hex: "#8b5cf6", badgeClass: "bg-violet-100 text-violet-700", bgClass: "bg-violet-50" },
+  "Con cita sin pagar":       { hex: "#6d28d9", badgeClass: "bg-purple-100 text-purple-700", bgClass: "bg-purple-50" },
+  "Tratamiento iniciado":     { hex: "#86efac", badgeClass: "bg-green-100 text-green-600",   bgClass: "bg-green-50" },
+  "Cerrado ganado":           { hex: "#22c55e", badgeClass: "bg-emerald-100 text-emerald-700", bgClass: "bg-emerald-50" },
+  "Cerrado perdido":          { hex: "#94a3b8", badgeClass: "bg-slate-100 text-slate-500",   bgClass: "bg-slate-50" },
 };
 
 // ─── Cola de Intervención ─────────────────────────────────────────────────────
