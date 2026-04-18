@@ -8,6 +8,7 @@ import { base, TABLES } from "../../../../lib/airtable";
 import { DateTime } from "luxon";
 import { registrarAccion } from "../../../../lib/historial/registrar";
 import { clasificarRespuesta, guardarClasificacion } from "../../../../lib/presupuestos/intervencion";
+import { getServicioMensajeria } from "../../../../lib/presupuestos/mensajeria";
 import type { UserSession, TipoUltimaAccionIntervencion, PresupuestoEstado } from "../../../../lib/presupuestos/types";
 
 const COOKIE = "fyllio_presupuestos_token";
@@ -156,6 +157,38 @@ export async function POST(req: Request) {
       } catch (err) {
         console.error("[registrar-respuesta] Auto-clasificación error:", err);
       }
+    }
+
+    // Persistir en Mensajes_WhatsApp (fire-and-forget)
+    const servicio = getServicioMensajeria("manual");
+    if (tipo === "WhatsApp enviado" && mensaje) {
+      // Obtener teléfono del presupuesto
+      const telRecs = await base(TABLES.presupuestos as any)
+        .select({
+          filterByFormula: `RECORD_ID()='${presupuestoId}'`,
+          fields: ["Paciente_Telefono", "Teléfono"],
+          maxRecords: 1,
+        })
+        .all();
+      const telF = telRecs.length ? (telRecs[0].fields as any) : {};
+      const telefono = telF["Paciente_Telefono"]
+        ? String(telF["Paciente_Telefono"])
+        : Array.isArray(telF["Teléfono"])
+          ? String(telF["Teléfono"][0] ?? "")
+          : String(telF["Teléfono"] ?? "");
+      if (telefono) {
+        servicio.enviarMensaje({
+          presupuestoId,
+          telefono,
+          contenido: mensaje,
+        }).catch(() => {});
+      }
+    } else if (tipo === "Mensaje recibido" && mensaje) {
+      servicio.recibirMensaje({
+        presupuestoId,
+        telefono: "",
+        contenido: mensaje,
+      }).catch(() => {});
     }
 
     return NextResponse.json({ ok: true, clasificacion });

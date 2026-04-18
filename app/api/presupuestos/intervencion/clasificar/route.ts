@@ -6,6 +6,7 @@ import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { base, TABLES } from "../../../../lib/airtable";
 import { clasificarRespuesta, guardarClasificacion } from "../../../../lib/presupuestos/intervencion";
+import { getServicioMensajeria } from "../../../../lib/presupuestos/mensajeria";
 import type { UserSession, PresupuestoEstado } from "../../../../lib/presupuestos/types";
 
 const COOKIE = "fyllio_presupuestos_token";
@@ -83,6 +84,14 @@ export async function POST(req: Request) {
       clasificacion,
       registradoPor: session.nombre || session.email,
     });
+
+    // Persistir mensaje entrante en Mensajes_WhatsApp (fire-and-forget)
+    const servicio = getServicioMensajeria("manual");
+    servicio.recibirMensaje({
+      presupuestoId,
+      telefono: "",
+      contenido: respuestaPaciente,
+    }).catch(() => {});
 
     return NextResponse.json({ ok: true, clasificacion });
   } catch (err) {
