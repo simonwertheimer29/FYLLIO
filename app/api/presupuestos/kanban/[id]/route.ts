@@ -7,6 +7,7 @@ import { cookies } from "next/headers";
 import { base, TABLES } from "../../../../lib/airtable";
 import { sendPushToClinica } from "../../../../lib/push/sender";
 import { registrarAccion } from "../../../../lib/historial/registrar";
+import { crearNotificacion } from "../../../../lib/presupuestos/notificaciones";
 import type { UserSession } from "../../../../lib/presupuestos/types";
 
 const COOKIE = "fyllio_presupuestos_token";
@@ -73,7 +74,7 @@ export async function PATCH(
       });
     }
 
-    // Evento A: push cuando se acepta un presupuesto
+    // Evento A: push + notificación cuando se acepta un presupuesto
     if (body.estado === "ACEPTADO") {
       try {
         const rec = await base(TABLES.presupuestos as any).find(id);
@@ -90,6 +91,13 @@ export async function PATCH(
           tag: `aceptado-${id}`,
         });
         console.log("[kanban PATCH] push aceptado →", result);
+
+        // Notificación in-app
+        crearNotificacion({
+          tipo: "Presupuesto_aceptado",
+          titulo: `Presupuesto aceptado: ${patientName}`,
+          mensaje: `${patientName} aceptó su presupuesto${importe ? ` de ${importe}` : ""}`,
+        }).catch(() => {});
       } catch (pushErr) {
         console.error("[kanban PATCH] push error:", pushErr);
       }

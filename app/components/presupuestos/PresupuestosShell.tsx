@@ -19,6 +19,7 @@ import IntervencionView from "./IntervencionView";
 import IntervencionSidePanel from "./IntervencionSidePanel";
 import MaximaView from "./MaximaView";
 import EnviosView from "./EnviosView";
+import NotificacionesPanel from "./NotificacionesPanel";
 import type { PresupuestoIntervencion } from "../../lib/presupuestos/types";
 
 type Tab = "red" | "intervencion" | "maxima" | "envios" | "kanban" | "tareas" | "kpis" | "doctor" | "informes" | "automatizaciones" | "config";
@@ -85,6 +86,8 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   const [editPresupuesto, setEditPresupuesto] = useState<Presupuesto | null>(null);
   const [drawerPresupuesto, setDrawerPresupuesto] = useState<Presupuesto | null>(null);
   const [intervencionItem, setIntervencionItem] = useState<PresupuestoIntervencion | null>(null);
+  const [notifCount, setNotifCount] = useState(0);
+  const [showNotifPanel, setShowNotifPanel] = useState(false);
 
   // Keyboard shortcut N → Nuevo presupuesto
   useEffect(() => {
@@ -120,6 +123,20 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   }, [load]);
 
   useEffect(() => { load(currentFilters); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Notification polling every 60s
+  useEffect(() => {
+    async function pollNotifs() {
+      try {
+        const res = await fetch("/api/notificaciones");
+        const d = await res.json();
+        setNotifCount(d.noLeidas ?? 0);
+      } catch { /* silent */ }
+    }
+    pollNotifs();
+    const nInterval = setInterval(pollNotifs, 60_000);
+    return () => clearInterval(nInterval);
+  }, []);
 
   // Silent polling every 60s — show banner when count changes
   useEffect(() => {
@@ -269,6 +286,18 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
               {user.rol === "manager_general" ? "Manager" : user.rol === "ventas" ? "Ventas" : "Encargada ventas"}
             </p>
           </div>
+          <button
+            onClick={() => setShowNotifPanel(true)}
+            className="relative text-lg leading-none px-1.5 py-1 rounded-lg hover:bg-slate-100 transition-colors"
+            title="Notificaciones"
+          >
+            🔔
+            {notifCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center text-[9px] font-bold bg-red-500 text-white rounded-full px-1">
+                {notifCount > 9 ? "9+" : notifCount}
+              </span>
+            )}
+          </button>
           <button
             onClick={handleLogout}
             className="text-xs px-2.5 py-1.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50"
@@ -519,6 +548,13 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           clinicas={clinicasDisponibles}
           onClose={() => setShowImportCSV(false)}
           onImported={() => load(currentFiltersRef.current)}
+        />
+      )}
+
+      {showNotifPanel && (
+        <NotificacionesPanel
+          onClose={() => setShowNotifPanel(false)}
+          onNotifCountChange={setNotifCount}
         />
       )}
     </div>

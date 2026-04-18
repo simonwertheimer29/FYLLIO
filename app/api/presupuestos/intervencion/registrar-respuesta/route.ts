@@ -9,6 +9,7 @@ import { DateTime } from "luxon";
 import { registrarAccion } from "../../../../lib/historial/registrar";
 import { clasificarRespuesta, guardarClasificacion } from "../../../../lib/presupuestos/intervencion";
 import { getServicioMensajeria } from "../../../../lib/presupuestos/mensajeria";
+import { crearNotificacion } from "../../../../lib/presupuestos/notificaciones";
 import type { UserSession, TipoUltimaAccionIntervencion, PresupuestoEstado } from "../../../../lib/presupuestos/types";
 
 const COOKIE = "fyllio_presupuestos_token";
@@ -153,6 +154,22 @@ export async function POST(req: Request) {
             clasificacion,
             registradoPor: session.nombre || session.email,
           });
+
+          // Notificación urgente
+          if (clasificacion.urgencia === "CRÍTICO") {
+            crearNotificacion({
+              tipo: "Intervencion_urgente",
+              titulo: `Intervención urgente: ${patientName}`,
+              mensaje: `${patientName} respondió: "${clasificacion.intencion}". ${clasificacion.accionSugerida}`,
+            }).catch(() => {});
+          }
+
+          // Notificación nuevo mensaje
+          crearNotificacion({
+            tipo: "Nuevo_mensaje_paciente",
+            titulo: `Nuevo mensaje de ${patientName}`,
+            mensaje: (mensaje ?? "").slice(0, 100),
+          }).catch(() => {});
         }
       } catch (err) {
         console.error("[registrar-respuesta] Auto-clasificación error:", err);
