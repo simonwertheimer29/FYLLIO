@@ -103,13 +103,25 @@ const TIPO_ACCION_LABEL: Record<string, string> = {
 function computeUltimaAccionTexto(p: {
   tipoUltimaAccion?: TipoUltimaAccionIntervencion;
   ultimaAccionRegistrada?: string;
-}): string | undefined {
-  if (!p.tipoUltimaAccion || !p.ultimaAccionRegistrada) return undefined;
-  const label = TIPO_ACCION_LABEL[p.tipoUltimaAccion] ?? p.tipoUltimaAccion;
-  const dias = daysSince(p.ultimaAccionRegistrada);
-  if (dias === 0) return `${label} hoy`;
-  if (dias === 1) return `${label} ayer`;
-  return `${label} hace ${dias}d`;
+  contactCount: number;
+  ultimaRespuestaPaciente?: string;
+  fechaUltimaRespuesta?: string;
+}): string {
+  if (p.tipoUltimaAccion && p.ultimaAccionRegistrada) {
+    const label = TIPO_ACCION_LABEL[p.tipoUltimaAccion] ?? p.tipoUltimaAccion;
+    const dias = daysSince(p.ultimaAccionRegistrada);
+    if (dias === 0) return `${label} hoy`;
+    if (dias === 1) return `${label} ayer`;
+    return `${label} hace ${dias}d`;
+  }
+  if (p.ultimaRespuestaPaciente && p.fechaUltimaRespuesta) {
+    const dias = daysSince(p.fechaUltimaRespuesta);
+    if (dias === 0) return "Paciente respondió hoy";
+    if (dias === 1) return "Paciente respondió ayer";
+    return `Paciente respondió hace ${dias}d`;
+  }
+  if (p.contactCount > 0) return `Contactado (${p.contactCount}x)`;
+  return "Sin actividad";
 }
 
 // -------------------------------------------------------------------
@@ -371,7 +383,7 @@ export async function GET(req: Request) {
         diasDesdeUltimoContacto,
         // Maxima-specific
         estadoVisual,
-        ultimaAccionTexto: computeUltimaAccionTexto({ tipoUltimaAccion, ultimaAccionRegistrada }),
+        ultimaAccionTexto: computeUltimaAccionTexto({ tipoUltimaAccion, ultimaAccionRegistrada, contactCount, ultimaRespuestaPaciente, fechaUltimaRespuesta }),
         proximaAccionTexto: computeProximaAccionTexto(estadoVisual),
       };
 

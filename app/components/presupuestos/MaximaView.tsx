@@ -33,8 +33,9 @@ function formatCurrency(n: number): string {
 
 function formatDate(iso: string): string {
   if (!iso) return "—";
-  const [y, m, d] = iso.slice(0, 10).split("-");
-  return `${d}/${m}/${y?.slice(2)}`;
+  const date = new Date(iso);
+  if (isNaN(date.getTime())) return "—";
+  return date.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
 }
 
 // ─── CSV Export ──────────────────────────────────────────────────────────────
@@ -98,7 +99,7 @@ export default function MaximaView({
   const [searchQuery, setSearchQuery] = useState("");
 
   // Sort
-  const [sortField, setSortField] = useState<SortField>("urgency");
+  const [sortField, setSortField] = useState<SortField>("fecha");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   // ─── Fetch ──────────────────────────────────────────────────────────────────

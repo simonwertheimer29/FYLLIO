@@ -286,7 +286,7 @@ export default function EnviosView({ user }: Props) {
                           )}
                         </div>
                         <p className="text-[11px] text-slate-500">
-                          Plantilla: {envio.plantillaUsada || "—"}
+                          Plantilla: {(envio.plantillaUsada || "").replace(/\[SEED_COLA\]/g, "").trim() || "—"}
                         </p>
                       </div>
 
