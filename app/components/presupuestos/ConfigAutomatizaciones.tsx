@@ -4,7 +4,7 @@
 // Centro de control: Automatizaciones · Objetivos · Notificaciones · Clínica
 
 import { useState, useEffect } from "react";
-import type { UserSession, ConfiguracionAutomatizacion, ModoWhatsApp, PlantillaMensaje, TipoPlantilla } from "../../lib/presupuestos/types";
+import type { UserSession, ConfiguracionAutomatizacion, ModoWhatsApp, PlantillaMensaje, TipoPlantilla, ConfigRecordatorios } from "../../lib/presupuestos/types";
 
 interface Props {
   user: UserSession;
@@ -1183,6 +1183,180 @@ function SectionPlantillas({ user }: { user: UserSession }) {
   );
 }
 
+// ─── Section ⑦: Recordatorios Automáticos ─────────────────────────────────────
+
+const RECORDATORIOS_DEFAULTS: Omit<ConfigRecordatorios, "clinica"> = {
+  secuenciaDias: [3, 7, 10],
+  recordatorioMax: 3,
+  horaEnvio: "09:00",
+  diasRechazoAuto: 30,
+  activa: true,
+};
+
+function SectionRecordatorios({ user }: { user: UserSession }) {
+  const [config, setConfig] = useState<ConfigRecordatorios>({
+    clinica: user.clinica || "default",
+    ...RECORDATORIOS_DEFAULTS,
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [nuevosDias, setNuevosDias] = useState("");
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const clinica = user.clinica || "";
+        const res = await fetch(`/api/presupuestos/recordatorios/configuracion${clinica ? `?clinica=${encodeURIComponent(clinica)}` : ""}`);
+        const data = await res.json();
+        if (data.configuracion) {
+          setConfig(data.configuracion);
+        }
+      } catch { /* silent */ }
+      finally { setLoading(false); }
+    }
+    load();
+  }, [user.clinica]);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await fetch("/api/presupuestos/recordatorios/configuracion", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(config),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch { /* silent */ }
+    finally { setSaving(false); }
+  }
+
+  function removeDia(index: number) {
+    setConfig((prev) => ({
+      ...prev,
+      secuenciaDias: prev.secuenciaDias.filter((_, i) => i !== index),
+    }));
+  }
+
+  function addDia() {
+    const val = Number(nuevosDias);
+    if (!val || val <= 0 || config.secuenciaDias.includes(val)) return;
+    setConfig((prev) => ({
+      ...prev,
+      secuenciaDias: [...prev.secuenciaDias, val].sort((a, b) => a - b),
+    }));
+    setNuevosDias("");
+  }
+
+  if (loading) {
+    return (
+      <div className="space-y-4 animate-pulse">
+        <div className="h-32 rounded-2xl bg-slate-100" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-sm font-bold text-slate-900 mb-1">Recordatorios automáticos</h3>
+        <p className="text-xs text-slate-500 mb-4">
+          Configura cuándo se envían recordatorios de seguimiento a pacientes que no responden
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-5">
+        {/* Secuencia de días */}
+        <div>
+          <label className="text-sm font-medium text-slate-700 block mb-2">Secuencia de recordatorios</label>
+          <p className="text-xs text-slate-400 mb-3">Enviar recordatorio a los:</p>
+          <div className="flex flex-wrap items-center gap-2">
+            {config.secuenciaDias.map((dia, i) => (
+              <span key={i} className="inline-flex items-center gap-1 bg-violet-100 text-violet-700 text-sm font-semibold px-3 py-1.5 rounded-lg">
+                {dia} días
+                <button
+                  onClick={() => removeDia(i)}
+                  className="text-violet-400 hover:text-violet-700 ml-1"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
+            <div className="flex items-center gap-1">
+              <input
+                type="number"
+                min={1}
+                max={90}
+                value={nuevosDias}
+                onChange={(e) => setNuevosDias(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && addDia()}
+                placeholder="—"
+                className="w-14 text-center border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-violet-400"
+              />
+              <button
+                onClick={addDia}
+                className="text-xs font-semibold px-2 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+              >
+                + Añadir
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Hora de envío */}
+        <div className="flex items-center justify-between gap-4">
+          <label className="text-sm text-slate-600">
+            Hora de envío
+            <span className="text-[10px] text-slate-400 block">Hora a la que se programan los envíos</span>
+          </label>
+          <input
+            type="time"
+            value={config.horaEnvio}
+            onChange={(e) => setConfig((prev) => ({ ...prev, horaEnvio: e.target.value }))}
+            className="w-24 text-center border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-violet-400"
+          />
+        </div>
+
+        {/* Días rechazo auto */}
+        <div className="flex items-center justify-between gap-4">
+          <label className="text-sm text-slate-600">
+            Marcar como rechazado si no responde después de
+            <span className="text-[10px] text-slate-400 block">Días desde el último recordatorio</span>
+          </label>
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              min={7}
+              max={365}
+              value={config.diasRechazoAuto}
+              onChange={(e) => setConfig((prev) => ({ ...prev, diasRechazoAuto: Number(e.target.value) }))}
+              className="w-16 text-center border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-violet-400"
+            />
+            <span className="text-xs text-slate-400">días</span>
+          </div>
+        </div>
+
+        {/* Save button */}
+        <div className="flex justify-end pt-2">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className={`text-sm font-semibold px-4 py-2 rounded-xl transition-colors disabled:opacity-50 ${
+              saved
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                : "bg-violet-600 text-white hover:bg-violet-700"
+            }`}
+          >
+            {saving ? "Guardando..." : saved ? "✓ Guardado" : "Guardar configuración"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 const SIDEBAR_ITEMS: { id: SidebarSection; label: string; icon: string }[] = [
@@ -1226,6 +1400,7 @@ export default function ConfigAutomatizaciones({ user }: Props) {
         {activeSection === "objetivos"        && <SectionObjetivos user={user} />}
         {activeSection === "whatsapp"         && <SectionWhatsApp user={user} />}
         {activeSection === "plantillas"       && <SectionPlantillas user={user} />}
+        {activeSection === "recordatorios"    && <SectionRecordatorios user={user} />}
         {activeSection === "notificaciones"   && <SectionNotificaciones />}
         {activeSection === "clinica"          && <SectionClinica user={user} />}
       </div>
