@@ -40,6 +40,7 @@ export default function IntervencionSidePanel({
   const [mensajes, setMensajes] = useState<MensajeWhatsApp[]>([]);
   const [loadingMensajes, setLoadingMensajes] = useState(true);
   const [historialAbierto, setHistorialAbierto] = useState(false);
+  const [detallesPagoEnviado, setDetallesPagoEnviado] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const cleanPhone = (item.patientPhone ?? "").replace(/\D/g, "");
@@ -76,6 +77,7 @@ export default function IntervencionSidePanel({
   useEffect(() => {
     setMensajeEditable(item.mensajeSugerido ?? "");
     setClasificacionResult(null);
+    setDetallesPagoEnviado(false);
   }, [item.id, item.mensajeSugerido]);
 
   // --- Actions ---
@@ -102,6 +104,43 @@ export default function IntervencionSidePanel({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ presupuestoId: item.id, tipo: "WhatsApp enviado" }),
     }).then(() => onRefresh()).catch(() => {});
+  }
+
+  async function handleEnviarDetallesPago() {
+    if (!cleanPhone) return;
+    const nombre = item.patientName.split(" ")[0];
+    const tratamiento = (item.treatments ?? [])[0] ?? "tu tratamiento";
+    const importe = item.amount != null ? `${item.amount.toLocaleString("es-ES")}€` : "";
+
+    let contenido = "";
+    try {
+      const res = await fetch(`/api/presupuestos/plantillas?clinica=${encodeURIComponent(item.clinica ?? "")}&tipo=Detalles de pago`);
+      const d = await res.json();
+      const plantillas = d.plantillas ?? [];
+      if (plantillas.length > 0 && plantillas[0].contenido) {
+        contenido = plantillas[0].contenido
+          .replace(/\{nombre\}/g, nombre)
+          .replace(/\{tratamiento\}/g, tratamiento)
+          .replace(/\{importe\}/g, importe)
+          .replace(/\{doctor\}/g, item.doctor ?? "")
+          .replace(/\{clinica\}/g, item.clinica ?? "");
+      }
+    } catch { /* use fallback */ }
+
+    if (!contenido) {
+      contenido = `Hola ${nombre}, te confirmamos las opciones de pago disponibles para tu tratamiento de ${tratamiento}${importe ? ` (${importe})` : ""}:\n\n- Pago único con 5% descuento\n- Financiación a 6 meses sin intereses\n- Financiación a 12 meses (consultar)\n\nPara proceder, solo responde a este mensaje y te ayudaremos con lo que necesites.`;
+    }
+
+    window.open(
+      `https://wa.me/${cleanPhone}?text=${encodeURIComponent(contenido)}`,
+      "_blank"
+    );
+    fetch("/api/presupuestos/intervencion/registrar-respuesta", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ presupuestoId: item.id, tipo: "WhatsApp enviado" }),
+    }).then(() => onRefresh()).catch(() => {});
+    setDetallesPagoEnviado(true);
   }
 
   async function handleRegenerar() {
@@ -319,6 +358,21 @@ export default function IntervencionSidePanel({
               <div className="rounded-xl bg-violet-50 border border-violet-200 p-3 mb-3">
                 <p className="text-sm font-semibold text-violet-800">💡 {item.accionSugerida}</p>
               </div>
+            )}
+
+            {item.intencionDetectada === "Acepta pero pregunta pago" && (
+              <button
+                onClick={handleEnviarDetallesPago}
+                disabled={detallesPagoEnviado}
+                className="w-full rounded-xl bg-indigo-50 border border-indigo-200 p-3 mb-3 text-left hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-default"
+              >
+                <p className="text-sm font-semibold text-indigo-800">
+                  💳 {detallesPagoEnviado ? "Detalles de pago enviados" : "Enviar detalles de pago"}
+                </p>
+                <p className="text-[10px] text-indigo-500 mt-0.5">
+                  Plantilla con condiciones de esta clínica
+                </p>
+              </button>
             )}
 
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Mensaje IA</p>
