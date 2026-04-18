@@ -18,9 +18,10 @@ import AutomatizacionesView from "./AutomatizacionesView";
 import IntervencionView from "./IntervencionView";
 import IntervencionSidePanel from "./IntervencionSidePanel";
 import MaximaView from "./MaximaView";
+import EnviosView from "./EnviosView";
 import type { PresupuestoIntervencion } from "../../lib/presupuestos/types";
 
-type Tab = "red" | "intervencion" | "maxima" | "kanban" | "tareas" | "kpis" | "doctor" | "informes" | "automatizaciones" | "config";
+type Tab = "red" | "intervencion" | "maxima" | "envios" | "kanban" | "tareas" | "kpis" | "doctor" | "informes" | "automatizaciones" | "config";
 
 // ─── Mini hook para cargar presupuestos ──────────────────────────────────────
 
@@ -191,6 +192,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         { id: "red",              label: "Red",              icon: "🕸" },
         { id: "intervencion",     label: "Intervención",     icon: "🎯" },
         { id: "maxima",           label: "Máxima",           icon: "" },
+        { id: "envios",           label: "Envíos",           icon: "" },
         { id: "tareas",           label: "Tareas",           icon: "✓" },
         { id: "kanban",           label: "Panel",            icon: "☰" },
         { id: "kpis",             label: "KPIs",             icon: "📊" },
@@ -203,6 +205,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     ? [
         { id: "intervencion",     label: "Intervención",     icon: "🎯" },
         { id: "maxima",           label: "Máxima",           icon: "" },
+        { id: "envios",           label: "Envíos",           icon: "" },
         { id: "tareas",           label: "Mis Tareas",       icon: "✓" },
         { id: "kanban",           label: "Mis Presupuestos", icon: "☰" },
         { id: "automatizaciones", label: "Automatizaciones", icon: "🤖" },
@@ -210,6 +213,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     : [
         { id: "intervencion", label: "Intervención", icon: "🎯" },
         { id: "maxima",       label: "Máxima",       icon: "" },
+        { id: "envios",       label: "Envíos",       icon: "" },
         { id: "tareas",   label: "Tareas",   icon: "✓" },
         { id: "kanban",   label: "Panel",    icon: "☰" },
         { id: "kpis",     label: "KPIs",     icon: "📊" },
@@ -399,6 +403,8 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
             onOpenDrawer={(p) => setIntervencionItem(p)}
           />
         )}
+
+        {tab === "envios" && <EnviosView user={user} />}
 
         {tab === "tareas" && (
           <TareasView
