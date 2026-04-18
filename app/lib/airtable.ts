@@ -24,6 +24,8 @@ export const TABLES = {
   historialAcciones: "Historial_Acciones",
   // Informes guardados (mensuales + semanales automáticos)
   informesGuardados: "Informes_Guardados",
+  // Mensajes WhatsApp
+  mensajesWhatsApp: "Mensajes_WhatsApp",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];
