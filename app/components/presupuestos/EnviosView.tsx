@@ -285,6 +285,11 @@ export default function EnviosView({ user }: Props) {
                             </span>
                           )}
                         </div>
+                        {(envio.tratamiento || envio.importe != null || envio.doctor) && (
+                          <p className="text-[11px] text-slate-600 font-medium">
+                            {[envio.tratamiento, envio.importe != null ? `${envio.importe.toLocaleString("es-ES")} €` : null, envio.doctor].filter(Boolean).join(" · ")}
+                          </p>
+                        )}
                         <p className="text-[11px] text-slate-500">
                           Plantilla: {(envio.plantillaUsada || "").replace(/\[SEED_COLA\]/g, "").trim() || "—"}
                         </p>

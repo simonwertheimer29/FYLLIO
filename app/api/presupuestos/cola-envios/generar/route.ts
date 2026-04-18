@@ -1,5 +1,6 @@
 // app/api/presupuestos/cola-envios/generar/route.ts
 // POST — genera la cola de envíos del día basada en plantillas + configuración
+// Two-pass: collect candidates → sort by priority → limit 30/clinic → generate content
 
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
@@ -18,6 +19,17 @@ const COOKIE = "fyllio_presupuestos_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
 const secret = new TextEncoder().encode(SECRET_RAW);
 const ZONE = "Europe/Madrid";
+
+const MAX_ENVIOS_POR_CLINICA_DIA = 30;
+
+const PRIORIDAD_ENVIO: Record<TipoEnvio, number> = {
+  "Detalles de pago": 1,
+  "Recordatorio 3": 2,
+  "Primer contacto": 3,
+  "Recordatorio 2": 4,
+  "Recordatorio 1": 5,
+  "Reactivacion": 6,
+};
 
 const CONFIG_DEFAULTS: Omit<ConfigRecordatorios, "clinica"> = {
   secuenciaDias: [3, 7, 10],
@@ -63,11 +75,10 @@ function seleccionarPlantilla(
   const activas = plantillas.filter((p) => p.activa && p.tipo === tipo);
   if (activas.length === 0) return null;
 
-  // Priority: doctor+treatment > doctor > treatment > clinic > general
   const scorePlantilla = (p: PlantillaMensaje): number => {
     let score = 0;
     const clinicaMatch = p.clinica === clinica || p.clinica === "Todas" || p.clinica === "";
-    if (!clinicaMatch) return -1; // no match
+    if (!clinicaMatch) return -1;
     if (p.doctor && p.doctor === doctor) score += 2;
     if (p.tratamiento && p.tratamiento === tratamiento) score += 2;
     if (p.doctor && p.doctor !== doctor) return -1;
@@ -129,6 +140,22 @@ function daysSince(dateStr: string): number {
   if (!d.isValid) return 0;
   return Math.floor(DateTime.now().setZone(ZONE).diff(d, "days").days);
 }
+
+// ─── Candidate type ──────────────────────────────────────────────────────────
+
+type EnvioCandidate = {
+  recId: string;
+  patientName: string;
+  phone: string;
+  tratamiento: string;
+  doctor: string;
+  importe: number | undefined;
+  clinica: string;
+  tipoEnvio: TipoEnvio;
+  tipoPlantilla: TipoPlantilla;
+  daysSincePresupuesto: number;
+  horaEnvio: string;
+};
 
 // ─── POST — generar cola del día ──────────────────────────────────────────────
 
@@ -214,11 +241,10 @@ export async function POST() {
       }),
     );
 
-    // 5. Evaluar cada presupuesto
-    let generados = 0;
-    let omitidos = 0;
-    let errores = 0;
+    // ── PASS 1: Collect candidates ──────────────────────────────────────
 
+    const candidatos: EnvioCandidate[] = [];
+    let omitidos = 0;
     const ACTIVOS = ["PRESENTADO", "INTERESADO", "EN_DUDA", "EN_NEGOCIACION"];
 
     for (const rec of presRecs) {
@@ -255,12 +281,10 @@ export async function POST() {
         continue;
       }
 
-      // Determine what type of send is needed
       let tipoEnvio: TipoEnvio | null = null;
       let tipoPlantilla: TipoPlantilla | null = null;
 
       if (ACTIVOS.includes(estado)) {
-        // Check for payment details first
         if (intencion === "Acepta pero pregunta pago") {
           const dedupeKey = `${rec.id}::Detalles de pago`;
           if (!enviosExistentes.has(dedupeKey)) {
@@ -269,7 +293,6 @@ export async function POST() {
           }
         }
 
-        // Primer contacto or recordatorio
         if (!tipoEnvio) {
           if (contactCount === 0) {
             const dedupeKey = `${rec.id}::Primer contacto`;
@@ -278,7 +301,6 @@ export async function POST() {
               tipoPlantilla = "Primer contacto";
             }
           } else {
-            // Check if a reminder is due based on sequence
             const { secuenciaDias, recordatorioMax } = config;
             for (let i = 0; i < Math.min(secuenciaDias.length, recordatorioMax); i++) {
               if (ds >= secuenciaDias[i]) {
@@ -295,7 +317,6 @@ export async function POST() {
           }
         }
 
-        // Auto-reject if beyond threshold
         if (!tipoEnvio && ds >= config.diasRechazoAuto) {
           omitidos++;
           continue;
@@ -313,23 +334,80 @@ export async function POST() {
         continue;
       }
 
-      // 6. Select template or generate with AI
-      const plantilla = seleccionarPlantilla(plantillas, tipoPlantilla, doctor, tratamiento, clinica);
+      candidatos.push({
+        recId: rec.id,
+        patientName,
+        phone,
+        tratamiento,
+        doctor,
+        importe,
+        clinica,
+        tipoEnvio,
+        tipoPlantilla,
+        daysSincePresupuesto: ds,
+        horaEnvio: config.horaEnvio || "09:00",
+      });
+    }
+
+    // ── PASS 2: Sort by priority, limit per clinic ──────────────────────
+
+    // Group by clinic
+    const porClinica = new Map<string, EnvioCandidate[]>();
+    for (const c of candidatos) {
+      const arr = porClinica.get(c.clinica) || [];
+      arr.push(c);
+      porClinica.set(c.clinica, arr);
+    }
+
+    // Sort each clinic group and take top N
+    const filtrados: EnvioCandidate[] = [];
+    let limitados = 0;
+
+    for (const [, items] of porClinica) {
+      items.sort((a, b) => {
+        const prioA = PRIORIDAD_ENVIO[a.tipoEnvio] ?? 99;
+        const prioB = PRIORIDAD_ENVIO[b.tipoEnvio] ?? 99;
+        if (prioA !== prioB) return prioA - prioB;
+        // Within same priority, older presupuestos first
+        return b.daysSincePresupuesto - a.daysSincePresupuesto;
+      });
+
+      if (items.length > MAX_ENVIOS_POR_CLINICA_DIA) {
+        limitados += items.length - MAX_ENVIOS_POR_CLINICA_DIA;
+        filtrados.push(...items.slice(0, MAX_ENVIOS_POR_CLINICA_DIA));
+      } else {
+        filtrados.push(...items);
+      }
+    }
+
+    // ── PASS 3: Generate content and create records ─────────────────────
+
+    let generados = 0;
+    let errores = 0;
+
+    for (const cand of filtrados) {
+      const plantilla = seleccionarPlantilla(
+        plantillas, cand.tipoPlantilla, cand.doctor, cand.tratamiento, cand.clinica,
+      );
+
       let contenido: string;
       let plantillaUsada: string;
 
       if (plantilla) {
         contenido = sustituirVariables(plantilla.contenido, {
-          nombre: patientName,
-          tratamiento,
-          importe,
-          doctor,
-          clinica,
+          nombre: cand.patientName,
+          tratamiento: cand.tratamiento,
+          importe: cand.importe,
+          doctor: cand.doctor,
+          clinica: cand.clinica,
         });
         plantillaUsada = plantilla.nombre;
       } else {
-        // Generate with AI
-        const prompt = IA_PROMPTS[tipoPlantilla]({ nombre: patientName, tratamiento, doctor });
+        const prompt = IA_PROMPTS[cand.tipoPlantilla]({
+          nombre: cand.patientName,
+          tratamiento: cand.tratamiento,
+          doctor: cand.doctor,
+        });
         contenido = await generarMensajeIA(prompt);
         plantillaUsada = "Generado por IA";
         if (!contenido) {
@@ -338,31 +416,32 @@ export async function POST() {
         }
       }
 
-      // 7. Create record in Cola_Envios
-      const horaEnvio = config.horaEnvio || "09:00";
-      const programadoPara = `${todayStr}T${horaEnvio}:00`;
+      const programadoPara = `${todayStr}T${cand.horaEnvio}:00`;
 
       try {
         await (base(TABLES.colaEnvios as any).create as any)({
-          Presupuesto: rec.id,
-          Paciente: patientName,
-          Telefono: phone,
+          Presupuesto: cand.recId,
+          Paciente: cand.patientName,
+          Telefono: cand.phone,
           Contenido: contenido,
-          Tipo: tipoEnvio,
+          Tipo: cand.tipoEnvio,
           Estado: "Pendiente",
           Programado_para: programadoPara,
           Plantilla_usada: plantillaUsada,
+          Tratamiento: cand.tratamiento,
+          Importe: cand.importe,
+          Doctor: cand.doctor,
         });
 
-        enviosExistentes.add(`${rec.id}::${tipoEnvio}`);
+        enviosExistentes.add(`${cand.recId}::${cand.tipoEnvio}`);
         generados++;
       } catch (err) {
-        console.error(`[cola-envios/generar] Error creating envío for ${rec.id}:`, err);
+        console.error(`[cola-envios/generar] Error creating envío for ${cand.recId}:`, err);
         errores++;
       }
     }
 
-    return NextResponse.json({ generados, omitidos, errores });
+    return NextResponse.json({ generados, omitidos, errores, limitados });
   } catch (err) {
     console.error("[cola-envios/generar] Error:", err);
     return NextResponse.json({ error: "Error al generar cola" }, { status: 500 });

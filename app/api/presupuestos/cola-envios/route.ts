@@ -40,6 +40,9 @@ function recordToEnvio(r: any): EnvioItem {
     programadoPara: String(f["Programado_para"] ?? ""),
     enviadoEn: f["Enviado_en"] ? String(f["Enviado_en"]) : undefined,
     plantillaUsada: String(f["Plantilla_usada"] ?? ""),
+    tratamiento: f["Tratamiento"] ? String(f["Tratamiento"]) : undefined,
+    importe: f["Importe"] != null ? Number(f["Importe"]) : undefined,
+    doctor: f["Doctor"] ? String(f["Doctor"]) : undefined,
   };
 }
 
@@ -69,6 +72,7 @@ export async function GET(req: Request) {
         fields: [
           "Presupuesto", "Paciente", "Telefono", "Contenido",
           "Tipo", "Estado", "Programado_para", "Enviado_en", "Plantilla_usada",
+          "Tratamiento", "Importe", "Doctor",
         ],
         filterByFormula,
         sort: [{ field: "Tipo", direction: "asc" }],

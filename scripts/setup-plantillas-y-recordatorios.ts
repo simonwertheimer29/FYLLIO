@@ -146,6 +146,9 @@ const COLA_ENVIOS_FIELDS = [
   { name: "Programado_para", type: "dateTime", options: DATETIME_OPTIONS },
   { name: "Enviado_en", type: "dateTime", options: DATETIME_OPTIONS },
   { name: "Plantilla_usada", type: "singleLineText" },
+  { name: "Tratamiento", type: "singleLineText" },
+  { name: "Importe", type: "number", options: { precision: 0 } },
+  { name: "Doctor", type: "singleLineText" },
 ];
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
