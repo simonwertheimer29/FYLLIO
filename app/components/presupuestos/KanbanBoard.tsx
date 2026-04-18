@@ -46,6 +46,17 @@ function ProbBadge({ prob }: { prob: number }) {
 }
 
 // ------------------------------------------------------------------
+// Urgency border (left color bar based on urgencyScore)
+// ------------------------------------------------------------------
+
+function urgencyBorderClass(score: number): string {
+  if (score >= 70) return "border-l-4 border-l-red-500";
+  if (score >= 40) return "border-l-4 border-l-orange-500";
+  if (score >= 10) return "border-l-4 border-l-yellow-500";
+  return "border-l-4 border-l-slate-200";
+}
+
+// ------------------------------------------------------------------
 // CompactCard
 // ------------------------------------------------------------------
 
@@ -68,7 +79,7 @@ function CompactCard({
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      className={`rounded-xl border bg-white px-3 py-2.5 cursor-grab active:cursor-grabbing select-none transition-shadow ${
+      className={`rounded-xl border bg-white px-3 py-2.5 cursor-grab active:cursor-grabbing select-none transition-shadow ${urgencyBorderClass(p.urgencyScore)} ${
         isDragging ? "opacity-40 shadow-lg" : "hover:shadow-sm border-slate-200"
       }`}
     >
