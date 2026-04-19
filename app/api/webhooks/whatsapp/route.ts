@@ -252,7 +252,7 @@ async function buscarPresupuestoPorTelefono(telefonoNormalizado: string): Promis
   const query = base(TABLES.presupuestos as any).select({
     filterByFormula: formula,
     fields: ["Paciente_nombre", "Tratamiento_nombre", "Estado", "Importe", "Clinica"],
-    sort: [{ field: "Fecha_creacion", direction: "desc" }],
+    sort: [{ field: "Fecha", direction: "desc" }],
     maxRecords: 1,
   });
   const recs = await fetchAll(query);
