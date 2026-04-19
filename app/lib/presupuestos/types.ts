@@ -458,6 +458,18 @@ export type Notificacion = {
   fechaCreacion: string;
 };
 
+// ─── WABA operational config (telemetría + flag por clínica) ─────────────────
+
+export type ConfigWABA = {
+  id?: string;
+  clinica: string;
+  activo: boolean;
+  webhookUrl?: string;
+  ultimoMensajeEnviado?: string;
+  ultimoMensajeRecibido?: string;
+  notas?: string;
+};
+
 export type KpiData = {
   resumen: KpiResumen;
   comparacion: {

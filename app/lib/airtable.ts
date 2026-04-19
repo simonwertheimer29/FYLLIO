@@ -32,6 +32,8 @@ export const TABLES = {
   colaEnvios: "Cola_Envios",
   // Notificaciones in-app
   notificaciones: "Notificaciones",
+  // WABA operational config (solo datos operativos; credenciales viven en env vars)
+  configuracionWABA: "Configuracion_WABA",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];
