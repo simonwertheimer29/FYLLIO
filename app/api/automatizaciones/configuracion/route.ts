@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { base, TABLES } from "../../../lib/airtable";
-import type { UserSession, ConfiguracionAutomatizacion } from "../../../lib/presupuestos/types";
+import type { UserSession, ConfiguracionAutomatizacion, ModoWhatsApp } from "../../../lib/presupuestos/types";
 
 const COOKIE = "fyllio_presupuestos_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -33,12 +33,15 @@ async function getSession(): Promise<UserSession | null> {
 
 function recordToConfig(rec: { fields: Record<string, unknown> }, clinica: string): ConfiguracionAutomatizacion {
   const f = rec.fields as any;
+  const rawModo = f["modo_whatsapp"];
+  const modoWhatsapp: ModoWhatsApp = rawModo === "waba" ? "waba" : "manual";
   return {
     clinica,
     activa:                   f["activa"] === true,
     diasInactividadAlerta:    Number(f["dias_inactividad_alerta"]   ?? DEFAULTS.diasInactividadAlerta),
     diasPortalSinRespuesta:   Number(f["dias_portal_sin_respuesta"] ?? DEFAULTS.diasPortalSinRespuesta),
     diasReactivacion:         Number(f["dias_reactivacion"]         ?? DEFAULTS.diasReactivacion),
+    modoWhatsapp,
   };
 }
 
@@ -79,7 +82,7 @@ export async function GET(req: Request) {
       // Manager/admin: fetch all clinic configs
       const recs = await base(TABLES.configuracionAutomatizaciones as any)
         .select({
-          fields: ["clinica", "activa", "dias_inactividad_alerta", "dias_portal_sin_respuesta", "dias_reactivacion"],
+          fields: ["clinica", "activa", "dias_inactividad_alerta", "dias_portal_sin_respuesta", "dias_reactivacion", "modo_whatsapp"],
           maxRecords: 100,
         })
         .all();
@@ -108,7 +111,7 @@ export async function PUT(req: Request) {
   }
 
   const body = await req.json();
-  const { clinica, activa, diasInactividadAlerta, diasPortalSinRespuesta, diasReactivacion } = body as ConfiguracionAutomatizacion;
+  const { clinica, activa, diasInactividadAlerta, diasPortalSinRespuesta, diasReactivacion, modoWhatsapp } = body as ConfiguracionAutomatizacion;
 
   if (!clinica) {
     return NextResponse.json({ error: "Falta campo: clinica" }, { status: 400 });
@@ -129,21 +132,40 @@ export async function PUT(req: Request) {
       })
       .firstPage();
 
-    const fields = {
-      clinica,
-      activa: activa === true,
-      dias_inactividad_alerta:   Number(diasInactividadAlerta)   || DEFAULTS.diasInactividadAlerta,
-      dias_portal_sin_respuesta: Number(diasPortalSinRespuesta)  || DEFAULTS.diasPortalSinRespuesta,
-      dias_reactivacion:         Number(diasReactivacion)        || DEFAULTS.diasReactivacion,
-      actualizado_en: now,
-    };
+    // Update parcial: solo escribimos los campos que vienen en el body.
+    // Esto permite llamadas tipo { clinica, modoWhatsapp } sin resetear los días.
+    const updateFields: Record<string, unknown> = { actualizado_en: now };
+    if (activa !== undefined) updateFields.activa = activa === true;
+    if (diasInactividadAlerta !== undefined) {
+      updateFields.dias_inactividad_alerta = Number(diasInactividadAlerta) || DEFAULTS.diasInactividadAlerta;
+    }
+    if (diasPortalSinRespuesta !== undefined) {
+      updateFields.dias_portal_sin_respuesta = Number(diasPortalSinRespuesta) || DEFAULTS.diasPortalSinRespuesta;
+    }
+    if (diasReactivacion !== undefined) {
+      updateFields.dias_reactivacion = Number(diasReactivacion) || DEFAULTS.diasReactivacion;
+    }
+    if (modoWhatsapp !== undefined) {
+      updateFields.modo_whatsapp = modoWhatsapp === "waba" ? "waba" : "manual";
+    }
 
     if (existing.length > 0) {
-      await base(TABLES.configuracionAutomatizaciones as any).update(existing[0].id, fields);
+      await base(TABLES.configuracionAutomatizaciones as any).update(existing[0].id, updateFields as any);
     } else {
+      // Create: rellenar campos que falten con defaults.
+      const createFields: Record<string, unknown> = {
+        clinica,
+        activa: activa !== undefined ? activa === true : true,
+        dias_inactividad_alerta: Number(diasInactividadAlerta) || DEFAULTS.diasInactividadAlerta,
+        dias_portal_sin_respuesta: Number(diasPortalSinRespuesta) || DEFAULTS.diasPortalSinRespuesta,
+        dias_reactivacion: Number(diasReactivacion) || DEFAULTS.diasReactivacion,
+        modo_whatsapp: modoWhatsapp === "waba" ? "waba" : "manual",
+        creado_en: now,
+        actualizado_en: now,
+      };
       await base(TABLES.configuracionAutomatizaciones as any).create([{
-        fields: { ...fields, creado_en: now },
-      }]);
+        fields: createFields,
+      }] as any);
     }
 
     return NextResponse.json({ ok: true });
