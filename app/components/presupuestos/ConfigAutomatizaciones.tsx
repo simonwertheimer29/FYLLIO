@@ -732,29 +732,39 @@ function SectionWhatsApp({ user }: { user: UserSession }) {
   const [saved, setSaved] = useState(false);
   const [wabaEstado, setWabaEstado] = useState<WABAEstado | null>(null);
   const [togglingActivo, setTogglingActivo] = useState(false);
+  const [toggleError, setToggleError] = useState<string | null>(null);
+
+  // Clínica efectiva para el scope de esta vista (igual patrón que handleSave).
+  const clinicaScope = user.clinica ?? "default";
+
+  async function fetchWabaEstado(): Promise<WABAEstado | null> {
+    const res = await fetch(
+      `/api/presupuestos/configuracion-waba?clinica=${encodeURIComponent(clinicaScope)}`,
+    );
+    if (!res.ok) return null;
+    return (await res.json()) as WABAEstado;
+  }
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        const [resCfg, resWaba] = await Promise.all([
+        const [resCfg, dataWaba] = await Promise.all([
           fetch("/api/automatizaciones/configuracion"),
-          fetch("/api/presupuestos/configuracion-waba"),
+          fetchWabaEstado(),
         ]);
         const dataCfg = await resCfg.json();
         const configs = dataCfg.configuraciones ?? (dataCfg.configuracion ? [dataCfg.configuracion] : []);
         const cfg = configs.find((c: ConfiguracionAutomatizacion) => c.modoWhatsapp);
         if (cfg?.modoWhatsapp) setModo(cfg.modoWhatsapp);
 
-        if (resWaba.ok) {
-          const dataWaba = (await resWaba.json()) as WABAEstado;
-          setWabaEstado(dataWaba);
-        }
+        if (dataWaba) setWabaEstado(dataWaba);
       } catch { /* silent */ }
       finally { setLoading(false); }
     }
     load();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clinicaScope]);
 
   async function handleSave(nuevoModo: ModoWhatsApp) {
     setModo(nuevoModo);
@@ -775,18 +785,30 @@ function SectionWhatsApp({ user }: { user: UserSession }) {
   async function handleToggleActivo() {
     if (!wabaEstado) return;
     const nuevoActivo = !wabaEstado.activoParaClinica;
+    setToggleError(null);
     setTogglingActivo(true);
+    // Optimistic: reflejar el cambio inmediatamente.
+    setWabaEstado({ ...wabaEstado, activoParaClinica: nuevoActivo });
     try {
       const res = await fetch("/api/presupuestos/configuracion-waba", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ activoParaClinica: nuevoActivo }),
+        body: JSON.stringify({ clinica: clinicaScope, activoParaClinica: nuevoActivo }),
       });
-      if (res.ok) {
-        setWabaEstado({ ...wabaEstado, activoParaClinica: nuevoActivo });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error ?? `HTTP ${res.status}`);
       }
-    } catch { /* silent */ }
-    finally { setTogglingActivo(false); }
+      // Refetch para garantizar persistencia real en Airtable.
+      const fresh = await fetchWabaEstado();
+      if (fresh) setWabaEstado(fresh);
+    } catch (err) {
+      // Revertir optimistic + mostrar error.
+      setWabaEstado({ ...wabaEstado, activoParaClinica: !nuevoActivo });
+      setToggleError(err instanceof Error ? err.message : "Error al guardar");
+    } finally {
+      setTogglingActivo(false);
+    }
   }
 
   if (loading) {
@@ -940,6 +962,10 @@ function SectionWhatsApp({ user }: { user: UserSession }) {
               </button>
             </div>
           </div>
+
+          {toggleError && (
+            <p className="text-[11px] text-red-600 -mt-2">No se pudo guardar: {toggleError}</p>
+          )}
 
           <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-100">
             <div>
