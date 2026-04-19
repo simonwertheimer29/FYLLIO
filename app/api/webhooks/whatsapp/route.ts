@@ -20,6 +20,9 @@ import {
   normalizarTelefono,
 } from "../../../lib/presupuestos/waba-credentials";
 import { getServicioMensajeria } from "../../../lib/presupuestos/mensajeria";
+import { clasificarRespuesta, guardarClasificacion } from "../../../lib/presupuestos/intervencion";
+import { crearNotificacion } from "../../../lib/presupuestos/notificaciones";
+import type { PresupuestoEstado } from "../../../lib/presupuestos/types";
 
 export const dynamic = "force-dynamic";
 
@@ -169,26 +172,74 @@ async function processIncomingMessage(body: unknown): Promise<void> {
   }
 
   // Buscar presupuesto activo por teléfono
-  const presupuestoId = await buscarPresupuestoPorTelefono(telefono);
+  const presupuestoInfo = await buscarPresupuestoPorTelefono(telefono);
 
   const timestamp = msg.timestamp
     ? new Date(Number(msg.timestamp) * 1000).toISOString()
     : new Date().toISOString();
 
-  // Persistir mensaje entrante (Fase 3 completa la lógica)
+  const contenido = msg.text.body;
+
+  // Persistir mensaje entrante
   const servicio = getServicioMensajeria("waba");
   await servicio.recibirMensaje({
     telefono,
-    contenido: msg.text.body,
-    presupuestoId: presupuestoId ?? undefined,
+    contenido,
+    presupuestoId: presupuestoInfo?.id,
     timestamp,
     wabaMessageId: msg.id,
   });
 
-  // Fase 8 completará: clasificación IA + notificación.
+  // Sin presupuesto asociado: guardamos el mensaje pero no clasificamos ni notificamos
+  // (no hay contexto de paciente/tratamiento).
+  if (!presupuestoInfo) {
+    console.log(`[waba webhook] mensaje de ${telefono} sin presupuesto asociado`);
+    return;
+  }
+
+  // Clasificación IA
+  try {
+    const clasificacion = await clasificarRespuesta({
+      respuestaPaciente: contenido,
+      patientName: presupuestoInfo.patientName,
+      treatments: presupuestoInfo.treatments,
+      estado: presupuestoInfo.estado,
+      amount: presupuestoInfo.amount,
+      clinica: presupuestoInfo.clinica,
+    });
+
+    await guardarClasificacion({
+      presupuestoId: presupuestoInfo.id,
+      respuestaPaciente: contenido,
+      clasificacion,
+    });
+
+    // Notificación broadcast a todos los usuarios
+    const esCritico = clasificacion.urgencia === "CRÍTICO";
+    await crearNotificacion({
+      usuario: "todos",
+      tipo: esCritico ? "Intervencion_urgente" : "Nuevo_mensaje_paciente",
+      titulo: esCritico
+        ? `Intervención urgente: ${presupuestoInfo.patientName}`
+        : `Nuevo mensaje de ${presupuestoInfo.patientName}`,
+      mensaje: contenido.slice(0, 120),
+      link: `/presupuestos?tab=intervencion&item=${presupuestoInfo.id}`,
+    });
+  } catch (err) {
+    console.error("[waba webhook] clasificación/notificación error:", sanitizeError(err));
+  }
 }
 
-async function buscarPresupuestoPorTelefono(telefonoNormalizado: string): Promise<string | null> {
+type PresupuestoInfo = {
+  id: string;
+  patientName: string;
+  treatments: string[];
+  estado: PresupuestoEstado;
+  amount?: number;
+  clinica?: string;
+};
+
+async function buscarPresupuestoPorTelefono(telefonoNormalizado: string): Promise<PresupuestoInfo | null> {
   // Buscar el teléfono en Paciente_Telefono o Teléfono, comparando normalizado.
   // El telefonoNormalizado ya es sin símbolos; FIND busca literal contra texto,
   // así que cubrimos varios formatos con OR + SUBSTITUTE para quitar espacios/+/-.
@@ -200,11 +251,37 @@ async function buscarPresupuestoPorTelefono(telefonoNormalizado: string): Promis
 
   const query = base(TABLES.presupuestos as any).select({
     filterByFormula: formula,
-    fields: ["Paciente_Telefono"],
+    fields: ["Paciente_nombre", "Tratamiento_nombre", "Estado", "Importe", "Clinica"],
     sort: [{ field: "Fecha_creacion", direction: "desc" }],
     maxRecords: 1,
   });
   const recs = await fetchAll(query);
   if (recs.length === 0) return null;
-  return recs[0].id as string;
+
+  const r = recs[0];
+  const f = r.fields as any;
+
+  const nombre = f["Paciente_nombre"];
+  const patientName = Array.isArray(nombre) ? String(nombre[0] ?? "") : String(nombre ?? "");
+
+  const trat = f["Tratamiento_nombre"];
+  const treatments = Array.isArray(trat) ? trat.map((t: unknown) => String(t)) : trat ? [String(trat)] : [];
+
+  const clin = f["Clinica"];
+  const clinica = Array.isArray(clin) ? String(clin[0] ?? "") : clin ? String(clin) : undefined;
+
+  const estadoRaw = String(f["Estado"] ?? "");
+  const estado = (estadoRaw || "PENDIENTE") as PresupuestoEstado;
+
+  const importeRaw = f["Importe"];
+  const amount = typeof importeRaw === "number" ? importeRaw : undefined;
+
+  return {
+    id: r.id as string,
+    patientName,
+    treatments,
+    estado,
+    amount,
+    clinica,
+  };
 }
