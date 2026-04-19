@@ -595,7 +595,10 @@ export default function IntervencionView({
 
   useEffect(() => {
     fetchData();
-    intervalRef.current = setInterval(fetchData, 30_000);
+    // Auto-refresh: 15s en horario operativo (9h-20h), 30s fuera de ese rango.
+    const hour = new Date().getHours();
+    const refreshMs = hour >= 9 && hour < 20 ? 15_000 : 30_000;
+    intervalRef.current = setInterval(fetchData, refreshMs);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };

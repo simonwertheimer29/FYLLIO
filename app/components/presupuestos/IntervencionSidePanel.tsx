@@ -70,15 +70,18 @@ export default function IntervencionSidePanel({
     });
   }, [item.id]);
 
-  // Detectar si WABA está activo para esta clínica
+  // Detectar si WABA está activo para la clínica del item abierto.
+  // Importante: pasamos la clínica del item, porque managers sin clínica fija
+  // necesitan que el endpoint sepa qué config consultar.
   useEffect(() => {
-    fetch("/api/presupuestos/configuracion-waba")
+    const qs = item.clinica ? `?clinica=${encodeURIComponent(item.clinica)}` : "";
+    fetch(`/api/presupuestos/configuracion-waba${qs}`)
       .then((r) => r.json())
       .then((d) => {
         setWabaActivo(d?.credencialesConfiguradas === true && d?.activoParaClinica === true);
       })
       .catch(() => setWabaActivo(false));
-  }, [item.id]);
+  }, [item.id, item.clinica]);
 
   // Auto-scroll chat to bottom
   useEffect(() => {
@@ -209,10 +212,29 @@ export default function IntervencionSidePanel({
       contenido = `Hola ${nombre}, te confirmamos las opciones de pago disponibles para tu tratamiento de ${tratamiento}${importe ? ` (${importe})` : ""}:\n\n- Pago único con 5% descuento\n- Financiación a 6 meses sin intereses\n- Financiación a 12 meses (consultar)\n\nPara proceder, solo responde a este mensaje y te ayudaremos con lo que necesites.`;
     }
 
-    window.open(
-      `https://wa.me/${cleanPhone}?text=${encodeURIComponent(contenido)}`,
-      "_blank"
-    );
+    if (wabaActivo) {
+      // Envío directo vía Graph API, sin abrir WhatsApp Web.
+      try {
+        const res = await fetch("/api/presupuestos/intervencion/enviar-waba", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            presupuestoId: item.id,
+            telefono: cleanPhone,
+            contenido,
+          }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      } catch (err) {
+        console.error("[enviarDetallesPago WABA]", err);
+        return;
+      }
+    } else {
+      window.open(
+        `https://wa.me/${cleanPhone}?text=${encodeURIComponent(contenido)}`,
+        "_blank"
+      );
+    }
     fetch("/api/presupuestos/intervencion/registrar-respuesta", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

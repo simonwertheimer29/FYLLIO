@@ -197,7 +197,16 @@ async function processIncomingMessage(body: unknown): Promise<void> {
     return;
   }
 
-  // Clasificación IA
+  // Pre-guardar respuesta en el presupuesto ANTES de clasificar. Esto asegura
+  // que el mensaje aparezca en la cola de Intervención aunque la IA tarde o falle:
+  // el filtro de /api/presupuestos/intervencion exige Ultima_respuesta_paciente.
+  await preGuardarRespuesta(presupuestoInfo.id, contenido).catch((err) => {
+    console.error("[waba webhook] preGuardarRespuesta error:", sanitizeError(err));
+  });
+
+  // Clasificación IA (con timeout 10s en clasificarRespuesta). Si falla o agota
+  // timeout, devuelve fallback { Sin clasificar, MEDIO } y se persiste igualmente
+  // para que la tarjeta siga visible en la cola.
   try {
     const clasificacion = await clasificarRespuesta({
       respuestaPaciente: contenido,
@@ -228,6 +237,14 @@ async function processIncomingMessage(body: unknown): Promise<void> {
   } catch (err) {
     console.error("[waba webhook] clasificación/notificación error:", sanitizeError(err));
   }
+}
+
+async function preGuardarRespuesta(presupuestoId: string, contenido: string): Promise<void> {
+  await base(TABLES.presupuestos as any).update(presupuestoId, {
+    Ultima_respuesta_paciente: contenido,
+    Fecha_ultima_respuesta: new Date().toISOString(),
+    Fase_seguimiento: "En intervención",
+  } as any);
 }
 
 type PresupuestoInfo = {

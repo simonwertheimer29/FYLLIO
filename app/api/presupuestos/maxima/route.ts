@@ -156,13 +156,18 @@ function computeProximaAccionTexto(estadoVisual: EstadoVisual): string | undefin
 
 const INTENCION_SCORE: Record<string, number> = {
   "Acepta sin condiciones": 40,
-  "Acepta pero pregunta pago": 35,
+  "Acepta pero pregunta pago": 40,
   "Pide oferta/descuento": 25,
   "Tiene duda sobre tratamiento": 20,
   "Sin clasificar": 15,
   "Quiere pensarlo": 10,
   "Rechaza": 5,
 };
+
+const INTENCIONES_CIERRE: Array<string | undefined> = [
+  "Acepta sin condiciones",
+  "Acepta pero pregunta pago",
+];
 
 function computeUrgenciaBidireccional(p: {
   intencionDetectada?: IntencionDetectada;
@@ -172,15 +177,18 @@ function computeUrgenciaBidireccional(p: {
   estado: PresupuestoEstado;
 }): UrgenciaBidireccional {
   const scoreIntencion = INTENCION_SCORE[p.intencionDetectada ?? "Sin clasificar"] ?? 15;
+  const esCierre = INTENCIONES_CIERRE.includes(p.intencionDetectada);
 
   let scoreRespClinica = 0;
+  let minutosDesdeRespuesta = Infinity;
   if (p.fechaUltimaRespuesta) {
     const respuestaMs = new Date(p.fechaUltimaRespuesta).getTime();
     const accionMs = p.ultimaAccionRegistrada
       ? new Date(p.ultimaAccionRegistrada).getTime()
       : 0;
     if (accionMs < respuestaMs) {
-      const horasSinRespuesta = (Date.now() - respuestaMs) / (1000 * 60 * 60);
+      minutosDesdeRespuesta = (Date.now() - respuestaMs) / (1000 * 60);
+      const horasSinRespuesta = minutosDesdeRespuesta / 60;
       if (horasSinRespuesta > 48) scoreRespClinica = 30;
       else if (horasSinRespuesta > 24) scoreRespClinica = 25;
       else if (horasSinRespuesta > 12) scoreRespClinica = 20;
@@ -200,10 +208,13 @@ function computeUrgenciaBidireccional(p: {
   if (p.estado === "EN_NEGOCIACION") estadoScore = 15;
   else if (p.estado === "EN_DUDA") estadoScore = 10;
   else if (p.estado === "INTERESADO") estadoScore = 5;
-  const scoreCierre = Math.min(importeScore + estadoScore, 30);
+  let scoreCierre = Math.min(importeScore + estadoScore, 30);
+  if (esCierre) scoreCierre = Math.max(scoreCierre, 15);
+
+  const bonusReciente = esCierre && minutosDesdeRespuesta < 30 ? 10 : 0;
 
   return {
-    scoreFinal: scoreIntencion + scoreRespClinica + scoreCierre,
+    scoreFinal: scoreIntencion + scoreRespClinica + scoreCierre + bonusReciente,
     scoreIntencion,
     scoreRespClinica,
     scoreCierre,

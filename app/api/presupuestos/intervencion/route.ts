@@ -60,7 +60,7 @@ const URGENCIA_ORDER: Record<string, number> = {
 
 const INTENCION_SCORE: Record<string, number> = {
   "Acepta sin condiciones": 40,
-  "Acepta pero pregunta pago": 35,
+  "Acepta pero pregunta pago": 40,
   "Pide oferta/descuento": 25,
   "Tiene duda sobre tratamiento": 20,
   "Sin clasificar": 15,
@@ -68,12 +68,19 @@ const INTENCION_SCORE: Record<string, number> = {
   "Rechaza": 5,
 };
 
+const INTENCIONES_CIERRE: Array<string | undefined> = [
+  "Acepta sin condiciones",
+  "Acepta pero pregunta pago",
+];
+
 function computeUrgenciaBidireccional(p: PresupuestoIntervencion): UrgenciaBidireccional {
   // Eje 1 — Intención del paciente (0-40)
   const scoreIntencion = INTENCION_SCORE[p.intencionDetectada ?? "Sin clasificar"] ?? 15;
+  const esCierre = INTENCIONES_CIERRE.includes(p.intencionDetectada);
 
   // Eje 2 — Tiempo de respuesta de la clínica (0-30)
   let scoreRespClinica = 0;
+  let minutosDesdeRespuesta = Infinity;
   if (p.fechaUltimaRespuesta) {
     const respuestaMs = new Date(p.fechaUltimaRespuesta).getTime();
     const accionMs = p.ultimaAccionRegistrada
@@ -81,7 +88,8 @@ function computeUrgenciaBidireccional(p: PresupuestoIntervencion): UrgenciaBidir
       : 0;
     // Solo cuenta si la clínica no ha respondido después de la última respuesta del paciente
     if (accionMs < respuestaMs) {
-      const horasSinRespuesta = (Date.now() - respuestaMs) / (1000 * 60 * 60);
+      minutosDesdeRespuesta = (Date.now() - respuestaMs) / (1000 * 60);
+      const horasSinRespuesta = minutosDesdeRespuesta / 60;
       if (horasSinRespuesta > 48) scoreRespClinica = 30;
       else if (horasSinRespuesta > 24) scoreRespClinica = 25;
       else if (horasSinRespuesta > 12) scoreRespClinica = 20;
@@ -102,10 +110,14 @@ function computeUrgenciaBidireccional(p: PresupuestoIntervencion): UrgenciaBidir
   if (p.estado === "EN_NEGOCIACION") estadoScore = 15;
   else if (p.estado === "EN_DUDA") estadoScore = 10;
   else if (p.estado === "INTERESADO") estadoScore = 5;
-  const scoreCierre = Math.min(importeScore + estadoScore, 30);
+  let scoreCierre = Math.min(importeScore + estadoScore, 30);
+  if (esCierre) scoreCierre = Math.max(scoreCierre, 15);
+
+  // Bonus: mensaje de cierre recibido hace <30 min → +10 (empuja a "Actuar ahora")
+  const bonusReciente = esCierre && minutosDesdeRespuesta < 30 ? 10 : 0;
 
   return {
-    scoreFinal: scoreIntencion + scoreRespClinica + scoreCierre,
+    scoreFinal: scoreIntencion + scoreRespClinica + scoreCierre + bonusReciente,
     scoreIntencion,
     scoreRespClinica,
     scoreCierre,

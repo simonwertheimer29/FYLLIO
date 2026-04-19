@@ -103,6 +103,9 @@ export async function clasificarRespuesta(args: {
     mapa
   );
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
+
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -117,6 +120,7 @@ export async function clasificarRespuesta(args: {
         system: SYSTEM_PROMPT_CLASIFICAR,
         messages: [{ role: "user", content: userPrompt }],
       }),
+      signal: controller.signal,
     });
 
     if (!res.ok) {
@@ -159,6 +163,8 @@ export async function clasificarRespuesta(args: {
   } catch (err) {
     console.error("[intervencion] clasificarRespuesta error:", err);
     return fallbackClasificacion();
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
