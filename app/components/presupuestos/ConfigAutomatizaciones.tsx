@@ -703,22 +703,53 @@ function SectionClinica({ user }: { user: UserSession }) {
 
 // ─── Section ⑤: Integración WhatsApp ──────────────────────────────────────────
 
+type WABAEstado = {
+  credencialesConfiguradas: boolean;
+  activoParaClinica: boolean;
+  numeroConectado?: string;
+  ultimoMensajeEnviado?: string;
+  ultimoMensajeRecibido?: string;
+  tokenExpirado?: boolean;
+};
+
+function formatearHace(iso?: string): string {
+  if (!iso) return "nunca";
+  const ms = Date.now() - new Date(iso).getTime();
+  if (!isFinite(ms) || ms < 0) return "nunca";
+  const min = Math.floor(ms / 60000);
+  if (min < 1) return "ahora mismo";
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `hace ${h}h`;
+  const d = Math.floor(h / 24);
+  return `hace ${d}d`;
+}
+
 function SectionWhatsApp({ user }: { user: UserSession }) {
   const [modo, setModo] = useState<ModoWhatsApp>("manual");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [wabaEstado, setWabaEstado] = useState<WABAEstado | null>(null);
+  const [togglingActivo, setTogglingActivo] = useState(false);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        const res = await fetch("/api/automatizaciones/configuracion");
-        const data = await res.json();
-        const configs = data.configuraciones ?? (data.configuracion ? [data.configuracion] : []);
-        // Use first config with modoWhatsapp, or default to manual
+        const [resCfg, resWaba] = await Promise.all([
+          fetch("/api/automatizaciones/configuracion"),
+          fetch("/api/presupuestos/configuracion-waba"),
+        ]);
+        const dataCfg = await resCfg.json();
+        const configs = dataCfg.configuraciones ?? (dataCfg.configuracion ? [dataCfg.configuracion] : []);
         const cfg = configs.find((c: ConfiguracionAutomatizacion) => c.modoWhatsapp);
         if (cfg?.modoWhatsapp) setModo(cfg.modoWhatsapp);
+
+        if (resWaba.ok) {
+          const dataWaba = (await resWaba.json()) as WABAEstado;
+          setWabaEstado(dataWaba);
+        }
       } catch { /* silent */ }
       finally { setLoading(false); }
     }
@@ -729,7 +760,6 @@ function SectionWhatsApp({ user }: { user: UserSession }) {
     setModo(nuevoModo);
     setSaving(true);
     try {
-      // Get current config for the user's clinic or first clinic
       const clinica = user.clinica ?? "default";
       await fetch("/api/automatizaciones/configuracion", {
         method: "PUT",
@@ -742,6 +772,23 @@ function SectionWhatsApp({ user }: { user: UserSession }) {
     finally { setSaving(false); }
   }
 
+  async function handleToggleActivo() {
+    if (!wabaEstado) return;
+    const nuevoActivo = !wabaEstado.activoParaClinica;
+    setTogglingActivo(true);
+    try {
+      const res = await fetch("/api/presupuestos/configuracion-waba", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activoParaClinica: nuevoActivo }),
+      });
+      if (res.ok) {
+        setWabaEstado({ ...wabaEstado, activoParaClinica: nuevoActivo });
+      }
+    } catch { /* silent */ }
+    finally { setTogglingActivo(false); }
+  }
+
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse">
@@ -751,12 +798,25 @@ function SectionWhatsApp({ user }: { user: UserSession }) {
     );
   }
 
+  const wabaHabilitable = wabaEstado?.credencialesConfiguradas === true;
+
   return (
     <div className="space-y-6">
       <div>
         <h3 className="text-sm font-bold text-slate-900 mb-1">Integración WhatsApp</h3>
         <p className="text-xs text-slate-500 mb-4">Elige cómo se envían y reciben los mensajes de WhatsApp</p>
       </div>
+
+      {/* Banner: token expirado */}
+      {wabaEstado?.tokenExpirado && (
+        <div className="rounded-2xl border border-red-300 bg-red-50 p-4">
+          <p className="text-sm font-bold text-red-800 mb-1">Token de WhatsApp caducado</p>
+          <p className="text-xs text-red-700 leading-relaxed">
+            El Access Token de Meta ha expirado. Debe renovarlo en las variables de entorno de Vercel
+            (<code className="bg-red-100 px-1 rounded">WABA_ACCESS_TOKEN</code>) y redesplegar.
+          </p>
+        </div>
+      )}
 
       <div className="space-y-3">
         {/* Manual mode */}
@@ -791,12 +851,16 @@ function SectionWhatsApp({ user }: { user: UserSession }) {
         </button>
 
         {/* WABA mode */}
-        <div
+        <button
+          onClick={() => wabaHabilitable && handleSave("waba")}
+          disabled={saving || !wabaHabilitable}
           className={`w-full text-left rounded-2xl border-2 p-5 transition-colors ${
             modo === "waba"
               ? "border-violet-500 bg-violet-50"
-              : "border-slate-200 bg-white"
-          } opacity-70`}
+              : wabaHabilitable
+                ? "border-slate-200 bg-white hover:border-slate-300"
+                : "border-slate-200 bg-white opacity-60 cursor-not-allowed"
+          }`}
         >
           <div className="flex items-start gap-3">
             <div className={`w-4 h-4 mt-0.5 rounded-full border-2 shrink-0 flex items-center justify-center ${
@@ -809,38 +873,86 @@ function SectionWhatsApp({ user }: { user: UserSession }) {
               <p className="text-xs text-slate-600 mt-1 leading-relaxed">
                 Integración completa con WhatsApp Business API.
                 Los mensajes se envían y reciben automáticamente.
-                Requiere aprobación de Meta.
               </p>
-              <p className="text-[10px] text-slate-400 mt-1">
-                Coste estimado: 0,05 EUR por conversación
-              </p>
-              <span className="inline-flex items-center gap-1.5 mt-2 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-                Disponible en Sprint 4
-              </span>
+              {!wabaHabilitable && (
+                <span className="inline-flex items-center gap-1.5 mt-2 text-[10px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+                  Credenciales no configuradas
+                </span>
+              )}
+              {modo === "waba" && (
+                <span className="inline-flex items-center gap-1.5 mt-2 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                  Activo
+                </span>
+              )}
             </div>
           </div>
-        </div>
+        </button>
       </div>
 
       {saved && (
         <p className="text-xs text-emerald-600 font-semibold text-center">Modo guardado correctamente</p>
       )}
 
-      {/* Status */}
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-        <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-2">Estado actual</p>
-        <div className="flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500" />
-          <p className="text-sm font-semibold text-slate-700">
-            {modo === "manual" ? "Manual activo" : "WABA activo"}
+      {/* Panel de estado WABA */}
+      {wabaEstado && !wabaEstado.credencialesConfiguradas && (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-slate-800 mb-2">Credenciales WABA no configuradas</p>
+          <p className="text-xs text-slate-600 mb-2 leading-relaxed">
+            Para activar el modo automático, el administrador debe configurar estas variables de entorno en Vercel:
           </p>
+          <ul className="text-xs text-slate-600 space-y-0.5 ml-4 list-disc">
+            <li><code className="bg-slate-200 px-1 rounded">WABA_PHONE_NUMBER_ID</code></li>
+            <li><code className="bg-slate-200 px-1 rounded">WABA_BUSINESS_ACCOUNT_ID</code></li>
+            <li><code className="bg-slate-200 px-1 rounded">WABA_ACCESS_TOKEN</code></li>
+            <li><code className="bg-slate-200 px-1 rounded">WABA_VERIFY_TOKEN</code></li>
+            <li><code className="bg-slate-200 px-1 rounded">META_APP_SECRET</code></li>
+          </ul>
         </div>
-        <p className="text-xs text-slate-500 mt-1">
-          {modo === "manual"
-            ? "Los mensajes se envían manualmente desde la cola de intervención."
-            : "Los mensajes se envían automáticamente via WhatsApp Business API."}
-        </p>
-      </div>
+      )}
+
+      {wabaEstado?.credencialesConfiguradas && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold text-slate-900">Credenciales configuradas</p>
+              {wabaEstado.numeroConectado && (
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Número conectado: <span className="font-mono">{wabaEstado.numeroConectado}</span>
+                </p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">
+                {wabaEstado.activoParaClinica ? "Activo" : "Desactivado"}
+              </span>
+              <button
+                onClick={handleToggleActivo}
+                disabled={togglingActivo}
+                className={`relative w-11 h-6 rounded-full transition-colors ${
+                  wabaEstado.activoParaClinica ? "bg-emerald-500" : "bg-slate-300"
+                }`}
+              >
+                <span
+                  className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                    wabaEstado.activoParaClinica ? "translate-x-5" : "translate-x-0.5"
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-100">
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Último enviado</p>
+              <p className="text-xs text-slate-700 mt-0.5">{formatearHace(wabaEstado.ultimoMensajeEnviado)}</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Último recibido</p>
+              <p className="text-xs text-slate-700 mt-0.5">{formatearHace(wabaEstado.ultimoMensajeRecibido)}</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
