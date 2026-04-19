@@ -41,6 +41,10 @@ export default function IntervencionSidePanel({
   const [loadingMensajes, setLoadingMensajes] = useState(true);
   const [historialAbierto, setHistorialAbierto] = useState(false);
   const [detallesPagoEnviado, setDetallesPagoEnviado] = useState(false);
+  const [wabaActivo, setWabaActivo] = useState(false);
+  const [inlineTexto, setInlineTexto] = useState("");
+  const [enviandoInline, setEnviandoInline] = useState(false);
+  const [inlineError, setInlineError] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const cleanPhone = (item.patientPhone ?? "").replace(/\D/g, "");
@@ -64,6 +68,16 @@ export default function IntervencionSidePanel({
       setMensajes(mData.mensajes ?? []);
       setLoadingMensajes(false);
     });
+  }, [item.id]);
+
+  // Detectar si WABA está activo para esta clínica
+  useEffect(() => {
+    fetch("/api/presupuestos/configuracion-waba")
+      .then((r) => r.json())
+      .then((d) => {
+        setWabaActivo(d?.credencialesConfiguradas === true && d?.activoParaClinica === true);
+      })
+      .catch(() => setWabaActivo(false));
   }, [item.id]);
 
   // Auto-scroll chat to bottom
@@ -112,6 +126,62 @@ export default function IntervencionSidePanel({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ presupuestoId: item.id, tipo: "WhatsApp enviado" }),
     }).then(() => onRefresh()).catch(() => {});
+  }
+
+  async function handleInlineSend() {
+    const texto = inlineTexto.trim();
+    if (!texto || !cleanPhone || enviandoInline) return;
+    setInlineError(null);
+    setEnviandoInline(true);
+
+    // Optimistic: push burbuja azul con id temporal
+    const tempId = `temp-${Date.now()}`;
+    const optimistic: MensajeWhatsApp = {
+      id: tempId,
+      presupuestoId: item.id,
+      telefono: cleanPhone,
+      direccion: "Saliente",
+      contenido: texto,
+      timestamp: new Date().toISOString(),
+      fuente: "Modo_B_WABA",
+      procesadoPorIA: false,
+    };
+    setMensajes((prev) => [...prev, optimistic]);
+    setInlineTexto("");
+
+    try {
+      const res = await fetch("/api/presupuestos/intervencion/enviar-waba", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          presupuestoId: item.id,
+          telefono: cleanPhone,
+          contenido: texto,
+        }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d?.error ?? `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      // Sustituir id temporal por el real
+      setMensajes((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, id: data.mensajeId ?? tempId } : m)),
+      );
+      // Registrar acción
+      fetch("/api/presupuestos/intervencion/registrar-respuesta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ presupuestoId: item.id, tipo: "WhatsApp enviado" }),
+      }).then(() => onRefresh()).catch(() => {});
+    } catch (err) {
+      // Revertir optimistic y mostrar error
+      setMensajes((prev) => prev.filter((m) => m.id !== tempId));
+      setInlineTexto(texto);
+      setInlineError(err instanceof Error ? err.message : "Error al enviar");
+    } finally {
+      setEnviandoInline(false);
+    }
   }
 
   async function handleEnviarDetallesPago() {
@@ -483,6 +553,38 @@ export default function IntervencionSidePanel({
                   </div>
                 ))}
                 <div ref={chatEndRef} />
+              </div>
+            )}
+
+            {/* Inline WABA send (solo si WABA está activo para la clínica) */}
+            {wabaActivo && cleanPhone && (
+              <div className="mt-3">
+                <div className="flex items-end gap-2">
+                  <textarea
+                    value={inlineTexto}
+                    onChange={(e) => { setInlineTexto(e.target.value); setInlineError(null); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleInlineSend();
+                      }
+                    }}
+                    rows={1}
+                    placeholder="Escribe un mensaje..."
+                    disabled={enviandoInline}
+                    className="flex-1 text-sm px-3 py-2 rounded-xl border border-slate-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none resize-none"
+                  />
+                  <button
+                    onClick={handleInlineSend}
+                    disabled={!inlineTexto.trim() || enviandoInline}
+                    className="text-xs font-semibold px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40"
+                  >
+                    {enviandoInline ? "Enviando..." : "Enviar"}
+                  </button>
+                </div>
+                {inlineError && (
+                  <p className="text-[11px] text-red-600 mt-1">{inlineError}</p>
+                )}
               </div>
             )}
 
