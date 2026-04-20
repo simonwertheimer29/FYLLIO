@@ -225,8 +225,7 @@ export default function IntervencionSidePanel({
           }),
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      } catch (err) {
-        console.error("[enviarDetallesPago WABA]", err);
+      } catch {
         return;
       }
     } else {

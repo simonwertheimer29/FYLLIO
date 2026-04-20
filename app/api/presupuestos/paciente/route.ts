@@ -68,7 +68,7 @@ export async function GET(req: Request) {
           "OrigenLead", "MotivoPerdida", "MotivoPerdidaTexto", "MotivoDuda",
           "Reactivacion", "PortalEnviado", "OfertaActiva",
         ],
-        filterByFormula: `FIND(LOWER("${nombre.replace(/"/g, "")}"), LOWER(ARRAYJOIN({Paciente_nombre}, ""))) > 0`,
+        filterByFormula: `FIND(LOWER("${nombre.replace(/['"\\]/g, "")}"), LOWER(ARRAYJOIN({Paciente_nombre}, ""))) > 0`,
         sort: [{ field: "Fecha", direction: "desc" }],
         maxRecords: 100,
       })

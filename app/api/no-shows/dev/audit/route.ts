@@ -8,6 +8,9 @@ import { base } from "../../../../lib/airtable";
 const TABLAS = ["Clínicas", "Staff", "Sillones", "Pacientes", "Citas", "Acciones"] as const;
 
 export async function GET() {
+  if (process.env.ENABLE_DEV_ENDPOINTS !== "true") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   const results: Record<string, number | string> = {};
   for (const tabla of TABLAS) {
     try {

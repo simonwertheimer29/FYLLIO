@@ -279,7 +279,6 @@ export async function POST(req: Request) {
   // ── Anonimización de clínica para Claude API ───────────────────────────────
   const anonMap = construirMapaAnonimizacion(clinicaId !== "todas" ? [clinicaNombre] : []);
   const clinicaNombreAnon = anonMap.realToAlias.get(clinicaNombre) ?? clinicaNombre;
-  console.log("[anon] mensual — mapa aliases:", Object.fromEntries(anonMap.realToAlias));
 
   const prompt = buildPrompt(mes, clinicaNombreAnon, datos);
 

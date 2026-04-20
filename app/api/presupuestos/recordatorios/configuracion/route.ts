@@ -52,12 +52,18 @@ export async function GET(req: Request) {
 
   try {
     const url = new URL(req.url);
-    const clinica = url.searchParams.get("clinica") || session.clinica || "";
+    const clinicaParam = url.searchParams.get("clinica");
+    // encargada_ventas NO puede consultar otras clínicas: se fuerza la suya.
+    const clinica =
+      session.rol === "encargada_ventas"
+        ? (session.clinica ?? "")
+        : (clinicaParam || session.clinica || "");
 
+    const clinicaEsc = clinica.replace(/'/g, "\\'");
     const recs = await base(TABLES.configuracionRecordatorios as any)
       .select({
         fields: ["Clinica", "Secuencia_dias", "Recordatorio_max", "Hora_envio", "Dias_rechazo_auto", "Activa"],
-        ...(clinica ? { filterByFormula: `{Clinica}='${clinica}'` } : {}),
+        ...(clinica ? { filterByFormula: `{Clinica}='${clinicaEsc}'` } : {}),
         maxRecords: 10,
       })
       .all();

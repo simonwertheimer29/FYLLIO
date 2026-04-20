@@ -97,13 +97,6 @@ export default function LoginPage() {
             {loading ? "Entrando…" : "Entrar"}
           </button>
         </form>
-
-        {/* Demo hint */}
-        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500 space-y-1">
-          <p className="font-semibold text-slate-600">Acceso demo:</p>
-          <p>Manager: <span className="font-mono">demo@fyllio.com</span> / <span className="font-mono">demo2024</span></p>
-          <p>Ventas: <span className="font-mono">ventas@demo.com</span> / <span className="font-mono">demo2024</span></p>
-        </div>
       </div>
     </div>
   );

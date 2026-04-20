@@ -435,7 +435,6 @@ export async function POST() {
 
         // ── Anonimización de clínicas para Claude API ─────────────────────────
         const anonMap = construirMapaAnonimizacion(clinicasData.map((c) => c.clinica));
-        console.log("[anon] semanal — mapa aliases:", Object.fromEntries(anonMap.realToAlias));
 
         // ── Prompt para Claude ─────────────────────────────────────────────────
         const clinicasStr = clinicasData.map((c) => {

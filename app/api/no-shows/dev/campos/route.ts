@@ -7,6 +7,9 @@ import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../../lib/airtable";
 
 export async function GET() {
+  if (process.env.ENABLE_DEV_ENDPOINTS !== "true") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   const result: Record<string, unknown> = {};
 
   // ── Tabla Citas ───────────────────────────────────────────────────────────

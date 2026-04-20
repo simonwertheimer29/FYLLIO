@@ -73,7 +73,8 @@ export async function GET(req: Request) {
 
   // Filtro por clínica para encargada_ventas
   if (session.rol === "encargada_ventas" && session.clinica) {
-    filterByFormula = `AND(${filterByFormula}, FIND('${session.clinica}', ARRAYJOIN({Clinica})))`;
+    const clinicaEsc = session.clinica.replace(/'/g, "\\'");
+    filterByFormula = `AND(${filterByFormula}, FIND('${clinicaEsc}', ARRAYJOIN({Clinica})))`;
   }
 
   try {

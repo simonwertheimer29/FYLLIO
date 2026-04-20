@@ -375,6 +375,9 @@ async function bloque5() {
 // ── Router ─────────────────────────────────────────────────────────────────
 
 export async function GET(req: Request) {
+  if (process.env.ENABLE_DEV_ENDPOINTS !== "true") {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
   const { searchParams } = new URL(req.url);
   const bloque = searchParams.get("bloque") ?? "";
   try {
