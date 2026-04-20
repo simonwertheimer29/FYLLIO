@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
+import { toast } from "sonner";
 import type { Presupuesto, PresupuestoEstado, UserSession } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG, ESTADOS_ACCIONABLES, ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
 import { calcularProbabilidad } from "../../lib/presupuestos/probability";
@@ -147,7 +148,7 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
         setTimeout(() => setPortalCopiado(false), 3000);
       }
     } catch {
-      alert("No se pudo generar el portal");
+      toast.error("No se pudo generar el portal");
     } finally {
       setPortalLoading(false);
     }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import TrackedCta from "@/components/TrackedCta";
 
 export default function EarlyAccessPage() {
@@ -26,7 +27,7 @@ export default function EarlyAccessPage() {
       setSubmitted(true);
       form.reset();
     } catch {
-      alert("No se pudo enviar. Intenta de nuevo.");
+      toast.error("No se pudo enviar. Intenta de nuevo.");
     } finally {
       setSubmitting(false);
     }

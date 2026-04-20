@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 type Treatment = {
   id: string;
@@ -62,8 +63,8 @@ export default function TreatmentInstructionsPanel() {
       setEditing((e) => { const next = { ...e }; delete next[tx.id]; return next; });
       setSaved((s) => ({ ...s, [tx.id]: true }));
       setTimeout(() => setSaved((s) => ({ ...s, [tx.id]: false })), 2000);
-    } catch (e: any) {
-      alert(`Error guardando: ${e.message}`);
+    } catch {
+      toast.error("No se pudieron guardar los cambios. Reintenta en unos segundos.");
     } finally {
       setSaving((s) => ({ ...s, [tx.id]: false }));
     }

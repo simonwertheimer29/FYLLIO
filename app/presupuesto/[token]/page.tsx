@@ -4,6 +4,7 @@
 // El layout app/presupuesto/layout.tsx tapa el header de Fyllio con z-[60]
 
 import { useState, useEffect, use } from "react";
+import { toast } from "sonner";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -148,7 +149,7 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
       }
       throw new Error(d.error ?? "Error");
     } catch {
-      alert("Ha ocurrido un error. Por favor, inténtalo de nuevo.");
+      toast.error("Ha ocurrido un error. Por favor, inténtalo de nuevo.");
     } finally {
       setEnviando(false);
     }

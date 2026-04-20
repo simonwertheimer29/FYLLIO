@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
+import { toast } from "sonner";
 import TrackedCta from "@/components/TrackedCta";
 
 
@@ -69,8 +70,8 @@ const IconCheck = () => (
       // pero si action y fields están bien, Mailchimp lo guarda.
       setSubmitted(true);
       form.reset();
-    } catch (err) {
-      alert("No se pudo enviar. Intenta de nuevo.");
+    } catch {
+      toast.error("No se pudo enviar. Intenta de nuevo.");
     } finally {
       setSubmitting(false);
     }

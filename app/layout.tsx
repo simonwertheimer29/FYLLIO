@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import Image from "next/image";
 import Script from "next/script";
+import { Toaster } from "sonner";
 import TrackedCta from "@/components/TrackedCta";
 
 export const metadata: Metadata = {
@@ -76,6 +77,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </header>
 
         <div>{children}</div>
+        <Toaster position="top-right" richColors closeButton />
       </body>
     </html>
   );
