@@ -524,7 +524,6 @@ export default function InformesView({ user }: { user: UserSession }) {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (e) {
-      console.error("Error descargando documento:", e);
       setDownloadError(e instanceof Error ? e.message : "Error desconocido al generar el documento");
     } finally {
       setDownloading(null);
@@ -562,8 +561,8 @@ export default function InformesView({ user }: { user: UserSession }) {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (e) {
-      console.error("Error descargando PDF semanal:", e);
+    } catch {
+      // fallo silencioso: el usuario ve que el botón deja de estar en loading
     } finally {
       setSemanalDownloading(null);
     }

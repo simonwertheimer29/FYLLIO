@@ -53,6 +53,20 @@ export default function IntervencionSidePanel({
     : "bg-slate-100 text-slate-500";
   const estadoCfg = ESTADO_CONFIG[item.estado];
 
+  // Escape cierra el panel + bloquea scroll del body mientras está abierto.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
+
   // Load contact + action history + mensajes
   useEffect(() => {
     setLoadingHistory(true);

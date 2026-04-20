@@ -486,7 +486,7 @@ function QuickResponseModal({
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-slate-100">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900">Respuesta rapida</h3>
+            <h3 className="text-sm font-bold text-slate-900">Respuesta rápida</h3>
             <div className="flex items-center gap-2">
               <span className="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-mono">Ctrl+Shift+L</span>
               <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg">✕</button>
@@ -808,7 +808,7 @@ export default function IntervencionView({
                   onClick={() => onOpenDrawer(item)}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-emerald-600">OK</span>
+                    <span className="text-xs font-bold text-emerald-600">✓ Completado</span>
                     <span className="text-sm font-semibold text-slate-700">{item.patientName}</span>
                     {item.amount != null && (
                       <span className="text-sm font-bold text-slate-500">&euro;{item.amount.toLocaleString("es-ES")}</span>
