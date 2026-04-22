@@ -142,6 +142,16 @@ export async function listUsuarios(): Promise<Usuario[]> {
   return recs.map(toUsuario);
 }
 
+/** Admins activos con Pin_hash seteado (candidatos a admin-pin-login). */
+export async function listAdminCandidates(): Promise<Usuario[]> {
+  const recs = await fetchAll(
+    base(TABLES.usuarios).select({
+      filterByFormula: `AND({Rol}='admin', {Activo}, {Pin_hash}!='')`,
+    })
+  );
+  return recs.map(toUsuario);
+}
+
 /** Crea un usuario. No hashea — el caller pasa hashes ya calculados. */
 export async function createUsuario(args: {
   nombre: string;

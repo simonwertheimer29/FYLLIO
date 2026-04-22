@@ -16,17 +16,22 @@ const MAX_ATTEMPTS = 5;
 
 const store = new Map<string, Entry>();
 
-function keyOf(clinicaId: string, ip: string): string {
-  return `${clinicaId}:${ip}`;
+function keyOf(scope: string, ip: string): string {
+  return `${scope}:${ip}`;
 }
 
 export type CheckResult =
   | { allowed: true }
   | { allowed: false; retryAfterMs: number };
 
-/** Verifica si `clinicaId:ip` puede intentar login. Llamar ANTES de comparar el PIN. */
-export function checkLimit(clinicaId: string, ip: string): CheckResult {
-  const key = keyOf(clinicaId, ip);
+/**
+ * Verifica si `scope:ip` puede intentar login. Llamar ANTES del compare.
+ * Ejemplos de `scope`:
+ *   - `coord:${clinicaId}` para PIN de coordinación
+ *   - `admin` para PIN de admin
+ */
+export function checkLimit(scope: string, ip: string): CheckResult {
+  const key = keyOf(scope, ip);
   const now = Date.now();
   const entry = store.get(key);
   if (!entry) return { allowed: true };
@@ -44,8 +49,8 @@ export function checkLimit(clinicaId: string, ip: string): CheckResult {
 }
 
 /** Registra un fallo. Si alcanza el tope → bloquea 15 minutos. */
-export function recordFailure(clinicaId: string, ip: string): void {
-  const key = keyOf(clinicaId, ip);
+export function recordFailure(scope: string, ip: string): void {
+  const key = keyOf(scope, ip);
   const now = Date.now();
   const entry = store.get(key);
 
@@ -60,8 +65,8 @@ export function recordFailure(clinicaId: string, ip: string): void {
 }
 
 /** Resetea el contador (PIN acertado). */
-export function recordSuccess(clinicaId: string, ip: string): void {
-  store.delete(keyOf(clinicaId, ip));
+export function recordSuccess(scope: string, ip: string): void {
+  store.delete(keyOf(scope, ip));
 }
 
 /** Extrae la IP del request (Vercel usa `x-forwarded-for`). */

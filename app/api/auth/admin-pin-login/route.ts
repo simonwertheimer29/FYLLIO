@@ -1,9 +1,9 @@
-// app/api/auth/pin-login/route.ts
-// Login coordinación (PIN 4 dígitos por clínica). Error genérico.
-// Rate limit best-effort por (clinicaId:ip): 5 intentos / 15 min → 429.
+// app/api/auth/admin-pin-login/route.ts
+// Sprint 7 v5 — login admin por PIN 6 dígitos. Sin 2FA.
+// Rate limit 5/15min por `admin:ip`.
 
 import { NextResponse } from "next/server";
-import { findCoordinacionesByClinica } from "../../../lib/auth/users";
+import { listAdminCandidates } from "../../../lib/auth/users";
 import { verifyPin } from "../../../lib/auth/hashing";
 import { signSession, setSessionCookie } from "../../../lib/auth/session";
 import {
@@ -18,15 +18,14 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => null);
-    const clinicaId = typeof body?.clinicaId === "string" ? body.clinicaId.trim() : "";
     const pin = typeof body?.pin === "string" ? body.pin.trim() : "";
 
-    if (!clinicaId || !/^\d{4}$/.test(pin)) {
+    if (!/^\d{6}$/.test(pin)) {
       return NextResponse.json({ error: "PIN incorrecto" }, { status: 401 });
     }
 
     const ip = extractIp(req);
-    const scope = `coord:${clinicaId}`;
+    const scope = "admin";
     const gate = checkLimit(scope, ip);
     if (!gate.allowed) {
       return NextResponse.json(
@@ -38,9 +37,12 @@ export async function POST(req: Request) {
       );
     }
 
-    const candidates = await findCoordinacionesByClinica(clinicaId);
+    // Candidatos = admins activos con Pin_hash. Normalmente 1; soportamos N
+    // por si hay varios admins en el futuro (Fase 6 permite crear más).
+    const candidates = await listAdminCandidates();
     let matched: (typeof candidates)[number] | null = null;
     for (const u of candidates) {
+      if (u.pinLength !== 6) continue;
       if (!u.pinHash) continue;
       if (await verifyPin(pin, u.pinHash)) {
         matched = u;
@@ -58,8 +60,8 @@ export async function POST(req: Request) {
     const token = await signSession(
       {
         userId: matched.id,
-        rol: "coordinacion",
-        clinicasAccesibles: [clinicaId],
+        rol: "admin",
+        clinicasAccesibles: ["*"],
         nombre: matched.nombre,
       },
       "24h"
@@ -67,7 +69,8 @@ export async function POST(req: Request) {
 
     const res = NextResponse.json({
       ok: true,
-      user: { id: matched.id, nombre: matched.nombre, rol: "coordinacion" },
+      user: { id: matched.id, nombre: matched.nombre, rol: "admin" },
+      redirect: "/ajustes",
     });
     setSessionCookie(res, token);
     return res;
