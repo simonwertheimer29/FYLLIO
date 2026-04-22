@@ -34,6 +34,9 @@ export const TABLES = {
   notificaciones: "Notificaciones",
   // WABA operational config (solo datos operativos; credenciales viven en env vars)
   configuracionWABA: "Configuracion_WABA",
+  // Sprint 7 — roles globales (nuevo sistema; `usuariosPresupuestos` queda legacy)
+  usuarios: "Usuarios",
+  usuarioClinicas: "Usuario_Clinicas",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];

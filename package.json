@@ -22,6 +22,7 @@
     "@types/papaparse": "^5.5.2",
     "@vercel/kv": "^3.0.0",
     "airtable": "^0.12.2",
+    "bcryptjs": "^3.0.3",
     "chart.js": "^4.5.1",
     "dom-to-image-more": "^3.7.2",
     "dotenv": "^17.2.3",
@@ -42,6 +43,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.18",
+    "@types/bcryptjs": "^2.4.6",
     "@types/luxon": "^3.7.1",
     "@types/node": "^20",
     "@types/react": "^19",
