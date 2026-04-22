@@ -62,8 +62,10 @@ export default function NoShowsShell({ user }: { user: NoShowsUserSession }) {
   const BOTTOM_TABS = TABS.slice(0, 4);
 
   async function handleLogout() {
-    await fetch("/api/no-shows/auth/logout", { method: "POST" });
-    location.href = "/no-shows/login";
+    // Sprint 7: logout unificado — limpia fyllio_session + cookies legacy
+    // y redirige al /login nuevo.
+    await fetch("/api/auth/logout", { method: "POST" });
+    location.href = "/login";
   }
 
   return (

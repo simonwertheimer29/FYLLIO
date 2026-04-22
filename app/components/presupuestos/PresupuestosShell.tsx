@@ -200,8 +200,11 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   }
 
   async function handleLogout() {
-    await fetch("/api/presupuestos/auth/logout", { method: "POST" });
-    location.href = "/presupuestos/login";
+    // Sprint 7: logout unificado — limpia fyllio_session + cookies legacy
+    // (fyllio_presupuestos_token, fyllio_noshows_token) y redirige al /login
+    // nuevo (panel de gestión con tarjetas).
+    await fetch("/api/auth/logout", { method: "POST" });
+    location.href = "/login";
   }
 
   const TABS: { id: Tab; label: string; icon: string }[] = isManager
