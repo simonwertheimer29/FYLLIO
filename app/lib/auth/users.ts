@@ -15,6 +15,8 @@ export type Usuario = {
   activo: boolean;
   passwordHash: string | null;
   pinHash: string | null;
+  /** 4 para coordinación, 6 para admin. null si aún no se ha migrado. */
+  pinLength: 4 | 6 | null;
 };
 
 export type Clinica = {
@@ -27,6 +29,8 @@ export type Clinica = {
 
 function toUsuario(rec: any): Usuario {
   const f = rec.fields ?? {};
+  const rawLen = f["Pin_length"];
+  const pinLength = rawLen === 4 || rawLen === 6 ? (rawLen as 4 | 6) : null;
   return {
     id: rec.id,
     nombre: String(f["Nombre"] ?? ""),
@@ -35,6 +39,7 @@ function toUsuario(rec: any): Usuario {
     activo: Boolean(f["Activo"] ?? false),
     passwordHash: f["Password_hash"] ? String(f["Password_hash"]) : null,
     pinHash: f["Pin_hash"] ? String(f["Pin_hash"]) : null,
+    pinLength,
   };
 }
 
@@ -144,6 +149,7 @@ export async function createUsuario(args: {
   email?: string | null;
   passwordHash?: string | null;
   pinHash?: string | null;
+  pinLength?: 4 | 6;
   activo?: boolean;
 }): Promise<Usuario> {
   const fields: Record<string, any> = {
@@ -154,6 +160,7 @@ export async function createUsuario(args: {
   if (args.email) fields["Email"] = args.email.toLowerCase().trim();
   if (args.passwordHash) fields["Password_hash"] = args.passwordHash;
   if (args.pinHash) fields["Pin_hash"] = args.pinHash;
+  if (args.pinLength) fields["Pin_length"] = args.pinLength;
 
   const created = (await base(TABLES.usuarios).create([{ fields }]))[0];
   return toUsuario(created);
@@ -166,6 +173,7 @@ export async function updateUsuario(
     email: string | null;
     passwordHash: string | null;
     pinHash: string | null;
+    pinLength: 4 | 6;
     activo: boolean;
   }>
 ): Promise<Usuario> {
@@ -174,6 +182,7 @@ export async function updateUsuario(
   if (patch.email !== undefined) fields["Email"] = patch.email;
   if (patch.passwordHash !== undefined) fields["Password_hash"] = patch.passwordHash;
   if (patch.pinHash !== undefined) fields["Pin_hash"] = patch.pinHash;
+  if (patch.pinLength !== undefined) fields["Pin_length"] = patch.pinLength;
   if (patch.activo !== undefined) fields["Activo"] = patch.activo;
 
   const updated = (await base(TABLES.usuarios).update([{ id, fields }]))[0];
