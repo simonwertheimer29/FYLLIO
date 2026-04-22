@@ -1,11 +1,17 @@
 // app/api/auth/pin-login/route.ts
 // Login coordinación (PIN 4 dígitos por clínica). Error genérico.
-// Rate limiting se añade en Fase 2.5.
+// Rate limit best-effort por (clinicaId:ip): 5 intentos / 15 min → 429.
 
 import { NextResponse } from "next/server";
 import { findCoordinacionesByClinica } from "../../../lib/auth/users";
 import { verifyPin } from "../../../lib/auth/hashing";
 import { signSession, setSessionCookie } from "../../../lib/auth/session";
+import {
+  checkLimit,
+  extractIp,
+  recordFailure,
+  recordSuccess,
+} from "../../../lib/auth/pinRateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +25,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "PIN incorrecto" }, { status: 401 });
     }
 
+    const ip = extractIp(req);
+    const gate = checkLimit(clinicaId, ip);
+    if (!gate.allowed) {
+      return NextResponse.json(
+        { error: "Demasiados intentos, espera 15 minutos" },
+        {
+          status: 429,
+          headers: { "Retry-After": String(Math.ceil(gate.retryAfterMs / 1000)) },
+        }
+      );
+    }
+
     const candidates = await findCoordinacionesByClinica(clinicaId);
     let matched: (typeof candidates)[number] | null = null;
     for (const u of candidates) {
@@ -30,8 +48,11 @@ export async function POST(req: Request) {
     }
 
     if (!matched) {
+      recordFailure(clinicaId, ip);
       return NextResponse.json({ error: "PIN incorrecto" }, { status: 401 });
     }
+
+    recordSuccess(clinicaId, ip);
 
     const token = await signSession(
       {
