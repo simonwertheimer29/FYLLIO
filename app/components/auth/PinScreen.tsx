@@ -102,7 +102,7 @@ export function PinScreen({
   }, [digits, autoSubmit, submit]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 to-purple-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 to-cyan-50 flex items-center justify-center p-4">
       <div className="w-full max-w-sm space-y-6">
         {/* Back link */}
         <div>
@@ -116,7 +116,7 @@ export function PinScreen({
 
         {/* Icon + title */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-100 text-violet-700 text-2xl">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-sky-100 text-sky-700 text-2xl">
             🛡️
           </div>
           <h1 className="text-xl font-extrabold text-slate-900">{title}</h1>
@@ -132,7 +132,7 @@ export function PinScreen({
                 key={i}
                 className={`${digits === 6 ? "w-11 h-14" : "w-12 h-14"} rounded-2xl border flex items-center justify-center text-2xl font-bold ${
                   filled
-                    ? "bg-violet-600 border-violet-600 text-white"
+                    ? "bg-sky-600 border-sky-600 text-white"
                     : "bg-white border-slate-200 text-slate-300"
                 }`}
                 aria-label={`Dígito ${i + 1} ${filled ? "introducido" : "pendiente"}`}
@@ -158,7 +158,7 @@ export function PinScreen({
           type="button"
           disabled={loading || pin.length !== digits}
           onClick={() => submit(pin)}
-          className="w-full rounded-xl bg-violet-600 text-white text-sm font-bold py-3 hover:bg-violet-700 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+          className="w-full rounded-xl bg-sky-600 text-white text-sm font-bold py-3 hover:bg-sky-700 disabled:opacity-40 disabled:pointer-events-none transition-colors"
         >
           {loading ? "Entrando…" : "Acceder"}
         </button>

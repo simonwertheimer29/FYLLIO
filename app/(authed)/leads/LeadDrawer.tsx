@@ -182,7 +182,7 @@ export function LeadDrawer({
               onChange={(e) => setNotas(e.target.value)}
               onBlur={saveNotas}
               rows={3}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-sky-300"
             />
           </section>
         </div>
@@ -210,7 +210,7 @@ export function LeadDrawer({
             type="button"
             disabled={!canConvert || saving}
             onClick={convertir}
-            className="ml-auto rounded-full bg-violet-600 text-white text-xs font-bold px-4 py-2 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="ml-auto rounded-full bg-sky-600 text-white text-xs font-bold px-4 py-2 hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed"
             title={
               canConvert
                 ? "Convertir a paciente"

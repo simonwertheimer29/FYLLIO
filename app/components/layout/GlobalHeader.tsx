@@ -67,11 +67,10 @@ export function GlobalHeader() {
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
       {/* Fila 1: logo + selector + usuario */}
       <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-4 px-3 sm:px-6">
-        <div className="flex items-center gap-2 font-extrabold text-slate-900 tracking-tight">
-          <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-violet-600 text-white text-sm">
-            F
-          </span>
-          <span className="text-base">Fyllio</span>
+        {/* Logo tipográfico limpio: "Fyllio" con accent celeste sobre los dos últimos caracteres. */}
+        <div className="flex items-center font-extrabold tracking-tight text-lg select-none">
+          <span className="text-slate-900">Fyll</span>
+          <span className="text-sky-500">io</span>
         </div>
 
         <div className="flex-1 min-w-0">
@@ -106,7 +105,7 @@ export function GlobalHeader() {
                     href={item.href}
                     className={`inline-flex items-center h-8 px-3 rounded-full text-xs font-semibold transition-colors ${
                       active
-                        ? "bg-violet-600 text-white"
+                        ? "bg-sky-600 text-white"
                         : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
                     }`}
                   >

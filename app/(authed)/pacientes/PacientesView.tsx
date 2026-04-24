@@ -173,7 +173,7 @@ export function PacientesView({
           placeholder="Buscar paciente…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-[180px] max-w-sm rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300"
+          className="flex-1 min-w-[180px] max-w-sm rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-sky-300"
         />
       </div>
 
@@ -225,7 +225,7 @@ export function PacientesView({
                         {p.tratamientos.map((t) => (
                           <span
                             key={t}
-                            className="inline-flex rounded-full bg-violet-50 text-violet-700 border border-violet-100 px-2 py-0.5 text-[10px] font-semibold"
+                            className="inline-flex rounded-full bg-sky-50 text-sky-700 border border-sky-100 px-2 py-0.5 text-[10px] font-semibold"
                           >
                             {t}
                           </span>

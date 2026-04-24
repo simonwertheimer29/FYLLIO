@@ -94,7 +94,7 @@ export function NewLeadModal({
             value={nombre}
             required
             onChange={(e) => setNombre(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
           />
         </Labeled>
 
@@ -104,7 +104,7 @@ export function NewLeadModal({
               type="tel"
               value={telefono}
               onChange={(e) => setTelefono(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
             />
           </Labeled>
           <Labeled label="Email">
@@ -112,7 +112,7 @@ export function NewLeadModal({
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
             />
           </Labeled>
         </div>
@@ -122,7 +122,7 @@ export function NewLeadModal({
             value={clinicaId}
             required
             onChange={(e) => setClinicaId(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-300"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-300"
           >
             {clinicas.map((c) => (
               <option key={c.id} value={c.id}>
@@ -137,7 +137,7 @@ export function NewLeadModal({
             <select
               value={tratamiento}
               onChange={(e) => setTratamiento(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-300"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-300"
             >
               <option value="">—</option>
               {TRATAMIENTOS.map((t) => (
@@ -151,7 +151,7 @@ export function NewLeadModal({
             <select
               value={canal}
               onChange={(e) => setCanal(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-violet-300"
+              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-sky-300"
             >
               <option value="">—</option>
               {CANALES.map((c) => (
@@ -168,7 +168,7 @@ export function NewLeadModal({
             type="date"
             value={fechaCita}
             onChange={(e) => setFechaCita(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
           />
         </Labeled>
 
@@ -177,7 +177,7 @@ export function NewLeadModal({
             value={notas}
             onChange={(e) => setNotas(e.target.value)}
             rows={2}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
           />
         </Labeled>
 
@@ -198,7 +198,7 @@ export function NewLeadModal({
           <button
             type="submit"
             disabled={saving}
-            className="flex-1 rounded-xl bg-violet-600 text-white text-sm font-bold py-2.5 hover:bg-violet-700 disabled:opacity-50"
+            className="flex-1 rounded-xl bg-sky-600 text-white text-sm font-bold py-2.5 hover:bg-sky-700 disabled:opacity-50"
           >
             {saving ? "Guardando…" : "Crear lead"}
           </button>

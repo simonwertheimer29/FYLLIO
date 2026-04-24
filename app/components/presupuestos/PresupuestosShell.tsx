@@ -229,7 +229,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           </button>
           <button
             onClick={() => setShowNew(true)}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl bg-violet-600 text-white font-semibold hover:bg-violet-700"
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700"
             title="Nuevo presupuesto (N)"
           >
             <span>+</span>
@@ -251,7 +251,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
       </div>
 
       {newPresupuestosCount > 0 && (
-        <div className="shrink-0 bg-violet-600 text-white px-4 py-2 flex items-center justify-between gap-4">
+        <div className="shrink-0 bg-sky-600 text-white px-4 py-2 flex items-center justify-between gap-4">
           <span className="text-xs font-semibold">
             {newPresupuestosCount} presupuesto
             {newPresupuestosCount !== 1 ? "s" : ""} nuevo
@@ -313,7 +313,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
                     </button>
                     <button
                       onClick={() => setShowNew(true)}
-                      className="text-xs px-3 py-2 rounded-xl bg-violet-600 text-white font-bold hover:bg-violet-700"
+                      className="text-xs px-3 py-2 rounded-xl bg-sky-600 text-white font-bold hover:bg-sky-700"
                     >
                       + Nuevo
                     </button>

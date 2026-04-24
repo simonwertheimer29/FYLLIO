@@ -23,7 +23,7 @@ export function ClinicSelector() {
     const only = clinicasSelectables[0]!;
     return (
       <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 text-slate-800 px-3 py-1.5 text-xs font-semibold">
-        <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+        <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
         {only.nombre}
       </span>
     );

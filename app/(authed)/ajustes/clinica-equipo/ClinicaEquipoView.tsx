@@ -120,7 +120,7 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
           <button
             type="button"
             onClick={() => setModalClinica("new")}
-            className="rounded-xl bg-violet-600 text-white text-xs font-bold px-3 py-1.5 hover:bg-violet-700"
+            className="rounded-xl bg-sky-600 text-white text-xs font-bold px-3 py-1.5 hover:bg-sky-700"
           >
             + Añadir clínica
           </button>
@@ -158,7 +158,7 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
                     <button
                       type="button"
                       onClick={() => setModalClinica(c)}
-                      className="text-violet-700 hover:underline font-semibold"
+                      className="text-sky-700 hover:underline font-semibold"
                     >
                       Editar
                     </button>
@@ -191,7 +191,7 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
           <button
             type="button"
             onClick={() => setModalUsuario("new")}
-            className="rounded-xl bg-violet-600 text-white text-xs font-bold px-3 py-1.5 hover:bg-violet-700"
+            className="rounded-xl bg-sky-600 text-white text-xs font-bold px-3 py-1.5 hover:bg-sky-700"
           >
             + Añadir usuario
           </button>
@@ -239,7 +239,7 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
                     <button
                       type="button"
                       onClick={() => setModalUsuario(u)}
-                      className="text-violet-700 hover:underline font-semibold"
+                      className="text-sky-700 hover:underline font-semibold"
                     >
                       Editar
                     </button>
@@ -488,7 +488,7 @@ function UsuarioModal({
                   onClick={() => setRol(r)}
                   className={`flex-1 text-xs font-semibold px-3 py-2 rounded-xl border ${
                     rol === r
-                      ? "bg-violet-600 text-white border-violet-600"
+                      ? "bg-sky-600 text-white border-sky-600"
                       : "bg-white text-slate-700 border-slate-200"
                   }`}
                 >
@@ -597,7 +597,7 @@ function PinShownModal({
           <button
             type="button"
             onClick={copy}
-            className="flex-1 rounded-xl bg-violet-600 text-white text-sm font-bold py-2.5 hover:bg-violet-700"
+            className="flex-1 rounded-xl bg-sky-600 text-white text-sm font-bold py-2.5 hover:bg-sky-700"
           >
             {copied ? "¡Copiado!" : "Copiar PIN"}
           </button>
@@ -672,7 +672,7 @@ function LabeledInput({
         value={value}
         required={required}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
       />
     </div>
   );
@@ -699,7 +699,7 @@ function ModalFooter({
       <button
         type="submit"
         disabled={submitting}
-        className="flex-1 rounded-xl bg-violet-600 text-white text-sm font-bold py-2.5 hover:bg-violet-700 disabled:opacity-50"
+        className="flex-1 rounded-xl bg-sky-600 text-white text-sm font-bold py-2.5 hover:bg-sky-700 disabled:opacity-50"
       >
         {submitting ? "Guardando…" : label}
       </button>

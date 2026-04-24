@@ -100,7 +100,7 @@ export function RedView({ user }: { user: UserSession }) {
             <KpiMini
               label="Tasa conversión lead→paciente"
               value={`${tasaConversion}%`}
-              accent="bg-violet-50 text-violet-700"
+              accent="bg-sky-50 text-sky-700"
             />
             <KpiMini
               label="Facturado acumulado"

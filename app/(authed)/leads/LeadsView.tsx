@@ -51,7 +51,7 @@ export type Lead = {
 const COLUMNS: Array<{ estado: LeadEstado; label: string; accent: string }> = [
   { estado: "Nuevo", label: "Nuevo", accent: "bg-slate-100 text-slate-700" },
   { estado: "Contactado", label: "Contactado", accent: "bg-amber-100 text-amber-800" },
-  { estado: "Citado", label: "Citado", accent: "bg-violet-100 text-violet-800" },
+  { estado: "Citado", label: "Citado", accent: "bg-sky-100 text-sky-800" },
   { estado: "Citados Hoy", label: "Citados Hoy", accent: "bg-rose-100 text-rose-800" },
   { estado: "No Interesado", label: "No Interesado", accent: "bg-slate-200 text-slate-600" },
 ];
@@ -190,7 +190,7 @@ export function LeadsView({
         <button
           type="button"
           onClick={() => setNewLeadOpen(true)}
-          className="rounded-full bg-violet-600 text-white text-xs font-bold px-4 py-2 hover:bg-violet-700 transition-colors"
+          className="rounded-full bg-sky-600 text-white text-xs font-bold px-4 py-2 hover:bg-sky-700 transition-colors"
         >
           + Nuevo Lead
         </button>
@@ -224,7 +224,7 @@ export function LeadsView({
           placeholder="Buscar lead…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-[180px] max-w-sm rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300"
+          className="flex-1 min-w-[180px] max-w-sm rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-sky-300"
         />
       </div>
 
@@ -402,7 +402,7 @@ function LeadCardBody({ lead }: { lead: Lead }) {
           </span>
         )}
         {lead.tratamiento && (
-          <span className="inline-flex rounded-full bg-violet-50 text-violet-700 border border-violet-100 px-2 py-0.5 text-[10px] font-semibold">
+          <span className="inline-flex rounded-full bg-sky-50 text-sky-700 border border-sky-100 px-2 py-0.5 text-[10px] font-semibold">
             {lead.tratamiento}
           </span>
         )}

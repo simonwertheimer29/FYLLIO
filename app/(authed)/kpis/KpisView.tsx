@@ -40,7 +40,7 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
         <button
           type="button"
           onClick={() => setExportOpen(true)}
-          className="rounded-full bg-violet-600 text-white text-xs font-bold px-3 py-1.5 hover:bg-violet-700"
+          className="rounded-full bg-sky-600 text-white text-xs font-bold px-3 py-1.5 hover:bg-sky-700"
         >
           Exportar informe
         </button>
