@@ -5,7 +5,8 @@
 import { NextResponse } from "next/server";
 import { findCoordinacionesByClinica } from "../../../lib/auth/users";
 import { verifyPin } from "../../../lib/auth/hashing";
-import { signSession, setSessionCookie } from "../../../lib/auth/session";
+import { signSession, setSessionCookie, verifySession } from "../../../lib/auth/session";
+import { emitLegacyCookies } from "../../../lib/auth/legacy-cookies";
 import {
   checkLimit,
   extractIp,
@@ -70,6 +71,9 @@ export async function POST(req: Request) {
       user: { id: matched.id, nombre: matched.nombre, rol: "coordinacion" },
     });
     setSessionCookie(res, token);
+    // Emite cookies legacy (ver legacy-cookies.ts). Desaparece en Sprint 8.
+    const sessionForLegacy = await verifySession(token);
+    if (sessionForLegacy) await emitLegacyCookies(res, sessionForLegacy);
     return res;
   } catch {
     return NextResponse.json({ error: "Error interno" }, { status: 500 });

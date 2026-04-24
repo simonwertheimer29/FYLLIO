@@ -5,7 +5,8 @@
 import { NextResponse } from "next/server";
 import { listAdminCandidates } from "../../../lib/auth/users";
 import { verifyPin } from "../../../lib/auth/hashing";
-import { signSession, setSessionCookie } from "../../../lib/auth/session";
+import { signSession, setSessionCookie, verifySession } from "../../../lib/auth/session";
+import { emitLegacyCookies } from "../../../lib/auth/legacy-cookies";
 import {
   checkLimit,
   extractIp,
@@ -74,6 +75,11 @@ export async function POST(req: Request) {
       redirect: "/presupuestos",
     });
     setSessionCookie(res, token);
+    // Emite cookies legacy para que los endpoints de Sprints 1-5
+    // (/api/presupuestos/*, /api/no-shows/*, etc.) sigan autenticando
+    // al usuario sin reescribir su lógica. Unificación en Sprint 8.
+    const sessionForLegacy = await verifySession(token);
+    if (sessionForLegacy) await emitLegacyCookies(res, sessionForLegacy);
     return res;
   } catch {
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
