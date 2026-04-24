@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import type { NoShowsUserSession, RiskyAppt } from "../../lib/no-shows/types";
 import { riskBgClass, riskLabel } from "../../lib/no-shows/score";
 import AgendaCalendar from "./AgendaCalendar";
+import { useClinic } from "../../lib/context/ClinicContext";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -392,13 +393,22 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
   const [displayedLabel, setDisplayedLabel]     = useState<string>(() => weekLabel(getMondayIso()));
   const [displayRange, setDisplayRange]         = useState<string>(() => weekLabel(getMondayIso()));
 
+  // Sprint 7 Fase 5: filtro de clínica viene del ClinicContext global.
+  const { selectedClinicaId } = useClinic();
+
   // ── Filter state ──
-  const [clinicaFilter, setClinicaFilter]         = useState("CLINIC_001");
   const [availableClinics, setAvailableClinics]   = useState<string[]>([]);
   const [profesionalFilter, setProfesionalFilter] = useState("");
   const [clinicasDisponibles, setClinicasDisponibles] = useState<ClinicaEntry[]>([]);
   const [staffPorClinica, setStaffPorClinica]         = useState<Record<string, StaffEntry[]>>({});
   const [riskByDoctor, setRiskByDoctor]               = useState<Record<string, "high" | "medium">>({});
+
+  // clinicaFilter (id lógico, ej "CLINIC_001") se deriva mapeando
+  // selectedClinicaId (Airtable recordId).
+  const clinicaFilter = useMemo(() => {
+    if (!selectedClinicaId) return "";
+    return clinicasDisponibles.find((c) => c.recordId === selectedClinicaId)?.id ?? "";
+  }, [selectedClinicaId, clinicasDisponibles]);
 
   // ── Calendar refresh ──
   const [calRefreshKey, setCalRefreshKey]       = useState(0);
@@ -435,12 +445,8 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
     loadMeta();
   }, []);
 
-  // Auto-select primera clínica cuando carguen clinicasDisponibles
-  useEffect(() => {
-    if (clinicasDisponibles.length === 0) return;
-    if (clinicaFilter && clinicasDisponibles.find(c => c.id === clinicaFilter)) return;
-    setClinicaFilter(clinicasDisponibles[0].id);
-  }, [clinicasDisponibles]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Auto-select de clínica ya no se hace aquí — el ClinicContext se encarga
+  // (coord fuerza su clínica al montar; admin empieza en "Todas").
 
   // Fetch acciones para risk dots en navbar de doctores
   useEffect(() => {
@@ -461,16 +467,15 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
       .catch(() => {});
   }, []);
 
-  // Auto-select primer profesional tras loadMeta
+  // Auto-select primer profesional tras loadMeta o cuando cambia la clínica
+  // global. Resetea también el profesional seleccionado al cambiar de clínica.
   useEffect(() => {
     if (Object.keys(staffPorClinica).length === 0) return;
-    if (profesionalFilter) return;
-    const crId = clinicasDisponibles.find(c => c.id === clinicaFilter)?.recordId;
-    const lista = clinicaFilter && crId
-      ? (staffPorClinica[crId] ?? [])
+    const lista = selectedClinicaId
+      ? (staffPorClinica[selectedClinicaId] ?? [])
       : Object.values(staffPorClinica).flat();
-    if (lista.length > 0) setProfesionalFilter(lista[0].id);
-  }, [staffPorClinica, clinicasDisponibles]); // eslint-disable-line react-hooks/exhaustive-deps
+    setProfesionalFilter(lista[0]?.id ?? "");
+  }, [staffPorClinica, selectedClinicaId]);
 
   function showToast(msg: string, ok = false) {
     setToast({ msg, ok });
@@ -481,23 +486,13 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
     setMondayIso((w) => offsetMondayIso(w, delta));
   }
 
-  function handleClinicaChange(clinica: string) {
-    setClinicaFilter(clinica);
-    const crId = clinicasDisponibles.find(c => c.id === clinica)?.recordId;
-    const lista = clinica && crId
-      ? (staffPorClinica[crId] ?? [])
-      : Object.values(staffPorClinica).flat();
-    setProfesionalFilter(lista[0]?.id ?? "");
-  }
+  // handleClinicaChange eliminado — la clínica se cambia desde el GlobalHeader.
 
-  // Profesionales disponibles según clínica seleccionada
-  // staffPorClinica está indexado por Airtable recordId; clinicaFilter es el ID lógico (CLINIC_001)
+  // Profesionales disponibles según clínica seleccionada.
+  // staffPorClinica está indexado por Airtable recordId = selectedClinicaId del context.
   const allProfesionales = Object.values(staffPorClinica).flat();
-  const selectedClinicaRecordId = clinicaFilter
-    ? (clinicasDisponibles.find((c) => c.id === clinicaFilter)?.recordId ?? "")
-    : "";
-  const profesionalesDisponibles = clinicaFilter && selectedClinicaRecordId
-    ? (staffPorClinica[selectedClinicaRecordId] ?? [])
+  const profesionalesDisponibles = selectedClinicaId
+    ? (staffPorClinica[selectedClinicaId] ?? [])
     : allProfesionales;
 
   // Day slots computed purely from mondayIso (no API data needed)
@@ -600,21 +595,8 @@ export default function AgendaView({ user }: { user: NoShowsUserSession }) {
           </div>
         )}
 
-        {/* NAVBAR CLÍNICAS — solo manager, sin opción "Todas" */}
-        {isManager && clinicasDisponibles.length > 0 && (
-          <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            {clinicasDisponibles.map(c => (
-              <button key={c.id}
-                onClick={() => handleClinicaChange(c.id)}
-                className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap
-                  ${clinicaFilter === c.id
-                    ? "bg-slate-900 text-white border-slate-900"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
-                {c.nombre}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* NAVBAR CLÍNICAS eliminada — el selector de clínica vive en el
+            GlobalHeader (Sprint 7 Fase 5). */}
 
         {/* NAVBAR DOCTORES */}
         {profesionalesDisponibles.length > 0 && (

@@ -8,6 +8,7 @@ import type {
   IntervencionTab,
 } from "../../lib/presupuestos/types";
 import { URGENCIA_INTERVENCION_COLOR, INTERVENCION_TABS } from "../../lib/presupuestos/colors";
+import { useClinic } from "../../lib/context/ClinicContext";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -551,9 +552,11 @@ export default function IntervencionView({
   const [completadosOpen, setCompletadosOpen] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Sprint 7 Fase 5: filtro de clínica vive en ClinicContext global.
+  const { selectedClinicaNombre } = useClinic();
+
   // Sprint 2 state
   const [subTab, setSubTab] = useState<IntervencionTab>("actuar");
-  const [filtroClinica, setFiltroClinica] = useState<string>("");
   const [filtroDoctor, setFiltroDoctor] = useState<string>("");
   const [filtroTratamiento, setFiltroTratamiento] = useState<string>("");
   const [quickResponseOpen, setQuickResponseOpen] = useState(false);
@@ -606,14 +609,14 @@ export default function IntervencionView({
 
   const secondsAgo = Math.round((Date.now() - lastUpdate.getTime()) / 1000);
 
-  // Client-side filtering
+  // Client-side filtering. El filtro de clínica viene del ClinicContext global.
   const globalFiltered = useMemo(() => {
     let items = data?.allItems ?? [];
-    if (filtroClinica) items = items.filter((p) => p.clinica === filtroClinica);
+    if (selectedClinicaNombre) items = items.filter((p) => p.clinica === selectedClinicaNombre);
     if (filtroDoctor) items = items.filter((p) => p.doctor === filtroDoctor);
     if (filtroTratamiento) items = items.filter((p) => p.treatments.includes(filtroTratamiento));
     return items;
-  }, [data, filtroClinica, filtroDoctor, filtroTratamiento]);
+  }, [data, selectedClinicaNombre, filtroDoctor, filtroTratamiento]);
 
   const filteredItems = useMemo(() => {
     return filterByTab(globalFiltered, subTab).sort(
@@ -684,31 +687,9 @@ export default function IntervencionView({
         </div>
       </div>
 
-      {/* Global filters */}
+      {/* Global filters — el selector de clínica vive en el GlobalHeader
+          (Sprint 7 Fase 5). Aquí solo quedan filtros específicos del área. */}
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Clinic pills */}
-        <div className="flex gap-1 overflow-x-auto shrink-0">
-          <button
-            onClick={() => setFiltroClinica("")}
-            className={`shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-full transition-colors ${
-              !filtroClinica ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-            }`}
-          >
-            Todas
-          </button>
-          {(data?.clinicas ?? []).map((c) => (
-            <button
-              key={c}
-              onClick={() => setFiltroClinica(filtroClinica === c ? "" : c)}
-              className={`shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-full transition-colors ${
-                filtroClinica === c ? "bg-violet-600 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              {c}
-            </button>
-          ))}
-        </div>
-
         {/* Doctor dropdown */}
         <select
           value={filtroDoctor}

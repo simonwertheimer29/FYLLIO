@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import type {
   NoShowsUserSession,
   RiskyAppt,
@@ -9,6 +9,7 @@ import type {
   AccionTask,
 } from "../../lib/no-shows/types";
 import AccionSidePanel, { type HistorialItem } from "./AccionSidePanel";
+import { useClinic } from "../../lib/context/ClinicContext";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -144,11 +145,19 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
   // Panel
   const [selectedItem, setSelectedItem] = useState<UnifiedItem | null>(null);
 
+  // Sprint 7 Fase 5: filtro de clínica viene del ClinicContext global.
+  const { selectedClinicaId } = useClinic();
+
   // Filters
-  const [clinicaFilter, setCF] = useState(user.clinica ?? "");
   const [profesionalFilter, setPF] = useState("");
   const [clinicasDisponibles, setClinics] = useState<ClinicaEntry[]>([]);
   const [staffPorClinica, setStaff] = useState<Record<string, StaffEntry[]>>({});
+
+  // clinicaFilter (id lógico) se deriva mapeando selectedClinicaId (recordId).
+  const clinicaFilter = useMemo(() => {
+    if (!selectedClinicaId) return "";
+    return clinicasDisponibles.find((c) => c.recordId === selectedClinicaId)?.id ?? "";
+  }, [selectedClinicaId, clinicasDisponibles]);
 
   // Done set (source of truth = Airtable yaGestionado + localStorage fallback)
   const [done, setDone] = useState<Set<string>>(new Set());
@@ -297,9 +306,9 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
 
   // ── Filters ───────────────────────────────────────────────────────────────
 
-  const selectedClinicaRecordId = clinicasDisponibles.find(c => c.id === clinicaFilter)?.recordId;
-  const profesionalesDisponibles: StaffEntry[] = clinicaFilter && selectedClinicaRecordId
-    ? staffPorClinica[selectedClinicaRecordId] ?? []
+  // selectedClinicaId es el Airtable recordId = la clave de staffPorClinica.
+  const profesionalesDisponibles: StaffEntry[] = selectedClinicaId
+    ? (staffPorClinica[selectedClinicaId] ?? [])
     : Object.values(staffPorClinica).flat();
 
   function applyFilters(tasks: AccionTask[]): AccionTask[] {
@@ -310,14 +319,14 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
     });
   }
 
-  function handleClinicaChange(clinicaId: string) {
-    setCF(clinicaId);
-    const crId = clinicasDisponibles.find(c => c.id === clinicaId)?.recordId;
-    const lista = clinicaId && crId
-      ? (staffPorClinica[crId] ?? [])
+  // handleClinicaChange eliminado — la clínica se cambia desde el GlobalHeader.
+  // Reset del profesional cuando cambia la clínica global.
+  useEffect(() => {
+    const lista = selectedClinicaId
+      ? (staffPorClinica[selectedClinicaId] ?? [])
       : Object.values(staffPorClinica).flat();
     setPF(lista[0]?.id ?? "");
-  }
+  }, [selectedClinicaId, staffPorClinica]);
 
   // ── Derived data ──────────────────────────────────────────────────────────
 
@@ -481,21 +490,8 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
           </div>
         </div>
 
-        {/* NAVBAR CLÍNICAS — solo manager */}
-        {isManager && clinicasDisponibles.length > 0 && (
-          <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-            {([{ id: "", nombre: "Todas" }, ...clinicasDisponibles] as ClinicaEntry[]).map(c => (
-              <button key={c.id}
-                onClick={() => handleClinicaChange(c.id)}
-                className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap
-                  ${clinicaFilter === c.id
-                    ? "bg-slate-900 text-white border-slate-900"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
-                {c.nombre}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* NAVBAR CLÍNICAS eliminada — selector vive en el GlobalHeader
+            (Sprint 7 Fase 5). */}
 
         {/* NAVBAR DOCTORES */}
         {profesionalesDisponibles.length > 0 && (

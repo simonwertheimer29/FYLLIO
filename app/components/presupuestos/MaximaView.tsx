@@ -9,6 +9,7 @@ import type {
   EstadoVisual,
 } from "../../lib/presupuestos/types";
 import { ESTADO_VISUAL_CONFIG } from "../../lib/presupuestos/colors";
+import { useClinic } from "../../lib/context/ClinicContext";
 
 // ─── Filter pill categories ─────────────────────────────────────────────────
 
@@ -88,11 +89,12 @@ export default function MaximaView({
   user: UserSession;
   onOpenDrawer: (p: PresupuestoIntervencion) => void;
 }) {
+  const { selectedClinicaNombre } = useClinic();
   const [data, setData] = useState<MaximaResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Filters
-  const [filtroClinica, setFiltroClinica] = useState("");
+  // Filters — el filtro de clínica pasa a consumirse desde ClinicContext
+  // (selectedClinicaNombre). Este Shell filtra por `p.clinica === nombre`.
   const [filtroDoctor, setFiltroDoctor] = useState("");
   const [filtroTratamiento, setFiltroTratamiento] = useState("");
   const [pillActiva, setPillActiva] = useState<PillCategory>("todos");
@@ -129,9 +131,9 @@ export default function MaximaView({
     if (!data) return [];
     let items = data.presupuestos;
 
-    // Clinic filter
-    if (filtroClinica) {
-      items = items.filter((p) => p.clinica === filtroClinica);
+    // Clinic filter (desde ClinicContext global, Sprint 7 Fase 5).
+    if (selectedClinicaNombre) {
+      items = items.filter((p) => p.clinica === selectedClinicaNombre);
     }
     // Doctor filter
     if (filtroDoctor) {
@@ -178,7 +180,7 @@ export default function MaximaView({
     });
 
     return sorted;
-  }, [data, filtroClinica, filtroDoctor, filtroTratamiento, pillActiva, searchQuery, sortField, sortDir]);
+  }, [data, selectedClinicaNombre, filtroDoctor, filtroTratamiento, pillActiva, searchQuery, sortField, sortDir]);
 
   // ─── Pill counts ────────────────────────────────────────────────────────────
 
@@ -281,20 +283,9 @@ export default function MaximaView({
         </button>
       )}
 
-      {/* Filters row */}
+      {/* Filters row — el selector de clínica vive en el GlobalHeader
+          (Sprint 7 Fase 5). Aquí solo quedan filtros específicos del área. */}
       <div className="flex flex-wrap items-center gap-2">
-        {/* Clinic select */}
-        <select
-          value={filtroClinica}
-          onChange={(e) => setFiltroClinica(e.target.value)}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600"
-        >
-          <option value="">Todas clínicas</option>
-          {data.clinicasUnicas.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-
         {/* Doctor select */}
         <select
           value={filtroDoctor}

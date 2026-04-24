@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { NoShowsUserSession, RiskyAppt, GapSlot, RecallAlert } from "../../lib/no-shows/types";
 import { riskColor } from "../../lib/no-shows/score";
+import { useClinic } from "../../lib/context/ClinicContext";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -199,14 +200,27 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
   const isManager = user.rol === "manager_general";
   const router = useRouter();
 
+  // Sprint 7 Fase 5: filtro de clínica viene del ClinicContext global.
+  // clinicaFilter (logical id) se deriva mapeando selectedClinicaId (recordId).
+  const { selectedClinicaId, setSelectedClinicaId } = useClinic();
+
   const [data, setData] = useState<HoyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isMañana, setIsMañana] = useState(false);
-  const [clinicaFilter, setClinicaFilter] = useState<string>("");
   const [clinicasDisponibles, setClinicasDisponibles] = useState<{ id: string; nombre: string; recordId?: string }[]>([]);
   const [doctorFilter, setDoctorFilter] = useState<string>("");
   const [staffPorClinica, setStaffPorClinica] = useState<Record<string, StaffEntry[]>>({});
   const [objetivo, setObjetivo] = useState<number>(10);
+
+  const clinicaFilter = useMemo(() => {
+    if (!selectedClinicaId) return "";
+    return clinicasDisponibles.find((c) => c.recordId === selectedClinicaId)?.id ?? "";
+  }, [selectedClinicaId, clinicasDisponibles]);
+
+  // Al cambiar la clínica global, reseteamos el doctor filter.
+  useEffect(() => {
+    setDoctorFilter("");
+  }, [clinicaFilter]);
   const [done, setDone] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     try { return new Set(JSON.parse(localStorage.getItem("fyllio_noshows_done") ?? "[]")); }
@@ -377,27 +391,8 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
           </div>
         </div>
 
-        {/* NAVBAR 1 — Clínicas */}
-        {isManager && clinicasDisponibles.length > 0 && (
-          <div className={PILL_SCROLL}>
-            <button
-              onClick={() => { setClinicaFilter(""); setDoctorFilter(""); }}
-              className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap ${
-                !clinicaFilter ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
-              }`}>
-              Todas las clínicas
-            </button>
-            {clinicasDisponibles.map(c => (
-              <button key={c.id}
-                onClick={() => { setClinicaFilter(c.id); setDoctorFilter(""); }}
-                className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap ${
-                  clinicaFilter === c.id ? "bg-slate-900 text-white border-slate-900" : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
-                }`}>
-                {c.nombre}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* NAVBAR 1 eliminada — selector de clínica vive en el GlobalHeader
+            (Sprint 7 Fase 5). clinicaFilter se deriva de useClinic(). */}
 
         {/* NAVBAR 2 — Doctores (solo cuando hay clínica seleccionada) */}
         {clinicaFilter && doctoresDisponibles.length > 0 && (
@@ -496,7 +491,15 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
                       const dRiesgo = dAppts.filter(isEnRiesgo).length;
                       return (
                         <button key={doctorId}
-                          onClick={() => { setClinicaFilter(clinicaId); setDoctorFilter(doctorId); }}
+                          onClick={() => {
+                            // Drill-down: el clinicaId local es el recordId de Airtable,
+                            // pero si viniera como id lógico lo mapeamos.
+                            const rec =
+                              clinicasDisponibles.find((c) => c.id === clinicaId)?.recordId ??
+                              (clinicasDisponibles.some((c) => c.recordId === clinicaId) ? clinicaId : null);
+                            if (rec) setSelectedClinicaId(rec);
+                            setDoctorFilter(doctorId);
+                          }}
                           className="w-full flex items-center justify-between text-left px-3 py-2 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all">
                           <span className="text-xs font-semibold text-slate-700">{dNombre}</span>
                           <span className="text-xs text-slate-500">

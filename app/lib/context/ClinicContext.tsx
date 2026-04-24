@@ -40,6 +40,8 @@ export type ClinicContextSession = {
 type ContextValue = {
   /** `null` = "Todas las clínicas" (solo válido para admin). */
   selectedClinicaId: string | null;
+  /** Nombre de la clínica seleccionada; `null` si "Todas" o no hidratado. */
+  selectedClinicaNombre: string | null;
   setSelectedClinicaId: (id: string | null) => void;
   /** Todas las clínicas activas cargadas server-side. */
   clinicas: Clinica[];
@@ -126,16 +128,30 @@ export function ClinicProvider({ session, clinicas, children }: ProviderProps) {
     [isAdmin, clinicasSelectables, clinicas]
   );
 
+  const selectedClinicaNombre = useMemo<string | null>(() => {
+    if (!selectedClinicaId) return null;
+    return clinicas.find((c) => c.id === selectedClinicaId)?.nombre ?? null;
+  }, [selectedClinicaId, clinicas]);
+
   const value = useMemo<ContextValue>(
     () => ({
       selectedClinicaId,
+      selectedClinicaNombre,
       setSelectedClinicaId,
       clinicas,
       clinicasSelectables,
       session,
       isHydrated,
     }),
-    [selectedClinicaId, setSelectedClinicaId, clinicas, clinicasSelectables, session, isHydrated]
+    [
+      selectedClinicaId,
+      selectedClinicaNombre,
+      setSelectedClinicaId,
+      clinicas,
+      clinicasSelectables,
+      session,
+      isHydrated,
+    ]
   );
 
   return <ClinicCtx.Provider value={value}>{children}</ClinicCtx.Provider>;
