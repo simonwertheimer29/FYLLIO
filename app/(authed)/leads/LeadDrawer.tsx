@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Lead } from "./LeadsView";
+import type { Lead } from "./types";
 
 // Sprint 9 G.7: "Citados Hoy" deja de ser un estado real del kanban — los
 // leads con Fecha_Cita=hoy se destacan dentro de la columna "Citado".

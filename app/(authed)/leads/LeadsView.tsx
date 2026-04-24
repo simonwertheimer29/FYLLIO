@@ -26,39 +26,9 @@ import { NewLeadModal } from "./NewLeadModal";
 import { LeadDrawer } from "./LeadDrawer";
 import { AgendarModal } from "./AgendarModal";
 import { AsistenciaModal } from "./AsistenciaModal";
+import type { Lead, LeadEstado } from "./types";
 
-type LeadEstado =
-  | "Nuevo"
-  | "Contactado"
-  | "Citado"
-  | "Citados Hoy"
-  | "No Interesado"
-  | "Convertido";
-
-export type Lead = {
-  id: string;
-  nombre: string;
-  telefono: string | null;
-  email: string | null;
-  tratamiento: string | null;
-  canal: string | null;
-  estado: LeadEstado;
-  clinicaId: string | null;
-  clinicaNombre: string | null;
-  fechaCita: string | null;
-  horaCita: string | null;
-  doctorAsignadoId: string | null;
-  tipoVisita: "Primera visita" | "Revisión" | "Urgencia" | null;
-  motivoNoInteres: "Rechazo_Producto" | "No_Asistio" | null;
-  llamado: boolean;
-  whatsappEnviados: number;
-  ultimaAccion: string | null;
-  notas: string | null;
-  convertido: boolean;
-  pacienteId: string | null;
-  asistido: boolean;
-  createdAt: string;
-};
+export type { Lead } from "./types";
 
 // Sprint 9 G.7: "Citados Hoy" deja de ser un estado real del pipeline. La
 // columna desaparece del kanban; los leads con Fecha_Cita=hoy se muestran

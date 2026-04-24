@@ -8,7 +8,7 @@
 // Cerrar sin guardar NO marca asistido (el checkbox vuelve a off).
 
 import { useState } from "react";
-import type { Lead } from "./LeadsView";
+import type { Lead } from "./types";
 
 const TRATAMIENTOS = [
   "Implantología",

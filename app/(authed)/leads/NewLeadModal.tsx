@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Lead } from "./LeadsView";
+import type { Lead } from "./types";
 
 const TRATAMIENTOS = [
   "Implantología", "Ortodoncia", "Ortodoncia Invisible", "Periodoncia", "Endodoncia",

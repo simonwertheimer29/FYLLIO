@@ -7,7 +7,7 @@
 // y el lead se queda en Contactado.
 
 import { useState } from "react";
-import type { Lead } from "./LeadsView";
+import type { Lead } from "./types";
 
 const TRATAMIENTOS = [
   "Implantología",
