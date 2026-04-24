@@ -3,14 +3,32 @@
 
 import { base, TABLES, fetchAll } from "../airtable";
 
-export type LeadEstado = "Nuevo" | "Contactado" | "Citado" | "Citados Hoy" | "No Interesado";
+/**
+ * Sprint 9: el enum Airtable sigue incluyendo "Citados Hoy" como valor
+ * legacy; nuevos leads solo usan "Citado" + Fecha_Cita para derivar la
+ * columna "Citados Hoy" en el kanban (filtro de visualización).
+ * "Convertido" se añade automáticamente vía typecast:true al primer update
+ * que lo use (Airtable lo registra la primera vez).
+ */
+export type LeadEstado =
+  | "Nuevo"
+  | "Contactado"
+  | "Citado"
+  | "Citados Hoy"
+  | "No Interesado"
+  | "Convertido";
+
 export const LEAD_ESTADOS: LeadEstado[] = [
   "Nuevo",
   "Contactado",
   "Citado",
   "Citados Hoy",
   "No Interesado",
+  "Convertido",
 ];
+
+export type LeadTipoVisita = "Primera visita" | "Revisión" | "Urgencia";
+export type LeadMotivoNoInteres = "Rechazo_Producto" | "No_Asistio";
 
 export type LeadTratamiento =
   | "Implantología"
@@ -47,6 +65,14 @@ export type Lead = {
   clinicaId: string | null;
   clinicaNombre?: string;
   fechaCita: string | null;
+  /** Sprint 9: hora de cita formato HH:MM (text libre por simplicidad Metadata API). */
+  horaCita: string | null;
+  /** Sprint 9: doctor asignado al agendar (link Staff). */
+  doctorAsignadoId: string | null;
+  /** Sprint 9: Primera visita / Revisión / Urgencia. */
+  tipoVisita: LeadTipoVisita | null;
+  /** Sprint 9: motivo de la transición a "No Interesado". */
+  motivoNoInteres: LeadMotivoNoInteres | null;
   llamado: boolean;
   whatsappEnviados: number;
   ultimaAccion: string | null;
@@ -62,6 +88,7 @@ function toLead(rec: any): Lead {
   const f = rec.fields ?? {};
   const clinicaLinks = (f["Clinica"] ?? []) as string[];
   const pacienteLinks = (f["Paciente_ID"] ?? []) as string[];
+  const doctorLinks = (f["Doctor_Asignado"] ?? []) as string[];
   return {
     id: rec.id,
     nombre: String(f["Nombre"] ?? ""),
@@ -72,6 +99,10 @@ function toLead(rec: any): Lead {
     estado: (f["Estado"] as LeadEstado) ?? "Nuevo",
     clinicaId: clinicaLinks[0] ?? null,
     fechaCita: f["Fecha_Cita"] ? String(f["Fecha_Cita"]) : null,
+    horaCita: f["Hora_Cita"] ? String(f["Hora_Cita"]) : null,
+    doctorAsignadoId: doctorLinks[0] ?? null,
+    tipoVisita: f["Tipo_Visita"] ? (String(f["Tipo_Visita"]) as LeadTipoVisita) : null,
+    motivoNoInteres: f["Motivo_No_Interes"] ? (String(f["Motivo_No_Interes"]) as LeadMotivoNoInteres) : null,
     llamado: Boolean(f["Llamado"] ?? false),
     whatsappEnviados: Number(f["WhatsApp_Enviados"] ?? 0),
     ultimaAccion: f["Ultima_Accion"] ? String(f["Ultima_Accion"]) : null,
@@ -172,6 +203,10 @@ export async function updateLead(
     estado: LeadEstado;
     clinicaId: string;
     fechaCita: string | null;
+    horaCita: string | null;
+    doctorAsignadoId: string | null;
+    tipoVisita: LeadTipoVisita | null;
+    motivoNoInteres: LeadMotivoNoInteres | null;
     llamado: boolean;
     whatsappEnviados: number;
     ultimaAccion: string | null;
@@ -188,14 +223,39 @@ export async function updateLead(
   if (patch.estado !== undefined) fields["Estado"] = patch.estado;
   if (patch.clinicaId !== undefined) fields["Clinica"] = [patch.clinicaId];
   if (patch.fechaCita !== undefined) fields["Fecha_Cita"] = patch.fechaCita ?? "";
+  if (patch.horaCita !== undefined) fields["Hora_Cita"] = patch.horaCita ?? "";
+  if (patch.doctorAsignadoId !== undefined)
+    fields["Doctor_Asignado"] = patch.doctorAsignadoId ? [patch.doctorAsignadoId] : [];
+  if (patch.tipoVisita !== undefined) fields["Tipo_Visita"] = patch.tipoVisita ?? null;
+  if (patch.motivoNoInteres !== undefined) fields["Motivo_No_Interes"] = patch.motivoNoInteres ?? null;
   if (patch.llamado !== undefined) fields["Llamado"] = patch.llamado;
   if (patch.whatsappEnviados !== undefined) fields["WhatsApp_Enviados"] = patch.whatsappEnviados;
   if (patch.ultimaAccion !== undefined) fields["Ultima_Accion"] = patch.ultimaAccion ?? "";
   if (patch.notas !== undefined) fields["Notas"] = patch.notas ?? "";
   if (patch.asistido !== undefined) fields["Asistido"] = patch.asistido;
 
-  const updated = (await base(TABLES.leads).update([{ id, fields }]))[0]!;
+  // typecast: true permite que Airtable cree automáticamente la opción del
+  // singleSelect Estado la primera vez que llega "Convertido" (añadido en
+  // Sprint 9 sin PATCH de schema — Metadata API no acepta modificaciones
+  // de choices sobre un singleSelect existente en este token).
+  const updated = (
+    await base(TABLES.leads).update([{ id, fields }], { typecast: true })
+  )[0]!;
   return toLead(updated);
+}
+
+/** Añade una entrada con timestamp al campo `Ultima_Accion` (log ligero). */
+export async function appendLeadLog(leadId: string, event: string): Promise<void> {
+  try {
+    const rec = await base(TABLES.leads).find(leadId);
+    const prev = String(rec.fields?.["Ultima_Accion"] ?? "");
+    const stamp = new Date().toISOString().replace(".000Z", "Z");
+    const line = `[${stamp}] ${event}`;
+    const next = prev ? `${prev}\n${line}` : line;
+    await base(TABLES.leads).update([{ id: leadId, fields: { Ultima_Accion: next } }]);
+  } catch {
+    /* silencioso: log sin impacto funcional */
+  }
 }
 
 export async function markLeadConvertido(leadId: string, pacienteId: string): Promise<Lead> {

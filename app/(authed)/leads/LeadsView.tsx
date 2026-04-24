@@ -25,7 +25,13 @@ import { useClinic } from "../../lib/context/ClinicContext";
 import { NewLeadModal } from "./NewLeadModal";
 import { LeadDrawer } from "./LeadDrawer";
 
-type LeadEstado = "Nuevo" | "Contactado" | "Citado" | "Citados Hoy" | "No Interesado";
+type LeadEstado =
+  | "Nuevo"
+  | "Contactado"
+  | "Citado"
+  | "Citados Hoy"
+  | "No Interesado"
+  | "Convertido";
 
 export type Lead = {
   id: string;
@@ -38,6 +44,10 @@ export type Lead = {
   clinicaId: string | null;
   clinicaNombre: string | null;
   fechaCita: string | null;
+  horaCita: string | null;
+  doctorAsignadoId: string | null;
+  tipoVisita: "Primera visita" | "Revisión" | "Urgencia" | null;
+  motivoNoInteres: "Rechazo_Producto" | "No_Asistio" | null;
   llamado: boolean;
   whatsappEnviados: number;
   ultimaAccion: string | null;

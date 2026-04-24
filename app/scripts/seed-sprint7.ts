@@ -761,6 +761,64 @@ async function upsertLeads(
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// 8.5) ENRIQUECER LEADS PIPELINE (Sprint 9) con campos nuevos
+//      Hora_Cita, Doctor_Asignado, Tipo_Visita para los leads Citado/
+//      Citados Hoy existentes. Idempotente: solo rellena los que no los tienen.
+// ═══════════════════════════════════════════════════════════════════════
+
+const TIPO_VISITA_DISTR = ["Primera visita", "Primera visita", "Revisión", "Urgencia"] as const;
+const HORAS_CITA = ["09:00", "10:00", "11:30", "12:30", "16:00", "17:00", "18:00", "19:00"];
+
+async function enrichLeadsPipeline(doctores: DoctorSeed[]): Promise<number> {
+  console.log(`\n[8.5/9] Enriquecer leads pipeline (Sprint 9 — hora, doctor, tipo visita)`);
+  const recsAll = await fetchAll(
+    base(TABLES.leads).select({ filterByFormula: `FIND('[SEED]', {Notas}&'')>0` })
+  );
+  // Solo leads que están agendados (Citado o Citados Hoy) y que no tienen
+  // todavía Hora_Cita / Doctor_Asignado / Tipo_Visita.
+  const needsEnrich = recsAll.filter((r) => {
+    const estado = String(r.fields?.["Estado"] ?? "");
+    if (estado !== "Citado" && estado !== "Citados Hoy") return false;
+    const hasHora = Boolean(r.fields?.["Hora_Cita"]);
+    const hasDoctor = Array.isArray(r.fields?.["Doctor_Asignado"]) && (r.fields?.["Doctor_Asignado"] as string[]).length > 0;
+    const hasTipo = Boolean(r.fields?.["Tipo_Visita"]);
+    return !hasHora || !hasDoctor || !hasTipo;
+  });
+  if (needsEnrich.length === 0) {
+    console.log("  ✔ todos los leads Citado/Citados Hoy ya enriquecidos");
+    return 0;
+  }
+
+  const doctoresPorClinica = new Map<string, DoctorSeed[]>();
+  for (const d of doctores) {
+    if (!doctoresPorClinica.has(d.clinicaId)) doctoresPorClinica.set(d.clinicaId, []);
+    doctoresPorClinica.get(d.clinicaId)!.push(d);
+  }
+
+  let total = 0;
+  for (let i = 0; i < needsEnrich.length; i += 10) {
+    const slice = needsEnrich.slice(i, i + 10).map((rec, idx) => {
+      const clis = (rec.fields?.["Clinica"] ?? []) as string[];
+      const clinicaId = clis[0];
+      const docs = clinicaId ? doctoresPorClinica.get(clinicaId) ?? [] : [];
+      const doctor = docs.length ? docs[Math.floor(Math.random() * docs.length)]! : null;
+      const fields: Record<string, any> = {};
+      if (!rec.fields?.["Hora_Cita"]) fields["Hora_Cita"] = HORAS_CITA[Math.floor(Math.random() * HORAS_CITA.length)];
+      const hasDoctor = Array.isArray(rec.fields?.["Doctor_Asignado"]) && (rec.fields?.["Doctor_Asignado"] as string[]).length > 0;
+      if (!hasDoctor && doctor) fields["Doctor_Asignado"] = [doctor.id];
+      if (!rec.fields?.["Tipo_Visita"]) {
+        fields["Tipo_Visita"] = TIPO_VISITA_DISTR[(i + idx) % TIPO_VISITA_DISTR.length]!;
+      }
+      return { id: rec.id, fields };
+    });
+    await base(TABLES.leads).update(slice);
+    total += slice.length;
+  }
+  console.log(`  ✔ ${total} leads enriquecidos (hora/doctor/tipo visita)`);
+  return total;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // 9) ENRIQUECER PACIENTES (Sprint 8) con campos nuevos
 //    Tratamientos, Doctor_Link, Fecha_Cita, Presupuesto_Total, Aceptado,
 //    Pagado, Pendiente, Financiado, Canal_Origen. Idempotente: solo actualiza
@@ -937,6 +995,7 @@ async function main() {
   const nNoShows = await upsertNoShows(clinicas, pacientes, doctores);
   const nLeadsWaitlist = await upsertLeads(clinicas, pacientes);
   const nLeadsPipeline = await upsertLeadsPipeline(clinicas);
+  const nLeadsEnriched = await enrichLeadsPipeline(doctores);
   const nEnriched = await enrichPacientes(pacientes, doctores);
 
   console.log("\n═══════════════════════════════════════════════════════════");
@@ -952,6 +1011,7 @@ async function main() {
   console.log(`No-shows:        ${nNoShows}`);
   console.log(`Leads (espera):  ${nLeadsWaitlist}`);
   console.log(`Leads (pipe):    ${nLeadsPipeline}`);
+  console.log(`Leads enriched:  ${nLeadsEnriched}`);
   console.log(`Pacientes enrich:${nEnriched}`);
   console.log("\nPINs coordinación:");
   for (const c of usuarios.coordinaciones) {
