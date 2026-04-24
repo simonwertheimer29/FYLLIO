@@ -142,6 +142,37 @@ export async function listUsuarios(): Promise<Usuario[]> {
   return recs.map(toUsuario);
 }
 
+/**
+ * Lista usuarios junto con sus clínicas embebidas. Uso: Fase 6 /ajustes.
+ * Resuelve el junction en un solo round-trip y devuelve
+ * `[{...usuario, clinicas: [{id, nombre}]}]`.
+ * Los admin aparecen con `clinicas: []` (acceso a todas via rol).
+ */
+export async function listUsuariosConClinicas(): Promise<
+  Array<Usuario & { clinicas: Array<{ id: string; nombre: string }> }>
+> {
+  const [usuarios, allClinicas, junctions] = await Promise.all([
+    listUsuarios(),
+    listClinicas(),
+    allJunctions(),
+  ]);
+  const clinicaById = new Map(allClinicas.map((c) => [c.id, c]));
+  const clinicasByUserId = new Map<string, Array<{ id: string; nombre: string }>>();
+  for (const j of junctions) {
+    for (const uid of j.userIds) {
+      if (!clinicasByUserId.has(uid)) clinicasByUserId.set(uid, []);
+      for (const cid of j.clinicaIds) {
+        const c = clinicaById.get(cid);
+        if (c) clinicasByUserId.get(uid)!.push({ id: c.id, nombre: c.nombre });
+      }
+    }
+  }
+  return usuarios.map((u) => ({
+    ...u,
+    clinicas: u.rol === "admin" ? [] : clinicasByUserId.get(u.id) ?? [],
+  }));
+}
+
 /** Admins activos con Pin_hash seteado (candidatos a admin-pin-login). */
 export async function listAdminCandidates(): Promise<Usuario[]> {
   const recs = await fetchAll(
@@ -197,6 +228,44 @@ export async function updateUsuario(
 
   const updated = (await base(TABLES.usuarios).update([{ id, fields }]))[0];
   return toUsuario(updated);
+}
+
+/**
+ * Reemplaza por completo las clínicas asociadas a un usuario:
+ *  - Borra los registros de Usuario_Clinicas donde el usuario aparece y
+ *    cuya clínica no esté en `clinicaIds`.
+ *  - Crea los vínculos nuevos que falten.
+ * Idempotente.
+ */
+export async function setUsuarioClinicas(userId: string, clinicaIds: string[]): Promise<void> {
+  const target = new Set(clinicaIds);
+  const recs = await fetchAll(base(TABLES.usuarioClinicas).select({}));
+  const toDelete: string[] = [];
+  const keep = new Set<string>();
+  for (const rec of recs) {
+    const userLinks = (rec.fields?.["Usuario"] ?? []) as string[];
+    if (!userLinks.includes(userId)) continue;
+    const clinicaLinks = (rec.fields?.["Clinica"] ?? []) as string[];
+    // Junction con ambos lados single-link (lo creamos así); asumimos clinicaLinks[0].
+    const cid = clinicaLinks[0];
+    if (!cid || !target.has(cid)) {
+      toDelete.push(rec.id);
+    } else {
+      keep.add(cid);
+    }
+  }
+  // Borrar sobrantes en batches de 10.
+  for (let i = 0; i < toDelete.length; i += 10) {
+    await base(TABLES.usuarioClinicas).destroy(toDelete.slice(i, i + 10));
+  }
+  // Crear los que faltan.
+  const missing = clinicaIds.filter((cid) => !keep.has(cid));
+  const toCreate = missing.map((cid) => ({
+    fields: { Usuario: [userId], Clinica: [cid] },
+  }));
+  for (let i = 0; i < toCreate.length; i += 10) {
+    await base(TABLES.usuarioClinicas).create(toCreate.slice(i, i + 10));
+  }
 }
 
 /** Enlaza un usuario a una clínica (idempotente: no crea duplicados). */

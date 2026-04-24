@@ -22,3 +22,10 @@ export function verifyPassword(plaintext: string, hash: string): Promise<boolean
 export function verifyPin(pin: string, hash: string): Promise<boolean> {
   return bcrypt.compare(pin, hash);
 }
+
+/** PIN aleatorio de 4 o 6 dígitos como string. */
+export function genRandomPin(length: 4 | 6): string {
+  const max = length === 4 ? 9999 : 999999;
+  const min = length === 4 ? 1000 : 100000;
+  return String(Math.floor(Math.random() * (max - min + 1)) + min);
+}
