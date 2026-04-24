@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { Fragment, useEffect, useState, useRef } from "react";
 import type { TonosStats } from "../../api/presupuestos/tonos-stats/route";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
@@ -606,9 +606,8 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                 const prev = prevMap.get(d.doctor);
                 const isSelected = evolDoctor === d.doctor;
                 return (
-                  <>
+                  <Fragment key={d.doctor}>
                     <tr
-                      key={d.doctor}
                       onClick={() => loadDoctorEvol(d.doctor)}
                       className={`border-b border-slate-50 cursor-pointer transition-colors ${isSelected ? "bg-violet-50" : "hover:bg-slate-50"}`}
                       style={{ background: isSelected ? undefined : (ESPECIALIDAD_COLOR[d.especialidad as keyof typeof ESPECIALIDAD_COLOR] ?? "#f8fafc") + "18" }}
@@ -624,7 +623,7 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                       <td className="px-3 py-2.5"><TrendBadge curr={d.total} prev={prev?.total ?? 0} /></td>
                     </tr>
                     {isSelected && evolData && (
-                      <tr key={`${d.doctor}-evol`}>
+                      <tr>
                         <td colSpan={6} className="px-4 py-4 bg-violet-50 border-b border-violet-100">
                           <p className="text-xs font-bold text-violet-700 mb-3">Evolución 12 meses — {d.doctor}</p>
                           <ResponsiveContainer width="100%" height={160}>
@@ -646,7 +645,7 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>
