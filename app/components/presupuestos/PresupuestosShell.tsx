@@ -199,13 +199,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     setEditPresupuesto(p);
   }
 
-  async function handleLogout() {
-    // Sprint 7: logout unificado — limpia fyllio_session + cookies legacy
-    // (fyllio_presupuestos_token, fyllio_noshows_token) y redirige al /login
-    // nuevo (panel de gestión con tarjetas).
-    await fetch("/api/auth/logout", { method: "POST" });
-    location.href = "/login";
-  }
+  // Logout movido al GlobalHeader (Sprint 7 Fase 4).
 
   const TABS: { id: Tab; label: string; icon: string }[] = isManager
     ? [
@@ -247,25 +241,12 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
 
   return (
     <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
-      {/* Top bar */}
-      <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between gap-4 shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 overflow-hidden shrink-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/fyllio-wordmark.png"
-              alt="Fyllio"
-              className="h-8 w-auto"
-              style={{ maxWidth: "none" }}
-            />
-          </div>
-          <div className="border-l border-slate-200 pl-3">
-            <p className="text-xs font-bold text-slate-900 leading-tight">Presupuestos</p>
-            <p className="text-[10px] text-slate-400">{user.clinica ?? "Todas las clínicas"}</p>
-          </div>
-        </div>
-
-        {/* Action buttons + User */}
+      {/* Barra de acciones del área (Sprint 7 Fase 4).
+          Logo, usuario, rol, selector y Salir viven ahora en el GlobalHeader
+          del layout (authed). Aquí solo dejamos las acciones específicas de
+          Presupuestos: Importar CSV, Nuevo, y notificaciones. */}
+      <div className="bg-white border-b border-slate-200 px-4 py-2 flex items-center gap-2 shrink-0 justify-between">
+        <p className="text-xs font-bold text-slate-900">Presupuestos</p>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowImportCSV(true)}
@@ -283,12 +264,6 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
             <span>+</span>
             <span className="hidden sm:inline">Nuevo</span>
           </button>
-          <div className="hidden sm:block text-right ml-1">
-            <p className="text-xs font-semibold text-slate-700">{user.nombre}</p>
-            <p className="text-[10px] text-slate-400">
-              {user.rol === "manager_general" ? "Manager" : user.rol === "ventas" ? "Ventas" : "Encargada ventas"}
-            </p>
-          </div>
           <button
             onClick={() => setShowNotifPanel(true)}
             className="relative text-lg leading-none px-1.5 py-1 rounded-lg hover:bg-slate-100 transition-colors"
@@ -301,14 +276,8 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
               </span>
             )}
           </button>
-          <button
-            onClick={handleLogout}
-            className="text-xs px-2.5 py-1.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50"
-          >
-            Salir
-          </button>
         </div>
-      </header>
+      </div>
 
       {/* Tabs — visible only on desktop */}
       <div className="hidden lg:block bg-white border-b border-slate-200 px-4 shrink-0">
