@@ -1,8 +1,11 @@
 // app/(authed)/red/page.tsx
-// Sprint 8 Bloque D — placeholder admin-only. Contenido en D.3.
+// Sprint 8 D.3 — dashboard macro admin-only. Integra Leads + Presupuestos
+// + Pacientes.
 
 import { redirect } from "next/navigation";
 import { getSession } from "../../lib/auth/session";
+import type { UserSession } from "../../lib/presupuestos/types";
+import { RedView } from "./RedView";
 
 export const dynamic = "force-dynamic";
 
@@ -11,12 +14,12 @@ export default async function RedPage() {
   if (!s) redirect("/login");
   if (s.rol !== "admin") redirect("/actuar-hoy");
 
-  return (
-    <div className="flex-1 min-h-0 p-6 overflow-auto">
-      <h1 className="text-xl font-extrabold text-slate-900">Red</h1>
-      <p className="text-sm text-slate-500 mt-2">
-        Dashboard macro: Leads + Presupuestos + Pacientes por clínica. Se conecta en D.3.
-      </p>
-    </div>
-  );
+  const user: UserSession = {
+    email: "",
+    nombre: s.nombre,
+    rol: "manager_general",
+    clinica: null,
+  };
+
+  return <RedView user={user} />;
 }
