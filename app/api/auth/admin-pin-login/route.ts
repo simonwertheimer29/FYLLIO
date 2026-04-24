@@ -70,7 +70,8 @@ export async function POST(req: Request) {
     const res = NextResponse.json({
       ok: true,
       user: { id: matched.id, nombre: matched.nombre, rol: "admin" },
-      redirect: "/ajustes",
+      // Temporal: /ajustes llega en Fase 6. Mientras tanto, /presupuestos.
+      redirect: "/presupuestos",
     });
     setSessionCookie(res, token);
     return res;
