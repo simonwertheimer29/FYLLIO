@@ -19,6 +19,7 @@ export const PATCH = withAdmin<Ctx>(async (_session, req, ctx) => {
   const body = (await req.json().catch(() => null)) as {
     nombre?: string;
     email?: string | null;
+    telefono?: string | null;
     activo?: boolean;
     clinicas?: string[];
   } | null;
@@ -31,6 +32,8 @@ export const PATCH = withAdmin<Ctx>(async (_session, req, ctx) => {
   if (typeof body.nombre === "string" && body.nombre.trim()) patch.nombre = body.nombre.trim();
   if (body.email !== undefined)
     patch.email = body.email === null ? null : String(body.email).toLowerCase().trim();
+  if (body.telefono !== undefined)
+    patch.telefono = body.telefono === null ? null : String(body.telefono).trim();
   if (typeof body.activo === "boolean") patch.activo = body.activo;
 
   if (Object.keys(patch).length > 0) {

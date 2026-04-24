@@ -53,6 +53,8 @@ export type Lead = {
   notas: string | null;
   convertido: boolean;
   pacienteId: string | null;
+  /** Sprint 8: coord marca manualmente cuando el paciente se presentó a la cita. */
+  asistido: boolean;
   createdAt: string; // ISO — Airtable record createdTime
 };
 
@@ -76,6 +78,7 @@ function toLead(rec: any): Lead {
     notas: f["Notas"] ? String(f["Notas"]) : null,
     convertido: Boolean(f["Convertido_A_Paciente"] ?? false),
     pacienteId: pacienteLinks[0] ?? null,
+    asistido: Boolean(f["Asistido"] ?? false),
     createdAt: String(rec.createdTime ?? ""),
   };
 }
@@ -173,6 +176,7 @@ export async function updateLead(
     whatsappEnviados: number;
     ultimaAccion: string | null;
     notas: string | null;
+    asistido: boolean;
   }>
 ): Promise<Lead> {
   const fields: Record<string, any> = {};
@@ -188,6 +192,7 @@ export async function updateLead(
   if (patch.whatsappEnviados !== undefined) fields["WhatsApp_Enviados"] = patch.whatsappEnviados;
   if (patch.ultimaAccion !== undefined) fields["Ultima_Accion"] = patch.ultimaAccion ?? "";
   if (patch.notas !== undefined) fields["Notas"] = patch.notas ?? "";
+  if (patch.asistido !== undefined) fields["Asistido"] = patch.asistido;
 
   const updated = (await base(TABLES.leads).update([{ id, fields }]))[0]!;
   return toLead(updated);

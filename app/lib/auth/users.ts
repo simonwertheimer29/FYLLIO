@@ -11,6 +11,7 @@ export type Usuario = {
   id: string;
   nombre: string;
   email: string | null;
+  telefono: string | null;
   rol: Rol;
   activo: boolean;
   passwordHash: string | null;
@@ -35,6 +36,7 @@ function toUsuario(rec: any): Usuario {
     id: rec.id,
     nombre: String(f["Nombre"] ?? ""),
     email: f["Email"] ? String(f["Email"]) : null,
+    telefono: f["Telefono"] ? String(f["Telefono"]) : null,
     rol: (String(f["Rol"] ?? "coordinacion") as Rol),
     activo: Boolean(f["Activo"] ?? false),
     passwordHash: f["Password_hash"] ? String(f["Password_hash"]) : null,
@@ -188,6 +190,7 @@ export async function createUsuario(args: {
   nombre: string;
   rol: Rol;
   email?: string | null;
+  telefono?: string | null;
   passwordHash?: string | null;
   pinHash?: string | null;
   pinLength?: 4 | 6;
@@ -199,6 +202,7 @@ export async function createUsuario(args: {
     Activo: args.activo ?? true,
   };
   if (args.email) fields["Email"] = args.email.toLowerCase().trim();
+  if (args.telefono) fields["Telefono"] = args.telefono.trim();
   if (args.passwordHash) fields["Password_hash"] = args.passwordHash;
   if (args.pinHash) fields["Pin_hash"] = args.pinHash;
   if (args.pinLength) fields["Pin_length"] = args.pinLength;
@@ -212,6 +216,7 @@ export async function updateUsuario(
   patch: Partial<{
     nombre: string;
     email: string | null;
+    telefono: string | null;
     passwordHash: string | null;
     pinHash: string | null;
     pinLength: 4 | 6;
@@ -221,6 +226,7 @@ export async function updateUsuario(
   const fields: Record<string, any> = {};
   if (patch.nombre !== undefined) fields["Nombre"] = patch.nombre;
   if (patch.email !== undefined) fields["Email"] = patch.email;
+  if (patch.telefono !== undefined) fields["Telefono"] = patch.telefono ?? "";
   if (patch.passwordHash !== undefined) fields["Password_hash"] = patch.passwordHash;
   if (patch.pinHash !== undefined) fields["Pin_hash"] = patch.pinHash;
   if (patch.pinLength !== undefined) fields["Pin_length"] = patch.pinLength;

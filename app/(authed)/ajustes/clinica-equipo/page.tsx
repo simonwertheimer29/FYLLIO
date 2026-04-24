@@ -25,6 +25,7 @@ export default async function ClinicaEquipoPage() {
         id: u.id,
         nombre: u.nombre,
         email: u.email,
+        telefono: u.telefono,
         rol: u.rol,
         activo: u.activo,
         pinLength: u.pinLength,

@@ -18,6 +18,7 @@ type Usuario = {
   id: string;
   nombre: string;
   email: string | null;
+  telefono: string | null;
   rol: "admin" | "coordinacion";
   activo: boolean;
   pinLength: 4 | 6 | null;
@@ -203,6 +204,7 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
                 <th className="text-left font-semibold px-3 py-2">Nombre</th>
                 <th className="text-left font-semibold px-3 py-2">Rol</th>
                 <th className="text-left font-semibold px-3 py-2">Email</th>
+                <th className="text-left font-semibold px-3 py-2">Teléfono</th>
                 <th className="text-left font-semibold px-3 py-2">Clínicas</th>
                 <th className="text-left font-semibold px-3 py-2">Estado</th>
                 <th className="text-right font-semibold px-3 py-2">Acciones</th>
@@ -216,6 +218,7 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
                     {u.rol === "admin" ? "Administrador" : "Coordinación"}
                   </td>
                   <td className="px-3 py-2 text-slate-600">{u.email ?? "—"}</td>
+                  <td className="px-3 py-2 text-slate-600 font-mono text-[11px]">{u.telefono ?? "—"}</td>
                   <td className="px-3 py-2 text-slate-600">
                     {u.rol === "admin"
                       ? "Todas las clínicas"
@@ -259,7 +262,7 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
               ))}
               {usuarios.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-3 py-6 text-center text-slate-400">
+                  <td colSpan={7} className="px-3 py-6 text-center text-slate-400">
                     Sin usuarios.
                   </td>
                 </tr>
@@ -392,6 +395,7 @@ function UsuarioModal({
   const [rol, setRol] = useState<"admin" | "coordinacion">(usuario?.rol ?? "coordinacion");
   const [nombre, setNombre] = useState(usuario?.nombre ?? "");
   const [email, setEmail] = useState(usuario?.email ?? "");
+  const [telefono, setTelefono] = useState(usuario?.telefono ?? "");
   const [clinicasSel, setClinicasSel] = useState<Set<string>>(
     new Set(usuario?.clinicas.map((c) => c.id) ?? [])
   );
@@ -414,8 +418,18 @@ function UsuarioModal({
       if (isNew) {
         const body =
           rol === "admin"
-            ? { rol: "admin" as const, nombre, email: email || null }
-            : { rol: "coordinacion" as const, nombre, clinicas: Array.from(clinicasSel) };
+            ? {
+                rol: "admin" as const,
+                nombre,
+                email: email || null,
+                telefono: telefono || null,
+              }
+            : {
+                rol: "coordinacion" as const,
+                nombre,
+                clinicas: Array.from(clinicasSel),
+                telefono: telefono || null,
+              };
         if (rol === "coordinacion" && clinicasSel.size === 0) {
           onError("Selecciona al menos una clínica");
           setSaving(false);
@@ -441,6 +455,7 @@ function UsuarioModal({
           body: JSON.stringify({
             nombre,
             email: rol === "admin" ? email || null : undefined,
+            telefono: telefono || null,
             clinicas: rol === "coordinacion" ? Array.from(clinicasSel) : undefined,
           }),
         });
@@ -489,6 +504,16 @@ function UsuarioModal({
         {rol === "admin" && (
           <LabeledInput label="Email (opcional, solo notificaciones)" value={email} onChange={setEmail} />
         )}
+
+        <LabeledInput
+          label={
+            rol === "coordinacion"
+              ? "Teléfono (WhatsApp, para recibir alertas del admin)"
+              : "Teléfono (opcional)"
+          }
+          value={telefono}
+          onChange={setTelefono}
+        />
 
         {rol === "coordinacion" && (
           <div>

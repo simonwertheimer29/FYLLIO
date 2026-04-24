@@ -23,6 +23,7 @@ export const GET = withAdmin(async () => {
     id: u.id,
     nombre: u.nombre,
     email: u.email,
+    telefono: u.telefono,
     rol: u.rol,
     activo: u.activo,
     pinLength: u.pinLength,
@@ -32,8 +33,8 @@ export const GET = withAdmin(async () => {
 });
 
 type CreateBody =
-  | { rol: "admin"; nombre: string; email?: string | null }
-  | { rol: "coordinacion"; nombre: string; clinicas: string[] };
+  | { rol: "admin"; nombre: string; email?: string | null; telefono?: string | null }
+  | { rol: "coordinacion"; nombre: string; clinicas: string[]; telefono?: string | null };
 
 export const POST = withAdmin(async (_session, req) => {
   const body = (await req.json().catch(() => null)) as CreateBody | null;
@@ -49,6 +50,7 @@ export const POST = withAdmin(async (_session, req) => {
       nombre,
       rol: "admin",
       email: body.email ? String(body.email).toLowerCase().trim() : null,
+      telefono: body.telefono ? String(body.telefono).trim() : null,
       pinHash,
       pinLength: 6,
       activo: true,
@@ -80,6 +82,7 @@ export const POST = withAdmin(async (_session, req) => {
     const user = await createUsuario({
       nombre,
       rol: "coordinacion",
+      telefono: body.telefono ? String(body.telefono).trim() : null,
       pinHash,
       pinLength: 4,
       activo: true,

@@ -39,6 +39,8 @@ export const TABLES = {
   usuarioClinicas: "Usuario_Clinicas",
   // Sprint 8 — módulo Leads (pipeline comercial pre-paciente)
   leads: "Leads",
+  // Sprint 8 — log de alertas enviadas por admin (cooldown 2h)
+  alertasEnviadas: "Alertas_Enviadas",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];

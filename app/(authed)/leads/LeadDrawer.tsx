@@ -156,6 +156,25 @@ export function LeadDrawer({
             </div>
           </section>
 
+          {/* Asistido (Sprint 8 D.7) — visible si la cita ya ha pasado o es
+              un "Citado" / "Citados Hoy". Marcado manual por coord. */}
+          {(lead.estado === "Citado" || lead.estado === "Citados Hoy") && (
+            <section>
+              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={lead.asistido}
+                  onChange={(e) => patch({ asistido: e.target.checked })}
+                />
+                <span>
+                  {lead.asistido
+                    ? "Asistió a la cita"
+                    : "Marcar como asistido cuando el paciente se presente"}
+                </span>
+              </label>
+            </section>
+          )}
+
           <section>
             <label className="block text-[11px] font-semibold text-slate-600 mb-1">Notas</label>
             <textarea

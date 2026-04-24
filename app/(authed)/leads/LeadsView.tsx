@@ -44,6 +44,7 @@ export type Lead = {
   notas: string | null;
   convertido: boolean;
   pacienteId: string | null;
+  asistido: boolean;
   createdAt: string;
 };
 
