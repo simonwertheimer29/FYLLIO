@@ -17,9 +17,9 @@ export const GET = withAdmin(async () => {
   const now = Date.now();
   const enriched = await Promise.all(
     alertas.map(async (a) => {
-      const tipos = (["leads", "presupuestos", "citados", "automatizaciones"] as const).filter(
-        (t) => a.counts[t] > 0
-      );
+      const tipos = (
+        ["leads", "presupuestos", "citados", "asistencias", "automatizaciones"] as const
+      ).filter((t) => a.counts[t] > 0);
       const cooldowns: Record<string, { untilMs: number } | null> = {};
       for (const t of tipos) {
         const last = await lastAlertFor(a.clinicaId, t);

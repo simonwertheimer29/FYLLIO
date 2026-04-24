@@ -31,7 +31,13 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
   function add(clinicaId: string, tipo: TipoAlerta, n = 1): void {
     if (!clinicaId || !clinicaById.has(clinicaId)) return;
     if (!result.has(clinicaId)) {
-      result.set(clinicaId, { leads: 0, presupuestos: 0, citados: 0, automatizaciones: 0 });
+      result.set(clinicaId, {
+        leads: 0,
+        presupuestos: 0,
+        citados: 0,
+        asistencias: 0,
+        automatizaciones: 0,
+      });
     }
     result.get(clinicaId)![tipo] += n;
   }
@@ -51,15 +57,20 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
     if (clis[0]) add(clis[0], "leads");
   }
 
-  // 2. CITADOS no asistidos: Estado=Citados Hoy + Fecha_Cita < hoy + Asistido=false
+  // 2. ASISTENCIAS sin cerrar (Sprint 9 G.6) — leads con cita pasada o de hoy
+  //    en estado Citado/Citados Hoy, sin marcar Asistido ni transicionar a
+  //    No Interesado/Convertido. Incluye "Citado" porque en Sprint 9 G.7
+  //    "Citados Hoy" deja de ser un estado real (solo filtro visual); los
+  //    nuevos leads quedan en "Citado" con Fecha_Cita.
   for (const r of leads) {
     const f = r.fields ?? {};
-    if (f["Estado"] !== "Citados Hoy") continue;
+    const estado = String(f["Estado"] ?? "");
+    if (estado !== "Citado" && estado !== "Citados Hoy") continue;
     const fecha = f["Fecha_Cita"] ? String(f["Fecha_Cita"]) : "";
-    if (!fecha || fecha >= today) continue;
+    if (!fecha || fecha > today) continue; // futuras no aplican
     if (f["Asistido"]) continue;
     const clis = (f["Clinica"] ?? []) as string[];
-    if (clis[0]) add(clis[0], "citados");
+    if (clis[0]) add(clis[0], "asistencias");
   }
 
   // 3. PRESUPUESTOS sin seguimiento: Estado ∈ {PRESENTADO, INTERESADO, EN_DUDA}
@@ -103,21 +114,18 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
     if (cid) add(cid, "automatizaciones");
   }
 
+  const totalOf = (c: Record<TipoAlerta, number>) =>
+    c.leads + c.presupuestos + c.citados + c.asistencias + c.automatizaciones;
+
   const out: AlertaClinica[] = [];
   for (const [clinicaId, counts] of result) {
-    const totals = counts.leads + counts.presupuestos + counts.citados + counts.automatizaciones;
-    if (totals === 0) continue;
+    if (totalOf(counts) === 0) continue;
     out.push({
       clinicaId,
       clinicaNombre: clinicaById.get(clinicaId)?.nombre ?? "",
       counts,
     });
   }
-  // Ordenar por total desc
-  out.sort(
-    (a, b) =>
-      (b.counts.leads + b.counts.presupuestos + b.counts.citados + b.counts.automatizaciones) -
-      (a.counts.leads + a.counts.presupuestos + a.counts.citados + a.counts.automatizaciones)
-  );
+  out.sort((a, b) => totalOf(b.counts) - totalOf(a.counts));
   return out;
 }

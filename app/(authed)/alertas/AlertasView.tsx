@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useClinic } from "../../lib/context/ClinicContext";
 
-type Tipo = "leads" | "presupuestos" | "citados" | "automatizaciones";
+type Tipo = "leads" | "presupuestos" | "citados" | "asistencias" | "automatizaciones";
 
 type Card = {
   clinicaId: string;
@@ -20,7 +20,10 @@ type Card = {
 const TIPO_LABEL: Record<Tipo, string> = {
   leads: "Leads sin gestionar",
   presupuestos: "Presupuestos sin seguimiento",
+  // Sprint 9 G.6: el nuevo tipo "asistencias" reemplaza semánticamente a
+  // "citados". "citados" se mantiene por compatibilidad con históricos.
   citados: "Citados no asistidos",
+  asistencias: "Asistencias sin cerrar",
   automatizaciones: "Automatizaciones con error",
 };
 
@@ -29,6 +32,8 @@ const TIPO_SUBTITLE: Record<Tipo, (n: number) => string> = {
   presupuestos: (n) =>
     `${n} presupuesto${n === 1 ? "" : "s"} sin seguimiento desde hace >48h`,
   citados: (n) => `${n} cita${n === 1 ? "" : "s"} pasada${n === 1 ? "" : "s"} sin marcar asistido`,
+  asistencias: (n) =>
+    `${n} cita${n === 1 ? "" : "s"} sin cerrar (asistió/no asistió pendiente)`,
   automatizaciones: (n) => `${n} envío${n === 1 ? "" : "s"} con estado Fallido`,
 };
 
@@ -78,7 +83,12 @@ export function AlertasView() {
       : all;
     return scope.reduce(
       (s, c) =>
-        s + c.counts.leads + c.counts.presupuestos + c.counts.citados + c.counts.automatizaciones,
+        s +
+        c.counts.leads +
+        c.counts.presupuestos +
+        c.counts.citados +
+        c.counts.asistencias +
+        c.counts.automatizaciones,
       0
     );
   }, [cards, selectedClinicaId]);
@@ -134,7 +144,7 @@ export function AlertasView() {
               ["todos", "Todos"],
               ["leads", "Leads sin gestionar"],
               ["presupuestos", "Presupuestos sin seguimiento"],
-              ["citados", "Citados no asistidos"],
+              ["asistencias", "Asistencias sin cerrar"],
               ["automatizaciones", "Automatizaciones con error"],
             ] as Array<[SubTab, string]>
           ).map(([key, label]) => (

@@ -51,7 +51,7 @@ export const POST = withAdmin(async (session, req) => {
   if (!clinicaId || !tipo) {
     return NextResponse.json({ error: "clinicaId y tipoAlerta requeridos" }, { status: 400 });
   }
-  if (!["leads", "presupuestos", "citados", "automatizaciones"].includes(tipo)) {
+  if (!["leads", "presupuestos", "citados", "asistencias", "automatizaciones"].includes(tipo)) {
     return NextResponse.json({ error: "tipoAlerta inválido" }, { status: 400 });
   }
 
