@@ -126,7 +126,36 @@ const PACIENTES_POR_CLINICA  = 20;  // 10×20 = 200
 const PRESUPUESTOS_POR_CLI   = 30;  // 10×30 = 300
 const MENSAJES_POR_CLINICA   = 35;  // 10×35 = 350
 const NOSHOWS_POR_CLINICA    = 5;   // 10×5  = 50
-const LEADS_POR_CLINICA      = 4;   // 10×4  = 40
+const LEADS_WAITLIST_POR_CLI = 4;   // 10×4  = 40 (Lista_de_espera — agenda)
+const LEADS_PIPELINE_POR_CLI = 5;   // 10×5  = 50 (Leads — Sprint 8 pipeline comercial)
+
+// Leads (Sprint 8): opciones y distribución por estado
+const LEAD_TRATAMIENTOS = [
+  "Implantología", "Ortodoncia", "Ortodoncia Invisible", "Periodoncia", "Endodoncia",
+  "Blanqueamiento", "Corona cerámica", "Empaste", "Limpieza", "Revisión", "Otro",
+] as const;
+const LEAD_CANALES = [
+  "Facebook", "Instagram", "Google Ads", "Google Orgánico", "Landing Page",
+  "Visita directa", "Referido", "WhatsApp", "Otro",
+] as const;
+// Distribución global objetivo (total 50): ~40% Nuevo, ~25% Contactado,
+// ~20% Citado, ~5% Citados Hoy, ~10% No Interesado.
+// Como cada clínica recibe 5, repartimos global y shuffle.
+const LEAD_ESTADO_GLOBAL = (() => {
+  const arr: Array<"Nuevo" | "Contactado" | "Citado" | "Citados Hoy" | "No Interesado"> = [
+    ...Array(20).fill("Nuevo"),
+    ...Array(12).fill("Contactado"),
+    ...Array(10).fill("Citado"),
+    ...Array(3).fill("Citados Hoy"),
+    ...Array(5).fill("No Interesado"),
+  ];
+  // Shuffle in place (Fisher-Yates)
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j]!, arr[i]!];
+  }
+  return arr;
+})();
 
 // ═══════════════════════════════════════════════════════════════════════
 // HELPERS
@@ -683,7 +712,7 @@ async function upsertLeads(
   clinicas: Array<{ id: string; nombre: string }>,
   pacientes: PacienteSeed[]
 ): Promise<number> {
-  console.log(`\n[7b/7] Leads (${LEADS_POR_CLINICA} por clínica)`);
+  console.log(`\n[7b/7] Leads (${LEADS_WAITLIST_POR_CLI} por clínica)`);
   const ESTADOS_LEAD = ["ACTIVE", "OFFERED", "EXPIRED", "PAUSED", "BOOKED"] as const;
 
   const existing = await fetchAll(
@@ -698,7 +727,7 @@ async function upsertLeads(
   let total = 0;
   for (const cli of clinicas) {
     const existentes = byClinicaCount.get(cli.id) ?? 0;
-    const needed = Math.max(0, LEADS_POR_CLINICA - existentes);
+    const needed = Math.max(0, LEADS_WAITLIST_POR_CLI - existentes);
     if (needed === 0) continue;
 
     const pacientesCli = pacientes.filter((p) => p.clinicaId === cli.id);
@@ -732,6 +761,71 @@ async function upsertLeads(
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// 8) LEADS PIPELINE (Sprint 8) — N por clínica, distribución por estado
+// ═══════════════════════════════════════════════════════════════════════
+
+async function upsertLeadsPipeline(
+  clinicas: Array<{ id: string; nombre: string }>
+): Promise<number> {
+  console.log(`\n[8/8] Leads pipeline (${LEADS_PIPELINE_POR_CLI} por clínica)`);
+  // Idempotente: contamos los existentes por clínica marcados con [SEED].
+  const existing = await fetchAll(
+    base(TABLES.leads).select({ filterByFormula: `FIND('[SEED]', {Notas}&'')>0` })
+  );
+  const countPorClinica = new Map<string, number>();
+  for (const r of existing) {
+    const clis = (r.fields?.["Clinica"] ?? []) as string[];
+    if (clis[0]) countPorClinica.set(clis[0], (countPorClinica.get(clis[0]) ?? 0) + 1);
+  }
+
+  let total = 0;
+  let estadoIdx = 0;
+  for (const cli of clinicas) {
+    const ya = countPorClinica.get(cli.id) ?? 0;
+    const needed = Math.max(0, LEADS_PIPELINE_POR_CLI - ya);
+    if (needed === 0) {
+      console.log(`  ✔ ${cli.nombre}: ya tiene ${ya} leads`);
+      estadoIdx += LEADS_PIPELINE_POR_CLI; // mantener el cursor coherente
+      continue;
+    }
+    const toCreate: Array<{ fields: Record<string, any> }> = [];
+    for (let i = 0; i < needed; i++) {
+      const estado = LEAD_ESTADO_GLOBAL[estadoIdx++ % LEAD_ESTADO_GLOBAL.length]!;
+      const fechaCita =
+        estado === "Citado" || estado === "Citados Hoy"
+          ? (() => {
+              const d = new Date();
+              if (estado === "Citados Hoy") d.setHours(randInt(9, 18), 0, 0, 0);
+              else d.setDate(d.getDate() + randInt(1, 14));
+              return toIsoDateOnly(d);
+            })()
+          : null;
+      toCreate.push({
+        fields: {
+          Nombre: randFullName(),
+          Telefono: randPhone(),
+          Tratamiento_Interes: randChoice(LEAD_TRATAMIENTOS),
+          Canal_Captacion: randChoice(LEAD_CANALES),
+          Estado: estado,
+          Clinica: [cli.id],
+          ...(fechaCita && { Fecha_Cita: fechaCita }),
+          Llamado: estado !== "Nuevo" && Math.random() > 0.3,
+          WhatsApp_Enviados:
+            estado === "Nuevo" ? 0 : estado === "Contactado" ? randInt(1, 2) : randInt(2, 4),
+          Notas: "[SEED] lead demo R2b",
+          Convertido_A_Paciente: false,
+        },
+      });
+    }
+    await chunkedCreate(TABLES.leads, toCreate);
+    total += toCreate.length;
+    console.log(`  ✔ ${cli.nombre}: +${needed} leads`);
+  }
+  console.log(`  Total leads pipeline: ${total}`);
+  return total;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -748,7 +842,8 @@ async function main() {
   const presupuestos = await upsertPresupuestos(clinicas, pacientes, doctores);
   const nMensajes = await upsertMensajes(clinicas, pacientes, presupuestos);
   const nNoShows = await upsertNoShows(clinicas, pacientes, doctores);
-  const nLeads = await upsertLeads(clinicas, pacientes);
+  const nLeadsWaitlist = await upsertLeads(clinicas, pacientes);
+  const nLeadsPipeline = await upsertLeadsPipeline(clinicas);
 
   console.log("\n═══════════════════════════════════════════════════════════");
   console.log("✅ SEED SPRINT 7 R2b COMPLETO");
@@ -761,7 +856,8 @@ async function main() {
   console.log(`Presupuestos:    ${presupuestos.length}`);
   console.log(`Mensajes:        ${nMensajes} creados esta corrida`);
   console.log(`No-shows:        ${nNoShows}`);
-  console.log(`Leads:           ${nLeads}`);
+  console.log(`Leads (espera):  ${nLeadsWaitlist}`);
+  console.log(`Leads (pipe):    ${nLeadsPipeline}`);
   console.log("\nPINs coordinación:");
   for (const c of usuarios.coordinaciones) {
     console.log(`  ${c.nombre.padEnd(55)} PIN ${c.pin}`);

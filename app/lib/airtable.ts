@@ -37,6 +37,8 @@ export const TABLES = {
   // Sprint 7 — roles globales (nuevo sistema; `usuariosPresupuestos` queda legacy)
   usuarios: "Usuarios",
   usuarioClinicas: "Usuario_Clinicas",
+  // Sprint 8 — módulo Leads (pipeline comercial pre-paciente)
+  leads: "Leads",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];

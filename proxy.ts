@@ -43,5 +43,14 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/ajustes/:path*", "/api/admin/:path*", "/api/auth/me"],
+  matcher: [
+    "/ajustes/:path*",
+    "/api/admin/:path*",
+    "/api/auth/me",
+    // Sprint 8 — módulos nuevos (autenticación por withAuth, no requieren admin)
+    "/leads/:path*",
+    "/pacientes/:path*",
+    "/api/leads/:path*",
+    "/api/pacientes/:path*",
+  ],
 };

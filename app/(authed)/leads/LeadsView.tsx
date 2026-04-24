@@ -1,0 +1,458 @@
+"use client";
+
+// Sprint 8 Bloque B — Kanban de leads con drag & drop.
+// Consume ClinicContext para filtrar por clínica global + filtros locales
+// de fecha y búsqueda.
+
+import { useCallback, useMemo, useState } from "react";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { useClinic } from "../../lib/context/ClinicContext";
+import { NewLeadModal } from "./NewLeadModal";
+import { LeadDrawer } from "./LeadDrawer";
+
+type LeadEstado = "Nuevo" | "Contactado" | "Citado" | "Citados Hoy" | "No Interesado";
+
+export type Lead = {
+  id: string;
+  nombre: string;
+  telefono: string | null;
+  email: string | null;
+  tratamiento: string | null;
+  canal: string | null;
+  estado: LeadEstado;
+  clinicaId: string | null;
+  clinicaNombre: string | null;
+  fechaCita: string | null;
+  llamado: boolean;
+  whatsappEnviados: number;
+  ultimaAccion: string | null;
+  notas: string | null;
+  convertido: boolean;
+  pacienteId: string | null;
+  createdAt: string;
+};
+
+const COLUMNS: Array<{ estado: LeadEstado; label: string; accent: string }> = [
+  { estado: "Nuevo", label: "Nuevo", accent: "bg-slate-100 text-slate-700" },
+  { estado: "Contactado", label: "Contactado", accent: "bg-amber-100 text-amber-800" },
+  { estado: "Citado", label: "Citado", accent: "bg-violet-100 text-violet-800" },
+  { estado: "Citados Hoy", label: "Citados Hoy", accent: "bg-rose-100 text-rose-800" },
+  { estado: "No Interesado", label: "No Interesado", accent: "bg-slate-200 text-slate-600" },
+];
+
+type DateFilter = "semana" | "mes" | "personalizado" | "todo";
+
+export function LeadsView({
+  initialLeads,
+  clinicasSelectables,
+}: {
+  initialLeads: Lead[];
+  clinicasSelectables: Array<{ id: string; nombre: string }>;
+}) {
+  const { selectedClinicaId } = useClinic();
+  const [leads, setLeads] = useState<Lead[]>(initialLeads);
+  const [search, setSearch] = useState("");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("todo");
+  const [newLeadOpen, setNewLeadOpen] = useState(false);
+  const [drawerLead, setDrawerLead] = useState<Lead | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      // activar drag después de 6 px para no interferir con el click simple
+      activationConstraint: { distance: 6 },
+    })
+  );
+
+  // Filtrado por clínica global + fecha + búsqueda.
+  const filteredLeads = useMemo(() => {
+    let out = leads;
+    if (selectedClinicaId) {
+      out = out.filter((l) => l.clinicaId === selectedClinicaId);
+    }
+    if (dateFilter !== "todo") {
+      const now = new Date();
+      let from = new Date(0);
+      if (dateFilter === "semana") {
+        from = new Date(now);
+        from.setDate(from.getDate() - 7);
+      } else if (dateFilter === "mes") {
+        from = new Date(now);
+        from.setDate(from.getDate() - 30);
+      }
+      out = out.filter((l) => new Date(l.createdAt) >= from);
+    }
+    if (search.trim()) {
+      const q = search.toLowerCase().trim();
+      out = out.filter(
+        (l) =>
+          l.nombre.toLowerCase().includes(q) ||
+          (l.telefono ?? "").toLowerCase().includes(q) ||
+          (l.email ?? "").toLowerCase().includes(q)
+      );
+    }
+    return out;
+  }, [leads, selectedClinicaId, dateFilter, search]);
+
+  const leadsPorEstado = useMemo(() => {
+    const m = new Map<LeadEstado, Lead[]>();
+    for (const col of COLUMNS) m.set(col.estado, []);
+    for (const l of filteredLeads) {
+      const arr = m.get(l.estado);
+      if (arr) arr.push(l);
+    }
+    return m;
+  }, [filteredLeads]);
+
+  const handleDragStart = useCallback((e: DragStartEvent) => {
+    setDraggingId(String(e.active.id));
+  }, []);
+
+  const handleDragEnd = useCallback(
+    async (e: DragEndEvent) => {
+      setDraggingId(null);
+      const activeId = String(e.active.id);
+      const overId = e.over?.id ? String(e.over.id) : null;
+      if (!overId) return;
+      // overId puede ser una columna (estado) o otra tarjeta.
+      const overColumn = COLUMNS.find((c) => c.estado === overId);
+      const destEstado: LeadEstado | undefined = overColumn
+        ? overColumn.estado
+        : leads.find((l) => l.id === overId)?.estado;
+      if (!destEstado) return;
+
+      const lead = leads.find((l) => l.id === activeId);
+      if (!lead || lead.estado === destEstado) return;
+
+      // Optimistic update.
+      setLeads((prev) => prev.map((l) => (l.id === activeId ? { ...l, estado: destEstado } : l)));
+      try {
+        const res = await fetch(`/api/leads/${activeId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ estado: destEstado }),
+        });
+        if (!res.ok) throw new Error("update failed");
+      } catch {
+        // Rollback.
+        setLeads((prev) => prev.map((l) => (l.id === activeId ? { ...l, estado: lead.estado } : l)));
+        setError("No se pudo mover el lead. Inténtalo de nuevo.");
+      }
+    },
+    [leads]
+  );
+
+  async function onLeadCreated(lead: Lead) {
+    setLeads((prev) => [lead, ...prev]);
+  }
+
+  async function onLeadUpdated(lead: Lead) {
+    setLeads((prev) => prev.map((l) => (l.id === lead.id ? lead : l)));
+    setDrawerLead(lead);
+  }
+
+  async function onLeadConverted(leadId: string) {
+    setLeads((prev) =>
+      prev.map((l) => (l.id === leadId ? { ...l, convertido: true } : l))
+    );
+    setDrawerLead(null);
+  }
+
+  const draggingLead = draggingId ? leads.find((l) => l.id === draggingId) : null;
+
+  return (
+    <div className="flex-1 min-h-0 flex flex-col bg-slate-50 p-6 gap-4 overflow-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-extrabold text-slate-900">Leads</h1>
+          <p className="text-xs text-slate-500">
+            {filteredLeads.length} lead{filteredLeads.length === 1 ? "" : "s"} en el pipeline
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setNewLeadOpen(true)}
+          className="rounded-full bg-violet-600 text-white text-xs font-bold px-4 py-2 hover:bg-violet-700 transition-colors"
+        >
+          + Nuevo Lead
+        </button>
+      </div>
+
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex gap-1">
+          {([
+            ["todo", "Todo"],
+            ["semana", "Esta semana"],
+            ["mes", "Este mes"],
+            ["personalizado", "Personalizado"],
+          ] as Array<[DateFilter, string]>).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setDateFilter(key)}
+              className={`text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+                dateFilter === key
+                  ? "bg-slate-900 text-white border-slate-900"
+                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <input
+          type="search"
+          placeholder="Buscar lead…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="flex-1 min-w-[180px] max-w-sm rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300"
+        />
+      </div>
+
+      {error && (
+        <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+          {error}
+        </p>
+      )}
+
+      {/* Kanban */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+          {COLUMNS.map((col) => {
+            const items = leadsPorEstado.get(col.estado) ?? [];
+            return (
+              <KanbanColumn
+                key={col.estado}
+                estado={col.estado}
+                label={col.label}
+                accent={col.accent}
+                items={items}
+                onCardClick={(l) => setDrawerLead(l)}
+              />
+            );
+          })}
+        </div>
+
+        <DragOverlay>
+          {draggingLead && (
+            <div className="rotate-1 opacity-90">
+              <LeadCardBody lead={draggingLead} />
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
+
+      {newLeadOpen && (
+        <NewLeadModal
+          clinicas={clinicasSelectables}
+          defaultClinicaId={selectedClinicaId ?? undefined}
+          onClose={() => setNewLeadOpen(false)}
+          onCreated={(lead) => {
+            onLeadCreated(lead);
+            setNewLeadOpen(false);
+          }}
+        />
+      )}
+
+      {drawerLead && (
+        <LeadDrawer
+          lead={drawerLead}
+          clinicas={clinicasSelectables}
+          onClose={() => setDrawerLead(null)}
+          onUpdated={onLeadUpdated}
+          onConverted={onLeadConverted}
+        />
+      )}
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// Columna + tarjeta sortable
+// ═══════════════════════════════════════════════════════════════════════
+
+function KanbanColumn({
+  estado,
+  label,
+  accent,
+  items,
+  onCardClick,
+}: {
+  estado: LeadEstado;
+  label: string;
+  accent: string;
+  items: Lead[];
+  onCardClick: (l: Lead) => void;
+}) {
+  return (
+    <div
+      id={estado}
+      className={`flex flex-col min-h-0 rounded-2xl bg-white border border-slate-200 ${
+        estado === "Citados Hoy" ? "ring-2 ring-rose-200" : ""
+      }`}
+    >
+      <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200">
+        <span className="text-xs font-bold text-slate-800">{label}</span>
+        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${accent}`}>
+          {items.length}
+        </span>
+      </div>
+      <SortableContext
+        items={items.map((i) => i.id)}
+        strategy={verticalListSortingStrategy}
+        id={estado}
+      >
+        <div
+          className="flex-1 min-h-[120px] p-2 space-y-2 overflow-y-auto"
+          data-estado={estado}
+        >
+          {items.map((l) => (
+            <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
+          ))}
+          {items.length === 0 && (
+            <div
+              id={estado}
+              className="h-full min-h-[80px] flex items-center justify-center text-[11px] text-slate-300 italic"
+            >
+              Sin leads
+            </div>
+          )}
+        </div>
+      </SortableContext>
+    </div>
+  );
+}
+
+function SortableLeadCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: lead.id,
+  });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.3 : 1,
+  };
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      onClick={(e) => {
+        // Evitar abrir el drawer si se hizo drag.
+        if (isDragging) return;
+        e.stopPropagation();
+        onClick();
+      }}
+    >
+      <LeadCardBody lead={lead} />
+    </div>
+  );
+}
+
+function LeadCardBody({ lead }: { lead: Lead }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyPhone(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!lead.telefono) return;
+    try {
+      await navigator.clipboard.writeText(lead.telefono);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {}
+  }
+
+  const diasDesdeCreacion = Math.floor(
+    (Date.now() - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  return (
+    <article className="rounded-xl bg-white border border-slate-200 p-3 text-xs shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer">
+      <p className="font-bold text-slate-900 truncate">{lead.nombre}</p>
+
+      <div className="flex flex-wrap gap-1 mt-1">
+        {lead.canal && (
+          <span className="inline-flex rounded-full bg-sky-50 text-sky-700 border border-sky-100 px-2 py-0.5 text-[10px] font-semibold">
+            {lead.canal}
+          </span>
+        )}
+        {lead.tratamiento && (
+          <span className="inline-flex rounded-full bg-violet-50 text-violet-700 border border-violet-100 px-2 py-0.5 text-[10px] font-semibold">
+            {lead.tratamiento}
+          </span>
+        )}
+      </div>
+
+      {lead.telefono && (
+        <div className="flex items-center gap-1 mt-2">
+          <span className="text-slate-600 text-[11px] font-mono truncate">{lead.telefono}</span>
+          <button
+            type="button"
+            onClick={copyPhone}
+            className="text-[10px] text-slate-400 hover:text-slate-700"
+            title="Copiar"
+          >
+            {copied ? "✓" : "⎘"}
+          </button>
+        </div>
+      )}
+
+      {lead.fechaCita && (
+        <p className="mt-1 text-[10px] text-slate-500">Cita: {lead.fechaCita}</p>
+      )}
+
+      <div className="flex items-center gap-2 mt-2 text-[10px] text-slate-500">
+        {lead.llamado && <span>📞 Llamado</span>}
+        {lead.whatsappEnviados > 0 && <span>💬 {lead.whatsappEnviados}</span>}
+        <span className="ml-auto">hace {diasDesdeCreacion}d</span>
+      </div>
+
+      <div className="flex gap-1 mt-2">
+        {lead.telefono && (
+          <>
+            <a
+              href={`tel:${lead.telefono}`}
+              onClick={(e) => e.stopPropagation()}
+              className="flex-1 text-center rounded-lg bg-slate-50 text-slate-700 text-[10px] font-semibold py-1 hover:bg-slate-100"
+            >
+              Llamar
+            </a>
+            <a
+              href={`https://wa.me/${lead.telefono.replace(/\D/g, "")}`}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="flex-1 text-center rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-semibold py-1 hover:bg-emerald-100"
+            >
+              WhatsApp
+            </a>
+          </>
+        )}
+      </div>
+    </article>
+  );
+}
