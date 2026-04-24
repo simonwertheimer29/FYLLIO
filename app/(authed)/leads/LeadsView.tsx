@@ -24,6 +24,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { NewLeadModal } from "./NewLeadModal";
 import { LeadDrawer } from "./LeadDrawer";
+import { AgendarModal } from "./AgendarModal";
 
 type LeadEstado =
   | "Nuevo"
@@ -68,12 +69,16 @@ const COLUMNS: Array<{ estado: LeadEstado; label: string; accent: string }> = [
 
 type DateFilter = "semana" | "mes" | "personalizado" | "todo";
 
+type Doctor = { id: string; nombre: string; clinicaId: string | null };
+
 export function LeadsView({
   initialLeads,
   clinicasSelectables,
+  doctores,
 }: {
   initialLeads: Lead[];
   clinicasSelectables: Array<{ id: string; nombre: string }>;
+  doctores: Doctor[];
 }) {
   const { selectedClinicaId } = useClinic();
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
@@ -81,6 +86,7 @@ export function LeadsView({
   const [dateFilter, setDateFilter] = useState<DateFilter>("todo");
   const [newLeadOpen, setNewLeadOpen] = useState(false);
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null);
+  const [agendarLead, setAgendarLead] = useState<Lead | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -150,6 +156,16 @@ export function LeadsView({
 
       const lead = leads.find((l) => l.id === activeId);
       if (!lead || lead.estado === destEstado) return;
+
+      // Sprint 9 G.2: Contactado → Citado requiere modal obligatorio
+      // con fecha/hora/doctor/tratamiento/tipo_visita. Interceptamos el
+      // drag y abrimos el modal en vez de PATCH directo. Si se cancela,
+      // el lead se queda en Contactado (no hacemos rollback porque nunca
+      // aplicamos la transición optimista en este caso).
+      if (lead.estado === "Contactado" && destEstado === "Citado") {
+        setAgendarLead(lead);
+        return;
+      }
 
       // Optimistic update.
       setLeads((prev) => prev.map((l) => (l.id === activeId ? { ...l, estado: destEstado } : l)));
@@ -295,6 +311,19 @@ export function LeadsView({
           onClose={() => setDrawerLead(null)}
           onUpdated={onLeadUpdated}
           onConverted={onLeadConverted}
+          onAgendar={(l) => setAgendarLead(l)}
+        />
+      )}
+
+      {agendarLead && (
+        <AgendarModal
+          lead={agendarLead}
+          doctores={doctores}
+          onClose={() => setAgendarLead(null)}
+          onSaved={(updated) => {
+            onLeadUpdated(updated);
+            setAgendarLead(null);
+          }}
         />
       )}
     </div>

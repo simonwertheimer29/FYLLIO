@@ -17,12 +17,16 @@ export function LeadDrawer({
   onClose,
   onUpdated,
   onConverted,
+  onAgendar,
 }: {
   lead: Lead;
   clinicas: Array<{ id: string; nombre: string }>;
   onClose: () => void;
   onUpdated: (lead: Lead) => void;
   onConverted: (leadId: string) => void;
+  /** Sprint 9 G.2: Contactado → Citado abre el AgendarModal en el padre
+   *  con los campos obligatorios en vez de un PATCH directo. */
+  onAgendar: (lead: Lead) => void;
 }) {
   const [notas, setNotas] = useState(lead.notas ?? "");
   const [saving, setSaving] = useState(false);
@@ -128,7 +132,15 @@ export function LeadDrawer({
                   key={e}
                   type="button"
                   disabled={saving || lead.estado === e}
-                  onClick={() => patch({ estado: e })}
+                  onClick={() => {
+                    // Sprint 9 G.2: Contactado → Citado requiere modal obligatorio.
+                    if (lead.estado === "Contactado" && e === "Citado") {
+                      onAgendar(lead);
+                      onClose();
+                      return;
+                    }
+                    patch({ estado: e });
+                  }}
                   className={`text-[11px] font-semibold px-3 py-1 rounded-full border transition-colors ${
                     lead.estado === e
                       ? "bg-slate-900 text-white border-slate-900"
