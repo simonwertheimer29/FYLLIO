@@ -25,6 +25,7 @@ import { useClinic } from "../../lib/context/ClinicContext";
 import { NewLeadModal } from "./NewLeadModal";
 import { LeadDrawer } from "./LeadDrawer";
 import { AgendarModal } from "./AgendarModal";
+import { AsistenciaModal } from "./AsistenciaModal";
 
 type LeadEstado =
   | "Nuevo"
@@ -87,6 +88,7 @@ export function LeadsView({
   const [newLeadOpen, setNewLeadOpen] = useState(false);
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null);
   const [agendarLead, setAgendarLead] = useState<Lead | null>(null);
+  const [asistenciaLead, setAsistenciaLead] = useState<Lead | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -312,6 +314,7 @@ export function LeadsView({
           onUpdated={onLeadUpdated}
           onConverted={onLeadConverted}
           onAgendar={(l) => setAgendarLead(l)}
+          onAsistencia={(l) => setAsistenciaLead(l)}
         />
       )}
 
@@ -323,6 +326,17 @@ export function LeadsView({
           onSaved={(updated) => {
             onLeadUpdated(updated);
             setAgendarLead(null);
+          }}
+        />
+      )}
+
+      {asistenciaLead && (
+        <AsistenciaModal
+          lead={asistenciaLead}
+          onClose={() => setAsistenciaLead(null)}
+          onDone={(updated) => {
+            onLeadUpdated(updated);
+            setAsistenciaLead(null);
           }}
         />
       )}

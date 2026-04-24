@@ -18,6 +18,7 @@ export function LeadDrawer({
   onUpdated,
   onConverted,
   onAgendar,
+  onAsistencia,
 }: {
   lead: Lead;
   clinicas: Array<{ id: string; nombre: string }>;
@@ -27,6 +28,9 @@ export function LeadDrawer({
   /** Sprint 9 G.2: Contactado → Citado abre el AgendarModal en el padre
    *  con los campos obligatorios en vez de un PATCH directo. */
   onAgendar: (lead: Lead) => void;
+  /** Sprint 9 G.3: marcar asistencia abre el AsistenciaModal en el padre
+   *  (formulario que crea Paciente + Presupuesto opcional + Convertido). */
+  onAsistencia: (lead: Lead) => void;
 }) {
   const [notas, setNotas] = useState(lead.notas ?? "");
   const [saving, setSaving] = useState(false);
@@ -168,22 +172,28 @@ export function LeadDrawer({
             </div>
           </section>
 
-          {/* Asistido (Sprint 8 D.7) — visible si la cita ya ha pasado o es
-              un "Citado" / "Citados Hoy". Marcado manual por coord. */}
-          {(lead.estado === "Citado" || lead.estado === "Citados Hoy") && (
+          {/* Asistido — Sprint 9 G.3: marcar la asistencia abre el formulario
+              que crea Paciente + Presupuesto opcional y transiciona a "Convertido".
+              Visible solo mientras el lead sigue en Citado/Citados Hoy y no está
+              convertido todavía. */}
+          {(lead.estado === "Citado" || lead.estado === "Citados Hoy") && !lead.convertido && (
             <section>
-              <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={lead.asistido}
-                  onChange={(e) => patch({ asistido: e.target.checked })}
-                />
-                <span>
-                  {lead.asistido
-                    ? "Asistió a la cita"
-                    : "Marcar como asistido cuando el paciente se presente"}
-                </span>
-              </label>
+              {lead.asistido ? (
+                <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+                  ✓ Asistencia registrada
+                </p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAsistencia(lead);
+                    onClose();
+                  }}
+                  className="w-full rounded-xl bg-emerald-600 text-white text-xs font-bold py-2.5 hover:bg-emerald-700"
+                >
+                  Registrar asistencia →
+                </button>
+              )}
             </section>
           )}
 
