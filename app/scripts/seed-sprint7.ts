@@ -761,6 +761,99 @@ async function upsertLeads(
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// 9) ENRIQUECER PACIENTES (Sprint 8) con campos nuevos
+//    Tratamientos, Doctor_Link, Fecha_Cita, Presupuesto_Total, Aceptado,
+//    Pagado, Pendiente, Financiado, Canal_Origen. Idempotente: solo actualiza
+//    pacientes [SEED] sin Tratamientos asignados.
+// ═══════════════════════════════════════════════════════════════════════
+
+const ACEPTADO_DISTRIBUTION: Array<"Si" | "No" | "Pendiente"> = [
+  "Si", "Si", "Si", "Si", "Si",      // 5/10 = 50%
+  "No", "No",                        // 2/10 = 20%
+  "Pendiente", "Pendiente", "Pendiente", // 3/10 = 30%
+];
+
+async function enrichPacientes(
+  pacientes: PacienteSeed[],
+  doctores: DoctorSeed[]
+): Promise<number> {
+  console.log(`\n[9/9] Enriquecer pacientes con campos Sprint 8`);
+  const recsAll = await fetchAll(
+    base(TABLES.patients).select({ filterByFormula: `FIND('[SEED]', {Notas}&'')` })
+  );
+  const needsEnrich = recsAll.filter(
+    (r) => !Array.isArray(r.fields?.["Tratamientos"]) || (r.fields?.["Tratamientos"] ?? []).length === 0
+  );
+  if (needsEnrich.length === 0) {
+    console.log("  ✔ todos los pacientes [SEED] ya están enriquecidos");
+    return 0;
+  }
+
+  const doctoresPorClinica = new Map<string, DoctorSeed[]>();
+  for (const d of doctores) {
+    if (!doctoresPorClinica.has(d.clinicaId)) doctoresPorClinica.set(d.clinicaId, []);
+    doctoresPorClinica.get(d.clinicaId)!.push(d);
+  }
+
+  let total = 0;
+  for (let i = 0; i < needsEnrich.length; i += 10) {
+    const slice = needsEnrich.slice(i, i + 10).map((rec, idx) => {
+      const clis = (rec.fields?.["Clínica"] ?? []) as string[];
+      const clinicaId = clis[0];
+      const docs = clinicaId ? doctoresPorClinica.get(clinicaId) ?? [] : [];
+      const doctor = docs.length ? docs[Math.floor(Math.random() * docs.length)]! : null;
+
+      const trat = randChoice(TRATAMIENTOS);
+      const importe = randInt(trat.importeMin, trat.importeMax);
+      const aceptado = ACEPTADO_DISTRIBUTION[(i + idx) % ACEPTADO_DISTRIBUTION.length]!;
+      const pagado =
+        aceptado === "Si" ? randInt(Math.floor(importe * 0.3), importe) :
+        aceptado === "No" ? 0 :
+        Math.random() > 0.5 ? randInt(0, Math.floor(importe * 0.5)) : 0;
+      const pendiente = Math.max(0, importe - pagado);
+      const financiado = aceptado === "Si" && Math.random() > 0.7 ? randInt(500, Math.floor(importe * 0.8)) : 0;
+
+      // Map nombre del seed → tratamientos enum
+      const tratNombre: string = trat.nombre.includes("Ortodoncia Invisalign")
+        ? "Ortodoncia Invisible"
+        : trat.nombre.includes("Ortodoncia brackets") ? "Ortodoncia"
+        : trat.nombre.includes("Implante") ? "Implantología"
+        : trat.nombre.includes("Endodoncia") ? "Endodoncia"
+        : trat.nombre.includes("Empaste") ? "Empaste"
+        : trat.nombre.includes("Limpieza") ? "Limpieza"
+        : trat.nombre.includes("Blanqueamiento") ? "Blanqueamiento"
+        : trat.nombre.includes("Corona") ? "Corona cerámica"
+        : trat.nombre.includes("Periodoncia") ? "Periodoncia"
+        : trat.nombre.includes("Revisión") ? "Revisión"
+        : "Otro";
+
+      const fechaCita = new Date();
+      fechaCita.setDate(fechaCita.getDate() + randInt(-30, 14));
+
+      const fields: Record<string, any> = {
+        Tratamientos: [tratNombre],
+        Fecha_Cita: toIsoDateOnly(fechaCita),
+        Presupuesto_Total: importe,
+        Aceptado: aceptado,
+        Pagado: pagado,
+        Pendiente: pendiente,
+        Financiado: financiado,
+        Canal_Origen: randChoice([
+          "Facebook","Instagram","Google Ads","Google Orgánico","Landing Page",
+          "Visita directa","Referido","WhatsApp",
+        ]),
+      };
+      if (doctor) fields["Doctor_Link"] = [doctor.id];
+      return { id: rec.id, fields };
+    });
+    await base(TABLES.patients).update(slice);
+    total += slice.length;
+  }
+  console.log(`  ✔ ${total} pacientes enriquecidos`);
+  return total;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // 8) LEADS PIPELINE (Sprint 8) — N por clínica, distribución por estado
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -844,6 +937,7 @@ async function main() {
   const nNoShows = await upsertNoShows(clinicas, pacientes, doctores);
   const nLeadsWaitlist = await upsertLeads(clinicas, pacientes);
   const nLeadsPipeline = await upsertLeadsPipeline(clinicas);
+  const nEnriched = await enrichPacientes(pacientes, doctores);
 
   console.log("\n═══════════════════════════════════════════════════════════");
   console.log("✅ SEED SPRINT 7 R2b COMPLETO");
@@ -858,6 +952,7 @@ async function main() {
   console.log(`No-shows:        ${nNoShows}`);
   console.log(`Leads (espera):  ${nLeadsWaitlist}`);
   console.log(`Leads (pipe):    ${nLeadsPipeline}`);
+  console.log(`Pacientes enrich:${nEnriched}`);
   console.log("\nPINs coordinación:");
   for (const c of usuarios.coordinaciones) {
     console.log(`  ${c.nombre.padEnd(55)} PIN ${c.pin}`);
