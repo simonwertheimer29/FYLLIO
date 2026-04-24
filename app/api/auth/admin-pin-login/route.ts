@@ -71,8 +71,8 @@ export async function POST(req: Request) {
     const res = NextResponse.json({
       ok: true,
       user: { id: matched.id, nombre: matched.nombre, rol: "admin" },
-      // Temporal: /ajustes llega en Fase 6. Mientras tanto, /presupuestos.
-      redirect: "/presupuestos",
+      // Sprint 8: admin aterriza en /red.
+      redirect: "/red",
     });
     setSessionCookie(res, token);
     // Emite cookies legacy para que los endpoints de Sprints 1-5

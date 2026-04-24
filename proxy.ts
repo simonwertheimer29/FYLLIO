@@ -47,10 +47,16 @@ export const config = {
     "/ajustes/:path*",
     "/api/admin/:path*",
     "/api/auth/me",
-    // Sprint 8 — módulos nuevos (autenticación por withAuth, no requieren admin)
+    // Sprint 8 — módulos nuevos
     "/leads/:path*",
     "/pacientes/:path*",
+    "/actuar-hoy/:path*",
+    "/red/:path*",
+    "/alertas/:path*",
+    "/kpis/:path*",
+    "/automatizaciones/:path*",
     "/api/leads/:path*",
     "/api/pacientes/:path*",
+    "/api/alertas/:path*",
   ],
 };

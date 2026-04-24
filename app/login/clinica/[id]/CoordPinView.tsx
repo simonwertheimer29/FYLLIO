@@ -25,9 +25,8 @@ export function CoordPinView({ clinica }: Props) {
         setError(data?.error ?? "PIN incorrecto");
         return;
       }
-      // Temporal: /ajustes se crea en Fase 6. Coord aterriza en /presupuestos
-       // (vista más usada). En Fase 6 se reevalúa el destino por rol.
-       router.push("/presupuestos");
+      // Sprint 8: coord aterriza en /actuar-hoy (cola priorizada por IA).
+      router.push("/actuar-hoy");
       router.refresh();
     } catch {
       setError("Error de red. Inténtalo de nuevo.");

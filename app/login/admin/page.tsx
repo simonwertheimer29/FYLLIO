@@ -23,9 +23,8 @@ export default function AdminLoginPage() {
         setError(data?.error ?? "PIN incorrecto");
         return;
       }
-      // Temporal: /ajustes se crea en Fase 6. Aterrizamos en /presupuestos
-       // (vista central del CRM, ya existe) para que el login no termine en 404.
-       router.push("/presupuestos");
+      // Sprint 8: admin aterriza en /red (dashboard macro, admin-only).
+      router.push("/red");
       router.refresh();
     } catch {
       setError("Error de red. Inténtalo de nuevo.");

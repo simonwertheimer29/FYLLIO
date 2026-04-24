@@ -15,7 +15,7 @@ export default async function AjustesLayout({
 }) {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.rol !== "admin") redirect("/presupuestos");
+  if (session.rol !== "admin") redirect("/actuar-hoy");
 
   return (
     <div className="flex-1 min-h-0 flex overflow-hidden">

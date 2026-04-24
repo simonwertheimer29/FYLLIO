@@ -1,22 +1,51 @@
 "use client";
 
-// app/components/layout/GlobalHeader.tsx
-//
-// Header global de rutas autenticadas (Sprint 7 Fase 4). Sin rediseño visual:
-// funcional, limpio, respeta Tailwind puro. El rediseño unificado vive en
-// Sprint 8.
+// Sprint 8 Bloque D — GlobalHeader con navbar top-level por rol.
+// Coord (6): Actuar hoy · Leads · Pacientes · Presupuestos · KPIs · Automatizaciones
+// Admin (9): Red · Alertas · Actuar hoy · Leads · Pacientes · Presupuestos · KPIs · Automatizaciones · Ajustes
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { ClinicSelector } from "./ClinicSelector";
 
+type NavItem = { href: string; label: string };
+
+const NAV_COORD: NavItem[] = [
+  { href: "/actuar-hoy",      label: "Actuar hoy" },
+  { href: "/leads",           label: "Leads" },
+  { href: "/pacientes",       label: "Pacientes" },
+  { href: "/presupuestos",    label: "Presupuestos" },
+  { href: "/kpis",            label: "KPIs" },
+  { href: "/automatizaciones",label: "Automatizaciones" },
+];
+
+const NAV_ADMIN: NavItem[] = [
+  { href: "/red",             label: "Red" },
+  { href: "/alertas",         label: "Alertas" },
+  { href: "/actuar-hoy",      label: "Actuar hoy" },
+  { href: "/leads",           label: "Leads" },
+  { href: "/pacientes",       label: "Pacientes" },
+  { href: "/presupuestos",    label: "Presupuestos" },
+  { href: "/kpis",            label: "KPIs" },
+  { href: "/automatizaciones",label: "Automatizaciones" },
+  { href: "/ajustes",         label: "Ajustes" },
+];
+
 export function GlobalHeader() {
   const router = useRouter();
+  const pathname = usePathname() ?? "";
   const { session } = useClinic();
   const [loggingOut, setLoggingOut] = useState(false);
 
+  const items = session.rol === "admin" ? NAV_ADMIN : NAV_COORD;
   const rolLabel = session.rol === "admin" ? "Administrador" : "Coordinación";
+
+  function isActive(href: string): boolean {
+    if (href === "/") return pathname === "/";
+    return pathname === href || pathname.startsWith(href + "/");
+  }
 
   async function handleLogout() {
     if (loggingOut) return;
@@ -24,7 +53,6 @@ export function GlobalHeader() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
-      // Limpia la clínica persistida para evitar arrastrar selección entre sesiones.
       if (typeof window !== "undefined") {
         try {
           localStorage.removeItem("fyllio.selectedClinicaId");
@@ -37,8 +65,8 @@ export function GlobalHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
-      <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-3 sm:px-6">
-        {/* Logo */}
+      {/* Fila 1: logo + selector + usuario */}
+      <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-4 px-3 sm:px-6">
         <div className="flex items-center gap-2 font-extrabold text-slate-900 tracking-tight">
           <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-violet-600 text-white text-sm">
             F
@@ -46,17 +74,13 @@ export function GlobalHeader() {
           <span className="text-base">Fyllio</span>
         </div>
 
-        {/* Selector de clínica */}
         <div className="flex-1 min-w-0">
           <ClinicSelector />
         </div>
 
-        {/* Usuario + rol + salir */}
         <div className="flex items-center gap-3 text-xs">
           <div className="hidden sm:block text-right leading-tight">
-            <p className="font-semibold text-slate-900 truncate max-w-[220px]">
-              {session.nombre}
-            </p>
+            <p className="font-semibold text-slate-900 truncate max-w-[220px]">{session.nombre}</p>
             <p className="text-slate-500">{rolLabel}</p>
           </div>
           <button
@@ -69,6 +93,31 @@ export function GlobalHeader() {
           </button>
         </div>
       </div>
+
+      {/* Fila 2: navbar top-level */}
+      <nav className="border-t border-slate-100 bg-white">
+        <div className="mx-auto max-w-[1400px] px-3 sm:px-6 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <ul className="flex items-center gap-1 h-11 whitespace-nowrap">
+            {items.map((item) => {
+              const active = isActive(item.href);
+              return (
+                <li key={item.href}>
+                  <Link
+                    href={item.href}
+                    className={`inline-flex items-center h-8 px-3 rounded-full text-xs font-semibold transition-colors ${
+                      active
+                        ? "bg-violet-600 text-white"
+                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      </nav>
     </header>
   );
 }
