@@ -1,13 +1,16 @@
 // app/(authed)/layout.tsx
-// Route group `(authed)` — envuelve las rutas autenticadas del Sprint 7.
-// Valida fyllio_session (redirect a /login si falta) y monta el Provider +
-// GlobalHeader. El trailing route group NO altera las URLs públicas.
-//
-// Nota Sprint 7: en próximos commits se montan <ClinicProvider> + <GlobalHeader>
-// aquí. Este commit solo introduce el guard de sesión.
+// Route group `(authed)` — monta sesión, clínicas accesibles y header global.
+// Sprint 7 Fase 4.
 
 import { redirect } from "next/navigation";
 import { getSession } from "../lib/auth/session";
+import { listClinicas, listClinicaIdsForUser } from "../lib/auth/users";
+import {
+  ClinicProvider,
+  type ClinicContextSession,
+  type Clinica as CtxClinica,
+} from "../lib/context/ClinicContext";
+import { GlobalHeader } from "../components/layout/GlobalHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -19,5 +22,30 @@ export default async function AuthedLayout({
   const session = await getSession();
   if (!session) redirect("/login");
 
-  return <>{children}</>;
+  const allClinicas = await listClinicas({ onlyActivas: true });
+
+  // Para coord, calculamos sus clínicas accesibles reales desde la junction.
+  // Para admin, clinicasAccesibles ya es ["*"] — las ve todas.
+  const clinicasAccesibles =
+    session.rol === "admin"
+      ? ["*"]
+      : await listClinicaIdsForUser(session.userId);
+
+  const ctxSession: ClinicContextSession = {
+    userId: session.userId,
+    nombre: session.nombre,
+    rol: session.rol,
+    clinicasAccesibles,
+  };
+
+  const clinicas: CtxClinica[] = allClinicas.map((c) => ({ id: c.id, nombre: c.nombre }));
+
+  return (
+    <ClinicProvider session={ctxSession} clinicas={clinicas}>
+      <div className="min-h-screen flex flex-col">
+        <GlobalHeader />
+        <div className="flex-1 min-h-0 flex flex-col">{children}</div>
+      </div>
+    </ClinicProvider>
+  );
 }

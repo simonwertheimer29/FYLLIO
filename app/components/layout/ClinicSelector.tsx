@@ -1,63 +1,68 @@
 "use client";
 
-import { useEffect, useState } from "react";
+// app/components/layout/ClinicSelector.tsx
+//
+// Selector global Sprint 7 Fase 4 — consume ClinicContext.
+// Reglas:
+//  - admin: "Todas las clínicas" (null) + lista de clínicas activas.
+//  - coord con 1 clínica: etiqueta fija no-desplegable con su nombre.
+//  - coord con 2+ clínicas: dropdown con solo sus clínicas (sin "Todas").
 
-type Clinic = { id: string; recordId: string; name: string };
+import { useClinic } from "../../lib/context/ClinicContext";
 
-const STORAGE_KEY = "selectedClinicId";
+const TODAS = "__all__";
 
-export default function ClinicSelector({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (clinicId: string) => void;
-}) {
-  const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [loading, setLoading] = useState(true);
+export function ClinicSelector() {
+  const { selectedClinicaId, setSelectedClinicaId, clinicasSelectables, session, isHydrated } =
+    useClinic();
 
-  useEffect(() => {
-    fetch("/api/db/clinics")
-      .then((r) => r.json())
-      .then((json) => {
-        const list: Clinic[] = json.clinics ?? [];
-        setClinics(list);
-        // If no value selected yet, default to first clinic
-        if (list.length > 0 && !value) {
-          const saved = localStorage.getItem(STORAGE_KEY);
-          const target = list.find((c) => c.id === saved) ?? list[0];
-          onChange(target.id);
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const isAdmin = session.rol === "admin";
 
-  function handleChange(id: string) {
-    localStorage.setItem(STORAGE_KEY, id);
-    onChange(id);
+  // Coord con una única clínica: pildora fija, sin dropdown.
+  if (!isAdmin && clinicasSelectables.length === 1) {
+    const only = clinicasSelectables[0]!;
+    return (
+      <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 text-slate-800 px-3 py-1.5 text-xs font-semibold">
+        <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+        {only.nombre}
+      </span>
+    );
   }
 
-  if (loading || clinics.length === 0) return null;
+  // Antes de hidratar (SSR / primer render cliente): placeholder estable.
+  if (!isHydrated) {
+    return (
+      <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500">
+        Cargando…
+      </span>
+    );
+  }
 
-  // Only show selector if there's more than one clinic (or always in admin mode)
-  if (clinics.length < 2) return null;
+  const currentValue = selectedClinicaId ?? TODAS;
+
+  function onChange(v: string) {
+    if (v === TODAS) {
+      setSelectedClinicaId(null);
+    } else {
+      setSelectedClinicaId(v);
+    }
+  }
 
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-[11px] font-semibold text-slate-600">Clínica</span>
+    <label className="inline-flex items-center gap-2">
+      <span className="sr-only">Clínica</span>
       <select
-        value={value}
-        onChange={(e) => handleChange(e.target.value)}
-        className="text-xs rounded-full border border-slate-200 bg-white px-3 py-2 font-semibold text-slate-800"
+        value={currentValue}
+        onChange={(e) => onChange(e.target.value)}
+        className="text-xs rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-800 max-w-[260px] truncate"
       >
-        {clinics.map((c) => (
+        {isAdmin && <option value={TODAS}>Todas las clínicas</option>}
+        {clinicasSelectables.map((c) => (
           <option key={c.id} value={c.id}>
-            {c.name}
+            {c.nombre}
           </option>
         ))}
       </select>
-    </div>
+    </label>
   );
 }

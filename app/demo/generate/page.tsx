@@ -10,7 +10,7 @@ import DemoShell, { type DemoSectionKey } from "../../components/layout/DemoShel
 import ItemModal from "../../components/agenda/ItemModal";
 
 import ProviderSelect from "../../components/layout/ProviderSelect";
-import ClinicSelector from "../../components/layout/ClinicSelector";
+import ClinicSelector from "../../components/layout/LegacyClinicSelector";
 import { DEMO_PROVIDERS } from "../../lib/clinic/demoClinic";
 
 import { DEFAULT_RULES } from "../../lib/demoData";
