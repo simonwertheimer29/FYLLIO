@@ -143,7 +143,15 @@ export function LeadDrawer({
                       onClose();
                       return;
                     }
-                    patch({ estado: e });
+                    // Sprint 9 G.4: No Interesado sin contexto se marca como
+                    // Rechazo_Producto por defecto (el flujo "No asistió"
+                    // tiene su propio botón). Cualquier otra transición
+                    // limpia el motivo.
+                    if (e === "No Interesado") {
+                      patch({ estado: e, motivoNoInteres: "Rechazo_Producto" });
+                      return;
+                    }
+                    patch({ estado: e, motivoNoInteres: null });
                   }}
                   className={`text-[11px] font-semibold px-3 py-1 rounded-full border transition-colors ${
                     lead.estado === e
@@ -174,26 +182,67 @@ export function LeadDrawer({
 
           {/* Asistido — Sprint 9 G.3: marcar la asistencia abre el formulario
               que crea Paciente + Presupuesto opcional y transiciona a "Convertido".
+              Sprint 9 G.4: botón secundario "No asistió" → No Interesado con
+              motivoNoInteres=No_Asistio (queda reactivable).
               Visible solo mientras el lead sigue en Citado/Citados Hoy y no está
               convertido todavía. */}
           {(lead.estado === "Citado" || lead.estado === "Citados Hoy") && !lead.convertido && (
-            <section>
+            <section className="space-y-2">
               {lead.asistido ? (
                 <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
                   ✓ Asistencia registrada
                 </p>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onAsistencia(lead);
-                    onClose();
-                  }}
-                  className="w-full rounded-xl bg-emerald-600 text-white text-xs font-bold py-2.5 hover:bg-emerald-700"
-                >
-                  Registrar asistencia →
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onAsistencia(lead);
+                      onClose();
+                    }}
+                    className="w-full rounded-xl bg-emerald-600 text-white text-xs font-bold py-2.5 hover:bg-emerald-700"
+                  >
+                    Registrar asistencia →
+                  </button>
+                  <button
+                    type="button"
+                    disabled={saving}
+                    onClick={() =>
+                      patch({ estado: "No Interesado", motivoNoInteres: "No_Asistio" })
+                    }
+                    className="w-full rounded-xl bg-white text-rose-700 border border-rose-200 text-xs font-bold py-2.5 hover:bg-rose-50 disabled:opacity-50"
+                  >
+                    No asistió
+                  </button>
+                </>
               )}
+            </section>
+          )}
+
+          {/* Reactivación — Sprint 9 G.4. Un lead "No Interesado" con motivo
+              "No_Asistio" puede reactivarse (vuelve a Contactado manteniendo
+              teléfono/tratamiento/notas). Rechazo_Producto también reactivable
+              por simplicidad. */}
+          {lead.estado === "No Interesado" && !lead.convertido && (
+            <section className="space-y-2">
+              {lead.motivoNoInteres && (
+                <p className="text-[11px] text-slate-500">
+                  Motivo:{" "}
+                  <span className="font-semibold text-slate-700">
+                    {lead.motivoNoInteres === "No_Asistio" ? "No asistió" : "Rechazo producto"}
+                  </span>
+                </p>
+              )}
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() =>
+                  patch({ estado: "Contactado", motivoNoInteres: null })
+                }
+                className="w-full rounded-xl bg-sky-600 text-white text-xs font-bold py-2.5 hover:bg-sky-700 disabled:opacity-50"
+              >
+                Reactivar lead →
+              </button>
             </section>
           )}
 

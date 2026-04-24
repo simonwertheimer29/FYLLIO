@@ -169,18 +169,47 @@ export function LeadsView({
         return;
       }
 
+      // Sprint 9 G.4: arrastrar a "No Interesado" marca motivo=Rechazo por
+      // defecto. El flujo "No asistió" pasa por el botón dedicado del drawer.
+      // Otras transiciones limpian el motivo.
+      const patchBody: Record<string, any> = { estado: destEstado };
+      if (destEstado === "No Interesado" && !lead.motivoNoInteres) {
+        patchBody.motivoNoInteres = "Rechazo_Producto";
+      } else if (destEstado !== "No Interesado" && lead.motivoNoInteres) {
+        patchBody.motivoNoInteres = null;
+      }
+
       // Optimistic update.
-      setLeads((prev) => prev.map((l) => (l.id === activeId ? { ...l, estado: destEstado } : l)));
+      setLeads((prev) =>
+        prev.map((l) =>
+          l.id === activeId
+            ? {
+                ...l,
+                estado: destEstado,
+                motivoNoInteres:
+                  patchBody.motivoNoInteres === undefined
+                    ? l.motivoNoInteres
+                    : patchBody.motivoNoInteres,
+              }
+            : l
+        )
+      );
       try {
         const res = await fetch(`/api/leads/${activeId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ estado: destEstado }),
+          body: JSON.stringify(patchBody),
         });
         if (!res.ok) throw new Error("update failed");
       } catch {
         // Rollback.
-        setLeads((prev) => prev.map((l) => (l.id === activeId ? { ...l, estado: lead.estado } : l)));
+        setLeads((prev) =>
+          prev.map((l) =>
+            l.id === activeId
+              ? { ...l, estado: lead.estado, motivoNoInteres: lead.motivoNoInteres }
+              : l
+          )
+        );
         setError("No se pudo mover el lead. Inténtalo de nuevo.");
       }
     },
@@ -383,9 +412,13 @@ function KanbanColumn({
           className="flex-1 min-h-[120px] p-2 space-y-2 overflow-y-auto"
           data-estado={estado}
         >
-          {items.map((l) => (
-            <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
-          ))}
+          {estado === "No Interesado" ? (
+            <NoInteresadoGroups items={items} onCardClick={onCardClick} />
+          ) : (
+            items.map((l) => (
+              <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
+            ))
+          )}
           {items.length === 0 && (
             <div
               id={estado}
@@ -397,6 +430,44 @@ function KanbanColumn({
         </div>
       </SortableContext>
     </div>
+  );
+}
+
+// Sprint 9 G.4: en la columna "No Interesado" separamos visualmente los
+// leads por motivo (No asistió vs Rechazo producto) para distinguir los
+// reactivables (No asistió) del rechazo definitivo.
+function NoInteresadoGroups({
+  items,
+  onCardClick,
+}: {
+  items: Lead[];
+  onCardClick: (l: Lead) => void;
+}) {
+  const noAsistio = items.filter((l) => l.motivoNoInteres === "No_Asistio");
+  const rechazo = items.filter((l) => l.motivoNoInteres !== "No_Asistio");
+  return (
+    <>
+      {noAsistio.length > 0 && (
+        <>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700 px-1 mt-1">
+            No asistió · {noAsistio.length}
+          </p>
+          {noAsistio.map((l) => (
+            <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
+          ))}
+        </>
+      )}
+      {rechazo.length > 0 && (
+        <>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 px-1 mt-2">
+            Rechazo · {rechazo.length}
+          </p>
+          {rechazo.map((l) => (
+            <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
+          ))}
+        </>
+      )}
+    </>
   );
 }
 
