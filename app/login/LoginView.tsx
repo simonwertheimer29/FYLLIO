@@ -1,7 +1,6 @@
-"use client";
-
-// Panel de gestión — tarjeta Administrador (botón "Entrar") + tarjetas de clínica
-// (botón "PIN" que navega a /login/clinica/[id] con keypad).
+// Panel de gestión — tarjetas clickables (Sprint 8 Bloque E).
+// Toda la tarjeta es el área de click (sin botón separado), con hover que
+// eleva la tarjeta y foco accesible para navegación por teclado.
 
 import Link from "next/link";
 
@@ -20,8 +19,12 @@ export function LoginView({ clinicas }: { clinicas: ClinicaCard[] }) {
           <p className="text-sm text-slate-500">Panel de gestión</p>
         </div>
 
-        {/* Tarjeta Administrador */}
-        <div className="rounded-3xl bg-white border border-slate-200 shadow-sm p-5 flex items-center gap-4">
+        {/* Tarjeta Administrador — tarjeta entera clickable */}
+        <Link
+          href="/login/admin"
+          className="block rounded-3xl bg-white border border-slate-200 shadow-sm p-5 flex items-center gap-4 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
+          aria-label="Entrar como Administrador"
+        >
           <div className="w-12 h-12 shrink-0 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-xl">
             👤
           </div>
@@ -29,13 +32,10 @@ export function LoginView({ clinicas }: { clinicas: ClinicaCard[] }) {
             <p className="text-sm font-bold text-slate-900">Administrador</p>
             <p className="text-xs text-slate-500">Todas las clínicas</p>
           </div>
-          <Link
-            href="/login/admin"
-            className="rounded-xl bg-slate-900 text-white text-xs font-bold px-4 py-2 hover:bg-slate-800 transition-colors"
-          >
-            Entrar
-          </Link>
-        </div>
+          <span aria-hidden="true" className="text-slate-400 text-xl">
+            ›
+          </span>
+        </Link>
 
         {/* Separador clínicas */}
         {clinicas.length > 0 && (
@@ -50,9 +50,11 @@ export function LoginView({ clinicas }: { clinicas: ClinicaCard[] }) {
 
             <div className="space-y-3">
               {clinicas.map((c) => (
-                <div
+                <Link
                   key={c.id}
-                  className="rounded-3xl bg-white border border-slate-200 shadow-sm p-5 flex items-center gap-4"
+                  href={`/login/clinica/${c.id}`}
+                  className="block rounded-3xl bg-white border border-slate-200 shadow-sm p-5 flex items-center gap-4 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-violet-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2"
+                  aria-label={`Entrar como Coordinación ${c.nombre}`}
                 >
                   <div className="w-12 h-12 shrink-0 rounded-2xl bg-violet-100 text-violet-700 flex items-center justify-center text-xl">
                     🏥
@@ -61,13 +63,10 @@ export function LoginView({ clinicas }: { clinicas: ClinicaCard[] }) {
                     <p className="text-sm font-bold text-slate-900 truncate">{c.nombre}</p>
                     <p className="text-xs text-slate-500 truncate">Coordinación {c.nombre}</p>
                   </div>
-                  <Link
-                    href={`/login/clinica/${c.id}`}
-                    className="rounded-xl bg-violet-600 text-white text-xs font-bold px-4 py-2 hover:bg-violet-700 transition-colors"
-                  >
-                    PIN
-                  </Link>
-                </div>
+                  <span aria-hidden="true" className="text-slate-400 text-xl">
+                    ›
+                  </span>
+                </Link>
               ))}
             </div>
           </>
