@@ -1,35 +1,32 @@
 "use client";
 
+// Sprint 8 D.6 — /presupuestos simplificado a toggle Panel / Máxima.
+// Red/Intervención/KPIs/Informes/Tareas/Envíos/Doctor/Automatizaciones/Config
+// se migran a rutas top-level. Aquí solo queda el pipeline de presupuestos.
+
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import type { Presupuesto, PresupuestoEstado, UserSession, MotivoPerdida } from "../../lib/presupuestos/types";
+import type {
+  Presupuesto,
+  PresupuestoEstado,
+  UserSession,
+  MotivoPerdida,
+  PresupuestoIntervencion,
+} from "../../lib/presupuestos/types";
 import KanbanBoard from "./KanbanBoard";
+import MaximaView from "./MaximaView";
 import FiltersBar, { type Filters } from "./FiltersBar";
 import ContactHistoryModal from "./ContactHistoryModal";
 import NewPresupuestoModal from "./NewPresupuestoModal";
-import KpiView from "./KpiView";
-import DoctorView from "./DoctorView";
-import TareasView from "./TareasView";
 import PatientDrawer from "./PatientDrawer";
-import CommandCenterView from "./CommandCenterView";
-// InformesView importa `dom-to-image-more` que toca `Node` (DOM) en module
-// evaluation → crashea durante SSR. Lo cargamos dinámico con ssr:false.
-import NextDynamic from "next/dynamic";
-const InformesView = NextDynamic(() => import("./InformesView"), { ssr: false });
 import ImportarCSVModal from "./ImportarCSVModal";
-import ConfigAutomatizaciones from "./ConfigAutomatizaciones";
-import AutomatizacionesView from "./AutomatizacionesView";
-import IntervencionView from "./IntervencionView";
 import IntervencionSidePanel from "./IntervencionSidePanel";
-import MaximaView from "./MaximaView";
-import EnviosView from "./EnviosView";
 import NotificacionesPanel from "./NotificacionesPanel";
-import type { PresupuestoIntervencion } from "../../lib/presupuestos/types";
 
-type Tab = "red" | "intervencion" | "maxima" | "envios" | "kanban" | "tareas" | "kpis" | "doctor" | "informes" | "automatizaciones" | "config";
+type Tab = "kanban" | "maxima";
 
 // ─── Mini hook para cargar presupuestos ──────────────────────────────────────
 
-function usePresupuestos(user: UserSession) {
+function usePresupuestos() {
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
   const [loading, setLoading] = useState(false);
   const [isDemo, setIsDemo] = useState(false);
@@ -68,14 +65,13 @@ function usePresupuestos(user: UserSession) {
 // ─── Main Shell ──────────────────────────────────────────────────────────────
 
 export default function PresupuestosShell({ user }: { user: UserSession }) {
-  const isManager = user.rol === "manager_general" || user.rol === "admin";
-  const isVentas = user.rol === "ventas";
-  const [tab, setTab] = useState<Tab>(isManager ? "red" : "tareas");
+  const [tab, setTab] = useState<Tab>("kanban");
   const [currentFilters, setCurrentFilters] = useState<Filters>({
     clinica: "", doctor: "", tipoPaciente: "", tipoVisita: "",
     estado: "", fechaDesde: "", fechaHasta: "", q: "",
   });
-  const { presupuestos, setPresupuestos, loading, isDemo, demoReason, missingVars, load } = usePresupuestos(user);
+  const { presupuestos, setPresupuestos, loading, isDemo, demoReason, missingVars, load } =
+    usePresupuestos();
 
   const clinicasDisponibles = useMemo(() => {
     const s = new Set<string>(presupuestos.map((p) => p.clinica).filter(Boolean) as string[]);
@@ -92,7 +88,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   const [notifCount, setNotifCount] = useState(0);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
 
-  // Keyboard shortcut N → Nuevo presupuesto
+  // Atajo "N" → Nuevo presupuesto
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
       if (e.key !== "n" && e.key !== "N") return;
@@ -106,7 +102,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
-  // Registrar Service Worker para Web Push
+  // Service Worker para Web Push
   useEffect(() => {
     if (typeof window === "undefined") return;
     if ("serviceWorker" in navigator && "PushManager" in window) {
@@ -114,34 +110,40 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     }
   }, []);
 
-  // Polling banner
+  // Polling banner + notifs
   const [newPresupuestosCount, setNewPresupuestosCount] = useState(0);
   const lastCountRef = useRef<number | null>(null);
   const currentFiltersRef = useRef(currentFilters);
   currentFiltersRef.current = currentFilters;
 
-  const handleFiltersChange = useCallback((f: Filters) => {
-    setCurrentFilters(f);
-    load(f);
-  }, [load]);
+  const handleFiltersChange = useCallback(
+    (f: Filters) => {
+      setCurrentFilters(f);
+      load(f);
+    },
+    [load]
+  );
 
-  useEffect(() => { load(currentFilters); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    load(currentFilters);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  // Notification polling every 60s
   useEffect(() => {
     async function pollNotifs() {
       try {
         const res = await fetch("/api/notificaciones");
         const d = await res.json();
         setNotifCount(d.noLeidas ?? 0);
-      } catch { /* silent */ }
+      } catch {
+        /* silent */
+      }
     }
     pollNotifs();
-    const nInterval = setInterval(pollNotifs, 60_000);
-    return () => clearInterval(nInterval);
+    const n = setInterval(pollNotifs, 60_000);
+    return () => clearInterval(n);
   }, []);
 
-  // Silent polling every 60s — show banner when count changes
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -152,10 +154,12 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           setNewPresupuestosCount(count - lastCountRef.current);
         }
         lastCountRef.current = count;
-      } catch { /* silent */ }
+      } catch {
+        /* silent */
+      }
     }, 60_000);
     return () => clearInterval(interval);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   function handleBannerRefresh() {
     setNewPresupuestosCount(0);
@@ -168,9 +172,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     estado: PresupuestoEstado,
     extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string; reactivar?: boolean }
   ) {
-    setPresupuestos((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, estado } : p))
-    );
+    setPresupuestos((prev) => prev.map((p) => (p.id === id ? { ...p, estado } : p)));
     try {
       const { reactivar, ...patchExtra } = extra ?? {};
       await fetch(`/api/presupuestos/kanban/${id}`, {
@@ -178,7 +180,6 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ estado, ...patchExtra }),
       });
-      // Si se marcó reactivar: crear contacto futuro en 90 días
       if (reactivar && estado === "PERDIDO") {
         const fecha90 = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
         await fetch("/api/presupuestos/contactos", {
@@ -202,55 +203,22 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     setEditPresupuesto(p);
   }
 
-  // Logout movido al GlobalHeader (Sprint 7 Fase 4).
-
-  const TABS: { id: Tab; label: string; icon: string }[] = isManager
-    ? [
-        { id: "red",              label: "Red",              icon: "🕸" },
-        { id: "intervencion",     label: "Intervención",     icon: "🎯" },
-        { id: "maxima",           label: "Máxima",           icon: "" },
-        { id: "envios",           label: "Envíos",           icon: "" },
-        { id: "tareas",           label: "Tareas",           icon: "✓" },
-        { id: "kanban",           label: "Panel",            icon: "☰" },
-        { id: "kpis",             label: "KPIs",             icon: "📊" },
-        { id: "doctor",           label: "Doctor",           icon: "🩺" },
-        { id: "informes",         label: "Informes",         icon: "📋" },
-        { id: "automatizaciones", label: "Automatizaciones", icon: "🤖" },
-        { id: "config",           label: "Config",           icon: "⚙" },
-      ]
-    : isVentas
-    ? [
-        { id: "intervencion",     label: "Intervención",     icon: "🎯" },
-        { id: "maxima",           label: "Máxima",           icon: "" },
-        { id: "envios",           label: "Envíos",           icon: "" },
-        { id: "tareas",           label: "Mis Tareas",       icon: "✓" },
-        { id: "kanban",           label: "Mis Presupuestos", icon: "☰" },
-        { id: "automatizaciones", label: "Automatizaciones", icon: "🤖" },
-      ]
-    : [
-        { id: "intervencion", label: "Intervención", icon: "🎯" },
-        { id: "maxima",       label: "Máxima",       icon: "" },
-        { id: "envios",       label: "Envíos",       icon: "" },
-        { id: "tareas",   label: "Tareas",   icon: "✓" },
-        { id: "kanban",   label: "Panel",    icon: "☰" },
-        { id: "kpis",     label: "KPIs",     icon: "📊" },
-        { id: "doctor",   label: "Doctor",   icon: "🩺" },
-      ];
-
-  // Bottom nav shows up to 4 primary tabs + "+" on mobile/tablet
-  const BOTTOM_TABS = isManager
-    ? TABS.filter((t) => ["red", "intervencion", "tareas", "kanban"].includes(t.id))
-    : TABS.slice(0, 4);
-
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-slate-50 overflow-hidden">
-      {/* Barra de acciones del área (Sprint 7 Fase 4).
-          Logo, usuario, rol, selector y Salir viven ahora en el GlobalHeader
-          del layout (authed). Aquí solo dejamos las acciones específicas de
-          Presupuestos: Importar CSV, Nuevo, y notificaciones. */}
-      <div className="bg-white border-b border-slate-200 px-4 py-2 flex items-center gap-2 shrink-0 justify-between">
+      {/* Minibar: título + toggle + acciones + notificaciones */}
+      <div className="bg-white border-b border-slate-200 px-4 py-2 flex items-center gap-3 shrink-0">
         <p className="text-xs font-bold text-slate-900">Presupuestos</p>
-        <div className="flex items-center gap-2">
+
+        <div className="flex gap-1">
+          <ToggleBtn active={tab === "kanban"} onClick={() => setTab("kanban")}>
+            Panel
+          </ToggleBtn>
+          <ToggleBtn active={tab === "maxima"} onClick={() => setTab("maxima")}>
+            Máxima
+          </ToggleBtn>
+        </div>
+
+        <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => setShowImportCSV(true)}
             className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
@@ -282,30 +250,12 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         </div>
       </div>
 
-      {/* Tabs — visible only on desktop */}
-      <div className="hidden lg:block bg-white border-b border-slate-200 px-4 shrink-0">
-        <div className="flex gap-0">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`px-4 py-3 text-sm font-semibold border-b-2 transition-colors ${
-                tab === t.id
-                  ? "border-violet-600 text-violet-700"
-                  : "border-transparent text-slate-500 hover:text-slate-700"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Polling banner */}
       {newPresupuestosCount > 0 && (
         <div className="shrink-0 bg-violet-600 text-white px-4 py-2 flex items-center justify-between gap-4">
           <span className="text-xs font-semibold">
-            {newPresupuestosCount} presupuesto{newPresupuestosCount !== 1 ? "s" : ""} nuevo{newPresupuestosCount !== 1 ? "s" : ""} desde tu última carga
+            {newPresupuestosCount} presupuesto
+            {newPresupuestosCount !== 1 ? "s" : ""} nuevo
+            {newPresupuestosCount !== 1 ? "s" : ""} desde tu última carga
           </span>
           <button
             onClick={handleBannerRefresh}
@@ -316,26 +266,11 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         </div>
       )}
 
-      {/* Content */}
-      <main className="flex-1 min-h-0 overflow-auto flex flex-col p-4 gap-4 w-full pb-20 lg:pb-4">
+      <main className="flex-1 min-h-0 overflow-auto flex flex-col p-4 gap-4 w-full">
         {tab === "kanban" && (
           <div className="flex flex-col flex-1 min-h-0 gap-3">
-            <div className="shrink-0 flex items-center justify-between gap-3">
-              {isVentas ? (
-                <p className="text-sm font-semibold text-slate-600 flex-1">
-                  {user.clinica ?? "Mi clínica"}
-                </p>
-              ) : (
-                <div className="flex-1">
-                  <FiltersBar user={user} onFiltersChange={handleFiltersChange} />
-                </div>
-              )}
-              <button
-                onClick={() => setShowNew(true)}
-                className="shrink-0 rounded-2xl bg-violet-600 text-white text-sm font-semibold px-4 py-2.5 hover:bg-violet-700"
-              >
-                + Nuevo
-              </button>
+            <div className="shrink-0">
+              <FiltersBar user={user} onFiltersChange={handleFiltersChange} />
             </div>
 
             {isDemo && (
@@ -344,8 +279,10 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
                 {demoReason === "env_missing" ? (
                   <>
                     Añade{" "}
-                    <code className="font-mono bg-amber-100 px-1 rounded">{missingVars.join(", ")}</code>
-                    {" "}en Vercel → Settings → Environment Variables y redeploya.
+                    <code className="font-mono bg-amber-100 px-1 rounded">
+                      {missingVars.join(", ")}
+                    </code>{" "}
+                    en Vercel → Settings → Environment Variables y redeploya.
                   </>
                 ) : (
                   <>Conecta las tablas de Airtable para datos reales.</>
@@ -364,7 +301,9 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
                 <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-12 text-center max-w-sm">
                   <p className="text-2xl mb-3">📋</p>
                   <p className="text-sm font-bold text-slate-700">Sin presupuestos todavía</p>
-                  <p className="text-xs text-slate-400 mt-1 mb-5">Crea tu primer presupuesto o importa datos desde Gesden.</p>
+                  <p className="text-xs text-slate-400 mt-1 mb-5">
+                    Crea tu primer presupuesto o importa datos desde Gesden.
+                  </p>
                   <div className="flex gap-2 justify-center">
                     <button
                       onClick={() => setShowImportCSV(true)}
@@ -394,77 +333,12 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           </div>
         )}
 
-        {tab === "intervencion" && (
-          <IntervencionView
-            user={user}
-            onOpenDrawer={(p) => setIntervencionItem(p)}
-          />
-        )}
-
         {tab === "maxima" && (
-          <MaximaView
-            user={user}
-            onOpenDrawer={(p) => setIntervencionItem(p)}
-          />
+          <MaximaView user={user} onOpenDrawer={(p) => setIntervencionItem(p)} />
         )}
-
-        {tab === "envios" && <EnviosView user={user} />}
-
-        {tab === "tareas" && (
-          <TareasView
-            user={user}
-            presupuestos={presupuestos}
-            onOpenDrawer={(p) => setDrawerPresupuesto(p)}
-            onChangeEstado={handleChangeEstado}
-          />
-        )}
-
-        {tab === "kpis" && <KpiView user={user} showBenchmark={isManager} />}
-        {tab === "doctor" && <DoctorView user={user} />}
-
-        {/* Manager-only tabs — stubs until Bloque 2/3 */}
-        {tab === "red" && (
-          <CommandCenterView
-            user={user}
-            onNavigateToTareas={(clinica) => {
-              setTab("tareas");
-              if (clinica) {
-                const f = { ...currentFilters, clinica };
-                setCurrentFilters(f);
-                load(f);
-              }
-            }}
-          />
-        )}
-        {tab === "informes"         && <InformesView user={user} />}
-        {tab === "automatizaciones" && <AutomatizacionesView user={user} />}
-        {tab === "config"           && <ConfigAutomatizaciones user={user} />}
       </main>
 
-      {/* Bottom Navigation — tablet/mobile only */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-slate-200 flex items-stretch h-16 safe-area-inset-bottom">
-        {BOTTOM_TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors min-h-[44px] ${
-              tab === t.id ? "text-violet-700 bg-violet-50" : "text-slate-500 hover:text-slate-700"
-            }`}
-          >
-            <span className="text-lg leading-none">{t.icon}</span>
-            <span className="hidden sm:block">{t.label}</span>
-          </button>
-        ))}
-        <button
-          onClick={() => setShowNew(true)}
-          className="flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold text-violet-600 hover:bg-violet-50 transition-colors min-h-[44px]"
-        >
-          <span className="text-xl leading-none font-light">＋</span>
-          <span className="hidden sm:block">Nuevo</span>
-        </button>
-      </nav>
-
-      {/* Modals */}
+      {/* Modals / drawers */}
       {historyPresupuesto && (
         <ContactHistoryModal
           presupuestoId={historyPresupuesto.id}
@@ -484,7 +358,10 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           user={user}
           presupuesto={editPresupuesto}
           onClose={() => setEditPresupuesto(null)}
-          onCreated={() => { load(currentFilters); setEditPresupuesto(null); }}
+          onCreated={() => {
+            load(currentFilters);
+            setEditPresupuesto(null);
+          }}
         />
       )}
       {drawerPresupuesto && (
@@ -497,10 +374,12 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
               prev && prev.id === id ? { ...prev, estado } : prev
             );
           }}
-          onNewForPatient={() => { setDrawerPresupuesto(null); setShowNew(true); }}
+          onNewForPatient={() => {
+            setDrawerPresupuesto(null);
+            setShowNew(true);
+          }}
         />
       )}
-
       {intervencionItem && (
         <IntervencionSidePanel
           item={intervencionItem}
@@ -509,13 +388,9 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
             handleChangeEstado(id, estado);
             setIntervencionItem(null);
           }}
-          onRefresh={() => {
-            // IntervencionView handles its own refresh via interval
-            setIntervencionItem(null);
-          }}
+          onRefresh={() => setIntervencionItem(null)}
         />
       )}
-
       {showImportCSV && (
         <ImportarCSVModal
           user={user}
@@ -525,7 +400,6 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           onImported={() => load(currentFiltersRef.current)}
         />
       )}
-
       {showNotifPanel && (
         <NotificacionesPanel
           onClose={() => setShowNotifPanel(false)}
@@ -533,5 +407,29 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         />
       )}
     </div>
+  );
+}
+
+function ToggleBtn({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+        active
+          ? "bg-slate-900 text-white"
+          : "bg-white text-slate-600 border border-slate-200 hover:border-slate-400"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
