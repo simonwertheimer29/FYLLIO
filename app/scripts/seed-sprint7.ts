@@ -1,24 +1,20 @@
 // app/scripts/seed-sprint7.ts
 //
-// Sprint 7 (v5) — Seed demo completo para piloto R2b.
-// Pobla Airtable con:
-//   - 10 clínicas específicas (RB Dental + Karen Dental)
-//   - 1 admin (Simon Wertheimer) + 10 coordinaciones (una por clínica)
-//   - 22 doctores distribuidos
-//   - 50 pacientes
-//   - 250 presupuestos (80-100 "leads" recientes + 150-200 históricos)
-//   - 250 mensajes WhatsApp en conversaciones
+// Sprint 7 v5 + R2b — seed demo distribuido uniformemente entre las 10
+// clínicas reales de RB Dental / Karen Dental. Se ejecuta tras
+// `npx tsx app/scripts/clean-legacy.ts --apply` que deja las tablas de
+// datos vacías.
 //
-// Idempotente. Los datos creados llevan marcadores estables:
-//   - Usuarios: Nombre único (admin "Simon Wertheimer", coord "Coordinación {Clínica}")
-//   - Staff: Nombre + clínica único
-//   - Pacientes: Notas empieza con "[SEED]"
-//   - Presupuestos: Presupuesto ID con formato "SEED_P_XXXX"
-//   - Mensajes: WABA_message_id con formato "SEED_M_XXXX"
-// El seed no duplica — si ya hay N registros marcados, crea solo los que faltan.
+// Distribución por clínica:
+//   - 4 doctores (mix de especialidades) = 40 totales
+//   - 20 pacientes                        = 200 totales
+//   - 30 presupuestos (6 estados)         = 300 totales
+//   - ~35 mensajes WhatsApp               = ~350 totales
+//   - 5 no-shows históricos (Citas)       = 50 totales
+//   - 4 leads (Lista_de_espera)           = 40 totales
 //
+// Idempotente: marcadores estables por tabla.
 // Uso: npx tsx app/scripts/seed-sprint7.ts
-// Limpieza: npx tsx app/scripts/clean-all.ts
 
 import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
@@ -46,12 +42,12 @@ const CLINICAS: Array<{ nombre: string; ciudad: string }> = [
   { nombre: "Karen Dental – Valdemoro 28", ciudad: "Madrid" },
 ];
 
-// Pools demo (datos ficticios, NO de negocio)
 const NOMBRES_PERSONAS = [
   "María", "Carmen", "Ana", "Laura", "Isabel", "Paula", "Cristina", "Elena",
   "Sara", "Lucía", "Marta", "Patricia", "Sofía", "Beatriz", "Raquel", "Claudia",
   "Carlos", "Javier", "David", "José", "Antonio", "Manuel", "Francisco", "Alberto",
   "Pablo", "Sergio", "Rubén", "Jorge", "Álvaro", "Daniel", "Adrián", "Roberto",
+  "Nuria", "Silvia", "Eva", "Rocío", "Andrea", "Alba", "Irene", "Marina",
 ];
 const APELLIDOS = [
   "García", "Martínez", "López", "Rodríguez", "Sánchez", "Pérez", "Fernández", "Gómez",
@@ -66,32 +62,34 @@ type EstadoPresupuesto = "PRESENTADO" | "INTERESADO" | "EN_DUDA" | "EN_NEGOCIACI
 const ESTADOS: EstadoPresupuesto[] = ["PRESENTADO", "INTERESADO", "EN_DUDA", "EN_NEGOCIACION", "ACEPTADO", "PERDIDO"];
 
 const TRATAMIENTOS: Array<{ nombre: string; importeMin: number; importeMax: number }> = [
-  { nombre: "Ortodoncia Invisalign", importeMin: 2800, importeMax: 4500 },
-  { nombre: "Ortodoncia brackets", importeMin: 1800, importeMax: 3000 },
-  { nombre: "Implante dental unitario", importeMin: 900, importeMax: 1500 },
-  { nombre: "Implante + corona zirconio", importeMin: 1400, importeMax: 2100 },
-  { nombre: "Endodoncia molar", importeMin: 300, importeMax: 550 },
-  { nombre: "Empaste compuesto", importeMin: 80, importeMax: 180 },
-  { nombre: "Limpieza + revisión", importeMin: 60, importeMax: 120 },
-  { nombre: "Blanqueamiento dental", importeMin: 350, importeMax: 700 },
-  { nombre: "Carillas porcelana (x6)", importeMin: 2400, importeMax: 4200 },
-  { nombre: "Extracción muela juicio", importeMin: 150, importeMax: 350 },
-  { nombre: "Corona porcelana", importeMin: 450, importeMax: 750 },
-  { nombre: "Puente de 3 piezas", importeMin: 1200, importeMax: 1900 },
-  { nombre: "Férula descarga", importeMin: 200, importeMax: 380 },
-  { nombre: "Periodoncia profunda", importeMin: 400, importeMax: 800 },
-  { nombre: "Prótesis removible", importeMin: 650, importeMax: 1100 },
+  { nombre: "Ortodoncia invisible (Invisalign)", importeMin: 3000, importeMax: 5500 },
+  { nombre: "Implante dental", importeMin: 2500, importeMax: 3800 },
+  { nombre: "Blanqueamiento dental", importeMin: 350, importeMax: 650 },
+  { nombre: "Limpieza dental", importeMin: 50, importeMax: 90 },
+  { nombre: "Empaste compuesto", importeMin: 70, importeMax: 120 },
+  { nombre: "Endodoncia", importeMin: 200, importeMax: 400 },
+  { nombre: "Corona cerámica", importeMin: 700, importeMax: 1100 },
+  { nombre: "Revisión y limpieza", importeMin: 45, importeMax: 80 },
 ];
 
 const ORIGENES: Array<"google_ads" | "seo_organico" | "referido_paciente" | "redes_sociales" | "walk_in" | "otro"> = [
   "google_ads", "seo_organico", "referido_paciente", "redes_sociales", "walk_in", "otro",
 ];
-
 const TIPO_PACIENTE = ["Privado", "Adeslas"] as const;
 const TIPO_VISITA = ["Primera Visita", "Paciente con Historia"] as const;
 const CANAL_PREFERIDO = ["Whatsapp", "SMS", "Call"] as const;
 
-// Textos de conversaciones WhatsApp típicas (input y respuesta alternadas)
+// Distribución de estados por presupuesto para cada clínica (30 presupuestos):
+// PRESENTADO 5, INTERESADO 6, EN_DUDA 5, EN_NEGOCIACION 4, ACEPTADO 5, PERDIDO 5.
+const ESTADO_DISTRIBUTION: EstadoPresupuesto[] = [
+  "PRESENTADO", "PRESENTADO", "PRESENTADO", "PRESENTADO", "PRESENTADO",
+  "INTERESADO", "INTERESADO", "INTERESADO", "INTERESADO", "INTERESADO", "INTERESADO",
+  "EN_DUDA", "EN_DUDA", "EN_DUDA", "EN_DUDA", "EN_DUDA",
+  "EN_NEGOCIACION", "EN_NEGOCIACION", "EN_NEGOCIACION", "EN_NEGOCIACION",
+  "ACEPTADO", "ACEPTADO", "ACEPTADO", "ACEPTADO", "ACEPTADO",
+  "PERDIDO", "PERDIDO", "PERDIDO", "PERDIDO", "PERDIDO",
+];
+
 const CONV_TEMPLATES = [
   [
     { dir: "Saliente", text: "Hola {nombre}! Te escribo desde {clinica}. Tienes el presupuesto de {tratamiento} por {importe}€. ¿Quieres que te lo explique?" },
@@ -122,45 +120,29 @@ const CONV_TEMPLATES = [
   ],
 ];
 
+// Cantidades por clínica
+const DOCTORES_POR_CLINICA   = 4;   // 10×4  = 40
+const PACIENTES_POR_CLINICA  = 20;  // 10×20 = 200
+const PRESUPUESTOS_POR_CLI   = 30;  // 10×30 = 300
+const MENSAJES_POR_CLINICA   = 35;  // 10×35 = 350
+const NOSHOWS_POR_CLINICA    = 5;   // 10×5  = 50
+const LEADS_POR_CLINICA      = 4;   // 10×4  = 40
+
 // ═══════════════════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════════════════
 
-function randInt(min: number, max: number): number {
-  return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-function randChoice<T>(arr: readonly T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]!;
-}
-function randPhone(): string {
-  return `+346${randInt(10000000, 99999999)}`;
-}
-function randPin4(): string {
-  return String(randInt(1000, 9999));
-}
-function randPin6(): string {
-  return String(randInt(100000, 999999));
-}
-function randFullName(): string {
-  return `${randChoice(NOMBRES_PERSONAS)} ${randChoice(APELLIDOS)} ${randChoice(APELLIDOS)}`;
-}
-function daysAgo(d: number): Date {
-  const t = new Date();
-  t.setDate(t.getDate() - d);
-  return t;
-}
-function toIsoDateOnly(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-function toIsoDateTime(d: Date): string {
-  return d.toISOString();
-}
-function pad4(n: number): string {
-  return String(n).padStart(4, "0");
-}
-function escapeFormula(value: string): string {
-  return value.replace(/'/g, "\\'");
-}
+function randInt(min: number, max: number): number { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function randChoice<T>(arr: readonly T[]): T { return arr[Math.floor(Math.random() * arr.length)]!; }
+function randPhone(): string { return `+346${randInt(10000000, 99999999)}`; }
+function randPin4(): string { return String(randInt(1000, 9999)); }
+function randPin6(): string { return String(randInt(100000, 999999)); }
+function randFullName(): string { return `${randChoice(NOMBRES_PERSONAS)} ${randChoice(APELLIDOS)} ${randChoice(APELLIDOS)}`; }
+function daysAgo(d: number): Date { const t = new Date(); t.setDate(t.getDate() - d); return t; }
+function toIsoDateOnly(d: Date): string { return d.toISOString().slice(0, 10); }
+function toIsoDateTime(d: Date): string { return d.toISOString(); }
+function pad4(n: number): string { return String(n).padStart(4, "0"); }
+function escapeFormula(value: string): string { return value.replace(/'/g, "\\'"); }
 async function chunkedCreate(tableName: any, records: Array<{ fields: Record<string, any> }>): Promise<any[]> {
   const out: any[] = [];
   for (let i = 0; i < records.length; i += 10) {
@@ -175,26 +157,21 @@ async function chunkedCreate(tableName: any, records: Array<{ fields: Record<str
 // 1) CLÍNICAS
 // ═══════════════════════════════════════════════════════════════════════
 
-async function upsertClinicas(): Promise<Map<string, { id: string; nombre: string }>> {
+async function upsertClinicas(): Promise<Array<{ id: string; nombre: string }>> {
   console.log("\n[1/7] Clínicas");
   const existing = await fetchAll(base(TABLES.clinics).select({}));
-  const byNombre = new Map<string, any>(
-    existing.map((r) => [String(r.fields?.["Nombre"] ?? ""), r])
-  );
-  const out = new Map<string, { id: string; nombre: string }>();
+  const byNombre = new Map<string, any>(existing.map((r) => [String(r.fields?.["Nombre"] ?? ""), r]));
+  const out: Array<{ id: string; nombre: string }> = [];
   const toCreate: Array<{ fields: Record<string, any> }> = [];
 
   for (const c of CLINICAS) {
     const rec = byNombre.get(c.nombre);
     if (rec) {
-      const patch: Record<string, any> = {};
-      if (!rec.fields?.["Activa"]) patch["Activa"] = true;
+      const patch: Record<string, any> = { Activa: true };
       if (!rec.fields?.["Ciudad"]) patch["Ciudad"] = c.ciudad;
-      if (Object.keys(patch).length) {
-        await base(TABLES.clinics).update([{ id: rec.id, fields: patch }]);
-      }
-      out.set(c.nombre, { id: rec.id, nombre: c.nombre });
-      console.log(`  ✔ ${c.nombre} (existente)`);
+      await base(TABLES.clinics).update([{ id: rec.id, fields: patch }]);
+      out.push({ id: rec.id, nombre: c.nombre });
+      console.log(`  ✔ ${c.nombre} (existente, activada)`);
     } else {
       toCreate.push({ fields: { Nombre: c.nombre, Ciudad: c.ciudad, Activa: true } });
     }
@@ -202,35 +179,15 @@ async function upsertClinicas(): Promise<Map<string, { id: string; nombre: strin
   if (toCreate.length) {
     const created = await chunkedCreate(TABLES.clinics, toCreate);
     for (const rec of created) {
-      const nombre = String(rec.fields?.["Nombre"] ?? "");
-      out.set(nombre, { id: rec.id, nombre });
-      console.log(`  ✔ ${nombre} (creada)`);
+      out.push({ id: rec.id, nombre: String(rec.fields?.["Nombre"] ?? "") });
+      console.log(`  ✔ ${rec.fields?.["Nombre"]} (creada)`);
     }
   }
-
-  // Desactiva cualquier clínica existente que no esté en la lista demo.
-  // No las borramos (podrían ser referenciadas por env vars legacy, ej.
-  // DEMO_CLINIC_RECORD_ID). Solo `Activa=false` para que no aparezcan en /login.
-  const demoNombres = new Set(CLINICAS.map((c) => c.nombre));
-  const toDeactivate = existing.filter(
-    (r) => !demoNombres.has(String(r.fields?.["Nombre"] ?? "")) && r.fields?.["Activa"]
-  );
-  if (toDeactivate.length) {
-    for (let i = 0; i < toDeactivate.length; i += 10) {
-      const slice = toDeactivate.slice(i, i + 10).map((r) => ({
-        id: r.id,
-        fields: { Activa: false },
-      }));
-      await base(TABLES.clinics).update(slice);
-    }
-    console.log(`  ↓ ${toDeactivate.length} clínica(s) fuera de la lista demo desactivadas`);
-  }
-
   return out;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 2) ADMIN + COORDINACIONES
+// 2) USUARIOS (admin + coords)
 // ═══════════════════════════════════════════════════════════════════════
 
 type UsuariosSeeded = {
@@ -239,7 +196,7 @@ type UsuariosSeeded = {
 };
 
 async function upsertUsuarios(
-  clinicas: Map<string, { id: string; nombre: string }>
+  clinicas: Array<{ id: string; nombre: string }>
 ): Promise<UsuariosSeeded> {
   console.log("\n[2/7] Admin + coordinaciones");
 
@@ -254,14 +211,10 @@ async function upsertUsuarios(
   if (adminExisting.length) {
     const rec = adminExisting[0]!;
     if (rec.fields?.["Pin_length"] !== 6) {
-      // Migración v5: admin existente sin Pin_length=6 → regenera PIN 6 y pisa.
       const pin = randPin6();
       const pinHash = await hashPin(pin);
       await base(TABLES.usuarios).update([
-        {
-          id: rec.id,
-          fields: { Pin_hash: pinHash, Pin_length: 6, Password_hash: "" },
-        },
+        { id: rec.id, fields: { Pin_hash: pinHash, Pin_length: 6, Password_hash: "" } },
       ]);
       admin = { id: rec.id, pin };
       console.log(`  ↻ admin ${DEMO_ADMIN_NOMBRE} — regenerado PIN 6 dígitos`);
@@ -274,25 +227,17 @@ async function upsertUsuarios(
     const pinHash = await hashPin(pin);
     const created = (
       await base(TABLES.usuarios).create([
-        {
-          fields: {
-            Nombre: DEMO_ADMIN_NOMBRE,
-            Pin_hash: pinHash,
-            Pin_length: 6,
-            Rol: "admin",
-            Activo: true,
-          },
-        },
+        { fields: { Nombre: DEMO_ADMIN_NOMBRE, Pin_hash: pinHash, Pin_length: 6, Rol: "admin", Activo: true } },
       ])
     )[0]!;
     admin = { id: created.id, pin };
     console.log(`  ✔ admin ${DEMO_ADMIN_NOMBRE} (creado)`);
   }
 
-  // COORDINACIONES (1 por clínica)
+  // COORDINACIONES
   const coords: UsuariosSeeded["coordinaciones"] = [];
-  for (const [nombreClinica, cli] of clinicas) {
-    const nombreCoord = `Coordinación ${nombreClinica}`;
+  for (const cli of clinicas) {
+    const nombreCoord = `Coordinación ${cli.nombre}`;
     const existing = await base(TABLES.usuarios)
       .select({
         filterByFormula: `AND({Nombre}='${escapeFormula(nombreCoord)}', {Rol}='coordinacion')`,
@@ -302,31 +247,17 @@ async function upsertUsuarios(
 
     if (existing.length) {
       const rec = existing[0]!;
-      // Asegura Pin_length=4 en coords (v4/v5 migración)
       if (rec.fields?.["Pin_length"] !== 4) {
         await base(TABLES.usuarios).update([{ id: rec.id, fields: { Pin_length: 4 } }]);
       }
-      coords.push({
-        id: rec.id,
-        nombre: nombreCoord,
-        clinicaId: cli.id,
-        pin: "(existente — PIN previo)",
-      });
+      coords.push({ id: rec.id, nombre: nombreCoord, clinicaId: cli.id, pin: "(existente — PIN previo)" });
       console.log(`  ✔ ${nombreCoord} (existente)`);
     } else {
       const pin = randPin4();
       const pinHash = await hashPin(pin);
       const created = (
         await base(TABLES.usuarios).create([
-          {
-            fields: {
-              Nombre: nombreCoord,
-              Pin_hash: pinHash,
-              Pin_length: 4,
-              Rol: "coordinacion",
-              Activo: true,
-            },
-          },
+          { fields: { Nombre: nombreCoord, Pin_hash: pinHash, Pin_length: 4, Rol: "coordinacion", Activo: true } },
         ])
       )[0]!;
       coords.push({ id: created.id, nombre: nombreCoord, clinicaId: cli.id, pin });
@@ -334,7 +265,7 @@ async function upsertUsuarios(
     }
   }
 
-  // VÍNCULOS coord→clinica
+  // Vínculos coord→clínica (idempotente)
   const junctions = await fetchAll(base(TABLES.usuarioClinicas).select({}));
   const linked = new Set<string>(
     junctions.map((r) => {
@@ -358,333 +289,446 @@ async function upsertUsuarios(
 }
 
 // ═══════════════════════════════════════════════════════════════════════
-// 3) DOCTORES (Staff rol Dentista)
+// 3) DOCTORES — distribución fija N por clínica
 // ═══════════════════════════════════════════════════════════════════════
 
-const DOCTORES_TARGET = 22;
+type DoctorSeed = { id: string; nombre: string; especialidad: string; clinicaId: string };
 
 async function upsertDoctores(
   clinicas: Array<{ id: string; nombre: string }>
-): Promise<Array<{ id: string; nombre: string; especialidad: string; clinicaId: string }>> {
-  console.log("\n[3/7] Doctores (Staff)");
-  const existing = await fetchAll(
-    base(TABLES.staff).select({ filterByFormula: "{Rol}='Dentista'" })
-  );
-  const out: Array<{ id: string; nombre: string; especialidad: string; clinicaId: string }> = [];
-  const seen = new Set<string>();
-  for (const r of existing) {
-    const nombre = String(r.fields?.["Nombre"] ?? "");
-    const clis = (r.fields?.["Clínica"] ?? []) as string[];
-    if (clis[0]) {
+): Promise<DoctorSeed[]> {
+  console.log(`\n[3/7] Doctores (${DOCTORES_POR_CLINICA} por clínica)`);
+  const out: DoctorSeed[] = [];
+
+  for (const cli of clinicas) {
+    // ¿Cuántos dentistas ya hay vinculados a esta clínica?
+    const existing = await fetchAll(
+      base(TABLES.staff).select({
+        filterByFormula: `AND({Rol}='Dentista', FIND('${cli.id}', ARRAYJOIN({Clínica}))>0)`,
+      })
+    );
+    // Como FIND sobre ARRAYJOIN de un link compara vs primary field, filtramos en memoria.
+    const matched = existing.filter((r) => ((r.fields?.["Clínica"] ?? []) as string[]).includes(cli.id));
+
+    for (const r of matched) {
       out.push({
         id: r.id,
-        nombre,
+        nombre: String(r.fields?.["Nombre"] ?? ""),
         especialidad: "General",
-        clinicaId: clis[0],
-      });
-      seen.add(`${nombre}|${clis[0]}`);
-    }
-  }
-  const needed = Math.max(0, DOCTORES_TARGET - out.length);
-  console.log(`  Ya hay ${out.length} doctores. Necesito ${needed} más.`);
-
-  const toCreate: Array<{ fields: Record<string, any> }> = [];
-  while (toCreate.length < needed) {
-    const clinica = randChoice(clinicas);
-    const nombre = `Dr. ${randFullName()}`;
-    const combo = `${nombre}|${clinica.id}`;
-    if (seen.has(combo)) continue;
-    seen.add(combo);
-    toCreate.push({
-      fields: {
-        Nombre: nombre,
-        Clínica: [clinica.id],
-        Rol: "Dentista",
-        Activo: true,
-        "Horario laboral": "08:30-19:00",
-      },
-    });
-  }
-  if (toCreate.length) {
-    const created = await chunkedCreate(TABLES.staff, toCreate);
-    for (const r of created) {
-      const nombre = String(r.fields?.["Nombre"] ?? "");
-      const clis = (r.fields?.["Clínica"] ?? []) as string[];
-      out.push({ id: r.id, nombre, especialidad: "General", clinicaId: clis[0]! });
-    }
-    console.log(`  ✔ ${toCreate.length} doctores creados`);
-  }
-
-  // Asigna especialidad "virtual" para presupuestos (Staff no tiene ese campo)
-  for (let i = 0; i < out.length; i++) {
-    out[i]!.especialidad = ESPECIALIDADES[i % ESPECIALIDADES.length]!;
-  }
-  return out;
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// 4) PACIENTES
-// ═══════════════════════════════════════════════════════════════════════
-
-const PACIENTES_TARGET = 50;
-const PACIENTES_MARK = "[SEED]";
-
-async function upsertPacientes(
-  clinicas: Array<{ id: string; nombre: string }>
-): Promise<Array<{ id: string; nombre: string; telefono: string; clinicaId: string }>> {
-  console.log("\n[4/7] Pacientes");
-  const existing = await fetchAll(
-    base(TABLES.patients).select({ filterByFormula: `FIND('${PACIENTES_MARK}', {Notas}&'')` })
-  );
-  const out: Array<{ id: string; nombre: string; telefono: string; clinicaId: string }> = [];
-  for (const r of existing) {
-    const clis = (r.fields?.["Clínica"] ?? []) as string[];
-    if (clis[0]) {
-      out.push({
-        id: r.id,
-        nombre: String(r.fields?.["Nombre"] ?? ""),
-        telefono: String(r.fields?.["Teléfono"] ?? ""),
-        clinicaId: clis[0],
+        clinicaId: cli.id,
       });
     }
-  }
-  const needed = Math.max(0, PACIENTES_TARGET - out.length);
-  console.log(`  Ya hay ${out.length} pacientes [SEED]. Necesito ${needed} más.`);
-
-  const toCreate: Array<{ fields: Record<string, any> }> = [];
-  for (let i = 0; i < needed; i++) {
-    const clinica = randChoice(clinicas);
-    const nombre = randFullName();
-    const tel = randPhone();
-    toCreate.push({
-      fields: {
-        Nombre: nombre,
-        Clínica: [clinica.id],
-        "Teléfono": tel,
-        "Canal preferido": randChoice(CANAL_PREFERIDO),
-        "Consentimiento Whatsapp": Math.random() > 0.25,
-        "Consentimiento SMS": Math.random() > 0.5,
-        Activo: Math.random() > 0.1, // 90% activos
-        Notas: `${PACIENTES_MARK} Paciente demo para piloto R2b`,
-      },
-    });
-  }
-  if (toCreate.length) {
-    const created = await chunkedCreate(TABLES.patients, toCreate);
-    for (const r of created) {
-      const clis = (r.fields?.["Clínica"] ?? []) as string[];
-      out.push({
-        id: r.id,
-        nombre: String(r.fields?.["Nombre"] ?? ""),
-        telefono: String(r.fields?.["Teléfono"] ?? ""),
-        clinicaId: clis[0]!,
-      });
+    const needed = Math.max(0, DOCTORES_POR_CLINICA - matched.length);
+    if (needed === 0) {
+      console.log(`  ✔ ${cli.nombre}: ya tiene ${matched.length} dentistas`);
+      continue;
     }
-    console.log(`  ✔ ${toCreate.length} pacientes creados`);
-  }
-  return out;
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// 5) PRESUPUESTOS (leads recientes + históricos)
-// ═══════════════════════════════════════════════════════════════════════
-
-const LEADS_TARGET = 90;           // leads activos (últimos 30 días)
-const PRESUPUESTOS_TARGET = 180;   // históricos (últimos 6 meses)
-const PRESUPUESTO_PREFIX = "SEED_P_";
-
-// Estados "kanban activo" para los leads recientes (sin PERDIDO)
-const ESTADOS_LEAD: EstadoPresupuesto[] = ["PRESENTADO", "INTERESADO", "EN_DUDA", "EN_NEGOCIACION", "ACEPTADO"];
-
-async function upsertPresupuestos(
-  clinicas: Map<string, { id: string; nombre: string }>,
-  pacientes: Array<{ id: string; nombre: string; telefono: string; clinicaId: string }>,
-  doctores: Array<{ id: string; nombre: string; especialidad: string; clinicaId: string }>
-): Promise<string[]> {
-  console.log("\n[5/7] Presupuestos (leads + históricos)");
-  if (!pacientes.length || !doctores.length) {
-    console.log("  ! Sin pacientes o doctores — saltando presupuestos.");
-    return [];
-  }
-  const clinicaNombreById = new Map<string, string>();
-  for (const [, c] of clinicas) clinicaNombreById.set(c.id, c.nombre);
-
-  const existing = await fetchAll(
-    base(TABLES.presupuestos).select({ filterByFormula: `FIND('${PRESUPUESTO_PREFIX}', {Presupuesto ID}&'')` })
-  );
-  const existingIds = new Set<string>(
-    existing.map((r) => String(r.fields?.["Presupuesto ID"] ?? ""))
-  );
-  const existingRecIds = existing.map((r) => r.id);
-
-  const target = LEADS_TARGET + PRESUPUESTOS_TARGET;
-  const needed = Math.max(0, target - existingIds.size);
-  console.log(`  Ya hay ${existingIds.size} presupuestos SEED. Necesito ${needed} más.`);
-
-  const toCreate: Array<{ fields: Record<string, any> }> = [];
-  const nextSeq = (() => {
-    let n = 1;
-    while (existingIds.has(`${PRESUPUESTO_PREFIX}${pad4(n)}`)) n++;
-    return n;
-  })();
-
-  for (let i = 0; i < needed; i++) {
-    const isLead = i < LEADS_TARGET - (LEADS_TARGET * existingIds.size) / target;
-    // Distribución simple: primero leads, luego históricos.
-    const actuallyLead = i < Math.max(0, LEADS_TARGET - Math.min(existingIds.size, LEADS_TARGET));
-
-    const seq = nextSeq + i;
-    const id = `${PRESUPUESTO_PREFIX}${pad4(seq)}`;
-    const paciente = randChoice(pacientes);
-    // Doctor de la misma clínica si es posible
-    const docsDeClinica = doctores.filter((d) => d.clinicaId === paciente.clinicaId);
-    const doctor = docsDeClinica.length ? randChoice(docsDeClinica) : randChoice(doctores);
-    const trat = randChoice(TRATAMIENTOS);
-    const importe = randInt(trat.importeMin, trat.importeMax);
-    const estado: EstadoPresupuesto = actuallyLead
-      ? randChoice(ESTADOS_LEAD)
-      : randChoice(ESTADOS);
-    const fechaDate = actuallyLead ? daysAgo(randInt(0, 30)) : daysAgo(randInt(31, 180));
-
-    const fields: Record<string, any> = {
-      "Presupuesto ID": id,
-      Paciente: [paciente.id],
-      Tratamiento_nombre: trat.nombre,
-      Importe: importe,
-      Estado: estado,
-      Fecha: toIsoDateOnly(fechaDate),
-      FechaAlta: toIsoDateOnly(fechaDate),
-      Doctor: doctor.nombre,
-      Doctor_Especialidad: doctor.especialidad,
-      Clinica: clinicaNombreById.get(paciente.clinicaId) ?? "",
-      TipoPaciente: randChoice(TIPO_PACIENTE),
-      TipoVisita: randChoice(TIPO_VISITA),
-      ContactCount: randInt(0, 5),
-      CreadoPor: actuallyLead ? "IA" : "Recepción",
-      Paciente_Telefono: paciente.telefono,
-      OrigenLead: randChoice(ORIGENES),
-    };
-    if (estado === "PERDIDO") {
-      fields["MotivoPerdida"] = randChoice([
-        "precio_alto", "otra_clinica", "sin_urgencia", "necesita_financiacion",
-        "miedo_tratamiento", "no_responde", "otro",
-      ]);
-    }
-    if (estado === "EN_DUDA") {
-      fields["MotivoDuda"] = randChoice([
-        "precio", "otra_clinica", "sin_urgencia", "financiacion",
-        "miedo", "comparando_opciones", "otro",
-      ]);
-    }
-    toCreate.push({ fields });
-  }
-
-  const createdIds: string[] = [...existingRecIds];
-  if (toCreate.length) {
-    const created = await chunkedCreate(TABLES.presupuestos, toCreate);
-    for (const r of created) createdIds.push(r.id);
-    console.log(`  ✔ ${toCreate.length} presupuestos creados`);
-  }
-  return createdIds;
-}
-
-// ═══════════════════════════════════════════════════════════════════════
-// 6) MENSAJES WHATSAPP (conversaciones realistas)
-// ═══════════════════════════════════════════════════════════════════════
-
-const MENSAJES_TARGET = 250;
-const MENSAJE_PREFIX = "SEED_M_";
-
-async function upsertMensajes(
-  presupuestosRecIds: string[],
-  clinicas: Map<string, { id: string; nombre: string }>,
-  pacientes: Array<{ id: string; nombre: string; telefono: string; clinicaId: string }>
-): Promise<number> {
-  console.log("\n[6/7] Mensajes WhatsApp");
-  if (!presupuestosRecIds.length) {
-    console.log("  ! Sin presupuestos — saltando mensajes.");
-    return 0;
-  }
-  const clinicaNombreById = new Map<string, string>();
-  for (const [, c] of clinicas) clinicaNombreById.set(c.id, c.nombre);
-
-  const existing = await fetchAll(
-    base(TABLES.mensajesWhatsApp).select({
-      filterByFormula: `FIND('${MENSAJE_PREFIX}', {WABA_message_id}&'')`,
-    })
-  );
-  const existingIds = new Set<string>(
-    existing.map((r) => String(r.fields?.["WABA_message_id"] ?? ""))
-  );
-  const needed = Math.max(0, MENSAJES_TARGET - existingIds.size);
-  console.log(`  Ya hay ${existingIds.size} mensajes SEED. Necesito ${needed} más.`);
-
-  const toCreate: Array<{ fields: Record<string, any> }> = [];
-  const nextSeq = (() => {
-    let n = 1;
-    while (existingIds.has(`${MENSAJE_PREFIX}${pad4(n)}`)) n++;
-    return n;
-  })();
-
-  const pacienteById = new Map(pacientes.map((p) => [p.id, p]));
-
-  // Cargar info mínima de los presupuestos existentes para poblar mensajes
-  const presupuestos = await fetchAll(
-    base(TABLES.presupuestos).select({
-      filterByFormula: `FIND('${PRESUPUESTO_PREFIX}', {Presupuesto ID}&'')`,
-    })
-  );
-
-  let seqOffset = 0;
-  while (toCreate.length < needed) {
-    const presup = randChoice(presupuestos);
-    const presupId = presup.id;
-    const pacLinks = (presup.fields?.["Paciente"] ?? []) as string[];
-    const paciente = pacLinks[0] ? pacienteById.get(pacLinks[0]) : undefined;
-    if (!paciente) continue;
-
-    const clinicaNombre = clinicaNombreById.get(paciente.clinicaId) ?? "clínica";
-    const tratNombre = String(presup.fields?.["Tratamiento_nombre"] ?? "tratamiento");
-    const importe = Number(presup.fields?.["Importe"] ?? 0);
-    const tpl = randChoice(CONV_TEMPLATES);
-
-    // Base timestamp de la conversación: fecha del presupuesto + offset días
-    const fechaBase = presup.fields?.["Fecha"]
-      ? new Date(String(presup.fields["Fecha"]))
-      : daysAgo(randInt(1, 60));
-
-    for (let m = 0; m < tpl.length && toCreate.length < needed; m++) {
-      const msg = tpl[m]!;
-      const seq = nextSeq + seqOffset++;
-      const ts = new Date(fechaBase);
-      ts.setHours(ts.getHours() + m * randInt(1, 18));
-
-      const texto = msg.text
-        .replace("{nombre}", paciente.nombre.split(" ")[0] ?? "")
-        .replace("{clinica}", clinicaNombre)
-        .replace("{tratamiento}", tratNombre)
-        .replace("{importe}", String(importe));
-
+    const toCreate: Array<{ fields: Record<string, any> }> = [];
+    for (let i = 0; i < needed; i++) {
       toCreate.push({
         fields: {
-          Paciente: paciente.nombre,
-          Presupuesto: presupId,
-          Telefono: paciente.telefono,
-          Direccion: msg.dir,
-          Contenido: texto,
-          Timestamp: toIsoDateTime(ts),
-          Fuente: msg.dir === "Saliente" ? "Modo_B_WABA" : "Modo_A_manual",
-          Procesado_por_IA: Math.random() > 0.3,
-          WABA_message_id: `${MENSAJE_PREFIX}${pad4(seq)}`,
+          Nombre: `Dr. ${randFullName()}`,
+          Clínica: [cli.id],
+          Rol: "Dentista",
+          Activo: true,
+          "Horario laboral": "08:30-19:00",
         },
       });
     }
+    const created = await chunkedCreate(TABLES.staff, toCreate);
+    for (const r of created) {
+      out.push({
+        id: r.id,
+        nombre: String(r.fields?.["Nombre"] ?? ""),
+        especialidad: "General",
+        clinicaId: cli.id,
+      });
+    }
+    console.log(`  ✔ ${cli.nombre}: +${needed} dentistas`);
   }
-  if (toCreate.length) {
+
+  // Especialidad virtual (no vive en Airtable; solo para seed de presupuestos)
+  for (let i = 0; i < out.length; i++) {
+    out[i]!.especialidad = ESPECIALIDADES[i % ESPECIALIDADES.length]!;
+  }
+  console.log(`  Total doctores: ${out.length}`);
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 4) PACIENTES — N por clínica
+// ═══════════════════════════════════════════════════════════════════════
+
+type PacienteSeed = { id: string; nombre: string; telefono: string; clinicaId: string };
+const PAC_MARK = "[SEED]";
+
+async function upsertPacientes(
+  clinicas: Array<{ id: string; nombre: string }>
+): Promise<PacienteSeed[]> {
+  console.log(`\n[4/7] Pacientes (${PACIENTES_POR_CLINICA} por clínica)`);
+  const all = await fetchAll(
+    base(TABLES.patients).select({ filterByFormula: `FIND('${PAC_MARK}', {Notas}&'')` })
+  );
+  const porClinica = new Map<string, PacienteSeed[]>();
+  for (const r of all) {
+    const clis = (r.fields?.["Clínica"] ?? []) as string[];
+    if (!clis[0]) continue;
+    const p: PacienteSeed = {
+      id: r.id,
+      nombre: String(r.fields?.["Nombre"] ?? ""),
+      telefono: String(r.fields?.["Teléfono"] ?? ""),
+      clinicaId: clis[0],
+    };
+    if (!porClinica.has(clis[0])) porClinica.set(clis[0], []);
+    porClinica.get(clis[0])!.push(p);
+  }
+
+  const out: PacienteSeed[] = [];
+  for (const cli of clinicas) {
+    const existing = porClinica.get(cli.id) ?? [];
+    out.push(...existing);
+    const needed = Math.max(0, PACIENTES_POR_CLINICA - existing.length);
+    if (needed === 0) { console.log(`  ✔ ${cli.nombre}: ya tiene ${existing.length} pacientes`); continue; }
+
+    const toCreate: Array<{ fields: Record<string, any> }> = [];
+    for (let i = 0; i < needed; i++) {
+      toCreate.push({
+        fields: {
+          Nombre: randFullName(),
+          Clínica: [cli.id],
+          "Teléfono": randPhone(),
+          "Canal preferido": randChoice(CANAL_PREFERIDO),
+          "Consentimiento Whatsapp": Math.random() > 0.25,
+          "Consentimiento SMS": Math.random() > 0.5,
+          Activo: Math.random() > 0.1,
+          Notas: `${PAC_MARK} Paciente demo R2b`,
+        },
+      });
+    }
+    const created = await chunkedCreate(TABLES.patients, toCreate);
+    for (const r of created) {
+      out.push({
+        id: r.id,
+        nombre: String(r.fields?.["Nombre"] ?? ""),
+        telefono: String(r.fields?.["Teléfono"] ?? ""),
+        clinicaId: cli.id,
+      });
+    }
+    console.log(`  ✔ ${cli.nombre}: +${needed} pacientes`);
+  }
+  console.log(`  Total pacientes: ${out.length}`);
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 5) PRESUPUESTOS — 30 por clínica, distribución fija entre 6 estados
+// ═══════════════════════════════════════════════════════════════════════
+
+const PRES_PREFIX = "SEED_P_";
+
+type PresupuestoSeed = { id: string; airtableId: string; clinicaNombre: string; pacienteId: string; tratamiento: string; importe: number; fecha: Date };
+
+async function upsertPresupuestos(
+  clinicas: Array<{ id: string; nombre: string }>,
+  pacientes: PacienteSeed[],
+  doctores: DoctorSeed[]
+): Promise<PresupuestoSeed[]> {
+  console.log(`\n[5/7] Presupuestos (${PRESUPUESTOS_POR_CLI} por clínica)`);
+
+  const existing = await fetchAll(
+    base(TABLES.presupuestos).select({ filterByFormula: `FIND('${PRES_PREFIX}', {Presupuesto ID}&'')` })
+  );
+  const existingIds = new Set<string>(existing.map((r) => String(r.fields?.["Presupuesto ID"] ?? "")));
+
+  const out: PresupuestoSeed[] = [];
+  let nextSeq = (() => {
+    let n = 1;
+    while (existingIds.has(`${PRES_PREFIX}${pad4(n)}`)) n++;
+    return n;
+  })();
+
+  for (const cli of clinicas) {
+    const pacientesCli = pacientes.filter((p) => p.clinicaId === cli.id);
+    const doctoresCli = doctores.filter((d) => d.clinicaId === cli.id);
+    if (!pacientesCli.length || !doctoresCli.length) {
+      console.log(`  ! ${cli.nombre}: sin pacientes/doctores — salto`);
+      continue;
+    }
+
+    const cliPresups = existing.filter((r) => String(r.fields?.["Clinica"] ?? "") === cli.nombre);
+    const cliExistentes = cliPresups.length;
+    const needed = Math.max(0, PRESUPUESTOS_POR_CLI - cliExistentes);
+    if (needed === 0) {
+      console.log(`  ✔ ${cli.nombre}: ya tiene ${cliExistentes} presupuestos`);
+      continue;
+    }
+
+    const toCreate: Array<{ fields: Record<string, any> }> = [];
+    for (let i = 0; i < needed; i++) {
+      const seq = nextSeq++;
+      const id = `${PRES_PREFIX}${pad4(seq)}`;
+      const estado = ESTADO_DISTRIBUTION[(cliExistentes + i) % ESTADO_DISTRIBUTION.length]!;
+      const paciente = pacientesCli[Math.floor(Math.random() * pacientesCli.length)]!;
+      const doctor   = doctoresCli[Math.floor(Math.random() * doctoresCli.length)]!;
+      const trat     = randChoice(TRATAMIENTOS);
+      const importe  = randInt(trat.importeMin, trat.importeMax);
+      // Distribuir entre los últimos 6 meses; los más recientes tienden a ACEPTADO/ACTIVOS,
+      // los más viejos a PERDIDO.
+      const isActivo = !["ACEPTADO", "PERDIDO"].includes(estado);
+      const diasAtras = isActivo ? randInt(0, 45) : randInt(30, 180);
+      const fecha = daysAgo(diasAtras);
+
+      const fields: Record<string, any> = {
+        "Presupuesto ID": id,
+        Paciente: [paciente.id],
+        Tratamiento_nombre: trat.nombre,
+        Importe: importe,
+        Estado: estado,
+        Fecha: toIsoDateOnly(fecha),
+        FechaAlta: toIsoDateOnly(fecha),
+        Doctor: doctor.nombre,
+        Doctor_Especialidad: doctor.especialidad,
+        Clinica: cli.nombre,
+        TipoPaciente: randChoice(TIPO_PACIENTE),
+        TipoVisita: randChoice(TIPO_VISITA),
+        ContactCount: randInt(0, 5),
+        CreadoPor: estado === "PRESENTADO" ? "IA" : "Recepción",
+        Paciente_Telefono: paciente.telefono,
+        OrigenLead: randChoice(ORIGENES),
+      };
+      if (estado === "PERDIDO") {
+        fields["MotivoPerdida"] = randChoice([
+          "precio_alto", "otra_clinica", "sin_urgencia", "necesita_financiacion",
+          "miedo_tratamiento", "no_responde", "otro",
+        ]);
+      }
+      if (estado === "EN_DUDA") {
+        fields["MotivoDuda"] = randChoice([
+          "precio", "otra_clinica", "sin_urgencia", "financiacion",
+          "miedo", "comparando_opciones", "otro",
+        ]);
+      }
+      toCreate.push({ fields });
+    }
+
+    const created = await chunkedCreate(TABLES.presupuestos, toCreate);
+    for (let i = 0; i < created.length; i++) {
+      const r = created[i]!;
+      const f = r.fields ?? {};
+      out.push({
+        id: String(f["Presupuesto ID"] ?? ""),
+        airtableId: r.id,
+        clinicaNombre: cli.nombre,
+        pacienteId: ((f["Paciente"] ?? []) as string[])[0] ?? "",
+        tratamiento: String(f["Tratamiento_nombre"] ?? ""),
+        importe: Number(f["Importe"] ?? 0),
+        fecha: new Date(String(f["Fecha"] ?? "")),
+      });
+    }
+    console.log(`  ✔ ${cli.nombre}: +${needed} presupuestos`);
+  }
+
+  // Sumar los existentes que ya estaban a `out` para poder construir mensajes.
+  for (const r of existing) {
+    const f = r.fields ?? {};
+    out.push({
+      id: String(f["Presupuesto ID"] ?? ""),
+      airtableId: r.id,
+      clinicaNombre: String(f["Clinica"] ?? ""),
+      pacienteId: ((f["Paciente"] ?? []) as string[])[0] ?? "",
+      tratamiento: String(f["Tratamiento_nombre"] ?? ""),
+      importe: Number(f["Importe"] ?? 0),
+      fecha: new Date(String(f["Fecha"] ?? "")),
+    });
+  }
+
+  console.log(`  Total presupuestos: ${out.length}`);
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 6) MENSAJES WHATSAPP
+// ═══════════════════════════════════════════════════════════════════════
+
+const MENS_PREFIX = "SEED_M_";
+
+async function upsertMensajes(
+  clinicas: Array<{ id: string; nombre: string }>,
+  pacientes: PacienteSeed[],
+  presupuestos: PresupuestoSeed[]
+): Promise<number> {
+  console.log(`\n[6/7] Mensajes WhatsApp (${MENSAJES_POR_CLINICA} por clínica)`);
+  if (!presupuestos.length) { console.log("  ! Sin presupuestos — salto"); return 0; }
+
+  const pacienteById = new Map(pacientes.map((p) => [p.id, p]));
+  const presupPorCli = new Map<string, PresupuestoSeed[]>();
+  for (const p of presupuestos) {
+    if (!presupPorCli.has(p.clinicaNombre)) presupPorCli.set(p.clinicaNombre, []);
+    presupPorCli.get(p.clinicaNombre)!.push(p);
+  }
+
+  const existing = await fetchAll(
+    base(TABLES.mensajesWhatsApp).select({ filterByFormula: `FIND('${MENS_PREFIX}', {WABA_message_id}&'')` })
+  );
+  const existingIds = new Set<string>(existing.map((r) => String(r.fields?.["WABA_message_id"] ?? "")));
+  let nextSeq = (() => { let n = 1; while (existingIds.has(`${MENS_PREFIX}${pad4(n)}`)) n++; return n; })();
+
+  let totalCreados = 0;
+
+  for (const cli of clinicas) {
+    const presupsCli = presupPorCli.get(cli.nombre) ?? [];
+    if (!presupsCli.length) continue;
+
+    const toCreate: Array<{ fields: Record<string, any> }> = [];
+    while (toCreate.length < MENSAJES_POR_CLINICA) {
+      const presup = presupsCli[Math.floor(Math.random() * presupsCli.length)]!;
+      const paciente = pacienteById.get(presup.pacienteId);
+      if (!paciente) continue;
+      const tpl = randChoice(CONV_TEMPLATES);
+
+      for (let m = 0; m < tpl.length && toCreate.length < MENSAJES_POR_CLINICA; m++) {
+        const msg = tpl[m]!;
+        const ts = new Date(presup.fecha);
+        ts.setHours(ts.getHours() + m * randInt(1, 18));
+        const texto = msg.text
+          .replace("{nombre}", paciente.nombre.split(" ")[0] ?? "")
+          .replace("{clinica}", cli.nombre)
+          .replace("{tratamiento}", presup.tratamiento)
+          .replace("{importe}", String(presup.importe));
+
+        toCreate.push({
+          fields: {
+            Paciente: paciente.nombre,
+            Presupuesto: presup.airtableId,
+            Telefono: paciente.telefono,
+            Direccion: msg.dir,
+            Contenido: texto,
+            Timestamp: toIsoDateTime(ts),
+            Fuente: msg.dir === "Saliente" ? "Modo_B_WABA" : "Modo_A_manual",
+            Procesado_por_IA: Math.random() > 0.3,
+            WABA_message_id: `${MENS_PREFIX}${pad4(nextSeq++)}`,
+          },
+        });
+      }
+    }
     await chunkedCreate(TABLES.mensajesWhatsApp, toCreate);
-    console.log(`  ✔ ${toCreate.length} mensajes creados`);
+    totalCreados += toCreate.length;
+    console.log(`  ✔ ${cli.nombre}: +${toCreate.length} mensajes`);
   }
-  return toCreate.length;
+  console.log(`  Total mensajes: ${totalCreados}`);
+  return totalCreados;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+// 7) NO-SHOWS HISTÓRICOS (Citas Estado="No-show") + LEADS (Lista_de_espera)
+// ═══════════════════════════════════════════════════════════════════════
+
+async function upsertNoShows(
+  clinicas: Array<{ id: string; nombre: string }>,
+  pacientes: PacienteSeed[],
+  doctores: DoctorSeed[]
+): Promise<number> {
+  console.log(`\n[7a/7] No-shows históricos (${NOSHOWS_POR_CLINICA} por clínica)`);
+  const existing = await fetchAll(
+    base(TABLES.appointments).select({ filterByFormula: `AND({Estado}='No-show', FIND('[SEED]', {Notas}&'')>0)` })
+  );
+  const byClinicaCount = new Map<string, number>();
+  for (const r of existing) {
+    const clis = (r.fields?.["Clínica"] ?? []) as string[];
+    if (clis[0]) byClinicaCount.set(clis[0], (byClinicaCount.get(clis[0]) ?? 0) + 1);
+  }
+
+  let total = 0;
+  for (const cli of clinicas) {
+    const existentes = byClinicaCount.get(cli.id) ?? 0;
+    const needed = Math.max(0, NOSHOWS_POR_CLINICA - existentes);
+    if (needed === 0) continue;
+
+    const pacientesCli = pacientes.filter((p) => p.clinicaId === cli.id);
+    const doctoresCli = doctores.filter((d) => d.clinicaId === cli.id);
+    if (!pacientesCli.length || !doctoresCli.length) continue;
+
+    const toCreate: Array<{ fields: Record<string, any> }> = [];
+    for (let i = 0; i < needed; i++) {
+      const paciente = pacientesCli[Math.floor(Math.random() * pacientesCli.length)]!;
+      const doctor = doctoresCli[Math.floor(Math.random() * doctoresCli.length)]!;
+      const diasAtras = randInt(7, 120);
+      const start = daysAgo(diasAtras);
+      start.setHours(9 + randInt(0, 8), randInt(0, 3) * 15, 0, 0);
+      const end = new Date(start);
+      end.setMinutes(end.getMinutes() + 30);
+      toCreate.push({
+        fields: {
+          Nombre: `No-show ${paciente.nombre.split(" ")[0]}`,
+          Clínica: [cli.id],
+          Paciente: [paciente.id],
+          Profesional: [doctor.id],
+          "Hora inicio": toIsoDateTime(start),
+          "Hora final": toIsoDateTime(end),
+          Estado: "No-show",
+          Origen: randChoice(["IA", "Recepción", "Paciente", "WhatsApp"]),
+          Notas: "[SEED] no-show histórico",
+        },
+      });
+    }
+    await chunkedCreate(TABLES.appointments, toCreate);
+    total += toCreate.length;
+    console.log(`  ✔ ${cli.nombre}: +${needed} no-shows`);
+  }
+  console.log(`  Total no-shows: ${total}`);
+  return total;
+}
+
+async function upsertLeads(
+  clinicas: Array<{ id: string; nombre: string }>,
+  pacientes: PacienteSeed[]
+): Promise<number> {
+  console.log(`\n[7b/7] Leads (${LEADS_POR_CLINICA} por clínica)`);
+  const ESTADOS_LEAD = ["ACTIVE", "OFFERED", "EXPIRED", "PAUSED", "BOOKED"] as const;
+
+  const existing = await fetchAll(
+    base(TABLES.waitlist).select({ filterByFormula: `FIND('[SEED]', {Notas}&'')>0` })
+  );
+  const byClinicaCount = new Map<string, number>();
+  for (const r of existing) {
+    const clis = (r.fields?.["Clínica"] ?? []) as string[];
+    if (clis[0]) byClinicaCount.set(clis[0], (byClinicaCount.get(clis[0]) ?? 0) + 1);
+  }
+
+  let total = 0;
+  for (const cli of clinicas) {
+    const existentes = byClinicaCount.get(cli.id) ?? 0;
+    const needed = Math.max(0, LEADS_POR_CLINICA - existentes);
+    if (needed === 0) continue;
+
+    const pacientesCli = pacientes.filter((p) => p.clinicaId === cli.id);
+    if (!pacientesCli.length) continue;
+
+    const toCreate: Array<{ fields: Record<string, any> }> = [];
+    for (let i = 0; i < needed; i++) {
+      const paciente = pacientesCli[Math.floor(Math.random() * pacientesCli.length)]!;
+      const hoy = new Date();
+      const endRange = new Date(hoy);
+      endRange.setDate(endRange.getDate() + randInt(3, 21));
+      toCreate.push({
+        fields: {
+          Clínica: [cli.id],
+          Paciente: [paciente.id],
+          "Preferencia de horario": randChoice(["Mañana", "Tarde", "Indiferente"]),
+          Rango_Deseado_Start: toIsoDateTime(hoy),
+          Rango_Deseado_End: toIsoDateTime(endRange),
+          Estado: randChoice(ESTADOS_LEAD),
+          Prioridad: randChoice(["Alta", "Media", " Baja"]),
+          Notas: "[SEED] lead demo R2b",
+        },
+      });
+    }
+    await chunkedCreate(TABLES.waitlist, toCreate);
+    total += toCreate.length;
+    console.log(`  ✔ ${cli.nombre}: +${needed} leads`);
+  }
+  console.log(`  Total leads: ${total}`);
+  return total;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -692,30 +736,32 @@ async function upsertMensajes(
 // ═══════════════════════════════════════════════════════════════════════
 
 async function main() {
-  console.log("Sprint 7 seed (v5) — inicio");
-  console.log("ENV BASE?", !!process.env.AIRTABLE_BASE_ID, "KEY?", !!process.env.AIRTABLE_API_KEY);
+  console.log("Sprint 7 seed (v5 + R2b distribuido) — inicio");
   if (!process.env.AIRTABLE_BASE_ID || !process.env.AIRTABLE_API_KEY) {
     throw new Error("Faltan AIRTABLE_BASE_ID / AIRTABLE_API_KEY en .env.local");
   }
 
   const clinicas = await upsertClinicas();
   const usuarios = await upsertUsuarios(clinicas);
-  const clinicasArr = Array.from(clinicas.values());
-  const doctores = await upsertDoctores(clinicasArr);
-  const pacientes = await upsertPacientes(clinicasArr);
-  const presupuestosIds = await upsertPresupuestos(clinicas, pacientes, doctores);
-  const nMensajes = await upsertMensajes(presupuestosIds, clinicas, pacientes);
+  const doctores = await upsertDoctores(clinicas);
+  const pacientes = await upsertPacientes(clinicas);
+  const presupuestos = await upsertPresupuestos(clinicas, pacientes, doctores);
+  const nMensajes = await upsertMensajes(clinicas, pacientes, presupuestos);
+  const nNoShows = await upsertNoShows(clinicas, pacientes, doctores);
+  const nLeads = await upsertLeads(clinicas, pacientes);
 
   console.log("\n═══════════════════════════════════════════════════════════");
-  console.log("✅ SEED SPRINT 7 COMPLETO");
+  console.log("✅ SEED SPRINT 7 R2b COMPLETO");
   console.log("═══════════════════════════════════════════════════════════");
-  console.log(`Clínicas:        ${clinicasArr.length}`);
+  console.log(`Clínicas:        ${clinicas.length}`);
   console.log(`Admin:           ${DEMO_ADMIN_NOMBRE} — PIN ${usuarios.admin.pin}`);
   console.log(`Coordinaciones:  ${usuarios.coordinaciones.length}`);
   console.log(`Doctores:        ${doctores.length}`);
   console.log(`Pacientes:       ${pacientes.length}`);
-  console.log(`Presupuestos:    ${presupuestosIds.length}`);
+  console.log(`Presupuestos:    ${presupuestos.length}`);
   console.log(`Mensajes:        ${nMensajes} creados esta corrida`);
+  console.log(`No-shows:        ${nNoShows}`);
+  console.log(`Leads:           ${nLeads}`);
   console.log("\nPINs coordinación:");
   for (const c of usuarios.coordinaciones) {
     console.log(`  ${c.nombre.padEnd(55)} PIN ${c.pin}`);
