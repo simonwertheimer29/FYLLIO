@@ -60,12 +60,16 @@ export type Lead = {
   createdAt: string;
 };
 
-const COLUMNS: Array<{ estado: LeadEstado; label: string; accent: string }> = [
-  { estado: "Nuevo", label: "Nuevo", accent: "bg-slate-100 text-slate-700" },
-  { estado: "Contactado", label: "Contactado", accent: "bg-amber-100 text-amber-800" },
-  { estado: "Citado", label: "Citado", accent: "bg-sky-100 text-sky-800" },
-  { estado: "Citados Hoy", label: "Citados Hoy", accent: "bg-rose-100 text-rose-800" },
-  { estado: "No Interesado", label: "No Interesado", accent: "bg-slate-200 text-slate-600" },
+// Sprint 9 G.7: "Citados Hoy" deja de ser un estado real del pipeline. La
+// columna desaparece del kanban; los leads con Fecha_Cita=hoy se muestran
+// destacados dentro de la columna "Citado" (sub-grupo con acento rose).
+// Leads legacy cuya Estado todavía sea "Citados Hoy" se agrupan también
+// en la columna Citado hasta que la migración les ponga Estado="Citado".
+const COLUMNS: Array<{ id: LeadEstado; label: string; accent: string; includes: LeadEstado[] }> = [
+  { id: "Nuevo", label: "Nuevo", accent: "bg-slate-100 text-slate-700", includes: ["Nuevo"] },
+  { id: "Contactado", label: "Contactado", accent: "bg-amber-100 text-amber-800", includes: ["Contactado"] },
+  { id: "Citado", label: "Citado", accent: "bg-sky-100 text-sky-800", includes: ["Citado", "Citados Hoy"] },
+  { id: "No Interesado", label: "No Interesado", accent: "bg-slate-200 text-slate-600", includes: ["No Interesado"] },
 ];
 
 type DateFilter = "semana" | "mes" | "personalizado" | "todo";
@@ -129,12 +133,18 @@ export function LeadsView({
     return out;
   }, [leads, selectedClinicaId, dateFilter, search]);
 
-  const leadsPorEstado = useMemo(() => {
+  // Sprint 9 G.7: agrupamos por columna (no por estado). Cada columna puede
+  // incluir varios estados (e.g. Citado + Citados Hoy → columna "Citado").
+  const leadsPorColumna = useMemo(() => {
     const m = new Map<LeadEstado, Lead[]>();
-    for (const col of COLUMNS) m.set(col.estado, []);
+    for (const col of COLUMNS) m.set(col.id, []);
     for (const l of filteredLeads) {
-      const arr = m.get(l.estado);
-      if (arr) arr.push(l);
+      for (const col of COLUMNS) {
+        if (col.includes.includes(l.estado)) {
+          m.get(col.id)!.push(l);
+          break;
+        }
+      }
     }
     return m;
   }, [filteredLeads]);
@@ -149,11 +159,15 @@ export function LeadsView({
       const activeId = String(e.active.id);
       const overId = e.over?.id ? String(e.over.id) : null;
       if (!overId) return;
-      // overId puede ser una columna (estado) o otra tarjeta.
-      const overColumn = COLUMNS.find((c) => c.estado === overId);
-      const destEstado: LeadEstado | undefined = overColumn
-        ? overColumn.estado
-        : leads.find((l) => l.id === overId)?.estado;
+      // overId puede ser una columna (id) o una tarjeta. Sprint 9 G.7: si el
+      // drop cae en una tarjeta cuyo estado es "Citados Hoy" (legacy), lo
+      // normalizamos a "Citado" para que nuevos leads no hereden ese estado.
+      const overColumn = COLUMNS.find((c) => c.id === overId);
+      const overLeadEstado = leads.find((l) => l.id === overId)?.estado;
+      let destEstado: LeadEstado | undefined = overColumn
+        ? overColumn.id
+        : overLeadEstado;
+      if (destEstado === "Citados Hoy") destEstado = "Citado";
       if (!destEstado) return;
 
       const lead = leads.find((l) => l.id === activeId);
@@ -298,13 +312,13 @@ export function LeadsView({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
+        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           {COLUMNS.map((col) => {
-            const items = leadsPorEstado.get(col.estado) ?? [];
+            const items = leadsPorColumna.get(col.id) ?? [];
             return (
               <KanbanColumn
-                key={col.estado}
-                estado={col.estado}
+                key={col.id}
+                estado={col.id}
                 label={col.label}
                 accent={col.accent}
                 items={items}
@@ -393,9 +407,7 @@ function KanbanColumn({
   return (
     <div
       id={estado}
-      className={`flex flex-col min-h-0 rounded-2xl bg-white border border-slate-200 ${
-        estado === "Citados Hoy" ? "ring-2 ring-rose-200" : ""
-      }`}
+      className="flex flex-col min-h-0 rounded-2xl bg-white border border-slate-200"
     >
       <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200">
         <span className="text-xs font-bold text-slate-800">{label}</span>
@@ -414,6 +426,8 @@ function KanbanColumn({
         >
           {estado === "No Interesado" ? (
             <NoInteresadoGroups items={items} onCardClick={onCardClick} />
+          ) : estado === "Citado" ? (
+            <CitadoGroups items={items} onCardClick={onCardClick} />
           ) : (
             items.map((l) => (
               <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
@@ -430,6 +444,47 @@ function KanbanColumn({
         </div>
       </SortableContext>
     </div>
+  );
+}
+
+// Sprint 9 G.7: dentro de la columna "Citado" destacamos los leads con
+// Fecha_Cita = hoy (eran los antiguos "Citados Hoy") como sub-grupo rosa.
+// El resto queda debajo sin acento.
+function CitadoGroups({
+  items,
+  onCardClick,
+}: {
+  items: Lead[];
+  onCardClick: (l: Lead) => void;
+}) {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const deHoy = items.filter((l) => l.fechaCita === hoy);
+  const otros = items.filter((l) => l.fechaCita !== hoy);
+  return (
+    <>
+      {deHoy.length > 0 && (
+        <>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-rose-700 px-1 mt-1">
+            Hoy · {deHoy.length}
+          </p>
+          {deHoy.map((l) => (
+            <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
+          ))}
+        </>
+      )}
+      {otros.length > 0 && (
+        <>
+          {deHoy.length > 0 && (
+            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 px-1 mt-2">
+              Próximas · {otros.length}
+            </p>
+          )}
+          {otros.map((l) => (
+            <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
+          ))}
+        </>
+      )}
+    </>
   );
 }
 

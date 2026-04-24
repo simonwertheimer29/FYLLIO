@@ -139,14 +139,15 @@ const LEAD_CANALES = [
   "Visita directa", "Referido", "WhatsApp", "Otro",
 ] as const;
 // Distribución global objetivo (total 50): ~40% Nuevo, ~25% Contactado,
-// ~20% Citado, ~5% Citados Hoy, ~10% No Interesado.
-// Como cada clínica recibe 5, repartimos global y shuffle.
+// ~26% Citado (algunos con Fecha_Cita=hoy → "Citados Hoy" visual), ~10% No Interesado.
+// Sprint 9 G.7: ya no usamos el estado "Citados Hoy" como estado real —
+// todos los agendados quedan en "Citado" + Fecha_Cita (el kanban deriva
+// visualmente los de hoy).
 const LEAD_ESTADO_GLOBAL = (() => {
-  const arr: Array<"Nuevo" | "Contactado" | "Citado" | "Citados Hoy" | "No Interesado"> = [
+  const arr: Array<"Nuevo" | "Contactado" | "Citado" | "No Interesado"> = [
     ...Array(20).fill("Nuevo"),
     ...Array(12).fill("Contactado"),
-    ...Array(10).fill("Citado"),
-    ...Array(3).fill("Citados Hoy"),
+    ...Array(13).fill("Citado"),
     ...Array(5).fill("No Interesado"),
   ];
   // Shuffle in place (Fisher-Yates)
@@ -769,23 +770,47 @@ async function upsertLeads(
 const TIPO_VISITA_DISTR = ["Primera visita", "Primera visita", "Revisión", "Urgencia"] as const;
 const HORAS_CITA = ["09:00", "10:00", "11:30", "12:30", "16:00", "17:00", "18:00", "19:00"];
 
+async function migrateCitadosHoyLegacy(): Promise<number> {
+  // Sprint 9 G.7: "Citados Hoy" deja de ser estado real. Migra los leads
+  // con ese estado legacy a "Citado" + Fecha_Cita=hoy (si no tenían ya).
+  const recsAll = await fetchAll(
+    base(TABLES.leads).select({ filterByFormula: `{Estado}='Citados Hoy'` })
+  );
+  if (recsAll.length === 0) return 0;
+  const today = toIsoDateOnly(new Date());
+  let total = 0;
+  for (let i = 0; i < recsAll.length; i += 10) {
+    const slice = recsAll.slice(i, i + 10).map((rec) => {
+      const fields: Record<string, any> = { Estado: "Citado" };
+      if (!rec.fields?.["Fecha_Cita"]) fields["Fecha_Cita"] = today;
+      return { id: rec.id, fields };
+    });
+    await base(TABLES.leads).update(slice, { typecast: true });
+    total += slice.length;
+  }
+  console.log(`  ✔ ${total} leads migrados de "Citados Hoy" → "Citado" + Fecha_Cita=hoy`);
+  return total;
+}
+
 async function enrichLeadsPipeline(doctores: DoctorSeed[]): Promise<number> {
   console.log(`\n[8.5/9] Enriquecer leads pipeline (Sprint 9 — hora, doctor, tipo visita)`);
+  // Primero migramos estados legacy "Citados Hoy" → "Citado".
+  await migrateCitadosHoyLegacy();
   const recsAll = await fetchAll(
     base(TABLES.leads).select({ filterByFormula: `FIND('[SEED]', {Notas}&'')>0` })
   );
-  // Solo leads que están agendados (Citado o Citados Hoy) y que no tienen
-  // todavía Hora_Cita / Doctor_Asignado / Tipo_Visita.
+  // Solo leads que están agendados (Citado, post-migración G.7) y que no
+  // tienen todavía Hora_Cita / Doctor_Asignado / Tipo_Visita.
   const needsEnrich = recsAll.filter((r) => {
     const estado = String(r.fields?.["Estado"] ?? "");
-    if (estado !== "Citado" && estado !== "Citados Hoy") return false;
+    if (estado !== "Citado") return false;
     const hasHora = Boolean(r.fields?.["Hora_Cita"]);
     const hasDoctor = Array.isArray(r.fields?.["Doctor_Asignado"]) && (r.fields?.["Doctor_Asignado"] as string[]).length > 0;
     const hasTipo = Boolean(r.fields?.["Tipo_Visita"]);
     return !hasHora || !hasDoctor || !hasTipo;
   });
   if (needsEnrich.length === 0) {
-    console.log("  ✔ todos los leads Citado/Citados Hoy ya enriquecidos");
+    console.log("  ✔ todos los leads Citado ya enriquecidos");
     return 0;
   }
 
@@ -942,12 +967,17 @@ async function upsertLeadsPipeline(
     const toCreate: Array<{ fields: Record<string, any> }> = [];
     for (let i = 0; i < needed; i++) {
       const estado = LEAD_ESTADO_GLOBAL[estadoIdx++ % LEAD_ESTADO_GLOBAL.length]!;
+      // Sprint 9 G.7: si es Citado, ~25% fecha=hoy (será "Hoy" visual en
+      // el kanban) y el resto en los próximos 14 días.
       const fechaCita =
-        estado === "Citado" || estado === "Citados Hoy"
+        estado === "Citado"
           ? (() => {
               const d = new Date();
-              if (estado === "Citados Hoy") d.setHours(randInt(9, 18), 0, 0, 0);
-              else d.setDate(d.getDate() + randInt(1, 14));
+              if (Math.random() < 0.25) {
+                // hoy — pasará a ser el sub-grupo destacado
+              } else {
+                d.setDate(d.getDate() + randInt(1, 14));
+              }
               return toIsoDateOnly(d);
             })()
           : null;

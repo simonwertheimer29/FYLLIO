@@ -3,11 +3,12 @@
 import { useState } from "react";
 import type { Lead } from "./LeadsView";
 
+// Sprint 9 G.7: "Citados Hoy" deja de ser un estado real del kanban — los
+// leads con Fecha_Cita=hoy se destacan dentro de la columna "Citado".
 const ESTADOS: Lead["estado"][] = [
   "Nuevo",
   "Contactado",
   "Citado",
-  "Citados Hoy",
   "No Interesado",
 ];
 
