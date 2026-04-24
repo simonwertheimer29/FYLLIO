@@ -11,7 +11,10 @@ import DoctorView from "./DoctorView";
 import TareasView from "./TareasView";
 import PatientDrawer from "./PatientDrawer";
 import CommandCenterView from "./CommandCenterView";
-import InformesView from "./InformesView";
+// InformesView importa `dom-to-image-more` que toca `Node` (DOM) en module
+// evaluation → crashea durante SSR. Lo cargamos dinámico con ssr:false.
+import NextDynamic from "next/dynamic";
+const InformesView = NextDynamic(() => import("./InformesView"), { ssr: false });
 import ImportarCSVModal from "./ImportarCSVModal";
 import ConfigAutomatizaciones from "./ConfigAutomatizaciones";
 import AutomatizacionesView from "./AutomatizacionesView";
@@ -240,7 +243,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     : TABS.slice(0, 4);
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
+    <div className="flex-1 min-h-0 flex flex-col bg-slate-50 overflow-hidden">
       {/* Barra de acciones del área (Sprint 7 Fase 4).
           Logo, usuario, rol, selector y Salir viven ahora en el GlobalHeader
           del layout (authed). Aquí solo dejamos las acciones específicas de

@@ -14,12 +14,6 @@ import ConfigView from "./ConfigView";
 type Tab = "hoy" | "riesgo" | "agenda" | "acciones" | "kpis" | "informes" | "config";
 const VALID_TABS: Tab[] = ["hoy", "riesgo", "agenda", "acciones", "kpis", "informes", "config"];
 
-const ROLE_LABEL: Record<NoShowsUserSession["rol"], string> = {
-  manager_general:  "Manager",
-  encargada_ventas: "Encargada",
-  ventas:           "Ventas",
-};
-
 // ─── Main Shell ───────────────────────────────────────────────────────────────
 
 export default function NoShowsShell({ user }: { user: NoShowsUserSession }) {
@@ -61,46 +55,15 @@ export default function NoShowsShell({ user }: { user: NoShowsUserSession }) {
   // Bottom nav mobile — primeras 4 tabs
   const BOTTOM_TABS = TABS.slice(0, 4);
 
-  async function handleLogout() {
-    // Sprint 7: logout unificado — limpia fyllio_session + cookies legacy
-    // y redirige al /login nuevo.
-    await fetch("/api/auth/logout", { method: "POST" });
-    location.href = "/login";
-  }
+  // Logout movido al GlobalHeader (Sprint 7 Fase 4).
 
   return (
-    <div className="h-screen flex flex-col bg-slate-50 overflow-hidden">
-      {/* ── Header ── */}
-      <header className="bg-white border-b border-slate-200 px-4 py-3 flex items-center justify-between gap-4 shrink-0">
-        <div className="flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/isotipo.png"
-            alt="Fyllio"
-            className="shrink-0"
-            style={{ width: 32, height: 32, objectFit: "contain" }}
-          />
-          <div className="border-l border-slate-200 pl-3">
-            <p className="text-xs font-bold text-slate-900 leading-tight">No-Shows</p>
-            <p className="text-[10px] text-slate-400">
-              {user.clinica ?? "Todas las clínicas"}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <div className="hidden sm:block text-right mr-1">
-            <p className="text-xs font-semibold text-slate-700">{user.nombre}</p>
-            <p className="text-[10px] text-slate-400">{ROLE_LABEL[user.rol]}</p>
-          </div>
-          <button
-            onClick={handleLogout}
-            className="text-xs px-2.5 py-1.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
-          >
-            Salir
-          </button>
-        </div>
-      </header>
+    <div className="flex-1 min-h-0 flex flex-col bg-slate-50 overflow-hidden">
+      {/* Barra del área (Sprint 7 Fase 4). Logo, usuario, rol, selector y
+          Salir viven en el GlobalHeader del layout (authed). */}
+      <div className="bg-white border-b border-slate-200 px-4 py-2 shrink-0">
+        <p className="text-xs font-bold text-slate-900">No-Shows</p>
+      </div>
 
       {/* ── Tabs desktop ── */}
       <div className="hidden lg:block bg-white border-b border-slate-200 px-4 shrink-0">
