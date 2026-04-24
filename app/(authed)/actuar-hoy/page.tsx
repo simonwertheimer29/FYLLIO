@@ -1,8 +1,11 @@
 // app/(authed)/actuar-hoy/page.tsx
-// Sprint 8 Bloque D — placeholder. El contenido (IntervencionView) se migra en D.2.
+// Sprint 8 D.2 — "Actuar hoy" es la cola priorizada por IA (antes tab
+// "Intervención" de Presupuestos). Se expone como ruta top-level.
 
 import { redirect } from "next/navigation";
 import { getSession } from "../../lib/auth/session";
+import type { UserSession } from "../../lib/presupuestos/types";
+import { ActuarHoyView } from "./ActuarHoyView";
 
 export const dynamic = "force-dynamic";
 
@@ -10,12 +13,12 @@ export default async function ActuarHoyPage() {
   const s = await getSession();
   if (!s) redirect("/login");
 
-  return (
-    <div className="flex-1 min-h-0 p-6 overflow-auto">
-      <h1 className="text-xl font-extrabold text-slate-900">Actuar hoy</h1>
-      <p className="text-sm text-slate-500 mt-2">
-        Cola priorizada por IA. Se conecta en el siguiente sub-bloque de Sprint 8.
-      </p>
-    </div>
-  );
+  const user: UserSession = {
+    email: "",
+    nombre: s.nombre,
+    rol: s.rol === "admin" ? "manager_general" : "encargada_ventas",
+    clinica: null,
+  };
+
+  return <ActuarHoyView user={user} />;
 }
