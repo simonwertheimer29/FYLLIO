@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useRef } from "react";
 import type { Presupuesto, PresupuestoEstado, UserSession } from "../../lib/presupuestos/types";
+import { useClinic } from "../../lib/context/ClinicContext";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -347,8 +348,19 @@ export default function CommandCenterView({
   user: UserSession;
   onNavigateToTareas: (clinica?: string) => void;
 }) {
+  // Sprint 7 Fase 5 fix: el filtro de clínica viene del ClinicContext global.
+  // `presupuestos` sigue conteniendo TODO lo que devuelve /api/presupuestos/kanban;
+  // `filteredPresupuestos` aplica el filtro y es lo que consumen los KPIs y
+  // el grid de "Estado por clínica".
+  const { selectedClinicaNombre } = useClinic();
+
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const filteredPresupuestos = useMemo(() => {
+    if (!selectedClinicaNombre) return presupuestos;
+    return presupuestos.filter((p) => p.clinica === selectedClinicaNombre);
+  }, [presupuestos, selectedClinicaNombre]);
 
   // Objetivos mensuales
   const [objetivos, setObjetivos] = useState<Record<string, number>>({});
@@ -415,39 +427,39 @@ export default function CommandCenterView({
   const mesAnterior = useMemo(() => getPrevYYYYMM(mesMTD), [mesMTD]);
 
   const clinicasStats = useMemo(
-    () => calcularClinicasStats(presupuestos, mesMTD, mesAnterior),
-    [presupuestos, mesMTD, mesAnterior]
+    () => calcularClinicasStats(filteredPresupuestos, mesMTD, mesAnterior),
+    [filteredPresupuestos, mesMTD, mesAnterior]
   );
   const alertas = useMemo(
-    () => calcularAlertas(presupuestos, clinicasStats),
-    [presupuestos, clinicasStats]
+    () => calcularAlertas(filteredPresupuestos, clinicasStats),
+    [filteredPresupuestos, clinicasStats]
   );
 
-  // Global metrics
+  // Global metrics — ahora sobre filteredPresupuestos (respetan el selector).
   const activosTotal = useMemo(
-    () => presupuestos.filter(isActivo).length,
-    [presupuestos]
+    () => filteredPresupuestos.filter(isActivo).length,
+    [filteredPresupuestos]
   );
   const enJuegoTotal = useMemo(
-    () => presupuestos.filter(isActivo).reduce((s, p) => s + (p.amount ?? 0), 0),
-    [presupuestos]
+    () => filteredPresupuestos.filter(isActivo).reduce((s, p) => s + (p.amount ?? 0), 0),
+    [filteredPresupuestos]
   );
   const { tasaMTDGlobal, deltaMTDGlobal, totalMTDGlobal } = useMemo(() => {
-    const delMes = presupuestos.filter((p) => p.fechaPresupuesto.startsWith(mesMTD));
+    const delMes = filteredPresupuestos.filter((p) => p.fechaPresupuesto.startsWith(mesMTD));
     const aceptMes = delMes.filter((p) => p.estado === "ACEPTADO").length;
     const tasa = delMes.length > 0 ? Math.round((aceptMes / delMes.length) * 100) : 0;
 
-    const delAnterior = presupuestos.filter((p) => p.fechaPresupuesto.startsWith(mesAnterior));
+    const delAnterior = filteredPresupuestos.filter((p) => p.fechaPresupuesto.startsWith(mesAnterior));
     const aceptAnterior = delAnterior.filter((p) => p.estado === "ACEPTADO").length;
     const tasaAnterior =
       delAnterior.length > 0 ? Math.round((aceptAnterior / delAnterior.length) * 100) : 0;
 
     return { tasaMTDGlobal: tasa, deltaMTDGlobal: tasa - tasaAnterior, totalMTDGlobal: delMes.length };
-  }, [presupuestos, mesMTD, mesAnterior]);
+  }, [filteredPresupuestos, mesMTD, mesAnterior]);
 
   const riesgoAltoPendiente = useMemo(
-    () => presupuestos.filter((p) => p.urgencyScore >= 70 && isActivo(p) && (p.lastContactDaysAgo ?? 999) > 2).length,
-    [presupuestos]
+    () => filteredPresupuestos.filter((p) => p.urgencyScore >= 70 && isActivo(p) && (p.lastContactDaysAgo ?? 999) > 2).length,
+    [filteredPresupuestos]
   );
 
   // Objetivo metrics
