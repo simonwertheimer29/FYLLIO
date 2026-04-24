@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "clean": "rm -rf .next",
+    "dev:fresh": "rm -rf .next && next dev"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
