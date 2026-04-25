@@ -171,8 +171,11 @@ async function processIncomingMessage(body: unknown): Promise<void> {
     return;
   }
 
-  // Buscar presupuesto activo por teléfono
+  // Sprint 9 fix unificación: matching por teléfono.
+  // Reglas (cerradas con Simon): si hay presupuesto, gana. Si no, intentamos
+  // un Lead activo (no convertido). El mensaje queda huérfano si nada matchea.
   const presupuestoInfo = await buscarPresupuestoPorTelefono(telefono);
+  const leadInfo = presupuestoInfo ? null : await buscarLeadActivoPorTelefono(telefono);
 
   const timestamp = msg.timestamp
     ? new Date(Number(msg.timestamp) * 1000).toISOString()
@@ -180,20 +183,34 @@ async function processIncomingMessage(body: unknown): Promise<void> {
 
   const contenido = msg.text.body;
 
-  // Persistir mensaje entrante
+  // Persistir mensaje entrante con la asociación correcta.
   const servicio = getServicioMensajeria("waba");
   await servicio.recibirMensaje({
     telefono,
     contenido,
     presupuestoId: presupuestoInfo?.id,
+    leadId: leadInfo?.id,
     timestamp,
     wabaMessageId: msg.id,
   });
 
-  // Sin presupuesto asociado: guardamos el mensaje pero no clasificamos ni notificamos
-  // (no hay contexto de paciente/tratamiento).
+  // Si el mensaje pertenece a un lead activo, lo guardamos pero NO clasificamos
+  // (la pipeline de intención está atada a presupuestos — Sprint 10 cubrirá
+  // clasificación IA para leads). Anotamos en Ultima_Accion para que aparezca
+  // en el timeline del panel.
+  if (leadInfo) {
+    try {
+      const { appendLeadLog } = await import("../../../lib/leads/leads");
+      await appendLeadLog(leadInfo.id, `Mensaje recibido: ${contenido.slice(0, 80)}`);
+    } catch (err) {
+      console.error("[waba webhook] appendLeadLog:", sanitizeError(err));
+    }
+    return;
+  }
+
+  // Sin presupuesto y sin lead asociado: solo persistimos.
   if (!presupuestoInfo) {
-    console.log(`[waba webhook] mensaje de ${telefono} sin presupuesto asociado`);
+    console.log(`[waba webhook] mensaje de ${telefono} sin presupuesto ni lead asociado`);
     return;
   }
 
@@ -255,6 +272,36 @@ type PresupuestoInfo = {
   amount?: number;
   clinica?: string;
 };
+
+/** Sprint 9 fix unificación — busca lead ACTIVO (no convertido) por teléfono.
+ *  Idéntica estrategia de match que `buscarPresupuestoPorTelefono` pero sobre
+ *  la tabla Leads. Excluye leads convertidos para no resucitarlos. */
+async function buscarLeadActivoPorTelefono(
+  telefonoNormalizado: string,
+): Promise<{ id: string; clinicaId?: string } | null> {
+  const tel = telefonoNormalizado;
+  // Telefono en Leads es texto plano. Convertido_A_Paciente excluye los ya convertidos.
+  const formula = `AND(
+    NOT({Convertido_A_Paciente}),
+    FIND('${tel}', SUBSTITUTE(SUBSTITUTE(SUBSTITUTE({Telefono}&'', ' ', ''), '+', ''), '-', ''))
+  )`.replace(/\s+/g, " ");
+  try {
+    const query = base(TABLES.leads as any).select({
+      filterByFormula: formula,
+      fields: ["Telefono", "Clinica"],
+      maxRecords: 1,
+    });
+    const recs = await fetchAll(query);
+    if (recs.length === 0) return null;
+    const r = recs[0];
+    const clis = (r.fields as any)?.["Clinica"];
+    const clinicaId = Array.isArray(clis) ? String(clis[0]) : undefined;
+    return { id: r.id as string, clinicaId };
+  } catch (err) {
+    console.error("[waba webhook] buscarLeadActivoPorTelefono:", sanitizeError(err));
+    return null;
+  }
+}
 
 async function buscarPresupuestoPorTelefono(telefonoNormalizado: string): Promise<PresupuestoInfo | null> {
   // Buscar el teléfono en Paciente_Telefono o Teléfono, comparando normalizado.
