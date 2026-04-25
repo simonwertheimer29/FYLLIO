@@ -30,17 +30,31 @@ import type { Lead, LeadEstado } from "./types";
 
 export type { Lead } from "./types";
 
-// Sprint 9 G.7: "Citados Hoy" deja de ser un estado real del pipeline. La
-// columna desaparece del kanban; los leads con Fecha_Cita=hoy se muestran
-// destacados dentro de la columna "Citado" (sub-grupo con acento rose).
-// Leads legacy cuya Estado todavía sea "Citados Hoy" se agrupan también
-// en la columna Citado hasta que la migración les ponga Estado="Citado".
-const COLUMNS: Array<{ id: LeadEstado; label: string; accent: string; includes: LeadEstado[] }> = [
-  { id: "Nuevo", label: "Nuevo", accent: "bg-slate-100 text-slate-700", includes: ["Nuevo"] },
-  { id: "Contactado", label: "Contactado", accent: "bg-amber-100 text-amber-800", includes: ["Contactado"] },
-  { id: "Citado", label: "Citado", accent: "bg-sky-100 text-sky-800", includes: ["Citado", "Citados Hoy"] },
-  { id: "No Interesado", label: "No Interesado", accent: "bg-slate-200 text-slate-600", includes: ["No Interesado"] },
+// 5 columnas del kanban. "Citados Hoy" es una columna derivada visualmente:
+// leads con Estado="Citado" cuya Fecha_Cita=hoy aparecen ahí (no en Citado).
+// Estado="Citados Hoy" como valor literal se mantiene como legacy (el seed
+// ya lo migró a "Citado", pero algún registro antiguo podría sobrevivir).
+const COLUMNS: Array<{ id: LeadEstado; label: string; accent: string; ringClass?: string }> = [
+  { id: "Nuevo", label: "Nuevo", accent: "bg-slate-100 text-slate-700" },
+  { id: "Contactado", label: "Contactado", accent: "bg-amber-100 text-amber-800" },
+  { id: "Citado", label: "Citado", accent: "bg-sky-100 text-sky-800" },
+  {
+    id: "Citados Hoy",
+    label: "Citados Hoy",
+    accent: "bg-rose-100 text-rose-800",
+    ringClass: "ring-2 ring-rose-200",
+  },
+  { id: "No Interesado", label: "No Interesado", accent: "bg-slate-200 text-slate-600" },
 ];
+
+const TODAY_ISO = () => new Date().toISOString().slice(0, 10);
+
+function columnOf(lead: Lead, today: string): LeadEstado {
+  // Citados Hoy = Estado legacy "Citados Hoy" OR Estado="Citado" con Fecha_Cita=hoy.
+  if (lead.estado === "Citados Hoy") return "Citados Hoy";
+  if (lead.estado === "Citado" && lead.fechaCita === today) return "Citados Hoy";
+  return lead.estado;
+}
 
 type DateFilter = "semana" | "mes" | "personalizado" | "todo";
 
@@ -103,18 +117,15 @@ export function LeadsView({
     return out;
   }, [leads, selectedClinicaId, dateFilter, search]);
 
-  // Sprint 9 G.7: agrupamos por columna (no por estado). Cada columna puede
-  // incluir varios estados (e.g. Citado + Citados Hoy → columna "Citado").
+  // Citados Hoy es derivada: Estado="Citados Hoy" legacy OR Estado="Citado"
+  // con Fecha_Cita=hoy. Resto cae en su columna de Estado nativa.
   const leadsPorColumna = useMemo(() => {
+    const today = TODAY_ISO();
     const m = new Map<LeadEstado, Lead[]>();
     for (const col of COLUMNS) m.set(col.id, []);
     for (const l of filteredLeads) {
-      for (const col of COLUMNS) {
-        if (col.includes.includes(l.estado)) {
-          m.get(col.id)!.push(l);
-          break;
-        }
-      }
+      const col = columnOf(l, today);
+      if (m.has(col)) m.get(col)!.push(l);
     }
     return m;
   }, [filteredLeads]);
@@ -129,25 +140,30 @@ export function LeadsView({
       const activeId = String(e.active.id);
       const overId = e.over?.id ? String(e.over.id) : null;
       if (!overId) return;
-      // overId puede ser una columna (id) o una tarjeta. Sprint 9 G.7: si el
-      // drop cae en una tarjeta cuyo estado es "Citados Hoy" (legacy), lo
-      // normalizamos a "Citado" para que nuevos leads no hereden ese estado.
+      // overId puede ser una columna (id) o una tarjeta.
+      const today = TODAY_ISO();
       const overColumn = COLUMNS.find((c) => c.id === overId);
-      const overLeadEstado = leads.find((l) => l.id === overId)?.estado;
-      let destEstado: LeadEstado | undefined = overColumn
+      const overLead = leads.find((l) => l.id === overId);
+      const destColumn: LeadEstado | undefined = overColumn
         ? overColumn.id
-        : overLeadEstado;
-      if (destEstado === "Citados Hoy") destEstado = "Citado";
-      if (!destEstado) return;
+        : overLead
+          ? columnOf(overLead, today)
+          : undefined;
+      if (!destColumn) return;
 
       const lead = leads.find((l) => l.id === activeId);
-      if (!lead || lead.estado === destEstado) return;
+      if (!lead) return;
+      const fromColumn = columnOf(lead, today);
+      if (fromColumn === destColumn) return;
 
-      // Sprint 9 G.2: Contactado → Citado requiere modal obligatorio
-      // con fecha/hora/doctor/tratamiento/tipo_visita. Interceptamos el
-      // drag y abrimos el modal en vez de PATCH directo. Si se cancela,
-      // el lead se queda en Contactado (no hacemos rollback porque nunca
-      // aplicamos la transición optimista en este caso).
+      // Citados Hoy es columna derivada: el Estado canónico que escribimos
+      // en Airtable es "Citado" + Fecha_Cita=hoy.
+      const destEstado: LeadEstado =
+        destColumn === "Citados Hoy" ? "Citado" : destColumn;
+
+      // Sprint 9 G.2: Contactado → Citado/Citados Hoy requiere modal
+      // obligatorio (fecha/hora/doctor/tratamiento/tipo_visita). Si la
+      // columna destino es Citados Hoy, AgendarModal ya defaultea a hoy.
       if (lead.estado === "Contactado" && destEstado === "Citado") {
         setAgendarLead(lead);
         return;
@@ -162,6 +178,11 @@ export function LeadsView({
       } else if (destEstado !== "No Interesado" && lead.motivoNoInteres) {
         patchBody.motivoNoInteres = null;
       }
+      // Drop en columna "Citados Hoy" desde cualquier Estado≠Contactado:
+      // re-agendar a hoy (estado=Citado + Fecha_Cita=hoy).
+      if (destColumn === "Citados Hoy") {
+        patchBody.fechaCita = today;
+      }
 
       // Optimistic update.
       setLeads((prev) =>
@@ -170,6 +191,8 @@ export function LeadsView({
             ? {
                 ...l,
                 estado: destEstado,
+                fechaCita:
+                  patchBody.fechaCita === undefined ? l.fechaCita : patchBody.fechaCita,
                 motivoNoInteres:
                   patchBody.motivoNoInteres === undefined
                     ? l.motivoNoInteres
@@ -190,7 +213,12 @@ export function LeadsView({
         setLeads((prev) =>
           prev.map((l) =>
             l.id === activeId
-              ? { ...l, estado: lead.estado, motivoNoInteres: lead.motivoNoInteres }
+              ? {
+                  ...l,
+                  estado: lead.estado,
+                  fechaCita: lead.fechaCita,
+                  motivoNoInteres: lead.motivoNoInteres,
+                }
               : l
           )
         );
@@ -282,7 +310,7 @@ export function LeadsView({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
           {COLUMNS.map((col) => {
             const items = leadsPorColumna.get(col.id) ?? [];
             return (
@@ -291,6 +319,7 @@ export function LeadsView({
                 estado={col.id}
                 label={col.label}
                 accent={col.accent}
+                ringClass={col.ringClass}
                 items={items}
                 onCardClick={(l) => setDrawerLead(l)}
               />
@@ -365,19 +394,21 @@ function KanbanColumn({
   estado,
   label,
   accent,
+  ringClass,
   items,
   onCardClick,
 }: {
   estado: LeadEstado;
   label: string;
   accent: string;
+  ringClass?: string;
   items: Lead[];
   onCardClick: (l: Lead) => void;
 }) {
   return (
     <div
       id={estado}
-      className="flex flex-col min-h-0 rounded-2xl bg-white border border-slate-200"
+      className={`flex flex-col min-h-0 rounded-2xl bg-white border border-slate-200 ${ringClass ?? ""}`}
     >
       <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200">
         <span className="text-xs font-bold text-slate-800">{label}</span>
@@ -396,8 +427,6 @@ function KanbanColumn({
         >
           {estado === "No Interesado" ? (
             <NoInteresadoGroups items={items} onCardClick={onCardClick} />
-          ) : estado === "Citado" ? (
-            <CitadoGroups items={items} onCardClick={onCardClick} />
           ) : (
             items.map((l) => (
               <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
@@ -414,47 +443,6 @@ function KanbanColumn({
         </div>
       </SortableContext>
     </div>
-  );
-}
-
-// Sprint 9 G.7: dentro de la columna "Citado" destacamos los leads con
-// Fecha_Cita = hoy (eran los antiguos "Citados Hoy") como sub-grupo rosa.
-// El resto queda debajo sin acento.
-function CitadoGroups({
-  items,
-  onCardClick,
-}: {
-  items: Lead[];
-  onCardClick: (l: Lead) => void;
-}) {
-  const hoy = new Date().toISOString().slice(0, 10);
-  const deHoy = items.filter((l) => l.fechaCita === hoy);
-  const otros = items.filter((l) => l.fechaCita !== hoy);
-  return (
-    <>
-      {deHoy.length > 0 && (
-        <>
-          <p className="text-[10px] font-bold uppercase tracking-wide text-rose-700 px-1 mt-1">
-            Hoy · {deHoy.length}
-          </p>
-          {deHoy.map((l) => (
-            <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
-          ))}
-        </>
-      )}
-      {otros.length > 0 && (
-        <>
-          {deHoy.length > 0 && (
-            <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 px-1 mt-2">
-              Próximas · {otros.length}
-            </p>
-          )}
-          {otros.map((l) => (
-            <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
-          ))}
-        </>
-      )}
-    </>
   );
 }
 
