@@ -20,7 +20,7 @@ export type Lead = {
   canal: string | null;
   estado: LeadEstado;
   clinicaId: string | null;
-  clinicaNombre: string | null;
+  clinicaNombre?: string | null;
   fechaCita: string | null;
   horaCita: string | null;
   doctorAsignadoId: string | null;

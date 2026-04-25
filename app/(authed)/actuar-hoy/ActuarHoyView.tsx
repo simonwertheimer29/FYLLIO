@@ -1,19 +1,28 @@
 "use client";
 
-// Sprint 8 D.2 — wrapper client de IntervencionView + su SidePanel.
-// Sprint 9 G.5 — añade sección superior con Leads accionables del día.
+// Sprint 9 Fix 3 — Actuar Hoy con sub-tabs internos:
+//  [Leads] (default) · [Presupuestos]
+//
+// Sub-tab Leads: cards ricas con info del lead + acciones embebidas
+// (IA mensaje con tonos, Llamar, WhatsApp, cambio de estado inline).
+// Agrupados en buckets: Citados Hoy / Sin contactar / Seguimiento >48h.
+//
+// Sub-tab Presupuestos: IntervencionView (lo de antes).
 
-import { useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import type {
   UserSession,
   PresupuestoIntervencion,
   PresupuestoEstado,
   MotivoPerdida,
 } from "../../lib/presupuestos/types";
-import type { Lead } from "../../lib/leads/leads";
+import type { Lead } from "../leads/types";
 import IntervencionView from "../../components/presupuestos/IntervencionView";
 import IntervencionSidePanel from "../../components/presupuestos/IntervencionSidePanel";
+import { useClinic } from "../../lib/context/ClinicContext";
+import { LeadAccionCard } from "./LeadAccionCard";
+
+type Tab = "leads" | "presupuestos";
 
 export function ActuarHoyView({
   user,
@@ -22,53 +31,52 @@ export function ActuarHoyView({
   user: UserSession;
   initialLeads: Lead[];
 }) {
+  const [tab, setTab] = useState<Tab>("leads");
   const [item, setItem] = useState<PresupuestoIntervencion | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
-  async function handleChangeEstado(
-    id: string,
-    estado: PresupuestoEstado,
-    extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string; reactivar?: boolean }
-  ) {
-    try {
-      const { reactivar, ...patchExtra } = extra ?? {};
-      await fetch(`/api/presupuestos/kanban/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado, ...patchExtra }),
-      });
-      if (reactivar && estado === "PERDIDO") {
-        const fecha90 = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
-        await fetch("/api/presupuestos/contactos", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            presupuestoId: id,
-            tipo: "whatsapp",
-            resultado: "pidió tiempo",
-            nota: "Reactivación programada — 90 días",
-            fechaHora: fecha90,
-          }),
-        }).catch(() => {});
-      }
-      setReloadKey((k) => k + 1);
-    } catch {
-      // swallow: el interval de IntervencionView reintenta.
-    }
-  }
-
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-slate-50 overflow-hidden">
-      <div className="flex-1 min-h-0 flex flex-col overflow-auto p-4 lg:p-6 gap-6">
-        <LeadsActuarHoySection leads={initialLeads} />
-        <section className="space-y-3">
-          <SectionHeader title="Presupuestos — Intervención IA" />
+      <div className="flex-1 min-h-0 flex flex-col overflow-auto p-4 lg:p-6 gap-4">
+        <header className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-xl font-extrabold text-slate-900">Actuar hoy</h1>
+            <p className="text-xs text-slate-500">
+              Cola priorizada para que cierres todo desde aquí, sin saltar al kanban.
+            </p>
+          </div>
+          <div className="flex gap-1 rounded-full border border-slate-200 bg-white p-0.5">
+            {(
+              [
+                ["leads", "Leads"],
+                ["presupuestos", "Presupuestos"],
+              ] as Array<[Tab, string]>
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setTab(id)}
+                className={`text-xs font-bold px-4 py-1.5 rounded-full transition-colors ${
+                  tab === id
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </header>
+
+        {tab === "leads" ? (
+          <LeadsTab initialLeads={initialLeads} />
+        ) : (
           <IntervencionView
             key={reloadKey}
             user={user}
             onOpenDrawer={(p) => setItem(p)}
           />
-        </section>
+        )}
       </div>
 
       {item && (
@@ -76,7 +84,7 @@ export function ActuarHoyView({
           item={item}
           onClose={() => setItem(null)}
           onChangeEstado={(id, estado) => {
-            handleChangeEstado(id, estado);
+            handleChangeEstado(id, estado, undefined, () => setReloadKey((k) => k + 1));
             setItem(null);
           }}
           onRefresh={() => setItem(null)}
@@ -86,121 +94,156 @@ export function ActuarHoyView({
   );
 }
 
-function SectionHeader({ title, count }: { title: string; count?: number }) {
+async function handleChangeEstado(
+  id: string,
+  estado: PresupuestoEstado,
+  extra: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string; reactivar?: boolean } | undefined,
+  onDone: () => void
+) {
+  try {
+    const { reactivar, ...patchExtra } = extra ?? {};
+    await fetch(`/api/presupuestos/kanban/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ estado, ...patchExtra }),
+    });
+    if (reactivar && estado === "PERDIDO") {
+      const fecha90 = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+      await fetch("/api/presupuestos/contactos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          presupuestoId: id,
+          tipo: "whatsapp",
+          resultado: "pidió tiempo",
+          nota: "Reactivación programada — 90 días",
+          fechaHora: fecha90,
+        }),
+      }).catch(() => {});
+    }
+    onDone();
+  } catch {
+    // swallow
+  }
+}
+
+// ────────────────────────────────────────────────────────────────────
+// Sub-tab Leads: 3 buckets con cards ricas (estilo Intervención).
+// ────────────────────────────────────────────────────────────────────
+
+function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
+  const { selectedClinicaId } = useClinic();
+  const [leads, setLeads] = useState<Lead[]>(initialLeads);
+
+  // Si la clínica del header cambia, refetch para no servir leads de otras.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/leads" + (selectedClinicaId ? `?clinica=${selectedClinicaId}` : ""))
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelled) return;
+        if (Array.isArray(d?.leads)) setLeads(d.leads);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedClinicaId]);
+
+  const today = new Date().toISOString().slice(0, 10);
+  const hace48h = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+
+  const buckets = useMemo(() => {
+    const citadosHoy: Lead[] = [];
+    const sinContactar: Lead[] = [];
+    const seguimiento: Lead[] = [];
+    for (const l of leads) {
+      if (l.convertido) continue;
+      if (
+        (l.estado === "Citado" || l.estado === "Citados Hoy") &&
+        l.fechaCita === today &&
+        !l.asistido
+      ) {
+        citadosHoy.push(l);
+        continue;
+      }
+      if (l.estado === "Nuevo" && !l.llamado) {
+        sinContactar.push(l);
+        continue;
+      }
+      if (l.estado === "Contactado" && l.createdAt <= hace48h) {
+        seguimiento.push(l);
+      }
+    }
+    return { citadosHoy, sinContactar, seguimiento };
+  }, [leads, today, hace48h]);
+
+  function onLeadChanged(updated: Lead) {
+    setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
+  }
+
+  const total = buckets.citadosHoy.length + buckets.sinContactar.length + buckets.seguimiento.length;
+
+  if (total === 0) {
+    return (
+      <div className="rounded-3xl bg-white border border-slate-200 p-8 text-center">
+        <p className="text-sm font-bold text-slate-800">Sin leads accionables hoy 🎉</p>
+        <p className="text-xs text-slate-500 mt-1">Todo al día en este filtro de clínica.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex items-center gap-2">
-      <h2 className="text-sm font-extrabold text-slate-900">{title}</h2>
-      {typeof count === "number" && (
-        <span className="text-[10px] font-bold bg-slate-900 text-white rounded-full px-2 py-0.5">
-          {count}
-        </span>
-      )}
+    <div className="space-y-5">
+      <Bucket
+        label="Citados hoy"
+        accent="text-rose-700"
+        leads={buckets.citadosHoy}
+        onLeadChanged={onLeadChanged}
+      />
+      <Bucket
+        label="Sin contactar"
+        accent="text-slate-700"
+        leads={buckets.sinContactar}
+        onLeadChanged={onLeadChanged}
+      />
+      <Bucket
+        label="Seguimiento pendiente (>48h)"
+        accent="text-amber-700"
+        leads={buckets.seguimiento}
+        onLeadChanged={onLeadChanged}
+      />
     </div>
   );
 }
 
-function LeadsActuarHoySection({ leads }: { leads: Lead[] }) {
-  const today = new Date().toISOString().slice(0, 10);
-  const citadosHoy = leads.filter(
-    (l) =>
-      (l.estado === "Citado" || l.estado === "Citados Hoy") &&
-      l.fechaCita === today
-  );
-  const nuevos = leads.filter((l) => l.estado === "Nuevo");
-  const contactado = leads.filter((l) => l.estado === "Contactado");
-
-  return (
-    <section className="space-y-3">
-      <SectionHeader title="Leads — hoy" count={leads.length} />
-      {leads.length === 0 ? (
-        <p className="text-xs text-slate-400 italic">
-          Sin leads accionables hoy. Buen trabajo ✓
-        </p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <LeadsBucket
-            label="Citados hoy"
-            accent="bg-rose-50 border-rose-200 text-rose-700"
-            leads={citadosHoy}
-          />
-          <LeadsBucket
-            label="Sin contactar"
-            accent="bg-slate-50 border-slate-200 text-slate-700"
-            leads={nuevos}
-          />
-          <LeadsBucket
-            label="Seguimiento (>48h)"
-            accent="bg-amber-50 border-amber-200 text-amber-700"
-            leads={contactado}
-          />
-        </div>
-      )}
-    </section>
-  );
-}
-
-function LeadsBucket({
+function Bucket({
   label,
   accent,
   leads,
+  onLeadChanged,
 }: {
   label: string;
   accent: string;
   leads: Lead[];
+  onLeadChanged: (l: Lead) => void;
 }) {
+  if (leads.length === 0) return null;
   return (
-    <div className="rounded-2xl bg-white border border-slate-200 flex flex-col min-h-0">
-      <div className={`flex items-center justify-between px-3 py-2 border-b ${accent} rounded-t-2xl`}>
-        <span className="text-[11px] font-extrabold uppercase tracking-wide">{label}</span>
-        <span className="text-[10px] font-bold bg-white/60 rounded-full px-2 py-0.5">
+    <section className="space-y-2">
+      <div className="flex items-center gap-2">
+        <h2 className={`text-xs font-extrabold uppercase tracking-wide ${accent}`}>
+          {label}
+        </h2>
+        <span className="text-[10px] font-bold bg-slate-900 text-white rounded-full px-2 py-0.5">
           {leads.length}
         </span>
       </div>
-      <div className="p-2 space-y-2 max-h-72 overflow-y-auto">
-        {leads.length === 0 ? (
-          <p className="text-[11px] text-slate-300 italic px-1 py-2">Nada por hacer</p>
-        ) : (
-          leads.map((l) => <LeadActuarCard key={l.id} lead={l} />)
-        )}
+      <div className="space-y-3">
+        {leads.map((l) => (
+          <LeadAccionCard key={l.id} lead={l} onChanged={onLeadChanged} />
+        ))}
       </div>
-    </div>
-  );
-}
-
-function LeadActuarCard({ lead }: { lead: Lead }) {
-  return (
-    <article className="rounded-xl border border-slate-200 p-2.5 text-xs space-y-1">
-      <div className="flex items-center justify-between gap-2">
-        <p className="font-bold text-slate-900 truncate">{lead.nombre}</p>
-        <Link
-          href={`/leads?lead=${lead.id}`}
-          className="text-[10px] text-sky-700 font-semibold hover:underline shrink-0"
-        >
-          Abrir →
-        </Link>
-      </div>
-      <p className="text-[10px] text-slate-500 truncate">
-        {lead.clinicaNombre ?? "Sin clínica"}
-        {lead.tratamiento ? ` · ${lead.tratamiento}` : ""}
-      </p>
-      {lead.telefono && (
-        <div className="flex gap-1 pt-1">
-          <a
-            href={`tel:${lead.telefono}`}
-            className="flex-1 text-center rounded-lg bg-slate-50 text-slate-700 text-[10px] font-semibold py-1 hover:bg-slate-100"
-          >
-            Llamar
-          </a>
-          <a
-            href={`https://wa.me/${lead.telefono.replace(/\D/g, "")}`}
-            target="_blank"
-            rel="noreferrer"
-            className="flex-1 text-center rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-semibold py-1 hover:bg-emerald-100"
-          >
-            WhatsApp
-          </a>
-        </div>
-      )}
-    </article>
+    </section>
   );
 }
