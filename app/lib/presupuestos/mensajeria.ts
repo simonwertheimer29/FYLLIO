@@ -23,6 +23,9 @@ const GRAPH_API_VERSION = "v21.0";
 export interface EnviarMensajeParams {
   pacienteId?: string;
   presupuestoId?: string;
+  /** Sprint 9 fix unificación: cuando se envía desde Actuar Hoy → Leads,
+   *  vincula el mensaje al Lead vía campo `Lead_Link`. */
+  leadId?: string;
   telefono: string;
   contenido: string;
   fuente?: FuenteMensaje;
@@ -39,6 +42,9 @@ export interface RecibirMensajeParams {
   telefono: string;
   contenido: string;
   presupuestoId?: string;
+  /** Sprint 9 fix unificación: webhook puede asociar a Lead activo cuando
+   *  no hay presupuesto matching para el teléfono. */
+  leadId?: string;
   timestamp?: string;
   wabaMessageId?: string;
 }
@@ -52,6 +58,7 @@ export interface RecibirMensajeResult {
 export interface HistorialParams {
   presupuestoId?: string;
   pacienteId?: string;
+  leadId?: string;
   limit?: number;
 }
 
@@ -80,6 +87,9 @@ async function getHistorialCompartido(params: HistorialParams): Promise<MensajeW
     filterFormula = `{Presupuesto}='${params.presupuestoId}'`;
   } else if (params.pacienteId) {
     filterFormula = `{Paciente}='${params.pacienteId}'`;
+  } else if (params.leadId) {
+    // Lead_Link es multipleRecordLinks → arrayJoin para hacer FIND sobre el ID.
+    filterFormula = `FIND('${params.leadId}', ARRAYJOIN({Lead_Link}))`;
   } else {
     return [];
   }
@@ -94,10 +104,12 @@ async function getHistorialCompartido(params: HistorialParams): Promise<MensajeW
 
   return recs.map((r) => {
     const f = r.fields as Record<string, unknown>;
+    const leadLinks = Array.isArray(f.Lead_Link) ? (f.Lead_Link as string[]) : [];
     return {
       id: r.id,
       pacienteId: f.Paciente ? String(f.Paciente) : undefined,
       presupuestoId: f.Presupuesto ? String(f.Presupuesto) : undefined,
+      leadId: leadLinks[0],
       telefono: String(f.Telefono ?? ""),
       direccion: String(f.Direccion ?? "Entrante") as MensajeWhatsApp["direccion"],
       contenido: String(f.Contenido ?? ""),
@@ -149,7 +161,7 @@ class ServicioMensajeriaManual implements ServicioMensajeria {
   async enviarMensaje(params: EnviarMensajeParams): Promise<EnviarMensajeResult> {
     const now = DateTime.now().setZone(ZONE).toISO() ?? new Date().toISOString();
 
-    const record = await base(TABLES.mensajesWhatsApp as any).create({
+    const fields: Record<string, unknown> = {
       Paciente: params.pacienteId ?? "",
       Presupuesto: params.presupuestoId ?? "",
       Telefono: params.telefono,
@@ -158,7 +170,9 @@ class ServicioMensajeriaManual implements ServicioMensajeria {
       Timestamp: now,
       Fuente: params.fuente ?? "Modo_A_manual",
       Procesado_por_IA: false,
-    } as any) as any;
+    };
+    if (params.leadId) fields.Lead_Link = [params.leadId];
+    const record = await base(TABLES.mensajesWhatsApp as any).create(fields as any) as any;
 
     const tel = params.telefono.replace(/[^0-9+]/g, "");
     const urlWhatsApp = `https://wa.me/${tel}?text=${encodeURIComponent(params.contenido)}`;
@@ -181,6 +195,7 @@ class ServicioMensajeriaManual implements ServicioMensajeria {
     };
 
     if (params.presupuestoId) fields.Presupuesto = params.presupuestoId;
+    if (params.leadId) fields.Lead_Link = [params.leadId];
     if (params.wabaMessageId) fields.WABA_message_id = params.wabaMessageId;
 
     const record = await base(TABLES.mensajesWhatsApp as any).create(fields as any) as any;
@@ -245,11 +260,12 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
       Fuente: params.fuente ?? "Modo_B_WABA",
       Procesado_por_IA: false,
     };
+    if (params.leadId) fields.Lead_Link = [params.leadId];
     if (wabaMessageId) fields.WABA_message_id = wabaMessageId;
 
     const record = await base(TABLES.mensajesWhatsApp as any).create(fields as any) as any;
 
-    const clinica = await getClinicaPresupuesto(params.presupuestoId);
+    const clinica = await getClinicaForMensaje(params);
     actualizarTelemetriaWABA(clinica, "Ultimo_mensaje_enviado").catch(() => {});
 
     return {
@@ -274,11 +290,12 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
     };
 
     if (params.presupuestoId) fields.Presupuesto = params.presupuestoId;
+    if (params.leadId) fields.Lead_Link = [params.leadId];
     if (params.wabaMessageId) fields.WABA_message_id = params.wabaMessageId;
 
     const record = await base(TABLES.mensajesWhatsApp as any).create(fields as any) as any;
 
-    const clinica = await getClinicaPresupuesto(params.presupuestoId);
+    const clinica = await getClinicaForMensaje(params);
     actualizarTelemetriaWABA(clinica, "Ultimo_mensaje_recibido").catch(() => {});
 
     return { ok: true, mensajeId: record.id as string };
@@ -348,32 +365,53 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
 
     const record = await base(TABLES.mensajesWhatsApp as any).create(fields as any) as any;
 
-    const clinica = await getClinicaPresupuesto(params.presupuestoId);
+    const clinica = await getClinicaForMensaje(params);
     actualizarTelemetriaWABA(clinica, "Ultimo_mensaje_enviado").catch(() => {});
 
     return { ok: true, mensajeId: record.id as string, wabaMessageId };
   }
 }
 
-// ─── Helper: clínica desde presupuesto (para telemetría) ─────────────────────
+// ─── Helper: clínica desde presupuesto o lead (para telemetría) ──────────────
 
-async function getClinicaPresupuesto(presupuestoId?: string): Promise<string | undefined> {
-  if (!presupuestoId) return undefined;
-  try {
-    const recs = await base(TABLES.presupuestos as any)
-      .select({
-        filterByFormula: `RECORD_ID()='${presupuestoId}'`,
-        fields: ["Clinica"],
-        maxRecords: 1,
-      })
-      .firstPage();
-    if (recs.length === 0) return undefined;
-    const c = (recs[0].fields as any)["Clinica"];
-    if (!c) return undefined;
-    return Array.isArray(c) ? String(c[0]) : String(c);
-  } catch {
-    return undefined;
+async function getClinicaForMensaje(params: { presupuestoId?: string; leadId?: string }): Promise<string | undefined> {
+  if (params.presupuestoId) {
+    try {
+      const recs = await base(TABLES.presupuestos as any)
+        .select({
+          filterByFormula: `RECORD_ID()='${params.presupuestoId}'`,
+          fields: ["Clinica"],
+          maxRecords: 1,
+        })
+        .firstPage();
+      if (recs.length > 0) {
+        const c = (recs[0].fields as any)["Clinica"];
+        if (c) return Array.isArray(c) ? String(c[0]) : String(c);
+      }
+    } catch { /* falla → undefined */ }
   }
+  if (params.leadId) {
+    try {
+      const recs = await base(TABLES.leads as any)
+        .select({
+          filterByFormula: `RECORD_ID()='${params.leadId}'`,
+          fields: ["Clinica"],
+          maxRecords: 1,
+        })
+        .firstPage();
+      if (recs.length > 0) {
+        const c = (recs[0].fields as any)["Clinica"];
+        if (c) {
+          // Lead.Clinica es link → array de IDs. Buscamos el nombre de la clínica.
+          const cliId = Array.isArray(c) ? String(c[0]) : String(c);
+          const cli = await base(TABLES.clinics as any).find(cliId).catch(() => null);
+          const nombre = (cli?.fields as any)?.["Nombre"];
+          if (nombre) return String(nombre);
+        }
+      }
+    } catch { /* idem */ }
+  }
+  return undefined;
 }
 
 // ─── Factory ─────────────────────────────────────────────────────────────────

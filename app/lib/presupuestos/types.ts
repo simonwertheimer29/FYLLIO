@@ -254,6 +254,10 @@ export type MensajeWhatsApp = {
   id: string;
   pacienteId?: string;
   presupuestoId?: string;
+  /** Sprint 9 fix unificación: presente cuando el mensaje pertenece a un
+   *  lead activo (no convertido). Mutuamente exclusivo con presupuestoId
+   *  por la lógica del webhook (presupuesto gana si ambos matchean). */
+  leadId?: string;
   telefono: string;
   direccion: DireccionMensaje;
   contenido: string;
