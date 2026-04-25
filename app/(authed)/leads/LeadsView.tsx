@@ -244,6 +244,32 @@ export function LeadsView({
     setDrawerLead(null);
   }
 
+  // Fix 2: "No asistió" inline desde la card de Citados Hoy. PATCH directo a
+  // No Interesado + Motivo_No_Interes=No_Asistio sin abrir modal.
+  async function noAsistioInline(lead: Lead) {
+    const prev = { estado: lead.estado, motivoNoInteres: lead.motivoNoInteres };
+    setLeads((prevList) =>
+      prevList.map((l) =>
+        l.id === lead.id
+          ? { ...l, estado: "No Interesado", motivoNoInteres: "No_Asistio" }
+          : l
+      )
+    );
+    try {
+      const res = await fetch(`/api/leads/${lead.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: "No Interesado", motivoNoInteres: "No_Asistio" }),
+      });
+      if (!res.ok) throw new Error("update failed");
+    } catch {
+      setLeads((prevList) =>
+        prevList.map((l) => (l.id === lead.id ? { ...l, ...prev } : l))
+      );
+      setError("No se pudo marcar como no asistió. Inténtalo de nuevo.");
+    }
+  }
+
   const draggingLead = draggingId ? leads.find((l) => l.id === draggingId) : null;
 
   return (
@@ -322,6 +348,8 @@ export function LeadsView({
                 ringClass={col.ringClass}
                 items={items}
                 onCardClick={(l) => setDrawerLead(l)}
+                onAsistencia={(l) => setAsistenciaLead(l)}
+                onNoAsistio={noAsistioInline}
               />
             );
           })}
@@ -397,6 +425,8 @@ function KanbanColumn({
   ringClass,
   items,
   onCardClick,
+  onAsistencia,
+  onNoAsistio,
 }: {
   estado: LeadEstado;
   label: string;
@@ -404,6 +434,8 @@ function KanbanColumn({
   ringClass?: string;
   items: Lead[];
   onCardClick: (l: Lead) => void;
+  onAsistencia: (l: Lead) => void;
+  onNoAsistio: (l: Lead) => void;
 }) {
   return (
     <div
@@ -427,6 +459,17 @@ function KanbanColumn({
         >
           {estado === "No Interesado" ? (
             <NoInteresadoGroups items={items} onCardClick={onCardClick} />
+          ) : estado === "Citados Hoy" ? (
+            items.map((l) => (
+              <SortableLeadCard
+                key={l.id}
+                lead={l}
+                onClick={() => onCardClick(l)}
+                variant="citadosHoy"
+                onAsistencia={onAsistencia}
+                onNoAsistio={onNoAsistio}
+              />
+            ))
           ) : (
             items.map((l) => (
               <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
@@ -484,7 +527,19 @@ function NoInteresadoGroups({
   );
 }
 
-function SortableLeadCard({ lead, onClick }: { lead: Lead; onClick: () => void }) {
+function SortableLeadCard({
+  lead,
+  onClick,
+  variant = "default",
+  onAsistencia,
+  onNoAsistio,
+}: {
+  lead: Lead;
+  onClick: () => void;
+  variant?: "default" | "citadosHoy";
+  onAsistencia?: (l: Lead) => void;
+  onNoAsistio?: (l: Lead) => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: lead.id,
   });
@@ -506,7 +561,15 @@ function SortableLeadCard({ lead, onClick }: { lead: Lead; onClick: () => void }
         onClick();
       }}
     >
-      <LeadCardBody lead={lead} />
+      {variant === "citadosHoy" ? (
+        <CitadosHoyCardBody
+          lead={lead}
+          onAsistencia={onAsistencia!}
+          onNoAsistio={onNoAsistio!}
+        />
+      ) : (
+        <LeadCardBody lead={lead} />
+      )}
     </div>
   );
 }
@@ -590,6 +653,81 @@ function LeadCardBody({ lead }: { lead: Lead }) {
             </a>
           </>
         )}
+      </div>
+    </article>
+  );
+}
+
+// Fix 2: card específica de la columna "Citados Hoy". Muestra toda la
+// info útil para que la coord no tenga que abrir el drawer + dos botones
+// que disparan los flujos finales (asistencia con modal / no asistió
+// directo). Fondo rosa muy tenue para distinguirla visualmente.
+function CitadosHoyCardBody({
+  lead,
+  onAsistencia,
+  onNoAsistio,
+}: {
+  lead: Lead;
+  onAsistencia: (l: Lead) => void;
+  onNoAsistio: (l: Lead) => void;
+}) {
+  return (
+    <article className="rounded-xl bg-rose-50/50 border border-rose-200 p-3 text-xs shadow-sm hover:shadow-md transition-all cursor-pointer">
+      <div className="flex items-start justify-between gap-2">
+        <p className="font-bold text-slate-900 truncate flex-1">{lead.nombre}</p>
+        {lead.horaCita && (
+          <span className="text-[10px] font-extrabold text-rose-700 shrink-0">
+            {lead.horaCita}
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-1 mt-1">
+        {lead.canal && (
+          <span className="inline-flex rounded-full bg-white text-sky-700 border border-sky-100 px-2 py-0.5 text-[10px] font-semibold">
+            {lead.canal}
+          </span>
+        )}
+        {lead.tratamiento && (
+          <span className="inline-flex rounded-full bg-white text-sky-700 border border-sky-100 px-2 py-0.5 text-[10px] font-semibold">
+            {lead.tratamiento}
+          </span>
+        )}
+      </div>
+
+      {lead.telefono && (
+        <p className="text-slate-600 text-[11px] font-mono mt-2 truncate">
+          {lead.telefono}
+        </p>
+      )}
+      {lead.fechaCita && (
+        <p className="mt-0.5 text-[10px] text-slate-500">
+          Cita: {lead.fechaCita}
+          {lead.horaCita ? ` · ${lead.horaCita}` : ""}
+        </p>
+      )}
+
+      <div className="flex gap-1.5 mt-3">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onNoAsistio(lead);
+          }}
+          className="flex-1 rounded-lg bg-white text-slate-700 border border-slate-200 text-[11px] font-bold py-1.5 hover:bg-slate-50"
+        >
+          No asistió
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onAsistencia(lead);
+          }}
+          className="flex-1 rounded-lg bg-sky-600 text-white text-[11px] font-bold py-1.5 hover:bg-sky-700"
+        >
+          Marcar asistido
+        </button>
       </div>
     </article>
   );
