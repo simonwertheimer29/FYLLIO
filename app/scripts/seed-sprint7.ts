@@ -1007,6 +1007,111 @@ async function upsertLeadsPipeline(
 }
 
 // ═══════════════════════════════════════════════════════════════════════
+// 8.6) ENRIQUECER PRESUPUESTOS para Actuar Hoy (Sprint 10 A)
+//      Sin Ultima_respuesta_paciente o Urgencia_intervencion, la cola de
+//      Actuar Hoy → Presupuestos sale vacía en dev. Marcamos ~30% de los
+//      presupuestos activos PRESENTADO/INTERESADO/EN_DUDA con respuestas
+//      simuladas + intención + urgencia. Idempotente: solo toca los que
+//      todavía no tienen Ultima_respuesta_paciente.
+// ═══════════════════════════════════════════════════════════════════════
+
+const RESPUESTAS_DEMO: Array<{
+  texto: string;
+  intencion: string;
+  urgencia: "ALTO" | "MEDIO" | "BAJO";
+  accion: string;
+  mensaje: string;
+}> = [
+  {
+    texto: "Hola, sí me interesa, ¿cuánto serían las cuotas?",
+    intencion: "Acepta pero pregunta pago",
+    urgencia: "ALTO",
+    accion: "Enviar opciones de financiación",
+    mensaje:
+      "Hola {nombre}, sin problema. Te paso ahora las opciones de pago disponibles para tu tratamiento.",
+  },
+  {
+    texto: "Lo estoy pensando, déjame unos días",
+    intencion: "Quiere pensarlo",
+    urgencia: "BAJO",
+    accion: "Hacer seguimiento en 3 días",
+    mensaje:
+      "Sin prisa, {nombre}. Si te surge cualquier duda escríbeme cuando quieras.",
+  },
+  {
+    texto: "Perfecto, ¿cuándo podemos quedar para empezar?",
+    intencion: "Acepta sin condiciones",
+    urgencia: "ALTO",
+    accion: "Cerrar cita",
+    mensaje:
+      "Genial, {nombre}. Te paso huecos disponibles esta semana para que elijas.",
+  },
+  {
+    texto: "El precio me parece alto, ¿hay alguna oferta?",
+    intencion: "Pide oferta/descuento",
+    urgencia: "MEDIO",
+    accion: "Revisar margen y proponer descuento",
+    mensaje:
+      "Entiendo, {nombre}. Déjame revisar qué podemos ajustar y te confirmo enseguida.",
+  },
+  {
+    texto: "Me han dicho que esto duele, ¿es verdad?",
+    intencion: "Tiene duda sobre tratamiento",
+    urgencia: "MEDIO",
+    accion: "Resolver duda y reforzar confianza",
+    mensaje:
+      "Es una preocupación común, {nombre}. Trabajamos con anestesia local y la mayoría de pacientes no nota molestia.",
+  },
+];
+
+async function enrichPresupuestosIntervencion(): Promise<number> {
+  console.log(`\n[8.6/9] Enriquecer presupuestos con respuestas + urgencia (Sprint 10 A)`);
+  const recsAll = await fetchAll(
+    base(TABLES.presupuestos as any).select({
+      filterByFormula: `AND(
+        FIND('${PRES_PREFIX}', {Presupuesto ID}&'')>0,
+        OR({Estado}='PRESENTADO',{Estado}='INTERESADO',{Estado}='EN_DUDA',{Estado}='EN_NEGOCIACION'),
+        {Ultima_respuesta_paciente}=''
+      )`.replace(/\n\s*/g, ""),
+    }),
+  );
+  if (recsAll.length === 0) {
+    console.log("  ✔ todos los presupuestos activos ya están enriquecidos");
+    return 0;
+  }
+
+  // ~30% de los activos
+  const target = Math.max(10, Math.floor(recsAll.length * 0.3));
+  const shuffled = [...recsAll].sort(() => Math.random() - 0.5).slice(0, target);
+
+  let total = 0;
+  for (let i = 0; i < shuffled.length; i += 10) {
+    const slice = shuffled.slice(i, i + 10).map((rec, idx) => {
+      const tpl = RESPUESTAS_DEMO[(i + idx) % RESPUESTAS_DEMO.length]!;
+      const horasAtras = randInt(1, 72);
+      const fechaResp = new Date(Date.now() - horasAtras * 3600 * 1000).toISOString();
+      const nombre = String((rec.fields as any)?.["Paciente_nombre"] ?? "").split(" ")[0] ?? "";
+      return {
+        id: rec.id,
+        fields: {
+          Ultima_respuesta_paciente: tpl.texto,
+          Fecha_ultima_respuesta: fechaResp,
+          Intencion_detectada: tpl.intencion,
+          Urgencia_intervencion: tpl.urgencia,
+          Accion_sugerida: tpl.accion,
+          Mensaje_sugerido: tpl.mensaje.replace("{nombre}", nombre),
+          Fase_seguimiento: "En intervención",
+        },
+      };
+    });
+    await base(TABLES.presupuestos as any).update(slice as any, { typecast: true });
+    total += slice.length;
+  }
+  console.log(`  ✔ ${total} presupuestos enriquecidos para Actuar Hoy`);
+  return total;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
 // MAIN
 // ═══════════════════════════════════════════════════════════════════════
 
@@ -1026,6 +1131,7 @@ async function main() {
   const nLeadsWaitlist = await upsertLeads(clinicas, pacientes);
   const nLeadsPipeline = await upsertLeadsPipeline(clinicas);
   const nLeadsEnriched = await enrichLeadsPipeline(doctores);
+  const nPresupEnriched = await enrichPresupuestosIntervencion();
   const nEnriched = await enrichPacientes(pacientes, doctores);
 
   console.log("\n═══════════════════════════════════════════════════════════");
@@ -1042,6 +1148,7 @@ async function main() {
   console.log(`Leads (espera):  ${nLeadsWaitlist}`);
   console.log(`Leads (pipe):    ${nLeadsPipeline}`);
   console.log(`Leads enriched:  ${nLeadsEnriched}`);
+  console.log(`Presup enrich:   ${nPresupEnriched}`);
   console.log(`Pacientes enrich:${nEnriched}`);
   console.log("\nPINs coordinación:");
   for (const c of usuarios.coordinaciones) {
