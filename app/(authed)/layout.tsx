@@ -11,6 +11,7 @@ import {
   type Clinica as CtxClinica,
 } from "../lib/context/ClinicContext";
 import { GlobalHeader } from "../components/layout/GlobalHeader";
+import { FyllioCopilot } from "../components/copilot/FyllioCopilot";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,7 @@ export default async function AuthedLayout({
         <GlobalHeader />
         <div className="flex-1 min-h-0 flex flex-col">{children}</div>
       </div>
+      <FyllioCopilot />
     </ClinicProvider>
   );
 }
