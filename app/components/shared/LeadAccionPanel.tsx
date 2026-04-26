@@ -61,6 +61,11 @@ export function LeadAccionPanel({
   const [enviandoInline, setEnviandoInline] = useState(false);
   const [inlineError, setInlineError] = useState<string | null>(null);
   const [savingEstado, setSavingEstado] = useState(false);
+  const [clasificando, setClasificando] = useState(false);
+  const [clasificacionResult, setClasificacionResult] = useState<{
+    intencion: string;
+    accionSugerida: string;
+  } | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Escape cierra + bloquea scroll body.
@@ -227,6 +232,40 @@ export function LeadAccionPanel({
       .catch(() => {});
   }
 
+  // Sprint 10 B — clasifica el último mensaje entrante con Claude.
+  async function handleClasificar() {
+    const ultimoEntrante = [...mensajes]
+      .reverse()
+      .find((m) => m.direccion === "Entrante");
+    if (!ultimoEntrante) return;
+    setClasificando(true);
+    setClasificacionResult(null);
+    try {
+      const res = await fetch("/api/leads/intervencion/clasificar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          leadId: lead.id,
+          respuestaPaciente: ultimoEntrante.contenido,
+        }),
+      });
+      const d = await res.json();
+      if (d.clasificacion) {
+        setClasificacionResult({
+          intencion: d.clasificacion.intencion,
+          accionSugerida: d.clasificacion.accionSugerida,
+        });
+        if (d.clasificacion.mensajeSugerido) {
+          setMensajeEditable(d.clasificacion.mensajeSugerido);
+        }
+        if (d.lead) onChanged(adoptarClinicaNombre(d.lead, lead));
+      }
+    } catch {
+      /* swallow */
+    }
+    setClasificando(false);
+  }
+
   async function handleRegistrarRespuestaManual() {
     if (!respuestaManual.trim()) return;
     setRegistrandoManual(true);
@@ -340,6 +379,38 @@ export function LeadAccionPanel({
 
           {/* Section 2: Mensaje IA */}
           <div className="px-5 py-4 border-b border-slate-100">
+            {/* Sprint 10 B — banner con la última clasificación IA del lead. */}
+            {(clasificacionResult ||
+              lead.intencionDetectada ||
+              lead.accionSugerida) && (
+              <div className="mb-3 rounded-xl bg-violet-50 border border-violet-200 p-3">
+                <p className="text-[10px] font-bold text-violet-700 uppercase tracking-wide">
+                  Intención detectada
+                </p>
+                <p className="text-sm font-semibold text-violet-900 mt-0.5">
+                  {clasificacionResult?.intencion ?? lead.intencionDetectada}
+                </p>
+                {(clasificacionResult?.accionSugerida ?? lead.accionSugerida) && (
+                  <p className="text-xs text-violet-700 mt-1">
+                    💡 {clasificacionResult?.accionSugerida ?? lead.accionSugerida}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Sprint 10 B — botón "Clasificar respuesta" cuando hay un
+                entrante en el hilo. Inyecta sugerencia en el editor. */}
+            {mensajes.some((m) => m.direccion === "Entrante") && (
+              <button
+                type="button"
+                onClick={handleClasificar}
+                disabled={clasificando}
+                className="mb-3 w-full text-xs font-semibold px-3 py-2 rounded-xl bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
+              >
+                {clasificando ? "Clasificando…" : "🧠 Clasificar respuesta del lead"}
+              </button>
+            )}
+
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">
               Mensaje IA
             </p>

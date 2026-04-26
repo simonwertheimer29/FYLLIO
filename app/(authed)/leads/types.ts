@@ -26,6 +26,17 @@ export type Lead = {
   doctorAsignadoId: string | null;
   tipoVisita: "Primera visita" | "Revisión" | "Urgencia" | null;
   motivoNoInteres: "Rechazo_Producto" | "No_Asistio" | null;
+  /** Sprint 10 B — clasificación IA cacheada. */
+  intencionDetectada:
+    | "Interesado"
+    | "Pide más info"
+    | "Pregunta precio"
+    | "Pide cita"
+    | "No interesado"
+    | "Sin clasificar"
+    | null;
+  mensajeSugerido: string | null;
+  accionSugerida: string | null;
   llamado: boolean;
   whatsappEnviados: number;
   ultimaAccion: string | null;

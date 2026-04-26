@@ -30,6 +30,16 @@ export const LEAD_ESTADOS: LeadEstado[] = [
 export type LeadTipoVisita = "Primera visita" | "Revisión" | "Urgencia";
 export type LeadMotivoNoInteres = "Rechazo_Producto" | "No_Asistio";
 
+/** Sprint 10 B — intenciones IA específicas para leads (distintas de las
+ *  de presupuestos porque el funnel es previo a propuesta económica). */
+export type LeadIntencion =
+  | "Interesado"
+  | "Pide más info"
+  | "Pregunta precio"
+  | "Pide cita"
+  | "No interesado"
+  | "Sin clasificar";
+
 export type LeadTratamiento =
   | "Implantología"
   | "Ortodoncia"
@@ -73,6 +83,12 @@ export type Lead = {
   tipoVisita: LeadTipoVisita | null;
   /** Sprint 9: motivo de la transición a "No Interesado". */
   motivoNoInteres: LeadMotivoNoInteres | null;
+  /** Sprint 10 B — última intención clasificada por IA (cacheada). */
+  intencionDetectada: LeadIntencion | null;
+  /** Sprint 10 B — sugerencia IA para responder al último entrante. */
+  mensajeSugerido: string | null;
+  /** Sprint 10 B — acción operativa recomendada (corta, una línea). */
+  accionSugerida: string | null;
   llamado: boolean;
   whatsappEnviados: number;
   ultimaAccion: string | null;
@@ -103,6 +119,9 @@ function toLead(rec: any): Lead {
     doctorAsignadoId: doctorLinks[0] ?? null,
     tipoVisita: f["Tipo_Visita"] ? (String(f["Tipo_Visita"]) as LeadTipoVisita) : null,
     motivoNoInteres: f["Motivo_No_Interes"] ? (String(f["Motivo_No_Interes"]) as LeadMotivoNoInteres) : null,
+    intencionDetectada: f["Intencion_Detectada"] ? (String(f["Intencion_Detectada"]) as LeadIntencion) : null,
+    mensajeSugerido: f["Mensaje_Sugerido"] ? String(f["Mensaje_Sugerido"]) : null,
+    accionSugerida: f["Accion_Sugerida"] ? String(f["Accion_Sugerida"]) : null,
     llamado: Boolean(f["Llamado"] ?? false),
     whatsappEnviados: Number(f["WhatsApp_Enviados"] ?? 0),
     ultimaAccion: f["Ultima_Accion"] ? String(f["Ultima_Accion"]) : null,
@@ -207,6 +226,9 @@ export async function updateLead(
     doctorAsignadoId: string | null;
     tipoVisita: LeadTipoVisita | null;
     motivoNoInteres: LeadMotivoNoInteres | null;
+    intencionDetectada: LeadIntencion | null;
+    mensajeSugerido: string | null;
+    accionSugerida: string | null;
     llamado: boolean;
     whatsappEnviados: number;
     ultimaAccion: string | null;
@@ -228,6 +250,9 @@ export async function updateLead(
     fields["Doctor_Asignado"] = patch.doctorAsignadoId ? [patch.doctorAsignadoId] : [];
   if (patch.tipoVisita !== undefined) fields["Tipo_Visita"] = patch.tipoVisita ?? null;
   if (patch.motivoNoInteres !== undefined) fields["Motivo_No_Interes"] = patch.motivoNoInteres ?? null;
+  if (patch.intencionDetectada !== undefined) fields["Intencion_Detectada"] = patch.intencionDetectada ?? null;
+  if (patch.mensajeSugerido !== undefined) fields["Mensaje_Sugerido"] = patch.mensajeSugerido ?? "";
+  if (patch.accionSugerida !== undefined) fields["Accion_Sugerida"] = patch.accionSugerida ?? "";
   if (patch.llamado !== undefined) fields["Llamado"] = patch.llamado;
   if (patch.whatsappEnviados !== undefined) fields["WhatsApp_Enviados"] = patch.whatsappEnviados;
   if (patch.ultimaAccion !== undefined) fields["Ultima_Accion"] = patch.ultimaAccion ?? "";
