@@ -50,6 +50,9 @@ export type CopilotContextSnapshot = {
 export type CopilotChatRequest = {
   messages: CopilotMessage[];
   context?: CopilotContextSnapshot;
+  /** Clinica activa en el ClinicContext (frontend la envía). null = admin
+   *  sin selección concreta. */
+  selectedClinicaId?: string | null;
 };
 
 export type CopilotChatResponse = {

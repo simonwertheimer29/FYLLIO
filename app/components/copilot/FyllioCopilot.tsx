@@ -19,6 +19,7 @@ import type {
   CopilotContextSnapshot,
   CopilotMessage,
 } from "./types";
+import { useClinic } from "../../lib/context/ClinicContext";
 
 type OpenEventDetail = {
   context?: CopilotContextSnapshot;
@@ -26,6 +27,7 @@ type OpenEventDetail = {
 };
 
 export function FyllioCopilot() {
+  const { selectedClinicaId } = useClinic();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -92,6 +94,7 @@ export function FyllioCopilot() {
     try {
       const body: CopilotChatRequest = {
         messages: next,
+        selectedClinicaId: selectedClinicaId ?? null,
         ...(contextSnapshot ? { context: contextSnapshot } : {}),
       };
       const res = await fetch("/api/copilot/chat", {
