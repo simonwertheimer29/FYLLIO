@@ -68,6 +68,8 @@ export function LeadAccionPanel({
     accionSugerida: string;
   } | null>(null);
   const [plantillas, setPlantillas] = useState<PlantillaLead[]>([]);
+  const [notasLocal, setNotasLocal] = useState<string>(lead.notas ?? "");
+  const [savingNotas, setSavingNotas] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Escape cierra + bloquea scroll body.
@@ -83,6 +85,12 @@ export function LeadAccionPanel({
       document.body.style.overflow = prev;
     };
   }, [onClose]);
+
+  // Sincronizar editor de notas si cambia el lead (cambio de ficha sin
+  // desmontar el panel) o si el padre actualiza notas remotamente.
+  useEffect(() => {
+    setNotasLocal(lead.notas ?? "");
+  }, [lead.id, lead.notas]);
 
   // Cargar mensajes WA.
   useEffect(() => {
@@ -312,6 +320,22 @@ export function LeadAccionPanel({
       /* swallow */
     }
     setRegistrandoManual(false);
+  }
+
+  async function guardarNotas() {
+    if (notasLocal === (lead.notas ?? "")) return;
+    setSavingNotas(true);
+    try {
+      const res = await fetch(`/api/leads/${lead.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notas: notasLocal }),
+      });
+      const d = await res.json();
+      if (d?.lead) onChanged(adoptarClinicaNombre(d.lead, lead));
+    } finally {
+      setSavingNotas(false);
+    }
   }
 
   async function cambiarEstado(nuevo: Lead["estado"], extra?: Record<string, unknown>) {
@@ -658,6 +682,26 @@ export function LeadAccionPanel({
             </div>
           )}
 
+          {/* Section 4b: Notas internas (Sprint 10 E — restauradas desde
+              LeadDrawer al unificar la ficha en AccionPanel). Auto-save
+              en onBlur. */}
+          <div className="px-5 py-4 border-b border-slate-100">
+            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">
+              Notas internas
+              {savingNotas && (
+                <span className="ml-2 text-slate-400 normal-case">guardando…</span>
+              )}
+            </p>
+            <textarea
+              value={notasLocal}
+              onChange={(e) => setNotasLocal(e.target.value)}
+              onBlur={guardarNotas}
+              rows={3}
+              placeholder="Anota lo que necesites recordar sobre este lead…"
+              className="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none resize-none"
+            />
+          </div>
+
           {/* Section 5: Acciones inline */}
           <div className="px-5 py-4 border-b border-slate-100">
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">
@@ -721,16 +765,32 @@ export function LeadAccionPanel({
                   </button>
                 </>
               )}
-              <button
-                type="button"
-                disabled={savingEstado || lead.estado === "No Interesado"}
-                onClick={() =>
-                  cambiarEstado("No Interesado", { motivoNoInteres: "Rechazo_Producto" })
-                }
-                className="text-xs font-semibold px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-left disabled:opacity-50"
-              >
-                ✗ No interesado (rechazo)
-              </button>
+              {lead.estado !== "No Interesado" && (
+                <button
+                  type="button"
+                  disabled={savingEstado}
+                  onClick={() =>
+                    cambiarEstado("No Interesado", { motivoNoInteres: "Rechazo_Producto" })
+                  }
+                  className="text-xs font-semibold px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-left disabled:opacity-50"
+                >
+                  ✗ No interesado (rechazo)
+                </button>
+              )}
+              {/* Sprint 10 E — restaurado desde LeadDrawer. Reactivar
+                  vuelve a Contactado limpiando el motivo. */}
+              {lead.estado === "No Interesado" && !lead.convertido && (
+                <button
+                  type="button"
+                  disabled={savingEstado}
+                  onClick={() =>
+                    cambiarEstado("Contactado", { motivoNoInteres: null })
+                  }
+                  className="text-xs font-semibold px-4 py-2.5 rounded-xl bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 text-left disabled:opacity-50"
+                >
+                  ↻ Reactivar lead
+                </button>
+              )}
             </div>
           </div>
         </div>

@@ -23,7 +23,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { NewLeadModal } from "./NewLeadModal";
-import { LeadDrawer } from "./LeadDrawer";
+import { AccionPanel } from "../../components/shared/AccionPanel";
 import { AgendarModal } from "./AgendarModal";
 import { AsistenciaModal } from "./AsistenciaModal";
 import type { Lead, LeadEstado } from "./types";
@@ -377,13 +377,11 @@ export function LeadsView({
       )}
 
       {drawerLead && (
-        <LeadDrawer
-          lead={drawerLead}
-          clinicas={clinicasSelectables}
+        <AccionPanel
+          kind="lead"
+          item={drawerLead}
           onClose={() => setDrawerLead(null)}
-          onUpdated={onLeadUpdated}
-          onConverted={onLeadConverted}
-          onAgendar={(l) => setAgendarLead(l)}
+          onChanged={(updated) => onLeadUpdated(updated)}
           onAsistencia={(l) => setAsistenciaLead(l)}
         />
       )}
