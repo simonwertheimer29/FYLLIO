@@ -43,6 +43,8 @@ export const TABLES = {
   alertasEnviadas: "Alertas_Enviadas",
   // Sprint 10 C — log estructurado de acciones sobre leads (KPI tiempo medio)
   accionesLead: "Acciones_Lead",
+  // Sprint 10 D — plantillas WhatsApp para leads (globales)
+  plantillasLead: "Plantillas_Lead",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];

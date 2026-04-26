@@ -21,6 +21,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Lead } from "../../(authed)/leads/types";
 import type { MensajeWhatsApp } from "../../lib/presupuestos/types";
+import type { PlantillaLead } from "../../api/leads/plantillas/route";
 
 type Tono = "directo" | "empatico" | "urgencia";
 
@@ -66,6 +67,7 @@ export function LeadAccionPanel({
     intencion: string;
     accionSugerida: string;
   } | null>(null);
+  const [plantillas, setPlantillas] = useState<PlantillaLead[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Escape cierra + bloquea scroll body.
@@ -91,6 +93,14 @@ export function LeadAccionPanel({
       .catch(() => setMensajes([]))
       .finally(() => setLoadingMensajes(false));
   }, [lead.id]);
+
+  // Sprint 10 D — cargar plantillas activas (globales).
+  useEffect(() => {
+    fetch("/api/leads/plantillas")
+      .then((r) => r.json())
+      .then((d) => setPlantillas(Array.isArray(d?.plantillas) ? d.plantillas : []))
+      .catch(() => setPlantillas([]));
+  }, []);
 
   // WABA activo para la clínica del lead.
   useEffect(() => {
@@ -230,6 +240,24 @@ export function LeadAccionPanel({
       .then((r) => r.json())
       .then((d) => d?.lead && onChanged(adoptarClinicaNombre(d.lead, lead)))
       .catch(() => {});
+  }
+
+  // Sprint 10 D — resuelve placeholders {nombre} {clinica} {tratamiento}
+  // {fecha_cita} en el contenido de una plantilla y lo inyecta en el editor.
+  function aplicarPlantilla(plantillaId: string) {
+    if (!plantillaId) return;
+    const tpl = plantillas.find((p) => p.id === plantillaId);
+    if (!tpl) return;
+    const fechaCita =
+      lead.fechaCita && lead.horaCita
+        ? `${lead.fechaCita} ${lead.horaCita}`
+        : lead.fechaCita ?? "";
+    const resolved = tpl.contenido
+      .replaceAll("{nombre}", lead.nombre.split(" ")[0] ?? lead.nombre)
+      .replaceAll("{clinica}", lead.clinicaNombre ?? "la clínica")
+      .replaceAll("{tratamiento}", lead.tratamiento ?? "tu tratamiento")
+      .replaceAll("{fecha_cita}", fechaCita);
+    setMensajeEditable(resolved);
   }
 
   // Sprint 10 B — clasifica el último mensaje entrante con Claude.
@@ -414,6 +442,27 @@ export function LeadAccionPanel({
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">
               Mensaje IA
             </p>
+
+            {/* Sprint 10 D — selector de plantilla. Inyecta el contenido
+                resuelto en el editor; el coord puede editarlo después. */}
+            {plantillas.length > 0 && (
+              <select
+                onChange={(e) => {
+                  aplicarPlantilla(e.target.value);
+                  e.target.value = ""; // reset para poder re-aplicar la misma
+                }}
+                defaultValue=""
+                className="mb-2 w-full text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none"
+              >
+                <option value="">Usar plantilla…</option>
+                {plantillas.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </select>
+            )}
+
             <textarea
               value={mensajeEditable}
               onChange={(e) => setMensajeEditable(e.target.value)}
