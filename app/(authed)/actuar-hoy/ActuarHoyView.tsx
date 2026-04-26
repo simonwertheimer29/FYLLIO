@@ -6,12 +6,11 @@
 //
 // [Leads] (default) · [Presupuestos]
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
   UserSession,
   PresupuestoIntervencion,
   PresupuestoEstado,
-  IntervencionResponse,
   MotivoPerdida,
 } from "../../lib/presupuestos/types";
 import type { Lead } from "../leads/types";
@@ -20,6 +19,7 @@ import { ActuarHoyHeader } from "../../components/shared/ActuarHoyHeader";
 import { AccionCard } from "../../components/shared/AccionCard";
 import { AccionPanel } from "../../components/shared/AccionPanel";
 import { AsistenciaModal } from "../leads/AsistenciaModal";
+import IntervencionView from "../../components/presupuestos/IntervencionView";
 
 type Tab = "leads" | "presupuestos";
 
@@ -31,6 +31,43 @@ export function ActuarHoyView({
   initialLeads: Lead[];
 }) {
   const [tab, setTab] = useState<Tab>("leads");
+  // Sprint 9 fix unificación cierre — el SidePanel de Presupuestos se monta
+  // al nivel de ActuarHoyView (igual que el patrón pre-fix). Lo abrimos vía
+  // AccionPanel kind="presupuesto" para conservar el wrapper unificado.
+  const [presupuestoDrawer, setPresupuestoDrawer] = useState<PresupuestoIntervencion | null>(null);
+  const [presupuestoReloadKey, setPresupuestoReloadKey] = useState(0);
+
+  async function handleChangePresupuestoEstado(
+    id: string,
+    estado: PresupuestoEstado,
+    extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string; reactivar?: boolean }
+  ) {
+    try {
+      const { reactivar, ...patchExtra } = extra ?? {};
+      await fetch(`/api/presupuestos/kanban/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado, ...patchExtra }),
+      });
+      if (reactivar && estado === "PERDIDO") {
+        const fecha90 = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
+        await fetch("/api/presupuestos/contactos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            presupuestoId: id,
+            tipo: "whatsapp",
+            resultado: "pidió tiempo",
+            nota: "Reactivación programada — 90 días",
+            fechaHora: fecha90,
+          }),
+        }).catch(() => {});
+      }
+      setPresupuestoReloadKey((k) => k + 1);
+    } catch {
+      // El polling interno de IntervencionView lo recupera.
+    }
+  }
 
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-slate-50 overflow-hidden">
@@ -68,9 +105,26 @@ export function ActuarHoyView({
         {tab === "leads" ? (
           <LeadsTab initialLeads={initialLeads} />
         ) : (
-          <PresupuestosTab user={user} />
+          <PresupuestosTab
+            user={user}
+            onOpenDrawer={setPresupuestoDrawer}
+            reloadKey={presupuestoReloadKey}
+          />
         )}
       </div>
+
+      {presupuestoDrawer && (
+        <AccionPanel
+          kind="presupuesto"
+          item={presupuestoDrawer}
+          onClose={() => setPresupuestoDrawer(null)}
+          onChangeEstado={(id, estado) => {
+            handleChangePresupuestoEstado(id, estado);
+            setPresupuestoDrawer(null);
+          }}
+          onRefresh={() => setPresupuestoDrawer(null)}
+        />
+      )}
     </div>
   );
 }
@@ -352,241 +406,37 @@ function LeadAccionRow({
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Sub-tab Presupuestos — recrea IntervencionView con los componentes
-// shared (mismo header de KPIs, AccionCard, AccionPanel) sobre el
-// dataset de presupuestos. NO toca el IntervencionView original (queda
-// huérfano para limpiar en Sprint 10 si el QA confirma paridad).
+// Sub-tab Presupuestos — usa IntervencionView directamente para preservar
+// las 8 pills de filtro por intención, el botón "Bulk send WA" y el
+// auto-refresh de cola. El SidePanel se sigue montando al nivel de
+// ActuarHoyView vía AccionPanel kind="presupuesto" (wrapper a
+// IntervencionSidePanel) — visualmente idéntico al panel de leads.
+//
+// La paridad de unificación con la sub-tab Leads se mantiene por:
+// - cards: IntervencionCard de Presupuestos vs AccionCard de Leads
+//   tienen la misma forma (borde-izq por urgencia, action bar inline).
+// - header de KPIs: IntervencionView tiene su propio header con el
+//   mismo gradient/contadores que ActuarHoyHeader.
+// - panel lateral: ambos abren AccionPanel.
+//
+// Los filtros pueden divergir: Presupuestos usa intenciones IA
+// (8 tabs), Leads usa estado del pipeline (4 tabs).
 // ──────────────────────────────────────────────────────────────────────
 
-function PresupuestosTab({ user }: { user: UserSession }) {
-  const { selectedClinicaNombre } = useClinic();
-  const [data, setData] = useState<IntervencionResponse | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const [drawerItem, setDrawerItem] = useState<PresupuestoIntervencion | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const fetchData = useCallback(async () => {
-    try {
-      const url = new URL("/api/presupuestos/intervencion", location.href);
-      if (user.clinica) url.searchParams.set("clinica", user.clinica);
-      const res = await fetch(url.toString());
-      const d: IntervencionResponse = await res.json();
-      setData(d);
-      setLastUpdate(new Date());
-    } catch {
-      /* swallow */
-    } finally {
-      setLoading(false);
-    }
-  }, [user.clinica]);
-
-  useEffect(() => {
-    fetchData();
-    const hour = new Date().getHours();
-    const refreshMs = hour >= 9 && hour < 20 ? 15_000 : 30_000;
-    intervalRef.current = setInterval(fetchData, refreshMs);
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-    };
-  }, [fetchData]);
-
-  const items = useMemo(() => {
-    let out = data?.allItems ?? [];
-    if (selectedClinicaNombre) out = out.filter((p) => p.clinica === selectedClinicaNombre);
-    return [...out].sort(
-      (a, b) =>
-        (b.urgenciaBidireccional?.scoreFinal ?? 0) -
-        (a.urgenciaBidireccional?.scoreFinal ?? 0)
-    );
-  }, [data, selectedClinicaNombre]);
-
-  async function handleChangeEstado(
-    id: string,
-    estado: PresupuestoEstado,
-    extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string; reactivar?: boolean }
-  ) {
-    try {
-      const { reactivar, ...patchExtra } = extra ?? {};
-      await fetch(`/api/presupuestos/kanban/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ estado, ...patchExtra }),
-      });
-      if (reactivar && estado === "PERDIDO") {
-        const fecha90 = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
-        await fetch("/api/presupuestos/contactos", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            presupuestoId: id,
-            tipo: "whatsapp",
-            resultado: "pidió tiempo",
-            nota: "Reactivación programada — 90 días",
-            fechaHora: fecha90,
-          }),
-        }).catch(() => {});
-      }
-      fetchData();
-    } catch {
-      /* swallow */
-    }
-  }
-
-  return (
-    <>
-      <ActuarHoyHeader
-        subtitle="Cola de intervención · Hoy"
-        kpis={{
-          pendientes: data?.totalPendientes ?? 0,
-          completadasHoy: data?.completadasHoy ?? 0,
-        }}
-        lastUpdate={lastUpdate}
-        onRefresh={() => {
-          setLoading(true);
-          fetchData();
-        }}
-        loading={loading}
-      />
-
-      {loading && !data ? (
-        <div className="space-y-2 animate-pulse">
-          <div className="h-32 rounded-2xl bg-slate-100" />
-          <div className="h-32 rounded-2xl bg-slate-100" />
-        </div>
-      ) : items.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-200 p-12 text-center">
-          <p className="text-sm font-bold text-slate-700">Sin casos en esta vista</p>
-          <p className="text-xs text-slate-400 mt-1">
-            No hay presupuestos pendientes en este filtro.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {items.map((p) => (
-            <PresupuestoAccionRow
-              key={p.id}
-              item={p}
-              onOpen={() => setDrawerItem(p)}
-              onRefresh={fetchData}
-            />
-          ))}
-        </div>
-      )}
-
-      {drawerItem && (
-        <AccionPanel
-          kind="presupuesto"
-          item={drawerItem}
-          onClose={() => setDrawerItem(null)}
-          onChangeEstado={(id, estado) => {
-            handleChangeEstado(id, estado);
-            setDrawerItem(null);
-          }}
-          onRefresh={() => setDrawerItem(null)}
-        />
-      )}
-    </>
-  );
-}
-
-function PresupuestoAccionRow({
-  item,
-  onOpen,
-  onRefresh,
+function PresupuestosTab({
+  user,
+  onOpenDrawer,
+  reloadKey,
 }: {
-  item: PresupuestoIntervencion;
-  onOpen: () => void;
-  onRefresh: () => void;
+  user: UserSession;
+  onOpenDrawer: (p: PresupuestoIntervencion) => void;
+  reloadKey: number;
 }) {
-  const cleanPhone = (item.patientPhone ?? "").replace(/\D/g, "");
-  const score = item.urgenciaBidireccional?.scoreFinal ?? 0;
-  const borderColor =
-    score >= 70 ? "#ef4444" : score >= 50 ? "#f97316" : score >= 30 ? "#fbbf24" : "#94a3b8";
-
-  function enviarWA(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!cleanPhone || !item.mensajeSugerido) return;
-    navigator.clipboard.writeText(item.mensajeSugerido).catch(() => {});
-    window.open(
-      `https://wa.me/${cleanPhone}?text=${encodeURIComponent(item.mensajeSugerido)}`,
-      "_blank"
-    );
-    fetch("/api/presupuestos/intervencion/registrar-respuesta", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ presupuestoId: item.id, tipo: "WhatsApp enviado" }),
-    })
-      .then(() => onRefresh())
-      .catch(() => {});
-  }
-
-  function llamar(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!cleanPhone) return;
-    window.open(`tel:${item.patientPhone}`, "_self");
-    fetch("/api/presupuestos/intervencion/registrar-respuesta", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ presupuestoId: item.id, tipo: "Llamada realizada" }),
-    })
-      .then(() => onRefresh())
-      .catch(() => {});
-  }
-
-  const tiempoResp = item.fechaUltimaRespuesta
-    ? formatTimeAgo(item.fechaUltimaRespuesta)
-    : item.diasDesdeUltimoContacto != null
-      ? `Hace ${item.diasDesdeUltimoContacto}d`
-      : "";
-
-  const tags = item.treatments.map((t) => ({ label: t }));
-  const meta = [item.doctor, item.clinica, tiempoResp].filter(Boolean).join(" · ");
-
-  const actions: React.ComponentProps<typeof AccionCard>["actions"] = [];
-  if (cleanPhone && item.mensajeSugerido) {
-    actions.push({ label: "Enviar WA", onClick: enviarWA, variant: "emerald" });
-  }
-  if (cleanPhone) {
-    actions.push({ label: "Llamar", onClick: llamar, variant: "ghost" });
-  }
-  actions.push({
-    label: "Ver ficha",
-    onClick: (e) => {
-      e.stopPropagation();
-      onOpen();
-    },
-    variant: "primary",
-  });
-
   return (
-    <AccionCard
-      borderColor={borderColor}
-      title={item.patientName}
-      titleRight={
-        item.amount != null ? (
-          <span className="text-sm font-extrabold text-slate-700">
-            €{item.amount.toLocaleString("es-ES")}
-          </span>
-        ) : null
-      }
-      score={score || undefined}
-      tags={tags}
-      meta={meta}
-      quote={item.ultimaRespuestaPaciente ?? undefined}
-      accionSugerida={item.accionSugerida ?? undefined}
-      actions={actions}
-      onOpen={onOpen}
+    <IntervencionView
+      key={reloadKey}
+      user={user}
+      onOpenDrawer={onOpenDrawer}
     />
   );
-}
-
-function formatTimeAgo(isoDate: string): string {
-  const diffMin = Math.round((Date.now() - new Date(isoDate).getTime()) / 60000);
-  if (diffMin < 1) return "Ahora";
-  if (diffMin < 60) return `Hace ${diffMin}min`;
-  const diffHr = Math.round(diffMin / 60);
-  if (diffHr < 24) return `Hace ${diffHr}h`;
-  const diffDay = Math.round(diffHr / 24);
-  return `Hace ${diffDay}d`;
 }
