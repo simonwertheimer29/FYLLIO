@@ -6,6 +6,7 @@
 // {M} completadas hoy", barra de progreso, refresh, "actualizado hace Xs".
 
 import { useEffect, useState } from "react";
+import { openCopilot } from "../copilot/openCopilot";
 
 export type ActuarHoyKpis = {
   pendientes: number;
@@ -79,6 +80,28 @@ export function ActuarHoyHeader({
           className="text-[10px] font-semibold px-3 py-1.5 rounded-lg bg-violet-500 text-white hover:bg-violet-400 disabled:opacity-50"
         >
           {loading ? "Actualizando…" : "Actualizar"}
+        </button>
+        {/* Sprint 11 C.5 — explicación IA de los KPIs del header. */}
+        <button
+          type="button"
+          onClick={() => {
+            const summary = [
+              `KPIs Actuar Hoy — ${subtitle}`,
+              `Pendientes: ${kpis.pendientes}`,
+              `Completadas hoy: ${kpis.completadasHoy}`,
+              `Tiempo medio respuesta: ${
+                kpis.tiempoMedioMin == null ? "sin datos" : `${kpis.tiempoMedioMin} min`
+              }`,
+              `% del plan: ${pct}%`,
+            ].join("\n");
+            openCopilot({
+              context: { kind: "kpi", summary },
+              initialAssistantMessage: `Hoy llevas ${kpis.completadasHoy} completadas y ${kpis.pendientes} pendientes. ¿Quieres que te lo explique o te diga cómo mejorarlo?`,
+            });
+          }}
+          className="text-[10px] font-semibold px-3 py-1.5 rounded-lg bg-violet-500 text-white hover:bg-violet-400"
+        >
+          ✨ Explica
         </button>
         <div className="flex items-center gap-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />

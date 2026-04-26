@@ -10,6 +10,7 @@ import type {
   MensajeWhatsApp,
 } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG, URGENCIA_INTERVENCION_COLOR } from "../../lib/presupuestos/colors";
+import { openCopilot } from "../copilot/openCopilot";
 
 // ─── IntervencionSidePanel ───────────────────────────────────────────────────
 
@@ -472,6 +473,72 @@ export default function IntervencionSidePanel({
 
           {/* Section 3: Recommended action + editable message */}
           <div className="px-5 py-4 border-b border-slate-100">
+            {/* Sprint 11 C.2 — botón Copilot contextual del presupuesto. */}
+            <button
+              type="button"
+              onClick={() => {
+                const importeStr =
+                  item.amount != null ? `${item.amount.toLocaleString("es-ES")}€` : "(sin importe)";
+                const summary = [
+                  `Presupuesto de: ${item.patientName}`,
+                  `ID: ${item.id}`,
+                  `Estado: ${item.estado}`,
+                  `Importe: ${importeStr}`,
+                  `Tratamientos: ${item.treatments.join(", ") || "n/d"}`,
+                  item.doctor ? `Doctor: ${item.doctor}` : null,
+                  item.clinica ? `Clínica: ${item.clinica}` : null,
+                  item.intencionDetectada
+                    ? `Intención IA detectada: ${item.intencionDetectada}`
+                    : null,
+                  item.urgenciaIntervencion
+                    ? `Urgencia: ${item.urgenciaIntervencion}`
+                    : null,
+                  item.ultimaRespuestaPaciente
+                    ? `Última respuesta paciente: "${item.ultimaRespuestaPaciente}"`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join("\n");
+                openCopilot({
+                  context: { kind: "presupuesto", summary },
+                  initialAssistantMessage: `Veo que ${item.patientName.split(" ")[0]} está en estado ${item.estado} con un presupuesto de ${importeStr}. ¿En qué te ayudo?`,
+                });
+              }}
+              className="w-full mb-3 text-xs font-semibold px-3 py-2 rounded-xl bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100"
+            >
+              ✨ Sugiéreme cómo manejar este caso
+            </button>
+            {item.estado === "PERDIDO" && (
+              <button
+                type="button"
+                onClick={() => {
+                  const summary = [
+                    `Presupuesto PERDIDO: ${item.patientName}`,
+                    `ID: ${item.id}`,
+                    `Importe: ${item.amount != null ? `${item.amount.toLocaleString("es-ES")}€` : "n/d"}`,
+                    `Tratamientos: ${item.treatments.join(", ") || "n/d"}`,
+                    item.motivoDuda ? `Motivo de duda: ${item.motivoDuda}` : null,
+                    item.intencionDetectada
+                      ? `Última intención: ${item.intencionDetectada}`
+                      : null,
+                    item.ultimaRespuestaPaciente
+                      ? `Última respuesta: "${item.ultimaRespuestaPaciente}"`
+                      : null,
+                    `Contactos previos: ${item.contactCount}`,
+                  ]
+                    .filter(Boolean)
+                    .join("\n");
+                  openCopilot({
+                    context: { kind: "presupuesto_perdido", summary },
+                    initialAssistantMessage: `He revisado el caso de ${item.patientName.split(" ")[0]}. ¿Quieres que analice por qué se perdió?`,
+                  });
+                }}
+                className="w-full mb-3 text-xs font-semibold px-3 py-2 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+              >
+                ✨ ¿Por qué crees que se perdió?
+              </button>
+            )}
+
             <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Acción recomendada</p>
             {item.accionSugerida && (
               <div className="rounded-xl bg-violet-50 border border-violet-200 p-3 mb-3">

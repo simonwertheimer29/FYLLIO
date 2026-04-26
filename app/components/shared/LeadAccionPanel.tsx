@@ -22,6 +22,7 @@ import { useEffect, useRef, useState } from "react";
 import type { Lead } from "../../(authed)/leads/types";
 import type { MensajeWhatsApp } from "../../lib/presupuestos/types";
 import type { PlantillaLead } from "../../api/leads/plantillas/route";
+import { openCopilot } from "../copilot/openCopilot";
 
 type Tono = "directo" | "empatico" | "urgencia";
 
@@ -700,6 +701,68 @@ export function LeadAccionPanel({
               placeholder="Anota lo que necesites recordar sobre este lead…"
               className="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none resize-none"
             />
+          </div>
+
+          {/* Sprint 11 C.1 — botón Copilot contextual del lead. */}
+          <div className="px-5 py-3 border-b border-slate-100">
+            <button
+              type="button"
+              onClick={() => {
+                const ultimoEntrante = [...mensajes]
+                  .reverse()
+                  .find((m) => m.direccion === "Entrante");
+                const summary = [
+                  `Lead: ${lead.nombre}`,
+                  `ID: ${lead.id}`,
+                  `Estado: ${lead.estado}`,
+                  lead.tratamiento ? `Tratamiento de interés: ${lead.tratamiento}` : null,
+                  lead.canal ? `Canal: ${lead.canal}` : null,
+                  lead.telefono ? `Teléfono: ${lead.telefono}` : null,
+                  lead.clinicaNombre ? `Clínica: ${lead.clinicaNombre}` : null,
+                  lead.fechaCita
+                    ? `Cita: ${lead.fechaCita}${lead.horaCita ? " " + lead.horaCita : ""}`
+                    : null,
+                  ultimoEntrante
+                    ? `Último mensaje recibido: "${ultimoEntrante.contenido}"`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join("\n");
+                openCopilot({
+                  context: { kind: "lead", summary },
+                  initialAssistantMessage: `Tengo el contexto de ${lead.nombre.split(" ")[0]}. ¿Qué necesitas?`,
+                });
+              }}
+              className="w-full text-xs font-semibold px-3 py-2 rounded-xl bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100"
+            >
+              ✨ Ayúdame a responder
+            </button>
+            {lead.estado === "No Interesado" && !lead.convertido && (
+              <button
+                type="button"
+                onClick={() => {
+                  const summary = [
+                    `Lead PERDIDO: ${lead.nombre}`,
+                    `ID: ${lead.id}`,
+                    `Motivo registrado: ${lead.motivoNoInteres ?? "no especificado"}`,
+                    lead.tratamiento ? `Tratamiento de interés: ${lead.tratamiento}` : null,
+                    lead.canal ? `Canal de captación: ${lead.canal}` : null,
+                    lead.ultimaAccion
+                      ? `Historial de acciones (texto plano):\n${lead.ultimaAccion}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join("\n");
+                  openCopilot({
+                    context: { kind: "lead_perdido", summary },
+                    initialAssistantMessage: `He revisado el caso de ${lead.nombre.split(" ")[0]}. ¿Quieres que analice por qué se perdió?`,
+                  });
+                }}
+                className="mt-2 w-full text-xs font-semibold px-3 py-2 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+              >
+                ✨ ¿Por qué crees que se perdió?
+              </button>
+            )}
           </div>
 
           {/* Section 5: Acciones inline */}
