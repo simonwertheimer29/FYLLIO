@@ -143,14 +143,19 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
   const [filter, setFilter] = useState<LeadSubFilter>("citados");
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null);
   const [asistenciaLead, setAsistenciaLead] = useState<Lead | null>(null);
+  const [tiempoMedioMin, setTiempoMedioMin] = useState<number | null>(null);
 
   const fetchLeads = useCallback(async () => {
     setLoading(true);
     try {
-      const url = "/api/leads" + (selectedClinicaId ? `?clinica=${selectedClinicaId}` : "");
-      const res = await fetch(url);
-      const d = await res.json();
+      const [leadsRes, kpiRes] = await Promise.all([
+        fetch("/api/leads" + (selectedClinicaId ? `?clinica=${selectedClinicaId}` : "")),
+        fetch("/api/leads/kpi-hoy"),
+      ]);
+      const d = await leadsRes.json();
       if (Array.isArray(d?.leads)) setLeads(d.leads);
+      const kpi = await kpiRes.json().catch(() => ({}));
+      setTiempoMedioMin(typeof kpi?.tiempoMedioMin === "number" ? kpi.tiempoMedioMin : null);
       setLastUpdate(new Date());
     } catch {
       /* swallow — mantener lista anterior */
@@ -224,7 +229,11 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
     <>
       <ActuarHoyHeader
         subtitle="Cola de leads · Hoy"
-        kpis={{ pendientes: allAccionables.length, completadasHoy }}
+        kpis={{
+          pendientes: allAccionables.length,
+          completadasHoy,
+          tiempoMedioMin,
+        }}
         lastUpdate={lastUpdate}
         onRefresh={fetchLeads}
         loading={loading}

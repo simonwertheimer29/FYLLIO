@@ -205,6 +205,18 @@ async function processIncomingMessage(body: unknown): Promise<void> {
     } catch (err) {
       console.error("[waba webhook] appendLeadLog:", sanitizeError(err));
     }
+    // Sprint 10 C — Acciones_Lead. Sin Usuario (acción del paciente).
+    try {
+      const { logAccionLead } = await import("../../../lib/leads/acciones");
+      await logAccionLead({
+        leadId: leadInfo.id,
+        tipo: "WhatsApp_Entrante",
+        timestamp,
+        detalles: contenido.slice(0, 500),
+      });
+    } catch (err) {
+      console.error("[waba webhook] logAccionLead:", sanitizeError(err));
+    }
     return;
   }
 

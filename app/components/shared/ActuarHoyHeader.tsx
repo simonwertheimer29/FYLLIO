@@ -10,6 +10,9 @@ import { useEffect, useState } from "react";
 export type ActuarHoyKpis = {
   pendientes: number;
   completadasHoy: number;
+  /** Sprint 10 C — tiempo medio entre entrante y siguiente saliente del
+   *  mismo lead/presupuesto (minutos). null = aún no hay datos hoy. */
+  tiempoMedioMin?: number | null;
 };
 
 export function ActuarHoyHeader({
@@ -47,6 +50,12 @@ export function ActuarHoyHeader({
             {kpis.pendientes} pendiente{kpis.pendientes !== 1 ? "s" : ""} ·{" "}
             {kpis.completadasHoy} completada{kpis.completadasHoy !== 1 ? "s" : ""}
           </h2>
+          <p className="text-[10px] text-violet-200 mt-1">
+            Tiempo medio respuesta:{" "}
+            <span className="font-bold text-white">
+              {kpis.tiempoMedioMin == null ? "—" : `${kpis.tiempoMedioMin} min`}
+            </span>
+          </p>
         </div>
         <div className="flex items-center gap-4">
           {total > 0 && (

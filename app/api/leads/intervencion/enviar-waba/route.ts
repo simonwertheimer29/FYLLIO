@@ -8,6 +8,7 @@ import { withAuth } from "../../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../../lib/auth/users";
 import { getServicioMensajeria } from "../../../../lib/presupuestos/mensajeria";
 import { getLead, appendLeadLog, updateLead } from "../../../../lib/leads/leads";
+import { logAccionLead } from "../../../../lib/leads/acciones";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,13 @@ export const POST = withAuth(async (session, req) => {
     // Contadores + log en el lead.
     await updateLead(leadId, { whatsappEnviados: lead.whatsappEnviados + 1 });
     await appendLeadLog(leadId, "WhatsApp enviado (WABA)");
+    // Sprint 10 C — Acciones_Lead.
+    logAccionLead({
+      leadId,
+      tipo: "WhatsApp_Saliente",
+      usuarioId: session.userId,
+      detalles: contenido.slice(0, 500),
+    }).catch(() => {});
 
     return NextResponse.json({
       ok: true,

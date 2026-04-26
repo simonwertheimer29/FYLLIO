@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { withAuth } from "../../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../../lib/auth/users";
 import { getLead, updateLead, appendLeadLog } from "../../../../lib/leads/leads";
+import { logAccionLead, type TipoAccionLead } from "../../../../lib/leads/acciones";
 
 export const dynamic = "force-dynamic";
 
@@ -48,6 +49,20 @@ export const POST = withAuth(async (session, req) => {
   }
   const updated = Object.keys(patch).length > 0 ? await updateLead(leadId, patch) : lead;
   await appendLeadLog(leadId, notas ? `${tipo} · ${notas}` : tipo);
+
+  // Sprint 10 C — log estructurado en Acciones_Lead. fire-and-forget.
+  const tipoAccion: TipoAccionLead =
+    tipo === "WhatsApp enviado"
+      ? "WhatsApp_Saliente"
+      : tipo === "Llamada realizada" || tipo === "Sin respuesta tras llamada"
+        ? "Llamada"
+        : "Nota";
+  logAccionLead({
+    leadId,
+    tipo: tipoAccion,
+    usuarioId: session.userId,
+    detalles: notas ? `${tipo} · ${notas}` : tipo,
+  }).catch(() => {});
 
   return NextResponse.json({ ok: true, lead: updated });
 });

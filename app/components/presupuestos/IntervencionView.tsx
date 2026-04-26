@@ -581,13 +581,20 @@ export default function IntervencionView({
     return () => window.removeEventListener("keydown", handleKey);
   }, []);
 
+  const [tiempoMedioMin, setTiempoMedioMin] = useState<number | null>(null);
+
   const fetchData = useCallback(async () => {
     try {
       const url = new URL("/api/presupuestos/intervencion", location.href);
       if (user.clinica) url.searchParams.set("clinica", user.clinica);
-      const res = await fetch(url.toString());
+      const [res, kpiRes] = await Promise.all([
+        fetch(url.toString()),
+        fetch("/api/presupuestos/kpi-hoy"),
+      ]);
       const d: IntervencionResponse = await res.json();
       setData(d);
+      const kpi = await kpiRes.json().catch(() => ({}));
+      setTiempoMedioMin(typeof kpi?.tiempoMedioMin === "number" ? kpi.tiempoMedioMin : null);
       setLastUpdate(new Date());
     } catch {
       // Keep existing data on error
@@ -656,6 +663,13 @@ export default function IntervencionView({
             <h2 className="text-xl font-extrabold mt-0.5">
               {totalPendientes} pendiente{totalPendientes !== 1 ? "s" : ""} · {completadasHoy} completada{completadasHoy !== 1 ? "s" : ""}
             </h2>
+            {/* Sprint 10 C — KPI tiempo medio respuesta. */}
+            <p className="text-[10px] text-violet-200 mt-1">
+              Tiempo medio respuesta:{" "}
+              <span className="font-bold text-white">
+                {tiempoMedioMin == null ? "—" : `${tiempoMedioMin} min`}
+              </span>
+            </p>
           </div>
           <div className="flex items-center gap-4">
             {total > 0 && (

@@ -41,6 +41,8 @@ export const TABLES = {
   leads: "Leads",
   // Sprint 8 — log de alertas enviadas por admin (cooldown 2h)
   alertasEnviadas: "Alertas_Enviadas",
+  // Sprint 10 C — log estructurado de acciones sobre leads (KPI tiempo medio)
+  accionesLead: "Acciones_Lead",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];
