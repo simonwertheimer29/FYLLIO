@@ -126,7 +126,7 @@ export function FyllioCopilot() {
       const res = await fetch("/api/copilot/execute", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, selectedClinicaId: selectedClinicaId ?? null }),
       });
       const d = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
