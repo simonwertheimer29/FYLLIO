@@ -120,24 +120,24 @@ export function AlertasView() {
   }
 
   return (
-    <div className="flex-1 min-h-0 overflow-auto bg-slate-50">
+    <div className="flex-1 min-h-0 overflow-auto bg-[var(--color-background)]">
       <div className="max-w-5xl mx-auto p-4 lg:p-6 space-y-5">
         <header className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900">Alertas</h1>
-            <p className="text-xs text-slate-500">
+            <h1 className="font-display text-2xl font-semibold tracking-tight text-[var(--color-foreground)]">Alertas</h1>
+            <p className="text-xs text-[var(--color-muted)] mt-0.5">
               Situaciones que requieren acción por parte de coordinación
             </p>
           </div>
           {totalPendientes > 0 && (
-            <span className="inline-flex rounded-full bg-rose-50 text-rose-700 border border-rose-200 px-3 py-1 text-xs font-bold">
+            <span className="inline-flex rounded-md bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-1 text-xs font-semibold tabular-nums">
               {totalPendientes} alerta{totalPendientes === 1 ? "" : "s"} activa
               {totalPendientes === 1 ? "" : "s"}
             </span>
           )}
         </header>
 
-        {/* Tabs secundarios */}
+        {/* Tabs secundarios — estilo Linear: pill sky-50 activa. */}
         <div className="flex flex-wrap gap-1">
           {(
             [
@@ -152,10 +152,10 @@ export function AlertasView() {
               key={key}
               type="button"
               onClick={() => setTab(key)}
-              className={`text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+              className={`text-[11px] font-medium px-3 py-1.5 rounded-md border transition-colors ${
                 tab === key
-                  ? "bg-slate-900 text-white border-slate-900"
-                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+                  ? "bg-sky-50 text-sky-700 border-sky-200"
+                  : "bg-white text-[var(--color-muted)] border-[var(--color-border)] hover:text-[var(--color-foreground)] hover:bg-slate-50"
               }`}
             >
               {label}
@@ -164,7 +164,7 @@ export function AlertasView() {
         </div>
 
         {error && (
-          <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+          <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-md px-3 py-2">
             {error}{" "}
             {error.includes("teléfono") && (
               <Link href="/ajustes/clinica-equipo" className="underline font-semibold">
@@ -175,19 +175,19 @@ export function AlertasView() {
         )}
 
         {toast && (
-          <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2">
+          <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
             {toast}
           </p>
         )}
 
         {loading && !cards && (
-          <p className="text-xs text-slate-400">Cargando alertas…</p>
+          <p className="text-xs text-[var(--color-muted)]">Cargando alertas…</p>
         )}
 
         {!loading && filtered.length === 0 && (
-          <div className="rounded-3xl bg-white border border-slate-200 p-8 text-center">
-            <p className="text-sm text-slate-800 font-semibold">Sin situaciones pendientes 🎉</p>
-            <p className="text-xs text-slate-500 mt-1">
+          <div className="rounded-xl bg-white border border-[var(--color-border)] p-8 text-center">
+            <p className="font-display text-base font-semibold text-[var(--color-foreground)]">Sin situaciones pendientes 🎉</p>
+            <p className="text-xs text-[var(--color-muted)] mt-1">
               {selectedClinicaId
                 ? "Esta clínica no tiene alertas en este filtro."
                 : "Ninguna clínica tiene alertas en el filtro seleccionado."}
@@ -205,9 +205,9 @@ export function AlertasView() {
             return (
               <div
                 key={card.clinicaId}
-                className="rounded-2xl bg-white border border-slate-200 p-4"
+                className="rounded-xl bg-white border border-[var(--color-border)] p-5 hover:border-sky-200 transition-colors"
               >
-                <p className="text-sm font-extrabold text-slate-900 mb-2">
+                <p className="font-display text-base font-semibold text-[var(--color-foreground)] mb-3 tracking-tight">
                   {card.clinicaNombre}
                 </p>
                 <div className="space-y-2">
@@ -217,30 +217,31 @@ export function AlertasView() {
                     const cooldown = card.cooldowns?.[tipo] ?? null;
                     const isOnCooldown = !!cooldown;
                     const busy = sending === `${card.clinicaId}:${tipo}`;
+                    // Sprint 12 H.4 — urgencia funcional: rose>5, amber 3-5, neutro <3.
                     const urgenciaBg =
                       n > 5
                         ? "bg-rose-50 text-rose-700"
                         : n >= 3
-                        ? "bg-orange-50 text-orange-700"
-                        : "bg-amber-50 text-amber-700";
+                        ? "bg-amber-50 text-amber-700"
+                        : "bg-slate-100 text-[var(--color-muted)]";
                     return (
                       <div
                         key={tipo}
-                        className="flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2"
+                        className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2.5 border border-[var(--color-border)]"
                       >
                         <span
-                          className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm shrink-0 ${urgenciaBg}`}
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 ${urgenciaBg}`}
                           aria-hidden="true"
                         >
                           🔔
                         </span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-semibold text-slate-700">
+                          <p className="text-[11px] font-medium text-[var(--color-foreground)]">
                             {TIPO_LABEL[tipo]}
                           </p>
-                          <p className="text-xs text-slate-500">{TIPO_SUBTITLE[tipo](n)}</p>
+                          <p className="text-xs text-[var(--color-muted)] tabular-nums">{TIPO_SUBTITLE[tipo](n)}</p>
                           {isOnCooldown && (
-                            <p className="text-[10px] text-slate-400 mt-0.5">
+                            <p className="text-[10px] text-slate-400 mt-0.5 tabular-nums">
                               Alerta enviada hace {minutesAgo(cooldown!.untilMs - 2 * 60 * 60 * 1000)}
                             </p>
                           )}
@@ -249,7 +250,7 @@ export function AlertasView() {
                           type="button"
                           onClick={() => enviar(card.clinicaId, tipo)}
                           disabled={busy || isOnCooldown}
-                          className="shrink-0 rounded-full bg-orange-500 text-white text-xs font-bold px-3 py-1.5 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="shrink-0 rounded-md bg-sky-500 text-white text-xs font-semibold px-3 py-1.5 hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                           {busy
                             ? "Enviando…"
