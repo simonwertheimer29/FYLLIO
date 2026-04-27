@@ -12,6 +12,7 @@ import type { UserSession } from "../../lib/presupuestos/types";
 import { useClinic } from "../../lib/context/ClinicContext";
 import CommandCenterView from "../../components/presupuestos/CommandCenterView";
 import { openCopilot } from "../../components/copilot/openCopilot";
+import { KpiCard } from "../../components/ui/KpiCard";
 
 type LeadApi = {
   id: string;
@@ -85,8 +86,8 @@ export function RedView({ user }: { user: UserSession }) {
         <section className="space-y-3">
           <header className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <h1 className="text-lg font-extrabold text-slate-900">Red</h1>
-              <p className="text-xs text-slate-500">
+              <h1 className="font-display text-2xl font-semibold tracking-tight text-[var(--color-foreground)]">Red</h1>
+              <p className="text-xs text-[var(--color-muted)] mt-0.5">
                 Panorama global sobre {scope}
               </p>
             </div>
@@ -115,34 +116,38 @@ export function RedView({ user }: { user: UserSession }) {
           </header>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <KpiMini
+            <KpiCard
               label="Leads en pipeline"
-              value={activos.toString()}
-              accent="bg-sky-50 text-sky-700"
-              kpiSummary={`KPI: Leads en pipeline — ${scope}\nValor: ${activos}\n(Excluye los marcados como No Interesado.)`}
+              value={activos}
+              accent="sky"
+              copilotSummary={`KPI: Leads en pipeline — ${scope}\nValor: ${activos}\n(Excluye los marcados como No Interesado.)`}
             />
-            <KpiMini
+            <KpiCard
               label="Leads convertidos"
-              value={leadsConvertidos.toString()}
+              value={leadsConvertidos}
               subline={`${pacientesDeLead} pacientes de origen Lead`}
-              accent="bg-emerald-50 text-emerald-700"
-              kpiSummary={`KPI: Leads convertidos — ${scope}\nValor: ${leadsConvertidos}\nPacientes que originaron como lead: ${pacientesDeLead}`}
+              accent="emerald"
+              copilotSummary={`KPI: Leads convertidos — ${scope}\nValor: ${leadsConvertidos}\nPacientes que originaron como lead: ${pacientesDeLead}`}
             />
-            <KpiMini
+            <KpiCard
               label="Tasa conversión lead→paciente"
-              value={`${tasaConversion}%`}
-              accent="bg-sky-50 text-sky-700"
-              kpiSummary={`KPI: Tasa conversión lead→paciente — ${scope}\nValor: ${tasaConversion}%\nFórmula: leads convertidos / leads totales.`}
+              value={tasaConversion}
+              formatter={(n) => `${n}%`}
+              accent="sky"
+              copilotSummary={`KPI: Tasa conversión lead→paciente — ${scope}\nValor: ${tasaConversion}%\nFórmula: leads convertidos / leads totales.`}
             />
-            <KpiMini
+            <KpiCard
               label="Facturado acumulado"
-              value={facturadoMes.toLocaleString("es-ES", {
-                style: "currency",
-                currency: "EUR",
-                maximumFractionDigits: 0,
-              })}
-              accent="bg-amber-50 text-amber-700"
-              kpiSummary={`KPI: Facturado acumulado — ${scope}\nValor: ${facturadoMes.toLocaleString("es-ES")}€\nSuma del campo Pagado de pacientes activos.`}
+              value={facturadoMes}
+              formatter={(n) =>
+                n.toLocaleString("es-ES", {
+                  style: "currency",
+                  currency: "EUR",
+                  maximumFractionDigits: 0,
+                })
+              }
+              accent="amber"
+              copilotSummary={`KPI: Facturado acumulado — ${scope}\nValor: ${facturadoMes.toLocaleString("es-ES")}€\nSuma del campo Pagado de pacientes activos.`}
             />
           </div>
         </section>
@@ -162,44 +167,3 @@ export function RedView({ user }: { user: UserSession }) {
   );
 }
 
-function KpiMini({
-  label,
-  value,
-  subline,
-  accent,
-  kpiSummary,
-}: {
-  label: string;
-  value: string;
-  subline?: string;
-  accent: string;
-  /** Sprint 11 C.5 — texto que se pasa al Copilot al pulsar la ✨ */
-  kpiSummary?: string;
-}) {
-  return (
-    <div className="rounded-2xl bg-white border border-slate-200 p-4 relative">
-      {kpiSummary && (
-        <button
-          type="button"
-          onClick={() =>
-            openCopilot({
-              context: { kind: "kpi", summary: kpiSummary },
-              initialAssistantMessage: `El KPI "${label}" está en ${value}. ¿Quieres que te lo explique o te diga cómo mejorarlo?`,
-            })
-          }
-          aria-label={`Explicar ${label}`}
-          className="absolute top-2 right-2 w-6 h-6 rounded-full text-violet-600 hover:bg-violet-50 flex items-center justify-center text-xs"
-        >
-          ✨
-        </button>
-      )}
-      <span
-        className={`inline-block text-[10px] uppercase tracking-wider font-semibold rounded-full px-2 py-0.5 ${accent}`}
-      >
-        {label}
-      </span>
-      <p className="text-2xl font-extrabold text-slate-900 mt-1">{value}</p>
-      {subline && <p className="text-[10px] text-slate-500">{subline}</p>}
-    </div>
-  );
-}
