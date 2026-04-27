@@ -41,8 +41,9 @@ const COLUMNS: Array<{ id: LeadEstado; label: string; accent: string; ringClass?
   {
     id: "Citados Hoy",
     label: "Citados Hoy",
-    accent: "bg-rose-100 text-rose-800",
-    ringClass: "ring-2 ring-rose-200",
+    accent: "bg-rose-50 text-rose-700",
+    // Sprint 12 H.3 — acento rose mas sutil (ring-1 + opacidad).
+    ringClass: "ring-1 ring-rose-200/70",
   },
   { id: "No Interesado", label: "No Interesado", accent: "bg-slate-200 text-slate-600" },
 ];
@@ -277,15 +278,15 @@ export function LeadsView({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-extrabold text-slate-900">Leads</h1>
-          <p className="text-xs text-slate-500">
+          <h1 className="font-display text-2xl font-semibold tracking-tight text-[var(--color-foreground)]">Leads</h1>
+          <p className="text-xs text-[var(--color-muted)] mt-0.5 tabular-nums">
             {filteredLeads.length} lead{filteredLeads.length === 1 ? "" : "s"} en el pipeline
           </p>
         </div>
         <button
           type="button"
           onClick={() => setNewLeadOpen(true)}
-          className="rounded-full bg-sky-600 text-white text-xs font-bold px-4 py-2 hover:bg-sky-700 transition-colors"
+          className="rounded-md bg-sky-500 text-white text-xs font-semibold px-3.5 py-2 hover:bg-sky-600 transition-colors"
         >
           + Nuevo Lead
         </button>
@@ -438,11 +439,11 @@ function KanbanColumn({
   return (
     <div
       id={estado}
-      className={`flex flex-col min-h-0 rounded-2xl bg-white border border-slate-200 ${ringClass ?? ""}`}
+      className={`flex flex-col min-h-0 rounded-xl bg-white border border-[var(--color-border)] ${ringClass ?? ""}`}
     >
-      <div className="flex items-center justify-between px-3 py-2 border-b border-slate-200">
-        <span className="text-xs font-bold text-slate-800">{label}</span>
-        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${accent}`}>
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-[var(--color-border)]">
+        <span className="font-display text-[13px] font-medium text-[var(--color-foreground)] tracking-tight">{label}</span>
+        <span className={`text-[10px] font-semibold tabular-nums px-2 py-0.5 rounded-full ${accent}`}>
           {items.length}
         </span>
       </div>
@@ -590,17 +591,17 @@ function LeadCardBody({ lead }: { lead: Lead }) {
   );
 
   return (
-    <article className="rounded-xl bg-white border border-slate-200 p-3 text-xs shadow-sm hover:shadow-md hover:border-slate-300 transition-all cursor-pointer">
-      <p className="font-bold text-slate-900 truncate">{lead.nombre}</p>
+    <article className="rounded-xl bg-white border border-[var(--color-border)] p-3 text-xs hover:border-sky-200 hover:shadow-sm transition-all duration-150 cursor-pointer">
+      <p className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight">{lead.nombre}</p>
 
-      <div className="flex flex-wrap gap-1 mt-1">
+      <div className="flex flex-wrap gap-1 mt-1.5">
         {lead.canal && (
-          <span className="inline-flex rounded-full bg-sky-50 text-sky-700 border border-sky-100 px-2 py-0.5 text-[10px] font-semibold">
+          <span className="inline-flex rounded-md bg-slate-50 text-slate-600 border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] font-medium">
             {lead.canal}
           </span>
         )}
         {lead.tratamiento && (
-          <span className="inline-flex rounded-full bg-sky-50 text-sky-700 border border-sky-100 px-2 py-0.5 text-[10px] font-semibold">
+          <span className="inline-flex rounded-md bg-sky-50 text-sky-700 border border-sky-100 px-1.5 py-0.5 text-[10px] font-medium">
             {lead.tratamiento}
           </span>
         )}
@@ -608,11 +609,11 @@ function LeadCardBody({ lead }: { lead: Lead }) {
 
       {lead.telefono && (
         <div className="flex items-center gap-1 mt-2">
-          <span className="text-slate-600 text-[11px] font-mono truncate">{lead.telefono}</span>
+          <span className="text-[var(--color-muted)] text-[11px] font-mono truncate tabular-nums">{lead.telefono}</span>
           <button
             type="button"
             onClick={copyPhone}
-            className="text-[10px] text-slate-400 hover:text-slate-700"
+            className="text-[10px] text-slate-400 hover:text-[var(--color-foreground)] transition-colors"
             title="Copiar"
           >
             {copied ? "✓" : "⎘"}
@@ -621,22 +622,22 @@ function LeadCardBody({ lead }: { lead: Lead }) {
       )}
 
       {lead.fechaCita && (
-        <p className="mt-1 text-[10px] text-slate-500">Cita: {lead.fechaCita}</p>
+        <p className="mt-1 text-[10px] text-[var(--color-muted)] tabular-nums">Cita: {lead.fechaCita}</p>
       )}
 
-      <div className="flex items-center gap-2 mt-2 text-[10px] text-slate-500">
+      <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--color-muted)]">
         {lead.llamado && <span>📞 Llamado</span>}
-        {lead.whatsappEnviados > 0 && <span>💬 {lead.whatsappEnviados}</span>}
-        <span className="ml-auto">hace {diasDesdeCreacion}d</span>
+        {lead.whatsappEnviados > 0 && <span className="tabular-nums">💬 {lead.whatsappEnviados}</span>}
+        <span className="ml-auto tabular-nums">hace {diasDesdeCreacion}d</span>
       </div>
 
-      <div className="flex gap-1 mt-2">
+      <div className="flex gap-1 mt-2.5">
         {lead.telefono && (
           <>
             <a
               href={`tel:${lead.telefono}`}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 text-center rounded-lg bg-slate-50 text-slate-700 text-[10px] font-semibold py-1 hover:bg-slate-100"
+              className="flex-1 text-center rounded-md bg-slate-50 text-[var(--color-foreground)] text-[10px] font-medium py-1.5 hover:bg-slate-100 transition-colors"
             >
               Llamar
             </a>
@@ -645,7 +646,7 @@ function LeadCardBody({ lead }: { lead: Lead }) {
               target="_blank"
               rel="noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 text-center rounded-lg bg-emerald-50 text-emerald-700 text-[10px] font-semibold py-1 hover:bg-emerald-100"
+              className="flex-1 text-center rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-medium py-1.5 hover:bg-emerald-100 transition-colors"
             >
               WhatsApp
             </a>
