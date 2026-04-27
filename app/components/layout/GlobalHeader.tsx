@@ -4,6 +4,7 @@
 // Coord (6): Actuar hoy · Leads · Pacientes · Presupuestos · KPIs · Automatizaciones
 // Admin (9): Red · Alertas · Actuar hoy · Leads · Pacientes · Presupuestos · KPIs · Automatizaciones · Ajustes
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
@@ -65,13 +66,23 @@ export function GlobalHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
-      {/* Fila 1: logo + selector + usuario */}
+      {/* Fila 1: isotipo + selector + usuario */}
       <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-4 px-3 sm:px-6">
-        {/* Logo tipográfico limpio: "Fyllio" con accent celeste sobre los dos últimos caracteres. */}
-        <div className="flex items-center font-extrabold tracking-tight text-lg select-none">
-          <span className="text-slate-900">Fyll</span>
-          <span className="text-sky-500">io</span>
-        </div>
+        {/* Sprint 12 B — isotipo Fyllio (solo icono) en todas las pantallas autenticadas. */}
+        <Link
+          href="/"
+          className="flex items-center select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 rounded-md"
+          aria-label="Fyllio · ir a inicio"
+        >
+          <Image
+            src="/isotipo.png"
+            alt="Fyllio"
+            width={36}
+            height={36}
+            priority
+            className="h-9 w-9"
+          />
+        </Link>
 
         <div className="flex-1 min-w-0">
           <ClinicSelector />

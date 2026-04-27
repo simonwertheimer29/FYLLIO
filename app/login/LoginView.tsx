@@ -2,21 +2,26 @@
 // Toda la tarjeta es el área de click (sin botón separado), con hover que
 // eleva la tarjeta y foco accesible para navegación por teclado.
 
+import Image from "next/image";
 import Link from "next/link";
 
 type ClinicaCard = { id: string; nombre: string; ciudad: string | null };
 
 export function LoginView({ clinicas }: { clinicas: ClinicaCard[] }) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sky-50 to-cyan-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-6">
-        {/* Logo tipográfico + subtítulo */}
-        <div className="text-center space-y-1">
-          <p className="text-3xl font-extrabold tracking-tight">
-            <span className="text-slate-900">Fyll</span>
-            <span className="text-sky-500">io</span>
-          </p>
-          <p className="text-sm text-slate-500">Panel de gestión</p>
+    <div className="min-h-screen bg-[var(--color-background)] flex items-center justify-center p-4">
+      <div className="w-full max-w-md space-y-8">
+        {/* Sprint 12 B — wordmark grande sustituye al logo tipográfico inline. */}
+        <div className="text-center space-y-3">
+          <Image
+            src="/fyllio-wordmark.png"
+            alt="Fyllio"
+            width={220}
+            height={64}
+            priority
+            className="mx-auto h-14 w-auto"
+          />
+          <p className="text-sm text-[var(--color-muted)] font-sans">Panel de gestión</p>
         </div>
 
         {/* Tarjeta Administrador — tarjeta entera clickable */}
