@@ -161,11 +161,13 @@ export function FyllioCopilot() {
 
   return (
     <>
+      {/* Sprint 12 D — FAB violeta semi-transparente con backdrop-blur,
+          pulso sutil cada 60s definido en globals.css (.fyllio-copilot-fab). */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Abrir Fyllio Copilot"
-        className="fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-purple-700 text-white shadow-xl hover:shadow-2xl hover:scale-105 transition-all flex items-center justify-center"
+        className="fyllio-copilot-fab fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-violet-500/80 to-violet-600/70 text-white backdrop-blur-sm hover:from-violet-500/90 hover:to-violet-600/80 hover:shadow-md transition-all duration-200 flex items-center justify-center ring-1 ring-violet-500/20"
       >
         <span className="text-2xl">✨</span>
       </button>
@@ -173,11 +175,16 @@ export function FyllioCopilot() {
       {open && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
-          <aside className="relative w-full max-w-md bg-white shadow-2xl flex flex-col h-full overflow-hidden">
-            <header className="px-5 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
-              <div>
-                <h2 className="text-base font-extrabold text-slate-900">Fyllio Copilot</h2>
-                <p className="text-[11px] text-slate-500">
+          <aside className="relative w-full max-w-md bg-white shadow-md flex flex-col h-full overflow-hidden">
+            {/* Sprint 12 D — header con acento violeta sutil (lateral),
+                no fondo solido. */}
+            <header className="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between shrink-0 relative">
+              <span aria-hidden className="absolute left-0 top-3 bottom-3 w-0.5 rounded-full bg-violet-500/60" />
+              <div className="pl-1">
+                <h2 className="font-display text-base font-semibold text-[var(--color-foreground)] tracking-tight">
+                  Fyllio Copilot
+                </h2>
+                <p className="text-[11px] text-[var(--color-muted)]">
                   {contextSnapshot
                     ? `Contexto: ${contextLabel(contextSnapshot.kind)}`
                     : "Pregúntame lo que necesites"}
@@ -251,7 +258,7 @@ export function FyllioCopilot() {
                   type="button"
                   onClick={send}
                   disabled={!draft.trim() || loading}
-                  className="text-sm font-bold px-4 py-2 rounded-xl bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40"
+                  className="text-sm font-semibold px-4 py-2 rounded-xl bg-violet-500 text-white hover:bg-violet-600 disabled:opacity-40 transition-colors"
                 >
                   ↑
                 </button>
@@ -297,7 +304,7 @@ function Suggestions({ onPick }: { onPick: (q: string) => void }) {
             key={s}
             type="button"
             onClick={() => onPick(s)}
-            className="text-left text-xs px-3 py-2 rounded-xl bg-slate-50 hover:bg-violet-50 hover:text-violet-700 text-slate-700 border border-slate-200"
+            className="text-left text-xs px-3 py-2 rounded-xl bg-white hover:bg-violet-50 hover:text-violet-700 hover:border-violet-200 text-[var(--color-foreground)] border border-[var(--color-border)] transition-colors"
           >
             {s}
           </button>
@@ -324,8 +331,8 @@ function ChatBubble({
       <div
         className={`max-w-[85%] px-3 py-2 ${
           isUser
-            ? "ml-8 bg-violet-600 text-white rounded-2xl rounded-br-sm"
-            : "mr-8 bg-slate-100 text-slate-900 rounded-2xl rounded-bl-sm"
+            ? "ml-8 bg-sky-50 text-[var(--color-foreground)] border border-sky-100 rounded-2xl rounded-br-sm"
+            : "mr-8 bg-white text-[var(--color-foreground)] border border-[var(--color-border)] rounded-2xl rounded-bl-sm"
         }`}
       >
         <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
