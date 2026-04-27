@@ -3,12 +3,171 @@
 /* Si usas @apply en este archivo (o Tailwind se queja), deja esta línea: */
 @reference "tailwindcss";
 
-/* ================================
-   FYLLIO BRAND UTILITIES
-================================ */
+/* ════════════════════════════════════════════════════════════════════
+   Sprint 12 A — DESIGN TOKENS (Tailwind v4 @theme)
+   Define colores, spacings, radius y shadows centralizados que sustituyen
+   todos los valores hardcodeados antiguos. La paleta sigue la filosofía
+   "calma con momentos de energía" de Linear/Vercel/Cal.com/Attio.
+════════════════════════════════════════════════════════════════════ */
+
+@theme {
+  /* Familias tipográficas. Las variables CSS las inyecta next/font/google
+     en <html className> desde app/layout.tsx (Inter + Geist). */
+  --font-sans:
+    var(--font-sans), "Inter", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display:
+    var(--font-display), "Geist", ui-sans-serif, system-ui, sans-serif;
+
+  /* Neutros marca Fyllio — sustituyen slate/gray legacy. */
+  --color-background: #fafbfc;
+  --color-foreground: #0a0e1a;
+  --color-muted: #5a6478;
+  --color-border: #e5e8ee;
+
+  /* Radios — máximo 16px (xl). */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+}
+
+/* Tabular nums por defecto en clases de número (KPIs, contadores). */
+@layer utilities {
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+  .font-display {
+    font-family: var(--font-display);
+    font-feature-settings: "ss01", "ss02";
+    letter-spacing: -0.01em;
+  }
+  .font-sans {
+    font-family: var(--font-sans);
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Reset mínimo + scroll
+════════════════════════════════════════════════════════════════════ */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: var(--nav-h, 72px);
+  font-family: var(--font-sans);
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   FAB Copilot — pulse suave cada 60s (Sprint 12 D)
+   Brief: "intervalo más largo (60s en vez de 30s) y muy sutil
+   (opacidad subiendo 5%, sin movimiento físico)".
+════════════════════════════════════════════════════════════════════ */
+
+@keyframes copilotPulse {
+  /* La animación dura 60s en total: 1.2s de subida sutil al inicio
+     y el resto en reposo, así el "latido" se percibe cada minuto sin
+     ser distractivo. */
+  0% {
+    box-shadow: 0 10px 25px -10px rgba(124, 58, 237, 0.5);
+  }
+  1% {
+    box-shadow: 0 10px 25px -10px rgba(124, 58, 237, 0.5);
+  }
+  2% {
+    box-shadow: 0 12px 30px -8px rgba(124, 58, 237, 0.62);
+  }
+  4% {
+    box-shadow: 0 10px 25px -10px rgba(124, 58, 237, 0.5);
+  }
+  100% {
+    box-shadow: 0 10px 25px -10px rgba(124, 58, 237, 0.5);
+  }
+}
+
+.fyllio-copilot-fab {
+  animation: copilotPulse 60s ease-in-out infinite;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Microinteracciones (Sprint 12 F)
+════════════════════════════════════════════════════════════════════ */
+
+@keyframes fyllioFadeInStagger {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fyllio-fade-in {
+  animation: fyllioFadeInStagger 220ms ease-out both;
+}
+
+@keyframes fyllioShimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.fyllio-skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(229, 232, 238, 0.6) 25%,
+    rgba(229, 232, 238, 1) 50%,
+    rgba(229, 232, 238, 0.6) 75%
+  );
+  background-size: 200% 100%;
+  animation: fyllioShimmer 1.4s ease infinite;
+  border-radius: var(--radius-md);
+}
+
+@keyframes fyllioCheckPop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.15);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.fyllio-check-pop {
+  animation: fyllioCheckPop 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   Legacy — utilidades antiguas que aún consume la landing /
+   /demo / /early-access (no rediseñadas en Sprint 12). Marcadas para
+   posible borrado en Sprint 13 si grep confirma cero uso autenticado.
+════════════════════════════════════════════════════════════════════ */
 
 .fyllio-text-gradient {
   background: linear-gradient(90deg, #2563eb, #06b6d4);
+  background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -17,80 +176,16 @@
   background: linear-gradient(135deg, #2563eb, #06b6d4);
 }
 
-.fyllio-card-soft {
-  background: #ffffff;
-  border-radius: 1rem;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
-}
-
-.btn-fyllio {
-  background: linear-gradient(135deg, #2563eb, #06b6d4);
-  color: white;
-  padding: 0.75rem 1.5rem;
-  border-radius: 9999px;
-  font-weight: 600;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
-}
-
-.btn-fyllio:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
-}
-/* ================================
-   FYLLIO LOGO GLOW
-================================ */
-
-.fyllio-logo-glow {
-  border-radius: 1rem;
-  box-shadow:
-    0 4px 14px rgba(0, 119, 255, 0.35),
-    0 0 0 1px rgba(0, 167, 255, 0.15);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-}
-
-.fyllio-logo-glow:hover {
-  transform: translateY(-1px);
-  box-shadow:
-    0 6px 22px rgba(0, 119, 255, 0.45),
-    0 0 0 1px rgba(0, 224, 255, 0.25);
-}
-html, body {
-  margin: 0;
-  padding: 0;
-}
-
-html {
-  scroll-padding-top: var(--nav-h, 72px);
-}
-/* Card estilo IA glass */
-.card-ai {
-  background: linear-gradient(
-    135deg,
-    rgba(15, 23, 42, 0.55),
-    rgba(15, 23, 42, 0.35)
-  );
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(56, 189, 248, 0.25);
-  box-shadow:
-    0 10px 30px rgba(15, 23, 42, 0.15),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  border-radius: 1rem;
-}
-@keyframes gradmove {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-html {
-  scroll-behavior: smooth;
-  scroll-padding-top: var(--nav-h, 72px);
-}
 @keyframes gradientMove {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 .animate-gradient {
@@ -98,8 +193,14 @@ html {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .animate-fadeIn {

@@ -2,6 +2,21 @@ import "./globals.css";
 import type { Metadata } from "next";
 import Script from "next/script";
 import { Toaster } from "sonner";
+import { Inter, Geist } from "next/font/google";
+
+// Sprint 12 A — tipografías:
+//  - Geist  → display (títulos, números KPI, headers).
+//  - Inter  → body (UI, tablas, párrafos).
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-sans",
+});
+const geist = Geist({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-display",
+});
 
 export const metadata: Metadata = {
   title: "FYLLIO – La IA que ordena tu día en la clínica",
@@ -16,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="es"
+      className={`${inter.variable} ${geist.variable}`}
       style={{
         ["--nav-h" as any]: `${navH}px`,
         scrollPaddingTop: `${scrollOffset}px`,
