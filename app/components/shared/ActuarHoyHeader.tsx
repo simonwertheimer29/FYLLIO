@@ -41,19 +41,21 @@ export function ActuarHoyHeader({
   const secondsAgo = Math.round((Date.now() - lastUpdate.getTime()) / 1000);
 
   return (
-    <div className="rounded-2xl bg-gradient-to-r from-violet-600 to-purple-700 p-4 text-white">
+    // Sprint 12 C — header sky (no morado). El violeta queda reservado al
+    // Copilot. Gradient muy sutil + tipografia display.
+    <div className="rounded-xl bg-gradient-to-br from-sky-500 to-sky-600 p-5 text-white">
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-xs font-semibold text-violet-200 uppercase tracking-widest">
+          <p className="text-xs font-semibold text-sky-100 uppercase tracking-widest">
             {subtitle}
           </p>
-          <h2 className="text-xl font-extrabold mt-0.5">
+          <h2 className="font-display text-2xl font-semibold mt-1 tracking-tight tabular-nums">
             {kpis.pendientes} pendiente{kpis.pendientes !== 1 ? "s" : ""} ·{" "}
             {kpis.completadasHoy} completada{kpis.completadasHoy !== 1 ? "s" : ""}
           </h2>
-          <p className="text-[10px] text-violet-200 mt-1">
+          <p className="text-[11px] text-sky-100 mt-1">
             Tiempo medio respuesta:{" "}
-            <span className="font-bold text-white">
+            <span className="font-semibold text-white tabular-nums">
               {kpis.tiempoMedioMin == null ? "—" : `${kpis.tiempoMedioMin} min`}
             </span>
           </p>
@@ -61,27 +63,28 @@ export function ActuarHoyHeader({
         <div className="flex items-center gap-4">
           {total > 0 && (
             <div className="text-center">
-              <div className="w-28 h-2 bg-violet-500 rounded-full overflow-hidden">
+              <div className="w-28 h-1.5 bg-sky-400/60 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-emerald-400 rounded-full transition-all"
+                  className="h-full bg-emerald-300 rounded-full transition-all duration-300"
                   style={{ width: `${pct}%` }}
                 />
               </div>
-              <p className="text-[10px] text-violet-200 mt-0.5">{pct}% del plan de hoy</p>
+              <p className="text-[10px] text-sky-100 mt-1 tabular-nums">{pct}% del plan de hoy</p>
             </div>
           )}
         </div>
       </div>
-      <div className="flex items-center gap-3 mt-3">
+      <div className="flex items-center gap-2 mt-4">
         <button
           type="button"
           onClick={onRefresh}
           disabled={loading}
-          className="text-[10px] font-semibold px-3 py-1.5 rounded-lg bg-violet-500 text-white hover:bg-violet-400 disabled:opacity-50"
+          className="text-[10px] font-semibold px-3 py-1.5 rounded-md bg-white/15 text-white hover:bg-white/25 disabled:opacity-50 transition-colors"
         >
           {loading ? "Actualizando…" : "Actualizar"}
         </button>
-        {/* Sprint 11 C.5 — explicación IA de los KPIs del header. */}
+        {/* Sprint 11 C.5 — explicación IA. Violeta sutil para distinguir del
+            sky operativo, manteniendo identidad Copilot. */}
         <button
           type="button"
           onClick={() => {
@@ -99,13 +102,13 @@ export function ActuarHoyHeader({
               initialAssistantMessage: `Hoy llevas ${kpis.completadasHoy} completadas y ${kpis.pendientes} pendientes. ¿Quieres que te lo explique o te diga cómo mejorarlo?`,
             });
           }}
-          className="text-[10px] font-semibold px-3 py-1.5 rounded-lg bg-violet-500 text-white hover:bg-violet-400"
+          className="text-[10px] font-semibold px-3 py-1.5 rounded-md bg-violet-500/90 text-white hover:bg-violet-500 transition-colors"
         >
           ✨ Explica
         </button>
-        <div className="flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="text-[10px] text-violet-300">
+        <div className="flex items-center gap-1.5 ml-auto">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+          <span className="text-[10px] text-sky-100 tabular-nums">
             Actualizado hace {secondsAgo < 60 ? `${secondsAgo}s` : `${Math.round(secondsAgo / 60)}m`}
           </span>
         </div>

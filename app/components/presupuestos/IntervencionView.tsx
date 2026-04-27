@@ -653,20 +653,21 @@ export default function IntervencionView({
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="rounded-2xl bg-gradient-to-r from-violet-600 to-purple-700 p-4 text-white">
+      {/* Sprint 12 C — header sky (no morado). El violeta queda exclusivo
+          para el Copilot. Tipografia display + tabular-nums. */}
+      <div className="rounded-xl bg-gradient-to-br from-sky-500 to-sky-600 p-5 text-white">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <p className="text-xs font-semibold text-violet-200 uppercase tracking-widest">
-              Cola de intervencion · Hoy
+            <p className="text-xs font-semibold text-sky-100 uppercase tracking-widest">
+              Cola de intervención · Hoy
             </p>
-            <h2 className="text-xl font-extrabold mt-0.5">
+            <h2 className="font-display text-2xl font-semibold mt-1 tracking-tight tabular-nums">
               {totalPendientes} pendiente{totalPendientes !== 1 ? "s" : ""} · {completadasHoy} completada{completadasHoy !== 1 ? "s" : ""}
             </h2>
             {/* Sprint 10 C — KPI tiempo medio respuesta. */}
-            <p className="text-[10px] text-violet-200 mt-1">
+            <p className="text-[11px] text-sky-100 mt-1">
               Tiempo medio respuesta:{" "}
-              <span className="font-bold text-white">
+              <span className="font-semibold text-white tabular-nums">
                 {tiempoMedioMin == null ? "—" : `${tiempoMedioMin} min`}
               </span>
             </p>
@@ -674,27 +675,27 @@ export default function IntervencionView({
           <div className="flex items-center gap-4">
             {total > 0 && (
               <div className="text-center">
-                <div className="w-28 h-2 bg-violet-500 rounded-full overflow-hidden">
+                <div className="w-28 h-1.5 bg-sky-400/60 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-emerald-400 rounded-full transition-all"
+                    className="h-full bg-emerald-300 rounded-full transition-all duration-300"
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <p className="text-[10px] text-violet-200 mt-0.5">{pct}% del plan de hoy</p>
+                <p className="text-[10px] text-sky-100 mt-1 tabular-nums">{pct}% del plan de hoy</p>
               </div>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3 mt-3">
+        <div className="flex items-center gap-2 mt-4">
           <button
             onClick={() => { setLoading(true); fetchData(); }}
-            className="text-[10px] font-semibold px-3 py-1.5 rounded-lg bg-violet-500 text-white hover:bg-violet-400"
+            className="text-[10px] font-semibold px-3 py-1.5 rounded-md bg-white/15 text-white hover:bg-white/25 transition-colors"
           >
             Actualizar
           </button>
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-[10px] text-violet-300">
+          <div className="flex items-center gap-1.5 ml-auto">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
+            <span className="text-[10px] text-sky-100 tabular-nums">
               Actualizado hace {secondsAgo < 60 ? `${secondsAgo}s` : `${Math.round(secondsAgo / 60)}m`}
             </span>
           </div>
@@ -740,8 +741,8 @@ export default function IntervencionView({
               onClick={() => setSubTab(tab.id)}
               className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
                 isActive
-                  ? "bg-violet-600 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "bg-sky-500 text-white"
+                  : "bg-white border border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-slate-50"
               }`}
             >
               {tab.label} · {count}
