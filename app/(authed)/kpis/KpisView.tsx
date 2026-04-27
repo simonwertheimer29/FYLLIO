@@ -22,9 +22,9 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
   const [exportOpen, setExportOpen] = useState(false);
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-slate-50 overflow-hidden">
-      {/* Barra superior con tabs + botón exportar */}
-      <div className="bg-white border-b border-slate-200 px-4 py-2 flex items-center justify-between gap-3 shrink-0">
+    <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-background)] overflow-hidden">
+      {/* Sprint 12 — barra superior estilo Linear: pills sky activas. */}
+      <div className="bg-white border-b border-[var(--color-border)] px-4 py-2.5 flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-1">
           <SubTabButton
             active={tab === "presupuestos"}
@@ -40,7 +40,7 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
         <button
           type="button"
           onClick={() => setExportOpen(true)}
-          className="rounded-full bg-sky-600 text-white text-xs font-bold px-3 py-1.5 hover:bg-sky-700"
+          className="rounded-md bg-sky-500 text-white text-xs font-semibold px-3 py-1.5 hover:bg-sky-600 transition-colors"
         >
           Exportar informe
         </button>
@@ -76,10 +76,10 @@ function SubTabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+      className={`font-display px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
         active
-          ? "bg-slate-900 text-white"
-          : "bg-white text-slate-600 border border-slate-200 hover:border-slate-400"
+          ? "bg-sky-50 text-sky-700"
+          : "text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-slate-50"
       }`}
     >
       {label}
@@ -90,11 +90,14 @@ function SubTabButton({
 function KpisLeadsPlaceholder() {
   return (
     <div className="p-8">
-      <div className="max-w-xl mx-auto rounded-3xl bg-white border border-slate-200 p-8 text-center">
-        <p className="text-sm font-bold text-slate-800">KPIs de Leads</p>
-        <p className="text-xs text-slate-500 mt-2">
+      <div className="max-w-xl mx-auto rounded-xl bg-white border border-[var(--color-border)] p-8 text-center">
+        <p className="font-display text-base font-semibold text-[var(--color-foreground)] tracking-tight">KPIs de Leads</p>
+        <p className="text-xs text-[var(--color-muted)] mt-2">
           Próximamente: tasa de conversión por fuente, tiempo medio de primera respuesta,
           distribución por clínica y embudo de estados.
+        </p>
+        <p className="text-[10px] text-slate-400 mt-4 uppercase tracking-widest">
+          Sprint 13
         </p>
       </div>
     </div>
