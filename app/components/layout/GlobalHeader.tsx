@@ -65,7 +65,7 @@ export function GlobalHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white">
+    <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-white">
       {/* Fila 1: isotipo + selector + usuario */}
       <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-4 px-3 sm:px-6">
         {/* Sprint 12 B — isotipo Fyllio (solo icono) en todas las pantallas autenticadas. */}
@@ -90,22 +90,22 @@ export function GlobalHeader() {
 
         <div className="flex items-center gap-3 text-xs">
           <div className="hidden sm:block text-right leading-tight">
-            <p className="font-semibold text-slate-900 truncate max-w-[220px]">{session.nombre}</p>
-            <p className="text-slate-500">{rolLabel}</p>
+            <p className="font-display font-semibold text-[var(--color-foreground)] truncate max-w-[220px]">{session.nombre}</p>
+            <p className="text-[var(--color-muted)]">{rolLabel}</p>
           </div>
           <button
             type="button"
             onClick={handleLogout}
             disabled={loggingOut}
-            className="rounded-xl border border-slate-200 bg-white text-slate-700 font-semibold px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            className="rounded-md border border-[var(--color-border)] bg-white text-[var(--color-foreground)] font-medium px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50 transition-colors"
           >
             {loggingOut ? "Saliendo…" : "Salir"}
           </button>
         </div>
       </div>
 
-      {/* Fila 2: navbar top-level */}
-      <nav className="border-t border-slate-100 bg-white">
+      {/* Fila 2: navbar top-level — Sprint 12 H.1 tipografia display + pill sky */}
+      <nav className="border-t border-[var(--color-border)] bg-white">
         <div className="mx-auto max-w-[1400px] px-3 sm:px-6 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <ul className="flex items-center gap-1 h-11 whitespace-nowrap">
             {items.map((item) => {
@@ -114,10 +114,10 @@ export function GlobalHeader() {
                 <li key={item.href}>
                   <Link
                     href={item.href}
-                    className={`inline-flex items-center h-8 px-3 rounded-full text-xs font-semibold transition-colors ${
+                    className={`font-display inline-flex items-center h-8 px-3 rounded-full text-[13px] font-medium transition-colors ${
                       active
-                        ? "bg-sky-600 text-white"
-                        : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                        ? "bg-sky-50 text-sky-700"
+                        : "text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-slate-50"
                     }`}
                   >
                     {item.label}

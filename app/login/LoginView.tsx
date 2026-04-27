@@ -24,20 +24,20 @@ export function LoginView({ clinicas }: { clinicas: ClinicaCard[] }) {
           <p className="text-sm text-[var(--color-muted)] font-sans">Panel de gestión</p>
         </div>
 
-        {/* Tarjeta Administrador — tarjeta entera clickable */}
+        {/* Tarjeta Administrador — Sprint 12 H.1 estilo Linear. */}
         <Link
           href="/login/admin"
-          className="block rounded-3xl bg-white border border-slate-200 shadow-sm p-5 flex items-center gap-4 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2"
+          className="block rounded-xl bg-white border border-[var(--color-border)] p-5 flex items-center gap-4 cursor-pointer transition-all duration-150 hover:border-sky-200 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2"
           aria-label="Entrar como Administrador"
         >
-          <div className="w-12 h-12 shrink-0 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-xl">
+          <div className="w-11 h-11 shrink-0 rounded-lg bg-[var(--color-foreground)] text-white flex items-center justify-center text-lg">
             👤
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-slate-900">Administrador</p>
-            <p className="text-xs text-slate-500">Todas las clínicas</p>
+            <p className="font-display text-sm font-semibold text-[var(--color-foreground)]">Administrador</p>
+            <p className="text-xs text-[var(--color-muted)]">Todas las clínicas</p>
           </div>
-          <span aria-hidden="true" className="text-slate-400 text-xl">
+          <span aria-hidden="true" className="text-[var(--color-muted)] text-lg">
             ›
           </span>
         </Link>
@@ -46,29 +46,29 @@ export function LoginView({ clinicas }: { clinicas: ClinicaCard[] }) {
         {clinicas.length > 0 && (
           <>
             <div className="flex items-center gap-3">
-              <div className="h-px bg-slate-200 flex-1" />
-              <span className="text-[11px] uppercase tracking-wider font-semibold text-slate-500">
+              <div className="h-px bg-[var(--color-border)] flex-1" />
+              <span className="text-[10px] uppercase tracking-widest font-semibold text-[var(--color-muted)]">
                 Clínicas
               </span>
-              <div className="h-px bg-slate-200 flex-1" />
+              <div className="h-px bg-[var(--color-border)] flex-1" />
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2">
               {clinicas.map((c) => (
                 <Link
                   key={c.id}
                   href={`/login/clinica/${c.id}`}
-                  className="block rounded-3xl bg-white border border-slate-200 shadow-sm p-5 flex items-center gap-4 cursor-pointer transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-sky-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2"
+                  className="block rounded-xl bg-white border border-[var(--color-border)] p-5 flex items-center gap-4 cursor-pointer transition-all duration-150 hover:border-sky-200 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2"
                   aria-label={`Entrar como Coordinación ${c.nombre}`}
                 >
-                  <div className="w-12 h-12 shrink-0 rounded-2xl bg-sky-100 text-sky-700 flex items-center justify-center text-xl">
+                  <div className="w-11 h-11 shrink-0 rounded-lg bg-sky-50 text-sky-700 flex items-center justify-center text-lg">
                     🏥
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-slate-900 truncate">{c.nombre}</p>
-                    <p className="text-xs text-slate-500 truncate">Coordinación {c.nombre}</p>
+                    <p className="font-display text-sm font-semibold text-[var(--color-foreground)] truncate">{c.nombre}</p>
+                    <p className="text-xs text-[var(--color-muted)] truncate">Coordinación {c.nombre}</p>
                   </div>
-                  <span aria-hidden="true" className="text-slate-400 text-xl">
+                  <span aria-hidden="true" className="text-[var(--color-muted)] text-lg">
                     ›
                   </span>
                 </Link>
@@ -78,7 +78,7 @@ export function LoginView({ clinicas }: { clinicas: ClinicaCard[] }) {
         )}
 
         {clinicas.length === 0 && (
-          <p className="text-xs text-center text-slate-500">
+          <p className="text-xs text-center text-[var(--color-muted)]">
             No hay clínicas activas. Contacta con el administrador.
           </p>
         )}
