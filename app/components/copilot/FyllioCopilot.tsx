@@ -12,6 +12,7 @@
 //    }));
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import type {
   CopilotAction,
   CopilotChatRequest,
@@ -135,6 +136,12 @@ export function FyllioCopilot() {
       };
       const reply =
         d.ok && d.message ? d.message : d.error ? `❌ ${d.error}` : "Acción ejecutada.";
+      // Sprint 12 F — toast bottom-right confirma sin distraer del chat.
+      if (d.ok) {
+        toast.success(d.message ?? "Acción ejecutada.");
+      } else if (d.error) {
+        toast.error(d.error);
+      }
       setMessages((prev) => {
         const copy = [...prev];
         const msg = copy[msgIndex];

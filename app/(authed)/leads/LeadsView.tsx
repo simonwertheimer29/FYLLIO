@@ -5,6 +5,7 @@
 // de fecha y búsqueda.
 
 import { useCallback, useMemo, useState } from "react";
+import { toast } from "sonner";
 import {
   DndContext,
   DragOverlay,
@@ -224,6 +225,7 @@ export function LeadsView({
           )
         );
         setError("No se pudo mover el lead. Inténtalo de nuevo.");
+        toast.error("No se pudo mover el lead. Inténtalo de nuevo.");
       }
     },
     [leads]

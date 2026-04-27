@@ -19,6 +19,7 @@
 // - PATCH /api/leads/[id]                        (cambio de estado)
 
 import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import type { Lead } from "../../(authed)/leads/types";
 import type { MensajeWhatsApp } from "../../lib/presupuestos/types";
 import type { PlantillaLead } from "../../api/leads/plantillas/route";
@@ -71,6 +72,12 @@ export function LeadAccionPanel({
   const [plantillas, setPlantillas] = useState<PlantillaLead[]>([]);
   const [notasLocal, setNotasLocal] = useState<string>(lead.notas ?? "");
   const [savingNotas, setSavingNotas] = useState(false);
+  // Sprint 12 F — animacion check 500ms en botones inline.
+  const [checkAnim, setCheckAnim] = useState<string | null>(null);
+  function flashCheck(key: string) {
+    setCheckAnim(key);
+    setTimeout(() => setCheckAnim(null), 500);
+  }
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Escape cierra + bloquea scroll body.
@@ -240,6 +247,7 @@ export function LeadAccionPanel({
 
   function handleLlamar() {
     if (!cleanPhone) return;
+    flashCheck("llamar");
     window.open(`tel:${lead.telefono}`, "_self");
     fetch("/api/leads/intervencion/registrar-respuesta", {
       method: "POST",
@@ -247,8 +255,11 @@ export function LeadAccionPanel({
       body: JSON.stringify({ leadId: lead.id, tipo: "Llamada realizada" }),
     })
       .then((r) => r.json())
-      .then((d) => d?.lead && onChanged(adoptarClinicaNombre(d.lead, lead)))
-      .catch(() => {});
+      .then((d) => {
+        if (d?.lead) onChanged(adoptarClinicaNombre(d.lead, lead));
+        toast.success(`Llamada registrada · ${lead.nombre}`);
+      })
+      .catch(() => toast.error("No se pudo registrar la llamada"));
   }
 
   // Sprint 10 D — resuelve placeholders {nombre} {clinica} {tratamiento}
@@ -775,9 +786,14 @@ export function LeadAccionPanel({
                 <button
                   type="button"
                   onClick={handleLlamar}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  className="text-xs font-medium px-3 py-1.5 rounded-md bg-slate-100 text-[var(--color-foreground)] hover:bg-slate-200 transition-colors inline-flex items-center gap-1"
                 >
-                  📞 Llamar
+                  {checkAnim === "llamar" ? (
+                    <span className="fyllio-check-pop text-emerald-600">✓</span>
+                  ) : (
+                    "📞"
+                  )}{" "}
+                  Llamar
                 </button>
               )}
               {(["Nuevo", "Contactado"] as Lead["estado"][]).map((s) => (

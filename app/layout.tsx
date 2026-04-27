@@ -47,7 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
       <body className="bg-white text-slate-900 overflow-x-hidden">
         {children}
-        <Toaster position="top-right" richColors closeButton />
+        <Toaster position="bottom-right" richColors closeButton duration={3000} />
       </body>
     </html>
   );
