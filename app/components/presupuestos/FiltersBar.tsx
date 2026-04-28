@@ -174,7 +174,6 @@ export default function FiltersBar({
   onFiltersChange: (f: Filters) => void;
 }) {
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [clinicas, setClinicas] = useState<string[]>([]);
   const [doctores, setDoctores] = useState<Doctor[]>([]);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -184,28 +183,21 @@ export default function FiltersBar({
   // Smart hint — shown below search field
   const pattern = detectPattern(filters.q);
 
-  // Load clinicas (manager only)
-  useEffect(() => {
-    if (user.rol === "encargada_ventas") return;
-    fetch("/api/presupuestos/clinicas")
-      .then((r) => r.json())
-      .then((d) => setClinicas(d.clinicas ?? []))
-      .catch(() => {});
-  }, [user.rol]);
+  // Sprint 13.1 Bloque 2 — el state `clinicas` y su carga han sido
+  // eliminados; la clinica vive solo en ClinicContext (GlobalHeader).
 
-  // Load doctors when clinica changes
+  // Load doctors. Para coord usamos su clinica fija; para admin no
+  // pre-filtramos por clinica (el panel de clinica vive arriba).
   useEffect(() => {
     const url = new URL("/api/presupuestos/doctores", location.href);
     if (user.rol === "encargada_ventas" && user.clinica) {
       url.searchParams.set("clinica", user.clinica);
-    } else if (filters.clinica) {
-      url.searchParams.set("clinica", filters.clinica);
     }
     fetch(url.toString())
       .then((r) => r.json())
       .then((d) => setDoctores(d.doctores ?? []))
       .catch(() => {});
-  }, [filters.clinica, user.rol, user.clinica]);
+  }, [user.rol, user.clinica]);
 
   const updateImmediate = useCallback(
     (key: keyof Filters, value: string) => {
@@ -290,19 +282,9 @@ export default function FiltersBar({
       </div>
 
       <div className="flex flex-wrap gap-x-2 gap-y-2 items-center">
-        {/* Clínica (manager / admin only) */}
-        {user.rol !== "encargada_ventas" && (
-          <select
-            value={filters.clinica}
-            onChange={(e) => updateImmediate("clinica", e.target.value)}
-            className={`rounded-xl border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300 ${filters.clinica ? "border-violet-400 bg-violet-50 text-violet-700 font-semibold" : "border-slate-200 text-slate-700"}`}
-          >
-            <option value="">Todas las clínicas</option>
-            {clinicas.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        )}
+        {/* Sprint 13.1 Bloque 2 — Dropdown clínica local eliminado.
+            Clínica se filtra exclusivamente desde el GlobalHeader
+            (ClinicContext es único punto de verdad). */}
 
         {/* Doctor */}
         <select

@@ -15,6 +15,7 @@ import type {
 import KanbanBoard from "./KanbanBoard";
 import MaximaView from "./MaximaView";
 import FiltersBar, { type Filters } from "./FiltersBar";
+import { useClinic } from "../../lib/context/ClinicContext";
 import ContactHistoryModal from "./ContactHistoryModal";
 import NewPresupuestoModal from "./NewPresupuestoModal";
 import PatientDrawer from "./PatientDrawer";
@@ -33,31 +34,36 @@ function usePresupuestos() {
   const [demoReason, setDemoReason] = useState<string | undefined>();
   const [missingVars, setMissingVars] = useState<string[]>([]);
 
-  const load = useCallback(async (filters: Filters) => {
-    setLoading(true);
-    try {
-      const url = new URL("/api/presupuestos/kanban", location.href);
-      if (filters.clinica) url.searchParams.set("clinica", filters.clinica);
-      if (filters.doctor) url.searchParams.set("doctor", filters.doctor);
-      if (filters.tipoPaciente) url.searchParams.set("tipoPaciente", filters.tipoPaciente);
-      if (filters.tipoVisita) url.searchParams.set("tipoVisita", filters.tipoVisita);
-      if (filters.estado) url.searchParams.set("estado", filters.estado);
-      if (filters.fechaDesde) url.searchParams.set("fechaDesde", filters.fechaDesde);
-      if (filters.fechaHasta) url.searchParams.set("fechaHasta", filters.fechaHasta);
-      if (filters.q) url.searchParams.set("q", filters.q);
+  // Sprint 13.1 Bloque 2 — la clinica viene SIEMPRE del ClinicContext
+  // (GlobalHeader). El filtro local fue eliminado de FiltersBar.
+  const load = useCallback(
+    async (filters: Filters, clinicaFromContext: string | null) => {
+      setLoading(true);
+      try {
+        const url = new URL("/api/presupuestos/kanban", location.href);
+        if (clinicaFromContext) url.searchParams.set("clinica", clinicaFromContext);
+        if (filters.doctor) url.searchParams.set("doctor", filters.doctor);
+        if (filters.tipoPaciente) url.searchParams.set("tipoPaciente", filters.tipoPaciente);
+        if (filters.tipoVisita) url.searchParams.set("tipoVisita", filters.tipoVisita);
+        if (filters.estado) url.searchParams.set("estado", filters.estado);
+        if (filters.fechaDesde) url.searchParams.set("fechaDesde", filters.fechaDesde);
+        if (filters.fechaHasta) url.searchParams.set("fechaHasta", filters.fechaHasta);
+        if (filters.q) url.searchParams.set("q", filters.q);
 
-      const res = await fetch(url.toString());
-      const d = await res.json();
-      setPresupuestos(d.presupuestos ?? []);
-      setIsDemo(d.isDemo ?? false);
-      setDemoReason(d.demoReason);
-      setMissingVars(d.missingVars ?? []);
-    } catch {
-      setPresupuestos([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+        const res = await fetch(url.toString());
+        const d = await res.json();
+        setPresupuestos(d.presupuestos ?? []);
+        setIsDemo(d.isDemo ?? false);
+        setDemoReason(d.demoReason);
+        setMissingVars(d.missingVars ?? []);
+      } catch {
+        setPresupuestos([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
 
   return { presupuestos, setPresupuestos, loading, isDemo, demoReason, missingVars, load };
 }
@@ -70,6 +76,10 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     clinica: "", doctor: "", tipoPaciente: "", tipoVisita: "",
     estado: "", fechaDesde: "", fechaHasta: "", q: "",
   });
+  // Sprint 13.1 Bloque 2 — Clínica viene del GlobalHeader (ClinicContext).
+  // El campo Filters.clinica se mantiene por backwards-compat pero no se
+  // usa para filtrar (siempre vacío).
+  const { selectedClinicaNombre } = useClinic();
   const { presupuestos, setPresupuestos, loading, isDemo, demoReason, missingVars, load } =
     usePresupuestos();
 
@@ -119,15 +129,16 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   const handleFiltersChange = useCallback(
     (f: Filters) => {
       setCurrentFilters(f);
-      load(f);
+      load(f, selectedClinicaNombre);
     },
-    [load]
+    [load, selectedClinicaNombre]
   );
 
+  // Cargar al montar y cada vez que cambia la clinica del header.
   useEffect(() => {
-    load(currentFilters);
+    load(currentFiltersRef.current, selectedClinicaNombre);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [selectedClinicaNombre]);
 
   useEffect(() => {
     async function pollNotifs() {
@@ -164,7 +175,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   function handleBannerRefresh() {
     setNewPresupuestosCount(0);
     lastCountRef.current = null;
-    load(currentFiltersRef.current);
+    load(currentFiltersRef.current, selectedClinicaNombre);
   }
 
   async function handleChangeEstado(
@@ -195,7 +206,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         }).catch(() => {});
       }
     } catch {
-      await load(currentFilters);
+      await load(currentFilters, selectedClinicaNombre);
     }
   }
 
@@ -350,7 +361,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         <NewPresupuestoModal
           user={user}
           onClose={() => setShowNew(false)}
-          onCreated={() => load(currentFilters)}
+          onCreated={() => load(currentFilters, selectedClinicaNombre)}
         />
       )}
       {editPresupuesto && (
@@ -359,7 +370,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           presupuesto={editPresupuesto}
           onClose={() => setEditPresupuesto(null)}
           onCreated={() => {
-            load(currentFilters);
+            load(currentFilters, selectedClinicaNombre);
             setEditPresupuesto(null);
           }}
         />
@@ -397,7 +408,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           existingPresupuestos={presupuestos}
           clinicas={clinicasDisponibles}
           onClose={() => setShowImportCSV(false)}
-          onImported={() => load(currentFiltersRef.current)}
+          onImported={() => load(currentFiltersRef.current, selectedClinicaNombre)}
         />
       )}
       {showNotifPanel && (
