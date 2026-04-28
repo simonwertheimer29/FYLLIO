@@ -112,6 +112,11 @@ export const POST = withAuth(async (session, req) => {
   );
 
   const collectedActions: CopilotAction[] = [];
+  // Sprint 13.1 Bloque 5 — registro de tool calls que se devolveran al
+  // frontend para mostrar mini-cards inline en el drawer del Copilot.
+  // Solo registramos READ_TOOLS (las action-tools ya se renderizan como
+  // boton confirmable). Capturamos nombre + params clave (sin response).
+  const toolCallsTrace: Array<{ name: string; params: Record<string, unknown>; timestamp: string }> = [];
   let finalText = "";
 
   for (let turn = 0; turn < MAX_TOOL_TURNS + 1; turn++) {
@@ -170,6 +175,12 @@ export const POST = withAuth(async (session, req) => {
       messages.push({ role: "assistant", content: data.content as any });
       const toolResults: Array<{ type: "tool_result"; tool_use_id: string; content: string }> = [];
       for (const t of readsThisTurn) {
+        // Sprint 13.1 Bloque 5 — capturar trace antes de ejecutar.
+        toolCallsTrace.push({
+          name: t.name,
+          params: t.input ?? {},
+          timestamp: new Date().toISOString(),
+        });
         const result = await runReadTool(
           t.name as ReadToolName,
           t.input ?? {},
@@ -200,9 +211,19 @@ export const POST = withAuth(async (session, req) => {
     break;
   }
 
+  // Server log opcional para debug del trace (no se envia al cliente
+  // mas alla del campo toolCallsTrace explicito).
+  if (toolCallsTrace.length > 0) {
+    console.log(
+      `[copilot/chat] trace ${toolCallsTrace.length} read-tools:`,
+      toolCallsTrace.map((t) => t.name).join(", "),
+    );
+  }
+
   return NextResponse.json<CopilotChatResponse>({
     reply: finalText || "(El modelo no devolvió texto)",
     actions: collectedActions.length > 0 ? collectedActions : undefined,
+    toolCallsTrace: toolCallsTrace.length > 0 ? toolCallsTrace : undefined,
   });
 });
 

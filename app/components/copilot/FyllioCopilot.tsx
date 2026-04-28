@@ -21,7 +21,7 @@ import type {
   CopilotMessage,
 } from "./types";
 import { useClinic } from "../../lib/context/ClinicContext";
-import { Sparkles, ArrowUp, X, ICON_STROKE } from "../icons";
+import { Sparkles, ArrowUp, X, Wrench, ICON_STROKE } from "../icons";
 
 type OpenEventDetail = {
   context?: CopilotContextSnapshot;
@@ -118,6 +118,7 @@ export function FyllioCopilot() {
           role: "assistant",
           content: d.reply ?? "(sin respuesta)",
           actions: d.actions,
+          toolCallsTrace: d.toolCallsTrace,
         },
       ]);
     } catch {
@@ -366,7 +367,12 @@ function ChatBubble({
       <div className="w-6 h-6 shrink-0 rounded-md bg-gradient-to-br from-violet-600 to-violet-500 text-white flex items-center justify-center mt-0.5">
         <Sparkles size={12} strokeWidth={ICON_STROKE} />
       </div>
-      <div className="max-w-[85%] px-3 py-2 bg-white text-slate-900 border border-slate-100 rounded-2xl rounded-tl-sm shadow-[var(--card-shadow-rest)]">
+      <div className="max-w-[85%] flex flex-col gap-1.5">
+        {/* Sprint 13.1 Bloque 5 — mini-cards de tool calls antes del bubble. */}
+        {message.toolCallsTrace && message.toolCallsTrace.length > 0 && (
+          <ToolCallsTrace trace={message.toolCallsTrace} />
+        )}
+        <div className="px-3 py-2 bg-white text-slate-900 border border-slate-100 rounded-2xl rounded-tl-sm shadow-[var(--card-shadow-rest)]">
         <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
         {message.actions && message.actions.length > 0 && (
           <div className="mt-2 flex flex-col gap-1.5">
@@ -395,9 +401,85 @@ function ChatBubble({
             })}
           </div>
         )}
+        </div>
       </div>
     </div>
   );
+}
+
+// Sprint 13.1 Bloque 5 — mini-cards inline con las read-tools
+// ejecutadas durante el turn del assistant. Si hay >3 calls, colapsamos
+// las del medio detras de un boton "Mostrar N mas".
+function ToolCallsTrace({
+  trace,
+}: {
+  trace: Array<{ name: string; params: Record<string, unknown> }>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const totalHidden = Math.max(0, trace.length - 3);
+  // Visibles: si <=3, todas. Si >3 sin expandir, primera + ultima.
+  const visibleIndexes =
+    trace.length <= 3 || expanded
+      ? trace.map((_, i) => i)
+      : [0, trace.length - 1];
+  const hiddenCount = trace.length - visibleIndexes.length;
+  return (
+    <div className="space-y-1">
+      {visibleIndexes.map((idx, posInVisible) => {
+        const t = trace[idx]!;
+        const insertCollapseHere =
+          !expanded && trace.length > 3 && posInVisible === 0;
+        const params = formatParams(t.params);
+        return (
+          <div key={idx}>
+            <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 flex items-start gap-2">
+              <Wrench size={14} strokeWidth={ICON_STROKE} className="text-slate-500 mt-0.5 shrink-0" />
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-mono font-semibold text-slate-700 truncate">
+                  {t.name}
+                </p>
+                {params && (
+                  <p className="text-xs font-mono text-slate-500 truncate">{params}</p>
+                )}
+              </div>
+            </div>
+            {insertCollapseHere && hiddenCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setExpanded(true)}
+                className="my-1 mx-1 text-[11px] font-medium text-slate-500 hover:text-slate-700 inline-flex items-center gap-1"
+              >
+                ▾ Mostrar {hiddenCount} más
+              </button>
+            )}
+          </div>
+        );
+      })}
+      {expanded && totalHidden > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          className="text-[11px] font-medium text-slate-500 hover:text-slate-700"
+        >
+          ▴ Colapsar
+        </button>
+      )}
+    </div>
+  );
+}
+
+function formatParams(params: Record<string, unknown>): string {
+  const entries = Object.entries(params).filter(
+    ([k]) => k !== "_executed",
+  );
+  if (entries.length === 0) return "";
+  return entries
+    .slice(0, 4)
+    .map(([k, v]) => {
+      const sv = typeof v === "string" ? v : JSON.stringify(v);
+      return `${k}=${sv.length > 24 ? sv.slice(0, 24) + "…" : sv}`;
+    })
+    .join(", ");
 }
 
 function ThinkingDots() {

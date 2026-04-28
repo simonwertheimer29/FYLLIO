@@ -26,11 +26,21 @@ export type CopilotAction = {
   params: Record<string, unknown>;
 };
 
+/** Sprint 13.1 Bloque 5 — registro de read-tools ejecutadas durante el
+ *  turn para mostrarse inline antes del bubble del assistant. */
+export type CopilotToolCallTrace = {
+  name: string;
+  params: Record<string, unknown>;
+  timestamp: string;
+};
+
 export type CopilotMessage = {
   role: CopilotRole;
   content: string;
   /** Solo en mensajes del assistant: lista de acciones sugeridas. */
   actions?: CopilotAction[];
+  /** Solo en mensajes del assistant: read-tools usadas para responder. */
+  toolCallsTrace?: CopilotToolCallTrace[];
 };
 
 /** Snapshot de contexto que el frontend envía cuando el chat se abre
@@ -58,6 +68,8 @@ export type CopilotChatRequest = {
 export type CopilotChatResponse = {
   reply: string;
   actions?: CopilotAction[];
+  /** Sprint 13.1 Bloque 5 — read-tools ejecutadas. */
+  toolCallsTrace?: CopilotToolCallTrace[];
   /** Errores legibles para el usuario (rate limit, sin API key, etc.). */
   error?: string;
 };
