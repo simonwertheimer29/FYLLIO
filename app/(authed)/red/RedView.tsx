@@ -13,6 +13,7 @@ import { useClinic } from "../../lib/context/ClinicContext";
 import CommandCenterView from "../../components/presupuestos/CommandCenterView";
 import { openCopilot } from "../../components/copilot/openCopilot";
 import { KpiCard } from "../../components/ui/KpiCard";
+import { Sparkles, ICON_STROKE } from "../../components/icons";
 
 type LeadApi = {
   id: string;
@@ -109,9 +110,9 @@ export function RedView({ user }: { user: UserSession }) {
                     "He visto los KPIs de la red. ¿Quieres que te explique algún punto en concreto?",
                 });
               }}
-              className="text-xs font-semibold px-3 py-2 rounded-xl bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100"
+              className="text-xs font-medium px-3 py-2 rounded-md bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 transition-colors inline-flex items-center gap-1.5"
             >
-              ✨ Analiza el rendimiento del mes
+              <Sparkles size={14} strokeWidth={ICON_STROKE} /> Analiza el rendimiento del mes
             </button>
           </header>
 

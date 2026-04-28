@@ -11,6 +11,7 @@ import type {
 } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG, URGENCIA_INTERVENCION_COLOR } from "../../lib/presupuestos/colors";
 import { openCopilot } from "../copilot/openCopilot";
+import { Sparkles, ICON_STROKE } from "../icons";
 
 // ─── IntervencionSidePanel ───────────────────────────────────────────────────
 
@@ -504,9 +505,9 @@ export default function IntervencionSidePanel({
                   initialAssistantMessage: `Veo que ${item.patientName.split(" ")[0]} está en estado ${item.estado} con un presupuesto de ${importeStr}. ¿En qué te ayudo?`,
                 });
               }}
-              className="w-full mb-3 text-xs font-semibold px-3 py-2 rounded-xl bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100"
+              className="w-full mb-3 text-xs font-medium px-3 py-2 rounded-md bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 transition-colors inline-flex items-center justify-center gap-1.5"
             >
-              ✨ Sugiéreme cómo manejar este caso
+              <Sparkles size={14} strokeWidth={ICON_STROKE} /> Sugiéreme cómo manejar este caso
             </button>
             {item.estado === "PERDIDO" && (
               <button
@@ -533,9 +534,9 @@ export default function IntervencionSidePanel({
                     initialAssistantMessage: `He revisado el caso de ${item.patientName.split(" ")[0]}. ¿Quieres que analice por qué se perdió?`,
                   });
                 }}
-                className="w-full mb-3 text-xs font-semibold px-3 py-2 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+                className="w-full mb-3 text-xs font-medium px-3 py-2 rounded-md bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors inline-flex items-center justify-center gap-1.5"
               >
-                ✨ ¿Por qué crees que se perdió?
+                <Sparkles size={14} strokeWidth={ICON_STROKE} /> ¿Por qué crees que se perdió?
               </button>
             )}
 

@@ -24,6 +24,7 @@ import type { Lead } from "../../(authed)/leads/types";
 import type { MensajeWhatsApp } from "../../lib/presupuestos/types";
 import type { PlantillaLead } from "../../api/leads/plantillas/route";
 import { openCopilot } from "../copilot/openCopilot";
+import { Sparkles, ICON_STROKE } from "../icons";
 
 type Tono = "directo" | "empatico" | "urgencia";
 
@@ -744,9 +745,9 @@ export function LeadAccionPanel({
                   initialAssistantMessage: `Tengo el contexto de ${lead.nombre.split(" ")[0]}. ¿Qué necesitas?`,
                 });
               }}
-              className="w-full text-xs font-semibold px-3 py-2 rounded-xl bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100"
+              className="w-full text-xs font-medium px-3 py-2 rounded-md bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 transition-colors inline-flex items-center justify-center gap-1.5"
             >
-              ✨ Ayúdame a responder
+              <Sparkles size={14} strokeWidth={ICON_STROKE} /> Ayúdame a responder
             </button>
             {lead.estado === "No Interesado" && !lead.convertido && (
               <button
@@ -769,9 +770,9 @@ export function LeadAccionPanel({
                     initialAssistantMessage: `He revisado el caso de ${lead.nombre.split(" ")[0]}. ¿Quieres que analice por qué se perdió?`,
                   });
                 }}
-                className="mt-2 w-full text-xs font-semibold px-3 py-2 rounded-xl bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+                className="mt-2 w-full text-xs font-medium px-3 py-2 rounded-md bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors inline-flex items-center justify-center gap-1.5"
               >
-                ✨ ¿Por qué crees que se perdió?
+                <Sparkles size={14} strokeWidth={ICON_STROKE} /> ¿Por qué crees que se perdió?
               </button>
             )}
           </div>

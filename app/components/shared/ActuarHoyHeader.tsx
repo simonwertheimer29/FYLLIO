@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import { openCopilot } from "../copilot/openCopilot";
+import { Sparkles, ICON_STROKE } from "../icons";
 
 export type ActuarHoyKpis = {
   pendientes: number;
@@ -102,9 +103,9 @@ export function ActuarHoyHeader({
               initialAssistantMessage: `Hoy llevas ${kpis.completadasHoy} completadas y ${kpis.pendientes} pendientes. ¿Quieres que te lo explique o te diga cómo mejorarlo?`,
             });
           }}
-          className="text-[10px] font-semibold px-3 py-1.5 rounded-md bg-violet-500/90 text-white hover:bg-violet-500 transition-colors"
+          className="text-[10px] font-semibold px-3 py-1.5 rounded-md bg-violet-500/90 text-white hover:bg-violet-500 transition-colors inline-flex items-center gap-1"
         >
-          ✨ Explica
+          <Sparkles size={12} strokeWidth={ICON_STROKE} /> Explica
         </button>
         <div className="flex items-center gap-1.5 ml-auto">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />

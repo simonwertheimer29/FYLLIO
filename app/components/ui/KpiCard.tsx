@@ -16,6 +16,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Card } from "./Card";
 import { openCopilot } from "../copilot/openCopilot";
+import { Sparkles, ICON_STROKE } from "../icons";
 
 export type KpiCardProps = {
   label: string;
@@ -81,9 +82,9 @@ export function KpiCard({
             })
           }
           aria-label={`Explicar ${label} con el Copilot`}
-          className="absolute top-3 right-3 w-7 h-7 rounded-full text-violet-600 hover:bg-violet-50 flex items-center justify-center text-sm transition-colors"
+          className="absolute top-3 right-3 w-7 h-7 rounded-full text-violet-600 hover:bg-violet-50 flex items-center justify-center transition-colors"
         >
-          ✨
+          <Sparkles size={14} strokeWidth={ICON_STROKE} />
         </button>
       )}
       <span

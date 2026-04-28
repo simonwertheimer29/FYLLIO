@@ -6,6 +6,7 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Phone, MessageCircle, ICON_STROKE } from "../../components/icons";
 import {
   DndContext,
   DragOverlay,
@@ -628,9 +629,19 @@ function LeadCardBody({ lead }: { lead: Lead }) {
       )}
 
       <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--color-muted)]">
-        {lead.llamado && <span>📞 Llamado</span>}
-        {lead.whatsappEnviados > 0 && <span className="tabular-nums">💬 {lead.whatsappEnviados}</span>}
-        <span className="ml-auto tabular-nums">hace {diasDesdeCreacion}d</span>
+        {lead.llamado && (
+          <span className="inline-flex items-center gap-1">
+            <Phone size={12} strokeWidth={ICON_STROKE} className="text-slate-400" /> Llamado
+          </span>
+        )}
+        {lead.whatsappEnviados > 0 && (
+          <span className="inline-flex items-center gap-1 tabular-nums">
+            <MessageCircle size={12} strokeWidth={ICON_STROKE} className="text-slate-400" /> {lead.whatsappEnviados}
+          </span>
+        )}
+        <span className="ml-auto tabular-nums">
+          {Number.isFinite(diasDesdeCreacion) ? `hace ${diasDesdeCreacion}d` : "—"}
+        </span>
       </div>
 
       <div className="flex gap-1 mt-2.5">

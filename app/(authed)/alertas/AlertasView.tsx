@@ -7,6 +7,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { Bell, ICON_STROKE } from "../../components/icons";
 
 type Tipo = "leads" | "presupuestos" | "citados" | "asistencias" | "automatizaciones";
 
@@ -230,10 +231,10 @@ export function AlertasView() {
                         className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2.5 border border-[var(--color-border)]"
                       >
                         <span
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm shrink-0 ${urgenciaBg}`}
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${urgenciaBg}`}
                           aria-hidden="true"
                         >
-                          🔔
+                          <Bell size={16} strokeWidth={ICON_STROKE} />
                         </span>
                         <div className="flex-1 min-w-0">
                           <p className="text-[11px] font-medium text-[var(--color-foreground)]">
