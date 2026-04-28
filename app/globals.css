@@ -32,6 +32,28 @@
   --radius-xl: 16px;
 }
 
+/* ════════════════════════════════════════════════════════════════════
+   Sprint 13 Bloque 1 — Tokens del primitivo Card
+   `--color-border` se mantiene para divisores/inputs (#E5E8EE).
+   `--card-*` aplica solo al primitivo Card y derivados (KpiCard, etc.).
+   Look "Linear premium": borde slate-100 fino + sombra suave reposo +
+   sombra hover ligeramente más amplia + transición de 150ms.
+════════════════════════════════════════════════════════════════════ */
+
+:root {
+  --card-border: #f1f5f9;          /* slate-100 */
+  --card-border-hover: #bae6fd;    /* sky-200 */
+  --card-shadow-rest: 0 1px 2px rgb(0 0 0 / 0.04);
+  --card-shadow-hover: 0 2px 8px rgb(0 0 0 / 0.06);
+  --card-radius: 12px;
+
+  /* Verde WA formalizado (Sprint 13 decisión E). emerald-600 sólido para
+     botones primarios "Enviar WhatsApp"; emerald-50/700 sigue siendo
+     válido para tags/badges sutiles. */
+  --fyllio-wa-green: #059669;
+  --fyllio-wa-green-hover: #047857;
+}
+
 /* Tabular nums por defecto en clases de número (KPIs, contadores). */
 @layer utilities {
   .tabular-nums {
