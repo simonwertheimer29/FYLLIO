@@ -136,7 +136,9 @@ export function AccionCard({
               a.variant === "primary"
                 ? "bg-violet-600 text-white hover:bg-violet-700"
                 : a.variant === "emerald"
-                  ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                  ? // Sprint 13 — verde WA formalizado: --fyllio-wa-green
+                    // (emerald-600 solido) en lugar de pill claro.
+                    "bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]"
                   : a.variant === "rose"
                     ? "bg-rose-50 text-rose-700 hover:bg-rose-100"
                     : "bg-slate-100 text-slate-700 hover:bg-slate-200";

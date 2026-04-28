@@ -304,6 +304,54 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
   );
 }
 
+// Sprint 13 Bloque 5 — pill prioridad heuristica para leads.
+// Triggers ALTO (cerrados con Simon en pre-sprint):
+//  1. Citado/Citados Hoy con fechaCita=hoy y NO asistido.
+//  2. estado=Nuevo y diasDesde >= 1 (sin contactar >24h).
+//  3. estado=Contactado con intencionDetectada alta (Interesado, Pide cita,
+//     Pregunta precio) y sin actividad saliente posterior. Aproximamos
+//     "sin actividad >12h" via whatsappEnviados==0 + llamado==false (no
+//     tenemos timestamp por accion saliente accesible aqui sin fetch).
+const INTENCION_CALIENTE = new Set(["Interesado", "Pide cita", "Pregunta precio"]);
+
+function priorityForLead(lead: Lead): {
+  variant: "danger" | "warning" | "neutral";
+  label: "ALTO" | "MEDIO" | "BAJO";
+  borderColor: string;
+} {
+  const today = new Date().toISOString().slice(0, 10);
+  const ts = new Date(lead.createdAt).getTime();
+  const diasDesde = Number.isFinite(ts)
+    ? Math.floor((Date.now() - ts) / (1000 * 60 * 60 * 24))
+    : 0;
+
+  const isCitadoHoy =
+    (lead.estado === "Citado" || lead.estado === "Citados Hoy") &&
+    lead.fechaCita === today &&
+    !lead.asistido;
+
+  const calienteSinAccion =
+    lead.estado === "Contactado" &&
+    lead.intencionDetectada != null &&
+    INTENCION_CALIENTE.has(lead.intencionDetectada) &&
+    lead.whatsappEnviados === 0 &&
+    !lead.llamado;
+
+  if (isCitadoHoy || (lead.estado === "Nuevo" && diasDesde >= 1) || calienteSinAccion) {
+    return { variant: "danger", label: "ALTO", borderColor: "#ef4444" };
+  }
+
+  const seguimientoMedio =
+    (lead.estado === "Contactado" && diasDesde >= 2) ||
+    (lead.estado === "Nuevo" && diasDesde < 1);
+
+  if (seguimientoMedio) {
+    return { variant: "warning", label: "MEDIO", borderColor: "#f59e0b" };
+  }
+
+  return { variant: "neutral", label: "BAJO", borderColor: "#94a3b8" };
+}
+
 function LeadAccionRow({
   lead,
   onOpen,
@@ -316,28 +364,24 @@ function LeadAccionRow({
   onChanged: (l: Lead) => void;
 }) {
   const cleanPhone = (lead.telefono ?? "").replace(/\D/g, "");
-  const diasDesde = Math.floor(
-    (Date.now() - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60 * 24)
-  );
+  const ts = new Date(lead.createdAt).getTime();
+  const diasDesde = Number.isFinite(ts)
+    ? Math.floor((Date.now() - ts) / (1000 * 60 * 60 * 24))
+    : null;
   const tiempoMeta =
-    diasDesde < 1 ? "hoy" : diasDesde === 1 ? "hace 1d" : `hace ${diasDesde}d`;
+    diasDesde == null
+      ? "—"
+      : diasDesde < 1
+        ? "hoy"
+        : diasDesde === 1
+          ? "hace 1d"
+          : `hace ${diasDesde}d`;
 
   const today = new Date().toISOString().slice(0, 10);
   const isCitadoHoy =
     (lead.estado === "Citado" || lead.estado === "Citados Hoy") && lead.fechaCita === today;
 
-  // Color del borde-izq basado en urgencia derivada del estado.
-  const borderColor = isCitadoHoy
-    ? "#ef4444" // citados hoy → rojo
-    : lead.estado === "Nuevo"
-      ? diasDesde >= 1
-        ? "#f97316"
-        : "#94a3b8"
-      : lead.estado === "Contactado"
-        ? diasDesde >= 2
-          ? "#fbbf24"
-          : "#94a3b8"
-        : "#94a3b8";
+  const priority = priorityForLead(lead);
 
   function llamar(e: React.MouseEvent) {
     e.stopPropagation();
@@ -368,9 +412,11 @@ function LeadAccionRow({
   }
 
   const tags = [];
-  if (lead.tratamiento) tags.push({ label: lead.tratamiento, tone: "sky" as const });
-  if (lead.canal) tags.push({ label: lead.canal });
-  tags.push({ label: lead.estado, tone: "neutral" as const });
+  if (lead.tratamiento) tags.push({ label: lead.tratamiento, tone: "neutral" as const });
+  if (lead.canal) tags.push({ label: lead.canal, tone: "neutral" as const });
+  if (lead.intencionDetectada) {
+    tags.push({ label: lead.intencionDetectada, tone: "violet" as const });
+  }
 
   const meta = [
     lead.clinicaNombre,
@@ -383,8 +429,8 @@ function LeadAccionRow({
 
   const actions: React.ComponentProps<typeof AccionCard>["actions"] = [];
   if (cleanPhone) {
-    actions.push({ label: "💬 WhatsApp", onClick: whatsapp, variant: "emerald" });
-    actions.push({ label: "📞 Llamar", onClick: llamar, variant: "ghost" });
+    actions.push({ label: "Enviar WA", onClick: whatsapp, variant: "emerald" });
+    actions.push({ label: "Llamar", onClick: llamar, variant: "ghost" });
   }
   if (isCitadoHoy && !lead.convertido) {
     actions.push({
@@ -396,18 +442,43 @@ function LeadAccionRow({
       variant: "primary",
     });
   }
+  actions.push({
+    label: "Ver ficha →",
+    onClick: (e) => {
+      e.stopPropagation();
+      onOpen();
+    },
+    variant: "primary",
+  });
 
   return (
     <AccionCard
-      borderColor={borderColor}
+      borderColor={priority.borderColor}
       title={lead.nombre}
       titleRight={
-        isCitadoHoy && lead.horaCita ? (
-          <span className="text-[10px] font-extrabold text-rose-700">{lead.horaCita}</span>
-        ) : null
+        <div className="flex items-center gap-2">
+          {isCitadoHoy && lead.horaCita && (
+            <span className="text-[10px] font-semibold text-rose-700 tabular-nums">
+              {lead.horaCita}
+            </span>
+          )}
+          <span
+            className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md border ${
+              priority.variant === "danger"
+                ? "bg-rose-50 text-rose-700 border-rose-200"
+                : priority.variant === "warning"
+                  ? "bg-amber-50 text-amber-700 border-amber-200"
+                  : "bg-slate-50 text-slate-600 border-slate-200"
+            }`}
+          >
+            {priority.label}
+          </span>
+        </div>
       }
       tags={tags}
       meta={meta}
+      quote={lead.notas ?? undefined}
+      accionSugerida={lead.accionSugerida ?? undefined}
       onOpen={onOpen}
       actions={actions}
     />
