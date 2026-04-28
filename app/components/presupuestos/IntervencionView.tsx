@@ -653,21 +653,21 @@ export default function IntervencionView({
 
   return (
     <div className="space-y-4">
-      {/* Sprint 12 C — header sky (no morado). El violeta queda exclusivo
-          para el Copilot. Tipografia display + tabular-nums. */}
-      <div className="rounded-xl bg-gradient-to-br from-sky-500 to-sky-600 p-5 text-white">
+      {/* Sprint 13 Bloque 8 — banner Cola Intervención con paleta
+          producto: fondo sky-50, número slate-900, label sky-700. */}
+      <div className="rounded-2xl bg-sky-50 border border-sky-100 p-6">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <p className="text-xs font-semibold text-sky-100 uppercase tracking-widest">
+            <p className="text-xs font-semibold text-sky-700 uppercase tracking-wide">
               Cola de intervención · Hoy
             </p>
-            <h2 className="font-display text-2xl font-semibold mt-1 tracking-tight tabular-nums">
+            <h2 className="font-display text-4xl font-bold mt-2 tracking-tight tabular-nums text-slate-900">
               {totalPendientes} pendiente{totalPendientes !== 1 ? "s" : ""} · {completadasHoy} completada{completadasHoy !== 1 ? "s" : ""}
             </h2>
             {/* Sprint 10 C — KPI tiempo medio respuesta. */}
-            <p className="text-[11px] text-sky-100 mt-1">
+            <p className="text-sm text-slate-500 mt-1">
               Tiempo medio respuesta:{" "}
-              <span className="font-semibold text-white tabular-nums">
+              <span className="font-semibold text-slate-900 tabular-nums">
                 {tiempoMedioMin == null ? "—" : `${tiempoMedioMin} min`}
               </span>
             </p>
@@ -675,30 +675,29 @@ export default function IntervencionView({
           <div className="flex items-center gap-4">
             {total > 0 && (
               <div className="text-center">
-                <div className="w-28 h-1.5 bg-sky-400/60 rounded-full overflow-hidden">
+                <div className="w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-emerald-300 rounded-full transition-all duration-300"
+                    className="h-full bg-sky-500 rounded-full transition-all duration-300"
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <p className="text-[10px] text-sky-100 mt-1 tabular-nums">{pct}% del plan de hoy</p>
+                <p className="text-[10px] text-slate-500 mt-1.5 tabular-nums">
+                  {pct}% del plan de hoy
+                </p>
               </div>
             )}
           </div>
         </div>
-        <div className="flex items-center gap-2 mt-4">
+        <div className="flex items-center gap-2 mt-5 flex-wrap">
           <button
             onClick={() => { setLoading(true); fetchData(); }}
-            className="text-[10px] font-semibold px-3 py-1.5 rounded-md bg-white/15 text-white hover:bg-white/25 transition-colors"
+            className="text-xs font-medium px-3 py-1.5 rounded-md bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
           >
             Actualizar
           </button>
-          <div className="flex items-center gap-1.5 ml-auto">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />
-            <span className="text-[10px] text-sky-100 tabular-nums">
-              Actualizado hace {secondsAgo < 60 ? `${secondsAgo}s` : `${Math.round(secondsAgo / 60)}m`}
-            </span>
-          </div>
+          <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 tabular-nums">
+            ✓ Actualizado hace {secondsAgo < 60 ? `${secondsAgo}s` : `${Math.round(secondsAgo / 60)}m`}
+          </span>
         </div>
       </div>
 
