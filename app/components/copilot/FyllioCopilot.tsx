@@ -31,6 +31,12 @@ type OpenEventDetail = {
 export function FyllioCopilot() {
   const { selectedClinicaId } = useClinic();
   const [open, setOpen] = useState(false);
+  // Sprint 13.1 Bloque 1 — fix hydration: el FAB con clases arbitrarias
+  // (bg-violet-700/40, blur-sm) producía mismatch SSR/CSR en Next 16.
+  // Posponemos su render al primer effect cliente. Reservamos espacio
+  // con placeholder fijo durante SSR para evitar CLS.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const [messages, setMessages] = useState<CopilotMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(false);
@@ -167,20 +173,34 @@ export function FyllioCopilot() {
     }
   }
 
+  // Placeholder durante SSR — mismas dimensiones que el FAB para evitar
+  // layout shift al hidratar (no afecta CLS). aria-hidden porque no es
+  // interactivo. El FAB real se monta en el primer effect cliente.
+  if (!mounted) {
+    return (
+      <div
+        aria-hidden
+        className="fixed bottom-5 right-5 z-40 w-14 h-14 pointer-events-none"
+      />
+    );
+  }
+
   return (
     <>
-      {/* Sprint 13 Bloque 7.1 — FAB Copilot con identidad propia.
-          Gradiente violet-600 → violet-500 (no plano), sombra coloreada
-          violet-500/30, anillo interior mas oscuro para profundidad,
-          icono Sparkles 22 stroke 1.5 blanco. Pulso 60s sutil definido
-          en globals.css .fyllio-copilot-fab. */}
+      {/* Sprint 13.1 Bloque 1 — FAB renderizado solo client-side post-mount.
+          Sustituimos blur-[1px] (arbitrary, propenso a SSR/CSR mismatch)
+          por blur-sm (clase Tailwind nativa). Identidad visual del FAB
+          intacta: gradiente violet, sombra coloreada, anillo interior. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Abrir Fyllio Copilot"
         className="fyllio-copilot-fab fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-violet-500 text-white shadow-lg shadow-violet-500/30 backdrop-blur-sm hover:scale-105 hover:shadow-xl hover:shadow-violet-500/40 transition-all duration-200 flex items-center justify-center"
       >
-        <span className="absolute inset-1 rounded-full bg-violet-700/40 blur-[1px]" aria-hidden />
+        <span
+          aria-hidden
+          className="absolute inset-1 rounded-full bg-violet-700/40 blur-sm"
+        />
         <Sparkles size={22} strokeWidth={ICON_STROKE} className="relative" />
       </button>
 
