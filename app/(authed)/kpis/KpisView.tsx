@@ -7,6 +7,7 @@ import NextDynamic from "next/dynamic";
 import { useState } from "react";
 import type { UserSession } from "../../lib/presupuestos/types";
 import KpiView from "../../components/presupuestos/KpiView";
+import { KpisLeadsView } from "./KpisLeadsView";
 
 // InformesView depende de dom-to-image-more → ssr:false (mismo fix que
 // PresupuestosShell).
@@ -53,7 +54,7 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
             <KpiView user={user} showBenchmark={isAdmin} />
           </div>
         )}
-        {tab === "leads" && <KpisLeadsPlaceholder />}
+        {tab === "leads" && <KpisLeadsView />}
       </div>
 
       {exportOpen && (
@@ -87,22 +88,6 @@ function SubTabButton({
   );
 }
 
-function KpisLeadsPlaceholder() {
-  return (
-    <div className="p-8">
-      <div className="max-w-xl mx-auto rounded-xl bg-white border border-[var(--color-border)] p-8 text-center">
-        <p className="font-display text-base font-semibold text-[var(--color-foreground)] tracking-tight">KPIs de Leads</p>
-        <p className="text-xs text-[var(--color-muted)] mt-2">
-          Próximamente: tasa de conversión por fuente, tiempo medio de primera respuesta,
-          distribución por clínica y embudo de estados.
-        </p>
-        <p className="text-[10px] text-slate-400 mt-4 uppercase tracking-widest">
-          Sprint 13
-        </p>
-      </div>
-    </div>
-  );
-}
 
 function ExportDrawer({
   onClose,
