@@ -21,6 +21,7 @@ import type {
   CopilotMessage,
 } from "./types";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { Sparkles, ArrowUp, X, ICON_STROKE } from "../icons";
 
 type OpenEventDetail = {
   context?: CopilotContextSnapshot;
@@ -168,41 +169,44 @@ export function FyllioCopilot() {
 
   return (
     <>
-      {/* Sprint 12 D — FAB violeta semi-transparente con backdrop-blur,
-          pulso sutil cada 60s definido en globals.css (.fyllio-copilot-fab). */}
+      {/* Sprint 13 Bloque 7.1 — FAB Copilot con identidad propia.
+          Gradiente violet-600 → violet-500 (no plano), sombra coloreada
+          violet-500/30, anillo interior mas oscuro para profundidad,
+          icono Sparkles 22 stroke 1.5 blanco. Pulso 60s sutil definido
+          en globals.css .fyllio-copilot-fab. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Abrir Fyllio Copilot"
-        className="fyllio-copilot-fab fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-violet-500/80 to-violet-600/70 text-white backdrop-blur-sm hover:from-violet-500/90 hover:to-violet-600/80 hover:shadow-md transition-all duration-200 flex items-center justify-center ring-1 ring-violet-500/20"
+        className="fyllio-copilot-fab fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-violet-500 text-white shadow-lg shadow-violet-500/30 backdrop-blur-sm hover:scale-105 hover:shadow-xl hover:shadow-violet-500/40 transition-all duration-200 flex items-center justify-center"
       >
-        <span className="text-2xl">✨</span>
+        <span className="absolute inset-1 rounded-full bg-violet-700/40 blur-[1px]" aria-hidden />
+        <Sparkles size={22} strokeWidth={ICON_STROKE} className="relative" />
       </button>
 
       {open && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
-          <aside className="relative w-full max-w-md bg-white shadow-md flex flex-col h-full overflow-hidden">
-            {/* Sprint 12 D — header con acento violeta sutil (lateral),
-                no fondo solido. */}
-            <header className="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between shrink-0 relative">
-              <span aria-hidden className="absolute left-0 top-3 bottom-3 w-0.5 rounded-full bg-violet-500/60" />
-              <div className="pl-1">
-                <h2 className="font-display text-base font-semibold text-[var(--color-foreground)] tracking-tight">
-                  Fyllio Copilot
+          {/* Sprint 13 Bloque 7.2 — drawer 420px, fondo slate-50 para que
+              las burbujas blancas del Copilot destaquen. */}
+          <aside className="relative w-full max-w-[420px] bg-slate-50 shadow-md flex flex-col h-full overflow-hidden">
+            <header className="px-5 py-4 border-b border-[var(--color-border)] bg-white flex items-center justify-between shrink-0">
+              <div>
+                <h2 className="font-display text-base font-semibold text-slate-900 tracking-tight">
+                  Copilot
                 </h2>
-                <p className="text-[11px] text-[var(--color-muted)]">
+                <p className="text-[11px] text-slate-500">
                   {contextSnapshot
                     ? `Contexto: ${contextLabel(contextSnapshot.kind)}`
-                    : "Pregúntame lo que necesites"}
+                    : "Sonnet 4.6 · Lectura + acciones"}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 {messages.length > 0 && (
                   <button
                     type="button"
                     onClick={reset}
-                    className="text-[11px] font-semibold text-slate-500 hover:text-slate-800"
+                    className="text-[11px] font-medium text-slate-500 hover:text-slate-900 px-2 py-1 rounded-md hover:bg-slate-50 transition-colors"
                   >
                     Reiniciar
                   </button>
@@ -210,10 +214,10 @@ export function FyllioCopilot() {
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="text-slate-400 hover:text-slate-700 text-lg"
+                  className="text-slate-400 hover:text-slate-700 w-8 h-8 rounded-md flex items-center justify-center hover:bg-slate-100 transition-colors"
                   aria-label="Cerrar"
                 >
-                  ×
+                  <X size={16} strokeWidth={ICON_STROKE} />
                 </button>
               </div>
             </header>
@@ -231,21 +235,15 @@ export function FyllioCopilot() {
                   executingActionId={executingActionId}
                 />
               ))}
-              {loading && (
-                <div className="flex justify-start">
-                  <div className="bg-slate-100 text-slate-500 rounded-2xl rounded-bl-sm px-3 py-2 text-xs italic">
-                    Escribiendo<span className="animate-pulse">…</span>
-                  </div>
-                </div>
-              )}
+              {loading && <ThinkingDots />}
               {error && (
-                <div className="rounded-xl bg-rose-50 border border-rose-200 px-3 py-2 text-xs text-rose-700">
+                <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2 text-xs text-rose-700">
                   {error}
                 </div>
               )}
             </div>
 
-            <footer className="border-t border-slate-200 p-3 shrink-0">
+            <footer className="border-t border-[var(--color-border)] bg-white p-3 shrink-0">
               <div className="flex items-end gap-2">
                 <textarea
                   value={draft}
@@ -259,15 +257,16 @@ export function FyllioCopilot() {
                   rows={1}
                   placeholder="Escribe a Fyllio…"
                   disabled={loading}
-                  className="flex-1 text-sm px-3 py-2 rounded-xl border border-slate-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none resize-none max-h-32"
+                  className="flex-1 text-sm px-3 py-2 rounded-md border border-slate-200 focus:border-violet-300 focus:ring-2 focus:ring-violet-100 outline-none resize-none max-h-32"
                 />
                 <button
                   type="button"
                   onClick={send}
                   disabled={!draft.trim() || loading}
-                  className="text-sm font-semibold px-4 py-2 rounded-xl bg-violet-500 text-white hover:bg-violet-600 disabled:opacity-40 transition-colors"
+                  aria-label="Enviar"
+                  className="w-9 h-9 rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 transition-colors flex items-center justify-center"
                 >
-                  ↑
+                  <ArrowUp size={16} strokeWidth={ICON_STROKE} />
                 </button>
               </div>
             </footer>
@@ -333,17 +332,23 @@ function ChatBubble({
   executingActionId: string | null;
 }) {
   const isUser = message.role === "user";
+  if (isUser) {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[85%] ml-8 px-3 py-2 bg-violet-50 text-slate-900 border border-violet-100 rounded-2xl rounded-tr-sm">
+          <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
-      <div
-        className={`max-w-[85%] px-3 py-2 ${
-          isUser
-            ? "ml-8 bg-sky-50 text-[var(--color-foreground)] border border-sky-100 rounded-2xl rounded-br-sm"
-            : "mr-8 bg-white text-[var(--color-foreground)] border border-[var(--color-border)] rounded-2xl rounded-bl-sm"
-        }`}
-      >
+    <div className="flex justify-start gap-2">
+      <div className="w-6 h-6 shrink-0 rounded-md bg-gradient-to-br from-violet-600 to-violet-500 text-white flex items-center justify-center mt-0.5">
+        <Sparkles size={12} strokeWidth={ICON_STROKE} />
+      </div>
+      <div className="max-w-[85%] px-3 py-2 bg-white text-slate-900 border border-slate-100 rounded-2xl rounded-tl-sm shadow-[var(--card-shadow-rest)]">
         <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
-        {!isUser && message.actions && message.actions.length > 0 && (
+        {message.actions && message.actions.length > 0 && (
           <div className="mt-2 flex flex-col gap-1.5">
             {message.actions.map((a) => {
               const executed = (a.params as { _executed?: boolean })._executed === true;
@@ -354,12 +359,12 @@ function ChatBubble({
                   type="button"
                   onClick={() => onAction(a, msgIndex)}
                   disabled={executed || busy}
-                  className={`text-xs font-semibold px-3 py-1.5 rounded-lg border text-left transition-colors ${
+                  className={`text-xs font-medium px-3 py-1.5 rounded-md border text-left transition-colors ${
                     executed
                       ? "bg-emerald-50 border-emerald-200 text-emerald-700"
                       : busy
-                        ? "bg-slate-200 text-slate-500 border-slate-200"
-                        : "bg-white border-violet-200 text-violet-700 hover:bg-violet-50"
+                        ? "bg-slate-100 text-slate-500 border-slate-200"
+                        : "bg-violet-50 border-violet-200 text-violet-700 hover:bg-violet-100"
                   }`}
                   title={a.description}
                 >
@@ -370,6 +375,25 @@ function ChatBubble({
             })}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function ThinkingDots() {
+  return (
+    <div className="flex justify-start gap-2">
+      <div className="w-6 h-6 shrink-0 rounded-md bg-gradient-to-br from-violet-600 to-violet-500 text-white flex items-center justify-center mt-0.5">
+        <Sparkles size={12} strokeWidth={ICON_STROKE} />
+      </div>
+      <div className="px-3 py-3 bg-white border border-slate-100 rounded-2xl rounded-tl-sm shadow-[var(--card-shadow-rest)] flex items-center gap-1">
+        {[0, 1, 2].map((i) => (
+          <span
+            key={i}
+            className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-bounce"
+            style={{ animationDelay: `${i * 120}ms`, animationDuration: "1s" }}
+          />
+        ))}
       </div>
     </div>
   );
