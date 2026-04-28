@@ -16,48 +16,23 @@ import type { Presupuesto, PresupuestoEstado, MotivoPerdida } from "../../lib/pr
 import { ESTADO_CONFIG, PIPELINE_ORDEN, ORIGEN_LABEL } from "../../lib/presupuestos/colors";
 import { calcularProbabilidad } from "../../lib/presupuestos/probability";
 import MotivoPerdidaModal from "./MotivoPerdidaModal";
+import { StatePill, type StatePillVariant } from "../ui/StatePill";
 
-// ------------------------------------------------------------------
-// UrgencyDot
-// ------------------------------------------------------------------
-
-function UrgencyDot({ score }: { score: number }) {
-  const color =
-    score >= 70 ? "bg-rose-500" :
-    score >= 40 ? "bg-amber-400" :
-    "bg-emerald-400";
-  return <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${color}`} title={`Nivel de atención: ${score}`} />;
+// Sprint 13 Bloque 4 — Kanban Presupuestos al estilo Leads.
+// Helper: probabilidad → variante StatePill.
+function probToVariant(prob: number): StatePillVariant {
+  if (prob >= 60) return "success";
+  if (prob >= 30) return "warning";
+  return "danger";
 }
 
-// ------------------------------------------------------------------
-// ProbBadge
-// ------------------------------------------------------------------
-
-function ProbBadge({ prob }: { prob: number }) {
-  const color =
-    prob >= 60 ? "bg-emerald-100 text-emerald-700" :
-    prob >= 30 ? "bg-amber-100 text-amber-700" :
-    "bg-rose-100 text-rose-700";
-  return (
-    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${color}`} title={`Prob. cierre: ${prob}%`}>
-      {prob}%
-    </span>
-  );
-}
+// Tipo paciente / TipoVisita → variant neutral (todas).
+const PILL_NEUTRAL: StatePillVariant = "neutral";
 
 // ------------------------------------------------------------------
-// Urgency border (left color bar based on urgencyScore)
-// ------------------------------------------------------------------
-
-function urgencyBorderClass(score: number): string {
-  if (score >= 70) return "border-l-4 border-l-red-500";
-  if (score >= 40) return "border-l-4 border-l-orange-500";
-  if (score >= 10) return "border-l-4 border-l-yellow-500";
-  return "border-l-4 border-l-slate-200";
-}
-
-// ------------------------------------------------------------------
-// CompactCard
+// Sprint 13 Bloque 4 — CompactCard al estilo Leads
+// Sin border-left rojo (urgencia comunicada en Actuar Hoy, no kanban).
+// Tags unificados con StatePill. Acciones aparecen en hover.
 // ------------------------------------------------------------------
 
 function CompactCard({
@@ -79,101 +54,122 @@ function CompactCard({
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      className={`rounded-xl border bg-white px-3 py-2.5 cursor-grab active:cursor-grabbing select-none transition-shadow ${urgencyBorderClass(p.urgencyScore)} ${
-        isDragging ? "opacity-40 shadow-lg" : "hover:shadow-sm border-slate-200"
+      style={{
+        borderColor: "var(--card-border)",
+        boxShadow: isDragging ? undefined : "var(--card-shadow-rest)",
+      }}
+      className={`group rounded-xl border bg-white px-3 py-2.5 cursor-grab active:cursor-grabbing select-none transition-[box-shadow,border-color] duration-150 ${
+        isDragging
+          ? "opacity-40"
+          : "hover:[border-color:var(--card-border-hover)] hover:[box-shadow:var(--card-shadow-hover)]"
       }`}
     >
-      {/* Name + urgency dot + prob badge */}
-      <div className="flex items-start gap-1.5">
-        {p.urgencyScore > 0 && <UrgencyDot score={p.urgencyScore} />}
+      {/* Nombre + score discreto a la derecha */}
+      <div className="flex items-start gap-2">
         <a
           href={`/presupuestos/paciente/${encodeURIComponent(p.patientName)}`}
-          className="text-xs font-bold text-slate-900 leading-tight flex-1 min-w-0 truncate hover:text-violet-700 hover:underline"
+          className="text-sm font-semibold text-slate-900 leading-tight flex-1 min-w-0 truncate hover:text-sky-700 hover:underline"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
           {p.patientName}
         </a>
-        {prob != null && <ProbBadge prob={prob} />}
+        {prob != null && (
+          <StatePill variant={probToVariant(prob)} size="sm" title={`Prob. cierre ${prob}%`}>
+            <span className="tabular-nums">{prob}%</span>
+          </StatePill>
+        )}
       </div>
 
-      {/* Treatments */}
-      <div className="flex flex-wrap gap-1 mt-1.5">
-        {p.treatments.map((t, i) => (
-          <span key={i} className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 leading-tight">
-            {t}
-          </span>
-        ))}
-      </div>
+      {/* Tag tratamiento principal + +N */}
+      {p.treatments.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          <StatePill variant={PILL_NEUTRAL} size="sm">
+            {p.treatments[0]}
+          </StatePill>
+          {p.treatments.length > 1 && (
+            <StatePill variant={PILL_NEUTRAL} size="sm">
+              +{p.treatments.length - 1}
+            </StatePill>
+          )}
+        </div>
+      )}
 
-      {/* Badges: tipo paciente + tipo visita */}
-      {(p.tipoPaciente || p.tipoVisita) && (
+      {/* TipoPaciente + TipoVisita + OrigenLead — todos neutrales */}
+      {(p.tipoPaciente || p.tipoVisita || p.origenLead) && (
         <div className="flex flex-wrap gap-1 mt-1">
           {p.tipoPaciente && (
-            <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded-full ${
-              p.tipoPaciente === "Privado" ? "bg-blue-100 text-blue-700" : "bg-orange-100 text-orange-700"
-            }`}>
+            <StatePill variant={PILL_NEUTRAL} size="sm">
               {p.tipoPaciente}
-            </span>
+            </StatePill>
           )}
           {p.tipoVisita && (
-            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+            <StatePill variant={PILL_NEUTRAL} size="sm">
               {p.tipoVisita === "Primera Visita" ? "1ª Visita" : "Con historial"}
+            </StatePill>
+          )}
+          {p.origenLead && (
+            <StatePill variant={PILL_NEUTRAL} size="sm">
+              {ORIGEN_LABEL[p.origenLead]}
+            </StatePill>
+          )}
+        </div>
+      )}
+
+      {/* Bottom row: importe + fecha + dias */}
+      <div className="flex items-center justify-between mt-2 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          {p.amount != null && (
+            <span className="font-display text-sm font-semibold text-slate-900 tabular-nums">
+              €{p.amount.toLocaleString("es-ES")}
             </span>
           )}
-        </div>
-      )}
-
-      {/* OrigenLead badge */}
-      {p.origenLead && (
-        <div className="mt-1">
-          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-violet-50 text-violet-600 font-medium">
-            {ORIGEN_LABEL[p.origenLead]}
+          <span className="text-[10px] text-slate-400 tabular-nums">
+            {p.fechaPresupuesto.split("-").reverse().join("/")}
           </span>
         </div>
-      )}
-
-      {/* Bottom row */}
-      <div className="flex items-center justify-between mt-1.5 gap-1">
-        <div className="flex items-center gap-2">
-          {p.amount != null && (
-            <span className="text-[11px] font-extrabold text-slate-800">€{p.amount.toLocaleString("es-ES")}</span>
-          )}
-          <span className="text-[9px] text-slate-400">{p.fechaPresupuesto.split("-").reverse().join("/")}</span>
-        </div>
-        <span className="text-[9px] text-slate-400 shrink-0">{p.daysSince}d</span>
+        <span className="text-[10px] text-slate-400 shrink-0 tabular-nums">{p.daysSince}d</span>
       </div>
 
-      {/* Quick actions */}
+      {/* Quick actions — visibles solo en hover (consistencia con Leads) */}
       <div
-        className="flex items-center gap-2 mt-2 pt-1.5 border-t border-slate-100"
+        className="flex items-center gap-1 mt-2 pt-1.5 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity"
         onPointerDown={(e) => e.stopPropagation()}
       >
         {p.patientPhone && (
           <a
             href={`tel:${p.patientPhone}`}
-            className="text-sm hover:scale-110 transition-transform"
+            className="flex-1 text-center text-[10px] font-medium px-2 py-1 rounded-md bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors"
             title="Llamar"
             draggable={false}
+            onClick={(e) => e.stopPropagation()}
           >
-            📞
+            Llamar
           </a>
         )}
         <button
-          onClick={() => onOpenHistory(p)}
-          className="text-sm hover:scale-110 transition-transform"
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpenHistory(p);
+          }}
+          className="flex-1 text-[10px] font-medium px-2 py-1 rounded-md bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors"
           title="Historial"
           draggable={false}
         >
-          📋
+          Historial
         </button>
         <button
-          onClick={() => onEdit(p)}
-          className="text-sm hover:scale-110 transition-transform"
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onEdit(p);
+          }}
+          className="flex-1 text-[10px] font-medium px-2 py-1 rounded-md bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors"
           title="Editar"
           draggable={false}
         >
-          ✏️
+          Editar
         </button>
       </div>
     </div>
@@ -213,47 +209,39 @@ function DroppableColumn({
   const { setNodeRef, isOver } = useDroppable({ id: estado });
   const total = presupuestos.reduce((s, p) => s + (p.amount ?? 0), 0);
 
+  // Sprint 13 Bloque 4 — sub-info condensada a una línea.
+  const subInfo = [
+    total > 0 ? `€${total.toLocaleString("es-ES")}` : null,
+    velocidad && velocidad.media > 0 ? `media: ${velocidad.media}d` : null,
+    cfg.accionable ? cfg.hint : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <div className="w-[260px] min-w-[260px] shrink-0 h-full flex flex-col overflow-hidden">
-      {/* Column header */}
-      <div
-        className="rounded-t-xl px-3 py-2 shrink-0 border border-b-0"
-        style={{
-          background: cfg.hex + "18",
-          borderColor: cfg.hex + "55",
-          borderTop: `3px solid ${cfg.hex}`,
-        }}
-      >
-        <div className="flex items-center justify-between gap-1">
-          <span className="text-xs font-bold truncate" style={{ color: cfg.hex }}>
+      {/* Header columna estilo Leads — sin fondo de color sólido, solo
+          tipografia + contador; sub-info en una linea text-xs. */}
+      <div className="px-3 py-2.5 shrink-0">
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-semibold text-slate-700 truncate">
             {cfg.label}
           </span>
-          <span className="text-[10px] font-semibold text-slate-500 shrink-0">
+          <span className="text-xs text-slate-400 tabular-nums shrink-0">
             {presupuestos.length}
           </span>
         </div>
-        {presupuestos.length > 0 && total > 0 && (
-          <p className="text-[10px] text-slate-500 mt-0.5">
-            €{total.toLocaleString("es-ES")}
-          </p>
-        )}
-        {velocidad && velocidad.media > 0 && (
-          <p className={`text-[9px] mt-0.5 ${velocidad.lenta ? "text-amber-600 font-semibold" : "text-slate-400"}`}>
-            media: {velocidad.media}d{velocidad.lenta ? " ⚠" : ""}
-          </p>
-        )}
-        {cfg.accionable && (
-          <p className="text-[9px] text-slate-400 mt-0.5 italic">{cfg.hint}</p>
+        {subInfo && (
+          <p className="text-xs text-slate-500 mt-0.5 truncate">{subInfo}</p>
         )}
       </div>
 
       {/* Cards container — internal scroll */}
       <div
         ref={setNodeRef}
-        className={`flex-1 min-h-0 rounded-b-xl border border-t-0 p-2 space-y-2 overflow-y-auto transition-colors ${
-          isOver ? "bg-slate-100" : "bg-slate-50"
+        className={`flex-1 min-h-0 rounded-xl p-2 space-y-2 overflow-y-auto transition-colors border ${
+          isOver ? "bg-sky-50/50 border-sky-200" : "bg-slate-50 border-[var(--card-border)]"
         }`}
-        style={{ borderColor: cfg.hex + "33" }}
       >
         {presupuestos.length === 0 ? (
           <div className="rounded-lg border border-dashed border-slate-200 p-3 text-center mt-1">

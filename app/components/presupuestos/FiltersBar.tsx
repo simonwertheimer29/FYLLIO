@@ -128,10 +128,10 @@ function PeriodPreset({
             const { desde, hasta } = computePresetDates(p);
             onChange(desde, hasta);
           }}
-          className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition-colors whitespace-nowrap ${
+          className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors whitespace-nowrap border ${
             active === p
-              ? "bg-violet-600 text-white"
-              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+              ? "bg-sky-50 text-sky-700 border-sky-200"
+              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900"
           }`}
         >
           {PRESET_LABELS[p]}
