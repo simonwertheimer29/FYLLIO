@@ -29,6 +29,18 @@ function probToVariant(prob: number): StatePillVariant {
 // Tipo paciente / TipoVisita → variant neutral (todas).
 const PILL_NEUTRAL: StatePillVariant = "neutral";
 
+// Sprint 13.1 Bloque 3.2 — Barra de color superior por columna.
+// 3px que se asienta UNA VEZ encima del header. Cards quedan blancas
+// neutras como en Kanban Leads (sin border-left coloreado por card).
+const COLUMN_TOP_BAR: Record<PresupuestoEstado, string> = {
+  PRESENTADO: "bg-sky-300",
+  INTERESADO: "bg-sky-500",
+  EN_DUDA: "bg-amber-400",
+  EN_NEGOCIACION: "bg-orange-500",
+  ACEPTADO: "bg-emerald-500",
+  PERDIDO: "bg-rose-400",
+};
+
 // ------------------------------------------------------------------
 // Sprint 13 Bloque 4 — CompactCard al estilo Leads
 // Sin border-left rojo (urgencia comunicada en Actuar Hoy, no kanban).
@@ -220,6 +232,10 @@ function DroppableColumn({
 
   return (
     <div className="w-[260px] min-w-[260px] shrink-0 h-full flex flex-col overflow-hidden">
+      {/* Sprint 13.1 Bloque 3.2 — Barra de color superior 3px que
+          identifica la columna sin pintar el header completo. */}
+      <div className={`h-[3px] rounded-t-md shrink-0 ${COLUMN_TOP_BAR[estado]}`} />
+
       {/* Header columna estilo Leads — sin fondo de color sólido, solo
           tipografia + contador; sub-info en una linea text-xs. */}
       <div className="px-3 py-2.5 shrink-0">
@@ -232,7 +248,12 @@ function DroppableColumn({
           </span>
         </div>
         {subInfo && (
-          <p className="text-xs text-slate-500 mt-0.5 truncate">{subInfo}</p>
+          <p
+            className="text-xs text-slate-500 mt-0.5 truncate"
+            title={subInfo}
+          >
+            {subInfo}
+          </p>
         )}
       </div>
 

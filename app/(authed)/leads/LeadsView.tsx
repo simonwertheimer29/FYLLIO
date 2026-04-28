@@ -594,7 +594,13 @@ function LeadCardBody({ lead }: { lead: Lead }) {
   );
 
   return (
-    <article className="rounded-xl bg-white border border-[var(--color-border)] p-3 text-xs hover:border-sky-200 hover:shadow-sm transition-all duration-150 cursor-pointer">
+    <article
+      style={{
+        borderColor: "var(--card-border)",
+        boxShadow: "var(--card-shadow-rest)",
+      }}
+      className="rounded-xl bg-white border p-3 text-xs hover:[border-color:var(--card-border-hover)] hover:[box-shadow:var(--card-shadow-hover)] transition-[box-shadow,border-color] duration-150 cursor-pointer"
+    >
       <p className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight">{lead.nombre}</p>
 
       <div className="flex flex-wrap gap-1 mt-1.5">
@@ -684,7 +690,10 @@ function CitadosHoyCardBody({
   onNoAsistio: (l: Lead) => void;
 }) {
   return (
-    <article className="rounded-xl bg-rose-50/50 border border-rose-200 p-3 text-xs shadow-sm hover:shadow-md transition-all cursor-pointer">
+    <article
+      style={{ boxShadow: "var(--card-shadow-rest)" }}
+      className="rounded-xl bg-rose-50/50 border border-rose-200 p-3 text-xs hover:[box-shadow:var(--card-shadow-hover)] transition-[box-shadow,border-color] duration-150 cursor-pointer"
+    >
       <div className="flex items-start justify-between gap-2">
         <p className="font-bold text-slate-900 truncate flex-1">{lead.nombre}</p>
         {lead.horaCita && (
