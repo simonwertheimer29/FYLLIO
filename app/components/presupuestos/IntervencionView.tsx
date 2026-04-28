@@ -154,8 +154,12 @@ function IntervencionCard({
 
   return (
     <div
-      className={`rounded-2xl border bg-white transition-opacity ${waEnviado ? "opacity-50" : ""}`}
-      style={{ borderLeft: `4px solid ${scoreColor(ub?.scoreFinal ?? 0) === "bg-red-500" ? "#ef4444" : ub?.scoreFinal && ub.scoreFinal >= 50 ? "#f97316" : ub?.scoreFinal && ub.scoreFinal >= 30 ? "#fbbf24" : "#94a3b8"}` }}
+      className={`rounded-xl border bg-white transition-[box-shadow,border-color] duration-150 hover:[box-shadow:var(--card-shadow-hover)] ${waEnviado ? "opacity-50" : ""}`}
+      style={{
+        borderColor: "var(--card-border)",
+        boxShadow: "var(--card-shadow-rest)",
+        borderLeft: `4px solid ${scoreColor(ub?.scoreFinal ?? 0) === "bg-red-500" ? "#ef4444" : ub?.scoreFinal && ub.scoreFinal >= 50 ? "#f97316" : ub?.scoreFinal && ub.scoreFinal >= 30 ? "#fbbf24" : "#94a3b8"}`,
+      }}
     >
       {/* Card body — clickable */}
       <div

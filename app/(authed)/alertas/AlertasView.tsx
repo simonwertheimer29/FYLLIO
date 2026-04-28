@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { Bell, ICON_STROKE } from "../../components/icons";
+import { StatePill } from "../../components/ui/StatePill";
 
 type Tipo = "leads" | "presupuestos" | "citados" | "asistencias" | "automatizaciones";
 
@@ -131,10 +132,10 @@ export function AlertasView() {
             </p>
           </div>
           {totalPendientes > 0 && (
-            <span className="inline-flex rounded-md bg-rose-50 text-rose-700 border border-rose-200 px-2.5 py-1 text-xs font-semibold tabular-nums">
+            <StatePill variant="danger" size="md" className="tabular-nums">
               {totalPendientes} alerta{totalPendientes === 1 ? "" : "s"} activa
               {totalPendientes === 1 ? "" : "s"}
-            </span>
+            </StatePill>
           )}
         </header>
 
