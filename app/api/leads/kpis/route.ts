@@ -19,7 +19,7 @@ import { NextResponse } from "next/server";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../lib/auth/users";
 import { listLeads, type Lead, type LeadCanal } from "../../../lib/leads/leads";
-import { getFacturadoEnPeriodo } from "../../../lib/pagos";
+import { getFacturadoEnPeriodo, getFacturadoPorPacientes } from "../../../lib/pagos";
 import { base, TABLES, fetchAll } from "../../../lib/airtable";
 
 export const dynamic = "force-dynamic";
@@ -79,7 +79,13 @@ type RankingCacheEntry = {
 };
 const RANKING_CACHE = new Map<string, RankingCacheEntry>();
 const RANKING_TTL_MS = 5 * 60 * 1000;
-const RANKING_TIMEOUT_MS = 2000;
+// Sprint 13.1.1 — subido de 2000 a 3500 para acomodar las N queries
+// paralelizadas de getFacturadoPorPacientes (1 por doctor con batches
+// de pacienteIds). El fallback graceful con _warning sigue armado;
+// si vencen los 3.5s en el primer hit sin cache, el usuario ve el
+// banner "Cálculo en proceso" y los siguientes hits dentro de TTL
+// 5 min sirven el resultado completo desde cache.
+const RANKING_TIMEOUT_MS = 3500;
 
 // ─── Estados leads para matrices ──────────────────────────────────────
 const ESTADOS_MATRIZ: Array<Lead["estado"] | "Asistido"> = [
@@ -639,7 +645,7 @@ async function computeRankingDoctores(
   enPeriodo: Lead[],
   desde: Date,
   hasta: Date,
-  clinicaQuery: string | null,
+  _clinicaQuery: string | null,
 ): Promise<
   Array<{ id: string; nombre: string; total: number; tasaConversion: number; facturadoGenerado: number | null }>
 > {
@@ -670,39 +676,74 @@ async function computeRankingDoctores(
       for (const r of recs) doctorNombres[r.id] = String((r.fields as any)?.["Nombre"] ?? r.id);
     } catch { /* noop */ }
   }
-  const out: Array<{ id: string; nombre: string; total: number; tasaConversion: number; facturadoGenerado: number | null }> = [];
-  for (const [id, agg] of porDoctor.entries()) {
-    const tasa = agg.asignados === 0 ? 0 : Math.round((agg.convertidos / agg.asignados) * 100);
-    // facturado: pacientes que el doctor convirtio + pagos del periodo.
-    const pacientesIds = leadsConvertidosPorDoctor.get(id) ?? [];
-    let facturadoGenerado: number | null = 0;
-    if (pacientesIds.length > 0) {
-      try {
-        const fact = await getFacturadoEnPeriodo({
-          desde,
-          hasta,
-          clinicaId: clinicaQuery ?? undefined,
-        });
-        // Aproximacion: sumamos el facturado total filtrado por
-        // clinica, y atribuimos al doctor la fraccion de pacientes
-        // convertidos suyos. Para precision exacta haria falta un
-        // helper extra que lea Pagos_Paciente filtrando por
-        // pacienteIds. El fallback graceful lo cubre.
-        facturadoGenerado = Math.round(
-          fact.total * (agg.convertidos / Math.max(1, enPeriodo.filter((l) => l.convertido).length)),
-        );
-      } catch {
-        facturadoGenerado = null;
+
+  // Sprint 13.1.1 — facturado real por doctor. Llamamos a
+  // getFacturadoPorPacientes en paralelo (1 promise por doctor) para
+  // que el coste runtime sea ~1 round-trip de Airtable + network.
+  // Top 10 doctores → max 10 promises concurrentes.
+  const out = await Promise.all(
+    Array.from(porDoctor.entries()).map(async ([id, agg]) => {
+      const tasa = agg.asignados === 0 ? 0 : Math.round((agg.convertidos / agg.asignados) * 100);
+      const pacientesIds = leadsConvertidosPorDoctor.get(id) ?? [];
+      let facturadoGenerado: number | null = null;
+      if (pacientesIds.length > 0) {
+        try {
+          const fact = await getFacturadoPorPacientes({
+            pacienteIds: pacientesIds,
+            desde,
+            hasta,
+          });
+          facturadoGenerado = fact.total;
+        } catch (err) {
+          console.error(
+            "[ranking-doctores] facturado per doctor:",
+            err instanceof Error ? err.message : err,
+          );
+          facturadoGenerado = null;
+        }
+      } else {
+        // Doctor con cero conversiones → facturado 0 explicito.
+        facturadoGenerado = 0;
       }
-    }
-    out.push({
-      id,
-      nombre: doctorNombres[id] ?? "Doctor",
-      total: agg.convertidos,
-      tasaConversion: tasa,
-      facturadoGenerado,
+      return {
+        id,
+        nombre: doctorNombres[id] ?? "Doctor",
+        total: agg.convertidos,
+        tasaConversion: tasa,
+        facturadoGenerado,
+      };
+    }),
+  );
+
+  // Sprint 13.1.1 — sanity check delta %.
+  // Comparamos Σ ranking.facturadoGenerado vs getFacturadoEnPeriodo
+  // soloOrigenLead (fuente de la verdad para "todo el funnel lead del
+  // periodo"). Delta esperado: pacientes con origen lead SIN
+  // doctorAsignado en el lead original. Si delta>5% del total, es
+  // calidad de dato y hay que reportarlo (no solo absorberlo).
+  try {
+    const totalRanking = out.reduce((s, d) => s + (d.facturadoGenerado ?? 0), 0);
+    const refFact = await getFacturadoEnPeriodo({
+      desde,
+      hasta,
+      soloOrigenLead: true,
+      clinicaId: _clinicaQuery ?? undefined,
     });
+    const delta = refFact.total - totalRanking;
+    const deltaPct =
+      refFact.total === 0 ? 0 : Math.abs(Math.round((delta / refFact.total) * 100));
+    if (refFact.total > 0) {
+      const tag = deltaPct > 5 ? "WARN" : "ok";
+      console.log(
+        `[ranking-doctores] sanity ${tag} · ranking=${totalRanking}€ ` +
+          `referencia=${refFact.total}€ delta=${delta}€ (${deltaPct}%) · ` +
+          `pacientes huérfanos sin doctor en el lead original.`,
+      );
+    }
+  } catch {
+    /* sanity check no bloquea respuesta */
   }
+
   return out.sort((a, b) => b.total - a.total).slice(0, 10);
 }
 
