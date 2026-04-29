@@ -154,8 +154,91 @@ export async function getFacturadoEnPeriodo(args: {
   return { total, pendiente: pendienteSum, pagosCount: filtrados.length };
 }
 
+/**
+ * Sprint 13.1.1 — facturado preciso filtrando Pagos_Paciente por una
+ * lista concreta de pacientes (usado por el ranking de doctores).
+ *
+ * Por que existe: la version pro-rata (importe periodo × ratio
+ * convertidos doctor/total) era una estimacion. R2b va a cruzar
+ * contra contabilidad real desde semana 1 del piloto y cualquier
+ * divergencia rompe confianza. Esta version suma los pagos reales
+ * de los pacientes que el doctor convirtio.
+ *
+ * Batching: filterByFormula de Airtable tiene limite ~16k chars.
+ * Con FIND() por id (~25 chars) y un wrapper OR(), partimos en
+ * batches de 50 para quedarnos muy lejos del limite. Cada batch
+ * agrega su slice al total.
+ *
+ * Pendiente: suma Pacientes.Pendiente filtrada por pacienteIds
+ * (no necesita rango de fecha — es saldo actual del paciente,
+ * mantenido como cache por crearPago()).
+ */
+const BATCH_SIZE_PACIENTES = 50;
+
+export async function getFacturadoPorPacientes(args: {
+  pacienteIds: string[];
+  desde: Date;
+  hasta: Date;
+}): Promise<{ total: number; pendiente: number; pagosCount: number }> {
+  if (args.pacienteIds.length === 0) {
+    return { total: 0, pendiente: 0, pagosCount: 0 };
+  }
+  const desdeISO = args.desde.toISOString().slice(0, 10);
+  const hastaISO = args.hasta.toISOString().slice(0, 10);
+  const desdeShift = shiftDay(desdeISO, -1);
+  const hastaShift = shiftDay(hastaISO, 1);
+
+  let total = 0;
+  let pagosCount = 0;
+  // Procesamos batches en paralelo (cada batch hace su propia query).
+  const batches: string[][] = [];
+  for (let i = 0; i < args.pacienteIds.length; i += BATCH_SIZE_PACIENTES) {
+    batches.push(args.pacienteIds.slice(i, i + BATCH_SIZE_PACIENTES));
+  }
+  await Promise.all(
+    batches.map(async (batch) => {
+      const orPart = batch
+        .map((id) => `FIND('${id}', ARRAYJOIN({Paciente_Link}))`)
+        .join(",");
+      const formula = `AND(
+        IS_AFTER({Fecha_Pago}, '${desdeShift}'),
+        IS_BEFORE({Fecha_Pago}, '${hastaShift}'),
+        OR(${orPart})
+      )`.replace(/\s+/g, " ");
+      try {
+        const recs = await fetchAll(
+          base(TABLES.pagosPaciente as any).select({ filterByFormula: formula }),
+        );
+        for (const r of recs) {
+          total += Number((r.fields as any)?.["Importe"] ?? 0) || 0;
+          pagosCount++;
+        }
+      } catch (err) {
+        console.error(
+          "[pagos] getFacturadoPorPacientes batch:",
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }),
+  );
+
+  // Pendiente: cache desde Pacientes.Pendiente (mantenido por crearPago).
+  const pendiente = await getPendienteSum(args.pacienteIds);
+
+  return { total, pendiente, pagosCount };
+}
+
 async function getPendienteSum(pacIds: string[]): Promise<number> {
   if (pacIds.length === 0) return 0;
+  // Sprint 13.1.1 — batching simetrico al de getFacturadoPorPacientes
+  // para evitar fallos silenciosos cuando se pasan muchos IDs.
+  if (pacIds.length > BATCH_SIZE_PACIENTES) {
+    let total = 0;
+    for (let i = 0; i < pacIds.length; i += BATCH_SIZE_PACIENTES) {
+      total += await getPendienteSum(pacIds.slice(i, i + BATCH_SIZE_PACIENTES));
+    }
+    return total;
+  }
   const formula = `OR(${pacIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
   try {
     const recs = await fetchAll(
