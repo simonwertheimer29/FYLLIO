@@ -554,7 +554,7 @@ async function fetchAccionesPeriodo(
       return {
         leadId: links[0] ?? "",
         tipo: String(f["Tipo_Accion"] ?? "Nota"),
-        timestamp: String(f["Timestamp"] ?? r.createdTime ?? ""),
+        timestamp: String(f["Timestamp"] ?? r._rawJson?.createdTime ?? r.createdTime ?? ""),
       };
     });
     if (allowed && allowed.length > 0) {

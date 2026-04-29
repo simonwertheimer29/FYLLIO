@@ -129,7 +129,7 @@ function toLead(rec: any): Lead {
     convertido: Boolean(f["Convertido_A_Paciente"] ?? false),
     pacienteId: pacienteLinks[0] ?? null,
     asistido: Boolean(f["Asistido"] ?? false),
-    createdAt: String(rec.createdTime ?? ""),
+    createdAt: String(rec._rawJson?.createdTime ?? rec.createdTime ?? ""),
   };
 }
 

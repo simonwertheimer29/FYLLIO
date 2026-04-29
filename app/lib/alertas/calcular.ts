@@ -51,7 +51,8 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
     if (f["Estado"] !== "Nuevo") continue;
     if (f["Llamado"]) continue;
     if (Number(f["WhatsApp_Enviados"] ?? 0) > 0) continue;
-    const created = r.createdTime ? new Date(r.createdTime).getTime() : 0;
+    const ct = r._rawJson?.createdTime ?? r.createdTime;
+    const created = ct ? new Date(ct).getTime() : 0;
     if (!created || now - created < DAY_MS) continue;
     const clis = (f["Clinica"] ?? []) as string[];
     if (clis[0]) add(clis[0], "leads");
