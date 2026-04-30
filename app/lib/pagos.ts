@@ -64,22 +64,20 @@ function toPago(rec: any): Pago {
 
 export async function getPagosByPaciente(pacienteId: string): Promise<Pago[]> {
   if (!pacienteId) return [];
+  // Sprint 14a — usa Paciente_RecordId (texto plano rellenado por
+  // codigo) para filterByFormula directo. Reemplaza el workaround
+  // load-all+filter-JS del Sprint 13.1.1, que se introdujo porque
   // ARRAYJOIN({Paciente_Link}) devuelve el primary field de Pacientes
-  // ("PAT_NNN"), no record IDs — la formula FIND no matchea. Resolvemos
-  // pertenencia en JS via Paciente_Link[0] (campo accedido directamente
-  // sí devuelve record IDs).
+  // ("PAT_NNN") en vez de record IDs.
+  const formula = `{Paciente_RecordId} = '${pacienteId}'`;
   try {
     const recs = await fetchAll(
       base(TABLES.pagosPaciente as any).select({
+        filterByFormula: formula,
         sort: [{ field: "Fecha_Pago", direction: "desc" }],
       }),
     );
-    return recs
-      .filter((r) => {
-        const links = ((r.fields as any)?.["Paciente_Link"] ?? []) as string[];
-        return links[0] === pacienteId;
-      })
-      .map(toPago);
+    return recs.map(toPago);
   } catch (err) {
     console.error("[pagos] getPagosByPaciente:", err instanceof Error ? err.message : err);
     return [];
@@ -181,13 +179,17 @@ export async function getFacturadoEnPeriodo(args: {
  * divergencia rompe confianza. Esta version suma los pagos reales
  * de los pacientes que el doctor convirtio.
  *
- * Implementacion: filtramos Pagos_Paciente por Fecha_Pago en periodo
- * (formula liviana, indexada) y resolvemos la pertenencia a la lista
- * de pacientes en JS via Paciente_Link[0]. La via formula con
- * FIND/ARRAYJOIN({Paciente_Link}) NO funciona porque ARRAYJOIN sobre
- * un multipleRecordLinks devuelve los valores del primary field
- * (formula "PAT_NNN" en este Airtable), no los record IDs — el
- * matching siempre fallaria.
+ * Sprint 14a — implementacion via filterByFormula directo sobre
+ * Paciente_RecordId (texto plano rellenado por codigo). Sustituye al
+ * workaround load-all+filter-JS del Sprint 13.1.1, que se introdujo
+ * porque ARRAYJOIN({Paciente_Link}) devolvia el primary field
+ * "PAT_NNN" en lugar de record IDs. Con Paciente_RecordId la formula
+ * matchea limpio.
+ *
+ * Batching: filterByFormula tiene limite ~16k chars. Con
+ * "{Paciente_RecordId}='recXXX'" (~40 chars por id) y wrapper OR(),
+ * batches de 50 quedan muy lejos del limite. Cada batch se ejecuta en
+ * paralelo (max 50 ids/batch × N batches concurrentes).
  *
  * Pendiente: suma Pacientes.Pendiente filtrada por pacienteIds
  * (no necesita rango de fecha — es saldo actual del paciente,
@@ -208,34 +210,43 @@ export async function getFacturadoPorPacientes(args: {
   const desdeShift = shiftDay(desdeISO, -1);
   const hastaShift = shiftDay(hastaISO, 1);
 
-  const formula = `AND(
-    IS_AFTER({Fecha_Pago}, '${desdeShift}'),
-    IS_BEFORE({Fecha_Pago}, '${hastaShift}')
-  )`.replace(/\s+/g, " ");
-
   let total = 0;
   let pagosCount = 0;
-  const idSet = new Set(args.pacienteIds);
-  try {
-    const recs = await fetchAll(
-      base(TABLES.pagosPaciente as any).select({
-        filterByFormula: formula,
-        fields: ["Importe", "Paciente_Link"],
-      }),
-    );
-    for (const r of recs) {
-      const f = r.fields as any;
-      const links = (f["Paciente_Link"] ?? []) as string[];
-      if (!idSet.has(links[0] ?? "")) continue;
-      total += Number(f["Importe"] ?? 0) || 0;
-      pagosCount++;
-    }
-  } catch (err) {
-    console.error(
-      "[pagos] getFacturadoPorPacientes:",
-      err instanceof Error ? err.message : err,
-    );
+
+  const batches: string[][] = [];
+  for (let i = 0; i < args.pacienteIds.length; i += BATCH_SIZE_PACIENTES) {
+    batches.push(args.pacienteIds.slice(i, i + BATCH_SIZE_PACIENTES));
   }
+
+  await Promise.all(
+    batches.map(async (batch) => {
+      const orPart = batch
+        .map((id) => `{Paciente_RecordId}='${id}'`)
+        .join(",");
+      const formula = `AND(
+        IS_AFTER({Fecha_Pago}, '${desdeShift}'),
+        IS_BEFORE({Fecha_Pago}, '${hastaShift}'),
+        OR(${orPart})
+      )`.replace(/\s+/g, " ");
+      try {
+        const recs = await fetchAll(
+          base(TABLES.pagosPaciente as any).select({
+            filterByFormula: formula,
+            fields: ["Importe"],
+          }),
+        );
+        for (const r of recs) {
+          total += Number((r.fields as any)?.["Importe"] ?? 0) || 0;
+          pagosCount++;
+        }
+      } catch (err) {
+        console.error(
+          "[pagos] getFacturadoPorPacientes batch:",
+          err instanceof Error ? err.message : err,
+        );
+      }
+    }),
+  );
 
   // Pendiente: cache desde Pacientes.Pendiente (mantenido por crearPago).
   const pendiente = await getPendienteSum(args.pacienteIds);
