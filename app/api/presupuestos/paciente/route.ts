@@ -74,6 +74,25 @@ export async function GET(req: Request) {
       })
       .all();
 
+    // Sprint 14a Bloque 1 — primer record id de Pacientes encontrado
+    // entre los presupuestos cargados. Lo usamos para que Paciente360View
+    // pueda llamar a /api/pacientes/[id]/pagos. Caso edge: homonimos
+    // distintos en Pacientes — tomamos el primero y dejamos un warning.
+    let resolvedPacienteId: string | null = null;
+    const allLinkedPacienteIds = new Set<string>();
+    for (const r of recs) {
+      const links = ((r.fields as any)?.["Paciente"] ?? []) as string[];
+      if (links[0]) {
+        allLinkedPacienteIds.add(links[0]);
+        if (!resolvedPacienteId) resolvedPacienteId = links[0];
+      }
+    }
+    if (allLinkedPacienteIds.size > 1) {
+      console.warn(
+        `[paciente GET] nombre="${nombre}" mapea a ${allLinkedPacienteIds.size} record IDs distintos en Pacientes. Tomando el primero (${resolvedPacienteId}).`,
+      );
+    }
+
     const presupuestos: Presupuesto[] = recs.map((r) => {
       const f = r.fields as any;
       const fechaPresupuesto = String(f["Fecha"] ?? "").slice(0, 10) || today;
@@ -161,7 +180,12 @@ export async function GET(req: Request) {
       }
     }
 
-    return NextResponse.json({ presupuestos, historial, isDemo: false });
+    return NextResponse.json({
+      presupuestos,
+      historial,
+      isDemo: false,
+      pacienteId: resolvedPacienteId,
+    });
   } catch (err) {
     console.error("[paciente GET]", err);
     const demo = DEMO_PRESUPUESTOS.filter(
