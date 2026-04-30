@@ -61,7 +61,12 @@ type PagosKpis = {
 };
 
 type PagosResponse = {
-  paciente: { id: string; nombre: string };
+  paciente: {
+    id: string;
+    nombre: string;
+    presupuestoTotal: number | null;
+    aceptado: "Si" | "No" | "Pendiente" | null;
+  };
   pagos: Pago[];
   usuariosNombres: Record<string, string>;
   kpis: PagosKpis;
@@ -442,8 +447,17 @@ function PagosTabContent({
   }
   if (!data) return null;
 
-  const { pagos, kpis, usuariosNombres } = data;
+  const { pagos, kpis, usuariosNombres, paciente } = data;
   const fmtEUR = (n: number) => `€${n.toLocaleString("es-ES")}`;
+  // Tooltip para el caso pendiente=null: distingue "sin presupuesto"
+  // de "presupuesto sin aceptar" para que la coordinacion sepa por que
+  // el KPI no muestra cifra.
+  const pendienteTooltip =
+    kpis.pendiente == null
+      ? !paciente.presupuestoTotal || paciente.presupuestoTotal === 0
+        ? "Sin presupuesto aceptado todavía"
+        : "Pendiente de aceptación de presupuesto"
+      : undefined;
   const fmtUltimoPago = (() => {
     if (kpis.ultimoPagoHaceDias == null) return "—";
     if (kpis.ultimoPagoHaceDias === 0) return "hoy";
@@ -463,11 +477,16 @@ function PagosTabContent({
             Total facturado
           </p>
         </div>
-        <div className="bg-white rounded-2xl border border-slate-200 p-4 text-center">
+        <div
+          className="bg-white rounded-2xl border border-slate-200 p-4 text-center"
+          title={pendienteTooltip}
+        >
           <p
             className={`text-2xl font-extrabold ${
               kpis.pendiente != null && kpis.pendiente > 0
                 ? "text-rose-700"
+                : kpis.pendiente == null
+                ? "text-slate-400 cursor-help"
                 : "text-slate-900"
             }`}
           >
