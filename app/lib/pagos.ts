@@ -33,20 +33,30 @@ export type Pago = {
   tipo: TipoPago;
   nota: string | null;
   createdAt: string; // ISO datetime
+  /** Sprint 14a — id del Usuario Fyllio que registro el pago. null para
+   *  pagos migrados (Sprint 13.1) o sesiones admin sin clinica
+   *  asignable. La UI lo resuelve a nombre via map cliente, sin N+1. */
+  usuarioCreadorId: string | null;
 };
 
 function toPago(rec: any): Pago {
   const f = rec.fields ?? {};
   const links = (f["Paciente_Link"] ?? []) as string[];
+  const usuarios = (f["Usuario_Creador"] ?? []) as string[];
+  // Sprint 14a — preferimos Paciente_RecordId (texto plano rellenado por
+  // codigo) sobre Paciente_Link[0]. Ambos coinciden por contrato; el
+  // texto plano es el que permite filterByFormula directo.
+  const pacienteId = String(f["Paciente_RecordId"] ?? "") || links[0] || "";
   return {
     id: rec.id,
-    pacienteId: links[0] ?? "",
+    pacienteId,
     fechaPago: String(f["Fecha_Pago"] ?? "").slice(0, 10),
     importe: Number(f["Importe"] ?? 0),
     metodo: (String(f["Metodo"] ?? "Otro") as MetodoPago),
     tipo: (String(f["Tipo"] ?? "Liquidacion") as TipoPago),
     nota: f["Nota"] ? String(f["Nota"]) : null,
     createdAt: String(rec._rawJson?.createdTime ?? rec.createdTime ?? ""),
+    usuarioCreadorId: usuarios[0] ?? null,
   };
 }
 
@@ -275,6 +285,10 @@ export async function crearPago(args: {
   metodo?: MetodoPago;
   tipo?: TipoPago;
   nota?: string;
+  /** Sprint 14a — id de Usuario que registra el pago (auditoria real).
+   *  Si no se pasa, queda vacio y la UI muestra "Coordinacion" como
+   *  fallback (caso admin sin clinica especifica o llamadas pre-S14). */
+  usuarioCreadorId?: string;
 }): Promise<Pago> {
   const fechaPago = args.fechaPago ?? new Date().toISOString().slice(0, 10);
   const metodo = args.metodo ?? "Otro";
@@ -286,11 +300,14 @@ export async function crearPago(args: {
       fields: {
         Resumen: resumen,
         Paciente_Link: [args.pacienteId],
+        // Sprint 14a — texto plano para filterByFormula directo.
+        Paciente_RecordId: args.pacienteId,
         Fecha_Pago: fechaPago,
         Importe: args.importe,
         Metodo: metodo,
         Tipo: tipo,
         ...(args.nota ? { Nota: args.nota } : {}),
+        ...(args.usuarioCreadorId ? { Usuario_Creador: [args.usuarioCreadorId] } : {}),
       },
     },
   ]))[0]!;
