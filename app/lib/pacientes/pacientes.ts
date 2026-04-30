@@ -75,7 +75,7 @@ function toPaciente(rec: any): Paciente {
     clinicaId: clinicaLinks[0] ?? null,
     leadOrigenId: leadLinks[0] ?? null,
     activo: Boolean(f["Activo"] ?? true),
-    createdAt: String(rec.createdTime ?? ""),
+    createdAt: String(rec._rawJson?.createdTime ?? rec.createdTime ?? ""),
   };
 }
 

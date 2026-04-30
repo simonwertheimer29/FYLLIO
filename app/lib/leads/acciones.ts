@@ -69,7 +69,7 @@ function toAccionLead(rec: any): AccionLead {
     id: rec.id,
     leadId: leadLinks[0] ?? "",
     tipo: String(f["Tipo_Accion"] ?? "Nota") as TipoAccionLead,
-    timestamp: String(f["Timestamp"] ?? rec.createdTime ?? ""),
+    timestamp: String(f["Timestamp"] ?? rec._rawJson?.createdTime ?? rec.createdTime ?? ""),
     usuarioId: usuarioLinks[0],
     detalles: f["Detalles"] ? String(f["Detalles"]) : undefined,
   };

@@ -30,7 +30,7 @@ function toAlerta(rec: any): AlertaEnviada {
     coordinadoraId: coords[0] ?? null,
     mensaje: String(f["Mensaje"] ?? ""),
     error: Boolean(f["Error"] ?? false),
-    createdAt: String(rec.createdTime ?? ""),
+    createdAt: String(rec._rawJson?.createdTime ?? rec.createdTime ?? ""),
   };
 }
 
