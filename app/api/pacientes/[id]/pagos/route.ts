@@ -1,11 +1,19 @@
 // app/api/pacientes/[id]/pagos/route.ts
 // Sprint 14a Bloque 1 — historial de pagos de un paciente con KPIs mini.
+// Sprint 14a Bloque 6 — POST nuevo pago (CRUD del modal Registrar pago).
 
 import { NextResponse } from "next/server";
 import { withAuth } from "../../../../lib/auth/session";
 import { listClinicaIdsForUser, listUsuarios } from "../../../../lib/auth/users";
 import { getPaciente } from "../../../../lib/pacientes/pacientes";
-import { getPagosByPaciente } from "../../../../lib/pagos";
+import {
+  getPagosByPaciente,
+  crearPago,
+  TIPOS_PAGO,
+  METODOS_PAGO,
+  type TipoPago,
+  type MetodoPago,
+} from "../../../../lib/pagos";
 
 export const dynamic = "force-dynamic";
 
@@ -90,4 +98,67 @@ export const GET = withAuth<Ctx>(async (session, _req, ctx) => {
       ultimoPagoHaceDias,
     },
   });
+});
+
+// ─── POST — crear pago manual ──────────────────────────────────────────
+// Sprint 14a Bloque 6 (re-scoped). Tipo limitado a 3 hitos comerciales.
+// Sincroniza Pacientes.Pagado/Pendiente cache desde Pagos_Paciente
+// (recalculo absoluto) y deja entrada en Inconsistencias_Pagos si falla.
+// Audita en Acciones_Pago.
+
+type CreatePagoBody = {
+  importe: number;
+  fechaPago?: string;
+  metodo?: MetodoPago;
+  tipo?: TipoPago;
+  nota?: string;
+};
+
+export const POST = withAuth<Ctx>(async (session, req, ctx) => {
+  const { id } = await ctx.params;
+  const paciente = await getPaciente(id);
+  if (!paciente) {
+    return NextResponse.json({ error: "Paciente no encontrado" }, { status: 404 });
+  }
+  if (session.rol !== "admin") {
+    const allowed = await listClinicaIdsForUser(session.userId);
+    if (!paciente.clinicaId || !allowed.includes(paciente.clinicaId)) {
+      return NextResponse.json({ error: "forbidden" }, { status: 403 });
+    }
+  }
+
+  const body = (await req.json().catch(() => null)) as CreatePagoBody | null;
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "Body inválido" }, { status: 400 });
+  }
+  // Validaciones server-side (ademas del cliente).
+  if (typeof body.importe !== "number" || !Number.isFinite(body.importe) || body.importe <= 0) {
+    return NextResponse.json({ error: "Importe debe ser > 0" }, { status: 400 });
+  }
+  if (body.tipo && !TIPOS_PAGO.includes(body.tipo)) {
+    return NextResponse.json(
+      { error: `Tipo inválido. Permitidos: ${TIPOS_PAGO.join(", ")}` },
+      { status: 400 },
+    );
+  }
+  if (body.metodo && !METODOS_PAGO.includes(body.metodo)) {
+    return NextResponse.json(
+      { error: `Método inválido. Permitidos: ${METODOS_PAGO.join(", ")}` },
+      { status: 400 },
+    );
+  }
+  if (body.fechaPago && !/^\d{4}-\d{2}-\d{2}$/.test(body.fechaPago)) {
+    return NextResponse.json({ error: "fechaPago debe ser YYYY-MM-DD" }, { status: 400 });
+  }
+
+  const pago = await crearPago({
+    pacienteId: id,
+    importe: body.importe,
+    fechaPago: body.fechaPago,
+    metodo: body.metodo,
+    tipo: body.tipo,
+    nota: body.nota,
+    usuarioCreadorId: session.userId,
+  });
+  return NextResponse.json({ pago }, { status: 201 });
 });

@@ -22,7 +22,34 @@ export type MetodoPago =
   | "Bizum"
   | "Financiacion"
   | "Otro";
-export type TipoPago = "Pago_Unico" | "Cuota" | "Senal" | "Liquidacion";
+/**
+ * Sprint 14a Bloque 6 (re-scoped) — Tipo de pago como hito comercial.
+ * Fyllio NO es software de tesoreria; los pagos intermedios del
+ * tratamiento (cuotas mensuales, mantenimiento) viven en Gesden u otro
+ * software clinico. Aqui solo registramos los 3 hitos que importan al
+ * funnel comercial:
+ *
+ *   Senal             — anticipo al firmar el presupuesto.
+ *   Primer_Pago_Plan  — primer movimiento del plan, arranca tratamiento.
+ *   Liquidacion       — pago final del importe restante.
+ *
+ * Los valores legacy (Pago_Unico, Cuota) ya estan migrados via
+ * sprint14-backfill-tipo-legacy.ts. El singleSelect en Airtable
+ * conserva las opciones huerfanas (sin records que las usen) hasta
+ * que se borren manualmente desde la UI.
+ */
+export type TipoPago = "Senal" | "Primer_Pago_Plan" | "Liquidacion";
+
+/** Opciones validas para validacion en endpoints/UI. */
+export const TIPOS_PAGO: TipoPago[] = ["Senal", "Primer_Pago_Plan", "Liquidacion"];
+export const METODOS_PAGO: MetodoPago[] = [
+  "Efectivo",
+  "Tarjeta",
+  "Transferencia",
+  "Bizum",
+  "Financiacion",
+  "Otro",
+];
 
 export type Pago = {
   id: string;
@@ -285,9 +312,97 @@ async function getPendienteSum(pacIds: string[]): Promise<number> {
 // ─── Escritura ─────────────────────────────────────────────────────────
 
 /**
- * Crea un Pago en Pagos_Paciente y sincroniza Pacientes.Pagado (cache).
- * Si el campo Pendiente es positivo, le resta el importe del pago (sin
- * pasar de cero).
+ * Sprint 14a Bloque 6 — recalcula y reescribe Pacientes.Pagado +
+ * Pacientes.Pendiente sumando todos los pagos del paciente. Si falla
+ * deja entrada en Inconsistencias_Pagos para reconciliacion posterior.
+ *
+ * Estrategia: en lugar de aplicar deltas relativos (que se desalinean
+ * en edits/eliminaciones), recalculamos el total absoluto desde la
+ * tabla Pagos_Paciente. Mas robusto y trivial de razonar.
+ */
+async function syncPacienteCache(
+  pacienteId: string,
+  pagoIdContext: string | null,
+): Promise<void> {
+  try {
+    // Sumar todos los pagos del paciente directamente.
+    const pagos = await getPagosByPaciente(pacienteId);
+    const totalPagado = pagos.reduce((s, p) => s + (p.importe || 0), 0);
+    const pacRec = await base(TABLES.patients as any).find(pacienteId);
+    const f = pacRec.fields as any;
+    const presupuesto = Number(f["Presupuesto_Total"] ?? 0) || 0;
+    const nuevoPendiente = Math.max(0, presupuesto - totalPagado);
+    await base(TABLES.patients as any).update(pacienteId, {
+      Pagado: totalPagado,
+      Pendiente: nuevoPendiente,
+    } as any);
+  } catch (err) {
+    console.error(
+      "[pagos] sync Pacientes cache:",
+      err instanceof Error ? err.message : err,
+    );
+    // Log a Inconsistencias_Pagos para reconciliacion via
+    // /api/admin/reconciliar-pagos.
+    try {
+      await base(TABLES.inconsistenciasPagos as any).create([
+        {
+          fields: {
+            Resumen: `Cache desync · paciente ${pacienteId}${pagoIdContext ? ` · pago ${pagoIdContext}` : ""}`,
+            Pago_RecordId: pagoIdContext ?? "",
+            Paciente_RecordId: pacienteId,
+            Error: err instanceof Error ? err.message : String(err),
+            Timestamp: new Date().toISOString(),
+            Resuelto: false,
+          },
+        },
+      ]);
+    } catch (logErr) {
+      // Si ni el log funciona, solo console.error.
+      console.error(
+        "[pagos] log inconsistencia tambien fallo:",
+        logErr instanceof Error ? logErr.message : logErr,
+      );
+    }
+  }
+}
+
+/**
+ * Sprint 14a Bloque 6 — auditoria de operaciones CRUD en Acciones_Pago.
+ * Fire-and-forget: si falla el log no abortamos la operacion principal,
+ * solo console.error.
+ */
+async function logAccionPago(args: {
+  pagoId: string;
+  pacienteId: string;
+  tipo: "Crear" | "Editar" | "Eliminar" | "Reembolsar";
+  importeAntes?: number | null;
+  importeDespues?: number | null;
+  usuarioId?: string | null;
+  notaCambio?: string;
+}): Promise<void> {
+  try {
+    const fields: Record<string, unknown> = {
+      Resumen: `${args.tipo} · ${args.pagoId.slice(0, 6)} · paciente ${args.pacienteId.slice(0, 6)}`,
+      Pago_Link: [args.pagoId],
+      Tipo: args.tipo,
+      Fecha: new Date().toISOString(),
+    };
+    if (args.importeAntes != null) fields["Importe_Antes"] = args.importeAntes;
+    if (args.importeDespues != null) fields["Importe_Despues"] = args.importeDespues;
+    if (args.usuarioId) fields["Usuario"] = [args.usuarioId];
+    if (args.notaCambio) fields["Nota_Cambio"] = args.notaCambio;
+    await base(TABLES.accionesPago as any).create([{ fields } as any]);
+  } catch (err) {
+    console.error(
+      "[pagos] log Acciones_Pago:",
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
+
+/**
+ * Crea un Pago en Pagos_Paciente y sincroniza Pacientes.Pagado (cache)
+ * recalculando desde Pagos_Paciente. Audita en Acciones_Pago.
  */
 export async function crearPago(args: {
   pacienteId: string;
@@ -296,52 +411,209 @@ export async function crearPago(args: {
   metodo?: MetodoPago;
   tipo?: TipoPago;
   nota?: string;
-  /** Sprint 14a — id de Usuario que registra el pago (auditoria real).
-   *  Si no se pasa, queda vacio y la UI muestra "Coordinacion" como
-   *  fallback (caso admin sin clinica especifica o llamadas pre-S14). */
+  /** Sprint 14a — id de Usuario que registra el pago (auditoria real). */
   usuarioCreadorId?: string;
 }): Promise<Pago> {
   const fechaPago = args.fechaPago ?? new Date().toISOString().slice(0, 10);
   const metodo = args.metodo ?? "Otro";
-  const tipo = args.tipo ?? "Pago_Unico";
+  const tipo = args.tipo ?? "Liquidacion";
   const resumen = `${metodo} · ${fechaPago} · ${args.importe.toFixed(2)}€`;
 
-  const created = (await base(TABLES.pagosPaciente as any).create([
-    {
-      fields: {
-        Resumen: resumen,
-        Paciente_Link: [args.pacienteId],
-        // Sprint 14a — texto plano para filterByFormula directo.
-        Paciente_RecordId: args.pacienteId,
-        Fecha_Pago: fechaPago,
-        Importe: args.importe,
-        Metodo: metodo,
-        Tipo: tipo,
-        ...(args.nota ? { Nota: args.nota } : {}),
-        ...(args.usuarioCreadorId ? { Usuario_Creador: [args.usuarioCreadorId] } : {}),
-      },
-    },
-  ]))[0]!;
+  const created = (
+    await base(TABLES.pagosPaciente as any).create(
+      [
+        {
+          fields: {
+            Resumen: resumen,
+            Paciente_Link: [args.pacienteId],
+            Paciente_RecordId: args.pacienteId,
+            Fecha_Pago: fechaPago,
+            Importe: args.importe,
+            Metodo: metodo,
+            Tipo: tipo,
+            ...(args.nota ? { Nota: args.nota } : {}),
+            ...(args.usuarioCreadorId
+              ? { Usuario_Creador: [args.usuarioCreadorId] }
+              : {}),
+          },
+        },
+      ],
+      // typecast: Airtable extiende los enums Tipo/Metodo si llega un
+      // valor nuevo (necesario para Primer_Pago_Plan tras el re-scope).
+      { typecast: true } as any,
+    )
+  )[0]!;
 
-  // Sincronizar cache en Pacientes.Pagado / Pendiente.
-  try {
-    const pacRec = await base(TABLES.patients as any).find(args.pacienteId);
-    const f = pacRec.fields as any;
-    const pagadoActual = Number(f["Pagado"] ?? 0) || 0;
-    const pendienteActual = Number(f["Pendiente"] ?? 0) || 0;
-    const nuevoPagado = pagadoActual + args.importe;
-    const nuevoPendiente = Math.max(0, pendienteActual - args.importe);
-    await base(TABLES.patients as any).update(args.pacienteId, {
-      Pagado: nuevoPagado,
-      Pendiente: nuevoPendiente,
-    } as any);
-  } catch (err) {
-    console.error("[pagos] sync Pacientes cache:", err instanceof Error ? err.message : err);
-    // No re-lanzamos: el pago quedo registrado, la cache se puede
-    // recomputar mas adelante.
-  }
+  await syncPacienteCache(args.pacienteId, created.id);
+  await logAccionPago({
+    pagoId: created.id,
+    pacienteId: args.pacienteId,
+    tipo: "Crear",
+    importeAntes: null,
+    importeDespues: args.importe,
+    usuarioId: args.usuarioCreadorId,
+    notaCambio: `Pago ${tipo} · ${metodo} · ${fechaPago}`,
+  });
 
   return toPago(created);
+}
+
+/**
+ * Sprint 14a Bloque 6 — actualiza un pago existente. Recalcula cache
+ * desde Pagos_Paciente. Audita el cambio con importe antes/despues.
+ */
+export async function actualizarPago(
+  pagoId: string,
+  patch: Partial<{
+    importe: number;
+    fechaPago: string;
+    metodo: MetodoPago;
+    tipo: TipoPago;
+    nota: string | null;
+  }>,
+  context: { usuarioId?: string | null } = {},
+): Promise<Pago> {
+  const before = await base(TABLES.pagosPaciente as any).find(pagoId);
+  const beforeFields = before.fields as any;
+  const importeAntes = Number(beforeFields["Importe"] ?? 0) || 0;
+  const pacIds = (beforeFields["Paciente_Link"] ?? []) as string[];
+  const pacienteId =
+    String(beforeFields["Paciente_RecordId"] ?? "") || pacIds[0] || "";
+
+  const fields: Record<string, unknown> = {};
+  if (patch.importe !== undefined) fields["Importe"] = patch.importe;
+  if (patch.fechaPago !== undefined) fields["Fecha_Pago"] = patch.fechaPago;
+  if (patch.metodo !== undefined) fields["Metodo"] = patch.metodo;
+  if (patch.tipo !== undefined) fields["Tipo"] = patch.tipo;
+  if (patch.nota !== undefined) fields["Nota"] = patch.nota ?? "";
+  // Refrescar Resumen si cambia algo visible.
+  if (
+    patch.importe !== undefined ||
+    patch.fechaPago !== undefined ||
+    patch.metodo !== undefined
+  ) {
+    const fechaPago = patch.fechaPago ?? String(beforeFields["Fecha_Pago"] ?? "").slice(0, 10);
+    const metodo = patch.metodo ?? String(beforeFields["Metodo"] ?? "Otro");
+    const importe = patch.importe ?? importeAntes;
+    fields["Resumen"] = `${metodo} · ${fechaPago} · ${importe.toFixed(2)}€`;
+  }
+
+  const updated = (
+    await (base(TABLES.pagosPaciente as any) as any).update(
+      [{ id: pagoId, fields }],
+      { typecast: true },
+    )
+  )[0]!;
+
+  if (pacienteId) {
+    await syncPacienteCache(pacienteId, pagoId);
+  }
+  const importeDespues = Number(((updated.fields as any) ?? {})["Importe"] ?? 0) || 0;
+  await logAccionPago({
+    pagoId,
+    pacienteId,
+    tipo: "Editar",
+    importeAntes,
+    importeDespues,
+    usuarioId: context.usuarioId ?? null,
+    notaCambio: Object.keys(patch).join(", "),
+  });
+
+  return toPago(updated);
+}
+
+/**
+ * Sprint 14a Bloque 6 — elimina un pago. Recalcula cache. Audita.
+ */
+export async function eliminarPago(
+  pagoId: string,
+  context: { usuarioId?: string | null } = {},
+): Promise<void> {
+  const before = await base(TABLES.pagosPaciente as any).find(pagoId);
+  const beforeFields = before.fields as any;
+  const importeAntes = Number(beforeFields["Importe"] ?? 0) || 0;
+  const pacIds = (beforeFields["Paciente_Link"] ?? []) as string[];
+  const pacienteId =
+    String(beforeFields["Paciente_RecordId"] ?? "") || pacIds[0] || "";
+
+  await logAccionPago({
+    pagoId,
+    pacienteId,
+    tipo: "Eliminar",
+    importeAntes,
+    importeDespues: null,
+    usuarioId: context.usuarioId ?? null,
+    notaCambio: `Pago ${beforeFields["Tipo"] ?? ""} de ${importeAntes}€ eliminado`,
+  });
+  await base(TABLES.pagosPaciente as any).destroy([pagoId]);
+  if (pacienteId) {
+    await syncPacienteCache(pacienteId, pagoId);
+  }
+}
+
+/**
+ * Sprint 14a Bloque 6 — recompute Pacientes.Pagado/Pendiente para una
+ * lista de pacienteIds (o todos los listados en Inconsistencias_Pagos
+ * sin resolver, si no se pasan). Endpoint admin lo invoca.
+ */
+export async function reconciliarPagosCache(args: {
+  pacienteIds?: string[];
+}): Promise<{ procesados: number; ok: number; errores: number }> {
+  let pacienteIds = args.pacienteIds;
+  let inconsistenciaIds: string[] = [];
+  if (!pacienteIds) {
+    // Cargar todos los pacientes con Inconsistencias.Resuelto=false.
+    const recs = await fetchAll(
+      base(TABLES.inconsistenciasPagos as any).select({
+        filterByFormula: `NOT({Resuelto})`,
+        fields: ["Paciente_RecordId"],
+      }),
+    );
+    inconsistenciaIds = recs.map((r) => r.id);
+    pacienteIds = Array.from(
+      new Set(
+        recs
+          .map((r) => String(((r.fields as any) ?? {})["Paciente_RecordId"] ?? ""))
+          .filter(Boolean),
+      ),
+    );
+  }
+  let ok = 0;
+  let errores = 0;
+  for (const pid of pacienteIds) {
+    try {
+      const pagos = await getPagosByPaciente(pid);
+      const totalPagado = pagos.reduce((s, p) => s + (p.importe || 0), 0);
+      const pacRec = await base(TABLES.patients as any).find(pid);
+      const f = pacRec.fields as any;
+      const presupuesto = Number(f["Presupuesto_Total"] ?? 0) || 0;
+      const nuevoPendiente = Math.max(0, presupuesto - totalPagado);
+      await base(TABLES.patients as any).update(pid, {
+        Pagado: totalPagado,
+        Pendiente: nuevoPendiente,
+      } as any);
+      ok++;
+    } catch (err) {
+      console.error(
+        `[reconciliar] paciente ${pid}:`,
+        err instanceof Error ? err.message : err,
+      );
+      errores++;
+    }
+  }
+  // Marcar inconsistencias como resueltas (solo si no se pasaron pacIds
+  // a mano — en ese caso es reconciliacion manual, no la batch del log).
+  if (!args.pacienteIds && inconsistenciaIds.length > 0) {
+    for (let i = 0; i < inconsistenciaIds.length; i += 10) {
+      const slice = inconsistenciaIds.slice(i, i + 10);
+      try {
+        await base(TABLES.inconsistenciasPagos as any).update(
+          slice.map((id) => ({ id, fields: { Resuelto: true } })),
+        );
+      } catch { /* noop */ }
+    }
+  }
+  return { procesados: pacienteIds.length, ok, errores };
 }
 
 // ─── Util fechas ─────────────────────────────────────────────────────

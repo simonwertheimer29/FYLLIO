@@ -375,7 +375,9 @@ async function main() {
         importe: s.importePagado,
         fechaPago,
         metodo: "Tarjeta",
-        tipo: s.importePagado >= s.presupuestoTotal ? "Pago_Unico" : "Senal",
+        // Sprint 14a Bloque 6 — re-scope a 3 hitos: Liquidacion para
+        // pagos completos, Senal para anticipos parciales.
+        tipo: s.importePagado >= s.presupuestoTotal ? "Liquidacion" : "Senal",
         nota: NOTA_MARKER,
       });
       creados++;
