@@ -81,7 +81,8 @@ type SeedPaciente = {
     importe: number;
     diasAtras: number;
     metodo: "Tarjeta" | "Efectivo" | "Transferencia" | "Bizum" | "Financiacion";
-    tipo: "Pago_Unico" | "Cuota" | "Senal" | "Liquidacion";
+    // Sprint 14 Bloque 6 (re-scoped) — solo 3 hitos comerciales.
+    tipo: "Senal" | "Primer_Pago_Plan" | "Liquidacion";
     nota?: string;
   }>;
   acciones: Array<{
@@ -101,10 +102,11 @@ const SEEDS: SeedPaciente[] = [
     canal: "Instagram",
     tratamiento: "Implantología",
     presupuestoTotal: 4200,
+    // 2 hitos: señal + primer pago de plan. Pagos intermedios (cuotas
+    // mensuales sucesivas) ya no se registran en Fyllio (re-scope).
     pagos: [
       { importe: 1500, diasAtras: 35, metodo: "Tarjeta", tipo: "Senal", nota: "Señal inicio tratamiento" },
-      { importe: 1000, diasAtras: 21, metodo: "Tarjeta", tipo: "Cuota", nota: "Cuota 1/3" },
-      { importe: 1000, diasAtras: 7, metodo: "Tarjeta", tipo: "Cuota", nota: "Cuota 2/3" },
+      { importe: 1000, diasAtras: 21, metodo: "Tarjeta", tipo: "Primer_Pago_Plan", nota: "Primer pago plan 4 cuotas" },
     ],
     acciones: [
       { tipo: "Llamada", diasAtras: 45, detalles: "Llamada inicial, interesada en implante posterior derecho" },
@@ -124,7 +126,7 @@ const SEEDS: SeedPaciente[] = [
     tratamiento: "Ortodoncia Invisible",
     presupuestoTotal: 5500,
     pagos: [
-      { importe: 5500, diasAtras: 18, metodo: "Transferencia", tipo: "Pago_Unico", nota: "Pago al contado con descuento" },
+      { importe: 5500, diasAtras: 18, metodo: "Transferencia", tipo: "Liquidacion", nota: "Pago al contado con descuento" },
     ],
     acciones: [
       { tipo: "Llamada", diasAtras: 30, detalles: "Primera consulta, valora invisible vs brackets" },
@@ -143,7 +145,7 @@ const SEEDS: SeedPaciente[] = [
     presupuestoTotal: 1200,
     pagos: [
       { importe: 400, diasAtras: 14, metodo: "Efectivo", tipo: "Senal", nota: "Señal sesión inicial" },
-      { importe: 400, diasAtras: 7, metodo: "Tarjeta", tipo: "Cuota", nota: "Sesión 2/3" },
+      { importe: 400, diasAtras: 7, metodo: "Tarjeta", tipo: "Primer_Pago_Plan", nota: "Primer pago plan 3 sesiones" },
     ],
     acciones: [
       { tipo: "Llamada", diasAtras: 20, detalles: "Referida por su hermana (paciente activa)" },
@@ -177,7 +179,7 @@ const SEEDS: SeedPaciente[] = [
     tratamiento: "Endodoncia",
     presupuestoTotal: 480,
     pagos: [
-      { importe: 240, diasAtras: 11, metodo: "Tarjeta", tipo: "Cuota", nota: "Primera sesión endodoncia" },
+      { importe: 240, diasAtras: 11, metodo: "Tarjeta", tipo: "Primer_Pago_Plan", nota: "Primer pago plan endodoncia" },
       { importe: 240, diasAtras: 3, metodo: "Tarjeta", tipo: "Liquidacion", nota: "Sesión final + corona provisional" },
     ],
     acciones: [
