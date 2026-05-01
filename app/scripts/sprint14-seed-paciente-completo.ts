@@ -387,8 +387,13 @@ async function main() {
           ? `${NOTA_MARKER}\n\n${s.notaPaciente}`
           : NOTA_MARKER,
       });
-      // 4) lead.convertido = true + Paciente_ID link.
+      // 4) lead.convertido = true + Paciente_ID link + Estado=Convertido.
+      // markLeadConvertido solo setea Convertido_A_Paciente y Paciente_ID;
+      // dejamos Estado='Citado' por defecto, lo cual rompe el flujo
+      // realista de QA (coordinadora espera ver 'Convertido' en kanban).
+      // Forzamos el estado explicito tras la conversion.
       await markLeadConvertido(lead.id, paciente.id);
+      await updateLead(lead.id, { estado: "Convertido" });
       // 5) presupuesto record con Estado=ACEPTADO + Fecha_Aceptado.
       const fechaAlta = shiftDay(s.acciones[0]?.diasAtras ?? 30);
       const fechaAceptado = shiftDay(
