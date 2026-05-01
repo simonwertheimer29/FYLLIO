@@ -454,7 +454,19 @@ function LeadAccionRow({
   return (
     <AccionCard
       borderColor={priority.borderColor}
-      title={lead.nombre}
+      title={
+        lead.convertido && lead.pacienteId ? (
+          <a
+            href={`/pacientes/${lead.pacienteId}`}
+            onClick={(e) => e.stopPropagation()}
+            className="hover:text-sky-700 hover:underline"
+          >
+            {lead.nombre}
+          </a>
+        ) : (
+          lead.nombre
+        )
+      }
       titleRight={
         <div className="flex items-center gap-2">
           {isCitadoHoy && lead.horaCita && (

@@ -416,7 +416,15 @@ export default function MaximaView({
                   </td>
                   {/* Paciente */}
                   <td className="truncate px-3 py-2.5 font-medium text-slate-800">
-                    {p.patientName}
+                    {/* Sprint 14a Bloque 1.5 — link al hub del paciente
+                        vía redirect legacy (resuelve nombre→id en server). */}
+                    <a
+                      href={`/presupuestos/paciente/${encodeURIComponent(p.patientName)}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="hover:text-sky-700 hover:underline"
+                    >
+                      {p.patientName}
+                    </a>
                   </td>
                   {/* Doctor */}
                   <td className="truncate px-3 py-2.5 text-slate-600">

@@ -11,8 +11,9 @@ type Tag = { label: string; tone?: "neutral" | "violet" | "sky" | "rose" };
 export type AccionCardProps = {
   /** Color del borde-izq de urgencia (rojo/naranja/ámbar/gris). */
   borderColor: string;
-  /** Línea principal — nombre del paciente o lead. */
-  title: string;
+  /** Línea principal — nombre del paciente o lead. Acepta string o
+   *  ReactNode para permitir wraps con links (Sprint 14a Bloque 1.5). */
+  title: React.ReactNode;
   /** Lado derecho del título (importe €, hora cita, etc). */
   titleRight?: React.ReactNode;
   /** Score 0-100 con barrita y número. Opcional. */

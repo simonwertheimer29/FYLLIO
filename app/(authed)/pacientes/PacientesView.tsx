@@ -3,6 +3,7 @@
 // Sprint 8 Bloque C — tabla de Pacientes con KPIs + filtros + edición inline.
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useClinic } from "../../lib/context/ClinicContext";
 
 type Paciente = {
@@ -210,7 +211,12 @@ export function PacientesView({
                 return (
                   <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50/40">
                     <Td>
-                      <p className="font-semibold text-slate-900">{p.nombre}</p>
+                      <Link
+                        href={`/pacientes/${p.id}`}
+                        className="font-semibold text-slate-900 hover:text-sky-700 hover:underline transition-colors"
+                      >
+                        {p.nombre}
+                      </Link>
                       {p.telefono && (
                         <p className="text-[10px] text-slate-500 font-mono">{p.telefono}</p>
                       )}

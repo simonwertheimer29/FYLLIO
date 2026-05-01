@@ -601,7 +601,18 @@ function LeadCardBody({ lead }: { lead: Lead }) {
       }}
       className="rounded-xl bg-white border p-3 text-xs hover:[border-color:var(--card-border-hover)] hover:[box-shadow:var(--card-shadow-hover)] transition-[box-shadow,border-color] duration-150 cursor-pointer"
     >
-      <p className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight">{lead.nombre}</p>
+      {/* Sprint 14a Bloque 1.5 — leads convertidos enlazan al Paciente360. */}
+      {lead.convertido && lead.pacienteId ? (
+        <a
+          href={`/pacientes/${lead.pacienteId}`}
+          onClick={(e) => e.stopPropagation()}
+          className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight hover:text-sky-700 hover:underline block"
+        >
+          {lead.nombre}
+        </a>
+      ) : (
+        <p className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight">{lead.nombre}</p>
+      )}
 
       <div className="flex flex-wrap gap-1 mt-1.5">
         {lead.canal && (
