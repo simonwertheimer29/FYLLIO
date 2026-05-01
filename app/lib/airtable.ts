@@ -47,6 +47,9 @@ export const TABLES = {
   plantillasLead: "Plantillas_Lead",
   // Sprint 13.1 Bloque 0 — log estructurado de pagos de paciente
   pagosPaciente: "Pagos_Paciente",
+  // Sprint 14a Bloque 6 — auditoria CRUD pagos + log inconsistencias cache
+  accionesPago: "Acciones_Pago",
+  inconsistenciasPagos: "Inconsistencias_Pagos",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];
