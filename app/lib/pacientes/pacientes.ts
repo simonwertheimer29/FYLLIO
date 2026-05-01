@@ -115,6 +115,11 @@ export async function listPacientes(params: ListPacientesParams = {}): Promise<P
   if (params.fechaHasta) {
     pacientes = pacientes.filter((p) => p.createdAt <= params.fechaHasta!);
   }
+  // Sprint 14a Bloque 1.5 hotfix — orden por createdTime desc (mas
+  // reciente primero) en la lista de Pacientes_Asistidos. Aplicamos
+  // sort en JS porque createdAt se deriva de _rawJson.createdTime
+  // (no es un field de Airtable que podamos pasar a select.sort).
+  pacientes.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return pacientes;
 }
 
