@@ -15,7 +15,34 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Pago } from "../../lib/pagos";
+import type { Pago, TipoPago, MetodoPago } from "../../lib/pagos";
+
+// Sprint 14a Bloque 6 — re-scope a 3 hitos comerciales.
+const TIPOS_PAGO_OPTS: Array<{ value: TipoPago; label: string; help: string }> = [
+  {
+    value: "Senal",
+    label: "Señal",
+    help: "Anticipo al firmar el presupuesto. Inicia el compromiso del paciente.",
+  },
+  {
+    value: "Primer_Pago_Plan",
+    label: "Primer pago de plan",
+    help: "Primer movimiento del plan de pagos. Arranca el tratamiento.",
+  },
+  {
+    value: "Liquidacion",
+    label: "Liquidación",
+    help: "Pago final del importe restante.",
+  },
+];
+const METODOS_PAGO_OPTS: MetodoPago[] = [
+  "Efectivo",
+  "Tarjeta",
+  "Transferencia",
+  "Bizum",
+  "Financiacion",
+  "Otro",
+];
 
 // ─── Tipos del payload del endpoint ────────────────────────────────────
 
@@ -164,6 +191,14 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("resumen");
+  // Sprint 14a Bloque 6 — modales CRUD pago.
+  const [pagoModal, setPagoModal] = useState<
+    | { mode: "create" }
+    | { mode: "edit"; pago: Pago }
+    | { mode: "delete"; pago: Pago }
+    | null
+  >(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -189,7 +224,7 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
     return () => {
       cancelled = true;
     };
-  }, [pacienteId]);
+  }, [pacienteId, reloadKey]);
 
   const tabCounts = useMemo(() => {
     if (!data) return { presupuestos: 0, pagos: 0, acciones: 0 };
@@ -298,6 +333,9 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
             kpis={kpisPagos}
             usuariosNombres={usuariosNombres}
             paciente={paciente}
+            onCreate={() => setPagoModal({ mode: "create" })}
+            onEdit={(p) => setPagoModal({ mode: "edit", pago: p })}
+            onDelete={(p) => setPagoModal({ mode: "delete", pago: p })}
           />
         )}
         {activeTab === "acciones" && (
@@ -307,6 +345,42 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
           <NotasTab paciente={paciente} presupuestos={presupuestos} />
         )}
       </div>
+
+      {/* Modales CRUD pago — Sprint 14a Bloque 6 */}
+      {pagoModal?.mode === "create" && (
+        <PagoModal
+          mode="create"
+          pacienteId={paciente.id}
+          onClose={() => setPagoModal(null)}
+          onDone={() => {
+            setPagoModal(null);
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      )}
+      {pagoModal?.mode === "edit" && (
+        <PagoModal
+          mode="edit"
+          pacienteId={paciente.id}
+          pago={pagoModal.pago}
+          onClose={() => setPagoModal(null)}
+          onDone={() => {
+            setPagoModal(null);
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      )}
+      {pagoModal?.mode === "delete" && (
+        <DeletePagoDialog
+          pacienteId={paciente.id}
+          pago={pagoModal.pago}
+          onClose={() => setPagoModal(null)}
+          onDone={() => {
+            setPagoModal(null);
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -513,11 +587,17 @@ function PagosTab({
   kpis,
   usuariosNombres,
   paciente,
+  onCreate,
+  onEdit,
+  onDelete,
 }: {
   pagos: Pago[];
   kpis: Paciente360Payload["kpisPagos"];
   usuariosNombres: Record<string, string>;
   paciente: PacientePayload;
+  onCreate: () => void;
+  onEdit: (pago: Pago) => void;
+  onDelete: (pago: Pago) => void;
 }) {
   const fmtEUR = (n: number) => `€${n.toLocaleString("es-ES")}`;
   const ultimoLabel = (() => {
@@ -559,56 +639,360 @@ function PagosTab({
         <Card label="Último pago" value={ultimoLabel} />
       </div>
 
+      {/* Banner de posicionamiento — Sprint 14a Bloque 6 */}
+      <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-[11px] text-slate-500 leading-relaxed">
+        Fyllio registra los <span className="font-semibold text-slate-700">hitos comerciales</span> del cobro
+        (señal, primer pago de plan, liquidación). Los pagos intermedios del tratamiento
+        se gestionan en tu software clínico (Gesden u otro).
+      </div>
+
       <div className="flex justify-end">
         <button
-          disabled
-          title="Disponible cuando se cierre el Bloque 6 (CRUD pagos)."
-          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200"
+          onClick={onCreate}
+          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors"
         >
           + Registrar pago
         </button>
       </div>
 
       {pagos.length === 0 ? (
-        <Empty icon="💳" titulo="Sin pagos registrados" texto="El historial financiero del paciente aparecerá aquí." />
+        <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center">
+          <div className="text-3xl mb-2">💳</div>
+          <p className="text-sm font-semibold text-slate-700">Sin pagos registrados</p>
+          <p className="text-xs text-slate-400 mt-1">
+            El historial financiero del paciente aparecerá aquí.
+          </p>
+          <button
+            onClick={onCreate}
+            className="mt-4 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors"
+          >
+            Registrar primer pago
+          </button>
+        </div>
       ) : (
         <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
           <p className="px-4 py-3 text-xs font-bold text-slate-700 border-b border-slate-100 uppercase tracking-wide">
             Historial ({pagos.length})
           </p>
           <div className="divide-y divide-slate-50">
-            {pagos.map((p) => (
-              <div key={p.id} className="px-4 py-3 flex items-start gap-3">
-                <span
-                  className={`mt-1.5 inline-block h-2 w-2 rounded-full shrink-0 ${TIPO_PAGO_DOT[p.tipo] ?? "bg-slate-400"}`}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-baseline gap-2 flex-wrap">
-                    <p className="text-base font-bold text-slate-900">
-                      €{p.importe.toLocaleString("es-ES")}
+            {pagos.map((p) => {
+              const isMigrated = (p.nota ?? "").includes("[MIGRADO Sprint 13.1]");
+              return (
+                <div key={p.id} className="px-4 py-3 flex items-start gap-3 group">
+                  <span
+                    className={`mt-1.5 inline-block h-2 w-2 rounded-full shrink-0 ${TIPO_PAGO_DOT[p.tipo] ?? "bg-slate-400"}`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline gap-2 flex-wrap">
+                      <p className="text-base font-bold text-slate-900">
+                        €{p.importe.toLocaleString("es-ES")}
+                      </p>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                        {TIPO_PAGO_LABEL[p.tipo] ?? p.tipo}
+                      </span>
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 border border-slate-100">
+                        {p.metodo}
+                      </span>
+                      {isMigrated && (
+                        <span
+                          className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100"
+                          title="Pago histórico migrado, edita con cuidado."
+                        >
+                          migrado
+                        </span>
+                      )}
+                    </div>
+                    {p.nota && (
+                      <p className="text-xs text-slate-600 italic mt-1 line-clamp-2">{p.nota}</p>
+                    )}
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Registrado por {resolveUsuario(p.usuarioCreadorId, usuariosNombres)}
                     </p>
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                      {TIPO_PAGO_LABEL[p.tipo] ?? p.tipo}
-                    </span>
-                    <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 border border-slate-100">
-                      {p.metodo}
-                    </span>
                   </div>
-                  {p.nota && (
-                    <p className="text-xs text-slate-600 italic mt-1 line-clamp-2">{p.nota}</p>
-                  )}
-                  <p className="text-[11px] text-slate-400 mt-1">
-                    Registrado por {resolveUsuario(p.usuarioCreadorId, usuariosNombres)}
-                  </p>
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <p className="text-xs text-slate-500 font-medium">
+                      {formatFecha(p.fechaPago)}
+                    </p>
+                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button
+                        onClick={() => onEdit(p)}
+                        className="text-[10px] text-slate-500 hover:text-slate-900 px-1.5 py-0.5 rounded hover:bg-slate-100"
+                        title="Editar pago"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => onDelete(p)}
+                        className="text-[10px] text-rose-500 hover:text-rose-700 px-1.5 py-0.5 rounded hover:bg-rose-50"
+                        title="Eliminar pago"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <p className="text-xs text-slate-500 shrink-0 font-medium">
-                  {formatFecha(p.fechaPago)}
-                </p>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Modales CRUD pago — Sprint 14a Bloque 6 ───────────────────────────
+
+function PagoModal({
+  mode,
+  pacienteId,
+  pago,
+  onClose,
+  onDone,
+}: {
+  mode: "create" | "edit";
+  pacienteId: string;
+  pago?: Pago;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [importe, setImporte] = useState<string>(
+    pago ? String(pago.importe) : "",
+  );
+  const [fechaPago, setFechaPago] = useState<string>(
+    pago?.fechaPago ?? new Date().toISOString().slice(0, 10),
+  );
+  const [metodo, setMetodo] = useState<MetodoPago>(pago?.metodo ?? "Tarjeta");
+  const [tipo, setTipo] = useState<TipoPago>(pago?.tipo ?? "Senal");
+  const [nota, setNota] = useState<string>(pago?.nota ?? "");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isMigrated = pago && (pago.nota ?? "").includes("[MIGRADO Sprint 13.1]");
+  const tipoCfg = TIPOS_PAGO_OPTS.find((t) => t.value === tipo);
+
+  async function handleSubmit() {
+    const importeNum = Number(importe.replace(",", "."));
+    if (!Number.isFinite(importeNum) || importeNum <= 0) {
+      setError("Importe debe ser un número > 0");
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaPago)) {
+      setError("Fecha inválida (YYYY-MM-DD)");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const url =
+        mode === "create"
+          ? `/api/pacientes/${pacienteId}/pagos`
+          : `/api/pacientes/${pacienteId}/pagos/${pago!.id}`;
+      const method = mode === "create" ? "POST" : "PATCH";
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          importe: importeNum,
+          fechaPago,
+          metodo,
+          tipo,
+          nota: nota || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(`HTTP ${res.status}${txt ? ` · ${txt.slice(0, 100)}` : ""}`);
+      }
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al guardar");
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h3 className="font-semibold text-slate-900">
+            {mode === "create" ? "Registrar pago" : "Editar pago"}
+          </h3>
+          {isMigrated && (
+            <p className="text-[11px] text-amber-700 mt-1">
+              ⚠ Pago histórico migrado, edita con cuidado.
+            </p>
+          )}
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
+                Importe (€)
+              </label>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.01"
+                value={importe}
+                onChange={(e) => setImporte(e.target.value)}
+                className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
+                Fecha
+              </label>
+              <input
+                type="date"
+                value={fechaPago}
+                onChange={(e) => setFechaPago(e.target.value)}
+                className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
+                Método
+              </label>
+              <select
+                value={metodo}
+                onChange={(e) => setMetodo(e.target.value as MetodoPago)}
+                className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none"
+              >
+                {METODOS_PAGO_OPTS.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
+                Tipo
+              </label>
+              <select
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value as TipoPago)}
+                className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none"
+              >
+                {TIPOS_PAGO_OPTS.map((t) => (
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              {tipoCfg && (
+                <p className="text-[10px] text-slate-400 mt-1 leading-snug">{tipoCfg.help}</p>
+              )}
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
+              Nota (opcional)
+            </label>
+            <textarea
+              value={nota}
+              onChange={(e) => setNota(e.target.value)}
+              rows={2}
+              className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none resize-none"
+            />
+          </div>
+          {error && (
+            <p className="text-xs text-rose-700 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+        </div>
+        <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-lg disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+          >
+            {submitting
+              ? "Guardando…"
+              : mode === "create"
+              ? "Guardar pago"
+              : "Guardar cambios"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DeletePagoDialog({
+  pacienteId,
+  pago,
+  onClose,
+  onDone,
+}: {
+  pacienteId: string;
+  pago: Pago;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function handleDelete() {
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/pacientes/${pacienteId}/pagos/${pago.id}`,
+        { method: "DELETE" },
+      );
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(`HTTP ${res.status}${txt ? ` · ${txt.slice(0, 100)}` : ""}`);
+      }
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al eliminar");
+      setSubmitting(false);
+    }
+  }
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-5">
+        <h3 className="font-semibold text-slate-900 text-sm">¿Eliminar este pago?</h3>
+        <p className="text-xs text-slate-600 mt-2">
+          Pago de <span className="font-semibold">€{pago.importe.toLocaleString("es-ES")}</span>{" "}
+          del {formatFecha(pago.fechaPago)} ({TIPO_PAGO_LABEL[pago.tipo] ?? pago.tipo}).
+        </p>
+        <p className="text-xs text-slate-500 mt-2">
+          Esta acción ajustará el total pagado del paciente.
+        </p>
+        {error && (
+          <p className="text-xs text-rose-700 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2 mt-3">
+            {error}
+          </p>
+        )}
+        <div className="flex justify-end gap-2 mt-5">
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-lg disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleDelete}
+            disabled={submitting}
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50"
+          >
+            {submitting ? "Eliminando…" : "Eliminar"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
