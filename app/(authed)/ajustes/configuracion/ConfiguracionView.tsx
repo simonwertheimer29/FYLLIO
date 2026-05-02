@@ -242,13 +242,9 @@ function CategoriaPanel({
   }
 
   if (categoria === "Plantillas_Scope") {
-    return (
-      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-sm text-amber-800">
-        La gestión de plantillas WhatsApp se cierra en el Bloque 4 del Sprint 14b
-        (recordatorios de cobro). Por ahora, edita las plantillas legacy desde la
-        tabla <code className="text-[11px]">Plantillas_Mensaje</code> de Airtable.
-      </div>
-    );
+    // Sprint 14b Bloque 4 — UI funcional de plantillas. El scope viene
+    // de la prop `scope` del wrapper (global o clinicaId).
+    return <PlantillasPanel scope={scope} />;
   }
 
   return (
@@ -543,6 +539,432 @@ function PlazoSinglePanel({
           </>
         )}
       </p>
+    </div>
+  );
+}
+
+// ─── Plantillas WhatsApp panel — Sprint 14b Bloque 4 ───────────────────
+
+type PlantillaCategoria = "cobranza" | "lead_seguimiento" | "cita_recordatorio";
+
+type Plantilla = {
+  id: string;
+  nombre: string;
+  categoria: PlantillaCategoria;
+  contenido: string;
+  variablesDetectadas: string[];
+  clinicaId: string | null;
+  activa: boolean;
+};
+
+const PLANTILLA_CATEGORIAS: Array<{ key: PlantillaCategoria; label: string }> = [
+  { key: "cobranza", label: "Cobranza" },
+  { key: "lead_seguimiento", label: "Seguimiento leads" },
+  { key: "cita_recordatorio", label: "Recordatorios cita" },
+];
+
+function PlantillasPanel({ scope }: { scope: Scope }) {
+  const [filtroCategoria, setFiltroCategoria] = useState<PlantillaCategoria>("cobranza");
+  const [plantillas, setPlantillas] = useState<Plantilla[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Plantilla | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const isAdmin = true; // El layout /ajustes solo deja entrar a admin (Sprint 7).
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    const params = new URLSearchParams();
+    if (scope !== "global") params.set("clinicaId", scope);
+    params.set("categoria", filtroCategoria);
+    params.set("all", "true");
+    fetch(`/api/plantillas?${params.toString()}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((j) => {
+        if (cancelled) return;
+        setPlantillas(j.plantillas ?? []);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : "Error al cargar");
+      })
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [scope, filtroCategoria, reloadKey]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
+          Categoría
+        </label>
+        <select
+          value={filtroCategoria}
+          onChange={(e) => setFiltroCategoria(e.target.value as PlantillaCategoria)}
+          className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none"
+        >
+          {PLANTILLA_CATEGORIAS.map((c) => (
+            <option key={c.key} value={c.key}>
+              {c.label}
+            </option>
+          ))}
+        </select>
+        <div className="flex-1" />
+        {isAdmin && (
+          <button
+            onClick={() => setCreating(true)}
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800"
+          >
+            + Añadir plantilla
+          </button>
+        )}
+      </div>
+
+      {error && (
+        <p className="text-xs text-rose-700 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+          {error}
+        </p>
+      )}
+      {loading ? (
+        <p className="text-sm text-slate-400 animate-pulse">Cargando…</p>
+      ) : plantillas.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-sm text-slate-400">
+          No hay plantillas en esta categoría todavía.
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          <ul className="divide-y divide-slate-50">
+            {plantillas.map((p) => (
+              <PlantillaRow
+                key={p.id}
+                plantilla={p}
+                isGlobalReference={scope !== "global" && p.clinicaId === null}
+                onEdit={() => setEditing(p)}
+                onChanged={() => setReloadKey((k) => k + 1)}
+              />
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {editing && (
+        <PlantillaEditor
+          plantilla={editing}
+          scope={scope}
+          mode="edit"
+          onClose={() => setEditing(null)}
+          onDone={() => {
+            setEditing(null);
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      )}
+      {creating && (
+        <PlantillaEditor
+          mode="create"
+          defaultCategoria={filtroCategoria}
+          scope={scope}
+          onClose={() => setCreating(false)}
+          onDone={() => {
+            setCreating(false);
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function PlantillaRow({
+  plantilla,
+  isGlobalReference,
+  onEdit,
+  onChanged,
+}: {
+  plantilla: Plantilla;
+  isGlobalReference: boolean;
+  onEdit: () => void;
+  onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  async function toggleActiva() {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/plantillas/${plantilla.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ activa: !plantilla.activa }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      onChanged();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error al guardar");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <li className="px-4 py-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-semibold text-sm text-slate-800">{plantilla.nombre}</p>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+              {plantilla.categoria}
+            </span>
+            {isGlobalReference && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+                default
+              </span>
+            )}
+            {!plantilla.activa && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700">
+                inactiva
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-slate-600 mt-1 line-clamp-2 whitespace-pre-wrap">
+            {plantilla.contenido}
+          </p>
+          {plantilla.variablesDetectadas.length > 0 && (
+            <p className="text-[10px] text-slate-400 mt-1">
+              Variables: {plantilla.variablesDetectadas.join(", ")}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <label className="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={plantilla.activa}
+              disabled={busy}
+              onChange={toggleActiva}
+            />
+            Activa
+          </label>
+          <button
+            onClick={onEdit}
+            className="text-xs text-slate-600 hover:text-slate-900 px-1.5 py-0.5 rounded hover:bg-slate-100"
+          >
+            Editar
+          </button>
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function PlantillaEditor({
+  mode,
+  plantilla,
+  scope,
+  defaultCategoria,
+  onClose,
+  onDone,
+}: {
+  mode: "create" | "edit";
+  plantilla?: Plantilla;
+  scope: Scope;
+  defaultCategoria?: PlantillaCategoria;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [nombre, setNombre] = useState(plantilla?.nombre ?? "");
+  const [categoria, setCategoria] = useState<PlantillaCategoria>(
+    plantilla?.categoria ?? defaultCategoria ?? "cobranza",
+  );
+  const [contenido, setContenido] = useState(plantilla?.contenido ?? "");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string>("");
+  const [previewBusy, setPreviewBusy] = useState(false);
+
+  // Preview en vivo (debounced 300ms).
+  useEffect(() => {
+    if (!contenido.trim()) {
+      setPreview("");
+      return;
+    }
+    setPreviewBusy(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/plantillas/preview`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contenido }),
+        });
+        if (!res.ok) throw new Error();
+        const j = await res.json();
+        setPreview(String(j.texto ?? ""));
+      } catch {
+        setPreview("(no se pudo generar preview)");
+      } finally {
+        setPreviewBusy(false);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [contenido]);
+
+  async function handleSubmit() {
+    if (!nombre.trim()) {
+      setError("Nombre requerido");
+      return;
+    }
+    if (!contenido.trim()) {
+      setError("Contenido requerido");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      if (mode === "create") {
+        const res = await fetch(`/api/plantillas`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nombre: nombre.trim(),
+            categoria,
+            contenido,
+            clinicaId: scope === "global" ? null : scope,
+          }),
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          throw new Error(`HTTP ${res.status}${txt ? ` · ${txt.slice(0, 80)}` : ""}`);
+        }
+      } else {
+        const res = await fetch(`/api/plantillas/${plantilla!.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            nombre: nombre.trim(),
+            categoria,
+            contenido,
+          }),
+        });
+        if (!res.ok) {
+          const txt = await res.text().catch(() => "");
+          throw new Error(`HTTP ${res.status}${txt ? ` · ${txt.slice(0, 80)}` : ""}`);
+        }
+      }
+      onDone();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al guardar");
+      setSubmitting(false);
+    }
+  }
+
+  const isGlobalReadOnly =
+    mode === "edit" && plantilla?.clinicaId === null && scope !== "global";
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="px-5 py-4 border-b border-slate-100">
+          <h3 className="font-semibold text-slate-900">
+            {mode === "create" ? "Nueva plantilla" : "Editar plantilla"}
+          </h3>
+          {isGlobalReadOnly && (
+            <p className="text-[11px] text-amber-700 mt-1">
+              ⚠ Esta es una plantilla global. Solo puedes editarla con scope
+              &quot;Defaults globales&quot;. Para personalizarla en esta clínica,
+              crea una plantilla nueva con el mismo nombre.
+            </p>
+          )}
+        </div>
+        <div className="p-5 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
+                Nombre
+              </label>
+              <input
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                disabled={isGlobalReadOnly}
+                placeholder="ej. recordatorio_senal"
+                className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
+                Categoría
+              </label>
+              <select
+                value={categoria}
+                onChange={(e) => setCategoria(e.target.value as PlantillaCategoria)}
+                disabled={isGlobalReadOnly}
+                className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
+              >
+                {PLANTILLA_CATEGORIAS.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
+              Cuerpo del mensaje
+            </label>
+            <textarea
+              value={contenido}
+              onChange={(e) => setContenido(e.target.value)}
+              disabled={isGlobalReadOnly}
+              rows={6}
+              placeholder="Hola {{nombre}}, tu presupuesto de {{importe}}€..."
+              className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm font-mono focus:border-slate-400 focus:outline-none resize-y disabled:bg-slate-50 disabled:text-slate-400"
+            />
+            <p className="text-[10px] text-slate-400 mt-1">
+              Variables: {"{{nombre}} {{importe}} {{tratamiento}} {{nombre_doctor}} {{nombre_clinica}} {{fecha_aceptado}} {{plazo_dias}} {{dias_vencido}}"}
+            </p>
+          </div>
+          <div>
+            <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
+              Preview con paciente real
+            </label>
+            <div className="mt-1 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-700 whitespace-pre-wrap min-h-[60px]">
+              {previewBusy ? (
+                <span className="text-slate-400 italic">generando…</span>
+              ) : preview ? (
+                preview
+              ) : (
+                <span className="text-slate-400 italic">
+                  Escribe el cuerpo arriba para ver el preview con datos reales.
+                </span>
+              )}
+            </div>
+          </div>
+          {error && (
+            <p className="text-xs text-rose-700 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+              {error}
+            </p>
+          )}
+        </div>
+        <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            disabled={submitting}
+            className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-lg disabled:opacity-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={submitting || isGlobalReadOnly}
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+          >
+            {submitting ? "Guardando…" : mode === "create" ? "Crear plantilla" : "Guardar cambios"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
