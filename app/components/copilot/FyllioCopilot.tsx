@@ -11,7 +11,8 @@
 //      detail: { context: {...}, initialAssistantMessage: "..." }
 //    }));
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import type {
   CopilotAction,
@@ -22,6 +23,47 @@ import type {
 } from "./types";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { Sparkles, ArrowUp, X, Wrench, ICON_STROKE } from "../icons";
+
+// ─── Sprint 14b Bloque 8 — patient mention parser ──────────────────────
+//
+// Convención: el LLM emite menciones de paciente como markdown-link
+// con el scheme `paciente:` — `[Nombre Paciente](paciente:recXXX)`.
+// El parser convierte cada match en un <Link href="/pacientes/recXXX">
+// y deja el resto como texto plano. Cubre el caso "Bloque 1.5 dejó
+// abierto: mentions del Copilot clicables".
+//
+// Si el LLM no usa el scheme, el render fallback es texto plano (sin
+// disrupción).
+
+const PACIENTE_MENTION_RE = /\[([^\]]+)\]\(paciente:(rec[A-Za-z0-9]+)\)/g;
+
+function renderAssistantContent(text: string): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  let lastIdx = 0;
+  let m: RegExpExecArray | null;
+  PACIENTE_MENTION_RE.lastIndex = 0;
+  let key = 0;
+  while ((m = PACIENTE_MENTION_RE.exec(text)) !== null) {
+    const [match, label, pacienteId] = m;
+    if (m.index > lastIdx) {
+      out.push(<Fragment key={key++}>{text.slice(lastIdx, m.index)}</Fragment>);
+    }
+    out.push(
+      <Link
+        key={key++}
+        href={`/pacientes/${pacienteId}`}
+        className="text-violet-700 font-medium underline decoration-violet-300 hover:decoration-violet-700"
+      >
+        {label}
+      </Link>,
+    );
+    lastIdx = m.index + match.length;
+  }
+  if (lastIdx < text.length) {
+    out.push(<Fragment key={key++}>{text.slice(lastIdx)}</Fragment>);
+  }
+  return out;
+}
 
 type OpenEventDetail = {
   context?: CopilotContextSnapshot;
@@ -373,7 +415,9 @@ function ChatBubble({
           <ToolCallsTrace trace={message.toolCallsTrace} />
         )}
         <div className="px-3 py-2 bg-white text-slate-900 border border-slate-100 rounded-2xl rounded-tl-sm shadow-[var(--card-shadow-rest)]">
-        <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
+        <p className="text-[13px] leading-relaxed whitespace-pre-wrap">
+          {renderAssistantContent(message.content)}
+        </p>
         {message.actions && message.actions.length > 0 && (
           <div className="mt-2 flex flex-col gap-1.5">
             {message.actions.map((a) => {
