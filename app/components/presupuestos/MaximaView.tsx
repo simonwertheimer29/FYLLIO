@@ -40,45 +40,11 @@ function formatDate(iso: string): string {
 }
 
 // ─── CSV Export ──────────────────────────────────────────────────────────────
-
-function exportCSV(items: PresupuestoMaxima[]) {
-  const BOM = "\uFEFF";
-  const SEP = ";";
-  const headers = [
-    "Fecha", "Paciente", "Doctor", "Tratamiento", "Importe",
-    "Estado", "Estado Visual", "Clínica", "Última Acción",
-    "Próxima Acción", "Urgencia", "Días Activo", "Contactos",
-  ];
-
-  const rows = items.map((p) => [
-    p.fechaPresupuesto,
-    p.patientName,
-    p.doctor ?? "",
-    p.treatments.join(", "),
-    p.amount != null ? String(p.amount).replace(".", ",") : "",
-    p.estado,
-    p.estadoVisual,
-    p.clinica ?? "",
-    p.ultimaAccionTexto ?? "",
-    p.proximaAccionTexto ?? "",
-    String(p.urgencyScore),
-    String(p.daysSince),
-    String(p.contactCount),
-  ]);
-
-  const csv = BOM + [headers, ...rows].map((r) =>
-    r.map((c) => `"${c.replace(/"/g, '""')}"`).join(SEP)
-  ).join("\n");
-
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  const today = new Date().toISOString().slice(0, 10);
-  a.href = url;
-  a.download = `presupuestos_maxima_${today}.csv`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
+//
+// Sprint 14b Bloque 7 — la generacion del CSV vive ahora en
+// /api/export/presupuestos.csv (server-side, formato Excel ES con
+// columnas oficiales). El click descarga directamente desde el endpoint
+// con filtros opcionales (clinicaId del ClinicContext, estado).
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -89,7 +55,7 @@ export default function MaximaView({
   user: UserSession;
   onOpenDrawer: (p: PresupuestoIntervencion) => void;
 }) {
-  const { selectedClinicaNombre } = useClinic();
+  const { selectedClinicaNombre, selectedClinicaId } = useClinic();
   const [data, setData] = useState<MaximaResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -255,12 +221,10 @@ export default function MaximaView({
             </p>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => exportCSV(filtered)}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
-            >
-              Exportar CSV
-            </button>
+            <ExportCsvButton
+              clinicaId={selectedClinicaId}
+              estado={pillActiva === "todos" ? null : null /* pillActiva no mapea 1:1 a Estado; lo cubre el server */}
+            />
             <button
               onClick={fetchData}
               className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
@@ -488,5 +452,60 @@ export default function MaximaView({
         </table>
       </div>
     </div>
+  );
+}
+
+// ─── ExportCsvButton — Sprint 14b Bloque 7 ────────────────────────────
+// Llama al endpoint server-side /api/export/presupuestos.csv (formato
+// Excel ES, columnas oficiales). Loading state mientras la respuesta
+// no llega; cuando llega el body, lo convierte en blob y dispara
+// download con el filename del header Content-Disposition.
+
+function ExportCsvButton({
+  clinicaId,
+  estado,
+}: {
+  clinicaId: string | null;
+  estado: string | null;
+}) {
+  const [busy, setBusy] = useState(false);
+  async function handleClick() {
+    setBusy(true);
+    try {
+      const params = new URLSearchParams();
+      if (clinicaId) params.set("clinicaId", clinicaId);
+      if (estado) params.set("estado", estado);
+      const url = `/api/export/presupuestos.csv${params.toString() ? `?${params.toString()}` : ""}`;
+      const res = await fetch(url);
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(`HTTP ${res.status}${txt ? ` · ${txt.slice(0, 80)}` : ""}`);
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get("content-disposition") ?? "";
+      const filenameMatch = cd.match(/filename="([^"]+)"/i);
+      const today = new Date().toISOString().slice(0, 10);
+      const filename = filenameMatch?.[1] ?? `fyllio_presupuestos_${today}.csv`;
+      const objUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = objUrl;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(objUrl);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Error al exportar CSV");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <button
+      onClick={handleClick}
+      disabled={busy}
+      title="Descarga CSV (Excel español, UTF-8)."
+      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-wait"
+    >
+      {busy ? "Generando…" : "↓ Exportar CSV"}
+    </button>
   );
 }
