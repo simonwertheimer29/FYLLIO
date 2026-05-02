@@ -24,6 +24,12 @@ import { listClinicaIdsForUser } from "../auth/users";
 import { getLead, updateLead, appendLeadLog } from "../leads/leads";
 import { logAccionLead } from "../leads/acciones";
 import { getServicioMensajeria, type EnviarMensajeParams } from "../presupuestos/mensajeria";
+import { getPaciente } from "../pacientes/pacientes";
+import { crearPago, type TipoPago } from "../pagos";
+import {
+  renderizarPlantilla,
+  getPlantillasActivas,
+} from "../plantillas/plantillas";
 import type { Session } from "../auth/session";
 import type { CopilotAction } from "../../components/copilot/types";
 
@@ -320,6 +326,227 @@ async function execMarcarAtendido(env: ExecEnv, p: any): Promise<ExecResult> {
   }
 }
 
+// ═══ Sprint 14b Bloque 8 — modulo financiero ═══════════════════════════
+
+async function ensurePacienteAccessible(
+  env: ExecEnv,
+  pacienteId: string,
+): Promise<
+  | { ok: true; paciente: NonNullable<Awaited<ReturnType<typeof getPaciente>>> }
+  | ExecResult
+> {
+  const paciente = await getPaciente(pacienteId);
+  if (!paciente) return { ok: false, error: "Paciente no encontrado" };
+  if (env.session.rol !== "admin") {
+    const allowed = await listClinicaIdsForUser(env.session.userId);
+    if (!paciente.clinicaId || !allowed.includes(paciente.clinicaId)) {
+      return { ok: false, error: "No tienes permiso sobre este paciente" };
+    }
+  }
+  return { ok: true, paciente };
+}
+
+// ─── enviar_recordatorio_pago ──────────────────────────────────────────
+
+async function execEnviarRecordatorioPago(
+  env: ExecEnv,
+  p: any,
+): Promise<ExecResult> {
+  const block = adminMustHaveSelected(env, "enviar un recordatorio de pago");
+  if (block) return block;
+  const access = await ensurePacienteAccessible(env, String(p.pacienteId));
+  if (!("paciente" in access)) return access;
+  const paciente = access.paciente;
+  if (!paciente.telefono) {
+    return { ok: false, error: "Paciente sin teléfono — no se puede enviar WA." };
+  }
+
+  // Resolver plantillaId: si llega plantillaId directo, usarlo; si llega
+  // plantillaNombre, buscar la activa con ese nombre (override por
+  // nombre del lib).
+  let plantillaId: string | null = p.plantillaId ? String(p.plantillaId) : null;
+  if (!plantillaId && p.plantillaNombre) {
+    const activas = await getPlantillasActivas({
+      clinicaId: paciente.clinicaId,
+      categoria: "cobranza",
+    });
+    const match = activas.find((pl) => pl.nombre === String(p.plantillaNombre));
+    if (!match) {
+      return {
+        ok: false,
+        error: `Plantilla "${p.plantillaNombre}" no encontrada en cobranza.`,
+      };
+    }
+    plantillaId = match.id;
+  }
+  if (!plantillaId) {
+    return { ok: false, error: "Falta plantillaId o plantillaNombre." };
+  }
+
+  // Render del mensaje final.
+  let texto = "";
+  try {
+    const r = await renderizarPlantilla({
+      plantillaId,
+      pacienteId: paciente.id,
+    });
+    texto = r.texto;
+  } catch (err) {
+    return {
+      ok: false,
+      error: `No se pudo renderizar la plantilla: ${err instanceof Error ? err.message : "error"}`,
+    };
+  }
+
+  // Enviar via servicio de mensajeria. El servicio usa el modo activo
+  // de la clinica (manual o WABA). Para Bloque 8 mantenemos el patrón
+  // simple: modo manual (genera URL wa.me) por defecto. La integracion
+  // WABA por clinica vive en Bloque siguiente.
+  if (!paciente.clinicaId) {
+    return { ok: false, error: "Paciente sin clínica asignada." };
+  }
+  try {
+    const servicio = getServicioMensajeria("manual");
+    const params: EnviarMensajeParams = {
+      telefono: paciente.telefono,
+      contenido: texto,
+      pacienteId: paciente.id,
+      fuente: "Modo_A_manual",
+    };
+    const out = await servicio.enviarMensaje(params);
+    if (!out.ok) {
+      return {
+        ok: false,
+        error: "Error enviando mensaje WhatsApp.",
+      };
+    }
+    return {
+      ok: true,
+      message:
+        out.urlWhatsApp
+          ? `✓ Recordatorio listo para enviar a ${paciente.nombre}. Abre: ${out.urlWhatsApp}`
+          : `✓ Recordatorio enviado a ${paciente.nombre}.`,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Error enviando WA.",
+    };
+  }
+}
+
+// ─── marcar_pago_recibido ──────────────────────────────────────────────
+
+async function execMarcarPagoRecibido(env: ExecEnv, p: any): Promise<ExecResult> {
+  const block = adminMustHaveSelected(env, "registrar un pago");
+  if (block) return block;
+  const access = await ensurePacienteAccessible(env, String(p.pacienteId));
+  if (!("paciente" in access)) return access;
+
+  const importe = Number(p.importe ?? 0);
+  if (!Number.isFinite(importe) || importe <= 0) {
+    return { ok: false, error: "Importe inválido (>0)." };
+  }
+  const tipo = String(p.tipo ?? "") as TipoPago;
+  if (!["Senal", "Primer_Pago_Plan", "Liquidacion"].includes(tipo)) {
+    return { ok: false, error: "Tipo inválido." };
+  }
+  const metodo = p.metodo ? String(p.metodo) : "Otro";
+  const fechaPago = p.fechaPago ? String(p.fechaPago) : undefined;
+  const nota = p.nota ? String(p.nota) : "Registrado vía Copilot";
+
+  try {
+    const pago = await crearPago({
+      pacienteId: access.paciente.id,
+      importe,
+      tipo,
+      metodo: metodo as any,
+      fechaPago,
+      nota,
+      usuarioCreadorId: env.session.userId,
+    });
+    const importeFmt = importe.toLocaleString("es-ES", {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+      useGrouping: true,
+    });
+    return {
+      ok: true,
+      message: `✓ Pago de ${importeFmt}€ registrado a ${access.paciente.nombre} (${pago.tipo}).`,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Error al registrar pago.",
+    };
+  }
+}
+
+// ─── agendar_llamada_cobranza ──────────────────────────────────────────
+
+async function execAgendarLlamadaCobranza(
+  env: ExecEnv,
+  p: any,
+): Promise<ExecResult> {
+  const block = adminMustHaveSelected(env, "agendar una llamada de cobranza");
+  if (block) return block;
+  const access = await ensurePacienteAccessible(env, String(p.pacienteId));
+  if (!("paciente" in access)) return access;
+
+  const fechaHoraRaw = String(p.fechaHora ?? "").trim();
+  if (!fechaHoraRaw) return { ok: false, error: "Falta fechaHora." };
+  // Si llega solo YYYY-MM-DD, asumir 09:00 local Madrid.
+  const fechaIso =
+    /^\d{4}-\d{2}-\d{2}$/.test(fechaHoraRaw)
+      ? `${fechaHoraRaw}T09:00:00`
+      : fechaHoraRaw;
+  const dt = new Date(fechaIso);
+  if (Number.isNaN(dt.getTime())) {
+    return { ok: false, error: "fechaHora inválida." };
+  }
+
+  try {
+    // Reusa Acciones_Pago (Sprint 14a Bloque 6) con Tipo='Reembolsar' no
+    // encaja semánticamente — ese enum tiene 4 valores fijos. Mejor
+    // tabla: log a Acciones_Lead via campo Detalles (acepta texto
+    // libre). Esto es el patrón usado en Sprint 11 marcar_atendido.
+    // Si el paciente tiene leadOrigenId, vinculamos al lead; si no,
+    // creamos una nota en paciente.notas.
+    const fechaTxt = dt.toLocaleString("es-ES", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const detalles = `Llamada de cobranza agendada para ${fechaTxt}${p.nota ? ` — ${p.nota}` : ""}`;
+    if (access.paciente.leadOrigenId) {
+      await logAccionLead({
+        leadId: access.paciente.leadOrigenId,
+        tipo: "Nota",
+        usuarioId: env.session.userId,
+        detalles: `[Cobranza] ${detalles}`,
+      });
+    } else {
+      // Sin lead origen: append a paciente.notas via Airtable.
+      const notaPrev = String(((await base(TABLES.patients as any).find(access.paciente.id)).fields as any)?.["Notas"] ?? "");
+      const stamp = new Date().toISOString().slice(0, 16).replace("T", " ");
+      const append = `[${stamp} · Cobranza] ${detalles}`;
+      await base(TABLES.patients as any).update(access.paciente.id, {
+        Notas: notaPrev ? `${notaPrev}\n${append}` : append,
+      } as any);
+    }
+    return {
+      ok: true,
+      message: `✓ Llamada de cobranza agendada para ${access.paciente.nombre} (${fechaTxt}).`,
+    };
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "Error al agendar llamada.",
+    };
+  }
+}
+
 // ─── Dispatcher ───────────────────────────────────────────────────────
 
 export async function execAction(env: ExecEnv, action: CopilotAction): Promise<ExecResult> {
@@ -341,6 +568,13 @@ export async function execAction(env: ExecEnv, action: CopilotAction): Promise<E
         return await execCambiarEstadoPresupuesto(env, action.params);
       case "marcar_atendido_actuar_hoy":
         return await execMarcarAtendido(env, action.params);
+      // Sprint 14b Bloque 8 — modulo financiero.
+      case "enviar_recordatorio_pago":
+        return await execEnviarRecordatorioPago(env, action.params);
+      case "marcar_pago_recibido":
+        return await execMarcarPagoRecibido(env, action.params);
+      case "agendar_llamada_cobranza":
+        return await execAgendarLlamadaCobranza(env, action.params);
     }
   } catch (err) {
     console.error("[copilot exec]", action.tool, err instanceof Error ? err.message : err);

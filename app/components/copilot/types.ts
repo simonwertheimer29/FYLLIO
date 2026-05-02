@@ -17,7 +17,11 @@ export type CopilotAction = {
     | "anadir_nota_lead"
     | "anadir_nota_presupuesto"
     | "cambiar_estado_presupuesto"
-    | "marcar_atendido_actuar_hoy";
+    | "marcar_atendido_actuar_hoy"
+    // Sprint 14b Bloque 8 — modulo financiero.
+    | "enviar_recordatorio_pago"
+    | "marcar_pago_recibido"
+    | "agendar_llamada_cobranza";
   /** Etiqueta humana corta para el botón ("Cambiar a Contactado"). */
   label: string;
   /** Resumen de qué hará la acción ("Voy a marcar a Carlos López como contactado"). */
