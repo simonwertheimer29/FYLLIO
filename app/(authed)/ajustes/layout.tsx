@@ -30,6 +30,12 @@ export default async function AjustesLayout({
           >
             Clínica y equipo
           </Link>
+          <Link
+            href="/ajustes/configuracion"
+            className="block text-sm font-semibold rounded-lg px-3 py-2 text-slate-800 hover:bg-slate-100"
+          >
+            Configuración
+          </Link>
           {/* Siguientes secciones se añaden aquí (Automatizaciones, etc.) */}
         </nav>
       </aside>
