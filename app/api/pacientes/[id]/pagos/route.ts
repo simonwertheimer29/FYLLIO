@@ -141,11 +141,12 @@ export const POST = withAuth<Ctx>(async (session, req, ctx) => {
       { status: 400 },
     );
   }
-  if (body.metodo && !METODOS_PAGO.includes(body.metodo)) {
-    return NextResponse.json(
-      { error: `Método inválido. Permitidos: ${METODOS_PAGO.join(", ")}` },
-      { status: 400 },
-    );
+  // Sprint 14b Bloque 0 — método ya no se valida contra enum hardcoded
+  // (los valores vienen de Configuraciones_Clinica). Validamos solo que
+  // sea string no vacío. Airtable typecast extiende el singleSelect Tipo
+  // al recibir un valor nuevo.
+  if (body.metodo !== undefined && (typeof body.metodo !== "string" || !body.metodo.trim())) {
+    return NextResponse.json({ error: "Método inválido" }, { status: 400 });
   }
   if (body.fechaPago && !/^\d{4}-\d{2}-\d{2}$/.test(body.fechaPago)) {
     return NextResponse.json({ error: "fechaPago debe ser YYYY-MM-DD" }, { status: 400 });

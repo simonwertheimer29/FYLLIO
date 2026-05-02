@@ -62,11 +62,9 @@ export const PATCH = withAuth<Ctx>(async (session, req, ctx) => {
       { status: 400 },
     );
   }
-  if (body.metodo !== undefined && !METODOS_PAGO.includes(body.metodo)) {
-    return NextResponse.json(
-      { error: `Método inválido. Permitidos: ${METODOS_PAGO.join(", ")}` },
-      { status: 400 },
-    );
+  // Sprint 14b Bloque 0 — método configurable, no validado contra enum.
+  if (body.metodo !== undefined && (typeof body.metodo !== "string" || !body.metodo.trim())) {
+    return NextResponse.json({ error: "Método inválido" }, { status: 400 });
   }
   if (body.fechaPago !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(body.fechaPago)) {
     return NextResponse.json({ error: "fechaPago debe ser YYYY-MM-DD" }, { status: 400 });

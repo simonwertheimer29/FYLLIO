@@ -15,13 +15,22 @@
 
 import { base, TABLES, fetchAll } from "./airtable";
 
+/**
+ * Sprint 14a: enum cerrado.
+ * Sprint 14b Bloque 0: el método de pago es configurable por clínica
+ * (Configuraciones_Clinica.Metodos_Pago) y por tanto puede tomar
+ * valores custom como "Financiación externa", "Otro: cheque", etc.
+ * Mantenemos el union de strings conocidos como hint de TS para
+ * autocompletado, pero permitimos cualquier string (& {}).
+ */
 export type MetodoPago =
   | "Efectivo"
   | "Tarjeta"
   | "Transferencia"
   | "Bizum"
   | "Financiacion"
-  | "Otro";
+  | "Otro"
+  | (string & {});
 /**
  * Sprint 14a Bloque 6 (re-scoped) — Tipo de pago como hito comercial.
  * Fyllio NO es software de tesoreria; los pagos intermedios del
@@ -50,6 +59,26 @@ export const METODOS_PAGO: MetodoPago[] = [
   "Financiacion",
   "Otro",
 ];
+
+/** Sprint 14b Bloque 0 hotfix UX — label legible para TipoPago.
+ *  Resuelve también valores legacy ("Pago_Unico", "Cuota") para no
+ *  romper records pre-migracion que aun no se hayan re-leido. */
+export function formatTipo(tipo: string): string {
+  switch (tipo) {
+    case "Senal":
+      return "Señal";
+    case "Primer_Pago_Plan":
+      return "Primer pago de plan";
+    case "Liquidacion":
+      return "Liquidación";
+    case "Pago_Unico":
+      return "Pago único";
+    case "Cuota":
+      return "Cuota";
+    default:
+      return tipo;
+  }
+}
 
 export type Pago = {
   id: string;

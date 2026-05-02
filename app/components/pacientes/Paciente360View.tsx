@@ -16,6 +16,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Pago, TipoPago, MetodoPago } from "../../lib/pagos";
+import { formatTipo } from "../../lib/pagos";
 
 // Sprint 14a Bloque 6 — re-scope a 3 hitos comerciales.
 const TIPOS_PAGO_OPTS: Array<{ value: TipoPago; label: string; help: string }> = [
@@ -151,12 +152,8 @@ const TIPO_PAGO_DOT: Record<string, string> = {
   Liquidacion: "bg-emerald-500",
 };
 
-const TIPO_PAGO_LABEL: Record<string, string> = {
-  Pago_Unico: "Pago único",
-  Cuota: "Cuota",
-  Senal: "Señal",
-  Liquidacion: "Liquidación",
-};
+// Sprint 14b Bloque 0 — label de TipoPago centralizado en lib/pagos
+// (formatTipo). El mapa local quedó deprecado.
 
 const ESTADO_PRESUPUESTO_COLOR: Record<string, string> = {
   ACEPTADO: "bg-emerald-100 text-emerald-700",
@@ -351,6 +348,7 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
         <PagoModal
           mode="create"
           pacienteId={paciente.id}
+          clinicaId={paciente.clinicaId}
           onClose={() => setPagoModal(null)}
           onDone={() => {
             setPagoModal(null);
@@ -362,6 +360,7 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
         <PagoModal
           mode="edit"
           pacienteId={paciente.id}
+          clinicaId={paciente.clinicaId}
           pago={pagoModal.pago}
           onClose={() => setPagoModal(null)}
           onDone={() => {
@@ -688,7 +687,7 @@ function PagosTab({
                         €{p.importe.toLocaleString("es-ES")}
                       </p>
                       <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                        {TIPO_PAGO_LABEL[p.tipo] ?? p.tipo}
+                        {formatTipo(p.tipo)}
                       </span>
                       <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 border border-slate-100">
                         {p.metodo}
@@ -745,12 +744,16 @@ function PagosTab({
 function PagoModal({
   mode,
   pacienteId,
+  clinicaId,
   pago,
   onClose,
   onDone,
 }: {
   mode: "create" | "edit";
   pacienteId: string;
+  /** Sprint 14b Bloque 0 — clínica del paciente para cargar métodos
+   *  configurados (con fallback global). Si null, usamos lista hardcoded. */
+  clinicaId: string | null;
   pago?: Pago;
   onClose: () => void;
   onDone: () => void;
@@ -761,10 +764,33 @@ function PagoModal({
   const [fechaPago, setFechaPago] = useState<string>(
     pago?.fechaPago ?? new Date().toISOString().slice(0, 10),
   );
-  const [metodo, setMetodo] = useState<MetodoPago>(pago?.metodo ?? "Tarjeta");
+  const [metodo, setMetodo] = useState<string>(pago?.metodo ?? "Tarjeta");
   const [tipo, setTipo] = useState<TipoPago>(pago?.tipo ?? "Senal");
   const [nota, setNota] = useState<string>(pago?.nota ?? "");
   const [submitting, setSubmitting] = useState(false);
+  // Sprint 14b Bloque 0 — métodos de pago desde Configuraciones_Clinica
+  // (con fallback a global si la clínica no customizó). Mientras carga,
+  // usamos METODOS_PAGO_OPTS del enum como respaldo.
+  const [metodosDisp, setMetodosDisp] = useState<string[]>(
+    METODOS_PAGO_OPTS.slice(),
+  );
+  useEffect(() => {
+    let cancelled = false;
+    const target = clinicaId ?? "global";
+    fetch(`/api/configuraciones/${target}?categoria=Metodos_Pago`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (cancelled || !j?.opciones) return;
+        const valores = (j.opciones as Array<{ valor: string }>).map((o) => o.valor);
+        if (valores.length > 0) setMetodosDisp(valores);
+      })
+      .catch(() => {
+        // Fallback al hardcoded; ya está seteado.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [clinicaId]);
   const [error, setError] = useState<string | null>(null);
 
   const isMigrated = pago && (pago.nota ?? "").includes("[MIGRADO Sprint 13.1]");
@@ -857,10 +883,19 @@ function PagoModal({
               </label>
               <select
                 value={metodo}
-                onChange={(e) => setMetodo(e.target.value as MetodoPago)}
+                onChange={(e) => setMetodo(e.target.value)}
                 className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none"
               >
-                {METODOS_PAGO_OPTS.map((m) => (
+                {/* Sprint 14b Bloque 0 — métodos de pago configurables
+                    por clínica via Configuraciones_Clinica. Si el método
+                    actual del pago en edición no está en la lista (caso
+                    legacy o método deshabilitado), lo añadimos al final
+                    para que se vea en lugar de aparentar 'no
+                    seleccionado'. */}
+                {!metodosDisp.includes(metodo) && metodo && (
+                  <option value={metodo}>{metodo}</option>
+                )}
+                {metodosDisp.map((m) => (
                   <option key={m} value={m}>
                     {m}
                   </option>
@@ -966,7 +1001,7 @@ function DeletePagoDialog({
         <h3 className="font-semibold text-slate-900 text-sm">¿Eliminar este pago?</h3>
         <p className="text-xs text-slate-600 mt-2">
           Pago de <span className="font-semibold">€{pago.importe.toLocaleString("es-ES")}</span>{" "}
-          del {formatFecha(pago.fechaPago)} ({TIPO_PAGO_LABEL[pago.tipo] ?? pago.tipo}).
+          del {formatFecha(pago.fechaPago)} ({formatTipo(pago.tipo)}).
         </p>
         <p className="text-xs text-slate-500 mt-2">
           Esta acción ajustará el total pagado del paciente.

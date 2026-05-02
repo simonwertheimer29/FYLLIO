@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Presupuesto, HistorialAccion, TipoAccion, UserSession } from "../../lib/presupuestos/types";
 import type { Pago } from "../../lib/pagos";
+import { formatTipo } from "../../lib/pagos";
 import { ESTADO_CONFIG } from "../../lib/presupuestos/colors";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -402,12 +403,7 @@ const TIPO_PAGO_DOT: Record<string, string> = {
   Liquidacion: "bg-emerald-500",
 };
 
-const TIPO_PAGO_LABEL: Record<string, string> = {
-  Pago_Unico: "Pago único",
-  Cuota: "Cuota",
-  Senal: "Señal",
-  Liquidacion: "Liquidación",
-};
+// Sprint 14b Bloque 0 — label centralizado en lib/pagos (formatTipo).
 
 function PagosTabContent({
   pacienteId,
@@ -561,7 +557,7 @@ function PagoRow({
   usuariosNombres: Record<string, string>;
 }) {
   const dotClass = TIPO_PAGO_DOT[pago.tipo] ?? "bg-slate-400";
-  const tipoLabel = TIPO_PAGO_LABEL[pago.tipo] ?? pago.tipo;
+  const tipoLabel = formatTipo(pago.tipo);
   const usuarioLabel = (() => {
     if (!pago.usuarioCreadorId) return "Coordinación";
     const nombre = usuariosNombres[pago.usuarioCreadorId];
