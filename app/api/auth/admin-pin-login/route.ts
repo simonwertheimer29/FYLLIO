@@ -81,7 +81,16 @@ export async function POST(req: Request) {
     const sessionForLegacy = await verifySession(token);
     if (sessionForLegacy) await emitLegacyCookies(res, sessionForLegacy);
     return res;
-  } catch {
+  } catch (err) {
+    // Sprint 14b hotfix — logueamos el error real para diagnostico.
+    // Antes solo devolviamos 500 silencioso, lo que oculto un crash
+    // de routing al introducir slug names duplicados en otro endpoint
+    // (afecto a TODA la app, incluyendo este handler). El catch
+    // original quedaba silencioso y el debug fue ciego.
+    console.error(
+      "[admin-pin-login] error:",
+      err instanceof Error ? err.stack ?? err.message : err,
+    );
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
 }

@@ -332,7 +332,7 @@ function OpcionRow({
   async function patch(patchBody: Partial<{ valor: string; activo: boolean; orden: number }>) {
     setBusy(true);
     try {
-      const res = await fetch(`/api/configuraciones/${opcion.id}`, {
+      const res = await fetch(`/api/configuraciones/opcion/${opcion.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(patchBody),
@@ -353,7 +353,7 @@ function OpcionRow({
     if (!confirm(`¿Eliminar "${opcion.valor}"?`)) return;
     setBusy(true);
     try {
-      const res = await fetch(`/api/configuraciones/${opcion.id}`, {
+      const res = await fetch(`/api/configuraciones/opcion/${opcion.id}`, {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -482,7 +482,7 @@ function PlazoSinglePanel({
     setBusy(true);
     try {
       if (propio) {
-        const res = await fetch(`/api/configuraciones/${propio.id}`, {
+        const res = await fetch(`/api/configuraciones/opcion/${propio.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ valor: String(num) }),

@@ -1,17 +1,25 @@
-// app/api/configuraciones/[id]/route.ts
+// app/api/configuraciones/opcion/[id]/route.ts
 //
 // Sprint 14b Bloque 0 — PATCH (toggle Activo, cambiar Valor o Orden)
 // y DELETE (eliminar opcion custom; las globales no se borran, solo
 // se pueden desactivar).
+//
+// La ruta vive bajo /opcion/[id] (no en el mismo nivel que
+// [clinicaId]) porque Next.js App Router prohibe dos slug names
+// distintos en el mismo segmento dinamico ('clinicaId' !== 'id'
+// crashea el dev server al boot). Operacionalmente esta separacion
+// tambien tiene sentido: el clinicaId es scope del listado/creacion;
+// el id de opcion identifica un record concreto sin necesidad de
+// re-pasar la clinica (la resolvemos leyendo Clinica_Link del record).
 
 import { NextResponse } from "next/server";
-import { withAuth } from "../../../lib/auth/session";
-import { listClinicaIdsForUser } from "../../../lib/auth/users";
-import { base, TABLES } from "../../../lib/airtable";
+import { withAuth } from "../../../../lib/auth/session";
+import { listClinicaIdsForUser } from "../../../../lib/auth/users";
+import { base, TABLES } from "../../../../lib/airtable";
 import {
   actualizarOpcion,
   eliminarOpcion,
-} from "../../../lib/configuraciones/configuraciones";
+} from "../../../../lib/configuraciones/configuraciones";
 
 export const dynamic = "force-dynamic";
 
