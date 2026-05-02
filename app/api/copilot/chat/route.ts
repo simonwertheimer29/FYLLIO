@@ -309,5 +309,45 @@ function toCopilotAction(
         description: `Voy a registrar que ${input.nombre ?? "este caso"} ha sido atendido hoy.`,
         params: input,
       };
+    // ── Sprint 14b Bloque 8 — modulo financiero ────────────────────────
+    case "enviar_recordatorio_pago": {
+      const pac = input.nombrePaciente ? String(input.nombrePaciente) : "este paciente";
+      const plantilla = input.plantillaNombre ? String(input.plantillaNombre) : "recordatorio";
+      return {
+        id,
+        tool: name,
+        label: "Enviar recordatorio",
+        description: `Voy a enviar el recordatorio "${plantilla}" por WhatsApp a ${pac}. Verás el preview antes de enviar.`,
+        params: input,
+      };
+    }
+    case "marcar_pago_recibido": {
+      const pac = input.nombrePaciente ? String(input.nombrePaciente) : "el paciente";
+      const importe = Number(input.importe ?? 0);
+      const tipo = String(input.tipo ?? "");
+      const importeStr = importe.toLocaleString("es-ES", {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+        useGrouping: true,
+      });
+      return {
+        id,
+        tool: name,
+        label: `Registrar ${importeStr}€`,
+        description: `Voy a registrar un pago de ${importeStr}€ a ${pac} (tipo: ${tipo}).`,
+        params: input,
+      };
+    }
+    case "agendar_llamada_cobranza": {
+      const pac = input.nombrePaciente ? String(input.nombrePaciente) : "el paciente";
+      const fechaHora = String(input.fechaHora ?? "");
+      return {
+        id,
+        tool: name,
+        label: "Agendar llamada",
+        description: `Voy a agendar llamada de cobranza a ${pac} el ${fechaHora}.`,
+        params: input,
+      };
+    }
   }
 }

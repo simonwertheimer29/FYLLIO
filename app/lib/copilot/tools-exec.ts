@@ -12,7 +12,13 @@
 import { DateTime } from "luxon";
 import { base, TABLES, fetchAll } from "../airtable";
 import { listLeads } from "../leads/leads";
+import { listPacientes } from "../pacientes/pacientes";
 import { listClinicaIdsForUser } from "../auth/users";
+import { getOpcionEscalar } from "../configuraciones/configuraciones";
+import {
+  getFacturadoEnPeriodo,
+  getPagosByPaciente,
+} from "../pagos";
 import type { Session } from "../auth/session";
 import type { ReadToolName } from "./tools-spec";
 
@@ -356,6 +362,276 @@ async function execMensajesRecientes(
   };
 }
 
+// ═══ Sprint 14b Bloque 8 — read-tools financieras ═══════════════════════
+
+/**
+ * Filtra pacientes a las clínicas accesibles del usuario, igual que el
+ * resto de read-tools. Devuelve el set acotado.
+ */
+async function pacientesAccesibles(
+  env: CopilotEnv,
+): Promise<Awaited<ReturnType<typeof listPacientes>>> {
+  const allowed = await clinicasAccesibles(env);
+  return listPacientes({
+    clinicaIds: allowed === null ? undefined : allowed,
+  });
+}
+
+function diasEntre(desdeIso: string, hastaMs = Date.now()): number {
+  const t = new Date(desdeIso).getTime();
+  if (!Number.isFinite(t)) return 0;
+  return Math.max(0, Math.floor((hastaMs - t) / (24 * 60 * 60 * 1000)));
+}
+
+// ─── get_pagos_pendientes_clinica ──────────────────────────────────────
+
+async function execGetPagosPendientesClinica(
+  env: CopilotEnv,
+  args: { diasAtraso?: number; limit?: number },
+): Promise<{
+  total: number;
+  pacientes: Array<Record<string, unknown>>;
+}> {
+  const pacientes = await pacientesAccesibles(env);
+  const elegibles = pacientes.filter(
+    (p) =>
+      p.aceptado === "Si" &&
+      typeof p.presupuestoTotal === "number" &&
+      p.presupuestoTotal > 0,
+  );
+
+  const detallados = await Promise.all(
+    elegibles.map(async (p) => {
+      const pagos = await getPagosByPaciente(p.id);
+      const totalPagado = pagos.reduce((s, x) => s + x.importe, 0);
+      const presup = Number(p.presupuestoTotal ?? 0);
+      const importePendiente = Math.max(0, presup - totalPagado);
+      const ultimoPago = pagos[0] ?? null;
+      const referenciaSinPago = ultimoPago?.fechaPago ?? p.createdAt;
+      return {
+        id: p.id,
+        nombre: p.nombre,
+        importeTotal: presup,
+        importePagado: totalPagado,
+        importePendiente,
+        ultimoPagoFecha: ultimoPago?.fechaPago ?? null,
+        diasSinPagar: diasEntre(referenciaSinPago),
+      };
+    }),
+  );
+
+  let pendientes = detallados.filter((d) => d.importePendiente > 0);
+  if (typeof args.diasAtraso === "number" && args.diasAtraso > 0) {
+    pendientes = pendientes.filter((d) => d.diasSinPagar >= args.diasAtraso!);
+  }
+  pendientes.sort((a, b) => b.importePendiente - a.importePendiente);
+
+  const limit = Math.max(1, Math.min(args.limit ?? 20, 50));
+  return {
+    total: pendientes.length,
+    pacientes: pendientes.slice(0, limit),
+  };
+}
+
+// ─── get_cobros_vencidos ───────────────────────────────────────────────
+
+async function execGetCobrosVencidos(
+  env: CopilotEnv,
+  args: { limit?: number },
+): Promise<{
+  total: number;
+  pacientes: Array<Record<string, unknown>>;
+}> {
+  const pacientes = await pacientesAccesibles(env);
+  const today = Date.now();
+  const out: Array<Record<string, unknown>> = [];
+
+  for (const p of pacientes) {
+    if (p.aceptado !== "Si") continue;
+    if (typeof p.presupuestoTotal !== "number" || p.presupuestoTotal <= 0) continue;
+    // Plazo de la clínica del paciente (fallback global 90).
+    const plazo = await getOpcionEscalar({
+      clinicaId: p.clinicaId,
+      categoria: "Plazos_Liquidacion",
+      defaultValue: 90,
+    });
+    // Fecha_Aceptado del primer presupuesto ACEPTADO. Para no hacer N
+    // queries pesadas, inferimos desde paciente.createdAt como fallback
+    // si el preset no tiene fecha; el lib de plantillas resolverá fino
+    // cuando importe.
+    const presupRecs = await fetchAll(
+      base(TABLES.presupuestos as any).select({
+        fields: ["Paciente", "Estado", "Fecha_Aceptado", "FechaAlta"],
+      }),
+    );
+    const propio = presupRecs.find((r) => {
+      const links = ((r.fields as any)?.["Paciente"] ?? []) as string[];
+      return (
+        links[0] === p.id &&
+        String(((r.fields as any) ?? {})["Estado"] ?? "") === "ACEPTADO"
+      );
+    });
+    if (!propio) continue;
+    const fechaAceptadoIso =
+      String(((propio.fields as any) ?? {})["Fecha_Aceptado"] ?? "") ||
+      String(((propio.fields as any) ?? {})["FechaAlta"] ?? "");
+    if (!fechaAceptadoIso) continue;
+    const aceptadoMs = new Date(fechaAceptadoIso).getTime();
+    if (!Number.isFinite(aceptadoMs)) continue;
+    const venceMs = aceptadoMs + plazo * 24 * 60 * 60 * 1000;
+    if (venceMs >= today) continue; // no vencido
+
+    const pagos = await getPagosByPaciente(p.id);
+    const tieneLiquidacion = pagos.some((x) => x.tipo === "Liquidacion");
+    if (tieneLiquidacion) continue;
+    const totalPagado = pagos.reduce((s, x) => s + x.importe, 0);
+
+    out.push({
+      id: p.id,
+      nombre: p.nombre,
+      importePendiente: Math.max(0, p.presupuestoTotal - totalPagado),
+      fechaAceptado: fechaAceptadoIso.slice(0, 10),
+      plazoDias: plazo,
+      diasVencido: Math.floor((today - venceMs) / (24 * 60 * 60 * 1000)),
+    });
+  }
+
+  out.sort((a, b) => Number(b.diasVencido) - Number(a.diasVencido));
+  const limit = Math.max(1, Math.min(args.limit ?? 20, 50));
+  return { total: out.length, pacientes: out.slice(0, limit) };
+}
+
+// ─── get_facturado_periodo ─────────────────────────────────────────────
+
+async function execGetFacturadoPeriodo(
+  env: CopilotEnv,
+  args: { fecha_inicio: string; fecha_fin: string },
+): Promise<{
+  total: number;
+  pagosCount: number;
+  pacientesUnicos: number;
+  desde: string;
+  hasta: string;
+  clinicaScope: string | null;
+}> {
+  const allowed = await clinicasAccesibles(env);
+  // Si admin con una clínica concreta, pasamos clinicaId al helper.
+  // Si coord o admin "todas", el helper devuelve global; aplicamos
+  // filtrado JS post-fetch a clinicas accesibles.
+  const desde = new Date(args.fecha_inicio + "T00:00:00Z");
+  const hasta = new Date(args.fecha_fin + "T23:59:59Z");
+
+  const clinicaIdSingle =
+    allowed && allowed.length === 1 ? allowed[0]! : undefined;
+
+  const r = await getFacturadoEnPeriodo({
+    desde,
+    hasta,
+    clinicaId: clinicaIdSingle,
+  });
+
+  // Para pacientesUnicos necesitamos otra pasada: leemos pagos del
+  // periodo y contamos pacienteIds distintos.
+  let pacientesUnicos = 0;
+  try {
+    const pagosRecs = await fetchAll(
+      base(TABLES.pagosPaciente as any).select({
+        filterByFormula: `AND(IS_AFTER({Fecha_Pago}, '${shiftDay(args.fecha_inicio, -1)}'), IS_BEFORE({Fecha_Pago}, '${shiftDay(args.fecha_fin, 1)}'))`,
+        fields: ["Paciente_RecordId"],
+      }),
+    );
+    const ids = new Set<string>();
+    for (const rec of pagosRecs) {
+      const pid = String(((rec.fields as any) ?? {})["Paciente_RecordId"] ?? "");
+      if (pid) ids.add(pid);
+    }
+    pacientesUnicos = ids.size;
+  } catch {
+    /* noop */
+  }
+
+  return {
+    total: r.total,
+    pagosCount: r.pagosCount,
+    pacientesUnicos,
+    desde: args.fecha_inicio,
+    hasta: args.fecha_fin,
+    clinicaScope: clinicaIdSingle ?? "todas accesibles",
+  };
+}
+
+// ─── get_top_pacientes_facturado ───────────────────────────────────────
+
+async function execGetTopPacientesFacturado(
+  env: CopilotEnv,
+  args: { n?: number; fecha_inicio?: string; fecha_fin?: string },
+): Promise<{ total: number; ranking: Array<Record<string, unknown>> }> {
+  const allowed = await clinicasAccesibles(env);
+  const allowedSet = allowed ? new Set(allowed) : null;
+
+  // Cargamos pagos: si hay periodo, filtramos en formula; si no, todos.
+  const formulaParts: string[] = [];
+  if (args.fecha_inicio) {
+    formulaParts.push(`IS_AFTER({Fecha_Pago}, '${shiftDay(args.fecha_inicio, -1)}')`);
+  }
+  if (args.fecha_fin) {
+    formulaParts.push(`IS_BEFORE({Fecha_Pago}, '${shiftDay(args.fecha_fin, 1)}')`);
+  }
+  const filterByFormula =
+    formulaParts.length > 0 ? `AND(${formulaParts.join(",")})` : undefined;
+
+  const pagosRecs = await fetchAll(
+    base(TABLES.pagosPaciente as any).select({
+      ...(filterByFormula ? { filterByFormula } : {}),
+      fields: ["Paciente_RecordId", "Importe"],
+    }),
+  );
+  // Agrupamos por paciente.
+  const totalesPorPac = new Map<string, { total: number; numPagos: number }>();
+  for (const rec of pagosRecs) {
+    const f = (rec.fields as any) ?? {};
+    const pid = String(f["Paciente_RecordId"] ?? "");
+    if (!pid) continue;
+    const importe = Number(f["Importe"] ?? 0) || 0;
+    const acc = totalesPorPac.get(pid) ?? { total: 0, numPagos: 0 };
+    acc.total += importe;
+    acc.numPagos += 1;
+    totalesPorPac.set(pid, acc);
+  }
+
+  // Resolvemos nombres + filtramos por clínicas accesibles (1 query a
+  // listPacientes ya filtra).
+  const pacs = await listPacientes({
+    clinicaIds: allowed === null ? undefined : allowed,
+  });
+  const pacById = new Map(pacs.map((p) => [p.id, p]));
+  const ranking = Array.from(totalesPorPac.entries())
+    .filter(([pid]) => {
+      if (!allowedSet) return true;
+      const pac = pacById.get(pid);
+      return pac && pac.clinicaId && allowedSet.has(pac.clinicaId);
+    })
+    .map(([pid, agg]) => {
+      const pac = pacById.get(pid);
+      return {
+        id: pid,
+        nombre: pac?.nombre ?? "Desconocido",
+        totalFacturado: agg.total,
+        numPagos: agg.numPagos,
+      };
+    })
+    .sort((a, b) => b.totalFacturado - a.totalFacturado);
+
+  const n = Math.max(1, Math.min(args.n ?? 10, 50));
+  return { total: ranking.length, ranking: ranking.slice(0, n) };
+}
+
+function shiftDay(iso: string, days: number): string {
+  const d = new Date(iso + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 // ─── Dispatcher ───────────────────────────────────────────────────────
 
 export async function runReadTool(
@@ -381,6 +657,15 @@ export async function runReadTool(
         return await execRankingDoctores(env, input as any);
       case "mensajes_recientes":
         return await execMensajesRecientes(env, input as any);
+      // Sprint 14b Bloque 8 — modulo financiero.
+      case "get_pagos_pendientes_clinica":
+        return await execGetPagosPendientesClinica(env, input as any);
+      case "get_cobros_vencidos":
+        return await execGetCobrosVencidos(env, input as any);
+      case "get_facturado_periodo":
+        return await execGetFacturadoPeriodo(env, input as any);
+      case "get_top_pacientes_facturado":
+        return await execGetTopPacientesFacturado(env, input as any);
     }
   } catch (err) {
     console.error("[copilot read tool]", name, err instanceof Error ? err.message : err);

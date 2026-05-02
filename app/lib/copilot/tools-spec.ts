@@ -32,6 +32,11 @@ export const READ_TOOL_NAMES = [
   "kpis_resumen_clinica",
   "ranking_doctores",
   "mensajes_recientes",
+  // Sprint 14b Bloque 8 — modulo financiero.
+  "get_pagos_pendientes_clinica",
+  "get_cobros_vencidos",
+  "get_facturado_periodo",
+  "get_top_pacientes_facturado",
 ] as const;
 
 export type ReadToolName = (typeof READ_TOOL_NAMES)[number];
@@ -183,6 +188,71 @@ export const READ_TOOLS: AnthropicTool[] = [
       },
     },
   },
+  // ── Sprint 14b Bloque 8 — modulo financiero ──────────────────────────
+  {
+    name: "get_pagos_pendientes_clinica",
+    description:
+      "Lista pacientes con presupuesto firmado (Aceptado=Si) y saldo Pendiente>0. " +
+      "Opcionalmente filtra a los que llevan al menos N días sin movimiento " +
+      "(diasAtraso = días desde el último pago, o desde Fecha_Aceptado si nunca pagaron). " +
+      "Devuelve nombre, pacienteId, importeTotal, importePagado, importePendiente, " +
+      "diasSinPagar, ultimoPagoFecha. Limit 20.",
+    input_schema: {
+      type: "object",
+      properties: {
+        diasAtraso: {
+          type: "number",
+          description:
+            "Filtra pacientes con días sin pagar >= N. Omitir para devolver TODOS los pendientes.",
+        },
+        limit: { type: "number" },
+      },
+    },
+  },
+  {
+    name: "get_cobros_vencidos",
+    description:
+      "Lista pacientes con liquidación VENCIDA: presupuesto Aceptado + Fecha_Aceptado + " +
+      "plazo (de Configuraciones_Clinica.Plazos_Liquidacion, default 90d) ya pasada, sin " +
+      "pago tipo Liquidación registrado. Devuelve nombre, pacienteId, importePendiente, " +
+      "fechaAceptado, plazoDias, diasVencido. Ordenado por diasVencido descendente.",
+    input_schema: {
+      type: "object",
+      properties: {
+        limit: { type: "number" },
+      },
+    },
+  },
+  {
+    name: "get_facturado_periodo",
+    description:
+      "Suma de pagos en un periodo. Devuelve total facturado (€) + número de pagos + " +
+      "número de pacientes únicos. Filtra por clínica seleccionada (si admin con clínica) o " +
+      "por las clínicas accesibles del coord. Útil para 'cuánto facturé esta semana/mes'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        fecha_inicio: { type: "string", description: "ISO YYYY-MM-DD" },
+        fecha_fin: { type: "string", description: "ISO YYYY-MM-DD" },
+      },
+      required: ["fecha_inicio", "fecha_fin"],
+    },
+  },
+  {
+    name: "get_top_pacientes_facturado",
+    description:
+      "Ranking pacientes por facturación (suma Pagos_Paciente.Importe), descendente. " +
+      "Devuelve top N con nombre, pacienteId, totalFacturado, numPagos. Por defecto N=10. " +
+      "Si pasas periodo, filtra los pagos a ese rango.",
+    input_schema: {
+      type: "object",
+      properties: {
+        n: { type: "number", description: "Top N. Por defecto 10." },
+        fecha_inicio: { type: "string", description: "ISO YYYY-MM-DD (opcional)" },
+        fecha_fin: { type: "string", description: "ISO YYYY-MM-DD (opcional)" },
+      },
+    },
+  },
 ];
 
 // ═══ ACTION TOOLS (no se ejecutan en backend; se devuelven al frontend) ═══
@@ -196,6 +266,10 @@ export const ACTION_TOOL_NAMES = [
   "anadir_nota_presupuesto",
   "cambiar_estado_presupuesto",
   "marcar_atendido_actuar_hoy",
+  // Sprint 14b Bloque 8 — modulo financiero.
+  "enviar_recordatorio_pago",
+  "marcar_pago_recibido",
+  "agendar_llamada_cobranza",
 ] as const;
 
 export type ActionToolName = (typeof ACTION_TOOL_NAMES)[number];
@@ -332,6 +406,85 @@ export const ACTION_TOOLS: AnthropicTool[] = [
         nombre: { type: "string" },
       },
       required: ["kind", "id"],
+    },
+  },
+  // ── Sprint 14b Bloque 8 — modulo financiero ──────────────────────────
+  {
+    name: "enviar_recordatorio_pago",
+    description:
+      "Sugiere enviar un recordatorio de pago WhatsApp a un paciente usando una plantilla " +
+      "concreta (recordatorio_senal / recordatorio_primer_pago / recordatorio_liquidacion). " +
+      "El sistema renderiza la plantilla con datos reales del paciente y muestra el " +
+      "preview para que el usuario confirme. Solo al confirmar se envía via Twilio.",
+    input_schema: {
+      type: "object",
+      properties: {
+        pacienteId: { type: "string" },
+        nombrePaciente: { type: "string", description: "Display, para construir el botón." },
+        plantillaId: {
+          type: "string",
+          description:
+            "Record id de la plantilla en Plantillas_Mensaje. Pásalo desde una read-tool " +
+            "previa o desde el contexto del usuario.",
+        },
+        plantillaNombre: {
+          type: "string",
+          description:
+            "Display alternativo cuando no tengas el id (recordatorio_senal, etc.). El " +
+            "sistema resolverá por nombre + scope clínica.",
+        },
+      },
+      required: ["pacienteId"],
+    },
+  },
+  {
+    name: "marcar_pago_recibido",
+    description:
+      "Sugiere registrar un pago recibido. El sistema muestra preview con paciente, importe, " +
+      "tipo (Senal / Primer_Pago_Plan / Liquidacion), método y fecha. Solo al confirmar se " +
+      "crea via POST /api/pacientes/[id]/pagos. NO ejecutar sin confirmación humana.",
+    input_schema: {
+      type: "object",
+      properties: {
+        pacienteId: { type: "string" },
+        nombrePaciente: { type: "string" },
+        importe: { type: "number", description: "Importe en EUR > 0." },
+        tipo: {
+          type: "string",
+          enum: ["Senal", "Primer_Pago_Plan", "Liquidacion"],
+        },
+        metodo: {
+          type: "string",
+          description:
+            "Método de pago (Tarjeta, Efectivo, Transferencia, Bizum, Financiación externa, etc.).",
+        },
+        fechaPago: {
+          type: "string",
+          description: "ISO YYYY-MM-DD. Por defecto hoy si se omite.",
+        },
+        nota: { type: "string" },
+      },
+      required: ["pacienteId", "importe", "tipo"],
+    },
+  },
+  {
+    name: "agendar_llamada_cobranza",
+    description:
+      "Sugiere agendar una llamada futura de cobranza a un paciente. Registra una entrada " +
+      "en Acciones_Pago tipo 'Llamada agendada' con la fecha/hora y la nota. NO realiza la " +
+      "llamada — solo crea el recordatorio interno.",
+    input_schema: {
+      type: "object",
+      properties: {
+        pacienteId: { type: "string" },
+        nombrePaciente: { type: "string" },
+        fechaHora: {
+          type: "string",
+          description: "ISO datetime YYYY-MM-DDTHH:MM:SS o YYYY-MM-DD (asumimos 09:00).",
+        },
+        nota: { type: "string" },
+      },
+      required: ["pacienteId", "fechaHora"],
     },
   },
 ];
