@@ -358,11 +358,16 @@ function contextLabel(kind: CopilotContextSnapshot["kind"]): string {
 }
 
 function Suggestions({ onPick }: { onPick: (q: string) => void }) {
+  // Sprint 14b Bloque 8 — añadidos ejemplos del modulo financiero al
+  // pool de sugerencias iniciales. Mezcla pre-cobro y post-cobro para
+  // que la coordinadora descubra ambas familias de capacidades.
   const SUGS = [
     "¿Cuántos leads tengo sin gestionar hoy?",
+    "¿Cuántos pagos pendientes tengo este mes?",
+    "Muéstrame los cobros vencidos.",
+    "¿Cuánto facturé esta semana?",
     "¿Cuántos presupuestos están en negociación?",
     "Buenas prácticas para captar leads de ortodoncia",
-    "¿Cómo cambio el estado de un lead?",
   ];
   return (
     <div className="space-y-2">
