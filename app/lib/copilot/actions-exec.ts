@@ -346,17 +346,71 @@ async function ensurePacienteAccessible(
   return { ok: true, paciente };
 }
 
+/**
+ * Sprint 14b Bloque 8 hotfix — para acciones financieras la clínica
+ * la dicta el paciente, no el header. Si el admin tiene un scope
+ * concreto en el header que NO coincide con la clínica del paciente,
+ * lo rechazamos con un mensaje claro (evita escribir en una clínica
+ * que el admin no tiene "abierta" mentalmente). Si admin tiene null
+ * (Todas), permite la acción usando la clínica del paciente.
+ *
+ * Para coordinacion el guard ya está en ensurePacienteAccessible.
+ */
+function ensurePacienteClinicaMatchesScope(
+  env: ExecEnv,
+  paciente: NonNullable<Awaited<ReturnType<typeof getPaciente>>>,
+  clinicaNombrePorId: Map<string, string>,
+): ExecResult | null {
+  if (env.session.rol !== "admin") return null; // coord ya validado.
+  if (!env.selectedClinicaId) return null; // admin con "Todas" → permitir.
+  if (paciente.clinicaId && env.selectedClinicaId === paciente.clinicaId) {
+    return null; // match.
+  }
+  const pacienteClinicaNombre = paciente.clinicaId
+    ? clinicaNombrePorId.get(paciente.clinicaId) ?? paciente.clinicaId
+    : "(sin clínica)";
+  const sesionClinicaNombre =
+    clinicaNombrePorId.get(env.selectedClinicaId) ?? env.selectedClinicaId;
+  return {
+    ok: false,
+    error: `Este paciente pertenece a ${pacienteClinicaNombre}, no a ${sesionClinicaNombre}. Cambia el scope del header o selecciona "Todas las clínicas" para esta acción.`,
+  };
+}
+
+/**
+ * Resuelve el mapa Clinicas (id → nombre) en una sola pasada cuando hace
+ * falta para el mensaje de mismatch. Cacheable, pero las acciones son
+ * de baja frecuencia y la query es ligera.
+ */
+async function loadClinicaNombrePorId(): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  try {
+    const recs = await (
+      base(TABLES.clinics as any) as any
+    )
+      .select({ fields: ["Nombre"] })
+      .all();
+    for (const r of recs) map.set(r.id, String(r.fields?.["Nombre"] ?? ""));
+  } catch {
+    /* noop — el mensaje de error usará IDs como fallback */
+  }
+  return map;
+}
+
 // ─── enviar_recordatorio_pago ──────────────────────────────────────────
 
 async function execEnviarRecordatorioPago(
   env: ExecEnv,
   p: any,
 ): Promise<ExecResult> {
-  const block = adminMustHaveSelected(env, "enviar un recordatorio de pago");
-  if (block) return block;
+  // Sprint 14b Bloque 8 hotfix — la clinica la dicta el paciente,
+  // no el header. ensurePacienteAccessible ya valida coordinacion.
   const access = await ensurePacienteAccessible(env, String(p.pacienteId));
   if (!("paciente" in access)) return access;
   const paciente = access.paciente;
+  const clinicaNombrePorId = await loadClinicaNombrePorId();
+  const mismatch = ensurePacienteClinicaMatchesScope(env, paciente, clinicaNombrePorId);
+  if (mismatch) return mismatch;
   if (!paciente.telefono) {
     return { ok: false, error: "Paciente sin teléfono — no se puede enviar WA." };
   }
@@ -438,10 +492,16 @@ async function execEnviarRecordatorioPago(
 // ─── marcar_pago_recibido ──────────────────────────────────────────────
 
 async function execMarcarPagoRecibido(env: ExecEnv, p: any): Promise<ExecResult> {
-  const block = adminMustHaveSelected(env, "registrar un pago");
-  if (block) return block;
+  // Sprint 14b Bloque 8 hotfix — clinica desde el paciente.
   const access = await ensurePacienteAccessible(env, String(p.pacienteId));
   if (!("paciente" in access)) return access;
+  const clinicaNombrePorId = await loadClinicaNombrePorId();
+  const mismatch = ensurePacienteClinicaMatchesScope(
+    env,
+    access.paciente,
+    clinicaNombrePorId,
+  );
+  if (mismatch) return mismatch;
 
   const importe = Number(p.importe ?? 0);
   if (!Number.isFinite(importe) || importe <= 0) {
@@ -488,10 +548,16 @@ async function execAgendarLlamadaCobranza(
   env: ExecEnv,
   p: any,
 ): Promise<ExecResult> {
-  const block = adminMustHaveSelected(env, "agendar una llamada de cobranza");
-  if (block) return block;
+  // Sprint 14b Bloque 8 hotfix — clinica desde el paciente.
   const access = await ensurePacienteAccessible(env, String(p.pacienteId));
   if (!("paciente" in access)) return access;
+  const clinicaNombrePorId = await loadClinicaNombrePorId();
+  const mismatch = ensurePacienteClinicaMatchesScope(
+    env,
+    access.paciente,
+    clinicaNombrePorId,
+  );
+  if (mismatch) return mismatch;
 
   const fechaHoraRaw = String(p.fechaHora ?? "").trim();
   if (!fechaHoraRaw) return { ok: false, error: "Falta fechaHora." };
