@@ -10,7 +10,16 @@ import { useClinic } from "../../lib/context/ClinicContext";
 import { Bell, ICON_STROKE } from "../../components/icons";
 import { StatePill } from "../../components/ui/StatePill";
 
-type Tipo = "leads" | "presupuestos" | "citados" | "asistencias" | "automatizaciones";
+type Tipo =
+  | "leads"
+  | "presupuestos"
+  | "citados"
+  | "asistencias"
+  | "automatizaciones"
+  // Sprint 14b Bloque 3 — cobros financieros.
+  | "cobro_vence_3d"
+  | "cobro_vencido_7d"
+  | "pendiente_alto_estancado";
 
 type Card = {
   clinicaId: string;
@@ -27,6 +36,9 @@ const TIPO_LABEL: Record<Tipo, string> = {
   citados: "Citados no asistidos",
   asistencias: "Asistencias sin cerrar",
   automatizaciones: "Automatizaciones con error",
+  cobro_vence_3d: "Liquidaciones a vencer",
+  cobro_vencido_7d: "Liquidaciones vencidas",
+  pendiente_alto_estancado: "Presupuestos altos estancados",
 };
 
 const TIPO_SUBTITLE: Record<Tipo, (n: number) => string> = {
@@ -37,9 +49,21 @@ const TIPO_SUBTITLE: Record<Tipo, (n: number) => string> = {
   asistencias: (n) =>
     `${n} cita${n === 1 ? "" : "s"} sin cerrar (asistió/no asistió pendiente)`,
   automatizaciones: (n) => `${n} envío${n === 1 ? "" : "s"} con estado Fallido`,
+  cobro_vence_3d: (n) =>
+    `${n} liquidación${n === 1 ? "" : "es"} vence${n === 1 ? "" : "n"} en los próximos 3 días`,
+  cobro_vencido_7d: (n) =>
+    `${n} liquidación${n === 1 ? "" : "es"} vencida${n === 1 ? "" : "s"} hace más de 7 días`,
+  pendiente_alto_estancado: (n) =>
+    `${n} presupuesto${n === 1 ? "" : "s"} >2.000€ aceptado${n === 1 ? "" : "s"} hace >30d sin cobro`,
 };
 
-type SubTab = "todos" | Tipo;
+const COBRO_TIPOS: Tipo[] = [
+  "cobro_vence_3d",
+  "cobro_vencido_7d",
+  "pendiente_alto_estancado",
+];
+
+type SubTab = "todos" | "cobros" | Tipo;
 
 export function AlertasView() {
   const { selectedClinicaId } = useClinic();
@@ -75,7 +99,12 @@ export function AlertasView() {
       ? all.filter((c) => c.clinicaId === selectedClinicaId)
       : all;
     if (tab === "todos") return byClinic;
-    return byClinic.filter((c) => c.counts[tab] > 0);
+    if (tab === "cobros") {
+      return byClinic.filter((c) =>
+        COBRO_TIPOS.some((t) => c.counts[t] > 0),
+      );
+    }
+    return byClinic.filter((c) => c.counts[tab as Tipo] > 0);
   }, [cards, selectedClinicaId, tab]);
 
   const totalPendientes = useMemo(() => {
@@ -90,8 +119,11 @@ export function AlertasView() {
         c.counts.presupuestos +
         c.counts.citados +
         c.counts.asistencias +
-        c.counts.automatizaciones,
-      0
+        c.counts.automatizaciones +
+        (c.counts.cobro_vence_3d ?? 0) +
+        (c.counts.cobro_vencido_7d ?? 0) +
+        (c.counts.pendiente_alto_estancado ?? 0),
+      0,
     );
   }, [cards, selectedClinicaId]);
 
@@ -148,6 +180,8 @@ export function AlertasView() {
               ["presupuestos", "Presupuestos sin seguimiento"],
               ["asistencias", "Asistencias sin cerrar"],
               ["automatizaciones", "Automatizaciones con error"],
+              // Sprint 14b Bloque 3 — agrupación cobros (3 sub-tipos).
+              ["cobros", "Cobros"],
             ] as Array<[SubTab, string]>
           ).map(([key, label]) => (
             <button
@@ -202,7 +236,9 @@ export function AlertasView() {
             const tipos: Tipo[] =
               tab === "todos"
                 ? (Object.keys(card.counts) as Tipo[]).filter((t) => card.counts[t] > 0)
-                : [tab as Tipo];
+                : tab === "cobros"
+                  ? COBRO_TIPOS.filter((t) => card.counts[t] > 0)
+                  : [tab as Tipo];
             if (tipos.length === 0) return null;
             return (
               <div

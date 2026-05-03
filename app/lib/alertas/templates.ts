@@ -10,7 +10,11 @@ export type TipoAlerta =
   | "presupuestos"
   | "citados"
   | "asistencias"
-  | "automatizaciones";
+  | "automatizaciones"
+  // Sprint 14b Bloque 3 — cobros financieros.
+  | "cobro_vence_3d"
+  | "cobro_vencido_7d"
+  | "pendiente_alto_estancado";
 
 const TEMPLATES: Record<TipoAlerta, string> = {
   leads:
@@ -23,6 +27,12 @@ const TEMPLATES: Record<TipoAlerta, string> = {
     "Hola {nombre}, en {clinica} quedan {n} asistencias sin cerrar (citas pasadas sin marcar como asistido ni como no-asistió). Revisa Leads cuando puedas.",
   automatizaciones:
     "Hola {nombre}, hay {n} automatizaciones con error en {clinica}. Revísalas en la pestaña Automatizaciones.",
+  cobro_vence_3d:
+    "Hola {nombre}, en {clinica} hay {n} liquidaciones que vencen en los próximos 3 días. Contacta con los pacientes para evitar atrasos.",
+  cobro_vencido_7d:
+    "Hola {nombre}, en {clinica} hay {n} liquidaciones vencidas hace más de 7 días. Necesitan acción inmediata.",
+  pendiente_alto_estancado:
+    "Hola {nombre}, en {clinica} hay {n} presupuestos altos (>2.000€) aceptados hace más de 30 días sin actividad de cobro. Revisa qué pasa.",
 };
 
 export function renderAlertaMessage(
