@@ -26,6 +26,12 @@ export type CopilotAction = {
   label: string;
   /** Resumen de qué hará la acción ("Voy a marcar a Carlos López como contactado"). */
   description: string;
+  /** Sprint 14b Bloque 8 hotfix — preview rico opcional. Para acciones
+   *  financieras (mensaje WA renderizado, registro de pago, llamada
+   *  agendada) la coordinadora necesita ver el contenido exacto antes
+   *  de confirmar. Se renderiza en un cuadro destacado dentro del
+   *  bubble, justo antes de los botones Confirmar/Cancelar. */
+  preview?: string;
   /** Datos arbitrarios que el frontend pasa al endpoint de ejecución. */
   params: Record<string, unknown>;
 };

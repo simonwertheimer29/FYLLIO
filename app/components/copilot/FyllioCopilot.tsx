@@ -170,6 +170,28 @@ export function FyllioCopilot() {
     }
   }
 
+  // Sprint 14b Bloque 8 hotfix — cancelar marca la action en el estado
+  // local sin disparar el endpoint. Visualmente queda como "cancelada"
+  // (gris + label tachado).
+  function cancelarAccion(action: CopilotAction, msgIndex: number) {
+    if (executingActionId) return;
+    setMessages((prev) => {
+      const copy = [...prev];
+      const msg = copy[msgIndex];
+      if (msg && msg.actions) {
+        copy[msgIndex] = {
+          ...msg,
+          actions: msg.actions.map((a) =>
+            a.id === action.id
+              ? { ...a, params: { ...a.params, _cancelled: true } }
+              : a,
+          ),
+        };
+      }
+      return copy;
+    });
+  }
+
   async function ejecutarAccion(action: CopilotAction, msgIndex: number) {
     if (executingActionId) return;
     setExecutingActionId(action.id);
@@ -295,6 +317,7 @@ export function FyllioCopilot() {
                   message={m}
                   msgIndex={i}
                   onAction={ejecutarAccion}
+                  onCancel={cancelarAccion}
                   executingActionId={executingActionId}
                 />
               ))}
@@ -392,11 +415,13 @@ function ChatBubble({
   message,
   msgIndex,
   onAction,
+  onCancel,
   executingActionId,
 }: {
   message: CopilotMessage;
   msgIndex: number;
   onAction: (a: CopilotAction, idx: number) => void;
+  onCancel: (a: CopilotAction, idx: number) => void;
   executingActionId: string | null;
 }) {
   const isUser = message.role === "user";
@@ -424,28 +449,60 @@ function ChatBubble({
           {renderAssistantContent(message.content)}
         </p>
         {message.actions && message.actions.length > 0 && (
-          <div className="mt-2 flex flex-col gap-1.5">
+          <div className="mt-2 flex flex-col gap-2">
             {message.actions.map((a) => {
               const executed = (a.params as { _executed?: boolean })._executed === true;
+              const cancelled = (a.params as { _cancelled?: boolean })._cancelled === true;
               const busy = executingActionId === a.id;
+              const settled = executed || cancelled;
               return (
-                <button
-                  key={a.id}
-                  type="button"
-                  onClick={() => onAction(a, msgIndex)}
-                  disabled={executed || busy}
-                  className={`text-xs font-medium px-3 py-1.5 rounded-md border text-left transition-colors ${
-                    executed
-                      ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                      : busy
-                        ? "bg-slate-100 text-slate-500 border-slate-200"
-                        : "bg-violet-50 border-violet-200 text-violet-700 hover:bg-violet-100"
-                  }`}
-                  title={a.description}
-                >
-                  {executed ? "✓ " : busy ? "⏳ " : "▶ "}
-                  {a.label}
-                </button>
+                <div key={a.id} className="flex flex-col gap-1.5">
+                  {/* Sprint 14b Bloque 8 hotfix — preview rico (mensaje
+                      WA renderizado, resumen de pago, etc.). Cuadro
+                      destacado para que la coordinadora confíe en lo
+                      que va a confirmar. */}
+                  {a.preview && !settled && (
+                    <div className="rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-[12px] text-slate-700 whitespace-pre-wrap leading-relaxed">
+                      {a.preview}
+                    </div>
+                  )}
+                  {settled ? (
+                    <div
+                      className={`text-xs font-medium px-3 py-1.5 rounded-md border text-left ${
+                        executed
+                          ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                          : "bg-slate-100 border-slate-200 text-slate-400 line-through"
+                      }`}
+                    >
+                      {executed ? "✓ " : "✕ "}
+                      {a.label}
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onCancel(a, msgIndex)}
+                        disabled={busy}
+                        className="text-xs font-medium px-3 py-1.5 rounded-md border bg-white border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onAction(a, msgIndex)}
+                        disabled={busy}
+                        className={`flex-1 text-xs font-semibold px-3 py-1.5 rounded-md border text-left transition-colors ${
+                          busy
+                            ? "bg-slate-100 text-slate-500 border-slate-200"
+                            : "bg-violet-600 border-violet-600 text-white hover:bg-violet-700"
+                        }`}
+                        title={a.description}
+                      >
+                        {busy ? "⏳ Ejecutando…" : `✓ ${a.label}`}
+                      </button>
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>

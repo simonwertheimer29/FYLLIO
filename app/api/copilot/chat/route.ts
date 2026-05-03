@@ -29,6 +29,15 @@ import {
   type ReadToolName,
 } from "../../../lib/copilot/tools-spec";
 import { runReadTool } from "../../../lib/copilot/tools-exec";
+// Sprint 14b Bloque 8 hotfix — render rico de previews para action-tools
+// financieras. Llamado desde toCopilotAction (ahora async) para construir
+// el campo preview con el mensaje WA / resumen de pago / etc. antes de
+// devolver la action al cliente.
+import {
+  renderizarPlantilla,
+  getPlantillasActivas,
+} from "../../../lib/plantillas/plantillas";
+import { getPaciente } from "../../../lib/pacientes/pacientes";
 
 export const dynamic = "force-dynamic";
 
@@ -167,7 +176,9 @@ export const POST = withAuth(async (session, req) => {
     const readsThisTurn = toolUses.filter((t) => READ_SET.has(t.name));
 
     for (const a of actionsThisTurn) {
-      collectedActions.push(toCopilotAction(a.id, a.name as ActionToolName, a.input));
+      collectedActions.push(
+        await toCopilotAction(a.id, a.name as ActionToolName, a.input),
+      );
     }
 
     if (data.stop_reason === "tool_use" && readsThisTurn.length > 0) {
@@ -220,8 +231,24 @@ export const POST = withAuth(async (session, req) => {
     );
   }
 
+  // Sprint 14b Bloque 8 hotfix — si el LLM solo emitió tool_use sin
+  // texto narrativo (caso típico cuando propone una sola action), en
+  // lugar del genérico "(El modelo no devolvió texto)" sintetizamos
+  // un texto coherente desde las descriptions de las actions. La
+  // coordinadora siempre ve algo legible en el bubble.
+  let reply = finalText.trim();
+  if (!reply) {
+    if (collectedActions.length === 1) {
+      reply = collectedActions[0]!.description;
+    } else if (collectedActions.length > 1) {
+      reply = "Te propongo estas acciones:";
+    } else {
+      reply = "(El modelo no devolvió texto)";
+    }
+  }
+
   return NextResponse.json<CopilotChatResponse>({
-    reply: finalText || "(El modelo no devolvió texto)",
+    reply,
     actions: collectedActions.length > 0 ? collectedActions : undefined,
     toolCallsTrace: toolCallsTrace.length > 0 ? toolCallsTrace : undefined,
   });
@@ -229,11 +256,11 @@ export const POST = withAuth(async (session, req) => {
 
 // ─── Mapeo tool_use → CopilotAction (botón confirmable en frontend) ───
 
-function toCopilotAction(
+async function toCopilotAction(
   id: string,
   name: ActionToolName,
   input: Record<string, unknown>,
-): CopilotAction {
+): Promise<CopilotAction> {
   switch (name) {
     case "cambiar_estado_lead": {
       const nuevo = String(input.nuevoEstado ?? "");
@@ -311,13 +338,59 @@ function toCopilotAction(
       };
     // ── Sprint 14b Bloque 8 — modulo financiero ────────────────────────
     case "enviar_recordatorio_pago": {
-      const pac = input.nombrePaciente ? String(input.nombrePaciente) : "este paciente";
-      const plantilla = input.plantillaNombre ? String(input.plantillaNombre) : "recordatorio";
+      const pacienteId = String(input.pacienteId ?? "");
+      const plantillaIdRaw = input.plantillaId ? String(input.plantillaId) : "";
+      const plantillaNombre = input.plantillaNombre
+        ? String(input.plantillaNombre)
+        : "";
+
+      // Resolver nombre del paciente y preview server-side. El preview
+      // es CRÍTICO para que la coordinadora vea exactamente qué WA se
+      // va a enviar antes de confirmar (alucinaciones del LLM serían
+      // serias en mensajes a pacientes).
+      let pacNombre = input.nombrePaciente
+        ? String(input.nombrePaciente)
+        : "este paciente";
+      let preview = "";
+      try {
+        if (pacienteId) {
+          const paciente = await getPaciente(pacienteId);
+          if (paciente) pacNombre = paciente.nombre;
+          // Resolver plantillaId via override por nombre si no llegó.
+          let plantillaIdResolved = plantillaIdRaw;
+          if (!plantillaIdResolved && plantillaNombre && paciente) {
+            const activas = await getPlantillasActivas({
+              clinicaId: paciente.clinicaId,
+              categoria: "cobranza",
+            });
+            plantillaIdResolved =
+              activas.find((p) => p.nombre === plantillaNombre)?.id ?? "";
+          }
+          if (plantillaIdResolved && pacienteId) {
+            const r = await renderizarPlantilla({
+              plantillaId: plantillaIdResolved,
+              pacienteId,
+            });
+            preview = r.texto;
+            // Persistimos el id resuelto para que execEnviarRecordatorioPago
+            // no tenga que volver a resolverlo.
+            (input as any).plantillaId = plantillaIdResolved;
+          }
+        }
+      } catch (err) {
+        console.error("[copilot toCopilotAction recordatorio]", err);
+      }
+
+      const description = preview
+        ? `Voy a enviar este mensaje a ${pacNombre}. Confirma para abrir WhatsApp.`
+        : `Voy a enviar un recordatorio (${plantillaNombre || "cobranza"}) a ${pacNombre}. Confirma para abrir WhatsApp.`;
+
       return {
         id,
         tool: name,
         label: "Enviar recordatorio",
-        description: `Voy a enviar el recordatorio "${plantilla}" por WhatsApp a ${pac}. Verás el preview antes de enviar.`,
+        description,
+        preview: preview || undefined,
         params: input,
       };
     }
@@ -325,27 +398,72 @@ function toCopilotAction(
       const pac = input.nombrePaciente ? String(input.nombrePaciente) : "el paciente";
       const importe = Number(input.importe ?? 0);
       const tipo = String(input.tipo ?? "");
+      const metodo = input.metodo ? String(input.metodo) : "(método sin especificar)";
+      const fechaPago = input.fechaPago
+        ? String(input.fechaPago)
+        : new Date().toISOString().slice(0, 10);
+      const nota = input.nota ? String(input.nota) : "";
       const importeStr = importe.toLocaleString("es-ES", {
         minimumFractionDigits: 0,
         maximumFractionDigits: 2,
         useGrouping: true,
       });
+      const tipoLabel =
+        tipo === "Senal"
+          ? "Señal"
+          : tipo === "Primer_Pago_Plan"
+            ? "Primer pago de plan"
+            : tipo === "Liquidacion"
+              ? "Liquidación"
+              : tipo;
+      const preview = [
+        `Paciente: ${pac}`,
+        `Importe: ${importeStr}€`,
+        `Tipo: ${tipoLabel}`,
+        `Método: ${metodo}`,
+        `Fecha: ${fechaPago}`,
+        nota ? `Nota: ${nota}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
       return {
         id,
         tool: name,
         label: `Registrar ${importeStr}€`,
-        description: `Voy a registrar un pago de ${importeStr}€ a ${pac} (tipo: ${tipo}).`,
+        description: `Voy a registrar este pago. Confirma para guardarlo en Pagos_Paciente.`,
+        preview,
         params: input,
       };
     }
     case "agendar_llamada_cobranza": {
       const pac = input.nombrePaciente ? String(input.nombrePaciente) : "el paciente";
       const fechaHora = String(input.fechaHora ?? "");
+      const nota = input.nota ? String(input.nota) : "";
+      // Formateo amigable de la fecha si es ISO parseable.
+      let fechaHoraTxt = fechaHora;
+      const dt = new Date(fechaHora);
+      if (!Number.isNaN(dt.getTime())) {
+        fechaHoraTxt = dt.toLocaleString("es-ES", {
+          weekday: "long",
+          day: "2-digit",
+          month: "long",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+      const preview = [
+        `Paciente: ${pac}`,
+        `Cuándo: ${fechaHoraTxt}`,
+        nota ? `Nota: ${nota}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
       return {
         id,
         tool: name,
         label: "Agendar llamada",
-        description: `Voy a agendar llamada de cobranza a ${pac} el ${fechaHora}.`,
+        description: `Voy a agendar este recordatorio interno. No realiza la llamada — solo deja la nota en la ficha.`,
+        preview,
         params: input,
       };
     }
