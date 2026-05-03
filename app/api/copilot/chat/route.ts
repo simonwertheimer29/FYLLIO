@@ -28,7 +28,7 @@ import {
   type ActionToolName,
   type ReadToolName,
 } from "../../../lib/copilot/tools-spec";
-import { runReadTool } from "../../../lib/copilot/tools-exec";
+import { runReadTool, buscarPacientesPorNombre } from "../../../lib/copilot/tools-exec";
 // Sprint 14b Bloque 8 hotfix — render rico de previews para action-tools
 // financieras. Llamado desde toCopilotAction (ahora async) para construir
 // el campo preview con el mensaje WA / resumen de pago / etc. antes de
@@ -38,6 +38,7 @@ import {
   getPlantillasActivas,
 } from "../../../lib/plantillas/plantillas";
 import { getPaciente } from "../../../lib/pacientes/pacientes";
+import type { Session } from "../../../lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -177,7 +178,7 @@ export const POST = withAuth(async (session, req) => {
 
     for (const a of actionsThisTurn) {
       collectedActions.push(
-        await toCopilotAction(a.id, a.name as ActionToolName, a.input),
+        await toCopilotAction(a.id, a.name as ActionToolName, a.input, env),
       );
     }
 
@@ -256,10 +257,50 @@ export const POST = withAuth(async (session, req) => {
 
 // ─── Mapeo tool_use → CopilotAction (botón confirmable en frontend) ───
 
+type ToCopilotActionEnv = {
+  session: Session;
+  selectedClinicaId: string | null;
+};
+
+/**
+ * Sprint 14b Bloque 8 hotfix — fallback de resolución nombre→recordId
+ * cuando el LLM (a pesar del system prompt) pasa un nombre crudo en
+ * lugar del id. Defensa en profundidad: el flujo correcto es
+ * buscar_paciente_por_nombre -> action-tool con recordId. Esta función
+ * intenta resolver localmente cuando el id no parece un recordId
+ * Airtable (no empieza por "rec").
+ *
+ * Si match único, devuelve el id. Si no resuelve o ambiguo, devuelve
+ * null y la action lleva un preview con instrucción para el usuario.
+ */
+async function tryResolvePacienteId(
+  raw: unknown,
+  env: ToCopilotActionEnv,
+): Promise<{ resolved: string | null; ambiguous: boolean; query: string }> {
+  const v = String(raw ?? "").trim();
+  if (!v) return { resolved: null, ambiguous: false, query: "" };
+  if (v.startsWith("rec")) return { resolved: v, ambiguous: false, query: v };
+  try {
+    const r = await buscarPacientesPorNombre(env, v, 5);
+    const hits = r.resultados ?? [];
+    if (hits.length === 1) {
+      return {
+        resolved: String((hits[0] as any).recordId),
+        ambiguous: false,
+        query: v,
+      };
+    }
+    return { resolved: null, ambiguous: hits.length > 1, query: v };
+  } catch {
+    return { resolved: null, ambiguous: false, query: v };
+  }
+}
+
 async function toCopilotAction(
   id: string,
   name: ActionToolName,
   input: Record<string, unknown>,
+  env: ToCopilotActionEnv,
 ): Promise<CopilotAction> {
   switch (name) {
     case "cambiar_estado_lead": {
@@ -338,7 +379,10 @@ async function toCopilotAction(
       };
     // ── Sprint 14b Bloque 8 — modulo financiero ────────────────────────
     case "enviar_recordatorio_pago": {
-      const pacienteId = String(input.pacienteId ?? "");
+      // Sprint 14b Bloque 8 hotfix — fallback de resolución nombre→id.
+      const resolved = await tryResolvePacienteId(input.pacienteId, env);
+      if (resolved.resolved) (input as any).pacienteId = resolved.resolved;
+
       const plantillaIdRaw = input.plantillaId ? String(input.plantillaId) : "";
       const plantillaNombre = input.plantillaNombre
         ? String(input.plantillaNombre)
@@ -352,11 +396,11 @@ async function toCopilotAction(
         ? String(input.nombrePaciente)
         : "este paciente";
       let preview = "";
+      const pacienteId = String(input.pacienteId ?? "");
       try {
-        if (pacienteId) {
+        if (pacienteId.startsWith("rec")) {
           const paciente = await getPaciente(pacienteId);
           if (paciente) pacNombre = paciente.nombre;
-          // Resolver plantillaId via override por nombre si no llegó.
           let plantillaIdResolved = plantillaIdRaw;
           if (!plantillaIdResolved && plantillaNombre && paciente) {
             const activas = await getPlantillasActivas({
@@ -372,13 +416,27 @@ async function toCopilotAction(
               pacienteId,
             });
             preview = r.texto;
-            // Persistimos el id resuelto para que execEnviarRecordatorioPago
-            // no tenga que volver a resolverlo.
             (input as any).plantillaId = plantillaIdResolved;
           }
         }
       } catch (err) {
         console.error("[copilot toCopilotAction recordatorio]", err);
+      }
+
+      // Caso paciente no resoluble: action 'rota' con preview
+      // explicativo y label deshabilitado.
+      if (!pacienteId.startsWith("rec")) {
+        const msg = resolved.ambiguous
+          ? `He encontrado varios pacientes con "${resolved.query}". Pídeme que use buscar_paciente_por_nombre para ver la lista y elige cuál.`
+          : `No he podido identificar al paciente "${resolved.query}". Pídeme buscar_paciente_por_nombre primero.`;
+        return {
+          id,
+          tool: name,
+          label: "Enviar recordatorio",
+          description: `No puedo enviar el recordatorio sin identificar al paciente.`,
+          preview: msg,
+          params: { ...input, _unresolved: true },
+        };
       }
 
       const description = preview
@@ -395,7 +453,32 @@ async function toCopilotAction(
       };
     }
     case "marcar_pago_recibido": {
-      const pac = input.nombrePaciente ? String(input.nombrePaciente) : "el paciente";
+      const resolvedM = await tryResolvePacienteId(input.pacienteId, env);
+      if (resolvedM.resolved) (input as any).pacienteId = resolvedM.resolved;
+      const pacIdM = String(input.pacienteId ?? "");
+      let pacM = input.nombrePaciente
+        ? String(input.nombrePaciente)
+        : "el paciente";
+      if (pacIdM.startsWith("rec")) {
+        try {
+          const p = await getPaciente(pacIdM);
+          if (p) pacM = p.nombre;
+        } catch { /* noop */ }
+      }
+      if (!pacIdM.startsWith("rec")) {
+        const msg = resolvedM.ambiguous
+          ? `Hay varios pacientes con "${resolvedM.query}". Pídeme buscar_paciente_por_nombre para ver la lista.`
+          : `No identifico al paciente "${resolvedM.query}". Pídeme buscar_paciente_por_nombre primero.`;
+        return {
+          id,
+          tool: name,
+          label: "Registrar pago",
+          description: "No puedo registrar el pago sin identificar al paciente.",
+          preview: msg,
+          params: { ...input, _unresolved: true },
+        };
+      }
+      const pac = pacM;
       const importe = Number(input.importe ?? 0);
       const tipo = String(input.tipo ?? "");
       const metodo = input.metodo ? String(input.metodo) : "(método sin especificar)";
@@ -436,7 +519,32 @@ async function toCopilotAction(
       };
     }
     case "agendar_llamada_cobranza": {
-      const pac = input.nombrePaciente ? String(input.nombrePaciente) : "el paciente";
+      const resolvedA = await tryResolvePacienteId(input.pacienteId, env);
+      if (resolvedA.resolved) (input as any).pacienteId = resolvedA.resolved;
+      const pacIdA = String(input.pacienteId ?? "");
+      let pacA = input.nombrePaciente
+        ? String(input.nombrePaciente)
+        : "el paciente";
+      if (pacIdA.startsWith("rec")) {
+        try {
+          const p = await getPaciente(pacIdA);
+          if (p) pacA = p.nombre;
+        } catch { /* noop */ }
+      }
+      if (!pacIdA.startsWith("rec")) {
+        const msg = resolvedA.ambiguous
+          ? `Hay varios pacientes con "${resolvedA.query}". Pídeme buscar_paciente_por_nombre para ver la lista.`
+          : `No identifico al paciente "${resolvedA.query}". Pídeme buscar_paciente_por_nombre primero.`;
+        return {
+          id,
+          tool: name,
+          label: "Agendar llamada",
+          description: "No puedo agendar la llamada sin identificar al paciente.",
+          preview: msg,
+          params: { ...input, _unresolved: true },
+        };
+      }
+      const pac = pacA;
       const fechaHora = String(input.fechaHora ?? "");
       const nota = input.nota ? String(input.nota) : "";
       // Formateo amigable de la fecha si es ISO parseable.

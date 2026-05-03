@@ -37,6 +37,8 @@ export const READ_TOOL_NAMES = [
   "get_cobros_vencidos",
   "get_facturado_periodo",
   "get_top_pacientes_facturado",
+  // Sprint 14b Bloque 8 hotfix — resolucion paciente por nombre.
+  "buscar_paciente_por_nombre",
 ] as const;
 
 export type ReadToolName = (typeof READ_TOOL_NAMES)[number];
@@ -251,6 +253,28 @@ export const READ_TOOLS: AnthropicTool[] = [
         fecha_inicio: { type: "string", description: "ISO YYYY-MM-DD (opcional)" },
         fecha_fin: { type: "string", description: "ISO YYYY-MM-DD (opcional)" },
       },
+    },
+  },
+  {
+    name: "buscar_paciente_por_nombre",
+    description:
+      "Busca pacientes por nombre (match parcial case-insensitive). USA ESTA TOOL " +
+      "SIEMPRE que el usuario mencione un paciente por nombre y necesites el recordId " +
+      "para una action-tool. NO uses get_pagos_pendientes_clinica ni otras read-tools " +
+      "para buscar — son para listar/agregar, no para resolver nombre→id. " +
+      "Devuelve hasta `limit` resultados con recordId, nombre, telefono, clinicaNombre, " +
+      "doctorNombre, presupuestoAceptado, totalFacturado, pendiente. Sort: match exacto " +
+      "primero, luego matches por inicio de palabra, luego matches genéricos. Si query " +
+      "tiene <3 caracteres, devuelve error. Si 0 resultados, lo indica explícitamente. " +
+      "Si N>1 resultados, presenta la lista al usuario y pregunta cuál antes de proponer " +
+      "la action.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Nombre o parte del nombre del paciente." },
+        limit: { type: "number", description: "Máximo de resultados (1-20). Default 10." },
+      },
+      required: ["query"],
     },
   },
 ];

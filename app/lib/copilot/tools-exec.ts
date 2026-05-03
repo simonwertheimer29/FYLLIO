@@ -632,6 +632,133 @@ function shiftDay(iso: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+// ─── buscar_paciente_por_nombre ────────────────────────────────────────
+//
+// Sprint 14b Bloque 8 hotfix — resolución nombre→recordId. La coordinadora
+// menciona "Roberto" o "Carmen Iglesias" en lenguaje natural; el LLM
+// necesita el id real para invocar las action-tools financieras. Esta
+// tool es la canónica para esa resolución (NO usar get_pagos_pendientes_
+// clinica ni otras como búsqueda).
+
+const MIN_QUERY_CHARS = 3;
+
+export async function buscarPacientesPorNombre(
+  env: CopilotEnv,
+  query: string,
+  limit = 10,
+): Promise<{
+  error?: string;
+  resultados?: Array<Record<string, unknown>>;
+  total?: number;
+}> {
+  const q = String(query ?? "").trim();
+  if (q.length < MIN_QUERY_CHARS) {
+    return {
+      error: `Query muy corta (mínimo ${MIN_QUERY_CHARS} caracteres). Pide más caracteres al usuario.`,
+    };
+  }
+  const lim = Math.max(1, Math.min(limit, 20));
+
+  const pacientes = await pacientesAccesibles(env);
+  const ql = q.toLowerCase();
+
+  // Scoring por relevancia.
+  const scored = pacientes
+    .map((p) => {
+      const nl = p.nombre.toLowerCase();
+      let score = 0;
+      if (nl === ql) score = 100;
+      else if (nl.startsWith(ql)) score = 80;
+      else if (nl.split(/\s+/).some((w) => w.startsWith(ql))) score = 60;
+      else if (nl.includes(ql)) score = 40;
+      return { p, score };
+    })
+    .filter((s) => s.score > 0)
+    .sort((a, b) => b.score - a.score || a.p.nombre.localeCompare(b.p.nombre));
+
+  if (scored.length === 0) {
+    return { resultados: [], total: 0 };
+  }
+
+  // Resolvemos doctor + clinica nombres en una sola pasada (cache).
+  const clinicaIds = Array.from(
+    new Set(
+      scored
+        .slice(0, lim)
+        .map((s) => s.p.clinicaId)
+        .filter((x): x is string => !!x),
+    ),
+  );
+  const doctorIds = Array.from(
+    new Set(
+      scored
+        .slice(0, lim)
+        .map((s) => s.p.doctorLinkId)
+        .filter((x): x is string => !!x),
+    ),
+  );
+  const clinicaNombres = new Map<string, string>();
+  const doctorNombres = new Map<string, string>();
+  if (clinicaIds.length > 0) {
+    try {
+      const recs = await fetchAll(
+        base(TABLES.clinics as any).select({
+          filterByFormula: `OR(${clinicaIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`,
+          fields: ["Nombre"],
+        }),
+      );
+      for (const r of recs) {
+        clinicaNombres.set(r.id, String((r.fields as any)?.["Nombre"] ?? ""));
+      }
+    } catch { /* noop */ }
+  }
+  if (doctorIds.length > 0) {
+    try {
+      const recs = await fetchAll(
+        base(TABLES.staff as any).select({
+          filterByFormula: `OR(${doctorIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`,
+          fields: ["Nombre"],
+        }),
+      );
+      for (const r of recs) {
+        doctorNombres.set(r.id, String((r.fields as any)?.["Nombre"] ?? ""));
+      }
+    } catch { /* noop */ }
+  }
+
+  const resultados = await Promise.all(
+    scored.slice(0, lim).map(async ({ p }) => {
+      const pagos = await getPagosByPaciente(p.id);
+      const totalFacturado = pagos.reduce((s, x) => s + x.importe, 0);
+      const presup =
+        typeof p.presupuestoTotal === "number" ? p.presupuestoTotal : null;
+      const pendiente =
+        p.aceptado === "Si" && presup != null
+          ? Math.max(0, presup - totalFacturado)
+          : null;
+      return {
+        recordId: p.id,
+        nombre: p.nombre,
+        telefono: p.telefono ?? null,
+        clinicaNombre: p.clinicaId ? clinicaNombres.get(p.clinicaId) ?? null : null,
+        doctorNombre: p.doctorLinkId ? doctorNombres.get(p.doctorLinkId) ?? null : null,
+        presupuestoAceptado: presup,
+        totalFacturado,
+        pendiente,
+      };
+    }),
+  );
+
+  return { resultados, total: scored.length };
+}
+
+async function execBuscarPacientePorNombre(
+  env: CopilotEnv,
+  args: { query?: string; limit?: number },
+): Promise<unknown> {
+  return buscarPacientesPorNombre(env, args.query ?? "", args.limit);
+}
+
 // ─── Dispatcher ───────────────────────────────────────────────────────
 
 export async function runReadTool(
@@ -666,6 +793,9 @@ export async function runReadTool(
         return await execGetFacturadoPeriodo(env, input as any);
       case "get_top_pacientes_facturado":
         return await execGetTopPacientesFacturado(env, input as any);
+      // Sprint 14b Bloque 8 hotfix — resolucion paciente por nombre.
+      case "buscar_paciente_por_nombre":
+        return await execBuscarPacientePorNombre(env, input as any);
     }
   } catch (err) {
     console.error("[copilot read tool]", name, err instanceof Error ? err.message : err);

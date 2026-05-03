@@ -453,6 +453,11 @@ function ChatBubble({
             {message.actions.map((a) => {
               const executed = (a.params as { _executed?: boolean })._executed === true;
               const cancelled = (a.params as { _cancelled?: boolean })._cancelled === true;
+              // Sprint 14b Bloque 8 hotfix — el server marca _unresolved
+              // cuando no pudo resolver el paciente por nombre. La action
+              // queda como info-only (preview con instrucción al usuario)
+              // y el botón Confirmar no aparece.
+              const unresolved = (a.params as { _unresolved?: boolean })._unresolved === true;
               const busy = executingActionId === a.id;
               const settled = executed || cancelled;
               return (
@@ -460,9 +465,17 @@ function ChatBubble({
                   {/* Sprint 14b Bloque 8 hotfix — preview rico (mensaje
                       WA renderizado, resumen de pago, etc.). Cuadro
                       destacado para que la coordinadora confíe en lo
-                      que va a confirmar. */}
+                      que va a confirmar. Si unresolved, el preview es
+                      una instrucción al usuario y se renderiza en
+                      ámbar para distinguirlo. */}
                   {a.preview && !settled && (
-                    <div className="rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-[12px] text-slate-700 whitespace-pre-wrap leading-relaxed">
+                    <div
+                      className={
+                        unresolved
+                          ? "rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-800 whitespace-pre-wrap leading-relaxed"
+                          : "rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-[12px] text-slate-700 whitespace-pre-wrap leading-relaxed"
+                      }
+                    >
                       {a.preview}
                     </div>
                   )}
@@ -476,6 +489,13 @@ function ChatBubble({
                     >
                       {executed ? "✓ " : "✕ "}
                       {a.label}
+                    </div>
+                  ) : unresolved ? (
+                    // Action sin paciente resuelto: mostramos solo el
+                    // preview (instrucción) sin botón Confirmar.
+                    <div className="text-[11px] text-amber-700 italic">
+                      ⚠ Acción sin destinatario resuelto. Sigue la
+                      instrucción de arriba.
                     </div>
                   ) : (
                     <div className="flex gap-2">
