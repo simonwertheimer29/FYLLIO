@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import { Sparkles, MessageCircle } from "lucide-react";
 import type { Presupuesto, PresupuestoEstado, UserSession } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG, ESTADOS_ACCIONABLES, ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
 import { calcularProbabilidad } from "../../lib/presupuestos/probability";
@@ -64,10 +65,10 @@ function CompactRow({ p, prob, onOpenDrawer, onQuickContact }: {
           {p.patientPhone && (
             <button
               onClick={() => setIaOpen(true)}
-              className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-violet-600 text-white hover:bg-violet-700"
+              className="inline-flex items-center justify-center px-2 py-1 rounded-lg bg-violet-600 text-white hover:bg-violet-700"
               title="Sugerir mensaje"
             >
-              ✨
+              <Sparkles size={12} strokeWidth={2.25} />
             </button>
           )}
           <button
@@ -241,7 +242,7 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
               rel="noopener noreferrer"
               className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
             >
-              💬 WhatsApp
+              <MessageCircle size={13} strokeWidth={2.25} /> WhatsApp
             </a>
           )}
           {p.patientPhone && (
@@ -249,7 +250,7 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
               onClick={() => setIaOpen(true)}
               className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-violet-600 text-white hover:bg-violet-700"
             >
-              ✨ Generar
+              <Sparkles size={13} strokeWidth={2.25} /> Generar
             </button>
           )}
           <button

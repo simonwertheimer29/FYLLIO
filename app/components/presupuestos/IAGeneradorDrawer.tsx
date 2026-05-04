@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { Sparkles, MessageCircle } from "lucide-react";
 import type { Presupuesto, TonoIA } from "../../lib/presupuestos/types";
 import type { TonosStats } from "../../api/presupuestos/tonos-stats/route";
 
@@ -171,8 +172,8 @@ export default function IAGeneradorDrawer({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="font-bold text-slate-900 text-base">Mensaje IA</h3>
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600">
-                ✨ Beta
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600">
+                <Sparkles size={10} strokeWidth={2.5} /> Beta
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">{p.patientName}</p>
@@ -239,7 +240,10 @@ export default function IAGeneradorDrawer({
             ) : mensajes ? (
               `↺ Regenerar ${selectedCount} estilo${selectedCount !== 1 ? "s" : ""}`
             ) : (
-              `✨ Generar ${selectedCount} estilo${selectedCount !== 1 ? "s" : ""}`
+              <span className="inline-flex items-center gap-2">
+                <Sparkles size={14} strokeWidth={2.25} />
+                {`Generar ${selectedCount} estilo${selectedCount !== 1 ? "s" : ""}`}
+              </span>
             )}
           </button>
 
@@ -269,9 +273,9 @@ export default function IAGeneradorDrawer({
                     <p className="text-sm leading-relaxed">{msg}</p>
                     <button
                       onClick={() => handleEnviar(t.valor, msg)}
-                      className="w-full rounded-xl bg-emerald-600 text-white text-xs font-bold py-2 hover:bg-emerald-700"
+                      className="w-full rounded-xl bg-emerald-600 text-white text-xs font-bold py-2 hover:bg-emerald-700 inline-flex items-center justify-center gap-1.5"
                     >
-                      💬 Enviar por WhatsApp
+                      <MessageCircle size={13} strokeWidth={2.25} /> Enviar por WhatsApp
                     </button>
                   </div>
                 );

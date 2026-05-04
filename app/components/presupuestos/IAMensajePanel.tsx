@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Sparkles, MessageCircle } from "lucide-react";
 import type { Presupuesto, TonoIA } from "../../lib/presupuestos/types";
 
 const TONOS: { valor: TonoIA; label: string }[] = [
@@ -101,8 +102,8 @@ export default function IAMensajePanel({
     <div className="px-5 py-3 border-b border-slate-100">
       <div className="flex items-center gap-2 mb-2">
         <p className="text-[10px] text-slate-400 uppercase font-medium">Sugerencia de mensaje</p>
-        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600">
-          ✨ Beta
+        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600">
+          <Sparkles size={10} strokeWidth={2.5} /> Beta
         </span>
       </div>
 
@@ -167,7 +168,13 @@ export default function IAMensajePanel({
                 disabled={registrando}
                 className="flex-1 rounded-xl bg-emerald-600 text-white text-[10px] font-semibold py-1.5 hover:bg-emerald-700 disabled:opacity-50 transition-colors"
               >
-                {registrando ? "Enviando…" : "💬 WhatsApp"}
+                {registrando ? (
+                  "Enviando…"
+                ) : (
+                  <span className="inline-flex items-center gap-1">
+                    <MessageCircle size={12} strokeWidth={2.25} /> WhatsApp
+                  </span>
+                )}
               </button>
             )}
           </div>
