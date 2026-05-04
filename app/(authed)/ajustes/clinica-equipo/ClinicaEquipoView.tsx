@@ -5,6 +5,7 @@
 // un modal de "PIN generado, copia ahora" tras crear/regenerar.
 
 import { useCallback, useState } from "react";
+import { Card } from "../../../components/ui/Card";
 
 type Clinica = {
   id: string;
@@ -126,7 +127,7 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
           </button>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        <Card padding="none" className="overflow-hidden">
           <table className="w-full text-xs">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
@@ -181,7 +182,7 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
               )}
             </tbody>
           </table>
-        </div>
+        </Card>
       </section>
 
       {/* ─── Equipo ────────────────────────────────────────────────────── */}
@@ -197,7 +198,7 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
           </button>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        <Card padding="none" className="overflow-hidden">
           <table className="w-full text-xs">
             <thead className="bg-slate-50 text-slate-600">
               <tr>
@@ -269,7 +270,7 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
               )}
             </tbody>
           </table>
-        </div>
+        </Card>
       </section>
 
       {modalClinica && (

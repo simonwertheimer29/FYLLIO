@@ -12,6 +12,7 @@
 // una clínica (badge "default").
 
 import { useEffect, useMemo, useState } from "react";
+import { Card } from "../../../components/ui/Card";
 
 type Scope = "global" | string; // "global" o clinicaId
 
@@ -111,7 +112,7 @@ export default function ConfiguracionView({
       </div>
 
       {/* Scope selector */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 flex items-center gap-4 flex-wrap">
+      <Card className="flex items-center gap-4 flex-wrap">
         <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
           Scope
         </label>
@@ -134,7 +135,7 @@ export default function ConfiguracionView({
               : `${opcionesPropias.length} opciones propias.`}
           </span>
         )}
-      </div>
+      </Card>
 
       {/* Tabs categoría */}
       <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
@@ -249,7 +250,7 @@ function CategoriaPanel({
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+      <Card padding="none" className="overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
           <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">
             {mostrandoGlobales
@@ -282,9 +283,9 @@ function CategoriaPanel({
             </li>
           )}
         </ul>
-      </div>
+      </Card>
 
-      <div className="bg-white rounded-2xl border border-slate-200 p-4 flex gap-2">
+      <Card className="flex gap-2">
         <input
           value={nuevoValor}
           onChange={(e) => setNuevoValor(e.target.value)}
@@ -305,7 +306,7 @@ function CategoriaPanel({
         >
           {submittingNew ? "Añadiendo…" : "Añadir"}
         </button>
-      </div>
+      </Card>
     </div>
   );
 }
@@ -506,7 +507,7 @@ function PlazoSinglePanel({
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-5 space-y-3">
+    <Card padding="none" className="p-5 space-y-3">
       <div className="flex items-end gap-3">
         <div className="flex-1">
           <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
@@ -539,7 +540,7 @@ function PlazoSinglePanel({
           </>
         )}
       </p>
-    </div>
+    </Card>
   );
 }
 
@@ -634,11 +635,11 @@ function PlantillasPanel({ scope }: { scope: Scope }) {
       {loading ? (
         <p className="text-sm text-slate-400 animate-pulse">Cargando…</p>
       ) : plantillas.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-sm text-slate-400">
+        <Card padding="none" className="p-8 text-center text-sm text-slate-400">
           No hay plantillas en esta categoría todavía.
-        </div>
+        </Card>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <Card padding="none" className="overflow-hidden">
           <ul className="divide-y divide-slate-50">
             {plantillas.map((p) => (
               <PlantillaRow
@@ -650,7 +651,7 @@ function PlantillasPanel({ scope }: { scope: Scope }) {
               />
             ))}
           </ul>
-        </div>
+        </Card>
       )}
 
       {editing && (
