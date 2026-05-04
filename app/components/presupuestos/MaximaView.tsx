@@ -11,6 +11,7 @@ import type {
 } from "../../lib/presupuestos/types";
 import { ESTADO_VISUAL_CONFIG } from "../../lib/presupuestos/colors";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { CardListSkeleton, KpiCardSkeleton } from "../ui/Skeleton";
 
 // ─── Filter pill categories ─────────────────────────────────────────────────
 
@@ -194,8 +195,14 @@ export default function MaximaView({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-slate-200 border-t-slate-600" />
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiCardSkeleton />
+          <KpiCardSkeleton />
+          <KpiCardSkeleton />
+          <KpiCardSkeleton />
+        </div>
+        <CardListSkeleton rows={5} />
       </div>
     );
   }

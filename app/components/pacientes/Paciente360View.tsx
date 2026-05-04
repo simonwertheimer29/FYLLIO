@@ -17,6 +17,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Pago, TipoPago, MetodoPago } from "../../lib/pagos";
 import { formatTipo } from "../../lib/pagos";
+import { CardListSkeleton, KpiCardSkeleton } from "../ui/Skeleton";
 
 // Sprint 14a Bloque 6 — re-scope a 3 hitos comerciales.
 const TIPOS_PAGO_OPTS: Array<{ value: TipoPago; label: string; help: string }> = [
@@ -234,8 +235,14 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <p className="text-slate-400 text-sm animate-pulse">Cargando paciente…</p>
+      <div className="min-h-screen bg-slate-50 px-4 py-6 max-w-3xl mx-auto space-y-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiCardSkeleton />
+          <KpiCardSkeleton />
+          <KpiCardSkeleton />
+          <KpiCardSkeleton />
+        </div>
+        <CardListSkeleton rows={4} />
       </div>
     );
   }

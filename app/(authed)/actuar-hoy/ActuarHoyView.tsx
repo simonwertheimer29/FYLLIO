@@ -20,6 +20,7 @@ import { AccionCard } from "../../components/shared/AccionCard";
 import { AccionPanel } from "../../components/shared/AccionPanel";
 import { AsistenciaModal } from "../leads/AsistenciaModal";
 import IntervencionView from "../../components/presupuestos/IntervencionView";
+import { CardListSkeleton } from "../../components/ui/Skeleton";
 
 type Tab = "leads" | "presupuestos";
 
@@ -270,7 +271,9 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
         ))}
       </div>
 
-      {filteredLeads.length === 0 ? (
+      {loading && filteredLeads.length === 0 ? (
+        <CardListSkeleton rows={4} />
+      ) : filteredLeads.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-slate-200 p-12 text-center">
           <p className="text-sm font-bold text-slate-700">Sin casos en esta vista</p>
           <p className="text-xs text-slate-400 mt-1">

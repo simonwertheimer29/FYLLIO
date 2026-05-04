@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { CardListSkeleton } from "../../components/ui/Skeleton";
 
 type Urgencia = "vencido" | "por_vencer" | "estancado" | "normal";
 
@@ -164,7 +165,7 @@ export function CobrosTabView() {
 
       {/* Cola */}
       {loading && !data ? (
-        <p className="text-sm text-slate-400 animate-pulse">Cargando cola…</p>
+        <CardListSkeleton rows={4} />
       ) : items.length === 0 ? (
         <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center">
           <p className="text-3xl mb-2">🎉</p>

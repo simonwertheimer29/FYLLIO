@@ -14,6 +14,7 @@ import {
   Tooltip as ReTooltip,
 } from "recharts";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { KpiCardSkeleton } from "../../components/ui/Skeleton";
 
 type Periodo = "hoy" | "semana" | "mes" | "mes_anterior" | "trimestre";
 
@@ -175,33 +176,39 @@ export function KpisCobrosView() {
 function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolean }) {
   const placeholder = loading && !data;
   const h = data?.hero;
+  if (placeholder) {
+    return (
+      <section>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <KpiCardSkeleton />
+          <KpiCardSkeleton />
+          <KpiCardSkeleton />
+          <KpiCardSkeleton />
+        </div>
+      </section>
+    );
+  }
   return (
     <section>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KpiCard
           label="Total facturado"
-          value={placeholder ? "…" : fmtEUR(h?.totalFacturado ?? 0)}
+          value={fmtEUR(h?.totalFacturado ?? 0)}
           tone="emerald"
         />
         <KpiCard
           label="Pendiente cobro"
-          value={placeholder ? "…" : fmtEUR(h?.pendienteCobro ?? 0)}
+          value={fmtEUR(h?.pendienteCobro ?? 0)}
           tone={h && h.pendienteCobro > 0 ? "rose" : "slate"}
         />
         <KpiCard
           label="Tasa cobro"
-          value={
-            placeholder
-              ? "…"
-              : h?.tasaCobro == null
-                ? "—"
-                : `${h.tasaCobro}%`
-          }
+          value={h?.tasaCobro == null ? "—" : `${h.tasaCobro}%`}
           tone={h?.tasaCobro != null && h.tasaCobro >= 70 ? "emerald" : "amber"}
         />
         <KpiCard
           label="Liquidaciones vencidas"
-          value={placeholder ? "…" : String(h?.liquidacionesVencidas ?? 0)}
+          value={String(h?.liquidacionesVencidas ?? 0)}
           tone={h && h.liquidacionesVencidas > 0 ? "rose" : "slate"}
         />
       </div>

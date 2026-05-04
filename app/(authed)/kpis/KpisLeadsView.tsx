@@ -20,6 +20,7 @@ import {
 import { Trophy } from "lucide-react";
 import { Card } from "../../components/ui/Card";
 import { StatePill } from "../../components/ui/StatePill";
+import { KpiCardSkeleton } from "../../components/ui/Skeleton";
 import { useClinic } from "../../lib/context/ClinicContext";
 
 type Periodo = "hoy" | "semana" | "mes" | "mes_anterior" | "trimestre";
@@ -229,7 +230,7 @@ function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolea
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="fyllio-skeleton h-32" />
+          <KpiCardSkeleton key={i} />
         ))}
       </div>
     );
