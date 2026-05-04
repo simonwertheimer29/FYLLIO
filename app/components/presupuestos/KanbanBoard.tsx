@@ -32,13 +32,16 @@ const PILL_NEUTRAL: StatePillVariant = "neutral";
 // Sprint 13.1 Bloque 3.2 — Barra de color superior por columna.
 // 3px que se asienta UNA VEZ encima del header. Cards quedan blancas
 // neutras como en Kanban Leads (sin border-left coloreado por card).
+// Sprint 15 Bloque 15.5 hotfix — barras subidas de 3px a 5px y
+// saturación elevada (-400/-500/-600) para que la columna se identifique
+// visualmente sin recurrir al header completo de color.
 const COLUMN_TOP_BAR: Record<PresupuestoEstado, string> = {
-  PRESENTADO: "bg-sky-300",
-  INTERESADO: "bg-sky-500",
-  EN_DUDA: "bg-amber-400",
-  EN_NEGOCIACION: "bg-orange-500",
-  ACEPTADO: "bg-emerald-500",
-  PERDIDO: "bg-rose-400",
+  PRESENTADO: "bg-sky-500",
+  INTERESADO: "bg-sky-600",
+  EN_DUDA: "bg-amber-500",
+  EN_NEGOCIACION: "bg-orange-600",
+  ACEPTADO: "bg-emerald-600",
+  PERDIDO: "bg-rose-500",
 };
 
 // ------------------------------------------------------------------
@@ -232,9 +235,11 @@ function DroppableColumn({
 
   return (
     <div className="w-[260px] min-w-[260px] shrink-0 h-full flex flex-col overflow-hidden">
-      {/* Sprint 13.1 Bloque 3.2 — Barra de color superior 3px que
-          identifica la columna sin pintar el header completo. */}
-      <div className={`h-[3px] rounded-t-md shrink-0 ${COLUMN_TOP_BAR[estado]}`} />
+      {/* Sprint 13.1 Bloque 3.2 — Barra de color superior que
+          identifica la columna sin pintar el header completo.
+          Sprint 15.5 hotfix — 5px + saturación alta para mejor lectura
+          (antes 3px y tono pálido pasaban desapercibidos). */}
+      <div className={`h-[5px] rounded-t-md shrink-0 ${COLUMN_TOP_BAR[estado]}`} />
 
       {/* Header columna estilo Leads — sin fondo de color sólido, solo
           tipografia + contador; sub-info en una linea text-xs. */}

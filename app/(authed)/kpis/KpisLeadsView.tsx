@@ -943,9 +943,13 @@ function ContactacionRespuesta({ data }: { data: ApiResponse | null }) {
         <p className="text-xs text-slate-500 mt-1">
           Sparkline: tendencia de los últimos 30 días (no sigue al selector de periodo).
         </p>
-        <div className="mt-3 h-12">
-          {data.sparkline30d.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
+        <div className="mt-3 h-12" style={{ minWidth: 1 }}>
+          {/* Sprint 15.5 hotfix — Recharts emite warning 'width(-1)' si
+              el container se mide antes de hidratar (height vs h-12) o
+              si data tiene <2 puntos. Guard reforzado: pedimos >=2
+              puntos (un solo punto no genera línea útil). */}
+          {data.sparkline30d.length >= 2 ? (
+            <ResponsiveContainer width="100%" height="100%" debounce={50}>
               <LineChart data={data.sparkline30d}>
                 <Line
                   type="monotone"
