@@ -75,7 +75,9 @@ function toPaciente(rec: any): Paciente {
     clinicaId: clinicaLinks[0] ?? null,
     leadOrigenId: leadLinks[0] ?? null,
     activo: Boolean(f["Activo"] ?? true),
-    createdAt: String(rec._rawJson?.createdTime ?? rec.createdTime ?? ""),
+    createdAt: String(
+      f["CreatedAt"] ?? rec._rawJson?.createdTime ?? rec.createdTime ?? "",
+    ),
   };
 }
 
@@ -88,7 +90,30 @@ export type ListPacientesParams = {
 };
 
 export async function listPacientes(params: ListPacientesParams = {}): Promise<Paciente[]> {
-  const recs = await fetchAll(base(TABLES.patients).select({}));
+  // Sprint 15 Bloque 9 — sort nativo Airtable por CreatedAt (formula
+  // CREATED_TIME() añadida por sprint15-bloque9-schema.ts). Si la
+  // base aún no tiene el campo añadido (404 / UNKNOWN_FIELD_NAME),
+  // caemos a JS sort sobre rec._rawJson.createdTime para no romper.
+  let recs: any[];
+  try {
+    recs = await fetchAll(
+      base(TABLES.patients).select({
+        sort: [{ field: "CreatedAt", direction: "desc" }],
+      }),
+    );
+  } catch (err: any) {
+    const msg = String(err?.message ?? err);
+    if (/UNKNOWN_FIELD_NAME|CreatedAt/i.test(msg)) {
+      recs = await fetchAll(base(TABLES.patients).select({}));
+      recs.sort((a: any, b: any) => {
+        const ta = String(a._rawJson?.createdTime ?? a.createdTime ?? "");
+        const tb = String(b._rawJson?.createdTime ?? b.createdTime ?? "");
+        return tb.localeCompare(ta);
+      });
+    } else {
+      throw err;
+    }
+  }
   let pacientes = recs.map(toPaciente);
 
   if (params.clinicaIds && params.clinicaIds.length > 0) {
@@ -115,11 +140,6 @@ export async function listPacientes(params: ListPacientesParams = {}): Promise<P
   if (params.fechaHasta) {
     pacientes = pacientes.filter((p) => p.createdAt <= params.fechaHasta!);
   }
-  // Sprint 14a Bloque 1.5 hotfix — orden por createdTime desc (mas
-  // reciente primero) en la lista de Pacientes_Asistidos. Aplicamos
-  // sort en JS porque createdAt se deriva de _rawJson.createdTime
-  // (no es un field de Airtable que podamos pasar a select.sort).
-  pacientes.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return pacientes;
 }
 
