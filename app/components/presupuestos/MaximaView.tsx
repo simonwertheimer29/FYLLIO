@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { AlertTriangle } from "lucide-react";
 import type {
   UserSession,
   PresupuestoIntervencion,
@@ -235,13 +236,21 @@ export default function MaximaView({
         </div>
       </div>
 
-      {/* Priority block */}
+      {/* Priority block — Sprint 15 Bloque 8: estilo banner alerta
+          coherente con el resto del sistema (rose-50 + border-left
+          rose-700 + AlertTriangle Lucide). */}
       {intervencionCount > 0 && (
         <button
           onClick={() => setPillActiva("intervencion")}
-          className="w-full rounded-xl border border-red-200 bg-red-50 px-5 py-3 text-left transition-colors hover:bg-red-100"
+          className="w-full rounded-xl bg-rose-50 px-5 py-3 text-left transition-colors hover:bg-rose-100 border-l-4 border-rose-700 flex items-center gap-3"
         >
-          <p className="text-sm font-bold text-red-700">
+          <AlertTriangle
+            size={20}
+            strokeWidth={2.25}
+            className="text-rose-700 shrink-0"
+            aria-hidden="true"
+          />
+          <p className="text-sm font-bold text-rose-900">
             {intervencionCount} {intervencionCount === 1 ? "caso requiere" : "casos requieren"} intervención hoy
           </p>
         </button>
