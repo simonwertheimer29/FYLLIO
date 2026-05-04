@@ -71,19 +71,26 @@ export async function recordAlert(input: {
   mensaje: string;
   error: boolean;
 }): Promise<AlertaEnviada> {
+  // Sprint 14b Bloque 3 hotfix — typecast:true para que Airtable
+  // extienda el singleSelect Tipo_Alerta cuando lleguen los nuevos
+  // valores (cobro_vence_3d, cobro_vencido_7d, pendiente_alto_estancado).
+  // Mismo workaround que TipoPago en Sprint 14a Bloque 6.
   const created = (
-    await base(TABLES.alertasEnviadas).create([
-      {
-        fields: {
-          Clinica: [input.clinicaId],
-          Tipo_Alerta: input.tipo,
-          Admin_Origen: [input.adminId],
-          Coordinadora_Destino: [input.coordinadoraId],
-          Mensaje: input.mensaje,
-          Error: input.error,
+    await (base(TABLES.alertasEnviadas) as any).create(
+      [
+        {
+          fields: {
+            Clinica: [input.clinicaId],
+            Tipo_Alerta: input.tipo,
+            Admin_Origen: [input.adminId],
+            Coordinadora_Destino: [input.coordinadoraId],
+            Mensaje: input.mensaje,
+            Error: input.error,
+          },
         },
-      },
-    ])
+      ],
+      { typecast: true },
+    )
   )[0]!;
   return toAlerta(created);
 }

@@ -51,7 +51,21 @@ export const POST = withAdmin(async (session, req) => {
   if (!clinicaId || !tipo) {
     return NextResponse.json({ error: "clinicaId y tipoAlerta requeridos" }, { status: 400 });
   }
-  if (!["leads", "presupuestos", "citados", "asistencias", "automatizaciones"].includes(tipo)) {
+  // Sprint 14b Bloque 3 hotfix — whitelist actualizada con los 3
+  // nuevos triggers de cobros (cobro_vence_3d, cobro_vencido_7d,
+  // pendiente_alto_estancado). Sin esto el endpoint rechazaba el
+  // POST aunque la detección y display funcionaran.
+  const TIPOS_VALIDOS: TipoAlerta[] = [
+    "leads",
+    "presupuestos",
+    "citados",
+    "asistencias",
+    "automatizaciones",
+    "cobro_vence_3d",
+    "cobro_vencido_7d",
+    "pendiente_alto_estancado",
+  ];
+  if (!TIPOS_VALIDOS.includes(tipo)) {
     return NextResponse.json({ error: "tipoAlerta inválido" }, { status: 400 });
   }
 
