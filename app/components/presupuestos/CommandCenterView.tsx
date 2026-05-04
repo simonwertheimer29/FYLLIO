@@ -243,9 +243,17 @@ function ClinicaCard({
               ) : (
                 <>
                   <p className="text-sm font-bold text-slate-900">{stats.tasaMTD}%</p>
-                  {stats.tasaMesAnterior > 0 && (
-                    <p className={`text-[10px] font-semibold ${stats.deltaTasaPct >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
-                      {stats.deltaTasaPct >= 0 ? "↑" : "↓"} {Math.abs(stats.deltaTasaPct)}pp
+                  {/* Sprint 15 Bloque 6 — si tasaMesAnterior=0 no podemos
+                      computar delta% (división por cero); render '—'
+                      neutral en vez de un signo arbitrario. Si delta=0
+                      tampoco merece flecha de color, también '—'. */}
+                  {stats.tasaMesAnterior === 0 || stats.deltaTasaPct === 0 ? (
+                    <p className="text-[10px] font-semibold text-slate-400">—</p>
+                  ) : (
+                    <p
+                      className={`text-[10px] font-semibold ${stats.deltaTasaPct > 0 ? "text-emerald-600" : "text-rose-600"}`}
+                    >
+                      {stats.deltaTasaPct > 0 ? "↑" : "↓"} {Math.abs(stats.deltaTasaPct)}pp
                     </p>
                   )}
                 </>
@@ -295,7 +303,18 @@ function ClinicaCard({
           </div>
 
           {stats.peorDoctor && (
-            <p className="text-[10px] text-slate-400 mt-2">Menor tasa: {stats.peorDoctor}</p>
+            <p className="text-[10px] text-slate-400 mt-2">
+              Menor tasa:{" "}
+              {/* Sprint 15 Bloque 6 — link al filtro de ese doctor en
+                  Vista Máxima (MaximaView lee ?doctor=NOMBRE al montar). */}
+              <a
+                href={`/presupuestos/maxima?doctor=${encodeURIComponent(stats.peorDoctor)}`}
+                onClick={(e) => e.stopPropagation()}
+                className="text-slate-500 hover:text-sky-700 hover:underline"
+              >
+                {stats.peorDoctor}
+              </a>
+            </p>
           )}
         </div>
       </button>

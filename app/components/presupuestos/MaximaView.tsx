@@ -62,7 +62,12 @@ export default function MaximaView({
 
   // Filters — el filtro de clínica pasa a consumirse desde ClinicContext
   // (selectedClinicaNombre). Este Shell filtra por `p.clinica === nombre`.
-  const [filtroDoctor, setFiltroDoctor] = useState("");
+  // Sprint 15 Bloque 6 — initial state lee ?doctor= del URL para que el
+  // link "Menor tasa: Dr. X" del CommandCenter pre-filtre la vista.
+  const [filtroDoctor, setFiltroDoctor] = useState(() => {
+    if (typeof window === "undefined") return "";
+    return new URLSearchParams(window.location.search).get("doctor") ?? "";
+  });
   const [filtroTratamiento, setFiltroTratamiento] = useState("");
   const [pillActiva, setPillActiva] = useState<PillCategory>("todos");
   const [searchQuery, setSearchQuery] = useState("");
