@@ -1,10 +1,12 @@
 "use client";
 
 // Sprint 8 Bloque C — tabla de Pacientes con KPIs + filtros + edición inline.
+// Sprint 14b Bloque 2 — sub-tabs "Asistidos" / "Cobros".
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { CobrosTabView } from "./CobrosTabView";
 
 type Paciente = {
   id: string;
@@ -32,6 +34,7 @@ type Paciente = {
 type Doctor = { id: string; nombre: string; clinicaId: string | null };
 
 type DateFilter = "semana" | "mes" | "personalizado" | "todo";
+type SubTab = "asistidos" | "cobros";
 
 export function PacientesView({
   initialPacientes,
@@ -48,6 +51,7 @@ export function PacientesView({
   const [dateFilter, setDateFilter] = useState<DateFilter>("todo");
   const [editingNotas, setEditingNotas] = useState<string | null>(null);
   const [editingDoctor, setEditingDoctor] = useState<string | null>(null);
+  const [subTab, setSubTab] = useState<SubTab>("asistidos");
   const [error, setError] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
@@ -108,12 +112,50 @@ export function PacientesView({
 
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-slate-50 p-6 gap-4 overflow-auto">
-      <header>
-        <h1 className="text-xl font-extrabold text-slate-900">Pacientes asistidos</h1>
-        <p className="text-xs text-slate-500">
-          {total} paciente{total === 1 ? "" : "s"} en el periodo seleccionado
-        </p>
+      <header className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-extrabold text-slate-900">
+            {subTab === "asistidos" ? "Pacientes asistidos" : "Cobros"}
+          </h1>
+          <p className="text-xs text-slate-500">
+            {subTab === "asistidos"
+              ? `${total} paciente${total === 1 ? "" : "s"} en el periodo seleccionado`
+              : "Cola priorizada de pacientes con saldo pendiente"}
+          </p>
+        </div>
+        {/* Sprint 14b Bloque 2 — sub-tabs */}
+        <div className="flex gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={() => setSubTab("asistidos")}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
+              subTab === "asistidos"
+                ? "bg-sky-50 text-sky-700 border-sky-200"
+                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            Asistidos
+          </button>
+          <button
+            type="button"
+            onClick={() => setSubTab("cobros")}
+            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
+              subTab === "cobros"
+                ? "bg-sky-50 text-sky-700 border-sky-200"
+                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+            }`}
+          >
+            Cobros
+          </button>
+        </div>
       </header>
+
+      {subTab === "cobros" && <CobrosTabView />}
+      {subTab === "asistidos" && (<></>)}
+      {subTab === "asistidos" && (
+      <></>)}
+      {subTab === "asistidos" && (<>
+      {/* Sprint 14b Bloque 2 — contenido legacy de la tab Asistidos */}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -346,6 +388,7 @@ export function PacientesView({
           </table>
         </div>
       </div>
+      </>)}
     </div>
   );
 }
