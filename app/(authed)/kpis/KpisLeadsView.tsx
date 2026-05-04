@@ -458,13 +458,14 @@ function ComparativaClinicas({
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => {
+            {rows.map((r, i) => {
               const val = (r as any)[crit] as number;
               const pct = max > 0 ? (val / max) * 100 : 0;
               return (
                 <tr
                   key={r.id}
-                  className="border-b border-slate-50 last:border-b-0 hover:bg-slate-50 cursor-pointer transition-colors"
+                  className="border-b border-slate-50 last:border-b-0 hover:bg-slate-50 cursor-pointer transition-colors fyllio-fade-in"
+                  style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
                   onClick={() => onDrilldown(r.id)}
                 >
                   <td className="py-2.5 px-4 text-slate-900">{r.nombre}</td>

@@ -174,12 +174,17 @@ export function CobrosTabView() {
         </div>
       ) : (
         <ul className="space-y-2">
-          {items.map((it) => (
-            <CobroCard
+          {items.map((it, i) => (
+            <div
               key={it.pacienteId}
-              item={it}
-              onMarcado={() => setReloadKey((k) => k + 1)}
-            />
+              className="fyllio-fade-in"
+              style={{ animationDelay: `${Math.min(i * 30, 450)}ms` }}
+            >
+              <CobroCard
+                item={it}
+                onMarcado={() => setReloadKey((k) => k + 1)}
+              />
+            </div>
           ))}
         </ul>
       )}

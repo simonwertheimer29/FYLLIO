@@ -674,10 +674,14 @@ function PagosTab({
             Historial ({pagos.length})
           </p>
           <div className="divide-y divide-slate-50">
-            {pagos.map((p) => {
+            {pagos.map((p, i) => {
               const isMigrated = (p.nota ?? "").includes("[MIGRADO Sprint 13.1]");
               return (
-                <div key={p.id} className="px-4 py-3 flex items-start gap-3 group">
+                <div
+                  key={p.id}
+                  className="px-4 py-3 flex items-start gap-3 group fyllio-fade-in"
+                  style={{ animationDelay: `${Math.min(i * 30, 450)}ms` }}
+                >
                   <span
                     className={`mt-1.5 inline-block h-2 w-2 rounded-full shrink-0 ${TIPO_PAGO_DOT[p.tipo] ?? "bg-slate-400"}`}
                   />

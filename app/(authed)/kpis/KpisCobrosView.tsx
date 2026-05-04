@@ -304,14 +304,15 @@ function ComparativaClinicas({
               </tr>
             </thead>
             <tbody>
-              {sorted.map((r) => {
+              {sorted.map((r, i) => {
                 const v = (r[metric] ?? 0) as number;
                 const pct = max > 0 ? Math.max(2, Math.round((v / max) * 100)) : 0;
                 return (
                   <tr
                     key={r.id}
                     onClick={() => onDrilldown(r.id)}
-                    className="border-t border-slate-100 hover:bg-sky-50/40 cursor-pointer transition-colors"
+                    className="border-t border-slate-100 hover:bg-sky-50/40 cursor-pointer transition-colors fyllio-fade-in"
+                    style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
                   >
                     <td className="px-4 py-3 font-medium text-slate-800 truncate">
                       {r.nombre}
@@ -462,8 +463,12 @@ function TopPacientesPendientes({ data }: { data: ApiResponse | null }) {
               </tr>
             </thead>
             <tbody>
-              {items.map((p) => (
-                <tr key={p.pacienteId} className="border-t border-slate-100">
+              {items.map((p, i) => (
+                <tr
+                  key={p.pacienteId}
+                  className="border-t border-slate-100 fyllio-fade-in"
+                  style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
+                >
                   <td className="px-4 py-3">
                     <Link
                       href={`/pacientes/${p.pacienteId}`}

@@ -246,12 +246,16 @@ export function PacientesView({
               </tr>
             </thead>
             <tbody>
-              {filtered.map((p) => {
+              {filtered.map((p, i) => {
                 const doctoresDeClinica = p.clinicaId
                   ? doctores.filter((d) => d.clinicaId === p.clinicaId)
                   : doctores;
                 return (
-                  <tr key={p.id} className="border-t border-slate-100 hover:bg-slate-50/40">
+                  <tr
+                    key={p.id}
+                    className="border-t border-slate-100 hover:bg-slate-50/40 fyllio-fade-in"
+                    style={{ animationDelay: `${Math.min(i * 30, 600)}ms` }}
+                  >
                     <Td>
                       <Link
                         href={`/pacientes/${p.id}`}
