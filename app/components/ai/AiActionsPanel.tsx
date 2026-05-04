@@ -1,6 +1,7 @@
 "use client";
 
 import type { AiAction } from "../../lib/types";
+import { Card } from "../ui/Card";
 
 export default function AiActionsPanel({
   actions,
@@ -35,7 +36,7 @@ export default function AiActionsPanel({
         {reschedules.map((a) => {
           const accepted = acceptedIds.includes(a.id);
           return (
-            <div key={a.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+            <Card key={a.id}>
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-slate-900">{a.title}</p>
@@ -81,7 +82,7 @@ export default function AiActionsPanel({
                   ))}
                 </ul>
               ) : null}
-            </div>
+            </Card>
           );
         })}
       </div>

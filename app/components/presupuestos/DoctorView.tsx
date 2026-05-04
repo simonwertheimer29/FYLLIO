@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Doctor, Presupuesto, UserSession } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG, ESPECIALIDAD_COLOR, ESTADOS_ACEPTADOS } from "../../lib/presupuestos/colors";
 import PatientDrawer from "./PatientDrawer";
+import { Card } from "../ui/Card";
 
 type PeriodoFiltro = "all" | "month" | "prevMonth" | "3months" | "custom";
 
@@ -172,15 +173,15 @@ export default function DoctorView({ user }: { user: UserSession }) {
           { label: "% Aceptación", value: `${tasa}%` },
           { label: "€ Aceptado", value: `€${importeTotal.toLocaleString("es-ES")}` },
         ].map((m) => (
-          <div key={m.label} className="rounded-2xl border border-slate-200 bg-white p-4">
+          <Card key={m.label}>
             <p className="text-xs text-slate-500 font-medium">{m.label}</p>
             <p className="text-xl font-extrabold text-slate-900 mt-1">{m.value}</p>
-          </div>
+          </Card>
         ))}
       </div>
 
       {/* Historial table */}
-      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+      <Card padding="none" className="overflow-hidden">
         <p className="px-4 py-3 text-sm font-bold text-slate-900 border-b border-slate-100">
           Historial ({presupuestos.length})
           {periodo !== "all" && (
@@ -275,7 +276,7 @@ export default function DoctorView({ user }: { user: UserSession }) {
             </div>
           </div>
         )}
-      </div>
+      </Card>
 
       {/* Patient drawer */}
       {drawerPresupuesto && (

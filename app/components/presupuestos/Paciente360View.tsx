@@ -10,6 +10,7 @@ import type { Presupuesto, HistorialAccion, TipoAccion, UserSession } from "../.
 import type { Pago } from "../../lib/pagos";
 import { formatTipo } from "../../lib/pagos";
 import { ESTADO_CONFIG } from "../../lib/presupuestos/colors";
+import { Card } from "../ui/Card";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -260,30 +261,30 @@ function ResumenTabContent({
     <div className="space-y-6">
       {/* Métricas rápidas */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 text-center">
+          <Card className="text-center">
             <p className="text-2xl font-extrabold text-slate-900">{totalPres}</p>
             <p className="text-[11px] text-slate-400 uppercase tracking-wide mt-0.5">Presupuestos</p>
-          </div>
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 text-center">
+          </Card>
+          <Card className="text-center">
             <p className="text-2xl font-extrabold text-emerald-700">{aceptados}</p>
             <p className="text-[11px] text-slate-400 uppercase tracking-wide mt-0.5">Aceptados</p>
-          </div>
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 text-center">
+          </Card>
+          <Card className="text-center">
             <p className="text-2xl font-extrabold text-violet-700">{tasaConversion}%</p>
             <p className="text-[11px] text-slate-400 uppercase tracking-wide mt-0.5">Conversión</p>
-          </div>
-          <div className="bg-white rounded-2xl border border-slate-200 p-4 text-center">
+          </Card>
+          <Card className="text-center">
             <p className="text-2xl font-extrabold text-slate-900">
               {ultimaActividad ? formatFechaCorta(ultimaActividad) : "—"}
             </p>
             <p className="text-[11px] text-slate-400 uppercase tracking-wide mt-0.5">Última actividad</p>
-          </div>
+          </Card>
         </div>
 
         {totalPres === 0 && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center">
+          <Card padding="none" className="p-8 text-center">
             <p className="text-slate-400 text-sm">No se encontraron presupuestos para &ldquo;{nombre}&rdquo;.</p>
-          </div>
+          </Card>
         )}
 
         {/* Presupuestos */}

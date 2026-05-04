@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { Doctor, UserSession } from "../../lib/presupuestos/types";
+import { Card } from "../ui/Card";
 
 export type Filters = {
   clinica: string;
@@ -246,7 +247,7 @@ export default function FiltersBar({
   const hasActiveFilters = Object.values(filters).some(Boolean);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3 space-y-2">
+    <Card padding="sm" className="space-y-2">
       {/* Search */}
       <div className="relative">
         <input
@@ -356,6 +357,6 @@ export default function FiltersBar({
           </button>
         )}
       </div>
-    </div>
+    </Card>
   );
 }

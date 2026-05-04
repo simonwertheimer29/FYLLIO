@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Card } from "../ui/Card";
 
 type Stats = {
   timeSavedMinByWhatsapp: number;
@@ -177,7 +178,7 @@ export default function ROIPanel({ staffId }: { staffId?: string }) {
       </div>
 
       {/* ── Value breakdown ───────────────────────────────────────── */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+      <Card padding="none" className="p-5">
         <p className="text-sm font-semibold text-slate-800 mb-1">Desglose del valor generado</p>
         <p className="text-xs text-slate-400 mb-4">Estimaciones conservadoras basadas en los datos reales de esta semana</p>
 
@@ -216,10 +217,10 @@ export default function ROIPanel({ staffId }: { staffId?: string }) {
           <p className="text-sm font-semibold text-slate-700">Total valor generado esta semana</p>
           <p className="text-xl font-extrabold text-emerald-700">~€{totalROI.toLocaleString("es-ES")}</p>
         </div>
-      </div>
+      </Card>
 
       {/* ── No-show comparison ────────────────────────────────────── */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+      <Card padding="none" className="p-5">
         <p className="text-sm font-semibold text-slate-800 mb-4">Tasa de no-show vs sector</p>
         <div className="space-y-3">
           <div>
@@ -252,10 +253,10 @@ export default function ROIPanel({ staffId }: { staffId?: string }) {
             Los recordatorios automáticos de Fyllio contribuyen directamente a este resultado.
           </p>
         )}
-      </div>
+      </Card>
 
       {/* ── Revenue summary ───────────────────────────────────────── */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+      <Card padding="none" className="p-5">
         <p className="text-sm font-semibold text-slate-800 mb-4">Rendimiento financiero</p>
         <div className="grid grid-cols-3 gap-3">
           <div className="text-center">
@@ -276,7 +277,7 @@ export default function ROIPanel({ staffId }: { staffId?: string }) {
             <p className="text-xs text-slate-500 mt-0.5">proyección mes</p>
           </div>
         </div>
-      </div>
+      </Card>
 
       {/* ── Share tip ─────────────────────────────────────────────── */}
       <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 flex items-start gap-3">

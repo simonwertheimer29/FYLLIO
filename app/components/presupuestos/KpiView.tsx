@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import type { KpiData, UserSession } from "../../lib/presupuestos/types";
 import { ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
+import { Card } from "../ui/Card";
 
 type SubTab = "general" | "tarifas" | "paciente" | "tratamientos" | "doctores" | "benchmark" | "ia";
 
@@ -115,7 +116,7 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
       </div>
 
       {/* Comparación vs mes anterior */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+      <Card>
         <p className="text-xs font-bold text-slate-700 mb-3">
           {mesLabel} vs mes anterior
         </p>
@@ -133,10 +134,10 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
             </div>
           ))}
         </div>
-      </div>
+      </Card>
 
       {/* AreaChart — evolución 12 meses */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+      <Card padding="none" className="p-5">
         <p className="text-sm font-bold text-slate-900 mb-1">Evolución mensual (12 meses)</p>
         <p className="text-xs text-slate-400 mb-4">Azul = presupuestos ofrecidos · Verde = aceptados</p>
         <ResponsiveContainer width="100%" height={220}>
@@ -160,7 +161,7 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
             <Area type="monotone" dataKey="aceptados" name="Aceptados" stroke="#22c55e" strokeWidth={2} fill="url(#g2)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
           </AreaChart>
         </ResponsiveContainer>
-      </div>
+      </Card>
     </div>
   );
 }

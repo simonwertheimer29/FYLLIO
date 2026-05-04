@@ -8,6 +8,7 @@ import {
   XAxis, YAxis, CartesianGrid, Cell, ReferenceLine, Legend,
 } from "recharts";
 import type { UserSession, InformeGuardado } from "../../lib/presupuestos/types";
+import { Card } from "../ui/Card";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -193,10 +194,10 @@ function InformeCard({
 }) {
   if (loading) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-8 flex flex-col items-center justify-center gap-3 min-h-[200px]">
+      <Card padding="none" className="p-8 flex flex-col items-center justify-center gap-3 min-h-[200px]">
         <div className="w-8 h-8 rounded-full border-2 border-violet-600 border-t-transparent animate-spin" />
         <p className="text-sm text-slate-500">Generando informe con IA...</p>
-      </div>
+      </Card>
     );
   }
 
@@ -237,7 +238,7 @@ function InformeCard({
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6">
+    <Card padding="lg">
       <div className="flex items-center justify-between mb-5">
         <div>
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Informe narrativo</p>
@@ -312,7 +313,7 @@ function InformeCard({
           {informe.informe}
         </ReactMarkdown>
       </div>
-    </div>
+    </Card>
   );
 }
 

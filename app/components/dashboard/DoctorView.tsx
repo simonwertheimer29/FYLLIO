@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Card } from "../ui/Card";
 
 type Appt = {
   recordId: string;
@@ -145,7 +146,7 @@ export default function DoctorView({ staffId, staffName }: { staffId: string; st
 
       {/* ── Next appointment ───────────────────────────────────────── */}
       {nextAppt && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
+        <Card padding="none" className="p-5">
           <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
             {new Date(nextAppt.startIso) > now ? "Próxima cita" : "Última cita del día"}
           </p>
@@ -170,11 +171,11 @@ export default function DoctorView({ staffId, staffName }: { staffId: string; st
               <span className="text-xs text-slate-600 font-medium">{nextAppt.phone}</span>
             </div>
           )}
-        </div>
+        </Card>
       )}
 
       {/* ── Personal note ─────────────────────────────────────────── */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5">
+      <Card padding="none" className="p-5">
         <p className="text-sm font-semibold text-slate-800 mb-2">📝 Nota personal del día</p>
         <textarea
           rows={4}
@@ -184,11 +185,11 @@ export default function DoctorView({ staffId, staffName }: { staffId: string; st
           className="w-full text-sm rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-slate-300"
         />
         <p className="text-xs text-slate-400 mt-1">Guardada en este dispositivo · solo visible para ti</p>
-      </div>
+      </Card>
 
       {/* ── Full agenda compact ────────────────────────────────────── */}
       {patientAppts.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+        <Card padding="none" className="overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100">
             <p className="text-sm font-semibold text-slate-800">Agenda completa · {data.todayLabel}</p>
           </div>
@@ -211,7 +212,7 @@ export default function DoctorView({ staffId, staffName }: { staffId: string; st
               );
             })}
           </div>
-        </div>
+        </Card>
       )}
 
       {/* ── Empty state ───────────────────────────────────────────── */}
