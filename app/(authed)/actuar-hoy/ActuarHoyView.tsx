@@ -144,18 +144,31 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null);
   const [asistenciaLead, setAsistenciaLead] = useState<Lead | null>(null);
   const [tiempoMedioMin, setTiempoMedioMin] = useState<number | null>(null);
+  // Sprint 15 Bloque 7 — map leadId → ISO de la última acción saliente
+  // (Llamada o WhatsApp_Saliente). Lo consume priorityForLead para el
+  // trigger 'caliente sin acción >12h' con timestamp real.
+  const [ultimaSalientePorLead, setUltimaSalientePorLead] = useState<
+    Record<string, string>
+  >({});
 
   const fetchLeads = useCallback(async () => {
     setLoading(true);
     try {
-      const [leadsRes, kpiRes] = await Promise.all([
+      const [leadsRes, kpiRes, salRes] = await Promise.all([
         fetch("/api/leads" + (selectedClinicaId ? `?clinica=${selectedClinicaId}` : "")),
         fetch("/api/leads/kpi-hoy"),
+        fetch("/api/leads/ultima-saliente"),
       ]);
       const d = await leadsRes.json();
       if (Array.isArray(d?.leads)) setLeads(d.leads);
       const kpi = await kpiRes.json().catch(() => ({}));
       setTiempoMedioMin(typeof kpi?.tiempoMedioMin === "number" ? kpi.tiempoMedioMin : null);
+      const sal = await salRes.json().catch(() => ({}));
+      setUltimaSalientePorLead(
+        sal?.ultimaSalientePorLead && typeof sal.ultimaSalientePorLead === "object"
+          ? sal.ultimaSalientePorLead
+          : {},
+      );
       setLastUpdate(new Date());
     } catch {
       /* swallow — mantener lista anterior */
@@ -275,6 +288,7 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
               onOpen={() => setDrawerLead(l)}
               onAsistencia={() => setAsistenciaLead(l)}
               onChanged={onLeadChanged}
+              ultimaSalientePorLead={ultimaSalientePorLead}
             />
           ))}
         </div>
@@ -309,12 +323,20 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
 //  1. Citado/Citados Hoy con fechaCita=hoy y NO asistido.
 //  2. estado=Nuevo y diasDesde >= 1 (sin contactar >24h).
 //  3. estado=Contactado con intencionDetectada alta (Interesado, Pide cita,
-//     Pregunta precio) y sin actividad saliente posterior. Aproximamos
-//     "sin actividad >12h" via whatsappEnviados==0 + llamado==false (no
-//     tenemos timestamp por accion saliente accesible aqui sin fetch).
+//     Pregunta precio) y sin actividad saliente posterior >12h.
+//
+// Sprint 15 Bloque 7 — el trigger 3 ahora usa timestamp real de
+// Acciones_Lead (Llamada o WhatsApp_Saliente). Antes era una
+// aproximación binaria (whatsappEnviados==0 && !llamado) que perdía
+// el caso "envié hace 5 días sin respuesta → sigue caliente". Si el
+// map no está cargado todavía, fallback al heurístico legacy.
 const INTENCION_CALIENTE = new Set(["Interesado", "Pide cita", "Pregunta precio"]);
+const HORAS_12_MS = 12 * 60 * 60 * 1000;
 
-function priorityForLead(lead: Lead): {
+function priorityForLead(
+  lead: Lead,
+  ultimaSalienteISOPorLead: Record<string, string> = {},
+): {
   variant: "danger" | "warning" | "neutral";
   label: "ALTO" | "MEDIO" | "BAJO";
   borderColor: string;
@@ -330,12 +352,20 @@ function priorityForLead(lead: Lead): {
     lead.fechaCita === today &&
     !lead.asistido;
 
+  const ultimaSalienteISO = ultimaSalienteISOPorLead[lead.id];
+  const ultimaSalienteMs = ultimaSalienteISO
+    ? new Date(ultimaSalienteISO).getTime()
+    : null;
+  const sinSalienteUltimas12h =
+    ultimaSalienteMs == null
+      ? lead.whatsappEnviados === 0 && !lead.llamado // fallback legacy
+      : Date.now() - ultimaSalienteMs > HORAS_12_MS;
+
   const calienteSinAccion =
     lead.estado === "Contactado" &&
     lead.intencionDetectada != null &&
     INTENCION_CALIENTE.has(lead.intencionDetectada) &&
-    lead.whatsappEnviados === 0 &&
-    !lead.llamado;
+    sinSalienteUltimas12h;
 
   if (isCitadoHoy || (lead.estado === "Nuevo" && diasDesde >= 1) || calienteSinAccion) {
     return { variant: "danger", label: "ALTO", borderColor: "#ef4444" };
@@ -357,11 +387,14 @@ function LeadAccionRow({
   onOpen,
   onAsistencia,
   onChanged,
+  ultimaSalientePorLead,
 }: {
   lead: Lead;
   onOpen: () => void;
   onAsistencia: () => void;
   onChanged: (l: Lead) => void;
+  // Sprint 15 Bloque 7 — map para priorityForLead.
+  ultimaSalientePorLead?: Record<string, string>;
 }) {
   const cleanPhone = (lead.telefono ?? "").replace(/\D/g, "");
   const ts = new Date(lead.createdAt).getTime();
@@ -381,7 +414,7 @@ function LeadAccionRow({
   const isCitadoHoy =
     (lead.estado === "Citado" || lead.estado === "Citados Hoy") && lead.fechaCita === today;
 
-  const priority = priorityForLead(lead);
+  const priority = priorityForLead(lead, ultimaSalientePorLead);
 
   function llamar(e: React.MouseEvent) {
     e.stopPropagation();
