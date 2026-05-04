@@ -174,6 +174,10 @@ export async function createPaciente(input: {
     Activo: true,
     "Canal preferido": "Whatsapp",
     "Consentimiento Whatsapp": true,
+    // Sprint 15 Bloque 9 — escribimos CreatedAt para que el sort
+    // nativo Airtable funcione en nuevos pacientes (Airtable no permite
+    // formula/createdTime via API; usamos un dateTime editable).
+    CreatedAt: new Date().toISOString(),
   };
   if (input.telefono) fields["Teléfono"] = input.telefono;
   if (input.email) fields["Email"] = input.email;
