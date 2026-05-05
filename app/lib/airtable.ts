@@ -54,6 +54,10 @@ export const TABLES = {
   configuracionesClinica: "Configuraciones_Clinica",
   // Sprint 16a Bloque 1 — memoria persistente del Copilot
   conversacionesCopilot: "Conversaciones_Copilot",
+  // Sprint 16b Bloque 1 — motor de automatizaciones
+  reglasAutomatizacion: "Reglas_Automatizacion",
+  accionesAutomatizacion: "Acciones_Automatizacion",
+  eventosSistema: "Eventos_Sistema",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];
