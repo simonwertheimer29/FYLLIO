@@ -52,6 +52,8 @@ export const TABLES = {
   inconsistenciasPagos: "Inconsistencias_Pagos",
   // Sprint 14b Bloque 0 — configuracion por clinica
   configuracionesClinica: "Configuraciones_Clinica",
+  // Sprint 16a Bloque 1 — memoria persistente del Copilot
+  conversacionesCopilot: "Conversaciones_Copilot",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];
