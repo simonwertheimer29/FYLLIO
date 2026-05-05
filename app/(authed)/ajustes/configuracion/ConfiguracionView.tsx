@@ -13,6 +13,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "../../../components/ui/Card";
+import { HorarioLaboralPanel } from "./HorarioLaboralPanel";
 
 type Scope = "global" | string; // "global" o clinicaId
 
@@ -20,7 +21,8 @@ type Categoria =
   | "Metodos_Pago"
   | "Plazos_Liquidacion"
   | "Razones_No_Interesado"
-  | "Plantillas_Scope";
+  | "Plantillas_Scope"
+  | "Horario_Laboral";
 
 type Opcion = {
   id: string;
@@ -53,6 +55,11 @@ const TABS: Array<{ key: Categoria; label: string; help: string }> = [
     label: "Plantillas WhatsApp",
     help: "Scope de plantillas (Bloque 4 cierra la edición desde aquí).",
   },
+  {
+    key: "Horario_Laboral",
+    label: "Horario laboral",
+    help: "Días y horas en los que esta clínica permite envíos automáticos. Las acciones del motor de automatizaciones que envíen WhatsApp respetan este horario.",
+  },
 ];
 
 export default function ConfiguracionView({
@@ -68,8 +75,14 @@ export default function ConfiguracionView({
   const [reloadKey, setReloadKey] = useState(0);
 
   // Carga: include all (globales + propias) para que el admin vea
-  // los defaults aunque la clínica ya haya customizado.
+  // los defaults aunque la clínica ya haya customizado. Horario_Laboral
+  // tiene su propio panel y endpoint, no usa la lista de opciones.
   useEffect(() => {
+    if (categoria === "Horario_Laboral") {
+      setOpciones([]);
+      setLoading(false);
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -162,7 +175,15 @@ export default function ConfiguracionView({
         </p>
       )}
 
-      {loading ? (
+      {categoria === "Horario_Laboral" ? (
+        scope === "global" ? (
+          <Card padding="none" className="p-6 text-sm text-slate-500">
+            El horario laboral se configura por clínica. Cambia el scope arriba a una clínica concreta para editarlo.
+          </Card>
+        ) : (
+          <HorarioLaboralPanel clinicaId={scope} />
+        )
+      ) : loading ? (
         <p className="text-sm text-slate-400 animate-pulse">Cargando opciones…</p>
       ) : (
         <CategoriaPanel

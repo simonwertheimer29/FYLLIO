@@ -49,6 +49,7 @@ export type Paciente = {
   clinicaNombre?: string;
   leadOrigenId: string | null;
   activo: boolean;
+  optoutAutomatizaciones: boolean;
   createdAt: string;
 };
 
@@ -75,6 +76,7 @@ function toPaciente(rec: any): Paciente {
     clinicaId: clinicaLinks[0] ?? null,
     leadOrigenId: leadLinks[0] ?? null,
     activo: Boolean(f["Activo"] ?? true),
+    optoutAutomatizaciones: Boolean(f["Optout_Automatizaciones"] ?? false),
     createdAt: String(
       f["CreatedAt"] ?? rec._rawJson?.createdTime ?? rec.createdTime ?? "",
     ),
@@ -218,6 +220,7 @@ export async function updatePaciente(
     notas: string | null;
     canalOrigen: PacienteCanal | null;
     activo: boolean;
+    optoutAutomatizaciones: boolean;
   }>
 ): Promise<Paciente> {
   const fields: Record<string, any> = {};
@@ -236,6 +239,9 @@ export async function updatePaciente(
   if (patch.notas !== undefined) fields["Notas"] = patch.notas ?? "";
   if (patch.canalOrigen !== undefined) fields["Canal_Origen"] = patch.canalOrigen ?? null;
   if (patch.activo !== undefined) fields["Activo"] = patch.activo;
+  // Sprint 16b Bloque 5 — flag opt-out de automatizaciones.
+  if (patch.optoutAutomatizaciones !== undefined)
+    fields["Optout_Automatizaciones"] = patch.optoutAutomatizaciones;
 
   // Recalcular Pendiente si cambia Presupuesto o Pagado.
   if (patch.presupuestoTotal !== undefined || patch.pagado !== undefined) {

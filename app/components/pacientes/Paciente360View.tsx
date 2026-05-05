@@ -66,6 +66,7 @@ type PacientePayload = {
   canalOrigen: string | null;
   leadOrigenId: string | null;
   activo: boolean;
+  optoutAutomatizaciones?: boolean;
   createdAt: string;
 };
 
@@ -487,6 +488,63 @@ function ResumenTab({
           </div>
         </Section>
       )}
+
+      {/* Sprint 16b Bloque 5 — opt-out automatizaciones */}
+      <Section title="Automatizaciones">
+        <OptoutToggle
+          pacienteId={paciente.id}
+          initialOptout={!!paciente.optoutAutomatizaciones}
+        />
+      </Section>
+    </div>
+  );
+}
+
+function OptoutToggle({
+  pacienteId,
+  initialOptout,
+}: {
+  pacienteId: string;
+  initialOptout: boolean;
+}) {
+  const [optout, setOptout] = useState(initialOptout);
+  const [saving, setSaving] = useState(false);
+
+  async function toggle(next: boolean) {
+    setOptout(next);
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/pacientes/${pacienteId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ optoutAutomatizaciones: next }),
+      });
+      if (!res.ok) throw new Error();
+    } catch {
+      setOptout(!next);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="flex items-start gap-3 text-sm">
+      <input
+        type="checkbox"
+        checked={!optout}
+        disabled={saving}
+        onChange={(e) => toggle(!e.target.checked)}
+        className="mt-1 accent-emerald-600"
+      />
+      <div className="flex-1">
+        <p className="font-medium text-slate-800">
+          Recibir mensajes automáticos: {optout ? "OFF" : "ON"}
+        </p>
+        <p className="text-xs text-slate-500 mt-0.5">
+          Si está apagado, este paciente no recibirá ningún mensaje automático
+          del sistema (recordatorios, nudges, etc.).
+        </p>
+      </div>
     </div>
   );
 }
