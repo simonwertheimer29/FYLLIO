@@ -35,6 +35,7 @@ import {
   cerrarConversacion,
   getConversacion,
 } from "../../../lib/copilot/conversaciones";
+import { elegirModelo, MODEL_IDS, type Modelo } from "../../../lib/copilot/router";
 // Sprint 14b Bloque 8 hotfix — render rico de previews para action-tools
 // financieras. Llamado desde toCopilotAction (ahora async) para construir
 // el campo preview con el mensaje WA / resumen de pago / etc. antes de
@@ -48,7 +49,6 @@ import type { Session } from "../../../lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
-const MODEL = "claude-sonnet-4-6";
 const MAX_TOOL_TURNS = 4;
 
 type AnthropicContentBlock =
@@ -127,6 +127,12 @@ export const POST = withAuth(async (session, req) => {
     body.context?.summary ?? null,
   );
 
+  // Sprint 16a Bloque 2 — router Sonnet/Haiku. Decisión one-shot por
+  // último user msg; el modelo elegido se mantiene durante el tool-use
+  // loop (no cambiar mid-conversation).
+  const modeloElegido: Modelo = elegirModelo(body.messages);
+  const MODEL = MODEL_IDS[modeloElegido];
+
   const collectedActions: CopilotAction[] = [];
   // Sprint 13.1 Bloque 5 — registro de tool calls que se devolveran al
   // frontend para mostrar mini-cards inline en el drawer del Copilot.
@@ -146,7 +152,17 @@ export const POST = withAuth(async (session, req) => {
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 1500,
-        system: COPILOT_SYSTEM_PROMPT,
+        // Sprint 16a Bloque 2 — prompt caching. El system prompt es ~2k
+        // tokens y prácticamente nunca cambia. Marcando cache_control
+        // ephemeral, las llamadas subsecuentes (dentro de la ventana de
+        // 5 min) reutilizan el cache y reducen coste ~90% en system.
+        system: [
+          {
+            type: "text",
+            text: COPILOT_SYSTEM_PROMPT,
+            cache_control: { type: "ephemeral" },
+          },
+        ],
         tools: ALL_TOOLS,
         messages,
       }),
@@ -282,7 +298,7 @@ export const POST = withAuth(async (session, req) => {
       const r = await appendMensajes(
         body.conversacionId,
         ultimosNuevos,
-        "sonnet",
+        modeloElegido,
       );
       savedConversacionId = body.conversacionId;
       if (r.truncado) {
@@ -300,7 +316,7 @@ export const POST = withAuth(async (session, req) => {
             },
           ],
           titulo: `Continuación: ${tituloOriginal}`.slice(0, 80),
-          modeloUsado: "sonnet",
+          modeloUsado: modeloElegido,
         });
         savedConversacionId = nueva.id;
         archivado = true;
@@ -313,7 +329,7 @@ export const POST = withAuth(async (session, req) => {
         usuarioId: session.userId,
         clinicaId: body.selectedClinicaId ?? null,
         mensajes: todos,
-        modeloUsado: "sonnet",
+        modeloUsado: modeloElegido,
       });
       savedConversacionId = created.id;
     }
