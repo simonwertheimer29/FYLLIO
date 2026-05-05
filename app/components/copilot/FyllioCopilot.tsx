@@ -23,7 +23,7 @@ import type {
 } from "./types";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { Sparkles, ArrowUp, X, Wrench, ICON_STROKE } from "../icons";
-import { History } from "lucide-react";
+import { History, Mic, Square } from "lucide-react";
 
 // ─── Sprint 14b Bloque 8 — patient mention parser ──────────────────────
 //
@@ -90,6 +90,13 @@ export function FyllioCopilot() {
   // Sprint 16a Bloque 1 — memoria persistente.
   const [conversacionId, setConversacionId] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  // Sprint 16a Bloque 3 — voice input via Whisper.
+  const [recording, setRecording] = useState(false);
+  const [recordingSeconds, setRecordingSeconds] = useState(0);
+  const [transcribing, setTranscribing] = useState(false);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const recorderChunksRef = useRef<Blob[]>([]);
+  const recordingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // API imperativa para que los botones contextuales del Bloque C abran
   // el chat precargado.
@@ -135,6 +142,105 @@ export function FyllioCopilot() {
     setDraft("");
     setConversacionId(null);
   }, []);
+
+  const stopRecordingTimer = useCallback(() => {
+    if (recordingTimerRef.current) {
+      clearInterval(recordingTimerRef.current);
+      recordingTimerRef.current = null;
+    }
+  }, []);
+
+  const cancelarGrabacion = useCallback(() => {
+    const r = recorderRef.current;
+    if (r && r.state !== "inactive") {
+      // Override del onstop original con un noop antes de stop, para
+      // que el handler que dispara el upload no se ejecute.
+      r.onstop = () => {
+        r.stream.getTracks().forEach((t) => t.stop());
+      };
+      r.stop();
+    }
+    recorderRef.current = null;
+    recorderChunksRef.current = [];
+    stopRecordingTimer();
+    setRecording(false);
+    setRecordingSeconds(0);
+  }, [stopRecordingTimer]);
+
+  const empezarGrabacion = useCallback(async () => {
+    if (recording || transcribing || loading) return;
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+        ? "audio/webm;codecs=opus"
+        : MediaRecorder.isTypeSupported("audio/mp4")
+          ? "audio/mp4"
+          : "";
+      const recorder = mime
+        ? new MediaRecorder(stream, { mimeType: mime })
+        : new MediaRecorder(stream);
+      recorderChunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) recorderChunksRef.current.push(e.data);
+      };
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        const blob = new Blob(recorderChunksRef.current, {
+          type: recorder.mimeType || "audio/webm",
+        });
+        recorderChunksRef.current = [];
+        if (blob.size === 0) {
+          toast.error("No se grabó audio.");
+          return;
+        }
+        setTranscribing(true);
+        try {
+          const fd = new FormData();
+          fd.append("audio", blob, "audio.webm");
+          const res = await fetch("/api/copilot/transcribe", {
+            method: "POST",
+            body: fd,
+          });
+          const d = (await res.json()) as { text?: string; error?: string };
+          if (d.error || !d.text) {
+            toast.error(d.error ?? "No se pudo transcribir, intenta de nuevo.");
+          } else {
+            setDraft((prev) => (prev ? `${prev} ${d.text}` : d.text!));
+          }
+        } catch {
+          toast.error("Error de red transcribiendo.");
+        } finally {
+          setTranscribing(false);
+        }
+      };
+      recorderRef.current = recorder;
+      recorder.start();
+      setRecording(true);
+      setRecordingSeconds(0);
+      recordingTimerRef.current = setInterval(() => {
+        setRecordingSeconds((s) => s + 1);
+      }, 1000);
+    } catch (err) {
+      console.error("[copilot mic]", err);
+      toast.error("No se pudo acceder al micrófono.");
+    }
+  }, [recording, transcribing, loading]);
+
+  const detenerGrabacion = useCallback(() => {
+    const r = recorderRef.current;
+    if (r && r.state !== "inactive") r.stop();
+    recorderRef.current = null;
+    stopRecordingTimer();
+    setRecording(false);
+    setRecordingSeconds(0);
+  }, [stopRecordingTimer]);
+
+  // Cleanup al desmontar / cerrar drawer.
+  useEffect(() => {
+    return () => {
+      cancelarGrabacion();
+    };
+  }, [cancelarGrabacion]);
 
   const cargarConversacion = useCallback(async (id: string) => {
     setError(null);
@@ -370,6 +476,26 @@ export function FyllioCopilot() {
             </div>
 
             <footer className="border-t border-[var(--color-border)] bg-white p-3 shrink-0">
+              {recording && (
+                <div className="mb-2 flex items-center gap-2 text-[11px] text-rose-600">
+                  <span className="inline-block w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                  Grabando · {Math.floor(recordingSeconds / 60)}:
+                  {String(recordingSeconds % 60).padStart(2, "0")}
+                  <button
+                    type="button"
+                    onClick={cancelarGrabacion}
+                    className="ml-auto text-slate-500 hover:text-slate-900"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              )}
+              {transcribing && (
+                <div className="mb-2 flex items-center gap-2 text-[11px] text-slate-500">
+                  <span className="inline-block w-3 h-3 rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin" />
+                  Transcribiendo…
+                </div>
+              )}
               <div className="flex items-end gap-2">
                 <textarea
                   value={draft}
@@ -385,6 +511,23 @@ export function FyllioCopilot() {
                   disabled={loading}
                   className="flex-1 text-sm px-3 py-2 rounded-md border border-slate-200 focus:border-violet-300 focus:ring-2 focus:ring-violet-100 outline-none resize-none max-h-32"
                 />
+                <button
+                  type="button"
+                  onClick={recording ? detenerGrabacion : empezarGrabacion}
+                  disabled={loading || transcribing}
+                  aria-label={recording ? "Detener grabación" : "Grabar audio"}
+                  className={`w-9 h-9 rounded-md disabled:opacity-40 transition-colors flex items-center justify-center ${
+                    recording
+                      ? "bg-rose-600 text-white hover:bg-rose-700"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {recording ? (
+                    <Square size={14} strokeWidth={2.25} />
+                  ) : (
+                    <Mic size={16} strokeWidth={2.25} />
+                  )}
+                </button>
                 <button
                   type="button"
                   onClick={send}
