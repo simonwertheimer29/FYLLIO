@@ -208,7 +208,32 @@ export async function createLead(input: {
   if (input.notas) fields["Notas"] = input.notas;
 
   const created = (await base(TABLES.leads).create([{ fields }]))[0]!;
-  return toLead(created);
+  const lead = toLead(created);
+
+  // Sprint 16b Bloque 1 — emitir evento "lead_creado" para el motor.
+  // No await.catch para que un fallo del motor NO tumbe el create.
+  // Lazy import para evitar ciclos en builds donde leads se importa
+  // desde el propio engine (presupuestos/Acciones_Lead).
+  void (async () => {
+    try {
+      const { emitirEvento } = await import("../automatizaciones/engine");
+      await emitirEvento({
+        tipo: "lead_creado",
+        entidadTipo: "Lead",
+        entidadId: lead.id,
+        payload: {
+          clinicaId: lead.clinicaId,
+          estado: lead.estado,
+          canal: lead.canal,
+          tratamiento: lead.tratamiento,
+        },
+      });
+    } catch (err) {
+      console.error("[automatizaciones createLead] emit falló:", err);
+    }
+  })();
+
+  return lead;
 }
 
 export async function updateLead(

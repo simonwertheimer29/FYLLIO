@@ -72,6 +72,35 @@ export async function PATCH(
         metadata: { estadoNuevo: body.estado },
         registradoPor: session.nombre || session.email,
       });
+
+      // Sprint 16b Bloque 1 — emitir evento al motor de automatizaciones.
+      // Disparamos en cualquier cambio de estado para que el trigger
+      // presupuesto_presentado lo evalúe; las condiciones de la regla
+      // filtran por estado=PRESENTADO.
+      void (async () => {
+        try {
+          const { emitirEvento } = await import(
+            "../../../../lib/automatizaciones/engine"
+          );
+          const rec = await base(TABLES.presupuestos as any).find(id);
+          const f = (rec as any).fields as Record<string, unknown>;
+          await emitirEvento({
+            tipo: "presupuesto_actualizado",
+            entidadTipo: "Presupuesto",
+            entidadId: id,
+            payload: {
+              clinicaId: typeof f["Clinica"] === "string" ? f["Clinica"] : null,
+              estado: body.estado,
+              pacienteId: Array.isArray(f["Paciente_Link"])
+                ? (f["Paciente_Link"] as string[])[0] ?? null
+                : null,
+              importe: typeof f["Importe"] === "number" ? f["Importe"] : null,
+            },
+          });
+        } catch (err) {
+          console.error("[automatizaciones updatePresupuesto] emit falló:", err);
+        }
+      })();
     }
 
     // Evento A: push + notificación cuando se acepta un presupuesto
