@@ -73,6 +73,9 @@ export type CopilotChatRequest = {
   /** Clinica activa en el ClinicContext (frontend la envía). null = admin
    *  sin selección concreta. */
   selectedClinicaId?: string | null;
+  /** Sprint 16a Bloque 1 — id de la conversación a continuar. Si null o
+   *  ausente, el server crea una nueva al recibir el primer mensaje. */
+  conversacionId?: string | null;
 };
 
 export type CopilotChatResponse = {
@@ -82,4 +85,10 @@ export type CopilotChatResponse = {
   toolCallsTrace?: CopilotToolCallTrace[];
   /** Errores legibles para el usuario (rate limit, sin API key, etc.). */
   error?: string;
+  /** Sprint 16a Bloque 1 — id de la conversación tras crear/append. */
+  conversacionId?: string;
+  /** Sprint 16a Bloque 1 — true cuando se archivó por longitud y se
+   *  abrió una nueva (en cuyo caso conversacionId es la NUEVA). El
+   *  cliente puede mostrar un banner explicativo si quiere. */
+  archivado?: boolean;
 };

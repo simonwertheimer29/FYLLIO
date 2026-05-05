@@ -29,6 +29,12 @@ import {
   type ReadToolName,
 } from "../../../lib/copilot/tools-spec";
 import { runReadTool, buscarPacientesPorNombre } from "../../../lib/copilot/tools-exec";
+import {
+  createConversacion,
+  appendMensajes,
+  cerrarConversacion,
+  getConversacion,
+} from "../../../lib/copilot/conversaciones";
 // Sprint 14b Bloque 8 hotfix — render rico de previews para action-tools
 // financieras. Llamado desde toCopilotAction (ahora async) para construir
 // el campo preview con el mensaje WA / resumen de pago / etc. antes de
@@ -248,10 +254,80 @@ export const POST = withAuth(async (session, req) => {
     }
   }
 
+  // ── Sprint 16a Bloque 1 — persistencia automática ─────────────────────
+  // El cliente envía body.messages con TODO el historial visible (incluido
+  // el último user msg). Calculamos el delta a appendear: nuevo user msg
+  // + el reply assistant generado en este turn. Si conversacionId no
+  // existe aún, creamos.
+  const assistantReply: CopilotMessage = {
+    role: "assistant",
+    content: reply,
+    ...(collectedActions.length > 0 ? { actions: collectedActions } : {}),
+    ...(toolCallsTrace.length > 0 ? { toolCallsTrace } : {}),
+  };
+
+  let savedConversacionId: string | undefined;
+  let archivado = false;
+
+  try {
+    if (body.conversacionId) {
+      // Append solo lo nuevo de este turn: último msg user + reply assistant.
+      const lastUserIdx = body.messages.findLastIndex
+        ? body.messages.findLastIndex((m) => m.role === "user")
+        : -1;
+      const ultimosNuevos =
+        lastUserIdx >= 0
+          ? body.messages.slice(lastUserIdx).concat(assistantReply)
+          : [...body.messages, assistantReply];
+      const r = await appendMensajes(
+        body.conversacionId,
+        ultimosNuevos,
+        "sonnet",
+      );
+      savedConversacionId = body.conversacionId;
+      if (r.truncado) {
+        // Cierra la actual y abre una nueva como "Continuación: …".
+        await cerrarConversacion(body.conversacionId);
+        const original = await getConversacion(body.conversacionId);
+        const tituloOriginal = original?.titulo ?? "conversación";
+        const nueva = await createConversacion({
+          usuarioId: session.userId,
+          clinicaId: body.selectedClinicaId ?? null,
+          mensajes: [
+            {
+              role: "assistant",
+              content: `—— Conversación archivada por longitud ——\nContinuación: ${tituloOriginal}`,
+            },
+          ],
+          titulo: `Continuación: ${tituloOriginal}`.slice(0, 80),
+          modeloUsado: "sonnet",
+        });
+        savedConversacionId = nueva.id;
+        archivado = true;
+      }
+    } else {
+      // Primera vez: crear con todos los mensajes (incluido el último user
+      // y el reply assistant que acabamos de generar).
+      const todos = [...body.messages, assistantReply];
+      const created = await createConversacion({
+        usuarioId: session.userId,
+        clinicaId: body.selectedClinicaId ?? null,
+        mensajes: todos,
+        modeloUsado: "sonnet",
+      });
+      savedConversacionId = created.id;
+    }
+  } catch (err) {
+    console.error("[copilot/chat] persistencia falló:", err);
+    // No tumbamos la respuesta del modelo por un fallo de Airtable.
+  }
+
   return NextResponse.json<CopilotChatResponse>({
     reply,
     actions: collectedActions.length > 0 ? collectedActions : undefined,
     toolCallsTrace: toolCallsTrace.length > 0 ? toolCallsTrace : undefined,
+    conversacionId: savedConversacionId,
+    archivado: archivado || undefined,
   });
 });
 

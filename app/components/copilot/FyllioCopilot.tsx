@@ -23,6 +23,7 @@ import type {
 } from "./types";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { Sparkles, ArrowUp, X, Wrench, ICON_STROKE } from "../icons";
+import { History } from "lucide-react";
 
 // ─── Sprint 14b Bloque 8 — patient mention parser ──────────────────────
 //
@@ -86,6 +87,9 @@ export function FyllioCopilot() {
   const [contextSnapshot, setContextSnapshot] = useState<CopilotContextSnapshot | null>(null);
   const [executingActionId, setExecutingActionId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Sprint 16a Bloque 1 — memoria persistente.
+  const [conversacionId, setConversacionId] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
 
   // API imperativa para que los botones contextuales del Bloque C abran
   // el chat precargado.
@@ -129,6 +133,29 @@ export function FyllioCopilot() {
     setContextSnapshot(null);
     setError(null);
     setDraft("");
+    setConversacionId(null);
+  }, []);
+
+  const cargarConversacion = useCallback(async (id: string) => {
+    setError(null);
+    try {
+      const res = await fetch(`/api/copilot/conversaciones/${id}`);
+      const d = (await res.json()) as {
+        conversacion?: { id: string; mensajes: CopilotMessage[] };
+        error?: string;
+      };
+      if (d.error || !d.conversacion) {
+        setError(d.error ?? "No se pudo cargar la conversación.");
+        return;
+      }
+      setMessages(d.conversacion.mensajes);
+      setConversacionId(d.conversacion.id);
+      setContextSnapshot(null);
+      setDraft("");
+      setShowHistory(false);
+    } catch {
+      setError("Error de red cargando conversación.");
+    }
   }, []);
 
   async function send() {
@@ -145,6 +172,7 @@ export function FyllioCopilot() {
       const body: CopilotChatRequest = {
         messages: next,
         selectedClinicaId: selectedClinicaId ?? null,
+        conversacionId: conversacionId ?? null,
         ...(contextSnapshot ? { context: contextSnapshot } : {}),
       };
       const res = await fetch("/api/copilot/chat", {
@@ -154,6 +182,10 @@ export function FyllioCopilot() {
       });
       const d = (await res.json()) as CopilotChatResponse;
       if (d.error) setError(d.error);
+      if (d.conversacionId) setConversacionId(d.conversacionId);
+      if (d.archivado) {
+        toast.info("Conversación archivada por longitud, abriendo nueva.");
+      }
       setMessages((prev) => [
         ...prev,
         {
@@ -298,6 +330,14 @@ export function FyllioCopilot() {
                 )}
                 <button
                   type="button"
+                  onClick={() => setShowHistory(true)}
+                  aria-label="Historial"
+                  className="text-slate-400 hover:text-slate-700 w-8 h-8 rounded-md flex items-center justify-center hover:bg-slate-100 transition-colors"
+                >
+                  <History size={16} strokeWidth={2.25} />
+                </button>
+                <button
+                  type="button"
                   onClick={() => setOpen(false)}
                   className="text-slate-400 hover:text-slate-700 w-8 h-8 rounded-md flex items-center justify-center hover:bg-slate-100 transition-colors"
                   aria-label="Cerrar"
@@ -356,10 +396,143 @@ export function FyllioCopilot() {
                 </button>
               </div>
             </footer>
+
+            {showHistory && (
+              <HistoryPanel
+                onClose={() => setShowHistory(false)}
+                onPick={cargarConversacion}
+                activeId={conversacionId}
+              />
+            )}
           </aside>
         </div>
       )}
     </>
+  );
+}
+
+// ─── Sprint 16a Bloque 1 — panel historial ───────────────────────────────
+
+function HistoryPanel({
+  onClose,
+  onPick,
+  activeId,
+}: {
+  onClose: () => void;
+  onPick: (id: string) => void;
+  activeId: string | null;
+}) {
+  type Resumen = {
+    id: string;
+    titulo: string;
+    mensajeCount: number;
+    updatedAt: string;
+  };
+  const [items, setItems] = useState<Resumen[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/copilot/conversaciones?limit=10");
+        const d = (await res.json()) as { conversaciones?: Resumen[]; error?: string };
+        if (cancelled) return;
+        if (d.error) setErr(d.error);
+        else setItems(d.conversaciones ?? []);
+      } catch {
+        if (!cancelled) setErr("No se pudo cargar el historial.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function relTime(iso: string): string {
+    const t = new Date(iso).getTime();
+    if (!t) return "";
+    const diff = Date.now() - t;
+    const min = Math.round(diff / 60_000);
+    if (min < 1) return "ahora";
+    if (min < 60) return `hace ${min} min`;
+    const h = Math.round(min / 60);
+    if (h < 24) return `hace ${h} h`;
+    const d = Math.round(h / 24);
+    return `hace ${d} d`;
+  }
+
+  return (
+    <div className="absolute inset-0 z-10 flex">
+      <div
+        className="absolute inset-0 bg-slate-900/30"
+        onClick={onClose}
+        aria-hidden
+      />
+      <aside className="relative w-80 max-w-full bg-white shadow-xl border-r border-slate-200 flex flex-col h-full">
+        <header className="px-4 py-3 border-b border-slate-200 flex items-center justify-between shrink-0">
+          <h3 className="text-sm font-semibold text-slate-900">Historial</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-slate-400 hover:text-slate-700 w-7 h-7 rounded-md flex items-center justify-center hover:bg-slate-100"
+            aria-label="Cerrar historial"
+          >
+            <X size={14} strokeWidth={ICON_STROKE} />
+          </button>
+        </header>
+        <div className="flex-1 overflow-y-auto p-2">
+          {loading && (
+            <p className="text-xs text-slate-400 px-3 py-4 animate-pulse">
+              Cargando…
+            </p>
+          )}
+          {err && (
+            <p className="text-xs text-rose-600 px-3 py-4">{err}</p>
+          )}
+          {!loading && !err && items.length === 0 && (
+            <p className="text-xs text-slate-400 px-3 py-6 text-center">
+              Aún no tienes conversaciones guardadas.
+            </p>
+          )}
+          {!loading && !err && items.length > 0 && (
+            <ul className="space-y-1">
+              {items.map((it) => {
+                const ageDays =
+                  (Date.now() - new Date(it.updatedAt).getTime()) / 86_400_000;
+                const old = ageDays > 7;
+                return (
+                  <li key={it.id}>
+                    <button
+                      type="button"
+                      onClick={() => onPick(it.id)}
+                      className={`w-full text-left px-3 py-2 rounded-lg border transition-colors ${
+                        activeId === it.id
+                          ? "border-violet-300 bg-violet-50"
+                          : "border-transparent hover:bg-slate-50"
+                      }`}
+                    >
+                      <p className="text-[13px] font-medium text-slate-900 line-clamp-2">
+                        {it.titulo}
+                      </p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        {relTime(it.updatedAt)} · {it.mensajeCount} msg
+                        {old && (
+                          <span className="ml-2 text-amber-600">· antigua</span>
+                        )}
+                      </p>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </aside>
+    </div>
   );
 }
 
