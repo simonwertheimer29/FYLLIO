@@ -264,8 +264,8 @@ export function FyllioCopilot() {
     }
   }, []);
 
-  async function send() {
-    const text = draft.trim();
+  async function send(override?: string) {
+    const text = (override ?? draft).trim();
     if (!text || loading) return;
     setError(null);
     const newUserMsg: CopilotMessage = { role: "user", content: text };
@@ -455,7 +455,7 @@ export function FyllioCopilot() {
 
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
               {messages.length === 0 && !loading && (
-                <Suggestions onPick={(q) => setDraft(q)} />
+                <PromptTemplates onPick={(q) => send(q)} disabled={loading} />
               )}
               {messages.map((m, i) => (
                 <ChatBubble
@@ -530,7 +530,7 @@ export function FyllioCopilot() {
                 </button>
                 <button
                   type="button"
-                  onClick={send}
+                  onClick={() => send()}
                   disabled={!draft.trim() || loading}
                   aria-label="Enviar"
                   className="w-9 h-9 rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 transition-colors flex items-center justify-center"
@@ -696,30 +696,58 @@ function contextLabel(kind: CopilotContextSnapshot["kind"]): string {
   }
 }
 
-function Suggestions({ onPick }: { onPick: (q: string) => void }) {
-  // Sprint 14b Bloque 8 — añadidos ejemplos del modulo financiero al
-  // pool de sugerencias iniciales. Mezcla pre-cobro y post-cobro para
-  // que la coordinadora descubra ambas familias de capacidades.
-  const SUGS = [
-    "¿Cuántos leads tengo sin gestionar hoy?",
-    "¿Cuántos pagos pendientes tengo este mes?",
-    "Muéstrame los cobros vencidos.",
-    "¿Cuánto facturé esta semana?",
-    "¿Cuántos presupuestos están en negociación?",
-    "Buenas prácticas para captar leads de ortodoncia",
+// Sprint 16a Bloque 4 — plantillas de prompts iniciales accionables.
+// Reemplazan las "Algunas ideas" anteriores. Click envía el prompt
+// como user msg directamente (no relleno el draft) — arranca la
+// conversación en una pulsación.
+function PromptTemplates({
+  onPick,
+  disabled,
+}: {
+  onPick: (q: string) => void;
+  disabled?: boolean;
+}) {
+  const TEMPLATES: Array<{ titulo: string; subtitulo: string; prompt: string }> = [
+    {
+      titulo: "Resumen del día",
+      subtitulo: "Leads, presupuestos, cobros pendientes hoy",
+      prompt:
+        "Dame el resumen ejecutivo de hoy: leads nuevos, presupuestos a actuar, cobros pendientes.",
+    },
+    {
+      titulo: "Cobros vencidos",
+      subtitulo: "Lista + propuesta de acción por paciente",
+      prompt:
+        "Muéstrame todos los cobros vencidos y propón qué hacer con cada uno.",
+    },
+    {
+      titulo: "Leads urgentes",
+      subtitulo: "Qué leads requieren acción hoy y por qué",
+      prompt: "¿Qué leads requieren acción urgente hoy y por qué?",
+    },
+    {
+      titulo: "Presupuestos en riesgo",
+      subtitulo: "En negociación >7 días sin actividad",
+      prompt:
+        "Lista los presupuestos en negociación con más de 7 días sin actividad.",
+    },
   ];
   return (
     <div className="space-y-2">
-      <p className="text-xs text-slate-500">Algunas ideas:</p>
-      <div className="flex flex-col gap-1.5">
-        {SUGS.map((s) => (
+      <p className="text-xs text-slate-500">Empieza por aquí:</p>
+      <div className="grid grid-cols-1 gap-2">
+        {TEMPLATES.map((t) => (
           <button
-            key={s}
+            key={t.titulo}
             type="button"
-            onClick={() => onPick(s)}
-            className="text-left text-xs px-3 py-2 rounded-xl bg-white hover:bg-violet-50 hover:text-violet-700 hover:border-violet-200 text-[var(--color-foreground)] border border-[var(--color-border)] transition-colors"
+            disabled={disabled}
+            onClick={() => onPick(t.prompt)}
+            className="group text-left px-3.5 py-3 rounded-xl bg-white hover:bg-violet-50 hover:border-violet-200 border border-[var(--color-border)] transition-colors disabled:opacity-50"
           >
-            {s}
+            <p className="text-[13px] font-semibold text-slate-900 group-hover:text-violet-700">
+              {t.titulo}
+            </p>
+            <p className="text-[11px] text-slate-500 mt-0.5">{t.subtitulo}</p>
           </button>
         ))}
       </div>
