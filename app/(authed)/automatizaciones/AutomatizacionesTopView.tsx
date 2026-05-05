@@ -1,15 +1,16 @@
 "use client";
 
-// Sprint 8 D.5 — /automatizaciones top-level.
-// Coord: solo vista operativa (AutomatizacionesView).
-// Admin: tabs Operativo + Reglas (ConfigAutomatizaciones).
+// Sprint 16b Bloque 3 — /automatizaciones top-level con motor v4 como
+// tab default. Tabs legacy Operativo/Reglas conservadas para admin como
+// reportes históricos del Sprint 8.
 
 import { useState } from "react";
 import type { UserSession } from "../../lib/presupuestos/types";
 import AutomatizacionesView from "../../components/presupuestos/AutomatizacionesView";
 import ConfigAutomatizaciones from "../../components/presupuestos/ConfigAutomatizaciones";
+import { MotorReglasView } from "./MotorReglasView";
 
-type Tab = "operativo" | "reglas";
+type Tab = "motor" | "operativo" | "reglas";
 
 export function AutomatizacionesTopView({
   user,
@@ -18,13 +19,13 @@ export function AutomatizacionesTopView({
   user: UserSession;
   isAdmin: boolean;
 }) {
-  const [tab, setTab] = useState<Tab>("operativo");
+  const [tab, setTab] = useState<Tab>("motor");
 
   if (!isAdmin) {
-    // Coord: solo operativo, sin tabs.
+    // Coord: solo Motor (read-only via permisos del endpoint PATCH).
     return (
       <div className="flex-1 min-h-0 overflow-auto bg-slate-50 p-4 lg:p-6">
-        <AutomatizacionesView user={user} />
+        <MotorReglasView isAdmin={false} />
       </div>
     );
   }
@@ -32,14 +33,18 @@ export function AutomatizacionesTopView({
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-slate-50 overflow-hidden">
       <div className="bg-white border-b border-slate-200 px-4 py-2 flex items-center gap-1 shrink-0">
+        <TabBtn active={tab === "motor"} onClick={() => setTab("motor")}>
+          Motor
+        </TabBtn>
         <TabBtn active={tab === "operativo"} onClick={() => setTab("operativo")}>
-          Operativo
+          Operativo (legacy)
         </TabBtn>
         <TabBtn active={tab === "reglas"} onClick={() => setTab("reglas")}>
-          Reglas
+          Reglas (legacy)
         </TabBtn>
       </div>
       <div className="flex-1 min-h-0 overflow-auto p-4 lg:p-6">
+        {tab === "motor" && <MotorReglasView isAdmin={isAdmin} />}
         {tab === "operativo" && <AutomatizacionesView user={user} />}
         {tab === "reglas" && <ConfigAutomatizaciones user={user} />}
       </div>
