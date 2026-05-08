@@ -641,9 +641,46 @@ export async function execAction(env: ExecEnv, action: CopilotAction): Promise<E
         return await execMarcarPagoRecibido(env, action.params);
       case "agendar_llamada_cobranza":
         return await execAgendarLlamadaCobranza(env, action.params);
+      // Sprint 17 Bloque 8 — Voice IA.
+      case "iniciar_llamada_confirmacion":
+        return await execIniciarLlamadaConfirmacion(action.params);
     }
   } catch (err) {
     console.error("[copilot exec]", action.tool, err instanceof Error ? err.message : err);
     return { ok: false, error: "Error al ejecutar la acción" };
   }
+}
+
+// ─── Sprint 17 — execIniciarLlamadaConfirmacion ─────────────────────────
+
+async function execIniciarLlamadaConfirmacion(
+  params: Record<string, unknown>,
+): Promise<ExecResult> {
+  const citaId = String(params.citaId ?? "");
+  if (!citaId.startsWith("rec")) {
+    return { ok: false, error: "citaId inválido (no empieza por rec)" };
+  }
+  const { iniciarLlamada } = await import("../llamadas/iniciar");
+  const r = await iniciarLlamada({ citaId, tipo: "confirmacion_cita" });
+  if (!r.ok) {
+    const motivos: Record<string, string> = {
+      paciente_sin_telefono: "Paciente sin teléfono.",
+      paciente_optout: "Paciente con opt-out activado.",
+      cooldown: "Cooldown 24h activo (ya llamado o WA reciente).",
+      fuera_horario: "Fuera del horario laboral configurado.",
+      limite_clinica: "Límite diario de llamadas alcanzado.",
+      pausa_automatica: "Pausa automática por tasa de fallidas alta.",
+      vapi_error: "Vapi devolvió error.",
+      config_incompleta: "Config Vapi incompleta en el entorno.",
+      cita_no_existe: "Cita no encontrada.",
+    };
+    return {
+      ok: false,
+      error: `${motivos[r.motivo] ?? r.motivo}${r.detalle ? ` (${r.detalle})` : ""}`,
+    };
+  }
+  return {
+    ok: true,
+    message: `Llamada IA iniciada (Vapi call ${r.llamada.vapiCallId?.slice(0, 8) ?? "?"}…). Verás el resultado en /llamadas en unos minutos.`,
+  };
 }

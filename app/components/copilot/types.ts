@@ -21,7 +21,9 @@ export type CopilotAction = {
     // Sprint 14b Bloque 8 — modulo financiero.
     | "enviar_recordatorio_pago"
     | "marcar_pago_recibido"
-    | "agendar_llamada_cobranza";
+    | "agendar_llamada_cobranza"
+    // Sprint 17 Bloque 8 — Voice IA.
+    | "iniciar_llamada_confirmacion";
   /** Etiqueta humana corta para el botón ("Cambiar a Contactado"). */
   label: string;
   /** Resumen de qué hará la acción ("Voy a marcar a Carlos López como contactado"). */

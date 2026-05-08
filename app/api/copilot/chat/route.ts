@@ -667,5 +667,38 @@ async function toCopilotAction(
         params: input,
       };
     }
+    // ── Sprint 17 Bloque 8 — Voice IA ─────────────────────────────
+    case "iniciar_llamada_confirmacion": {
+      const citaId = String(input.citaId ?? "");
+      const nombrePaciente = input.nombrePaciente
+        ? String(input.nombrePaciente)
+        : "el paciente";
+      const fechaCita = input.fechaCita ? String(input.fechaCita) : "su cita";
+      if (!citaId.startsWith("rec")) {
+        return {
+          id,
+          tool: name,
+          label: "Iniciar llamada IA",
+          description: "No puedo iniciar la llamada sin un citaId Airtable válido.",
+          preview: `Recibí citaId="${citaId}". Espero un recordId que empiece por "rec".`,
+          params: { ...input, _unresolved: true },
+        };
+      }
+      const preview = [
+        `Paciente: ${nombrePaciente}`,
+        `Cita: ${fechaCita}`,
+        `Cita ID: ${citaId}`,
+        ``,
+        `El sistema validará opt-out, cooldown 24h, horario laboral y límite por clínica antes de marcar al paciente.`,
+      ].join("\n");
+      return {
+        id,
+        tool: name,
+        label: "Iniciar llamada IA",
+        description: `Voy a llamar a ${nombrePaciente} para confirmar ${fechaCita} vía Vapi. Confirma para iniciar.`,
+        preview,
+        params: input,
+      };
+    }
   }
 }

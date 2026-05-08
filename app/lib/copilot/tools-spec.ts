@@ -39,6 +39,8 @@ export const READ_TOOL_NAMES = [
   "get_top_pacientes_facturado",
   // Sprint 14b Bloque 8 hotfix — resolucion paciente por nombre.
   "buscar_paciente_por_nombre",
+  // Sprint 17 Bloque 8 — Voice IA.
+  "consultar_llamadas_recientes",
 ] as const;
 
 export type ReadToolName = (typeof READ_TOOL_NAMES)[number];
@@ -277,6 +279,36 @@ export const READ_TOOLS: AnthropicTool[] = [
       required: ["query"],
     },
   },
+  {
+    name: "consultar_llamadas_recientes",
+    description:
+      "Lista las últimas llamadas IA salientes (Voice IA via Vapi). Devuelve paciente, " +
+      "tipo, estado, resultado, duración, coste y timestamp. Útil para preguntas " +
+      "como '¿cuántas llamadas hicimos hoy?', '¿qué pacientes confirmaron por IA?', " +
+      "'¿cuántas fallaron esta semana?'.",
+    input_schema: {
+      type: "object",
+      properties: {
+        limite: { type: "number", description: "Máximo de resultados (1-50). Default 10." },
+        filtroResultado: {
+          type: "string",
+          enum: [
+            "confirmada",
+            "reagenda_solicitada",
+            "cancelada",
+            "no_contesta",
+            "escalado_humano",
+            "sin_resultado",
+          ],
+          description: "Filtra por resultado concreto. Omitir para ver todos.",
+        },
+        fechaDesde: {
+          type: "string",
+          description: "ISO date (YYYY-MM-DD). Filtra llamadas iniciadas a partir de esta fecha.",
+        },
+      },
+    },
+  },
 ];
 
 // ═══ ACTION TOOLS (no se ejecutan en backend; se devuelven al frontend) ═══
@@ -294,6 +326,8 @@ export const ACTION_TOOL_NAMES = [
   "enviar_recordatorio_pago",
   "marcar_pago_recibido",
   "agendar_llamada_cobranza",
+  // Sprint 17 Bloque 8 — Voice IA.
+  "iniciar_llamada_confirmacion",
 ] as const;
 
 export type ActionToolName = (typeof ACTION_TOOL_NAMES)[number];
@@ -509,6 +543,33 @@ export const ACTION_TOOLS: AnthropicTool[] = [
         nota: { type: "string" },
       },
       required: ["pacienteId", "fechaHora"],
+    },
+  },
+  {
+    name: "iniciar_llamada_confirmacion",
+    description:
+      "Sugiere iniciar una llamada IA saliente para confirmar una cita 24h antes. " +
+      "Requiere un citaId concreto (recXXX). El sistema aplica salvaguardas automáticas: " +
+      "opt-out paciente, cooldown 24h, horario laboral, límite por clínica, pausa si la " +
+      "tasa de fallidas es >20% en última hora. Si alguna salvaguarda bloquea, la action " +
+      "devuelve un motivo legible. NO usar si el citaId es desconocido.",
+    input_schema: {
+      type: "object",
+      properties: {
+        citaId: {
+          type: "string",
+          description: "recordId Airtable de la Cita (empieza por 'rec').",
+        },
+        nombrePaciente: {
+          type: "string",
+          description: "Nombre del paciente (para mostrar en el preview).",
+        },
+        fechaCita: {
+          type: "string",
+          description: "Fecha y hora de la cita en formato legible (para mostrar en el preview).",
+        },
+      },
+      required: ["citaId"],
     },
   },
 ];

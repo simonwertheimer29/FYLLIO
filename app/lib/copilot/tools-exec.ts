@@ -796,9 +796,43 @@ export async function runReadTool(
       // Sprint 14b Bloque 8 hotfix — resolucion paciente por nombre.
       case "buscar_paciente_por_nombre":
         return await execBuscarPacientePorNombre(env, input as any);
+      // Sprint 17 Bloque 8 — Voice IA.
+      case "consultar_llamadas_recientes":
+        return await execConsultarLlamadasRecientes(input as any);
     }
   } catch (err) {
     console.error("[copilot read tool]", name, err instanceof Error ? err.message : err);
     return { error: "Error ejecutando consulta" };
   }
+}
+
+// ─── Sprint 17 — execConsultarLlamadasRecientes ─────────────────────────
+
+async function execConsultarLlamadasRecientes(input: {
+  limite?: number;
+  filtroResultado?: string;
+  fechaDesde?: string;
+}): Promise<unknown> {
+  const { listLlamadas } = await import("../llamadas/repo");
+  const limite = Math.min(Math.max(Number(input.limite ?? 10), 1), 50);
+  const llamadas = await listLlamadas({
+    limit: limite,
+    resultado: (input.filtroResultado as any) || undefined,
+    desde: input.fechaDesde
+      ? new Date(input.fechaDesde + "T00:00:00").toISOString()
+      : undefined,
+  });
+  return {
+    total: llamadas.length,
+    llamadas: llamadas.map((l) => ({
+      id: l.id,
+      pacienteId: l.pacienteId,
+      tipo: l.tipo,
+      estado: l.estado,
+      resultado: l.resultado,
+      duracionSegundos: l.duracionSegundos,
+      costeUSD: l.costeUSD,
+      iniciadaAt: l.iniciadaAt,
+    })),
+  };
 }
