@@ -52,8 +52,18 @@ function toRegla(rec: any): Regla {
 }
 
 export async function listReglas(): Promise<Regla[]> {
-  const recs = await fetchAll(base(TABLES.reglasAutomatizacion).select({}));
-  return recs.map(toRegla);
+  // Defensivo: si la tabla no existe en prod (migración no corrida),
+  // devolvemos lista vacía en lugar de tumbar al caller (cron, KPIs UI).
+  // Logueamos para que aparezca en Vercel logs.
+  try {
+    const recs = await fetchAll(
+      base(TABLES.reglasAutomatizacion).select({}),
+    );
+    return recs.map(toRegla);
+  } catch (err) {
+    console.error("[automatizaciones listReglas] tabla inaccesible:", err);
+    return [];
+  }
 }
 
 /** Devuelve reglas activas que coinciden con el trigger. Aplica
