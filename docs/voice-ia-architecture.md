@@ -88,7 +88,7 @@ Preview):
 | `VAPI_API_KEY` | (Vapi dashboard → API Keys) | Bearer auth para todas las llamadas a la API Vapi |
 | `VAPI_PHONE_NUMBER_ID` | (Vapi dashboard → Phone Numbers → ID) | Número saliente registrado en Vapi |
 | `VAPI_ASSISTANT_ID_CONFIRMACION_CITAS` | (Vapi dashboard → Assistants → ID) | Assistant configurado con prompt + tool `registrar_resultado` |
-| `VAPI_WEBHOOK_SECRET` | `6467799d4fa3355dc67d7ba5602f0f08e242f276488c8f1ef5d42824a855c600e3d0b78d8eaf80c9b039ed78b50d566c` | **Generado en Sprint 17.** Configurar en Vapi dashboard → Webhooks → Signing Secret. Sin esto, el endpoint webhook rechaza 401. |
+| `VAPI_WEBHOOK_SECRET` | `6467799d4fa3355dc67d7ba5602f0f08e242f276488c8f1ef5d42824a855c600e3d0b78d8eaf80c9b039ed78b50d566c` | **Generado en Sprint 17.** Vapi dashboard → Assistant → Server / Webhook → **Custom HTTP Headers**. Añadir un header con nombre `x-vapi-secret` y este valor. Sin esto, el endpoint rechaza 401. |
 
 Para Sprint 18:
 - `VAPI_ASSISTANT_ID_REACTIVACION`
@@ -130,6 +130,40 @@ El assistant `confirmacion_citas` debe:
 3. El system prompt del assistant debe instruir explícitamente:
    *"Al cerrar la conversación, llama a la function `registrar_resultado`
    con el resultado apropiado antes de despedirte."*
+
+## Webhook Verification
+
+**Sprint 17 hotfix (2026-05-08):** la UI actual de Vapi no expone configuración
+de **HMAC signing secret** a nivel de asistente, sino que usa **custom HTTP
+headers** para autenticar requests salientes hacia el server.
+
+Implementación actual (`/api/webhooks/vapi`):
+
+- El endpoint lee el header **`x-vapi-secret`** del request entrante.
+- Compara byte-a-byte (timing-safe) contra `VAPI_WEBHOOK_SECRET` del entorno.
+- Si no coincide → **HTTP 401 Unauthorized**.
+- Si coincide → procesa el evento normalmente.
+
+Configuración en Vapi dashboard:
+
+```
+Assistant → Server / Advanced → Custom HTTP Headers
+  Add Header
+    Key:   x-vapi-secret
+    Value: 6467799d4fa3355dc67d7ba5602f0f08e242f276488c8f1ef5d42824a855c600e3d0b78d8eaf80c9b039ed78b50d566c
+```
+
+Configuración en Vercel:
+
+```
+VAPI_WEBHOOK_SECRET = 6467799d4fa3355dc67d7ba5602f0f08e242f276488c8f1ef5d42824a855c600e3d0b78d8eaf80c9b039ed78b50d566c
+```
+
+**Migración futura a HMAC**: cuando Vapi exponga signing secret de forma
+limpia (header `x-vapi-signature` con HMAC-SHA256 sobre el body crudo),
+podemos revertir a esa verificación que es más robusta contra replay.
+El swap es trivial — el handler ya tiene el body raw cargado y la
+constante del secret no cambia.
 
 ## Coste estimado
 

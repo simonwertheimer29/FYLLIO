@@ -2,9 +2,12 @@
 //
 // Sprint 17 Bloque 4 — webhook receptor de Vapi.
 //
-// Vapi firma cada webhook con HMAC-SHA256 sobre el body crudo. La
-// firma viaja en el header `x-vapi-signature` (hex). Verificamos
-// con timing-safe compare contra VAPI_WEBHOOK_SECRET.
+// Auth (Sprint 17 hotfix 2026-05-08): verificación por header simple
+// `x-vapi-secret` que debe coincidir exactamente con
+// VAPI_WEBHOOK_SECRET. La UI actual de Vapi NO expone HMAC signing
+// secret a nivel asistente; usa custom HTTP headers. Cuando Vapi
+// soporte HMAC limpio se puede revertir al patrón anterior (HMAC-
+// SHA256 sobre body crudo con header x-vapi-signature).
 //
 // Eventos manejados (subset de la API Vapi):
 //   - tool-calls       → registrar_resultado interpreta el resultado
@@ -34,38 +37,32 @@ import type {
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function timingSafeEqual(a: string, b: string): boolean {
-  const ab = Buffer.from(a, "hex");
-  const bb = Buffer.from(b, "hex");
+function timingSafeEqualUtf8(a: string, b: string): boolean {
+  const ab = Buffer.from(a, "utf8");
+  const bb = Buffer.from(b, "utf8");
   if (ab.length !== bb.length) return false;
-  return crypto.timingSafeEqual(ab, bb);
-}
-
-function verificarFirma(body: string, signature: string | null): boolean {
-  const secret = process.env["VAPI_WEBHOOK_SECRET"];
-  if (!secret) {
-    // Si no hay secret configurado en el entorno, rechazamos. Pre-fix
-    // habríamos dejado el endpoint abierto, lo que es inaceptable
-    // para un webhook que ejecuta updates en BD.
-    return false;
-  }
-  if (!signature) return false;
-  const computed = crypto
-    .createHmac("sha256", secret)
-    .update(body, "utf8")
-    .digest("hex");
   try {
-    return timingSafeEqual(computed, signature);
+    return crypto.timingSafeEqual(ab, bb);
   } catch {
     return false;
   }
 }
 
+/** Verifica que el header x-vapi-secret coincide con
+ *  VAPI_WEBHOOK_SECRET. Si no hay secret configurado, rechaza
+ *  (preferible a dejar el endpoint abierto cuando escribe en BD). */
+function verificarHeaderSecret(secretHeader: string | null): boolean {
+  const secret = process.env["VAPI_WEBHOOK_SECRET"];
+  if (!secret) return false;
+  if (!secretHeader) return false;
+  return timingSafeEqualUtf8(secretHeader, secret);
+}
+
 export async function POST(req: Request) {
   const raw = await req.text();
-  const sig = req.headers.get("x-vapi-signature");
-  if (!verificarFirma(raw, sig)) {
-    console.warn("[webhooks/vapi] firma inválida o secret ausente");
+  const headerSecret = req.headers.get("x-vapi-secret");
+  if (!verificarHeaderSecret(headerSecret)) {
+    console.warn("[webhooks/vapi] header x-vapi-secret inválido o secret ausente");
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
