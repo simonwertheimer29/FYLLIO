@@ -182,11 +182,63 @@ export async function GET(req: Request) {
     }
   }
 
+  // ── Sprint 17 Bloque 5 — confirmación automática vía llamada IA ───────
+  // Para cada cita "Pendiente" en las próximas 23h-25h llamamos al
+  // paciente con Vapi. Las salvaguardas (opt-out, cooldown, horario,
+  // límite, pausa) viven en lib/llamadas/iniciar.ts y se aplican
+  // dentro. Espaciamos llamadas 5s para no saturar el rate limit Vapi.
+  let llamadasIaIniciadas = 0;
+  let llamadasIaSalvaguarda = 0;
+  let llamadasIaError = 0;
+  try {
+    const { iniciarLlamada } = await import(
+      "../../../lib/llamadas/iniciar"
+    );
+    const ahora = Date.now();
+    const desde = new Date(ahora + 23 * 3600 * 1000).toISOString();
+    const hasta = new Date(ahora + 25 * 3600 * 1000).toISOString();
+    const recsCitas = await base(TABLES.appointments as any)
+      .select({
+        filterByFormula: `AND({Estado}="Pendiente", IS_AFTER({Hora inicio}, "${desde}"), IS_BEFORE({Hora inicio}, "${hasta}"))`,
+        pageSize: 100,
+      })
+      .all();
+
+    for (const r of recsCitas as any[]) {
+      try {
+        const res = await iniciarLlamada({
+          citaId: r.id,
+          tipo: "confirmacion_cita",
+        });
+        if (res.ok) {
+          llamadasIaIniciadas += 1;
+        } else {
+          llamadasIaSalvaguarda += 1;
+          console.log(
+            `[daily voice] skip ${r.id} motivo=${res.motivo} ${res.detalle ?? ""}`,
+          );
+        }
+      } catch (err) {
+        llamadasIaError += 1;
+        console.error("[daily voice] iniciarLlamada", r.id, err);
+        errors.push(`voice:${r.id}: ${String(err)}`);
+      }
+      // Espaciar 5s entre llamadas — el provider envía la llamada en
+      // background así que esto es solo para no encolar 50 ringing
+      // simultáneos en Vapi.
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+    }
+  } catch (err) {
+    console.error("[daily voice] bucle externo:", err);
+    errors.push(`voice_outer: ${String(err)}`);
+  }
+
   console.log(
     `[daily] ${now.toISODate()} — reminders: ${remindersSent}/${tomorrowAppts.length}, ` +
     `confirmations: ${confirmsSent}/${tomorrowAppts.length}, ` +
     `feedback: ${feedbackSent}/${yesterdayAppts.length}, ` +
-    `autoCompleted: ${autoCompleted}`
+    `autoCompleted: ${autoCompleted}, ` +
+    `llamadasIa: ${llamadasIaIniciadas} iniciadas, ${llamadasIaSalvaguarda} skip, ${llamadasIaError} error`
   );
 
   return NextResponse.json({
@@ -196,6 +248,11 @@ export async function GET(req: Request) {
     confirmations: { sent: confirmsSent, total: tomorrowAppts.length },
     feedback: { sent: feedbackSent, total: yesterdayAppts.length },
     autoCompleted,
+    llamadasIa: {
+      iniciadas: llamadasIaIniciadas,
+      skipSalvaguarda: llamadasIaSalvaguarda,
+      errores: llamadasIaError,
+    },
     errors,
   });
 }
