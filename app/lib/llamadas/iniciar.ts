@@ -23,6 +23,7 @@ import {
   createLlamada,
   pacienteLlamadoUltimas24h,
   contarLlamadasHoyPorPaciente,
+  contarLlamadasHoy,
   tasaFallidasUltimaHora,
 } from "./repo";
 import type { Llamada, TipoLlamada } from "./types";
@@ -54,6 +55,40 @@ export type IniciarResult =
 
 const LIMITE_DIARIO_DEFAULT = 50;
 const TASA_FALLIDAS_PAUSA_PCT = 20;
+
+/** Emite UNA alerta a coord cuando el motor pausa por tasa de
+ *  fallidas alta. Dedupe simple: si ya hay una alerta tipo
+ *  "ia_pausa_automatica" en los últimos 60 min, skip. */
+async function emitirAlertaPausaSiNoExiste(input: {
+  mensaje: string;
+}): Promise<void> {
+  try {
+    const desde = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const recs = await fetchAll(
+      base(TABLES.alertasEnviadas).select({
+        filterByFormula: `AND({Tipo}="ia_pausa_automatica", IS_AFTER({Created_At}, "${desde}"))`,
+        maxRecords: 1,
+      }),
+    );
+    if (recs.length > 0) return;
+    await base(TABLES.alertasEnviadas).create(
+      [
+        {
+          fields: {
+            Resumen: `[ia-pausa] ${input.mensaje.slice(0, 60)}`,
+            Tipo: "ia_pausa_automatica",
+            Mensaje: input.mensaje,
+            Urgencia: "alta",
+            Created_At: new Date().toISOString(),
+          },
+        },
+      ],
+      { typecast: true },
+    );
+  } catch (err) {
+    console.error("[llamadas alerta pausa]", err);
+  }
+}
 
 function dentroHorario(horario: HorarioLaboral): boolean {
   const dias: Array<keyof HorarioLaboral> = [
@@ -183,19 +218,31 @@ export async function iniciarLlamada(args: IniciarArgs): Promise<IniciarResult> 
     }
   }
 
-  // Límite por clínica: contamos llamadas hoy de pacientes de la clínica.
-  // Para evitar query pesada, contamos solo del paciente objetivo (una
-  // aproximación; el límite real por-clínica requeriría join via Pacientes
-  // que es N+1 caro). Aceptable mientras el límite sea por paciente OR el
-  // volumen sea pequeño.
+  // Cooldown 1×/paciente/día (independiente del cooldown 24h general).
   const llamadasHoyPaciente = await contarLlamadasHoyPorPaciente([paciente.id]);
   if (llamadasHoyPaciente >= 1) {
     return { ok: false, motivo: "cooldown", detalle: "ya llamado hoy" };
   }
 
-  // Pausa automática si la tasa de fallidas en última hora supera umbral.
+  // Límite por clínica/tenant: total de llamadas IA del día.
+  const totalHoy = await contarLlamadasHoy();
+  if (totalHoy >= config.limiteDia) {
+    return {
+      ok: false,
+      motivo: "limite_clinica",
+      detalle: `${totalHoy}/${config.limiteDia} llamadas hoy alcanzado`,
+    };
+  }
+
+  // Pausa automática si la tasa de fallidas en última hora supera
+  // el umbral. Cuando dispara, además emitimos UNA alerta a coord
+  // (idempotencia simple: skip si ya hay alerta del mismo tipo en
+  // los últimos 60 min).
   const tasa = await tasaFallidasUltimaHora();
   if (tasa.total >= 5 && tasa.pct >= TASA_FALLIDAS_PAUSA_PCT) {
+    await emitirAlertaPausaSiNoExiste({
+      mensaje: `Pausa automática Voice IA: ${tasa.fallidas}/${tasa.total} fallidas en última hora (${tasa.pct}%). Revisar Vapi/teléfonos.`,
+    });
     return {
       ok: false,
       motivo: "pausa_automatica",

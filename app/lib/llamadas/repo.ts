@@ -210,6 +210,25 @@ export async function contarLlamadasHoyPorPaciente(
   }
 }
 
+/** Cuenta todas las llamadas iniciadas hoy. Aproximación al límite
+ *  por clínica (en V1 asumimos una clínica = un tenant de Fyllio;
+ *  cuando crezcamos se filtrará por clinicaId via join Paciente_Link). */
+export async function contarLlamadasHoy(): Promise<number> {
+  const inicioHoy = new Date();
+  inicioHoy.setHours(0, 0, 0, 0);
+  try {
+    const recs = await fetchAll(
+      base(TABLES.llamadasVapi).select({
+        filterByFormula: `IS_AFTER({Iniciada_At}, "${inicioHoy.toISOString()}")`,
+        pageSize: 100,
+      }),
+    );
+    return recs.length;
+  } catch {
+    return 0;
+  }
+}
+
 /** Tasa de fallidas en última hora — usado por la salvaguarda
  *  "pausa automática" del Bloque 9. */
 export async function tasaFallidasUltimaHora(): Promise<{
