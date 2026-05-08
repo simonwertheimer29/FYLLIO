@@ -387,31 +387,45 @@ async function getOptoutPaciente(pacienteId: string): Promise<boolean> {
 async function contarMensajesAutoUltimas24h(pacienteId: string): Promise<number> {
   // Usamos Acciones_Automatizacion como source-of-truth: cualquier
   // resultado=success cuya regla envió WA cuenta. Filtro temporal
-  // últimas 24h.
-  const desdeIso = new Date(
-    Date.now() - COOLDOWN_HORAS * 60 * 60 * 1000,
-  ).toISOString();
-  const recs = await fetchAll(
-    base(TABLES.accionesAutomatizacion).select({
-      filterByFormula: `AND(FIND("${pacienteId}", ARRAYJOIN({Paciente_Link}, ",")), {Resultado} = "success", IS_AFTER({Ejecutada_At}, "${desdeIso}"))`,
-      pageSize: 100,
-    }),
-  );
-  // Solo cuentan las que enviaron WA; revisamos detalle.
-  let count = 0;
-  for (const r of recs) {
-    const det = String(r.fields["Detalle"] ?? "");
-    if (det.includes("enviar_whatsapp_template")) count += 1;
+  // últimas 24h. Si la query falla (tabla no existe en prod, etc.)
+  // devolvemos 0 — la salvaguarda cooldown queda inactiva por
+  // defecto, mejor que tumbar el motor entero.
+  try {
+    const desdeIso = new Date(
+      Date.now() - COOLDOWN_HORAS * 60 * 60 * 1000,
+    ).toISOString();
+    const recs = await fetchAll(
+      base(TABLES.accionesAutomatizacion).select({
+        filterByFormula: `AND(FIND("${pacienteId}", ARRAYJOIN({Paciente_Link}, ",")), {Resultado} = "success", IS_AFTER({Ejecutada_At}, "${desdeIso}"))`,
+        pageSize: 100,
+      }),
+    );
+    let count = 0;
+    for (const r of recs) {
+      const det = String(r.fields["Detalle"] ?? "");
+      if (det.includes("enviar_whatsapp_template")) count += 1;
+    }
+    return count;
+  } catch (err) {
+    console.error("[automatizaciones cooldown query]", err);
+    return 0;
   }
-  return count;
 }
 
 async function dentroHorarioLaboral(
   clinicaId: string | null,
 ): Promise<boolean> {
-  const horario = clinicaId
-    ? await getHorarioClinica(clinicaId)
-    : HORARIO_DEFAULT;
+  // Defensivo: si getHorarioClinica falla o devuelve un objeto
+  // incompleto (merge superficial con HORARIO_DEFAULT puede borrar
+  // campos), caemos siempre a HORARIO_DEFAULT como fallback.
+  let horario: HorarioLaboral = HORARIO_DEFAULT;
+  if (clinicaId) {
+    try {
+      horario = await getHorarioClinica(clinicaId);
+    } catch (err) {
+      console.error("[automatizaciones horario]", err);
+    }
+  }
   const now = new Date();
   const dias: Array<keyof HorarioLaboral> = [
     "domingo",
@@ -423,8 +437,9 @@ async function dentroHorarioLaboral(
     "sabado",
   ];
   const dia = dias[now.getDay()]!;
-  const cfg = horario[dia];
-  if (!cfg.activo) return false;
+  const cfg = horario[dia] ?? HORARIO_DEFAULT[dia];
+  if (!cfg || !cfg.activo) return false;
+  if (!cfg.inicio || !cfg.fin) return true; // datos incompletos: no bloquear
   const hh = String(now.getHours()).padStart(2, "0");
   const mm = String(now.getMinutes()).padStart(2, "0");
   const t = `${hh}:${mm}`;
@@ -434,21 +449,35 @@ async function dentroHorarioLaboral(
 export async function getHorarioClinica(
   clinicaId: string,
 ): Promise<HorarioLaboral> {
-  // Lee Configuraciones_Clinica con Categoria=horario_laboral, Clinica_Link=clinicaId.
-  // Si no existe, devuelve defaults.
-  const recs = await fetchAll(
-    base(TABLES.configuracionesClinica).select({
-      filterByFormula: `AND({Categoria}="horario_laboral", FIND("${clinicaId}", ARRAYJOIN({Clinica_Link}, ",")))`,
-      maxRecords: 1,
-    }),
-  );
-  const r = recs[0];
-  if (!r) return HORARIO_DEFAULT;
-  const valor = String(r.fields["Valor"] ?? "");
+  // Lee Configuraciones_Clinica con Categoria=horario_laboral,
+  // Clinica_Link=clinicaId. Si la categoría todavía no existe (singleSelect
+  // no extendido), Airtable puede devolver UNKNOWN_FIELD_NAME aunque la
+  // tabla sí. Capturamos y caemos a defaults.
   try {
-    const parsed = JSON.parse(valor);
-    return { ...HORARIO_DEFAULT, ...parsed } as HorarioLaboral;
-  } catch {
+    const recs = await fetchAll(
+      base(TABLES.configuracionesClinica).select({
+        filterByFormula: `AND({Categoria}="horario_laboral", FIND("${clinicaId}", ARRAYJOIN({Clinica_Link}, ",")))`,
+        maxRecords: 1,
+      }),
+    );
+    const r = recs[0];
+    if (!r) return HORARIO_DEFAULT;
+    const valor = String(r.fields["Valor"] ?? "");
+    try {
+      const parsed = JSON.parse(valor) as Partial<HorarioLaboral>;
+      // Merge día por día para no perder inicio/fin si parsed es parcial.
+      const out: HorarioLaboral = { ...HORARIO_DEFAULT };
+      for (const k of Object.keys(HORARIO_DEFAULT) as Array<keyof HorarioLaboral>) {
+        if (parsed[k]) {
+          out[k] = { ...HORARIO_DEFAULT[k], ...(parsed[k] as object) };
+        }
+      }
+      return out;
+    } catch {
+      return HORARIO_DEFAULT;
+    }
+  } catch (err) {
+    console.error("[automatizaciones getHorarioClinica]", err);
     return HORARIO_DEFAULT;
   }
 }

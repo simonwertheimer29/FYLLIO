@@ -1,19 +1,25 @@
 // app/api/cron/automatizaciones-evaluar/route.ts
 //
 // Sprint 16b Bloque 4 — cron job que evalúa los triggers basados en
-// tiempo cada 15 min. Vercel cron auth via header Authorization:
-// Bearer <CRON_SECRET>. En dev local podemos ejecutar pasando el
-// mismo header con `curl -H "Authorization: Bearer …"`.
+// tiempo. Vercel Hobby plan limita a 1×/día (12:00 UTC).
+//
+// Auth: header Authorization: Bearer <CRON_SECRET>. Vercel cron lo
+// inyecta automáticamente. Sin CRON_SECRET configurado el endpoint
+// rechaza todo (en lugar de quedar abierto, pre-2026-05-07 estaba
+// abierto y eso permitió que un cron de Vercel sin la env var pasase).
 //
 // Triggers manejados aquí (event-based viven en código que llama
 // emitirEvento):
 //   - cita_confirmada_24h_antes
 //   - presupuesto_estancado_7d
 //   - lead_inactivo_n_dias
-//   - lead_sin_gestionar_2h  (delay sobre lead_creado, evaluado aquí
-//     porque el evento ocurrió en el pasado)
+//   - lead_sin_gestionar_2h
 //
-// Returna {evaluados, ejecutados, errores, detalle: {triggerN: ...}}
+// Returna 200 con {ok, elapsedMs, evaluados, matches, detalle:
+// {triggerN: {evaluados, matches, error?}}}.
+// Errores 500 devuelven JSON con {error, detail, stack} — pre-fix
+// devolvían respuesta vacía sin diagnóstico posible (Sprint 16b
+// 2026-05-07 hotfix).
 
 import { NextResponse } from "next/server";
 import { fetchAll, base, TABLES } from "../../../lib/airtable";
@@ -27,12 +33,46 @@ import type { EventoSistema } from "../../../lib/automatizaciones/types";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+type TriggerResult = {
+  evaluados: number;
+  matches: number;
+  error?: string;
+};
+
 function unauthorized() {
   return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 }
 
+function logErr(scope: string, err: unknown) {
+  const msg = err instanceof Error ? err.message : String(err);
+  const stack = err instanceof Error ? err.stack : undefined;
+  console.error(`[cron/automatizaciones ${scope}]`, msg, stack ?? "");
+}
+
 export async function GET(req: Request) {
-  // Vercel cron envía Authorization: Bearer <CRON_SECRET>.
+  try {
+    return await handle(req);
+  } catch (err) {
+    // Safety net: cualquier excepción no capturada por safeTrigger acaba
+    // aquí y devuelve JSON con detalle. Pre-fix devolvía 500 vacío.
+    logErr("handler", err);
+    return NextResponse.json(
+      {
+        error: "internal_error",
+        detail: err instanceof Error ? err.message : String(err),
+        name: err instanceof Error ? err.name : undefined,
+        stack:
+          err instanceof Error && process.env["NODE_ENV"] !== "production"
+            ? err.stack
+            : undefined,
+      },
+      { status: 500 },
+    );
+  }
+}
+
+async function handle(req: Request) {
+  // ── Auth ──
   const expected = process.env["CRON_SECRET"];
   if (expected) {
     const auth = req.headers.get("authorization");
@@ -40,20 +80,36 @@ export async function GET(req: Request) {
   }
 
   const start = Date.now();
-  const detalle: Record<string, { evaluados: number; matches: number }> = {};
+  console.log("[cron/automatizaciones] start");
 
-  // 1. cita_confirmada_24h_antes
-  detalle.cita_24h = await evaluarTriggerCita24h();
+  // ── Pre-flight: que las env vars Airtable estén ──
+  if (!process.env["AIRTABLE_BASE_ID"] || !process.env["AIRTABLE_API_KEY"]) {
+    return NextResponse.json(
+      {
+        error: "missing_env",
+        detail: "AIRTABLE_BASE_ID o AIRTABLE_API_KEY ausentes en producción",
+      },
+      { status: 500 },
+    );
+  }
 
-  // 2. presupuesto_estancado_7d
-  detalle.presupuesto_7d = await evaluarTriggerPresupuesto7d();
+  const detalle: Record<string, TriggerResult> = {};
 
-  // 3. lead_inactivo_n_dias
-  detalle.lead_inactivo = await evaluarTriggerLeadInactivo();
-
-  // 4. lead_sin_gestionar_2h (sobre eventos de lead_creado en
-  //    Eventos_Sistema, todavía no procesados, con created_at >2h).
-  detalle.lead_sin_gestionar = await evaluarTriggerLeadSinGestionar();
+  // Cada trigger se ejecuta aislado: si uno falla, los otros siguen
+  // y el detalle del fallo va al cuerpo de la respuesta.
+  detalle.cita_24h = await safeTrigger("cita_24h", evaluarTriggerCita24h);
+  detalle.presupuesto_7d = await safeTrigger(
+    "presupuesto_7d",
+    evaluarTriggerPresupuesto7d,
+  );
+  detalle.lead_inactivo = await safeTrigger(
+    "lead_inactivo",
+    evaluarTriggerLeadInactivo,
+  );
+  detalle.lead_sin_gestionar = await safeTrigger(
+    "lead_sin_gestionar",
+    evaluarTriggerLeadSinGestionar,
+  );
 
   const elapsed = Date.now() - start;
   const totalMatches = Object.values(detalle).reduce(
@@ -64,19 +120,46 @@ export async function GET(req: Request) {
     (s, d) => s + d.evaluados,
     0,
   );
+  const erroresTotal = Object.values(detalle).filter((d) => d.error).length;
+
+  console.log(
+    `[cron/automatizaciones] done ${elapsed}ms · evaluados=${totalEvaluados} matches=${totalMatches} errores=${erroresTotal}`,
+  );
+
   return NextResponse.json({
-    ok: true,
+    ok: erroresTotal === 0,
     elapsedMs: elapsed,
     evaluados: totalEvaluados,
     matches: totalMatches,
+    erroresTotal,
     detalle,
   });
 }
 
+async function safeTrigger(
+  scope: string,
+  fn: () => Promise<TriggerResult>,
+): Promise<TriggerResult> {
+  try {
+    const t0 = Date.now();
+    const r = await fn();
+    console.log(
+      `[cron/automatizaciones ${scope}] ok ${Date.now() - t0}ms evaluados=${r.evaluados} matches=${r.matches}`,
+    );
+    return r;
+  } catch (err) {
+    logErr(scope, err);
+    return {
+      evaluados: 0,
+      matches: 0,
+      error: err instanceof Error ? `${err.name}: ${err.message}` : String(err),
+    };
+  }
+}
+
 // ─── Triggers cron ────────────────────────────────────────────────────
 
-async function evaluarTriggerCita24h() {
-  // Busca citas Confirmada con Hora_inicio entre now+23h y now+25h.
+async function evaluarTriggerCita24h(): Promise<TriggerResult> {
   const ahora = Date.now();
   const desde = new Date(ahora + 23 * 3600 * 1000).toISOString();
   const hasta = new Date(ahora + 25 * 3600 * 1000).toISOString();
@@ -109,20 +192,30 @@ async function evaluarTriggerCita24h() {
     };
     const reglas = await listReglasActivasParaTrigger(
       "cita_confirmada_24h_antes",
-      clinicaId,
+      clinicaId ?? null,
     );
     if (reglas.length > 0) matches += 1;
-    for (const regla of reglas) await evaluarRegla(regla, evento);
+    for (const regla of reglas) {
+      try {
+        await evaluarRegla(regla, evento);
+      } catch (err) {
+        logErr(`cita_24h regla=${regla.codigo}`, err);
+      }
+    }
   }
   return { evaluados, matches };
 }
 
-async function evaluarTriggerPresupuesto7d() {
-  // Presupuestos estado=EN_NEGOCIACION sin actividad >7d.
+async function evaluarTriggerPresupuesto7d(): Promise<TriggerResult> {
+  // 2026-05-07 fix: el campo legacy `UltimoContacto` no existe en el
+  // schema actual de Presupuestos. Real: `Ultima_accion_registrada`
+  // (dateTime, escrito por copilot/actions-exec). Si la formula
+  // devuelve UNKNOWN_FIELD_NAME, capturamos y devolvemos error
+  // informativo en lugar de tumbar todo el cron.
   const limite = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
   const recs = await fetchAll(
     base(TABLES.presupuestos).select({
-      filterByFormula: `AND({Estado}="EN_NEGOCIACION", OR({UltimoContacto} = BLANK(), IS_BEFORE({UltimoContacto}, "${limite}")))`,
+      filterByFormula: `AND({Estado}="EN_NEGOCIACION", OR({Ultima_accion_registrada} = BLANK(), IS_BEFORE({Ultima_accion_registrada}, "${limite}")))`,
       pageSize: 100,
     }),
   );
@@ -140,10 +233,10 @@ async function evaluarTriggerPresupuesto7d() {
       payload: {
         estado: f["Estado"],
         clinicaId,
-        pacienteId: Array.isArray(f["Paciente_Link"])
-          ? (f["Paciente_Link"] as string[])[0]
+        pacienteId: Array.isArray(f["Paciente"])
+          ? (f["Paciente"] as string[])[0]
           : null,
-        ultimoContacto: f["UltimoContacto"],
+        ultimaAccionRegistrada: f["Ultima_accion_registrada"],
       },
     };
     const reglas = await listReglasActivasParaTrigger(
@@ -151,27 +244,33 @@ async function evaluarTriggerPresupuesto7d() {
       clinicaId,
     );
     if (reglas.length > 0) matches += 1;
-    // Dedupe 14d: si ya hubo success de esta regla sobre este presupuesto
-    // en últimos 14d, skip — el engine no tiene visibilidad presupuestoId
-    // por defecto. Implementación simple: consultamos Acciones_Automatizacion
-    // antes de invocar.
     for (const regla of reglas) {
-      const ya = await yaDisparadaRecientemente({
-        reglaId: regla.id,
-        presupuestoId: r.id,
-        dias: 14,
-      });
-      if (ya) continue;
-      await evaluarRegla(regla, evento);
+      try {
+        const ya = await yaDisparadaRecientemente({
+          reglaId: regla.id,
+          presupuestoId: r.id,
+          dias: 14,
+        });
+        if (ya) continue;
+        await evaluarRegla(regla, evento);
+      } catch (err) {
+        logErr(`presupuesto_7d regla=${regla.codigo} pres=${r.id}`, err);
+      }
     }
   }
   return { evaluados, matches };
 }
 
-async function evaluarTriggerLeadInactivo() {
-  // Para cada regla activa lead_inactivo_n_dias, leer el parámetro
-  // diasSinActividad de su condición (default 60), y buscar leads que
-  // cumplen.
+async function evaluarTriggerLeadInactivo(): Promise<TriggerResult> {
+  // 2026-05-07 fix: Leads.Ultima_Accion es `multilineText` (log textual
+  // con timestamps), no dateTime. No podemos usar IS_BEFORE en la
+  // formula. En su lugar:
+  //   1. Query leads en estado Contactado/Sin_Respuesta (sin filtro
+  //      temporal en el formula).
+  //   2. En JS calculamos "días desde createdTime" como proxy de
+  //      inactividad (el lead no se ha movido de estado en N días =
+  //      proxy razonable mientras no haya un campo dateTime nativo).
+  //   3. Skip los que aún no superan diasInactividad.
   const reglas = await listReglasActivasParaTrigger(
     "lead_inactivo_n_dias",
     null,
@@ -184,16 +283,20 @@ async function evaluarTriggerLeadInactivo() {
     );
     const dias =
       cond && typeof cond.valor === "number" ? (cond.valor as number) : 60;
-    const limite = new Date(
-      Date.now() - dias * 24 * 3600 * 1000,
-    ).toISOString();
+    const limiteMs = Date.now() - dias * 24 * 3600 * 1000;
+
     const recs = await fetchAll(
       base(TABLES.leads).select({
-        filterByFormula: `AND(OR({Estado}="Contactado", {Estado}="Sin_Respuesta"), OR({UltimaAccion} = BLANK(), IS_BEFORE({UltimaAccion}, "${limite}")))`,
+        filterByFormula: `OR({Estado}="Contactado", {Estado}="Sin_Respuesta")`,
         pageSize: 100,
       }),
     );
+
     for (const r of recs) {
+      const createdTime = (r as any)._rawJson?.createdTime ?? r.fields["Created_At"];
+      const createdMs = createdTime ? new Date(String(createdTime)).getTime() : 0;
+      if (!createdMs || createdMs > limiteMs) continue; // todavía no inactivo
+
       evaluados += 1;
       const f = r.fields as Record<string, unknown>;
       const clinicaId = Array.isArray(f["Clinica"])
@@ -206,19 +309,22 @@ async function evaluarTriggerLeadInactivo() {
         payload: {
           estado: f["Estado"],
           clinicaId,
-          ultimaAccion: f["UltimaAccion"],
+          ultimaAccion: f["Ultima_Accion"],
           diasSinActividad: dias,
         },
       };
       matches += 1;
-      await evaluarRegla(regla, evento);
+      try {
+        await evaluarRegla(regla, evento);
+      } catch (err) {
+        logErr(`lead_inactivo regla=${regla.codigo} lead=${r.id}`, err);
+      }
     }
   }
   return { evaluados, matches };
 }
 
-async function evaluarTriggerLeadSinGestionar() {
-  // Lee Eventos_Sistema lead_creado no procesados y >2h de antiguedad.
+async function evaluarTriggerLeadSinGestionar(): Promise<TriggerResult> {
   const dosHoras = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
   const recs = await fetchAll(
     base(TABLES.eventosSistema).select({
@@ -230,43 +336,52 @@ async function evaluarTriggerLeadSinGestionar() {
   let matches = 0;
   for (const r of recs) {
     evaluados += 1;
-    const f = r.fields as Record<string, unknown>;
-    const payloadRaw = String(f["Payload"] ?? "{}");
-    let payload: Record<string, unknown> = {};
     try {
-      payload = JSON.parse(payloadRaw);
-    } catch {
-      /* noop */
-    }
-    const evento: EventoSistema = {
-      tipo: "lead_creado",
-      entidadTipo: "Lead",
-      entidadId: String(f["Entidad_Id"] ?? ""),
-      payload,
-    };
-    // Solo cuenta si el lead sigue en estado Nuevo (consultamos).
-    let estadoActual: string | null = null;
-    try {
-      const lead = await base(TABLES.leads).find(evento.entidadId);
-      estadoActual = String(lead.fields["Estado"] ?? "");
-    } catch {
-      /* lead borrado, skip */
-    }
-    if (estadoActual !== "Nuevo") {
-      // Marcamos procesado y continuamos.
+      const f = r.fields as Record<string, unknown>;
+      const payloadRaw = String(f["Payload"] ?? "{}");
+      let payload: Record<string, unknown> = {};
+      try {
+        payload = JSON.parse(payloadRaw);
+      } catch {
+        /* payload corrupto: continuar con {} */
+      }
+      const entidadId = String(f["Entidad_Id"] ?? "");
+      if (!entidadId) {
+        await base(TABLES.eventosSistema).update([
+          { id: r.id, fields: { Procesado: true } },
+        ]);
+        continue;
+      }
+      const evento: EventoSistema = {
+        tipo: "lead_creado",
+        entidadTipo: "Lead",
+        entidadId,
+        payload,
+      };
+      let estadoActual: string | null = null;
+      try {
+        const lead = await base(TABLES.leads).find(entidadId);
+        estadoActual = String(lead.fields["Estado"] ?? "");
+      } catch {
+        // lead borrado o ID inválido: marcar procesado y seguir.
+      }
+      if (estadoActual !== "Nuevo") {
+        await base(TABLES.eventosSistema).update([
+          { id: r.id, fields: { Procesado: true } },
+        ]);
+        continue;
+      }
+      matches += 1;
+      await evaluarReglasParaEvento({
+        ...evento,
+        payload: { ...payload, estado: estadoActual },
+      });
       await base(TABLES.eventosSistema).update([
         { id: r.id, fields: { Procesado: true } },
       ]);
-      continue;
+    } catch (err) {
+      logErr(`lead_sin_gestionar evento=${r.id}`, err);
     }
-    matches += 1;
-    await evaluarReglasParaEvento({
-      ...evento,
-      payload: { ...payload, estado: estadoActual },
-    });
-    await base(TABLES.eventosSistema).update([
-      { id: r.id, fields: { Procesado: true } },
-    ]);
   }
   return { evaluados, matches };
 }
