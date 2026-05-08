@@ -58,6 +58,8 @@ export const TABLES = {
   reglasAutomatizacion: "Reglas_Automatizacion",
   accionesAutomatizacion: "Acciones_Automatizacion",
   eventosSistema: "Eventos_Sistema",
+  // Sprint 17 Bloque 1 — Voice IA con Vapi
+  llamadasVapi: "Llamadas_Vapi",
 } as const;
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];
