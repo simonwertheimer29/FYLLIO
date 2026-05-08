@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card } from "../../../components/ui/Card";
 import { HorarioLaboralPanel } from "./HorarioLaboralPanel";
+import { LlamadasIaPanel } from "./LlamadasIaPanel";
 
 type Scope = "global" | string; // "global" o clinicaId
 
@@ -22,7 +23,8 @@ type Categoria =
   | "Plazos_Liquidacion"
   | "Razones_No_Interesado"
   | "Plantillas_Scope"
-  | "Horario_Laboral";
+  | "Horario_Laboral"
+  | "Llamadas_IA";
 
 type Opcion = {
   id: string;
@@ -60,6 +62,11 @@ const TABS: Array<{ key: Categoria; label: string; help: string }> = [
     label: "Horario laboral",
     help: "Días y horas en los que esta clínica permite envíos automáticos. Las acciones del motor de automatizaciones que envíen WhatsApp respetan este horario.",
   },
+  {
+    key: "Llamadas_IA",
+    label: "Llamadas IA",
+    help: "Configuración de las llamadas IA salientes (Voice IA con Vapi): activación por clínica, ventana horaria, mensaje custom, voz y límite/día.",
+  },
 ];
 
 export default function ConfiguracionView({
@@ -78,7 +85,7 @@ export default function ConfiguracionView({
   // los defaults aunque la clínica ya haya customizado. Horario_Laboral
   // tiene su propio panel y endpoint, no usa la lista de opciones.
   useEffect(() => {
-    if (categoria === "Horario_Laboral") {
+    if (categoria === "Horario_Laboral" || categoria === "Llamadas_IA") {
       setOpciones([]);
       setLoading(false);
       return;
@@ -182,6 +189,14 @@ export default function ConfiguracionView({
           </Card>
         ) : (
           <HorarioLaboralPanel clinicaId={scope} />
+        )
+      ) : categoria === "Llamadas_IA" ? (
+        scope === "global" ? (
+          <Card padding="none" className="p-6 text-sm text-slate-500">
+            Las llamadas IA se configuran por clínica. Cambia el scope arriba a una clínica concreta para editarlo.
+          </Card>
+        ) : (
+          <LlamadasIaPanel clinicaId={scope} />
         )
       ) : loading ? (
         <p className="text-sm text-slate-400 animate-pulse">Cargando opciones…</p>
