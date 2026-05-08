@@ -31,9 +31,13 @@ import type { Llamada, TipoLlamada } from "./types";
 export type IniciarArgs = {
   citaId: string;
   tipo: TipoLlamada;
-  /** Si true, se saltan las salvaguardas de horario. Sólo para
-   *  test manual desde la UI. */
-  forzar?: boolean;
+  /** Si true, la llamada se considera disparada manualmente desde
+   *  UI o tool del Copilot. Salta SOLO la validación de horario
+   *  laboral (horario clínica + ventana llamadas IA). El resto de
+   *  salvaguardas (opt-out, cooldown, cooldown 1×/día/paciente,
+   *  límite clínica, pausa automática, sin teléfono) se aplican
+   *  igual. El cron daily pasa siempre manual=false. */
+  manual?: boolean;
 };
 
 export type IniciarResult =
@@ -202,7 +206,16 @@ export async function iniciarLlamada(args: IniciarArgs): Promise<IniciarResult> 
     };
   }
 
-  if (!args.forzar) {
+  if (args.manual) {
+    // Bypass de horario para llamadas manuales (UI, copilot tool,
+    // endpoint con ?manual=true). Loggeado para auditoría — el
+    // bucket de Vercel logs deja rastro de quién/cuándo se disparó
+    // fuera de horario aunque el campo Llamadas_Vapi.Notas no
+    // capture el flag.
+    console.log(
+      `[llamadas iniciar] manual=true bypass horario · citaId=${args.citaId} pacienteId=${paciente.id} now=${new Date().toISOString()}`,
+    );
+  } else {
     // Horario: usamos el horario de la clínica como base + acotamos
     // por la ventana específica de Llamadas IA si configurada.
     const horario = await getHorarioClinica(cita.clinicaId ?? "").catch(
@@ -289,6 +302,7 @@ export async function iniciarLlamada(args: IniciarArgs): Promise<IniciarResult> 
         fyllioCitaId: args.citaId,
         fyllioPacienteId: paciente.id,
         fyllioTipo: args.tipo,
+        fyllioManual: args.manual === true,
       },
     });
   } catch (err: any) {
@@ -307,6 +321,9 @@ export async function iniciarLlamada(args: IniciarArgs): Promise<IniciarResult> 
     tipo: args.tipo,
     vapiCallId: vapiCall.id,
     estado: "iniciada",
+    notas: args.manual
+      ? "[manual] Disparada manualmente — bypass horario laboral."
+      : undefined,
   });
 
   return { ok: true, llamada };

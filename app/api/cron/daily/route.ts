@@ -206,9 +206,12 @@ export async function GET(req: Request) {
 
     for (const r of recsCitas as any[]) {
       try {
+        // Cron automático = manual:false explícito. Respeta horario
+        // laboral siempre — solo UI/copilot pueden saltárselo.
         const res = await iniciarLlamada({
           citaId: r.id,
           tipo: "confirmacion_cita",
+          manual: false,
         });
         if (res.ok) {
           llamadasIaIniciadas += 1;

@@ -661,7 +661,14 @@ async function execIniciarLlamadaConfirmacion(
     return { ok: false, error: "citaId inválido (no empieza por rec)" };
   }
   const { iniciarLlamada } = await import("../llamadas/iniciar");
-  const r = await iniciarLlamada({ citaId, tipo: "confirmacion_cita" });
+  // Tool del Copilot = acción humana confirmada → manual=true.
+  // El cron daily NUNCA pasa por aquí (llama iniciarLlamada directo
+  // sin manual y respeta horario).
+  const r = await iniciarLlamada({
+    citaId,
+    tipo: "confirmacion_cita",
+    manual: true,
+  });
   if (!r.ok) {
     const motivos: Record<string, string> = {
       paciente_sin_telefono: "Paciente sin teléfono.",

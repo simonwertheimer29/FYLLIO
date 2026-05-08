@@ -2,9 +2,11 @@
 //
 // Sprint 17 Bloque 3 — POST /api/llamadas/iniciar
 //
-// Body: { citaId: string; tipo?: "confirmacion_cita"; forzar?: boolean }
-//   forzar=true salta solo la salvaguarda de horario. Solo admin puede
-//   forzar; coordinación no.
+// Body: { citaId: string; tipo?: "confirmacion_cita"; manual?: boolean }
+// O query: ?manual=true. Bypass solo horario laboral; el resto de
+// salvaguardas (opt-out, cooldown, límite, pausa) sigue activo.
+// Cualquier user auth puede usar manual=true (la llamada queda
+// loggeada en Llamadas_Vapi.Notas con marca [manual]).
 //
 // Auth: withAuth (admin o coordinación). El motor real (lib/llamadas/
 // iniciar.ts) aplica el resto de salvaguardas: opt-out, cooldown 24h,
@@ -18,8 +20,8 @@ import type { TipoLlamada } from "../../../lib/llamadas/types";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export const POST = withAuth(async (session, req) => {
-  let body: { citaId?: string; tipo?: TipoLlamada; forzar?: boolean } | null = null;
+export const POST = withAuth(async (_session, req) => {
+  let body: { citaId?: string; tipo?: TipoLlamada; manual?: boolean } | null = null;
   try {
     body = await req.json();
   } catch {
@@ -35,12 +37,17 @@ export const POST = withAuth(async (session, req) => {
       { status: 400 },
     );
   }
-  const forzar = body.forzar === true && session.rol === "admin";
+  // manual=true | query ?manual=true → bypass horario, mantiene resto
+  // de salvaguardas. Cualquier user autenticado puede usarlo (no solo
+  // admin) — la llamada queda loggeada y marcada en Llamadas_Vapi.Notas.
+  const url = new URL(req.url);
+  const manual =
+    body.manual === true || url.searchParams.get("manual") === "true";
 
   const r = await iniciarLlamada({
     citaId: body.citaId,
     tipo,
-    forzar,
+    manual,
   });
 
   if (!r.ok) {
