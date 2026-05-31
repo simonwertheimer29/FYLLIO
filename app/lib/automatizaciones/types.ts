@@ -38,7 +38,12 @@ export type AccionTipo =
   | "enviar_whatsapp_template"
   | "crear_alerta_coordinadora"
   | "actualizar_estado_lead"
-  | "crear_accion_lead";
+  | "crear_accion_lead"
+  // Sprint 18 — acciones del motor de no-shows
+  | "programar_llamada_ia"
+  | "enviar_plantilla_personalizada"
+  | "alerta_overbooking"
+  | "enviar_recordatorio_extra";
 
 export type Accion = {
   tipo: AccionTipo;

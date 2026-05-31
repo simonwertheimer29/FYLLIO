@@ -139,10 +139,13 @@ export async function evaluarRegla(
     }
   }
 
-  // 5. horario laboral (solo si hay alguna acción WA)
-  const hayAccionWA = regla.acciones.some(
-    (a) => a.tipo === "enviar_whatsapp_template",
-  );
+  // 5. horario laboral (solo si hay alguna acción de mensajería saliente)
+  const ACCIONES_MENSAJERIA: AccionTipo[] = [
+    "enviar_whatsapp_template",
+    "enviar_plantilla_personalizada",
+    "enviar_recordatorio_extra",
+  ];
+  const hayAccionWA = regla.acciones.some((a) => ACCIONES_MENSAJERIA.includes(a.tipo));
   if (hayAccionWA) {
     const clinicaId =
       (evento.payload?.clinicaId as string | undefined) ?? null;
@@ -254,9 +257,49 @@ async function ejecutarAccion(
       return ejecutarActualizarEstadoLead(accion.params, evento);
     case "crear_accion_lead":
       return ejecutarCrearAccionLead(accion.params, evento);
+    // Sprint 18 — acciones del motor de no-shows.
+    case "programar_llamada_ia":
+      return ejecutarAccionNoShow(accion.params, evento, "programar_llamada_ia");
+    case "enviar_plantilla_personalizada":
+      return ejecutarAccionNoShow(accion.params, evento, "enviar_plantilla_recordatorio");
+    case "enviar_recordatorio_extra":
+      return ejecutarAccionNoShow(accion.params, evento, "enviar_recordatorio_extra");
+    case "alerta_overbooking":
+      return ejecutarAccionNoShow(accion.params, evento, "considerar_overbooking");
     default:
       throw new Error(`accion no soportada: ${(accion as any).tipo}`);
   }
+}
+
+/**
+ * Sprint 18 — puente del motor de reglas a las acciones de no-shows. El cita_id
+ * sale de params.cita_id (o del evento si es sobre una Cita). Delegamos en
+ * lib/no-shows/acciones (import dinámico para no acoplar el motor a Vapi/WA).
+ */
+async function ejecutarAccionNoShow(
+  params: Record<string, unknown>,
+  evento: EventoSistema,
+  accion: "programar_llamada_ia" | "enviar_plantilla_recordatorio" | "enviar_recordatorio_extra" | "considerar_overbooking",
+): Promise<Record<string, unknown>> {
+  const citaId = String(
+    params.cita_id ?? params.citaId ?? (evento.entidadTipo === "Cita" ? evento.entidadId : ""),
+  );
+  if (!citaId) throw new Error(`${accion} requiere cita_id`);
+  const { aplicarAccionNoShow } = await import("../no-shows/acciones");
+  const plantillaNombre =
+    accion === "enviar_recordatorio_extra"
+      ? String(params.plantilla ?? "recordatorio_extra_2h_antes")
+      : accion === "enviar_plantilla_recordatorio"
+        ? String(params.plantilla ?? "recordatorio_personalizado_alto_riesgo")
+        : undefined;
+  const r = await aplicarAccionNoShow({
+    citaId,
+    accion: accion === "enviar_recordatorio_extra" ? "enviar_plantilla_recordatorio" : accion,
+    manual: false,
+    plantillaNombre,
+  });
+  if (!r.ok) throw new Error(`${accion}: ${r.motivo ?? "error"}${r.detalle ? ` (${r.detalle})` : ""}`);
+  return { accion, ...r };
 }
 
 async function ejecutarEnviarWA(
