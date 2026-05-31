@@ -15,6 +15,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Card } from "../../../components/ui/Card";
 import { HorarioLaboralPanel } from "./HorarioLaboralPanel";
 import { LlamadasIaPanel } from "./LlamadasIaPanel";
+import { MotorNoShowsPanel } from "./MotorNoShowsPanel";
 
 type Scope = "global" | string; // "global" o clinicaId
 
@@ -24,7 +25,8 @@ type Categoria =
   | "Razones_No_Interesado"
   | "Plantillas_Scope"
   | "Horario_Laboral"
-  | "Llamadas_IA";
+  | "Llamadas_IA"
+  | "Motor_NoShows";
 
 type Opcion = {
   id: string;
@@ -67,6 +69,11 @@ const TABS: Array<{ key: Categoria; label: string; help: string }> = [
     label: "Llamadas IA",
     help: "Configuración de las llamadas IA salientes (Voice IA con Vapi): activación por clínica, ventana horaria, mensaje custom, voz y límite/día.",
   },
+  {
+    key: "Motor_NoShows",
+    label: "🎯 Motor No-shows",
+    help: "Motor de predicción de no-shows: activación de predicción, llamada IA automática para riesgo alto, plantillas extra y umbral de riesgo. Las salvaguardas (opt-out, cooldown, horario laboral) se aplican automáticamente.",
+  },
 ];
 
 export default function ConfiguracionView({
@@ -85,7 +92,11 @@ export default function ConfiguracionView({
   // los defaults aunque la clínica ya haya customizado. Horario_Laboral
   // tiene su propio panel y endpoint, no usa la lista de opciones.
   useEffect(() => {
-    if (categoria === "Horario_Laboral" || categoria === "Llamadas_IA") {
+    if (
+      categoria === "Horario_Laboral" ||
+      categoria === "Llamadas_IA" ||
+      categoria === "Motor_NoShows"
+    ) {
       setOpciones([]);
       setLoading(false);
       return;
@@ -198,6 +209,8 @@ export default function ConfiguracionView({
         ) : (
           <LlamadasIaPanel clinicaId={scope} />
         )
+      ) : categoria === "Motor_NoShows" ? (
+        <MotorNoShowsPanel clinicaId={scope} />
       ) : loading ? (
         <p className="text-sm text-slate-400 animate-pulse">Cargando opciones…</p>
       ) : (
