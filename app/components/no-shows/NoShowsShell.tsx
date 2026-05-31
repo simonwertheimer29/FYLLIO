@@ -10,9 +10,10 @@ import AccionesView from "./AccionesView";
 import KpiView from "./KpiView";
 import InformesView from "./InformesView";
 import ConfigView from "./ConfigView";
+import MotorView from "./MotorView";
 
-type Tab = "hoy" | "riesgo" | "agenda" | "acciones" | "kpis" | "informes" | "config";
-const VALID_TABS: Tab[] = ["hoy", "riesgo", "agenda", "acciones", "kpis", "informes", "config"];
+type Tab = "hoy" | "riesgo" | "agenda" | "acciones" | "kpis" | "informes" | "config" | "motor";
+const VALID_TABS: Tab[] = ["hoy", "riesgo", "agenda", "acciones", "kpis", "informes", "config", "motor"];
 
 // ─── Main Shell ───────────────────────────────────────────────────────────────
 
@@ -35,6 +36,7 @@ export default function NoShowsShell({ user }: { user: NoShowsUserSession }) {
         { id: "kpis",     label: "KPIs",     icon: "📊" },
         { id: "informes", label: "Informes", icon: "📋" },
         { id: "config",   label: "Config",   icon: "⚙" },
+        { id: "motor",    label: "Motor",    icon: "🎯" },
       ]
     : isEncargada
     ? [
@@ -43,6 +45,7 @@ export default function NoShowsShell({ user }: { user: NoShowsUserSession }) {
         { id: "agenda",   label: "Agenda",   icon: "📅" },
         { id: "acciones", label: "Acciones", icon: "✓" },
         { id: "kpis",     label: "KPIs",     icon: "📊" },
+        { id: "motor",    label: "Motor",    icon: "🎯" },
       ]
     : [
         // ventas
@@ -93,6 +96,7 @@ export default function NoShowsShell({ user }: { user: NoShowsUserSession }) {
         {tab === "kpis"     && <KpiView user={user} />}
         {tab === "informes" && <InformesView user={user} />}
         {tab === "config"   && <ConfigView user={user} />}
+        {tab === "motor"    && <MotorView user={user} />}
       </main>
 
       {/* ── Bottom Navigation mobile/tablet ── */}
@@ -123,7 +127,7 @@ export default function NoShowsShell({ user }: { user: NoShowsUserSession }) {
               setTab(next.id);
             }}
             className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors min-h-[44px] ${
-              ["kpis", "informes", "config"].includes(tab)
+              TABS.slice(4).some((t) => t.id === tab)
                 ? "text-cyan-700 bg-cyan-50"
                 : "text-slate-500 hover:text-slate-700"
             }`}
