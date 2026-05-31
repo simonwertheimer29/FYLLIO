@@ -7,6 +7,35 @@ import { DateTime } from "luxon";
  * Helpers simples para leer fields de Airtable sin rompernos.
  */
 
+/**
+ * Sprint 18 — emite el evento comportamental del ciclo de vida de una cita
+ * fire-and-forget. NUNCA bloquea ni propaga errores al flujo principal.
+ * Import dinámico (path relativo, sin alias) para no acoplar el repo a Supabase
+ * en tiempo de carga y para que funcione tanto en Next como en tsx/scripts.
+ */
+function fireCitaEvento(
+  lifecycle: "creada" | "confirmada" | "cancelada" | "asistio" | "no_show",
+  appointmentRecordId: string,
+): void {
+  import("../../eventos/citas")
+    .then((m) => m.emitirEventoCitaLifecycle(lifecycle, appointmentRecordId))
+    .catch(() => {
+      /* swallow */
+    });
+}
+
+/**
+ * Sprint 18 — re-evalúa el riesgo de no-show de una cita fire-and-forget
+ * (al crear y al reagendar). Nunca bloquea ni propaga errores.
+ */
+function fireEvaluarRiesgo(appointmentRecordId: string): void {
+  import("../../no-shows/predictor")
+    .then((m) => m.evaluarRiesgoNoShow(appointmentRecordId))
+    .catch(() => {
+      /* swallow */
+    });
+}
+
 async function findRecordIdByField(tableName: any, fieldName: string, value: string): Promise<string | null> {
   const safe = String(value).replace(/'/g, "\\'");
   const formula = `{${fieldName}}='${safe}'`;
@@ -269,6 +298,7 @@ export async function cancelAppointment(params: {
       },
     },
   ]);
+  fireCitaEvento("cancelada", params.appointmentRecordId);
 }
 
 export async function completeAppointment(params: {
@@ -280,6 +310,7 @@ export async function completeAppointment(params: {
       fields: { Estado: "Completado" },
     },
   ]);
+  fireCitaEvento("asistio", params.appointmentRecordId);
 }
 
 export async function markNoShow(params: {
@@ -293,6 +324,7 @@ export async function markNoShow(params: {
       fields: { Estado: "Cancelado", Notas: notes },
     },
   ]);
+  fireCitaEvento("no_show", params.appointmentRecordId);
 }
 
 export async function confirmAppointment(params: {
@@ -304,6 +336,7 @@ export async function confirmAppointment(params: {
       fields: { Estado: "Confirmada" },
     },
   ]);
+  fireCitaEvento("confirmada", params.appointmentRecordId);
 }
 
 export async function updateAppointment(params: {
@@ -324,6 +357,8 @@ export async function updateAppointment(params: {
 
   if (!Object.keys(fields).length) return;
   await base(TABLES.appointments).update([{ id: appointmentRecordId, fields }]);
+  // Reagendar (cambio de fecha/hora) → re-evaluar riesgo de no-show.
+  if (startIso) fireEvaluarRiesgo(appointmentRecordId);
 }
 
 
@@ -523,5 +558,7 @@ const { name, startIso, endIso, clinicRecordId, notes, staffRecordId, sillonReco
   const rec = created?.[0];
   if (!rec?.id) throw new Error("Airtable: no se pudo crear la cita (sin id).");
 
+  fireCitaEvento("creada", rec.id);
+  fireEvaluarRiesgo(rec.id);
   return { recordId: rec.id };
 }
