@@ -103,6 +103,20 @@ export function isSupabaseConfigured(): boolean {
 }
 
 /**
+ * Normaliza el SUPABASE_URL: supabase-js espera el "Project URL" (dominio
+ * desnudo) y agrega /rest/v1 solo. Si por error se pegó la API URL terminada
+ * en /rest/v1 (o con slashes finales), la limpiamos para no romper las
+ * escrituras ("Invalid path specified in request URL").
+ */
+export function normalizeSupabaseUrl(raw: string): string {
+  return raw
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/\/rest\/v1$/i, "")
+    .replace(/\/+$/, "");
+}
+
+/**
  * Cliente admin (service role). Lanza si faltan env vars — usalo solo donde ya
  * verificaste isSupabaseConfigured() o donde un fallo es aceptable (el emitter
  * captura el error y no bloquea el flujo principal).
@@ -116,7 +130,7 @@ export function getSupabaseAdmin(): SupabaseClient {
       `Missing Supabase env vars. SUPABASE_URL=${!!url} SUPABASE_SERVICE_ROLE_KEY=${!!key}`,
     );
   }
-  _admin = createClient(url, key, {
+  _admin = createClient(normalizeSupabaseUrl(url), key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   return _admin;

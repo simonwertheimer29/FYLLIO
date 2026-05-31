@@ -26,6 +26,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 
+/** Igual que app/lib/supabase/client.ts: tolera que SUPABASE_URL traiga
+ *  /rest/v1 o slashes finales (supabase-js quiere el Project URL desnudo). */
+function normalizeSupabaseUrl(raw: string): string {
+  return raw.trim().replace(/\/+$/, "").replace(/\/rest\/v1$/i, "").replace(/\/+$/, "");
+}
+
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const DB_URL = process.env.SUPABASE_DB_URL; // opcional, para aplicar DDL automáticamente
@@ -80,13 +86,15 @@ async function aplicarSchema(): Promise<"applied" | "manual"> {
 }
 
 async function verificar(): Promise<boolean> {
-  const supabase = createClient(SUPABASE_URL!, SERVICE_KEY!, {
+  const supabase = createClient(normalizeSupabaseUrl(SUPABASE_URL!), SERVICE_KEY!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
   let allOk = true;
   for (const tabla of TABLAS) {
-    const { error } = await supabase.from(tabla).select("id", { count: "exact", head: true });
+    // select real (limit 1), NO head: el head-count da falsos positivos en
+    // tablas inexistentes. Un select real devuelve error si la tabla no está.
+    const { error } = await supabase.from(tabla).select("id").limit(1);
     if (error) {
       console.error(`  ✖ ${tabla}: ${error.message}`);
       allOk = false;
@@ -111,7 +119,8 @@ async function verificar(): Promise<boolean> {
       .single();
 
     if (ins.error || !ins.data) {
-      console.error(`  ✖ self-test insert falló: ${ins.error?.message}`);
+      console.error(`  ✖ self-test insert falló: ${ins.error?.message ?? "sin data"}`);
+      if (ins.error) console.error(`     detalle: ${JSON.stringify(ins.error)}`);
       allOk = false;
     } else {
       const { error: delErr } = await supabase
