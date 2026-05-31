@@ -9,6 +9,7 @@ import type { UserSession } from "../../lib/presupuestos/types";
 import KpiView from "../../components/presupuestos/KpiView";
 import { KpisLeadsView } from "./KpisLeadsView";
 import { KpisCobrosView } from "./KpisCobrosView";
+import { KpisNoShowsView } from "./KpisNoShowsView";
 
 // InformesView depende de dom-to-image-more → ssr:false (mismo fix que
 // PresupuestosShell).
@@ -17,7 +18,7 @@ const InformesView = NextDynamic(
   { ssr: false }
 );
 
-type SubTab = "presupuestos" | "leads" | "cobros";
+type SubTab = "presupuestos" | "leads" | "cobros" | "no-shows";
 
 export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolean }) {
   const [tab, setTab] = useState<SubTab>("presupuestos");
@@ -43,6 +44,11 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
             onClick={() => setTab("cobros")}
             label="Cobros"
           />
+          <SubTabButton
+            active={tab === "no-shows"}
+            onClick={() => setTab("no-shows")}
+            label="No-shows"
+          />
         </div>
         <button
           type="button"
@@ -62,6 +68,7 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
         )}
         {tab === "leads" && <KpisLeadsView />}
         {tab === "cobros" && <KpisCobrosView />}
+        {tab === "no-shows" && <KpisNoShowsView />}
       </div>
 
       {exportOpen && (
