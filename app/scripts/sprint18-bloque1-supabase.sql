@@ -102,6 +102,20 @@ create table if not exists public.patrones_aprendidos (
 create index if not exists idx_patrones_clinica on public.patrones_aprendidos (clinica_id);
 
 -- ============================================================================
+-- GRANTS — privilegios explícitos para service_role
+-- ----------------------------------------------------------------------------
+-- En algunos proyectos Supabase las tablas creadas vía SQL Editor NO heredan
+-- los privilegios por default para service_role (→ "permission denied for
+-- table" pese a que service_role bypasea RLS). Los hacemos explícitos
+-- (idempotente). El acceso real sigue gobernado por RLS + service-role key.
+-- ============================================================================
+
+grant usage on schema public to service_role;
+grant all privileges on public.eventos_comportamentales to service_role;
+grant all privileges on public.factores_no_show         to service_role;
+grant all privileges on public.patrones_aprendidos        to service_role;
+
+-- ============================================================================
 -- RLS (Row Level Security)
 -- ----------------------------------------------------------------------------
 -- En Sprint 18 el acceso es exclusivamente server-side con la SERVICE ROLE key,
