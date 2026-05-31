@@ -236,12 +236,28 @@ export async function GET(req: Request) {
     errors.push(`voice_outer: ${String(err)}`);
   }
 
+  // ── Sprint 18 Bloque 3 — re-evaluación de riesgo de no-show ───────────
+  // Re-evalúa las citas próximas (now → +48h) y persiste la predicción en
+  // Supabase (factores_no_show). Aislado en try/catch: nunca rompe el cron.
+  let noShowsEvaluadas = 0;
+  let noShowsErrores = 0;
+  try {
+    const { reevaluarCitasProximas } = await import("../../../lib/no-shows/predictor");
+    const r = await reevaluarCitasProximas({ horasAdelante: 48 });
+    noShowsEvaluadas = r.evaluadas;
+    noShowsErrores = r.errores;
+  } catch (err) {
+    console.error("[daily no-shows] reevaluarCitasProximas:", err);
+    errors.push(`noshows_reeval: ${String(err)}`);
+  }
+
   console.log(
     `[daily] ${now.toISODate()} — reminders: ${remindersSent}/${tomorrowAppts.length}, ` +
     `confirmations: ${confirmsSent}/${tomorrowAppts.length}, ` +
     `feedback: ${feedbackSent}/${yesterdayAppts.length}, ` +
     `autoCompleted: ${autoCompleted}, ` +
-    `llamadasIa: ${llamadasIaIniciadas} iniciadas, ${llamadasIaSalvaguarda} skip, ${llamadasIaError} error`
+    `llamadasIa: ${llamadasIaIniciadas} iniciadas, ${llamadasIaSalvaguarda} skip, ${llamadasIaError} error, ` +
+    `noShowsEvaluadas: ${noShowsEvaluadas} (${noShowsErrores} error)`
   );
 
   return NextResponse.json({
@@ -256,6 +272,7 @@ export async function GET(req: Request) {
       skipSalvaguarda: llamadasIaSalvaguarda,
       errores: llamadasIaError,
     },
+    noShows: { evaluadas: noShowsEvaluadas, errores: noShowsErrores },
     errors,
   });
 }
