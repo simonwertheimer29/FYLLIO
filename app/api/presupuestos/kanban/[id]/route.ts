@@ -134,7 +134,10 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("[kanban PATCH] error (demo mode):", err);
-    return NextResponse.json({ ok: true, demo: true });
+    // P0.6: una escritura fallida devuelve error real (500), nunca un {ok:true}
+    // falso. Antes esto respondía "demo mode" con 200 y el cambio se perdía en
+    // silencio (el cliente creía que se guardó). El cliente hace rollback ante !ok.
+    console.error("[kanban PATCH] error:", err);
+    return NextResponse.json({ error: "No se pudo actualizar el presupuesto" }, { status: 500 });
   }
 }

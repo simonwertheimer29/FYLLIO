@@ -10,6 +10,7 @@ import { DateTime } from "luxon";
 import type { Presupuesto, UserSession } from "../../../lib/presupuestos/types";
 import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
 import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
+import { isDemoAllowed } from "../../../lib/demo/seed";
 
 const COOKIE = "fyllio_presupuestos_token";
 const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
@@ -96,6 +97,12 @@ export async function GET(req: Request) {
   ].filter(Boolean) as string[];
 
   if (missingEnvs.length > 0) {
+    // P0.6 corrección 2: en producción NUNCA servimos demo. Si falta Airtable en
+    // prod es una misconfiguración real que debe verse, no un pipeline falso.
+    if (!isDemoAllowed()) {
+      console.error("[kanban GET] Airtable env missing in production:", missingEnvs);
+      return NextResponse.json({ error: "Configuración de datos no disponible" }, { status: 500 });
+    }
     return NextResponse.json({
       presupuestos: getDemoPresupuestos(session, q),
       isDemo: true,
@@ -259,6 +266,12 @@ export async function GET(req: Request) {
     return NextResponse.json({ presupuestos, isDemo: false });
   } catch (err) {
     console.error("[kanban GET] Airtable error:", err);
+    // P0.6 corrección 2: en producción un error de Airtable NO se enmascara con
+    // datos demo (evita mostrar un pipeline falso a una clínica real). El cliente
+    // muestra el estado de error. En no-producción sí devolvemos demo para dev.
+    if (!isDemoAllowed()) {
+      return NextResponse.json({ error: "No se pudieron cargar los presupuestos" }, { status: 500 });
+    }
     return NextResponse.json({
       presupuestos: getDemoPresupuestos(session, q),
       isDemo: true,
@@ -333,8 +346,10 @@ export async function POST(req: Request) {
     presupuesto.urgencyScore = computeUrgencyScore(presupuesto);
 
     return NextResponse.json({ presupuesto }, { status: 201 });
-  } catch {
-    // Demo mode — acknowledge
-    return NextResponse.json({ presupuesto: null, demo: true }, { status: 201 });
+  } catch (err) {
+    // P0.6: crear presupuesto es una escritura; un fallo devuelve error real
+    // (500), no un {presupuesto:null,demo:true} con 201 que se tragaba el error.
+    console.error("[kanban POST] error:", err);
+    return NextResponse.json({ error: "No se pudo crear el presupuesto" }, { status: 500 });
   }
 }
