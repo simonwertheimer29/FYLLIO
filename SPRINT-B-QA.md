@@ -9,8 +9,23 @@ paso "consigue ver lo que no debe", es un fallo y hay que anotarlo.
    producción todavía).
 2. Comprueba que en Vercel están las variables `AIRTABLE_BASE_RB`,
    `AIRTABLE_BASE_INDEP` y `AIRTABLE_BASE_CENTRAL` (las tres bases físicas).
-3. Entra al preview y sigue los escenarios de abajo. Cada uno dice **qué hacer**
+3. **Mete datos de prueba en las bases de negocio** (si no, un preview vacío da
+   falsos aprobados). Con `AIRTABLE_API_KEY` + `AIRTABLE_BASE_RB` +
+   `AIRTABLE_BASE_INDEP` en el entorno:
+   ```
+   npx tsx app/scripts/sprint-B-seed-negocio-qa.ts --dry   # previsualiza
+   npx tsx app/scripts/sprint-B-seed-negocio-qa.ts         # crea los datos [SEED_QA]
+   ```
+   Crea en RB pacientes/presupuestos reconocibles en Melilla y Madrid
+   (`QA MELILLA · …`, `QA MADRID · …`) y en INDEP con nombre claramente distinto
+   (`PACIENTE INDEP TEST …`). Es idempotente. Para quitarlos al terminar el QA:
+   `npx tsx app/scripts/sprint-B-seed-negocio-qa.ts --clean`.
+4. Entra al preview y sigue los escenarios de abajo. Cada uno dice **qué hacer**
    y **qué debe pasar**. Si pasa otra cosa, anótalo con captura.
+
+**Dato clave para el Escenario 1:** estando en RB, busca por nombre
+`PACIENTE INDEP TEST` — **no** debe aparecer nada (ese dato vive en la base de
+INDEP). Estando en INDEP, esa búsqueda **sí** lo encuentra.
 
 **Usuarios de prueba** (creados por el seed, PIN temporal):
 - `Admin RB (piloto)` — PIN `000000` (admin, 6 dígitos)
