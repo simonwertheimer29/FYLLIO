@@ -146,6 +146,16 @@
     letter-spacing: 0.08em;
     text-transform: uppercase;
   }
+  /* Señal "IA" (Copilot y acciones de IA): degradado sutil dentro del
+     acento + icono Sparkles. Sustituye al violeta como segunda marca. */
+  .fyllio-ia-gradient {
+    background: linear-gradient(
+      135deg,
+      var(--color-accent),
+      var(--color-accent-strong)
+    );
+    color: var(--color-on-accent);
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════════

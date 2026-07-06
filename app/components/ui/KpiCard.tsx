@@ -28,21 +28,28 @@ export type KpiCardProps = {
   subline?: string;
   /** Variación porcentual respecto al periodo anterior. Si null, no se muestra. */
   deltaPct?: number | null;
-  /** Tono del label badge. */
-  accent?: "neutral" | "sky" | "emerald" | "amber" | "rose" | "violet";
+  /** Tono del label badge. `accent` = azul clínico; `ia` = señal IA (mismo
+   *  azul + Sparkles). "sky" y "violet" quedan como alias legacy de accent/ia. */
+  accent?: "neutral" | "accent" | "emerald" | "amber" | "rose" | "ia" | "sky" | "violet";
   /** Habilita botón ✨ del Copilot. Si se pasa, debe traer summary. */
   copilotSummary?: string;
   /** Mensaje inicial del assistant cuando se abre por la ✨. */
   copilotInitial?: string;
 };
 
+const BADGE_ACCENT =
+  "bg-[var(--color-accent-soft)] text-[var(--color-accent)]";
 const ACCENT_BADGE: Record<NonNullable<KpiCardProps["accent"]>, string> = {
-  neutral: "bg-slate-100 text-slate-600",
-  sky: "bg-sky-50 text-sky-700",
-  emerald: "bg-emerald-50 text-emerald-700",
-  amber: "bg-amber-50 text-amber-700",
-  rose: "bg-rose-50 text-rose-700",
-  violet: "bg-violet-50 text-violet-700",
+  neutral: "bg-[var(--color-surface-muted)] text-[var(--color-muted)]",
+  accent: BADGE_ACCENT,
+  emerald:
+    "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+  amber: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+  rose: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
+  ia: BADGE_ACCENT,
+  // Alias legacy — mismos estilos que accent/ia para no romper llamadas viejas.
+  sky: BADGE_ACCENT,
+  violet: BADGE_ACCENT,
 };
 
 const DEFAULT_FORMAT = (n: number) => String(n);
@@ -62,10 +69,10 @@ export function KpiCard({
     deltaPct == null
       ? null
       : deltaPct > 0
-        ? "text-emerald-600"
+        ? "text-[var(--color-success)]"
         : deltaPct < 0
-          ? "text-rose-600"
-          : "text-slate-500";
+          ? "text-[var(--color-danger)]"
+          : "text-[var(--color-muted)]";
   const deltaArrow = deltaPct == null ? "" : deltaPct > 0 ? "↑" : deltaPct < 0 ? "↓" : "→";
 
   return (
@@ -82,7 +89,7 @@ export function KpiCard({
             })
           }
           aria-label={`Explicar ${label} con el Copilot`}
-          className="absolute top-3 right-3 w-7 h-7 rounded-full text-violet-600 hover:bg-violet-50 flex items-center justify-center transition-colors"
+          className="absolute top-3 right-3 w-7 h-7 rounded-full text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] flex items-center justify-center transition-colors"
         >
           <Sparkles size={14} strokeWidth={ICON_STROKE} />
         </button>
@@ -92,7 +99,8 @@ export function KpiCard({
       >
         {label}
       </span>
-      <p className="font-display text-4xl md:text-5xl font-semibold text-[var(--color-foreground)] tabular-nums leading-tight mt-3">
+      {/* Escala del sprint: número KPI = 36px (text-4xl) en todas las pantallas. */}
+      <p className="font-display text-4xl font-bold text-[var(--color-foreground)] tabular-nums leading-tight mt-3">
         {formatter(display)}
       </p>
       <div className="mt-2 flex items-center gap-2">
