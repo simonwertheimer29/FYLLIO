@@ -22,6 +22,15 @@ const ZONE = "Europe/Madrid";
 // registramos (nunca truncado silencioso).
 const MAX_WALL_MS = 50_000;
 
+// Sprint A — DESACTIVADO por defecto (decisión del founder, opción A). Los envíos
+// WhatsApp de este cron (recordatorios/confirmaciones/feedback) salían por TWILIO,
+// el stack legacy de la primera demo. Objetivo: cero dependencia de Twilio en el
+// producto vivo; todo WhatsApp va por Meta/WABA. La confirmación de citas se hace
+// hoy por llamada de voz IA (Vapi), que se conserva activa más abajo. El código de
+// los tres envíos se mantiene como referencia; para reactivarlo (solo si se migra
+// a WABA) basta poner la env CRON_TWILIO_WHATSAPP=true, sin tocar código.
+const TWILIO_WHATSAPP_CRON_ENABLED = process.env.CRON_TWILIO_WHATSAPP === "true";
+
 /**
  * Dedup best-effort (P0.9): evita reenviar el mismo tipo de mensaje a la misma
  * cita el mismo día si el cron se reejecuta (retry de plataforma o disparo
@@ -85,6 +94,7 @@ export async function GET(req: Request) {
 
   // ── 1. REMINDERS ────────────────────────────────────────────────────────────
   for (const appt of tomorrowAppts) {
+    if (!TWILIO_WHATSAPP_CRON_ENABLED) break; // Twilio desactivado (opción A)
     if (!appt.patientPhone) continue;
     if (overBudget()) { truncated.push("reminders"); break; }
     // Dedup: no reenviar si ya se mandó hoy (cron reejecutado).
@@ -117,7 +127,10 @@ export async function GET(req: Request) {
   }
 
   // ── 2. CONFIRMATIONS ────────────────────────────────────────────────────────
+  // Twilio desactivado (opción A): la confirmación de citas se hace por voz IA
+  // (Vapi, más abajo), no por SÍ/NO de WhatsApp. Código conservado como referencia.
   for (const appt of tomorrowAppts) {
+    if (!TWILIO_WHATSAPP_CRON_ENABLED) break;
     if (!appt.patientPhone) continue;
     if (overBudget()) { truncated.push("confirmations"); break; }
     if (await yaEnviadoHoy("confirm", appt.id, todayIso)) continue;
@@ -161,6 +174,7 @@ export async function GET(req: Request) {
 
   // ── 3. FEEDBACK ─────────────────────────────────────────────────────────────
   for (const appt of yesterdayAppts) {
+    if (!TWILIO_WHATSAPP_CRON_ENABLED) break; // Twilio desactivado (opción A)
     if (!appt.patientPhone) continue;
     if (overBudget()) { truncated.push("feedback"); break; }
     if (await yaEnviadoHoy("feedback", appt.id, todayIso)) continue;
