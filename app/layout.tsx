@@ -21,6 +21,17 @@ const geist = Geist({
 export const metadata: Metadata = {
   title: "FYLLIO – La IA que ordena tu día en la clínica",
   description: "Asistente de agenda con IA para clínicas pequeñas e independientes.",
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/apple-icon.png",
+  },
+};
+
+export const viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#fafbfc" },
+    { media: "(prefers-color-scheme: dark)", color: "#0e1116" },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
