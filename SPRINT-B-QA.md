@@ -27,15 +27,19 @@ paso "consigue ver lo que no debe", es un fallo y hay que anotarlo.
 `PACIENTE INDEP TEST` — **no** debe aparecer nada (ese dato vive en la base de
 INDEP). Estando en INDEP, esa búsqueda **sí** lo encuentra.
 
-**Usuarios de prueba** (creados por el seed, PIN temporal):
-- `Admin RB (piloto)` — PIN `000000` (admin, 6 dígitos)
-- `Coord Melilla (piloto)` — PIN `0000` (ve solo las 3 clínicas de Melilla)
-- `Coord Madrid (piloto)` — PIN `0000` (ve Barajas / Meco / Colmenar)
-- `Admin INDEP (piloto)` — PIN `000000`
-- `Coord INDEP (piloto)` — PIN `0000`
+**Cómo entrar:** ve directo a **`/login`** (la raíz del preview es la landing, no
+redirige). Ahí verás una tarjeta **Administrador** y un botón por cada clínica.
 
-> El login es **primero clínica, luego PIN**. Cambia estos PIN antes de
-> cualquier uso real.
+**Usuarios de prueba** (creados por el seed, PIN temporal):
+- `Admin RB (piloto)` — tarjeta **Administrador** → PIN `111111` (6 dígitos)
+- `Admin INDEP (piloto)` — tarjeta **Administrador** → PIN `222222` (6 dígitos)
+- `Coord Melilla (piloto)` — botón de una clínica de **Melilla** → PIN `0000` (ve las 3 de Melilla)
+- `Coord Madrid (piloto)` — botón **Barajas / Meco / Colmenar** → PIN `0000`
+- `Coord INDEP (piloto)` — botón **Clínica Independiente – Piloto** → PIN `0000`
+
+> Los dos admin tienen PIN distinto **a propósito**: el login de admin no pide
+> clínica y matchea al primer admin cuyo PIN coincide, así que con el mismo PIN
+> no podrías entrar como el otro. Cambia todos estos PIN antes de cualquier uso real.
 
 ---
 

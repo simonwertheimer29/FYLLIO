@@ -52,7 +52,10 @@ const USUARIOS: Array<{
     email: "admin.rb.piloto@fyllio.test",
     rol: "admin",
     cliente: "RB",
-    pin: "000000",
+    // PIN distinto por admin: el login de admin no tiene contexto de clínica y
+    // matchea al primer admin cuyo PIN coincide, así que dos admin con el mismo
+    // PIN serían indistinguibles. Necesario para el QA (Escenario 4).
+    pin: "111111",
     pinLength: 6,
     clinicas: [], // admin ve las 10 de RB vía rol
   },
@@ -79,7 +82,7 @@ const USUARIOS: Array<{
     email: "admin.indep.piloto@fyllio.test",
     rol: "admin",
     cliente: "INDEP",
-    pin: "000000",
+    pin: "222222", // distinto de Admin RB (ver nota arriba)
     pinLength: 6,
     clinicas: [], // admin ve su clínica vía rol
   },
