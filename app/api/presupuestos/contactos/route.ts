@@ -3,41 +3,20 @@
 // POST                  — registrar nuevo contacto
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
-import type { Contacto, UserSession } from "../../../lib/presupuestos/types";
+import type { Contacto } from "../../../lib/presupuestos/types";
 import { DEMO_CONTACTOS } from "../../../lib/presupuestos/demo";
 import { registrarAccion } from "../../../lib/historial/registrar";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
 const ZONE = "Europe/Madrid";
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
 
 // -------------------------------------------------------------------
 // GET /api/presupuestos/contactos?presupuestoId=X
 // -------------------------------------------------------------------
 
-export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
+export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const { searchParams } = new URL(req.url);
   const presupuestoId = searchParams.get("presupuestoId");
   if (!presupuestoId) {
@@ -75,18 +54,13 @@ export async function GET(req: Request) {
     const contactos = DEMO_CONTACTOS.filter((c) => c.presupuestoId === presupuestoId);
     return NextResponse.json({ contactos, isDemo: true });
   }
-}
+});
 
 // -------------------------------------------------------------------
 // POST /api/presupuestos/contactos
 // -------------------------------------------------------------------
 
-export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
+export const POST = withPresupuestosAuth(async (session, req: Request) => {
   try {
     const body = await req.json();
     const { presupuestoId, tipo, resultado, nota } = body;
@@ -181,4 +155,4 @@ export async function POST(req: Request) {
     };
     return NextResponse.json({ contacto, demo: true }, { status: 201 });
   }
-}
+});

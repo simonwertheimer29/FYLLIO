@@ -3,31 +3,15 @@
 // POST: crear nuevo presupuesto
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type { Presupuesto, UserSession } from "../../../lib/presupuestos/types";
 import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
 import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 import { isDemoAllowed } from "../../../lib/demo/seed";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
 const ZONE = "Europe/Madrid";
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
 
 function daysSince(iso: string): number {
   const today = DateTime.now().setZone(ZONE).startOf("day");
@@ -81,12 +65,7 @@ function getDemoPresupuestos(session: UserSession, q: URLSearchParams): Presupue
 // GET /api/presupuestos/kanban
 // -------------------------------------------------------------------
 
-export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
+export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const url = new URL(req.url);
   const q = url.searchParams;
 
@@ -278,17 +257,13 @@ export async function GET(req: Request) {
       demoReason: "error",
     });
   }
-}
+});
 
 // -------------------------------------------------------------------
 // POST /api/presupuestos/kanban
 // -------------------------------------------------------------------
 
-export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+export const POST = withPresupuestosAuth(async (session, req: Request) => {
 
   try {
     const body = await req.json();
@@ -352,4 +327,4 @@ export async function POST(req: Request) {
     console.error("[kanban POST] error:", err);
     return NextResponse.json({ error: "No se pudo crear el presupuesto" }, { status: 500 });
   }
-}
+});
