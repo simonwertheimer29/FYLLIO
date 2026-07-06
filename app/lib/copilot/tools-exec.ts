@@ -331,10 +331,29 @@ async function execRankingDoctores(
 // ─── mensajes_recientes ───────────────────────────────────────────────
 
 async function execMensajesRecientes(
-  _env: CopilotEnv,
+  env: CopilotEnv,
   args: { leadId?: string; presupuestoId?: string; limit?: number },
 ): Promise<{ mensajes: Array<Record<string, unknown>> }> {
   const limit = Math.max(1, Math.min(args.limit ?? 10, 20));
+  if (!args.leadId && !args.presupuestoId) {
+    return { mensajes: [] };
+  }
+
+  // Sprint B Fase 4 — verificar propiedad: el lead/presupuesto debe estar entre
+  // los accesibles del usuario (reusamos las mismas listas ya acotadas por
+  // clínica). null = admin/todas → sin restricción. Si no es propio, [] (no
+  // filtramos la conversación de otra clínica).
+  const allowedClinicas = await clinicasAccesibles(env);
+  if (allowedClinicas !== null) {
+    if (args.presupuestoId) {
+      const accesibles = await fetchPresupuestos(env);
+      if (!accesibles.some((r) => r.id === args.presupuestoId)) return { mensajes: [] };
+    } else if (args.leadId) {
+      const leads = await listLeads({ clinicaIds: allowedClinicas });
+      if (!leads.some((l) => l.id === args.leadId)) return { mensajes: [] };
+    }
+  }
+
   let formula = "";
   if (args.leadId) {
     formula = `FIND('${args.leadId}', ARRAYJOIN({Lead_Link}))`;
@@ -515,25 +534,35 @@ async function execGetFacturadoPeriodo(
   clinicaScope: string | null;
 }> {
   const allowed = await clinicasAccesibles(env);
-  // Si admin con una clínica concreta, pasamos clinicaId al helper.
-  // Si coord o admin "todas", el helper devuelve global; aplicamos
-  // filtrado JS post-fetch a clinicas accesibles.
   const desde = new Date(args.fecha_inicio + "T00:00:00Z");
   const hasta = new Date(args.fecha_fin + "T23:59:59Z");
 
-  const clinicaIdSingle =
-    allowed && allowed.length === 1 ? allowed[0]! : undefined;
+  // Sprint B Fase 4 — con 2+ clínicas accesibles el helper devolvía el total
+  // GLOBAL (fuga: una coordinadora veía el facturado de todo el cliente).
+  // Ahora, si hay restricción, sumamos por cada clínica permitida. null = admin
+  // con "todas" → global (dentro de su cliente, ya aislado por base física).
+  let total = 0;
+  let pagosCount = 0;
+  if (allowed === null) {
+    const r = await getFacturadoEnPeriodo({ desde, hasta });
+    total = r.total;
+    pagosCount = r.pagosCount;
+  } else {
+    for (const cid of allowed) {
+      const r = await getFacturadoEnPeriodo({ desde, hasta, clinicaId: cid });
+      total += r.total;
+      pagosCount += r.pagosCount;
+    }
+  }
 
-  const r = await getFacturadoEnPeriodo({
-    desde,
-    hasta,
-    clinicaId: clinicaIdSingle,
-  });
-
-  // Para pacientesUnicos necesitamos otra pasada: leemos pagos del
-  // periodo y contamos pacienteIds distintos.
+  // Para pacientesUnicos leemos pagos del periodo y contamos pacienteIds
+  // distintos, acotados a los pacientes de las clínicas accesibles.
   let pacientesUnicos = 0;
   try {
+    const allowedPac =
+      allowed === null
+        ? null
+        : new Set((await pacientesAccesibles(env)).map((p) => p.id));
     const pagosRecs = await fetchAll(
       base(TABLES.pagosPaciente as any).select({
         filterByFormula: `AND(IS_AFTER({Fecha_Pago}, '${shiftDay(args.fecha_inicio, -1)}'), IS_BEFORE({Fecha_Pago}, '${shiftDay(args.fecha_fin, 1)}'))`,
@@ -543,20 +572,27 @@ async function execGetFacturadoPeriodo(
     const ids = new Set<string>();
     for (const rec of pagosRecs) {
       const pid = String(((rec.fields as any) ?? {})["Paciente_RecordId"] ?? "");
-      if (pid) ids.add(pid);
+      if (pid && (allowedPac === null || allowedPac.has(pid))) ids.add(pid);
     }
     pacientesUnicos = ids.size;
   } catch {
     /* noop */
   }
 
+  const clinicaScope =
+    allowed === null
+      ? "todas accesibles"
+      : allowed.length === 1
+        ? allowed[0]!
+        : `${allowed.length} clínicas accesibles`;
+
   return {
-    total: r.total,
-    pagosCount: r.pagosCount,
+    total,
+    pagosCount,
     pacientesUnicos,
     desde: args.fecha_inicio,
     hasta: args.fecha_fin,
-    clinicaScope: clinicaIdSingle ?? "todas accesibles",
+    clinicaScope,
   };
 }
 
@@ -798,7 +834,7 @@ export async function runReadTool(
         return await execBuscarPacientePorNombre(env, input as any);
       // Sprint 17 Bloque 8 — Voice IA.
       case "consultar_llamadas_recientes":
-        return await execConsultarLlamadasRecientes(input as any);
+        return await execConsultarLlamadasRecientes(env, input as any);
     }
   } catch (err) {
     console.error("[copilot read tool]", name, err instanceof Error ? err.message : err);
@@ -808,23 +844,43 @@ export async function runReadTool(
 
 // ─── Sprint 17 — execConsultarLlamadasRecientes ─────────────────────────
 
-async function execConsultarLlamadasRecientes(input: {
-  limite?: number;
-  filtroResultado?: string;
-  fechaDesde?: string;
-}): Promise<unknown> {
+async function execConsultarLlamadasRecientes(
+  env: CopilotEnv,
+  input: {
+    limite?: number;
+    filtroResultado?: string;
+    fechaDesde?: string;
+  },
+): Promise<unknown> {
   const { listLlamadas } = await import("../llamadas/repo");
   const limite = Math.min(Math.max(Number(input.limite ?? 10), 1), 50);
+
+  // Sprint B Fase 4 — las llamadas se ligan a pacientes; las acotamos a los
+  // pacientes de las clínicas accesibles del usuario. null = admin/todas → sin
+  // restricción. Como listLlamadas aplica el límite antes de filtrar, cuando hay
+  // restricción pedimos un lote mayor y recortamos tras filtrar.
+  const allowed = await clinicasAccesibles(env);
+  const fetchLimit = allowed === null ? limite : Math.min(200, Math.max(limite, 50));
   const llamadas = await listLlamadas({
-    limit: limite,
+    limit: fetchLimit,
     resultado: (input.filtroResultado as any) || undefined,
     desde: input.fechaDesde
       ? new Date(input.fechaDesde + "T00:00:00").toISOString()
       : undefined,
   });
+
+  let scoped = llamadas;
+  if (allowed !== null) {
+    const pacientes = await pacientesAccesibles(env);
+    const allowedPac = new Set(pacientes.map((p) => p.id));
+    scoped = llamadas
+      .filter((l) => l.pacienteId && allowedPac.has(l.pacienteId))
+      .slice(0, limite);
+  }
+
   return {
-    total: llamadas.length,
-    llamadas: llamadas.map((l) => ({
+    total: scoped.length,
+    llamadas: scoped.map((l) => ({
       id: l.id,
       pacienteId: l.pacienteId,
       tipo: l.tipo,
