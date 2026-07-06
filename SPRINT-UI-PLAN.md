@@ -4,6 +4,8 @@
 
 Objetivo: pasar de "se ve bien" a "parece que llevan años en el sector". No es un rediseño: es una pasada de consistencia y pulido sobre el sistema que ya existe.
 
+> **Decisiones tomadas (7 jul 2026):** acento = opción **A · Confianza** `#3D6FB2` (claro) / `#7CA9DC` (oscuro), elegida sobre comparativa de 3 azules en maqueta real. Alcance = **solo el producto** (CRM autenticado + portal público del paciente); landing, /early-access y demos quedan fuera de la pasada.
+
 ---
 
 ## A. Paleta propuesta
