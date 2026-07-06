@@ -9,6 +9,7 @@ import type { Contacto } from "../../../lib/presupuestos/types";
 import { DEMO_CONTACTOS } from "../../../lib/presupuestos/demo";
 import { registrarAccion } from "../../../lib/historial/registrar";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { verificarPresupuestoPermitido } from "../../../lib/presupuestos/clinica-scope";
 
 const ZONE = "Europe/Madrid";
 
@@ -21,6 +22,12 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const presupuestoId = searchParams.get("presupuestoId");
   if (!presupuestoId) {
     return NextResponse.json({ error: "presupuestoId requerido" }, { status: 400 });
+  }
+
+  // Sprint B Fase 4 (IDOR): el presupuesto debe ser de una clínica del usuario.
+  const permiso = await verificarPresupuestoPermitido(session, presupuestoId);
+  if (permiso !== "ok") {
+    return NextResponse.json({ contactos: [] }, { status: 404 });
   }
 
   try {
@@ -66,6 +73,13 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     const { presupuestoId, tipo, resultado, nota } = body;
     if (!presupuestoId || !tipo || !resultado) {
       return NextResponse.json({ error: "Faltan campos requeridos" }, { status: 400 });
+    }
+
+    // Sprint B Fase 4 (IDOR): solo se registra contacto sobre un presupuesto de
+    // una clínica del usuario (evita mutar presupuestos de otra clínica).
+    const permiso = await verificarPresupuestoPermitido(session, presupuestoId);
+    if (permiso !== "ok") {
+      return NextResponse.json({ error: "No encontrado" }, { status: 404 });
     }
 
     const fechaHora = body.fechaHora || DateTime.now().setZone(ZONE).toISO()!;

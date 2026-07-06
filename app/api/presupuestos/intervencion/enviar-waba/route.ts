@@ -6,10 +6,11 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { getServicioMensajeria } from "../../../../lib/presupuestos/mensajeria";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { verificarPresupuestoPermitido } from "../../../../lib/presupuestos/clinica-scope";
 
 export const dynamic = "force-dynamic";
 
-export const POST = withPresupuestosAuth(async (_session, req: Request) => {
+export const POST = withPresupuestosAuth(async (session, req: Request) => {
   const body = await req.json().catch(() => null);
   const presupuestoId = body?.presupuestoId as string | undefined;
   const telefono = body?.telefono as string | undefined;
@@ -17,6 +18,15 @@ export const POST = withPresupuestosAuth(async (_session, req: Request) => {
 
   if (!telefono || !contenido) {
     return NextResponse.json({ error: "Faltan telefono o contenido" }, { status: 400 });
+  }
+
+  // Sprint B Fase 4 (IDOR): si el envío se ata a un presupuesto, debe ser de una
+  // clínica del usuario (no enviar/atribuir sobre el presupuesto de otra clínica).
+  if (presupuestoId) {
+    const permiso = await verificarPresupuestoPermitido(session, presupuestoId);
+    if (permiso !== "ok") {
+      return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+    }
   }
 
   // P0.7: clave de idempotencia estable por (presupuesto|telefono + contenido).

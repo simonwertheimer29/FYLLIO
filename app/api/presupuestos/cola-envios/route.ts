@@ -8,6 +8,12 @@ import { DateTime } from "luxon";
 import { getServicioMensajeria } from "../../../lib/presupuestos/mensajeria";
 import type { EnvioItem, EstadoEnvio } from "../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import {
+  nombresClinicasPermitidas,
+  permiteClinica,
+  verificarPresupuestoPermitido,
+  mapaPresupuestoClinica,
+} from "../../../lib/presupuestos/clinica-scope";
 
 const ZONE = "Europe/Madrid";
 
@@ -61,7 +67,19 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       })
       .all();
 
-    const envios = recs.map(recordToEnvio);
+    let envios = recs.map(recordToEnvio);
+
+    // Sprint B Fase 4 — la cola no guarda la clínica; resolvemos presupuesto ->
+    // clínica en lote y filtramos a las clínicas permitidas (null = admin).
+    const permitidas = await nombresClinicasPermitidas(session);
+    if (permitidas) {
+      const clinicaPorPresup = await mapaPresupuestoClinica(
+        envios.map((e) => e.presupuestoId),
+      );
+      envios = envios.filter((e) =>
+        permiteClinica(permitidas, clinicaPorPresup.get(e.presupuestoId) ?? ""),
+      );
+    }
 
     return NextResponse.json({ envios });
   } catch (err) {
@@ -88,6 +106,13 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
 
     if (!presupuestoId || !paciente) {
       return NextResponse.json({ error: "presupuestoId y paciente requeridos" }, { status: 400 });
+    }
+
+    // Sprint B Fase 4 (IDOR): solo se encola un envío sobre un presupuesto de una
+    // clínica del usuario.
+    const permiso = await verificarPresupuestoPermitido(session, presupuestoId);
+    if (permiso !== "ok") {
+      return NextResponse.json({ error: "No encontrado" }, { status: 404 });
     }
 
     const now = DateTime.now().setZone(ZONE);
@@ -141,6 +166,16 @@ export const PATCH = withPresupuestosAuth(async (session, req: Request) => {
     // First fetch the record to get details for mensajería
     const rec = await base(TABLES.colaEnvios as any).find(id);
     const f = rec.fields as any;
+
+    // Sprint B Fase 4 (IDOR): marcar "Enviado" dispara el envío real; solo se
+    // opera sobre envíos de un presupuesto de una clínica del usuario.
+    const presupuestoIdEnvio = String(f["Presupuesto"] ?? "");
+    if (presupuestoIdEnvio) {
+      const permiso = await verificarPresupuestoPermitido(session, presupuestoIdEnvio);
+      if (permiso !== "ok") {
+        return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+      }
+    }
 
     // Update the record
     await base(TABLES.colaEnvios as any).update(id, update as any);

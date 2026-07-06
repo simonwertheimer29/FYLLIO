@@ -5,13 +5,20 @@ import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../lib/airtable";
 import type { HistorialAccion } from "../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { verificarPresupuestoPermitido } from "../../../lib/presupuestos/clinica-scope";
 
-// Fase 4 (IDOR): comprobar que presupuestoId pertenece al usuario.
+// Sprint B Fase 4 (IDOR): el presupuesto debe pertenecer a una clínica del usuario.
 export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const { searchParams } = new URL(req.url);
   const presupuestoId = searchParams.get("presupuestoId");
   if (!presupuestoId) {
     return NextResponse.json({ error: "presupuestoId requerido" }, { status: 400 });
+  }
+
+  const permiso = await verificarPresupuestoPermitido(session, presupuestoId);
+  if (permiso !== "ok") {
+    // 404 también para "forbidden": no revelar presupuestos de otra clínica.
+    return NextResponse.json([], { status: 404 });
   }
 
   try {

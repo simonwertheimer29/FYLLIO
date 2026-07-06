@@ -10,6 +10,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { base, TABLES } from "../../../../lib/airtable";
 import { registrarAccion } from "../../../../lib/historial/registrar";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { nombresClinicasPermitidas, permiteClinica } from "../../../../lib/presupuestos/clinica-scope";
 
 const TTL_DAYS = 90;
 
@@ -70,8 +71,16 @@ export const POST = withPresupuestosAuth(
     const now = new Date();
     const expiresAt = new Date(now.getTime() + TTL_DAYS * 86400 * 1000).toISOString();
 
+    // Sprint B Fase 4 (IDOR): clínicas permitidas del usuario.
+    const permitidas = await nombresClinicasPermitidas(session);
+
     if (recs.length === 0) {
-      // Demo fallback
+      // Un usuario restringido no puede generar portal de un id que no existe en
+      // su base (posible id de otra clínica/cliente): 404 en vez del demo.
+      if (permitidas !== null) {
+        return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+      }
+      // Demo fallback (solo roles sin restricción de clínica)
       const treatments = ["Ortodoncia invisible"];
       const descripcionHumanizada = await generarDescripcion(treatments);
       const data: PortalData = {
@@ -102,6 +111,10 @@ export const POST = withPresupuestosAuth(
       : [];
     const amount = f["Importe"] ? Number(f["Importe"]) : undefined;
     const clinica = f["Clinica"] ? String(f["Clinica"]) : undefined;
+    // Sprint B Fase 4 (IDOR): el presupuesto debe ser de una clínica del usuario.
+    if (!permiteClinica(permitidas, clinica ?? "")) {
+      return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+    }
     const doctor = f["Doctor"] ? String(f["Doctor"]) : undefined;
     const tipoPaciente = f["TipoPaciente"] ? String(f["TipoPaciente"]) : undefined;
 

@@ -8,6 +8,7 @@ import type { Presupuesto, HistorialAccion } from "../../../lib/presupuestos/typ
 import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
 
 const ZONE = "Europe/Madrid";
 
@@ -17,7 +18,7 @@ function daysSince(iso: string): number {
   return Math.round(today.diff(d, "days").days);
 }
 
-export const GET = withPresupuestosAuth(async (_session, req: Request) => {
+export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const { searchParams } = new URL(req.url);
   const nombre = searchParams.get("nombre") ?? "";
   if (!nombre) {
@@ -121,8 +122,16 @@ export const GET = withPresupuestosAuth(async (_session, req: Request) => {
       return p;
     });
 
+    // Sprint B Fase 4 — aislamiento por clínica: solo los presupuestos del
+    // paciente que estén en clínicas permitidas del usuario (null = admin). El
+    // historial se acota solo porque deriva de los ids visibles.
+    const permitidas = await nombresClinicasPermitidas(session);
+    const presupuestosVisibles = permitidas
+      ? presupuestos.filter((p) => permiteClinica(permitidas, p.clinica ?? ""))
+      : presupuestos;
+
     // Fetch historial for all these presupuestos
-    const ids = presupuestos.map((p) => p.id);
+    const ids = presupuestosVisibles.map((p) => p.id);
     let historial: HistorialAccion[] = [];
 
     if (ids.length > 0) {
@@ -160,10 +169,11 @@ export const GET = withPresupuestosAuth(async (_session, req: Request) => {
     }
 
     return NextResponse.json({
-      presupuestos,
+      presupuestos: presupuestosVisibles,
       historial,
       isDemo: false,
-      pacienteId: resolvedPacienteId,
+      // No revelar el id del paciente si no hay presupuestos visibles para el usuario.
+      pacienteId: presupuestosVisibles.length ? resolvedPacienteId : null,
     });
   } catch (err) {
     console.error("[paciente GET]", err);

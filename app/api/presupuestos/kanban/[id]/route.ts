@@ -7,11 +7,20 @@ import { sendPushToClinica } from "../../../../lib/push/sender";
 import { registrarAccion } from "../../../../lib/historial/registrar";
 import { crearNotificacion } from "../../../../lib/presupuestos/notificaciones";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { verificarPresupuestoPermitido } from "../../../../lib/presupuestos/clinica-scope";
 
 export const PATCH = withPresupuestosAuth(
   async (session, req: Request, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const { id } = await params;
+
+    // Sprint B Fase 4 (IDOR): solo se puede modificar un presupuesto de una
+    // clínica del usuario (evita editar el pipeline de otra clínica por id).
+    const permiso = await verificarPresupuestoPermitido(session, id);
+    if (permiso !== "ok") {
+      return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+    }
+
     const body = await req.json();
 
     const fields: Record<string, unknown> = {};

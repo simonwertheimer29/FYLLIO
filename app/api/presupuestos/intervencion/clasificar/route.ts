@@ -7,8 +7,9 @@ import { clasificarRespuesta, guardarClasificacion } from "../../../../lib/presu
 import { getServicioMensajeria } from "../../../../lib/presupuestos/mensajeria";
 import type { PresupuestoEstado } from "../../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { nombresClinicasPermitidas, permiteClinica } from "../../../../lib/presupuestos/clinica-scope";
 
-// Fase 4 (IDOR): comprobar que presupuestoId pertenece a una clínica del usuario.
+// Sprint B Fase 4 (IDOR): el presupuesto debe pertenecer a una clínica del usuario.
 export const POST = withPresupuestosAuth(async (session, req: Request) => {
   try {
     const body = await req.json();
@@ -45,6 +46,13 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     const amount = f["Importe"] != null ? Number(f["Importe"]) : undefined;
     const estado = String(f["Estado"] ?? "PRESENTADO") as PresupuestoEstado;
     const clinica = Array.isArray(f["Clinica"]) ? String(f["Clinica"][0] ?? "") : String(f["Clinica"] ?? "");
+
+    // Sprint B Fase 4 (IDOR): reutilizamos la Clinica ya leída para comprobar que
+    // el presupuesto es de una clínica del usuario antes de clasificar/mutar.
+    const permitidas = await nombresClinicasPermitidas(session);
+    if (!permiteClinica(permitidas, clinica)) {
+      return NextResponse.json({ error: "Presupuesto no encontrado" }, { status: 404 });
+    }
 
     // Clasificar con IA
     const clasificacion = await clasificarRespuesta({

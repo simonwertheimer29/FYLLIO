@@ -10,6 +10,7 @@ import { getServicioMensajeria } from "../../../../lib/presupuestos/mensajeria";
 import { crearNotificacion } from "../../../../lib/presupuestos/notificaciones";
 import type { TipoUltimaAccionIntervencion, PresupuestoEstado } from "../../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { verificarPresupuestoPermitido } from "../../../../lib/presupuestos/clinica-scope";
 
 const ZONE = "Europe/Madrid";
 
@@ -37,6 +38,13 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
 
     if (!presupuestoId || !tipo) {
       return NextResponse.json({ error: "presupuestoId y tipo son requeridos" }, { status: 400 });
+    }
+
+    // Sprint B Fase 4 (IDOR): solo se registra/muta sobre un presupuesto de una
+    // clínica del usuario.
+    const permiso = await verificarPresupuestoPermitido(session, presupuestoId);
+    if (permiso !== "ok") {
+      return NextResponse.json({ error: "No encontrado" }, { status: 404 });
     }
 
     const now = DateTime.now().setZone(ZONE).toISO() ?? new Date().toISOString();
