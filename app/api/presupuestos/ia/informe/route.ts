@@ -3,33 +3,19 @@
 // POST { mes: "YYYY-MM", clinicaId: "todas" | string }
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import Anthropic from "@anthropic-ai/sdk";
 import { base, TABLES } from "../../../../lib/airtable";
 import { construirMapaAnonimizacion, desanonimizarTexto } from "../../../../lib/anonimizacion";
 import { DateTime } from "luxon";
 import { computeUrgencyScore } from "../../../../lib/presupuestos/urgency";
 import { ESTADOS_ACEPTADOS } from "../../../../lib/presupuestos/colors";
-import type { Presupuesto, UserSession } from "../../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import type { Presupuesto } from "../../../../lib/presupuestos/types";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
 const ZONE = "Europe/Madrid";
 
 function getClient() {
   return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
-}
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch { return null; }
 }
 
 function daysSince(iso: string): number {
@@ -246,9 +232,7 @@ REGLAS DE FORMATO:
 
 // ─── Route ────────────────────────────────────────────────────────────────────
 
-export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+export const POST = withPresupuestosAuth(async (session, req: Request) => {
 
   // Managers only
   if (session.rol === "encargada_ventas") {
@@ -304,4 +288,4 @@ export async function POST(req: Request) {
     const msg = e instanceof Error ? e.message : "Error desconocido";
     return NextResponse.json({ error: `Error al generar informe: ${msg}` }, { status: 500 });
   }
-}
+});

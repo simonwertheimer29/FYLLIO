@@ -2,26 +2,9 @@
 // POST — genera mensaje WhatsApp personalizado usando Anthropic Haiku
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { ESTADO_CONFIG } from "../../../../lib/presupuestos/colors";
 import type { TonoIA, PresupuestoEstado } from "../../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
-
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
-
-async function isAuthed(): Promise<boolean> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return false;
-    await jwtVerify(token, secret);
-    return true;
-  } catch {
-    return false;
-  }
-}
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
 const SYSTEM_PROMPT = `Eres un coordinador de ventas de una clínica dental en España.
 Escribe UN mensaje de WhatsApp para retomar contacto con un paciente.
@@ -39,10 +22,7 @@ REGLAS ESTRICTAS:
 - Solo español. Sin emojis al principio. Sin "Estimado/a".
 - No inventes información que no se te proporcione.`;
 
-export async function POST(req: Request) {
-  if (!(await isAuthed())) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+export const POST = withPresupuestosAuth(async (session, req: Request) => {
 
   try {
     const body = await req.json();
@@ -119,4 +99,4 @@ export async function POST(req: Request) {
     const message = err instanceof Error ? err.message : "Error desconocido";
     return NextResponse.json({ mensaje: "", error: message });
   }
-}
+});

@@ -2,25 +2,8 @@
 // POST — genera contenido de plantilla con Claude Haiku
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
-import type { UserSession, TipoPlantilla } from "../../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
-
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
+import type { TipoPlantilla } from "../../../../lib/presupuestos/types";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
 const PROMPTS: Record<TipoPlantilla, (ctx: { doctor?: string; tratamiento?: string; clinica?: string }) => string> = {
   "Primer contacto": (ctx) =>
@@ -57,10 +40,7 @@ El mensaje debe:
 - Estar en español`,
 };
 
-export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const POST = withPresupuestosAuth(async (session, req: Request) => {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return NextResponse.json({ error: "ANTHROPIC_API_KEY no configurada" }, { status: 500 });
@@ -108,4 +88,4 @@ export async function POST(req: Request) {
     console.error("[plantillas/generar-ia] error:", err);
     return NextResponse.json({ error: "Error al generar plantilla" }, { status: 500 });
   }
-}
+});
