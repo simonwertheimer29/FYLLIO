@@ -4,35 +4,12 @@
 
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { getServicioMensajeria } from "../../../../lib/presupuestos/mensajeria";
-import type { UserSession } from "../../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
 export const dynamic = "force-dynamic";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
-
-export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
+export const POST = withPresupuestosAuth(async (_session, req: Request) => {
   const body = await req.json().catch(() => null);
   const presupuestoId = body?.presupuestoId as string | undefined;
   const telefono = body?.telefono as string | undefined;
@@ -73,4 +50,4 @@ export async function POST(req: Request) {
     console.error("[enviar-waba]", anyErr?.message ?? err);
     return NextResponse.json({ error: "Error al enviar mensaje" }, { status: 500 });
   }
-}
+});

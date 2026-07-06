@@ -2,35 +2,14 @@
 // POST — clasifica la respuesta de un paciente usando Claude IA
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../../lib/airtable";
 import { clasificarRespuesta, guardarClasificacion } from "../../../../lib/presupuestos/intervencion";
 import { getServicioMensajeria } from "../../../../lib/presupuestos/mensajeria";
-import type { UserSession, PresupuestoEstado } from "../../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import type { PresupuestoEstado } from "../../../../lib/presupuestos/types";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
-
-export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
+// Fase 4 (IDOR): comprobar que presupuestoId pertenece a una clínica del usuario.
+export const POST = withPresupuestosAuth(async (session, req: Request) => {
   try {
     const body = await req.json();
     const { presupuestoId, respuestaPaciente } = body as {
@@ -101,4 +80,4 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
-}
+});
