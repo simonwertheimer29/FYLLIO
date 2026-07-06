@@ -2,14 +2,9 @@
 // GET/PUT — configuración de recordatorios por clínica
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../../lib/airtable";
-import type { UserSession, ConfigRecordatorios } from "../../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
-
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
+import type { ConfigRecordatorios } from "../../../../lib/presupuestos/types";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
 const DEFAULTS: Omit<ConfigRecordatorios, "clinica"> = {
   secuenciaDias: [3, 7, 10],
@@ -18,18 +13,6 @@ const DEFAULTS: Omit<ConfigRecordatorios, "clinica"> = {
   diasRechazoAuto: 30,
   activa: true,
 };
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
 
 function recordToConfig(r: any): ConfigRecordatorios {
   const f = r.fields as any;
@@ -46,10 +29,7 @@ function recordToConfig(r: any): ConfigRecordatorios {
 }
 
 // GET — lee configuración de recordatorios
-export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const GET = withPresupuestosAuth(async (session, req: Request) => {
   try {
     const url = new URL(req.url);
     const clinicaParam = url.searchParams.get("clinica");
@@ -86,13 +66,10 @@ export async function GET(req: Request) {
       configuracion: { clinica: "default", ...DEFAULTS },
     });
   }
-}
+});
 
 // PUT — upsert configuración de recordatorios
-export async function PUT(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const PUT = withPresupuestosAuth(async (session, req: Request) => {
   try {
     const body = await req.json();
     const { clinica, secuenciaDias, recordatorioMax, horaEnvio, diasRechazoAuto, activa } = body as ConfigRecordatorios;
@@ -128,4 +105,4 @@ export async function PUT(req: Request) {
     console.error("[recordatorios/configuracion] PUT error:", err);
     return NextResponse.json({ error: "Error al guardar configuración" }, { status: 500 });
   }
-}
+});

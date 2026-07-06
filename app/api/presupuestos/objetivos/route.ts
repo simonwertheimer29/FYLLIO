@@ -3,26 +3,8 @@
 // POST { clinica, mes, objetivo_aceptados } → crear o actualizar objetivo
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../lib/airtable";
-import type { UserSession } from "../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
-
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
 function getMesMTD(): string {
   const now = new Date();
@@ -31,10 +13,7 @@ function getMesMTD(): string {
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
-export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const { searchParams } = new URL(req.url);
   const mes = searchParams.get("mes") ?? getMesMTD();
 
@@ -63,13 +42,11 @@ export async function GET(req: Request) {
     console.error("[objetivos GET]", err);
     return NextResponse.json({ error: "Error al obtener objetivos" }, { status: 500 });
   }
-}
+});
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
 
-export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+export const POST = withPresupuestosAuth(async (session, req: Request) => {
 
   // Solo manager_general y admin pueden editar objetivos
   if (session.rol !== "manager_general" && session.rol !== "admin") {
@@ -140,4 +117,4 @@ export async function POST(req: Request) {
     console.error("[objetivos POST]", err);
     return NextResponse.json({ error: "Error al guardar objetivo" }, { status: 500 });
   }
-}
+});

@@ -3,26 +3,9 @@
 // POST: upsert informe — same tipo+clinica+periodo → overwrite
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../../lib/airtable";
-import type { UserSession, InformeGuardado } from "../../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
-
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
+import type { InformeGuardado } from "../../../../lib/presupuestos/types";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
 function mapRecord(r: { id: string; fields: Record<string, unknown> }): InformeGuardado {
   const f = r.fields;
@@ -41,10 +24,7 @@ function mapRecord(r: { id: string; fields: Record<string, unknown> }): InformeG
 
 // ── GET ────────────────────────────────────────────────────────────────────────
 
-export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const { searchParams } = new URL(req.url);
   const tipo = searchParams.get("tipo") ?? null;
   const clinicaFilter =
@@ -80,14 +60,11 @@ export async function GET(req: Request) {
   } catch {
     return NextResponse.json({ informes: [], isDemo: true });
   }
-}
+});
 
 // ── POST ───────────────────────────────────────────────────────────────────────
 
-export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const POST = withPresupuestosAuth(async (session, req: Request) => {
   try {
     const body = await req.json();
     const { tipo, clinica, periodo, titulo, contenidoJson, textoNarrativo, generadoPor } = body;
@@ -151,4 +128,4 @@ export async function POST(req: Request) {
     console.error("[informes/guardados POST]", err);
     return NextResponse.json({ error: "Error al guardar informe" }, { status: 500 });
   }
-}
+});

@@ -5,30 +5,14 @@
 // NUNCA devuelve el Access Token ni siquiera parcialmente.
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../lib/airtable";
 import { hasWABACredentials, getWABACredentials } from "../../../lib/presupuestos/waba-credentials";
 import type { UserSession } from "../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
 export const dynamic = "force-dynamic";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
 const GRAPH_API_VERSION = "v21.0";
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
 
 function resolveClinica(session: UserSession, fromQuery: string | null): string | null {
   if (session.rol === "encargada_ventas" && session.clinica) return session.clinica;
@@ -37,11 +21,7 @@ function resolveClinica(session: UserSession, fromQuery: string | null): string 
 
 // ─── GET ─────────────────────────────────────────────────────────────────────
 
-export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+export const GET = withPresupuestosAuth(async (session, req: Request) => {
 
   const { searchParams } = new URL(req.url);
   const clinica = resolveClinica(session, searchParams.get("clinica"));
@@ -100,15 +80,11 @@ export async function GET(req: Request) {
     ultimoMensajeRecibido,
     tokenExpirado,
   });
-}
+});
 
 // ─── POST ────────────────────────────────────────────────────────────────────
 
-export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
+export const POST = withPresupuestosAuth(async (session, req: Request) => {
   if (session.rol !== "manager_general" && session.rol !== "admin") {
     return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
   }
@@ -150,4 +126,4 @@ export async function POST(req: Request) {
     console.error("[configuracion-waba POST]", err instanceof Error ? err.message : err);
     return NextResponse.json({ error: "Error al actualizar" }, { status: 500 });
   }
-}
+});
