@@ -11,13 +11,42 @@ import { sendWhatsAppMessage } from "../../../lib/whatsapp/send";
 import { kv } from "@vercel/kv";
 import { base, TABLES } from "../../../lib/airtable";
 
+export const dynamic = "force-dynamic";
+// P0.9: cap explícito de duración. El plan de Vercel lo limita (Hobby 60s /
+// Pro 300s); sin este export tomaba el default y podía cortarse a media tanda.
+export const maxDuration = 60;
+
 const ZONE = "Europe/Madrid";
+// Presupuesto de tiempo de pared: dejamos margen bajo maxDuration para no morir
+// a mitad de una escritura. Al superarlo, dejamos de iniciar trabajo nuevo y lo
+// registramos (nunca truncado silencioso).
+const MAX_WALL_MS = 50_000;
+
+/**
+ * Dedup best-effort (P0.9): evita reenviar el mismo tipo de mensaje a la misma
+ * cita el mismo día si el cron se reejecuta (retry de plataforma o disparo
+ * manual). Marca-y-comprueba en KV con TTL de 3 días.
+ */
+async function yaEnviadoHoy(tipo: string, apptId: string, runDateIso: string): Promise<boolean> {
+  const key = `cron:sent:${tipo}:${apptId}:${runDateIso}`;
+  try {
+    if (await kv.get(key)) return true;
+    await kv.set(key, "1", { ex: 3 * 24 * 3600 });
+    return false;
+  } catch {
+    return false; // KV caído → best-effort, no bloqueamos el envío
+  }
+}
 
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (secret && req.headers.get("x-cron-secret") !== secret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+
+  const startMs = Date.now();
+  const overBudget = () => Date.now() - startMs > MAX_WALL_MS;
+  const truncated: string[] = [];
 
   const now = DateTime.now().setZone(ZONE);
   const tomorrowIso = now.plus({ days: 1 }).toISODate()!;
@@ -57,6 +86,9 @@ export async function GET(req: Request) {
   // ── 1. REMINDERS ────────────────────────────────────────────────────────────
   for (const appt of tomorrowAppts) {
     if (!appt.patientPhone) continue;
+    if (overBudget()) { truncated.push("reminders"); break; }
+    // Dedup: no reenviar si ya se mandó hoy (cron reejecutado).
+    if (await yaEnviadoHoy("reminder", appt.id, todayIso)) continue;
 
     const timeHHMM = DateTime.fromISO(appt.start, { zone: "utc" })
       .setZone(ZONE)
@@ -87,6 +119,8 @@ export async function GET(req: Request) {
   // ── 2. CONFIRMATIONS ────────────────────────────────────────────────────────
   for (const appt of tomorrowAppts) {
     if (!appt.patientPhone) continue;
+    if (overBudget()) { truncated.push("confirmations"); break; }
+    if (await yaEnviadoHoy("confirm", appt.id, todayIso)) continue;
 
     const timeHHMM = DateTime.fromISO(appt.start, { zone: "utc" })
       .setZone(ZONE)
@@ -128,6 +162,8 @@ export async function GET(req: Request) {
   // ── 3. FEEDBACK ─────────────────────────────────────────────────────────────
   for (const appt of yesterdayAppts) {
     if (!appt.patientPhone) continue;
+    if (overBudget()) { truncated.push("feedback"); break; }
+    if (await yaEnviadoHoy("feedback", appt.id, todayIso)) continue;
 
     const msg =
       `👋 ¡Hola! Esperamos que tu visita de ayer haya ido bien.\n\n` +
@@ -205,6 +241,11 @@ export async function GET(req: Request) {
       .all();
 
     for (const r of recsCitas as any[]) {
+      // Presupuesto de tiempo: con espaciado de 5s/llamada, muchas citas podrían
+      // agotar maxDuration. Paramos antes de que la plataforma nos mate a mitad y
+      // lo registramos (las citas restantes se atenderán en la siguiente ejecución;
+      // la cooldown 1×/día/paciente en iniciar.ts evita duplicar las ya llamadas).
+      if (overBudget()) { truncated.push("voice"); break; }
       try {
         // Cron automático = manual:false explícito. Respeta horario
         // laboral siempre — solo UI/copilot pueden saltárselo.
@@ -256,6 +297,8 @@ export async function GET(req: Request) {
       skipSalvaguarda: llamadasIaSalvaguarda,
       errores: llamadasIaError,
     },
+    // P0.9: fases que se cortaron por presupuesto de tiempo (no truncado silencioso).
+    truncated: [...new Set(truncated)],
     errors,
   });
 }
