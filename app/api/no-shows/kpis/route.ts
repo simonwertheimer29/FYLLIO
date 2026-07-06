@@ -9,10 +9,10 @@ import { DateTime } from "luxon";
 import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import type { NoShowsUserSession } from "../../../lib/no-shows/types";
 import { ZONE } from "../../../lib/no-shows/score";
+import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 
 const COOKIE = "fyllio_noshows_token";
-const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
-const secret = new TextEncoder().encode(SECRET_RAW);
+const secret = legacyJwtSecret();
 
 const NO_SHOW_SET = new Set(["NO_SHOW", "NO SHOW", "NOSHOW"]);
 const CANCEL_SET  = new Set(["CANCELADO", "CANCELADA", "CANCELED", "CANCELLED"]);

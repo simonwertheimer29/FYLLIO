@@ -11,6 +11,7 @@ import type { NoShowsUserSession, AccionTask, RiskyAppt, GapSlot, RecallAlert } 
 
 type ExtAccionTask = AccionTask & { escalado?: boolean };
 import { scoreAppointment, urgenciaTemporal, ZONE, MULTI_SESSION_TREATMENTS } from "../../../lib/no-shows/score";
+import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 
 const STAFF_NOMBRES: Record<string, string> = {
   "STF_006": "Dr. Andrés Rojas",
@@ -21,8 +22,7 @@ const STAFF_NOMBRES: Record<string, string> = {
 };
 
 const COOKIE = "fyllio_noshows_token";
-const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
-const secret = new TextEncoder().encode(SECRET_RAW);
+const secret = legacyJwtSecret();
 
 const CANCELLED = new Set([
   "CANCELADO", "CANCELADA", "CANCELED", "CANCELLED",

@@ -11,10 +11,10 @@ import { clasificarRespuesta, guardarClasificacion } from "../../../../lib/presu
 import { getServicioMensajeria } from "../../../../lib/presupuestos/mensajeria";
 import { crearNotificacion } from "../../../../lib/presupuestos/notificaciones";
 import type { UserSession, TipoUltimaAccionIntervencion, PresupuestoEstado } from "../../../../lib/presupuestos/types";
+import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 
 const COOKIE = "fyllio_presupuestos_token";
-const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
-const secret = new TextEncoder().encode(SECRET_RAW);
+const secret = legacyJwtSecret();
 const ZONE = "Europe/Madrid";
 
 async function getSession(): Promise<UserSession | null> {

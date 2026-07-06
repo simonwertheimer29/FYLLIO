@@ -10,10 +10,10 @@ import { DateTime } from "luxon";
 import type { Contacto, UserSession } from "../../../lib/presupuestos/types";
 import { DEMO_CONTACTOS } from "../../../lib/presupuestos/demo";
 import { registrarAccion } from "../../../lib/historial/registrar";
+import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 
 const COOKIE = "fyllio_presupuestos_token";
-const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
-const secret = new TextEncoder().encode(SECRET_RAW);
+const secret = legacyJwtSecret();
 const ZONE = "Europe/Madrid";
 
 async function getSession(): Promise<UserSession | null> {

@@ -6,10 +6,10 @@ import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { base, TABLES } from "../../../lib/airtable";
 import type { HistorialAccion } from "../../../lib/presupuestos/types";
+import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 
 const COOKIE = "fyllio_presupuestos_token";
-const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
-const secret = new TextEncoder().encode(SECRET_RAW);
+const secret = legacyJwtSecret();
 
 async function isAuthed(): Promise<boolean> {
   try {

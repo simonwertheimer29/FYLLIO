@@ -6,12 +6,12 @@ import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { getServicioMensajeria } from "../../../lib/presupuestos/mensajeria";
 import type { UserSession } from "../../../lib/presupuestos/types";
+import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 
 export const dynamic = "force-dynamic";
 
 const COOKIE = "fyllio_presupuestos_token";
-const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
-const secret = new TextEncoder().encode(SECRET_RAW);
+const secret = legacyJwtSecret();
 
 async function getSession(): Promise<UserSession | null> {
   try {

@@ -3,10 +3,10 @@ import { NextResponse } from "next/server";
 import { SignJWT } from "jose";
 import { base, TABLES } from "../../../../lib/airtable";
 import type { UserSession } from "../../../../lib/presupuestos/types";
+import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 
 const COOKIE = "fyllio_presupuestos_token";
-const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
-const secret = new TextEncoder().encode(SECRET_RAW);
+const secret = legacyJwtSecret();
 
 // Demo fallback si la tabla no existe
 const DEMO_USERS: Array<UserSession & { password: string }> = [

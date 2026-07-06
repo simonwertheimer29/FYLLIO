@@ -14,13 +14,13 @@ import {
   ZONE,
   MULTI_SESSION_TREATMENTS,
 } from "../../../lib/no-shows/score";
+import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 const COOKIE = "fyllio_noshows_token";
-const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
-const secret = new TextEncoder().encode(SECRET_RAW);
+const secret = legacyJwtSecret();
 
 const AVG_TICKET = 85;
 
