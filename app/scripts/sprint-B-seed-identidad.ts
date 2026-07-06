@@ -178,7 +178,7 @@ async function main() {
   if (!process.env.AIRTABLE_BASE_CENTRAL) {
     throw new Error("Falta AIRTABLE_BASE_CENTRAL en el entorno (base Identidad).");
   }
-  console.log("Seed Identidad → base central:", process.env.AIRTABLE_BASE_CENTRAL);
+  console.log("Seed Identidad → base central configurada ✓");
   const clinicaIds = await upsertClinicas();
   console.log(`✓ Clínicas: ${clinicaIds.size} (upsert por Nombre)`);
   const usuarioIds = await upsertUsuarios();
