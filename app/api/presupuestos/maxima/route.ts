@@ -2,13 +2,10 @@
 // GET — devuelve TODOS los presupuestos (último año) para Vista Máxima
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 import type {
-  UserSession,
   PresupuestoMaxima,
   MaximaResponse,
   EstadoVisual,
@@ -19,25 +16,11 @@ import type {
   PresupuestoEstado,
   UrgenciaBidireccional,
 } from "../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
 export const dynamic = "force-dynamic";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
 const ZONE = "Europe/Madrid";
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
 
 function daysSince(iso: string): number {
   const today = DateTime.now().setZone(ZONE).startOf("day");
@@ -225,12 +208,7 @@ function computeUrgenciaBidireccional(p: {
 // GET /api/presupuestos/maxima
 // -------------------------------------------------------------------
 
-export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
+export const GET = withPresupuestosAuth(async (session, req: Request) => {
   if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
     return NextResponse.json({
       presupuestos: [],
@@ -455,4 +433,4 @@ export async function GET(req: Request) {
       error: "Error al cargar vista máxima",
     });
   }
-}
+});

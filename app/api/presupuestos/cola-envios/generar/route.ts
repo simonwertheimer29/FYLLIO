@@ -3,21 +3,16 @@
 // Two-pass: collect candidates → sort by priority → limit 30/clinic → generate content
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../../lib/airtable";
 import { DateTime } from "luxon";
 import type {
-  UserSession,
   PlantillaMensaje,
   ConfigRecordatorios,
   TipoPlantilla,
   TipoEnvio,
 } from "../../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
 const ZONE = "Europe/Madrid";
 
 const MAX_ENVIOS_POR_CLINICA_DIA = 30;
@@ -38,18 +33,6 @@ const CONFIG_DEFAULTS: Omit<ConfigRecordatorios, "clinica"> = {
   diasRechazoAuto: 30,
   activa: true,
 };
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -159,10 +142,7 @@ type EnvioCandidate = {
 
 // ─── POST — generar cola del día ──────────────────────────────────────────────
 
-export async function POST() {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const POST = withPresupuestosAuth(async (session) => {
   const today = DateTime.now().setZone(ZONE);
   const todayStr = today.toISODate()!;
 
@@ -446,4 +426,4 @@ export async function POST() {
     console.error("[cola-envios/generar] Error:", err);
     return NextResponse.json({ error: "Error al generar cola" }, { status: 500 });
   }
-}
+});
