@@ -6,9 +6,9 @@
 
 import { redirect } from "next/navigation";
 import { getSession } from "../../lib/auth/session";
-import { listClinicaIdsForUser, listClinicas } from "../../lib/auth/users";
 import { listLeads, type Lead } from "../../lib/leads/leads";
 import { runWithCliente } from "../../lib/airtable";
+import { clinicasNegocioAccesibles, negocioIdToCentralId } from "../../lib/clinicas-negocio";
 import type { UserSession } from "../../lib/presupuestos/types";
 import { ActuarHoyView } from "./ActuarHoyView";
 
@@ -40,20 +40,18 @@ export default async function ActuarHoyPage() {
   const s = await getSession();
   if (!s) redirect("/login");
 
-  // Sprint B — listLeads llama a base(); fijar el contexto de cliente o revienta.
-  const { allClinicas, leads } = await runWithCliente(s.cliente, async () => {
-    const [allClinicas, allowed] = await Promise.all([
-      listClinicas({ onlyActivas: true }),
-      s.rol === "admin" ? Promise.resolve(null) : listClinicaIdsForUser(s.userId),
-    ]);
-    const leads = await listLeads({ clinicaIds: allowed ?? undefined });
-    return { allClinicas, leads };
+  // Sprint B — listLeads llama a base(); fijar el contexto de cliente. Filtramos
+  // por IDs de clínica de NEGOCIO y remapeamos a IDs centrales (por nombre) para
+  // que el filtro cliente-side por ClinicContext coincida.
+  const leadsConClinica: Lead[] = await runWithCliente(s.cliente, async () => {
+    const scope = await clinicasNegocioAccesibles(s);
+    const leads = await listLeads({ clinicaIds: scope.ids ?? undefined });
+    return leads.map((l) => ({
+      ...l,
+      clinicaId: negocioIdToCentralId(scope, l.clinicaId),
+      clinicaNombre: l.clinicaId ? scope.nombreById.get(l.clinicaId) ?? undefined : undefined,
+    }));
   });
-  const clinicaById = new Map(allClinicas.map((c) => [c.id, c.nombre]));
-  const leadsConClinica: Lead[] = leads.map((l) => ({
-    ...l,
-    clinicaNombre: l.clinicaId ? clinicaById.get(l.clinicaId) ?? undefined : undefined,
-  }));
   const leadsAccionables = pickLeadsActuarHoy(leadsConClinica);
 
   const user: UserSession = {

@@ -3,13 +3,10 @@
 
 import { redirect } from "next/navigation";
 import { getSession } from "../../lib/auth/session";
-import {
-  listClinicas,
-  listClinicaIdsForUser,
-  listUsuarios,
-} from "../../lib/auth/users";
+import { listClinicas } from "../../lib/auth/users";
 import { listPacientes } from "../../lib/pacientes/pacientes";
 import { base, TABLES, fetchAll, runWithCliente } from "../../lib/airtable";
+import { clinicasNegocioAccesibles, negocioIdToCentralId } from "../../lib/clinicas-negocio";
 import { PacientesView } from "./PacientesView";
 
 export const dynamic = "force-dynamic";
@@ -32,31 +29,35 @@ export default async function PacientesPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  // Sprint B — el render de esta página llama a base() (Staff, Pacientes); hay que
-  // fijar el contexto de cliente o base() revienta (fail-closed).
-  const { allClinicas, doctores, pacientes } = await runWithCliente(
-    session.cliente,
-    async () => {
-      const [allClinicas, allowed, doctores] = await Promise.all([
-        listClinicas({ onlyActivas: true }),
-        session.rol === "admin" ? Promise.resolve(null) : listClinicaIdsForUser(session.userId),
-        listDoctores(),
-      ]);
-      const pacientes = await listPacientes({
-        clinicaIds: allowed === null ? undefined : allowed,
-      });
-      return { allClinicas, doctores, pacientes };
-    },
-  );
-
-  // Enriquecer con nombres
-  const clinicaById = new Map(allClinicas.map((c) => [c.id, c.nombre]));
-  const doctorById = new Map(doctores.map((d) => [d.id, d.nombre]));
-  const withNames = pacientes.map((p) => ({
-    ...p,
-    clinicaNombre: p.clinicaId ? clinicaById.get(p.clinicaId) ?? null : null,
-    doctorNombre: p.doctorLinkId ? doctorById.get(p.doctorLinkId) ?? null : null,
-  }));
+  // Sprint B — el render llama a base() (Staff, Pacientes); fijar el contexto de
+  // cliente. Los pacientes se filtran por IDs de clínica de NEGOCIO (los que
+  // referencian sus enlaces), y luego se remapea cada clinicaId al ID CENTRAL
+  // (por nombre) para que el filtro cliente-side por ClinicContext (IDs centrales)
+  // coincida. Sin esto, el coord veía la tabla vacía (IDs de bases distintas).
+  const { allClinicas, doctores, withNames } = await runWithCliente(session.cliente, async () => {
+    const [allClinicas, scope, doctores] = await Promise.all([
+      listClinicas({ onlyActivas: true, cliente: session.cliente }),
+      clinicasNegocioAccesibles(session),
+      listDoctores(),
+    ]);
+    const pacientes = await listPacientes({
+      clinicaIds: scope.ids === null ? undefined : scope.ids,
+    });
+    const doctorById = new Map(doctores.map((d) => [d.id, d.nombre]));
+    const withNames = pacientes.map((p) => ({
+      ...p,
+      clinicaId: negocioIdToCentralId(scope, p.clinicaId),
+      clinicaNombre: p.clinicaId ? scope.nombreById.get(p.clinicaId) ?? null : null,
+      doctorNombre: p.doctorLinkId ? doctorById.get(p.doctorLinkId) ?? null : null,
+    }));
+    // Doctores: remapear su clinicaId (negocio) a central para que la vista los
+    // cruce con los pacientes (ya en IDs centrales).
+    const doctoresCentral = doctores.map((d) => ({
+      ...d,
+      clinicaId: negocioIdToCentralId(scope, d.clinicaId),
+    }));
+    return { allClinicas, doctores: doctoresCentral, withNames };
+  });
 
   return (
     <PacientesView

@@ -4,9 +4,10 @@
 
 import { redirect } from "next/navigation";
 import { getSession } from "../../lib/auth/session";
-import { listClinicas, listClinicaIdsForUser } from "../../lib/auth/users";
+import { listClinicas } from "../../lib/auth/users";
 import { listLeads } from "../../lib/leads/leads";
 import { base, TABLES, fetchAll, runWithCliente } from "../../lib/airtable";
+import { clinicasNegocioAccesibles, negocioIdToCentralId } from "../../lib/clinicas-negocio";
 import { LeadsView } from "./LeadsView";
 
 export const dynamic = "force-dynamic";
@@ -30,24 +31,32 @@ export default async function LeadsPage() {
   if (!session) redirect("/login");
 
   // Sprint B — el render llama a base() (Staff, Leads); fijar el contexto de
-  // cliente o base() revienta (fail-closed).
-  const { allClinicas, doctores, leads } = await runWithCliente(session.cliente, async () => {
-    const [allClinicas, allowed, doctores] = await Promise.all([
-      listClinicas({ onlyActivas: true }),
-      session.rol === "admin" ? Promise.resolve(null) : listClinicaIdsForUser(session.userId),
-      listDoctores(),
-    ]);
-    const leads = await listLeads({
-      clinicaIds: allowed === null ? undefined : allowed,
-    });
-    return { allClinicas, doctores, leads };
-  });
-
-  const clinicaById = new Map(allClinicas.map((c) => [c.id, c.nombre]));
-  const leadsWithClinica = leads.map((l) => ({
-    ...l,
-    clinicaNombre: l.clinicaId ? clinicaById.get(l.clinicaId) ?? null : null,
-  }));
+  // cliente. Filtramos por IDs de clínica de NEGOCIO y remapeamos cada clinicaId
+  // al ID CENTRAL (por nombre) para que el filtro cliente-side por ClinicContext
+  // coincida. Sin esto, el coord veía la tabla de leads vacía.
+  const { allClinicas, doctores, leadsWithClinica } = await runWithCliente(
+    session.cliente,
+    async () => {
+      const [allClinicas, scope, doctores] = await Promise.all([
+        listClinicas({ onlyActivas: true, cliente: session.cliente }),
+        clinicasNegocioAccesibles(session),
+        listDoctores(),
+      ]);
+      const leads = await listLeads({
+        clinicaIds: scope.ids === null ? undefined : scope.ids,
+      });
+      const leadsWithClinica = leads.map((l) => ({
+        ...l,
+        clinicaId: negocioIdToCentralId(scope, l.clinicaId),
+        clinicaNombre: l.clinicaId ? scope.nombreById.get(l.clinicaId) ?? null : null,
+      }));
+      const doctoresCentral = doctores.map((d) => ({
+        ...d,
+        clinicaId: negocioIdToCentralId(scope, d.clinicaId),
+      }));
+      return { allClinicas, doctores: doctoresCentral, leadsWithClinica };
+    },
+  );
 
   return (
     <LeadsView

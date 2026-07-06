@@ -13,7 +13,7 @@ import { DateTime } from "luxon";
 import { baseCentral, base, TABLES, fetchAll } from "../airtable";
 import { listLeads } from "../leads/leads";
 import { listPacientes } from "../pacientes/pacientes";
-import { listClinicaIdsForUser } from "../auth/users";
+import { listClinicaIdsForUser, listClinicas } from "../auth/users";
 import { getOpcionEscalar } from "../configuraciones/configuraciones";
 import {
   getFacturadoEnPeriodo,
@@ -30,15 +30,34 @@ type CopilotEnv = {
   selectedClinicaId: string | null;
 };
 
+// Sprint B — devuelve IDs de clínica de la base de NEGOCIO (no de la central).
+// El usuario/UI trae IDs centrales (session.userId → junction central;
+// selectedClinicaId → id central del ClinicContext), pero los datos de negocio
+// (Leads, Pacientes, Pagos) referencian la clínica por su ID de NEGOCIO, que es
+// distinto (bases físicas separadas). Puenteamos por NOMBRE. Corre dentro de
+// runWithCliente. null = admin sin selección (sin restricción).
 async function clinicasAccesibles(env: CopilotEnv): Promise<string[] | null> {
+  let centralAllowed: string[] | null;
   if (env.session.rol === "admin") {
-    return env.selectedClinicaId ? [env.selectedClinicaId] : null;
+    centralAllowed = env.selectedClinicaId ? [env.selectedClinicaId] : null;
+  } else {
+    const allowed = await listClinicaIdsForUser(env.session.userId);
+    centralAllowed =
+      env.selectedClinicaId && allowed.includes(env.selectedClinicaId)
+        ? [env.selectedClinicaId]
+        : allowed;
   }
-  const allowed = await listClinicaIdsForUser(env.session.userId);
-  if (env.selectedClinicaId && allowed.includes(env.selectedClinicaId)) {
-    return [env.selectedClinicaId];
-  }
-  return allowed;
+  if (centralAllowed === null) return null;
+
+  const centralClinicas = await listClinicas({ cliente: env.session.cliente });
+  const nombreById = new Map(centralClinicas.map((c) => [c.id, c.nombre]));
+  const allowedNames = new Set(
+    centralAllowed.map((id) => nombreById.get(id)).filter((n): n is string => !!n),
+  );
+  const negocioRecs = await fetchAll(base(TABLES.clinics).select({ fields: ["Nombre"] }));
+  return negocioRecs
+    .filter((r) => allowedNames.has(String((r.fields as Record<string, unknown>)?.["Nombre"] ?? "")))
+    .map((r) => r.id);
 }
 
 function todayMadridISO(): string {

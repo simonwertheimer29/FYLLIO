@@ -33,7 +33,7 @@ import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 dotenv.config();
 
-import { runWithCliente, base, TABLES, type Cliente } from "../lib/airtable";
+import { runWithCliente, base, baseCentral, TABLES, fetchAll, type Cliente } from "../lib/airtable";
 
 const DRY = process.argv.includes("--dry");
 const CLEAN = process.argv.includes("--clean");
@@ -73,6 +73,46 @@ async function findClinicaRecId(nombre: string): Promise<string | null> {
     .select({ filterByFormula: `{Nombre}='${esc(nombre)}'`, maxRecords: 1 })
     .firstPage();
   return recs[0]?.id ?? null;
+}
+
+/**
+ * Puebla la tabla Clínicas de la base de NEGOCIO del cliente con TODAS sus
+ * clínicas (nombres desde la base central), para que Pacientes/Citas/Leads
+ * puedan enlazar su clínica y el filtro por clínica del coord funcione. Corre
+ * dentro de runWithCliente(cliente). Idempotente (upsert por Nombre). Escribe
+ * solo el campo Nombre (el enlace solo necesita que el registro exista).
+ */
+async function ensureClinicasNegocio(cliente: Cliente): Promise<void> {
+  const centralRecs = await fetchAll(
+    baseCentral(TABLES.clinics).select({
+      filterByFormula: `{Cliente}='${cliente}'`,
+      fields: ["Nombre"],
+    }),
+  );
+  const centralNombres = centralRecs
+    .map((r) => String((r.fields as any)?.["Nombre"] ?? ""))
+    .filter(Boolean);
+
+  const negocioRecs = await fetchAll(base(TABLES.clinics).select({ fields: ["Nombre"] }));
+  const negocioNombres = new Set(
+    negocioRecs.map((r) => String((r.fields as any)?.["Nombre"] ?? "")),
+  );
+
+  const faltan = centralNombres.filter((n) => !negocioNombres.has(n));
+  if (faltan.length === 0) {
+    console.log(`   clínicas de negocio: ${centralNombres.length} ya presentes (idempotente)`);
+    return;
+  }
+  if (DRY) {
+    console.log(`   [dry] crearía ${faltan.length} clínicas de negocio: ${faltan.join(", ")}`);
+    return;
+  }
+  for (let i = 0; i < faltan.length; i += 10) {
+    await (base(TABLES.clinics) as any).create(
+      faltan.slice(i, i + 10).map((nombre) => ({ fields: { Nombre: nombre } })),
+    );
+  }
+  console.log(`   + creadas ${faltan.length} clínicas de negocio: ${faltan.join(", ")}`);
 }
 
 async function findPresupuestoBySeedId(seedId: string): Promise<string | null> {
@@ -167,6 +207,9 @@ async function cleanCliente(cliente: Cliente): Promise<void> {
 async function seedCliente(cliente: Cliente, rows: SeedRow[]): Promise<void> {
   console.log(`\n=== Base del cliente ${cliente} (${rows.length} filas de prueba) ===`);
   await runWithCliente(cliente, async () => {
+    // 1) Asegurar que las clínicas existen en la base de negocio (para el enlace).
+    await ensureClinicasNegocio(cliente);
+    // 2) Sembrar pacientes+presupuestos de prueba.
     const counts = { created: 0, skipped: 0, error: 0 };
     for (const row of rows) {
       try {
