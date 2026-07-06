@@ -9,7 +9,7 @@ import {
   listUsuarios,
 } from "../../lib/auth/users";
 import { listPacientes } from "../../lib/pacientes/pacientes";
-import { base, TABLES, fetchAll } from "../../lib/airtable";
+import { base, TABLES, fetchAll, runWithCliente } from "../../lib/airtable";
 import { PacientesView } from "./PacientesView";
 
 export const dynamic = "force-dynamic";
@@ -32,15 +32,22 @@ export default async function PacientesPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const [allClinicas, allowed, doctores] = await Promise.all([
-    listClinicas({ onlyActivas: true }),
-    session.rol === "admin" ? Promise.resolve(null) : listClinicaIdsForUser(session.userId),
-    listDoctores(),
-  ]);
-
-  const pacientes = await listPacientes({
-    clinicaIds: allowed === null ? undefined : allowed,
-  });
+  // Sprint B — el render de esta página llama a base() (Staff, Pacientes); hay que
+  // fijar el contexto de cliente o base() revienta (fail-closed).
+  const { allClinicas, doctores, pacientes } = await runWithCliente(
+    session.cliente,
+    async () => {
+      const [allClinicas, allowed, doctores] = await Promise.all([
+        listClinicas({ onlyActivas: true }),
+        session.rol === "admin" ? Promise.resolve(null) : listClinicaIdsForUser(session.userId),
+        listDoctores(),
+      ]);
+      const pacientes = await listPacientes({
+        clinicaIds: allowed === null ? undefined : allowed,
+      });
+      return { allClinicas, doctores, pacientes };
+    },
+  );
 
   // Enriquecer con nombres
   const clinicaById = new Map(allClinicas.map((c) => [c.id, c.nombre]));

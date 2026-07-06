@@ -6,7 +6,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "../../lib/auth/session";
 import { listClinicas, listClinicaIdsForUser } from "../../lib/auth/users";
 import { listLeads } from "../../lib/leads/leads";
-import { base, TABLES, fetchAll } from "../../lib/airtable";
+import { base, TABLES, fetchAll, runWithCliente } from "../../lib/airtable";
 import { LeadsView } from "./LeadsView";
 
 export const dynamic = "force-dynamic";
@@ -29,14 +29,18 @@ export default async function LeadsPage() {
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const [allClinicas, allowed, doctores] = await Promise.all([
-    listClinicas({ onlyActivas: true }),
-    session.rol === "admin" ? Promise.resolve(null) : listClinicaIdsForUser(session.userId),
-    listDoctores(),
-  ]);
-
-  const leads = await listLeads({
-    clinicaIds: allowed === null ? undefined : allowed,
+  // Sprint B — el render llama a base() (Staff, Leads); fijar el contexto de
+  // cliente o base() revienta (fail-closed).
+  const { allClinicas, doctores, leads } = await runWithCliente(session.cliente, async () => {
+    const [allClinicas, allowed, doctores] = await Promise.all([
+      listClinicas({ onlyActivas: true }),
+      session.rol === "admin" ? Promise.resolve(null) : listClinicaIdsForUser(session.userId),
+      listDoctores(),
+    ]);
+    const leads = await listLeads({
+      clinicaIds: allowed === null ? undefined : allowed,
+    });
+    return { allClinicas, doctores, leads };
   });
 
   const clinicaById = new Map(allClinicas.map((c) => [c.id, c.nombre]));

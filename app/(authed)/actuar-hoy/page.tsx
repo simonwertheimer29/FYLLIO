@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "../../lib/auth/session";
 import { listClinicaIdsForUser, listClinicas } from "../../lib/auth/users";
 import { listLeads, type Lead } from "../../lib/leads/leads";
+import { runWithCliente } from "../../lib/airtable";
 import type { UserSession } from "../../lib/presupuestos/types";
 import { ActuarHoyView } from "./ActuarHoyView";
 
@@ -39,12 +40,15 @@ export default async function ActuarHoyPage() {
   const s = await getSession();
   if (!s) redirect("/login");
 
-  const [allClinicas, allowed] = await Promise.all([
-    listClinicas({ onlyActivas: true }),
-    s.rol === "admin" ? Promise.resolve(null) : listClinicaIdsForUser(s.userId),
-  ]);
-
-  const leads = await listLeads({ clinicaIds: allowed ?? undefined });
+  // Sprint B — listLeads llama a base(); fijar el contexto de cliente o revienta.
+  const { allClinicas, leads } = await runWithCliente(s.cliente, async () => {
+    const [allClinicas, allowed] = await Promise.all([
+      listClinicas({ onlyActivas: true }),
+      s.rol === "admin" ? Promise.resolve(null) : listClinicaIdsForUser(s.userId),
+    ]);
+    const leads = await listLeads({ clinicaIds: allowed ?? undefined });
+    return { allClinicas, leads };
+  });
   const clinicaById = new Map(allClinicas.map((c) => [c.id, c.nombre]));
   const leadsConClinica: Lead[] = leads.map((l) => ({
     ...l,
