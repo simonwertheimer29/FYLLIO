@@ -1,8 +1,8 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import Script from "next/script";
-import { Toaster } from "sonner";
 import { Inter, Geist } from "next/font/google";
+import { AppToaster } from "./components/layout/AppToaster";
 
 // Sprint 12 A — tipografías:
 //  - Geist  → display (títulos, números KPI, headers).
@@ -38,6 +38,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       }}
     >
       <head>
+        {/* Sprint UI — aplica el tema guardado antes del primer paint
+            (evita el destello claro→oscuro). Por defecto: claro. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{if(localStorage.getItem("fyllio.theme")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}',
+          }}
+        />
         <Script
           defer
           data-domain="fyllio-theta.vercel.app"
@@ -45,9 +53,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
 
-      <body className="bg-white text-slate-900 overflow-x-hidden">
+      <body className="bg-[var(--color-background)] text-[var(--color-foreground)] overflow-x-hidden">
         {children}
-        <Toaster position="bottom-right" richColors closeButton duration={3000} />
+        <AppToaster />
       </body>
     </html>
   );

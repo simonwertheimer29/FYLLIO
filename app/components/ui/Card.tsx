@@ -41,7 +41,7 @@ export type CardProps = {
 };
 
 const BASE_CLASSES =
-  "bg-white border transition-[box-shadow,border-color] duration-150 ease-out";
+  "bg-[var(--color-surface)] border transition-[box-shadow,border-color] duration-150 ease-out";
 const BASE_STYLE = {
   borderColor: "var(--card-border)",
   boxShadow: "var(--card-shadow-rest)",

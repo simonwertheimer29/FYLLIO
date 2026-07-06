@@ -10,6 +10,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { ClinicSelector } from "./ClinicSelector";
+import { ThemeToggle } from "./ThemeToggle";
 
 type NavItem = { href: string; label: string };
 
@@ -67,13 +68,13 @@ export function GlobalHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-white">
+    <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-[var(--color-surface)]">
       {/* Fila 1: isotipo + selector + usuario */}
       <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-4 px-3 sm:px-6">
         {/* Sprint 12 B — isotipo Fyllio (solo icono) en todas las pantallas autenticadas. */}
         <Link
           href="/"
-          className="flex items-center select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 rounded-md"
+          className="flex items-center select-none rounded-md"
           aria-label="Fyllio · ir a inicio"
         >
           <Image
@@ -95,11 +96,12 @@ export function GlobalHeader() {
             <p className="font-display font-semibold text-[var(--color-foreground)] truncate max-w-[220px]">{session.nombre}</p>
             <p className="text-[var(--color-muted)]">{rolLabel}</p>
           </div>
+          <ThemeToggle />
           <button
             type="button"
             onClick={handleLogout}
             disabled={loggingOut}
-            className="rounded-md border border-[var(--color-border)] bg-white text-[var(--color-foreground)] font-medium px-3 py-1.5 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+            className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] font-medium px-3 py-1.5 hover:bg-[var(--color-surface-muted)] disabled:opacity-50 transition-colors"
           >
             {loggingOut ? "Saliendo…" : "Salir"}
           </button>
@@ -107,7 +109,7 @@ export function GlobalHeader() {
       </div>
 
       {/* Fila 2: navbar top-level — Sprint 12 H.1 tipografia display + pill sky */}
-      <nav className="border-t border-[var(--color-border)] bg-white">
+      <nav className="border-t border-[var(--color-border)] bg-[var(--color-surface)]">
         <div className="mx-auto max-w-[1400px] px-3 sm:px-6 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <ul className="flex items-center gap-1 h-11 whitespace-nowrap">
             {items.map((item) => {
@@ -118,8 +120,8 @@ export function GlobalHeader() {
                     href={item.href}
                     className={`font-display inline-flex items-center h-8 px-3 rounded-full text-[13px] font-medium transition-colors ${
                       active
-                        ? "bg-sky-50 text-sky-700"
-                        : "text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-slate-50"
+                        ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
+                        : "text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
                     }`}
                   >
                     {item.label}

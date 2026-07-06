@@ -4,10 +4,21 @@
 @reference "tailwindcss";
 
 /* ════════════════════════════════════════════════════════════════════
-   Sprint 12 A — DESIGN TOKENS (Tailwind v4 @theme)
-   Define colores, spacings, radius y shadows centralizados que sustituyen
-   todos los valores hardcodeados antiguos. La paleta sigue la filosofía
-   "calma con momentos de energía" de Linear/Vercel/Cal.com/Attio.
+   Sprint UI — DESIGN TOKENS (Tailwind v4 @theme)
+   Fuente única de color/tipografía/radios para claro Y oscuro.
+   Estética Linear: bordes sutiles, grises calibrados, un solo acento
+   ("azul clínico" #3D6FB2). Nada de colores hardcodeados fuera de aquí.
+
+   Cómo funciona el tema: @theme define los valores del tema claro y
+   genera las utilidades (bg-background, text-accent, border-border…).
+   El bloque [data-theme="dark"] de más abajo sobreescribe las mismas
+   variables, así todas las utilidades y var(--color-*) flipan solas.
+
+   Escala tipográfica del sprint (referencia para todos los módulos):
+   - Número KPI: 36px Geist bold, tabular-nums
+   - H1 página: 20px Geist semibold · H2 sección/card: 16px Geist semibold
+   - Cuerpo/tablas/botones: 14px Inter (500 para énfasis)
+   - Secundario: 13px Inter · Labels: 11px uppercase tracking amplio
 ════════════════════════════════════════════════════════════════════ */
 
 @theme {
@@ -19,11 +30,28 @@
   --font-display:
     var(--font-display), "Geist", ui-sans-serif, system-ui, sans-serif;
 
-  /* Neutros marca Fyllio — sustituyen slate/gray legacy. */
-  --color-background: #fafbfc;
-  --color-foreground: #0a0e1a;
-  --color-muted: #5a6478;
-  --color-border: #e5e8ee;
+  /* Neutros — tema claro */
+  --color-background: #fafbfc;      /* Papel: fondo general */
+  --color-surface: #ffffff;         /* superficies: cards, header, drawers */
+  --color-surface-muted: #f4f6f9;   /* cabeceras de tabla, hovers sutiles */
+  --color-foreground: #101623;      /* Tinta: texto principal */
+  --color-muted: #5a6478;           /* Tinta suave: texto secundario */
+  --color-border: #e5e8ee;          /* Trazo: bordes y divisores */
+
+  /* Acento único — azul clínico (decisión A del SPRINT-UI-PLAN) */
+  --color-accent: #3d6fb2;          /* botones, links, tabs activos, foco */
+  --color-accent-hover: #33619f;
+  --color-accent-soft: #edf3fa;     /* Azul bruma: fondos de acento */
+  --color-accent-strong: #5b8bc9;   /* extremo de degradado IA */
+  --color-on-accent: #ffffff;       /* texto sobre fondo acento */
+
+  /* Semánticos (un solo vocabulario: esmeralda/ámbar/rosa) */
+  --color-success: #059669;
+  --color-success-soft: #ecfdf5;
+  --color-warning: #b45309;
+  --color-warning-soft: #fffbeb;
+  --color-danger: #e11d48;
+  --color-danger-soft: #fff1f2;
 
   /* Radios — máximo 16px (xl). */
   --radius-sm: 6px;
@@ -32,26 +60,70 @@
   --radius-xl: 16px;
 }
 
+/* Variante dark: permite `dark:` puntual, aunque la norma es usar tokens. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
 /* ════════════════════════════════════════════════════════════════════
-   Sprint 13 Bloque 1 — Tokens del primitivo Card
-   `--color-border` se mantiene para divisores/inputs (#E5E8EE).
+   Tokens del primitivo Card + verde WhatsApp
+   `--color-border` se mantiene para divisores/inputs.
    `--card-*` aplica solo al primitivo Card y derivados (KpiCard, etc.).
-   Look "Linear premium": borde slate-100 fino + sombra suave reposo +
-   sombra hover ligeramente más amplia + transición de 150ms.
 ════════════════════════════════════════════════════════════════════ */
 
 :root {
-  --card-border: #f1f5f9;          /* slate-100 */
-  --card-border-hover: #bae6fd;    /* sky-200 */
+  color-scheme: light;
+
+  --card-border: #eef1f6;
+  --card-border-hover: #c9dbef;    /* tinte del acento, sustituye sky-200 */
   --card-shadow-rest: 0 1px 2px rgb(0 0 0 / 0.04);
   --card-shadow-hover: 0 2px 8px rgb(0 0 0 / 0.06);
   --card-radius: 12px;
 
   /* Verde WA formalizado (Sprint 13 decisión E). emerald-600 sólido para
-     botones primarios "Enviar WhatsApp"; emerald-50/700 sigue siendo
-     válido para tags/badges sutiles. */
+     botones primarios "Enviar WhatsApp"; el soft para tags/badges. */
   --fyllio-wa-green: #059669;
   --fyllio-wa-green-hover: #047857;
+
+  /* Shimmer del skeleton */
+  --skeleton-base: rgba(229, 232, 238, 0.6);
+  --skeleton-peak: rgba(229, 232, 238, 1);
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   TEMA OSCURO — mismas variables, valores nocturnos.
+   Se activa con <html data-theme="dark"> (toggle en el header,
+   preferencia recordada en localStorage). Por defecto: claro.
+════════════════════════════════════════════════════════════════════ */
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --color-background: #0e1116;      /* Noche */
+  --color-surface: #161a21;
+  --color-surface-muted: #1c212a;
+  --color-foreground: #e8ebf0;      /* Tinta clara */
+  --color-muted: #9aa3b2;
+  --color-border: #262c36;
+
+  --color-accent: #7ca9dc;          /* azul clínico aclarado (AA sobre noche) */
+  --color-accent-hover: #92b8e4;
+  --color-accent-soft: #1a2433;
+  --color-accent-strong: #9dc0e8;
+  --color-on-accent: #0e1116;       /* texto oscuro sobre botón azul claro */
+
+  --color-success: #34d399;
+  --color-success-soft: #0b2b22;
+  --color-warning: #fbbf24;
+  --color-warning-soft: #2d2310;
+  --color-danger: #fb7185;
+  --color-danger-soft: #331319;
+
+  --card-border: #20262f;
+  --card-border-hover: #33455c;
+  --card-shadow-rest: 0 1px 2px rgb(0 0 0 / 0.3);
+  --card-shadow-hover: 0 2px 8px rgb(0 0 0 / 0.4);
+
+  --skeleton-base: rgba(38, 44, 54, 0.6);
+  --skeleton-peak: rgba(48, 56, 68, 1);
 }
 
 /* Tabular nums por defecto en clases de número (KPIs, contadores). */
@@ -67,10 +139,17 @@
   .font-sans {
     font-family: var(--font-sans);
   }
+  /* Label de sistema: etiquetas KPI, cabeceras de tabla, eyebrows. */
+  .fyllio-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════════
-   Reset mínimo + scroll
+   Reset mínimo + scroll + foco accesible
 ════════════════════════════════════════════════════════════════════ */
 
 html,
@@ -91,10 +170,14 @@ body {
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
 }
 
+/* Foco de teclado visible y consistente en toda la app (WCAG). */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
 /* ════════════════════════════════════════════════════════════════════
-   FAB Copilot — pulse suave cada 60s (Sprint 12 D)
-   Brief: "intervalo más largo (60s en vez de 30s) y muy sutil
-   (opacidad subiendo 5%, sin movimiento físico)".
+   FAB Copilot — pulse suave cada 60s (Sprint 12 D), ahora en acento azul.
 ════════════════════════════════════════════════════════════════════ */
 
 @keyframes copilotPulse {
@@ -102,19 +185,19 @@ body {
      y el resto en reposo, así el "latido" se percibe cada minuto sin
      ser distractivo. */
   0% {
-    box-shadow: 0 10px 25px -10px rgba(124, 58, 237, 0.5);
+    box-shadow: 0 10px 25px -10px color-mix(in srgb, var(--color-accent) 50%, transparent);
   }
   1% {
-    box-shadow: 0 10px 25px -10px rgba(124, 58, 237, 0.5);
+    box-shadow: 0 10px 25px -10px color-mix(in srgb, var(--color-accent) 50%, transparent);
   }
   2% {
-    box-shadow: 0 12px 30px -8px rgba(124, 58, 237, 0.62);
+    box-shadow: 0 12px 30px -8px color-mix(in srgb, var(--color-accent) 62%, transparent);
   }
   4% {
-    box-shadow: 0 10px 25px -10px rgba(124, 58, 237, 0.5);
+    box-shadow: 0 10px 25px -10px color-mix(in srgb, var(--color-accent) 50%, transparent);
   }
   100% {
-    box-shadow: 0 10px 25px -10px rgba(124, 58, 237, 0.5);
+    box-shadow: 0 10px 25px -10px color-mix(in srgb, var(--color-accent) 50%, transparent);
   }
 }
 
@@ -153,9 +236,9 @@ body {
 .fyllio-skeleton {
   background: linear-gradient(
     90deg,
-    rgba(229, 232, 238, 0.6) 25%,
-    rgba(229, 232, 238, 1) 50%,
-    rgba(229, 232, 238, 0.6) 75%
+    var(--skeleton-base) 25%,
+    var(--skeleton-peak) 50%,
+    var(--skeleton-base) 75%
   );
   background-size: 200% 100%;
   animation: fyllioShimmer 1.4s ease infinite;
@@ -181,10 +264,29 @@ body {
   animation: fyllioCheckPop 320ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
+/* Accesibilidad: sin animaciones para quien las desactiva en su sistema. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .fyllio-copilot-fab,
+  .fyllio-fade-in,
+  .fyllio-skeleton,
+  .fyllio-check-pop,
+  .animate-gradient,
+  .animate-fadeIn {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* ════════════════════════════════════════════════════════════════════
    Legacy — utilidades antiguas que aún consume la landing /
-   /demo / /early-access (no rediseñadas en Sprint 12). Marcadas para
-   posible borrado en Sprint 13 si grep confirma cero uso autenticado.
+   /demo / /early-access (fuera del alcance del sprint UI).
 ════════════════════════════════════════════════════════════════════ */
 
 .fyllio-text-gradient {
