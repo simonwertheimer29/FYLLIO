@@ -22,6 +22,7 @@ import {
 import { getServicioMensajeria } from "../../../lib/presupuestos/mensajeria";
 import { clasificarRespuesta, guardarClasificacion } from "../../../lib/presupuestos/intervencion";
 import { crearNotificacion } from "../../../lib/presupuestos/notificaciones";
+import { isDuplicateMessage } from "../../../lib/scheduler/idempotency";
 import type { PresupuestoEstado } from "../../../lib/presupuestos/types";
 
 export const dynamic = "force-dynamic";
@@ -168,13 +169,12 @@ async function processIncomingMessage(body: unknown): Promise<void> {
   const telefono = normalizarTelefono(telefonoRaw);
   if (!telefono) return;
 
-  // Deduplicación por WABA_message_id (Meta reintenta si no responde <20s)
-  const dupeQuery = base(TABLES.mensajesWhatsApp as any).select({
-    filterByFormula: `{WABA_message_id}='${msg.id}'`,
-    maxRecords: 1,
-  });
-  const existing = await fetchAll(dupeQuery);
-  if (existing.length > 0) {
+  // Deduplicación atómica por WABA_message_id vía KV (P0.7). Meta reentrega el
+  // mismo mensaje si no recibió el 200 a tiempo. El anterior "consultar-y-crear"
+  // contra Airtable era race-prone: dos entregas concurrentes leían ambas "no
+  // existe" y creaban duplicado (+ doble clasificación IA + doble notificación).
+  // isDuplicateMessage marca-y-comprueba en KV (24h TTL) en un solo paso.
+  if (await isDuplicateMessage(msg.id)) {
     console.log(`[waba webhook] message ${msg.id} already processed, skipping`);
     return;
   }

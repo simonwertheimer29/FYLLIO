@@ -14,6 +14,7 @@ import type {
 } from "./types";
 import { getWABACredentials, normalizarTelefono } from "./waba-credentials";
 import { checkRateLimit } from "./rate-limit";
+import { getIdempotentResult, setIdempotentResult } from "../scheduler/idempotency";
 
 const ZONE = "Europe/Madrid";
 const GRAPH_API_VERSION = "v21.0";
@@ -29,6 +30,9 @@ export interface EnviarMensajeParams {
   telefono: string;
   contenido: string;
   fuente?: FuenteMensaje;
+  /** P0.7: clave de idempotencia. Si se reintenta un envío con la misma clave,
+   *  no se reenvía a Meta; se devuelve el resultado previo. */
+  idempotencyKey?: string;
 }
 
 export interface EnviarMensajeResult {
@@ -69,6 +73,8 @@ export interface EnviarPlantillaParams {
   componentes?: unknown[];
   presupuestoId?: string;
   pacienteId?: string;
+  /** P0.7: clave de idempotencia (ver EnviarMensajeParams). */
+  idempotencyKey?: string;
 }
 
 export interface ServicioMensajeria {
@@ -212,6 +218,13 @@ class ServicioMensajeriaManual implements ServicioMensajeria {
 
 class ServicioMensajeriaWABA implements ServicioMensajeria {
   async enviarMensaje(params: EnviarMensajeParams): Promise<EnviarMensajeResult> {
+    // P0.7: idempotencia. Si ya enviamos para esta clave, devolvemos el resultado
+    // previo SIN reenviar a Meta (evita doble envío si el caller reintenta).
+    if (params.idempotencyKey) {
+      const cached = await getIdempotentResult<EnviarMensajeResult>(params.idempotencyKey);
+      if (cached) return cached;
+    }
+
     // Rate limit antes de llamar Graph (evita saturar cuota de Meta)
     const rl = await checkRateLimit();
     if (!rl.allowed) {
@@ -242,12 +255,21 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
     );
 
     if (!res.ok) {
-      // NUNCA propagar token ni body completo en el error
+      // No se envió → propagamos el error; el caller puede reintentar sin duplicar.
+      // NUNCA propagar token ni body completo en el error.
       throw new Error(`WABA send failed: HTTP ${res.status}`);
     }
 
     const data = (await res.json()) as { messages?: Array<{ id: string }> };
     const wabaMessageId = data.messages?.[0]?.id;
+
+    // A partir de aquí el mensaje YA salió a Meta. Ningún fallo posterior debe
+    // propagarse: un throw haría que el caller reintente = DOBLE envío. Marcamos
+    // la idempotencia primero y persistimos best-effort.
+    const result: EnviarMensajeResult = { ok: true, mensajeId: "", wabaMessageId };
+    if (params.idempotencyKey) {
+      await setIdempotentResult(params.idempotencyKey, result).catch(() => {});
+    }
 
     const now = DateTime.now().setZone(ZONE).toISO() ?? new Date().toISOString();
     const fields: Record<string, unknown> = {
@@ -263,16 +285,25 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
     if (params.leadId) fields.Lead_Link = [params.leadId];
     if (wabaMessageId) fields.WABA_message_id = wabaMessageId;
 
-    const record = await base(TABLES.mensajesWhatsApp as any).create(fields as any) as any;
+    try {
+      const record = await base(TABLES.mensajesWhatsApp as any).create(fields as any) as any;
+      result.mensajeId = record.id as string;
+      if (params.idempotencyKey) {
+        await setIdempotentResult(params.idempotencyKey, result).catch(() => {});
+      }
+    } catch (persistErr) {
+      // El mensaje se envió pero no se pudo registrar en Airtable. Lo logueamos
+      // (para reconciliación) pero NO lanzamos: evitar el doble envío es prioritario.
+      console.error(
+        "[waba] mensaje enviado pero fallo al registrar en Airtable:",
+        persistErr instanceof Error ? persistErr.message : persistErr,
+      );
+    }
 
     const clinica = await getClinicaForMensaje(params);
     actualizarTelemetriaWABA(clinica, "Ultimo_mensaje_enviado").catch(() => {});
 
-    return {
-      ok: true,
-      mensajeId: record.id as string,
-      wabaMessageId,
-    };
+    return result;
   }
 
   async recibirMensaje(params: RecibirMensajeParams): Promise<RecibirMensajeResult> {
@@ -311,6 +342,12 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
    * mensaje del paciente tiene más de 24h.
    */
   async enviarPlantilla(params: EnviarPlantillaParams): Promise<EnviarMensajeResult> {
+    // P0.7: idempotencia (misma semántica que enviarMensaje).
+    if (params.idempotencyKey) {
+      const cached = await getIdempotentResult<EnviarMensajeResult>(params.idempotencyKey);
+      if (cached) return cached;
+    }
+
     const rl = await checkRateLimit();
     if (!rl.allowed) {
       const err = new Error("WABA rate limit exceeded");
@@ -350,6 +387,12 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
     const data = (await res.json()) as { messages?: Array<{ id: string }> };
     const wabaMessageId = data.messages?.[0]?.id;
 
+    // Plantilla YA enviada: fallo posterior no debe propagarse (evitar doble envío).
+    const result: EnviarMensajeResult = { ok: true, mensajeId: "", wabaMessageId };
+    if (params.idempotencyKey) {
+      await setIdempotentResult(params.idempotencyKey, result).catch(() => {});
+    }
+
     const now = DateTime.now().setZone(ZONE).toISO() ?? new Date().toISOString();
     const fields: Record<string, unknown> = {
       Paciente: params.pacienteId ?? "",
@@ -363,12 +406,23 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
     };
     if (wabaMessageId) fields.WABA_message_id = wabaMessageId;
 
-    const record = await base(TABLES.mensajesWhatsApp as any).create(fields as any) as any;
+    try {
+      const record = await base(TABLES.mensajesWhatsApp as any).create(fields as any) as any;
+      result.mensajeId = record.id as string;
+      if (params.idempotencyKey) {
+        await setIdempotentResult(params.idempotencyKey, result).catch(() => {});
+      }
+    } catch (persistErr) {
+      console.error(
+        "[waba] plantilla enviada pero fallo al registrar en Airtable:",
+        persistErr instanceof Error ? persistErr.message : persistErr,
+      );
+    }
 
     const clinica = await getClinicaForMensaje(params);
     actualizarTelemetriaWABA(clinica, "Ultimo_mensaje_enviado").catch(() => {});
 
-    return { ok: true, mensajeId: record.id as string, wabaMessageId };
+    return result;
   }
 }
 

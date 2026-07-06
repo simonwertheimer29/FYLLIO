@@ -3,6 +3,7 @@
 // Auth JWT igual que el resto del módulo presupuestos.
 
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { getServicioMensajeria } from "../../../../lib/presupuestos/mensajeria";
@@ -41,12 +42,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Faltan telefono o contenido" }, { status: 400 });
   }
 
+  // P0.7: clave de idempotencia estable por (presupuesto|telefono + contenido).
+  const idempotencyKey = `wa-out:presup:${presupuestoId ?? telefono}:${crypto
+    .createHash("sha256")
+    .update(contenido)
+    .digest("hex")
+    .slice(0, 16)}`;
+
   try {
     const servicio = getServicioMensajeria("waba");
     const result = await servicio.enviarMensaje({
       presupuestoId,
       telefono,
       contenido,
+      idempotencyKey,
     });
     return NextResponse.json({
       ok: true,
