@@ -44,11 +44,13 @@ function mapRolNoShows(rol: Session["rol"]): LegacyRolNoShows {
 
 export async function emitLegacyCookies(res: NextResponse, session: Session): Promise<void> {
   // Presupuestos (UserSession): email, nombre, rol, clinica (nombre o null).
+  // Sprint B — incluimos `cliente` para que las rutas legacy resuelvan su base.
   const presupuestosPayload = {
     email: "",
     nombre: session.nombre,
     rol: mapRolPresupuestos(session.rol),
     clinica: null as string | null,
+    cliente: session.cliente,
   };
   const presupuestosToken = await new SignJWT({ ...presupuestosPayload })
     .setProtectedHeader({ alg: "HS256" })
@@ -63,6 +65,7 @@ export async function emitLegacyCookies(res: NextResponse, session: Session): Pr
     nombre: session.nombre,
     rol: mapRolNoShows(session.rol),
     clinica: null as string | null,
+    cliente: session.cliente,
   };
   const noshowsToken = await new SignJWT({ ...noshowsPayload })
     .setProtectedHeader({ alg: "HS256" })

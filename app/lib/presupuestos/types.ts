@@ -105,6 +105,10 @@ export type UserSession = {
   nombre: string;
   rol: "manager_general" | "encargada_ventas" | "admin" | "ventas";
   clinica: string | null;
+  /** Sprint B — cliente legal (RB | INDEP). Determina la base de negocio.
+   *  Union inline (no importamos el tipo de airtable aquí porque types.ts lo
+   *  consumen componentes cliente). null = sesión legacy pre-Sprint B. */
+  cliente?: "RB" | "INDEP" | null;
 };
 
 // KPI types
