@@ -5,7 +5,8 @@
 
 import { NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
-import { base, TABLES } from "../../../../lib/airtable";
+import { base, TABLES, runWithCliente } from "../../../../lib/airtable";
+import { PILOT_CLIENTE } from "../../../../lib/multi-cliente-pendiente";
 import type { PortalData } from "../../../presupuestos/[id]/generar-portal/route";
 import { registrarAccion } from "../../../../lib/historial/registrar";
 
@@ -13,8 +14,17 @@ const KV_PREFIX = "portal:";
 
 export async function POST(
   req: Request,
-  { params }: { params: Promise<{ token: string }> }
+  ctx: { params: Promise<{ token: string }> }
 ) {
+  // MULTI_CLIENTE_PENDIENTE: hoy solo RB (único cliente vivo). Al entrar el 2º:
+  // guardar el cliente en el token (PortalData) al generarlo y leerlo aquí.
+  return runWithCliente(PILOT_CLIENTE, () => responderPortal(req, ctx));
+}
+
+async function responderPortal(
+  req: Request,
+  { params }: { params: Promise<{ token: string }> }
+): Promise<NextResponse> {
   const { token } = await params;
   if (!token) return NextResponse.json({ error: "Token requerido" }, { status: 400 });
 

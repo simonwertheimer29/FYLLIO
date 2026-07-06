@@ -22,7 +22,8 @@
 // 2026-05-07 hotfix).
 
 import { NextResponse } from "next/server";
-import { fetchAll, base, TABLES } from "../../../lib/airtable";
+import { fetchAll, base, TABLES, runWithCliente } from "../../../lib/airtable";
+import { PILOT_CLIENTE } from "../../../lib/multi-cliente-pendiente";
 import {
   evaluarRegla,
   evaluarReglasParaEvento,
@@ -51,7 +52,9 @@ function logErr(scope: string, err: unknown) {
 
 export async function GET(req: Request) {
   try {
-    return await handle(req);
+    // MULTI_CLIENTE_PENDIENTE: hoy el cron corre solo para RB (único cliente vivo).
+    // Al entrar el 2º cliente: iterar por cada cliente (runWithCliente por cada uno).
+    return await runWithCliente(PILOT_CLIENTE, () => handle(req));
   } catch (err) {
     // Safety net: cualquier excepción no capturada por safeTrigger acaba
     // aquí y devuelve JSON con detalle. Pre-fix devolvía 500 vacío.

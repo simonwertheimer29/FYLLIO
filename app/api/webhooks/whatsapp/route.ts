@@ -23,7 +23,26 @@ import { getServicioMensajeria } from "../../../lib/presupuestos/mensajeria";
 import { clasificarRespuesta, guardarClasificacion } from "../../../lib/presupuestos/intervencion";
 import { crearNotificacion } from "../../../lib/presupuestos/notificaciones";
 import { isDuplicateMessage } from "../../../lib/scheduler/idempotency";
+import { runWithCliente, currentCliente, type Cliente } from "../../../lib/airtable";
+import { PILOT_CLIENTE } from "../../../lib/multi-cliente-pendiente";
 import type { PresupuestoEstado } from "../../../lib/presupuestos/types";
+
+// Sprint B / MULTI_CLIENTE_PENDIENTE — resuelve el cliente por el número WABA que
+// recibe el mensaje. Mientras RB es el único cliente vivo: si el phone_number_id
+// coincide con el WABA configurado (RB) → PILOT_CLIENTE; cualquier otro número →
+// null (fail-closed, NO asume RB). Al entrar el 2º cliente: mapear su número.
+function resolveClienteFromWebhook(payload: unknown): Cliente | null {
+  const value = (payload as any)?.entry?.[0]?.changes?.[0]?.value;
+  const incomingPhoneNumberId = String(value?.metadata?.phone_number_id ?? "");
+  if (!incomingPhoneNumberId) return null;
+  let rbPhoneNumberId = "";
+  try {
+    rbPhoneNumberId = getWABACredentials().phoneNumberId;
+  } catch {
+    return null;
+  }
+  return incomingPhoneNumberId === rbPhoneNumberId ? PILOT_CLIENTE : null;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -87,14 +106,21 @@ export async function POST(req: Request) {
     return new NextResponse("Bad JSON", { status: 400 });
   }
 
-  // 6. Persistir el mensaje de forma SÍNCRONA antes de responder 200. En Vercel,
-  // el trabajo lanzado sin await tras la respuesta NO está garantizado, así que
-  // el patrón anterior (fire-and-forget) perdía mensajes si Airtable iba lento.
-  // La parte lenta (clasificación IA, hasta 10s) se difiere con after() dentro
-  // de processIncomingMessage. Si la persistencia crítica falla, devolvemos 500
-  // para que Meta reintente (el dedup por WABA_message_id cubre el reintento).
+  // 6. Resolver el cliente por el número WABA (fail-closed: número desconocido →
+  // ignoramos con 200 para que Meta no reintente algo que no es nuestro).
+  const cliente = resolveClienteFromWebhook(payload);
+  if (!cliente) {
+    console.warn("[waba webhook] phone_number_id no reconocido — ignorado (fail-closed)");
+    return NextResponse.json({ ok: true, ignored: true });
+  }
+
+  // 7. Persistir el mensaje de forma SÍNCRONA antes de responder 200, dentro del
+  // contexto del cliente (todas las llamadas a base() resuelven su base). En
+  // Vercel el trabajo sin await tras la respuesta no está garantizado; la parte
+  // lenta (clasificación IA) se difiere con after() dentro de processIncomingMessage
+  // (que re-establece el contexto). Si la persistencia falla, 500 → Meta reintenta.
   try {
-    await processIncomingMessage(payload);
+    await runWithCliente(cliente, () => processIncomingMessage(payload));
   } catch (err) {
     console.error("[waba webhook] processIncomingMessage error:", sanitizeError(err));
     return NextResponse.json({ error: "processing failed" }, { status: 500 });
@@ -247,7 +273,12 @@ async function processIncomingMessage(body: unknown): Promise<void> {
   // la tarjeta ya es visible en la cola aunque la IA tarde. after() mantiene viva
   // la función en Vercel hasta completarlo (a diferencia de un promise flotante).
   const infoParaClasificar = presupuestoInfo;
+  // after() corre tras la respuesta; re-establecemos el contexto de cliente
+  // capturado (puede no heredarse del AsyncLocalStorage post-respuesta).
+  const clienteParaAfter = currentCliente();
   after(async () => {
+    if (!clienteParaAfter) return;
+    await runWithCliente(clienteParaAfter, async () => {
     try {
       const clasificacion = await clasificarRespuesta({
         respuestaPaciente: contenido,
@@ -278,6 +309,7 @@ async function processIncomingMessage(body: unknown): Promise<void> {
     } catch (err) {
       console.error("[waba webhook] clasificación/notificación error:", sanitizeError(err));
     }
+    });
   });
 }
 

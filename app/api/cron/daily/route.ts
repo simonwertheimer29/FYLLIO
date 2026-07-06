@@ -9,7 +9,8 @@ import { DateTime } from "luxon";
 import { listAppointmentsByDay, completeAppointment } from "../../../lib/scheduler/repo/airtableRepo";
 import { sendWhatsAppMessage } from "../../../lib/whatsapp/send";
 import { kv } from "@vercel/kv";
-import { base, TABLES } from "../../../lib/airtable";
+import { base, TABLES, runWithCliente } from "../../../lib/airtable";
+import { PILOT_CLIENTE } from "../../../lib/multi-cliente-pendiente";
 
 export const dynamic = "force-dynamic";
 // P0.9: cap explícito de duración. El plan de Vercel lo limita (Hobby 60s /
@@ -52,7 +53,12 @@ export async function GET(req: Request) {
   if (secret && req.headers.get("x-cron-secret") !== secret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  // MULTI_CLIENTE_PENDIENTE: hoy el cron corre solo para RB (único cliente vivo).
+  // Al entrar el 2º cliente: iterar por cada cliente (runWithCliente por cada uno).
+  return runWithCliente(PILOT_CLIENTE, () => runDailyCron());
+}
 
+async function runDailyCron(): Promise<NextResponse> {
   const startMs = Date.now();
   const overBudget = () => Date.now() - startMs > MAX_WALL_MS;
   const truncated: string[] = [];

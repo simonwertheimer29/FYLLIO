@@ -20,7 +20,8 @@
 
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
-import { base, TABLES } from "../../../lib/airtable";
+import { base, TABLES, runWithCliente } from "../../../lib/airtable";
+import { PILOT_CLIENTE } from "../../../lib/multi-cliente-pendiente";
 import {
   getLlamadaPorVapiCallId,
   updateLlamada,
@@ -80,23 +81,27 @@ export async function POST(req: Request) {
   console.log("[webhooks/vapi] event", event.type);
 
   try {
-    switch (event.type) {
-      case "tool-calls":
-        await handleToolCalls(event);
-        break;
-      case "end-of-call-report":
-        await handleEndOfCall(event);
-        break;
-      case "status-update":
-        await handleStatusUpdate(event);
-        break;
-      case "speech-update":
-        // No persistimos transcript parcial — solo el final viene en
-        // end-of-call-report.
-        break;
-      default:
-        console.log("[webhooks/vapi] evento no manejado:", (event as any).type);
-    }
+    // MULTI_CLIENTE_PENDIENTE: hoy solo RB (único cliente vivo). Al entrar el 2º:
+    // guardar el cliente en la metadata de la llamada Vapi al iniciarla y leerlo aquí.
+    await runWithCliente(PILOT_CLIENTE, async () => {
+      switch (event.type) {
+        case "tool-calls":
+          await handleToolCalls(event);
+          break;
+        case "end-of-call-report":
+          await handleEndOfCall(event);
+          break;
+        case "status-update":
+          await handleStatusUpdate(event);
+          break;
+        case "speech-update":
+          // No persistimos transcript parcial — solo el final viene en
+          // end-of-call-report.
+          break;
+        default:
+          console.log("[webhooks/vapi] evento no manejado:", (event as any).type);
+      }
+    });
   } catch (err) {
     console.error("[webhooks/vapi] error procesando evento:", err);
     // Devolvemos 200 para que Vapi no reintente eternamente. El error
