@@ -54,12 +54,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "PIN incorrecto" }, { status: 401 });
     }
 
+    // Sprint B — el usuario debe tener cliente asignado (Usuarios.Cliente) para
+    // resolver su base de negocio. Sin él, fail-closed.
+    if (!matched.cliente) {
+      return NextResponse.json(
+        { error: "Usuario sin cliente asignado. Contacta con soporte." },
+        { status: 403 },
+      );
+    }
+
     recordSuccess(scope, ip);
 
     const token = await signSession(
       {
         userId: matched.id,
         rol: "coordinacion",
+        cliente: matched.cliente,
         clinicasAccesibles: [clinicaId],
         nombre: matched.nombre,
       },

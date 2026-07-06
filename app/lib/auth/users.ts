@@ -6,7 +6,7 @@
 // Sprint B — Usuarios, Clínicas y Usuario_Clinicas son IDENTIDAD/REGISTRO y viven
 // en la base CENTRAL. Todo este módulo usa baseCentral() (nunca base(), que es
 // para datos de negocio por cliente).
-import { baseCentral, TABLES, fetchAll } from "../airtable";
+import { baseCentral, TABLES, fetchAll, type Cliente } from "../airtable";
 
 export type Rol = "admin" | "coordinacion";
 
@@ -21,6 +21,9 @@ export type Usuario = {
   pinHash: string | null;
   /** 4 para coordinación, 6 para admin. null si aún no se ha migrado. */
   pinLength: 4 | 6 | null;
+  /** Sprint B — cliente legal al que pertenece el usuario (Usuarios.Cliente).
+   *  Determina la base de negocio. null si aún no se ha asignado. */
+  cliente: Cliente | null;
 };
 
 export type Clinica = {
@@ -45,6 +48,7 @@ function toUsuario(rec: any): Usuario {
     passwordHash: f["Password_hash"] ? String(f["Password_hash"]) : null,
     pinHash: f["Pin_hash"] ? String(f["Pin_hash"]) : null,
     pinLength,
+    cliente: f["Cliente"] === "RB" || f["Cliente"] === "INDEP" ? (f["Cliente"] as Cliente) : null,
   };
 }
 

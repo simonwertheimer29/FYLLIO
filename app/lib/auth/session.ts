@@ -7,6 +7,7 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { SignJWT, jwtVerify } from "jose";
+import { runWithCliente, type Cliente } from "../airtable";
 
 export const COOKIE_NAME = "fyllio_session";
 const COOKIE_MAX_AGE_SECONDS = 24 * 60 * 60; // 24h
@@ -15,6 +16,8 @@ const SLIDING_THRESHOLD_SECONDS = 4 * 60 * 60; // coordinación renueva cuando q
 export type Session = {
   userId: string;
   rol: "admin" | "coordinacion";
+  /** Sprint B — cliente legal del usuario; determina la base de negocio. */
+  cliente: Cliente;
   /** `["*"]` para admin, `[clinicaId]` para coordinación */
   clinicasAccesibles: string[];
   nombre: string;
@@ -22,7 +25,10 @@ export type Session = {
   exp: number;
 };
 
-export type SessionPayload = Pick<Session, "userId" | "rol" | "clinicasAccesibles" | "nombre">;
+export type SessionPayload = Pick<
+  Session,
+  "userId" | "rol" | "cliente" | "clinicasAccesibles" | "nombre"
+>;
 
 function secret(): Uint8Array {
   const raw = process.env.AUTH_SECRET;
@@ -96,9 +102,18 @@ export function withAuth<Ctx = unknown>(
     if (!session) {
       return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     }
-    const response = await handler(session, req, ctx);
-    await maybeSlideCookie(session, response);
-    return response;
+    // Sprint B — fail-closed: sin cliente en la sesión no se puede resolver la
+    // base de negocio (sesiones antiguas pre-Sprint B). Forzamos re-login.
+    if (!session.cliente) {
+      return NextResponse.json({ error: "unauthorized", reason: "no_cliente" }, { status: 401 });
+    }
+    // Fijamos el cliente en el contexto de la petición: todas las llamadas a
+    // base() dentro del handler resuelven la base del cliente correcto.
+    return runWithCliente(session.cliente, async () => {
+      const response = await handler(session, req, ctx);
+      await maybeSlideCookie(session, response);
+      return response;
+    });
   };
 }
 
@@ -123,6 +138,7 @@ async function maybeSlideCookie(session: Session, response: NextResponse): Promi
     {
       userId: session.userId,
       rol: session.rol,
+      cliente: session.cliente,
       clinicasAccesibles: session.clinicasAccesibles,
       nombre: session.nombre,
     },

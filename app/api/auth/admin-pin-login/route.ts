@@ -56,12 +56,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "PIN incorrecto" }, { status: 401 });
     }
 
+    // Sprint B — el admin pertenece a un cliente (Usuarios.Cliente) y su acceso
+    // "*" abarca las clínicas de ESE cliente. Sin cliente, fail-closed.
+    if (!matched.cliente) {
+      return NextResponse.json(
+        { error: "Usuario sin cliente asignado. Contacta con soporte." },
+        { status: 403 },
+      );
+    }
+
     recordSuccess(scope, ip);
 
     const token = await signSession(
       {
         userId: matched.id,
         rol: "admin",
+        cliente: matched.cliente,
         clinicasAccesibles: ["*"],
         nombre: matched.nombre,
       },
