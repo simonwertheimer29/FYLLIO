@@ -1,5 +1,6 @@
 // app/lib/airtable.ts
 import Airtable from "airtable";
+import { AsyncLocalStorage } from "node:async_hooks";
 
 export const TABLES = {
   waitlist: "Lista_de_espera",
@@ -64,24 +65,92 @@ export const TABLES = {
 
 type TableName = (typeof TABLES)[keyof typeof TABLES];
 
-let _base: Airtable.Base | null = null;
+// ============================================================================
+// Sprint B — Enrutado de base por cliente (aislamiento multi-cliente)
+// ============================================================================
+//
+// Modelo (decidido con el fundador):
+//   · Dos clientes legales = dos bases FÍSICAS distintas (RB, INDEP).
+//   · Identidad (Usuarios) = base CENTRAL, compartida.
+//   · `DEMO` = la base actual (AIRTABLE_BASE_ID), solo para demo/dev.
+//
+// `base(tabla)` accede a DATOS DE NEGOCIO y resuelve la base según el CLIENTE del
+// contexto de la petición (AsyncLocalStorage). FAIL-CLOSED: si no hay cliente en
+// contexto, LANZA — nunca cae a una base por defecto. Así es imposible leer/escribir
+// datos de negocio sin haber declarado explícitamente el cliente.
+//
+// `baseCentral(tabla)` accede a IDENTIDAD y siempre usa la base central.
 
-export function base(tableName: TableName) {
-  if (!_base) {
-    const baseId = process.env.AIRTABLE_BASE_ID;
-    const apiKey = process.env.AIRTABLE_API_KEY;
+export type Cliente = "RB" | "INDEP" | "DEMO";
 
-    if (!baseId || !apiKey) {
-      throw new Error(
-        `Missing Airtable env vars. AIRTABLE_BASE_ID=${!!baseId} AIRTABLE_API_KEY=${!!apiKey}`
-      );
-    }
+const clienteContext = new AsyncLocalStorage<Cliente>();
 
-    Airtable.configure({ apiKey });
-    _base = Airtable.base(baseId);
+/**
+ * Ejecuta `fn` con `cliente` fijado en el contexto de la petición. Todas las
+ * llamadas a `base()` dentro de `fn` (y su cadena async) resolverán esa base.
+ * Es la ÚNICA forma de habilitar el acceso a datos de negocio.
+ */
+export function runWithCliente<T>(cliente: Cliente, fn: () => T): T {
+  return clienteContext.run(cliente, fn);
+}
+
+/** Cliente actual del contexto, o null si no hay ninguno establecido. */
+export function currentCliente(): Cliente | null {
+  return clienteContext.getStore() ?? null;
+}
+
+function requireEnv(name: string): string {
+  const v = process.env[name];
+  if (!v) throw new Error(`Missing env var ${name} (Sprint B multi-base)`);
+  return v;
+}
+
+function baseIdForCliente(cliente: Cliente): string {
+  switch (cliente) {
+    case "RB":
+      return requireEnv("AIRTABLE_BASE_RB");
+    case "INDEP":
+      return requireEnv("AIRTABLE_BASE_INDEP");
+    case "DEMO":
+      return requireEnv("AIRTABLE_BASE_ID"); // base actual = demo/dev
   }
+}
 
-  return _base(tableName);
+// Cache de instancias Airtable.Base por baseId (una por base física).
+const _bases = new Map<string, Airtable.Base>();
+
+function airtableBase(baseId: string): Airtable.Base {
+  let b = _bases.get(baseId);
+  if (!b) {
+    const apiKey = requireEnv("AIRTABLE_API_KEY");
+    Airtable.configure({ apiKey });
+    b = Airtable.base(baseId);
+    _bases.set(baseId, b);
+  }
+  return b;
+}
+
+/**
+ * Acceso a DATOS DE NEGOCIO. Resuelve la base según el cliente del contexto.
+ * FAIL-CLOSED: lanza si no hay cliente establecido (nunca base por defecto).
+ */
+export function base(tableName: TableName) {
+  const cliente = clienteContext.getStore();
+  if (!cliente) {
+    throw new Error(
+      `[aislamiento] base("${tableName}") llamado sin cliente en contexto. ` +
+        `Envuelve la operación con runWithCliente()/withAuth (Sprint B fail-closed).`,
+    );
+  }
+  return airtableBase(baseIdForCliente(cliente))(tableName);
+}
+
+/**
+ * Acceso a IDENTIDAD (Usuarios). SIEMPRE la base central, independiente del
+ * cliente. Usar SOLO para tablas de identidad; nunca para datos de negocio.
+ */
+export function baseCentral(tableName: TableName) {
+  return airtableBase(requireEnv("AIRTABLE_BASE_CENTRAL"))(tableName);
 }
 
 /**

@@ -7,8 +7,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Presupuesto, HistorialAccion, TipoAccion, UserSession } from "../../lib/presupuestos/types";
-import type { Pago } from "../../lib/pagos";
-import { formatTipo } from "../../lib/pagos";
+import type { Pago } from "../../lib/pagos-format";
+import { formatTipo } from "../../lib/pagos-format";
 import { ESTADO_CONFIG } from "../../lib/presupuestos/colors";
 import { Card } from "../ui/Card";
 

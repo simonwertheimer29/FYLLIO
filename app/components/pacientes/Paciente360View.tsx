@@ -15,8 +15,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Pago, TipoPago, MetodoPago } from "../../lib/pagos";
-import { formatTipo } from "../../lib/pagos";
+import type { Pago, TipoPago, MetodoPago } from "../../lib/pagos-format";
+import { formatTipo } from "../../lib/pagos-format";
 import { CardListSkeleton, KpiCardSkeleton } from "../ui/Skeleton";
 
 // Sprint 14a Bloque 6 — re-scope a 3 hitos comerciales.

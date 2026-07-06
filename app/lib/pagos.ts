@@ -14,86 +14,14 @@
 //    por Fecha_Pago. Soporta filtro por clinica + soloOrigenLead.
 
 import { base, TABLES, fetchAll } from "./airtable";
+import type { MetodoPago, TipoPago, Pago } from "./pagos-format";
 
-/**
- * Sprint 14a: enum cerrado.
- * Sprint 14b Bloque 0: el método de pago es configurable por clínica
- * (Configuraciones_Clinica.Metodos_Pago) y por tanto puede tomar
- * valores custom como "Financiación externa", "Otro: cheque", etc.
- * Mantenemos el union de strings conocidos como hint de TS para
- * autocompletado, pero permitimos cualquier string (& {}).
- */
-export type MetodoPago =
-  | "Efectivo"
-  | "Tarjeta"
-  | "Transferencia"
-  | "Bizum"
-  | "Financiacion"
-  | "Otro"
-  | (string & {});
-/**
- * Sprint 14a Bloque 6 (re-scoped) — Tipo de pago como hito comercial.
- * Fyllio NO es software de tesoreria; los pagos intermedios del
- * tratamiento (cuotas mensuales, mantenimiento) viven en Gesden u otro
- * software clinico. Aqui solo registramos los 3 hitos que importan al
- * funnel comercial:
- *
- *   Senal             — anticipo al firmar el presupuesto.
- *   Primer_Pago_Plan  — primer movimiento del plan, arranca tratamiento.
- *   Liquidacion       — pago final del importe restante.
- *
- * Los valores legacy (Pago_Unico, Cuota) ya estan migrados via
- * sprint14-backfill-tipo-legacy.ts. El singleSelect en Airtable
- * conserva las opciones huerfanas (sin records que las usen) hasta
- * que se borren manualmente desde la UI.
- */
-export type TipoPago = "Senal" | "Primer_Pago_Plan" | "Liquidacion";
-
-/** Opciones validas para validacion en endpoints/UI. */
-export const TIPOS_PAGO: TipoPago[] = ["Senal", "Primer_Pago_Plan", "Liquidacion"];
-export const METODOS_PAGO: MetodoPago[] = [
-  "Efectivo",
-  "Tarjeta",
-  "Transferencia",
-  "Bizum",
-  "Financiacion",
-  "Otro",
-];
-
-/** Sprint 14b Bloque 0 hotfix UX — label legible para TipoPago.
- *  Resuelve también valores legacy ("Pago_Unico", "Cuota") para no
- *  romper records pre-migracion que aun no se hayan re-leido. */
-export function formatTipo(tipo: string): string {
-  switch (tipo) {
-    case "Senal":
-      return "Señal";
-    case "Primer_Pago_Plan":
-      return "Primer pago de plan";
-    case "Liquidacion":
-      return "Liquidación";
-    case "Pago_Unico":
-      return "Pago único";
-    case "Cuota":
-      return "Cuota";
-    default:
-      return tipo;
-  }
-}
-
-export type Pago = {
-  id: string;
-  pacienteId: string;
-  fechaPago: string; // ISO date YYYY-MM-DD
-  importe: number;
-  metodo: MetodoPago;
-  tipo: TipoPago;
-  nota: string | null;
-  createdAt: string; // ISO datetime
-  /** Sprint 14a — id del Usuario Fyllio que registro el pago. null para
-   *  pagos migrados (Sprint 13.1) o sesiones admin sin clinica
-   *  asignable. La UI lo resuelve a nombre via map cliente, sin N+1. */
-  usuarioCreadorId: string | null;
-};
+// Sprint B — los tipos y helpers PUROS (MetodoPago, TipoPago, Pago, TIPOS_PAGO,
+// METODOS_PAGO, formatTipo) viven ahora en pagos-format.ts (sin dependencia de
+// Airtable) para no arrastrar la capa de datos al bundle cliente. Se re-exportan
+// aquí para que todo el código de servidor los siga importando desde pagos.ts.
+export { TIPOS_PAGO, METODOS_PAGO, formatTipo } from "./pagos-format";
+export type { MetodoPago, TipoPago, Pago } from "./pagos-format";
 
 function toPago(rec: any): Pago {
   const f = rec.fields ?? {};
