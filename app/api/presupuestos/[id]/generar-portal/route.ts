@@ -4,28 +4,14 @@
 // Returns: { url, token, expiresAt }
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { kv } from "@vercel/kv";
 import { randomBytes } from "crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { base, TABLES } from "../../../../lib/airtable";
 import { registrarAccion } from "../../../../lib/historial/registrar";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
 const TTL_DAYS = 90;
-
-async function isAuthed(): Promise<boolean> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return false;
-    await jwtVerify(token, secret);
-    return true;
-  } catch { return false; }
-}
 
 export interface PortalData {
   presupuestoId: string;
@@ -69,14 +55,8 @@ async function generarDescripcion(treatments: string[]): Promise<string> {
   }
 }
 
-export async function POST(
-  _req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  if (!(await isAuthed())) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
+export const POST = withPresupuestosAuth(
+  async (session, _req: Request, { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
 
@@ -160,4 +140,4 @@ export async function POST(
     const msg = err instanceof Error ? err.message : "Error desconocido";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
-}
+});

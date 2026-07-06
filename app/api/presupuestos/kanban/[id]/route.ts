@@ -2,43 +2,14 @@
 // PATCH: actualizar campos de un presupuesto
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../../lib/airtable";
 import { sendPushToClinica } from "../../../../lib/push/sender";
 import { registrarAccion } from "../../../../lib/historial/registrar";
 import { crearNotificacion } from "../../../../lib/presupuestos/notificaciones";
-import type { UserSession } from "../../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
-
-async function isAuthed(): Promise<boolean> {
-  return (await getSession()) !== null;
-}
-
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
+export const PATCH = withPresupuestosAuth(
+  async (session, req: Request, { params }: { params: Promise<{ id: string }> }) => {
   try {
     const { id } = await params;
     const body = await req.json();
@@ -140,4 +111,4 @@ export async function PATCH(
     console.error("[kanban PATCH] error:", err);
     return NextResponse.json({ error: "No se pudo actualizar el presupuesto" }, { status: 500 });
   }
-}
+});
