@@ -3,27 +3,20 @@
 // PATCH { id, accion, mensaje? }    → enviar | descartar | editar
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../lib/airtable";
-import type { UserSession, Secuencia } from "../../../lib/presupuestos/types";
+import type { Secuencia } from "../../../lib/presupuestos/types";
 import { registrarAccion } from "../../../lib/historial/registrar";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import {
+  nombresClinicasPermitidas,
+  permiteClinica,
+  formulaClinicaPermitida,
+} from "../../../lib/presupuestos/clinica-scope";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
+// Sprint B — migrado a withPresupuestosAuth (contexto de cliente) + aislamiento
+// por clínica vía clinicasAccesibles. Antes leía la cookie inline sin contexto
+// (500 por el fail-closed) y filtraba por session.clinica (null → sin filtro).
+export const dynamic = "force-dynamic";
 
 function recordToSecuencia(rec: { id: string; fields: Record<string, unknown> }): Secuencia {
   const f = rec.fields as any;
@@ -46,10 +39,7 @@ function recordToSecuencia(rec: { id: string; fields: Record<string, unknown> })
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
-export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const GET = withPresupuestosAuth(async (session, req) => {
   // Demo mode
   if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
     return NextResponse.json({ secuencias: [], isDemo: true });
@@ -59,14 +49,16 @@ export async function GET(req: Request) {
   const estadoFilter = searchParams.get("estado") ?? "pendiente";
   const clinicaParam = searchParams.get("clinica") ?? "";
 
-  // Encargada_ventas only sees their clinic
-  const clinicaEfectiva =
-    session.rol === "encargada_ventas" && session.clinica
-      ? session.clinica
-      : clinicaParam;
+  // Sprint B Fase 4 — aislamiento por clínica por IDs de la sesión. La clínica
+  // elegida solo cuenta si está permitida; si no, todas las permitidas (null =
+  // admin, sin restricción).
+  const permitidas = await nombresClinicasPermitidas(session);
+  const clinicaSel = clinicaParam && permiteClinica(permitidas, clinicaParam) ? clinicaParam : null;
+  const efectivas = clinicaSel ? new Set([clinicaSel]) : permitidas;
+  const clinicaFormula = formulaClinicaPermitida(efectivas, "clinica");
 
   const filters: string[] = [`{estado}="${estadoFilter}"`];
-  if (clinicaEfectiva) filters.push(`{clinica}="${clinicaEfectiva}"`);
+  if (clinicaFormula) filters.push(clinicaFormula);
   const formula = filters.length === 1 ? filters[0] : `AND(${filters.join(",")})`;
 
   try {
@@ -87,14 +79,11 @@ export async function GET(req: Request) {
     console.error("[secuencias GET]", err);
     return NextResponse.json({ error: "Error al obtener secuencias" }, { status: 500 });
   }
-}
+});
 
 // ─── PATCH ────────────────────────────────────────────────────────────────────
 
-export async function PATCH(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const PATCH = withPresupuestosAuth(async (session, req) => {
   const body = await req.json();
   const { id, accion, mensaje } = body as {
     id?: string;
@@ -150,4 +139,4 @@ export async function PATCH(req: Request) {
     console.error("[secuencias PATCH]", err);
     return NextResponse.json({ error: "Error al actualizar secuencia" }, { status: 500 });
   }
-}
+});

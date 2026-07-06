@@ -3,14 +3,19 @@
 // PUT  { clinica, activa, dias_inactividad_alerta, ... }  → upsert
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../lib/airtable";
-import type { UserSession, ConfiguracionAutomatizacion, ModoWhatsApp } from "../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import type { ConfiguracionAutomatizacion, ModoWhatsApp } from "../../../lib/presupuestos/types";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import {
+  nombresClinicasPermitidas,
+  permiteClinica,
+  formulaClinicaPermitida,
+} from "../../../lib/presupuestos/clinica-scope";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
+// Sprint B — migrado a withPresupuestosAuth (contexto de cliente) + aislamiento
+// por clínica vía clinicasAccesibles (antes 500 por fail-closed, y la rama "sin
+// clínica" devolvía las configs de TODAS las clínicas a cualquier usuario).
+export const dynamic = "force-dynamic";
 
 const DEFAULTS: Omit<ConfiguracionAutomatizacion, "clinica"> = {
   activa: true,
@@ -18,18 +23,6 @@ const DEFAULTS: Omit<ConfiguracionAutomatizacion, "clinica"> = {
   diasPortalSinRespuesta: 2,
   diasReactivacion: 90,
 };
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
 
 function recordToConfig(rec: { fields: Record<string, unknown> }, clinica: string): ConfiguracionAutomatizacion {
   const f = rec.fields as any;
@@ -47,10 +40,7 @@ function recordToConfig(rec: { fields: Record<string, unknown> }, clinica: strin
 
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
-export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const GET = withPresupuestosAuth(async (session, req) => {
   // Demo mode
   if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
     return NextResponse.json({ configuracion: null, defaults: DEFAULTS, isDemo: true });
@@ -59,10 +49,16 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const clinicaParam = searchParams.get("clinica") ?? "";
 
+  // Sprint B Fase 4 — clínica concreta: la pedida (si permitida) o, para un coord
+  // con una sola clínica, la suya. Si no, se listan las configs de las clínicas
+  // permitidas (admin: todas).
+  const permitidas = await nombresClinicasPermitidas(session);
   const clinica =
-    session.rol === "encargada_ventas" && session.clinica
-      ? session.clinica
-      : clinicaParam;
+    clinicaParam && permiteClinica(permitidas, clinicaParam)
+      ? clinicaParam
+      : permitidas && permitidas.size === 1
+        ? [...permitidas][0]!
+        : "";
 
   try {
     if (clinica) {
@@ -79,10 +75,12 @@ export async function GET(req: Request) {
       }
       return NextResponse.json({ configuracion: { clinica, ...DEFAULTS } });
     } else {
-      // Manager/admin: fetch all clinic configs
+      // Todas las configs permitidas (admin: todas las del cliente).
+      const clinicaFormula = formulaClinicaPermitida(permitidas, "clinica");
       const recs = await base(TABLES.configuracionAutomatizaciones as any)
         .select({
           fields: ["clinica", "activa", "dias_inactividad_alerta", "dias_portal_sin_respuesta", "dias_reactivacion", "modo_whatsapp"],
+          ...(clinicaFormula ? { filterByFormula: clinicaFormula } : {}),
           maxRecords: 100,
         })
         .all();
@@ -98,14 +96,11 @@ export async function GET(req: Request) {
     console.error("[configuracion GET]", err);
     return NextResponse.json({ error: "Error al obtener configuración" }, { status: 500 });
   }
-}
+});
 
 // ─── PUT ──────────────────────────────────────────────────────────────────────
 
-export async function PUT(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const PUT = withPresupuestosAuth(async (session, req) => {
   if (session.rol !== "manager_general" && session.rol !== "admin") {
     return NextResponse.json({ error: "Sin permisos para editar configuración" }, { status: 403 });
   }
@@ -115,6 +110,12 @@ export async function PUT(req: Request) {
 
   if (!clinica) {
     return NextResponse.json({ error: "Falta campo: clinica" }, { status: 400 });
+  }
+
+  // Sprint B Fase 4 — solo se edita la config de una clínica permitida.
+  const permitidas = await nombresClinicasPermitidas(session);
+  if (!permiteClinica(permitidas, clinica)) {
+    return NextResponse.json({ error: "Clínica no permitida" }, { status: 403 });
   }
 
   // Demo mode
@@ -173,4 +174,4 @@ export async function PUT(req: Request) {
     console.error("[configuracion PUT]", err);
     return NextResponse.json({ error: "Error al guardar configuración" }, { status: 500 });
   }
-}
+});

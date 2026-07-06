@@ -4,18 +4,21 @@
 // Solo crea 1 secuencia por presupuesto (prioridad EVENTO1 > 2 > 3 > 4).
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { kv } from "@vercel/kv";
 import { base, TABLES } from "../../../lib/airtable";
-import type { UserSession, TipoEvento, ConfiguracionAutomatizacion } from "../../../lib/presupuestos/types";
+import type { TipoEvento, ConfiguracionAutomatizacion } from "../../../lib/presupuestos/types";
 import { sendPushToClinica, sendPushToAll } from "../../../lib/push/sender";
 import { DateTime } from "luxon";
 import { construirMapaAnonimizacion, anonimizarTexto, desanonimizarTexto } from "../../../lib/anonimizacion";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
+// Sprint B — migrado a withPresupuestosAuth para fijar el contexto de cliente
+// (antes 500 por el fail-closed). El procesamiento es del cliente completo y solo
+// devuelve contadores (no expone datos de otra clínica); el reenvío de cookie a
+// tonos-stats sigue funcionando porque esa ruta fija su propio contexto.
+export const dynamic = "force-dynamic";
+
 const ZONE = "Europe/Madrid";
 
 const DEFAULTS: Omit<ConfiguracionAutomatizacion, "clinica"> = {
@@ -24,18 +27,6 @@ const DEFAULTS: Omit<ConfiguracionAutomatizacion, "clinica"> = {
   diasPortalSinRespuesta: 2,
   diasReactivacion: 90,
 };
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
 
 function daysSince(iso: string): number {
   const today = DateTime.now().setZone(ZONE).startOf("day");
@@ -118,10 +109,7 @@ async function generarInformeSemanalIA(prompt: string): Promise<string> {
 
 // ─── POST ─────────────────────────────────────────────────────────────────────
 
-export async function POST() {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const POST = withPresupuestosAuth(async (_session) => {
   // Resumen diario — comprobar ventana 09:00–09:15 Madrid antes del procesamiento
   const ahoraMadrid = DateTime.now().setZone(ZONE);
   const esVentanaResumen = ahoraMadrid.hour === 9 && ahoraMadrid.minute < 15;
@@ -694,4 +682,4 @@ REGLAS:
     console.error("[automatizaciones/procesar POST]", err);
     return NextResponse.json({ error: "Error al procesar automatizaciones" }, { status: 500 });
   }
-}
+});

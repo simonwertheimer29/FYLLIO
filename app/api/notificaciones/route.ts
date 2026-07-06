@@ -3,26 +3,14 @@
 // PATCH — marcar como leídas
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../lib/airtable";
-import type { UserSession, Notificacion } from "../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import type { Notificacion } from "../../lib/presupuestos/types";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
+// Sprint B — migrado a withPresupuestosAuth: fija el contexto de cliente
+// (runWithCliente) para que base() resuelva la base correcta. Antes leía la
+// cookie inline y llamaba base() sin contexto → 500 con el fail-closed.
+export const dynamic = "force-dynamic";
 
 function recordToNotificacion(r: any): Notificacion {
   const f = r.fields as any;
@@ -40,10 +28,7 @@ function recordToNotificacion(r: any): Notificacion {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export async function GET() {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const GET = withPresupuestosAuth(async (session) => {
   try {
     const email = session.email;
     const filterByFormula = `OR({Usuario}='todos', {Usuario}='${email}')`;
@@ -65,12 +50,9 @@ export async function GET() {
     console.error("[notificaciones] GET error:", err);
     return NextResponse.json({ notificaciones: [], noLeidas: 0 });
   }
-}
+});
 
-export async function PATCH(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const PATCH = withPresupuestosAuth(async (session, req) => {
   try {
     const body = await req.json();
     const { ids, all } = body as { ids?: string[]; all?: boolean };
@@ -107,4 +89,4 @@ export async function PATCH(req: Request) {
     console.error("[notificaciones] PATCH error:", err);
     return NextResponse.json({ error: "Error al actualizar" }, { status: 500 });
   }
-}
+});

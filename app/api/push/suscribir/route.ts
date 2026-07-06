@@ -3,33 +3,14 @@
 // DELETE: desactivar suscripción
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../lib/airtable";
-import type { UserSession } from "../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
+// Sprint B — migrado a withPresupuestosAuth: fija el contexto de cliente para
+// que base() resuelva la base correcta (antes 500 por el fail-closed).
+export const dynamic = "force-dynamic";
 
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
-
-export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
+export const POST = withPresupuestosAuth(async (session, req) => {
   try {
     const { subscription } = await req.json() as {
       subscription: { endpoint: string; keys: { p256dh: string; auth: string } };
@@ -80,14 +61,9 @@ export async function POST(req: Request) {
     console.error("[push/suscribir] POST error:", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
-}
+});
 
-export async function DELETE(req: Request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
+export const DELETE = withPresupuestosAuth(async (_session, req) => {
   try {
     const { endpoint } = await req.json() as { endpoint: string };
     if (!endpoint) return NextResponse.json({ error: "endpoint requerido" }, { status: 400 });
@@ -109,4 +85,4 @@ export async function DELETE(req: Request) {
     console.error("[push/suscribir] DELETE error:", err);
     return NextResponse.json({ error: "Error interno" }, { status: 500 });
   }
-}
+});

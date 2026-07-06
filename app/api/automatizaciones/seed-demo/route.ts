@@ -3,26 +3,11 @@
 // Solo admin / manager_general.
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../lib/airtable";
-import type { UserSession } from "../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
+// Sprint B — migrado a withPresupuestosAuth para fijar el contexto de cliente.
+export const dynamic = "force-dynamic";
 
 const SEED_SECUENCIAS = [
   {
@@ -63,10 +48,7 @@ const SEED_SECUENCIAS = [
   },
 ];
 
-export async function POST() {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const POST = withPresupuestosAuth(async (session) => {
   if (session.rol !== "manager_general" && session.rol !== "admin") {
     return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
   }
@@ -103,4 +85,4 @@ export async function POST() {
     console.error("[seed-demo POST]", err);
     return NextResponse.json({ error: "Error al insertar datos de demo" }, { status: 500 });
   }
-}
+});
