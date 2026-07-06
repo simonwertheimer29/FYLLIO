@@ -5,6 +5,7 @@
 // se migran a rutas top-level. Aquí solo queda el pipeline de presupuestos.
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { toast } from "sonner";
 import type {
   Presupuesto,
   PresupuestoEstado,
@@ -183,14 +184,18 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     estado: PresupuestoEstado,
     extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string; reactivar?: boolean }
   ) {
+    // Guardar estado previo para rollback puntual (patrón de LeadsView).
+    const prevEstado = presupuestos.find((p) => p.id === id)?.estado;
     setPresupuestos((prev) => prev.map((p) => (p.id === id ? { ...p, estado } : p)));
     try {
       const { reactivar, ...patchExtra } = extra ?? {};
-      await fetch(`/api/presupuestos/kanban/${id}`, {
+      const res = await fetch(`/api/presupuestos/kanban/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ estado, ...patchExtra }),
       });
+      // P0.6: el servidor ya no finge éxito en demo; un !ok es un fallo real.
+      if (!res.ok) throw new Error("update failed");
       if (reactivar && estado === "PERDIDO") {
         const fecha90 = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
         await fetch("/api/presupuestos/contactos", {
@@ -206,7 +211,12 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         }).catch(() => {});
       }
     } catch {
-      await load(currentFilters, selectedClinicaNombre);
+      // Rollback puntual del estado (antes hacía un refetch completo que
+      // enmascaraba el fallo) + aviso al usuario, igual que en LeadsView.
+      if (prevEstado !== undefined) {
+        setPresupuestos((prev) => prev.map((p) => (p.id === id ? { ...p, estado: prevEstado } : p)));
+      }
+      toast.error("No se pudo mover el presupuesto. Inténtalo de nuevo.");
     }
   }
 

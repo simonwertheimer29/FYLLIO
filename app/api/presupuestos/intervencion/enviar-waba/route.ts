@@ -3,16 +3,17 @@
 // Auth JWT igual que el resto del módulo presupuestos.
 
 import { NextResponse } from "next/server";
+import crypto from "crypto";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { getServicioMensajeria } from "../../../../lib/presupuestos/mensajeria";
 import type { UserSession } from "../../../../lib/presupuestos/types";
+import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 
 export const dynamic = "force-dynamic";
 
 const COOKIE = "fyllio_presupuestos_token";
-const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
-const secret = new TextEncoder().encode(SECRET_RAW);
+const secret = legacyJwtSecret();
 
 async function getSession(): Promise<UserSession | null> {
   try {
@@ -41,12 +42,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Faltan telefono o contenido" }, { status: 400 });
   }
 
+  // P0.7: clave de idempotencia estable por (presupuesto|telefono + contenido).
+  const idempotencyKey = `wa-out:presup:${presupuestoId ?? telefono}:${crypto
+    .createHash("sha256")
+    .update(contenido)
+    .digest("hex")
+    .slice(0, 16)}`;
+
   try {
     const servicio = getServicioMensajeria("waba");
     const result = await servicio.enviarMensaje({
       presupuestoId,
       telefono,
       contenido,
+      idempotencyKey,
     });
     return NextResponse.json({
       ok: true,

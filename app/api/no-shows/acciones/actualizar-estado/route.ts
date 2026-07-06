@@ -7,10 +7,10 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { base, TABLES } from "../../../../lib/airtable";
+import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 
 const COOKIE = "fyllio_noshows_token";
-const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
-const secret = new TextEncoder().encode(SECRET_RAW);
+const secret = legacyJwtSecret();
 
 async function getSession() {
   try {

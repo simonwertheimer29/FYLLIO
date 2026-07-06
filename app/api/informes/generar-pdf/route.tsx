@@ -1,3 +1,4 @@
+import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 // app/api/informes/generar-pdf/route.tsx
 // POST — genera informe ejecutivo mensual en PDF — 8 páginas V5c
 // Gráficos generados server-side con chartjs-node-canvas
@@ -19,8 +20,7 @@ import {
 } from "../../../lib/charts/svg-charts";
 
 const COOKIE = "fyllio_presupuestos_token";
-const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
-const secret = new TextEncoder().encode(SECRET_RAW);
+const secret = legacyJwtSecret();
 
 async function isAuthed(): Promise<boolean> {
   try {

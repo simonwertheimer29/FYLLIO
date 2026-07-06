@@ -366,3 +366,17 @@ export const DEMO_ONGOING = [
 export function isDemoMode(realCount: number, threshold = 3): boolean {
   return realCount < threshold;
 }
+
+/**
+ * Candado duro (Sprint A / P0.6 corrección 2): el modo demo — servir datos
+ * falsos de fallback cuando falta Airtable o una lectura falla — NUNCA debe
+ * activarse en producción, aunque haya un flag o env que lo pida. En producción,
+ * "falta env" o "Airtable falló" son errores reales que deben propagarse, no
+ * enmascararse con un pipeline falso a una clínica real.
+ *
+ * Úsalo para decidir si se permite devolver datos demo. Para las ESCRITURAS no
+ * hay ruta demo: un fallo de escritura siempre devuelve error real (500).
+ */
+export function isDemoAllowed(): boolean {
+  return process.env.NODE_ENV !== "production";
+}

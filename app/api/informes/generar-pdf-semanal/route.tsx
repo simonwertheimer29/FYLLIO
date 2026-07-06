@@ -1,3 +1,4 @@
+import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 // app/api/informes/generar-pdf-semanal/route.tsx
 // POST — genera informe semanal en PDF (100% server-side, sin capturas de DOM)
 // Body: { periodo, clinica, textoNarrativo, datos: SemanalDatos }
@@ -11,8 +12,7 @@ import { renderToBuffer, Document, Page, View, Text, StyleSheet } from "@react-p
 import { PdfBarrasH } from "../../../lib/charts/pdf-charts";
 
 const COOKIE = "fyllio_presupuestos_token";
-const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
-const secret = new TextEncoder().encode(SECRET_RAW);
+const secret = legacyJwtSecret();
 
 async function isAuthed(): Promise<boolean> {
   try {

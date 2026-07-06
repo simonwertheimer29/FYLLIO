@@ -37,8 +37,54 @@ import { onSlotFreed } from "../../../lib/scheduler/waitlist/onSlotFreed";
 
 import { base, TABLES } from "../../../lib/airtable";
 import { handleTwilioWhatsAppPOST } from "../../../lib/whatsapp/core";
+import crypto from "crypto";
 
+// ─── Sprint A / P0.3 — verificación de firma de Twilio ───────────────────────
+// Twilio firma cada webhook con HMAC-SHA1(authToken, url + params ordenados) en
+// base64, cabecera X-Twilio-Signature. Sin esto, cualquiera podía POSTear un
+// From falsificado y enumerar/cancelar citas de pacientes. Fail-closed: si falta
+// TWILIO_AUTH_TOKEN rechazamos (igual criterio que el webhook de Meta).
+//
+// La URL debe ser EXACTA la configurada en la consola de Twilio. Detrás de Vercel
+// la reconstruimos con x-forwarded-proto + host + pathname; si no coincidiera, se
+// puede fijar explícitamente con TWILIO_WEBHOOK_URL.
+function getTwilioWebhookUrl(req: Request): string {
+  const explicit = process.env.TWILIO_WEBHOOK_URL;
+  if (explicit) return explicit;
+  const proto = req.headers.get("x-forwarded-proto") ?? "https";
+  const host = req.headers.get("host") ?? "";
+  const { pathname } = new URL(req.url);
+  return `${proto}://${host}${pathname}`;
+}
 
+async function validateTwilioSignature(req: Request, authToken: string): Promise<boolean> {
+  const signature = req.headers.get("x-twilio-signature");
+  if (!signature) return false;
+  let form: FormData;
+  try {
+    // Clonamos para no consumir el body (lo lee después el Core o el path legacy).
+    form = await req.clone().formData();
+  } catch {
+    return false;
+  }
+  const params: Record<string, string> = {};
+  for (const [k, v] of form.entries()) params[k] = typeof v === "string" ? v : "";
+  const data = Object.keys(params)
+    .sort()
+    .reduce((acc, k) => acc + k + params[k], getTwilioWebhookUrl(req));
+  const expected = crypto
+    .createHmac("sha1", authToken)
+    .update(Buffer.from(data, "utf-8"))
+    .digest("base64");
+  const a = Buffer.from(signature);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  try {
+    return crypto.timingSafeEqual(a, b);
+  } catch {
+    return false;
+  }
+}
 
 
 // ⚠️ Recomendado en Vercel
@@ -461,6 +507,17 @@ async function buildAndOfferSlots(params: {
 console.log("[whatsapp] BUILD_TAG", "OFFER_SLOTS_REPEAT_V1");
 
 export async function POST(req: Request) {
+  // Sprint A / P0.3 — firma Twilio (fail-closed), ANTES de la rama Core y de todo
+  // procesamiento, para proteger ambos caminos por igual.
+  const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN;
+  if (!twilioAuthToken) {
+    console.error("[twilio/whatsapp] TWILIO_AUTH_TOKEN ausente — rechazado (fail-closed)");
+    return new NextResponse("Not configured", { status: 503 });
+  }
+  if (!(await validateTwilioSignature(req, twilioAuthToken))) {
+    console.warn("[twilio/whatsapp] X-Twilio-Signature inválida — rechazado");
+    return new NextResponse("Forbidden", { status: 403 });
+  }
 
 // ✅ Switch: usar Core sin borrar el route legacy
 if (process.env.USE_WHATSAPP_CORE === "true") {

@@ -10,7 +10,7 @@
 // - Feature flag WABA_ENABLED permite deploy por fases sin procesar real.
 // - Nunca loguear access token ni verify token.
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import crypto from "crypto";
 import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import {
@@ -22,6 +22,7 @@ import {
 import { getServicioMensajeria } from "../../../lib/presupuestos/mensajeria";
 import { clasificarRespuesta, guardarClasificacion } from "../../../lib/presupuestos/intervencion";
 import { crearNotificacion } from "../../../lib/presupuestos/notificaciones";
+import { isDuplicateMessage } from "../../../lib/scheduler/idempotency";
 import type { PresupuestoEstado } from "../../../lib/presupuestos/types";
 
 export const dynamic = "force-dynamic";
@@ -78,7 +79,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, enabled: false });
   }
 
-  // 5. Parsear JSON y responder 200 inmediato (Meta exige <20s)
+  // 5. Parsear JSON
   let payload: unknown;
   try {
     payload = JSON.parse(raw);
@@ -86,10 +87,18 @@ export async function POST(req: Request) {
     return new NextResponse("Bad JSON", { status: 400 });
   }
 
-  // Fire-and-forget: procesar async, no bloquear la respuesta
-  processIncomingMessage(payload).catch((err) => {
+  // 6. Persistir el mensaje de forma SÍNCRONA antes de responder 200. En Vercel,
+  // el trabajo lanzado sin await tras la respuesta NO está garantizado, así que
+  // el patrón anterior (fire-and-forget) perdía mensajes si Airtable iba lento.
+  // La parte lenta (clasificación IA, hasta 10s) se difiere con after() dentro
+  // de processIncomingMessage. Si la persistencia crítica falla, devolvemos 500
+  // para que Meta reintente (el dedup por WABA_message_id cubre el reintento).
+  try {
+    await processIncomingMessage(payload);
+  } catch (err) {
     console.error("[waba webhook] processIncomingMessage error:", sanitizeError(err));
-  });
+    return NextResponse.json({ error: "processing failed" }, { status: 500 });
+  }
 
   return NextResponse.json({ ok: true });
 }
@@ -160,13 +169,12 @@ async function processIncomingMessage(body: unknown): Promise<void> {
   const telefono = normalizarTelefono(telefonoRaw);
   if (!telefono) return;
 
-  // Deduplicación por WABA_message_id (Meta reintenta si no responde <20s)
-  const dupeQuery = base(TABLES.mensajesWhatsApp as any).select({
-    filterByFormula: `{WABA_message_id}='${msg.id}'`,
-    maxRecords: 1,
-  });
-  const existing = await fetchAll(dupeQuery);
-  if (existing.length > 0) {
+  // Deduplicación atómica por WABA_message_id vía KV (P0.7). Meta reentrega el
+  // mismo mensaje si no recibió el 200 a tiempo. El anterior "consultar-y-crear"
+  // contra Airtable era race-prone: dos entregas concurrentes leían ambas "no
+  // existe" y creaban duplicado (+ doble clasificación IA + doble notificación).
+  // isDuplicateMessage marca-y-comprueba en KV (24h TTL) en un solo paso.
+  if (await isDuplicateMessage(msg.id)) {
     console.log(`[waba webhook] message ${msg.id} already processed, skipping`);
     return;
   }
@@ -233,39 +241,44 @@ async function processIncomingMessage(body: unknown): Promise<void> {
     console.error("[waba webhook] preGuardarRespuesta error:", sanitizeError(err));
   });
 
-  // Clasificación IA (con timeout 10s en clasificarRespuesta). Si falla o agota
-  // timeout, devuelve fallback { Sin clasificar, MEDIO } y se persiste igualmente
-  // para que la tarjeta siga visible en la cola.
-  try {
-    const clasificacion = await clasificarRespuesta({
-      respuestaPaciente: contenido,
-      patientName: presupuestoInfo.patientName,
-      treatments: presupuestoInfo.treatments,
-      estado: presupuestoInfo.estado,
-      amount: presupuestoInfo.amount,
-      clinica: presupuestoInfo.clinica,
-    });
+  // Clasificación IA + notificación: trabajo lento (clasificarRespuesta tiene
+  // timeout de 10s) y best-effort. Se difiere con after() para no arriesgar el
+  // timeout de Meta (<20s): el mensaje ya está persistido y pre-guardado, así que
+  // la tarjeta ya es visible en la cola aunque la IA tarde. after() mantiene viva
+  // la función en Vercel hasta completarlo (a diferencia de un promise flotante).
+  const infoParaClasificar = presupuestoInfo;
+  after(async () => {
+    try {
+      const clasificacion = await clasificarRespuesta({
+        respuestaPaciente: contenido,
+        patientName: infoParaClasificar.patientName,
+        treatments: infoParaClasificar.treatments,
+        estado: infoParaClasificar.estado,
+        amount: infoParaClasificar.amount,
+        clinica: infoParaClasificar.clinica,
+      });
 
-    await guardarClasificacion({
-      presupuestoId: presupuestoInfo.id,
-      respuestaPaciente: contenido,
-      clasificacion,
-    });
+      await guardarClasificacion({
+        presupuestoId: infoParaClasificar.id,
+        respuestaPaciente: contenido,
+        clasificacion,
+      });
 
-    // Notificación broadcast a todos los usuarios
-    const esCritico = clasificacion.urgencia === "CRÍTICO";
-    await crearNotificacion({
-      usuario: "todos",
-      tipo: esCritico ? "Intervencion_urgente" : "Nuevo_mensaje_paciente",
-      titulo: esCritico
-        ? `Intervención urgente: ${presupuestoInfo.patientName}`
-        : `Nuevo mensaje de ${presupuestoInfo.patientName}`,
-      mensaje: contenido.slice(0, 120),
-      link: `/presupuestos?tab=intervencion&item=${presupuestoInfo.id}`,
-    });
-  } catch (err) {
-    console.error("[waba webhook] clasificación/notificación error:", sanitizeError(err));
-  }
+      // Notificación broadcast a todos los usuarios
+      const esCritico = clasificacion.urgencia === "CRÍTICO";
+      await crearNotificacion({
+        usuario: "todos",
+        tipo: esCritico ? "Intervencion_urgente" : "Nuevo_mensaje_paciente",
+        titulo: esCritico
+          ? `Intervención urgente: ${infoParaClasificar.patientName}`
+          : `Nuevo mensaje de ${infoParaClasificar.patientName}`,
+        mensaje: contenido.slice(0, 120),
+        link: `/presupuestos?tab=intervencion&item=${infoParaClasificar.id}`,
+      });
+    } catch (err) {
+      console.error("[waba webhook] clasificación/notificación error:", sanitizeError(err));
+    }
+  });
 }
 
 async function preGuardarRespuesta(presupuestoId: string, contenido: string): Promise<void> {

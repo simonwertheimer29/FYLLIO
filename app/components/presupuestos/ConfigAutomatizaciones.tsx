@@ -605,25 +605,6 @@ function SectionNotificaciones() {
           </div>
         </div>
       </div>
-
-      {process.env.NODE_ENV === "development" && (
-        <div className="rounded-2xl border border-dashed border-amber-300 bg-amber-50 p-4">
-          <p className="text-xs font-semibold text-amber-700 mb-2">Dev: probar push</p>
-          <button
-            onClick={() => fetch("/api/push/enviar", {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "x-internal-secret": process.env.NEXT_PUBLIC_INTERNAL_API_SECRET ?? "",
-              },
-              body: JSON.stringify({ title: "🧪 Prueba", body: "Notificación de prueba de Fyllio", url: "/presupuestos", tag: "test" }),
-            })}
-            className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors"
-          >
-            Enviar notificación de prueba
-          </button>
-        </div>
-      )}
     </div>
   );
 }

@@ -14,10 +14,9 @@
 import { SignJWT } from "jose";
 import { NextResponse } from "next/server";
 import type { Session } from "./session";
+import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 
-const LEGACY_SECRET_RAW =
-  process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
-const legacySecret = new TextEncoder().encode(LEGACY_SECRET_RAW);
+const legacySecret = legacyJwtSecret();
 
 const LEGACY_MAX_AGE_SECONDS = 60 * 60 * 24 * 7; // 7 días, como el login legacy
 

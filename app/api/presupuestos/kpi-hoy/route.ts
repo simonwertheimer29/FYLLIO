@@ -9,12 +9,12 @@ import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { base, TABLES, fetchAll } from "../../../lib/airtable";
+import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 
 export const dynamic = "force-dynamic";
 
 const COOKIE = "fyllio_presupuestos_token";
-const SECRET_RAW = process.env.PRESUPUESTOS_JWT_SECRET ?? "dev-secret-change-me-in-prod";
-const secret = new TextEncoder().encode(SECRET_RAW);
+const secret = legacyJwtSecret();
 
 async function isAuthed(): Promise<boolean> {
   try {
