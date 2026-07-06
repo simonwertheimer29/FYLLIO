@@ -1,15 +1,20 @@
 // app/(authed)/ajustes/clinica-equipo/page.tsx
 // Sprint 7 Fase 6 — carga datos server-side y delega UI al client view.
 
+import { redirect } from "next/navigation";
 import { listClinicas, listUsuariosConClinicas } from "../../../lib/auth/users";
+import { getSession } from "../../../lib/auth/session";
 import { ClinicaEquipoView } from "./ClinicaEquipoView";
 
 export const dynamic = "force-dynamic";
 
 export default async function ClinicaEquipoPage() {
+  const session = await getSession();
+  if (!session) redirect("/login");
+  // Fase 4 — solo clínicas y usuarios del cliente del admin.
   const [clinicas, usuarios] = await Promise.all([
-    listClinicas(),
-    listUsuariosConClinicas(),
+    listClinicas({ cliente: session.cliente }),
+    listUsuariosConClinicas(session.cliente),
   ]);
 
   return (

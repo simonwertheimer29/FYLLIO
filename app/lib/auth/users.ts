@@ -129,8 +129,19 @@ export async function listClinicaIdsForUser(userId: string): Promise<string[]> {
   return Array.from(ids);
 }
 
-export async function listClinicas(opts: { onlyActivas?: boolean } = {}): Promise<Clinica[]> {
-  const filter = opts.onlyActivas ? "{Activa}" : "";
+/**
+ * Lista clínicas del registro central. Sprint B Fase 4: `cliente` restringe a las
+ * clínicas de ESE cliente (para que un admin de RB no vea las de INDEP en el
+ * selector). Sin `cliente` devuelve todas (solo el login clinic-first, pre-auth,
+ * lo usa así). Los contextos autenticados SIEMPRE pasan el cliente de la sesión.
+ */
+export async function listClinicas(
+  opts: { onlyActivas?: boolean; cliente?: Cliente } = {},
+): Promise<Clinica[]> {
+  const parts: string[] = [];
+  if (opts.onlyActivas) parts.push("{Activa}");
+  if (opts.cliente) parts.push(`{Cliente}='${opts.cliente}'`);
+  const filter = parts.length === 0 ? "" : parts.length === 1 ? parts[0] : `AND(${parts.join(",")})`;
   const recs = await fetchAll(
     baseCentral(TABLES.clinics).select(filter ? { filterByFormula: filter } : {})
   );
@@ -157,14 +168,16 @@ export async function listUsuarios(): Promise<Usuario[]> {
  * `[{...usuario, clinicas: [{id, nombre}]}]`.
  * Los admin aparecen con `clinicas: []` (acceso a todas via rol).
  */
-export async function listUsuariosConClinicas(): Promise<
+export async function listUsuariosConClinicas(cliente?: Cliente): Promise<
   Array<Usuario & { clinicas: Array<{ id: string; nombre: string }> }>
 > {
-  const [usuarios, allClinicas, junctions] = await Promise.all([
+  const [usuariosAll, allClinicas, junctions] = await Promise.all([
     listUsuarios(),
-    listClinicas(),
+    listClinicas({ cliente }),
     allJunctions(),
   ]);
+  // Fase 4 — solo los usuarios del cliente del admin (no los de otro cliente).
+  const usuarios = cliente ? usuariosAll.filter((u) => u.cliente === cliente) : usuariosAll;
   const clinicaById = new Map(allClinicas.map((c) => [c.id, c]));
   const clinicasByUserId = new Map<string, Array<{ id: string; nombre: string }>>();
   for (const j of junctions) {
@@ -196,6 +209,9 @@ export async function listAdminCandidates(): Promise<Usuario[]> {
 export async function createUsuario(args: {
   nombre: string;
   rol: Rol;
+  /** Sprint B Fase 4 — cliente del usuario (obligatorio: sin él no puede entrar
+   *  ni resolver su base). El caller pasa el cliente del admin que lo crea. */
+  cliente: Cliente;
   email?: string | null;
   telefono?: string | null;
   passwordHash?: string | null;
@@ -207,6 +223,7 @@ export async function createUsuario(args: {
     Nombre: args.nombre,
     Rol: args.rol,
     Activo: args.activo ?? true,
+    Cliente: args.cliente,
   };
   if (args.email) fields["Email"] = args.email.toLowerCase().trim();
   if (args.telefono) fields["Telefono"] = args.telefono.trim();

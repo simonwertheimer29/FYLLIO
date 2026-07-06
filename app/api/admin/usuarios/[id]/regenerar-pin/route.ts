@@ -11,10 +11,16 @@ export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-export const POST = withAdmin<Ctx>(async (_session, _req, ctx) => {
+export const POST = withAdmin<Ctx>(async (session, _req, ctx) => {
   const { id } = await ctx.params;
   const user = await getUsuarioById(id);
   if (!user) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+  // Fase 4 — base de Identidad compartida: un admin solo regenera PINs de su
+  // propio cliente. Ante uno ajeno, 404 (esta ruta devuelve un PIN válido en
+  // claro: dejar que otro cliente lo obtenga sería una escalada entre clientes).
+  if (user.cliente !== session.cliente) {
+    return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+  }
 
   const length: 4 | 6 = user.pinLength ?? (user.rol === "admin" ? 6 : 4);
   const pin = genRandomPin(length);

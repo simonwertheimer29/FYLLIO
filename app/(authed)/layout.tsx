@@ -23,7 +23,9 @@ export default async function AuthedLayout({
   const session = await getSession();
   if (!session) redirect("/login");
 
-  const allClinicas = await listClinicas({ onlyActivas: true });
+  // Sprint B Fase 4 — solo las clínicas del cliente del usuario: un admin de RB
+  // NO ve las de INDEP en el selector.
+  const allClinicas = await listClinicas({ onlyActivas: true, cliente: session.cliente });
 
   // Para coord, calculamos sus clínicas accesibles reales desde la junction.
   // Para admin, clinicasAccesibles ya es ["*"] — las ve todas.

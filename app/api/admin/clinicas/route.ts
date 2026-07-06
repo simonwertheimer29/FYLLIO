@@ -7,12 +7,13 @@ import { listClinicas } from "../../../lib/auth/users";
 import { baseCentral, TABLES } from "../../../lib/airtable";
 export const dynamic = "force-dynamic";
 
-export const GET = withAdmin(async () => {
-  const clinicas = await listClinicas();
+export const GET = withAdmin(async (session) => {
+  // Fase 4 — solo las clínicas del cliente del admin (no las de otro cliente).
+  const clinicas = await listClinicas({ cliente: session.cliente });
   return NextResponse.json({ clinicas });
 });
 
-export const POST = withAdmin(async (_session, req) => {
+export const POST = withAdmin(async (session, req) => {
   const body = (await req.json().catch(() => null)) as {
     nombre?: string;
     ciudad?: string;
@@ -25,6 +26,8 @@ export const POST = withAdmin(async (_session, req) => {
   const fields: Record<string, any> = {
     Nombre: nombre,
     Activa: true,
+    // Fase 4 — la clínica creada pertenece al cliente del admin (para enrutar).
+    Cliente: session.cliente,
   };
   if (body?.ciudad) fields["Ciudad"] = body.ciudad.trim();
   if (body?.telefono) fields["Telefono"] = body.telefono.trim();

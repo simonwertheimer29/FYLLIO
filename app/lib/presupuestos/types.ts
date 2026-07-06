@@ -109,6 +109,10 @@ export type UserSession = {
    *  Union inline (no importamos el tipo de airtable aquí porque types.ts lo
    *  consumen componentes cliente). null = sesión legacy pre-Sprint B. */
   cliente?: "RB" | "INDEP" | null;
+  /** Sprint B Fase 4 — IDs de clínica accesibles (canónico, unificado con la
+   *  sesión moderna). `["*"]` = todas las del cliente (admin/manager). Sustituye
+   *  el filtrado por nombre (`clinica`), que era null y rompía el aislamiento. */
+  clinicasAccesibles?: string[];
 };
 
 // KPI types

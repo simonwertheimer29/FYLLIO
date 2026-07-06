@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { withAdmin } from "../../../lib/auth/session";
 import {
   listUsuariosConClinicas,
+  listClinicas,
   createUsuario,
   setUsuarioClinicas,
 } from "../../../lib/auth/users";
@@ -15,8 +16,9 @@ import { hashPin, genRandomPin } from "../../../lib/auth/hashing";
 
 export const dynamic = "force-dynamic";
 
-export const GET = withAdmin(async () => {
-  const usuarios = await listUsuariosConClinicas();
+export const GET = withAdmin(async (session) => {
+  // Fase 4 — solo los usuarios del cliente del admin (no los de otro cliente).
+  const usuarios = await listUsuariosConClinicas(session.cliente);
   // No devolver hashes; aunque toUsuario los incluye en el tipo, los
   // filtramos aquí para no exponer bcrypt por red.
   const safe = usuarios.map((u) => ({
@@ -36,7 +38,7 @@ type CreateBody =
   | { rol: "admin"; nombre: string; email?: string | null; telefono?: string | null }
   | { rol: "coordinacion"; nombre: string; clinicas: string[]; telefono?: string | null };
 
-export const POST = withAdmin(async (_session, req) => {
+export const POST = withAdmin(async (session, req) => {
   const body = (await req.json().catch(() => null)) as CreateBody | null;
   if (!body || !body.nombre?.trim()) {
     return NextResponse.json({ error: "Nombre requerido" }, { status: 400 });
@@ -49,6 +51,8 @@ export const POST = withAdmin(async (_session, req) => {
     const user = await createUsuario({
       nombre,
       rol: "admin",
+      // Fase 4 — el usuario creado hereda el cliente del admin que lo crea.
+      cliente: session.cliente,
       email: body.email ? String(body.email).toLowerCase().trim() : null,
       telefono: body.telefono ? String(body.telefono).trim() : null,
       pinHash,
@@ -77,11 +81,25 @@ export const POST = withAdmin(async (_session, req) => {
         { status: 400 }
       );
     }
+    // Fase 4 — la base de Identidad es compartida entre clientes: validar que
+    // toda clínica pedida pertenezca al cliente del admin. Impide que un admin
+    // de un cliente enlace un usuario a la clínica de otro.
+    const clinicasCliente = await listClinicas({ cliente: session.cliente });
+    const idsCliente = new Set(clinicasCliente.map((c) => c.id));
+    const ajenas = clinicas.filter((cid) => !idsCliente.has(cid));
+    if (ajenas.length) {
+      return NextResponse.json(
+        { error: "Alguna clínica no pertenece a tu organización" },
+        { status: 403 }
+      );
+    }
     const pin = genRandomPin(4);
     const pinHash = await hashPin(pin);
     const user = await createUsuario({
       nombre,
       rol: "coordinacion",
+      // Fase 4 — el usuario creado hereda el cliente del admin que lo crea.
+      cliente: session.cliente,
       telefono: body.telefono ? String(body.telefono).trim() : null,
       pinHash,
       pinLength: 4,

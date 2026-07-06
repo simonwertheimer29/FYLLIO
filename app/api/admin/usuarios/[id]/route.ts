@@ -8,13 +8,14 @@ import {
   updateUsuario,
   setUsuarioClinicas,
   listClinicaIdsForUser,
+  listClinicas,
 } from "../../../../lib/auth/users";
 
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-export const PATCH = withAdmin<Ctx>(async (_session, req, ctx) => {
+export const PATCH = withAdmin<Ctx>(async (session, req, ctx) => {
   const { id } = await ctx.params;
   const body = (await req.json().catch(() => null)) as {
     nombre?: string;
@@ -27,6 +28,11 @@ export const PATCH = withAdmin<Ctx>(async (_session, req, ctx) => {
 
   const existing = await getUsuarioById(id);
   if (!existing) return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+  // Fase 4 — la base de Identidad es compartida: un admin solo edita usuarios de
+  // su propio cliente. Ante uno ajeno, 404 (no revelar que existe en otra org).
+  if (existing.cliente !== session.cliente) {
+    return NextResponse.json({ error: "Usuario no encontrado" }, { status: 404 });
+  }
 
   const patch: Parameters<typeof updateUsuario>[1] = {};
   if (typeof body.nombre === "string" && body.nombre.trim()) patch.nombre = body.nombre.trim();
@@ -42,7 +48,17 @@ export const PATCH = withAdmin<Ctx>(async (_session, req, ctx) => {
 
   // Reasignación de clínicas: solo para coordinación.
   if (Array.isArray(body.clinicas) && existing.rol === "coordinacion") {
-    await setUsuarioClinicas(id, body.clinicas.filter(Boolean));
+    const pedidas = body.clinicas.filter(Boolean);
+    // Fase 4 — toda clínica pedida debe pertenecer al cliente del admin.
+    const clinicasCliente = await listClinicas({ cliente: session.cliente });
+    const idsCliente = new Set(clinicasCliente.map((c) => c.id));
+    if (pedidas.some((cid) => !idsCliente.has(cid))) {
+      return NextResponse.json(
+        { error: "Alguna clínica no pertenece a tu organización" },
+        { status: 403 }
+      );
+    }
+    await setUsuarioClinicas(id, pedidas);
   }
 
   const updated = await getUsuarioById(id);
