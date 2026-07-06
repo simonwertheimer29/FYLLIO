@@ -2,32 +2,16 @@
 // POST — registra una acción (WA enviado, llamada, respuesta recibida)
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../../lib/airtable";
 import { DateTime } from "luxon";
 import { registrarAccion } from "../../../../lib/historial/registrar";
 import { clasificarRespuesta, guardarClasificacion } from "../../../../lib/presupuestos/intervencion";
 import { getServicioMensajeria } from "../../../../lib/presupuestos/mensajeria";
 import { crearNotificacion } from "../../../../lib/presupuestos/notificaciones";
-import type { UserSession, TipoUltimaAccionIntervencion, PresupuestoEstado } from "../../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import type { TipoUltimaAccionIntervencion, PresupuestoEstado } from "../../../../lib/presupuestos/types";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
 const ZONE = "Europe/Madrid";
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
 
 const TIPO_MAP: Record<string, { contactTipo: string; label: string }> = {
   "WhatsApp enviado":         { contactTipo: "whatsapp", label: "WhatsApp enviado" },
@@ -36,12 +20,7 @@ const TIPO_MAP: Record<string, { contactTipo: string; label: string }> = {
   "Sin respuesta tras llamada": { contactTipo: "llamada", label: "Sin respuesta tras llamada" },
 };
 
-export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
+export const POST = withPresupuestosAuth(async (session, req: Request) => {
   try {
     const body = await req.json();
     const {
@@ -216,4 +195,4 @@ export async function POST(req: Request) {
       { status: 500 }
     );
   }
-}
+});

@@ -2,32 +2,12 @@
 // GET: obtener historial de acciones de un presupuesto
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../lib/airtable";
 import type { HistorialAccion } from "../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
-
-async function isAuthed(): Promise<boolean> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return false;
-    await jwtVerify(token, secret);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export async function GET(req: Request) {
-  if (!(await isAuthed())) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
+// Fase 4 (IDOR): comprobar que presupuestoId pertenece al usuario.
+export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const { searchParams } = new URL(req.url);
   const presupuestoId = searchParams.get("presupuestoId");
   if (!presupuestoId) {
@@ -68,4 +48,4 @@ export async function GET(req: Request) {
     // Demo mode: devolver vacío
     return NextResponse.json([]);
   }
-}
+});

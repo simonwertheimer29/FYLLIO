@@ -2,35 +2,13 @@
 // GET — historial de conversación WhatsApp para un presupuesto
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { getServicioMensajeria } from "../../../lib/presupuestos/mensajeria";
-import type { UserSession } from "../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
 export const dynamic = "force-dynamic";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
-
-export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
+// Fase 4 (IDOR): comprobar que presupuestoId/pacienteId pertenece al usuario.
+export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const url = new URL(req.url);
   const presupuestoId = url.searchParams.get("presupuestoId");
   const pacienteId = url.searchParams.get("pacienteId");
@@ -55,4 +33,4 @@ export async function GET(req: Request) {
     console.error("[mensajes] GET error:", err);
     return NextResponse.json({ mensajes: [], error: "Error al cargar mensajes" });
   }
-}
+});
