@@ -14,6 +14,11 @@ import { PIPELINE_ORDEN, ESTADOS_ACEPTADOS } from "../../../lib/presupuestos/col
 import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 import { detectarTecho } from "../../../lib/presupuestos/priceCeiling";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import {
+  nombresClinicasPermitidas,
+  permiteClinica,
+  formulaClinicaPermitida,
+} from "../../../lib/presupuestos/clinica-scope";
 
 const ZONE = "Europe/Madrid";
 
@@ -275,10 +280,12 @@ function buildKpis(allPresupuestos: Presupuesto[]): KpiData {
   };
 }
 
-async function fetchFromAirtable(session: UserSession, clinica: string | null, doctor: string | null): Promise<Presupuesto[] | null> {
+async function fetchFromAirtable(session: UserSession, clinicaFormula: string | null, doctor: string | null): Promise<Presupuesto[] | null> {
   try {
     const filters: string[] = [];
-    if (clinica) filters.push(`{Clinica}='${clinica}'`);
+    // Sprint B Fase 4 — fragmento que restringe a las clínicas permitidas (o a
+    // la clínica elegida, ya validada como permitida). null = admin sin filtro.
+    if (clinicaFormula) filters.push(clinicaFormula);
     if (doctor) filters.push(`{Doctor}='${doctor}'`);
     const filterByFormula = filters.length === 1 ? filters[0] : filters.length > 1 ? `AND(${filters.join(",")})` : "";
 
@@ -338,10 +345,16 @@ async function fetchFromAirtable(session: UserSession, clinica: string | null, d
 
 export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const url = new URL(req.url);
-  const clinica =
-    (session.rol === "encargada_ventas" || session.rol === "ventas") && session.clinica
-      ? session.clinica
-      : url.searchParams.get("clinica") ?? null;
+  // Sprint B Fase 4 — aislamiento por clínica por IDs de la sesión. Si el usuario
+  // elige una clínica del desplegable, solo cuenta si le está permitida; si no,
+  // se agregan todas sus clínicas permitidas (null = admin, sin restricción).
+  const permitidas = await nombresClinicasPermitidas(session);
+  const clinicaQuery = url.searchParams.get("clinica");
+  const efectivas =
+    clinicaQuery && permiteClinica(permitidas, clinicaQuery)
+      ? new Set([clinicaQuery])
+      : permitidas;
+  const clinicaFormula = formulaClinicaPermitida(efectivas, "Clinica");
   const doctor = url.searchParams.get("doctor") ?? null;
 
   // Selected month (default: current month)
@@ -355,7 +368,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const mesPrevio = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
 
   // Try Airtable first
-  const airtableData = await fetchFromAirtable(session, clinica, doctor);
+  const airtableData = await fetchFromAirtable(session, clinicaFormula, doctor);
   let data: Presupuesto[];
   let isDemo = false;
 
@@ -364,7 +377,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   } else {
     isDemo = true;
     data = [...DEMO_PRESUPUESTOS];
-    if (clinica) data = data.filter((p) => p.clinica === clinica);
+    if (efectivas) data = data.filter((p) => efectivas.has(p.clinica ?? ""));
     if (doctor) data = data.filter((p) => p.doctor === doctor);
   }
 

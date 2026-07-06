@@ -9,14 +9,24 @@ import { base, TABLES } from "../../../lib/airtable";
 import { hasWABACredentials, getWABACredentials } from "../../../lib/presupuestos/waba-credentials";
 import type { UserSession } from "../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
 
 export const dynamic = "force-dynamic";
 
 const GRAPH_API_VERSION = "v21.0";
 
-function resolveClinica(session: UserSession, fromQuery: string | null): string | null {
-  if (session.rol === "encargada_ventas" && session.clinica) return session.clinica;
-  return fromQuery || session.clinica || null;
+// Sprint B Fase 4 — clínica efectiva sobre la que operar, acotada a las permitidas
+// de la sesión (IDs). Una clínica pedida que no esté permitida se descarta (null):
+// evita leer/escribir la config de otra clínica. Antes se resolvía por
+// `session.clinica` (nombre, hoy null) y el filtro no aislaba nada.
+async function clinicaEfectiva(
+  session: UserSession,
+  requested: string | null,
+): Promise<string | null> {
+  const permitidas = await nombresClinicasPermitidas(session);
+  if (requested) return permiteClinica(permitidas, requested) ? requested : null;
+  if (permitidas && permitidas.size === 1) return [...permitidas][0]!;
+  return null;
 }
 
 // ─── GET ─────────────────────────────────────────────────────────────────────
@@ -24,7 +34,7 @@ function resolveClinica(session: UserSession, fromQuery: string | null): string 
 export const GET = withPresupuestosAuth(async (session, req: Request) => {
 
   const { searchParams } = new URL(req.url);
-  const clinica = resolveClinica(session, searchParams.get("clinica"));
+  const clinica = await clinicaEfectiva(session, searchParams.get("clinica"));
 
   const credencialesConfiguradas = hasWABACredentials();
 
@@ -94,9 +104,9 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
   const activoParaClinica = body?.activoParaClinica === true;
 
   const { searchParams } = new URL(req.url);
-  const clinica = resolveClinica(session, searchParams.get("clinica") ?? body?.clinica ?? null);
+  const clinica = await clinicaEfectiva(session, searchParams.get("clinica") ?? body?.clinica ?? null);
   if (!clinica) {
-    return NextResponse.json({ error: "Falta clinica" }, { status: 400 });
+    return NextResponse.json({ error: "Falta clinica o no permitida" }, { status: 400 });
   }
 
   if (!process.env.AIRTABLE_API_KEY) {

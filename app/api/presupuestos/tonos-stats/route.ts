@@ -6,6 +6,7 @@
 import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../lib/airtable";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
 
 export interface TonoStat {
   contactados: number;
@@ -24,7 +25,7 @@ const DEMO_STATS: TonosStats = {
 const MIN_CONTACTS = 10;
 const TONOS = ["directo", "empatico", "urgencia"] as const;
 
-export const GET = withPresupuestosAuth(async (_session, req: Request) => {
+export const GET = withPresupuestosAuth(async (session, req: Request) => {
   // Demo mode
   if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
     return NextResponse.json({ stats: DEMO_STATS, isDemo: true });
@@ -33,6 +34,8 @@ export const GET = withPresupuestosAuth(async (_session, req: Request) => {
   const { searchParams } = new URL(req.url);
   const clinicaFilter = searchParams.get("clinica") ?? "";
   const tratFilter = searchParams.get("tratamiento") ?? "";
+  // Sprint B Fase 4 — aislamiento por clínica por IDs de la sesión (null = admin).
+  const permitidas = await nombresClinicasPermitidas(session);
 
   try {
     // 1. Fetch contacts with IA message used (max 2000)
@@ -95,6 +98,7 @@ export const GET = withPresupuestosAuth(async (_session, req: Request) => {
     for (const [presId, tonos] of tonosByPres) {
       const pres = presMap.get(presId);
       if (!pres) continue;
+      if (permitidas && !permiteClinica(permitidas, pres.clinica ?? "")) continue;
       if (clinicaFilter && pres.clinica !== clinicaFilter) continue;
       if (tratFilter && !pres.tratamiento.toLowerCase().includes(tratFilter.toLowerCase())) continue;
 

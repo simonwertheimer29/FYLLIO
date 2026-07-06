@@ -11,6 +11,7 @@ import { computeUrgencyScore } from "../../../../lib/presupuestos/urgency";
 import { ESTADOS_ACEPTADOS } from "../../../../lib/presupuestos/colors";
 import type { Presupuesto } from "../../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { nombresClinicasPermitidas, permiteClinica } from "../../../../lib/presupuestos/clinica-scope";
 
 const ZONE = "Europe/Madrid";
 
@@ -248,6 +249,15 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   })();
+  // Sprint B Fase 4 — un usuario restringido (coord) solo puede pedir el informe
+  // de UNA de sus clínicas permitidas: ni "todas" (red) ni otra clínica.
+  const permitidas = await nombresClinicasPermitidas(session);
+  if (permitidas !== null && !(body.clinicaId && permiteClinica(permitidas, body.clinicaId))) {
+    return NextResponse.json(
+      { error: "Debes seleccionar una de tus clínicas" },
+      { status: 403 },
+    );
+  }
   const clinicaId: string = body.clinicaId ?? "todas";
   const clinicaFiltro = clinicaId === "todas" ? null : clinicaId;
 

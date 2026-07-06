@@ -5,6 +5,11 @@ import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../../lib/airtable";
 import type { ConfigRecordatorios } from "../../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import {
+  nombresClinicasPermitidas,
+  permiteClinica,
+  formulaClinicaPermitida,
+} from "../../../../lib/presupuestos/clinica-scope";
 
 const DEFAULTS: Omit<ConfigRecordatorios, "clinica"> = {
   secuenciaDias: [3, 7, 10],
@@ -32,18 +37,22 @@ function recordToConfig(r: any): ConfigRecordatorios {
 export const GET = withPresupuestosAuth(async (session, req: Request) => {
   try {
     const url = new URL(req.url);
-    const clinicaParam = url.searchParams.get("clinica");
-    // encargada_ventas NO puede consultar otras clínicas: se fuerza la suya.
-    const clinica =
-      session.rol === "encargada_ventas"
-        ? (session.clinica ?? "")
-        : (clinicaParam || session.clinica || "");
+    // Sprint B Fase 4 — aislamiento por clínica por IDs de la sesión. Una clínica
+    // pedida solo cuenta si está permitida; si no, se devuelven todas las
+    // permitidas (null = admin, sin restricción). Antes una encargada con
+    // `session.clinica` null recibía las configs de TODAS las clínicas.
+    const permitidas = await nombresClinicasPermitidas(session);
+    const requested = url.searchParams.get("clinica");
+    const clinicaSel = requested && permiteClinica(permitidas, requested) ? requested : null;
+    const efectivas = clinicaSel ? new Set([clinicaSel]) : permitidas;
+    const clinicaFormula = formulaClinicaPermitida(efectivas, "Clinica");
+    const clinicaLabel =
+      clinicaSel ?? (permitidas && permitidas.size === 1 ? [...permitidas][0]! : "");
 
-    const clinicaEsc = clinica.replace(/'/g, "\\'");
     const recs = await base(TABLES.configuracionRecordatorios as any)
       .select({
         fields: ["Clinica", "Secuencia_dias", "Recordatorio_max", "Hora_envio", "Dias_rechazo_auto", "Activa"],
-        ...(clinica ? { filterByFormula: `{Clinica}='${clinicaEsc}'` } : {}),
+        ...(clinicaFormula ? { filterByFormula: clinicaFormula } : {}),
         maxRecords: 10,
       })
       .all();
@@ -51,13 +60,13 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     if (recs.length === 0) {
       // Return defaults
       return NextResponse.json({
-        configuracion: { clinica: clinica || "default", ...DEFAULTS },
+        configuracion: { clinica: clinicaLabel || "default", ...DEFAULTS },
       });
     }
 
     const configs = recs.map(recordToConfig);
     return NextResponse.json({
-      configuracion: clinica ? configs[0] : configs[0],
+      configuracion: configs[0],
       configuraciones: configs,
     });
   } catch (err) {
@@ -75,6 +84,11 @@ export const PUT = withPresupuestosAuth(async (session, req: Request) => {
     const { clinica, secuenciaDias, recordatorioMax, horaEnvio, diasRechazoAuto, activa } = body as ConfigRecordatorios;
 
     if (!clinica) return NextResponse.json({ error: "clinica requerida" }, { status: 400 });
+    // Sprint B Fase 4 — solo se puede escribir la config de una clínica permitida.
+    const permitidas = await nombresClinicasPermitidas(session);
+    if (!permiteClinica(permitidas, clinica)) {
+      return NextResponse.json({ error: "Clínica no permitida" }, { status: 403 });
+    }
 
     const fields: Record<string, any> = {
       Clinica: clinica,

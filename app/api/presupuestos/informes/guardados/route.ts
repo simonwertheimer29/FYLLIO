@@ -6,6 +6,11 @@ import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../../lib/airtable";
 import type { InformeGuardado } from "../../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import {
+  nombresClinicasPermitidas,
+  permiteClinica,
+  formulaClinicaPermitida,
+} from "../../../../lib/presupuestos/clinica-scope";
 
 function mapRecord(r: { id: string; fields: Record<string, unknown> }): InformeGuardado {
   const f = r.fields;
@@ -27,15 +32,20 @@ function mapRecord(r: { id: string; fields: Record<string, unknown> }): InformeG
 export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const { searchParams } = new URL(req.url);
   const tipo = searchParams.get("tipo") ?? null;
-  const clinicaFilter =
-    (session.rol === "encargada_ventas" || session.rol === "ventas") && session.clinica
-      ? session.clinica
-      : searchParams.get("clinica") ?? null;
+  // Sprint B Fase 4 — aislamiento por clínica por IDs de la sesión. La clínica
+  // elegida solo cuenta si está permitida; incluimos el bucket global 'todas'
+  // (informes de red), como en el diseño original.
+  const permitidas = await nombresClinicasPermitidas(session);
+  const clinicaQuery = searchParams.get("clinica");
+  const clinicaFormula =
+    clinicaQuery && permiteClinica(permitidas, clinicaQuery)
+      ? formulaClinicaPermitida(new Set([clinicaQuery]), "clinica", "todas")
+      : formulaClinicaPermitida(permitidas, "clinica", "todas");
 
   try {
     const filters: string[] = [];
     if (tipo) filters.push(`{tipo}='${tipo}'`);
-    if (clinicaFilter) filters.push(`OR({clinica}='${clinicaFilter}',{clinica}='todas')`);
+    if (clinicaFormula) filters.push(clinicaFormula);
 
     const formula =
       filters.length === 0
@@ -77,7 +87,22 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     }
 
     const nowISO = new Date().toISOString();
-    const clinicaValue = clinica ?? session.clinica ?? "todas";
+    // Sprint B Fase 4 — la clínica del informe debe ser una permitida. Un coord
+    // no puede escribir el bucket 'todas' (informe de red); un admin/manager sí.
+    const permitidas = await nombresClinicasPermitidas(session);
+    let clinicaValue: string;
+    if (clinica) {
+      if (!permiteClinica(permitidas, clinica)) {
+        return NextResponse.json({ error: "Clínica no permitida" }, { status: 403 });
+      }
+      clinicaValue = clinica;
+    } else if (permitidas === null) {
+      clinicaValue = "todas";
+    } else if (permitidas.size === 1) {
+      clinicaValue = [...permitidas][0]!;
+    } else {
+      return NextResponse.json({ error: "Indica la clínica del informe" }, { status: 400 });
+    }
     const autorValue = generadoPor ?? session.email;
 
     // Upsert: check if same tipo+clinica+periodo exists

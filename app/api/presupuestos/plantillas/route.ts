@@ -6,6 +6,11 @@ import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type { PlantillaMensaje } from "../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import {
+  nombresClinicasPermitidas,
+  permiteClinica,
+  formulaClinicaPermitida,
+} from "../../../lib/presupuestos/clinica-scope";
 
 const ZONE = "Europe/Madrid";
 
@@ -28,12 +33,20 @@ function recordToPlantilla(r: any): PlantillaMensaje {
 export const GET = withPresupuestosAuth(async (session, req: Request) => {
   try {
     const url = new URL(req.url);
-    const clinicaFilter = url.searchParams.get("clinica") || "";
+    // Sprint B Fase 4 — aislamiento por clínica por IDs de la sesión (+ bucket
+    // 'Todas' de plantillas de red). Una clínica pedida solo cuenta si está
+    // permitida; si no, todas las permitidas (null = admin, sin restricción).
+    const permitidas = await nombresClinicasPermitidas(session);
+    const clinicaQuery = url.searchParams.get("clinica") || "";
     const tipoFilter = url.searchParams.get("tipo") || "";
+    const clinicaFormula =
+      clinicaQuery && permiteClinica(permitidas, clinicaQuery)
+        ? formulaClinicaPermitida(new Set([clinicaQuery]), "Clinica", "Todas")
+        : formulaClinicaPermitida(permitidas, "Clinica", "Todas");
 
     let filterParts: string[] = [];
-    if (clinicaFilter) {
-      filterParts.push(`OR({Clinica}='${clinicaFilter}', {Clinica}='Todas')`);
+    if (clinicaFormula) {
+      filterParts.push(clinicaFormula);
     }
     if (tipoFilter) {
       filterParts.push(`{Tipo}='${tipoFilter}'`);
@@ -76,12 +89,20 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
       return NextResponse.json({ error: "nombre, tipo y contenido son requeridos" }, { status: 400 });
     }
 
+    // Sprint B Fase 4 — la plantilla creada debe ser de una clínica permitida. Un
+    // coord no puede crear plantillas de red ('Todas') ni de otra clínica.
+    const clinicaVal = clinica || "Todas";
+    const permitidas = await nombresClinicasPermitidas(session);
+    if (!permiteClinica(permitidas, clinicaVal)) {
+      return NextResponse.json({ error: "Clínica no permitida" }, { status: 403 });
+    }
+
     const now = DateTime.now().setZone(ZONE).toISO() ?? new Date().toISOString();
 
     const rec = await (base(TABLES.plantillasMensaje as any).create as any)({
       Nombre: nombre,
       Tipo: tipo,
-      Clinica: clinica || "Todas",
+      Clinica: clinicaVal,
       Doctor: doctor || "",
       Tratamiento: tratamiento || "",
       Contenido: contenido,
@@ -113,6 +134,20 @@ export const PUT = withPresupuestosAuth(async (session, req: Request) => {
 
     if (!id) return NextResponse.json({ error: "id requerido" }, { status: 400 });
 
+    // Sprint B Fase 4 — la plantilla existente (por id) debe pertenecer a una
+    // clínica permitida; y si se cambia la clínica, la nueva también. Evita que
+    // un coord edite/mueva una plantilla de otra clínica.
+    const permitidas = await nombresClinicasPermitidas(session);
+    const existingRec = await base(TABLES.plantillasMensaje as any).find(id).catch(() => null);
+    if (!existingRec) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
+    const clinicaActual = String((existingRec.fields as any)["Clinica"] ?? "Todas");
+    if (!permiteClinica(permitidas, clinicaActual)) {
+      return NextResponse.json({ error: "Plantilla no encontrada" }, { status: 404 });
+    }
+    if (clinica !== undefined && !permiteClinica(permitidas, clinica)) {
+      return NextResponse.json({ error: "Clínica no permitida" }, { status: 403 });
+    }
+
     const update: Record<string, any> = {};
     if (nombre !== undefined) update.Nombre = nombre;
     if (tipo !== undefined) update.Tipo = tipo;
@@ -138,6 +173,15 @@ export const DELETE = withPresupuestosAuth(async (session, req: Request) => {
     const { id } = body as { id: string };
 
     if (!id) return NextResponse.json({ error: "id requerido" }, { status: 400 });
+
+    // Sprint B Fase 4 — solo se puede borrar una plantilla de una clínica permitida.
+    const permitidas = await nombresClinicasPermitidas(session);
+    const existingRec = await base(TABLES.plantillasMensaje as any).find(id).catch(() => null);
+    if (!existingRec) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
+    const clinicaActual = String((existingRec.fields as any)["Clinica"] ?? "Todas");
+    if (!permiteClinica(permitidas, clinicaActual)) {
+      return NextResponse.json({ error: "Plantilla no encontrada" }, { status: 404 });
+    }
 
     await base(TABLES.plantillasMensaje as any).destroy(id);
 

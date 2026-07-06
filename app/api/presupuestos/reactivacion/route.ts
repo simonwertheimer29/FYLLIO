@@ -8,6 +8,10 @@ import { NextResponse } from "next/server";
 import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import {
+  nombresClinicasPermitidas,
+  formulaClinicaPermitidaArray,
+} from "../../../lib/presupuestos/clinica-scope";
 
 const ZONE = "Europe/Madrid";
 
@@ -51,10 +55,13 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     return NextResponse.json({ error: "tipo inválido" }, { status: 400 });
   }
 
-  // Filtro por clínica para encargada_ventas
-  if (session.rol === "encargada_ventas" && session.clinica) {
-    const clinicaEsc = session.clinica.replace(/'/g, "\\'");
-    filterByFormula = `AND(${filterByFormula}, FIND('${clinicaEsc}', ARRAYJOIN({Clinica})))`;
+  // Sprint B Fase 4 — aislamiento por clínica por IDs de la sesión. {Clinica} es
+  // un campo link/multi, así que restringimos con FIND sobre ARRAYJOIN. null =
+  // admin (sin restricción).
+  const permitidas = await nombresClinicasPermitidas(session);
+  const clinicaFormula = formulaClinicaPermitidaArray(permitidas, "Clinica");
+  if (clinicaFormula) {
+    filterByFormula = `AND(${filterByFormula}, ${clinicaFormula})`;
   }
 
   try {

@@ -18,6 +18,7 @@ import type {
   PresupuestoEstado,
 } from "../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
 
 export const dynamic = "force-dynamic";
 
@@ -282,10 +283,13 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       return p;
     });
 
-    // Filter by clinic if specified or user is encargada_ventas
-    if (session.rol === "encargada_ventas" && session.clinica) {
-      items = items.filter((p) => p.clinica === session.clinica);
-    } else if (clinicaFilter) {
+    // Sprint B Fase 4 — aislamiento por clínica: restringir SIEMPRE a las
+    // clínicas permitidas (IDs de la sesión); dentro de eso, el filtro elegido.
+    const permitidas = await nombresClinicasPermitidas(session);
+    if (permitidas) {
+      items = items.filter((p) => permiteClinica(permitidas, p.clinica ?? ""));
+    }
+    if (clinicaFilter) {
       items = items.filter((p) => p.clinica === clinicaFilter);
     }
 

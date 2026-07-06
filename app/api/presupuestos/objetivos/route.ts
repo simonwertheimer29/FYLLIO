@@ -5,6 +5,11 @@
 import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../lib/airtable";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import {
+  nombresClinicasPermitidas,
+  permiteClinica,
+  formulaClinicaPermitida,
+} from "../../../lib/presupuestos/clinica-scope";
 
 function getMesMTD(): string {
   const now = new Date();
@@ -22,10 +27,16 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     return NextResponse.json({ objetivos: [], isDemo: true });
   }
 
+  // Sprint B Fase 4 — aislamiento por clínica: un coord solo ve los objetivos de
+  // sus clínicas permitidas; admin/manager (null) ven todas las del cliente.
+  const permitidas = await nombresClinicasPermitidas(session);
+  const clinicaFormula = formulaClinicaPermitida(permitidas, "clinica");
+  const formula = clinicaFormula ? `AND({mes}="${mes}",${clinicaFormula})` : `{mes}="${mes}"`;
+
   try {
     const records = await base(TABLES.objetivosMensuales)
       .select({
-        filterByFormula: `{mes}="${mes}"`,
+        filterByFormula: formula,
         fields: ["clinica", "mes", "objetivo_aceptados"],
       })
       .all();
@@ -62,6 +73,12 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
 
   if (!clinica || !mes || objetivo_aceptados == null) {
     return NextResponse.json({ error: "Faltan campos: clinica, mes, objetivo_aceptados" }, { status: 400 });
+  }
+
+  // Sprint B Fase 4 — solo se puede fijar el objetivo de una clínica permitida.
+  const permitidas = await nombresClinicasPermitidas(session);
+  if (!permiteClinica(permitidas, clinica)) {
+    return NextResponse.json({ error: "Clínica no permitida" }, { status: 403 });
   }
 
   // Solo editable hasta el día 5 del mes actual

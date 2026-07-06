@@ -10,6 +10,7 @@ import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
 import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 import { isDemoAllowed } from "../../../lib/demo/seed";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
 
 const ZONE = "Europe/Madrid";
 
@@ -219,9 +220,14 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     }
 
     // Client-side filters for fields not in base Airtable schema
-    const clinicaFilter = (session.rol === "encargada_ventas" || session.rol === "ventas") && session.clinica
-      ? session.clinica
-      : (q.get("clinica") ?? "");
+    // Sprint B Fase 4 — aislamiento por clínica: restringir SIEMPRE a las
+    // clínicas permitidas de la sesión (IDs), y dentro de eso aplicar el filtro
+    // que el usuario elija en el desplegable.
+    const permitidas = await nombresClinicasPermitidas(session);
+    if (permitidas) {
+      presupuestos = presupuestos.filter((p) => permiteClinica(permitidas, p.clinica ?? ""));
+    }
+    const clinicaFilter = q.get("clinica") ?? "";
     if (clinicaFilter) {
       presupuestos = presupuestos.filter((p) => p.clinica === clinicaFilter);
     }
@@ -275,7 +281,21 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
       : String(body.treatments ?? "");
     const extraParts: string[] = [];
     if (body.doctor) extraParts.push(`Doctor: ${body.doctor}`);
-    const clinica = session.rol === "encargada_ventas" ? session.clinica : (body.clinica ?? null);
+    // Sprint B Fase 4 — la clínica del presupuesto creado debe ser una permitida:
+    // admin (sin restricción) usa la del body; coordinación solo puede etiquetar
+    // una de sus clínicas (si tiene una sola, se asume esa).
+    const permitidasPost = await nombresClinicasPermitidas(session);
+    let clinica: string | null;
+    if (permitidasPost === null) {
+      clinica = body.clinica ?? null;
+    } else if (body.clinica) {
+      if (!permitidasPost.has(body.clinica)) {
+        return NextResponse.json({ error: "Clínica no permitida" }, { status: 403 });
+      }
+      clinica = body.clinica;
+    } else {
+      clinica = permitidasPost.size === 1 ? [...permitidasPost][0]! : null;
+    }
     if (clinica) extraParts.push(clinica);
     if (body.tipoPaciente) extraParts.push(body.tipoPaciente);
     if (body.tipoVisita) extraParts.push(body.tipoVisita);

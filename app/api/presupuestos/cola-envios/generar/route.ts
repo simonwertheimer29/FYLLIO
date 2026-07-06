@@ -12,6 +12,7 @@ import type {
   TipoEnvio,
 } from "../../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { nombresClinicasPermitidas, permiteClinica } from "../../../../lib/presupuestos/clinica-scope";
 
 const ZONE = "Europe/Madrid";
 
@@ -227,10 +228,18 @@ export const POST = withPresupuestosAuth(async (session) => {
     let omitidos = 0;
     const ACTIVOS = ["PRESENTADO", "INTERESADO", "EN_DUDA", "EN_NEGOCIACION"];
 
+    // Sprint B Fase 4 — aislamiento por clínica: un coord solo genera la cola de
+    // sus clínicas permitidas (no dispara envíos de otras). null = admin.
+    const permitidas = await nombresClinicasPermitidas(session);
+
     for (const rec of presRecs) {
       const f = rec.fields as any;
       const estado = String(f["Estado"] ?? "PRESENTADO");
       const clinica = Array.isArray(f["Clinica"]) ? String(f["Clinica"][0] ?? "") : String(f["Clinica"] ?? "");
+      if (permitidas && !permiteClinica(permitidas, clinica)) {
+        omitidos++;
+        continue;
+      }
       const config = configMap.get(clinica) ?? CONFIG_DEFAULTS;
 
       if (!config.activa) {

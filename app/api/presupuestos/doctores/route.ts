@@ -6,18 +6,29 @@ import { base, TABLES } from "../../../lib/airtable";
 import type { Doctor } from "../../../lib/presupuestos/types";
 import { DEMO_DOCTORES } from "../../../lib/presupuestos/demo";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import {
+  nombresClinicasPermitidas,
+  permiteClinica,
+  formulaClinicaPermitida,
+} from "../../../lib/presupuestos/clinica-scope";
 
 export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const { searchParams } = new URL(req.url);
 
+  // Sprint B Fase 4 — aislamiento por clínica por IDs de la sesión. La clínica
+  // elegida en el desplegable solo cuenta si está permitida; si no, todas las
+  // permitidas (null = admin, sin restricción).
+  const permitidas = await nombresClinicasPermitidas(session);
+  const clinicaQuery = searchParams.get("clinica");
+  const efectivas =
+    clinicaQuery && permiteClinica(permitidas, clinicaQuery)
+      ? new Set([clinicaQuery])
+      : permitidas;
+  const clinicaFormula = formulaClinicaPermitida(efectivas, "Clinica");
+
   try {
     const filters: string[] = ["{Activo}=1"];
-    const clinica =
-      (session.rol === "encargada_ventas" || session.rol === "ventas") && session.clinica
-        ? session.clinica
-        : searchParams.get("clinica") ?? null;
-
-    if (clinica) filters.push(`{Clinica}='${clinica}'`);
+    if (clinicaFormula) filters.push(clinicaFormula);
 
     const recs = await base(TABLES.doctoresPresupuestos as any)
       .select({
@@ -42,12 +53,10 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     return NextResponse.json({ doctores });
   } catch {
     // Doctores_Presupuestos no existe → extraer doctores únicos del campo Doctor en Presupuestos
-    const clinica =
-      (session.rol === "encargada_ventas" || session.rol === "ventas") && session.clinica
-        ? session.clinica
-        : searchParams.get("clinica") ?? null;
     try {
-      const formula = clinica ? `AND(NOT({Doctor}=""),{Clinica}='${clinica}')` : `NOT({Doctor}="")`;
+      const formula = clinicaFormula
+        ? `AND(NOT({Doctor}=""),${clinicaFormula})`
+        : `NOT({Doctor}="")`;
       const presRecs = await base(TABLES.presupuestos as any)
         .select({
           fields: ["Doctor", "Doctor_Especialidad", "Clinica"],
@@ -76,7 +85,9 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     } catch {
       // Final fallback: demo doctores
       let doctores = DEMO_DOCTORES.filter((d) => d.activo);
-      if (clinica) doctores = doctores.filter((d) => d.clinica === clinica);
+      if (efectivas) {
+        doctores = doctores.filter((d) => d.clinica !== undefined && efectivas.has(d.clinica));
+      }
       return NextResponse.json({ doctores, isDemo: true });
     }
   }
