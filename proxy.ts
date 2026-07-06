@@ -41,6 +41,7 @@ const BLOCKED_IN_PROD_PREFIXES = [
   "/api/dev", // incluye /api/dev/whatsapp-sim
   "/api/import/gesden", // importador demo (escribe en Airtable de producción)
   "/api/no-shows/dev", // seed / purge / audit / campos — solo desarrollo
+  "/api/twilio/whatsapp", // chatbot de la primera demo; código (con firma) se conserva como referencia
 ];
 
 function isBlockedInProd(path: string): boolean {
@@ -99,5 +100,6 @@ export const config = {
     "/api/dev/:path*",
     "/api/import/gesden",
     "/api/no-shows/dev/:path*",
+    "/api/twilio/whatsapp",
   ],
 };
