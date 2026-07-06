@@ -2,30 +2,14 @@
 // GET ?nombre=X — todos los presupuestos + historial de acciones de un paciente
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
-import type { Presupuesto, HistorialAccion, UserSession } from "../../../lib/presupuestos/types";
+import type { Presupuesto, HistorialAccion } from "../../../lib/presupuestos/types";
 import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
 const ZONE = "Europe/Madrid";
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
 
 function daysSince(iso: string): number {
   const today = DateTime.now().setZone(ZONE).startOf("day");
@@ -33,12 +17,7 @@ function daysSince(iso: string): number {
   return Math.round(today.diff(d, "days").days);
 }
 
-export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
+export const GET = withPresupuestosAuth(async (_session, req: Request) => {
   const { searchParams } = new URL(req.url);
   const nombre = searchParams.get("nombre") ?? "";
   if (!nombre) {
@@ -193,4 +172,4 @@ export async function GET(req: Request) {
     );
     return NextResponse.json({ presupuestos: demo, historial: [], isDemo: true });
   }
-}
+});

@@ -1,8 +1,6 @@
 // app/api/presupuestos/kpis/route.ts
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type {
@@ -15,21 +13,9 @@ import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
 import { PIPELINE_ORDEN, ESTADOS_ACEPTADOS } from "../../../lib/presupuestos/colors";
 import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 import { detectarTecho } from "../../../lib/presupuestos/priceCeiling";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
 const ZONE = "Europe/Madrid";
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch { return null; }
-}
 
 function daysSince(iso: string): number {
   const today = DateTime.now().setZone(ZONE).startOf("day");
@@ -350,10 +336,7 @@ async function fetchFromAirtable(session: UserSession, clinica: string | null, d
   }
 }
 
-export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const url = new URL(req.url);
   const clinica =
     (session.rol === "encargada_ventas" || session.rol === "ventas") && session.clinica
@@ -393,4 +376,4 @@ export async function GET(req: Request) {
   const kpisPrevMes = buildKpis(dataPrevMes);
 
   return NextResponse.json({ kpis, kpisMes, kpisPrevMes, isDemo, mes: mesFiltro });
-}
+});
