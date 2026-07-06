@@ -3,29 +3,13 @@
 // PATCH — actualizar estado de un envío
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import { getServicioMensajeria } from "../../../lib/presupuestos/mensajeria";
-import type { UserSession, EnvioItem, EstadoEnvio } from "../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import type { EnvioItem, EstadoEnvio } from "../../../lib/presupuestos/types";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
 const ZONE = "Europe/Madrid";
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
 
 function recordToEnvio(r: any): EnvioItem {
   const f = r.fields as any;
@@ -47,10 +31,7 @@ function recordToEnvio(r: any): EnvioItem {
 }
 
 // GET — lista envíos
-export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const GET = withPresupuestosAuth(async (session, req: Request) => {
   try {
     const url = new URL(req.url);
     const fecha = url.searchParams.get("fecha") || DateTime.now().setZone(ZONE).toISODate()!;
@@ -87,13 +68,10 @@ export async function GET(req: Request) {
     console.error("[cola-envios] GET error:", err);
     return NextResponse.json({ envios: [], error: "Error al cargar envíos" });
   }
-}
+});
 
 // POST — crear un envío individual (desde campañas de reactivación, etc.)
-export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const POST = withPresupuestosAuth(async (session, req: Request) => {
   try {
     const body = await req.json();
     const { presupuestoId, paciente, telefono, contenido, tipo, plantillaUsada, tratamiento, importe, doctor } = body as {
@@ -136,13 +114,10 @@ export async function POST(req: Request) {
     console.error("[cola-envios] POST error:", err);
     return NextResponse.json({ error: "Error al crear envío" }, { status: 500 });
   }
-}
+});
 
 // PATCH — actualizar estado de un envío
-export async function PATCH(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const PATCH = withPresupuestosAuth(async (session, req: Request) => {
   try {
     const body = await req.json();
     const { id, estado } = body as { id: string; estado: EstadoEnvio };
@@ -196,4 +171,4 @@ export async function PATCH(req: Request) {
     console.error("[cola-envios] PATCH error:", err);
     return NextResponse.json({ error: "Error al actualizar envío" }, { status: 500 });
   }
-}
+});

@@ -2,28 +2,12 @@
 // CRUD para plantillas de mensaje
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
-import type { UserSession, PlantillaMensaje } from "../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import type { PlantillaMensaje } from "../../../lib/presupuestos/types";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
 const ZONE = "Europe/Madrid";
-
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch {
-    return null;
-  }
-}
 
 function recordToPlantilla(r: any): PlantillaMensaje {
   const f = r.fields as any;
@@ -41,10 +25,7 @@ function recordToPlantilla(r: any): PlantillaMensaje {
 }
 
 // GET — lista plantillas
-export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const GET = withPresupuestosAuth(async (session, req: Request) => {
   try {
     const url = new URL(req.url);
     const clinicaFilter = url.searchParams.get("clinica") || "";
@@ -76,13 +57,10 @@ export async function GET(req: Request) {
     console.error("[plantillas] GET error:", err);
     return NextResponse.json({ plantillas: [], error: "Error al cargar plantillas" });
   }
-}
+});
 
 // POST — crear plantilla
-export async function POST(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const POST = withPresupuestosAuth(async (session, req: Request) => {
   try {
     const body = await req.json();
     const { nombre, tipo, clinica, doctor, tratamiento, contenido } = body as {
@@ -116,13 +94,10 @@ export async function POST(req: Request) {
     console.error("[plantillas] POST error:", err);
     return NextResponse.json({ error: "Error al crear plantilla" }, { status: 500 });
   }
-}
+});
 
 // PUT — actualizar plantilla
-export async function PUT(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const PUT = withPresupuestosAuth(async (session, req: Request) => {
   try {
     const body = await req.json();
     const { id, nombre, tipo, clinica, doctor, tratamiento, contenido, activa } = body as {
@@ -154,13 +129,10 @@ export async function PUT(req: Request) {
     console.error("[plantillas] PUT error:", err);
     return NextResponse.json({ error: "Error al actualizar plantilla" }, { status: 500 });
   }
-}
+});
 
 // DELETE — eliminar plantilla
-export async function DELETE(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const DELETE = withPresupuestosAuth(async (session, req: Request) => {
   try {
     const body = await req.json();
     const { id } = body as { id: string };
@@ -174,4 +146,4 @@ export async function DELETE(req: Request) {
     console.error("[plantillas] DELETE error:", err);
     return NextResponse.json({ error: "Error al eliminar plantilla" }, { status: 500 });
   }
-}
+});
