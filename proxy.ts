@@ -26,12 +26,44 @@ async function hasValidSession(token: string): Promise<boolean> {
   }
 }
 
+// Sprint A / P0.3 — Superficie demo/dev que leía y ESCRIBÍA en el Airtable de
+// producción sin autenticación. No la usa el producto vivo (Leads/Presupuestos/
+// Pacientes/Copilot/no-shows): solo los componentes del cluster demo/agenda-MVP.
+// En producción devolvemos 404 (que no existan); en local/dev siguen abiertas.
+// Método reversible (no se borra nada). El webhook de Twilio NO está aquí: es
+// entrada externa real y se protege con firma en su handler, no se cierra.
+const BLOCKED_IN_PROD_PREFIXES = [
+  "/api/db",
+  "/api/dashboard",
+  "/api/scheduler",
+  "/api/whatsapp/send",
+  "/api/ai-suggestions",
+  "/api/dev", // incluye /api/dev/whatsapp-sim
+  "/api/import/gesden", // importador demo (escribe en Airtable de producción)
+  "/api/no-shows/dev", // seed / purge / audit / campos — solo desarrollo
+];
+
+function isBlockedInProd(path: string): boolean {
+  return BLOCKED_IN_PROD_PREFIXES.some((p) => path === p || path.startsWith(p + "/"));
+}
+
 export async function proxy(req: NextRequest) {
+  const path = req.nextUrl.pathname;
+
+  // 1) Cierre de superficie demo/dev en producción.
+  if (isBlockedInProd(path)) {
+    if (process.env.NODE_ENV === "production") {
+      return new NextResponse("Not Found", { status: 404 });
+    }
+    return NextResponse.next();
+  }
+
+  // 2) Auth de las rutas protegidas (matcher Sprint 7/8).
   const token = req.cookies.get(COOKIE_NAME)?.value;
   const ok = token ? await hasValidSession(token) : false;
   if (ok) return NextResponse.next();
 
-  const isApi = req.nextUrl.pathname.startsWith("/api/");
+  const isApi = path.startsWith("/api/");
   if (isApi) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -58,5 +90,14 @@ export const config = {
     "/api/leads/:path*",
     "/api/pacientes/:path*",
     "/api/alertas/:path*",
+    // Sprint A — superficie demo/dev cerrada en producción (P0.3).
+    "/api/db/:path*",
+    "/api/dashboard/:path*",
+    "/api/scheduler/:path*",
+    "/api/whatsapp/send",
+    "/api/ai-suggestions",
+    "/api/dev/:path*",
+    "/api/import/gesden",
+    "/api/no-shows/dev/:path*",
   ],
 };
