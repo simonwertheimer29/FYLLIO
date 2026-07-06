@@ -21,7 +21,7 @@
 
 import { NextResponse } from "next/server";
 import { withAdmin } from "../../../lib/auth/session";
-import { base, TABLES, fetchAll } from "../../../lib/airtable";
+import { baseCentral, base, TABLES, fetchAll } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 
 export const dynamic = "force-dynamic";
@@ -100,7 +100,7 @@ export const GET = withAdmin(async (_session, req) => {
 
   // ── Resolver mapa clínicas (recordId → nombre) para filtrar/escribir.
   const clinicaRecs = await fetchAll(
-    base(TABLES.clinics as any).select({ fields: ["Nombre"] }),
+    baseCentral(TABLES.clinics as any).select({ fields: ["Nombre"] }),
   );
   const clinicaNombrePorId = new Map<string, string>();
   for (const c of clinicaRecs) {

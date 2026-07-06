@@ -4,7 +4,7 @@
 
 import { NextResponse } from "next/server";
 import { withAdmin } from "../../../lib/auth/session";
-import { base, TABLES, fetchAll } from "../../../lib/airtable";
+import { baseCentral, TABLES, fetchAll } from "../../../lib/airtable";
 import { findCoordinacionesByClinica } from "../../../lib/auth/users";
 import { calcularAlertas } from "../../../lib/alertas/calcular";
 import { checkCooldown, recordAlert } from "../../../lib/alertas/historial";
@@ -79,7 +79,7 @@ export const POST = withAdmin(async (session, req) => {
   }
 
   // Clínica
-  const cliRec = await base(TABLES.clinics).find(clinicaId).catch(() => null);
+  const cliRec = await baseCentral(TABLES.clinics).find(clinicaId).catch(() => null);
   if (!cliRec) return NextResponse.json({ error: "Clínica no encontrada" }, { status: 404 });
   const clinicaNombre = String(cliRec.fields?.["Nombre"] ?? "");
 

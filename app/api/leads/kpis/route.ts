@@ -20,8 +20,7 @@ import { withAuth } from "../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../lib/auth/users";
 import { listLeads, type Lead, type LeadCanal } from "../../../lib/leads/leads";
 import { getFacturadoEnPeriodo, getFacturadoPorPacientes } from "../../../lib/pagos";
-import { base, TABLES, fetchAll } from "../../../lib/airtable";
-
+import { baseCentral, base, TABLES, fetchAll } from "../../../lib/airtable";
 export const dynamic = "force-dynamic";
 
 type Periodo = "hoy" | "semana" | "mes" | "mes_anterior" | "trimestre";
@@ -251,7 +250,7 @@ export const GET = withAuth(async (session, req) => {
     try {
       const formula = `OR(${clinicaIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
       const recs = await fetchAll(
-        base(TABLES.clinics as any).select({
+        baseCentral(TABLES.clinics as any).select({
           filterByFormula: formula,
           fields: ["Nombre"],
         }),

@@ -10,7 +10,7 @@
 //    consulta global.
 
 import { DateTime } from "luxon";
-import { base, TABLES, fetchAll } from "../airtable";
+import { baseCentral, base, TABLES, fetchAll } from "../airtable";
 import { listLeads } from "../leads/leads";
 import { listPacientes } from "../pacientes/pacientes";
 import { listClinicaIdsForUser } from "../auth/users";
@@ -114,7 +114,7 @@ async function fetchPresupuestos(env: CopilotEnv): Promise<any[]> {
   let clinicaNombres: string[] | null = null;
   if (env.session.rol === "admin") {
     if (env.selectedClinicaId) {
-      const r = await base(TABLES.clinics as any).find(env.selectedClinicaId).catch(() => null);
+      const r = await baseCentral(TABLES.clinics as any).find(env.selectedClinicaId).catch(() => null);
       const n = r ? String((r.fields as any)?.["Nombre"] ?? "") : "";
       if (n) clinicaNombres = [n];
     }
@@ -122,7 +122,7 @@ async function fetchPresupuestos(env: CopilotEnv): Promise<any[]> {
     const allowed = await listClinicaIdsForUser(env.session.userId);
     if (allowed.length === 0) return [];
     const recs = await Promise.all(
-      allowed.map((id) => base(TABLES.clinics as any).find(id).catch(() => null)),
+      allowed.map((id) => baseCentral(TABLES.clinics as any).find(id).catch(() => null)),
     );
     clinicaNombres = recs
       .filter(Boolean)
@@ -702,7 +702,7 @@ export async function buscarPacientesPorNombre(
   if (clinicaIds.length > 0) {
     try {
       const recs = await fetchAll(
-        base(TABLES.clinics as any).select({
+        baseCentral(TABLES.clinics as any).select({
           filterByFormula: `OR(${clinicaIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`,
           fields: ["Nombre"],
         }),

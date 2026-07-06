@@ -3,7 +3,7 @@
 // Modo A (manual): persiste en Mensajes_WhatsApp + genera wa.me URL.
 // Modo B (WABA): envía vía Graph API de Meta, persiste, actualiza telemetría.
 
-import { base, TABLES, fetchAll } from "../airtable";
+import { baseCentral, base, TABLES, fetchAll } from "../airtable";
 import { DateTime } from "luxon";
 import type {
   MensajeWhatsApp,
@@ -458,7 +458,7 @@ async function getClinicaForMensaje(params: { presupuestoId?: string; leadId?: s
         if (c) {
           // Lead.Clinica es link → array de IDs. Buscamos el nombre de la clínica.
           const cliId = Array.isArray(c) ? String(c[0]) : String(c);
-          const cli = await base(TABLES.clinics as any).find(cliId).catch(() => null);
+          const cli = await baseCentral(TABLES.clinics as any).find(cliId).catch(() => null);
           const nombre = (cli?.fields as any)?.["Nombre"];
           if (nombre) return String(nombre);
         }

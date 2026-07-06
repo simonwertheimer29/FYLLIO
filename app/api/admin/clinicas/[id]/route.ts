@@ -4,8 +4,7 @@
 
 import { NextResponse } from "next/server";
 import { withAdmin } from "../../../../lib/auth/session";
-import { base, TABLES } from "../../../../lib/airtable";
-
+import { baseCentral, TABLES } from "../../../../lib/airtable";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -33,7 +32,7 @@ export const PATCH = withAdmin<Ctx>(async (_session, req, ctx) => {
   }
 
   try {
-    const updated = (await base(TABLES.clinics).update([{ id, fields }]))[0]!;
+    const updated = (await baseCentral(TABLES.clinics).update([{ id, fields }]))[0]!;
     const f = updated.fields ?? {};
     return NextResponse.json({
       clinica: {

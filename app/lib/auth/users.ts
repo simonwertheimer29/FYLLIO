@@ -3,7 +3,10 @@
 // Repositorio de Usuarios (rol global: admin | coordinacion) + junction Usuario_Clinicas.
 // Sprint 7: sistema canónico. NO tocar `Usuarios_Presupuestos` (legacy).
 
-import { base, TABLES, fetchAll } from "../airtable";
+// Sprint B — Usuarios, Clínicas y Usuario_Clinicas son IDENTIDAD/REGISTRO y viven
+// en la base CENTRAL. Todo este módulo usa baseCentral() (nunca base(), que es
+// para datos de negocio por cliente).
+import { baseCentral, TABLES, fetchAll } from "../airtable";
 
 export type Rol = "admin" | "coordinacion";
 
@@ -63,7 +66,7 @@ function escapeFormula(value: string): string {
 /** Busca un admin por email. Devuelve null si no existe o no es admin activo. */
 export async function findUserByEmail(email: string): Promise<Usuario | null> {
   const safe = escapeFormula(email.toLowerCase().trim());
-  const recs = await base(TABLES.usuarios)
+  const recs = await baseCentral(TABLES.usuarios)
     .select({
       filterByFormula: `AND({Email}='${safe}', {Rol}='admin', {Activo})`,
       maxRecords: 1,
@@ -81,7 +84,7 @@ export async function findUserByEmail(email: string): Promise<Usuario | null> {
 
 /** Devuelve todos los junction records (usado para filtrado en memoria). */
 async function allJunctions(): Promise<Array<{ userIds: string[]; clinicaIds: string[] }>> {
-  const recs = await fetchAll(base(TABLES.usuarioClinicas).select({}));
+  const recs = await fetchAll(baseCentral(TABLES.usuarioClinicas).select({}));
   return recs.map((r) => ({
     userIds: (r.fields?.["Usuario"] ?? []) as string[],
     clinicaIds: (r.fields?.["Clinica"] ?? []) as string[],
@@ -103,7 +106,7 @@ export async function findCoordinacionesByClinica(clinicaId: string): Promise<Us
   if (userIds.size === 0) return [];
 
   const usersAll = await fetchAll(
-    base(TABLES.usuarios).select({
+    baseCentral(TABLES.usuarios).select({
       filterByFormula: `AND({Rol}='coordinacion', {Activo})`,
     })
   );
@@ -125,14 +128,14 @@ export async function listClinicaIdsForUser(userId: string): Promise<string[]> {
 export async function listClinicas(opts: { onlyActivas?: boolean } = {}): Promise<Clinica[]> {
   const filter = opts.onlyActivas ? "{Activa}" : "";
   const recs = await fetchAll(
-    base(TABLES.clinics).select(filter ? { filterByFormula: filter } : {})
+    baseCentral(TABLES.clinics).select(filter ? { filterByFormula: filter } : {})
   );
   return recs.map(toClinica);
 }
 
 export async function getUsuarioById(id: string): Promise<Usuario | null> {
   try {
-    const rec = await base(TABLES.usuarios).find(id);
+    const rec = await baseCentral(TABLES.usuarios).find(id);
     return toUsuario(rec);
   } catch {
     return null;
@@ -140,7 +143,7 @@ export async function getUsuarioById(id: string): Promise<Usuario | null> {
 }
 
 export async function listUsuarios(): Promise<Usuario[]> {
-  const recs = await fetchAll(base(TABLES.usuarios).select({}));
+  const recs = await fetchAll(baseCentral(TABLES.usuarios).select({}));
   return recs.map(toUsuario);
 }
 
@@ -178,7 +181,7 @@ export async function listUsuariosConClinicas(): Promise<
 /** Admins activos con Pin_hash seteado (candidatos a admin-pin-login). */
 export async function listAdminCandidates(): Promise<Usuario[]> {
   const recs = await fetchAll(
-    base(TABLES.usuarios).select({
+    baseCentral(TABLES.usuarios).select({
       filterByFormula: `AND({Rol}='admin', {Activo}, {Pin_hash}!='')`,
     })
   );
@@ -207,7 +210,7 @@ export async function createUsuario(args: {
   if (args.pinHash) fields["Pin_hash"] = args.pinHash;
   if (args.pinLength) fields["Pin_length"] = args.pinLength;
 
-  const created = (await base(TABLES.usuarios).create([{ fields }]))[0];
+  const created = (await baseCentral(TABLES.usuarios).create([{ fields }]))[0];
   return toUsuario(created);
 }
 
@@ -232,7 +235,7 @@ export async function updateUsuario(
   if (patch.pinLength !== undefined) fields["Pin_length"] = patch.pinLength;
   if (patch.activo !== undefined) fields["Activo"] = patch.activo;
 
-  const updated = (await base(TABLES.usuarios).update([{ id, fields }]))[0];
+  const updated = (await baseCentral(TABLES.usuarios).update([{ id, fields }]))[0];
   return toUsuario(updated);
 }
 
@@ -245,7 +248,7 @@ export async function updateUsuario(
  */
 export async function setUsuarioClinicas(userId: string, clinicaIds: string[]): Promise<void> {
   const target = new Set(clinicaIds);
-  const recs = await fetchAll(base(TABLES.usuarioClinicas).select({}));
+  const recs = await fetchAll(baseCentral(TABLES.usuarioClinicas).select({}));
   const toDelete: string[] = [];
   const keep = new Set<string>();
   for (const rec of recs) {
@@ -262,7 +265,7 @@ export async function setUsuarioClinicas(userId: string, clinicaIds: string[]): 
   }
   // Borrar sobrantes en batches de 10.
   for (let i = 0; i < toDelete.length; i += 10) {
-    await base(TABLES.usuarioClinicas).destroy(toDelete.slice(i, i + 10));
+    await baseCentral(TABLES.usuarioClinicas).destroy(toDelete.slice(i, i + 10));
   }
   // Crear los que faltan.
   const missing = clinicaIds.filter((cid) => !keep.has(cid));
@@ -270,7 +273,7 @@ export async function setUsuarioClinicas(userId: string, clinicaIds: string[]): 
     fields: { Usuario: [userId], Clinica: [cid] },
   }));
   for (let i = 0; i < toCreate.length; i += 10) {
-    await base(TABLES.usuarioClinicas).create(toCreate.slice(i, i + 10));
+    await baseCentral(TABLES.usuarioClinicas).create(toCreate.slice(i, i + 10));
   }
 }
 
@@ -281,7 +284,7 @@ export async function linkUsuarioClinica(userId: string, clinicaId: string): Pro
     (j) => j.userIds.includes(userId) && j.clinicaIds.includes(clinicaId)
   );
   if (exists) return;
-  await base(TABLES.usuarioClinicas).create([
+  await baseCentral(TABLES.usuarioClinicas).create([
     { fields: { Usuario: [userId], Clinica: [clinicaId] } },
   ]);
 }
@@ -292,7 +295,7 @@ export async function unlinkUsuarioFromClinicas(
   clinicaIds: string[]
 ): Promise<void> {
   if (!clinicaIds.length) return;
-  const recs = await fetchAll(base(TABLES.usuarioClinicas).select({}));
+  const recs = await fetchAll(baseCentral(TABLES.usuarioClinicas).select({}));
   const toDelete: string[] = [];
   for (const rec of recs) {
     const userLinks = (rec.fields?.["Usuario"] ?? []) as string[];
@@ -302,6 +305,6 @@ export async function unlinkUsuarioFromClinicas(
   }
   if (!toDelete.length) return;
   for (let i = 0; i < toDelete.length; i += 10) {
-    await base(TABLES.usuarioClinicas).destroy(toDelete.slice(i, i + 10));
+    await baseCentral(TABLES.usuarioClinicas).destroy(toDelete.slice(i, i + 10));
   }
 }

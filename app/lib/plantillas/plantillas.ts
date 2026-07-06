@@ -3,7 +3,7 @@
 // Sprint 14b Bloque 4 — repositorio de Plantillas_Mensaje + helpers
 // de render.
 
-import { base, TABLES, fetchAll } from "../airtable";
+import { baseCentral, base, TABLES, fetchAll } from "../airtable";
 import { getPaciente } from "../pacientes/pacientes";
 import { getOpcionEscalar } from "../configuraciones/configuraciones";
 
@@ -309,7 +309,7 @@ async function loadStaffNombre(staffId: string): Promise<string | null> {
 
 async function loadClinicaNombre(clinicaId: string): Promise<string | null> {
   try {
-    const rec = await base(TABLES.clinics as any).find(clinicaId);
+    const rec = await baseCentral(TABLES.clinics as any).find(clinicaId);
     return String((rec.fields as any)?.["Nombre"] ?? "") || null;
   } catch {
     return null;

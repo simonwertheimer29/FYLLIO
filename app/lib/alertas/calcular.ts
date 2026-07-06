@@ -2,7 +2,7 @@
 // Sprint 8 D.7 — cálculo de situaciones por clínica y tipo.
 // Se ejecuta en cada GET /api/alertas. No cron (Sprint 9).
 
-import { base, TABLES, fetchAll } from "../airtable";
+import { baseCentral, base, TABLES, fetchAll } from "../airtable";
 import { listAllOpciones } from "../configuraciones/configuraciones";
 import type { TipoAlerta } from "./templates";
 
@@ -17,7 +17,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export async function calcularAlertas(): Promise<AlertaClinica[]> {
   const [clinicas, leads, presupuestos, colaEnvios, pagos, pacientes, opciones] =
     await Promise.all([
-      fetchAll(base(TABLES.clinics).select({ filterByFormula: "{Activa}" })),
+      fetchAll(baseCentral(TABLES.clinics).select({ filterByFormula: "{Activa}" })),
       fetchAll(base(TABLES.leads).select({})),
       fetchAll(base(TABLES.presupuestos).select({})),
       fetchAll(base(TABLES.colaEnvios).select({ filterByFormula: "{Estado}='Fallido'" })),

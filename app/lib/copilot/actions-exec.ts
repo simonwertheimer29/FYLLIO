@@ -19,7 +19,7 @@
 //  - coord solo sobre sus clinicas
 //  - admin requiere selectedClinicaId para ESCRIBIR. Si no, error.
 
-import { base, TABLES } from "../airtable";
+import { baseCentral, base, TABLES } from "../airtable";
 import { listClinicaIdsForUser } from "../auth/users";
 import { getLead, updateLead, appendLeadLog } from "../leads/leads";
 import { logAccionLead } from "../leads/acciones";
@@ -119,7 +119,7 @@ async function execEnviarWhatsappLead(env: ExecEnv, p: any): Promise<ExecResult>
   let wabaActivo = false;
   if (lead.clinicaId) {
     try {
-      const cliRec = await base(TABLES.clinics as any).find(lead.clinicaId);
+      const cliRec = await baseCentral(TABLES.clinics as any).find(lead.clinicaId);
       const nombre = String((cliRec.fields as any)?.["Nombre"] ?? "");
       const cfgRecs = await base(TABLES.configuracionWABA as any)
         .select({
@@ -212,7 +212,7 @@ async function ensurePresupAccessible(
     const allowedNombres: string[] = [];
     for (const id of allowed) {
       try {
-        const c = await base(TABLES.clinics as any).find(id);
+        const c = await baseCentral(TABLES.clinics as any).find(id);
         const n = String((c.fields as any)?.["Nombre"] ?? "");
         if (n) allowedNombres.push(n);
       } catch {
@@ -386,7 +386,7 @@ async function loadClinicaNombrePorId(): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   try {
     const recs = await (
-      base(TABLES.clinics as any) as any
+      baseCentral(TABLES.clinics as any) as any
     )
       .select({ fields: ["Nombre"] })
       .all();

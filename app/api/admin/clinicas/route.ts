@@ -4,8 +4,7 @@
 import { NextResponse } from "next/server";
 import { withAdmin } from "../../../lib/auth/session";
 import { listClinicas } from "../../../lib/auth/users";
-import { base, TABLES } from "../../../lib/airtable";
-
+import { baseCentral, TABLES } from "../../../lib/airtable";
 export const dynamic = "force-dynamic";
 
 export const GET = withAdmin(async () => {
@@ -30,7 +29,7 @@ export const POST = withAdmin(async (_session, req) => {
   if (body?.ciudad) fields["Ciudad"] = body.ciudad.trim();
   if (body?.telefono) fields["Telefono"] = body.telefono.trim();
 
-  const created = (await base(TABLES.clinics).create([{ fields }]))[0]!;
+  const created = (await baseCentral(TABLES.clinics).create([{ fields }]))[0]!;
   const f = created.fields ?? {};
   return NextResponse.json({
     clinica: {
