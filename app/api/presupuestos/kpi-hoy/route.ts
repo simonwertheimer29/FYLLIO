@@ -6,33 +6,12 @@
 // saliente del mismo presupuesto. Promedio en minutos.
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES, fetchAll } from "../../../lib/airtable";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
 export const dynamic = "force-dynamic";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
-
-async function isAuthed(): Promise<boolean> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return false;
-    await jwtVerify(token, secret);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-export async function GET() {
-  if (!(await isAuthed())) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-  }
-
+export const GET = withPresupuestosAuth(async () => {
   const today = new Date().toISOString().slice(0, 10);
   const formula = `IS_AFTER({Timestamp}, '${today}T00:00:00.000Z')`;
 
@@ -84,4 +63,4 @@ export async function GET() {
     console.error("[presupuestos/kpi-hoy]", err instanceof Error ? err.message : err);
     return NextResponse.json({ tiempoMedioMin: null, totalMensajes: 0 });
   }
-}
+});
