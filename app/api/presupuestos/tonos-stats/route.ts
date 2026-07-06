@@ -4,14 +4,8 @@
 // Lógica: contactos con MensajeIAUsado=true → presupuesto → ACEPTADO/no
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
 import { base, TABLES } from "../../../lib/airtable";
-import type { UserSession } from "../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
-
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
+import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
 export interface TonoStat {
   contactados: number;
@@ -30,20 +24,7 @@ const DEMO_STATS: TonosStats = {
 const MIN_CONTACTS = 10;
 const TONOS = ["directo", "empatico", "urgencia"] as const;
 
-async function getSession(): Promise<UserSession | null> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return null;
-    const { payload } = await jwtVerify(token, secret);
-    return payload as unknown as UserSession;
-  } catch { return null; }
-}
-
-export async function GET(req: Request) {
-  const session = await getSession();
-  if (!session) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
-
+export const GET = withPresupuestosAuth(async (_session, req: Request) => {
   // Demo mode
   if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
     return NextResponse.json({ stats: DEMO_STATS, isDemo: true });
@@ -139,4 +120,4 @@ export async function GET(req: Request) {
   } catch {
     return NextResponse.json({ stats: DEMO_STATS, isDemo: true });
   }
-}
+});
