@@ -375,7 +375,7 @@ function ReglaCard({
                 type="checkbox"
                 checked={regla.activa}
                 onChange={(e) => onToggleActiva(e.target.checked)}
-                className="accent-emerald-600"
+                className="accent-emerald-600 dark:accent-emerald-500"
               />
               Activa
             </label>
@@ -386,7 +386,7 @@ function ReglaCard({
                 type="checkbox"
                 checked={regla.modoTest}
                 onChange={(e) => onToggleTest(e.target.checked)}
-                className="accent-amber-500"
+                className="accent-amber-500 dark:accent-amber-400"
               />
               Test
             </label>
