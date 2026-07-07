@@ -5,6 +5,17 @@
 
 import { useState, useEffect, use } from "react";
 import { toast } from "sonner";
+import {
+  Lock,
+  Phone,
+  MapPin,
+  CheckCircle2,
+  ChevronDown,
+  ChevronLeft,
+  ArrowRight,
+  Check,
+  Hand,
+} from "../../components/icons";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -81,18 +92,21 @@ const FAQS = [
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div className="border-b border-slate-100 last:border-0 pb-4 last:pb-0">
+    <div className="border-b border-[var(--color-border)] last:border-0 pb-4 last:pb-0">
       <button
         onClick={() => setOpen(!open)}
         className="w-full text-left flex items-start justify-between gap-3 py-1"
       >
-        <span className="text-[17px] font-medium text-slate-800 leading-snug">{q}</span>
-        <span className={`text-violet-500 text-lg shrink-0 mt-0.5 transition-transform ${open ? "rotate-180" : ""}`}>
-          ▾
-        </span>
+        <span className="text-[17px] font-medium text-[var(--color-foreground)] leading-snug">{q}</span>
+        <ChevronDown
+          size={18}
+          strokeWidth={1.5}
+          aria-hidden
+          className={`text-[var(--color-accent)] shrink-0 mt-0.5 transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
       {open && (
-        <p className="mt-2 text-[16px] text-slate-500 leading-relaxed">{a}</p>
+        <p className="mt-2 text-[16px] text-[var(--color-muted)] leading-relaxed">{a}</p>
       )}
     </div>
   );
@@ -100,8 +114,29 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 
 function Spinner() {
   return (
-    <div className="min-h-screen bg-violet-50 flex items-center justify-center">
-      <div className="animate-spin w-10 h-10 border-4 border-violet-200 border-t-violet-600 rounded-full" />
+    <div className="min-h-screen bg-[var(--color-background)] flex items-center justify-center">
+      <div className="animate-spin w-10 h-10 border-4 border-[var(--color-accent-soft)] border-t-[var(--color-accent)] rounded-full" />
+    </div>
+  );
+}
+
+function ContactoClinica({ clinica, telefono, label }: { clinica?: string; telefono?: string; label?: string }) {
+  if (!clinica && !telefono) return null;
+  return (
+    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-6 py-4 text-left w-full max-w-sm">
+      {label && <p className="fyllio-label text-[var(--color-muted)] mb-2">{label}</p>}
+      {telefono && (
+        <p className="text-[17px] text-[var(--color-foreground)] mb-1 flex items-center gap-2">
+          <Phone size={16} strokeWidth={1.5} aria-hidden className="text-[var(--color-muted)] shrink-0" />
+          {telefono}
+        </p>
+      )}
+      {clinica && (
+        <p className="text-[17px] text-[var(--color-foreground)] flex items-center gap-2">
+          <MapPin size={16} strokeWidth={1.5} aria-hidden className="text-[var(--color-muted)] shrink-0" />
+          {clinica}
+        </p>
+      )}
     </div>
   );
 }
@@ -160,25 +195,20 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
 
   // ── Error screens ────────────────────────────────────────────────────────
   if (estado === "not_found" || estado === "expired") {
-    const clinica = data?.clinica;
-    const tel = data?.clinicaTelefono;
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 py-12 text-center">
-        <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-3xl mb-6">🔒</div>
-        <h1 className="text-[22px] font-bold text-slate-900 mb-3">
+      <div className="min-h-screen bg-[var(--color-background)] flex flex-col items-center justify-center px-6 py-12 text-center">
+        <div className="w-16 h-16 rounded-full bg-[var(--color-surface-muted)] flex items-center justify-center mb-6">
+          <Lock size={28} strokeWidth={1.5} aria-hidden className="text-[var(--color-muted)]" />
+        </div>
+        <h1 className="font-display text-[22px] font-semibold text-[var(--color-foreground)] mb-3">
           {estado === "expired" ? "Este enlace ha expirado" : "Este enlace no es válido"}
         </h1>
-        <p className="text-[17px] text-slate-500 max-w-sm mb-8 leading-relaxed">
+        <p className="text-[17px] text-[var(--color-muted)] max-w-sm mb-8 leading-relaxed">
           {estado === "expired"
             ? "El enlace ha caducado. Contacta con la clínica para solicitar uno nuevo."
             : "Este enlace no existe o ya no está disponible."}
         </p>
-        {(clinica || tel) && (
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 px-6 py-4 text-left w-full max-w-sm">
-            {tel && <p className="text-[17px] text-slate-700 mb-1">📞 {tel}</p>}
-            {clinica && <p className="text-[17px] text-slate-700">📍 {clinica}</p>}
-          </div>
-        )}
+        <ContactoClinica clinica={data?.clinica} telefono={data?.clinicaTelefono} />
       </div>
     );
   }
@@ -187,23 +217,21 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
   if (estado === "done_aceptado" && data) {
     const firstName = data.patientName.split(" ")[0];
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 py-12 text-center">
-        <div className="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-4xl mb-6">✅</div>
-        <h1 className="text-[24px] font-bold text-slate-900 mb-3">¡Gracias, {firstName}!</h1>
-        <p className="text-[17px] text-slate-600 max-w-sm mb-2 leading-relaxed">
+      <div className="min-h-screen bg-[var(--color-background)] flex flex-col items-center justify-center px-6 py-12 text-center">
+        <div className="w-16 h-16 rounded-full bg-[var(--color-success-soft)] flex items-center justify-center mb-6">
+          <CheckCircle2 size={32} strokeWidth={1.5} aria-hidden className="text-[var(--color-success)]" />
+        </div>
+        <h1 className="font-display text-[24px] font-semibold text-[var(--color-foreground)] mb-3">¡Gracias, {firstName}!</h1>
+        <p className="text-[17px] text-[var(--color-foreground)] max-w-sm mb-2 leading-relaxed">
           Has aceptado tu presupuesto de {data.treatments[0] ?? "tratamiento dental"}.
         </p>
-        <p className="text-[17px] text-slate-500 max-w-sm mb-8 leading-relaxed">
+        <p className="text-[17px] text-[var(--color-muted)] max-w-sm mb-8 leading-relaxed">
           Nos pondremos en contacto contigo en las próximas 24 horas para concretar tu primera cita.
         </p>
-        {(data.clinica || data.clinicaTelefono) && (
-          <div className="rounded-2xl border border-slate-100 bg-slate-50 px-6 py-4 text-left w-full max-w-sm mb-6">
-            <p className="text-[15px] text-slate-400 uppercase font-semibold tracking-wide mb-2">Tu clínica</p>
-            {data.clinicaTelefono && <p className="text-[17px] text-slate-700 mb-1">📞 {data.clinicaTelefono}</p>}
-            {data.clinica && <p className="text-[17px] text-slate-700">📍 {data.clinica}</p>}
-          </div>
-        )}
-        <p className="text-[15px] text-slate-400 max-w-sm leading-relaxed">
+        <div className="mb-6 w-full flex justify-center">
+          <ContactoClinica clinica={data.clinica} telefono={data.clinicaTelefono} label="Tu clínica" />
+        </div>
+        <p className="text-[15px] text-[var(--color-muted)] max-w-sm leading-relaxed">
           Si tienes dudas antes, llámanos o escríbenos por WhatsApp.
         </p>
       </div>
@@ -212,10 +240,12 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
 
   if (estado === "done_rechazado") {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center px-6 py-12 text-center">
-        <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center text-3xl mb-6">👋</div>
-        <h1 className="text-[22px] font-bold text-slate-900 mb-3">Respuesta registrada</h1>
-        <p className="text-[17px] text-slate-500 max-w-sm leading-relaxed">
+      <div className="min-h-screen bg-[var(--color-background)] flex flex-col items-center justify-center px-6 py-12 text-center">
+        <div className="w-16 h-16 rounded-full bg-[var(--color-surface-muted)] flex items-center justify-center mb-6">
+          <Hand size={28} strokeWidth={1.5} aria-hidden className="text-[var(--color-muted)]" />
+        </div>
+        <h1 className="font-display text-[22px] font-semibold text-[var(--color-foreground)] mb-3">Respuesta registrada</h1>
+        <p className="text-[17px] text-[var(--color-muted)] max-w-sm leading-relaxed">
           Gracias por tu respuesta. Si en algún momento cambias de opinión, no dudes en contactar con la clínica.
         </p>
       </div>
@@ -229,30 +259,31 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
   // ── Pantalla 2 — Confirmación de aceptación ──────────────────────────────
   if (estado === "aceptando") {
     return (
-      <div className="min-h-screen bg-white flex flex-col px-5 py-8 max-w-lg mx-auto">
+      <div className="min-h-screen bg-[var(--color-background)] flex flex-col px-5 py-8 max-w-lg mx-auto">
         <button
           onClick={() => setEstado("portal")}
-          className="text-[17px] text-slate-400 mb-8 flex items-center gap-1 hover:text-slate-600"
+          className="text-[17px] text-[var(--color-muted)] mb-8 flex items-center gap-1 hover:text-[var(--color-foreground)]"
         >
-          ← Volver al presupuesto
+          <ChevronLeft size={18} strokeWidth={1.5} aria-hidden className="shrink-0" />
+          Volver al presupuesto
         </button>
 
-        <h2 className="text-[22px] font-bold text-slate-900 mb-6">Confirmación</h2>
+        <h2 className="font-display text-[22px] font-semibold text-[var(--color-foreground)] mb-6">Confirmación</h2>
 
         {/* Resumen */}
-        <div className="rounded-2xl border border-slate-100 bg-slate-50 px-5 py-4 mb-6">
-          <p className="text-[14px] text-slate-400 uppercase font-semibold tracking-wide mb-2">Estás aceptando:</p>
-          <p className="text-[17px] font-semibold text-slate-800 mb-0.5">{data.treatments.join(" + ")}</p>
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-5 py-4 mb-6">
+          <p className="fyllio-label text-[var(--color-muted)] mb-2">Estás aceptando</p>
+          <p className="text-[17px] font-semibold text-[var(--color-foreground)] mb-0.5">{data.treatments.join(" + ")}</p>
           {data.amount != null && (
-            <p className="text-[17px] text-slate-600">
+            <p className="text-[17px] text-[var(--color-foreground)]">
               {formatEuro(data.amount)}{data.doctor ? ` · ${data.doctor}` : ""}
             </p>
           )}
-          {data.clinica && <p className="text-[15px] text-slate-400 mt-0.5">{data.clinica}</p>}
+          {data.clinica && <p className="text-[15px] text-[var(--color-muted)] mt-0.5">{data.clinica}</p>}
         </div>
 
         {/* Input firma */}
-        <label className="block text-[17px] font-semibold text-slate-700 mb-2">
+        <label className="block text-[17px] font-semibold text-[var(--color-foreground)] mb-2">
           Para confirmar, escribe tu nombre completo:
         </label>
         <input
@@ -260,22 +291,22 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
           value={firma}
           onChange={(e) => setFirma(e.target.value)}
           placeholder={data.patientName}
-          className="w-full border-2 border-slate-200 focus:border-violet-500 rounded-2xl px-4 py-3.5 text-[17px] text-slate-900 outline-none mb-4"
+          className="w-full border-2 border-[var(--color-border)] focus:border-[var(--color-accent)] bg-[var(--color-surface)] rounded-2xl px-4 py-3.5 text-[17px] text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] outline-none mb-4"
           autoFocus
         />
 
-        <p className="text-[15px] text-slate-400 leading-relaxed mb-8">
+        <p className="text-[15px] text-[var(--color-muted)] leading-relaxed mb-8">
           Al confirmar, indicas que has leído y aceptas este presupuesto.
         </p>
 
         <div
-          className="sticky bottom-0 bg-white pt-3 pb-[env(safe-area-inset-bottom,12px)]"
+          className="sticky bottom-0 bg-[var(--color-background)] pt-3 pb-[env(safe-area-inset-bottom,12px)]"
           style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
         >
           <button
             onClick={() => responder("aceptar", { firmaTexto: firma.trim() })}
             disabled={enviando || !firma.trim()}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white font-bold text-[17px] rounded-2xl transition-colors"
+            className="w-full bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40 text-[var(--color-on-accent)] font-bold text-[17px] rounded-2xl transition-colors"
             style={{ minHeight: "56px" }}
           >
             {enviando ? "Enviando…" : "Confirmar aceptación"}
@@ -288,13 +319,13 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
   // ── Pantalla 3b — Motivo de rechazo ──────────────────────────────────────
   if (estado === "rechazando") {
     return (
-      <div className="min-h-screen bg-white flex flex-col px-5 py-8 max-w-lg mx-auto">
+      <div className="min-h-screen bg-[var(--color-background)] flex flex-col px-5 py-8 max-w-lg mx-auto">
         <div className="flex-1">
           <div className="mb-8">
-            <h2 className="text-[22px] font-bold text-slate-900 mb-2">
+            <h2 className="font-display text-[22px] font-semibold text-[var(--color-foreground)] mb-2">
               Entendemos que quizás no es el momento.
             </h2>
-            <p className="text-[17px] text-slate-500 leading-relaxed">
+            <p className="text-[17px] text-[var(--color-muted)] leading-relaxed">
               ¿Puedes contarnos el motivo? Nos ayuda a mejorar.
             </p>
           </div>
@@ -306,16 +337,18 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
                 onClick={() => setMotivoSeleccionado(m.value)}
                 className={`w-full text-left px-5 py-4 rounded-2xl border-2 text-[17px] font-medium transition-colors ${
                   motivoSeleccionado === m.value
-                    ? "border-violet-500 bg-violet-50 text-violet-900"
-                    : "border-slate-200 text-slate-700"
+                    ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-foreground)]"
+                    : "border-[var(--color-border)] text-[var(--color-foreground)]"
                 }`}
                 style={{ minHeight: "56px" }}
               >
                 <span className={`inline-flex w-5 h-5 rounded-full border-2 mr-3 items-center justify-center shrink-0 ${
-                  motivoSeleccionado === m.value ? "border-violet-500 bg-violet-500" : "border-slate-300"
+                  motivoSeleccionado === m.value
+                    ? "border-[var(--color-accent)] bg-[var(--color-accent)]"
+                    : "border-[var(--color-border)]"
                 }`}>
                   {motivoSeleccionado === m.value && (
-                    <span className="w-2 h-2 rounded-full bg-white" />
+                    <span className="w-2 h-2 rounded-full bg-[var(--color-on-accent)]" />
                   )}
                 </span>
                 {m.label}
@@ -325,13 +358,13 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
         </div>
 
         <div
-          className="sticky bottom-0 bg-white pt-3 flex flex-col gap-3"
+          className="sticky bottom-0 bg-[var(--color-background)] pt-3 flex flex-col gap-3"
           style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom))" }}
         >
           <button
             onClick={() => responder("rechazar", { motivo: motivoSeleccionado })}
             disabled={enviando || !motivoSeleccionado}
-            className="w-full bg-slate-800 hover:bg-slate-900 disabled:opacity-40 text-white font-bold text-[17px] rounded-2xl transition-colors"
+            className="w-full bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40 text-[var(--color-on-accent)] font-bold text-[17px] rounded-2xl transition-colors"
             style={{ minHeight: "56px" }}
           >
             {enviando ? "Enviando…" : "Enviar y cerrar"}
@@ -339,7 +372,7 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
           <button
             onClick={() => responder("rechazar", {})}
             disabled={enviando}
-            className="w-full text-center text-[15px] text-slate-400 hover:text-slate-600 py-2"
+            className="w-full text-center text-[15px] text-[var(--color-muted)] hover:text-[var(--color-foreground)] py-2"
           >
             Omitir y cerrar
           </button>
@@ -350,59 +383,59 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
 
   // ── Pantalla 1 — Vista principal del presupuesto ─────────────────────────
   return (
-    <div className="min-h-screen bg-slate-50" style={{ fontSize: "17px" }}>
+    <div className="min-h-screen bg-[var(--color-background)]" style={{ fontSize: "17px" }}>
       {/* Header clínica */}
-      <div className="bg-white px-5 pt-8 pb-4">
-        <p className="text-[15px] text-slate-400 font-medium">{data.clinica ?? "Tu clínica"}</p>
+      <div className="bg-[var(--color-surface)] px-5 pt-8 pb-4">
+        <p className="text-[15px] text-[var(--color-muted)] font-medium">{data.clinica ?? "Tu clínica"}</p>
       </div>
 
-      {/* Hero morado */}
-      <div className="bg-violet-700 px-5 pt-6 pb-8">
-        <p className="text-violet-300 text-[15px] mb-1">Tu presupuesto está listo para revisar con calma</p>
-        <h1 className="text-[28px] font-bold text-white leading-tight">Hola, {firstName}</h1>
+      {/* Hero con acento */}
+      <div className="bg-[var(--color-accent)] px-5 pt-6 pb-8">
+        <p className="text-[var(--color-on-accent)]/80 text-[15px] mb-1">Tu presupuesto está listo para revisar con calma</p>
+        <h1 className="font-display text-[28px] font-semibold text-[var(--color-on-accent)] leading-tight">Hola, {firstName}</h1>
       </div>
 
       <div className="px-4 -mt-4 pb-40">
         {/* Card importe */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 px-5 py-5 mb-4">
-          <p className="text-[13px] font-bold text-slate-400 uppercase tracking-wide mb-1">Importe total</p>
-          <p className="text-[40px] font-extrabold text-slate-900 leading-none mb-1">
+        <div className="bg-[var(--color-surface)] rounded-2xl shadow-sm border border-[var(--color-border)] px-5 py-5 mb-4">
+          <p className="fyllio-label text-[var(--color-muted)] mb-1">Importe total</p>
+          <p className="font-display text-4xl font-bold tabular-nums text-[var(--color-foreground)] leading-none mb-1">
             {data.amount != null ? formatEuro(data.amount) : "—"}
           </p>
           {data.doctor && (
-            <p className="text-[16px] text-slate-500">Tratante: {data.doctor}</p>
+            <p className="text-[16px] text-[var(--color-muted)]">Tratante: {data.doctor}</p>
           )}
           {/* Mutua desglose — solo si es Adeslas */}
           {data.tipoPaciente === "Adeslas" && (
-            <div className="mt-3 pt-3 border-t border-slate-100 flex flex-col gap-1">
+            <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex flex-col gap-1">
               <div className="flex justify-between text-[16px]">
-                <span className="text-slate-500">Tu mutua cubre:</span>
-                <span className="text-slate-600 font-semibold">Consultar</span>
+                <span className="text-[var(--color-muted)]">Tu mutua cubre:</span>
+                <span className="text-[var(--color-foreground)] font-semibold">Consultar</span>
               </div>
               <div className="flex justify-between text-[16px]">
-                <span className="text-slate-500">Tu parte:</span>
-                <span className="text-slate-900 font-bold">{data.amount != null ? formatEuro(data.amount) : "—"}</span>
+                <span className="text-[var(--color-muted)]">Tu parte:</span>
+                <span className="text-[var(--color-foreground)] font-bold tabular-nums">{data.amount != null ? formatEuro(data.amount) : "—"}</span>
               </div>
             </div>
           )}
         </div>
 
         {/* Card tratamiento */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 px-5 py-5 mb-4">
-          <p className="text-[13px] font-bold text-slate-400 uppercase tracking-wide mb-2">Tu tratamiento</p>
-          <p className="text-[18px] font-bold text-slate-900 mb-2">{data.treatments.join(" + ")}</p>
+        <div className="bg-[var(--color-surface)] rounded-2xl shadow-sm border border-[var(--color-border)] px-5 py-5 mb-4">
+          <p className="fyllio-label text-[var(--color-muted)] mb-2">Tu tratamiento</p>
+          <p className="font-display text-[18px] font-semibold text-[var(--color-foreground)] mb-2">{data.treatments.join(" + ")}</p>
           {data.descripcionHumanizada ? (
-            <p className="text-[16px] text-slate-500 leading-relaxed">{data.descripcionHumanizada}</p>
+            <p className="text-[16px] text-[var(--color-muted)] leading-relaxed">{data.descripcionHumanizada}</p>
           ) : (
-            <p className="text-[16px] text-slate-400 italic leading-relaxed">
+            <p className="text-[16px] text-[var(--color-muted)] italic leading-relaxed">
               Tu especialista te explicará todos los detalles en consulta.
             </p>
           )}
         </div>
 
         {/* FAQs */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 px-5 py-5 mb-6">
-          <p className="text-[13px] font-bold text-slate-400 uppercase tracking-wide mb-4">Preguntas frecuentes</p>
+        <div className="bg-[var(--color-surface)] rounded-2xl shadow-sm border border-[var(--color-border)] px-5 py-5 mb-6">
+          <p className="fyllio-label text-[var(--color-muted)] mb-4">Preguntas frecuentes</p>
           <div className="flex flex-col gap-4">
             {FAQS.map((faq) => (
               <FaqItem key={faq.q} q={faq.q} a={faq.a} />
@@ -413,24 +446,26 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
 
       {/* Botones fijos en la parte inferior */}
       <div
-        className="fixed bottom-0 inset-x-0 bg-white border-t border-slate-100 px-4 pt-4 flex flex-col gap-3"
+        className="fixed bottom-0 inset-x-0 bg-[var(--color-surface)] border-t border-[var(--color-border)] px-4 pt-4 flex flex-col gap-3"
         style={{ paddingBottom: "max(16px, env(safe-area-inset-bottom))" }}
       >
         <button
           onClick={() => setEstado("aceptando")}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[17px] rounded-2xl transition-colors"
+          className="w-full bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-[var(--color-on-accent)] font-bold text-[17px] rounded-2xl transition-colors flex items-center justify-center gap-2"
           style={{ minHeight: "56px" }}
         >
-          ✓ Acepto el presupuesto
+          <Check size={18} strokeWidth={2} aria-hidden className="shrink-0" />
+          Acepto el presupuesto
         </button>
         <div className="flex items-center justify-between px-1 pb-1">
           <button
             onClick={() => setEstado("rechazando")}
-            className="text-[15px] text-slate-400 hover:text-slate-600"
+            className="text-[15px] text-[var(--color-muted)] hover:text-[var(--color-foreground)] flex items-center gap-1"
           >
-            No me interesa por ahora →
+            No me interesa por ahora
+            <ArrowRight size={14} strokeWidth={1.5} aria-hidden className="shrink-0" />
           </button>
-          <span className="text-[13px] text-slate-300">
+          <span className="text-[13px] text-[var(--color-muted)]">
             Válido hasta {formatFecha(data.expiresAt)}
           </span>
         </div>
