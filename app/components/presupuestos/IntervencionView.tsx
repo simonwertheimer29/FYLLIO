@@ -451,12 +451,26 @@ function BulkSendModal({
 
 // ─── QuickResponseModal ──────────────────────────────────────────────────────
 
+function optionLabel(p: PresupuestoIntervencion): string {
+  const detalle =
+    p.treatments[0] ??
+    (p.amount != null ? `€${p.amount.toLocaleString("es-ES")}` : "Sin detalle");
+  const importe =
+    p.treatments[0] && p.amount != null
+      ? ` · €${p.amount.toLocaleString("es-ES")}`
+      : "";
+  return `${p.patientName} — ${detalle}${importe}`;
+}
+
 function QuickResponseModal({
   items,
+  completados,
   onClose,
   onRefresh,
 }: {
   items: PresupuestoIntervencion[];
+  /** Casos ya completados hoy: el paciente puede responder más tarde. */
+  completados: PresupuestoIntervencion[];
   onClose: () => void;
   onRefresh: () => void;
 }) {
@@ -518,24 +532,36 @@ function QuickResponseModal({
         <div className="px-5 py-4 space-y-3">
           <div>
             <label className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide">Presupuesto</label>
-            <select
-              value={presupuestoId}
-              onChange={(e) => setPresupuestoId(e.target.value)}
-              className="w-full text-xs px-3 py-2 mt-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none"
-            >
-              <option value="">Selecciona un presupuesto…</option>
-              {items.map((p) => {
-                const detalle =
-                  p.treatments[0] ??
-                  (p.amount != null ? `€${p.amount.toLocaleString("es-ES")}` : "Sin detalle");
-                return (
-                  <option key={p.id} value={p.id}>
-                    {p.patientName} — {detalle}
-                    {p.treatments[0] && p.amount != null ? ` · €${p.amount.toLocaleString("es-ES")}` : ""}
-                  </option>
-                );
-              })}
-            </select>
+            {items.length === 0 && completados.length === 0 ? (
+              <p className="mt-1 text-xs text-[var(--color-muted)] rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2">
+                Aún no hay presupuestos cargados. Espera a que la vista termine de
+                cargar y vuelve a abrir este atajo.
+              </p>
+            ) : (
+              <select
+                value={presupuestoId}
+                onChange={(e) => setPresupuestoId(e.target.value)}
+                className="w-full text-xs px-3 py-2 mt-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none"
+              >
+                <option value="">Selecciona un presupuesto…</option>
+                <optgroup label="Pendientes">
+                  {items.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {optionLabel(p)}
+                    </option>
+                  ))}
+                </optgroup>
+                {completados.length > 0 && (
+                  <optgroup label="Completados hoy">
+                    {completados.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {optionLabel(p)}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            )}
           </div>
           <div>
             <label className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide">Respuesta del paciente</label>
@@ -881,6 +907,7 @@ export default function IntervencionView({
       {quickResponseOpen && (
         <QuickResponseModal
           items={data?.allItems ?? []}
+          completados={data?.casosCompletados ?? []}
           onClose={() => setQuickResponseOpen(false)}
           onRefresh={fetchData}
         />
