@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "../../../components/ui/Card";
+import { AlertTriangle, ICON_STROKE } from "../../../components/icons";
 import { toast } from "sonner";
 
 type Config = {
@@ -87,7 +88,7 @@ export function MotorNoShowsPanel({ clinicaId }: { clinicaId: string }) {
 
   if (loading) {
     return (
-      <Card padding="none" className="p-8 text-center text-sm text-slate-400 animate-pulse">
+      <Card padding="none" className="p-8 text-center text-sm text-[var(--color-muted)] animate-pulse">
         Cargando configuración…
       </Card>
     );
@@ -95,7 +96,7 @@ export function MotorNoShowsPanel({ clinicaId }: { clinicaId: string }) {
 
   if (error) {
     return (
-      <Card padding="none" className="p-6 text-center text-sm text-amber-800 bg-amber-50 border border-amber-200">
+      <Card padding="none" className="p-6 text-center text-sm text-amber-800 bg-amber-50 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/25">
         {error}
       </Card>
     );
@@ -109,13 +110,13 @@ export function MotorNoShowsPanel({ clinicaId }: { clinicaId: string }) {
             type="checkbox"
             checked={config.activarPrediccion}
             onChange={(e) => update("activarPrediccion", e.target.checked)}
-            className="mt-1 accent-emerald-600"
+            className="mt-1 accent-[var(--color-accent)]"
           />
           <div>
-            <p className="text-sm font-medium text-slate-800">
+            <p className="text-sm font-medium text-[var(--color-foreground)]">
               Activar predicción de riesgo
             </p>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[var(--color-muted)] mt-0.5">
               Evalúa y persiste el riesgo de no-show de las citas próximas. Si se
               desactiva, el motor no calcula scores ni propone acciones.
             </p>
@@ -129,15 +130,15 @@ export function MotorNoShowsPanel({ clinicaId }: { clinicaId: string }) {
             type="checkbox"
             checked={config.llamadaIaAuto}
             onChange={(e) => update("llamadaIaAuto", e.target.checked)}
-            className="mt-1 accent-violet-600"
+            className="mt-1 accent-[var(--color-accent)]"
           />
           <div>
-            <p className="text-sm font-medium text-slate-800">
+            <p className="text-sm font-medium text-[var(--color-foreground)]">
               Programar llamada IA automática (riesgo alto)
             </p>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[var(--color-muted)] mt-0.5">
               Cuando una cita supere el umbral de riesgo alto, el motor programará
-              una llamada IA saliente de confirmación. Default desactivado.
+              una llamada IA saliente de confirmación. Desactivado por defecto.
             </p>
           </div>
         </label>
@@ -149,23 +150,23 @@ export function MotorNoShowsPanel({ clinicaId }: { clinicaId: string }) {
             type="checkbox"
             checked={config.plantillasExtraAuto}
             onChange={(e) => update("plantillasExtraAuto", e.target.checked)}
-            className="mt-1 accent-emerald-600"
+            className="mt-1 accent-[var(--color-accent)]"
           />
           <div>
-            <p className="text-sm font-medium text-slate-800">
+            <p className="text-sm font-medium text-[var(--color-foreground)]">
               Plantillas extra automáticas
             </p>
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[var(--color-muted)] mt-0.5">
               Envía un recordatorio extra por WhatsApp a las citas de riesgo
-              medio/alto. Respeta el cooldown de 1 plantilla extra cada 24h.
+              medio/alto. Respeta el límite de 1 plantilla extra cada 24 h.
             </p>
           </div>
         </label>
       </Card>
 
       <Card>
-        <label className="block text-[11px] uppercase font-semibold text-slate-500 tracking-wide mb-1">
-          Umbral riesgo alto (0-100)
+        <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">
+          Umbral de riesgo alto (0-100)
         </label>
         <input
           type="number"
@@ -178,19 +179,22 @@ export function MotorNoShowsPanel({ clinicaId }: { clinicaId: string }) {
               Math.max(0, Math.min(100, Number(e.target.value) || 0)),
             )
           }
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm w-32"
+          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-1.5 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
         />
-        <p className="text-[10px] text-slate-400 mt-1">
-          Default 60. Las citas con score superior a este umbral se consideran de
+        <p className="text-[10px] text-[var(--color-muted)] mt-1">
+          Por defecto 60. Las citas con score superior a este umbral se consideran de
           riesgo alto y activan las acciones más agresivas (llamada IA si está habilitada).
         </p>
       </Card>
 
-      <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 leading-relaxed">
-        ⚠ La auto-ejecución de acciones desde el cron está pendiente de activación;
-        las acciones manuales desde <span className="font-semibold">/no-shows › Motor</span> están
-        activas. Salvaguardas activas: opt-out del paciente, cooldown 1 plantilla
-        extra/24h, horario laboral, logs en Supabase.
+      <p className="flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/25 rounded-xl px-3 py-2 leading-relaxed">
+        <AlertTriangle size={14} strokeWidth={ICON_STROKE} aria-hidden className="mt-0.5 shrink-0" />
+        <span>
+          La ejecución automática de acciones está pendiente de activación;
+          las acciones manuales desde <span className="font-semibold">No-shows › Motor</span> están
+          activas. Salvaguardas activas: opt-out del paciente, límite de 1 plantilla
+          extra cada 24 h, horario laboral y registro de cada acción.
+        </span>
       </p>
 
       <div className="flex justify-end">
@@ -198,7 +202,7 @@ export function MotorNoShowsPanel({ clinicaId }: { clinicaId: string }) {
           type="button"
           onClick={save}
           disabled={saving}
-          className="rounded-lg bg-sky-600 text-white text-sm font-bold px-4 py-2 hover:bg-sky-700 disabled:opacity-50"
+          className="rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold px-4 py-2 hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
         >
           {saving ? "Guardando…" : "Guardar configuración"}
         </button>

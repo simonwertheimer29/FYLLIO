@@ -7,6 +7,7 @@
 // y el lead se queda en Contactado.
 
 import { useState } from "react";
+import { X, ICON_STROKE } from "../../components/icons";
 import type { Lead } from "./types";
 
 const TRATAMIENTOS = [
@@ -100,22 +101,22 @@ export function AgendarModal({
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
-        className="w-full max-w-md rounded-3xl bg-white border border-slate-200 shadow-xl p-6 space-y-3"
+        className="w-full max-w-md rounded-3xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl p-6 space-y-3"
       >
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-sm font-extrabold text-slate-900">Agendar cita</h3>
-            <p className="text-[11px] text-slate-500 truncate">
+            <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">Agendar cita</h3>
+            <p className="text-[11px] text-[var(--color-muted)] truncate">
               {lead.nombre} · {lead.clinicaNombre ?? "Clínica"}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 text-lg"
+            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
             aria-label="Cerrar sin guardar"
           >
-            ×
+            <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
           </button>
         </div>
 
@@ -127,7 +128,7 @@ export function AgendarModal({
               min={hoy}
               value={fechaCita}
               onChange={(e) => setFechaCita(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
             />
           </Labeled>
           <Labeled label="Hora" required>
@@ -136,7 +137,7 @@ export function AgendarModal({
               required
               value={horaCita}
               onChange={(e) => setHoraCita(e.target.value)}
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
             />
           </Labeled>
         </div>
@@ -146,7 +147,7 @@ export function AgendarModal({
             required
             value={doctorId}
             onChange={(e) => setDoctorId(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           >
             <option value="">— Selecciona —</option>
             {doctoresClinica.map((d) => (
@@ -156,7 +157,7 @@ export function AgendarModal({
             ))}
           </select>
           {doctoresClinica.length === 0 && (
-            <p className="text-[10px] text-amber-600 mt-1">
+            <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
               La clínica no tiene dentistas cargados. Añade uno desde Ajustes.
             </p>
           )}
@@ -167,7 +168,7 @@ export function AgendarModal({
             required
             value={tratamiento}
             onChange={(e) => setTratamiento(e.target.value)}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           >
             <option value="">— Selecciona —</option>
             {TRATAMIENTOS.map((t) => (
@@ -187,8 +188,8 @@ export function AgendarModal({
                 onClick={() => setTipoVisita(tv)}
                 className={`flex-1 text-xs font-semibold px-2 py-2 rounded-xl border transition-colors ${
                   tipoVisita === tv
-                    ? "bg-sky-600 text-white border-sky-600"
-                    : "bg-white text-slate-700 border-slate-200 hover:border-slate-400"
+                    ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
+                    : "bg-[var(--color-surface)] text-[var(--color-foreground)] border-[var(--color-border)] hover:border-[var(--color-muted)]"
                 }`}
               >
                 {tv}
@@ -202,12 +203,12 @@ export function AgendarModal({
             value={notas}
             onChange={(e) => setNotas(e.target.value)}
             rows={2}
-            className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           />
         </Labeled>
 
         {error && (
-          <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+          <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/25 rounded-xl px-3 py-2">
             {error}
           </p>
         )}
@@ -216,14 +217,14 @@ export function AgendarModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-xl bg-slate-100 text-slate-700 text-sm font-bold py-2.5 hover:bg-slate-200"
+            className="flex-1 rounded-xl bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-sm font-semibold py-2.5 hover:bg-[var(--color-border)]"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={!canSave}
-            className="flex-1 rounded-xl bg-sky-600 text-white text-sm font-bold py-2.5 hover:bg-sky-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2.5 hover:bg-[var(--color-accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Guardando…" : "Confirmar cita"}
           </button>
@@ -244,9 +245,9 @@ function Labeled({
 }) {
   return (
     <div>
-      <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+      <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">
         {label}
-        {required && <span className="text-rose-500 ml-0.5">*</span>}
+        {required && <span className="text-rose-500 dark:text-rose-400 ml-0.5">*</span>}
       </label>
       {children}
     </div>

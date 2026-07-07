@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AlertTriangle, X, ICON_STROKE } from "../icons";
 import type {
   Doctor, Presupuesto, PresupuestoEstado, UserSession,
   EspecialidadDoctor, TipoPaciente, TipoVisita, OrigenLead,
@@ -151,23 +152,29 @@ export default function NewPresupuestoModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 sm:p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/40 sm:p-4"
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="w-full max-w-lg sm:rounded-3xl rounded-t-2xl bg-white shadow-2xl overflow-y-auto max-h-[95vh] sm:max-h-[90vh]">
+      <div className="w-full max-w-lg sm:rounded-3xl rounded-t-2xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-2xl overflow-y-auto max-h-[95vh] sm:max-h-[90vh]">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h3 className="font-bold text-slate-900">
+        <div className="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between">
+          <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
             {isEdit ? "Editar presupuesto" : "Nuevo presupuesto"}
           </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">✕</button>
+          <button
+            onClick={onClose}
+            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
+            aria-label="Cerrar"
+          >
+            <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
           {/* Paciente */}
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="block text-xs font-semibold text-slate-600 mb-1">
+              <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">
                 Nombre del paciente *
               </label>
               <input
@@ -175,22 +182,25 @@ export default function NewPresupuestoModal({
                 value={patientName}
                 onChange={(e) => handlePatientNameChange(e.target.value)}
                 placeholder="Nombre completo"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
               />
               {!isEdit && duplicados.length > 0 && (
-                <div className="mt-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
-                  <p className="text-[11px] font-semibold text-amber-700 mb-1">
-                    ⚠ Ya existe{duplicados.length > 1 ? "n" : ""} {duplicados.length} presupuesto{duplicados.length > 1 ? "s" : ""} para este paciente:
+                <div className="mt-1.5 rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-500/25 dark:bg-amber-500/10 px-3 py-2">
+                  <p className="flex items-center gap-1 text-[11px] font-semibold text-amber-700 dark:text-amber-300 mb-1">
+                    <AlertTriangle size={14} strokeWidth={ICON_STROKE} aria-hidden className="shrink-0" />
+                    <span>
+                      Ya existe{duplicados.length > 1 ? "n" : ""} {duplicados.length} presupuesto{duplicados.length > 1 ? "s" : ""} para este paciente:
+                    </span>
                   </p>
                   <ul className="space-y-0.5">
                     {duplicados.map((d) => (
                       <li key={d.id} className="flex items-center justify-between gap-2">
-                        <span className="text-[10px] text-amber-800">{d.patientName} · {d.estado} · {d.fechaPresupuesto.slice(0, 10)}</span>
+                        <span className="text-[10px] text-amber-800 dark:text-amber-300">{d.patientName} · {d.estado} · {d.fechaPresupuesto.slice(0, 10)}</span>
                         <a
                           href={`/presupuestos/paciente/${encodeURIComponent(d.patientName)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-[10px] font-semibold text-violet-600 hover:underline shrink-0"
+                          className="text-[10px] font-semibold text-[var(--color-accent)] hover:underline shrink-0"
                         >
                           Ver →
                         </a>
@@ -201,43 +211,43 @@ export default function NewPresupuestoModal({
               )}
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Nº Historia</label>
+              <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">Nº de historia</label>
               <input
                 type="text"
                 value={numeroHistoria}
                 onChange={(e) => setNumeroHistoria(e.target.value)}
                 placeholder="HCL-001"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono</label>
+              <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">Teléfono</label>
               <input
                 type="tel"
                 value={patientPhone}
                 onChange={(e) => setPatientPhone(e.target.value)}
                 placeholder="+34 6XX XXX XXX"
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
               />
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">
-                Fecha presupuesto
+              <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">
+                Fecha del presupuesto
               </label>
               <input
                 type="date"
                 value={fechaPresupuesto}
                 onChange={(e) => setFechaPresupuesto(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
               />
             </div>
             {!isEdit && (
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Estado inicial</label>
+                <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">Estado inicial</label>
                 <select
                   value={estadoInicial}
                   onChange={(e) => setEstadoInicial(e.target.value as PresupuestoEstado)}
-                  className="w-full rounded-xl border border-slate-200 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                  className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
                 >
                   {ESTADOS_INICIALES.map((s) => (
                     <option key={s.value} value={s.value}>{s.label}</option>
@@ -249,26 +259,26 @@ export default function NewPresupuestoModal({
 
           {/* Tratamientos */}
           <div>
-            <label className="block text-xs font-semibold text-slate-600 mb-1">
-              Tratamiento(s) * <span className="text-slate-400 font-normal">(separar por coma)</span>
+            <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">
+              Tratamiento(s) * <span className="text-[var(--color-muted)] font-normal">(separar por coma)</span>
             </label>
             <input
               type="text"
               value={treatments}
               onChange={(e) => setTreatments(e.target.value)}
               placeholder="Implante dental, Corona cerámica"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
             />
           </div>
 
           {/* Doctor + Importe */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Doctor</label>
+              <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">Doctor</label>
               <select
                 value={doctor}
                 onChange={(e) => handleDoctorChange(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
               >
                 <option value="">Sin asignar</option>
                 {doctores.map((d) => (
@@ -277,11 +287,11 @@ export default function NewPresupuestoModal({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Especialidad</label>
+              <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">Especialidad</label>
               <select
                 value={doctorEspecialidad}
                 onChange={(e) => setDoctorEspecialidad(e.target.value as EspecialidadDoctor)}
-                className="w-full rounded-xl border border-slate-200 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
               >
                 {ESPECIALIDADES.map((e) => (
                   <option key={e} value={e}>{e}</option>
@@ -289,36 +299,36 @@ export default function NewPresupuestoModal({
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Tipo paciente</label>
+              <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">Tipo de paciente</label>
               <select
                 value={tipoPaciente}
                 onChange={(e) => setTipoPaciente(e.target.value as TipoPaciente)}
-                className="w-full rounded-xl border border-slate-200 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
               >
                 <option value="Privado">Privado</option>
                 <option value="Adeslas">Adeslas</option>
               </select>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Tipo visita</label>
+              <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">Tipo de visita</label>
               <select
                 value={tipoVisita}
                 onChange={(e) => setTipoVisita(e.target.value as TipoVisita)}
-                className="w-full rounded-xl border border-slate-200 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
               >
                 <option value="Primera Visita">1ª Visita</option>
                 <option value="Paciente con Historia">Con Historia</option>
               </select>
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Importe (€)</label>
+              <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">Importe (€)</label>
               <input
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0"
                 min={0}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
               />
             </div>
           </div>
@@ -326,21 +336,21 @@ export default function NewPresupuestoModal({
           {/* Notas + Origen */}
           <div className="grid grid-cols-2 gap-3">
             <div className="col-span-2">
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Notas</label>
+              <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">Notas</label>
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Observaciones…"
                 rows={2}
-                className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
               />
             </div>
             <div className="col-span-2">
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Origen del paciente</label>
+              <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">Origen del paciente</label>
               <select
                 value={origenLead}
                 onChange={(e) => setOrigenLead(e.target.value as OrigenLead | "")}
-                className="w-full rounded-xl border border-slate-200 px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-2.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
               >
                 <option value="">Sin especificar</option>
                 {(Object.entries(ORIGEN_LABEL) as [OrigenLead, string][]).map(([val, label]) => (
@@ -351,7 +361,7 @@ export default function NewPresupuestoModal({
           </div>
 
           {error && (
-            <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+            <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/25 rounded-xl px-3 py-2">
               {error}
             </p>
           )}
@@ -360,14 +370,14 @@ export default function NewPresupuestoModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold py-2.5 hover:bg-slate-50"
+              className="flex-1 rounded-xl border border-[var(--color-border)] text-[var(--color-foreground)] text-sm font-semibold py-2.5 hover:bg-[var(--color-surface-muted)]"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 rounded-xl bg-violet-600 text-white text-sm font-semibold py-2.5 hover:bg-violet-700 disabled:opacity-50"
+              className="flex-1 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2.5 hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
             >
               {saving ? "Guardando…" : isEdit ? "Guardar cambios" : "Crear presupuesto"}
             </button>

@@ -26,7 +26,7 @@ const DEFAULTS: Config = {
 };
 
 const VOCES = [
-  { value: "", label: "Por defecto del assistant" },
+  { value: "", label: "Voz por defecto" },
   { value: "es-ES-female-1", label: "Femenina (es-ES)" },
   { value: "es-ES-male-1", label: "Masculina (es-ES)" },
 ];
@@ -80,7 +80,7 @@ export function LlamadasIaPanel({ clinicaId }: { clinicaId: string }) {
 
   if (loading) {
     return (
-      <Card padding="none" className="p-8 text-center text-sm text-slate-400 animate-pulse">
+      <Card padding="none" className="p-8 text-center text-sm text-[var(--color-muted)] animate-pulse">
         Cargando configuración…
       </Card>
     );
@@ -89,9 +89,9 @@ export function LlamadasIaPanel({ clinicaId }: { clinicaId: string }) {
   return (
     <div className="space-y-3">
       {!customizado && (
-        <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+        <p className="text-[11px] text-[var(--color-muted)] bg-[var(--color-surface-muted)] border border-[var(--color-border)] rounded-xl px-3 py-2">
           Esta clínica está usando la configuración por defecto. Al guardar
-          se crea un override propio.
+          se crea una configuración propia para esta clínica.
         </p>
       )}
 
@@ -101,65 +101,65 @@ export function LlamadasIaPanel({ clinicaId }: { clinicaId: string }) {
             type="checkbox"
             checked={config.activa}
             onChange={(e) => update("activa", e.target.checked)}
-            className="mt-1 accent-emerald-600"
+            className="mt-1 accent-[var(--color-accent)]"
           />
           <div>
-            <p className="text-sm font-medium text-slate-800">
+            <p className="text-sm font-medium text-[var(--color-foreground)]">
               Activar confirmación automática de citas por IA
             </p>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Cuando esté activado, el cron diario llamará a los pacientes con
-              cita confirmada en las próximas 23-25h.
+            <p className="text-xs text-[var(--color-muted)] mt-0.5">
+              Cuando esté activado, se llamará automáticamente cada día a los
+              pacientes con cita confirmada en las próximas 23-25 h.
             </p>
           </div>
         </label>
       </Card>
 
       <Card>
-        <p className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide mb-3">
-          Ventana horaria permitida (hora local clínica)
+        <p className="text-xs font-medium text-[var(--color-muted)] mb-3">
+          Ventana horaria permitida (hora local de la clínica)
         </p>
         <div className="flex items-center gap-2">
           <input
             type="time"
             value={config.horarioInicio}
             onChange={(e) => update("horarioInicio", e.target.value)}
-            className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           />
-          <span className="text-slate-400 text-xs">–</span>
+          <span className="text-[var(--color-muted)] text-xs">–</span>
           <input
             type="time"
             value={config.horarioFin}
             onChange={(e) => update("horarioFin", e.target.value)}
-            className="rounded-lg border border-slate-200 px-2 py-1 text-sm"
+            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           />
         </div>
-        <p className="text-[10px] text-slate-400 mt-2">
-          Default 10:00-19:00. Las llamadas fuera de esta ventana se saltan.
+        <p className="text-[10px] text-[var(--color-muted)] mt-2">
+          Por defecto 10:00-19:00. Las llamadas fuera de esta ventana se saltan.
         </p>
       </Card>
 
       <Card>
-        <label className="block text-[11px] uppercase font-semibold text-slate-500 tracking-wide mb-1">
+        <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">
           Mensaje personalizado (opcional)
         </label>
         <textarea
           rows={3}
-          placeholder="Override del primer mensaje del assistant. Si lo dejas vacío usamos el default configurado en Vapi."
+          placeholder="Primer mensaje de la llamada. Si lo dejas vacío se usa el mensaje por defecto."
           value={config.firstMessage}
           onChange={(e) => update("firstMessage", e.target.value)}
-          className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
         />
       </Card>
 
       <Card>
-        <label className="block text-[11px] uppercase font-semibold text-slate-500 tracking-wide mb-1">
+        <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">
           Voz preferida
         </label>
         <select
           value={config.voicePreference}
           onChange={(e) => update("voicePreference", e.target.value)}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm bg-white"
+          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
         >
           {VOCES.map((v) => (
             <option key={v.value} value={v.value}>
@@ -167,15 +167,15 @@ export function LlamadasIaPanel({ clinicaId }: { clinicaId: string }) {
             </option>
           ))}
         </select>
-        <p className="text-[10px] text-slate-400 mt-1">
-          La voz se aplica como override del assistant. Si la voz seleccionada
-          no existe en Vapi, se usa la default.
+        <p className="text-[10px] text-[var(--color-muted)] mt-1">
+          La voz se aplica a las llamadas de esta clínica. Si la voz seleccionada
+          no está disponible, se usa la voz por defecto.
         </p>
       </Card>
 
       <Card>
-        <label className="block text-[11px] uppercase font-semibold text-slate-500 tracking-wide mb-1">
-          Límite máximo de llamadas/día
+        <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">
+          Límite máximo de llamadas al día
         </label>
         <input
           type="number"
@@ -183,10 +183,10 @@ export function LlamadasIaPanel({ clinicaId }: { clinicaId: string }) {
           max={500}
           value={config.limiteDia}
           onChange={(e) => update("limiteDia", Number(e.target.value) || 1)}
-          className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm w-32"
+          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-1.5 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
         />
-        <p className="text-[10px] text-slate-400 mt-1">
-          Default 50. Cuando se alcanza, las nuevas llamadas se posponen al
+        <p className="text-[10px] text-[var(--color-muted)] mt-1">
+          Por defecto 50. Cuando se alcanza, las nuevas llamadas se posponen al
           día siguiente.
         </p>
       </Card>
@@ -196,7 +196,7 @@ export function LlamadasIaPanel({ clinicaId }: { clinicaId: string }) {
           type="button"
           onClick={save}
           disabled={saving}
-          className="rounded-lg bg-sky-600 text-white text-sm font-bold px-4 py-2 hover:bg-sky-700 disabled:opacity-50"
+          className="rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold px-4 py-2 hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
         >
           {saving ? "Guardando…" : "Guardar configuración"}
         </button>

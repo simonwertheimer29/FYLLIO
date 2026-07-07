@@ -94,7 +94,7 @@ export function HorarioLaboralPanel({ clinicaId }: { clinicaId: string }) {
 
   if (loading) {
     return (
-      <Card padding="none" className="p-8 text-center text-sm text-slate-400 animate-pulse">
+      <Card padding="none" className="p-8 text-center text-sm text-[var(--color-muted)] animate-pulse">
         Cargando horario…
       </Card>
     );
@@ -103,13 +103,13 @@ export function HorarioLaboralPanel({ clinicaId }: { clinicaId: string }) {
   return (
     <div className="space-y-3">
       {!customizado && (
-        <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+        <p className="text-[11px] text-[var(--color-muted)] bg-[var(--color-surface-muted)] border border-[var(--color-border)] rounded-xl px-3 py-2">
           Esta clínica está usando el horario por defecto (lun-vie 09:00-20:00).
-          Al guardar se crea un override propio.
+          Al guardar se crea una configuración propia para esta clínica.
         </p>
       )}
       <Card padding="none" className="overflow-hidden">
-        <ul className="divide-y divide-slate-100">
+        <ul className="divide-y divide-[var(--color-border)]">
           {DIAS.map(({ key, label }) => {
             const d = horario[key];
             return (
@@ -119,9 +119,9 @@ export function HorarioLaboralPanel({ clinicaId }: { clinicaId: string }) {
                     type="checkbox"
                     checked={d.activo}
                     onChange={(e) => setDia(key, { activo: e.target.checked })}
-                    className="accent-emerald-600"
+                    className="accent-[var(--color-accent)]"
                   />
-                  <span className="text-sm font-medium text-slate-800">{label}</span>
+                  <span className="text-sm font-medium text-[var(--color-foreground)]">{label}</span>
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -129,19 +129,19 @@ export function HorarioLaboralPanel({ clinicaId }: { clinicaId: string }) {
                     value={d.inicio}
                     disabled={!d.activo}
                     onChange={(e) => setDia(key, { inicio: e.target.value })}
-                    className="rounded-lg border border-slate-200 px-2 py-1 text-sm disabled:bg-slate-50 disabled:text-slate-400"
+                    className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] disabled:bg-[var(--color-surface-muted)] disabled:text-[var(--color-muted)]"
                   />
-                  <span className="text-slate-400 text-xs">–</span>
+                  <span className="text-[var(--color-muted)] text-xs">–</span>
                   <input
                     type="time"
                     value={d.fin}
                     disabled={!d.activo}
                     onChange={(e) => setDia(key, { fin: e.target.value })}
-                    className="rounded-lg border border-slate-200 px-2 py-1 text-sm disabled:bg-slate-50 disabled:text-slate-400"
+                    className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] disabled:bg-[var(--color-surface-muted)] disabled:text-[var(--color-muted)]"
                   />
                 </div>
                 {!d.activo && (
-                  <span className="text-[10px] text-slate-400 ml-auto">cerrado</span>
+                  <span className="text-[10px] text-[var(--color-muted)] ml-auto">Cerrado</span>
                 )}
               </li>
             );
@@ -153,7 +153,7 @@ export function HorarioLaboralPanel({ clinicaId }: { clinicaId: string }) {
           type="button"
           onClick={save}
           disabled={saving}
-          className="rounded-lg bg-sky-600 text-white text-sm font-bold px-4 py-2 hover:bg-sky-700 disabled:opacity-50"
+          className="rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold px-4 py-2 hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
         >
           {saving ? "Guardando…" : "Guardar horario"}
         </button>

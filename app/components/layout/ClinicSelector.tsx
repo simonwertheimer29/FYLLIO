@@ -22,8 +22,8 @@ export function ClinicSelector() {
   if (!isAdmin && clinicasSelectables.length === 1) {
     const only = clinicasSelectables[0]!;
     return (
-      <span className="inline-flex items-center gap-2 rounded-full bg-slate-100 text-slate-800 px-3 py-1.5 text-xs font-semibold">
-        <span className="w-1.5 h-1.5 rounded-full bg-sky-500" />
+      <span className="inline-flex items-center gap-2 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-foreground)] px-3 py-1.5 text-xs font-semibold">
+        <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)]" />
         {only.nombre}
       </span>
     );
@@ -32,7 +32,7 @@ export function ClinicSelector() {
   // Antes de hidratar (SSR / primer render cliente): placeholder estable.
   if (!isHydrated) {
     return (
-      <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-500">
+      <span className="inline-flex items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-semibold text-[var(--color-muted)]">
         Cargando…
       </span>
     );
@@ -54,7 +54,7 @@ export function ClinicSelector() {
       <select
         value={currentValue}
         onChange={(e) => onChange(e.target.value)}
-        className="text-xs rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-800 max-w-[260px] truncate"
+        className="text-xs rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 font-semibold text-[var(--color-foreground)] max-w-[260px] truncate"
       >
         {isAdmin && <option value={TODAS}>Todas las clínicas</option>}
         {clinicasSelectables.map((c) => (
