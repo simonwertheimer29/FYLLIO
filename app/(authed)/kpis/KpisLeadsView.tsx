@@ -7,7 +7,7 @@
 // Layout vertical, max-w-7xl, secciones con respiracion mt-12 entre
 // bloques principales.
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   PieChart,
   Pie,
@@ -20,7 +20,10 @@ import {
 import { Trophy } from "lucide-react";
 import { Card } from "../../components/ui/Card";
 import { StatePill } from "../../components/ui/StatePill";
+import { KpiCard } from "../../components/ui/KpiCard";
 import { KpiCardSkeleton } from "../../components/ui/Skeleton";
+import { ErrorState } from "../../components/ui/Feedback";
+import { X, ICON_STROKE } from "../../components/icons";
 import { useClinic } from "../../lib/context/ClinicContext";
 
 type Periodo = "hoy" | "semana" | "mes" | "mes_anterior" | "trimestre";
@@ -115,44 +118,64 @@ export function KpisLeadsView() {
   const [periodo, setPeriodo] = useState<Periodo>("mes");
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [drillClinicaId, setDrillClinicaId] = useState<string | null>(null);
   const [drillData, setDrillData] = useState<ApiResponse | null>(null);
+  const [drillError, setDrillError] = useState(false);
 
   const { selectedClinicaId, selectedClinicaNombre } = useClinic();
 
-  useEffect(() => {
+  const load = useCallback(() => {
     setLoading(true);
+    setError(false);
     const url = new URL("/api/leads/kpis", location.href);
     url.searchParams.set("periodo", periodo);
     if (selectedClinicaId) url.searchParams.set("clinica", selectedClinicaId);
     fetch(url.toString())
       .then((r) => r.json())
       .then((d) => setData(d as ApiResponse))
-      .catch(() => setData(null))
+      .catch(() => {
+        setData(null);
+        setError(true);
+      })
       .finally(() => setLoading(false));
   }, [periodo, selectedClinicaId]);
 
-  // Drilldown: cuando drillClinicaId cambia, fetch endpoint con ?clinica.
   useEffect(() => {
+    load();
+  }, [load]);
+
+  // Drilldown: cuando drillClinicaId cambia, fetch endpoint con ?clinica.
+  const loadDrill = useCallback(() => {
     if (!drillClinicaId) {
       setDrillData(null);
+      setDrillError(false);
       return;
     }
+    setDrillData(null);
+    setDrillError(false);
     const url = new URL("/api/leads/kpis", location.href);
     url.searchParams.set("periodo", periodo);
     url.searchParams.set("clinica", drillClinicaId);
     fetch(url.toString())
       .then((r) => r.json())
       .then((d) => setDrillData(d as ApiResponse))
-      .catch(() => setDrillData(null));
+      .catch(() => {
+        setDrillData(null);
+        setDrillError(true);
+      });
   }, [drillClinicaId, periodo]);
+
+  useEffect(() => {
+    loadDrill();
+  }, [loadDrill]);
 
   return (
     <div className="p-4 lg:p-6 space-y-12 max-w-7xl mx-auto">
       {/* Header + selector periodo */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="font-display text-xl font-semibold tracking-tight text-slate-900">
-          KPIs Leads
+        <h2 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">
+          KPIs de leads
         </h2>
         <div className="flex gap-1">
           {PERIODOS.map((p) => (
@@ -162,8 +185,8 @@ export function KpisLeadsView() {
               onClick={() => setPeriodo(p.id)}
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
                 periodo === p.id
-                  ? "bg-sky-50 text-sky-700 border-sky-200"
-                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-[var(--color-accent)]"
+                  : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
               }`}
             >
               {p.label}
@@ -171,6 +194,14 @@ export function KpisLeadsView() {
           ))}
         </div>
       </div>
+
+      {/* Error honesto: el fetch falló → no dejamos la página en blanco. */}
+      {error && !loading && (
+        <ErrorState
+          detail="Los KPIs de leads no están disponibles ahora mismo."
+          onRetry={load}
+        />
+      )}
 
       {/* 4.1 Hero KPIs */}
       <HeroKpis data={data} loading={loading} />
@@ -214,6 +245,8 @@ export function KpisLeadsView() {
       {drillClinicaId && (
         <ClinicKpiDrawer
           data={drillData}
+          error={drillError}
+          onRetry={loadDrill}
           onClose={() => setDrillClinicaId(null)}
         />
       )}
@@ -239,64 +272,41 @@ function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolea
   const k = data.kpis;
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-      <HeroCard
+      <KpiCard
         label="Leads recibidos"
-        value={k.recibidos.actual.toString()}
-        sub={`${k.recibidos.canal.organicos} orgánicos · ${k.recibidos.canal.pagados} pagados · ${k.recibidos.canal.web} web`}
+        value={k.recibidos.actual}
+        subline={`${k.recibidos.canal.organicos} orgánicos · ${k.recibidos.canal.pagados} pagados · ${k.recibidos.canal.web} web`}
         deltaPct={k.recibidos.deltaPct}
+        accent="accent"
       />
-      <HeroCard
+      <KpiCard
         label="Pacientes citados"
-        value={k.pacientesCitados.actual.toString()}
-        sub={`${k.pacientesCitados.asistidos} asistieron · ${k.pacientesCitados.pendientes} pendientes`}
+        value={k.pacientesCitados.actual}
+        subline={`${k.pacientesCitados.asistidos} asistieron · ${k.pacientesCitados.pendientes} pendientes`}
         deltaPct={k.pacientesCitados.deltaPct}
+        accent="accent"
       />
-      <HeroCard
+      <KpiCard
         label="Tasa cita"
-        value={`${k.tasaCitado.actual}%`}
-        sub={
+        value={k.tasaCitado.actual}
+        formatter={(n) => `${n}%`}
+        subline={
           k.tasaCitado.deltaPP === 0
             ? "Sin cambio vs mes anterior"
             : `${k.tasaCitado.deltaPP > 0 ? "+" : ""}${k.tasaCitado.deltaPP} pp vs mes anterior`
         }
         deltaPct={null}
+        accent="accent"
       />
-      <HeroCard
+      <KpiCard
         label="Facturado"
-        value={formatEUR(k.facturado.actual)}
-        sub={`Pendiente: ${formatEUR(k.facturado.pendiente)}`}
+        value={k.facturado.actual}
+        formatter={formatEUR}
+        subline={`Pendiente: ${formatEUR(k.facturado.pendiente)}`}
         deltaPct={k.facturado.deltaPct}
+        accent="emerald"
       />
     </div>
-  );
-}
-
-function HeroCard({
-  label,
-  value,
-  sub,
-  deltaPct,
-}: {
-  label: string;
-  value: string;
-  sub: string;
-  deltaPct: number | null;
-}) {
-  const variant: "success" | "danger" | "neutral" =
-    deltaPct == null ? "neutral" : deltaPct > 0 ? "success" : deltaPct < 0 ? "danger" : "neutral";
-  return (
-    <Card padding="lg">
-      <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">{label}</p>
-      <p className="font-display text-4xl font-bold mt-2 tabular-nums text-slate-900">{value}</p>
-      <div className="flex items-center justify-between gap-2 mt-2">
-        <p className="text-sm text-slate-600">{sub}</p>
-        {deltaPct != null && (
-          <StatePill variant={variant} size="sm" className="tabular-nums">
-            {deltaPct > 0 ? "↑" : deltaPct < 0 ? "↓" : "→"} {Math.abs(deltaPct)}%
-          </StatePill>
-        )}
-      </div>
-    </Card>
   );
 }
 
@@ -308,17 +318,13 @@ function FunnelBlock({ data }: { data: ApiResponse | null }) {
   if (!data) return null;
   const etapas = data.funnel.etapas;
   const max = etapas[0]?.total || 1;
-  // Gradient sky-100 → sky-300 escalado al paso (5 pasos).
-  const gradients = [
-    "from-sky-100 to-sky-100",
-    "from-sky-150 to-sky-200",
-    "from-sky-200 to-sky-300",
-    "from-sky-300 to-sky-400",
-    "from-sky-400 to-sky-500",
-  ];
+  // Escala del acento por paso via color-mix (funciona en ambos temas).
+  const STEP_MIX = [12, 22, 32, 42, 52];
+  const stepBg = (i: number) =>
+    `color-mix(in srgb, var(--color-accent) ${STEP_MIX[i] ?? STEP_MIX[0]}%, var(--color-surface))`;
   return (
     <Card padding="lg">
-      <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+      <p className="text-xs font-semibold tracking-wide text-[var(--color-muted)] uppercase">
         Embudo de conversión
       </p>
       <div className="mt-4 flex items-end gap-2 h-[200px]">
@@ -334,22 +340,22 @@ function FunnelBlock({ data }: { data: ApiResponse | null }) {
             <div key={step.etapa} className="flex-1 flex flex-col items-stretch gap-2 group relative">
               <div className="flex-1 flex flex-col justify-end">
                 <div
-                  className={`rounded-t-lg bg-gradient-to-b ${gradients[i] ?? gradients[0]} flex flex-col items-center justify-center px-2 py-3 transition-all`}
-                  style={{ height: altura }}
+                  className="rounded-t-lg flex flex-col items-center justify-center px-2 py-3 transition-all"
+                  style={{ height: altura, background: stepBg(i) }}
                   title={`${Math.round((step.total / (etapas[0]?.total || 1)) * 100)}% del total inicial${
                     step.etapa === "No Interesado" || step.etapa === "Convertido"
                       ? `\n${data.funnel.tooltipPrimerLog}`
                       : ""
                   }`}
                 >
-                  <p className="font-display text-2xl font-bold text-slate-900 tabular-nums">
+                  <p className="font-display text-2xl font-bold text-[var(--color-foreground)] tabular-nums">
                     {step.total}
                   </p>
-                  <p className="text-xs text-slate-700">{step.etapa}</p>
+                  <p className="text-xs text-[var(--color-foreground)]">{step.etapa}</p>
                 </div>
               </div>
               {i > 0 && dropoff > 0 && (
-                <span className="absolute -left-2 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 tabular-nums bg-white px-1">
+                <span className="absolute -left-2 top-1/2 -translate-y-1/2 text-[10px] text-[var(--color-muted)] tabular-nums bg-[var(--color-surface)] px-1">
                   −{dropoff}%
                 </span>
               )}
@@ -357,10 +363,10 @@ function FunnelBlock({ data }: { data: ApiResponse | null }) {
           );
         })}
         {/* No Interesado separado */}
-        <div className="w-px bg-slate-200 mx-3 self-stretch" />
+        <div className="w-px bg-[var(--color-border)] mx-3 self-stretch" />
         <div className="w-24 flex flex-col justify-end">
           <div
-            className="rounded-t-lg bg-slate-200 flex flex-col items-center justify-center px-2 py-3"
+            className="rounded-t-lg bg-[var(--color-surface-muted)] border border-[var(--color-border)] flex flex-col items-center justify-center px-2 py-3"
             style={{
               height: max > 0 ? Math.max(40, Math.round((data.funnel.noInteresado / max) * 200)) : 40,
             }}
@@ -372,10 +378,10 @@ function FunnelBlock({ data }: { data: ApiResponse | null }) {
                 : "Sin razones registradas"
             }
           >
-            <p className="font-display text-2xl font-bold text-slate-900 tabular-nums">
+            <p className="font-display text-2xl font-bold text-[var(--color-foreground)] tabular-nums">
               {data.funnel.noInteresado}
             </p>
-            <p className="text-xs text-slate-600">No Interesado</p>
+            <p className="text-xs text-[var(--color-muted)]">No Interesado</p>
           </div>
         </div>
       </div>
@@ -411,11 +417,11 @@ function ComparativaClinicas({
     <section className="space-y-3">
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
-          <h3 className="font-display text-base font-semibold text-slate-900 tracking-tight">
+          <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] tracking-tight">
             Comparativa de clínicas
           </h3>
           {selectedClinicaNombre && (
-            <p className="text-xs text-slate-500 mt-0.5">
+            <p className="text-xs text-[var(--color-muted)] mt-0.5">
               Vista global · El resto de KPIs reflejan {selectedClinicaNombre}
             </p>
           )}
@@ -435,8 +441,8 @@ function ComparativaClinicas({
               onClick={() => setCrit(id)}
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
                 crit === id
-                  ? "bg-sky-500 text-white border-sky-500"
-                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
+                  : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
               }`}
             >
               {label}
@@ -447,8 +453,8 @@ function ComparativaClinicas({
 
       <Card padding="none">
         <table className="w-full text-sm">
-          <thead className="border-b border-slate-100">
-            <tr className="text-[10px] uppercase tracking-widest text-slate-500">
+          <thead className="border-b border-[var(--color-border)]">
+            <tr className="text-[10px] uppercase tracking-widest text-[var(--color-muted)]">
               <th className="text-left font-semibold py-2 px-4">Clínica</th>
               <th className="font-semibold py-2 w-2/5"></th>
               <th className="text-right font-semibold py-2 px-2 w-16">Valor</th>
@@ -465,33 +471,33 @@ function ComparativaClinicas({
               return (
                 <tr
                   key={r.id}
-                  className="border-b border-slate-50 last:border-b-0 hover:bg-slate-50 cursor-pointer transition-colors fyllio-fade-in"
+                  className="border-b border-[var(--color-border)] last:border-b-0 hover:bg-[var(--color-surface-muted)] cursor-pointer transition-colors fyllio-fade-in"
                   style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
                   onClick={() => onDrilldown(r.id)}
                 >
-                  <td className="py-2.5 px-4 text-slate-900">{r.nombre}</td>
+                  <td className="py-2.5 px-4 text-[var(--color-foreground)]">{r.nombre}</td>
                   <td className="py-2.5">
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-2 bg-[var(--color-surface-muted)] rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-sky-500"
+                        className="h-full bg-[var(--color-accent)]"
                         style={{ width: `${pct}%` }}
                       />
                     </div>
                   </td>
-                  <td className="py-2.5 px-2 text-right tabular-nums font-medium text-slate-900">
+                  <td className="py-2.5 px-2 text-right tabular-nums font-medium text-[var(--color-foreground)]">
                     {crit === "facturado" ? formatEUR(val) : val}
                     {crit === "tasaCitado" || crit === "tasaConversion" ? "%" : ""}
                   </td>
-                  <td className="py-2.5 px-2 text-right tabular-nums text-sky-700">
+                  <td className="py-2.5 px-2 text-right tabular-nums text-[var(--color-accent)]">
                     {r.tasaCitado}%
                   </td>
-                  <td className="py-2.5 px-2 text-right tabular-nums text-sky-700">
+                  <td className="py-2.5 px-2 text-right tabular-nums text-[var(--color-accent)]">
                     {r.tasaConversion}%
                   </td>
-                  <td className="py-2.5 px-3 text-right tabular-nums font-semibold text-slate-900">
+                  <td className="py-2.5 px-3 text-right tabular-nums font-semibold text-[var(--color-foreground)]">
                     {formatEUR(r.facturado)}
                   </td>
-                  <td className="py-2.5 px-3 text-right tabular-nums text-slate-400">
+                  <td className="py-2.5 px-3 text-right tabular-nums text-[var(--color-muted)]">
                     {formatEUR(r.pendiente)}
                   </td>
                 </tr>
@@ -508,33 +514,42 @@ function ComparativaClinicas({
 
 function ClinicKpiDrawer({
   data,
+  error,
+  onRetry,
   onClose,
 }: {
   data: ApiResponse | null;
+  error: boolean;
+  onRetry: () => void;
   onClose: () => void;
 }) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <aside className="relative w-full max-w-[480px] bg-slate-50 shadow-md flex flex-col h-full overflow-hidden">
-        <header className="px-5 py-4 border-b border-slate-200 bg-white flex items-center justify-between shrink-0">
+      <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
+      <aside className="relative w-full max-w-[480px] bg-[var(--color-background)] shadow-md flex flex-col h-full overflow-hidden">
+        <header className="px-5 py-4 border-b border-[var(--color-border)] bg-[var(--color-surface)] flex items-center justify-between shrink-0">
           <div>
-            <h3 className="font-display text-base font-semibold text-slate-900 tracking-tight">
+            <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] tracking-tight">
               {data?.clinica?.nombre ?? "Clínica"}
             </h3>
-            <p className="text-[11px] text-slate-500">KPIs de la clínica</p>
+            <p className="text-[11px] text-[var(--color-muted)]">KPIs de la clínica</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 w-8 h-8 rounded-md flex items-center justify-center hover:bg-slate-100"
+            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-md flex items-center justify-center hover:bg-[var(--color-surface-muted)]"
             aria-label="Cerrar"
           >
-            ×
+            <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
           </button>
         </header>
         <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {!data ? (
+          {error ? (
+            <ErrorState
+              detail="Los KPIs de esta clínica no están disponibles ahora mismo."
+              onRetry={onRetry}
+            />
+          ) : !data ? (
             <div className="space-y-2">
               <div className="fyllio-skeleton h-24" />
               <div className="fyllio-skeleton h-32" />
@@ -551,26 +566,26 @@ function ClinicKpiDrawer({
                 <MiniKpi label="Facturado" value={formatEUR(data.kpis.facturado.actual)} />
               </div>
               <Card padding="md">
-                <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500 mb-2">
+                <p className="text-[10px] uppercase tracking-widest font-semibold text-[var(--color-muted)] mb-2">
                   Origen
                 </p>
                 <DonutOrigen distribucion={data.distribucionOrigen} compact />
               </Card>
               <Card padding="md">
-                <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500 mb-2">
+                <p className="text-[10px] uppercase tracking-widest font-semibold text-[var(--color-muted)] mb-2">
                   Top doctores · Conversión
                 </p>
                 {data.rankingDoctores.length === 0 ? (
-                  <p className="text-xs text-slate-500">Sin datos.</p>
+                  <p className="text-xs text-[var(--color-muted)]">Sin datos.</p>
                 ) : (
-                  <ul className="divide-y divide-slate-100">
+                  <ul className="divide-y divide-[var(--color-border)]">
                     {data.rankingDoctores.slice(0, 3).map((d, i) => (
                       <li
                         key={d.id}
                         className="flex items-center justify-between py-2 text-sm"
                       >
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="w-5 h-5 rounded-md bg-slate-100 text-slate-700 text-[10px] font-semibold flex items-center justify-center tabular-nums">
+                          <span className="w-5 h-5 rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-[10px] font-semibold flex items-center justify-center tabular-nums">
                             {i + 1}
                           </span>
                           <span className="truncate">{d.nombre}</span>
@@ -592,10 +607,10 @@ function ClinicKpiDrawer({
 function MiniKpi({ label, value }: { label: string; value: string }) {
   return (
     <Card padding="md">
-      <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500">
+      <p className="text-[10px] uppercase tracking-widest font-semibold text-[var(--color-muted)]">
         {label}
       </p>
-      <p className="font-display text-2xl font-bold mt-1 tabular-nums text-slate-900">
+      <p className="font-display text-2xl font-bold mt-1 tabular-nums text-[var(--color-foreground)]">
         {value}
       </p>
     </Card>
@@ -610,13 +625,13 @@ function Distribuciones({ data }: { data: ApiResponse | null }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       <Card padding="lg">
-        <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500 mb-3">
+        <p className="text-[10px] uppercase tracking-widest font-semibold text-[var(--color-muted)] mb-3">
           Leads por origen
         </p>
         <DonutOrigen distribucion={data?.distribucionOrigen ?? []} />
       </Card>
       <Card padding="lg">
-        <p className="text-[10px] uppercase tracking-widest font-semibold text-slate-500 mb-3">
+        <p className="text-[10px] uppercase tracking-widest font-semibold text-[var(--color-muted)] mb-3">
           Leads por tratamiento
         </p>
         <BarHorizontal data={data?.distribucionTratamiento ?? []} />
@@ -625,7 +640,13 @@ function Distribuciones({ data }: { data: ApiResponse | null }) {
   );
 }
 
-const SKY_PALETTE = ["#0284c7", "#0EA5E9", "#38BDF8", "#7DD3FC", "#BAE6FD", "#94A3B8"];
+// Escala ordinal derivada del acento (mayor cuota → paso más intenso).
+// color-mix con la superficie → se adapta solo a tema claro/oscuro.
+// Último paso: neutro para categorías de cola. La identidad de cada
+// porción la lleva la leyenda (nombre + total + %), no solo el color.
+const DONUT_PALETTE = [100, 80, 60, 40, 20]
+  .map((p) => `color-mix(in srgb, var(--color-accent) ${p}%, var(--color-surface))`)
+  .concat("var(--color-muted)");
 
 function DonutOrigen({
   distribucion,
@@ -636,7 +657,7 @@ function DonutOrigen({
 }) {
   const total = distribucion.reduce((s, d) => s + d.total, 0);
   if (total === 0)
-    return <p className="text-sm text-slate-500">Sin datos en el periodo.</p>;
+    return <p className="text-sm text-[var(--color-muted)]">Sin datos en el periodo.</p>;
   const inner = compact ? 36 : 70;
   const outer = compact ? 60 : 110;
   return (
@@ -651,20 +672,20 @@ function DonutOrigen({
               innerRadius={inner}
               outerRadius={outer}
               paddingAngle={1}
-              stroke="#FFFFFF"
+              stroke="var(--color-surface)"
               strokeWidth={2}
             >
               {distribucion.map((_, i) => (
-                <Cell key={i} fill={SKY_PALETTE[i % SKY_PALETTE.length]} />
+                <Cell key={i} fill={DONUT_PALETTE[i % DONUT_PALETTE.length]} />
               ))}
             </Pie>
           </PieChart>
         </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-          <p className="font-display text-3xl font-bold tabular-nums text-slate-900">
+          <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">
             {total}
           </p>
-          <p className="text-[10px] uppercase tracking-widest text-slate-500">Leads</p>
+          <p className="text-[10px] uppercase tracking-widest text-[var(--color-muted)]">Leads</p>
         </div>
       </div>
       {!compact && (
@@ -673,13 +694,13 @@ function DonutOrigen({
             <li key={d.nombre} className="flex items-center gap-2 text-xs">
               <span
                 className="w-2.5 h-2.5 rounded-full shrink-0"
-                style={{ background: SKY_PALETTE[i % SKY_PALETTE.length] }}
+                style={{ background: DONUT_PALETTE[i % DONUT_PALETTE.length] }}
               />
-              <span className="flex-1 truncate text-slate-700">{d.nombre}</span>
-              <span className="tabular-nums font-semibold text-slate-900 w-8 text-right">
+              <span className="flex-1 truncate text-[var(--color-foreground)]">{d.nombre}</span>
+              <span className="tabular-nums font-semibold text-[var(--color-foreground)] w-8 text-right">
                 {d.total}
               </span>
-              <span className="tabular-nums text-slate-500 w-8 text-right">
+              <span className="tabular-nums text-[var(--color-muted)] w-8 text-right">
                 {d.pct ?? Math.round((d.total / total) * 100)}%
               </span>
             </li>
@@ -696,7 +717,7 @@ function BarHorizontal({
   data: Array<{ nombre: string; total: number }>;
 }) {
   if (data.length === 0)
-    return <p className="text-sm text-slate-500">Sin datos en el periodo.</p>;
+    return <p className="text-sm text-[var(--color-muted)]">Sin datos en el periodo.</p>;
   const top = data.slice(0, 8);
   const otros = data.slice(8).reduce((s, d) => s + d.total, 0);
   const max = top[0]?.total ?? 1;
@@ -706,20 +727,20 @@ function BarHorizontal({
         const pct = max > 0 ? (d.total / max) * 100 : 0;
         return (
           <div key={d.nombre} className="flex items-center gap-3">
-            <div className="w-32 shrink-0 text-xs text-slate-700 truncate" title={d.nombre}>
+            <div className="w-32 shrink-0 text-xs text-[var(--color-foreground)] truncate" title={d.nombre}>
               {d.nombre}
             </div>
-            <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-              <div className="h-full bg-sky-500" style={{ width: `${pct}%` }} />
+            <div className="flex-1 h-2 bg-[var(--color-surface-muted)] rounded-full overflow-hidden">
+              <div className="h-full bg-[var(--color-accent)]" style={{ width: `${pct}%` }} />
             </div>
-            <span className="text-sm font-semibold tabular-nums w-10 text-right text-slate-900">
+            <span className="text-sm font-semibold tabular-nums w-10 text-right text-[var(--color-foreground)]">
               {d.total}
             </span>
           </div>
         );
       })}
       {otros > 0 && (
-        <p className="text-xs text-slate-400 pl-32 tabular-nums">
+        <p className="text-xs text-[var(--color-muted)] pl-32 tabular-nums">
           Otros ({data.length - top.length}): {otros}
         </p>
       )}
@@ -758,16 +779,16 @@ function MatrizSection({
   return (
     <section className="space-y-2">
       <div>
-        <h3 className="font-display text-base font-semibold text-slate-900 tracking-tight">
+        <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] tracking-tight">
           {title}
         </h3>
-        <p className="text-sm text-slate-500">{subtitle}</p>
+        <p className="text-sm text-[var(--color-muted)]">{subtitle}</p>
       </div>
       <Card padding="none">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="border-b border-slate-100">
-              <tr className="text-[10px] uppercase tracking-widest text-slate-500">
+            <thead className="border-b border-[var(--color-border)]">
+              <tr className="text-[10px] uppercase tracking-widest text-[var(--color-muted)]">
                 <th className="text-left font-semibold py-2 px-4">
                   {rowKey === "fuente" ? "Fuente" : "Tratamiento"}
                 </th>
@@ -785,8 +806,8 @@ function MatrizSection({
               {rows.map((r) => {
                 const label = (r[rowKey] ?? "—") as string;
                 return (
-                  <tr key={label} className="border-b border-slate-50 last:border-b-0">
-                    <td className="py-2.5 px-4 text-slate-900">{label}</td>
+                  <tr key={label} className="border-b border-[var(--color-border)] last:border-b-0">
+                    <td className="py-2.5 px-4 text-[var(--color-foreground)]">{label}</td>
                     <td className="py-2.5 px-2 text-right tabular-nums font-medium">
                       {r.total}
                     </td>
@@ -794,18 +815,19 @@ function MatrizSection({
                       const val = Number(r[c.key]) || 0;
                       const max = maxByCol[c.key as string] || 1;
                       const intensity = max > 0 ? val / max : 0;
+                      // Heatmap con el acento (color-mix → vale en ambos temas).
                       const bg =
                         intensity === 0
                           ? "transparent"
                           : intensity < 0.34
-                            ? "#F0F9FF" // sky-50
+                            ? "color-mix(in srgb, var(--color-accent) 8%, transparent)"
                             : intensity < 0.67
-                              ? "#E0F2FE" // sky-100
-                              : "#BAE6FD"; // sky-200
+                              ? "color-mix(in srgb, var(--color-accent) 18%, transparent)"
+                              : "color-mix(in srgb, var(--color-accent) 32%, transparent)";
                       return (
                         <td
                           key={c.key as string}
-                          className="py-2.5 px-2 text-right tabular-nums text-slate-700"
+                          className="py-2.5 px-2 text-right tabular-nums text-[var(--color-foreground)]"
                           style={{ background: bg }}
                         >
                           {val}
@@ -888,17 +910,17 @@ function ContactacionRespuesta({ data }: { data: ApiResponse | null }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       <Card padding="lg">
-        <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+        <p className="text-xs font-semibold tracking-wide text-[var(--color-muted)] uppercase">
           Tasa de contactación
         </p>
         <p
-          className="font-display text-3xl font-bold mt-2 tabular-nums text-slate-900"
+          className="font-display text-3xl font-bold mt-2 tabular-nums text-[var(--color-foreground)]"
           title={c.tooltip}
         >
           {c.conTimestamp}
-          <span className="text-slate-400 text-xl"> / {c.total}</span>
+          <span className="text-[var(--color-muted)] text-xl"> / {c.total}</span>
         </p>
-        <p className="text-xs text-slate-500 mt-1" title={c.tooltip}>
+        <p className="text-xs text-[var(--color-muted)] mt-1" title={c.tooltip}>
           {c.tooltip}
         </p>
         <div className="grid grid-cols-3 gap-2 mt-4">
@@ -908,7 +930,7 @@ function ContactacionRespuesta({ data }: { data: ApiResponse | null }) {
         </div>
         {/* Mini barra apilada */}
         {c.menos2h + c.menos24h + c.mas24h > 0 && (
-          <div className="mt-3 h-2 rounded-full overflow-hidden bg-slate-100 flex">
+          <div className="mt-3 h-2 rounded-full overflow-hidden bg-[var(--color-surface-muted)] flex">
             <div
               className="bg-emerald-500"
               style={{
@@ -931,19 +953,19 @@ function ContactacionRespuesta({ data }: { data: ApiResponse | null }) {
         )}
       </Card>
       <Card padding="lg">
-        <p className="text-xs font-semibold tracking-wide text-slate-500 uppercase">
+        <p className="text-xs font-semibold tracking-wide text-[var(--color-muted)] uppercase">
           Tiempo medio respuesta
         </p>
         <div className="flex items-baseline justify-between gap-2 mt-2">
-          <p className="font-display text-3xl font-bold tabular-nums text-slate-900">
+          <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">
             {tiempoFmt}
           </p>
           <StatePill variant={tiempoVar.variant} size="sm" className="tabular-nums">
             {tiempoVar.label}
           </StatePill>
         </div>
-        <p className="text-xs text-slate-500 mt-1">
-          Sparkline: tendencia de los últimos 30 días (no sigue al selector de periodo).
+        <p className="text-xs text-[var(--color-muted)] mt-1">
+          Tendencia de los últimos 30 días (no sigue al selector de periodo).
         </p>
         <div className="mt-3 h-12" style={{ minWidth: 1 }}>
           {/* Sprint 15.5 hotfix — Recharts emite warning 'width(-1)' si
@@ -956,7 +978,7 @@ function ContactacionRespuesta({ data }: { data: ApiResponse | null }) {
                 <Line
                   type="monotone"
                   dataKey="minutos"
-                  stroke="#0EA5E9"
+                  stroke="var(--color-accent)"
                   strokeWidth={1.5}
                   dot={false}
                   isAnimationActive={false}
@@ -964,7 +986,7 @@ function ContactacionRespuesta({ data }: { data: ApiResponse | null }) {
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <p className="text-xs text-slate-400 italic">Datos insuficientes para tendencia.</p>
+            <p className="text-xs text-[var(--color-muted)] italic">Datos insuficientes para tendencia.</p>
           )}
         </div>
       </Card>
@@ -982,7 +1004,7 @@ function Bucket({
   variant: "success" | "warning" | "danger";
 }) {
   return (
-    <div className="rounded-lg border border-slate-100 bg-slate-50 p-3 text-center">
+    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-3 text-center">
       <StatePill variant={variant} size="sm">
         {label}
       </StatePill>
@@ -1000,17 +1022,17 @@ function RankingDoctores({ data }: { data: ApiResponse | null }) {
   return (
     <section className="space-y-2">
       <div>
-        <h3 className="font-display text-base font-semibold text-slate-900 tracking-tight">
+        <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] tracking-tight">
           Ranking de doctores · Conversión Lead → Paciente
         </h3>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-[var(--color-muted)]">
           Calidad del cierre desde la primera visita.
         </p>
       </div>
       <Card padding="none">
         <table className="w-full text-sm">
-          <thead className="border-b border-slate-100">
-            <tr className="text-[10px] uppercase tracking-widest text-slate-500">
+          <thead className="border-b border-[var(--color-border)]">
+            <tr className="text-[10px] uppercase tracking-widest text-[var(--color-muted)]">
               <th className="text-left font-semibold py-2 px-4">Doctor</th>
               <th className="text-right font-semibold py-2 px-3">Convertidos</th>
               <th className="text-right font-semibold py-2 px-3">Tasa</th>
@@ -1020,7 +1042,7 @@ function RankingDoctores({ data }: { data: ApiResponse | null }) {
           <tbody>
             {data.rankingDoctores.length === 0 ? (
               <tr>
-                <td colSpan={4} className="py-6 px-4 text-center text-slate-500 text-sm">
+                <td colSpan={4} className="py-6 px-4 text-center text-[var(--color-muted)] text-sm">
                   Sin conversiones asignadas a doctores en este periodo.
                 </td>
               </tr>
@@ -1028,11 +1050,11 @@ function RankingDoctores({ data }: { data: ApiResponse | null }) {
               data.rankingDoctores.map((d, i) => (
                 <tr
                   key={d.id}
-                  className="border-b border-slate-50 last:border-b-0 hover:bg-slate-50 transition-colors"
+                  className="border-b border-[var(--color-border)] last:border-b-0 hover:bg-[var(--color-surface-muted)] transition-colors"
                 >
-                  <td className="py-2.5 px-4 text-slate-900">
+                  <td className="py-2.5 px-4 text-[var(--color-foreground)]">
                     <span className="inline-flex items-center gap-2">
-                      {i < 3 && <Trophy size={12} strokeWidth={1.5} className="text-amber-500" />}
+                      {i < 3 && <Trophy size={12} strokeWidth={1.5} className="text-amber-500 dark:text-amber-300" aria-hidden />}
                       {d.nombre}
                     </span>
                   </td>
@@ -1053,10 +1075,10 @@ function RankingDoctores({ data }: { data: ApiResponse | null }) {
                       {d.tasaConversion}%
                     </StatePill>
                   </td>
-                  <td className="py-2.5 px-4 text-right tabular-nums text-slate-900">
+                  <td className="py-2.5 px-4 text-right tabular-nums text-[var(--color-foreground)]">
                     {d.facturadoGenerado == null ? (
                       <span
-                        className="text-slate-400"
+                        className="text-[var(--color-muted)]"
                         title="Cálculo en proceso, refresca en unos segundos"
                       >
                         —
@@ -1071,7 +1093,7 @@ function RankingDoctores({ data }: { data: ApiResponse | null }) {
           </tbody>
         </table>
         {data._warning === "calculo_facturado_pendiente" && (
-          <p className="text-[11px] text-slate-400 px-4 py-2 bg-slate-50 border-t border-slate-100">
+          <p className="text-[11px] text-[var(--color-muted)] px-4 py-2 bg-[var(--color-surface-muted)] border-t border-[var(--color-border)]">
             Cálculo de facturado en proceso. Refresca en unos segundos.
           </p>
         )}

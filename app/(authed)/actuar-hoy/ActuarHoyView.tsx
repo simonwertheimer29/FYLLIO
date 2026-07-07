@@ -21,6 +21,8 @@ import { AccionPanel } from "../../components/shared/AccionPanel";
 import { AsistenciaModal } from "../leads/AsistenciaModal";
 import IntervencionView from "../../components/presupuestos/IntervencionView";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
+import { EmptyState } from "../../components/ui/Feedback";
+import { AlertTriangle, Inbox, ICON_STROKE } from "../../components/icons";
 
 type Tab = "leads" | "presupuestos";
 
@@ -71,16 +73,16 @@ export function ActuarHoyView({
   }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-slate-50 overflow-hidden">
+    <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-background)] overflow-hidden">
       <div className="flex-1 min-h-0 flex flex-col overflow-auto p-4 lg:p-6 gap-4">
         <header className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="text-xl font-extrabold text-slate-900">Actuar hoy</h1>
-            <p className="text-xs text-slate-500">
+            <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">Actuar hoy</h1>
+            <p className="text-xs text-[var(--color-muted)]">
               Cola priorizada para que cierres todo desde aquí, sin saltar al kanban.
             </p>
           </div>
-          <div className="flex gap-1 rounded-full border border-slate-200 bg-white p-0.5">
+          <div className="flex gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
             {(
               [
                 ["leads", "Leads"],
@@ -91,10 +93,10 @@ export function ActuarHoyView({
                 key={id}
                 type="button"
                 onClick={() => setTab(id)}
-                className={`text-xs font-bold px-4 py-1.5 rounded-full transition-colors ${
+                className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-colors ${
                   tab === id
-                    ? "bg-slate-900 text-white"
-                    : "text-slate-600 hover:text-slate-900"
+                    ? "bg-[var(--color-foreground)] text-[var(--color-background)]"
+                    : "text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
                 }`}
               >
                 {label}
@@ -140,6 +142,9 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
   const { selectedClinicaId } = useClinic();
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [loading, setLoading] = useState(false);
+  // Indicador sutil cuando el refresh falla: mantenemos la lista anterior
+  // (deliberado) pero avisamos de que puede estar desactualizada.
+  const [sinConexion, setSinConexion] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [filter, setFilter] = useState<LeadSubFilter>("citados");
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null);
@@ -171,8 +176,10 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
           : {},
       );
       setLastUpdate(new Date());
+      setSinConexion(false);
     } catch {
       /* swallow — mantener lista anterior */
+      setSinConexion(true);
     } finally {
       setLoading(false);
     }
@@ -253,6 +260,13 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
         loading={loading}
       />
 
+      {sinConexion && (
+        <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">
+          <AlertTriangle size={12} strokeWidth={ICON_STROKE} aria-hidden />
+          Sin conexión · mostrando los últimos datos, se reintentará al actualizar
+        </span>
+      )}
+
       {/* Pills de sub-filtro (mismo lenguaje que el secondary navbar de Presupuestos). */}
       <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
         {tabs.map(([id, label, count]) => (
@@ -262,8 +276,8 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
             onClick={() => setFilter(id)}
             className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
               filter === id
-                ? "bg-violet-600 text-white"
-                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
+                : "bg-[var(--color-surface-muted)] text-[var(--color-muted)] hover:bg-[var(--color-border)]"
             }`}
           >
             {label} · {count}
@@ -274,14 +288,15 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
       {loading && filteredLeads.length === 0 ? (
         <CardListSkeleton rows={4} />
       ) : filteredLeads.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-slate-200 p-12 text-center">
-          <p className="text-sm font-bold text-slate-700">Sin casos en esta vista</p>
-          <p className="text-xs text-slate-400 mt-1">
-            {filter === "citados"
+        <EmptyState
+          icon={<Inbox size={20} strokeWidth={ICON_STROKE} />}
+          title="Sin casos en esta vista"
+          hint={
+            filter === "citados"
               ? "No hay leads citados hoy en este filtro."
-              : "No hay leads accionables en este filtro."}
-          </p>
-        </div>
+              : "No hay leads accionables en este filtro."
+          }
+        />
       ) : (
         <div className="space-y-2">
           {filteredLeads.map((l) => (
@@ -371,7 +386,7 @@ function priorityForLead(
     sinSalienteUltimas12h;
 
   if (isCitadoHoy || (lead.estado === "Nuevo" && diasDesde >= 1) || calienteSinAccion) {
-    return { variant: "danger", label: "ALTO", borderColor: "#ef4444" };
+    return { variant: "danger", label: "ALTO", borderColor: "var(--color-danger)" };
   }
 
   const seguimientoMedio =
@@ -379,10 +394,10 @@ function priorityForLead(
     (lead.estado === "Nuevo" && diasDesde < 1);
 
   if (seguimientoMedio) {
-    return { variant: "warning", label: "MEDIO", borderColor: "#f59e0b" };
+    return { variant: "warning", label: "MEDIO", borderColor: "var(--color-warning)" };
   }
 
-  return { variant: "neutral", label: "BAJO", borderColor: "#94a3b8" };
+  return { variant: "neutral", label: "BAJO", borderColor: "var(--color-muted)" };
 }
 
 function LeadAccionRow({
@@ -495,7 +510,7 @@ function LeadAccionRow({
           <a
             href={`/pacientes/${lead.pacienteId}`}
             onClick={(e) => e.stopPropagation()}
-            className="hover:text-sky-700 hover:underline"
+            className="hover:text-[var(--color-accent)] hover:underline"
           >
             {lead.nombre}
           </a>
@@ -506,17 +521,17 @@ function LeadAccionRow({
       titleRight={
         <div className="flex items-center gap-2">
           {isCitadoHoy && lead.horaCita && (
-            <span className="text-[10px] font-semibold text-rose-700 tabular-nums">
+            <span className="text-[10px] font-semibold text-rose-700 dark:text-rose-300 tabular-nums">
               {lead.horaCita}
             </span>
           )}
           <span
             className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md border ${
               priority.variant === "danger"
-                ? "bg-rose-50 text-rose-700 border-rose-200"
+                ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30"
                 : priority.variant === "warning"
-                  ? "bg-amber-50 text-amber-700 border-amber-200"
-                  : "bg-slate-50 text-slate-600 border-slate-200"
+                  ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30"
+                  : "bg-[var(--color-surface-muted)] text-[var(--color-muted)] border-[var(--color-border)]"
             }`}
           >
             {priority.label}

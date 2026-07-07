@@ -6,11 +6,12 @@
 
 import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Phone, MessageCircle, ICON_STROKE } from "../../components/icons";
+import { Phone, MessageCircle, Check, Copy, Plus, ICON_STROKE } from "../../components/icons";
 import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   closestCenter,
@@ -37,17 +38,33 @@ export type { Lead } from "./types";
 // Estado="Citados Hoy" como valor literal se mantiene como legacy (el seed
 // ya lo migró a "Citado", pero algún registro antiguo podría sobrevivir).
 const COLUMNS: Array<{ id: LeadEstado; label: string; accent: string; ringClass?: string }> = [
-  { id: "Nuevo", label: "Nuevo", accent: "bg-slate-100 text-slate-700" },
-  { id: "Contactado", label: "Contactado", accent: "bg-amber-100 text-amber-800" },
-  { id: "Citado", label: "Citado", accent: "bg-sky-100 text-sky-800" },
+  {
+    id: "Nuevo",
+    label: "Nuevo",
+    accent: "bg-[var(--color-surface-muted)] text-[var(--color-foreground)]",
+  },
+  {
+    id: "Contactado",
+    label: "Contactado",
+    accent: "bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300",
+  },
+  {
+    id: "Citado",
+    label: "Citado",
+    accent: "bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
+  },
   {
     id: "Citados Hoy",
     label: "Citados Hoy",
-    accent: "bg-rose-50 text-rose-700",
+    accent: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
     // Sprint 12 H.3 — acento rose mas sutil (ring-1 + opacidad).
-    ringClass: "ring-1 ring-rose-200/70",
+    ringClass: "ring-1 ring-rose-200/70 dark:ring-rose-500/30",
   },
-  { id: "No Interesado", label: "No Interesado", accent: "bg-slate-200 text-slate-600" },
+  {
+    id: "No Interesado",
+    label: "No Interesado",
+    accent: "bg-[var(--color-surface-muted)] text-[var(--color-muted)]",
+  },
 ];
 
 const TODAY_ISO = () => new Date().toISOString().slice(0, 10);
@@ -87,6 +104,10 @@ export function LeadsView({
     useSensor(PointerSensor, {
       // activar drag después de 6 px para no interferir con el click simple
       activationConstraint: { distance: 6 },
+    }),
+    useSensor(TouchSensor, {
+      // en táctil: mantener pulsado 200ms para arrastrar sin bloquear el scroll
+      activationConstraint: { delay: 200, tolerance: 8 },
     })
   );
 
@@ -271,17 +292,18 @@ export function LeadsView({
         prevList.map((l) => (l.id === lead.id ? { ...l, ...prev } : l))
       );
       setError("No se pudo marcar como no asistió. Inténtalo de nuevo.");
+      toast.error("No se pudo marcar como no asistió. Inténtalo de nuevo.");
     }
   }
 
   const draggingLead = draggingId ? leads.find((l) => l.id === draggingId) : null;
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-slate-50 p-6 gap-4 overflow-auto">
+    <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-background)] p-6 gap-4 overflow-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-2xl font-semibold tracking-tight text-[var(--color-foreground)]">Leads</h1>
+          <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">Leads</h1>
           <p className="text-xs text-[var(--color-muted)] mt-0.5 tabular-nums">
             {filteredLeads.length} lead{filteredLeads.length === 1 ? "" : "s"} en el pipeline
           </p>
@@ -289,9 +311,10 @@ export function LeadsView({
         <button
           type="button"
           onClick={() => setNewLeadOpen(true)}
-          className="rounded-md bg-sky-500 text-white text-xs font-semibold px-3.5 py-2 hover:bg-sky-600 transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-semibold px-3.5 py-2 hover:bg-[var(--color-accent-hover)] transition-colors"
         >
-          + Nuevo Lead
+          <Plus size={14} strokeWidth={ICON_STROKE} aria-hidden />
+          Nuevo lead
         </button>
       </div>
 
@@ -310,8 +333,8 @@ export function LeadsView({
               onClick={() => setDateFilter(key)}
               className={`text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-colors ${
                 dateFilter === key
-                  ? "bg-slate-900 text-white border-slate-900"
-                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+                  ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
+                  : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-muted)]"
               }`}
             >
               {label}
@@ -323,12 +346,12 @@ export function LeadsView({
           placeholder="Buscar lead…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-[180px] max-w-sm rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-sky-300"
+          className="flex-1 min-w-[180px] max-w-sm rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
         />
       </div>
 
       {error && (
-        <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+        <p className="text-xs text-[var(--color-danger)] bg-[var(--color-danger-soft)] border border-[var(--color-border)] rounded-xl px-3 py-2">
           {error}
         </p>
       )}
@@ -442,7 +465,7 @@ function KanbanColumn({
   return (
     <div
       id={estado}
-      className={`flex flex-col min-h-0 rounded-xl bg-white border border-[var(--color-border)] ${ringClass ?? ""}`}
+      className={`flex flex-col min-h-0 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] ${ringClass ?? ""}`}
     >
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-[var(--color-border)]">
         <span className="font-display text-[13px] font-medium text-[var(--color-foreground)] tracking-tight">{label}</span>
@@ -480,7 +503,7 @@ function KanbanColumn({
           {items.length === 0 && (
             <div
               id={estado}
-              className="h-full min-h-[80px] flex items-center justify-center text-[11px] text-slate-300 italic"
+              className="h-full min-h-[80px] flex items-center justify-center text-[11px] text-[var(--color-muted)] italic"
             >
               Sin leads
             </div>
@@ -507,7 +530,7 @@ function NoInteresadoGroups({
     <>
       {noAsistio.length > 0 && (
         <>
-          <p className="text-[10px] font-bold uppercase tracking-wide text-amber-700 px-1 mt-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300 px-1 mt-1">
             No asistió · {noAsistio.length}
           </p>
           {noAsistio.map((l) => (
@@ -517,7 +540,7 @@ function NoInteresadoGroups({
       )}
       {rechazo.length > 0 && (
         <>
-          <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500 px-1 mt-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-muted)] px-1 mt-2">
             Rechazo · {rechazo.length}
           </p>
           {rechazo.map((l) => (
@@ -599,14 +622,14 @@ function LeadCardBody({ lead }: { lead: Lead }) {
         borderColor: "var(--card-border)",
         boxShadow: "var(--card-shadow-rest)",
       }}
-      className="rounded-xl bg-white border p-3 text-xs hover:[border-color:var(--card-border-hover)] hover:[box-shadow:var(--card-shadow-hover)] transition-[box-shadow,border-color] duration-150 cursor-pointer"
+      className="rounded-xl bg-[var(--color-surface)] border p-3 text-xs hover:[border-color:var(--card-border-hover)] hover:[box-shadow:var(--card-shadow-hover)] transition-[box-shadow,border-color] duration-150 cursor-pointer"
     >
       {/* Sprint 14a Bloque 1.5 — leads convertidos enlazan al Paciente360. */}
       {lead.convertido && lead.pacienteId ? (
         <a
           href={`/pacientes/${lead.pacienteId}`}
           onClick={(e) => e.stopPropagation()}
-          className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight hover:text-sky-700 hover:underline block"
+          className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight hover:text-[var(--color-accent)] hover:underline block"
         >
           {lead.nombre}
         </a>
@@ -616,12 +639,12 @@ function LeadCardBody({ lead }: { lead: Lead }) {
 
       <div className="flex flex-wrap gap-1 mt-1.5">
         {lead.canal && (
-          <span className="inline-flex rounded-md bg-slate-50 text-slate-600 border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] font-medium">
+          <span className="inline-flex rounded-md bg-[var(--color-surface-muted)] text-[var(--color-muted)] border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] font-medium">
             {lead.canal}
           </span>
         )}
         {lead.tratamiento && (
-          <span className="inline-flex rounded-md bg-sky-50 text-sky-700 border border-sky-100 px-1.5 py-0.5 text-[10px] font-medium">
+          <span className="inline-flex rounded-md bg-[var(--color-accent-soft)] text-[var(--color-accent)] border border-transparent px-1.5 py-0.5 text-[10px] font-medium">
             {lead.tratamiento}
           </span>
         )}
@@ -633,10 +656,15 @@ function LeadCardBody({ lead }: { lead: Lead }) {
           <button
             type="button"
             onClick={copyPhone}
-            className="text-[10px] text-slate-400 hover:text-[var(--color-foreground)] transition-colors"
+            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
             title="Copiar"
+            aria-label="Copiar teléfono"
           >
-            {copied ? "✓" : "⎘"}
+            {copied ? (
+              <Check size={12} strokeWidth={ICON_STROKE} className="text-[var(--color-success)]" aria-hidden />
+            ) : (
+              <Copy size={12} strokeWidth={ICON_STROKE} aria-hidden />
+            )}
           </button>
         </div>
       )}
@@ -648,12 +676,12 @@ function LeadCardBody({ lead }: { lead: Lead }) {
       <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--color-muted)]">
         {lead.llamado && (
           <span className="inline-flex items-center gap-1">
-            <Phone size={12} strokeWidth={ICON_STROKE} className="text-slate-400" /> Llamado
+            <Phone size={12} strokeWidth={ICON_STROKE} className="text-[var(--color-muted)]" /> Llamado
           </span>
         )}
         {lead.whatsappEnviados > 0 && (
           <span className="inline-flex items-center gap-1 tabular-nums">
-            <MessageCircle size={12} strokeWidth={ICON_STROKE} className="text-slate-400" /> {lead.whatsappEnviados}
+            <MessageCircle size={12} strokeWidth={ICON_STROKE} className="text-[var(--color-muted)]" /> {lead.whatsappEnviados}
           </span>
         )}
         <span className="ml-auto tabular-nums">
@@ -667,7 +695,7 @@ function LeadCardBody({ lead }: { lead: Lead }) {
             <a
               href={`tel:${lead.telefono}`}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 text-center rounded-md bg-slate-50 text-[var(--color-foreground)] text-[10px] font-medium py-1.5 hover:bg-slate-100 transition-colors"
+              className="flex-1 text-center rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-[10px] font-medium py-1.5 hover:bg-[var(--color-border)] transition-colors"
             >
               Llamar
             </a>
@@ -676,7 +704,7 @@ function LeadCardBody({ lead }: { lead: Lead }) {
               target="_blank"
               rel="noreferrer"
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 text-center rounded-md bg-emerald-50 text-emerald-700 text-[10px] font-medium py-1.5 hover:bg-emerald-100 transition-colors"
+              className="flex-1 text-center rounded-md bg-[var(--fyllio-wa-green)] text-white text-[10px] font-medium py-1.5 hover:bg-[var(--fyllio-wa-green-hover)] transition-colors"
             >
               WhatsApp
             </a>
@@ -703,12 +731,12 @@ function CitadosHoyCardBody({
   return (
     <article
       style={{ boxShadow: "var(--card-shadow-rest)" }}
-      className="rounded-xl bg-rose-50/50 border border-rose-200 p-3 text-xs hover:[box-shadow:var(--card-shadow-hover)] transition-[box-shadow,border-color] duration-150 cursor-pointer"
+      className="rounded-xl bg-rose-50/50 dark:bg-rose-500/5 border border-rose-200 dark:border-rose-500/30 p-3 text-xs hover:[box-shadow:var(--card-shadow-hover)] transition-[box-shadow,border-color] duration-150 cursor-pointer"
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="font-bold text-slate-900 truncate flex-1">{lead.nombre}</p>
+        <p className="font-display font-semibold text-[var(--color-foreground)] truncate flex-1">{lead.nombre}</p>
         {lead.horaCita && (
-          <span className="text-[10px] font-extrabold text-rose-700 shrink-0">
+          <span className="text-[10px] font-semibold text-rose-700 dark:text-rose-300 shrink-0 tabular-nums">
             {lead.horaCita}
           </span>
         )}
@@ -716,24 +744,24 @@ function CitadosHoyCardBody({
 
       <div className="flex flex-wrap gap-1 mt-1">
         {lead.canal && (
-          <span className="inline-flex rounded-full bg-white text-sky-700 border border-sky-100 px-2 py-0.5 text-[10px] font-semibold">
+          <span className="inline-flex rounded-full bg-[var(--color-surface)] text-[var(--color-accent)] border border-[var(--color-border)] px-2 py-0.5 text-[10px] font-semibold">
             {lead.canal}
           </span>
         )}
         {lead.tratamiento && (
-          <span className="inline-flex rounded-full bg-white text-sky-700 border border-sky-100 px-2 py-0.5 text-[10px] font-semibold">
+          <span className="inline-flex rounded-full bg-[var(--color-surface)] text-[var(--color-accent)] border border-[var(--color-border)] px-2 py-0.5 text-[10px] font-semibold">
             {lead.tratamiento}
           </span>
         )}
       </div>
 
       {lead.telefono && (
-        <p className="text-slate-600 text-[11px] font-mono mt-2 truncate">
+        <p className="text-[var(--color-muted)] text-[11px] font-mono mt-2 truncate tabular-nums">
           {lead.telefono}
         </p>
       )}
       {lead.fechaCita && (
-        <p className="mt-0.5 text-[10px] text-slate-500">
+        <p className="mt-0.5 text-[10px] text-[var(--color-muted)] tabular-nums">
           Cita: {lead.fechaCita}
           {lead.horaCita ? ` · ${lead.horaCita}` : ""}
         </p>
@@ -746,7 +774,7 @@ function CitadosHoyCardBody({
             e.stopPropagation();
             onNoAsistio(lead);
           }}
-          className="flex-1 rounded-lg bg-white text-slate-700 border border-slate-200 text-[11px] font-bold py-1.5 hover:bg-slate-50"
+          className="flex-1 rounded-lg bg-[var(--color-surface)] text-[var(--color-foreground)] border border-[var(--color-border)] text-[11px] font-semibold py-1.5 hover:bg-[var(--color-surface-muted)]"
         >
           No asistió
         </button>
@@ -756,7 +784,7 @@ function CitadosHoyCardBody({
             e.stopPropagation();
             onAsistencia(lead);
           }}
-          className="flex-1 rounded-lg bg-sky-600 text-white text-[11px] font-bold py-1.5 hover:bg-sky-700"
+          className="flex-1 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-[11px] font-semibold py-1.5 hover:bg-[var(--color-accent-hover)]"
         >
           Marcar asistido
         </button>

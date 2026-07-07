@@ -18,13 +18,31 @@
 // - POST /api/leads/intervencion/registrar-respuesta (acciones manuales)
 // - PATCH /api/leads/[id]                        (cambio de estado)
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Lead } from "../../(authed)/leads/types";
 import type { MensajeWhatsApp } from "../../lib/presupuestos/types";
 import type { PlantillaLead } from "../../api/leads/plantillas/route";
 import { openCopilot } from "../copilot/openCopilot";
-import { Sparkles, ICON_STROKE } from "../icons";
+import {
+  Brain,
+  CalendarClock,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  Copy,
+  Lightbulb,
+  Phone,
+  Repeat,
+  Send,
+  Sparkles,
+  UserCheck,
+  UserX,
+  X,
+  ICON_STROKE,
+} from "../icons";
+import { RotateCcw } from "lucide-react";
+import { ErrorState } from "../ui/Feedback";
 
 type Tono = "directo" | "empatico" | "urgencia";
 
@@ -59,6 +77,7 @@ export function LeadAccionPanel({
   const [registrandoManual, setRegistrandoManual] = useState(false);
   const [mensajes, setMensajes] = useState<MensajeWhatsApp[]>([]);
   const [loadingMensajes, setLoadingMensajes] = useState(true);
+  const [errorMensajes, setErrorMensajes] = useState(false);
   const [historialAbierto, setHistorialAbierto] = useState(false);
   const [wabaActivo, setWabaActivo] = useState(false);
   const [inlineTexto, setInlineTexto] = useState("");
@@ -71,6 +90,7 @@ export function LeadAccionPanel({
     accionSugerida: string;
   } | null>(null);
   const [plantillas, setPlantillas] = useState<PlantillaLead[]>([]);
+  const [errorPlantillas, setErrorPlantillas] = useState(false);
   const [notasLocal, setNotasLocal] = useState<string>(lead.notas ?? "");
   const [savingNotas, setSavingNotas] = useState(false);
   // Sprint 12 F — animacion check 500ms en botones inline.
@@ -101,23 +121,40 @@ export function LeadAccionPanel({
     setNotasLocal(lead.notas ?? "");
   }, [lead.id, lead.notas]);
 
-  // Cargar mensajes WA.
-  useEffect(() => {
+  // Cargar mensajes WA. Si falla → error visible con reintento (no un
+  // "sin mensajes" mentiroso).
+  const cargarMensajes = useCallback(() => {
     setLoadingMensajes(true);
+    setErrorMensajes(false);
     fetch(`/api/leads/mensajes?leadId=${lead.id}`)
       .then((r) => r.json())
       .then((d) => setMensajes(d.mensajes ?? []))
-      .catch(() => setMensajes([]))
+      .catch(() => {
+        setMensajes([]);
+        setErrorMensajes(true);
+      })
       .finally(() => setLoadingMensajes(false));
   }, [lead.id]);
 
-  // Sprint 10 D — cargar plantillas activas (globales).
   useEffect(() => {
+    cargarMensajes();
+  }, [cargarMensajes]);
+
+  // Sprint 10 D — cargar plantillas activas (globales). Error visible.
+  const cargarPlantillas = useCallback(() => {
+    setErrorPlantillas(false);
     fetch("/api/leads/plantillas")
       .then((r) => r.json())
       .then((d) => setPlantillas(Array.isArray(d?.plantillas) ? d.plantillas : []))
-      .catch(() => setPlantillas([]));
+      .catch(() => {
+        setPlantillas([]);
+        setErrorPlantillas(true);
+      });
   }, []);
+
+  useEffect(() => {
+    cargarPlantillas();
+  }, [cargarPlantillas]);
 
   // WABA activo para la clínica del lead.
   useEffect(() => {
@@ -163,7 +200,7 @@ export function LeadAccionPanel({
       const d = await res.json();
       if (d.mensaje) setMensajeEditable(d.mensaje);
     } catch {
-      /* swallow */
+      toast.error("No se pudo generar el mensaje. Inténtalo de nuevo.");
     }
     setRegenerando(false);
   }
@@ -174,7 +211,7 @@ export function LeadAccionPanel({
       setCopiado(true);
       setTimeout(() => setCopiado(false), 2000);
     } catch {
-      /* fallback */
+      toast.error("No se pudo copiar el mensaje");
     }
   }
 
@@ -281,7 +318,7 @@ export function LeadAccionPanel({
     setMensajeEditable(resolved);
   }
 
-  // Sprint 10 B — clasifica el último mensaje entrante con Claude.
+  // Sprint 10 B — clasifica el último mensaje entrante con IA.
   async function handleClasificar() {
     const ultimoEntrante = [...mensajes]
       .reverse()
@@ -310,7 +347,7 @@ export function LeadAccionPanel({
         if (d.lead) onChanged(adoptarClinicaNombre(d.lead, lead));
       }
     } catch {
-      /* swallow */
+      toast.error("No se pudo clasificar la respuesta. Inténtalo de nuevo.");
     }
     setClasificando(false);
   }
@@ -329,8 +366,9 @@ export function LeadAccionPanel({
         }),
       });
       setRespuestaManual("");
+      toast.success("Respuesta registrada");
     } catch {
-      /* swallow */
+      toast.error("No se pudo registrar la respuesta");
     }
     setRegistrandoManual(false);
   }
@@ -346,6 +384,8 @@ export function LeadAccionPanel({
       });
       const d = await res.json();
       if (d?.lead) onChanged(adoptarClinicaNombre(d.lead, lead));
+    } catch {
+      toast.error("No se pudieron guardar las notas. Inténtalo de nuevo.");
     } finally {
       setSavingNotas(false);
     }
@@ -366,6 +406,8 @@ export function LeadAccionPanel({
       const d = await res.json();
       if (d?.lead) onChanged(adoptarClinicaNombre(d.lead, lead));
       onClose();
+    } catch {
+      toast.error("No se pudo cambiar el estado. Inténtalo de nuevo.");
     } finally {
       setSavingEstado(false);
     }
@@ -373,21 +415,21 @@ export function LeadAccionPanel({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-white shadow-2xl flex flex-col h-full overflow-hidden">
+      <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-[var(--color-surface)] shadow-2xl flex flex-col h-full overflow-hidden">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-200 shrink-0">
+        <div className="px-5 py-4 border-b border-[var(--color-border)] shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
-              <h2 className="font-bold text-base text-slate-900 truncate">{lead.nombre}</h2>
+              <h2 className="font-display text-base font-semibold text-[var(--color-foreground)] truncate">{lead.nombre}</h2>
               <div className="flex flex-wrap gap-1 mt-1">
                 {lead.tratamiento && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)]">
                     {lead.tratamiento}
                   </span>
                 )}
                 {lead.canal && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)]">
                     {lead.canal}
                   </span>
                 )}
@@ -396,28 +438,29 @@ export function LeadAccionPanel({
             <button
               type="button"
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-600 text-lg leading-none ml-3"
+              className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] ml-3"
+              aria-label="Cerrar"
             >
-              ✕
+              <X size={18} strokeWidth={ICON_STROKE} aria-hidden />
             </button>
           </div>
           <div className="flex flex-wrap gap-1.5 mt-2">
-            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+            <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-foreground)]">
               {lead.estado}
             </span>
             {lead.tipoVisita && (
-              <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+              <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
                 {lead.tipoVisita}
               </span>
             )}
-            <span className="text-[9px] text-slate-400 px-1">{diasDesde}d en pipeline</span>
+            <span className="text-[9px] text-[var(--color-muted)] px-1">{diasDesde}d en pipeline</span>
           </div>
         </div>
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto">
           {/* Section 1: Lead info */}
-          <div className="px-5 py-4 border-b border-slate-100">
+          <div className="px-5 py-4 border-b border-[var(--color-border)]">
             <div className="grid grid-cols-2 gap-3 text-xs">
               <Info label="Clínica" value={lead.clinicaNombre ?? "—"} />
               <Info
@@ -426,7 +469,7 @@ export function LeadAccionPanel({
                   lead.telefono ? (
                     <a
                       href={`tel:${lead.telefono}`}
-                      className="font-semibold text-violet-700 hover:underline"
+                      className="font-semibold text-[var(--color-accent)] hover:underline"
                     >
                       {lead.telefono}
                     </a>
@@ -443,21 +486,23 @@ export function LeadAccionPanel({
           </div>
 
           {/* Section 2: Mensaje IA */}
-          <div className="px-5 py-4 border-b border-slate-100">
+          <div className="px-5 py-4 border-b border-[var(--color-border)]">
             {/* Sprint 10 B — banner con la última clasificación IA del lead. */}
             {(clasificacionResult ||
               lead.intencionDetectada ||
               lead.accionSugerida) && (
-              <div className="mb-3 rounded-xl bg-violet-50 border border-violet-200 p-3">
-                <p className="text-[10px] font-bold text-violet-700 uppercase tracking-wide">
+              <div className="mb-3 rounded-xl bg-[var(--color-accent-soft)] border border-[var(--color-border)] p-3">
+                <p className="text-[10px] font-semibold text-[var(--color-accent)] uppercase tracking-wide inline-flex items-center gap-1">
+                  <Sparkles size={12} strokeWidth={ICON_STROKE} aria-hidden />
                   Intención detectada
                 </p>
-                <p className="text-sm font-semibold text-violet-900 mt-0.5">
+                <p className="text-sm font-semibold text-[var(--color-foreground)] mt-0.5">
                   {clasificacionResult?.intencion ?? lead.intencionDetectada}
                 </p>
                 {(clasificacionResult?.accionSugerida ?? lead.accionSugerida) && (
-                  <p className="text-xs text-violet-700 mt-1">
-                    💡 {clasificacionResult?.accionSugerida ?? lead.accionSugerida}
+                  <p className="text-xs text-[var(--color-accent)] mt-1 flex items-start gap-1">
+                    <Lightbulb size={14} strokeWidth={ICON_STROKE} className="shrink-0 mt-0.5" aria-hidden />
+                    <span>{clasificacionResult?.accionSugerida ?? lead.accionSugerida}</span>
                   </p>
                 )}
               </div>
@@ -470,15 +515,29 @@ export function LeadAccionPanel({
                 type="button"
                 onClick={handleClasificar}
                 disabled={clasificando}
-                className="mb-3 w-full text-xs font-semibold px-3 py-2 rounded-xl bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
+                className="mb-3 w-full text-xs font-semibold px-3 py-2 rounded-xl fyllio-ia-gradient text-white hover:opacity-90 disabled:opacity-50 inline-flex items-center justify-center gap-1.5 transition-opacity"
               >
-                {clasificando ? "Clasificando…" : "🧠 Clasificar respuesta del lead"}
+                <Brain size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                {clasificando ? "Clasificando…" : "Clasificar respuesta del lead"}
               </button>
             )}
 
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">
+            <p className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">
               Mensaje IA
             </p>
+
+            {errorPlantillas && (
+              <p className="mb-2 flex items-center justify-between gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-danger-soft)] px-3 py-2 text-[11px] text-[var(--color-danger)]">
+                No se pudieron cargar las plantillas.
+                <button
+                  type="button"
+                  onClick={cargarPlantillas}
+                  className="font-semibold underline shrink-0"
+                >
+                  Reintentar
+                </button>
+              </p>
+            )}
 
             {/* Sprint 10 D — selector de plantilla. Inyecta el contenido
                 resuelto en el editor; el coord puede editarlo después. */}
@@ -489,7 +548,7 @@ export function LeadAccionPanel({
                   e.target.value = ""; // reset para poder re-aplicar la misma
                 }}
                 defaultValue=""
-                className="mb-2 w-full text-xs px-3 py-2 rounded-xl border border-slate-200 bg-white focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none"
+                className="mb-2 w-full text-xs px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none"
               >
                 <option value="">Usar plantilla…</option>
                 {plantillas.map((p) => (
@@ -505,7 +564,7 @@ export function LeadAccionPanel({
               onChange={(e) => setMensajeEditable(e.target.value)}
               rows={4}
               placeholder={regenerando ? "Generando mensaje…" : "Escribe un mensaje…"}
-              className="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 bg-violet-50 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none resize-none"
+              className="w-full text-sm px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-accent-soft)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none resize-none"
             />
             <div className="flex gap-1.5 mt-2">
               {(["directo", "empatico", "urgencia"] as const).map((t) => (
@@ -515,8 +574,8 @@ export function LeadAccionPanel({
                   onClick={() => setTono(t)}
                   className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-colors ${
                     tono === t
-                      ? "bg-violet-600 text-white border-violet-600"
-                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                      ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
+                      : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
                   }`}
                 >
                   {TONO_LABEL[t]}
@@ -527,42 +586,60 @@ export function LeadAccionPanel({
               <button
                 type="button"
                 onClick={handleCopiar}
-                className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
+                className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--color-surface-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-border)] inline-flex items-center gap-1.5 transition-colors"
               >
-                {copiado ? "✓ Copiado" : "📋 Copiar"}
+                {copiado ? (
+                  <>
+                    <Check size={14} strokeWidth={ICON_STROKE} className="text-[var(--color-success)]" aria-hidden />
+                    Copiado
+                  </>
+                ) : (
+                  <>
+                    <Copy size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                    Copiar
+                  </>
+                )}
               </button>
               {cleanPhone && !wabaActivo && (
                 <button
                   type="button"
                   onClick={handleEnviarWAFallback}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                  className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)] inline-flex items-center gap-1.5 transition-colors"
                 >
-                  ✉️ Enviar WA
+                  <Send size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                  Enviar WA
                 </button>
               )}
               <button
                 type="button"
                 onClick={handleRegenerar}
                 disabled={regenerando}
-                className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
+                className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50 inline-flex items-center gap-1.5 transition-colors"
               >
-                {regenerando ? "Generando…" : "🔄 Regenerar"}
+                <Repeat size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                {regenerando ? "Generando…" : "Regenerar"}
               </button>
             </div>
           </div>
 
           {/* Section 3: Conversación WA */}
-          <div className="px-5 py-4 border-b border-slate-100">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">
+          <div className="px-5 py-4 border-b border-[var(--color-border)]">
+            <p className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">
               Conversación
             </p>
             {loadingMensajes ? (
               <div className="space-y-2 animate-pulse">
-                <div className="h-10 rounded-2xl bg-slate-100 ml-8" />
-                <div className="h-10 rounded-2xl bg-slate-100 mr-8" />
+                <div className="h-10 rounded-2xl bg-[var(--color-surface-muted)] ml-8" />
+                <div className="h-10 rounded-2xl bg-[var(--color-surface-muted)] mr-8" />
               </div>
+            ) : errorMensajes ? (
+              <ErrorState
+                title="No se pudo cargar la conversación"
+                detail="Los mensajes de este lead no están disponibles ahora mismo."
+                onRetry={cargarMensajes}
+              />
             ) : mensajes.length === 0 ? (
-              <p className="text-xs text-slate-400 italic text-center py-6">
+              <p className="text-xs text-[var(--color-muted)] italic text-center py-6">
                 Sin mensajes registrados
               </p>
             ) : (
@@ -577,8 +654,8 @@ export function LeadAccionPanel({
                     <div
                       className={`max-w-[85%] px-3 py-2 ${
                         msg.direccion === "Saliente"
-                          ? "ml-8 bg-blue-500 text-white rounded-2xl rounded-br-sm"
-                          : "mr-8 bg-slate-100 text-slate-900 rounded-2xl rounded-bl-sm"
+                          ? "ml-8 bg-[var(--color-accent)] text-[var(--color-on-accent)] rounded-2xl rounded-br-sm"
+                          : "mr-8 bg-[var(--color-surface-muted)] text-[var(--color-foreground)] rounded-2xl rounded-bl-sm"
                       }`}
                     >
                       <p className="text-[13px] leading-relaxed whitespace-pre-wrap">
@@ -586,7 +663,9 @@ export function LeadAccionPanel({
                       </p>
                       <p
                         className={`text-[9px] text-right mt-0.5 ${
-                          msg.direccion === "Saliente" ? "text-blue-200" : "text-slate-400"
+                          msg.direccion === "Saliente"
+                            ? "text-[var(--color-on-accent)] opacity-70"
+                            : "text-[var(--color-muted)]"
                         }`}
                       >
                         {msg.timestamp
@@ -624,19 +703,20 @@ export function LeadAccionPanel({
                     rows={1}
                     placeholder="Escribe un mensaje…"
                     disabled={enviandoInline}
-                    className="flex-1 text-sm px-3 py-2 rounded-xl border border-slate-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none resize-none"
+                    className="flex-1 text-sm px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none resize-none"
                   />
                   <button
                     type="button"
                     onClick={handleInlineSend}
                     disabled={!inlineTexto.trim() || enviandoInline}
-                    className="text-xs font-semibold px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40"
+                    className="text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)] disabled:opacity-40 inline-flex items-center gap-1.5 transition-colors"
                   >
+                    <Send size={14} strokeWidth={ICON_STROKE} aria-hidden />
                     {enviandoInline ? "Enviando…" : "Enviar"}
                   </button>
                 </div>
                 {inlineError && (
-                  <p className="text-[11px] text-red-600 mt-1">{inlineError}</p>
+                  <p className="text-[11px] text-[var(--color-danger)] mt-1">{inlineError}</p>
                 )}
               </div>
             )}
@@ -647,9 +727,14 @@ export function LeadAccionPanel({
                 <button
                   type="button"
                   onClick={() => setHistorialAbierto(!historialAbierto)}
-                  className="text-[10px] font-semibold text-slate-400 hover:text-slate-600 uppercase tracking-wide"
+                  className="text-[10px] font-semibold text-[var(--color-muted)] hover:text-[var(--color-foreground)] uppercase tracking-wide inline-flex items-center gap-1 transition-colors"
                 >
-                  {historialAbierto ? "▾ Historial" : "▸ Historial"}
+                  {historialAbierto ? (
+                    <ChevronDown size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                  ) : (
+                    <ChevronRight size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                  )}
+                  Historial
                 </button>
                 {historialAbierto && (
                   <div className="space-y-1.5 mt-2 max-h-40 overflow-y-auto">
@@ -660,7 +745,7 @@ export function LeadAccionPanel({
                       .map((line, i) => (
                         <div
                           key={i}
-                          className="rounded-lg px-3 py-1.5 text-xs bg-slate-50 text-slate-500"
+                          className="rounded-lg px-3 py-1.5 text-xs bg-[var(--color-surface-muted)] text-[var(--color-muted)]"
                         >
                           <p className="leading-relaxed font-mono text-[11px]">{line}</p>
                         </div>
@@ -673,8 +758,8 @@ export function LeadAccionPanel({
 
           {/* Section 4: Registrar respuesta manual del lead */}
           {!wabaActivo && (
-            <div className="px-5 py-4 border-b border-slate-100">
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">
+            <div className="px-5 py-4 border-b border-[var(--color-border)]">
+              <p className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">
                 Registrar respuesta del lead
               </p>
               <textarea
@@ -682,13 +767,13 @@ export function LeadAccionPanel({
                 onChange={(e) => setRespuestaManual(e.target.value)}
                 rows={3}
                 placeholder="¿Qué respondió el lead?"
-                className="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none resize-none"
+                className="w-full text-sm px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none resize-none"
               />
               <button
                 type="button"
                 onClick={handleRegistrarRespuestaManual}
                 disabled={!respuestaManual.trim() || registrandoManual}
-                className="mt-2 text-xs font-semibold px-4 py-2 rounded-xl bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40"
+                className="mt-2 text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40 transition-colors"
               >
                 {registrandoManual ? "Registrando…" : "Registrar"}
               </button>
@@ -698,11 +783,11 @@ export function LeadAccionPanel({
           {/* Section 4b: Notas internas (Sprint 10 E — restauradas desde
               LeadDrawer al unificar la ficha en AccionPanel). Auto-save
               en onBlur. */}
-          <div className="px-5 py-4 border-b border-slate-100">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">
+          <div className="px-5 py-4 border-b border-[var(--color-border)]">
+            <p className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">
               Notas internas
               {savingNotas && (
-                <span className="ml-2 text-slate-400 normal-case">guardando…</span>
+                <span className="ml-2 text-[var(--color-muted)] normal-case">guardando…</span>
               )}
             </p>
             <textarea
@@ -711,12 +796,12 @@ export function LeadAccionPanel({
               onBlur={guardarNotas}
               rows={3}
               placeholder="Anota lo que necesites recordar sobre este lead…"
-              className="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none resize-none"
+              className="w-full text-sm px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none resize-none"
             />
           </div>
 
           {/* Sprint 11 C.1 — botón Copilot contextual del lead. */}
-          <div className="px-5 py-3 border-b border-slate-100">
+          <div className="px-5 py-3 border-b border-[var(--color-border)]">
             <button
               type="button"
               onClick={() => {
@@ -745,7 +830,7 @@ export function LeadAccionPanel({
                   initialAssistantMessage: `Tengo el contexto de ${lead.nombre.split(" ")[0]}. ¿Qué necesitas?`,
                 });
               }}
-              className="w-full text-xs font-medium px-3 py-2 rounded-md bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 transition-colors inline-flex items-center justify-center gap-1.5"
+              className="w-full text-xs font-medium px-3 py-2 rounded-md bg-[var(--color-accent-soft)] text-[var(--color-accent)] border border-[var(--color-border)] hover:opacity-90 transition-opacity inline-flex items-center justify-center gap-1.5"
             >
               <Sparkles size={14} strokeWidth={ICON_STROKE} /> Ayúdame a responder
             </button>
@@ -770,7 +855,7 @@ export function LeadAccionPanel({
                     initialAssistantMessage: `He revisado el caso de ${lead.nombre.split(" ")[0]}. ¿Quieres que analice por qué se perdió?`,
                   });
                 }}
-                className="mt-2 w-full text-xs font-medium px-3 py-2 rounded-md bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors inline-flex items-center justify-center gap-1.5"
+                className="mt-2 w-full text-xs font-medium px-3 py-2 rounded-md bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30 dark:hover:bg-amber-500/20 transition-colors inline-flex items-center justify-center gap-1.5"
               >
                 <Sparkles size={14} strokeWidth={ICON_STROKE} /> ¿Por qué crees que se perdió?
               </button>
@@ -778,8 +863,8 @@ export function LeadAccionPanel({
           </div>
 
           {/* Section 5: Acciones inline */}
-          <div className="px-5 py-4 border-b border-slate-100">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">
+          <div className="px-5 py-4 border-b border-[var(--color-border)]">
+            <p className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">
               Acciones rápidas
             </p>
             <div className="flex flex-wrap gap-2">
@@ -787,12 +872,17 @@ export function LeadAccionPanel({
                 <button
                   type="button"
                   onClick={handleLlamar}
-                  className="text-xs font-medium px-3 py-1.5 rounded-md bg-slate-100 text-[var(--color-foreground)] hover:bg-slate-200 transition-colors inline-flex items-center gap-1"
+                  className="text-xs font-medium px-3 py-1.5 rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-border)] transition-colors inline-flex items-center gap-1"
                 >
                   {checkAnim === "llamar" ? (
-                    <span className="fyllio-check-pop text-emerald-600">✓</span>
+                    <Check
+                      size={14}
+                      strokeWidth={ICON_STROKE}
+                      className="fyllio-check-pop text-[var(--color-success)]"
+                      aria-hidden
+                    />
                   ) : (
-                    "📞"
+                    <Phone size={14} strokeWidth={ICON_STROKE} aria-hidden />
                   )}{" "}
                   Llamar
                 </button>
@@ -805,8 +895,8 @@ export function LeadAccionPanel({
                   onClick={() => cambiarEstado(s)}
                   className={`text-xs font-semibold px-3 py-1.5 rounded-xl border transition-colors ${
                     lead.estado === s
-                      ? "bg-slate-900 text-white border-slate-900"
-                      : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+                      ? "bg-[var(--color-foreground)] text-[var(--color-background)] border-[var(--color-foreground)]"
+                      : "bg-[var(--color-surface)] text-[var(--color-foreground)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
                   } disabled:opacity-50`}
                 >
                   {s}
@@ -817,7 +907,7 @@ export function LeadAccionPanel({
 
           {/* Section 6: Acciones finales */}
           <div className="px-5 py-4">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-3">
+            <p className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-3">
               Acciones finales
             </p>
             <div className="flex flex-col gap-2">
@@ -829,9 +919,10 @@ export function LeadAccionPanel({
                       onAsistencia(lead);
                       onClose();
                     }}
-                    className="text-xs font-semibold px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-left"
+                    className="text-xs font-semibold px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30 dark:hover:bg-emerald-500/20 text-left inline-flex items-center gap-1.5"
                   >
-                    ✓ Marcar asistido
+                    <UserCheck size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                    Marcar asistido
                   </button>
                   <button
                     type="button"
@@ -839,9 +930,10 @@ export function LeadAccionPanel({
                     onClick={() =>
                       cambiarEstado("No Interesado", { motivoNoInteres: "No_Asistio" })
                     }
-                    className="text-xs font-semibold px-4 py-2.5 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 text-left disabled:opacity-50"
+                    className="text-xs font-semibold px-4 py-2.5 rounded-xl bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30 dark:hover:bg-amber-500/20 text-left disabled:opacity-50 inline-flex items-center gap-1.5"
                   >
-                    ⏸ No asistió
+                    <CalendarClock size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                    No asistió
                   </button>
                 </>
               )}
@@ -852,9 +944,10 @@ export function LeadAccionPanel({
                   onClick={() =>
                     cambiarEstado("No Interesado", { motivoNoInteres: "Rechazo_Producto" })
                   }
-                  className="text-xs font-semibold px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-left disabled:opacity-50"
+                  className="text-xs font-semibold px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30 dark:hover:bg-rose-500/20 text-left disabled:opacity-50 inline-flex items-center gap-1.5"
                 >
-                  ✗ No interesado (rechazo)
+                  <UserX size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                  No interesado (rechazo)
                 </button>
               )}
               {/* Sprint 10 E — restaurado desde LeadDrawer. Reactivar
@@ -866,9 +959,10 @@ export function LeadAccionPanel({
                   onClick={() =>
                     cambiarEstado("Contactado", { motivoNoInteres: null })
                   }
-                  className="text-xs font-semibold px-4 py-2.5 rounded-xl bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-200 text-left disabled:opacity-50"
+                  className="text-xs font-semibold px-4 py-2.5 rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-accent)] hover:opacity-90 border border-[var(--color-border)] text-left disabled:opacity-50 inline-flex items-center gap-1.5 transition-opacity"
                 >
-                  ↻ Reactivar lead
+                  <RotateCcw size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                  Reactivar lead
                 </button>
               )}
             </div>
@@ -882,10 +976,10 @@ export function LeadAccionPanel({
 function Info({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <p className="text-slate-400 text-[10px] uppercase tracking-wide font-semibold">
+      <p className="text-[var(--color-muted)] text-[10px] uppercase tracking-wide font-semibold">
         {label}
       </p>
-      <p className="font-semibold text-slate-700">{value}</p>
+      <p className="font-semibold text-[var(--color-foreground)]">{value}</p>
     </div>
   );
 }
