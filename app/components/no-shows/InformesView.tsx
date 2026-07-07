@@ -2,7 +2,14 @@
 
 import { useState, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
+import { toast } from "sonner";
 import type { NoShowsUserSession, InformeNoShow } from "../../lib/no-shows/types";
+import { Card } from "../ui/Card";
+import { EmptyState, ErrorState } from "../ui/Feedback";
+import {
+  AlertTriangle, Download, ClipboardList, CalendarDays, ChevronDown, ICON_STROKE,
+} from "../icons";
+import { ChevronUp } from "lucide-react";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -50,34 +57,40 @@ function InformeCard({ informe }: { informe: InformeNoShow }) {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        toast.success("Informe descargado");
+      } else {
+        toast.error("No se pudo descargar el informe");
       }
-    } catch { /* silent */ }
+    } catch {
+      toast.error("No se pudo descargar el informe. Comprueba tu conexión.");
+    }
     finally { setDownloading(false); }
   }
 
   return (
-    <div className="rounded-2xl bg-white border border-slate-200 overflow-hidden">
+    <Card padding="none" className="overflow-hidden">
       {/* Header row */}
       <div className="p-4 flex items-start gap-3">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-slate-800">{informe.titulo}</p>
-          <p className="text-xs text-slate-400 mt-0.5">{formatPeriod(informe.periodo)}</p>
+          <p className="font-display text-base font-semibold text-[var(--color-foreground)]">{informe.titulo}</p>
+          <p className="text-xs text-[var(--color-muted)] mt-0.5">{formatPeriod(informe.periodo)}</p>
 
           {/* Metric chips */}
           <div className="flex flex-wrap gap-2 mt-2">
-            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-xs font-semibold text-slate-700">
+            <span className="px-2 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-xs font-semibold text-[var(--color-foreground)]">
               {json.totalCitas} citas
             </span>
             <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
-              json.tasa >= 0.10 ? "bg-red-100 text-red-700"
-              : json.tasa >= 0.07 ? "bg-amber-100 text-amber-700"
-              : "bg-green-100 text-green-700"
+              json.tasa >= 0.10 ? "bg-[var(--color-danger-soft)] text-[var(--color-danger)]"
+              : json.tasa >= 0.07 ? "bg-[var(--color-warning-soft)] text-[var(--color-warning)]"
+              : "bg-[var(--color-success-soft)] text-[var(--color-success)]"
             }`}>
               {tasaPct}% no-shows
             </span>
             {hasAlerts && (
-              <span className="px-2 py-0.5 rounded-full bg-red-50 text-xs font-semibold text-red-600">
-                ⚠️ {json.alertas!.length} alerta{json.alertas!.length !== 1 ? "s" : ""}
+              <span className="px-2 py-0.5 rounded-full bg-[var(--color-danger-soft)] text-xs font-semibold text-[var(--color-danger)] inline-flex items-center gap-1">
+                <AlertTriangle size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                {json.alertas!.length} alerta{json.alertas!.length !== 1 ? "s" : ""}
               </span>
             )}
           </div>
@@ -86,7 +99,7 @@ function InformeCard({ informe }: { informe: InformeNoShow }) {
           {json.porClinica && json.porClinica.length > 0 && (
             <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
               {json.porClinica.map((c) => (
-                <span key={c.clinica} className="text-[10px] text-slate-400">
+                <span key={c.clinica} className="text-[10px] text-[var(--color-muted)]">
                   {c.clinica}: {Math.round(c.tasa * 1000) / 10}%
                 </span>
               ))}
@@ -99,41 +112,48 @@ function InformeCard({ informe }: { informe: InformeNoShow }) {
           <button
             onClick={downloadPDF}
             disabled={downloading}
-            className="text-xs font-semibold text-slate-500 hover:text-slate-700 border border-slate-200 rounded-xl px-2.5 py-1 transition-colors disabled:opacity-40"
-            title="Descargar HTML (imprimir como PDF)"
+            className="text-xs font-semibold text-[var(--color-muted)] hover:text-[var(--color-foreground)] border border-[var(--color-border)] rounded-xl px-2.5 py-1 transition-colors disabled:opacity-40 inline-flex items-center gap-1"
+            title="Descargar informe (imprimir como PDF)"
           >
-            {downloading ? "…" : "↓ PDF"}
+            <Download size={12} strokeWidth={ICON_STROKE} aria-hidden />
+            {downloading ? "Descargando…" : "PDF"}
           </button>
           {/* Expand narrative */}
           <button
             onClick={() => setOpen((v) => !v)}
-            className="text-xs font-semibold text-cyan-600 hover:text-cyan-800 transition-colors whitespace-nowrap"
+            className="text-xs font-semibold text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] transition-colors whitespace-nowrap inline-flex items-center gap-1"
           >
-            {open ? "Ocultar ▴" : "Ver resumen ▾"}
+            {open ? "Ocultar" : "Ver resumen"}
+            {open
+              ? <ChevronUp size={12} strokeWidth={ICON_STROKE} aria-hidden />
+              : <ChevronDown size={12} strokeWidth={ICON_STROKE} aria-hidden />}
           </button>
         </div>
       </div>
 
       {/* Expandable narrative */}
       {open && (
-        <div className="border-t border-slate-100 px-4 pb-4 pt-3 space-y-3">
+        <div className="border-t border-[var(--color-border)] px-4 pb-4 pt-3 space-y-3">
           {informe.textoNarrativo ? (
-            <div className="prose prose-sm max-w-none text-slate-700 leading-relaxed [&_strong]:text-slate-900 [&_p]:my-1.5">
+            <div className="prose prose-sm max-w-none text-[var(--color-foreground)] leading-relaxed [&_strong]:text-[var(--color-foreground)] [&_p]:my-1.5">
               <ReactMarkdown>{informe.textoNarrativo}</ReactMarkdown>
             </div>
           ) : (
-            <p className="text-xs text-slate-400 italic">Sin narrativo disponible para este informe.</p>
+            <p className="text-xs text-[var(--color-muted)] italic">Sin resumen disponible para este informe.</p>
           )}
           {hasAlerts && (
             <div className="space-y-1">
               {json.alertas!.map((a, i) => (
-                <p key={i} className="text-xs text-red-700 bg-red-50 rounded-xl px-3 py-1.5">⚠️ {a}</p>
+                <p key={i} className="text-xs text-[var(--color-danger)] bg-[var(--color-danger-soft)] rounded-xl px-3 py-1.5 flex items-start gap-1.5">
+                  <AlertTriangle size={12} strokeWidth={ICON_STROKE} className="shrink-0 mt-0.5" aria-hidden />
+                  {a}
+                </p>
               ))}
             </div>
           )}
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -146,30 +166,53 @@ export default function InformesView({ user }: { user: NoShowsUserSession }) {
   const [informes, setInformes] = useState<InformeNoShow[] | null>(null);
   const [loading,  setLoading]  = useState(true);
   const [isDemo,   setIsDemo]   = useState(false);
+  const [error,    setError]    = useState(false);
+  const [reloadKey, setReload]  = useState(0);
 
   void user;
 
   useEffect(() => {
+    let cancelled = false;
     async function load() {
+      setLoading(true);
+      setError(false);
       try {
         const res = await fetch("/api/no-shows/informes/guardados");
+        if (cancelled) return;
         if (res.ok) {
           const data = await res.json();
           setInformes(data.informes ?? []);
           setIsDemo(data.isDemo === true);
+        } else {
+          setError(true);
         }
-      } catch { /* silent */ }
-      finally { setLoading(false); }
+      } catch {
+        if (!cancelled) setError(true);
+      }
+      finally { if (!cancelled) setLoading(false); }
     }
     load();
-  }, []);
+    return () => { cancelled = true; };
+  }, [reloadKey]);
 
   if (loading) {
     return (
       <div className="flex-1 min-h-0 flex items-center justify-center">
         <div className="animate-pulse space-y-3 w-full max-w-2xl">
-          {[1, 2].map((i) => <div key={i} className="h-24 bg-slate-100 rounded-2xl" />)}
+          {[1, 2].map((i) => <div key={i} className="h-24 bg-[var(--color-surface-muted)] rounded-2xl" />)}
         </div>
+      </div>
+    );
+  }
+
+  if (error && informes === null) {
+    return (
+      <div className="flex-1 min-h-0 flex items-center justify-center w-full">
+        <ErrorState
+          detail="Los informes no están disponibles ahora mismo."
+          onRetry={() => setReload((k) => k + 1)}
+          className="w-full max-w-2xl"
+        />
       </div>
     );
   }
@@ -181,18 +224,18 @@ export default function InformesView({ user }: { user: NoShowsUserSession }) {
     <div className="flex-1 min-h-0 flex flex-col gap-4 w-full">
       {/* Demo banner */}
       {isDemo && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
-          <span className="font-semibold">Datos de demostración.</span>{" "}
-          Conecta Airtable para ver informes reales.
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300 px-4 py-2 text-xs">
+          <span className="font-semibold">Esta clínica aún no tiene datos conectados.</span>{" "}
+          Contacta con Fyllio para activarlos.
         </div>
       )}
 
       {/* Header + tab strip */}
-      <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
+      <Card padding="md" className="space-y-3">
         <div>
-          <p className="text-sm font-bold text-slate-800">Informes</p>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Análisis IA · Generados automáticamente cada lunes
+          <p className="font-display text-base font-semibold text-[var(--color-foreground)]">Informes</p>
+          <p className="text-xs text-[var(--color-muted)] mt-0.5">
+            Análisis generado con IA · Se publica automáticamente cada lunes
           </p>
         </div>
         <div className="flex gap-1">
@@ -202,27 +245,25 @@ export default function InformesView({ user }: { user: NoShowsUserSession }) {
               onClick={() => setTab(t)}
               className={`text-xs px-3 py-1.5 rounded-xl border font-semibold transition-colors capitalize ${
                 tab === t
-                  ? "bg-slate-800 text-white border-slate-800"
-                  : "border-slate-200 text-slate-500 hover:bg-slate-50"
+                  ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
+                  : "border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
               }`}
             >
               {t.charAt(0).toUpperCase() + t.slice(1)}
             </button>
           ))}
         </div>
-      </div>
+      </Card>
 
       {/* ── SEMANALES tab ── */}
       {tab === "semanales" && (
         <>
           {semanales.length === 0 && (
-            <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
-              <p className="text-2xl mb-2">📋</p>
-              <p className="text-sm font-bold text-slate-700">Sin informes semanales</p>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-xs mx-auto">
-                Los informes se generan automáticamente cada lunes a las 09:00.
-              </p>
-            </div>
+            <EmptyState
+              icon={<ClipboardList size={20} strokeWidth={ICON_STROKE} />}
+              title="Sin informes semanales"
+              hint="Los informes se generan automáticamente cada lunes a las 09:00 y aparecerán aquí."
+            />
           )}
           {semanales.map((inf) => (
             <InformeCard key={inf.id} informe={inf} />
@@ -234,13 +275,11 @@ export default function InformesView({ user }: { user: NoShowsUserSession }) {
       {tab === "mensuales" && (
         <>
           {mensuales.length === 0 && (
-            <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
-              <p className="text-2xl mb-2">📅</p>
-              <p className="text-sm font-bold text-slate-700">Sin informes mensuales</p>
-              <p className="text-xs text-slate-400 mt-1 leading-relaxed max-w-xs mx-auto">
-                Los informes mensuales se generan automáticamente el primer día de cada mes.
-              </p>
-            </div>
+            <EmptyState
+              icon={<CalendarDays size={20} strokeWidth={ICON_STROKE} />}
+              title="Sin informes mensuales"
+              hint="Los informes mensuales se generan automáticamente el primer día de cada mes."
+            />
           )}
           {mensuales.map((inf) => (
             <InformeCard key={inf.id} informe={inf} />

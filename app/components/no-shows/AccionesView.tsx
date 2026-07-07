@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { toast } from "sonner";
 import type {
   NoShowsUserSession,
   RiskyAppt,
@@ -10,6 +11,14 @@ import type {
 } from "../../lib/no-shows/types";
 import AccionSidePanel, { type HistorialItem } from "./AccionSidePanel";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { KpiCard } from "../ui/KpiCard";
+import { EmptyState, ErrorState } from "../ui/Feedback";
+import {
+  Check, CheckCircle2, X, AlertTriangle, Zap, RefreshCw, ChevronDown,
+  ArrowRight, ICON_STROKE,
+} from "../icons";
+import { ChevronUp, LayoutList, List } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -41,17 +50,17 @@ function buildWA(phone: string, msg: string): string {
 }
 
 function scoreColor(score: number): string {
-  if (score >= 80) return "#ef4444";
-  if (score >= 60) return "#f97316";
-  if (score >= 40) return "#3b82f6";
-  return "#94a3b8";
+  if (score >= 80) return "var(--color-danger)";
+  if (score >= 60) return "var(--color-warning)";
+  if (score >= 40) return "var(--color-accent)";
+  return "var(--color-muted)";
 }
 
 function scoreBgClass(score: number): string {
-  if (score >= 80) return "bg-red-50 text-red-700 border-red-200";
-  if (score >= 60) return "bg-orange-50 text-orange-700 border-orange-200";
-  if (score >= 40) return "bg-blue-50 text-blue-700 border-blue-200";
-  return "bg-slate-50 text-slate-500 border-slate-200";
+  if (score >= 80) return "bg-[var(--color-danger-soft)] text-[var(--color-danger)] border-transparent";
+  if (score >= 60) return "bg-[var(--color-warning-soft)] text-[var(--color-warning)] border-transparent";
+  if (score >= 40) return "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-transparent";
+  return "bg-[var(--color-surface-muted)] text-[var(--color-muted)] border-[var(--color-border)]";
 }
 
 function calcFaseLabel(hoursUntil: number): string {
@@ -62,17 +71,17 @@ function calcFaseLabel(hoursUntil: number): string {
 }
 
 function faseStyle(fase: string): string {
-  if (fase === "CRÍTICO") return "bg-red-100 text-red-700";
-  if (fase === "24h")    return "bg-red-50 text-red-600";
-  if (fase === "48h")    return "bg-amber-50 text-amber-700";
-  return "bg-yellow-50 text-yellow-700";
+  if (fase === "CRÍTICO") return "bg-[var(--color-danger-soft)] text-[var(--color-danger)]";
+  if (fase === "24h")    return "bg-[var(--color-danger-soft)] text-[var(--color-danger)]";
+  if (fase === "48h")    return "bg-[var(--color-warning-soft)] text-[var(--color-warning)]";
+  return "bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300";
 }
 
-function confianzaShort(c: number | undefined): { text: string; color: string } {
-  if (c === undefined) return { text: "", color: "" };
-  if (c > 0.8)  return { text: "✓ Fiable",    color: "text-green-600"  };
-  if (c >= 0.5) return { text: "⚠ Mixto",     color: "text-orange-500" };
-  return              { text: "✗ Alto riesgo", color: "text-red-600"    };
+function confianzaShort(c: number | undefined): { text: string; color: string; Icon: LucideIcon | null } {
+  if (c === undefined) return { text: "", color: "", Icon: null };
+  if (c > 0.8)  return { text: "Fiable",      color: "text-[var(--color-success)]", Icon: Check };
+  if (c >= 0.5) return { text: "Mixto",       color: "text-[var(--color-warning)]", Icon: AlertTriangle };
+  return              { text: "Alto riesgo",  color: "text-[var(--color-danger)]",  Icon: X };
 }
 
 function dayLabel(dayIso: string): string {
@@ -171,15 +180,12 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
   // Expanded days (SEMANA)
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
 
-  // Toast
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
-
   // citaId URL param — auto-abrir panel
   const pendingCitaIdRef = useRef<string | null>(null);
 
   function showToast(msg: string, ok = true) {
-    setToast({ msg, ok });
-    setTimeout(() => setToast(null), 3000);
+    if (ok) toast.success(msg);
+    else toast.error(msg);
   }
 
   // ── Load metadata ─────────────────────────────────────────────────────────
@@ -440,51 +446,58 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
     <div className="flex-1 min-h-0 flex flex-col gap-3 w-full pb-4">
 
       {/* HEADER */}
-      <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3 shrink-0">
+      <div className="rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] p-4 space-y-3 shrink-0">
         {/* Título + Actualizar */}
         <div className="flex items-center justify-between gap-2">
-          <h1 className="text-sm font-bold text-slate-700">
+          <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
             Centro de control · {formatFechaEs(todayIso)}
           </h1>
-          <button onClick={loadData} disabled={loading}
-            className="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-50">
-            {loading ? "…" : "↺"}
+          <button onClick={loadData} disabled={loading} aria-label="Actualizar"
+            className="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-xl bg-[var(--color-surface-muted)] border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface)] disabled:opacity-50 inline-flex items-center gap-1">
+            <RefreshCw size={14} strokeWidth={ICON_STROKE} className={loading ? "animate-spin" : ""} aria-hidden />
+            Actualizar
           </button>
         </div>
 
-        {/* 4 Metric cards */}
-        <div className="grid grid-cols-4 gap-2">
-          <div className="rounded-xl border border-green-100 bg-white p-2.5 text-center">
-            <p className="text-[10px] font-semibold text-slate-500 mb-1">Confirmados</p>
-            <p className="text-base font-bold text-green-700">€{confirmadasEuros}</p>
-            <p className="text-[10px] text-slate-400">{confirmadasCount} citas</p>
-          </div>
-          <div className="rounded-xl border border-red-100 bg-white p-2.5 text-center">
-            <p className="text-[10px] font-semibold text-slate-500 mb-1">En riesgo</p>
-            <p className="text-base font-bold text-red-600">€{enRiesgoEuros}</p>
-            <p className="text-[10px] text-slate-400">{enRiesgoCount} citas</p>
-          </div>
-          <div className="rounded-xl border border-orange-100 bg-white p-2.5 text-center">
-            <p className="text-[10px] font-semibold text-slate-500 mb-1">Urgente</p>
-            <p className="text-base font-bold text-orange-600">{urgenteItems.length}</p>
-            <p className="text-[10px] text-slate-400">acciones</p>
-          </div>
-          <div className="rounded-xl border border-blue-100 bg-white p-2.5 text-center">
-            <p className="text-[10px] font-semibold text-slate-500 mb-1">Completadas</p>
-            <p className="text-base font-bold text-blue-600">{done.size}/{totalUrgente}</p>
-            <p className="text-[10px] text-slate-400">{pct}% del plan</p>
-          </div>
+        {/* 4 KPI cards */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <KpiCard
+            label="Confirmados"
+            value={confirmadasEuros}
+            formatter={(n) => `€${n.toLocaleString("es-ES")}`}
+            accent="emerald"
+            subline={`${confirmadasCount} citas`}
+          />
+          <KpiCard
+            label="En riesgo"
+            value={enRiesgoEuros}
+            formatter={(n) => `€${n.toLocaleString("es-ES")}`}
+            accent="rose"
+            subline={`${enRiesgoCount} citas`}
+          />
+          <KpiCard
+            label="Urgente"
+            value={urgenteItems.length}
+            accent="amber"
+            subline="acciones"
+          />
+          <KpiCard
+            label="Completadas"
+            value={done.size}
+            accent="accent"
+            subline={`de ${totalUrgente} · ${pct}% del plan`}
+          />
         </div>
 
         {/* Progress bar */}
         <div className="space-y-1">
-          <div className="flex justify-between text-xs text-slate-400">
+          <div className="flex justify-between text-xs text-[var(--color-muted)]">
             <span>{done.size}/{totalUrgente} urgentes completadas</span>
             <span>{pct}%</span>
           </div>
-          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div className="h-2 bg-[var(--color-surface-muted)] rounded-full overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all duration-500 ${pct > 60 ? "bg-green-500" : pct > 30 ? "bg-orange-500" : "bg-red-500"}`}
+              className={`h-full rounded-full transition-all duration-500 ${pct > 60 ? "bg-[var(--color-success)]" : pct > 30 ? "bg-[var(--color-warning)]" : "bg-[var(--color-danger)]"}`}
               style={{ width: `${pct}%` }}
             />
           </div>
@@ -505,16 +518,16 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
                   onClick={() => setPF(s.id)}
                   className={`shrink-0 flex items-center gap-1.5 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap
                     ${isActive
-                      ? "bg-slate-900 text-white border-slate-900"
-                      : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
+                      ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
+                      : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-accent)]"}`}>
                   {s.nombre}
                   {urgentes > 0 && (
-                    <span className="ml-0.5 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
+                    <span className="ml-0.5 bg-[var(--color-danger)] text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
                       {urgentes}
                     </span>
                   )}
                   {urgentes === 0 && pendientes > 0 && (
-                    <span className="ml-0.5 bg-orange-400 text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
+                    <span className="ml-0.5 bg-[var(--color-warning)] text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
                       {pendientes}
                     </span>
                   )}
@@ -526,29 +539,25 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
       </div>
 
       {/* NAVBAR INTERNA */}
-      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 shrink-0">
+      <div className="flex gap-1 bg-[var(--color-surface-muted)] rounded-xl p-1 shrink-0">
         {(["hoy","semana","historial"] as SecTab[]).map(tab => (
           <button key={tab}
             onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === tab ? "bg-white shadow text-slate-800" : "text-slate-500 hover:text-slate-700"}`}>
-            {tab === "hoy" ? "HOY" : tab === "semana" ? "SEMANA" : "HISTORIAL"}
+            className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === tab ? "bg-[var(--color-surface)] shadow text-[var(--color-foreground)]" : "text-[var(--color-muted)] hover:text-[var(--color-foreground)]"}`}>
+            {tab === "hoy" ? "Hoy" : tab === "semana" ? "Semana" : "Historial"}
           </button>
         ))}
       </div>
 
       {/* Error/loading */}
       {error && (
-        <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>
+        <ErrorState
+          detail="Las acciones de hoy no están disponibles ahora mismo."
+          onRetry={loadData}
+        />
       )}
       {loading && !data && (
-        <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Cargando…</div>
-      )}
-
-      {/* Toast */}
-      {toast && (
-        <div className={`rounded-xl px-4 py-2 text-sm font-semibold ${toast.ok ? "bg-green-50 border border-green-200 text-green-800" : "bg-red-50 border border-red-200 text-red-700"}`}>
-          {toast.msg}
-        </div>
+        <div className="flex-1 flex items-center justify-center text-[var(--color-muted)] text-sm">Cargando…</div>
       )}
 
       {/* ── SECCIÓN HOY ──────────────────────────────────────────────────────── */}
@@ -557,29 +566,35 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
 
           {/* Nudge sin acciones */}
           {urgenteItems.length === 0 && semanaItems.length === 0 && (
-            <div className="rounded-2xl bg-green-50 border border-green-200 p-5 text-center space-y-2">
-              <p className="text-green-700 font-bold text-base">✓ Sin acciones urgentes</p>
-              <p className="text-green-600 text-sm">No hay citas con riesgo relevante en los próximos 14 días.</p>
-              <button onClick={() => setActiveTab("semana")}
-                className="mt-1 px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-semibold hover:bg-green-700">
-                Ver semana →
-              </button>
-            </div>
+            <EmptyState
+              icon={<CheckCircle2 size={20} strokeWidth={ICON_STROKE} />}
+              title="Sin acciones urgentes"
+              hint="No hay citas con riesgo relevante en los próximos 14 días."
+              action={
+                <button onClick={() => setActiveTab("semana")}
+                  className="px-4 py-2 bg-[var(--color-accent)] text-[var(--color-on-accent)] rounded-xl text-sm font-semibold hover:bg-[var(--color-accent-hover)] inline-flex items-center gap-1.5 transition-colors">
+                  Ver semana
+                  <ArrowRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                </button>
+              }
+            />
           )}
 
           <div className="grid grid-cols-2 gap-4">
             {/* COLUMNA URGENTE (scoreAccion >= 70) */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-bold text-red-600">URGENTE · {urgenteItems.length}</h2>
+                <h2 className="font-display text-base font-semibold text-[var(--color-danger)]">Urgente · {urgenteItems.length}</h2>
                 <button onClick={() => setCompactHoy(v => !v)}
-                  className="text-xs text-slate-400 hover:text-slate-600">
-                  {compactHoy ? "▤ Detallada" : "≡ Compacta"}
+                  className="text-xs text-[var(--color-muted)] hover:text-[var(--color-foreground)] inline-flex items-center gap-1">
+                  {compactHoy
+                    ? <><LayoutList size={12} strokeWidth={1.5} aria-hidden /> Detallada</>
+                    : <><List size={12} strokeWidth={1.5} aria-hidden /> Compacta</>}
                 </button>
               </div>
               <div className="space-y-2">
                 {urgenteItems.length === 0 && (
-                  <p className="text-xs text-slate-400 py-4 text-center">Sin urgencias</p>
+                  <p className="text-xs text-[var(--color-muted)] py-4 text-center">Sin urgencias</p>
                 )}
                 {urgenteItems.map(item => (
                   <ItemCard key={item.id} item={item} compact={compactHoy}
@@ -591,17 +606,19 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
             {/* COLUMNA PENDIENTE (scoreAccion 30–69) */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-bold text-amber-600 truncate">
-                  PENDIENTE{proximoDiaPendiente ? ` · próximo: ${dayLabel(proximoDiaPendiente)}` : ""} · {semanaItems.length}
+                <h2 className="font-display text-base font-semibold text-[var(--color-warning)] truncate">
+                  Pendiente{proximoDiaPendiente ? ` · próximo: ${dayLabel(proximoDiaPendiente)}` : ""} · {semanaItems.length}
                 </h2>
                 <button onClick={() => setCompactHoy(v => !v)}
-                  className="shrink-0 text-xs text-slate-400 hover:text-slate-600">
-                  {compactHoy ? "▤ Detallada" : "≡ Compacta"}
+                  className="shrink-0 text-xs text-[var(--color-muted)] hover:text-[var(--color-foreground)] inline-flex items-center gap-1">
+                  {compactHoy
+                    ? <><LayoutList size={12} strokeWidth={1.5} aria-hidden /> Detallada</>
+                    : <><List size={12} strokeWidth={1.5} aria-hidden /> Compacta</>}
                 </button>
               </div>
               <div className="space-y-2">
                 {semanaItems.length === 0 && (
-                  <p className="text-xs text-slate-400 py-4 text-center">Sin pendientes</p>
+                  <p className="text-xs text-[var(--color-muted)] py-4 text-center">Sin pendientes</p>
                 )}
                 {semanaItems.map(item => (
                   <ItemCard key={item.id} item={item} compact={compactHoy}
@@ -633,29 +650,33 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
             const expanded = expandedDays.has(dayIso);
 
             return (
-              <div key={dayIso} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+              <div key={dayIso} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
                 <button
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--color-surface-muted)]"
                   onClick={() => setExpandedDays(prev => {
                     const next = new Set(prev);
                     expanded ? next.delete(dayIso) : next.add(dayIso);
                     return next;
                   })}>
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <span className={`text-xs font-bold w-2 h-2 rounded-full shrink-0 ${numUrgente > 0 ? "bg-red-400" : numPendiente > 0 ? "bg-orange-300" : "bg-green-400"}`} />
-                    <span className={`text-sm font-semibold ${isToday ? "text-red-600" : isTomorrow ? "text-amber-600" : "text-slate-700"}`}>
-                      {isToday ? "HOY" : isTomorrow ? "MAÑANA" : dayLabel(dayIso)}
+                    <span className={`text-xs font-bold w-2 h-2 rounded-full shrink-0 ${numUrgente > 0 ? "bg-[var(--color-danger)]" : numPendiente > 0 ? "bg-[var(--color-warning)]" : "bg-[var(--color-success)]"}`} />
+                    <span className={`text-sm font-semibold ${isToday ? "text-[var(--color-danger)]" : isTomorrow ? "text-[var(--color-warning)]" : "text-[var(--color-foreground)]"}`}>
+                      {isToday ? "Hoy" : isTomorrow ? "Mañana" : dayLabel(dayIso)}
                     </span>
-                    <span className="text-xs text-slate-400">
+                    <span className="text-xs text-[var(--color-muted)]">
                       {numUrgente > 0 && `${numUrgente} urgentes`}
                       {numUrgente > 0 && numPendiente > 0 && " · "}
                       {numPendiente > 0 && `${numPendiente} pendientes`}
                     </span>
                   </div>
-                  <span className="text-slate-300 text-xs">{expanded ? "▲" : "▼"}</span>
+                  <span className="text-[var(--color-muted)]" aria-hidden>
+                    {expanded
+                      ? <ChevronUp size={14} strokeWidth={1.5} />
+                      : <ChevronDown size={14} strokeWidth={ICON_STROKE} />}
+                  </span>
                 </button>
                 {expanded && (
-                  <div className="border-t border-slate-100 p-3 space-y-2">
+                  <div className="border-t border-[var(--color-border)] p-3 space-y-2">
                     {dayItems.map(item => (
                       <ItemCard key={item.id} item={item} compact={false}
                         onClick={() => setSelectedItem(item)} />
@@ -669,20 +690,20 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
             const dd = byDay.get(d);
             return !dd || dd.tasks.filter(t => !done.has(t.id) && (t.scoreAccion ?? 0) >= 30).length === 0;
           }) && (
-            <p className="text-xs text-slate-400 py-8 text-center">Sin acciones pendientes esta semana</p>
+            <p className="text-xs text-[var(--color-muted)] py-8 text-center">Sin acciones pendientes esta semana</p>
           )}
         </div>
       )}
 
       {/* ── SECCIÓN HISTORIAL ─────────────────────────────────────────────────── */}
       {activeTab === "historial" && (
-        <div className="flex-1 min-h-0 flex flex-col bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden">
           {/* Sub-tabs */}
-          <div className="flex border-b border-slate-100 shrink-0">
+          <div className="flex border-b border-[var(--color-border)] shrink-0">
             {(["pacientes","huecos"] as HistTab[]).map(tab => (
               <button key={tab}
                 onClick={() => setHistTab(tab)}
-                className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-all ${histTab === tab ? "border-cyan-600 text-cyan-700" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
+                className={`flex-1 py-3 text-sm font-semibold border-b-2 transition-all ${histTab === tab ? "border-[var(--color-accent)] text-[var(--color-accent)]" : "border-transparent text-[var(--color-muted)] hover:text-[var(--color-foreground)]"}`}>
                 {tab === "pacientes" ? "Pacientes" : "Huecos"}
               </button>
             ))}
@@ -692,8 +713,8 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
             {/* Tab Pacientes */}
             {histTab === "pacientes" && (
               <table className="w-full text-xs">
-                <thead className="bg-slate-50 sticky top-0">
-                  <tr className="border-b border-slate-100 text-slate-400 text-left">
+                <thead className="bg-[var(--color-surface-muted)] sticky top-0">
+                  <tr className="border-b border-[var(--color-border)] text-[var(--color-muted)] text-left">
                     <th className="px-4 py-2 font-semibold">Paciente</th>
                     <th className="px-4 py-2 font-semibold">Tratamiento</th>
                     <th className="px-4 py-2 font-semibold">Día</th>
@@ -705,23 +726,23 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
                 <tbody>
                   {histRows.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-400">
+                      <td colSpan={6} className="px-4 py-8 text-center text-[var(--color-muted)]">
                         Sin acciones registradas esta semana
                       </td>
                     </tr>
                   )}
                   {histRows.map(h => (
-                    <tr key={h.key} className="border-b border-slate-50 hover:bg-slate-50">
-                      <td className="px-4 py-2 font-medium text-slate-800">{h.paciente}</td>
-                      <td className="px-4 py-2 text-slate-600">{h.tratamiento}</td>
-                      <td className="px-4 py-2 text-slate-500">{h.dayIso}</td>
-                      <td className="px-4 py-2 text-slate-500">{h.hora}</td>
+                    <tr key={h.key} className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]">
+                      <td className="px-4 py-2 font-medium text-[var(--color-foreground)]">{h.paciente}</td>
+                      <td className="px-4 py-2 text-[var(--color-muted)]">{h.tratamiento}</td>
+                      <td className="px-4 py-2 text-[var(--color-muted)]">{h.dayIso}</td>
+                      <td className="px-4 py-2 text-[var(--color-muted)]">{h.hora}</td>
                       <td className="px-4 py-2">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${h.tipo === "Confirmado" ? "bg-green-100 text-green-700" : h.tipo === "Cancelado" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${h.tipo === "Confirmado" ? "bg-[var(--color-success-soft)] text-[var(--color-success)]" : h.tipo === "Cancelado" ? "bg-[var(--color-danger-soft)] text-[var(--color-danger)]" : "bg-[var(--color-surface-muted)] text-[var(--color-muted)]"}`}>
                           {h.tipo}
                         </span>
                       </td>
-                      <td className="px-4 py-2 text-slate-400 max-w-[120px] truncate">{h.nota}</td>
+                      <td className="px-4 py-2 text-[var(--color-muted)] max-w-[120px] truncate">{h.nota}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -731,8 +752,8 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
             {/* Tab Huecos */}
             {histTab === "huecos" && (
               <table className="w-full text-xs">
-                <thead className="bg-slate-50 sticky top-0">
-                  <tr className="border-b border-slate-100 text-slate-400 text-left">
+                <thead className="bg-[var(--color-surface-muted)] sticky top-0">
+                  <tr className="border-b border-[var(--color-border)] text-[var(--color-muted)] text-left">
                     <th className="px-4 py-2 font-semibold">Día</th>
                     <th className="px-4 py-2 font-semibold">Franja</th>
                     <th className="px-4 py-2 font-semibold">Doctor</th>
@@ -744,7 +765,7 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
                 <tbody>
                   {allGaps.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="px-4 py-8 text-center text-slate-400">Sin huecos esta semana</td>
+                      <td colSpan={6} className="px-4 py-8 text-center text-[var(--color-muted)]">Sin huecos esta semana</td>
                     </tr>
                   )}
                   {allGaps.map(item => {
@@ -753,14 +774,14 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
                     const candidatos = recalls.filter(r => !g.clinica || r.clinica === g.clinica).length;
                     const estado = done.has(item.id) ? "Cubierto" : "Libre";
                     return (
-                      <tr key={item.id} className="border-b border-slate-50 hover:bg-slate-50">
-                        <td className="px-4 py-2 text-slate-600">{formatFechaEs(g.dayIso)}</td>
-                        <td className="px-4 py-2 text-slate-700 font-medium">{g.startDisplay}–{g.endDisplay}</td>
-                        <td className="px-4 py-2 text-slate-500">{g.staffId ?? "—"}</td>
-                        <td className="px-4 py-2 text-slate-500">{g.durationMin} min</td>
-                        <td className="px-4 py-2 text-slate-500">{candidatos}</td>
+                      <tr key={item.id} className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]">
+                        <td className="px-4 py-2 text-[var(--color-muted)]">{formatFechaEs(g.dayIso)}</td>
+                        <td className="px-4 py-2 text-[var(--color-foreground)] font-medium">{g.startDisplay}–{g.endDisplay}</td>
+                        <td className="px-4 py-2 text-[var(--color-muted)]">{g.staffId ?? "—"}</td>
+                        <td className="px-4 py-2 text-[var(--color-muted)]">{g.durationMin} min</td>
+                        <td className="px-4 py-2 text-[var(--color-muted)]">{candidatos}</td>
                         <td className="px-4 py-2">
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${estado === "Cubierto" ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700"}`}>
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${estado === "Cubierto" ? "bg-[var(--color-success-soft)] text-[var(--color-success)]" : "bg-[var(--color-accent-soft)] text-[var(--color-accent)]"}`}>
                             {estado}
                           </span>
                         </td>
@@ -800,26 +821,26 @@ function ItemCard({ item, compact, onClick }: {
   if (compact) {
     return (
       <button onClick={onClick}
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:border-slate-300 text-left">
+        className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-accent)] text-left">
         <span className="text-xs font-bold shrink-0"
           style={{ color: scoreColor(item.scoreAccion) }}>
           {item.scoreAccion}
         </span>
         {item.type === "appt" ? (
           <>
-            <span className="text-xs font-semibold text-slate-700 truncate">{item.data.patientName}</span>
-            <span className="text-xs text-slate-400 truncate">· {item.data.treatmentName} · {item.data.startDisplay}</span>
+            <span className="text-xs font-semibold text-[var(--color-foreground)] truncate">{item.data.patientName}</span>
+            <span className="text-xs text-[var(--color-muted)] truncate">· {item.data.treatmentName} · {item.data.startDisplay}</span>
           </>
         ) : (
-          <span className="text-xs text-slate-600 truncate">Hueco {item.data.startDisplay}–{item.data.endDisplay}</span>
+          <span className="text-xs text-[var(--color-muted)] truncate">Hueco {item.data.startDisplay}–{item.data.endDisplay}</span>
         )}
         <div className="flex gap-1.5 ml-auto shrink-0">
           {item.type === "appt" && (
             <>
               <a href={buildWA(item.data.patientPhone, "")} onClick={e => e.stopPropagation()}
-                className="text-[10px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200">WA</a>
+                className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]">WA</a>
               <a href={`tel:${item.data.patientPhone}`} onClick={e => e.stopPropagation()}
-                className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-700 border border-cyan-200">Tel</a>
+                className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-accent-soft)] text-[var(--color-accent)]">Tel</a>
             </>
           )}
         </div>
@@ -832,20 +853,23 @@ function ItemCard({ item, compact, onClick }: {
     const g = item.data;
     return (
       <button onClick={onClick}
-        className="w-full text-left rounded-xl border border-blue-200 bg-blue-50 p-3 space-y-2 hover:border-blue-300">
+        className="w-full text-left rounded-xl border border-[var(--color-border)] bg-[var(--color-accent-soft)] p-3 space-y-2 hover:border-[var(--color-accent)]">
         <div className="flex items-center justify-between gap-2">
           <div>
-            <p className="text-sm font-semibold text-blue-800">Hueco disponible</p>
-            <p className="text-xs text-blue-600">{relativeDay(g.dayIso)} · {g.startDisplay}–{g.endDisplay} · {g.durationMin} min</p>
+            <p className="text-sm font-semibold text-[var(--color-foreground)]">Hueco disponible</p>
+            <p className="text-xs text-[var(--color-accent)]">{relativeDay(g.dayIso)} · {g.startDisplay}–{g.endDisplay} · {g.durationMin} min</p>
           </div>
           <span className={`text-xs font-bold px-2 py-0.5 rounded-full border ${scoreBgClass(item.scoreAccion)}`}>
             {item.scoreAccion}
           </span>
         </div>
         {item.overbooking && (
-          <p className="text-xs font-bold text-amber-700">⚡ Overbooking posible</p>
+          <p className="text-xs font-bold text-[var(--color-warning)] inline-flex items-center gap-1">
+            <Zap size={12} strokeWidth={ICON_STROKE} aria-hidden />
+            Overbooking posible
+          </p>
         )}
-        <p className="text-xs text-blue-500">
+        <p className="text-xs text-[var(--color-accent)]">
           {item.recalls.length > 0 ? `${item.recalls.length} candidato${item.recalls.length !== 1 ? "s" : ""}` : "Sin candidatos"}
           {" · "}Ver candidatos →
         </p>
@@ -861,7 +885,7 @@ function ItemCard({ item, compact, onClick }: {
 
   return (
     <button onClick={onClick}
-      className="w-full text-left rounded-xl border border-slate-200 bg-white p-3 space-y-2 hover:border-slate-300"
+      className="w-full text-left rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 space-y-2 hover:border-[var(--color-accent)]"
       style={{ borderLeft: `4px solid ${sc}` }}>
       <div className="flex items-start gap-2.5">
         {/* Score circle */}
@@ -870,29 +894,34 @@ function ItemCard({ item, compact, onClick }: {
           {item.scoreAccion}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-slate-800 truncate">{a.patientName}</p>
-          <p className="text-xs text-slate-500 truncate">{a.treatmentName} · {a.startDisplay}</p>
+          <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{a.patientName}</p>
+          <p className="text-xs text-[var(--color-muted)] truncate">{a.treatmentName} · {a.startDisplay}</p>
         </div>
         <div className="flex flex-col items-end gap-1 shrink-0">
           <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${faseStyle(fase)} ${fase === "CRÍTICO" ? "animate-pulse" : ""}`}>
             {fase}
           </span>
-          {ci.text && <span className={`text-[10px] font-semibold ${ci.color}`}>{ci.text}</span>}
+          {ci.text && (
+            <span className={`text-[10px] font-semibold inline-flex items-center gap-0.5 ${ci.color}`}>
+              {ci.Icon && <ci.Icon size={10} strokeWidth={ICON_STROKE} aria-hidden />}
+              {ci.text}
+            </span>
+          )}
         </div>
       </div>
-      <p className="text-xs text-slate-400 truncate">
+      <p className="text-xs text-[var(--color-muted)] truncate">
         {relativeDay(a.dayIso)}{a.doctorNombre ? ` · ${a.doctorNombre}` : ""}{a.clinicaNombre ? ` · ${a.clinicaNombre}` : ""}
       </p>
       <div className="flex gap-2">
         <a href={buildWA(a.patientPhone, "")} onClick={e => e.stopPropagation()}
-          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-green-50 border border-green-200 text-green-700 hover:bg-green-100">
+          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]">
           WA
         </a>
         <a href={`tel:${a.patientPhone}`} onClick={e => e.stopPropagation()}
-          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-cyan-50 border border-cyan-200 text-cyan-700 hover:bg-cyan-100">
+          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]">
           Llamar
         </a>
-        <span className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-slate-50 border border-slate-200 text-slate-500 ml-auto">
+        <span className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border)] text-[var(--color-muted)] ml-auto">
           Ver detalle →
         </span>
       </div>

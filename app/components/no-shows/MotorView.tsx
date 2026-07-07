@@ -22,6 +22,8 @@ import { KpiCard } from "../ui/KpiCard";
 import { StatePill, type StatePillVariant } from "../ui/StatePill";
 import { AccionCard } from "../shared/AccionCard";
 import { Skeleton, KpiCardSkeleton } from "../ui/Skeleton";
+import { EmptyState, ErrorState } from "../ui/Feedback";
+import { Check, X, AlertTriangle, CalendarClock, History, ICON_STROKE } from "../icons";
 
 type MotorNivel = "alto" | "medio" | "bajo";
 
@@ -97,11 +99,19 @@ type StaffMeta = { id: string; nombre: string; clinicaRecordId: string };
 
 const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
+const CHART_TOOLTIP_STYLE = {
+  fontSize: 11,
+  borderRadius: 8,
+  border: "1px solid var(--color-border)",
+  backgroundColor: "var(--color-surface)",
+  color: "var(--color-foreground)",
+};
+
 function nivelLabel(n: MotorNivel): string {
   return n === "alto" ? "Alto" : n === "medio" ? "Medio" : "Bajo";
 }
 function nivelBorder(n: MotorNivel): string {
-  return n === "alto" ? "#DC2626" : n === "medio" ? "#D97706" : "#16A34A";
+  return n === "alto" ? "var(--color-danger)" : n === "medio" ? "var(--color-warning)" : "var(--color-success)";
 }
 function nivelPillVariant(n: MotorNivel): StatePillVariant {
   return n === "alto" ? "danger" : n === "medio" ? "warning" : "success";
@@ -173,7 +183,8 @@ function ProximasTab({
   const [doctorFilter, setDoctorFilter] = useState("");
   const [fechaFilter, setFechaFilter] = useState("");
   const [busy, setBusy] = useState<Record<string, boolean>>({});
-  const [done, setDone] = useState<Record<string, string>>({}); // citaId → mensaje feedback
+  // citaId → feedback visual de la última acción (ok/aviso + texto)
+  const [done, setDone] = useState<Record<string, { ok: boolean; text: string }>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -206,7 +217,7 @@ function ProximasTab({
       });
       const r = await res.json();
       if (r.ok) {
-        setDone((d) => ({ ...d, [citaId]: `✓ ${etiqueta}` }));
+        setDone((d) => ({ ...d, [citaId]: { ok: true, text: etiqueta } }));
         if (accion === "marcar_contactado") {
           setData((prev) =>
             prev
@@ -215,10 +226,10 @@ function ProximasTab({
           );
         }
       } else {
-        setDone((d) => ({ ...d, [citaId]: `⚠ ${motivoLegible(r.motivo)}` }));
+        setDone((d) => ({ ...d, [citaId]: { ok: false, text: motivoLegible(r.motivo) } }));
       }
     } catch {
-      setDone((d) => ({ ...d, [citaId]: "⚠ Error de red" }));
+      setDone((d) => ({ ...d, [citaId]: { ok: false, text: "Error de red. Inténtalo de nuevo." } }));
     } finally {
       setBusy((b) => ({ ...b, [`${citaId}:${accion}`]: false }));
     }
@@ -250,7 +261,12 @@ function ProximasTab({
   }
 
   if (!data) {
-    return <p className="text-sm text-[var(--color-muted)] py-8 text-center">Error cargando datos. Intenta refrescar.</p>;
+    return (
+      <ErrorState
+        detail="Las citas en riesgo no están disponibles ahora mismo."
+        onRetry={load}
+      />
+    );
   }
 
   const k = data.kpis;
@@ -259,21 +275,21 @@ function ProximasTab({
     <div className={`space-y-4 transition-opacity ${loading ? "opacity-60" : ""}`}>
       {/* Aviso degradación */}
       {!data.persistencia && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-800">
-          <span className="font-semibold">Persistencia no configurada.</span>{" "}
-          Las predicciones se calculan en vivo pero no se guardan para histórico/precisión.
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300 px-4 py-2 text-xs">
+          <span className="font-semibold">El histórico de predicciones aún no está activado.</span>{" "}
+          Las predicciones se calculan al momento pero no se guardan. Contacta con Fyllio para activarlo.
         </div>
       )}
 
       {/* 4 KPIs hero */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard label="Citas mañana" value={k.citasManana} accent="sky" subline={`${k.totalEvaluadas} en ventana 14d`} />
+        <KpiCard label="Citas mañana" value={k.citasManana} accent="accent" subline={`${k.totalEvaluadas} en ventana 14d`} />
         <KpiCard label="Riesgo alto" value={k.riesgoAlto} accent="rose" subline={`${k.riesgoAltoPct}% del total`} />
         <KpiCard label="Riesgo medio" value={k.riesgoMedio} accent="amber" subline={`${k.riesgoMedioPct}% del total`} />
         <KpiCard
           label="Coste oportunidad"
           value={k.costeOportunidad}
-          accent="violet"
+          accent="accent"
           formatter={(n) => `€${n.toLocaleString("es-ES")}`}
           subline="Riesgo alto + medio est."
         />
@@ -294,7 +310,7 @@ function ProximasTab({
                 key={n.id}
                 onClick={() => setNivelFilter(n.id)}
                 className={`text-xs px-3 py-1 rounded-full font-semibold transition-colors ${
-                  nivelFilter === n.id ? "bg-sky-600 text-white" : "border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-slate-50"
+                  nivelFilter === n.id ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]" : "border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
                 }`}
               >
                 {n.label}
@@ -310,7 +326,7 @@ function ProximasTab({
                 setClinicaFilter(e.target.value);
                 setDoctorFilter("");
               }}
-              className="rounded-xl border border-[var(--color-border)] px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300 bg-white"
+              className="rounded-xl border border-[var(--color-border)] px-2.5 py-1 text-xs text-[var(--color-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)] bg-[var(--color-surface)]"
             >
               <option value="">Todas las clínicas</option>
               {clinicas.map((c) => (
@@ -324,7 +340,7 @@ function ProximasTab({
             <select
               value={doctorFilter}
               onChange={(e) => setDoctorFilter(e.target.value)}
-              className="rounded-xl border border-[var(--color-border)] px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300 bg-white"
+              className="rounded-xl border border-[var(--color-border)] px-2.5 py-1 text-xs text-[var(--color-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)] bg-[var(--color-surface)]"
             >
               <option value="">Todos los doctores</option>
               {doctores.map((d) => (
@@ -338,14 +354,14 @@ function ProximasTab({
             type="date"
             value={fechaFilter}
             onChange={(e) => setFechaFilter(e.target.value)}
-            className="rounded-xl border border-[var(--color-border)] px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300 bg-white"
+            className="rounded-xl border border-[var(--color-border)] px-2.5 py-1 text-xs text-[var(--color-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)] bg-[var(--color-surface)]"
           />
           {fechaFilter && (
             <button
               onClick={() => setFechaFilter("")}
-              className="text-xs text-[var(--color-muted)] hover:text-slate-700"
+              className="text-xs text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
             >
-              limpiar fecha
+              Limpiar fecha
             </button>
           )}
 
@@ -357,11 +373,11 @@ function ProximasTab({
 
       {/* Lista de cards */}
       {citasVisibles.length === 0 ? (
-        <Card padding="lg">
-          <p className="text-sm text-[var(--color-muted)] text-center py-4">
-            Sin citas en riesgo para los filtros seleccionados.
-          </p>
-        </Card>
+        <EmptyState
+          icon={<CalendarClock size={20} strokeWidth={ICON_STROKE} />}
+          title="Sin citas en riesgo"
+          hint="Ninguna cita cumple los filtros seleccionados en los próximos 14 días. Prueba a ampliar los filtros."
+        />
       ) : (
         <div className="space-y-3">
           {citasVisibles.map((c) => {
@@ -392,7 +408,10 @@ function ProximasTab({
                         {nivelLabel(c.nivel)} {c.score}
                       </StatePill>
                       {c.contactado && (
-                        <StatePill variant="info" size="sm">✓ contactado</StatePill>
+                        <StatePill variant="info" size="sm">
+                          <Check size={10} strokeWidth={ICON_STROKE} aria-hidden />
+                          Contactado
+                        </StatePill>
                       )}
                     </span>
                   }
@@ -403,34 +422,37 @@ function ProximasTab({
                   faded={c.contactado}
                   actions={[
                     {
-                      label: "📞 Llamada IA",
+                      label: "Llamada IA",
                       variant: "primary",
                       disabled: !!busy[`${c.citaId}:programar_llamada_ia`],
                       onClick: () => runAccion(c.citaId, "programar_llamada_ia", "Llamada IA programada"),
                     },
                     {
-                      label: "💬 Plantilla",
+                      label: "Enviar plantilla",
                       variant: "emerald",
                       disabled: !!busy[`${c.citaId}:enviar_plantilla_recordatorio`],
                       onClick: () => runAccion(c.citaId, "enviar_plantilla_recordatorio", "Plantilla enviada"),
                     },
                     {
-                      label: "✓ Contactado",
+                      label: "Marcar contactado",
                       variant: "ghost",
                       disabled: c.contactado || !!busy[`${c.citaId}:marcar_contactado`],
-                      onClick: () => runAccion(c.citaId, "marcar_contactado", "Marcado contactado"),
+                      onClick: () => runAccion(c.citaId, "marcar_contactado", "Marcado como contactado"),
                     },
                     {
                       label: "Overbooking",
                       variant: "ghost",
                       disabled: !!busy[`${c.citaId}:considerar_overbooking`],
-                      onClick: () => runAccion(c.citaId, "considerar_overbooking", "Alerta overbooking creada"),
+                      onClick: () => runAccion(c.citaId, "considerar_overbooking", "Alerta de overbooking creada"),
                     },
                   ]}
                 />
                 {feedback && (
-                  <p className={`text-[11px] px-1 ${feedback.startsWith("✓") ? "text-emerald-600" : "text-amber-600"}`}>
-                    {feedback}
+                  <p className={`text-[11px] px-1 inline-flex items-center gap-1 ${feedback.ok ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}`}>
+                    {feedback.ok
+                      ? <Check size={11} strokeWidth={ICON_STROKE} aria-hidden />
+                      : <AlertTriangle size={11} strokeWidth={ICON_STROKE} aria-hidden />}
+                    {feedback.text}
                   </p>
                 )}
               </div>
@@ -503,7 +525,7 @@ function HistoricoTab({ user, clinicas }: { user: NoShowsUserSession; clinicas: 
             <select
               value={clinicaFilter}
               onChange={(e) => setClinicaFilter(e.target.value)}
-              className="rounded-xl border border-[var(--color-border)] px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300 bg-white"
+              className="rounded-xl border border-[var(--color-border)] px-2.5 py-1 text-xs text-[var(--color-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)] bg-[var(--color-surface)]"
             >
               <option value="">Todas las clínicas</option>
               {clinicas.map((c) => (
@@ -514,7 +536,7 @@ function HistoricoTab({ user, clinicas }: { user: NoShowsUserSession; clinicas: 
           <select
             value={resultadoFilter}
             onChange={(e) => setResultadoFilter(e.target.value)}
-            className="rounded-xl border border-[var(--color-border)] px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300 bg-white"
+            className="rounded-xl border border-[var(--color-border)] px-2.5 py-1 text-xs text-[var(--color-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)] bg-[var(--color-surface)]"
           >
             <option value="">Todos los resultados</option>
             <option value="asistio">Asistió</option>
@@ -524,11 +546,11 @@ function HistoricoTab({ user, clinicas }: { user: NoShowsUserSession; clinicas: 
             type="date"
             value={fechaFilter}
             onChange={(e) => setFechaFilter(e.target.value)}
-            className="rounded-xl border border-[var(--color-border)] px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300 bg-white"
+            className="rounded-xl border border-[var(--color-border)] px-2.5 py-1 text-xs text-[var(--color-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)] bg-[var(--color-surface)]"
           />
           {fechaFilter && (
-            <button onClick={() => setFechaFilter("")} className="text-xs text-[var(--color-muted)] hover:text-slate-700">
-              limpiar fecha
+            <button onClick={() => setFechaFilter("")} className="text-xs text-[var(--color-muted)] hover:text-[var(--color-foreground)]">
+              Limpiar fecha
             </button>
           )}
         </div>
@@ -540,18 +562,23 @@ function HistoricoTab({ user, clinicas }: { user: NoShowsUserSession; clinicas: 
             {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-6 rounded" />)}
           </div>
         </Card>
-      ) : !data || !data.persistencia ? (
-        <Card padding="lg">
-          <p className="text-sm text-[var(--color-muted)] text-center py-4">
-            El histórico de predicciones requiere persistencia (Supabase) configurada.
-          </p>
-        </Card>
+      ) : !data ? (
+        <ErrorState
+          detail="El histórico de predicciones no está disponible ahora mismo."
+          onRetry={load}
+        />
+      ) : !data.persistencia ? (
+        <EmptyState
+          icon={<History size={20} strokeWidth={ICON_STROKE} />}
+          title="Histórico aún no activado"
+          hint="Esta clínica todavía no guarda el histórico de predicciones. Contacta con Fyllio para activarlo."
+        />
       ) : data.rows.length === 0 ? (
-        <Card padding="lg">
-          <p className="text-sm text-[var(--color-muted)] text-center py-4">
-            Aún no hay predicciones con resultado real. El loop se cierra cuando una cita se marca asistió o no-show.
-          </p>
-        </Card>
+        <EmptyState
+          icon={<History size={20} strokeWidth={ICON_STROKE} />}
+          title="Aún no hay predicciones con resultado"
+          hint="Las predicciones aparecerán aquí cuando sus citas se marquen como asistió o no-show."
+        />
       ) : (
         <Card padding="none">
           <div className="overflow-x-auto">
@@ -569,17 +596,17 @@ function HistoricoTab({ user, clinicas }: { user: NoShowsUserSession; clinicas: 
               </thead>
               <tbody>
                 {data.rows.map((r) => (
-                  <tr key={r.citaId + r.evaluadoAt} className="border-b border-slate-50">
-                    <td className="px-3 py-2 text-slate-600 whitespace-nowrap tabular-nums">
+                  <tr key={r.citaId + r.evaluadoAt} className="border-b border-[var(--color-border)]">
+                    <td className="px-3 py-2 text-[var(--color-muted)] whitespace-nowrap tabular-nums">
                       {formatFecha(r.startIso ?? r.evaluadoAt)}
                     </td>
-                    <td className="px-3 py-2 text-slate-800 font-medium truncate max-w-[140px]">
+                    <td className="px-3 py-2 text-[var(--color-foreground)] font-medium truncate max-w-[140px]">
                       {r.pacienteNombre ?? "—"}
                     </td>
-                    <td className="px-3 py-2 text-slate-500 hidden sm:table-cell truncate max-w-[120px]">
+                    <td className="px-3 py-2 text-[var(--color-muted)] hidden sm:table-cell truncate max-w-[120px]">
                       {r.doctorNombre ?? "—"}
                     </td>
-                    <td className="px-3 py-2 text-slate-500 hidden md:table-cell truncate max-w-[140px]">
+                    <td className="px-3 py-2 text-[var(--color-muted)] hidden md:table-cell truncate max-w-[140px]">
                       {r.tratamiento ?? "—"}
                     </td>
                     <td className="px-3 py-2 text-center">
@@ -592,13 +619,19 @@ function HistoricoTab({ user, clinicas }: { user: NoShowsUserSession; clinicas: 
                         {r.resultadoReal === "no_show" ? "No-show" : "Asistió"}
                       </StatePill>
                     </td>
-                    <td className="px-3 py-2 text-center text-base">
+                    <td className="px-3 py-2 text-center">
                       {r.prediccionCorrecta == null ? (
-                        <span className="text-slate-300">—</span>
+                        <span className="text-[var(--color-muted)]">—</span>
                       ) : r.prediccionCorrecta ? (
-                        <span className="text-emerald-600">✓</span>
+                        <span className="inline-flex text-[var(--color-success)]" title="Predicción acertada">
+                          <Check size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                          <span className="sr-only">Acertó</span>
+                        </span>
                       ) : (
-                        <span className="text-rose-500">✗</span>
+                        <span className="inline-flex text-[var(--color-danger)]" title="Predicción fallida">
+                          <X size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                          <span className="sr-only">Falló</span>
+                        </span>
                       )}
                     </td>
                   </tr>
@@ -647,7 +680,12 @@ function EstadisticasTab({ user, clinicas }: { user: NoShowsUserSession; clinica
     );
   }
   if (!data) {
-    return <p className="text-sm text-[var(--color-muted)] py-8 text-center">Error cargando datos.</p>;
+    return (
+      <ErrorState
+        detail="Las estadísticas del motor no están disponibles ahora mismo."
+        onRetry={load}
+      />
+    );
   }
 
   const precisionPct = Math.round(data.precision.tasa * 100);
@@ -662,7 +700,7 @@ function EstadisticasTab({ user, clinicas }: { user: NoShowsUserSession; clinica
           <select
             value={clinicaFilter}
             onChange={(e) => setClinicaFilter(e.target.value)}
-            className="rounded-xl border border-[var(--color-border)] px-2.5 py-1 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-sky-300 bg-white"
+            className="rounded-xl border border-[var(--color-border)] px-2.5 py-1 text-xs text-[var(--color-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)] bg-[var(--color-surface)]"
           >
             <option value="">Todas las clínicas</option>
             {clinicas.map((c) => (
@@ -676,15 +714,15 @@ function EstadisticasTab({ user, clinicas }: { user: NoShowsUserSession; clinica
       <Card padding="lg">
         <div className="flex items-start gap-4 flex-wrap">
           <div>
-            <span className="inline-block text-[10px] uppercase tracking-widest font-semibold rounded-full px-2 py-0.5 bg-violet-50 text-violet-700">
+            <span className="inline-block text-[10px] uppercase tracking-widest font-semibold rounded-full px-2 py-0.5 bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
               Precisión del predictor
             </span>
-            <p className="font-display text-4xl font-semibold text-[var(--color-foreground)] tabular-nums leading-tight mt-3">
+            <p className="font-display text-4xl font-bold text-[var(--color-foreground)] tabular-nums leading-tight mt-3">
               {data.precision.total > 0 ? `${precisionPct}%` : "—"}
             </p>
             <p className="text-[11px] text-[var(--color-muted)] mt-1">
               {data.precision.correctas} de {data.precision.total} predicciones acertadas
-              {!data.persistencia && " · persistencia no configurada"}
+              {!data.persistencia && " · histórico aún no activado"}
             </p>
           </div>
           {data.precision.total > 0 && (
@@ -692,10 +730,10 @@ function EstadisticasTab({ user, clinicas }: { user: NoShowsUserSession; clinica
               {data.precision.porNivel.filter((n) => n.total > 0).map((n) => (
                 <div key={n.nivel} className="flex items-center gap-2">
                   <span className="text-xs text-[var(--color-muted)] w-12 shrink-0 capitalize">{nivelLabel(n.nivel)}</span>
-                  <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full bg-violet-500" style={{ width: `${Math.round(n.tasa * 100)}%` }} />
+                  <div className="flex-1 h-2 bg-[var(--color-surface-muted)] rounded-full overflow-hidden">
+                    <div className="h-full rounded-full bg-[var(--color-accent)]" style={{ width: `${Math.round(n.tasa * 100)}%` }} />
                   </div>
-                  <span className="text-xs font-semibold text-slate-600 w-16 text-right tabular-nums">
+                  <span className="text-xs font-semibold text-[var(--color-muted)] w-16 text-right tabular-nums">
                     {Math.round(n.tasa * 100)}% ({n.total})
                   </span>
                 </div>
@@ -710,19 +748,19 @@ function EstadisticasTab({ user, clinicas }: { user: NoShowsUserSession; clinica
         <p className="text-xs font-semibold text-[var(--color-muted)] uppercase tracking-wider mb-3">Tasa de no-show por mes</p>
         <ResponsiveContainer width="100%" height={150}>
           <LineChart data={data.byMonth} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-            <XAxis dataKey="month" tick={{ fontSize: 9, fill: "#94a3b8" }} axisLine={false} tickLine={false} interval={1} />
+            <XAxis dataKey="month" tick={{ fontSize: 9, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} interval={1} />
             <YAxis
               tickFormatter={(v) => `${(v * 100).toFixed(0)}%`}
-              tick={{ fontSize: 8, fill: "#94a3b8" }}
+              tick={{ fontSize: 8, fill: "var(--color-muted)" }}
               axisLine={false}
               tickLine={false}
               width={32}
             />
             <Tooltip
               formatter={(v: any) => [`${(Number(v) * 100).toFixed(1)}%`, "Tasa"]}
-              contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e5e8ee" }}
+              contentStyle={CHART_TOOLTIP_STYLE}
             />
-            <Line type="monotone" dataKey="tasa" stroke="#0EA5E9" strokeWidth={2} dot={{ r: 2 }} />
+            <Line type="monotone" dataKey="tasa" stroke="var(--color-accent)" strokeWidth={2} dot={{ r: 2 }} />
           </LineChart>
         </ResponsiveContainer>
       </Card>
@@ -732,21 +770,21 @@ function EstadisticasTab({ user, clinicas }: { user: NoShowsUserSession; clinica
         <p className="text-xs font-semibold text-[var(--color-muted)] uppercase tracking-wider mb-3">Tasa por día de semana</p>
         <ResponsiveContainer width="100%" height={150}>
           <BarChart data={data.byDayOfWeek} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
-            <XAxis dataKey="day" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+            <XAxis dataKey="day" tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} />
             <YAxis
               tickFormatter={(v) => `${(v * 100).toFixed(0)}%`}
-              tick={{ fontSize: 8, fill: "#94a3b8" }}
+              tick={{ fontSize: 8, fill: "var(--color-muted)" }}
               axisLine={false}
               tickLine={false}
               width={32}
             />
             <Tooltip
               formatter={(v: any) => [`${(Number(v) * 100).toFixed(1)}%`, "Tasa"]}
-              contentStyle={{ fontSize: 11, borderRadius: 8, border: "1px solid #e5e8ee" }}
+              contentStyle={CHART_TOOLTIP_STYLE}
             />
             <Bar dataKey="tasa" radius={[4, 4, 0, 0]}>
               {data.byDayOfWeek.map((d, i) => (
-                <Cell key={i} fill={d.tasa >= maxDayTasa * 0.85 ? "#DC2626" : "#0EA5E9"} />
+                <Cell key={i} fill={d.tasa >= maxDayTasa * 0.85 ? "var(--color-danger)" : "var(--color-accent)"} />
               ))}
             </Bar>
           </BarChart>
@@ -765,13 +803,13 @@ function EstadisticasTab({ user, clinicas }: { user: NoShowsUserSession; clinica
               const over = t.tasa >= maxTreatTasa * 0.85;
               return (
                 <div key={t.treatment} className="flex items-center gap-2">
-                  <span className="text-xs text-slate-600 shrink-0 truncate" style={{ minWidth: 120, maxWidth: 140 }}>
+                  <span className="text-xs text-[var(--color-muted)] shrink-0 truncate" style={{ minWidth: 120, maxWidth: 140 }}>
                     {t.treatment}
                   </span>
-                  <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div className={`h-full rounded-full ${over ? "bg-rose-500" : "bg-sky-500"}`} style={{ width: `${pct}%` }} />
+                  <div className="flex-1 h-2 bg-[var(--color-surface-muted)] rounded-full overflow-hidden">
+                    <div className={`h-full rounded-full ${over ? "bg-[var(--color-danger)]" : "bg-[var(--color-accent)]"}`} style={{ width: `${pct}%` }} />
                   </div>
-                  <span className={`text-xs font-semibold shrink-0 w-24 text-right tabular-nums ${over ? "text-rose-600" : "text-slate-600"}`}>
+                  <span className={`text-xs font-semibold shrink-0 w-24 text-right tabular-nums ${over ? "text-[var(--color-danger)]" : "text-[var(--color-muted)]"}`}>
                     {(t.tasa * 100).toFixed(0)}% ({t.total})
                   </span>
                 </div>
@@ -829,8 +867,8 @@ export default function MotorView({ user }: { user: NoShowsUserSession }) {
             onClick={() => setSub(t.id)}
             className={`text-sm px-4 py-1.5 rounded-full font-semibold transition-colors ${
               sub === t.id
-                ? "bg-sky-50 text-sky-700 border border-sky-200"
-                : "border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-slate-50"
+                ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border border-[var(--color-accent)]"
+                : "border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
             }`}
           >
             {t.label}

@@ -77,7 +77,7 @@ export default function NoShowsShell({ user }: { user: NoShowsUserSession }) {
       {/* Barra del área (Sprint 7 Fase 4). Logo, usuario, rol, selector y
           Salir viven en el GlobalHeader del layout (authed). */}
       <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-2 shrink-0">
-        <p className="text-xs font-semibold text-[var(--color-foreground)]">No-Shows</p>
+        <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">No-Shows</h1>
       </div>
 
       {/* ── Tabs desktop ── */}
