@@ -88,10 +88,10 @@ export function KpisNoShowsView() {
     <div className="p-4 lg:p-6 space-y-12 max-w-7xl mx-auto">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h2 className="font-display text-xl font-semibold tracking-tight text-slate-900">
+          <h2 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">
             KPIs No-shows
           </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <p className="text-xs text-[var(--color-muted)] mt-0.5">
             Tasa de ausencias del mes en curso vs el mes anterior.
           </p>
         </div>
@@ -124,7 +124,7 @@ function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolea
   if (!data) {
     return (
       <Card padding="lg">
-        <p className="text-sm text-slate-500">No se pudieron cargar las métricas.</p>
+        <p className="text-sm text-[var(--color-muted)]">No se pudieron cargar las métricas.</p>
       </Card>
     );
   }
@@ -165,7 +165,7 @@ function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolea
           value={Number((data.precisionPredictor.precision * 100).toFixed(0))}
           formatter={(n) => `${n}%`}
           subline={`${data.precisionPredictor.correctas} de ${data.precisionPredictor.total} predicciones cerradas`}
-          accent="violet"
+          accent="ia"
         />
       ) : (
         <KpiCard
@@ -184,11 +184,11 @@ function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolea
 function TopPacientes({ data, loading }: { data: ApiResponse | null; loading: boolean }) {
   return (
     <Card padding="none">
-      <div className="px-4 py-3 border-b border-slate-100">
-        <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+      <div className="px-4 py-3 border-b border-[var(--color-border)]">
+        <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
           Top 5 pacientes con más ausencias
         </h3>
-        <p className="text-xs text-slate-500 mt-0.5">Últimos 12 meses.</p>
+        <p className="text-xs text-[var(--color-muted)] mt-0.5">Últimos 12 meses.</p>
       </div>
       {loading && !data ? (
         <div className="p-4 space-y-2">
@@ -197,32 +197,32 @@ function TopPacientes({ data, loading }: { data: ApiResponse | null; loading: bo
           <div className="fyllio-skeleton h-10" />
         </div>
       ) : !data || data.topPacientes.length === 0 ? (
-        <p className="p-8 text-center text-sm text-slate-400">
+        <p className="p-8 text-center text-sm text-[var(--color-muted)]">
           Sin pacientes con ausencias en el periodo.
         </p>
       ) : (
-        <ul className="divide-y divide-slate-100">
+        <ul className="divide-y divide-[var(--color-border)]">
           {data.topPacientes.map((p, i) => (
             <li
               key={`${p.nombre}-${i}`}
               className="flex items-center gap-3 px-4 py-3 fyllio-fade-in"
               style={{ animationDelay: `${Math.min(i * 40, 200)}ms` }}
             >
-              <span className="w-6 h-6 rounded-md bg-rose-50 text-rose-700 text-[11px] font-bold flex items-center justify-center tabular-nums shrink-0">
+              <span className="w-6 h-6 rounded-md bg-[var(--color-danger-soft)] text-[var(--color-danger)] text-[11px] font-bold flex items-center justify-center tabular-nums shrink-0">
                 {i + 1}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-slate-900 truncate">{p.nombre}</p>
-                <p className="text-[11px] text-slate-500 truncate">{p.clinicaNombre}</p>
+                <p className="text-sm font-medium text-[var(--color-foreground)] truncate">{p.nombre}</p>
+                <p className="text-[11px] text-[var(--color-muted)] truncate">{p.clinicaNombre}</p>
               </div>
               <div className="text-right shrink-0">
-                <p className="text-sm font-bold text-rose-700 tabular-nums">
+                <p className="text-sm font-bold text-[var(--color-danger)] tabular-nums">
                   {p.noShows}{" "}
-                  <span className="text-[11px] font-normal text-slate-400">
+                  <span className="text-[11px] font-normal text-[var(--color-muted)]">
                     / {p.totalCitas}
                   </span>
                 </p>
-                <p className="text-[11px] text-slate-500 tabular-nums">
+                <p className="text-[11px] text-[var(--color-muted)] tabular-nums">
                   {fmtPct(p.tasa)} ausencias
                 </p>
               </div>
@@ -245,11 +245,11 @@ function ComparativaClinicas({
 }) {
   return (
     <Card padding="none">
-      <div className="px-4 py-3 border-b border-slate-100">
-        <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+      <div className="px-4 py-3 border-b border-[var(--color-border)]">
+        <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
           Comparativa de clínicas
         </h3>
-        <p className="text-xs text-slate-500 mt-0.5">Tasa no-show del mes en curso.</p>
+        <p className="text-xs text-[var(--color-muted)] mt-0.5">Tasa no-show del mes en curso.</p>
       </div>
       {loading && !data ? (
         <div className="p-4 space-y-2">
@@ -257,11 +257,11 @@ function ComparativaClinicas({
           <div className="fyllio-skeleton h-10" />
         </div>
       ) : !data || data.comparativaClinicas.length === 0 ? (
-        <p className="p-8 text-center text-sm text-slate-400">
+        <p className="p-8 text-center text-sm text-[var(--color-muted)]">
           Sin datos de clínicas en el periodo.
         </p>
       ) : (
-        <ul className="divide-y divide-slate-100">
+        <ul className="divide-y divide-[var(--color-border)]">
           {data.comparativaClinicas.map((c, i) => {
             const max = data.comparativaClinicas[0]?.tasa || 1;
             const pct = max > 0 ? Math.max(3, (c.tasa / max) * 100) : 0;
@@ -281,11 +281,11 @@ function ComparativaClinicas({
                 style={{ animationDelay: `${Math.min(i * 40, 200)}ms` }}
               >
                 <div className="flex items-center justify-between gap-3 mb-1.5">
-                  <span className="text-sm font-medium text-slate-800 truncate">
+                  <span className="text-sm font-medium text-[var(--color-foreground)] truncate">
                     {c.nombre}
                   </span>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[11px] text-slate-400 tabular-nums">
+                    <span className="text-[11px] text-[var(--color-muted)] tabular-nums">
                       {c.noShows}/{c.total}
                     </span>
                     <StatePill variant={variant} size="sm">
@@ -293,7 +293,7 @@ function ComparativaClinicas({
                     </StatePill>
                   </div>
                 </div>
-                <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-2 bg-[var(--color-surface-muted)] rounded-full overflow-hidden">
                   <div
                     className={`h-full ${barColor} rounded-full transition-all`}
                     style={{ width: `${pct}%` }}

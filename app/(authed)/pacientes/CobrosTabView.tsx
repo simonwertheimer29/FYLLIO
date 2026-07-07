@@ -5,10 +5,15 @@
 // urgencia. Es la versión OPERATIVA del Bloque 5 (KPIs Cobros) — donde
 // la coordinadora trabaja, no donde mira métricas agregadas.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { useClinic } from "../../lib/context/ClinicContext";
-import { CardListSkeleton } from "../../components/ui/Skeleton";
+import { CardListSkeleton, KpiCardSkeleton } from "../../components/ui/Skeleton";
+import { KpiCard } from "../../components/ui/KpiCard";
+import { ErrorState, EmptyState } from "../../components/ui/Feedback";
+import { StatePill, type StatePillVariant } from "../../components/ui/StatePill";
+import { MessageCircle, Phone, Check, Inbox, ICON_STROKE } from "../../components/icons";
 
 type Urgencia = "vencido" | "por_vencer" | "estancado" | "normal";
 
@@ -60,20 +65,24 @@ const URGENCIA_LABEL: Record<Urgencia, string> = {
   normal: "—",
 };
 
-const URGENCIA_PILL: Record<Urgencia, string> = {
-  vencido: "bg-rose-100 text-rose-700 border-rose-200",
-  por_vencer: "bg-amber-100 text-amber-800 border-amber-200",
-  estancado: "bg-slate-100 text-slate-700 border-slate-200",
-  normal: "bg-slate-50 text-slate-500 border-slate-100",
+const URGENCIA_VARIANT: Record<Urgencia, StatePillVariant> = {
+  vencido: "danger",
+  por_vencer: "warning",
+  estancado: "neutral",
+  normal: "neutral",
 };
 
 type FiltroUrg = "todas" | Urgencia;
 type FiltroAntig = "todo" | "hoy" | "semana" | "mes" | "antiguos";
 
+const SELECT_CLASS =
+  "text-xs px-3 py-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]";
+
 export function CobrosTabView() {
   const { selectedClinicaId } = useClinic();
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [filtroDoctor, setFiltroDoctor] = useState<string>("");
   const [filtroUrgencia, setFiltroUrgencia] = useState<FiltroUrg>("todas");
   const [filtroAntiguedad, setFiltroAntiguedad] = useState<FiltroAntig>("todo");
@@ -81,6 +90,7 @@ export function CobrosTabView() {
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     const url = new URL("/api/cola-cobros", location.href);
     if (selectedClinicaId) url.searchParams.set("clinica", selectedClinicaId);
     if (filtroDoctor) url.searchParams.set("doctor", filtroDoctor);
@@ -89,48 +99,60 @@ export function CobrosTabView() {
     fetch(url.toString())
       .then((r) => r.json())
       .then((d) => setData(d as ApiResponse))
-      .catch(() => setData(null))
+      .catch(() => {
+        setData(null);
+        setError("No se pudieron cargar los cobros.");
+      })
       .finally(() => setLoading(false));
   }, [selectedClinicaId, filtroDoctor, filtroUrgencia, filtroAntiguedad, reloadKey]);
 
   const kpis = data?.kpis;
   const items = data?.cola ?? [];
 
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <ErrorState
+          detail="Los cobros no se han podido cargar."
+          onRetry={() => setReloadKey((k) => k + 1)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* KPIs hero */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <KpiCard
-          label="Pendientes hoy"
-          value={kpis ? String(kpis.pendientesHoy) : "…"}
-          tone="slate"
-        />
-        <KpiCard
-          label="Vencidos"
-          value={
-            kpis
-              ? `${kpis.vencidosCount} · ${fmtEUR(kpis.vencidosImporte)}`
-              : "…"
-          }
-          tone={kpis && kpis.vencidosCount > 0 ? "rose" : "slate"}
-        />
-        <KpiCard
-          label="Por vencer (7d)"
-          value={
-            kpis
-              ? `${kpis.porVencerCount} · ${fmtEUR(kpis.porVencerImporte)}`
-              : "…"
-          }
-          tone={kpis && kpis.porVencerCount > 0 ? "amber" : "slate"}
-        />
-      </div>
+      {!kpis ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <KpiCardSkeleton />
+          <KpiCardSkeleton />
+          <KpiCardSkeleton />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <KpiCard label="Pendientes hoy" value={kpis.pendientesHoy} accent="neutral" />
+          <KpiCard
+            label="Vencidos"
+            value={kpis.vencidosCount}
+            subline={fmtEUR(kpis.vencidosImporte)}
+            accent={kpis.vencidosCount > 0 ? "rose" : "neutral"}
+          />
+          <KpiCard
+            label="Por vencer (7d)"
+            value={kpis.porVencerCount}
+            subline={fmtEUR(kpis.porVencerImporte)}
+            accent={kpis.porVencerCount > 0 ? "amber" : "neutral"}
+          />
+        </div>
+      )}
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
         <select
           value={filtroDoctor}
           onChange={(e) => setFiltroDoctor(e.target.value)}
-          className="text-xs px-3 py-1.5 rounded-md border border-slate-200 bg-white"
+          className={SELECT_CLASS}
         >
           <option value="">Todos los doctores</option>
           {(data?.doctoresDisponibles ?? []).map((d) => (
@@ -142,7 +164,7 @@ export function CobrosTabView() {
         <select
           value={filtroUrgencia}
           onChange={(e) => setFiltroUrgencia(e.target.value as FiltroUrg)}
-          className="text-xs px-3 py-1.5 rounded-md border border-slate-200 bg-white"
+          className={SELECT_CLASS}
         >
           <option value="todas">Todas las urgencias</option>
           <option value="vencido">Vencido</option>
@@ -153,7 +175,7 @@ export function CobrosTabView() {
         <select
           value={filtroAntiguedad}
           onChange={(e) => setFiltroAntiguedad(e.target.value as FiltroAntig)}
-          className="text-xs px-3 py-1.5 rounded-md border border-slate-200 bg-white"
+          className={SELECT_CLASS}
         >
           <option value="todo">Toda antigüedad</option>
           <option value="hoy">Hoy</option>
@@ -167,12 +189,11 @@ export function CobrosTabView() {
       {loading && !data ? (
         <CardListSkeleton rows={4} />
       ) : items.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center">
-          <p className="text-3xl mb-2">🎉</p>
-          <p className="text-sm font-semibold text-slate-700">
-            Sin pendientes en este filtro.
-          </p>
-        </div>
+        <EmptyState
+          icon={<Inbox size={24} strokeWidth={ICON_STROKE} />}
+          title="Sin cobros pendientes en este filtro"
+          hint="Cuando un paciente tenga saldo por cobrar, aparecerá aquí. Prueba a cambiar los filtros."
+        />
       ) : (
         <ul className="space-y-2">
           {items.map((it, i) => (
@@ -189,31 +210,6 @@ export function CobrosTabView() {
           ))}
         </ul>
       )}
-    </div>
-  );
-}
-
-function KpiCard({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "rose" | "amber" | "slate";
-}) {
-  const valueClass =
-    tone === "rose"
-      ? "text-rose-700"
-      : tone === "amber"
-        ? "text-amber-700"
-        : "text-slate-900";
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-4">
-      <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">
-        {label}
-      </p>
-      <p className={`text-xl font-extrabold mt-1 ${valueClass}`}>{value}</p>
     </div>
   );
 }
@@ -252,7 +248,8 @@ function CobroCard({
       // Auto-marcar como contactado tras abrir WA.
       await marcarContactado("whatsapp");
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Error abriendo WhatsApp");
+      setErr(e instanceof Error ? e.message : "No se pudo abrir WhatsApp");
+      toast.error("No se pudo abrir WhatsApp");
     } finally {
       setBusy(null);
     }
@@ -274,9 +271,11 @@ function CobroCard({
         const txt = await res.text().catch(() => "");
         throw new Error(`HTTP ${res.status}${txt ? ` · ${txt.slice(0, 80)}` : ""}`);
       }
+      toast.success("Marcado como contactado");
       onMarcado();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Error marcando contactado");
+      setErr(e instanceof Error ? e.message : "No se pudo marcar como contactado");
+      toast.error("No se pudo marcar como contactado");
     } finally {
       setBusy(null);
     }
@@ -299,38 +298,36 @@ function CobroCard({
   })();
 
   return (
-    <li className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-wrap gap-3 items-start">
+    <li className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4 flex flex-wrap gap-3 items-start">
       <div className="flex-1 min-w-[220px]">
         <div className="flex items-center gap-2 flex-wrap">
           <Link
             href={`/pacientes/${item.pacienteId}`}
-            className="font-semibold text-slate-900 hover:text-sky-700 hover:underline"
+            className="font-semibold text-[var(--color-foreground)] hover:text-[var(--color-accent)] hover:underline"
           >
             {item.nombre}
           </Link>
           {item.urgencia !== "normal" && (
-            <span
-              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${URGENCIA_PILL[item.urgencia]}`}
-            >
+            <StatePill variant={URGENCIA_VARIANT[item.urgencia]} size="sm">
               {URGENCIA_LABEL[item.urgencia]}
-            </span>
+            </StatePill>
           )}
         </div>
-        <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+        <p className="text-[11px] text-[var(--color-muted)] mt-0.5 truncate">
           {item.clinicaNombre ?? "—"} · {item.doctorNombre ?? "—"}
         </p>
-        <p className="text-[11px] text-slate-500 mt-0.5">{sublineUrgencia}</p>
+        <p className="text-[11px] text-[var(--color-muted)] mt-0.5">{sublineUrgencia}</p>
         {item.diasDesdeUltimaContacto != null && (
-          <p className="text-[10px] text-slate-400 mt-0.5">
-            Última cobranza: hace {item.diasDesdeUltimaContacto}d
+          <p className="text-[10px] text-[var(--color-muted)] mt-0.5">
+            Último contacto de cobro: hace {item.diasDesdeUltimaContacto}d
           </p>
         )}
       </div>
       <div className="text-right shrink-0">
-        <p className="text-lg font-extrabold text-rose-700 tabular-nums">
+        <p className="font-display text-lg font-bold text-[var(--color-danger)] tabular-nums">
           {fmtEUR(item.pendiente)}
         </p>
-        <p className="text-[11px] text-slate-400 tabular-nums">
+        <p className="text-[11px] text-[var(--color-muted)] tabular-nums">
           de {fmtEUR(item.presupuestoFirmado)}
         </p>
       </div>
@@ -339,31 +336,34 @@ function CobroCard({
           type="button"
           onClick={enviarWhatsApp}
           disabled={!tieneTelefono || busy !== null}
-          title={tieneTelefono ? "WhatsApp con plantilla auto" : "Sin teléfono"}
-          className="text-xs font-semibold px-3 py-1.5 rounded-md bg-[var(--fyllio-wa-green,_#16a34a)] text-white hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+          title={tieneTelefono ? "Enviar WhatsApp con plantilla" : "Sin teléfono"}
+          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          {busy === "wa" ? "Abriendo…" : "📲 WhatsApp"}
+          <MessageCircle size={14} strokeWidth={ICON_STROKE} aria-hidden />
+          {busy === "wa" ? "Abriendo…" : "WhatsApp"}
         </button>
         {item.telefono && (
           <a
             href={`tel:${item.telefono.replace(/\s/g, "")}`}
             onClick={() => marcarContactado("llamada")}
-            className="text-xs font-semibold px-3 py-1.5 rounded-md bg-slate-900 text-white hover:bg-slate-800"
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] transition-colors"
           >
-            📞 Llamar
+            <Phone size={14} strokeWidth={ICON_STROKE} aria-hidden />
+            Llamar
           </a>
         )}
         <button
           type="button"
           onClick={() => marcarContactado("manual")}
           disabled={busy !== null}
-          className="text-xs font-semibold px-3 py-1.5 rounded-md bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md bg-[var(--color-surface)] text-[var(--color-foreground)] border border-[var(--color-border)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50 transition-colors"
         >
-          {busy === "marcar" ? "Guardando…" : "✓ Marcar contactado"}
+          <Check size={14} strokeWidth={ICON_STROKE} aria-hidden />
+          {busy === "marcar" ? "Guardando…" : "Marcar contactado"}
         </button>
       </div>
       {err && (
-        <p className="basis-full text-xs text-rose-700 bg-rose-50 border border-rose-100 rounded px-2 py-1 mt-1">
+        <p className="basis-full text-xs text-[var(--color-danger)] bg-[var(--color-danger-soft)] border border-[var(--color-border)] rounded px-2 py-1 mt-1">
           {err}
         </p>
       )}

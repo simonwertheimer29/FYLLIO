@@ -15,9 +15,24 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import type { Pago, TipoPago, MetodoPago } from "../../lib/pagos-format";
 import { formatTipo } from "../../lib/pagos-format";
 import { CardListSkeleton, KpiCardSkeleton } from "../ui/Skeleton";
+import { ErrorState, EmptyState } from "../ui/Feedback";
+import {
+  ChevronLeft,
+  Phone,
+  Send,
+  Inbox,
+  ArrowRight,
+  StickyNote,
+  ClipboardList,
+  CreditCard,
+  PhoneCall,
+  AlertTriangle,
+  ICON_STROKE,
+} from "../icons";
 
 // Sprint 14a Bloque 6 — re-scope a 3 hitos comerciales.
 const TIPOS_PAGO_OPTS: Array<{ value: TipoPago; label: string; help: string }> = [
@@ -148,9 +163,9 @@ function formatFechaCorta(iso: string | null | undefined): string {
 }
 
 const TIPO_PAGO_DOT: Record<string, string> = {
-  Pago_Unico: "bg-sky-500",
+  Pago_Unico: "bg-[var(--color-accent)]",
   Cuota: "bg-amber-500",
-  Senal: "bg-violet-500",
+  Senal: "bg-[var(--color-accent)]",
   Liquidacion: "bg-emerald-500",
 };
 
@@ -158,21 +173,32 @@ const TIPO_PAGO_DOT: Record<string, string> = {
 // (formatTipo). El mapa local quedó deprecado.
 
 const ESTADO_PRESUPUESTO_COLOR: Record<string, string> = {
-  ACEPTADO: "bg-emerald-100 text-emerald-700",
-  PRESENTADO: "bg-sky-100 text-sky-700",
-  INTERESADO: "bg-violet-100 text-violet-700",
-  EN_DUDA: "bg-amber-100 text-amber-700",
-  PERDIDO: "bg-rose-100 text-rose-700",
-  REACTIVADO: "bg-blue-100 text-blue-700",
+  ACEPTADO:
+    "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300",
+  PRESENTADO: "bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
+  INTERESADO: "bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
+  EN_DUDA: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300",
+  PERDIDO: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
+  REACTIVADO: "bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
 };
 
-const TIPO_ACCION_ICON: Record<string, string> = {
-  Llamada: "📞",
-  WhatsApp_Saliente: "📤",
-  WhatsApp_Entrante: "📥",
-  Cambio_Estado: "→",
-  Nota: "📝",
-};
+function TipoAccionIcon({ tipo }: { tipo: string }) {
+  const common = { size: 14, strokeWidth: ICON_STROKE, "aria-hidden": true } as const;
+  switch (tipo) {
+    case "Llamada":
+      return <Phone {...common} />;
+    case "WhatsApp_Saliente":
+      return <Send {...common} />;
+    case "WhatsApp_Entrante":
+      return <Inbox {...common} />;
+    case "Cambio_Estado":
+      return <ArrowRight {...common} />;
+    case "Nota":
+      return <StickyNote {...common} />;
+    default:
+      return <span aria-hidden>·</span>;
+  }
+}
 
 function resolveUsuario(
   id: string | null | undefined,
@@ -236,7 +262,7 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 px-4 py-6 max-w-3xl mx-auto space-y-4">
+      <div className="min-h-screen bg-[var(--color-background)] px-4 py-6 max-w-3xl mx-auto space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <KpiCardSkeleton />
           <KpiCardSkeleton />
@@ -250,14 +276,19 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
 
   if (error || !data) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-3 px-4">
-        <p className="text-sm text-rose-700">No se pudo cargar el paciente.</p>
-        {error && <p className="text-xs text-rose-500">{error}</p>}
+      <div className="min-h-screen bg-[var(--color-background)] flex flex-col items-center justify-center gap-4 px-4">
+        <ErrorState
+          title="No se pudo cargar el paciente"
+          detail={error ?? undefined}
+          onRetry={() => setReloadKey((k) => k + 1)}
+          className="max-w-md w-full"
+        />
         <button
           onClick={() => router.back()}
-          className="text-xs text-slate-500 underline hover:text-slate-800"
+          className="inline-flex items-center gap-1 text-xs text-[var(--color-muted)] underline hover:text-[var(--color-foreground)]"
         >
-          ← Volver
+          <ChevronLeft size={14} strokeWidth={ICON_STROKE} aria-hidden />
+          Volver
         </button>
       </div>
     );
@@ -267,19 +298,22 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
     data;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-[var(--color-background)]">
       {/* Header sticky */}
-      <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
+      <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
         <button
           onClick={() => router.back()}
-          className="text-slate-400 hover:text-slate-700 text-sm font-medium flex items-center gap-1"
+          className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] text-sm font-medium flex items-center gap-1 transition-colors"
         >
-          ← Volver
+          <ChevronLeft size={16} strokeWidth={ICON_STROKE} aria-hidden />
+          Volver
         </button>
-        <div className="h-4 w-px bg-slate-200" />
+        <div className="h-4 w-px bg-[var(--color-border)]" />
         <div className="flex-1 min-w-0">
-          <p className="font-bold text-slate-900 text-sm truncate">{paciente.nombre}</p>
-          <p className="text-[11px] text-slate-400">
+          <p className="font-display font-semibold text-[var(--color-foreground)] text-sm truncate">
+            {paciente.nombre}
+          </p>
+          <p className="text-[11px] text-[var(--color-muted)]">
             {paciente.telefono ?? "Sin teléfono"}
             {paciente.canalOrigen && ` · ${paciente.canalOrigen}`}
             {lead && ` · Origen lead`}
@@ -289,7 +323,7 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
 
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
         {/* Tabs */}
-        <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
+        <div className="flex gap-1 border-b border-[var(--color-border)] overflow-x-auto">
           <TabButton
             label="Resumen"
             active={activeTab === "resumen"}
@@ -410,13 +444,13 @@ function TabButton({
       onClick={onClick}
       className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap ${
         active
-          ? "text-slate-900 border-slate-900"
-          : "text-slate-500 border-transparent hover:text-slate-700"
+          ? "text-[var(--color-accent)] border-[var(--color-accent)]"
+          : "text-[var(--color-muted)] border-transparent hover:text-[var(--color-foreground)]"
       }`}
     >
       {label}
       {count != null && count > 0 && (
-        <span className="ml-1.5 text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded-full font-semibold">
+        <span className="ml-1.5 text-[10px] bg-[var(--color-surface-muted)] text-[var(--color-muted)] px-1.5 py-0.5 rounded-full font-semibold">
           {count}
         </span>
       )}
@@ -478,11 +512,11 @@ function ResumenTab({
       {lead && (
         <Section title="Origen lead">
           <div className="text-sm space-y-1">
-            <p className="text-slate-700">
+            <p className="text-[var(--color-foreground)]">
               <span className="font-medium">{lead.nombre}</span> · {lead.canal ?? "Canal desconocido"}
               {lead.tratamiento && ` · interés: ${lead.tratamiento}`}
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-[var(--color-muted)]">
               Captado {formatFecha(lead.createdAt)} · Estado actual: {lead.estado}
             </p>
           </div>
@@ -522,6 +556,7 @@ function OptoutToggle({
       if (!res.ok) throw new Error();
     } catch {
       setOptout(!next);
+      toast.error("No se pudo guardar el cambio. Inténtalo de nuevo.");
     } finally {
       setSaving(false);
     }
@@ -534,15 +569,15 @@ function OptoutToggle({
         checked={!optout}
         disabled={saving}
         onChange={(e) => toggle(!e.target.checked)}
-        className="mt-1 accent-emerald-600"
+        className="mt-1 accent-[var(--color-accent)]"
       />
       <div className="flex-1">
-        <p className="font-medium text-slate-800">
-          Recibir mensajes automáticos: {optout ? "OFF" : "ON"}
+        <p className="font-medium text-[var(--color-foreground)]">
+          Recibir mensajes automáticos: {optout ? "desactivado" : "activado"}
         </p>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Si está apagado, este paciente no recibirá ningún mensaje automático
-          del sistema (recordatorios, nudges, etc.).
+        <p className="text-xs text-[var(--color-muted)] mt-0.5">
+          Si está desactivado, este paciente no recibirá ningún mensaje automático
+          del sistema (recordatorios, avisos, etc.).
         </p>
       </div>
     </div>
@@ -561,20 +596,24 @@ function Card({
   rose?: boolean;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-4 text-center">
-      <p className={`text-2xl font-extrabold ${rose ? "text-rose-700" : "text-slate-900"}`}>
+    <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4 text-center">
+      <p
+        className={`font-display text-2xl font-bold tabular-nums ${
+          rose ? "text-[var(--color-danger)]" : "text-[var(--color-foreground)]"
+        }`}
+      >
         {value}
       </p>
-      <p className="text-[11px] text-slate-400 uppercase tracking-wide mt-0.5">{label}</p>
-      {sub && <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>}
+      <p className="text-[11px] text-[var(--color-muted)] uppercase tracking-wide mt-0.5">{label}</p>
+      {sub && <p className="text-[10px] text-[var(--color-muted)] mt-0.5">{sub}</p>}
     </div>
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-      <p className="px-4 py-3 text-xs font-bold text-slate-700 border-b border-slate-100 uppercase tracking-wide">
+    <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden">
+      <p className="px-4 py-3 text-[11px] font-semibold text-[var(--color-muted)] border-b border-[var(--color-border)] uppercase tracking-wide">
         {title}
       </p>
       <div className="p-4">{children}</div>
@@ -585,8 +624,8 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function KV({ k, v }: { k: string; v: string }) {
   return (
     <div className="flex flex-col">
-      <span className="text-[10px] text-slate-400 uppercase tracking-wide">{k}</span>
-      <span className="text-slate-700">{v}</span>
+      <span className="text-[10px] text-[var(--color-muted)] uppercase tracking-wide">{k}</span>
+      <span className="text-[var(--color-foreground)]">{v}</span>
     </div>
   );
 }
@@ -596,18 +635,23 @@ function KV({ k, v }: { k: string; v: string }) {
 function PresupuestosTab({ presupuestos }: { presupuestos: PresupuestoPayload[] }) {
   if (presupuestos.length === 0) {
     return (
-      <Empty icon="📋" titulo="Sin presupuestos" texto="Este paciente no tiene presupuestos creados." />
+      <EmptyState
+        icon={<ClipboardList size={24} strokeWidth={ICON_STROKE} />}
+        title="Sin presupuestos"
+        hint="Este paciente no tiene presupuestos creados."
+      />
     );
   }
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-      <p className="px-4 py-3 text-xs font-bold text-slate-700 border-b border-slate-100 uppercase tracking-wide">
+    <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden">
+      <p className="px-4 py-3 text-[11px] font-semibold text-[var(--color-muted)] border-b border-[var(--color-border)] uppercase tracking-wide">
         Presupuestos ({presupuestos.length})
       </p>
-      <div className="divide-y divide-slate-50">
+      <div className="divide-y divide-[var(--color-border)]">
         {presupuestos.map((p) => {
           const colorClass =
-            ESTADO_PRESUPUESTO_COLOR[p.estado] ?? "bg-slate-100 text-slate-600";
+            ESTADO_PRESUPUESTO_COLOR[p.estado] ??
+            "bg-[var(--color-surface-muted)] text-[var(--color-muted)]";
           return (
             <div key={p.id} className="px-4 py-3 flex items-start gap-3">
               <div className="flex-1 min-w-0">
@@ -618,21 +662,21 @@ function PresupuestosTab({ presupuestos }: { presupuestos: PresupuestoPayload[] 
                     {p.estado}
                   </span>
                   {p.fechaAceptado && (
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[10px] text-[var(--color-muted)]">
                       Aceptado {formatFechaCorta(p.fechaAceptado)}
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-slate-700 mt-1 truncate">
+                <p className="text-sm text-[var(--color-foreground)] mt-1 truncate">
                   {p.tratamiento ?? "Sin tratamiento"}
                 </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
+                <p className="text-[11px] text-[var(--color-muted)] mt-0.5">
                   {formatFecha(p.fechaAlta ?? p.fecha)}
                   {p.doctor && ` · ${p.doctor}`}
                 </p>
               </div>
               {p.importe != null && (
-                <p className="text-sm font-bold text-slate-800 shrink-0">
+                <p className="text-sm font-bold text-[var(--color-foreground)] tabular-nums shrink-0">
                   €{p.importe.toLocaleString("es-ES")}
                 </p>
               )}
@@ -681,21 +725,21 @@ function PagosTab({
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card label="Total facturado" value={fmtEUR(kpis.totalFacturado)} />
         <div
-          className="bg-white rounded-2xl border border-slate-200 p-4 text-center"
+          className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4 text-center"
           title={pendienteTooltip}
         >
           <p
-            className={`text-2xl font-extrabold ${
+            className={`font-display text-2xl font-bold tabular-nums ${
               kpis.pendiente != null && kpis.pendiente > 0
-                ? "text-rose-700"
+                ? "text-[var(--color-danger)]"
                 : kpis.pendiente == null
-                ? "text-slate-400 cursor-help"
-                : "text-slate-900"
+                ? "text-[var(--color-muted)] cursor-help"
+                : "text-[var(--color-foreground)]"
             }`}
           >
             {kpis.pendiente == null ? "—" : fmtEUR(kpis.pendiente)}
           </p>
-          <p className="text-[11px] text-slate-400 uppercase tracking-wide mt-0.5">
+          <p className="text-[11px] text-[var(--color-muted)] uppercase tracking-wide mt-0.5">
             Pendiente
           </p>
         </div>
@@ -704,8 +748,9 @@ function PagosTab({
       </div>
 
       {/* Banner de posicionamiento — Sprint 14a Bloque 6 */}
-      <div className="rounded-xl bg-slate-50 border border-slate-200 px-4 py-3 text-[11px] text-slate-500 leading-relaxed">
-        Fyllio registra los <span className="font-semibold text-slate-700">hitos comerciales</span> del cobro
+      <div className="rounded-xl bg-[var(--color-surface-muted)] border border-[var(--color-border)] px-4 py-3 text-[11px] text-[var(--color-muted)] leading-relaxed">
+        Fyllio registra los{" "}
+        <span className="font-semibold text-[var(--color-foreground)]">hitos comerciales</span> del cobro
         (señal, primer pago de plan, liquidación). Los pagos intermedios del tratamiento
         se gestionan en tu software clínico (Gesden u otro).
       </div>
@@ -713,32 +758,32 @@ function PagosTab({
       <div className="flex justify-end">
         <button
           onClick={onCreate}
-          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors"
+          className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] transition-colors"
         >
-          + Registrar pago
+          Registrar pago
         </button>
       </div>
 
       {pagos.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center">
-          <div className="text-3xl mb-2">💳</div>
-          <p className="text-sm font-semibold text-slate-700">Sin pagos registrados</p>
-          <p className="text-xs text-slate-400 mt-1">
-            El historial financiero del paciente aparecerá aquí.
-          </p>
-          <button
-            onClick={onCreate}
-            className="mt-4 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 transition-colors"
-          >
-            Registrar primer pago
-          </button>
-        </div>
+        <EmptyState
+          icon={<CreditCard size={24} strokeWidth={ICON_STROKE} />}
+          title="Sin pagos registrados"
+          hint="El historial financiero del paciente aparecerá aquí."
+          action={
+            <button
+              onClick={onCreate}
+              className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] transition-colors"
+            >
+              Registrar primer pago
+            </button>
+          }
+        />
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-          <p className="px-4 py-3 text-xs font-bold text-slate-700 border-b border-slate-100 uppercase tracking-wide">
+        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden">
+          <p className="px-4 py-3 text-[11px] font-semibold text-[var(--color-muted)] border-b border-[var(--color-border)] uppercase tracking-wide">
             Historial ({pagos.length})
           </p>
-          <div className="divide-y divide-slate-50">
+          <div className="divide-y divide-[var(--color-border)]">
             {pagos.map((p, i) => {
               const isMigrated = (p.nota ?? "").includes("[MIGRADO Sprint 13.1]");
               return (
@@ -748,22 +793,22 @@ function PagosTab({
                   style={{ animationDelay: `${Math.min(i * 30, 450)}ms` }}
                 >
                   <span
-                    className={`mt-1.5 inline-block h-2 w-2 rounded-full shrink-0 ${TIPO_PAGO_DOT[p.tipo] ?? "bg-slate-400"}`}
+                    className={`mt-1.5 inline-block h-2 w-2 rounded-full shrink-0 ${TIPO_PAGO_DOT[p.tipo] ?? "bg-[var(--color-muted)]"}`}
                   />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline gap-2 flex-wrap">
-                      <p className="text-base font-bold text-slate-900">
+                      <p className="font-display text-base font-bold text-[var(--color-foreground)] tabular-nums">
                         €{p.importe.toLocaleString("es-ES")}
                       </p>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)]">
                         {formatTipo(p.tipo)}
                       </span>
-                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-50 text-slate-500 border border-slate-100">
+                      <span className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)] border border-[var(--color-border)]">
                         {p.metodo}
                       </span>
                       {isMigrated && (
                         <span
-                          className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100"
+                          className="text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/25"
                           title="Pago histórico migrado, edita con cuidado."
                         >
                           migrado
@@ -771,27 +816,27 @@ function PagosTab({
                       )}
                     </div>
                     {p.nota && (
-                      <p className="text-xs text-slate-600 italic mt-1 line-clamp-2">{p.nota}</p>
+                      <p className="text-xs text-[var(--color-muted)] italic mt-1 line-clamp-2">{p.nota}</p>
                     )}
-                    <p className="text-[11px] text-slate-400 mt-1">
+                    <p className="text-[11px] text-[var(--color-muted)] mt-1">
                       Registrado por {resolveUsuario(p.usuarioCreadorId, usuariosNombres)}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1 shrink-0">
-                    <p className="text-xs text-slate-500 font-medium">
+                    <p className="text-xs text-[var(--color-muted)] font-medium">
                       {formatFecha(p.fechaPago)}
                     </p>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => onEdit(p)}
-                        className="text-[10px] text-slate-500 hover:text-slate-900 px-1.5 py-0.5 rounded hover:bg-slate-100"
+                        className="text-[10px] text-[var(--color-muted)] hover:text-[var(--color-foreground)] px-1.5 py-0.5 rounded hover:bg-[var(--color-surface-muted)]"
                         title="Editar pago"
                       >
                         Editar
                       </button>
                       <button
                         onClick={() => onDelete(p)}
-                        className="text-[10px] text-rose-500 hover:text-rose-700 px-1.5 py-0.5 rounded hover:bg-rose-50"
+                        className="text-[10px] text-[var(--color-danger)] hover:opacity-80 px-1.5 py-0.5 rounded hover:bg-[var(--color-danger-soft)]"
                         title="Eliminar pago"
                       >
                         Eliminar
@@ -865,14 +910,19 @@ function PagoModal({
   const isMigrated = pago && (pago.nota ?? "").includes("[MIGRADO Sprint 13.1]");
   const tipoCfg = TIPOS_PAGO_OPTS.find((t) => t.value === tipo);
 
+  const inputClass =
+    "mt-1 w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] text-sm focus:border-[var(--color-accent)] focus:outline-none";
+  const labelClass =
+    "text-[11px] uppercase font-semibold text-[var(--color-muted)] tracking-wide";
+
   async function handleSubmit() {
     const importeNum = Number(importe.replace(",", "."));
     if (!Number.isFinite(importeNum) || importeNum <= 0) {
-      setError("Importe debe ser un número > 0");
+      setError("El importe debe ser un número mayor que 0");
       return;
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaPago)) {
-      setError("Fecha inválida (YYYY-MM-DD)");
+      setError("Fecha inválida (AAAA-MM-DD)");
       return;
     }
     setSubmitting(true);
@@ -898,6 +948,7 @@ function PagoModal({
         const txt = await res.text().catch(() => "");
         throw new Error(`HTTP ${res.status}${txt ? ` · ${txt.slice(0, 100)}` : ""}`);
       }
+      toast.success(mode === "create" ? "Pago registrado" : "Pago actualizado");
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al guardar");
@@ -906,54 +957,49 @@ function PagoModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full">
-        <div className="px-5 py-4 border-b border-slate-100">
-          <h3 className="font-semibold text-slate-900">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-[var(--color-surface)] rounded-2xl shadow-xl border border-[var(--color-border)] max-w-md w-full">
+        <div className="px-5 py-4 border-b border-[var(--color-border)]">
+          <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
             {mode === "create" ? "Registrar pago" : "Editar pago"}
           </h3>
           {isMigrated && (
-            <p className="text-[11px] text-amber-700 mt-1">
-              ⚠ Pago histórico migrado, edita con cuidado.
+            <p className="inline-flex items-center gap-1 text-[11px] text-amber-700 dark:text-amber-300 mt-1">
+              <AlertTriangle size={12} strokeWidth={ICON_STROKE} aria-hidden />
+              Pago histórico migrado, edita con cuidado.
             </p>
           )}
         </div>
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
-                Importe (€)
-              </label>
+              <label className={labelClass}>Importe (€)</label>
               <input
                 type="number"
                 inputMode="decimal"
                 step="0.01"
                 value={importe}
                 onChange={(e) => setImporte(e.target.value)}
-                className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none"
+                className={inputClass}
               />
             </div>
             <div>
-              <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
-                Fecha
-              </label>
+              <label className={labelClass}>Fecha</label>
               <input
                 type="date"
                 value={fechaPago}
                 onChange={(e) => setFechaPago(e.target.value)}
-                className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none"
+                className={inputClass}
               />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
-                Método
-              </label>
+              <label className={labelClass}>Método</label>
               <select
                 value={metodo}
                 onChange={(e) => setMetodo(e.target.value)}
-                className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none"
+                className={inputClass}
               >
                 {/* Sprint 14b Bloque 0 — métodos de pago configurables
                     por clínica via Configuraciones_Clinica. Si el método
@@ -972,13 +1018,11 @@ function PagoModal({
               </select>
             </div>
             <div>
-              <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
-                Tipo
-              </label>
+              <label className={labelClass}>Tipo</label>
               <select
                 value={tipo}
                 onChange={(e) => setTipo(e.target.value as TipoPago)}
-                className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none"
+                className={inputClass}
               >
                 {TIPOS_PAGO_OPTS.map((t) => (
                   <option key={t.value} value={t.value}>
@@ -987,39 +1031,37 @@ function PagoModal({
                 ))}
               </select>
               {tipoCfg && (
-                <p className="text-[10px] text-slate-400 mt-1 leading-snug">{tipoCfg.help}</p>
+                <p className="text-[10px] text-[var(--color-muted)] mt-1 leading-snug">{tipoCfg.help}</p>
               )}
             </div>
           </div>
           <div>
-            <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
-              Nota (opcional)
-            </label>
+            <label className={labelClass}>Nota (opcional)</label>
             <textarea
               value={nota}
               onChange={(e) => setNota(e.target.value)}
               rows={2}
-              className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none resize-none"
+              className={`${inputClass} resize-none`}
             />
           </div>
           {error && (
-            <p className="text-xs text-rose-700 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+            <p className="text-xs text-[var(--color-danger)] bg-[var(--color-danger-soft)] border border-[var(--color-border)] rounded-lg px-3 py-2">
               {error}
             </p>
           )}
         </div>
-        <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
+        <div className="px-5 py-3 border-t border-[var(--color-border)] flex justify-end gap-2">
           <button
             onClick={onClose}
             disabled={submitting}
-            className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-lg disabled:opacity-50"
+            className="px-3 py-1.5 text-xs font-semibold text-[var(--color-muted)] hover:text-[var(--color-foreground)] rounded-lg disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
           >
             {submitting
               ? "Guardando…"
@@ -1058,6 +1100,7 @@ function DeletePagoDialog({
         const txt = await res.text().catch(() => "");
         throw new Error(`HTTP ${res.status}${txt ? ` · ${txt.slice(0, 100)}` : ""}`);
       }
+      toast.success("Pago eliminado");
       onDone();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al eliminar");
@@ -1065,18 +1108,23 @@ function DeletePagoDialog({
     }
   }
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-sm w-full p-5">
-        <h3 className="font-semibold text-slate-900 text-sm">¿Eliminar este pago?</h3>
-        <p className="text-xs text-slate-600 mt-2">
-          Pago de <span className="font-semibold">€{pago.importe.toLocaleString("es-ES")}</span>{" "}
+    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4">
+      <div className="bg-[var(--color-surface)] rounded-2xl shadow-xl border border-[var(--color-border)] max-w-sm w-full p-5">
+        <h3 className="font-display font-semibold text-[var(--color-foreground)] text-sm">
+          ¿Eliminar este pago?
+        </h3>
+        <p className="text-xs text-[var(--color-muted)] mt-2">
+          Pago de{" "}
+          <span className="font-semibold text-[var(--color-foreground)]">
+            €{pago.importe.toLocaleString("es-ES")}
+          </span>{" "}
           del {formatFecha(pago.fechaPago)} ({formatTipo(pago.tipo)}).
         </p>
-        <p className="text-xs text-slate-500 mt-2">
+        <p className="text-xs text-[var(--color-muted)] mt-2">
           Esta acción ajustará el total pagado del paciente.
         </p>
         {error && (
-          <p className="text-xs text-rose-700 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2 mt-3">
+          <p className="text-xs text-[var(--color-danger)] bg-[var(--color-danger-soft)] border border-[var(--color-border)] rounded-lg px-3 py-2 mt-3">
             {error}
           </p>
         )}
@@ -1084,14 +1132,14 @@ function DeletePagoDialog({
           <button
             onClick={onClose}
             disabled={submitting}
-            className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-lg disabled:opacity-50"
+            className="px-3 py-1.5 text-xs font-semibold text-[var(--color-muted)] hover:text-[var(--color-foreground)] rounded-lg disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
             onClick={handleDelete}
             disabled={submitting}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-rose-600 text-white hover:bg-rose-700 disabled:opacity-50"
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--color-danger)] text-white hover:opacity-90 disabled:opacity-50"
           >
             {submitting ? "Eliminando…" : "Eliminar"}
           </button>
@@ -1112,32 +1160,36 @@ function AccionesTab({
 }) {
   if (acciones.length === 0) {
     return (
-      <Empty
-        icon="📞"
-        titulo="Sin acciones registradas"
-        texto="Las llamadas, mensajes y notas del lead origen aparecerán aquí."
+      <EmptyState
+        icon={<PhoneCall size={24} strokeWidth={ICON_STROKE} />}
+        title="Sin acciones registradas"
+        hint="Las llamadas, mensajes y notas del lead origen aparecerán aquí."
       />
     );
   }
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
-      <p className="px-4 py-3 text-xs font-bold text-slate-700 border-b border-slate-100 uppercase tracking-wide">
+    <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden">
+      <p className="px-4 py-3 text-[11px] font-semibold text-[var(--color-muted)] border-b border-[var(--color-border)] uppercase tracking-wide">
         Actividad ({acciones.length})
       </p>
-      <div className="divide-y divide-slate-50">
+      <div className="divide-y divide-[var(--color-border)]">
         {acciones.map((a) => (
           <div key={a.id} className="px-4 py-3 flex gap-3 items-start">
-            <span className="text-base mt-0.5 shrink-0 w-5 text-center">
-              {TIPO_ACCION_ICON[a.tipo] ?? "·"}
+            <span className="mt-0.5 shrink-0 w-5 flex justify-center text-[var(--color-muted)]">
+              <TipoAccionIcon tipo={a.tipo} />
             </span>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-slate-700">{a.tipo.replace("_", " ")}</p>
-              {a.detalles && <p className="text-xs text-slate-600 mt-0.5">{a.detalles}</p>}
-              <p className="text-[10px] text-slate-400 mt-0.5">
+              <p className="text-xs font-medium text-[var(--color-foreground)]">
+                {a.tipo.replace("_", " ")}
+              </p>
+              {a.detalles && (
+                <p className="text-xs text-[var(--color-muted)] mt-0.5">{a.detalles}</p>
+              )}
+              <p className="text-[10px] text-[var(--color-muted)] mt-0.5">
                 por {resolveUsuario(a.usuarioId, usuariosNombres)}
               </p>
             </div>
-            <p className="text-[10px] text-slate-400 shrink-0">
+            <p className="text-[10px] text-[var(--color-muted)] shrink-0">
               {formatFechaCorta(a.timestamp)}
             </p>
           </div>
@@ -1159,13 +1211,19 @@ function NotasTab({
   const presupuestosConNotas = presupuestos.filter((p) => p.notas);
   const tieneAlgo = paciente.notas || presupuestosConNotas.length > 0;
   if (!tieneAlgo) {
-    return <Empty icon="📝" titulo="Sin notas" texto="Aún no hay anotaciones registradas." />;
+    return (
+      <EmptyState
+        icon={<StickyNote size={24} strokeWidth={ICON_STROKE} />}
+        title="Sin notas"
+        hint="Aún no hay anotaciones registradas."
+      />
+    );
   }
   return (
     <div className="space-y-4">
       {paciente.notas && (
         <Section title="Nota del paciente">
-          <p className="text-sm text-slate-700 whitespace-pre-wrap">{paciente.notas}</p>
+          <p className="text-sm text-[var(--color-foreground)] whitespace-pre-wrap">{paciente.notas}</p>
         </Section>
       )}
       {presupuestosConNotas.map((p) => (
@@ -1173,21 +1231,9 @@ function NotasTab({
           key={p.id}
           title={`Nota de presupuesto · ${p.tratamiento ?? "Sin tratamiento"}`}
         >
-          <p className="text-sm text-slate-700 whitespace-pre-wrap">{p.notas}</p>
+          <p className="text-sm text-[var(--color-foreground)] whitespace-pre-wrap">{p.notas}</p>
         </Section>
       ))}
-    </div>
-  );
-}
-
-// ─── Empty state ───────────────────────────────────────────────────────
-
-function Empty({ icon, titulo, texto }: { icon: string; titulo: string; texto: string }) {
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-10 text-center">
-      <div className="text-3xl mb-2">{icon}</div>
-      <p className="text-sm font-semibold text-slate-700">{titulo}</p>
-      <p className="text-xs text-slate-400 mt-1">{texto}</p>
     </div>
   );
 }

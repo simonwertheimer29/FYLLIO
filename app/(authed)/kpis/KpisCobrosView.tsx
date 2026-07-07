@@ -14,7 +14,16 @@ import {
   Tooltip as ReTooltip,
 } from "recharts";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { KpiCard } from "../../components/ui/KpiCard";
 import { KpiCardSkeleton } from "../../components/ui/Skeleton";
+import { ErrorState, EmptyState } from "../../components/ui/Feedback";
+import {
+  X,
+  Building2,
+  CreditCard,
+  Users,
+  ICON_STROKE,
+} from "../../components/icons";
 
 type Periodo = "hoy" | "semana" | "mes" | "mes_anterior" | "trimestre";
 
@@ -78,7 +87,7 @@ const fmtEUR = (n: number) =>
     useGrouping: true,
   })}`;
 
-// Paleta sky escalonada — alineada con donut origen leads.
+// Paleta azul escalonada — alineada con donut origen leads.
 const SKY_PALETTE = [
   "#0284c7",
   "#0ea5e9",
@@ -92,42 +101,55 @@ export function KpisCobrosView() {
   const [periodo, setPeriodo] = useState<Periodo>("mes");
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [drillClinicaId, setDrillClinicaId] = useState<string | null>(null);
   const [drillData, setDrillData] = useState<ApiResponse | null>(null);
+  const [drillError, setDrillError] = useState<string | null>(null);
+  const [drillReloadKey, setDrillReloadKey] = useState(0);
   const [comparativaMetric, setComparativaMetric] =
     useState<ComparativaMetric>("totalFacturado");
   const { selectedClinicaId } = useClinic();
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     const url = new URL("/api/kpis/cobros", location.href);
     url.searchParams.set("periodo", periodo);
     if (selectedClinicaId) url.searchParams.set("clinica", selectedClinicaId);
     fetch(url.toString())
       .then((r) => r.json())
       .then((d) => setData(d as ApiResponse))
-      .catch(() => setData(null))
+      .catch(() => {
+        setData(null);
+        setError("No se pudieron cargar los KPIs de cobros.");
+      })
       .finally(() => setLoading(false));
-  }, [periodo, selectedClinicaId]);
+  }, [periodo, selectedClinicaId, reloadKey]);
 
   useEffect(() => {
     if (!drillClinicaId) {
       setDrillData(null);
+      setDrillError(null);
       return;
     }
+    setDrillError(null);
     const url = new URL("/api/kpis/cobros", location.href);
     url.searchParams.set("periodo", periodo);
     url.searchParams.set("clinica", drillClinicaId);
     fetch(url.toString())
       .then((r) => r.json())
       .then((d) => setDrillData(d as ApiResponse))
-      .catch(() => setDrillData(null));
-  }, [drillClinicaId, periodo]);
+      .catch(() => {
+        setDrillData(null);
+        setDrillError("No se pudo cargar el detalle de la clínica.");
+      });
+  }, [drillClinicaId, periodo, drillReloadKey]);
 
   return (
     <div className="p-4 lg:p-6 space-y-12 max-w-7xl mx-auto">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="font-display text-xl font-semibold tracking-tight text-slate-900">
+        <h2 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">
           KPIs Cobros
         </h2>
         <div className="flex gap-1">
@@ -138,8 +160,8 @@ export function KpisCobrosView() {
               onClick={() => setPeriodo(p.id)}
               className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
                 periodo === p.id
-                  ? "bg-sky-50 text-sky-700 border-sky-200"
-                  : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                  ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-transparent"
+                  : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
               }`}
             >
               {p.label}
@@ -148,22 +170,33 @@ export function KpisCobrosView() {
         </div>
       </div>
 
-      <HeroKpis data={data} loading={loading} />
+      {error ? (
+        <ErrorState
+          detail="Los cobros no se han podido cargar."
+          onRetry={() => setReloadKey((k) => k + 1)}
+        />
+      ) : (
+        <>
+          <HeroKpis data={data} loading={loading} />
 
-      <ComparativaClinicas
-        data={data}
-        metric={comparativaMetric}
-        onMetricChange={setComparativaMetric}
-        onDrilldown={setDrillClinicaId}
-      />
+          <ComparativaClinicas
+            data={data}
+            metric={comparativaMetric}
+            onMetricChange={setComparativaMetric}
+            onDrilldown={setDrillClinicaId}
+          />
 
-      <DistribucionMetodos data={data} />
+          <DistribucionMetodos data={data} />
 
-      <TopPacientesPendientes data={data} />
+          <TopPacientesPendientes data={data} />
+        </>
+      )}
 
       {drillClinicaId && (
         <CobrosDrillDrawer
           data={drillData}
+          error={drillError}
+          onRetry={() => setDrillReloadKey((k) => k + 1)}
           onClose={() => setDrillClinicaId(null)}
         />
       )}
@@ -193,53 +226,29 @@ function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolea
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KpiCard
           label="Total facturado"
-          value={fmtEUR(h?.totalFacturado ?? 0)}
-          tone="emerald"
+          value={h?.totalFacturado ?? 0}
+          formatter={fmtEUR}
+          accent="emerald"
         />
         <KpiCard
           label="Pendiente cobro"
-          value={fmtEUR(h?.pendienteCobro ?? 0)}
-          tone={h && h.pendienteCobro > 0 ? "rose" : "slate"}
+          value={h?.pendienteCobro ?? 0}
+          formatter={fmtEUR}
+          accent={h && h.pendienteCobro > 0 ? "rose" : "neutral"}
         />
         <KpiCard
           label="Tasa cobro"
-          value={h?.tasaCobro == null ? "—" : `${h.tasaCobro}%`}
-          tone={h?.tasaCobro != null && h.tasaCobro >= 70 ? "emerald" : "amber"}
+          value={h?.tasaCobro ?? 0}
+          formatter={(n) => (h?.tasaCobro == null ? "—" : `${n}%`)}
+          accent={h?.tasaCobro != null && h.tasaCobro >= 70 ? "emerald" : "amber"}
         />
         <KpiCard
           label="Liquidaciones vencidas"
-          value={String(h?.liquidacionesVencidas ?? 0)}
-          tone={h && h.liquidacionesVencidas > 0 ? "rose" : "slate"}
+          value={h?.liquidacionesVencidas ?? 0}
+          accent={h && h.liquidacionesVencidas > 0 ? "rose" : "neutral"}
         />
       </div>
     </section>
-  );
-}
-
-function KpiCard({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "emerald" | "rose" | "amber" | "slate";
-}) {
-  const valueClass =
-    tone === "emerald"
-      ? "text-emerald-700"
-      : tone === "rose"
-        ? "text-rose-700"
-        : tone === "amber"
-          ? "text-amber-700"
-          : "text-slate-900";
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-4">
-      <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">
-        {label}
-      </p>
-      <p className={`text-2xl font-extrabold mt-1 ${valueClass}`}>{value}</p>
-    </div>
   );
 }
 
@@ -271,19 +280,19 @@ function ComparativaClinicas({
     <section>
       <div className="flex items-baseline justify-between mb-3">
         <div>
-          <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+          <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
             Comparativa clínicas
           </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Click en una fila para drilldown.
+          <p className="text-xs text-[var(--color-muted)] mt-0.5">
+            Haz clic en una fila para ver el detalle.
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-slate-500">Métrica:</span>
+          <span className="text-[11px] text-[var(--color-muted)]">Métrica:</span>
           <select
             value={metric}
             onChange={(e) => onMetricChange(e.target.value as ComparativaMetric)}
-            className="text-xs px-2 py-1 rounded border border-slate-200 bg-white"
+            className="text-xs px-2 py-1 rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]"
           >
             {(Object.keys(METRIC_LABELS) as ComparativaMetric[]).map((k) => (
               <option key={k} value={k}>
@@ -294,13 +303,15 @@ function ComparativaClinicas({
         </div>
       </div>
       {sorted.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-sm text-slate-400">
-          Sin clínicas con datos en el periodo.
-        </div>
+        <EmptyState
+          icon={<Building2 size={24} strokeWidth={ICON_STROKE} />}
+          title="Sin clínicas con datos en el periodo"
+          hint="Cuando haya cobros registrados, la comparativa aparecerá aquí."
+        />
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+            <thead className="bg-[var(--color-surface-muted)] text-[11px] uppercase tracking-wide text-[var(--color-muted)] font-semibold">
               <tr>
                 <th className="text-left px-4 py-2.5">Clínica</th>
                 <th className="text-left px-4 py-2.5 w-[26%]">{METRIC_LABELS[metric]}</th>
@@ -318,38 +329,40 @@ function ComparativaClinicas({
                   <tr
                     key={r.id}
                     onClick={() => onDrilldown(r.id)}
-                    className="border-t border-slate-100 hover:bg-sky-50/40 cursor-pointer transition-colors fyllio-fade-in"
+                    className="border-t border-[var(--color-border)] hover:bg-[var(--color-accent-soft)] cursor-pointer transition-colors fyllio-fade-in"
                     style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
                   >
-                    <td className="px-4 py-3 font-medium text-slate-800 truncate">
+                    <td className="px-4 py-3 font-medium text-[var(--color-foreground)] truncate">
                       {r.nombre}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                      <div className="h-2 w-full bg-[var(--color-surface-muted)] rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-sky-500 rounded-full"
+                          className="h-full bg-[var(--color-accent)] rounded-full"
                           style={{ width: `${pct}%` }}
                         />
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-slate-700">
+                    <td className="px-4 py-3 text-right tabular-nums text-[var(--color-foreground)]">
                       {fmtEUR(r.totalFacturado)}
                     </td>
                     <td
                       className={`px-4 py-3 text-right tabular-nums ${
-                        r.pendienteCobro > 0 ? "text-rose-700 font-semibold" : "text-slate-700"
+                        r.pendienteCobro > 0
+                          ? "text-[var(--color-danger)] font-semibold"
+                          : "text-[var(--color-foreground)]"
                       }`}
                     >
                       {fmtEUR(r.pendienteCobro)}
                     </td>
-                    <td className="px-4 py-3 text-right tabular-nums text-slate-700">
+                    <td className="px-4 py-3 text-right tabular-nums text-[var(--color-foreground)]">
                       {r.tasaCobro == null ? "—" : `${r.tasaCobro}%`}
                     </td>
                     <td
                       className={`px-4 py-3 text-right tabular-nums ${
                         r.liquidacionesVencidas > 0
-                          ? "text-rose-700 font-semibold"
-                          : "text-slate-400"
+                          ? "text-[var(--color-danger)] font-semibold"
+                          : "text-[var(--color-muted)]"
                       }`}
                     >
                       {r.liquidacionesVencidas}
@@ -372,19 +385,21 @@ function DistribucionMetodos({ data }: { data: ApiResponse | null }) {
   return (
     <section>
       <div className="mb-3">
-        <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+        <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
           Métodos de pago más usados
         </h3>
-        <p className="text-xs text-slate-500 mt-0.5">
+        <p className="text-xs text-[var(--color-muted)] mt-0.5">
           Distribución de los pagos del periodo por método.
         </p>
       </div>
       {items.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-sm text-slate-400">
-          Sin pagos en el periodo.
-        </div>
+        <EmptyState
+          icon={<CreditCard size={24} strokeWidth={ICON_STROKE} />}
+          title="Sin pagos en el periodo"
+          hint="Los pagos que se registren aparecerán aquí."
+        />
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -417,15 +432,15 @@ function DistribucionMetodos({ data }: { data: ApiResponse | null }) {
             {items.map((m, i) => (
               <li
                 key={m.metodo}
-                className="flex items-center gap-2 text-sm text-slate-700"
+                className="flex items-center gap-2 text-sm text-[var(--color-foreground)]"
               >
                 <span
                   className="inline-block w-3 h-3 rounded-sm"
                   style={{ backgroundColor: SKY_PALETTE[i % SKY_PALETTE.length] }}
                 />
                 <span className="flex-1 truncate">{m.metodo}</span>
-                <span className="tabular-nums text-slate-500">{m.pct}%</span>
-                <span className="tabular-nums font-semibold text-slate-700 w-20 text-right">
+                <span className="tabular-nums text-[var(--color-muted)]">{m.pct}%</span>
+                <span className="tabular-nums font-semibold text-[var(--color-foreground)] w-20 text-right">
                   {fmtEUR(m.total)}
                 </span>
               </li>
@@ -444,21 +459,23 @@ function TopPacientesPendientes({ data }: { data: ApiResponse | null }) {
   return (
     <section>
       <div className="mb-3">
-        <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+        <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
           Top 10 pacientes con saldo pendiente
         </h3>
-        <p className="text-xs text-slate-500 mt-0.5">
-          Click en el nombre para abrir la ficha 360 del paciente.
+        <p className="text-xs text-[var(--color-muted)] mt-0.5">
+          Haz clic en el nombre para abrir la ficha del paciente.
         </p>
       </div>
       {items.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-sm text-slate-400">
-          Sin pacientes con saldo pendiente.
-        </div>
+        <EmptyState
+          icon={<Users size={24} strokeWidth={ICON_STROKE} />}
+          title="Sin pacientes con saldo pendiente"
+          hint="Cuando un paciente tenga saldo por cobrar, aparecerá aquí."
+        />
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden">
           <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+            <thead className="bg-[var(--color-surface-muted)] text-[11px] uppercase tracking-wide text-[var(--color-muted)] font-semibold">
               <tr>
                 <th className="text-left px-4 py-2.5">Paciente</th>
                 <th className="text-left px-4 py-2.5">Clínica</th>
@@ -473,38 +490,38 @@ function TopPacientesPendientes({ data }: { data: ApiResponse | null }) {
               {items.map((p, i) => (
                 <tr
                   key={p.pacienteId}
-                  className="border-t border-slate-100 fyllio-fade-in"
+                  className="border-t border-[var(--color-border)] fyllio-fade-in"
                   style={{ animationDelay: `${Math.min(i * 30, 300)}ms` }}
                 >
                   <td className="px-4 py-3">
                     <Link
                       href={`/pacientes/${p.pacienteId}`}
-                      className="font-medium text-slate-900 hover:text-sky-700 hover:underline"
+                      className="font-medium text-[var(--color-foreground)] hover:text-[var(--color-accent)] hover:underline"
                     >
                       {p.nombre}
                     </Link>
                     {p.vencido && (
-                      <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-rose-50 text-rose-700">
+                      <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--color-danger-soft)] text-[var(--color-danger)]">
                         vencido
                       </span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-slate-600 truncate">
+                  <td className="px-4 py-3 text-[var(--color-muted)] truncate">
                     {p.clinicaNombre ?? "—"}
                   </td>
-                  <td className="px-4 py-3 text-slate-600 truncate">
+                  <td className="px-4 py-3 text-[var(--color-muted)] truncate">
                     {p.doctorNombre ?? "—"}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-slate-700">
+                  <td className="px-4 py-3 text-right tabular-nums text-[var(--color-foreground)]">
                     {fmtEUR(p.presupuestoFirmado)}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-slate-700">
+                  <td className="px-4 py-3 text-right tabular-nums text-[var(--color-foreground)]">
                     {fmtEUR(p.pagado)}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-rose-700 font-semibold">
+                  <td className="px-4 py-3 text-right tabular-nums text-[var(--color-danger)] font-semibold">
                     {fmtEUR(p.pendiente)}
                   </td>
-                  <td className="px-4 py-3 text-right tabular-nums text-slate-500">
+                  <td className="px-4 py-3 text-right tabular-nums text-[var(--color-muted)]">
                     {p.diasDesdeAceptacion ?? "—"}
                   </td>
                 </tr>
@@ -521,9 +538,13 @@ function TopPacientesPendientes({ data }: { data: ApiResponse | null }) {
 
 function CobrosDrillDrawer({
   data,
+  error,
+  onRetry,
   onClose,
 }: {
   data: ApiResponse | null;
+  error: string | null;
+  onRetry: () => void;
   onClose: () => void;
 }) {
   return (
@@ -533,26 +554,33 @@ function CobrosDrillDrawer({
     >
       <aside
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-2xl bg-white border-l border-slate-200 flex flex-col overflow-y-auto shadow-xl"
+        className="w-full max-w-2xl bg-[var(--color-surface)] border-l border-[var(--color-border)] flex flex-col overflow-y-auto shadow-xl"
       >
-        <header className="px-5 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+        <header className="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-sm font-extrabold text-slate-900">
+            <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">
               {data?.clinica?.nombre ?? "Clínica"}
             </h2>
-            <p className="text-[11px] text-slate-500">Cobros del periodo</p>
+            <p className="text-[11px] text-[var(--color-muted)]">Cobros del periodo</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 text-xl"
+            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
             aria-label="Cerrar"
           >
-            ×
+            <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
           </button>
         </header>
-        {!data ? (
-          <div className="flex-1 p-6 text-sm text-slate-400 animate-pulse">
+        {error ? (
+          <div className="flex-1 p-5">
+            <ErrorState
+              detail="El detalle de esta clínica no se ha podido cargar."
+              onRetry={onRetry}
+            />
+          </div>
+        ) : !data ? (
+          <div className="flex-1 p-6 text-sm text-[var(--color-muted)] animate-pulse">
             Cargando…
           </div>
         ) : (
@@ -560,20 +588,23 @@ function CobrosDrillDrawer({
             <div className="grid grid-cols-2 gap-3">
               <KpiCard
                 label="Total facturado"
-                value={fmtEUR(data.hero.totalFacturado)}
-                tone="emerald"
+                value={data.hero.totalFacturado}
+                formatter={fmtEUR}
+                accent="emerald"
               />
               <KpiCard
                 label="Pendiente"
-                value={fmtEUR(data.hero.pendienteCobro)}
-                tone={data.hero.pendienteCobro > 0 ? "rose" : "slate"}
+                value={data.hero.pendienteCobro}
+                formatter={fmtEUR}
+                accent={data.hero.pendienteCobro > 0 ? "rose" : "neutral"}
               />
               <KpiCard
                 label="Tasa cobro"
-                value={
-                  data.hero.tasaCobro == null ? "—" : `${data.hero.tasaCobro}%`
+                value={data.hero.tasaCobro ?? 0}
+                formatter={(n) =>
+                  data.hero.tasaCobro == null ? "—" : `${n}%`
                 }
-                tone={
+                accent={
                   data.hero.tasaCobro != null && data.hero.tasaCobro >= 70
                     ? "emerald"
                     : "amber"
@@ -581,36 +612,37 @@ function CobrosDrillDrawer({
               />
               <KpiCard
                 label="Vencidas"
-                value={String(data.hero.liquidacionesVencidas)}
-                tone={data.hero.liquidacionesVencidas > 0 ? "rose" : "slate"}
+                value={data.hero.liquidacionesVencidas}
+                accent={data.hero.liquidacionesVencidas > 0 ? "rose" : "neutral"}
               />
             </div>
             <DistribucionMetodos data={data} />
             <section>
               <div className="mb-2">
-                <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">
+                <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
                   Top pacientes pendientes
                 </h3>
               </div>
               {data.topPacientesPendientes.length === 0 ? (
-                <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center text-sm text-slate-400">
-                  Sin pacientes pendientes.
-                </div>
+                <EmptyState
+                  icon={<Users size={24} strokeWidth={ICON_STROKE} />}
+                  title="Sin pacientes pendientes"
+                />
               ) : (
-                <ul className="bg-white rounded-2xl border border-slate-200 divide-y divide-slate-100">
+                <ul className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] divide-y divide-[var(--color-border)]">
                   {data.topPacientesPendientes.slice(0, 5).map((p) => (
                     <li key={p.pacienteId} className="px-4 py-3 flex items-center gap-3">
                       <Link
                         href={`/pacientes/${p.pacienteId}`}
-                        className="font-medium text-slate-900 hover:text-sky-700 hover:underline flex-1 min-w-0 truncate"
+                        className="font-medium text-[var(--color-foreground)] hover:text-[var(--color-accent)] hover:underline flex-1 min-w-0 truncate"
                         onClick={onClose}
                       >
                         {p.nombre}
                       </Link>
-                      <span className="text-xs text-slate-500 tabular-nums">
+                      <span className="text-xs text-[var(--color-muted)] tabular-nums">
                         {p.diasDesdeAceptacion ?? "—"}d
                       </span>
-                      <span className="text-sm font-semibold text-rose-700 tabular-nums w-20 text-right">
+                      <span className="text-sm font-semibold text-[var(--color-danger)] tabular-nums w-20 text-right">
                         {fmtEUR(p.pendiente)}
                       </span>
                     </li>

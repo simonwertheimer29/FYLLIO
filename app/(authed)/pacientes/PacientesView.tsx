@@ -6,6 +6,9 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { KpiCard } from "../../components/ui/KpiCard";
+import { EmptyState } from "../../components/ui/Feedback";
+import { MessageCircle, Users, ICON_STROKE } from "../../components/icons";
 import { CobrosTabView } from "./CobrosTabView";
 
 type Paciente = {
@@ -35,6 +38,13 @@ type Doctor = { id: string; nombre: string; clinicaId: string | null };
 
 type DateFilter = "semana" | "mes" | "personalizado" | "todo";
 type SubTab = "asistidos" | "cobros";
+
+const fmtEUR = (n: number) =>
+  n.toLocaleString("es-ES", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  });
 
 export function PacientesView({
   initialPacientes,
@@ -111,13 +121,13 @@ export function PacientesView({
   }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-slate-50 p-6 gap-4 overflow-auto">
+    <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-background)] p-6 gap-4 overflow-auto">
       <header className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-extrabold text-slate-900">
+          <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
             {subTab === "asistidos" ? "Pacientes asistidos" : "Cobros"}
           </h1>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-[var(--color-muted)]">
             {subTab === "asistidos"
               ? `${total} paciente${total === 1 ? "" : "s"} en el periodo seleccionado`
               : "Cola priorizada de pacientes con saldo pendiente"}
@@ -130,8 +140,8 @@ export function PacientesView({
             onClick={() => setSubTab("asistidos")}
             className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
               subTab === "asistidos"
-                ? "bg-sky-50 text-sky-700 border-sky-200"
-                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-transparent"
+                : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
             }`}
           >
             Asistidos
@@ -141,8 +151,8 @@ export function PacientesView({
             onClick={() => setSubTab("cobros")}
             className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
               subTab === "cobros"
-                ? "bg-sky-50 text-sky-700 border-sky-200"
-                : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-transparent"
+                : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
             }`}
           >
             Cobros
@@ -151,40 +161,30 @@ export function PacientesView({
       </header>
 
       {subTab === "cobros" && <CobrosTabView />}
-      {subTab === "asistidos" && (<></>)}
-      {subTab === "asistidos" && (
-      <></>)}
       {subTab === "asistidos" && (<>
       {/* Sprint 14b Bloque 2 — contenido legacy de la tab Asistidos */}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard
-          label="Total pacientes"
-          value={total.toString()}
-          icon="👥"
-          accent="bg-slate-100 text-slate-800"
-        />
+        <KpiCard label="Total pacientes" value={total} accent="neutral" />
         <KpiCard
           label="Aceptados"
-          value={aceptados.toString()}
+          value={aceptados}
           subline={`${pctAceptados}% del total`}
-          icon="✓"
-          accent="bg-emerald-50 text-emerald-700"
+          accent="emerald"
         />
         <KpiCard
           label="No aceptados"
-          value={noAceptados.toString()}
+          value={noAceptados}
           subline={`${pctNoAceptados}% del total`}
-          icon="✕"
-          accent="bg-rose-50 text-rose-700"
+          accent="rose"
         />
         <KpiCard
           label="Facturado"
-          value={facturado.toLocaleString("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })}
-          subline={`pendiente ${pendienteTotal.toLocaleString("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 })}`}
-          icon="€"
-          accent="bg-sky-50 text-sky-700"
+          value={facturado}
+          formatter={fmtEUR}
+          subline={`pendiente ${fmtEUR(pendienteTotal)}`}
+          accent="accent"
         />
       </div>
 
@@ -203,8 +203,8 @@ export function PacientesView({
               onClick={() => setDateFilter(k)}
               className={`text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-colors ${
                 dateFilter === k
-                  ? "bg-slate-900 text-white border-slate-900"
-                  : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
+                  ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent"
+                  : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
               }`}
             >
               {l}
@@ -216,21 +216,21 @@ export function PacientesView({
           placeholder="Buscar paciente…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-[180px] max-w-sm rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-sky-300"
+          className="flex-1 min-w-[180px] max-w-sm rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
         />
       </div>
 
       {error && (
-        <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+        <p className="text-xs text-[var(--color-danger)] bg-[var(--color-danger-soft)] border border-[var(--color-border)] rounded-xl px-3 py-2">
           {error}
         </p>
       )}
 
       {/* Tabla */}
-      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
+      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead className="bg-slate-50 text-slate-600 text-[10px] uppercase tracking-wider">
+            <thead className="bg-[var(--color-surface-muted)] text-[var(--color-muted)] text-[10px] uppercase tracking-wider">
               <tr>
                 <Th>Paciente</Th>
                 <Th>Tratamientos</Th>
@@ -253,21 +253,21 @@ export function PacientesView({
                 return (
                   <tr
                     key={p.id}
-                    className="border-t border-slate-100 hover:bg-slate-50/40 fyllio-fade-in"
+                    className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface-muted)] fyllio-fade-in"
                     style={{ animationDelay: `${Math.min(i * 30, 600)}ms` }}
                   >
                     <Td>
                       <Link
                         href={`/pacientes/${p.id}`}
-                        className="font-semibold text-slate-900 hover:text-sky-700 hover:underline transition-colors"
+                        className="font-semibold text-[var(--color-foreground)] hover:text-[var(--color-accent)] hover:underline transition-colors"
                       >
                         {p.nombre}
                       </Link>
                       {p.telefono && (
-                        <p className="text-[10px] text-slate-500 font-mono">{p.telefono}</p>
+                        <p className="text-[10px] text-[var(--color-muted)] font-mono">{p.telefono}</p>
                       )}
                       {p.canalOrigen && (
-                        <span className="mt-1 inline-flex rounded-full bg-sky-50 text-sky-700 border border-sky-100 px-2 py-0.5 text-[9px] font-semibold">
+                        <span className="mt-1 inline-flex rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)] px-2 py-0.5 text-[9px] font-semibold">
                           {p.canalOrigen}
                         </span>
                       )}
@@ -277,7 +277,7 @@ export function PacientesView({
                         {p.tratamientos.map((t) => (
                           <span
                             key={t}
-                            className="inline-flex rounded-full bg-sky-50 text-sky-700 border border-sky-100 px-2 py-0.5 text-[10px] font-semibold"
+                            className="inline-flex rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)] px-2 py-0.5 text-[10px] font-semibold"
                           >
                             {t}
                           </span>
@@ -295,7 +295,7 @@ export function PacientesView({
                             setEditingDoctor(null);
                           }}
                           onBlur={() => setEditingDoctor(null)}
-                          className="rounded border border-slate-200 px-2 py-1 text-xs"
+                          className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-2 py-1 text-xs"
                         >
                           <option value="">—</option>
                           {doctoresDeClinica.map((d) => (
@@ -308,7 +308,7 @@ export function PacientesView({
                         <button
                           type="button"
                           onClick={() => setEditingDoctor(p.id)}
-                          className="text-slate-700 hover:underline"
+                          className="text-[var(--color-foreground)] hover:underline"
                         >
                           {p.doctorNombre ?? "—"}
                         </button>
@@ -324,12 +324,12 @@ export function PacientesView({
                         }
                         className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold focus:outline-none ${
                           p.aceptado === "Si"
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/25"
                             : p.aceptado === "No"
-                            ? "bg-rose-50 text-rose-700 border-rose-200"
+                            ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/25"
                             : p.aceptado === "Pendiente"
-                            ? "bg-amber-50 text-amber-700 border-amber-200"
-                            : "bg-white text-slate-500 border-slate-200"
+                            ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/25"
+                            : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)]"
                         }`}
                       >
                         <option value="">—</option>
@@ -351,13 +351,13 @@ export function PacientesView({
                             setEditingNotas(null);
                             if (v !== (p.notas ?? "")) await patch(p.id, { notas: v });
                           }}
-                          className="w-48 min-h-[50px] text-xs rounded border border-slate-200 px-2 py-1"
+                          className="w-48 min-h-[50px] text-xs rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-2 py-1"
                         />
                       ) : (
                         <button
                           type="button"
                           onClick={() => setEditingNotas(p.id)}
-                          className="text-slate-600 text-left line-clamp-2 max-w-[180px] hover:underline"
+                          className="text-[var(--color-muted)] text-left line-clamp-2 max-w-[180px] hover:underline"
                         >
                           {p.notas || "—"}
                         </button>
@@ -370,10 +370,11 @@ export function PacientesView({
                             href={`https://wa.me/${p.telefono.replace(/\D/g, "")}`}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-emerald-600 hover:underline"
-                            title="WhatsApp"
+                            className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[var(--fyllio-wa-green)] hover:bg-[var(--color-surface-muted)] transition-colors"
+                            title="Abrir WhatsApp"
+                            aria-label={`Abrir WhatsApp con ${p.nombre}`}
                           >
-                            💬
+                            <MessageCircle size={14} strokeWidth={ICON_STROKE} aria-hidden />
                           </a>
                         )}
                       </div>
@@ -383,8 +384,12 @@ export function PacientesView({
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="px-3 py-8 text-center text-slate-400">
-                    Sin pacientes en el filtro actual.
+                  <td colSpan={11} className="p-4">
+                    <EmptyState
+                      icon={<Users size={24} strokeWidth={ICON_STROKE} />}
+                      title="Sin pacientes en el filtro actual"
+                      hint="Ajusta los filtros o la búsqueda para ver resultados."
+                    />
                   </td>
                 </tr>
               )}
@@ -397,36 +402,9 @@ export function PacientesView({
   );
 }
 
-function KpiCard({
-  label,
-  value,
-  subline,
-  icon,
-  accent,
-}: {
-  label: string;
-  value: string;
-  subline?: string;
-  icon: string;
-  accent: string;
-}) {
-  return (
-    <div className="rounded-2xl bg-white border border-slate-200 p-4 flex items-start gap-3">
-      <span className={`w-9 h-9 rounded-xl flex items-center justify-center text-base ${accent}`}>
-        {icon}
-      </span>
-      <div className="min-w-0">
-        <p className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">{label}</p>
-        <p className="text-xl font-extrabold text-slate-900">{value}</p>
-        {subline && <p className="text-[10px] text-slate-400">{subline}</p>}
-      </div>
-    </div>
-  );
-}
-
 function Th({ children }: { children: React.ReactNode }) {
   return <th className="text-left font-semibold px-3 py-2 whitespace-nowrap">{children}</th>;
 }
 function Td({ children }: { children: React.ReactNode }) {
-  return <td className="px-3 py-2 align-top">{children}</td>;
+  return <td className="px-3 py-2 align-top text-[var(--color-foreground)]">{children}</td>;
 }

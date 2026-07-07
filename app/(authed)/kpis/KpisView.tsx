@@ -6,6 +6,7 @@
 import NextDynamic from "next/dynamic";
 import { useState } from "react";
 import type { UserSession } from "../../lib/presupuestos/types";
+import { X, ICON_STROKE } from "../../components/icons";
 import KpiView from "../../components/presupuestos/KpiView";
 import { KpisLeadsView } from "./KpisLeadsView";
 import { KpisCobrosView } from "./KpisCobrosView";
@@ -26,8 +27,8 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
 
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-background)] overflow-hidden">
-      {/* Sprint 12 — barra superior estilo Linear: pills sky activas. */}
-      <div className="bg-white border-b border-[var(--color-border)] px-4 py-2.5 flex items-center justify-between gap-3 shrink-0">
+      {/* Sprint 12 — barra superior estilo Linear: pills accent activas. */}
+      <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-2.5 flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-1">
           <SubTabButton
             active={tab === "presupuestos"}
@@ -53,7 +54,7 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
         <button
           type="button"
           onClick={() => setExportOpen(true)}
-          className="rounded-md bg-sky-500 text-white text-xs font-semibold px-3 py-1.5 hover:bg-sky-600 transition-colors"
+          className="rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-semibold px-3 py-1.5 hover:bg-[var(--color-accent-hover)] transition-colors"
         >
           Exportar informe
         </button>
@@ -93,8 +94,8 @@ function SubTabButton({
       onClick={onClick}
       className={`font-display px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
         active
-          ? "bg-sky-50 text-sky-700"
-          : "text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-slate-50"
+          ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
+          : "text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
       }`}
     >
       {label}
@@ -117,20 +118,24 @@ function ExportDrawer({
     >
       <aside
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-4xl bg-white border-l border-slate-200 flex flex-col overflow-y-auto shadow-xl"
+        className="w-full max-w-4xl bg-[var(--color-surface)] border-l border-[var(--color-border)] flex flex-col overflow-y-auto shadow-xl"
       >
-        <header className="px-5 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+        <header className="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
           <div>
-            <h2 className="text-sm font-extrabold text-slate-900">Exportar informe</h2>
-            <p className="text-[11px] text-slate-500">PDF / PPT mensuales e informes semanales</p>
+            <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">
+              Exportar informe
+            </h2>
+            <p className="text-[11px] text-[var(--color-muted)]">
+              PDF / PPT mensuales e informes semanales
+            </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 text-xl"
+            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
             aria-label="Cerrar"
           >
-            ×
+            <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
           </button>
         </header>
         <div className="flex-1 min-h-0 overflow-auto">
