@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import type { NoShowsUserSession, RiskyAppt, GapSlot, RecallAlert } from "../../lib/no-shows/types";
 import { riskColor } from "../../lib/no-shows/score";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { KpiCard } from "../ui/KpiCard";
+import { StatePill } from "../ui/StatePill";
+import { ErrorState, EmptyState } from "../ui/Feedback";
+import { ArrowRight, Calendar, Check, Clock, Info, RefreshCw, ICON_STROKE } from "../icons";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -99,35 +103,36 @@ function ApptRow({
   const color = riskColor(appt.riskLevel);
   const score = appt.scoreAccion ?? appt.riskScore;
   const scoreColorClass =
-    score >= 80 ? "bg-red-100 text-red-700 border-red-200" :
-    score >= 60 ? "bg-orange-100 text-orange-700 border-orange-200" :
-    score >= 40 ? "bg-blue-100 text-blue-700 border-blue-200" :
-                  "bg-slate-100 text-slate-600 border-slate-200";
+    score >= 80 ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/25" :
+    score >= 60 ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/25" :
+    score >= 40 ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-[color-mix(in_srgb,var(--color-accent)_25%,transparent)]" :
+                  "bg-[var(--color-surface-muted)] text-[var(--color-muted)] border-[var(--color-border)]";
 
   return (
     <button
       onClick={() => onNavigate(appt.id)}
-      className={`w-full text-left border-l-4 pl-3 py-2 rounded-r-xl transition-opacity hover:bg-slate-50 ${done ? "opacity-40" : ""}`}
+      className={`w-full text-left border-l-4 pl-3 py-2 rounded-r-xl transition-opacity hover:bg-[var(--color-surface-muted)] ${done ? "opacity-40" : ""}`}
       style={{ borderLeftColor: color }}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-bold text-slate-500 w-12 shrink-0">{appt.startDisplay}</span>
-            <span className="text-sm font-semibold text-slate-800 truncate">{appt.patientName}</span>
+            <span className="text-xs font-bold text-[var(--color-muted)] w-12 shrink-0">{appt.startDisplay}</span>
+            <span className="text-sm font-semibold text-[var(--color-foreground)] truncate">{appt.patientName}</span>
             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full border ${scoreColorClass}`}>
               {score}
             </span>
             {!appt.confirmed && (
-              <span className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-full font-semibold">
-                Sin confirmar
-              </span>
+              <StatePill variant="warning">Sin confirmar</StatePill>
             )}
             {appt.actionUrgent && (
-              <span className="text-[10px] text-red-700 font-bold">⏰ Urgente</span>
+              <span className="inline-flex items-center gap-1 text-[10px] text-[var(--color-danger)] font-bold">
+                <Clock size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                Urgente
+              </span>
             )}
           </div>
-          <p className="text-xs text-slate-500 mt-0.5 ml-14">
+          <p className="text-xs text-[var(--color-muted)] mt-0.5 ml-14">
             {appt.treatmentName}
             {appt.riskFactors.dayTimeLabel ? ` · ${appt.riskFactors.dayTimeLabel}` : ""}
             {appt.riskFactors.historicalNoShowCount > 0
@@ -141,19 +146,19 @@ function ApptRow({
               <a
                 href={`https://wa.me/${appt.patientPhone.replace(/\D/g, "")}?text=${encodeURIComponent(buildWhatsApp(appt))}`}
                 target="_blank" rel="noopener noreferrer"
-                className="p-1.5 rounded-xl bg-green-600 text-white text-[10px] font-bold hover:bg-green-700 transition-colors"
+                className="p-1.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white text-[10px] font-bold hover:bg-[var(--fyllio-wa-green-hover)] transition-colors"
               >WA</a>
             )}
             {appt.patientPhone && (
               <a href={`tel:${appt.patientPhone}`}
-                className="p-1.5 rounded-xl border border-slate-200 text-slate-600 text-[10px] hover:bg-slate-50 transition-colors"
+                className="p-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] text-[10px] hover:bg-[var(--color-surface-muted)] transition-colors"
               >Tel</a>
             )}
             <button
               onClick={(e) => { e.stopPropagation(); onDone(appt.id); }}
-              className="p-1.5 rounded-xl border border-slate-200 text-slate-400 text-[10px] hover:bg-slate-50 transition-colors"
+              className="p-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] transition-colors"
               title="Marcar hecho"
-            >✓</button>
+            ><Check size={12} strokeWidth={ICON_STROKE} aria-hidden /></button>
           </div>
         )}
       </div>
@@ -168,22 +173,10 @@ function MetricCards({ total, confirmed, enRiesgo, euros, label }: {
 }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
-        <p className="text-2xl font-black text-slate-800 leading-none">{total}</p>
-        <p className="text-xs text-slate-500 mt-1">{label}</p>
-      </div>
-      <div className="rounded-xl border border-green-100 bg-green-50 p-3">
-        <p className="text-2xl font-black text-green-700 leading-none">{confirmed}</p>
-        <p className="text-xs text-green-600 mt-1">Confirmadas</p>
-      </div>
-      <div className="rounded-xl border border-red-100 bg-red-50 p-3">
-        <p className="text-2xl font-black text-red-700 leading-none">{enRiesgo}</p>
-        <p className="text-xs text-red-600 mt-1">En riesgo</p>
-      </div>
-      <div className="rounded-xl border border-amber-100 bg-amber-50 p-3">
-        <p className="text-2xl font-black text-amber-700 leading-none">€{euros}</p>
-        <p className="text-xs text-amber-600 mt-1">€ en riesgo</p>
-      </div>
+      <KpiCard label={label} value={total} accent="neutral" />
+      <KpiCard label="Confirmadas" value={confirmed} accent="emerald" />
+      <KpiCard label="En riesgo" value={enRiesgo} accent="rose" />
+      <KpiCard label="€ en riesgo" value={euros} accent="amber" formatter={(n) => `€${n.toLocaleString("es-ES")}`} />
     </div>
   );
 }
@@ -316,7 +309,7 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
     return (
       <div className="flex-1 min-h-0 flex items-center justify-center">
         <div className="animate-pulse space-y-3 w-full">
-          {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-14 bg-slate-100 rounded-xl" />)}
+          {[1, 2, 3, 4, 5].map(i => <div key={i} className="h-14 bg-[var(--color-surface-muted)] rounded-xl" />)}
         </div>
       </div>
     );
@@ -324,8 +317,11 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
 
   if (!data) {
     return (
-      <div className="flex-1 min-h-0 flex items-center justify-center">
-        <p className="text-sm text-slate-500">Error cargando datos. Intenta refrescar.</p>
+      <div className="flex-1 min-h-0 flex flex-col justify-center">
+        <ErrorState
+          detail="Las citas de hoy no están disponibles en este momento."
+          onRetry={() => load(clinicaFilter || undefined)}
+        />
       </div>
     );
   }
@@ -343,48 +339,51 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
 
       {/* Demo banner */}
       {data.isDemo && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
-          <span className="font-semibold">Datos de demostración.</span>{" "}Conecta Airtable para ver datos reales.
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">
+          <span className="font-semibold">Esta clínica aún no tiene datos conectados.</span>{" "}Contacta con Fyllio para activarlos.
         </div>
       )}
 
       {/* ── Header permanente ── */}
-      <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-4">
+      <div className="rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] p-4 space-y-4">
         {/* Título + actualizar */}
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-              {isMañana ? "MAÑANA" : "HOY"}
+            <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wider">
+              {isMañana ? "Mañana" : "Hoy"}
             </p>
-            <p className="text-base font-extrabold text-slate-900 capitalize">{data.todayLabel}</p>
+            <p className="font-display text-base font-semibold text-[var(--color-foreground)] capitalize">{data.todayLabel}</p>
           </div>
           <button
             onClick={() => load(clinicaFilter || undefined)}
-            className="text-xs px-2.5 py-1.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors"
-          >↻ Actualizar</button>
+            className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] transition-colors"
+          >
+            <RefreshCw size={14} strokeWidth={ICON_STROKE} aria-hidden />
+            Actualizar
+          </button>
         </div>
 
         {/* Semáforo objetivo */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
-            <p className="text-xs font-semibold text-slate-600">Objetivo mensual no-shows</p>
+            <p className="text-xs font-semibold text-[var(--color-foreground)]">Objetivo mensual no-shows</p>
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-              semaforoColor === "green" ? "bg-green-100 text-green-700" :
-              semaforoColor === "amber" ? "bg-amber-100 text-amber-700" : "bg-red-100 text-red-700"
+              semaforoColor === "green" ? "bg-[var(--color-success-soft)] text-[var(--color-success)]" :
+              semaforoColor === "amber" ? "bg-[var(--color-warning-soft)] text-[var(--color-warning)]" : "bg-[var(--color-danger-soft)] text-[var(--color-danger)]"
             }`}>
               {semaforoColor === "green" ? "En objetivo" : semaforoColor === "amber" ? "Cerca del límite" : "Fuera de objetivo"}
             </span>
           </div>
-          <div className="relative h-2 rounded-full bg-slate-100 overflow-hidden">
-            <div className="absolute top-0 bottom-0 w-px bg-slate-500 z-10" style={{ left: `${Math.min(98, objetivo)}%` }} />
+          <div className="relative h-2 rounded-full bg-[var(--color-surface-muted)] overflow-hidden">
+            <div className="absolute top-0 bottom-0 w-px bg-[var(--color-muted)] z-10" style={{ left: `${Math.min(98, objetivo)}%` }} />
             <div
               className={`absolute left-0 top-0 bottom-0 rounded-full transition-all ${
-                semaforoColor === "green" ? "bg-green-400" : semaforoColor === "amber" ? "bg-amber-400" : "bg-red-500"
+                semaforoColor === "green" ? "bg-[var(--color-success)]" : semaforoColor === "amber" ? "bg-[var(--color-warning)]" : "bg-[var(--color-danger)]"
               }`}
               style={{ width: `${Math.min(100, tasaRiesgoHoy)}%` }}
             />
           </div>
-          <div className="flex justify-between text-[10px] text-slate-400 mt-1">
+          <div className="flex justify-between text-[10px] text-[var(--color-muted)] mt-1">
             <span>0%</span>
             <span>Objetivo: {objetivo}%</span>
             <span>Riesgo hoy: {tasaRiesgoHoy}%</span>
@@ -401,7 +400,9 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
               <button key={s.id}
                 onClick={() => setDoctorFilter(s.id)}
                 className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap ${
-                  doctorFilter === s.id ? "bg-violet-700 text-white border-violet-700" : "bg-white text-slate-600 border-slate-200 hover:border-violet-300"
+                  doctorFilter === s.id
+                    ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
+                    : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-accent)]"
                 }`}>
                 {s.nombre}
               </button>
@@ -412,9 +413,9 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
 
       {/* Banner mañana */}
       {isMañana && (
-        <div className="rounded-2xl bg-blue-50 border border-blue-200 px-4 py-2.5 flex items-center gap-2">
-          <span className="text-base shrink-0">ℹ️</span>
-          <p className="text-sm text-blue-800">
+        <div className="rounded-2xl bg-[var(--color-accent-soft)] border border-[color-mix(in_srgb,var(--color-accent)_25%,transparent)] px-4 py-2.5 flex items-center gap-2">
+          <Info size={16} strokeWidth={ICON_STROKE} className="text-[var(--color-accent)] shrink-0" aria-hidden />
+          <p className="text-sm text-[var(--color-foreground)]">
             <span className="font-semibold">Mostrando citas de mañana</span>
             {" · "}<span className="capitalize">{data.todayLabel}</span>
           </p>
@@ -447,9 +448,11 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
 
             {/* Cards por clínica */}
             {apptsByClinica.size === 0 ? (
-              <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
-                <p className="text-sm text-slate-400">Sin citas para hoy en ninguna clínica</p>
-              </div>
+              <EmptyState
+                icon={<Calendar size={20} strokeWidth={ICON_STROKE} />}
+                title="Sin citas para hoy en ninguna clínica"
+                hint="Cuando haya citas programadas aparecerán aquí."
+              />
             ) : [...apptsByClinica.entries()].map(([clinicaId, { nombre, appts }]) => {
               const enRiesgo = appts.filter(isEnRiesgo).length;
               const altoRiesgo = appts.filter(a => (a.scoreAccion ?? a.riskScore) >= 80).length;
@@ -465,24 +468,24 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
               }
 
               return (
-                <div key={clinicaId} className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
+                <div key={clinicaId} className="rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] p-4 space-y-3">
                   {/* Header clínica */}
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-bold text-slate-800">{nombre}</p>
+                    <p className="font-display text-sm font-semibold text-[var(--color-foreground)]">{nombre}</p>
                     <div className="flex items-center gap-2">
                       {altoRiesgo > 0 && (
-                        <span className="animate-pulse text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
-                          ATENCIÓN
+                        <span className="animate-pulse text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/25">
+                          Atención
                         </span>
                       )}
                       {enRiesgo > 0 && (
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200">
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/25">
                           {enRiesgo} en riesgo
                         </span>
                       )}
                     </div>
                   </div>
-                  <p className="text-xs text-slate-400">
+                  <p className="text-xs text-[var(--color-muted)]">
                     {appts.length} citas · {confirmadas} confirmadas · €{euros.toLocaleString("es-ES")} en riesgo
                   </p>
                   {/* Filas de doctor */}
@@ -500,11 +503,11 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
                             if (rec) setSelectedClinicaId(rec);
                             setDoctorFilter(doctorId);
                           }}
-                          className="w-full flex items-center justify-between text-left px-3 py-2 rounded-xl hover:bg-slate-50 border border-transparent hover:border-slate-200 transition-all">
-                          <span className="text-xs font-semibold text-slate-700">{dNombre}</span>
-                          <span className="text-xs text-slate-500">
+                          className="w-full flex items-center justify-between text-left px-3 py-2 rounded-xl hover:bg-[var(--color-surface-muted)] border border-transparent hover:border-[var(--color-border)] transition-all">
+                          <span className="text-xs font-semibold text-[var(--color-foreground)]">{dNombre}</span>
+                          <span className="text-xs text-[var(--color-muted)]">
                             {dAppts.length} citas
-                            {dRiesgo > 0 && <span className="ml-2 text-red-600 font-semibold">· {dRiesgo} en riesgo</span>}
+                            {dRiesgo > 0 && <span className="ml-2 text-[var(--color-danger)] font-semibold">· {dRiesgo} en riesgo</span>}
                           </span>
                         </button>
                       );
@@ -539,7 +542,7 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
           <>
             {/* Header clínica */}
             <div className="px-1">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{clinicaNombre}</p>
+              <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wider">{clinicaNombre}</p>
             </div>
             <MetricCards
               total={clinicaAppts.length}
@@ -551,9 +554,11 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
 
             {/* Cards por doctor */}
             {porDoctor.size === 0 ? (
-              <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
-                <p className="text-sm text-slate-400">Sin citas para hoy en esta clínica</p>
-              </div>
+              <EmptyState
+                icon={<Calendar size={20} strokeWidth={ICON_STROKE} />}
+                title="Sin citas para hoy en esta clínica"
+                hint="Cuando haya citas programadas aparecerán aquí."
+              />
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {[...porDoctor.entries()].map(([doctorId, { nombre, appts: dAppts }]) => {
@@ -561,16 +566,32 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
                   const sinConf = dAppts.filter(a => !a.confirmed).length;
                   const conf = dAppts.filter(a => a.confirmed).length;
                   return (
-                    <div key={doctorId} className="rounded-2xl bg-white border border-slate-200 p-4 space-y-2">
-                      <p className="text-sm font-bold text-slate-800">{nombre}</p>
-                      <p className="text-xs text-slate-500">{dAppts.length} citas hoy</p>
-                      {dEnRiesgo > 0 && <p className="text-xs text-red-600 font-semibold">🔴 {dEnRiesgo} en riesgo</p>}
-                      {sinConf > 0 && <p className="text-xs text-amber-600 font-semibold">🟡 {sinConf} sin confirmar</p>}
-                      {conf > 0 && <p className="text-xs text-green-600">✅ {conf} confirmada{conf > 1 ? "s" : ""}</p>}
+                    <div key={doctorId} className="rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] p-4 space-y-2">
+                      <p className="font-display text-sm font-semibold text-[var(--color-foreground)]">{nombre}</p>
+                      <p className="text-xs text-[var(--color-muted)]">{dAppts.length} citas hoy</p>
+                      {dEnRiesgo > 0 && (
+                        <p className="flex items-center gap-1.5 text-xs text-[var(--color-danger)] font-semibold">
+                          <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-danger)] shrink-0" aria-hidden />
+                          {dEnRiesgo} en riesgo
+                        </p>
+                      )}
+                      {sinConf > 0 && (
+                        <p className="flex items-center gap-1.5 text-xs text-[var(--color-warning)] font-semibold">
+                          <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-warning)] shrink-0" aria-hidden />
+                          {sinConf} sin confirmar
+                        </p>
+                      )}
+                      {conf > 0 && (
+                        <p className="flex items-center gap-1.5 text-xs text-[var(--color-success)]">
+                          <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-success)] shrink-0" aria-hidden />
+                          {conf} confirmada{conf > 1 ? "s" : ""}
+                        </p>
+                      )}
                       <button
                         onClick={() => setDoctorFilter(doctorId)}
-                        className="w-full mt-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors px-3 py-1.5 text-xs font-semibold text-slate-700">
-                        Ver agenda del día →
+                        className="w-full mt-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] hover:bg-[var(--color-surface)] transition-colors px-3 py-1.5 text-xs font-semibold text-[var(--color-foreground)] inline-flex items-center justify-center gap-1">
+                        Ver agenda del día
+                        <ArrowRight size={12} strokeWidth={ICON_STROKE} aria-hidden />
                       </button>
                     </div>
                   );
@@ -580,8 +601,8 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
 
             {/* Resumen huecos */}
             {data.gaps.length > 0 && (
-              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs text-slate-500">
+              <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4">
+                <p className="text-xs text-[var(--color-muted)]">
                   {data.gaps.length} huecos disponibles hoy
                   {data.recalls.length > 0 && ` · ${data.recalls.length} pacientes en recall`}
                 </p>
@@ -613,7 +634,7 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
           <>
             {/* Header doctor */}
             <div className="px-1">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{doctorNombre}</p>
+              <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wider">{doctorNombre}</p>
             </div>
             <MetricCards
               total={doctorAppts.length}
@@ -625,9 +646,9 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
 
             {/* Citas HIGH */}
             {highAppts.length > 0 && (
-              <div className="rounded-2xl border border-red-200 bg-red-50 p-4 space-y-2">
-                <p className="text-xs font-bold text-red-700 uppercase tracking-wider">
-                  Riesgo ALTO · actuar antes del deadline
+              <div className="rounded-2xl border border-rose-200 bg-rose-50 dark:border-rose-500/25 dark:bg-rose-500/10 p-4 space-y-2">
+                <p className="text-[11px] font-bold text-rose-700 dark:text-rose-300 uppercase tracking-wider">
+                  Riesgo alto · actuar antes del plazo
                 </p>
                 <div className="space-y-2">
                   {highAppts.map(a => (
@@ -639,8 +660,8 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
 
             {/* Citas MED + LOW */}
             {medLowAppts.length > 0 && (
-              <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-2">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <div className="rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] p-4 space-y-2">
+                <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wider">
                   Resto de citas
                 </p>
                 <div className="space-y-2">
@@ -653,25 +674,28 @@ export default function HoyView({ user }: { user: NoShowsUserSession }) {
 
             {/* Empty state */}
             {doctorAppts.length === 0 && (
-              <div className="rounded-2xl bg-white border border-slate-200 p-8 text-center">
-                <p className="text-sm text-slate-400">Sin citas para este doctor hoy</p>
-              </div>
+              <EmptyState
+                icon={<Calendar size={20} strokeWidth={ICON_STROKE} />}
+                title="Sin citas para este doctor hoy"
+                hint="Cuando tenga citas programadas aparecerán aquí."
+              />
             )}
 
             {/* Huecos del doctor */}
             {doctorGaps.length > 0 && (
-              <div className="rounded-2xl bg-slate-50 border border-slate-200 p-4 space-y-2">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Huecos disponibles hoy</p>
+              <div className="rounded-2xl bg-[var(--color-surface-muted)] border border-[var(--color-border)] p-4 space-y-2">
+                <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wider">Huecos disponibles hoy</p>
                 {doctorGaps.map((gap, i) => (
                   <div key={i} className="flex items-center gap-3 py-1.5">
-                    <span className="text-xs font-semibold text-slate-600 w-24 shrink-0">
+                    <span className="text-xs font-semibold text-[var(--color-foreground)] w-24 shrink-0">
                       {gap.startDisplay}–{gap.endDisplay}
                     </span>
-                    <span className="text-xs text-slate-400">{gap.durationMin} min disponibles</span>
+                    <span className="text-xs text-[var(--color-muted)]">{gap.durationMin} min disponibles</span>
                     <button
                       onClick={() => router.push("/no-shows?tab=acciones")}
-                      className="ml-auto text-xs text-cyan-600 hover:underline shrink-0">
-                      Ver candidatos →
+                      className="ml-auto text-xs text-[var(--color-accent)] hover:underline shrink-0 inline-flex items-center gap-1">
+                      Ver candidatos
+                      <ArrowRight size={12} strokeWidth={ICON_STROKE} aria-hidden />
                     </button>
                   </div>
                 ))}

@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { NoShowsUserSession, RiskyAppt, RecallAlert, RiskData } from "../../lib/no-shows/types";
+import { ErrorState } from "../ui/Feedback";
+import { Bell, Check, ChevronDown, ChevronLeft, ChevronRight, Clock, ICON_STROKE } from "../icons";
 
 
 // ─── Tipo extendido (API v2) ──────────────────────────────────────────────────
@@ -131,11 +133,11 @@ function buildRecallWhatsApp(recall: RecallAlert): string {
 
 function RecallCard({ recall }: { recall: RecallAlert }) {
   return (
-    <div className="flex items-center gap-3 py-2 px-3 bg-orange-50 border border-orange-200 rounded-xl">
+    <div className="flex items-center gap-3 py-2 px-3 bg-amber-50 border border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/25 rounded-xl">
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-semibold text-slate-800 truncate">{recall.patientName}</p>
-        <p className="text-xs text-slate-500 truncate">{recall.treatmentName}</p>
-        <p className="text-xs text-orange-700 font-medium mt-0.5">
+        <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{recall.patientName}</p>
+        <p className="text-xs text-[var(--color-muted)] truncate">{recall.treatmentName}</p>
+        <p className="text-xs text-amber-700 dark:text-amber-300 font-medium mt-0.5">
           {recall.weeksSinceLast} sem. sin próxima cita
           {recall.clinica ? ` · ${recall.clinica}` : ""}
         </p>
@@ -145,13 +147,13 @@ function RecallCard({ recall }: { recall: RecallAlert }) {
           <a
             href={`https://wa.me/${recall.patientPhone.replace(/\D/g, "")}?text=${encodeURIComponent(buildRecallWhatsApp(recall))}`}
             target="_blank" rel="noopener noreferrer"
-            className="p-1.5 rounded-xl bg-green-600 text-white text-xs hover:bg-green-700 transition-colors"
+            className="p-1.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white text-xs hover:bg-[var(--fyllio-wa-green-hover)] transition-colors"
           >WA</a>
         )}
         {recall.patientPhone && (
           <a
             href={`tel:${recall.patientPhone}`}
-            className="p-1.5 rounded-xl border border-slate-200 text-slate-600 text-xs hover:bg-slate-50 transition-colors"
+            className="p-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] text-xs hover:bg-[var(--color-surface-muted)] transition-colors"
           >Tel</a>
         )}
       </div>
@@ -172,32 +174,32 @@ function KanbanRiskCard({
 }) {
   const isLow = appt.riskLevel === "LOW";
   const bgBorder =
-    appt.riskLevel === "HIGH"   ? "border-red-200 bg-red-50" :
-    appt.riskLevel === "MEDIUM" ? "border-amber-200 bg-amber-50" :
-    "border-slate-200 bg-white";
+    appt.riskLevel === "HIGH"   ? "border-rose-200 bg-rose-50 dark:border-rose-500/25 dark:bg-rose-500/10" :
+    appt.riskLevel === "MEDIUM" ? "border-amber-200 bg-amber-50 dark:border-amber-500/25 dark:bg-amber-500/10" :
+    "border-[var(--color-border)] bg-[var(--color-surface)]";
   const scoreBadge =
-    appt.riskLevel === "HIGH"   ? "bg-red-500 text-white" :
-    appt.riskLevel === "MEDIUM" ? "bg-amber-500 text-white" :
-    "bg-slate-200 text-slate-600";
+    appt.riskLevel === "HIGH"   ? "bg-[var(--color-danger)] text-white" :
+    appt.riskLevel === "MEDIUM" ? "bg-[var(--color-warning)] text-white" :
+    "bg-[var(--color-surface-muted)] text-[var(--color-muted)]";
 
   return (
     <div className={`rounded-xl border p-2.5 transition-opacity ${bgBorder} ${isLow ? "opacity-60" : ""} ${done ? "opacity-30" : ""}`}>
       <div className="flex items-start justify-between gap-1 mb-0.5">
-        <p className="text-xs font-bold text-slate-800 leading-snug break-words min-w-0">
+        <p className="text-xs font-bold text-[var(--color-foreground)] leading-snug break-words min-w-0">
           {appt.patientName}
         </p>
         <span className={`shrink-0 text-[10px] font-bold rounded-full px-1.5 py-0.5 ml-1 ${scoreBadge}`}>
           {appt.riskScore}
         </span>
       </div>
-      <p className="text-[10px] text-slate-500 truncate">{appt.treatmentName}</p>
-      <p className="text-[10px] text-slate-400">
+      <p className="text-[10px] text-[var(--color-muted)] truncate">{appt.treatmentName}</p>
+      <p className="text-[10px] text-[var(--color-muted)] inline-flex items-center gap-1">
         {appt.startDisplay}
-        {appt.actionUrgent ? " ⏰" : ""}
+        {appt.actionUrgent && <Clock size={10} strokeWidth={ICON_STROKE} className="text-[var(--color-danger)]" aria-hidden />}
         {!appt.confirmed ? " · sin conf." : ""}
       </p>
       {(appt.riskFactors.dayTimeLabel || appt.riskFactors.historicalNoShowCount > 0) && (
-        <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+        <p className="text-[10px] text-[var(--color-muted)] mt-0.5 leading-tight">
           {[
             appt.riskFactors.dayTimeLabel,
             appt.riskFactors.historicalNoShowCount > 0
@@ -212,19 +214,20 @@ function KanbanRiskCard({
             <a
               href={`https://wa.me/${appt.patientPhone.replace(/\D/g, "")}?text=${encodeURIComponent(buildWhatsApp(appt))}`}
               target="_blank" rel="noopener noreferrer"
-              className="flex-1 text-center text-[10px] font-bold py-1 rounded-lg bg-green-500 text-white hover:bg-green-600 transition-colors"
+              className="flex-1 text-center text-[10px] font-bold py-1 rounded-lg bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)] transition-colors"
             >WA</a>
           )}
           {appt.patientPhone && (
             <a
               href={`tel:${appt.patientPhone}`}
-              className="flex-1 text-center text-[10px] font-bold py-1 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 transition-colors"
+              className="flex-1 text-center text-[10px] font-bold py-1 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] transition-colors"
             >Tel</a>
           )}
           <button
             onClick={() => onDone(appt.id)}
-            className="flex-1 text-center text-[10px] font-bold py-1 rounded-lg bg-cyan-100 text-cyan-700 hover:bg-cyan-200 transition-colors"
-          >✓</button>
+            title="Marcar hecho"
+            className="flex-1 flex items-center justify-center py-1 rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-[var(--color-on-accent)] transition-colors"
+          ><Check size={12} strokeWidth={ICON_STROKE} aria-hidden /></button>
         </div>
       )}
     </div>
@@ -261,26 +264,26 @@ function DayColumn({
 
   return (
     <div className="flex-1 min-w-[148px] max-w-[220px]">
-      <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden h-full flex flex-col">
+      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden h-full flex flex-col">
         {/* Column header */}
-        <div className={`px-3 py-2.5 border-b ${hasRisk ? "border-red-100 bg-red-50" : "border-slate-100 bg-slate-50"}`}>
-          <p className="text-xs font-bold text-slate-700">{formatShortDay(dayIso)}</p>
-          <p className="text-[10px] text-slate-400">{formatShortDate(dayIso)}</p>
+        <div className={`px-3 py-2.5 border-b ${hasRisk ? "border-rose-200 bg-rose-50 dark:border-rose-500/25 dark:bg-rose-500/10" : "border-[var(--color-border)] bg-[var(--color-surface-muted)]"}`}>
+          <p className="text-xs font-bold text-[var(--color-foreground)]">{formatShortDay(dayIso)}</p>
+          <p className="text-[10px] text-[var(--color-muted)]">{formatShortDate(dayIso)}</p>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
-            <span className="text-[10px] text-slate-500">{appts.length} cita{appts.length !== 1 ? "s" : ""}</span>
+            <span className="text-[10px] text-[var(--color-muted)]">{appts.length} cita{appts.length !== 1 ? "s" : ""}</span>
             {euros > 0 && (
-              <span className="text-[10px] font-semibold text-amber-600">€{euros}</span>
+              <span className="text-[10px] font-semibold text-amber-700 dark:text-amber-300">€{euros}</span>
             )}
           </div>
           {hasRisk && (
             <div className="flex gap-1.5 mt-1">
               {highCount > 0 && (
-                <span className="text-[10px] font-bold text-red-600 bg-red-100 rounded-full px-1.5 py-0.5">
+                <span className="text-[10px] font-bold text-rose-700 bg-rose-100 dark:text-rose-300 dark:bg-rose-500/15 rounded-full px-1.5 py-0.5">
                   {highCount}A
                 </span>
               )}
               {medCount > 0 && (
-                <span className="text-[10px] font-semibold text-amber-600 bg-amber-100 rounded-full px-1.5 py-0.5">
+                <span className="text-[10px] font-semibold text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-500/15 rounded-full px-1.5 py-0.5">
                   {medCount}M
                 </span>
               )}
@@ -291,7 +294,7 @@ function DayColumn({
         {/* Cards */}
         <div className="p-2 space-y-2 flex-1">
           {sorted.length === 0 ? (
-            <p className="text-[10px] text-slate-300 text-center py-4">Sin citas</p>
+            <p className="text-[10px] text-[var(--color-muted)] text-center py-4">Sin citas</p>
           ) : (
             sorted.map((a) => (
               <KanbanRiskCard
@@ -386,9 +389,9 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
     return (
       <div className="flex-1 min-h-0 flex items-center justify-center">
         <div className="animate-pulse space-y-3 w-full">
-          <div className="h-20 bg-slate-100 rounded-2xl" />
+          <div className="h-20 bg-[var(--color-surface-muted)] rounded-2xl" />
           <div className="flex gap-3">
-            {[1,2,3,4,5].map((i) => <div key={i} className="flex-1 h-48 bg-slate-100 rounded-2xl" />)}
+            {[1,2,3,4,5].map((i) => <div key={i} className="flex-1 h-48 bg-[var(--color-surface-muted)] rounded-2xl" />)}
           </div>
         </div>
       </div>
@@ -397,8 +400,11 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
 
   if (!data) {
     return (
-      <div className="flex-1 min-h-0 flex items-center justify-center">
-        <p className="text-sm text-slate-500">Error cargando datos. Intenta refrescar.</p>
+      <div className="flex-1 min-h-0 flex flex-col justify-center">
+        <ErrorState
+          detail="Las citas en riesgo de esta semana no están disponibles en este momento."
+          onRetry={() => load(week, clinicaFilter || undefined)}
+        />
       </div>
     );
   }
@@ -425,47 +431,49 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
 
       {/* Demo banner */}
       {data.isDemo && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800">
-          <span className="font-semibold">Datos de demostración.</span>{" "}
-          Conecta Airtable para ver datos reales.
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-xs text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">
+          <span className="font-semibold">Esta clínica aún no tiene datos conectados.</span>{" "}
+          Contacta con Fyllio para activarlos.
         </div>
       )}
 
       {/* ── Header ── */}
-      <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-3">
+      <div className="rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] p-4 space-y-3">
         {/* Navegación de semana */}
         <div className="flex items-center justify-between gap-2">
           <button
             onClick={() => goWeek(-1)}
-            className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors text-sm"
-          >←</button>
+            aria-label="Semana anterior"
+            className="p-2 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] transition-colors"
+          ><ChevronLeft size={16} strokeWidth={ICON_STROKE} aria-hidden /></button>
           <div className="text-center flex-1">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-              SEMANA {data.week?.replace(/.*-W/, "")}
+            <p className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wider">
+              Semana {data.week?.replace(/.*-W/, "")}
             </p>
-            <p className="text-sm font-bold text-slate-900">{weekRangeLabel(week)}</p>
+            <p className="text-sm font-bold text-[var(--color-foreground)]">{weekRangeLabel(week)}</p>
             {isCurrentWeek && (
-              <p className="text-[10px] text-cyan-600 font-semibold">Semana actual</p>
+              <p className="text-[10px] text-[var(--color-accent)] font-semibold">Semana actual</p>
             )}
           </div>
           <button
             onClick={() => goWeek(1)}
-            className="p-2 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50 transition-colors text-sm"
-          >→</button>
+            aria-label="Semana siguiente"
+            className="p-2 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] transition-colors"
+          ><ChevronRight size={16} strokeWidth={ICON_STROKE} aria-hidden /></button>
         </div>
 
         {/* 5 Summary cards */}
         <div className="grid grid-cols-5 gap-2">
           {[
-            { label: "Total",    value: data.summary.totalAppointments,        bg: "bg-slate-50 border-slate-200",   text: "text-slate-800"  },
-            { label: "Alto",     value: data.summary.highRisk,                 bg: "bg-red-50 border-red-200",       text: "text-red-700"    },
-            { label: "Medio",    value: data.summary.mediumRisk,               bg: "bg-amber-50 border-amber-200",   text: "text-amber-700"  },
-            { label: "€ riesgo", value: `€${data.summary.eurosEnRiesgo ?? 0}`, bg: "bg-orange-50 border-orange-200", text: "text-orange-700" },
-            { label: "Recall",   value: data.summary.recallCount,              bg: "bg-orange-50 border-orange-200", text: "text-orange-700" },
+            { label: "Total",    value: data.summary.totalAppointments,        bg: "bg-[var(--color-surface-muted)] border-[var(--color-border)]", text: "text-[var(--color-foreground)]" },
+            { label: "Alto",     value: data.summary.highRisk,                 bg: "bg-rose-50 border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/25",     text: "text-rose-700 dark:text-rose-300"   },
+            { label: "Medio",    value: data.summary.mediumRisk,               bg: "bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/25", text: "text-amber-700 dark:text-amber-300" },
+            { label: "€ riesgo", value: `€${data.summary.eurosEnRiesgo ?? 0}`, bg: "bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/25", text: "text-amber-700 dark:text-amber-300" },
+            { label: "Recall",   value: data.summary.recallCount,              bg: "bg-amber-50 border-amber-200 dark:bg-amber-500/10 dark:border-amber-500/25", text: "text-amber-700 dark:text-amber-300" },
           ].map(({ label, value, bg, text }) => (
             <div key={label} className={`text-center py-2.5 rounded-xl border ${bg}`}>
-              <p className={`text-2xl font-black leading-none ${text}`}>{value}</p>
-              <p className="text-[10px] text-slate-500 mt-1 leading-none">{label}</p>
+              <p className={`font-display text-2xl font-bold tabular-nums leading-none ${text}`}>{value}</p>
+              <p className="text-[10px] uppercase tracking-wider text-[var(--color-muted)] mt-1 leading-none">{label}</p>
             </div>
           ))}
         </div>
@@ -478,8 +486,8 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
                 onClick={() => handleClinicaChange(c.id)}
                 className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap
                   ${clinicaFilter === c.id
-                    ? "bg-slate-900 text-white border-slate-900"
-                    : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"}`}>
+                    ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
+                    : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-accent)]"}`}>
                 {c.nombre}
               </button>
             ))}
@@ -500,8 +508,8 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
                   onClick={() => setProfesionalFilter(p.id)}
                   className={`shrink-0 rounded-full px-4 py-1.5 text-sm border transition-all whitespace-nowrap
                     ${profesionalFilter === p.id
-                      ? "bg-violet-700 text-white border-violet-700"
-                      : "bg-white text-slate-600 border-slate-200 hover:border-violet-300"}`}>
+                      ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
+                      : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-accent)]"}`}>
                   {p.nombre}
                 </button>
               ))}
@@ -527,20 +535,23 @@ export default function RiesgoView({ user }: { user: NoShowsUserSession }) {
 
       {/* ── RECALL (colapsable al fondo) ── */}
       {data.recalls.length > 0 && (
-        <details className="rounded-2xl bg-white border border-orange-200 overflow-hidden">
+        <details className="rounded-2xl bg-[var(--color-surface)] border border-amber-200 dark:border-amber-500/25 overflow-hidden">
           <summary className="cursor-pointer px-4 py-3 flex items-center justify-between select-none list-none">
             <div className="flex items-center gap-2">
-              <span className="text-sm">🔔</span>
-              <p className="text-sm font-semibold text-orange-800">
+              <Bell size={16} strokeWidth={ICON_STROKE} className="text-amber-700 dark:text-amber-300 shrink-0" aria-hidden />
+              <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
                 Pacientes en tratamiento activo sin próxima cita
               </p>
-              <span className="text-xs text-orange-600 font-bold bg-orange-100 rounded-full px-1.5 py-0.5">
+              <span className="text-xs text-amber-700 dark:text-amber-300 font-bold bg-amber-100 dark:bg-amber-500/15 rounded-full px-1.5 py-0.5">
                 {data.recalls.length}
               </span>
             </div>
-            <span className="text-xs text-slate-400">Ver ▾</span>
+            <span className="inline-flex items-center gap-1 text-xs text-[var(--color-muted)]">
+              Ver
+              <ChevronDown size={12} strokeWidth={ICON_STROKE} aria-hidden />
+            </span>
           </summary>
-          <div className="border-t border-orange-100 p-4 space-y-2">
+          <div className="border-t border-amber-200 dark:border-amber-500/25 p-4 space-y-2">
             {data.recalls.map((recall) => (
               <RecallCard key={recall.patientPhone + recall.treatmentName} recall={recall} />
             ))}

@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 import type { NoShowsUserSession } from "../../lib/no-shows/types";
+import { Check, ICON_STROKE } from "../icons";
 
 // ─── Types + Storage ──────────────────────────────────────────────────────────
 
@@ -68,7 +70,7 @@ function Toggle({
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`mt-0.5 w-10 h-5 rounded-full transition-colors relative shrink-0 ${
-          checked ? "bg-cyan-500" : "bg-slate-200"
+          checked ? "bg-[var(--color-accent)]" : "bg-[var(--color-border)]"
         }`}
       >
         <span
@@ -78,9 +80,9 @@ function Toggle({
         />
       </button>
       <div className="min-w-0">
-        <p className="text-sm text-slate-800 leading-tight">{label}</p>
+        <p className="text-sm text-[var(--color-foreground)] leading-tight">{label}</p>
         {description && (
-          <p className="text-xs text-slate-400 mt-0.5 leading-snug">{description}</p>
+          <p className="text-xs text-[var(--color-muted)] mt-0.5 leading-snug">{description}</p>
         )}
       </div>
     </label>
@@ -93,10 +95,10 @@ function SectionCard({ title, subtitle, children }: {
   title: string; subtitle?: string; children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-2xl bg-white border border-slate-200 p-4 space-y-4">
+    <div className="rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] p-4 space-y-4">
       <div>
-        <p className="text-sm font-bold text-slate-800">{title}</p>
-        {subtitle && <p className="text-xs text-slate-400 mt-0.5">{subtitle}</p>}
+        <p className="font-display text-base font-semibold text-[var(--color-foreground)]">{title}</p>
+        {subtitle && <p className="text-xs text-[var(--color-muted)] mt-0.5">{subtitle}</p>}
       </div>
       {children}
     </div>
@@ -131,13 +133,14 @@ export default function ConfigView({ user }: { user: NoShowsUserSession }) {
   function handleSave() {
     saveConfig(cfg);
     setSaved(true);
+    toast.success("Configuración guardada");
     setTimeout(() => setSaved(false), 2500);
   }
 
   if (!isManager) {
     return (
       <div className="flex-1 min-h-0 flex items-center justify-center">
-        <p className="text-sm text-slate-500">Solo disponible para managers.</p>
+        <p className="text-sm text-[var(--color-muted)]">Solo disponible para managers.</p>
       </div>
     );
   }
@@ -164,7 +167,7 @@ export default function ConfigView({ user }: { user: NoShowsUserSession }) {
         subtitle="Tasa de no-show objetivo. Se usa en el semáforo de HOY y en las métricas de KPIs."
       >
         <div className="flex items-center gap-3">
-          <label className="text-sm text-slate-700 shrink-0">Tasa objetivo</label>
+          <label className="text-sm text-[var(--color-foreground)] shrink-0">Tasa objetivo</label>
           <div className="flex items-center gap-2">
             <input
               type="number"
@@ -173,29 +176,29 @@ export default function ConfigView({ user }: { user: NoShowsUserSession }) {
               step={1}
               value={cfg.objetivoMensual}
               onChange={(e) => update({ objetivoMensual: Number(e.target.value) })}
-              className="w-20 rounded-xl border border-slate-200 px-2 py-1.5 text-sm font-bold text-slate-800 text-center focus:outline-none focus:ring-2 focus:ring-cyan-300"
+              className="w-20 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-2 py-1.5 text-sm font-bold text-[var(--color-foreground)] text-center focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
             />
-            <span className="text-sm text-slate-400">%</span>
+            <span className="text-sm text-[var(--color-muted)]">%</span>
           </div>
         </div>
 
         {/* Semáforo preview */}
         <div className="flex items-center gap-2 text-xs">
           <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-green-500" />
-            <span className="text-slate-600">
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-[var(--color-success)]" aria-hidden />
+            <span className="text-[var(--color-muted)]">
               Verde: tasa &lt; {cfg.objetivoMensual}%
             </span>
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-amber-400" />
-            <span className="text-slate-600">
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-[var(--color-warning)]" aria-hidden />
+            <span className="text-[var(--color-muted)]">
               Ámbar: {cfg.objetivoMensual}–{cfg.objetivoMensual + 3}%
             </span>
           </span>
           <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-500" />
-            <span className="text-slate-600">
+            <span className="inline-block w-2.5 h-2.5 rounded-full bg-[var(--color-danger)]" aria-hidden />
+            <span className="text-[var(--color-muted)]">
               Rojo: &gt; {cfg.objetivoMensual + 3}%
             </span>
           </span>
@@ -212,7 +215,7 @@ export default function ConfigView({ user }: { user: NoShowsUserSession }) {
             checked={cfg.notificaciones.noShow}
             onChange={(v) => updateNotif("noShow", v)}
             label="No-show detectado"
-            description="Cuando una cita pasa a estado NO_SHOW en Airtable"
+            description="Cuando una cita se marca como no asistida"
           />
           <Toggle
             checked={cfg.notificaciones.confirmada}
@@ -241,11 +244,18 @@ export default function ConfigView({ user }: { user: NoShowsUserSession }) {
           onClick={handleSave}
           className={`px-5 py-2.5 rounded-2xl text-sm font-bold transition-all ${
             saved
-              ? "bg-green-500 text-white scale-95"
-              : "bg-cyan-600 text-white hover:bg-cyan-700"
+              ? "bg-[var(--color-success)] text-white scale-95"
+              : "bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
           }`}
         >
-          {saved ? "✓ Guardado" : "Guardar cambios"}
+          {saved ? (
+            <span className="inline-flex items-center gap-1.5">
+              <Check size={14} strokeWidth={ICON_STROKE} aria-hidden />
+              Guardado
+            </span>
+          ) : (
+            "Guardar cambios"
+          )}
         </button>
       </div>
     </div>
