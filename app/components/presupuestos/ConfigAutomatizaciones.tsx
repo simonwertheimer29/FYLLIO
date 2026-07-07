@@ -1093,17 +1093,19 @@ function SectionPlantillas({ user }: { user: UserSession }) {
       };
       if (editingPlantilla) {
         body.id = editingPlantilla.id;
-        await fetch("/api/presupuestos/plantillas", {
+        const res = await fetch("/api/presupuestos/plantillas", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
       } else {
-        await fetch("/api/presupuestos/plantillas", {
+        const res = await fetch("/api/presupuestos/plantillas", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(body),
         });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
       }
       setModalOpen(false);
       fetchPlantillas();
@@ -1116,11 +1118,12 @@ function SectionPlantillas({ user }: { user: UserSession }) {
 
   async function handleDelete(id: string) {
     try {
-      await fetch("/api/presupuestos/plantillas", {
+      const res = await fetch("/api/presupuestos/plantillas", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setPlantillas((prev) => prev.filter((p) => p.id !== id));
       if (editingPlantilla?.id === id) setModalOpen(false);
       toast.success("Plantilla eliminada");

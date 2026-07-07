@@ -57,11 +57,12 @@ export default function ColaMensajes({ clinica }: Props) {
 
   async function handleAccion(id: string, accion: "enviar" | "descartar" | "editar", mensaje?: string) {
     try {
-      await fetch("/api/automatizaciones/secuencias", {
+      const res = await fetch("/api/automatizaciones/secuencias", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, accion, mensaje }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       if (accion === "enviar" || accion === "descartar") {
         setSecuencias((prev) => prev.filter((s) => s.id !== id));
         toast.success(accion === "enviar" ? "Mensaje enviado" : "Mensaje descartado");

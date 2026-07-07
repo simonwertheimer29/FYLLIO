@@ -97,7 +97,10 @@ export function CobrosTabView() {
     if (filtroUrgencia !== "todas") url.searchParams.set("urgencia", filtroUrgencia);
     if (filtroAntiguedad !== "todo") url.searchParams.set("antiguedad", filtroAntiguedad);
     fetch(url.toString())
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((d) => setData(d as ApiResponse))
       .catch(() => {
         setData(null);

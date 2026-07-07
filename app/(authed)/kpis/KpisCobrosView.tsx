@@ -87,15 +87,13 @@ const fmtEUR = (n: number) =>
     useGrouping: true,
   })}`;
 
-// Paleta azul escalonada — alineada con donut origen leads.
-const SKY_PALETTE = [
-  "#0284c7",
-  "#0ea5e9",
-  "#38bdf8",
-  "#7dd3fc",
-  "#bae6fd",
-  "#e0f2fe",
-];
+// Escala ordinal derivada del acento (mayor cuota → paso más intenso).
+// color-mix con la superficie → se adapta solo a tema claro/oscuro.
+// Último paso: neutro para categorías de cola. Alineada con el donut
+// de origen de leads (KpisLeadsView).
+const SKY_PALETTE = [100, 80, 60, 40, 20]
+  .map((p) => `color-mix(in srgb, var(--color-accent) ${p}%, var(--color-surface))`)
+  .concat("var(--color-muted)");
 
 export function KpisCobrosView() {
   const [periodo, setPeriodo] = useState<Periodo>("mes");
@@ -118,7 +116,10 @@ export function KpisCobrosView() {
     url.searchParams.set("periodo", periodo);
     if (selectedClinicaId) url.searchParams.set("clinica", selectedClinicaId);
     fetch(url.toString())
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((d) => setData(d as ApiResponse))
       .catch(() => {
         setData(null);
@@ -138,7 +139,10 @@ export function KpisCobrosView() {
     url.searchParams.set("periodo", periodo);
     url.searchParams.set("clinica", drillClinicaId);
     fetch(url.toString())
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((d) => setDrillData(d as ApiResponse))
       .catch(() => {
         setDrillData(null);
@@ -424,6 +428,13 @@ function DistribucionMetodos({ data }: { data: ApiResponse | null }) {
                   formatter={(value: unknown) =>
                     typeof value === "number" ? fmtEUR(value) : String(value ?? "")
                   }
+                  contentStyle={{
+                    background: "var(--color-surface)",
+                    border: "1px solid var(--color-border)",
+                    color: "var(--color-foreground)",
+                    borderRadius: 8,
+                    fontSize: 12,
+                  }}
                 />
               </PieChart>
             </ResponsiveContainer>

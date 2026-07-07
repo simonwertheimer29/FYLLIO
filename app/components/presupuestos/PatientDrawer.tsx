@@ -177,11 +177,12 @@ export default function PatientDrawer({
   async function handleAddContact() {
     setSaving(true);
     try {
-      await fetch("/api/presupuestos/contactos", {
+      const res = await fetch("/api/presupuestos/contactos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ presupuestoId: p.id, tipo, resultado, nota: nota.trim() || undefined, oferta: oferta || undefined }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setNota("");
       setOferta(false);
       toast.success("Contacto guardado");

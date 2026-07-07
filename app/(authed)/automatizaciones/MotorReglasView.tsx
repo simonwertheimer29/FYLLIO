@@ -152,17 +152,20 @@ export function MotorReglasView({ isAdmin }: { isAdmin: boolean }) {
   }
 
   async function toggleModoTest(regla: Regla, modoTest: boolean) {
-    setReglas((prev) =>
-      prev.map((r) => (r.id === regla.id ? { ...r, modoTest } : r)),
+    const optimistic = reglas.map((r) =>
+      r.id === regla.id ? { ...r, modoTest } : r,
     );
+    setReglas(optimistic);
     try {
-      await fetch(`/api/automatizaciones/reglas/${regla.id}`, {
+      const res = await fetch(`/api/automatizaciones/reglas/${regla.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ modoTest }),
       });
+      if (!res.ok) throw new Error();
     } catch {
       toast.error("No se pudo actualizar el modo test.");
+      setReglas(reglas);
     }
   }
 
@@ -443,6 +446,7 @@ function HistorialDrawer({
         if (filter === "errors") url.searchParams.set("soloErrores", "true");
         url.searchParams.set("limit", "50");
         const res = await fetch(url.toString());
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const d = (await res.json()) as { acciones?: AccionLog[] };
         if (!cancelled) {
           let arr = d.acciones ?? [];

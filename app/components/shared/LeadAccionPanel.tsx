@@ -356,7 +356,7 @@ export function LeadAccionPanel({
     if (!respuestaManual.trim()) return;
     setRegistrandoManual(true);
     try {
-      await fetch("/api/leads/intervencion/registrar-respuesta", {
+      const res = await fetch("/api/leads/intervencion/registrar-respuesta", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -365,6 +365,7 @@ export function LeadAccionPanel({
           notas: `Respuesta del lead: ${respuestaManual.trim()}`,
         }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setRespuestaManual("");
       toast.success("Respuesta registrada");
     } catch {
@@ -403,6 +404,7 @@ export function LeadAccionPanel({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const d = await res.json();
       if (d?.lead) onChanged(adoptarClinicaNombre(d.lead, lead));
       onClose();
@@ -515,7 +517,7 @@ export function LeadAccionPanel({
                 type="button"
                 onClick={handleClasificar}
                 disabled={clasificando}
-                className="mb-3 w-full text-xs font-semibold px-3 py-2 rounded-xl fyllio-ia-gradient text-white hover:opacity-90 disabled:opacity-50 inline-flex items-center justify-center gap-1.5 transition-opacity"
+                className="mb-3 w-full text-xs font-semibold px-3 py-2 rounded-xl fyllio-ia-gradient hover:opacity-90 disabled:opacity-50 inline-flex items-center justify-center gap-1.5 transition-opacity"
               >
                 <Brain size={14} strokeWidth={ICON_STROKE} aria-hidden />
                 {clasificando ? "Clasificando…" : "Clasificar respuesta del lead"}

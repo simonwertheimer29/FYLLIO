@@ -132,7 +132,10 @@ export function KpisLeadsView() {
     url.searchParams.set("periodo", periodo);
     if (selectedClinicaId) url.searchParams.set("clinica", selectedClinicaId);
     fetch(url.toString())
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((d) => setData(d as ApiResponse))
       .catch(() => {
         setData(null);
@@ -158,7 +161,10 @@ export function KpisLeadsView() {
     url.searchParams.set("periodo", periodo);
     url.searchParams.set("clinica", drillClinicaId);
     fetch(url.toString())
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((d) => setDrillData(d as ApiResponse))
       .catch(() => {
         setDrillData(null);

@@ -76,11 +76,12 @@ export default function ContactHistoryModal({
   async function handleAdd() {
     setSaving(true);
     try {
-      await fetch("/api/presupuestos/contactos", {
+      const res = await fetch("/api/presupuestos/contactos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ presupuestoId, tipo, resultado, nota: nota.trim() || undefined }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setNota("");
       toast.success("Contacto guardado");
       await load();

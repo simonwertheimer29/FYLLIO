@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { Bell, CheckCircle2, ICON_STROKE } from "../../components/icons";
 import { StatePill } from "../../components/ui/StatePill";
-import { EmptyState } from "../../components/ui/Feedback";
+import { EmptyState, ErrorState } from "../../components/ui/Feedback";
 
 type Tipo =
   | "leads"
@@ -71,12 +71,14 @@ export function AlertasView() {
   const { selectedClinicaId } = useClinic();
   const [cards, setCards] = useState<Card[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null); // error de envío (inline)
+  const [loadError, setLoadError] = useState(false); // error de carga → ErrorState
   const [sending, setSending] = useState<string | null>(null); // clinicaId:tipo
   const [tab, setTab] = useState<SubTab>("todos");
 
   const load = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const res = await fetch("/api/alertas");
       if (!res.ok) throw new Error("fetch failed");
@@ -84,7 +86,7 @@ export function AlertasView() {
       setCards(d.alertas ?? []);
       setError(null);
     } catch (e) {
-      setError("No se pudieron cargar las alertas");
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -148,6 +150,8 @@ export function AlertasView() {
       }
       toast.success("Alerta enviada");
       await load();
+    } catch {
+      setError("No se pudo enviar la alerta. Revisa tu conexión.");
     } finally {
       setSending(null);
     }
@@ -214,7 +218,15 @@ export function AlertasView() {
           <p className="text-xs text-[var(--color-muted)]">Cargando alertas…</p>
         )}
 
-        {!loading && filtered.length === 0 && (
+        {!loading && loadError && (
+          <ErrorState
+            title="No se pudieron cargar las alertas"
+            detail="Las situaciones pendientes no están disponibles ahora mismo."
+            onRetry={load}
+          />
+        )}
+
+        {!loading && !loadError && filtered.length === 0 && (
           <EmptyState
             icon={<CheckCircle2 size={20} strokeWidth={ICON_STROKE} />}
             title="Sin situaciones pendientes"

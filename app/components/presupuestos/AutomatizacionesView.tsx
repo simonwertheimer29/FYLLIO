@@ -426,11 +426,12 @@ function TabProximas({ user }: { user: UserSession }) {
   async function cancelarReactivacion(id: string) {
     setCancellingId(id);
     try {
-      await fetch(`/api/presupuestos/kanban/${id}`, {
+      const res = await fetch(`/api/presupuestos/kanban/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reactivacion: false }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setPresupuestos((prev) => prev.filter((p) => p.id !== id));
       toast.success("Reactivación cancelada");
     } catch {

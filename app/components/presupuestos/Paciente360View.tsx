@@ -94,20 +94,25 @@ export default function Paciente360View({ nombre }: Props) {
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
   const [historial, setHistorial] = useState<HistorialAccion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [isDemo, setIsDemo] = useState(false);
   const [pacienteId, setPacienteId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabKey>("resumen");
   const [pagosData, setPagosData] = useState<PagosResponse | null>(null);
   const [pagosLoading, setPagosLoading] = useState(false);
   const [pagosError, setPagosError] = useState<string | null>(null);
+  const [pagosReloadKey, setPagosReloadKey] = useState(0);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
+      setLoadError(false);
       try {
         const url = new URL("/api/presupuestos/paciente", location.href);
         url.searchParams.set("nombre", nombre);
         const res = await fetch(url.toString());
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const d = await res.json();
         setPresupuestos(d.presupuestos ?? []);
         setHistorial(d.historial ?? []);
@@ -117,16 +122,19 @@ export default function Paciente360View({ nombre }: Props) {
         setPresupuestos([]);
         setHistorial([]);
         setPacienteId(null);
+        setLoadError(true);
       } finally {
         setLoading(false);
       }
     }
     load();
-  }, [nombre]);
+  }, [nombre, reloadKey]);
 
   // Carga lazy de pagos: solo si entra al tab "Pagos" y hay pacienteId.
+  // Si falló (pagosError), no se reintenta solo: el usuario reintenta desde
+  // el <ErrorState>, que limpia el error y bumpea pagosReloadKey.
   useEffect(() => {
-    if (activeTab !== "pagos" || !pacienteId || pagosData || pagosLoading) return;
+    if (activeTab !== "pagos" || !pacienteId || pagosData || pagosLoading || pagosError) return;
     setPagosLoading(true);
     setPagosError(null);
     fetch(`/api/pacientes/${pacienteId}/pagos`)
@@ -143,7 +151,7 @@ export default function Paciente360View({ nombre }: Props) {
         setPagosError(err instanceof Error ? err.message : "Error al cargar pagos");
       })
       .finally(() => setPagosLoading(false));
-  }, [activeTab, pacienteId, pagosData, pagosLoading]);
+  }, [activeTab, pacienteId, pagosData, pagosLoading, pagosError, pagosReloadKey]);
 
   // ─── Métricas rápidas ──────────────────────────────────────────────────────
 
@@ -173,6 +181,21 @@ export default function Paciente360View({ nombre }: Props) {
     return (
       <div className="min-h-screen bg-[var(--color-surface-muted)] flex items-center justify-center">
         <p className="text-[var(--color-muted)] text-sm animate-pulse">Cargando datos del paciente…</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="min-h-screen bg-[var(--color-surface-muted)] flex items-center justify-center p-4">
+        <ErrorState
+          detail="No se pudo cargar la información del paciente."
+          onRetry={() => {
+            setLoadError(false);
+            setReloadKey((k) => k + 1);
+          }}
+          className="w-full max-w-md"
+        />
       </div>
     );
   }
@@ -234,6 +257,10 @@ export default function Paciente360View({ nombre }: Props) {
             data={pagosData}
             loading={pagosLoading}
             error={pagosError}
+            onRetry={() => {
+              setPagosError(null);
+              setPagosReloadKey((k) => k + 1);
+            }}
           />
         ) : (
           <ResumenTabContent
@@ -431,11 +458,13 @@ function PagosTabContent({
   data,
   loading,
   error,
+  onRetry,
 }: {
   pacienteId: string | null;
   data: PagosResponse | null;
   loading: boolean;
   error: string | null;
+  onRetry: () => void;
 }) {
   if (!pacienteId) {
     return (
@@ -459,6 +488,7 @@ function PagosTabContent({
       <ErrorState
         title="No se pudieron cargar los pagos"
         detail="El historial de pagos de este paciente no está disponible ahora mismo."
+        onRetry={onRetry}
       />
     );
   }

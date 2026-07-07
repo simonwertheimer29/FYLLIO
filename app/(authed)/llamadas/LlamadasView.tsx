@@ -122,8 +122,14 @@ export function LlamadasView({ isAdmin }: { isAdmin: boolean }) {
     setError(false);
     try {
       const [r, k] = await Promise.all([
-        fetch("/api/llamadas?limit=100").then((r) => r.json()),
-        fetch("/api/llamadas/kpis").then((r) => r.json()),
+        fetch("/api/llamadas?limit=100").then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        }),
+        fetch("/api/llamadas/kpis").then((r) => {
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          return r.json();
+        }),
       ]);
       setLlamadas(r.llamadas ?? []);
       setKpis(k);
