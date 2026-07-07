@@ -6,9 +6,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { useClinic } from "../../lib/context/ClinicContext";
-import { Bell, ICON_STROKE } from "../../components/icons";
+import { Bell, CheckCircle2, ICON_STROKE } from "../../components/icons";
 import { StatePill } from "../../components/ui/StatePill";
+import { EmptyState } from "../../components/ui/Feedback";
 
 type Tipo =
   | "leads"
@@ -72,7 +74,6 @@ export function AlertasView() {
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState<string | null>(null); // clinicaId:tipo
   const [tab, setTab] = useState<SubTab>("todos");
-  const [toast, setToast] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -145,8 +146,7 @@ export function AlertasView() {
         }
         return;
       }
-      setToast("Alerta enviada");
-      setTimeout(() => setToast(null), 2500);
+      toast.success("Alerta enviada");
       await load();
     } finally {
       setSending(null);
@@ -158,7 +158,7 @@ export function AlertasView() {
       <div className="max-w-5xl mx-auto p-4 lg:p-6 space-y-5">
         <header className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="font-display text-2xl font-semibold tracking-tight text-[var(--color-foreground)]">Alertas</h1>
+            <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">Alertas</h1>
             <p className="text-xs text-[var(--color-muted)] mt-0.5">
               Situaciones que requieren acción por parte de coordinación
             </p>
@@ -171,7 +171,7 @@ export function AlertasView() {
           )}
         </header>
 
-        {/* Tabs secundarios — estilo Linear: pill sky-50 activa. */}
+        {/* Tabs secundarios — estilo Linear: pill accent-soft activa. */}
         <div className="flex flex-wrap gap-1">
           {(
             [
@@ -190,8 +190,8 @@ export function AlertasView() {
               onClick={() => setTab(key)}
               className={`text-[11px] font-medium px-3 py-1.5 rounded-md border transition-colors ${
                 tab === key
-                  ? "bg-sky-50 text-sky-700 border-sky-200"
-                  : "bg-white text-[var(--color-muted)] border-[var(--color-border)] hover:text-[var(--color-foreground)] hover:bg-slate-50"
+                  ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-[color-mix(in_srgb,var(--color-accent)_25%,transparent)]"
+                  : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
               }`}
             >
               {label}
@@ -200,7 +200,7 @@ export function AlertasView() {
         </div>
 
         {error && (
-          <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-md px-3 py-2">
+          <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 dark:text-rose-300 dark:bg-rose-500/10 dark:border-rose-500/25 rounded-md px-3 py-2">
             {error}{" "}
             {error.includes("teléfono") && (
               <Link href="/ajustes/clinica-equipo" className="underline font-semibold">
@@ -210,25 +210,20 @@ export function AlertasView() {
           </p>
         )}
 
-        {toast && (
-          <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-md px-3 py-2">
-            {toast}
-          </p>
-        )}
-
         {loading && !cards && (
           <p className="text-xs text-[var(--color-muted)]">Cargando alertas…</p>
         )}
 
         {!loading && filtered.length === 0 && (
-          <div className="rounded-xl bg-white border border-[var(--color-border)] p-8 text-center">
-            <p className="font-display text-base font-semibold text-[var(--color-foreground)]">Sin situaciones pendientes 🎉</p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">
-              {selectedClinicaId
+          <EmptyState
+            icon={<CheckCircle2 size={20} strokeWidth={ICON_STROKE} />}
+            title="Sin situaciones pendientes"
+            hint={
+              selectedClinicaId
                 ? "Esta clínica no tiene alertas en este filtro."
-                : "Ninguna clínica tiene alertas en el filtro seleccionado."}
-            </p>
-          </div>
+                : "Ninguna clínica tiene alertas en el filtro seleccionado."
+            }
+          />
         )}
 
         <div className="space-y-3">
@@ -243,7 +238,7 @@ export function AlertasView() {
             return (
               <div
                 key={card.clinicaId}
-                className="rounded-xl bg-white border border-[var(--color-border)] p-5 hover:border-sky-200 transition-colors"
+                className="rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] p-5 hover:border-[color-mix(in_srgb,var(--color-accent)_30%,transparent)] transition-colors"
               >
                 <p className="font-display text-base font-semibold text-[var(--color-foreground)] mb-3 tracking-tight">
                   {card.clinicaNombre}
@@ -258,14 +253,14 @@ export function AlertasView() {
                     // Sprint 12 H.4 — urgencia funcional: rose>5, amber 3-5, neutro <3.
                     const urgenciaBg =
                       n > 5
-                        ? "bg-rose-50 text-rose-700"
+                        ? "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
                         : n >= 3
-                        ? "bg-amber-50 text-amber-700"
-                        : "bg-slate-100 text-[var(--color-muted)]";
+                        ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
+                        : "bg-[var(--color-surface-muted)] text-[var(--color-muted)]";
                     return (
                       <div
                         key={tipo}
-                        className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2.5 border border-[var(--color-border)]"
+                        className="flex items-center gap-3 rounded-lg bg-[var(--color-surface-muted)] px-3 py-2.5 border border-[var(--color-border)]"
                       >
                         <span
                           className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${urgenciaBg}`}
@@ -279,7 +274,7 @@ export function AlertasView() {
                           </p>
                           <p className="text-xs text-[var(--color-muted)] tabular-nums">{TIPO_SUBTITLE[tipo](n)}</p>
                           {isOnCooldown && (
-                            <p className="text-[10px] text-slate-400 mt-0.5 tabular-nums">
+                            <p className="text-[10px] text-[var(--color-muted)] mt-0.5 tabular-nums">
                               Alerta enviada hace {minutesAgo(cooldown!.untilMs - 2 * 60 * 60 * 1000)}
                             </p>
                           )}
@@ -288,7 +283,7 @@ export function AlertasView() {
                           type="button"
                           onClick={() => enviar(card.clinicaId, tipo)}
                           disabled={busy || isOnCooldown}
-                          className="shrink-0 rounded-md bg-sky-500 text-white text-xs font-semibold px-3 py-1.5 hover:bg-sky-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          className="shrink-0 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-semibold px-3 py-1.5 hover:bg-[var(--color-accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         >
                           {busy
                             ? "Enviando…"

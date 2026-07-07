@@ -7,12 +7,13 @@
 // Reutiliza CommandCenterView (ya consume useClinic en su filtro interno) y
 // añade encima una franja de KPIs de leads + tasa de conversión lead→paciente.
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { UserSession } from "../../lib/presupuestos/types";
 import { useClinic } from "../../lib/context/ClinicContext";
 import CommandCenterView from "../../components/presupuestos/CommandCenterView";
 import { openCopilot } from "../../components/copilot/openCopilot";
 import { KpiCard } from "../../components/ui/KpiCard";
+import { ErrorState } from "../../components/ui/Feedback";
 import { Sparkles, ICON_STROKE } from "../../components/icons";
 
 type LeadApi = {
@@ -34,17 +35,25 @@ export function RedView({ user }: { user: UserSession }) {
   const { selectedClinicaId, selectedClinicaNombre } = useClinic();
   const [leads, setLeads] = useState<LeadApi[] | null>(null);
   const [pacientes, setPacientes] = useState<PacienteApi[] | null>(null);
+  const [loadError, setLoadError] = useState(false);
+
+  // Un fallo de carga se muestra como error honesto con reintento,
+  // nunca como panel vacío exitoso.
+  const load = useCallback(() => {
+    setLoadError(false);
+    fetch("/api/leads")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d) => setLeads(d.leads ?? []))
+      .catch(() => setLoadError(true));
+    fetch("/api/pacientes")
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((d) => setPacientes(d.pacientes ?? []))
+      .catch(() => setLoadError(true));
+  }, []);
 
   useEffect(() => {
-    fetch("/api/leads")
-      .then((r) => (r.ok ? r.json() : { leads: [] }))
-      .then((d) => setLeads(d.leads ?? []))
-      .catch(() => setLeads([]));
-    fetch("/api/pacientes")
-      .then((r) => (r.ok ? r.json() : { pacientes: [] }))
-      .then((d) => setPacientes(d.pacientes ?? []))
-      .catch(() => setPacientes([]));
-  }, []);
+    load();
+  }, [load]);
 
   const filtered = useMemo(() => {
     const ls = (leads ?? []).filter(
@@ -81,76 +90,85 @@ export function RedView({ user }: { user: UserSession }) {
     selectedClinicaNombre ?? (selectedClinicaId === null ? "todas las clínicas" : "clínica");
 
   return (
-    <div className="flex-1 min-h-0 overflow-auto bg-slate-50">
+    <div className="flex-1 min-h-0 overflow-auto bg-[var(--color-background)]">
       <div className="max-w-7xl mx-auto p-4 lg:p-6 space-y-6">
         {/* Franja KPI leads */}
         <section className="space-y-3">
           <header className="flex items-start justify-between gap-3 flex-wrap">
             <div>
-              <h1 className="font-display text-2xl font-semibold tracking-tight text-[var(--color-foreground)]">Red</h1>
+              <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">Red</h1>
               <p className="text-xs text-[var(--color-muted)] mt-0.5">
                 Panorama global sobre {scope}
               </p>
             </div>
             {/* Sprint 11 C.3 — Copilot con KPIs globales del mes. */}
-            <button
-              type="button"
-              onClick={() => {
-                const summary = [
-                  `Vista: Red — ${scope}`,
-                  `Leads en pipeline: ${activos}`,
-                  `Leads convertidos: ${leadsConvertidos}`,
-                  `Pacientes de origen Lead: ${pacientesDeLead}`,
-                  `Tasa conversión lead→paciente: ${tasaConversion}%`,
-                  `Facturado acumulado: ${facturadoMes.toLocaleString("es-ES")}€`,
-                ].join("\n");
-                openCopilot({
-                  context: { kind: "red_admin", summary },
-                  initialAssistantMessage:
-                    "He visto los KPIs de la red. ¿Quieres que te explique algún punto en concreto?",
-                });
-              }}
-              className="text-xs font-medium px-3 py-2 rounded-md bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 transition-colors inline-flex items-center gap-1.5"
-            >
-              <Sparkles size={14} strokeWidth={ICON_STROKE} /> Analiza el rendimiento del mes
-            </button>
+            {!loadError && (
+              <button
+                type="button"
+                onClick={() => {
+                  const summary = [
+                    `Vista: Red — ${scope}`,
+                    `Leads en pipeline: ${activos}`,
+                    `Leads convertidos: ${leadsConvertidos}`,
+                    `Pacientes de origen Lead: ${pacientesDeLead}`,
+                    `Tasa conversión lead→paciente: ${tasaConversion}%`,
+                    `Facturado acumulado: ${facturadoMes.toLocaleString("es-ES")}€`,
+                  ].join("\n");
+                  openCopilot({
+                    context: { kind: "red_admin", summary },
+                    initialAssistantMessage:
+                      "He visto los KPIs de la red. ¿Quieres que te explique algún punto en concreto?",
+                  });
+                }}
+                className="fyllio-ia-gradient text-xs font-medium px-3 py-2 rounded-md hover:opacity-90 transition-opacity inline-flex items-center gap-1.5"
+              >
+                <Sparkles size={14} strokeWidth={ICON_STROKE} aria-hidden /> Analiza el rendimiento del mes
+              </button>
+            )}
           </header>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <KpiCard
-              label="Leads en pipeline"
-              value={activos}
-              accent="sky"
-              copilotSummary={`KPI: Leads en pipeline — ${scope}\nValor: ${activos}\n(Excluye los marcados como No Interesado.)`}
+          {loadError ? (
+            <ErrorState
+              detail="Los datos de leads y pacientes no están disponibles ahora mismo."
+              onRetry={load}
             />
-            <KpiCard
-              label="Leads convertidos"
-              value={leadsConvertidos}
-              subline={`${pacientesDeLead} pacientes de origen Lead`}
-              accent="emerald"
-              copilotSummary={`KPI: Leads convertidos — ${scope}\nValor: ${leadsConvertidos}\nPacientes que originaron como lead: ${pacientesDeLead}`}
-            />
-            <KpiCard
-              label="Tasa conversión lead→paciente"
-              value={tasaConversion}
-              formatter={(n) => `${n}%`}
-              accent="sky"
-              copilotSummary={`KPI: Tasa conversión lead→paciente — ${scope}\nValor: ${tasaConversion}%\nFórmula: leads convertidos / leads totales.`}
-            />
-            <KpiCard
-              label="Facturado acumulado"
-              value={facturadoMes}
-              formatter={(n) =>
-                n.toLocaleString("es-ES", {
-                  style: "currency",
-                  currency: "EUR",
-                  maximumFractionDigits: 0,
-                })
-              }
-              accent="amber"
-              copilotSummary={`KPI: Facturado acumulado — ${scope}\nValor: ${facturadoMes.toLocaleString("es-ES")}€\nSuma del campo Pagado de pacientes activos.`}
-            />
-          </div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <KpiCard
+                label="Leads en pipeline"
+                value={activos}
+                accent="accent"
+                copilotSummary={`KPI: Leads en pipeline — ${scope}\nValor: ${activos}\n(Excluye los marcados como No Interesado.)`}
+              />
+              <KpiCard
+                label="Leads convertidos"
+                value={leadsConvertidos}
+                subline={`${pacientesDeLead} pacientes de origen Lead`}
+                accent="emerald"
+                copilotSummary={`KPI: Leads convertidos — ${scope}\nValor: ${leadsConvertidos}\nPacientes que originaron como lead: ${pacientesDeLead}`}
+              />
+              <KpiCard
+                label="Tasa conversión lead→paciente"
+                value={tasaConversion}
+                formatter={(n) => `${n}%`}
+                accent="accent"
+                copilotSummary={`KPI: Tasa conversión lead→paciente — ${scope}\nValor: ${tasaConversion}%\nFórmula: leads convertidos / leads totales.`}
+              />
+              <KpiCard
+                label="Facturado acumulado"
+                value={facturadoMes}
+                formatter={(n) =>
+                  n.toLocaleString("es-ES", {
+                    style: "currency",
+                    currency: "EUR",
+                    maximumFractionDigits: 0,
+                  })
+                }
+                accent="amber"
+                copilotSummary={`KPI: Facturado acumulado — ${scope}\nValor: ${facturadoMes.toLocaleString("es-ES")}€\nSuma del campo Pagado de pacientes activos.`}
+              />
+            </div>
+          )}
         </section>
 
         {/* Franja de Presupuestos (CommandCenterView ya filtra por selectedClinicaNombre) */}

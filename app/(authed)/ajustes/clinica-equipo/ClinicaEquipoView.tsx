@@ -6,6 +6,8 @@
 
 import { useCallback, useState } from "react";
 import { Card } from "../../../components/ui/Card";
+import { StatePill } from "../../../components/ui/StatePill";
+import { X, ICON_STROKE } from "../../../components/icons";
 
 type Clinica = {
   id: string;
@@ -102,14 +104,14 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
   return (
     <div className="space-y-8 max-w-5xl">
       <header>
-        <h1 className="text-xl font-extrabold text-slate-900">Clínica y equipo</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">Clínica y equipo</h1>
+        <p className="text-sm text-[var(--color-muted)] mt-1">
           Gestiona las clínicas activas y los usuarios con acceso al sistema.
         </p>
       </header>
 
       {error && (
-        <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+        <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 dark:text-rose-300 dark:bg-rose-500/10 dark:border-rose-500/25 rounded-xl px-3 py-2">
           {error}
         </p>
       )}
@@ -117,11 +119,11 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
       {/* ─── Clínicas ──────────────────────────────────────────────────── */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-900">Clínicas ({clinicas.length})</h2>
+          <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">Clínicas ({clinicas.length})</h2>
           <button
             type="button"
             onClick={() => setModalClinica("new")}
-            className="rounded-xl bg-sky-600 text-white text-xs font-bold px-3 py-1.5 hover:bg-sky-700"
+            className="rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-semibold px-3 py-1.5 hover:bg-[var(--color-accent-hover)]"
           >
             + Añadir clínica
           </button>
@@ -129,7 +131,7 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
 
         <Card padding="none" className="overflow-hidden">
           <table className="w-full text-xs">
-            <thead className="bg-slate-50 text-slate-600">
+            <thead className="bg-[var(--color-surface-muted)] text-[var(--color-muted)]">
               <tr>
                 <th className="text-left font-semibold px-3 py-2">Nombre</th>
                 <th className="text-left font-semibold px-3 py-2">Ciudad</th>
@@ -140,33 +142,29 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
             </thead>
             <tbody>
               {clinicas.map((c) => (
-                <tr key={c.id} className="border-t border-slate-100">
-                  <td className="px-3 py-2 font-semibold text-slate-900">{c.nombre}</td>
-                  <td className="px-3 py-2 text-slate-600">{c.ciudad ?? "—"}</td>
-                  <td className="px-3 py-2 text-slate-600">{c.telefono ?? "—"}</td>
+                <tr key={c.id} className="border-t border-[var(--color-border)]">
+                  <td className="px-3 py-2 font-semibold text-[var(--color-foreground)]">{c.nombre}</td>
+                  <td className="px-3 py-2 text-[var(--color-muted)]">{c.ciudad ?? "—"}</td>
+                  <td className="px-3 py-2 text-[var(--color-muted)]">{c.telefono ?? "—"}</td>
                   <td className="px-3 py-2">
                     {c.activa ? (
-                      <span className="inline-flex rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold">
-                        Activa
-                      </span>
+                      <StatePill variant="success">Activa</StatePill>
                     ) : (
-                      <span className="inline-flex rounded-full bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold">
-                        Inactiva
-                      </span>
+                      <StatePill variant="neutral">Inactiva</StatePill>
                     )}
                   </td>
                   <td className="px-3 py-2 text-right space-x-2">
                     <button
                       type="button"
                       onClick={() => setModalClinica(c)}
-                      className="text-sky-700 hover:underline font-semibold"
+                      className="text-[var(--color-accent)] hover:underline font-semibold"
                     >
                       Editar
                     </button>
                     <button
                       type="button"
                       onClick={() => toggleClinicaActiva(c)}
-                      className="text-slate-600 hover:underline font-semibold"
+                      className="text-[var(--color-muted)] hover:underline font-semibold"
                     >
                       {c.activa ? "Desactivar" : "Activar"}
                     </button>
@@ -175,7 +173,7 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
               ))}
               {clinicas.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-3 py-6 text-center text-slate-400">
+                  <td colSpan={5} className="px-3 py-6 text-center text-[var(--color-muted)]">
                     Sin clínicas. Añade una para empezar.
                   </td>
                 </tr>
@@ -188,11 +186,11 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
       {/* ─── Equipo ────────────────────────────────────────────────────── */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold text-slate-900">Equipo ({usuarios.length})</h2>
+          <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">Equipo ({usuarios.length})</h2>
           <button
             type="button"
             onClick={() => setModalUsuario("new")}
-            className="rounded-xl bg-sky-600 text-white text-xs font-bold px-3 py-1.5 hover:bg-sky-700"
+            className="rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-semibold px-3 py-1.5 hover:bg-[var(--color-accent-hover)]"
           >
             + Añadir usuario
           </button>
@@ -200,7 +198,7 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
 
         <Card padding="none" className="overflow-hidden">
           <table className="w-full text-xs">
-            <thead className="bg-slate-50 text-slate-600">
+            <thead className="bg-[var(--color-surface-muted)] text-[var(--color-muted)]">
               <tr>
                 <th className="text-left font-semibold px-3 py-2">Nombre</th>
                 <th className="text-left font-semibold px-3 py-2">Rol</th>
@@ -213,48 +211,44 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
             </thead>
             <tbody>
               {usuarios.map((u) => (
-                <tr key={u.id} className="border-t border-slate-100">
-                  <td className="px-3 py-2 font-semibold text-slate-900">{u.nombre}</td>
-                  <td className="px-3 py-2 text-slate-600">
+                <tr key={u.id} className="border-t border-[var(--color-border)]">
+                  <td className="px-3 py-2 font-semibold text-[var(--color-foreground)]">{u.nombre}</td>
+                  <td className="px-3 py-2 text-[var(--color-muted)]">
                     {u.rol === "admin" ? "Administrador" : "Coordinación"}
                   </td>
-                  <td className="px-3 py-2 text-slate-600">{u.email ?? "—"}</td>
-                  <td className="px-3 py-2 text-slate-600 font-mono text-[11px]">{u.telefono ?? "—"}</td>
-                  <td className="px-3 py-2 text-slate-600">
+                  <td className="px-3 py-2 text-[var(--color-muted)]">{u.email ?? "—"}</td>
+                  <td className="px-3 py-2 text-[var(--color-muted)] font-mono text-[11px]">{u.telefono ?? "—"}</td>
+                  <td className="px-3 py-2 text-[var(--color-muted)]">
                     {u.rol === "admin"
                       ? "Todas las clínicas"
                       : u.clinicas.map((c) => c.nombre).join(", ") || "—"}
                   </td>
                   <td className="px-3 py-2">
                     {u.activo ? (
-                      <span className="inline-flex rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 text-[10px] font-semibold">
-                        Activo
-                      </span>
+                      <StatePill variant="success">Activo</StatePill>
                     ) : (
-                      <span className="inline-flex rounded-full bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 text-[10px] font-semibold">
-                        Inactivo
-                      </span>
+                      <StatePill variant="neutral">Inactivo</StatePill>
                     )}
                   </td>
                   <td className="px-3 py-2 text-right space-x-2">
                     <button
                       type="button"
                       onClick={() => setModalUsuario(u)}
-                      className="text-sky-700 hover:underline font-semibold"
+                      className="text-[var(--color-accent)] hover:underline font-semibold"
                     >
                       Editar
                     </button>
                     <button
                       type="button"
                       onClick={() => regenerarPin(u)}
-                      className="text-slate-600 hover:underline font-semibold"
+                      className="text-[var(--color-muted)] hover:underline font-semibold"
                     >
                       Regenerar PIN
                     </button>
                     <button
                       type="button"
                       onClick={() => toggleUsuarioActivo(u)}
-                      className="text-slate-600 hover:underline font-semibold"
+                      className="text-[var(--color-muted)] hover:underline font-semibold"
                     >
                       {u.activo ? "Desactivar" : "Activar"}
                     </button>
@@ -263,8 +257,8 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
               ))}
               {usuarios.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-3 py-6 text-center text-slate-400">
-                    Sin usuarios.
+                  <td colSpan={7} className="px-3 py-6 text-center text-[var(--color-muted)]">
+                    Sin usuarios todavía. Añade el primero arriba.
                   </td>
                 </tr>
               )}
@@ -480,7 +474,7 @@ function UsuarioModal({
       <form onSubmit={submit} className="space-y-3">
         {isNew && (
           <div>
-            <label className="block text-[11px] font-semibold text-slate-600 mb-1">Rol</label>
+            <label className="block text-[11px] uppercase tracking-wide font-semibold text-[var(--color-muted)] mb-1">Rol</label>
             <div className="flex gap-2">
               {(["admin", "coordinacion"] as const).map((r) => (
                 <button
@@ -489,8 +483,8 @@ function UsuarioModal({
                   onClick={() => setRol(r)}
                   className={`flex-1 text-xs font-semibold px-3 py-2 rounded-xl border ${
                     rol === r
-                      ? "bg-sky-600 text-white border-sky-600"
-                      : "bg-white text-slate-700 border-slate-200"
+                      ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
+                      : "bg-[var(--color-surface)] text-[var(--color-foreground)] border-[var(--color-border)]"
                   }`}
                 >
                   {r === "admin" ? "Administrador" : "Coordinación"}
@@ -518,17 +512,17 @@ function UsuarioModal({
 
         {rol === "coordinacion" && (
           <div>
-            <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+            <label className="block text-[11px] uppercase tracking-wide font-semibold text-[var(--color-muted)] mb-1">
               Clínicas asignadas
             </label>
-            <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 space-y-1">
+            <div className="max-h-48 overflow-y-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-2 space-y-1">
               {clinicas.length === 0 && (
-                <p className="text-xs text-slate-400 px-1">Sin clínicas activas.</p>
+                <p className="text-xs text-[var(--color-muted)] px-1">Sin clínicas activas.</p>
               )}
               {clinicas.map((c) => (
                 <label
                   key={c.id}
-                  className="flex items-center gap-2 text-xs text-slate-800 px-2 py-1 rounded hover:bg-slate-50 cursor-pointer"
+                  className="flex items-center gap-2 text-xs text-[var(--color-foreground)] px-2 py-1 rounded hover:bg-[var(--color-surface-muted)] cursor-pointer"
                 >
                   <input
                     type="checkbox"
@@ -543,7 +537,7 @@ function UsuarioModal({
         )}
 
         {isNew && (
-          <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2">
+          <p className="text-[11px] text-[var(--color-muted)] bg-[var(--color-surface-muted)] border border-[var(--color-border)] rounded-xl px-3 py-2">
             Al guardar se generará un PIN de {rol === "admin" ? "6" : "4"} dígitos. Se mostrará
             una sola vez — cópialo y entrégalo al usuario.
           </p>
@@ -585,27 +579,27 @@ function PinShownModal({
   }
 
   return (
-    <ModalShell onClose={onClose} title={`PIN generado`}>
+    <ModalShell onClose={onClose} title="PIN generado">
       <div className="space-y-4">
-        <p className="text-xs text-slate-600">
+        <p className="text-xs text-[var(--color-muted)]">
           {nombre} ({rol === "admin" ? "Administrador" : "Coordinación"}). Este PIN solo se
           muestra esta vez — cópialo ahora y entrégalo al usuario.
         </p>
-        <div className="rounded-2xl bg-slate-900 text-white font-mono text-4xl font-bold text-center py-6 tracking-[0.35em]">
+        <div className="rounded-2xl bg-[var(--color-foreground)] text-[var(--color-background)] font-mono text-4xl font-bold text-center py-6 tracking-[0.35em]">
           {pin}
         </div>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={copy}
-            className="flex-1 rounded-xl bg-sky-600 text-white text-sm font-bold py-2.5 hover:bg-sky-700"
+            className="flex-1 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2.5 hover:bg-[var(--color-accent-hover)]"
           >
-            {copied ? "¡Copiado!" : "Copiar PIN"}
+            {copied ? "Copiado" : "Copiar PIN"}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-xl bg-slate-100 text-slate-700 text-sm font-bold py-2.5 hover:bg-slate-200"
+            className="flex-1 rounded-xl bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-sm font-semibold py-2.5 hover:bg-[var(--color-border)]"
           >
             He guardado el PIN
           </button>
@@ -635,17 +629,17 @@ function ModalShell({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-3xl bg-white border border-slate-200 shadow-xl p-6"
+        className="w-full max-w-md rounded-3xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl p-6"
       >
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-extrabold text-slate-900">{title}</h3>
+          <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">{title}</h3>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 text-lg"
+            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
             aria-label="Cerrar"
           >
-            ×
+            <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
           </button>
         </div>
         {children}
@@ -667,13 +661,13 @@ function LabeledInput({
 }) {
   return (
     <div>
-      <label className="block text-[11px] font-semibold text-slate-600 mb-1">{label}</label>
+      <label className="block text-[11px] uppercase tracking-wide font-semibold text-[var(--color-muted)] mb-1">{label}</label>
       <input
         type="text"
         value={value}
         required={required}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
+        className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent)]"
       />
     </div>
   );
@@ -693,14 +687,14 @@ function ModalFooter({
       <button
         type="button"
         onClick={onClose}
-        className="flex-1 rounded-xl bg-slate-100 text-slate-700 text-sm font-bold py-2.5 hover:bg-slate-200"
+        className="flex-1 rounded-xl bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-sm font-semibold py-2.5 hover:bg-[var(--color-border)]"
       >
         Cancelar
       </button>
       <button
         type="submit"
         disabled={submitting}
-        className="flex-1 rounded-xl bg-sky-600 text-white text-sm font-bold py-2.5 hover:bg-sky-700 disabled:opacity-50"
+        className="flex-1 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2.5 hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
       >
         {submitting ? "Guardando…" : label}
       </button>

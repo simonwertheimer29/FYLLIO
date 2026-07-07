@@ -12,7 +12,11 @@
 // una clínica (badge "default").
 
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Card } from "../../../components/ui/Card";
+import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
+import { ErrorState } from "../../../components/ui/Feedback";
+import { AlertTriangle, Target, ICON_STROKE } from "../../../components/icons";
 import { HorarioLaboralPanel } from "./HorarioLaboralPanel";
 import { LlamadasIaPanel } from "./LlamadasIaPanel";
 import { MotorNoShowsPanel } from "./MotorNoShowsPanel";
@@ -57,7 +61,7 @@ const TABS: Array<{ key: Categoria; label: string; help: string }> = [
   {
     key: "Plantillas_Scope",
     label: "Plantillas WhatsApp",
-    help: "Scope de plantillas (Bloque 4 cierra la edición desde aquí).",
+    help: "Plantillas de mensajes por categoría. Las globales sirven de referencia; cada clínica puede crear las suyas.",
   },
   {
     key: "Horario_Laboral",
@@ -67,11 +71,11 @@ const TABS: Array<{ key: Categoria; label: string; help: string }> = [
   {
     key: "Llamadas_IA",
     label: "Llamadas IA",
-    help: "Configuración de las llamadas IA salientes (Voice IA con Vapi): activación por clínica, ventana horaria, mensaje custom, voz y límite/día.",
+    help: "Configuración de las llamadas IA salientes: activación por clínica, ventana horaria, mensaje personalizado, voz y límite por día.",
   },
   {
     key: "Motor_NoShows",
-    label: "🎯 Motor No-shows",
+    label: "Motor No-shows",
     help: "Motor de predicción de no-shows: activación de predicción, llamada IA automática para riesgo alto, plantillas extra y umbral de riesgo. Las salvaguardas (opt-out, cooldown, horario laboral) se aplican automáticamente.",
   },
 ];
@@ -134,25 +138,25 @@ export default function ConfiguracionView({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-900">Configuración</h1>
-        <p className="text-sm text-slate-500 mt-1">
-          Adapta Fyllio al workflow de cada clínica. Los defaults globales son la referencia
-          inicial; cuando una clínica añade su propia opción, sustituye los globales en
-          esa categoría para esa clínica.
+        <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">Configuración</h1>
+        <p className="text-sm text-[var(--color-muted)] mt-1">
+          Adapta Fyllio a la forma de trabajar de cada clínica. Los valores por defecto son la
+          referencia inicial; cuando una clínica añade su propia opción, sustituye los valores
+          por defecto en esa categoría para esa clínica.
         </p>
       </div>
 
       {/* Scope selector */}
       <Card className="flex items-center gap-4 flex-wrap">
-        <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
-          Scope
+        <label className="text-[11px] uppercase font-semibold text-[var(--color-muted)] tracking-wide">
+          Ámbito
         </label>
         <select
           value={scope}
           onChange={(e) => setScope(e.target.value)}
-          className="px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none"
+          className="px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
         >
-          <option value="global">🌐 Defaults globales</option>
+          <option value="global">Valores por defecto</option>
           {clinicas.map((c) => (
             <option key={c.id} value={c.id}>
               {c.nombre}
@@ -160,51 +164,48 @@ export default function ConfiguracionView({
           ))}
         </select>
         {!mostrandoGlobales && (
-          <span className="text-[11px] text-slate-400">
+          <span className="text-[11px] text-[var(--color-muted)]">
             {heredanGlobal
-              ? "Esta clínica hereda los defaults globales en esta categoría."
+              ? "Esta clínica hereda los valores por defecto en esta categoría."
               : `${opcionesPropias.length} opciones propias.`}
           </span>
         )}
       </Card>
 
       {/* Tabs categoría */}
-      <div className="flex gap-1 border-b border-slate-200 overflow-x-auto">
+      <div className="flex gap-1 border-b border-[var(--color-border)] overflow-x-auto">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setCategoria(t.key)}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors ${
+            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors inline-flex items-center gap-1.5 ${
               categoria === t.key
-                ? "text-slate-900 border-slate-900"
-                : "text-slate-500 border-transparent hover:text-slate-700"
+                ? "text-[var(--color-accent)] border-[var(--color-accent)]"
+                : "text-[var(--color-muted)] border-transparent hover:text-[var(--color-foreground)]"
             }`}
           >
+            {t.key === "Motor_NoShows" && (
+              <Target size={14} strokeWidth={ICON_STROKE} aria-hidden />
+            )}
             {t.label}
           </button>
         ))}
       </div>
 
-      <p className="text-xs text-slate-500">{tab.help}</p>
-
-      {error && (
-        <p className="text-xs text-rose-700 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
-          {error}
-        </p>
-      )}
+      <p className="text-xs text-[var(--color-muted)]">{tab.help}</p>
 
       {categoria === "Horario_Laboral" ? (
         scope === "global" ? (
-          <Card padding="none" className="p-6 text-sm text-slate-500">
-            El horario laboral se configura por clínica. Cambia el scope arriba a una clínica concreta para editarlo.
+          <Card padding="none" className="p-6 text-sm text-[var(--color-muted)]">
+            El horario laboral se configura por clínica. Cambia el ámbito arriba a una clínica concreta para editarlo.
           </Card>
         ) : (
           <HorarioLaboralPanel clinicaId={scope} />
         )
       ) : categoria === "Llamadas_IA" ? (
         scope === "global" ? (
-          <Card padding="none" className="p-6 text-sm text-slate-500">
-            Las llamadas IA se configuran por clínica. Cambia el scope arriba a una clínica concreta para editarlo.
+          <Card padding="none" className="p-6 text-sm text-[var(--color-muted)]">
+            Las llamadas IA se configuran por clínica. Cambia el ámbito arriba a una clínica concreta para editarlas.
           </Card>
         ) : (
           <LlamadasIaPanel clinicaId={scope} />
@@ -212,7 +213,12 @@ export default function ConfiguracionView({
       ) : categoria === "Motor_NoShows" ? (
         <MotorNoShowsPanel clinicaId={scope} />
       ) : loading ? (
-        <p className="text-sm text-slate-400 animate-pulse">Cargando opciones…</p>
+        <p className="text-sm text-[var(--color-muted)] animate-pulse">Cargando opciones…</p>
+      ) : error ? (
+        <ErrorState
+          detail="Las opciones de esta categoría no están disponibles ahora mismo."
+          onRetry={() => setReloadKey((k) => k + 1)}
+        />
       ) : (
         <CategoriaPanel
           scope={scope}
@@ -269,9 +275,10 @@ function CategoriaPanel({
         throw new Error(`HTTP ${res.status}${txt ? ` · ${txt.slice(0, 80)}` : ""}`);
       }
       setNuevoValor("");
+      toast.success("Opción añadida");
       onChanged();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Error al añadir");
+    } catch {
+      toast.error("No se pudo añadir la opción. Inténtalo de nuevo.");
     } finally {
       setSubmittingNew(false);
     }
@@ -300,21 +307,21 @@ function CategoriaPanel({
   return (
     <div className="space-y-4">
       <Card padding="none" className="overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
-          <p className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+        <div className="px-4 py-3 border-b border-[var(--color-border)] flex items-center justify-between">
+          <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide">
             {mostrandoGlobales
               ? "Opciones globales"
               : heredanGlobal
-              ? "Heredando defaults globales"
+              ? "Heredando valores por defecto"
               : "Opciones de esta clínica"}
           </p>
-          <p className="text-[11px] text-slate-400">
+          <p className="text-[11px] text-[var(--color-muted)]">
             {opcionesPropias.length === 0 && !mostrandoGlobales
-              ? `${opcionesGlobales.length} default${opcionesGlobales.length === 1 ? "" : "s"} global${opcionesGlobales.length === 1 ? "" : "es"}`
-              : `${opcionesPropias.length} opcion${opcionesPropias.length === 1 ? "" : "es"}`}
+              ? `${opcionesGlobales.length} valor${opcionesGlobales.length === 1 ? "" : "es"} por defecto`
+              : `${opcionesPropias.length} ${opcionesPropias.length === 1 ? "opción" : "opciones"}`}
           </p>
         </div>
-        <ul className="divide-y divide-slate-50">
+        <ul className="divide-y divide-[var(--color-border)]">
           {(opcionesPropias.length === 0 && !mostrandoGlobales
             ? opcionesGlobales
             : opcionesPropias
@@ -327,7 +334,7 @@ function CategoriaPanel({
             />
           ))}
           {opcionesPropias.length === 0 && opcionesGlobales.length === 0 && (
-            <li className="px-4 py-6 text-center text-sm text-slate-400">
+            <li className="px-4 py-6 text-center text-sm text-[var(--color-muted)]">
               Sin opciones todavía. Añade la primera abajo.
             </li>
           )}
@@ -346,12 +353,12 @@ function CategoriaPanel({
               ? "ej. PayPal, Cheque…"
               : "ej. Mudanza, Embarazo…"
           }
-          className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none"
+          className="flex-1 px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
         />
         <button
           onClick={handleAdd}
           disabled={submittingNew || !nuevoValor.trim()}
-          className="px-3 py-2 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+          className="px-3 py-2 text-xs font-semibold rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
         >
           {submittingNew ? "Añadiendo…" : "Añadir"}
         </button>
@@ -374,6 +381,7 @@ function OpcionRow({
   const [editing, setEditing] = useState(false);
   const [valorEdit, setValorEdit] = useState(opcion.valor);
   const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   async function patch(patchBody: Partial<{ valor: string; activo: boolean; orden: number }>) {
     setBusy(true);
@@ -388,15 +396,14 @@ function OpcionRow({
         throw new Error(`HTTP ${res.status}${txt ? ` · ${txt.slice(0, 80)}` : ""}`);
       }
       onChanged();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Error al guardar");
+    } catch {
+      toast.error("No se pudo guardar el cambio. Inténtalo de nuevo.");
     } finally {
       setBusy(false);
     }
   }
 
   async function destroy() {
-    if (!confirm(`¿Eliminar "${opcion.valor}"?`)) return;
     setBusy(true);
     try {
       const res = await fetch(`/api/configuraciones/opcion/${opcion.id}`, {
@@ -406,9 +413,11 @@ function OpcionRow({
         const txt = await res.text().catch(() => "");
         throw new Error(`HTTP ${res.status}${txt ? ` · ${txt.slice(0, 100)}` : ""}`);
       }
+      setConfirmDelete(false);
+      toast.success("Opción eliminada");
       onChanged();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Error al eliminar");
+    } catch {
+      toast.error("No se pudo eliminar la opción. Inténtalo de nuevo.");
       setBusy(false);
     }
   }
@@ -420,7 +429,7 @@ function OpcionRow({
           <input
             value={valorEdit}
             onChange={(e) => setValorEdit(e.target.value)}
-            className="flex-1 px-2 py-1 text-sm border border-slate-200 rounded"
+            className="flex-1 px-2 py-1 text-sm border border-[var(--color-border)] rounded bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
             autoFocus
           />
           <button
@@ -431,7 +440,7 @@ function OpcionRow({
               setEditing(false);
             }}
             disabled={busy}
-            className="text-xs font-semibold text-slate-700 hover:text-slate-900"
+            className="text-xs font-semibold text-[var(--color-accent)] hover:opacity-80 disabled:opacity-50"
           >
             Guardar
           </button>
@@ -440,7 +449,7 @@ function OpcionRow({
               setValorEdit(opcion.valor);
               setEditing(false);
             }}
-            className="text-xs text-slate-400 hover:text-slate-700"
+            className="text-xs text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
           >
             Cancelar
           </button>
@@ -449,23 +458,23 @@ function OpcionRow({
         <>
           <span
             className={`flex-1 text-sm ${
-              opcion.activo ? "text-slate-800" : "text-slate-400 line-through"
+              opcion.activo ? "text-[var(--color-foreground)]" : "text-[var(--color-muted)] line-through"
             }`}
           >
             {opcion.valor}
             {isGlobalReference && (
-              <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500">
+              <span className="ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)]">
                 default
               </span>
             )}
           </span>
-          <label className="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer">
+          <label className="flex items-center gap-1.5 text-[11px] text-[var(--color-muted)] cursor-pointer">
             <input
               type="checkbox"
               checked={opcion.activo}
               disabled={busy || isGlobalReference}
               onChange={(e) => patch({ activo: e.target.checked })}
-              title={isGlobalReference ? "No puedes desactivar un default global desde esta clínica; añade el override propio." : "Activo"}
+              title={isGlobalReference ? "No puedes desactivar un valor por defecto desde esta clínica; añade una opción propia." : "Activo"}
             />
             Activo
           </label>
@@ -474,14 +483,14 @@ function OpcionRow({
               <button
                 onClick={() => setEditing(true)}
                 disabled={busy}
-                className="text-xs text-slate-500 hover:text-slate-900 disabled:opacity-50"
+                className="text-xs text-[var(--color-muted)] hover:text-[var(--color-foreground)] disabled:opacity-50"
               >
                 Editar
               </button>
               <button
-                onClick={destroy}
+                onClick={() => setConfirmDelete(true)}
                 disabled={busy}
-                className="text-xs text-rose-500 hover:text-rose-700 disabled:opacity-50"
+                className="text-xs text-[var(--color-danger)] hover:opacity-80 disabled:opacity-50"
               >
                 Eliminar
               </button>
@@ -489,6 +498,16 @@ function OpcionRow({
           )}
         </>
       )}
+      <ConfirmDialog
+        open={confirmDelete}
+        title={`¿Eliminar "${opcion.valor}"?`}
+        description="Esta opción dejará de estar disponible para la clínica."
+        confirmLabel="Eliminar"
+        destructive
+        busy={busy}
+        onConfirm={destroy}
+        onClose={() => setConfirmDelete(false)}
+      />
     </li>
   );
 }
@@ -522,7 +541,7 @@ function PlazoSinglePanel({
   async function handleSave() {
     const num = Number(valor);
     if (!Number.isFinite(num) || num <= 0) {
-      alert("Plazo debe ser un número > 0 días.");
+      toast.error("El plazo debe ser un número mayor que 0 días.");
       return;
     }
     setBusy(true);
@@ -547,9 +566,10 @@ function PlazoSinglePanel({
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
       }
+      toast.success("Plazo guardado");
       onChanged();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Error al guardar");
+    } catch {
+      toast.error("No se pudo guardar el plazo. Inténtalo de nuevo.");
     } finally {
       setBusy(false);
     }
@@ -559,7 +579,7 @@ function PlazoSinglePanel({
     <Card padding="none" className="p-5 space-y-3">
       <div className="flex items-end gap-3">
         <div className="flex-1">
-          <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
+          <label className="text-[11px] uppercase font-semibold text-[var(--color-muted)] tracking-wide">
             Plazo de liquidación (días)
           </label>
           <input
@@ -567,18 +587,18 @@ function PlazoSinglePanel({
             min={1}
             value={valor}
             onChange={(e) => setValor(e.target.value)}
-            className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none"
+            className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
           />
         </div>
         <button
           onClick={handleSave}
           disabled={busy || valor === efectivo}
-          className="px-3 py-2 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+          className="px-3 py-2 text-xs font-semibold rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
         >
           {busy ? "Guardando…" : "Guardar"}
         </button>
       </div>
-      <p className="text-[11px] text-slate-500 leading-relaxed">
+      <p className="text-[11px] text-[var(--color-muted)] leading-relaxed">
         Cuando un paciente acepta presupuesto y deja señal, este es el plazo estándar para
         esperar el pago de liquidación. Las alertas automáticas usan este valor.
         {heredanGlobal && !mostrandoGlobales && (
@@ -651,13 +671,13 @@ function PlantillasPanel({ scope }: { scope: Scope }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
+        <label className="text-[11px] uppercase font-semibold text-[var(--color-muted)] tracking-wide">
           Categoría
         </label>
         <select
           value={filtroCategoria}
           onChange={(e) => setFiltroCategoria(e.target.value as PlantillaCategoria)}
-          className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none"
+          className="px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none"
         >
           {PLANTILLA_CATEGORIAS.map((c) => (
             <option key={c.key} value={c.key}>
@@ -669,7 +689,7 @@ function PlantillasPanel({ scope }: { scope: Scope }) {
         {isAdmin && (
           <button
             onClick={() => setCreating(true)}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800"
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
           >
             + Añadir plantilla
           </button>
@@ -677,19 +697,19 @@ function PlantillasPanel({ scope }: { scope: Scope }) {
       </div>
 
       {error && (
-        <p className="text-xs text-rose-700 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+        <p className="text-xs text-rose-700 bg-rose-50 border border-rose-100 dark:text-rose-300 dark:bg-rose-500/10 dark:border-rose-500/25 rounded-lg px-3 py-2">
           {error}
         </p>
       )}
       {loading ? (
-        <p className="text-sm text-slate-400 animate-pulse">Cargando…</p>
+        <p className="text-sm text-[var(--color-muted)] animate-pulse">Cargando…</p>
       ) : plantillas.length === 0 ? (
-        <Card padding="none" className="p-8 text-center text-sm text-slate-400">
+        <Card padding="none" className="p-8 text-center text-sm text-[var(--color-muted)]">
           No hay plantillas en esta categoría todavía.
         </Card>
       ) : (
         <Card padding="none" className="overflow-hidden">
-          <ul className="divide-y divide-slate-50">
+          <ul className="divide-y divide-[var(--color-border)]">
             {plantillas.map((p) => (
               <PlantillaRow
                 key={p.id}
@@ -753,8 +773,8 @@ function PlantillaRow({
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       onChanged();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Error al guardar");
+    } catch {
+      toast.error("No se pudo guardar el cambio. Inténtalo de nuevo.");
     } finally {
       setBusy(false);
     }
@@ -764,32 +784,32 @@ function PlantillaRow({
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="font-semibold text-sm text-slate-800">{plantilla.nombre}</p>
-            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+            <p className="font-semibold text-sm text-[var(--color-foreground)]">{plantilla.nombre}</p>
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)]">
               {plantilla.categoria}
             </span>
             {isGlobalReference && (
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-500">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)]">
                 default
               </span>
             )}
             {!plantilla.activa && (
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700">
-                inactiva
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300">
+                Inactiva
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-600 mt-1 line-clamp-2 whitespace-pre-wrap">
+          <p className="text-xs text-[var(--color-muted)] mt-1 line-clamp-2 whitespace-pre-wrap">
             {plantilla.contenido}
           </p>
           {plantilla.variablesDetectadas.length > 0 && (
-            <p className="text-[10px] text-slate-400 mt-1">
+            <p className="text-[10px] text-[var(--color-muted)] mt-1">
               Variables: {plantilla.variablesDetectadas.join(", ")}
             </p>
           )}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <label className="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer">
+          <label className="flex items-center gap-1.5 text-[11px] text-[var(--color-muted)] cursor-pointer">
             <input
               type="checkbox"
               checked={plantilla.activa}
@@ -800,7 +820,7 @@ function PlantillaRow({
           </label>
           <button
             onClick={onEdit}
-            className="text-xs text-slate-600 hover:text-slate-900 px-1.5 py-0.5 rounded hover:bg-slate-100"
+            className="text-xs text-[var(--color-muted)] hover:text-[var(--color-foreground)] px-1.5 py-0.5 rounded hover:bg-[var(--color-surface-muted)]"
           >
             Editar
           </button>
@@ -914,24 +934,27 @@ function PlantillaEditor({
     mode === "edit" && plantilla?.clinicaId === null && scope !== "global";
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="px-5 py-4 border-b border-slate-100">
-          <h3 className="font-semibold text-slate-900">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
+      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="px-5 py-4 border-b border-[var(--color-border)]">
+          <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
             {mode === "create" ? "Nueva plantilla" : "Editar plantilla"}
           </h3>
           {isGlobalReadOnly && (
-            <p className="text-[11px] text-amber-700 mt-1">
-              ⚠ Esta es una plantilla global. Solo puedes editarla con scope
-              &quot;Defaults globales&quot;. Para personalizarla en esta clínica,
-              crea una plantilla nueva con el mismo nombre.
+            <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-1 flex items-start gap-1.5">
+              <AlertTriangle size={14} strokeWidth={ICON_STROKE} className="shrink-0 mt-px" aria-hidden />
+              <span>
+                Esta es una plantilla por defecto. Solo puedes editarla desde el ámbito
+                &quot;Valores por defecto&quot;. Para personalizarla en esta clínica,
+                crea una plantilla nueva con el mismo nombre.
+              </span>
             </p>
           )}
         </div>
         <div className="p-5 space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
+              <label className="text-[11px] uppercase font-semibold text-[var(--color-muted)] tracking-wide">
                 Nombre
               </label>
               <input
@@ -939,18 +962,18 @@ function PlantillaEditor({
                 onChange={(e) => setNombre(e.target.value)}
                 disabled={isGlobalReadOnly}
                 placeholder="ej. recordatorio_senal"
-                className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none disabled:bg-[var(--color-surface-muted)] disabled:text-[var(--color-muted)]"
               />
             </div>
             <div>
-              <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
+              <label className="text-[11px] uppercase font-semibold text-[var(--color-muted)] tracking-wide">
                 Categoría
               </label>
               <select
                 value={categoria}
                 onChange={(e) => setCategoria(e.target.value as PlantillaCategoria)}
                 disabled={isGlobalReadOnly}
-                className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm focus:border-slate-400 focus:outline-none disabled:bg-slate-50 disabled:text-slate-400"
+                className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:outline-none disabled:bg-[var(--color-surface-muted)] disabled:text-[var(--color-muted)]"
               >
                 {PLANTILLA_CATEGORIAS.map((c) => (
                   <option key={c.key} value={c.key}>
@@ -961,7 +984,7 @@ function PlantillaEditor({
             </div>
           </div>
           <div>
-            <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
+            <label className="text-[11px] uppercase font-semibold text-[var(--color-muted)] tracking-wide">
               Cuerpo del mensaje
             </label>
             <textarea
@@ -970,46 +993,46 @@ function PlantillaEditor({
               disabled={isGlobalReadOnly}
               rows={6}
               placeholder="Hola {{nombre}}, tu presupuesto de {{importe}}€..."
-              className="mt-1 w-full px-3 py-2 rounded-lg border border-slate-200 text-sm font-mono focus:border-slate-400 focus:outline-none resize-y disabled:bg-slate-50 disabled:text-slate-400"
+              className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-foreground)] font-mono focus:border-[var(--color-accent)] focus:outline-none resize-y disabled:bg-[var(--color-surface-muted)] disabled:text-[var(--color-muted)]"
             />
-            <p className="text-[10px] text-slate-400 mt-1">
+            <p className="text-[10px] text-[var(--color-muted)] mt-1">
               Variables: {"{{nombre}} {{importe}} {{tratamiento}} {{nombre_doctor}} {{nombre_clinica}} {{fecha_aceptado}} {{plazo_dias}} {{dias_vencido}}"}
             </p>
           </div>
           <div>
-            <label className="text-[11px] uppercase font-semibold text-slate-500 tracking-wide">
+            <label className="text-[11px] uppercase font-semibold text-[var(--color-muted)] tracking-wide">
               Preview con paciente real
             </label>
-            <div className="mt-1 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-700 whitespace-pre-wrap min-h-[60px]">
+            <div className="mt-1 px-3 py-2 rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border)] text-sm text-[var(--color-foreground)] whitespace-pre-wrap min-h-[60px]">
               {previewBusy ? (
-                <span className="text-slate-400 italic">generando…</span>
+                <span className="text-[var(--color-muted)] italic">generando…</span>
               ) : preview ? (
                 preview
               ) : (
-                <span className="text-slate-400 italic">
+                <span className="text-[var(--color-muted)] italic">
                   Escribe el cuerpo arriba para ver el preview con datos reales.
                 </span>
               )}
             </div>
           </div>
           {error && (
-            <p className="text-xs text-rose-700 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+            <p className="text-xs text-rose-700 bg-rose-50 border border-rose-100 dark:text-rose-300 dark:bg-rose-500/10 dark:border-rose-500/25 rounded-lg px-3 py-2">
               {error}
             </p>
           )}
         </div>
-        <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
+        <div className="px-5 py-3 border-t border-[var(--color-border)] flex justify-end gap-2">
           <button
             onClick={onClose}
             disabled={submitting}
-            className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 rounded-lg disabled:opacity-50"
+            className="px-3 py-1.5 text-xs font-semibold text-[var(--color-muted)] hover:text-[var(--color-foreground)] rounded-lg disabled:opacity-50"
           >
             Cancelar
           </button>
           <button
             onClick={handleSubmit}
             disabled={submitting || isGlobalReadOnly}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
           >
             {submitting ? "Guardando…" : mode === "create" ? "Crear plantilla" : "Guardar cambios"}
           </button>
