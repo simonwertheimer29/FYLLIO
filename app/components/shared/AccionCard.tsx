@@ -6,6 +6,10 @@
 // Es 100% presentacional: el caller le pasa el contenido (display fields)
 // y los handlers; el componente no sabe si es lead o presupuesto.
 
+import { Sparkles, ICON_STROKE } from "../icons";
+
+// Los nombres de tone se mantienen por compatibilidad con los callers;
+// visualmente "violet" y "sky" mapean al accent del sistema.
 type Tag = { label: string; tone?: "neutral" | "violet" | "sky" | "rose" };
 
 export type AccionCardProps = {
@@ -53,7 +57,7 @@ export function AccionCard({
 }: AccionCardProps) {
   return (
     <div
-      className={`rounded-2xl border bg-white transition-opacity ${faded ? "opacity-50" : ""}`}
+      className={`rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] transition-opacity ${faded ? "opacity-50" : ""}`}
       style={{ borderLeft: `4px solid ${borderColor}` }}
     >
       <div
@@ -63,28 +67,28 @@ export function AccionCard({
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-bold text-sm text-slate-900 truncate">{title}</span>
+              <span className="font-bold text-sm text-[var(--color-foreground)] truncate">{title}</span>
               {titleRight && <span className="shrink-0">{titleRight}</span>}
               {typeof score === "number" && (
                 <div
                   className="flex items-center gap-2 shrink-0"
                   title={`Score ${score}`}
                 >
-                  <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div className="w-16 h-1.5 bg-[var(--color-surface-muted)] rounded-full overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${
                         score >= 70
-                          ? "bg-red-500"
+                          ? "bg-rose-500"
                           : score >= 50
                             ? "bg-orange-500"
                             : score >= 30
                               ? "bg-amber-400"
-                              : "bg-slate-300"
+                              : "bg-[var(--color-border)]"
                       }`}
                       style={{ width: `${score}%` }}
                     />
                   </div>
-                  <span className="text-[9px] font-bold text-slate-500 tabular-nums">
+                  <span className="text-[9px] font-bold text-[var(--color-muted)] tabular-nums">
                     {score}
                   </span>
                 </div>
@@ -97,12 +101,12 @@ export function AccionCard({
                     key={i}
                     className={`text-[10px] px-1.5 py-0.5 rounded-full ${
                       t.tone === "violet"
-                        ? "bg-violet-50 text-violet-700"
+                        ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
                         : t.tone === "sky"
-                          ? "bg-sky-50 text-sky-700 border border-sky-100"
+                          ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border border-[var(--color-border)]"
                           : t.tone === "rose"
-                            ? "bg-rose-50 text-rose-700"
-                            : "bg-slate-100 text-slate-600"
+                            ? "bg-[var(--color-danger-soft)] text-[var(--color-danger)]"
+                            : "bg-[var(--color-surface-muted)] text-[var(--color-muted)]"
                     }`}
                   >
                     {t.label}
@@ -111,15 +115,16 @@ export function AccionCard({
               </div>
             )}
             {meta && (
-              <p className="text-[10px] text-slate-500 mt-1 truncate">{meta}</p>
+              <p className="text-[10px] text-[var(--color-muted)] mt-1 truncate">{meta}</p>
             )}
             {quote && (
-              <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 border border-slate-100">
-                <p className="text-xs text-slate-700 line-clamp-2">&quot;{quote}&quot;</p>
+              <div className="mt-2 rounded-lg bg-[var(--color-surface-muted)] px-3 py-2 border border-[var(--color-border)]">
+                <p className="text-xs text-[var(--color-foreground)] line-clamp-2">&quot;{quote}&quot;</p>
               </div>
             )}
             {accionSugerida && (
-              <p className="text-[10px] text-violet-600 font-semibold mt-1.5">
+              <p className="inline-flex items-center gap-1 text-[10px] text-[var(--color-accent)] font-semibold mt-1.5">
+                <Sparkles size={12} strokeWidth={ICON_STROKE} aria-hidden className="shrink-0" />
                 {accionSugerida}
               </p>
             )}
@@ -135,14 +140,14 @@ export function AccionCard({
           {actions.map((a, i) => {
             const cls =
               a.variant === "primary"
-                ? "bg-violet-600 text-white hover:bg-violet-700"
+                ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
                 : a.variant === "emerald"
                   ? // Sprint 13 — verde WA formalizado: --fyllio-wa-green
                     // (emerald-600 solido) en lugar de pill claro.
                     "bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]"
                   : a.variant === "rose"
-                    ? "bg-rose-50 text-rose-700 hover:bg-rose-100"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200";
+                    ? "bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
+                    : "bg-[var(--color-surface-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-border)]";
             return (
               <button
                 key={i}

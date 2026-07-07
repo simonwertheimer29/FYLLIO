@@ -22,8 +22,19 @@ import type {
   CopilotMessage,
 } from "./types";
 import { useClinic } from "../../lib/context/ClinicContext";
-import { Sparkles, ArrowUp, X, Wrench, ICON_STROKE } from "../icons";
-import { History, Mic, Square } from "lucide-react";
+import {
+  Sparkles,
+  ArrowUp,
+  X,
+  Check,
+  Wrench,
+  History,
+  LoaderCircle,
+  AlertTriangle,
+  ChevronDown,
+  ICON_STROKE,
+} from "../icons";
+import { ChevronUp, Mic, Square } from "lucide-react";
 
 // ─── Sprint 14b Bloque 8 — patient mention parser ──────────────────────
 //
@@ -53,7 +64,7 @@ function renderAssistantContent(text: string): React.ReactNode[] {
       <Link
         key={key++}
         href={`/pacientes/${pacienteId}`}
-        className="text-violet-700 font-medium underline decoration-violet-300 hover:decoration-violet-700"
+        className="text-[var(--color-accent)] font-medium underline decoration-[var(--color-accent-soft)] hover:decoration-[var(--color-accent)]"
       >
         {label}
       </Link>,
@@ -345,7 +356,11 @@ export function FyllioCopilot() {
         error?: string;
       };
       const reply =
-        d.ok && d.message ? d.message : d.error ? `❌ ${d.error}` : "Acción ejecutada.";
+        d.ok && d.message
+          ? d.message
+          : d.error
+            ? `No se pudo completar la acción: ${d.error}`
+            : "Acción ejecutada.";
       // Sprint 12 F — toast bottom-right confirma sin distraer del chat.
       if (d.ok) {
         toast.success(d.message ?? "Acción ejecutada.");
@@ -367,9 +382,13 @@ export function FyllioCopilot() {
         return copy;
       });
     } catch {
+      toast.error("No se pudo ejecutar la acción. Revisa tu conexión.");
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: "❌ Error al ejecutar la acción." },
+        {
+          role: "assistant",
+          content: "No se pudo ejecutar la acción. Inténtalo de nuevo.",
+        },
       ]);
     } finally {
       setExecutingActionId(null);
@@ -392,17 +411,17 @@ export function FyllioCopilot() {
     <>
       {/* Sprint 13.1 Bloque 1 — FAB renderizado solo client-side post-mount.
           Sustituimos blur-[1px] (arbitrary, propenso a SSR/CSR mismatch)
-          por blur-sm (clase Tailwind nativa). Identidad visual del FAB
-          intacta: gradiente violet, sombra coloreada, anillo interior. */}
+          por blur-sm (clase Tailwind nativa). Identidad IA del sistema:
+          .fyllio-ia-gradient + anillo interior en accent. */}
       <button
         type="button"
         onClick={() => setOpen(true)}
         aria-label="Abrir Fyllio Copilot"
-        className="fyllio-copilot-fab fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-violet-600 to-violet-500 text-white shadow-lg shadow-violet-500/30 backdrop-blur-sm hover:scale-105 hover:shadow-xl hover:shadow-violet-500/40 transition-all duration-200 flex items-center justify-center"
+        className="fyllio-copilot-fab fyllio-ia-gradient fixed bottom-5 right-5 z-40 w-14 h-14 rounded-full shadow-lg backdrop-blur-sm hover:scale-105 hover:shadow-xl transition-all duration-200 flex items-center justify-center"
       >
         <span
           aria-hidden
-          className="absolute inset-1 rounded-full bg-violet-700/40 blur-sm"
+          className="absolute inset-1 rounded-full bg-[var(--color-accent-strong)]/40 blur-sm"
         />
         <Sparkles size={22} strokeWidth={ICON_STROKE} className="relative" />
       </button>
@@ -410,18 +429,18 @@ export function FyllioCopilot() {
       {open && (
         <div className="fixed inset-0 z-50 flex justify-end">
           <div className="absolute inset-0 bg-black/30" onClick={() => setOpen(false)} />
-          {/* Sprint 13 Bloque 7.2 — drawer 420px, fondo slate-50 para que
-              las burbujas blancas del Copilot destaquen. */}
-          <aside className="relative w-full max-w-[420px] bg-slate-50 shadow-md flex flex-col h-full overflow-hidden">
-            <header className="px-5 py-4 border-b border-[var(--color-border)] bg-white flex items-center justify-between shrink-0">
+          {/* Sprint 13 Bloque 7.2 — drawer 420px, fondo muted para que
+              las burbujas del Copilot destaquen. */}
+          <aside className="relative w-full max-w-[420px] bg-[var(--color-surface-muted)] shadow-md flex flex-col h-full overflow-hidden">
+            <header className="px-5 py-4 border-b border-[var(--color-border)] bg-[var(--color-surface)] flex items-center justify-between shrink-0">
               <div>
-                <h2 className="font-display text-base font-semibold text-slate-900 tracking-tight">
+                <h2 className="font-display text-base font-semibold text-[var(--color-foreground)] tracking-tight">
                   Copilot
                 </h2>
-                <p className="text-[11px] text-slate-500">
+                <p className="text-[11px] text-[var(--color-muted)]">
                   {contextSnapshot
                     ? `Contexto: ${contextLabel(contextSnapshot.kind)}`
-                    : "Sonnet 4.6 · Lectura + acciones"}
+                    : "Asistente IA · Lectura y acciones"}
                 </p>
               </div>
               <div className="flex items-center gap-1">
@@ -429,7 +448,7 @@ export function FyllioCopilot() {
                   <button
                     type="button"
                     onClick={reset}
-                    className="text-[11px] font-medium text-slate-500 hover:text-slate-900 px-2 py-1 rounded-md hover:bg-slate-50 transition-colors"
+                    className="text-[11px] font-medium text-[var(--color-muted)] hover:text-[var(--color-foreground)] px-2 py-1 rounded-md hover:bg-[var(--color-surface-muted)] transition-colors"
                   >
                     Reiniciar
                   </button>
@@ -438,14 +457,14 @@ export function FyllioCopilot() {
                   type="button"
                   onClick={() => setShowHistory(true)}
                   aria-label="Historial"
-                  className="text-slate-400 hover:text-slate-700 w-8 h-8 rounded-md flex items-center justify-center hover:bg-slate-100 transition-colors"
+                  className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-md flex items-center justify-center hover:bg-[var(--color-surface-muted)] transition-colors"
                 >
-                  <History size={16} strokeWidth={2.25} />
+                  <History size={16} strokeWidth={ICON_STROKE} />
                 </button>
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="text-slate-400 hover:text-slate-700 w-8 h-8 rounded-md flex items-center justify-center hover:bg-slate-100 transition-colors"
+                  className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-md flex items-center justify-center hover:bg-[var(--color-surface-muted)] transition-colors"
                   aria-label="Cerrar"
                 >
                   <X size={16} strokeWidth={ICON_STROKE} />
@@ -469,30 +488,30 @@ export function FyllioCopilot() {
               ))}
               {loading && <ThinkingDots />}
               {error && (
-                <div className="rounded-md bg-rose-50 border border-rose-200 px-3 py-2 text-xs text-rose-700">
+                <div className="rounded-md bg-[var(--color-danger-soft)] border border-rose-200 dark:border-rose-500/30 px-3 py-2 text-xs text-[var(--color-danger)]">
                   {error}
                 </div>
               )}
             </div>
 
-            <footer className="border-t border-[var(--color-border)] bg-white p-3 shrink-0">
+            <footer className="border-t border-[var(--color-border)] bg-[var(--color-surface)] p-3 shrink-0">
               {recording && (
-                <div className="mb-2 flex items-center gap-2 text-[11px] text-rose-600">
-                  <span className="inline-block w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                <div className="mb-2 flex items-center gap-2 text-[11px] text-[var(--color-danger)]">
+                  <span className="inline-block w-2 h-2 rounded-full bg-[var(--color-danger)] animate-pulse" />
                   Grabando · {Math.floor(recordingSeconds / 60)}:
                   {String(recordingSeconds % 60).padStart(2, "0")}
                   <button
                     type="button"
                     onClick={cancelarGrabacion}
-                    className="ml-auto text-slate-500 hover:text-slate-900"
+                    className="ml-auto text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
                   >
                     Cancelar
                   </button>
                 </div>
               )}
               {transcribing && (
-                <div className="mb-2 flex items-center gap-2 text-[11px] text-slate-500">
-                  <span className="inline-block w-3 h-3 rounded-full border-2 border-slate-300 border-t-slate-600 animate-spin" />
+                <div className="mb-2 flex items-center gap-2 text-[11px] text-[var(--color-muted)]">
+                  <LoaderCircle size={12} strokeWidth={ICON_STROKE} className="animate-spin" aria-hidden />
                   Transcribiendo…
                 </div>
               )}
@@ -509,7 +528,7 @@ export function FyllioCopilot() {
                   rows={1}
                   placeholder="Escribe a Fyllio…"
                   disabled={loading}
-                  className="flex-1 text-sm px-3 py-2 rounded-md border border-slate-200 focus:border-violet-300 focus:ring-2 focus:ring-violet-100 outline-none resize-none max-h-32"
+                  className="flex-1 text-sm px-3 py-2 rounded-md bg-[var(--color-surface)] text-[var(--color-foreground)] border border-[var(--color-border)] focus:border-[var(--color-accent)] focus:ring-2 focus:ring-[var(--color-accent-soft)] outline-none resize-none max-h-32"
                 />
                 <button
                   type="button"
@@ -519,13 +538,13 @@ export function FyllioCopilot() {
                   className={`w-9 h-9 rounded-md disabled:opacity-40 transition-colors flex items-center justify-center ${
                     recording
                       ? "bg-rose-600 text-white hover:bg-rose-700"
-                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      : "bg-[var(--color-surface-muted)] text-[var(--color-muted)] hover:bg-[var(--color-border)]"
                   }`}
                 >
                   {recording ? (
-                    <Square size={14} strokeWidth={2.25} />
+                    <Square size={14} strokeWidth={ICON_STROKE} />
                   ) : (
-                    <Mic size={16} strokeWidth={2.25} />
+                    <Mic size={16} strokeWidth={ICON_STROKE} />
                   )}
                 </button>
                 <button
@@ -533,7 +552,7 @@ export function FyllioCopilot() {
                   onClick={() => send()}
                   disabled={!draft.trim() || loading}
                   aria-label="Enviar"
-                  className="w-9 h-9 rounded-md bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40 transition-colors flex items-center justify-center"
+                  className="w-9 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40 transition-colors flex items-center justify-center"
                 >
                   <ArrowUp size={16} strokeWidth={ICON_STROKE} />
                 </button>
@@ -615,13 +634,13 @@ function HistoryPanel({
         onClick={onClose}
         aria-hidden
       />
-      <aside className="relative w-80 max-w-full bg-white shadow-xl border-r border-slate-200 flex flex-col h-full">
-        <header className="px-4 py-3 border-b border-slate-200 flex items-center justify-between shrink-0">
-          <h3 className="text-sm font-semibold text-slate-900">Historial</h3>
+      <aside className="relative w-80 max-w-full bg-[var(--color-surface)] shadow-xl border-r border-[var(--color-border)] flex flex-col h-full">
+        <header className="px-4 py-3 border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
+          <h3 className="font-display text-sm font-semibold text-[var(--color-foreground)]">Historial</h3>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 w-7 h-7 rounded-md flex items-center justify-center hover:bg-slate-100"
+            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-7 h-7 rounded-md flex items-center justify-center hover:bg-[var(--color-surface-muted)]"
             aria-label="Cerrar historial"
           >
             <X size={14} strokeWidth={ICON_STROKE} />
@@ -629,15 +648,15 @@ function HistoryPanel({
         </header>
         <div className="flex-1 overflow-y-auto p-2">
           {loading && (
-            <p className="text-xs text-slate-400 px-3 py-4 animate-pulse">
+            <p className="text-xs text-[var(--color-muted)] px-3 py-4 animate-pulse">
               Cargando…
             </p>
           )}
           {err && (
-            <p className="text-xs text-rose-600 px-3 py-4">{err}</p>
+            <p className="text-xs text-[var(--color-danger)] px-3 py-4">{err}</p>
           )}
           {!loading && !err && items.length === 0 && (
-            <p className="text-xs text-slate-400 px-3 py-6 text-center">
+            <p className="text-xs text-[var(--color-muted)] px-3 py-6 text-center">
               Aún no tienes conversaciones guardadas.
             </p>
           )}
@@ -654,17 +673,17 @@ function HistoryPanel({
                       onClick={() => onPick(it.id)}
                       className={`w-full text-left px-3 py-2 rounded-lg border transition-colors ${
                         activeId === it.id
-                          ? "border-violet-300 bg-violet-50"
-                          : "border-transparent hover:bg-slate-50"
+                          ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
+                          : "border-transparent hover:bg-[var(--color-surface-muted)]"
                       }`}
                     >
-                      <p className="text-[13px] font-medium text-slate-900 line-clamp-2">
+                      <p className="text-[13px] font-medium text-[var(--color-foreground)] line-clamp-2">
                         {it.titulo}
                       </p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
+                      <p className="text-[11px] text-[var(--color-muted)] mt-0.5">
                         {relTime(it.updatedAt)} · {it.mensajeCount} msg
                         {old && (
-                          <span className="ml-2 text-amber-600">· antigua</span>
+                          <span className="ml-2 text-[var(--color-warning)]">· antigua</span>
                         )}
                       </p>
                     </button>
@@ -734,7 +753,7 @@ function PromptTemplates({
   ];
   return (
     <div className="space-y-2">
-      <p className="text-xs text-slate-500">Empieza por aquí:</p>
+      <p className="text-xs text-[var(--color-muted)]">Empieza por aquí:</p>
       <div className="grid grid-cols-1 gap-2">
         {TEMPLATES.map((t) => (
           <button
@@ -742,12 +761,12 @@ function PromptTemplates({
             type="button"
             disabled={disabled}
             onClick={() => onPick(t.prompt)}
-            className="group text-left px-3.5 py-3 rounded-xl bg-white hover:bg-violet-50 hover:border-violet-200 border border-[var(--color-border)] transition-colors disabled:opacity-50"
+            className="group text-left px-3.5 py-3 rounded-xl bg-[var(--color-surface)] hover:bg-[var(--color-accent-soft)] hover:border-[var(--color-accent)] border border-[var(--color-border)] transition-colors disabled:opacity-50"
           >
-            <p className="text-[13px] font-semibold text-slate-900 group-hover:text-violet-700">
+            <p className="text-[13px] font-semibold text-[var(--color-foreground)] group-hover:text-[var(--color-accent)]">
               {t.titulo}
             </p>
-            <p className="text-[11px] text-slate-500 mt-0.5">{t.subtitulo}</p>
+            <p className="text-[11px] text-[var(--color-muted)] mt-0.5">{t.subtitulo}</p>
           </button>
         ))}
       </div>
@@ -772,7 +791,7 @@ function ChatBubble({
   if (isUser) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] ml-8 px-3 py-2 bg-violet-50 text-slate-900 border border-violet-100 rounded-2xl rounded-tr-sm">
+        <div className="max-w-[85%] ml-8 px-3 py-2 bg-[var(--color-accent-soft)] text-[var(--color-foreground)] border border-transparent rounded-2xl rounded-tr-sm">
           <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{message.content}</p>
         </div>
       </div>
@@ -780,7 +799,7 @@ function ChatBubble({
   }
   return (
     <div className="flex justify-start gap-2">
-      <div className="w-6 h-6 shrink-0 rounded-md bg-gradient-to-br from-violet-600 to-violet-500 text-white flex items-center justify-center mt-0.5">
+      <div className="fyllio-ia-gradient w-6 h-6 shrink-0 rounded-md flex items-center justify-center mt-0.5">
         <Sparkles size={12} strokeWidth={ICON_STROKE} />
       </div>
       <div className="max-w-[85%] flex flex-col gap-1.5">
@@ -788,7 +807,7 @@ function ChatBubble({
         {message.toolCallsTrace && message.toolCallsTrace.length > 0 && (
           <ToolCallsTrace trace={message.toolCallsTrace} />
         )}
-        <div className="px-3 py-2 bg-white text-slate-900 border border-slate-100 rounded-2xl rounded-tl-sm shadow-[var(--card-shadow-rest)]">
+        <div className="px-3 py-2 bg-[var(--color-surface)] text-[var(--color-foreground)] border border-[var(--color-border)] rounded-2xl rounded-tl-sm shadow-[var(--card-shadow-rest)]">
         <p className="text-[13px] leading-relaxed whitespace-pre-wrap">
           {renderAssistantContent(message.content)}
         </p>
@@ -816,8 +835,8 @@ function ChatBubble({
                     <div
                       className={
                         unresolved
-                          ? "rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-800 whitespace-pre-wrap leading-relaxed"
-                          : "rounded-md bg-slate-50 border border-slate-200 px-3 py-2 text-[12px] text-slate-700 whitespace-pre-wrap leading-relaxed"
+                          ? "rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-[12px] text-amber-800 dark:bg-amber-500/10 dark:border-amber-500/30 dark:text-amber-300 whitespace-pre-wrap leading-relaxed"
+                          : "rounded-md bg-[var(--color-surface-muted)] border border-[var(--color-border)] px-3 py-2 text-[12px] text-[var(--color-foreground)] whitespace-pre-wrap leading-relaxed"
                       }
                     >
                       {a.preview}
@@ -825,20 +844,25 @@ function ChatBubble({
                   )}
                   {settled ? (
                     <div
-                      className={`text-xs font-medium px-3 py-1.5 rounded-md border text-left ${
+                      className={`inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md border text-left ${
                         executed
-                          ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                          : "bg-slate-100 border-slate-200 text-slate-400 line-through"
+                          ? "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-500/10 dark:border-emerald-500/30 dark:text-emerald-300"
+                          : "bg-[var(--color-surface-muted)] border-[var(--color-border)] text-[var(--color-muted)] line-through"
                       }`}
                     >
-                      {executed ? "✓ " : "✕ "}
+                      {executed ? (
+                        <Check size={12} strokeWidth={ICON_STROKE} aria-hidden className="shrink-0" />
+                      ) : (
+                        <X size={12} strokeWidth={ICON_STROKE} aria-hidden className="shrink-0" />
+                      )}
                       {a.label}
                     </div>
                   ) : unresolved ? (
                     // Action sin paciente resuelto: mostramos solo el
                     // preview (instrucción) sin botón Confirmar.
-                    <div className="text-[11px] text-amber-700 italic">
-                      ⚠ Acción sin destinatario resuelto. Sigue la
+                    <div className="inline-flex items-start gap-1.5 text-[11px] text-amber-700 dark:text-amber-300 italic">
+                      <AlertTriangle size={12} strokeWidth={ICON_STROKE} aria-hidden className="shrink-0 mt-0.5" />
+                      Acción sin destinatario resuelto. Sigue la
                       instrucción de arriba.
                     </div>
                   ) : (
@@ -847,7 +871,7 @@ function ChatBubble({
                         type="button"
                         onClick={() => onCancel(a, msgIndex)}
                         disabled={busy}
-                        className="text-xs font-medium px-3 py-1.5 rounded-md border bg-white border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                        className="text-xs font-medium px-3 py-1.5 rounded-md border bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
                       >
                         Cancelar
                       </button>
@@ -855,14 +879,24 @@ function ChatBubble({
                         type="button"
                         onClick={() => onAction(a, msgIndex)}
                         disabled={busy}
-                        className={`flex-1 text-xs font-semibold px-3 py-1.5 rounded-md border text-left transition-colors ${
+                        className={`flex-1 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md border text-left transition-colors ${
                           busy
-                            ? "bg-slate-100 text-slate-500 border-slate-200"
-                            : "bg-violet-600 border-violet-600 text-white hover:bg-violet-700"
+                            ? "bg-[var(--color-surface-muted)] text-[var(--color-muted)] border-[var(--color-border)]"
+                            : "bg-[var(--color-accent)] border-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
                         }`}
                         title={a.description}
                       >
-                        {busy ? "⏳ Ejecutando…" : `✓ ${a.label}`}
+                        {busy ? (
+                          <>
+                            <LoaderCircle size={12} strokeWidth={ICON_STROKE} aria-hidden className="shrink-0 animate-spin" />
+                            Ejecutando…
+                          </>
+                        ) : (
+                          <>
+                            <Check size={12} strokeWidth={ICON_STROKE} aria-hidden className="shrink-0" />
+                            {a.label}
+                          </>
+                        )}
                       </button>
                     </div>
                   )}
@@ -902,14 +936,14 @@ function ToolCallsTrace({
         const params = formatParams(t.params);
         return (
           <div key={idx}>
-            <div className="bg-slate-50 border border-slate-200 rounded-lg p-2 flex items-start gap-2">
-              <Wrench size={14} strokeWidth={ICON_STROKE} className="text-slate-500 mt-0.5 shrink-0" />
+            <div className="bg-[var(--color-surface-muted)] border border-[var(--color-border)] rounded-lg p-2 flex items-start gap-2">
+              <Wrench size={14} strokeWidth={ICON_STROKE} className="text-[var(--color-muted)] mt-0.5 shrink-0" />
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-mono font-semibold text-slate-700 truncate">
+                <p className="text-xs font-mono font-semibold text-[var(--color-foreground)] truncate">
                   {t.name}
                 </p>
                 {params && (
-                  <p className="text-xs font-mono text-slate-500 truncate">{params}</p>
+                  <p className="text-xs font-mono text-[var(--color-muted)] truncate">{params}</p>
                 )}
               </div>
             </div>
@@ -917,9 +951,10 @@ function ToolCallsTrace({
               <button
                 type="button"
                 onClick={() => setExpanded(true)}
-                className="my-1 mx-1 text-[11px] font-medium text-slate-500 hover:text-slate-700 inline-flex items-center gap-1"
+                className="my-1 mx-1 text-[11px] font-medium text-[var(--color-muted)] hover:text-[var(--color-foreground)] inline-flex items-center gap-1"
               >
-                ▾ Mostrar {hiddenCount} más
+                <ChevronDown size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                Mostrar {hiddenCount} más
               </button>
             )}
           </div>
@@ -929,9 +964,10 @@ function ToolCallsTrace({
         <button
           type="button"
           onClick={() => setExpanded(false)}
-          className="text-[11px] font-medium text-slate-500 hover:text-slate-700"
+          className="text-[11px] font-medium text-[var(--color-muted)] hover:text-[var(--color-foreground)] inline-flex items-center gap-1"
         >
-          ▴ Colapsar
+          <ChevronUp size={12} strokeWidth={ICON_STROKE} aria-hidden />
+          Colapsar
         </button>
       )}
     </div>
@@ -955,14 +991,14 @@ function formatParams(params: Record<string, unknown>): string {
 function ThinkingDots() {
   return (
     <div className="flex justify-start gap-2">
-      <div className="w-6 h-6 shrink-0 rounded-md bg-gradient-to-br from-violet-600 to-violet-500 text-white flex items-center justify-center mt-0.5">
+      <div className="fyllio-ia-gradient w-6 h-6 shrink-0 rounded-md flex items-center justify-center mt-0.5">
         <Sparkles size={12} strokeWidth={ICON_STROKE} />
       </div>
-      <div className="px-3 py-3 bg-white border border-slate-100 rounded-2xl rounded-tl-sm shadow-[var(--card-shadow-rest)] flex items-center gap-1">
+      <div className="px-3 py-3 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl rounded-tl-sm shadow-[var(--card-shadow-rest)] flex items-center gap-1">
         {[0, 1, 2].map((i) => (
           <span
             key={i}
-            className="w-1.5 h-1.5 rounded-full bg-violet-500 animate-bounce"
+            className="w-1.5 h-1.5 rounded-full bg-[var(--color-accent)] animate-bounce"
             style={{ animationDelay: `${i * 120}ms`, animationDuration: "1s" }}
           />
         ))}
