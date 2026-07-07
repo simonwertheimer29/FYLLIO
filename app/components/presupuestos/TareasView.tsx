@@ -3,7 +3,9 @@
 import { useState, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
-import { Sparkles, MessageCircle } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
+import { Sparkles, MessageCircle, Phone, Check, X, ListChecks, ICON_STROKE } from "../icons";
+import { EmptyState } from "../ui/Feedback";
 import type { Presupuesto, PresupuestoEstado, UserSession } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG, ESTADOS_ACCIONABLES, ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
 import { calcularProbabilidad } from "../../lib/presupuestos/probability";
@@ -13,9 +15,9 @@ import IAGeneradorDrawer from "./IAGeneradorDrawer";
 
 function ProbBadge({ prob }: { prob: number }) {
   const color =
-    prob >= 60 ? "bg-emerald-100 text-emerald-700" :
-    prob >= 30 ? "bg-amber-100 text-amber-700" :
-    "bg-rose-100 text-rose-700";
+    prob >= 60 ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300" :
+    prob >= 30 ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300" :
+    "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300";
   return (
     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0 ${color}`} title={`Prob. cierre ${prob}%`}>
       {prob}%
@@ -38,7 +40,7 @@ function CompactRow({ p, prob, onOpenDrawer, onQuickContact }: {
   return (
     <>
       <div
-        className={`flex items-center gap-2 px-3 rounded-2xl border bg-white transition-opacity cursor-pointer hover:bg-slate-50 ${done ? "opacity-40" : ""}`}
+        className={`flex items-center gap-2 px-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] transition-opacity cursor-pointer hover:bg-[var(--color-surface-muted)] ${done ? "opacity-40" : ""}`}
         style={{ borderLeft: `4px solid ${cfg.hex}`, height: 48 }}
         onClick={() => onOpenDrawer(p)}
       >
@@ -47,36 +49,37 @@ function CompactRow({ p, prob, onOpenDrawer, onQuickContact }: {
         </span>
         <a
           href={`/presupuestos/paciente/${encodeURIComponent(p.patientName)}`}
-          className="font-semibold text-sm text-slate-900 truncate flex-1 min-w-0 hover:text-violet-700 hover:underline"
+          className="font-semibold text-sm text-[var(--color-foreground)] truncate flex-1 min-w-0 hover:text-[var(--color-accent)] hover:underline"
           onClick={(e) => e.stopPropagation()}
         >
           {p.patientName}
         </a>
         {p.treatments[0] && (
-          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 shrink-0 hidden sm:inline max-w-[110px] truncate">
+          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)] shrink-0 hidden sm:inline max-w-[110px] truncate">
             {p.treatments[0]}
           </span>
         )}
         {p.amount != null && (
-          <span className="text-sm font-bold text-slate-700 shrink-0">€{p.amount.toLocaleString("es-ES")}</span>
+          <span className="text-sm font-bold text-[var(--color-foreground)] tabular-nums shrink-0">€{p.amount.toLocaleString("es-ES")}</span>
         )}
         {prob != null && <ProbBadge prob={prob} />}
         <div className="flex items-center gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
           {p.patientPhone && (
             <button
               onClick={() => setIaOpen(true)}
-              className="inline-flex items-center justify-center px-2 py-1 rounded-lg bg-violet-600 text-white hover:bg-violet-700"
+              className="inline-flex items-center justify-center px-2 py-1 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
               title="Sugerir mensaje"
             >
-              <Sparkles size={12} strokeWidth={2.25} />
+              <Sparkles size={12} strokeWidth={ICON_STROKE} aria-hidden />
             </button>
           )}
           <button
             onClick={() => { setDone(true); onQuickContact(p.id); }}
             disabled={done}
-            className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-40"
+            className="flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg bg-[var(--color-foreground)] text-[var(--color-background)] hover:opacity-90 disabled:opacity-40"
           >
-            {done ? "✓" : "✓ Hecho"}
+            <Check size={12} strokeWidth={ICON_STROKE} aria-hidden />
+            {done ? "" : "Hecho"}
           </button>
         </div>
       </div>
@@ -96,9 +99,9 @@ const MOTIVO_DUDA_LABEL: Record<string, string> = {
 };
 
 function urgencyBadge(p: Presupuesto): { label: string; color: string } {
-  if (p.urgencyScore >= 70) return { label: "ATENCIÓN URGENTE", color: "bg-rose-100 text-rose-700" };
-  if (p.urgencyScore >= 40) return { label: "SEGUIMIENTO", color: "bg-amber-100 text-amber-700" };
-  return { label: "RECIENTE", color: "bg-sky-100 text-sky-700" };
+  if (p.urgencyScore >= 70) return { label: "ATENCIÓN URGENTE", color: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300" };
+  if (p.urgencyScore >= 40) return { label: "SEGUIMIENTO", color: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300" };
+  return { label: "RECIENTE", color: "bg-[var(--color-accent-soft)] text-[var(--color-accent)]" };
 }
 
 function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
@@ -158,7 +161,7 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
   return (
     <>
       <div
-        className={`rounded-2xl border bg-white transition-opacity ${done ? "opacity-40" : ""}`}
+        className={`rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] transition-opacity ${done ? "opacity-40" : ""}`}
         style={{ borderLeft: `4px solid ${cfg.hex}` }}
       >
         {/* Card body — clickable to open PatientDrawer */}
@@ -175,26 +178,26 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
             <div className="flex-1 min-w-0">
               <a
                 href={`/presupuestos/paciente/${encodeURIComponent(p.patientName)}`}
-                className="font-bold text-sm text-slate-900 truncate hover:text-violet-700 hover:underline"
+                className="font-bold text-sm text-[var(--color-foreground)] truncate hover:text-[var(--color-accent)] hover:underline"
                 onClick={(e) => e.stopPropagation()}
               >
                 {p.patientName}
               </a>
               <div className="mt-0.5">
                 {p.motivoDuda
-                  ? <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{MOTIVO_DUDA_LABEL[p.motivoDuda] ?? p.motivoDuda}</span>
-                  : <span className="text-[9px] text-slate-400">Sin duda registrada</span>
+                  ? <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">{MOTIVO_DUDA_LABEL[p.motivoDuda] ?? p.motivoDuda}</span>
+                  : <span className="text-[9px] text-[var(--color-muted)]">Sin duda registrada</span>
                 }
               </div>
               <div className="flex flex-wrap gap-1 mt-0.5">
                 {p.treatments.map((t, i) => (
-                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">{t}</span>
+                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)]">{t}</span>
                 ))}
               </div>
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                <span className="text-[10px] text-slate-500">{p.daysSince}d</span>
+                <span className="text-[10px] text-[var(--color-muted)]">{p.daysSince}d</span>
                 {p.contactCount > 0 && (
-                  <span className="text-[10px] text-slate-500">
+                  <span className="text-[10px] text-[var(--color-muted)]">
                     {p.contactCount} contacto{p.contactCount !== 1 ? "s" : ""}
                     {p.lastContactDaysAgo !== undefined && (
                       <> · último: {p.lastContactDaysAgo === 0 ? "hoy" : p.lastContactDaysAgo === 1 ? "ayer" : `hace ${p.lastContactDaysAgo}d`}</>
@@ -202,17 +205,17 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
                   </span>
                 )}
                 {p.ofertaActiva && (
-                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700">
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">
                     Oferta activa
                   </span>
                 )}
               </div>
-              {p.notes && (() => { const n = p.notes!.replace(/\[SEED_[A-Z_]+\]/g, "").trim(); return n ? <p className="text-[10px] text-slate-500 italic mt-1 truncate">{n}</p> : null; })()}
-              <p className="text-[10px] text-violet-600 font-semibold mt-1">→ {cfg.hint}</p>
+              {p.notes && (() => { const n = p.notes!.replace(/\[SEED_[A-Z_]+\]/g, "").trim(); return n ? <p className="text-[10px] text-[var(--color-muted)] italic mt-1 truncate">{n}</p> : null; })()}
+              <p className="text-[10px] text-[var(--color-accent)] font-semibold mt-1">→ {cfg.hint}</p>
             </div>
             <div className="shrink-0 flex flex-col items-end gap-1">
               {p.amount != null && (
-                <p className="font-extrabold text-slate-900">€{p.amount.toLocaleString("es-ES")}</p>
+                <p className="font-bold text-[var(--color-foreground)] tabular-nums">€{p.amount.toLocaleString("es-ES")}</p>
               )}
               {prob != null && <ProbBadge prob={prob} />}
               {p.doctorEspecialidad && (
@@ -230,9 +233,9 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
           {p.patientPhone && (
             <a
               href={`tel:${p.patientPhone}`}
-              className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
+              className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--color-surface-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-border)]"
             >
-              📞 Llamar
+              <Phone size={13} strokeWidth={ICON_STROKE} aria-hidden /> Llamar
             </a>
           )}
           {p.patientPhone && (
@@ -240,17 +243,17 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
               href={`https://wa.me/${cleanPhone}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+              className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]"
             >
-              <MessageCircle size={13} strokeWidth={2.25} /> WhatsApp
+              <MessageCircle size={13} strokeWidth={ICON_STROKE} aria-hidden /> WhatsApp
             </a>
           )}
           {p.patientPhone && (
             <button
               onClick={() => setIaOpen(true)}
-              className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-violet-600 text-white hover:bg-violet-700"
+              className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
             >
-              <Sparkles size={13} strokeWidth={2.25} /> Generar
+              <Sparkles size={13} strokeWidth={ICON_STROKE} aria-hidden /> Generar
             </button>
           )}
           <button
@@ -259,50 +262,61 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
             title="Enviar portal al paciente"
             className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl transition-colors disabled:opacity-50 ${
               portalCopiado
-                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                : "bg-slate-50 text-slate-600 border border-slate-200 hover:border-violet-300 hover:text-violet-600"
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/25"
+                : "bg-[var(--color-surface-muted)] text-[var(--color-muted)] border border-[var(--color-border)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
             }`}
           >
             {portalLoading ? (
               <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" /></svg>
-            ) : portalCopiado ? "✓ Link copiado" : "↗ Portal"}
+            ) : portalCopiado ? (
+              <><Check size={13} strokeWidth={ICON_STROKE} aria-hidden /> Link copiado</>
+            ) : (
+              <><ArrowUpRight size={13} strokeWidth={1.5} aria-hidden /> Portal</>
+            )}
           </button>
           <button
             onClick={fetchRec}
             disabled={loadingRec}
             title="Siguiente acción recomendada"
             className={`flex items-center gap-1 text-xs font-semibold px-2.5 py-1.5 rounded-xl border transition-colors disabled:opacity-50 ${
-              recOpen ? "border-violet-300 bg-violet-50 text-violet-700" : "border-slate-200 bg-white text-slate-500 hover:border-violet-200 hover:text-violet-600"
+              recOpen ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]" : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
             }`}
           >
             {loadingRec ? (
               <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" /></svg>
-            ) : "✦"}
+            ) : (
+              <Sparkles size={13} strokeWidth={ICON_STROKE} aria-hidden />
+            )}
           </button>
           <button
             onClick={() => { setDone(true); onQuickContact(p.id); }}
             disabled={done}
-            className="ml-auto flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-40"
+            className="ml-auto flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--color-foreground)] text-[var(--color-background)] hover:opacity-90 disabled:opacity-40"
           >
-            {done ? "✓ Registrado" : "✓ Contactado"}
+            <Check size={13} strokeWidth={ICON_STROKE} aria-hidden />
+            {done ? "Registrado" : "Contactado"}
           </button>
         </div>
 
         {/* Recommendation panel */}
         {recOpen && (
           <div className="px-4 pb-3" onClick={(e) => e.stopPropagation()}>
-            <div className="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 flex items-start gap-2">
-              <span className="text-[10px] font-bold text-violet-400 uppercase tracking-wide shrink-0 mt-0.5">✦ Acción</span>
+            <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-accent-soft)] px-3 py-2.5 flex items-start gap-2">
+              <span className="flex items-center gap-1 text-[10px] font-bold text-[var(--color-accent)] uppercase tracking-wide shrink-0 mt-0.5">
+                <Sparkles size={12} strokeWidth={ICON_STROKE} aria-hidden /> Acción
+              </span>
               {loadingRec ? (
-                <p className="text-xs text-violet-500 italic">Analizando situación…</p>
+                <p className="text-xs text-[var(--color-muted)] italic">Analizando situación…</p>
               ) : recomendacion ? (
-                <div className="text-xs text-violet-900 leading-relaxed flex-1 [&_p]:mb-1 [&_p:last-child]:mb-0 [&_strong]:font-semibold">
+                <div className="text-xs text-[var(--color-foreground)] leading-relaxed flex-1 [&_p]:mb-1 [&_p:last-child]:mb-0 [&_strong]:font-semibold">
                   <ReactMarkdown allowedElements={["p","strong","em"]} unwrapDisallowed>{recomendacion}</ReactMarkdown>
                 </div>
               ) : (
-                <p className="text-xs text-rose-500">No se pudo obtener la recomendación.</p>
+                <p className="text-xs text-[var(--color-danger)]">No se pudo obtener la recomendación.</p>
               )}
-              <button onClick={() => setRecOpen(false)} className="text-violet-300 hover:text-violet-500 text-sm leading-none shrink-0">✕</button>
+              <button onClick={() => setRecOpen(false)} className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] shrink-0" aria-label="Cerrar">
+                <X size={14} strokeWidth={ICON_STROKE} aria-hidden />
+              </button>
             </div>
           </div>
         )}
@@ -330,7 +344,7 @@ function Section({ title, items, color, compact, probMap, onChangeEstado, onOpen
     <div className="space-y-1.5">
       <div className="flex items-center gap-2">
         <span className={`text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full ${color}`}>{title}</span>
-        <span className="text-xs text-slate-400">{items.length}</span>
+        <span className="text-xs text-[var(--color-muted)]">{items.length}</span>
       </div>
       {items.map((p) =>
         compact
@@ -354,14 +368,14 @@ function ClinicaGroup({ clinica, items, compact, probMap, onChangeEstado, onOpen
   const dinero = items.reduce((sum, p) => sum + (p.amount ?? 0), 0);
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3 border-b border-slate-200 pb-2">
-        <h3 className="text-sm font-bold text-slate-700">{clinica}</h3>
-        <span className="text-xs text-slate-400">{items.length} presupuestos</span>
-        {dinero > 0 && <span className="text-xs font-semibold text-violet-700 ml-auto">€{dinero.toLocaleString("es-ES")} en juego</span>}
+      <div className="flex items-center gap-3 border-b border-[var(--color-border)] pb-2">
+        <h3 className="text-sm font-bold text-[var(--color-foreground)]">{clinica}</h3>
+        <span className="text-xs text-[var(--color-muted)]">{items.length} presupuestos</span>
+        {dinero > 0 && <span className="text-xs font-semibold text-[var(--color-accent)] ml-auto">€{dinero.toLocaleString("es-ES")} en juego</span>}
       </div>
-      <Section title="Atención urgente — actuar hoy" items={u} color="bg-rose-100 text-rose-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
-      <Section title="Seguimiento" items={s} color="bg-amber-100 text-amber-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
-      <Section title="Recientes" items={r} color="bg-sky-100 text-sky-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
+      <Section title="Atención urgente — actuar hoy" items={u} color="bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
+      <Section title="Seguimiento" items={s} color="bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
+      <Section title="Recientes" items={r} color="bg-[var(--color-accent-soft)] text-[var(--color-accent)]" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={onQuickContact} />
     </div>
   );
 }
@@ -412,10 +426,11 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
 
   if (accionables.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-slate-200 p-12 text-center">
-        <p className="text-slate-400 font-medium">No hay tareas pendientes</p>
-        <p className="text-xs text-slate-400 mt-1">Los presupuestos en Interesado, En Duda y En Negociación aparecerán aquí.</p>
-      </div>
+      <EmptyState
+        icon={<ListChecks size={24} strokeWidth={ICON_STROKE} />}
+        title="No hay tareas pendientes"
+        hint="Los presupuestos en Interesado, En Duda y En Negociación aparecerán aquí."
+      />
     );
   }
 
@@ -423,35 +438,35 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
     <div className="space-y-6">
       {/* Greeting for ventas role */}
       {user.rol === "ventas" && (
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-[var(--color-muted)]">
           Buenos días, {user.nombre}. Tienes{" "}
-          <span className="font-semibold text-slate-700">{accionables.length}</span>{" "}
+          <span className="font-semibold text-[var(--color-foreground)]">{accionables.length}</span>{" "}
           presupuesto{accionables.length !== 1 ? "s" : ""} por contactar hoy.
         </p>
       )}
 
       {/* Summary bar */}
-      <div className="rounded-2xl bg-gradient-to-r from-violet-600 to-purple-700 p-4 text-white flex items-center justify-between gap-4 flex-wrap">
+      <div className="rounded-2xl bg-[var(--color-accent)] p-4 text-[var(--color-on-accent)] flex items-center justify-between gap-4 flex-wrap">
         <div>
-          <p className="text-xs font-semibold text-violet-200 uppercase tracking-widest">Tareas de hoy</p>
-          <h2 className="text-xl font-extrabold mt-0.5">
+          <p className="text-[11px] font-semibold text-[var(--color-on-accent)]/80 uppercase tracking-widest">Tareas de hoy</p>
+          <h2 className="font-display text-xl font-semibold mt-0.5">
             {accionables.length} presupuesto{accionables.length !== 1 ? "s" : ""} por contactar
           </h2>
           {dineroTotal > 0 && (
-            <p className="text-sm font-semibold text-violet-200 mt-0.5">€{dineroTotal.toLocaleString("es-ES")} en juego</p>
+            <p className="text-sm font-semibold text-[var(--color-on-accent)]/80 mt-0.5">€{dineroTotal.toLocaleString("es-ES")} en juego</p>
           )}
         </div>
         <div className="flex items-center gap-4">
           {urgentes.length > 0 && (
             <div className="text-center">
-              <p className="text-lg font-extrabold text-rose-300">{urgentes.length}</p>
-              <p className="text-[10px] text-violet-200">Urgentes</p>
+              <p className="text-lg font-bold tabular-nums text-rose-300 dark:text-rose-800">{urgentes.length}</p>
+              <p className="text-[10px] text-[var(--color-on-accent)]/80">Urgentes</p>
             </div>
           )}
           {seguimiento.length > 0 && (
             <div className="text-center">
-              <p className="text-lg font-extrabold text-amber-300">{seguimiento.length}</p>
-              <p className="text-[10px] text-violet-200">Seguimiento</p>
+              <p className="text-lg font-bold tabular-nums text-amber-300 dark:text-amber-800">{seguimiento.length}</p>
+              <p className="text-[10px] text-[var(--color-on-accent)]/80">Seguimiento</p>
             </div>
           )}
           <div className="flex items-center gap-2 flex-wrap">
@@ -461,7 +476,7 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
               className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-colors ${
                 soloOferta
                   ? "bg-amber-400 text-amber-900 border-amber-400"
-                  : "bg-violet-700 text-violet-200 border-violet-600 hover:bg-violet-600"
+                  : "bg-[var(--color-accent-hover)] text-[var(--color-on-accent)]/80 border-[var(--color-accent)] hover:bg-[var(--color-accent-hover)]"
               }`}
             >
               Oferta activa
@@ -471,8 +486,8 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
               onClick={() => setCompact((v) => !v)}
               className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-colors ${
                 compact
-                  ? "bg-white text-violet-700 border-white"
-                  : "bg-violet-700 text-violet-200 border-violet-600 hover:bg-violet-600"
+                  ? "bg-[var(--color-surface)] text-[var(--color-accent)] border-white"
+                  : "bg-[var(--color-accent-hover)] text-[var(--color-on-accent)]/80 border-[var(--color-accent)] hover:bg-[var(--color-accent-hover)]"
               }`}
             >
               {compact ? "Vista detallada" : "Vista compacta"}
@@ -484,11 +499,11 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
       {/* Manager: clinic filter */}
       {isManager && clinicas.length > 1 && (
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-semibold text-slate-500">Clínica:</span>
+          <span className="text-xs font-semibold text-[var(--color-muted)]">Clínica:</span>
           {["__todas__", ...clinicas].map((c) => (
             <button key={c} onClick={() => setClinicaFiltro(c)}
               className={`text-xs px-3 py-1.5 rounded-xl border font-medium transition-colors ${
-                clinicaFiltro === c ? "bg-violet-600 text-white border-violet-600" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                clinicaFiltro === c ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]" : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
               }`}>
               {c === "__todas__" ? "Todas" : c}
             </button>
@@ -514,9 +529,9 @@ export default function TareasView({ user, presupuestos, onOpenDrawer, onChangeE
             const s = filtered.filter((p) => p.urgencyScore >= 40 && p.urgencyScore < 70);
             const r = filtered.filter((p) => p.urgencyScore < 40);
             return <>
-              <Section title="Atención urgente — actuar hoy" items={u} color="bg-rose-100 text-rose-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
-              <Section title="Seguimiento" items={s} color="bg-amber-100 text-amber-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
-              <Section title="Recientes" items={r} color="bg-sky-100 text-sky-700" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
+              <Section title="Atención urgente — actuar hoy" items={u} color="bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
+              <Section title="Seguimiento" items={s} color="bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
+              <Section title="Recientes" items={r} color="bg-[var(--color-accent-soft)] text-[var(--color-accent)]" compact={compact} probMap={probMap} onChangeEstado={onChangeEstado} onOpenDrawer={onOpenDrawer} onQuickContact={handleQuickContact} />
             </>;
           })()}
         </div>

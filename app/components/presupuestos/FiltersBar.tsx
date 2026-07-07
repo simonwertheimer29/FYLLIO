@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { Doctor, UserSession } from "../../lib/presupuestos/types";
 import { Card } from "../ui/Card";
+import { X, Euro, Tag, Megaphone, ICON_STROKE } from "../icons";
 
 export type Filters = {
   clinica: string;
@@ -131,34 +132,35 @@ function PeriodPreset({
           }}
           className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors whitespace-nowrap border ${
             active === p
-              ? "bg-sky-50 text-sky-700 border-sky-200"
-              : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900"
+              ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-[var(--color-border)]"
+              : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-foreground)]"
           }`}
         >
           {PRESET_LABELS[p]}
         </button>
       ))}
-      <span className="text-slate-300 text-xs select-none px-0.5">|</span>
+      <span className="text-[var(--color-muted)] text-xs select-none px-0.5">|</span>
       <input
         type="date"
         value={fechaDesde}
         onChange={(e) => onChange(e.target.value, fechaHasta)}
-        className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300 w-[120px]"
+        className="rounded-lg border border-[var(--color-border)] px-2 py-1 text-[11px] text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)] w-[120px]"
       />
-      <span className="text-slate-400 text-[11px]">→</span>
+      <span className="text-[var(--color-muted)] text-[11px]">→</span>
       <input
         type="date"
         value={fechaHasta}
         onChange={(e) => onChange(fechaDesde, e.target.value)}
-        className="rounded-lg border border-slate-200 px-2 py-1 text-[11px] text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300 w-[120px]"
+        className="rounded-lg border border-[var(--color-border)] px-2 py-1 text-[11px] text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)] w-[120px]"
       />
       {hasCustomDates && active === "personalizado" && (
         <button
           onClick={() => onChange("", "")}
-          className="text-[11px] text-slate-400 hover:text-rose-500 transition-colors px-1"
+          className="text-[var(--color-muted)] hover:text-rose-500 transition-colors px-1"
           title="Limpiar fechas"
+          aria-label="Limpiar fechas"
         >
-          ✕
+          <X size={12} strokeWidth={ICON_STROKE} aria-hidden />
         </button>
       )}
     </div>
@@ -255,27 +257,30 @@ export default function FiltersBar({
           placeholder="Buscar paciente, tratamiento, importe…"
           value={filters.q}
           onChange={(e) => updateSearch(e.target.value)}
-          className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-violet-300"
+          className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm placeholder-[var(--color-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)]"
         />
         {/* Smart hint */}
         {pattern && (
           <div className="mt-1.5 flex items-center gap-2">
             {pattern.kind === "amount" && (
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium">
-                💰 Buscando por importe ≈ €{pattern.value.toLocaleString("es-ES")}
+              <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)] font-medium">
+                <Euro size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                Buscando por importe ≈ €{pattern.value.toLocaleString("es-ES")}
               </span>
             )}
             {pattern.kind === "estado" && (
               <button
                 onClick={() => applyPattern(pattern)}
-                className="text-[11px] px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 font-semibold hover:bg-violet-100 transition-colors"
+                className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)] font-semibold hover:bg-[var(--color-accent-soft)] transition-colors"
               >
-                🏷 Filtrar por estado: {pattern.label} →
+                <Tag size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                Filtrar por estado: {pattern.label} →
               </button>
             )}
             {pattern.kind === "origen" && (
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium">
-                📢 Canal detectado: {pattern.label}
+              <span className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-medium">
+                <Megaphone size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                Canal detectado: {pattern.label}
               </span>
             )}
           </div>
@@ -291,7 +296,7 @@ export default function FiltersBar({
         <select
           value={filters.doctor}
           onChange={(e) => updateImmediate("doctor", e.target.value)}
-          className={`rounded-xl border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300 ${filters.doctor ? "border-violet-400 bg-violet-50 text-violet-700 font-semibold" : "border-slate-200 text-slate-700"}`}
+          className={`rounded-xl border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)] ${filters.doctor ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)] font-semibold" : "border-[var(--color-border)] text-[var(--color-foreground)]"}`}
         >
           <option value="">Todos los doctores</option>
           {doctores.map((d) => (
@@ -303,7 +308,7 @@ export default function FiltersBar({
         <select
           value={filters.estado}
           onChange={(e) => updateImmediate("estado", e.target.value)}
-          className={`rounded-xl border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300 ${filters.estado ? "border-violet-400 bg-violet-50 text-violet-700 font-semibold" : "border-slate-200 text-slate-700"}`}
+          className={`rounded-xl border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)] ${filters.estado ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)] font-semibold" : "border-[var(--color-border)] text-[var(--color-foreground)]"}`}
         >
           <option value="">Todos los estados</option>
           <option value="PRESENTADO">Presentado</option>
@@ -318,7 +323,7 @@ export default function FiltersBar({
         <select
           value={filters.tipoPaciente}
           onChange={(e) => updateImmediate("tipoPaciente", e.target.value)}
-          className={`rounded-xl border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300 ${filters.tipoPaciente ? "border-violet-400 bg-violet-50 text-violet-700 font-semibold" : "border-slate-200 text-slate-700"}`}
+          className={`rounded-xl border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)] ${filters.tipoPaciente ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)] font-semibold" : "border-[var(--color-border)] text-[var(--color-foreground)]"}`}
         >
           <option value="">Tipo paciente</option>
           <option value="Privado">Privado</option>
@@ -329,7 +334,7 @@ export default function FiltersBar({
         <select
           value={filters.tipoVisita}
           onChange={(e) => updateImmediate("tipoVisita", e.target.value)}
-          className={`rounded-xl border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-violet-300 ${filters.tipoVisita ? "border-violet-400 bg-violet-50 text-violet-700 font-semibold" : "border-slate-200 text-slate-700"}`}
+          className={`rounded-xl border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)] ${filters.tipoVisita ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)] font-semibold" : "border-[var(--color-border)] text-[var(--color-foreground)]"}`}
         >
           <option value="">Tipo visita</option>
           <option value="Primera Visita">1ª Visita</option>
@@ -351,7 +356,7 @@ export default function FiltersBar({
         {hasActiveFilters && (
           <button
             onClick={reset}
-            className="text-xs px-2.5 py-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50"
+            className="text-xs px-2.5 py-1.5 rounded-xl border border-rose-200 dark:border-rose-500/30 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10"
           >
             Limpiar filtros
           </button>

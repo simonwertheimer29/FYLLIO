@@ -3,7 +3,23 @@
 // app/components/presupuestos/ConfigAutomatizaciones.tsx
 // Centro de control: Automatizaciones · Objetivos · Notificaciones · Clínica
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, type ReactNode } from "react";
+import { toast } from "sonner";
+import {
+  Bot,
+  Target,
+  MessageCircle,
+  FileText,
+  CalendarClock,
+  Bell,
+  Building2,
+  User,
+  Check,
+  Plus,
+  X,
+  ICON_STROKE,
+} from "../icons";
+import { ErrorState } from "../ui/Feedback";
 import type { UserSession, ConfiguracionAutomatizacion, ModoWhatsApp, PlantillaMensaje, TipoPlantilla, ConfigRecordatorios } from "../../lib/presupuestos/types";
 
 interface Props {
@@ -28,37 +44,39 @@ function SectionAutomatizaciones({ user }: { user: UserSession }) {
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [seedLoading, setSeedLoading] = useState(false);
   const [seedDone, setSeedDone] = useState(false);
   const [clinicas, setClinicas] = useState<string[]>([]);
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const [configRes, clinicasRes] = await Promise.all([
-          fetch("/api/automatizaciones/configuracion").then((r) => r.json()),
-          fetch("/api/presupuestos/clinicas").then((r) => r.json()),
-        ]);
-        const map: ConfigMap = {};
-        if (configRes.configuraciones) {
-          for (const c of configRes.configuraciones as ConfiguracionAutomatizacion[]) {
-            map[c.clinica] = c;
-          }
-        } else if (configRes.configuracion) {
-          const c = configRes.configuracion as ConfiguracionAutomatizacion;
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const [configRes, clinicasRes] = await Promise.all([
+        fetch("/api/automatizaciones/configuracion").then((r) => r.json()),
+        fetch("/api/presupuestos/clinicas").then((r) => r.json()),
+      ]);
+      const map: ConfigMap = {};
+      if (configRes.configuraciones) {
+        for (const c of configRes.configuraciones as ConfiguracionAutomatizacion[]) {
           map[c.clinica] = c;
         }
-        setConfigs(map);
-        setClinicas(clinicasRes.clinicas ?? []);
-      } catch {
-        setConfigs({});
-      } finally {
-        setLoading(false);
+      } else if (configRes.configuracion) {
+        const c = configRes.configuracion as ConfiguracionAutomatizacion;
+        map[c.clinica] = c;
       }
+      setConfigs(map);
+      setClinicas(clinicasRes.clinicas ?? []);
+    } catch {
+      setConfigs({});
+      setLoadError(true);
+    } finally {
+      setLoading(false);
     }
-    load();
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const allClinicas = Array.from(new Set([...Object.keys(configs), ...clinicas])).sort();
 
@@ -80,7 +98,9 @@ function SectionAutomatizaciones({ user }: { user: UserSession }) {
       });
       setSaved((p) => ({ ...p, [clinica]: true }));
       setTimeout(() => setSaved((p) => ({ ...p, [clinica]: false })), 2000);
-    } catch { /* silent */ }
+    } catch {
+      toast.error("No se pudo guardar la configuración. Inténtalo de nuevo.");
+    }
     finally { setSaving((p) => ({ ...p, [clinica]: false })); }
   }
 
@@ -90,7 +110,9 @@ function SectionAutomatizaciones({ user }: { user: UserSession }) {
       await fetch("/api/automatizaciones/seed-demo", { method: "POST" });
       setSeedDone(true);
       setTimeout(() => setSeedDone(false), 3000);
-    } catch { /* silent */ }
+    } catch {
+      toast.error("No se pudo cargar la demo. Inténtalo de nuevo.");
+    }
     finally { setSeedLoading(false); }
   }
 
@@ -98,11 +120,11 @@ function SectionAutomatizaciones({ user }: { user: UserSession }) {
     return (
       <div className="space-y-4 animate-pulse">
         {[0, 1].map((i) => (
-          <div key={i} className="rounded-2xl border border-slate-200 p-5 bg-white">
-            <div className="h-4 w-40 bg-slate-200 rounded mb-4" />
+          <div key={i} className="rounded-2xl border border-[var(--color-border)] p-5 bg-[var(--color-surface)]">
+            <div className="h-4 w-40 bg-[var(--color-border)] rounded mb-4" />
             <div className="space-y-3">
-              <div className="h-3 w-64 bg-slate-100 rounded" />
-              <div className="h-3 w-56 bg-slate-100 rounded" />
+              <div className="h-3 w-64 bg-[var(--color-surface-muted)] rounded" />
+              <div className="h-3 w-56 bg-[var(--color-surface-muted)] rounded" />
             </div>
           </div>
         ))}
@@ -110,43 +132,52 @@ function SectionAutomatizaciones({ user }: { user: UserSession }) {
     );
   }
 
+  if (loadError) {
+    return (
+      <ErrorState
+        detail="La configuración de automatizaciones no está disponible ahora mismo."
+        onRetry={load}
+      />
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Mode selector */}
       <div>
-        <h3 className="text-sm font-bold text-slate-900 mb-1">Modo de operación</h3>
-        <p className="text-xs text-slate-500 mb-4">Elige cómo quieres que funcionen las automatizaciones</p>
+        <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">Modo de operación</h3>
+        <p className="text-xs text-[var(--color-muted)] mb-4">Elige cómo quieres que funcionen las automatizaciones</p>
         <div className="grid grid-cols-3 gap-3">
           {/* Mode A — active */}
-          <div className="rounded-2xl border-2 border-violet-500 bg-violet-50 p-4">
+          <div className="rounded-2xl border-2 border-[var(--color-accent)] bg-[var(--color-accent-soft)] p-4">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <span className="text-sm font-bold text-violet-900">Modo A</span>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-600 text-white">Activo</span>
+              <span className="text-sm font-bold text-[var(--color-foreground)]">Modo A</span>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)]">Activo</span>
             </div>
-            <p className="text-xs text-violet-700 font-medium mb-1">Prepara, no envía</p>
-            <p className="text-[11px] text-violet-600 leading-relaxed">
+            <p className="text-xs text-[var(--color-accent)] font-medium mb-1">Prepara, no envía</p>
+            <p className="text-[11px] text-[var(--color-accent)] leading-relaxed">
               Los mensajes se generan automáticamente y se colocan en cola para revisión antes de enviar.
             </p>
           </div>
           {/* Mode B — disabled */}
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 opacity-60 cursor-not-allowed">
+          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 opacity-60 cursor-not-allowed">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <span className="text-sm font-bold text-slate-600">Modo B</span>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-500">WhatsApp Business API</span>
+              <span className="text-sm font-bold text-[var(--color-muted)]">Modo B</span>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-border)] text-[var(--color-muted)]">WhatsApp Business API</span>
             </div>
-            <p className="text-xs text-slate-500 font-medium mb-1">Envío semi-automático</p>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
+            <p className="text-xs text-[var(--color-muted)] font-medium mb-1">Envío semi-automático</p>
+            <p className="text-[11px] text-[var(--color-muted)] leading-relaxed">
               Requiere conexión con WhatsApp Business API para envío con confirmación.
             </p>
           </div>
           {/* Mode C — disabled */}
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 opacity-60 cursor-not-allowed">
+          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 opacity-60 cursor-not-allowed">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <span className="text-sm font-bold text-slate-600">Modo C</span>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-500">Próximamente</span>
+              <span className="text-sm font-bold text-[var(--color-muted)]">Modo C</span>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-border)] text-[var(--color-muted)]">Próximamente</span>
             </div>
-            <p className="text-xs text-slate-500 font-medium mb-1">Totalmente autónomo</p>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
+            <p className="text-xs text-[var(--color-muted)] font-medium mb-1">Totalmente autónomo</p>
+            <p className="text-[11px] text-[var(--color-muted)] leading-relaxed">
               Envío automático completo con aprendizaje continuo y optimización.
             </p>
           </div>
@@ -157,25 +188,25 @@ function SectionAutomatizaciones({ user }: { user: UserSession }) {
       <div>
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-sm font-bold text-slate-900">Configuración por clínica</h3>
-            <p className="text-xs text-slate-500 mt-0.5">Umbrales de activación para cada evento automático</p>
+            <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">Configuración por clínica</h3>
+            <p className="text-xs text-[var(--color-muted)] mt-0.5">Umbrales de activación para cada evento automático</p>
           </div>
           <button
             onClick={seedDemo}
             disabled={seedLoading}
-            className={`text-xs font-semibold px-3 py-2 rounded-xl border transition-colors disabled:opacity-50 ${
+            className={`inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-xl border transition-colors disabled:opacity-50 ${
               seedDone
-                ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                : "border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100"
+                ? "border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                : "border-[var(--color-border)] bg-[var(--color-accent-soft)] text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
             }`}
           >
-            {seedLoading ? "Cargando…" : seedDone ? "✓ Demo cargada" : "Cargar demo"}
+            {seedLoading ? "Cargando…" : seedDone ? <><Check size={13} strokeWidth={ICON_STROKE} aria-hidden /> Demo cargada</> : "Cargar demo"}
           </button>
         </div>
 
         {allClinicas.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center">
-            <p className="text-slate-400 text-sm">No hay clínicas configuradas todavía.</p>
+          <div className="rounded-2xl border border-dashed border-[var(--color-border)] p-8 text-center">
+            <p className="text-[var(--color-muted)] text-sm">No hay clínicas configuradas todavía.</p>
           </div>
         )}
 
@@ -185,55 +216,55 @@ function SectionAutomatizaciones({ user }: { user: UserSession }) {
             const isSaving = saving[clinica] ?? false;
             const isSaved = saved[clinica] ?? false;
             return (
-              <div key={clinica} className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+              <div key={clinica} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-4">
                 <div className="flex items-center justify-between gap-4">
-                  <h4 className="font-semibold text-slate-900">{clinica}</h4>
+                  <h4 className="font-semibold text-[var(--color-foreground)]">{clinica}</h4>
                   <button
                     onClick={() => updateConfig(clinica, { activa: !cfg.activa })}
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                      cfg.activa ? "bg-violet-600" : "bg-slate-200"
+                      cfg.activa ? "bg-[var(--color-accent)]" : "bg-[var(--color-border)]"
                     }`}
                     title={cfg.activa ? "Desactivar" : "Activar"}
                   >
-                    <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${cfg.activa ? "translate-x-6" : "translate-x-1"}`} />
+                    <span className={`inline-block h-4 w-4 transform rounded-full bg-[var(--color-surface)] shadow transition-transform ${cfg.activa ? "translate-x-6" : "translate-x-1"}`} />
                   </button>
                 </div>
 
                 <div className={`space-y-3 ${!cfg.activa ? "opacity-40 pointer-events-none" : ""}`}>
                   <div className="flex items-center justify-between gap-4">
-                    <label className="text-sm text-slate-600 flex-1">
+                    <label className="text-sm text-[var(--color-muted)] flex-1">
                       Días sin actividad para alertar
-                      <span className="text-[10px] text-slate-400 block">Evento: presupuesto inactivo</span>
+                      <span className="text-[10px] text-[var(--color-muted)] block">Evento: presupuesto inactivo</span>
                     </label>
                     <input
                       type="number" min={1} max={30}
                       value={cfg.diasInactividadAlerta}
                       onChange={(e) => updateConfig(clinica, { diasInactividadAlerta: Number(e.target.value) })}
-                      className="w-16 text-center border border-slate-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-violet-400"
+                      className="w-16 text-center border border-[var(--color-border)] rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-[var(--color-accent)]"
                     />
                   </div>
                   <div className="flex items-center justify-between gap-4">
-                    <label className="text-sm text-slate-600 flex-1">
+                    <label className="text-sm text-[var(--color-muted)] flex-1">
                       Días portal sin respuesta
-                      <span className="text-[10px] text-slate-400 block">Evento: portal visto sin respuesta</span>
+                      <span className="text-[10px] text-[var(--color-muted)] block">Evento: portal visto sin respuesta</span>
                     </label>
                     <input
                       type="number" min={1} max={14}
                       value={cfg.diasPortalSinRespuesta}
                       onChange={(e) => updateConfig(clinica, { diasPortalSinRespuesta: Number(e.target.value) })}
-                      className="w-16 text-center border border-slate-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-violet-400"
+                      className="w-16 text-center border border-[var(--color-border)] rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-[var(--color-accent)]"
                     />
                   </div>
                   <div className="flex items-center justify-between gap-4">
-                    <label className="text-sm text-slate-600 flex-1">
+                    <label className="text-sm text-[var(--color-muted)] flex-1">
                       Días para reactivación de perdidos
-                      <span className="text-[10px] text-slate-400 block">Evento: reactivación programada</span>
+                      <span className="text-[10px] text-[var(--color-muted)] block">Evento: reactivación programada</span>
                     </label>
                     <input
                       type="number" min={30} max={365}
                       value={cfg.diasReactivacion}
                       onChange={(e) => updateConfig(clinica, { diasReactivacion: Number(e.target.value) })}
-                      className="w-16 text-center border border-slate-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-violet-400"
+                      className="w-16 text-center border border-[var(--color-border)] rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-[var(--color-accent)]"
                     />
                   </div>
                 </div>
@@ -242,13 +273,13 @@ function SectionAutomatizaciones({ user }: { user: UserSession }) {
                   <button
                     onClick={() => saveConfig(clinica)}
                     disabled={isSaving}
-                    className={`text-sm font-semibold px-4 py-2 rounded-xl transition-colors disabled:opacity-50 ${
+                    className={`inline-flex items-center gap-1 text-sm font-semibold px-4 py-2 rounded-xl transition-colors disabled:opacity-50 ${
                       isSaved
-                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        : "bg-violet-600 text-white hover:bg-violet-700"
+                        ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30"
+                        : "bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
                     }`}
                   >
-                    {isSaving ? "Guardando…" : isSaved ? "✓ Guardado" : "Guardar cambios"}
+                    {isSaving ? "Guardando…" : isSaved ? <><Check size={14} strokeWidth={ICON_STROKE} aria-hidden /> Guardado</> : "Guardar cambios"}
                   </button>
                 </div>
               </div>
@@ -270,39 +301,40 @@ function SectionObjetivos({ user }: { user: UserSession }) {
   const [aceptadosMTD, setAceptadosMTD] = useState<Record<string, number>>({});
   const [clinicas, setClinicas] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const mesMTD = new Date().toISOString().slice(0, 7);
 
-  useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const [objData, kanbanData, clinicasData] = await Promise.all([
-          fetch(`/api/presupuestos/objetivos?mes=${mesMTD}`).then((r) => r.json()),
-          fetch(`/api/presupuestos/kanban`).then((r) => r.json()),
-          fetch("/api/presupuestos/clinicas").then((r) => r.json()),
-        ]);
-        const objMap: Record<string, number> = {};
-        for (const o of (objData.objetivos ?? [])) {
-          objMap[o.clinica] = o.objetivo_aceptados;
-        }
-        setObjetivos(objMap);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const [objData, kanbanData, clinicasData] = await Promise.all([
+        fetch(`/api/presupuestos/objetivos?mes=${mesMTD}`).then((r) => r.json()),
+        fetch(`/api/presupuestos/kanban`).then((r) => r.json()),
+        fetch("/api/presupuestos/clinicas").then((r) => r.json()),
+      ]);
+      const objMap: Record<string, number> = {};
+      for (const o of (objData.objetivos ?? [])) {
+        objMap[o.clinica] = o.objetivo_aceptados;
+      }
+      setObjetivos(objMap);
 
-        const aceptMap: Record<string, number> = {};
-        for (const p of (kanbanData.presupuestos ?? [])) {
-          if (p.estado === "ACEPTADO" && p.fechaPresupuesto?.startsWith(mesMTD)) {
-            const key = p.clinica ?? "Sin clínica";
-            aceptMap[key] = (aceptMap[key] ?? 0) + 1;
-          }
+      const aceptMap: Record<string, number> = {};
+      for (const p of (kanbanData.presupuestos ?? [])) {
+        if (p.estado === "ACEPTADO" && p.fechaPresupuesto?.startsWith(mesMTD)) {
+          const key = p.clinica ?? "Sin clínica";
+          aceptMap[key] = (aceptMap[key] ?? 0) + 1;
         }
-        setAceptadosMTD(aceptMap);
-        setClinicas(clinicasData.clinicas ?? []);
-      } catch { /* silent */ }
-      finally { setLoading(false); }
-    }
-    load();
+      }
+      setAceptadosMTD(aceptMap);
+      setClinicas(clinicasData.clinicas ?? []);
+    } catch { setLoadError(true); }
+    finally { setLoading(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   const allClinicas = Array.from(new Set([...Object.keys(objetivos), ...clinicas])).sort();
 
@@ -320,28 +352,39 @@ function SectionObjetivos({ user }: { user: UserSession }) {
       setObjetivos((prev) => ({ ...prev, [clinica]: val }));
       setSaved((p) => ({ ...p, [clinica]: true }));
       setTimeout(() => setSaved((p) => ({ ...p, [clinica]: false })), 2000);
-    } catch { /* silent */ }
+    } catch {
+      toast.error("No se pudo guardar el objetivo. Inténtalo de nuevo.");
+    }
     finally { setSaving((p) => ({ ...p, [clinica]: false })); }
   }
 
   if (loading) {
     return (
       <div className="space-y-3 animate-pulse">
-        {[0, 1].map((i) => <div key={i} className="h-24 rounded-2xl bg-slate-100" />)}
+        {[0, 1].map((i) => <div key={i} className="h-24 rounded-2xl bg-[var(--color-surface-muted)]" />)}
       </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <ErrorState
+        detail="Los objetivos del mes no están disponibles ahora mismo."
+        onRetry={load}
+      />
     );
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-bold text-slate-900 mb-1">Objetivo mensual</h3>
-        <p className="text-xs text-slate-500 mb-4">Define cuántos presupuestos deberían aceptarse este mes por clínica</p>
+        <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">Objetivo mensual</h3>
+        <p className="text-xs text-[var(--color-muted)] mb-4">Define cuántos presupuestos deberían aceptarse este mes por clínica</p>
       </div>
 
       {allClinicas.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-slate-200 p-8 text-center">
-          <p className="text-slate-400 text-sm">No hay clínicas disponibles todavía.</p>
+        <div className="rounded-2xl border border-dashed border-[var(--color-border)] p-8 text-center">
+          <p className="text-[var(--color-muted)] text-sm">No hay clínicas disponibles todavía.</p>
         </div>
       )}
 
@@ -354,15 +397,15 @@ function SectionObjetivos({ user }: { user: UserSession }) {
           const isSaved = saved[clinica] ?? false;
           const editVal = editVals[clinica] ?? (obj != null ? String(obj) : "");
           return (
-            <div key={clinica} className="rounded-2xl border border-slate-200 bg-white p-5">
+            <div key={clinica} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
               <div className="flex items-center gap-3 mb-4">
-                <h4 className="font-semibold text-slate-900 flex-1">{clinica}</h4>
+                <h4 className="font-semibold text-[var(--color-foreground)] flex-1">{clinica}</h4>
                 {obj != null && (
                   <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
                     actual >= obj
-                      ? "bg-emerald-100 text-emerald-700"
-                      : pct >= 70 ? "bg-amber-100 text-amber-700"
-                      : "bg-slate-100 text-slate-600"
+                      ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                      : pct >= 70 ? "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300"
+                      : "bg-[var(--color-surface-muted)] text-[var(--color-muted)]"
                   }`}>
                     {actual}/{obj}
                   </span>
@@ -371,7 +414,7 @@ function SectionObjetivos({ user }: { user: UserSession }) {
 
               {obj != null && (
                 <div className="mb-4">
-                  <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                  <div className="h-2 rounded-full bg-[var(--color-surface-muted)] overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${
                         actual >= obj ? "bg-emerald-500" : pct >= 70 ? "bg-amber-400" : "bg-rose-400"
@@ -379,31 +422,31 @@ function SectionObjetivos({ user }: { user: UserSession }) {
                       style={{ width: `${pct}%` }}
                     />
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-1">{pct}% del objetivo este mes</p>
+                  <p className="text-[10px] text-[var(--color-muted)] mt-1">{pct}% del objetivo este mes</p>
                 </div>
               )}
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between gap-4">
-                  <label className="text-sm text-slate-600">Objetivo de aceptados</label>
+                  <label className="text-sm text-[var(--color-muted)]">Objetivo de aceptados</label>
                   <input
                     type="number"
                     min={1}
                     value={editVal}
                     onChange={(e) => setEditVals((prev) => ({ ...prev, [clinica]: e.target.value }))}
-                    className="w-20 text-center border border-slate-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-violet-400"
+                    className="w-20 text-center border border-[var(--color-border)] rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-[var(--color-accent)]"
                     placeholder="—"
                   />
                 </div>
                 <div className="flex items-center justify-between gap-4 opacity-50">
-                  <label className="text-sm text-slate-400">
+                  <label className="text-sm text-[var(--color-muted)]">
                     Objetivo de emitidos
-                    <span className="text-[10px] text-slate-400 block">Próximamente</span>
+                    <span className="text-[10px] text-[var(--color-muted)] block">Próximamente</span>
                   </label>
                   <input
                     type="number"
                     disabled
-                    className="w-20 text-center border border-slate-200 rounded-lg px-2 py-1 text-sm bg-slate-50 text-slate-400 cursor-not-allowed"
+                    className="w-20 text-center border border-[var(--color-border)] rounded-lg px-2 py-1 text-sm bg-[var(--color-surface-muted)] text-[var(--color-muted)] cursor-not-allowed"
                     placeholder="—"
                   />
                 </div>
@@ -413,13 +456,13 @@ function SectionObjetivos({ user }: { user: UserSession }) {
                 <button
                   onClick={() => saveObjetivo(clinica)}
                   disabled={isSaving || !editVal}
-                  className={`text-sm font-semibold px-4 py-2 rounded-xl transition-colors disabled:opacity-50 ${
+                  className={`inline-flex items-center gap-1 text-sm font-semibold px-4 py-2 rounded-xl transition-colors disabled:opacity-50 ${
                     isSaved
-                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                      : "bg-violet-600 text-white hover:bg-violet-700"
+                      ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30"
+                      : "bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
                   }`}
                 >
-                  {isSaving ? "Guardando…" : isSaved ? "✓ Guardado" : "Guardar"}
+                  {isSaving ? "Guardando…" : isSaved ? <><Check size={14} strokeWidth={ICON_STROKE} aria-hidden /> Guardado</> : "Guardar"}
                 </button>
               </div>
             </div>
@@ -498,7 +541,7 @@ function SectionNotificaciones() {
       const registration = await navigator.serviceWorker.ready;
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
       if (!vapidKey) {
-        setActivateError("Clave VAPID no configurada.");
+        setActivateError("Las notificaciones push aún no están disponibles. Contacta con Fyllio para activarlas.");
         return;
       }
 
@@ -547,48 +590,48 @@ function SectionNotificaciones() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-bold text-slate-900 mb-1">Notificaciones push</h3>
-        <p className="text-xs text-slate-500 mb-4">Elige qué eventos quieres recibir como notificación</p>
+        <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">Notificaciones push</h3>
+        <p className="text-xs text-[var(--color-muted)] mb-4">Elige qué eventos quieres recibir como notificación</p>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100">
+      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)]">
         {rows.map(({ key, label, desc }) => (
           <div key={key} className="flex items-center gap-4 p-4">
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-slate-800">{label}</p>
-              <p className="text-[11px] text-slate-400 mt-0.5">{desc}</p>
+              <p className="text-sm font-semibold text-[var(--color-foreground)]">{label}</p>
+              <p className="text-[11px] text-[var(--color-muted)] mt-0.5">{desc}</p>
             </div>
             <button
               onClick={() => toggle(key)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors shrink-0 ${
-                prefs[key] ? "bg-violet-600" : "bg-slate-200"
+                prefs[key] ? "bg-[var(--color-accent)]" : "bg-[var(--color-border)]"
               }`}
             >
-              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${prefs[key] ? "translate-x-6" : "translate-x-1"}`} />
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-[var(--color-surface)] shadow transition-transform ${prefs[key] ? "translate-x-6" : "translate-x-1"}`} />
             </button>
           </div>
         ))}
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4">
         <div className="flex items-start gap-3">
-          <span className="text-lg shrink-0">🔔</span>
+          <Bell size={18} strokeWidth={ICON_STROKE} className="shrink-0 text-[var(--color-muted)] mt-0.5" aria-hidden />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-slate-700">Activar notificaciones del navegador</p>
-            <p className="text-xs text-slate-500 mt-0.5 mb-3">
+            <p className="text-sm font-semibold text-[var(--color-foreground)]">Activar notificaciones del navegador</p>
+            <p className="text-xs text-[var(--color-muted)] mt-0.5 mb-3">
               Para recibir notificaciones push necesitas dar permiso al navegador. Las preferencias de arriba se aplicarán una vez activas.
             </p>
             {activateError && (
-              <p className="text-xs text-rose-600 mb-3">{activateError}</p>
+              <p className="text-xs text-rose-600 dark:text-rose-400 mb-3">{activateError}</p>
             )}
             {permGranted ? (
               <div className="flex items-center gap-3 flex-wrap">
-                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl">
-                  ✓ Notificaciones activas
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 px-3 py-1.5 rounded-xl">
+                  <Check size={13} strokeWidth={ICON_STROKE} aria-hidden /> Notificaciones activas
                 </span>
                 <button
                   onClick={desactivarNotificaciones}
-                  className="text-xs font-medium text-slate-400 hover:text-slate-600 underline"
+                  className="text-xs font-medium text-[var(--color-muted)] hover:text-[var(--color-foreground)] underline"
                 >
                   Desactivar
                 </button>
@@ -597,7 +640,7 @@ function SectionNotificaciones() {
               <button
                 onClick={activarNotificaciones}
                 disabled={activating}
-                className="text-xs font-semibold px-3 py-2 rounded-xl border border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100 transition-colors disabled:opacity-50"
+                className="text-xs font-semibold px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-accent-soft)] text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] transition-colors disabled:opacity-50"
               >
                 {activating ? "Activando…" : "Activar notificaciones"}
               </button>
@@ -632,28 +675,28 @@ function SectionClinica({ user }: { user: UserSession }) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-bold text-slate-900 mb-1">Clínica y equipo</h3>
-        <p className="text-xs text-slate-500 mb-4">Información sobre la red de clínicas y tu cuenta</p>
+        <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">Clínica y equipo</h3>
+        <p className="text-xs text-[var(--color-muted)] mb-4">Información sobre la red de clínicas y tu cuenta</p>
       </div>
 
       {/* Current user */}
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-4">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center text-xl shrink-0">
-            👤
+          <div className="w-10 h-10 rounded-xl bg-[var(--color-accent-soft)] flex items-center justify-center shrink-0">
+            <User size={18} strokeWidth={ICON_STROKE} className="text-[var(--color-accent)]" aria-hidden />
           </div>
           <div>
-            <p className="font-semibold text-slate-900">{user.nombre}</p>
-            <p className="text-xs text-slate-500">{user.email}</p>
-            <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+            <p className="font-semibold text-[var(--color-foreground)]">{user.nombre}</p>
+            <p className="text-xs text-[var(--color-muted)]">{user.email}</p>
+            <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
               {rolLabel[user.rol] ?? user.rol}
             </span>
           </div>
         </div>
         {user.clinica && (
-          <div className="flex items-center gap-2 pt-3 border-t border-slate-100">
-            <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Clínica asignada</span>
-            <span className="text-xs font-semibold text-slate-700">{user.clinica}</span>
+          <div className="flex items-center gap-2 pt-3 border-t border-[var(--color-border)]">
+            <span className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide">Clínica asignada</span>
+            <span className="text-xs font-semibold text-[var(--color-foreground)]">{user.clinica}</span>
           </div>
         )}
       </div>
@@ -661,18 +704,18 @@ function SectionClinica({ user }: { user: UserSession }) {
       {/* Clinic list */}
       {loading ? (
         <div className="space-y-2 animate-pulse">
-          {[0, 1].map((i) => <div key={i} className="h-14 rounded-2xl bg-slate-100" />)}
+          {[0, 1].map((i) => <div key={i} className="h-14 rounded-2xl bg-[var(--color-surface-muted)]" />)}
         </div>
       ) : clinicas.length > 0 ? (
         <div>
-          <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
+          <h4 className="text-xs font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-3">
             Red de clínicas ({clinicas.length})
           </h4>
-          <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100">
+          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)]">
             {clinicas.map((c) => (
               <div key={c} className="flex items-center gap-3 px-4 py-3">
-                <span className="text-base">🏥</span>
-                <span className="text-sm text-slate-700">{c}</span>
+                <Building2 size={16} strokeWidth={ICON_STROKE} className="shrink-0 text-[var(--color-muted)]" aria-hidden />
+                <span className="text-sm text-[var(--color-foreground)]">{c}</span>
               </div>
             ))}
           </div>
@@ -759,7 +802,9 @@ function SectionWhatsApp({ user }: { user: UserSession }) {
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch { /* silent */ }
+    } catch {
+      toast.error("No se pudo guardar el modo de WhatsApp. Inténtalo de nuevo.");
+    }
     finally { setSaving(false); }
   }
 
@@ -795,8 +840,8 @@ function SectionWhatsApp({ user }: { user: UserSession }) {
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse">
-        <div className="h-32 rounded-2xl bg-slate-100" />
-        <div className="h-32 rounded-2xl bg-slate-100" />
+        <div className="h-32 rounded-2xl bg-[var(--color-surface-muted)]" />
+        <div className="h-32 rounded-2xl bg-[var(--color-surface-muted)]" />
       </div>
     );
   }
@@ -806,17 +851,16 @@ function SectionWhatsApp({ user }: { user: UserSession }) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-bold text-slate-900 mb-1">Integración WhatsApp</h3>
-        <p className="text-xs text-slate-500 mb-4">Elige cómo se envían y reciben los mensajes de WhatsApp</p>
+        <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">Integración WhatsApp</h3>
+        <p className="text-xs text-[var(--color-muted)] mb-4">Elige cómo se envían y reciben los mensajes de WhatsApp</p>
       </div>
 
       {/* Banner: token expirado */}
       {wabaEstado?.tokenExpirado && (
-        <div className="rounded-2xl border border-red-300 bg-red-50 p-4">
-          <p className="text-sm font-bold text-red-800 mb-1">Token de WhatsApp caducado</p>
-          <p className="text-xs text-red-700 leading-relaxed">
-            El Access Token de Meta ha expirado. Debe renovarlo en las variables de entorno de Vercel
-            (<code className="bg-red-100 px-1 rounded">WABA_ACCESS_TOKEN</code>) y redesplegar.
+        <div className="rounded-2xl border border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-500/10 p-4">
+          <p className="text-sm font-bold text-rose-800 dark:text-rose-300 mb-1">Conexión con WhatsApp caducada</p>
+          <p className="text-xs text-rose-700 dark:text-rose-300 leading-relaxed">
+            La conexión con WhatsApp ha caducado. Contacta con Fyllio para renovarla.
           </p>
         </div>
       )}
@@ -828,24 +872,24 @@ function SectionWhatsApp({ user }: { user: UserSession }) {
           disabled={saving}
           className={`w-full text-left rounded-2xl border-2 p-5 transition-colors ${
             modo === "manual"
-              ? "border-violet-500 bg-violet-50"
-              : "border-slate-200 bg-white hover:border-slate-300"
+              ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
+              : "border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-muted)]"
           }`}
         >
           <div className="flex items-start gap-3">
             <div className={`w-4 h-4 mt-0.5 rounded-full border-2 shrink-0 flex items-center justify-center ${
-              modo === "manual" ? "border-violet-500" : "border-slate-300"
+              modo === "manual" ? "border-[var(--color-accent)]" : "border-[var(--color-border)]"
             }`}>
-              {modo === "manual" && <div className="w-2 h-2 rounded-full bg-violet-500" />}
+              {modo === "manual" && <div className="w-2 h-2 rounded-full bg-[var(--color-accent)]" />}
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-900">Manual (gratis)</p>
-              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+              <p className="text-sm font-bold text-[var(--color-foreground)]">Manual (gratis)</p>
+              <p className="text-xs text-[var(--color-muted)] mt-1 leading-relaxed">
                 La clínica envía los mensajes manualmente con un clic.
                 Se abre WhatsApp Web con el mensaje prellenado. Sin coste, sin configuración.
               </p>
               {modo === "manual" && (
-                <span className="inline-flex items-center gap-1.5 mt-2 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1.5 mt-2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 px-2 py-0.5 rounded-full">
                   Activo
                 </span>
               )}
@@ -859,31 +903,31 @@ function SectionWhatsApp({ user }: { user: UserSession }) {
           disabled={saving || !wabaHabilitable}
           className={`w-full text-left rounded-2xl border-2 p-5 transition-colors ${
             modo === "waba"
-              ? "border-violet-500 bg-violet-50"
+              ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]"
               : wabaHabilitable
-                ? "border-slate-200 bg-white hover:border-slate-300"
-                : "border-slate-200 bg-white opacity-60 cursor-not-allowed"
+                ? "border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-muted)]"
+                : "border-[var(--color-border)] bg-[var(--color-surface)] opacity-60 cursor-not-allowed"
           }`}
         >
           <div className="flex items-start gap-3">
             <div className={`w-4 h-4 mt-0.5 rounded-full border-2 shrink-0 flex items-center justify-center ${
-              modo === "waba" ? "border-violet-500" : "border-slate-300"
+              modo === "waba" ? "border-[var(--color-accent)]" : "border-[var(--color-border)]"
             }`}>
-              {modo === "waba" && <div className="w-2 h-2 rounded-full bg-violet-500" />}
+              {modo === "waba" && <div className="w-2 h-2 rounded-full bg-[var(--color-accent)]" />}
             </div>
             <div>
-              <p className="text-sm font-bold text-slate-900">Automático con WABA</p>
-              <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+              <p className="text-sm font-bold text-[var(--color-foreground)]">Automático con WABA</p>
+              <p className="text-xs text-[var(--color-muted)] mt-1 leading-relaxed">
                 Integración completa con WhatsApp Business API.
                 Los mensajes se envían y reciben automáticamente.
               </p>
               {!wabaHabilitable && (
-                <span className="inline-flex items-center gap-1.5 mt-2 text-[10px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1.5 mt-2 text-[10px] font-semibold text-[var(--color-muted)] bg-[var(--color-surface-muted)] border border-[var(--color-border)] px-2 py-0.5 rounded-full">
                   Credenciales no configuradas
                 </span>
               )}
               {modo === "waba" && (
-                <span className="inline-flex items-center gap-1.5 mt-2 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                <span className="inline-flex items-center gap-1.5 mt-2 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 px-2 py-0.5 rounded-full">
                   Activo
                 </span>
               )}
@@ -893,50 +937,43 @@ function SectionWhatsApp({ user }: { user: UserSession }) {
       </div>
 
       {saved && (
-        <p className="text-xs text-emerald-600 font-semibold text-center">Modo guardado correctamente</p>
+        <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold text-center">Modo guardado correctamente</p>
       )}
 
       {/* Panel de estado WABA */}
       {wabaEstado && !wabaEstado.credencialesConfiguradas && (
-        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-          <p className="text-sm font-semibold text-slate-800 mb-2">Credenciales WABA no configuradas</p>
-          <p className="text-xs text-slate-600 mb-2 leading-relaxed">
-            Para activar el modo automático, el administrador debe configurar estas variables de entorno en Vercel:
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4">
+          <p className="text-sm font-semibold text-[var(--color-foreground)] mb-2">Envío automático no configurado</p>
+          <p className="text-xs text-[var(--color-muted)] leading-relaxed">
+            Esta clínica aún no tiene el envío automático de WhatsApp activado. Contacta con Fyllio para configurarlo.
           </p>
-          <ul className="text-xs text-slate-600 space-y-0.5 ml-4 list-disc">
-            <li><code className="bg-slate-200 px-1 rounded">WABA_PHONE_NUMBER_ID</code></li>
-            <li><code className="bg-slate-200 px-1 rounded">WABA_BUSINESS_ACCOUNT_ID</code></li>
-            <li><code className="bg-slate-200 px-1 rounded">WABA_ACCESS_TOKEN</code></li>
-            <li><code className="bg-slate-200 px-1 rounded">WABA_VERIFY_TOKEN</code></li>
-            <li><code className="bg-slate-200 px-1 rounded">META_APP_SECRET</code></li>
-          </ul>
         </div>
       )}
 
       {wabaEstado?.credencialesConfiguradas && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-4">
+        <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-bold text-slate-900">Credenciales configuradas</p>
+              <p className="text-sm font-bold text-[var(--color-foreground)]">Credenciales configuradas</p>
               {wabaEstado.numeroConectado && (
-                <p className="text-xs text-slate-600 mt-0.5">
+                <p className="text-xs text-[var(--color-muted)] mt-0.5">
                   Número conectado: <span className="font-mono">{wabaEstado.numeroConectado}</span>
                 </p>
               )}
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-[var(--color-muted)]">
                 {wabaEstado.activoParaClinica ? "Activo" : "Desactivado"}
               </span>
               <button
                 onClick={handleToggleActivo}
                 disabled={togglingActivo}
                 className={`relative w-11 h-6 rounded-full transition-colors ${
-                  wabaEstado.activoParaClinica ? "bg-emerald-500" : "bg-slate-300"
+                  wabaEstado.activoParaClinica ? "bg-emerald-500" : "bg-[var(--color-border)]"
                 }`}
               >
                 <span
-                  className={`absolute top-0.5 w-5 h-5 bg-white rounded-full transition-transform ${
+                  className={`absolute top-0.5 w-5 h-5 bg-[var(--color-surface)] rounded-full transition-transform ${
                     wabaEstado.activoParaClinica ? "translate-x-5" : "translate-x-0.5"
                   }`}
                 />
@@ -945,17 +982,17 @@ function SectionWhatsApp({ user }: { user: UserSession }) {
           </div>
 
           {toggleError && (
-            <p className="text-[11px] text-red-600 -mt-2">No se pudo guardar: {toggleError}</p>
+            <p className="text-[11px] text-rose-600 dark:text-rose-400 -mt-2">No se pudo guardar: {toggleError}</p>
           )}
 
-          <div className="grid grid-cols-2 gap-4 pt-3 border-t border-slate-100">
+          <div className="grid grid-cols-2 gap-4 pt-3 border-t border-[var(--color-border)]">
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Último enviado</p>
-              <p className="text-xs text-slate-700 mt-0.5">{formatearHace(wabaEstado.ultimoMensajeEnviado)}</p>
+              <p className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide">Último enviado</p>
+              <p className="text-xs text-[var(--color-foreground)] mt-0.5">{formatearHace(wabaEstado.ultimoMensajeEnviado)}</p>
             </div>
             <div>
-              <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide">Último recibido</p>
-              <p className="text-xs text-slate-700 mt-0.5">{formatearHace(wabaEstado.ultimoMensajeRecibido)}</p>
+              <p className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide">Último recibido</p>
+              <p className="text-xs text-[var(--color-foreground)] mt-0.5">{formatearHace(wabaEstado.ultimoMensajeRecibido)}</p>
             </div>
           </div>
         </div>
@@ -994,6 +1031,7 @@ function sustituirVariablesPreview(contenido: string): string {
 function SectionPlantillas({ user }: { user: UserSession }) {
   const [plantillas, setPlantillas] = useState<PlantillaMensaje[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPlantilla, setEditingPlantilla] = useState<PlantillaMensaje | null>(null);
   const [generandoIA, setGenerandoIA] = useState(false);
@@ -1012,11 +1050,12 @@ function SectionPlantillas({ user }: { user: UserSession }) {
 
   async function fetchPlantillas() {
     setLoading(true);
+    setLoadError(false);
     try {
       const res = await fetch("/api/presupuestos/plantillas");
       const data = await res.json();
       setPlantillas(data.plantillas ?? []);
-    } catch { /* silent */ }
+    } catch { setLoadError(true); }
     finally { setLoading(false); }
   }
 
@@ -1068,7 +1107,10 @@ function SectionPlantillas({ user }: { user: UserSession }) {
       }
       setModalOpen(false);
       fetchPlantillas();
-    } catch { /* silent */ }
+      toast.success(editingPlantilla ? "Plantilla actualizada" : "Plantilla creada");
+    } catch {
+      toast.error("No se pudo guardar la plantilla. Inténtalo de nuevo.");
+    }
     finally { setFormSaving(false); }
   }
 
@@ -1081,7 +1123,10 @@ function SectionPlantillas({ user }: { user: UserSession }) {
       });
       setPlantillas((prev) => prev.filter((p) => p.id !== id));
       if (editingPlantilla?.id === id) setModalOpen(false);
-    } catch { /* silent */ }
+      toast.success("Plantilla eliminada");
+    } catch {
+      toast.error("No se pudo eliminar la plantilla. Inténtalo de nuevo.");
+    }
   }
 
   async function handleGenerarIA() {
@@ -1099,7 +1144,9 @@ function SectionPlantillas({ user }: { user: UserSession }) {
       });
       const data = await res.json();
       if (data.contenido) setFormContenido(data.contenido);
-    } catch { /* silent */ }
+    } catch {
+      toast.error("No se pudo generar el contenido. Inténtalo de nuevo.");
+    }
     finally { setGenerandoIA(false); }
   }
 
@@ -1112,8 +1159,17 @@ function SectionPlantillas({ user }: { user: UserSession }) {
   if (loading) {
     return (
       <div className="space-y-3 animate-pulse">
-        {[0, 1, 2].map((i) => <div key={i} className="h-16 rounded-2xl bg-slate-100" />)}
+        {[0, 1, 2].map((i) => <div key={i} className="h-16 rounded-2xl bg-[var(--color-surface-muted)]" />)}
       </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <ErrorState
+        detail="Las plantillas de mensaje no están disponibles ahora mismo."
+        onRetry={fetchPlantillas}
+      />
     );
   }
 
@@ -1121,42 +1177,43 @@ function SectionPlantillas({ user }: { user: UserSession }) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-bold text-slate-900 mb-1">Plantillas de mensaje</h3>
-          <p className="text-xs text-slate-500">Plantillas reutilizables con variables personalizables</p>
+          <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">Plantillas de mensaje</h3>
+          <p className="text-xs text-[var(--color-muted)]">Plantillas reutilizables con variables personalizables</p>
         </div>
         <button
           onClick={openNew}
-          className="text-xs font-semibold px-3 py-2 rounded-xl bg-violet-600 text-white hover:bg-violet-700 transition-colors"
+          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] transition-colors"
         >
-          + Nueva plantilla
+          <Plus size={13} strokeWidth={ICON_STROKE} aria-hidden />
+          Nueva plantilla
         </button>
       </div>
 
       {/* Grouped list */}
       {grouped.map(({ tipo, items }) => (
         <div key={tipo}>
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">
+          <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide mb-2">
             {TIPO_PLANTILLA_LABEL[tipo]} ({items.length})
           </p>
           {items.length === 0 ? (
-            <p className="text-xs text-slate-300 italic mb-4">Sin plantillas</p>
+            <p className="text-xs text-[var(--color-muted)] italic mb-4">Sin plantillas</p>
           ) : (
-            <div className="rounded-2xl border border-slate-200 bg-white divide-y divide-slate-100 mb-4">
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)] mb-4">
               {items.map((p) => (
                 <button
                   key={p.id}
                   onClick={() => openEdit(p)}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-slate-50 transition-colors"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--color-surface-muted)] transition-colors"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{p.nombre}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">
+                    <p className="text-sm font-medium text-[var(--color-foreground)] truncate">{p.nombre}</p>
+                    <p className="text-[10px] text-[var(--color-muted)] mt-0.5">
                       {p.doctor ? p.doctor : "Todos los doctores"}
                       {p.tratamiento ? ` · ${p.tratamiento}` : ""}
                     </p>
                   </div>
                   {!p.activa && (
-                    <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-400">
+                    <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)]">
                       Inactiva
                     </span>
                   )}
@@ -1170,9 +1227,9 @@ function SectionPlantillas({ user }: { user: UserSession }) {
       {/* Modal */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-900">
+          <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b border-[var(--color-border)]">
+              <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
                 {editingPlantilla ? "Editar plantilla" : "Nueva plantilla"}
               </h3>
             </div>
@@ -1180,23 +1237,23 @@ function SectionPlantillas({ user }: { user: UserSession }) {
             <div className="px-6 py-4 space-y-4">
               {/* Nombre */}
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Nombre</label>
+                <label className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide">Nombre</label>
                 <input
                   type="text"
                   value={formNombre}
                   onChange={(e) => setFormNombre(e.target.value)}
                   placeholder="Ej: Primer contacto implantes"
-                  className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-400"
+                  className="mt-1 w-full border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--color-accent)]"
                 />
               </div>
 
               {/* Tipo */}
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Tipo</label>
+                <label className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide">Tipo</label>
                 <select
                   value={formTipo}
                   onChange={(e) => setFormTipo(e.target.value as TipoPlantilla)}
-                  className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-400"
+                  className="mt-1 w-full border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--color-accent)]"
                 >
                   {TIPO_PLANTILLA_ORDER.map((t) => (
                     <option key={t} value={t}>{t}</option>
@@ -1207,31 +1264,31 @@ function SectionPlantillas({ user }: { user: UserSession }) {
               {/* Doctor + Tratamiento */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Doctor (opcional)</label>
+                  <label className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide">Doctor (opcional)</label>
                   <input
                     type="text"
                     value={formDoctor}
                     onChange={(e) => setFormDoctor(e.target.value)}
                     placeholder="Todos"
-                    className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-400"
+                    className="mt-1 w-full border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--color-accent)]"
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Tratamiento (opcional)</label>
+                  <label className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide">Tratamiento (opcional)</label>
                   <input
                     type="text"
                     value={formTratamiento}
                     onChange={(e) => setFormTratamiento(e.target.value)}
                     placeholder="Todos"
-                    className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-400"
+                    className="mt-1 w-full border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--color-accent)]"
                   />
                 </div>
               </div>
 
               {/* Variables hint */}
-              <div className="rounded-lg bg-slate-50 border border-slate-100 p-3">
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Variables disponibles</p>
-                <p className="text-xs text-slate-500 font-mono">
+              <div className="rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border)] p-3">
+                <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide mb-1">Variables disponibles</p>
+                <p className="text-xs text-[var(--color-muted)] font-mono">
                   {"{nombre}"} {"{tratamiento}"} {"{importe}"} {"{doctor}"} {"{clinica}"}
                 </p>
               </div>
@@ -1239,11 +1296,11 @@ function SectionPlantillas({ user }: { user: UserSession }) {
               {/* Contenido */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">Contenido</label>
+                  <label className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide">Contenido</label>
                   <button
                     onClick={handleGenerarIA}
                     disabled={generandoIA}
-                    className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-violet-100 text-violet-700 hover:bg-violet-200 transition-colors disabled:opacity-50"
+                    className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] transition-colors disabled:opacity-50"
                   >
                     {generandoIA ? "Generando..." : "Generar con IA"}
                   </button>
@@ -1253,16 +1310,16 @@ function SectionPlantillas({ user }: { user: UserSession }) {
                   onChange={(e) => setFormContenido(e.target.value)}
                   rows={5}
                   placeholder="Hola {nombre}, te escribimos desde {clinica}..."
-                  className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-violet-400 resize-none"
+                  className="w-full border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--color-accent)] resize-none"
                 />
               </div>
 
               {/* Preview */}
               {formContenido && (
                 <div>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Preview</p>
-                  <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-3">
-                    <p className="text-sm text-emerald-800 whitespace-pre-wrap leading-relaxed">
+                  <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide mb-1">Vista previa</p>
+                  <div className="rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 p-3">
+                    <p className="text-sm text-emerald-800 dark:text-emerald-300 whitespace-pre-wrap leading-relaxed">
                       {sustituirVariablesPreview(formContenido)}
                     </p>
                   </div>
@@ -1271,11 +1328,11 @@ function SectionPlantillas({ user }: { user: UserSession }) {
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-slate-100 flex items-center gap-2">
+            <div className="px-6 py-4 border-t border-[var(--color-border)] flex items-center gap-2">
               {editingPlantilla && (
                 <button
                   onClick={() => handleDelete(editingPlantilla.id)}
-                  className="text-xs font-semibold px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 transition-colors"
+                  className="text-xs font-semibold px-3 py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
                 >
                   Eliminar
                 </button>
@@ -1283,14 +1340,14 @@ function SectionPlantillas({ user }: { user: UserSession }) {
               <div className="flex-1" />
               <button
                 onClick={() => setModalOpen(false)}
-                className="text-xs font-semibold px-3 py-2 rounded-xl text-slate-600 hover:bg-slate-100 transition-colors"
+                className="text-xs font-semibold px-3 py-2 rounded-xl text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSave}
                 disabled={formSaving || !formNombre || !formContenido}
-                className="text-xs font-semibold px-4 py-2 rounded-xl bg-violet-600 text-white hover:bg-violet-700 transition-colors disabled:opacity-50"
+                className="text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] transition-colors disabled:opacity-50"
               >
                 {formSaving ? "Guardando..." : editingPlantilla ? "Actualizar" : "Crear"}
               </button>
@@ -1348,7 +1405,9 @@ function SectionRecordatorios({ user }: { user: UserSession }) {
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } catch { /* silent */ }
+    } catch {
+      toast.error("No se pudo guardar la configuración. Inténtalo de nuevo.");
+    }
     finally { setSaving(false); }
   }
 
@@ -1372,7 +1431,7 @@ function SectionRecordatorios({ user }: { user: UserSession }) {
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse">
-        <div className="h-32 rounded-2xl bg-slate-100" />
+        <div className="h-32 rounded-2xl bg-[var(--color-surface-muted)]" />
       </div>
     );
   }
@@ -1380,26 +1439,27 @@ function SectionRecordatorios({ user }: { user: UserSession }) {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-bold text-slate-900 mb-1">Recordatorios automáticos</h3>
-        <p className="text-xs text-slate-500 mb-4">
+        <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">Recordatorios automáticos</h3>
+        <p className="text-xs text-[var(--color-muted)] mb-4">
           Configura cuándo se envían recordatorios de seguimiento a pacientes que no responden
         </p>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-5">
+      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-5">
         {/* Secuencia de días */}
         <div>
-          <label className="text-sm font-medium text-slate-700 block mb-2">Secuencia de recordatorios</label>
-          <p className="text-xs text-slate-400 mb-3">Enviar recordatorio a los:</p>
+          <label className="text-sm font-medium text-[var(--color-foreground)] block mb-2">Secuencia de recordatorios</label>
+          <p className="text-xs text-[var(--color-muted)] mb-3">Enviar recordatorio a los:</p>
           <div className="flex flex-wrap items-center gap-2">
             {config.secuenciaDias.map((dia, i) => (
-              <span key={i} className="inline-flex items-center gap-1 bg-violet-100 text-violet-700 text-sm font-semibold px-3 py-1.5 rounded-lg">
+              <span key={i} className="inline-flex items-center gap-1 bg-[var(--color-accent-soft)] text-[var(--color-accent)] text-sm font-semibold px-3 py-1.5 rounded-lg">
                 {dia} días
                 <button
                   onClick={() => removeDia(i)}
-                  className="text-violet-400 hover:text-violet-700 ml-1"
+                  className="text-[var(--color-accent)] hover:opacity-70 ml-1"
+                  aria-label={`Quitar recordatorio de ${dia} días`}
                 >
-                  ×
+                  <X size={12} strokeWidth={ICON_STROKE} aria-hidden />
                 </button>
               </span>
             ))}
@@ -1412,13 +1472,14 @@ function SectionRecordatorios({ user }: { user: UserSession }) {
                 onChange={(e) => setNuevosDias(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addDia()}
                 placeholder="—"
-                className="w-14 text-center border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-violet-400"
+                className="w-14 text-center border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[var(--color-accent)]"
               />
               <button
                 onClick={addDia}
-                className="text-xs font-semibold px-2 py-1.5 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1.5 rounded-lg bg-[var(--color-surface-muted)] text-[var(--color-muted)] hover:bg-[var(--color-border)] transition-colors"
               >
-                + Añadir
+                <Plus size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                Añadir
               </button>
             </div>
           </div>
@@ -1426,23 +1487,23 @@ function SectionRecordatorios({ user }: { user: UserSession }) {
 
         {/* Hora de envío */}
         <div className="flex items-center justify-between gap-4">
-          <label className="text-sm text-slate-600">
+          <label className="text-sm text-[var(--color-muted)]">
             Hora de envío
-            <span className="text-[10px] text-slate-400 block">Hora a la que se programan los envíos</span>
+            <span className="text-[10px] text-[var(--color-muted)] block">Hora a la que se programan los envíos</span>
           </label>
           <input
             type="time"
             value={config.horaEnvio}
             onChange={(e) => setConfig((prev) => ({ ...prev, horaEnvio: e.target.value }))}
-            className="w-24 text-center border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-violet-400"
+            className="w-24 text-center border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[var(--color-accent)]"
           />
         </div>
 
         {/* Días rechazo auto */}
         <div className="flex items-center justify-between gap-4">
-          <label className="text-sm text-slate-600">
+          <label className="text-sm text-[var(--color-muted)]">
             Marcar como rechazado si no responde después de
-            <span className="text-[10px] text-slate-400 block">Días desde el último recordatorio</span>
+            <span className="text-[10px] text-[var(--color-muted)] block">Días desde el último recordatorio</span>
           </label>
           <div className="flex items-center gap-1">
             <input
@@ -1451,9 +1512,9 @@ function SectionRecordatorios({ user }: { user: UserSession }) {
               max={365}
               value={config.diasRechazoAuto}
               onChange={(e) => setConfig((prev) => ({ ...prev, diasRechazoAuto: Number(e.target.value) }))}
-              className="w-16 text-center border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-violet-400"
+              className="w-16 text-center border border-[var(--color-border)] rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-[var(--color-accent)]"
             />
-            <span className="text-xs text-slate-400">días</span>
+            <span className="text-xs text-[var(--color-muted)]">días</span>
           </div>
         </div>
 
@@ -1462,13 +1523,13 @@ function SectionRecordatorios({ user }: { user: UserSession }) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className={`text-sm font-semibold px-4 py-2 rounded-xl transition-colors disabled:opacity-50 ${
+            className={`inline-flex items-center gap-1 text-sm font-semibold px-4 py-2 rounded-xl transition-colors disabled:opacity-50 ${
               saved
-                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                : "bg-violet-600 text-white hover:bg-violet-700"
+                ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30"
+                : "bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
             }`}
           >
-            {saving ? "Guardando..." : saved ? "✓ Guardado" : "Guardar configuración"}
+            {saving ? "Guardando…" : saved ? <><Check size={14} strokeWidth={ICON_STROKE} aria-hidden /> Guardado</> : "Guardar configuración"}
           </button>
         </div>
       </div>
@@ -1478,14 +1539,14 @@ function SectionRecordatorios({ user }: { user: UserSession }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-const SIDEBAR_ITEMS: { id: SidebarSection; label: string; icon: string }[] = [
-  { id: "automatizaciones", label: "Automatizaciones", icon: "🤖" },
-  { id: "objetivos",        label: "Objetivos del mes", icon: "🎯" },
-  { id: "whatsapp",         label: "WhatsApp",          icon: "💬" },
-  { id: "plantillas",       label: "Plantillas",        icon: "" },
-  { id: "recordatorios",    label: "Recordatorios",     icon: "" },
-  { id: "notificaciones",   label: "Notificaciones",    icon: "🔔" },
-  { id: "clinica",          label: "Clínica y equipo",  icon: "🏥" },
+const SIDEBAR_ITEMS: { id: SidebarSection; label: string; icon: ReactNode }[] = [
+  { id: "automatizaciones", label: "Automatizaciones", icon: <Bot size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
+  { id: "objetivos",        label: "Objetivos del mes", icon: <Target size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
+  { id: "whatsapp",         label: "WhatsApp",          icon: <MessageCircle size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
+  { id: "plantillas",       label: "Plantillas",        icon: <FileText size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
+  { id: "recordatorios",    label: "Recordatorios",     icon: <CalendarClock size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
+  { id: "notificaciones",   label: "Notificaciones",    icon: <Bell size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
+  { id: "clinica",          label: "Clínica y equipo",  icon: <Building2 size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
 ];
 
 export default function ConfigAutomatizaciones({ user }: Props) {
@@ -1502,11 +1563,11 @@ export default function ConfigAutomatizaciones({ user }: Props) {
               onClick={() => setActiveSection(item.id)}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
                 activeSection === item.id
-                  ? "bg-violet-600 text-white"
-                  : "text-slate-600 hover:bg-slate-100"
+                  ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
+                  : "text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
               }`}
             >
-              {item.icon && <span className="text-base leading-none">{item.icon}</span>}
+              {item.icon && <span className="shrink-0 leading-none" aria-hidden>{item.icon}</span>}
               {item.label}
             </button>
           ))}

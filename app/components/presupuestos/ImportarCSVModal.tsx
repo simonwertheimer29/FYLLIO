@@ -7,6 +7,8 @@
 import { useState, useRef, useMemo } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
+import { toast } from "sonner";
+import { Check, X, FolderOpen, CheckCircle2, AlertTriangle, ChevronLeft, ArrowRight, ICON_STROKE } from "../icons";
 import type { Presupuesto, UserSession } from "../../lib/presupuestos/types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -142,13 +144,13 @@ function Stepper({ paso }: { paso: number }) {
         return (
           <div key={num} className="flex items-center">
             <div className={`flex flex-col items-center gap-0.5 transition-opacity ${active ? "opacity-100" : done ? "opacity-80" : "opacity-30"}`}>
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${active ? "bg-violet-600 text-white" : done ? "bg-emerald-500 text-white" : "bg-slate-200 text-slate-500"}`}>
-                {done ? "✓" : num}
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${active ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]" : done ? "bg-emerald-500 text-white" : "bg-[var(--color-border)] text-[var(--color-muted)]"}`}>
+                {done ? <Check size={12} strokeWidth={2} aria-hidden /> : num}
               </div>
-              <span className={`text-[10px] font-medium whitespace-nowrap ${active ? "text-violet-700" : "text-slate-400"}`}>{label}</span>
+              <span className={`text-[10px] font-medium whitespace-nowrap ${active ? "text-[var(--color-accent)]" : "text-[var(--color-muted)]"}`}>{label}</span>
             </div>
             {i < steps.length - 1 && (
-              <div className={`w-6 h-px mx-1 mb-3.5 ${done ? "bg-emerald-400" : "bg-slate-200"}`} />
+              <div className={`w-6 h-px mx-1 mb-3.5 ${done ? "bg-emerald-400" : "bg-[var(--color-border)]"}`} />
             )}
           </div>
         );
@@ -228,9 +230,15 @@ export default function ImportarCSVModal({
           rows = data.slice(1);
         }
       }
-    } catch { return; }
+    } catch {
+      toast.error("No se pudo leer el fichero. Comprueba que es un .csv o .xlsx válido.");
+      return;
+    }
 
-    if (!headers.length) return;
+    if (!headers.length) {
+      toast.error("El fichero no tiene columnas reconocibles. Comprueba el formato.");
+      return;
+    }
 
     setRawHeaders(headers);
     setRawRows(rows);
@@ -300,13 +308,13 @@ export default function ImportarCSVModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
+      <div className="bg-[var(--color-surface)] rounded-3xl shadow-2xl w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
 
         {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-4 shrink-0">
+        <div className="px-6 py-4 border-b border-[var(--color-border)] flex items-center justify-between gap-4 shrink-0">
           <div>
-            <h2 className="font-bold text-slate-900 text-base">Importar CSV Gesden</h2>
-            <p className="text-[11px] text-slate-400 mt-0.5">
+            <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">Importar CSV Gesden</h2>
+            <p className="text-[11px] text-[var(--color-muted)] mt-0.5">
               {paso < 5 ? `Paso ${paso} de 4` : "Completado"}
             </p>
           </div>
@@ -314,10 +322,10 @@ export default function ImportarCSVModal({
             <Stepper paso={paso} />
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-700 text-xl leading-none ml-1"
+              className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] ml-1"
               aria-label="Cerrar"
             >
-              ✕
+              <X size={18} strokeWidth={ICON_STROKE} aria-hidden />
             </button>
           </div>
         </div>
@@ -334,13 +342,13 @@ export default function ImportarCSVModal({
                 onDragLeave={() => setIsDragging(false)}
                 onClick={() => fileInputRef.current?.click()}
                 className={`border-2 border-dashed rounded-2xl p-12 flex flex-col items-center gap-3 cursor-pointer transition-colors ${
-                  isDragging ? "border-violet-400 bg-violet-50" : "border-slate-200 hover:border-violet-300 hover:bg-slate-50"
+                  isDragging ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)]" : "border-[var(--color-border)] hover:border-[var(--color-accent)] hover:bg-[var(--color-surface-muted)]"
                 }`}
               >
-                <p className="text-4xl">📂</p>
-                <p className="font-semibold text-slate-700">Arrastra tu fichero o haz clic para seleccionar</p>
-                <p className="text-sm text-slate-400">Formatos: .csv, .xlsx</p>
-                <span className="mt-1 text-xs px-4 py-1.5 rounded-xl bg-violet-600 text-white font-semibold">
+                <FolderOpen size={32} strokeWidth={ICON_STROKE} className="text-[var(--color-muted)]" aria-hidden />
+                <p className="font-semibold text-[var(--color-foreground)]">Arrastra tu fichero o haz clic para seleccionar</p>
+                <p className="text-sm text-[var(--color-muted)]">Formatos: .csv, .xlsx</p>
+                <span className="mt-1 text-xs px-4 py-1.5 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold">
                   Seleccionar archivo
                 </span>
                 <input
@@ -352,14 +360,14 @@ export default function ImportarCSVModal({
                 />
               </div>
 
-              <div className="rounded-2xl border border-slate-200 p-4">
-                <p className="text-xs font-semibold text-slate-500 mb-2">Columnas que detecta automáticamente del export de Gesden:</p>
+              <div className="rounded-2xl border border-[var(--color-border)] p-4">
+                <p className="text-xs font-semibold text-[var(--color-muted)] mb-2">Columnas que detecta automáticamente del export de Gesden:</p>
                 <div className="flex flex-wrap gap-1.5">
                   {["Paciente", "Fecha", "Doctor", "Descripción / Tratamiento", "Precio", "Mutua/Privado", "Estado"].map((c) => (
-                    <span key={c} className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">{c}</span>
+                    <span key={c} className="text-[11px] px-2 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)] font-medium">{c}</span>
                   ))}
                 </div>
-                <p className="text-[11px] text-slate-400 mt-2">Si se detecta el formato estándar se salta el paso de mapeo.</p>
+                <p className="text-[11px] text-[var(--color-muted)] mt-2">Si se detecta el formato estándar se salta el paso de mapeo.</p>
               </div>
             </div>
           )}
@@ -367,27 +375,27 @@ export default function ImportarCSVModal({
           {/* ── Paso 2: Mapeo ──────────────────────────────── */}
           {paso === 2 && (
             <div className="flex flex-col gap-4">
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-                <p className="text-xs font-semibold text-amber-700">Formato no reconocido automáticamente.</p>
-                <p className="text-xs text-amber-600 mt-0.5">Asigna cada campo del sistema a la columna correspondiente de tu fichero.</p>
+              <div className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-4 py-3">
+                <p className="text-xs font-semibold text-amber-700 dark:text-amber-300">Formato no reconocido automáticamente.</p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 mt-0.5">Asigna cada campo del sistema a la columna correspondiente de tu fichero.</p>
               </div>
 
               {/* Preview table */}
               {rawHeaders.length > 0 && (
-                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <div className="overflow-x-auto rounded-xl border border-[var(--color-border)]">
                   <table className="text-[11px] min-w-full">
                     <thead>
-                      <tr className="bg-slate-50">
+                      <tr className="bg-[var(--color-surface-muted)]">
                         {rawHeaders.map((h, i) => (
-                          <th key={i} className="px-3 py-2 text-left font-semibold text-slate-600 border-r border-slate-100 last:border-0 whitespace-nowrap">{h || `Col ${i + 1}`}</th>
+                          <th key={i} className="px-3 py-2 text-left font-semibold text-[var(--color-muted)] border-r border-[var(--color-border)] last:border-0 whitespace-nowrap">{h || `Col ${i + 1}`}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {rawRows.slice(0, 3).map((row, ri) => (
-                        <tr key={ri} className="border-t border-slate-100">
+                        <tr key={ri} className="border-t border-[var(--color-border)]">
                           {rawHeaders.map((_, ci) => (
-                            <td key={ci} className="px-3 py-1.5 text-slate-500 border-r border-slate-100 last:border-0 max-w-[110px] truncate">{row[ci] ?? ""}</td>
+                            <td key={ci} className="px-3 py-1.5 text-[var(--color-muted)] border-r border-[var(--color-border)] last:border-0 max-w-[110px] truncate">{row[ci] ?? ""}</td>
                           ))}
                         </tr>
                       ))}
@@ -399,15 +407,15 @@ export default function ImportarCSVModal({
               {/* Mapping table */}
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-100">
-                    <th className="text-left text-xs font-semibold text-slate-400 pb-2">Campo del sistema</th>
-                    <th className="text-left text-xs font-semibold text-slate-400 pb-2">Columna del fichero</th>
+                  <tr className="border-b border-[var(--color-border)]">
+                    <th className="text-left text-xs font-semibold text-[var(--color-muted)] pb-2">Campo del sistema</th>
+                    <th className="text-left text-xs font-semibold text-[var(--color-muted)] pb-2">Columna del fichero</th>
                   </tr>
                 </thead>
                 <tbody>
                   {SYSTEM_FIELDS.map(({ key, label, required }) => (
-                    <tr key={key} className="border-b border-slate-50">
-                      <td className="py-2 pr-4 text-sm text-slate-700">
+                    <tr key={key} className="border-b border-[var(--color-border)]">
+                      <td className="py-2 pr-4 text-sm text-[var(--color-foreground)]">
                         {label}
                         {required && <span className="ml-1 text-rose-400 text-xs">*</span>}
                       </td>
@@ -420,7 +428,7 @@ export default function ImportarCSVModal({
                               [key]: e.target.value === "" ? null : Number(e.target.value),
                             }))
                           }
-                          className="rounded-lg border border-slate-200 px-2 py-1 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                          className="rounded-lg border border-[var(--color-border)] px-2 py-1 text-xs text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)]"
                         >
                           <option value="">(no mapear)</option>
                           {rawHeaders.map((h, i) => (
@@ -440,33 +448,33 @@ export default function ImportarCSVModal({
             <div className="flex flex-col gap-3">
               {/* Summary chips */}
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold">
+                <span className="text-xs px-2.5 py-1 rounded-full bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 font-semibold">
                   {aImportar.length} a importar
                 </span>
                 {duplicados.length > 0 && (
-                  <span className="text-xs px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 font-semibold">
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 font-semibold">
                     {duplicados.length} posibles duplicados
                   </span>
                 )}
                 {ignorados.length > 0 && (
-                  <span className="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 font-semibold">
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)] font-semibold">
                     {ignorados.length} ignorados
                   </span>
                 )}
               </div>
 
               {duplicados.length > 0 && (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
                   Los registros marcados en amarillo ya existen en el sistema. Por defecto se ignoran — pulsa para incluirlos igualmente.
                 </div>
               )}
 
-              <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <div className="overflow-x-auto rounded-xl border border-[var(--color-border)]">
                 <table className="w-full text-xs min-w-[520px]">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-100">
+                    <tr className="bg-[var(--color-surface-muted)] border-b border-[var(--color-border)]">
                       {["Paciente", "Tratamiento", "Importe", "Fecha", "Doctor", "Acción"].map((h) => (
-                        <th key={h} className={`px-3 py-2 font-semibold text-slate-600 ${h === "Importe" ? "text-right" : "text-left"}`}>{h}</th>
+                        <th key={h} className={`px-3 py-2 font-semibold text-[var(--color-muted)] ${h === "Importe" ? "text-right" : "text-left"}`}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -474,23 +482,23 @@ export default function ImportarCSVModal({
                     {registros.map((r) => (
                       <tr
                         key={r.idx}
-                        className={`border-b border-slate-50 last:border-0 transition-opacity ${r.isDuplicate ? "bg-amber-50/60" : ""} ${r.ignorar ? "opacity-35" : ""}`}
+                        className={`border-b border-[var(--color-border)] last:border-0 transition-opacity ${r.isDuplicate ? "bg-amber-50/60 dark:bg-amber-500/10" : ""} ${r.ignorar ? "opacity-35" : ""}`}
                       >
-                        <td className="px-3 py-2 font-medium text-slate-700 max-w-[120px] truncate">{r.paciente || "—"}</td>
-                        <td className="px-3 py-2 text-slate-600 max-w-[150px] truncate">{r.tratamiento || "—"}</td>
-                        <td className="px-3 py-2 text-right font-semibold text-slate-700">
+                        <td className="px-3 py-2 font-medium text-[var(--color-foreground)] max-w-[120px] truncate">{r.paciente || "—"}</td>
+                        <td className="px-3 py-2 text-[var(--color-muted)] max-w-[150px] truncate">{r.tratamiento || "—"}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-[var(--color-foreground)]">
                           {r.importe != null ? `€${r.importe.toLocaleString("es-ES")}` : "—"}
                         </td>
-                        <td className="px-3 py-2 text-slate-500 whitespace-nowrap">{r.fecha || "—"}</td>
-                        <td className="px-3 py-2 text-slate-500 max-w-[110px] truncate">{r.doctor || "—"}</td>
+                        <td className="px-3 py-2 text-[var(--color-muted)] whitespace-nowrap">{r.fecha || "—"}</td>
+                        <td className="px-3 py-2 text-[var(--color-muted)] max-w-[110px] truncate">{r.doctor || "—"}</td>
                         <td className="px-3 py-2 text-center">
                           {r.isDuplicate ? (
                             <button
                               onClick={() => toggleIgnorar(r.idx)}
                               className={`text-[10px] font-semibold px-2 py-0.5 rounded-full transition-colors ${
                                 r.ignorar
-                                  ? "bg-slate-200 text-slate-500 hover:bg-emerald-100 hover:text-emerald-700"
-                                  : "bg-amber-100 text-amber-700 hover:bg-slate-200 hover:text-slate-500"
+                                  ? "bg-[var(--color-border)] text-[var(--color-muted)] hover:bg-emerald-100 dark:hover:bg-emerald-500/20 hover:text-emerald-700 dark:hover:text-emerald-300"
+                                  : "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 hover:bg-[var(--color-border)] hover:text-[var(--color-muted)]"
                               }`}
                             >
                               {r.ignorar ? "Incluir" : "Ignorar"}
@@ -510,22 +518,22 @@ export default function ImportarCSVModal({
           {/* ── Paso 4: Confirmar ──────────────────────────── */}
           {paso === 4 && (
             <div className="flex flex-col gap-5">
-              <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5">
-                <p className="text-3xl font-extrabold text-violet-800">{aImportar.length}</p>
-                <p className="text-sm text-violet-600 mt-0.5">presupuestos a importar</p>
+              <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-accent-soft)] p-5">
+                <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-accent)]">{aImportar.length}</p>
+                <p className="text-sm text-[var(--color-accent)] mt-0.5">presupuestos a importar</p>
                 {ignorados.length > 0 && (
-                  <p className="text-xs text-violet-400 mt-0.5">{ignorados.length} registros ignorados</p>
+                  <p className="text-xs text-[var(--color-accent)] mt-0.5">{ignorados.length} registros ignorados</p>
                 )}
               </div>
 
               <div className="flex flex-col gap-3">
                 {user.rol !== "encargada_ventas" && (
                   <div>
-                    <label className="text-xs font-semibold text-slate-500 block mb-1.5">Asignar a clínica</label>
+                    <label className="text-xs font-semibold text-[var(--color-muted)] block mb-1.5">Asignar a clínica</label>
                     <select
                       value={clinicaId}
                       onChange={(e) => setClinicaId(e.target.value)}
-                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                      className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)]"
                     >
                       <option value="">Sin clínica asignada</option>
                       {clinicas.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -534,15 +542,15 @@ export default function ImportarCSVModal({
                 )}
 
                 <div>
-                  <label className="text-xs font-semibold text-slate-500 block mb-1.5">Origen del paciente por defecto</label>
+                  <label className="text-xs font-semibold text-[var(--color-muted)] block mb-1.5">Origen del paciente por defecto</label>
                   <select
                     value={origenDefault}
                     onChange={(e) => setOrigenDefault(e.target.value)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                    className="w-full rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)]"
                   >
                     {ORIGEN_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
-                  <p className="text-[11px] text-slate-400 mt-1">Se aplica a los registros sin canal de origen detectado.</p>
+                  <p className="text-[11px] text-[var(--color-muted)] mt-1">Se aplica a los registros sin canal de origen detectado.</p>
                 </div>
               </div>
             </div>
@@ -553,26 +561,30 @@ export default function ImportarCSVModal({
             <div className="flex flex-col items-center gap-5 py-6">
               {importing ? (
                 <>
-                  <div className="w-10 h-10 rounded-full border-2 border-violet-600 border-t-transparent animate-spin" />
-                  <p className="text-sm text-slate-500">Importando presupuestos en Airtable…</p>
-                  <div className="w-full max-w-xs bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                    <div className="h-full bg-violet-500 rounded-full animate-pulse w-2/3" />
+                  <div className="w-10 h-10 rounded-full border-2 border-[var(--color-accent)] border-t-transparent animate-spin" />
+                  <p className="text-sm text-[var(--color-muted)]">Importando presupuestos…</p>
+                  <div className="w-full max-w-xs bg-[var(--color-surface-muted)] rounded-full h-1.5 overflow-hidden">
+                    <div className="h-full bg-[var(--color-accent)] rounded-full animate-pulse w-2/3" />
                   </div>
                 </>
               ) : resultado ? (
                 <>
-                  <p className="text-5xl">{resultado.errores.length === 0 ? "✅" : "⚠️"}</p>
+                  {resultado.errores.length === 0 ? (
+                    <CheckCircle2 size={40} strokeWidth={ICON_STROKE} className="text-[var(--color-success)]" aria-hidden />
+                  ) : (
+                    <AlertTriangle size={40} strokeWidth={ICON_STROKE} className="text-[var(--color-warning)]" aria-hidden />
+                  )}
                   <div className="text-center">
-                    <p className="text-3xl font-extrabold text-slate-900">{resultado.importados}</p>
-                    <p className="text-sm text-slate-500 mt-0.5">presupuestos importados correctamente</p>
+                    <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">{resultado.importados}</p>
+                    <p className="text-sm text-[var(--color-muted)] mt-0.5">presupuestos importados correctamente</p>
                     {resultado.importados < resultado.total && (
-                      <p className="text-xs text-amber-600 mt-1">
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                         {resultado.total - resultado.importados} registros no pudieron importarse
                       </p>
                     )}
                   </div>
                   {resultado.errores.length > 0 && (
-                    <div className="w-full max-w-sm rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+                    <div className="w-full max-w-sm rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 p-3 text-xs text-rose-700 dark:text-rose-300">
                       <p className="font-semibold mb-1">Errores:</p>
                       {resultado.errores.map((e, i) => <p key={i}>{e}</p>)}
                     </div>
@@ -584,15 +596,16 @@ export default function ImportarCSVModal({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 border-t border-[var(--color-border)] flex items-center justify-between shrink-0">
           {/* Back button */}
           <div>
             {paso > 1 && paso < 5 && (
               <button
                 onClick={() => setPaso((paso - 1) as 1 | 2 | 3 | 4 | 5)}
-                className="text-xs px-3 py-1.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50"
+                className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
               >
-                ← Anterior
+                <ChevronLeft size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                Anterior
               </button>
             )}
           </div>
@@ -603,25 +616,27 @@ export default function ImportarCSVModal({
               <button
                 onClick={applyMappingAndContinue}
                 disabled={!mappingValid}
-                className="text-sm px-4 py-2 rounded-xl bg-violet-600 text-white font-semibold hover:bg-violet-700 disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
               >
-                Aplicar mapeo →
+                Aplicar mapeo
+                <ArrowRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
               </button>
             )}
             {paso === 3 && (
               <button
                 onClick={() => { if (aImportar.length > 0) setPaso(4); }}
                 disabled={aImportar.length === 0}
-                className="text-sm px-4 py-2 rounded-xl bg-violet-600 text-white font-semibold hover:bg-violet-700 disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
               >
-                Continuar → ({aImportar.length})
+                Continuar ({aImportar.length})
+                <ArrowRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
               </button>
             )}
             {paso === 4 && (
               <button
                 onClick={handleImportar}
                 disabled={aImportar.length === 0}
-                className="text-sm px-4 py-2 rounded-xl bg-violet-600 text-white font-semibold hover:bg-violet-700 disabled:opacity-40"
+                className="text-sm px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
               >
                 Confirmar importación
               </button>
@@ -629,13 +644,14 @@ export default function ImportarCSVModal({
             {paso === 5 && !importing && resultado && (
               <button
                 onClick={() => { onImported(); onClose(); }}
-                className="text-sm px-4 py-2 rounded-xl bg-violet-600 text-white font-semibold hover:bg-violet-700"
+                className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)]"
               >
-                Ver en Panel →
+                Ver en Panel
+                <ArrowRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
               </button>
             )}
             {paso === 5 && !importing && !resultado && (
-              <button onClick={onClose} className="text-sm px-4 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50">
+              <button onClick={onClose} className="text-sm px-4 py-2 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">
                 Cerrar
               </button>
             )}

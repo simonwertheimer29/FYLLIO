@@ -7,8 +7,12 @@ import {
   LineChart, Line, BarChart, Bar, ComposedChart,
   XAxis, YAxis, CartesianGrid, Cell, ReferenceLine, Legend,
 } from "recharts";
+import { toast } from "sonner";
+import { ChevronUp } from "lucide-react";
 import type { UserSession, InformeGuardado } from "../../lib/presupuestos/types";
 import { Card } from "../ui/Card";
+import { EmptyState, ErrorState } from "../ui/Feedback";
+import { BarChart3, Download, AlertTriangle, X, Info, Sparkles, FileText, ChevronDown, ICON_STROKE } from "../icons";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -137,7 +141,7 @@ function ConfianzaBar({ nivel }: { nivel: 3 | 2 | 1 }) {
   const colors: Record<number, string> = {
     3: "bg-emerald-500",
     2: "bg-amber-400",
-    1: "bg-slate-300",
+    1: "bg-[var(--color-border)]",
   };
   return (
     <div className="flex items-center gap-1.5">
@@ -145,11 +149,11 @@ function ConfianzaBar({ nivel }: { nivel: 3 | 2 | 1 }) {
         {[1, 2, 3].map((n) => (
           <div
             key={n}
-            className={`w-3 h-2 rounded-sm ${n <= nivel ? colors[nivel] : "bg-slate-100"}`}
+            className={`w-3 h-2 rounded-sm ${n <= nivel ? colors[nivel] : "bg-[var(--color-surface-muted)]"}`}
           />
         ))}
       </div>
-      <span className="text-[10px] text-slate-400">{labels[nivel]}</span>
+      <span className="text-[10px] text-[var(--color-muted)]">{labels[nivel]}</span>
     </div>
   );
 }
@@ -162,18 +166,18 @@ function ForecastCard({
   const now = new Date();
   const isCurrent = mes === getYYYYMM(now);
   return (
-    <div className={`rounded-2xl border p-5 ${isCurrent ? "border-violet-200 bg-violet-50" : "border-slate-200 bg-white"}`}>
+    <div className={`rounded-2xl border p-5 ${isCurrent ? "border-[var(--color-border)] bg-[var(--color-accent-soft)]" : "border-[var(--color-border)] bg-[var(--color-surface)]"}`}>
       <div className="flex items-start justify-between mb-3">
         <div>
-          <p className="text-xs font-semibold text-slate-500">{label}</p>
-          {isCurrent && <p className="text-[10px] text-violet-600 font-medium">Mes actual</p>}
+          <p className="text-xs font-semibold text-[var(--color-muted)]">{label}</p>
+          {isCurrent && <p className="text-[10px] text-[var(--color-accent)] font-medium">Mes actual</p>}
         </div>
         <ConfianzaBar nivel={confianza} />
       </div>
-      <p className={`text-2xl font-extrabold ${isCurrent ? "text-violet-800" : "text-slate-800"}`}>
+      <p className={`font-display text-2xl font-bold tabular-nums ${isCurrent ? "text-[var(--color-accent)]" : "text-[var(--color-foreground)]"}`}>
         €{importeProyectado.toLocaleString("es-ES")}
       </p>
-      <p className="text-[11px] text-slate-400 mt-1">Con tasa esperada {tasaEsperada}%</p>
+      <p className="text-[11px] text-[var(--color-muted)] mt-1">Con tasa esperada {tasaEsperada}%</p>
     </div>
   );
 }
@@ -195,20 +199,20 @@ function InformeCard({
   if (loading) {
     return (
       <Card padding="none" className="p-8 flex flex-col items-center justify-center gap-3 min-h-[200px]">
-        <div className="w-8 h-8 rounded-full border-2 border-violet-600 border-t-transparent animate-spin" />
-        <p className="text-sm text-slate-500">Generando informe con IA...</p>
+        <div className="w-8 h-8 rounded-full border-2 border-[var(--color-accent)] border-t-transparent animate-spin" />
+        <p className="text-sm text-[var(--color-muted)]">Generando informe con IA...</p>
       </Card>
     );
   }
 
   if (error) {
     return (
-      <div className="rounded-2xl border border-rose-200 bg-rose-50 p-6">
-        <p className="text-sm font-semibold text-rose-700 mb-1">Error al generar informe</p>
-        <p className="text-xs text-rose-600">{error}</p>
+      <div className="rounded-2xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 p-6">
+        <p className="text-sm font-semibold text-rose-700 dark:text-rose-300 mb-1">Error al generar informe</p>
+        <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>
         <button
           onClick={onGenerar}
-          className="mt-3 text-xs font-semibold px-3 py-1.5 rounded-lg bg-rose-100 text-rose-700 hover:bg-rose-200"
+          className="mt-3 text-xs font-semibold px-3 py-1.5 rounded-lg bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300 hover:bg-rose-200 dark:hover:bg-rose-500/25"
         >
           Reintentar
         </button>
@@ -218,22 +222,20 @@ function InformeCard({
 
   if (!informe) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-10 flex flex-col items-center justify-center gap-4">
-        <p className="text-3xl">📊</p>
-        <div className="text-center">
-          <p className="font-semibold text-slate-700 mb-1">Informe narrativo</p>
-          <p className="text-sm text-slate-400">
-            Genera un análisis mensual con IA basado en los datos reales de{" "}
-            <span className="font-medium">{clinica}</span>.
-          </p>
-        </div>
-        <button
-          onClick={onGenerar}
-          className="px-5 py-2.5 rounded-2xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 transition-colors"
-        >
-          Generar con IA
-        </button>
-      </div>
+      <EmptyState
+        icon={<BarChart3 size={24} strokeWidth={ICON_STROKE} />}
+        title="Informe narrativo"
+        hint={`Genera un análisis mensual con IA basado en los datos reales de ${clinica}.`}
+        action={
+          <button
+            onClick={onGenerar}
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold hover:bg-[var(--color-accent-hover)] transition-colors"
+          >
+            <Sparkles size={14} strokeWidth={ICON_STROKE} aria-hidden />
+            Generar con IA
+          </button>
+        }
+      />
     );
   }
 
@@ -241,9 +243,9 @@ function InformeCard({
     <Card padding="lg">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Informe narrativo</p>
+          <p className="text-xs font-semibold text-[var(--color-muted)] uppercase tracking-wide">Informe narrativo</p>
           {informe.generadoEn && (
-            <p className="text-[10px] text-slate-400 mt-0.5">
+            <p className="text-[10px] text-[var(--color-muted)] mt-0.5">
               Generado el {new Date(informe.generadoEn).toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
             </p>
           )}
@@ -251,7 +253,7 @@ function InformeCard({
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={onRegenerar}
-            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+            className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
           >
             Regenerar
           </button>
@@ -259,22 +261,26 @@ function InformeCard({
             <button
               onClick={onDownloadPdf}
               disabled={downloading === "pdf"}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60 flex items-center gap-1.5"
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] disabled:opacity-60 flex items-center gap-1.5"
             >
               {downloading === "pdf" ? (
-                <><span className="w-3 h-3 rounded-full border border-slate-400 border-t-transparent animate-spin inline-block" /> Generando…</>
-              ) : "↓ PDF"}
+                <><span className="w-3 h-3 rounded-full border border-[var(--color-muted)] border-t-transparent animate-spin inline-block" /> Generando…</>
+              ) : (
+                <><Download size={13} strokeWidth={ICON_STROKE} aria-hidden /> PDF</>
+              )}
             </button>
           )}
           {onDownloadPpt && (
             <button
               onClick={onDownloadPpt}
               disabled={downloading === "ppt"}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60 flex items-center gap-1.5"
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] disabled:opacity-60 flex items-center gap-1.5"
             >
               {downloading === "ppt" ? (
-                <><span className="w-3 h-3 rounded-full border border-slate-400 border-t-transparent animate-spin inline-block" /> Generando…</>
-              ) : "↓ PPT"}
+                <><span className="w-3 h-3 rounded-full border border-[var(--color-muted)] border-t-transparent animate-spin inline-block" /> Generando…</>
+              ) : (
+                <><Download size={13} strokeWidth={ICON_STROKE} aria-hidden /> PPT</>
+              )}
             </button>
           )}
         </div>
@@ -289,9 +295,9 @@ function InformeCard({
             { label: "Importe", value: `€${informe.datosUsados.importeTotal.toLocaleString("es-ES")}` },
             { label: "Seguimiento", value: `€${informe.datosUsados.importePipeline.toLocaleString("es-ES")}` },
           ].map((item) => (
-            <div key={item.label} className="rounded-xl bg-slate-50 p-3">
-              <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide mb-0.5">{item.label}</p>
-              <p className="text-sm font-bold text-slate-800">{item.value}</p>
+            <div key={item.label} className="rounded-xl bg-[var(--color-surface-muted)] p-3">
+              <p className="text-[10px] text-[var(--color-muted)] font-semibold uppercase tracking-wide mb-0.5">{item.label}</p>
+              <p className="text-sm font-bold text-[var(--color-foreground)]">{item.value}</p>
             </div>
           ))}
         </div>
@@ -299,7 +305,7 @@ function InformeCard({
 
       {/* Narrative */}
       <div
-        className="text-slate-700 leading-relaxed prose-sm"
+        className="text-[var(--color-foreground)] leading-relaxed prose-sm"
         style={{ fontSize: 15, lineHeight: 1.8 }}
       >
         <ReactMarkdown
@@ -307,7 +313,7 @@ function InformeCard({
           unwrapDisallowed
           components={{
             p: ({ children }) => <p className="mt-4 first:mt-0">{children}</p>,
-            strong: ({ children }) => <strong className="font-semibold text-slate-900">{children}</strong>,
+            strong: ({ children }) => <strong className="font-semibold text-[var(--color-foreground)]">{children}</strong>,
           }}
         >
           {informe.informe}
@@ -397,13 +403,19 @@ export default function InformesView({ user }: { user: UserSession }) {
   }, [selectedMes, selectedClinica]);
 
   // Load saved informes
-  useEffect(() => {
+  const [errorGuardados, setErrorGuardados] = useState(false);
+  function loadGuardados() {
     setLoadingGuardados(true);
+    setErrorGuardados(false);
     fetch("/api/presupuestos/informes/guardados")
       .then((r) => r.json())
       .then((d) => setInformesGuardados(d.informes ?? []))
-      .catch(() => {})
+      .catch(() => setErrorGuardados(true))
       .finally(() => setLoadingGuardados(false));
+  }
+  useEffect(() => {
+    loadGuardados();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const mesLabel = meses.find((m) => m.value === selectedMes)?.label ?? selectedMes;
@@ -563,7 +575,7 @@ export default function InformesView({ user }: { user: UserSession }) {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch {
-      // fallo silencioso: el usuario ve que el botón deja de estar en loading
+      toast.error("No se pudo generar el PDF del informe. Inténtalo de nuevo.");
     } finally {
       setSemanalDownloading(null);
     }
@@ -574,11 +586,11 @@ export default function InformesView({ user }: { user: UserSession }) {
       {/* Header + filters */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Mes</label>
+          <label className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide">Mes</label>
           <select
             value={selectedMes}
             onChange={(e) => setSelectedMes(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           >
             {meses.map((m) => (
               <option key={m.value} value={m.value}>{m.label}</option>
@@ -586,11 +598,11 @@ export default function InformesView({ user }: { user: UserSession }) {
           </select>
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Clínica</label>
+          <label className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide">Clínica</label>
           <select
             value={selectedClinica}
             onChange={(e) => setSelectedClinica(e.target.value)}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           >
             <option value="todas">Todas las clínicas</option>
             {clinicas.map((c) => (
@@ -598,11 +610,11 @@ export default function InformesView({ user }: { user: UserSession }) {
             ))}
           </select>
         </div>
-        <div className="text-xs text-slate-400 pb-2">
+        <div className="text-xs text-[var(--color-muted)] pb-2">
           Informe de{" "}
-          <span className="font-semibold text-slate-600">{mesLabel}</span>
+          <span className="font-semibold text-[var(--color-muted)]">{mesLabel}</span>
           {" · "}
-          <span className="font-semibold text-slate-600">
+          <span className="font-semibold text-[var(--color-muted)]">
             {selectedClinica === "todas" ? "Todas las clínicas" : selectedClinica}
           </span>
         </div>
@@ -622,26 +634,30 @@ export default function InformesView({ user }: { user: UserSession }) {
         downloading={downloading}
       />
       {downloadError && (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 flex items-start gap-3">
-          <span className="text-rose-500 text-lg leading-none mt-0.5">⚠</span>
+        <div className="rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 px-4 py-3 flex items-start gap-3">
+          <AlertTriangle size={16} strokeWidth={ICON_STROKE} className="text-rose-500 mt-0.5 shrink-0" aria-hidden />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-rose-700">Error al generar el documento</p>
-            <p className="text-xs text-rose-600 mt-0.5 break-words">{downloadError}</p>
+            <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">No se pudo generar el documento</p>
+            <p className="text-xs text-rose-600 dark:text-rose-400 mt-0.5 break-words">{downloadError}</p>
           </div>
-          <button onClick={() => setDownloadError(null)} className="text-rose-400 hover:text-rose-600 text-lg leading-none">×</button>
+          <button onClick={() => setDownloadError(null)} className="text-rose-400 hover:text-rose-600" aria-label="Cerrar aviso">
+            <X size={14} strokeWidth={ICON_STROKE} aria-hidden />
+          </button>
         </div>
       )}
 
       {/* Forecasting */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide flex items-center gap-1">
+          <h2 className="text-xs font-semibold text-[var(--color-muted)] uppercase tracking-wide flex items-center gap-1">
             Previsión — próximos 3 meses
-            <span className="text-[10px] text-slate-300 cursor-help normal-case font-normal" title="Estimación basada en el volumen histórico y la tasa de conversión de los últimos 3 meses">ⓘ</span>
+            <span className="cursor-help" title="Estimación basada en el volumen histórico y la tasa de conversión de los últimos 3 meses">
+              <Info size={12} strokeWidth={ICON_STROKE} className="text-[var(--color-muted)]" aria-hidden />
+            </span>
           </h2>
           <div className="flex items-center gap-3">
-            <label className="text-xs text-slate-500">
-              Tasa esperada: <span className="font-bold text-slate-700">{tasaEsperada}%</span>
+            <label className="text-xs text-[var(--color-muted)]">
+              Tasa esperada: <span className="font-bold text-[var(--color-foreground)]">{tasaEsperada}%</span>
             </label>
             <input
               type="range"
@@ -650,7 +666,7 @@ export default function InformesView({ user }: { user: UserSession }) {
               step={1}
               value={tasaEsperada}
               onChange={(e) => setTasaEsperada(Number(e.target.value))}
-              className="w-28 accent-violet-600"
+              className="w-28 accent-[var(--color-accent)]"
             />
           </div>
         </div>
@@ -659,7 +675,7 @@ export default function InformesView({ user }: { user: UserSession }) {
             <ForecastCard key={f.mes} {...f} tasaEsperada={tasaEsperada} />
           ))}
         </div>
-        <p className="text-[11px] text-slate-400 mt-2">
+        <p className="text-[11px] text-[var(--color-muted)] mt-2">
           * Proyección basada en el volumen histórico de los últimos 3 meses y la tasa esperada seleccionada.
           La confianza disminuye para meses más lejanos.
         </p>
@@ -668,7 +684,7 @@ export default function InformesView({ user }: { user: UserSession }) {
       {/* Informes guardados */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+          <h2 className="text-xs font-semibold text-[var(--color-muted)] uppercase tracking-wide">
             Informes guardados
           </h2>
           <div className="flex gap-1">
@@ -678,8 +694,8 @@ export default function InformesView({ user }: { user: UserSession }) {
                 onClick={() => setHistorialTab(tab)}
                 className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${
                   historialTab === tab
-                    ? "bg-violet-600 text-white"
-                    : "text-slate-500 hover:bg-slate-100"
+                    ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
+                    : "text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
                 }`}
               >
                 {tab === "mensual" ? "Mensuales" : "Semanales"}
@@ -689,20 +705,25 @@ export default function InformesView({ user }: { user: UserSession }) {
         </div>
 
         {loadingGuardados ? (
-          <div className="rounded-xl border border-slate-200 bg-white p-8 flex justify-center">
-            <div className="w-5 h-5 rounded-full border-2 border-violet-600 border-t-transparent animate-spin" />
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 flex justify-center">
+            <div className="w-5 h-5 rounded-full border-2 border-[var(--color-accent)] border-t-transparent animate-spin" />
           </div>
+        ) : errorGuardados ? (
+          <ErrorState
+            detail="Los informes guardados no están disponibles ahora mismo."
+            onRetry={loadGuardados}
+          />
         ) : (() => {
           const filtrados = informesGuardados.filter((i) => i.tipo === historialTab);
           if (filtrados.length === 0) {
             return (
-              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center">
-                <p className="text-sm text-slate-400">
-                  {historialTab === "mensual"
-                    ? "Genera un informe mensual con IA para guardarlo aquí automáticamente."
-                    : "Los informes semanales se generan automáticamente cada lunes."}
-                </p>
-              </div>
+              <EmptyState
+                icon={<FileText size={24} strokeWidth={ICON_STROKE} />}
+                title={historialTab === "mensual" ? "Sin informes mensuales todavía" : "Sin informes semanales todavía"}
+                hint={historialTab === "mensual"
+                  ? "Genera un informe mensual con IA para guardarlo aquí automáticamente."
+                  : "Los informes semanales se generan automáticamente cada lunes."}
+              />
             );
           }
           return (
@@ -729,11 +750,11 @@ export default function InformesView({ user }: { user: UserSession }) {
                 const hasMore = lineasNarrativo.length > 3;
 
                 return (
-                  <div key={inf.id} className="rounded-xl border border-slate-200 bg-white overflow-hidden">
+                  <div key={inf.id} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
                     <div className="flex items-center justify-between px-4 py-3 gap-3">
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-800 truncate">{inf.titulo}</p>
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{inf.titulo}</p>
+                        <p className="text-xs text-[var(--color-muted)] mt-0.5">
                           {inf.clinica !== "todas" ? inf.clinica : "Todas las clínicas"}
                           {fechaLabel ? ` · ${fechaLabel}` : ""}
                         </p>
@@ -743,24 +764,30 @@ export default function InformesView({ user }: { user: UserSession }) {
                           <button
                             onClick={() => downloadSemanalPdf(inf)}
                             disabled={semanalDownloading === inf.id}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60 flex items-center gap-1.5"
+                            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] disabled:opacity-60 flex items-center gap-1.5"
                           >
                             {semanalDownloading === inf.id ? (
-                              <><span className="w-3 h-3 rounded-full border border-slate-400 border-t-transparent animate-spin inline-block" /> Generando…</>
-                            ) : "↓ PDF"}
+                              <><span className="w-3 h-3 rounded-full border border-[var(--color-muted)] border-t-transparent animate-spin inline-block" /> Generando…</>
+                            ) : (
+                              <><Download size={13} strokeWidth={ICON_STROKE} aria-hidden /> PDF</>
+                            )}
                           </button>
                         )}
                         <button
                           onClick={() => setExpandedInformeId(isExpanded ? null : inf.id)}
-                          className="text-xs font-medium px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50"
+                          className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
                         >
-                          {isExpanded ? "Ocultar ▴" : "Ver resumen ▾"}
+                          {isExpanded ? (
+                            <>Ocultar <ChevronUp size={12} strokeWidth={1.5} aria-hidden /></>
+                          ) : (
+                            <>Ver resumen <ChevronDown size={12} strokeWidth={ICON_STROKE} aria-hidden /></>
+                          )}
                         </button>
                       </div>
                     </div>
 
                     {isExpanded && (
-                      <div className="px-4 pb-4 border-t border-slate-100 pt-3">
+                      <div className="px-4 pb-4 border-t border-[var(--color-border)] pt-3">
                         {/* Métricas compactas — siempre visibles para semanales */}
                         {inf.tipo === "semanal" && semanalData && (
                           <div className="flex flex-col gap-2 mb-3">
@@ -770,14 +797,14 @@ export default function InformesView({ user }: { user: UserSession }) {
                                 { label: "Seguimiento", value: String(semanalData.totalSeguimiento ?? "-") },
                                 { label: "Riesgo alto", value: String(semanalData.riesgoAlto ?? "-") },
                               ].map((item) => (
-                                <div key={item.label} className="rounded-lg bg-slate-50 p-2.5 text-center">
-                                  <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wide">{item.label}</p>
-                                  <p className="text-base font-bold text-slate-800">{item.value}</p>
+                                <div key={item.label} className="rounded-lg bg-[var(--color-surface-muted)] p-2.5 text-center">
+                                  <p className="text-[10px] text-[var(--color-muted)] font-semibold uppercase tracking-wide">{item.label}</p>
+                                  <p className="text-base font-bold text-[var(--color-foreground)]">{item.value}</p>
                                 </div>
                               ))}
                             </div>
                             {semanalData.eurosSeguimiento != null && (
-                              <p className="text-xs text-slate-500">
+                              <p className="text-xs text-[var(--color-muted)]">
                                 €{Number(semanalData.eurosSeguimiento).toLocaleString("es-ES")} en seguimiento
                               </p>
                             )}
@@ -786,26 +813,26 @@ export default function InformesView({ user }: { user: UserSession }) {
                         {/* Texto narrativo (semanal o mensual) */}
                         {textoResumen ? (
                           <div>
-                            <div className="text-slate-600 text-sm leading-relaxed">
+                            <div className="text-[var(--color-muted)] text-sm leading-relaxed">
                               <ReactMarkdown
                                 allowedElements={["p", "strong", "em"]}
                                 unwrapDisallowed
                                 components={{
                                   p: ({ children }) => <p className="mt-2 first:mt-0">{children}</p>,
-                                  strong: ({ children }) => <strong className="font-semibold text-slate-800">{children}</strong>,
+                                  strong: ({ children }) => <strong className="font-semibold text-[var(--color-foreground)]">{children}</strong>,
                                 }}
                               >
                                 {textoResumen}
                               </ReactMarkdown>
                             </div>
                             {hasMore && (
-                              <p className="text-xs text-violet-600 mt-2 font-medium">
+                              <p className="text-xs text-[var(--color-accent)] mt-2 font-medium">
                                 Leer informe completo →
                               </p>
                             )}
                           </div>
                         ) : !semanalData ? (
-                          <p className="text-xs text-slate-400">Sin contenido disponible.</p>
+                          <p className="text-xs text-[var(--color-muted)]">Sin contenido disponible.</p>
                         ) : null}
                       </div>
                     )}
@@ -845,7 +872,7 @@ export default function InformesView({ user }: { user: UserSession }) {
               <XAxis dataKey="label" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Legend />
-              <Line isAnimationActive={false} type="monotone" dataKey="total" name="Ofrecidos" stroke="#7C3AED" strokeWidth={2} dot={{ r: 3 }} />
+              <Line isAnimationActive={false} type="monotone" dataKey="total" name="Ofrecidos" stroke="#3d6fb2" strokeWidth={2} dot={{ r: 3 }} />
               <Line isAnimationActive={false} type="monotone" dataKey="aceptados" name="Aceptados" stroke="#16A34A" strokeWidth={2} dot={{ r: 3 }} />
             </LineChart>
           </div>
@@ -902,7 +929,7 @@ export default function InformesView({ user }: { user: UserSession }) {
                     <Cell key={i} fill={d.tasa >= mediaRedInforme ? "#16A34A" : "#DC2626"} />
                   ))}
                 </Bar>
-                <ReferenceLine y={mediaRedInforme} stroke="#7C3AED" strokeDasharray="4 4" label={{ value: `Media ${mediaRedInforme}%`, position: "insideTopRight", fill: "#7C3AED", fontSize: 10 }} />
+                <ReferenceLine y={mediaRedInforme} stroke="#3d6fb2" strokeDasharray="4 4" label={{ value: `Media ${mediaRedInforme}%`, position: "insideTopRight", fill: "#3d6fb2", fontSize: 10 }} />
               </ComposedChart>
             </div>
           )}
@@ -918,7 +945,7 @@ export default function InformesView({ user }: { user: UserSession }) {
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" tick={{ fontSize: 11 }} />
                 <YAxis type="category" dataKey="origen" width={155} tick={{ fontSize: 10 }} />
-                <Bar isAnimationActive={false} dataKey="count" name="Leads" fill="#7C3AED" />
+                <Bar isAnimationActive={false} dataKey="count" name="Leads" fill="#3d6fb2" />
               </BarChart>
             </div>
           )}
@@ -954,7 +981,7 @@ export default function InformesView({ user }: { user: UserSession }) {
                 <YAxis type="category" dataKey="tono" width={175} tick={{ fontSize: 10 }} />
                 <Bar isAnimationActive={false} dataKey="tasa" name="Conversión">
                   {(informe.datosUsados.abTonos ?? []).map((_, i) => (
-                    <Cell key={i} fill={(["#16A34A", "#7C3AED", "#D97706"] as string[])[i % 3]} />
+                    <Cell key={i} fill={(["#16A34A", "#3d6fb2", "#D97706"] as string[])[i % 3]} />
                   ))}
                 </Bar>
               </BarChart>

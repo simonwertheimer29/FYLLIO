@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import type { Doctor, Presupuesto, UserSession } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG, ESPECIALIDAD_COLOR, ESTADOS_ACEPTADOS } from "../../lib/presupuestos/colors";
 import PatientDrawer from "./PatientDrawer";
 import { Card } from "../ui/Card";
+import { KpiCard } from "../ui/KpiCard";
+import { ErrorState } from "../ui/Feedback";
+import { ChevronLeft, ChevronRight, ICON_STROKE } from "../icons";
 
 type PeriodoFiltro = "all" | "month" | "prevMonth" | "3months" | "custom";
 
@@ -67,15 +70,22 @@ export default function DoctorView({ user }: { user: UserSession }) {
       .catch(() => {});
   }, [user]);
 
-  useEffect(() => {
+  const [loadError, setLoadError] = useState(false);
+  const loadPresupuestos = useCallback(() => {
     if (!selectedDoctor) return;
+    setLoadError(false);
     const url = new URL("/api/presupuestos/kanban", location.href);
     url.searchParams.set("doctor", selectedDoctor);
     fetch(url.toString())
       .then((r) => r.json())
       .then((d) => { setAllPresupuestos(d.presupuestos ?? []); setPage(0); })
-      .catch(() => setAllPresupuestos([]));
+      .catch(() => {
+        setAllPresupuestos([]);
+        setLoadError(true);
+      });
   }, [selectedDoctor]);
+
+  useEffect(() => { loadPresupuestos(); }, [loadPresupuestos]);
 
   // Reset page when period changes
   useEffect(() => { setPage(0); }, [periodo]);
@@ -106,11 +116,11 @@ export default function DoctorView({ user }: { user: UserSession }) {
     <div className="space-y-5">
       {/* Doctor selector + period filter */}
       <div className="flex items-center gap-3 flex-wrap">
-        <label className="text-xs font-semibold text-slate-500">Doctor:</label>
+        <label className="text-xs font-semibold text-[var(--color-muted)]">Doctor:</label>
         <select
           value={selectedDoctor}
           onChange={(e) => setSelectedDoctor(e.target.value)}
-          className="rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-300"
+          className="rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)]"
         >
           {doctores.map((d) => (
             <option key={d.id} value={d.nombre}>{d.nombre} — {d.especialidad}</option>
@@ -130,16 +140,16 @@ export default function DoctorView({ user }: { user: UserSession }) {
 
         {/* Period filter */}
         <div className="flex flex-col items-end gap-1.5">
-          <div className="flex rounded-xl overflow-hidden border border-slate-200 text-xs">
+          <div className="flex rounded-xl overflow-hidden border border-[var(--color-border)] text-xs">
             {(["all", "month", "prevMonth", "3months", "custom"] as PeriodoFiltro[]).map((p) => (
               <button
                 key={p}
                 onClick={() => setPeriodo(p)}
                 className={`px-2.5 py-1.5 font-medium transition-colors whitespace-nowrap ${
                   periodo === p
-                    ? "bg-violet-600 text-white"
-                    : "bg-white text-slate-600 hover:bg-slate-50"
-                } ${p !== "all" ? "border-l border-slate-200 first:border-0" : ""}`}
+                    ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
+                    : "bg-[var(--color-surface)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
+                } ${p !== "all" ? "border-l border-[var(--color-border)] first:border-0" : ""}`}
               >
                 {PERIODO_LABEL[p]}
               </button>
@@ -151,41 +161,42 @@ export default function DoctorView({ user }: { user: UserSession }) {
                 type="date"
                 value={customDesde}
                 onChange={(e) => { setCustomDesde(e.target.value); setPage(0); }}
-                className="rounded-xl border border-violet-300 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="rounded-xl border border-[var(--color-accent)] px-2 py-1.5 text-xs text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)]"
               />
-              <span className="text-xs text-slate-400">–</span>
+              <span className="text-xs text-[var(--color-muted)]">–</span>
               <input
                 type="date"
                 value={customHasta}
                 onChange={(e) => { setCustomHasta(e.target.value); setPage(0); }}
-                className="rounded-xl border border-violet-300 px-2 py-1.5 text-xs text-slate-700 focus:outline-none focus:ring-2 focus:ring-violet-300"
+                className="rounded-xl border border-[var(--color-accent)] px-2 py-1.5 text-xs text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)]"
               />
             </div>
           )}
         </div>
       </div>
 
+      {/* Error de carga — el historial no está disponible */}
+      {loadError && (
+        <ErrorState
+          detail={`Los presupuestos de ${selectedDoctor || "este doctor"} no están disponibles ahora mismo.`}
+          onRetry={loadPresupuestos}
+        />
+      )}
+
       {/* Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        {[
-          { label: "Total", value: String(presupuestos.length) },
-          { label: "Aceptados", value: String(aceptados.length) },
-          { label: "% Aceptación", value: `${tasa}%` },
-          { label: "€ Aceptado", value: `€${importeTotal.toLocaleString("es-ES")}` },
-        ].map((m) => (
-          <Card key={m.label}>
-            <p className="text-xs text-slate-500 font-medium">{m.label}</p>
-            <p className="text-xl font-extrabold text-slate-900 mt-1">{m.value}</p>
-          </Card>
-        ))}
+        <KpiCard label="Total" value={presupuestos.length} />
+        <KpiCard label="Aceptados" value={aceptados.length} accent="emerald" />
+        <KpiCard label="% Aceptación" value={tasa} formatter={(n) => `${n}%`} accent="accent" />
+        <KpiCard label="€ Aceptado" value={importeTotal} formatter={(n) => `€${n.toLocaleString("es-ES")}`} />
       </div>
 
       {/* Historial table */}
       <Card padding="none" className="overflow-hidden">
-        <p className="px-4 py-3 text-sm font-bold text-slate-900 border-b border-slate-100">
+        <p className="px-4 py-3 text-sm font-bold text-[var(--color-foreground)] border-b border-[var(--color-border)]">
           Historial ({presupuestos.length})
           {periodo !== "all" && (
-            <span className="ml-2 text-[11px] font-normal text-slate-400">
+            <span className="ml-2 text-[11px] font-normal text-[var(--color-muted)]">
               — {PERIODO_LABEL[periodo]}
             </span>
           )}
@@ -193,12 +204,12 @@ export default function DoctorView({ user }: { user: UserSession }) {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b border-slate-100">
+              <tr className="border-b border-[var(--color-border)]">
                 {["Paciente", "Tratamientos", "Importe", "Estado", "Fecha", "Tipo", "Cont."].map(
                   (h) => (
                     <th
                       key={h}
-                      className="px-3 py-2 text-left font-semibold text-slate-400 whitespace-nowrap"
+                      className="px-3 py-2 text-left font-semibold text-[var(--color-muted)] whitespace-nowrap"
                     >
                       {h}
                     </th>
@@ -213,15 +224,15 @@ export default function DoctorView({ user }: { user: UserSession }) {
                   <tr
                     key={p.id}
                     onClick={() => setDrawerPresupuesto(p)}
-                    className="border-b border-slate-50 hover:bg-slate-50 cursor-pointer"
+                    className="border-b border-[var(--color-border)] hover:bg-[var(--color-surface-muted)] cursor-pointer"
                   >
-                    <td className="px-3 py-2.5 font-medium text-slate-800 whitespace-nowrap">
+                    <td className="px-3 py-2.5 font-medium text-[var(--color-foreground)] whitespace-nowrap">
                       {p.patientName}
                     </td>
-                    <td className="px-3 py-2.5 text-slate-600 max-w-[160px] truncate">
+                    <td className="px-3 py-2.5 text-[var(--color-muted)] max-w-[160px] truncate">
                       {p.treatments.join(", ")}
                     </td>
-                    <td className="px-3 py-2.5 text-slate-700 whitespace-nowrap">
+                    <td className="px-3 py-2.5 text-[var(--color-foreground)] whitespace-nowrap">
                       {p.amount != null ? `€${p.amount.toLocaleString("es-ES")}` : "—"}
                     </td>
                     <td className="px-3 py-2.5 whitespace-nowrap">
@@ -232,19 +243,19 @@ export default function DoctorView({ user }: { user: UserSession }) {
                         {cfg.label}
                       </span>
                     </td>
-                    <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">
+                    <td className="px-3 py-2.5 text-[var(--color-muted)] whitespace-nowrap">
                       {p.fechaPresupuesto}
                     </td>
-                    <td className="px-3 py-2.5 text-slate-500 whitespace-nowrap">
+                    <td className="px-3 py-2.5 text-[var(--color-muted)] whitespace-nowrap">
                       {p.tipoPaciente ?? "—"}
                     </td>
-                    <td className="px-3 py-2.5 text-slate-500">{p.contactCount}</td>
+                    <td className="px-3 py-2.5 text-[var(--color-muted)]">{p.contactCount}</td>
                   </tr>
                 );
               })}
               {presupuestos.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-3 py-8 text-center text-slate-400 text-sm">
+                  <td colSpan={7} className="px-3 py-8 text-center text-[var(--color-muted)] text-sm">
                     Sin presupuestos en este período
                   </td>
                 </tr>
@@ -254,24 +265,26 @@ export default function DoctorView({ user }: { user: UserSession }) {
         </div>
 
         {totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-slate-100 flex items-center justify-between">
-            <p className="text-xs text-slate-400">
+          <div className="px-4 py-3 border-t border-[var(--color-border)] flex items-center justify-between">
+            <p className="text-xs text-[var(--color-muted)]">
               Página {page + 1} de {totalPages}
             </p>
             <div className="flex gap-2">
               <button
                 onClick={() => setPage((p) => Math.max(0, p - 1))}
                 disabled={page === 0}
-                className="text-xs px-3 py-1.5 rounded-xl border border-slate-200 disabled:opacity-40"
+                className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-foreground)] disabled:opacity-40"
               >
-                ← Anterior
+                <ChevronLeft size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                Anterior
               </button>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
                 disabled={page === totalPages - 1}
-                className="text-xs px-3 py-1.5 rounded-xl border border-slate-200 disabled:opacity-40"
+                className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-foreground)] disabled:opacity-40"
               >
-                Siguiente →
+                Siguiente
+                <ChevronRight size={12} strokeWidth={ICON_STROKE} aria-hidden />
               </button>
             </div>
           </div>

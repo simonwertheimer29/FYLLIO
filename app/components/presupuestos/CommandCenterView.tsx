@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import type { Presupuesto, PresupuestoEstado, UserSession } from "../../lib/presupuestos/types";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { Sparkles, RefreshCw, ICON_STROKE } from "../icons";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -183,22 +184,22 @@ function MetricCard({
   title: string;
   value: string;
   sub?: React.ReactNode;
-  highlight?: "red" | "green" | "violet";
+  highlight?: "red" | "green" | "accent";
 }) {
   const colors: Record<string, string> = {
-    red: "border-rose-200 bg-rose-50",
-    green: "border-emerald-200 bg-emerald-50",
-    violet: "border-violet-200 bg-violet-50",
+    red: "border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10",
+    green: "border-emerald-200 dark:border-emerald-500/30 bg-emerald-50 dark:bg-emerald-500/10",
+    accent: "border-[var(--color-border)] bg-[var(--color-accent-soft)]",
   };
   const textColors: Record<string, string> = {
-    red: "text-rose-800",
-    green: "text-emerald-800",
-    violet: "text-violet-800",
+    red: "text-rose-800 dark:text-rose-300",
+    green: "text-emerald-800 dark:text-emerald-300",
+    accent: "text-[var(--color-accent)]",
   };
   return (
-    <div className={`rounded-2xl border p-5 ${highlight ? colors[highlight] : "border-slate-200 bg-white"}`}>
-      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide mb-2">{title}</p>
-      <p className={`text-3xl font-extrabold leading-tight ${highlight ? textColors[highlight] : "text-slate-900"}`}>
+    <div className={`rounded-2xl border p-5 ${highlight ? colors[highlight] : "border-[var(--color-border)] bg-[var(--color-surface)]"}`}>
+      <p className="fyllio-label font-semibold text-[var(--color-muted)] mb-2">{title}</p>
+      <p className={`font-display text-4xl font-bold tabular-nums leading-tight ${highlight ? textColors[highlight] : "text-[var(--color-foreground)]"}`}>
         {value}
       </p>
       {sub && <div className="mt-1.5">{sub}</div>}
@@ -228,30 +229,30 @@ function ClinicaCard({
     <div className="relative">
       <button
         onClick={onClick}
-        className={`w-full text-left rounded-2xl border border-slate-200 bg-white overflow-hidden hover:shadow-md transition-shadow border-l-4 ${border}`}
+        className={`w-full text-left rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden hover:shadow-md transition-shadow border-l-4 ${border}`}
       >
         <div className="p-4">
           {/* Header row */}
           <div className="flex items-start justify-between gap-2 mb-2">
             <div className="flex items-center gap-2">
               <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${dot} ${stats.semaforo === "rojo" ? "animate-pulse" : ""}`} />
-              <p className="font-semibold text-slate-900 text-sm">{stats.clinica}</p>
+              <p className="font-semibold text-[var(--color-foreground)] text-sm">{stats.clinica}</p>
             </div>
             <div className="text-right shrink-0">
               {stats.totalMTD < 3 ? (
-                <p className="text-xs font-semibold text-slate-400">Mes iniciado</p>
+                <p className="text-xs font-semibold text-[var(--color-muted)]">Mes iniciado</p>
               ) : (
                 <>
-                  <p className="text-sm font-bold text-slate-900">{stats.tasaMTD}%</p>
+                  <p className="text-sm font-bold text-[var(--color-foreground)]">{stats.tasaMTD}%</p>
                   {/* Sprint 15 Bloque 6 — si tasaMesAnterior=0 no podemos
                       computar delta% (división por cero); render '—'
                       neutral en vez de un signo arbitrario. Si delta=0
                       tampoco merece flecha de color, también '—'. */}
                   {stats.tasaMesAnterior === 0 || stats.deltaTasaPct === 0 ? (
-                    <p className="text-[10px] font-semibold text-slate-400">—</p>
+                    <p className="text-[10px] font-semibold text-[var(--color-muted)]">—</p>
                   ) : (
                     <p
-                      className={`text-[10px] font-semibold ${stats.deltaTasaPct > 0 ? "text-emerald-600" : "text-rose-600"}`}
+                      className={`text-[10px] font-semibold ${stats.deltaTasaPct > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}
                     >
                       {stats.deltaTasaPct > 0 ? "↑" : "↓"} {Math.abs(stats.deltaTasaPct)}pp
                     </p>
@@ -262,7 +263,7 @@ function ClinicaCard({
           </div>
 
           {/* Stats row */}
-          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-slate-600 mb-2">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-xs text-[var(--color-muted)] mb-2">
             <span>{stats.activos} activos</span>
             <span>€{stats.enJuego.toLocaleString("es-ES")}</span>
           </div>
@@ -271,9 +272,9 @@ function ClinicaCard({
           {objetivo != null && (
             <div className="mt-2">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-[10px] text-slate-500">{aceptadosMTD}/{objetivo} aceptados</span>
+                <span className="text-[10px] text-[var(--color-muted)]">{aceptadosMTD}/{objetivo} aceptados</span>
               </div>
-              <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+              <div className="h-1.5 rounded-full bg-[var(--color-surface-muted)] overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all ${
                     aceptadosMTD >= objetivo ? "bg-emerald-500" :
@@ -288,29 +289,29 @@ function ClinicaCard({
           {/* Badges */}
           <div className="flex flex-wrap gap-1.5 mt-2">
             {stats.riesgoAltoSinContactar > 0 && (
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-100 text-rose-700">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300">
                 {stats.riesgoAltoSinContactar} riesgo alto
               </span>
             )}
             {stats.sinActividadHoy > 0 && (
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300">
                 {stats.sinActividadHoy} sin contacto hoy
               </span>
             )}
             {stats.riesgoAltoSinContactar === 0 && stats.sinActividadHoy === 0 && (
-              <span className="text-[10px] text-emerald-600 font-medium">Todo bajo control</span>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Todo bajo control</span>
             )}
           </div>
 
           {stats.peorDoctor && (
-            <p className="text-[10px] text-slate-400 mt-2">
+            <p className="text-[10px] text-[var(--color-muted)] mt-2">
               Menor tasa:{" "}
               {/* Sprint 15 Bloque 6 — link al filtro de ese doctor en
                   Vista Máxima (MaximaView lee ?doctor=NOMBRE al montar). */}
               <a
                 href={`/presupuestos/maxima?doctor=${encodeURIComponent(stats.peorDoctor)}`}
                 onClick={(e) => e.stopPropagation()}
-                className="text-slate-500 hover:text-sky-700 hover:underline"
+                className="text-[var(--color-muted)] hover:text-[var(--color-accent)] hover:underline"
               >
                 {stats.peorDoctor}
               </a>
@@ -330,9 +331,9 @@ const ALERTA_LABEL: Record<AlertaTipo, string> = {
 };
 
 const ALERTA_COLORS: Record<AlertaTipo, string> = {
-  RIESGO_ALTO:        "bg-rose-100 text-rose-700",
-  CAIDA_CONVERSION:   "bg-amber-100 text-amber-700",
-  PRESUPUESTO_ANTIGUO: "bg-blue-100 text-blue-700",
+  RIESGO_ALTO:        "bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300",
+  CAIDA_CONVERSION:   "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300",
+  PRESUPUESTO_ANTIGUO: "bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
 };
 
 const ALERTA_ACTION_LABEL: Record<AlertaTipo, string> = {
@@ -343,14 +344,14 @@ const ALERTA_ACTION_LABEL: Record<AlertaTipo, string> = {
 
 function AlertaRow({ alerta, onAction }: { alerta: Alerta; onAction: () => void }) {
   return (
-    <div className="flex items-center gap-3 py-2.5 border-b border-slate-100 last:border-0">
+    <div className="flex items-center gap-3 py-2.5 border-b border-[var(--color-border)] last:border-0">
       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0 ${ALERTA_COLORS[alerta.tipo]}`}>
         {ALERTA_LABEL[alerta.tipo]}
       </span>
-      <p className="text-xs text-slate-700 flex-1 min-w-0 truncate">{alerta.texto}</p>
+      <p className="text-xs text-[var(--color-foreground)] flex-1 min-w-0 truncate">{alerta.texto}</p>
       <button
         onClick={onAction}
-        className="shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-violet-50 text-violet-700 hover:bg-violet-100"
+        className="shrink-0 text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/15"
       >
         {ALERTA_ACTION_LABEL[alerta.tipo]}
       </button>
@@ -493,12 +494,12 @@ export default function CommandCenterView({
       <div className="flex-1 min-h-0 flex flex-col gap-5 animate-pulse">
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-28 rounded-2xl bg-slate-100" />
+            <div key={i} className="h-28 rounded-2xl bg-[var(--color-surface-muted)]" />
           ))}
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-40 rounded-2xl bg-slate-100" />
+            <div key={i} className="h-40 rounded-2xl bg-[var(--color-surface-muted)]" />
           ))}
         </div>
       </div>
@@ -512,21 +513,21 @@ export default function CommandCenterView({
         <MetricCard
           title="Presupuestos activos"
           value={String(activosTotal)}
-          sub={<span className="text-xs text-slate-500">Interesado · En duda · Negociando</span>}
+          sub={<span className="text-xs text-[var(--color-muted)]">Interesado · En duda · Negociando</span>}
         />
         <MetricCard
           title="€ en juego"
           value={`€${enJuegoTotal.toLocaleString("es-ES")}`}
-          sub={<span className="text-xs text-slate-500">Suma de importes activos</span>}
-          highlight="violet"
+          sub={<span className="text-xs text-[var(--color-muted)]">Suma de importes activos</span>}
+          highlight="accent"
         />
         <MetricCard
           title="Tasa MTD"
           value={totalMTDGlobal < 3 ? "—" : `${tasaMTDGlobal}%`}
           sub={
             totalMTDGlobal < 3
-              ? <span className="text-xs text-slate-400">Mes iniciado ({totalMTDGlobal} presupuestos)</span>
-              : <span className={`text-xs font-semibold ${deltaMTDGlobal >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+              ? <span className="text-xs text-[var(--color-muted)]">Mes iniciado ({totalMTDGlobal} presupuestos)</span>
+              : <span className={`text-xs font-semibold ${deltaMTDGlobal >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
                   {deltaMTDGlobal >= 0 ? "↑" : "↓"} {Math.abs(deltaMTDGlobal)}pp vs mes anterior
                 </span>
           }
@@ -535,24 +536,24 @@ export default function CommandCenterView({
         <MetricCard
           title="Riesgo alto sin contactar"
           value={String(riesgoAltoPendiente)}
-          sub={<span className="text-xs text-slate-500">Score ≥70, sin contacto &gt;48h</span>}
+          sub={<span className="text-xs text-[var(--color-muted)]">Score ≥70, sin contacto &gt;48h</span>}
           highlight={riesgoAltoPendiente > 0 ? "red" : "green"}
         />
         <MetricCard
           title="En objetivo"
           value={clinicasConObjetivo > 0 ? `${clinicasEnObjetivo}/${clinicasConObjetivo}` : "—"}
-          sub={<span className="text-xs text-slate-500">Clínicas que cumplen objetivo</span>}
+          sub={<span className="text-xs text-[var(--color-muted)]">Clínicas que cumplen objetivo</span>}
           highlight={clinicasConObjetivo > 0 && clinicasEnObjetivo === clinicasConObjetivo ? "green" : undefined}
         />
       </div>
 
       {/* Clinic semaphore grid */}
       <div>
-        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
+        <h2 className="text-xs font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-3">
           Estado por clínica
         </h2>
         {clinicasStats.length === 0 ? (
-          <p className="text-sm text-slate-500">No hay datos de clínicas.</p>
+          <p className="text-sm text-[var(--color-muted)]">No hay datos de clínicas.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[...clinicasStats]
@@ -576,10 +577,10 @@ export default function CommandCenterView({
       {/* Active alerts */}
       {alertas.length > 0 && (
         <div>
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
+          <h2 className="text-xs font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-3">
             Alertas activas ({alertas.length})
           </h2>
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-1">
+          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-1">
             {alertas.map((a) => (
               <AlertaRow
                 key={a.id}
@@ -594,37 +595,39 @@ export default function CommandCenterView({
       {/* Insights de la semana */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
-            ✦ Insights de la semana
+          <h2 className="text-xs font-semibold text-[var(--color-muted)] uppercase tracking-wide flex items-center gap-1.5">
+            <Sparkles size={12} strokeWidth={ICON_STROKE} className="text-[var(--color-accent)]" aria-hidden />
+            Insights de la semana
           </h2>
           <button
             onClick={() => fetchInsights(presupuestos)}
             disabled={insightsLoading}
-            className="text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-violet-50 text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+            className="inline-flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)] hover:bg-[var(--color-accent)]/15 disabled:opacity-50"
           >
-            {insightsLoading ? "Analizando…" : "↺ Actualizar"}
+            <RefreshCw size={11} strokeWidth={ICON_STROKE} aria-hidden />
+            {insightsLoading ? "Analizando…" : "Actualizar"}
           </button>
         </div>
         {insightsLoading && !insights ? (
-          <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4 space-y-2">
+          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-accent-soft)] p-4 space-y-2">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-4 rounded-lg bg-violet-100 animate-pulse" style={{ width: `${75 + i * 5}%` }} />
+              <div key={i} className="h-4 rounded-lg bg-[var(--color-accent)]/15 animate-pulse" style={{ width: `${75 + i * 5}%` }} />
             ))}
           </div>
         ) : insights && insights.length > 0 ? (
-          <div className="rounded-2xl border border-violet-100 bg-violet-50 px-4 py-3 space-y-2.5">
+          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-accent-soft)] px-4 py-3 space-y-2.5">
             {insights.map((ins, i) => (
               <div key={i} className="flex items-start gap-2">
-                <span className="shrink-0 w-5 h-5 rounded-full bg-violet-200 text-violet-700 text-[9px] font-extrabold flex items-center justify-center mt-0.5">
+                <span className="shrink-0 w-5 h-5 rounded-full bg-[var(--color-accent)]/15 text-[var(--color-accent)] text-[9px] font-bold flex items-center justify-center mt-0.5">
                   {i + 1}
                 </span>
-                <p className="text-xs text-violet-900 leading-relaxed">{ins}</p>
+                <p className="text-xs text-[var(--color-foreground)] leading-relaxed">{ins}</p>
               </div>
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl border border-dashed border-violet-200 p-4 text-center">
-            <p className="text-xs text-slate-400">Pulsa «Actualizar» para generar insights IA de esta semana.</p>
+          <div className="rounded-2xl border border-dashed border-[var(--color-border)] p-4 text-center">
+            <p className="text-xs text-[var(--color-muted)]">Pulsa «Actualizar» para generar insights IA de esta semana.</p>
           </div>
         )}
       </div>

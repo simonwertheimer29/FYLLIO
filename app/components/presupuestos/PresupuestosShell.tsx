@@ -6,6 +6,8 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { toast } from "sonner";
+import { Bell, Plus, Upload, ClipboardList, ICON_STROKE } from "../icons";
+import { EmptyState } from "../ui/Feedback";
 import type {
   Presupuesto,
   PresupuestoEstado,
@@ -81,8 +83,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   // El campo Filters.clinica se mantiene por backwards-compat pero no se
   // usa para filtrar (siempre vacío).
   const { selectedClinicaNombre } = useClinic();
-  const { presupuestos, setPresupuestos, loading, isDemo, demoReason, missingVars, load } =
-    usePresupuestos();
+  const { presupuestos, setPresupuestos, loading, isDemo, load } = usePresupuestos();
 
   const clinicasDisponibles = useMemo(() => {
     const s = new Set<string>(presupuestos.map((p) => p.clinica).filter(Boolean) as string[]);
@@ -225,10 +226,10 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-slate-50 overflow-hidden">
+    <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-background)] overflow-hidden">
       {/* Minibar: título + toggle + acciones + notificaciones */}
-      <div className="bg-white border-b border-slate-200 px-4 py-2 flex items-center gap-3 shrink-0">
-        <p className="text-xs font-bold text-slate-900">Presupuestos</p>
+      <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-2 flex items-center gap-3 shrink-0">
+        <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">Presupuestos</h1>
 
         <div className="flex gap-1">
           <ToggleBtn active={tab === "kanban"} onClick={() => setTab("kanban")}>
@@ -242,28 +243,28 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => setShowImportCSV(true)}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
             title="Importar CSV"
           >
-            <span>↑</span>
+            <Upload size={14} strokeWidth={ICON_STROKE} aria-hidden />
             <span className="hidden sm:inline">Importar CSV</span>
           </button>
           <button
             onClick={() => setShowNew(true)}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl bg-sky-600 text-white font-semibold hover:bg-sky-700"
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)]"
             title="Nuevo presupuesto (N)"
           >
-            <span>+</span>
+            <Plus size={14} strokeWidth={ICON_STROKE} aria-hidden />
             <span className="hidden sm:inline">Nuevo</span>
           </button>
           <button
             onClick={() => setShowNotifPanel(true)}
-            className="relative text-lg leading-none px-1.5 py-1 rounded-lg hover:bg-slate-100 transition-colors"
+            className="relative px-1.5 py-1 rounded-lg text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] transition-colors"
             title="Notificaciones"
           >
-            🔔
+            <Bell size={16} strokeWidth={ICON_STROKE} aria-hidden />
             {notifCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center text-[9px] font-bold bg-red-500 text-white rounded-full px-1">
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center text-[9px] font-bold bg-[var(--color-danger)] text-white rounded-full px-1">
                 {notifCount > 9 ? "9+" : notifCount}
               </span>
             )}
@@ -272,7 +273,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
       </div>
 
       {newPresupuestosCount > 0 && (
-        <div className="shrink-0 bg-sky-600 text-white px-4 py-2 flex items-center justify-between gap-4">
+        <div className="shrink-0 bg-[var(--color-accent)] text-[var(--color-on-accent)] px-4 py-2 flex items-center justify-between gap-4">
           <span className="text-xs font-semibold">
             {newPresupuestosCount} presupuesto
             {newPresupuestosCount !== 1 ? "s" : ""} nuevo
@@ -295,51 +296,44 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
             </div>
 
             {isDemo && (
-              <div className="shrink-0 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+              <div className="shrink-0 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">
                 <span className="font-semibold">Datos de demostración.</span>{" "}
-                {demoReason === "env_missing" ? (
-                  <>
-                    Añade{" "}
-                    <code className="font-mono bg-amber-100 px-1 rounded">
-                      {missingVars.join(", ")}
-                    </code>{" "}
-                    en Vercel → Settings → Environment Variables y redeploya.
-                  </>
-                ) : (
-                  <>Conecta las tablas de Airtable para datos reales.</>
-                )}
+                Esta clínica aún no tiene datos conectados. Contacta con Fyllio para activarlos.
               </div>
             )}
 
             {loading ? (
               <div className="flex-1 min-h-0 grid grid-cols-3 lg:grid-cols-6 gap-3 animate-pulse content-start">
                 {Array.from({ length: 6 }).map((_, i) => (
-                  <div key={i} className="h-96 rounded-2xl bg-slate-100" />
+                  <div key={i} className="h-96 rounded-2xl bg-[var(--color-surface-muted)]" />
                 ))}
               </div>
             ) : presupuestos.length === 0 ? (
               <div className="flex-1 min-h-0 flex items-center justify-center">
-                <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-12 text-center max-w-sm">
-                  <p className="text-2xl mb-3">📋</p>
-                  <p className="text-sm font-bold text-slate-700">Sin presupuestos todavía</p>
-                  <p className="text-xs text-slate-400 mt-1 mb-5">
-                    Crea tu primer presupuesto o importa datos desde Gesden.
-                  </p>
-                  <div className="flex gap-2 justify-center">
-                    <button
-                      onClick={() => setShowImportCSV(true)}
-                      className="text-xs px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-semibold"
-                    >
-                      ↑ Importar CSV
-                    </button>
-                    <button
-                      onClick={() => setShowNew(true)}
-                      className="text-xs px-3 py-2 rounded-xl bg-sky-600 text-white font-bold hover:bg-sky-700"
-                    >
-                      + Nuevo
-                    </button>
-                  </div>
-                </div>
+                <EmptyState
+                  className="max-w-sm"
+                  icon={<ClipboardList size={24} strokeWidth={ICON_STROKE} />}
+                  title="Sin presupuestos todavía"
+                  hint="Crea tu primer presupuesto o importa datos desde Gesden."
+                  action={
+                    <div className="flex gap-2 justify-center">
+                      <button
+                        onClick={() => setShowImportCSV(true)}
+                        className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] font-semibold"
+                      >
+                        <Upload size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                        Importar CSV
+                      </button>
+                      <button
+                        onClick={() => setShowNew(true)}
+                        className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)]"
+                      >
+                        <Plus size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                        Nuevo
+                      </button>
+                    </div>
+                  }
+                />
               </div>
             ) : (
               <div className="flex-1 min-h-0">
@@ -446,8 +440,8 @@ function ToggleBtn({
       onClick={onClick}
       className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
         active
-          ? "bg-slate-900 text-white"
-          : "bg-white text-slate-600 border border-slate-200 hover:border-slate-400"
+          ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
+          : "bg-[var(--color-surface)] text-[var(--color-muted)] border border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
       }`}
     >
       {children}

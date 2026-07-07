@@ -1,20 +1,21 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Sparkles, MessageCircle } from "lucide-react";
+import { toast } from "sonner";
+import { Sparkles, MessageCircle, X, Check, Star, RefreshCw, ICON_STROKE } from "../icons";
 import type { Presupuesto, TonoIA } from "../../lib/presupuestos/types";
 import type { TonosStats } from "../../api/presupuestos/tonos-stats/route";
 
 const TONOS: { valor: TonoIA; label: string; activeClass: string }[] = [
-  { valor: "directo",  label: "Directo",  activeClass: "border-slate-400 bg-slate-100 text-slate-700" },
-  { valor: "empatico", label: "Empático", activeClass: "border-violet-500 bg-violet-100 text-violet-700" },
-  { valor: "urgencia", label: "Urgencia", activeClass: "border-rose-500 bg-rose-100 text-rose-700" },
+  { valor: "directo",  label: "Directo",  activeClass: "border-[var(--color-muted)] bg-[var(--color-surface-muted)] text-[var(--color-foreground)]" },
+  { valor: "empatico", label: "Empático", activeClass: "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]" },
+  { valor: "urgencia", label: "Urgencia", activeClass: "border-rose-500 bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300" },
 ];
 
 const TONO_CARD_COLOR: Record<TonoIA, string> = {
-  directo:  "text-slate-700 border-slate-300 bg-slate-50",
-  empatico: "text-violet-700 border-violet-300 bg-violet-50",
-  urgencia: "text-rose-700 border-rose-300 bg-rose-50",
+  directo:  "text-[var(--color-foreground)] border-[var(--color-border)] bg-[var(--color-surface-muted)]",
+  empatico: "text-[var(--color-accent)] border-[var(--color-accent)] bg-[var(--color-accent-soft)]",
+  urgencia: "text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-500/40 bg-rose-50 dark:bg-rose-500/10",
 };
 
 function Spinner() {
@@ -131,7 +132,7 @@ export default function IAGeneradorDrawer({
         setMensajes((prev) => ({ ...prev, [tono]: msg }));
       }
     } catch {
-      // ignorar, mantener el mensaje anterior
+      toast.error("No se pudo regenerar el mensaje. Se mantiene el anterior.");
     } finally {
       setRegenerandoTono((prev) => ({ ...prev, [tono]: false }));
     }
@@ -161,25 +162,25 @@ export default function IAGeneradorDrawer({
       <div className="absolute inset-0 bg-black/30" onClick={onClose} />
 
       {/* Drawer panel — side on desktop, bottom sheet on mobile/tablet */}
-      <div className="relative w-full max-w-md bg-white shadow-2xl flex flex-col lg:h-full h-[78vh] overflow-hidden rounded-t-2xl lg:rounded-none">
+      <div className="relative w-full max-w-md bg-[var(--color-surface)] shadow-2xl flex flex-col lg:h-full h-[78vh] overflow-hidden rounded-t-2xl lg:rounded-none">
         {/* Drag handle — mobile only */}
         <div className="lg:hidden flex justify-center pt-3 pb-1 shrink-0">
-          <div className="w-10 h-1 rounded-full bg-slate-200" />
+          <div className="w-10 h-1 rounded-full bg-[var(--color-border)]" />
         </div>
 
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3 shrink-0">
+        <div className="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between gap-3 shrink-0">
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-bold text-slate-900 text-base">Mensaje IA</h3>
-              <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600">
-                <Sparkles size={10} strokeWidth={2.5} /> Beta
+              <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">Mensaje IA</h3>
+              <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
+                <Sparkles size={10} strokeWidth={ICON_STROKE} aria-hidden /> Beta
               </span>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">{p.patientName}</p>
+            <p className="text-xs text-[var(--color-muted)] mt-0.5">{p.patientName}</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none shrink-0">
-            ✕
+          <button onClick={onClose} className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] shrink-0" aria-label="Cerrar">
+            <X size={18} strokeWidth={ICON_STROKE} aria-hidden />
           </button>
         </div>
 
@@ -187,7 +188,7 @@ export default function IAGeneradorDrawer({
         <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
           {/* Tono selector */}
           <div>
-            <p className="text-[10px] text-slate-400 uppercase font-medium mb-2">
+            <p className="text-[10px] text-[var(--color-muted)] uppercase font-medium mb-2">
               Selecciona estilo(s)
             </p>
             <div className="flex gap-2">
@@ -198,11 +199,13 @@ export default function IAGeneradorDrawer({
                   <button
                     key={t.valor}
                     onClick={() => toggleTono(t.valor)}
-                    className={`flex-1 rounded-xl border-2 py-2.5 text-xs font-bold transition-all ${
-                      active ? t.activeClass : "border-slate-200 bg-white text-slate-400"
-                    } ${isBest && active ? "ring-2 ring-offset-1 ring-violet-400" : ""}`}
+                    className={`flex-1 inline-flex items-center justify-center gap-1 rounded-xl border-2 py-2.5 text-xs font-bold transition-all ${
+                      active ? t.activeClass : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)]"
+                    } ${isBest && active ? "ring-2 ring-offset-1 ring-[var(--color-accent)]" : ""}`}
                   >
-                    {active ? "✓ " : ""}{t.label}{isBest ? " ★" : ""}
+                    {active && <Check size={12} strokeWidth={ICON_STROKE} aria-hidden />}
+                    {t.label}
+                    {isBest && <Star size={11} strokeWidth={ICON_STROKE} aria-hidden />}
                   </button>
                 );
               })}
@@ -210,7 +213,7 @@ export default function IAGeneradorDrawer({
 
             {/* A/B historical rates */}
             {tonosStats && (
-              <p className="text-[10px] text-slate-400 mt-1.5 leading-relaxed">
+              <p className="text-[10px] text-[var(--color-muted)] mt-1.5 leading-relaxed">
                 Tasa histórica:{" "}
                 {(["directo", "empatico", "urgencia"] as const).map((t, i) => {
                   const stat = tonosStats[t];
@@ -219,8 +222,9 @@ export default function IAGeneradorDrawer({
                   return (
                     <span key={t}>
                       {i > 0 && <span className="mx-1">·</span>}
-                      <span className={isBest ? "font-bold text-violet-600" : ""}>
-                        {label} {stat.tasa != null ? `${stat.tasa}%` : "—"}{isBest ? " ★" : ""}
+                      <span className={isBest ? "font-bold text-[var(--color-accent)]" : ""}>
+                        {label} {stat.tasa != null ? `${stat.tasa}%` : "—"}
+                        {isBest && <Star size={10} strokeWidth={ICON_STROKE} className="inline-block ml-0.5 align-[-1px]" aria-hidden />}
                       </span>
                     </span>
                   );
@@ -233,15 +237,18 @@ export default function IAGeneradorDrawer({
           <button
             onClick={handleGenerar}
             disabled={generando || selectedCount === 0}
-            className="w-full rounded-xl bg-violet-600 text-white text-sm font-bold py-3 hover:bg-violet-700 disabled:opacity-50 flex items-center justify-center gap-2"
+            className="fyllio-ia-gradient w-full rounded-xl text-sm font-bold py-3 hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {generando ? (
               <><Spinner /> Generando…</>
             ) : mensajes ? (
-              `↺ Regenerar ${selectedCount} estilo${selectedCount !== 1 ? "s" : ""}`
+              <span className="inline-flex items-center gap-2">
+                <RefreshCw size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                {`Regenerar ${selectedCount} estilo${selectedCount !== 1 ? "s" : ""}`}
+              </span>
             ) : (
               <span className="inline-flex items-center gap-2">
-                <Sparkles size={14} strokeWidth={2.25} />
+                <Sparkles size={14} strokeWidth={ICON_STROKE} aria-hidden />
                 {`Generar ${selectedCount} estilo${selectedCount !== 1 ? "s" : ""}`}
               </span>
             )}
@@ -267,15 +274,15 @@ export default function IAGeneradorDrawer({
                         disabled={regenerando || generando}
                         className="text-[10px] font-semibold px-2 py-0.5 rounded-lg border border-current opacity-60 hover:opacity-100 disabled:opacity-30 flex items-center gap-1"
                       >
-                        {regenerando ? <Spinner /> : "↺"} Regenerar
+                        {regenerando ? <Spinner /> : <RefreshCw size={11} strokeWidth={ICON_STROKE} aria-hidden />} Regenerar
                       </button>
                     </div>
                     <p className="text-sm leading-relaxed">{msg}</p>
                     <button
                       onClick={() => handleEnviar(t.valor, msg)}
-                      className="w-full rounded-xl bg-emerald-600 text-white text-xs font-bold py-2 hover:bg-emerald-700 inline-flex items-center justify-center gap-1.5"
+                      className="w-full rounded-xl bg-[var(--fyllio-wa-green)] text-white text-xs font-bold py-2 hover:bg-[var(--fyllio-wa-green-hover)] inline-flex items-center justify-center gap-1.5"
                     >
-                      <MessageCircle size={13} strokeWidth={2.25} /> Enviar por WhatsApp
+                      <MessageCircle size={13} strokeWidth={ICON_STROKE} aria-hidden /> Enviar por WhatsApp
                     </button>
                   </div>
                 );

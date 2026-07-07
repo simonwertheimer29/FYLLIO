@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, MessageCircle } from "lucide-react";
+import { Sparkles, MessageCircle, ICON_STROKE } from "../icons";
 import type { Presupuesto, TonoIA } from "../../lib/presupuestos/types";
 
 const TONOS: { valor: TonoIA; label: string }[] = [
@@ -99,11 +99,11 @@ export default function IAMensajePanel({
   }
 
   return (
-    <div className="px-5 py-3 border-b border-slate-100">
+    <div className="px-5 py-3 border-b border-[var(--color-border)]">
       <div className="flex items-center gap-2 mb-2">
-        <p className="text-[10px] text-slate-400 uppercase font-medium">Sugerencia de mensaje</p>
-        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-violet-100 text-violet-600">
-          <Sparkles size={10} strokeWidth={2.5} /> Beta
+        <p className="text-[10px] text-[var(--color-muted)] uppercase font-medium">Sugerencia de mensaje</p>
+        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
+          <Sparkles size={10} strokeWidth={ICON_STROKE} aria-hidden /> Beta
         </span>
       </div>
 
@@ -115,8 +115,8 @@ export default function IAMensajePanel({
             onClick={() => { setTono(t.valor); setMensaje(null); setError(null); }}
             className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${
               tono === t.valor
-                ? "bg-violet-600 text-white border-violet-600"
-                : "border-slate-200 text-slate-500 hover:border-violet-300 hover:text-violet-600"
+                ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
+                : "border-[var(--color-border)] text-[var(--color-muted)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
             }`}
           >
             {t.label}
@@ -128,17 +128,22 @@ export default function IAMensajePanel({
       <button
         onClick={handleGenerar}
         disabled={loading}
-        className="w-full rounded-xl bg-violet-600 text-white text-xs font-bold py-2 hover:bg-violet-700 disabled:opacity-50 mb-2"
+        className="fyllio-ia-gradient w-full rounded-xl text-xs font-bold py-2 hover:opacity-90 transition-opacity disabled:opacity-50 mb-2"
       >
         {loading ? (
           <span className="flex items-center justify-center gap-2">
-            <svg className="animate-spin h-3 w-3 text-white" fill="none" viewBox="0 0 24 24">
+            <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
             </svg>
             Generando…
           </span>
-        ) : mensaje ? "Regenerar sugerencia" : "Sugerir mensaje"}
+        ) : (
+          <span className="inline-flex items-center justify-center gap-1.5">
+            <Sparkles size={12} strokeWidth={ICON_STROKE} aria-hidden />
+            {mensaje ? "Regenerar sugerencia" : "Sugerir mensaje"}
+          </span>
+        )}
       </button>
 
       {/* Error */}
@@ -153,12 +158,12 @@ export default function IAMensajePanel({
             readOnly
             value={mensaje}
             rows={4}
-            className="w-full rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-slate-700 resize-none focus:outline-none"
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-accent-soft)] px-3 py-2 text-xs text-[var(--color-foreground)] resize-none focus:outline-none"
           />
           <div className="flex gap-1.5">
             <button
               onClick={handleCopiar}
-              className="flex-1 rounded-xl border border-slate-200 text-slate-600 text-[10px] font-semibold py-1.5 hover:bg-slate-50 transition-colors"
+              className="flex-1 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] text-[10px] font-semibold py-1.5 hover:bg-[var(--color-surface-muted)] transition-colors"
             >
               {copied ? "¡Copiado!" : "Copiar"}
             </button>
@@ -166,13 +171,13 @@ export default function IAMensajePanel({
               <button
                 onClick={handleWhatsApp}
                 disabled={registrando}
-                className="flex-1 rounded-xl bg-emerald-600 text-white text-[10px] font-semibold py-1.5 hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                className="flex-1 rounded-xl bg-[var(--fyllio-wa-green)] text-white text-[10px] font-semibold py-1.5 hover:bg-[var(--fyllio-wa-green-hover)] disabled:opacity-50 transition-colors"
               >
                 {registrando ? (
                   "Enviando…"
                 ) : (
                   <span className="inline-flex items-center gap-1">
-                    <MessageCircle size={12} strokeWidth={2.25} /> WhatsApp
+                    <MessageCircle size={12} strokeWidth={ICON_STROKE} aria-hidden /> WhatsApp
                   </span>
                 )}
               </button>

@@ -5,17 +5,21 @@
 // Se muestra en TareasView antes de las tareas urgentes.
 
 import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
 import type { Secuencia, TipoEvento } from "../../lib/presupuestos/types";
+import { Inbox, Smartphone, MessageCircle, Check, ICON_STROKE } from "../icons";
+import { StatePill, type StatePillVariant } from "../ui/StatePill";
+import { ErrorState } from "../ui/Feedback";
 
 interface Props {
   clinica?: string; // undefined = todas (manager/admin)
 }
 
-const EVENTO_CONFIG: Record<TipoEvento, { label: string; color: string }> = {
-  presupuesto_inactivo:           { label: "Sin actividad",  color: "bg-amber-100 text-amber-700" },
-  portal_visto_sin_respuesta:     { label: "Portal visto",   color: "bg-sky-100 text-sky-700" },
-  reactivacion_programada:        { label: "Reactivación",   color: "bg-violet-100 text-violet-700" },
-  presupuesto_aceptado_notificacion: { label: "Aceptado ✓",  color: "bg-emerald-100 text-emerald-700" },
+const EVENTO_CONFIG: Record<TipoEvento, { label: string; variant: StatePillVariant; aceptado?: boolean }> = {
+  presupuesto_inactivo:           { label: "Sin actividad", variant: "warning" },
+  portal_visto_sin_respuesta:     { label: "Portal visto",  variant: "info" },
+  reactivacion_programada:        { label: "Reactivación",  variant: "info" },
+  presupuesto_aceptado_notificacion: { label: "Aceptado",   variant: "success", aceptado: true },
 };
 
 function cleanPhone(phone: string): string {
@@ -25,11 +29,13 @@ function cleanPhone(phone: string): string {
 export default function ColaMensajes({ clinica }: Props) {
   const [secuencias, setSecuencias] = useState<Secuencia[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editVal, setEditVal] = useState("");
 
   const fetchSecuencias = useCallback(async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const url = new URL("/api/automatizaciones/secuencias", location.href);
       url.searchParams.set("estado", "pendiente");
@@ -39,6 +45,7 @@ export default function ColaMensajes({ clinica }: Props) {
       setSecuencias(d.secuencias ?? []);
     } catch {
       setSecuencias([]);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -57,14 +64,16 @@ export default function ColaMensajes({ clinica }: Props) {
       });
       if (accion === "enviar" || accion === "descartar") {
         setSecuencias((prev) => prev.filter((s) => s.id !== id));
+        toast.success(accion === "enviar" ? "Mensaje enviado" : "Mensaje descartado");
       } else if (accion === "editar" && mensaje != null) {
         setSecuencias((prev) =>
           prev.map((s) => (s.id === id ? { ...s, mensajeGenerado: mensaje } : s))
         );
         setEditingId(null);
+        toast.success("Mensaje guardado");
       }
     } catch {
-      // silent
+      toast.error("No se pudo completar la acción. Inténtalo de nuevo.");
     }
   }
 
@@ -79,23 +88,33 @@ export default function ColaMensajes({ clinica }: Props) {
 
   if (loading) {
     return (
-      <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4 animate-pulse">
-        <div className="h-4 w-48 bg-violet-200 rounded mb-3" />
+      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4 animate-pulse">
+        <div className="h-4 w-48 bg-[var(--color-border)] rounded mb-3" />
         <div className="space-y-2">
-          {[0, 1].map((i) => <div key={i} className="h-16 bg-violet-100 rounded-xl" />)}
+          {[0, 1].map((i) => <div key={i} className="h-16 bg-[var(--color-border)]/60 rounded-xl" />)}
         </div>
       </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <ErrorState
+        title="No se pudo cargar la cola de mensajes"
+        detail="Los mensajes automáticos pendientes no están disponibles ahora mismo."
+        onRetry={fetchSecuencias}
+      />
     );
   }
 
   if (secuencias.length === 0) return null;
 
   return (
-    <div className="rounded-2xl border border-violet-100 bg-violet-50 overflow-hidden">
+    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-accent-soft)] overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 flex items-center gap-3 border-b border-violet-100">
-        <span className="text-sm font-bold text-violet-800">Cola de mensajes automáticos</span>
-        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-violet-200 text-violet-700">
+      <div className="px-4 py-3 flex items-center gap-3 border-b border-[var(--color-border)]">
+        <span className="text-sm font-bold text-[var(--color-foreground)]">Cola de mensajes automáticos</span>
+        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[var(--color-surface)] text-[var(--color-accent)]">
           {secuencias.length} pendiente{secuencias.length !== 1 ? "s" : ""}
         </span>
         <div className="ml-auto flex gap-1 flex-wrap">
@@ -104,43 +123,52 @@ export default function ColaMensajes({ clinica }: Props) {
             if (!count) return null;
             const cfg = EVENTO_CONFIG[tipo];
             return (
-              <span key={tipo} className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${cfg.color}`}>
+              <StatePill key={tipo} variant={cfg.variant}>
+                {cfg.aceptado && <Check size={10} strokeWidth={ICON_STROKE} aria-hidden />}
                 {cfg.label} ({count})
-              </span>
+              </StatePill>
             );
           })}
         </div>
       </div>
 
       {/* Cards */}
-      <div className="divide-y divide-violet-100">
+      <div className="divide-y divide-[var(--color-border)]">
         {secuencias.map((sec) => {
           const cfg = EVENTO_CONFIG[sec.tipoEvento];
           const isEditing = editingId === sec.id;
           const isInternal = sec.canalSugerido === "interno";
 
           return (
-            <div key={sec.id} className="p-4 bg-white hover:bg-violet-50/30 transition-colors">
+            <div key={sec.id} className="p-4 bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] transition-colors">
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1.5">
-                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase ${cfg.color}`}>
+                    <StatePill variant={cfg.variant} className="uppercase">
+                      {cfg.aceptado && <Check size={10} strokeWidth={ICON_STROKE} aria-hidden />}
                       {cfg.label}
-                    </span>
+                    </StatePill>
                     {sec.clinica && (
-                      <span className="text-[10px] text-slate-400">{sec.clinica}</span>
+                      <span className="text-[10px] text-[var(--color-muted)]">{sec.clinica}</span>
                     )}
                   </div>
 
-                  <p className="font-semibold text-sm text-slate-900">
-                    {isInternal ? "📬" : "📱"} {sec.pacienteNombre}
-                    {sec.tratamiento && (
-                      <span className="font-normal text-slate-500 ml-1">— {sec.tratamiento}</span>
+                  <p className="flex items-center gap-1.5 font-semibold text-sm text-[var(--color-foreground)]">
+                    {isInternal ? (
+                      <Inbox size={14} strokeWidth={ICON_STROKE} className="text-[var(--color-muted)]" aria-hidden />
+                    ) : (
+                      <Smartphone size={14} strokeWidth={ICON_STROKE} className="text-[var(--color-muted)]" aria-hidden />
                     )}
+                    <span>
+                      {sec.pacienteNombre}
+                      {sec.tratamiento && (
+                        <span className="font-normal text-[var(--color-muted)] ml-1">— {sec.tratamiento}</span>
+                      )}
+                    </span>
                   </p>
 
                   {isInternal ? (
-                    <p className="text-xs text-emerald-700 mt-1 font-medium">
+                    <p className="text-xs text-[var(--color-success)] mt-1 font-medium">
                       Presupuesto aceptado — notificación registrada
                     </p>
                   ) : isEditing ? (
@@ -149,19 +177,19 @@ export default function ColaMensajes({ clinica }: Props) {
                         value={editVal}
                         onChange={(e) => setEditVal(e.target.value)}
                         rows={3}
-                        className="w-full border border-violet-200 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-violet-400"
+                        className="w-full border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-[var(--color-accent)]"
                         autoFocus
                       />
                     </div>
                   ) : (
-                    <p className="text-xs text-slate-600 mt-1 leading-relaxed italic">
+                    <p className="text-xs text-[var(--color-muted)] mt-1 leading-relaxed italic">
                       &ldquo;{sec.mensajeGenerado}&rdquo;
                     </p>
                   )}
                 </div>
 
                 {sec.tonoUsado && !isInternal && (
-                  <span className="text-[9px] text-slate-400 shrink-0">{sec.tonoUsado}</span>
+                  <span className="text-[9px] text-[var(--color-muted)] shrink-0">{sec.tonoUsado}</span>
                 )}
               </div>
 
@@ -171,13 +199,13 @@ export default function ColaMensajes({ clinica }: Props) {
                   <>
                     <button
                       onClick={() => handleAccion(sec.id, "editar", editVal)}
-                      className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-violet-600 text-white hover:bg-violet-700"
+                      className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
                     >
                       Guardar
                     </button>
                     <button
                       onClick={() => setEditingId(null)}
-                      className="text-xs font-medium px-3 py-1.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50"
+                      className="text-xs font-medium px-3 py-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
                     >
                       Cancelar
                     </button>
@@ -187,22 +215,23 @@ export default function ColaMensajes({ clinica }: Props) {
                     {!isInternal && sec.mensajeGenerado && (
                       <button
                         onClick={() => handleEnviar(sec)}
-                        className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+                        className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]"
                       >
-                        💬 Enviar por WhatsApp
+                        <MessageCircle size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                        Enviar por WhatsApp
                       </button>
                     )}
                     {!isInternal && (
                       <button
                         onClick={() => { setEditVal(sec.mensajeGenerado); setEditingId(sec.id); }}
-                        className="text-xs font-medium px-3 py-1.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50"
+                        className="text-xs font-medium px-3 py-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
                       >
                         Editar
                       </button>
                     )}
                     <button
                       onClick={() => handleAccion(sec.id, "descartar")}
-                      className="text-xs font-medium px-3 py-1.5 rounded-xl border border-slate-200 text-slate-400 hover:text-rose-500 hover:border-rose-200 ml-auto"
+                      className="text-xs font-medium px-3 py-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-danger)] hover:border-[var(--color-danger)] ml-auto"
                     >
                       Descartar
                     </button>
