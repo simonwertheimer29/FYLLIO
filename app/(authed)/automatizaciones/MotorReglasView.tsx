@@ -1,10 +1,9 @@
 "use client";
 
-// Sprint 16b Bloque 3 — UI del motor de automatizaciones (v4 tokens).
+// UI del motor de automatizaciones.
 //
-// Sustituye el panel legacy /automatizaciones (Sprint 1-5). Renderiza:
-//   - Banner explicativo arriba.
-//   - 4 KPIs hero (Card primitivo).
+// Renderiza:
+//   - 4 KPIs hero (KpiCard canónico).
 //   - Lista de reglas (Card primitivo) con toggle Activa, badge Modo
 //     Test, Veces_Disparada, Última disparada relativa, botones
 //     Configurar (modal) y Ver historial (drawer).
@@ -12,9 +11,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card } from "../../components/ui/Card";
+import { KpiCard } from "../../components/ui/KpiCard";
 import { KpiCardSkeleton, CardListSkeleton } from "../../components/ui/Skeleton";
+import { ErrorState, EmptyState } from "../../components/ui/Feedback";
 import { toast } from "sonner";
-import { AlertTriangle, Settings, History, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Settings,
+  History,
+  X,
+  Zap,
+  ICON_STROKE,
+} from "../../components/icons";
 
 type Regla = {
   id: string;
@@ -71,14 +79,23 @@ function relTime(iso: string): string {
   return `hace ${d} d`;
 }
 
+const NEUTRAL_TONE =
+  "bg-[var(--color-surface-muted)] text-[var(--color-muted)] border-[var(--color-border)]";
+const AMBER_TONE =
+  "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30";
+const EMERALD_TONE =
+  "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30";
+const ROSE_TONE =
+  "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30";
+
 const RESULTADO_BADGE: Record<AccionLog["resultado"], { tone: string; label: string }> = {
-  success: { tone: "bg-emerald-50 text-emerald-700 border-emerald-200", label: "OK" },
-  error: { tone: "bg-rose-50 text-rose-700 border-rose-200", label: "Error" },
-  skipped_cooldown: { tone: "bg-amber-50 text-amber-700 border-amber-200", label: "Cooldown" },
-  skipped_optout: { tone: "bg-slate-100 text-slate-600 border-slate-200", label: "Opt-out" },
-  skipped_horario: { tone: "bg-slate-100 text-slate-600 border-slate-200", label: "Horario" },
-  skipped_test: { tone: "bg-slate-100 text-slate-600 border-slate-200", label: "Test" },
-  skipped_dedupe: { tone: "bg-slate-100 text-slate-600 border-slate-200", label: "Dedupe" },
+  success: { tone: EMERALD_TONE, label: "OK" },
+  error: { tone: ROSE_TONE, label: "Error" },
+  skipped_cooldown: { tone: AMBER_TONE, label: "Cooldown" },
+  skipped_optout: { tone: NEUTRAL_TONE, label: "Opt-out" },
+  skipped_horario: { tone: NEUTRAL_TONE, label: "Horario" },
+  skipped_test: { tone: NEUTRAL_TONE, label: "Test" },
+  skipped_dedupe: { tone: NEUTRAL_TONE, label: "Dedupe" },
 };
 
 export function MotorReglasView({ isAdmin }: { isAdmin: boolean }) {
@@ -86,11 +103,13 @@ export function MotorReglasView({ isAdmin }: { isAdmin: boolean }) {
   const [kpis, setKpis] = useState<Kpis | null>(null);
   const [errores, setErrores] = useState<AccionLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [historialReglaId, setHistorialReglaId] = useState<string | null>(null);
   const [configReglaId, setConfigReglaId] = useState<string | null>(null);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
+    setError(false);
     try {
       const [r, k, e] = await Promise.all([
         fetch("/api/automatizaciones/reglas").then((r) => r.json()),
@@ -103,7 +122,7 @@ export function MotorReglasView({ isAdmin }: { isAdmin: boolean }) {
       setKpis(k);
       setErrores(e.acciones ?? []);
     } catch {
-      toast.error("Error cargando automatizaciones.");
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -143,113 +162,139 @@ export function MotorReglasView({ isAdmin }: { isAdmin: boolean }) {
         body: JSON.stringify({ modoTest }),
       });
     } catch {
-      toast.error("No se pudo actualizar modo test.");
+      toast.error("No se pudo actualizar el modo test.");
     }
   }
 
   return (
     <div className="space-y-5 max-w-5xl">
       <header>
-        <h1 className="text-xl font-extrabold text-slate-900">Automatizaciones</h1>
-        <p className="text-sm text-slate-500 mt-1">
+        <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
+          Automatizaciones
+        </h1>
+        <p className="text-sm text-[var(--color-muted)] mt-1">
           Reglas que reducen trabajo manual disparando acciones cuando se
-          cumplen condiciones. Cada regla puede activarse/desactivarse y
-          ponerse en modo test antes de producción.
+          cumplen condiciones. Cada regla puede activarse o desactivarse y
+          ponerse en modo test antes de pasar a producción.
         </p>
       </header>
 
-      {/* Hero KPIs */}
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        {loading || !kpis ? (
-          <>
-            <KpiCardSkeleton />
-            <KpiCardSkeleton />
-            <KpiCardSkeleton />
-            <KpiCardSkeleton />
-          </>
-        ) : (
-          <>
-            <Kpi
-              label="Reglas activas"
-              value={`${kpis.reglasActivas}/${kpis.reglasTotales}`}
-              tone="emerald"
-            />
-            <Kpi label="Disparos hoy" value={String(kpis.disparosHoy)} tone="sky" />
-            <Kpi
-              label="Disparos 7d"
-              value={String(kpis.disparos7d)}
-              tone="slate"
-            />
-            <Kpi
-              label="Errores 7d"
-              value={String(kpis.errores7d)}
-              tone={kpis.errores7d > 0 ? "rose" : "slate"}
-            />
-          </>
-        )}
-      </section>
+      {error && !loading ? (
+        <ErrorState
+          detail="Las automatizaciones no están disponibles ahora mismo."
+          onRetry={fetchAll}
+        />
+      ) : (
+        <>
+          {/* Hero KPIs */}
+          <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {loading || !kpis ? (
+              <>
+                <KpiCardSkeleton />
+                <KpiCardSkeleton />
+                <KpiCardSkeleton />
+                <KpiCardSkeleton />
+              </>
+            ) : (
+              <>
+                <KpiCard
+                  label="Reglas activas"
+                  value={kpis.reglasActivas}
+                  formatter={(n) => `${n}/${kpis.reglasTotales}`}
+                  accent="emerald"
+                />
+                <KpiCard
+                  label="Disparos hoy"
+                  value={kpis.disparosHoy}
+                  accent="accent"
+                />
+                <KpiCard
+                  label="Disparos 7 días"
+                  value={kpis.disparos7d}
+                  accent="neutral"
+                />
+                <KpiCard
+                  label="Errores 7 días"
+                  value={kpis.errores7d}
+                  accent={kpis.errores7d > 0 ? "rose" : "neutral"}
+                />
+              </>
+            )}
+          </section>
 
-      {/* Lista reglas */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-bold text-slate-900">Reglas</h2>
-        {loading && reglas.length === 0 && <CardListSkeleton rows={3} />}
-        {!loading && reglas.length === 0 && (
-          <Card padding="none" className="p-8 text-center">
-            <p className="text-sm text-slate-500">Aún no hay reglas seedadas.</p>
-          </Card>
-        )}
-        <ul className="space-y-2">
-          {reglas.map((r) => (
-            <li key={r.id}>
-              <ReglaCard
-                regla={r}
-                isAdmin={isAdmin}
-                onToggleActiva={(a) => toggleActiva(r, a)}
-                onToggleTest={(t) => toggleModoTest(r, t)}
-                onConfigure={() => setConfigReglaId(r.id)}
-                onHistorial={() => setHistorialReglaId(r.id)}
+          {/* Lista reglas */}
+          <section className="space-y-3">
+            <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">
+              Reglas
+            </h2>
+            {loading && reglas.length === 0 && <CardListSkeleton rows={3} />}
+            {!loading && reglas.length === 0 && (
+              <EmptyState
+                icon={<Zap size={20} strokeWidth={ICON_STROKE} />}
+                title="Aún no hay reglas configuradas"
+                hint="Las reglas aparecerán aquí cuando se activen para tu clínica."
               />
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {/* Errores recientes */}
-      <section className="space-y-3">
-        <h2 className="text-sm font-bold text-slate-900">Errores recientes</h2>
-        {errores.length === 0 ? (
-          <Card padding="none" className="p-6 text-center text-sm text-slate-500">
-            Sin errores en los últimos eventos.
-          </Card>
-        ) : (
-          <Card padding="none" className="overflow-hidden">
-            <ul className="divide-y divide-slate-100">
-              {errores.map((e) => (
-                <li key={e.id} className="px-4 py-3">
-                  <div className="flex items-center gap-2 text-xs">
-                    <AlertTriangle
-                      size={14}
-                      strokeWidth={2.25}
-                      className="text-rose-600 shrink-0"
-                    />
-                    <span className="font-mono text-slate-500">
-                      {relTime(e.ejecutadaAt)}
-                    </span>
-                    <span
-                      className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${RESULTADO_BADGE[e.resultado].tone}`}
-                    >
-                      {RESULTADO_BADGE[e.resultado].label}
-                    </span>
-                  </div>
-                  <pre className="mt-1.5 text-[11px] text-slate-600 whitespace-pre-wrap break-all">
-                    {e.detalle}
-                  </pre>
+            )}
+            <ul className="space-y-2">
+              {reglas.map((r) => (
+                <li key={r.id}>
+                  <ReglaCard
+                    regla={r}
+                    isAdmin={isAdmin}
+                    onToggleActiva={(a) => toggleActiva(r, a)}
+                    onToggleTest={(t) => toggleModoTest(r, t)}
+                    onConfigure={() => setConfigReglaId(r.id)}
+                    onHistorial={() => setHistorialReglaId(r.id)}
+                  />
                 </li>
               ))}
             </ul>
-          </Card>
-        )}
-      </section>
+          </section>
+
+          {/* Errores recientes */}
+          <section className="space-y-3">
+            <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">
+              Errores recientes
+            </h2>
+            {errores.length === 0 ? (
+              <Card
+                padding="none"
+                className="p-6 text-center text-sm text-[var(--color-muted)]"
+              >
+                Sin errores en los últimos eventos.
+              </Card>
+            ) : (
+              <Card padding="none" className="overflow-hidden">
+                <ul className="divide-y divide-[var(--color-border)]">
+                  {errores.map((e) => (
+                    <li key={e.id} className="px-4 py-3">
+                      <div className="flex items-center gap-2 text-xs">
+                        <AlertTriangle
+                          size={14}
+                          strokeWidth={ICON_STROKE}
+                          className="text-[var(--color-danger)] shrink-0"
+                          aria-hidden
+                        />
+                        <span className="font-mono text-[var(--color-muted)]">
+                          {relTime(e.ejecutadaAt)}
+                        </span>
+                        <span
+                          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${RESULTADO_BADGE[e.resultado].tone}`}
+                        >
+                          {RESULTADO_BADGE[e.resultado].label}
+                        </span>
+                      </div>
+                      <pre className="mt-1.5 text-[11px] text-[var(--color-muted)] whitespace-pre-wrap break-all">
+                        {e.detalle}
+                      </pre>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
+          </section>
+        </>
+      )}
 
       {historialReglaId && (
         <HistorialDrawer
@@ -270,35 +315,6 @@ export function MotorReglasView({ isAdmin }: { isAdmin: boolean }) {
         />
       )}
     </div>
-  );
-}
-
-// ─── KPI ──────────────────────────────────────────────────────────────
-
-function Kpi({
-  label,
-  value,
-  tone,
-}: {
-  label: string;
-  value: string;
-  tone: "emerald" | "rose" | "sky" | "slate";
-}) {
-  const c =
-    tone === "emerald"
-      ? "text-emerald-700"
-      : tone === "rose"
-        ? "text-rose-700"
-        : tone === "sky"
-          ? "text-sky-700"
-          : "text-slate-900";
-  return (
-    <Card>
-      <p className="text-[11px] uppercase tracking-wide text-slate-400 font-semibold">
-        {label}
-      </p>
-      <p className={`text-2xl font-extrabold mt-1 ${c}`}>{value}</p>
-    </Card>
   );
 }
 
@@ -324,20 +340,28 @@ function ReglaCard({
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-semibold text-slate-900">{regla.nombre}</p>
+            <p className="text-sm font-semibold text-[var(--color-foreground)]">
+              {regla.nombre}
+            </p>
             {regla.modoTest && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
-                Modo Test
+              <span
+                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${AMBER_TONE}`}
+              >
+                Modo test
               </span>
             )}
             {!regla.activa && (
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-500 border border-slate-200">
+              <span
+                className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${NEUTRAL_TONE}`}
+              >
                 Desactivada
               </span>
             )}
           </div>
-          <p className="text-xs text-slate-500 mt-1">{regla.descripcion}</p>
-          <p className="text-[11px] text-slate-400 mt-2">
+          <p className="text-xs text-[var(--color-muted)] mt-1">
+            {regla.descripcion}
+          </p>
+          <p className="text-[11px] text-[var(--color-muted)] mt-2">
             Trigger: <span className="font-mono">{regla.triggerTipo}</span>
             {" · "}
             {regla.vecesDisparada} veces
@@ -346,7 +370,7 @@ function ReglaCard({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {isAdmin && (
-            <label className="inline-flex items-center gap-1.5 text-[11px] text-slate-600">
+            <label className="inline-flex items-center gap-1.5 text-[11px] text-[var(--color-muted)]">
               <input
                 type="checkbox"
                 checked={regla.activa}
@@ -357,7 +381,7 @@ function ReglaCard({
             </label>
           )}
           {isAdmin && (
-            <label className="inline-flex items-center gap-1.5 text-[11px] text-slate-600">
+            <label className="inline-flex items-center gap-1.5 text-[11px] text-[var(--color-muted)]">
               <input
                 type="checkbox"
                 checked={regla.modoTest}
@@ -371,18 +395,18 @@ function ReglaCard({
             type="button"
             onClick={onHistorial}
             aria-label="Ver historial"
-            className="text-slate-500 hover:text-slate-900 w-8 h-8 rounded-md flex items-center justify-center hover:bg-slate-100"
+            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-md flex items-center justify-center hover:bg-[var(--color-surface-muted)]"
           >
-            <History size={14} strokeWidth={2.25} />
+            <History size={14} strokeWidth={ICON_STROKE} />
           </button>
           {isAdmin && (
             <button
               type="button"
               onClick={onConfigure}
               aria-label="Configurar"
-              className="text-slate-500 hover:text-slate-900 w-8 h-8 rounded-md flex items-center justify-center hover:bg-slate-100"
+              className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-md flex items-center justify-center hover:bg-[var(--color-surface-muted)]"
             >
-              <Settings size={14} strokeWidth={2.25} />
+              <Settings size={14} strokeWidth={ICON_STROKE} />
             </button>
           )}
         </div>
@@ -404,12 +428,15 @@ function HistorialDrawer({
 }) {
   const [items, setItems] = useState<AccionLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [filter, setFilter] = useState<"all" | "errors" | "success">("all");
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setLoading(true);
+      setError(false);
       try {
         const url = new URL("/api/automatizaciones/acciones", window.location.origin);
         url.searchParams.set("reglaId", reglaId);
@@ -422,6 +449,8 @@ function HistorialDrawer({
           if (filter === "success") arr = arr.filter((a) => a.resultado === "success");
           setItems(arr);
         }
+      } catch {
+        if (!cancelled) setError(true);
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -429,30 +458,31 @@ function HistorialDrawer({
     return () => {
       cancelled = true;
     };
-  }, [reglaId, filter]);
+  }, [reglaId, filter, reloadKey]);
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-slate-900/30" onClick={onClose} />
-      <aside className="relative w-full max-w-md bg-white shadow-xl flex flex-col h-full">
-        <header className="px-5 py-3 border-b border-slate-200 flex items-center justify-between shrink-0">
+      <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
+      <aside className="relative w-full max-w-md bg-[var(--color-surface)] shadow-xl flex flex-col h-full">
+        <header className="px-5 py-3 border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
           <div>
-            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
+            <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide">
               Historial
             </p>
-            <p className="text-sm font-semibold text-slate-900 mt-0.5">
-              {regla?.nombre ?? "(regla)"}
+            <p className="text-sm font-semibold text-[var(--color-foreground)] mt-0.5">
+              {regla?.nombre ?? "Regla"}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 w-8 h-8 rounded-md flex items-center justify-center hover:bg-slate-100"
+            aria-label="Cerrar"
+            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-md flex items-center justify-center hover:bg-[var(--color-surface-muted)]"
           >
-            <X size={16} strokeWidth={2.25} />
+            <X size={16} strokeWidth={ICON_STROKE} />
           </button>
         </header>
-        <div className="px-5 py-2 border-b border-slate-200 flex gap-1 shrink-0">
+        <div className="px-5 py-2 border-b border-[var(--color-border)] flex gap-1 shrink-0">
           {(
             [
               ["all", "Todos"],
@@ -464,10 +494,10 @@ function HistorialDrawer({
               key={id}
               type="button"
               onClick={() => setFilter(id)}
-              className={`text-xs px-3 py-1 rounded-md ${
+              className={`text-xs px-3 py-1 rounded-md transition-colors ${
                 filter === id
-                  ? "bg-slate-900 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
+                  : "bg-[var(--color-surface-muted)] text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
               }`}
             >
               {lbl}
@@ -476,19 +506,27 @@ function HistorialDrawer({
         </div>
         <div className="flex-1 overflow-y-auto p-3">
           {loading && (
-            <p className="text-xs text-slate-400 px-3 py-4 animate-pulse">Cargando…</p>
+            <p className="text-xs text-[var(--color-muted)] px-3 py-4 animate-pulse">
+              Cargando…
+            </p>
           )}
-          {!loading && items.length === 0 && (
-            <p className="text-xs text-slate-400 px-3 py-6 text-center">
+          {!loading && error && (
+            <ErrorState
+              detail="El historial de esta regla no está disponible ahora mismo."
+              onRetry={() => setReloadKey((k) => k + 1)}
+            />
+          )}
+          {!loading && !error && items.length === 0 && (
+            <p className="text-xs text-[var(--color-muted)] px-3 py-6 text-center">
               Sin ejecuciones para este filtro.
             </p>
           )}
-          {!loading && items.length > 0 && (
+          {!loading && !error && items.length > 0 && (
             <ul className="space-y-2">
               {items.map((it) => (
                 <li
                   key={it.id}
-                  className="rounded-lg border border-slate-200 bg-white p-3"
+                  className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3"
                 >
                   <div className="flex items-center gap-2 text-[11px]">
                     <span
@@ -496,7 +534,7 @@ function HistorialDrawer({
                     >
                       {RESULTADO_BADGE[it.resultado].label}
                     </span>
-                    <span className="font-mono text-slate-400">
+                    <span className="font-mono text-[var(--color-muted)]">
                       {new Date(it.ejecutadaAt).toLocaleString("es-ES", {
                         day: "2-digit",
                         month: "short",
@@ -505,7 +543,7 @@ function HistorialDrawer({
                       })}
                     </span>
                   </div>
-                  <pre className="mt-1.5 text-[11px] text-slate-600 whitespace-pre-wrap break-all">
+                  <pre className="mt-1.5 text-[11px] text-[var(--color-muted)] whitespace-pre-wrap break-all">
                     {it.detalle}
                   </pre>
                 </li>
@@ -564,7 +602,7 @@ function ConfigModal({
       toast.success("Regla guardada.");
       onSaved();
     } catch {
-      toast.error("No se pudo guardar.");
+      toast.error("No se pudo guardar la regla.");
     } finally {
       setSaving(false);
     }
@@ -577,23 +615,26 @@ function ConfigModal({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-xl p-6"
+        className="w-full max-w-md rounded-2xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl p-6"
       >
         <header className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-extrabold text-slate-900">{regla.nombre}</h3>
+          <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
+            {regla.nombre}
+          </h3>
           <button
             type="button"
             onClick={onClose}
-            className="text-slate-400 hover:text-slate-700 w-7 h-7 rounded-md flex items-center justify-center hover:bg-slate-100"
+            aria-label="Cerrar"
+            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-7 h-7 rounded-md flex items-center justify-center hover:bg-[var(--color-surface-muted)]"
           >
-            <X size={14} strokeWidth={2.25} />
+            <X size={14} strokeWidth={ICON_STROKE} />
           </button>
         </header>
         <form onSubmit={submit} className="space-y-3">
           {muestraDias && (
             <div>
-              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                Días sin actividad antes de marcar No Interesado
+              <label className="block text-[11px] font-semibold text-[var(--color-muted)] mb-1">
+                Días sin actividad antes de marcar No interesado
               </label>
               <input
                 type="number"
@@ -604,37 +645,37 @@ function ConfigModal({
                     e.target.value === "" ? null : Number(e.target.value),
                   )
                 }
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-300"
+                className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
               />
             </div>
           )}
           <div>
-            <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-              Paciente Test (recordId Airtable)
+            <label className="block text-[11px] font-semibold text-[var(--color-muted)] mb-1">
+              Paciente de prueba (ID)
             </label>
             <input
               type="text"
-              placeholder="recXXX (solo si modo test activo)"
+              placeholder="ID del paciente (solo con modo test)"
               value={pacienteTest}
               onChange={(e) => setPacienteTest(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-sky-300"
+              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
             />
-            <p className="text-[10px] text-slate-400 mt-1">
-              En modo test la regla solo dispara contra este paciente.
+            <p className="text-[10px] text-[var(--color-muted)] mt-1">
+              En modo test la regla solo se dispara contra este paciente.
             </p>
           </div>
           <div className="flex gap-2 pt-1">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 rounded-lg bg-slate-100 text-slate-700 text-sm font-bold py-2 hover:bg-slate-200"
+              className="flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] text-sm font-semibold py-2 hover:bg-[var(--color-surface-muted)] transition-colors"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 rounded-lg bg-sky-600 text-white text-sm font-bold py-2 hover:bg-sky-700 disabled:opacity-50"
+              className="flex-1 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors"
             >
               {saving ? "Guardando…" : "Guardar"}
             </button>
