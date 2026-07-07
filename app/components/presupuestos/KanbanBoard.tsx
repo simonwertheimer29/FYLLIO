@@ -5,6 +5,7 @@ import {
   DndContext,
   DragOverlay,
   PointerSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   type DragEndEvent,
@@ -36,8 +37,8 @@ const PILL_NEUTRAL: StatePillVariant = "neutral";
 // saturación elevada (-400/-500/-600) para que la columna se identifique
 // visualmente sin recurrir al header completo de color.
 const COLUMN_TOP_BAR: Record<PresupuestoEstado, string> = {
-  PRESENTADO: "bg-sky-500",
-  INTERESADO: "bg-sky-600",
+  PRESENTADO: "bg-[var(--color-accent)]/60",
+  INTERESADO: "bg-[var(--color-accent)]",
   EN_DUDA: "bg-amber-500",
   EN_NEGOCIACION: "bg-orange-600",
   ACEPTADO: "bg-emerald-600",
@@ -73,7 +74,7 @@ function CompactCard({
         borderColor: "var(--card-border)",
         boxShadow: isDragging ? undefined : "var(--card-shadow-rest)",
       }}
-      className={`group rounded-xl border bg-white px-3 py-2.5 cursor-grab active:cursor-grabbing select-none transition-[box-shadow,border-color] duration-150 ${
+      className={`group rounded-xl border bg-[var(--color-surface)] px-3 py-2.5 cursor-grab active:cursor-grabbing select-none transition-[box-shadow,border-color] duration-150 ${
         isDragging
           ? "opacity-40"
           : "hover:[border-color:var(--card-border-hover)] hover:[box-shadow:var(--card-shadow-hover)]"
@@ -83,7 +84,7 @@ function CompactCard({
       <div className="flex items-start gap-2">
         <a
           href={`/presupuestos/paciente/${encodeURIComponent(p.patientName)}`}
-          className="text-sm font-semibold text-slate-900 leading-tight flex-1 min-w-0 truncate hover:text-sky-700 hover:underline"
+          className="text-sm font-semibold text-[var(--color-foreground)] leading-tight flex-1 min-w-0 truncate hover:text-[var(--color-accent)] hover:underline"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
         >
@@ -135,26 +136,26 @@ function CompactCard({
       <div className="flex items-center justify-between mt-2 gap-2">
         <div className="flex items-center gap-2 min-w-0">
           {p.amount != null && (
-            <span className="font-display text-sm font-semibold text-slate-900 tabular-nums">
+            <span className="font-display text-sm font-semibold text-[var(--color-foreground)] tabular-nums">
               €{p.amount.toLocaleString("es-ES")}
             </span>
           )}
-          <span className="text-[10px] text-slate-400 tabular-nums">
+          <span className="text-[10px] text-[var(--color-muted)] tabular-nums">
             {p.fechaPresupuesto.split("-").reverse().join("/")}
           </span>
         </div>
-        <span className="text-[10px] text-slate-400 shrink-0 tabular-nums">{p.daysSince}d</span>
+        <span className="text-[10px] text-[var(--color-muted)] shrink-0 tabular-nums">{p.daysSince}d</span>
       </div>
 
       {/* Quick actions — visibles solo en hover (consistencia con Leads) */}
       <div
-        className="flex items-center gap-1 mt-2 pt-1.5 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity"
+        className="flex items-center gap-1 mt-2 pt-1.5 border-t border-[var(--color-border)] opacity-0 group-hover:opacity-100 transition-opacity"
         onPointerDown={(e) => e.stopPropagation()}
       >
         {p.patientPhone && (
           <a
             href={`tel:${p.patientPhone}`}
-            className="flex-1 text-center text-[10px] font-medium px-2 py-1 rounded-md bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors"
+            className="flex-1 text-center text-[10px] font-medium px-2 py-1 rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-accent-soft)] transition-colors"
             title="Llamar"
             draggable={false}
             onClick={(e) => e.stopPropagation()}
@@ -168,7 +169,7 @@ function CompactCard({
             e.stopPropagation();
             onOpenHistory(p);
           }}
-          className="flex-1 text-[10px] font-medium px-2 py-1 rounded-md bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors"
+          className="flex-1 text-[10px] font-medium px-2 py-1 rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-accent-soft)] transition-colors"
           title="Historial"
           draggable={false}
         >
@@ -180,7 +181,7 @@ function CompactCard({
             e.stopPropagation();
             onEdit(p);
           }}
-          className="flex-1 text-[10px] font-medium px-2 py-1 rounded-md bg-slate-50 text-slate-700 hover:bg-slate-100 transition-colors"
+          className="flex-1 text-[10px] font-medium px-2 py-1 rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-accent-soft)] transition-colors"
           title="Editar"
           draggable={false}
         >
@@ -194,9 +195,9 @@ function CompactCard({
 // Ghost card shown in DragOverlay
 function GhostCard({ presupuesto }: { presupuesto: Presupuesto }) {
   return (
-    <div className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 shadow-2xl w-48 opacity-90 rotate-2">
-      <p className="text-xs font-bold text-slate-900 truncate">{presupuesto.patientName}</p>
-      <p className="text-[10px] text-slate-500 truncate">{presupuesto.treatments[0]}</p>
+    <div className="rounded-xl border border-[var(--color-accent)] bg-[var(--color-surface)] px-3 py-2.5 shadow-2xl w-48 opacity-90 rotate-2">
+      <p className="text-xs font-bold text-[var(--color-foreground)] truncate">{presupuesto.patientName}</p>
+      <p className="text-[10px] text-[var(--color-muted)] truncate">{presupuesto.treatments[0]}</p>
     </div>
   );
 }
@@ -245,16 +246,16 @@ function DroppableColumn({
           tipografia + contador; sub-info en una linea text-xs. */}
       <div className="px-3 py-2.5 shrink-0">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-semibold text-slate-700 truncate">
+          <span className="text-sm font-semibold text-[var(--color-foreground)] truncate">
             {cfg.label}
           </span>
-          <span className="text-xs text-slate-400 tabular-nums shrink-0">
+          <span className="text-xs text-[var(--color-muted)] tabular-nums shrink-0">
             {presupuestos.length}
           </span>
         </div>
         {subInfo && (
           <p
-            className="text-xs text-slate-500 mt-0.5 truncate"
+            className="text-xs text-[var(--color-muted)] mt-0.5 truncate"
             title={subInfo}
           >
             {subInfo}
@@ -266,12 +267,14 @@ function DroppableColumn({
       <div
         ref={setNodeRef}
         className={`flex-1 min-h-0 rounded-xl p-2 space-y-2 overflow-y-auto transition-colors border ${
-          isOver ? "bg-sky-50/50 border-sky-200" : "bg-slate-50 border-[var(--card-border)]"
+          isOver
+            ? "bg-[var(--color-accent-soft)] border-[var(--color-accent)]"
+            : "bg-[var(--color-background)] border-[var(--card-border)]"
         }`}
       >
         {presupuestos.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-slate-200 p-3 text-center mt-1">
-            <p className="text-[10px] text-slate-400">Vacío</p>
+          <div className="rounded-lg border border-dashed border-[var(--color-border)] p-3 text-center mt-1">
+            <p className="text-[10px] text-[var(--color-muted)]">Vacío</p>
           </div>
         ) : (
           presupuestos
@@ -311,17 +314,17 @@ function ConfirmMoveModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40"
       onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
     >
-      <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
-        <p className="text-sm font-bold text-slate-900 mb-1">Confirmar cambio de estado</p>
-        <p className="text-xs text-slate-600 mb-4">
+      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+        <p className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">Confirmar cambio de estado</p>
+        <p className="text-xs text-[var(--color-muted)] mb-4">
           Mover <span className="font-semibold">{patientName}</span> a{" "}
           <span className="font-bold" style={{ color: cfg.hex }}>{cfg.label}</span>
         </p>
 
-        <label className="flex items-center gap-2 text-xs text-slate-500 mb-5 cursor-pointer select-none">
+        <label className="flex items-center gap-2 text-xs text-[var(--color-muted)] mb-5 cursor-pointer select-none">
           <input
             type="checkbox"
             checked={skipFuture}
@@ -334,7 +337,7 @@ function ConfirmMoveModal({
         <div className="flex gap-2">
           <button
             onClick={onCancel}
-            className="flex-1 rounded-xl border border-slate-200 text-slate-600 text-sm font-semibold py-2 hover:bg-slate-50"
+            className="flex-1 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold py-2 hover:bg-[var(--color-surface-muted)]"
           >
             Cancelar
           </button>
@@ -394,7 +397,8 @@ export default function KanbanBoard({
   const activePresupuesto = presupuestos.find((p) => p.id === activeId) ?? null;
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } })
   );
 
   function handleDragStart(event: DragStartEvent) {
@@ -464,7 +468,7 @@ export default function KanbanBoard({
         onDragEnd={handleDragEnd}
       >
         {/* Gray frame container — fills parent height */}
-        <div className="bg-slate-100 rounded-2xl p-2 overflow-hidden h-full flex flex-col">
+        <div className="bg-[var(--color-surface-muted)] rounded-2xl p-2 overflow-hidden h-full flex flex-col">
           <div className="flex flex-row flex-1 min-h-0 overflow-x-auto overflow-y-hidden gap-2">
             {PIPELINE_ORDEN.map((estado) => (
               <DroppableColumn

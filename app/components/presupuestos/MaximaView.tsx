@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { AlertTriangle } from "lucide-react";
+import { toast } from "sonner";
+import { AlertTriangle, Download, Phone, MessageCircle, Search, ICON_STROKE } from "../icons";
+import { ErrorState, EmptyState } from "../ui/Feedback";
 import type {
   UserSession,
   PresupuestoIntervencion,
@@ -209,12 +211,10 @@ export default function MaximaView({
 
   if (!data) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center">
-        <p className="text-sm text-slate-500">No se pudieron cargar los datos</p>
-        <button onClick={fetchData} className="mt-2 text-xs text-blue-600 hover:underline">
-          Reintentar
-        </button>
-      </div>
+      <ErrorState
+        detail="No se pudieron cargar los presupuestos."
+        onRetry={fetchData}
+      />
     );
   }
 
@@ -223,12 +223,12 @@ export default function MaximaView({
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="rounded-2xl border border-slate-200 bg-white px-6 py-5">
+      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-5">
         <div className="flex items-start justify-between">
           <div>
-            <h2 className="text-base font-bold text-slate-800">VISTA MAXIMA</h2>
-            <p className="text-xs text-slate-500 mt-0.5">Presupuestos centralizados</p>
-            <p className="text-xs text-slate-400 mt-1">
+            <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">Vista máxima</h2>
+            <p className="text-xs text-[var(--color-muted)] mt-0.5">Presupuestos centralizados</p>
+            <p className="text-xs text-[var(--color-muted)] mt-1">
               {data.totales.total} presupuestos &middot;{" "}
               {formatCurrency(data.totales.importeTotal)} pipeline
             </p>
@@ -240,7 +240,7 @@ export default function MaximaView({
             />
             <button
               onClick={fetchData}
-              className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] transition-colors"
             >
               Actualizar
             </button>
@@ -254,15 +254,15 @@ export default function MaximaView({
       {intervencionCount > 0 && (
         <button
           onClick={() => setPillActiva("intervencion")}
-          className="w-full rounded-xl bg-rose-50 px-5 py-3 text-left transition-colors hover:bg-rose-100 border-l-4 border-rose-700 flex items-center gap-3"
+          className="w-full rounded-xl bg-rose-50 dark:bg-rose-500/10 px-5 py-3 text-left transition-colors hover:bg-rose-100 dark:hover:bg-rose-500/20 border-l-4 border-rose-700 dark:border-rose-400 flex items-center gap-3"
         >
           <AlertTriangle
             size={20}
-            strokeWidth={2.25}
-            className="text-rose-700 shrink-0"
+            strokeWidth={ICON_STROKE}
+            className="text-rose-700 dark:text-rose-300 shrink-0"
             aria-hidden="true"
           />
-          <p className="text-sm font-bold text-rose-900">
+          <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">
             {intervencionCount} {intervencionCount === 1 ? "caso requiere" : "casos requieren"} intervención hoy
           </p>
         </button>
@@ -275,9 +275,9 @@ export default function MaximaView({
         <select
           value={filtroDoctor}
           onChange={(e) => setFiltroDoctor(e.target.value)}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600"
+          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs text-[var(--color-muted)] outline-none focus:border-[var(--color-accent)]"
         >
-          <option value="">Todos doctores</option>
+          <option value="">Todos los doctores</option>
           {data.doctoresUnicos.map((d) => (
             <option key={d} value={d}>{d}</option>
           ))}
@@ -287,9 +287,9 @@ export default function MaximaView({
         <select
           value={filtroTratamiento}
           onChange={(e) => setFiltroTratamiento(e.target.value)}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600"
+          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs text-[var(--color-muted)] outline-none focus:border-[var(--color-accent)]"
         >
-          <option value="">Todos tratamientos</option>
+          <option value="">Todos los tratamientos</option>
           {data.tratamientosUnicos.map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
@@ -298,10 +298,10 @@ export default function MaximaView({
         {/* Search */}
         <input
           type="text"
-          placeholder="Buscar paciente..."
+          placeholder="Buscar paciente…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="ml-auto rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600 placeholder:text-slate-400 w-48"
+          className="ml-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] w-48 outline-none focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)]"
         />
       </div>
 
@@ -316,8 +316,8 @@ export default function MaximaView({
               onClick={() => setPillActiva(pill.id)}
               className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
                 active
-                  ? "bg-slate-800 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
+                  : "bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
               }`}
             >
               {pill.label} &middot; {count}
@@ -327,24 +327,24 @@ export default function MaximaView({
       </div>
 
       {/* Results count */}
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-[var(--color-muted)]">
         Mostrando {filtered.length} de {data.totales.total}
       </p>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+      <div className="overflow-x-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
         <table className="w-full table-fixed text-xs">
           <thead>
-            <tr className="sticky top-0 z-10 border-b border-slate-200 bg-white text-left text-slate-500">
+            <tr className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-surface-muted)] text-left text-[var(--color-muted)]">
               <th className="w-[3px] px-0" />
               <th
-                className="w-[72px] cursor-pointer select-none px-3 py-2.5 font-medium hover:text-slate-700"
+                className="w-[72px] cursor-pointer select-none px-3 py-2.5 font-medium hover:text-[var(--color-foreground)]"
                 onClick={() => toggleSort("fecha")}
               >
                 Fecha{sortIndicator("fecha")}
               </th>
               <th
-                className="w-[140px] cursor-pointer select-none px-3 py-2.5 font-medium hover:text-slate-700"
+                className="w-[140px] cursor-pointer select-none px-3 py-2.5 font-medium hover:text-[var(--color-foreground)]"
                 onClick={() => toggleSort("nombre")}
               >
                 Paciente{sortIndicator("nombre")}
@@ -352,7 +352,7 @@ export default function MaximaView({
               <th className="w-[100px] px-3 py-2.5 font-medium">Doctor</th>
               <th className="w-[130px] px-3 py-2.5 font-medium">Tratamiento</th>
               <th
-                className="w-[80px] cursor-pointer select-none px-3 py-2.5 font-medium text-right hover:text-slate-700"
+                className="w-[80px] cursor-pointer select-none px-3 py-2.5 font-medium text-right hover:text-[var(--color-foreground)]"
                 onClick={() => toggleSort("amount")}
               >
                 Importe{sortIndicator("amount")}
@@ -366,8 +366,12 @@ export default function MaximaView({
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={10} className="px-6 py-10 text-center text-slate-400">
-                  No hay presupuestos con estos filtros
+                <td colSpan={10} className="px-6 py-6">
+                  <EmptyState
+                    icon={<Search size={20} strokeWidth={ICON_STROKE} />}
+                    title="Sin resultados"
+                    hint="Ajusta los filtros o la búsqueda para ver presupuestos."
+                  />
                 </td>
               </tr>
             )}
@@ -378,14 +382,14 @@ export default function MaximaView({
                 <tr
                   key={p.id}
                   onClick={() => onOpenDrawer(p)}
-                  className={`cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50 ${cfg.bgClass}`}
+                  className={`cursor-pointer border-b border-[var(--color-border)] transition-colors hover:bg-[var(--color-surface-muted)] ${cfg.bgClass}`}
                 >
                   {/* Urgency bar */}
                   <td className="px-0">
                     <div
                       className={`h-full w-[3px] ${
                         isIntervencion
-                          ? "bg-red-500 animate-pulse"
+                          ? "bg-rose-500 animate-pulse"
                           : ""
                       }`}
                       style={
@@ -396,31 +400,31 @@ export default function MaximaView({
                     />
                   </td>
                   {/* Fecha */}
-                  <td className="px-3 py-2.5 text-slate-600">
+                  <td className="px-3 py-2.5 text-[var(--color-muted)]">
                     {formatDate(p.fechaPresupuesto)}
                   </td>
                   {/* Paciente */}
-                  <td className="truncate px-3 py-2.5 font-medium text-slate-800">
+                  <td className="truncate px-3 py-2.5 font-medium text-[var(--color-foreground)]">
                     {/* Sprint 14a Bloque 1.5 — link al hub del paciente
                         vía redirect legacy (resuelve nombre→id en server). */}
                     <a
                       href={`/presupuestos/paciente/${encodeURIComponent(p.patientName)}`}
                       onClick={(e) => e.stopPropagation()}
-                      className="hover:text-sky-700 hover:underline"
+                      className="hover:text-[var(--color-accent)] hover:underline"
                     >
                       {p.patientName}
                     </a>
                   </td>
                   {/* Doctor */}
-                  <td className="truncate px-3 py-2.5 text-slate-600">
+                  <td className="truncate px-3 py-2.5 text-[var(--color-muted)]">
                     {p.doctor ?? "—"}
                   </td>
                   {/* Tratamiento */}
-                  <td className="truncate px-3 py-2.5 text-slate-600">
+                  <td className="truncate px-3 py-2.5 text-[var(--color-muted)]">
                     {p.treatments.join(", ") || "—"}
                   </td>
                   {/* Importe */}
-                  <td className="px-3 py-2.5 text-right font-medium text-slate-700">
+                  <td className="px-3 py-2.5 text-right font-medium text-[var(--color-foreground)] tabular-nums">
                     {p.amount != null ? formatCurrency(p.amount) : "—"}
                   </td>
                   {/* Estado visual badge */}
@@ -432,11 +436,11 @@ export default function MaximaView({
                     </span>
                   </td>
                   {/* Última acción */}
-                  <td className="truncate px-3 py-2.5 text-slate-500">
+                  <td className="truncate px-3 py-2.5 text-[var(--color-muted)]">
                     {p.ultimaAccionTexto ?? "—"}
                   </td>
                   {/* Próxima acción */}
-                  <td className="truncate px-3 py-2.5 text-slate-500">
+                  <td className="truncate px-3 py-2.5 text-[var(--color-muted)]">
                     {p.proximaAccionTexto ?? "—"}
                   </td>
                   {/* Quick actions */}
@@ -447,20 +451,22 @@ export default function MaximaView({
                           <a
                             href={`tel:${p.patientPhone}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                            className="rounded p-1 text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-foreground)]"
                             title="Llamar"
+                            aria-label="Llamar"
                           >
-                            Tel
+                            <Phone size={14} strokeWidth={ICON_STROKE} aria-hidden />
                           </a>
                           <a
                             href={`https://wa.me/${p.patientPhone.replace(/\D/g, "")}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={(e) => e.stopPropagation()}
-                            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-green-600"
+                            className="rounded p-1 text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--fyllio-wa-green)]"
                             title="WhatsApp"
+                            aria-label="Enviar WhatsApp"
                           >
-                            WA
+                            <MessageCircle size={14} strokeWidth={ICON_STROKE} aria-hidden />
                           </a>
                         </>
                       )}
@@ -513,8 +519,8 @@ function ExportCsvButton({
       a.download = filename;
       a.click();
       URL.revokeObjectURL(objUrl);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Error al exportar CSV");
+    } catch {
+      toast.error("No se pudo exportar el CSV. Inténtalo de nuevo.");
     } finally {
       setBusy(false);
     }
@@ -524,9 +530,16 @@ function ExportCsvButton({
       onClick={handleClick}
       disabled={busy}
       title="Descarga CSV (Excel español, UTF-8)."
-      className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:cursor-wait"
+      className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] transition-colors disabled:opacity-50 disabled:cursor-wait"
     >
-      {busy ? "Generando…" : "↓ Exportar CSV"}
+      {busy ? (
+        "Generando…"
+      ) : (
+        <>
+          <Download size={14} strokeWidth={ICON_STROKE} aria-hidden />
+          Exportar CSV
+        </>
+      )}
     </button>
   );
 }

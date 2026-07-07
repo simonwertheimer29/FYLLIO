@@ -11,7 +11,23 @@ import type {
 } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG, URGENCIA_INTERVENCION_COLOR } from "../../lib/presupuestos/colors";
 import { openCopilot } from "../copilot/openCopilot";
-import { Sparkles, ICON_STROKE } from "../icons";
+import {
+  Sparkles,
+  Copy,
+  Check,
+  Send,
+  Repeat,
+  CreditCard,
+  Lightbulb,
+  StickyNote,
+  X,
+  XCircle,
+  ChevronDown,
+  ChevronRight,
+  LoaderCircle,
+  ICON_STROKE,
+} from "../icons";
+import { Pause } from "lucide-react";
 
 // ─── IntervencionSidePanel ───────────────────────────────────────────────────
 
@@ -52,7 +68,7 @@ export default function IntervencionSidePanel({
   const cleanPhone = (item.patientPhone ?? "").replace(/\D/g, "");
   const urgenciaColor = item.urgenciaIntervencion
     ? URGENCIA_INTERVENCION_COLOR[item.urgenciaIntervencion]
-    : "bg-slate-100 text-slate-500";
+    : "bg-[var(--color-surface-muted)] text-[var(--color-muted)]";
   const estadoCfg = ESTADO_CONFIG[item.estado];
 
   // Escape cierra el panel + bloquea scroll del body mientras está abierto.
@@ -352,26 +368,27 @@ export default function IntervencionSidePanel({
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
+      <div className="absolute inset-0 bg-slate-900/40" onClick={onClose} />
 
       {/* Panel */}
-      <div className="relative w-full max-w-md bg-white shadow-2xl flex flex-col h-full overflow-hidden">
+      <div className="relative w-full max-w-md bg-[var(--color-surface)] shadow-2xl flex flex-col h-full overflow-hidden">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-200 shrink-0">
+        <div className="px-5 py-4 border-b border-[var(--color-border)] shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
-              <h2 className="font-bold text-base text-slate-900 truncate">{item.patientName}</h2>
+              <h2 className="font-display text-base font-semibold text-[var(--color-foreground)] truncate">{item.patientName}</h2>
               <div className="flex flex-wrap gap-1 mt-1">
                 {item.treatments.map((t, i) => (
-                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">{t}</span>
+                  <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)]">{t}</span>
                 ))}
               </div>
             </div>
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-600 text-lg leading-none ml-3"
+              className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] leading-none ml-3"
+              aria-label="Cerrar"
             >
-              ✕
+              <X size={18} strokeWidth={ICON_STROKE} aria-hidden />
             </button>
           </div>
           <div className="flex flex-wrap gap-1.5 mt-2">
@@ -384,50 +401,50 @@ export default function IntervencionSidePanel({
               </span>
             )}
             {item.faseSeguimiento && (
-              <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-violet-100 text-violet-700">
+              <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
                 {item.faseSeguimiento}
               </span>
             )}
-            <span className="text-[9px] text-slate-400 px-1">{item.daysSince}d activo</span>
+            <span className="text-[9px] text-[var(--color-muted)] px-1">{item.daysSince}d activo</span>
           </div>
         </div>
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto">
           {/* Section 1: Patient info */}
-          <div className="px-5 py-4 border-b border-slate-100">
+          <div className="px-5 py-4 border-b border-[var(--color-border)]">
             <div className="grid grid-cols-2 gap-3 text-xs">
               <div>
-                <p className="text-slate-400 text-[10px] uppercase tracking-wide font-semibold">Importe</p>
-                <p className="font-bold text-slate-900">
+                <p className="text-[var(--color-muted)] text-[10px] uppercase tracking-wide font-semibold">Importe</p>
+                <p className="font-bold text-[var(--color-foreground)] tabular-nums">
                   {item.amount != null ? `€${item.amount.toLocaleString("es-ES")}` : "—"}
                 </p>
               </div>
               <div>
-                <p className="text-slate-400 text-[10px] uppercase tracking-wide font-semibold">Doctor</p>
-                <p className="font-semibold text-slate-700">{item.doctor ?? "—"}</p>
+                <p className="text-[var(--color-muted)] text-[10px] uppercase tracking-wide font-semibold">Doctor</p>
+                <p className="font-semibold text-[var(--color-foreground)]">{item.doctor ?? "—"}</p>
               </div>
               <div>
-                <p className="text-slate-400 text-[10px] uppercase tracking-wide font-semibold">Clínica</p>
-                <p className="font-semibold text-slate-700">{item.clinica ?? "—"}</p>
+                <p className="text-[var(--color-muted)] text-[10px] uppercase tracking-wide font-semibold">Clínica</p>
+                <p className="font-semibold text-[var(--color-foreground)]">{item.clinica ?? "—"}</p>
               </div>
               <div>
-                <p className="text-slate-400 text-[10px] uppercase tracking-wide font-semibold">Teléfono</p>
+                <p className="text-[var(--color-muted)] text-[10px] uppercase tracking-wide font-semibold">Teléfono</p>
                 {item.patientPhone ? (
-                  <a href={`tel:${item.patientPhone}`} className="font-semibold text-violet-700 hover:underline">
+                  <a href={`tel:${item.patientPhone}`} className="font-semibold text-[var(--color-accent)] hover:underline">
                     {item.patientPhone}
                   </a>
                 ) : (
-                  <p className="text-slate-400">—</p>
+                  <p className="text-[var(--color-muted)]">—</p>
                 )}
               </div>
               <div>
-                <p className="text-slate-400 text-[10px] uppercase tracking-wide font-semibold">Contactos</p>
-                <p className="font-semibold text-slate-700">{item.contactCount}</p>
+                <p className="text-[var(--color-muted)] text-[10px] uppercase tracking-wide font-semibold">Contactos</p>
+                <p className="font-semibold text-[var(--color-foreground)]">{item.contactCount}</p>
               </div>
               <div>
-                <p className="text-slate-400 text-[10px] uppercase tracking-wide font-semibold">Días sin contacto</p>
-                <p className="font-semibold text-slate-700">
+                <p className="text-[var(--color-muted)] text-[10px] uppercase tracking-wide font-semibold">Días sin contacto</p>
+                <p className="font-semibold text-[var(--color-foreground)]">
                   {typeof item.diasDesdeUltimoContacto === "number"
                     ? `${item.diasDesdeUltimoContacto} días`
                     : item.contactCount === 0
@@ -440,14 +457,14 @@ export default function IntervencionSidePanel({
 
           {/* Section 2: Last patient response */}
           {item.ultimaRespuestaPaciente && (
-            <div className="px-5 py-4 border-b border-slate-100">
-              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Última respuesta del paciente</p>
-              <div className="rounded-xl bg-slate-50 border border-slate-100 p-3">
-                <p className="text-sm text-slate-800 leading-relaxed">
+            <div className="px-5 py-4 border-b border-[var(--color-border)]">
+              <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide mb-2">Última respuesta del paciente</p>
+              <div className="rounded-xl bg-[var(--color-surface-muted)] border border-[var(--color-border)] p-3">
+                <p className="text-sm text-[var(--color-foreground)] leading-relaxed">
                   &quot;{item.ultimaRespuestaPaciente}&quot;
                 </p>
                 {item.fechaUltimaRespuesta && (
-                  <p className="text-[10px] text-slate-400 mt-1">
+                  <p className="text-[10px] text-[var(--color-muted)] mt-1">
                     {new Date(item.fechaUltimaRespuesta).toLocaleString("es-ES", {
                       day: "numeric", month: "short", year: "numeric",
                       hour: "2-digit", minute: "2-digit",
@@ -463,17 +480,20 @@ export default function IntervencionSidePanel({
                 )}
               </div>
               {clasificacionResult && (
-                <div className="mt-2 rounded-lg bg-emerald-50 border border-emerald-100 p-2">
-                  <p className="text-[10px] font-bold text-emerald-700">Nueva clasificación:</p>
-                  <p className="text-xs text-emerald-800">{clasificacionResult.intencion} · {clasificacionResult.urgencia}</p>
-                  <p className="text-xs text-emerald-700 mt-1">💡 {clasificacionResult.accionSugerida}</p>
+                <div className="mt-2 rounded-lg bg-emerald-50 border border-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/30 p-2">
+                  <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300">Nueva clasificación:</p>
+                  <p className="text-xs text-emerald-800 dark:text-emerald-200">{clasificacionResult.intencion} · {clasificacionResult.urgencia}</p>
+                  <p className="inline-flex items-start gap-1 text-xs text-emerald-700 dark:text-emerald-300 mt-1">
+                    <Lightbulb size={14} strokeWidth={ICON_STROKE} className="shrink-0 mt-0.5" aria-hidden />
+                    {clasificacionResult.accionSugerida}
+                  </p>
                 </div>
               )}
             </div>
           )}
 
           {/* Section 3: Recommended action + editable message */}
-          <div className="px-5 py-4 border-b border-slate-100">
+          <div className="px-5 py-4 border-b border-[var(--color-border)]">
             {/* Sprint 11 C.2 — botón Copilot contextual del presupuesto. */}
             <button
               type="button"
@@ -505,9 +525,9 @@ export default function IntervencionSidePanel({
                   initialAssistantMessage: `Veo que ${item.patientName.split(" ")[0]} está en estado ${item.estado} con un presupuesto de ${importeStr}. ¿En qué te ayudo?`,
                 });
               }}
-              className="w-full mb-3 text-xs font-medium px-3 py-2 rounded-md bg-violet-50 text-violet-700 border border-violet-200 hover:bg-violet-100 transition-colors inline-flex items-center justify-center gap-1.5"
+              className="w-full mb-3 text-xs font-medium px-3 py-2 rounded-md bg-[var(--color-accent-soft)] text-[var(--color-accent)] border border-[var(--color-border)] hover:opacity-90 transition-opacity inline-flex items-center justify-center gap-1.5"
             >
-              <Sparkles size={14} strokeWidth={ICON_STROKE} /> Sugiéreme cómo manejar este caso
+              <Sparkles size={14} strokeWidth={ICON_STROKE} aria-hidden /> Sugiéreme cómo manejar este caso
             </button>
             {item.estado === "PERDIDO" && (
               <button
@@ -534,16 +554,19 @@ export default function IntervencionSidePanel({
                     initialAssistantMessage: `He revisado el caso de ${item.patientName.split(" ")[0]}. ¿Quieres que analice por qué se perdió?`,
                   });
                 }}
-                className="w-full mb-3 text-xs font-medium px-3 py-2 rounded-md bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-colors inline-flex items-center justify-center gap-1.5"
+                className="w-full mb-3 text-xs font-medium px-3 py-2 rounded-md bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30 dark:hover:bg-amber-500/20 transition-colors inline-flex items-center justify-center gap-1.5"
               >
-                <Sparkles size={14} strokeWidth={ICON_STROKE} /> ¿Por qué crees que se perdió?
+                <Sparkles size={14} strokeWidth={ICON_STROKE} aria-hidden /> ¿Por qué crees que se perdió?
               </button>
             )}
 
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Acción recomendada</p>
+            <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide mb-2">Acción recomendada</p>
             {item.accionSugerida && (
-              <div className="rounded-xl bg-violet-50 border border-violet-200 p-3 mb-3">
-                <p className="text-sm font-semibold text-violet-800">💡 {item.accionSugerida}</p>
+              <div className="rounded-xl bg-[var(--color-accent-soft)] border border-[var(--color-border)] p-3 mb-3">
+                <p className="inline-flex items-start gap-1.5 text-sm font-semibold text-[var(--color-foreground)]">
+                  <Lightbulb size={16} strokeWidth={ICON_STROKE} className="shrink-0 mt-0.5 text-[var(--color-accent)]" aria-hidden />
+                  {item.accionSugerida}
+                </p>
               </div>
             )}
 
@@ -551,24 +574,28 @@ export default function IntervencionSidePanel({
               <button
                 onClick={handleEnviarDetallesPago}
                 disabled={detallesPagoEnviado}
-                className="w-full rounded-xl bg-indigo-50 border border-indigo-200 p-3 mb-3 text-left hover:bg-indigo-100 transition-colors disabled:opacity-50 disabled:cursor-default"
+                className="w-full rounded-xl bg-[var(--color-accent-soft)] border border-[var(--color-border)] p-3 mb-3 text-left hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-default"
               >
-                <p className="text-sm font-semibold text-indigo-800">
-                  💳 {detallesPagoEnviado ? "Detalles de pago enviados" : "Enviar detalles de pago"}
+                <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-accent)]">
+                  <CreditCard size={16} strokeWidth={ICON_STROKE} aria-hidden />
+                  {detallesPagoEnviado ? "Detalles de pago enviados" : "Enviar detalles de pago"}
                 </p>
-                <p className="text-[10px] text-indigo-500 mt-0.5">
+                <p className="text-[10px] text-[var(--color-muted)] mt-0.5">
                   Plantilla con condiciones de esta clínica
                 </p>
               </button>
             )}
 
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Mensaje IA</p>
+            <p className="inline-flex items-center gap-1 text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide mb-1">
+              <Sparkles size={12} strokeWidth={ICON_STROKE} className="text-[var(--color-accent)]" aria-hidden />
+              Mensaje IA
+            </p>
             <textarea
               value={mensajeEditable}
               onChange={(e) => setMensajeEditable(e.target.value)}
               rows={4}
-              placeholder={regenerando ? "Generando mensaje..." : "Escribe un mensaje..."}
-              className="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 bg-violet-50 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none resize-none"
+              placeholder={regenerando ? "Generando mensaje…" : "Escribe un mensaje…"}
+              className="w-full text-sm px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-accent-soft)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none resize-none"
             />
 
             {/* Tone selector */}
@@ -579,8 +606,8 @@ export default function IntervencionSidePanel({
                   onClick={() => setTono(t)}
                   className={`text-[10px] font-semibold px-2.5 py-1 rounded-lg border transition-colors ${
                     tono === t
-                      ? "bg-violet-600 text-white border-violet-600"
-                      : "bg-white text-slate-600 border-slate-200 hover:bg-slate-50"
+                      ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
+                      : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
                   }`}
                 >
                   {t === "directo" ? "Formal" : t === "empatico" ? "Cordial" : "Empático"}
@@ -592,39 +619,47 @@ export default function IntervencionSidePanel({
             <div className="flex gap-2 mt-3">
               <button
                 onClick={handleCopiar}
-                className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--color-surface-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-accent-soft)]"
               >
-                {copiado ? "✓ Copiado" : "📋 Copiar"}
+                {copiado ? (
+                  <><Check size={14} strokeWidth={ICON_STROKE} aria-hidden /> Copiado</>
+                ) : (
+                  <><Copy size={14} strokeWidth={ICON_STROKE} aria-hidden /> Copiar</>
+                )}
               </button>
               {cleanPhone && (
                 <button
                   onClick={handleEnviarWA}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]"
                 >
-                  ✉️ Enviar WA
+                  <Send size={14} strokeWidth={ICON_STROKE} aria-hidden /> Enviar WhatsApp
                 </button>
               )}
               <button
                 onClick={handleRegenerar}
                 disabled={regenerando}
-                className="text-xs font-semibold px-3 py-1.5 rounded-xl bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
               >
-                {regenerando ? "Generando..." : "🔄 Regenerar"}
+                {regenerando ? (
+                  <><LoaderCircle size={14} strokeWidth={ICON_STROKE} className="animate-spin" aria-hidden /> Generando…</>
+                ) : (
+                  <><Repeat size={14} strokeWidth={ICON_STROKE} aria-hidden /> Regenerar</>
+                )}
               </button>
             </div>
           </div>
 
           {/* Section 4: WhatsApp conversation */}
-          <div className="px-5 py-4 border-b border-slate-100">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Conversación</p>
+          <div className="px-5 py-4 border-b border-[var(--color-border)]">
+            <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide mb-2">Conversación</p>
             {loadingMensajes ? (
               <div className="space-y-2 animate-pulse">
-                <div className="h-10 rounded-2xl bg-slate-100 ml-8" />
-                <div className="h-10 rounded-2xl bg-slate-100 mr-8" />
-                <div className="h-10 rounded-2xl bg-slate-100 ml-8" />
+                <div className="h-10 rounded-2xl bg-[var(--color-surface-muted)] ml-8" />
+                <div className="h-10 rounded-2xl bg-[var(--color-surface-muted)] mr-8" />
+                <div className="h-10 rounded-2xl bg-[var(--color-surface-muted)] ml-8" />
               </div>
             ) : mensajes.length === 0 ? (
-              <p className="text-xs text-slate-400 italic text-center py-6">Sin mensajes registrados</p>
+              <p className="text-xs text-[var(--color-muted)] italic text-center py-6">Sin mensajes registrados</p>
             ) : (
               <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                 {mensajes.map((msg) => (
@@ -635,14 +670,14 @@ export default function IntervencionSidePanel({
                     <div
                       className={`max-w-[85%] px-3 py-2 ${
                         msg.direccion === "Saliente"
-                          ? "ml-8 bg-blue-500 text-white rounded-2xl rounded-br-sm"
-                          : "mr-8 bg-slate-100 text-slate-900 rounded-2xl rounded-bl-sm"
+                          ? "ml-8 bg-[var(--color-accent)] text-[var(--color-on-accent)] rounded-2xl rounded-br-sm"
+                          : "mr-8 bg-[var(--color-surface-muted)] text-[var(--color-foreground)] rounded-2xl rounded-bl-sm"
                       }`}
                     >
                       <p className="text-[13px] leading-relaxed whitespace-pre-wrap">{msg.contenido}</p>
                       <p
                         className={`text-[9px] text-right mt-0.5 ${
-                          msg.direccion === "Saliente" ? "text-blue-200" : "text-slate-400"
+                          msg.direccion === "Saliente" ? "text-[var(--color-on-accent)] opacity-70" : "text-[var(--color-muted)]"
                         }`}
                       >
                         {msg.timestamp
@@ -673,20 +708,20 @@ export default function IntervencionSidePanel({
                       }
                     }}
                     rows={1}
-                    placeholder="Escribe un mensaje..."
+                    placeholder="Escribe un mensaje…"
                     disabled={enviandoInline}
-                    className="flex-1 text-sm px-3 py-2 rounded-xl border border-slate-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none resize-none"
+                    className="flex-1 text-sm px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none resize-none"
                   />
                   <button
                     onClick={handleInlineSend}
                     disabled={!inlineTexto.trim() || enviandoInline}
-                    className="text-xs font-semibold px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40"
+                    className="text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)] disabled:opacity-40"
                   >
-                    {enviandoInline ? "Enviando..." : "Enviar"}
+                    {enviandoInline ? "Enviando…" : "Enviar"}
                   </button>
                 </div>
                 {inlineError && (
-                  <p className="text-[11px] text-red-600 mt-1">{inlineError}</p>
+                  <p className="text-[11px] text-[var(--color-danger)] mt-1">{inlineError}</p>
                 )}
               </div>
             )}
@@ -696,19 +731,24 @@ export default function IntervencionSidePanel({
               <div className="mt-3">
                 <button
                   onClick={() => setHistorialAbierto(!historialAbierto)}
-                  className="text-[10px] font-semibold text-slate-400 hover:text-slate-600 uppercase tracking-wide"
+                  className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--color-muted)] hover:text-[var(--color-foreground)] uppercase tracking-wide"
                 >
-                  {historialAbierto ? "▾ Historial completo" : "▸ Historial completo"} ({timeline.length})
+                  {historialAbierto ? (
+                    <ChevronDown size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                  ) : (
+                    <ChevronRight size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                  )}
+                  Historial completo ({timeline.length})
                 </button>
                 {historialAbierto && (
                   <div className="space-y-1.5 mt-2 max-h-40 overflow-y-auto">
                     {timeline.map((entry) => (
                       <div
                         key={entry.id}
-                        className="rounded-lg px-3 py-1.5 text-xs bg-slate-50 text-slate-500"
+                        className="rounded-lg px-3 py-1.5 text-xs bg-[var(--color-surface-muted)] text-[var(--color-muted)]"
                       >
                         <p className="leading-relaxed">{entry.texto}</p>
-                        <p className="text-[9px] text-slate-400 mt-0.5">
+                        <p className="text-[9px] text-[var(--color-muted)] mt-0.5">
                           {new Date(entry.fecha).toLocaleString("es-ES", {
                             day: "numeric", month: "short",
                             hour: "2-digit", minute: "2-digit",
@@ -723,39 +763,41 @@ export default function IntervencionSidePanel({
           </div>
 
           {/* Section 5: Manual response registration */}
-          <div className="px-5 py-4 border-b border-slate-100">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-2">Registrar respuesta del paciente</p>
+          <div className="px-5 py-4 border-b border-[var(--color-border)]">
+            <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide mb-2">Registrar respuesta del paciente</p>
             <textarea
               value={respuestaManual}
               onChange={(e) => setRespuestaManual(e.target.value)}
               rows={3}
               placeholder="¿Qué respondió el paciente?"
-              className="w-full text-sm px-3 py-2 rounded-xl border border-slate-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none resize-none"
+              className="w-full text-sm px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none resize-none"
             />
             <button
               onClick={handleClasificarManual}
               disabled={!respuestaManual.trim() || clasificandoManual}
-              className="mt-2 text-xs font-semibold px-4 py-2 rounded-xl bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40"
+              className="mt-2 text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
             >
-              {clasificandoManual ? "Clasificando..." : "Clasificar y sugerir respuesta"}
+              {clasificandoManual ? "Clasificando…" : "Clasificar y sugerir respuesta"}
             </button>
           </div>
 
           {/* Section 6: Final actions */}
           <div className="px-5 py-4">
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-3">Acciones finales</p>
+            <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide mb-3">Acciones finales</p>
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => handleAccionFinal("ACEPTADO")}
-                className="text-xs font-semibold px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-left"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30 dark:hover:bg-emerald-500/20 text-left"
               >
-                ✓ Aceptó y pagó
+                <Check size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                Aceptó y pagó
               </button>
               <button
                 onClick={() => handleAccionFinal("PERDIDO")}
-                className="text-xs font-semibold px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-left"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30 dark:hover:bg-rose-500/20 text-left"
               >
-                ✗ Rechazó definitivamente
+                <XCircle size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                Rechazó definitivamente
               </button>
               <button
                 onClick={() => {
@@ -765,9 +807,10 @@ export default function IntervencionSidePanel({
                     body: JSON.stringify({ Fase_seguimiento: "Cerrado" }),
                   }).then(() => { onRefresh(); onClose(); }).catch(() => {});
                 }}
-                className="text-xs font-semibold px-4 py-2.5 rounded-xl bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200 text-left"
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 py-2.5 rounded-xl bg-[var(--color-surface-muted)] text-[var(--color-muted)] hover:bg-[var(--color-accent-soft)] border border-[var(--color-border)] text-left"
               >
-                ⏸ Pausar seguimiento
+                <Pause size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                Pausar seguimiento
               </button>
 
               {/* Add internal note */}
@@ -777,16 +820,18 @@ export default function IntervencionSidePanel({
                     type="text"
                     value={notaInterna}
                     onChange={(e) => setNotaInterna(e.target.value)}
-                    placeholder="Añadir nota interna..."
-                    className="flex-1 text-xs px-3 py-2 rounded-lg border border-slate-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none"
+                    placeholder="Añadir nota interna…"
+                    className="flex-1 text-xs px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none"
                     onKeyDown={(e) => { if (e.key === "Enter") handleGuardarNota(); }}
                   />
                   <button
                     onClick={handleGuardarNota}
                     disabled={!notaInterna.trim() || guardandoNota}
-                    className="text-xs font-semibold px-3 py-2 rounded-lg bg-slate-800 text-white hover:bg-slate-700 disabled:opacity-40"
+                    className="inline-flex items-center justify-center text-xs font-semibold px-3 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
+                    title="Guardar nota"
+                    aria-label="Guardar nota"
                   >
-                    📝
+                    <StickyNote size={14} strokeWidth={ICON_STROKE} aria-hidden />
                   </button>
                 </div>
               </div>

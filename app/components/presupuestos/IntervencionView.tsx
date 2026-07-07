@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { toast } from "sonner";
 import type {
   UserSession,
   PresupuestoIntervencion,
@@ -9,6 +10,8 @@ import type {
 } from "../../lib/presupuestos/types";
 import { URGENCIA_INTERVENCION_COLOR, INTERVENCION_TABS } from "../../lib/presupuestos/colors";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { ErrorState, EmptyState } from "../ui/Feedback";
+import { Check, X, ChevronRight, Inbox, ICON_STROKE } from "../icons";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -42,10 +45,17 @@ function countForTab(items: PresupuestoIntervencion[], tab: IntervencionTab): nu
 }
 
 function scoreColor(score: number): string {
-  if (score >= 70) return "bg-red-500";
+  if (score >= 70) return "bg-rose-500";
   if (score >= 50) return "bg-orange-500";
   if (score >= 30) return "bg-amber-400";
-  return "bg-slate-300";
+  return "bg-slate-400";
+}
+
+function scoreBorderHex(score: number): string {
+  if (score >= 70) return "#f43f5e";
+  if (score >= 50) return "#f97316";
+  if (score >= 30) return "#fbbf24";
+  return "#94a3b8";
 }
 
 // ─── UrgencyBar ──────────────────────────────────────────────────────────────
@@ -55,10 +65,10 @@ function UrgencyBar({ score, intencion, resp, cierre }: {
 }) {
   return (
     <div className="flex items-center gap-2 shrink-0" title={`Intención ${intencion} · Resp. ${resp} · Cierre ${cierre}`}>
-      <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+      <div className="w-16 h-1.5 bg-[var(--color-surface-muted)] rounded-full overflow-hidden">
         <div className={`h-full rounded-full transition-all ${scoreColor(score)}`} style={{ width: `${score}%` }} />
       </div>
-      <span className="text-[9px] font-bold text-slate-500 tabular-nums">{score}</span>
+      <span className="text-[9px] font-bold text-[var(--color-muted)] tabular-nums">{score}</span>
     </div>
   );
 }
@@ -82,7 +92,7 @@ function IntervencionCard({
   const cleanPhone = (item.patientPhone ?? "").replace(/\D/g, "");
   const urgenciaColor = item.urgenciaIntervencion
     ? URGENCIA_INTERVENCION_COLOR[item.urgenciaIntervencion]
-    : "bg-slate-100 text-slate-500";
+    : "bg-[var(--color-surface-muted)] text-[var(--color-muted)]";
 
   const ub = item.urgenciaBidireccional;
 
@@ -140,7 +150,7 @@ function IntervencionCard({
       setLlamando(false);
       onRefresh();
     } catch {
-      // ignore
+      toast.error("No se pudo registrar la respuesta. Inténtalo de nuevo.");
     } finally {
       setClasificando(false);
     }
@@ -154,11 +164,11 @@ function IntervencionCard({
 
   return (
     <div
-      className={`rounded-xl border bg-white transition-[box-shadow,border-color] duration-150 hover:[box-shadow:var(--card-shadow-hover)] ${waEnviado ? "opacity-50" : ""}`}
+      className={`rounded-xl border bg-[var(--color-surface)] transition-[box-shadow,border-color] duration-150 hover:[box-shadow:var(--card-shadow-hover)] ${waEnviado ? "opacity-50" : ""}`}
       style={{
         borderColor: "var(--card-border)",
         boxShadow: "var(--card-shadow-rest)",
-        borderLeft: `4px solid ${scoreColor(ub?.scoreFinal ?? 0) === "bg-red-500" ? "#ef4444" : ub?.scoreFinal && ub.scoreFinal >= 50 ? "#f97316" : ub?.scoreFinal && ub.scoreFinal >= 30 ? "#fbbf24" : "#94a3b8"}`,
+        borderLeft: `4px solid ${scoreBorderHex(ub?.scoreFinal ?? 0)}`,
       }}
     >
       {/* Card body — clickable */}
@@ -178,13 +188,13 @@ function IntervencionCard({
             <div className="flex items-center gap-2">
               <a
                 href={`/presupuestos/paciente/${encodeURIComponent(item.patientName)}`}
-                className="font-bold text-sm text-slate-900 truncate hover:text-violet-700 hover:underline"
+                className="font-semibold text-sm text-[var(--color-foreground)] truncate hover:text-[var(--color-accent)] hover:underline"
                 onClick={(e) => e.stopPropagation()}
               >
                 {item.patientName}
               </a>
               {item.amount != null && (
-                <span className="text-sm font-extrabold text-slate-700 shrink-0">
+                <span className="font-display text-sm font-bold text-[var(--color-foreground)] shrink-0 tabular-nums">
                   &euro;{item.amount.toLocaleString("es-ES")}
                 </span>
               )}
@@ -199,10 +209,10 @@ function IntervencionCard({
             </div>
             <div className="flex flex-wrap gap-1 mt-0.5">
               {item.treatments.map((t, i) => (
-                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">{t}</span>
+                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)]">{t}</span>
               ))}
             </div>
-            <div className="flex items-center gap-2 mt-1 text-[10px] text-slate-500">
+            <div className="flex items-center gap-2 mt-1 text-[10px] text-[var(--color-muted)]">
               {item.doctor && <span>{item.doctor}</span>}
               {item.clinica && <span>· {item.clinica}</span>}
               {tiempoResp && <span>· {tiempoResp}</span>}
@@ -210,8 +220,8 @@ function IntervencionCard({
 
             {/* Última respuesta del paciente */}
             {item.ultimaRespuestaPaciente && (
-              <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2 border border-slate-100">
-                <p className="text-xs text-slate-700 line-clamp-2">
+              <div className="mt-2 rounded-lg bg-[var(--color-surface-muted)] px-3 py-2 border border-[var(--color-border)]">
+                <p className="text-xs text-[var(--color-foreground)] line-clamp-2">
                   &quot;{item.ultimaRespuestaPaciente}&quot;
                 </p>
               </div>
@@ -219,7 +229,7 @@ function IntervencionCard({
 
             {/* Acción sugerida */}
             {item.accionSugerida && (
-              <p className="text-[10px] text-violet-600 font-semibold mt-1.5">
+              <p className="text-[10px] text-[var(--color-accent)] font-semibold mt-1.5">
                 {item.accionSugerida}
               </p>
             )}
@@ -233,22 +243,22 @@ function IntervencionCard({
           <button
             onClick={handleEnviarWA}
             disabled={waEnviado}
-            className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 disabled:opacity-40"
+            className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)] disabled:opacity-40"
           >
-            {waEnviado ? "WA enviado" : "Enviar WA"}
+            {waEnviado ? "WhatsApp enviado" : "Enviar WhatsApp"}
           </button>
         )}
         {cleanPhone && (
           <button
             onClick={handleLlamar}
-            className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 hover:bg-slate-200"
+            className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--color-surface-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-accent-soft)]"
           >
             Llamar
           </button>
         )}
         <button
           onClick={() => onOpenPanel(item)}
-          className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-violet-600 text-white hover:bg-violet-700 ml-auto"
+          className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] ml-auto"
         >
           Ver ficha
         </button>
@@ -257,15 +267,15 @@ function IntervencionCard({
       {/* Quick input after call */}
       {llamando && (
         <div className="px-4 pb-3" onClick={(e) => e.stopPropagation()}>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <p className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Respuesta del paciente</p>
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-3">
+            <p className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-1">Respuesta del paciente</p>
             <div className="flex gap-2">
               <input
                 type="text"
                 value={respuestaInput}
                 onChange={(e) => setRespuestaInput(e.target.value)}
                 placeholder="Respuesta del paciente (opcional)"
-                className="flex-1 text-xs px-3 py-2 rounded-lg border border-slate-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none"
+                className="flex-1 text-xs px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none"
                 onKeyDown={(e) => {
                   if (e.key === "Enter") handleClasificarRespuesta();
                 }}
@@ -273,15 +283,16 @@ function IntervencionCard({
               <button
                 onClick={handleClasificarRespuesta}
                 disabled={!respuestaInput.trim() || clasificando}
-                className="text-xs font-semibold px-3 py-2 rounded-lg bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40"
+                className="text-xs font-semibold px-3 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
               >
                 {clasificando ? "..." : "Clasificar"}
               </button>
               <button
                 onClick={() => setLlamando(false)}
-                className="text-xs px-2 py-2 rounded-lg text-slate-400 hover:text-slate-600"
+                className="text-xs px-2 py-2 rounded-lg text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
+                aria-label="Cerrar"
               >
-                ✕
+                <X size={14} strokeWidth={ICON_STROKE} aria-hidden />
               </button>
             </div>
           </div>
@@ -348,31 +359,33 @@ function BulkSendModal({
   const isDone = currentIndex >= sendableItems.length;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40" onClick={onClose}>
+      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-xl w-full max-w-md mx-4 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-[var(--color-border)]">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900">
+            <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
               {isDone
                 ? `${enviados}/${sendableItems.length} enviados`
                 : currentIndex >= 0
-                  ? `Enviando ${currentIndex + 1}/${sendableItems.length}...`
-                  : `Enviar WA a ${sendableItems.length} pacientes`}
+                  ? `Enviando ${currentIndex + 1}/${sendableItems.length}…`
+                  : `Enviar WhatsApp a ${sendableItems.length} pacientes`}
             </h3>
-            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+            <button onClick={onClose} className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]" aria-label="Cerrar">
+              <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
+            </button>
           </div>
         </div>
 
         <div className="px-5 py-4 max-h-[60vh] overflow-y-auto">
           {currentIndex === -1 && (
             <>
-              <p className="text-xs text-slate-500 mb-3">Se enviara WhatsApp a los siguientes pacientes:</p>
+              <p className="text-xs text-[var(--color-muted)] mb-3">Se enviará WhatsApp a los siguientes pacientes:</p>
               <div className="space-y-2">
                 {sendableItems.map((item) => (
                   <div key={item.id} className="flex items-center gap-2 text-xs">
-                    <span className="font-semibold text-slate-700">{item.patientName}</span>
+                    <span className="font-semibold text-[var(--color-foreground)]">{item.patientName}</span>
                     {item.amount != null && (
-                      <span className="text-slate-500">&euro;{item.amount.toLocaleString("es-ES")}</span>
+                      <span className="text-[var(--color-muted)] tabular-nums">&euro;{item.amount.toLocaleString("es-ES")}</span>
                     )}
                   </div>
                 ))}
@@ -382,21 +395,21 @@ function BulkSendModal({
 
           {currentIndex >= 0 && !isDone && (
             <div className="space-y-3">
-              <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+              <div className="w-full h-1.5 bg-[var(--color-surface-muted)] rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-emerald-500 rounded-full transition-all"
+                  className="h-full bg-[var(--fyllio-wa-green)] rounded-full transition-all"
                   style={{ width: `${((enviados) / sendableItems.length) * 100}%` }}
                 />
               </div>
-              <div className="rounded-xl border border-slate-200 p-3">
-                <p className="text-sm font-bold text-slate-900">{sendableItems[currentIndex].patientName}</p>
-                <p className="text-xs text-slate-500 mt-1 line-clamp-2">
+              <div className="rounded-xl border border-[var(--color-border)] p-3">
+                <p className="text-sm font-semibold text-[var(--color-foreground)]">{sendableItems[currentIndex].patientName}</p>
+                <p className="text-xs text-[var(--color-muted)] mt-1 line-clamp-2">
                   {sendableItems[currentIndex].mensajeSugerido}
                 </p>
               </div>
               <button
                 onClick={handleSendCurrent}
-                className="w-full text-sm font-semibold py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+                className="w-full text-sm font-semibold py-2.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]"
               >
                 Enviar a {sendableItems[currentIndex].patientName}
               </button>
@@ -405,27 +418,27 @@ function BulkSendModal({
 
           {isDone && (
             <div className="text-center py-4">
-              <p className="text-sm font-semibold text-emerald-700">
+              <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
                 {enviados} mensaje{enviados !== 1 ? "s" : ""} enviado{enviados !== 1 ? "s" : ""}
               </p>
             </div>
           )}
         </div>
 
-        <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
+        <div className="px-5 py-3 border-t border-[var(--color-border)] flex justify-end gap-2">
           {currentIndex === -1 ? (
             <>
-              <button onClick={onClose} className="text-xs font-semibold px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100">
+              <button onClick={onClose} className="text-xs font-semibold px-4 py-2 rounded-xl text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">
                 Cancelar
               </button>
-              <button onClick={handleConfirm} className="text-xs font-semibold px-4 py-2 rounded-xl bg-violet-600 text-white hover:bg-violet-700">
+              <button onClick={handleConfirm} className="text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]">
                 Confirmar y enviar
               </button>
             </>
           ) : (
             <button
               onClick={() => { onClose(); if (enviados > 0) onRefresh(); }}
-              className="text-xs font-semibold px-4 py-2 rounded-xl bg-slate-800 text-white hover:bg-slate-700"
+              className="text-xs font-semibold px-4 py-2 rounded-xl border border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
             >
               {isDone ? "Cerrar" : "Cancelar"}
             </button>
@@ -439,9 +452,11 @@ function BulkSendModal({
 // ─── QuickResponseModal ──────────────────────────────────────────────────────
 
 function QuickResponseModal({
+  items,
   onClose,
   onRefresh,
 }: {
+  items: PresupuestoIntervencion[];
   onClose: () => void;
   onRefresh: () => void;
 }) {
@@ -477,63 +492,76 @@ function QuickResponseModal({
         setResultado(`Clasificado: ${data.clasificacion?.intencion ?? "OK"}`);
         onRefresh();
       } else {
-        setResultado("Error al clasificar");
+        toast.error("No se pudo clasificar la respuesta. Inténtalo de nuevo.");
       }
     } catch {
-      setResultado("Error de red");
+      toast.error("No se pudo clasificar la respuesta. Comprueba la conexión e inténtalo de nuevo.");
     } finally {
       setClasificando(false);
     }
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-slate-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40" onClick={onClose}>
+      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-xl w-full max-w-md mx-4" onClick={(e) => e.stopPropagation()}>
+        <div className="px-5 py-4 border-b border-[var(--color-border)]">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900">Respuesta rápida</h3>
+            <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">Respuesta rápida</h3>
             <div className="flex items-center gap-2">
-              <span className="text-[9px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded font-mono">Ctrl+Shift+L</span>
-              <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+              <span className="text-[9px] text-[var(--color-muted)] bg-[var(--color-surface-muted)] px-1.5 py-0.5 rounded font-mono">Ctrl+Shift+L</span>
+              <button onClick={onClose} className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]" aria-label="Cerrar">
+                <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
+              </button>
             </div>
           </div>
         </div>
         <div className="px-5 py-4 space-y-3">
           <div>
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">ID Presupuesto</label>
-            <input
-              type="text"
+            <label className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide">Presupuesto</label>
+            <select
               value={presupuestoId}
               onChange={(e) => setPresupuestoId(e.target.value)}
-              placeholder="rec..."
-              className="w-full text-xs px-3 py-2 mt-1 rounded-lg border border-slate-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none"
-            />
+              className="w-full text-xs px-3 py-2 mt-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none"
+            >
+              <option value="">Selecciona un presupuesto…</option>
+              {items.map((p) => {
+                const detalle =
+                  p.treatments[0] ??
+                  (p.amount != null ? `€${p.amount.toLocaleString("es-ES")}` : "Sin detalle");
+                return (
+                  <option key={p.id} value={p.id}>
+                    {p.patientName} — {detalle}
+                    {p.treatments[0] && p.amount != null ? ` · €${p.amount.toLocaleString("es-ES")}` : ""}
+                  </option>
+                );
+              })}
+            </select>
           </div>
           <div>
-            <label className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Respuesta del paciente</label>
+            <label className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide">Respuesta del paciente</label>
             <textarea
               ref={textareaRef}
               value={respuesta}
               onChange={(e) => setRespuesta(e.target.value)}
               rows={4}
-              className="w-full text-xs px-3 py-2 mt-1 rounded-lg border border-slate-200 focus:border-violet-400 focus:ring-1 focus:ring-violet-200 outline-none resize-none"
-              placeholder="Pega aqui la respuesta del paciente..."
+              className="w-full text-xs px-3 py-2 mt-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none resize-none"
+              placeholder="Pega aquí la respuesta del paciente…"
             />
           </div>
           {resultado && (
-            <p className="text-xs font-semibold text-emerald-600">{resultado}</p>
+            <p className="text-xs font-semibold text-emerald-600 dark:text-emerald-300">{resultado}</p>
           )}
         </div>
-        <div className="px-5 py-3 border-t border-slate-100 flex justify-end gap-2">
-          <button onClick={onClose} className="text-xs font-semibold px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100">
+        <div className="px-5 py-3 border-t border-[var(--color-border)] flex justify-end gap-2">
+          <button onClick={onClose} className="text-xs font-semibold px-4 py-2 rounded-xl text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">
             Cancelar
           </button>
           <button
             onClick={handleClasificar}
             disabled={!presupuestoId.trim() || !respuesta.trim() || clasificando}
-            className="text-xs font-semibold px-4 py-2 rounded-xl bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40"
+            className="text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
           >
-            {clasificando ? "Clasificando..." : "Clasificar"}
+            {clasificando ? "Clasificando…" : "Clasificar"}
           </button>
         </div>
       </div>
@@ -552,6 +580,7 @@ export default function IntervencionView({
 }) {
   const [data, setData] = useState<IntervencionResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
   const [completadosOpen, setCompletadosOpen] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -597,11 +626,13 @@ export default function IntervencionView({
       ]);
       const d: IntervencionResponse = await res.json();
       setData(d);
+      setLoadError(false);
       const kpi = await kpiRes.json().catch(() => ({}));
       setTiempoMedioMin(typeof kpi?.tiempoMedioMin === "number" ? kpi.tiempoMedioMin : null);
       setLastUpdate(new Date());
     } catch {
-      // Keep existing data on error
+      // Keep existing data on error; sin datos previos → estado de error visible
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -643,10 +674,19 @@ export default function IntervencionView({
   if (loading && !data) {
     return (
       <div className="space-y-4 animate-pulse">
-        <div className="h-28 rounded-2xl bg-slate-100" />
-        <div className="h-40 rounded-2xl bg-slate-100" />
-        <div className="h-40 rounded-2xl bg-slate-100" />
+        <div className="h-28 rounded-2xl bg-[var(--color-surface-muted)]" />
+        <div className="h-40 rounded-2xl bg-[var(--color-surface-muted)]" />
+        <div className="h-40 rounded-2xl bg-[var(--color-surface-muted)]" />
       </div>
+    );
+  }
+
+  if (!data && loadError) {
+    return (
+      <ErrorState
+        detail="La cola de intervención no está disponible en este momento."
+        onRetry={() => { setLoading(true); fetchData(); }}
+      />
     );
   }
 
@@ -657,21 +697,20 @@ export default function IntervencionView({
 
   return (
     <div className="space-y-4">
-      {/* Sprint 13 Bloque 8 — banner Cola Intervención con paleta
-          producto: fondo sky-50, número slate-900, label sky-700. */}
-      <div className="rounded-2xl bg-sky-50 border border-sky-100 p-6">
+      {/* Banner Cola Intervención — tokens accent */}
+      <div className="rounded-2xl bg-[var(--color-accent-soft)] border border-[var(--color-border)] p-6">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div>
-            <p className="text-xs font-semibold text-sky-700 uppercase tracking-wide">
+            <p className="text-xs font-semibold text-[var(--color-accent)] uppercase tracking-wide">
               Cola de intervención · Hoy
             </p>
-            <h2 className="font-display text-4xl font-bold mt-2 tracking-tight tabular-nums text-slate-900">
+            <h2 className="font-display text-4xl font-bold mt-2 tracking-tight tabular-nums text-[var(--color-foreground)]">
               {totalPendientes} pendiente{totalPendientes !== 1 ? "s" : ""} · {completadasHoy} completada{completadasHoy !== 1 ? "s" : ""}
             </h2>
             {/* Sprint 10 C — KPI tiempo medio respuesta. */}
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="text-sm text-[var(--color-muted)] mt-1">
               Tiempo medio respuesta:{" "}
-              <span className="font-semibold text-slate-900 tabular-nums">
+              <span className="font-semibold text-[var(--color-foreground)] tabular-nums">
                 {tiempoMedioMin == null ? "—" : `${tiempoMedioMin} min`}
               </span>
             </p>
@@ -679,13 +718,13 @@ export default function IntervencionView({
           <div className="flex items-center gap-4">
             {total > 0 && (
               <div className="text-center">
-                <div className="w-32 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="w-32 h-1.5 bg-[var(--color-surface-muted)] rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-sky-500 rounded-full transition-all duration-300"
+                    className="h-full bg-[var(--color-accent)] rounded-full transition-all duration-300"
                     style={{ width: `${pct}%` }}
                   />
                 </div>
-                <p className="text-[10px] text-slate-500 mt-1.5 tabular-nums">
+                <p className="text-[10px] text-[var(--color-muted)] mt-1.5 tabular-nums">
                   {pct}% del plan de hoy
                 </p>
               </div>
@@ -695,12 +734,13 @@ export default function IntervencionView({
         <div className="flex items-center gap-2 mt-5 flex-wrap">
           <button
             onClick={() => { setLoading(true); fetchData(); }}
-            className="text-xs font-medium px-3 py-1.5 rounded-md bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
+            className="text-xs font-medium px-3 py-1.5 rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
           >
             Actualizar
           </button>
-          <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 tabular-nums">
-            ✓ Actualizado hace {secondsAgo < 60 ? `${secondsAgo}s` : `${Math.round(secondsAgo / 60)}m`}
+          <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30 tabular-nums">
+            <Check size={12} strokeWidth={ICON_STROKE} aria-hidden />
+            Actualizado hace {secondsAgo < 60 ? `${secondsAgo}s` : `${Math.round(secondsAgo / 60)}m`}
           </span>
         </div>
       </div>
@@ -712,7 +752,7 @@ export default function IntervencionView({
         <select
           value={filtroDoctor}
           onChange={(e) => setFiltroDoctor(e.target.value)}
-          className="text-[10px] font-semibold px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 outline-none focus:border-violet-400"
+          className="text-[10px] font-semibold px-2 py-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] outline-none focus:border-[var(--color-accent)]"
         >
           <option value="">Todos los doctores</option>
           {(data?.doctores ?? []).map((d) => (
@@ -724,7 +764,7 @@ export default function IntervencionView({
         <select
           value={filtroTratamiento}
           onChange={(e) => setFiltroTratamiento(e.target.value)}
-          className="text-[10px] font-semibold px-2 py-1 rounded-lg border border-slate-200 bg-white text-slate-600 outline-none focus:border-violet-400"
+          className="text-[10px] font-semibold px-2 py-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] outline-none focus:border-[var(--color-accent)]"
         >
           <option value="">Todos los tratamientos</option>
           {(data?.tratamientos ?? []).map((t) => (
@@ -744,8 +784,8 @@ export default function IntervencionView({
               onClick={() => setSubTab(tab.id)}
               className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
                 isActive
-                  ? "bg-sky-500 text-white"
-                  : "bg-white border border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-slate-50"
+                  ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
+                  : "bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
               }`}
             >
               {tab.label} · {count}
@@ -758,22 +798,23 @@ export default function IntervencionView({
       {bulkSendable.length >= 3 && (
         <button
           onClick={() => setBulkSendOpen(true)}
-          className="text-xs font-semibold px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700"
+          className="text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]"
         >
-          Enviar WA a {bulkSendable.length} pacientes
+          Enviar WhatsApp a {bulkSendable.length} pacientes
         </button>
       )}
 
       {/* Empty state */}
       {filteredItems.length === 0 && (
-        <div className="rounded-3xl border border-dashed border-slate-200 p-12 text-center">
-          <p className="text-sm font-bold text-slate-700">Sin casos en esta vista</p>
-          <p className="text-xs text-slate-400 mt-1">
-            {subTab === "actuar"
-              ? "No hay casos con urgencia alta. Revisa otras pestanas."
-              : "Los presupuestos con respuesta del paciente o urgencia asignada apareceran aqui."}
-          </p>
-        </div>
+        <EmptyState
+          icon={<Inbox size={20} strokeWidth={ICON_STROKE} />}
+          title="Sin casos en esta vista"
+          hint={
+            subTab === "actuar"
+              ? "No hay casos con urgencia alta. Revisa otras pestañas."
+              : "Los presupuestos con respuesta del paciente o urgencia asignada aparecerán aquí."
+          }
+        />
       )}
 
       {/* Cards list */}
@@ -793,9 +834,14 @@ export default function IntervencionView({
         <div>
           <button
             onClick={() => setCompletadosOpen(!completadosOpen)}
-            className="flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-700"
+            className="flex items-center gap-2 text-xs font-semibold text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
           >
-            <span className={`transition-transform ${completadosOpen ? "rotate-90" : ""}`}>&#9656;</span>
+            <ChevronRight
+              size={14}
+              strokeWidth={ICON_STROKE}
+              className={`transition-transform ${completadosOpen ? "rotate-90" : ""}`}
+              aria-hidden
+            />
             Completadas hoy ({completadasHoy})
           </button>
           {completadosOpen && data?.casosCompletados && (
@@ -803,16 +849,19 @@ export default function IntervencionView({
               {data.casosCompletados.map((item) => (
                 <div
                   key={item.id}
-                  className="rounded-2xl border bg-emerald-50 border-emerald-100 p-3 cursor-pointer"
+                  className="rounded-2xl border bg-emerald-50 border-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/30 p-3 cursor-pointer"
                   onClick={() => onOpenDrawer(item)}
                 >
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-emerald-600">✓ Completado</span>
-                    <span className="text-sm font-semibold text-slate-700">{item.patientName}</span>
+                    <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-300">
+                      <Check size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                      Completado
+                    </span>
+                    <span className="text-sm font-semibold text-[var(--color-foreground)]">{item.patientName}</span>
                     {item.amount != null && (
-                      <span className="text-sm font-bold text-slate-500">&euro;{item.amount.toLocaleString("es-ES")}</span>
+                      <span className="text-sm font-bold text-[var(--color-muted)] tabular-nums">&euro;{item.amount.toLocaleString("es-ES")}</span>
                     )}
-                    <span className="text-[10px] text-slate-400 ml-auto">{item.tipoUltimaAccion}</span>
+                    <span className="text-[10px] text-[var(--color-muted)] ml-auto">{item.tipoUltimaAccion}</span>
                   </div>
                 </div>
               ))}
@@ -831,6 +880,7 @@ export default function IntervencionView({
       )}
       {quickResponseOpen && (
         <QuickResponseModal
+          items={data?.allItems ?? []}
           onClose={() => setQuickResponseOpen(false)}
           onRefresh={fetchData}
         />
