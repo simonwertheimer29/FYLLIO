@@ -6,6 +6,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { ChevronLeft, ShieldCheck } from "../icons";
 import { NumericKeypad } from "./NumericKeypad";
 
 type Props = {
@@ -110,14 +111,15 @@ export function PinScreen({
             href={backHref}
             className="text-xs text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors inline-flex items-center gap-1"
           >
-            ← Volver
+            <ChevronLeft size={14} strokeWidth={1.5} aria-hidden="true" />
+            Volver
           </Link>
         </div>
 
         {/* Icon + title — Sprint 12 H.1 tipografia display. */}
         <div className="text-center space-y-3">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-sky-50 text-sky-700 text-2xl border border-sky-100">
-            🛡️
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-accent)] border border-[var(--color-border)]">
+            <ShieldCheck size={26} strokeWidth={1.5} aria-hidden="true" />
           </div>
           <h1 className="font-display text-2xl font-semibold text-[var(--color-foreground)] tracking-tight">{title}</h1>
           {subtitle && <p className="text-sm text-[var(--color-muted)]">{subtitle}</p>}
@@ -130,10 +132,10 @@ export function PinScreen({
             return (
               <div
                 key={i}
-                className={`${digits === 6 ? "w-11 h-14" : "w-12 h-14"} rounded-lg border flex items-center justify-center text-2xl font-bold transition-colors ${
+                className={`${digits === 6 ? "w-11 h-14" : "w-12 h-14"} rounded-lg border flex items-center justify-center font-display text-2xl font-bold tabular-nums transition-colors ${
                   filled
-                    ? "bg-sky-500 border-sky-500 text-white"
-                    : "bg-white border-[var(--color-border)] text-slate-300"
+                    ? "bg-[var(--color-accent)] border-[var(--color-accent)] text-[var(--color-on-accent)]"
+                    : "bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-muted)]"
                 }`}
                 aria-label={`Dígito ${i + 1} ${filled ? "introducido" : "pendiente"}`}
               >
@@ -145,7 +147,10 @@ export function PinScreen({
 
         {/* Error */}
         {error && (
-          <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-lg px-3 py-2 text-center">
+          <p
+            role="alert"
+            className="text-xs text-[var(--color-danger)] bg-[var(--color-danger-soft)] border border-[var(--color-border)] rounded-lg px-3 py-2 text-center"
+          >
             {error}
           </p>
         )}
@@ -158,7 +163,7 @@ export function PinScreen({
           type="button"
           disabled={loading || pin.length !== digits}
           onClick={() => submit(pin)}
-          className="w-full rounded-lg bg-sky-500 text-white text-sm font-semibold py-3 hover:bg-sky-600 disabled:opacity-40 disabled:pointer-events-none transition-colors"
+          className="w-full rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-3 hover:bg-[var(--color-accent-hover)] disabled:opacity-40 disabled:pointer-events-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)]"
         >
           {loading ? "Entrando…" : "Acceder"}
         </button>
