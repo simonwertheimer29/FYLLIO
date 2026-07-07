@@ -104,7 +104,7 @@ export default function MotivoPerdidaModal({
           <button
             onClick={handleConfirm}
             disabled={!seleccionado}
-            className="flex-1 rounded-xl bg-[var(--color-danger)] text-white text-sm font-semibold py-2 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 rounded-xl bg-[var(--color-danger)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Confirmar y mover
           </button>

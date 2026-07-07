@@ -522,12 +522,12 @@ export default function AccionesView({ user }: { user: NoShowsUserSession }) {
                       : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-accent)]"}`}>
                   {s.nombre}
                   {urgentes > 0 && (
-                    <span className="ml-0.5 bg-[var(--color-danger)] text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
+                    <span className="ml-0.5 bg-[var(--color-danger)] text-[var(--color-on-accent)] text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
                       {urgentes}
                     </span>
                   )}
                   {urgentes === 0 && pendientes > 0 && (
-                    <span className="ml-0.5 bg-[var(--color-warning)] text-white text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
+                    <span className="ml-0.5 bg-[var(--color-warning)] text-[var(--color-on-accent)] text-xs rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
                       {pendientes}
                     </span>
                   )}

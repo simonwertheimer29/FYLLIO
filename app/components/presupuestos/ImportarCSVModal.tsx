@@ -144,13 +144,13 @@ function Stepper({ paso }: { paso: number }) {
         return (
           <div key={num} className="flex items-center">
             <div className={`flex flex-col items-center gap-0.5 transition-opacity ${active ? "opacity-100" : done ? "opacity-80" : "opacity-30"}`}>
-              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${active ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]" : done ? "bg-emerald-500 text-white" : "bg-[var(--color-border)] text-[var(--color-muted)]"}`}>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${active ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]" : done ? "bg-[var(--color-success)] text-[var(--color-on-accent)]" : "bg-[var(--color-border)] text-[var(--color-muted)]"}`}>
                 {done ? <Check size={12} strokeWidth={2} aria-hidden /> : num}
               </div>
               <span className={`text-[10px] font-medium whitespace-nowrap ${active ? "text-[var(--color-accent)]" : "text-[var(--color-muted)]"}`}>{label}</span>
             </div>
             {i < steps.length - 1 && (
-              <div className={`w-6 h-px mx-1 mb-3.5 ${done ? "bg-emerald-400" : "bg-[var(--color-border)]"}`} />
+              <div className={`w-6 h-px mx-1 mb-3.5 ${done ? "bg-[var(--color-success)]" : "bg-[var(--color-border)]"}`} />
             )}
           </div>
         );

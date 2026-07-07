@@ -55,15 +55,15 @@ export const ESTADO_VISUAL_CONFIG: Record<
   EstadoVisual,
   { hex: string; badgeClass: string; bgClass: string }
 > = {
-  "Inicial":                  { hex: "#3b82f6", badgeClass: "bg-blue-100 text-blue-700",     bgClass: "bg-blue-50" },
-  "Primer contacto":          { hex: "#eab308", badgeClass: "bg-yellow-100 text-yellow-700", bgClass: "bg-yellow-50" },
-  "Segundo contacto":         { hex: "#f97316", badgeClass: "bg-orange-100 text-orange-700", bgClass: "bg-orange-50" },
-  "Necesita intervención":    { hex: "#ef4444", badgeClass: "bg-red-100 text-red-700",       bgClass: "bg-red-50" },
-  "Acepta sin pagar":         { hex: "#8b5cf6", badgeClass: "bg-violet-100 text-violet-700", bgClass: "bg-violet-50" },
-  "Con cita sin pagar":       { hex: "#6d28d9", badgeClass: "bg-purple-100 text-purple-700", bgClass: "bg-purple-50" },
-  "Tratamiento iniciado":     { hex: "#86efac", badgeClass: "bg-green-100 text-green-600",   bgClass: "bg-green-50" },
-  "Cerrado ganado":           { hex: "#22c55e", badgeClass: "bg-emerald-100 text-emerald-700", bgClass: "bg-emerald-50" },
-  "Cerrado perdido":          { hex: "#94a3b8", badgeClass: "bg-slate-100 text-slate-500",   bgClass: "bg-slate-50" },
+  "Inicial":                  { hex: "#3b82f6", badgeClass: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/25",     bgClass: "bg-blue-50 dark:bg-blue-500/10" },
+  "Primer contacto":          { hex: "#eab308", badgeClass: "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-500/15 dark:text-yellow-300 dark:border-yellow-500/25", bgClass: "bg-yellow-50 dark:bg-yellow-500/10" },
+  "Segundo contacto":         { hex: "#f97316", badgeClass: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/25", bgClass: "bg-orange-50 dark:bg-orange-500/10" },
+  "Necesita intervención":    { hex: "#ef4444", badgeClass: "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/25",       bgClass: "bg-red-50 dark:bg-red-500/10" },
+  "Acepta sin pagar":         { hex: "#8b5cf6", badgeClass: "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/25", bgClass: "bg-violet-50 dark:bg-violet-500/10" },
+  "Con cita sin pagar":       { hex: "#6d28d9", badgeClass: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/25", bgClass: "bg-purple-50 dark:bg-purple-500/10" },
+  "Tratamiento iniciado":     { hex: "#86efac", badgeClass: "bg-green-100 text-green-600 border-green-200 dark:bg-green-500/15 dark:text-green-300 dark:border-green-500/25",   bgClass: "bg-green-50 dark:bg-green-500/10" },
+  "Cerrado ganado":           { hex: "#22c55e", badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/25", bgClass: "bg-emerald-50 dark:bg-emerald-500/10" },
+  "Cerrado perdido":          { hex: "#94a3b8", badgeClass: "bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-500/15 dark:text-slate-300 dark:border-slate-500/25",   bgClass: "bg-slate-50 dark:bg-slate-500/10" },
 };
 
 // ─── Cola de Intervención ─────────────────────────────────────────────────────
@@ -81,7 +81,7 @@ export const INTENCION_SECTIONS: {
     titulo: "Aceptan pero no saben cómo pagar",
     icono: "💰",
     intenciones: ["Acepta sin condiciones", "Acepta pero pregunta pago"],
-    color: "bg-red-100 text-red-700",
+    color: "bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-300",
     hexAccent: "#ef4444",
   },
   {
@@ -89,7 +89,7 @@ export const INTENCION_SECTIONS: {
     titulo: "Tienen duda sobre el tratamiento",
     icono: "❓",
     intenciones: ["Tiene duda sobre tratamiento"],
-    color: "bg-amber-100 text-amber-700",
+    color: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
     hexAccent: "#f59e0b",
   },
   {
@@ -97,7 +97,7 @@ export const INTENCION_SECTIONS: {
     titulo: "Piden oferta o descuento",
     icono: "🏷",
     intenciones: ["Pide oferta/descuento"],
-    color: "bg-orange-100 text-orange-700",
+    color: "bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300",
     hexAccent: "#f97316",
   },
   {
@@ -105,7 +105,7 @@ export const INTENCION_SECTIONS: {
     titulo: "Quieren pensarlo",
     icono: "⏳",
     intenciones: ["Quiere pensarlo"],
-    color: "bg-sky-100 text-sky-700",
+    color: "bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
     hexAccent: "#0ea5e9",
   },
   {
@@ -113,17 +113,17 @@ export const INTENCION_SECTIONS: {
     titulo: "Sin respuesta / Sin clasificar",
     icono: "📭",
     intenciones: ["Rechaza", "Sin clasificar"],
-    color: "bg-slate-100 text-slate-600",
+    color: "bg-slate-100 text-slate-600 dark:bg-slate-500/15 dark:text-slate-300",
     hexAccent: "#94a3b8",
   },
 ];
 
 export const URGENCIA_INTERVENCION_COLOR: Record<UrgenciaIntervencion, string> = {
-  "CRÍTICO": "bg-red-100 text-red-700 border-red-200",
-  "ALTO":    "bg-orange-100 text-orange-700 border-orange-200",
-  "MEDIO":   "bg-amber-100 text-amber-700 border-amber-200",
-  "BAJO":    "bg-sky-100 text-sky-700 border-sky-200",
-  "NINGUNO": "bg-slate-100 text-slate-500 border-slate-200",
+  "CRÍTICO": "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/25",
+  "ALTO":    "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/25",
+  "MEDIO":   "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/25",
+  "BAJO":    "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-[var(--color-border)]",
+  "NINGUNO": "bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-500/15 dark:text-slate-300 dark:border-slate-500/25",
 };
 
 export const INTERVENCION_TABS: {

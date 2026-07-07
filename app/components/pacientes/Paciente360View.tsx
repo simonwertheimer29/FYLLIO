@@ -1147,7 +1147,7 @@ function DeletePagoDialog({
           <button
             onClick={handleDelete}
             disabled={submitting}
-            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--color-danger)] text-white hover:opacity-90 disabled:opacity-50"
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-[var(--color-danger)] text-[var(--color-on-accent)] hover:opacity-90 disabled:opacity-50"
           >
             {submitting ? "Eliminando…" : "Eliminar"}
           </button>

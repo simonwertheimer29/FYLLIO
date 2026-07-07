@@ -51,16 +51,17 @@ export function ConfirmDialog({
     if (!open) return;
     confirmRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      // No se puede cerrar mientras la acción async está en curso.
+      if (e.key === "Escape" && !busy) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, busy, onClose]);
 
   if (!open) return null;
 
   const confirmClass = destructive
-    ? "bg-[var(--color-danger)] text-white hover:opacity-90"
+    ? "bg-[var(--color-danger)] text-[var(--color-on-accent)] hover:opacity-90"
     : "bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]";
 
   return (
@@ -72,7 +73,7 @@ export function ConfirmDialog({
     >
       <div
         className="absolute inset-0 bg-slate-900/40"
-        onClick={onClose}
+        onClick={busy ? undefined : onClose}
         aria-hidden="true"
       />
       <div className="fyllio-fade-in relative w-full max-w-sm rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 shadow-xl">

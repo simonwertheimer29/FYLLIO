@@ -264,7 +264,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           >
             <Bell size={16} strokeWidth={ICON_STROKE} aria-hidden />
             {notifCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center text-[9px] font-bold bg-[var(--color-danger)] text-white rounded-full px-1">
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center text-[9px] font-bold bg-[var(--color-danger)] text-[var(--color-on-accent)] rounded-full px-1">
                 {notifCount > 9 ? "9+" : notifCount}
               </span>
             )}

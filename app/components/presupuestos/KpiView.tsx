@@ -746,9 +746,9 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
                   data={origenData.filter((o) => o.origen !== "sin_origen")}
                   margin={{ left: 8, right: 24, top: 4, bottom: 4 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 10 }} />
-                  <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={80} />
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--color-border)" />
+                  <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fill: "var(--color-muted)", fontSize: 10 }} />
+                  <YAxis type="category" dataKey="label" tick={{ fill: "var(--color-muted)", fontSize: 11 }} width={80} />
                   <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => [`${v}%`, "Tasa"]} />
                   <Bar dataKey="tasa" radius={[0, 6, 6, 0]} fill="var(--color-accent)" />
                 </BarChart>
@@ -860,9 +860,9 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
                   data={motivoData}
                   margin={{ left: 8, right: 24, top: 4, bottom: 4 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis type="number" tick={{ fontSize: 10 }} />
-                  <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={100} />
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--color-border)" />
+                  <XAxis type="number" tick={{ fill: "var(--color-muted)", fontSize: 10 }} />
+                  <YAxis type="category" dataKey="label" tick={{ fill: "var(--color-muted)", fontSize: 11 }} width={100} />
                   <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => [v, "Casos"]} />
                   <Bar dataKey="count" radius={[0, 6, 6, 0]} fill="var(--color-danger)" />
                 </BarChart>

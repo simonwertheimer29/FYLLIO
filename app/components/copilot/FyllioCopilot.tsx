@@ -537,7 +537,7 @@ export function FyllioCopilot() {
                   aria-label={recording ? "Detener grabación" : "Grabar audio"}
                   className={`w-9 h-9 rounded-md disabled:opacity-40 transition-colors flex items-center justify-center ${
                     recording
-                      ? "bg-rose-600 text-white hover:bg-rose-700"
+                      ? "bg-[var(--color-danger)] text-[var(--color-on-accent)] hover:opacity-90"
                       : "bg-[var(--color-surface-muted)] text-[var(--color-muted)] hover:bg-[var(--color-border)]"
                   }`}
                 >

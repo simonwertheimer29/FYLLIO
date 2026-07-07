@@ -244,7 +244,7 @@ export default function ConfigView({ user }: { user: NoShowsUserSession }) {
           onClick={handleSave}
           className={`px-5 py-2.5 rounded-2xl text-sm font-bold transition-all ${
             saved
-              ? "bg-[var(--color-success)] text-white scale-95"
+              ? "bg-[var(--color-success)] text-[var(--color-on-accent)] scale-95"
               : "bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
           }`}
         >

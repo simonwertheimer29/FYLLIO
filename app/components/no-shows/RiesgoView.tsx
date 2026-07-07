@@ -178,8 +178,8 @@ function KanbanRiskCard({
     appt.riskLevel === "MEDIUM" ? "border-amber-200 bg-amber-50 dark:border-amber-500/25 dark:bg-amber-500/10" :
     "border-[var(--color-border)] bg-[var(--color-surface)]";
   const scoreBadge =
-    appt.riskLevel === "HIGH"   ? "bg-[var(--color-danger)] text-white" :
-    appt.riskLevel === "MEDIUM" ? "bg-[var(--color-warning)] text-white" :
+    appt.riskLevel === "HIGH"   ? "bg-[var(--color-danger)] text-[var(--color-on-accent)]" :
+    appt.riskLevel === "MEDIUM" ? "bg-[var(--color-warning)] text-[var(--color-on-accent)]" :
     "bg-[var(--color-surface-muted)] text-[var(--color-muted)]";
 
   return (
