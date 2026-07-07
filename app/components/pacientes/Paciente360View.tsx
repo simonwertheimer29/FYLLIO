@@ -584,28 +584,48 @@ function OptoutToggle({
   );
 }
 
+// Mini-KPI del hub 360 con la anatomía canónica de KpiCard (label badge
+// arriba + valor font-display bold tabular). Mantiene un cuerpo compacto
+// (text-2xl) porque van 4 en línea dentro de max-w-3xl y admite valores
+// de texto ("hace 3 días", fechas) que KpiCard (numérico) no soporta.
 function Card({
   label,
   value,
   sub,
   rose,
+  muted,
+  title,
 }: {
   label: string;
   value: string;
   sub?: string;
+  /** Valor en tono danger (ej. importe pendiente > 0). */
   rose?: boolean;
+  /** Valor atenuado (sin dato, con tooltip explicativo). */
+  muted?: boolean;
+  /** Tooltip nativo opcional. */
+  title?: string;
 }) {
   return (
-    <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4 text-center">
+    <div
+      className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4"
+      title={title}
+    >
+      <span className="inline-block text-[10px] uppercase tracking-widest font-semibold rounded-full px-2 py-0.5 bg-[var(--color-surface-muted)] text-[var(--color-muted)]">
+        {label}
+      </span>
       <p
-        className={`font-display text-2xl font-bold tabular-nums ${
-          rose ? "text-[var(--color-danger)]" : "text-[var(--color-foreground)]"
+        className={`font-display text-2xl font-bold tabular-nums leading-tight mt-2 ${
+          rose
+            ? "text-[var(--color-danger)]"
+            : muted
+              ? "text-[var(--color-muted)] cursor-help"
+              : "text-[var(--color-foreground)]"
         }`}
       >
         {value}
       </p>
-      <p className="text-[11px] text-[var(--color-muted)] uppercase tracking-wide mt-0.5">{label}</p>
-      {sub && <p className="text-[10px] text-[var(--color-muted)] mt-0.5">{sub}</p>}
+      {sub && <p className="text-[11px] text-[var(--color-muted)] mt-1">{sub}</p>}
     </div>
   );
 }
@@ -724,25 +744,13 @@ function PagosTab({
     <div className="space-y-6">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Card label="Total facturado" value={fmtEUR(kpis.totalFacturado)} />
-        <div
-          className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4 text-center"
+        <Card
+          label="Pendiente"
+          value={kpis.pendiente == null ? "—" : fmtEUR(kpis.pendiente)}
+          rose={kpis.pendiente != null && kpis.pendiente > 0}
+          muted={kpis.pendiente == null}
           title={pendienteTooltip}
-        >
-          <p
-            className={`font-display text-2xl font-bold tabular-nums ${
-              kpis.pendiente != null && kpis.pendiente > 0
-                ? "text-[var(--color-danger)]"
-                : kpis.pendiente == null
-                ? "text-[var(--color-muted)] cursor-help"
-                : "text-[var(--color-foreground)]"
-            }`}
-          >
-            {kpis.pendiente == null ? "—" : fmtEUR(kpis.pendiente)}
-          </p>
-          <p className="text-[11px] text-[var(--color-muted)] uppercase tracking-wide mt-0.5">
-            Pendiente
-          </p>
-        </div>
+        />
         <Card label="Nº pagos" value={String(kpis.numPagos)} />
         <Card label="Último pago" value={ultimoLabel} />
       </div>

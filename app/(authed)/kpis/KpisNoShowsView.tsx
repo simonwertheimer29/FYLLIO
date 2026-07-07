@@ -18,6 +18,7 @@ import { Card } from "../../components/ui/Card";
 import { KpiCard } from "../../components/ui/KpiCard";
 import { StatePill } from "../../components/ui/StatePill";
 import { KpiCardSkeleton } from "../../components/ui/Skeleton";
+import { ErrorState } from "../../components/ui/Feedback";
 
 type ApiResponse = {
   periodo: "mes";
@@ -71,18 +72,24 @@ function tasaTone(tasa: number): "emerald" | "amber" | "rose" {
 export function KpisNoShowsView() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const { selectedClinicaId } = useClinic();
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     const url = new URL("/api/kpis/no-shows", location.href);
     if (selectedClinicaId) url.searchParams.set("clinica", selectedClinicaId);
     fetch(url.toString())
       .then((r) => r.json())
       .then((d) => setData(d as ApiResponse))
-      .catch(() => setData(null))
+      .catch(() => {
+        setData(null);
+        setError("Las métricas de no-shows no se han podido cargar.");
+      })
       .finally(() => setLoading(false));
-  }, [selectedClinicaId]);
+  }, [selectedClinicaId, reloadKey]);
 
   return (
     <div className="p-4 lg:p-6 space-y-12 max-w-7xl mx-auto">
@@ -97,14 +104,23 @@ export function KpisNoShowsView() {
         </div>
       </div>
 
-      {/* Hero KPIs */}
-      <HeroKpis data={data} loading={loading} />
+      {error ? (
+        <ErrorState
+          detail={error}
+          onRetry={() => setReloadKey((k) => k + 1)}
+        />
+      ) : (
+        <>
+          {/* Hero KPIs */}
+          <HeroKpis data={data} loading={loading} />
 
-      {/* Top pacientes + comparativa clínicas */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <TopPacientes data={data} loading={loading} />
-        <ComparativaClinicas data={data} loading={loading} />
-      </div>
+          {/* Top pacientes + comparativa clínicas */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <TopPacientes data={data} loading={loading} />
+            <ComparativaClinicas data={data} loading={loading} />
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -34,7 +34,7 @@ export function LoginView({ clinicas }: { clinicas: ClinicaCard[] }) {
               borderColor: "var(--card-border)",
               boxShadow: "var(--card-shadow-rest)",
             }}
-            className="block min-h-24 rounded-xl bg-[var(--color-surface)] border p-6 flex items-center gap-5 cursor-pointer transition-[box-shadow,border-color] duration-150 hover:[border-color:var(--card-border-hover)] hover:[box-shadow:var(--card-shadow-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)]"
+            className="min-h-24 rounded-xl bg-[var(--color-surface)] border p-6 flex items-center gap-5 cursor-pointer transition-[box-shadow,border-color] duration-150 hover:[border-color:var(--card-border-hover)] hover:[box-shadow:var(--card-shadow-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)]"
             aria-label="Entrar como Administrador"
           >
             <div className="w-14 h-14 shrink-0 rounded-xl bg-[var(--color-foreground)] text-[var(--color-background)] flex items-center justify-center">
@@ -69,7 +69,7 @@ export function LoginView({ clinicas }: { clinicas: ClinicaCard[] }) {
                       borderColor: "var(--card-border)",
                       boxShadow: "var(--card-shadow-rest)",
                     }}
-                    className="block min-h-24 rounded-xl bg-[var(--color-surface)] border p-6 flex items-center gap-5 cursor-pointer transition-[box-shadow,border-color] duration-150 hover:[border-color:var(--card-border-hover)] hover:[box-shadow:var(--card-shadow-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)]"
+                    className="min-h-24 rounded-xl bg-[var(--color-surface)] border p-6 flex items-center gap-5 cursor-pointer transition-[box-shadow,border-color] duration-150 hover:[border-color:var(--card-border-hover)] hover:[box-shadow:var(--card-shadow-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--color-background)]"
                     aria-label={`Entrar como Coordinación ${c.nombre}`}
                   >
                     <div className="w-12 h-12 shrink-0 rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-accent)] flex items-center justify-center">

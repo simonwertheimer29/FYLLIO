@@ -197,7 +197,7 @@ export function CobrosTabView() {
       ) : (
         <ul className="space-y-2">
           {items.map((it, i) => (
-            <div
+            <li
               key={it.pacienteId}
               className="fyllio-fade-in"
               style={{ animationDelay: `${Math.min(i * 30, 450)}ms` }}
@@ -206,7 +206,7 @@ export function CobrosTabView() {
                 item={it}
                 onMarcado={() => setReloadKey((k) => k + 1)}
               />
-            </div>
+            </li>
           ))}
         </ul>
       )}
@@ -298,7 +298,7 @@ function CobroCard({
   })();
 
   return (
-    <li className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4 flex flex-wrap gap-3 items-start">
+    <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4 flex flex-wrap gap-3 items-start">
       <div className="flex-1 min-w-[220px]">
         <div className="flex items-center gap-2 flex-wrap">
           <Link
@@ -367,6 +367,6 @@ function CobroCard({
           {err}
         </p>
       )}
-    </li>
+    </div>
   );
 }

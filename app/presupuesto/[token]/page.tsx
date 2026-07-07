@@ -3,8 +3,9 @@
 // Portal público del paciente — sin auth del CRM
 // El layout app/presupuesto/layout.tsx tapa el header de Fyllio con z-[60]
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useCallback, use } from "react";
 import { toast } from "sonner";
+import { ErrorState } from "../../components/ui/Feedback";
 import {
   Lock,
   Phone,
@@ -21,6 +22,7 @@ import {
 
 type Estado =
   | "loading"
+  | "load_error"
   | "not_found"
   | "expired"
   | "portal"
@@ -152,7 +154,8 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
   const [motivoSeleccionado, setMotivoSeleccionado] = useState("");
   const [enviando, setEnviando] = useState(false);
 
-  useEffect(() => {
+  const cargar = useCallback(() => {
+    setEstado("loading");
     fetch(`/api/portal/${token}`)
       .then((r) => r.json())
       .then((d) => {
@@ -166,8 +169,12 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
         setData(d);
         setEstado("portal");
       })
-      .catch(() => setEstado("not_found"));
+      .catch(() => setEstado("load_error"));
   }, [token]);
+
+  useEffect(() => {
+    cargar();
+  }, [cargar]);
 
   async function responder(accion: "aceptar" | "rechazar", opts: { firmaTexto?: string; motivo?: string } = {}) {
     setEnviando(true);
@@ -192,6 +199,20 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
 
   // ── Loading ──────────────────────────────────────────────────────────────
   if (estado === "loading") return <Spinner />;
+
+  // ── Error de carga (red) — honesto, con reintento ────────────────────────
+  if (estado === "load_error") {
+    return (
+      <div className="min-h-screen bg-[var(--color-background)] flex items-center justify-center px-6 py-12">
+        <ErrorState
+          className="w-full max-w-sm"
+          title="No hemos podido cargar tu presupuesto"
+          detail="Comprueba tu conexión e inténtalo de nuevo."
+          onRetry={cargar}
+        />
+      </div>
+    );
+  }
 
   // ── Error screens ────────────────────────────────────────────────────────
   if (estado === "not_found" || estado === "expired") {

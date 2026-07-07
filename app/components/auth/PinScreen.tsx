@@ -121,7 +121,7 @@ export function PinScreen({
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-accent)] border border-[var(--color-border)]">
             <ShieldCheck size={26} strokeWidth={1.5} aria-hidden="true" />
           </div>
-          <h1 className="font-display text-2xl font-semibold text-[var(--color-foreground)] tracking-tight">{title}</h1>
+          <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)] tracking-tight">{title}</h1>
           {subtitle && <p className="text-sm text-[var(--color-muted)]">{subtitle}</p>}
         </div>
 
