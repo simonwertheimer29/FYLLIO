@@ -9,6 +9,9 @@ import {
   setUsuarioClinicas,
   listClinicaIdsForUser,
   listClinicas,
+  emailInUse,
+  isValidLoginEmail,
+  normalizeEmail,
 } from "../../../../lib/auth/users";
 
 export const dynamic = "force-dynamic";
@@ -36,8 +39,24 @@ export const PATCH = withAdmin<Ctx>(async (session, req, ctx) => {
 
   const patch: Parameters<typeof updateUsuario>[1] = {};
   if (typeof body.nombre === "string" && body.nombre.trim()) patch.nombre = body.nombre.trim();
-  if (body.email !== undefined)
-    patch.email = body.email === null ? null : String(body.email).toLowerCase().trim();
+  if (body.email !== undefined) {
+    // El email es el identificador de login: no se acepta vacío ni inválido,
+    // y no puede colisionar con el de otro usuario activo.
+    const email = body.email === null ? "" : normalizeEmail(String(body.email));
+    if (!isValidLoginEmail(email)) {
+      return NextResponse.json(
+        { error: "Introduce un email válido: es con lo que el usuario inicia sesión." },
+        { status: 400 },
+      );
+    }
+    if (await emailInUse(email, id)) {
+      return NextResponse.json(
+        { error: "Ese email ya está en uso por otro usuario." },
+        { status: 409 },
+      );
+    }
+    patch.email = email;
+  }
   if (body.telefono !== undefined)
     patch.telefono = body.telefono === null ? null : String(body.telefono).trim();
   if (typeof body.activo === "boolean") patch.activo = body.activo;

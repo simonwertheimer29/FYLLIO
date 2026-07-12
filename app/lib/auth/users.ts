@@ -70,6 +70,30 @@ function escapeFormula(value: string): string {
   return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
+// Email válido como identificador de login: sin espacios, comillas ni barras
+// invertidas (que romperían la fórmula Airtable), formato local@dominio.tld.
+const LOGIN_EMAIL_RE = /^[^\s@'"\\]+@[^\s@'"\\]+\.[^\s@'"\\]+$/;
+
+export function normalizeEmail(email: string): string {
+  return email.toLowerCase().trim();
+}
+
+export function isValidLoginEmail(email: string): boolean {
+  return email.length <= 254 && LOGIN_EMAIL_RE.test(email);
+}
+
+/**
+ * ¿Existe ya OTRO usuario ACTIVO con este email? La comprobación es GLOBAL
+ * (todos los clientes), no por cliente: el login por email compara el PIN
+ * contra todos los usuarios activos con ese email sin filtrar por cliente, así
+ * que dos usuarios de clientes distintos compartiendo email harían el acceso
+ * ambiguo entre inquilinos. `excludeUserId` omite al usuario que se edita.
+ */
+export async function emailInUse(email: string, excludeUserId?: string): Promise<boolean> {
+  const matches = await findUsersByEmail(email);
+  return matches.some((u) => u.id !== excludeUserId);
+}
+
 /**
  * Login email+PIN — usuarios ACTIVOS (cualquier rol) con ese email.
  * `Email` no es único en Airtable, así que devuelve todos los candidatos y

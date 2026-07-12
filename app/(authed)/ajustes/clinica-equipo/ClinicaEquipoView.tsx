@@ -9,6 +9,9 @@ import { Card } from "../../../components/ui/Card";
 import { StatePill } from "../../../components/ui/StatePill";
 import { X, ICON_STROKE } from "../../../components/icons";
 
+// Mismo criterio que el backend (isValidLoginEmail): sin espacios/comillas.
+const EMAIL_RE = /^[^\s@'"\\]+@[^\s@'"\\]+\.[^\s@'"\\]+$/;
+
 type Clinica = {
   id: string;
   nombre: string;
@@ -216,7 +219,15 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
                   <td className="px-3 py-2 text-[var(--color-muted)]">
                     {u.rol === "admin" ? "Administrador" : "Coordinación"}
                   </td>
-                  <td className="px-3 py-2 text-[var(--color-muted)]">{u.email ?? "—"}</td>
+                  <td className="px-3 py-2 text-[var(--color-muted)]">
+                    {u.email ? (
+                      u.email
+                    ) : (
+                      <StatePill variant="warning" title="Sin email no puede iniciar sesión con el nuevo acceso">
+                        Sin email
+                      </StatePill>
+                    )}
+                  </td>
                   <td className="px-3 py-2 text-[var(--color-muted)] font-mono text-[11px]">{u.telefono ?? "—"}</td>
                   <td className="px-3 py-2 text-[var(--color-muted)]">
                     {u.rol === "admin"
@@ -408,6 +419,16 @@ function UsuarioModal({
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!nombre.trim()) return;
+    // Email = identificador de login: obligatorio y con formato válido.
+    const emailNorm = email.trim().toLowerCase();
+    if (!EMAIL_RE.test(emailNorm)) {
+      onError("Introduce un email válido: es con lo que el usuario inicia sesión.");
+      return;
+    }
+    if (rol === "coordinacion" && clinicasSel.size === 0) {
+      onError("Selecciona al menos una clínica");
+      return;
+    }
     setSaving(true);
     try {
       if (isNew) {
@@ -416,20 +437,16 @@ function UsuarioModal({
             ? {
                 rol: "admin" as const,
                 nombre,
-                email: email || null,
+                email: emailNorm,
                 telefono: telefono || null,
               }
             : {
                 rol: "coordinacion" as const,
                 nombre,
+                email: emailNorm,
                 clinicas: Array.from(clinicasSel),
                 telefono: telefono || null,
               };
-        if (rol === "coordinacion" && clinicasSel.size === 0) {
-          onError("Selecciona al menos una clínica");
-          setSaving(false);
-          return;
-        }
         const res = await fetch("/api/admin/usuarios", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -449,7 +466,7 @@ function UsuarioModal({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             nombre,
-            email: rol === "admin" ? email || null : undefined,
+            email: emailNorm,
             telefono: telefono || null,
             clinicas: rol === "coordinacion" ? Array.from(clinicasSel) : undefined,
           }),
@@ -496,9 +513,13 @@ function UsuarioModal({
 
         <LabeledInput label="Nombre" value={nombre} onChange={setNombre} required />
 
-        {rol === "admin" && (
-          <LabeledInput label="Email (opcional, solo notificaciones)" value={email} onChange={setEmail} />
-        )}
+        <LabeledInput
+          label="Email (para iniciar sesión)"
+          value={email}
+          onChange={setEmail}
+          type="email"
+          required
+        />
 
         <LabeledInput
           label={
@@ -653,17 +674,19 @@ function LabeledInput({
   value,
   onChange,
   required,
+  type = "text",
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   required?: boolean;
+  type?: "text" | "email";
 }) {
   return (
     <div>
       <label className="block text-[11px] uppercase tracking-wide font-semibold text-[var(--color-muted)] mb-1">{label}</label>
       <input
-        type="text"
+        type={type}
         value={value}
         required={required}
         onChange={(e) => onChange(e.target.value)}

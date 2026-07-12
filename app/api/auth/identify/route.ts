@@ -21,26 +21,23 @@ import {
 } from "../../../lib/auth/pinRateLimitKv";
 import {
   findUsersByEmail,
+  isValidLoginEmail,
   listClinicaIdsForUser,
   listClinicas,
+  normalizeEmail,
 } from "../../../lib/auth/users";
 
 export const dynamic = "force-dynamic";
 
 const GENERIC_ERROR = "Email o PIN incorrectos.";
 
-// Allowlist estricto de email: sin comillas ni barras invertidas, así ningún
-// carácter especial de fórmula Airtable llega a findUsersByEmail (defensa en
-// profundidad además del escape de escapeFormula).
-const EMAIL_RE = /^[^\s@'"\\]+@[^\s@'"\\]+\.[^\s@'"\\]+$/;
-
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => null);
-    const email = typeof body?.email === "string" ? body.email.toLowerCase().trim() : "";
+    const email = typeof body?.email === "string" ? normalizeEmail(body.email) : "";
     const pin = typeof body?.pin === "string" ? body.pin.trim() : "";
 
-    if (!EMAIL_RE.test(email) || email.length > 254 || !/^\d{4}$|^\d{6}$/.test(pin)) {
+    if (!isValidLoginEmail(email) || !/^\d{4}$|^\d{6}$/.test(pin)) {
       return NextResponse.json({ error: GENERIC_ERROR }, { status: 401 });
     }
 

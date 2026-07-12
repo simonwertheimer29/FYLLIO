@@ -11,6 +11,9 @@ import {
   listClinicas,
   createUsuario,
   setUsuarioClinicas,
+  emailInUse,
+  isValidLoginEmail,
+  normalizeEmail,
 } from "../../../lib/auth/users";
 import { hashPin, genRandomPin } from "../../../lib/auth/hashing";
 
@@ -36,7 +39,13 @@ export const GET = withAdmin(async (session) => {
 
 type CreateBody =
   | { rol: "admin"; nombre: string; email?: string | null; telefono?: string | null }
-  | { rol: "coordinacion"; nombre: string; clinicas: string[]; telefono?: string | null };
+  | {
+      rol: "coordinacion";
+      nombre: string;
+      email?: string | null;
+      clinicas: string[];
+      telefono?: string | null;
+    };
 
 export const POST = withAdmin(async (session, req) => {
   const body = (await req.json().catch(() => null)) as CreateBody | null;
@@ -44,6 +53,21 @@ export const POST = withAdmin(async (session, req) => {
     return NextResponse.json({ error: "Nombre requerido" }, { status: 400 });
   }
   const nombre = body.nombre.trim();
+
+  // Email = identificador de inicio de sesión: requerido, válido y no repetido.
+  const email = typeof body.email === "string" ? normalizeEmail(body.email) : "";
+  if (!isValidLoginEmail(email)) {
+    return NextResponse.json(
+      { error: "Introduce un email válido: es con lo que el usuario inicia sesión." },
+      { status: 400 },
+    );
+  }
+  if (await emailInUse(email)) {
+    return NextResponse.json(
+      { error: "Ese email ya está en uso por otro usuario." },
+      { status: 409 },
+    );
+  }
 
   if (body.rol === "admin") {
     const pin = genRandomPin(6);
@@ -53,7 +77,7 @@ export const POST = withAdmin(async (session, req) => {
       rol: "admin",
       // Fase 4 — el usuario creado hereda el cliente del admin que lo crea.
       cliente: session.cliente,
-      email: body.email ? String(body.email).toLowerCase().trim() : null,
+      email,
       telefono: body.telefono ? String(body.telefono).trim() : null,
       pinHash,
       pinLength: 6,
@@ -100,6 +124,7 @@ export const POST = withAdmin(async (session, req) => {
       rol: "coordinacion",
       // Fase 4 — el usuario creado hereda el cliente del admin que lo crea.
       cliente: session.cliente,
+      email,
       telefono: body.telefono ? String(body.telefono).trim() : null,
       pinHash,
       pinLength: 4,
