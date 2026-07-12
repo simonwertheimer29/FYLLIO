@@ -19,7 +19,10 @@ async function hasValidSession(token: string): Promise<boolean> {
   const s = secret();
   if (!s) return false;
   try {
-    await jwtVerify(token, s);
+    const { payload } = await jwtVerify(token, s);
+    // Un token con `purpose` (identificación efímera) no es una sesión, aunque
+    // comparta secreto de firma. No debe abrir rutas protegidas.
+    if ("purpose" in payload) return false;
     return true;
   } catch {
     return false;

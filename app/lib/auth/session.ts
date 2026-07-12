@@ -60,6 +60,10 @@ export async function signSession(
 export async function verifySession(token: string): Promise<Session | null> {
   try {
     const { payload } = await jwtVerify(token, secret());
+    // Los tokens con `purpose` (p. ej. el token efímero de identificación) NO
+    // son sesiones aunque estén firmados con el mismo AUTH_SECRET: rechazarlos
+    // aquí evita confundir un token de un solo paso con una sesión completa.
+    if ("purpose" in payload) return null;
     return payload as unknown as Session;
   } catch {
     return null;

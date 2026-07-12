@@ -64,7 +64,10 @@ function toClinica(rec: any): Clinica {
 }
 
 function escapeFormula(value: string): string {
-  return value.replace(/'/g, "\\'");
+  // La barra invertida es el carácter de escape de las fórmulas Airtable:
+  // hay que escaparla ANTES que la comilla, o un `\'` del atacante anularía
+  // el escape de la comilla y rompería fuera del literal de cadena.
+  return value.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
 }
 
 /**

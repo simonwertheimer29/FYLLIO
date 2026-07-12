@@ -21,7 +21,9 @@ export default async function AuthedLayout({
   children: React.ReactNode;
 }) {
   const session = await getSession();
-  if (!session) redirect("/login");
+  // Fail-closed (Sprint B): sin sesión, o sin `cliente`, no se resuelve la base
+  // de negocio ni se debe listar clínica alguna. Volver al login.
+  if (!session || !session.cliente) redirect("/login");
 
   // Sprint B Fase 4 — solo las clínicas del cliente del usuario: un admin de RB
   // NO ve las de INDEP en el selector.
