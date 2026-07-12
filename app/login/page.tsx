@@ -1,16 +1,11 @@
-// app/login/page.tsx — Panel de gestión.
-// Server component: carga clínicas activas y delega UI interactiva al client.
+// app/login/page.tsx — login email+PIN (rediseño jul 2026).
+// El flujo clásico por clínica sigue disponible en /login/clasico como
+// respaldo para usuarios que aún no tienen email asignado.
 
-import { listClinicas } from "../lib/auth/users";
-import { LoginView } from "./LoginView";
+import { LoginFlow } from "./LoginFlow";
 
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage() {
-  const clinicas = await listClinicas({ onlyActivas: true });
-  return (
-    <LoginView
-      clinicas={clinicas.map((c) => ({ id: c.id, nombre: c.nombre, ciudad: c.ciudad }))}
-    />
-  );
+export default function LoginPage() {
+  return <LoginFlow />;
 }
