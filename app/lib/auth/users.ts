@@ -67,6 +67,24 @@ function escapeFormula(value: string): string {
   return value.replace(/'/g, "\\'");
 }
 
+/**
+ * Login email+PIN — usuarios ACTIVOS (cualquier rol) con ese email.
+ * `Email` no es único en Airtable, así que devuelve todos los candidatos y
+ * el caller compara el PIN (bcrypt) contra cada uno, igual que hace el
+ * flujo de coordinación por clínica.
+ */
+export async function findUsersByEmail(email: string): Promise<Usuario[]> {
+  const safe = escapeFormula(email.toLowerCase().trim());
+  if (!safe) return [];
+  const recs = await baseCentral(TABLES.usuarios)
+    .select({
+      filterByFormula: `AND(LOWER({Email})='${safe}', {Activo})`,
+      maxRecords: 10,
+    })
+    .firstPage();
+  return recs.map(toUsuario);
+}
+
 /** Busca un admin por email. Devuelve null si no existe o no es admin activo. */
 export async function findUserByEmail(email: string): Promise<Usuario | null> {
   const safe = escapeFormula(email.toLowerCase().trim());

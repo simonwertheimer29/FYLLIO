@@ -8,11 +8,11 @@ import { verifyPin } from "../../../lib/auth/hashing";
 import { signSession, setSessionCookie, verifySession } from "../../../lib/auth/session";
 import { emitLegacyCookies } from "../../../lib/auth/legacy-cookies";
 import {
-  checkLimit,
+  checkLimitKv,
   extractIp,
-  recordFailure,
-  recordSuccess,
-} from "../../../lib/auth/pinRateLimit";
+  recordFailureKv,
+  recordSuccessKv,
+} from "../../../lib/auth/pinRateLimitKv";
 
 export const dynamic = "force-dynamic";
 
@@ -26,14 +26,15 @@ export async function POST(req: Request) {
     }
 
     const ip = extractIp(req);
-    const scope = "admin";
-    const gate = checkLimit(scope, ip);
+    // Limiter persistente (KV) compartido entre lambdas; fail-closed en prod.
+    const limitKeys = [`admin:ip:${ip}`];
+    const gate = await checkLimitKv(limitKeys);
     if (!gate.allowed) {
       return NextResponse.json(
         { error: "Demasiados intentos, espera 15 minutos" },
         {
           status: 429,
-          headers: { "Retry-After": String(Math.ceil(gate.retryAfterMs / 1000)) },
+          headers: { "Retry-After": String(gate.retryAfterSeconds) },
         }
       );
     }
@@ -52,7 +53,7 @@ export async function POST(req: Request) {
     }
 
     if (!matched) {
-      recordFailure(scope, ip);
+      await recordFailureKv(limitKeys);
       return NextResponse.json({ error: "PIN incorrecto" }, { status: 401 });
     }
 
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
       );
     }
 
-    recordSuccess(scope, ip);
+    await recordSuccessKv(limitKeys);
 
     const token = await signSession(
       {
