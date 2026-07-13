@@ -99,13 +99,14 @@ const LEADS: Array<{
   tratamiento: string;
   citaHoy?: boolean;
 }> = [
+  // canal ∈ CANALES y tratamiento ∈ TRATAMIENTOS del form de Leads (single-select).
   { nombre: "DEMO · Gloria Pérez", clinica: C_CENTRO, estado: "Nuevo", telefono: "600 000 001", canal: "Instagram", tratamiento: "Ortodoncia" },
-  { nombre: "DEMO · Hugo Ramos", clinica: C_CENTRO, estado: "Citado", telefono: "600 000 002", canal: "Web", tratamiento: "Implante", citaHoy: true },
-  { nombre: "DEMO · Irene Blanco", clinica: C_NORTE, estado: "Contactado", telefono: "600 000 003", canal: "Recomendación", tratamiento: "Blanqueamiento" },
-  { nombre: "DEMO · Javier Nieto", clinica: C_SUR, estado: "Nuevo", telefono: "600 000 004", canal: "Google", tratamiento: "Revisión" },
-  { nombre: "DEMO · Laura Prieto", clinica: C_ESTE, estado: "Convertido", telefono: "600 000 005", canal: "Instagram", tratamiento: "Corona" },
-  { nombre: "DEMO · Marco Díaz", clinica: C_NORTE, estado: "Citado", telefono: "600 000 006", canal: "Web", tratamiento: "Endodoncia", citaHoy: true },
-  { nombre: "DEMO · Nadia Soler", clinica: C_CENTRO, estado: "No interesado", telefono: "600 000 007", canal: "Google", tratamiento: "Ortodoncia" },
+  { nombre: "DEMO · Hugo Ramos", clinica: C_CENTRO, estado: "Citado", telefono: "600 000 002", canal: "Landing Page", tratamiento: "Implantología", citaHoy: true },
+  { nombre: "DEMO · Irene Blanco", clinica: C_NORTE, estado: "Contactado", telefono: "600 000 003", canal: "Referido", tratamiento: "Blanqueamiento" },
+  { nombre: "DEMO · Javier Nieto", clinica: C_SUR, estado: "Nuevo", telefono: "600 000 004", canal: "Google Orgánico", tratamiento: "Revisión" },
+  { nombre: "DEMO · Laura Prieto", clinica: C_ESTE, estado: "Convertido", telefono: "600 000 005", canal: "Instagram", tratamiento: "Corona cerámica" },
+  { nombre: "DEMO · Marco Díaz", clinica: C_NORTE, estado: "Citado", telefono: "600 000 006", canal: "Landing Page", tratamiento: "Endodoncia", citaHoy: true },
+  { nombre: "DEMO · Nadia Soler", clinica: C_CENTRO, estado: "No Interesado", telefono: "600 000 007", canal: "Google Orgánico", tratamiento: "Ortodoncia" },
 ];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -314,8 +315,9 @@ async function seedNegocio(): Promise<void> {
     }
     console.log(`  ✓ ${PRESUPUESTOS.length} presupuestos`);
 
-    // Leads (Clinica = link).
+    // Leads (Clinica = link). Resiliente: un valor de select inesperado no aborta.
     const leadId: string[] = [];
+    let leadsOk = 0;
     for (const l of LEADS) {
       const cid = clinicaNegId.get(l.clinica);
       const fields: Record<string, unknown> = {
@@ -329,16 +331,24 @@ async function seedNegocio(): Promise<void> {
       if (cid && cid !== "dry") fields["Clinica"] = [cid];
       if (l.citaHoy) fields["Fecha_Cita"] = HOY;
       if (DRY) { console.log(`  [dry] lead ${l.nombre} (${l.estado})`); continue; }
-      const created = await (base(TABLES.leads) as any).create([{ fields }]);
-      leadId.push(created[0].id);
+      try {
+        const created = await (base(TABLES.leads) as any).create([{ fields }]);
+        leadId.push(created[0].id);
+        leadsOk++;
+      } catch (e) {
+        console.log(`  ! lead "${l.nombre}" omitido: ${(e as Error).message.slice(0, 80)}`);
+      }
     }
-    console.log(`  ✓ ${LEADS.length} leads`);
+    console.log(`  ✓ ${DRY ? LEADS.length : leadsOk} leads`);
 
-    // Acciones_Lead (para el KPI de tiempo de respuesta) — best-effort.
+    // Acciones_Lead — pares Entrante→Saliente de hoy para que el KPI de tiempo
+    // medio de respuesta (minutos entre ambos) muestre datos. Best-effort.
     try {
-      const rows = leadId.slice(0, 3).map((lid) => ({
-        fields: { Lead: [lid], Tipo_Accion: "Primer contacto", Timestamp: new Date().toISOString() },
-      }));
+      const rows: Array<{ fields: Record<string, unknown> }> = [];
+      for (const lid of leadId.slice(0, 2)) {
+        rows.push({ fields: { Lead: [lid], Tipo_Accion: "WhatsApp_Entrante", Timestamp: `${HOY}T09:00:00.000Z` } });
+        rows.push({ fields: { Lead: [lid], Tipo_Accion: "WhatsApp_Saliente", Timestamp: `${HOY}T09:08:00.000Z` } });
+      }
       if (!DRY && rows.length) await (base(TABLES.accionesLead) as any).create(rows);
       console.log(`  ✓ ${DRY ? "(dry) " : ""}${rows.length} acciones de lead`);
     } catch (e) {
@@ -355,10 +365,9 @@ async function seedNegocio(): Promise<void> {
           return {
             fields: {
               Paciente_RecordId: pid,
-              Paciente: [pid],
               Importe: p.importe,
               Fecha_Pago: HOY,
-              Tipo: "Cobro",
+              Tipo: "Liquidacion",
               Metodo: "Tarjeta",
             },
           };
