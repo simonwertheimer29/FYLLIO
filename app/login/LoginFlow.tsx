@@ -76,12 +76,20 @@ export function LoginFlow() {
   } | null>(null);
   const pinRef = useRef(pin);
   pinRef.current = pin;
+  const autoSubmitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const last = readLastUser();
     setLastUser(last);
     if (last) setEmail(last.email);
     setStep(last ? "pin" : "email");
+  }, []);
+
+  // Cancela cualquier autosubmit pendiente al desmontar.
+  useEffect(() => {
+    return () => {
+      if (autoSubmitTimer.current) clearTimeout(autoSubmitTimer.current);
+    };
   }, []);
 
   function rememberUser(nombre: string, mail: string, pinLength: 4 | 6 | null) {
@@ -169,19 +177,45 @@ export function LoginFlow() {
     }
   }
 
+  function clearAutoSubmit() {
+    if (autoSubmitTimer.current) {
+      clearTimeout(autoSubmitTimer.current);
+      autoSubmitTimer.current = null;
+    }
+  }
+
   function onDigit(d: string) {
     if (busy) return;
     const next = (pinRef.current + d).slice(0, MAX_PIN);
     setPin(next);
     setError(null);
-    // Auto-envío cuando conocemos la longitud del PIN de este usuario
-    // (guardada tras un login correcto en este dispositivo).
-    if (lastUser?.pinLength && next.length === lastUser.pinLength) {
+    clearAutoSubmit();
+
+    // Autosubmit sin botón. Si conocemos la longitud del PIN de este usuario
+    // (guardada tras un login correcto en este dispositivo), enviamos justo al
+    // completarla.
+    const knownLen = lastUser?.pinLength;
+    if (knownLen) {
+      if (next.length === knownLen) void identify(next);
+      return;
+    }
+
+    // Primera vez en este dispositivo: no sabemos si el PIN es de 4 (coord) o
+    // 6 (admin), y consultarlo antes delataría el rol. Al llegar a 6 enviamos
+    // ya (es el máximo, sin ambigüedad); al llegar a 4 esperamos una pausa
+    // breve por si sigue tecleando hasta 6 — así un admin tecleando del tirón
+    // no dispara un intento a 4.
+    if (next.length === MAX_PIN) {
       void identify(next);
+    } else if (next.length === 4) {
+      autoSubmitTimer.current = setTimeout(() => {
+        if (pinRef.current.length === 4) void identify(pinRef.current);
+      }, 450);
     }
   }
 
   function switchUser() {
+    clearAutoSubmit();
     try {
       localStorage.removeItem(LAST_USER_KEY);
     } catch {}
@@ -268,6 +302,7 @@ export function LoginFlow() {
               onDigit={onDigit}
               onBackspace={() => {
                 if (!busy) {
+                  clearAutoSubmit();
                   setPin(pinRef.current.slice(0, -1));
                   setError(null);
                 }
@@ -276,22 +311,8 @@ export function LoginFlow() {
             />
           </div>
 
-          {/* Sin longitud conocida (primer login aquí): botón Entrar. */}
-          {!lastUser?.pinLength && (
-            <button
-              type="button"
-              disabled={busy || pin.length < MIN_PIN}
-              onClick={() => void identify(pin)}
-              className="mt-4 inline-flex w-full max-w-[250px] items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-2.5 text-sm font-semibold text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
-            >
-              {busy ? (
-                <LoaderCircle size={15} strokeWidth={ICON_STROKE} className="animate-spin" aria-hidden />
-              ) : (
-                "Entrar"
-              )}
-            </button>
-          )}
-          {busy && lastUser?.pinLength && (
+          {/* Autosubmit: el PIN se envía solo al completarse; sin botón. */}
+          {busy && (
             <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-[var(--color-muted)]">
               <LoaderCircle size={13} strokeWidth={ICON_STROKE} className="animate-spin" aria-hidden />
               Comprobando…

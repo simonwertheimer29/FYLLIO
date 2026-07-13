@@ -48,7 +48,10 @@ function toUsuario(rec: any): Usuario {
     passwordHash: f["Password_hash"] ? String(f["Password_hash"]) : null,
     pinHash: f["Pin_hash"] ? String(f["Pin_hash"]) : null,
     pinLength,
-    cliente: f["Cliente"] === "RB" || f["Cliente"] === "INDEP" ? (f["Cliente"] as Cliente) : null,
+    cliente:
+      f["Cliente"] === "RB" || f["Cliente"] === "INDEP" || f["Cliente"] === "DEMO"
+        ? (f["Cliente"] as Cliente)
+        : null,
   };
 }
 
