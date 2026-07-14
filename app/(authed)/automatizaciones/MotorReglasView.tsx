@@ -89,13 +89,13 @@ const ROSE_TONE =
   "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30";
 
 const RESULTADO_BADGE: Record<AccionLog["resultado"], { tone: string; label: string }> = {
-  success: { tone: EMERALD_TONE, label: "OK" },
+  success: { tone: EMERALD_TONE, label: "Hecho" },
   error: { tone: ROSE_TONE, label: "Error" },
-  skipped_cooldown: { tone: AMBER_TONE, label: "Cooldown" },
-  skipped_optout: { tone: NEUTRAL_TONE, label: "Opt-out" },
-  skipped_horario: { tone: NEUTRAL_TONE, label: "Horario" },
-  skipped_test: { tone: NEUTRAL_TONE, label: "Test" },
-  skipped_dedupe: { tone: NEUTRAL_TONE, label: "Dedupe" },
+  skipped_cooldown: { tone: AMBER_TONE, label: "En espera" },
+  skipped_optout: { tone: NEUTRAL_TONE, label: "No contactar" },
+  skipped_horario: { tone: NEUTRAL_TONE, label: "Fuera de horario" },
+  skipped_test: { tone: NEUTRAL_TONE, label: "En pruebas" },
+  skipped_dedupe: { tone: NEUTRAL_TONE, label: "Ya enviado" },
 };
 
 export function MotorReglasView({ isAdmin }: { isAdmin: boolean }) {
@@ -164,7 +164,7 @@ export function MotorReglasView({ isAdmin }: { isAdmin: boolean }) {
       });
       if (!res.ok) throw new Error();
     } catch {
-      toast.error("No se pudo actualizar el modo test.");
+      toast.error("No se pudo cambiar el modo de pruebas.");
       setReglas(reglas);
     }
   }
@@ -176,9 +176,10 @@ export function MotorReglasView({ isAdmin }: { isAdmin: boolean }) {
           Automatizaciones
         </h1>
         <p className="text-sm text-[var(--color-muted)] mt-1">
-          Reglas que reducen trabajo manual disparando acciones cuando se
-          cumplen condiciones. Cada regla puede activarse o desactivarse y
-          ponerse en modo test antes de pasar a producción.
+          Tareas que Fyllio hace por ti sin que tengas que acordarte — como
+          avisar de una cita o dar un toque a un presupuesto parado. Puedes
+          activar o pausar cada una, y probarla con un solo paciente antes de
+          ponerla en marcha para todos.
         </p>
       </header>
 
@@ -264,7 +265,7 @@ export function MotorReglasView({ isAdmin }: { isAdmin: boolean }) {
                 padding="none"
                 className="p-6 text-center text-sm text-[var(--color-muted)]"
               >
-                Sin errores en los últimos eventos.
+                Todo funciona correctamente — sin incidencias recientes.
               </Card>
             ) : (
               <Card padding="none" className="overflow-hidden">
@@ -278,7 +279,7 @@ export function MotorReglasView({ isAdmin }: { isAdmin: boolean }) {
                           className="text-[var(--color-danger)] shrink-0"
                           aria-hidden
                         />
-                        <span className="font-mono text-[var(--color-muted)]">
+                        <span className="text-[var(--color-muted)] tabular-nums">
                           {relTime(e.ejecutadaAt)}
                         </span>
                         <span
@@ -287,9 +288,9 @@ export function MotorReglasView({ isAdmin }: { isAdmin: boolean }) {
                           {RESULTADO_BADGE[e.resultado].label}
                         </span>
                       </div>
-                      <pre className="mt-1.5 text-[11px] text-[var(--color-muted)] whitespace-pre-wrap break-all">
+                      <p className="mt-1.5 text-[11px] text-[var(--color-muted)]">
                         {e.detalle}
-                      </pre>
+                      </p>
                     </li>
                   ))}
                 </ul>
@@ -350,7 +351,7 @@ function ReglaCard({
               <span
                 className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${AMBER_TONE}`}
               >
-                Modo test
+                En pruebas
               </span>
             )}
             {!regla.activa && (
@@ -365,10 +366,15 @@ function ReglaCard({
             {regla.descripcion}
           </p>
           <p className="text-[11px] text-[var(--color-muted)] mt-2">
-            Trigger: <span className="font-mono">{regla.triggerTipo}</span>
-            {" · "}
-            {regla.vecesDisparada} veces
-            {regla.ultimaDisparada && ` · última ${relTime(regla.ultimaDisparada)}`}
+            {regla.vecesDisparada === 0
+              ? "Aún no se ha activado"
+              : `Se ha activado ${regla.vecesDisparada} ${
+                  regla.vecesDisparada === 1 ? "vez" : "veces"
+                }${
+                  regla.ultimaDisparada
+                    ? ` · última ${relTime(regla.ultimaDisparada)}`
+                    : ""
+                }`}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -391,7 +397,7 @@ function ReglaCard({
                 onChange={(e) => onToggleTest(e.target.checked)}
                 className="accent-amber-500 dark:accent-amber-400"
               />
-              Test
+              Pruebas
             </label>
           )}
           <button
@@ -538,7 +544,7 @@ function HistorialDrawer({
                     >
                       {RESULTADO_BADGE[it.resultado].label}
                     </span>
-                    <span className="font-mono text-[var(--color-muted)]">
+                    <span className="text-[var(--color-muted)] tabular-nums">
                       {new Date(it.ejecutadaAt).toLocaleString("es-ES", {
                         day: "2-digit",
                         month: "short",
@@ -547,9 +553,9 @@ function HistorialDrawer({
                       })}
                     </span>
                   </div>
-                  <pre className="mt-1.5 text-[11px] text-[var(--color-muted)] whitespace-pre-wrap break-all">
+                  <p className="mt-1.5 text-[11px] text-[var(--color-muted)]">
                     {it.detalle}
-                  </pre>
+                  </p>
                 </li>
               ))}
             </ul>
@@ -655,17 +661,17 @@ function ConfigModal({
           )}
           <div>
             <label className="block text-[11px] font-semibold text-[var(--color-muted)] mb-1">
-              Paciente de prueba (ID)
+              Paciente de prueba
             </label>
             <input
               type="text"
-              placeholder="ID del paciente (solo con modo test)"
+              placeholder="Identificador del paciente"
               value={pacienteTest}
               onChange={(e) => setPacienteTest(e.target.value)}
-              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
             />
             <p className="text-[10px] text-[var(--color-muted)] mt-1">
-              En modo test la regla solo se dispara contra este paciente.
+              Mientras la regla está en pruebas, solo actúa sobre este paciente.
             </p>
           </div>
           <div className="flex gap-2 pt-1">
