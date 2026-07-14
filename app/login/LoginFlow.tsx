@@ -76,20 +76,12 @@ export function LoginFlow() {
   } | null>(null);
   const pinRef = useRef(pin);
   pinRef.current = pin;
-  const autoSubmitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const last = readLastUser();
     setLastUser(last);
     if (last) setEmail(last.email);
     setStep(last ? "pin" : "email");
-  }, []);
-
-  // Cancela cualquier autosubmit pendiente al desmontar.
-  useEffect(() => {
-    return () => {
-      if (autoSubmitTimer.current) clearTimeout(autoSubmitTimer.current);
-    };
   }, []);
 
   function rememberUser(nombre: string, mail: string, pinLength: 4 | 6 | null) {
@@ -121,6 +113,7 @@ export function LoginFlow() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
+        pinRef.current = "";
         setPin("");
         setError(data?.error ?? "No se pudo iniciar sesión. Inténtalo de nuevo.");
         return;
@@ -139,6 +132,7 @@ export function LoginFlow() {
       });
       setStep("clinica");
     } catch {
+      pinRef.current = "";
       setPin("");
       setError("Sin conexión. Comprueba tu red e inténtalo de nuevo.");
     } finally {
@@ -177,45 +171,60 @@ export function LoginFlow() {
     }
   }
 
-  function clearAutoSubmit() {
-    if (autoSubmitTimer.current) {
-      clearTimeout(autoSubmitTimer.current);
-      autoSubmitTimer.current = null;
-    }
-  }
-
-  function onDigit(d: string) {
+  function addDigit(d: string) {
     if (busy) return;
     const next = (pinRef.current + d).slice(0, MAX_PIN);
+    // pinRef se actualiza de forma SÍNCRONA (no solo en el render) para que al
+    // teclear rápido cada pulsación construya sobre la anterior y no se pierdan
+    // dígitos mientras React aún no ha re-renderizado.
+    pinRef.current = next;
     setPin(next);
     setError(null);
-    clearAutoSubmit();
-
-    // Autosubmit sin botón. Si conocemos la longitud del PIN de este usuario
-    // (guardada tras un login correcto en este dispositivo), enviamos justo al
-    // completarla.
+    // Autosubmit SOLO cuando es inequívoco: usuario recordado → al completar su
+    // longitud conocida; primera vez (longitud desconocida) → solo al llegar al
+    // máximo (6). Los PIN de 4 en primer acceso se envían con Entrar o el botón
+    // (nunca auto-enviamos a 4, o cortaríamos a un admin a mitad de su PIN).
     const knownLen = lastUser?.pinLength;
     if (knownLen) {
       if (next.length === knownLen) void identify(next);
-      return;
-    }
-
-    // Primera vez en este dispositivo: no sabemos si el PIN es de 4 (coord) o
-    // 6 (admin), y consultarlo antes delataría el rol. Al llegar a 6 enviamos
-    // ya (es el máximo, sin ambigüedad); al llegar a 4 esperamos una pausa
-    // breve por si sigue tecleando hasta 6 — así un admin tecleando del tirón
-    // no dispara un intento a 4.
-    if (next.length === MAX_PIN) {
+    } else if (next.length === MAX_PIN) {
       void identify(next);
-    } else if (next.length === 4) {
-      autoSubmitTimer.current = setTimeout(() => {
-        if (pinRef.current.length === 4) void identify(pinRef.current);
-      }, 450);
     }
   }
 
+  function removeDigit() {
+    if (busy) return;
+    const next = pinRef.current.slice(0, -1);
+    pinRef.current = next;
+    setPin(next);
+    setError(null);
+  }
+
+  function submitPin() {
+    if (!busy && pinRef.current.length >= MIN_PIN) void identify(pinRef.current);
+  }
+
+  // Teclado físico en el paso del PIN: dígitos, borrar y Enter para enviar.
+  useEffect(() => {
+    if (step !== "pin") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (/^[0-9]$/.test(e.key)) {
+        e.preventDefault();
+        addDigit(e.key);
+      } else if (e.key === "Backspace") {
+        e.preventDefault();
+        removeDigit();
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        submitPin();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, busy, lastUser, email]);
+
   function switchUser() {
-    clearAutoSubmit();
     try {
       localStorage.removeItem(LAST_USER_KEY);
     } catch {}
@@ -300,28 +309,38 @@ export function LoginFlow() {
             </>
           )}
 
-          <PinDots length={Math.max(pin.length, MIN_PIN)} filled={pin.length} />
+          <PinDots
+            length={lastUser?.pinLength ?? Math.max(pin.length, MIN_PIN)}
+            filled={pin.length}
+          />
 
           <div className="mx-auto max-w-[250px]">
-            <NumericKeypad
-              onDigit={onDigit}
-              onBackspace={() => {
-                if (!busy) {
-                  clearAutoSubmit();
-                  setPin(pinRef.current.slice(0, -1));
-                  setError(null);
-                }
-              }}
-              disabled={busy}
-            />
+            <NumericKeypad onDigit={addDigit} onBackspace={removeDigit} disabled={busy} />
           </div>
 
-          {/* Autosubmit: el PIN se envía solo al completarse; sin botón. */}
-          {busy && (
-            <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-[var(--color-muted)]">
-              <LoaderCircle size={13} strokeWidth={ICON_STROKE} className="animate-spin" aria-hidden />
-              Comprobando…
-            </p>
+          {lastUser?.pinLength ? (
+            // Usuario recordado: longitud conocida → autosubmit, sin botón.
+            busy && (
+              <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-[var(--color-muted)]">
+                <LoaderCircle size={13} strokeWidth={ICON_STROKE} className="animate-spin" aria-hidden />
+                Comprobando…
+              </p>
+            )
+          ) : (
+            // Primer acceso: longitud desconocida → botón Entrar (los de 6 se
+            // auto-envían al 6º dígito; los de 4, con este botón o con Enter).
+            <button
+              type="button"
+              onClick={submitPin}
+              disabled={busy || pin.length < MIN_PIN}
+              className="mx-auto mt-4 flex w-full max-w-[250px] items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-2.5 text-sm font-semibold text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
+            >
+              {busy ? (
+                <LoaderCircle size={15} strokeWidth={ICON_STROKE} className="animate-spin" aria-hidden />
+              ) : (
+                "Entrar"
+              )}
+            </button>
           )}
 
           {error && (

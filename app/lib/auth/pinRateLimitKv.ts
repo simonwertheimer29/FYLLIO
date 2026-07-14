@@ -9,9 +9,11 @@
 // de 15 min → bloqueo de 15 min. Se comprueba SIEMPRE sobre varias claves a
 // la vez (usuario Y ip): basta que una esté bloqueada para denegar.
 //
-// FAIL-CLOSED: en producción, si KV no responde se DENIEGA el intento (mejor
-// un login caído que un límite inexistente). Fuera de producción, si KV no
-// está configurado se usa el limiter en memoria como fallback de desarrollo.
+// DEGRADACIÓN: si KV está inalcanzable (no configurado, error o TIMEOUT), se
+// usa el limiter en memoria en vez de bloquear el login. Toda operación KV
+// lleva timeout: un KV que no responde NUNCA debe colgar el login (una llamada
+// colgada dejaría la petición pendiente para siempre; con timeout se abandona
+// y se degrada a memoria).
 
 import { kv } from "@vercel/kv";
 import {
@@ -24,9 +26,21 @@ export { extractIp } from "./pinRateLimit";
 
 const WINDOW_SECONDS = 15 * 60;
 const MAX_ATTEMPTS = 5;
+const KV_TIMEOUT_MS = 800;
 
 const FAIL_PREFIX = "pinfail:";
 const BLOCK_PREFIX = "pinblock:";
+
+/** Corre una operación KV con timeout: si no responde a tiempo, lanza — el
+ *  caller lo trata como KV inalcanzable y degrada a memoria. */
+function kvOp<T>(p: Promise<T>): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("kv-timeout")), KV_TIMEOUT_MS),
+    ),
+  ]);
+}
 
 export type KvCheckResult =
   | { allowed: true }
@@ -76,9 +90,9 @@ export async function checkLimitKv(keys: string[]): Promise<KvCheckResult> {
   try {
     for (const k of keys) {
       const blockKey = BLOCK_PREFIX + k;
-      const blocked = await kv.get(blockKey);
+      const blocked = await kvOp(kv.get(blockKey));
       if (blocked) {
-        const ttl = await kv.ttl(blockKey);
+        const ttl = await kvOp(kv.ttl(blockKey));
         return {
           allowed: false,
           retryAfterSeconds: ttl > 0 ? ttl : WINDOW_SECONDS,
@@ -88,7 +102,7 @@ export async function checkLimitKv(keys: string[]): Promise<KvCheckResult> {
     }
     return { allowed: true };
   } catch {
-    // KV caído → degradar a memoria (no bloquear el login por completo).
+    // KV caído/lento → degradar a memoria (no bloquear el login por completo).
     return memCheckAll(keys);
   }
 }
@@ -103,14 +117,14 @@ export async function recordFailureKv(keys: string[]): Promise<void> {
     for (const k of keys) {
       const failKey = FAIL_PREFIX + k;
       // incr es atómico entre lambdas; el TTL fija la ventana en el 1er fallo.
-      const attempts = await kv.incr(failKey);
-      if (attempts === 1) await kv.expire(failKey, WINDOW_SECONDS);
+      const attempts = await kvOp(kv.incr(failKey));
+      if (attempts === 1) await kvOp(kv.expire(failKey, WINDOW_SECONDS));
       if (attempts >= MAX_ATTEMPTS) {
-        await kv.set(BLOCK_PREFIX + k, 1, { ex: WINDOW_SECONDS });
+        await kvOp(kv.set(BLOCK_PREFIX + k, 1, { ex: WINDOW_SECONDS }));
       }
     }
   } catch {
-    // KV caído → cuenta el fallo en memoria para conservar algo de límite.
+    // KV caído/lento → cuenta el fallo en memoria para conservar algo de límite.
     for (const k of keys) memFail(k, "kv-fallback");
   }
 }
@@ -123,7 +137,7 @@ export async function recordSuccessKv(keys: string[]): Promise<void> {
   }
   try {
     for (const k of keys) {
-      await kv.del(FAIL_PREFIX + k, BLOCK_PREFIX + k);
+      await kvOp(kv.del(FAIL_PREFIX + k, BLOCK_PREFIX + k));
     }
   } catch {
     for (const k of keys) memSuccess(k, "kv-fallback");
