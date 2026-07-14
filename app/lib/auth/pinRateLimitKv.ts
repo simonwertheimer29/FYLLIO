@@ -30,14 +30,10 @@ const BLOCK_PREFIX = "pinblock:";
 
 export type KvCheckResult =
   | { allowed: true }
-  | { allowed: false; retryAfterSeconds: number; reason: "blocked" | "unavailable" };
+  | { allowed: false; retryAfterSeconds: number; reason: "blocked" };
 
 function kvConfigured(): boolean {
   return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
-}
-
-function useMemoryFallback(): boolean {
-  return process.env.NODE_ENV !== "production" && !kvConfigured();
 }
 
 /** Clave normalizada por usuario. El email se normaliza para que "Ana@X.es"
@@ -50,22 +46,33 @@ export function ipKey(ip: string): string {
   return `ip:${ip}`;
 }
 
-/** ¿Puede intentarse un login? Denegado si CUALQUIER clave está bloqueada. */
-export async function checkLimitKv(keys: string[]): Promise<KvCheckResult> {
-  if (useMemoryFallback()) {
-    for (const k of keys) {
-      const r = memCheck(k, "kv-fallback");
-      if (!r.allowed) {
-        return {
-          allowed: false,
-          retryAfterSeconds: Math.ceil(r.retryAfterMs / 1000),
-          reason: "blocked",
-        };
-      }
+/** Limitador en memoria (por-lambda) — usado cuando no hay KV configurado o
+ *  cuando KV está temporalmente inalcanzable. NO bloquea el login: degrada. */
+function memCheckAll(keys: string[]): KvCheckResult {
+  for (const k of keys) {
+    const r = memCheck(k, "kv-fallback");
+    if (!r.allowed) {
+      return {
+        allowed: false,
+        retryAfterSeconds: Math.ceil(r.retryAfterMs / 1000),
+        reason: "blocked",
+      };
     }
-    return { allowed: true };
   }
+  return { allowed: true };
+}
 
+/**
+ * ¿Puede intentarse un login? Denegado si CUALQUIER clave está bloqueada.
+ *
+ * Con KV sano: límite persistente entre lambdas (el fuerte). Si KV está
+ * INALCANZABLE (caída de infra, no controlable por un atacante), se DEGRADA al
+ * limitador en memoria en vez de bloquear TODOS los accesos: un fallo de KV no
+ * debe dejar a nadie sin poder entrar. La auth por PIN (bcrypt) sigue siendo
+ * obligatoria en todos los casos.
+ */
+export async function checkLimitKv(keys: string[]): Promise<KvCheckResult> {
+  if (!kvConfigured()) return memCheckAll(keys);
   try {
     for (const k of keys) {
       const blockKey = BLOCK_PREFIX + k;
@@ -81,14 +88,14 @@ export async function checkLimitKv(keys: string[]): Promise<KvCheckResult> {
     }
     return { allowed: true };
   } catch {
-    // Fail-closed: sin límite verificable no se permite el intento.
-    return { allowed: false, retryAfterSeconds: 60, reason: "unavailable" };
+    // KV caído → degradar a memoria (no bloquear el login por completo).
+    return memCheckAll(keys);
   }
 }
 
 /** Registra un fallo en todas las claves; bloquea las que llegan al tope. */
 export async function recordFailureKv(keys: string[]): Promise<void> {
-  if (useMemoryFallback()) {
+  if (!kvConfigured()) {
     for (const k of keys) memFail(k, "kv-fallback");
     return;
   }
@@ -103,13 +110,14 @@ export async function recordFailureKv(keys: string[]): Promise<void> {
       }
     }
   } catch {
-    // El registro del fallo es best-effort; el check es quien es fail-closed.
+    // KV caído → cuenta el fallo en memoria para conservar algo de límite.
+    for (const k of keys) memFail(k, "kv-fallback");
   }
 }
 
 /** Login correcto: limpia contadores y bloqueos de las claves. */
 export async function recordSuccessKv(keys: string[]): Promise<void> {
-  if (useMemoryFallback()) {
+  if (!kvConfigured()) {
     for (const k of keys) memSuccess(k, "kv-fallback");
     return;
   }
@@ -118,6 +126,6 @@ export async function recordSuccessKv(keys: string[]): Promise<void> {
       await kv.del(FAIL_PREFIX + k, BLOCK_PREFIX + k);
     }
   } catch {
-    // Best-effort: un contador residual expira solo con el TTL.
+    for (const k of keys) memSuccess(k, "kv-fallback");
   }
 }

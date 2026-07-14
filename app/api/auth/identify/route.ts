@@ -45,12 +45,12 @@ export async function POST(req: Request) {
     const limitKeys = [userKey(email), ipKey(ip)];
     const gate = await checkLimitKv(limitKeys);
     if (!gate.allowed) {
-      const msg =
-        gate.reason === "unavailable"
-          ? "No se pudo verificar el acceso. Inténtalo de nuevo en un minuto."
-          : `Demasiados intentos. Vuelve a intentarlo en ${Math.max(1, Math.ceil(gate.retryAfterSeconds / 60))} min.`;
+      const mins = Math.max(1, Math.ceil(gate.retryAfterSeconds / 60));
       return NextResponse.json(
-        { error: msg, retryAfterSeconds: gate.retryAfterSeconds },
+        {
+          error: `Demasiados intentos. Vuelve a intentarlo en ${mins} min.`,
+          retryAfterSeconds: gate.retryAfterSeconds,
+        },
         { status: 429, headers: { "Retry-After": String(gate.retryAfterSeconds) } },
       );
     }

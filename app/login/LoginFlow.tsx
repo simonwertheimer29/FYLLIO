@@ -289,9 +289,14 @@ export function LoginFlow() {
           ) : (
             <>
               <h1 className="font-display text-2xl font-semibold text-[var(--color-foreground)]">
-                Tu PIN
+                Introduce tu PIN
               </h1>
               <p className="mt-1 text-sm text-[var(--color-muted)]">{email.trim()}</p>
+              {/* Primera vez en este dispositivo: no sabemos si es coord (4) o
+                  admin (6), así que lo aclaramos para no inducir a teclear 4. */}
+              <p className="mt-1 text-xs text-[var(--color-muted)]">
+                4 dígitos (coordinación) o 6 (administración)
+              </p>
             </>
           )}
 
