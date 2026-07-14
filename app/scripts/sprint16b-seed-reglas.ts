@@ -46,7 +46,7 @@ type Regla = {
 const REGLAS: Regla[] = [
   {
     codigo: "recordatorio_cita_24h",
-    nombre: "Recordatorio de cita 24h antes",
+    nombre: "Recordar la cita al paciente el día antes",
     descripcion:
       "Envía un WhatsApp al paciente 24h antes de su cita confirmada. Reduce no-shows.",
     triggerTipo: "cita_confirmada_24h_antes",
@@ -71,7 +71,7 @@ const REGLAS: Regla[] = [
   },
   {
     codigo: "lead_sin_gestionar_2h",
-    nombre: "Lead sin gestionar más de 2 horas",
+    nombre: "Avisar de leads nuevos sin contactar",
     descripcion:
       "Avisa a la coordinadora cuando un lead nuevo lleva >2h sin contactar (en horario laboral).",
     triggerTipo: "lead_creado",
@@ -92,7 +92,7 @@ const REGLAS: Regla[] = [
   },
   {
     codigo: "lead_inactivo_n_dias",
-    nombre: "Lead inactivo N días → No Interesado",
+    nombre: "Marcar leads sin respuesta como no interesados",
     descripcion:
       "Mueve a No_Interesado leads en estado Contactado/Sin_Respuesta sin actividad en N días (default 60). El parámetro dias_inactividad se edita por clínica desde el panel.",
     triggerTipo: "lead_inactivo_n_dias",
@@ -125,7 +125,7 @@ const REGLAS: Regla[] = [
   },
   {
     codigo: "plantilla_post_presupuesto",
-    nombre: "WhatsApp tras presentar presupuesto",
+    nombre: "Enviar el presupuesto por WhatsApp al paciente",
     descripcion:
       "Envía un WhatsApp con resumen + opciones de pago al paciente cuando el presupuesto pasa a Presentado.",
     triggerTipo: "presupuesto_presentado",
@@ -149,7 +149,7 @@ const REGLAS: Regla[] = [
   },
   {
     codigo: "presupuesto_estancado_7d",
-    nombre: "Nudge a presupuesto estancado >7 días",
+    nombre: "Recordar presupuestos parados más de una semana",
     descripcion:
       "WhatsApp de seguimiento cuando un presupuesto en En_Negociacion lleva >7 días sin actividad y no se le ha enviado nudge en los últimos 14d.",
     triggerTipo: "presupuesto_estancado_7d",
