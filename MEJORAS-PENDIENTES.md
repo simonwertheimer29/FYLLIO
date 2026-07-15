@@ -23,7 +23,9 @@ Estado: 🔵 propuesta (sin decidir) · ✅ aprobada · 🟢 hecha · ⚪ descar
   es heurístico, no venderlo como IA; si se quiere IA, calcularla de verdad).
 - **Impacto:** **alto** en conversión/pérdida — la coordinadora ataca en el orden equivocado
   y los casos calientes quedan abajo.
-- **Fecha:** 2026-07-15 · 🔵
+- **Fecha:** 2026-07-15 · 🟢 hecha (tanda pre-demo, rama `pre-demo-actuar-hoy`, pendiente de
+  merge a main) — la cola de leads se ordena por prioridad (ALTO→MEDIO→BAJO); desempate por
+  hora de cita / antigüedad.
 
 ## 2. Actuar hoy — enviar WhatsApp / Llamar desde la card no confirma nada
 - **Zona:** `app/(authed)/actuar-hoy/ActuarHoyView.tsx:451`
@@ -36,7 +38,9 @@ Estado: 🔵 propuesta (sin decidir) · ✅ aprobada · 🟢 hecha · ⚪ descar
   card, con la misma convención que el resto.
 - **Impacto:** **medio-alto** en facilidad/pérdida — sin confirmación hay dudas de si se
   envió → reenvíos o casos que se dan por hechos sin estarlo.
-- **Fecha:** 2026-07-15 · 🔵
+- **Fecha:** 2026-07-15 · 🟢 hecha (tanda pre-demo, rama `pre-demo-actuar-hoy`, pendiente de
+  merge) — al enviar WA / llamar: toast de sonner + card atenuada + botón que pasa a
+  "WhatsApp enviado" / "Llamada hecha" (mismo patrón que la card de Presupuestos).
 
 ## 3. Actuar hoy — la "acción sugerida" está vacía en el caso más común
 - **Zona:** `app/(authed)/actuar-hoy/ActuarHoyView.tsx:544`
@@ -72,7 +76,17 @@ Estado: 🔵 propuesta (sin decidir) · ✅ aprobada · 🟢 hecha · ⚪ descar
   (`mensajeria.ts`), con confirmación de cuántos salieron.
 - **Impacto:** **alto** en orden/esfuerzo — es trabajo repetitivo diario sobre los casos con
   más valor.
-- **Fecha:** 2026-07-15 · 🔵
+- **Estimación de esfuerzo (jul 2026):** el "bulk real" server-side existe como pieza
+  (`app/lib/whatsapp/outbound.ts` → Meta WABA), pero está **bloqueado por dos dependencias
+  externas**: (1) `META_WHATSAPP_TOKEN`/`META_PHONE_NUMBER_ID` en producción, y (2) una
+  **plantilla aprobada por Meta** para el mensaje de intervención (aprobación tarda días y
+  obliga a un mensaje FIJO con variables — Meta NO permite enviar en lote el texto IA
+  personalizado actual). Conclusión: el bulk real de mensajes IA **no es viable "ahora"**.
+  Opciones: **(A) versión mínima honesta** (~2-4 h, sin dependencias): dejar de prometer
+  "lote", renombrar a envío uno-a-uno con progreso "X de N" y reutilizar el feedback de #2 —
+  demo-safe; **(B) bulk real por plantilla** (~1-2 días de código + espera de aprobación
+  Meta + cambiar el mensaje a plantilla fija) — no entra en la ventana de la demo.
+- **Fecha:** 2026-07-15 · 🔵 (pendiente decisión del fundador: A, B o backlog)
 
 ## 6. Jerga e IDs crudos en superficies de coordinadora
 - **Zona:** `app/(authed)/automatizaciones/MotorReglasView.tsx` (paciente de prueba),

@@ -23,6 +23,7 @@ import IntervencionView from "../../components/presupuestos/IntervencionView";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/Feedback";
 import { AlertTriangle, Inbox, ICON_STROKE } from "../../components/icons";
+import { toast } from "sonner";
 
 type Tab = "leads" | "presupuestos";
 
@@ -234,6 +235,26 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
           ? sinContactar
           : seguimiento;
 
+  // La lista se ORDENA por la prioridad real que calcula priorityForLead
+  // (ALTO → MEDIO → BAJO), para que el orden en pantalla coincida con el pill
+  // de urgencia. Desempate: cita más temprana primero; si no, el que lleva más
+  // tiempo esperando (createdAt más antiguo).
+  const orderedLeads = useMemo(() => {
+    const decorated = filteredLeads.map((l) => ({
+      l,
+      rank: PRIORITY_RANK[priorityForLead(l, ultimaSalientePorLead).label],
+      hora: l.horaCita ?? "",
+      created: new Date(l.createdAt).getTime() || 0,
+    }));
+    decorated.sort(
+      (a, b) =>
+        a.rank - b.rank ||
+        (a.hora && b.hora ? a.hora.localeCompare(b.hora) : 0) ||
+        a.created - b.created,
+    );
+    return decorated.map((d) => d.l);
+  }, [filteredLeads, ultimaSalientePorLead]);
+
   const tabs: Array<[LeadSubFilter, string, number]> = [
     ["citados", "Citados Hoy", citados.length],
     ["sin-contactar", "Sin contactar", sinContactar.length],
@@ -299,7 +320,7 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
         />
       ) : (
         <div className="space-y-2">
-          {filteredLeads.map((l) => (
+          {orderedLeads.map((l) => (
             <LeadAccionRow
               key={l.id}
               lead={l}
@@ -350,6 +371,13 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
 // map no está cargado todavía, fallback al heurístico legacy.
 const INTENCION_CALIENTE = new Set(["Interesado", "Pide cita", "Pregunta precio"]);
 const HORAS_12_MS = 12 * 60 * 60 * 1000;
+
+// Orden de la cola: ALTO primero. Lo consume orderedLeads en LeadsTab.
+const PRIORITY_RANK: Record<"ALTO" | "MEDIO" | "BAJO", number> = {
+  ALTO: 0,
+  MEDIO: 1,
+  BAJO: 2,
+};
 
 function priorityForLead(
   lead: Lead,
@@ -414,6 +442,11 @@ function LeadAccionRow({
   // Sprint 15 Bloque 7 — map para priorityForLead.
   ultimaSalientePorLead?: Record<string, string>;
 }) {
+  // Feedback visible al actuar (mismo patrón que la card de Presupuestos):
+  // la card se atenúa y el botón confirma "WhatsApp enviado" / "Llamada hecha".
+  const [waEnviado, setWaEnviado] = useState(false);
+  const [llamado, setLlamado] = useState(false);
+
   const cleanPhone = (lead.telefono ?? "").replace(/\D/g, "");
   const ts = new Date(lead.createdAt).getTime();
   const diasDesde = Number.isFinite(ts)
@@ -438,6 +471,8 @@ function LeadAccionRow({
     e.stopPropagation();
     if (!cleanPhone) return;
     window.open(`tel:${lead.telefono}`, "_self");
+    setLlamado(true);
+    toast.success("Llamada registrada");
     fetch("/api/leads/intervencion/registrar-respuesta", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -452,6 +487,8 @@ function LeadAccionRow({
     e.stopPropagation();
     if (!cleanPhone) return;
     window.open(`https://wa.me/${cleanPhone}`, "_blank");
+    setWaEnviado(true);
+    toast.success("WhatsApp enviado");
     fetch("/api/leads/intervencion/registrar-respuesta", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -480,8 +517,18 @@ function LeadAccionRow({
 
   const actions: React.ComponentProps<typeof AccionCard>["actions"] = [];
   if (cleanPhone) {
-    actions.push({ label: "Enviar WA", onClick: whatsapp, variant: "emerald" });
-    actions.push({ label: "Llamar", onClick: llamar, variant: "ghost" });
+    actions.push({
+      label: waEnviado ? "WhatsApp enviado" : "Enviar WA",
+      onClick: whatsapp,
+      variant: "emerald",
+      disabled: waEnviado,
+    });
+    actions.push({
+      label: llamado ? "Llamada hecha" : "Llamar",
+      onClick: llamar,
+      variant: "ghost",
+      disabled: llamado,
+    });
   }
   if (isCitadoHoy && !lead.convertido) {
     actions.push({
@@ -505,6 +552,7 @@ function LeadAccionRow({
   return (
     <AccionCard
       borderColor={priority.borderColor}
+      faded={waEnviado}
       title={
         lead.convertido && lead.pacienteId ? (
           <a
