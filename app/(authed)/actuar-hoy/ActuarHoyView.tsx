@@ -23,6 +23,7 @@ import IntervencionView from "../../components/presupuestos/IntervencionView";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/Feedback";
 import { AlertTriangle, Inbox, ICON_STROKE } from "../../components/icons";
+import { toast } from "sonner";
 
 type Tab = "leads" | "presupuestos";
 
@@ -136,7 +137,7 @@ export function ActuarHoyView({
 // Sub-tab Leads
 // ──────────────────────────────────────────────────────────────────────
 
-type LeadSubFilter = "citados" | "sin-contactar" | "seguimiento" | "todos";
+type LeadSubFilter = "todos" | "citados" | "sin-contactar" | "esperando";
 
 function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
   const { selectedClinicaId } = useClinic();
@@ -146,7 +147,7 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
   // (deliberado) pero avisamos de que puede estar desactualizada.
   const [sinConexion, setSinConexion] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const [filter, setFilter] = useState<LeadSubFilter>("citados");
+  const [filter, setFilter] = useState<LeadSubFilter>("todos");
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null);
   const [asistenciaLead, setAsistenciaLead] = useState<Lead | null>(null);
   const [tiempoMedioMin, setTiempoMedioMin] = useState<number | null>(null);
@@ -154,6 +155,11 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
   // (Llamada o WhatsApp_Saliente). Lo consume priorityForLead para el
   // trigger 'caliente sin acción >12h' con timestamp real.
   const [ultimaSalientePorLead, setUltimaSalientePorLead] = useState<
+    Record<string, string>
+  >({});
+  // Última respuesta entrante del paciente por lead — con la saliente permite
+  // derivar el estado "esperando respuesta" (§ esperaLead).
+  const [ultimaEntrantePorLead, setUltimaEntrantePorLead] = useState<
     Record<string, string>
   >({});
 
@@ -175,6 +181,11 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
           ? sal.ultimaSalientePorLead
           : {},
       );
+      setUltimaEntrantePorLead(
+        sal?.ultimaEntrantePorLead && typeof sal.ultimaEntrantePorLead === "object"
+          ? sal.ultimaEntrantePorLead
+          : {},
+      );
       setLastUpdate(new Date());
       setSinConexion(false);
     } catch {
@@ -192,39 +203,45 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
   const today = new Date().toISOString().slice(0, 10);
   const hace48h = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
-  // KPI: completadas hoy = leads con Ultima_Accion que contiene un
-  // timestamp de hoy. Pendientes = leads accionables del día.
-  const { citados, sinContactar, seguimiento, completadasHoy } = useMemo(() => {
+  // Partición ÚNICA y MUTUAMENTE EXCLUYENTE de la cola, con el MISMO estado
+  // derivado que usa la lista (esperando respuesta). Cada lead accionable cae en
+  // exactamente un bucket → los pills cuadran entre sí y con el KPI del header
+  // (Todos = pendientes + esperando):
+  //   citados      = cita hoy sin asistir (pendiente de acción)
+  //   sinContactar = pendiente de acción que necesita contacto/seguimiento
+  //   esperando    = ya atendido, esperando respuesta del paciente (derivado)
+  // Universo accionable: arregla el hueco por el que un "Nuevo ya llamado"
+  // (o cualquier atendido) se caía de todos los buckets viejos y desaparecía.
+  const { citados, sinContactar, esperando } = useMemo(() => {
     const citados: Lead[] = [];
     const sinContactar: Lead[] = [];
-    const seguimiento: Lead[] = [];
-    let completadas = 0;
+    const esperando: Lead[] = [];
     for (const l of leads) {
       if (l.convertido) continue;
-      // KPI completadas hoy: cualquier línea de Ultima_Accion con
-      // timestamp ISO de hoy.
-      if (l.ultimaAccion && l.ultimaAccion.includes(`[${today}`)) completadas++;
-
-      if (
+      const esCitadoHoy =
         (l.estado === "Citado" || l.estado === "Citados Hoy") &&
         l.fechaCita === today &&
-        !l.asistido
-      ) {
-        citados.push(l);
-        continue;
-      }
-      if (l.estado === "Nuevo" && !l.llamado) {
-        sinContactar.push(l);
-        continue;
-      }
-      if (l.estado === "Contactado" && l.createdAt <= hace48h) {
-        seguimiento.push(l);
-      }
+        !l.asistido;
+      const esEsperando = esperaLead(
+        l,
+        ultimaSalientePorLead,
+        ultimaEntrantePorLead,
+      ).esperando;
+      const esAccionable =
+        esCitadoHoy ||
+        esEsperando ||
+        l.estado === "Nuevo" ||
+        (l.estado === "Contactado" && l.createdAt <= hace48h);
+      if (!esAccionable) continue;
+      // Precedencia: cita hoy > esperando respuesta > pendiente por contactar.
+      if (esCitadoHoy) citados.push(l);
+      else if (esEsperando) esperando.push(l);
+      else sinContactar.push(l);
     }
-    return { citados, sinContactar, seguimiento, completadasHoy: completadas };
-  }, [leads, today, hace48h]);
+    return { citados, sinContactar, esperando };
+  }, [leads, today, hace48h, ultimaSalientePorLead, ultimaEntrantePorLead]);
 
-  const allAccionables = [...citados, ...sinContactar, ...seguimiento];
+  const allAccionables = [...citados, ...sinContactar, ...esperando];
   const filteredLeads =
     filter === "todos"
       ? allAccionables
@@ -232,13 +249,43 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
         ? citados
         : filter === "sin-contactar"
           ? sinContactar
-          : seguimiento;
+          : esperando;
 
+  // Orden de la cola: primero los PENDIENTES, luego los que están ESPERANDO
+  // respuesta (abajo). Dentro de cada bloque, la prioridad se conserva
+  // (ALTO→MEDIO→BAJO); desempate por hora de cita / antigüedad. Así un ALTO
+  // esperando queda por encima de un MEDIO esperando, pero por debajo de
+  // cualquier pendiente.
+  const orderedLeads = useMemo(() => {
+    const decorated = filteredLeads.map((l) => ({
+      l,
+      esperando: esperaLead(l, ultimaSalientePorLead, ultimaEntrantePorLead).esperando ? 1 : 0,
+      rank: PRIORITY_RANK[priorityForLead(l, ultimaSalientePorLead).label],
+      hora: l.horaCita ?? "",
+      created: new Date(l.createdAt).getTime() || 0,
+    }));
+    decorated.sort(
+      (a, b) =>
+        a.esperando - b.esperando ||
+        a.rank - b.rank ||
+        (a.hora && b.hora ? a.hora.localeCompare(b.hora) : 0) ||
+        a.created - b.created,
+    );
+    return decorated.map((d) => d.l);
+  }, [filteredLeads, ultimaSalientePorLead, ultimaEntrantePorLead]);
+
+  // Marca optimista al actuar: fija la última saliente = ahora para que la card
+  // pase a "esperando respuesta" al instante; fetchLeads reconcilia con datos.
+  const marcarActuado = useCallback((leadId: string) => {
+    setUltimaSalientePorLead((prev) => ({ ...prev, [leadId]: new Date().toISOString() }));
+  }, []);
+
+  // Mutuamente excluyentes: Todos = Citados hoy + Sin contactar + Esperando.
   const tabs: Array<[LeadSubFilter, string, number]> = [
-    ["citados", "Citados Hoy", citados.length],
-    ["sin-contactar", "Sin contactar", sinContactar.length],
-    ["seguimiento", "Seguimiento >48h", seguimiento.length],
     ["todos", "Todos", allAccionables.length],
+    ["citados", "Citados hoy", citados.length],
+    ["sin-contactar", "Sin contactar", sinContactar.length],
+    ["esperando", "Esperando respuesta", esperando.length],
   ];
 
   function onLeadChanged(updated: Lead) {
@@ -251,8 +298,10 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
       <ActuarHoyHeader
         subtitle="Cola de leads · Hoy"
         kpis={{
-          pendientes: allAccionables.length,
-          completadasHoy,
+          // Cuadra con los pills: pendientes = Citados hoy + Sin contactar;
+          // atendidos = Esperando respuesta. Cada lead cuenta una sola vez.
+          pendientes: citados.length + sinContactar.length,
+          atendidosHoy: esperando.length,
           tiempoMedioMin,
         }}
         lastUpdate={lastUpdate}
@@ -293,20 +342,26 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
           title="Sin casos en esta vista"
           hint={
             filter === "citados"
-              ? "No hay leads citados hoy en este filtro."
-              : "No hay leads accionables en este filtro."
+              ? "No hay leads citados hoy."
+              : filter === "esperando"
+                ? "No hay leads esperando respuesta ahora mismo."
+                : filter === "sin-contactar"
+                  ? "No tienes leads pendientes por contactar."
+                  : "No hay leads accionables en este filtro."
           }
         />
       ) : (
         <div className="space-y-2">
-          {filteredLeads.map((l) => (
+          {orderedLeads.map((l) => (
             <LeadAccionRow
               key={l.id}
               lead={l}
               onOpen={() => setDrawerLead(l)}
               onAsistencia={() => setAsistenciaLead(l)}
               onChanged={onLeadChanged}
+              onActed={marcarActuado}
               ultimaSalientePorLead={ultimaSalientePorLead}
+              ultimaEntrantePorLead={ultimaEntrantePorLead}
             />
           ))}
         </div>
@@ -350,6 +405,43 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
 // map no está cargado todavía, fallback al heurístico legacy.
 const INTENCION_CALIENTE = new Set(["Interesado", "Pide cita", "Pregunta precio"]);
 const HORAS_12_MS = 12 * 60 * 60 * 1000;
+
+// Orden de la cola: ALTO primero. Lo consume orderedLeads en LeadsTab.
+const PRIORITY_RANK: Record<"ALTO" | "MEDIO" | "BAJO", number> = {
+  ALTO: 0,
+  MEDIO: 1,
+  BAJO: 2,
+};
+
+// "Esperando respuesta" (estado derivado, no guardado): actué (última saliente:
+// WhatsApp/llamada) y la pelota está en el paciente. Vuelve a "pendiente" cuando
+// el paciente responde (entrante posterior) o cuando pasan 48h sin respuesta
+// (reactivación por tiempo). Se recalcula en cada carga desde Acciones_Lead, así
+// que persiste al recargar y no puede quedar colgado en el navegador.
+const N_ESPERA_LEADS_MS = 48 * 60 * 60 * 1000;
+
+function esperaLead(
+  lead: Lead,
+  saliente: Record<string, string>,
+  entrante: Record<string, string>,
+): { esperando: boolean; desdeISO: string | null } {
+  const sal = saliente[lead.id];
+  if (!sal) return { esperando: false, desdeISO: null };
+  const salMs = new Date(sal).getTime();
+  const ent = entrante[lead.id];
+  const entMs = ent ? new Date(ent).getTime() : 0;
+  const esperando = salMs > entMs && Date.now() - salMs < N_ESPERA_LEADS_MS;
+  return { esperando, desdeISO: esperando ? sal : null };
+}
+
+function relTimeShort(iso: string): string {
+  const diffMin = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (diffMin < 1) return "ahora";
+  if (diffMin < 60) return `hace ${diffMin} min`;
+  const h = Math.round(diffMin / 60);
+  if (h < 24) return `hace ${h} h`;
+  return `hace ${Math.round(h / 24)} d`;
+}
 
 function priorityForLead(
   lead: Lead,
@@ -405,15 +497,28 @@ function LeadAccionRow({
   onOpen,
   onAsistencia,
   onChanged,
+  onActed,
   ultimaSalientePorLead,
+  ultimaEntrantePorLead,
 }: {
   lead: Lead;
   onOpen: () => void;
   onAsistencia: () => void;
   onChanged: (l: Lead) => void;
-  // Sprint 15 Bloque 7 — map para priorityForLead.
+  // Marca optimista al actuar → la card pasa a "esperando respuesta" al instante.
+  onActed: (leadId: string) => void;
+  // Maps para priorityForLead y para derivar "esperando respuesta".
   ultimaSalientePorLead?: Record<string, string>;
+  ultimaEntrantePorLead?: Record<string, string>;
 }) {
+  // "Esperando respuesta" es un estado DERIVADO de los datos (última saliente vs
+  // entrante en Acciones_Lead), no del navegador: al recargar sigue igual.
+  const espera = esperaLead(
+    lead,
+    ultimaSalientePorLead ?? {},
+    ultimaEntrantePorLead ?? {},
+  );
+
   const cleanPhone = (lead.telefono ?? "").replace(/\D/g, "");
   const ts = new Date(lead.createdAt).getTime();
   const diasDesde = Number.isFinite(ts)
@@ -438,6 +543,8 @@ function LeadAccionRow({
     e.stopPropagation();
     if (!cleanPhone) return;
     window.open(`tel:${lead.telefono}`, "_self");
+    onActed(lead.id); // → esperando respuesta al instante
+    toast.success("Llamada registrada · esperando respuesta");
     fetch("/api/leads/intervencion/registrar-respuesta", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -452,6 +559,8 @@ function LeadAccionRow({
     e.stopPropagation();
     if (!cleanPhone) return;
     window.open(`https://wa.me/${cleanPhone}`, "_blank");
+    onActed(lead.id); // → esperando respuesta al instante
+    toast.success("Enviado · esperando respuesta");
     fetch("/api/leads/intervencion/registrar-respuesta", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -479,7 +588,18 @@ function LeadAccionRow({
     .join(" · ");
 
   const actions: React.ComponentProps<typeof AccionCard>["actions"] = [];
-  if (cleanPhone) {
+  if (espera.esperando) {
+    // Ya actué; la pelota está en el paciente. No re-ofrecemos "enviar/llamar"
+    // (evita doble envío); si quiere insistir, entra a la ficha.
+    actions.push({
+      label: espera.desdeISO
+        ? `Esperando respuesta · ${relTimeShort(espera.desdeISO)}`
+        : "Esperando respuesta",
+      onClick: (e) => e.stopPropagation(),
+      variant: "ghost",
+      disabled: true,
+    });
+  } else if (cleanPhone) {
     actions.push({ label: "Enviar WA", onClick: whatsapp, variant: "emerald" });
     actions.push({ label: "Llamar", onClick: llamar, variant: "ghost" });
   }
@@ -505,6 +625,7 @@ function LeadAccionRow({
   return (
     <AccionCard
       borderColor={priority.borderColor}
+      faded={espera.esperando}
       title={
         lead.convertido && lead.pacienteId ? (
           <a

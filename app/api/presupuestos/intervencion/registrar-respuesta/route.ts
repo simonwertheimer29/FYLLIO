@@ -49,11 +49,18 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
 
     const now = DateTime.now().setZone(ZONE).toISO() ?? new Date().toISOString();
 
-    // Actualizar campos de intervención en Presupuestos
+    // Actualizar campos de intervención en Presupuestos. Una acción SALIENTE
+    // (WhatsApp/llamada) deja el caso "esperando respuesta": la pelota pasa al
+    // paciente. Fase_seguimiento lo persiste y mantiene el caso visible en la
+    // cola (si no, un envío sin urgencia previa desaparecía). Vuelve solo:
+    // el webhook entrante pone "En intervención" al recibir respuesta.
+    const dejaEsperandoRespuesta =
+      tipo === "WhatsApp enviado" || tipo === "Llamada realizada";
     try {
       await base(TABLES.presupuestos as any).update(presupuestoId, {
         Ultima_accion_registrada: now,
         Tipo_ultima_accion: tipo,
+        ...(dejaEsperandoRespuesta ? { Fase_seguimiento: "Esperando respuesta" } : {}),
       } as any);
     } catch (err) {
       console.error("[registrar-respuesta] Airtable update error:", err);

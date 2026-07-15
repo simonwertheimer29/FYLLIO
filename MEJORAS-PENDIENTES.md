@@ -23,7 +23,9 @@ Estado: 🔵 propuesta (sin decidir) · ✅ aprobada · 🟢 hecha · ⚪ descar
   es heurístico, no venderlo como IA; si se quiere IA, calcularla de verdad).
 - **Impacto:** **alto** en conversión/pérdida — la coordinadora ataca en el orden equivocado
   y los casos calientes quedan abajo.
-- **Fecha:** 2026-07-15 · 🔵
+- **Fecha:** 2026-07-15 · 🟢 hecha (tanda pre-demo, rama `pre-demo-actuar-hoy`, pendiente de
+  merge a main) — la cola de leads se ordena por prioridad (ALTO→MEDIO→BAJO); desempate por
+  hora de cita / antigüedad.
 
 ## 2. Actuar hoy — enviar WhatsApp / Llamar desde la card no confirma nada
 - **Zona:** `app/(authed)/actuar-hoy/ActuarHoyView.tsx:451`
@@ -36,7 +38,33 @@ Estado: 🔵 propuesta (sin decidir) · ✅ aprobada · 🟢 hecha · ⚪ descar
   card, con la misma convención que el resto.
 - **Impacto:** **medio-alto** en facilidad/pérdida — sin confirmación hay dudas de si se
   envió → reenvíos o casos que se dan por hechos sin estarlo.
-- **Fecha:** 2026-07-15 · 🔵
+- **Fecha:** 2026-07-15 · 🟢 hecha y REDISEÑADA (tanda pre-demo, rama `pre-demo-actuar-hoy`).
+  El primer intento (fade solo en navegador) tenía un fallo de criterio: no persistía y
+  llamaba "completado" a algo que no lo está. Rediseño aprobado por el fundador → estado real
+  **"esperando respuesta"** (enviar NO completa; deja la pelota en el paciente):
+  · **derivado de datos** (Acciones_Lead saliente vs entrante en leads; Ultima_accion vs
+    Fecha_ultima_respuesta en presupuestos), no del navegador → persiste al recargar;
+  · **reactivación**: por respuesta (webhook entrante) o por tiempo (**48 h leads / 72 h
+    presupuestos**), recalculada al cargar;
+  · **orden**: pendientes arriba, esperando abajo, prioridad conservada dentro de cada bloque;
+  · **copy**: "Esperando respuesta · hace X"; KPI "atendidos" (no "completadas"); pendientes
+    excluye esperando (sin doble conteo);
+  · **presupuestos**: mismo criterio + se cierra el hueco de visibilidad (Fase_seguimiento=
+    "Esperando respuesta" al enviar + filtro de cola lo incluye).
+  · **pills/sub-filtros** (2ª iteración, tras detectar en preview que "Sin contactar" incluía
+    un lead que ya esperaba respuesta y que un "Nuevo ya llamado" desaparecía de todos los
+    buckets): los pills de Leads pasan a una partición **mutuamente excluyente** con el mismo
+    estado derivado — **Todos · Citados hoy · Sin contactar · Esperando respuesta** — donde
+    cada lead cuenta en un solo pill, `Todos = suma`, y cuadran con el KPI del header
+    (pendientes = Citados+SinContactar; atendidos = Esperando). En Presupuestos (filtros por
+    intención, solapados por diseño) se aplica el mismo criterio: "Actuar ahora" **excluye** los
+    que esperan respuesta y se añade la pestaña "Esperando respuesta".
+  Verificado en navegador: enviar → recargar → sigue esperando (bug original resuelto); los
+  números de los pills cuadran entre sí y con el header, y un envío mueve el lead de
+  "Sin contactar" a "Esperando respuesta" sin doblarlo ni perderlo.
+  **Bug pre-existente arreglado de paso**: `logAccionLead` escribía un link `Usuario` con id de
+  la base central (inválido en la base de negocio) → el create fallaba silenciado y NO se
+  registraba la acción (rompía el KPI de tiempo medio y este estado). Quitado el link.
 
 ## 3. Actuar hoy — la "acción sugerida" está vacía en el caso más común
 - **Zona:** `app/(authed)/actuar-hoy/ActuarHoyView.tsx:544`
@@ -72,7 +100,21 @@ Estado: 🔵 propuesta (sin decidir) · ✅ aprobada · 🟢 hecha · ⚪ descar
   (`mensajeria.ts`), con confirmación de cuántos salieron.
 - **Impacto:** **alto** en orden/esfuerzo — es trabajo repetitivo diario sobre los casos con
   más valor.
-- **Fecha:** 2026-07-15 · 🔵
+- **Estimación de esfuerzo (jul 2026):** el "bulk real" server-side existe como pieza
+  (`app/lib/whatsapp/outbound.ts` → Meta WABA), pero está **bloqueado por dos dependencias
+  externas**: (1) `META_WHATSAPP_TOKEN`/`META_PHONE_NUMBER_ID` en producción, y (2) una
+  **plantilla aprobada por Meta** para el mensaje de intervención (aprobación tarda días y
+  obliga a un mensaje FIJO con variables — Meta NO permite enviar en lote el texto IA
+  personalizado actual). Conclusión: el bulk real de mensajes IA **no es viable "ahora"**.
+  Opciones: **(A) versión mínima honesta** (~2-4 h, sin dependencias): dejar de prometer
+  "lote", renombrar a envío uno-a-uno con progreso "X de N" y reutilizar el feedback de #2 —
+  demo-safe; **(B) bulk real por plantilla** (~1-2 días de código + espera de aprobación
+  Meta + cambiar el mensaje a plantilla fija) — no entra en la ventana de la demo.
+- **Fecha:** 2026-07-15 · 🟢 **opción A hecha** (tanda pre-demo, rama `pre-demo-actuar-hoy`):
+  el flujo deja de prometer "lote" — botón "Enviar uno a uno (N)", título "Paciente X de N",
+  copy honesto ("abrirás WhatsApp para cada paciente, uno a uno") y toast por envío.
+  **Opción B (bulk real por plantilla WABA) queda en BACKLOG** para después del piloto; las
+  plantillas de Meta se decidirán con el cliente.
 
 ## 6. Jerga e IDs crudos en superficies de coordinadora
 - **Zona:** `app/(authed)/automatizaciones/MotorReglasView.tsx` (paciente de prueba),

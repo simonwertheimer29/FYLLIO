@@ -132,13 +132,16 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   }
 
   try {
-    // Fetch presupuestos activos (no cerrados) que tengan respuesta o urgencia
+    // Fetch presupuestos activos (no cerrados) que tengan respuesta, urgencia,
+    // o estén "esperando respuesta" (envié y aún no contesta) — este último para
+    // que un caso al que mandé WhatsApp no desaparezca de la cola.
     const filterFormula = `AND(
       {Estado}!='ACEPTADO',
       {Estado}!='PERDIDO',
       OR(
         {Ultima_respuesta_paciente}!='',
-        AND({Urgencia_intervencion}!='', {Urgencia_intervencion}!='NINGUNO')
+        AND({Urgencia_intervencion}!='', {Urgencia_intervencion}!='NINGUNO'),
+        {Fase_seguimiento}='Esperando respuesta'
       )
     )`.replace(/\n\s*/g, "");
 

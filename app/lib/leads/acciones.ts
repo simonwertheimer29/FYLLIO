@@ -50,7 +50,12 @@ export async function logAccionLead(args: {
       Tipo_Accion: args.tipo,
       Timestamp: ts,
     };
-    if (args.usuarioId) fields.Usuario = [args.usuarioId];
+    // NO escribimos el link `Usuario`: post-Sprint-B session.userId es un id de
+    // la base CENTRAL de identidad, y Acciones_Lead (base de negocio) solo puede
+    // enlazar usuarios de su propia base → el link es inválido y hacía FALLAR el
+    // create entero (silenciado por el catch), así que la acción no se registraba
+    // (rompía el KPI de tiempo medio y el estado "esperando respuesta"). El campo
+    // no lo consume ningún KPI.
     if (args.detalles) fields.Detalles = args.detalles;
     await base(TABLES.accionesLead as any).create([{ fields } as any]);
   } catch (err) {

@@ -309,6 +309,7 @@ export type TipoUltimaAccionIntervencion =
 export type IntervencionTab =
   | "actuar"
   | "cerrados"
+  | "esperando"
   | "todas"
   | "pago"
   | "dudas"

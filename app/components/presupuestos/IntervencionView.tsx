@@ -31,7 +31,14 @@ function formatTimeAgo(isoDate: string): string {
 
 function filterByTab(items: PresupuestoIntervencion[], tab: IntervencionTab): PresupuestoIntervencion[] {
   if (tab === "todas") return items;
-  if (tab === "actuar") return items.filter((p) => (p.urgenciaBidireccional?.scoreFinal ?? 0) >= 60);
+  // "Esperando respuesta": ya atendidos, la pelota está en el paciente (derivado).
+  if (tab === "esperando") return items.filter((p) => esperaPresupuesto(p).esperando);
+  // "Actuar ahora" NO incluye los que esperan respuesta: ya actuaste sobre ellos,
+  // no toca actuar otra vez hasta que el paciente conteste (o expire el plazo).
+  if (tab === "actuar")
+    return items.filter(
+      (p) => (p.urgenciaBidireccional?.scoreFinal ?? 0) >= 60 && !esperaPresupuesto(p).esperando,
+    );
   const tabDef = INTERVENCION_TABS.find((t) => t.id === tab);
   if (!tabDef?.intenciones) return items;
   return items.filter((p) => {
@@ -73,6 +80,37 @@ function UrgencyBar({ score, intencion, resp, cierre }: {
   );
 }
 
+// "Esperando respuesta" (estado DERIVADO, no del navegador): mi última acción
+// (Ultima_accion_registrada) es posterior a la última respuesta del paciente
+// (Fecha_ultima_respuesta) y dentro de 72h. Vuelve a "pendiente" cuando el
+// paciente responde (el webhook bumpea Fecha_ultima_respuesta → En intervención)
+// o al pasar 72h. Se recalcula al cargar, así que persiste al recargar.
+const N_ESPERA_PRESUP_MS = 72 * 60 * 60 * 1000;
+
+function esperaPresupuesto(item: PresupuestoIntervencion): {
+  esperando: boolean;
+  desdeISO: string | null;
+} {
+  const acc = item.ultimaAccionRegistrada
+    ? new Date(item.ultimaAccionRegistrada).getTime()
+    : 0;
+  if (!acc) return { esperando: false, desdeISO: null };
+  const resp = item.fechaUltimaRespuesta
+    ? new Date(item.fechaUltimaRespuesta).getTime()
+    : 0;
+  const esperando = acc > resp && Date.now() - acc < N_ESPERA_PRESUP_MS;
+  return { esperando, desdeISO: esperando ? item.ultimaAccionRegistrada! : null };
+}
+
+function relEsperaShort(iso: string): string {
+  const min = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
+  if (min < 1) return "ahora";
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  return `hace ${Math.round(h / 24)} d`;
+}
+
 // ─── IntervencionCard ────────────────────────────────────────────────────────
 
 function IntervencionCard({
@@ -88,6 +126,11 @@ function IntervencionCard({
   const [llamando, setLlamando] = useState(false);
   const [respuestaInput, setRespuestaInput] = useState("");
   const [clasificando, setClasificando] = useState(false);
+
+  // Estado derivado de datos: al enviar (waEnviado, optimista) o si al recargar
+  // sigue esperando respuesta (derivado), la card se atenúa y no re-ofrece envío.
+  const espera = esperaPresupuesto(item);
+  const esperandoRespuesta = waEnviado || espera.esperando;
 
   const cleanPhone = (item.patientPhone ?? "").replace(/\D/g, "");
   const urgenciaColor = item.urgenciaIntervencion
@@ -164,7 +207,7 @@ function IntervencionCard({
 
   return (
     <div
-      className={`rounded-xl border bg-[var(--color-surface)] transition-[box-shadow,border-color] duration-150 hover:[box-shadow:var(--card-shadow-hover)] ${waEnviado ? "opacity-50" : ""}`}
+      className={`rounded-xl border bg-[var(--color-surface)] transition-[box-shadow,border-color] duration-150 hover:[box-shadow:var(--card-shadow-hover)] ${esperandoRespuesta ? "opacity-50" : ""}`}
       style={{
         borderColor: "var(--card-border)",
         boxShadow: "var(--card-shadow-rest)",
@@ -242,10 +285,14 @@ function IntervencionCard({
         {cleanPhone && item.mensajeSugerido && (
           <button
             onClick={handleEnviarWA}
-            disabled={waEnviado}
+            disabled={esperandoRespuesta}
             className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)] disabled:opacity-40"
           >
-            {waEnviado ? "WhatsApp enviado" : "Enviar WhatsApp"}
+            {waEnviado
+              ? "WhatsApp enviado"
+              : espera.esperando
+                ? `Esperando respuesta${espera.desdeISO ? ` · ${relEsperaShort(espera.desdeISO)}` : ""}`
+                : "Enviar WhatsApp"}
           </button>
         )}
         {cleanPhone && (
@@ -338,6 +385,7 @@ function BulkSendModal({
       `https://wa.me/${cleanPhone}?text=${encodeURIComponent(item.mensajeSugerido!)}`,
       "_blank"
     );
+    toast.success(`Enviado a ${item.patientName}`);
 
     fetch("/api/presupuestos/intervencion/registrar-respuesta", {
       method: "POST",
@@ -365,10 +413,10 @@ function BulkSendModal({
           <div className="flex items-center justify-between">
             <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
               {isDone
-                ? `${enviados}/${sendableItems.length} enviados`
+                ? `Enviados ${enviados} de ${sendableItems.length}`
                 : currentIndex >= 0
-                  ? `Enviando ${currentIndex + 1}/${sendableItems.length}…`
-                  : `Enviar WhatsApp a ${sendableItems.length} pacientes`}
+                  ? `Paciente ${currentIndex + 1} de ${sendableItems.length}`
+                  : `Enviar uno a uno · ${sendableItems.length} pacientes`}
             </h3>
             <button onClick={onClose} className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]" aria-label="Cerrar">
               <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
@@ -379,7 +427,7 @@ function BulkSendModal({
         <div className="px-5 py-4 max-h-[60vh] overflow-y-auto">
           {currentIndex === -1 && (
             <>
-              <p className="text-xs text-[var(--color-muted)] mb-3">Se enviará WhatsApp a los siguientes pacientes:</p>
+              <p className="text-xs text-[var(--color-muted)] mb-3">Abrirás WhatsApp para cada paciente, uno a uno. Repasa la lista:</p>
               <div className="space-y-2">
                 {sendableItems.map((item) => (
                   <div key={item.id} className="flex items-center gap-2 text-xs">
@@ -432,7 +480,7 @@ function BulkSendModal({
                 Cancelar
               </button>
               <button onClick={handleConfirm} className="text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]">
-                Confirmar y enviar
+                Empezar
               </button>
             </>
           ) : (
@@ -552,7 +600,7 @@ function QuickResponseModal({
                   ))}
                 </optgroup>
                 {completados.length > 0 && (
-                  <optgroup label="Completados hoy">
+                  <optgroup label="Atendidos hoy">
                     {completados.map((p) => (
                       <option key={p.id} value={p.id}>
                         {optionLabel(p)}
@@ -687,9 +735,16 @@ export default function IntervencionView({
   }, [data, selectedClinicaNombre, filtroDoctor, filtroTratamiento]);
 
   const filteredItems = useMemo(() => {
-    return filterByTab(globalFiltered, subTab).sort(
-      (a, b) => (b.urgenciaBidireccional?.scoreFinal ?? 0) - (a.urgenciaBidireccional?.scoreFinal ?? 0)
-    );
+    // Primero PENDIENTES, luego los que están ESPERANDO respuesta (abajo).
+    // Dentro de cada bloque, por score de urgencia (la prioridad se conserva).
+    return filterByTab(globalFiltered, subTab).sort((a, b) => {
+      const ea = esperaPresupuesto(a).esperando ? 1 : 0;
+      const eb = esperaPresupuesto(b).esperando ? 1 : 0;
+      return (
+        ea - eb ||
+        (b.urgenciaBidireccional?.scoreFinal ?? 0) - (a.urgenciaBidireccional?.scoreFinal ?? 0)
+      );
+    });
   }, [globalFiltered, subTab]);
 
   const bulkSendable = filteredItems.filter((p) => {
@@ -731,7 +786,7 @@ export default function IntervencionView({
               Cola de intervención · Hoy
             </p>
             <h2 className="font-display text-4xl font-bold mt-2 tracking-tight tabular-nums text-[var(--color-foreground)]">
-              {totalPendientes} pendiente{totalPendientes !== 1 ? "s" : ""} · {completadasHoy} completada{completadasHoy !== 1 ? "s" : ""}
+              {totalPendientes} pendiente{totalPendientes !== 1 ? "s" : ""} · {completadasHoy} atendido{completadasHoy !== 1 ? "s" : ""}
             </h2>
             {/* Sprint 10 C — KPI tiempo medio respuesta. */}
             <p className="text-sm text-[var(--color-muted)] mt-1">
@@ -820,13 +875,13 @@ export default function IntervencionView({
         })}
       </div>
 
-      {/* Bulk send button */}
+      {/* Enviar la cola uno a uno (honesto: abre WhatsApp por paciente) */}
       {bulkSendable.length >= 3 && (
         <button
           onClick={() => setBulkSendOpen(true)}
           className="text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]"
         >
-          Enviar WhatsApp a {bulkSendable.length} pacientes
+          Enviar uno a uno ({bulkSendable.length})
         </button>
       )}
 
@@ -837,8 +892,10 @@ export default function IntervencionView({
           title="Sin casos en esta vista"
           hint={
             subTab === "actuar"
-              ? "No hay casos con urgencia alta. Revisa otras pestañas."
-              : "Los presupuestos con respuesta del paciente o urgencia asignada aparecerán aquí."
+              ? "No hay casos con urgencia alta pendientes de acción. Revisa otras pestañas."
+              : subTab === "esperando"
+                ? "No hay presupuestos esperando respuesta ahora mismo."
+                : "Los presupuestos con respuesta del paciente o urgencia asignada aparecerán aquí."
           }
         />
       )}
@@ -868,7 +925,7 @@ export default function IntervencionView({
               className={`transition-transform ${completadosOpen ? "rotate-90" : ""}`}
               aria-hidden
             />
-            Completadas hoy ({completadasHoy})
+            Atendidos hoy ({completadasHoy})
           </button>
           {completadosOpen && data?.casosCompletados && (
             <div className="mt-2 space-y-2 opacity-60">
@@ -881,7 +938,7 @@ export default function IntervencionView({
                   <div className="flex items-center gap-2">
                     <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-300">
                       <Check size={12} strokeWidth={ICON_STROKE} aria-hidden />
-                      Completado
+                      Atendido
                     </span>
                     <span className="text-sm font-semibold text-[var(--color-foreground)]">{item.patientName}</span>
                     {item.amount != null && (

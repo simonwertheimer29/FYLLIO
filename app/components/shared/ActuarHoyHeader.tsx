@@ -11,7 +11,9 @@ import { Sparkles, RefreshCw, Check, ICON_STROKE } from "../icons";
 
 export type ActuarHoyKpis = {
   pendientes: number;
-  completadasHoy: number;
+  /** Atendidos hoy = pasaron a "esperando respuesta" (acción saliente hoy).
+   *  NO son completados ni cerrados: la pelota está en el paciente. */
+  atendidosHoy: number;
   /** Sprint 10 C — tiempo medio entre entrante y siguiente saliente del
    *  mismo lead/presupuesto (minutos). null = aún no hay datos hoy. */
   tiempoMedioMin?: number | null;
@@ -37,8 +39,8 @@ export function ActuarHoyHeader({
     return () => clearInterval(t);
   }, []);
 
-  const total = kpis.pendientes + kpis.completadasHoy;
-  const pct = total > 0 ? Math.round((kpis.completadasHoy / total) * 100) : 0;
+  const total = kpis.pendientes + kpis.atendidosHoy;
+  const pct = total > 0 ? Math.round((kpis.atendidosHoy / total) * 100) : 0;
   const secondsAgo = Math.round((Date.now() - lastUpdate.getTime()) / 1000);
 
   return (
@@ -52,7 +54,7 @@ export function ActuarHoyHeader({
           </p>
           <h2 className="font-display text-4xl font-bold mt-2 tracking-tight tabular-nums text-[var(--color-foreground)]">
             {kpis.pendientes} pendiente{kpis.pendientes !== 1 ? "s" : ""} ·{" "}
-            {kpis.completadasHoy} completada{kpis.completadasHoy !== 1 ? "s" : ""}
+            {kpis.atendidosHoy} atendido{kpis.atendidosHoy !== 1 ? "s" : ""}
           </h2>
           <p className="text-sm text-[var(--color-muted)] mt-1">
             Tiempo medio de respuesta:{" "}
@@ -98,7 +100,7 @@ export function ActuarHoyHeader({
             const summary = [
               `KPIs Actuar Hoy — ${subtitle}`,
               `Pendientes: ${kpis.pendientes}`,
-              `Completadas hoy: ${kpis.completadasHoy}`,
+              `Atendidos hoy: ${kpis.atendidosHoy}`,
               `Tiempo medio respuesta: ${
                 kpis.tiempoMedioMin == null ? "sin datos" : `${kpis.tiempoMedioMin} min`
               }`,
@@ -106,7 +108,7 @@ export function ActuarHoyHeader({
             ].join("\n");
             openCopilot({
               context: { kind: "kpi", summary },
-              initialAssistantMessage: `Hoy llevas ${kpis.completadasHoy} completadas y ${kpis.pendientes} pendientes. ¿Quieres que te lo explique o te diga cómo mejorarlo?`,
+              initialAssistantMessage: `Hoy llevas ${kpis.atendidosHoy} atendidos (esperando respuesta) y ${kpis.pendientes} pendientes. ¿Quieres que te lo explique o te diga cómo mejorarlo?`,
             });
           }}
           className="fyllio-ia-gradient text-xs font-semibold px-3 py-1.5 rounded-md hover:opacity-90 transition-opacity inline-flex items-center gap-1.5"
