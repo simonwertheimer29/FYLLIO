@@ -31,7 +31,14 @@ function formatTimeAgo(isoDate: string): string {
 
 function filterByTab(items: PresupuestoIntervencion[], tab: IntervencionTab): PresupuestoIntervencion[] {
   if (tab === "todas") return items;
-  if (tab === "actuar") return items.filter((p) => (p.urgenciaBidireccional?.scoreFinal ?? 0) >= 60);
+  // "Esperando respuesta": ya atendidos, la pelota está en el paciente (derivado).
+  if (tab === "esperando") return items.filter((p) => esperaPresupuesto(p).esperando);
+  // "Actuar ahora" NO incluye los que esperan respuesta: ya actuaste sobre ellos,
+  // no toca actuar otra vez hasta que el paciente conteste (o expire el plazo).
+  if (tab === "actuar")
+    return items.filter(
+      (p) => (p.urgenciaBidireccional?.scoreFinal ?? 0) >= 60 && !esperaPresupuesto(p).esperando,
+    );
   const tabDef = INTERVENCION_TABS.find((t) => t.id === tab);
   if (!tabDef?.intenciones) return items;
   return items.filter((p) => {
@@ -885,8 +892,10 @@ export default function IntervencionView({
           title="Sin casos en esta vista"
           hint={
             subTab === "actuar"
-              ? "No hay casos con urgencia alta. Revisa otras pestañas."
-              : "Los presupuestos con respuesta del paciente o urgencia asignada aparecerán aquí."
+              ? "No hay casos con urgencia alta pendientes de acción. Revisa otras pestañas."
+              : subTab === "esperando"
+                ? "No hay presupuestos esperando respuesta ahora mismo."
+                : "Los presupuestos con respuesta del paciente o urgencia asignada aparecerán aquí."
           }
         />
       )}

@@ -133,6 +133,7 @@ export const INTERVENCION_TABS: {
 }[] = [
   { id: "actuar",        label: "Actuar ahora" },
   { id: "cerrados",      label: "Casi cerrados",  intenciones: ["Acepta sin condiciones", "Acepta pero pregunta pago"] },
+  { id: "esperando",     label: "Esperando respuesta" },
   { id: "todas",         label: "Todas" },
   { id: "pago",          label: "Pago",            intenciones: ["Acepta pero pregunta pago"] },
   { id: "dudas",         label: "Dudas trat.",     intenciones: ["Tiene duda sobre tratamiento"] },

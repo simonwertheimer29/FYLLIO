@@ -137,7 +137,7 @@ export function ActuarHoyView({
 // Sub-tab Leads
 // ──────────────────────────────────────────────────────────────────────
 
-type LeadSubFilter = "citados" | "sin-contactar" | "seguimiento" | "todos";
+type LeadSubFilter = "todos" | "citados" | "sin-contactar" | "esperando";
 
 function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
   const { selectedClinicaId } = useClinic();
@@ -147,7 +147,7 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
   // (deliberado) pero avisamos de que puede estar desactualizada.
   const [sinConexion, setSinConexion] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const [filter, setFilter] = useState<LeadSubFilter>("citados");
+  const [filter, setFilter] = useState<LeadSubFilter>("todos");
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null);
   const [asistenciaLead, setAsistenciaLead] = useState<Lead | null>(null);
   const [tiempoMedioMin, setTiempoMedioMin] = useState<number | null>(null);
@@ -203,46 +203,45 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
   const today = new Date().toISOString().slice(0, 10);
   const hace48h = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
-  // Buckets accionables del día. Pendientes = leads accionables del día.
-  const { citados, sinContactar, seguimiento } = useMemo(() => {
+  // Partición ÚNICA y MUTUAMENTE EXCLUYENTE de la cola, con el MISMO estado
+  // derivado que usa la lista (esperando respuesta). Cada lead accionable cae en
+  // exactamente un bucket → los pills cuadran entre sí y con el KPI del header
+  // (Todos = pendientes + esperando):
+  //   citados      = cita hoy sin asistir (pendiente de acción)
+  //   sinContactar = pendiente de acción que necesita contacto/seguimiento
+  //   esperando    = ya atendido, esperando respuesta del paciente (derivado)
+  // Universo accionable: arregla el hueco por el que un "Nuevo ya llamado"
+  // (o cualquier atendido) se caía de todos los buckets viejos y desaparecía.
+  const { citados, sinContactar, esperando } = useMemo(() => {
     const citados: Lead[] = [];
     const sinContactar: Lead[] = [];
-    const seguimiento: Lead[] = [];
+    const esperando: Lead[] = [];
     for (const l of leads) {
       if (l.convertido) continue;
-      if (
+      const esCitadoHoy =
         (l.estado === "Citado" || l.estado === "Citados Hoy") &&
         l.fechaCita === today &&
-        !l.asistido
-      ) {
-        citados.push(l);
-        continue;
-      }
-      if (l.estado === "Nuevo" && !l.llamado) {
-        sinContactar.push(l);
-        continue;
-      }
-      if (l.estado === "Contactado" && l.createdAt <= hace48h) {
-        seguimiento.push(l);
-      }
+        !l.asistido;
+      const esEsperando = esperaLead(
+        l,
+        ultimaSalientePorLead,
+        ultimaEntrantePorLead,
+      ).esperando;
+      const esAccionable =
+        esCitadoHoy ||
+        esEsperando ||
+        l.estado === "Nuevo" ||
+        (l.estado === "Contactado" && l.createdAt <= hace48h);
+      if (!esAccionable) continue;
+      // Precedencia: cita hoy > esperando respuesta > pendiente por contactar.
+      if (esCitadoHoy) citados.push(l);
+      else if (esEsperando) esperando.push(l);
+      else sinContactar.push(l);
     }
-    return { citados, sinContactar, seguimiento };
-  }, [leads, today, hace48h]);
+    return { citados, sinContactar, esperando };
+  }, [leads, today, hace48h, ultimaSalientePorLead, ultimaEntrantePorLead]);
 
-  // KPI "atendidos hoy" = leads que pasaron a esperando respuesta hoy (con una
-  // acción saliente registrada hoy). NO son "completados" ni "cerrados": la
-  // pelota está en el paciente.
-  const atendidosHoy = useMemo(() => {
-    let n = 0;
-    for (const l of leads) {
-      if (l.convertido) continue;
-      const sal = ultimaSalientePorLead[l.id];
-      if (sal && sal.slice(0, 10) === today) n++;
-    }
-    return n;
-  }, [leads, today, ultimaSalientePorLead]);
-
-  const allAccionables = [...citados, ...sinContactar, ...seguimiento];
+  const allAccionables = [...citados, ...sinContactar, ...esperando];
   const filteredLeads =
     filter === "todos"
       ? allAccionables
@@ -250,7 +249,7 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
         ? citados
         : filter === "sin-contactar"
           ? sinContactar
-          : seguimiento;
+          : esperando;
 
   // Orden de la cola: primero los PENDIENTES, luego los que están ESPERANDO
   // respuesta (abajo). Dentro de cada bloque, la prioridad se conserva
@@ -281,11 +280,12 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
     setUltimaSalientePorLead((prev) => ({ ...prev, [leadId]: new Date().toISOString() }));
   }, []);
 
+  // Mutuamente excluyentes: Todos = Citados hoy + Sin contactar + Esperando.
   const tabs: Array<[LeadSubFilter, string, number]> = [
-    ["citados", "Citados Hoy", citados.length],
-    ["sin-contactar", "Sin contactar", sinContactar.length],
-    ["seguimiento", "Seguimiento >48h", seguimiento.length],
     ["todos", "Todos", allAccionables.length],
+    ["citados", "Citados hoy", citados.length],
+    ["sin-contactar", "Sin contactar", sinContactar.length],
+    ["esperando", "Esperando respuesta", esperando.length],
   ];
 
   function onLeadChanged(updated: Lead) {
@@ -298,12 +298,10 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
       <ActuarHoyHeader
         subtitle="Cola de leads · Hoy"
         kpis={{
-          // Pendientes de acción = accionables que NO están esperando respuesta
-          // (esos cuentan como "atendidos", no se doblan en pendientes).
-          pendientes: allAccionables.filter(
-            (l) => !esperaLead(l, ultimaSalientePorLead, ultimaEntrantePorLead).esperando,
-          ).length,
-          atendidosHoy,
+          // Cuadra con los pills: pendientes = Citados hoy + Sin contactar;
+          // atendidos = Esperando respuesta. Cada lead cuenta una sola vez.
+          pendientes: citados.length + sinContactar.length,
+          atendidosHoy: esperando.length,
           tiempoMedioMin,
         }}
         lastUpdate={lastUpdate}
@@ -344,8 +342,12 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
           title="Sin casos en esta vista"
           hint={
             filter === "citados"
-              ? "No hay leads citados hoy en este filtro."
-              : "No hay leads accionables en este filtro."
+              ? "No hay leads citados hoy."
+              : filter === "esperando"
+                ? "No hay leads esperando respuesta ahora mismo."
+                : filter === "sin-contactar"
+                  ? "No tienes leads pendientes por contactar."
+                  : "No hay leads accionables en este filtro."
           }
         />
       ) : (

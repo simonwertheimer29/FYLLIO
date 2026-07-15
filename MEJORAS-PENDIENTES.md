@@ -51,7 +51,17 @@ Estado: 🔵 propuesta (sin decidir) · ✅ aprobada · 🟢 hecha · ⚪ descar
     excluye esperando (sin doble conteo);
   · **presupuestos**: mismo criterio + se cierra el hueco de visibilidad (Fase_seguimiento=
     "Esperando respuesta" al enviar + filtro de cola lo incluye).
-  Verificado en navegador: enviar → recargar → sigue esperando (bug original resuelto).
+  · **pills/sub-filtros** (2ª iteración, tras detectar en preview que "Sin contactar" incluía
+    un lead que ya esperaba respuesta y que un "Nuevo ya llamado" desaparecía de todos los
+    buckets): los pills de Leads pasan a una partición **mutuamente excluyente** con el mismo
+    estado derivado — **Todos · Citados hoy · Sin contactar · Esperando respuesta** — donde
+    cada lead cuenta en un solo pill, `Todos = suma`, y cuadran con el KPI del header
+    (pendientes = Citados+SinContactar; atendidos = Esperando). En Presupuestos (filtros por
+    intención, solapados por diseño) se aplica el mismo criterio: "Actuar ahora" **excluye** los
+    que esperan respuesta y se añade la pestaña "Esperando respuesta".
+  Verificado en navegador: enviar → recargar → sigue esperando (bug original resuelto); los
+  números de los pills cuadran entre sí y con el header, y un envío mueve el lead de
+  "Sin contactar" a "Esperando respuesta" sin doblarlo ni perderlo.
   **Bug pre-existente arreglado de paso**: `logAccionLead` escribía un link `Usuario` con id de
   la base central (inválido en la base de negocio) → el create fallaba silenciado y NO se
   registraba la acción (rompía el KPI de tiempo medio y este estado). Quitado el link.
