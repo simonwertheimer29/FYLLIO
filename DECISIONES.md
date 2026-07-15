@@ -98,3 +98,11 @@ de la base central; un linked record no puede apuntar a otra base → el `create
 catch fire-and-forget lo silenciaba (`acciones.ts:53-61`): sin registro de acciones y KPI de tiempo
 de respuesta roto desde la separación. Lección doble: al mover tablas entre bases se verifica cada
 linked field que las relacionaba, y un fallo sistemático jamás puede ser silencioso.
+
+## 2026-07-15 — Base DEMO: reset total resembrable, no seed acumulativo
+El "re-seed limpio" del 13/7 solo limpiaba 4 tablas: la base DEMO conservaba ~4.600 registros viejos
+en 30 tablas — incluidos nombres de clientes reales en la tabla `Usuarios` legacy y 5 reglas de
+automatización vivas procesando los leads seed. Nuevo `npm run demo:reset` (`demo-reset.ts`): wipe de
+las 39 tablas + seed único de 245 registros coherentes con fechas relativas al ejecutar (la demo no
+envejece), guardas fail-closed (aborta si el base id coincide con RB/INDEP/CENTRAL) y reglas siempre
+en `Modo_Test` con paciente inexistente → nunca envían. Se corre antes de cada presentación.
