@@ -338,6 +338,7 @@ function BulkSendModal({
       `https://wa.me/${cleanPhone}?text=${encodeURIComponent(item.mensajeSugerido!)}`,
       "_blank"
     );
+    toast.success(`Enviado a ${item.patientName}`);
 
     fetch("/api/presupuestos/intervencion/registrar-respuesta", {
       method: "POST",
@@ -365,10 +366,10 @@ function BulkSendModal({
           <div className="flex items-center justify-between">
             <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
               {isDone
-                ? `${enviados}/${sendableItems.length} enviados`
+                ? `Enviados ${enviados} de ${sendableItems.length}`
                 : currentIndex >= 0
-                  ? `Enviando ${currentIndex + 1}/${sendableItems.length}…`
-                  : `Enviar WhatsApp a ${sendableItems.length} pacientes`}
+                  ? `Paciente ${currentIndex + 1} de ${sendableItems.length}`
+                  : `Enviar uno a uno · ${sendableItems.length} pacientes`}
             </h3>
             <button onClick={onClose} className="text-[var(--color-muted)] hover:text-[var(--color-foreground)]" aria-label="Cerrar">
               <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
@@ -379,7 +380,7 @@ function BulkSendModal({
         <div className="px-5 py-4 max-h-[60vh] overflow-y-auto">
           {currentIndex === -1 && (
             <>
-              <p className="text-xs text-[var(--color-muted)] mb-3">Se enviará WhatsApp a los siguientes pacientes:</p>
+              <p className="text-xs text-[var(--color-muted)] mb-3">Abrirás WhatsApp para cada paciente, uno a uno. Repasa la lista:</p>
               <div className="space-y-2">
                 {sendableItems.map((item) => (
                   <div key={item.id} className="flex items-center gap-2 text-xs">
@@ -432,7 +433,7 @@ function BulkSendModal({
                 Cancelar
               </button>
               <button onClick={handleConfirm} className="text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]">
-                Confirmar y enviar
+                Empezar
               </button>
             </>
           ) : (
@@ -820,13 +821,13 @@ export default function IntervencionView({
         })}
       </div>
 
-      {/* Bulk send button */}
+      {/* Enviar la cola uno a uno (honesto: abre WhatsApp por paciente) */}
       {bulkSendable.length >= 3 && (
         <button
           onClick={() => setBulkSendOpen(true)}
           className="text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]"
         >
-          Enviar WhatsApp a {bulkSendable.length} pacientes
+          Enviar uno a uno ({bulkSendable.length})
         </button>
       )}
 

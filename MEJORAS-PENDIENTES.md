@@ -86,7 +86,11 @@ Estado: 🔵 propuesta (sin decidir) · ✅ aprobada · 🟢 hecha · ⚪ descar
   "lote", renombrar a envío uno-a-uno con progreso "X de N" y reutilizar el feedback de #2 —
   demo-safe; **(B) bulk real por plantilla** (~1-2 días de código + espera de aprobación
   Meta + cambiar el mensaje a plantilla fija) — no entra en la ventana de la demo.
-- **Fecha:** 2026-07-15 · 🔵 (pendiente decisión del fundador: A, B o backlog)
+- **Fecha:** 2026-07-15 · 🟢 **opción A hecha** (tanda pre-demo, rama `pre-demo-actuar-hoy`):
+  el flujo deja de prometer "lote" — botón "Enviar uno a uno (N)", título "Paciente X de N",
+  copy honesto ("abrirás WhatsApp para cada paciente, uno a uno") y toast por envío.
+  **Opción B (bulk real por plantilla WABA) queda en BACKLOG** para después del piloto; las
+  plantillas de Meta se decidirán con el cliente.
 
 ## 6. Jerga e IDs crudos en superficies de coordinadora
 - **Zona:** `app/(authed)/automatizaciones/MotorReglasView.tsx` (paciente de prueba),
