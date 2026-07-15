@@ -38,9 +38,23 @@ Estado: 🔵 propuesta (sin decidir) · ✅ aprobada · 🟢 hecha · ⚪ descar
   card, con la misma convención que el resto.
 - **Impacto:** **medio-alto** en facilidad/pérdida — sin confirmación hay dudas de si se
   envió → reenvíos o casos que se dan por hechos sin estarlo.
-- **Fecha:** 2026-07-15 · 🟢 hecha (tanda pre-demo, rama `pre-demo-actuar-hoy`, pendiente de
-  merge) — al enviar WA / llamar: toast de sonner + card atenuada + botón que pasa a
-  "WhatsApp enviado" / "Llamada hecha" (mismo patrón que la card de Presupuestos).
+- **Fecha:** 2026-07-15 · 🟢 hecha y REDISEÑADA (tanda pre-demo, rama `pre-demo-actuar-hoy`).
+  El primer intento (fade solo en navegador) tenía un fallo de criterio: no persistía y
+  llamaba "completado" a algo que no lo está. Rediseño aprobado por el fundador → estado real
+  **"esperando respuesta"** (enviar NO completa; deja la pelota en el paciente):
+  · **derivado de datos** (Acciones_Lead saliente vs entrante en leads; Ultima_accion vs
+    Fecha_ultima_respuesta en presupuestos), no del navegador → persiste al recargar;
+  · **reactivación**: por respuesta (webhook entrante) o por tiempo (**48 h leads / 72 h
+    presupuestos**), recalculada al cargar;
+  · **orden**: pendientes arriba, esperando abajo, prioridad conservada dentro de cada bloque;
+  · **copy**: "Esperando respuesta · hace X"; KPI "atendidos" (no "completadas"); pendientes
+    excluye esperando (sin doble conteo);
+  · **presupuestos**: mismo criterio + se cierra el hueco de visibilidad (Fase_seguimiento=
+    "Esperando respuesta" al enviar + filtro de cola lo incluye).
+  Verificado en navegador: enviar → recargar → sigue esperando (bug original resuelto).
+  **Bug pre-existente arreglado de paso**: `logAccionLead` escribía un link `Usuario` con id de
+  la base central (inválido en la base de negocio) → el create fallaba silenciado y NO se
+  registraba la acción (rompía el KPI de tiempo medio y este estado). Quitado el link.
 
 ## 3. Actuar hoy — la "acción sugerida" está vacía en el caso más común
 - **Zona:** `app/(authed)/actuar-hoy/ActuarHoyView.tsx:544`
