@@ -23,6 +23,7 @@ import {
   Zap,
   ICON_STROKE,
 } from "../../components/icons";
+import { WA_ENGINE_OPERATIVO } from "../../lib/automatizaciones/types";
 
 type Regla = {
   id: string;
@@ -49,6 +50,7 @@ type AccionLog = {
   resultado:
     | "success"
     | "error"
+    | "pendiente_integracion"
     | "skipped_cooldown"
     | "skipped_optout"
     | "skipped_horario"
@@ -91,12 +93,23 @@ const ROSE_TONE =
 const RESULTADO_BADGE: Record<AccionLog["resultado"], { tone: string; label: string }> = {
   success: { tone: EMERALD_TONE, label: "Hecho" },
   error: { tone: ROSE_TONE, label: "Error" },
+  pendiente_integracion: { tone: AMBER_TONE, label: "No enviado · falta WhatsApp" },
   skipped_cooldown: { tone: AMBER_TONE, label: "En espera" },
   skipped_optout: { tone: NEUTRAL_TONE, label: "No contactar" },
   skipped_horario: { tone: NEUTRAL_TONE, label: "Fuera de horario" },
   skipped_test: { tone: NEUTRAL_TONE, label: "En pruebas" },
   skipped_dedupe: { tone: NEUTRAL_TONE, label: "Ya enviado" },
 };
+
+// Honestidad (mantenimiento jul-2026): el envío WA del motor aún no está
+// integrado (ver WA_ENGINE_OPERATIVO en lib/automatizaciones/types.ts). Las
+// reglas cuya acción es enviar mensajes lo dicen en la card en vez de fingir.
+function reglaNecesitaWA(regla: Regla): boolean {
+  return (
+    !WA_ENGINE_OPERATIVO &&
+    regla.acciones.some((a) => a.tipo === "enviar_whatsapp_template")
+  );
+}
 
 export function MotorReglasView({ isAdmin }: { isAdmin: boolean }) {
   const [reglas, setReglas] = useState<Regla[]>([]);
@@ -361,9 +374,23 @@ function ReglaCard({
                 Desactivada
               </span>
             )}
+            {reglaNecesitaWA(regla) && (
+              <span
+                className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${AMBER_TONE}`}
+              >
+                <AlertTriangle size={10} strokeWidth={ICON_STROKE} aria-hidden />
+                Aún no envía · necesita WhatsApp conectado
+              </span>
+            )}
           </div>
           <p className="text-xs text-[var(--color-muted)] mt-1">
             {regla.descripcion}
+            {reglaNecesitaWA(regla) && (
+              <span className="block mt-0.5 text-amber-700 dark:text-amber-300">
+                Detecta los casos y los registra, pero no enviará mensajes
+                hasta que WhatsApp esté conectado.
+              </span>
+            )}
           </p>
           <p className="text-[11px] text-[var(--color-muted)] mt-2">
             {regla.vecesDisparada === 0

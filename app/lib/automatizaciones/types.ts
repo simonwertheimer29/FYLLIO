@@ -78,11 +78,22 @@ export type EventoSistema = {
 export type ResultadoEjecucion =
   | "success"
   | "error"
+  | "pendiente_integracion"
   | "skipped_cooldown"
   | "skipped_optout"
   | "skipped_horario"
   | "skipped_test"
   | "skipped_dedupe";
+
+/**
+ * Mantenimiento jul-2026 — el envío WA del motor es un skeleton
+ * (`engine.ts` → `ejecutarEnviarWA`): NO envía mensajes reales. Este flag
+ * alimenta la UI honesta ("Necesita WhatsApp conectado · aún no envía") y el
+ * resultado `pendiente_integracion` del log, para que la pantalla nunca
+ * presuma de envíos que no ocurrieron. Poner a `true` (y retirar la lógica
+ * asociada) cuando el backlog #5B enganche el cliente WABA real.
+ */
+export const WA_ENGINE_OPERATIVO = false;
 
 export type AccionLog = {
   id: string;

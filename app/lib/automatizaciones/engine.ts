@@ -164,10 +164,14 @@ export async function evaluarRegla(
   // ── Ejecutar acciones ──
   const detalleEjecucion: Array<Record<string, unknown>> = [];
   let huboError = false;
+  let huboPendiente = false;
   for (const accion of regla.acciones) {
     try {
       const r = await ejecutarAccion(accion, regla, evento);
-      detalleEjecucion.push({ tipo: accion.tipo, ok: true, ...r });
+      // Una acción "pendiente" (p. ej. WA skeleton) NO es un éxito: se
+      // ejecutó el trámite pero el efecto real no ocurrió.
+      if (r.pendiente === true) huboPendiente = true;
+      detalleEjecucion.push({ tipo: accion.tipo, ok: r.pendiente !== true, ...r });
     } catch (err) {
       huboError = true;
       detalleEjecucion.push({
@@ -178,14 +182,23 @@ export async function evaluarRegla(
     }
   }
 
+  // Honestidad (mantenimiento jul-2026): "success" solo si TODAS las acciones
+  // produjeron su efecto real. Un skeleton sin integración queda como
+  // pendiente_integracion — no suma disparos ni engaña al KPI.
+  const resultado = huboError
+    ? "error"
+    : huboPendiente
+      ? "pendiente_integracion"
+      : "success";
+
   await logAccion({
     reglaId: regla.id,
     ...idsLink(evento),
-    resultado: huboError ? "error" : "success",
+    resultado,
     detalle: { acciones: detalleEjecucion, evento },
   });
 
-  if (!huboError) {
+  if (resultado === "success") {
     await incrementarDisparos(regla.id);
   }
 }
@@ -318,10 +331,15 @@ async function ejecutarEnviarWA(
   >;
   return {
     tipo: "enviar_whatsapp_template",
+    // Honestidad: mientras el cliente WA no esté enganchado esto NO es un
+    // envío. El caller lo registra como pendiente_integracion (nunca
+    // success) y la UI muestra "Necesita WhatsApp conectado". Ver
+    // WA_ENGINE_OPERATIVO en types.ts.
+    pendiente: true,
     template_id: templateId,
     variables: variablesMap,
     paciente_id: pacienteIdDeEvento(evento),
-    nota: "send queued (WA client integration TBD en el sprint que enganche el cliente)",
+    nota: "NO enviado — integración WABA pendiente (backlog #5B)",
     regla: regla.codigo,
   };
 }
