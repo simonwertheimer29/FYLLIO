@@ -155,3 +155,81 @@ Estado: 🔵 propuesta (sin decidir) · ✅ aprobada · 🟢 hecha · ⚪ descar
 - **Impacto:** **alto** a medio plazo — consistencia, mantenimiento y fiabilidad (envíos sin
   duplicar ni perder telemetría).
 - **Fecha:** 2026-07-15 · 🔵
+
+---
+
+Sesión de mantenimiento · zona Automatizaciones · 2026-07-16 (skill
+`fyllio-sesion-mantenimiento`). Aprobados y hechos en el momento: UI honesta de reglas WA
+sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, abajo.
+
+## 9. Motor de reglas — dedup faltante en `cita_24h` y `lead_inactivo`
+- **Zona:** `app/api/cron/automatizaciones-evaluar/route.ts:165,267` (solo `presupuesto_7d`
+  usa `yaDisparadaRecientemente`, `:252`)
+- **Severidad:** 🟠 (latente — hoy la vía WA es skeleton; crítico el día que envíe de verdad)
+- **Problema:** un reintento del cron re-dispara `cita_24h` el mismo día, y `lead_inactivo`
+  re-evalúa a diario el mismo lead sin comprobar si ya disparó (mandamiento §2: idempotencia).
+- **Propuesta:** reutilizar `yaDisparadaRecientemente` en ambos triggers.
+- **Esfuerzo:** horas.
+- **Fecha:** 2026-07-16 · 🔵 **condición acordada: obligatorio junto a la integración WABA
+  real (#5 opción B), nunca después.**
+
+## 10. Motor de reglas — salvaguardas que se apagan en silencio
+- **Zona:** `app/lib/automatizaciones/engine.ts:452` (cooldown catch→0),
+  `app/lib/automatizaciones/repo.ts:63` (`listReglas` catch→`[]` deja el cron sin trabajo
+  en silencio)
+- **Severidad:** 🟡
+- **Problema:** si la query de una salvaguarda falla, la protección se desactiva sin señal
+  visible (mandamiento §9: fallos nunca silenciosos).
+- **Propuesta:** fallo de salvaguarda → visible en el KPI de errores del Motor.
+- **Esfuerzo:** horas.
+- **Fecha:** 2026-07-16 · 🔵 acordado: junto a la integración WABA (#5B), con el nº 9.
+
+## 11. Operativo — la "automatización" depende de que alguien abra la pestaña
+- **Zona:** `app/components/presupuestos/AutomatizacionesView.tsx:70-82` (POST
+  `/api/automatizaciones/procesar` al montar, debounce 60 min en `localStorage`)
+- **Severidad:** 🟠
+- **Problema:** la generación de secuencias solo corre cuando un humano visita la página;
+  el debounce vive en el navegador de cada uno (§3 anticipación).
+- **Propuesta:** mover la generación a cron diario y retirar el debounce local.
+- **Esfuerzo:** medio día.
+- **Fecha:** 2026-07-16 · 🔵 acordado: **solo si el piloto usa la cola de Operativo.**
+
+## 12. Dos motores persiguen el mismo presupuesto estancado
+- **Zona:** regla `presupuesto_estancado_7d` del Motor vs cola de secuencias de Operativo
+  (`/api/automatizaciones/procesar`)
+- **Severidad:** 🟡
+- **Problema:** dos sistemas independientes (reglas Airtable+cron vs secuencias LLM
+  on-page) actúan sobre el mismo caso → doble mensaje al paciente cuando ambos envíen de
+  verdad (§6 coherencia; pariente del nº 8).
+- **Propuesta:** unificar en el motor de reglas (la secuencia LLM pasa a ser una acción
+  "generar borrador para revisar"). Parte del rediseño del nº 13.
+- **Esfuerzo:** días.
+- **Fecha:** 2026-07-16 · 🔵 acordado: espera feedback del cliente (con el nº 13).
+
+## 13. Automatizaciones — zona unificada (una vista, config a Ajustes)
+- **Zona:** `app/(authed)/automatizaciones/AutomatizacionesTopView.tsx` (3 pestañas =
+  3 generaciones apiladas: Motor, Operativo, "Reglas y objetivos")
+- **Severidad:** 🟡
+- **Problema:** tres pestañas sin relación clara; "Reglas y objetivos" no contiene las
+  reglas (es un cajón de config con 7 secciones); solapamientos (nº 12; sección
+  Recordatorios vs regla de recordatorio).
+- **Propuesta:** una sola vista — header KPI, lista de reglas con interruptor y estado
+  honesto, desplegable por regla (qué hace · cómo · qué esperar · KPIs por regla),
+  sección "Pendientes de revisar" que absorbe la cola; el resto de config se muda a
+  Ajustes. ⚠️ **La sección "Objetivos del mes" es el ÚNICO editor de objetivos mensuales
+  de la app (`ConfigAutomatizaciones.tsx:347`): se muda, nunca se borra.**
+- **Esfuerzo:** 1-2 días.
+- **Fecha:** 2026-07-16 · 🔵 acordado: espera feedback del cliente del piloto.
+
+## 14. Restos de prototipo en superficie de admin
+- **Zona:** `ConfigAutomatizaciones.tsx:110` (botón "Cargar demo"), `:177,444` + 
+  `AutomatizacionesView.tsx:517` (stubs "Próximamente"), toggles auto del motor no-shows
+  inertes (`app/lib/no-shows/acciones.ts:250`, `aplicarAccionesAutomaticasNoShow` sin
+  cablear)
+- **Severidad:** ⚪
+- **Problema:** utilidades de desarrollo y promesas "Próximamente" visibles en producción;
+  toggles que no hacen nada.
+- **Propuesta:** ocultar "Cargar demo" fuera del tenant DEMO; retirar stubs; decidir
+  cablear o quitar los toggles inertes.
+- **Esfuerzo:** horas.
+- **Fecha:** 2026-07-16 · 🔵
