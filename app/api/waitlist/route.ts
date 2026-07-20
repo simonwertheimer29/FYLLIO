@@ -1,5 +1,6 @@
 // app/api/waitlist/route.ts
 import { NextResponse } from "next/server";
+import { listWaitlistPorClinicaRaw } from "../../lib/scheduler/repo/waitlistRepo";
 import { base, TABLES } from "../../lib/airtable";
 
 function escapeAirtableString(s: string) {
@@ -26,13 +27,8 @@ AND(
 )
 `.trim();
 
-    const records = await base(TABLES.waitlist)
-      .select({
-        filterByFormula,
-        sort: [{ field: "Prioridad", direction: "desc" }],
-        maxRecords: 200,
-      })
-      .all();
+    // FASE 1 migración: lectura via repo del dominio Agenda.
+    const records = await listWaitlistPorClinicaRaw(clinicSafe);
 
     const data = records.map((r) => ({
       id: r.id,

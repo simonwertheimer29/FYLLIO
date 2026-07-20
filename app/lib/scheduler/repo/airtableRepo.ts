@@ -1,6 +1,6 @@
 // app/lib/scheduler/repo/airtableRepo.ts
 import type { Appointment } from "../../types";
-import { base, TABLES } from "../../airtable";
+import { base, TABLES, fetchAll } from "../../airtable";
 import { DateTime } from "luxon";
 
 /**
@@ -519,4 +519,218 @@ const { name, startIso, endIso, clinicRecordId, notes, staffRecordId, sillonReco
   fireCitaEvento("creada", rec.id);
   fireEvaluarRiesgo(rec.id);
   return { recordId: rec.id };
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// FASE 1 migración — métodos añadidos para que TODO acceso a la tabla
+// Citas pase por este repo. Los métodos *Raw devuelven records de
+// Airtable tal cual (los consumidores actuales leen fields crudos, sobre
+// todo la superficie diferida no-shows y demo /api/db); se re-tipan al
+// voltear su módulo en FASE 2. Paridad estricta con los call-sites.
+// ─────────────────────────────────────────────────────────────────────
+
+/** Update de Estado de una cita. `typecast` opcional: los side-effects del
+ *  webhook Vapi lo usaban; el resto no — se preserva por caller. */
+export async function updateCitaEstado(
+  citaId: string,
+  estado: string,
+  opts: { typecast?: boolean } = {},
+): Promise<void> {
+  if (opts.typecast) {
+    await base(TABLES.appointments).update(
+      [{ id: citaId, fields: { Estado: estado } as any }],
+      { typecast: true },
+    );
+  } else {
+    await (base(TABLES.appointments) as any).update(citaId, { Estado: estado });
+  }
+}
+
+/** Registra una acción de recordatorio no-show sobre la cita. */
+export async function registrarAccionNoShowEnCita(
+  citaId: string,
+  input: {
+    ultimaAccion: string; // YYYY-MM-DD
+    tipoUltimaAccion?: string;
+    faseRecordatorio?: string;
+    notasAccion?: string;
+  },
+): Promise<void> {
+  const fields: Record<string, unknown> = { Ultima_accion: input.ultimaAccion };
+  if (input.tipoUltimaAccion) fields["Tipo_ultima_accion"] = input.tipoUltimaAccion;
+  if (input.faseRecordatorio) fields["Fase_recordatorio"] = input.faseRecordatorio;
+  if (input.notasAccion) fields["Notas_accion"] = input.notasAccion;
+  await (base(TABLES.appointments) as any).update(citaId, fields);
+}
+
+/** Alta mínima de cita (agenda no-shows): solo campos confirmados como
+ *  escribibles; los lookups van dentro de Notas como texto. */
+export async function createCitaMinima(input: {
+  nombre: string;
+  horaInicioIso: string; // toUTC().toISO()
+  horaFinalIso: string;
+  notas?: string;
+}): Promise<{ id: string }> {
+  const fields: Record<string, unknown> = {
+    "Nombre": input.nombre,
+    "Hora inicio": input.horaInicioIso,
+    "Hora final": input.horaFinalIso,
+  };
+  if (input.notas) fields["Notas"] = input.notas;
+  const record = await (base(TABLES.appointments) as any).create(fields);
+  return { id: record.id };
+}
+
+/** Reagenda/mueve una cita (horas en toUTC().toISO()) y/o cambia Estado. */
+export async function reprogramarCita(
+  citaId: string,
+  input: { horaInicioIso?: string; horaFinalIso?: string; estado?: string },
+): Promise<void> {
+  const fields: Record<string, unknown> = {};
+  if (input.horaInicioIso) fields["Hora inicio"] = input.horaInicioIso;
+  if (input.horaFinalIso) fields["Hora final"] = input.horaFinalIso;
+  if (input.estado) fields["Estado"] = input.estado;
+  await (base(TABLES.appointments) as any).update(citaId, fields);
+}
+
+/** Record crudo de una cita (fields + createdTime). Lanza si no existe. */
+export async function findCitaRaw(citaId: string): Promise<any> {
+  return base(TABLES.appointments).find(citaId);
+}
+
+/** Citas con Hora inicio posterior a `desdeIso` (y anterior a `hastaIso` si
+ *  se pasa), orden ascendente, paginación completa. Cubre las ventanas 90d
+ *  y 12m del módulo no-shows y la ventana 48h del predictor. */
+export async function listCitasDesdeRaw(
+  desdeIso: string,
+  opts: { hastaIso?: string } = {},
+): Promise<any[]> {
+  const formula = opts.hastaIso
+    ? `AND(IS_AFTER({Hora inicio}, '${desdeIso}'), IS_BEFORE({Hora inicio}, '${opts.hastaIso}'))`
+    : `IS_AFTER({Hora inicio}, '${desdeIso}')`;
+  return fetchAll(
+    base(TABLES.appointments).select({
+      filterByFormula: formula,
+      sort: [{ field: "Hora inicio", direction: "asc" }],
+    }),
+  );
+}
+
+/** Citas en un Estado dado dentro de una ventana (crons "24h antes"). */
+export async function listCitasEstadoVentanaRaw(params: {
+  estado: string;
+  desdeIso: string;
+  hastaIso: string;
+}): Promise<any[]> {
+  return fetchAll(
+    base(TABLES.appointments).select({
+      filterByFormula: `AND({Estado}="${params.estado}", IS_AFTER({Hora inicio}, "${params.desdeIso}"), IS_BEFORE({Hora inicio}, "${params.hastaIso}"))`,
+      pageSize: 100,
+    }),
+  );
+}
+
+/** Historial de citas por teléfono de paciente o tutor (predictor). */
+export async function listCitasPorTelefonoRaw(phone: string): Promise<readonly any[]> {
+  const safe = phone.replace(/'/g, "\\'");
+  return base(TABLES.appointments)
+    .select({
+      filterByFormula: `OR({Paciente_teléfono}='${safe}',{Paciente_tutor_teléfono}='${safe}')`,
+      maxRecords: 200,
+    })
+    .all();
+}
+
+/** Citas de un profesional por Profesional_id (agenda semanal/día/huecos). */
+export async function listCitasPorProfesionalRaw(
+  staffId: string,
+  opts: { maxRecords?: number } = {},
+): Promise<readonly any[]> {
+  const safe = staffId.replace(/'/g, "\\'");
+  return base(TABLES.appointments)
+    .select({
+      filterByFormula: `{Profesional_id}='${safe}'`,
+      maxRecords: opts.maxRecords ?? 500,
+    })
+    .all();
+}
+
+/** Citas para revenue mensual: opcionalmente del profesional, desde una
+ *  fecha (comparador >= sobre Hora inicio, como siempre fue). */
+export async function listCitasRevenueRaw(params: {
+  staffId?: string | null;
+  fromIso: string;
+}): Promise<readonly any[]> {
+  const staffFilter = params.staffId
+    ? `{Profesional_id}='${params.staffId}' AND `
+    : "";
+  return base(TABLES.appointments)
+    .select({
+      filterByFormula: `AND(${staffFilter}{Hora inicio} >= '${params.fromIso}')`,
+      fields: ["Hora inicio", "Hora final", "Estado", "Tratamiento", "Profesional", "Profesional_id", "Nombre"],
+      maxRecords: 2000,
+    })
+    .all();
+}
+
+/** Volcado plano de citas (historial completo de la clínica). */
+export async function listCitasRaw(maxRecords: number): Promise<readonly any[]> {
+  return base(TABLES.appointments).select({ maxRecords }).all();
+}
+
+/** Citas ordenadas por Hora inicio descendente (recall / última visita). */
+export async function listCitasOrdenadasDescRaw(maxRecords: number): Promise<readonly any[]> {
+  return base(TABLES.appointments)
+    .select({ maxRecords, sort: [{ field: "Hora inicio", direction: "desc" }] })
+    .all();
+}
+
+/** Resumen semanal para el informe de automatizaciones (campos fijos). */
+export async function listCitasResumenNoShowRaw(): Promise<readonly any[]> {
+  return base(TABLES.appointments)
+    .select({ maxRecords: 500, fields: ["Hora inicio", "Estado", "Notas", "Clínica ID"] })
+    .all();
+}
+
+// ── SOLO DEV (seed/diagnóstico de no-shows) ──────────────────────────
+
+export async function sampleCitasFieldsDev(n: number): Promise<any[]> {
+  return (await (base(TABLES.appointments as any).select({ maxRecords: n }).firstPage() as any)) as any[];
+}
+
+export async function listCitasIdsPorMarcadorDev(marker: string, maxRecords: number): Promise<string[]> {
+  const recs = await base(TABLES.appointments)
+    .select({
+      filterByFormula: `FIND("${marker}", COALESCE({Notas},"")) > 0`,
+      maxRecords,
+    })
+    .all();
+  return recs.map((r) => r.id);
+}
+
+export async function destroyCitasDev(ids: string[]): Promise<void> {
+  for (let i = 0; i < ids.length; i += 10) {
+    await base(TABLES.appointments).destroy(ids.slice(i, i + 10));
+  }
+}
+
+export async function createCitaDev(fields: Record<string, unknown>): Promise<{ id: string }> {
+  const record = await (base(TABLES.appointments) as any).create(fields);
+  return { id: record.id };
+}
+
+export async function createCitasDevBatch(fieldsList: Array<Record<string, unknown>>): Promise<string[]> {
+  const ids: string[] = [];
+  for (let i = 0; i < fieldsList.length; i += 10) {
+    const batch = fieldsList.slice(i, i + 10);
+    if (batch.length === 1) {
+      const r = await (base(TABLES.appointments) as any).create(batch[0]);
+      ids.push(r.id);
+    } else {
+      const rs = await (base(TABLES.appointments) as any).create(batch.map((f) => ({ fields: f })));
+      for (const r of rs) ids.push(r.id);
+    }
+    if (i + 10 < fieldsList.length) await new Promise((r) => setTimeout(r, 250));
+  }
+  return ids;
 }

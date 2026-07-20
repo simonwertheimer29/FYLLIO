@@ -4,6 +4,7 @@
 // GET /api/no-shows/dev/campos
 
 import { NextResponse } from "next/server";
+import { sampleCitasFieldsDev } from "../../../../lib/scheduler/repo/airtableRepo";
 import { samplePacientesFieldsDev } from "../../../../lib/pacientes/pacientes";
 import { base, TABLES } from "../../../../lib/airtable";
 
@@ -15,7 +16,7 @@ export async function GET() {
 
   // ── Tabla Citas ───────────────────────────────────────────────────────────
   try {
-    const citas = await (base(TABLES.appointments as any).select({ maxRecords: 3 }).firstPage() as any);
+    const citas = await (sampleCitasFieldsDev(3) as any);
     if (citas.length > 0) {
       result.citas_campos = Object.keys(citas[0].fields).sort();
       result.citas_ejemplo = citas[0].fields;

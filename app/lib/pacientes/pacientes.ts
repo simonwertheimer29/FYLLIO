@@ -601,3 +601,11 @@ export async function findPacienteIdPorNombreYTutor(params: {
 export async function samplePacientesFieldsDev(n: number): Promise<any[]> {
   return (await (base(TABLES.patients as any).select({ maxRecords: n }).firstPage() as any)) as any[];
 }
+
+/** SOLO DEV — record ids de pacientes (seeder no-shows; fields:[] = solo ids). */
+export async function listPacientesIdsDev(maxRecords: number): Promise<string[]> {
+  const recs = await base(TABLES.patients as any)
+    .select({ maxRecords, fields: [] })
+    .all();
+  return (recs as any[]).map((r) => r.id);
+}

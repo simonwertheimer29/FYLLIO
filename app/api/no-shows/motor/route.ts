@@ -13,6 +13,8 @@
 // Auth idéntica a riesgo/route.ts: cookie fyllio_noshows_token (jose jwtVerify).
 
 import { NextResponse } from "next/server";
+import { listCitasDesdeRaw, findCitaRaw } from "../../../lib/scheduler/repo/airtableRepo";
+import { listStaffCamposRaw, findStaffRaw } from "../../../lib/scheduler/repo/staffRepo";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { DateTime } from "luxon";
@@ -134,7 +136,7 @@ async function buildProximas(
 
   // Metadatos para resolver clínica/doctor (mismo patrón que riesgo/route.ts).
   const [staffRecs, clinicaRecs] = await Promise.all([
-    base("Staff" as any).select({ fields: ["Staff ID", "Nombre", "Clínica"] }).all(),
+    listStaffCamposRaw(["Staff ID", "Nombre", "Clínica"]),
     base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all(),
   ]);
 
@@ -166,12 +168,7 @@ async function buildProximas(
     }
   }
 
-  const allRecs = await fetchAll(
-    base(TABLES.appointments as any).select({
-      filterByFormula: `AND(IS_AFTER({Hora inicio}, '${desdeFilter}'), IS_BEFORE({Hora inicio}, '${windowEndIso}'))`,
-      sort: [{ field: "Hora inicio", direction: "asc" }],
-    }),
-  );
+  const allRecs = await listCitasDesdeRaw(desdeFilter, { hastaIso: windowEndIso });
 
   type Candidato = { id: string; f: any; startIso: string; clinicaId: string | null };
   const candidatos: Candidato[] = [];
@@ -331,7 +328,7 @@ async function buildHistorico(
         let tratamiento: string | null = null;
         let startIso: string | null = null;
         try {
-          const rec: any = await base(TABLES.appointments).find(p.cita_id);
+          const rec: any = await findCitaRaw(p.cita_id);
           const f: any = rec.fields ?? {};
           pacienteNombre =
             firstString(f["Paciente_nombre"]) || firstString(f["Nombre"]) || null;
@@ -342,7 +339,7 @@ async function buildHistorico(
           const profRecId = firstString(f["Profesional"]);
           if (profRecId) {
             try {
-              const staff: any = await base("Staff" as any).find(profRecId);
+              const staff: any = await findStaffRaw(profRecId);
               doctorNombre = firstString(staff.fields?.["Nombre"]) || null;
             } catch {
               doctorNombre = null;
@@ -455,13 +452,8 @@ async function computeTasasNoShow(clinicaFilter: string | null): Promise<{
 
   const [clinicaRecs, staffRecs, allRecs] = await Promise.all([
     base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all(),
-    base("Staff" as any).select({ fields: ["Staff ID", "Clínica"] }).all(),
-    fetchAll(
-      base(TABLES.appointments as any).select({
-        filterByFormula: `IS_AFTER({Hora inicio}, '${desdeIso}')`,
-        sort: [{ field: "Hora inicio", direction: "asc" }],
-      }),
-    ),
+    listStaffCamposRaw(["Staff ID", "Clínica"]),
+    listCitasDesdeRaw(desdeIso),
   ]);
 
   const clinicaRecordToId = new Map<string, string>(

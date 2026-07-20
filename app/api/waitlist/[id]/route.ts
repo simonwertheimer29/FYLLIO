@@ -1,5 +1,6 @@
 // app/api/waitlist/[id]/route.ts
 import { NextResponse } from "next/server";
+import { updateWaitlistEstado } from "../../../lib/scheduler/repo/waitlistRepo";
 import { base, TABLES } from "../../../lib/airtable";
 
 type ParamsPromise = Promise<{ id: string }>;
@@ -18,10 +19,8 @@ export async function PATCH(req: Request, { params }: { params: ParamsPromise })
       return NextResponse.json({ error: "estado required" }, { status: 400 });
     }
 
-    const updated = await base(TABLES.waitlist).update(id, {
-      Estado: estado,
-      ...(ultimoContacto ? { "Último contacto": ultimoContacto } : {}),
-    });
+    // FASE 1 migración: escritura via repo del dominio Agenda.
+    const updated = await updateWaitlistEstado(id, estado, ultimoContacto);
 
     return NextResponse.json({ ok: true, id: updated.id });
   } catch (e: any) {

@@ -300,8 +300,9 @@ function overridesToStrings(o?: RenderOverrides): Record<string, string> {
 
 async function loadStaffNombre(staffId: string): Promise<string | null> {
   try {
-    const rec = await base(TABLES.staff as any).find(staffId);
-    return String((rec.fields as any)?.["Nombre"] ?? "") || null;
+    // FASE 1 migración: lectura via repo del dominio Agenda.
+    const { getStaffNombrePorId } = await import("../scheduler/repo/staffRepo");
+    return (await getStaffNombrePorId(staffId)) || null;
   } catch {
     return null;
   }

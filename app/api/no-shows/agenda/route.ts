@@ -3,6 +3,9 @@
 // Requiere JWT cookie fyllio_noshows_token
 
 import { NextResponse } from "next/server";
+import { listCitasDesdeRaw } from "../../../lib/scheduler/repo/airtableRepo";
+import { listStaffCamposRaw } from "../../../lib/scheduler/repo/staffRepo";
+import { listSillonesCamposRaw } from "../../../lib/scheduler/repo/sillonesRepo";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { DateTime } from "luxon";
@@ -76,16 +79,11 @@ export async function GET(req: Request) {
     const ninetyDaysAgoIso = now.minus({ days: 90 }).toISODate()!;
     console.log("[agenda] todayIso:", todayIso, "| mondayIso:", mondayIso, "| zona:", ZONE, "| filtro desde:", ninetyDaysAgoIso);
     const [staffRecs, clinicaRecs, sillonRecs] = await Promise.all([
-      base("Staff"    as any).select({ fields: ["Staff ID",   "Nombre", "Clínica"] }).all() as Promise<any[]>,
+      listStaffCamposRaw(["Staff ID", "Nombre", "Clínica"]) as Promise<any[]>,
       base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all() as Promise<any[]>,
-      base("Sillones" as any).select({ fields: ["Sillón ID",  "Nombre"] }).all() as Promise<any[]>,
+      listSillonesCamposRaw(["Sillón ID", "Nombre"]) as Promise<any[]>,
     ]);
-    const allRecs = await fetchAll(
-      base(TABLES.appointments as any).select({
-        filterByFormula: `IS_AFTER({Hora inicio}, '${ninetyDaysAgoIso}')`,
-        sort: [{ field: "Hora inicio", direction: "asc" }],
-      }),
-    );
+    const allRecs = await listCitasDesdeRaw(ninetyDaysAgoIso);
     console.log("[agenda] allRecs total tras filter:", allRecs.length);
 
     // Mapas por Airtable record ID

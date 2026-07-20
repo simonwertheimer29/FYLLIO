@@ -3,6 +3,9 @@
 // Requiere JWT cookie fyllio_noshows_token
 
 import { NextResponse } from "next/server";
+import { listCitasDesdeRaw } from "../../../lib/scheduler/repo/airtableRepo";
+import { listStaffCamposRaw } from "../../../lib/scheduler/repo/staffRepo";
+import { listSillonesCamposRaw } from "../../../lib/scheduler/repo/sillonesRepo";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { DateTime } from "luxon";
@@ -98,16 +101,11 @@ export async function GET(req: Request) {
     console.log("[hoy] todayIso:", todayIso, "| zona:", ZONE, "| filtro desde:", ninetyDaysAgoIso);
 
     const [staffRecs, clinicaRecs, sillonRecs] = await Promise.all([
-      base("Staff" as any).select({ fields: ["Staff ID", "Nombre", "Clínica"] }).all(),
+      listStaffCamposRaw(["Staff ID", "Nombre", "Clínica"]),
       base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all(),
-      base("Sillones" as any).select({ fields: ["Sillón ID", "Nombre"] }).all(),
+      listSillonesCamposRaw(["Sillón ID", "Nombre"]),
     ]);
-    const allRecs = await fetchAll(
-      base(TABLES.appointments as any).select({
-        filterByFormula: `IS_AFTER({Hora inicio}, '${ninetyDaysAgoIso}')`,
-        sort: [{ field: "Hora inicio", direction: "asc" }],
-      }),
-    );
+    const allRecs = await listCitasDesdeRaw(ninetyDaysAgoIso);
 
     console.log("[hoy] allRecs total tras filter:", allRecs.length);
     if (allRecs.length > 0) {

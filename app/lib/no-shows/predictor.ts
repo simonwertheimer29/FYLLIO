@@ -12,6 +12,7 @@
 
 import { DateTime } from "luxon";
 import { base, TABLES } from "@/lib/airtable";
+import { listCitasPorTelefonoRaw, listCitasDesdeRaw, findCitaRaw } from "../scheduler/repo/airtableRepo";
 import { ZONE } from "@/lib/no-shows/score";
 import {
   getSupabaseAdmin,
@@ -86,13 +87,9 @@ async function getHistorialPaciente(
 ): Promise<{ total: number; noShowCount: number; cancelCount: number }> {
   const out = { total: 0, noShowCount: 0, cancelCount: 0 };
   if (!phone) return out;
-  const safe = phone.replace(/'/g, "\\'");
-  const formula = `OR({Paciente_teléfono}='${safe}',{Paciente_tutor_teléfono}='${safe}')`;
   let recs: readonly any[] = [];
   try {
-    recs = await base(TABLES.appointments)
-      .select({ filterByFormula: formula, maxRecords: 200 })
-      .all();
+    recs = await listCitasPorTelefonoRaw(phone);
   } catch {
     return out;
   }
@@ -246,7 +243,7 @@ export async function evaluarRiesgoNoShow(
   // 1) Leer la cita (raw para obtener createdTime).
   let rec: any;
   try {
-    rec = await base(TABLES.appointments).find(citaId);
+    rec = await findCitaRaw(citaId);
   } catch {
     return null;
   }
@@ -379,17 +376,12 @@ export async function reevaluarCitasProximas(
 ): Promise<{ evaluadas: number; errores: number; total: number }> {
   const horas = opts.horasAdelante ?? 48;
   const now = DateTime.now().setZone(ZONE);
-  const desde = now.toUTC().toISO();
-  const hasta = now.plus({ hours: horas }).toUTC().toISO();
+  const desde = now.toUTC().toISO()!;
+  const hasta = now.plus({ hours: horas }).toUTC().toISO()!;
 
   let recs: readonly any[] = [];
   try {
-    recs = await base(TABLES.appointments)
-      .select({
-        filterByFormula: `AND(IS_AFTER({Hora inicio}, '${desde}'), IS_BEFORE({Hora inicio}, '${hasta}'))`,
-        pageSize: 100,
-      })
-      .all();
+    recs = await listCitasDesdeRaw(desde, { hastaIso: hasta });
   } catch (e) {
     console.error("[predictor] reevaluarCitasProximas fetch falló:", e);
     return { evaluadas: 0, errores: 0, total: 0 };

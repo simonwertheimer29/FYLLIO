@@ -22,6 +22,8 @@
 // cancelado AND Notas incluye "[NO_SHOW]").
 
 import { NextResponse } from "next/server";
+import { listCitasDesdeRaw } from "../../../lib/scheduler/repo/airtableRepo";
+import { listStaffCamposRaw } from "../../../lib/scheduler/repo/staffRepo";
 import { DateTime } from "luxon";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicas } from "../../../lib/auth/users";
@@ -97,13 +99,8 @@ export const GET = withAuth(async (session, req) => {
     const [clinicasGlobal, clinicaRecs, staffRecs, allRecs] = await Promise.all([
       listClinicas({ onlyActivas: true }),
       base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all(),
-      base("Staff" as any).select({ fields: ["Staff ID", "Nombre", "Clínica"] }).all(),
-      fetchAll(
-        base(TABLES.appointments as any).select({
-          filterByFormula: `IS_AFTER({Hora inicio}, '${desdeRankingIso}')`,
-          sort: [{ field: "Hora inicio", direction: "asc" }],
-        }),
-      ),
+      listStaffCamposRaw(["Staff ID", "Nombre", "Clínica"]),
+      listCitasDesdeRaw(desdeRankingIso),
     ]);
 
     const clinicaNombrePorId = new Map<string, string>();

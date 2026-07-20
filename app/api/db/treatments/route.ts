@@ -2,14 +2,13 @@
 // Returns the list of treatments (for dropdowns) and allows patching instructions.
 
 import { NextResponse } from "next/server";
+import { listTratamientosRaw, updateTratamientoInstrucciones } from "../../../lib/scheduler/repo/treatmentsRepo";
 import { base, TABLES } from "../../../lib/airtable";
 
 export async function GET() {
   try {
     // No fields filter — Airtable may reject if field names have encoding differences
-    const recs = await base(TABLES.treatments as any)
-      .select({ maxRecords: 100 })
-      .all();
+    const recs = await listTratamientosRaw(100);
 
     const mapped = recs.map((r) => ({
       id: r.id,
@@ -44,9 +43,8 @@ export async function PATCH(req: Request) {
     const body = await req.json();
     const instructions = String(body.instructions ?? "").trim();
 
-    await base(TABLES.treatments as any).update([
-      { id, fields: { Instrucciones_pre: instructions } as any },
-    ]);
+    // FASE 1 migración: escritura via repo del dominio Agenda.
+    await updateTratamientoInstrucciones(id, instructions);
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {

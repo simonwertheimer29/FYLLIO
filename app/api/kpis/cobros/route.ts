@@ -14,6 +14,7 @@
 // Pacientes accesibles, una a Presupuestos. Agregaciones en JS.
 
 import { NextResponse } from "next/server";
+import { mapStaffNombrePorIds } from "../../../lib/scheduler/repo/staffRepo";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicaIdsForUser, listClinicas } from "../../../lib/auth/users";
 import { listPacientes } from "../../../lib/pacientes/pacientes";
@@ -199,14 +200,8 @@ export const GET = withAuth(async (session, req) => {
   const doctorNombres = new Map<string, string>();
   if (doctorIds.length > 0) {
     try {
-      const recs = await fetchAll(
-        base(TABLES.staff as any).select({
-          filterByFormula: `OR(${doctorIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`,
-          fields: ["Nombre"],
-        }),
-      );
-      for (const r of recs)
-        doctorNombres.set(r.id, String((r.fields as any)?.["Nombre"] ?? ""));
+      const nombres = await mapStaffNombrePorIds(doctorIds);
+      for (const [id, nombre] of nombres) doctorNombres.set(id, nombre);
     } catch { /* noop */ }
   }
 

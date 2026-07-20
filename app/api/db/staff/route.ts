@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { listStaffFirstPageRaw } from "../../../lib/scheduler/repo/staffRepo";
 import { base, TABLES } from "../../../lib/airtable";
 
 const FIELDS = {
@@ -9,7 +10,7 @@ const FIELDS = {
 
 export async function GET() {
   try {
-    const recs = await base(TABLES.staff).select({ maxRecords: 200 }).firstPage();
+    const recs = await listStaffFirstPageRaw(200);
 
     const staff = recs
       .map((r: any) => ({

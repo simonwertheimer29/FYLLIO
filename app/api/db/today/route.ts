@@ -5,6 +5,14 @@
 //   - Revenue summary: confirmed vs at-risk
 
 import { NextResponse } from "next/server";
+import { listCitasPorProfesionalRaw } from "../../../lib/scheduler/repo/airtableRepo";
+import { findStaffPorStaffIdRaw } from "../../../lib/scheduler/repo/staffRepo";
+import { mapTratamientosPorIds } from "../../../lib/scheduler/repo/treatmentsRepo";
+// FASE 1 migración: shim al shape firstPage() que espera el código de abajo.
+async function staffFirstPageShim(staffId: string) {
+  const rec = await findStaffPorStaffIdRaw(staffId);
+  return rec ? [rec] : [];
+}
 import { mapNombreTelefonoPorIds } from "../../../lib/pacientes/pacientes";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
@@ -147,9 +155,7 @@ export async function GET(req: Request) {
     const todayLabel = todayDt.setLocale("es").toFormat("EEEE d 'de' MMMM");
 
     // 1) Resolve staff
-    const staffRecs = await base(TABLES.staff as any)
-      .select({ filterByFormula: `{Staff ID}='${escVal(staffId)}'`, maxRecords: 1 })
-      .firstPage();
+    const staffRecs = await staffFirstPageShim(staffId);
     const staffRec = staffRecs[0];
     if (!staffRec) {
       return NextResponse.json({ error: `Staff not found: ${staffId}` }, { status: 404 });
@@ -163,12 +169,7 @@ export async function GET(req: Request) {
     const workEnd = workParsed?.end ?? "18:00";
 
     // 2) Fetch today's appointments for this staff
-    const apptRecs = await base(TABLES.appointments as any)
-      .select({
-        filterByFormula: `{Profesional_id}='${escVal(staffId)}'`,
-        maxRecords: 500,
-      })
-      .all();
+    const apptRecs = await listCitasPorProfesionalRaw(staffId);
 
     // Filter to today only
     type RawAppt = {
@@ -265,7 +266,7 @@ export async function GET(req: Request) {
     };
     const [patientMap, treatmentMap] = await Promise.all([
       pacientesFieldsMap(allPatientIds),
-      fetchByRecordIds(TABLES.treatments as any, allTreatmentIds, ["Nombre"]),
+      mapTratamientosPorIds(allTreatmentIds, ["Nombre"]),
     ]);
 
     // 4) Build appointment list

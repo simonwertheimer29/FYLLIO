@@ -1,4 +1,8 @@
 import { NextResponse } from "next/server";
+import { listCitasPorProfesionalRaw } from "../../../lib/scheduler/repo/airtableRepo";
+import { findStaffPorStaffIdRaw } from "../../../lib/scheduler/repo/staffRepo";
+import { listTratamientosPorIdsRaw } from "../../../lib/scheduler/repo/treatmentsRepo";
+import { listSillonesPorIdsRaw } from "../../../lib/scheduler/repo/sillonesRepo";
 import { mapNombreTelefonoPorIds } from "../../../lib/pacientes/pacientes";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
@@ -136,7 +140,7 @@ export async function GET(req: Request) {
     }
 
     // 1) resolver Staff recordId desde Staff ID (STF_001)
-    const staffRec = await findByField(TABLES.staff as TableName, FIELDS.staffId, staffId);
+    const staffRec = await findStaffPorStaffIdRaw(staffId);
     if (!staffRec) {
       return NextResponse.json({ error: `Staff not found for ${staffId}` }, { status: 404 });
     }
@@ -162,9 +166,7 @@ export async function GET(req: Request) {
     console.log("[/api/db/week] staffId:", staffId, "staffRecId:", staffRec.id, "week:", week, "formula:", formula);
 
     // 2) traer citas del profesional (luego filtramos por overlap con semana)
-    const citas = await base(TABLES.appointments as TableName)
-      .select({ filterByFormula: formula, maxRecords: 500 })
-      .all();
+    const citas = await listCitasPorProfesionalRaw(staffId);
 
     const citasFiltradas = citas.filter((c) => {
       const rawStart = c.get(FIELDS.inicio);
@@ -225,8 +227,8 @@ export async function GET(req: Request) {
     // FASE 1 migración: pacientes via repo del dominio (solo se usa Nombre).
     const [pacienteById, tratamientos, sillones] = await Promise.all([
       mapNombreTelefonoPorIds(Array.from(pacienteIds)),
-      fetchByRecordIds(TABLES.treatments as TableName, Array.from(tratIds)),
-      fetchByRecordIds(TABLES.sillones as TableName, Array.from(sillonIds)),
+      listTratamientosPorIdsRaw(Array.from(tratIds)),
+      listSillonesPorIdsRaw(Array.from(sillonIds)),
     ]);
 
     const tratById = new Map(tratamientos.map((r: any) => [r.id, r]));

@@ -4,6 +4,7 @@
 // Requiere JWT cookie fyllio_noshows_token
 
 import { NextResponse } from "next/server";
+import { findCitaRaw, reprogramarCita } from "../../../../../lib/scheduler/repo/airtableRepo";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { DateTime } from "luxon";
@@ -45,7 +46,7 @@ export async function PATCH(
 
     // Leer campos disponibles del registro para diagnosticar nombres exactos
     try {
-      const existing = await (base(TABLES.appointments as any).find(id) as any);
+      const existing = await (findCitaRaw(id) as any);
       console.log("[mover] campos disponibles:", Object.keys(existing.fields));
     } catch (findErr: any) {
       console.warn("[mover] no se pudo leer el registro:", findErr?.message);
@@ -74,7 +75,12 @@ export async function PATCH(
       return NextResponse.json({ error: "Nada que actualizar" }, { status: 400 });
     }
 
-    await base(TABLES.appointments as any).update(id, fields as any);
+    // FASE 1 migración: escritura via repo del dominio Agenda.
+    await reprogramarCita(id, {
+      horaInicioIso: fields["Hora inicio"] as string | undefined,
+      horaFinalIso: fields["Hora final"] as string | undefined,
+      estado: fields["Estado"] as string | undefined,
+    });
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     console.error("[agenda/mover] error", e);

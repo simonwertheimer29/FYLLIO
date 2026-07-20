@@ -5,6 +5,7 @@
 // GET /api/no-shows/dev/seed?delete=true  → elimina los registros creados
 
 import { NextResponse } from "next/server";
+import { listCitasIdsPorMarcadorDev, destroyCitasDev, createCitaDev } from "../../../../lib/scheduler/repo/airtableRepo";
 import { DateTime } from "luxon";
 import { base, TABLES } from "../../../../lib/airtable";
 
@@ -78,13 +79,8 @@ export async function GET(req: Request) {
   // ── Modo borrado: ?delete=true ────────────────────────────────────────────
   if (searchParams.get("delete") === "true") {
     try {
-      const recs = await (base(TABLES.appointments as any)
-        .select({ filterByFormula: `FIND("${MARKER}", COALESCE({Notas},"")) > 0`, maxRecords: 200 })
-        .all() as any);
-      const ids: string[] = recs.map((r: any) => r.id);
-      for (let i = 0; i < ids.length; i += 10) {
-        await (base(TABLES.appointments as any).destroy(ids.slice(i, i + 10) as any) as any);
-      }
+      const ids = await listCitasIdsPorMarcadorDev(MARKER, 200);
+      await destroyCitasDev(ids);
       return NextResponse.json({ ok: true, deleted: ids.length });
     } catch (e: any) {
       return NextResponse.json({ error: e?.message }, { status: 500 });
@@ -127,7 +123,7 @@ export async function GET(req: Request) {
       };
 
       try {
-        const rec = await (base(TABLES.appointments as any).create(fields as any) as any);
+        const rec = await createCitaDev(fields);
         created.push(rec.id);
       } catch (e: any) {
         errors.push(`[${dateStr} ${h}:${String(m).padStart(2, "0")} profIdx=${profIdx}]: ${e?.message}`);

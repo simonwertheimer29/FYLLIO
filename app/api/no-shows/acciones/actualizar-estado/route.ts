@@ -4,6 +4,7 @@
 // Requiere JWT cookie fyllio_noshows_token
 
 import { NextResponse } from "next/server";
+import { updateCitaEstado } from "../../../../lib/scheduler/repo/airtableRepo";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { base, TABLES } from "../../../../lib/airtable";
@@ -33,7 +34,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "estado debe ser Confirmado o Cancelado" }, { status: 400 });
     }
 
-    await (base(TABLES.appointments as any) as any).update(recordId, { Estado: estado });
+    // FASE 1 migración: escritura via repo del dominio Agenda.
+    await updateCitaEstado(recordId, estado);
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {

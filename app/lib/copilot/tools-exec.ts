@@ -11,6 +11,7 @@
 
 import { DateTime } from "luxon";
 import { baseCentral, base, TABLES, fetchAll } from "../airtable";
+import { mapStaffNombrePorIds } from "../scheduler/repo/staffRepo";
 import { listLeads } from "../leads/leads";
 import { listPacientes } from "../pacientes/pacientes";
 import { listClinicaIdsForUser, listClinicas } from "../auth/users";
@@ -769,15 +770,8 @@ export async function buscarPacientesPorNombre(
   }
   if (doctorIds.length > 0) {
     try {
-      const recs = await fetchAll(
-        base(TABLES.staff as any).select({
-          filterByFormula: `OR(${doctorIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`,
-          fields: ["Nombre"],
-        }),
-      );
-      for (const r of recs) {
-        doctorNombres.set(r.id, String((r.fields as any)?.["Nombre"] ?? ""));
-      }
+      const nombres = await mapStaffNombrePorIds(doctorIds);
+      for (const [id, nombre] of nombres) doctorNombres.set(id, nombre);
     } catch { /* noop */ }
   }
 

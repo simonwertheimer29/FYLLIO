@@ -19,6 +19,7 @@
 //   - speech-update    → ignorado (logs solo si DEBUG).
 
 import { NextResponse } from "next/server";
+import { updateCitaEstado } from "../../../lib/scheduler/repo/airtableRepo";
 import crypto from "node:crypto";
 import { base, TABLES, runWithCliente } from "../../../lib/airtable";
 import { PILOT_CLIENTE } from "../../../lib/multi-cliente-pendiente";
@@ -215,19 +216,14 @@ async function aplicarSideEffects(args: {
   const { citaId, pacienteId, resultado, notas } = args;
   if (resultado === "confirmada" && citaId) {
     try {
-      await base(TABLES.appointments).update(
-        [{ id: citaId, fields: { Estado: "Confirmada" } }],
-        { typecast: true },
-      );
+      // FASE 1 migración: escritura via repo del dominio Agenda.
+      await updateCitaEstado(citaId, "Confirmada", { typecast: true });
     } catch (err) {
       console.error("[webhooks/vapi] update cita Confirmada:", err);
     }
   } else if (resultado === "cancelada" && citaId) {
     try {
-      await base(TABLES.appointments).update(
-        [{ id: citaId, fields: { Estado: "Cancelada" } }],
-        { typecast: true },
-      );
+      await updateCitaEstado(citaId, "Cancelada", { typecast: true });
     } catch (err) {
       console.error("[webhooks/vapi] update cita Cancelada:", err);
     }

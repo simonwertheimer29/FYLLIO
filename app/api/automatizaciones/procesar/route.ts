@@ -4,6 +4,7 @@
 // Solo crea 1 secuencia por presupuesto (prioridad EVENTO1 > 2 > 3 > 4).
 
 import { NextResponse } from "next/server";
+import { listCitasResumenNoShowRaw } from "../../../lib/scheduler/repo/airtableRepo";
 import { cookies } from "next/headers";
 import { kv } from "@vercel/kv";
 import { base, TABLES } from "../../../lib/airtable";
@@ -554,12 +555,8 @@ FIN_ACCIONES`;
         const semanaAnteriorStart = ahoraMadrid.minus({ weeks: 1 }).startOf("week").toISODate()!;
         const semanaAnteriorEnd   = ahoraMadrid.startOf("week").toISODate()!;
 
-        const apptRecs = await base(TABLES.appointments as any)
-          .select({
-            maxRecords: 500,
-            fields: ["Hora inicio", "Estado", "Notas", "Clínica ID"],
-          })
-          .all();
+        // FASE 1 migración: lectura via repo del dominio Agenda.
+        const apptRecs = await listCitasResumenNoShowRaw();
 
         type NSRec = { dayIso: string; isNoShow: boolean; clinica: string };
         const nsRecs: NSRec[] = [];

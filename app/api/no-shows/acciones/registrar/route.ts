@@ -4,6 +4,7 @@
 // Requiere JWT cookie fyllio_noshows_token
 
 import { NextResponse } from "next/server";
+import { registrarAccionNoShowEnCita } from "../../../../lib/scheduler/repo/airtableRepo";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { base, TABLES } from "../../../../lib/airtable";
@@ -39,7 +40,13 @@ export async function POST(req: Request) {
     if (fase)  fields["Fase_recordatorio"]  = fase;
     if (notas) fields["Notas_accion"]       = notas;
 
-    await (base(TABLES.appointments as any) as any).update(recordId, fields);
+    // FASE 1 migración: escritura via repo del dominio Agenda.
+    await registrarAccionNoShowEnCita(recordId, {
+      ultimaAccion: String(fields["Ultima_accion"]),
+      tipoUltimaAccion: tipo || undefined,
+      faseRecordatorio: fase || undefined,
+      notasAccion: notas || undefined,
+    });
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {

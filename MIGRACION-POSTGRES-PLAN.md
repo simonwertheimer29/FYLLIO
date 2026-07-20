@@ -321,10 +321,61 @@ su código), introspección dev. Gate grep vacío + tsc 0 + build OK + smoke DEM
 - `createPacienteDesdeConversion` NO escribe `CreatedAt` (los pacientes convertidos
   quedan al final del sort nativo) ni el link `Lead_Origen` (el enlace vive solo en el
   lado Lead via `Paciente_ID`). Unificar con `createPaciente` tras la migración.
-- **Doble flag de opt-out**: `Opt_Out` (scheduler/Twilio STOP) vs
-  `Optout_Automatizaciones` (motor de reglas) — dos opt-outs paralelos que nada unifica;
-  un paciente que dice STOP por Twilio sigue opted-in para el motor. Decisión de
-  producto pendiente.
+- 🔴 **PRIORITARIO (decisión de Simon 2026-07-20) — doble flag de opt-out**: `Opt_Out`
+  (scheduler/Twilio STOP) vs `Optout_Automatizaciones` (motor de reglas) — dos opt-outs
+  paralelos que nada unifica; **un paciente que dice STOP por Twilio sigue opted-in para
+  el motor. Es un problema de CONSENTIMIENTO (RGPD/mensajería), no solo técnico.**
+  Resolver antes de que cualquier envío automático real (WABA #5B) entre en producción:
+  como mínimo, que el motor respete AMBOS flags.
 - (De Leads, ya anotado): `crear_accion_lead` del motor escribe campos
   `Tipo`/`Descripcion` que no coinciden con los de `logAccionLead`
   (`Tipo_Accion`/`Detalles`).
+
+### Gate adicional de FASE 2 (decisión de Simon 2026-07-20): ejercitar ESCRITURAS
+
+Los caminos de escritura que en FASE 1 solo se cubren por tipos y paridad textual de
+campos (no por smoke, para no ensuciar la base DEMO) **deben ejercitarse de verdad antes
+de voltear su dominio a Postgres** — las escrituras son donde la paridad se rompe.
+Registro acumulado de escrituras pendientes de ejercitar:
+- **Leads**: `crearAccionAutomatizacion` (motor), `logAccionLead`/`appendLeadLog` (webhook),
+  `markLeadConvertido`.
+- **Pacientes**: `createPacienteDesdeConversion` (convertir), `upsertPacienteImportPorTelefono`
+  (Gesden), `appendNotaPaciente` (cobros/copilot), `syncFinancieroPaciente` (pagos),
+  `marcarOptOutPorTelefono`, `createPacienteBasico`/`SinTelefono` (scheduler).
+- **Agenda**: `updateCitaEstado` (Vapi ×2, no-shows), `registrarAccionNoShowEnCita`,
+  `createCitaMinima` (nueva cita), `reprogramarCita` (mover),
+  `updateTratamientoInstrucciones`, `updateWaitlistEstado`, `createWaitlistEntradaFlexible`
+  (demo), `createWaitlistEntry` (twilio test) + los ya existentes del scheduler
+  (`createAppointment`, `cancelAppointment`, `completeAppointment`, `markNoShow`,
+  `confirmAppointment`, `updateAppointment`).
+- (Se amplía con cada dominio; el smoke de FASE 2 los dispara contra el Postgres de DEMO
+  con seed regenerable, donde ensuciar no importa.)
+
+### Estado Agenda núcleo (hecho, 3er dominio)
+
+5 tablas (Citas, Tratamientos, Staff, Sillones, Lista_de_espera) tras los repos de
+`app/lib/scheduler/repo/` (airtableRepo=Citas, treatmentsRepo, staffRepo, sillonesRepo
+nuevo, waitlistRepo). ~35 métodos nuevos; **~47 call-sites en ~30 archivos** migrados:
+familia no-shows completa (hoy/riesgo/agenda/acciones/kpis/motor/staff + escrituras
+registrar/actualizar-estado/nueva-cita/mover + seeds dev), crons (daily,
+automatizaciones-evaluar), webhook Vapi, predictor, llamadas IA, procesar, dashboards
+(revenue, noshow-risk), familia demo /api/db (today/gaps/week/recall/ongoing/staff/
+treatments/appointments/waitlist), api/waitlist, twilio, 4 mapas de nombres de doctor
+(cola-cobros, leads/kpis, kpis/cobros, copilot) y plantillas. Los 7 patrones repetidos del
+catálogo quedaron consolidados en un método cada uno (ej.: la ventana de citas de no-shows,
+duplicada ×6, es ahora `listCitasDesdeRaw`). Gate grep vacío ×2 + tsc 0 + build OK + smoke
+DEMO (cola-cobros, kpis/cobros, leads/kpis, kpis/no-shows → 200). Nota: `/api/db/*` sigue
+**fail-closed pre-existente** del Sprint B (sin sesión → error de aislamiento) — sin cambio.
+
+**Lección incorporada al patrón (regla 1 ampliada):** el gate por `TABLES.<clave>` no caza
+accesos por string literal (`base("Staff")`); el seeder dev de no-shows llegó a evadir así
+el gate de Pacientes (`base("Pacientes")`, cerrado en este dominio). **El gate de cada
+dominio grepa AMBAS formas: `TABLES.<clave>` y `base("<NombreTabla>")`.** Queda pendiente
+para sus dominios: `base("Clínicas")` (tabla de negocio Clínicas, módulo no-shows) y
+`base("Presupuestos")` (db/quotes) — anotados para que sus gates los incluyan.
+
+**Convención de retorno en FASE 1 (explícita):** los métodos `*Raw` devuelven records de
+Airtable tal cual cuando el consumidor actual lee fields crudos (superficie diferida
+no-shows y demo /api/db). La ganancia de FASE 1 es el punto único de acceso con queries de
+intención (SQL-traducibles); el re-tipado de retornos se hace al voltear cada módulo en
+FASE 2 — no antes, para no reescribir dos veces.

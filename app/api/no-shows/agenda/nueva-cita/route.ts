@@ -4,6 +4,7 @@
 // Requiere JWT cookie fyllio_noshows_token
 
 import { NextResponse } from "next/server";
+import { createCitaMinima } from "../../../../lib/scheduler/repo/airtableRepo";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { DateTime } from "luxon";
@@ -64,15 +65,13 @@ export async function POST(req: Request) {
       doctor ? `Doctor: ${doctor}` : "",
     ].filter(Boolean).join(" | ");
 
-    const fields: Record<string, unknown> = {
-      "Nombre":      patientNombre,
-      "Hora inicio": startDt.toUTC().toISO(),
-      "Hora final":  endDt.toUTC().toISO(),
-    };
-
-    if (parts) fields["Notas"] = parts;
-
-    const record = await (base(TABLES.appointments as any).create(fields as any) as any);
+    // FASE 1 migración: alta via repo del dominio Agenda.
+    const record = await createCitaMinima({
+      nombre: patientNombre,
+      horaInicioIso: startDt.toUTC().toISO()!,
+      horaFinalIso: endDt.toUTC().toISO()!,
+      notas: parts || undefined,
+    });
     return NextResponse.json({ id: record.id, ok: true }, { status: 201 });
   } catch (e: any) {
     const msg = e?.message ?? "Error desconocido";

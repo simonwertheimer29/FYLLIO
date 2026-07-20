@@ -3,6 +3,13 @@
 // Used by the ACTIONS section to show real day-based operational tasks.
 
 import { NextResponse } from "next/server";
+import { listCitasPorProfesionalRaw, listCitasOrdenadasDescRaw } from "../../../lib/scheduler/repo/airtableRepo";
+import { findStaffPorStaffIdRaw } from "../../../lib/scheduler/repo/staffRepo";
+import { mapTratamientosPorIds } from "../../../lib/scheduler/repo/treatmentsRepo";
+async function staffFirstPageShim(staffId: string) {
+  const rec = await findStaffPorStaffIdRaw(staffId);
+  return rec ? [rec] : [];
+}
 import { mapNombreTelefonoPorIds } from "../../../lib/pacientes/pacientes";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
@@ -97,9 +104,7 @@ export async function GET(req: Request) {
     const type = TABLES as any;
 
     // 1) Resolve staff record
-    const staffRecs = await base(TABLES.staff as any)
-      .select({ filterByFormula: `{Staff ID}='${escVal(staffId)}'`, maxRecords: 1 })
-      .firstPage();
+    const staffRecs = await staffFirstPageShim(staffId);
     const staffRec = staffRecs[0];
     if (!staffRec) {
       return NextResponse.json({ error: `Staff not found: ${staffId}` }, { status: 404 });
@@ -127,12 +132,7 @@ export async function GET(req: Request) {
     ]);
 
     // Filter by Profesional_id formula field (same approach used by week/route.ts — works reliably)
-    const apptRecs = await base(TABLES.appointments as any)
-      .select({
-        filterByFormula: `{Profesional_id}='${escVal(staffId)}'`,
-        maxRecords: 500,
-      })
-      .all();
+    const apptRecs = await listCitasPorProfesionalRaw(staffId);
 
     // 3) Build per-day appointment blocks for Mon–Fri
     type Block = { startMin: number; endMin: number };
@@ -228,9 +228,7 @@ export async function GET(req: Request) {
 
     // 5) Fetch recall patients (last visit > 6 months), expand by record ID
     const cutoff6m = DateTime.now().setZone(ZONE).minus({ months: 6 }).toISO()!;
-    const recallRecs = await base(TABLES.appointments as any)
-      .select({ maxRecords: 1000, sort: [{ field: "Hora inicio", direction: "desc" }] })
-      .all();
+    const recallRecs = await listCitasOrdenadasDescRaw(1000);
 
     // Collect linked patient + treatment IDs from recall appointments
     const recallPatIds = [...new Set(
@@ -251,7 +249,7 @@ export async function GET(req: Request) {
     };
     const [recallPatMap, recallTxMap] = await Promise.all([
       pacientesFieldsMap(recallPatIds),
-      fetchByRecordIds(TABLES.treatments as any, recallTxIds, ["Nombre"]),
+      mapTratamientosPorIds(recallTxIds, ["Nombre"]),
     ]);
 
     // Build map: patientRecordId → latest completed visit info
@@ -324,7 +322,7 @@ export async function GET(req: Request) {
 
     const [patientMap, treatmentMap] = await Promise.all([
       pacientesFieldsMap(patientIds),
-      fetchByRecordIds(TABLES.treatments as any, treatmentIds, ["Nombre"]),
+      mapTratamientosPorIds(treatmentIds, ["Nombre"]),
     ]);
 
     const waitlistCandidates: Candidate[] = waitlistEntries

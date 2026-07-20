@@ -15,6 +15,7 @@
 // Por eso vive en lib/, no en app/api/.
 
 import { base, fetchAll, TABLES } from "../airtable";
+import { findCitaRaw } from "../scheduler/repo/airtableRepo";
 import { getPaciente } from "../pacientes/pacientes";
 import { getHorarioClinica } from "../automatizaciones/engine";
 import { HORARIO_DEFAULT, type HorarioLaboral } from "../automatizaciones/types";
@@ -119,7 +120,7 @@ async function leerCita(
   clinicaId: string | null;
 } | null> {
   try {
-    const rec = await base(TABLES.appointments).find(citaId);
+    const rec = await findCitaRaw(citaId);
     const f = rec.fields as Record<string, unknown>;
     const pacLinks = (f["Paciente"] ?? []) as string[];
     const cliLinks = (f["Clínica"] ?? []) as string[];

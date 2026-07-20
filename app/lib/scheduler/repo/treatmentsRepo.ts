@@ -67,3 +67,84 @@ function filterByClinic(rows: TreatmentRow[], clinicRecordId: string): Treatment
   // Si quieres filtrado real por clínica, dímelo y lo hacemos con un filterByFormula.
   return rows;
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// FASE 1 migración — acceso restante a la tabla Tratamientos.
+// ─────────────────────────────────────────────────────────────────────
+
+import { fetchAll } from "../../airtable";
+
+/** PATCH de instrucciones pre-tratamiento (config del dropdown demo). */
+export async function updateTratamientoInstrucciones(
+  id: string,
+  instrucciones: string,
+): Promise<void> {
+  await base(TABLES.treatments).update([
+    { id, fields: { Instrucciones_pre: instrucciones } as any },
+  ]);
+}
+
+/** Volcado crudo (dropdown demo lee Nombre/Duración/Instrucciones con
+ *  varios alias de campo; dedup en el caller). */
+export async function listTratamientosRaw(maxRecords = 100): Promise<readonly any[]> {
+  return base(TABLES.treatments).select({ maxRecords }).all();
+}
+
+/** Nombre → Instrucciones_pre (recordatorios del cron daily). */
+export async function listTratamientosInstrucciones(): Promise<
+  Array<{ nombre: string; instruccionesPre: string }>
+> {
+  const recs = await base(TABLES.treatments)
+    .select({ fields: ["Nombre", "Instrucciones_pre"], maxRecords: 200 })
+    .all();
+  return recs.map((r: any) => ({
+    nombre: String(r.fields?.["Nombre"] ?? ""),
+    instruccionesPre: String(r.fields?.["Instrucciones_pre"] ?? ""),
+  }));
+}
+
+/** Map recordId → fields para expandir linked records (fields fijos). */
+export async function mapTratamientosPorIds(
+  ids: string[],
+  fields: string[],
+): Promise<Map<string, Record<string, unknown>>> {
+  const map = new Map<string, Record<string, unknown>>();
+  if (!ids.length) return map;
+  const uniq = [...new Set(ids)];
+  const chunkSize = 40;
+  for (let i = 0; i < uniq.length; i += chunkSize) {
+    const chunk = uniq.slice(i, i + chunkSize);
+    const formula =
+      chunk.length === 1
+        ? `RECORD_ID()='${chunk[0]}'`
+        : `OR(${chunk.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
+    const recs = await base(TABLES.treatments)
+      .select({ filterByFormula: formula, fields })
+      .all();
+    for (const r of recs) map.set(r.id, (r as any).fields || {});
+  }
+  return map;
+}
+
+/** Records crudos por lote de IDs, sin restricción de fields (la vista
+ *  semanal demo lee via rec.get()). firstPage por chunk, como su helper. */
+export async function listTratamientosPorIdsRaw(ids: string[]): Promise<any[]> {
+  if (!ids.length) return [];
+  const uniq = [...new Set(ids)];
+  const out: any[] = [];
+  const chunkSize = 40;
+  for (let i = 0; i < uniq.length; i += chunkSize) {
+    const chunk = uniq.slice(i, i + chunkSize);
+    const formula = `OR(${chunk.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
+    const recs = await base(TABLES.treatments)
+      .select({ filterByFormula: formula })
+      .firstPage();
+    out.push(...(recs as any[]));
+  }
+  return out;
+}
+
+/** id + Nombre de todos los tratamientos (seeders dev). */
+export async function listTratamientosNombreRaw(): Promise<readonly any[]> {
+  return base(TABLES.treatments).select({ fields: ["Nombre"] }).all();
+}

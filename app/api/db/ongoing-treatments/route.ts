@@ -5,6 +5,7 @@
 // a future appointment scheduled.
 
 import { NextResponse } from "next/server";
+import { listCitasRaw } from "../../../lib/scheduler/repo/airtableRepo";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 
@@ -50,9 +51,8 @@ export async function GET(req: Request) {
     const nowIso = now.toISO()!;
 
     // Fetch all appointments (past + future)
-    const records = await base(TABLES.appointments as any)
-      .select({ maxRecords: 3000 })
-      .all();
+    // FASE 1 migración: lectura via repo del dominio Agenda.
+    const records = await listCitasRaw(3000);
 
     type Entry = {
       patientKey: string;

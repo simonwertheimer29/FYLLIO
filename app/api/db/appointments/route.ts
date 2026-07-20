@@ -3,6 +3,7 @@
 // If patientPhone is provided, upserts the patient record first (create or find by phone).
 
 import { NextResponse } from "next/server";
+import { getStaffHorarioPorRecordId } from "../../../lib/scheduler/repo/staffRepo";
 import { DateTime } from "luxon";
 import { base, TABLES } from "../../../lib/airtable";
 import {
@@ -51,11 +52,8 @@ export async function POST(req: Request) {
     // Reject appointments outside business hours (only if staffRecordId is provided)
     if (staffRecordId) {
       try {
-        const staffRecs = await base(TABLES.staff).select({
-          filterByFormula: `RECORD_ID()='${staffRecordId}'`,
-          fields: ["Horario"],
-          maxRecords: 1,
-        }).all();
+        const staffRec = await getStaffHorarioPorRecordId(staffRecordId);
+        const staffRecs = staffRec ? [staffRec] : [];
         if (staffRecs.length > 0) {
           const horario = String(staffRecs[0].fields["Horario"] ?? "");
           const m = horario.match(/(\d{1,2}):(\d{2})[–—\-](\d{1,2}):(\d{2})/);

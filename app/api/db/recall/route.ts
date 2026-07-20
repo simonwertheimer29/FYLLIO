@@ -3,6 +3,7 @@
 // Used by RecallPanel to surface patients due for a check-up.
 
 import { NextResponse } from "next/server";
+import { listCitasOrdenadasDescRaw } from "../../../lib/scheduler/repo/airtableRepo";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 
@@ -21,12 +22,8 @@ export async function GET(req: Request) {
     const cutoff = DateTime.now().setZone(ZONE).minus({ months }).toISO()!;
 
     // Fetch all appointments sorted by most recent first
-    const records = await base(TABLES.appointments as any)
-      .select({
-        maxRecords: 2000,
-        sort: [{ field: "Hora inicio", direction: "desc" }],
-      })
-      .all();
+    // FASE 1 migración: lectura via repo del dominio Agenda.
+    const records = await listCitasOrdenadasDescRaw(2000);
 
     // Group by patient: track latest appointment date per patient
     const patientLatest = new Map<

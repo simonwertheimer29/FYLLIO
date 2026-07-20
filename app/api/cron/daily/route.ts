@@ -5,6 +5,8 @@
 // Protected via CRON_SECRET header.
 
 import { NextResponse } from "next/server";
+import { listCitasEstadoVentanaRaw } from "../../../lib/scheduler/repo/airtableRepo";
+import { listTratamientosInstrucciones } from "../../../lib/scheduler/repo/treatmentsRepo";
 import { DateTime } from "luxon";
 import { listAppointmentsByDay, completeAppointment } from "../../../lib/scheduler/repo/airtableRepo";
 import { sendWhatsAppMessage } from "../../../lib/whatsapp/send";
@@ -80,12 +82,11 @@ async function runDailyCron(): Promise<NextResponse> {
   // ── Pre-load treatment instructions map ─────────────────────────────────────
   const txInstructionsMap = new Map<string, string>();
   try {
-    const txRecs = await base(TABLES.treatments as any)
-      .select({ fields: ["Nombre", "Instrucciones_pre"], maxRecords: 200 })
-      .all();
-    for (const r of txRecs as any[]) {
-      const name = String(r.get("Nombre") ?? "").trim();
-      const instr = String(r.get("Instrucciones_pre") ?? "").trim();
+    // FASE 1 migración: lectura via repo del dominio Agenda.
+    const txRows = await listTratamientosInstrucciones();
+    for (const t of txRows) {
+      const name = t.nombre.trim();
+      const instr = t.instruccionesPre.trim();
       if (name && instr) txInstructionsMap.set(name, instr);
     }
   } catch {
@@ -253,12 +254,8 @@ async function runDailyCron(): Promise<NextResponse> {
     const ahora = Date.now();
     const desde = new Date(ahora + 23 * 3600 * 1000).toISOString();
     const hasta = new Date(ahora + 25 * 3600 * 1000).toISOString();
-    const recsCitas = await base(TABLES.appointments as any)
-      .select({
-        filterByFormula: `AND({Estado}="Pendiente", IS_AFTER({Hora inicio}, "${desde}"), IS_BEFORE({Hora inicio}, "${hasta}"))`,
-        pageSize: 100,
-      })
-      .all();
+    // FASE 1 migración: ventana 24h-antes via repo del dominio Agenda.
+    const recsCitas = await listCitasEstadoVentanaRaw({ estado: "Pendiente", desdeIso: desde, hastaIso: hasta });
 
     for (const r of recsCitas as any[]) {
       // Presupuesto de tiempo: con espaciado de 5s/llamada, muchas citas podrían

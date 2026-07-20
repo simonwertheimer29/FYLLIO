@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createWaitlistEntradaFlexible } from "../../../lib/scheduler/repo/waitlistRepo";
 import { listWaitlist } from "../../../lib/scheduler/repo/waitlistRepo";
 import { base, TABLES } from "../../../lib/airtable";
 
@@ -152,26 +153,24 @@ export async function POST(req: Request) {
       notas: "Notas",
     };
 
-    const created = await base(TABLES.waitlist).create([
-      {
-        fields: {
-          [F.clinic]: [clinicRecordId],
-          [F.patient]: [patientRecordId],
-          [F.treatment]: [treatmentRecordId],
-          ...(preferredStaffRecordId ? { [F.preferredStaff]: [preferredStaffRecordId] } : {}),
-          [F.dias]: diasPermitidos,
-          ...(rangoStart ? { [F.start]: rangoStart } : {}),
-          ...(rangoEnd ? { [F.end]: rangoEnd } : {}),
-          [F.estado]: estado,
-          ...(prioridad ? { [F.prioridad]: prioridad } : {}),
-          ...(urgencia ? { [F.urgencia]: urgencia } : {}),
-          [F.permiteFuera]: permiteFueraRango,
-          ...(notas ? { [F.notas]: notas } : {}),
-        },
-      },
-    ]);
+    // FASE 1 migración: alta via repo del dominio Agenda (sin defaults:
+    // escribe exactamente lo que llega, como siempre hizo este formulario).
+    const created = await createWaitlistEntradaFlexible({
+      clinicRecordId,
+      patientRecordId,
+      treatmentRecordId,
+      preferredStaffRecordId,
+      diasPermitidos,
+      rangoStartIso: rangoStart,
+      rangoEndIso: rangoEnd,
+      estado,
+      prioridad,
+      urgencia,
+      permiteFueraRango,
+      notas,
+    });
 
-    return NextResponse.json({ ok: true, id: created?.[0]?.id });
+    return NextResponse.json({ ok: true, id: created.id });
   } catch (e: any) {
     console.error(e);
     return new NextResponse(e?.message ?? "Error", { status: 500 });

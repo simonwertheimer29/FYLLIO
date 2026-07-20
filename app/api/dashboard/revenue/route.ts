@@ -4,6 +4,8 @@
 // Groups by treatment type and staff.
 
 import { NextResponse } from "next/server";
+import { listCitasRevenueRaw } from "../../../lib/scheduler/repo/airtableRepo";
+import { mapTratamientosPorIds } from "../../../lib/scheduler/repo/treatmentsRepo";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import { DEMO_REVENUE, DEMO_TODAY_SUMMARY, isDemoMode } from "../../../lib/demo/seed";
@@ -57,22 +59,17 @@ export async function GET(req: Request) {
     const lastMonthStart = monthStart.minus({ months: 1 });
 
     // Fetch all appointments for the current month (+ last month for comparison)
-    const staffFilter = staffId ? `{Profesional_id}='${staffId.replace(/'/g, "\\'")}' AND ` : "";
     const fromIso = lastMonthStart.toISO()!;
 
-    const recs = await base(TABLES.appointments as any)
-      .select({
-        filterByFormula: `AND(${staffFilter}{Hora inicio} >= '${fromIso}')`,
-        fields: ["Hora inicio", "Hora final", "Estado", "Tratamiento", "Profesional", "Profesional_id", "Nombre"],
-        maxRecords: 2000,
-      })
-      .all();
+    // FASE 1 migración: lectura via repo del dominio Agenda (escape del
+    // staffId dentro del repo, mismo comportamiento).
+    const recs = await listCitasRevenueRaw({ staffId, fromIso });
 
     // Expand treatment names
     const treatmentIds = [...new Set(
       recs.flatMap((r: any) => ((r.fields as any)["Tratamiento"] as string[] | undefined) ?? [])
     )];
-    const treatmentMap = await fetchByRecordIds(TABLES.treatments as any, treatmentIds, ["Nombre"]);
+    const treatmentMap = await mapTratamientosPorIds(treatmentIds, ["Nombre"]);
 
     // Process each appointment
     type ApptRevenue = {

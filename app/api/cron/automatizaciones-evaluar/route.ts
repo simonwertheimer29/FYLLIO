@@ -22,6 +22,7 @@
 // 2026-05-07 hotfix).
 
 import { NextResponse } from "next/server";
+import { listCitasEstadoVentanaRaw } from "../../../lib/scheduler/repo/airtableRepo";
 import { fetchAll, base, TABLES, runWithCliente } from "../../../lib/airtable";
 import { PILOT_CLIENTE } from "../../../lib/multi-cliente-pendiente";
 import {
@@ -167,12 +168,8 @@ async function evaluarTriggerCita24h(): Promise<TriggerResult> {
   const ahora = Date.now();
   const desde = new Date(ahora + 23 * 3600 * 1000).toISOString();
   const hasta = new Date(ahora + 25 * 3600 * 1000).toISOString();
-  const recs = await fetchAll(
-    base(TABLES.appointments).select({
-      filterByFormula: `AND({Estado}="Confirmada", IS_AFTER({Hora inicio}, "${desde}"), IS_BEFORE({Hora inicio}, "${hasta}"))`,
-      pageSize: 100,
-    }),
-  );
+  // FASE 1 migración: ventana 24h-antes via repo del dominio Agenda.
+  const recs = await listCitasEstadoVentanaRaw({ estado: "Confirmada", desdeIso: desde, hastaIso: hasta });
   let evaluados = 0;
   let matches = 0;
   for (const r of recs) {

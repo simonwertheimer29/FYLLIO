@@ -32,7 +32,7 @@ import { getSession, setSession, deleteSession } from "../../../lib/scheduler/se
 import { isDuplicateMessage } from "../../../lib/scheduler/idempotency";
 import { upsertPatientByPhone } from "../../../lib/scheduler/repo/airtableRepo";
 
-import { getOfferedEntryByPhone, markWaitlistActiveWithResult, markWaitlistBooked, getTreatmentMeta } from "../../../lib/scheduler/repo/waitlistRepo";
+import { getOfferedEntryByPhone, markWaitlistActiveWithResult, markWaitlistBooked, getTreatmentMeta, createWaitlistEntry } from "../../../lib/scheduler/repo/waitlistRepo";
 import { onSlotFreed } from "../../../lib/scheduler/waitlist/onSlotFreed";
 
 import { base, TABLES } from "../../../lib/airtable";
@@ -579,22 +579,15 @@ if (normalizeText(bodyRaw).startsWith("waitlist")) {
     notas: "Notas",
   };
 
-  await base(TABLES.waitlist).create([
-    {
-      fields: {
-        [F.clinic]: [clinicRecordId],
-        [F.patient]: [patientRecordId],
-        [F.treatment]: [treatmentRecordId],
-        ...(preferredStaffRecordId ? { [F.preferredStaff]: [preferredStaffRecordId] } : {}),
-        [F.dias]: ["LUN", "MAR", "MIE", "JUE", "VIE"],
-        [F.estado]: "ACTIVE",
-        [F.prioridad]: "MEDIA",
-        [F.urgencia]: "LOW",
-        [F.permiteFuera]: false,
-        [F.notas]: "CREATED_FROM_WHATSAPP_TEST",
-      },
-    },
-  ]);
+  // FASE 1 migración: alta via repo del dominio Agenda. Los valores de
+  // test coinciden 1:1 con los defaults de createWaitlistEntry.
+  await createWaitlistEntry({
+    clinicRecordId,
+    patientRecordId,
+    treatmentRecordId,
+    preferredStaffRecordId,
+    notas: "CREATED_FROM_WHATSAPP_TEST",
+  });
 
   const xml = twimlMessage("✅ Listo. Te metí en la lista de espera (test). Refresca el dashboard.");
   return new NextResponse(xml, {

@@ -16,6 +16,7 @@
 //   - drilldown por clinica via query param ?clinica=<id>
 
 import { NextResponse } from "next/server";
+import { mapStaffNombrePorIds } from "../../../lib/scheduler/repo/staffRepo";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../lib/auth/users";
 import { listLeads, type Lead, type LeadCanal } from "../../../lib/leads/leads";
@@ -624,11 +625,8 @@ async function computeRankingDoctores(
   const doctorNombres: Record<string, string> = {};
   if (ids.length > 0) {
     try {
-      const formula = `OR(${ids.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
-      const recs = await fetchAll(
-        base(TABLES.staff as any).select({ filterByFormula: formula, fields: ["Nombre"] }),
-      );
-      for (const r of recs) doctorNombres[r.id] = String((r.fields as any)?.["Nombre"] ?? r.id);
+      const nombres = await mapStaffNombrePorIds(ids);
+      for (const [id, nombre] of nombres) doctorNombres[id] = nombre || id;
     } catch { /* noop */ }
   }
 

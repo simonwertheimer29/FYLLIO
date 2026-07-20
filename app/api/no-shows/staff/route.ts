@@ -3,6 +3,7 @@
 // Requiere JWT cookie fyllio_noshows_token
 
 import { NextResponse } from "next/server";
+import { listStaffCamposRaw } from "../../../lib/scheduler/repo/staffRepo";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { base } from "../../../lib/airtable";
@@ -36,9 +37,7 @@ export async function GET() {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const recs = await base("Staff" as any)
-      .select({ fields: ["Staff ID", "Nombre", "Clínica", "Rol"] })
-      .all();
+    const recs = await listStaffCamposRaw(["Staff ID", "Nombre", "Clínica", "Rol"]);
 
     return NextResponse.json({
       staff: (recs as any[])

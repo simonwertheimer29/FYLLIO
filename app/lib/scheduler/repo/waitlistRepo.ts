@@ -403,4 +403,76 @@ export async function createWaitlistEntry(params: {
   return { recordId: r?.id as string };
 }
 
+// ─────────────────────────────────────────────────────────────────────
+// FASE 1 migración — acceso restante a la tabla Lista_de_espera.
+// ─────────────────────────────────────────────────────────────────────
 
+/** Cola de espera de una clínica (por NOMBRE de clínica, como el caller
+ *  original), sin Aceptado/Expirado, orden Prioridad desc. Records crudos. */
+export async function listWaitlistPorClinicaRaw(clinicSafe: string): Promise<readonly any[]> {
+  const filterByFormula = `
+AND(
+  {Clínica} = '${clinicSafe}',
+  {Estado} != 'Aceptado',
+  {Estado} != 'Expirado'
+)
+`.trim();
+  return base(TABLES.waitlist)
+    .select({
+      filterByFormula,
+      sort: [{ field: "Prioridad", direction: "desc" }],
+      maxRecords: 200,
+    })
+    .all();
+}
+
+/** Update simple de Estado (+ Último contacto opcional) de una entrada. */
+export async function updateWaitlistEstado(
+  id: string,
+  estado: string,
+  ultimoContacto?: string,
+): Promise<{ id: string }> {
+  const updated = await (base(TABLES.waitlist) as any).update(id, {
+    Estado: estado,
+    ...(ultimoContacto ? { "Último contacto": ultimoContacto } : {}),
+  });
+  return { id: updated.id };
+}
+
+/** Alta con Estado/Prioridad/Urgencia explícitos y opcionales (formulario
+ *  demo /api/db/waitlist) — a diferencia de createWaitlistEntry, aquí NO
+ *  se aplican defaults: se escribe exactamente lo que llega. */
+export async function createWaitlistEntradaFlexible(params: {
+  clinicRecordId: string;
+  patientRecordId: string;
+  treatmentRecordId: string;
+  preferredStaffRecordId?: string;
+  diasPermitidos: string[];
+  rangoStartIso?: string;
+  rangoEndIso?: string;
+  estado: string;
+  prioridad?: string;
+  urgencia?: string;
+  permiteFueraRango: boolean;
+  notas?: string;
+}): Promise<{ id: string | undefined }> {
+  const created = await base(TABLES.waitlist).create([
+    {
+      fields: {
+        [F.clinic]: [params.clinicRecordId],
+        [F.patient]: [params.patientRecordId],
+        [F.treatment]: [params.treatmentRecordId],
+        ...(params.preferredStaffRecordId ? { [F.preferredStaff]: [params.preferredStaffRecordId] } : {}),
+        [F.dias]: params.diasPermitidos,
+        ...(params.rangoStartIso ? { [F.start]: params.rangoStartIso } : {}),
+        ...(params.rangoEndIso ? { [F.end]: params.rangoEndIso } : {}),
+        [F.estado]: params.estado,
+        ...(params.prioridad ? { [F.prioridad]: params.prioridad } : {}),
+        ...(params.urgencia ? { [F.urgencia]: params.urgencia } : {}),
+        [F.permiteFuera]: params.permiteFueraRango,
+        ...(params.notas ? { [F.notas]: params.notas } : {}),
+      } as any,
+    },
+  ]);
+  return { id: (created as any)?.[0]?.id };
+}

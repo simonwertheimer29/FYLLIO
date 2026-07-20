@@ -3,6 +3,7 @@
 // Factors: patient history, days since booking, day/time, treatment type.
 
 import { NextResponse } from "next/server";
+import { listCitasPorProfesionalRaw, listCitasRaw } from "../../../lib/scheduler/repo/airtableRepo";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import { buildDemoRiskPatients, isDemoMode } from "../../../lib/demo/seed";
@@ -148,12 +149,8 @@ export async function GET(req: Request) {
     const mondayIso = windowStart.toISODate()!;
 
     // 1) Fetch upcoming appointments for this staff this week (future only)
-    const weekApptRecs = await base(TABLES.appointments as any)
-      .select({
-        filterByFormula: `{Profesional_id}='${escVal(staffId)}'`,
-        maxRecords: 500,
-      })
-      .all();
+    // FASE 1 migración: lectura via repo del dominio Agenda.
+    const weekApptRecs = await listCitasPorProfesionalRaw(staffId);
 
     // Filter to current week only, excluding past and cancelled
     type UpcomingAppt = {
@@ -211,9 +208,7 @@ export async function GET(req: Request) {
 
     // 2) Fetch ALL clinic appointments to compute per-patient history
     //    Only pull fields we need for efficiency
-    const allApptRecs = await base(TABLES.appointments as any)
-      .select({ maxRecords: 5000 })
-      .all();
+    const allApptRecs = await listCitasRaw(5000);
 
     // Build per-patient phone → { total, weightedBad } from PAST appointments.
     // weightedBad: no-show (didn't communicate) counts 2x cancellation (did communicate).
