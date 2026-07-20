@@ -352,8 +352,26 @@ Registro acumulado de escrituras pendientes de ejercitar:
   (procesar), `updateConfigRaw`/`createConfigRaw` (PUT configuración),
   `marcarEventoProcesado` (cron), `destroySecuencias`/`createSecuenciasRaw` (seed demo),
   más las ya existentes del motor (`logAccion`, `incrementarDisparos`, `updateRegla`).
+- **Pagos**: las escrituras ya vivían dentro de `lib/pagos.ts` (alta/edición/borrado de
+  pagos, log en Acciones_Pago, inconsistencias) — ejercitarlas igualmente en FASE 2.
 - (Se amplía con cada dominio; el smoke de FASE 2 los dispara contra el Postgres de DEMO
   con seed regenerable, donde ensuciar no importa.)
+
+### Estado Pagos (hecho, 5º dominio)
+
+3 tablas (Pagos_Paciente, Acciones_Pago, Inconsistencias_Pagos) tras `app/lib/pagos.ts`.
+Acciones_Pago e Inconsistencias ya estaban encapsuladas (cero call-sites externos); de
+Pagos_Paciente había 5 lecturas casi idénticas en 4 archivos (cola-cobros, kpis/cobros,
+copilot ×2, alertas) → consolidadas en UN método tipado `listPagosResumen({desde?, hasta?})`
+con periodo opcional. Gate vacío ×2 + tsc 0 + build OK + smoke DEMO (cola-cobros,
+kpis/cobros con cifras idénticas a smokes previos, alertas → 200).
+
+**Restante FASE 1:** Presupuestos (el monstruo: 31 rutas + 12 libs, soft-FKs de texto,
+scoring; su gate debe incluir el literal `base("Presupuestos")` de db/quotes) y la tabla
+de negocio **Clínicas** (`base("Clínicas")` en el módulo no-shows + `TABLES.clinics` de
+negocio donde aplique — decidir si va con Identidad o como mini-dominio propio). Después:
+cola larga de tablas menores (Mensajes_WhatsApp, Notificaciones, Plantillas, Informes,
+Llamadas_Vapi, Contactos_Presupuesto…, muchas ya encapsuladas en sus libs).
 
 ### Estado Automatizaciones (hecho, 4º dominio)
 

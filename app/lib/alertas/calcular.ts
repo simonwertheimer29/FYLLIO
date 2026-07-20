@@ -6,6 +6,7 @@ import { baseCentral, base, TABLES, fetchAll } from "../airtable";
 import { listAllOpciones } from "../configuraciones/configuraciones";
 import { listLeads } from "../leads/leads";
 import { listPacientes } from "../pacientes/pacientes";
+import { listPagosResumen } from "../pagos";
 import type { TipoAlerta } from "./templates";
 
 export type AlertaClinica = {
@@ -26,11 +27,7 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
       fetchAll(base(TABLES.colaEnvios).select({ filterByFormula: "{Estado}='Fallido'" })),
       // Sprint 14b Bloque 3 — pagos all-time + pacientes + plazos config
       // para los 3 triggers de cobros.
-      fetchAll(
-        base(TABLES.pagosPaciente as any).select({
-          fields: ["Paciente_RecordId", "Tipo"],
-        }),
-      ),
+      listPagosResumen(),
       // FASE 1 migración: pacientes via repo del dominio (tipo Paciente).
       listPacientes(),
       listAllOpciones(),
@@ -153,12 +150,11 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
   // Mapas auxiliares: pagos por paciente (cuántos + tieneLiquidacion).
   const pagosCountPorPaciente = new Map<string, number>();
   const tieneLiquidacionPorPaciente = new Set<string>();
-  for (const r of pagos) {
-    const f = r.fields as any;
-    const pid = String(f["Paciente_RecordId"] ?? "");
+  for (const pago of pagos) {
+    const pid = pago.pacienteRecordId;
     if (!pid) continue;
     pagosCountPorPaciente.set(pid, (pagosCountPorPaciente.get(pid) ?? 0) + 1);
-    if (String(f["Tipo"] ?? "") === "Liquidacion") {
+    if (pago.tipo === "Liquidacion") {
       tieneLiquidacionPorPaciente.add(pid);
     }
   }

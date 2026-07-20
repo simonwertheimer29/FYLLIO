@@ -10,6 +10,7 @@
 // contactado) sin un drilldown adicional.
 
 import { NextResponse } from "next/server";
+import { listPagosResumen } from "../../lib/pagos";
 import { mapStaffNombrePorIds } from "../../lib/scheduler/repo/staffRepo";
 import { withAuth } from "../../lib/auth/session";
 import { listClinicaIdsForUser, listClinicas } from "../../lib/auth/users";
@@ -69,11 +70,7 @@ export const GET = withAuth(async (session, req) => {
     await Promise.all([
       listClinicas({ onlyActivas: true }),
       listPacientes({ clinicaIds: scopeIds === null ? undefined : scopeIds }),
-      fetchAll(
-        base(TABLES.pagosPaciente as any).select({
-          fields: ["Paciente_RecordId", "Importe", "Tipo"],
-        }),
-      ),
+      listPagosResumen(),
       fetchAll(
         base(TABLES.presupuestos as any).select({
           fields: ["Paciente", "Estado", "Importe", "Fecha_Aceptado", "FechaAlta"],
@@ -112,13 +109,12 @@ export const GET = withAuth(async (session, req) => {
   const pagadoPorPac = new Map<string, number>();
   const pagosCountPorPac = new Map<string, number>();
   const tieneLiquidacionPac = new Set<string>();
-  for (const r of pagosRecs) {
-    const f = r.fields as any;
-    const pid = String(f["Paciente_RecordId"] ?? "");
+  for (const pago of pagosRecs) {
+    const pid = pago.pacienteRecordId;
     if (!pid) continue;
-    pagadoPorPac.set(pid, (pagadoPorPac.get(pid) ?? 0) + (Number(f["Importe"] ?? 0) || 0));
+    pagadoPorPac.set(pid, (pagadoPorPac.get(pid) ?? 0) + pago.importe);
     pagosCountPorPac.set(pid, (pagosCountPorPac.get(pid) ?? 0) + 1);
-    if (String(f["Tipo"] ?? "") === "Liquidacion") tieneLiquidacionPac.add(pid);
+    if (pago.tipo === "Liquidacion") tieneLiquidacionPac.add(pid);
   }
 
   // Presupuestos: Fecha_Aceptado + importe firmado por paciente.

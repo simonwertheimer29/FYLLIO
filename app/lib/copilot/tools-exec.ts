@@ -11,6 +11,7 @@
 
 import { DateTime } from "luxon";
 import { baseCentral, base, TABLES, fetchAll } from "../airtable";
+import { listPagosResumen } from "../pagos";
 import { mapStaffNombrePorIds } from "../scheduler/repo/staffRepo";
 import { listLeads } from "../leads/leads";
 import { listPacientes } from "../pacientes/pacientes";
@@ -583,15 +584,14 @@ async function execGetFacturadoPeriodo(
       allowed === null
         ? null
         : new Set((await pacientesAccesibles(env)).map((p) => p.id));
-    const pagosRecs = await fetchAll(
-      base(TABLES.pagosPaciente as any).select({
-        filterByFormula: `AND(IS_AFTER({Fecha_Pago}, '${shiftDay(args.fecha_inicio, -1)}'), IS_BEFORE({Fecha_Pago}, '${shiftDay(args.fecha_fin, 1)}'))`,
-        fields: ["Paciente_RecordId"],
-      }),
-    );
+    // FASE 1 migración: lectura via repo del dominio Pagos.
+    const pagosRecs = await listPagosResumen({
+      desdeExclusivoIso: shiftDay(args.fecha_inicio, -1),
+      hastaExclusivoIso: shiftDay(args.fecha_fin, 1),
+    });
     const ids = new Set<string>();
-    for (const rec of pagosRecs) {
-      const pid = String(((rec.fields as any) ?? {})["Paciente_RecordId"] ?? "");
+    for (const pago of pagosRecs) {
+      const pid = pago.pacienteRecordId;
       if (pid && (allowedPac === null || allowedPac.has(pid))) ids.add(pid);
     }
     pacientesUnicos = ids.size;
@@ -625,32 +625,19 @@ async function execGetTopPacientesFacturado(
   const allowed = await clinicasAccesibles(env);
   const allowedSet = allowed ? new Set(allowed) : null;
 
-  // Cargamos pagos: si hay periodo, filtramos en formula; si no, todos.
-  const formulaParts: string[] = [];
-  if (args.fecha_inicio) {
-    formulaParts.push(`IS_AFTER({Fecha_Pago}, '${shiftDay(args.fecha_inicio, -1)}')`);
-  }
-  if (args.fecha_fin) {
-    formulaParts.push(`IS_BEFORE({Fecha_Pago}, '${shiftDay(args.fecha_fin, 1)}')`);
-  }
-  const filterByFormula =
-    formulaParts.length > 0 ? `AND(${formulaParts.join(",")})` : undefined;
-
-  const pagosRecs = await fetchAll(
-    base(TABLES.pagosPaciente as any).select({
-      ...(filterByFormula ? { filterByFormula } : {}),
-      fields: ["Paciente_RecordId", "Importe"],
-    }),
-  );
+  // Cargamos pagos: si hay periodo, el repo filtra por Fecha_Pago; si no, todos.
+  // FASE 1 migración: lectura via repo del dominio Pagos (bounds opcionales).
+  const pagosRecs = await listPagosResumen({
+    desdeExclusivoIso: args.fecha_inicio ? shiftDay(args.fecha_inicio, -1) : undefined,
+    hastaExclusivoIso: args.fecha_fin ? shiftDay(args.fecha_fin, 1) : undefined,
+  });
   // Agrupamos por paciente.
   const totalesPorPac = new Map<string, { total: number; numPagos: number }>();
-  for (const rec of pagosRecs) {
-    const f = (rec.fields as any) ?? {};
-    const pid = String(f["Paciente_RecordId"] ?? "");
+  for (const pago of pagosRecs) {
+    const pid = pago.pacienteRecordId;
     if (!pid) continue;
-    const importe = Number(f["Importe"] ?? 0) || 0;
     const acc = totalesPorPac.get(pid) ?? { total: 0, numPagos: 0 };
-    acc.total += importe;
+    acc.total += pago.importe;
     acc.numPagos += 1;
     totalesPorPac.set(pid, acc);
   }

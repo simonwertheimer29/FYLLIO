@@ -14,6 +14,7 @@
 // Pacientes accesibles, una a Presupuestos. Agregaciones en JS.
 
 import { NextResponse } from "next/server";
+import { listPagosResumen } from "../../../lib/pagos";
 import { mapStaffNombrePorIds } from "../../../lib/scheduler/repo/staffRepo";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicaIdsForUser, listClinicas } from "../../../lib/auth/users";
@@ -95,44 +96,33 @@ export const GET = withAuth(async (session, req) => {
   // ── Pagos del periodo (1 query) ──────────────────────────────────
   const desdeISO = desde.toISOString().slice(0, 10);
   const hastaISO = hasta.toISOString().slice(0, 10);
-  const pagosPeriodoFormula = `AND(IS_AFTER({Fecha_Pago}, '${shiftDayIso(desdeISO, -1)}'), IS_BEFORE({Fecha_Pago}, '${shiftDayIso(hastaISO, 1)}'))`;
-  const pagosPeriodoRecs = await fetchAll(
-    base(TABLES.pagosPaciente as any).select({
-      filterByFormula: pagosPeriodoFormula,
-      fields: ["Paciente_RecordId", "Importe", "Metodo", "Tipo", "Fecha_Pago"],
-    }),
-  );
+  // FASE 1 migración: lectura via repo del dominio Pagos.
+  const pagosPeriodoRecs = await listPagosResumen({
+    desdeExclusivoIso: shiftDayIso(desdeISO, -1),
+    hastaExclusivoIso: shiftDayIso(hastaISO, 1),
+  });
   const pagosPeriodo = pagosPeriodoRecs
-    .map((r) => {
-      const f = r.fields as any;
-      return {
-        pacienteId: String(f["Paciente_RecordId"] ?? ""),
-        importe: Number(f["Importe"] ?? 0) || 0,
-        metodo: String(f["Metodo"] ?? "Otro"),
-        tipo: String(f["Tipo"] ?? ""),
-        fechaPago: String(f["Fecha_Pago"] ?? "").slice(0, 10),
-      };
-    })
+    .map((pago) => ({
+      pacienteId: pago.pacienteRecordId,
+      importe: pago.importe,
+      metodo: pago.metodo || "Otro",
+      tipo: pago.tipo,
+      fechaPago: pago.fechaPago.slice(0, 10),
+    }))
     .filter((p) => p.pacienteId && pacienteById.has(p.pacienteId));
 
   // ── Pagos all-time del scope (para totales pagados por paciente) ──
-  const pagosAllRecs = await fetchAll(
-    base(TABLES.pagosPaciente as any).select({
-      fields: ["Paciente_RecordId", "Importe", "Tipo"],
-    }),
-  );
+  const pagosAllRecs = await listPagosResumen();
   const pagosTotalPorPaciente = new Map<string, number>();
   const pacienteTieneLiquidacion = new Set<string>();
-  for (const r of pagosAllRecs) {
-    const f = r.fields as any;
-    const pid = String(f["Paciente_RecordId"] ?? "");
+  for (const pago of pagosAllRecs) {
+    const pid = pago.pacienteRecordId;
     if (!pid || !pacienteById.has(pid)) continue;
-    const importe = Number(f["Importe"] ?? 0) || 0;
     pagosTotalPorPaciente.set(
       pid,
-      (pagosTotalPorPaciente.get(pid) ?? 0) + importe,
+      (pagosTotalPorPaciente.get(pid) ?? 0) + pago.importe,
     );
-    if (String(f["Tipo"] ?? "") === "Liquidacion") {
+    if (pago.tipo === "Liquidacion") {
       pacienteTieneLiquidacion.add(pid);
     }
   }

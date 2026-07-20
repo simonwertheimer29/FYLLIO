@@ -542,3 +542,50 @@ function shiftDay(iso: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// FASE 1 migración — lectura consolidada de Pagos_Paciente para los
+// consumidores externos (cola-cobros, kpis/cobros, copilot, alertas).
+// Un método con periodo opcional sustituye 5 queries casi idénticas.
+// ─────────────────────────────────────────────────────────────────────
+
+export type PagoResumen = {
+  pacienteRecordId: string;
+  importe: number;
+  metodo: string;
+  tipo: string;
+  /** ISO completo tal cual está en Airtable; el caller recorta si quiere. */
+  fechaPago: string;
+};
+
+/**
+ * Pagos con campos de resumen. Sin opts = all-time. Con bounds (ya
+ * desplazados ±1 día por el caller, IS_AFTER/IS_BEFORE son exclusivos)
+ * filtra por Fecha_Pago; un solo bound también vale (copilot).
+ */
+export async function listPagosResumen(opts: {
+  desdeExclusivoIso?: string;
+  hastaExclusivoIso?: string;
+} = {}): Promise<PagoResumen[]> {
+  const partes: string[] = [];
+  if (opts.desdeExclusivoIso) partes.push(`IS_AFTER({Fecha_Pago}, '${opts.desdeExclusivoIso}')`);
+  if (opts.hastaExclusivoIso) partes.push(`IS_BEFORE({Fecha_Pago}, '${opts.hastaExclusivoIso}')`);
+  const filterByFormula =
+    partes.length > 1 ? `AND(${partes.join(",")})` : partes.length === 1 ? partes[0] : undefined;
+  const recs = await fetchAll(
+    base(TABLES.pagosPaciente as any).select({
+      ...(filterByFormula ? { filterByFormula } : {}),
+      fields: ["Paciente_RecordId", "Importe", "Metodo", "Tipo", "Fecha_Pago"],
+    }),
+  );
+  return recs.map((r) => {
+    const f = r.fields as any;
+    return {
+      pacienteRecordId: String(f["Paciente_RecordId"] ?? ""),
+      importe: Number(f["Importe"] ?? 0) || 0,
+      metodo: String(f["Metodo"] ?? ""),
+      tipo: String(f["Tipo"] ?? ""),
+      fechaPago: String(f["Fecha_Pago"] ?? ""),
+    };
+  });
+}
