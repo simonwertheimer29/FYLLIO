@@ -3,6 +3,7 @@
 // Requiere JWT cookie fyllio_noshows_token
 
 import { NextResponse } from "next/server";
+import { listClinicasNegocioCamposRaw } from "../../../lib/clinicas-negocio";
 import { listCitasDesdeRaw } from "../../../lib/scheduler/repo/airtableRepo";
 import { listStaffCamposRaw } from "../../../lib/scheduler/repo/staffRepo";
 import { listSillonesCamposRaw } from "../../../lib/scheduler/repo/sillonesRepo";
@@ -80,7 +81,7 @@ export async function GET(req: Request) {
     console.log("[agenda] todayIso:", todayIso, "| mondayIso:", mondayIso, "| zona:", ZONE, "| filtro desde:", ninetyDaysAgoIso);
     const [staffRecs, clinicaRecs, sillonRecs] = await Promise.all([
       listStaffCamposRaw(["Staff ID", "Nombre", "Clínica"]) as Promise<any[]>,
-      base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all() as Promise<any[]>,
+      listClinicasNegocioCamposRaw(["Clínica ID", "Nombre"]) as Promise<any[]>,
       listSillonesCamposRaw(["Sillón ID", "Nombre"]) as Promise<any[]>,
     ]);
     const allRecs = await listCitasDesdeRaw(ninetyDaysAgoIso);

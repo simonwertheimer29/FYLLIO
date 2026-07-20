@@ -2,6 +2,7 @@
 // GET — devuelve la cola de intervención del día, agrupada por intención
 
 import { NextResponse } from "next/server";
+import { selectPresupuestosRaw, updatePresupuestoRaw } from "../../../lib/presupuestos/repo";
 import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
@@ -145,7 +146,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       )
     )`.replace(/\n\s*/g, "");
 
-    const query = base(TABLES.presupuestos as any).select({
+    const recsPromise = selectPresupuestosRaw({
       fields: [
         // Campos base
         "Paciente_nombre", "Teléfono", "Tratamiento_nombre",
@@ -163,7 +164,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       sort: [{ field: "Fecha_ultima_respuesta", direction: "desc" }],
     });
 
-    const recs = await fetchAll(query);
+    const recs = await recsPromise;
 
     const today = DateTime.now().setZone(ZONE).startOf("day");
 
@@ -311,8 +312,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         if (msg) {
           p.mensajeSugerido = msg;
           // Save to Airtable in background
-          base(TABLES.presupuestos as any)
-            .update(p.id, { Mensaje_sugerido: msg } as any)
+          updatePresupuestoRaw(p.id, { Mensaje_sugerido: msg })
             .catch(() => {});
         }
       });

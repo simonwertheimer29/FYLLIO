@@ -3,6 +3,7 @@
 // Requiere JWT cookie fyllio_noshows_token
 
 import { NextResponse } from "next/server";
+import { listClinicasNegocioCamposRaw } from "../../../lib/clinicas-negocio";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { base } from "../../../lib/airtable";
@@ -36,9 +37,7 @@ export async function GET() {
       return NextResponse.json({ error: "No autorizado" }, { status: 401 });
     }
 
-    const recs = await base("Clínicas" as any)
-      .select({ fields: ["Clínica ID", "Nombre"] })
-      .all();
+    const recs = await listClinicasNegocioCamposRaw(["Clínica ID", "Nombre"]);
 
     return NextResponse.json({
       clinicas: (recs as any[])

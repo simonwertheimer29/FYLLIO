@@ -22,6 +22,7 @@
 // cancelado AND Notas incluye "[NO_SHOW]").
 
 import { NextResponse } from "next/server";
+import { listClinicasNegocioCamposRaw } from "../../../lib/clinicas-negocio";
 import { listCitasDesdeRaw } from "../../../lib/scheduler/repo/airtableRepo";
 import { listStaffCamposRaw } from "../../../lib/scheduler/repo/staffRepo";
 import { DateTime } from "luxon";
@@ -98,7 +99,7 @@ export const GET = withAuth(async (session, req) => {
     // ── Clínicas (nombres + mapa record→canónico) ────────────────────
     const [clinicasGlobal, clinicaRecs, staffRecs, allRecs] = await Promise.all([
       listClinicas({ onlyActivas: true }),
-      base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all(),
+      listClinicasNegocioCamposRaw(["Clínica ID", "Nombre"]),
       listStaffCamposRaw(["Staff ID", "Nombre", "Clínica"]),
       listCitasDesdeRaw(desdeRankingIso),
     ]);

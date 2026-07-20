@@ -4,6 +4,7 @@
 // de render.
 
 import { baseCentral, base, TABLES, fetchAll } from "../airtable";
+import { selectPresupuestosRaw } from "../presupuestos/repo";
 import { getPaciente } from "../pacientes/pacientes";
 import { getOpcionEscalar } from "../configuraciones/configuraciones";
 
@@ -323,11 +324,9 @@ async function loadPresupuestoFirmado(
   // Mismo patrón load+filter-JS que en Bloque 1.5 (Presupuestos no
   // tiene Paciente_RecordId todavia; deuda Sprint 14b/15).
   try {
-    const recs = await fetchAll(
-      base(TABLES.presupuestos as any).select({
-        fields: ["Paciente", "Estado", "Importe", "Fecha_Aceptado"],
-      }),
-    );
+    const recs = await selectPresupuestosRaw({
+      fields: ["Paciente", "Estado", "Importe", "Fecha_Aceptado"],
+    });
     const propios = recs.filter((r) => {
       const links = ((r.fields as any)?.["Paciente"] ?? []) as string[];
       return links[0] === pacienteId;

@@ -22,6 +22,7 @@
 // 2026-05-07 hotfix).
 
 import { NextResponse } from "next/server";
+import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { listCitasEstadoVentanaRaw } from "../../../lib/scheduler/repo/airtableRepo";
 import { fetchAll, base, TABLES, runWithCliente } from "../../../lib/airtable";
 import { PILOT_CLIENTE } from "../../../lib/multi-cliente-pendiente";
@@ -214,12 +215,11 @@ async function evaluarTriggerPresupuesto7d(): Promise<TriggerResult> {
   // devuelve UNKNOWN_FIELD_NAME, capturamos y devolvemos error
   // informativo en lugar de tumbar todo el cron.
   const limite = new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString();
-  const recs = await fetchAll(
-    base(TABLES.presupuestos).select({
-      filterByFormula: `AND({Estado}="EN_NEGOCIACION", OR({Ultima_accion_registrada} = BLANK(), IS_BEFORE({Ultima_accion_registrada}, "${limite}")))`,
-      pageSize: 100,
-    }),
-  );
+  // FASE 1 migración: lectura via repo del dominio Presupuestos.
+  const recs = await selectPresupuestosRaw({
+    filterByFormula: `AND({Estado}="EN_NEGOCIACION", OR({Ultima_accion_registrada} = BLANK(), IS_BEFORE({Ultima_accion_registrada}, "${limite}")))`,
+    pageSize: 100,
+  });
   let evaluados = 0;
   let matches = 0;
   for (const r of recs) {

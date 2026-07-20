@@ -3,6 +3,7 @@
 // Se ejecuta en cada GET /api/alertas. No cron (Sprint 9).
 
 import { baseCentral, base, TABLES, fetchAll } from "../airtable";
+import { selectPresupuestosRaw } from "../presupuestos/repo";
 import { listAllOpciones } from "../configuraciones/configuraciones";
 import { listLeads } from "../leads/leads";
 import { listPacientes } from "../pacientes/pacientes";
@@ -23,7 +24,7 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
       fetchAll(baseCentral(TABLES.clinics).select({ filterByFormula: "{Activa}" })),
       // FASE 1 migración: leads via repo del dominio (tipo Lead, no records).
       listLeads(),
-      fetchAll(base(TABLES.presupuestos).select({})),
+      selectPresupuestosRaw(),
       fetchAll(base(TABLES.colaEnvios).select({ filterByFormula: "{Estado}='Fallido'" })),
       // Sprint 14b Bloque 3 — pagos all-time + pacientes + plazos config
       // para los 3 triggers de cobros.

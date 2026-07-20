@@ -3,6 +3,7 @@
 // POST { clinica, mes, objetivo_aceptados } → crear o actualizar objetivo
 
 import { NextResponse } from "next/server";
+import { listObjetivosRaw, findObjetivoRaw, updateObjetivoRaw, createObjetivoRaw } from "../../../lib/presupuestos/objetivos";
 import { base, TABLES } from "../../../lib/airtable";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import {
@@ -34,12 +35,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const formula = clinicaFormula ? `AND({mes}="${mes}",${clinicaFormula})` : `{mes}="${mes}"`;
 
   try {
-    const records = await base(TABLES.objetivosMensuales)
-      .select({
-        filterByFormula: formula,
-        fields: ["clinica", "mes", "objetivo_aceptados"],
-      })
-      .all();
+    const records = await listObjetivosRaw(formula);
 
     const objetivos = records.map((r) => ({
       id: r.id,
@@ -102,31 +98,25 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
 
   try {
     // Buscar si ya existe
-    const existing = await base(TABLES.objetivosMensuales)
-      .select({
-        filterByFormula: `AND({clinica}="${clinica}",{mes}="${mes}")`,
-        maxRecords: 1,
-      })
-      .firstPage();
+    const existingRec = await findObjetivoRaw(clinica, mes);
+    const existing = existingRec ? [existingRec] : [];
 
     if (existing.length > 0) {
       // Actualizar
-      await base(TABLES.objetivosMensuales).update(existing[0].id, {
+      await updateObjetivoRaw(existing[0].id, {
         objetivo_aceptados: Number(objetivo_aceptados),
         actualizado_en: now,
       });
     } else {
       // Crear
-      await base(TABLES.objetivosMensuales).create([{
-        fields: {
+      await createObjetivoRaw({
           clinica,
           mes,
           objetivo_aceptados: Number(objetivo_aceptados),
           creado_por: session.email,
           creado_en: now,
           actualizado_en: now,
-        },
-      }]);
+      });
     }
 
     return NextResponse.json({ ok: true });

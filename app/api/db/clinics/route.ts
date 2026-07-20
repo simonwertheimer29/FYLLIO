@@ -3,13 +3,11 @@
 // Used by ClinicSelector for multi-clinic navigation.
 
 import { NextResponse } from "next/server";
-import { base, TABLES } from "../../../lib/airtable";
+import { listClinicasNegocioCamposRaw } from "../../../lib/clinicas-negocio";
 
 export async function GET() {
   try {
-    const recs = await base(TABLES.clinics as any)
-      .select({ fields: ["Clínica ID", "Nombre"], maxRecords: 50 })
-      .all();
+    const recs = await listClinicasNegocioCamposRaw(["Clínica ID", "Nombre"], { maxRecords: 50 });
 
     const clinics = recs.map((r) => ({
       id: String(r.get("Clínica ID") ?? r.id),

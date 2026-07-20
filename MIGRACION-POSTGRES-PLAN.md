@@ -366,12 +366,39 @@ copilot ×2, alertas) → consolidadas en UN método tipado `listPagosResumen({d
 con periodo opcional. Gate vacío ×2 + tsc 0 + build OK + smoke DEMO (cola-cobros,
 kpis/cobros con cifras idénticas a smokes previos, alertas → 200).
 
-**Restante FASE 1:** Presupuestos (el monstruo: 31 rutas + 12 libs, soft-FKs de texto,
-scoring; su gate debe incluir el literal `base("Presupuestos")` de db/quotes) y la tabla
-de negocio **Clínicas** (`base("Clínicas")` en el módulo no-shows + `TABLES.clinics` de
-negocio donde aplique — decidir si va con Identidad o como mini-dominio propio). Después:
-cola larga de tablas menores (Mensajes_WhatsApp, Notificaciones, Plantillas, Informes,
-Llamadas_Vapi, Contactos_Presupuesto…, muchas ya encapsuladas en sus libs).
+### Estado Presupuestos + Clínicas-negocio (hecho, 6º y 7º dominio — el del piloto)
+
+**Presupuestos** (5 tablas: Presupuestos, Contactos_Presupuesto, Doctores_Presupuestos,
+Usuarios_Presupuestos, Objetivos_Mensuales) tras `app/lib/presupuestos/` (nuevos `repo.ts`,
+`contactos.ts`, `objetivos.ts`, `doctores-repo.ts`). ~45 call-sites migrados: las 17 rutas
+del módulo con acceso directo + externas (webhook WhatsApp, portal público, convertir,
+cron, procesar, cola-cobros, kpis/cobros, export CSV, ficha paciente, copilot ×7,
+alertas, plantillas, db/quotes incl. su literal). **Convención de este dominio: passthrough
+máximo** (los callers componen fields/fórmulas idénticos; el repo posee el acceso) — elegida
+deliberadamente para paridad con lupa en el módulo del piloto.
+
+**Clínicas-negocio** (mini-dominio, decisión de Simon): tabla "Clínicas" de la base de
+NEGOCIO tras `app/lib/clinicas-negocio.ts` (`listClinicasNegocioCamposRaw`), bien
+distinguida de la Clínicas de identidad (via `baseCentral`, migra con Identidad). El lookup
+copiado ×9 en no-shows quedó en un método; migrados también db/clinics y copilot.
+
+**Paridad con lupa (protocolo pedido por Simon):** goldens pre-cambio de 5 endpoints
+(intervención con orden+scoring, KPIs, kanban, máxima, objetivos) y re-captura post. El
+primer diff mostró desviaciones SOLO en campos derivados del reloj (`daysSince`,
+`urgencyScore`, textos relativos) — la medianoche de Madrid cruzó entre capturas. Prueba
+definitiva con captura en el MISMO instante (stash↔pop): **los 5 endpoints byte-idénticos**
+entre Airtable-directo y repo. Cola de intervención: mismo orden, mismos scores. Gate doble
+vacío + tsc 0 + build OK.
+
+**Escrituras de Presupuestos para el gate de FASE 2** (23): create ×3 (convertir, importar
+CSV, kanban), update ×12 (portal aceptar/rechazar, webhook respuesta, kanban edición,
+intervención registrar ×2 + mensaje sugerido, contactos contador, copilot ×3, db/quotes),
+contactos create ×3, objetivos upsert ×2.
+
+**Restante FASE 1 (cola larga, sin decisión pendiente):** tablas menores ya mayormente
+encapsuladas en sus libs (Mensajes_WhatsApp, Notificaciones, Plantillas_Mensaje,
+Cola_Envios, Informes_Guardados, Llamadas_Vapi, Historial_Acciones, Configuraciones_Clinica,
+Alertas_Enviadas, Eventos varios) — barrido final con el mismo gate doble por tabla.
 
 ### Estado Automatizaciones (hecho, 4º dominio)
 

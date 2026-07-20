@@ -20,6 +20,7 @@
 // migrar a ReadableStream chunked.
 
 import { NextResponse } from "next/server";
+import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { withAdmin } from "../../../lib/auth/session";
 import { baseCentral, base, TABLES, fetchAll } from "../../../lib/airtable";
 import { DateTime } from "luxon";
@@ -132,29 +133,28 @@ export const GET = withAdmin(async (_session, req) => {
   const filterByFormula =
     formulaParts.length > 0 ? `AND(${formulaParts.join(",")})` : undefined;
 
-  const recs = await fetchAll(
-    base(TABLES.presupuestos as any).select({
-      fields: [
-        "Paciente_nombre",
-        "Paciente_Telefono",
-        "Teléfono",
-        "Doctor",
-        "Clinica",
-        "Tratamiento_nombre",
-        "Importe",
-        "Estado",
-        "Fecha",
-        "FechaAlta",
-        "Tipo_ultima_accion",
-        "Ultima_accion_registrada",
-        "Accion_sugerida",
-        "OrigenLead",
-        "Notas",
-      ],
-      ...(filterByFormula ? { filterByFormula } : {}),
-      sort: [{ field: "Fecha", direction: "desc" }],
-    }),
-  );
+  // FASE 1 migración: lectura via repo del dominio Presupuestos.
+  const recs = await selectPresupuestosRaw({
+    fields: [
+      "Paciente_nombre",
+      "Paciente_Telefono",
+      "Teléfono",
+      "Doctor",
+      "Clinica",
+      "Tratamiento_nombre",
+      "Importe",
+      "Estado",
+      "Fecha",
+      "FechaAlta",
+      "Tipo_ultima_accion",
+      "Ultima_accion_registrada",
+      "Accion_sugerida",
+      "OrigenLead",
+      "Notas",
+    ],
+    ...(filterByFormula ? { filterByFormula } : {}),
+    sort: [{ field: "Fecha", direction: "desc" }],
+  });
 
   const today = DateTime.now().setZone(ZONE).startOf("day");
 

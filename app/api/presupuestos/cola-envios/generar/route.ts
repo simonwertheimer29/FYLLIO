@@ -3,6 +3,7 @@
 // Two-pass: collect candidates → sort by priority → limit 30/clinic → generate content
 
 import { NextResponse } from "next/server";
+import { selectPresupuestosRaw } from "../../../../lib/presupuestos/repo";
 import { base, TABLES } from "../../../../lib/airtable";
 import { DateTime } from "luxon";
 import type {
@@ -194,8 +195,7 @@ export const POST = withPresupuestosAuth(async (session) => {
     });
 
     // 3. Fetch presupuestos activos + PERDIDO con Reactivacion
-    const presRecs = await base(TABLES.presupuestos as any)
-      .select({
+    const presRecs = await selectPresupuestosRaw({
         fields: [
           "Paciente_nombre", "Paciente_Telefono", "Teléfono",
           "Tratamiento_nombre", "Estado", "Fecha", "Clinica",
@@ -203,8 +203,7 @@ export const POST = withPresupuestosAuth(async (session) => {
           "Intencion_detectada",
         ],
         maxRecords: 2000,
-      })
-      .all();
+      });
 
     // 4. Fetch envíos existentes de hoy para deduplicar
     const enviosHoyRecs = await base(TABLES.colaEnvios as any)

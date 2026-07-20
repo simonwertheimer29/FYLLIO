@@ -4,6 +4,7 @@
 // GET /api/no-shows/dev/campos
 
 import { NextResponse } from "next/server";
+import { sampleUsuariosPresupuestosFieldsDev } from "../../../../lib/presupuestos/repo";
 import { sampleCitasFieldsDev } from "../../../../lib/scheduler/repo/airtableRepo";
 import { samplePacientesFieldsDev } from "../../../../lib/pacientes/pacientes";
 import { base, TABLES } from "../../../../lib/airtable";
@@ -46,7 +47,7 @@ export async function GET() {
 
   // ── Tabla Usuarios_Presupuestos ───────────────────────────────────────────
   try {
-    const users = await (base(TABLES.usuariosPresupuestos as any).select({ maxRecords: 2 }).firstPage() as any);
+    const users = await (sampleUsuariosPresupuestosFieldsDev(2) as any);
     if (users.length > 0) {
       result.usuarios_campos = Object.keys(users[0].fields).sort();
     } else {

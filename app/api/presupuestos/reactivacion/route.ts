@@ -5,6 +5,7 @@
 // ?tipo=incompletos → placeholder (próximamente)
 
 import { NextResponse } from "next/server";
+import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
@@ -65,7 +66,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   }
 
   try {
-    const query = base(TABLES.presupuestos as any).select({
+    const recs = await selectPresupuestosRaw({
       fields: [
         "Paciente_nombre", "Paciente_Telefono", "Teléfono",
         "Tratamiento_nombre", "Importe", "Motivo_perdida",
@@ -73,8 +74,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       ],
       filterByFormula,
     });
-
-    const recs = await fetchAll(query);
 
     const candidates: ReactivacionCandidate[] = recs.map((r: any) => {
       const f = r.fields as any;

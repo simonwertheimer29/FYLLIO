@@ -14,6 +14,7 @@
 // Pacientes accesibles, una a Presupuestos. Agregaciones en JS.
 
 import { NextResponse } from "next/server";
+import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { listPagosResumen } from "../../../lib/pagos";
 import { mapStaffNombrePorIds } from "../../../lib/scheduler/repo/staffRepo";
 import { withAuth } from "../../../lib/auth/session";
@@ -128,17 +129,15 @@ export const GET = withAuth(async (session, req) => {
   }
 
   // ── Presupuestos del scope (para Fecha_Aceptado y firmado en periodo) ─
-  const presupRecs = await fetchAll(
-    base(TABLES.presupuestos as any).select({
-      fields: [
-        "Paciente",
-        "Estado",
-        "Importe",
-        "Fecha_Aceptado",
-        "FechaAlta",
-      ],
-    }),
-  );
+  const presupRecs = await selectPresupuestosRaw({
+    fields: [
+      "Paciente",
+      "Estado",
+      "Importe",
+      "Fecha_Aceptado",
+      "FechaAlta",
+    ],
+  });
   type PresupBrief = {
     pacienteId: string;
     estado: string;

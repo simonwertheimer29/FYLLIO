@@ -3,6 +3,7 @@
 // POST: crear nuevo presupuesto
 
 import { NextResponse } from "next/server";
+import { selectPresupuestosRaw, createPresupuestoRaw } from "../../../lib/presupuestos/repo";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type { Presupuesto, UserSession } from "../../../lib/presupuestos/types";
@@ -119,7 +120,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     };
     if (filterByFormula) selectOpts.filterByFormula = filterByFormula;
 
-    const recs = await base(TABLES.presupuestos as any).select(selectOpts).all();
+    const recs = await selectPresupuestosRaw(selectOpts);
 
     // Airtable is reachable — return real data (even if empty)
     if (recs.length === 0) {
@@ -312,7 +313,7 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     if (notasValue) fields["Notas"] = notasValue;
     if (body.origenLead) fields["OrigenLead"] = body.origenLead;
 
-    const created = await base(TABLES.presupuestos as any).create(fields as any) as any;
+    const created = await createPresupuestoRaw(fields) as any;
     const f = created.fields as any;
     const fechaPresupuesto = String(f["Fecha"] ?? today).slice(0, 10);
 

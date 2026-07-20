@@ -1,6 +1,7 @@
 // app/api/presupuestos/kpis/route.ts
 
 import { NextResponse } from "next/server";
+import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type {
@@ -301,7 +302,7 @@ async function fetchFromAirtable(session: UserSession, clinicaFormula: string | 
     };
     if (filterByFormula) selectOpts.filterByFormula = filterByFormula;
 
-    const recs = await base(TABLES.presupuestos as any).select(selectOpts).all();
+    const recs = await selectPresupuestosRaw(selectOpts);
     if (recs.length === 0) return null;
 
     const today = DateTime.now().setZone(ZONE).toISODate()!;

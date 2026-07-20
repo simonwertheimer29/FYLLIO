@@ -2,6 +2,7 @@
 // POST — clasifica la respuesta de un paciente usando Claude IA
 
 import { NextResponse } from "next/server";
+import { getPresupuestoPorIdRaw } from "../../../../lib/presupuestos/repo";
 import { base, TABLES } from "../../../../lib/airtable";
 import { clasificarRespuesta, guardarClasificacion } from "../../../../lib/presupuestos/intervencion";
 import { getServicioMensajeria } from "../../../../lib/presupuestos/mensajeria";
@@ -23,13 +24,8 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     }
 
     // Fetch presupuesto para contexto
-    const recs = await base(TABLES.presupuestos as any)
-      .select({
-        filterByFormula: `RECORD_ID()='${presupuestoId}'`,
-        fields: ["Paciente_nombre", "Tratamiento_nombre", "Importe", "Estado", "Clinica"],
-        maxRecords: 1,
-      })
-      .all();
+    const rec0 = await getPresupuestoPorIdRaw(presupuestoId, ["Paciente_nombre", "Tratamiento_nombre", "Importe", "Estado", "Clinica"]);
+    const recs = rec0 ? [rec0] : [];
 
     if (recs.length === 0) {
       return NextResponse.json({ error: "Presupuesto no encontrado" }, { status: 404 });

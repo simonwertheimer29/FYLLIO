@@ -4,6 +4,7 @@
 // Body: { accion: 'aceptar'|'rechazar', motivo?, firmaTexto? }
 
 import { NextResponse } from "next/server";
+import { updatePresupuestoRaw } from "../../../../lib/presupuestos/repo";
 import { kv } from "@vercel/kv";
 import { base, TABLES, runWithCliente } from "../../../../lib/airtable";
 import { PILOT_CLIENTE } from "../../../../lib/multi-cliente-pendiente";
@@ -70,13 +71,13 @@ async function responderPortal(
     // Update Airtable
     try {
       if (body.accion === "aceptar") {
-        await base(TABLES.presupuestos as any).update(data.presupuestoId, {
+        await updatePresupuestoRaw(data.presupuestoId, {
           Estado: "ACEPTADO",
           Notas: `[PORTAL_ACEPTADO ${now}] Firma: ${body.firmaTexto ?? "—"}`,
         } as any);
       } else {
         const motivoAirtable = body.motivo ?? "otro";
-        await base(TABLES.presupuestos as any).update(data.presupuestoId, {
+        await updatePresupuestoRaw(data.presupuestoId, {
           Estado: "PERDIDO",
           MotivoPerdida: motivoAirtable,
           MotivoPerdidaTexto: `[PORTAL_RECHAZADO ${now}] ${body.motivo ?? ""}`,

@@ -2,6 +2,7 @@
 // PATCH: actualizar campos de un presupuesto
 
 import { NextResponse } from "next/server";
+import { updatePresupuestoRaw, findPresupuestoRaw } from "../../../../lib/presupuestos/repo";
 import { base, TABLES } from "../../../../lib/airtable";
 import { sendPushToClinica } from "../../../../lib/push/sender";
 import { registrarAccion } from "../../../../lib/historial/registrar";
@@ -41,7 +42,7 @@ export const PATCH = withPresupuestosAuth(
     if (body.reactivacion !== undefined) fields["Reactivacion"] = body.reactivacion === true;
     if (body.portalEnviado !== undefined) fields["PortalEnviado"] = body.portalEnviado === true;
 
-    await base(TABLES.presupuestos as any).update(id, fields as any);
+    await updatePresupuestoRaw(id, fields);
 
     // Registrar cambio de estado en historial
     if (body.estado !== undefined) {
@@ -62,7 +63,7 @@ export const PATCH = withPresupuestosAuth(
           const { emitirEvento } = await import(
             "../../../../lib/automatizaciones/engine"
           );
-          const rec = await base(TABLES.presupuestos as any).find(id);
+          const rec = await findPresupuestoRaw(id);
           const f = (rec as any).fields as Record<string, unknown>;
           await emitirEvento({
             tipo: "presupuesto_actualizado",
@@ -86,7 +87,7 @@ export const PATCH = withPresupuestosAuth(
     // Evento A: push + notificación cuando se acepta un presupuesto
     if (body.estado === "ACEPTADO") {
       try {
-        const rec = await base(TABLES.presupuestos as any).find(id);
+        const rec = await findPresupuestoRaw(id);
         const f = (rec as any).fields as Record<string, unknown>;
         const patientName = Array.isArray(f["Paciente_nombre"])
           ? String((f["Paciente_nombre"] as unknown[])[0] ?? "Paciente")

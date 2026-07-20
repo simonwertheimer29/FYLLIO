@@ -3,6 +3,7 @@
 // POST { mes: "YYYY-MM", clinicaId: "todas" | string }
 
 import { NextResponse } from "next/server";
+import { selectPresupuestosRaw } from "../../../../lib/presupuestos/repo";
 import Anthropic from "@anthropic-ai/sdk";
 import { base, TABLES } from "../../../../lib/airtable";
 import { construirMapaAnonimizacion, desanonimizarTexto } from "../../../../lib/anonimizacion";
@@ -52,7 +53,7 @@ async function fetchPresupuestosMes(
       maxRecords: 2000,
     };
 
-    const recs = await base(TABLES.presupuestos as any).select(selectOpts).all();
+    const recs = await selectPresupuestosRaw(selectOpts);
     if (recs.length === 0) return { filtered: null, all: [] };
 
     const today = DateTime.now().setZone(ZONE).toISODate()!;

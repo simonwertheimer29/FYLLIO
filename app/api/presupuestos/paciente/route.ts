@@ -2,6 +2,7 @@
 // GET ?nombre=X — todos los presupuestos + historial de acciones de un paciente
 
 import { NextResponse } from "next/server";
+import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type { Presupuesto, HistorialAccion } from "../../../lib/presupuestos/types";
@@ -37,8 +38,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     const today = DateTime.now().setZone(ZONE).toISODate()!;
 
     // Fetch all presupuestos for this patient by name (case-insensitive contains)
-    const recs = await base(TABLES.presupuestos as any)
-      .select({
+    const recs = await selectPresupuestosRaw({
         fields: [
           "Paciente_nombre", "Teléfono", "Tratamiento_nombre",
           "Importe", "Estado", "Fecha", "Notas",
@@ -51,8 +51,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         filterByFormula: `FIND(LOWER("${nombre.replace(/['"\\]/g, "")}"), LOWER(ARRAYJOIN({Paciente_nombre}, ""))) > 0`,
         sort: [{ field: "Fecha", direction: "desc" }],
         maxRecords: 100,
-      })
-      .all();
+      });
 
     // Sprint 14a Bloque 1 — primer record id de Pacientes encontrado
     // entre los presupuestos cargados. Lo usamos para que Paciente360View

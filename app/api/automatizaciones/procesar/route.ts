@@ -4,6 +4,8 @@
 // Solo crea 1 secuencia por presupuesto (prioridad EVENTO1 > 2 > 3 > 4).
 
 import { NextResponse } from "next/server";
+import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
+import { listObjetivosRaw } from "../../../lib/presupuestos/objetivos";
 import { listConfigsProcesarRaw } from "../../../lib/automatizaciones/configuracion";
 import { listPresupuestoIdsPendientes, createSecuenciaRaw } from "../../../lib/automatizaciones/secuencias";
 import { listCitasResumenNoShowRaw } from "../../../lib/scheduler/repo/airtableRepo";
@@ -159,16 +161,14 @@ export const POST = withPresupuestosAuth(async (_session) => {
     }
 
     // ── 2. Cargar presupuestos ────────────────────────────────────────────────
-    const presRecs = await base(TABLES.presupuestos as any)
-      .select({
+    const presRecs = await selectPresupuestosRaw({
         fields: [
           "Paciente_nombre", "Paciente_Telefono", "Teléfono",
           "Tratamiento_nombre", "Estado", "Fecha", "Clinica",
           "ContactCount", "PortalEnviado", "Reactivacion", "Importe",
         ],
         maxRecords: 1000,
-      })
-      .all();
+      });
 
     // ── 3. Cargar secuencias pendientes para deduplicar ───────────────────────
     const pendientesIds = await listPresupuestoIdsPendientes();
@@ -392,12 +392,7 @@ export const POST = withPresupuestosAuth(async (_session) => {
         // ── Objetivos mensuales ────────────────────────────────────────────────
         const objetivosMap = new Map<string, number>();
         try {
-          const objRecs = await base(TABLES.objetivosMensuales as any)
-            .select({
-              filterByFormula: `{mes}="${mesActual}"`,
-              fields: ["clinica", "objetivo_aceptados"],
-            })
-            .all();
+          const objRecs = await listObjetivosRaw(`{mes}="${mesActual}"`);
           for (const r of objRecs) {
             const f = r.fields as any;
             if (f["clinica"]) objetivosMap.set(String(f["clinica"]), Number(f["objetivo_aceptados"] ?? 0));

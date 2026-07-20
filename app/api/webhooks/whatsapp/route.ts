@@ -13,6 +13,7 @@
 import { NextResponse, after } from "next/server";
 import crypto from "crypto";
 import { base, TABLES, fetchAll } from "../../../lib/airtable";
+import { selectPresupuestosRaw, updatePresupuestoRaw } from "../../../lib/presupuestos/repo";
 import {
   hasWABACredentials,
   getWABACredentials,
@@ -315,11 +316,11 @@ async function processIncomingMessage(body: unknown): Promise<void> {
 }
 
 async function preGuardarRespuesta(presupuestoId: string, contenido: string): Promise<void> {
-  await base(TABLES.presupuestos as any).update(presupuestoId, {
+  await updatePresupuestoRaw(presupuestoId, {
     Ultima_respuesta_paciente: contenido,
     Fecha_ultima_respuesta: new Date().toISOString(),
     Fase_seguimiento: "En intervención",
-  } as any);
+  });
 }
 
 type PresupuestoInfo = {
@@ -344,13 +345,12 @@ async function buscarPresupuestoPorTelefono(telefonoNormalizado: string): Promis
     FIND('${tel}', SUBSTITUTE(SUBSTITUTE(SUBSTITUTE({Teléfono}&'', ' ', ''), '+', ''), '-', ''))
   )`.replace(/\s+/g, " ");
 
-  const query = base(TABLES.presupuestos as any).select({
+  const recs = await selectPresupuestosRaw({
     filterByFormula: formula,
     fields: ["Paciente_nombre", "Tratamiento_nombre", "Estado", "Importe", "Clinica"],
     sort: [{ field: "Fecha", direction: "desc" }],
     maxRecords: 1,
   });
-  const recs = await fetchAll(query);
   if (recs.length === 0) return null;
 
   const r = recs[0];

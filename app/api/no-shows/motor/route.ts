@@ -13,6 +13,7 @@
 // Auth idéntica a riesgo/route.ts: cookie fyllio_noshows_token (jose jwtVerify).
 
 import { NextResponse } from "next/server";
+import { listClinicasNegocioCamposRaw } from "../../../lib/clinicas-negocio";
 import { listCitasDesdeRaw, findCitaRaw } from "../../../lib/scheduler/repo/airtableRepo";
 import { listStaffCamposRaw, findStaffRaw } from "../../../lib/scheduler/repo/staffRepo";
 import { cookies } from "next/headers";
@@ -137,7 +138,7 @@ async function buildProximas(
   // Metadatos para resolver clínica/doctor (mismo patrón que riesgo/route.ts).
   const [staffRecs, clinicaRecs] = await Promise.all([
     listStaffCamposRaw(["Staff ID", "Nombre", "Clínica"]),
-    base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all(),
+    listClinicasNegocioCamposRaw(["Clínica ID", "Nombre"]),
   ]);
 
   const staffByRecordId = new Map<string, string>(
@@ -451,7 +452,7 @@ async function computeTasasNoShow(clinicaFilter: string | null): Promise<{
   const desdeIso = now.minus({ months: 12 }).startOf("month").toISODate()!;
 
   const [clinicaRecs, staffRecs, allRecs] = await Promise.all([
-    base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all(),
+    listClinicasNegocioCamposRaw(["Clínica ID", "Nombre"]),
     listStaffCamposRaw(["Staff ID", "Clínica"]),
     listCitasDesdeRaw(desdeIso),
   ]);

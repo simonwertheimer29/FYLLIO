@@ -10,6 +10,7 @@
 // contactado) sin un drilldown adicional.
 
 import { NextResponse } from "next/server";
+import { selectPresupuestosRaw } from "../../lib/presupuestos/repo";
 import { listPagosResumen } from "../../lib/pagos";
 import { mapStaffNombrePorIds } from "../../lib/scheduler/repo/staffRepo";
 import { withAuth } from "../../lib/auth/session";
@@ -71,11 +72,9 @@ export const GET = withAuth(async (session, req) => {
       listClinicas({ onlyActivas: true }),
       listPacientes({ clinicaIds: scopeIds === null ? undefined : scopeIds }),
       listPagosResumen(),
-      fetchAll(
-        base(TABLES.presupuestos as any).select({
-          fields: ["Paciente", "Estado", "Importe", "Fecha_Aceptado", "FechaAlta"],
-        }),
-      ),
+      selectPresupuestosRaw({
+        fields: ["Paciente", "Estado", "Importe", "Fecha_Aceptado", "FechaAlta"],
+      }),
       listAllOpciones(),
     ]);
 

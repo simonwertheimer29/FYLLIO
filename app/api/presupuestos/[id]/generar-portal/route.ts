@@ -4,6 +4,7 @@
 // Returns: { url, token, expiresAt }
 
 import { NextResponse } from "next/server";
+import { getPresupuestoPorIdRaw } from "../../../../lib/presupuestos/repo";
 import { kv } from "@vercel/kv";
 import { randomBytes } from "crypto";
 import Anthropic from "@anthropic-ai/sdk";
@@ -63,9 +64,8 @@ export const POST = withPresupuestosAuth(
 
   try {
     // Fetch presupuesto data from Airtable
-    const recs = await base(TABLES.presupuestos as any)
-      .select({ filterByFormula: `RECORD_ID()='${id}'`, maxRecords: 1 })
-      .all();
+    const rec0 = await getPresupuestoPorIdRaw(id);
+    const recs = rec0 ? [rec0] : [];
 
     const token = randomBytes(16).toString("hex");
     const now = new Date();

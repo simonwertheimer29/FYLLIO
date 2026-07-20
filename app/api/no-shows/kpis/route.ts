@@ -3,6 +3,7 @@
 // Requiere JWT cookie fyllio_noshows_token
 
 import { NextResponse } from "next/server";
+import { listClinicasNegocioCamposRaw } from "../../../lib/clinicas-negocio";
 import { listCitasDesdeRaw } from "../../../lib/scheduler/repo/airtableRepo";
 import { listStaffCamposRaw } from "../../../lib/scheduler/repo/staffRepo";
 import { cookies } from "next/headers";
@@ -96,7 +97,7 @@ export async function GET(req: Request) {
     const ninetyDaysAgoIso = now.minus({ days: Math.max(periodDays, 90) + 60 }).toISODate()!;
 
     const [clinicaRecs, staffRecs, allRecs] = await Promise.all([
-      base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all(),
+      listClinicasNegocioCamposRaw(["Clínica ID", "Nombre"]),
       listStaffCamposRaw(["Staff ID", "Nombre", "Clínica"]),
       listCitasDesdeRaw(ninetyDaysAgoIso),
     ]);

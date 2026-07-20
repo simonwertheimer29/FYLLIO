@@ -2,6 +2,8 @@
 // POST — registra una acción (WA enviado, llamada, respuesta recibida)
 
 import { NextResponse } from "next/server";
+import { getPresupuestoPorIdRaw, updatePresupuestoRaw } from "../../../../lib/presupuestos/repo";
+import { createContactoRaw } from "../../../../lib/presupuestos/contactos";
 import { base, TABLES } from "../../../../lib/airtable";
 import { DateTime } from "luxon";
 import { registrarAccion } from "../../../../lib/historial/registrar";
@@ -57,11 +59,11 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     const dejaEsperandoRespuesta =
       tipo === "WhatsApp enviado" || tipo === "Llamada realizada";
     try {
-      await base(TABLES.presupuestos as any).update(presupuestoId, {
+      await updatePresupuestoRaw(presupuestoId, {
         Ultima_accion_registrada: now,
         Tipo_ultima_accion: tipo,
         ...(dejaEsperandoRespuesta ? { Fase_seguimiento: "Esperando respuesta" } : {}),
-      } as any);
+      });
     } catch (err) {
       console.error("[registrar-respuesta] Airtable update error:", err);
     }
@@ -70,30 +72,25 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     const mapping = TIPO_MAP[tipo];
     if (mapping) {
       try {
-        await base(TABLES.contactosPresupuesto as any).create({
+        await createContactoRaw({
           PresupuestoId: presupuestoId,
           TipoContacto: mapping.contactTipo,
           Resultado: tipo === "Sin respuesta tras llamada" ? "no contestó" : "contestó",
           FechaHora: now,
           Nota: notas || mensaje || undefined,
           RegistradoPor: session.email,
-        } as any);
+        });
 
         // Incrementar ContactCount
-        const presRecs = await base(TABLES.presupuestos as any)
-          .select({
-            filterByFormula: `RECORD_ID()='${presupuestoId}'`,
-            fields: ["ContactCount"],
-            maxRecords: 1,
-          })
-          .all();
+        const presRec0 = await getPresupuestoPorIdRaw(presupuestoId, ["ContactCount"]);
+        const presRecs = presRec0 ? [presRec0] : [];
         const currentCount = presRecs.length
           ? Number((presRecs[0].fields as any)["ContactCount"] ?? 0)
           : 0;
-        await base(TABLES.presupuestos as any).update(presupuestoId, {
+        await updatePresupuestoRaw(presupuestoId, {
           UltimoContacto: now.slice(0, 10),
           ContactCount: currentCount + 1,
-        } as any);
+        });
       } catch (err) {
         console.error("[registrar-respuesta] Contacto creation error:", err);
       }
@@ -112,13 +109,8 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     let clasificacion = undefined;
     if (tipo === "Mensaje recibido" && mensaje) {
       try {
-        const recs = await base(TABLES.presupuestos as any)
-          .select({
-            filterByFormula: `RECORD_ID()='${presupuestoId}'`,
-            fields: ["Paciente_nombre", "Tratamiento_nombre", "Importe", "Estado", "Clinica"],
-            maxRecords: 1,
-          })
-          .all();
+        const rec1 = await getPresupuestoPorIdRaw(presupuestoId, ["Paciente_nombre", "Tratamiento_nombre", "Importe", "Estado", "Clinica"]);
+        const recs = rec1 ? [rec1] : [];
 
         if (recs.length > 0) {
           const f = recs[0].fields as any;
@@ -174,13 +166,8 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     const servicio = getServicioMensajeria("manual");
     if (tipo === "WhatsApp enviado" && mensaje) {
       // Obtener teléfono del presupuesto
-      const telRecs = await base(TABLES.presupuestos as any)
-        .select({
-          filterByFormula: `RECORD_ID()='${presupuestoId}'`,
-          fields: ["Paciente_Telefono", "Teléfono"],
-          maxRecords: 1,
-        })
-        .all();
+      const telRec0 = await getPresupuestoPorIdRaw(presupuestoId, ["Paciente_Telefono", "Teléfono"]);
+      const telRecs = telRec0 ? [telRec0] : [];
       const telF = telRecs.length ? (telRecs[0].fields as any) : {};
       const telefono = telF["Paciente_Telefono"]
         ? String(telF["Paciente_Telefono"])

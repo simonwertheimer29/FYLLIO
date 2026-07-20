@@ -11,6 +11,8 @@
 
 import { DateTime } from "luxon";
 import { baseCentral, base, TABLES, fetchAll } from "../airtable";
+import { listClinicasNegocioCamposRaw } from "../clinicas-negocio";
+import { selectPresupuestosRaw } from "../presupuestos/repo";
 import { listPagosResumen } from "../pagos";
 import { mapStaffNombrePorIds } from "../scheduler/repo/staffRepo";
 import { listLeads } from "../leads/leads";
@@ -56,7 +58,7 @@ async function clinicasAccesibles(env: CopilotEnv): Promise<string[] | null> {
   const allowedNames = new Set(
     centralAllowed.map((id) => nombreById.get(id)).filter((n): n is string => !!n),
   );
-  const negocioRecs = await fetchAll(base(TABLES.clinics).select({ fields: ["Nombre"] }));
+  const negocioRecs = await listClinicasNegocioCamposRaw(["Nombre"]);
   return negocioRecs
     .filter((r) => allowedNames.has(String((r.fields as Record<string, unknown>)?.["Nombre"] ?? "")))
     .map((r) => r.id);
@@ -156,7 +158,7 @@ async function fetchPresupuestos(env: CopilotEnv): Promise<any[]> {
     const ors = clinicaNombres.map((n) => `{Clinica}='${n.replace(/'/g, "\\'")}'`).join(",");
     select.filterByFormula = `OR(${ors})`;
   }
-  return fetchAll(base(TABLES.presupuestos as any).select(select));
+  return selectPresupuestosRaw(select);
 }
 
 async function execCountPresupuestosByEstado(
@@ -499,11 +501,9 @@ async function execGetCobrosVencidos(
     // queries pesadas, inferimos desde paciente.createdAt como fallback
     // si el preset no tiene fecha; el lib de plantillas resolverá fino
     // cuando importe.
-    const presupRecs = await fetchAll(
-      base(TABLES.presupuestos as any).select({
-        fields: ["Paciente", "Estado", "Fecha_Aceptado", "FechaAlta"],
-      }),
-    );
+    const presupRecs = await selectPresupuestosRaw({
+      fields: ["Paciente", "Estado", "Fecha_Aceptado", "FechaAlta"],
+    });
     const propio = presupRecs.find((r) => {
       const links = ((r.fields as any)?.["Paciente"] ?? []) as string[];
       return (

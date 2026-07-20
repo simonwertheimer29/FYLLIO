@@ -4,6 +4,7 @@
 // Falls back to rich demo data if the table doesn't exist yet.
 
 import { NextResponse } from "next/server";
+import { selectPresupuestosRaw, updatePresupuestoRaw } from "../../../lib/presupuestos/repo";
 import { mapNombreTelefonoPorIds } from "../../../lib/pacientes/pacientes";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
@@ -87,13 +88,11 @@ function buildDemoQuotes(): Quote[] {
 export async function GET() {
   try {
     // 1. Fetch all quotes from Airtable
-    const recs = await base("Presupuestos" as any)
-      .select({
+    const recs = await selectPresupuestosRaw({
         fields: ["Paciente", "Tratamiento_nombre", "Importe", "Estado", "Fecha", "Notas"],
         maxRecords: 200,
         sort: [{ field: "Fecha", direction: "desc" }],
-      })
-      .all();
+      });
 
     if (recs.length === 0) {
       return NextResponse.json({ quotes: buildDemoQuotes(), isDemo: true });
@@ -163,7 +162,7 @@ export async function PATCH(req: Request) {
     if (!id || !status) {
       return NextResponse.json({ error: "id and status required" }, { status: 400 });
     }
-    await base("Presupuestos" as any).update(id, { Estado: status });
+    await updatePresupuestoRaw(id, { Estado: status });
     return NextResponse.json({ ok: true });
   } catch {
     // Demo mode — just acknowledge

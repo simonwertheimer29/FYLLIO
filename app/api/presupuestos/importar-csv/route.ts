@@ -3,6 +3,7 @@
 // Crea en Airtable en lotes de 10 (límite de la API).
 
 import { NextResponse } from "next/server";
+import { createPresupuestosBatchRaw } from "../../../lib/presupuestos/repo";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
@@ -87,7 +88,7 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
   for (let i = 0; i < toCreate.length; i += BATCH) {
     const batch = toCreate.slice(i, i + BATCH);
     try {
-      await (base(TABLES.presupuestos as any) as any).create(batch);
+      await createPresupuestosBatchRaw(batch);
       importados += batch.length;
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Error desconocido";

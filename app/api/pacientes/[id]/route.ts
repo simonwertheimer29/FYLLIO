@@ -3,6 +3,7 @@
 // Sprint 14a Bloque 1.5 — GET extendido: payload agregado para Paciente360.
 
 import { NextResponse } from "next/server";
+import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicaIdsForUser, listUsuarios } from "../../../lib/auth/users";
 import { getPaciente, updatePaciente, deletePaciente } from "../../../lib/pacientes/pacientes";
@@ -145,8 +146,7 @@ async function fetchPresupuestosByPaciente(pacienteId: string): Promise<Presupue
   // no añadir schema migration aquí (lo planificamos en Sprint 14b),
   // hacemos load + filter JS. Volumen MVP es bajo (cientos de presupuestos).
   try {
-    const recs = await fetchAll(
-      base(TABLES.presupuestos as any).select({
+    const recs = await selectPresupuestosRaw({
         fields: [
           "Paciente",
           "Estado",
@@ -158,8 +158,7 @@ async function fetchPresupuestosByPaciente(pacienteId: string): Promise<Presupue
           "Tratamiento_nombre",
           "Notas",
         ],
-      }),
-    );
+      });
     return recs
       .filter((r) => {
         const links = ((r.fields as any)?.["Paciente"] ?? []) as string[];

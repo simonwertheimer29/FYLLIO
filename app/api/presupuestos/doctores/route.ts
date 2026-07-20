@@ -2,6 +2,8 @@
 // GET: lista de doctores activos (filtrado por clínica si aplica)
 
 import { NextResponse } from "next/server";
+import { listDoctoresPresupuestosRaw } from "../../../lib/presupuestos/doctores-repo";
+import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { base, TABLES } from "../../../lib/airtable";
 import type { Doctor } from "../../../lib/presupuestos/types";
 import { DEMO_DOCTORES } from "../../../lib/presupuestos/demo";
@@ -30,14 +32,9 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     const filters: string[] = ["{Activo}=1"];
     if (clinicaFormula) filters.push(clinicaFormula);
 
-    const recs = await base(TABLES.doctoresPresupuestos as any)
-      .select({
-        filterByFormula: filters.length === 1 ? filters[0] : `AND(${filters.join(",")})`,
-        fields: ["Nombre", "Especialidad", "Clinica", "Activo"],
-        sort: [{ field: "Nombre", direction: "asc" }],
-        maxRecords: 100,
-      })
-      .all();
+    const recs = await listDoctoresPresupuestosRaw(
+      filters.length === 1 ? filters[0]! : `AND(${filters.join(",")})`,
+    );
 
     const doctores: Doctor[] = recs.map((r) => {
       const f = r.fields as any;
@@ -57,13 +54,11 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       const formula = clinicaFormula
         ? `AND(NOT({Doctor}=""),${clinicaFormula})`
         : `NOT({Doctor}="")`;
-      const presRecs = await base(TABLES.presupuestos as any)
-        .select({
+      const presRecs = await selectPresupuestosRaw({
           fields: ["Doctor", "Doctor_Especialidad", "Clinica"],
           filterByFormula: formula,
           maxRecords: 500,
-        })
-        .all();
+        });
 
       const doctorMap = new Map<string, Doctor>();
       for (const r of presRecs) {

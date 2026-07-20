@@ -3,6 +3,7 @@
 // Requiere JWT cookie fyllio_noshows_token
 
 import { NextResponse } from "next/server";
+import { listClinicasNegocioCamposRaw } from "../../../lib/clinicas-negocio";
 import { listCitasDesdeRaw } from "../../../lib/scheduler/repo/airtableRepo";
 import { listStaffCamposRaw } from "../../../lib/scheduler/repo/staffRepo";
 import { cookies } from "next/headers";
@@ -85,7 +86,7 @@ export async function GET(req: Request) {
 
     const [staffRecs, clinicaRecs] = await Promise.all([
       listStaffCamposRaw(["Staff ID", "Nombre", "Clínica"]),
-      base("Clínicas" as any).select({ fields: ["Clínica ID", "Nombre"] }).all(),
+      listClinicasNegocioCamposRaw(["Clínica ID", "Nombre"]),
     ]);
 
     // Mapas por Airtable record ID

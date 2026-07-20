@@ -64,3 +64,21 @@ export function negocioIdToCentralId(
   if (!nombre) return null;
   return scope.centralIdByNombre.get(nombre) ?? null;
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// FASE 1 migración — mini-dominio Clínicas de NEGOCIO (tabla "Clínicas"
+// de la base de negocio; NO confundir con la Clínicas de identidad en la
+// base CENTRAL, que va por baseCentral y migra con el módulo Identidad).
+// Este archivo es el único punto de acceso a la tabla de negocio.
+// ─────────────────────────────────────────────────────────────────────
+
+/** Volcado con fields explícitos (lookup "Clínica ID"/"Nombre" del módulo
+ *  no-shows ×9, selects de UI demo). Records crudos. */
+export async function listClinicasNegocioCamposRaw(
+  fields: string[],
+  opts: { maxRecords?: number } = {},
+): Promise<readonly any[]> {
+  return base(TABLES.clinics as any)
+    .select({ fields, ...(opts.maxRecords !== undefined ? { maxRecords: opts.maxRecords } : {}) })
+    .all();
+}

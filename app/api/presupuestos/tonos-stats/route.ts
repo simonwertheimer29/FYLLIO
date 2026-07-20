@@ -4,6 +4,8 @@
 // Lógica: contactos con MensajeIAUsado=true → presupuesto → ACEPTADO/no
 
 import { NextResponse } from "next/server";
+import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
+import { listContactosConTonoRaw } from "../../../lib/presupuestos/contactos";
 import { base, TABLES } from "../../../lib/airtable";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
@@ -39,13 +41,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
 
   try {
     // 1. Fetch contacts with IA message used (max 2000)
-    const contactRecs = await base(TABLES.contactosPresupuesto as any)
-      .select({
-        filterByFormula: `AND({MensajeIAUsado}=TRUE(), NOT({TonoUsado}=''))`,
-        fields: ["PresupuestoId", "TonoUsado"],
-        maxRecords: 2000,
-      })
-      .all();
+    const contactRecs = await listContactosConTonoRaw();
 
     if (!contactRecs.length) {
       return NextResponse.json({ stats: null, insuficiente: true });
@@ -71,13 +67,11 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     for (let i = 0; i < presIds.length; i += BATCH) {
       const batch = presIds.slice(i, i + BATCH);
       const formula = `OR(${batch.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
-      const recs = await base(TABLES.presupuestos as any)
-        .select({
+      const recs = await selectPresupuestosRaw({
           filterByFormula: formula,
           fields: ["Estado", "Clinica", "Tratamiento_nombre"],
           maxRecords: BATCH,
-        })
-        .all();
+        });
       for (const rec of recs) {
         const f = rec.fields as any;
         presMap.set(rec.id, {

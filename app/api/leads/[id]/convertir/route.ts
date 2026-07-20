@@ -15,6 +15,7 @@
 // reutilizado.
 
 import { NextResponse } from "next/server";
+import { createPresupuestoRaw } from "../../../../lib/presupuestos/repo";
 import { createPacienteDesdeConversion } from "../../../../lib/pacientes/pacientes";
 import { withAuth } from "../../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../../lib/auth/users";
@@ -126,7 +127,7 @@ export const POST = withAuth<Ctx>(async (session, req, ctx) => {
     if (lead.telefono) fields["Paciente_Telefono"] = lead.telefono;
     if (body.notasAdicionales) fields["Notas"] = body.notasAdicionales;
 
-    const created = (await (base(TABLES.presupuestos) as any).create([{ fields }]))[0];
+    const created = await createPresupuestoRaw(fields);
     presupuestoCreated = {
       id: created.id,
       importe,

@@ -20,6 +20,8 @@
 //  - admin requiere selectedClinicaId para ESCRIBIR. Si no, error.
 
 import { baseCentral, base, TABLES } from "../airtable";
+import { findPresupuestoRaw, updatePresupuestoRaw } from "../presupuestos/repo";
+import { createContactoRaw } from "../presupuestos/contactos";
 import { listClinicaIdsForUser } from "../auth/users";
 import { getLead, updateLead, appendLeadLog } from "../leads/leads";
 import { logAccionLead } from "../leads/acciones";
@@ -195,7 +197,7 @@ async function ensurePresupAccessible(
 ): Promise<{ ok: true; rec: any; clinicaNombre: string; pacienteNombre: string } | ExecResult> {
   let rec: any;
   try {
-    rec = await base(TABLES.presupuestos as any).find(presupuestoId);
+    rec = await findPresupuestoRaw(presupuestoId);
   } catch {
     return { ok: false, error: "Presupuesto no encontrado" };
   }
@@ -266,9 +268,9 @@ async function execAnadirNotaPresupuesto(env: ExecEnv, p: any): Promise<ExecResu
   if (!nota) return { ok: false, error: "Nota vacía" };
   const prev = String((access.rec.fields as any)?.["Notas"] ?? "");
   const sep = prev ? "\n" : "";
-  await base(TABLES.presupuestos as any).update(access.rec.id, {
+  await updatePresupuestoRaw(access.rec.id, {
     Notas: prev + sep + `[Copilot] ${nota}`,
-  } as any);
+  });
   return { ok: true, message: `✓ Nota añadida a ${access.pacienteNombre}.` };
 }
 
@@ -281,9 +283,7 @@ async function execCambiarEstadoPresupuesto(env: ExecEnv, p: any): Promise<ExecR
   if (p.nuevoEstado === "PERDIDO" && p.motivoPerdida) {
     fields["MotivoPerdida"] = String(p.motivoPerdida);
   }
-  await base(TABLES.presupuestos as any).update(access.rec.id, fields as any, {
-    typecast: true,
-  } as any);
+  await updatePresupuestoRaw(access.rec.id, fields, { typecast: true });
   return {
     ok: true,
     message: `✓ Presupuesto de ${access.pacienteNombre} ahora está en ${p.nuevoEstado}.`,
@@ -310,18 +310,18 @@ async function execMarcarAtendido(env: ExecEnv, p: any): Promise<ExecResult> {
     const access = await ensurePresupAccessible(env, String(p.id));
     if (!("rec" in access)) return access;
     const now = new Date().toISOString();
-    await base(TABLES.presupuestos as any).update(access.rec.id, {
+    await updatePresupuestoRaw(access.rec.id, {
       Ultima_accion_registrada: now,
       Tipo_ultima_accion: "Llamada realizada",
-    } as any);
-    await base(TABLES.contactosPresupuesto as any).create({
+    });
+    await createContactoRaw({
       PresupuestoId: access.rec.id,
       TipoContacto: "llamada",
       Resultado: "contestó",
       FechaHora: now,
       Nota: "Atendido vía Copilot",
       RegistradoPor: env.session.nombre || env.session.userId,
-    } as any);
+    });
     return { ok: true, message: `✓ ${access.pacienteNombre} marcado como atendido.` };
   }
 }

@@ -2,6 +2,7 @@
 // GET — devuelve TODOS los presupuestos (último año) para Vista Máxima
 
 import { NextResponse } from "next/server";
+import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
@@ -224,7 +225,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     // Fetch TODOS los presupuestos del último año (sin filtrar por estado)
     const filterFormula = `IS_AFTER({Fecha}, DATEADD(TODAY(), -12, 'months'))`;
 
-    const query = base(TABLES.presupuestos as any).select({
+    const recs = await selectPresupuestosRaw({
       fields: [
         // Campos base (kanban)
         "Paciente_nombre", "Teléfono", "Tratamiento_nombre",
@@ -242,8 +243,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       filterByFormula: filterFormula,
       sort: [{ field: "Fecha", direction: "desc" }],
     });
-
-    const recs = await fetchAll(query);
 
     // Map records → PresupuestoMaxima
     let items: PresupuestoMaxima[] = recs.map((r) => {

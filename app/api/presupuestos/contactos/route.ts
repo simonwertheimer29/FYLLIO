@@ -3,6 +3,8 @@
 // POST                  — registrar nuevo contacto
 
 import { NextResponse } from "next/server";
+import { getPresupuestoPorIdRaw, updatePresupuestoRaw } from "../../../lib/presupuestos/repo";
+import { listContactosDePresupuestoRaw, createContactoConRecordRaw } from "../../../lib/presupuestos/contactos";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type { Contacto } from "../../../lib/presupuestos/types";
@@ -31,13 +33,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   }
 
   try {
-    const recs = await base(TABLES.contactosPresupuesto as any)
-      .select({
-        filterByFormula: `{PresupuestoId}='${presupuestoId}'`,
-        sort: [{ field: "FechaHora", direction: "desc" }],
-        maxRecords: 100,
-      })
-      .all();
+    const recs = await listContactosDePresupuestoRaw(presupuestoId);
 
     const contactos: Contacto[] = recs.map((r) => {
       const f = r.fields as any;
@@ -96,18 +92,13 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     if (body.tonoUsado) fields["TonoUsado"] = body.tonoUsado;
     if (body.oferta === true) fields["Oferta"] = true;
 
-    const created = await base(TABLES.contactosPresupuesto as any).create(fields as any) as any;
+    const created = await createContactoConRecordRaw(fields) as any;
 
     // Actualizar UltimoContacto y ContactCount en el presupuesto
     try {
       // Obtener contactCount actual
-      const presRecs = await base(TABLES.presupuestos as any)
-        .select({
-          filterByFormula: `RECORD_ID()='${presupuestoId}'`,
-          fields: ["ContactCount"],
-          maxRecords: 1,
-        })
-        .all();
+      const presRec0 = await getPresupuestoPorIdRaw(presupuestoId, ["ContactCount"]);
+      const presRecs = presRec0 ? [presRec0] : [];
       const currentCount = presRecs.length
         ? Number((presRecs[0].fields as any)["ContactCount"] ?? 0)
         : 0;
@@ -118,7 +109,7 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
       };
       if (body.oferta === true) presupuestoUpdate["OfertaActiva"] = true;
 
-      await base(TABLES.presupuestos as any).update(presupuestoId, presupuestoUpdate as any);
+      await updatePresupuestoRaw(presupuestoId, presupuestoUpdate);
     } catch {
       // ignorar si falla la actualización secundaria
     }
