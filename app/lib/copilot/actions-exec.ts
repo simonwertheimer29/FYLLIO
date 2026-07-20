@@ -594,12 +594,10 @@ async function execAgendarLlamadaCobranza(
       });
     } else {
       // Sin lead origen: append a paciente.notas via Airtable.
-      const notaPrev = String(((await base(TABLES.patients as any).find(access.paciente.id)).fields as any)?.["Notas"] ?? "");
+      // FASE 1 migración: append de nota via repo del dominio Pacientes.
       const stamp = new Date().toISOString().slice(0, 16).replace("T", " ");
-      const append = `[${stamp} · Cobranza] ${detalles}`;
-      await base(TABLES.patients as any).update(access.paciente.id, {
-        Notas: notaPrev ? `${notaPrev}\n${append}` : append,
-      } as any);
+      const { appendNotaPaciente } = await import("../pacientes/pacientes");
+      await appendNotaPaciente(access.paciente.id, `[${stamp} · Cobranza] ${detalles}`);
     }
     return {
       ok: true,

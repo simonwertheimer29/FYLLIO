@@ -48,39 +48,32 @@ export async function getStaffRecordIdByStaffId(staffId: string) {
 }
 
 export async function getPatientRecordIdByPhone(phoneE164: string) {
-  // ✅ según tu captura el campo se llama "Teléfono"
-  return findRecordIdByField(TABLES.patients, "Teléfono", phoneE164);
+  // FASE 1 migración: via repo del dominio Pacientes.
+  const { findPacienteIdPorTelefono } = await import("../../pacientes/pacientes");
+  return findPacienteIdPorTelefono(phoneE164);
 }
 
 export async function getPatientByPhone(
   phoneE164: string
 ): Promise<{ recordId: string; name: string } | null> {
-  const formula = `{Teléfono}='${phoneE164}'`;
-  const recs = await base(TABLES.patients)
-    .select({ filterByFormula: formula, fields: ["Nombre"], maxRecords: 1 })
-    .all();
-  if (!recs.length) return null;
-  const r = recs[0] as any;
-  return { recordId: r.id, name: String(r.fields?.["Nombre"] ?? "") };
+  // FASE 1 migración: via repo del dominio Pacientes.
+  const { getPacientePorTelefono } = await import("../../pacientes/pacientes");
+  return getPacientePorTelefono(phoneE164);
 }
 
 /** Marks a patient as opted-out from WhatsApp messages (requires "Opt_Out" checkbox field in Pacientes table). */
 export async function markPatientOptOut(phoneE164: string): Promise<void> {
-  const formula = `{Teléfono}='${phoneE164}'`;
-  const recs = await base(TABLES.patients)
-    .select({ filterByFormula: formula, fields: ["Nombre"], maxRecords: 1 })
-    .all();
-  if (!recs.length) return;
-  await base(TABLES.patients).update([{ id: recs[0].id, fields: { Opt_Out: true } as any }]);
+  // FASE 1 migración: via repo del dominio Pacientes (campo Opt_Out del
+  // scheduler; el follow-up del doble opt-out está anotado en el repo).
+  const { marcarOptOutPorTelefono } = await import("../../pacientes/pacientes");
+  await marcarOptOutPorTelefono(phoneE164);
 }
 
 /** Returns true if the patient has opted out of WhatsApp messages. */
 export async function isPatientOptedOut(phoneE164: string): Promise<boolean> {
-  const formula = `AND({Teléfono}='${phoneE164}',{Opt_Out}=TRUE())`;
-  const recs = await base(TABLES.patients)
-    .select({ filterByFormula: formula, fields: ["Opt_Out"], maxRecords: 1 })
-    .all();
-  return recs.length > 0;
+  // FASE 1 migración: via repo del dominio Pacientes.
+  const { isOptOutPorTelefono } = await import("../../pacientes/pacientes");
+  return isOptOutPorTelefono(phoneE164);
 }
 
 export async function createPatient(params: {
@@ -88,28 +81,14 @@ export async function createPatient(params: {
   phoneE164: string;
   clinicRecordId?: string;
 }): Promise<{ recordId: string }> {
-  const { name, phoneE164, clinicRecordId } = params;
-
-  // ✅ nombres de campos según tu captura
-  const fields: any = {
-    "Nombre": name,
-    "Teléfono": phoneE164,
-  };
-
-  // "Clínica" existe en tu tabla Pacientes (link)
-  if (clinicRecordId) fields["Clínica"] = [clinicRecordId];
-
-  // opcional pero recomendado (si quieres que quede bien desde el MVP):
-  // si "Canal preferido" es single select, puedes setearlo:
-  // fields["Canal preferido"] = "WhatsApp";
-  // si "Consentimiento Whatsapp" es checkbox:
-  // fields["Consentimiento Whatsapp"] = true;
-
-  const created = await base(TABLES.patients).create([{ fields }]);
-  const rec = created?.[0];
-  if (!rec?.id) throw new Error("Airtable: no se pudo crear paciente (sin id).");
-
-  return { recordId: rec.id };
+  // FASE 1 migración: alta via repo del dominio Pacientes (campos exactos
+  // del MVP del scheduler).
+  const { createPacienteBasico } = await import("../../pacientes/pacientes");
+  return createPacienteBasico({
+    nombre: params.name,
+    telefono: params.phoneE164,
+    clinicaId: params.clinicRecordId,
+  });
 }
 
 export async function upsertPatientByPhone(params: {
@@ -131,26 +110,13 @@ export async function getPatientRecordIdByNameAndTutorPhone(params: {
   tutorPhoneE164: string;
   clinicRecordId?: string;
 }): Promise<string | null> {
-  const { name, tutorPhoneE164, clinicRecordId } = params;
-
-  const safeName = String(name).replace(/'/g, "\\'");
-  const safeTutor = String(tutorPhoneE164).replace(/'/g, "\\'");
-
-  // OJO: "Clínica" es LINK, así que se compara con recordId si lo pasas
-  const parts = [
-    `{Nombre}='${safeName}'`,
-    `{Tutor teléfono}='${safeTutor}'`,
-  ];
-
-  if (clinicRecordId) parts.push(`FIND('${clinicRecordId}', ARRAYJOIN({Clínica}))`);
-
-  const formula = `AND(${parts.join(",")})`;
-
-  const recs = await base(TABLES.patients)
-    .select({ maxRecords: 1, filterByFormula: formula })
-    .firstPage();
-
-  return recs?.[0]?.id ?? null;
+  // FASE 1 migración: búsqueda via repo del dominio Pacientes.
+  const { findPacienteIdPorNombreYTutor } = await import("../../pacientes/pacientes");
+  return findPacienteIdPorNombreYTutor({
+    nombre: params.name,
+    tutorTelefono: params.tutorPhoneE164,
+    clinicaId: params.clinicRecordId,
+  });
 }
 
 export async function createPatientWithoutPhone(params: {
@@ -158,21 +124,13 @@ export async function createPatientWithoutPhone(params: {
   tutorPhoneE164: string;
   clinicRecordId?: string;
 }): Promise<{ recordId: string }> {
-  const { name, tutorPhoneE164, clinicRecordId } = params;
-
-  const fields: any = {
-    "Nombre": name,
-    "Tutor teléfono": tutorPhoneE164,
-    // "Teléfono": (no lo seteamos)
-  };
-
-  if (clinicRecordId) fields["Clínica"] = [clinicRecordId];
-
-  const created = await base(TABLES.patients).create([{ fields }]);
-  const rec = created?.[0];
-  if (!rec?.id) throw new Error("Airtable: no se pudo crear paciente sin teléfono (sin id).");
-
-  return { recordId: rec.id };
+  // FASE 1 migración: alta via repo del dominio Pacientes.
+  const { createPacienteSinTelefono } = await import("../../pacientes/pacientes");
+  return createPacienteSinTelefono({
+    nombre: params.name,
+    tutorTelefono: params.tutorPhoneE164,
+    clinicaId: params.clinicRecordId,
+  });
 }
 
 export async function upsertPatientWithoutPhone(params: {

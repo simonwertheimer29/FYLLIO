@@ -438,8 +438,12 @@ function idsLink(evento: EventoSistema): {
 
 async function getOptoutPaciente(pacienteId: string): Promise<boolean> {
   try {
-    const rec = await base(TABLES.patients).find(pacienteId);
-    return Boolean(rec.fields["Optout_Automatizaciones"] ?? false);
+    // FASE 1 migración: lectura via repo del dominio Pacientes. getPaciente
+    // devuelve null si no existe o la query falla → false (mismo criterio;
+    // sigue siendo la salvaguarda-silenciosa anotada como follow-up nº 10).
+    const { getPaciente } = await import("../pacientes/pacientes");
+    const p = await getPaciente(pacienteId);
+    return p?.optoutAutomatizaciones ?? false;
   } catch {
     return false;
   }

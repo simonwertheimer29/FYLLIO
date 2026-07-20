@@ -5,6 +5,7 @@
 //   - Revenue summary: confirmed vs at-risk
 
 import { NextResponse } from "next/server";
+import { mapNombreTelefonoPorIds } from "../../../lib/pacientes/pacientes";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import {
@@ -253,8 +254,17 @@ export async function GET(req: Request) {
     const allPatientIds = [...new Set(todayAppts.flatMap((a) => a.patientIds))];
     const allTreatmentIds = [...new Set(todayAppts.flatMap((a) => a.treatmentIds))];
 
+    // FASE 1 migración: pacientes via repo del dominio; shim al shape de
+    // fields crudos que espera el resto de esta ruta demo.
+    const pacientesFieldsMap = async (ids: string[]) => {
+      const m = new Map<string, any>();
+      for (const [id, v] of await mapNombreTelefonoPorIds(ids)) {
+        m.set(id, { Nombre: v.nombre, "Teléfono": v.telefono });
+      }
+      return m;
+    };
     const [patientMap, treatmentMap] = await Promise.all([
-      fetchByRecordIds(TABLES.patients as any, allPatientIds, ["Nombre", "Teléfono"]),
+      pacientesFieldsMap(allPatientIds),
       fetchByRecordIds(TABLES.treatments as any, allTreatmentIds, ["Nombre"]),
     ]);
 

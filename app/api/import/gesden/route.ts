@@ -4,6 +4,7 @@
 // Returns: { imported, updated, skipped, errors[] }
 
 import { NextResponse } from "next/server";
+import { upsertPacienteImportPorTelefono } from "../../../lib/pacientes/pacientes";
 import { base, TABLES } from "../../../lib/airtable";
 import {
   parseCSV,
@@ -14,29 +15,8 @@ import {
 const AIRTABLE_BATCH = 10; // Airtable rate-limit safe batch size
 
 async function upsertPatient(fields: Record<string, string>): Promise<"created" | "updated" | "skipped"> {
-  const phone = fields["Teléfono"];
-  if (!phone) return "skipped";
-
-  try {
-    // Check if patient already exists by phone
-    const existing = await base(TABLES.patients as any)
-      .select({
-        filterByFormula: `{Teléfono}='${phone.replace(/'/g, "\\'")}'`,
-        maxRecords: 1,
-        fields: ["Nombre", "Teléfono"],
-      })
-      .firstPage();
-
-    if (existing.length > 0) {
-      await base(TABLES.patients as any).update(existing[0].id, fields);
-      return "updated";
-    } else {
-      await base(TABLES.patients as any).create(fields);
-      return "created";
-    }
-  } catch {
-    return "skipped";
-  }
+  // FASE 1 migración: upsert via repo del dominio Pacientes.
+  return upsertPacienteImportPorTelefono(fields);
 }
 
 function sleep(ms: number) {

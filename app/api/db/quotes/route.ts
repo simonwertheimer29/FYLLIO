@@ -4,6 +4,7 @@
 // Falls back to rich demo data if the table doesn't exist yet.
 
 import { NextResponse } from "next/server";
+import { mapNombreTelefonoPorIds } from "../../../lib/pacientes/pacientes";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 
@@ -106,11 +107,16 @@ export async function GET() {
     ];
 
     // 3. Expand patient records to get Nombre + Teléfono
-    const patientMap = await fetchByRecordIds(
-      TABLES.patients as any,
-      patientIds,
-      ["Nombre", "Teléfono"]
-    );
+    // FASE 1 migración: pacientes via repo del dominio; shim al shape de
+    // fields crudos que espera el resto de esta ruta demo.
+    const pacientesFieldsMap = async (ids: string[]) => {
+      const m = new Map<string, any>();
+      for (const [id, v] of await mapNombreTelefonoPorIds(ids)) {
+        m.set(id, { Nombre: v.nombre, "Teléfono": v.telefono });
+      }
+      return m;
+    };
+    const patientMap = await pacientesFieldsMap(patientIds);
 
     // 4. Build output
     const quotes: Quote[] = recs.map((r) => {

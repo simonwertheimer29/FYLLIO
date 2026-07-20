@@ -15,6 +15,7 @@
 // reutilizado.
 
 import { NextResponse } from "next/server";
+import { createPacienteDesdeConversion } from "../../../../lib/pacientes/pacientes";
 import { withAuth } from "../../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../../lib/auth/users";
 import { getLead, markLeadConvertido, updateLead, appendLeadLog } from "../../../../lib/leads/leads";
@@ -88,23 +89,16 @@ export const POST = withAuth<Ctx>(async (session, req, ctx) => {
       .filter(Boolean)
       .join(" · ");
 
-    const pacienteCreated = (
-      await base(TABLES.patients).create([
-        {
-          fields: {
-            Nombre: lead.nombre,
-            ...(lead.telefono && { Teléfono: lead.telefono }),
-            Clínica: [lead.clinicaId],
-            "Canal preferido": "Whatsapp",
-            "Consentimiento Whatsapp": true,
-            Activo: true,
-            Notas: notasBase || "Convertido desde Lead",
-          },
-        },
-      ])
-    )[0]!;
+    // FASE 1 migración: alta via repo del dominio Pacientes (campos exactos
+    // de siempre; el follow-up CreatedAt/Lead_Origen está anotado en el repo).
+    const pacienteCreated = await createPacienteDesdeConversion({
+      nombre: lead.nombre,
+      telefono: lead.telefono,
+      clinicaId: lead.clinicaId!,
+      notas: notasBase || "Convertido desde Lead",
+    });
     pacienteId = pacienteCreated.id;
-    pacienteNombre = String(pacienteCreated.fields?.["Nombre"] ?? lead.nombre);
+    pacienteNombre = pacienteCreated.nombre;
     await markLeadConvertido(lead.id, pacienteId);
   }
 

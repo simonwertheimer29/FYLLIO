@@ -220,15 +220,12 @@ export async function getOfferedEntryByPhone(params: {
   // Para MVP: hacemos 2 pasos.
   const phone = params.phoneE164;
 
-  const patientFormula = `OR({Teléfono}='${esc(phone)}',{Tutor teléfono}='${esc(phone)}')`;
-  const patients = await base(TABLES.patients)
-    .select({ filterByFormula: patientFormula, maxRecords: 1 })
-    .firstPage();
+  // FASE 1 migración: búsqueda del paciente via repo del dominio.
+  const { findPacienteIdPorTelefonoOTutor } = await import("../../pacientes/pacientes");
+  const patientId = await findPacienteIdPorTelefonoOTutor(phone);
+  if (!patientId) return null;
 
-  const patient = patients?.[0];
-  if (!patient) return null;
-
-  const waitFormula = `AND({${F.estado}}='OFFERED',FIND('${esc(patient.id)}', ARRAYJOIN({${F.patient}})))`;
+  const waitFormula = `AND({${F.estado}}='OFFERED',FIND('${esc(patientId)}', ARRAYJOIN({${F.patient}})))`;
   const wait = await base(TABLES.waitlist)
     .select({ filterByFormula: waitFormula, maxRecords: 1 })
     .firstPage();
@@ -314,13 +311,9 @@ export async function markWaitlistBooked(params: {
 
 /** Utilidad: obtener nombre/teléfono desde Paciente link (para mensajes) */
 export async function getPatientContact(params: { patientRecordId: string }) {
-  const r = await base(TABLES.patients).find(params.patientRecordId);
-  const f: any = r.fields || {};
-  return {
-    name: str(f["Nombre"]) || "Paciente",
-    phone: str(f["Teléfono"]) || "",
-    tutorPhone: str(f["Tutor teléfono"]) || "",
-  };
+  // FASE 1 migración: lectura via repo del dominio Pacientes.
+  const { getPacienteContacto } = await import("../../pacientes/pacientes");
+  return getPacienteContacto(params.patientRecordId);
 }
 
 /** Utilidad: leer tratamiento (duración/buffers/nombre) por recordId */

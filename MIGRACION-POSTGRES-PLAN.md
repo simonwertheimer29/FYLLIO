@@ -305,3 +305,26 @@ el camino `listAccionesByLead` vía ficha de paciente no es ejercitable en el se
 
 **Siguientes dominios sugeridos** (de menos a más riesgo): Pacientes → Agenda núcleo →
 Automatizaciones → Pagos → Presupuestos (el monstruo, al final, con el patrón ya rodado).
+
+### Estado Pacientes (hecho, 2º dominio)
+
+1 tabla (Pacientes), ~14 métodos nuevos en `app/lib/pacientes/pacientes.ts`, **20+
+call-sites** migrados en 16 archivos: pagos (cruce financiero, suma Pendiente, recalculo
+Pagado/Pendiente ×2), engine (opt-out), predictor no-shows (canal/edad), scheduler
+(waitlist por teléfono/tutor, contacto, opt-out Twilio, altas del scheduler, upsert),
+copilot (nota cobranza), alertas, convertir lead→paciente, marcar-contactado, import
+Gesden, buscador no-shows, superficie demo `/api/db` (shim al shape de fields que espera
+su código), introspección dev. Gate grep vacío + tsc 0 + build OK + smoke DEMO
+(pacientes, detalle, alertas, cola-cobros, leads/kpis → 200 con shapes idénticos).
+
+**Follow-ups detectados en Pacientes (documentados, NO tocados — paridad):**
+- `createPacienteDesdeConversion` NO escribe `CreatedAt` (los pacientes convertidos
+  quedan al final del sort nativo) ni el link `Lead_Origen` (el enlace vive solo en el
+  lado Lead via `Paciente_ID`). Unificar con `createPaciente` tras la migración.
+- **Doble flag de opt-out**: `Opt_Out` (scheduler/Twilio STOP) vs
+  `Optout_Automatizaciones` (motor de reglas) — dos opt-outs paralelos que nada unifica;
+  un paciente que dice STOP por Twilio sigue opted-in para el motor. Decisión de
+  producto pendiente.
+- (De Leads, ya anotado): `crear_accion_lead` del motor escribe campos
+  `Tipo`/`Descripcion` que no coinciden con los de `logAccionLead`
+  (`Tipo_Accion`/`Detalles`).

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { mapNombreTelefonoPorIds } from "../../../lib/pacientes/pacientes";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 
@@ -221,13 +222,13 @@ export async function GET(req: Request) {
     }
 
     // 5) fetch expandido
-    const [pacientes, tratamientos, sillones] = await Promise.all([
-      fetchByRecordIds(TABLES.patients as TableName, Array.from(pacienteIds)),
+    // FASE 1 migración: pacientes via repo del dominio (solo se usa Nombre).
+    const [pacienteById, tratamientos, sillones] = await Promise.all([
+      mapNombreTelefonoPorIds(Array.from(pacienteIds)),
       fetchByRecordIds(TABLES.treatments as TableName, Array.from(tratIds)),
       fetchByRecordIds(TABLES.sillones as TableName, Array.from(sillonIds)),
     ]);
 
-    const pacienteById = new Map(pacientes.map((r: any) => [r.id, r]));
     const tratById = new Map(tratamientos.map((r: any) => [r.id, r]));
     const sillonById = new Map(sillones.map((r: any) => [r.id, r]));
 
@@ -259,7 +260,7 @@ export async function GET(req: Request) {
         const tRec = tIds[0] ? tratById.get(tIds[0]) : null;
         const sRec = sIds[0] ? sillonById.get(sIds[0]) : null;
 
-        const patientName = (pRec?.get(FIELDS.pacienteNombre) as string) ?? "Paciente";
+        const patientName = pRec?.nombre || "Paciente";
         const type = (tRec?.get(FIELDS.tratCategoria) as string) ?? "Tratamiento";
 
         const chairIdRaw = (sRec?.get(FIELDS.sillonId) as string) ?? "CHR_01";

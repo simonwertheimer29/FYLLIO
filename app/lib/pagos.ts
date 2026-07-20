@@ -14,6 +14,11 @@
 //    por Fecha_Pago. Soporta filtro por clinica + soloOrigenLead.
 
 import { base, TABLES, fetchAll } from "./airtable";
+import {
+  listResumenFinancieroPorIds,
+  sumPendientePorIds,
+  syncFinancieroPaciente,
+} from "./pacientes/pacientes";
 import type { MetodoPago, TipoPago, Pago } from "./pagos-format";
 
 // Sprint B — los tipos y helpers PUROS (MetodoPago, TipoPago, Pago, TIPOS_PAGO,
@@ -121,31 +126,23 @@ export async function getFacturadoEnPeriodo(args: {
   // Cruce con Pacientes para filtrar por clinica/origen lead.
   const pacIds = Array.from(new Set(pagos.map((p) => p.pacienteId).filter(Boolean)));
   if (pacIds.length === 0) return { total: 0, pendiente: 0, pagosCount: 0 };
-  const formulaPac = `OR(${pacIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
-  let pacRecs: any[] = [];
+  // FASE 1 migración: el cruce con Pacientes vive en el repo del dominio.
+  let pacResumen: Awaited<ReturnType<typeof listResumenFinancieroPorIds>> = [];
   try {
-    pacRecs = await fetchAll(
-      base(TABLES.patients as any).select({
-        filterByFormula: formulaPac,
-        fields: ["Clínica", "Lead_Origen", "Pendiente"],
-      }),
-    );
+    pacResumen = await listResumenFinancieroPorIds(pacIds);
   } catch (err) {
     console.error("[pagos] crossing pacientes:", err instanceof Error ? err.message : err);
     return { total: 0, pendiente: 0, pagosCount: 0 };
   }
   const pacAllowed = new Set<string>();
   let pendienteSum = 0;
-  for (const r of pacRecs) {
-    const f = r.fields as any;
-    const clinicas = (f["Clínica"] ?? []) as string[];
-    const origenLead = f["Lead_Origen"];
+  for (const p of pacResumen) {
     const ok =
-      (!args.clinicaId || clinicas.includes(args.clinicaId)) &&
-      (!args.soloOrigenLead || (origenLead != null && origenLead !== ""));
+      (!args.clinicaId || p.clinicaIds.includes(args.clinicaId)) &&
+      (!args.soloOrigenLead || p.tieneLeadOrigen);
     if (ok) {
-      pacAllowed.add(r.id);
-      pendienteSum += Number(f["Pendiente"] ?? 0) || 0;
+      pacAllowed.add(p.id);
+      pendienteSum += p.pendiente;
     }
   }
   const filtrados = pagos.filter((p) => pacAllowed.has(p.pacienteId));
@@ -239,31 +236,8 @@ export async function getFacturadoPorPacientes(args: {
 }
 
 async function getPendienteSum(pacIds: string[]): Promise<number> {
-  if (pacIds.length === 0) return 0;
-  // Sprint 13.1.1 — batching simetrico al de getFacturadoPorPacientes
-  // para evitar fallos silenciosos cuando se pasan muchos IDs.
-  if (pacIds.length > BATCH_SIZE_PACIENTES) {
-    let total = 0;
-    for (let i = 0; i < pacIds.length; i += BATCH_SIZE_PACIENTES) {
-      total += await getPendienteSum(pacIds.slice(i, i + BATCH_SIZE_PACIENTES));
-    }
-    return total;
-  }
-  const formula = `OR(${pacIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
-  try {
-    const recs = await fetchAll(
-      base(TABLES.patients as any).select({
-        filterByFormula: formula,
-        fields: ["Pendiente"],
-      }),
-    );
-    return recs.reduce(
-      (s, r) => s + (Number((r.fields as any)?.["Pendiente"] ?? 0) || 0),
-      0,
-    );
-  } catch {
-    return 0;
-  }
+  // FASE 1 migración: query + batching viven en el repo del dominio Pacientes.
+  return sumPendientePorIds(pacIds);
 }
 
 // ─── Escritura ─────────────────────────────────────────────────────────
@@ -285,14 +259,8 @@ async function syncPacienteCache(
     // Sumar todos los pagos del paciente directamente.
     const pagos = await getPagosByPaciente(pacienteId);
     const totalPagado = pagos.reduce((s, p) => s + (p.importe || 0), 0);
-    const pacRec = await base(TABLES.patients as any).find(pacienteId);
-    const f = pacRec.fields as any;
-    const presupuesto = Number(f["Presupuesto_Total"] ?? 0) || 0;
-    const nuevoPendiente = Math.max(0, presupuesto - totalPagado);
-    await base(TABLES.patients as any).update(pacienteId, {
-      Pagado: totalPagado,
-      Pendiente: nuevoPendiente,
-    } as any);
+    // FASE 1 migración: recalculo Pagado/Pendiente en el repo del dominio.
+    await syncFinancieroPaciente(pacienteId, totalPagado);
   } catch (err) {
     console.error(
       "[pagos] sync Pacientes cache:",
@@ -541,14 +509,8 @@ export async function reconciliarPagosCache(args: {
     try {
       const pagos = await getPagosByPaciente(pid);
       const totalPagado = pagos.reduce((s, p) => s + (p.importe || 0), 0);
-      const pacRec = await base(TABLES.patients as any).find(pid);
-      const f = pacRec.fields as any;
-      const presupuesto = Number(f["Presupuesto_Total"] ?? 0) || 0;
-      const nuevoPendiente = Math.max(0, presupuesto - totalPagado);
-      await base(TABLES.patients as any).update(pid, {
-        Pagado: totalPagado,
-        Pendiente: nuevoPendiente,
-      } as any);
+      // FASE 1 migración: mismo recalculo via repo del dominio Pacientes.
+      await syncFinancieroPaciente(pid, totalPagado);
       ok++;
     } catch (err) {
       console.error(

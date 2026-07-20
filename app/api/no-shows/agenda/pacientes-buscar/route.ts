@@ -3,6 +3,7 @@
 // Requiere JWT cookie fyllio_noshows_token
 
 import { NextResponse } from "next/server";
+import { listPacientesBusquedaRapida } from "../../../../lib/pacientes/pacientes";
 import { cookies } from "next/headers";
 import { jwtVerify } from "jose";
 import { base, TABLES } from "../../../../lib/airtable";
@@ -37,25 +38,14 @@ export async function GET(req: Request) {
     const q = searchParams.get("q")?.trim() ?? "";
     if (q.length < 2) return NextResponse.json({ patients: [] });
 
-    // Fetch up to 300 patients and filter in memory (safe, no formula injection)
-    const recs = await base(TABLES.patients as any)
-      .select({ maxRecords: 300, fields: ["Nombre", "Teléfono", "Clínica"] })
-      .all();
+    // FASE 1 migración: muestra via repo del dominio; filtro en memoria aquí
+    // (mismo criterio: sin formula injection).
+    const muestra = await listPacientesBusquedaRapida(300);
 
     const qLower = q.toLowerCase();
-    const patients = (recs as any[])
-      .filter((r) => {
-        const nombre = firstString(r.fields["Nombre"]).toLowerCase();
-        const tel    = firstString(r.fields["Teléfono"]);
-        return nombre.includes(qLower) || tel.includes(q);
-      })
-      .slice(0, 8)
-      .map((r) => ({
-        id:       r.id,
-        nombre:   firstString(r.fields["Nombre"]),
-        telefono: firstString(r.fields["Teléfono"]),
-        clinica:  firstString(r.fields["Clínica"]),
-      }));
+    const patients = muestra
+      .filter((p) => p.nombre.toLowerCase().includes(qLower) || p.telefono.includes(q))
+      .slice(0, 8);
 
     return NextResponse.json({ patients });
   } catch {

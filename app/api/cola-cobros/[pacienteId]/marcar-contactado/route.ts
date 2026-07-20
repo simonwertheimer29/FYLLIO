@@ -11,6 +11,7 @@
 //   - Si no, append a paciente.Notas con timestamp.
 
 import { NextResponse } from "next/server";
+import { appendNotaPaciente } from "../../../../lib/pacientes/pacientes";
 import { withAuth } from "../../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../../lib/auth/users";
 import { getPaciente } from "../../../../lib/pacientes/pacientes";
@@ -50,13 +51,9 @@ export const POST = withAuth<Ctx>(async (session, req, ctx) => {
     });
   } else {
     try {
-      const rec = await base(TABLES.patients as any).find(paciente.id);
-      const prev = String(((rec.fields as any) ?? {})["Notas"] ?? "");
+      // FASE 1 migración: append de nota via repo del dominio Pacientes.
       const stamp = new Date().toISOString().slice(0, 16).replace("T", " ");
-      const append = `[${stamp}] ${detalles}`;
-      await base(TABLES.patients as any).update(paciente.id, {
-        Notas: prev ? `${prev}\n${append}` : append,
-      } as any);
+      await appendNotaPaciente(paciente.id, `[${stamp}] ${detalles}`);
     } catch (err) {
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Error al guardar nota" },

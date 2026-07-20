@@ -5,6 +5,7 @@
 import { baseCentral, base, TABLES, fetchAll } from "../airtable";
 import { listAllOpciones } from "../configuraciones/configuraciones";
 import { listLeads } from "../leads/leads";
+import { listPacientes } from "../pacientes/pacientes";
 import type { TipoAlerta } from "./templates";
 
 export type AlertaClinica = {
@@ -30,16 +31,8 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
           fields: ["Paciente_RecordId", "Tipo"],
         }),
       ),
-      fetchAll(
-        base(TABLES.patients as any).select({
-          fields: [
-            "Nombre",
-            "Clínica",
-            "Aceptado",
-            "Presupuesto_Total",
-          ],
-        }),
-      ),
+      // FASE 1 migración: pacientes via repo del dominio (tipo Paciente).
+      listPacientes(),
       listAllOpciones(),
     ]);
 
@@ -204,30 +197,27 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
   // los seed legacy a veces tienen el flag de paciente desincronizado).
   // Considera al paciente alertable si EL O presupuesto tiene Estado=
   // ACEPTADO O el flag Aceptado=Si está marcado (cubre ambos seeds).
-  for (const r of pacientes) {
-    const f = r.fields as any;
-    const tienePresupAceptado = fechaAceptadoPorPaciente.has(r.id);
-    const flagAceptado = f["Aceptado"] === "Si";
+  for (const p of pacientes) {
+    const tienePresupAceptado = fechaAceptadoPorPaciente.has(p.id);
+    const flagAceptado = p.aceptado === "Si";
     if (!tienePresupAceptado && !flagAceptado) continue;
     const presupuestoTotal =
-      typeof f["Presupuesto_Total"] === "number"
-        ? Number(f["Presupuesto_Total"])
-        : importeAceptadoPorPaciente.get(r.id) ?? 0;
+      typeof p.presupuestoTotal === "number"
+        ? p.presupuestoTotal
+        : importeAceptadoPorPaciente.get(p.id) ?? 0;
     if (!presupuestoTotal || presupuestoTotal <= 0) continue;
-    const clinicaLinks = (f["Clínica"] ?? []) as string[];
-    const cid = clinicaLinks[0];
+    const cid = p.clinicaId;
     if (!cid || !clinicaById.has(cid)) continue;
 
     // Fecha aceptado: prioridad al Fecha_Aceptado del presupuesto
-    // ACEPTADO; fallback al createdTime del paciente.
+    // ACEPTADO; fallback a la fecha de alta del paciente.
     const fechaAceptado =
-      fechaAceptadoPorPaciente.get(r.id) ??
-      String(r._rawJson?.createdTime ?? "").slice(0, 10);
+      fechaAceptadoPorPaciente.get(p.id) ?? p.createdAt.slice(0, 10);
     const aceptadoMs = fechaAceptado
       ? new Date(fechaAceptado).getTime()
       : null;
-    const tieneLiquidacion = tieneLiquidacionPorPaciente.has(r.id);
-    const tieneAlgunPago = (pagosCountPorPaciente.get(r.id) ?? 0) > 0;
+    const tieneLiquidacion = tieneLiquidacionPorPaciente.has(p.id);
+    const tieneAlgunPago = (pagosCountPorPaciente.get(p.id) ?? 0) > 0;
 
     if (aceptadoMs && Number.isFinite(aceptadoMs)) {
       const venceMs = aceptadoMs + plazoFor(cid) * DAY_MS;

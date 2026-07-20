@@ -3,6 +3,7 @@
 // Used by the ACTIONS section to show real day-based operational tasks.
 
 import { NextResponse } from "next/server";
+import { mapNombreTelefonoPorIds } from "../../../lib/pacientes/pacientes";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import { listWaitlist } from "../../../lib/scheduler/repo/waitlistRepo";
@@ -239,8 +240,17 @@ export async function GET(req: Request) {
       recallRecs.flatMap((r) => ((r.fields as any)["Tratamiento"] as string[] | undefined) ?? [])
     )];
 
+    // FASE 1 migración: pacientes via repo del dominio; shim al shape de
+    // fields crudos que espera el resto de esta ruta demo.
+    const pacientesFieldsMap = async (ids: string[]) => {
+      const m = new Map<string, any>();
+      for (const [id, v] of await mapNombreTelefonoPorIds(ids)) {
+        m.set(id, { Nombre: v.nombre, "Teléfono": v.telefono });
+      }
+      return m;
+    };
     const [recallPatMap, recallTxMap] = await Promise.all([
-      fetchByRecordIds(TABLES.patients as any, recallPatIds, ["Nombre", "Teléfono"]),
+      pacientesFieldsMap(recallPatIds),
       fetchByRecordIds(TABLES.treatments as any, recallTxIds, ["Nombre"]),
     ]);
 
@@ -313,7 +323,7 @@ export async function GET(req: Request) {
       .filter((id): id is string => !!id);
 
     const [patientMap, treatmentMap] = await Promise.all([
-      fetchByRecordIds(TABLES.patients as any, patientIds, ["Nombre", "Teléfono"]),
+      pacientesFieldsMap(patientIds),
       fetchByRecordIds(TABLES.treatments as any, treatmentIds, ["Nombre"]),
     ]);
 

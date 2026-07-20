@@ -4,6 +4,7 @@
 // GET /api/no-shows/dev/campos
 
 import { NextResponse } from "next/server";
+import { samplePacientesFieldsDev } from "../../../../lib/pacientes/pacientes";
 import { base, TABLES } from "../../../../lib/airtable";
 
 export async function GET() {
@@ -30,7 +31,8 @@ export async function GET() {
 
   // ── Tabla Pacientes ───────────────────────────────────────────────────────
   try {
-    const pacs = await (base(TABLES.patients as any).select({ maxRecords: 2 }).firstPage() as any);
+    // FASE 1 migración: muestra dev via repo del dominio Pacientes.
+    const pacs = await samplePacientesFieldsDev(2);
     if (pacs.length > 0) {
       result.pacientes_campos = Object.keys(pacs[0].fields).sort();
       result.pacientes_ejemplo = pacs[0].fields;

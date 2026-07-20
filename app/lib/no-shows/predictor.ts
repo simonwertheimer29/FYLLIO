@@ -286,10 +286,18 @@ export async function evaluarRiesgoNoShow(
   let edad: number | null = null;
   if (pacienteId) {
     try {
-      const pac = await base(TABLES.patients).find(pacienteId);
-      const pf: Record<string, unknown> = pac.fields ?? {};
-      canal = firstString(pf["Canal_Origen"]) || null;
-      edad = edadDesdePaciente(pf, now);
+      // FASE 1 migración: campos del paciente via repo del dominio.
+      const { getPacienteFactoresRiesgo } = await import("../pacientes/pacientes");
+      const pf = await getPacienteFactoresRiesgo(pacienteId);
+      canal = pf.canalOrigen;
+      edad =
+        pf.edad ??
+        (pf.fechaNacimiento
+          ? (() => {
+              const dt = DateTime.fromISO(pf.fechaNacimiento, { setZone: true });
+              return dt.isValid ? Math.floor(now.diff(dt, "years").years) : null;
+            })()
+          : null);
     } catch {
       /* sin datos de paciente → factores correspondientes no aplican */
     }
