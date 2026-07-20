@@ -19,6 +19,7 @@ import { NextResponse } from "next/server";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../lib/auth/users";
 import { listLeads, type Lead, type LeadCanal } from "../../../lib/leads/leads";
+import { listAccionesDesde, primeraAccionLeadTimestamp } from "../../../lib/leads/acciones";
 import { getFacturadoEnPeriodo, getFacturadoPorPacientes } from "../../../lib/pagos";
 import { baseCentral, base, TABLES, fetchAll } from "../../../lib/airtable";
 export const dynamic = "force-dynamic";
@@ -210,19 +211,7 @@ export const GET = withAuth(async (session, req) => {
 
   // Fecha del primer Acciones_Lead registrado (fallback explicativo en
   // tooltip de tiempo medio en estados — punto 3 ambiguity).
-  let primerAccionLeadIso: string | null = null;
-  try {
-    const primero = await fetchAll(
-      base(TABLES.accionesLead as any).select({
-        sort: [{ field: "Timestamp", direction: "asc" }],
-        maxRecords: 1,
-        fields: ["Timestamp"],
-      }),
-    );
-    if (primero[0]) {
-      primerAccionLeadIso = String((primero[0].fields as any)?.["Timestamp"] ?? "");
-    }
-  } catch { /* noop */ }
+  const primerAccionLeadIso = await primeraAccionLeadTimestamp();
 
   // ── 4.3 Comparativa por clinica ────────────────────────────────────
   // Agregamos por clinicaId. Cada fila = leads, % Cita, % Conv,
@@ -542,50 +531,17 @@ async function fetchAccionesPeriodo(
   hasta: Date,
   allowed: string[] | null,
 ): Promise<Array<{ leadId: string; tipo: string; timestamp: string }>> {
-  const formula = `IS_AFTER({Timestamp}, '${desde.toISOString()}')`;
-  try {
-    const recs = await fetchAll(
-      base(TABLES.accionesLead as any).select({ filterByFormula: formula }),
-    );
-    let acciones = recs.map((r) => {
-      const f = r.fields as any;
-      const links = (f["Lead"] ?? []) as string[];
-      return {
-        leadId: links[0] ?? "",
-        tipo: String(f["Tipo_Accion"] ?? "Nota"),
-        timestamp: String(f["Timestamp"] ?? r._rawJson?.createdTime ?? r.createdTime ?? ""),
-      };
-    });
-    if (allowed && allowed.length > 0) {
-      const leadIds = Array.from(new Set(acciones.map((a) => a.leadId).filter(Boolean)));
-      if (leadIds.length === 0) return [];
-      const formulaLeads = `OR(${leadIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
-      const leadRecs = await fetchAll(
-        base(TABLES.leads as any).select({
-          filterByFormula: formulaLeads,
-          fields: ["Clinica"],
-        }),
-      );
-      const leadToClinica = new Map<string, string>();
-      for (const r of leadRecs) {
-        const c = (r.fields as any)?.["Clinica"];
-        if (Array.isArray(c) && c[0]) leadToClinica.set(r.id, String(c[0]));
-      }
-      const allowedSet = new Set(allowed);
-      acciones = acciones.filter((a) => {
-        const cli = leadToClinica.get(a.leadId);
-        return cli && allowedSet.has(cli);
-      });
-    }
-    const hastaMs = hasta.getTime();
-    return acciones.filter((a) => {
+  // FASE 1 migración: la query + cruce por clínica viven en el repo del
+  // dominio; aquí solo queda el corte superior `hasta` (filtro en JS,
+  // como siempre fue).
+  const acciones = await listAccionesDesde(desde, allowed);
+  const hastaMs = hasta.getTime();
+  return acciones
+    .filter((a) => {
       const t = new Date(a.timestamp).getTime();
       return Number.isFinite(t) && t <= hastaMs;
-    });
-  } catch (err) {
-    console.error("[kpis leads acciones]", err instanceof Error ? err.message : err);
-    return [];
-  }
+    })
+    .map((a) => ({ leadId: a.leadId, tipo: a.tipo, timestamp: a.timestamp }));
 }
 
 async function buildSparkline30d(

@@ -4,6 +4,7 @@
 
 import { baseCentral, base, TABLES, fetchAll } from "../airtable";
 import { listAllOpciones } from "../configuraciones/configuraciones";
+import { listLeads } from "../leads/leads";
 import type { TipoAlerta } from "./templates";
 
 export type AlertaClinica = {
@@ -18,7 +19,8 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
   const [clinicas, leads, presupuestos, colaEnvios, pagos, pacientes, opciones] =
     await Promise.all([
       fetchAll(baseCentral(TABLES.clinics).select({ filterByFormula: "{Activa}" })),
-      fetchAll(base(TABLES.leads).select({})),
+      // FASE 1 migración: leads via repo del dominio (tipo Lead, no records).
+      listLeads(),
       fetchAll(base(TABLES.presupuestos).select({})),
       fetchAll(base(TABLES.colaEnvios).select({ filterByFormula: "{Estado}='Fallido'" })),
       // Sprint 14b Bloque 3 — pagos all-time + pacientes + plazos config
@@ -69,16 +71,13 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
   const today = new Date().toISOString().slice(0, 10);
 
   // 1. LEADS sin gestionar: Estado=Nuevo + Fecha_Creacion >24h + Llamado=false + WhatsApp_Enviados=0
-  for (const r of leads) {
-    const f = r.fields ?? {};
-    if (f["Estado"] !== "Nuevo") continue;
-    if (f["Llamado"]) continue;
-    if (Number(f["WhatsApp_Enviados"] ?? 0) > 0) continue;
-    const ct = r._rawJson?.createdTime ?? r.createdTime;
-    const created = ct ? new Date(ct).getTime() : 0;
+  for (const l of leads) {
+    if (l.estado !== "Nuevo") continue;
+    if (l.llamado) continue;
+    if (l.whatsappEnviados > 0) continue;
+    const created = l.createdAt ? new Date(l.createdAt).getTime() : 0;
     if (!created || now - created < DAY_MS) continue;
-    const clis = (f["Clinica"] ?? []) as string[];
-    if (clis[0]) add(clis[0], "leads");
+    if (l.clinicaId) add(l.clinicaId, "leads");
   }
 
   // 2. ASISTENCIAS sin cerrar (Sprint 9 G.6) — leads con cita pasada o de hoy
@@ -86,15 +85,11 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
   //    No Interesado/Convertido. Incluye "Citado" porque en Sprint 9 G.7
   //    "Citados Hoy" deja de ser un estado real (solo filtro visual); los
   //    nuevos leads quedan en "Citado" con Fecha_Cita.
-  for (const r of leads) {
-    const f = r.fields ?? {};
-    const estado = String(f["Estado"] ?? "");
-    if (estado !== "Citado" && estado !== "Citados Hoy") continue;
-    const fecha = f["Fecha_Cita"] ? String(f["Fecha_Cita"]) : "";
-    if (!fecha || fecha > today) continue; // futuras no aplican
-    if (f["Asistido"]) continue;
-    const clis = (f["Clinica"] ?? []) as string[];
-    if (clis[0]) add(clis[0], "asistencias");
+  for (const l of leads) {
+    if (l.estado !== "Citado" && l.estado !== "Citados Hoy") continue;
+    if (!l.fechaCita || l.fechaCita > today) continue; // futuras no aplican
+    if (l.asistido) continue;
+    if (l.clinicaId) add(l.clinicaId, "asistencias");
   }
 
   // 3. PRESUPUESTOS sin seguimiento: Estado ∈ {PRESENTADO, INTERESADO, EN_DUDA}

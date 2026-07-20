@@ -13,6 +13,7 @@ import { NextResponse } from "next/server";
 import { withAuth } from "../../lib/auth/session";
 import { listClinicaIdsForUser, listClinicas } from "../../lib/auth/users";
 import { listPacientes } from "../../lib/pacientes/pacientes";
+import { ultimaCobranzaPorLead } from "../../lib/leads/acciones";
 import { base, TABLES, fetchAll } from "../../lib/airtable";
 import { listAllOpciones } from "../../lib/configuraciones/configuraciones";
 
@@ -145,30 +146,19 @@ export const GET = withAuth(async (session, req) => {
     );
   }
 
-  // Última acción de cobranza por paciente (lee Acciones_Lead con
-  // detalles que empiecen por '[Cobranza]', escrito por
-  // marcar-contactado y agendar_llamada_cobranza).
+  // Última acción de cobranza por paciente ('[Cobranza]' en Detalles,
+  // escrito por marcar-contactado y agendar_llamada_cobranza). La query
+  // vive en el repo del dominio Leads (FASE 1 migración); aquí solo se
+  // cruza leadId → pacienteId via paciente.leadOrigenId.
   const ultimaContactoPorPac = new Map<string, string>(); // pacienteId → ISO timestamp
-  const accionesRecs = await fetchAll(
-    base(TABLES.accionesLead as any).select({
-      filterByFormula: `FIND('[Cobranza]', {Detalles}&'')>0`,
-      fields: ["Lead", "Timestamp"],
-    }),
-  );
-  // Map leadId → pacienteId via paciente.leadOrigenId.
+  const cobranzaPorLead = await ultimaCobranzaPorLead();
   const pacienteByLeadId = new Map<string, string>();
   for (const p of pacientes) {
     if (p.leadOrigenId) pacienteByLeadId.set(p.leadOrigenId, p.id);
   }
-  for (const r of accionesRecs) {
-    const f = r.fields as any;
-    const links = (f["Lead"] ?? []) as string[];
-    const lid = links[0];
-    if (!lid) continue;
+  for (const [lid, ts] of cobranzaPorLead) {
     const pid = pacienteByLeadId.get(lid);
     if (!pid) continue;
-    const ts = String(f["Timestamp"] ?? "");
-    if (!ts) continue;
     const prev = ultimaContactoPorPac.get(pid);
     if (!prev || ts > prev) ultimaContactoPorPac.set(pid, ts);
   }

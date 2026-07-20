@@ -81,27 +81,24 @@ function toAccionLead(rec: any): AccionLead {
 }
 
 /**
- * Lista acciones del día actual (zona Europe/Madrid) opcionalmente filtradas
- * por clínicas accesibles. Usado por el KPI tiempo medio de respuesta.
+ * Núcleo compartido: acciones con Timestamp posterior a `desdeIso`,
+ * opcionalmente filtradas por clínicas accesibles (cruza leadId→clinicaId
+ * con un select compacto porque Acciones_Lead.Lead es un link).
  */
-export async function listAccionesHoy(params: {
-  /** Si se pasa, solo devuelve acciones cuyo lead tenga clinicaId en la lista. */
-  clinicaIdsAllowed?: string[] | null;
-} = {}): Promise<AccionLead[]> {
-  // Hoy en Madrid: tomamos UTC offset y devolvemos rango [00:00, 23:59].
-  const now = new Date();
-  const today = now.toISOString().slice(0, 10);
-  const formula = `IS_AFTER({Timestamp}, '${today}T00:00:00.000Z')`;
+async function listAccionesDesdeIso(
+  desdeIso: string,
+  clinicaIdsAllowed?: string[] | null,
+): Promise<AccionLead[]> {
+  const formula = `IS_AFTER({Timestamp}, '${desdeIso}')`;
   try {
     const recs = await fetchAll(
       base(TABLES.accionesLead as any).select({ filterByFormula: formula }),
     );
     let acciones = recs.map(toAccionLead);
-    if (params.clinicaIdsAllowed && params.clinicaIdsAllowed.length > 0) {
-      // Necesitamos cruzar leadId → clinicaId. Lo hacemos con un select compacto.
+    if (clinicaIdsAllowed && clinicaIdsAllowed.length > 0) {
       const leadIds = Array.from(new Set(acciones.map((a) => a.leadId).filter(Boolean)));
       if (leadIds.length === 0) return [];
-      const allowed = new Set(params.clinicaIdsAllowed);
+      const allowed = new Set(clinicaIdsAllowed);
       const formulaLeads = `OR(${leadIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
       const leadRecs = await fetchAll(
         base(TABLES.leads as any).select({
@@ -122,11 +119,155 @@ export async function listAccionesHoy(params: {
     return acciones;
   } catch (err) {
     console.error(
-      "[acciones-lead] listAccionesHoy error:",
+      "[acciones-lead] listAccionesDesde error:",
       err instanceof Error ? err.message : err,
     );
     return [];
   }
+}
+
+/**
+ * Lista acciones del día actual (zona Europe/Madrid) opcionalmente filtradas
+ * por clínicas accesibles. Usado por el KPI tiempo medio de respuesta.
+ */
+export async function listAccionesHoy(params: {
+  /** Si se pasa, solo devuelve acciones cuyo lead tenga clinicaId en la lista. */
+  clinicaIdsAllowed?: string[] | null;
+} = {}): Promise<AccionLead[]> {
+  // Hoy en Madrid: tomamos UTC offset y devolvemos rango [00:00, 23:59].
+  const today = new Date().toISOString().slice(0, 10);
+  return listAccionesDesdeIso(`${today}T00:00:00.000Z`, params.clinicaIdsAllowed);
+}
+
+/** Acciones posteriores a `desde` (KPIs de leads por periodo). */
+export async function listAccionesDesde(
+  desde: Date,
+  clinicaIdsAllowed?: string[] | null,
+): Promise<AccionLead[]> {
+  return listAccionesDesdeIso(desde.toISOString(), clinicaIdsAllowed);
+}
+
+/**
+ * Últimos timestamps por lead y dirección: saliente (Llamada o
+ * WhatsApp_Saliente) y entrante (WhatsApp_Entrante). Base del estado
+ * derivado "esperando respuesta" en Actuar Hoy.
+ */
+export async function ultimasAccionesDireccionPorLead(): Promise<{
+  salientePorLead: Record<string, string>;
+  entrantePorLead: Record<string, string>;
+}> {
+  const recs = await fetchAll(
+    base(TABLES.accionesLead as any).select({
+      filterByFormula: `OR({Tipo_Accion}='Llamada', {Tipo_Accion}='WhatsApp_Saliente', {Tipo_Accion}='WhatsApp_Entrante')`,
+      fields: ["Lead", "Timestamp", "Tipo_Accion"],
+    }),
+  );
+  const salientePorLead: Record<string, string> = {};
+  const entrantePorLead: Record<string, string> = {};
+  for (const r of recs) {
+    const f = r.fields as any;
+    const links = (f["Lead"] ?? []) as string[];
+    const lid = links[0];
+    if (!lid) continue;
+    const ts = String(
+      f["Timestamp"] ?? (r as any)._rawJson?.createdTime ?? (r as any).createdTime ?? "",
+    );
+    if (!ts) continue;
+    const map = f["Tipo_Accion"] === "WhatsApp_Entrante" ? entrantePorLead : salientePorLead;
+    const prev = map[lid];
+    if (!prev || ts > prev) map[lid] = ts;
+  }
+  return { salientePorLead, entrantePorLead };
+}
+
+/**
+ * Acciones de un lead, más recientes primero. Carga la tabla con campos
+ * mínimos y filtra en JS (el link Lead no es filtrable por record id sin
+ * ARRAYJOIN sobre el primary field; volumen por tabla es bajo).
+ */
+export async function listAccionesByLead(leadId: string): Promise<AccionLead[]> {
+  const recs = await fetchAll(
+    base(TABLES.accionesLead as any).select({
+      fields: ["Lead", "Tipo_Accion", "Timestamp", "Usuario", "Detalles"],
+    }),
+  );
+  return recs
+    .filter((r) => {
+      const links = ((r.fields as any)?.["Lead"] ?? []) as string[];
+      return links[0] === leadId;
+    })
+    .map(toAccionLead)
+    .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+}
+
+/**
+ * Última acción de cobranza por lead (Detalles empieza por '[Cobranza]',
+ * escrito por marcar-contactado y agendar_llamada_cobranza). Map
+ * leadId → ISO timestamp más reciente.
+ */
+export async function ultimaCobranzaPorLead(): Promise<Map<string, string>> {
+  const recs = await fetchAll(
+    base(TABLES.accionesLead as any).select({
+      filterByFormula: `FIND('[Cobranza]', {Detalles}&'')>0`,
+      fields: ["Lead", "Timestamp"],
+    }),
+  );
+  const out = new Map<string, string>();
+  for (const r of recs) {
+    const f = r.fields as any;
+    const links = (f["Lead"] ?? []) as string[];
+    const lid = links[0];
+    if (!lid) continue;
+    const ts = String(f["Timestamp"] ?? "");
+    if (!ts) continue;
+    const prev = out.get(lid);
+    if (!prev || ts > prev) out.set(lid, ts);
+  }
+  return out;
+}
+
+/** Timestamp del primer Acciones_Lead registrado (tooltip explicativo de
+ *  KPIs). null si la tabla está vacía o inaccesible. */
+export async function primeraAccionLeadTimestamp(): Promise<string | null> {
+  try {
+    const primero = await fetchAll(
+      base(TABLES.accionesLead as any).select({
+        sort: [{ field: "Timestamp", direction: "asc" }],
+        maxRecords: 1,
+        fields: ["Timestamp"],
+      }),
+    );
+    return primero[0] ? String((primero[0].fields as any)?.["Timestamp"] ?? "") : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Registro que usa la acción `crear_accion_lead` del motor de reglas.
+ * OJO: escribe los campos `Tipo`/`Descripcion` (así lo hacía el motor desde
+ * Sprint 16b), NO `Tipo_Accion`/`Detalles` como `logAccionLead`. Se preserva
+ * tal cual en FASE 1 (paridad); unificar es un follow-up, no parte de la
+ * migración.
+ */
+export async function crearAccionAutomatizacion(input: {
+  leadId: string;
+  tipo: string;
+  descripcion: string;
+}): Promise<void> {
+  await base(TABLES.accionesLead).create(
+    [
+      {
+        fields: {
+          Lead: [input.leadId],
+          Tipo: input.tipo,
+          Descripcion: input.descripcion,
+          Timestamp: new Date().toISOString(),
+        },
+      },
+    ],
+    { typecast: true },
+  );
 }
 
 /**

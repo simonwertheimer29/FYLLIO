@@ -181,6 +181,56 @@ export async function getLead(id: string): Promise<Lead | null> {
   }
 }
 
+/**
+ * Leads cuyo Estado está en la lista (filtro server-side, OR de igualdades).
+ * Usado por el cron de automatizaciones (trigger lead_inactivo_n_dias).
+ */
+export async function listLeadsPorEstados(estados: string[]): Promise<Lead[]> {
+  if (estados.length === 0) return [];
+  const formula = `OR(${estados.map((e) => `{Estado}="${e}"`).join(", ")})`;
+  const recs = await fetchAll(
+    base(TABLES.leads).select({ filterByFormula: formula, pageSize: 100 }),
+  );
+  return recs.map(toLead);
+}
+
+/**
+ * Match del webhook entrante: lead NO convertido cuyo Telefono (normalizado
+ * quitando espacios/+/-) contiene el teléfono buscado. Excluye convertidos
+ * para no resucitarlos. Devuelve null si no hay match o si la query falla
+ * (el webhook trata ambos igual: mensaje huérfano).
+ */
+export async function buscarLeadActivoPorTelefono(
+  telefonoNormalizado: string,
+): Promise<{ id: string; clinicaId?: string } | null> {
+  const tel = telefonoNormalizado;
+  const formula = `AND(
+    NOT({Convertido_A_Paciente}),
+    FIND('${tel}', SUBSTITUTE(SUBSTITUTE(SUBSTITUTE({Telefono}&'', ' ', ''), '+', ''), '-', ''))
+  )`.replace(/\s+/g, " ");
+  try {
+    const recs = await fetchAll(
+      base(TABLES.leads as any).select({
+        filterByFormula: formula,
+        fields: ["Telefono", "Clinica"],
+        maxRecords: 1,
+      }),
+    );
+    if (recs.length === 0) return null;
+    const r = recs[0]!;
+    const clis = (r.fields as any)?.["Clinica"];
+    const clinicaId = Array.isArray(clis) ? String(clis[0]) : undefined;
+    return { id: r.id as string, clinicaId };
+  } catch (err) {
+    // Redacción de tokens en el log (paridad con el sanitizeError del webhook).
+    const msg = (err instanceof Error ? err.message : String(err))
+      .replace(/Bearer\s+[A-Za-z0-9_\-.]+/g, "Bearer [REDACTED]")
+      .replace(/EAA[A-Za-z0-9_\-]{30,}/g, "[REDACTED_TOKEN]");
+    console.error("[leads] buscarLeadActivoPorTelefono:", msg);
+    return null;
+  }
+}
+
 export async function createLead(input: {
   nombre: string;
   telefono?: string;

@@ -29,6 +29,7 @@ import {
   evaluarReglasParaEvento,
 } from "../../../lib/automatizaciones/engine";
 import { listReglasActivasParaTrigger } from "../../../lib/automatizaciones/repo";
+import { getLead, listLeadsPorEstados } from "../../../lib/leads/leads";
 import type { EventoSistema } from "../../../lib/automatizaciones/types";
 
 export const dynamic = "force-dynamic";
@@ -288,31 +289,22 @@ async function evaluarTriggerLeadInactivo(): Promise<TriggerResult> {
       cond && typeof cond.valor === "number" ? (cond.valor as number) : 60;
     const limiteMs = Date.now() - dias * 24 * 3600 * 1000;
 
-    const recs = await fetchAll(
-      base(TABLES.leads).select({
-        filterByFormula: `OR({Estado}="Contactado", {Estado}="Sin_Respuesta")`,
-        pageSize: 100,
-      }),
-    );
+    // FASE 1 migración: la query vive en el repo del dominio Leads.
+    const leadsInactivables = await listLeadsPorEstados(["Contactado", "Sin_Respuesta"]);
 
-    for (const r of recs) {
-      const createdTime = (r as any)._rawJson?.createdTime ?? r.fields["Created_At"];
-      const createdMs = createdTime ? new Date(String(createdTime)).getTime() : 0;
+    for (const lead of leadsInactivables) {
+      const createdMs = lead.createdAt ? new Date(lead.createdAt).getTime() : 0;
       if (!createdMs || createdMs > limiteMs) continue; // todavía no inactivo
 
       evaluados += 1;
-      const f = r.fields as Record<string, unknown>;
-      const clinicaId = Array.isArray(f["Clinica"])
-        ? (f["Clinica"] as string[])[0]
-        : null;
       const evento: EventoSistema = {
         tipo: "lead_creado",
         entidadTipo: "Lead",
-        entidadId: r.id,
+        entidadId: lead.id,
         payload: {
-          estado: f["Estado"],
-          clinicaId,
-          ultimaAccion: f["Ultima_Accion"],
+          estado: lead.estado,
+          clinicaId: lead.clinicaId,
+          ultimaAccion: lead.ultimaAccion,
           diasSinActividad: dias,
         },
       };
@@ -320,7 +312,7 @@ async function evaluarTriggerLeadInactivo(): Promise<TriggerResult> {
       try {
         await evaluarRegla(regla, evento);
       } catch (err) {
-        logErr(`lead_inactivo regla=${regla.codigo} lead=${r.id}`, err);
+        logErr(`lead_inactivo regla=${regla.codigo} lead=${lead.id}`, err);
       }
     }
   }
@@ -361,13 +353,10 @@ async function evaluarTriggerLeadSinGestionar(): Promise<TriggerResult> {
         entidadId,
         payload,
       };
-      let estadoActual: string | null = null;
-      try {
-        const lead = await base(TABLES.leads).find(entidadId);
-        estadoActual = String(lead.fields["Estado"] ?? "");
-      } catch {
-        // lead borrado o ID inválido: marcar procesado y seguir.
-      }
+      // getLead devuelve null si el lead fue borrado o el ID es inválido:
+      // en ambos casos se marca procesado y se sigue (mismo criterio de antes).
+      const lead = await getLead(entidadId);
+      const estadoActual: string | null = lead ? lead.estado : null;
       if (estadoActual !== "Nuevo") {
         await base(TABLES.eventosSistema).update([
           { id: r.id, fields: { Procesado: true } },

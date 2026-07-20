@@ -379,10 +379,14 @@ async function ejecutarActualizarEstadoLead(
   }
   const nuevoEstado = String(params.nuevo_estado ?? params.nuevoEstado ?? "");
   if (!nuevoEstado) throw new Error("falta nuevo_estado");
-  await base(TABLES.leads).update(
-    [{ id: evento.entidadId, fields: { Estado: nuevoEstado } }],
-    { typecast: true },
-  );
+  // FASE 1 migración: la escritura vive en el repo del dominio Leads.
+  // El cast es deliberado: el estado viene de los params de la regla y
+  // updateLead escribe con typecast:true (Airtable crea la opción si es
+  // nueva), mismo comportamiento que tenía el update directo.
+  const { updateLead } = await import("../leads/leads");
+  await updateLead(evento.entidadId, {
+    estado: nuevoEstado as import("../leads/leads").LeadEstado,
+  });
   return { leadId: evento.entidadId, nuevoEstado };
 }
 
@@ -395,19 +399,15 @@ async function ejecutarCrearAccionLead(
   }
   const tipo = String(params.tipo ?? "automatica");
   const descripcion = String(params.descripcion ?? "");
-  await base(TABLES.accionesLead).create(
-    [
-      {
-        fields: {
-          Lead: [evento.entidadId],
-          Tipo: tipo,
-          Descripcion: descripcion,
-          Timestamp: new Date().toISOString(),
-        },
-      },
-    ],
-    { typecast: true },
-  );
+  // FASE 1 migración: la escritura vive en el repo del dominio Leads
+  // (import dinámico como el resto de puentes del engine, para no acoplar
+  // el motor en build a dominios que a su vez emiten eventos).
+  const { crearAccionAutomatizacion } = await import("../leads/acciones");
+  await crearAccionAutomatizacion({
+    leadId: evento.entidadId,
+    tipo,
+    descripcion,
+  });
   return { leadId: evento.entidadId, tipo, descripcion };
 }
 

@@ -264,3 +264,44 @@ paridad. Visual: sin regresión de UI; si la DB cae, error honesto (no "todo cob
    cleanup de #8 (sube riesgo y complica el gate de paridad)?
 
 **No escribo código hasta que apruebes.**
+
+---
+
+## §9 · FASE 0 cerrada + FASE 1 en curso (decisiones 2026-07-20)
+
+Simon aprobó: **(1)** opción A single-schema + RLS; **(2)** Kysely + SQL migrations;
+**(3)** ventana confirmada con gate: FASE 1 completa → parar y reevaluar antes de FASE 2
+según piloto/legal; **(4)** comportamiento-preservado, refactors de #8 como follow-ups.
+Región Supabase verificada por Simon: `eu-west-1` (Irlanda, UE) → se reutiliza el proyecto
+del Sprint 18. **Las 3 tablas de analítica (`eventos_comportamentales`, `factores_no_show`,
+`patrones_aprendidos`) quedan FUERA de la migración e intactas** — paridad y RLS por
+`cliente` aplican solo a las tablas de negocio; la analítica va en la allowlist del guard
+de service-role.
+
+### Patrón repo validado (dominio piloto: Leads)
+
+Reglas que siguen los demás dominios:
+
+1. **Propiedad por TABLA, no por ruta.** El gate de un dominio es: cero accesos a sus
+   tablas fuera de `app/lib/<dominio>/` — verificado por grep. Lo que una ruta toca de
+   tablas ajenas migra con el dominio dueño de esa tabla.
+2. **Un archivo por tabla** dentro del dominio (`leads.ts`, `acciones.ts`, `plantillas.ts`),
+   métodos que revelan intención (`ultimasAccionesDireccionPorLead()`, no
+   `.select({filterByFormula})`). Los tipos que salen del repo son de dominio (`Lead`,
+   `AccionLead`) — ningún record de Airtable cruza la frontera.
+3. **Paridad estricta**: fórmulas, catch→[] y semántica de errores se preservan tal cual,
+   rarezas incluidas y documentadas (p. ej. `crearAccionAutomatizacion` escribe
+   `Tipo`/`Descripcion` como hacía el motor, distinto de `logAccionLead` — unificar es
+   follow-up, no migración).
+4. **Verificación por dominio**: gate grep vacío + `tsc` + `build` + smoke de los
+   endpoints afectados contra DEMO.
+
+Estado Leads (hecho): 3 tablas (Leads, Acciones_Lead, Plantillas_Lead) tras el repo;
+11 call-sites migrados (rutas del dominio, pacientes/[id], cola-cobros, webhook WhatsApp,
+cron automatizaciones, engine, mensajería, alertas). Smoke DEMO: ultima-saliente,
+plantillas, kpis, cola-cobros, alertas, leads → 200 con shapes idénticos. Caveat honesto:
+el camino `listAccionesByLead` vía ficha de paciente no es ejercitable en el seed actual
+(ningún paciente con `leadOrigenId`); queda cubierto por tipos y código compartido.
+
+**Siguientes dominios sugeridos** (de menos a más riesgo): Pacientes → Agenda núcleo →
+Automatizaciones → Pagos → Presupuestos (el monstruo, al final, con el patrón ya rodado).

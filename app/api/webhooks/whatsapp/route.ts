@@ -23,6 +23,7 @@ import { getServicioMensajeria } from "../../../lib/presupuestos/mensajeria";
 import { clasificarRespuesta, guardarClasificacion } from "../../../lib/presupuestos/intervencion";
 import { crearNotificacion } from "../../../lib/presupuestos/notificaciones";
 import { isDuplicateMessage } from "../../../lib/scheduler/idempotency";
+import { buscarLeadActivoPorTelefono } from "../../../lib/leads/leads";
 import { runWithCliente, currentCliente, type Cliente } from "../../../lib/airtable";
 import { PILOT_CLIENTE } from "../../../lib/multi-cliente-pendiente";
 import type { PresupuestoEstado } from "../../../lib/presupuestos/types";
@@ -330,35 +331,8 @@ type PresupuestoInfo = {
   clinica?: string;
 };
 
-/** Sprint 9 fix unificación — busca lead ACTIVO (no convertido) por teléfono.
- *  Idéntica estrategia de match que `buscarPresupuestoPorTelefono` pero sobre
- *  la tabla Leads. Excluye leads convertidos para no resucitarlos. */
-async function buscarLeadActivoPorTelefono(
-  telefonoNormalizado: string,
-): Promise<{ id: string; clinicaId?: string } | null> {
-  const tel = telefonoNormalizado;
-  // Telefono en Leads es texto plano. Convertido_A_Paciente excluye los ya convertidos.
-  const formula = `AND(
-    NOT({Convertido_A_Paciente}),
-    FIND('${tel}', SUBSTITUTE(SUBSTITUTE(SUBSTITUTE({Telefono}&'', ' ', ''), '+', ''), '-', ''))
-  )`.replace(/\s+/g, " ");
-  try {
-    const query = base(TABLES.leads as any).select({
-      filterByFormula: formula,
-      fields: ["Telefono", "Clinica"],
-      maxRecords: 1,
-    });
-    const recs = await fetchAll(query);
-    if (recs.length === 0) return null;
-    const r = recs[0];
-    const clis = (r.fields as any)?.["Clinica"];
-    const clinicaId = Array.isArray(clis) ? String(clis[0]) : undefined;
-    return { id: r.id as string, clinicaId };
-  } catch (err) {
-    console.error("[waba webhook] buscarLeadActivoPorTelefono:", sanitizeError(err));
-    return null;
-  }
-}
+// El match de lead activo por teléfono (Sprint 9 fix unificación) vive ahora
+// en lib/leads/leads → buscarLeadActivoPorTelefono (FASE 1 migración).
 
 async function buscarPresupuestoPorTelefono(telefonoNormalizado: string): Promise<PresupuestoInfo | null> {
   // Buscar el teléfono en Paciente_Telefono o Teléfono, comparando normalizado.

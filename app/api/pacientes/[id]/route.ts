@@ -7,6 +7,7 @@ import { withAuth } from "../../../lib/auth/session";
 import { listClinicaIdsForUser, listUsuarios } from "../../../lib/auth/users";
 import { getPaciente, updatePaciente, deletePaciente } from "../../../lib/pacientes/pacientes";
 import { getLead } from "../../../lib/leads/leads";
+import { listAccionesByLead } from "../../../lib/leads/acciones";
 import { getPagosByPaciente } from "../../../lib/pagos";
 import { base, TABLES, fetchAll } from "../../../lib/airtable";
 
@@ -200,34 +201,17 @@ type AccionBrief = {
 };
 
 async function fetchAccionesByLead(leadId: string): Promise<AccionBrief[]> {
-  // Mismo patrón load + filter JS (Acciones_Lead.Lead es link, primary
-  // field es Resumen). Volumen por lead es bajo (10-50 acciones).
+  // FASE 1 migración: la query vive en el repo del dominio Leads.
   try {
-    const recs = await fetchAll(
-      base(TABLES.accionesLead as any).select({
-        fields: ["Lead", "Tipo_Accion", "Timestamp", "Usuario", "Detalles"],
-      }),
-    );
-    return recs
-      .filter((r) => {
-        const links = ((r.fields as any)?.["Lead"] ?? []) as string[];
-        return links[0] === leadId;
-      })
-      .map((r): AccionBrief => {
-        const f = r.fields as any;
-        const usuarios = (f["Usuario"] ?? []) as string[];
-        return {
-          id: r.id,
-          leadId,
-          tipo: String(f["Tipo_Accion"] ?? "Nota"),
-          timestamp: String(
-            f["Timestamp"] ?? r._rawJson?.createdTime ?? r.createdTime ?? "",
-          ),
-          usuarioId: usuarios[0] ?? null,
-          detalles: f["Detalles"] ? String(f["Detalles"]) : null,
-        };
-      })
-      .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+    const acciones = await listAccionesByLead(leadId);
+    return acciones.map((a) => ({
+      id: a.id,
+      leadId,
+      tipo: a.tipo,
+      timestamp: a.timestamp,
+      usuarioId: a.usuarioId ?? null,
+      detalles: a.detalles ?? null,
+    }));
   } catch (err) {
     console.error(
       "[paciente GET] acciones:",

@@ -446,22 +446,16 @@ async function getClinicaForMensaje(params: { presupuestoId?: string; leadId?: s
   }
   if (params.leadId) {
     try {
-      const recs = await base(TABLES.leads as any)
-        .select({
-          filterByFormula: `RECORD_ID()='${params.leadId}'`,
-          fields: ["Clinica"],
-          maxRecords: 1,
-        })
-        .firstPage();
-      if (recs.length > 0) {
-        const c = (recs[0].fields as any)["Clinica"];
-        if (c) {
-          // Lead.Clinica es link → array de IDs. Buscamos el nombre de la clínica.
-          const cliId = Array.isArray(c) ? String(c[0]) : String(c);
-          const cli = await baseCentral(TABLES.clinics as any).find(cliId).catch(() => null);
-          const nombre = (cli?.fields as any)?.["Nombre"];
-          if (nombre) return String(nombre);
-        }
+      // FASE 1 migración: el lead se lee via repo del dominio (getLead
+      // devuelve null si no existe o la query falla — mismo resultado
+      // que el catch de antes: telemetría sin clínica).
+      const { getLead } = await import("../leads/leads");
+      const lead = await getLead(params.leadId);
+      if (lead?.clinicaId) {
+        // Lead.clinicaId es un ID de clínica; el nombre vive en la base central.
+        const cli = await baseCentral(TABLES.clinics as any).find(lead.clinicaId).catch(() => null);
+        const nombre = (cli?.fields as any)?.["Nombre"];
+        if (nombre) return String(nombre);
       }
     } catch { /* idem */ }
   }
