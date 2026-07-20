@@ -29,7 +29,7 @@ import {
   evaluarRegla,
   evaluarReglasParaEvento,
 } from "../../../lib/automatizaciones/engine";
-import { listReglasActivasParaTrigger } from "../../../lib/automatizaciones/repo";
+import { listReglasActivasParaTrigger, listEventosLeadCreadoSinProcesarRaw, marcarEventoProcesado, yaDisparadaRecientemente } from "../../../lib/automatizaciones/repo";
 import { getLead, listLeadsPorEstados } from "../../../lib/leads/leads";
 import type { EventoSistema } from "../../../lib/automatizaciones/types";
 
@@ -318,12 +318,8 @@ async function evaluarTriggerLeadInactivo(): Promise<TriggerResult> {
 
 async function evaluarTriggerLeadSinGestionar(): Promise<TriggerResult> {
   const dosHoras = new Date(Date.now() - 2 * 3600 * 1000).toISOString();
-  const recs = await fetchAll(
-    base(TABLES.eventosSistema).select({
-      filterByFormula: `AND({Tipo}="lead_creado", NOT({Procesado}), IS_BEFORE({Created_At}, "${dosHoras}"))`,
-      pageSize: 100,
-    }),
-  );
+  // FASE 1 migración: lectura via repo del dominio Automatizaciones.
+  const recs = await listEventosLeadCreadoSinProcesarRaw(dosHoras);
   let evaluados = 0;
   let matches = 0;
   for (const r of recs) {
@@ -339,9 +335,7 @@ async function evaluarTriggerLeadSinGestionar(): Promise<TriggerResult> {
       }
       const entidadId = String(f["Entidad_Id"] ?? "");
       if (!entidadId) {
-        await base(TABLES.eventosSistema).update([
-          { id: r.id, fields: { Procesado: true } },
-        ]);
+        await marcarEventoProcesado(r.id);
         continue;
       }
       const evento: EventoSistema = {
@@ -355,9 +349,7 @@ async function evaluarTriggerLeadSinGestionar(): Promise<TriggerResult> {
       const lead = await getLead(entidadId);
       const estadoActual: string | null = lead ? lead.estado : null;
       if (estadoActual !== "Nuevo") {
-        await base(TABLES.eventosSistema).update([
-          { id: r.id, fields: { Procesado: true } },
-        ]);
+        await marcarEventoProcesado(r.id);
         continue;
       }
       matches += 1;
@@ -365,9 +357,7 @@ async function evaluarTriggerLeadSinGestionar(): Promise<TriggerResult> {
         ...evento,
         payload: { ...payload, estado: estadoActual },
       });
-      await base(TABLES.eventosSistema).update([
-        { id: r.id, fields: { Procesado: true } },
-      ]);
+      await marcarEventoProcesado(r.id);
     } catch (err) {
       logErr(`lead_sin_gestionar evento=${r.id}`, err);
     }
@@ -377,35 +367,4 @@ async function evaluarTriggerLeadSinGestionar(): Promise<TriggerResult> {
 
 // ─── helpers ──────────────────────────────────────────────────────────
 
-async function yaDisparadaRecientemente(args: {
-  reglaId: string;
-  presupuestoId?: string;
-  pacienteId?: string;
-  dias: number;
-}): Promise<boolean> {
-  const desde = new Date(
-    Date.now() - args.dias * 24 * 3600 * 1000,
-  ).toISOString();
-  const partes: string[] = [
-    `FIND("${args.reglaId}", ARRAYJOIN({Regla_Link}, ","))`,
-    `{Resultado}="success"`,
-    `IS_AFTER({Ejecutada_At}, "${desde}")`,
-  ];
-  if (args.presupuestoId) {
-    partes.push(
-      `FIND("${args.presupuestoId}", ARRAYJOIN({Presupuesto_Link}, ","))`,
-    );
-  }
-  if (args.pacienteId) {
-    partes.push(
-      `FIND("${args.pacienteId}", ARRAYJOIN({Paciente_Link}, ","))`,
-    );
-  }
-  const recs = await fetchAll(
-    base(TABLES.accionesAutomatizacion).select({
-      filterByFormula: `AND(${partes.join(", ")})`,
-      maxRecords: 1,
-    }),
-  );
-  return recs.length > 0;
-}
+// FASE 1 migración: yaDisparadaRecientemente vive en lib/automatizaciones/repo.

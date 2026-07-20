@@ -3,6 +3,7 @@
 // Solo admin / manager_general.
 
 import { NextResponse } from "next/server";
+import { listSecuenciaIdsPorPresupuestos, destroySecuencias, createSecuenciasRaw } from "../../../lib/automatizaciones/secuencias";
 import { base, TABLES } from "../../../lib/airtable";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
@@ -62,22 +63,12 @@ export const POST = withPresupuestosAuth(async (session) => {
 
   try {
     // Remove existing demo records first (clean state)
-    const existingDemos = await base(TABLES.secuenciasAutomaticas as any)
-      .select({
-        filterByFormula: `OR({presupuesto_id}="demo-001",{presupuesto_id}="demo-002",{presupuesto_id}="demo-003")`,
-        fields: [],
-      })
-      .all();
+    // FASE 1 migración: todo via repo del dominio Automatizaciones.
+    const existingIds = await listSecuenciaIdsPorPresupuestos(["demo-001", "demo-002", "demo-003"]);
+    await destroySecuencias(existingIds);
 
-    if (existingDemos.length > 0) {
-      await base(TABLES.secuenciasAutomaticas as any).destroy(existingDemos.map((r) => r.id));
-    }
-
-    // Insert seed records
-    await base(TABLES.secuenciasAutomaticas as any).create(
-      SEED_SECUENCIAS.map((s) => ({
-        fields: { ...s, creado_en: now, actualizado_en: now },
-      }))
+    await createSecuenciasRaw(
+      SEED_SECUENCIAS.map((s) => ({ ...s, creado_en: now, actualizado_en: now })),
     );
 
     return NextResponse.json({ ok: true, insertados: SEED_SECUENCIAS.length });

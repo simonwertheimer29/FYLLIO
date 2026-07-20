@@ -3,6 +3,7 @@
 // PATCH { id, accion, mensaje? }    → enviar | descartar | editar
 
 import { NextResponse } from "next/server";
+import { listSecuenciasFiltradasRaw, patchSecuencia, findSecuenciaRaw } from "../../../lib/automatizaciones/secuencias";
 import { base, TABLES } from "../../../lib/airtable";
 import type { Secuencia } from "../../../lib/presupuestos/types";
 import { registrarAccion } from "../../../lib/historial/registrar";
@@ -62,13 +63,8 @@ export const GET = withPresupuestosAuth(async (session, req) => {
   const formula = filters.length === 1 ? filters[0] : `AND(${filters.join(",")})`;
 
   try {
-    const recs = await base(TABLES.secuenciasAutomaticas as any)
-      .select({
-        filterByFormula: formula,
-        sort: [{ field: "creado_en", direction: "desc" }],
-        maxRecords: 200,
-      })
-      .all();
+    // FASE 1 migración: lectura via repo del dominio Automatizaciones.
+    const recs = await listSecuenciasFiltradasRaw(formula);
 
     const secuencias: Secuencia[] = recs.map((r) =>
       recordToSecuencia({ id: r.id, fields: r.fields as Record<string, unknown> })
@@ -114,12 +110,16 @@ export const PATCH = withPresupuestosAuth(async (session, req) => {
       // estado stays "pendiente"
     }
 
-    await base(TABLES.secuenciasAutomaticas as any).update(id, updates as any);
+    await patchSecuencia(id, {
+      actualizadoEn: now,
+      estado: updates["estado"] as string | undefined,
+      mensajeGenerado: updates["mensaje_generado"] as string | undefined,
+    });
 
     // Registrar en historial cuando se envía el mensaje
     if (accion === "enviar") {
       try {
-        const rec = await base(TABLES.secuenciasAutomaticas as any).find(id);
+        const rec = await findSecuenciaRaw(id);
         const f = (rec as any).fields as Record<string, unknown>;
         await registrarAccion({
           presupuestoId: String(f["presupuesto_id"] ?? ""),

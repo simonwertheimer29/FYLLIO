@@ -3,6 +3,7 @@
 // PUT  { clinica, activa, dias_inactividad_alerta, ... }  → upsert
 
 import { NextResponse } from "next/server";
+import { findConfigPorClinicaRaw, listConfigsRaw, updateConfigRaw, createConfigRaw } from "../../../lib/automatizaciones/configuracion";
 import { base, TABLES } from "../../../lib/airtable";
 import type { ConfiguracionAutomatizacion, ModoWhatsApp } from "../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
@@ -63,27 +64,16 @@ export const GET = withPresupuestosAuth(async (session, req) => {
   try {
     if (clinica) {
       // Fetch specific clinic config
-      const recs = await base(TABLES.configuracionAutomatizaciones as any)
-        .select({
-          filterByFormula: `{clinica}="${clinica}"`,
-          maxRecords: 1,
-        })
-        .firstPage();
-
-      if (recs.length > 0) {
-        return NextResponse.json({ configuracion: recordToConfig({ fields: recs[0].fields as Record<string, unknown> }, clinica) });
+      // FASE 1 migración: lectura via repo del dominio Automatizaciones.
+      const rec = await findConfigPorClinicaRaw(clinica);
+      if (rec) {
+        return NextResponse.json({ configuracion: recordToConfig({ fields: rec.fields as Record<string, unknown> }, clinica) });
       }
       return NextResponse.json({ configuracion: { clinica, ...DEFAULTS } });
     } else {
       // Todas las configs permitidas (admin: todas las del cliente).
       const clinicaFormula = formulaClinicaPermitida(permitidas, "clinica");
-      const recs = await base(TABLES.configuracionAutomatizaciones as any)
-        .select({
-          fields: ["clinica", "activa", "dias_inactividad_alerta", "dias_portal_sin_respuesta", "dias_reactivacion", "modo_whatsapp"],
-          ...(clinicaFormula ? { filterByFormula: clinicaFormula } : {}),
-          maxRecords: 100,
-        })
-        .all();
+      const recs = await listConfigsRaw(clinicaFormula);
 
       const configuraciones: ConfiguracionAutomatizacion[] = recs.map((r) => {
         const c = String((r.fields as any)["clinica"] ?? "");
@@ -126,12 +116,8 @@ export const PUT = withPresupuestosAuth(async (session, req) => {
   const now = new Date().toISOString();
 
   try {
-    const existing = await base(TABLES.configuracionAutomatizaciones as any)
-      .select({
-        filterByFormula: `{clinica}="${clinica}"`,
-        maxRecords: 1,
-      })
-      .firstPage();
+    const existingRec = await findConfigPorClinicaRaw(clinica);
+    const existing = existingRec ? [existingRec] : [];
 
     // Update parcial: solo escribimos los campos que vienen en el body.
     // Esto permite llamadas tipo { clinica, modoWhatsapp } sin resetear los días.
@@ -151,7 +137,7 @@ export const PUT = withPresupuestosAuth(async (session, req) => {
     }
 
     if (existing.length > 0) {
-      await base(TABLES.configuracionAutomatizaciones as any).update(existing[0].id, updateFields as any);
+      await updateConfigRaw(existing[0].id, updateFields);
     } else {
       // Create: rellenar campos que falten con defaults.
       const createFields: Record<string, unknown> = {
@@ -164,9 +150,7 @@ export const PUT = withPresupuestosAuth(async (session, req) => {
         creado_en: now,
         actualizado_en: now,
       };
-      await base(TABLES.configuracionAutomatizaciones as any).create([{
-        fields: createFields,
-      }] as any);
+      await createConfigRaw(createFields);
     }
 
     return NextResponse.json({ ok: true });

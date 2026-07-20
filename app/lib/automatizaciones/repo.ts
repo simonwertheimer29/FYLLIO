@@ -292,3 +292,63 @@ export async function emitirEventoRow(input: {
     { typecast: true },
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// FASE 1 migración — acceso restante a Eventos_Sistema y helper de dedup
+// del cron (Acciones_Automatizacion), movidos aquí desde el cron.
+// ─────────────────────────────────────────────────────────────────────
+
+/** Eventos lead_creado sin procesar anteriores a `antesDeIso` (trigger
+ *  lead_sin_gestionar_2h). Records crudos: el cron lee Payload/Entidad_Id. */
+export async function listEventosLeadCreadoSinProcesarRaw(antesDeIso: string): Promise<any[]> {
+  return fetchAll(
+    base(TABLES.eventosSistema).select({
+      filterByFormula: `AND({Tipo}="lead_creado", NOT({Procesado}), IS_BEFORE({Created_At}, "${antesDeIso}"))`,
+      pageSize: 100,
+    }),
+  );
+}
+
+/** Marca un evento del sistema como procesado. */
+export async function marcarEventoProcesado(eventoId: string): Promise<void> {
+  await base(TABLES.eventosSistema).update([
+    { id: eventoId, fields: { Procesado: true } },
+  ]);
+}
+
+/**
+ * Dedup del cron: ¿la regla ya disparó con success en los últimos N días
+ * sobre este presupuesto/paciente? (movida desde el cron, paridad exacta).
+ */
+export async function yaDisparadaRecientemente(args: {
+  reglaId: string;
+  presupuestoId?: string;
+  pacienteId?: string;
+  dias: number;
+}): Promise<boolean> {
+  const desde = new Date(
+    Date.now() - args.dias * 24 * 3600 * 1000,
+  ).toISOString();
+  const partes: string[] = [
+    `FIND("${args.reglaId}", ARRAYJOIN({Regla_Link}, ","))`,
+    `{Resultado}="success"`,
+    `IS_AFTER({Ejecutada_At}, "${desde}")`,
+  ];
+  if (args.presupuestoId) {
+    partes.push(
+      `FIND("${args.presupuestoId}", ARRAYJOIN({Presupuesto_Link}, ","))`,
+    );
+  }
+  if (args.pacienteId) {
+    partes.push(
+      `FIND("${args.pacienteId}", ARRAYJOIN({Paciente_Link}, ","))`,
+    );
+  }
+  const recs = await fetchAll(
+    base(TABLES.accionesAutomatizacion).select({
+      filterByFormula: `AND(${partes.join(", ")})`,
+      maxRecords: 1,
+    }),
+  );
+  return recs.length > 0;
+}

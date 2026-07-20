@@ -4,6 +4,8 @@
 // Solo crea 1 secuencia por presupuesto (prioridad EVENTO1 > 2 > 3 > 4).
 
 import { NextResponse } from "next/server";
+import { listConfigsProcesarRaw } from "../../../lib/automatizaciones/configuracion";
+import { listPresupuestoIdsPendientes, createSecuenciaRaw } from "../../../lib/automatizaciones/secuencias";
 import { listCitasResumenNoShowRaw } from "../../../lib/scheduler/repo/airtableRepo";
 import { cookies } from "next/headers";
 import { kv } from "@vercel/kv";
@@ -140,9 +142,8 @@ export const POST = withPresupuestosAuth(async (_session) => {
 
   try {
     // ── 1. Cargar configuraciones por clínica ─────────────────────────────────
-    const configRecs = await base(TABLES.configuracionAutomatizaciones as any)
-      .select({ fields: ["clinica", "activa", "dias_inactividad_alerta", "dias_portal_sin_respuesta", "dias_reactivacion"] })
-      .all();
+    // FASE 1 migración: lecturas del dominio Automatizaciones via repo.
+    const configRecs = await listConfigsProcesarRaw();
 
     const configMap = new Map<string, Omit<ConfiguracionAutomatizacion, "clinica">>();
     for (const rec of configRecs) {
@@ -170,14 +171,7 @@ export const POST = withPresupuestosAuth(async (_session) => {
       .all();
 
     // ── 3. Cargar secuencias pendientes para deduplicar ───────────────────────
-    const pendientesRecs = await base(TABLES.secuenciasAutomaticas as any)
-      .select({
-        filterByFormula: `{estado}="pendiente"`,
-        fields: ["presupuesto_id"],
-        maxRecords: 5000,
-      })
-      .all();
-    const pendientesIds = new Set(pendientesRecs.map((r) => String((r.fields as any)["presupuesto_id"] ?? "")));
+    const pendientesIds = await listPresupuestoIdsPendientes();
 
     // ── 4. Evaluar eventos ────────────────────────────────────────────────────
     let procesados = 0;
@@ -273,8 +267,7 @@ export const POST = withPresupuestosAuth(async (_session) => {
       const mensaje = canal !== "interno" ? await generarMensajeIA(prompt) : "";
       const tono = canal !== "interno" ? await getBestTono(clinica) : "";
 
-      await base(TABLES.secuenciasAutomaticas as any).create([{
-        fields: {
+      await createSecuenciaRaw({
           presupuesto_id:  rec.id,
           clinica,
           paciente_nombre: patientName,
@@ -287,8 +280,7 @@ export const POST = withPresupuestosAuth(async (_session) => {
           canal_sugerido:  canal,
           creado_en:       now,
           actualizado_en:  now,
-        },
-      }]);
+      });
 
       pendientesIds.add(rec.id);
       nuevas++;

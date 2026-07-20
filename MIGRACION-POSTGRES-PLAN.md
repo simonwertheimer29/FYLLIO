@@ -348,8 +348,26 @@ Registro acumulado de escrituras pendientes de ejercitar:
   (demo), `createWaitlistEntry` (twilio test) + los ya existentes del scheduler
   (`createAppointment`, `cancelAppointment`, `completeAppointment`, `markNoShow`,
   `confirmAppointment`, `updateAppointment`).
+- **Automatizaciones**: `patchSecuencia` (enviar/descartar/editar), `createSecuenciaRaw`
+  (procesar), `updateConfigRaw`/`createConfigRaw` (PUT configuración),
+  `marcarEventoProcesado` (cron), `destroySecuencias`/`createSecuenciasRaw` (seed demo),
+  más las ya existentes del motor (`logAccion`, `incrementarDisparos`, `updateRegla`).
 - (Se amplía con cada dominio; el smoke de FASE 2 los dispara contra el Postgres de DEMO
   con seed regenerable, donde ensuciar no importa.)
+
+### Estado Automatizaciones (hecho, 4º dominio)
+
+5 tablas (Reglas_Automatizacion, Acciones_Automatizacion, Eventos_Sistema,
+Secuencias_Automaticas, Configuracion_Automatizaciones) tras `app/lib/automatizaciones/`
+(repo.ts ampliado + `secuencias.ts` y `configuracion.ts` nuevos). Migrados: cron
+automatizaciones-evaluar (eventos sin procesar, marcar procesado ×3, y
+`yaDisparadaRecientemente` MOVIDA al repo — la pieza que el dedup pendiente del nº 9 de
+MEJORAS reutilizará), rutas secuencias/configuracion/procesar/seed-demo. Re-verificación
+previa: **gates de Leads y Pacientes re-pasados con el grep ampliado (TABLES + literales)
+→ ambos vacíos de verdad**. Gate propio vacío ×2 + tsc 0 + build OK + smoke DEMO
+(reglas, kpis motor, acciones → 200; secuencias/configuracion devuelven 401 PRE-EXISTENTE
+del auth legacy `withPresupuestosAuth` con el harness de smoke — verificado idéntico
+pre/post cambio via stash).
 
 ### Estado Agenda núcleo (hecho, 3er dominio)
 
