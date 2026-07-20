@@ -113,3 +113,21 @@ export async function sendPushToAll(
     return { enviadas: 0, fallidas: 0 };
   }
 }
+
+// FASE 1 migración — repo de Push_Subscriptions para la ruta de suscripción.
+export async function findSuscripcionPorEndpointRaw(endpoint: string): Promise<any | null> {
+  const recs = await base(TABLES.pushSubscriptions as any)
+    .select({
+      filterByFormula: `{endpoint}="${endpoint.replace(/"/g, '\\"')}"`,
+      maxRecords: 1,
+      fields: ["endpoint"],
+    })
+    .firstPage();
+  return recs?.[0] ?? null;
+}
+export async function updateSuscripcionRaw(id: string, fields: Record<string, unknown>): Promise<void> {
+  await (base(TABLES.pushSubscriptions as any) as any).update(id, fields);
+}
+export async function createSuscripcionRaw(fields: Record<string, unknown>): Promise<void> {
+  await (base(TABLES.pushSubscriptions as any) as any).create(fields);
+}

@@ -5,6 +5,7 @@
 // y vínculo a Presupuesto), empareja cada entrante con el siguiente
 // saliente del mismo presupuesto. Promedio en minutos.
 
+import { selectMensajesWhatsAppRaw } from "../../../lib/presupuestos/mensajeria";
 import { NextResponse } from "next/server";
 import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
@@ -16,9 +17,7 @@ export const GET = withPresupuestosAuth(async () => {
   const formula = `IS_AFTER({Timestamp}, '${today}T00:00:00.000Z')`;
 
   try {
-    const recs = await fetchAll(
-      base(TABLES.mensajesWhatsApp as any).select({ filterByFormula: formula }),
-    );
+    const recs = await selectMensajesWhatsAppRaw({ filterByFormula: formula });
 
     const porPresup = new Map<
       string,

@@ -353,20 +353,14 @@ async function ejecutarCrearAlerta(
   const mensaje = String(params.mensaje ?? "Alerta automatizada");
   const urgencia = String(params.urgencia ?? "media");
   // Reusa la tabla Alertas_Enviadas como mecanismo de log/inbox.
-  await base(TABLES.alertasEnviadas).create(
-    [
-      {
-        fields: {
-          Resumen: `[auto] ${regla.codigo} · ${mensaje.slice(0, 60)}`,
-          Tipo: tipoAlerta,
-          Mensaje: mensaje,
-          Urgencia: urgencia,
-          Created_At: new Date().toISOString(),
-        },
-      },
-    ],
-    { typecast: true },
-  );
+  const { createAlertaCoordinacionRaw } = await import("../alertas/historial");
+  await createAlertaCoordinacionRaw({
+    Resumen: `[auto] ${regla.codigo} · ${mensaje.slice(0, 60)}`,
+    Tipo: tipoAlerta,
+    Mensaje: mensaje,
+    Urgencia: urgencia,
+    Created_At: new Date().toISOString(),
+  });
   return { tipoAlerta, urgencia, evento: evento.tipo };
 }
 
@@ -519,13 +513,8 @@ export async function getHorarioClinica(
   // no extendido), Airtable puede devolver UNKNOWN_FIELD_NAME aunque la
   // tabla sí. Capturamos y caemos a defaults.
   try {
-    const recs = await fetchAll(
-      base(TABLES.configuracionesClinica).select({
-        filterByFormula: `AND({Categoria}="horario_laboral", FIND("${clinicaId}", ARRAYJOIN({Clinica_Link}, ",")))`,
-        maxRecords: 1,
-      }),
-    );
-    const r = recs[0];
+    const { findConfigPorCategoriaYClinicaRaw } = await import("../configuraciones/configuraciones");
+    const r = await findConfigPorCategoriaYClinicaRaw("horario_laboral", clinicaId);
     if (!r) return HORARIO_DEFAULT;
     const valor = String(r.fields["Valor"] ?? "");
     try {

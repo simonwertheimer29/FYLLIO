@@ -395,10 +395,36 @@ CSV, kanban), update ×12 (portal aceptar/rechazar, webhook respuesta, kanban ed
 intervención registrar ×2 + mensaje sugerido, contactos contador, copilot ×3, db/quotes),
 contactos create ×3, objetivos upsert ×2.
 
-**Restante FASE 1 (cola larga, sin decisión pendiente):** tablas menores ya mayormente
-encapsuladas en sus libs (Mensajes_WhatsApp, Notificaciones, Plantillas_Mensaje,
-Cola_Envios, Informes_Guardados, Llamadas_Vapi, Historial_Acciones, Configuraciones_Clinica,
-Alertas_Enviadas, Eventos varios) — barrido final con el mismo gate doble por tabla.
+### Barrido final (hecho) — y FASE 1 CERRADA ✅ (2026-07-20)
+
+Cola larga completada: Mensajes_WhatsApp (→ mensajeria), Push_Subscriptions (→ push/sender),
+Configuracion_WABA (→ waba-credentials), Notificaciones (→ notificaciones), Cola_Envios
+(→ cola-envios-repo nuevo), Informes_Guardados (→ lib/informes nuevo), Plantillas_Mensaje
+(→ plantillas, incl. el único destroy), Configuracion_Recordatorios (→ recordatorios-config
+nuevo), Historial_Acciones (→ historial/registrar), Alertas_Enviadas (→ alertas/historial,
+consolida el create duplicado ×4), Configuraciones_Clinica (→ configuraciones, consolida el
+patrón categoría+clínica ×6), e **Identidad completa** (Clínicas central → auth/users;
+Usuarios/Usuario_Clinicas ya estaban; Llamadas_Vapi y Conversaciones_Copilot ya tenían home
+único).
+
+**GATES GLOBALES FINALES — los tres VACÍOS:**
+1. `base(TABLES.*)` fuera de homes de dominio → 0 resultados.
+2. Literales `base("Tabla")` fuera de homes → 0 resultados.
+3. `baseCentral(` fuera de `lib/auth/` → 0 resultados.
+
+**Cada acceso a Airtable de la app (negocio + identidad) pasa por un repo de dominio.**
+Verificación de cierre: tsc 0, build OK, re-diff de los 5 goldens de Presupuestos tras el
+barrido → 5/5 idénticos, smoke de 11 endpoints de las zonas tocadas → todos 200.
+
+Escrituras añadidas al registro de FASE 2 por el barrido: push (upsert/desactivar),
+configWABA (upsert), notificaciones (marcar leídas en lote), cola_envios (create/update),
+informes (upsert ×2), plantillas mensaje (CRUD + destroy), recordatorios (upsert), alertas
+coordinación (create ×4 consumidores), configuraciones clínica (upsert horario/llamadas
+IA/motor), clínicas central (create/update admin).
+
+**FASE 1: 100% COMPLETA. La migración está PARADA aquí por decisión de Simon
+(2026-07-20): FASE 2 (Postgres detrás de la interfaz) NO arranca hasta que él revise
+con calma el paso a Supabase. Gate de reevaluación pendiente: piloto/legal + este plan.**
 
 ### Estado Automatizaciones (hecho, 4º dominio)
 

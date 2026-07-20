@@ -2,6 +2,8 @@
 // Sprint 8 D.7 — cálculo de situaciones por clínica y tipo.
 // Se ejecuta en cada GET /api/alertas. No cron (Sprint 9).
 
+import { selectClinicasCentralRaw } from "../auth/users";
+import { selectColaEnviosFetchAllRaw } from "../presupuestos/cola-envios-repo";
 import { baseCentral, base, TABLES, fetchAll } from "../airtable";
 import { selectPresupuestosRaw } from "../presupuestos/repo";
 import { listAllOpciones } from "../configuraciones/configuraciones";
@@ -21,11 +23,11 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export async function calcularAlertas(): Promise<AlertaClinica[]> {
   const [clinicas, leads, presupuestos, colaEnvios, pagos, pacientes, opciones] =
     await Promise.all([
-      fetchAll(baseCentral(TABLES.clinics).select({ filterByFormula: "{Activa}" })),
+      selectClinicasCentralRaw({ filterByFormula: "{Activa}" }),
       // FASE 1 migración: leads via repo del dominio (tipo Lead, no records).
       listLeads(),
       selectPresupuestosRaw(),
-      fetchAll(base(TABLES.colaEnvios).select({ filterByFormula: "{Estado}='Fallido'" })),
+      selectColaEnviosFetchAllRaw({ filterByFormula: "{Estado}='Fallido'" }),
       // Sprint 14b Bloque 3 — pagos all-time + pacientes + plazos config
       // para los 3 triggers de cobros.
       listPagosResumen(),

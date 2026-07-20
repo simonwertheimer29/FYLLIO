@@ -14,6 +14,7 @@
 //
 // Por eso vive en lib/, no en app/api/.
 
+import { createAlertaCoordinacionRaw, selectAlertasEnviadasRaw } from "../alertas/historial";
 import { base, fetchAll, TABLES } from "../airtable";
 import { findCitaRaw } from "../scheduler/repo/airtableRepo";
 import { getPaciente } from "../pacientes/pacientes";
@@ -69,27 +70,18 @@ async function emitirAlertaPausaSiNoExiste(input: {
 }): Promise<void> {
   try {
     const desde = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    const recs = await fetchAll(
-      base(TABLES.alertasEnviadas).select({
-        filterByFormula: `AND({Tipo}="ia_pausa_automatica", IS_AFTER({Created_At}, "${desde}"))`,
-        maxRecords: 1,
-      }),
-    );
+    const recs = await selectAlertasEnviadasRaw({
+      filterByFormula: `AND({Tipo}="ia_pausa_automatica", IS_AFTER({Created_At}, "${desde}"))`,
+      maxRecords: 1,
+    });
     if (recs.length > 0) return;
-    await base(TABLES.alertasEnviadas).create(
-      [
-        {
-          fields: {
-            Resumen: `[ia-pausa] ${input.mensaje.slice(0, 60)}`,
-            Tipo: "ia_pausa_automatica",
-            Mensaje: input.mensaje,
-            Urgencia: "alta",
-            Created_At: new Date().toISOString(),
-          },
-        },
-      ],
-      { typecast: true },
-    );
+    await createAlertaCoordinacionRaw({
+      Resumen: `[ia-pausa] ${input.mensaje.slice(0, 60)}`,
+      Tipo: "ia_pausa_automatica",
+      Mensaje: input.mensaje,
+      Urgencia: "alta",
+      Created_At: new Date().toISOString(),
+    });
   } catch (err) {
     console.error("[llamadas alerta pausa]", err);
   }
@@ -156,13 +148,8 @@ export async function getConfigLlamadasClinica(
   };
   if (!clinicaId) return defaults;
   try {
-    const recs = await fetchAll(
-      base(TABLES.configuracionesClinica).select({
-        filterByFormula: `AND({Categoria}="llamadas_ia", FIND("${clinicaId}", ARRAYJOIN({Clinica_Link}, ",")))`,
-        maxRecords: 1,
-      }),
-    );
-    const r = recs[0];
+    const { findConfigPorCategoriaYClinicaRaw } = await import("../configuraciones/configuraciones");
+    const r = await findConfigPorCategoriaYClinicaRaw("llamadas_ia", clinicaId);
     if (!r) return defaults;
     const valor = String(r.fields["Valor"] ?? "");
     try {

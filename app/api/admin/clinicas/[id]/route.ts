@@ -2,6 +2,7 @@
 // Sprint 7 Fase 6 — actualizar una clínica (renombrar, cambiar ciudad,
 // teléfono, activar/desactivar).
 
+import { updateClinicaCentralRaw } from "../../../../lib/auth/users";
 import { NextResponse } from "next/server";
 import { withAdmin } from "../../../../lib/auth/session";
 import { baseCentral, TABLES } from "../../../../lib/airtable";
@@ -32,7 +33,7 @@ export const PATCH = withAdmin<Ctx>(async (_session, req, ctx) => {
   }
 
   try {
-    const updated = (await baseCentral(TABLES.clinics).update([{ id, fields }]))[0]!;
+    const updated = await updateClinicaCentralRaw(id, fields);
     const f = updated.fields ?? {};
     return NextResponse.json({
       clinica: {

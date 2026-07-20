@@ -55,11 +55,8 @@ function parseConfig(valor: string): MotorNoShowsConfig {
 
 /** Busca el record (clinica o global) de la config Motor_NoShows. */
 async function findConfigRecord(clinicaId: string | null): Promise<any | null> {
-  const recs = await fetchAll(
-    base(TABLES.configuracionesClinica).select({
-      filterByFormula: `{Categoria}="${MOTOR_NO_SHOWS_CATEGORIA}"`,
-    }),
-  );
+  const { selectConfigsPorCategoriaRaw } = await import("../configuraciones/configuraciones");
+  const recs = await selectConfigsPorCategoriaRaw(MOTOR_NO_SHOWS_CATEGORIA);
   if (clinicaId) {
     const propia = recs.find((r: any) => {
       const links = (r.fields?.["Clinica_Link"] ?? []) as string[];
@@ -117,9 +114,8 @@ export async function setMotorConfig(
     : false;
 
   if (existing && existingIsScope) {
-    await base(TABLES.configuracionesClinica).update([
-      { id: existing.id, fields: { Valor: valor } as any },
-    ]);
+    const { updateConfigClinicaRaw } = await import("../configuraciones/configuraciones");
+    await updateConfigClinicaRaw(existing.id, { Valor: valor });
   } else {
     const fields: Record<string, unknown> = {
       Resumen: `${MOTOR_NO_SHOWS_CATEGORIA} · ${clinicaId ? "clinica" : "global"}`,
@@ -129,7 +125,8 @@ export async function setMotorConfig(
       Created_At: new Date().toISOString(),
     };
     if (clinicaId) fields["Clinica_Link"] = [clinicaId];
-    await base(TABLES.configuracionesClinica).create([{ fields } as any], { typecast: true });
+        const { createConfigClinicaRaw } = await import("../configuraciones/configuraciones");
+    await createConfigClinicaRaw(fields);
   }
   return next;
 }

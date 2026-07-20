@@ -1,6 +1,7 @@
 // app/api/presupuestos/plantillas/route.ts
 // CRUD para plantillas de mensaje
 
+import { selectPlantillasMensajeRaw, findPlantillaMensajeRaw, createPlantillaMensajeRaw, updatePlantillaMensajeRaw, destroyPlantillaMensajeRaw } from "../../../lib/plantillas/plantillas";
 import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
@@ -62,7 +63,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         : `AND(${filterParts.join(", ")})`;
     }
 
-    const recs = await base(TABLES.plantillasMensaje as any).select(selectOpts).all();
+    const recs = await selectPlantillasMensajeRaw(selectOpts);
     const plantillas = recs.map(recordToPlantilla);
 
     return NextResponse.json({ plantillas });
@@ -99,7 +100,7 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
 
     const now = DateTime.now().setZone(ZONE).toISO() ?? new Date().toISOString();
 
-    const rec = await (base(TABLES.plantillasMensaje as any).create as any)({
+    const rec = await createPlantillaMensajeRaw({
       Nombre: nombre,
       Tipo: tipo,
       Clinica: clinicaVal,
@@ -138,7 +139,7 @@ export const PUT = withPresupuestosAuth(async (session, req: Request) => {
     // clínica permitida; y si se cambia la clínica, la nueva también. Evita que
     // un coord edite/mueva una plantilla de otra clínica.
     const permitidas = await nombresClinicasPermitidas(session);
-    const existingRec = await base(TABLES.plantillasMensaje as any).find(id).catch(() => null);
+    const existingRec = await findPlantillaMensajeRaw(id).catch(() => null);
     if (!existingRec) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
     const clinicaActual = String((existingRec.fields as any)["Clinica"] ?? "Todas");
     if (!permiteClinica(permitidas, clinicaActual)) {
@@ -157,7 +158,7 @@ export const PUT = withPresupuestosAuth(async (session, req: Request) => {
     if (contenido !== undefined) update.Contenido = contenido;
     if (activa !== undefined) update.Activa = activa;
 
-    await base(TABLES.plantillasMensaje as any).update(id, update as any);
+    await updatePlantillaMensajeRaw(id, update);
 
     return NextResponse.json({ ok: true });
   } catch (err) {
@@ -176,14 +177,14 @@ export const DELETE = withPresupuestosAuth(async (session, req: Request) => {
 
     // Sprint B Fase 4 — solo se puede borrar una plantilla de una clínica permitida.
     const permitidas = await nombresClinicasPermitidas(session);
-    const existingRec = await base(TABLES.plantillasMensaje as any).find(id).catch(() => null);
+    const existingRec = await findPlantillaMensajeRaw(id).catch(() => null);
     if (!existingRec) return NextResponse.json({ error: "No encontrada" }, { status: 404 });
     const clinicaActual = String((existingRec.fields as any)["Clinica"] ?? "Todas");
     if (!permiteClinica(permitidas, clinicaActual)) {
       return NextResponse.json({ error: "Plantilla no encontrada" }, { status: 404 });
     }
 
-    await base(TABLES.plantillasMensaje as any).destroy(id);
+    await destroyPlantillaMensajeRaw(id);
 
     return NextResponse.json({ ok: true });
   } catch (err) {

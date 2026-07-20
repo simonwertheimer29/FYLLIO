@@ -2,6 +2,7 @@
 // POST: guardar/actualizar suscripción Web Push
 // DELETE: desactivar suscripción
 
+import { findSuscripcionPorEndpointRaw, updateSuscripcionRaw, createSuscripcionRaw } from "../../../lib/push/sender";
 import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../lib/airtable";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
@@ -25,26 +26,21 @@ export const POST = withPresupuestosAuth(async (session, req) => {
     const userAgent = req.headers.get("user-agent") ?? "";
 
     // Buscar suscripción existente por endpoint
-    const existing = await base(TABLES.pushSubscriptions as any)
-      .select({
-        filterByFormula: `{endpoint}="${subscription.endpoint.replace(/"/g, '\\"')}"`,
-        maxRecords: 1,
-        fields: ["endpoint"],
-      })
-      .firstPage();
+    const existingRec = await findSuscripcionPorEndpointRaw(subscription.endpoint);
+    const existing = existingRec ? [existingRec] : [];
 
     if (existing.length > 0) {
       // Actualizar keys + reactivar
-      await base(TABLES.pushSubscriptions as any).update(existing[0].id, {
+      await updateSuscripcionRaw(existing[0].id, {
         p256dh: subscription.keys.p256dh,
         auth: subscription.keys.auth,
         activa: true,
         user_agent: userAgent,
-      } as any);
+      });
     } else {
       // Crear nuevo registro
       const now = new Date().toISOString();
-      await base(TABLES.pushSubscriptions as any).create({
+      await createSuscripcionRaw({
         user_email: userEmail,
         clinica,
         endpoint: subscription.endpoint,
@@ -53,7 +49,7 @@ export const POST = withPresupuestosAuth(async (session, req) => {
         user_agent: userAgent,
         activa: true,
         creada_en: now,
-      } as any);
+      });
     }
 
     return NextResponse.json({ ok: true });
@@ -68,16 +64,11 @@ export const DELETE = withPresupuestosAuth(async (_session, req) => {
     const { endpoint } = await req.json() as { endpoint: string };
     if (!endpoint) return NextResponse.json({ error: "endpoint requerido" }, { status: 400 });
 
-    const existing = await base(TABLES.pushSubscriptions as any)
-      .select({
-        filterByFormula: `{endpoint}="${endpoint.replace(/"/g, '\\"')}"`,
-        maxRecords: 1,
-        fields: ["endpoint"],
-      })
-      .firstPage();
+    const existingRec2 = await findSuscripcionPorEndpointRaw(endpoint);
+    const existing = existingRec2 ? [existingRec2] : [];
 
     if (existing.length > 0) {
-      await base(TABLES.pushSubscriptions as any).update(existing[0].id, { activa: false } as any);
+      await updateSuscripcionRaw(existing[0].id, { activa: false });
     }
 
     return NextResponse.json({ ok: true });

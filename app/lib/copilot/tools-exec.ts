@@ -9,6 +9,8 @@
 //  - Admin: si tiene clinicaId activa la pasamos como filtro; si no,
 //    consulta global.
 
+import { findClinicaCentralRaw, selectClinicasCentralRaw } from "../auth/users";
+import { selectMensajesWhatsAppRaw } from "../presupuestos/mensajeria";
 import { DateTime } from "luxon";
 import { baseCentral, base, TABLES, fetchAll } from "../airtable";
 import { listClinicasNegocioCamposRaw } from "../clinicas-negocio";
@@ -137,7 +139,7 @@ async function fetchPresupuestos(env: CopilotEnv): Promise<any[]> {
   let clinicaNombres: string[] | null = null;
   if (env.session.rol === "admin") {
     if (env.selectedClinicaId) {
-      const r = await baseCentral(TABLES.clinics as any).find(env.selectedClinicaId).catch(() => null);
+      const r = await findClinicaCentralRaw(env.selectedClinicaId).catch(() => null);
       const n = r ? String((r.fields as any)?.["Nombre"] ?? "") : "";
       if (n) clinicaNombres = [n];
     }
@@ -145,7 +147,7 @@ async function fetchPresupuestos(env: CopilotEnv): Promise<any[]> {
     const allowed = await listClinicaIdsForUser(env.session.userId);
     if (allowed.length === 0) return [];
     const recs = await Promise.all(
-      allowed.map((id) => baseCentral(TABLES.clinics as any).find(id).catch(() => null)),
+      allowed.map((id) => findClinicaCentralRaw(id).catch(() => null)),
     );
     clinicaNombres = recs
       .filter(Boolean)
@@ -385,13 +387,11 @@ async function execMensajesRecientes(
   } else {
     return { mensajes: [] };
   }
-  const recs = await fetchAll(
-    base(TABLES.mensajesWhatsApp as any).select({
-      filterByFormula: formula,
-      sort: [{ field: "Timestamp", direction: "desc" }],
-      maxRecords: limit,
-    }),
-  );
+  const recs = await selectMensajesWhatsAppRaw({
+    filterByFormula: formula,
+    sort: [{ field: "Timestamp", direction: "desc" }],
+    maxRecords: limit,
+  });
   return {
     mensajes: recs.map((r) => {
       const f = r.fields as any;
@@ -744,12 +744,10 @@ export async function buscarPacientesPorNombre(
   const doctorNombres = new Map<string, string>();
   if (clinicaIds.length > 0) {
     try {
-      const recs = await fetchAll(
-        baseCentral(TABLES.clinics as any).select({
-          filterByFormula: `OR(${clinicaIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`,
-          fields: ["Nombre"],
-        }),
-      );
+      const recs = await selectClinicasCentralRaw({
+        filterByFormula: `OR(${clinicaIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`,
+        fields: ["Nombre"],
+      });
       for (const r of recs) {
         clinicaNombres.set(r.id, String((r.fields as any)?.["Nombre"] ?? ""));
       }

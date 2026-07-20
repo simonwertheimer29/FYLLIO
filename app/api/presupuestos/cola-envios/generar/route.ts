@@ -2,6 +2,9 @@
 // POST — genera la cola de envíos del día basada en plantillas + configuración
 // Two-pass: collect candidates → sort by priority → limit 30/clinic → generate content
 
+import { selectConfigRecordatoriosRaw } from "../../../../lib/presupuestos/recordatorios-config";
+import { selectPlantillasMensajeRaw } from "../../../../lib/plantillas/plantillas";
+import { selectColaEnviosRaw, createColaEnvioRaw } from "../../../../lib/presupuestos/cola-envios-repo";
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw } from "../../../../lib/presupuestos/repo";
 import { base, TABLES } from "../../../../lib/airtable";
@@ -150,11 +153,9 @@ export const POST = withPresupuestosAuth(async (session) => {
 
   try {
     // 1. Cargar configuraciones de recordatorios
-    const configRecs = await base(TABLES.configuracionRecordatorios as any)
-      .select({
-        fields: ["Clinica", "Secuencia_dias", "Recordatorio_max", "Hora_envio", "Dias_rechazo_auto", "Activa"],
-      })
-      .all();
+    const configRecs = await selectConfigRecordatoriosRaw({
+      fields: ["Clinica", "Secuencia_dias", "Recordatorio_max", "Hora_envio", "Dias_rechazo_auto", "Activa"],
+    });
 
     const configMap = new Map<string, Omit<ConfigRecordatorios, "clinica">>();
     for (const rec of configRecs) {
@@ -172,12 +173,10 @@ export const POST = withPresupuestosAuth(async (session) => {
     }
 
     // 2. Cargar plantillas activas
-    const plantillaRecs = await base(TABLES.plantillasMensaje as any)
-      .select({
-        fields: ["Nombre", "Tipo", "Clinica", "Doctor", "Tratamiento", "Contenido", "Activa"],
-        filterByFormula: `{Activa}=TRUE()`,
-      })
-      .all();
+    const plantillaRecs = await selectPlantillasMensajeRaw({
+      fields: ["Nombre", "Tipo", "Clinica", "Doctor", "Tratamiento", "Contenido", "Activa"],
+      filterByFormula: `{Activa}=TRUE()`,
+    });
 
     const plantillas: PlantillaMensaje[] = plantillaRecs.map((r) => {
       const f = r.fields as any;
@@ -206,13 +205,11 @@ export const POST = withPresupuestosAuth(async (session) => {
       });
 
     // 4. Fetch envíos existentes de hoy para deduplicar
-    const enviosHoyRecs = await base(TABLES.colaEnvios as any)
-      .select({
-        fields: ["Presupuesto", "Tipo"],
-        filterByFormula: `IS_SAME({Programado_para},'${todayStr}','day')`,
-        maxRecords: 5000,
-      })
-      .all();
+    const enviosHoyRecs = await selectColaEnviosRaw({
+      fields: ["Presupuesto", "Tipo"],
+      filterByFormula: `IS_SAME({Programado_para},'${todayStr}','day')`,
+      maxRecords: 5000,
+    });
 
     const enviosExistentes = new Set(
       enviosHoyRecs.map((r) => {
@@ -407,7 +404,7 @@ export const POST = withPresupuestosAuth(async (session) => {
       const programadoPara = `${todayStr}T${cand.horaEnvio}:00`;
 
       try {
-        await (base(TABLES.colaEnvios as any).create as any)({
+        await createColaEnvioRaw({
           Presupuesto: cand.recId,
           Paciente: cand.patientName,
           Telefono: cand.phone,

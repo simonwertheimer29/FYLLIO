@@ -3,6 +3,7 @@
 // Llama al LLM (Claude Haiku) para generar el mensaje de cada evento.
 // Solo crea 1 secuencia por presupuesto (prioridad EVENTO1 > 2 > 3 > 4).
 
+import { selectInformesRaw, updateInformeRaw, createInformeRaw } from "../../../lib/informes";
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { listObjetivosRaw } from "../../../lib/presupuestos/objetivos";
@@ -484,13 +485,11 @@ FIN_ACCIONES`;
         // ── Save to Informes_Guardados (upsert, una sola escritura) ───────────
         try {
           const nowISO = new Date().toISOString();
-          const existingRecs = await base(TABLES.informesGuardados as any)
-            .select({
-              filterByFormula: `AND({tipo}='semanal',{periodo}='${periodo}')`,
-              maxRecords: 1,
-              fields: ["tipo"],
-            })
-            .all();
+          const existingRecs = await selectInformesRaw({
+            filterByFormula: `AND({tipo}='semanal',{periodo}='${periodo}')`,
+            maxRecords: 1,
+            fields: ["tipo"],
+          });
 
           const upsertFields: Record<string, unknown> = {
             titulo,
@@ -501,11 +500,9 @@ FIN_ACCIONES`;
           if (textoNarrativo) upsertFields["texto_narrativo"] = textoNarrativo;
 
           if (existingRecs.length > 0) {
-            await base(TABLES.informesGuardados as any).update(existingRecs[0].id, upsertFields as any);
+            await updateInformeRaw(existingRecs[0].id, upsertFields);
           } else {
-            await (base(TABLES.informesGuardados as any) as any).create([{
-              fields: { tipo: "semanal", clinica: "todas", periodo, ...upsertFields },
-            }]);
+            await createInformeRaw({ tipo: "semanal", clinica: "todas", periodo, ...upsertFields });
           }
         } catch (saveErr) {
           console.error("[procesar] Error guardando informe semanal:", saveErr);
@@ -628,13 +625,11 @@ REGLAS:
 
         try {
           const nowISO = new Date().toISOString();
-          const existingNS = await base(TABLES.informesGuardados as any)
-            .select({
-              filterByFormula: `AND({tipo}='noshow_semanal',{periodo}='${periodoNS}')`,
-              maxRecords: 1,
-              fields: ["tipo"],
-            })
-            .all();
+          const existingNS = await selectInformesRaw({
+            filterByFormula: `AND({tipo}='noshow_semanal',{periodo}='${periodoNS}')`,
+            maxRecords: 1,
+            fields: ["tipo"],
+          });
 
           const upsertNSFields: Record<string, unknown> = {
             titulo: tituloNS,
@@ -645,11 +640,9 @@ REGLAS:
           if (textoNarrativoNS) upsertNSFields["texto_narrativo"] = textoNarrativoNS;
 
           if (existingNS.length > 0) {
-            await base(TABLES.informesGuardados as any).update(existingNS[0].id, upsertNSFields as any);
+            await updateInformeRaw(existingNS[0].id, upsertNSFields);
           } else {
-            await (base(TABLES.informesGuardados as any) as any).create([{
-              fields: { tipo: "noshow_semanal", clinica: "Todas", periodo: periodoNS, ...upsertNSFields },
-            }]);
+            await createInformeRaw({ tipo: "noshow_semanal", clinica: "Todas", periodo: periodoNS, ...upsertNSFields });
           }
         } catch (saveNSErr) {
           console.error("[procesar] Error guardando informe noshow_semanal:", saveNSErr);

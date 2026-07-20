@@ -2,6 +2,7 @@
 // GET: list saved informes (semanal / mensual)
 // POST: upsert informe — same tipo+clinica+periodo → overwrite
 
+import { selectInformesRaw, updateInformeRaw, createInformeRaw } from "../../../../lib/informes";
 import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../../lib/airtable";
 import type { InformeGuardado } from "../../../../lib/presupuestos/types";
@@ -65,7 +66,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     };
     if (formula) selectOpts.filterByFormula = formula;
 
-    const recs = await base(TABLES.informesGuardados as any).select(selectOpts).all();
+    const recs = await selectInformesRaw(selectOpts);
     return NextResponse.json({ informes: recs.map((r) => mapRecord({ id: r.id, fields: r.fields as Record<string, unknown> })) });
   } catch {
     return NextResponse.json({ informes: [], isDemo: true });
@@ -106,13 +107,11 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     const autorValue = generadoPor ?? session.email;
 
     // Upsert: check if same tipo+clinica+periodo exists
-    const existing = await base(TABLES.informesGuardados as any)
-      .select({
-        filterByFormula: `AND({tipo}='${tipo}',{clinica}='${clinicaValue}',{periodo}='${periodo}')`,
-        maxRecords: 1,
-        fields: ["tipo"],
-      })
-      .all();
+    const existing = await selectInformesRaw({
+      filterByFormula: `AND({tipo}='${tipo}',{clinica}='${clinicaValue}',{periodo}='${periodo}')`,
+      maxRecords: 1,
+      fields: ["tipo"],
+    });
 
     let rec: { id: string; fields: Record<string, unknown> };
 
@@ -125,10 +124,7 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
       if (contenidoJson !== undefined) updateFields["contenido_json"] = contenidoJson;
       if (textoNarrativo !== undefined) updateFields["texto_narrativo"] = textoNarrativo;
 
-      const updated = await base(TABLES.informesGuardados as any).update(
-        existing[0].id,
-        updateFields as any
-      ) as any;
+      const updated = await updateInformeRaw(existing[0].id, updateFields) as any;
       rec = { id: updated.id, fields: updated.fields };
     } else {
       const createFields: Record<string, unknown> = {
@@ -142,9 +138,7 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
       if (contenidoJson !== undefined) createFields["contenido_json"] = contenidoJson;
       if (textoNarrativo !== undefined) createFields["texto_narrativo"] = textoNarrativo;
 
-      const created = await (base(TABLES.informesGuardados as any) as any).create([
-        { fields: createFields },
-      ]);
+      const created = await createInformeRaw(createFields);
       rec = { id: created[0].id, fields: created[0].fields };
     }
 

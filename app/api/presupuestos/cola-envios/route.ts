@@ -2,6 +2,7 @@
 // GET — lista envíos del día (o filtro por fecha/estado)
 // PATCH — actualizar estado de un envío
 
+import { selectColaEnviosRaw, createColaEnvioRaw, findColaEnvioRaw, updateColaEnvioRaw } from "../../../lib/presupuestos/cola-envios-repo";
 import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
@@ -54,8 +55,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       ? filterParts[0]
       : `AND(${filterParts.join(", ")})`;
 
-    const recs = await base(TABLES.colaEnvios as any)
-      .select({
+    const recs = await selectColaEnviosRaw({
         fields: [
           "Presupuesto", "Paciente", "Telefono", "Contenido",
           "Tipo", "Estado", "Programado_para", "Enviado_en", "Plantilla_usada",
@@ -64,8 +64,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         filterByFormula,
         sort: [{ field: "Tipo", direction: "asc" }],
         maxRecords: 500,
-      })
-      .all();
+      });
 
     let envios = recs.map(recordToEnvio);
 
@@ -132,7 +131,7 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     if (importe != null) fields.Importe = importe;
     if (doctor) fields.Doctor = doctor;
 
-    await (base(TABLES.colaEnvios as any).create as any)(fields);
+    await createColaEnvioRaw(fields);
 
     return NextResponse.json({ ok: true });
   } catch (err) {
@@ -164,7 +163,7 @@ export const PATCH = withPresupuestosAuth(async (session, req: Request) => {
     }
 
     // First fetch the record to get details for mensajería
-    const rec = await base(TABLES.colaEnvios as any).find(id);
+    const rec = await findColaEnvioRaw(id);
     const f = rec.fields as any;
 
     // Sprint B Fase 4 (IDOR): marcar "Enviado" dispara el envío real; solo se
@@ -178,7 +177,7 @@ export const PATCH = withPresupuestosAuth(async (session, req: Request) => {
     }
 
     // Update the record
-    await base(TABLES.colaEnvios as any).update(id, update as any);
+    await updateColaEnvioRaw(id, update);
 
     // If sent, also register in Mensajes_WhatsApp
     if (estado === "Enviado") {

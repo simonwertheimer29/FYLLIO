@@ -25,3 +25,18 @@ export async function crearNotificacion(args: {
     console.error("[notificaciones] Error creando notificación:", err);
   }
 }
+
+// FASE 1 migración — lecturas/updates de Notificaciones para la ruta.
+export async function selectNotificacionesRaw(opts: {
+  fields?: string[];
+  filterByFormula?: string;
+  sort?: Array<{ field: string; direction: "asc" | "desc" }>;
+  maxRecords?: number;
+}): Promise<readonly any[]> {
+  return base(TABLES.notificaciones as any).select(opts as any).all();
+}
+export async function updateNotificacionesBatchRaw(
+  batch: Array<{ id: string; fields: Record<string, unknown> }>,
+): Promise<void> {
+  await base(TABLES.notificaciones as any).update(batch as any);
+}

@@ -18,6 +18,7 @@
 //                        in-progress).
 //   - speech-update    → ignorado (logs solo si DEBUG).
 
+import { createAlertaCoordinacionRaw } from "../../../lib/alertas/historial";
 import { NextResponse } from "next/server";
 import { updateCitaEstado } from "../../../lib/scheduler/repo/airtableRepo";
 import crypto from "node:crypto";
@@ -253,20 +254,13 @@ async function crearAlertaCoord(input: {
   urgencia: "baja" | "media" | "alta";
 }) {
   try {
-    await base(TABLES.alertasEnviadas).create(
-      [
-        {
-          fields: {
-            Resumen: `[ia-llamada] ${input.tipo} · ${input.mensaje.slice(0, 60)}`,
-            Tipo: input.tipo,
-            Mensaje: input.mensaje,
-            Urgencia: input.urgencia,
-            Created_At: new Date().toISOString(),
-          },
-        },
-      ],
-      { typecast: true },
-    );
+    await createAlertaCoordinacionRaw({
+      Resumen: `[ia-llamada] ${input.tipo} · ${input.mensaje.slice(0, 60)}`,
+      Tipo: input.tipo,
+      Mensaje: input.mensaje,
+      Urgencia: input.urgencia,
+      Created_At: new Date().toISOString(),
+    });
   } catch (err) {
     console.error("[webhooks/vapi] crearAlertaCoord:", err);
   }

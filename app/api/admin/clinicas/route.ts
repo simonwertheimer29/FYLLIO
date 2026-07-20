@@ -1,6 +1,7 @@
 // app/api/admin/clinicas/route.ts
 // Sprint 7 Fase 6 — listar y crear clínicas.
 
+import { createClinicaCentralRaw } from "../../../lib/auth/users";
 import { NextResponse } from "next/server";
 import { withAdmin } from "../../../lib/auth/session";
 import { listClinicas } from "../../../lib/auth/users";
@@ -32,7 +33,7 @@ export const POST = withAdmin(async (session, req) => {
   if (body?.ciudad) fields["Ciudad"] = body.ciudad.trim();
   if (body?.telefono) fields["Telefono"] = body.telefono.trim();
 
-  const created = (await baseCentral(TABLES.clinics).create([{ fields }]))[0]!;
+  const created = await createClinicaCentralRaw(fields);
   const f = created.fields ?? {};
   return NextResponse.json({
     clinica: {

@@ -377,3 +377,28 @@ export async function unlinkUsuarioFromClinicas(
     await baseCentral(TABLES.usuarioClinicas).destroy(toDelete.slice(i, i + 10));
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────
+// FASE 1 migración — accesos crudos a la tabla Clínicas de la base
+// CENTRAL (identidad) para consumidores externos. NO confundir con la
+// Clínicas de negocio (lib/clinicas-negocio.ts).
+// ─────────────────────────────────────────────────────────────────────
+
+export async function findClinicaCentralRaw(id: string): Promise<any> {
+  return baseCentral(TABLES.clinics as any).find(id);
+}
+
+export async function selectClinicasCentralRaw(opts: {
+  fields?: string[];
+  filterByFormula?: string;
+}): Promise<any[]> {
+  return fetchAll(baseCentral(TABLES.clinics as any).select(opts as any));
+}
+
+export async function createClinicaCentralRaw(fields: Record<string, unknown>): Promise<any> {
+  return (await baseCentral(TABLES.clinics).create([{ fields } as any]))[0]!;
+}
+
+export async function updateClinicaCentralRaw(id: string, fields: Record<string, unknown>): Promise<any> {
+  return (await baseCentral(TABLES.clinics).update([{ id, fields } as any]))[0]!;
+}

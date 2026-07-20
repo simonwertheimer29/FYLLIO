@@ -19,6 +19,8 @@
 //  - coord solo sobre sus clinicas
 //  - admin requiere selectedClinicaId para ESCRIBIR. Si no, error.
 
+import { findClinicaCentralRaw, selectClinicasCentralRaw } from "../auth/users";
+import { findConfigWABAPorClinicaRaw } from "../presupuestos/waba-credentials";
 import { baseCentral, base, TABLES } from "../airtable";
 import { findPresupuestoRaw, updatePresupuestoRaw } from "../presupuestos/repo";
 import { createContactoRaw } from "../presupuestos/contactos";
@@ -121,14 +123,10 @@ async function execEnviarWhatsappLead(env: ExecEnv, p: any): Promise<ExecResult>
   let wabaActivo = false;
   if (lead.clinicaId) {
     try {
-      const cliRec = await baseCentral(TABLES.clinics as any).find(lead.clinicaId);
+      const cliRec = await findClinicaCentralRaw(lead.clinicaId);
       const nombre = String((cliRec.fields as any)?.["Nombre"] ?? "");
-      const cfgRecs = await base(TABLES.configuracionWABA as any)
-        .select({
-          filterByFormula: `{Clinica}='${nombre.replace(/'/g, "\\'")}'`,
-          maxRecords: 1,
-        })
-        .firstPage();
+      const cfgRec0 = await findConfigWABAPorClinicaRaw(nombre.replace(/'/g, "\\'"));
+      const cfgRecs = cfgRec0 ? [cfgRec0] : [];
       if (cfgRecs.length > 0) {
         wabaActivo = Boolean((cfgRecs[0].fields as any)?.["Activo"]);
       }
@@ -214,7 +212,7 @@ async function ensurePresupAccessible(
     const allowedNombres: string[] = [];
     for (const id of allowed) {
       try {
-        const c = await baseCentral(TABLES.clinics as any).find(id);
+        const c = await findClinicaCentralRaw(id);
         const n = String((c.fields as any)?.["Nombre"] ?? "");
         if (n) allowedNombres.push(n);
       } catch {
@@ -385,11 +383,7 @@ function ensurePacienteClinicaMatchesScope(
 async function loadClinicaNombrePorId(): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   try {
-    const recs = await (
-      baseCentral(TABLES.clinics as any) as any
-    )
-      .select({ fields: ["Nombre"] })
-      .all();
+    const recs = await selectClinicasCentralRaw({ fields: ["Nombre"] });
     for (const r of recs) map.set(r.id, String(r.fields?.["Nombre"] ?? ""));
   } catch {
     /* noop — el mensaje de error usará IDs como fallback */

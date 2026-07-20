@@ -1,6 +1,7 @@
 // app/api/presupuestos/recordatorios/configuracion/route.ts
 // GET/PUT — configuración de recordatorios por clínica
 
+import { selectConfigRecordatoriosRaw, updateConfigRecordatoriosRaw, createConfigRecordatoriosRaw } from "../../../../lib/presupuestos/recordatorios-config";
 import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../../lib/airtable";
 import type { ConfigRecordatorios } from "../../../../lib/presupuestos/types";
@@ -49,13 +50,11 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     const clinicaLabel =
       clinicaSel ?? (permitidas && permitidas.size === 1 ? [...permitidas][0]! : "");
 
-    const recs = await base(TABLES.configuracionRecordatorios as any)
-      .select({
-        fields: ["Clinica", "Secuencia_dias", "Recordatorio_max", "Hora_envio", "Dias_rechazo_auto", "Activa"],
-        ...(clinicaFormula ? { filterByFormula: clinicaFormula } : {}),
-        maxRecords: 10,
-      })
-      .all();
+    const recs = await selectConfigRecordatoriosRaw({
+      fields: ["Clinica", "Secuencia_dias", "Recordatorio_max", "Hora_envio", "Dias_rechazo_auto", "Activa"],
+      ...(clinicaFormula ? { filterByFormula: clinicaFormula } : {}),
+      maxRecords: 10,
+    });
 
     if (recs.length === 0) {
       // Return defaults
@@ -100,18 +99,16 @@ export const PUT = withPresupuestosAuth(async (session, req: Request) => {
     };
 
     // Check if exists
-    const existing = await base(TABLES.configuracionRecordatorios as any)
-      .select({
-        filterByFormula: `{Clinica}='${clinica}'`,
-        maxRecords: 1,
-        fields: ["Clinica"],
-      })
-      .all();
+    const existing = await selectConfigRecordatoriosRaw({
+      filterByFormula: `{Clinica}='${clinica}'`,
+      maxRecords: 1,
+      fields: ["Clinica"],
+    });
 
     if (existing.length > 0) {
-      await base(TABLES.configuracionRecordatorios as any).update(existing[0].id, fields as any);
+      await updateConfigRecordatoriosRaw(existing[0].id, fields);
     } else {
-      await (base(TABLES.configuracionRecordatorios as any).create as any)(fields);
+      await createConfigRecordatoriosRaw(fields);
     }
 
     return NextResponse.json({ ok: true });

@@ -12,6 +12,7 @@
 // el id de opcion identifica un record concreto sin necesidad de
 // re-pasar la clinica (la resolvemos leyendo Clinica_Link del record).
 
+import { findConfigClinicaRaw } from "../../../../lib/configuraciones/configuraciones";
 import { NextResponse } from "next/server";
 import { withAuth } from "../../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../../lib/auth/users";
@@ -27,7 +28,7 @@ type Ctx = { params: Promise<{ id: string }> };
 
 async function loadOpcionScope(id: string): Promise<{ clinicaId: string | null } | null> {
   try {
-    const rec = await base(TABLES.configuracionesClinica as any).find(id);
+    const rec = await findConfigClinicaRaw(id);
     const links = ((rec.fields as any)?.["Clinica_Link"] ?? []) as string[];
     return { clinicaId: links[0] ?? null };
   } catch {

@@ -153,20 +153,14 @@ async function enviarPlantilla(args: {
 
 async function alertaOverbooking(ctx: CitaCtx, citaId: string): Promise<AplicarAccionResult> {
   try {
-    await base(TABLES.alertasEnviadas).create(
-      [
-        {
-          fields: {
-            Resumen: `[overbooking] cita riesgo alto ${citaId.slice(-6)}`,
-            Tipo: "overbooking",
-            Mensaje: `Cita de riesgo alto (${ctx.treatment || "tratamiento"}). Considerá overbooking / reagendar el hueco.`,
-            Urgencia: "media",
-            Created_At: new Date().toISOString(),
-          },
-        },
-      ],
-      { typecast: true },
-    );
+    const { createAlertaCoordinacionRaw } = await import("../alertas/historial");
+    await createAlertaCoordinacionRaw({
+      Resumen: `[overbooking] cita riesgo alto ${citaId.slice(-6)}`,
+      Tipo: "overbooking",
+      Mensaje: `Cita de riesgo alto (${ctx.treatment || "tratamiento"}). Considerá overbooking / reagendar el hueco.`,
+      Urgencia: "media",
+      Created_At: new Date().toISOString(),
+    });
     return { ok: true };
   } catch (e) {
     return { ok: false, motivo: "alerta_error", detalle: String(e) };

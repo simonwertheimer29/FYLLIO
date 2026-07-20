@@ -2,6 +2,7 @@
 // GET: informes noshow_semanal guardados en Airtable
 // Requiere JWT cookie fyllio_noshows_token
 
+import { selectInformesRaw } from "../../../../lib/informes";
 import { NextResponse } from "next/server";
 import { jwtVerify } from "jose";
 import { cookies } from "next/headers";
@@ -66,9 +67,7 @@ export async function GET() {
     };
     if (filters.length > 0) selectOpts.filterByFormula = `AND(${filters.join(",")})`;
 
-    const recs = await base(TABLES.informesGuardados as any)
-      .select(selectOpts)
-      .all();
+    const recs = await selectInformesRaw(selectOpts);
 
     return NextResponse.json({
       informes: recs.map((r: { id: string; fields: Record<string, unknown> }) => mapRecord({ id: r.id, fields: r.fields })),

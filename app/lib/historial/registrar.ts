@@ -29,3 +29,12 @@ export async function registrarAccion(args: {
     // nunca lanzar — el historial es secundario, no debe romper el flujo principal
   }
 }
+
+// FASE 1 migración — lecturas de Historial_Acciones para las rutas.
+export async function selectHistorialRaw(opts: {
+  filterByFormula?: string;
+  sort?: Array<{ field: string; direction: "asc" | "desc" }>;
+  maxRecords?: number;
+}): Promise<readonly any[]> {
+  return base(TABLES.historialAcciones as any).select(opts as any).all();
+}

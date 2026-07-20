@@ -453,7 +453,8 @@ async function getClinicaForMensaje(params: { presupuestoId?: string; leadId?: s
       const lead = await getLead(params.leadId);
       if (lead?.clinicaId) {
         // Lead.clinicaId es un ID de clínica; el nombre vive en la base central.
-        const cli = await baseCentral(TABLES.clinics as any).find(lead.clinicaId).catch(() => null);
+        const { findClinicaCentralRaw } = await import("../auth/users");
+        const cli = await findClinicaCentralRaw(lead.clinicaId).catch(() => null);
         const nombre = (cli?.fields as any)?.["Nombre"];
         if (nombre) return String(nombre);
       }
@@ -472,4 +473,19 @@ export function getServicioMensajeria(modo: ModoWhatsApp = "manual"): ServicioMe
 // Export directo para call sites que necesitan enviarPlantilla (solo WABA).
 export function getServicioMensajeriaWABA(): ServicioMensajeriaWABA {
   return new ServicioMensajeriaWABA();
+}
+
+// FASE 1 migración — acceso de lectura a Mensajes_WhatsApp para consumidores
+// externos (kpi-hoy, copilot). Passthrough; el resto de accesos a la tabla ya
+// vive en este archivo y en rate-limit.ts (mismo dominio).
+export async function selectMensajesWhatsAppRaw(opts: {
+  filterByFormula?: string;
+  sort?: Array<{ field: string; direction: "asc" | "desc" }>;
+  maxRecords?: number;
+}): Promise<any[]> {
+  const sel: Record<string, unknown> = {};
+  if (opts.filterByFormula) sel.filterByFormula = opts.filterByFormula;
+  if (opts.sort) sel.sort = opts.sort;
+  if (opts.maxRecords !== undefined) sel.maxRecords = opts.maxRecords;
+  return fetchAll(base(TABLES.mensajesWhatsApp as any).select(sel as any));
 }

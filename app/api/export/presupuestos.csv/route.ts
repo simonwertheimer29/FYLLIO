@@ -19,6 +19,7 @@
 // Para volúmenes pequeños (<10k filas) cabe en memoria. Si crece,
 // migrar a ReadableStream chunked.
 
+import { selectClinicasCentralRaw } from "../../../lib/auth/users";
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { withAdmin } from "../../../lib/auth/session";
@@ -100,9 +101,7 @@ export const GET = withAdmin(async (_session, req) => {
   const estadoParam = url.searchParams.get("estado");
 
   // ── Resolver mapa clínicas (recordId → nombre) para filtrar/escribir.
-  const clinicaRecs = await fetchAll(
-    baseCentral(TABLES.clinics as any).select({ fields: ["Nombre"] }),
-  );
+  const clinicaRecs = await selectClinicasCentralRaw({ fields: ["Nombre"] });
   const clinicaNombrePorId = new Map<string, string>();
   for (const c of clinicaRecs) {
     clinicaNombrePorId.set(c.id, String((c.fields as any)?.["Nombre"] ?? ""));

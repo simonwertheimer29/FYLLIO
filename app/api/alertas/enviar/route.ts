@@ -2,6 +2,7 @@
 // Sprint 8 D.7 — envía alerta por WhatsApp a la coordinadora de la clínica.
 // Respeta cooldown 2h por (clinicaId, tipoAlerta) + registra en Alertas_Enviadas.
 
+import { findClinicaCentralRaw } from "../../../lib/auth/users";
 import { NextResponse } from "next/server";
 import { withAdmin } from "../../../lib/auth/session";
 import { baseCentral, TABLES, fetchAll } from "../../../lib/airtable";
@@ -79,7 +80,7 @@ export const POST = withAdmin(async (session, req) => {
   }
 
   // Clínica
-  const cliRec = await baseCentral(TABLES.clinics).find(clinicaId).catch(() => null);
+  const cliRec = await findClinicaCentralRaw(clinicaId).catch(() => null);
   if (!cliRec) return NextResponse.json({ error: "Clínica no encontrada" }, { status: 404 });
   const clinicaNombre = String(cliRec.fields?.["Nombre"] ?? "");
 

@@ -5,6 +5,7 @@
 // JSON {activa, horarioInicio, horarioFin, limiteDia, firstMessage,
 // voicePreference}.
 
+import { findConfigPorCategoriaYClinicaRaw, updateConfigClinicaRaw, createConfigClinicaRaw } from "../../../../lib/configuraciones/configuraciones";
 import { NextResponse } from "next/server";
 import { withAuth } from "../../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../../lib/auth/users";
@@ -33,13 +34,7 @@ async function ensureScope(session: any, clinicaId: string) {
 }
 
 async function findRecord(clinicaId: string) {
-  const recs = await fetchAll(
-    base(TABLES.configuracionesClinica).select({
-      filterByFormula: `AND({Categoria}="llamadas_ia", FIND("${clinicaId}", ARRAYJOIN({Clinica_Link}, ",")))`,
-      maxRecords: 1,
-    }),
-  );
-  const r = recs[0];
+  const r = await findConfigPorCategoriaYClinicaRaw("llamadas_ia", clinicaId);
   if (!r) return null;
   const raw = String(r.fields["Valor"] ?? "");
   let parsed: any = {};
@@ -78,26 +73,17 @@ export const PUT = withAuth<Ctx>(async (session, req, ctx) => {
   const valor = JSON.stringify(merged);
   const found = await findRecord(clinicaId);
   if (found) {
-    await base(TABLES.configuracionesClinica).update([
-      { id: found.id, fields: { Valor: valor, Activo: true } },
-    ]);
+    await updateConfigClinicaRaw(found.id, { Valor: valor, Activo: true });
   } else {
-    await base(TABLES.configuracionesClinica).create(
-      [
-        {
-          fields: {
-            Resumen: "llamadas_ia",
-            Categoria: "llamadas_ia",
-            Clinica_Link: [clinicaId],
-            Valor: valor,
-            Activo: true,
-            Orden: 0,
-            Created_At: new Date().toISOString(),
-          },
-        },
-      ],
-      { typecast: true },
-    );
+    await createConfigClinicaRaw({
+      Resumen: "llamadas_ia",
+      Categoria: "llamadas_ia",
+      Clinica_Link: [clinicaId],
+      Valor: valor,
+      Activo: true,
+      Orden: 0,
+      Created_At: new Date().toISOString(),
+    });
   }
   return NextResponse.json({ ok: true, config: merged });
 });

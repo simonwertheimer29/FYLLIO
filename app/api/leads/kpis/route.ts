@@ -15,6 +15,7 @@
 //     generado (cache 5min, fallback graceful con _warning)
 //   - drilldown por clinica via query param ?clinica=<id>
 
+import { selectClinicasCentralRaw } from "../../../lib/auth/users";
 import { NextResponse } from "next/server";
 import { mapStaffNombrePorIds } from "../../../lib/scheduler/repo/staffRepo";
 import { withAuth } from "../../../lib/auth/session";
@@ -239,12 +240,10 @@ export const GET = withAuth(async (session, req) => {
   if (clinicaIds.length > 0) {
     try {
       const formula = `OR(${clinicaIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
-      const recs = await fetchAll(
-        baseCentral(TABLES.clinics as any).select({
-          filterByFormula: formula,
-          fields: ["Nombre"],
-        }),
-      );
+      const recs = await selectClinicasCentralRaw({
+        filterByFormula: formula,
+        fields: ["Nombre"],
+      });
       for (const r of recs) {
         clinicaNombres[r.id] = String((r.fields as any)?.["Nombre"] ?? r.id);
       }

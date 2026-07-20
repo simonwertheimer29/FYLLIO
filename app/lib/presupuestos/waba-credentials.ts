@@ -61,3 +61,22 @@ export function isWABAEnabled(): boolean {
 export function normalizarTelefono(raw: string): string {
   return raw.replace(/[^0-9]/g, "");
 }
+
+// FASE 1 migración — repo de Configuracion_WABA (activación por clínica).
+import { base as _base, TABLES as _TABLES } from "../airtable";
+
+export async function findConfigWABAPorClinicaRaw(clinica: string): Promise<any | null> {
+  const recs = await _base(_TABLES.configuracionWABA as any)
+    .select({
+      filterByFormula: `{Clinica}='${clinica}'`,
+      maxRecords: 1,
+    })
+    .firstPage();
+  return recs?.[0] ?? null;
+}
+export async function updateConfigWABARaw(id: string, fields: Record<string, unknown>): Promise<void> {
+  await (_base(_TABLES.configuracionWABA as any) as any).update(id, fields);
+}
+export async function createConfigWABARaw(fields: Record<string, unknown>): Promise<void> {
+  await _base(_TABLES.configuracionWABA as any).create([{ fields }] as any);
+}

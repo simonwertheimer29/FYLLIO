@@ -6,6 +6,7 @@
 // con Categoria=horario_laboral y Valor=JSON estructurado.
 // El endpoint encapsula este detalle y devuelve el HorarioLaboral parseado.
 
+import { findConfigPorCategoriaYClinicaRaw, updateConfigClinicaRaw, createConfigClinicaRaw } from "../../../../lib/configuraciones/configuraciones";
 import { NextResponse } from "next/server";
 import { withAuth } from "../../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../../lib/auth/users";
@@ -29,13 +30,7 @@ async function ensureScope(session: any, clinicaId: string) {
 }
 
 async function findRecord(clinicaId: string): Promise<{ id: string; valor: HorarioLaboral } | null> {
-  const recs = await fetchAll(
-    base(TABLES.configuracionesClinica).select({
-      filterByFormula: `AND({Categoria}="horario_laboral", FIND("${clinicaId}", ARRAYJOIN({Clinica_Link}, ",")))`,
-      maxRecords: 1,
-    }),
-  );
-  const rec = recs[0];
+  const rec = await findConfigPorCategoriaYClinicaRaw("horario_laboral", clinicaId);
   if (!rec) return null;
   const raw = String(rec.fields["Valor"] ?? "");
   try {
@@ -74,26 +69,17 @@ export const PUT = withAuth<Ctx>(async (session, req, ctx) => {
   const found = await findRecord(clinicaId);
 
   if (found) {
-    await base(TABLES.configuracionesClinica).update([
-      { id: found.id, fields: { Valor: valor, Activo: true } },
-    ]);
+    await updateConfigClinicaRaw(found.id, { Valor: valor, Activo: true });
   } else {
-    await base(TABLES.configuracionesClinica).create(
-      [
-        {
-          fields: {
-            Resumen: "horario_laboral",
-            Categoria: "horario_laboral",
-            Clinica_Link: [clinicaId],
-            Valor: valor,
-            Activo: true,
-            Orden: 0,
-            Created_At: new Date().toISOString(),
-          },
-        },
-      ],
-      { typecast: true },
-    );
+    await createConfigClinicaRaw({
+      Resumen: "horario_laboral",
+      Categoria: "horario_laboral",
+      Clinica_Link: [clinicaId],
+      Valor: valor,
+      Activo: true,
+      Orden: 0,
+      Created_At: new Date().toISOString(),
+    });
   }
 
   return NextResponse.json({ ok: true, horario: body.horario });

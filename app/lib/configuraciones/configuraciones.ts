@@ -145,3 +145,34 @@ export const CATEGORIA_LABEL: Record<ConfigCategoria, string> = {
   Razones_No_Interesado: "Razones de \"No Interesado\"",
   Plantillas_Scope: "Plantillas WhatsApp",
 };
+
+// FASE 1 migración — accesos genéricos a Configuraciones_Clinica para los
+// consumidores por categoría (horario laboral, llamadas IA, motor no-shows).
+export async function findConfigClinicaRaw(id: string): Promise<any> {
+  return base(TABLES.configuracionesClinica as any).find(id);
+}
+export async function findConfigPorCategoriaYClinicaRaw(
+  categoria: string,
+  clinicaId: string,
+): Promise<any | null> {
+  const recs = await fetchAll(
+    base(TABLES.configuracionesClinica).select({
+      filterByFormula: `AND({Categoria}="${categoria}", FIND("${clinicaId}", ARRAYJOIN({Clinica_Link}, ",")))`,
+      maxRecords: 1,
+    }),
+  );
+  return recs[0] ?? null;
+}
+export async function selectConfigsPorCategoriaRaw(categoria: string): Promise<any[]> {
+  return fetchAll(
+    base(TABLES.configuracionesClinica).select({
+      filterByFormula: `{Categoria}="${categoria}"`,
+    }),
+  );
+}
+export async function updateConfigClinicaRaw(id: string, fields: Record<string, unknown>): Promise<void> {
+  await base(TABLES.configuracionesClinica).update([{ id, fields } as any]);
+}
+export async function createConfigClinicaRaw(fields: Record<string, unknown>): Promise<void> {
+  await base(TABLES.configuracionesClinica).create([{ fields } as any], { typecast: true });
+}

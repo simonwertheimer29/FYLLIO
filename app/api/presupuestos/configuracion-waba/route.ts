@@ -4,6 +4,7 @@
 //
 // NUNCA devuelve el Access Token ni siquiera parcialmente.
 
+import { findConfigWABAPorClinicaRaw, updateConfigWABARaw, createConfigWABARaw } from "../../../lib/presupuestos/waba-credentials";
 import { NextResponse } from "next/server";
 import { base, TABLES } from "../../../lib/airtable";
 import { hasWABACredentials, getWABACredentials } from "../../../lib/presupuestos/waba-credentials";
@@ -65,12 +66,8 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
 
   if (clinica && process.env.AIRTABLE_API_KEY) {
     try {
-      const recs = await base(TABLES.configuracionWABA as any)
-        .select({
-          filterByFormula: `{Clinica}='${clinica}'`,
-          maxRecords: 1,
-        })
-        .firstPage();
+      const rec0 = await findConfigWABAPorClinicaRaw(clinica);
+      const recs = rec0 ? [rec0] : [];
       if (recs.length > 0) {
         const f = recs[0].fields as any;
         activoParaClinica = f["Activo"] === true;
@@ -114,21 +111,13 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
   }
 
   try {
-    const existing = await base(TABLES.configuracionWABA as any)
-      .select({
-        filterByFormula: `{Clinica}='${clinica}'`,
-        maxRecords: 1,
-      })
-      .firstPage();
+    const existingRec = await findConfigWABAPorClinicaRaw(clinica);
+    const existing = existingRec ? [existingRec] : [];
 
     if (existing.length > 0) {
-      await base(TABLES.configuracionWABA as any).update(existing[0].id, {
-        Activo: activoParaClinica,
-      } as any);
+      await updateConfigWABARaw(existing[0].id, { Activo: activoParaClinica });
     } else {
-      await base(TABLES.configuracionWABA as any).create([{
-        fields: { Clinica: clinica, Activo: activoParaClinica } as any,
-      }]);
+      await createConfigWABARaw({ Clinica: clinica, Activo: activoParaClinica });
     }
 
     return NextResponse.json({ ok: true, activoParaClinica });

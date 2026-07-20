@@ -94,3 +94,15 @@ export async function recordAlert(input: {
   )[0]!;
   return toAlerta(created);
 }
+
+// FASE 1 migración — alta genérica de alerta de coordinación (usada por
+// vapi, motor de reglas, llamadas IA y no-shows) + lectura filtrada.
+export async function createAlertaCoordinacionRaw(fields: Record<string, unknown>): Promise<void> {
+  await base(TABLES.alertasEnviadas).create([{ fields }] as any, { typecast: true } as any);
+}
+export async function selectAlertasEnviadasRaw(opts: {
+  filterByFormula?: string;
+  maxRecords?: number;
+}): Promise<any[]> {
+  return fetchAll(base(TABLES.alertasEnviadas).select(opts as any));
+}

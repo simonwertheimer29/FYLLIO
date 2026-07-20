@@ -2,6 +2,7 @@
 // GET — lista últimas 50 notificaciones del usuario
 // PATCH — marcar como leídas
 
+import { selectNotificacionesRaw, updateNotificacionesBatchRaw } from "../../lib/presupuestos/notificaciones";
 import { NextResponse } from "next/server";
 import { base, TABLES } from "../../lib/airtable";
 import type { Notificacion } from "../../lib/presupuestos/types";
@@ -33,14 +34,12 @@ export const GET = withPresupuestosAuth(async (session) => {
     const email = session.email;
     const filterByFormula = `OR({Usuario}='todos', {Usuario}='${email}')`;
 
-    const recs = await base(TABLES.notificaciones as any)
-      .select({
-        fields: ["Usuario", "Tipo", "Titulo", "Mensaje", "Link", "Leida", "Fecha_creacion"],
-        filterByFormula,
-        sort: [{ field: "Fecha_creacion", direction: "desc" }],
-        maxRecords: 50,
-      })
-      .all();
+    const recs = await selectNotificacionesRaw({
+      fields: ["Usuario", "Tipo", "Titulo", "Mensaje", "Link", "Leida", "Fecha_creacion"],
+      filterByFormula,
+      sort: [{ field: "Fecha_creacion", direction: "desc" }],
+      maxRecords: 50,
+    });
 
     const notificaciones = recs.map(recordToNotificacion);
     const noLeidas = notificaciones.filter((n) => !n.leida).length;
@@ -62,13 +61,11 @@ export const PATCH = withPresupuestosAuth(async (session, req) => {
     if (all) {
       const email = session.email;
       const filterByFormula = `AND(OR({Usuario}='todos', {Usuario}='${email}'), {Leida}=FALSE())`;
-      const recs = await base(TABLES.notificaciones as any)
-        .select({
-          fields: ["Leida"],
-          filterByFormula,
-          maxRecords: 200,
-        })
-        .all();
+      const recs = await selectNotificacionesRaw({
+        fields: ["Leida"],
+        filterByFormula,
+        maxRecords: 200,
+      });
       idsToUpdate = recs.map((r: any) => r.id);
     } else if (ids && ids.length > 0) {
       idsToUpdate = ids;
@@ -80,7 +77,7 @@ export const PATCH = withPresupuestosAuth(async (session, req) => {
         id,
         fields: { Leida: true },
       }));
-      await base(TABLES.notificaciones as any).update(batch as any);
+      await updateNotificacionesBatchRaw(batch);
       if (i + 10 < idsToUpdate.length) await sleep(150);
     }
 

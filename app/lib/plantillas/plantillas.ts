@@ -311,7 +311,8 @@ async function loadStaffNombre(staffId: string): Promise<string | null> {
 
 async function loadClinicaNombre(clinicaId: string): Promise<string | null> {
   try {
-    const rec = await baseCentral(TABLES.clinics as any).find(clinicaId);
+    const { findClinicaCentralRaw } = await import("../auth/users");
+    const rec = await findClinicaCentralRaw(clinicaId);
     return String((rec.fields as any)?.["Nombre"] ?? "") || null;
   } catch {
     return null;
@@ -366,4 +367,22 @@ function fmtFechaEs(iso: string): string {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const yyyy = d.getFullYear();
   return `${dd}/${mm}/${yyyy}`;
+}
+
+// FASE 1 migración — passthroughs de Plantillas_Mensaje para el CRUD de la
+// ruta de plantillas y el generador de cola de envíos.
+export async function selectPlantillasMensajeRaw(opts: Record<string, unknown>): Promise<readonly any[]> {
+  return base(TABLES.plantillasMensaje as any).select(opts as any).all();
+}
+export async function findPlantillaMensajeRaw(id: string): Promise<any> {
+  return base(TABLES.plantillasMensaje as any).find(id);
+}
+export async function createPlantillaMensajeRaw(fields: Record<string, unknown>): Promise<any> {
+  return (base(TABLES.plantillasMensaje as any).create as any)(fields);
+}
+export async function updatePlantillaMensajeRaw(id: string, fields: Record<string, unknown>): Promise<void> {
+  await (base(TABLES.plantillasMensaje as any) as any).update(id, fields);
+}
+export async function destroyPlantillaMensajeRaw(id: string): Promise<void> {
+  await base(TABLES.plantillasMensaje as any).destroy(id);
 }
