@@ -353,3 +353,8 @@ create policy p_cliente on llamadas_vapi for all to fyllio_app
 grant select, insert, update, delete on llamadas_vapi to fyllio_app;
 -- PostgREST fuera: estas tablas NO se sirven por la API de Supabase.
 revoke all on llamadas_vapi from anon, authenticated;
+
+create or replace view login_clinicas_directorio as
+  select id, cliente, nombre, ciudad, activa from clinicas;
+grant select on login_clinicas_directorio to fyllio_app;
+revoke all on login_clinicas_directorio from anon, authenticated;

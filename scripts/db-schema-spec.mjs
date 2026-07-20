@@ -706,6 +706,19 @@ grant select, insert, update, delete on ${t2} to fyllio_app;
 -- PostgREST fuera: estas tablas NO se sirven por la API de Supabase.
 revoke all on ${t2} from anon, authenticated;`);
   }
+  // D7a — DIRECTORIO DE LOGIN (la respuesta al caso "elige clínica → PIN"):
+  // la pantalla clásica lista clínicas ANTES de conocer el cliente (hoy lee la
+  // base central COMPARTIDA — esa es la exposición actual del Sprint B). Con
+  // RLS por cliente esa lectura daría 0 filas, así que se expone EXACTAMENTE
+  // lo mismo que hoy via una VISTA sin security_invoker (corre con permisos
+  // del dueño, no del rol): solo id/cliente/nombre/ciudad/activa. La TABLA
+  // clinicas conserva su política estricta — sin políticas OR permisivas, el
+  // camino de negocio no puede listar clínicas de otro cliente. El flujo
+  // clinic-first arranca el contexto desde la columna cliente de la vista.
+  out.push(`create or replace view login_clinicas_directorio as
+  select id, cliente, nombre, ciudad, activa from clinicas;
+grant select on login_clinicas_directorio to fyllio_app;
+revoke all on login_clinicas_directorio from anon, authenticated;`);
   return out.join("\n\n") + "\n";
 }
 

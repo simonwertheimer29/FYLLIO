@@ -12,7 +12,8 @@
     "demo:reset": "npx tsx app/scripts/demo-reset.ts",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:migrate:dry": "node scripts/db-migrate.mjs --dry",
-    "guard:rls": "node scripts/guard-service-role.mjs"
+    "guard:rls": "node scripts/guard-service-role.mjs",
+    "db:smoke-rls": "node scripts/db-smoke-rls.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
