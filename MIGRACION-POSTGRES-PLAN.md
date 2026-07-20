@@ -422,9 +422,83 @@ informes (upsert ×2), plantillas mensaje (CRUD + destroy), recordatorios (upser
 coordinación (create ×4 consumidores), configuraciones clínica (upsert horario/llamadas
 IA/motor), clínicas central (create/update admin).
 
-**FASE 1: 100% COMPLETA. La migración está PARADA aquí por decisión de Simon
-(2026-07-20): FASE 2 (Postgres detrás de la interfaz) NO arranca hasta que él revise
-con calma el paso a Supabase. Gate de reevaluación pendiente: piloto/legal + este plan.**
+**FASE 1: 100% COMPLETA** (cerrada 2026-07-20). FASE 2 autorizada por Simon el mismo día
+con orden y gates innegociables (ver §10).
+
+---
+
+## §10 · FASE 2 — Postgres pasa a ser la verdad (EN CURSO, por gates)
+
+Mandato de Simon (2026-07-20): por fases con gates, NO big-bang; los 9 mandamientos son la
+definición de "hecho"; Airtable queda read-only como rollback hasta que el QA adversarial
+pase; producción no se toca.
+
+### Gate 1 — ANDAMIAJE (hecho, pendiente de revisión de Simon) ✋
+
+**Esquema — una sola fuente** (`scripts/db-schema-spec.mjs` genera SQL y tipos; no pueden
+divergir):
+- `db/migrations/001_esquema_negocio.sql` — 35 tablas de negocio + 3 de identidad.
+- `db/migrations/002_rls.sql` — RLS forzada + rol `fyllio_app`.
+- `app/lib/db/types.ts` — interfaz Kysely generada.
+
+**Decisiones de diseño D1-D10** (codificadas y comentadas en la spec — el gate de revisión):
+- **D2 (la fuerte): FKs COMPUESTAS `(cliente, id)`** — cada tabla tiene
+  `UNIQUE(cliente,id)` y cada link referencia `(cliente, ref)`: un enlace entre clientes es
+  estructuralmente imposible. Mata la clase `logAccionLead` a nivel de motor.
+- **D4 (mandato enums):** CHECK solo en conjuntos cerrados por los tipos TS (Estado de
+  presupuesto, Resultado de ejecución, etc. — fallo EN VOZ ALTA si llega un valor nuevo);
+  campos con `typecast:true` en Airtable (extensibles: Metodo/Tipo de pago, plantillas,
+  categorías) → TEXT abierto. Decisión POR CAMPO visible en la spec.
+- **D7:** UNA tabla `clinicas` (negocio+central unificadas) — el puente por-nombre entre
+  las dos tablas Clínicas de Airtable era un artefacto de bases separadas; en un Postgres
+  es la misma entidad. `clinicas-negocio.ts` se vuelve trivial al voltear.
+- **D8:** espejos de texto → FK reales (`Paciente_RecordId`→`paciente_id`,
+  `PresupuestoId`→`presupuesto_id`, clinica-por-nombre→`clinica_id`; los repos traducen
+  nombre↔id al voltear). Excepciones documentadas: `eventos_sistema.entidad_id`
+  (polimórfico), `cola_envios.presupuesto_ref` (ambigüedad recId/Presupuesto-ID a resolver
+  antes de voltear ese flujo), `doctor` como nombre libre.
+- **D9:** `usuarios` con política RLS de identidad (`using true` para fyllio_app — el
+  login email+PIN es cross-cliente por diseño; control por bcrypt); TODO lo demás exige
+  `app.cliente` en contexto.
+- D1/D3/D5/D6/D10: cliente NOT NULL en todo; ids TEXT-uuid opacos; JSON-strings quedan
+  TEXT (paridad; jsonb es follow-up); lookups se sintetizan por JOIN; timestamptz/date/text
+  según formato.
+
+**Conexión** (`app/lib/db/client.ts`): Kysely + pg por el **pooler transaction-mode
+(6543)**, sin prepared statements con nombre (gotcha §6, documentado en el archivo), pool
+pequeño por instancia, TLS. Usuario `fyllio_app` (LOGIN, **NOBYPASSRLS**). Fail-closed sin
+`SUPABASE_DB_URL_APP`.
+
+**Seam de aislamiento** (`app/lib/db/context.ts`): `runWithClienteDb(cliente, fn)` =
+transacción + `set_config('app.cliente', $1, true)` (SET LOCAL parametrizado, muere con la
+transacción → pooler-safe). `dbActual()` lanza fuera de contexto — espejo exacto del
+`base()` fail-closed del Sprint B. RLS: sin SET LOCAL → `current_setting` NULL → 0 filas.
+
+**Guard de CI** (`npm run guard:rls`): service_role prohibida fuera de la allowlist de
+analítica (en su primer run cazó el init del Sprint 18 → allowlist); `SUPABASE_DB_URL_ADMIN`
+prohibida fuera de scripts de migración. Además 002 hace `revoke` de `anon`/`authenticated`:
+las tablas de negocio NO se sirven por la API REST de Supabase.
+
+**Migrador** (`npm run db:migrate` / `db:migrate:dry`): transaccional por archivo, registro
+en `_migraciones`, usa `SUPABASE_DB_URL_ADMIN` (solo migraciones); post-paso opcional fija
+el password de `fyllio_app` desde `FYLLIO_APP_DB_PASSWORD` (nunca en el repo).
+
+**Env que falta (Simon)**: `SUPABASE_DB_URL_ADMIN` (conexión directa 5432, usuario
+postgres — Dashboard→Settings→Database), `FYLLIO_APP_DB_PASSWORD` (password a elegir para
+el rol de app) y tras la primera migración `SUPABASE_DB_URL_APP` (pooler 6543 con
+`fyllio_app.<project-ref>` + ese password).
+
+**Intocables verificados**: las 3 tablas del motor predictivo no aparecen en ninguna
+migración; la analítica sigue con su cliente service-role actual.
+
+### Gates siguientes (en orden, cada uno se enseña antes de seguir)
+2. Aplicar migraciones + tests de humo de RLS contra Supabase (sin SET LOCAL → 0 filas).
+3. Seed DEMO en Postgres + volteo del primer dominio tras `DATA_BACKEND` (DEMO primero).
+4. Escrituras ejercitadas DE VERDAD (registro §9 completo, 23 de Presupuestos incl.
+   typecast del Copilot) + paridad golden por dominio (mismo instante).
+5. RB/INDEP (vacías) detrás.
+6. **GATE FINAL innegociable**: QA adversarial del Sprint B (SPRINT-B-QA.md, 5 escenarios)
+   contra RLS + tests de aislamiento del motor. Si un cliente ve a otro → SE PARA.
 
 ### Estado Automatizaciones (hecho, 4º dominio)
 
