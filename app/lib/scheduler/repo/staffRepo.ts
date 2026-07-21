@@ -1,5 +1,6 @@
 // app/lib/scheduler/repo/staffRepo.ts
 import { base, TABLES } from "../../airtable";
+import { usaPostgres } from "../../db/data-backend";
 
 export type StaffRow = {
   recordId: string;      // recXXXX
@@ -63,6 +64,10 @@ import { fetchAll } from "../../airtable";
 
 /** Map recordId → Nombre para resolver doctores por lote de IDs. */
 export async function mapStaffNombrePorIds(ids: string[]): Promise<Map<string, string>> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.mapStaffNombrePorIdsPg(ids);
+  }
   const map = new Map<string, string>();
   if (!ids.length) return map;
   const formula = `OR(${ids.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
@@ -76,6 +81,10 @@ export async function mapStaffNombrePorIds(ids: string[]): Promise<Map<string, s
 /** Record crudo de un staff por su Staff ID (agenda demo lee Nombre,
  *  Horario laboral y Almuerzo via rec.get()). null si no existe. */
 export async function findStaffPorStaffIdRaw(staffId: string): Promise<any | null> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.findStaffPorStaffIdRawPg(staffId);
+  }
   const safe = String(staffId).replace(/'/g, "\\'");
   const recs = await base(TABLES.staff)
     .select({ maxRecords: 1, filterByFormula: `{Staff ID}='${safe}'` })
@@ -85,6 +94,10 @@ export async function findStaffPorStaffIdRaw(staffId: string): Promise<any | nul
 
 /** Campo Horario de un staff por record id (validación de nueva cita). */
 export async function getStaffHorarioPorRecordId(staffRecordId: string): Promise<any | null> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.getStaffHorarioPorRecordIdPg(staffRecordId);
+  }
   const recs = await base(TABLES.staff)
     .select({
       filterByFormula: `RECORD_ID()='${staffRecordId}'`,
@@ -97,23 +110,39 @@ export async function getStaffHorarioPorRecordId(staffRecordId: string): Promise
 
 /** Primera página del staff (lista demo /api/db/staff). */
 export async function listStaffFirstPageRaw(maxRecords = 200): Promise<readonly any[]> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.listStaffFirstPageRawPg(maxRecords);
+  }
   return base(TABLES.staff).select({ maxRecords }).firstPage();
 }
 
 /** Nombre de un staff por record id (plantillas). Lanza si no existe. */
 export async function getStaffNombrePorId(staffId: string): Promise<string> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.getStaffNombrePorIdPg(staffId);
+  }
   const rec = await base(TABLES.staff).find(staffId);
   return String((rec.fields as any)?.["Nombre"] ?? "");
 }
 
 /** Record crudo por id (motor no-shows enriquece el histórico). */
 export async function findStaffRaw(recId: string): Promise<any> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.findStaffRawPg(recId);
+  }
   return base(TABLES.staff).find(recId);
 }
 
 /** Volcado con fields explícitos (superficie diferida no-shows: mapas
  *  Staff ID / Nombre / Clínica / Rol). Se re-tipa al migrar ese módulo. */
 export async function listStaffCamposRaw(fields: string[]): Promise<readonly any[]> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.listStaffCamposRawPg(fields);
+  }
   return base(TABLES.staff).select({ fields }).all();
 }
 

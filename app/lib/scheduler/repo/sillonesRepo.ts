@@ -4,16 +4,25 @@
 // Único punto de acceso; en FASE 2 cambia su interior a Postgres.
 
 import { base, TABLES } from "../../airtable";
+import { usaPostgres } from "../../db/data-backend";
 
 /** Volcado con fields explícitos (superficie diferida no-shows: map
  *  Sillón ID → Nombre; seeders dev: Nombre → recordId). */
 export async function listSillonesCamposRaw(fields: string[]): Promise<readonly any[]> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.listSillonesCamposRawPg(fields);
+  }
   return base(TABLES.sillones as any).select({ fields }).all();
 }
 
 /** Records crudos por lote de IDs (vista semanal demo lee via rec.get()).
  *  firstPage por chunk de 40, como el helper que sustituye. */
 export async function listSillonesPorIdsRaw(ids: string[]): Promise<any[]> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.listSillonesPorIdsRawPg(ids);
+  }
   if (!ids.length) return [];
   const uniq = [...new Set(ids)];
   const out: any[] = [];

@@ -1,5 +1,6 @@
 // app/lib/scheduler/repo/airtableRepo.ts
 import type { Appointment } from "../../types";
+import { usaPostgres } from "../../db/data-backend";
 import { base, TABLES, fetchAll } from "../../airtable";
 import { DateTime } from "luxon";
 
@@ -536,6 +537,10 @@ export async function updateCitaEstado(
   estado: string,
   opts: { typecast?: boolean } = {},
 ): Promise<void> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.updateCitaEstadoPg(citaId, estado);
+  }
   if (opts.typecast) {
     await base(TABLES.appointments).update(
       [{ id: citaId, fields: { Estado: estado } as any }],
@@ -556,6 +561,10 @@ export async function registrarAccionNoShowEnCita(
     notasAccion?: string;
   },
 ): Promise<void> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.registrarAccionNoShowEnCitaPg(citaId, input);
+  }
   const fields: Record<string, unknown> = { Ultima_accion: input.ultimaAccion };
   if (input.tipoUltimaAccion) fields["Tipo_ultima_accion"] = input.tipoUltimaAccion;
   if (input.faseRecordatorio) fields["Fase_recordatorio"] = input.faseRecordatorio;
@@ -571,6 +580,10 @@ export async function createCitaMinima(input: {
   horaFinalIso: string;
   notas?: string;
 }): Promise<{ id: string }> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.createCitaMinimaPg(input);
+  }
   const fields: Record<string, unknown> = {
     "Nombre": input.nombre,
     "Hora inicio": input.horaInicioIso,
@@ -586,6 +599,10 @@ export async function reprogramarCita(
   citaId: string,
   input: { horaInicioIso?: string; horaFinalIso?: string; estado?: string },
 ): Promise<void> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.reprogramarCitaPg(citaId, input);
+  }
   const fields: Record<string, unknown> = {};
   if (input.horaInicioIso) fields["Hora inicio"] = input.horaInicioIso;
   if (input.horaFinalIso) fields["Hora final"] = input.horaFinalIso;
@@ -595,6 +612,10 @@ export async function reprogramarCita(
 
 /** Record crudo de una cita (fields + createdTime). Lanza si no existe. */
 export async function findCitaRaw(citaId: string): Promise<any> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.findCitaRawPg(citaId);
+  }
   return base(TABLES.appointments).find(citaId);
 }
 
@@ -605,6 +626,10 @@ export async function listCitasDesdeRaw(
   desdeIso: string,
   opts: { hastaIso?: string } = {},
 ): Promise<any[]> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.listCitasDesdeRawPg(desdeIso, opts);
+  }
   const formula = opts.hastaIso
     ? `AND(IS_AFTER({Hora inicio}, '${desdeIso}'), IS_BEFORE({Hora inicio}, '${opts.hastaIso}'))`
     : `IS_AFTER({Hora inicio}, '${desdeIso}')`;
@@ -622,6 +647,10 @@ export async function listCitasEstadoVentanaRaw(params: {
   desdeIso: string;
   hastaIso: string;
 }): Promise<any[]> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.listCitasEstadoVentanaRawPg(params);
+  }
   return fetchAll(
     base(TABLES.appointments).select({
       filterByFormula: `AND({Estado}="${params.estado}", IS_AFTER({Hora inicio}, "${params.desdeIso}"), IS_BEFORE({Hora inicio}, "${params.hastaIso}"))`,
@@ -632,6 +661,10 @@ export async function listCitasEstadoVentanaRaw(params: {
 
 /** Historial de citas por teléfono de paciente o tutor (predictor). */
 export async function listCitasPorTelefonoRaw(phone: string): Promise<readonly any[]> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.listCitasPorTelefonoRawPg(phone);
+  }
   const safe = phone.replace(/'/g, "\\'");
   return base(TABLES.appointments)
     .select({
@@ -646,6 +679,10 @@ export async function listCitasPorProfesionalRaw(
   staffId: string,
   opts: { maxRecords?: number } = {},
 ): Promise<readonly any[]> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.listCitasPorProfesionalRawPg(staffId, opts);
+  }
   const safe = staffId.replace(/'/g, "\\'");
   return base(TABLES.appointments)
     .select({
@@ -661,6 +698,10 @@ export async function listCitasRevenueRaw(params: {
   staffId?: string | null;
   fromIso: string;
 }): Promise<readonly any[]> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.listCitasRevenueRawPg(params);
+  }
   const staffFilter = params.staffId
     ? `{Profesional_id}='${params.staffId}' AND `
     : "";
@@ -675,11 +716,19 @@ export async function listCitasRevenueRaw(params: {
 
 /** Volcado plano de citas (historial completo de la clínica). */
 export async function listCitasRaw(maxRecords: number): Promise<readonly any[]> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.listCitasRawPg(maxRecords);
+  }
   return base(TABLES.appointments).select({ maxRecords }).all();
 }
 
 /** Citas ordenadas por Hora inicio descendente (recall / última visita). */
 export async function listCitasOrdenadasDescRaw(maxRecords: number): Promise<readonly any[]> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.listCitasOrdenadasDescRawPg(maxRecords);
+  }
   return base(TABLES.appointments)
     .select({ maxRecords, sort: [{ field: "Hora inicio", direction: "desc" }] })
     .all();
@@ -687,6 +736,10 @@ export async function listCitasOrdenadasDescRaw(maxRecords: number): Promise<rea
 
 /** Resumen semanal para el informe de automatizaciones (campos fijos). */
 export async function listCitasResumenNoShowRaw(): Promise<readonly any[]> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.listCitasResumenNoShowRawPg();
+  }
   return base(TABLES.appointments)
     .select({ maxRecords: 500, fields: ["Hora inicio", "Estado", "Notas", "Clínica ID"] })
     .all();

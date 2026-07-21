@@ -1,5 +1,6 @@
 // app/lib/scheduler/repo/treatmentsRepo.ts
 import { base, TABLES } from "../../airtable";
+import { usaPostgres } from "../../db/data-backend";
 
 export type TreatmentRow = {
   recordId: string;            // recXXXX
@@ -79,6 +80,10 @@ export async function updateTratamientoInstrucciones(
   id: string,
   instrucciones: string,
 ): Promise<void> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.updateTratamientoInstruccionesPg(id, instrucciones);
+  }
   await base(TABLES.treatments).update([
     { id, fields: { Instrucciones_pre: instrucciones } as any },
   ]);
@@ -87,6 +92,10 @@ export async function updateTratamientoInstrucciones(
 /** Volcado crudo (dropdown demo lee Nombre/Duración/Instrucciones con
  *  varios alias de campo; dedup en el caller). */
 export async function listTratamientosRaw(maxRecords = 100): Promise<readonly any[]> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.listTratamientosRawPg(maxRecords);
+  }
   return base(TABLES.treatments).select({ maxRecords }).all();
 }
 
@@ -94,6 +103,10 @@ export async function listTratamientosRaw(maxRecords = 100): Promise<readonly an
 export async function listTratamientosInstrucciones(): Promise<
   Array<{ nombre: string; instruccionesPre: string }>
 > {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.listTratamientosInstruccionesPg();
+  }
   const recs = await base(TABLES.treatments)
     .select({ fields: ["Nombre", "Instrucciones_pre"], maxRecords: 200 })
     .all();
@@ -108,6 +121,10 @@ export async function mapTratamientosPorIds(
   ids: string[],
   fields: string[],
 ): Promise<Map<string, Record<string, unknown>>> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.mapTratamientosPorIdsPg(ids, fields);
+  }
   const map = new Map<string, Record<string, unknown>>();
   if (!ids.length) return map;
   const uniq = [...new Set(ids)];
@@ -129,6 +146,10 @@ export async function mapTratamientosPorIds(
 /** Records crudos por lote de IDs, sin restricción de fields (la vista
  *  semanal demo lee via rec.get()). firstPage por chunk, como su helper. */
 export async function listTratamientosPorIdsRaw(ids: string[]): Promise<any[]> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.listTratamientosPorIdsRawPg(ids);
+  }
   if (!ids.length) return [];
   const uniq = [...new Set(ids)];
   const out: any[] = [];
@@ -146,5 +167,9 @@ export async function listTratamientosPorIdsRaw(ids: string[]): Promise<any[]> {
 
 /** id + Nombre de todos los tratamientos (seeders dev). */
 export async function listTratamientosNombreRaw(): Promise<readonly any[]> {
+  if (usaPostgres("agenda")) {
+    const pg = await import("./pg");
+    return pg.listTratamientosNombreRawPg();
+  }
   return base(TABLES.treatments).select({ fields: ["Nombre"] }).all();
 }
