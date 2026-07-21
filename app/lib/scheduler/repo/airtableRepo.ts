@@ -160,7 +160,9 @@ export async function getSillonRecordIdBySillonId(sillonId: string) {
 }
 
 export async function getAppointmentByRecordId(appointmentRecordId: string) {
-  const r = await base(TABLES.appointments).find(appointmentRecordId);
+  const r = usaPostgres("agenda")
+    ? await (await import("./pg")).findCitaRawPg(appointmentRecordId)
+    : await base(TABLES.appointments).find(appointmentRecordId);
   const f: any = r.fields;
 
   // LINKS (en Airtable vienen como array de recordIds)
@@ -224,13 +226,15 @@ export async function findNextAppointmentByContactPhone(params: {
   // Busca próximas citas asociadas al número (paciente o tutor)
   const formula = `OR({${FIELD_PATIENT_PHONE}}='${esc(phoneE164)}',{${FIELD_TUTOR_PHONE}}='${esc(phoneE164)}')`;
 
-  const records = await base(TABLES.appointments)
-    .select({
-      maxRecords: 5,
-      filterByFormula: formula,
-      sort: [{ field: FIELD_START, direction: "asc" }],
-    })
-    .all();
+  const records = usaPostgres("agenda")
+    ? await (await import("./pg")).listCitasPorTelefonoRawPg(phoneE164) // ya ordena por hora_inicio asc
+    : await base(TABLES.appointments)
+        .select({
+          maxRecords: 5,
+          filterByFormula: formula,
+          sort: [{ field: FIELD_START, direction: "asc" }],
+        })
+        .all();
 
   // aquí puedes filtrar por "futuras" si tienes el campo start como datetime real.
   // Si no, devuelve la primera.
@@ -248,27 +252,35 @@ export async function cancelAppointment(params: {
   appointmentRecordId: string;
   origin?: string;
 }) {
-  await base(TABLES.appointments).update([
-    {
-      id: params.appointmentRecordId,
-      fields: {
-        Estado: "Cancelado",
-        ...(params.origin ? { Origen: params.origin } : {}),
+  if (usaPostgres("agenda")) {
+    await (await import("./pg")).cancelAppointmentPg(params.appointmentRecordId, params.origin);
+  } else {
+    await base(TABLES.appointments).update([
+      {
+        id: params.appointmentRecordId,
+        fields: {
+          Estado: "Cancelado",
+          ...(params.origin ? { Origen: params.origin } : {}),
+        },
       },
-    },
-  ]);
+    ]);
+  }
   fireCitaEvento("cancelada", params.appointmentRecordId);
 }
 
 export async function completeAppointment(params: {
   appointmentRecordId: string;
 }) {
-  await base(TABLES.appointments).update([
-    {
-      id: params.appointmentRecordId,
-      fields: { Estado: "Completado" },
-    },
-  ]);
+  if (usaPostgres("agenda")) {
+    await (await import("./pg")).completeAppointmentPg(params.appointmentRecordId);
+  } else {
+    await base(TABLES.appointments).update([
+      {
+        id: params.appointmentRecordId,
+        fields: { Estado: "Completado" },
+      },
+    ]);
+  }
   fireCitaEvento("asistio", params.appointmentRecordId);
 }
 
@@ -277,24 +289,32 @@ export async function markNoShow(params: {
   existingNotes?: string;
 }) {
   const notes = [params.existingNotes, "[NO_SHOW]"].filter(Boolean).join(" | ");
-  await base(TABLES.appointments).update([
-    {
-      id: params.appointmentRecordId,
-      fields: { Estado: "Cancelado", Notas: notes },
-    },
-  ]);
+  if (usaPostgres("agenda")) {
+    await (await import("./pg")).markNoShowPg(params.appointmentRecordId, notes);
+  } else {
+    await base(TABLES.appointments).update([
+      {
+        id: params.appointmentRecordId,
+        fields: { Estado: "Cancelado", Notas: notes },
+      },
+    ]);
+  }
   fireCitaEvento("no_show", params.appointmentRecordId);
 }
 
 export async function confirmAppointment(params: {
   appointmentRecordId: string;
 }) {
-  await base(TABLES.appointments).update([
-    {
-      id: params.appointmentRecordId,
-      fields: { Estado: "Confirmada" },
-    },
-  ]);
+  if (usaPostgres("agenda")) {
+    await (await import("./pg")).confirmAppointmentPg(params.appointmentRecordId);
+  } else {
+    await base(TABLES.appointments).update([
+      {
+        id: params.appointmentRecordId,
+        fields: { Estado: "Confirmada" },
+      },
+    ]);
+  }
   fireCitaEvento("confirmada", params.appointmentRecordId);
 }
 
@@ -307,15 +327,18 @@ export async function updateAppointment(params: {
   notes?: string;
 }) {
   const { appointmentRecordId, startIso, endIso, staffRecordId, treatmentRecordId, notes } = params;
-  const fields: any = {};
-  if (startIso) fields["Hora inicio"] = startIso;
-  if (endIso) fields["Hora final"] = endIso;
-  if (staffRecordId) fields["Profesional"] = [staffRecordId];
-  if (treatmentRecordId) fields["Tratamiento"] = [treatmentRecordId];
-  if (notes !== undefined) fields["Notas"] = notes;
-
-  if (!Object.keys(fields).length) return;
-  await base(TABLES.appointments).update([{ id: appointmentRecordId, fields }]);
+  if (usaPostgres("agenda")) {
+    await (await import("./pg")).updateAppointmentPg(appointmentRecordId, { startIso, endIso, staffRecordId, treatmentRecordId, notes });
+  } else {
+    const fields: any = {};
+    if (startIso) fields["Hora inicio"] = startIso;
+    if (endIso) fields["Hora final"] = endIso;
+    if (staffRecordId) fields["Profesional"] = [staffRecordId];
+    if (treatmentRecordId) fields["Tratamiento"] = [treatmentRecordId];
+    if (notes !== undefined) fields["Notas"] = notes;
+    if (!Object.keys(fields).length) return;
+    await base(TABLES.appointments).update([{ id: appointmentRecordId, fields }]);
+  }
   // Reagendar (cambio de fecha/hora) → re-evaluar riesgo de no-show.
   if (startIso) fireEvaluarRiesgo(appointmentRecordId);
 }
@@ -365,9 +388,9 @@ export async function listAppointmentsByDay(params: {
   const { dayIso, clinicId, onlyActive = false } = params;
 
   // Traemos citas (MVP: sin fórmula compleja, filtramos en JS)
-  const records = await base(TABLES.appointments)
-    .select({ maxRecords: 1000 })
-    .all();
+  const records = usaPostgres("agenda")
+    ? await (await import("./pg")).listCitasTodasPg(1000)
+    : await base(TABLES.appointments).select({ maxRecords: 1000 }).all();
 
   const out: Appointment[] = [];
 
@@ -444,9 +467,9 @@ export async function listAppointmentsByWeek(params: {
   const sunday = monday.plus({ days: 6 });
   const sundayIso = sunday.toISODate()!;
 
-  const records = await base(TABLES.appointments)
-    .select({ maxRecords: 2000 })
-    .all();
+  const records = usaPostgres("agenda")
+    ? await (await import("./pg")).listCitasTodasPg(2000)
+    : await base(TABLES.appointments).select({ maxRecords: 2000 }).all();
 
   const out: Array<{ start: string; estado: string; origen: string; notas: string }> = [];
 
@@ -496,30 +519,37 @@ export async function createAppointment(params: {
 }): Promise<{ recordId: string }> {
 const { name, startIso, endIso, clinicRecordId, notes, staffRecordId, sillonRecordId, treatmentRecordId, patientRecordId } = params;
 
-  const fields: any = {
-    "Nombre": name,
-    "Hora inicio": startIso,
-    "Hora final": endIso,
-  };
+  let recordId: string;
+  if (usaPostgres("agenda")) {
+    recordId = (await (await import("./pg")).createAppointmentPg({
+      name, startIso, endIso, clinicRecordId, notes, staffRecordId, sillonRecordId, treatmentRecordId, patientRecordId,
+    })).recordId;
+  } else {
+    const fields: any = {
+      "Nombre": name,
+      "Hora inicio": startIso,
+      "Hora final": endIso,
+    };
 
-  if (notes) fields["Notas"] = notes;
-  if (clinicRecordId) fields["Clínica"] = [clinicRecordId];
+    if (notes) fields["Notas"] = notes;
+    if (clinicRecordId) fields["Clínica"] = [clinicRecordId];
 
-  if (staffRecordId) fields["Profesional"] = [staffRecordId];
-  if (sillonRecordId) fields["Sillón"] = [sillonRecordId];
+    if (staffRecordId) fields["Profesional"] = [staffRecordId];
+    if (sillonRecordId) fields["Sillón"] = [sillonRecordId];
 
-  // ✅ esto arregla tu problema
-  if (treatmentRecordId) fields["Tratamiento"] = [treatmentRecordId];
-  if (patientRecordId) fields["Paciente"] = [patientRecordId];
+    // ✅ esto arregla tu problema
+    if (treatmentRecordId) fields["Tratamiento"] = [treatmentRecordId];
+    if (patientRecordId) fields["Paciente"] = [patientRecordId];
 
+    const created = await base(TABLES.appointments).create([{ fields }]);
+    const rec = created?.[0];
+    if (!rec?.id) throw new Error("Airtable: no se pudo crear la cita (sin id).");
+    recordId = rec.id;
+  }
 
-  const created = await base(TABLES.appointments).create([{ fields }]);
-  const rec = created?.[0];
-  if (!rec?.id) throw new Error("Airtable: no se pudo crear la cita (sin id).");
-
-  fireCitaEvento("creada", rec.id);
-  fireEvaluarRiesgo(rec.id);
-  return { recordId: rec.id };
+  fireCitaEvento("creada", recordId);
+  fireEvaluarRiesgo(recordId);
+  return { recordId };
 }
 
 // ─────────────────────────────────────────────────────────────────────

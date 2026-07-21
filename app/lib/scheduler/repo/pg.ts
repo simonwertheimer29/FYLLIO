@@ -142,6 +142,55 @@ export async function reprogramarCitaPg(citaId: string, i: { horaInicioIso?: str
   await runWithClienteDb(cli(), (trx) => trx.updateTable("citas").set(set as any).where("id", "=", citaId).execute());
 }
 
+// ── Citas: métodos TIPADOS del scheduler (cierre del split-brain gate 5) ──
+// Los 10 métodos tipados de reserva escribían/leían base(Citas)=Airtable
+// mientras las *Raw ya iban a PG. Aquí voltean al MISMO backend. Los
+// side-effects (fireCitaEvento/fireEvaluarRiesgo) los conserva el caller.
+async function setCita(citaId: string, set: Record<string, unknown>): Promise<void> {
+  if (!Object.keys(set).length) return;
+  await runWithClienteDb(cli(), (trx) => trx.updateTable("citas").set(set as any).where("id", "=", citaId).execute());
+}
+export async function cancelAppointmentPg(citaId: string, origin?: string): Promise<void> {
+  await setCita(citaId, origin ? { estado: "Cancelado", origen: origin } : { estado: "Cancelado" });
+}
+export async function completeAppointmentPg(citaId: string): Promise<void> {
+  await setCita(citaId, { estado: "Completado" });
+}
+export async function markNoShowPg(citaId: string, notas: string): Promise<void> {
+  await setCita(citaId, { estado: "Cancelado", notas });
+}
+export async function confirmAppointmentPg(citaId: string): Promise<void> {
+  await setCita(citaId, { estado: "Confirmada" });
+}
+export async function updateAppointmentPg(citaId: string, p: {
+  startIso?: string; endIso?: string; staffRecordId?: string; treatmentRecordId?: string; notes?: string;
+}): Promise<void> {
+  const set: Record<string, unknown> = {};
+  if (p.startIso) set.hora_inicio = new Date(p.startIso);
+  if (p.endIso) set.hora_final = new Date(p.endIso);
+  if (p.staffRecordId) set.profesional_id = p.staffRecordId;
+  if (p.treatmentRecordId) set.tratamiento_id = p.treatmentRecordId;
+  if (p.notes !== undefined) set.notas = p.notes;
+  await setCita(citaId, set);
+}
+export async function createAppointmentPg(p: {
+  name: string; startIso: string; endIso: string; clinicRecordId?: string; notes?: string;
+  staffRecordId?: string; sillonRecordId?: string; treatmentRecordId?: string; patientRecordId?: string;
+}): Promise<{ recordId: string }> {
+  const r = await runWithClienteDb(cli(), (trx) =>
+    trx.insertInto("citas").values({
+      cliente: cli(), nombre: p.name, hora_inicio: new Date(p.startIso), hora_final: new Date(p.endIso),
+      notas: p.notes ?? null, clinica_id: p.clinicRecordId ?? null, profesional_id: p.staffRecordId ?? null,
+      sillon_id: p.sillonRecordId ?? null, tratamiento_id: p.treatmentRecordId ?? null, paciente_id: p.patientRecordId ?? null,
+    } as any).returning("id").executeTakeFirstOrThrow());
+  return { recordId: r.id };
+}
+/** Todas las citas como shims (para listAppointmentsByDay/Week que filtran en JS). */
+export async function listCitasTodasPg(maxRecords: number): Promise<any[]> {
+  const recs = await citasWhere("true", []);
+  return recs.slice(0, maxRecords);
+}
+
 // ── Staff / Sillones / Tratamientos raw ───────────────────────────────
 function staffShim(r: any): Shim {
   return shim(r.id, {
