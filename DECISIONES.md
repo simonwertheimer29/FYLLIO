@@ -120,6 +120,15 @@ bypassa RLS para sembrar DEMO) sin estar en el `ALLOWLIST_ADMIN`. Un guard siemp
 una violación real de service-role (§9): la defensa del mandamiento §5 estaba de adorno. Añadido al
 allowlist. Lo cazó el propio gate final al correr toda la suite, no un run aislado del guard.
 
+## 2026-07-21 — 9 mini-dominios volteados a Postgres con un evaluador de fórmulas compartido
+El `filterByFormula` de Airtable que componen los callers se resolvía con un evaluador dentro de
+`presupuestos/pg.ts`. Extraído byte-idéntico a `app/lib/db/airtable-formula.ts` (re-verificado
+Presupuestos 22/22 sin regresión ANTES de propagar) y reusado en 9 mini-dominios (notificaciones,
+cola-envios, push, informes, vapi, alertas, configuraciones, plantillas-mensaje, mensajes) — una
+pieza robusta en vez de N traducciones SQL a mano. Todos vacíos en DEMO → validados por escritura
+ejercitada. Los 7 mecánicos por subagentes en paralelo, mensajeria a mano (solo el LOG; idempotencia
+KV/WABA intactos). Suite integrada verde (motor 122/0). Notas de paridad y flag en §10 del plan.
+
 ## 2026-07-21 — Hueco del gate 8: el chequeo IDOR de presupuestos leía Airtable congelado
 `verificarPresupuestoPermitido`/`mapaPresupuestoClinica` (`clinica-scope.ts`) resolvían el presupuesto
 por `base(TABLES.presupuestos).find()` = Airtable SIEMPRE, aunque el dominio estuviera volteado a PG.

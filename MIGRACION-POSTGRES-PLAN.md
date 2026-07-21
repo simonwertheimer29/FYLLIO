@@ -652,12 +652,44 @@ corte, no un flag. **Decisión (Simon): identidad se voltea como paso ATÓMICO e
 corte** (todos los clientes, ids reconciliados). El cabo #3 queda fail-closed y
 documentado hasta entonces (no es fuga).
 
+### Mini-dominios no-entrelazados — VOLTEADOS ✅ (2026-07-21)
+
+Evaluador de fórmulas Airtable EXTRAÍDO byte-idéntico de `presupuestos/pg.ts` a
+`app/lib/db/airtable-formula.ts` (compartido; presupuestos re-verificado 22/22 sin
+regresión ANTES de propagar). 9 mini-dominios volteados con el molde de
+notificaciones (fetch cliente-scoped RLS → shim con nombres Airtable → evalFormula
+compartido → delegación por `usaPostgres`). Todos VACÍOS en DEMO → validados por
+**escritura ejercitada** (no golden), cada uno con harness `qa-<dom>-pg.ts`
+guard-clean. Los 7 más mecánicos por subagentes en paralelo (archivos
+independientes); mensajeria a mano por sensibilidad.
+
+Flag → checks: notificaciones 7 · cola-envios 17 · push 15 · informes 18 · vapi 32
+· alertas 20 · configuraciones 19 · plantillas-mensaje 25 · mensajes 10.
+Suite integrada: guard · smoke 10/10 · **motor 122/0** · presupuestos 22/0 · +8. tsc limpio.
+
+**mensajes (mensajeria):** solo el LOG `Mensajes_WhatsApp` (5 creates + 2 selects)
+delega; **idempotencia (KV), WABA, rate-limit y telemetría INTACTOS**. FK compuesta
+ejercitada (§8): presupuesto inexistente → rechazado en voz alta.
+
+**Notas de paridad (aceptadas, para revisar al migrar identidad o si molesta):**
+- **informes**: `clinica` (texto) → `clinica_id` (null=global). El sentinel global
+  `"todas"`(Presupuestos)/`"Todas"`(No-Shows) no es recuperable de un id null → se
+  reconstruye por `tipo` (writers global-only). Round-trip exacto para callers reales.
+- **alertas**: `admin_origen_id`/`coordinadora_destino_id` → **NULL** (Identidad no
+  migrada, `usuarios` vacía; igual que `pagos-pg`). Ningún caller consume esos campos
+  del retorno; el cooldown depende de clinica+tipo+created_at (preservados). Revisar
+  al migrar identidad.
+- **configuraciones**: PG **corrige** un bug latente de Airtable — `{Activo}` desmarcado
+  se leía como `true` (Airtable omite checkboxes off); en PG se lee como inactivo.
+  Divergencia en la dirección correcta; el lado Airtable no se tocó.
+- **vapi**: el CHECK de `estado` en 001 no incluye `'cancelada'` (el tipo TS sí).
+  Ningún camino de escritura la usa hoy (webhook escribe iniciada/en_curso; la lista
+  con "cancelada" es whitelist de LECTURA). Alinear el CHECK con el tipo si se planea usar.
+
 ### Gates siguientes (orden REVISADO 2026-07-21, cada uno se enseña antes de seguir)
-- **AHORA — dominios no-entrelazados en LOCAL** (per-cliente, sin el problema de
-  identidad; mismo protocolo seed→PG→golden mismo-instante→escrituras): mini-dominios
-  (notificaciones, plantillas-mensaje, informes, cola_envios, configuraciones, alertas,
-  push), mensajes_whatsapp + llamadas_vapi (Copilot), scheduler legacy (cron
-  daily/twilio) + waitlist.
+- ~~Mini-dominios no-entrelazados~~ → **HECHO 2026-07-21** (arriba).
+- **AHORA — scheduler legacy (cron daily/twilio) + waitlist** — con golden por las
+  `citas` (8 filas DEMO). Simon quiere verlos.
 - **DESPUÉS — RB/INDEP (vacías)** detrás.
 - **EN EL CORTE — identidad atómica** (los 3 clientes, ids reconciliados) → mata el
   cabo #3. Lo decide Simon con Airtable como rollback y el plan Pro de Supabase resuelto.
