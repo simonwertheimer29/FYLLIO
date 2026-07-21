@@ -508,6 +508,41 @@ Nota de aplicación: el password admin inicial falló (corchetes de plantilla + 
 equivocado — diagnosticado sin exponer secretos); resuelto por Simon con reset del
 database password.
 
+### Gate 3 — SEED DEMO + PRIMER VOLTEO: dominio Leads (hecho 2026-07-21) ✅
+
+**Flag de volteo 2D** (`app/lib/db/data-backend.ts`): `DATA_BACKEND_PG_DOMINIOS` ×
+`DATA_BACKEND_PG_CLIENTES` — un acceso va a Postgres solo si dominio Y cliente están en
+ambas listas. Rollback = quitar de la lista. Default vacío: producción intacta.
+
+**Seed por COPIA** (`scripts/db-seed-demo.mjs`): Airtable DEMO → Postgres preservando los
+record-ids (ids TEXT) — los goldens comparan los mismos datos y las FKs entre backends
+casan durante el volteo escalonado. Este gate: clinicas(4), staff(8), pacientes(25, como
+destino de FK), leads(22), acciones_lead(17), plantillas_lead(4). Idempotente, transaccional.
+
+**Volteo Leads**: `app/lib/leads/pg.ts` (implementación Kysely completa, mismos shapes) +
+delegación por flag en cada export de leads/acciones/plantillas. El cliente sale del
+contexto de `runWithCliente` existente → callers intactos; cada operación abre su
+transacción RLS.
+
+**Paridad golden (mismo instante, dos `next start` simultáneos AT vs PG):** los 4
+endpoints del dominio (leads, kpis, ultima-saliente, plantillas) → **contenido 100%
+idéntico**. Única clase de diferencia: ORDEN DE ITERACIÓN (el view-order de Airtable nunca
+fue determinista ni contractual; empates de charts pueden permutar). Decisión: PG ahora es
+DETERMINISTA (created_at,id / timestamp,id) — más estable que Airtable. La cola de Actuar
+Hoy ordena en cliente por prioridad con inputs idénticos → orden visible sin cambio.
+
+**Escrituras ejercitadas DE VERDAD (7/7 contra el server PG, verificando filas via SQL):**
+createLead → fila DEMO con uuid; updateLead (estado+llamado); logAccionLead via
+registrar-respuesta → WhatsApp_Saliente en acciones_lead; lectura-tras-escritura en
+ultima-saliente; estado del CHECK cerrado acepta "Convertido"; FK a paciente existente ok;
+**FK a paciente inexistente RECHAZADA en voz alta (23503)** — el guard funcionando.
+
+**Entanglement documentado**: `convertir` cruza leads(PG)+pacientes(AT)+presupuestos(AT) —
+en DEMO volteado fallaría EN VOZ ALTA por FK (por diseño, demostrado en W7). Se ejercita
+end-to-end al voltear pacientes (siguiente) y presupuestos. El typecast del Copilot
+(prioridad de Simon) se ejercita al voltear Presupuestos. El flag solo está activo en env
+local — el DEMO de Vercel sigue en Airtable.
+
 ### Gates siguientes (en orden, cada uno se enseña antes de seguir)
 3. Seed DEMO en Postgres + volteo del primer dominio tras `DATA_BACKEND` (DEMO primero).
 4. Escrituras ejercitadas DE VERDAD (registro §9 completo, 23 de Presupuestos incl.

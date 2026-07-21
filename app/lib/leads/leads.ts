@@ -2,6 +2,7 @@
 // Sprint 8 Bloque B — repositorio de Leads.
 
 import { base, TABLES, fetchAll } from "../airtable";
+import { usaPostgres } from "../db/data-backend";
 
 /**
  * Sprint 9: el enum Airtable sigue incluyendo "Citados Hoy" como valor
@@ -142,6 +143,10 @@ export type ListLeadsParams = {
 };
 
 export async function listLeads(params: ListLeadsParams = {}): Promise<Lead[]> {
+  if (usaPostgres("leads")) {
+    const pg = await import("./pg");
+    return pg.listLeadsPg(params);
+  }
   const recs = await fetchAll(base(TABLES.leads).select({}));
   let leads = recs.map(toLead);
 
@@ -173,6 +178,10 @@ export async function listLeads(params: ListLeadsParams = {}): Promise<Lead[]> {
 }
 
 export async function getLead(id: string): Promise<Lead | null> {
+  if (usaPostgres("leads")) {
+    const pg = await import("./pg");
+    return pg.getLeadPg(id);
+  }
   try {
     const rec = await base(TABLES.leads).find(id);
     return toLead(rec);
@@ -186,6 +195,10 @@ export async function getLead(id: string): Promise<Lead | null> {
  * Usado por el cron de automatizaciones (trigger lead_inactivo_n_dias).
  */
 export async function listLeadsPorEstados(estados: string[]): Promise<Lead[]> {
+  if (usaPostgres("leads")) {
+    const pg = await import("./pg");
+    return pg.listLeadsPorEstadosPg(estados);
+  }
   if (estados.length === 0) return [];
   const formula = `OR(${estados.map((e) => `{Estado}="${e}"`).join(", ")})`;
   const recs = await fetchAll(
@@ -203,6 +216,10 @@ export async function listLeadsPorEstados(estados: string[]): Promise<Lead[]> {
 export async function buscarLeadActivoPorTelefono(
   telefonoNormalizado: string,
 ): Promise<{ id: string; clinicaId?: string } | null> {
+  if (usaPostgres("leads")) {
+    const pg = await import("./pg");
+    return pg.buscarLeadActivoPorTelefonoPg(telefonoNormalizado);
+  }
   const tel = telefonoNormalizado;
   const formula = `AND(
     NOT({Convertido_A_Paciente}),
@@ -242,6 +259,10 @@ export async function createLead(input: {
   fechaCita?: string;
   notas?: string;
 }): Promise<Lead> {
+  if (usaPostgres("leads")) {
+    const pg = await import("./pg");
+    return pg.createLeadPg(input);
+  }
   const fields: Record<string, any> = {
     Nombre: input.nombre,
     Estado: input.estado ?? "Nuevo",
@@ -311,6 +332,10 @@ export async function updateLead(
     asistido: boolean;
   }>
 ): Promise<Lead> {
+  if (usaPostgres("leads")) {
+    const pg = await import("./pg");
+    return pg.updateLeadPg(id, patch as Record<string, unknown>);
+  }
   const fields: Record<string, any> = {};
   if (patch.nombre !== undefined) fields["Nombre"] = patch.nombre;
   if (patch.telefono !== undefined) fields["Telefono"] = patch.telefono ?? "";
@@ -346,6 +371,10 @@ export async function updateLead(
 
 /** Añade una entrada con timestamp al campo `Ultima_Accion` (log ligero). */
 export async function appendLeadLog(leadId: string, event: string): Promise<void> {
+  if (usaPostgres("leads")) {
+    const pg = await import("./pg");
+    return pg.appendLeadLogPg(leadId, event);
+  }
   try {
     const rec = await base(TABLES.leads).find(leadId);
     const prev = String(rec.fields?.["Ultima_Accion"] ?? "");
@@ -359,6 +388,10 @@ export async function appendLeadLog(leadId: string, event: string): Promise<void
 }
 
 export async function markLeadConvertido(leadId: string, pacienteId: string): Promise<Lead> {
+  if (usaPostgres("leads")) {
+    const pg = await import("./pg");
+    return pg.markLeadConvertidoPg(leadId, pacienteId);
+  }
   const updated = (
     await base(TABLES.leads).update([
       {

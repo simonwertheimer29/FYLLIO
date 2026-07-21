@@ -5,6 +5,7 @@
 // archivo cambia su interior a Postgres sin tocar a los callers.
 
 import { base, TABLES, fetchAll } from "../airtable";
+import { usaPostgres } from "../db/data-backend";
 
 export type PlantillaLead = {
   id: string;
@@ -20,6 +21,10 @@ export type PlantillaLead = {
 /** Plantillas WA activas para leads, ordenadas por tipo. Globales (sin
  *  filtro por clínica — decisión Sprint 10 D). */
 export async function listPlantillasLeadActivas(): Promise<PlantillaLead[]> {
+  if (usaPostgres("leads")) {
+    const pg = await import("./pg");
+    return pg.listPlantillasLeadActivasPg();
+  }
   const recs = await fetchAll(
     base(TABLES.plantillasLead as any).select({
       filterByFormula: "{Activa}=TRUE()",

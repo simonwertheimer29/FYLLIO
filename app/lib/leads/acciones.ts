@@ -12,6 +12,7 @@
 //  - Solo going-forward. KPI muestra "—" hasta que haya datos.
 
 import { base, TABLES, fetchAll } from "../airtable";
+import { usaPostgres } from "../db/data-backend";
 
 export type TipoAccionLead =
   | "Llamada"
@@ -41,6 +42,10 @@ export async function logAccionLead(args: {
   /** Override timestamp (por defecto = now). El webhook lo usa para honrar el ts del mensaje original. */
   timestamp?: string;
 }): Promise<void> {
+  if (usaPostgres("leads")) {
+    const pg = await import("./pg");
+    return pg.logAccionLeadPg(args);
+  }
   try {
     const ts = args.timestamp ?? new Date().toISOString();
     const tsHumano = ts.replace("T", " ").slice(0, 16);
@@ -134,6 +139,10 @@ export async function listAccionesHoy(params: {
   /** Si se pasa, solo devuelve acciones cuyo lead tenga clinicaId en la lista. */
   clinicaIdsAllowed?: string[] | null;
 } = {}): Promise<AccionLead[]> {
+  if (usaPostgres("leads")) {
+    const pg = await import("./pg");
+    return pg.listAccionesHoyPgShim(params);
+  }
   // Hoy en Madrid: tomamos UTC offset y devolvemos rango [00:00, 23:59].
   const today = new Date().toISOString().slice(0, 10);
   return listAccionesDesdeIso(`${today}T00:00:00.000Z`, params.clinicaIdsAllowed);
@@ -144,6 +153,10 @@ export async function listAccionesDesde(
   desde: Date,
   clinicaIdsAllowed?: string[] | null,
 ): Promise<AccionLead[]> {
+  if (usaPostgres("leads")) {
+    const pg = await import("./pg");
+    return pg.listAccionesDesdePg(desde, clinicaIdsAllowed);
+  }
   return listAccionesDesdeIso(desde.toISOString(), clinicaIdsAllowed);
 }
 
@@ -156,6 +169,10 @@ export async function ultimasAccionesDireccionPorLead(): Promise<{
   salientePorLead: Record<string, string>;
   entrantePorLead: Record<string, string>;
 }> {
+  if (usaPostgres("leads")) {
+    const pg = await import("./pg");
+    return pg.ultimasAccionesDireccionPorLeadPg();
+  }
   const recs = await fetchAll(
     base(TABLES.accionesLead as any).select({
       filterByFormula: `OR({Tipo_Accion}='Llamada', {Tipo_Accion}='WhatsApp_Saliente', {Tipo_Accion}='WhatsApp_Entrante')`,
@@ -186,6 +203,10 @@ export async function ultimasAccionesDireccionPorLead(): Promise<{
  * ARRAYJOIN sobre el primary field; volumen por tabla es bajo).
  */
 export async function listAccionesByLead(leadId: string): Promise<AccionLead[]> {
+  if (usaPostgres("leads")) {
+    const pg = await import("./pg");
+    return pg.listAccionesByLeadPg(leadId);
+  }
   const recs = await fetchAll(
     base(TABLES.accionesLead as any).select({
       fields: ["Lead", "Tipo_Accion", "Timestamp", "Usuario", "Detalles"],
@@ -206,6 +227,10 @@ export async function listAccionesByLead(leadId: string): Promise<AccionLead[]> 
  * leadId → ISO timestamp más reciente.
  */
 export async function ultimaCobranzaPorLead(): Promise<Map<string, string>> {
+  if (usaPostgres("leads")) {
+    const pg = await import("./pg");
+    return pg.ultimaCobranzaPorLeadPg();
+  }
   const recs = await fetchAll(
     base(TABLES.accionesLead as any).select({
       filterByFormula: `FIND('[Cobranza]', {Detalles}&'')>0`,
@@ -229,6 +254,10 @@ export async function ultimaCobranzaPorLead(): Promise<Map<string, string>> {
 /** Timestamp del primer Acciones_Lead registrado (tooltip explicativo de
  *  KPIs). null si la tabla está vacía o inaccesible. */
 export async function primeraAccionLeadTimestamp(): Promise<string | null> {
+  if (usaPostgres("leads")) {
+    const pg = await import("./pg");
+    return pg.primeraAccionLeadTimestampPg();
+  }
   try {
     const primero = await fetchAll(
       base(TABLES.accionesLead as any).select({
@@ -255,6 +284,10 @@ export async function crearAccionAutomatizacion(input: {
   tipo: string;
   descripcion: string;
 }): Promise<void> {
+  if (usaPostgres("leads")) {
+    const pg = await import("./pg");
+    return pg.crearAccionAutomatizacionPg(input);
+  }
   await base(TABLES.accionesLead).create(
     [
       {
