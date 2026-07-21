@@ -14,7 +14,8 @@ const ALLOWLIST = [
 ];
 const ALLOWLIST_ADMIN = [
   "scripts/db-migrate.mjs",
-  "scripts/db-seed-demo.mjs",   // seed DEMO por copia: admin para bypassar RLS y estampar cliente='DEMO'
+  "scripts/db-seed-demo.mjs",       // seed DEMO por copia: admin para bypassar RLS y estampar cliente='DEMO'
+  "scripts/db-seed-identidad.mjs",  // seed identidad (corte FASE B): admin, estampa cliente por fila
   "scripts/guard-service-role.mjs",
   "db/",
 ];
