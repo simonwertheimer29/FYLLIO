@@ -652,6 +652,17 @@ corte, no un flag. **Decisión (Simon): identidad se voltea como paso ATÓMICO e
 corte** (todos los clientes, ids reconciliados). El cabo #3 queda fail-closed y
 documentado hasta entonces (no es fuga).
 
+#### CHECKLIST DEL CORTE — identidad atómica (ítems duros, no notas latentes)
+- [ ] **Reconciliar ids de clínica** central↔PG (hoy 4/4 distintos) y que el login
+  emita sesiones con ids de PG → mata el cabo #3.
+- [ ] **`alertas_enviadas`: rellenar `admin_origen_id` y `coordinadora_destino_id`
+  con los ids REALES de `usuarios`** (hoy se escriben NULL porque Identidad no está
+  migrada). Cuando identidad migre, estas FK deben poblarse de verdad — si quedan
+  NULL, las alertas de coordinación **pierden el rastro de origen/destino** (quién la
+  disparó y a quién se dirige). Decisión de Simon 2026-07-21: es requisito del corte,
+  no un follow-up opcional. (Mismo patrón a revisar en `pagos-pg` `usuario_creador_id`
+  y `acciones_pago`/`acciones_lead` `usuario_id`, todos NULL hoy por la misma causa.)
+
 ### Mini-dominios no-entrelazados — VOLTEADOS ✅ (2026-07-21)
 
 Evaluador de fórmulas Airtable EXTRAÍDO byte-idéntico de `presupuestos/pg.ts` a
@@ -677,8 +688,10 @@ ejercitada (§8): presupuesto inexistente → rechazado en voz alta.
   reconstruye por `tipo` (writers global-only). Round-trip exacto para callers reales.
 - **alertas**: `admin_origen_id`/`coordinadora_destino_id` → **NULL** (Identidad no
   migrada, `usuarios` vacía; igual que `pagos-pg`). Ningún caller consume esos campos
-  del retorno; el cooldown depende de clinica+tipo+created_at (preservados). Revisar
-  al migrar identidad.
+  del retorno HOY y el cooldown depende de clinica+tipo+created_at (preservados) — por
+  eso es seguro ahora. Pero **NO puede quedar NULL tras el corte**: es un ítem DURO de
+  la CHECKLIST DEL CORTE (arriba, sección Identidad) — al migrar identidad hay que
+  poblar esos ids de verdad o las alertas pierden origen/destino.
 - **configuraciones**: PG **corrige** un bug latente de Airtable — `{Activo}` desmarcado
   se leía como `true` (Airtable omite checkboxes off); en PG se lee como inactivo.
   Divergencia en la dirección correcta; el lado Airtable no se tocó.
