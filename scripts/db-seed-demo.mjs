@@ -79,6 +79,36 @@ const MAPAS = [
     usuario_id: null /* link a Usuarios central — identidad aún Airtable */,
     tipo: txt(f["Tipo"]), descripcion: txt(f["Descripcion"]),
   })],
+  ["tratamientos", "Tratamientos", at, (f) => ({
+    tratamientos_id: txt(f["Tratamientos ID"]), categoria: txt(f["Categoria"]),
+    nombre: txt(f["Nombre"]), duracion_min: num(f["Duración"]),
+    buffer_antes_min: num(f["Buffer antes"]), buffer_despues_min: num(f["Buffer despues"]),
+    instrucciones_pre: txt(f["Instrucciones_pre"]), clinica_id: link(f["Clínica"]),
+  })],
+  ["sillones", "Sillones", at, (f) => ({
+    sillon_id: txt(f["Sillón ID"]), nombre: txt(f["Nombre"]), clinica_id: link(f["Clínica"]),
+  })],
+  ["citas", "Citas", at, (f) => ({
+    nombre: txt(f["Nombre"]), hora_inicio: ts(f["Hora inicio"]), hora_final: ts(f["Hora final"]),
+    estado: txt(f["Estado"]), notas: txt(f["Notas"]), origen: txt(f["Origen"]),
+    paciente_id: link(f["Paciente"]), tratamiento_id: link(f["Tratamiento"]),
+    profesional_id: link(f["Profesional"]), sillon_id: link(f["Sillón"]),
+    clinica_id: link(f["Clínica"]), ultima_accion: txt(f["Ultima_accion"]),
+    tipo_ultima_accion: txt(f["Tipo_ultima_accion"]), fase_recordatorio: txt(f["Fase_recordatorio"]),
+    notas_accion: txt(f["Notas_accion"]),
+  })],
+  ["lista_espera", "Lista_de_espera", at, (f) => ({
+    clinica_id: link(f["Clínica"]), paciente_id: link(f["Paciente"]),
+    tratamiento_id: link(f["Tratamiento"]), profesional_preferido_id: link(f["Profesional preferido"]),
+    dias_permitidos: Array.isArray(f["Dias_Permitidos"]) ? f["Dias_Permitidos"].join(",") : txt(f["Dias_Permitidos"]),
+    rango_deseado_start: ts(f["Rango_Deseado_Start"]), rango_deseado_end: ts(f["Rango_Deseado_End"]),
+    estado: txt(f["Estado"]), prioridad: txt(f["Prioridad"]), urgencia_nivel: txt(f["Urgencia_Nivel"]),
+    permite_fuera_rango: boolv(f["Permite_Fuera_Rango"]), offer_hold_id: txt(f["Offer_Hold_Id"]),
+    offer_expires_at: ts(f["Offer_Expires_At"]), offer_cycle: num(f["Offer_Cycle"]),
+    last_offered_slot_key: txt(f["Last_Offered_Slot_Key"]), last_offer_result: txt(f["Last_Offer_Result"]),
+    cita_segura_id: link(f["Cita_segura"]), cita_cerrada_id: link(f["Cita cerrada"]),
+    notas: txt(f["Notas / Contexto"] ?? f["Notas"]), ultimo_contacto: txt(f["Último contacto"]),
+  })],
   ["plantillas_lead", "Plantillas_Lead", at, (f) => ({
     nombre: txt(f["Nombre"]), tipo: txt(f["Tipo"]), contenido: txt(f["Contenido"]),
     activa: f["Activa"] === undefined ? true : boolv(f["Activa"]),
@@ -107,7 +137,10 @@ try {
       const row = mapFn(f, rec);
       if (tPg === "pacientes" && link(f["Lead_Origen"])) leadOrigenPendiente.push([rec.id, link(f["Lead_Origen"])]);
       // FKs a filas que no existan en la copia (residuos) → null con aviso
-      for (const [col, destino] of [["clinica_id","clinicas"],["doctor_id","staff"],["doctor_asignado_id","staff"],["paciente_id","pacientes"],["lead_id","leads"]]) {
+      // sillones.sillon_id / staff.staff_id son IDs legados de texto, NO FKs.
+      const NO_FK = { sillones: ["sillon_id"], staff: ["staff_id"], tratamientos: ["tratamientos_id"] };
+      for (const [col, destino] of [["clinica_id","clinicas"],["doctor_id","staff"],["doctor_asignado_id","staff"],["paciente_id","pacientes"],["lead_id","leads"],["tratamiento_id","tratamientos"],["profesional_id","staff"],["sillon_id","sillones"],["profesional_preferido_id","staff"],["cita_segura_id","citas"],["cita_cerrada_id","citas"]]) {
+        if ((NO_FK[tPg] ?? []).includes(col)) continue;
         if (row[col] && idsPorTabla[destino] && !idsPorTabla[destino].has(row[col])) {
           console.log(`  aviso ${tPg}.${col}: id ${row[col]} no existe en copia de ${destino} → null`);
           row[col] = null;
