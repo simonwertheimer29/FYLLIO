@@ -12,7 +12,12 @@ const ALLOWLIST = [
   "app/scripts/sprint18-bloque1-supabase-init.ts", // init de la analítica (one-shot)
   "scripts/guard-service-role.mjs",
 ];
-const ALLOWLIST_ADMIN = ["scripts/db-migrate.mjs", "scripts/guard-service-role.mjs", "db/"];
+const ALLOWLIST_ADMIN = [
+  "scripts/db-migrate.mjs",
+  "scripts/db-seed-demo.mjs",   // seed DEMO por copia: admin para bypassar RLS y estampar cliente='DEMO'
+  "scripts/guard-service-role.mjs",
+  "db/",
+];
 
 function grep(pattern) {
   try {

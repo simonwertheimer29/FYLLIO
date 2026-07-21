@@ -572,17 +572,72 @@ notificaciones, plantillas-mensaje, cola_envios, informes, llamadas_vapi, config
 alertas_enviadas, push, identidad). Sus tablas ya existen en el esquema; el patrón de
 volteo está rodado.
 
-### GATE FINAL (innegociable, pendiente): QA adversarial Sprint B contra RLS
-Los 5 escenarios de SPRINT-B-QA.md contra Postgres + tests de motor. Hasta que pase:
-Airtable manda en Vercel/producción y el flag vive solo en env local.
+### GATE FINAL (QA adversarial Sprint B contra RLS) — PASADO ✅ (2026-07-21)
+
+**Veredicto: cliente↔cliente VERDE — garantía de MOTOR.** Ningún cliente ve,
+modifica ni borra datos de otro. Corrido INTENTANDO saltárselo (§5), con datos
+reconocibles `[QA_SB]` en RB+INDEP+DEMO, como el rol real `fyllio_app`
+(NOBYPASSRLS). Dos harnesses reproducibles (commiteados):
+
+- `scripts/qa-rls-sprint-b.mjs` — motor/RLS, **122/122**: Esc 1 (RB/INDEP/DEMO
+  no ven filas de otro en 8 tablas), Esc 1b (UPDATE/DELETE cruzado → 0 filas;
+  INSERT estampando otro cliente → 42501 WITH CHECK), Esc 3 (IDOR por id → 0
+  filas), Esc 4 (usuario_clinicas/clinicas scoped; `usuarios` cross-cliente POR
+  DISEÑO D9), Esc 5 (copilot: mensajes/llamadas/conversaciones → 0), fail-closed
+  sin contexto, y COMPLETITUD (38 tablas de negocio con FORCE RLS + política
+  `app.cliente`; `usuarios` única permisiva; fyllio_app sin BYPASSRLS ni acceso a
+  analítica). Auto-limpieza sin residuos (verificado).
+- `scripts/qa-clinica-pg.ts` — Esc 2 (clínica↔clínica) contra el read-path PG
+  real (`selectPresupuestosRawPg`) + `formulaClinicaPermitida`/`permiteClinica`
+  sobre el seed DEMO, **14/14**: coord de 1 clínica ve solo la suya, de 2 solo
+  esas, sin clínicas → 0 (fail-closed), IDOR intra-cliente denegado.
+- Regresión: `db:smoke-rls` 10/10 sigue verde.
+
+**⚠️ Aislamiento clínica↔clínica = garantía de CÓDIGO, no de MOTOR (hasta Fase 3).**
+RLS solo separa por `app.cliente`. Dentro de un cliente, el motor deja ver TODAS
+las clínicas; la barrera la ponen los repos (`clinica-scope.ts`,
+`formulaClinicaPermitida`, `verificarPresupuestoPermitido`). Verificado que HOY
+filtra bien sobre PG — pero si alguien rompe ese filtro, el motor NO lo respalda.
+No es regresión (Sprint B era igual); queda escrito. Subirlo a RLS (2ª variable
+`app.clinicas`) es Fase 3.
+
+**Findings del gate (clasificados):**
+1. 🟢 **HECHO** — `guard:rls` llevaba ROJO desde gate 3/8: `scripts/db-seed-demo.mjs`
+   usa `SUPABASE_DB_URL_ADMIN` (legítimo: bypassa RLS para sembrar DEMO) sin estar
+   en el allowlist. Un guard siempre-rojo no caza una violación real (§9) → la red
+   de §5 estaba inservible. Fix: `db-seed-demo.mjs` añadido a `ALLOWLIST_ADMIN`.
+2. 🔴 **BLOQUEANTE DURO del volteo de RB/INDEP** — `verificarPresupuestoPermitido`
+   y `mapaPresupuestoClinica` (`clinica-scope.ts:114,136`) resuelven el presupuesto
+   con `base(TABLES.presupuestos).find()` = **Airtable SIEMPRE**, sin delegar por
+   flag, aunque el dominio esté volteado a PG. Usado por 7 rutas (historial,
+   contactos, registrar-respuesta, enviar-waba, cola-envios, kanban/[id], mensajes).
+   Solo afecta a sesiones de COORDINACIÓN (el admin con `["*"]` devuelve "ok" antes
+   de leer). **Ya muerde DEMO hoy**: las 2 cuentas coord de DEMO (`demo-coord4`,
+   `demo-coord1`, `demo-seed.ts:61-62`) que abran un presupuesto CREADO en PG tras
+   el volteo → Airtable no lo tiene → 404 en acceso legítimo; y leer permisos de un
+   Airtable congelado puede AUTORIZAR por una clínica vieja si diverge. Los 8
+   presupuestos seed leen bien (ids casan en ambos backends). **Debe voltearse a PG
+   (delegación por `usaPostgres('presupuestos')` → `getPresupuestoPorIdRaw` /
+   `selectPresupuestosRaw`, que YA delegan) ANTES de que un cliente real (RB/INDEP)
+   corra sobre PG.** Fix propuesto, NO ejecutado (pendiente OK de Simon).
+3. 🟡 **Fase 3** — Identidad (usuarios/usuario_clinicas/clínicas central) NO
+   volteada: el path vivo del Esc 4 (gestión de usuarios) corre en Airtable. Las
+   políticas RLS de identidad en PG están y son correctas (verificado a nivel de
+   esquema), pero la app no las toca aún. Además, la resolución id→nombre de clínica
+   (`nombresClinicasPermitidas`→`listClinicas`) lee Airtable central: el filtro de
+   clínica sobre PG depende de esa identidad Airtable hasta Fase 3.
 
 ### Gates siguientes (en orden, cada uno se enseña antes de seguir)
-3. Seed DEMO en Postgres + volteo del primer dominio tras `DATA_BACKEND` (DEMO primero).
-4. Escrituras ejercitadas DE VERDAD (registro §9 completo, 23 de Presupuestos incl.
-   typecast del Copilot) + paridad golden por dominio (mismo instante).
-5. RB/INDEP (vacías) detrás.
-6. **GATE FINAL innegociable**: QA adversarial del Sprint B (SPRINT-B-QA.md, 5 escenarios)
-   contra RLS + tests de aislamiento del motor. Si un cliente ve a otro → SE PARA.
+- **Voltear los caminos que faltan en LOCAL** (mismo protocolo: seed→PG→golden
+  mismo-instante→escrituras reales): scheduler tipado legacy (cron daily/twilio),
+  waitlist, mini-dominios (mensajes, notificaciones, plantillas-mensaje, cola_envios,
+  informes, llamadas_vapi, configuraciones, alertas, push), identidad; + RB/INDEP
+  (vacías) detrás.
+- **Antes del volteo de RB/INDEP: cerrar el finding #2** (voltear
+  `verificarPresupuestoPermitido`/`mapaPresupuestoClinica` a PG) — bloqueante duro.
+- **Corte a Vercel: lo decide Simon** con Airtable como rollback y el plan Pro de
+  Supabase resuelto primero. Producción/Vercel siguen 100% Airtable; el flag vive
+  solo en env local.
 
 ### Estado Automatizaciones (hecho, 4º dominio)
 

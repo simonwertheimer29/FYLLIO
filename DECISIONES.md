@@ -106,3 +106,16 @@ automatización vivas procesando los leads seed. Nuevo `npm run demo:reset` (`de
 las 39 tablas + seed único de 245 registros coherentes con fechas relativas al ejecutar (la demo no
 envejece), guardas fail-closed (aborta si el base id coincide con RB/INDEP/CENTRAL) y reglas siempre
 en `Modo_Test` con paciente inexistente → nunca envían. Se corre antes de cada presentación.
+
+## 2026-07-21 — FASE 2 gate final: QA adversarial Sprint B contra Postgres+RLS
+Re-corridos los 5 escenarios de SPRINT-B-QA.md a nivel de MOTOR como el rol real `fyllio_app`
+(NOBYPASSRLS), atacando el aislamiento con datos `[QA_SB]` en RB+INDEP+DEMO. Cliente↔cliente VERDE:
+122/122 (motor) + 14/14 (clínica app-level sobre PG) + smoke 10/10. Dos harnesses reproducibles
+(`scripts/qa-rls-sprint-b.mjs`, `scripts/qa-clinica-pg.ts`, `2035bf2`). Detalle y findings en
+MIGRACION-POSTGRES-PLAN.md §10. Producción sigue en Airtable; el flag vive solo en env local.
+
+## 2026-07-21 — El guard de service-role llevaba rojo desde gate 3/8 (red de §5 inservible)
+`npm run guard:rls` fallaba porque `scripts/db-seed-demo.mjs` usa `SUPABASE_DB_URL_ADMIN` (legítimo:
+bypassa RLS para sembrar DEMO) sin estar en el `ALLOWLIST_ADMIN`. Un guard siempre-rojo no puede cazar
+una violación real de service-role (§9): la defensa del mandamiento §5 estaba de adorno. Añadido al
+allowlist. Lo cazó el propio gate final al correr toda la suite, no un run aislado del guard.
