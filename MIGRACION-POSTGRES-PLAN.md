@@ -543,6 +543,39 @@ end-to-end al voltear pacientes (siguiente) y presupuestos. El typecast del Copi
 (prioridad de Simon) se ejercita al voltear Presupuestos. El flag solo está activo en env
 local — el DEMO de Vercel sigue en Airtable.
 
+### Gates 5-8 — Agenda, Automatizaciones, Pagos y Presupuestos volteados (2026-07-21) ✅
+
+DEMO corre COMPLETO sobre Postgres+RLS (los 6 dominios del flag). Protocolo idéntico por
+dominio: seed por copia → implementación PG → goldens mismo-instante → escrituras reales.
+
+**Causas raíz cazadas por el protocolo** (todas del tipo diasDesdeAceptacion — parar,
+causa, re-verificar):
+- Campos retro-datados (CreatedAt/Created_At/creado_en) → precedencia campo>createdTime en seed.
+- Paciente_Test_Id apunta a id inexistente POR DISEÑO (seguridad modo test) → sin FK (003).
+- Auditoría con FK RESTRICT bloqueaba eliminarPago → ON DELETE SET NULL (004) + footgun de
+  FK COMPUESTA (SET NULL anulaba cliente NOT NULL) → PG15 SET NULL(pago_id) (005).
+- Side-effects fire-and-forget saltados por la delegación (emitirEvento en createLead).
+- Contactos huérfanos legacy → presupuesto_id NULLABLE (006); tipo_contacto excedía el set
+  TS → abierto (007). D4 funcionando: los datos reales redefinen qué conjuntos están cerrados.
+- Doctores_Presupuestos no existe en la base DEMO → paridad del fallback (PG lanza si vacía).
+
+**Presupuestos**: evaluador del subconjunto de fórmulas Airtable en pg.ts — la fórmula de
+4 niveles de intervención corre tal cual. Paridad 7/7 (intervención con orden+scoring
+byte-idéntico, KPIs, kanban, máxima, objetivos, doctores, tonos). TYPECAST DEL COPILOT
+verificado en ambas direcciones: válido aplica; inventado RECHAZADO en voz alta por CHECK
+(Airtable lo habría creado en silencio). CONVERTIR CON PRESUPUESTO end-to-end: 3 dominios
+en PG con FKs reales.
+
+**Pendiente de volteo (van con RB por PILOT_CLIENTE o superficie diferida):** scheduler
+tipado legacy (cron daily/twilio), waitlist activo, mini-dominios menores (mensajes,
+notificaciones, plantillas-mensaje, cola_envios, informes, llamadas_vapi, configuraciones,
+alertas_enviadas, push, identidad). Sus tablas ya existen en el esquema; el patrón de
+volteo está rodado.
+
+### GATE FINAL (innegociable, pendiente): QA adversarial Sprint B contra RLS
+Los 5 escenarios de SPRINT-B-QA.md contra Postgres + tests de motor. Hasta que pase:
+Airtable manda en Vercel/producción y el flag vive solo en env local.
+
 ### Gates siguientes (en orden, cada uno se enseña antes de seguir)
 3. Seed DEMO en Postgres + volteo del primer dominio tras `DATA_BACKEND` (DEMO primero).
 4. Escrituras ejercitadas DE VERDAD (registro §9 completo, 23 de Presupuestos incl.
