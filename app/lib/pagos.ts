@@ -14,6 +14,7 @@
 //    por Fecha_Pago. Soporta filtro por clinica + soloOrigenLead.
 
 import { base, TABLES, fetchAll } from "./airtable";
+import { usaPostgres } from "./db/data-backend";
 import {
   listResumenFinancieroPorIds,
   sumPendientePorIds,
@@ -52,6 +53,10 @@ function toPago(rec: any): Pago {
 // ─── Lectura ──────────────────────────────────────────────────────────
 
 export async function getPagosByPaciente(pacienteId: string): Promise<Pago[]> {
+  if (usaPostgres("pagos")) {
+    const pg = await import("./pagos-pg");
+    return pg.getPagosByPacientePg(pacienteId);
+  }
   if (!pacienteId) return [];
   // Sprint 14a — usa Paciente_RecordId (texto plano rellenado por
   // codigo) para filterByFormula directo. Reemplaza el workaround
@@ -91,6 +96,10 @@ export async function getFacturadoEnPeriodo(args: {
   /** Filtra a una clinica concreta (record id de Clinicas). */
   clinicaId?: string;
 }): Promise<{ total: number; pendiente: number; pagosCount: number }> {
+  if (usaPostgres("pagos")) {
+    const pg = await import("./pagos-pg");
+    return pg.getFacturadoEnPeriodoPg(args);
+  }
   const desdeISO = args.desde.toISOString().slice(0, 10);
   const hastaISO = args.hasta.toISOString().slice(0, 10);
   // Airtable IS_AFTER y IS_BEFORE son inclusivos por dia? Usamos rango
@@ -183,6 +192,10 @@ export async function getFacturadoPorPacientes(args: {
   desde: Date;
   hasta: Date;
 }): Promise<{ total: number; pendiente: number; pagosCount: number }> {
+  if (usaPostgres("pagos")) {
+    const pg = await import("./pagos-pg");
+    return pg.getFacturadoPorPacientesPg(args);
+  }
   if (args.pacienteIds.length === 0) {
     return { total: 0, pendiente: 0, pagosCount: 0 };
   }
@@ -339,6 +352,10 @@ export async function crearPago(args: {
   /** Sprint 14a — id de Usuario que registra el pago (auditoria real). */
   usuarioCreadorId?: string;
 }): Promise<Pago> {
+  if (usaPostgres("pagos")) {
+    const pg = await import("./pagos-pg");
+    return pg.crearPagoPg(args);
+  }
   const fechaPago = args.fechaPago ?? new Date().toISOString().slice(0, 10);
   const metodo = args.metodo ?? "Otro";
   const tipo = args.tipo ?? "Liquidacion";
@@ -398,6 +415,10 @@ export async function actualizarPago(
   }>,
   context: { usuarioId?: string | null } = {},
 ): Promise<Pago> {
+  if (usaPostgres("pagos")) {
+    const pg = await import("./pagos-pg");
+    return pg.actualizarPagoPg(pagoId, patch, context);
+  }
   const before = await base(TABLES.pagosPaciente as any).find(pagoId);
   const beforeFields = before.fields as any;
   const importeAntes = Number(beforeFields["Importe"] ?? 0) || 0;
@@ -454,6 +475,10 @@ export async function eliminarPago(
   pagoId: string,
   context: { usuarioId?: string | null } = {},
 ): Promise<void> {
+  if (usaPostgres("pagos")) {
+    const pg = await import("./pagos-pg");
+    return pg.eliminarPagoPg(pagoId, context);
+  }
   const before = await base(TABLES.pagosPaciente as any).find(pagoId);
   const beforeFields = before.fields as any;
   const importeAntes = Number(beforeFields["Importe"] ?? 0) || 0;
@@ -484,6 +509,10 @@ export async function eliminarPago(
 export async function reconciliarPagosCache(args: {
   pacienteIds?: string[];
 }): Promise<{ procesados: number; ok: number; errores: number }> {
+  if (usaPostgres("pagos")) {
+    const pg = await import("./pagos-pg");
+    return pg.reconciliarPagosCachePg();
+  }
   let pacienteIds = args.pacienteIds;
   let inconsistenciaIds: string[] = [];
   if (!pacienteIds) {
@@ -567,6 +596,10 @@ export async function listPagosResumen(opts: {
   desdeExclusivoIso?: string;
   hastaExclusivoIso?: string;
 } = {}): Promise<PagoResumen[]> {
+  if (usaPostgres("pagos")) {
+    const pg = await import("./pagos-pg");
+    return pg.listPagosResumenPg(opts);
+  }
   const partes: string[] = [];
   if (opts.desdeExclusivoIso) partes.push(`IS_AFTER({Fecha_Pago}, '${opts.desdeExclusivoIso}')`);
   if (opts.hastaExclusivoIso) partes.push(`IS_BEFORE({Fecha_Pago}, '${opts.hastaExclusivoIso}')`);

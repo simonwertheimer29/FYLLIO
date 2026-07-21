@@ -166,6 +166,21 @@ const MAPAS = [
     dias_reactivacion: num(f["dias_reactivacion"]), modo_whatsapp: txt(f["modo_whatsapp"]),
     actualizado_en: ts(f["actualizado_en"]),
   })],
+  ["pagos_paciente", "Pagos_Paciente", at, (f) => ({
+    resumen: txt(f["Resumen"]), paciente_id: txt(f["Paciente_RecordId"]) ?? link(f["Paciente_Link"]),
+    fecha_pago: txt(f["Fecha_Pago"]) ? String(f["Fecha_Pago"]).slice(0,10) : null,
+    importe: num(f["Importe"]), metodo: txt(f["Metodo"]), tipo: txt(f["Tipo"]),
+    nota: txt(f["Nota"]), usuario_creador_id: null,
+  })],
+  ["acciones_pago", "Acciones_Pago", at, (f) => ({
+    resumen: txt(f["Resumen"]), pago_id: link(f["Pago_Link"]), tipo: txt(f["Tipo"]),
+    fecha: ts(f["Fecha"]), importe_antes: num(f["Importe_Antes"]), importe_despues: num(f["Importe_Despues"]),
+    usuario_id: null, nota_cambio: txt(f["Nota_Cambio"]),
+  })],
+  ["inconsistencias_pagos", "Inconsistencias_Pagos", at, (f) => ({
+    resumen: txt(f["Resumen"]), pago_id: txt(f["Pago_RecordId"]), paciente_id: txt(f["Paciente_RecordId"]),
+    error: txt(f["Error"]), timestamp: ts(f["Timestamp"]), resuelto: boolv(f["Resuelto"]),
+  })],
   ["plantillas_lead", "Plantillas_Lead", at, (f) => ({
     nombre: txt(f["Nombre"]), tipo: txt(f["Tipo"]), contenido: txt(f["Contenido"]),
     activa: f["Activa"] === undefined ? true : boolv(f["Activa"]),
@@ -197,7 +212,7 @@ try {
       // FKs a filas que no existan en la copia (residuos) → null con aviso
       // sillones.sillon_id / staff.staff_id son IDs legados de texto, NO FKs.
       const NO_FK = { sillones: ["sillon_id"], staff: ["staff_id"], tratamientos: ["tratamientos_id"] };
-      for (const [col, destino] of [["clinica_id","clinicas"],["doctor_id","staff"],["doctor_asignado_id","staff"],["paciente_id","pacientes"],["lead_id","leads"],["tratamiento_id","tratamientos"],["profesional_id","staff"],["sillon_id","sillones"],["profesional_preferido_id","staff"],["cita_segura_id","citas"],["cita_cerrada_id","citas"],["regla_id","reglas_automatizacion"],["presupuesto_id","presupuestos"]]) {
+      for (const [col, destino] of [["clinica_id","clinicas"],["doctor_id","staff"],["doctor_asignado_id","staff"],["paciente_id","pacientes"],["lead_id","leads"],["tratamiento_id","tratamientos"],["profesional_id","staff"],["sillon_id","sillones"],["profesional_preferido_id","staff"],["cita_segura_id","citas"],["cita_cerrada_id","citas"],["regla_id","reglas_automatizacion"],["presupuesto_id","presupuestos"],["pago_id","pagos_paciente"]]) {
         if ((NO_FK[tPg] ?? []).includes(col)) continue;
         if (row[col] && idsPorTabla[destino] && !idsPorTabla[destino].has(row[col])) {
           console.log(`  aviso ${tPg}.${col}: id ${row[col]} no existe en copia de ${destino} → null`);
