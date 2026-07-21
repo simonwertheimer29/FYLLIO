@@ -627,17 +627,42 @@ No es regresión (Sprint B era igual); queda escrito. Subirlo a RLS (2ª variabl
    (`nombresClinicasPermitidas`→`listClinicas`) lee Airtable central: el filtro de
    clínica sobre PG depende de esa identidad Airtable hasta Fase 3.
 
-### Gates siguientes (en orden, cada uno se enseña antes de seguir)
-- **Voltear los caminos que faltan en LOCAL** (mismo protocolo: seed→PG→golden
-  mismo-instante→escrituras reales): scheduler tipado legacy (cron daily/twilio),
-  waitlist, mini-dominios (mensajes, notificaciones, plantillas-mensaje, cola_envios,
-  informes, llamadas_vapi, configuraciones, alertas, push), identidad; + RB/INDEP
-  (vacías) detrás.
-- ~~Antes del volteo de RB/INDEP: cerrar el finding #2~~ → **HECHO 2026-07-21**
-  (`verificarPresupuestoPermitido`/`mapaPresupuestoClinica` delegan a PG por flag).
-- **Corte a Vercel: lo decide Simon** con Airtable como rollback y el plan Pro de
-  Supabase resuelto primero. Producción/Vercel siguen 100% Airtable; el flag vive
-  solo en env local.
+### Identidad — DIFERIDA al corte (decisión 2026-07-21, con evidencia)
+
+Se evaluó subir identidad primero (para matar el cabo del filtro de clínica, #3).
+**Verificado que identidad es el dominio MÁS entrelazado, no el menos** — dos
+bloqueos que impiden un volteo DEMO-only por flag:
+
+1. **Login cross-cliente.** `findUsersByEmail` (`users.ts:106`) busca por correo en
+   TODOS los clientes sin conocer el cliente. Voltear solo DEMO obliga a consultar
+   los dos backends (PG DEMO + Airtable RB/INDEP) y mezclar candidatos → **login
+   dual-backend**, lo más delicado del sistema. La alternativa es migrar los 3
+   clientes a la vez = migrar ya los usuarios reales de RB/INDEP (lo que se difiere).
+2. **Id de clínica de la sesión ≠ id de PG (4/4).** La sesión lleva ids de clínica
+   de IDENTIDAD central; PG tiene ids de NEGOCIO (el seed copió de la base de negocio).
+   Verificado: Centro `recyfwA8XygnNReoM`(central) vs `recAP3f5g8sr0aYQ8`(PG), y las
+   otras 3 igual. Hoy el filtro funciona porque `listClinicas({cliente})` lee central
+   (ids que casan) y compara por NOMBRE. Mover `listClinicas` a PG rompe el mapeo
+   id→nombre (los ids de la sesión no existen en PG) → coordinadora vería CERO.
+
+**Conclusión:** matar el cabo #3 exige que el login emita sesiones con ids de PG =
+identidad completa (usuarios+junction+clínicas con ids reconciliados) sobre PG. Por el
+login cross-cliente, eso es dual-backend o migrar los 3 clientes juntos — trabajo del
+corte, no un flag. **Decisión (Simon): identidad se voltea como paso ATÓMICO en el
+corte** (todos los clientes, ids reconciliados). El cabo #3 queda fail-closed y
+documentado hasta entonces (no es fuga).
+
+### Gates siguientes (orden REVISADO 2026-07-21, cada uno se enseña antes de seguir)
+- **AHORA — dominios no-entrelazados en LOCAL** (per-cliente, sin el problema de
+  identidad; mismo protocolo seed→PG→golden mismo-instante→escrituras): mini-dominios
+  (notificaciones, plantillas-mensaje, informes, cola_envios, configuraciones, alertas,
+  push), mensajes_whatsapp + llamadas_vapi (Copilot), scheduler legacy (cron
+  daily/twilio) + waitlist.
+- **DESPUÉS — RB/INDEP (vacías)** detrás.
+- **EN EL CORTE — identidad atómica** (los 3 clientes, ids reconciliados) → mata el
+  cabo #3. Lo decide Simon con Airtable como rollback y el plan Pro de Supabase resuelto.
+- ~~Cerrar #2 antes de RB/INDEP~~ → **HECHO 2026-07-21**. Producción/Vercel siguen
+  100% Airtable; el flag vive solo en env local.
 
 ### Estado Automatizaciones (hecho, 4º dominio)
 
