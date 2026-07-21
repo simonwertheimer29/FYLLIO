@@ -11,6 +11,7 @@
 // que las clinicas que no han customizado nada hereden lo razonable.
 
 import { base, TABLES, fetchAll } from "../airtable";
+import { usaPostgres } from "../db/data-backend";
 
 export type ConfigCategoria =
   | "Metodos_Pago"
@@ -28,7 +29,9 @@ export type ConfigOpcion = {
   createdAt: string;
 };
 
-function toOpcion(rec: any): ConfigOpcion {
+// Exportada para que configuraciones-pg.ts proyecte los shims PG con la MISMA
+// lógica (paridad exacta: una sola verdad para Clinica_Link→clinicaId, etc.).
+export function toOpcion(rec: any): ConfigOpcion {
   const f = rec.fields ?? {};
   const links = (f["Clinica_Link"] ?? []) as string[];
   return {
@@ -49,6 +52,10 @@ function toOpcion(rec: any): ConfigOpcion {
  * panel admin. Para consumo a runtime usa getOpcionesActivasParaClinica.
  */
 export async function listAllOpciones(): Promise<ConfigOpcion[]> {
+  if (usaPostgres("configuraciones")) {
+    const pg = await import("./configuraciones-pg");
+    return pg.listAllOpcionesPg();
+  }
   const recs = await fetchAll(base(TABLES.configuracionesClinica as any).select({}));
   return recs.map(toOpcion);
 }
@@ -105,6 +112,10 @@ export async function crearOpcion(input: {
   valor: string;
   orden?: number;
 }): Promise<ConfigOpcion> {
+  if (usaPostgres("configuraciones")) {
+    const pg = await import("./configuraciones-pg");
+    return pg.crearOpcionPg(input);
+  }
   const fields: Record<string, unknown> = {
     Resumen: `${input.categoria} · ${input.valor}${input.clinicaId ? ` · clinica` : ` · global`}`,
     Categoria: input.categoria,
@@ -124,6 +135,10 @@ export async function actualizarOpcion(
   id: string,
   patch: Partial<{ valor: string; activo: boolean; orden: number }>,
 ): Promise<ConfigOpcion> {
+  if (usaPostgres("configuraciones")) {
+    const pg = await import("./configuraciones-pg");
+    return pg.actualizarOpcionPg(id, patch);
+  }
   const fields: Record<string, unknown> = {};
   if (patch.valor !== undefined) fields["Valor"] = patch.valor;
   if (patch.activo !== undefined) fields["Activo"] = patch.activo;
@@ -135,6 +150,10 @@ export async function actualizarOpcion(
 }
 
 export async function eliminarOpcion(id: string): Promise<void> {
+  if (usaPostgres("configuraciones")) {
+    const pg = await import("./configuraciones-pg");
+    return pg.eliminarOpcionPg(id);
+  }
   await base(TABLES.configuracionesClinica as any).destroy([id]);
 }
 
@@ -149,12 +168,20 @@ export const CATEGORIA_LABEL: Record<ConfigCategoria, string> = {
 // FASE 1 migración — accesos genéricos a Configuraciones_Clinica para los
 // consumidores por categoría (horario laboral, llamadas IA, motor no-shows).
 export async function findConfigClinicaRaw(id: string): Promise<any> {
+  if (usaPostgres("configuraciones")) {
+    const pg = await import("./configuraciones-pg");
+    return pg.findConfigClinicaRawPg(id);
+  }
   return base(TABLES.configuracionesClinica as any).find(id);
 }
 export async function findConfigPorCategoriaYClinicaRaw(
   categoria: string,
   clinicaId: string,
 ): Promise<any | null> {
+  if (usaPostgres("configuraciones")) {
+    const pg = await import("./configuraciones-pg");
+    return pg.findConfigPorCategoriaYClinicaRawPg(categoria, clinicaId);
+  }
   const recs = await fetchAll(
     base(TABLES.configuracionesClinica).select({
       filterByFormula: `AND({Categoria}="${categoria}", FIND("${clinicaId}", ARRAYJOIN({Clinica_Link}, ",")))`,
@@ -164,6 +191,10 @@ export async function findConfigPorCategoriaYClinicaRaw(
   return recs[0] ?? null;
 }
 export async function selectConfigsPorCategoriaRaw(categoria: string): Promise<any[]> {
+  if (usaPostgres("configuraciones")) {
+    const pg = await import("./configuraciones-pg");
+    return pg.selectConfigsPorCategoriaRawPg(categoria);
+  }
   return fetchAll(
     base(TABLES.configuracionesClinica).select({
       filterByFormula: `{Categoria}="${categoria}"`,
@@ -171,8 +202,16 @@ export async function selectConfigsPorCategoriaRaw(categoria: string): Promise<a
   );
 }
 export async function updateConfigClinicaRaw(id: string, fields: Record<string, unknown>): Promise<void> {
+  if (usaPostgres("configuraciones")) {
+    const pg = await import("./configuraciones-pg");
+    return pg.updateConfigClinicaRawPg(id, fields);
+  }
   await base(TABLES.configuracionesClinica).update([{ id, fields } as any]);
 }
 export async function createConfigClinicaRaw(fields: Record<string, unknown>): Promise<void> {
+  if (usaPostgres("configuraciones")) {
+    const pg = await import("./configuraciones-pg");
+    return pg.createConfigClinicaRawPg(fields);
+  }
   await base(TABLES.configuracionesClinica).create([{ fields } as any], { typecast: true });
 }

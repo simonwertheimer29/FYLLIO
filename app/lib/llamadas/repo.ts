@@ -3,6 +3,7 @@
 // Sprint 17 Bloque 2/3 — repo Airtable para Llamadas_Vapi.
 
 import { base, fetchAll, TABLES } from "../airtable";
+import { usaPostgres } from "../db/data-backend";
 import type {
   EstadoLlamada,
   Llamada,
@@ -42,6 +43,10 @@ export async function createLlamada(input: {
   estado?: EstadoLlamada;
   notas?: string;
 }): Promise<Llamada> {
+  if (usaPostgres("vapi")) {
+    const pg = await import("./repo-pg");
+    return pg.createLlamadaPg(input);
+  }
   const now = new Date().toISOString();
   const fields: Record<string, any> = {
     Resumen: `${input.tipo} · ${input.pacienteId.slice(-6)}`,
@@ -75,6 +80,10 @@ export async function updateLlamada(
     vapiCallId: string;
   }>,
 ): Promise<Llamada> {
+  if (usaPostgres("vapi")) {
+    const pg = await import("./repo-pg");
+    return pg.updateLlamadaPg(id, patch);
+  }
   const fields: Record<string, any> = { Updated_At: new Date().toISOString() };
   if (patch.estado !== undefined) fields.Estado = patch.estado;
   if (patch.resultado !== undefined) fields.Resultado = patch.resultado;
@@ -94,6 +103,10 @@ export async function updateLlamada(
 }
 
 export async function getLlamada(id: string): Promise<Llamada | null> {
+  if (usaPostgres("vapi")) {
+    const pg = await import("./repo-pg");
+    return pg.getLlamadaPg(id);
+  }
   try {
     const rec = await base(TABLES.llamadasVapi).find(id);
     return toLlamada(rec);
@@ -105,6 +118,10 @@ export async function getLlamada(id: string): Promise<Llamada | null> {
 export async function getLlamadaPorVapiCallId(
   vapiCallId: string,
 ): Promise<Llamada | null> {
+  if (usaPostgres("vapi")) {
+    const pg = await import("./repo-pg");
+    return pg.getLlamadaPorVapiCallIdPg(vapiCallId);
+  }
   const recs = await fetchAll(
     base(TABLES.llamadasVapi).select({
       filterByFormula: `{Vapi_Call_Id} = "${vapiCallId.replace(/"/g, '\\"')}"`,
@@ -127,6 +144,10 @@ export type ListLlamadasFilters = {
 export async function listLlamadas(
   f: ListLlamadasFilters = {},
 ): Promise<Llamada[]> {
+  if (usaPostgres("vapi")) {
+    const pg = await import("./repo-pg");
+    return pg.listLlamadasPg(f);
+  }
   const partes: string[] = [];
   if (f.pacienteId)
     partes.push(`FIND("${f.pacienteId}", ARRAYJOIN({Paciente_Link}, ","))`);
@@ -161,6 +182,10 @@ export async function listLlamadas(
 export async function pacienteLlamadoUltimas24h(
   pacienteId: string,
 ): Promise<boolean> {
+  if (usaPostgres("vapi")) {
+    const pg = await import("./repo-pg");
+    return pg.pacienteLlamadoUltimas24hPg(pacienteId);
+  }
   const desde = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
   const partes = [
     `FIND("${pacienteId}", ARRAYJOIN({Paciente_Link}, ","))`,
@@ -187,6 +212,10 @@ export async function pacienteLlamadoUltimas24h(
 export async function contarLlamadasHoyPorPaciente(
   pacienteIds: string[],
 ): Promise<number> {
+  if (usaPostgres("vapi")) {
+    const pg = await import("./repo-pg");
+    return pg.contarLlamadasHoyPorPacientePg(pacienteIds);
+  }
   if (pacienteIds.length === 0) return 0;
   const inicioHoy = new Date();
   inicioHoy.setHours(0, 0, 0, 0);
@@ -214,6 +243,10 @@ export async function contarLlamadasHoyPorPaciente(
  *  por clínica (en V1 asumimos una clínica = un tenant de Fyllio;
  *  cuando crezcamos se filtrará por clinicaId via join Paciente_Link). */
 export async function contarLlamadasHoy(): Promise<number> {
+  if (usaPostgres("vapi")) {
+    const pg = await import("./repo-pg");
+    return pg.contarLlamadasHoyPg();
+  }
   const inicioHoy = new Date();
   inicioHoy.setHours(0, 0, 0, 0);
   try {
@@ -236,6 +269,10 @@ export async function tasaFallidasUltimaHora(): Promise<{
   fallidas: number;
   pct: number;
 }> {
+  if (usaPostgres("vapi")) {
+    const pg = await import("./repo-pg");
+    return pg.tasaFallidasUltimaHoraPg();
+  }
   const desde = new Date(Date.now() - 3600 * 1000).toISOString();
   try {
     const recs = await fetchAll(

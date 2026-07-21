@@ -2,6 +2,7 @@
 // Sprint 8 D.7 — acceso a Alertas_Enviadas para cooldown + log.
 
 import { base, TABLES, fetchAll } from "../airtable";
+import { usaPostgres } from "../db/data-backend";
 import type { TipoAlerta } from "./templates";
 
 export type AlertaEnviada = {
@@ -35,6 +36,10 @@ function toAlerta(rec: any): AlertaEnviada {
 }
 
 export async function listHistorial(limit = 50): Promise<AlertaEnviada[]> {
+  if (usaPostgres("alertas")) {
+    const pg = await import("./historial-pg");
+    return pg.listHistorialPg(limit);
+  }
   const recs = await fetchAll(base(TABLES.alertasEnviadas).select({}));
   const all = recs.map(toAlerta);
   all.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -43,6 +48,10 @@ export async function listHistorial(limit = 50): Promise<AlertaEnviada[]> {
 
 /** Última alerta (no-error) enviada para (clinicaId, tipo). */
 export async function lastAlertFor(clinicaId: string, tipo: TipoAlerta): Promise<AlertaEnviada | null> {
+  if (usaPostgres("alertas")) {
+    const pg = await import("./historial-pg");
+    return pg.lastAlertForPg(clinicaId, tipo);
+  }
   const recs = await fetchAll(base(TABLES.alertasEnviadas).select({}));
   const match = recs
     .map(toAlerta)
@@ -71,6 +80,10 @@ export async function recordAlert(input: {
   mensaje: string;
   error: boolean;
 }): Promise<AlertaEnviada> {
+  if (usaPostgres("alertas")) {
+    const pg = await import("./historial-pg");
+    return pg.recordAlertPg(input);
+  }
   // Sprint 14b Bloque 3 hotfix — typecast:true para que Airtable
   // extienda el singleSelect Tipo_Alerta cuando lleguen los nuevos
   // valores (cobro_vence_3d, cobro_vencido_7d, pendiente_alto_estancado).
@@ -98,11 +111,19 @@ export async function recordAlert(input: {
 // FASE 1 migración — alta genérica de alerta de coordinación (usada por
 // vapi, motor de reglas, llamadas IA y no-shows) + lectura filtrada.
 export async function createAlertaCoordinacionRaw(fields: Record<string, unknown>): Promise<void> {
+  if (usaPostgres("alertas")) {
+    const pg = await import("./historial-pg");
+    return pg.createAlertaCoordinacionRawPg(fields);
+  }
   await base(TABLES.alertasEnviadas).create([{ fields }] as any, { typecast: true } as any);
 }
 export async function selectAlertasEnviadasRaw(opts: {
   filterByFormula?: string;
   maxRecords?: number;
 }): Promise<any[]> {
+  if (usaPostgres("alertas")) {
+    const pg = await import("./historial-pg");
+    return pg.selectAlertasEnviadasRawPg(opts);
+  }
   return fetchAll(base(TABLES.alertasEnviadas).select(opts as any));
 }

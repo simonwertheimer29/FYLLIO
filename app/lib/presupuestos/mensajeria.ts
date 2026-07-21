@@ -15,6 +15,33 @@ import type {
 import { getWABACredentials, normalizarTelefono } from "./waba-credentials";
 import { checkRateLimit } from "./rate-limit";
 import { getIdempotentResult, setIdempotentResult } from "../scheduler/idempotency";
+import { usaPostgres } from "../db/data-backend";
+
+// ─── Acceso al LOG Mensajes_WhatsApp (delegado a Postgres por flag) ──────────
+// Solo el REGISTRO del mensaje. Idempotencia (KV), envío a Meta (WABA),
+// rate-limit y telemetría son ortogonales y NO pasan por aquí.
+async function crearMensajeWhatsAppRecord(fields: Record<string, unknown>): Promise<{ id: string }> {
+  if (usaPostgres("mensajes")) {
+    const pg = await import("./mensajeria-pg");
+    return pg.createMensajeWhatsAppPg(fields);
+  }
+  return (await base(TABLES.mensajesWhatsApp as any).create(fields as any)) as any;
+}
+async function selectMensajesRecords(opts: {
+  filterByFormula?: string;
+  sort?: Array<{ field: string; direction: "asc" | "desc" }>;
+  maxRecords?: number;
+}): Promise<any[]> {
+  if (usaPostgres("mensajes")) {
+    const pg = await import("./mensajeria-pg");
+    return pg.selectMensajesWhatsAppPg(opts);
+  }
+  const sel: Record<string, unknown> = {};
+  if (opts.filterByFormula) sel.filterByFormula = opts.filterByFormula;
+  if (opts.sort) sel.sort = opts.sort;
+  if (opts.maxRecords !== undefined) sel.maxRecords = opts.maxRecords;
+  return fetchAll(base(TABLES.mensajesWhatsApp as any).select(sel as any));
+}
 
 const ZONE = "Europe/Madrid";
 const GRAPH_API_VERSION = "v21.0";
@@ -100,13 +127,11 @@ async function getHistorialCompartido(params: HistorialParams): Promise<MensajeW
     return [];
   }
 
-  const query = base(TABLES.mensajesWhatsApp as any).select({
+  const recs = await selectMensajesRecords({
     filterByFormula: filterFormula,
     sort: [{ field: "Timestamp", direction: "asc" }],
     maxRecords: limit,
   });
-
-  const recs = await fetchAll(query);
 
   return recs.map((r) => {
     const f = r.fields as Record<string, unknown>;
@@ -178,7 +203,7 @@ class ServicioMensajeriaManual implements ServicioMensajeria {
       Procesado_por_IA: false,
     };
     if (params.leadId) fields.Lead_Link = [params.leadId];
-    const record = await base(TABLES.mensajesWhatsApp as any).create(fields as any) as any;
+    const record = await crearMensajeWhatsAppRecord(fields);
 
     const tel = params.telefono.replace(/[^0-9+]/g, "");
     const urlWhatsApp = `https://wa.me/${tel}?text=${encodeURIComponent(params.contenido)}`;
@@ -204,7 +229,7 @@ class ServicioMensajeriaManual implements ServicioMensajeria {
     if (params.leadId) fields.Lead_Link = [params.leadId];
     if (params.wabaMessageId) fields.WABA_message_id = params.wabaMessageId;
 
-    const record = await base(TABLES.mensajesWhatsApp as any).create(fields as any) as any;
+    const record = await crearMensajeWhatsAppRecord(fields);
 
     return { ok: true, mensajeId: record.id as string };
   }
@@ -286,7 +311,7 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
     if (wabaMessageId) fields.WABA_message_id = wabaMessageId;
 
     try {
-      const record = await base(TABLES.mensajesWhatsApp as any).create(fields as any) as any;
+      const record = await crearMensajeWhatsAppRecord(fields);
       result.mensajeId = record.id as string;
       if (params.idempotencyKey) {
         await setIdempotentResult(params.idempotencyKey, result).catch(() => {});
@@ -324,7 +349,7 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
     if (params.leadId) fields.Lead_Link = [params.leadId];
     if (params.wabaMessageId) fields.WABA_message_id = params.wabaMessageId;
 
-    const record = await base(TABLES.mensajesWhatsApp as any).create(fields as any) as any;
+    const record = await crearMensajeWhatsAppRecord(fields);
 
     const clinica = await getClinicaForMensaje(params);
     actualizarTelemetriaWABA(clinica, "Ultimo_mensaje_recibido").catch(() => {});
@@ -407,7 +432,7 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
     if (wabaMessageId) fields.WABA_message_id = wabaMessageId;
 
     try {
-      const record = await base(TABLES.mensajesWhatsApp as any).create(fields as any) as any;
+      const record = await crearMensajeWhatsAppRecord(fields);
       result.mensajeId = record.id as string;
       if (params.idempotencyKey) {
         await setIdempotentResult(params.idempotencyKey, result).catch(() => {});
@@ -483,9 +508,5 @@ export async function selectMensajesWhatsAppRaw(opts: {
   sort?: Array<{ field: string; direction: "asc" | "desc" }>;
   maxRecords?: number;
 }): Promise<any[]> {
-  const sel: Record<string, unknown> = {};
-  if (opts.filterByFormula) sel.filterByFormula = opts.filterByFormula;
-  if (opts.sort) sel.sort = opts.sort;
-  if (opts.maxRecords !== undefined) sel.maxRecords = opts.maxRecords;
-  return fetchAll(base(TABLES.mensajesWhatsApp as any).select(sel as any));
+  return selectMensajesRecords(opts);
 }

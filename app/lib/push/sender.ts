@@ -3,6 +3,7 @@
 
 import webpush from "web-push";
 import { base, TABLES } from "../airtable";
+import { usaPostgres } from "../db/data-backend";
 
 export interface PushPayload {
   title: string;
@@ -29,6 +30,10 @@ type AirtableRecord = {
 };
 
 async function fetchSubscriptions(formula: string): Promise<AirtableRecord[]> {
+  if (usaPostgres("push")) {
+    const pg = await import("./sender-pg");
+    return pg.fetchSubscriptionsPg(formula);
+  }
   const recs = await base(TABLES.pushSubscriptions as any)
     .select({ filterByFormula: formula, fields: ["endpoint", "p256dh", "auth"] })
     .all();
@@ -36,6 +41,10 @@ async function fetchSubscriptions(formula: string): Promise<AirtableRecord[]> {
 }
 
 async function deactivateSubscription(recId: string): Promise<void> {
+  if (usaPostgres("push")) {
+    const pg = await import("./sender-pg");
+    return pg.deactivateSubscriptionPg(recId);
+  }
   try {
     await base(TABLES.pushSubscriptions as any).update(recId, { activa: false } as any);
   } catch {
@@ -116,6 +125,10 @@ export async function sendPushToAll(
 
 // FASE 1 migración — repo de Push_Subscriptions para la ruta de suscripción.
 export async function findSuscripcionPorEndpointRaw(endpoint: string): Promise<any | null> {
+  if (usaPostgres("push")) {
+    const pg = await import("./sender-pg");
+    return pg.findSuscripcionPorEndpointRawPg(endpoint);
+  }
   const recs = await base(TABLES.pushSubscriptions as any)
     .select({
       filterByFormula: `{endpoint}="${endpoint.replace(/"/g, '\\"')}"`,
@@ -126,8 +139,16 @@ export async function findSuscripcionPorEndpointRaw(endpoint: string): Promise<a
   return recs?.[0] ?? null;
 }
 export async function updateSuscripcionRaw(id: string, fields: Record<string, unknown>): Promise<void> {
+  if (usaPostgres("push")) {
+    const pg = await import("./sender-pg");
+    return pg.updateSuscripcionRawPg(id, fields);
+  }
   await (base(TABLES.pushSubscriptions as any) as any).update(id, fields);
 }
 export async function createSuscripcionRaw(fields: Record<string, unknown>): Promise<void> {
+  if (usaPostgres("push")) {
+    const pg = await import("./sender-pg");
+    return pg.createSuscripcionRawPg(fields);
+  }
   await (base(TABLES.pushSubscriptions as any) as any).create(fields);
 }
