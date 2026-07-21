@@ -120,6 +120,17 @@ bypassa RLS para sembrar DEMO) sin estar en el `ALLOWLIST_ADMIN`. Un guard siemp
 una violación real de service-role (§9): la defensa del mandamiento §5 estaba de adorno. Añadido al
 allowlist. Lo cazó el propio gate final al correr toda la suite, no un run aislado del guard.
 
+## 2026-07-21 — CORTE FASE A/B/C: identidad sobre Postgres, login verde (3 flujos × 3 clientes)
+Simon aprobó ejecutar el corte (riesgo bajo: todo ficticio/placeholder, sin clientes reales aún).
+Retirado /login/clasico (100% email-first; los 8 usuarios tienen email). Identidad volteada a PG:
+flag `usaPostgresIdentidad()` GLOBAL (el login es cross-cliente, no atado a currentCliente);
+`auth/users-pg.ts` (reads sin contexto sobre `usuarios` using-true; clinicas/junction en
+runWithClienteDb). Seed `db-seed-identidad.mjs` copió central→PG reconciliando ids (DEMO junction
+→ ids de negocio ya en PG por nombre; RB/INDEP → id central). Login sobre PG VERDE (43/0,
+`qa-login-pg.ts`): findUsersByEmail cross-cliente, PIN bcrypt contra hash migrado, clínicas del
+coord resueltas por id→nombre, aislamiento RB/INDEP/DEMO disjunto. Pendiente antes del flip (FASE
+D, requiere OK de Simon): backfill de ids reales en alertas/pagos + QA adversarial con identidad.
+
 ## 2026-07-21 — Split-brain de Citas del gate 5: los métodos tipados del scheduler seguían en Airtable
 El gate 5 volteó los `*Raw` de Citas a PG pero dejó los 10 métodos TIPADOS de reserva
 (createAppointment, cancel/complete/confirm/updateAppointment, markNoShow, getAppointmentByRecordId,
