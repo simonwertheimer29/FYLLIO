@@ -7,7 +7,6 @@
 // La validación real vive en /api/auth/identify y /api/auth/select-clinica.
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { NumericKeypad } from "../components/auth/NumericKeypad";
@@ -422,11 +421,6 @@ function Shell({ children }: { children: React.ReactNode }) {
       <div className="w-full max-w-sm text-center">
         <Image src="/isotipo.png" alt="Fyllio" width={48} height={48} priority className="mx-auto h-12 w-12" />
         <div className="mt-6">{children}</div>
-        <p className="mt-10 text-[11px] text-[var(--color-muted)]">
-          <Link href="/login/clasico" className="hover:underline">
-            Acceso clásico por clínica
-          </Link>
-        </p>
       </div>
     </main>
   );

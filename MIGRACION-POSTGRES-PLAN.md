@@ -702,11 +702,12 @@ Falta sembrar identidad de los 3 clientes y voltear el código.
 - [ ] Flip prod. Airtable read-only pocos días.
 - [ ] Verificar demo + login sobre PG en prod. Retirar Airtable en días.
 
-**Decisión pendiente (gobierna FASE A): `/login/clasico`.** Decidiste "dejarlo en
-Airtable", pero el corte retira Airtable. Opciones: (a) **retirarlo** → login 100%
-email-first (limpio, y toda la identidad es placeholder de todos modos); (b) voltearlo
-a PG (usa la vista D7a + junction sin contexto — más código en un path legacy). Default
-propuesto: **(a) retirar**.
+**Decisión (Simon 2026-07-21): RETIRAR `/login/clasico`** → login 100% email-first,
+cero legacy. Se quita el enlace en `LoginFlow.tsx:426`, la página `/login/clasico`,
+`LoginView.tsx`, `/login/clinica/[id]` y la ruta `/api/auth/pin-login`;
+`findCoordinacionesByClinica` queda sin caller (no necesita variante PG). **Reabrir
+SOLO si** al definir los usuarios reales de RB alguno no tiene email (cuestión del
+piloto, no bloqueante hoy — toda la identidad es placeholder aún).
 
 ### Mini-dominios no-entrelazados — VOLTEADOS ✅ (2026-07-21)
 
