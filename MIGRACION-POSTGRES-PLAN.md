@@ -699,10 +699,37 @@ ejercitada (§8): presupuesto inexistente → rechazado en voz alta.
   Ningún camino de escritura la usa hoy (webhook escribe iniciada/en_curso; la lista
   con "cancelada" es whitelist de LECTURA). Alinear el CHECK con el tipo si se planea usar.
 
+### Scheduler tipado + waitlist — VOLTEADOS ✅ (2026-07-21)
+
+**Hallazgo: el gate 5 (Agenda) dejó un SPLIT-BRAIN en la tabla Citas.** Los métodos
+`*Raw` de Citas ya delegaban a PG, pero los **10 métodos TIPADOS de reserva**
+(`createAppointment`, `cancel/complete/confirm/updateAppointment`, `markNoShow`,
+`getAppointmentByRecordId`, `findNextAppointmentByContactPhone`,
+`listAppointmentsByDay/Week`) seguían en Airtable → misma tabla `Citas`, dos
+backends según el método. Con el flag "agenda" en DEMO, una cita creada/mutada por
+el método tipado era invisible para las listas `*Raw` (PG) y viceversa. **No era
+boilerplate pendiente, sino un hueco de consistencia del gate 5.** Cerrado: los 10
+delegan a PG (`scheduler/repo/pg.ts` ampliado + `airtableRepo.ts`), preservando
+`fireCitaEvento`/`fireEvaluarRiesgo` en AMBAS ramas y el filtro de clínica (JS
+sobre el shim). `citas.estado` es TEXT sin CHECK → estados tipados válidos.
+
+**Golden de las 8 citas** (`qa-scheduler-golden.ts`, 12/0): `getAppointmentByRecordId`
+8/8 byte-idéntico AT vs PG (mismo proceso, toggle de flag), `listAppointmentsByDay`
+4/4, `ByWeek` 1/1. Transiciones (create/confirm/complete/cancel/no-show): una cita
+creada por el tipado es visible A LA VEZ en `getAppointmentByRecordId` (tipado) y
+`listCitasDesdeRaw` (*Raw) → **mismo backend, split cerrado**. Motor 122/0 tras el cambio.
+
+**waitlist** (`waitlist-pg.ts`, `qa-waitlist-pg.ts` 10/0): 12 funciones delegadas.
+NO usa el evaluador compartido a propósito — `{Clínica}` tiene dos semánticas
+incompatibles según el caller (por NOMBRE en `listWaitlistPorClinicaRaw`; por
+RECORD ID vía FIND/ARRAYJOIN en `listActive/listWaitlist`), así que cada función
+traduce a SQL resolviendo su intención (por id → columna, por nombre → JOIN). El
+ejercicio confirma que la cola encontrada por id Y por nombre es la MISMA entrada.
+
 ### Gates siguientes (orden REVISADO 2026-07-21, cada uno se enseña antes de seguir)
-- ~~Mini-dominios no-entrelazados~~ → **HECHO 2026-07-21** (arriba).
-- **AHORA — scheduler legacy (cron daily/twilio) + waitlist** — con golden por las
-  `citas` (8 filas DEMO). Simon quiere verlos.
+- ~~Mini-dominios no-entrelazados~~ → **HECHO 2026-07-21**.
+- ~~Scheduler tipado + waitlist~~ → **HECHO 2026-07-21** (arriba). **Con esto, TODA
+  la superficie de DEMO corre sobre Postgres+RLS.**
 - **DESPUÉS — RB/INDEP (vacías)** detrás.
 - **EN EL CORTE — identidad atómica** (los 3 clientes, ids reconciliados) → mata el
   cabo #3. Lo decide Simon con Airtable como rollback y el plan Pro de Supabase resuelto.

@@ -120,6 +120,16 @@ bypassa RLS para sembrar DEMO) sin estar en el `ALLOWLIST_ADMIN`. Un guard siemp
 una violación real de service-role (§9): la defensa del mandamiento §5 estaba de adorno. Añadido al
 allowlist. Lo cazó el propio gate final al correr toda la suite, no un run aislado del guard.
 
+## 2026-07-21 — Split-brain de Citas del gate 5: los métodos tipados del scheduler seguían en Airtable
+El gate 5 volteó los `*Raw` de Citas a PG pero dejó los 10 métodos TIPADOS de reserva
+(createAppointment, cancel/complete/confirm/updateAppointment, markNoShow, getAppointmentByRecordId,
+findNext, listAppointmentsByDay/Week) en Airtable → misma tabla, dos backends según el método. Con el
+flag "agenda" en DEMO, una cita creada/mutada por el tipado era invisible para las listas *Raw (PG).
+Cerrado: los 10 delegan a PG preservando fireCitaEvento y el filtro de clínica. Golden 12/0 (8 citas
+byte-idénticas AT/PG) + transiciones verificando lectura tipada y *Raw en el mismo backend. waitlist
+también volteada (SQL por intención por la ambigüedad {Clínica} nombre/id). Con esto TODO DEMO corre
+sobre Postgres+RLS. Detalle en §10 del plan.
+
 ## 2026-07-21 — 9 mini-dominios volteados a Postgres con un evaluador de fórmulas compartido
 El `filterByFormula` de Airtable que componen los callers se resolvía con un evaluador dentro de
 `presupuestos/pg.ts`. Extraído byte-idéntico a `app/lib/db/airtable-formula.ts` (re-verificado
