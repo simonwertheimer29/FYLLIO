@@ -11,6 +11,7 @@
 // contra los goldens de paridad (cola de intervención + KPIs).
 
 import { base, TABLES, fetchAll } from "../airtable";
+import { usaPostgres } from "../db/data-backend";
 
 export type SelectPresupuestosOpts = {
   fields?: string[];
@@ -23,6 +24,10 @@ export type SelectPresupuestosOpts = {
 /** Dataset de presupuestos (kanban, KPIs, intervención, máxima, informes,
  *  export, búsquedas). Paginación completa siempre. Records crudos. */
 export async function selectPresupuestosRaw(opts: SelectPresupuestosOpts = {}): Promise<any[]> {
+  if (usaPostgres("presupuestos")) {
+    const pg = await import("./pg");
+    return pg.selectPresupuestosRawPg(opts);
+  }
   const select: Record<string, unknown> = {};
   if (opts.fields) select.fields = opts.fields;
   if (opts.filterByFormula) select.filterByFormula = opts.filterByFormula;
@@ -37,6 +42,10 @@ export async function getPresupuestoPorIdRaw(
   id: string,
   fields?: string[],
 ): Promise<any | null> {
+  if (usaPostgres("presupuestos")) {
+    const pg = await import("./pg");
+    return pg.getPresupuestoPorIdRawPg(id, fields);
+  }
   const recs = await base(TABLES.presupuestos as any)
     .select({
       filterByFormula: `RECORD_ID()='${id}'`,
@@ -49,6 +58,10 @@ export async function getPresupuestoPorIdRaw(
 
 /** Record crudo via find (lanza si no existe). */
 export async function findPresupuestoRaw(id: string): Promise<any> {
+  if (usaPostgres("presupuestos")) {
+    const pg = await import("./pg");
+    return pg.findPresupuestoRawPg(id);
+  }
   return base(TABLES.presupuestos as any).find(id);
 }
 
@@ -58,6 +71,10 @@ export async function updatePresupuestoRaw(
   fields: Record<string, unknown>,
   opts: { typecast?: boolean } = {},
 ): Promise<void> {
+  if (usaPostgres("presupuestos")) {
+    const pg = await import("./pg");
+    return pg.updatePresupuestoRawPg(id, fields, opts);
+  }
   if (opts.typecast) {
     await (base(TABLES.presupuestos as any) as any).update(id, fields, { typecast: true });
   } else {
@@ -67,6 +84,10 @@ export async function updatePresupuestoRaw(
 
 /** Create passthrough de un presupuesto. Devuelve el record crudo. */
 export async function createPresupuestoRaw(fields: Record<string, unknown>): Promise<any> {
+  if (usaPostgres("presupuestos")) {
+    const pg = await import("./pg");
+    return pg.createPresupuestoRawPg(fields);
+  }
   return (await (base(TABLES.presupuestos) as any).create([{ fields }]))[0];
 }
 
@@ -74,10 +95,18 @@ export async function createPresupuestoRaw(fields: Record<string, unknown>): Pro
 export async function createPresupuestosBatchRaw(
   batch: Array<{ fields: Record<string, unknown> }>,
 ): Promise<any[]> {
+  if (usaPostgres("presupuestos")) {
+    const pg = await import("./pg");
+    return pg.createPresupuestosBatchRawPg(batch);
+  }
   return (await (base(TABLES.presupuestos as any) as any).create(batch)) as any[];
 }
 
 /** SOLO DEV — muestra de fields de Usuarios_Presupuestos (introspección). */
 export async function sampleUsuariosPresupuestosFieldsDev(n: number): Promise<any[]> {
+  if (usaPostgres("presupuestos")) {
+    const pg = await import("./pg");
+    return pg.sampleUsuariosPresupuestosFieldsDevPg(n);
+  }
   return (await (base(TABLES.usuariosPresupuestos as any).select({ maxRecords: n }).firstPage() as any)) as any[];
 }

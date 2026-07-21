@@ -166,6 +166,21 @@ const MAPAS = [
     dias_reactivacion: num(f["dias_reactivacion"]), modo_whatsapp: txt(f["modo_whatsapp"]),
     actualizado_en: ts(f["actualizado_en"]),
   })],
+  ["contactos_presupuesto", "Contactos_Presupuesto", at, (f) => ({
+    presupuesto_id: txt(f["PresupuestoId"]), tipo_contacto: txt(f["TipoContacto"]),
+    resultado: txt(f["Resultado"]), fecha_hora: ts(f["FechaHora"]), nota: txt(f["Nota"]),
+    registrado_por: txt(f["RegistradoPor"]), mensaje_ia_usado: boolv(f["MensajeIAUsado"]),
+    tono_usado: txt(f["TonoUsado"]), oferta: boolv(f["Oferta"]),
+  })],
+  ["objetivos_mensuales", "Objetivos_Mensuales", at, (f) => ({
+    clinica_id: cliPorNombre(f["clinica"]), mes: txt(f["mes"]) ?? "0000-00",
+    objetivo_aceptados: num(f["objetivo_aceptados"]), creado_por: txt(f["creado_por"]),
+    actualizado_en: ts(f["actualizado_en"]),
+  })],
+  ["doctores_presupuestos", "Doctores_Presupuestos", at, (f) => ({
+    nombre: txt(f["Nombre"]), especialidad: txt(f["Especialidad"]),
+    clinica_id: cliPorNombre(f["Clinica"]), activo: boolv(f["Activo"] ?? true),
+  })],
   ["pagos_paciente", "Pagos_Paciente", at, (f) => ({
     resumen: txt(f["Resumen"]), paciente_id: txt(f["Paciente_RecordId"]) ?? link(f["Paciente_Link"]),
     fecha_pago: txt(f["Fecha_Pago"]) ? String(f["Fecha_Pago"]).slice(0,10) : null,
@@ -201,7 +216,12 @@ try {
   const idsPorTabla = {};
   const leadOrigenPendiente = []; // [pacienteId, leadId]
   for (const [tPg, tAt, base_, mapFn] of MAPAS) {
-    const recs = await leer(base_, tAt);
+    let recs;
+    try { recs = await leer(base_, tAt); }
+    catch (e) {
+      console.log(`  tabla ${tAt} ilegible en la base DEMO (${e.message?.slice(0, 50)}) → 0 filas`);
+      idsPorTabla[tPg] = new Set(); continue;
+    }
     idsPorTabla[tPg] = new Set(recs.map((r) => r.id));
     let n = 0;
     for (const rec of recs) {
@@ -219,6 +239,8 @@ try {
           row[col] = null;
         }
       }
+      // filas huérfanas cuyo FK NOT NULL quedó null (id de negocio, no recId):
+      // en Airtable ninguna query por recId las encontraba → se saltan.
       const cols = ["id", "cliente", ...Object.keys(row), "created_at"];
       // Paciente.createdAt lee el CAMPO CreatedAt (retro-datado por demo-reset)
       // antes que el createdTime del record — el seed replica esa precedencia.

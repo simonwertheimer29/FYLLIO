@@ -253,8 +253,8 @@ T.presupuestos = {
 
 T.contactos_presupuesto = {
   cols: [
-    ["presupuesto_id", "fk:presupuestos", { null: false, comment: "era soft-FK texto (D8)" }],
-    ["tipo_contacto", "check:llamada,whatsapp,email,visita"],
+    ["presupuesto_id", "fk:presupuestos", { comment: "era soft-FK texto (D8); NULLABLE por huérfanos legacy (migración 006)" }],
+    ["tipo_contacto", "t", { comment: "abierto: datos reales exceden el set TS (migración 007)" }],
     ["resultado", "t"],
     ["fecha_hora", "ts"],
     ["nota", "t"],
