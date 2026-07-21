@@ -119,3 +119,12 @@ MIGRACION-POSTGRES-PLAN.md §10. Producción sigue en Airtable; el flag vive sol
 bypassa RLS para sembrar DEMO) sin estar en el `ALLOWLIST_ADMIN`. Un guard siempre-rojo no puede cazar
 una violación real de service-role (§9): la defensa del mandamiento §5 estaba de adorno. Añadido al
 allowlist. Lo cazó el propio gate final al correr toda la suite, no un run aislado del guard.
+
+## 2026-07-21 — Hueco del gate 8: el chequeo IDOR de presupuestos leía Airtable congelado
+`verificarPresupuestoPermitido`/`mapaPresupuestoClinica` (`clinica-scope.ts`) resolvían el presupuesto
+por `base(TABLES.presupuestos).find()` = Airtable SIEMPRE, aunque el dominio estuviera volteado a PG.
+Efecto en DEMO (2 cuentas de coordinación): un presupuesto creado en PG tras el volteo → Airtable no lo
+tiene → 404 en acceso legítimo, en 7 rutas; y permisos leídos de un Airtable congelado podían autorizar
+por una clínica vieja (mandamiento §4/§8: mismo backend que se sirve). Fix: los 2 lookups pasan por los
+repos que delegan por `usaPostgres`. Verificado con prueba discriminante (presupuesto PG-only) en
+`qa-clinica-pg.ts`. Lo cazó el QA adversarial del gate final, no la demo.

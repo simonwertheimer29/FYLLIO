@@ -19,7 +19,7 @@
 // cliente.
 
 import { listClinicas } from "../auth/users";
-import { base, TABLES } from "../airtable";
+import { getPresupuestoPorIdRaw, selectPresupuestosRaw } from "./repo";
 import type { UserSession } from "./types";
 
 /**
@@ -111,9 +111,11 @@ export async function verificarPresupuestoPermitido(
 ): Promise<"ok" | "not_found" | "forbidden"> {
   const permitidas = await nombresClinicasPermitidas(session);
   if (permitidas === null) return "ok";
-  const rec = await base(TABLES.presupuestos as any)
-    .find(presupuestoId)
-    .catch(() => null);
+  // El lookup pasa por el repo, que delega a PG cuando el dominio está volteado
+  // (usaPostgres). Antes leía SIEMPRE Airtable: con presupuestos en PG, autorizaba
+  // por datos congelados/ausentes (un presupuesto creado en PG → 404 al coord, o
+  // clínica vieja si Airtable diverge). Ahora lee el MISMO backend que se sirve.
+  const rec = await getPresupuestoPorIdRaw(presupuestoId, ["Clinica"]).catch(() => null);
   if (!rec) return "not_found";
   const raw = (rec.fields as Record<string, unknown>)["Clinica"];
   const clinica = Array.isArray(raw) ? String(raw[0] ?? "") : String(raw ?? "");
@@ -133,9 +135,8 @@ export async function mapaPresupuestoClinica(ids: string[]): Promise<Map<string,
   for (let i = 0; i < unique.length; i += CHUNK) {
     const slice = unique.slice(i, i + CHUNK);
     const formula = `OR(${slice.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
-    const recs = await base(TABLES.presupuestos as any)
-      .select({ filterByFormula: formula, fields: ["Clinica"], maxRecords: slice.length })
-      .all()
+    // Mismo volteo por flag que verificarPresupuestoPermitido: repo → PG/Airtable.
+    const recs = await selectPresupuestosRaw({ filterByFormula: formula, fields: ["Clinica"], maxRecords: slice.length })
       .catch(() => [] as Array<{ id: string; fields: Record<string, unknown> }>);
     for (const r of recs) {
       const raw = (r.fields as Record<string, unknown>)["Clinica"];

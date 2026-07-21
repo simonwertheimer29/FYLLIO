@@ -606,20 +606,20 @@ No es regresión (Sprint B era igual); queda escrito. Subirlo a RLS (2ª variabl
    usa `SUPABASE_DB_URL_ADMIN` (legítimo: bypassa RLS para sembrar DEMO) sin estar
    en el allowlist. Un guard siempre-rojo no caza una violación real (§9) → la red
    de §5 estaba inservible. Fix: `db-seed-demo.mjs` añadido a `ALLOWLIST_ADMIN`.
-2. 🔴 **BLOQUEANTE DURO del volteo de RB/INDEP** — `verificarPresupuestoPermitido`
-   y `mapaPresupuestoClinica` (`clinica-scope.ts:114,136`) resuelven el presupuesto
-   con `base(TABLES.presupuestos).find()` = **Airtable SIEMPRE**, sin delegar por
-   flag, aunque el dominio esté volteado a PG. Usado por 7 rutas (historial,
-   contactos, registrar-respuesta, enviar-waba, cola-envios, kanban/[id], mensajes).
-   Solo afecta a sesiones de COORDINACIÓN (el admin con `["*"]` devuelve "ok" antes
-   de leer). **Ya muerde DEMO hoy**: las 2 cuentas coord de DEMO (`demo-coord4`,
-   `demo-coord1`, `demo-seed.ts:61-62`) que abran un presupuesto CREADO en PG tras
-   el volteo → Airtable no lo tiene → 404 en acceso legítimo; y leer permisos de un
-   Airtable congelado puede AUTORIZAR por una clínica vieja si diverge. Los 8
-   presupuestos seed leen bien (ids casan en ambos backends). **Debe voltearse a PG
-   (delegación por `usaPostgres('presupuestos')` → `getPresupuestoPorIdRaw` /
-   `selectPresupuestosRaw`, que YA delegan) ANTES de que un cliente real (RB/INDEP)
-   corra sobre PG.** Fix propuesto, NO ejecutado (pendiente OK de Simon).
+2. 🟢 **HECHO (2026-07-21)** — era hueco del gate 8: `verificarPresupuestoPermitido`
+   y `mapaPresupuestoClinica` (`clinica-scope.ts`) resolvían el presupuesto con
+   `base(TABLES.presupuestos).find()` = **Airtable SIEMPRE**, sin delegar por flag,
+   aunque el dominio esté volteado a PG. Usado por 7 rutas (historial, contactos,
+   registrar-respuesta, enviar-waba, cola-envios, kanban/[id], mensajes). Solo
+   afectaba a sesiones de COORDINACIÓN (el admin con `["*"]` devuelve "ok" antes de
+   leer). **Muerde DEMO**: las 2 cuentas coord (`demo-coord4`, `demo-coord1`,
+   `demo-seed.ts:61-62`) que abran un presupuesto creado en PG tras el volteo →
+   Airtable no lo tenía → 404 en acceso legítimo; y permisos leídos de un Airtable
+   congelado podían AUTORIZAR por una clínica vieja. **Fix**: los 2 lookups pasan por
+   `getPresupuestoPorIdRaw` / `selectPresupuestosRaw` (repos que YA delegan por
+   `usaPostgres`) → mismo backend que se sirve. Cubierto en `qa-clinica-pg.ts` con
+   prueba DISCRIMINANTE (presupuesto PG-only → coord dueña "ok", ajena "forbidden";
+   antes daba "not_found"). Cliente↔cliente sigue respaldado por RLS.
 3. 🟡 **Fase 3** — Identidad (usuarios/usuario_clinicas/clínicas central) NO
    volteada: el path vivo del Esc 4 (gestión de usuarios) corre en Airtable. Las
    políticas RLS de identidad en PG están y son correctas (verificado a nivel de
@@ -633,8 +633,8 @@ No es regresión (Sprint B era igual); queda escrito. Subirlo a RLS (2ª variabl
   waitlist, mini-dominios (mensajes, notificaciones, plantillas-mensaje, cola_envios,
   informes, llamadas_vapi, configuraciones, alertas, push), identidad; + RB/INDEP
   (vacías) detrás.
-- **Antes del volteo de RB/INDEP: cerrar el finding #2** (voltear
-  `verificarPresupuestoPermitido`/`mapaPresupuestoClinica` a PG) — bloqueante duro.
+- ~~Antes del volteo de RB/INDEP: cerrar el finding #2~~ → **HECHO 2026-07-21**
+  (`verificarPresupuestoPermitido`/`mapaPresupuestoClinica` delegan a PG por flag).
 - **Corte a Vercel: lo decide Simon** con Airtable como rollback y el plan Pro de
   Supabase resuelto primero. Producción/Vercel siguen 100% Airtable; el flag vive
   solo en env local.
