@@ -491,8 +491,24 @@ el rol de app) y tras la primera migración `SUPABASE_DB_URL_APP` (pooler 6543 c
 **Intocables verificados**: las 3 tablas del motor predictivo no aparecen en ninguna
 migración; la analítica sigue con su cliente service-role actual.
 
+### Gate 2 — MIGRACIONES + SMOKE RLS (hecho 2026-07-20) ✅
+
+Aplicado contra el proyecto Sprint 18 (eu-west-1): 001 + 002 en transacción, password de
+fyllio_app fijado desde env, `SUPABASE_DB_URL_APP` apuntada al rol `fyllio_app.<ref>`.
+Estado del proyecto: 42 tablas en public (3 analítica INTACTAS con recuentos idénticos
+antes/después + _migraciones + 38 negocio/identidad), 62 FKs compuestas, 41 tablas con RLS.
+
+**Smoke RLS (npm run db:smoke-rls): 10/10 al primer intento, con el rol de la app:**
+sin SET LOCAL → 0 filas e INSERT rechazado (42501) · DEMO inserta y ve lo suyo · RB no ve
+ni actualiza filas DEMO · FK compuesta rechaza link RB→clínica-DEMO (23503) · vista D7a
+legible sin contexto y con exactamente 5 columnas · fyllio_app sin BYPASSRLS · fyllio_app
+sin acceso a la analítica (42501).
+
+Nota de aplicación: el password admin inicial falló (corchetes de plantilla + password
+equivocado — diagnosticado sin exponer secretos); resuelto por Simon con reset del
+database password.
+
 ### Gates siguientes (en orden, cada uno se enseña antes de seguir)
-2. Aplicar migraciones + tests de humo de RLS contra Supabase (sin SET LOCAL → 0 filas).
 3. Seed DEMO en Postgres + volteo del primer dominio tras `DATA_BACKEND` (DEMO primero).
 4. Escrituras ejercitadas DE VERDAD (registro §9 completo, 23 de Presupuestos incl.
    typecast del Copilot) + paridad golden por dominio (mismo instante).
