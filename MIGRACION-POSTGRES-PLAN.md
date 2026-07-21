@@ -652,16 +652,61 @@ corte, no un flag. **Decisión (Simon): identidad se voltea como paso ATÓMICO e
 corte** (todos los clientes, ids reconciliados). El cabo #3 queda fail-closed y
 documentado hasta entonces (no es fuga).
 
-#### CHECKLIST DEL CORTE — identidad atómica (ítems duros, no notas latentes)
-- [ ] **Reconciliar ids de clínica** central↔PG (hoy 4/4 distintos) y que el login
-  emita sesiones con ids de PG → mata el cabo #3.
-- [ ] **`alertas_enviadas`: rellenar `admin_origen_id` y `coordinadora_destino_id`
-  con los ids REALES de `usuarios`** (hoy se escriben NULL porque Identidad no está
-  migrada). Cuando identidad migre, estas FK deben poblarse de verdad — si quedan
-  NULL, las alertas de coordinación **pierden el rastro de origen/destino** (quién la
-  disparó y a quién se dirige). Decisión de Simon 2026-07-21: es requisito del corte,
-  no un follow-up opcional. (Mismo patrón a revisar en `pagos-pg` `usuario_creador_id`
-  y `acciones_pago`/`acciones_lead` `usuario_id`, todos NULL hoy por la misma causa.)
+#### CHECKLIST DEL CORTE (decisión Simon 2026-07-21: ejecutar; riesgo bajo — todo ficticio/placeholder)
+
+Contexto de riesgo (verificado): DEMO es ficticio; RB/INDEP están VACÍAS de negocio
+y su identidad es **placeholder** (`sprint-B-seed-identidad.ts`: usuarios de prueba,
+PIN temporal, se regeneran al onboardear). NO hay credenciales de cliente real aún →
+riesgo de datos/acceso bajo. El riesgo real es **disponibilidad del login** si
+identidad recién volteada falla. Airtable read-only pocos días como colchón (no
+semanas). El corte NO es un flip: identidad-sobre-PG hay que ESCRIBIRLA.
+
+Estado hoy (PG): `usuarios` y `usuario_clinicas` VACÍAS; `clinicas` solo DEMO(4).
+Falta sembrar identidad de los 3 clientes y voltear el código.
+
+**FASE A — Identidad sobre Postgres (código nuevo, el grueso; LOCAL)**
+- [ ] `auth/users-pg.ts`: las ~20 funciones de `users.ts` que tocan `baseCentral`
+  sobre PG. Flag de identidad NO atado a `currentCliente` (login cross-cliente):
+  `usaPostgresIdentidad()` mira solo un flag global.
+- [ ] Reads sin contexto (`findUsersByEmail`, `getUsuarioById`) sobre `usuarios`
+  (política `p_identidad using true`, legible sin `SET LOCAL`).
+- [ ] `findCoordinacionesByClinica` (login clínica-primero): resolver `clinicaId→cliente`
+  por la **vista D7a `login_clinicas_directorio`** (sin contexto) y luego
+  `runWithClienteDb(cliente)` para la junction. (Solo si se mantiene clasico — ver
+  decisión abajo.)
+- [ ] El resto (post-identify) en `runWithClienteDb(cliente)`.
+
+**FASE B — Seed de identidad de los 3 clientes en PG (LOCAL)**
+- [ ] Adaptar `sprint-B-seed-identidad.ts` → PG: sembrar `clinicas`+`usuarios`+
+  `usuario_clinicas` de RB/INDEP/DEMO desde CENTRAL, copiando los PIN-hash bcrypt.
+- [ ] **Reconciliar ids** (mata el cabo #3): DEMO ya tiene clínicas en PG con id de
+  NEGOCIO; su junction debe enlazar a ESOS ids (resolver por NOMBRE central→PG). RB/
+  INDEP no tienen negocio → sus clínicas se siembran con id central (sin conflicto).
+  Así la sesión lleva ids de PG y `nombresClinicasPermitidas` (id→nombre por PG)
+  sigue resolviendo el filtro de clínica sin cambiarlo.
+
+**FASE C — Verificación (el gate que importa: LOGIN + aislamiento)**
+- [ ] Login email→PIN→(elige clínica) end-to-end sobre PG, los 3 flujos (coord
+  multi-clínica, coord 1 clínica, admin), los 3 clientes.
+- [ ] **`alertas_enviadas`: `admin_origen_id`/`coordinadora_destino_id` a ids REALES
+  de `usuarios`** (hoy NULL). Idem `pagos-pg`/`acciones_pago`/`acciones_lead`
+  `usuario_id`. Sin esto, las alertas/acciones pierden el rastro de quién.
+- [ ] Re-correr QA adversarial COMPLETO con identidad también en PG: motor 122 +
+  clínica + los 10 dominios + Esc 4 (gestión de usuarios) ahora sobre PG de verdad.
+
+**FASE D — El flip (último; reversible; requiere OK explícito de Simon)**
+- [ ] **Plan Pro de Supabase activo** (el pooler es el cuello de botella con carga de
+  producción — se vio en local con muchas conexiones concurrentes). *← lo que necesito.*
+- [ ] Env de Vercel: `DATA_BACKEND_PG_DOMINIOS`=todos, `DATA_BACKEND_PG_CLIENTES`=RB,INDEP,DEMO.
+- [ ] Smoke en **preview** de Vercel primero (no prod directo).
+- [ ] Flip prod. Airtable read-only pocos días.
+- [ ] Verificar demo + login sobre PG en prod. Retirar Airtable en días.
+
+**Decisión pendiente (gobierna FASE A): `/login/clasico`.** Decidiste "dejarlo en
+Airtable", pero el corte retira Airtable. Opciones: (a) **retirarlo** → login 100%
+email-first (limpio, y toda la identidad es placeholder de todos modos); (b) voltearlo
+a PG (usa la vista D7a + junction sin contexto — más código en un path legacy). Default
+propuesto: **(a) retirar**.
 
 ### Mini-dominios no-entrelazados — VOLTEADOS ✅ (2026-07-21)
 
