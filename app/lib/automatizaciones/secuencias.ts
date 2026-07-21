@@ -8,10 +8,15 @@
 // passthrough documentado — se tipan al voltear el módulo.
 
 import { base, TABLES } from "../airtable";
+import { usaPostgres } from "../db/data-backend";
 
 /** Cola filtrada (estado + fragmento opcional de clínica), más recientes
  *  primero. La fórmula la compone el caller con clinica-scope. */
 export async function listSecuenciasFiltradasRaw(formula: string): Promise<readonly any[]> {
+  if (usaPostgres("automatizaciones")) {
+    const pg = await import("./pg");
+    return pg.listSecuenciasFiltradasRawPg(formula);
+  }
   return base(TABLES.secuenciasAutomaticas as any)
     .select({
       filterByFormula: formula,
@@ -26,6 +31,10 @@ export async function patchSecuencia(
   id: string,
   updates: { estado?: string; mensajeGenerado?: string; actualizadoEn: string },
 ): Promise<void> {
+  if (usaPostgres("automatizaciones")) {
+    const pg = await import("./pg");
+    return pg.patchSecuenciaPg(id, updates);
+  }
   const fields: Record<string, unknown> = { actualizado_en: updates.actualizadoEn };
   if (updates.estado !== undefined) fields["estado"] = updates.estado;
   if (updates.mensajeGenerado !== undefined) fields["mensaje_generado"] = updates.mensajeGenerado;
@@ -34,11 +43,19 @@ export async function patchSecuencia(
 
 /** Record crudo (el PATCH enviar lo relee para el historial). */
 export async function findSecuenciaRaw(id: string): Promise<any> {
+  if (usaPostgres("automatizaciones")) {
+    const pg = await import("./pg");
+    return pg.findSecuenciaRawPg(id);
+  }
   return base(TABLES.secuenciasAutomaticas as any).find(id);
 }
 
 /** presupuesto_id de todas las secuencias pendientes (dedup de procesar). */
 export async function listPresupuestoIdsPendientes(): Promise<Set<string>> {
+  if (usaPostgres("automatizaciones")) {
+    const pg = await import("./pg");
+    return pg.listPresupuestoIdsPendientesPg();
+  }
   const recs = await base(TABLES.secuenciasAutomaticas as any)
     .select({
       filterByFormula: `{estado}="pendiente"`,
@@ -51,6 +68,10 @@ export async function listPresupuestoIdsPendientes(): Promise<Set<string>> {
 
 /** Alta de una secuencia (fields los compone procesar; passthrough FASE 1). */
 export async function createSecuenciaRaw(fields: Record<string, unknown>): Promise<void> {
+  if (usaPostgres("automatizaciones")) {
+    const pg = await import("./pg");
+    return pg.createSecuenciaRawPg(fields);
+  }
   await base(TABLES.secuenciasAutomaticas as any).create([{ fields }] as any);
 }
 

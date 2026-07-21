@@ -20,6 +20,8 @@ await db.connect();
 // El seed corre como admin (bypassa RLS) pero SIEMPRE estampa cliente='DEMO'.
 
 const link = (v) => (Array.isArray(v) && v[0] ? String(v[0]) : null);
+const clinicasPorNombre = new Map(); // nombre → id (se llena al copiar clinicas)
+const cliPorNombre = (v) => (v ? clinicasPorNombre.get(String(v)) ?? null : null);
 const txt = (v) => (v == null || v === "" ? null : String(v));
 const num = (v) => (typeof v === "number" ? v : v == null || v === "" ? null : Number(v));
 const boolv = (v) => Boolean(v ?? false);
@@ -109,6 +111,61 @@ const MAPAS = [
     cita_segura_id: link(f["Cita_segura"]), cita_cerrada_id: link(f["Cita cerrada"]),
     notas: txt(f["Notas / Contexto"] ?? f["Notas"]), ultimo_contacto: txt(f["Último contacto"]),
   })],
+  ["presupuestos", "Presupuestos", at, (f) => ({
+    paciente_id: link(f["Paciente"]), presupuesto_id_negocio: txt(f["Presupuesto ID"]),
+    tratamiento_nombre: txt(f["Tratamiento_nombre"]), estado: txt(f["Estado"]),
+    fecha: txt(f["Fecha"]) ? String(f["Fecha"]).slice(0,10) : null,
+    fecha_alta: txt(f["FechaAlta"]) ? String(f["FechaAlta"]).slice(0,10) : null,
+    fecha_aceptado: txt(f["Fecha_Aceptado"]) ? String(f["Fecha_Aceptado"]).slice(0,10) : null,
+    importe: num(f["Importe"]), notas: txt(f["Notas"]), doctor: txt(f["Doctor"]),
+    doctor_especialidad: txt(f["Doctor_Especialidad"]), tipo_paciente: txt(f["TipoPaciente"]),
+    tipo_visita: txt(f["TipoVisita"]), clinica_id: cliPorNombre(f["Clinica"]),
+    contact_count: num(f["ContactCount"]) ?? 0, creado_por: txt(f["CreadoPor"]),
+    num_historia: txt(f["NumHistoria"]), origen_lead: txt(f["OrigenLead"]),
+    motivo_perdida: txt(f["MotivoPerdida"]), motivo_perdida_texto: txt(f["MotivoPerdidaTexto"]),
+    motivo_duda: txt(f["MotivoDuda"]), reactivacion: boolv(f["Reactivacion"]),
+    portal_enviado: boolv(f["PortalEnviado"]), oferta_activa: boolv(f["OfertaActiva"]),
+    ultimo_contacto: txt(f["UltimoContacto"]) ? String(f["UltimoContacto"]).slice(0,10) : null,
+    paciente_telefono: txt(f["Paciente_Telefono"]),
+    ultima_respuesta_paciente: txt(f["Ultima_respuesta_paciente"]),
+    fecha_ultima_respuesta: ts(f["Fecha_ultima_respuesta"]),
+    intencion_detectada: txt(f["Intencion_detectada"]), urgencia_intervencion: txt(f["Urgencia_intervencion"]),
+    accion_sugerida: txt(f["Accion_sugerida"]), mensaje_sugerido: txt(f["Mensaje_sugerido"]),
+    fase_seguimiento: txt(f["Fase_seguimiento"]), ultima_accion_registrada: ts(f["Ultima_accion_registrada"]),
+    tipo_ultima_accion: txt(f["Tipo_ultima_accion"]),
+  })],
+  ["reglas_automatizacion", "Reglas_Automatizacion", at, (f) => ({
+    resumen: txt(f["Resumen"]), clinica_id: link(f["Clinica_Link"]), codigo: txt(f["Codigo"]),
+    nombre: txt(f["Nombre"]), descripcion: txt(f["Descripcion"]), trigger_tipo: txt(f["Trigger_Tipo"]),
+    condiciones: txt(f["Condiciones"]), acciones: txt(f["Acciones"]),
+    activa: boolv(f["Activa"]), veces_disparada: num(f["Veces_Disparada"]) ?? 0,
+    ultima_disparada_at: ts(f["Ultima_Disparada_At"]), modo_test: boolv(f["Modo_Test"]),
+    paciente_test_id: txt(f["Paciente_Test_Id"]),
+    updated_at: ts(f["Updated_At"]),
+  })],
+  ["acciones_automatizacion", "Acciones_Automatizacion", at, (f) => ({
+    resumen: txt(f["Resumen"]), regla_id: link(f["Regla_Link"]), paciente_id: link(f["Paciente_Link"]),
+    lead_id: link(f["Lead_Link"]), presupuesto_id: link(f["Presupuesto_Link"]),
+    resultado: txt(f["Resultado"]), detalle: txt(f["Detalle"]), ejecutada_at: ts(f["Ejecutada_At"]),
+  })],
+  ["eventos_sistema", "Eventos_Sistema", at, (f, rec) => ({
+    resumen: txt(f["Resumen"]), tipo: txt(f["Tipo"]), entidad_tipo: txt(f["Entidad_Tipo"]),
+    entidad_id: txt(f["Entidad_Id"]), payload: txt(f["Payload"]), procesado: boolv(f["Procesado"]),
+  })],
+  ["secuencias_automaticas", "Secuencias_Automaticas", at, (f) => ({
+    presupuesto_id: txt(f["presupuesto_id"]),
+    clinica_id: cliPorNombre(f["clinica"]), paciente_nombre: txt(f["paciente_nombre"]), telefono: txt(f["telefono"]),
+    tratamiento: txt(f["tratamiento"]), tipo_evento: txt(f["tipo_evento"]), estado: txt(f["estado"]),
+    mensaje_generado: txt(f["mensaje_generado"]), tono_usado: txt(f["tono_usado"]),
+    canal_sugerido: txt(f["canal_sugerido"]), actualizado_en: ts(f["actualizado_en"]),
+  })],
+  ["configuracion_automatizaciones", "Configuracion_Automatizaciones", at, (f) => ({
+    clinica_id: cliPorNombre(f["clinica"]),
+    activa: boolv(f["activa"]), dias_inactividad_alerta: num(f["dias_inactividad_alerta"]),
+    dias_portal_sin_respuesta: num(f["dias_portal_sin_respuesta"]),
+    dias_reactivacion: num(f["dias_reactivacion"]), modo_whatsapp: txt(f["modo_whatsapp"]),
+    actualizado_en: ts(f["actualizado_en"]),
+  })],
   ["plantillas_lead", "Plantillas_Lead", at, (f) => ({
     nombre: txt(f["Nombre"]), tipo: txt(f["Tipo"]), contenido: txt(f["Contenido"]),
     activa: f["Activa"] === undefined ? true : boolv(f["Activa"]),
@@ -135,11 +192,12 @@ try {
     for (const rec of recs) {
       const f = rec.fields ?? {};
       const row = mapFn(f, rec);
+      if (tPg === "clinicas" && row.nombre) clinicasPorNombre.set(row.nombre, rec.id);
       if (tPg === "pacientes" && link(f["Lead_Origen"])) leadOrigenPendiente.push([rec.id, link(f["Lead_Origen"])]);
       // FKs a filas que no existan en la copia (residuos) → null con aviso
       // sillones.sillon_id / staff.staff_id son IDs legados de texto, NO FKs.
       const NO_FK = { sillones: ["sillon_id"], staff: ["staff_id"], tratamientos: ["tratamientos_id"] };
-      for (const [col, destino] of [["clinica_id","clinicas"],["doctor_id","staff"],["doctor_asignado_id","staff"],["paciente_id","pacientes"],["lead_id","leads"],["tratamiento_id","tratamientos"],["profesional_id","staff"],["sillon_id","sillones"],["profesional_preferido_id","staff"],["cita_segura_id","citas"],["cita_cerrada_id","citas"]]) {
+      for (const [col, destino] of [["clinica_id","clinicas"],["doctor_id","staff"],["doctor_asignado_id","staff"],["paciente_id","pacientes"],["lead_id","leads"],["tratamiento_id","tratamientos"],["profesional_id","staff"],["sillon_id","sillones"],["profesional_preferido_id","staff"],["cita_segura_id","citas"],["cita_cerrada_id","citas"],["regla_id","reglas_automatizacion"],["presupuesto_id","presupuestos"]]) {
         if ((NO_FK[tPg] ?? []).includes(col)) continue;
         if (row[col] && idsPorTabla[destino] && !idsPorTabla[destino].has(row[col])) {
           console.log(`  aviso ${tPg}.${col}: id ${row[col]} no existe en copia de ${destino} → null`);
@@ -149,7 +207,9 @@ try {
       const cols = ["id", "cliente", ...Object.keys(row), "created_at"];
       // Paciente.createdAt lee el CAMPO CreatedAt (retro-datado por demo-reset)
       // antes que el createdTime del record — el seed replica esa precedencia.
-      const createdAt = (tPg === "pacientes" && f["CreatedAt"]) ? String(f["CreatedAt"])
+      const CAMPO_CREATED = { pacientes: "CreatedAt", reglas_automatizacion: "Created_At", acciones_lead: null, secuencias_automaticas: "creado_en", eventos_sistema: "Created_At", acciones_automatizacion: null };
+      const campoC = CAMPO_CREATED[tPg];
+      const createdAt = (campoC && f[campoC]) ? String(f[campoC])
         : (rec._rawJson?.createdTime ?? new Date().toISOString());
       const vals = [rec.id, "DEMO", ...Object.values(row), createdAt];
       if (!DRY) {

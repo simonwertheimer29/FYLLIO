@@ -139,7 +139,23 @@ export async function createLeadPg(input: CreateLeadInput): Promise<Lead> {
       .returningAll()
       .executeTakeFirstOrThrow();
   });
-  return rowToLead(row);
+  const lead = rowToLead(row);
+  // MISMO side-effect que la implementación Airtable: emitir lead_creado
+  // fire-and-forget (la delegación retornaba antes y se lo saltaba).
+  void (async () => {
+    try {
+      const { emitirEvento } = await import("../automatizaciones/engine");
+      await emitirEvento({
+        tipo: "lead_creado",
+        entidadTipo: "Lead",
+        entidadId: lead.id,
+        payload: { clinicaId: lead.clinicaId, estado: lead.estado, canal: lead.canal, tratamiento: lead.tratamiento },
+      });
+    } catch (err) {
+      console.error("[automatizaciones createLeadPg] emit falló:", err);
+    }
+  })();
+  return lead;
 }
 
 const PATCH_COLS: Record<string, string> = {

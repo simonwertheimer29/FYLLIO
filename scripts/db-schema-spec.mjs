@@ -554,7 +554,7 @@ T.reglas_automatizacion = {
     ["veces_disparada", "i", { def: "0" }],
     ["ultima_disparada_at", "ts"],
     ["modo_test", "b", { def: "true" }],
-    ["paciente_test_id", "fk:pacientes", { comment: "era texto-recId (D8)" }],
+    ["paciente_test_id", "t", { comment: "puntero de PRUEBA, puede apuntar a id inexistente por diseño — sin FK (D8 exc., migración 003)" }],
     ["updated_at", "ts"],
   ],
 };

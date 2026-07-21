@@ -3,6 +3,7 @@
 // Sprint 16b Bloque 1 — repo Airtable de Reglas / Acciones / Eventos.
 
 import { base, fetchAll, TABLES } from "../airtable";
+import { usaPostgres } from "../db/data-backend";
 import type {
   Regla,
   AccionLog,
@@ -52,6 +53,10 @@ function toRegla(rec: any): Regla {
 }
 
 export async function listReglas(): Promise<Regla[]> {
+  if (usaPostgres("automatizaciones")) {
+    const pg = await import("./pg");
+    return pg.listReglasPg();
+  }
   // Defensivo: si la tabla no existe en prod (migración no corrida),
   // devolvemos lista vacía en lugar de tumbar al caller (cron, KPIs UI).
   // Logueamos para que aparezca en Vercel logs.
@@ -99,6 +104,10 @@ export async function listReglasActivasParaTrigger(
 }
 
 export async function getRegla(id: string): Promise<Regla | null> {
+  if (usaPostgres("automatizaciones")) {
+    const pg = await import("./pg");
+    return pg.getReglaPg(id);
+  }
   try {
     const rec = await base(TABLES.reglasAutomatizacion).find(id);
     return toRegla(rec);
@@ -157,6 +166,10 @@ export async function updateRegla(
     descripcion: string;
   }>,
 ): Promise<Regla> {
+  if (usaPostgres("automatizaciones")) {
+    const pg = await import("./pg");
+    return pg.updateReglaPg(id, patch as Record<string, unknown>);
+  }
   const fields: Record<string, any> = { Updated_At: new Date().toISOString() };
   if (patch.activa !== undefined) fields.Activa = patch.activa;
   if (patch.modoTest !== undefined) fields.Modo_Test = patch.modoTest;
@@ -176,6 +189,10 @@ export async function updateRegla(
 }
 
 export async function incrementarDisparos(reglaId: string): Promise<void> {
+  if (usaPostgres("automatizaciones")) {
+    const pg = await import("./pg");
+    return pg.incrementarDisparosPg(reglaId);
+  }
   const r = await getRegla(reglaId);
   if (!r) return;
   await base(TABLES.reglasAutomatizacion).update([
@@ -199,6 +216,10 @@ export async function logAccion(input: {
   resultado: ResultadoEjecucion;
   detalle: Record<string, unknown>;
 }): Promise<void> {
+  if (usaPostgres("automatizaciones")) {
+    const pg = await import("./pg");
+    return pg.logAccionPg(input);
+  }
   const fields: Record<string, any> = {
     Resumen: `${input.reglaId.slice(-6)} · ${input.resultado}`,
     Regla_Link: [input.reglaId],
@@ -240,6 +261,10 @@ function toAccionLog(rec: any): AccionLog {
 export async function listAcciones(
   filtros: { reglaId?: string; soloErrores?: boolean; limit?: number } = {},
 ): Promise<AccionLog[]> {
+  if (usaPostgres("automatizaciones")) {
+    const pg = await import("./pg");
+    return pg.listAccionesPg(filtros);
+  }
   const formulas: string[] = [];
   if (filtros.reglaId) {
     formulas.push(
@@ -275,6 +300,10 @@ export async function emitirEventoRow(input: {
   entidadId: string;
   payload: Record<string, unknown>;
 }): Promise<void> {
+  if (usaPostgres("automatizaciones")) {
+    const pg = await import("./pg");
+    return pg.emitirEventoRowPg(input);
+  }
   await base(TABLES.eventosSistema).create(
     [
       {
@@ -301,6 +330,10 @@ export async function emitirEventoRow(input: {
 /** Eventos lead_creado sin procesar anteriores a `antesDeIso` (trigger
  *  lead_sin_gestionar_2h). Records crudos: el cron lee Payload/Entidad_Id. */
 export async function listEventosLeadCreadoSinProcesarRaw(antesDeIso: string): Promise<any[]> {
+  if (usaPostgres("automatizaciones")) {
+    const pg = await import("./pg");
+    return pg.listEventosLeadCreadoSinProcesarRawPg(antesDeIso);
+  }
   return fetchAll(
     base(TABLES.eventosSistema).select({
       filterByFormula: `AND({Tipo}="lead_creado", NOT({Procesado}), IS_BEFORE({Created_At}, "${antesDeIso}"))`,
@@ -311,6 +344,10 @@ export async function listEventosLeadCreadoSinProcesarRaw(antesDeIso: string): P
 
 /** Marca un evento del sistema como procesado. */
 export async function marcarEventoProcesado(eventoId: string): Promise<void> {
+  if (usaPostgres("automatizaciones")) {
+    const pg = await import("./pg");
+    return pg.marcarEventoProcesadoPg(eventoId);
+  }
   await base(TABLES.eventosSistema).update([
     { id: eventoId, fields: { Procesado: true } },
   ]);
@@ -326,6 +363,10 @@ export async function yaDisparadaRecientemente(args: {
   pacienteId?: string;
   dias: number;
 }): Promise<boolean> {
+  if (usaPostgres("automatizaciones")) {
+    const pg = await import("./pg");
+    return pg.yaDisparadaRecientementePg(args);
+  }
   const desde = new Date(
     Date.now() - args.dias * 24 * 3600 * 1000,
   ).toISOString();
