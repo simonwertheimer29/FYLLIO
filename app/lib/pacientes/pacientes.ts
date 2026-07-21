@@ -2,6 +2,7 @@
 // Sprint 8 Bloque C — repositorio de Pacientes central.
 
 import { base, TABLES, fetchAll } from "../airtable";
+import { usaPostgres } from "../db/data-backend";
 
 export type PacienteTratamiento =
   | "Implantología"
@@ -92,6 +93,10 @@ export type ListPacientesParams = {
 };
 
 export async function listPacientes(params: ListPacientesParams = {}): Promise<Paciente[]> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.listPacientesPg(params);
+  }
   // Sprint 15 Bloque 9 — sort nativo Airtable por CreatedAt (formula
   // CREATED_TIME() añadida por sprint15-bloque9-schema.ts). Si la
   // base aún no tiene el campo añadido (404 / UNKNOWN_FIELD_NAME),
@@ -146,6 +151,10 @@ export async function listPacientes(params: ListPacientesParams = {}): Promise<P
 }
 
 export async function getPaciente(id: string): Promise<Paciente | null> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.getPacientePg(id);
+  }
   try {
     const rec = await base(TABLES.patients).find(id);
     return toPaciente(rec);
@@ -170,6 +179,10 @@ export async function createPaciente(input: {
   canalOrigen?: PacienteCanal;
   leadOrigenId?: string;
 }): Promise<Paciente> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.createPacientePg(input);
+  }
   const fields: Record<string, any> = {
     Nombre: input.nombre,
     Clínica: [input.clinicaId],
@@ -223,6 +236,10 @@ export async function updatePaciente(
     optoutAutomatizaciones: boolean;
   }>
 ): Promise<Paciente> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.updatePacientePg(id, patch as Record<string, unknown>);
+  }
   const fields: Record<string, any> = {};
   if (patch.nombre !== undefined) fields["Nombre"] = patch.nombre;
   if (patch.telefono !== undefined) fields["Teléfono"] = patch.telefono ?? "";
@@ -258,6 +275,10 @@ export async function updatePaciente(
 }
 
 export async function deletePaciente(id: string): Promise<void> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.deletePacientePg(id);
+  }
   await base(TABLES.patients).destroy([id]);
 }
 
@@ -276,6 +297,10 @@ function firstStr(x: unknown): string {
 /** Añade una línea al campo Notas (read-modify-write). El caller compone la
  *  línea (con su timestamp/prefijo); esto solo la anexa. Lanza si falla. */
 export async function appendNotaPaciente(pacienteId: string, linea: string): Promise<void> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.appendNotaPacientePg(pacienteId, linea);
+  }
   const rec = await base(TABLES.patients as any).find(pacienteId);
   const prev = String(((rec.fields as any) ?? {})["Notas"] ?? "");
   await base(TABLES.patients as any).update(pacienteId, {
@@ -297,6 +322,10 @@ export async function createPacienteDesdeConversion(input: {
   clinicaId: string;
   notas: string;
 }): Promise<{ id: string; nombre: string }> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.createPacienteDesdeConversionPg(input);
+  }
   const created = (
     await base(TABLES.patients).create([
       {
@@ -324,6 +353,10 @@ export async function createPacienteDesdeConversion(input: {
 export async function upsertPacienteImportPorTelefono(
   fields: Record<string, string>,
 ): Promise<"created" | "updated" | "skipped"> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.upsertPacienteImportPorTelefonoPg(fields);
+  }
   const phone = fields["Teléfono"];
   if (!phone) return "skipped";
   try {
@@ -350,6 +383,10 @@ export async function upsertPacienteImportPorTelefono(
 export async function listPacientesBusquedaRapida(
   maxRecords = 300,
 ): Promise<Array<{ id: string; nombre: string; telefono: string; clinica: string }>> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.listPacientesBusquedaRapidaPg(maxRecords);
+  }
   const recs = await base(TABLES.patients as any)
     .select({ maxRecords, fields: ["Nombre", "Teléfono", "Clínica"] })
     .all();
@@ -367,6 +404,10 @@ export async function listPacientesBusquedaRapida(
 export async function listResumenFinancieroPorIds(
   ids: string[],
 ): Promise<Array<{ id: string; clinicaIds: string[]; tieneLeadOrigen: boolean; pendiente: number }>> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.listResumenFinancieroPorIdsPg(ids);
+  }
   if (ids.length === 0) return [];
   const formula = `OR(${ids.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
   const recs = await fetchAll(
@@ -392,6 +433,10 @@ const BATCH_PENDIENTE = 50;
 /** Suma de Pendiente para una lista de pacientes, con batching (límite de
  *  longitud de fórmula). Error de un batch → 0 (mismo criterio original). */
 export async function sumPendientePorIds(pacIds: string[]): Promise<number> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.sumPendientePorIdsPg(pacIds);
+  }
   if (pacIds.length === 0) return 0;
   if (pacIds.length > BATCH_PENDIENTE) {
     let total = 0;
@@ -423,6 +468,10 @@ export async function syncFinancieroPaciente(
   pacienteId: string,
   totalPagado: number,
 ): Promise<void> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.syncFinancieroPacientePg(pacienteId, totalPagado);
+  }
   const pacRec = await base(TABLES.patients as any).find(pacienteId);
   const f = pacRec.fields as any;
   const presupuesto = Number(f["Presupuesto_Total"] ?? 0) || 0;
@@ -434,6 +483,10 @@ export async function syncFinancieroPaciente(
 
 /** ID del paciente cuyo Teléfono o Tutor teléfono coincide (waitlist). */
 export async function findPacienteIdPorTelefonoOTutor(phone: string): Promise<string | null> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.findPacienteIdPorTelefonoOTutorPg(phone);
+  }
   const esc = String(phone).replace(/'/g, "\\'");
   const recs = await base(TABLES.patients)
     .select({
@@ -449,6 +502,10 @@ export async function findPacienteIdPorTelefonoOTutor(phone: string): Promise<st
 export async function getPacienteContacto(
   patientRecordId: string,
 ): Promise<{ name: string; phone: string; tutorPhone: string }> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.getPacienteContactoPg(patientRecordId);
+  }
   const r = await base(TABLES.patients).find(patientRecordId);
   const f: any = r.fields || {};
   return {
@@ -460,6 +517,10 @@ export async function getPacienteContacto(
 
 /** ID por Teléfono exacto (scheduler / Twilio). */
 export async function findPacienteIdPorTelefono(phoneE164: string): Promise<string | null> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.findPacienteIdPorTelefonoPg(phoneE164);
+  }
   const safe = String(phoneE164).replace(/'/g, "\\'");
   const recs = await base(TABLES.patients)
     .select({ maxRecords: 1, filterByFormula: `{Teléfono}='${safe}'` })
@@ -471,6 +532,10 @@ export async function findPacienteIdPorTelefono(phoneE164: string): Promise<stri
 export async function getPacientePorTelefono(
   phoneE164: string,
 ): Promise<{ recordId: string; name: string } | null> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.getPacientePorTelefonoPg(phoneE164);
+  }
   const recs = await base(TABLES.patients)
     .select({ filterByFormula: `{Teléfono}='${phoneE164}'`, fields: ["Nombre"], maxRecords: 1 })
     .all();
@@ -486,6 +551,10 @@ export async function getPacientePorTelefono(
  * opt-out paralelos que ninguna pieza unifica.
  */
 export async function marcarOptOutPorTelefono(phoneE164: string): Promise<void> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.marcarOptOutPorTelefonoPg(phoneE164);
+  }
   const recs = await base(TABLES.patients)
     .select({ filterByFormula: `{Teléfono}='${phoneE164}'`, fields: ["Nombre"], maxRecords: 1 })
     .all();
@@ -500,6 +569,10 @@ export async function getPacienteFactoresRiesgo(pacienteId: string): Promise<{
   edad: number | null;
   fechaNacimiento: string | null;
 }> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.getPacienteFactoresRiesgoPg(pacienteId);
+  }
   const pac = await base(TABLES.patients).find(pacienteId);
   const pf: Record<string, unknown> = pac.fields ?? {};
   const edadRaw = pf["Edad"];
@@ -516,6 +589,10 @@ export async function getPacienteFactoresRiesgo(pacienteId: string): Promise<{
 export async function mapNombreTelefonoPorIds(
   ids: string[],
 ): Promise<Map<string, { nombre: string; telefono: string }>> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.mapNombreTelefonoPorIdsPg(ids);
+  }
   const map = new Map<string, { nombre: string; telefono: string }>();
   if (!ids.length) return map;
   const uniq = Array.from(new Set(ids));
@@ -541,6 +618,10 @@ export async function mapNombreTelefonoPorIds(
 
 /** true si el paciente con ese Teléfono tiene Opt_Out marcado (scheduler). */
 export async function isOptOutPorTelefono(phoneE164: string): Promise<boolean> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.isOptOutPorTelefonoPg(phoneE164);
+  }
   const recs = await base(TABLES.patients)
     .select({
       filterByFormula: `AND({Teléfono}='${phoneE164}',{Opt_Out}=TRUE())`,
@@ -558,6 +639,10 @@ export async function createPacienteBasico(params: {
   telefono: string;
   clinicaId?: string;
 }): Promise<{ recordId: string }> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.createPacienteBasicoPg(params);
+  }
   const fields: any = { Nombre: params.nombre, "Teléfono": params.telefono };
   if (params.clinicaId) fields["Clínica"] = [params.clinicaId];
   const created = await base(TABLES.patients).create([{ fields }]);
@@ -572,6 +657,10 @@ export async function createPacienteSinTelefono(params: {
   tutorTelefono: string;
   clinicaId?: string;
 }): Promise<{ recordId: string }> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.createPacienteSinTelefonoPg(params);
+  }
   const fields: any = { Nombre: params.nombre, "Tutor teléfono": params.tutorTelefono };
   if (params.clinicaId) fields["Clínica"] = [params.clinicaId];
   const created = await base(TABLES.patients).create([{ fields }]);
@@ -586,6 +675,10 @@ export async function findPacienteIdPorNombreYTutor(params: {
   tutorTelefono: string;
   clinicaId?: string;
 }): Promise<string | null> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.findPacienteIdPorNombreYTutorPg(params);
+  }
   const safeName = String(params.nombre).replace(/'/g, "\\'");
   const safeTutor = String(params.tutorTelefono).replace(/'/g, "\\'");
   const parts = [`{Nombre}='${safeName}'`, `{Tutor teléfono}='${safeTutor}'`];
@@ -599,11 +692,19 @@ export async function findPacienteIdPorNombreYTutor(params: {
 /** SOLO DEV — muestra de fields crudos para introspección de esquema
  *  (/api/no-shows/dev/campos). No usar en superficie de producción. */
 export async function samplePacientesFieldsDev(n: number): Promise<any[]> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.samplePacientesFieldsDevPg(n);
+  }
   return (await (base(TABLES.patients as any).select({ maxRecords: n }).firstPage() as any)) as any[];
 }
 
 /** SOLO DEV — record ids de pacientes (seeder no-shows; fields:[] = solo ids). */
 export async function listPacientesIdsDev(maxRecords: number): Promise<string[]> {
+  if (usaPostgres("pacientes")) {
+    const pg = await import("./pg");
+    return pg.listPacientesIdsDevPg(maxRecords);
+  }
   const recs = await base(TABLES.patients as any)
     .select({ maxRecords, fields: [] })
     .all();

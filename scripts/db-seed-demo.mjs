@@ -114,7 +114,11 @@ try {
         }
       }
       const cols = ["id", "cliente", ...Object.keys(row), "created_at"];
-      const vals = [rec.id, "DEMO", ...Object.values(row), rec._rawJson?.createdTime ?? new Date().toISOString()];
+      // Paciente.createdAt lee el CAMPO CreatedAt (retro-datado por demo-reset)
+      // antes que el createdTime del record — el seed replica esa precedencia.
+      const createdAt = (tPg === "pacientes" && f["CreatedAt"]) ? String(f["CreatedAt"])
+        : (rec._rawJson?.createdTime ?? new Date().toISOString());
+      const vals = [rec.id, "DEMO", ...Object.values(row), createdAt];
       if (!DRY) {
         await db.query(
           `insert into ${tPg} (${cols.join(",")}) values (${cols.map((_, i) => `$${i + 1}`).join(",")})`,
