@@ -654,6 +654,14 @@ documentado hasta entonces (no es fuga).
 
 #### CHECKLIST DEL CORTE (decisión Simon 2026-07-21: ejecutar; riesgo bajo — todo ficticio/placeholder)
 
+> **ESTADO 2026-07-21: FASE A + B + C HECHAS ✅.** Identidad sobre PG, login 3 flujos
+> × 3 clientes verde (43/0), y **suite adversarial COMPLETA del estado del corte verde**
+> (todos los dominios + identidad sobre PG, los 3 clientes): guard · smoke · motor 122/0
+> · 12 dominios de negocio · login 43/0 · identidad-adversarial 14/0 — **cero fallos**.
+> Primera vez que el aislamiento se prueba con el login también sobre Postgres. **Solo
+> queda FASE D (flip), CONGELADA hasta OK explícito de Simon + plan Pro activo.**
+
+
 Contexto de riesgo (verificado): DEMO es ficticio; RB/INDEP están VACÍAS de negocio
 y su identidad es **placeholder** (`sprint-B-seed-identidad.ts`: usuarios de prueba,
 PIN temporal, se regeneran al onboardear). NO hay credenciales de cliente real aún →
