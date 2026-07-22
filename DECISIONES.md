@@ -158,3 +158,17 @@ tiene → 404 en acceso legítimo, en 7 rutas; y permisos leídos de un Airtable
 por una clínica vieja (mandamiento §4/§8: mismo backend que se sirve). Fix: los 2 lookups pasan por los
 repos que delegan por `usaPostgres`. Verificado con prueba discriminante (presupuesto PG-only) en
 `qa-clinica-pg.ts`. Lo cazó el QA adversarial del gate final, no la demo.
+
+## 2026-07-22 — Seed rico de DEMO sobre Postgres (nunca Airtable), demo:reset volteado
+Rehecho el seed de DEMO desde cero directo a Supabase (producción ya en Postgres). Script
+`scripts/db-seed-demo-rico.mjs`: SOLO-pg (importa solo pg+dotenv, cero Airtable → imposible
+escribir en el Airtable congelado como rollback), corre como fyllio_app + SET LOCAL DEMO (RLS
+hace imposible tocar RB/INDEP), NO toca identidad ni catálogo. ~500 filas pensadas por
+recorridos (embudo/Actuar hoy en 3 prioridades + esperando, kanban de presupuestos en los 6
+estados + estancados >7d + perdidos con motivo, WhatsApp bidireccional con intención IA,
+citas hoy/mañana/pasadas, automatizaciones con historial, cobros). Fechas relativas a hoy,
+teléfonos +34, cero placeholders. KPIs cuadran (facturado 22.400€, pendiente 9.961€,
+conversión 24%). TRIPLE candado de no-envío verificado (modo_test+paciente inexistente 5/5,
+eventos procesado 15/15, modo_whatsapp=manual 4/4). `npm run demo:reset` apunta al script
+nuevo; el viejo demo-reset.ts (Airtable) queda deshabilitado con candado (PERMITIR_SEED_AIRTABLE=1
+para forzar). Idempotente y re-anclado a hoy en cada corrida.

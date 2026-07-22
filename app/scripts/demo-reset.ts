@@ -33,6 +33,17 @@ dotenv.config();
 
 import { runWithCliente, base, fetchAll } from "../lib/airtable";
 
+// ⛔ CONGELADO (corte a Postgres, 2026-07-22): Airtable es el rollback de solo
+// lectura este mes. Este script ESCRIBE en Airtable → deshabilitado para no
+// tocar el rollback por accidente. El seed de DEMO vive ahora en
+// scripts/db-seed-demo-rico.mjs (Postgres); `npm run demo:reset` apunta a él.
+// Escape hatch consciente (bajo tu riesgo): PERMITIR_SEED_AIRTABLE=1.
+if (process.env.PERMITIR_SEED_AIRTABLE !== "1") {
+  console.error("⛔ demo-reset.ts DESHABILITADO: Airtable congelado como rollback tras el corte a Postgres.");
+  console.error("   Usa `npm run demo:reset` (siembra DEMO en Postgres). Forzar Airtable: PERMITIR_SEED_AIRTABLE=1.");
+  process.exit(1);
+}
+
 const DRY = process.argv.includes("--dry");
 
 // ─── Guardas fail-closed ─────────────────────────────────────────────────────

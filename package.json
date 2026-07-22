@@ -9,7 +9,7 @@
     "lint": "eslint",
     "clean": "rm -rf .next",
     "dev:fresh": "rm -rf .next && next dev",
-    "demo:reset": "npx tsx app/scripts/demo-reset.ts",
+    "demo:reset": "node scripts/db-seed-demo-rico.mjs",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:migrate:dry": "node scripts/db-migrate.mjs --dry",
     "guard:rls": "node scripts/guard-service-role.mjs",
