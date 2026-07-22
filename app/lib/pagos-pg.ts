@@ -5,6 +5,7 @@
 import { sql } from "kysely";
 import { runWithClienteDb } from "./db/context";
 import { currentCliente, type Cliente } from "./airtable";
+import { usaPostgresIdentidad } from "./db/data-backend";
 import type { MetodoPago, TipoPago, Pago } from "./pagos-format";
 import { listResumenFinancieroPorIds, sumPendientePorIds, syncFinancieroPaciente } from "./pacientes/pacientes";
 import type { PagoResumen } from "./pagos";
@@ -115,7 +116,8 @@ async function logAccionPagoPgIntern(trxCliente: Cliente, a: {
         resumen: `${a.tipo} · ${a.pagoId.slice(0, 6)} · paciente ${a.pacienteId.slice(0, 6)}`,
         pago_id: a.tipo === "Eliminar" ? null : a.pagoId, tipo: a.tipo, fecha: new Date(),
         importe_antes: a.importeAntes ?? null, importe_despues: a.importeDespues ?? null,
-        usuario_id: null /* Identidad aún Airtable */, nota_cambio: a.notaCambio ?? null,
+        // CORTE: con identidad en PG, id real; pre-corte NULL (FK). Gateado.
+        usuario_id: usaPostgresIdentidad() && a.usuarioId ? a.usuarioId : null, nota_cambio: a.notaCambio ?? null,
       } as any).execute());
   } catch (err) { console.error("[pagos-pg] logAccionPago:", err); }
 }
@@ -131,7 +133,8 @@ export async function crearPagoPg(args: {
     trx.insertInto("pagos_paciente").values({
       cliente: c, resumen: `${metodo} · ${fechaPago} · ${args.importe.toFixed(2)}€`,
       paciente_id: args.pacienteId, fecha_pago: fechaPago, importe: args.importe,
-      metodo, tipo, nota: args.nota ?? null, usuario_creador_id: null,
+      metodo, tipo, nota: args.nota ?? null,
+      usuario_creador_id: usaPostgresIdentidad() && args.usuarioCreadorId ? args.usuarioCreadorId : null,
     } as any).returningAll().executeTakeFirstOrThrow());
   const pago = rowToPago(row);
   const { getPagosByPaciente } = await import("./pagos");

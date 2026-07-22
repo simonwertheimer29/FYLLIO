@@ -22,6 +22,7 @@
 
 import { runWithClienteDb } from "../db/context";
 import { currentCliente, type Cliente } from "../airtable";
+import { usaPostgresIdentidad } from "../db/data-backend";
 import { evalFormula, makeShim, type Shim } from "../db/airtable-formula";
 import type { AlertaEnviada } from "./historial";
 import type { TipoAlerta } from "./templates";
@@ -115,8 +116,10 @@ export async function recordAlertPg(input: {
 }): Promise<AlertaEnviada> {
   // typecast:true de Airtable (extender el singleSelect Tipo_Alerta) no aplica:
   // tipo_alerta es TEXT abierto en PG → se inserta el valor tal cual.
-  // admin_origen_id / coordinadora_destino_id → NULL (Usuarios central aún en
-  // Airtable; misma decisión que pagos-pg.ts usuario_creador_id).
+  // CORTE: con identidad en PG se escriben los ids REALES (admin/coord) para no
+  // perder el rastro de origen/destino; pre-corte NULL (usuarios no está en PG →
+  // el id de sesión no es FK-válido). Gateado por usaPostgresIdentidad().
+  const idU = (id?: string) => (usaPostgresIdentidad() && id ? id : null);
   const c = cli();
   const row = await runWithClienteDb(c, (trx) =>
     trx
@@ -125,8 +128,8 @@ export async function recordAlertPg(input: {
         cliente: c,
         clinica_id: input.clinicaId,
         tipo_alerta: input.tipo,
-        admin_origen_id: null,
-        coordinadora_destino_id: null,
+        admin_origen_id: idU(input.adminId),
+        coordinadora_destino_id: idU(input.coordinadoraId),
         mensaje: input.mensaje,
         error: input.error,
       } as any)
