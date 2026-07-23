@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { UserSession } from "../../lib/presupuestos/types";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { contarPipeline } from "../../lib/leads/pipeline";
 import CommandCenterView from "../../components/presupuestos/CommandCenterView";
 import { openCopilot } from "../../components/copilot/openCopilot";
 import { KpiCard } from "../../components/ui/KpiCard";
@@ -65,9 +66,10 @@ export function RedView({ user }: { user: UserSession }) {
     return { ls, ps };
   }, [leads, pacientes, selectedClinicaId]);
 
-  const activos = filtered.ls.filter(
-    (l) => l.estado !== "No Interesado"
-  ).length;
+  // Una sola definición de pipeline (lib/leads/pipeline): antes este KPI
+  // excluía solo No Interesado y contaba los Convertido como "en pipeline".
+  const pipeline = contarPipeline(filtered.ls);
+  const activos = pipeline.activos;
   const leadsConvertidos = filtered.ls.filter((l) => l.convertido).length;
   const totalLeads = filtered.ls.length;
   const tasaConversion = totalLeads
@@ -138,7 +140,7 @@ export function RedView({ user }: { user: UserSession }) {
                 label="Leads en pipeline"
                 value={activos}
                 accent="accent"
-                copilotSummary={`KPI: Leads en pipeline — ${scope}\nValor: ${activos}\n(Excluye los marcados como No Interesado.)`}
+                copilotSummary={`KPI: Leads en pipeline — ${scope}\nValor: ${activos}\n(Leads accionables: Nuevo, Contactado y Citado. Excluye convertidos y no interesados.)`}
               />
               <KpiCard
                 label="Leads convertidos"

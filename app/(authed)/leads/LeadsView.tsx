@@ -25,6 +25,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { contarPipeline, textoPipeline } from "../../lib/leads/pipeline";
 import { NewLeadModal } from "./NewLeadModal";
 import { AccionPanel } from "../../components/shared/AccionPanel";
 import { AgendarModal } from "./AgendarModal";
@@ -304,8 +305,11 @@ export function LeadsView({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">Leads</h1>
+          {/* Una sola definición de pipeline (lib/leads/pipeline): activos =
+              las 4 columnas accionables; los No Interesado se desglosan para
+              que el número cuadre con las tarjetas visibles del tablero. */}
           <p className="text-xs text-[var(--color-muted)] mt-0.5 tabular-nums">
-            {filteredLeads.length} lead{filteredLeads.length === 1 ? "" : "s"} en el pipeline
+            {textoPipeline(contarPipeline(filteredLeads))}
           </p>
         </div>
         <button

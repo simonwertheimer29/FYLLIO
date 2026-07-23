@@ -169,6 +169,14 @@ prefijarlo al total inflaba la facturación) que crea el pago real vía `crearPa
 paciente. De paso: "Pausar" mandaba una clave que la ruta ignoraba — era un no-op con toast de
 éxito. Escrituras ejercitadas contra PG DEMO: `scripts/qa-cierre-presupuesto.ts` (VERDE, sin residuos).
 
+## 2026-07-23 — Bug estructural #2: tres definiciones de "leads en el pipeline"
+La cabecera de Leads contaba TODO (No Interesado incluido), Red excluía solo No Interesado
+(contaba Convertidos), y el tablero mostraba otra cosa — tres números distintos para el mismo
+concepto. Decisión: pipeline = accionables (Nuevo+Contactado+Citado+Citados Hoy); Convertido
+salió ganado y No Interesado perdido. UNA función (`lib/leads/pipeline.ts`) para todos los
+conteos, y la cabecera desglosa ("N activos · M no interesados") para cuadrar con las tarjetas
+visibles. Regla general: un número de cabecera debe corresponder a una suma visible en pantalla.
+
 ## 2026-07-22 — Seed rico de DEMO sobre Postgres (nunca Airtable), demo:reset volteado
 Rehecho el seed de DEMO desde cero directo a Supabase (producción ya en Postgres). Script
 `scripts/db-seed-demo-rico.mjs`: SOLO-pg (importa solo pg+dotenv, cero Airtable → imposible
