@@ -381,4 +381,5 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Mejora:** que entren TODOS los presupuestos abiertos y estadoConversacion decida la
   pestaña; la fórmula quedaría solo como optimización si hiciera falta.
 - **Impacto:** medio (casos reales pueden quedar fuera de la cola).
-- **Fecha:** 2026-07-23 · 🔵
+- **Fecha:** 2026-07-23 · 🟢 hecha (la fórmula quedó en Estado≠ACEPTADO/PERDIDO; la pestaña
+  la decide estadoConversacion — el estado de negocio sigue mandando en la entrada)

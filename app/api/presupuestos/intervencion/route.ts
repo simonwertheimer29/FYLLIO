@@ -136,17 +136,14 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   }
 
   try {
-    // Fetch presupuestos activos (no cerrados) que tengan respuesta, urgencia,
-    // o estén "esperando respuesta" (envié y aún no contesta) — este último para
-    // que un caso al que mandé WhatsApp no desaparezca de la cola.
+    // MEJORA nº 26 (2026-07-23): entran TODOS los presupuestos abiertos y
+    // estadoConversacion decide la pestaña. Antes la entrada dependía de
+    // urgencia/fase/respuesta persistidas (el criterio viejo): un abierto sin
+    // esos campos era invisible para la coordinadora aunque su hilo pidiera
+    // acción. El estado de negocio sigue mandando: cerrados fuera.
     const filterFormula = `AND(
       {Estado}!='ACEPTADO',
-      {Estado}!='PERDIDO',
-      OR(
-        {Ultima_respuesta_paciente}!='',
-        AND({Urgencia_intervencion}!='', {Urgencia_intervencion}!='NINGUNO'),
-        {Fase_seguimiento}='Esperando respuesta'
-      )
+      {Estado}!='PERDIDO'
     )`.replace(/\n\s*/g, "");
 
     const recsPromise = selectPresupuestosRaw({
