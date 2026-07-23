@@ -27,6 +27,7 @@ import {
   estadoConversacion,
   UMBRAL_REACTIVACION_MS,
 } from "../../lib/presupuestos/estado-conversacion";
+import { esLeadActivo } from "../../lib/leads/pipeline";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/Feedback";
 import { AlertTriangle, Inbox, ICON_STROKE } from "../../components/icons";
@@ -318,7 +319,9 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
     const sinContactar: Lead[] = [];
     const esperando: Lead[] = [];
     for (const l of leads) {
-      if (l.convertido) continue;
+      // El estado de negocio manda: un lead cerrado (No Interesado, Convertido)
+      // sale de TODAS las colas de conversación aunque su hilo diga otra cosa.
+      if (l.convertido || !esLeadActivo(l.estado)) continue;
       const esCitadoHoy =
         (l.estado === "Citado" || l.estado === "Citados Hoy") &&
         l.fechaCita === today &&
