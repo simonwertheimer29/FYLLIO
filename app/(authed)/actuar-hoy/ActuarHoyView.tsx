@@ -130,9 +130,16 @@ export function ActuarHoyView({
           onClose={() => setPresupuestoDrawer(null)}
           onChangeEstado={(id, estado) => {
             handleChangePresupuestoEstado(id, estado);
-            setPresupuestoDrawer(null);
+            // Bloque 2 — cierre→aviso: en ACEPTADO el panel queda abierto con
+            // el item actualizado para encadenar el mensaje de enhorabuena;
+            // el resto (PERDIDO…) cierra como antes.
+            if (estado === "ACEPTADO") {
+              setPresupuestoDrawer((prev) => (prev && prev.id === id ? { ...prev, estado } : prev));
+            } else {
+              setPresupuestoDrawer(null);
+            }
           }}
-          onRefresh={() => setPresupuestoDrawer(null)}
+          onRefresh={() => setPresupuestoReloadKey((k) => k + 1)}
         />
       )}
     </div>

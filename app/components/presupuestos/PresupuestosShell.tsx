@@ -401,9 +401,18 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           onClose={() => setIntervencionItem(null)}
           onChangeEstado={(id, estado) => {
             handleChangeEstado(id, estado);
-            setIntervencionItem(null);
+            // Bloque 2 — cierre→aviso: en ACEPTADO el panel queda abierto con
+            // el item actualizado (el mensaje de enhorabuena se genera en el
+            // campo); el resto cierra como antes.
+            if (estado === "ACEPTADO") {
+              setIntervencionItem((prev) => (prev && prev.id === id ? { ...prev, estado } : prev));
+            } else {
+              setIntervencionItem(null);
+            }
           }}
-          onRefresh={() => setIntervencionItem(null)}
+          // Enviar/llamar ya no cierran el panel; la cola se recupera con su
+          // propio polling interno.
+          onRefresh={() => {}}
         />
       )}
       {showImportCSV && (

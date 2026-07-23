@@ -190,6 +190,35 @@ export default function IntervencionSidePanel({
     }
   }, [mensajes, loadingMensajes]);
 
+  // Cierre → aviso: al marcar «Aceptó y pagó» el padre actualiza el item y
+  // MANTIENE el panel abierto; aquí se detecta la transición y se genera el
+  // mensaje de enhorabuena en el campo, listo para enviar — el gemelo del
+  // encadenado agendar→avisar de leads. Solo dispara en transición real del
+  // MISMO presupuesto (nunca al montar ni al cambiar de item).
+  const estadoPrevio = useRef<{ id: string; estado: string } | null>(null);
+  useEffect(() => {
+    const prev = estadoPrevio.current;
+    if (prev && prev.id === item.id && prev.estado !== "ACEPTADO" && item.estado === "ACEPTADO") {
+      const nombre = item.patientName.split(" ")[0];
+      const trat = (item.treatments ?? [])[0] ?? "tu tratamiento";
+      const importe = item.amount != null ? `${item.amount.toLocaleString("es-ES")}€` : "";
+      const tpl = plantillas.find((p) => p.nombre === "Confirmación de aceptación");
+      setComposerTexto(
+        tpl
+          ? tpl.contenido
+              .replace(/\{nombre\}/g, nombre)
+              .replace(/\{tratamiento\}/g, trat)
+              .replace(/\{importe\}/g, importe)
+              .replace(/\{doctor\}/g, item.doctor ?? "tu doctor")
+              .replace(/\{clinica\}/g, item.clinica ?? "")
+          : `¡Enhorabuena ${nombre}! Hemos registrado la aceptación de tu presupuesto de ${trat}${importe ? ` (${importe})` : ""}. El siguiente paso es agendar el inicio del tratamiento — ¿te viene bien esta semana?`,
+      );
+      toast.success("Presupuesto aceptado — mensaje de enhorabuena listo para enviar");
+      requestAnimationFrame(() => composerRef.current?.focus());
+    }
+    estadoPrevio.current = { id: item.id, estado: item.estado };
+  }, [item.id, item.estado, item.patientName, item.treatments, item.amount, item.doctor, item.clinica, plantillas]);
+
   const situacion = useMemo(() => situacionPresupuesto(item), [item]);
 
   // ── Acciones ──
