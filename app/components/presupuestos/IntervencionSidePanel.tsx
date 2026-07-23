@@ -229,7 +229,8 @@ export default function IntervencionSidePanel({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ presupuestoId: item.id, tipo: "Llamada realizada" }),
     })
-      .then(() => {
+      .then((res) => {
+        if (!res.ok) throw new Error("registro falló");
         toast.success(`Llamada registrada · ${item.patientName}`);
         onRefresh();
       })

@@ -26,6 +26,7 @@ import ImportarCSVModal from "./ImportarCSVModal";
 import IntervencionSidePanel from "./IntervencionSidePanel";
 import NotificacionesPanel from "./NotificacionesPanel";
 import PagoCierreModal, { type PagoCierre } from "./PagoCierreModal";
+import MotivoPerdidaModal from "./MotivoPerdidaModal";
 
 type Tab = "kanban" | "maxima";
 
@@ -106,6 +107,13 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     patientName?: string;
     amount?: number;
     prevEstado?: PresupuestoEstado;
+  } | null>(null);
+  // Cierre malo desde el panel de acción: «Rechazó» llegaba sin motivo
+  // (mientras kanban y drawer SÍ preguntan). Un PERDIDO sin motivo abre
+  // aquí el mismo MotivoPerdidaModal; nada se escribe hasta confirmar.
+  const [motivoPerdido, setMotivoPerdido] = useState<{
+    id: string;
+    patientName?: string;
   } | null>(null);
   const [notifCount, setNotifCount] = useState(0);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
@@ -208,6 +216,15 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         amount: src?.amount,
         prevEstado: src?.estado,
       });
+      return;
+    }
+    if (estado === "PERDIDO" && !extra?.motivoPerdida) {
+      // Sin motivo = viene del panel de acción («Rechazó»); kanban y drawer
+      // ya lo traen de su propio MotivoPerdidaModal.
+      const src =
+        presupuestos.find((p) => p.id === id) ??
+        (intervencionItem?.id === id ? intervencionItem : undefined);
+      setMotivoPerdido({ id, patientName: src?.patientName });
       return;
     }
     // Guardar estado previo para rollback puntual (patrón de LeadsView).
@@ -423,6 +440,23 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           onCancel={() => setPagoCierre(null)}
         />
       )}
+      {motivoPerdido && (
+        <MotivoPerdidaModal
+          patientName={motivoPerdido.patientName ?? ""}
+          onConfirm={(motivo, texto, reactivar) => {
+            const { id } = motivoPerdido;
+            setMotivoPerdido(null);
+            handleChangeEstado(id, "PERDIDO", {
+              motivoPerdida: motivo,
+              motivoPerdidaTexto: texto,
+              reactivar,
+            });
+            // El panel de acción se cierra al CONFIRMAR (cancelar no toca nada).
+            setIntervencionItem((prev) => (prev && prev.id === id ? null : prev));
+          }}
+          onCancel={() => setMotivoPerdido(null)}
+        />
+      )}
       {historyPresupuesto && (
         <ContactHistoryModal
           presupuestoId={historyPresupuesto.id}
@@ -474,11 +508,10 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           onClose={() => setIntervencionItem(null)}
           onChangeEstado={(id, estado) => {
             handleChangeEstado(id, estado);
-            // Bloque 2 — cierre→aviso: en ACEPTADO el panel queda abierto y
-            // handleConfirmAceptado actualiza el item AL CONFIRMAR el modal de
-            // pago (el mensaje de enhorabuena se genera entonces); el resto
-            // cierra como antes.
-            if (estado !== "ACEPTADO") {
+            // Bloque 2 — cierre→aviso: ACEPTADO y PERDIDO se resuelven en su
+            // modal (pago / motivo de pérdida) y el cierre del panel ocurre
+            // al confirmar; cualquier otro estado cierra como antes.
+            if (estado !== "ACEPTADO" && estado !== "PERDIDO") {
               setIntervencionItem(null);
             }
           }}

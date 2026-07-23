@@ -188,6 +188,15 @@ lista de pacientes, Red, fichas y KPIs beben de ahí; el select manual desaparec
 siguen escribiendo (compatibilidad) pero ya no son fuente de pantalla. QA: `qa-finanzas-paciente.ts`
 (Σ cruzadas exactas contra pagos y presupuestos, 7/7 VERDE).
 
+## 2026-07-23 — Mejoras 18-20: la familia del feedback deshonesto, cerrada
+Aprobadas por Simon tras verificar el preview de los 4 arreglos estructurales. (18) «Rechazó»
+desde el panel de acción ahora abre MotivoPerdidaModal como kanban y drawer — el discriminador
+es PERDIDO sin motivo, y el panel se cierra al confirmar, no al pulsar. (19) `handleLlamar` y el
+cambio de estado de Actuar hoy comprueban `res.ok` — un fallo ya no se pinta como éxito (misma
+clase que el «Pausar» no-op). (20) El portal público escribe el presupuesto ANTES de marcar el
+token como respondido: si el update falla, 500 honesto y el paciente puede reintentar — antes el
+paciente veía "gracias" y la aceptación podía no llegar nunca al kanban (mandamiento §1).
+
 ## 2026-07-22 — Seed rico de DEMO sobre Postgres (nunca Airtable), demo:reset volteado
 Rehecho el seed de DEMO desde cero directo a Supabase (producción ya en Postgres). Script
 `scripts/db-seed-demo-rico.mjs`: SOLO-pg (importa solo pg+dotenv, cero Airtable → imposible

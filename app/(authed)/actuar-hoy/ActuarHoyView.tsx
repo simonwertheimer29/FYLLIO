@@ -22,6 +22,7 @@ import { AsistenciaModal } from "../leads/AsistenciaModal";
 import { AgendarModal } from "../leads/AgendarModal";
 import IntervencionView from "../../components/presupuestos/IntervencionView";
 import PagoCierreModal from "../../components/presupuestos/PagoCierreModal";
+import MotivoPerdidaModal from "../../components/presupuestos/MotivoPerdidaModal";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/Feedback";
 import { AlertTriangle, Inbox, ICON_STROKE } from "../../components/icons";
@@ -54,6 +55,13 @@ export function ActuarHoyView({
     patientName?: string;
     amount?: number;
   } | null>(null);
+  // «Rechazó» desde el panel: PERDIDO sin motivo abre el MotivoPerdidaModal
+  // (mismo criterio que el shell de /presupuestos); nada se escribe hasta
+  // confirmar.
+  const [motivoPerdido, setMotivoPerdido] = useState<{
+    id: string;
+    patientName?: string;
+  } | null>(null);
 
   async function handleChangePresupuestoEstado(
     id: string,
@@ -65,13 +73,19 @@ export function ActuarHoyView({
       setPagoCierre({ id, patientName: src?.patientName, amount: src?.amount });
       return;
     }
+    if (estado === "PERDIDO" && !extra?.motivoPerdida) {
+      const src = presupuestoDrawer?.id === id ? presupuestoDrawer : undefined;
+      setMotivoPerdido({ id, patientName: src?.patientName });
+      return;
+    }
     try {
       const { reactivar, ...patchExtra } = extra ?? {};
-      await fetch(`/api/presupuestos/kanban/${id}`, {
+      const res = await fetch(`/api/presupuestos/kanban/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ estado, ...patchExtra }),
       });
+      if (!res.ok) throw new Error("update failed");
       if (reactivar && estado === "PERDIDO") {
         const fecha90 = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString();
         await fetch("/api/presupuestos/contactos", {
@@ -88,7 +102,9 @@ export function ActuarHoyView({
       }
       setPresupuestoReloadKey((k) => k + 1);
     } catch {
-      // El polling interno de IntervencionView lo recupera.
+      // Antes: catch silencioso ("el polling lo recupera") — un fallo se veía
+      // como éxito. Ahora el error es visible; el polling sigue reconciliando.
+      toast.error("No se pudo actualizar el presupuesto. Inténtalo de nuevo.");
     }
   }
 
@@ -174,10 +190,10 @@ export function ActuarHoyView({
           onClose={() => setPresupuestoDrawer(null)}
           onChangeEstado={(id, estado) => {
             handleChangePresupuestoEstado(id, estado);
-            // Bloque 2 — cierre→aviso: en ACEPTADO el panel queda abierto y
-            // handleConfirmAceptado actualiza el item AL CONFIRMAR el modal
-            // de pago; el resto (PERDIDO…) cierra como antes.
-            if (estado !== "ACEPTADO") {
+            // Bloque 2 — cierre→aviso: ACEPTADO y PERDIDO se resuelven en su
+            // modal (pago / motivo) y el panel se cierra al confirmar; el
+            // resto cierra como antes.
+            if (estado !== "ACEPTADO" && estado !== "PERDIDO") {
               setPresupuestoDrawer(null);
             }
           }}
@@ -190,6 +206,22 @@ export function ActuarHoyView({
           amount={pagoCierre.amount}
           onConfirm={handleConfirmAceptado}
           onCancel={() => setPagoCierre(null)}
+        />
+      )}
+      {motivoPerdido && (
+        <MotivoPerdidaModal
+          patientName={motivoPerdido.patientName ?? ""}
+          onConfirm={(motivo, texto, reactivar) => {
+            const { id } = motivoPerdido;
+            setMotivoPerdido(null);
+            handleChangePresupuestoEstado(id, "PERDIDO", {
+              motivoPerdida: motivo,
+              motivoPerdidaTexto: texto,
+              reactivar,
+            });
+            setPresupuestoDrawer((prev) => (prev && prev.id === id ? null : prev));
+          }}
+          onCancel={() => setMotivoPerdido(null)}
         />
       )}
     </div>

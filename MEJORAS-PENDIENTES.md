@@ -282,7 +282,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Mejora:** interceptar PERDIDO en los hosts del panel igual que hoy se intercepta
   ACEPTADO con el modal de pago (patrón ya montado en `PresupuestosShell`/`ActuarHoyView`).
 - **Impacto:** medio (datos de pérdida incompletos en el flujo más usado).
-- **Fecha:** 2026-07-23 · ✅ aprobada (2026-07-23, Simon: las tres juntas, tras verificar el preview de los 4 arreglos y antes de P3)
+- **Fecha:** 2026-07-23 · 🟢 hecha (2026-07-23, tras el OK del preview de los 4 arreglos)
 
 ## 19. Acciones que confirman éxito sin comprobar la respuesta
 - **Zona:** `IntervencionSidePanel.tsx` (`handleLlamar` — registra llamada y toast de éxito
@@ -293,7 +293,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   registrada — un error disfrazado de éxito en pequeño.
 - **Mejora:** `res.ok` + toast de error en ambos (patrón ya usado en el resto del panel).
 - **Impacto:** medio-bajo (pérdida esporádica de registro/estado sin aviso).
-- **Fecha:** 2026-07-23 · ✅ aprobada (2026-07-23, Simon: las tres juntas, tras verificar el preview de los 4 arreglos y antes de P3)
+- **Fecha:** 2026-07-23 · 🟢 hecha (2026-07-23, tras el OK del preview de los 4 arreglos)
 
 ## 20. Portal público — la aceptación puede no llegar al kanban
 - **Zona:** `app/api/portal/[token]/responder/route.ts` (el token KV se marca respondido
@@ -303,4 +303,4 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   observable
 - **Mejora:** escribir el presupuesto primero y marcar el token después (o reintento).
 - **Impacto:** medio (raro pero caro: una aceptación real invisible para la clínica).
-- **Fecha:** 2026-07-23 · ✅ aprobada (2026-07-23, Simon: las tres juntas, tras verificar el preview de los 4 arreglos y antes de P3)
+- **Fecha:** 2026-07-23 · 🟢 hecha (2026-07-23, tras el OK del preview de los 4 arreglos)

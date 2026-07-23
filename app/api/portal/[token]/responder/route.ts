@@ -53,6 +53,34 @@ async function responderPortal(
     }
 
     const now = new Date().toISOString();
+
+    // ORDEN (mandamiento §1: persistir antes de confirmar): primero se
+    // escribe el presupuesto; solo si se guardó se marca el token como
+    // respondido. Antes era al revés con el fallo tragado: el paciente veía
+    // "gracias por aceptar" y el kanban no se enteraba nunca. Si el update
+    // falla, 500 honesto y el token queda vivo → el paciente puede reintentar
+    // (el update es idempotente: mismo estado y notas re-escritas).
+    // Cierre completo, igual que el PATCH del kanban: Fecha_Aceptado alimenta
+    // los KPIs de cobros; Fase_seguimiento "Cerrado" saca el presupuesto de
+    // la cola. El pago NO se registra aquí: el paciente aceptó online,
+    // cobrar es un paso de la clínica.
+    if (body.accion === "aceptar") {
+      await updatePresupuestoRaw(data.presupuestoId, {
+        Estado: "ACEPTADO",
+        Fecha_Aceptado: now.slice(0, 10),
+        Fase_seguimiento: "Cerrado",
+        Notas: `[PORTAL_ACEPTADO ${now}] Firma: ${body.firmaTexto ?? "—"}`,
+      } as any);
+    } else {
+      const motivoAirtable = body.motivo ?? "otro";
+      await updatePresupuestoRaw(data.presupuestoId, {
+        Estado: "PERDIDO",
+        Fase_seguimiento: "Cerrado",
+        MotivoPerdida: motivoAirtable,
+        MotivoPerdidaTexto: `[PORTAL_RECHAZADO ${now}] ${body.motivo ?? ""}`,
+      } as any);
+    }
+
     const updated: PortalData = {
       ...data,
       respondido: true,
@@ -61,39 +89,11 @@ async function responderPortal(
       motivo: body.motivo,
       firmaTexto: body.firmaTexto,
     };
-
     const remainingSeconds = Math.max(
       Math.floor((new Date(data.expiresAt).getTime() - Date.now()) / 1000),
       1
     );
     await kv.set(KV_PREFIX + token, updated, { ex: remainingSeconds });
-
-    // Cierre completo, igual que el PATCH del kanban: no solo el Estado.
-    // Fecha_Aceptado alimenta los KPIs de cobros; Fase_seguimiento "Cerrado"
-    // saca el presupuesto de la cola de seguimiento. El pago NO se registra
-    // aquí: el paciente aceptó online, cobrar es un paso de la clínica.
-    try {
-      if (body.accion === "aceptar") {
-        await updatePresupuestoRaw(data.presupuestoId, {
-          Estado: "ACEPTADO",
-          Fecha_Aceptado: now.slice(0, 10),
-          Fase_seguimiento: "Cerrado",
-          Notas: `[PORTAL_ACEPTADO ${now}] Firma: ${body.firmaTexto ?? "—"}`,
-        } as any);
-      } else {
-        const motivoAirtable = body.motivo ?? "otro";
-        await updatePresupuestoRaw(data.presupuestoId, {
-          Estado: "PERDIDO",
-          Fase_seguimiento: "Cerrado",
-          MotivoPerdida: motivoAirtable,
-          MotivoPerdidaTexto: `[PORTAL_RECHAZADO ${now}] ${body.motivo ?? ""}`,
-        } as any);
-      }
-    } catch (err) {
-      // El token KV ya quedó respondido; que el fallo del update al menos
-      // sea observable (antes se tragaba sin log — mandamiento §9).
-      console.error("[portal responder] update del presupuesto falló:", err);
-    }
 
     // Registrar en historial
     registrarAccion({
