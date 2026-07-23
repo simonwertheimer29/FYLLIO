@@ -68,23 +68,31 @@ async function responderPortal(
     );
     await kv.set(KV_PREFIX + token, updated, { ex: remainingSeconds });
 
-    // Update Airtable
+    // Cierre completo, igual que el PATCH del kanban: no solo el Estado.
+    // Fecha_Aceptado alimenta los KPIs de cobros; Fase_seguimiento "Cerrado"
+    // saca el presupuesto de la cola de seguimiento. El pago NO se registra
+    // aquí: el paciente aceptó online, cobrar es un paso de la clínica.
     try {
       if (body.accion === "aceptar") {
         await updatePresupuestoRaw(data.presupuestoId, {
           Estado: "ACEPTADO",
+          Fecha_Aceptado: now.slice(0, 10),
+          Fase_seguimiento: "Cerrado",
           Notas: `[PORTAL_ACEPTADO ${now}] Firma: ${body.firmaTexto ?? "—"}`,
         } as any);
       } else {
         const motivoAirtable = body.motivo ?? "otro";
         await updatePresupuestoRaw(data.presupuestoId, {
           Estado: "PERDIDO",
+          Fase_seguimiento: "Cerrado",
           MotivoPerdida: motivoAirtable,
           MotivoPerdidaTexto: `[PORTAL_RECHAZADO ${now}] ${body.motivo ?? ""}`,
         } as any);
       }
-    } catch {
-      // Airtable update failure is non-fatal (demo mode or field missing)
+    } catch (err) {
+      // El token KV ya quedó respondido; que el fallo del update al menos
+      // sea observable (antes se tragaba sin log — mandamiento §9).
+      console.error("[portal responder] update del presupuesto falló:", err);
     }
 
     // Registrar en historial

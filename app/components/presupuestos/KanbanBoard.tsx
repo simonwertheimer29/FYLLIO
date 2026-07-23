@@ -416,7 +416,10 @@ export default function KanbanBoard({
 
     if (targetEstado === "PERDIDO") {
       setPendingPerdido({ id: String(active.id) });
-    } else if (skipConfirm) {
+    } else if (targetEstado === "ACEPTADO" || skipConfirm) {
+      // ACEPTADO: el modal de pago del cierre (en el shell) hace de
+      // confirmación — gemelo del MotivoPerdidaModal de PERDIDO. No se
+      // apila el confirm genérico encima.
       onChangeEstado(String(active.id), targetEstado);
     } else {
       setPendingChange({ id: String(active.id), targetEstado });

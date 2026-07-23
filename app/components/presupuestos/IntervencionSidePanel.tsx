@@ -381,12 +381,16 @@ export default function IntervencionSidePanel({
   }
 
   function handlePausar() {
+    // Ojo: la clave es faseSeguimiento (contrato del PATCH). Antes se mandaba
+    // "Fase_seguimiento", que la ruta ignoraba → pausar era un no-op con
+    // toast de éxito falso.
     fetch(`/api/presupuestos/kanban/${item.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ Fase_seguimiento: "Cerrado" }),
+      body: JSON.stringify({ faseSeguimiento: "Cerrado" }),
     })
-      .then(() => {
+      .then((res) => {
+        if (!res.ok) throw new Error("update failed");
         toast.success("Seguimiento pausado");
         onRefresh();
         onClose();

@@ -25,6 +25,7 @@ import PatientDrawer from "./PatientDrawer";
 import ImportarCSVModal from "./ImportarCSVModal";
 import IntervencionSidePanel from "./IntervencionSidePanel";
 import NotificacionesPanel from "./NotificacionesPanel";
+import PagoCierreModal, { type PagoCierre } from "./PagoCierreModal";
 
 type Tab = "kanban" | "maxima";
 
@@ -97,6 +98,15 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   const [editPresupuesto, setEditPresupuesto] = useState<Presupuesto | null>(null);
   const [drawerPresupuesto, setDrawerPresupuesto] = useState<Presupuesto | null>(null);
   const [intervencionItem, setIntervencionItem] = useState<PresupuestoIntervencion | null>(null);
+  // Cierre «Aceptó y pagó»: el modal de pago hace de confirmación del
+  // ACEPTADO (gemelo del MotivoPerdidaModal en PERDIDO). Nada se escribe ni
+  // se pinta hasta confirmar; cancelar no deja ningún estado a medias.
+  const [pagoCierre, setPagoCierre] = useState<{
+    id: string;
+    patientName?: string;
+    amount?: number;
+    prevEstado?: PresupuestoEstado;
+  } | null>(null);
   const [notifCount, setNotifCount] = useState(0);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
 
@@ -185,6 +195,21 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     estado: PresupuestoEstado,
     extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string; reactivar?: boolean }
   ) {
+    if (estado === "ACEPTADO") {
+      // Cierre bueno → modal de pago (señal, parcial, total o sin pago aún).
+      // El PATCH real sale al confirmar, en handleConfirmAceptado.
+      const src =
+        presupuestos.find((p) => p.id === id) ??
+        (intervencionItem?.id === id ? intervencionItem : undefined) ??
+        (drawerPresupuesto?.id === id ? drawerPresupuesto : undefined);
+      setPagoCierre({
+        id,
+        patientName: src?.patientName,
+        amount: src?.amount,
+        prevEstado: src?.estado,
+      });
+      return;
+    }
     // Guardar estado previo para rollback puntual (patrón de LeadsView).
     const prevEstado = presupuestos.find((p) => p.id === id)?.estado;
     setPresupuestos((prev) => prev.map((p) => (p.id === id ? { ...p, estado } : p)));
@@ -218,6 +243,42 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         setPresupuestos((prev) => prev.map((p) => (p.id === id ? { ...p, estado: prevEstado } : p)));
       }
       toast.error("No se pudo mover el presupuesto. Inténtalo de nuevo.");
+    }
+  }
+
+  // Confirmación del cierre ACEPTADO: optimista en tablero + panel/drawer
+  // abiertos, PATCH con el pago adjunto (una sola petición: estado + cobro),
+  // rollback de los tres si falla. Si el estado se guardó pero el pago no,
+  // el servidor responde pagoRegistrado:false y se avisa honesto.
+  async function handleConfirmAceptado(pago: PagoCierre | null) {
+    if (!pagoCierre) return;
+    const { id, prevEstado } = pagoCierre;
+    setPagoCierre(null);
+    setPresupuestos((prev) => prev.map((p) => (p.id === id ? { ...p, estado: "ACEPTADO" } : p)));
+    setIntervencionItem((prev) => (prev && prev.id === id ? { ...prev, estado: "ACEPTADO" } : prev));
+    setDrawerPresupuesto((prev) => (prev && prev.id === id ? { ...prev, estado: "ACEPTADO" } : prev));
+    try {
+      const res = await fetch(`/api/presupuestos/kanban/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: "ACEPTADO", ...(pago ? { pago } : {}) }),
+      });
+      if (!res.ok) throw new Error("update failed");
+      const data = await res.json().catch(() => ({}));
+      if (pago && data.pagoRegistrado === false) {
+        toast.error(
+          "El presupuesto quedó aceptado, pero el pago no se pudo registrar. Regístralo desde la ficha del paciente.",
+        );
+      } else if (pago) {
+        toast.success(`Pago de ${pago.importe.toLocaleString("es-ES")} € registrado`);
+      }
+    } catch {
+      if (prevEstado !== undefined) {
+        setPresupuestos((prev) => prev.map((p) => (p.id === id ? { ...p, estado: prevEstado } : p)));
+        setIntervencionItem((prev) => (prev && prev.id === id ? { ...prev, estado: prevEstado } : prev));
+        setDrawerPresupuesto((prev) => (prev && prev.id === id ? { ...prev, estado: prevEstado } : prev));
+      }
+      toast.error("No se pudo aceptar el presupuesto. Inténtalo de nuevo.");
     }
   }
 
@@ -354,6 +415,14 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
       </main>
 
       {/* Modals / drawers */}
+      {pagoCierre && (
+        <PagoCierreModal
+          patientName={pagoCierre.patientName}
+          amount={pagoCierre.amount}
+          onConfirm={handleConfirmAceptado}
+          onCancel={() => setPagoCierre(null)}
+        />
+      )}
       {historyPresupuesto && (
         <ContactHistoryModal
           presupuestoId={historyPresupuesto.id}
@@ -385,9 +454,13 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           onClose={() => setDrawerPresupuesto(null)}
           onChangeEstado={(id, estado, extra) => {
             handleChangeEstado(id, estado, extra);
-            setDrawerPresupuesto((prev) =>
-              prev && prev.id === id ? { ...prev, estado } : prev
-            );
+            // ACEPTADO se resuelve en el modal de pago (handleConfirmAceptado
+            // actualiza el drawer al confirmar); el resto refleja al momento.
+            if (estado !== "ACEPTADO") {
+              setDrawerPresupuesto((prev) =>
+                prev && prev.id === id ? { ...prev, estado } : prev
+              );
+            }
           }}
           onNewForPatient={() => {
             setDrawerPresupuesto(null);
@@ -401,12 +474,11 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           onClose={() => setIntervencionItem(null)}
           onChangeEstado={(id, estado) => {
             handleChangeEstado(id, estado);
-            // Bloque 2 — cierre→aviso: en ACEPTADO el panel queda abierto con
-            // el item actualizado (el mensaje de enhorabuena se genera en el
-            // campo); el resto cierra como antes.
-            if (estado === "ACEPTADO") {
-              setIntervencionItem((prev) => (prev && prev.id === id ? { ...prev, estado } : prev));
-            } else {
+            // Bloque 2 — cierre→aviso: en ACEPTADO el panel queda abierto y
+            // handleConfirmAceptado actualiza el item AL CONFIRMAR el modal de
+            // pago (el mensaje de enhorabuena se genera entonces); el resto
+            // cierra como antes.
+            if (estado !== "ACEPTADO") {
               setIntervencionItem(null);
             }
           }}

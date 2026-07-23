@@ -159,6 +159,16 @@ por una clínica vieja (mandamiento §4/§8: mismo backend que se sirve). Fix: l
 repos que delegan por `usaPostgres`. Verificado con prueba discriminante (presupuesto PG-only) en
 `qa-clinica-pg.ts`. Lo cazó el QA adversarial del gate final, no la demo.
 
+## 2026-07-23 — Bug estructural #1: «Aceptó y pagó» solo escribía Estado
+El cierre bueno dejaba `fecha_aceptado` NULL (KPIs de cobros ciegos con datos reales), la fase
+colgada en "Esperando respuesta" aunque el último mensaje fuera del paciente, y el "y pagó" era
+nominal (ningún pago). Ahora el PATCH del kanban y el portal escriben el cierre completo
+(Estado + Fecha_Aceptado + Fase "Cerrado"), "Mensaje recibido" resetea la fase igual que el
+webhook, y el cierre abre un modal de pago señal/parcial/total (campo vacío a propósito:
+prefijarlo al total inflaba la facturación) que crea el pago real vía `crearPago` + resync del
+paciente. De paso: "Pausar" mandaba una clave que la ruta ignoraba — era un no-op con toast de
+éxito. Escrituras ejercitadas contra PG DEMO: `scripts/qa-cierre-presupuesto.ts` (VERDE, sin residuos).
+
 ## 2026-07-22 — Seed rico de DEMO sobre Postgres (nunca Airtable), demo:reset volteado
 Rehecho el seed de DEMO desde cero directo a Supabase (producción ya en Postgres). Script
 `scripts/db-seed-demo-rico.mjs`: SOLO-pg (importa solo pg+dotenv, cero Airtable → imposible

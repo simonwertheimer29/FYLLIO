@@ -58,11 +58,17 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     // el webhook entrante pone "En intervención" al recibir respuesta.
     const dejaEsperandoRespuesta =
       tipo === "WhatsApp enviado" || tipo === "Llamada realizada";
+    // Y el espejo: una respuesta del paciente devuelve la pelota a la clínica.
+    // Registrar "Mensaje recibido" a mano sale de "Esperando respuesta" igual
+    // que hace el webhook entrante — si no, la fase quedaba colgada aunque el
+    // último mensaje del hilo fuera del paciente.
+    const vuelveAIntervencion = tipo === "Mensaje recibido";
     try {
       await updatePresupuestoRaw(presupuestoId, {
         Ultima_accion_registrada: now,
         Tipo_ultima_accion: tipo,
         ...(dejaEsperandoRespuesta ? { Fase_seguimiento: "Esperando respuesta" } : {}),
+        ...(vuelveAIntervencion ? { Fase_seguimiento: "En intervención" } : {}),
       });
     } catch (err) {
       console.error("[registrar-respuesta] Airtable update error:", err);

@@ -21,6 +21,7 @@ import { AccionPanel } from "../../components/shared/AccionPanel";
 import { AsistenciaModal } from "../leads/AsistenciaModal";
 import { AgendarModal } from "../leads/AgendarModal";
 import IntervencionView from "../../components/presupuestos/IntervencionView";
+import PagoCierreModal from "../../components/presupuestos/PagoCierreModal";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/Feedback";
 import { AlertTriangle, Inbox, ICON_STROKE } from "../../components/icons";
@@ -46,12 +47,24 @@ export function ActuarHoyView({
   // AccionPanel kind="presupuesto" para conservar el wrapper unificado.
   const [presupuestoDrawer, setPresupuestoDrawer] = useState<PresupuestoIntervencion | null>(null);
   const [presupuestoReloadKey, setPresupuestoReloadKey] = useState(0);
+  // Cierre «Aceptó y pagó»: mismo modal de pago que en /presupuestos (el
+  // cierre bueno pregunta el cobro de hoy; nada se escribe hasta confirmar).
+  const [pagoCierre, setPagoCierre] = useState<{
+    id: string;
+    patientName?: string;
+    amount?: number;
+  } | null>(null);
 
   async function handleChangePresupuestoEstado(
     id: string,
     estado: PresupuestoEstado,
     extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string; reactivar?: boolean }
   ) {
+    if (estado === "ACEPTADO") {
+      const src = presupuestoDrawer?.id === id ? presupuestoDrawer : undefined;
+      setPagoCierre({ id, patientName: src?.patientName, amount: src?.amount });
+      return;
+    }
     try {
       const { reactivar, ...patchExtra } = extra ?? {};
       await fetch(`/api/presupuestos/kanban/${id}`, {
@@ -76,6 +89,37 @@ export function ActuarHoyView({
       setPresupuestoReloadKey((k) => k + 1);
     } catch {
       // El polling interno de IntervencionView lo recupera.
+    }
+  }
+
+  // Confirmación del cierre ACEPTADO: PATCH con el pago adjunto (una sola
+  // petición), panel abierto con el item actualizado para el encadenado
+  // cierre→aviso, y aviso honesto si el pago no llegó a registrarse.
+  async function handleConfirmAceptado(pago: { importe: number; metodo?: string } | null) {
+    if (!pagoCierre) return;
+    const { id } = pagoCierre;
+    setPagoCierre(null);
+    try {
+      const res = await fetch(`/api/presupuestos/kanban/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: "ACEPTADO", ...(pago ? { pago } : {}) }),
+      });
+      if (!res.ok) throw new Error("update failed");
+      const data = await res.json().catch(() => ({}));
+      if (pago && data.pagoRegistrado === false) {
+        toast.error(
+          "El presupuesto quedó aceptado, pero el pago no se pudo registrar. Regístralo desde la ficha del paciente.",
+        );
+      } else if (pago) {
+        toast.success(`Pago de ${pago.importe.toLocaleString("es-ES")} € registrado`);
+      }
+      setPresupuestoDrawer((prev) =>
+        prev && prev.id === id ? { ...prev, estado: "ACEPTADO" } : prev,
+      );
+      setPresupuestoReloadKey((k) => k + 1);
+    } catch {
+      toast.error("No se pudo aceptar el presupuesto. Inténtalo de nuevo.");
     }
   }
 
@@ -130,16 +174,22 @@ export function ActuarHoyView({
           onClose={() => setPresupuestoDrawer(null)}
           onChangeEstado={(id, estado) => {
             handleChangePresupuestoEstado(id, estado);
-            // Bloque 2 — cierre→aviso: en ACEPTADO el panel queda abierto con
-            // el item actualizado para encadenar el mensaje de enhorabuena;
-            // el resto (PERDIDO…) cierra como antes.
-            if (estado === "ACEPTADO") {
-              setPresupuestoDrawer((prev) => (prev && prev.id === id ? { ...prev, estado } : prev));
-            } else {
+            // Bloque 2 — cierre→aviso: en ACEPTADO el panel queda abierto y
+            // handleConfirmAceptado actualiza el item AL CONFIRMAR el modal
+            // de pago; el resto (PERDIDO…) cierra como antes.
+            if (estado !== "ACEPTADO") {
               setPresupuestoDrawer(null);
             }
           }}
           onRefresh={() => setPresupuestoReloadKey((k) => k + 1)}
+        />
+      )}
+      {pagoCierre && (
+        <PagoCierreModal
+          patientName={pagoCierre.patientName}
+          amount={pagoCierre.amount}
+          onConfirm={handleConfirmAceptado}
+          onCancel={() => setPagoCierre(null)}
         />
       )}
     </div>
