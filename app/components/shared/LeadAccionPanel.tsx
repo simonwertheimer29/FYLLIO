@@ -24,6 +24,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Lead } from "../../(authed)/leads/types";
 import type { MensajeWhatsApp } from "../../lib/presupuestos/types";
+import {
+  estadoConversacion,
+  entradaDesdeMensajes,
+  haceTexto,
+  UMBRAL_REACTIVACION_MS,
+} from "../../lib/presupuestos/estado-conversacion";
 import type { PlantillaLead } from "../../api/leads/plantillas/route";
 import {
   PanelAccionShell,
@@ -53,7 +59,6 @@ import { RotateCcw } from "lucide-react";
 
 const INTENCION_CALIENTE = new Set(["Interesado", "Pide cita", "Pregunta precio"]);
 const HORAS_12_MS = 12 * 60 * 60 * 1000;
-const ESPERA_48H_MS = 48 * 60 * 60 * 1000;
 
 type SituacionLead = {
   prioridad: PrioridadPanel;
@@ -69,7 +74,14 @@ function hace(dias: number): string {
   return `hace ${dias} días`;
 }
 
-function situacionLead(lead: Lead, mensajes: MensajeWhatsApp[]): SituacionLead {
+function situacionLead(
+  lead: Lead,
+  mensajes: MensajeWhatsApp[],
+  // Timestamps fusionados (hilo + acciones) del endpoint ultima-saliente —
+  // los MISMOS inputs que usa la lista de Actuar hoy, para que panel y lista
+  // no puedan contradecirse (una llamada registrada también cuenta).
+  accion?: { salienteAt?: string | null; entranteAt?: string | null },
+): SituacionLead {
   const today = new Date().toISOString().slice(0, 10);
   const diasPipeline = Math.max(
     0,
@@ -85,6 +97,17 @@ function situacionLead(lead: Lead, mensajes: MensajeWhatsApp[]): SituacionLead {
     : null;
   const salMs = ultimaSaliente ? new Date(ultimaSaliente.timestamp).getTime() : null;
   const canal = lead.canal ? ` desde ${lead.canal}` : "";
+  // Clasificación ÚNICA de la conversación (misma función que la lista de
+  // Actuar hoy y la cola de presupuestos) — el panel no tiene criterio propio.
+  const hilo = entradaDesdeMensajes(orden);
+  const maxIso = (a?: string | null, b?: string | null) => (!a ? (b ?? null) : !b || a > b ? a : b);
+  const conv = estadoConversacion(
+    {
+      ultimoEntranteAt: maxIso(hilo.ultimoEntranteAt, accion?.entranteAt),
+      ultimoSalienteAt: maxIso(hilo.ultimoSalienteAt, accion?.salienteAt),
+    },
+    UMBRAL_REACTIVACION_MS.lead,
+  );
 
   const citadoHoy =
     (lead.estado === "Citado" || lead.estado === "Citados Hoy") &&
@@ -121,7 +144,7 @@ function situacionLead(lead: Lead, mensajes: MensajeWhatsApp[]): SituacionLead {
     };
   }
 
-  if (ultimo && ultimo.direccion === "Entrante") {
+  if (conv.estado === "pendiente_responder") {
     if (lead.intencionDetectada === "Pide cita" && !lead.fechaCita) {
       return {
         prioridad: "alta",
@@ -172,11 +195,24 @@ function situacionLead(lead: Lead, mensajes: MensajeWhatsApp[]): SituacionLead {
     };
   }
 
-  if (salMs != null && Date.now() - salMs < ESPERA_48H_MS) {
+  if (conv.estado === "en_espera_paciente" && conv.haceMs != null) {
     return {
       prioridad: "baja",
-      quePasa: `Le escribiste ${hace(Math.floor((Date.now() - salMs) / 86400000))}; si en 48 h no contesta, vuelve a tu cola.`,
+      quePasa: `Le escribiste ${haceTexto(conv.haceMs)}; si en 48 h no contesta, vuelve a tu cola.`,
       recomendacion: "Espera su respuesta — ya actuaste",
+      primaria: "escribir",
+      citadoHoy,
+    };
+  }
+
+  // Reactivable: le escribimos, no respondió y el plazo expiró — contexto
+  // completo; el mensaje para insistir lo genera el botón IA del composer
+  // (generador existente).
+  if (conv.estado === "reactivable" && conv.haceMs != null) {
+    return {
+      prioridad: diasPipeline >= 4 ? "alta" : "media",
+      quePasa: `Se le escribió por WhatsApp ${haceTexto(conv.haceMs)}${lead.tratamiento ? ` sobre ${lead.tratamiento}` : ""} y no ha respondido.`,
+      recomendacion: "Insiste — genera el mensaje con IA y reactívalo",
       primaria: "escribir",
       citadoHoy,
     };
@@ -234,9 +270,27 @@ export function LeadAccionPanel({
   const [plantillas, setPlantillas] = useState<PlantillaLead[]>([]);
   const [wabaActivo, setWabaActivo] = useState(false);
   const [savingEstado, setSavingEstado] = useState(false);
+  // Timestamps fusionados (hilo+acciones) del endpoint compartido con la
+  // lista — mismos inputs, misma clasificación.
+  const [accionDir, setAccionDir] = useState<{
+    salienteAt?: string | null;
+    entranteAt?: string | null;
+  }>({});
   const [checkAnim, setCheckAnim] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    fetch("/api/leads/ultima-saliente")
+      .then((r) => r.json())
+      .then((d) =>
+        setAccionDir({
+          salienteAt: d?.ultimaSalientePorLead?.[lead.id] ?? null,
+          entranteAt: d?.ultimaEntrantePorLead?.[lead.id] ?? null,
+        }),
+      )
+      .catch(() => setAccionDir({}));
+  }, [lead.id]);
 
   // Cargar hilo. Error visible con reintento (no un "sin mensajes" mentiroso).
   const cargarMensajes = useCallback(() => {
@@ -307,8 +361,8 @@ export function LeadAccionPanel({
   }, [lead.id, lead.fechaCita, lead.horaCita]);
 
   const situacion = useMemo(
-    () => (loadingMensajes ? null : situacionLead(lead, mensajes)),
-    [lead, mensajes, loadingMensajes],
+    () => (loadingMensajes ? null : situacionLead(lead, mensajes, accionDir)),
+    [lead, mensajes, loadingMensajes, accionDir],
   );
 
   // ── Acciones ──

@@ -326,6 +326,9 @@ export type UrgenciaBidireccional = {
 };
 
 export type PresupuestoIntervencion = Presupuesto & {
+  /** Clasificación única de la conversación (lib/presupuestos/estado-conversacion),
+   *  calculada en servidor desde el hilo. Las vistas NO recalculan su criterio. */
+  conversacion?: import("./estado-conversacion").ConversacionClasificada;
   ultimaRespuestaPaciente?: string;
   fechaUltimaRespuesta?: string;
   intencionDetectada?: IntencionDetectada;

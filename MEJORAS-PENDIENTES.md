@@ -339,3 +339,18 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   cambiar el filtro al significado natural cuando exista el estado de conversación unificado.
 - **Impacto:** bajo-medio (confianza en los filtros).
 - **Fecha:** 2026-07-23 · 🔵
+
+## 24. Los envíos automáticos (pila Twilio) siguen fuera del hilo de conversación
+- **Zona:** `lib/whatsapp/send.ts`/`core.ts` y sus callers — crons daily/reminders/confirm/
+  feedback, motor no-shows (`lib/no-shows/acciones.ts:138`), waitlist, `/api/whatsapp/send`;
+  además los wa.me de superficies diferidas (no-shows views, demo PatientCard/QuotesPanel/
+  RecallPanel) y el link de chat de PacientesView (paciente sin texto ni registro).
+- **Principio:** §6 coherencia / mandamiento §9 — es la mitad que queda del nº 8
+- **Problema:** todo lo que envía por Twilio/plantilla automática NO deja fila en
+  `mensajes_whatsapp`: el hilo que ve la clínica está incompleto para pacientes contactados
+  por automatización, y estadoConversacion no puede contarlos. (La pila manual/WABA quedó
+  garantizada el 2026-07-23.)
+- **Mejora:** enrutar la pila Twilio por el servicio central de mensajería (o que registre
+  fila además de enviar) cuando se reactiven no-shows / se integre WABA real (nº 5B/9/10).
+- **Impacto:** medio (latente: esa pila hoy no envía en vivo para clientes reales).
+- **Fecha:** 2026-07-23 · 🔵

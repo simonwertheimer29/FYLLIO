@@ -26,6 +26,7 @@ import type {
   MensajeWhatsApp,
 } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG } from "../../lib/presupuestos/colors";
+import { haceTexto } from "../../lib/presupuestos/estado-conversacion";
 import {
   PanelAccionShell,
   PanelCabecera,
@@ -94,11 +95,30 @@ function situacionPresupuesto(item: PresupuestoIntervencion): SituacionPresupues
       primaria: "escribir",
     };
   }
-  if (item.ultimaRespuestaPaciente) {
+  // Clasificación ÚNICA del servidor (estadoConversacion): «Respondió: …»
+  // solo cuando de verdad la pelota es nuestra — antes el flag persistido
+  // Ultima_respuesta_paciente lo mostraba aunque ya le hubiéramos contestado.
+  if (item.ultimaRespuestaPaciente && item.conversacion?.estado !== "en_espera_paciente" && item.conversacion?.estado !== "reactivable") {
     return {
       prioridad: prioridadDe(item, dias),
       quePasa: `Respondió: «${item.ultimaRespuestaPaciente.slice(0, 70)}${item.ultimaRespuestaPaciente.length > 70 ? "…" : ""}»`,
       recomendacion: item.accionSugerida ?? "Responde a su mensaje",
+      primaria: "escribir",
+    };
+  }
+  if (item.conversacion?.estado === "en_espera_paciente" && item.conversacion.haceMs != null) {
+    return {
+      prioridad: "baja",
+      quePasa: `Le escribiste ${haceTexto(item.conversacion.haceMs)}; la pelota está en el paciente.`,
+      recomendacion: "Espera su respuesta — ya actuaste",
+      primaria: "escribir",
+    };
+  }
+  if (item.conversacion?.estado === "reactivable" && item.conversacion.haceMs != null) {
+    return {
+      prioridad: prioridadDe(item, dias),
+      quePasa: `Se le escribió ${haceTexto(item.conversacion.haceMs)} sobre ${item.treatments[0] ?? "su presupuesto"} y no ha respondido.`,
+      recomendacion: "Insiste — genera el mensaje con IA",
       primaria: "escribir",
     };
   }

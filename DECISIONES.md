@@ -188,6 +188,22 @@ lista de pacientes, Red, fichas y KPIs beben de ahí; el select manual desaparec
 siguen escribiendo (compatibilidad) pero ya no son fuente de pantalla. QA: `qa-finanzas-paciente.ts`
 (Σ cruzadas exactas contra pagos y presupuestos, 7/7 VERDE).
 
+## 2026-07-23 — estadoConversacion: una sola clasificación de "quién tiene la pelota"
+Había TRES criterios para pendiente/esperando (cola de presupuestos: 2 timestamps persistidos;
+lista de leads: acciones_lead; paneles/fichas: el hilo) y el mismo caso se contradecía entre
+pantallas. Ahora UNA función (`lib/presupuestos/estado-conversacion.ts`) deriva del último
+mensaje del hilo (+ acciones salientes registradas para llamadas/chats sin texto):
+pendiente_responder / en_espera_paciente / reactivable, con umbral centralizado 48h leads /
+72h presupuestos. Prerequisito pagado antes: TODA escritura de mensaje deja fila en
+mensajes_whatsapp (registro manual awaited con teléfono real, IntervencionView dejaba de
+perder el texto del saliente, IA panels→enviar-manual, secuencias y cobros persisten, chats
+sin texto registran acción). Consumidores volteados: cola intervención (server+cards, card
+reactivable con contexto XYZ), Actuar hoy leads, LeadAccionPanel (mismos inputs que la
+lista), situación del panel de presupuesto y ficha 360. Fase_seguimiento ya NO decide UI
+(solo filtro server de inclusión). QA de convergencia: `qa-estado-conversacion.ts` — los 3
+casos que divergían clasifican igual en cola y ficha (11/11, sin residuos). Pila Twilio
+automática sigue fuera del hilo → MEJORAS nº 24.
+
 ## 2026-07-23 — Mejoras 18-20: la familia del feedback deshonesto, cerrada
 Aprobadas por Simon tras verificar el preview de los 4 arreglos estructurales. (18) «Rechazó»
 desde el panel de acción ahora abre MotivoPerdidaModal como kanban y drawer — el discriminador

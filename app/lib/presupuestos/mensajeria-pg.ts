@@ -64,6 +64,52 @@ export async function selectMensajesWhatsAppPg(opts: {
   return recs;
 }
 
+export type UltimosPorConversacion = Map<
+  string,
+  { entranteAt: string | null; salienteAt: string | null }
+>;
+
+/**
+ * Último mensaje entrante/saliente por conversación, agrupado en SQL —
+ * alimenta estadoConversacion en las colas (presupuestos y leads) sin traer
+ * el hilo entero de cada caso.
+ */
+export async function ultimosMensajesPorConversacionPg(): Promise<{
+  porPresupuesto: UltimosPorConversacion;
+  porLead: UltimosPorConversacion;
+}> {
+  const rows = await runWithClienteDb(cli(), async (trx) => {
+    const { sql } = await import("kysely");
+    const r: any = await sql
+      .raw(
+        `select presupuesto_id, lead_id, direccion, max(timestamp) as t
+         from mensajes_whatsapp
+         where timestamp is not null and (presupuesto_id is not null or lead_id is not null)
+         group by presupuesto_id, lead_id, direccion`,
+      )
+      .execute(trx);
+    return r.rows as any[];
+  });
+  const porPresupuesto: UltimosPorConversacion = new Map();
+  const porLead: UltimosPorConversacion = new Map();
+  const meter = (map: UltimosPorConversacion, id: string, direccion: string, t: string) => {
+    const cur = map.get(id) ?? { entranteAt: null, salienteAt: null };
+    if (direccion === "Entrante") {
+      if (!cur.entranteAt || t > cur.entranteAt) cur.entranteAt = t;
+    } else {
+      if (!cur.salienteAt || t > cur.salienteAt) cur.salienteAt = t;
+    }
+    map.set(id, cur);
+  };
+  for (const r of rows) {
+    const t = iso(r.t);
+    if (!t) continue;
+    if (r.presupuesto_id) meter(porPresupuesto, String(r.presupuesto_id), String(r.direccion), t);
+    if (r.lead_id) meter(porLead, String(r.lead_id), String(r.direccion), t);
+  }
+  return { porPresupuesto, porLead };
+}
+
 /** Inserta un registro de mensaje y devuelve el shape mínimo que leen los callers ({ id }). */
 export async function createMensajeWhatsAppPg(fields: Record<string, unknown>): Promise<{ id: string }> {
   const leadLink = fields["Lead_Link"];

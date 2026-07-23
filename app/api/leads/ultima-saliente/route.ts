@@ -10,11 +10,28 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "../../../lib/auth/session";
 import { ultimasAccionesDireccionPorLead } from "../../../lib/leads/acciones";
+import { ultimosMensajesPorConversacion } from "../../../lib/presupuestos/mensajeria";
 
 export const dynamic = "force-dynamic";
 
 export const GET = withAuth(async () => {
-  const { salientePorLead, entrantePorLead } = await ultimasAccionesDireccionPorLead();
+  // Fusión hilo + acciones (una sola verdad): el HILO real (mensajes_whatsapp)
+  // es la fuente primaria; las acciones registradas complementan lo que no
+  // deja texto (llamadas, aperturas de chat). Así la lista de Actuar hoy y el
+  // panel del mismo lead clasifican igual — antes la lista miraba solo
+  // acciones_lead y el panel solo el hilo, y podían contradecirse.
+  const [{ salientePorLead, entrantePorLead }, ultimos] = await Promise.all([
+    ultimasAccionesDireccionPorLead(),
+    ultimosMensajesPorConversacion(),
+  ]);
+  const max = (a: string | undefined, b: string | null): string | undefined =>
+    !b ? a : !a || b > a ? b : a;
+  for (const [leadId, u] of ultimos.porLead) {
+    const s = max(salientePorLead[leadId], u.salienteAt);
+    if (s) salientePorLead[leadId] = s;
+    const e = max(entrantePorLead[leadId], u.entranteAt);
+    if (e) entrantePorLead[leadId] = e;
+  }
   return NextResponse.json({
     ultimaSalientePorLead: salientePorLead,
     ultimaEntrantePorLead: entrantePorLead,

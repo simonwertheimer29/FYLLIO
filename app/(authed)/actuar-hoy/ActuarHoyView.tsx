@@ -23,6 +23,10 @@ import { AgendarModal } from "../leads/AgendarModal";
 import IntervencionView from "../../components/presupuestos/IntervencionView";
 import PagoCierreModal from "../../components/presupuestos/PagoCierreModal";
 import MotivoPerdidaModal from "../../components/presupuestos/MotivoPerdidaModal";
+import {
+  estadoConversacion,
+  UMBRAL_REACTIVACION_MS,
+} from "../../lib/presupuestos/estado-conversacion";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/Feedback";
 import { AlertTriangle, Inbox, ICON_STROKE } from "../../components/icons";
@@ -523,25 +527,23 @@ const PRIORITY_RANK: Record<"ALTO" | "MEDIO" | "BAJO", number> = {
   BAJO: 2,
 };
 
-// "Esperando respuesta" (estado derivado, no guardado): actué (última saliente:
-// WhatsApp/llamada) y la pelota está en el paciente. Vuelve a "pendiente" cuando
-// el paciente responde (entrante posterior) o cuando pasan 48h sin respuesta
-// (reactivación por tiempo). Se recalcula en cada carga desde Acciones_Lead, así
-// que persiste al recargar y no puede quedar colgado en el navegador.
-const N_ESPERA_LEADS_MS = 48 * 60 * 60 * 1000;
-
+// "Esperando respuesta": clasificación ÚNICA (estadoConversacion, umbral 48h
+// centralizado) sobre los timestamps que el servidor ya fusiona (hilo real +
+// acciones registradas). Esta vista no tiene criterio propio — antes su copia
+// local podía contradecir al panel del mismo lead.
 function esperaLead(
   lead: Lead,
   saliente: Record<string, string>,
   entrante: Record<string, string>,
 ): { esperando: boolean; desdeISO: string | null } {
-  const sal = saliente[lead.id];
-  if (!sal) return { esperando: false, desdeISO: null };
-  const salMs = new Date(sal).getTime();
-  const ent = entrante[lead.id];
-  const entMs = ent ? new Date(ent).getTime() : 0;
-  const esperando = salMs > entMs && Date.now() - salMs < N_ESPERA_LEADS_MS;
-  return { esperando, desdeISO: esperando ? sal : null };
+  const c = estadoConversacion(
+    { ultimoEntranteAt: entrante[lead.id] ?? null, ultimoSalienteAt: saliente[lead.id] ?? null },
+    UMBRAL_REACTIVACION_MS.lead,
+  );
+  return {
+    esperando: c.estado === "en_espera_paciente",
+    desdeISO: c.estado === "en_espera_paciente" ? c.ultimoToqueClinicaAt : null,
+  };
 }
 
 function relTimeShort(iso: string): string {

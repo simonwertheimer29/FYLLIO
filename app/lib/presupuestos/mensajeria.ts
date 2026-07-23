@@ -43,6 +43,50 @@ async function selectMensajesRecords(opts: {
   return fetchAll(base(TABLES.mensajesWhatsApp as any).select(sel as any));
 }
 
+/**
+ * Último mensaje entrante/saliente por conversación (presupuesto y lead) —
+ * la entrada de estadoConversacion para las colas. PG agrupa en SQL; la rama
+ * Airtable (rollback congelado) agrupa en JS sobre el mismo log.
+ */
+export async function ultimosMensajesPorConversacion(): Promise<{
+  porPresupuesto: Map<string, { entranteAt: string | null; salienteAt: string | null }>;
+  porLead: Map<string, { entranteAt: string | null; salienteAt: string | null }>;
+}> {
+  if (usaPostgres("mensajes")) {
+    const pg = await import("./mensajeria-pg");
+    return pg.ultimosMensajesPorConversacionPg();
+  }
+  const recs = await selectMensajesRecords({});
+  const porPresupuesto = new Map<string, { entranteAt: string | null; salienteAt: string | null }>();
+  const porLead = new Map<string, { entranteAt: string | null; salienteAt: string | null }>();
+  const meter = (
+    map: Map<string, { entranteAt: string | null; salienteAt: string | null }>,
+    id: string,
+    direccion: string,
+    t: string,
+  ) => {
+    const cur = map.get(id) ?? { entranteAt: null, salienteAt: null };
+    if (direccion === "Entrante") {
+      if (!cur.entranteAt || t > cur.entranteAt) cur.entranteAt = t;
+    } else {
+      if (!cur.salienteAt || t > cur.salienteAt) cur.salienteAt = t;
+    }
+    map.set(id, cur);
+  };
+  for (const rec of recs) {
+    const f = (rec.fields ?? {}) as Record<string, unknown>;
+    const t = f["Timestamp"] ? String(f["Timestamp"]) : "";
+    if (!t) continue;
+    const dir = String(f["Direccion"] ?? "Entrante");
+    const presupuestoId = f["Presupuesto"] ? String(f["Presupuesto"]) : "";
+    const leadLink = f["Lead_Link"];
+    const leadId = Array.isArray(leadLink) ? String(leadLink[0] ?? "") : "";
+    if (presupuestoId) meter(porPresupuesto, presupuestoId, dir, t);
+    if (leadId) meter(porLead, leadId, dir, t);
+  }
+  return { porPresupuesto, porLead };
+}
+
 const ZONE = "Europe/Madrid";
 const GRAPH_API_VERSION = "v21.0";
 

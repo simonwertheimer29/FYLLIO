@@ -9,6 +9,7 @@ import type {
   IntervencionTab,
 } from "../../lib/presupuestos/types";
 import { URGENCIA_INTERVENCION_COLOR, INTERVENCION_TABS } from "../../lib/presupuestos/colors";
+import { haceTexto } from "../../lib/presupuestos/estado-conversacion";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { ErrorState, EmptyState } from "../ui/Feedback";
 import { Check, X, ChevronRight, Inbox, ICON_STROKE } from "../icons";
@@ -35,9 +36,13 @@ function filterByTab(items: PresupuestoIntervencion[], tab: IntervencionTab): Pr
   if (tab === "esperando") return items.filter((p) => esperaPresupuesto(p).esperando);
   // "Actuar ahora" NO incluye los que esperan respuesta: ya actuaste sobre ellos,
   // no toca actuar otra vez hasta que el paciente conteste (o expire el plazo).
+  // Los REACTIVABLES (saliente sin respuesta ≥ umbral) SÍ entran: el plazo
+  // expiró y toca insistir (card con contexto XYZ).
   if (tab === "actuar")
     return items.filter(
-      (p) => (p.urgenciaBidireccional?.scoreFinal ?? 0) >= 60 && !esperaPresupuesto(p).esperando,
+      (p) =>
+        p.conversacion?.estado === "reactivable" ||
+        ((p.urgenciaBidireccional?.scoreFinal ?? 0) >= 60 && !esperaPresupuesto(p).esperando),
     );
   const tabDef = INTERVENCION_TABS.find((t) => t.id === tab);
   if (!tabDef?.intenciones) return items;
@@ -49,6 +54,10 @@ function filterByTab(items: PresupuestoIntervencion[], tab: IntervencionTab): Pr
 
 function countForTab(items: PresupuestoIntervencion[], tab: IntervencionTab): number {
   return filterByTab(items, tab).length;
+}
+
+function esLlamada(tipo?: string): boolean {
+  return tipo === "Llamada realizada" || tipo === "Sin respuesta tras llamada";
 }
 
 function scoreColor(score: number): string {
@@ -80,26 +89,17 @@ function UrgencyBar({ score, intencion, resp, cierre }: {
   );
 }
 
-// "Esperando respuesta" (estado DERIVADO, no del navegador): mi última acción
-// (Ultima_accion_registrada) es posterior a la última respuesta del paciente
-// (Fecha_ultima_respuesta) y dentro de 72h. Vuelve a "pendiente" cuando el
-// paciente responde (el webhook bumpea Fecha_ultima_respuesta → En intervención)
-// o al pasar 72h. Se recalcula al cargar, así que persiste al recargar.
-const N_ESPERA_PRESUP_MS = 72 * 60 * 60 * 1000;
-
+// "Esperando respuesta": clasificación ÚNICA calculada en el servidor desde el
+// hilo real (estadoConversacion, umbral 72h centralizado). Esta vista ya no
+// tiene criterio propio — antes comparaba dos timestamps persistidos y podía
+// contradecir a la ficha del mismo caso.
 function esperaPresupuesto(item: PresupuestoIntervencion): {
   esperando: boolean;
   desdeISO: string | null;
 } {
-  const acc = item.ultimaAccionRegistrada
-    ? new Date(item.ultimaAccionRegistrada).getTime()
-    : 0;
-  if (!acc) return { esperando: false, desdeISO: null };
-  const resp = item.fechaUltimaRespuesta
-    ? new Date(item.fechaUltimaRespuesta).getTime()
-    : 0;
-  const esperando = acc > resp && Date.now() - acc < N_ESPERA_PRESUP_MS;
-  return { esperando, desdeISO: esperando ? item.ultimaAccionRegistrada! : null };
+  const c = item.conversacion;
+  if (!c || c.estado !== "en_espera_paciente") return { esperando: false, desdeISO: null };
+  return { esperando: true, desdeISO: c.ultimoToqueClinicaAt };
 }
 
 function relEsperaShort(iso: string): string {
@@ -274,8 +274,27 @@ function IntervencionCard({
               </div>
             )}
 
+            {/* Reactivable — contexto XYZ completo: qué se hizo, hace cuánto,
+                sobre qué, y con qué insistir (el mensaje sugerido viene del
+                generador IA existente de la cola, no de uno nuevo). */}
+            {item.conversacion?.estado === "reactivable" && item.conversacion.haceMs != null && (
+              <div className="mt-2 rounded-lg bg-[var(--color-warning-soft)] px-3 py-2 border border-[var(--color-border)]">
+                <p className="text-[11px] text-[var(--color-foreground)] line-clamp-3">
+                  {esLlamada(item.tipoUltimaAccion) ? "Se le llamó" : "Se le escribió por WhatsApp"}{" "}
+                  {haceTexto(item.conversacion.haceMs)} sobre{" "}
+                  {item.treatments.length ? item.treatments.join(", ") : "su presupuesto"} y no ha
+                  respondido
+                  {item.mensajeSugerido ? (
+                    <>
+                      {" "}— insiste con: <span className="italic">&quot;{item.mensajeSugerido}&quot;</span>
+                    </>
+                  ) : null}
+                </p>
+              </div>
+            )}
+
             {/* Acción sugerida */}
-            {item.accionSugerida && (
+            {item.accionSugerida && item.conversacion?.estado !== "reactivable" && (
               <p className="text-[10px] text-[var(--color-accent)] font-semibold mt-1.5">
                 {item.accionSugerida}
               </p>

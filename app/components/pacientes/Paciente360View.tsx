@@ -29,6 +29,11 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Pago, TipoPago, MetodoPago } from "../../lib/pagos-format";
 import { formatTipo } from "../../lib/pagos-format";
+import {
+  estadoConversacion,
+  entradaDesdeMensajes,
+  UMBRAL_REACTIVACION_MS,
+} from "../../lib/presupuestos/estado-conversacion";
 import { CardListSkeleton, KpiCardSkeleton } from "../ui/Skeleton";
 import { ErrorState, EmptyState } from "../ui/Feedback";
 import { StatePill } from "../ui/StatePill";
@@ -296,12 +301,16 @@ function derivarSituacion(data: Paciente360Payload, mensajes: MensajeHilo[]): Si
   const presupuestoRef = abiertos[0] ?? aceptados[0] ?? presupuestos[0] ?? null;
 
   const orden = [...mensajes].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-  const ultimo = orden[orden.length - 1] ?? null;
   const entrantes = orden.filter((m) => m.direccion === "Entrante");
   const ultimoEntrante = entrantes[entrantes.length - 1] ?? null;
   const intencion = ultimoEntrante?.intencionDetectada ?? null;
   const objecion = labelIntencion(intencion);
-  const esperando = ultimo?.direccion === "Entrante";
+  // Clasificación ÚNICA (misma función que colas y paneles): la ficha no
+  // tiene criterio propio de "quién tiene la pelota".
+  const conv = estadoConversacion(
+    entradaDesdeMensajes(orden),
+    UMBRAL_REACTIVACION_MS.presupuesto,
+  );
   const dEnt = ultimoEntrante ? diasDesde(ultimoEntrante.timestamp) : null;
 
   const base = { objecion, presupuestoRef };
@@ -320,8 +329,8 @@ function derivarSituacion(data: Paciente360Payload, mensajes: MensajeHilo[]): Si
     };
   }
 
-  // Está esperando respuesta nuestra (su mensaje es el último del hilo).
-  if (esperando && ultimoEntrante) {
+  // Está esperando respuesta nuestra (pendiente_responder).
+  if (conv.estado === "pendiente_responder" && ultimoEntrante) {
     if (intencion === "listo_para_agendar" && !proximaCita) {
       return {
         ...base,
@@ -342,8 +351,10 @@ function derivarSituacion(data: Paciente360Payload, mensajes: MensajeHilo[]): Si
     };
   }
 
-  // Objetó y la conversación se quedó parada tras nuestra respuesta.
-  if (!esperando && ultimoEntrante && dEnt != null && dEnt >= 2 && abiertos.length > 0) {
+  // Objetó y la conversación se quedó parada tras nuestra respuesta — solo
+  // cuando el plazo de espera YA expiró (reactivable): si le respondimos hace
+  // poco, no toca insistir todavía.
+  if (conv.estado === "reactivable" && ultimoEntrante && dEnt != null && dEnt >= 2 && abiertos.length > 0) {
     if (intencion === "duda_precio") {
       return {
         ...base,
