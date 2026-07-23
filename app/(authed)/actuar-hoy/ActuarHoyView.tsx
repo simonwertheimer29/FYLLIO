@@ -786,21 +786,12 @@ function LeadAccionRow({
 }
 
 // ──────────────────────────────────────────────────────────────────────
-// Sub-tab Presupuestos — usa IntervencionView directamente para preservar
-// las 8 pills de filtro por intención, el botón "Bulk send WA" y el
-// auto-refresh de cola. El SidePanel se sigue montando al nivel de
-// ActuarHoyView vía AccionPanel kind="presupuesto" (wrapper a
-// IntervencionSidePanel) — visualmente idéntico al panel de leads.
-//
-// La paridad de unificación con la sub-tab Leads se mantiene por:
-// - cards: IntervencionCard de Presupuestos vs AccionCard de Leads
-//   tienen la misma forma (borde-izq por urgencia, action bar inline).
-// - header de KPIs: IntervencionView tiene su propio header con el
-//   mismo gradient/contadores que ActuarHoyHeader.
-// - panel lateral: ambos abren AccionPanel.
-//
-// Los filtros pueden divergir: Presupuestos usa intenciones IA
-// (8 tabs), Leads usa estado del pipeline (4 tabs).
+// Sub-tab Presupuestos — P3 unificación (2026-07-23): IntervencionView usa
+// el MISMO modelo que Leads: ActuarHoyHeader compartido, AccionCard
+// compartida y dos pestañas derivadas de estadoConversacion ("Actuar ahora"
+// = pendiente_responder + reactivable · "Esperando respuesta" = en_espera).
+// El SidePanel se monta al nivel de ActuarHoyView vía AccionPanel
+// kind="presupuesto" (wrapper a IntervencionSidePanel), igual que leads.
 // ──────────────────────────────────────────────────────────────────────
 
 function PresupuestosTab({

@@ -251,3 +251,11 @@ es contexto de negocio con precedencia cerrado > cita > conversación. Con cita 
 dice "Tiene cita el X — confirma su asistencia" con recordatorio precargado en el composer
 (solo si está vacío), sale del bucket "Esperando respuesta" de Actuar hoy, y la respuesta
 pendiente del paciente sigue ganando: a un mensaje se contesta siempre.
+
+## 2026-07-23 — P3: la cola de presupuestos se unifica al modelo de Leads
+La sección "Atendidos hoy" era una segunda representación del viejo criterio de espera
+("acción registrada hoy" ≈ esperando) y las 8 pills por intención IA fragmentaban la cola.
+Ahora: dos pestañas que PARTICIONAN la cola por estadoConversacion (Actuar ahora = pendiente
++ reactivable · Esperando = en_espera), cabecera y card compartidas con Leads (ActuarHoyHeader,
+AccionCard), orden por prioridad. Se eliminaron del payload `secciones` (ningún cliente las
+leía), `completadasHoy` y `casosCompletados`; la mejora nº 23 queda resuelta de rebote.

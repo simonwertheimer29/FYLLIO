@@ -1,5 +1,9 @@
 // app/api/presupuestos/intervencion/route.ts
-// GET — devuelve la cola de intervención del día, agrupada por intención
+// GET — devuelve la cola de intervención del día. P3 unificación (2026-07-23):
+// TODOS los casos viajan en allItems con su item.conversacion; las pestañas
+// (Actuar ahora / Esperando respuesta) clasifican en cliente con esa única
+// verdad. Se eliminó el split "completados hoy" (segunda representación del
+// viejo criterio de espera) y las "secciones" por intención (payload muerto).
 
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw, updatePresupuestoRaw } from "../../../lib/presupuestos/repo";
@@ -7,10 +11,8 @@ import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 import { generarMensajeSugerido } from "../../../lib/presupuestos/intervencion";
-import { INTENCION_SECTIONS } from "../../../lib/presupuestos/colors";
 import type {
   PresupuestoIntervencion,
-  SeccionIntervencion,
   IntencionDetectada,
   UrgenciaIntervencion,
   UrgenciaBidireccional,
@@ -43,14 +45,6 @@ function daysSince(iso: string): number {
   const d = DateTime.fromISO(iso).startOf("day");
   return Math.round(today.diff(d, "days").days);
 }
-
-const URGENCIA_ORDER: Record<string, number> = {
-  "CRÍTICO": 0,
-  "ALTO": 1,
-  "MEDIO": 2,
-  "BAJO": 3,
-  "NINGUNO": 4,
-};
 
 // -------------------------------------------------------------------
 // Urgencia bidireccional (3 ejes)
@@ -133,11 +127,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   // Check env vars
   if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
     return NextResponse.json({
-      secciones: [],
       allItems: [],
-      totalPendientes: 0,
-      completadasHoy: 0,
-      casosCompletados: [],
       clinicas: [],
       doctores: [],
       tratamientos: [],
@@ -356,47 +346,10 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       await Promise.all(generaciones);
     }
 
-    // Separate completed today vs pending
-    const completadosHoy: PresupuestoIntervencion[] = [];
-    const pendientes: PresupuestoIntervencion[] = [];
-
-    for (const p of items) {
-      if (p.ultimaAccionRegistrada) {
-        const accionDate = DateTime.fromISO(p.ultimaAccionRegistrada).setZone(ZONE).startOf("day");
-        if (accionDate.equals(today) && p.tipoUltimaAccion && p.tipoUltimaAccion !== "Mensaje recibido") {
-          completadosHoy.push(p);
-          continue;
-        }
-      }
-      pendientes.push(p);
-    }
-
-    // Group pending items into sections
-    const secciones: SeccionIntervencion[] = INTENCION_SECTIONS.map((sec) => {
-      const sectionItems = pendientes
-        .filter((p) => {
-          const intencion = p.intencionDetectada ?? "Sin clasificar";
-          return sec.intenciones.includes(intencion);
-        })
-        .sort((a, b) => {
-          const ua = URGENCIA_ORDER[a.urgenciaIntervencion ?? "NINGUNO"] ?? 4;
-          const ub = URGENCIA_ORDER[b.urgenciaIntervencion ?? "NINGUNO"] ?? 4;
-          if (ua !== ub) return ua - ub;
-          // Then by fecha ultima respuesta (most recent first)
-          const da = a.fechaUltimaRespuesta ?? "";
-          const db = b.fechaUltimaRespuesta ?? "";
-          return db.localeCompare(da);
-        });
-
-      return {
-        id: sec.id,
-        titulo: sec.titulo,
-        color: sec.color,
-        icono: sec.icono,
-        hexAccent: sec.hexAccent,
-        items: sectionItems,
-      };
-    }).filter((s) => s.items.length > 0);
+    // Orden por prioridad (score bidireccional): la pestaña decide el resto.
+    items.sort(
+      (a, b) => (b.urgenciaBidireccional?.scoreFinal ?? 0) - (a.urgenciaBidireccional?.scoreFinal ?? 0),
+    );
 
     // Extract unique filter values
     const clinicas = [...new Set(items.map((p) => p.clinica).filter(Boolean) as string[])].sort();
@@ -404,11 +357,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     const tratamientos = [...new Set(items.flatMap((p) => p.treatments))].sort();
 
     return NextResponse.json({
-      secciones,
-      allItems: pendientes,
-      totalPendientes: pendientes.length,
-      completadasHoy: completadosHoy.length,
-      casosCompletados: completadosHoy,
+      allItems: items,
       clinicas,
       doctores,
       tratamientos,
@@ -416,11 +365,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   } catch (err) {
     console.error("[intervencion] GET error:", err);
     return NextResponse.json({
-      secciones: [],
       allItems: [],
-      totalPendientes: 0,
-      completadasHoy: 0,
-      casosCompletados: [],
       clinicas: [],
       doctores: [],
       tratamientos: [],

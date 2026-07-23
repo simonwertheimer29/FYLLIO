@@ -338,7 +338,8 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Mejora:** renombrar la pestaña a lo que es (p. ej. "Rechazos / sin clasificar") o
   cambiar el filtro al significado natural cuando exista el estado de conversación unificado.
 - **Impacto:** bajo-medio (confianza en los filtros).
-- **Fecha:** 2026-07-23 · 🔵
+- **Fecha:** 2026-07-23 · 🟢 hecha (P3 unificación: las pills por intención se retiraron;
+  las dos pestañas derivan de estadoConversacion — la pestaña engañosa ya no existe)
 
 ## 24. Los envíos automáticos (pila Twilio) siguen fuera del hilo de conversación
 - **Zona:** `lib/whatsapp/send.ts`/`core.ts` y sus callers — crons daily/reminders/confirm/
@@ -353,4 +354,31 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Mejora:** enrutar la pila Twilio por el servicio central de mensajería (o que registre
   fila además de enviar) cuando se reactiven no-shows / se integre WABA real (nº 5B/9/10).
 - **Impacto:** medio (latente: esa pila hoy no envía en vivo para clientes reales).
+- **Fecha:** 2026-07-23 · 🔵
+
+
+## 25. GET de la cola de intervención tiene efectos secundarios (genera IA y escribe)
+- **Zona:** `app/api/presupuestos/intervencion/route.ts` (bloque "Generate missing
+  mensajeSugerido": hasta 5 llamadas IA por carga + escritura en background del campo
+  `Mensaje_sugerido`)
+- **Principio:** mandamiento §2 idempotencia / §9 no silencios — detectado con la lente
+  durante la unificación P3
+- **Problema:** un GET (que además auto-refresca cada 15 s) dispara generación IA y
+  escrituras: coste y latencia invisibles, y si dos pestañas cargan a la vez se duplica
+  trabajo. El tope silencioso de 5 por carga tampoco se comunica.
+- **Mejora:** mover la generación a una acción explícita o a un job (al crear el caso /
+  al entrar en reactivable), y dejar el GET de solo lectura.
+- **Impacto:** medio (coste IA + latencia de la cola).
+- **Fecha:** 2026-07-23 · 🔵
+
+## 26. La entrada a la cola de intervención sigue dependiendo de urgencia/fase persistidas
+- **Zona:** `app/api/presupuestos/intervencion/route.ts` (filterFormula: respuesta ≠ '' OR
+  urgencia ≠ NINGUNO OR fase = 'Esperando respuesta')
+- **Principio:** §6 coherencia — media verdad que queda del criterio viejo
+- **Problema:** un presupuesto ABIERTO sin urgencia asignada, sin fase y sin respuesta
+  registrada no entra en la cola aunque su hilo diga pendiente_responder o reactivable:
+  invisible para la coordinadora. (Con el seed DEMO no pasa porque todos llevan urgencia.)
+- **Mejora:** que entren TODOS los presupuestos abiertos y estadoConversacion decida la
+  pestaña; la fórmula quedaría solo como optimización si hiciera falta.
+- **Impacto:** medio (casos reales pueden quedar fuera de la cola).
 - **Fecha:** 2026-07-23 · 🔵

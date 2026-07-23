@@ -305,17 +305,10 @@ export type TipoUltimaAccionIntervencion =
   | "Mensaje recibido"
   | "Sin respuesta tras llamada";
 
-// Pestañas secundarias de la cola
-export type IntervencionTab =
-  | "actuar"
-  | "cerrados"
-  | "esperando"
-  | "todas"
-  | "pago"
-  | "dudas"
-  | "oferta"
-  | "pensarlo"
-  | "sin_respuesta";
+// Pestañas de la cola — mismo modelo que Leads (P3 unificación 2026-07-23):
+// "actuar" = pendiente_responder + reactivable (+ sin clasificar) ·
+// "esperando" = en_espera_paciente. Las 8 pills por intención IA se retiraron.
+export type IntervencionTab = "actuar" | "esperando";
 
 // Urgencia bidireccional (3 ejes)
 export type UrgenciaBidireccional = {
@@ -342,21 +335,13 @@ export type PresupuestoIntervencion = Presupuesto & {
   urgenciaBidireccional?: UrgenciaBidireccional;
 };
 
-export type SeccionIntervencion = {
-  id: string;
-  titulo: string;
-  color: string;
-  icono: string;
-  hexAccent: string;
-  items: PresupuestoIntervencion[];
-};
-
+// P3 unificación (2026-07-23): la cola devuelve TODOS los casos y las
+// pestañas se derivan de item.conversacion en cliente. Se eliminaron
+// `secciones` (payload que ningún cliente leía), `completadasHoy` y
+// `casosCompletados` (segunda representación del viejo criterio de espera:
+// "acción registrada hoy" ≈ en_espera_paciente, que ya clasifica el estado).
 export type IntervencionResponse = {
-  secciones: SeccionIntervencion[];
   allItems: PresupuestoIntervencion[];
-  totalPendientes: number;
-  completadasHoy: number;
-  casosCompletados: PresupuestoIntervencion[];
   clinicas: string[];
   doctores: string[];
   tratamientos: string[];
