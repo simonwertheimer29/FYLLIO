@@ -6,6 +6,7 @@ import { getSession } from "../../lib/auth/session";
 import { listClinicas } from "../../lib/auth/users";
 import { listPacientes } from "../../lib/pacientes/pacientes";
 import { finanzasPorPaciente } from "../../lib/finanzas-paciente";
+import { proximaCitaPorPaciente } from "../../lib/pacientes/edicion";
 import { base, TABLES, fetchAll, runWithCliente } from "../../lib/airtable";
 import { clinicasNegocioAccesibles, negocioIdToCentralId } from "../../lib/clinicas-negocio";
 import { PacientesView } from "./PacientesView";
@@ -41,13 +42,15 @@ export default async function PacientesPage() {
       clinicasNegocioAccesibles(session),
       listDoctores(),
     ]);
-    const [pacientes, finanzas] = await Promise.all([
+    const [pacientes, finanzas, proximasCitas] = await Promise.all([
       listPacientes({
         clinicaIds: scope.ids === null ? undefined : scope.ids,
       }),
       // Dinero y aceptación DERIVADOS de presupuestos+pagos (una sola verdad);
       // los campos manuales/cache del paciente ya no se muestran.
       finanzasPorPaciente(),
+      // Bloque 3 (D3): próxima cita REAL desde la agenda, no el campo suelto.
+      proximaCitaPorPaciente(),
     ]);
     const doctorById = new Map(doctores.map((d) => [d.id, d.nombre]));
     const withNames = pacientes.map((p) => {
@@ -61,6 +64,9 @@ export default async function PacientesPage() {
         cobrado: fin?.cobrado ?? 0,
         pendienteReal: fin?.pendiente ?? 0,
         aceptadoDerivado: fin?.aceptado ?? null,
+        // Bloque 3 (D2/D3): derivados de presupuestos y agenda.
+        tratamientosDerivados: fin?.tratamientos ?? [],
+        proximaCita: proximasCitas.get(p.id) ?? null,
       };
     });
     // Doctores: remapear su clinicaId (negocio) a central para que la vista los
