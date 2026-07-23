@@ -10,6 +10,7 @@ import {
   type PacienteAceptado,
 } from "../../lib/pacientes/pacientes";
 import { finanzasPorPaciente } from "../../lib/finanzas-paciente";
+import { proximaCitaPorPaciente } from "../../lib/pacientes/edicion";
 
 export const dynamic = "force-dynamic";
 
@@ -44,7 +45,7 @@ export const GET = withAuth(async (session, req) => {
     }
   }
 
-  const [pacientes, finanzas] = await Promise.all([
+  const [pacientes, finanzas, proximasCitas] = await Promise.all([
     listPacientes({
       clinicaIds,
       aceptado: aceptado ?? undefined,
@@ -54,6 +55,8 @@ export const GET = withAuth(async (session, req) => {
     }),
     // Dinero y aceptación DERIVADOS de presupuestos+pagos (una sola verdad).
     finanzasPorPaciente(),
+    // Bloque 3 (D3): próxima cita REAL desde la agenda, no el campo suelto.
+    proximaCitaPorPaciente(),
   ]);
 
   const enriquecidos = pacientes.map((p) => {
@@ -64,6 +67,10 @@ export const GET = withAuth(async (session, req) => {
       cobrado: fin?.cobrado ?? 0,
       pendienteReal: fin?.pendiente ?? 0,
       aceptadoDerivado: fin?.aceptado ?? null,
+      // Bloque 3 (D2/D3): derivados de presupuestos y agenda; las columnas
+      // propias del paciente quedan como copias a deprecar.
+      tratamientosDerivados: fin?.tratamientos ?? [],
+      proximaCita: proximasCitas.get(p.id) ?? null,
     };
   });
 

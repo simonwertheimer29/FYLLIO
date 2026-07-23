@@ -247,3 +247,24 @@ export async function listPacientesIdsDevPg(maxRecords: number): Promise<string[
     return rows.map((r) => r.id);
   });
 }
+
+// Bloque 3 (deuda D3) — próxima cita REAL por paciente desde la agenda:
+// mínimo hora_inicio >= ahora, excluyendo canceladas. El campo suelto
+// pacientes.fecha_cita queda como copia a deprecar.
+export async function proximaCitaPorPacientePg(): Promise<Map<string, string>> {
+  return runWithClienteDb(cli(), async (trx) => {
+    const rows = await trx
+      .selectFrom("citas")
+      .select(["paciente_id", sql<string>`min(hora_inicio)`.as("proxima")])
+      .where("hora_inicio", ">=", sql<any>`now()`)
+      .where("estado", "!=", "Cancelado")
+      .where("paciente_id", "is not", null)
+      .groupBy("paciente_id")
+      .execute();
+    const map = new Map<string, string>();
+    for (const r of rows) {
+      if (r.paciente_id && r.proxima) map.set(String(r.paciente_id), iso(r.proxima));
+    }
+    return map;
+  });
+}

@@ -12,6 +12,7 @@ import { crearPago } from "../../../../lib/pagos";
 import { findUserByEmail } from "../../../../lib/auth/users";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { verificarPresupuestoPermitido } from "../../../../lib/presupuestos/clinica-scope";
+import { validarCambioEstado } from "../../../../lib/presupuestos/transiciones";
 
 const ZONE = "Europe/Madrid";
 
@@ -28,6 +29,19 @@ export const PATCH = withPresupuestosAuth(
     }
 
     const body = await req.json();
+
+    // Bloque 3 — regla del kanban, ahora también en la API (fail-closed):
+    // PERDIDO exige motivo. Todos los flujos de UI lo aportan vía modal;
+    // si un caller lo esquiva, se rechaza con error honesto.
+    if (body.estado !== undefined) {
+      const invalido = validarCambioEstado({
+        nuevo: String(body.estado),
+        motivoPerdida: body.motivoPerdida ?? null,
+      });
+      if (invalido) {
+        return NextResponse.json({ error: invalido }, { status: 400 });
+      }
+    }
 
     // Pago del cierre («Aceptó y pagó»): opcional, solo acompaña a ACEPTADO.
     // Se valida ANTES de escribir nada para no dejar el cambio a medias.

@@ -7,6 +7,7 @@ import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicaIdsForUser, listUsuarios } from "../../../lib/auth/users";
 import { getPaciente, updatePaciente, deletePaciente } from "../../../lib/pacientes/pacientes";
+import { camposNoEditables, propagarTelefonoAPresupuestos } from "../../../lib/pacientes/edicion";
 import { getLead } from "../../../lib/leads/leads";
 import { listAccionesByLead } from "../../../lib/leads/acciones";
 import { getPagosByPaciente } from "../../../lib/pagos";
@@ -241,8 +242,28 @@ export const PATCH = withAuth<Ctx>(async (session, req, ctx) => {
     return NextResponse.json({ error: "Body inválido" }, { status: 400 });
   }
 
+  // Bloque 3 — la tabla es una ventana: solo campos cuyo origen ES el
+  // paciente. Cachés de dinero y derivados se rechazan (fail-closed); se
+  // corrigen en su registro origen (presupuestos/pagos).
+  const rechazados = camposNoEditables(body);
+  if (rechazados.length) {
+    return NextResponse.json(
+      { error: `No editable desde el paciente: ${rechazados.join(", ")}. Corrige su registro origen (presupuesto/pago).` },
+      { status: 400 },
+    );
+  }
+
+  // Deuda D1 — el teléfono vive copiado en los presupuestos abiertos
+  // (paciente_telefono, lo usa la cola para escribirle). Propagación con
+  // cascada VISIBLE: el conteo viaja a la vista y el toast lo nombra.
+  let presupuestosActualizados = 0;
+  const telefonoNuevo = typeof body.telefono === "string" ? body.telefono.trim() : null;
+  if (telefonoNuevo && telefonoNuevo !== (paciente.telefono ?? "")) {
+    presupuestosActualizados = await propagarTelefonoAPresupuestos(id, telefonoNuevo);
+  }
+
   const updated = await updatePaciente(id, body);
-  return NextResponse.json({ paciente: updated });
+  return NextResponse.json({ paciente: updated, presupuestosActualizados });
 });
 
 export const DELETE = withAuth<Ctx>(async (session, _req, ctx) => {

@@ -25,9 +25,12 @@ export type FinanzasPaciente = {
   cobrado: number;
   pendiente: number;
   aceptado: "Si" | "No" | "Pendiente" | null;
+  /** Bloque 3 (D2): tratamientos DERIVADOS de sus presupuestos no perdidos —
+   *  la columna propia pacientes.tratamientos queda como copia a deprecar. */
+  tratamientos: string[];
 };
 
-type Acc = { firmado: number; cobrado: number; aceptados: number; perdidos: number; vivos: number };
+type Acc = { firmado: number; cobrado: number; aceptados: number; perdidos: number; vivos: number; tratamientos: Set<string> };
 
 /**
  * Finanzas derivadas de TODOS los pacientes del cliente en 2 queries
@@ -38,7 +41,7 @@ type Acc = { firmado: number; cobrado: number; aceptados: number; perdidos: numb
  */
 export async function finanzasPorPaciente(): Promise<Map<string, FinanzasPaciente>> {
   const [presus, pagos] = await Promise.all([
-    selectPresupuestosRaw({ fields: ["Paciente", "Estado", "Importe"] }),
+    selectPresupuestosRaw({ fields: ["Paciente", "Estado", "Importe", "Tratamiento_nombre"] }),
     listPagosResumen(),
   ]);
 
@@ -46,7 +49,7 @@ export async function finanzasPorPaciente(): Promise<Map<string, FinanzasPacient
   const get = (id: string): Acc => {
     let a = acc.get(id);
     if (!a) {
-      a = { firmado: 0, cobrado: 0, aceptados: 0, perdidos: 0, vivos: 0 };
+      a = { firmado: 0, cobrado: 0, aceptados: 0, perdidos: 0, vivos: 0, tratamientos: new Set() };
       acc.set(id, a);
     }
     return a;
@@ -60,6 +63,12 @@ export async function finanzasPorPaciente(): Promise<Map<string, FinanzasPacient
     const estado = String(f["Estado"] ?? "");
     const importe = Number(f["Importe"] ?? 0) || 0;
     const a = get(pid);
+    if (estado !== "PERDIDO") {
+      for (const t of String(f["Tratamiento_nombre"] ?? "").split(/[,+]/)) {
+        const limpio = t.trim();
+        if (limpio) a.tratamientos.add(limpio);
+      }
+    }
     if (estado === "ACEPTADO") {
       a.aceptados++;
       a.firmado += importe;
@@ -83,6 +92,7 @@ export async function finanzasPorPaciente(): Promise<Map<string, FinanzasPacient
       pendiente: Math.max(0, a.firmado - a.cobrado),
       aceptado:
         a.aceptados > 0 ? "Si" : a.vivos > 0 ? "Pendiente" : a.perdidos > 0 ? "No" : null,
+      tratamientos: [...a.tratamientos],
     });
   }
   return out;
@@ -93,6 +103,7 @@ const SIN_PRESUPUESTOS: FinanzasPaciente = {
   cobrado: 0,
   pendiente: 0,
   aceptado: null,
+  tratamientos: [],
 };
 
 /** Finanzas de un solo paciente (misma derivación; para las rutas de ficha). */
