@@ -29,6 +29,8 @@ type PacienteApi = {
   clinicaId: string | null;
   aceptado: "Si" | "No" | "Pendiente" | null;
   pagado: number | null;
+  /** Σ pagos reales, derivado en servidor (una sola verdad del dinero). */
+  cobrado: number;
   leadOrigenId: string | null;
 };
 
@@ -79,14 +81,9 @@ export function RedView({ user }: { user: UserSession }) {
   // Pacientes originados en un lead (comprobación cruzada)
   const pacientesDeLead = filtered.ps.filter((p) => p.leadOrigenId).length;
 
-  // Facturado del mes actual (pagado > 0 de pacientes creados este mes).
-  const nowYM = new Date().toISOString().slice(0, 7);
-  const facturadoMes = filtered.ps.reduce(
-    (s, p) => s + (p.pagado ?? 0),
-    0
-  );
-  // NOTE: no tenemos fecha_pago; usamos total pagado como proxy.
-  void nowYM;
+  // Cobrado acumulado = Σ pagos reales (derivado en servidor). Antes sumaba el
+  // cache pacientes.pagado, que podía divergir de los pagos de verdad.
+  const cobradoAcumulado = filtered.ps.reduce((s, p) => s + (p.cobrado ?? 0), 0);
 
   const scope =
     selectedClinicaNombre ?? (selectedClinicaId === null ? "todas las clínicas" : "clínica");
@@ -114,7 +111,7 @@ export function RedView({ user }: { user: UserSession }) {
                     `Leads convertidos: ${leadsConvertidos}`,
                     `Pacientes de origen Lead: ${pacientesDeLead}`,
                     `Tasa conversión lead→paciente: ${tasaConversion}%`,
-                    `Facturado acumulado: ${facturadoMes.toLocaleString("es-ES")}€`,
+                    `Cobrado acumulado: ${cobradoAcumulado.toLocaleString("es-ES")}€`,
                   ].join("\n");
                   openCopilot({
                     context: { kind: "red_admin", summary },
@@ -157,8 +154,8 @@ export function RedView({ user }: { user: UserSession }) {
                 copilotSummary={`KPI: Tasa conversión lead→paciente — ${scope}\nValor: ${tasaConversion}%\nFórmula: leads convertidos / leads totales.`}
               />
               <KpiCard
-                label="Facturado acumulado"
-                value={facturadoMes}
+                label="Cobrado acumulado"
+                value={cobradoAcumulado}
                 formatter={(n) =>
                   n.toLocaleString("es-ES", {
                     style: "currency",
@@ -167,7 +164,7 @@ export function RedView({ user }: { user: UserSession }) {
                   })
                 }
                 accent="amber"
-                copilotSummary={`KPI: Facturado acumulado — ${scope}\nValor: ${facturadoMes.toLocaleString("es-ES")}€\nSuma del campo Pagado de pacientes activos.`}
+                copilotSummary={`KPI: Cobrado acumulado — ${scope}\nValor: ${cobradoAcumulado.toLocaleString("es-ES")}€\nSuma de los pagos registrados de los pacientes visibles.`}
               />
             </div>
           )}

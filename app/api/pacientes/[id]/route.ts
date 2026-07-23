@@ -51,16 +51,17 @@ export const GET = withAuth<Ctx>(async (session, _req, ctx) => {
 
   const acciones = lead ? await fetchAccionesByLead(lead.id) : [];
 
-  // KPIs pagos.
+  // KPIs pagos — el pendiente se deriva de los presupuestos REALES del
+  // paciente (Σ ACEPTADO), no del select manual `aceptado` ni del campo
+  // `presupuesto_total`, que divergían de los presupuestos de verdad.
   const totalFacturado = pagos.reduce((s, p) => s + (p.importe || 0), 0);
   const numPagos = pagos.length;
+  const firmado = presupuestos
+    .filter((p) => p.estado === "ACEPTADO")
+    .reduce((s, p) => s + (p.importe ?? 0), 0);
   let pendiente: number | null = null;
-  if (
-    paciente.aceptado === "Si" &&
-    typeof paciente.presupuestoTotal === "number" &&
-    paciente.presupuestoTotal > 0
-  ) {
-    pendiente = Math.max(0, paciente.presupuestoTotal - totalFacturado);
+  if (firmado > 0) {
+    pendiente = Math.max(0, firmado - totalFacturado);
   }
   const ultimoPagoHaceDias = pagos[0] ? daysBetween(pagos[0].fechaPago) : null;
 
@@ -121,6 +122,7 @@ export const GET = withAuth<Ctx>(async (session, _req, ctx) => {
     kpisPagos: {
       totalFacturado,
       pendiente,
+      firmado,
       numPagos,
       ultimoPagoHaceDias,
     },

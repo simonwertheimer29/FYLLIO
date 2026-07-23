@@ -496,15 +496,10 @@ function PagosTabContent({
 
   const { pagos, kpis, usuariosNombres, paciente } = data;
   const fmtEUR = (n: number) => `€${n.toLocaleString("es-ES")}`;
-  // Tooltip para el caso pendiente=null: distingue "sin presupuesto"
-  // de "presupuesto sin aceptar" para que la coordinacion sepa por que
-  // el KPI no muestra cifra.
+  // pendiente=null ⇔ sin presupuesto ACEPTADO (derivado en servidor de los
+  // presupuestos reales, ya no del campo manual del paciente).
   const pendienteTooltip =
-    kpis.pendiente == null
-      ? !paciente.presupuestoTotal || paciente.presupuestoTotal === 0
-        ? "Sin presupuesto aceptado todavía"
-        : "Pendiente de aceptación de presupuesto"
-      : undefined;
+    kpis.pendiente == null ? "Sin presupuesto aceptado todavía" : undefined;
   const fmtUltimoPago = (() => {
     if (kpis.ultimoPagoHaceDias == null) return "—";
     if (kpis.ultimoPagoHaceDias === 0) return "hoy";
@@ -517,7 +512,7 @@ function PagosTabContent({
       {/* KPIs mini header */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-4 text-center">
-          <p className="fyllio-label text-[var(--color-muted)]">Total facturado</p>
+          <p className="fyllio-label text-[var(--color-muted)]">Total cobrado</p>
           <p className="font-display text-2xl font-bold tabular-nums text-[var(--color-foreground)] mt-1">
             {fmtEUR(kpis.totalFacturado)}
           </p>

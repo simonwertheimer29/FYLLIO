@@ -143,6 +143,8 @@ type Paciente360Payload = {
   kpisPagos: {
     totalFacturado: number;
     pendiente: number | null;
+    /** Σ presupuestos ACEPTADO del paciente (derivado; una sola verdad). */
+    firmado: number;
     numPagos: number;
     ultimoPagoHaceDias: number | null;
   };
@@ -1091,7 +1093,7 @@ function ZonaDatos({
   const resumenEco =
     kpisPagos.pendiente != null && kpisPagos.pendiente > 0
       ? `${fmtEUR(kpisPagos.pendiente)} pendiente`
-      : `${fmtEUR(kpisPagos.totalFacturado)} facturado`;
+      : `${fmtEUR(kpisPagos.totalFacturado)} cobrado`;
 
   return (
     <div className="space-y-2.5">
@@ -1365,16 +1367,17 @@ function PagosBloque({
     if (kpis.ultimoPagoHaceDias === 1) return "hace 1 día";
     return `hace ${kpis.ultimoPagoHaceDias} días`;
   })();
+  // Sin presupuesto ACEPTADO (firmado=0) no hay pendiente que calcular; el
+  // criterio es el presupuesto real, no el campo manual del paciente.
   const pendienteTooltip =
-    kpis.pendiente == null
-      ? !paciente.presupuestoTotal || paciente.presupuestoTotal === 0
-        ? "Sin presupuesto aceptado todavía"
-        : "Pendiente de aceptación de presupuesto"
-      : undefined;
+    kpis.pendiente == null ? "Sin presupuesto aceptado todavía" : undefined;
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3">
-        <Card label="Total facturado" value={fmtEUR(kpis.totalFacturado)} />
+        {/* Vocabulario del dinero: "cobrado" = Σ pagos reales (lo firmado
+            vive en los presupuestos). Antes decía "facturado", el mismo
+            rótulo que otras pantallas usaban para lo firmado. */}
+        <Card label="Total cobrado" value={fmtEUR(kpis.totalFacturado)} />
         <Card
           label="Pendiente"
           value={kpis.pendiente == null ? "—" : fmtEUR(kpis.pendiente)}

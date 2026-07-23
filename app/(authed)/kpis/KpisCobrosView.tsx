@@ -74,7 +74,7 @@ type ApiResponse = {
 type ComparativaMetric = "totalFacturado" | "pendienteCobro" | "tasaCobro" | "liquidacionesVencidas";
 
 const METRIC_LABELS: Record<ComparativaMetric, string> = {
-  totalFacturado: "Total facturado",
+  totalFacturado: "Total cobrado",
   pendienteCobro: "Pendiente cobro",
   tasaCobro: "Tasa cobro (%)",
   liquidacionesVencidas: "Liquidaciones vencidas",
@@ -229,7 +229,7 @@ function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolea
     <section>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <KpiCard
-          label="Total facturado"
+          label="Total cobrado"
           value={h?.totalFacturado ?? 0}
           formatter={fmtEUR}
           accent="emerald"
@@ -598,7 +598,7 @@ function CobrosDrillDrawer({
           <div className="flex-1 p-5 space-y-6">
             <div className="grid grid-cols-2 gap-3">
               <KpiCard
-                label="Total facturado"
+                label="Total cobrado"
                 value={data.hero.totalFacturado}
                 formatter={fmtEUR}
                 accent="emerald"

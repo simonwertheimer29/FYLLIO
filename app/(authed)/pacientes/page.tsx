@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getSession } from "../../lib/auth/session";
 import { listClinicas } from "../../lib/auth/users";
 import { listPacientes } from "../../lib/pacientes/pacientes";
+import { finanzasPorPaciente } from "../../lib/finanzas-paciente";
 import { base, TABLES, fetchAll, runWithCliente } from "../../lib/airtable";
 import { clinicasNegocioAccesibles, negocioIdToCentralId } from "../../lib/clinicas-negocio";
 import { PacientesView } from "./PacientesView";
@@ -40,16 +41,28 @@ export default async function PacientesPage() {
       clinicasNegocioAccesibles(session),
       listDoctores(),
     ]);
-    const pacientes = await listPacientes({
-      clinicaIds: scope.ids === null ? undefined : scope.ids,
-    });
+    const [pacientes, finanzas] = await Promise.all([
+      listPacientes({
+        clinicaIds: scope.ids === null ? undefined : scope.ids,
+      }),
+      // Dinero y aceptación DERIVADOS de presupuestos+pagos (una sola verdad);
+      // los campos manuales/cache del paciente ya no se muestran.
+      finanzasPorPaciente(),
+    ]);
     const doctorById = new Map(doctores.map((d) => [d.id, d.nombre]));
-    const withNames = pacientes.map((p) => ({
-      ...p,
-      clinicaId: negocioIdToCentralId(scope, p.clinicaId),
-      clinicaNombre: p.clinicaId ? scope.nombreById.get(p.clinicaId) ?? null : null,
-      doctorNombre: p.doctorLinkId ? doctorById.get(p.doctorLinkId) ?? null : null,
-    }));
+    const withNames = pacientes.map((p) => {
+      const fin = finanzas.get(p.id);
+      return {
+        ...p,
+        clinicaId: negocioIdToCentralId(scope, p.clinicaId),
+        clinicaNombre: p.clinicaId ? scope.nombreById.get(p.clinicaId) ?? null : null,
+        doctorNombre: p.doctorLinkId ? doctorById.get(p.doctorLinkId) ?? null : null,
+        firmado: fin?.firmado ?? 0,
+        cobrado: fin?.cobrado ?? 0,
+        pendienteReal: fin?.pendiente ?? 0,
+        aceptadoDerivado: fin?.aceptado ?? null,
+      };
+    });
     // Doctores: remapear su clinicaId (negocio) a central para que la vista los
     // cruce con los pacientes (ya en IDs centrales).
     const doctoresCentral = doctores.map((d) => ({

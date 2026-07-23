@@ -177,6 +177,17 @@ salió ganado y No Interesado perdido. UNA función (`lib/leads/pipeline.ts`) pa
 conteos, y la cabecera desglosa ("N activos · M no interesados") para cuadrar con las tarjetas
 visibles. Regla general: un número de cabecera debe corresponder a una suma visible en pantalla.
 
+## 2026-07-23 — Bug estructural #3/#4: cuatro cifras para "facturado", campos manuales que divergían
+Convivían 4 fuentes de dinero (presupuestos ACEPTADO 26.200 · pacientes.pagado 24.239 ·
+presupuesto_total de los "Sí" 34.200 · pagos 24.329) y `pacientes.aceptado` era un select manual
+(divergía del presupuesto real en 44/46 pacientes de DEMO). Decisión de vocabulario: **Aceptado**
+(= Σ presupuestos ACEPTADO) · **Cobrado** (= Σ pagos reales) · **Pendiente** (= la resta), una
+fuente por concepto. Nuevo `lib/finanzas-paciente.ts` deriva los cuatro valores por paciente;
+lista de pacientes, Red, fichas y KPIs beben de ahí; el select manual desapareció y el rótulo
+"facturado" se renombró a "Cobrado" donde la cifra son pagos. Los campos cache del paciente se
+siguen escribiendo (compatibilidad) pero ya no son fuente de pantalla. QA: `qa-finanzas-paciente.ts`
+(Σ cruzadas exactas contra pagos y presupuestos, 7/7 VERDE).
+
 ## 2026-07-22 — Seed rico de DEMO sobre Postgres (nunca Airtable), demo:reset volteado
 Rehecho el seed de DEMO desde cero directo a Supabase (producción ya en Postgres). Script
 `scripts/db-seed-demo-rico.mjs`: SOLO-pg (importa solo pg+dotenv, cero Airtable → imposible

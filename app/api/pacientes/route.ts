@@ -9,6 +9,7 @@ import {
   createPaciente,
   type PacienteAceptado,
 } from "../../lib/pacientes/pacientes";
+import { finanzasPorPaciente } from "../../lib/finanzas-paciente";
 
 export const dynamic = "force-dynamic";
 
@@ -43,15 +44,30 @@ export const GET = withAuth(async (session, req) => {
     }
   }
 
-  const pacientes = await listPacientes({
-    clinicaIds,
-    aceptado: aceptado ?? undefined,
-    search,
-    fechaDesde: desde,
-    fechaHasta: hasta,
+  const [pacientes, finanzas] = await Promise.all([
+    listPacientes({
+      clinicaIds,
+      aceptado: aceptado ?? undefined,
+      search,
+      fechaDesde: desde,
+      fechaHasta: hasta,
+    }),
+    // Dinero y aceptación DERIVADOS de presupuestos+pagos (una sola verdad).
+    finanzasPorPaciente(),
+  ]);
+
+  const enriquecidos = pacientes.map((p) => {
+    const fin = finanzas.get(p.id);
+    return {
+      ...p,
+      firmado: fin?.firmado ?? 0,
+      cobrado: fin?.cobrado ?? 0,
+      pendienteReal: fin?.pendiente ?? 0,
+      aceptadoDerivado: fin?.aceptado ?? null,
+    };
   });
 
-  return NextResponse.json({ pacientes });
+  return NextResponse.json({ pacientes: enriquecidos });
 });
 
 export const POST = withAuth(async (session, req) => {

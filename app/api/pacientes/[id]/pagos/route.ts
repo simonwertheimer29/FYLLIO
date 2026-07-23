@@ -6,6 +6,7 @@ import { NextResponse } from "next/server";
 import { withAuth } from "../../../../lib/auth/session";
 import { listClinicaIdsForUser, listUsuarios } from "../../../../lib/auth/users";
 import { getPaciente } from "../../../../lib/pacientes/pacientes";
+import { finanzasDePaciente } from "../../../../lib/finanzas-paciente";
 import {
   getPagosByPaciente,
   crearPago,
@@ -66,15 +67,13 @@ export const GET = withAuth<Ctx>(async (session, _req, ctx) => {
   // KPIs mini.
   const totalFacturado = pagos.reduce((s, p) => s + (p.importe || 0), 0);
   const numPagos = pagos.length;
-  // Pendiente real: presupuesto firmado (Aceptado=Si) - total pagado.
-  // Si no hay presupuesto firmado, devolvemos null para que la UI muestre "—".
+  // Pendiente real: presupuesto firmado (Σ presupuestos ACEPTADO del paciente,
+  // derivado — no el select manual ni presupuesto_total) − total pagado.
+  // Si no hay presupuesto firmado, null para que la UI muestre "—".
+  const { firmado } = await finanzasDePaciente(id);
   let pendiente: number | null = null;
-  if (
-    paciente.aceptado === "Si" &&
-    typeof paciente.presupuestoTotal === "number" &&
-    paciente.presupuestoTotal > 0
-  ) {
-    pendiente = Math.max(0, paciente.presupuestoTotal - totalFacturado);
+  if (firmado > 0) {
+    pendiente = Math.max(0, firmado - totalFacturado);
   }
   // Ultimo pago: el primero (getPagosByPaciente devuelve sort desc por
   // Fecha_Pago). diasDesde = dias enteros desde Fecha_Pago hasta hoy.

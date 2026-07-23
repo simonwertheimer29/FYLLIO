@@ -25,6 +25,12 @@ type Paciente = {
   pagado: number | null;
   pendiente: number | null;
   financiado: number | null;
+  // Derivados en servidor de presupuestos+pagos (una sola verdad del dinero);
+  // los campos manuales/cache de arriba ya no se muestran en esta vista.
+  firmado: number;
+  cobrado: number;
+  pendienteReal: number;
+  aceptadoDerivado: "Si" | "No" | "Pendiente" | null;
   notas: string | null;
   canalOrigen: string | null;
   clinicaId: string | null;
@@ -86,12 +92,13 @@ export function PacientesView({
     return out;
   }, [pacientes, selectedClinicaId, dateFilter, search]);
 
-  // KPIs
+  // KPIs — sobre los DERIVADOS (presupuestos+pagos), no sobre los campos
+  // manuales/cache del paciente, que divergían.
   const total = filtered.length;
-  const aceptados = filtered.filter((p) => p.aceptado === "Si").length;
-  const noAceptados = filtered.filter((p) => p.aceptado === "No").length;
-  const facturado = filtered.reduce((s, p) => s + (p.pagado ?? 0), 0);
-  const pendienteTotal = filtered.reduce((s, p) => s + (p.pendiente ?? 0), 0);
+  const aceptados = filtered.filter((p) => p.aceptadoDerivado === "Si").length;
+  const noAceptados = filtered.filter((p) => p.aceptadoDerivado === "No").length;
+  const cobrado = filtered.reduce((s, p) => s + (p.cobrado ?? 0), 0);
+  const pendienteTotal = filtered.reduce((s, p) => s + (p.pendienteReal ?? 0), 0);
   const pctAceptados = total ? Math.round((aceptados / total) * 100) : 0;
   const pctNoAceptados = total ? Math.round((noAceptados / total) * 100) : 0;
 
@@ -113,9 +120,11 @@ export function PacientesView({
     const clinicaName = d.paciente.clinicaId
       ? clinicas.find((c) => c.id === d.paciente.clinicaId)?.nombre ?? null
       : null;
+    // Merge sobre la fila existente: el PATCH devuelve el paciente almacenado
+    // SIN los derivados (firmado/cobrado/…), que deben sobrevivir al update.
     setPacientes((prev) =>
       prev.map((p) =>
-        p.id === id ? { ...d.paciente, doctorNombre: doctorName, clinicaNombre: clinicaName } : p
+        p.id === id ? { ...p, ...d.paciente, doctorNombre: doctorName, clinicaNombre: clinicaName } : p
       )
     );
   }
@@ -180,8 +189,8 @@ export function PacientesView({
           accent="rose"
         />
         <KpiCard
-          label="Facturado"
-          value={facturado}
+          label="Cobrado"
+          value={cobrado}
           formatter={fmtEUR}
           subline={`pendiente ${fmtEUR(pendienteTotal)}`}
           accent="accent"
@@ -238,7 +247,7 @@ export function PacientesView({
                 <Th>Fecha cita</Th>
                 <Th>Presupuesto</Th>
                 <Th>Aceptado</Th>
-                <Th>Pagado</Th>
+                <Th>Cobrado</Th>
                 <Th>Pendiente</Th>
                 <Th>Financiado</Th>
                 <Th>Notas</Th>
@@ -315,31 +324,34 @@ export function PacientesView({
                       )}
                     </Td>
                     <Td>{p.fechaCita ?? "—"}</Td>
-                    <Td>{p.presupuestoTotal != null ? `€${p.presupuestoTotal.toFixed(0)}` : "—"}</Td>
+                    {/* Dinero DERIVADO: presupuesto firmado (Σ ACEPTADO),
+                        aceptación según presupuestos reales (ya no es un select
+                        manual que divergía), cobrado (Σ pagos) y su resta. */}
+                    <Td>{p.firmado > 0 ? `€${p.firmado.toFixed(0)}` : "—"}</Td>
                     <Td>
-                      <select
-                        value={p.aceptado ?? ""}
-                        onChange={(e) =>
-                          patch(p.id, { aceptado: e.target.value || null })
-                        }
-                        className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold focus:outline-none ${
-                          p.aceptado === "Si"
+                      <span
+                        className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
+                          p.aceptadoDerivado === "Si"
                             ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/25"
-                            : p.aceptado === "No"
+                            : p.aceptadoDerivado === "No"
                             ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/25"
-                            : p.aceptado === "Pendiente"
+                            : p.aceptadoDerivado === "Pendiente"
                             ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/25"
                             : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)]"
                         }`}
+                        title={
+                          p.aceptadoDerivado === null
+                            ? "Sin presupuestos"
+                            : "Según sus presupuestos reales"
+                        }
                       >
-                        <option value="">—</option>
-                        <option value="Si">Sí</option>
-                        <option value="No">No</option>
-                        <option value="Pendiente">Pendiente</option>
-                      </select>
+                        {p.aceptadoDerivado === "Si"
+                          ? "Sí"
+                          : p.aceptadoDerivado ?? "—"}
+                      </span>
                     </Td>
-                    <Td>{p.pagado != null ? `€${p.pagado.toFixed(0)}` : "—"}</Td>
-                    <Td>{p.pendiente != null ? `€${p.pendiente.toFixed(0)}` : "—"}</Td>
+                    <Td>{p.cobrado > 0 ? `€${p.cobrado.toFixed(0)}` : "—"}</Td>
+                    <Td>{p.pendienteReal > 0 ? `€${p.pendienteReal.toFixed(0)}` : "—"}</Td>
                     <Td>{p.financiado ? `€${p.financiado.toFixed(0)}` : "—"}</Td>
                     <Td>
                       {editingNotas === p.id ? (
