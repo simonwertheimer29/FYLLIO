@@ -141,6 +141,14 @@ export function LeadsView({
     return out;
   }, [leads, selectedClinicaId, dateFilter, search]);
 
+  // "En el pipeline" excluye los No Interesado (leads perdidos), igual que el
+  // dashboard de Red (RedView). Sin esto, la cabecera contaba los perdidos y no
+  // cuadraba con Red. Las columnas del kanban sí muestran la de No Interesado.
+  const pipelineCount = useMemo(
+    () => filteredLeads.filter((l) => l.estado !== "No Interesado").length,
+    [filteredLeads]
+  );
+
   // Citados Hoy es derivada: Estado="Citados Hoy" legacy OR Estado="Citado"
   // con Fecha_Cita=hoy. Resto cae en su columna de Estado nativa.
   const leadsPorColumna = useMemo(() => {
@@ -305,7 +313,7 @@ export function LeadsView({
         <div>
           <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">Leads</h1>
           <p className="text-xs text-[var(--color-muted)] mt-0.5 tabular-nums">
-            {filteredLeads.length} lead{filteredLeads.length === 1 ? "" : "s"} en el pipeline
+            {pipelineCount} lead{pipelineCount === 1 ? "" : "s"} en el pipeline
           </p>
         </div>
         <button
