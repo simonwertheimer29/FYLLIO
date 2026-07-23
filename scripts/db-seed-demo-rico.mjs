@@ -31,6 +31,7 @@ const HOY = new Date(); HOY.setHours(9, 0, 0, 0);
 const dPlus = (n, h = 9, m = 0) => { const x = new Date(HOY); x.setDate(x.getDate() + n); x.setHours(h, m, 0, 0); return x; };
 const dISO = (n) => dPlus(n).toISOString();
 const fecha10 = (n) => dPlus(n).toISOString().slice(0, 10);
+const nacDe = (edad, i) => { const b = new Date(HOY); b.setFullYear(HOY.getFullYear() - edad); b.setMonth((i * 7) % 12, 1 + (i * 5) % 28); return b.toISOString().slice(0, 10); };
 const mesAct = HOY.toISOString().slice(0, 7);
 const mesPrev = new Date(HOY.getFullYear(), HOY.getMonth() - 1, 1).toISOString().slice(0, 7);
 
@@ -45,6 +46,10 @@ const TID = Object.fromEntries(tratamientos.map((t) => [t.nombre, t.id]));
 const sillones = (await db.query("select id, clinica_id from sillones where cliente='DEMO'")).rows;
 const docEn = (cid) => dentistas.find((d) => d.clinica_id === cid) ?? dentistas[0];
 const silEn = (cid) => sillones.find((s) => s.clinica_id === cid) ?? sillones[0];
+// especialidad estable por dentista → KPI por doctor + catálogo de doctores
+const ESPEC = ["Implantología", "Ortodoncia", "Endodoncia", "Estética dental", "Odontología general"];
+const especPorDoc = Object.fromEntries(dentistas.map((d, i) => [d.id, ESPEC[i % ESPEC.length]]));
+const especEn = (cid) => especPorDoc[docEn(cid).id] ?? "Odontología general";
 
 // helper insert que devuelve id
 let SEQ = 0;
@@ -80,6 +85,8 @@ try {
     "Natalia Soto", "Adrián Lorenzo", "Paula Ferrer", "Emilio Blanco", "Clara Rey", "Marcos Prieto",
     "Sonia Herrero", "Alejandro Vera", "Irene Pastor", "Rafael Ortiz"];
   const CANALES = ["Instagram", "Google", "Recomendación", "Landing Page", "Llamada directa", "Walk-in"];
+  const TRAT_ALTO = ["Implante unitario", "Ortodoncia invisible"]; // total ≥ 1500€
+  const TRAT_BAJO = ["Corona sobre implante", "Endodoncia molar", "Blanqueamiento LED", "Limpieza dental", "Férula de descarga"];
   const clis = [CENTRO, CENTRO, CENTRO, NORTE, NORTE, SUR, ESTE]; // Centro pesa más (flagship)
   const pacientes = [];
   for (let i = 0; i < NOMBRES.length; i++) {
@@ -89,11 +96,21 @@ try {
     const total = conPresu ? [2800, 3500, 950, 1200, 4200, 2100, 3800, 480, 90, 220, 3850, 1500, 640, 300, 2600, 1800, 120, 900, 2400, 750][i] : 0;
     const pagadoPct = i < 9 ? [0.4, 0.5, 0.3, 0.6, 0.5, 0.7, 0.35, 0.8, 0][i] : 1; // primeros 9 = parciales
     const pagado = conPresu ? Math.round(total * (i < 9 ? pagadoPct : 1)) : 0;
+    const edad = 22 + (i * 3 % 55);
+    // historial de tratamientos (los que tienen presupuesto llevan 1-2; algunos
+    // otros arrastran uno pasado). financiado sólo en unos pocos parciales.
+    const tratsPac = conPresu
+      ? (total >= 1500
+          ? [TRAT_ALTO[i % TRAT_ALTO.length], ...(i % 3 === 0 ? ["Corona sobre implante"] : [])].join(",") // implante+corona = combo real
+          : TRAT_BAJO[i % TRAT_BAJO.length])
+      : (i % 4 === 0 ? TRAT_BAJO[i % TRAT_BAJO.length] : null);
+    const financiadoVal = conPresu && i % 4 === 1 ? total - pagado : null;
     const id = await ins("pacientes", {
       nombre: NOMBRES[i], telefono: tel(), email: `${NOMBRES[i].toLowerCase().replace(/[^a-z]/g, ".")}@email.com`,
       clinica_id: cid, doctor_id: docEn(cid).id, canal_origen: CANALES[i % CANALES.length],
       canal_preferido: i % 3 === 0 ? "Llamada" : "WhatsApp", consentimiento_whatsapp: true,
-      edad: 22 + (i * 3 % 55), presupuesto_total: total || null, pagado: pagado || null,
+      edad, fecha_nacimiento: nacDe(edad, i), tratamientos: tratsPac, financiado: financiadoVal,
+      presupuesto_total: total || null, pagado: pagado || null,
       pendiente: conPresu ? total - pagado : null, aceptado: conPresu ? "Si" : "Pendiente",
       activo: true, notas: i % 5 === 0 ? "Paciente recurrente, buena adherencia." : null,
       fecha_cita: i < 12 ? fecha10(i - 4) : null,
@@ -103,12 +120,6 @@ try {
   console.log(`pacientes: ${pacientes.length}`);
 
   // ── LEADS (38) por estado + acciones (esperando respuesta) ───────────
-  const LEAD_MSG = {
-    interesado: "Hola! Vi vuestra promo de implantes en Instagram, me interesa mucho. ¿Cómo pido cita?",
-    duda_precio: "Buenas, me pasaron el presupuesto de ortodoncia invisible pero 3.500€ se me va un poco… ¿tenéis financiación?",
-    objecion: "Me lo estoy pensando, la verdad es que me da bastante respeto la endodoncia.",
-    listo_para_agendar: "Perfecto, me viene bien el jueves por la tarde. ¿A qué hora tenéis hueco?",
-  };
   const estadosLead = [
     ...Array(8).fill("Nuevo"), ...Array(9).fill("Contactado"), ...Array(4).fill("Citado"),
     ...Array(2).fill("Citados Hoy"), ...Array(9).fill("Convertido"), ...Array(6).fill("No Interesado")];
@@ -156,19 +167,24 @@ try {
     ["Limpieza dental", 90], ["Ortodoncia invisible", 3800], ["Corona sobre implante", 1200]];
   const MOTIVOS_PERD = ["Precio", "Se fue a otra clínica", "Sin respuesta tras 3 contactos", "Cambió de opinión"];
   const presupuestos = []; let np = 0; let idxAcept = 0;
-  const IMPORTES_ACEPT = [2800, 3500, 4200, 3800, 3850, 2100, 1200, 950]; // Σ = 22.400 (facturado mes)
+  // ACEPTADOS: importe emparejado con un tratamiento de precio REALISTA (nada
+  // de "Blanqueamiento 4.200€"). Σ = 22.400 → facturado del mes intacto.
+  const ACEPT_ITEMS = [["Implante unitario", 2800], ["Ortodoncia invisible", 3500], ["Implante unitario", 4200],
+    ["Ortodoncia invisible", 3800], ["Ortodoncia invisible", 3850], ["Implante unitario", 2100],
+    ["Corona sobre implante", 1200], ["Corona sobre implante", 950]];
   for (const [estado, n] of EST_PRES) {
     for (let k = 0; k < n; k++) {
       const pac = pacientes[np % pacientes.length]; np++;
-      const [tnom, imp0] = TRAT_PRES[np % TRAT_PRES.length];
-      const importe = estado === "ACEPTADO" ? IMPORTES_ACEPT[idxAcept++] : imp0;
+      const [tnom, importe] = estado === "ACEPTADO" ? ACEPT_ITEMS[idxAcept++] : TRAT_PRES[np % TRAT_PRES.length];
       const estancado = estado !== "ACEPTADO" && estado !== "PERDIDO" && k === 0; // 1 estancado por estado abierto
       const altaOff = estancado ? -(9 + k) : -(1 + (np % 5));
       const pid = await ins("presupuestos", {
         paciente_id: pac.id, clinica_id: pac.cid, tratamiento_nombre: tnom, estado, importe,
         fecha_alta: fecha10(altaOff), fecha: fecha10(altaOff),
         fecha_aceptado: estado === "ACEPTADO" ? fecha10(-(np % 10)) : null,
-        doctor: docEn(pac.cid).nombre, tipo_paciente: "Nuevo", tipo_visita: "Primera visita",
+        doctor: docEn(pac.cid).nombre, doctor_especialidad: especEn(pac.cid),
+        tipo_visita: np % 5 < 3 ? "Primera Visita" : "Paciente con Historia",
+        tipo_paciente: np % 5 < 3 ? "Nuevo" : "Recurrente",
         paciente_telefono: pac.tel, contact_count: estado === "ACEPTADO" ? 2 : (estancado ? 4 : 1),
         motivo_perdida: estado === "PERDIDO" ? MOTIVOS_PERD[k % MOTIVOS_PERD.length] : null,
         motivo_perdida_texto: estado === "PERDIDO" ? "El paciente indicó que era demasiado caro." : null,
@@ -177,7 +193,7 @@ try {
         urgencia_intervencion: estancado ? "alta" : (estado === "EN_NEGOCIACION" ? "media" : "baja"),
         accion_sugerida: estado === "EN_DUDA" ? "Ofrecer financiación" : (estancado ? "Llamar para reactivar" : "Enviar recordatorio"),
       });
-      presupuestos.push({ id: pid, estado, importe, pac });
+      presupuestos.push({ id: pid, estado, importe, pac, trat: tnom });
       // contactos del presupuesto
       const nc = estado === "ACEPTADO" ? 2 : (estancado ? 3 : 1);
       for (let c = 0; c < nc; c++) await ins("contactos_presupuesto", {
@@ -188,6 +204,12 @@ try {
     }
   }
   console.log(`presupuestos: ${presupuestos.length}`);
+
+  // ── DOCTORES (catálogo de presupuestos: nombre + especialidad) ───────
+  // Con la tabla poblada, el selector de doctor y el KPI por especialidad
+  // dejan de derivarse por fallback y muestran la plantilla real.
+  for (const d of dentistas) await ins("doctores_presupuestos", { nombre: d.nombre, especialidad: especPorDoc[d.id] ?? "Odontología general", activo: true, clinica_id: d.clinica_id });
+  console.log(`doctores_presupuestos: ${dentistas.length}`);
 
   // ── CITAS (28): hoy/mañana/semana/pasadas ────────────────────────────
   const citasPlan = [[0, 6, "Confirmada"], [1, 5, "Confirmada"], [3, 4, "Programada"], [4, 3, "Programada"],
@@ -206,27 +228,86 @@ try {
   }
   console.log(`citas: ${citasN}`);
 
-  // ── MENSAJES WhatsApp (12 conversaciones bidireccionales, IA) ────────
+  // ── MENSAJES WhatsApp (20 conversaciones coherentes, IA) ─────────────
+  //  Cada hilo: mensaje contextual de la clínica → respuesta LÓGICA del
+  //  paciente → intención IA correcta → seguimiento. Anclado al estado real
+  //  del presupuesto. 3 recorridos CIERRAN (duda→financiación/hueco→agenda),
+  //  para enseñar que el sistema ayuda a CERRAR, no sólo a organizar.
   let mensajesN = 0;
-  const convs = presupuestos.slice(0, 12);
-  const INTENCIONES = ["interesado", "duda_precio", "objecion", "listo_para_agendar"];
-  for (let i = 0; i < convs.length; i++) {
-    const p = convs[i]; const intn = INTENCIONES[i % 4];
-    const guion = [
-      { dir: "Saliente", txt: `Hola ${p.pac.nombre.split(" ")[0]}, soy del equipo de la clínica 😊 ¿Has podido pensar sobre el presupuesto de ${p.estado === "ACEPTADO" ? "tu tratamiento" : "tu tratamiento"}?`, off: -3 },
-      { dir: "Entrante", txt: LEAD_MSG[intn], off: -2, intn },
-      { dir: "Saliente", txt: intn === "duda_precio" ? "¡Claro! Trabajamos con financiación hasta 24 meses sin intereses. ¿Te preparo una simulación?" : "Genial, te reservo un hueco esta semana. ¿Te viene mejor mañana o el jueves?", off: -1 },
-    ];
-    if (intn === "listo_para_agendar") guion.push({ dir: "Entrante", txt: "El jueves perfecto, gracias!", off: 0, intn: "listo_para_agendar" });
-    for (const m of guion) {
+  const COORD = ["Alba", "Elsa", "Rebeca"]; // disjuntos de nombres de doctores/pacientes
+  const fn = (n) => n.split(" ")[0];
+  const cuota = (imp) => Math.round(imp / 24);
+  const byEst = (e) => presupuestos.filter((p) => p.estado === e);
+  const acc = byEst("ACEPTADO"), dud = byEst("EN_DUDA"), neg = byEst("EN_NEGOCIACION"),
+        inte = byEst("INTERESADO"), pre = byEst("PRESENTADO");
+
+  // arquetipos: (p, c=coordinadora, doc) → [{dir, txt, intn}] en orden temporal
+  const A = {
+    cierraFinanciacion: (p, c) => [
+      { dir: "Saliente", txt: `Hola ${fn(p.pac.nombre)}, soy ${c} de la clínica 😊 Te escribo por el presupuesto de ${p.trat} (${p.importe}€). ¿Has podido verlo?` },
+      { dir: "Entrante", txt: `Hola ${c}! Sí lo vi, me interesa mucho pero la verdad es que ${p.importe}€ de golpe ahora no puedo asumirlo…`, intn: "duda_precio" },
+      { dir: "Saliente", txt: `Te entiendo perfectamente 🙌 Se puede financiar hasta en 24 meses sin intereses: se te quedaría en unos ${cuota(p.importe)}€ al mes. ¿Te preparo una simulación sin compromiso?` },
+      { dir: "Entrante", txt: `Ah, así ya es otra cosa. Sí, prepárame la simulación por favor`, intn: "interesado" },
+      { dir: "Saliente", txt: `¡Hecho! Te la acabo de mandar por email. Si te encaja, te reservo cita para firmar el plan y empezar. ¿El jueves a las 17:00?` },
+      { dir: "Entrante", txt: `Me encaja, el jueves a las 17:00 allí estaré. Muchas gracias ${c} 😊`, intn: "listo_para_agendar" },
+    ],
+    cierraDirecto: (p, c) => [
+      { dir: "Saliente", txt: `Hola ${fn(p.pac.nombre)}, soy ${c} de la clínica. Ya tenemos todo listo para tu ${p.trat}. ¿Quieres que te dé cita esta semana?` },
+      { dir: "Entrante", txt: `¡Sí! Cuanto antes mejor, que llevo tiempo dándole vueltas 😅`, intn: "interesado" },
+      { dir: "Saliente", txt: `Perfecto. Tengo el jueves a las 10:00 o el viernes a las 16:30. ¿Cuál te viene mejor?` },
+      { dir: "Entrante", txt: `El viernes a las 16:30 me va genial. ¡Nos vemos!`, intn: "listo_para_agendar" },
+    ],
+    objecion: (p, c, doc) => [
+      { dir: "Saliente", txt: `Hola ${fn(p.pac.nombre)}, soy ${c}. ¿Te quedó alguna duda con tu presupuesto de ${p.trat}? Cualquier cosa te la resuelvo.` },
+      { dir: "Entrante", txt: `La verdad es que me lo estoy pensando… me da un poco de respeto dar el paso y no sé si es el momento`, intn: "objecion" },
+      { dir: "Saliente", txt: `Te entiendo, es una decisión importante 🙏 Sin ninguna prisa. Si te ayuda a decidir, ${doc} te puede llamar y resolver todas las dudas con calma. ¿Te viene bien?` },
+    ],
+    dudaNegocia: (p, c) => [
+      { dir: "Saliente", txt: `Hola ${fn(p.pac.nombre)}, soy ${c} 😊 ¿Cómo lo ves lo de tu ${p.trat}?` },
+      { dir: "Entrante", txt: `Me lo estoy pensando… he visto otra clínica algo más barata, la verdad`, intn: "duda_precio" },
+      { dir: "Saliente", txt: `Te entiendo. Nosotros incluimos las revisiones y la garantía del trabajo, y lo podemos ajustar con financiación. ¿Te llamo 5 min y lo vemos?` },
+      { dir: "Entrante", txt: `Vale, llámame esta tarde mejor`, intn: "interesado" },
+    ],
+    interesadoHorario: (p, c) => [
+      { dir: "Saliente", txt: `Hola ${fn(p.pac.nombre)}, soy ${c}. Tenemos hueco para tu ${p.trat} el martes a las 12:00. ¿Te confirmo?` },
+      { dir: "Entrante", txt: `Uy a esa hora trabajo 😩 ¿tenéis algo por la tarde?`, intn: "interesado" },
+      { dir: "Saliente", txt: `Claro! El martes a las 18:30 o el miércoles a las 19:00. ¿Alguno te sirve?` },
+      { dir: "Entrante", txt: `El miércoles a las 19:00 perfecto, gracias!`, intn: "listo_para_agendar" },
+    ],
+    presentadoEspera: (p, c, doc, conAck) => [
+      { dir: "Saliente", txt: `Hola ${fn(p.pac.nombre)}, soy ${c} de la clínica 😊 Te acabo de enviar el presupuesto de ${p.trat} (${p.importe}€) por email. Cualquier duda me dices, ¿vale?` },
+      ...(conAck ? [{ dir: "Entrante", txt: `Gracias, lo miro esta noche y te digo 👍`, intn: "interesado" }] : []),
+    ],
+  };
+
+  const plan = [
+    ...(acc[0] ? [{ p: acc[0], g: A.cierraFinanciacion }] : []),
+    ...(acc[1] ? [{ p: acc[1], g: A.cierraDirecto }] : []),
+    ...(acc[2] ? [{ p: acc[2], g: A.cierraDirecto }] : []),
+    ...dud.slice(0, 3).map((p) => ({ p, g: A.objecion })),
+    ...neg.slice(0, 4).map((p) => ({ p, g: A.dudaNegocia })),
+    ...inte.slice(0, 4).map((p) => ({ p, g: A.interesadoHorario })),
+    ...pre.slice(0, 6).map((p, i) => ({ p, g: (pp, c, doc) => A.presentadoEspera(pp, c, doc, i % 2 === 0) })),
+  ];
+
+  for (let i = 0; i < plan.length; i++) {
+    const { p, g } = plan[i];
+    const c = COORD[i % COORD.length];
+    const doc = docEn(p.pac.cid).nombre;
+    const dayOff = -(2 + (i % 4)); // el hilo empieza hace 2-5 días
+    const msgs = g(p, c, doc);
+    for (let j = 0; j < msgs.length; j++) {
+      const m = msgs[j];
+      // timestamps estrictamente crecientes dentro del hilo (orden en la UI)
+      const ts = dPlus(dayOff, 9 + j, (j * 17) % 60).toISOString();
       await ins("mensajes_whatsapp", {
         paciente_id: p.pac.id, presupuesto_id: p.id, telefono: p.pac.tel, direccion: m.dir,
-        contenido: m.txt, timestamp: dISO(m.off), fuente: "Modo_A_manual", procesado_por_ia: m.dir === "Entrante",
+        contenido: m.txt, timestamp: ts, fuente: "Modo_A_manual", procesado_por_ia: m.dir === "Entrante",
         intencion_detectada: m.intn ?? null,
       }); mensajesN++;
     }
   }
-  console.log(`mensajes_whatsapp: ${mensajesN}`);
+  console.log(`mensajes_whatsapp: ${mensajesN} (${plan.length} conversaciones)`);
 
   // ── PAGOS (aceptados → pagos parciales/completos) + acciones ─────────
   let pagosN = 0;
