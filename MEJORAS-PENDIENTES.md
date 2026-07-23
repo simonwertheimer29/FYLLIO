@@ -271,3 +271,36 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   derivado. Una sola verdad; los KPIs cuentan lo que de verdad se dijo.
 - **Esfuerzo:** medio (toca mensajería + repos de contactos).
 - **Fecha:** 2026-07-22 · 🔵
+
+## 18. Panel de presupuesto — «Rechazó» no pregunta el motivo de pérdida
+- **Zona:** `app/components/presupuestos/IntervencionSidePanel.tsx` (botón Rechazó →
+  `onChangeEstado(id, "PERDIDO")` directo)
+- **Principio:** §6 coherencia (gemelo del nº 4 de leads)
+- **Problema:** desde el kanban, arrastrar a PERDIDO abre `MotivoPerdidaModal`; desde el
+  panel de acción, «Rechazó» marca PERDIDO sin preguntar motivo — mismo concepto, dos
+  comportamientos. Sin motivo no se aprende por qué se pierden presupuestos.
+- **Mejora:** interceptar PERDIDO en los hosts del panel igual que hoy se intercepta
+  ACEPTADO con el modal de pago (patrón ya montado en `PresupuestosShell`/`ActuarHoyView`).
+- **Impacto:** medio (datos de pérdida incompletos en el flujo más usado).
+- **Fecha:** 2026-07-23 · 🔵
+
+## 19. Acciones que confirman éxito sin comprobar la respuesta
+- **Zona:** `IntervencionSidePanel.tsx` (`handleLlamar` — registra llamada y toast de éxito
+  sin `res.ok`); `ActuarHoyView.tsx` (`handleChangePresupuestoEstado` — catch silencioso
+  «el polling lo recupera»)
+- **Principio:** §5 feedback (misma clase que el «Pausar» no-op arreglado el 2026-07-23)
+- **Problema:** si el servidor falla, la coordinadora ve éxito y la acción no quedó
+  registrada — un error disfrazado de éxito en pequeño.
+- **Mejora:** `res.ok` + toast de error en ambos (patrón ya usado en el resto del panel).
+- **Impacto:** medio-bajo (pérdida esporádica de registro/estado sin aviso).
+- **Fecha:** 2026-07-23 · 🔵
+
+## 20. Portal público — la aceptación puede no llegar al kanban
+- **Zona:** `app/api/portal/[token]/responder/route.ts` (el token KV se marca respondido
+  ANTES de escribir el presupuesto; si esa escritura falla, ahora se loguea pero el
+  presupuesto no cambia y el paciente cree que aceptó)
+- **Principio:** mandamiento §1 (persistir antes de confirmar) — pre-existente, hoy solo
+  observable
+- **Mejora:** escribir el presupuesto primero y marcar el token después (o reintento).
+- **Impacto:** medio (raro pero caro: una aceptación real invisible para la clínica).
+- **Fecha:** 2026-07-23 · 🔵

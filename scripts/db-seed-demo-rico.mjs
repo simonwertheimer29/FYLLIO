@@ -84,21 +84,19 @@ try {
   const pacientes = [];
   for (let i = 0; i < NOMBRES.length; i++) {
     const cid = clis[i % clis.length];
-    // financiero: ~9 con pendiente; ~8 pagados; resto sin presupuesto activo
-    const conPresu = i < 20;
-    const total = conPresu ? [2800, 3500, 950, 1200, 4200, 2100, 3800, 480, 90, 220, 3850, 1500, 640, 300, 2600, 1800, 120, 900, 2400, 750][i] : 0;
-    const pagadoPct = i < 9 ? [0.4, 0.5, 0.3, 0.6, 0.5, 0.7, 0.35, 0.8, 0][i] : 1; // primeros 9 = parciales
-    const pagado = conPresu ? Math.round(total * (i < 9 ? pagadoPct : 1)) : 0;
+    // El financiero (presupuesto_total/pagado/pendiente/aceptado) NO se
+    // inventa aquí: se BACKFILLEA al final derivado de los presupuestos y
+    // pagos que este mismo seed crea — una sola verdad, como en la app
+    // (bug estructural #3/#4, 2026-07-23).
     const id = await ins("pacientes", {
       nombre: NOMBRES[i], telefono: tel(), email: `${NOMBRES[i].toLowerCase().replace(/[^a-z]/g, ".")}@email.com`,
       clinica_id: cid, doctor_id: docEn(cid).id, canal_origen: CANALES[i % CANALES.length],
       canal_preferido: i % 3 === 0 ? "Llamada" : "WhatsApp", consentimiento_whatsapp: true,
-      edad: 22 + (i * 3 % 55), presupuesto_total: total || null, pagado: pagado || null,
-      pendiente: conPresu ? total - pagado : null, aceptado: conPresu ? "Si" : "Pendiente",
+      edad: 22 + (i * 3 % 55),
       activo: true, notas: i % 5 === 0 ? "Paciente recurrente, buena adherencia." : null,
       fecha_cita: i < 12 ? fecha10(i - 4) : null,
     });
-    pacientes.push({ id, nombre: NOMBRES[i], cid, total, pagado, pend: conPresu ? total - pagado : 0, tel: (await db.query("select telefono from pacientes where id=$1", [id])).rows[0].telefono });
+    pacientes.push({ id, nombre: NOMBRES[i], cid, tel: (await db.query("select telefono from pacientes where id=$1", [id])).rows[0].telefono });
   }
   console.log(`pacientes: ${pacientes.length}`);
 
@@ -164,20 +162,25 @@ try {
       const importe = estado === "ACEPTADO" ? IMPORTES_ACEPT[idxAcept++] : imp0;
       const estancado = estado !== "ACEPTADO" && estado !== "PERDIDO" && k === 0; // 1 estancado por estado abierto
       const altaOff = estancado ? -(9 + k) : -(1 + (np % 5));
+      const fechaAceptado = estado === "ACEPTADO" ? fecha10(-(np % 10)) : null;
       const pid = await ins("presupuestos", {
         paciente_id: pac.id, clinica_id: pac.cid, tratamiento_nombre: tnom, estado, importe,
         fecha_alta: fecha10(altaOff), fecha: fecha10(altaOff),
-        fecha_aceptado: estado === "ACEPTADO" ? fecha10(-(np % 10)) : null,
+        fecha_aceptado: fechaAceptado,
         doctor: docEn(pac.cid).nombre, tipo_paciente: "Nuevo", tipo_visita: "Primera visita",
         paciente_telefono: pac.tel, contact_count: estado === "ACEPTADO" ? 2 : (estancado ? 4 : 1),
         motivo_perdida: estado === "PERDIDO" ? MOTIVOS_PERD[k % MOTIVOS_PERD.length] : null,
         motivo_perdida_texto: estado === "PERDIDO" ? "El paciente indicó que era demasiado caro." : null,
-        fase_seguimiento: estado === "PRESENTADO" ? "Esperando respuesta" : (estancado ? "Reactivar" : null),
+        // Cerrados → "Cerrado" (lo que escribe la app al aceptar/perder desde
+        // el fix del cierre completo); abiertos → según narrativa, y los 12
+        // con hilo WhatsApp se re-correlacionan tras sembrar los mensajes.
+        fase_seguimiento: estado === "ACEPTADO" || estado === "PERDIDO" ? "Cerrado"
+          : estado === "PRESENTADO" ? "Esperando respuesta" : (estancado ? "Reactivar" : null),
         ultima_accion_registrada: dISO(altaOff), ultimo_contacto: fecha10(altaOff),
         urgencia_intervencion: estancado ? "alta" : (estado === "EN_NEGOCIACION" ? "media" : "baja"),
         accion_sugerida: estado === "EN_DUDA" ? "Ofrecer financiación" : (estancado ? "Llamar para reactivar" : "Enviar recordatorio"),
       });
-      presupuestos.push({ id: pid, estado, importe, pac });
+      presupuestos.push({ id: pid, estado, importe, pac, fechaAceptado });
       // contactos del presupuesto
       const nc = estado === "ACEPTADO" ? 2 : (estancado ? 3 : 1);
       for (let c = 0; c < nc; c++) await ins("contactos_presupuesto", {
@@ -225,21 +228,60 @@ try {
         intencion_detectada: m.intn ?? null,
       }); mensajesN++;
     }
+    // Correlación fase⟷hilo (bug "esperando respuesta" con el último mensaje
+    // del paciente): en abiertos, la fase refleja quién tiene la pelota según
+    // el ÚLTIMO mensaje — Saliente → "Esperando respuesta"; Entrante →
+    // "En intervención" (hay respuesta del paciente por atender).
+    if (p.estado !== "ACEPTADO" && p.estado !== "PERDIDO") {
+      const ultimo = guion[guion.length - 1];
+      await db.query("update presupuestos set fase_seguimiento=$1 where id=$2 and cliente='DEMO'", [
+        ultimo.dir === "Entrante" ? "En intervención" : "Esperando respuesta", p.id,
+      ]);
+    }
   }
   console.log(`mensajes_whatsapp: ${mensajesN}`);
 
-  // ── PAGOS (aceptados → pagos parciales/completos) + acciones ─────────
+  // ── PAGOS derivados de los presupuestos ACEPTADO ─────────────────────
+  // Cada aceptado genera su pago: señal/parcial (lo común en dental) o
+  // liquidación completa. El pago nace del presupuesto — nunca de un campo
+  // manual del paciente — para que Aceptado (Σ presupuestos), Cobrado
+  // (Σ pagos) y Pendiente (resta) cuadren en toda la app por construcción.
   let pagosN = 0;
-  for (const pac of pacientes.filter((p) => p.total > 0)) {
+  const PCT_PAGO = [0.4, 1, 0.3, 0.6, 1, 0.5, 1, 0.8]; // 5 parciales · 3 liquidados
+  const pagadoPorPaciente = new Map();
+  for (const p of presupuestos.filter((x) => x.estado === "ACEPTADO")) {
+    const pct = PCT_PAGO[pagosN % PCT_PAGO.length];
+    const importe = Math.round(p.importe * pct);
+    const parcial = pct < 1;
     const pid = await ins("pagos_paciente", {
-      paciente_id: pac.id, importe: pac.pagado || pac.total, fecha_pago: fecha10(-(pagosN % 20)),
-      metodo: ["Tarjeta", "Efectivo", "Transferencia", "Financiación"][pagosN % 4], tipo: "Liquidacion",
-      resumen: `Pago de ${pac.nombre}`, nota: pac.pend > 0 ? "Pago parcial, resto pendiente." : "Liquidación completa.",
+      paciente_id: p.pac.id, importe, fecha_pago: p.fechaAceptado,
+      metodo: ["Tarjeta", "Efectivo", "Transferencia", "Financiación"][pagosN % 4],
+      tipo: parcial ? "Senal" : "Liquidacion",
+      resumen: `Pago de ${p.pac.nombre}`,
+      nota: parcial ? "Señal al aceptar el presupuesto; resto pendiente." : "Liquidación completa al aceptar.",
     });
-    await ins("acciones_pago", { pago_id: pid, tipo: "Crear", fecha: dISO(-(pagosN % 20)), importe_antes: null, importe_despues: pac.pagado || pac.total, resumen: `Alta de pago · ${pac.nombre}`, nota_cambio: "Registrado por coordinación." });
+    await ins("acciones_pago", { pago_id: pid, tipo: "Crear", fecha: `${p.fechaAceptado}T10:00:00.000Z`, importe_antes: null, importe_despues: importe, resumen: `Alta de pago · ${p.pac.nombre}`, nota_cambio: "Registrado por coordinación." });
+    pagadoPorPaciente.set(p.pac.id, (pagadoPorPaciente.get(p.pac.id) ?? 0) + importe);
     pagosN++;
   }
   console.log(`pagos_paciente: ${pagosN} (+ acciones)`);
+
+  // ── BACKFILL financiero del paciente (cache derivada, una sola verdad) ──
+  // presupuesto_total = Σ ACEPTADO · pagado = Σ pagos · pendiente = resta ·
+  // aceptado = derivado de los estados reales (Si / Pendiente / No / null).
+  for (const pac of pacientes) {
+    const suyos = presupuestos.filter((x) => x.pac.id === pac.id);
+    const firmado = suyos.filter((x) => x.estado === "ACEPTADO").reduce((s, x) => s + x.importe, 0);
+    const cobrado = pagadoPorPaciente.get(pac.id) ?? 0;
+    const aceptado = suyos.some((x) => x.estado === "ACEPTADO") ? "Si"
+      : suyos.some((x) => x.estado !== "PERDIDO") ? "Pendiente"
+      : suyos.length > 0 ? "No" : null;
+    await db.query(
+      "update pacientes set presupuesto_total=$1, pagado=$2, pendiente=$3, aceptado=$4 where id=$5 and cliente='DEMO'",
+      [firmado || null, cobrado || null, firmado ? Math.max(0, firmado - cobrado) : null, aceptado, pac.id],
+    );
+  }
+  console.log(`pacientes: financiero backfilleado (derivado de presupuestos+pagos)`);
 
   // ── AUTOMATIZACIONES — TRIPLE CANDADO de no-envío ────────────────────
   const PACIENTE_TEST_INEXISTENTE = "recTESTNOEXISTE0000"; // no existe → modo_test nunca coincide
@@ -301,15 +343,21 @@ try {
   for (let i = 0; i < 2; i++) await ins("informes_guardados", { tipo: i === 0 ? "semanal_ia" : "noshow", clinica_id: null, periodo: mesAct, titulo: i === 0 ? "Resumen semanal" : "Informe de no-shows", contenido_json: "{}", texto_narrativo: "La conversión mejoró un 8% respecto a la semana anterior.", generado_en: dISO(-1), generado_por: "IA" });
   for (let i = 0; i < 6; i++) { const pac = pacientes[30 + i]; await ins("lista_espera", { clinica_id: pac.cid, paciente_id: pac.id, tratamiento_id: tratamientos[i % tratamientos.length].id, dias_permitidos: "LUN,MAR,MIE,JUE,VIE", estado: "ACTIVE", prioridad: ["ALTA", "MEDIA", "BAJA"][i % 3], urgencia_nivel: "MED", permite_fuera_rango: false, notas: "Quiere hueco lo antes posible." }); }
 
-  // ── KPIs (report de coherencia) ──────────────────────────────────────
-  const facturado = (await db.query("select coalesce(sum(importe),0) s from presupuestos where cliente='DEMO' and estado='ACEPTADO'")).rows[0].s;
+  // ── KPIs (report de coherencia — vocabulario del dinero 2026-07-23) ──
+  const aceptadoTot = (await db.query("select coalesce(sum(importe),0) s from presupuestos where cliente='DEMO' and estado='ACEPTADO'")).rows[0].s;
+  const cobradoTot = (await db.query("select coalesce(sum(importe),0) s from pagos_paciente where cliente='DEMO'")).rows[0].s;
   const pendiente = (await db.query("select coalesce(sum(pendiente),0) s from pacientes where cliente='DEMO'")).rows[0].s;
   const nLeads = (await db.query("select count(*) n from leads where cliente='DEMO'")).rows[0].n;
   const nConv = (await db.query("select count(*) n from leads where cliente='DEMO' and estado='Convertido'")).rows[0].n;
+  // Invariante dura del seed: pendiente == aceptado − cobrado. Si no cuadra,
+  // el seed está descorrelacionado y NO debe darse por bueno.
+  if (Number(aceptadoTot) - Number(cobradoTot) !== Number(pendiente)) {
+    throw new Error(`Seed descorrelacionado: aceptado(${aceptadoTot}) − cobrado(${cobradoTot}) ≠ pendiente(${pendiente})`);
+  }
 
   await db.query("commit");
   console.log("\n✓ SEED RICO commit.");
-  console.log(`  KPIs: facturado(aceptados)=${Number(facturado).toLocaleString("es")}€ · pendiente(cobros)=${Number(pendiente).toLocaleString("es")}€ · conversión=${Math.round(nConv / nLeads * 100)}% (${nConv}/${nLeads})`);
+  console.log(`  KPIs: aceptado(firmado)=${Number(aceptadoTot).toLocaleString("es")}€ · cobrado(pagos)=${Number(cobradoTot).toLocaleString("es")}€ · pendiente=${Number(pendiente).toLocaleString("es")}€ · conversión=${Math.round(nConv / nLeads * 100)}% (${nConv}/${nLeads})`);
 } catch (e) {
   await db.query("rollback");
   console.error("✗ SEED FALLÓ (rollback):", e.message, e.detail ?? "");
