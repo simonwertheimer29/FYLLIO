@@ -359,7 +359,29 @@ try {
   for (let i = 0; i < 12; i++) { const p = presupuestos[i]; await ins("secuencias_automaticas", { presupuesto_id: p.id, clinica_id: p.pac.cid, paciente_nombre: p.pac.nombre, telefono: p.pac.tel, tratamiento: "Tratamiento", tipo_evento: "seguimiento", estado: i % 3 === 0 ? "pendiente" : "enviado", mensaje_generado: "Hola, ¿seguimos adelante con tu tratamiento?", tono_usado: "cercano", canal_sugerido: "whatsapp", actualizado_en: dISO(-(i % 4)) }); }
   console.log(`automatizaciones: ${reglas.length} reglas · ${eventosN} eventos(procesado) · config manual ×4`);
 
-  // ── OBJETIVOS, CONFIG, PLANTILLAS, MISC ──────────────────────────────
+  // ── PLANTILLAS DE MENSAJE (globales: clinica_id NULL ⇒ "Todas") ──────
+  //  Alimentan el botón «Plantillas» del composer de los paneles de acción.
+  //  Placeholders leads: {nombre} {clinica} {tratamiento} {fecha_cita}
+  //  Placeholders presupuestos: {nombre} {tratamiento} {importe} {doctor} {clinica}
+  const PLANTILLAS_LEAD = [
+    ["Primer contacto", "Primer_Contacto", "Hola {nombre}, soy del equipo de {clinica} 😊 Hemos recibido tu interés en {tratamiento}. ¿Te viene bien que te llame hoy y buscamos hueco para una primera visita sin compromiso?"],
+    ["Seguimiento sin respuesta", "Seguimiento_SinRespuesta", "Hola {nombre}, te escribí hace unos días por {tratamiento} y no quería que se quedara en el aire. Si sigues con la idea, dime y te reservo hueco esta misma semana."],
+    ["Recordatorio de cita", "Recordatorio_Cita", "Hola {nombre}, te recuerdo tu cita el {fecha_cita} en {clinica}. Si necesitas cambiarla, respóndeme por aquí y lo ajustamos sin problema. ¡Te esperamos!"],
+    ["Reactivación tras no asistir", "Reactivacion_NoAsistio", "Hola {nombre}, vimos que no pudiste venir a tu cita — no pasa nada. ¿Buscamos otro día que te encaje mejor? Tengo huecos esta semana por la tarde."],
+  ];
+  for (const [nombre, tipo, contenido] of PLANTILLAS_LEAD) await ins("plantillas_lead", { nombre, tipo, contenido, activa: true });
+
+  const PLANTILLAS_PRESUPUESTO = [
+    ["Seguimiento de presupuesto", "Seguimiento", "Hola {nombre}, te escribo por el presupuesto de {tratamiento} ({importe}). ¿Has podido pensarlo? Cualquier duda te la resuelvo por aquí, sin compromiso."],
+    ["Detalles de pago", "Detalles de pago", "Hola {nombre}, ¡gracias por tu confianza! Estas son las opciones de pago para tu {tratamiento} ({importe}):\n\n· Pago único con 5% de descuento\n· Financiación hasta 24 meses sin intereses\n\nDime cuál te encaja mejor y lo dejamos todo listo."],
+    ["Financiación", "Financiacion", "Hola {nombre}, sobre el presupuesto de {tratamiento} ({importe}): podemos financiarlo hasta en 24 meses sin intereses, quedaría en una cuota mucho más cómoda. ¿Te preparo una simulación sin compromiso?"],
+    ["Confirmación de aceptación", "Confirmacion", "¡Enhorabuena {nombre}! Hemos registrado la aceptación de tu presupuesto de {tratamiento} ({importe}). El siguiente paso es agendar el inicio del tratamiento con {doctor} — ¿te viene bien esta semana?"],
+    ["Reactivación", "Reactivacion", "Hola {nombre}, soy del equipo de {clinica}. Hace un tiempo te preparamos un presupuesto de {tratamiento} y quedó pendiente. Si quieres retomarlo, lo revisamos juntos y vemos las opciones actuales. ¿Te llamo?"],
+  ];
+  for (const [nombre, tipo, contenido] of PLANTILLAS_PRESUPUESTO) await ins("plantillas_mensaje", { nombre, tipo, contenido, activa: true });
+  console.log(`plantillas: ${PLANTILLAS_LEAD.length} de leads · ${PLANTILLAS_PRESUPUESTO.length} de presupuestos`);
+
+  // ── OBJETIVOS, CONFIG, MISC ──────────────────────────────────────────
   for (const cid of [CENTRO, NORTE, SUR, ESTE]) {
     await ins("objetivos_mensuales", { clinica_id: cid, mes: mesAct, objetivo_aceptados: cid === CENTRO ? 12 : 6, creado_por: "Administración", actualizado_en: dISO(-1) });
     await ins("objetivos_mensuales", { clinica_id: cid, mes: mesPrev, objetivo_aceptados: cid === CENTRO ? 12 : 6, creado_por: "Administración", actualizado_en: dISO(-30) });
@@ -367,11 +389,8 @@ try {
   const CONFIG = [["Metodos_Pago", ["Tarjeta", "Efectivo", "Transferencia", "Financiación 12m", "Financiación 24m"]],
     ["Razones_No_Interesado", ["Precio", "Se fue a otra clínica", "Horarios", "Cambió de opinión"]]];
   for (const [cat, vals] of CONFIG) for (let o = 0; o < vals.length; o++) await ins("configuraciones_clinica", { clinica_id: null, categoria: cat, valor: vals[o], activo: true, orden: o, resumen: `${cat} · ${vals[o]}` });
-  const PLANTILLAS = [["Recordatorio de cita", "Recordatorio", "Hola {nombre}, te recordamos tu cita el {fecha} a las {hora}. ¡Te esperamos!"],
-    ["Seguimiento presupuesto", "Seguimiento", "Hola {nombre}, ¿has podido valorar el presupuesto? Estamos para lo que necesites."],
-    ["Bienvenida lead", "Bienvenida", "¡Hola {nombre}! Gracias por tu interés. ¿Cuándo te viene bien una primera visita sin compromiso?"],
-    ["Financiación", "Comercial", "Hola {nombre}, podemos financiar tu tratamiento hasta 24 meses sin intereses. ¿Te preparo una simulación?"]];
-  for (const [nombre, tipo, contenido] of PLANTILLAS) { await ins("plantillas_mensaje", { nombre, tipo, categoria: "General", contenido, activa: true }); await ins("plantillas_lead", { nombre, tipo, contenido, activa: true }); }
+  // (las plantillas se siembran arriba, curadas por dominio — leads vs
+  //  presupuestos, tipos válidos y placeholders que la UI resuelve)
   // notificaciones, alertas, llamadas, copilot, informes, lista_espera
   for (let i = 0; i < 10; i++) await ins("notificaciones", { usuario: "todos", tipo: "Sistema", titulo: ["Nuevo lead", "Respuesta de paciente", "Presupuesto aceptado", "Cita confirmada"][i % 4], mensaje: "Tienes una novedad en tu bandeja.", link: "/actuar-hoy", leida: i > 3, fecha_creacion: dISO(-(i % 5)) });
   const adminId = (await db.query("select id from usuarios where cliente='DEMO' and rol='admin' limit 1")).rows[0]?.id;
