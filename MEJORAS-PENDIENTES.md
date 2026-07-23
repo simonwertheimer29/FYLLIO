@@ -233,3 +233,26 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   cablear o quitar los toggles inertes.
 - **Esfuerzo:** horas.
 - **Fecha:** 2026-07-16 · 🔵
+
+## 15. "Agendar" desde la ficha no preselecciona al paciente
+- **Zona:** ficha del paciente (`Paciente360View.tsx`, botón Agendar) → `/no-shows?tab=agenda`
+- **Severidad:** 🟡
+- **Problema:** el accionable lleva a la agenda, pero la coordinadora tiene que volver a
+  buscar al paciente a mano en el modal de nueva cita (paso extra; incumple §2 facilidad).
+- **Propuesta:** aceptar `?paciente=<id>` en la agenda y prefijar el modal de nueva cita
+  (toca query param + estado del modal; sin cambio de datos). Impacto medio: quita un paso
+  del cierre de cita, el momento de mayor valor.
+- **Esfuerzo:** horas.
+- **Fecha:** 2026-07-22 · 🔵
+
+## 16. La "siguiente acción" vive en 4 sitios distintos
+- **Zona:** ficha (`derivarSituacion`, cliente) · Actuar hoy · cola de Presupuestos
+  (`scoreFinal`) · `accion_sugerida` del presupuesto
+- **Severidad:** 🟡
+- **Problema:** el rediseño de la ficha añade una 4ª fuente de "qué hacer ahora" (regla en
+  cliente sobre señales reales). Coherente hoy, pero cada fuente puede recomendar distinto
+  para el mismo paciente (incumple §6 coherencia).
+- **Propuesta:** extraer UNA función de recomendación compartida (server o lib común) que
+  consuman ficha, Actuar hoy y la cola; las vistas solo pintan. Hacerlo al tocar Actuar
+  hoy (Bloque 2 P3) o justo después.
+- **Fecha:** 2026-07-22 · 🔵
