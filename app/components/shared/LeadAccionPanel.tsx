@@ -32,7 +32,6 @@ import {
   Burbujas,
   RegistroColapsable,
   Composer,
-  RegistrarRespuesta,
   FaltaDatoAccion,
   btnAccionPrimario,
   btnAccionSecundario,
@@ -233,7 +232,6 @@ export function LeadAccionPanel({
   const [composerError, setComposerError] = useState<string | null>(null);
   const [generandoIA, setGenerandoIA] = useState(false);
   const [plantillas, setPlantillas] = useState<PlantillaLead[]>([]);
-  const [registrando, setRegistrando] = useState(false);
   const [wabaActivo, setWabaActivo] = useState(false);
   const [savingEstado, setSavingEstado] = useState(false);
   const [checkAnim, setCheckAnim] = useState(false);
@@ -478,40 +476,6 @@ export function LeadAccionPanel({
     composerRef.current?.focus();
   }
 
-  // Registrar la respuesta del lead (modo manual) + clasificarla.
-  async function handleRegistrarRespuesta(texto: string) {
-    setRegistrando(true);
-    try {
-      const res = await fetch("/api/leads/intervencion/registrar-respuesta", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          leadId: lead.id,
-          tipo: "WhatsApp enviado",
-          notas: `Respuesta del lead: ${texto}`,
-        }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      // Clasificación IA de la respuesta (actualiza etiqueta + sugerencia).
-      fetch("/api/leads/intervencion/clasificar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ leadId: lead.id, respuestaPaciente: texto }),
-      })
-        .then((r) => r.json())
-        .then((d) => {
-          if (d.clasificacion?.mensajeSugerido) setComposerTexto(d.clasificacion.mensajeSugerido);
-          if (d.lead) onChanged(adoptarClinicaNombre(d.lead, lead));
-        })
-        .catch(() => {});
-      toast.success("Respuesta registrada");
-    } catch {
-      toast.error("No se pudo registrar la respuesta");
-    } finally {
-      setRegistrando(false);
-    }
-  }
-
   async function cambiarEstado(nuevo: Lead["estado"], extra?: Record<string, unknown>) {
     setSavingEstado(true);
     const body: Record<string, unknown> = { estado: nuevo, ...extra };
@@ -574,7 +538,7 @@ export function LeadAccionPanel({
       />
 
       {/* Bloque 1: contexto y recomendación */}
-      <div className="px-4 pt-3 shrink-0">
+      <div className="px-4 pt-3 pb-3 border-b border-[var(--color-border)] shrink-0">
         <ContextoRecomendacion
           cargando={!situacion}
           quePasa={situacion?.quePasa ?? ""}
@@ -660,7 +624,7 @@ export function LeadAccionPanel({
       </div>
 
       {/* Bloque 2: conversación — el resto de la pantalla */}
-      <div className="flex-1 min-h-0 flex flex-col px-4 pb-4 pt-3 gap-2">
+      <div className="flex-1 min-h-0 flex flex-col px-4 pb-4 pt-3 gap-2 bg-[var(--color-background)]">
         <p className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide shrink-0">
           Conversación
         </p>
@@ -686,10 +650,6 @@ export function LeadAccionPanel({
           )}
           <div ref={chatEndRef} />
         </div>
-
-        {!wabaActivo && cleanPhone && (
-          <RegistrarRespuesta onRegistrar={handleRegistrarRespuesta} registrando={registrando} />
-        )}
 
         <Composer
           value={composerTexto}

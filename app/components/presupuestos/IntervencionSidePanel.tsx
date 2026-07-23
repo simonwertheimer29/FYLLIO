@@ -23,8 +23,6 @@ import { toast } from "sonner";
 import type {
   PresupuestoIntervencion,
   PresupuestoEstado,
-  Contacto,
-  HistorialAccion,
   MensajeWhatsApp,
 } from "../../lib/presupuestos/types";
 import { ESTADO_CONFIG } from "../../lib/presupuestos/colors";
@@ -33,9 +31,7 @@ import {
   PanelCabecera,
   ContextoRecomendacion,
   Burbujas,
-  RegistroColapsable,
   Composer,
-  RegistrarRespuesta,
   btnAccionPrimario,
   btnAccionSecundario,
   type PrioridadPanel,
@@ -132,31 +128,28 @@ export default function IntervencionSidePanel({
 
   const [mensajes, setMensajes] = useState<MensajeWhatsApp[]>([]);
   const [loadingMensajes, setLoadingMensajes] = useState(true);
-  const [contactos, setContactos] = useState<Contacto[]>([]);
-  const [historial, setHistorial] = useState<HistorialAccion[]>([]);
   // El motor ya trae mensaje sugerido: se precarga en el campo (sin llamada).
   const [composerTexto, setComposerTexto] = useState(item.mensajeSugerido ?? "");
   const [enviando, setEnviando] = useState(false);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [generandoIA, setGenerandoIA] = useState(false);
   const [plantillas, setPlantillas] = useState<PlantillaMensaje[]>([]);
-  const [registrando, setRegistrando] = useState(false);
   const [wabaActivo, setWabaActivo] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
 
+  // El hilo es LA única fuente de historial visible. Los contactos
+  // (contactos_presupuesto → ContactCount/score) se siguen registrando
+  // automáticamente al enviar o llamar, fuera de la vista.
   const cargarConversacion = useCallback(() => {
     setLoadingMensajes(true);
-    Promise.all([
-      fetch(`/api/presupuestos/contactos?presupuestoId=${item.id}`).then((r) => r.json()).catch(() => ({ contactos: [] })),
-      fetch(`/api/presupuestos/historial?presupuestoId=${item.id}`).then((r) => r.json()).catch(() => ({ historial: [] })),
-      fetch(`/api/presupuestos/mensajes?presupuestoId=${item.id}`).then((r) => r.json()).catch(() => ({ mensajes: [] })),
-    ]).then(([cData, hData, mData]) => {
-      setContactos(cData.contactos ?? []);
-      setHistorial(hData.historial ?? []);
-      setMensajes(mData.mensajes ?? []);
-      setLoadingMensajes(false);
-    });
+    fetch(`/api/presupuestos/mensajes?presupuestoId=${item.id}`)
+      .then((r) => r.json())
+      .catch(() => ({ mensajes: [] }))
+      .then((mData) => {
+        setMensajes(mData.mensajes ?? []);
+        setLoadingMensajes(false);
+      });
   }, [item.id]);
 
   useEffect(() => {
@@ -278,6 +271,14 @@ export default function IntervencionSidePanel({
         setMensajes((prev) =>
           prev.map((m) => (m.id === tempId ? { ...m, id: data.mensajeId ?? tempId } : m)),
         );
+        // Contacto registrado automáticamente (ContactCount/score), sin vista.
+        fetch("/api/presupuestos/intervencion/registrar-respuesta", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ presupuestoId: item.id, tipo: "WhatsApp enviado" }),
+        })
+          .then(() => onRefresh())
+          .catch(() => {});
         toast.success("Mensaje enviado");
       } else {
         const res = await fetch("/api/presupuestos/intervencion/enviar-manual", {
@@ -379,28 +380,6 @@ export default function IntervencionSidePanel({
     composerRef.current?.focus();
   }
 
-  // Registrar respuesta del paciente → clasifica y sugiere (camino existente).
-  async function handleRegistrarRespuesta(texto: string) {
-    setRegistrando(true);
-    try {
-      const res = await fetch("/api/presupuestos/intervencion/clasificar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ presupuestoId: item.id, respuestaPaciente: texto }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const d = await res.json();
-      if (d.clasificacion?.mensajeSugerido) setComposerTexto(d.clasificacion.mensajeSugerido);
-      toast.success("Respuesta registrada");
-      onRefresh();
-      cargarConversacion();
-    } catch {
-      toast.error("No se pudo registrar la respuesta");
-    } finally {
-      setRegistrando(false);
-    }
-  }
-
   function handlePausar() {
     fetch(`/api/presupuestos/kanban/${item.id}`, {
       method: "PATCH",
@@ -414,21 +393,6 @@ export default function IntervencionSidePanel({
       })
       .catch(() => toast.error("No se pudo pausar el seguimiento"));
   }
-
-  const registroLineas = useMemo(
-    () =>
-      [
-        ...contactos.map((c) => ({
-          id: c.id,
-          texto: c.nota ?? `${c.tipo}: ${c.resultado}`,
-          fecha: c.fechaHora,
-        })),
-        ...historial.map((h) => ({ id: h.id, texto: h.descripcion, fecha: h.fecha })),
-      ]
-        .sort((a, b) => (a.fecha ?? "").localeCompare(b.fecha ?? ""))
-        .slice(-10),
-    [contactos, historial],
-  );
 
   const importeStr = item.amount != null ? `${item.amount.toLocaleString("es-ES")}€` : "Sin importe";
   const etiqueta =
@@ -450,7 +414,7 @@ export default function IntervencionSidePanel({
       />
 
       {/* Bloque 1: contexto y recomendación */}
-      <div className="px-4 pt-3 shrink-0">
+      <div className="px-4 pt-3 pb-3 border-b border-[var(--color-border)] shrink-0">
         <ContextoRecomendacion
           quePasa={situacion.quePasa}
           recomendacion={situacion.recomendacion}
@@ -507,12 +471,11 @@ export default function IntervencionSidePanel({
       </div>
 
       {/* Bloque 2: conversación — el resto de la pantalla */}
-      <div className="flex-1 min-h-0 flex flex-col px-4 pb-4 pt-3 gap-2">
+      <div className="flex-1 min-h-0 flex flex-col px-4 pb-4 pt-3 gap-2 bg-[var(--color-background)]">
         <p className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide shrink-0">
           Conversación
         </p>
         <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pr-1">
-          <RegistroColapsable titulo="Registro de contactos" lineas={registroLineas} />
           {loadingMensajes ? (
             <div className="space-y-2 animate-pulse">
               <div className="h-10 rounded-2xl bg-[var(--color-surface-muted)] ml-8" />
@@ -527,10 +490,6 @@ export default function IntervencionSidePanel({
           )}
           <div ref={chatEndRef} />
         </div>
-
-        {!wabaActivo && cleanPhone && (
-          <RegistrarRespuesta onRegistrar={handleRegistrarRespuesta} registrando={registrando} />
-        )}
 
         <Composer
           value={composerTexto}

@@ -257,3 +257,17 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   ficha, panel y colas; las vistas solo pintan. Hacerlo al tocar Actuar hoy (Bloque 2 P3)
   o justo después.
 - **Fecha:** 2026-07-22 · 🔵
+
+## 17. Contactos y mensajes: dos verdades del mismo seguimiento
+- **Zona:** `contactos_presupuesto` (ContactCount → score/cola/KPIs) vs `mensajes_whatsapp`
+  (hilo). El panel ya muestra SOLO el hilo; el contacto se registra automáticamente al
+  enviar/llamar desde el cliente (fire-and-forget).
+- **Severidad:** 🟡
+- **Problema:** el "contacto" se cuenta aparte del mensaje real y por un camino best-effort
+  del cliente: si esa segunda llamada falla, ContactCount y el score divergen del hilo.
+  Cualquier vía de envío nueva tiene que acordarse de registrar el contacto.
+- **Propuesta:** derivar el contacto EN SERVIDOR del propio mensaje saliente (el servicio
+  de mensajería registra ambos en la misma operación), y dejar ContactCount como dato
+  derivado. Una sola verdad; los KPIs cuentan lo que de verdad se dijo.
+- **Esfuerzo:** medio (toca mensajería + repos de contactos).
+- **Fecha:** 2026-07-22 · 🔵

@@ -315,6 +315,19 @@ export function Composer({
 }) {
   const [plantillasOpen, setPlantillasOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // El campo crece con el contenido hasta ~5 líneas; después, scroll
+  // interno. Los botones (IA · Plantillas · Enviar) van en fila aparte y
+  // quedan siempre visibles.
+  const MAX_ALTO = 128;
+  useEffect(() => {
+    const el = innerRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, MAX_ALTO)}px`;
+    el.style.overflowY = el.scrollHeight > MAX_ALTO ? "auto" : "hidden";
+  }, [value]);
 
   // Cerrar el desplegable al pinchar fuera.
   useEffect(() => {
@@ -332,7 +345,10 @@ export function Composer({
     <div className="pt-2 border-t border-[var(--color-border)] shrink-0" title={disabled ? disabledTitle : undefined}>
       {error && <p className="text-[11px] text-[var(--color-danger)] mb-1.5">{error}</p>}
       <textarea
-        ref={textareaRef}
+        ref={(el) => {
+          innerRef.current = el;
+          if (textareaRef) textareaRef.current = el;
+        }}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => {
@@ -341,7 +357,7 @@ export function Composer({
             onEnviar();
           }
         }}
-        rows={2}
+        rows={1}
         placeholder={generandoIA ? "Generando mensaje…" : "Escribe un mensaje…"}
         disabled={disabled || enviando}
         className="w-full text-sm px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none resize-none disabled:opacity-50"
@@ -409,59 +425,6 @@ export function Composer({
           Se registra aquí y se abre WhatsApp para terminar el envío.
         </p>
       )}
-    </div>
-  );
-}
-
-// ─── Registrar respuesta del paciente (modo manual) ────────────────────
-
-export function RegistrarRespuesta({
-  onRegistrar,
-  registrando,
-}: {
-  onRegistrar: (texto: string) => Promise<void>;
-  registrando: boolean;
-}) {
-  const [abierto, setAbierto] = useState(false);
-  const [texto, setTexto] = useState("");
-
-  async function registrar() {
-    const t = texto.trim();
-    if (!t) return;
-    await onRegistrar(t);
-    setTexto("");
-    setAbierto(false);
-  }
-
-  if (!abierto) {
-    return (
-      <button
-        type="button"
-        onClick={() => setAbierto(true)}
-        className="self-start text-[11px] font-medium text-[var(--color-muted)] hover:text-[var(--color-foreground)] underline underline-offset-2 transition-colors"
-      >
-        ¿Te respondió? Registra su respuesta
-      </button>
-    );
-  }
-  return (
-    <div className="flex items-end gap-1.5">
-      <textarea
-        value={texto}
-        onChange={(e) => setTexto(e.target.value)}
-        rows={2}
-        placeholder="¿Qué respondió?"
-        autoFocus
-        className="flex-1 text-sm px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none resize-none"
-      />
-      <button
-        type="button"
-        onClick={registrar}
-        disabled={!texto.trim() || registrando}
-        className="text-xs font-semibold px-3 h-8 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40 transition-colors shrink-0"
-      >
-        {registrando ? "…" : "Registrar"}
-      </button>
     </div>
   );
 }
