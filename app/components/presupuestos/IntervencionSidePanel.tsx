@@ -95,10 +95,24 @@ function situacionPresupuesto(item: PresupuestoIntervencion): SituacionPresupues
       primaria: "escribir",
     };
   }
-  // Clasificación ÚNICA del servidor (estadoConversacion): «Respondió: …»
-  // solo cuando de verdad la pelota es nuestra — antes el flag persistido
-  // Ultima_respuesta_paciente lo mostraba aunque ya le hubiéramos contestado.
-  if (item.ultimaRespuestaPaciente && item.conversacion?.estado !== "en_espera_paciente" && item.conversacion?.estado !== "reactivable") {
+  // Pelota NUESTRA según el hilo (clasificación única del servidor): la card
+  // lo dice aunque la IA no haya clasificado el texto — sin esta rama, un
+  // presupuesto con Ultima_respuesta_paciente vacío caía al fallback viejo de
+  // "N días sin contacto" y la card contradecía a su propio hilo.
+  if (item.conversacion?.estado === "pendiente_responder") {
+    const resp = item.ultimaRespuestaPaciente;
+    return {
+      prioridad: prioridadDe(item, dias),
+      quePasa: resp
+        ? `Respondió: «${resp.slice(0, 70)}${resp.length > 70 ? "…" : ""}»`
+        : `Te respondió ${item.conversacion.haceMs != null ? haceTexto(item.conversacion.haceMs) : "hace poco"} y sigue sin contestación.`,
+      recomendacion: item.accionSugerida ?? "Responde a su mensaje",
+      primaria: "escribir",
+    };
+  }
+  // Sin clasificación del servidor (datos antiguos): el texto persistido
+  // sigue valiendo como hasta ahora.
+  if (item.ultimaRespuestaPaciente && !item.conversacion) {
     return {
       prioridad: prioridadDe(item, dias),
       quePasa: `Respondió: «${item.ultimaRespuestaPaciente.slice(0, 70)}${item.ultimaRespuestaPaciente.length > 70 ? "…" : ""}»`,

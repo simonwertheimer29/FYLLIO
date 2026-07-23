@@ -236,3 +236,10 @@ mensaje, cards ("9 días sin contacto") contradiciendo hilos que terminaban hoy.
 reescribió para que cada caso nazca de UN guion del que derivan hilo Y campos de card, con
 invariante dura al final (Nuevo = sin conversación; todo lo demás con hilo; fecha_ultima_respuesta
 == último entrante) — resembrar re-ancla fechas sin poder descorrelacionarse.
+
+## 2026-07-23 — La card de presupuesto dependía de la IA para decir "respondió"
+La rama «Respondió: …» del panel solo se activaba con `Ultima_respuesta_paciente` persistido
+(lo escribe la clasificación IA); un mensaje que llegaba al hilo sin pasar por la IA dejaba la
+card en el fallback viejo de "N días sin contacto" contradiciendo a su propia conversación
+(caso Sergio Ramos). Ahora `pendiente_responder` del hilo manda: con texto lo cita, sin texto
+dice "Te respondió hace X" — la card nunca puede contradecir al hilo que tiene debajo.
