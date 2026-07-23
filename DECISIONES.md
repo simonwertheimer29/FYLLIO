@@ -276,3 +276,13 @@ panel, donde el flujo es completo (hilo visible, mensaje precargado, registro, f
 La auditoría del patrón confirmó el riesgo: el botón de leads abría wa.me SIN texto,
 mostraba "Enviado" y no dejaba nada en el hilo (solo la acción registrada); el de
 presupuestos sí pasaba por el hilo, pero saltándose la lectura igual.
+
+## 2026-07-23 — Bloque 3: la tabla de Pacientes es una ventana, no una base de datos
+Cada dato de la tabla tiene UN registro origen: contacto/notas/doctor se editan inline
+escribiendo en el paciente (PATCH ahora con WHITELIST — antes aceptaba cualquier campo,
+incluidas las cachés de dinero); cobros y estados van por los modales de su flujo origen
+(PagoModal de la ficha, extraído a archivo propio; modales del kanban vía la ruta kanban,
+que ahora RECHAZA Perdido sin motivo). Derivados (dinero, aceptado, tratamientos, próxima
+cita de la agenda) no se editan jamás. El teléfono se propaga a los presupuestos abiertos
+con cascada visible en el toast (deuda D1); Financiado salió de la tabla (nº 27) y el
+resto de duplicados quedó inventariado en la nº 28.

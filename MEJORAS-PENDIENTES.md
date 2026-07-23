@@ -386,3 +386,26 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** medio (casos reales pueden quedar fuera de la cola).
 - **Fecha:** 2026-07-23 · 🟢 hecha (la fórmula quedó en Estado≠ACEPTADO/PERDIDO; la pestaña
   la decide estadoConversacion — el estado de negocio sigue mandando en la entrada)
+
+## 27. Financiado — columna huérfana retirada de la tabla; derivarla si el piloto la pide
+- **Zona:** `pacientes.financiado` (columna manual que solo escribían seeds viejos)
+- **Principio:** una sola verdad — un dato sin flujo que lo escriba es un dato muerto
+- **Problema:** ningún flujo de producto escribe `financiado`; en `pagos` ya existe el
+  método "Financiación", así que el concepto tiene un origen natural sin columna manual.
+- **Mejora:** si el piloto pide ver "financiado", derivarlo como Σ pagos con método
+  Financiación (misma mecánica que cobrado); si no, eliminar la columna del esquema.
+- **Impacto:** bajo (columna ya fuera de la tabla de Pacientes desde Bloque 3).
+- **Fecha:** 2026-07-23 · 🔵
+
+## 28. Columnas duplicadas de pacientes — deuda a deprecar (mapa Bloque 3)
+- **Zona:** `presupuestos.paciente_telefono` (D1), `pacientes.tratamientos` (D2),
+  `pacientes.fecha_cita` (D3), cachés `pagado/pendiente/aceptado/presupuesto_total` (D5)
+- **Principio:** cada dato con UN registro origen; cero sincronización
+- **Problema:** D1 es copia viva que consume la cola (hoy puenteada con propagación al
+  editar teléfono); D2/D3 ya no se muestran (la tabla pinta derivados de presupuestos y
+  agenda) pero las columnas siguen escribiéndose en seeds/flujos; D5 sigue teniendo un
+  consumidor vivo: la cola de cobros filtra por el `pendiente` almacenado (`pagos.ts:151`).
+- **Mejora:** migrar la cola de cobros al derivado (`finanzas-paciente`), dejar de escribir
+  las copias y eliminarlas del esquema en una migración.
+- **Impacto:** medio (mientras existan, cualquier flujo nuevo puede volver a leerlas).
+- **Fecha:** 2026-07-23 · 🔵
