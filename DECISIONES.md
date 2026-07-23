@@ -243,3 +243,11 @@ La rama «Respondió: …» del panel solo se activaba con `Ultima_respuesta_pac
 card en el fallback viejo de "N días sin contacto" contradiciendo a su propia conversación
 (caso Sergio Ramos). Ahora `pendiente_responder` del hilo manda: con texto lo cita, sin texto
 dice "Te respondió hace X" — la card nunca puede contradecir al hilo que tiene debajo.
+
+## 2026-07-23 — Bifurcación por cita: capa de contexto, no estado nuevo
+Un lead Citado salía como "a reactivar/esperando" porque la conversación decidía sola. Decisión:
+la cita NO entra en estadoConversacion (una función = una pregunta: quién tiene la pelota);
+es contexto de negocio con precedencia cerrado > cita > conversación. Con cita futura la card
+dice "Tiene cita el X — confirma su asistencia" con recordatorio precargado en el composer
+(solo si está vacío), sale del bucket "Esperando respuesta" de Actuar hoy, y la respuesta
+pendiente del paciente sigue ganando: a un mensaje se contesta siempre.

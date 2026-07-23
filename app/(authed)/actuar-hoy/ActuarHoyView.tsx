@@ -326,11 +326,12 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
         (l.estado === "Citado" || l.estado === "Citados Hoy") &&
         l.fechaCita === today &&
         !l.asistido;
-      const esEsperando = esperaLead(
-        l,
-        ultimaSalientePorLead,
-        ultimaEntrantePorLead,
-      ).esperando;
+      // Bifurcación por cita: con cita futura el lead no espera respuesta ni
+      // se reactiva — su próximo toque es el recordatorio, no esta cola.
+      const citaFutura = !!l.fechaCita && l.fechaCita > today;
+      const esEsperando =
+        !citaFutura &&
+        esperaLead(l, ultimaSalientePorLead, ultimaEntrantePorLead).esperando;
       const esAccionable =
         esCitadoHoy ||
         esEsperando ||

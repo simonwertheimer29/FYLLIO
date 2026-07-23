@@ -163,6 +163,25 @@ function situacionLead(
     };
   }
 
+  // BIFURCACIÓN POR CITA (2026-07-23): un lead citado NO es un lead a
+  // reactivar — el negocio manda sobre la conversación (cerrado > cita >
+  // conversación). Con cita futura el contexto es recordatorio y
+  // confirmación de asistencia, nunca seguimiento comercial. La respuesta
+  // pendiente del paciente (arriba) sí gana: a un mensaje se contesta.
+  if (lead.fechaCita && lead.fechaCita > today) {
+    const manana = new Date(Date.now() + 86400_000).toISOString().slice(0, 10);
+    return {
+      prioridad: lead.fechaCita === manana ? "media" : "baja",
+      quePasa: `Tiene cita el ${lead.fechaCita}${lead.horaCita ? ` a las ${lead.horaCita}` : ""}.`,
+      recomendacion:
+        lead.fechaCita === manana
+          ? "Mándale el recordatorio — su cita es mañana"
+          : "Confirma su asistencia — un recordatorio evita no-shows",
+      primaria: "escribir",
+      citadoHoy,
+    };
+  }
+
   if (lead.estado === "Nuevo") {
     return {
       prioridad: diasPipeline >= 1 ? "alta" : "media",
@@ -178,9 +197,8 @@ function situacionLead(
 
   // Sin conversación (ni mensajes ni acción registrada): NUNCA "esperando" —
   // no hay a quién esperar. El contexto honesto es primer contacto pendiente,
-  // diga lo que diga el estado del embudo. Excepción: con cita futura, el
-  // contexto de cita (más abajo) es más útil que "escríbele".
-  if (conv.estado === "sin_conversacion" && !(lead.fechaCita && lead.fechaCita > today)) {
+  // diga lo que diga el estado del embudo. (La cita futura ya retornó arriba.)
+  if (conv.estado === "sin_conversacion") {
     return {
       prioridad: diasPipeline >= 2 ? "alta" : "media",
       quePasa: `Aún no se le ha escrito${canal}: no hay conversación registrada.`,
@@ -227,16 +245,6 @@ function situacionLead(
       prioridad: diasPipeline >= 4 ? "alta" : "media",
       quePasa: `Se le escribió por WhatsApp ${haceTexto(conv.haceMs)}${lead.tratamiento ? ` sobre ${lead.tratamiento}` : ""} y no ha respondido.`,
       recomendacion: "Insiste — genera el mensaje con IA y reactívalo",
-      primaria: "escribir",
-      citadoHoy,
-    };
-  }
-
-  if (lead.fechaCita && lead.fechaCita > today) {
-    return {
-      prioridad: "baja",
-      quePasa: `Tiene cita el ${lead.fechaCita}${lead.horaCita ? ` a las ${lead.horaCita}` : ""}.`,
-      recomendacion: "Al día — un recordatorio evita no-shows",
       primaria: "escribir",
       citadoHoy,
     };
@@ -373,6 +381,27 @@ export function LeadAccionPanel({
     citaPrevia.current = { id: lead.id, key };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead.id, lead.fechaCita, lead.horaCita]);
+
+  // Bifurcación por cita: al abrir el panel de un lead con cita en pie, el
+  // mensaje que procede es de recordatorio/confirmación — no de seguimiento
+  // comercial. Se precarga SOLO si el campo está vacío (nunca pisa nada).
+  useEffect(() => {
+    const hoy = new Date().toISOString().slice(0, 10);
+    if (!lead.fechaCita || lead.fechaCita < hoy) return;
+    if (lead.convertido || lead.estado === "No Interesado") return;
+    const fechaLarga = new Date(`${lead.fechaCita}T00:00:00`).toLocaleDateString("es-ES", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+    const cuando = lead.fechaCita === hoy ? "hoy" : `el ${fechaLarga}`;
+    setComposerTexto((prev) =>
+      prev.trim()
+        ? prev
+        : `Hola ${lead.nombre.split(" ")[0]}, te recordamos tu cita${lead.tratamiento ? ` para ${lead.tratamiento}` : ""} ${cuando}${lead.horaCita ? ` a las ${lead.horaCita}` : ""}. ¿Confirmas que puedes venir? ¡Te esperamos! 😊`,
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lead.id]);
 
   const situacion = useMemo(
     () => (loadingMensajes ? null : situacionLead(lead, mensajes, accionDir)),
