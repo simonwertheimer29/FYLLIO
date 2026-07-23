@@ -19,6 +19,7 @@ import { ActuarHoyHeader } from "../../components/shared/ActuarHoyHeader";
 import { AccionCard } from "../../components/shared/AccionCard";
 import { AccionPanel } from "../../components/shared/AccionPanel";
 import { AsistenciaModal } from "../leads/AsistenciaModal";
+import { AgendarModal } from "../leads/AgendarModal";
 import IntervencionView from "../../components/presupuestos/IntervencionView";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/Feedback";
@@ -27,12 +28,17 @@ import { toast } from "sonner";
 
 type Tab = "leads" | "presupuestos";
 
+// Bloque 2 P1 — doctores para el AgendarModal in situ del panel de lead.
+type Doctor = { id: string; nombre: string; clinicaId: string | null };
+
 export function ActuarHoyView({
   user,
   initialLeads,
+  doctores,
 }: {
   user: UserSession;
   initialLeads: Lead[];
+  doctores: Doctor[];
 }) {
   const [tab, setTab] = useState<Tab>("leads");
   // Sprint 9 fix unificación cierre — el SidePanel de Presupuestos se monta
@@ -107,7 +113,7 @@ export function ActuarHoyView({
         </header>
 
         {tab === "leads" ? (
-          <LeadsTab initialLeads={initialLeads} />
+          <LeadsTab initialLeads={initialLeads} doctores={doctores} />
         ) : (
           <PresupuestosTab
             user={user}
@@ -139,7 +145,7 @@ export function ActuarHoyView({
 
 type LeadSubFilter = "todos" | "citados" | "sin-contactar" | "esperando";
 
-function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
+function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: Doctor[] }) {
   const { selectedClinicaId } = useClinic();
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [loading, setLoading] = useState(false);
@@ -150,6 +156,8 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
   const [filter, setFilter] = useState<LeadSubFilter>("todos");
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null);
   const [asistenciaLead, setAsistenciaLead] = useState<Lead | null>(null);
+  // Bloque 2 P1 — "Agendar" del panel abre AgendarModal in situ (sin saltar de módulo).
+  const [agendarLead, setAgendarLead] = useState<Lead | null>(null);
   const [tiempoMedioMin, setTiempoMedioMin] = useState<number | null>(null);
   // Sprint 15 Bloque 7 — map leadId → ISO de la última acción saliente
   // (Llamada o WhatsApp_Saliente). Lo consume priorityForLead para el
@@ -374,6 +382,7 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
           onClose={() => setDrawerLead(null)}
           onChanged={onLeadChanged}
           onAsistencia={(l) => setAsistenciaLead(l)}
+          onAgendar={(l) => setAgendarLead(l)}
         />
       )}
 
@@ -384,6 +393,18 @@ function LeadsTab({ initialLeads }: { initialLeads: Lead[] }) {
           onDone={(updated) => {
             onLeadChanged(updated);
             setAsistenciaLead(null);
+          }}
+        />
+      )}
+
+      {agendarLead && (
+        <AgendarModal
+          lead={agendarLead}
+          doctores={doctores}
+          onClose={() => setAgendarLead(null)}
+          onSaved={(updated) => {
+            onLeadChanged(updated);
+            setAgendarLead(null);
           }}
         />
       )}

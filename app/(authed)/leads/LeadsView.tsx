@@ -410,6 +410,7 @@ export function LeadsView({
           onClose={() => setDrawerLead(null)}
           onChanged={(updated) => onLeadUpdated(updated)}
           onAsistencia={(l) => setAsistenciaLead(l)}
+          onAgendar={(l) => setAgendarLead(l)}
         />
       )}
 

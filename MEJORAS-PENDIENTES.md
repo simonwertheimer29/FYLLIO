@@ -245,14 +245,15 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Esfuerzo:** horas.
 - **Fecha:** 2026-07-22 · 🔵
 
-## 16. La "siguiente acción" vive en 4 sitios distintos
-- **Zona:** ficha (`derivarSituacion`, cliente) · Actuar hoy · cola de Presupuestos
+## 16. La "siguiente acción" vive en varios sitios
+- **Zona:** ficha (`derivarSituacion`, cliente) · panel de lead (`situacionLead` — usa los
+  MISMOS triggers que la cola de Actuar hoy, a propósito) · cola de Presupuestos
   (`scoreFinal`) · `accion_sugerida` del presupuesto
 - **Severidad:** 🟡
-- **Problema:** el rediseño de la ficha añade una 4ª fuente de "qué hacer ahora" (regla en
-  cliente sobre señales reales). Coherente hoy, pero cada fuente puede recomendar distinto
-  para el mismo paciente (incumple §6 coherencia).
-- **Propuesta:** extraer UNA función de recomendación compartida (server o lib común) que
-  consuman ficha, Actuar hoy y la cola; las vistas solo pintan. Hacerlo al tocar Actuar
-  hoy (Bloque 2 P3) o justo después.
+- **Problema:** varias fuentes de "qué hacer ahora". Para leads, panel y cola ya comparten
+  definición (citado-hoy · nuevo>24h · caliente>12h · espera 48h) pero implementada dos
+  veces; la ficha tiene la suya. Cada duplicado puede divergir (incumple §6 coherencia).
+- **Propuesta:** extraer UNA función de recomendación compartida (lib común) que consuman
+  ficha, panel y colas; las vistas solo pintan. Hacerlo al tocar Actuar hoy (Bloque 2 P3)
+  o justo después.
 - **Fecha:** 2026-07-22 · 🔵
