@@ -100,17 +100,25 @@ try {
   }
   console.log(`pacientes: ${pacientes.length}`);
 
-  // ── LEADS (38) por estado + acciones (esperando respuesta) ───────────
-  const LEAD_MSG = {
-    interesado: "Hola! Vi vuestra promo de implantes en Instagram, me interesa mucho. ¿Cómo pido cita?",
-    duda_precio: "Buenas, me pasaron el presupuesto de ortodoncia invisible pero 3.500€ se me va un poco… ¿tenéis financiación?",
-    objecion: "Me lo estoy pensando, la verdad es que me da bastante respeto la endodoncia.",
-    listo_para_agendar: "Perfecto, me viene bien el jueves por la tarde. ¿A qué hora tenéis hueco?",
-  };
+  // ── LEADS (38): conversación coherente de punta a punta ──────────────
+  // Regla del seed (cierre estadoConversacion, 2026-07-23): TODO lead que no
+  // sea "Nuevo" tiene hilo WhatsApp real cuyo ÚLTIMO mensaje cuadra con el
+  // estado derivado que verán las pantallas (umbral leads = 48 h). Los 8
+  // "Nuevo" son EXACTAMENTE los sin_conversacion: ni mensajes ni acciones.
+  // Las fechas son relativas (dh = días, hAgo = horas): resembrar re-ancla
+  // sin romper la coherencia.
+  const hAgo = (h) => new Date(Date.now() - h * 3600_000).toISOString();
+  const dh = (n, h = 10) => dPlus(n, h).toISOString();
   const estadosLead = [
     ...Array(8).fill("Nuevo"), ...Array(9).fill("Contactado"), ...Array(4).fill("Citado"),
     ...Array(2).fill("Citados Hoy"), ...Array(9).fill("Convertido"), ...Array(6).fill("No Interesado")];
   const MOTIVOS_NO = ["Se fue a otra clínica más barata", "No le convenció el tratamiento", "Problema de horarios", "Precio fuera de presupuesto"];
+  const RECHAZO_LEAD = {
+    "Se fue a otra clínica más barata": "Al final me lo voy a hacer en otra clínica que me sale más barato. Gracias de todas formas.",
+    "No le convenció el tratamiento": "Lo he estado pensando y no me convence el tratamiento. Lo siento.",
+    "Problema de horarios": "Con mis horarios me es imposible ir, lo tenemos que dejar.",
+    "Precio fuera de presupuesto": "Ahora mismo se me va de presupuesto. ¡Gracias!",
+  };
   const TRATS_INT = ["Implante unitario", "Ortodoncia invisible", "Blanqueamiento LED", "Endodoncia molar", "Limpieza dental", "Corona sobre implante"];
   const leadNombresExtra = ["Yolanda Ríos", "Tomás Benítez", "Lorena Cuevas", "Álvaro Méndez", "Noelia Ibáñez",
     "Gabriel Rojas", "Verónica Nieves", "Samuel Arias", "Lidia Palma", "Mario Esteban", "Celia Duarte", "Ismael Rubio",
@@ -118,79 +126,304 @@ try {
     "Eva Montero", "Ángel Carrasco", "Vanesa Gimeno", "Joaquín Ledesma", "Miriam Salas", "Pablo Escobar",
     "Nerea Aparicio", "Rubén Caballero", "Sandra Quintana", "Iker Robledo", "Amparo Gil", "Cristian Vázquez"];
   let nlNi = 0;
+  let mensajesLeadN = 0;
   const leads = [];
+  const CNT_LEAD = {};
   for (let i = 0; i < estadosLead.length; i++) {
     const est = estadosLead[i];
+    const k = (CNT_LEAD[est] = (CNT_LEAD[est] ?? -1) + 1); // índice dentro del estado
     const cid = clis[i % clis.length];
     const conv = est === "Convertido";
     const pac = conv ? pacientes[20 + (i % 20)] : null; // convertidos apuntan a pacientes existentes
-    const esperando = est === "Contactado" && i % 2 === 0; // último acción SALIENTE
     const nombre = conv ? pac.nombre : leadNombresExtra[nlNi++ % leadNombresExtra.length];
+    const primer = nombre.split(" ")[0];
+    const trat = TRATS_INT[i % TRATS_INT.length];
+    const tratLow = trat.toLowerCase();
+    const telLead = tel();
+    const guion = [];    // {dir, ts, txt, intn?} — el hilo REAL del lead
+    const acciones = []; // {tipo, ts, resumen, det} — llamadas registradas
+    let motivoNo = null, fechaCita = null, horaCita = null;
+
+    if (est === "Contactado") {
+      const rot = k % 3; // 3 pendientes · 3 en espera · 3 reactivables
+      if (rot === 0) {
+        // PENDIENTE_RESPONDER: contestó hoy y la pelota es nuestra.
+        const preg = [
+          { intn: "Pregunta precio", txt: `Hola, ¿me podéis decir cuánto costaría ${tratLow}? ¿Tenéis financiación?` },
+          { intn: "Pide cita", txt: "Buenas, sí me interesa. ¿Tenéis hueco esta semana por la tarde?" },
+          { intn: "Interesado", txt: `Vi vuestra publicación de ${tratLow} en Instagram y me interesa mucho. ¿Me contáis?` },
+        ][Math.floor(k / 3) % 3];
+        acciones.push({ tipo: "Llamada", ts: dh(-3, 12), resumen: "Primer contacto telefónico", det: "No contesta; se sigue por WhatsApp." });
+        guion.push({ dir: "Saliente", ts: dh(-3, 13), txt: `Hola ${primer}, soy del equipo de la clínica 😊 Nos dejaste tus datos interesándote por ${tratLow}. ¿Hablamos por aquí?` });
+        guion.push({ dir: "Entrante", ts: hAgo(2 + (k % 4)), txt: preg.txt, intn: preg.intn });
+      } else if (rot === 1) {
+        // EN_ESPERA_PACIENTE: le contestamos hace <48 h; la pelota es suya.
+        acciones.push({ tipo: "Llamada", ts: dh(-4, 12), resumen: "Primer contacto telefónico", det: "No contesta; se sigue por WhatsApp." });
+        guion.push({ dir: "Saliente", ts: dh(-4, 13), txt: `Hola ${primer}, soy del equipo de la clínica 😊 ¿Sigues interesado en ${tratLow}?` });
+        guion.push({ dir: "Entrante", ts: dh(-2, 11), txt: `¿Cuánto costaría ${tratLow} más o menos? Es por hacerme una idea.`, intn: "Pregunta precio" });
+        guion.push({ dir: "Saliente", ts: hAgo(20), txt: "Depende del caso, pero trabajamos con financiación hasta 24 meses. Si quieres te preparo una valoración sin compromiso, ¿te viene bien esta semana?" });
+      } else {
+        // REACTIVABLE: le escribimos hace ≥48 h y no ha contestado.
+        guion.push({ dir: "Saliente", ts: dh(-6, 12), txt: `Hola ${primer}, soy del equipo de la clínica. ¿Sigues interesado en ${tratLow}?` });
+        guion.push({ dir: "Entrante", ts: dh(-5, 10), txt: "Me lo estoy pensando, ¿me mandáis más información?", intn: "Pide más info" });
+        guion.push({ dir: "Saliente", ts: dh(-4, 9), txt: "¡Claro! Te acabo de enviar el dossier con precios y opciones de financiación. Cualquier duda me dices 😊" });
+      }
+    } else if (est === "Citado" || est === "Citados Hoy") {
+      // Conversación CONCLUIDA en cita agendada; el último mensaje es nuestra
+      // confirmación (reciente → en_espera, y la cita manda en el contexto).
+      const off = est === "Citados Hoy" ? 0 : 2;
+      fechaCita = fecha10(off); horaCita = "16:30";
+      guion.push({ dir: "Saliente", ts: dh(-2, 10), txt: `Hola ${primer}, gracias por tu interés en ${tratLow}. ¿Te viene bien una primera visita sin compromiso?` });
+      guion.push({ dir: "Entrante", ts: dh(-2, 12), txt: "Sí, ¿qué días tenéis hueco por la tarde?", intn: "Pide cita" });
+      guion.push({ dir: "Saliente", ts: dh(-2, 13), txt: `Te propongo el ${fechaCita} a las 16:30. ¿Te lo reservo?` });
+      guion.push({ dir: "Entrante", ts: dh(-1, 18), txt: "Perfecto, resérvalo. ¡Gracias!", intn: "Pide cita" });
+      guion.push({
+        dir: "Saliente", ts: est === "Citados Hoy" ? hAgo(18) : dh(-1, 19),
+        txt: est === "Citados Hoy"
+          ? "¡Te esperamos hoy a las 16:30! Si te surge algo, avísanos por aquí."
+          : `¡Reservado! Te esperamos el ${fechaCita} a las 16:30. Te mandaremos un recordatorio el día antes.`,
+      });
+    } else if (conv) {
+      // Convertido: hilo concluido días atrás; el estado de negocio lo saca
+      // de todas las colas (el panel muestra "Convertido en paciente").
+      guion.push({ dir: "Saliente", ts: dh(-8, 10), txt: `Hola ${primer}, soy del equipo de la clínica 😊 ¿Te cuento cómo sería la primera visita para ${tratLow}?` });
+      guion.push({ dir: "Entrante", ts: dh(-7, 11), txt: "Sí, me interesa. ¿Cuándo puedo ir?", intn: "Interesado" });
+      guion.push({ dir: "Saliente", ts: dh(-7, 12), txt: "Te reservo hueco esta misma semana 😊" });
+      guion.push({ dir: "Entrante", ts: dh(-6, 9), txt: "Genial, allí estaré. ¡Gracias!", intn: "Pide cita" });
+      guion.push({ dir: "Saliente", ts: dh(-6, 10), txt: `¡Hecho, ${primer}! Ya tienes tu ficha con nosotros; seguimos por aquí para lo que necesites.` });
+    } else if (est === "No Interesado") {
+      // Cerrado perdido: el rechazo del hilo CUADRA con el motivo registrado.
+      motivoNo = MOTIVOS_NO[k % MOTIVOS_NO.length];
+      guion.push({ dir: "Saliente", ts: dh(-6, 10), txt: `Hola ${primer}, ¿pudiste valorar lo que hablamos sobre ${tratLow}?` });
+      guion.push({ dir: "Entrante", ts: dh(-5, 12), txt: RECHAZO_LEAD[motivoNo], intn: "No interesado" });
+      guion.push({ dir: "Saliente", ts: dh(-5, 13), txt: "Entendido, gracias por avisar 😊 Aquí nos tienes si cambias de idea." });
+    }
+    // est === "Nuevo" → sin guion y sin acciones: sin_conversacion puro.
+
+    const salientes = guion.filter((m) => m.dir === "Saliente");
+    const lastEnt = [...guion].reverse().find((m) => m.dir === "Entrante") ?? null;
+    const lastSal = salientes[salientes.length - 1] ?? null;
     const lid = await ins("leads", {
-      nombre, telefono: tel(), email: null, tratamiento_interes: TRATS_INT[i % TRATS_INT.length],
+      nombre, telefono: telLead, email: null, tratamiento_interes: trat,
       canal_captacion: CANALES[i % CANALES.length], estado: est, clinica_id: cid,
       doctor_asignado_id: docEn(cid).id, tipo_visita: "Primera visita",
-      fecha_cita: (est === "Citado" || est === "Citados Hoy") ? fecha10(est === "Citados Hoy" ? 0 : 2) : null,
-      hora_cita: (est === "Citado" || est === "Citados Hoy") ? "16:30" : null,
-      llamado: est !== "Nuevo", whatsapp_enviados: est === "Nuevo" ? 0 : 1 + (i % 3),
-      motivo_no_interes: est === "No Interesado" ? MOTIVOS_NO[i % MOTIVOS_NO.length] : null,
-      intencion_detectada: esperando ? "duda_precio" : null,
+      fecha_cita: fechaCita, hora_cita: horaCita,
+      llamado: acciones.some((a) => a.tipo === "Llamada"),
+      whatsapp_enviados: salientes.length,
+      motivo_no_interes: motivoNo,
+      intencion_detectada: lastEnt?.intn ?? null,
       convertido_a_paciente: conv, paciente_id: conv ? pac.id : null,
-      ultima_accion: est === "Nuevo" ? null : (esperando ? "WhatsApp_Saliente" : "Llamada"),
+      ultima_accion: lastSal ? "WhatsApp_Saliente" : (acciones.length ? "Llamada" : null),
     });
-    leads.push({ id: lid, est, cid, esperando, nombre });
-    // acciones del lead
-    if (est !== "Nuevo") {
-      await ins("acciones_lead", { lead_id: lid, tipo_accion: "Llamada", resumen: "Primer contacto telefónico", timestamp: dISO(-(i % 6) - 1), detalles: "No contesta, se deja WhatsApp." });
-      if (esperando) await ins("acciones_lead", { lead_id: lid, tipo_accion: "WhatsApp_Saliente", resumen: "Enviado mensaje de seguimiento", timestamp: dISO(0), detalles: "Esperando respuesta del paciente." });
+    leads.push({ id: lid, est, cid, nombre, guion });
+    for (const a of acciones) await ins("acciones_lead", { lead_id: lid, tipo_accion: a.tipo, resumen: a.resumen, timestamp: a.ts, detalles: a.det });
+    // El envío real registra acción + fila de hilo (prerequisito 5417982):
+    if (lastSal) await ins("acciones_lead", { lead_id: lid, tipo_accion: "WhatsApp_Saliente", resumen: "WhatsApp enviado", timestamp: lastSal.ts, detalles: "Mensaje enviado desde el panel." });
+    for (const m of guion) {
+      await ins("mensajes_whatsapp", {
+        lead_id: lid, telefono: telLead, direccion: m.dir, contenido: m.txt,
+        timestamp: m.ts, fuente: "Modo_A_manual", procesado_por_ia: m.dir === "Entrante",
+        intencion_detectada: m.intn ?? null,
+      });
+      mensajesLeadN++;
     }
   }
-  console.log(`leads: ${leads.length}`);
+  console.log(`leads: ${leads.length} (hilos: ${mensajesLeadN} mensajes)`);
 
-  // ── PRESUPUESTOS (34): cada estado + estancados + perdidos ───────────
+  // ── PRESUPUESTOS (34): narrativa conversacional coherente por caso ───
+  // Cada presupuesto define su GUION (hilo WhatsApp) y de él se DERIVAN los
+  // campos persistidos que pintan las cards (última respuesta, tipo/fecha de
+  // última acción, fase, urgencia, acción sugerida): lo que se lee en el hilo
+  // y lo que recomienda la card no pueden contradecirse. Umbral = 72 h:
+  //   reactivable → último saliente hace ≥4 días sin respuesta
+  //   en_espera   → último saliente hace <48 h
+  //   pendiente   → último mensaje es DEL PACIENTE
   const EST_PRES = [["PRESENTADO", 7], ["INTERESADO", 5], ["EN_DUDA", 5], ["EN_NEGOCIACION", 4], ["ACEPTADO", 8], ["PERDIDO", 5]];
   const TRAT_PRES = [["Implante unitario", 2800], ["Ortodoncia invisible", 3500], ["Corona sobre implante", 950],
     ["Endodoncia molar", 480], ["Blanqueamiento LED", 300], ["Implante unitario", 4200], ["Férula de descarga", 220],
     ["Limpieza dental", 90], ["Ortodoncia invisible", 3800], ["Corona sobre implante", 1200]];
   const MOTIVOS_PERD = ["Precio", "Se fue a otra clínica", "Sin respuesta tras 3 contactos", "Cambió de opinión"];
-  const presupuestos = []; let np = 0; let idxAcept = 0;
+  const RECHAZO_PRES = {
+    Precio: "Lo he pensado y ahora mismo es demasiado caro para mí. Lo siento.",
+    "Se fue a otra clínica": "Al final me lo hago en otra clínica, gracias por todo.",
+    "Cambió de opinión": "He decidido no hacerme el tratamiento por ahora. Gracias.",
+  };
+  const presupuestos = []; let np = 0; let idxAcept = 0; let mensajesN = 0;
   const IMPORTES_ACEPT = [2800, 3500, 4200, 3800, 3850, 2100, 1200, 950]; // Σ = 22.400 (facturado mes)
   for (const [estado, n] of EST_PRES) {
     for (let k = 0; k < n; k++) {
       const pac = pacientes[np % pacientes.length]; np++;
       const [tnom, imp0] = TRAT_PRES[np % TRAT_PRES.length];
       const importe = estado === "ACEPTADO" ? IMPORTES_ACEPT[idxAcept++] : imp0;
-      const estancado = estado !== "ACEPTADO" && estado !== "PERDIDO" && k === 0; // 1 estancado por estado abierto
-      const altaOff = estancado ? -(9 + k) : -(1 + (np % 5));
-      const fechaAceptado = estado === "ACEPTADO" ? fecha10(-(np % 10)) : null;
+      const primer = pac.nombre.split(" ")[0];
+      const tratLow = tnom.toLowerCase();
+      const impTxt = `${importe.toLocaleString("es-ES")}€`;
+      const guion = []; // {dir, ts, txt, intn?}
+      let urgencia = "BAJO", accion = null, mensajeSug = null;
+      let altaOff = -(1 + (np % 5));
+      let fechaAceptado = null, motivoPerd = null, motivoPerdTexto = null;
+
+      if (estado === "PRESENTADO") {
+        if (k === 0) {
+          // REACTIVABLE: se presentó hace 9 días y nunca contestó.
+          altaOff = -9;
+          guion.push({ dir: "Saliente", ts: dh(-9, 10), txt: `Hola ${primer}, te envío el presupuesto de ${tratLow} (${impTxt}). Cualquier duda me preguntas, ¡estamos para ayudarte! 😊` });
+          urgencia = "ALTO"; accion = "Llamar para reactivar";
+          mensajeSug = `Hola ${primer}, hace unos días te enviamos el presupuesto de ${tratLow}. ¿Te ayudo a resolver alguna duda? Tenemos financiación sin intereses 😊`;
+        } else {
+          // EN_ESPERA: presentado hace horas; aún dentro del plazo.
+          altaOff = -1;
+          guion.push({ dir: "Saliente", ts: hAgo(10 + k * 5), txt: `Hola ${primer}, aquí tienes el presupuesto de ${tratLow} (${impTxt}). Cualquier duda me preguntas 😊` });
+          urgencia = "BAJO"; accion = "Enviar recordatorio si no responde";
+        }
+      } else if (estado === "INTERESADO") {
+        if (k === 0) {
+          // REACTIVABLE: mostró interés y se enfrió hace 9 días.
+          altaOff = -12;
+          guion.push({ dir: "Saliente", ts: dh(-12, 10), txt: `Hola ${primer}, te envío el presupuesto de ${tratLow} (${impTxt}). ¿Lo vemos juntos?` });
+          guion.push({ dir: "Entrante", ts: dh(-11, 12), txt: "Me interesa mucho, ¿cómo pido cita?", intn: "Acepta sin condiciones" });
+          guion.push({ dir: "Saliente", ts: dh(-9, 10), txt: "¡Genial! Te propongo jueves o viernes por la tarde, ¿qué te viene mejor?" });
+          urgencia = "ALTO"; accion = "Llamar para reactivar";
+          mensajeSug = `Hola ${primer}, quedamos en buscar hueco para ${tratLow} y no quiero que se te pase 😊 ¿Te viene bien esta semana?`;
+        } else if (k % 2 === 1) {
+          // PENDIENTE_RESPONDER: contestó hoy pidiendo cita.
+          altaOff = -2;
+          guion.push({ dir: "Saliente", ts: dh(-2, 10), txt: `Hola ${primer}, ¿pudiste ver el presupuesto de ${tratLow} (${impTxt})?` });
+          guion.push({ dir: "Entrante", ts: hAgo(3 + k), txt: "Perfecto, me viene bien el jueves por la tarde. ¿A qué hora tenéis hueco?", intn: "Acepta sin condiciones" });
+          urgencia = "ALTO"; accion = "Responder y cerrarle la cita";
+          mensajeSug = `¡Genial, ${primer}! El jueves tenemos hueco a las 16:30 o a las 18:00. ¿Cuál te reservo?`;
+        } else {
+          // EN_ESPERA: le contestamos hace <48 h.
+          altaOff = -3;
+          guion.push({ dir: "Saliente", ts: dh(-3, 10), txt: `Hola ${primer}, ¿pudiste ver el presupuesto de ${tratLow} (${impTxt})?` });
+          guion.push({ dir: "Entrante", ts: dh(-2, 12), txt: "Me interesa, la semana que viene os digo algo seguro.", intn: "Quiere pensarlo" });
+          guion.push({ dir: "Saliente", ts: hAgo(20), txt: "¡Perfecto! Quedo pendiente. Si te surge cualquier duda, aquí me tienes 😊" });
+          urgencia = "BAJO"; accion = "Recordatorio si no responde en unos días";
+        }
+      } else if (estado === "EN_DUDA") {
+        if (k === 0) {
+          // REACTIVABLE: dudó por precio, le ofrecimos financiación y silencio 8 días.
+          altaOff = -10;
+          guion.push({ dir: "Saliente", ts: dh(-10, 10), txt: `Hola ${primer}, te envío el presupuesto de ${tratLow} (${impTxt}).` });
+          guion.push({ dir: "Entrante", ts: dh(-9, 12), txt: `Buenas, lo he visto pero ${impTxt} se me va un poco… ¿tenéis financiación?`, intn: "Pide oferta/descuento" });
+          guion.push({ dir: "Saliente", ts: dh(-8, 10), txt: "¡Claro! Trabajamos con financiación hasta 24 meses sin intereses. ¿Te preparo una simulación?" });
+          urgencia = "ALTO"; accion = "Llamar para reactivar";
+          mensajeSug = `Hola ${primer}, ¿pudiste ver la opción de financiación para ${tratLow}? Te preparo la simulación sin compromiso 😊`;
+        } else if (k <= 2) {
+          // PENDIENTE_RESPONDER: planteó su duda hoy.
+          altaOff = -2;
+          const duda = k === 1
+            ? { txt: "La verdad es que me da bastante respeto el tratamiento… ¿duele mucho?", intn: "Tiene duda sobre tratamiento", acc: "Responder a su duda clínica", sug: `Hola ${primer}, es normal que impresione, pero va con anestesia y la mayoría lo tolera genial. Si quieres, el doctor te lo explica en una llamada 😊` }
+            : { txt: "¿Me haríais algún descuento si lo pago todo por adelantado?", intn: "Pide oferta/descuento", acc: "Ofrecer financiación", sug: `Hola ${primer}, déjame consultarlo con administración y te digo hoy mismo. También tenemos financiación sin intereses por si te encaja mejor 😊` };
+          guion.push({ dir: "Saliente", ts: dh(-2, 10), txt: `Hola ${primer}, ¿qué te pareció el presupuesto de ${tratLow} (${impTxt})?` });
+          guion.push({ dir: "Entrante", ts: hAgo(4 + k), txt: duda.txt, intn: duda.intn });
+          urgencia = "MEDIO"; accion = duda.acc; mensajeSug = duda.sug;
+        } else {
+          // EN_ESPERA: respondimos a su duda hace <48 h.
+          altaOff = -3;
+          guion.push({ dir: "Saliente", ts: dh(-3, 10), txt: `Hola ${primer}, te envío el presupuesto de ${tratLow} (${impTxt}).` });
+          guion.push({ dir: "Entrante", ts: dh(-2, 11), txt: "¿El precio incluye todas las revisiones?", intn: "Tiene duda sobre tratamiento" });
+          guion.push({ dir: "Saliente", ts: hAgo(26), txt: "¡Sí! Incluye todas las revisiones y las radiografías de control. Sin sorpresas 😊" });
+          urgencia = "BAJO"; accion = "Recordatorio si no responde en unos días";
+        }
+      } else if (estado === "EN_NEGOCIACION") {
+        if (k === 0) {
+          // REACTIVABLE: negociación enfriada hace 8 días.
+          altaOff = -11;
+          guion.push({ dir: "Saliente", ts: dh(-11, 10), txt: `Hola ${primer}, te envío el presupuesto de ${tratLow} (${impTxt}). Podemos ajustar la forma de pago.` });
+          guion.push({ dir: "Entrante", ts: dh(-10, 12), txt: "Dadme unos días, lo tengo que hablar en casa.", intn: "Quiere pensarlo" });
+          guion.push({ dir: "Saliente", ts: dh(-8, 10), txt: "¡Claro! Quedo pendiente. Si os ayuda, os preparo una simulación de financiación." });
+          urgencia = "ALTO"; accion = "Llamar para reactivar";
+          mensajeSug = `Hola ${primer}, ¿pudisteis valorarlo en casa? Cualquier duda sobre ${tratLow} o la financiación, me dices 😊`;
+        } else if (k === 1) {
+          // PENDIENTE_RESPONDER: quiere aceptar y pregunta por el pago.
+          altaOff = -4;
+          guion.push({ dir: "Saliente", ts: dh(-4, 10), txt: `Hola ${primer}, ¿cómo lo ves? Podemos ajustar la forma de pago de ${tratLow}.` });
+          guion.push({ dir: "Entrante", ts: hAgo(4), txt: "Vale, me decido. ¿Puedo pagarlo en dos veces?", intn: "Acepta pero pregunta pago" });
+          urgencia = "ALTO"; accion = "Envíale los detalles de pago";
+          mensajeSug = `¡Genial, ${primer}! Sí: puedes dejar una señal ahora y el resto al empezar, o financiarlo hasta 24 meses. ¿Qué te encaja mejor?`;
+        } else if (k === 2) {
+          // PENDIENTE_RESPONDER: pidió tiempo hoy — responder con tacto.
+          altaOff = -3;
+          guion.push({ dir: "Saliente", ts: dh(-3, 10), txt: `Hola ${primer}, ¿seguimos con ${tratLow}? Podemos ver opciones de pago.` });
+          guion.push({ dir: "Entrante", ts: hAgo(7), txt: "Dadme unos días, lo hablo con mi familia y os digo.", intn: "Quiere pensarlo" });
+          urgencia = "MEDIO"; accion = "Confirmar que le das espacio y agendar recordatorio";
+          mensajeSug = `¡Por supuesto, ${primer}! Tómate tu tiempo. Te escribo la semana que viene por si tenéis dudas 😊`;
+        } else {
+          // EN_ESPERA: le enviamos la simulación hace <48 h.
+          altaOff = -4;
+          guion.push({ dir: "Saliente", ts: dh(-4, 10), txt: `Hola ${primer}, ¿cómo lo ves? Podemos ajustar la forma de pago de ${tratLow}.` });
+          guion.push({ dir: "Entrante", ts: dh(-2, 12), txt: "¿Me mandáis la simulación de financiación?", intn: "Pide oferta/descuento" });
+          guion.push({ dir: "Saliente", ts: hAgo(30), txt: "¡Enviada! La tienes en el PDF: 24 cuotas sin intereses. Cualquier duda me dices 😊" });
+          urgencia = "BAJO"; accion = "Recordatorio si no responde en unos días";
+        }
+      } else if (estado === "ACEPTADO") {
+        // Cerrado ganado: el hilo termina con aceptación y nuestra confirmación.
+        const aceptOff = -(np % 10) - 1;
+        altaOff = aceptOff - 3;
+        fechaAceptado = fecha10(aceptOff);
+        guion.push({ dir: "Saliente", ts: dh(aceptOff - 2, 10), txt: `Hola ${primer}, ¿has podido pensar sobre el presupuesto de ${tratLow} (${impTxt})?` });
+        guion.push({ dir: "Entrante", ts: dh(aceptOff, 11), txt: "Sí, lo hemos decidido: ¡adelante! ¿Cómo lo hacemos?", intn: "Acepta sin condiciones" });
+        guion.push({ dir: "Saliente", ts: dh(aceptOff, 12), txt: `¡Enhorabuena, ${primer}! 🎉 Te llamamos hoy para cerrar la primera cita y el pago. Bienvenido/a.` });
+        urgencia = "NINGUNO";
+      } else {
+        // PERDIDO — el hilo cuadra con el motivo registrado.
+        motivoPerd = MOTIVOS_PERD[k % MOTIVOS_PERD.length];
+        altaOff = -8;
+        if (motivoPerd === "Sin respuesta tras 3 contactos") {
+          guion.push({ dir: "Saliente", ts: dh(-9, 10), txt: `Hola ${primer}, te envío el presupuesto de ${tratLow} (${impTxt}).` });
+          guion.push({ dir: "Saliente", ts: dh(-7, 10), txt: `Hola ${primer}, ¿pudiste verlo? Cualquier duda me dices 😊` });
+          guion.push({ dir: "Saliente", ts: dh(-5, 10), txt: `Hola ${primer}, último recordatorio para no ser pesados 😊 Si te interesa retomarlo, aquí estamos.` });
+          motivoPerdTexto = "No respondió a ninguno de los tres contactos.";
+        } else {
+          guion.push({ dir: "Saliente", ts: dh(-6, 10), txt: `Hola ${primer}, ¿qué te pareció el presupuesto de ${tratLow} (${impTxt})?` });
+          guion.push({ dir: "Entrante", ts: dh(-5, 12), txt: RECHAZO_PRES[motivoPerd], intn: "Rechaza" });
+          guion.push({ dir: "Saliente", ts: dh(-5, 13), txt: "Entendido, gracias por decírnoslo. Si en algún momento quieres retomarlo, aquí nos tienes 😊" });
+          motivoPerdTexto = RECHAZO_PRES[motivoPerd];
+        }
+        urgencia = "NINGUNO";
+      }
+
+      // Campos persistidos DERIVADOS del guion — una sola verdad.
+      const cerrado = estado === "ACEPTADO" || estado === "PERDIDO";
+      const lastEnt = [...guion].reverse().find((m) => m.dir === "Entrante") ?? null;
+      const lastMsg = guion[guion.length - 1];
+      const salientes = guion.filter((m) => m.dir === "Saliente");
       const pid = await ins("presupuestos", {
         paciente_id: pac.id, clinica_id: pac.cid, tratamiento_nombre: tnom, estado, importe,
         fecha_alta: fecha10(altaOff), fecha: fecha10(altaOff),
         fecha_aceptado: fechaAceptado,
         doctor: docEn(pac.cid).nombre, tipo_paciente: "Nuevo", tipo_visita: "Primera visita",
-        paciente_telefono: pac.tel, contact_count: estado === "ACEPTADO" ? 2 : (estancado ? 4 : 1),
-        motivo_perdida: estado === "PERDIDO" ? MOTIVOS_PERD[k % MOTIVOS_PERD.length] : null,
-        motivo_perdida_texto: estado === "PERDIDO" ? "El paciente indicó que era demasiado caro." : null,
-        // Cerrados → "Cerrado" (lo que escribe la app al aceptar/perder desde
-        // el fix del cierre completo); abiertos → según narrativa, y los 12
-        // con hilo WhatsApp se re-correlacionan tras sembrar los mensajes.
-        fase_seguimiento: estado === "ACEPTADO" || estado === "PERDIDO" ? "Cerrado"
-          : estado === "PRESENTADO" ? "Esperando respuesta" : (estancado ? "Reactivar" : null),
-        ultima_accion_registrada: dISO(altaOff), ultimo_contacto: fecha10(altaOff),
-        urgencia_intervencion: estancado ? "alta" : (estado === "EN_NEGOCIACION" ? "media" : "baja"),
-        accion_sugerida: estado === "EN_DUDA" ? "Ofrecer financiación" : (estancado ? "Llamar para reactivar" : "Enviar recordatorio"),
+        paciente_telefono: pac.tel, contact_count: salientes.length,
+        motivo_perdida: motivoPerd, motivo_perdida_texto: motivoPerdTexto,
+        fase_seguimiento: cerrado ? "Cerrado" : (lastMsg.dir === "Entrante" ? "En intervención" : "Esperando respuesta"),
+        ultima_accion_registrada: lastMsg.ts, ultimo_contacto: lastMsg.ts.slice(0, 10),
+        tipo_ultima_accion: lastMsg.dir === "Saliente" ? "WhatsApp enviado" : "Mensaje recibido",
+        fecha_ultima_respuesta: lastEnt?.ts ?? null,
+        ultima_respuesta_paciente: lastEnt?.txt ?? null,
+        intencion_detectada: lastEnt?.intn ?? null,
+        urgencia_intervencion: urgencia,
+        accion_sugerida: accion,
+        mensaje_sugerido: mensajeSug,
       });
-      presupuestos.push({ id: pid, estado, importe, pac, fechaAceptado });
-      // contactos del presupuesto
-      const nc = estado === "ACEPTADO" ? 2 : (estancado ? 3 : 1);
-      for (let c = 0; c < nc; c++) await ins("contactos_presupuesto", {
-        presupuesto_id: pid, tipo_contacto: c === 0 ? "Llamada" : "WhatsApp", resultado: c === 0 ? "No contesta" : "Enviado",
-        fecha_hora: dISO(altaOff + c), nota: c === 0 ? "Primer intento de contacto." : "Mensaje de seguimiento enviado.",
-        registrado_por: "Coordinación", mensaje_ia_usado: c > 0, tono_usado: "cercano",
+      presupuestos.push({ id: pid, estado, importe, pac, fechaAceptado, guion });
+      for (const m of guion) {
+        await ins("mensajes_whatsapp", {
+          paciente_id: pac.id, presupuesto_id: pid, telefono: pac.tel, direccion: m.dir,
+          contenido: m.txt, timestamp: m.ts, fuente: "Modo_A_manual", procesado_por_ia: m.dir === "Entrante",
+          intencion_detectada: m.intn ?? null,
+        });
+        mensajesN++;
+      }
+      // contactos_presupuesto: uno por saliente real del hilo (score/ContactCount).
+      for (const m of salientes) await ins("contactos_presupuesto", {
+        presupuesto_id: pid, tipo_contacto: "WhatsApp", resultado: "Enviado",
+        fecha_hora: m.ts, nota: "Mensaje del hilo de WhatsApp.",
+        registrado_por: "Coordinación", mensaje_ia_usado: true, tono_usado: "cercano",
       });
     }
   }
-  console.log(`presupuestos: ${presupuestos.length}`);
+  console.log(`presupuestos: ${presupuestos.length} (hilos: ${mensajesN} mensajes)`);
 
   // ── CITAS (28): hoy/mañana/semana/pasadas ────────────────────────────
   const citasPlan = [[0, 6, "Confirmada"], [1, 5, "Confirmada"], [3, 4, "Programada"], [4, 3, "Programada"],
@@ -209,37 +442,8 @@ try {
   }
   console.log(`citas: ${citasN}`);
 
-  // ── MENSAJES WhatsApp (12 conversaciones bidireccionales, IA) ────────
-  let mensajesN = 0;
-  const convs = presupuestos.slice(0, 12);
-  const INTENCIONES = ["interesado", "duda_precio", "objecion", "listo_para_agendar"];
-  for (let i = 0; i < convs.length; i++) {
-    const p = convs[i]; const intn = INTENCIONES[i % 4];
-    const guion = [
-      { dir: "Saliente", txt: `Hola ${p.pac.nombre.split(" ")[0]}, soy del equipo de la clínica 😊 ¿Has podido pensar sobre el presupuesto de ${p.estado === "ACEPTADO" ? "tu tratamiento" : "tu tratamiento"}?`, off: -3 },
-      { dir: "Entrante", txt: LEAD_MSG[intn], off: -2, intn },
-      { dir: "Saliente", txt: intn === "duda_precio" ? "¡Claro! Trabajamos con financiación hasta 24 meses sin intereses. ¿Te preparo una simulación?" : "Genial, te reservo un hueco esta semana. ¿Te viene mejor mañana o el jueves?", off: -1 },
-    ];
-    if (intn === "listo_para_agendar") guion.push({ dir: "Entrante", txt: "El jueves perfecto, gracias!", off: 0, intn: "listo_para_agendar" });
-    for (const m of guion) {
-      await ins("mensajes_whatsapp", {
-        paciente_id: p.pac.id, presupuesto_id: p.id, telefono: p.pac.tel, direccion: m.dir,
-        contenido: m.txt, timestamp: dISO(m.off), fuente: "Modo_A_manual", procesado_por_ia: m.dir === "Entrante",
-        intencion_detectada: m.intn ?? null,
-      }); mensajesN++;
-    }
-    // Correlación fase⟷hilo (bug "esperando respuesta" con el último mensaje
-    // del paciente): en abiertos, la fase refleja quién tiene la pelota según
-    // el ÚLTIMO mensaje — Saliente → "Esperando respuesta"; Entrante →
-    // "En intervención" (hay respuesta del paciente por atender).
-    if (p.estado !== "ACEPTADO" && p.estado !== "PERDIDO") {
-      const ultimo = guion[guion.length - 1];
-      await db.query("update presupuestos set fase_seguimiento=$1 where id=$2 and cliente='DEMO'", [
-        ultimo.dir === "Entrante" ? "En intervención" : "Esperando respuesta", p.id,
-      ]);
-    }
-  }
-  console.log(`mensajes_whatsapp: ${mensajesN}`);
+  // (Los hilos WhatsApp nacen con cada lead y cada presupuesto, arriba —
+  // no existe un bloque de mensajes aparte que pueda descorrelacionarse.)
 
   // ── PAGOS derivados de los presupuestos ACEPTADO ─────────────────────
   // Cada aceptado genera su pago: señal/parcial (lo común en dental) o
@@ -353,6 +557,26 @@ try {
   // el seed está descorrelacionado y NO debe darse por bueno.
   if (Number(aceptadoTot) - Number(cobradoTot) !== Number(pendiente)) {
     throw new Error(`Seed descorrelacionado: aceptado(${aceptadoTot}) − cobrado(${cobradoTot}) ≠ pendiente(${pendiente})`);
+  }
+
+  // Invariante dura de COHERENCIA CONVERSACIONAL (cierre estadoConversacion):
+  //   1) "Nuevo" = sin_conversacion puro: ni mensajes ni acciones.
+  //   2) Todo lead no-Nuevo y todo presupuesto tienen hilo real.
+  //   3) Los campos de card derivan del hilo: fecha_ultima_respuesta ==
+  //      último Entrante del hilo del presupuesto (nunca otra cosa).
+  // Si algo no cuadra, el seed NO se da por bueno (fail-closed).
+  const iNuevo = (await db.query(`select count(*)::int n from leads l where cliente='DEMO' and estado='Nuevo'
+    and (exists(select 1 from mensajes_whatsapp m where m.lead_id=l.id)
+      or exists(select 1 from acciones_lead a where a.lead_id=l.id))`)).rows[0].n;
+  const iNoNuevo = (await db.query(`select count(*)::int n from leads l where cliente='DEMO' and estado<>'Nuevo'
+    and not exists(select 1 from mensajes_whatsapp m where m.lead_id=l.id)`)).rows[0].n;
+  const iPres = (await db.query(`select count(*)::int n from presupuestos p where cliente='DEMO'
+    and not exists(select 1 from mensajes_whatsapp m where m.presupuesto_id=p.id)`)).rows[0].n;
+  const iFur = (await db.query(`select count(*)::int n from presupuestos p where cliente='DEMO'
+    and p.fecha_ultima_respuesta::timestamptz is distinct from (select max(m.timestamp) from mensajes_whatsapp m
+      where m.presupuesto_id=p.id and m.direccion='Entrante')`)).rows[0].n;
+  if (iNuevo || iNoNuevo || iPres || iFur) {
+    throw new Error(`Seed incoherente: nuevosConConversacion=${iNuevo} · noNuevosSinHilo=${iNoNuevo} · presupuestosSinHilo=${iPres} · fechaRespuestaDescorrelacionada=${iFur}`);
   }
 
   await db.query("commit");

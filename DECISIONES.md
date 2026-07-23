@@ -226,3 +226,13 @@ conversión 24%). TRIPLE candado de no-envío verificado (modo_test+paciente ine
 eventos procesado 15/15, modo_whatsapp=manual 4/4). `npm run demo:reset` apunta al script
 nuevo; el viejo demo-reset.ts (Airtable) queda deshabilitado con candado (PERMITIR_SEED_AIRTABLE=1
 para forzar). Idempotente y re-anclado a hoy en cada corrida.
+
+## 2026-07-23 — QA del fix de estados: el negocio manda y el seed no se puede descorrelacionar
+El QA de Simon sobre estadoConversacion destapó tres huecos: leads cerrados (No Interesado)
+aparecían en "Esperando respuesta" (la cola solo excluía convertidos → ahora `esLeadActivo`),
+leads sin conversación caían en textos de seguimiento (nueva rama `sin_conversacion` → "primer
+contacto"), y el seed de DEMO fabricaba las contradicciones: acciones sin hilo, intención sin
+mensaje, cards ("9 días sin contacto") contradiciendo hilos que terminaban hoy. El seed se
+reescribió para que cada caso nazca de UN guion del que derivan hilo Y campos de card, con
+invariante dura al final (Nuevo = sin conversación; todo lo demás con hilo; fecha_ultima_respuesta
+== último entrante) — resembrar re-ancla fechas sin poder descorrelacionarse.

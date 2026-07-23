@@ -185,38 +185,26 @@ async function main() {
     ok(`panel = ${panel2.estado}`, panel2.estado === "en_espera_paciente");
     ok("lista y panel COINCIDEN (antes el panel sin hilo decía otra cosa)", lista2.estado === panel2.estado);
 
-    // ── CASO 3 — reactivable (saliente hace 5 días) ──
-    console.log("\nCASO 3 · presupuesto: saliente hace 5 días sin respuesta → reactivable");
-    const hace5d = new Date(Date.now() - 5 * 24 * 3600_000).toISOString();
+    // ── CASO 3 — reactivable (saliente viejo sin respuesta, del propio seed) ──
+    // El seed coherente garantiza ≥1 reactivable por estado abierto (último
+    // saliente hace ≥4 días, sin respuesta): no hace falta fabricar nada —
+    // se verifica que cola y ficha coinciden sobre el caso REAL.
+    console.log("\nCASO 3 · presupuesto: saliente viejo sin respuesta → reactivable");
     const caso3 = abiertos.find((r: any) => {
       const h = ultimos0.porPresupuesto.get(r.id);
-      const acc = (r.fields as any)["Ultima_accion_registrada"];
+      const f = r.fields as any;
+      const acc = f["Ultima_accion_registrada"];
       const accReciente = acc && Date.now() - new Date(String(acc)).getTime() < UMBRAL_REACTIVACION_MS.presupuesto;
-      return r.id !== caso1.id && !h && !accReciente;
+      const salienteViejo =
+        h?.salienteAt &&
+        (!h.entranteAt || h.entranteAt < h.salienteAt) &&
+        Date.now() - new Date(h.salienteAt).getTime() >= UMBRAL_REACTIVACION_MS.presupuesto;
+      const furReciente =
+        f["Fecha_ultima_respuesta"] &&
+        Date.now() - new Date(String(f["Fecha_ultima_respuesta"])).getTime() < UMBRAL_REACTIVACION_MS.presupuesto;
+      return r.id !== caso1.id && salienteViejo && !accReciente && !furReciente;
     });
-    if (!caso3) throw new Error("No hay presupuesto sin hilo y sin acción reciente en DEMO");
-    await servicio.recibirMensaje({
-      // insertamos el SALIENTE viejo directamente con Timestamp retroactivo
-      presupuestoId: caso3.id,
-      telefono: String((caso3.fields as any)["Paciente_Telefono"] ?? ""),
-      contenido: "[QA_CONV] placeholder",
-      timestamp: hace5d,
-    });
-    // recibirMensaje inserta Entrante; lo convertimos en Saliente vía SQL para
-    // simular el envío antiguo (no hay API de backdate de salientes, correcto).
-    {
-      const url = process.env.SUPABASE_DB_URL_APP!;
-      const c = new pg.Client({ connectionString: url });
-      await c.connect();
-      await c.query("begin");
-      await c.query("select set_config('app.cliente','DEMO',true)");
-      await c.query(
-        "update mensajes_whatsapp set direccion='Saliente' where contenido='[QA_CONV] placeholder' and presupuesto_id=$1",
-        [caso3.id],
-      );
-      await c.query("commit");
-      await c.end();
-    }
+    if (!caso3) throw new Error("No hay presupuesto reactivable en DEMO — corre npm run demo:reset");
     const cola3 = await estadoSegunCola(caso3.id);
     const ficha3 = await estadoSegunFicha(caso3.id);
     ok(`cola = ${cola3.estado}`, cola3.estado === "reactivable");
