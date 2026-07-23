@@ -335,9 +335,16 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         });
         if (msg) {
           p.mensajeSugerido = msg;
-          // Save to Airtable in background
-          updatePresupuestoRaw(p.id, { Mensaje_sugerido: msg })
-            .catch(() => {});
+          // MEJORA nº 25 (2026-07-23): la escritura de la caché se ESPERA y
+          // se loguea. Fire-and-forget aquí significaba que en serverless la
+          // promesa podía morir tras responder → los mismos 5 casos se
+          // regeneraban en CADA refresh de 15 s (hasta ~1.200 llamadas
+          // IA/hora por pestaña abierta) sin ninguna señal.
+          try {
+            await updatePresupuestoRaw(p.id, { Mensaje_sugerido: msg });
+          } catch (e) {
+            console.error("[intervencion] no se pudo persistir Mensaje_sugerido de", p.id, e);
+          }
         }
       });
       await Promise.all(generaciones);

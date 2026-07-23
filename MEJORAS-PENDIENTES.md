@@ -369,7 +369,10 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Mejora:** mover la generación a una acción explícita o a un job (al crear el caso /
   al entrar en reactivable), y dejar el GET de solo lectura.
 - **Impacto:** medio (coste IA + latencia de la cola).
-- **Fecha:** 2026-07-23 · 🔵
+- **Fecha:** 2026-07-23 · 🟢 hecha (opción elegida: caché + invalidación. La escritura de la
+  caché se espera y se loguea — mata la regeneración infinita en serverless — y todo mensaje
+  entrante del paciente limpia Mensaje_sugerido en recibirMensaje, el cuello de botella por
+  el que pasan webhook, clasificar y registro manual)
 
 ## 26. La entrada a la cola de intervención sigue dependiendo de urgencia/fase persistidas
 - **Zona:** `app/api/presupuestos/intervencion/route.ts` (filterFormula: respuesta ≠ '' OR

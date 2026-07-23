@@ -117,7 +117,7 @@ async function main() {
     const ultimos0 = await ultimosMensajesPorConversacion();
     const abiertos = await selectPresupuestosRaw({
       filterByFormula: "AND({Estado}!='ACEPTADO',{Estado}!='PERDIDO')",
-      fields: ["Estado", "Paciente_Telefono", "Fase_seguimiento", "Ultima_accion_registrada", "Tipo_ultima_accion", "Fecha_ultima_respuesta"],
+      fields: ["Estado", "Paciente_Telefono", "Fase_seguimiento", "Ultima_accion_registrada", "Tipo_ultima_accion", "Fecha_ultima_respuesta", "Mensaje_sugerido"],
     });
     const caso1 = abiertos.find((r: any) => {
       const h = ultimos0.porPresupuesto.get(r.id);
@@ -129,6 +129,7 @@ async function main() {
       Ultima_accion_registrada: f1["Ultima_accion_registrada"] ?? null,
       Tipo_ultima_accion: f1["Tipo_ultima_accion"] ?? null,
       Fase_seguimiento: f1["Fase_seguimiento"] ?? null,
+      Mensaje_sugerido: f1["Mensaje_sugerido"] ?? null,
     };
     const now = new Date().toISOString();
     // Lo que hace la ruta registrar-respuesta con "Mensaje recibido" (la IA
@@ -152,6 +153,11 @@ async function main() {
     ok(`cola = ${cola1.estado}`, cola1.estado === "pendiente_responder");
     ok(`ficha = ${ficha1.estado}`, ficha1.estado === "pendiente_responder");
     ok("cola y ficha COINCIDEN", cola1.estado === ficha1.estado);
+    // MEJORA nº 25: el entrante debe INVALIDAR la caché de Mensaje_sugerido
+    // (la sugerencia vieja ya no encaja con el hilo).
+    const tras1 = await getPresupuestoPorIdRaw(caso1.id, ["Mensaje_sugerido"]);
+    const msgTras = (tras1?.fields as any)?.["Mensaje_sugerido"];
+    ok("Mensaje_sugerido invalidado por el entrante", !msgTras);
     await updatePresupuestoRaw(caso1.id, snapshot1 as any);
 
     // ── CASO 2 — lead con saliente solo en acciones ──

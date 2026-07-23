@@ -27,6 +27,21 @@ async function crearMensajeWhatsAppRecord(fields: Record<string, unknown>): Prom
   }
   return (await base(TABLES.mensajesWhatsApp as any).create(fields as any)) as any;
 }
+// MEJORA nº 25 (2026-07-23): un mensaje NUEVO del paciente invalida el
+// Mensaje_sugerido cacheado del presupuesto — esa sugerencia se generó para
+// una conversación que ya cambió. La siguiente carga de la cola regenera una
+// coherente con el hilo (y la clasificación IA, cuando corre, escribe la
+// suya). Escritura ESPERADA y logueada (mandamiento §9): si falla se ve en
+// logs, pero nunca rompe la recepción del mensaje.
+async function invalidarMensajeSugerido(presupuestoId?: string): Promise<void> {
+  if (!presupuestoId) return;
+  try {
+    const { updatePresupuestoRaw } = await import("./repo");
+    await updatePresupuestoRaw(presupuestoId, { Mensaje_sugerido: "" });
+  } catch (e) {
+    console.error("[mensajeria] no se pudo invalidar Mensaje_sugerido del presupuesto", presupuestoId, e);
+  }
+}
 async function selectMensajesRecords(opts: {
   filterByFormula?: string;
   sort?: Array<{ field: string; direction: "asc" | "desc" }>;
@@ -274,6 +289,7 @@ class ServicioMensajeriaManual implements ServicioMensajeria {
     if (params.wabaMessageId) fields.WABA_message_id = params.wabaMessageId;
 
     const record = await crearMensajeWhatsAppRecord(fields);
+    await invalidarMensajeSugerido(params.presupuestoId);
 
     return { ok: true, mensajeId: record.id as string };
   }
@@ -394,6 +410,7 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
     if (params.wabaMessageId) fields.WABA_message_id = params.wabaMessageId;
 
     const record = await crearMensajeWhatsAppRecord(fields);
+    await invalidarMensajeSugerido(params.presupuestoId);
 
     const clinica = await getClinicaForMensaje(params);
     actualizarTelemetriaWABA(clinica, "Ultimo_mensaje_recibido").catch(() => {});

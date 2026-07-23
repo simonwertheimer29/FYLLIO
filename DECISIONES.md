@@ -259,3 +259,11 @@ Ahora: dos pestañas que PARTICIONAN la cola por estadoConversacion (Actuar ahor
 + reactivable · Esperando = en_espera), cabecera y card compartidas con Leads (ActuarHoyHeader,
 AccionCard), orden por prioridad. Se eliminaron del payload `secciones` (ningún cliente las
 leía), `completadasHoy` y `casosCompletados`; la mejora nº 23 queda resuelta de rebote.
+
+## 2026-07-23 — Caché del mensaje sugerido: escritura esperada + invalidación por hilo
+El GET de la cola generaba mensajes IA y persistía la caché con fire-and-forget y el error
+tragado: en serverless la promesa puede morir tras responder → los mismos 5 casos se
+regenerarían en cada refresh de 15 s (~1.200 llamadas/hora) sin señal — el mismo patrón del
+webhook del Sprint A. Ahora la escritura se espera y se loguea, y todo entrante del paciente
+invalida Mensaje_sugerido en recibirMensaje (cuello de botella de webhook/clasificar/manual):
+la sugerencia de la card nunca puede referirse a una conversación que ya cambió.
