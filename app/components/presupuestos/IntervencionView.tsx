@@ -158,6 +158,10 @@ function IntervencionCard({
       body: JSON.stringify({
         presupuestoId: item.id,
         tipo: "WhatsApp enviado",
+        // El texto viaja al backend para que el saliente quede en el HILO
+        // (mensajes_whatsapp); antes se abría wa.me y el mensaje se perdía
+        // del historial de conversación.
+        mensaje: item.mensajeSugerido,
       }),
     }).then(() => onRefresh()).catch(() => {});
   }
@@ -393,6 +397,10 @@ function BulkSendModal({
       body: JSON.stringify({
         presupuestoId: item.id,
         tipo: "WhatsApp enviado",
+        // El texto viaja al backend para que el saliente quede en el HILO
+        // (mensajes_whatsapp); antes se abría wa.me y el mensaje se perdía
+        // del historial de conversación.
+        mensaje: item.mensajeSugerido,
       }),
     }).catch(() => {});
 

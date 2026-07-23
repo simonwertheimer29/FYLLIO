@@ -138,8 +138,24 @@ export default function IAGeneradorDrawer({
     }
   }
 
-  function handleEnviar(tono: TonoIA, msg: string) {
-    window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`, "_blank");
+  async function handleEnviar(tono: TonoIA, msg: string) {
+    // Camino central (enviar-manual): persiste el saliente en el HILO antes
+    // de abrir wa.me — antes el mensaje no quedaba en el historial.
+    let url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+    try {
+      const res = await fetch("/api/presupuestos/intervencion/enviar-manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ presupuestoId: p.id, telefono: cleanPhone, contenido: msg }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        if (d.urlWhatsApp) url = d.urlWhatsApp;
+      }
+    } catch {
+      /* el fallo del registro queda en el log del servidor */
+    }
+    window.open(url, "_blank");
     fetch("/api/presupuestos/contactos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

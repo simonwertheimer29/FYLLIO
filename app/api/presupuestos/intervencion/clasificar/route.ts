@@ -68,13 +68,27 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
       registradoPor: session.nombre || session.email,
     });
 
-    // Persistir mensaje entrante en Mensajes_WhatsApp (fire-and-forget)
-    const servicio = getServicioMensajeria("manual");
-    servicio.recibirMensaje({
-      presupuestoId,
-      telefono: "",
-      contenido: respuestaPaciente,
-    }).catch(() => {});
+    // Persistir mensaje entrante en Mensajes_WhatsApp — AWAITED y con el
+    // teléfono real del presupuesto (antes: fire-and-forget con telefono:"",
+    // fila inmatcheable o perdida en silencio; el hilo alimenta
+    // estadoConversacion).
+    try {
+      const telRec = await getPresupuestoPorIdRaw(presupuestoId, ["Paciente_Telefono", "Teléfono"]);
+      const telF = telRec ? (telRec.fields as any) : {};
+      const telefono = telF["Paciente_Telefono"]
+        ? String(telF["Paciente_Telefono"])
+        : Array.isArray(telF["Teléfono"])
+          ? String(telF["Teléfono"][0] ?? "")
+          : String(telF["Teléfono"] ?? "");
+      const servicio = getServicioMensajeria("manual");
+      await servicio.recibirMensaje({
+        presupuestoId,
+        telefono,
+        contenido: respuestaPaciente,
+      });
+    } catch (err) {
+      console.error("[intervencion/clasificar] fila del hilo NO persistida:", err);
+    }
 
     return NextResponse.json({ ok: true, clasificacion });
   } catch (err) {

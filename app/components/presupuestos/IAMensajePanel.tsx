@@ -72,7 +72,25 @@ export default function IAMensajePanel({
   async function handleWhatsApp() {
     if (!mensaje || !p.patientPhone) return;
     const cleanPhone = p.patientPhone.replace(/\D/g, "");
-    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(mensaje)}`;
+
+    // Camino central (enviar-manual): persiste el saliente en el HILO
+    // (mensajes_whatsapp) y devuelve la URL wa.me. Antes se abría wa.me a
+    // mano y el mensaje no quedaba en el historial de conversación.
+    let url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(mensaje)}`;
+    try {
+      const res = await fetch("/api/presupuestos/intervencion/enviar-manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ presupuestoId: p.id, telefono: cleanPhone, contenido: mensaje }),
+      });
+      if (res.ok) {
+        const d = await res.json();
+        if (d.urlWhatsApp) url = d.urlWhatsApp;
+      }
+    } catch {
+      // El envío manual no se bloquea por el registro; el fallo queda en el
+      // log del servidor.
+    }
     window.open(url, "_blank");
 
     // Registrar contacto como IA

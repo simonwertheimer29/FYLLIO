@@ -248,8 +248,8 @@ function CobroCard({
       const tel = String(j.telefono).replace(/\D/g, "");
       const body = encodeURIComponent(String(j.mensaje ?? ""));
       window.open(`https://wa.me/${tel}?text=${body}`, "_blank");
-      // Auto-marcar como contactado tras abrir WA.
-      await marcarContactado("whatsapp");
+      // Auto-marcar como contactado tras abrir WA (con el texto → hilo).
+      await marcarContactado("whatsapp", String(j.mensaje ?? ""));
     } catch (e) {
       setErr(e instanceof Error ? e.message : "No se pudo abrir WhatsApp");
       toast.error("No se pudo abrir WhatsApp");
@@ -258,7 +258,10 @@ function CobroCard({
     }
   }
 
-  async function marcarContactado(canal: "whatsapp" | "llamada" | "manual") {
+  async function marcarContactado(
+    canal: "whatsapp" | "llamada" | "manual",
+    mensaje?: string,
+  ) {
     setBusy("marcar");
     setErr(null);
     try {
@@ -267,7 +270,9 @@ function CobroCard({
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ canal }),
+          // mensaje: el texto del recordatorio, para que quede en el hilo
+          // del paciente (mensajes_whatsapp) y no solo en la nota de cobro.
+          body: JSON.stringify({ canal, ...(mensaje ? { mensaje } : {}) }),
         },
       );
       if (!res.ok) {

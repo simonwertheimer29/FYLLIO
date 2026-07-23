@@ -121,6 +121,26 @@ export const PATCH = withPresupuestosAuth(async (session, req) => {
       try {
         const rec = await findSecuenciaRaw(id);
         const f = (rec as any).fields as Record<string, unknown>;
+        // El saliente queda en el HILO (mensajes_whatsapp) vía el servicio
+        // central — antes el texto de la secuencia se abría en wa.me y no
+        // dejaba rastro en la conversación (estadoConversacion lo necesita).
+        const telefonoSec = String(f["telefono"] ?? "");
+        const contenidoSec = String(f["mensaje_generado"] ?? "");
+        if (contenidoSec) {
+          try {
+            const { getServicioMensajeria } = await import(
+              "../../../lib/presupuestos/mensajeria"
+            );
+            await getServicioMensajeria("manual").enviarMensaje({
+              presupuestoId: String(f["presupuesto_id"] ?? "") || undefined,
+              telefono: telefonoSec,
+              contenido: contenidoSec,
+              fuente: "Plantilla_automatica",
+            });
+          } catch (err) {
+            console.error("[secuencias PATCH] fila del hilo NO persistida:", err);
+          }
+        }
         await registrarAccion({
           presupuestoId: String(f["presupuesto_id"] ?? ""),
           tipo: "mensaje_automatico",

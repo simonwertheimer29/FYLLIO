@@ -706,9 +706,18 @@ function LeadCardBody({ lead }: { lead: Lead }) {
             </a>
             <a
               href={`https://wa.me/${lead.telefono.replace(/\D/g, "")}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                // Abrir el chat cuenta como acción saliente: sin este registro,
+                // estadoConversacion no sabría que la clínica tocó el caso.
+                fetch("/api/leads/intervencion/registrar-respuesta", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ leadId: lead.id, tipo: "WhatsApp enviado" }),
+                }).catch((err) => console.error("[LeadsView] registro saliente falló:", err));
+              }}
               target="_blank"
               rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
               className="flex-1 text-center rounded-md bg-[var(--fyllio-wa-green)] text-white text-[10px] font-medium py-1.5 hover:bg-[var(--fyllio-wa-green-hover)] transition-colors"
             >
               WhatsApp

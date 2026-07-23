@@ -168,31 +168,30 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
       }
     }
 
-    // Persistir en Mensajes_WhatsApp (fire-and-forget)
+    // Persistir en Mensajes_WhatsApp — AWAITED y con teléfono real: el hilo
+    // es la fuente de la clasificación de conversaciones (estadoConversacion);
+    // antes esto era fire-and-forget con catch vacío y el recibido iba con
+    // telefono:"" — filas perdidas o inmatcheables en silencio.
     const servicio = getServicioMensajeria("manual");
-    if (tipo === "WhatsApp enviado" && mensaje) {
-      // Obtener teléfono del presupuesto
+    if ((tipo === "WhatsApp enviado" || tipo === "Mensaje recibido") && mensaje) {
       const telRec0 = await getPresupuestoPorIdRaw(presupuestoId, ["Paciente_Telefono", "Teléfono"]);
-      const telRecs = telRec0 ? [telRec0] : [];
-      const telF = telRecs.length ? (telRecs[0].fields as any) : {};
+      const telF = telRec0 ? (telRec0.fields as any) : {};
       const telefono = telF["Paciente_Telefono"]
         ? String(telF["Paciente_Telefono"])
         : Array.isArray(telF["Teléfono"])
           ? String(telF["Teléfono"][0] ?? "")
           : String(telF["Teléfono"] ?? "");
-      if (telefono) {
-        servicio.enviarMensaje({
-          presupuestoId,
-          telefono,
-          contenido: mensaje,
-        }).catch(() => {});
+      try {
+        if (tipo === "WhatsApp enviado") {
+          await servicio.enviarMensaje({ presupuestoId, telefono, contenido: mensaje });
+        } else {
+          await servicio.recibirMensaje({ presupuestoId, telefono, contenido: mensaje });
+        }
+      } catch (err) {
+        // No tumba el registro principal (contacto+historial ya persistidos),
+        // pero jamás en silencio: sin esta fila el hilo queda incompleto.
+        console.error("[registrar-respuesta] fila del hilo NO persistida:", err);
       }
-    } else if (tipo === "Mensaje recibido" && mensaje) {
-      servicio.recibirMensaje({
-        presupuestoId,
-        telefono: "",
-        contenido: mensaje,
-      }).catch(() => {});
     }
 
     return NextResponse.json({ ok: true, clasificacion });

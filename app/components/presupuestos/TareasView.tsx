@@ -243,6 +243,15 @@ function ActionRow({ p, prob, onOpenDrawer, onQuickContact }: {
               href={`https://wa.me/${cleanPhone}`}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={() => {
+                // Abrir el chat = acción saliente registrada (alimenta
+                // estadoConversacion).
+                fetch("/api/presupuestos/intervencion/registrar-respuesta", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ presupuestoId: p.id, tipo: "WhatsApp enviado" }),
+                }).catch((e) => console.error("[TareasView] registro saliente falló:", e));
+              }}
               className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]"
             >
               <MessageCircle size={13} strokeWidth={ICON_STROKE} aria-hidden /> WhatsApp

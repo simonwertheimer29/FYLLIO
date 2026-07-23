@@ -459,9 +459,19 @@ export default function MaximaView({
                           </a>
                           <a
                             href={`https://wa.me/${p.patientPhone.replace(/\D/g, "")}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              // Abrir el chat = acción saliente registrada
+                              // (contacto + Ultima_accion; alimenta
+                              // estadoConversacion).
+                              fetch("/api/presupuestos/intervencion/registrar-respuesta", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ presupuestoId: p.id, tipo: "WhatsApp enviado" }),
+                              }).catch((err) => console.error("[MaximaView] registro saliente falló:", err));
+                            }}
                             target="_blank"
                             rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
                             className="rounded p-1 text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--fyllio-wa-green)]"
                             title="WhatsApp"
                             aria-label="Enviar WhatsApp"

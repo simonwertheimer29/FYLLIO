@@ -36,11 +36,28 @@ export const POST = withAuth<Ctx>(async (session, req, ctx) => {
   }
 
   const body = (await req.json().catch(() => null)) as
-    | { canal?: "whatsapp" | "llamada" | "manual"; nota?: string }
+    | { canal?: "whatsapp" | "llamada" | "manual"; nota?: string; mensaje?: string }
     | null;
   const canal = body?.canal ?? "manual";
   const nota = body?.nota ?? "";
   const detalles = `[Cobranza] Recordatorio de cobro · canal: ${canal}${nota ? ` · ${nota}` : ""}`;
+
+  // Recordatorio por WhatsApp → el texto queda en el HILO del paciente
+  // (mensajes_whatsapp); antes se abría wa.me y la conversación no lo veía.
+  if (canal === "whatsapp" && body?.mensaje && paciente.telefono) {
+    try {
+      const { getServicioMensajeria } = await import(
+        "../../../../lib/presupuestos/mensajeria"
+      );
+      await getServicioMensajeria("manual").enviarMensaje({
+        pacienteId: paciente.id,
+        telefono: paciente.telefono,
+        contenido: body.mensaje,
+      });
+    } catch (err) {
+      console.error("[marcar-contactado] fila del hilo NO persistida:", err);
+    }
+  }
 
   if (paciente.leadOrigenId) {
     await logAccionLead({
