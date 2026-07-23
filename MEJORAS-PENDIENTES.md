@@ -304,3 +304,38 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Mejora:** escribir el presupuesto primero y marcar el token después (o reintento).
 - **Impacto:** medio (raro pero caro: una aceptación real invisible para la clínica).
 - **Fecha:** 2026-07-23 · 🟢 hecha (2026-07-23, tras el OK del preview de los 4 arreglos)
+
+## 21. Reactivación de perdidos — el reloj de 90 días arranca en la fecha equivocada
+- **Zona:** `app/api/automatizaciones/procesar/route.ts:194,249-258` (evento
+  `reactivacion_programada`)
+- **Principio:** §1 misión / mandamiento §7 (dato equivocado)
+- **Problema:** "recordar reactivar en 90 días tras perderse" cuenta los días desde `Fecha`
+  (la fecha ORIGINAL del presupuesto), no desde que se marcó perdido. Un presupuesto antiguo
+  marcado hoy como reactivable dispara el recordatorio inmediatamente.
+- **Mejora:** contar desde la fecha de pérdida (o desde que se marcó el flag).
+- **Impacto:** medio — recordatorios de reactivación a destiempo.
+- **Fecha:** 2026-07-23 · 🔵
+
+## 22. Regla lead_inactivo mide inactividad con la fecha de alta, no con la actividad
+- **Zona:** `app/api/cron/automatizaciones-evaluar/route.ts:265+` (comentario lo admite:
+  proxy porque `Leads.Ultima_Accion` es texto, no fecha)
+- **Principio:** §3 anticipación / mandamiento §7
+- **Problema:** "lead inactivo N días" filtra por `createdAt`, así que un lead con actividad
+  reciente pero antiguo cuenta como inactivo, y uno recién creado sin tocar jamás no dispara
+  hasta cumplir N días de VIDA, no de silencio.
+- **Mejora:** derivar inactividad de la última acción real (`acciones_lead`), que en Postgres
+  ya es consultable con fecha.
+- **Impacto:** medio (latente — la vía WA es skeleton; importa cuando envíe de verdad, junto
+  con el nº 9).
+- **Fecha:** 2026-07-23 · 🔵
+
+## 23. Pestaña "Sin respuesta" de la cola no significa "sin respuesta"
+- **Zona:** `app/lib/presupuestos/colors.ts:142` (tab `sin_respuesta` = intenciones
+  `["Rechaza","Sin clasificar"]`)
+- **Principio:** §2 facilidad (nombre engañoso)
+- **Problema:** la coordinadora lee "Sin respuesta" y espera "pacientes que no han contestado";
+  el filtro en realidad agrupa por intención detectada (rechazos y no clasificados).
+- **Mejora:** renombrar la pestaña a lo que es (p. ej. "Rechazos / sin clasificar") o
+  cambiar el filtro al significado natural cuando exista el estado de conversación unificado.
+- **Impacto:** bajo-medio (confianza en los filtros).
+- **Fecha:** 2026-07-23 · 🔵
