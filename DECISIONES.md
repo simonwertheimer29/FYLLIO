@@ -267,3 +267,12 @@ regenerarían en cada refresh de 15 s (~1.200 llamadas/hora) sin señal — el m
 webhook del Sprint A. Ahora la escritura se espera y se loguea, y todo entrante del paciente
 invalida Mensaje_sugerido en recibirMensaje (cuello de botella de webhook/clasificar/manual):
 la sugerencia de la card nunca puede referirse a una conversación que ya cambió.
+
+## 2026-07-23 — Las cards de Actuar hoy informan; la acción vive en el panel
+Se quitaron los botones Llamar/WhatsApp de las cards de leads y presupuestos. Razón de
+producto: la acción debe pasar por LEER la conversación — un botón en la card invita a
+ejecutar sin criterio. La card da contexto, recomendación y prioridad, y toda ella abre el
+panel, donde el flujo es completo (hilo visible, mensaje precargado, registro, feedback).
+La auditoría del patrón confirmó el riesgo: el botón de leads abría wa.me SIN texto,
+mostraba "Enviado" y no dejaba nada en el hilo (solo la acción registrada); el de
+presupuestos sí pasaba por el hilo, pero saltándose la lectura igual.

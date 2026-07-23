@@ -88,84 +88,17 @@ function relEsperaShort(iso: string): string {
 function PresupuestoAccionRow({
   item,
   onOpenPanel,
-  onRefresh,
 }: {
   item: PresupuestoIntervencion;
   onOpenPanel: (p: PresupuestoIntervencion) => void;
-  onRefresh: () => void;
 }) {
-  const [waEnviado, setWaEnviado] = useState(false);
-  const [llamando, setLlamando] = useState(false);
-  const [respuestaInput, setRespuestaInput] = useState("");
-  const [clasificando, setClasificando] = useState(false);
-
-  // Estado derivado de datos: al enviar (waEnviado, optimista) o si al recargar
-  // sigue esperando respuesta (derivado), la card se atenúa y no re-ofrece envío.
+  // Decisión de producto (2026-07-23): la card INFORMA — contexto,
+  // recomendación, prioridad — y toda ella abre el panel, donde viven las
+  // acciones reales con su flujo completo (hilo visible, mensaje precargado,
+  // registro, feedback). Un botón de Llamar/WhatsApp aquí invitaba a
+  // ejecutar sin leer la conversación.
   const espera = esperaPresupuesto(item);
-  const esperandoRespuesta = waEnviado || espera.esperando;
-
-  const cleanPhone = (item.patientPhone ?? "").replace(/\D/g, "");
   const ub = item.urgenciaBidireccional;
-
-  async function handleEnviarWA() {
-    if (!cleanPhone || !item.mensajeSugerido) return;
-    try {
-      await navigator.clipboard.writeText(item.mensajeSugerido);
-    } catch { /* fallback: user can paste manually */ }
-    window.open(
-      `https://wa.me/${cleanPhone}?text=${encodeURIComponent(item.mensajeSugerido)}`,
-      "_blank"
-    );
-    setWaEnviado(true);
-    fetch("/api/presupuestos/intervencion/registrar-respuesta", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        presupuestoId: item.id,
-        tipo: "WhatsApp enviado",
-        // El texto viaja al backend para que el saliente quede en el HILO
-        // (mensajes_whatsapp); sin esto el mensaje se pierde del historial.
-        mensaje: item.mensajeSugerido,
-      }),
-    }).then(() => onRefresh()).catch(() => {});
-  }
-
-  async function handleLlamar(e: React.MouseEvent) {
-    e.stopPropagation();
-    window.open(`tel:${item.patientPhone}`, "_self");
-    setLlamando(true);
-    fetch("/api/presupuestos/intervencion/registrar-respuesta", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        presupuestoId: item.id,
-        tipo: "Llamada realizada",
-      }),
-    }).catch(() => {});
-  }
-
-  async function handleClasificarRespuesta() {
-    if (!respuestaInput.trim()) return;
-    setClasificando(true);
-    try {
-      await fetch("/api/presupuestos/intervencion/registrar-respuesta", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          presupuestoId: item.id,
-          tipo: "Mensaje recibido",
-          mensaje: respuestaInput.trim(),
-        }),
-      });
-      setRespuestaInput("");
-      setLlamando(false);
-      onRefresh();
-    } catch {
-      toast.error("No se pudo registrar la respuesta. Inténtalo de nuevo.");
-    } finally {
-      setClasificando(false);
-    }
-  }
 
   const tiempoResp = item.fechaUltimaRespuesta
     ? formatTimeAgo(item.fechaUltimaRespuesta)
@@ -186,28 +119,13 @@ function PresupuestoAccionRow({
       : undefined);
 
   const actions: React.ComponentProps<typeof AccionCard>["actions"] = [];
-  if (esperandoRespuesta) {
-    // Ya actuaste; la pelota es del paciente. No re-ofrecemos envío (evita
-    // doble toque); para insistir se entra a la ficha.
+  if (espera.esperando) {
     actions.push({
-      label: waEnviado
-        ? "WhatsApp enviado"
-        : `Esperando respuesta${espera.desdeISO ? ` · ${relEsperaShort(espera.desdeISO)}` : ""}`,
+      label: `Esperando respuesta${espera.desdeISO ? ` · ${relEsperaShort(espera.desdeISO)}` : ""}`,
       onClick: (e) => e.stopPropagation(),
       variant: "ghost",
       disabled: true,
     });
-  } else {
-    if (cleanPhone && item.mensajeSugerido) {
-      actions.push({
-        label: "Enviar WhatsApp",
-        onClick: (e) => { e.stopPropagation(); handleEnviarWA(); },
-        variant: "emerald",
-      });
-    }
-    if (cleanPhone) {
-      actions.push({ label: "Llamar", onClick: handleLlamar, variant: "ghost" });
-    }
   }
   actions.push({
     label: "Ver ficha →",
@@ -216,80 +134,44 @@ function PresupuestoAccionRow({
   });
 
   return (
-    <div>
-      <AccionCard
-        borderColor={scoreBorderHex(ub?.scoreFinal ?? 0)}
-        faded={esperandoRespuesta}
-        title={
-          <a
-            href={`/presupuestos/paciente/${encodeURIComponent(item.patientName)}`}
-            className="hover:text-[var(--color-accent)] hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {item.patientName}
-          </a>
-        }
-        titleRight={
-          <div className="flex items-center gap-2">
-            {item.amount != null && (
-              <span className="font-display text-sm font-bold text-[var(--color-foreground)] tabular-nums">
-                &euro;{item.amount.toLocaleString("es-ES")}
-              </span>
-            )}
-            {item.urgenciaIntervencion && (
-              <span
-                className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                  URGENCIA_INTERVENCION_COLOR[item.urgenciaIntervencion]
-                }`}
-              >
-                {item.urgenciaIntervencion}
-              </span>
-            )}
-          </div>
-        }
-        score={ub?.scoreFinal}
-        tags={item.treatments.map((t) => ({ label: t }))}
-        meta={meta}
-        quote={quote}
-        accionSugerida={esReactivable ? undefined : item.accionSugerida}
-        onOpen={() => onOpenPanel(item)}
-        actions={actions}
-      />
-      {/* Registro rápido de la respuesta tras una llamada */}
-      {llamando && (
-        <div className="mt-1" onClick={(e) => e.stopPropagation()}>
-          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-3">
-            <p className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-1">Respuesta del paciente</p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={respuestaInput}
-                onChange={(e) => setRespuestaInput(e.target.value)}
-                placeholder="Respuesta del paciente (opcional)"
-                className="flex-1 text-xs px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleClasificarRespuesta();
-                }}
-              />
-              <button
-                onClick={handleClasificarRespuesta}
-                disabled={!respuestaInput.trim() || clasificando}
-                className="text-xs font-semibold px-3 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
-              >
-                {clasificando ? "..." : "Clasificar"}
-              </button>
-              <button
-                onClick={() => setLlamando(false)}
-                className="text-xs px-2 py-2 rounded-lg text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
-                aria-label="Cerrar"
-              >
-                <X size={14} strokeWidth={ICON_STROKE} aria-hidden />
-              </button>
-            </div>
-          </div>
+    <AccionCard
+      borderColor={scoreBorderHex(ub?.scoreFinal ?? 0)}
+      faded={espera.esperando}
+      title={
+        <a
+          href={`/presupuestos/paciente/${encodeURIComponent(item.patientName)}`}
+          className="hover:text-[var(--color-accent)] hover:underline"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {item.patientName}
+        </a>
+      }
+      titleRight={
+        <div className="flex items-center gap-2">
+          {item.amount != null && (
+            <span className="font-display text-sm font-bold text-[var(--color-foreground)] tabular-nums">
+              &euro;{item.amount.toLocaleString("es-ES")}
+            </span>
+          )}
+          {item.urgenciaIntervencion && (
+            <span
+              className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
+                URGENCIA_INTERVENCION_COLOR[item.urgenciaIntervencion]
+              }`}
+            >
+              {item.urgenciaIntervencion}
+            </span>
+          )}
         </div>
-      )}
-    </div>
+      }
+      score={ub?.scoreFinal}
+      tags={item.treatments.map((t) => ({ label: t }))}
+      meta={meta}
+      quote={quote}
+      accionSugerida={esReactivable ? undefined : item.accionSugerida}
+      onOpen={() => onOpenPanel(item)}
+      actions={actions}
+    />
   );
 }
 
@@ -784,7 +666,6 @@ export default function IntervencionView({
             key={item.id}
             item={item}
             onOpenPanel={onOpenDrawer}
-            onRefresh={fetchData}
           />
         ))}
       </div>

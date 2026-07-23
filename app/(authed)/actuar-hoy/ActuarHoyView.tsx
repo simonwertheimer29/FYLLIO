@@ -379,12 +379,6 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
     return decorated.map((d) => d.l);
   }, [filteredLeads, ultimaSalientePorLead, ultimaEntrantePorLead]);
 
-  // Marca optimista al actuar: fija la última saliente = ahora para que la card
-  // pase a "esperando respuesta" al instante; fetchLeads reconcilia con datos.
-  const marcarActuado = useCallback((leadId: string) => {
-    setUltimaSalientePorLead((prev) => ({ ...prev, [leadId]: new Date().toISOString() }));
-  }, []);
-
   // Mutuamente excluyentes: Todos = Citados hoy + Sin contactar + Esperando.
   const tabs: Array<[LeadSubFilter, string, number]> = [
     ["todos", "Todos", allAccionables.length],
@@ -463,8 +457,6 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
               lead={l}
               onOpen={() => setDrawerLead(l)}
               onAsistencia={() => setAsistenciaLead(l)}
-              onChanged={onLeadChanged}
-              onActed={marcarActuado}
               ultimaSalientePorLead={ultimaSalientePorLead}
               ultimaEntrantePorLead={ultimaEntrantePorLead}
             />
@@ -612,17 +604,12 @@ function LeadAccionRow({
   lead,
   onOpen,
   onAsistencia,
-  onChanged,
-  onActed,
   ultimaSalientePorLead,
   ultimaEntrantePorLead,
 }: {
   lead: Lead;
   onOpen: () => void;
   onAsistencia: () => void;
-  onChanged: (l: Lead) => void;
-  // Marca optimista al actuar → la card pasa a "esperando respuesta" al instante.
-  onActed: (leadId: string) => void;
   // Maps para priorityForLead y para derivar "esperando respuesta".
   ultimaSalientePorLead?: Record<string, string>;
   ultimaEntrantePorLead?: Record<string, string>;
@@ -635,7 +622,6 @@ function LeadAccionRow({
     ultimaEntrantePorLead ?? {},
   );
 
-  const cleanPhone = (lead.telefono ?? "").replace(/\D/g, "");
   const ts = new Date(lead.createdAt).getTime();
   const diasDesde = Number.isFinite(ts)
     ? Math.floor((Date.now() - ts) / (1000 * 60 * 60 * 24))
@@ -655,38 +641,6 @@ function LeadAccionRow({
 
   const priority = priorityForLead(lead, ultimaSalientePorLead);
 
-  function llamar(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!cleanPhone) return;
-    window.open(`tel:${lead.telefono}`, "_self");
-    onActed(lead.id); // → esperando respuesta al instante
-    toast.success("Llamada registrada · esperando respuesta");
-    fetch("/api/leads/intervencion/registrar-respuesta", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ leadId: lead.id, tipo: "Llamada realizada" }),
-    })
-      .then((r) => r.json())
-      .then((d) => d?.lead && onChanged({ ...d.lead, clinicaNombre: lead.clinicaNombre }))
-      .catch(() => {});
-  }
-
-  function whatsapp(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (!cleanPhone) return;
-    window.open(`https://wa.me/${cleanPhone}`, "_blank");
-    onActed(lead.id); // → esperando respuesta al instante
-    toast.success("Enviado · esperando respuesta");
-    fetch("/api/leads/intervencion/registrar-respuesta", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ leadId: lead.id, tipo: "WhatsApp enviado" }),
-    })
-      .then((r) => r.json())
-      .then((d) => d?.lead && onChanged({ ...d.lead, clinicaNombre: lead.clinicaNombre }))
-      .catch(() => {});
-  }
-
   const tags = [];
   if (lead.tratamiento) tags.push({ label: lead.tratamiento, tone: "neutral" as const });
   if (lead.canal) tags.push({ label: lead.canal, tone: "neutral" as const });
@@ -703,10 +657,13 @@ function LeadAccionRow({
     .filter(Boolean)
     .join(" · ");
 
+  // Decisión de producto (2026-07-23): la card INFORMA, no ejecuta. Llamar y
+  // WhatsApp viven solo en el panel, donde la acción pasa por leer el hilo
+  // (mensaje precargado, registro, feedback). Un botón en la card invitaba a
+  // ejecutar sin criterio — el de leads además abría wa.me SIN texto y decía
+  // "Enviado" sin dejar nada en el hilo.
   const actions: React.ComponentProps<typeof AccionCard>["actions"] = [];
   if (espera.esperando) {
-    // Ya actué; la pelota está en el paciente. No re-ofrecemos "enviar/llamar"
-    // (evita doble envío); si quiere insistir, entra a la ficha.
     actions.push({
       label: espera.desdeISO
         ? `Esperando respuesta · ${relTimeShort(espera.desdeISO)}`
@@ -715,9 +672,6 @@ function LeadAccionRow({
       variant: "ghost",
       disabled: true,
     });
-  } else if (cleanPhone) {
-    actions.push({ label: "Enviar WA", onClick: whatsapp, variant: "emerald" });
-    actions.push({ label: "Llamar", onClick: llamar, variant: "ghost" });
   }
   if (isCitadoHoy && !lead.convertido) {
     actions.push({
