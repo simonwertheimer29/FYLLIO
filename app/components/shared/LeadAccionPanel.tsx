@@ -176,6 +176,20 @@ function situacionLead(
     };
   }
 
+  // Sin conversación (ni mensajes ni acción registrada): NUNCA "esperando" —
+  // no hay a quién esperar. El contexto honesto es primer contacto pendiente,
+  // diga lo que diga el estado del embudo. Excepción: con cita futura, el
+  // contexto de cita (más abajo) es más útil que "escríbele".
+  if (conv.estado === "sin_conversacion" && !(lead.fechaCita && lead.fechaCita > today)) {
+    return {
+      prioridad: diasPipeline >= 2 ? "alta" : "media",
+      quePasa: `Aún no se le ha escrito${canal}: no hay conversación registrada.`,
+      recomendacion: "Haz el primer contacto",
+      primaria: "escribir",
+      citadoHoy,
+    };
+  }
+
   const sinSaliente12h =
     salMs == null
       ? lead.whatsappEnviados === 0 && !lead.llamado
