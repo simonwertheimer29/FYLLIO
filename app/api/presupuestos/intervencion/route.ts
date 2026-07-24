@@ -23,20 +23,9 @@ import type {
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
 import { ultimosMensajesPorConversacion } from "../../../lib/presupuestos/mensajeria";
-import {
-  estadoConversacion,
-  UMBRAL_REACTIVACION_MS,
-} from "../../../lib/presupuestos/estado-conversacion";
+import { conversacionDePresupuesto } from "../../../lib/presupuestos/conversacion-presupuesto";
 
 export const dynamic = "force-dynamic";
-
-// Acciones registradas que cuentan como toque SALIENTE de la clínica
-// (complemento del hilo para llamadas y aperturas de chat sin texto).
-const TIPOS_ACCION_SALIENTE = new Set<string>([
-  "WhatsApp enviado",
-  "Llamada realizada",
-  "Sin respuesta tras llamada",
-]);
 
 const ZONE = "Europe/Madrid";
 
@@ -288,25 +277,12 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       p.urgencyScore = computeUrgencyScore(p);
       p.urgenciaBidireccional = computeUrgenciaBidireccional(p);
 
-      // UNA clasificación para todas las pantallas: último mensaje del hilo,
-      // complementado con la respuesta/acción registradas (llamadas y datos
-      // previos al hilo). El cliente ya no recalcula su propio criterio.
-      const hilo = ultimos.porPresupuesto.get(r.id);
-      const accionSaliente =
-        ultimaAccionRegistrada && tipoUltimaAccion && TIPOS_ACCION_SALIENTE.has(tipoUltimaAccion)
-          ? ultimaAccionRegistrada
-          : null;
-      const entranteComplemento =
-        !hilo?.entranteAt || (fechaUltimaRespuesta && fechaUltimaRespuesta > hilo.entranteAt)
-          ? (fechaUltimaRespuesta ?? null)
-          : null;
-      p.conversacion = estadoConversacion(
-        {
-          ultimoEntranteAt: entranteComplemento ?? hilo?.entranteAt ?? null,
-          ultimoSalienteAt: hilo?.salienteAt ?? null,
-          ultimaAccionSalienteAt: accionSaliente,
-        },
-        UMBRAL_REACTIVACION_MS.presupuesto,
+      // UNA clasificación para todas las pantallas (helper compartido con el
+      // dashboard de Red): último mensaje del hilo, complementado con la
+      // respuesta/acción registradas. El cliente no recalcula su criterio.
+      p.conversacion = conversacionDePresupuesto(
+        { fechaUltimaRespuesta, ultimaAccionRegistrada, tipoUltimaAccion },
+        ultimos.porPresupuesto.get(r.id),
       );
       return p;
     });

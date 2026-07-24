@@ -19,12 +19,13 @@ import { listPacientes } from "../../lib/pacientes/pacientes";
 import { ultimaCobranzaPorLead } from "../../lib/leads/acciones";
 import { base, TABLES, fetchAll } from "../../lib/airtable";
 import { listAllOpciones } from "../../lib/configuraciones/configuraciones";
+import { calcularCobrosPorPaciente, type UrgenciaCobro } from "../../lib/cobros";
 
 export const dynamic = "force-dynamic";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-type Urgencia = "vencido" | "por_vencer" | "estancado" | "normal";
+type Urgencia = UrgenciaCobro;
 
 type ColaItem = {
   pacienteId: string;
@@ -92,49 +93,15 @@ export const GET = withAuth(async (session, req) => {
     } catch { /* noop */ }
   }
 
-  // Plazos por clinica (config) con fallback global.
-  const plazoPorClinica = new Map<string | null, number>();
-  for (const o of opciones) {
-    if (o.categoria !== "Plazos_Liquidacion" || !o.activo) continue;
-    const n = Number(o.valor);
-    if (!Number.isFinite(n) || n <= 0) continue;
-    if (!plazoPorClinica.has(o.clinicaId)) plazoPorClinica.set(o.clinicaId, n);
-  }
-  const plazoGlobal = plazoPorClinica.get(null) ?? 90;
-  const plazoFor = (cid: string | null) =>
-    cid && plazoPorClinica.has(cid) ? plazoPorClinica.get(cid)! : plazoGlobal;
-
-  // Pagos por paciente.
-  const pagadoPorPac = new Map<string, number>();
-  const pagosCountPorPac = new Map<string, number>();
-  const tieneLiquidacionPac = new Set<string>();
-  for (const pago of pagosRecs) {
-    const pid = pago.pacienteRecordId;
-    if (!pid) continue;
-    pagadoPorPac.set(pid, (pagadoPorPac.get(pid) ?? 0) + pago.importe);
-    pagosCountPorPac.set(pid, (pagosCountPorPac.get(pid) ?? 0) + 1);
-    if (pago.tipo === "Liquidacion") tieneLiquidacionPac.add(pid);
-  }
-
-  // Presupuestos: Fecha_Aceptado + importe firmado por paciente.
-  const fechaAceptadoMinPorPac = new Map<string, string>();
-  const importeFirmadoPorPac = new Map<string, number>();
-  for (const r of presupRecs) {
-    const f = r.fields as any;
-    if (String(f["Estado"] ?? "") !== "ACEPTADO") continue;
-    const links = (f["Paciente"] ?? []) as string[];
-    const pid = links[0];
-    if (!pid) continue;
-    const fecha = String(f["Fecha_Aceptado"] ?? f["FechaAlta"] ?? "").slice(0, 10);
-    if (fecha) {
-      const prev = fechaAceptadoMinPorPac.get(pid);
-      if (!prev || fecha < prev) fechaAceptadoMinPorPac.set(pid, fecha);
-    }
-    importeFirmadoPorPac.set(
-      pid,
-      (importeFirmadoPorPac.get(pid) ?? 0) + (Number(f["Importe"] ?? 0) || 0),
-    );
-  }
+  // Derivación PURA compartida con el dashboard de Red (lib/cobros):
+  // firmado/pendiente/urgencia salen de presupuestos+pagos reales — ya no se
+  // prefieren las cachés del paciente (presupuesto_total/aceptado, MEJORAS 28).
+  const base = calcularCobrosPorPaciente({
+    pacientes,
+    presupuestos: presupRecs as any,
+    pagos: pagosRecs,
+    opciones,
+  });
 
   // Última acción de cobranza por paciente ('[Cobranza]' en Detalles,
   // escrito por marcar-contactado y agendar_llamada_cobranza). La query
@@ -154,72 +121,17 @@ export const GET = withAuth(async (session, req) => {
   }
 
   const today = Date.now();
+  const pacientePorId = new Map(pacientes.map((p) => [p.id, p]));
 
-  // ── Construir items ─────────────────────────────────────────────
+  // ── Construir items (capa de presentación sobre la derivación pura) ──
   const items: ColaItem[] = [];
-  for (const p of pacientes) {
-    const tienePresupAceptado = fechaAceptadoMinPorPac.has(p.id);
-    const flagAceptado = p.aceptado === "Si";
-    if (!tienePresupAceptado && !flagAceptado) continue;
-    const presupuestoFirmado =
-      typeof p.presupuestoTotal === "number"
-        ? p.presupuestoTotal
-        : importeFirmadoPorPac.get(p.id) ?? 0;
-    if (presupuestoFirmado <= 0) continue;
-    const pagado = pagadoPorPac.get(p.id) ?? 0;
-    const pendiente = Math.max(0, presupuestoFirmado - pagado);
-    if (pendiente <= 0) continue; // sin pendiente, no entra en cola.
-
-    const fechaAceptado =
-      fechaAceptadoMinPorPac.get(p.id) ?? p.createdAt.slice(0, 10) ?? null;
-    const aceptadoMs = fechaAceptado
-      ? new Date(fechaAceptado).getTime()
-      : null;
-    const plazoDias = plazoFor(p.clinicaId);
-    const diasDesdeAceptacion = aceptadoMs
-      ? Math.max(0, Math.floor((today - aceptadoMs) / DAY_MS))
-      : null;
-
-    let diasVencido: number | null = null;
-    let diasParaVencer: number | null = null;
-    let urgencia: Urgencia = "normal";
-    if (aceptadoMs) {
-      const venceMs = aceptadoMs + plazoDias * DAY_MS;
-      if (venceMs < today) {
-        diasVencido = Math.floor((today - venceMs) / DAY_MS);
-      } else {
-        diasParaVencer = Math.floor((venceMs - today) / DAY_MS);
-      }
-    }
-    const tieneLiquidacion = tieneLiquidacionPac.has(p.id);
-    const tieneAlgunPago = (pagosCountPorPac.get(p.id) ?? 0) > 0;
-
-    if (
-      diasVencido != null &&
-      diasVencido > 7 &&
-      !tieneLiquidacion
-    ) {
-      urgencia = "vencido";
-    } else if (
-      diasParaVencer != null &&
-      diasParaVencer <= 7 &&
-      !tieneLiquidacion
-    ) {
-      urgencia = "por_vencer";
-    } else if (
-      presupuestoFirmado > 2000 &&
-      diasDesdeAceptacion != null &&
-      diasDesdeAceptacion > 30 &&
-      !tieneAlgunPago
-    ) {
-      urgencia = "estancado";
-    }
-
+  for (const b of base) {
+    const p = pacientePorId.get(b.pacienteId);
+    if (!p) continue;
     const ultima = ultimaContactoPorPac.get(p.id) ?? null;
     const diasDesdeUltimaContacto = ultima
       ? Math.max(0, Math.floor((today - new Date(ultima).getTime()) / DAY_MS))
       : null;
-
     items.push({
       pacienteId: p.id,
       nombre: p.nombre,
@@ -228,16 +140,16 @@ export const GET = withAuth(async (session, req) => {
       clinicaNombre: p.clinicaId ? clinicaNombrePorId.get(p.clinicaId) ?? null : null,
       doctorLinkId: p.doctorLinkId,
       doctorNombre: p.doctorLinkId ? doctorNombres.get(p.doctorLinkId) ?? null : null,
-      presupuestoFirmado,
-      pagado,
-      pendiente,
-      fechaAceptado,
-      diasDesdeAceptacion,
-      plazoDias,
-      diasVencido,
-      diasParaVencer,
-      urgencia,
-      numPagos: pagosCountPorPac.get(p.id) ?? 0,
+      presupuestoFirmado: b.firmado,
+      pagado: b.pagado,
+      pendiente: b.pendiente,
+      fechaAceptado: b.fechaAceptado,
+      diasDesdeAceptacion: b.diasDesdeAceptacion,
+      plazoDias: b.plazoDias,
+      diasVencido: b.diasVencido,
+      diasParaVencer: b.diasParaVencer,
+      urgencia: b.urgencia,
+      numPagos: b.numPagos,
       ultimaContactoCobranzaISO: ultima,
       diasDesdeUltimaContacto,
     });
