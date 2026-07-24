@@ -448,10 +448,15 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   cientos de leads/presupuestos/pagos coherentes con las invariantes existentes; medir
   tiempos de /api/red/dashboard y las colas con ese volumen.
 - **Impacto:** medio (realismo de demo + test de rendimiento).
-- **Fecha:** 2026-07-23 · 🔵 (pedida por Simon en la revisión del dashboard; se hará aparte)
-- **Nota (2026-07-24, módulo Cobros):** el seed actual deja la Zona "Actuar" de /cobros casi
-  vacía — 1 vencido, 0 por vencer, 0 estancados. El seed de volumen debería incluir cobros
-  en los tres buckets para que la demo enseñe el módulo trabajando.
+- **Fecha:** 2026-07-23 · 🟢 hecha (2026-07-24, aprobada por Simon): capa de VOLUMEN dentro
+  de `demo:reset` — +120 pacientes, +230 leads (serie mensual 34/41/37/46/52/58 con estados
+  realistas), +76 presupuestos (todos los estados), +46 pagos que pueblan los TRES buckets
+  de Cobros (8 vencidos · 6 por vencer · 5 estancados), +2.806 citas (agenda laborable casi
+  llena 6 meses con ~9% no-shows) y +886 mensajes de hilo coherentes. Determinista (LCG) y
+  anclada al mes de calendario (correr demo:reset el día 1 no rompe la serie). Invariantes
+  duras NUEVAS: buckets poblados + serie mensual sin meses muertos (leads/aceptados/cobrado);
+  las 6 existentes cubren el volumen por construcción. Paridad SQL=API=dashboard exacta con
+  volumen (46.665/12.725/23.561 €). Rendimiento: ver medición en DECISIONES 2026-07-24.
 
 ## 32. Plantilla de liquidación — {{importe}} dice el total firmado, no lo pendiente
 - **Zona:** `app/lib/plantillas/plantillas.ts` (variables de render) + plantilla canónica
@@ -499,3 +504,16 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   como hacen Actuar hoy y el dashboard; mientras tanto, nada.
 - **Impacto:** bajo (solo dev local sin flags PG).
 - **Fecha:** 2026-07-24 · ⚪ (documentada, sin acción salvo vuelta a Airtable)
+
+## 35. Rutas de negocio: cada llamada a repo paga su propio viaje a la base
+- **Zona:** transversal PG — `runWithClienteDb` por llamada (begin + set_config + query +
+  commit) y conexión por request; visible en /api/cobros (~3,3 s) y /api/red/dashboard
+  (~2,6 s) medidos en local contra Supabase remoto (RTT 182 ms)
+- **Principio:** eficiencia — el primer test de rendimiento real (seed de volumen, nº 31)
+  mostró que el coste NO es el volumen (agregar ~3.500 filas en memoria es despreciable y
+  el tiempo no se movió al pasar el registro de 17 a 68 filas): son los round-trips.
+- **Mejora:** agrupar las lecturas de una request en una sola transacción/conexión (o al
+  menos paralelizar las que hoy van en serie: staff, última cobranza, etc.).
+- **Impacto:** bajo en producción (Vercel misma región, RTT 1-5 ms → decenas de ms), medio
+  como higiene: cualquier despliegue con la DB lejos lo notará multiplicado.
+- **Fecha:** 2026-07-24 · 🔵

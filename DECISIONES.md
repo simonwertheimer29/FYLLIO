@@ -318,3 +318,15 @@ finanzasDePaciente — la misma lib que la ficha y /cobros, sin cálculo propio 
 plantillas que RECLAMAN (liquidación, primer pago) la usan; la señal mantiene {{importe}}
 porque confirma el presupuesto antes de ningún pago. Regla: la cifra que se le pide a un
 paciente sale siempre de la derivación compartida del dinero.
+
+## 2026-07-24 — Seed de volumen (nº 31): la demo cuenta 6 meses de red y revienta si descorrelaciona
+demo:reset pasa de ~245 filas a ~3.900: 6 meses de leads/presupuestos/pagos con forma mensual
+real (dip de junio incluido), agenda laborable casi llena y los tres buckets de Cobros
+poblados. Decisiones: capa de volumen DETERMINISTA (LCG, cero Math.random) y ANCLADA al mes
+de calendario — resembrar el día 1 no puede vaciar la serie —, integrada en las mismas
+estructuras del seed narrativo para que el backfill financiero y las invariantes la cubran;
+invariantes nuevas fail-closed (buckets ≥5/≥4/≥3, ningún mes muerto). El primer wipe con
+historial_acciones poblado destapó un bug latente de orden FK en la lista WIPE (borraba
+presupuestos antes que su historial). Primer test de rendimiento real: dashboard ~2,6 s y
+cobros ~3,3 s en local contra Supabase (RTT 182 ms/query) con CPU despreciable — el coste es
+round-trips, no filas (nº 35); en Vercel misma región queda en decenas de ms.

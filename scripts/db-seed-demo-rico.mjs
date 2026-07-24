@@ -59,11 +59,13 @@ const tel = () => `+34 6${String(10 + (SEQ++ % 89)).padStart(2, "0")} ${String(1
 
 try {
   // ── WIPE transaccional (orden FK-seguro; identidad y catálogo intactos) ──
+  // historial_acciones ANTES que presupuestos: su FK bloquea el borrado del
+  // presupuesto referenciado (bug latente destapado el primer wipe con filas).
   const WIPE = ["acciones_pago", "inconsistencias_pagos", "acciones_automatizacion", "secuencias_automaticas",
     "eventos_sistema", "contactos_presupuesto", "cola_envios", "mensajes_whatsapp", "llamadas_vapi",
-    "lista_espera", "citas", "presupuestos", "pagos_paciente", "acciones_lead", "notificaciones",
-    "alertas_enviadas", "conversaciones_copilot", "informes_guardados", "configuraciones_clinica",
-    "configuracion_recordatorios", "configuracion_waba", "push_subscriptions", "historial_acciones",
+    "lista_espera", "historial_acciones", "citas", "presupuestos", "pagos_paciente", "acciones_lead",
+    "notificaciones", "alertas_enviadas", "conversaciones_copilot", "informes_guardados", "configuraciones_clinica",
+    "configuracion_recordatorios", "configuracion_waba", "push_subscriptions",
     "objetivos_mensuales", "reglas_automatizacion", "configuracion_automatizaciones", "doctores_presupuestos",
     "usuarios_presupuestos", "plantillas_mensaje", "plantillas_lead", "leads", "pacientes"];
   let borradas = 0;
@@ -585,6 +587,340 @@ try {
   }
   console.log(`pagos_paciente: ${pagosN} (+ acciones)`);
 
+  // ════════════════════════════════════════════════════════════════════
+  // CAPA DE VOLUMEN (MEJORAS nº 31, 2026-07-24) — la red de 4 clínicas con
+  // 6 meses de historia: cientos de leads con forma mensual creíble,
+  // decenas de presupuestos por clínica, pagos que pueblan los TRES buckets
+  // de Cobros y agenda casi llena. Reglas:
+  //   · Determinista (LCG, cero Math.random): resembrar re-ancla idéntico.
+  //   · Se integra en las MISMAS estructuras del seed narrativo (pacientes,
+  //     presupuestos, pagadoPorPaciente) → el backfill financiero y TODAS
+  //     las invariantes duras del final cubren también el volumen.
+  //   · El volumen histórico llega CERRADO (Convertido/No Interesado,
+  //     ACEPTADO/PERDIDO): las colas de hoy las gobierna el seed narrativo,
+  //     que es quien cuida la coherencia conversacional fina.
+  //   · Los presupuestos de volumen usan SOLO pacientes de volumen: el
+  //     dinero curado de los pacientes narrativos (Clara Rey, etc.) no se toca.
+  // ════════════════════════════════════════════════════════════════════
+  {
+    // RNG determinista (LCG) — jitter reproducible.
+    let rngS = 42;
+    const rnd = () => ((rngS = (rngS * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+    const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+    const jit = (base, spread) => base + Math.floor(rnd() * (2 * spread + 1)) - spread;
+
+    // insert por lotes (~2.800 citas y ~900 mensajes no van fila a fila).
+    async function insMany(tabla, rows) {
+      const ids = [];
+      if (!rows.length) return ids;
+      const cols = ["cliente", ...Object.keys(rows[0])];
+      for (let i = 0; i < rows.length; i += 200) {
+        const chunk = rows.slice(i, i + 200);
+        const vals = []; const ph = [];
+        chunk.forEach((row, r) => {
+          const rowVals = ["DEMO", ...cols.slice(1).map((c) => row[c] ?? null)];
+          ph.push(`(${rowVals.map((_, c) => `$${vals.length + c + 1}`).join(",")})`);
+          vals.push(...rowVals);
+        });
+        const res = await db.query(
+          `insert into ${tabla} (${cols.join(",")}) values ${ph.join(",")} returning id`, vals);
+        for (const r of res.rows) ids.push(r.id);
+      }
+      return ids;
+    }
+
+    const VCLIS = [CENTRO, CENTRO, CENTRO, NORTE, NORTE, SUR, SUR, ESTE]; // Centro flagship
+    const dOffISO = (dias, h = 10, m = 0) => dPlus(-dias, h, m).toISOString();
+    const iso10 = (d) => d.toISOString().slice(0, 10);
+    const enHora = (d, h, m = 0) => { const x = new Date(d); x.setHours(h, m, 0, 0); return x.toISOString(); };
+    const diasAntes = (d, n) => { const x = new Date(d); x.setDate(x.getDate() - n); return x; };
+    // Fecha ANCLADA al mes de calendario `mesesAtras` (día con jitter). Para
+    // el mes actual se acota a [1, hoy]: la invariante de serie mensual no
+    // puede romperse por correr demo:reset el día 1 del mes.
+    const mesDia = (mesesAtras, h = 10) => {
+      const x = new Date(HOY);
+      x.setDate(1); x.setMonth(x.getMonth() - mesesAtras);
+      const tope = mesesAtras === 0 ? Math.max(1, HOY.getDate() - 2) : 27;
+      x.setDate(1 + Math.floor(rnd() * tope));
+      x.setHours(h, 0, 0, 0);
+      return x;
+    };
+    // Ningún timestamp del volumen puede quedar en el futuro (borde: reset a
+    // primera hora en los días 1-2 del mes).
+    const nowIso = new Date().toISOString();
+    const tsSafe = (iso) => (iso > nowIso ? hAgo(1) : iso);
+    const clampGuion = (guion) => { for (const g of guion) g.ts = tsSafe(g.ts); return guion; };
+
+    // nombres únicos generados (no chocan con los narrativos)
+    const PILA = ["Aitana", "Bruno", "Candela", "Darío", "Estela", "Fabio", "Gemma", "Héctor", "Inés", "Jon",
+      "Leire", "Manel", "Nadia", "Otto", "Perla", "Quique", "Rocco", "Salma", "Telmo", "Uxía", "Valeria",
+      "Wenceslao", "Ximena", "Yago", "Zaira", "Abril", "Biel", "Carla", "Dídac", "Elsa", "Ferran", "Gala"];
+    const APE = ["Alarcón", "Bustos", "Cifuentes", "Dueñas", "Escudero", "Fajardo", "Garrido", "Hidalgo",
+      "Izquierdo", "Jurado", "Lozano", "Maldonado", "Noguera", "Olmedo", "Peñalver", "Quirós", "Riquelme",
+      "Saavedra", "Tordesillas", "Urrutia", "Valbuena", "Zabala", "Arenas", "Barrios", "Cordero", "Dávila"];
+    const usados = new Set(pacientes.map((p) => p.nombre));
+    let nomSeq = 0;
+    const nombreNuevo = () => {
+      for (;;) {
+        const n = `${PILA[nomSeq % PILA.length]} ${APE[Math.floor(nomSeq / PILA.length + nomSeq) % APE.length]}`;
+        nomSeq++;
+        if (!usados.has(n)) { usados.add(n); return n; }
+      }
+    };
+
+    // ── PACIENTES de volumen (pool para presupuestos, citas y conversiones) ──
+    const NUM_PAC_VOL = 120;
+    const pacVolRows = [];
+    for (let i = 0; i < NUM_PAC_VOL; i++) {
+      const cid = VCLIS[i % VCLIS.length];
+      const nombre = nombreNuevo();
+      const alta = mesDia(5 - Math.floor(i / (NUM_PAC_VOL / 6)), 9); // repartidos en 6 meses
+      pacVolRows.push({
+        nombre, telefono: tel(), email: `${nombre.toLowerCase().replace(/[^a-z]/g, ".")}@email.com`,
+        clinica_id: cid, doctor_id: docEn(cid).id, canal_origen: CANALES[i % CANALES.length],
+        canal_preferido: i % 3 === 0 ? "Llamada" : "WhatsApp", consentimiento_whatsapp: true,
+        edad: 20 + (i * 7 % 58), activo: true, created_at: alta.toISOString(),
+      });
+    }
+    const pacVolIds = await insMany("pacientes", pacVolRows);
+    const pacsVol = pacVolIds.map((id, i) => ({
+      id, nombre: pacVolRows[i].nombre, cid: pacVolRows[i].clinica_id, tel: pacVolRows[i].telefono,
+    }));
+    pacientes.push(...pacsVol); // ← entran en el backfill financiero y el report
+    let pacVolIdx = 0;
+    const pacVolNext = () => pacsVol[pacVolIdx++ % pacsVol.length];
+
+    // ── LEADS de volumen: forma mensual creíble, histórico CERRADO ───────
+    // Por mes (5 atrás → mes actual): variación real, no rampa.
+    const LEADS_MES = [34, 41, 37, 46, 52, 20];
+    const CONV_SHARE = [0.29, 0.32, 0.27, 0.33, 0.30, 0.30];
+    const leadRows = []; const leadMeta = [];
+    for (let m = 0; m < LEADS_MES.length; m++) {
+      const mesesAtras = 5 - m;
+      const n = LEADS_MES[m];
+      const nConvMes = Math.round(n * CONV_SHARE[m]);
+      // Mes actual: además de cerrados, entran NUEVOS sin llamar (la realidad
+      // de una red con captación viva; el resto de estados vivos los pone el
+      // seed narrativo con su coherencia fina).
+      const nNuevos = mesesAtras === 0 ? 8 : 0;
+      for (let k = 0; k < n; k++) {
+        const cid = VCLIS[(m * 7 + k) % VCLIS.length];
+        const estado = k < nNuevos ? "Nuevo" : k < nNuevos + nConvMes ? "Convertido" : "No Interesado";
+        const trat = TRATS_INT[(m + k) % TRATS_INT.length];
+        // Creado ANCLADO a su mes de calendario; la conversación concluye
+        // 1-2 días después (mensajes fuera del mes no rompen nada).
+        const creado = mesDia(mesesAtras, 9);
+        const conv = estado === "Convertido";
+        const pacConv = conv ? pacVolNext() : null;
+        const nombre = conv ? pacConv.nombre : nombreNuevo();
+        const telL = conv ? pacConv.tel : tel();
+        const motivoNo = estado === "No Interesado" ? MOTIVOS_NO[(m + k) % MOTIVOS_NO.length] : null;
+        let cierre = new Date(creado); cierre.setDate(cierre.getDate() + 1);
+        if (cierre > new Date()) cierre = creado; // hoy: se cierra en el día (10h→11h→12h)
+        const guion = estado === "Nuevo" ? [] : [
+          { dir: "Saliente", ts: enHora(creado, 10), txt: `Hola ${nombre.split(" ")[0]}, soy del equipo de la clínica 😊 Nos dejaste tus datos interesándote por ${trat.toLowerCase()}. ¿Hablamos por aquí?` },
+          conv
+            ? { dir: "Entrante", ts: enHora(cierre, 11), txt: "Sí, me interesa. ¿Cuándo puedo ir?", intn: "Interesado" }
+            : { dir: "Entrante", ts: enHora(cierre, 11), txt: RECHAZO_LEAD[motivoNo], intn: "No interesado" },
+          conv
+            ? { dir: "Saliente", ts: enHora(cierre, 12), txt: `¡Hecho, ${nombre.split(" ")[0]}! Ya tienes tu ficha con nosotros; seguimos por aquí para lo que necesites.` }
+            : { dir: "Saliente", ts: enHora(cierre, 12), txt: "Entendido, gracias por avisar 😊 Aquí nos tienes si cambias de idea." },
+        ];
+        clampGuion(guion);
+        const lastEnt = guion.find((x) => x.dir === "Entrante") ?? null;
+        leadRows.push({
+          nombre, telefono: telL, tratamiento_interes: trat, canal_captacion: CANALES[(m + k) % CANALES.length],
+          estado, clinica_id: cid, doctor_asignado_id: docEn(cid).id, tipo_visita: "Primera visita",
+          llamado: false, whatsapp_enviados: guion.filter((x) => x.dir === "Saliente").length,
+          motivo_no_interes: motivoNo, intencion_detectada: lastEnt?.intn ?? null,
+          convertido_a_paciente: conv, paciente_id: conv ? pacConv.id : null,
+          ultima_accion: guion.length ? "WhatsApp_Saliente" : null,
+          created_at: creado.toISOString(),
+        });
+        leadMeta.push({ guion, telefono: telL });
+      }
+    }
+    const leadVolIds = await insMany("leads", leadRows);
+    const msgVolRows = []; const accVolRows = [];
+    leadVolIds.forEach((lid, i) => {
+      const { guion, telefono } = leadMeta[i];
+      const lastSal = [...guion].reverse().find((x) => x.dir === "Saliente");
+      if (lastSal) accVolRows.push({ lead_id: lid, tipo_accion: "WhatsApp_Saliente", resumen: "WhatsApp enviado", timestamp: lastSal.ts, detalles: "Mensaje enviado desde el panel." });
+      // Claves homogéneas: insMany toma las columnas de la PRIMERA fila del
+      // lote — todos los mensajes llevan los tres vínculos (con null).
+      for (const g of guion) msgVolRows.push({
+        lead_id: lid, paciente_id: null, presupuesto_id: null,
+        telefono, direccion: g.dir, contenido: g.txt, timestamp: g.ts,
+        fuente: "Modo_A_manual", procesado_por_ia: g.dir === "Entrante", intencion_detectada: g.intn ?? null,
+      });
+    });
+    await insMany("acciones_lead", accVolRows);
+
+    // ── PRESUPUESTOS de volumen ──────────────────────────────────────────
+    // Especiales de Cobros (offsets exactos en días, plazo global 90):
+    //   VENCIDO   → aceptado hace >97d con señal parcial sin liquidación
+    //   POR_VENCER→ aceptado hace 83-89d con señal parcial
+    //   ESTANCADO → aceptado hace 35-70d, >2.000€ y CERO pagos
+    // Más liquidados por mes (serie de cobrado con forma), perdidos por mes
+    // (con historial: el dashboard deriva la fecha de pérdida de ahí) y unos
+    // pocos abiertos recientes.
+    // Cada especial lleva su fecha `base`: los de bucket con OFFSET EXACTO
+    // en días (la regla de vencimiento es relativa a hoy); los de serie
+    // mensual ANCLADOS al mes de calendario (la serie no depende del día en
+    // que se corra demo:reset).
+    const espec = [];
+    const IMP_VENC = [2400, 3100, 1800, 4200, 2700, 3600, 2100];
+    IMP_VENC.forEach((imp, i) => espec.push({ tipo: "vencido", base: dPlus(-(100 + i * 9)), importe: imp, pct: [0.4, 0.35, 0.5, 0.45, 0.3, 0.4, 0.5][i] }));
+    const IMP_PV = [1600, 3400, 950, 2800, 1900, 3200];
+    IMP_PV.forEach((imp, i) => espec.push({ tipo: "por_vencer", base: dPlus(-(83 + i)), importe: imp, pct: i % 2 ? 0.5 : 0.4 }));
+    const IMP_EST = [2600, 3800, 2200, 4800, 3100];
+    IMP_EST.forEach((imp, i) => espec.push({ tipo: "estancado", base: dPlus(-[36, 45, 52, 60, 68][i]), importe: imp, pct: 0 }));
+    // Liquidados mismo mes — la serie mensual de cobrado (forma con dips).
+    const LIQ_MES = [[5, 2080], [6, 2300], [4, 2225], [7, 2314], [5, 2220], [3, 2333]]; // [n, importe medio] m5→m0
+    LIQ_MES.forEach(([n, media], m) => {
+      for (let k = 0; k < n; k++) espec.push({ tipo: "liquidado", base: mesDia(5 - m), importe: jit(media, 900), pct: 1 });
+    });
+    // Señales recientes normales (ni vencidas ni estancadas).
+    [1450, 2050, 980].forEach((imp, i) => espec.push({ tipo: "parcial_reciente", base: dPlus(-(6 + i * 4)), importe: imp, pct: 0.5 }));
+    // Perdidos por mes (con motivo + historial).
+    const PERD_MES = [3, 4, 3, 5, 4, 2];
+    PERD_MES.forEach((n, m) => {
+      for (let k = 0; k < n; k++) espec.push({ tipo: "perdido", base: mesDia(5 - m), importe: jit(1500, 800) });
+    });
+    // Abiertos recientes (en espera <48h — no ensucian "pendiente_responder").
+    [1200, 2600, 800, 1750].forEach((imp, i) => espec.push({ tipo: "abierto", base: dPlus(-1), importe: imp, horas: 8 + i * 7 }));
+
+    // Motivos de pérdida del volumen: SOLO los que tienen frase de rechazo
+    // (el hilo y el motivo registrado no pueden contradecirse).
+    const MOTIVOS_PERD_VOL = ["Precio", "Se fue a otra clínica", "Cambió de opinión"];
+    const presVolRows = []; const presVolMeta = [];
+    for (const e of espec) {
+      const pac = pacVolNext();
+      const primer = pac.nombre.split(" ")[0];
+      const [tnom] = TRAT_PRES[(presVolRows.length * 3) % TRAT_PRES.length];
+      const tratLow = tnom.toLowerCase();
+      const impTxt = `${e.importe.toLocaleString("es-ES")}€`;
+      const abierto = e.tipo === "abierto";
+      const perdido = e.tipo === "perdido";
+      const aceptado = !abierto && !perdido;
+      const fechaAceptado = aceptado ? iso10(e.base) : null;
+      const alta = diasAntes(e.base, 2);
+      const motivoPerd = perdido ? MOTIVOS_PERD_VOL[presVolRows.length % MOTIVOS_PERD_VOL.length] : null;
+      const guion = abierto
+        ? [{ dir: "Saliente", ts: hAgo(e.horas), txt: `Hola ${primer}, aquí tienes el presupuesto de ${tratLow} (${impTxt}). Cualquier duda me preguntas 😊` }]
+        : perdido
+          ? [
+              { dir: "Saliente", ts: enHora(diasAntes(e.base, 1), 10), txt: `Hola ${primer}, ¿qué te pareció el presupuesto de ${tratLow} (${impTxt})?` },
+              { dir: "Entrante", ts: enHora(e.base, 12), txt: RECHAZO_PRES[motivoPerd], intn: "Rechaza" },
+              { dir: "Saliente", ts: enHora(e.base, 13), txt: "Entendido, gracias por decírnoslo. Si en algún momento quieres retomarlo, aquí nos tienes 😊" },
+            ]
+          : [
+              { dir: "Saliente", ts: enHora(alta, 10), txt: `Hola ${primer}, ¿has podido pensar sobre el presupuesto de ${tratLow} (${impTxt})?` },
+              { dir: "Entrante", ts: enHora(e.base, 11), txt: "Sí, lo hemos decidido: ¡adelante! ¿Cómo lo hacemos?", intn: "Acepta sin condiciones" },
+              { dir: "Saliente", ts: enHora(e.base, 12), txt: `¡Enhorabuena, ${primer}! 🎉 Te llamamos hoy para cerrar la primera cita y el pago. Bienvenido/a.` },
+            ];
+      clampGuion(guion);
+      const lastEnt = [...guion].reverse().find((x) => x.dir === "Entrante") ?? null;
+      const lastMsg = guion[guion.length - 1];
+      const salientes = guion.filter((x) => x.dir === "Saliente");
+      presVolRows.push({
+        paciente_id: pac.id, clinica_id: pac.cid, tratamiento_nombre: tnom,
+        estado: abierto ? "PRESENTADO" : perdido ? "PERDIDO" : "ACEPTADO",
+        importe: e.importe, fecha_alta: iso10(alta), fecha: iso10(alta),
+        fecha_aceptado: fechaAceptado, doctor: docEn(pac.cid).nombre,
+        tipo_paciente: "Nuevo", tipo_visita: "Primera visita", paciente_telefono: pac.tel,
+        contact_count: salientes.length,
+        motivo_perdida: motivoPerd, motivo_perdida_texto: perdido ? lastEnt?.txt ?? null : null,
+        fase_seguimiento: abierto ? "Esperando respuesta" : "Cerrado",
+        ultima_accion_registrada: lastMsg.ts, ultimo_contacto: lastMsg.ts.slice(0, 10),
+        tipo_ultima_accion: lastMsg.dir === "Saliente" ? "WhatsApp enviado" : "Mensaje recibido",
+        fecha_ultima_respuesta: lastEnt?.ts ?? null,
+        ultima_respuesta_paciente: lastEnt?.txt ?? null,
+        intencion_detectada: lastEnt?.intn ?? null,
+        urgencia_intervencion: abierto ? "BAJO" : "NINGUNO",
+        accion_sugerida: abierto ? "Enviar recordatorio si no responde" : null,
+      });
+      presVolMeta.push({ e, pac, guion, fechaAceptado });
+    }
+    const presVolIds = await insMany("presupuestos", presVolRows);
+    const histVolRows = []; const contVolRows = []; const pagoVolRows = []; const pagoVolMeta = [];
+    presVolIds.forEach((pid, i) => {
+      const { e, pac, guion, fechaAceptado } = presVolMeta[i];
+      presupuestos.push({ id: pid, estado: presVolRows[i].estado, importe: e.importe, pac, fechaAceptado, guion });
+      for (const g of guion) msgVolRows.push({
+        lead_id: null, paciente_id: pac.id, presupuesto_id: pid, telefono: pac.tel, direccion: g.dir,
+        contenido: g.txt, timestamp: g.ts, fuente: "Modo_A_manual",
+        procesado_por_ia: g.dir === "Entrante", intencion_detectada: g.intn ?? null,
+      });
+      for (const g of guion.filter((x) => x.dir === "Saliente")) contVolRows.push({
+        presupuesto_id: pid, tipo_contacto: "WhatsApp", resultado: "Enviado", fecha_hora: g.ts,
+        nota: "Mensaje del hilo de WhatsApp.", registrado_por: "Coordinación", mensaje_ia_usado: true, tono_usado: "cercano",
+      });
+      if (presVolRows[i].estado === "PERDIDO") histVolRows.push({
+        presupuesto_id: pid, tipo: "cambio_estado", descripcion: "Estado cambiado a PERDIDO",
+        metadata: JSON.stringify({ estadoNuevo: "PERDIDO" }), registrado_por: "Coordinación",
+        fecha: tsSafe(enHora(e.base, 14)),
+      });
+      // Pagos: liquidación completa, señal parcial (vencidos/por vencer) o
+      // NADA (estancados — esa ausencia es lo que los define).
+      if (presVolRows[i].estado === "ACEPTADO" && e.pct > 0) {
+        const importe = Math.round(e.importe * e.pct);
+        pagoVolRows.push({
+          paciente_id: pac.id, importe, fecha_pago: fechaAceptado,
+          metodo: ["Tarjeta", "Efectivo", "Transferencia", "Financiación"][i % 4],
+          tipo: e.pct < 1 ? "Senal" : "Liquidacion",
+          resumen: `Pago de ${pac.nombre}`,
+          nota: e.pct < 1 ? "Señal al aceptar el presupuesto; resto pendiente." : "Liquidación completa al aceptar.",
+        });
+        pagoVolMeta.push({ pacId: pac.id, importe, fechaAceptado, nombre: pac.nombre });
+      }
+    });
+    await insMany("mensajes_whatsapp", msgVolRows);
+    await insMany("contactos_presupuesto", contVolRows);
+    await insMany("historial_acciones", histVolRows);
+    const pagoVolIds = await insMany("pagos_paciente", pagoVolRows);
+    await insMany("acciones_pago", pagoVolIds.map((pid, i) => ({
+      pago_id: pid, tipo: "Crear", fecha: `${pagoVolMeta[i].fechaAceptado}T10:00:00.000Z`,
+      importe_antes: null, importe_despues: pagoVolMeta[i].importe,
+      resumen: `Alta de pago · ${pagoVolMeta[i].nombre}`, nota_cambio: "Registrado por coordinación.",
+    })));
+    for (const pm of pagoVolMeta) pagadoPorPaciente.set(pm.pacId, (pagadoPorPaciente.get(pm.pacId) ?? 0) + pm.importe);
+
+    // ── AGENDA: ~6 meses casi llenos + próximas 2 semanas ────────────────
+    // Días laborables; carga diaria por clínica con jitter (y algún día flojo).
+    const CARGA = new Map([[CENTRO, 7], [NORTE, 5], [SUR, 5], [ESTE, 4]]);
+    const citaVolRows = [];
+    for (let off = -182; off <= 10; off++) {
+      const d = dPlus(off);
+      const dow = d.getDay();
+      if (dow === 0 || dow === 6) continue; // fin de semana
+      for (const cid of [CENTRO, NORTE, SUR, ESTE]) {
+        const flojo = rnd() < 0.06; // un ~6% de días flojos (vacaciones, festivo local)
+        const n = Math.max(1, flojo ? 2 : jit(CARGA.get(cid), 1));
+        for (let k = 0; k < n; k++) {
+          const pac = pacientes[Math.floor(rnd() * pacientes.length)];
+          const trat = tratamientos[Math.floor(rnd() * tratamientos.length)];
+          const pasada = off < 0;
+          const r = rnd();
+          const estado = !pasada
+            ? (r < 0.6 ? "Confirmada" : "Programada")
+            : r < 0.87 ? "Completado" : "Cancelado";
+          const noShow = pasada && estado === "Cancelado" && r < 0.845 + 0.087; // ~2/3 de las canceladas son no-show
+          const h = 9 + (k % 9); const m30 = rnd() < 0.5 ? 0 : 30;
+          citaVolRows.push({
+            nombre: pac.nombre, hora_inicio: dPlus(off, h, m30).toISOString(),
+            hora_final: dPlus(off, h, m30 + 30).toISOString(), estado,
+            notas: noShow ? "[NO_SHOW] no se presentó" : null, origen: "Coordinación",
+            paciente_id: pac.id, tratamiento_id: trat.id, profesional_id: docEn(cid).id,
+            sillon_id: silEn(cid).id, clinica_id: cid, created_at: dPlus(Math.min(off - 3, -1), 9).toISOString(),
+          });
+        }
+      }
+    }
+    await insMany("citas", citaVolRows);
+    console.log(`VOLUMEN: +${pacsVol.length} pacientes · +${leadVolIds.length} leads · +${presVolIds.length} presupuestos · +${pagoVolIds.length} pagos · +${citaVolRows.length} citas · +${msgVolRows.length} mensajes`);
+  }
+
   // ── BACKFILL financiero del paciente (cache derivada, una sola verdad) ──
   // presupuesto_total = Σ ACEPTADO · pagado = Σ pagos · pendiente = resta ·
   // aceptado = derivado de los estados reales (Si / Pendiente / No / null).
@@ -709,6 +1045,54 @@ try {
   if (iNuevo || iNoNuevo || iPres || iFur || iPerd) {
     throw new Error(`Seed incoherente: nuevosConConversacion=${iNuevo} · noNuevosSinHilo=${iNoNuevo} · presupuestosSinHilo=${iPres} · fechaRespuestaDescorrelacionada=${iFur} · perdidosSinHistorial=${iPerd}`);
   }
+
+  // Invariantes duras de VOLUMEN (MEJORAS nº 31):
+  //   A) Los TRES buckets de Cobros están poblados — misma regla que
+  //      lib/cobros (plazo global 90; vencido >7d sin liquidación;
+  //      por vencer ≤7d; estancado >2.000€, >30d y cero pagos).
+  //   B) La serie mensual no tiene huecos: cada uno de los últimos 6 meses
+  //      tiene aceptados, pagos y leads (la historia no puede tener meses
+  //      muertos). Si algo descorrelaciona, el seed revienta.
+  const agg = (await db.query(`
+    with f as (select paciente_id, sum(importe) firmado,
+                      min(coalesce(fecha_aceptado, fecha_alta)) fmin
+               from presupuestos where cliente='DEMO' and estado='ACEPTADO' and paciente_id is not null
+               group by paciente_id),
+         pg as (select paciente_id, coalesce(sum(importe),0) pagado, count(*) n,
+                       bool_or(tipo='Liquidacion') liq
+                from pagos_paciente where cliente='DEMO' group by paciente_id)
+    select f.paciente_id, f.firmado, (current_date - f.fmin::date) dias,
+           coalesce(pg.pagado,0) pagado, coalesce(pg.n,0) npagos, coalesce(pg.liq,false) liq
+    from f left join pg on pg.paciente_id = f.paciente_id`)).rows;
+  let bVenc = 0, bPorVencer = 0, bEstanc = 0;
+  for (const r of agg) {
+    const pend = Math.max(0, Number(r.firmado) - Number(r.pagado));
+    if (pend <= 0) continue;
+    const dias = Number(r.dias);
+    if (dias - 90 > 7 && !r.liq) bVenc++;
+    else if (dias >= 83 && dias <= 90 && !r.liq) bPorVencer++;
+    else if (Number(r.firmado) > 2000 && dias > 30 && Number(r.npagos) === 0) bEstanc++;
+  }
+  if (bVenc < 5 || bPorVencer < 4 || bEstanc < 3) {
+    throw new Error(`Buckets de Cobros mal poblados: vencidos=${bVenc} (≥5) · porVencer=${bPorVencer} (≥4) · estancados=${bEstanc} (≥3)`);
+  }
+  const serie = (await db.query(`
+    select to_char(d.mes, 'YYYY-MM') mes,
+      (select count(*) from presupuestos where cliente='DEMO' and estado='ACEPTADO'
+        and to_char(fecha_aceptado::date, 'YYYY-MM') = to_char(d.mes, 'YYYY-MM')) aceptados,
+      (select coalesce(sum(importe),0) from pagos_paciente where cliente='DEMO'
+        and to_char(fecha_pago, 'YYYY-MM') = to_char(d.mes, 'YYYY-MM')) cobrado,
+      (select count(*) from leads where cliente='DEMO'
+        and to_char(created_at, 'YYYY-MM') = to_char(d.mes, 'YYYY-MM')) leads
+    from generate_series(date_trunc('month', current_date) - interval '5 months',
+                         date_trunc('month', current_date), interval '1 month') d(mes)
+    order by 1`)).rows;
+  const mesesMalos = serie.filter((s) => Number(s.aceptados) < 1 || Number(s.cobrado) <= 0 || Number(s.leads) < 5);
+  if (mesesMalos.length) {
+    throw new Error(`Serie mensual con huecos: ${mesesMalos.map((s) => `${s.mes}(acept=${s.aceptados},cobrado=${s.cobrado},leads=${s.leads})`).join(" · ")}`);
+  }
+  console.log("  serie 6 meses:", serie.map((s) => `${s.mes}: ${s.leads}L/${s.aceptados}A/${Number(s.cobrado).toLocaleString("es")}€`).join(" · "));
+  console.log(`  buckets Cobros: vencidos=${bVenc} · por vencer=${bPorVencer} · estancados=${bEstanc}`);
 
   await db.query("commit");
   console.log("\n✓ SEED RICO commit.");
