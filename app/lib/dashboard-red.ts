@@ -41,7 +41,10 @@ export type RiesgoItem = {
   n: number;
   /** Σ € en juego (null para conteos sin importe). */
   importe: number | null;
-  label: string;
+  /** Titular de 3-5 palabras: el QUÉ en lenguaje de negocio, sin jerga. */
+  titulo: string;
+  /** Línea de detalle: el contexto completo (de qué, por qué importa). */
+  detalle: string;
   href: string;
 };
 
@@ -51,7 +54,10 @@ export type RiesgoItem = {
 export type ExitoItem = {
   tipo: "conversion" | "aceptado_semana" | "mejor_clinica" | "mejor_tratamiento";
   dato: string;
-  label: string;
+  /** Titular de 3-5 palabras. */
+  titulo: string;
+  /** Línea de detalle con el contexto. */
+  detalle: string;
 };
 
 export type ClinicaFila = {
@@ -235,7 +241,8 @@ export async function calcularDashboardRed(opts: {
       tipo: "reactivables",
       n: reactivablesN,
       importe: reactivablesImporte,
-      label: `está${reactivablesN === 1 ? "" : "n"} parado${s(reactivablesN)} en ${reactivablesN} presupuesto${s(reactivablesN)} a los que se escribió, no respondieron y nadie ha vuelto a insistir.`,
+      titulo: "Presupuestos sin seguimiento",
+      detalle: `Se escribió a ${reactivablesN} paciente${s(reactivablesN)}, no respondieron y nadie ha vuelto a insistir.`,
       href: "/actuar-hoy?vista=presupuestos",
     });
   }
@@ -244,7 +251,8 @@ export async function calcularDashboardRed(opts: {
       tipo: "vencidos",
       n: vencidosN,
       importe: vencidosImporte,
-      label: `siguen sin cobrarse a ${vencidosN} paciente${s(vencidosN)} que ya superó${vencidosN === 1 ? "" : "aron"} su plazo de pago.`,
+      titulo: "Cobros fuera de plazo",
+      detalle: `${vencidosN} paciente${s(vencidosN)} superó${vencidosN === 1 ? "" : "aron"} su plazo de pago y sigue${s(vencidosN)} sin pagar.`,
       href: "/pacientes?tab=cobros&urgencia=vencido",
     });
   }
@@ -253,7 +261,8 @@ export async function calcularDashboardRed(opts: {
       tipo: "cierre_sin_accion",
       n: cierreN,
       importe: cierreImporte,
-      label: `de ${cierreN} paciente${s(cierreN)} que ya ${cierreN === 1 ? "dijo que quiere aceptar y espera" : "dijeron que quieren aceptar y esperan"} tu respuesta para cerrar.`,
+      titulo: "Cierres esperando tu respuesta",
+      detalle: `${cierreN} paciente${s(cierreN)} ya ${cierreN === 1 ? "dijo que quiere aceptar y espera" : "dijeron que quieren aceptar y esperan"} respuesta para cerrar.`,
       href: "/actuar-hoy?vista=presupuestos",
     });
   }
@@ -262,7 +271,8 @@ export async function calcularDashboardRed(opts: {
       tipo: "sin_contacto",
       n: sinContactoN,
       importe: null,
-      label: `lead${s(sinContactoN)} nuevo${s(sinContactoN)} que todavía no ${sinContactoN === 1 ? "ha" : "han"} recibido ni un mensaje ni una llamada.`,
+      titulo: "Leads sin primer contacto",
+      detalle: `${sinContactoN} lead${s(sinContactoN)} nuevo${s(sinContactoN)} todavía no ${sinContactoN === 1 ? "ha" : "han"} recibido ni un mensaje ni una llamada.`,
       href: "/actuar-hoy?vista=leads&filtro=sin-contactar",
     });
   }
@@ -321,7 +331,8 @@ export async function calcularDashboardRed(opts: {
     exitos.push({
       tipo: "conversion",
       dato: `${convAct}%`,
-      label: `de los presupuestos presentados este mes acabaron aceptados — el mes pasado fue el ${convPrev}%.`,
+      titulo: "La conversión sube",
+      detalle: `El ${convAct}% de los presupuestos presentados este mes acabó aceptado; el mes pasado fue el ${convPrev}%.`,
     });
   }
   // Semana actual (7 días) vs anterior (7-14), sobre fecha_aceptado.
@@ -342,10 +353,11 @@ export async function calcularDashboardRed(opts: {
     exitos.push({
       tipo: "aceptado_semana",
       dato: eurTxt(semana),
-      label:
+      titulo: "Semana fuerte de firmas",
+      detalle:
         semanaPrev > 0
-          ? `en presupuestos aceptados esta semana, ${eurTxt(semana - semanaPrev)} más que la semana anterior.`
-          : `en presupuestos aceptados esta semana; la semana anterior no se firmó ninguno.`,
+          ? `Presupuestos aceptados esta semana, ${eurTxt(semana - semanaPrev)} más que la anterior.`
+          : `Presupuestos aceptados esta semana; la anterior no se firmó ninguno.`,
     });
   }
   // Mejor clínica de la semana (solo con red multi-clínica y con dato real).
@@ -362,7 +374,8 @@ export async function calcularDashboardRed(opts: {
       exitos.push({
         tipo: "mejor_clinica",
         dato: eurTxt(mejor[1]),
-        label: `firmó ${nombre} esta semana — la clínica que más presupuesto aceptado consiguió de la red.`,
+        titulo: `${nombre} lidera la semana`,
+        detalle: "Es la clínica con más presupuesto aceptado de toda la red esta semana.",
       });
     }
   }
@@ -379,7 +392,8 @@ export async function calcularDashboardRed(opts: {
       exitos.push({
         tipo: "mejor_tratamiento",
         dato: eurTxt(mejor[1]),
-        label: `se firmaron en ${mejor[0]} esta semana — el tratamiento que más dinero aceptado sumó.`,
+        titulo: `${mejor[0]} tira del mes`,
+        detalle: "Es el tratamiento que más dinero aceptado sumó esta semana.",
       });
     }
   }

@@ -225,8 +225,8 @@ export function RedView({ user: _user }: { user: UserSession }) {
             type="button"
             onClick={() => {
               const resumen = [
-                `Riesgo hoy: ${hoy.riesgo.map((r) => `${r.importe != null ? eur(r.importe) + " en " : r.n + " "}${r.label}`).join(" · ") || "nada"}`,
-                `Funcionando: ${hoy.exitos.map((e) => `${e.dato} ${e.label}`).join(" · ") || "sin cambios destacables"}`,
+                `Riesgo hoy: ${hoy.riesgo.map((r) => `${r.titulo}: ${r.importe != null ? eur(r.importe) + " — " : ""}${r.detalle}`).join(" · ") || "nada"}`,
+                `Funcionando: ${hoy.exitos.map((e) => `${e.titulo} (${e.dato}) — ${e.detalle}`).join(" · ") || "sin cambios destacables"}`,
                 `Aceptado mes: ${eur(negocio.presupuestos.aceptadosImporteMes.valor)} (prev ${eur(negocio.presupuestos.aceptadosImporteMes.previo)})`,
                 `Cobrado mes: ${eur(negocio.cobros.cobradoMes.valor)} · pendiente ${eur(negocio.cobros.pendiente)} · vencido ${eur(negocio.cobros.vencido)}`,
                 `Conversión presupuestos: ${conv.pct ?? "—"}% (prev ${conv.pctPrevio ?? "—"}%)`,
@@ -272,7 +272,9 @@ export function RedView({ user: _user }: { user: UserSession }) {
                           <p className="font-display text-2xl font-bold tabular-nums text-[var(--color-foreground)]">
                             {r.importe != null ? eur(r.importe) : r.n}
                           </p>
-                          <p className="text-xs text-[var(--color-muted)] mt-0.5">{r.label}</p>
+                          {/* Dos niveles: titular (el qué) + detalle (contexto). */}
+                          <p className="text-sm font-medium text-[var(--color-foreground)] mt-0.5">{r.titulo}</p>
+                          <p className="text-xs text-[var(--color-muted)] mt-0.5">{r.detalle}</p>
                         </div>
                         <ChevronRight
                           size={16}
@@ -305,7 +307,8 @@ export function RedView({ user: _user }: { user: UserSession }) {
                         className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5"
                       >
                         <p className="font-display text-2xl font-bold tabular-nums text-[var(--color-foreground)]">{e.dato}</p>
-                        <p className="text-xs text-[var(--color-muted)] mt-0.5">{e.label}</p>
+                        <p className="text-sm font-medium text-[var(--color-foreground)] mt-0.5">{e.titulo}</p>
+                        <p className="text-xs text-[var(--color-muted)] mt-0.5">{e.detalle}</p>
                       </div>
                     ))}
                   </div>
