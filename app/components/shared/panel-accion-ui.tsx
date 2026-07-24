@@ -301,9 +301,11 @@ export function Composer({
   onChange: (v: string) => void;
   onEnviar: () => void;
   enviando: boolean;
-  /** Genera el mensaje directamente en el campo (sin panel intermedio). */
-  onIA: () => void;
-  generandoIA: boolean;
+  /** Genera el mensaje directamente en el campo (sin panel intermedio).
+   *  Opcional: sin handler no se muestra el botón IA (p. ej. Cobros, donde
+   *  el mensaje sale de plantilla — no abrimos un 4º generador IA). */
+  onIA?: () => void;
+  generandoIA?: boolean;
   plantillas: PlantillaComposer[];
   onPlantilla: (id: string) => void;
   disabled?: boolean;
@@ -364,20 +366,22 @@ export function Composer({
       />
       <div className="flex items-center justify-between gap-2 mt-1.5">
         <div className="flex items-center gap-1.5" ref={wrapRef}>
-          <button
-            type="button"
-            onClick={onIA}
-            disabled={disabled || generandoIA}
-            title="Generar mensaje con IA"
-            aria-label="Generar mensaje con IA"
-            className="inline-flex items-center justify-center h-8 w-8 rounded-lg fyllio-ia-gradient hover:opacity-90 disabled:opacity-50 transition-opacity"
-          >
-            {generandoIA ? (
-              <LoaderCircle size={14} strokeWidth={ICON_STROKE} className="animate-spin" aria-hidden />
-            ) : (
-              <Sparkles size={14} strokeWidth={ICON_STROKE} aria-hidden />
-            )}
-          </button>
+          {onIA && (
+            <button
+              type="button"
+              onClick={onIA}
+              disabled={disabled || generandoIA}
+              title="Generar mensaje con IA"
+              aria-label="Generar mensaje con IA"
+              className="inline-flex items-center justify-center h-8 w-8 rounded-lg fyllio-ia-gradient hover:opacity-90 disabled:opacity-50 transition-opacity"
+            >
+              {generandoIA ? (
+                <LoaderCircle size={14} strokeWidth={ICON_STROKE} className="animate-spin" aria-hidden />
+              ) : (
+                <Sparkles size={14} strokeWidth={ICON_STROKE} aria-hidden />
+              )}
+            </button>
+          )}
           {plantillas.length > 0 && (
             <div className="relative">
               <button

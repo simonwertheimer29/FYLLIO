@@ -1,8 +1,8 @@
 "use client";
 
 // Sprint 8 Bloque D — GlobalHeader con navbar top-level por rol.
-// Coord (6): Actuar hoy · Leads · Pacientes · Presupuestos · KPIs · Automatizaciones
-// Admin (9): Red · Alertas · Actuar hoy · Leads · Pacientes · Presupuestos · KPIs · Automatizaciones · Ajustes
+// Coord: Actuar hoy · Leads · Pacientes · Presupuestos · Cobros · KPIs · Automatizaciones · Llamadas IA
+// Admin: Red · Alertas · + los de coord · Ajustes
 
 import Image from "next/image";
 import Link from "next/link";
@@ -19,6 +19,7 @@ const NAV_COORD: NavItem[] = [
   { href: "/leads",           label: "Leads" },
   { href: "/pacientes",       label: "Pacientes" },
   { href: "/presupuestos",    label: "Presupuestos" },
+  { href: "/cobros",          label: "Cobros" },
   { href: "/kpis",            label: "KPIs" },
   { href: "/automatizaciones",label: "Automatizaciones" },
   { href: "/llamadas",        label: "Llamadas IA" },
@@ -31,6 +32,7 @@ const NAV_ADMIN: NavItem[] = [
   { href: "/leads",           label: "Leads" },
   { href: "/pacientes",       label: "Pacientes" },
   { href: "/presupuestos",    label: "Presupuestos" },
+  { href: "/cobros",          label: "Cobros" },
   { href: "/kpis",            label: "KPIs" },
   { href: "/automatizaciones",label: "Automatizaciones" },
   { href: "/llamadas",        label: "Llamadas IA" },

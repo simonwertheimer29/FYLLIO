@@ -28,6 +28,9 @@ export type AccionCardProps = {
   meta?: string;
   /** Cita textual del paciente / sugerencia destacada. */
   quote?: string;
+  /** Estado en dos niveles (patrón del dashboard de Red): titular de
+   *  negocio en 3-5 palabras + detalle muted. */
+  estado?: { titular: string; detalle?: string };
   /** Acción sugerida en color destacado (violet). */
   accionSugerida?: string;
   /** Botones de la barra inferior. */
@@ -50,6 +53,7 @@ export function AccionCard({
   tags,
   meta,
   quote,
+  estado,
   accionSugerida,
   actions,
   onOpen,
@@ -120,6 +124,16 @@ export function AccionCard({
             {quote && (
               <div className="mt-2 rounded-lg bg-[var(--color-surface-muted)] px-3 py-2 border border-[var(--color-border)]">
                 <p className="text-xs text-[var(--color-foreground)] line-clamp-2">&quot;{quote}&quot;</p>
+              </div>
+            )}
+            {estado && (
+              <div className="mt-1.5">
+                <p className="font-display text-[13px] font-semibold text-[var(--color-foreground)] leading-snug">
+                  {estado.titular}
+                </p>
+                {estado.detalle && (
+                  <p className="text-[11px] text-[var(--color-muted)] mt-0.5">{estado.detalle}</p>
+                )}
               </div>
             )}
             {accionSugerida && (
