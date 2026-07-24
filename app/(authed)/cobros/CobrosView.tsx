@@ -7,20 +7,41 @@
 // cabecera con la misma derivación que el dashboard de Red.
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { toast } from "sonner";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { KpiCard } from "../../components/ui/KpiCard";
 import { CardListSkeleton, KpiCardSkeleton } from "../../components/ui/Skeleton";
 import { ErrorState, EmptyState } from "../../components/ui/Feedback";
+import { StatePill, type StatePillVariant } from "../../components/ui/StatePill";
 import { AccionCard } from "../../components/shared/AccionCard";
+import { PagoModal } from "../../components/pacientes/PagoModal";
 import { AlertTriangle, Clock, Hourglass, Inbox, ICON_STROKE } from "../../components/icons";
 import { CobroPanel } from "./CobroPanel";
-import { type CobroItem, type CobrosApiResponse, copyEstado, fmtEUR } from "./types";
+import { type CobroItem, type CobrosApiResponse, type EstadoCobro, copyEstado, fmtEUR } from "./types";
 
 const BORDER: Record<string, string> = {
   vencido: "var(--color-danger)",
   por_vencer: "var(--color-warning)",
   estancado: "var(--color-border)",
 };
+
+const ESTADO_LABEL: Record<EstadoCobro, string> = {
+  pagado: "Pagado",
+  parcial: "Parcial",
+  pendiente: "Pendiente",
+  vencido: "Vencido",
+};
+
+const ESTADO_VARIANT: Record<EstadoCobro, StatePillVariant> = {
+  pagado: "success",
+  parcial: "info",
+  pendiente: "neutral",
+  vencido: "danger",
+};
+
+const SELECT_CLASS =
+  "text-xs px-3 py-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]";
 
 export function CobrosView() {
   const { selectedClinicaId } = useClinic();
@@ -31,6 +52,12 @@ export function CobrosView() {
   const [abierto, setAbierto] = useState<CobroItem | null>(null);
   // Cards atenuadas tras actuar (además de las contactadas ≤3d del server).
   const [actuados, setActuados] = useState<Set<string>>(new Set());
+  // Zona 2 · Registro — filtros de presentación (el payload ya es el scope).
+  const [filtroEstado, setFiltroEstado] = useState<"todos" | EstadoCobro>("todos");
+  const [filtroClinica, setFiltroClinica] = useState("");
+  const [filtroDoctor, setFiltroDoctor] = useState("");
+  const [busqueda, setBusqueda] = useState("");
+  const [pagoDe, setPagoDe] = useState<CobroItem | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -83,6 +110,22 @@ export function CobrosView() {
 
   const totalActuar =
     buckets.vencidos.length + buckets.porVencer.length + buckets.estancados.length;
+
+  // ── Zona 2: registro filtrado — vencidos primero, luego mayor pendiente ──
+  const registro = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    return (data?.items ?? [])
+      .filter((i) => filtroEstado === "todos" || i.estadoCobro === filtroEstado)
+      .filter((i) => !filtroClinica || i.clinicaId === filtroClinica)
+      .filter((i) => !filtroDoctor || i.doctorLinkId === filtroDoctor)
+      .filter((i) => !q || i.nombre.toLowerCase().includes(q))
+      .sort((a, b) => {
+        const av = a.estadoCobro === "vencido" ? 0 : 1;
+        const bv = b.estadoCobro === "vencido" ? 0 : 1;
+        if (av !== bv) return av - bv;
+        return b.pendiente - a.pendiente;
+      });
+  }, [data, filtroEstado, filtroClinica, filtroDoctor, busqueda]);
 
   function marcarActuado(pacienteId: string) {
     setActuados((prev) => new Set(prev).add(pacienteId));
@@ -191,11 +234,171 @@ export function CobrosView() {
         )}
       </section>
 
+      {/* ── Zona 2 · Registro ───────────────────────────────────────── */}
+      <section className="space-y-4">
+        <div>
+          <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">
+            Registro
+          </h2>
+          <p className="text-xs text-[var(--color-muted)] mt-0.5">
+            Todos los presupuestos aceptados y su vida financiera, paciente a
+            paciente.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="search"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar paciente…"
+            className="text-xs px-3 py-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] min-w-[180px] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+          />
+          <select
+            value={filtroEstado}
+            onChange={(e) => setFiltroEstado(e.target.value as "todos" | EstadoCobro)}
+            className={SELECT_CLASS}
+          >
+            <option value="todos">Todos los estados</option>
+            <option value="vencido">Vencido</option>
+            <option value="pendiente">Pendiente</option>
+            <option value="parcial">Parcial</option>
+            <option value="pagado">Pagado</option>
+          </select>
+          <select
+            value={filtroClinica}
+            onChange={(e) => setFiltroClinica(e.target.value)}
+            className={SELECT_CLASS}
+          >
+            <option value="">Todas las clínicas</option>
+            {(data?.clinicasDisponibles ?? []).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre}
+              </option>
+            ))}
+          </select>
+          <select
+            value={filtroDoctor}
+            onChange={(e) => setFiltroDoctor(e.target.value)}
+            className={SELECT_CLASS}
+          >
+            <option value="">Todos los doctores</option>
+            {(data?.doctoresDisponibles ?? []).map((d) => (
+              <option key={d.id} value={d.id}>
+                {d.nombre}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {loading && !data ? (
+          <CardListSkeleton rows={5} />
+        ) : registro.length === 0 ? (
+          <EmptyState
+            icon={<Inbox size={24} strokeWidth={ICON_STROKE} />}
+            title="Sin resultados con estos filtros"
+            hint="Cuando un presupuesto se acepte, su cobro aparecerá aquí. Prueba a cambiar los filtros."
+          />
+        ) : (
+          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-x-auto">
+            <table className="w-full text-sm min-w-[860px]">
+              <thead>
+                <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--color-muted)] border-b border-[var(--color-border)]">
+                  <th className="px-4 py-2.5 font-medium">Paciente</th>
+                  <th className="px-3 py-2.5 font-medium">Tratamiento</th>
+                  <th className="px-3 py-2.5 font-medium text-right">Importe</th>
+                  <th className="px-3 py-2.5 font-medium text-right">Cobrado</th>
+                  <th className="px-3 py-2.5 font-medium text-right">Pendiente</th>
+                  <th className="px-3 py-2.5 font-medium">Estado</th>
+                  <th className="px-3 py-2.5 font-medium">Último pago</th>
+                  <th className="px-3 py-2.5 font-medium">Clínica</th>
+                  <th className="px-3 py-2.5" aria-label="Acciones" />
+                </tr>
+              </thead>
+              <tbody>
+                {registro.map((i) => (
+                  <tr
+                    key={i.pacienteId}
+                    className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-muted)] transition-colors"
+                  >
+                    <td className="px-4 py-2.5">
+                      <Link
+                        href={`/pacientes/${i.pacienteId}`}
+                        className="font-medium text-[var(--color-foreground)] hover:text-[var(--color-accent)] hover:underline"
+                      >
+                        {i.nombre}
+                      </Link>
+                    </td>
+                    <td className="px-3 py-2.5 text-[var(--color-muted)] max-w-[220px] truncate">
+                      {i.tratamientos.join(", ") || "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{fmtEUR(i.firmado)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-[var(--color-muted)]">
+                      {fmtEUR(i.pagado)}
+                    </td>
+                    <td
+                      className={`px-3 py-2.5 text-right tabular-nums font-semibold ${
+                        i.pendiente > 0 ? "text-[var(--color-danger)]" : "text-[var(--color-muted)]"
+                      }`}
+                    >
+                      {fmtEUR(i.pendiente)}
+                    </td>
+                    <td className="px-3 py-2.5">
+                      <StatePill variant={ESTADO_VARIANT[i.estadoCobro]} size="sm">
+                        {ESTADO_LABEL[i.estadoCobro]}
+                      </StatePill>
+                    </td>
+                    <td className="px-3 py-2.5 text-[var(--color-muted)] tabular-nums whitespace-nowrap">
+                      {i.ultimoPagoISO
+                        ? new Date(i.ultimoPagoISO).toLocaleDateString("es-ES", {
+                            day: "numeric",
+                            month: "short",
+                          })
+                        : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-[var(--color-muted)] max-w-[160px] truncate">
+                      {i.clinicaNombre ?? "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      {i.pendiente > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setPagoDe(i)}
+                          className="text-xs font-semibold text-[var(--color-accent)] hover:underline whitespace-nowrap"
+                        >
+                          Registrar cobro
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
       {abierto && (
         <CobroPanel
           item={abierto}
           onClose={() => setAbierto(null)}
           onActuado={marcarActuado}
+        />
+      )}
+
+      {/* Registrar cobro — el MISMO PagoModal de la ficha (registro origen:
+          el pago). Al terminar se recarga la cola y el registro. */}
+      {pagoDe && (
+        <PagoModal
+          mode="create"
+          pacienteId={pagoDe.pacienteId}
+          clinicaId={pagoDe.clinicaId}
+          onClose={() => setPagoDe(null)}
+          onDone={() => {
+            setPagoDe(null);
+            toast.success("Cobro registrado");
+            setReloadKey((k) => k + 1);
+          }}
         />
       )}
     </div>
