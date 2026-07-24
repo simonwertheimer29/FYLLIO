@@ -32,7 +32,6 @@ export async function listPacientesPg(params: ListPacientesParams = {}): Promise
       .orderBy("created_at", "desc").orderBy("id", "asc").execute();
     let ps = rows.map(rowToPaciente);
     if (params.clinicaIds?.length) { const s = new Set(params.clinicaIds); ps = ps.filter((p) => p.clinicaId && s.has(p.clinicaId)); }
-    if (params.aceptado) ps = ps.filter((p) => p.aceptado === params.aceptado);
     if (params.search) { const q = params.search.toLowerCase().trim(); if (q) ps = ps.filter((p) => p.nombre.toLowerCase().includes(q) || (p.telefono ?? "").toLowerCase().includes(q) || (p.email ?? "").toLowerCase().includes(q)); }
     if (params.fechaDesde) ps = ps.filter((p) => p.createdAt >= params.fechaDesde!);
     if (params.fechaHasta) ps = ps.filter((p) => p.createdAt <= params.fechaHasta!);
@@ -136,13 +135,39 @@ export async function listPacientesBusquedaRapidaPg(maxRecords = 300) {
   });
 }
 
+// MEJORAS nº 28 (2026-07-24) — pendiente DERIVADO de los registros reales
+// (Σ presupuestos ACEPTADO − Σ pagos), nunca de la columna caché
+// pacientes.pendiente. Misma aritmética que lib/finanzas-paciente.
+async function pendienteDerivadoPorIds(trx: any, ids: string[]): Promise<Map<string, number>> {
+  const [firmadoRows, pagadoRows] = await Promise.all([
+    trx.selectFrom("presupuestos")
+      .select(["paciente_id", sql<string>`coalesce(sum(importe), 0)`.as("s")])
+      .where("estado", "=", "ACEPTADO").where("paciente_id", "in", ids)
+      .groupBy("paciente_id").execute(),
+    trx.selectFrom("pagos_paciente")
+      .select(["paciente_id", sql<string>`coalesce(sum(importe), 0)`.as("s")])
+      .where("paciente_id", "in", ids)
+      .groupBy("paciente_id").execute(),
+  ]);
+  const pagadoPor = new Map<string, number>(
+    pagadoRows.map((r: any) => [String(r.paciente_id), Number(r.s ?? 0) || 0]),
+  );
+  const out = new Map<string, number>();
+  for (const r of firmadoRows as any[]) {
+    const id = String(r.paciente_id);
+    out.set(id, Math.max(0, (Number(r.s ?? 0) || 0) - (pagadoPor.get(id) ?? 0)));
+  }
+  return out;
+}
+
 export async function listResumenFinancieroPorIdsPg(ids: string[]) {
   if (!ids.length) return [];
   return runWithClienteDb(cli(), async (trx) => {
-    const rows = await trx.selectFrom("pacientes").select(["id", "clinica_id", "lead_origen_id", "pendiente"]).where("id", "in", ids).execute();
+    const rows = await trx.selectFrom("pacientes").select(["id", "clinica_id", "lead_origen_id"]).where("id", "in", ids).execute();
+    const pendientePor = await pendienteDerivadoPorIds(trx, ids);
     return rows.map((r) => ({
       id: r.id, clinicaIds: r.clinica_id ? [r.clinica_id] : [],
-      tieneLeadOrigen: r.lead_origen_id != null, pendiente: Number(r.pendiente ?? 0) || 0,
+      tieneLeadOrigen: r.lead_origen_id != null, pendiente: pendientePor.get(r.id) ?? 0,
     }));
   });
 }
@@ -151,9 +176,10 @@ export async function sumPendientePorIdsPg(ids: string[]): Promise<number> {
   if (!ids.length) return 0;
   try {
     return await runWithClienteDb(cli(), async (trx) => {
-      const r = await trx.selectFrom("pacientes")
-        .select(sql<string>`coalesce(sum(pendiente), 0)`.as("s")).where("id", "in", ids).executeTakeFirst();
-      return Number(r?.s ?? 0) || 0;
+      const pendientePor = await pendienteDerivadoPorIds(trx, ids);
+      let total = 0;
+      for (const v of pendientePor.values()) total += v;
+      return total;
     });
   } catch { return 0; }
 }

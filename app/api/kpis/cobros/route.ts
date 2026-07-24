@@ -81,7 +81,9 @@ export const GET = withAuth(async (session, req) => {
     : (accesiblesIds ?? null); // null = admin con "Todas"
 
   // ── Clinicas para nombres + comparativa rows ─────────────────────
-  const clinicasAll = await listClinicas({ onlyActivas: true });
+  // MEJORAS nº 30 — cliente explícito: sin él, la rama PG lee el directorio
+  // global de clínicas de TODOS los clientes.
+  const clinicasAll = await listClinicas({ onlyActivas: true, cliente: session.cliente });
   const clinicaNombrePorId = new Map<string, string>();
   for (const c of clinicasAll) clinicaNombrePorId.set(c.id, c.nombre);
   const clinicasScope = scopeIds

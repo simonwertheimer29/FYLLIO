@@ -85,8 +85,6 @@ export const GET = withAuth<Ctx>(async (session, _req, ctx) => {
       id: paciente.id,
       nombre: paciente.nombre,
       clinicaId: paciente.clinicaId,
-      presupuestoTotal: paciente.presupuestoTotal,
-      aceptado: paciente.aceptado,
     },
     pagos,
     usuariosNombres,

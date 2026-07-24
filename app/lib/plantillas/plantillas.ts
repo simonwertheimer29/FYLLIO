@@ -283,7 +283,9 @@ async function resolveValoresParaPaciente(
     );
   }
 
-  const importeRaw = paciente.presupuestoTotal ?? presupuestoFirmado?.importe ?? null;
+  // MEJORAS nº 28 — {{importe}} sale de los presupuestos ACEPTADO reales,
+  // nunca de la caché Presupuesto_Total del paciente.
+  const importeRaw = presupuestoFirmado?.importe ?? null;
 
   const base: Record<string, string> = {
     nombre: paciente.nombre || "",
@@ -349,17 +351,22 @@ async function loadPresupuestoFirmado(
       const links = ((r.fields as any)?.["Paciente"] ?? []) as string[];
       return links[0] === pacienteId;
     });
-    const aceptado = propios.find(
+    // MEJORAS nº 28 — misma derivación que lib/cobros: importe = Σ de TODOS
+    // los ACEPTADO (antes: uno arbitrario) y fecha = la primera aceptación
+    // (la que arranca el plazo en la cola de cobros).
+    const aceptados = propios.filter(
       (r) => String(((r.fields as any) ?? {})["Estado"] ?? "") === "ACEPTADO",
     );
-    if (!aceptado) return null;
-    const f = aceptado.fields as any;
-    return {
-      importe: f["Importe"] != null ? Number(f["Importe"]) : null,
-      fechaAceptado: f["Fecha_Aceptado"]
-        ? String(f["Fecha_Aceptado"]).slice(0, 10)
-        : null,
-    };
+    if (aceptados.length === 0) return null;
+    let importe = 0;
+    let fechaMin: string | null = null;
+    for (const r of aceptados) {
+      const f = r.fields as any;
+      importe += Number(f["Importe"] ?? 0) || 0;
+      const fecha = f["Fecha_Aceptado"] ? String(f["Fecha_Aceptado"]).slice(0, 10) : null;
+      if (fecha && (!fechaMin || fecha < fechaMin)) fechaMin = fecha;
+    }
+    return { importe: importe > 0 ? importe : null, fechaAceptado: fechaMin };
   } catch {
     return null;
   }

@@ -71,11 +71,6 @@ type PacientePayload = {
   tratamientos: string[];
   doctorLinkId: string | null;
   fechaCita: string | null;
-  presupuestoTotal: number | null;
-  aceptado: "Si" | "No" | "Pendiente" | null;
-  pagado: number | null;
-  pendienteCache: number | null;
-  financiado: number | null;
   notas: string | null;
   canalOrigen: string | null;
   leadOrigenId: string | null;
@@ -566,7 +561,7 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
     data;
   const pRef = situacion?.presupuestoRef ?? null;
   const tratCabecera = pRef?.tratamiento ?? paciente.tratamientos[0] ?? null;
-  const importeCabecera = pRef?.importe ?? paciente.presupuestoTotal ?? null;
+  const importeCabecera = pRef?.importe ?? null;
   const pill = situacion ? PRIORIDAD_PILL[situacion.prioridad] : null;
 
   const scrollAConversacion = () => {

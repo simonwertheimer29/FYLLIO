@@ -84,10 +84,11 @@ function toPaciente(rec: any): Paciente {
   };
 }
 
+// MEJORAS nº 28 — el filtro `aceptado` (flag caché del paciente) se retiró:
+// "aceptado" se deriva de los presupuestos reales (finanzas-paciente).
 export type ListPacientesParams = {
   clinicaIds?: string[];
   search?: string;
-  aceptado?: PacienteAceptado;
   fechaDesde?: string;
   fechaHasta?: string;
 };
@@ -126,9 +127,6 @@ export async function listPacientes(params: ListPacientesParams = {}): Promise<P
   if (params.clinicaIds && params.clinicaIds.length > 0) {
     const set = new Set(params.clinicaIds);
     pacientes = pacientes.filter((p) => p.clinicaId && set.has(p.clinicaId));
-  }
-  if (params.aceptado) {
-    pacientes = pacientes.filter((p) => p.aceptado === params.aceptado);
   }
   if (params.search) {
     const q = params.search.toLowerCase().trim();
@@ -410,12 +408,19 @@ export async function listResumenFinancieroPorIds(
   }
   if (ids.length === 0) return [];
   const formula = `OR(${ids.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
-  const recs = await fetchAll(
-    base(TABLES.patients as any).select({
-      filterByFormula: formula,
-      fields: ["Clínica", "Lead_Origen", "Pendiente"],
-    }),
-  );
+  // MEJORAS nº 28 (2026-07-24) — pendiente DERIVADO (presupuestos ACEPTADO −
+  // pagos reales) en vez de la columna caché Pendiente. Import dinámico:
+  // finanzas-paciente → pagos → este módulo (evita el ciclo estático).
+  const [{ finanzasPorPaciente }, recs] = await Promise.all([
+    import("../finanzas-paciente"),
+    fetchAll(
+      base(TABLES.patients as any).select({
+        filterByFormula: formula,
+        fields: ["Clínica", "Lead_Origen"],
+      }),
+    ),
+  ]);
+  const finanzas = await finanzasPorPaciente();
   return recs.map((r) => {
     const f = r.fields as any;
     const origenLead = f["Lead_Origen"];
@@ -423,40 +428,24 @@ export async function listResumenFinancieroPorIds(
       id: r.id,
       clinicaIds: (f["Clínica"] ?? []) as string[],
       tieneLeadOrigen: origenLead != null && origenLead !== "",
-      pendiente: Number(f["Pendiente"] ?? 0) || 0,
+      pendiente: finanzas.get(r.id)?.pendiente ?? 0,
     };
   });
 }
 
-const BATCH_PENDIENTE = 50;
-
-/** Suma de Pendiente para una lista de pacientes, con batching (límite de
- *  longitud de fórmula). Error de un batch → 0 (mismo criterio original). */
+/** Suma de pendiente para una lista de pacientes — DERIVADO de presupuestos
+ *  ACEPTADO − pagos reales (MEJORAS nº 28; antes leía la columna caché
+ *  Pendiente). Error → 0 (mismo criterio original). */
 export async function sumPendientePorIds(pacIds: string[]): Promise<number> {
   if (usaPostgres("pacientes")) {
     const pg = await import("./pg");
     return pg.sumPendientePorIdsPg(pacIds);
   }
   if (pacIds.length === 0) return 0;
-  if (pacIds.length > BATCH_PENDIENTE) {
-    let total = 0;
-    for (let i = 0; i < pacIds.length; i += BATCH_PENDIENTE) {
-      total += await sumPendientePorIds(pacIds.slice(i, i + BATCH_PENDIENTE));
-    }
-    return total;
-  }
-  const formula = `OR(${pacIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
   try {
-    const recs = await fetchAll(
-      base(TABLES.patients as any).select({
-        filterByFormula: formula,
-        fields: ["Pendiente"],
-      }),
-    );
-    return recs.reduce(
-      (s, r) => s + (Number((r.fields as any)?.["Pendiente"] ?? 0) || 0),
-      0,
-    );
+    const { finanzasPorPaciente } = await import("../finanzas-paciente");
+    const finanzas = await finanzasPorPaciente();
+    return pacIds.reduce((s, id) => s + (finanzas.get(id)?.pendiente ?? 0), 0);
   } catch {
     return 0;
   }

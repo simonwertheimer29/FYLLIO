@@ -104,11 +104,9 @@ export const GET = withAuth<Ctx>(async (session, _req, ctx) => {
       tratamientos: paciente.tratamientos,
       doctorLinkId: paciente.doctorLinkId,
       fechaCita: paciente.fechaCita,
-      presupuestoTotal: paciente.presupuestoTotal,
-      aceptado: paciente.aceptado,
-      pagado: paciente.pagado,
-      pendienteCache: paciente.pendiente,
-      financiado: paciente.financiado,
+      // MEJORAS nº 28 — las cachés de dinero (presupuestoTotal/aceptado/
+      // pagado/pendiente/financiado) salieron del payload: la ficha deriva
+      // todo de presupuestos y pagos reales.
       notas: paciente.notas,
       canalOrigen: paciente.canalOrigen,
       leadOrigenId: paciente.leadOrigenId,

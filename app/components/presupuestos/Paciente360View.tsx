@@ -81,8 +81,6 @@ type PagosResponse = {
   paciente: {
     id: string;
     nombre: string;
-    presupuestoTotal: number | null;
-    aceptado: "Si" | "No" | "Pendiente" | null;
   };
   pagos: Pago[];
   usuariosNombres: Record<string, string>;

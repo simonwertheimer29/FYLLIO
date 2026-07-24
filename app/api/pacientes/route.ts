@@ -25,7 +25,6 @@ async function allowedClinicas(session: {
 export const GET = withAuth(async (session, req) => {
   const url = new URL(req.url);
   const clinicaParam = url.searchParams.get("clinica");
-  const aceptado = url.searchParams.get("aceptado") as PacienteAceptado | null;
   const search = url.searchParams.get("search") ?? undefined;
   const desde = url.searchParams.get("desde") ?? undefined;
   const hasta = url.searchParams.get("hasta") ?? undefined;
@@ -48,7 +47,6 @@ export const GET = withAuth(async (session, req) => {
   const [pacientes, finanzas, proximasCitas] = await Promise.all([
     listPacientes({
       clinicaIds,
-      aceptado: aceptado ?? undefined,
       search,
       fechaDesde: desde,
       fechaHasta: hasta,

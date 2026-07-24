@@ -20,11 +20,10 @@ import { mapStaffNombrePorIds } from "../scheduler/repo/staffRepo";
 import { listLeads } from "../leads/leads";
 import { listPacientes } from "../pacientes/pacientes";
 import { listClinicaIdsForUser, listClinicas } from "../auth/users";
-import { getOpcionEscalar } from "../configuraciones/configuraciones";
-import {
-  getFacturadoEnPeriodo,
-  getPagosByPaciente,
-} from "../pagos";
+import { listAllOpciones } from "../configuraciones/configuraciones";
+import { calcularCobrosPorPaciente, type CobroPaciente } from "../cobros";
+import { finanzasPorPaciente } from "../finanzas-paciente";
+import { getFacturadoEnPeriodo } from "../pagos";
 import type { Session } from "../auth/session";
 import type { ReadToolName } from "./tools-spec";
 
@@ -427,6 +426,35 @@ function diasEntre(desdeIso: string, hastaMs = Date.now()): number {
 
 // ─── get_pagos_pendientes_clinica ──────────────────────────────────────
 
+// MEJORAS nº 28 — ambas tools de cobros derivan de presupuestos + pagos
+// reales via calcularCobrosPorPaciente (la MISMA regla que la cola de
+// /cobros y el dashboard), en 3 queries totales. Antes filtraban por las
+// cachés del paciente (aceptado/presupuestoTotal) y get_cobros_vencidos
+// recargaba TODOS los presupuestos en cada vuelta del bucle.
+async function cobrosAccesibles(env: CopilotEnv): Promise<{
+  porPaciente: Map<string, { nombre: string }>;
+  cobros: CobroPaciente[];
+}> {
+  const pacientes = await pacientesAccesibles(env);
+  const [presupRecs, pagosRecs, opciones] = await Promise.all([
+    selectPresupuestosRaw({
+      fields: ["Paciente", "Estado", "Importe", "Fecha_Aceptado", "FechaAlta"],
+    }),
+    listPagosResumen(),
+    listAllOpciones(),
+  ]);
+  const cobros = calcularCobrosPorPaciente({
+    pacientes,
+    presupuestos: presupRecs as any,
+    pagos: pagosRecs,
+    opciones,
+  });
+  return {
+    porPaciente: new Map(pacientes.map((p) => [p.id, { nombre: p.nombre }])),
+    cobros,
+  };
+}
+
 async function execGetPagosPendientesClinica(
   env: CopilotEnv,
   args: { diasAtraso?: number; limit?: number },
@@ -434,35 +462,19 @@ async function execGetPagosPendientesClinica(
   total: number;
   pacientes: Array<Record<string, unknown>>;
 }> {
-  const pacientes = await pacientesAccesibles(env);
-  const elegibles = pacientes.filter(
-    (p) =>
-      p.aceptado === "Si" &&
-      typeof p.presupuestoTotal === "number" &&
-      p.presupuestoTotal > 0,
-  );
+  const { porPaciente, cobros } = await cobrosAccesibles(env);
 
-  const detallados = await Promise.all(
-    elegibles.map(async (p) => {
-      const pagos = await getPagosByPaciente(p.id);
-      const totalPagado = pagos.reduce((s, x) => s + x.importe, 0);
-      const presup = Number(p.presupuestoTotal ?? 0);
-      const importePendiente = Math.max(0, presup - totalPagado);
-      const ultimoPago = pagos[0] ?? null;
-      const referenciaSinPago = ultimoPago?.fechaPago ?? p.createdAt;
-      return {
-        id: p.id,
-        nombre: p.nombre,
-        importeTotal: presup,
-        importePagado: totalPagado,
-        importePendiente,
-        ultimoPagoFecha: ultimoPago?.fechaPago ?? null,
-        diasSinPagar: diasEntre(referenciaSinPago),
-      };
-    }),
-  );
-
-  let pendientes = detallados.filter((d) => d.importePendiente > 0);
+  let pendientes = cobros
+    .filter((c) => c.pendiente > 0)
+    .map((c) => ({
+      id: c.pacienteId,
+      nombre: porPaciente.get(c.pacienteId)?.nombre ?? "",
+      importeTotal: c.firmado,
+      importePagado: c.pagado,
+      importePendiente: c.pendiente,
+      ultimoPagoFecha: c.ultimoPagoISO,
+      diasSinPagar: diasEntre(c.ultimoPagoISO ?? c.fechaAceptado ?? ""),
+    }));
   if (typeof args.diasAtraso === "number" && args.diasAtraso > 0) {
     pendientes = pendientes.filter((d) => d.diasSinPagar >= args.diasAtraso!);
   }
@@ -484,57 +496,20 @@ async function execGetCobrosVencidos(
   total: number;
   pacientes: Array<Record<string, unknown>>;
 }> {
-  const pacientes = await pacientesAccesibles(env);
-  const today = Date.now();
-  const out: Array<Record<string, unknown>> = [];
+  const { porPaciente, cobros } = await cobrosAccesibles(env);
 
-  for (const p of pacientes) {
-    if (p.aceptado !== "Si") continue;
-    if (typeof p.presupuestoTotal !== "number" || p.presupuestoTotal <= 0) continue;
-    // Plazo de la clínica del paciente (fallback global 90).
-    const plazo = await getOpcionEscalar({
-      clinicaId: p.clinicaId,
-      categoria: "Plazos_Liquidacion",
-      defaultValue: 90,
-    });
-    // Fecha_Aceptado del primer presupuesto ACEPTADO. Para no hacer N
-    // queries pesadas, inferimos desde paciente.createdAt como fallback
-    // si el preset no tiene fecha; el lib de plantillas resolverá fino
-    // cuando importe.
-    const presupRecs = await selectPresupuestosRaw({
-      fields: ["Paciente", "Estado", "Fecha_Aceptado", "FechaAlta"],
-    });
-    const propio = presupRecs.find((r) => {
-      const links = ((r.fields as any)?.["Paciente"] ?? []) as string[];
-      return (
-        links[0] === p.id &&
-        String(((r.fields as any) ?? {})["Estado"] ?? "") === "ACEPTADO"
-      );
-    });
-    if (!propio) continue;
-    const fechaAceptadoIso =
-      String(((propio.fields as any) ?? {})["Fecha_Aceptado"] ?? "") ||
-      String(((propio.fields as any) ?? {})["FechaAlta"] ?? "");
-    if (!fechaAceptadoIso) continue;
-    const aceptadoMs = new Date(fechaAceptadoIso).getTime();
-    if (!Number.isFinite(aceptadoMs)) continue;
-    const venceMs = aceptadoMs + plazo * 24 * 60 * 60 * 1000;
-    if (venceMs >= today) continue; // no vencido
-
-    const pagos = await getPagosByPaciente(p.id);
-    const tieneLiquidacion = pagos.some((x) => x.tipo === "Liquidacion");
-    if (tieneLiquidacion) continue;
-    const totalPagado = pagos.reduce((s, x) => s + x.importe, 0);
-
-    out.push({
-      id: p.id,
-      nombre: p.nombre,
-      importePendiente: Math.max(0, p.presupuestoTotal - totalPagado),
-      fechaAceptado: fechaAceptadoIso.slice(0, 10),
-      plazoDias: plazo,
-      diasVencido: Math.floor((today - venceMs) / (24 * 60 * 60 * 1000)),
-    });
-  }
+  // "Vencido" = la regla compartida de lib/cobros (plazo superado >7 días
+  // sin liquidación) — el Copilot dice lo mismo que la cola de /cobros.
+  const out = cobros
+    .filter((c) => c.urgencia === "vencido")
+    .map((c) => ({
+      id: c.pacienteId,
+      nombre: porPaciente.get(c.pacienteId)?.nombre ?? "",
+      importePendiente: c.pendiente,
+      fechaAceptado: c.fechaAceptado,
+      plazoDias: c.plazoDias,
+      diasVencido: c.diasVencido ?? 0,
+    }));
 
   out.sort((a, b) => Number(b.diasVencido) - Number(a.diasVencido));
   const limit = Math.max(1, Math.min(args.limit ?? 20, 50));
@@ -760,16 +735,16 @@ export async function buscarPacientesPorNombre(
     } catch { /* noop */ }
   }
 
+  // MEJORAS nº 28 — dinero DERIVADO de presupuestos+pagos reales (2 queries
+  // para todo el lote) en vez de las cachés aceptado/presupuestoTotal y un
+  // getPagosByPaciente por resultado.
+  const finanzas = await finanzasPorPaciente();
   const resultados = await Promise.all(
     scored.slice(0, lim).map(async ({ p }) => {
-      const pagos = await getPagosByPaciente(p.id);
-      const totalFacturado = pagos.reduce((s, x) => s + x.importe, 0);
-      const presup =
-        typeof p.presupuestoTotal === "number" ? p.presupuestoTotal : null;
-      const pendiente =
-        p.aceptado === "Si" && presup != null
-          ? Math.max(0, presup - totalFacturado)
-          : null;
+      const fin = finanzas.get(p.id) ?? null;
+      const totalFacturado = fin?.cobrado ?? 0;
+      const presup = fin && fin.firmado > 0 ? fin.firmado : null;
+      const pendiente = fin?.aceptado === "Si" ? fin.pendiente : null;
       return {
         recordId: p.id,
         nombre: p.nombre,
