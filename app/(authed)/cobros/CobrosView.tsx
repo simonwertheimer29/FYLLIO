@@ -53,7 +53,13 @@ export function CobrosView() {
   // Cards atenuadas tras actuar (además de las contactadas ≤3d del server).
   const [actuados, setActuados] = useState<Set<string>>(new Set());
   // Zona 2 · Registro — filtros de presentación (el payload ya es el scope).
-  const [filtroEstado, setFiltroEstado] = useState<"todos" | EstadoCobro>("todos");
+  // ?urgencia=vencido (link del dashboard de Red) preselecciona el estado.
+  const [filtroEstado, setFiltroEstado] = useState<"todos" | EstadoCobro>(() => {
+    if (typeof window === "undefined") return "todos";
+    return new URLSearchParams(window.location.search).get("urgencia") === "vencido"
+      ? "vencido"
+      : "todos";
+  });
   const [filtroClinica, setFiltroClinica] = useState("");
   const [filtroDoctor, setFiltroDoctor] = useState("");
   const [busqueda, setBusqueda] = useState("");

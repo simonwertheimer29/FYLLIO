@@ -21,7 +21,6 @@ import { useClinic } from "../../lib/context/ClinicContext";
 import { KpiCard } from "../../components/ui/KpiCard";
 import { EmptyState } from "../../components/ui/Feedback";
 import { MessageCircle, Users, Euro, Pencil, ICON_STROKE } from "../../components/icons";
-import { CobrosTabView } from "./CobrosTabView";
 import { PagoModal } from "../../components/pacientes/PagoModal";
 import { EstadoPresupuestoFlow, type PresupuestoBrief } from "./EstadoPresupuestoFlow";
 
@@ -58,7 +57,6 @@ type Paciente = {
 type Doctor = { id: string; nombre: string; clinicaId: string | null };
 
 type DateFilter = "semana" | "mes" | "personalizado" | "todo";
-type SubTab = "asistidos" | "cobros";
 
 const fmtEUR = (n: number) =>
   n.toLocaleString("es-ES", {
@@ -146,11 +144,6 @@ export function PacientesView({
   const [dateFilter, setDateFilter] = useState<DateFilter>("todo");
   const [editingNotas, setEditingNotas] = useState<string | null>(null);
   const [editingDoctor, setEditingDoctor] = useState<string | null>(null);
-  // Enlaces del dashboard de Red: ?tab=cobros abre la cola de cobros.
-  const [subTab, setSubTab] = useState<SubTab>(() => {
-    if (typeof window === "undefined") return "asistidos";
-    return new URLSearchParams(window.location.search).get("tab") === "cobros" ? "cobros" : "asistidos";
-  });
   // Flujos con modal (nivel 2: mutaciones de negocio por su flujo origen).
   const [pagoDe, setPagoDe] = useState<{ paciente: Paciente; clinicaId: string | null } | null>(null);
   const [estadoDe, setEstadoDe] = useState<{ paciente: Paciente; abiertos: PresupuestoBrief[] } | null>(null);
@@ -301,44 +294,13 @@ export function PacientesView({
       <header className="flex items-center justify-between gap-4">
         <div>
           <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
-            {subTab === "asistidos" ? "Pacientes asistidos" : "Cobros"}
+            Pacientes asistidos
           </h1>
           <p className="text-xs text-[var(--color-muted)]">
-            {subTab === "asistidos"
-              ? `${total} paciente${total === 1 ? "" : "s"} en el periodo seleccionado`
-              : "Cola priorizada de pacientes con saldo pendiente"}
+            {`${total} paciente${total === 1 ? "" : "s"} en el periodo seleccionado`}
           </p>
         </div>
-        {/* Sprint 14b Bloque 2 — sub-tabs */}
-        <div className="flex gap-1 shrink-0">
-          <button
-            type="button"
-            onClick={() => setSubTab("asistidos")}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
-              subTab === "asistidos"
-                ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-transparent"
-                : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
-            }`}
-          >
-            Asistidos
-          </button>
-          <button
-            type="button"
-            onClick={() => setSubTab("cobros")}
-            className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
-              subTab === "cobros"
-                ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-transparent"
-                : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
-            }`}
-          >
-            Cobros
-          </button>
-        </div>
       </header>
-
-      {subTab === "cobros" && <CobrosTabView />}
-      {subTab === "asistidos" && (<>
-      {/* Sprint 14b Bloque 2 — contenido legacy de la tab Asistidos */}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -623,7 +585,6 @@ export function PacientesView({
           </table>
         </div>
       </div>
-      </>)}
 
       {/* Registrar cobro — el MISMO PagoModal de la ficha (registro origen:
           el pago). Al cerrar con éxito se refrescan los derivados de la fila. */}

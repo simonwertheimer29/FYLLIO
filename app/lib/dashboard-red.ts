@@ -253,7 +253,7 @@ export async function calcularDashboardRed(opts: {
       importe: vencidosImporte,
       titulo: "Cobros fuera de plazo",
       detalle: `${vencidosN} paciente${s(vencidosN)} superó${vencidosN === 1 ? "" : "aron"} su plazo de pago y sigue${s(vencidosN)} sin pagar.`,
-      href: "/pacientes?tab=cobros&urgencia=vencido",
+      href: "/cobros?urgencia=vencido",
     });
   }
   if (cierreN > 0) {
