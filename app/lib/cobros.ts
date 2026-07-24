@@ -9,12 +9,17 @@
 //   VENCIDO   = fecha_aceptado + plazo de su clínica (config
 //               Plazos_Liquidacion, fallback 90 días) superado en >7 días
 //               sin pago de liquidación.
-// La consumen la cola de cobros (/api/cola-cobros) y el dashboard de Red —
-// la misma función, cero cálculo paralelo.
+// La consumen el módulo Cobros (/api/cobros) y el dashboard de Red —
+// la misma función, cero cálculo paralelo. Con `incluirSaldados` devuelve
+// también la vida financiera completa (Registro): tratamientos, último pago
+// y estadoCobro (pagado/parcial/pendiente/vencido) por paciente.
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type UrgenciaCobro = "vencido" | "por_vencer" | "estancado" | "normal";
+
+/** Estado de la vida financiera completa (módulo Cobros, Zona Registro). */
+export type EstadoCobro = "pagado" | "parcial" | "pendiente" | "vencido";
 
 export type CobroPaciente = {
   pacienteId: string;
@@ -29,16 +34,23 @@ export type CobroPaciente = {
   diasParaVencer: number | null; // positivo = vence en N
   urgencia: UrgenciaCobro;
   numPagos: number;
+  /** Tratamientos de sus presupuestos ACEPTADO (si el caller pidió el campo). */
+  tratamientos: string[];
+  ultimoPagoISO: string | null;
+  estadoCobro: EstadoCobro;
 };
 
 export function calcularCobrosPorPaciente(args: {
   pacientes: ReadonlyArray<{ id: string; clinicaId: string | null }>;
   /** Records crudos de presupuestos con Paciente/Estado/Importe/Fecha_Aceptado/FechaAlta. */
   presupuestos: ReadonlyArray<{ id: string; fields: Record<string, unknown> }>;
-  pagos: ReadonlyArray<{ pacienteRecordId: string | null; importe: number; tipo?: string | null }>;
+  pagos: ReadonlyArray<{ pacienteRecordId: string | null; importe: number; tipo?: string | null; fechaPago?: string | null }>;
   /** Opciones de configuración (categoría Plazos_Liquidacion). */
   opciones: ReadonlyArray<{ categoria: string; valor: string; activo: boolean; clinicaId: string | null }>;
   ahoraMs?: number;
+  /** Módulo Cobros (Registro): incluye también a los pacientes ya saldados
+   *  (pendiente = 0). La cola y el dashboard mantienen el default (solo deuda). */
+  incluirSaldados?: boolean;
 }): CobroPaciente[] {
   const today = args.ahoraMs ?? Date.now();
 
@@ -58,18 +70,25 @@ export function calcularCobrosPorPaciente(args: {
   const pagadoPorPac = new Map<string, number>();
   const pagosCountPorPac = new Map<string, number>();
   const tieneLiquidacionPac = new Set<string>();
+  const ultimoPagoPorPac = new Map<string, string>();
   for (const pago of args.pagos) {
     const pid = pago.pacienteRecordId;
     if (!pid) continue;
     pagadoPorPac.set(pid, (pagadoPorPac.get(pid) ?? 0) + pago.importe);
     pagosCountPorPac.set(pid, (pagosCountPorPac.get(pid) ?? 0) + 1);
     if (pago.tipo === "Liquidacion") tieneLiquidacionPac.add(pid);
+    const fecha = String(pago.fechaPago ?? "").slice(0, 10);
+    if (fecha) {
+      const prev = ultimoPagoPorPac.get(pid);
+      if (!prev || fecha > prev) ultimoPagoPorPac.set(pid, fecha);
+    }
   }
 
   // Presupuestos ACEPTADO: fecha mínima + firmado por paciente (los REGISTROS,
   // nunca las cachés del paciente).
   const fechaAceptadoMinPorPac = new Map<string, string>();
   const firmadoPorPac = new Map<string, number>();
+  const tratamientosPorPac = new Map<string, Set<string>>();
   for (const r of args.presupuestos) {
     const f = r.fields;
     if (String(f["Estado"] ?? "") !== "ACEPTADO") continue;
@@ -82,6 +101,14 @@ export function calcularCobrosPorPaciente(args: {
       if (!prev || fecha < prev) fechaAceptadoMinPorPac.set(pid, fecha);
     }
     firmadoPorPac.set(pid, (firmadoPorPac.get(pid) ?? 0) + (Number(f["Importe"] ?? 0) || 0));
+    // Misma normalización que finanzas-paciente (split por coma/+).
+    for (const t of String(f["Tratamiento_nombre"] ?? "").split(/[,+]/)) {
+      const limpio = t.trim();
+      if (!limpio) continue;
+      let set = tratamientosPorPac.get(pid);
+      if (!set) tratamientosPorPac.set(pid, (set = new Set()));
+      set.add(limpio);
+    }
   }
 
   const items: CobroPaciente[] = [];
@@ -90,7 +117,8 @@ export function calcularCobrosPorPaciente(args: {
     if (firmado <= 0) continue;
     const pagado = pagadoPorPac.get(p.id) ?? 0;
     const pendiente = Math.max(0, firmado - pagado);
-    if (pendiente <= 0) continue; // sin pendiente, no entra en cola.
+    // Sin pendiente no entra en cola/dashboard; el Registro los pide aparte.
+    if (pendiente <= 0 && !args.incluirSaldados) continue;
 
     const fechaAceptado = fechaAceptadoMinPorPac.get(p.id) ?? null;
     const aceptadoMs = fechaAceptado ? new Date(fechaAceptado).getTime() : null;
@@ -110,18 +138,31 @@ export function calcularCobrosPorPaciente(args: {
     const tieneLiquidacion = tieneLiquidacionPac.has(p.id);
     const tieneAlgunPago = (pagosCountPorPac.get(p.id) ?? 0) > 0;
 
-    if (diasVencido != null && diasVencido > 7 && !tieneLiquidacion) {
-      urgencia = "vencido";
-    } else if (diasParaVencer != null && diasParaVencer <= 7 && !tieneLiquidacion) {
-      urgencia = "por_vencer";
-    } else if (
-      firmado > 2000 &&
-      diasDesdeAceptacion != null &&
-      diasDesdeAceptacion > 30 &&
-      !tieneAlgunPago
-    ) {
-      urgencia = "estancado";
+    if (pendiente > 0) {
+      if (diasVencido != null && diasVencido > 7 && !tieneLiquidacion) {
+        urgencia = "vencido";
+      } else if (diasParaVencer != null && diasParaVencer <= 7 && !tieneLiquidacion) {
+        urgencia = "por_vencer";
+      } else if (
+        firmado > 2000 &&
+        diasDesdeAceptacion != null &&
+        diasDesdeAceptacion > 30 &&
+        !tieneAlgunPago
+      ) {
+        urgencia = "estancado";
+      }
     }
+
+    // Estado del Registro: la MISMA regla de vencido que la cola (urgencia),
+    // el resto según el saldo — cero criterios paralelos.
+    const estadoCobro: EstadoCobro =
+      pendiente <= 0
+        ? "pagado"
+        : urgencia === "vencido"
+          ? "vencido"
+          : pagado > 0
+            ? "parcial"
+            : "pendiente";
 
     items.push({
       pacienteId: p.id,
@@ -136,6 +177,9 @@ export function calcularCobrosPorPaciente(args: {
       diasParaVencer,
       urgencia,
       numPagos: pagosCountPorPac.get(p.id) ?? 0,
+      tratamientos: [...(tratamientosPorPac.get(p.id) ?? [])],
+      ultimoPagoISO: ultimoPagoPorPac.get(p.id) ?? null,
+      estadoCobro,
     });
   }
   return items;
