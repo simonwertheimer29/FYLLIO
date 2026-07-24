@@ -146,7 +146,11 @@ export function PacientesView({
   const [dateFilter, setDateFilter] = useState<DateFilter>("todo");
   const [editingNotas, setEditingNotas] = useState<string | null>(null);
   const [editingDoctor, setEditingDoctor] = useState<string | null>(null);
-  const [subTab, setSubTab] = useState<SubTab>("asistidos");
+  // Enlaces del dashboard de Red: ?tab=cobros abre la cola de cobros.
+  const [subTab, setSubTab] = useState<SubTab>(() => {
+    if (typeof window === "undefined") return "asistidos";
+    return new URLSearchParams(window.location.search).get("tab") === "cobros" ? "cobros" : "asistidos";
+  });
   // Flujos con modal (nivel 2: mutaciones de negocio por su flujo origen).
   const [pagoDe, setPagoDe] = useState<{ paciente: Paciente; clinicaId: string | null } | null>(null);
   const [estadoDe, setEstadoDe] = useState<{ paciente: Paciente; abiertos: PresupuestoBrief[] } | null>(null);

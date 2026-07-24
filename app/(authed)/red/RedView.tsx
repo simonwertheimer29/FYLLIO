@@ -1,187 +1,450 @@
 "use client";
 
-// Sprint 8 D.3 — "Red": dashboard macro integrando Leads + Presupuestos +
-// Pacientes. Respeta ClinicContext: admin con "Todas" ve agregado, con
-// clínica específica filtra.
+// Bloque 2 (2026-07-23) — Dashboard de MANAGER. Responde, en orden:
+//   1. ¿Dónde pierdo dinero ahora?   → franja "Hoy" (riesgo + logros)
+//   2. ¿Cómo va el negocio?          → números grandes con delta mensual
+//   3. ¿Qué clínica sube y cuál baja?→ tabla comparativa ordenable
+//   4. ¿Progresamos?                 → € aceptado por mes (6 meses)
 //
-// Reutiliza CommandCenterView (ya consume useClinic en su filtro interno) y
-// añade encima una franja de KPIs de leads + tasa de conversión lead→paciente.
+// El dashboard INFORMA, nunca ejecuta: todo clic navega a colas/fichas.
+// Todo el cálculo vive en el servidor (lib/dashboard-red — las MISMAS
+// funciones de las colas); aquí solo presentación. La home de la
+// coordinadora (Actuar hoy) no se toca. El viejo CommandCenterView dejó
+// de montarse aquí (era su último consumidor — retirada anotada en MEJORAS).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from "recharts";
 import type { UserSession } from "../../lib/presupuestos/types";
+import type { DashboardRed, CifraDelta, ClinicaFila } from "../../lib/dashboard-red";
 import { useClinic } from "../../lib/context/ClinicContext";
-import { contarPipeline } from "../../lib/leads/pipeline";
-import CommandCenterView from "../../components/presupuestos/CommandCenterView";
 import { openCopilot } from "../../components/copilot/openCopilot";
-import { KpiCard } from "../../components/ui/KpiCard";
 import { ErrorState } from "../../components/ui/Feedback";
-import { Sparkles, ICON_STROKE } from "../../components/icons";
+import {
+  Sparkles,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  AlertTriangle,
+  PartyPopper,
+  CheckCircle2,
+  ChevronRight,
+  ICON_STROKE,
+} from "../../components/icons";
 
-type LeadApi = {
-  id: string;
-  estado: "Nuevo" | "Contactado" | "Citado" | "Citados Hoy" | "No Interesado";
-  clinicaId: string | null;
-  convertido: boolean;
+const eur = (n: number) =>
+  n.toLocaleString("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+
+const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+const mesLabel = (yyyyMm: string) => {
+  const m = Number(yyyyMm.slice(5, 7));
+  return `${MESES_CORTOS[m - 1] ?? yyyyMm} ${yyyyMm.slice(2, 4)}`;
 };
 
-type PacienteApi = {
-  id: string;
-  clinicaId: string | null;
-  aceptado: "Si" | "No" | "Pendiente" | null;
-  pagado: number | null;
-  /** Σ pagos reales, derivado en servidor (una sola verdad del dinero). */
-  cobrado: number;
-  leadOrigenId: string | null;
-};
+// ─── Delta ↑↓ vs mes anterior ───────────────────────────────────────────
+function Delta({ d, formato }: { d: CifraDelta; formato?: (n: number) => string }) {
+  if (d.previo === 0 && d.valor === 0) return null;
+  if (d.previo === 0) {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[var(--color-muted)]" title="Sin datos del mes anterior para comparar">
+        <Minus size={10} strokeWidth={ICON_STROKE} aria-hidden /> nuevo
+      </span>
+    );
+  }
+  const pct = Math.round(((d.valor - d.previo) / d.previo) * 100);
+  const sube = pct > 0;
+  const igual = pct === 0;
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 text-[10px] font-semibold tabular-nums ${
+        igual
+          ? "text-[var(--color-muted)]"
+          : sube
+            ? "text-emerald-600 dark:text-emerald-300"
+            : "text-rose-600 dark:text-rose-300"
+      }`}
+      title={`Mes anterior: ${formato ? formato(d.previo) : d.previo.toLocaleString("es-ES")}`}
+    >
+      {igual ? (
+        <Minus size={10} strokeWidth={ICON_STROKE} aria-hidden />
+      ) : sube ? (
+        <TrendingUp size={10} strokeWidth={ICON_STROKE} aria-hidden />
+      ) : (
+        <TrendingDown size={10} strokeWidth={ICON_STROKE} aria-hidden />
+      )}
+      {igual ? "=" : `${sube ? "+" : ""}${pct}%`}
+    </span>
+  );
+}
 
-export function RedView({ user }: { user: UserSession }) {
-  const { selectedClinicaId, selectedClinicaNombre } = useClinic();
-  const [leads, setLeads] = useState<LeadApi[] | null>(null);
-  const [pacientes, setPacientes] = useState<PacienteApi[] | null>(null);
+function Cifra({
+  label,
+  valor,
+  delta,
+  formato,
+  destacada,
+}: {
+  label: string;
+  valor: string;
+  delta?: CifraDelta;
+  formato?: (n: number) => string;
+  destacada?: boolean;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[10px] uppercase tracking-wider font-semibold text-[var(--color-muted)]">{label}</p>
+      <p
+        className={`font-display font-bold tabular-nums text-[var(--color-foreground)] ${
+          destacada ? "text-2xl" : "text-xl"
+        }`}
+      >
+        {valor}
+        {delta && (
+          <span className="ml-1.5 align-middle">
+            <Delta d={delta} formato={formato} />
+          </span>
+        )}
+      </p>
+    </div>
+  );
+}
+
+// ─── Vista ──────────────────────────────────────────────────────────────
+type OrdenClinicas = "tendencia" | "conversion" | "aceptado" | "pendiente";
+
+export function RedView({ user: _user }: { user: UserSession }) {
+  const router = useRouter();
+  const { setSelectedClinicaId } = useClinic();
+  const [data, setData] = useState<DashboardRed | null>(null);
   const [loadError, setLoadError] = useState(false);
+  const [orden, setOrden] = useState<OrdenClinicas>("tendencia");
 
-  // Un fallo de carga se muestra como error honesto con reintento,
-  // nunca como panel vacío exitoso.
   const load = useCallback(() => {
     setLoadError(false);
-    fetch("/api/leads")
+    fetch("/api/red/dashboard")
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((d) => setLeads(d.leads ?? []))
-      .catch(() => setLoadError(true));
-    fetch("/api/pacientes")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
-      .then((d) => setPacientes(d.pacientes ?? []))
+      .then((d) => setData(d))
       .catch(() => setLoadError(true));
   }, []);
-
   useEffect(() => {
     load();
   }, [load]);
 
-  const filtered = useMemo(() => {
-    const ls = (leads ?? []).filter(
-      (l) => !selectedClinicaId || l.clinicaId === selectedClinicaId
+  const clinicasOrdenadas = useMemo(() => {
+    const filas = [...(data?.clinicas ?? [])];
+    if (orden === "tendencia") filas.sort((a, b) => (a.tendenciaPct ?? Infinity) - (b.tendenciaPct ?? Infinity));
+    if (orden === "conversion") filas.sort((a, b) => (b.conversionPct ?? -1) - (a.conversionPct ?? -1));
+    if (orden === "aceptado") filas.sort((a, b) => b.aceptadoMes - a.aceptadoMes);
+    if (orden === "pendiente") filas.sort((a, b) => b.pendiente - a.pendiente);
+    return filas;
+  }, [data, orden]);
+
+  function irAClinica(c: ClinicaFila) {
+    // "Detalle de clínica" = fijar su ámbito en el selector global y abrir
+    // KPIs: todo el producto queda filtrado a esa clínica.
+    setSelectedClinicaId(c.id);
+    router.push("/kpis");
+  }
+
+  if (loadError) {
+    return (
+      <div className="flex-1 min-h-0 overflow-auto bg-[var(--color-background)] p-6">
+        <div className="max-w-5xl mx-auto">
+          <ErrorState detail="El dashboard no está disponible ahora mismo." onRetry={load} />
+        </div>
+      </div>
     );
-    const ps = (pacientes ?? []).filter(
-      (p) => !selectedClinicaId || p.clinicaId === selectedClinicaId
+  }
+
+  if (!data) {
+    return (
+      <div className="flex-1 min-h-0 overflow-auto bg-[var(--color-background)] p-6">
+        <div className="max-w-5xl mx-auto space-y-4 animate-pulse">
+          <div className="h-24 rounded-2xl bg-[var(--color-surface-muted)]" />
+          <div className="h-40 rounded-2xl bg-[var(--color-surface-muted)]" />
+          <div className="h-48 rounded-2xl bg-[var(--color-surface-muted)]" />
+          <div className="h-56 rounded-2xl bg-[var(--color-surface-muted)]" />
+        </div>
+      </div>
     );
-    return { ls, ps };
-  }, [leads, pacientes, selectedClinicaId]);
+  }
 
-  // Una sola definición de pipeline (lib/leads/pipeline): antes este KPI
-  // excluía solo No Interesado y contaba los Convertido como "en pipeline".
-  const pipeline = contarPipeline(filtered.ls);
-  const activos = pipeline.activos;
-  const leadsConvertidos = filtered.ls.filter((l) => l.convertido).length;
-  const totalLeads = filtered.ls.length;
-  const tasaConversion = totalLeads
-    ? Math.round((leadsConvertidos / totalLeads) * 100)
-    : 0;
-
-  // Pacientes originados en un lead (comprobación cruzada)
-  const pacientesDeLead = filtered.ps.filter((p) => p.leadOrigenId).length;
-
-  // Cobrado acumulado = Σ pagos reales (derivado en servidor). Antes sumaba el
-  // cache pacientes.pagado, que podía divergir de los pagos de verdad.
-  const cobradoAcumulado = filtered.ps.reduce((s, p) => s + (p.cobrado ?? 0), 0);
-
-  const scope =
-    selectedClinicaNombre ?? (selectedClinicaId === null ? "todas las clínicas" : "clínica");
+  const { hoy, negocio, progreso } = data;
+  const conv = negocio.presupuestos.conversionMes;
 
   return (
     <div className="flex-1 min-h-0 overflow-auto bg-[var(--color-background)]">
-      <div className="max-w-7xl mx-auto p-4 lg:p-6 space-y-6">
-        {/* Franja KPI leads */}
-        <section className="space-y-3">
-          <header className="flex items-start justify-between gap-3 flex-wrap">
-            <div>
-              <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">Red</h1>
-              <p className="text-xs text-[var(--color-muted)] mt-0.5">
-                Panorama global sobre {scope}
+      <div className="max-w-5xl mx-auto p-4 lg:p-6 space-y-6">
+        <header className="flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">Red</h1>
+            <p className="text-xs text-[var(--color-muted)] mt-0.5">Dónde pierdes dinero, cómo va el negocio y qué clínica necesita atención</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const resumen = [
+                `Riesgo hoy: ${hoy.riesgo.map((r) => r.label).join(" · ") || "nada"}`,
+                `Aceptado mes: ${eur(negocio.presupuestos.aceptadosImporteMes.valor)} (prev ${eur(negocio.presupuestos.aceptadosImporteMes.previo)})`,
+                `Cobrado mes: ${eur(negocio.cobros.cobradoMes.valor)} · pendiente ${eur(negocio.cobros.pendiente)} · vencido ${eur(negocio.cobros.vencido)}`,
+                `Conversión presupuestos: ${conv.pct ?? "—"}% (prev ${conv.pctPrevio ?? "—"}%)`,
+              ].join("\n");
+              openCopilot({
+                context: { kind: "red_admin", summary: resumen },
+                initialAssistantMessage: "He visto el dashboard de la red. ¿Qué punto quieres que analicemos?",
+              });
+            }}
+            className="fyllio-ia-gradient text-xs font-medium px-3 py-2 rounded-md hover:opacity-90 transition-opacity inline-flex items-center gap-1.5"
+          >
+            <Sparkles size={14} strokeWidth={ICON_STROKE} aria-hidden /> Analiza el mes
+          </button>
+        </header>
+
+        {/* ── 1 · HOY ─────────────────────────────────────────────────── */}
+        <section className="space-y-2">
+          {hoy.riesgo.length === 0 ? (
+            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4 flex items-center gap-2.5">
+              <CheckCircle2 size={18} strokeWidth={ICON_STROKE} className="text-emerald-600 dark:text-emerald-300 shrink-0" aria-hidden />
+              <p className="text-sm font-semibold text-[var(--color-foreground)]">
+                Nada en riesgo hoy — las colas están al día.
               </p>
             </div>
-            {/* Sprint 11 C.3 — Copilot con KPIs globales del mes. */}
-            {!loadError && (
-              <button
-                type="button"
-                onClick={() => {
-                  const summary = [
-                    `Vista: Red — ${scope}`,
-                    `Leads en pipeline: ${activos}`,
-                    `Leads convertidos: ${leadsConvertidos}`,
-                    `Pacientes de origen Lead: ${pacientesDeLead}`,
-                    `Tasa conversión lead→paciente: ${tasaConversion}%`,
-                    `Cobrado acumulado: ${cobradoAcumulado.toLocaleString("es-ES")}€`,
-                  ].join("\n");
-                  openCopilot({
-                    context: { kind: "red_admin", summary },
-                    initialAssistantMessage:
-                      "He visto los KPIs de la red. ¿Quieres que te explique algún punto en concreto?",
-                  });
-                }}
-                className="fyllio-ia-gradient text-xs font-medium px-3 py-2 rounded-md hover:opacity-90 transition-opacity inline-flex items-center gap-1.5"
-              >
-                <Sparkles size={14} strokeWidth={ICON_STROKE} aria-hidden /> Analiza el rendimiento del mes
-              </button>
-            )}
-          </header>
-
-          {loadError ? (
-            <ErrorState
-              detail="Los datos de leads y pacientes no están disponibles ahora mismo."
-              onRetry={load}
-            />
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              <KpiCard
-                label="Leads en pipeline"
-                value={activos}
-                accent="accent"
-                copilotSummary={`KPI: Leads en pipeline — ${scope}\nValor: ${activos}\n(Leads accionables: Nuevo, Contactado y Citado. Excluye convertidos y no interesados.)`}
-              />
-              <KpiCard
-                label="Leads convertidos"
-                value={leadsConvertidos}
-                subline={`${pacientesDeLead} pacientes de origen Lead`}
-                accent="emerald"
-                copilotSummary={`KPI: Leads convertidos — ${scope}\nValor: ${leadsConvertidos}\nPacientes que originaron como lead: ${pacientesDeLead}`}
-              />
-              <KpiCard
-                label="Tasa conversión lead→paciente"
-                value={tasaConversion}
-                formatter={(n) => `${n}%`}
-                accent="accent"
-                copilotSummary={`KPI: Tasa conversión lead→paciente — ${scope}\nValor: ${tasaConversion}%\nFórmula: leads convertidos / leads totales.`}
-              />
-              <KpiCard
-                label="Cobrado acumulado"
-                value={cobradoAcumulado}
-                formatter={(n) =>
-                  n.toLocaleString("es-ES", {
-                    style: "currency",
-                    currency: "EUR",
-                    maximumFractionDigits: 0,
-                  })
-                }
-                accent="amber"
-                copilotSummary={`KPI: Cobrado acumulado — ${scope}\nValor: ${cobradoAcumulado.toLocaleString("es-ES")}€\nSuma de los pagos registrados de los pacientes visibles.`}
-              />
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {hoy.riesgo.map((r) => (
+                <Link
+                  key={r.tipo}
+                  href={r.href}
+                  className="group rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 flex items-center justify-between gap-3 hover:border-[var(--color-accent)] transition-colors"
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <AlertTriangle
+                      size={16}
+                      strokeWidth={ICON_STROKE}
+                      className="text-amber-500 dark:text-amber-300 shrink-0"
+                      aria-hidden
+                    />
+                    <div className="min-w-0">
+                      {r.importe != null && (
+                        <p className="font-display text-lg font-bold tabular-nums text-[var(--color-foreground)]">
+                          {eur(r.importe)}
+                        </p>
+                      )}
+                      <p className="text-xs text-[var(--color-muted)] truncate">{r.label}</p>
+                    </div>
+                  </div>
+                  <ChevronRight
+                    size={14}
+                    strokeWidth={ICON_STROKE}
+                    className="text-[var(--color-muted)] group-hover:text-[var(--color-accent)] shrink-0"
+                    aria-hidden
+                  />
+                </Link>
+              ))}
+            </div>
+          )}
+          {hoy.logros.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {hoy.logros.map((l, i) => (
+                <p
+                  key={i}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
+                >
+                  <PartyPopper size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                  {l.texto}
+                </p>
+              ))}
             </div>
           )}
         </section>
 
-        {/* Franja de Presupuestos (CommandCenterView ya filtra por selectedClinicaNombre) */}
-        <section>
-          <CommandCenterView
-            user={user}
-            onNavigateToTareas={() => {
-              /* no-op: "Tareas" desaparece en D.6. El usuario puede ir a
-                 /actuar-hoy manualmente. */
-            }}
-          />
+        {/* ── 2 · EL NEGOCIO ──────────────────────────────────────────── */}
+        <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)]">
+          <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-5 gap-4 items-end">
+            <p className="col-span-2 sm:col-span-1 text-xs font-semibold text-[var(--color-muted)] self-center">Leads</p>
+            <Cifra label="Nuevos (mes)" valor={String(negocio.leads.nuevosMes.valor)} delta={negocio.leads.nuevosMes} />
+            <Cifra label="En seguimiento" valor={String(negocio.leads.enSeguimiento)} />
+            <Cifra label="Citados (mes)" valor={String(negocio.leads.citadosMes.valor)} delta={negocio.leads.citadosMes} />
+            <Cifra
+              label="Conversión del mes"
+              valor={negocio.leads.conversionMes.pct != null ? `${negocio.leads.conversionMes.pct}%` : "—"}
+              delta={
+                negocio.leads.conversionMes.pct != null && negocio.leads.conversionMes.pctPrevio != null
+                  ? { valor: negocio.leads.conversionMes.pct, previo: negocio.leads.conversionMes.pctPrevio }
+                  : undefined
+              }
+            />
+          </div>
+          <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-5 gap-4 items-end">
+            <p className="col-span-2 sm:col-span-1 text-xs font-semibold text-[var(--color-muted)] self-center">
+              Presupuestos
+              {negocio.presupuestos.perdidosSinFecha > 0 && (
+                <span className="block text-[9px] font-normal mt-0.5" title="Perdidos antiguos sin registro de fecha en el historial — no se atribuyen a ningún mes">
+                  +{negocio.presupuestos.perdidosSinFecha} perdido{negocio.presupuestos.perdidosSinFecha === 1 ? "" : "s"} sin fecha
+                </span>
+              )}
+            </p>
+            <Cifra
+              label="Presentados (mes)"
+              valor={`${negocio.presupuestos.presentadosMes.valor} · ${eur(negocio.presupuestos.presentadosImporteMes.valor)}`}
+              delta={negocio.presupuestos.presentadosMes}
+            />
+            <Cifra
+              label="Aceptados (mes)"
+              valor={`${negocio.presupuestos.aceptadosMes.valor} · ${eur(negocio.presupuestos.aceptadosImporteMes.valor)}`}
+              delta={negocio.presupuestos.aceptadosImporteMes}
+              formato={eur}
+            />
+            <Cifra
+              label="Perdidos (mes)"
+              valor={`${negocio.presupuestos.perdidosMes.valor} · ${eur(negocio.presupuestos.perdidosImporteMes.valor)}`}
+              delta={negocio.presupuestos.perdidosMes}
+            />
+            <Cifra
+              label="Conversión presentado→aceptado"
+              valor={conv.pct != null ? `${conv.pct}%` : "—"}
+              delta={conv.pct != null && conv.pctPrevio != null ? { valor: conv.pct, previo: conv.pctPrevio } : undefined}
+              destacada
+            />
+          </div>
+          <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-5 gap-4 items-end">
+            <p className="col-span-2 sm:col-span-1 text-xs font-semibold text-[var(--color-muted)] self-center">Cobros</p>
+            <Cifra label="Cobrado (mes)" valor={eur(negocio.cobros.cobradoMes.valor)} delta={negocio.cobros.cobradoMes} formato={eur} />
+            <Cifra label="Pendiente" valor={eur(negocio.cobros.pendiente)} />
+            <Cifra label="Vencido" valor={eur(negocio.cobros.vencido)} />
+          </div>
+        </section>
+
+        {/* ── 3 · CLÍNICAS ────────────────────────────────────────────── */}
+        <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+          <div className="px-5 pt-4 pb-2 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-[var(--color-foreground)]">Clínicas</h2>
+            <p className="text-[10px] text-[var(--color-muted)]">mes actual · clic en columna para ordenar</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
+                <tr className="border-b border-[var(--color-border)]">
+                  <th className="text-left font-semibold px-5 py-2">Clínica</th>
+                  {(
+                    [
+                      ["conversion", "Conversión"],
+                      ["aceptado", "€ aceptado"],
+                      ["pendiente", "€ pendiente"],
+                      ["tendencia", "Tendencia"],
+                    ] as Array<[OrdenClinicas, string]>
+                  ).map(([k, l]) => (
+                    <th key={k} className="text-right font-semibold px-3 py-2 whitespace-nowrap">
+                      <button
+                        type="button"
+                        onClick={() => setOrden(k)}
+                        className={`hover:text-[var(--color-foreground)] ${orden === k ? "text-[var(--color-accent)]" : ""}`}
+                      >
+                        {l}
+                      </button>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {clinicasOrdenadas.map((c) => (
+                  <tr
+                    key={c.id}
+                    onClick={() => irAClinica(c)}
+                    className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-muted)] cursor-pointer"
+                  >
+                    <td className="px-5 py-2.5 font-semibold text-[var(--color-foreground)]">{c.nombre}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-[var(--color-foreground)]">
+                      {c.conversionPct != null ? `${c.conversionPct}%` : "—"}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-[var(--color-foreground)]">{eur(c.aceptadoMes)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-[var(--color-muted)]">{eur(c.pendiente)}</td>
+                    <td className="px-3 py-2.5 text-right">
+                      {c.tendenciaPct == null ? (
+                        <span className="text-[var(--color-muted)]" title="Sin € aceptado el mes anterior para comparar">—</span>
+                      ) : (
+                        <span
+                          className={`inline-flex items-center gap-1 font-semibold tabular-nums ${
+                            c.tendenciaPct < 0
+                              ? "text-rose-600 dark:text-rose-300"
+                              : c.tendenciaPct > 0
+                                ? "text-emerald-600 dark:text-emerald-300"
+                                : "text-[var(--color-muted)]"
+                          }`}
+                        >
+                          {c.tendenciaPct < 0 ? (
+                            <TrendingDown size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                          ) : c.tendenciaPct > 0 ? (
+                            <TrendingUp size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                          ) : (
+                            <Minus size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                          )}
+                          {c.tendenciaPct > 0 ? "+" : ""}
+                          {c.tendenciaPct}%
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {clinicasOrdenadas.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-6 text-center text-[var(--color-muted)]">
+                      Sin clínicas visibles en tu sesión.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        {/* ── 4 · PROGRESO ────────────────────────────────────────────── */}
+        <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+          <h2 className="text-sm font-semibold text-[var(--color-foreground)]">€ aceptado por mes</h2>
+          <p className="text-[10px] text-[var(--color-muted)] mb-3">Últimos 6 meses</p>
+          <div className="h-52">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={progreso.map((p) => ({ ...p, label: mesLabel(p.mes) }))} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  tick={{ fontSize: 10, fill: "var(--color-muted)" }}
+                  axisLine={{ stroke: "var(--color-border)" }}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 10, fill: "var(--color-muted)" }}
+                  tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))}
+                  axisLine={false}
+                  tickLine={false}
+                  width={34}
+                />
+                <Tooltip
+                  formatter={(v) => [eur(Number(v)), "Aceptado"]}
+                  contentStyle={{
+                    background: "var(--color-surface)",
+                    border: "1px solid var(--color-border)",
+                    borderRadius: 12,
+                    fontSize: 12,
+                    color: "var(--color-foreground)",
+                  }}
+                  cursor={{ fill: "var(--color-surface-muted)" }}
+                />
+                <Bar dataKey="importe" fill="var(--color-accent)" radius={[6, 6, 0, 0]} maxBarSize={48} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </section>
       </div>
     </div>
   );
 }
-

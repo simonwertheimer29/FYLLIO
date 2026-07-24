@@ -47,7 +47,13 @@ export function ActuarHoyView({
   initialLeads: Lead[];
   doctores: Doctor[];
 }) {
-  const [tab, setTab] = useState<Tab>("leads");
+  // Enlaces del dashboard de Red: ?vista=leads|presupuestos abre la cola
+  // pedida (lectura en el init para no exigir Suspense de useSearchParams).
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window === "undefined") return "leads";
+    const v = new URLSearchParams(window.location.search).get("vista");
+    return v === "presupuestos" ? "presupuestos" : "leads";
+  });
   // Sprint 9 fix unificación cierre — el SidePanel de Presupuestos se monta
   // al nivel de ActuarHoyView (igual que el patrón pre-fix). Lo abrimos vía
   // AccionPanel kind="presupuesto" para conservar el wrapper unificado.
@@ -247,7 +253,12 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
   // (deliberado) pero avisamos de que puede estar desactualizada.
   const [sinConexion, setSinConexion] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const [filter, setFilter] = useState<LeadSubFilter>("todos");
+  // ?filtro=sin-contactar|citados|esperando desde el dashboard de Red.
+  const [filter, setFilter] = useState<LeadSubFilter>(() => {
+    if (typeof window === "undefined") return "todos";
+    const f = new URLSearchParams(window.location.search).get("filtro");
+    return f === "citados" || f === "sin-contactar" || f === "esperando" ? f : "todos";
+  });
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null);
   const [asistenciaLead, setAsistenciaLead] = useState<Lead | null>(null);
   // Bloque 2 P1 — "Agendar" del panel abre AgendarModal in situ (sin saltar de módulo).

@@ -84,7 +84,12 @@ export function CobrosTabView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filtroDoctor, setFiltroDoctor] = useState<string>("");
-  const [filtroUrgencia, setFiltroUrgencia] = useState<FiltroUrg>("todas");
+  // ?urgencia=vencido (u otras) desde el dashboard de Red.
+  const [filtroUrgencia, setFiltroUrgencia] = useState<FiltroUrg>(() => {
+    if (typeof window === "undefined") return "todas";
+    const u = new URLSearchParams(window.location.search).get("urgencia");
+    return u === "vencido" || u === "por_vencer" || u === "estancado" ? u : "todas";
+  });
   const [filtroAntiguedad, setFiltroAntiguedad] = useState<FiltroAntig>("todo");
   const [reloadKey, setReloadKey] = useState(0);
 
