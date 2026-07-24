@@ -996,7 +996,7 @@ function PlantillaEditor({
               className="mt-1 w-full px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-sm text-[var(--color-foreground)] font-mono focus:border-[var(--color-accent)] focus:outline-none resize-y disabled:bg-[var(--color-surface-muted)] disabled:text-[var(--color-muted)]"
             />
             <p className="text-[10px] text-[var(--color-muted)] mt-1">
-              Variables: {"{{nombre}} {{importe}} {{tratamiento}} {{nombre_doctor}} {{nombre_clinica}} {{fecha_aceptado}} {{plazo_dias}} {{dias_vencido}}"}
+              Variables: {"{{nombre}} {{importe}} {{pendiente}} {{tratamiento}} {{nombre_doctor}} {{nombre_clinica}} {{fecha_aceptado}} {{plazo_dias}} {{dias_vencido}}"}
             </p>
           </div>
           <div>

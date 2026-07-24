@@ -67,18 +67,22 @@ const PLANTILLAS_GLOBALES_COBRANZA = [
       "Confirmamos tu presupuesto de {{importe}}€ para {{tratamiento}}. " +
       "Para reservar tu plaza, ¿podrías abonar la señal? Cualquier duda, aquí estamos.",
   },
+  // MEJORAS nº 32 (2026-07-24): lo que se RECLAMA usa {{pendiente}}
+  // (importe − pagos reales); la señal confirma el presupuesto y mantiene
+  // {{importe}}. Un recordatorio con el total firmado a un paciente que ya
+  // pagó parte es una cifra equivocada.
   {
     nombre: "recordatorio_primer_pago",
     contenido:
       "Hola {{nombre}}, ¿cómo estás? Te recuerdo que tienes pendiente el primer " +
-      "pago de tu plan de tratamiento ({{importe}}€). ¿Cuándo te viene bien pasar " +
+      "pago de tu plan de tratamiento ({{pendiente}}€). ¿Cuándo te viene bien pasar " +
       "por la clínica? Te esperamos.",
   },
   {
     nombre: "recordatorio_liquidacion",
     contenido:
       "Hola {{nombre}}, soy {{nombre_doctor}}. Tienes pendiente la liquidación de " +
-      "{{importe}}€ desde hace {{dias_vencido}} días. ¿Hay algo en lo que pueda " +
+      "{{pendiente}}€ desde hace {{dias_vencido}} días. ¿Hay algo en lo que pueda " +
       "ayudarte? Llámanos cuando quieras.",
   },
 ];

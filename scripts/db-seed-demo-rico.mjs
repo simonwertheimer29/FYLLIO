@@ -655,10 +655,12 @@ try {
   // Plantillas de COBRANZA (módulo Cobros 2026-07-24) — las 3 canónicas del
   // sprint 14b (app/scripts/sprint14b-bloque4-plantillas.ts). Sin ellas el
   // panel "Recordar pago" no puede precargar el recordatorio.
+  // MEJORAS nº 32: lo que se RECLAMA usa {{pendiente}} (importe − pagos);
+  // la señal confirma el presupuesto y mantiene {{importe}}.
   const PLANTILLAS_COBRANZA = [
     ["recordatorio_senal", "Hola {{nombre}}, soy {{nombre_doctor}} de {{nombre_clinica}}. Confirmamos tu presupuesto de {{importe}}€ para {{tratamiento}}. Para reservar tu plaza, ¿podrías abonar la señal? Cualquier duda, aquí estamos."],
-    ["recordatorio_primer_pago", "Hola {{nombre}}, ¿cómo estás? Te recuerdo que tienes pendiente el primer pago de tu plan de tratamiento ({{importe}}€). ¿Cuándo te viene bien pasar por la clínica? Te esperamos."],
-    ["recordatorio_liquidacion", "Hola {{nombre}}, soy {{nombre_doctor}}. Tienes pendiente la liquidación de {{importe}}€ desde hace {{dias_vencido}} días. ¿Hay algo en lo que pueda ayudarte? Llámanos cuando quieras."],
+    ["recordatorio_primer_pago", "Hola {{nombre}}, ¿cómo estás? Te recuerdo que tienes pendiente el primer pago de tu plan de tratamiento ({{pendiente}}€). ¿Cuándo te viene bien pasar por la clínica? Te esperamos."],
+    ["recordatorio_liquidacion", "Hola {{nombre}}, soy {{nombre_doctor}}. Tienes pendiente la liquidación de {{pendiente}}€ desde hace {{dias_vencido}} días. ¿Hay algo en lo que pueda ayudarte? Llámanos cuando quieras."],
   ];
   for (const [nombre, contenido] of PLANTILLAS_COBRANZA) {
     const vars = [...new Set([...contenido.matchAll(/\{\{([a-zA-Z_]+)\}\}/g)].map((m) => m[1]))].join(", ");

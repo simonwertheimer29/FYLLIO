@@ -465,7 +465,14 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   disponible) y usarla en la plantilla de liquidación.
 - **Impacto:** medio (confianza del paciente; hoy la coordinadora tiene que corregir el
   importe a mano).
-- **Fecha:** 2026-07-24 · 🔵
+- **Fecha:** 2026-07-24 · 🟢 hecha (2026-07-24, aprobada por Simon): variable `{{pendiente}}`
+  derivada de `finanzasDePaciente` (la lib compartida — cero cálculo propio; de paso
+  `{{importe}}` también sale de ahí); `recordatorio_liquidacion` y `recordatorio_primer_pago`
+  reclaman `{{pendiente}}` en canónicas (sprint14b), seed rico y DB DEMO; la señal conserva
+  `{{importe}}` (confirma el presupuesto, aún sin pagos — pendiente=importe). Verificado en
+  render real: Clara Rey pasa de "liquidación de 2.400€" a "de 960€". Auditadas el resto:
+  ninguna otra plantilla reclama con `{{importe}}`. ⚠️ Si RB/INDEP tienen plantillas de
+  cobranza propias en sus bases, actualizarlas al configurar el piloto (no se tocan desde aquí).
 
 ## 33. La penalización de re-contacto de cobros no ve a pacientes sin lead de origen
 - **Zona:** `/api/cobros` (cruce `ultimaCobranzaPorLead`) + `recordar/route.ts` (rama

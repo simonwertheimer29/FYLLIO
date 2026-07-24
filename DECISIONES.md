@@ -310,3 +310,11 @@ el fallo y confirmaba igual) y converge con estadoConversacion por construcción
 paridad exacta SQL independiente = /api/cobros = dashboard Red (8.790/960/15.020 €, 17
 filas); RLS adversarial 401/403/scope OK; mejoras 28 (lectores de cachés a cero) y 30
 (listClinicas con cliente, 3 rutas) cerradas de rebote.
+
+## 2026-07-24 — {{pendiente}}: un recordatorio de cobro nunca reclama el total firmado
+La plantilla de liquidación decía "tienes pendiente 2.400€" a una paciente que debía 960 €
+(el {{importe}} era el total aceptado). Nueva variable {{pendiente}} derivada de
+finanzasDePaciente — la misma lib que la ficha y /cobros, sin cálculo propio — y las
+plantillas que RECLAMAN (liquidación, primer pago) la usan; la señal mantiene {{importe}}
+porque confirma el presupuesto antes de ningún pago. Regla: la cifra que se le pide a un
+paciente sale siempre de la derivación compartida del dinero.

@@ -8,6 +8,7 @@ import { usaPostgres } from "../db/data-backend";
 import { selectPresupuestosRaw } from "../presupuestos/repo";
 import { getPaciente } from "../pacientes/pacientes";
 import { getOpcionEscalar } from "../configuraciones/configuraciones";
+import { finanzasDePaciente } from "../finanzas-paciente";
 
 export type PlantillaCategoria =
   | "cobranza"
@@ -180,6 +181,7 @@ export type RenderOverrides = {
   /** Sample data para preview en el panel admin (sin tocar Airtable). */
   nombre?: string;
   importe?: number;
+  pendiente?: number;
   tratamiento?: string;
   nombre_doctor?: string;
   nombre_clinica?: string;
@@ -196,7 +198,11 @@ export type RenderOverrides = {
  *
  * Variables soportadas:
  *   {{nombre}}            paciente.nombre
- *   {{importe}}           presupuesto firmado o sample (formato 1.234,56€ via overrides)
+ *   {{importe}}           Σ presupuestos ACEPTADO (formato 1.234,56)
+ *   {{pendiente}}         importe − pagos reales (MEJORAS nº 32) — la cifra
+ *                         que se RECLAMA en un recordatorio de cobro; deriva
+ *                         de finanzasDePaciente (la lib compartida), nunca
+ *                         cálculo propio
  *   {{tratamiento}}       paciente.tratamientos.join(", ")
  *   {{nombre_doctor}}     Staff.Nombre del paciente.doctorLinkId
  *   {{nombre_clinica}}    Clinica.Nombre del paciente.clinicaId
@@ -255,15 +261,15 @@ async function resolveValoresParaPaciente(
     return overridesToStrings(overrides);
   }
 
-  // Doctor + clinica (1 query cada uno, in parallel).
-  const [doctorNombre, clinicaNombre] = await Promise.all([
+  // Doctor + clinica + dinero + fecha de aceptación, en paralelo. El dinero
+  // sale de finanzasDePaciente — la MISMA lib que la ficha y el módulo
+  // Cobros (firmado = Σ ACEPTADO, pendiente = firmado − pagos reales).
+  const [doctorNombre, clinicaNombre, finanzas, fechaAceptadoIso] = await Promise.all([
     paciente.doctorLinkId ? loadStaffNombre(paciente.doctorLinkId) : Promise.resolve(null),
     paciente.clinicaId ? loadClinicaNombre(paciente.clinicaId) : Promise.resolve(null),
+    finanzasDePaciente(pacienteId),
+    loadFechaPrimerAceptado(pacienteId),
   ]);
-
-  // Presupuesto firmado más reciente (primer ACEPTADO con Fecha_Aceptado).
-  const presupuestoFirmado = await loadPresupuestoFirmado(pacienteId);
-  const fechaAceptadoIso = presupuestoFirmado?.fechaAceptado ?? null;
 
   // Plazo liquidacion (de config clinica con fallback global 90).
   const plazoDias = await getOpcionEscalar({
@@ -283,13 +289,14 @@ async function resolveValoresParaPaciente(
     );
   }
 
-  // MEJORAS nº 28 — {{importe}} sale de los presupuestos ACEPTADO reales,
-  // nunca de la caché Presupuesto_Total del paciente.
-  const importeRaw = presupuestoFirmado?.importe ?? null;
+  // MEJORAS nº 28/32 — {{importe}} y {{pendiente}} salen de la derivación
+  // compartida, nunca de las cachés del paciente ni de un cálculo propio.
+  const conAceptado = finanzas.firmado > 0;
 
   const base: Record<string, string> = {
     nombre: paciente.nombre || "",
-    importe: importeRaw != null ? fmtImporteEs(importeRaw) : "",
+    importe: conAceptado ? fmtImporteEs(finanzas.firmado) : "",
+    pendiente: conAceptado ? fmtImporteEs(finanzas.pendiente) : "",
     tratamiento: (paciente.tratamientos ?? []).join(", "),
     nombre_doctor: doctorNombre ?? "",
     nombre_clinica: clinicaNombre ?? "",
@@ -307,6 +314,7 @@ function overridesToStrings(o?: RenderOverrides): Record<string, string> {
   const out: Record<string, string> = {};
   if (o.nombre !== undefined) out.nombre = o.nombre;
   if (o.importe !== undefined) out.importe = fmtImporteEs(o.importe);
+  if (o.pendiente !== undefined) out.pendiente = fmtImporteEs(o.pendiente);
   if (o.tratamiento !== undefined) out.tratamiento = o.tratamiento;
   if (o.nombre_doctor !== undefined) out.nombre_doctor = o.nombre_doctor;
   if (o.nombre_clinica !== undefined) out.nombre_clinica = o.nombre_clinica;
@@ -338,35 +346,26 @@ async function loadClinicaNombre(clinicaId: string): Promise<string | null> {
   }
 }
 
-async function loadPresupuestoFirmado(
-  pacienteId: string,
-): Promise<{ importe: number | null; fechaAceptado: string | null } | null> {
+// Fecha de la PRIMERA aceptación — la que arranca el plazo en la cola de
+// cobros. El dinero ({{importe}}/{{pendiente}}) ya no sale de aquí sino de
+// finanzasDePaciente (MEJORAS nº 28/32).
+async function loadFechaPrimerAceptado(pacienteId: string): Promise<string | null> {
   // Mismo patrón load+filter-JS que en Bloque 1.5 (Presupuestos no
   // tiene Paciente_RecordId todavia; deuda Sprint 14b/15).
   try {
     const recs = await selectPresupuestosRaw({
-      fields: ["Paciente", "Estado", "Importe", "Fecha_Aceptado"],
+      fields: ["Paciente", "Estado", "Fecha_Aceptado"],
     });
-    const propios = recs.filter((r) => {
-      const links = ((r.fields as any)?.["Paciente"] ?? []) as string[];
-      return links[0] === pacienteId;
-    });
-    // MEJORAS nº 28 — misma derivación que lib/cobros: importe = Σ de TODOS
-    // los ACEPTADO (antes: uno arbitrario) y fecha = la primera aceptación
-    // (la que arranca el plazo en la cola de cobros).
-    const aceptados = propios.filter(
-      (r) => String(((r.fields as any) ?? {})["Estado"] ?? "") === "ACEPTADO",
-    );
-    if (aceptados.length === 0) return null;
-    let importe = 0;
     let fechaMin: string | null = null;
-    for (const r of aceptados) {
+    for (const r of recs) {
       const f = r.fields as any;
-      importe += Number(f["Importe"] ?? 0) || 0;
+      const links = (f?.["Paciente"] ?? []) as string[];
+      if (links[0] !== pacienteId) continue;
+      if (String(f["Estado"] ?? "") !== "ACEPTADO") continue;
       const fecha = f["Fecha_Aceptado"] ? String(f["Fecha_Aceptado"]).slice(0, 10) : null;
       if (fecha && (!fechaMin || fecha < fechaMin)) fechaMin = fecha;
     }
-    return { importe: importe > 0 ? importe : null, fechaAceptado: fechaMin };
+    return fechaMin;
   } catch {
     return null;
   }
