@@ -517,3 +517,13 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** bajo en producción (Vercel misma región, RTT 1-5 ms → decenas de ms), medio
   como higiene: cualquier despliegue con la DB lejos lo notará multiplicado.
 - **Fecha:** 2026-07-24 · 🔵
+
+## 36. Cobros · Actuar — vista compacta / toggle de densidad
+- **Zona:** `/cobros` pestaña Actuar (cards de bucket)
+- **Principio:** §2 facilidad — con volumen real, 8+ cards de altura completa piden scroll;
+  una densidad compacta (una línea por cobro) daría el barrido rápido de toda la cola.
+- **Mejora:** toggle de densidad (cómodo/compacto) en la cabecera de Actuar, recordado por
+  usuario. Candidata a evaluar con el feedback del piloto.
+- **Impacto:** medio en facilidad para redes con muchos vencidos.
+- **Fecha:** 2026-07-24 · 🔵 (anotada por Simon en el checkpoint de la revisión visual;
+  post-piloto)

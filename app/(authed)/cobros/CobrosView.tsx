@@ -17,7 +17,7 @@ import { ErrorState, EmptyState } from "../../components/ui/Feedback";
 import { StatePill, type StatePillVariant } from "../../components/ui/StatePill";
 import { AccionCard } from "../../components/shared/AccionCard";
 import { PagoModal } from "../../components/pacientes/PagoModal";
-import { AlertTriangle, Clock, Hourglass, Inbox, ICON_STROKE } from "../../components/icons";
+import { Inbox, ICON_STROKE } from "../../components/icons";
 import { CobroPanel } from "./CobroPanel";
 import { type CobroItem, type CobrosApiResponse, type EstadoCobro, copyEstado, fmtEUR } from "./types";
 
@@ -55,6 +55,9 @@ export function CobrosView() {
   const [actuados, setActuados] = useState<Set<string>>(new Set());
   // Dos pestañas con el componente compartido de las colas.
   const [pestana, setPestana] = useState<"actuar" | "registro">("actuar");
+  // Sub-pestañas de Actuar (mismo componente): un bucket a la vista, la
+  // visión de conjunto vive en los contadores + Σ€ de cada pestaña.
+  const [bucket, setBucket] = useState<"vencidos" | "por_vencer" | "estancados">("vencidos");
   // Zona 2 · Registro — filtros de presentación (el payload ya es el scope).
   // ?urgencia=vencido (link del dashboard de Red) preselecciona el estado.
   const [filtroEstado, setFiltroEstado] = useState<"todos" | EstadoCobro>(() => {
@@ -224,40 +227,64 @@ export function CobrosView() {
 
         {loading && !data ? (
           <ColaCobrosSkeleton />
-        ) : totalActuar === 0 ? (
-          <EmptyState
-            icon={<Inbox size={24} strokeWidth={ICON_STROKE} />}
-            title="Nada que reclamar hoy"
-            hint="Cuando un cobro venza o esté a punto de vencer, aparecerá aquí."
-          />
         ) : (
-          <div className="space-y-6">
-            <Bucket
-              titulo="Vencidos"
-              icono={<AlertTriangle size={15} strokeWidth={ICON_STROKE} className="text-[var(--color-danger)]" aria-hidden />}
-              items={buckets.vencidos}
-              actuados={actuados}
-              onOpen={setAbierto}
-              baseIndex={0}
-              emphasis
+          <>
+            {/* Sub-pestañas de bucket — contador + Σ€ en la propia pestaña
+                mantienen la visión de conjunto; un bucket vacío muestra su
+                pestaña con 0, nunca desaparece. */}
+            <ColaTabs
+              tabs={[
+                {
+                  id: "vencidos" as const,
+                  label: `Vencidos · ${buckets.vencidos.length} · ${fmtEUR(sumPendiente(buckets.vencidos))}`,
+                },
+                {
+                  id: "por_vencer" as const,
+                  label: `Por vencer · ${buckets.porVencer.length} · ${fmtEUR(sumPendiente(buckets.porVencer))}`,
+                },
+                {
+                  id: "estancados" as const,
+                  label: `Estancados · ${buckets.estancados.length} · ${fmtEUR(sumPendiente(buckets.estancados))}`,
+                },
+              ]}
+              active={bucket}
+              onChange={setBucket}
             />
-            <Bucket
-              titulo="Por vencer"
-              icono={<Clock size={15} strokeWidth={ICON_STROKE} className="text-amber-600 dark:text-amber-400" aria-hidden />}
-              items={buckets.porVencer}
-              actuados={actuados}
-              onOpen={setAbierto}
-              baseIndex={buckets.vencidos.length}
-            />
-            <Bucket
-              titulo="Estancados"
-              icono={<Hourglass size={15} strokeWidth={ICON_STROKE} className="text-[var(--color-muted)]" aria-hidden />}
-              items={buckets.estancados}
-              actuados={actuados}
-              onOpen={setAbierto}
-              baseIndex={buckets.vencidos.length + buckets.porVencer.length}
-            />
-          </div>
+            {bucket === "vencidos" && (
+              <Bucket
+                items={buckets.vencidos}
+                actuados={actuados}
+                onOpen={setAbierto}
+                emphasis
+                vacio={{
+                  titulo: "Sin cobros vencidos",
+                  hint: "Cuando un pago supere el plazo de su clínica, aparecerá aquí.",
+                }}
+              />
+            )}
+            {bucket === "por_vencer" && (
+              <Bucket
+                items={buckets.porVencer}
+                actuados={actuados}
+                onOpen={setAbierto}
+                vacio={{
+                  titulo: "Nada vence esta semana",
+                  hint: "Los pagos cuyo plazo cumpla en 7 días o menos aparecerán aquí.",
+                }}
+              />
+            )}
+            {bucket === "estancados" && (
+              <Bucket
+                items={buckets.estancados}
+                actuados={actuados}
+                onOpen={setAbierto}
+                vacio={{
+                  titulo: "Sin cobros estancados",
+                  hint: "Presupuestos altos aceptados hace más de 30 días sin ningún pago aparecerán aquí.",
+                }}
+              />
+            )}
+          </>
         )}
       </section>
       )}
@@ -345,10 +372,11 @@ export function CobrosView() {
                 </tr>
               </thead>
               <tbody>
-                {registro.map((i) => (
+                {registro.map((i, idx) => (
                   <tr
                     key={i.pacienteId}
-                    className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-muted)] transition-colors"
+                    className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-muted)] transition-colors fyllio-fade-in"
+                    style={{ animationDelay: `${Math.min(idx * 30, 450)}ms` }}
                   >
                     <td className="px-4 py-2.5">
                       <Link
@@ -393,7 +421,7 @@ export function CobrosView() {
                         <button
                           type="button"
                           onClick={() => setPagoDe(i)}
-                          className="text-xs font-semibold text-[var(--color-accent)] hover:underline whitespace-nowrap"
+                          className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] hover:border-[var(--color-accent)] transition-colors whitespace-nowrap"
                         >
                           Registrar cobro
                         </button>
@@ -435,35 +463,36 @@ export function CobrosView() {
   );
 }
 
+function sumPendiente(items: CobroItem[]): number {
+  return items.reduce((s, i) => s + i.pendiente, 0);
+}
+
 function Bucket({
-  titulo,
-  icono,
   items,
   actuados,
   onOpen,
-  baseIndex,
   emphasis,
+  vacio,
 }: {
-  titulo: string;
-  icono: React.ReactNode;
   items: CobroItem[];
   actuados: Set<string>;
   onOpen: (i: CobroItem) => void;
-  /** Cascada GLOBAL de la pestaña: los delays continúan entre buckets. */
-  baseIndex: number;
   /** Máxima urgencia (vencidos): card con más presencia + importe tamaño KPI. */
   emphasis?: boolean;
+  /** Estado vacío honesto del bucket (la pestaña nunca desaparece). */
+  vacio: { titulo: string; hint: string };
 }) {
-  if (items.length === 0) return null;
+  if (items.length === 0) {
+    return (
+      <EmptyState
+        icon={<Inbox size={24} strokeWidth={ICON_STROKE} />}
+        title={vacio.titulo}
+        hint={vacio.hint}
+      />
+    );
+  }
   return (
     <div className="space-y-2">
-      <p
-        className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide fyllio-fade-in"
-        style={{ animationDelay: `${Math.min(baseIndex * 35, 500)}ms` }}
-      >
-        {icono}
-        {titulo} ({items.length})
-      </p>
       <ul className="space-y-2">
         {items.map((it, i) => {
           const estado = copyEstado(it);
@@ -473,7 +502,7 @@ function Bucket({
             <li
               key={it.pacienteId}
               className="fyllio-fade-in"
-              style={{ animationDelay: `${Math.min((baseIndex + i) * 35, 500)}ms` }}
+              style={{ animationDelay: `${Math.min(i * 35, 500)}ms` }}
             >
               <AccionCard
                 borderColor={BORDER[it.urgencia] ?? "var(--color-border)"}
