@@ -18,6 +18,7 @@ import { useClinic } from "../../lib/context/ClinicContext";
 import { ActuarHoyHeader } from "../../components/shared/ActuarHoyHeader";
 import { AccionCard } from "../../components/shared/AccionCard";
 import { AccionPanel } from "../../components/shared/AccionPanel";
+import { ColaTabs } from "../../components/shared/ColaTabs";
 import { AsistenciaModal } from "../leads/AsistenciaModal";
 import { AgendarModal } from "../leads/AgendarModal";
 import IntervencionView from "../../components/presupuestos/IntervencionView";
@@ -426,23 +427,12 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
         </span>
       )}
 
-      {/* Pills de sub-filtro (mismo lenguaje que el secondary navbar de Presupuestos). */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
-        {tabs.map(([id, label, count]) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setFilter(id)}
-            className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
-              filter === id
-                ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
-                : "bg-[var(--color-surface-muted)] text-[var(--color-muted)] hover:bg-[var(--color-border)]"
-            }`}
-          >
-            {label} · {count}
-          </button>
-        ))}
-      </div>
+      {/* Pills de sub-filtro — componente compartido de las colas. */}
+      <ColaTabs
+        tabs={tabs.map(([id, label, count]) => ({ id, label, count }))}
+        active={filter}
+        onChange={setFilter}
+      />
 
       {loading && filteredLeads.length === 0 ? (
         <CardListSkeleton rows={4} />

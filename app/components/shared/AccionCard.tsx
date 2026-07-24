@@ -43,6 +43,9 @@ export type AccionCardProps = {
   /** Click sobre la card (no sobre los botones) → abrir panel. */
   onOpen?: () => void;
   faded?: boolean;
+  /** Máxima urgencia (p. ej. cobro vencido): borde-izq más grueso y tinte
+   *  danger sutil de fondo — se distingue sin leer nada. */
+  emphasis?: boolean;
 };
 
 export function AccionCard({
@@ -58,11 +61,20 @@ export function AccionCard({
   actions,
   onOpen,
   faded,
+  emphasis,
 }: AccionCardProps) {
   return (
     <div
-      className={`rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] transition-opacity ${faded ? "opacity-50" : ""}`}
-      style={{ borderLeft: `4px solid ${borderColor}` }}
+      className={`rounded-2xl border border-[var(--color-border)] transition-[opacity,border-color,box-shadow] duration-150 ease-out ${
+        onOpen ? "hover:border-[var(--color-accent)] hover:shadow-sm" : ""
+      } ${faded ? "opacity-50" : ""}`}
+      style={{
+        borderLeft: `${emphasis ? 6 : 4}px solid ${borderColor}`,
+        // Tinte sutil sobre el token de superficie — nunca un hex a mano.
+        background: emphasis
+          ? `color-mix(in srgb, ${borderColor} 5%, var(--color-surface))`
+          : "var(--color-surface)",
+      }}
     >
       <div
         className={`p-4 select-none ${onOpen ? "cursor-pointer" : ""}`}

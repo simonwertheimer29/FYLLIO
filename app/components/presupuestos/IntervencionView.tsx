@@ -14,6 +14,7 @@ import { useClinic } from "../../lib/context/ClinicContext";
 import { ErrorState, EmptyState } from "../ui/Feedback";
 import { AccionCard } from "../shared/AccionCard";
 import { ActuarHoyHeader } from "../shared/ActuarHoyHeader";
+import { ColaTabs } from "../shared/ColaTabs";
 import { X, Inbox, ICON_STROKE } from "../icons";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -616,25 +617,15 @@ export default function IntervencionView({
       </div>
 
       {/* Dos pestañas — partición total por estadoConversacion, como Leads */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
-        {INTERVENCION_TABS.map((tab) => {
-          const count = countForTab(globalFiltered, tab.id);
-          const isActive = subTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setSubTab(tab.id)}
-              className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
-                isActive
-                  ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
-                  : "bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
-              }`}
-            >
-              {tab.label} · {count}
-            </button>
-          );
-        })}
-      </div>
+      <ColaTabs
+        tabs={INTERVENCION_TABS.map((tab) => ({
+          id: tab.id,
+          label: tab.label,
+          count: countForTab(globalFiltered, tab.id),
+        }))}
+        active={subTab}
+        onChange={setSubTab}
+      />
 
       {/* Enviar la cola uno a uno (honesto: abre WhatsApp por paciente) */}
       {bulkSendable.length >= 3 && (

@@ -46,7 +46,7 @@ export function KpiCardSkeleton() {
 /** Fila de tabla genérica con N columnas. */
 export function TableRowSkeleton({ cols = 4 }: { cols?: number }) {
   return (
-    <tr className="border-t border-slate-100">
+    <tr className="border-t border-[var(--color-border)]">
       {Array.from({ length: cols }).map((_, i) => (
         <td key={i} className="px-3 py-3">
           <Skeleton className="h-3" width={i === 0 ? "60%" : "80%"} />

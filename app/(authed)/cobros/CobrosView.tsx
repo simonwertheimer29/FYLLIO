@@ -11,7 +11,8 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { KpiCard } from "../../components/ui/KpiCard";
-import { CardListSkeleton, KpiCardSkeleton } from "../../components/ui/Skeleton";
+import { Skeleton, KpiCardSkeleton, TableRowSkeleton } from "../../components/ui/Skeleton";
+import { ColaTabs } from "../../components/shared/ColaTabs";
 import { ErrorState, EmptyState } from "../../components/ui/Feedback";
 import { StatePill, type StatePillVariant } from "../../components/ui/StatePill";
 import { AccionCard } from "../../components/shared/AccionCard";
@@ -52,6 +53,8 @@ export function CobrosView() {
   const [abierto, setAbierto] = useState<CobroItem | null>(null);
   // Cards atenuadas tras actuar (además de las contactadas ≤3d del server).
   const [actuados, setActuados] = useState<Set<string>>(new Set());
+  // Dos pestañas con el componente compartido de las colas.
+  const [pestana, setPestana] = useState<"actuar" | "registro">("actuar");
   // Zona 2 · Registro — filtros de presentación (el payload ya es el scope).
   // ?urgencia=vencido (link del dashboard de Red) preselecciona el estado.
   const [filtroEstado, setFiltroEstado] = useState<"todos" | EstadoCobro>(() => {
@@ -196,7 +199,18 @@ export function CobrosView() {
         </div>
       )}
 
+      {/* ── Pestañas Actuar / Registro (componente compartido de las colas) ── */}
+      <ColaTabs
+        tabs={[
+          { id: "actuar" as const, label: "Actuar", count: totalActuar },
+          { id: "registro" as const, label: "Registro", count: (data?.items ?? []).length },
+        ]}
+        active={pestana}
+        onChange={setPestana}
+      />
+
       {/* ── Zona 1 · Actuar ─────────────────────────────────────────── */}
+      {pestana === "actuar" && (
       <section className="space-y-4">
         <div>
           <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">
@@ -209,7 +223,7 @@ export function CobrosView() {
         </div>
 
         {loading && !data ? (
-          <CardListSkeleton rows={3} />
+          <ColaCobrosSkeleton />
         ) : totalActuar === 0 ? (
           <EmptyState
             icon={<Inbox size={24} strokeWidth={ICON_STROKE} />}
@@ -224,6 +238,8 @@ export function CobrosView() {
               items={buckets.vencidos}
               actuados={actuados}
               onOpen={setAbierto}
+              baseIndex={0}
+              emphasis
             />
             <Bucket
               titulo="Por vencer"
@@ -231,6 +247,7 @@ export function CobrosView() {
               items={buckets.porVencer}
               actuados={actuados}
               onOpen={setAbierto}
+              baseIndex={buckets.vencidos.length}
             />
             <Bucket
               titulo="Estancados"
@@ -238,12 +255,15 @@ export function CobrosView() {
               items={buckets.estancados}
               actuados={actuados}
               onOpen={setAbierto}
+              baseIndex={buckets.vencidos.length + buckets.porVencer.length}
             />
           </div>
         )}
       </section>
+      )}
 
       {/* ── Zona 2 · Registro ───────────────────────────────────────── */}
+      {pestana === "registro" && (
       <section className="space-y-4">
         <div>
           <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">
@@ -301,7 +321,7 @@ export function CobrosView() {
         </div>
 
         {loading && !data ? (
-          <CardListSkeleton rows={5} />
+          <RegistroSkeleton />
         ) : registro.length === 0 ? (
           <EmptyState
             icon={<Inbox size={24} strokeWidth={ICON_STROKE} />}
@@ -386,6 +406,7 @@ export function CobrosView() {
           </div>
         )}
       </section>
+      )}
 
       {abierto && (
         <CobroPanel
@@ -420,17 +441,26 @@ function Bucket({
   items,
   actuados,
   onOpen,
+  baseIndex,
+  emphasis,
 }: {
   titulo: string;
   icono: React.ReactNode;
   items: CobroItem[];
   actuados: Set<string>;
   onOpen: (i: CobroItem) => void;
+  /** Cascada GLOBAL de la pestaña: los delays continúan entre buckets. */
+  baseIndex: number;
+  /** Máxima urgencia (vencidos): card con más presencia + importe tamaño KPI. */
+  emphasis?: boolean;
 }) {
   if (items.length === 0) return null;
   return (
     <div className="space-y-2">
-      <p className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide">
+      <p
+        className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide fyllio-fade-in"
+        style={{ animationDelay: `${Math.min(baseIndex * 35, 500)}ms` }}
+      >
         {icono}
         {titulo} ({items.length})
       </p>
@@ -443,14 +473,19 @@ function Bucket({
             <li
               key={it.pacienteId}
               className="fyllio-fade-in"
-              style={{ animationDelay: `${Math.min(i * 30, 450)}ms` }}
+              style={{ animationDelay: `${Math.min((baseIndex + i) * 35, 500)}ms` }}
             >
               <AccionCard
                 borderColor={BORDER[it.urgencia] ?? "var(--color-border)"}
                 faded={faded}
+                emphasis={emphasis}
                 title={it.nombre}
                 titleRight={
-                  <span className="font-display text-sm font-bold text-[var(--color-danger)] tabular-nums">
+                  <span
+                    className={`font-display font-bold text-[var(--color-danger)] tabular-nums ${
+                      emphasis ? "text-2xl leading-none" : "text-sm"
+                    }`}
+                  >
                     {fmtEUR(it.pendiente)}
                   </span>
                 }
@@ -471,6 +506,59 @@ function Bucket({
           );
         })}
       </ul>
+    </div>
+  );
+}
+
+// ─── Skeletons con la forma real (cards con borde-izq / tabla) ──────────
+
+function ColaCobrosSkeleton() {
+  return (
+    <div className="space-y-6" aria-hidden>
+      {[3, 2].map((n, b) => (
+        <div key={b} className="space-y-2">
+          <Skeleton width={120} height={12} />
+          <div className="space-y-2">
+            {Array.from({ length: n }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
+                style={{ borderLeft: `${b === 0 ? 6 : 4}px solid var(--color-border)` }}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 space-y-2">
+                    <Skeleton width={160} height={14} />
+                    <Skeleton width={110} height={10} />
+                    <Skeleton width={220} height={10} />
+                    <Skeleton width={180} height={13} />
+                  </div>
+                  <Skeleton width={72} height={b === 0 ? 24 : 16} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RegistroSkeleton() {
+  return (
+    <div
+      className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden"
+      aria-hidden
+    >
+      <div className="px-4 py-3 border-b border-[var(--color-border)]">
+        <Skeleton width={340} height={10} />
+      </div>
+      <table className="w-full">
+        <tbody>
+          {Array.from({ length: 6 }).map((_, i) => (
+            <TableRowSkeleton key={i} cols={8} />
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
