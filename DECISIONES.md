@@ -286,3 +286,14 @@ que ahora RECHAZA Perdido sin motivo). Derivados (dinero, aceptado, tratamientos
 cita de la agenda) no se editan jamás. El teléfono se propaga a los presupuestos abiertos
 con cascada visible en el toast (deuda D1); Financiado salió de la tabla (nº 27) y el
 resto de duplicados quedó inventariado en la nº 28.
+
+## 2026-07-23 — Bloque 2: dashboard de manager derivado de las mismas funciones que las colas
+/red pasa de KPIs sueltos + CommandCenter viejo a las 4 preguntas del manager: riesgo de hoy
+(reactivables por conversacionDePresupuesto, vencidos por calcularCobrosPorPaciente, leads sin
+contacto por estadoConversacion — extraídas a lib y compartidas con sus colas, cero cálculo
+paralelo), negocio con deltas mensuales, comparativa de clínicas y € aceptado 6 meses. Decisiones:
+fecha de pérdida derivada del historial (registrarAccion ahora escribe en PG; los perdidos
+antiguos sin historial se cuentan aparte, honesto) y seed con histórico de 6 meses cubierto por
+la invariante. El QA de paridad cazó un fallo real de tenant: listClinicas sin cliente devolvía
+las clínicas de TODOS los clientes (15 vs 4) — corregido en el dashboard, anotado el patrón (nº 30).
+La cola de cobros dejó de preferir las cachés del paciente al derivar (nº 28 avanzada de rebote).

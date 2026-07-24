@@ -409,3 +409,22 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   las copias y eliminarlas del esquema en una migración.
 - **Impacto:** medio (mientras existan, cualquier flujo nuevo puede volver a leerlas).
 - **Fecha:** 2026-07-23 · 🔵
+
+## 29. CommandCenterView huérfano tras el dashboard de Red
+- **Zona:** `app/components/presupuestos/CommandCenterView.tsx` (636 líneas)
+- **Principio:** código muerto = deuda que alguien volverá a leer
+- **Problema:** el dashboard de Red (Bloque 2) retiró su único consumidor; el mini-dashboard
+  viejo de presupuestos queda sin montar en ninguna ruta.
+- **Mejora:** borrar el componente (y sus helpers exclusivos) tras el preview del dashboard.
+- **Impacto:** bajo (limpieza).
+- **Fecha:** 2026-07-23 · 🔵
+
+## 30. listClinicas sin cliente en cola-cobros (mismo patrón que cazó el QA del dashboard)
+- **Zona:** `app/api/cola-cobros/route.ts` (listClinicas({ onlyActivas: true }) sin cliente)
+- **Principio:** identidad central siempre con cliente explícito
+- **Problema:** sin `cliente`, la rama PG lee el directorio global (clínicas de TODOS los
+  clientes). Hoy solo se usa como mapa id→nombre (sin fuga visible), pero es exactamente el
+  patrón que en el dashboard devolvía 15 clínicas en vez de 4 hasta que el QA de RLS lo cazó.
+- **Mejora:** pasar `cliente: currentCliente()` (una línea) y auditar otros callers sin cliente.
+- **Impacto:** medio (higiene de tenant; hoy sin fuga demostrada en esta ruta).
+- **Fecha:** 2026-07-23 · 🔵

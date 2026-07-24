@@ -261,7 +261,7 @@ try {
       const guion = []; // {dir, ts, txt, intn?}
       let urgencia = "BAJO", accion = null, mensajeSug = null;
       let altaOff = -(1 + (np % 5));
-      let fechaAceptado = null, motivoPerd = null, motivoPerdTexto = null;
+      let fechaAceptado = null, motivoPerd = null, motivoPerdTexto = null, fechaPerdida = null;
 
       if (estado === "PRESENTADO") {
         if (k === 0) {
@@ -367,7 +367,9 @@ try {
         guion.push({ dir: "Saliente", ts: dh(aceptOff, 12), txt: `¡Enhorabuena, ${primer}! 🎉 Te llamamos hoy para cerrar la primera cita y el pago. Bienvenido/a.` });
         urgencia = "NINGUNO";
       } else {
-        // PERDIDO — el hilo cuadra con el motivo registrado.
+        // PERDIDO — el hilo cuadra con el motivo registrado. La FECHA de
+        // pérdida vive en historial_acciones (cambio_estado→PERDIDO), que es
+        // lo que escribe la app al perder: el dashboard la deriva de ahí.
         motivoPerd = MOTIVOS_PERD[k % MOTIVOS_PERD.length];
         altaOff = -8;
         if (motivoPerd === "Sin respuesta tras 3 contactos") {
@@ -375,11 +377,13 @@ try {
           guion.push({ dir: "Saliente", ts: dh(-7, 10), txt: `Hola ${primer}, ¿pudiste verlo? Cualquier duda me dices 😊` });
           guion.push({ dir: "Saliente", ts: dh(-5, 10), txt: `Hola ${primer}, último recordatorio para no ser pesados 😊 Si te interesa retomarlo, aquí estamos.` });
           motivoPerdTexto = "No respondió a ninguno de los tres contactos.";
+          fechaPerdida = dh(-4, 10);
         } else {
           guion.push({ dir: "Saliente", ts: dh(-6, 10), txt: `Hola ${primer}, ¿qué te pareció el presupuesto de ${tratLow} (${impTxt})?` });
           guion.push({ dir: "Entrante", ts: dh(-5, 12), txt: RECHAZO_PRES[motivoPerd], intn: "Rechaza" });
           guion.push({ dir: "Saliente", ts: dh(-5, 13), txt: "Entendido, gracias por decírnoslo. Si en algún momento quieres retomarlo, aquí nos tienes 😊" });
           motivoPerdTexto = RECHAZO_PRES[motivoPerd];
+          fechaPerdida = dh(-5, 14);
         }
         urgencia = "NINGUNO";
       }
@@ -407,6 +411,12 @@ try {
         mensaje_sugerido: mensajeSug,
       });
       presupuestos.push({ id: pid, estado, importe, pac, fechaAceptado, guion });
+      if (fechaPerdida) await ins("historial_acciones", {
+        presupuesto_id: pid, tipo: "cambio_estado",
+        descripcion: "Estado cambiado a PERDIDO",
+        metadata: JSON.stringify({ estadoNuevo: "PERDIDO" }),
+        registrado_por: "Coordinación", fecha: fechaPerdida,
+      });
       for (const m of guion) {
         await ins("mensajes_whatsapp", {
           paciente_id: pac.id, presupuesto_id: pid, telefono: pac.tel, direccion: m.dir,
@@ -423,7 +433,110 @@ try {
       });
     }
   }
-  console.log(`presupuestos: ${presupuestos.length} (hilos: ${mensajesN} mensajes)`);
+  // ── PRESUPUESTOS HISTÓRICOS (dashboard de Red: 6 meses de progreso) ──
+  // Aceptados de meses anteriores, cerrados y coherentes de punta a punta
+  // (guion concluido en su fecha, campos derivados, pago en el mismo mes).
+  // pctPago explícito: liquidación casi siempre; dos señales viejas dejan
+  // pendiente antiguo que alimenta los "cobros vencidos" del dashboard.
+  // Un PERDIDO en el mes anterior (con historial) da el delta de perdidos.
+  const dMes = (mesesAtras, dia, h = 11) => {
+    const x = new Date(HOY); x.setMonth(x.getMonth() - mesesAtras); x.setDate(dia); x.setHours(h, 0, 0, 0);
+    return x;
+  };
+  const HIST = [
+    { m: 1, importe: 3200, trat: "Implante unitario", pct: 1 },
+    { m: 1, importe: 1500, trat: "Ortodoncia invisible", pct: 1 },
+    { m: 2, importe: 2600, trat: "Corona sobre implante", pct: 1 },
+    { m: 2, importe: 900, trat: "Blanqueamiento LED", pct: 0.5 },
+    { m: 3, importe: 4100, trat: "Implante unitario", pct: 1 },
+    { m: 3, importe: 1200, trat: "Endodoncia molar", pct: 1 },
+    { m: 4, importe: 2400, trat: "Ortodoncia invisible", pct: 0.6 },
+    { m: 5, importe: 3000, trat: "Implante unitario", pct: 1 },
+    { m: 5, importe: 800, trat: "Férula de descarga", pct: 1 },
+  ];
+  for (const hct of HIST) {
+    const pac = pacientes[np % pacientes.length]; np++;
+    const primer = pac.nombre.split(" ")[0];
+    const dia = 6 + (np % 18);
+    const acept = dMes(hct.m, dia);
+    const iso = (d, hh, mm = 0) => { const x = new Date(d); x.setHours(hh, mm, 0, 0); return x.toISOString(); };
+    const antes = new Date(acept); antes.setDate(antes.getDate() - 2);
+    const fechaAceptado = acept.toISOString().slice(0, 10);
+    const tratLow = hct.trat.toLowerCase();
+    const guion = [
+      { dir: "Saliente", ts: iso(antes, 10), txt: `Hola ${primer}, ¿has podido pensar sobre el presupuesto de ${tratLow} (${hct.importe.toLocaleString("es-ES")}€)?` },
+      { dir: "Entrante", ts: iso(acept, 11), txt: "Sí, lo hemos decidido: ¡adelante! ¿Cómo lo hacemos?", intn: "Acepta sin condiciones" },
+      { dir: "Saliente", ts: iso(acept, 12), txt: `¡Enhorabuena, ${primer}! 🎉 Te llamamos hoy para cerrar la primera cita y el pago. Bienvenido/a.` },
+    ];
+    const lastEnt = guion[1];
+    const lastMsg = guion[2];
+    const pid = await ins("presupuestos", {
+      paciente_id: pac.id, clinica_id: pac.cid, tratamiento_nombre: hct.trat, estado: "ACEPTADO",
+      importe: hct.importe, fecha_alta: iso(antes, 9).slice(0, 10), fecha: iso(antes, 9).slice(0, 10),
+      fecha_aceptado: fechaAceptado,
+      doctor: docEn(pac.cid).nombre, tipo_paciente: "Nuevo", tipo_visita: "Primera visita",
+      paciente_telefono: pac.tel, contact_count: 2,
+      fase_seguimiento: "Cerrado",
+      ultima_accion_registrada: lastMsg.ts, ultimo_contacto: lastMsg.ts.slice(0, 10),
+      tipo_ultima_accion: "WhatsApp enviado",
+      fecha_ultima_respuesta: lastEnt.ts, ultima_respuesta_paciente: lastEnt.txt,
+      intencion_detectada: lastEnt.intn, urgencia_intervencion: "NINGUNO",
+    });
+    presupuestos.push({ id: pid, estado: "ACEPTADO", importe: hct.importe, pac, fechaAceptado, guion, pctPago: hct.pct });
+    for (const m of guion) {
+      await ins("mensajes_whatsapp", {
+        paciente_id: pac.id, presupuesto_id: pid, telefono: pac.tel, direccion: m.dir,
+        contenido: m.txt, timestamp: m.ts, fuente: "Modo_A_manual", procesado_por_ia: m.dir === "Entrante",
+        intencion_detectada: m.intn ?? null,
+      });
+      mensajesN++;
+    }
+    for (const m of guion.filter((x) => x.dir === "Saliente")) await ins("contactos_presupuesto", {
+      presupuesto_id: pid, tipo_contacto: "WhatsApp", resultado: "Enviado",
+      fecha_hora: m.ts, nota: "Mensaje del hilo de WhatsApp.",
+      registrado_por: "Coordinación", mensaje_ia_usado: true, tono_usado: "cercano",
+    });
+  }
+  // Perdido del MES ANTERIOR (delta de perdidos del dashboard), con historial.
+  {
+    const pac = pacientes[np % pacientes.length]; np++;
+    const primer = pac.nombre.split(" ")[0];
+    const perd = dMes(1, 20);
+    const iso = (d, hh) => { const x = new Date(d); x.setHours(hh, 0, 0, 0); return x.toISOString(); };
+    const antes = new Date(perd); antes.setDate(antes.getDate() - 1);
+    const guion = [
+      { dir: "Saliente", ts: iso(antes, 10), txt: `Hola ${primer}, ¿qué te pareció el presupuesto de limpieza dental (700€)?` },
+      { dir: "Entrante", ts: iso(perd, 12), txt: "Lo he pensado y ahora mismo es demasiado caro para mí. Lo siento.", intn: "Rechaza" },
+      { dir: "Saliente", ts: iso(perd, 13), txt: "Entendido, gracias por decírnoslo. Si en algún momento quieres retomarlo, aquí nos tienes 😊" },
+    ];
+    const pid = await ins("presupuestos", {
+      paciente_id: pac.id, clinica_id: pac.cid, tratamiento_nombre: "Limpieza dental", estado: "PERDIDO",
+      importe: 700, fecha_alta: iso(antes, 9).slice(0, 10), fecha: iso(antes, 9).slice(0, 10),
+      doctor: docEn(pac.cid).nombre, tipo_paciente: "Nuevo", tipo_visita: "Primera visita",
+      paciente_telefono: pac.tel, contact_count: 2,
+      motivo_perdida: "Precio", motivo_perdida_texto: "Lo he pensado y ahora mismo es demasiado caro para mí. Lo siento.",
+      fase_seguimiento: "Cerrado",
+      ultima_accion_registrada: guion[2].ts, ultimo_contacto: guion[2].ts.slice(0, 10),
+      tipo_ultima_accion: "WhatsApp enviado",
+      fecha_ultima_respuesta: guion[1].ts, ultima_respuesta_paciente: guion[1].txt,
+      intencion_detectada: "Rechaza", urgencia_intervencion: "NINGUNO",
+    });
+    presupuestos.push({ id: pid, estado: "PERDIDO", importe: 700, pac, fechaAceptado: null, guion });
+    await ins("historial_acciones", {
+      presupuesto_id: pid, tipo: "cambio_estado", descripcion: "Estado cambiado a PERDIDO",
+      metadata: JSON.stringify({ estadoNuevo: "PERDIDO" }), registrado_por: "Coordinación",
+      fecha: iso(perd, 14),
+    });
+    for (const m of guion) {
+      await ins("mensajes_whatsapp", {
+        paciente_id: pac.id, presupuesto_id: pid, telefono: pac.tel, direccion: m.dir,
+        contenido: m.txt, timestamp: m.ts, fuente: "Modo_A_manual", procesado_por_ia: m.dir === "Entrante",
+        intencion_detectada: m.intn ?? null,
+      });
+      mensajesN++;
+    }
+  }
+  console.log(`presupuestos: ${presupuestos.length} (hilos: ${mensajesN} mensajes, con histórico 6 meses)`);
 
   // ── CITAS (28): hoy/mañana/semana/pasadas ────────────────────────────
   const citasPlan = [[0, 6, "Confirmada"], [1, 5, "Confirmada"], [3, 4, "Programada"], [4, 3, "Programada"],
@@ -450,11 +563,13 @@ try {
   // liquidación completa. El pago nace del presupuesto — nunca de un campo
   // manual del paciente — para que Aceptado (Σ presupuestos), Cobrado
   // (Σ pagos) y Pendiente (resta) cuadren en toda la app por construcción.
-  let pagosN = 0;
+  let pagosN = 0; let cicloPct = 0;
   const PCT_PAGO = [0.4, 1, 0.3, 0.6, 1, 0.5, 1, 0.8]; // 5 parciales · 3 liquidados
   const pagadoPorPaciente = new Map();
   for (const p of presupuestos.filter((x) => x.estado === "ACEPTADO")) {
-    const pct = PCT_PAGO[pagosN % PCT_PAGO.length];
+    // Los históricos traen pctPago explícito; los del mes usan el ciclo de
+    // siempre (mismo reparto 22.400/15.020 que antes).
+    const pct = p.pctPago ?? PCT_PAGO[cicloPct++ % PCT_PAGO.length];
     const importe = Math.round(p.importe * pct);
     const parcial = pct < 1;
     const pid = await ins("pagos_paciente", {
@@ -575,8 +690,10 @@ try {
   const iFur = (await db.query(`select count(*)::int n from presupuestos p where cliente='DEMO'
     and p.fecha_ultima_respuesta::timestamptz is distinct from (select max(m.timestamp) from mensajes_whatsapp m
       where m.presupuesto_id=p.id and m.direccion='Entrante')`)).rows[0].n;
-  if (iNuevo || iNoNuevo || iPres || iFur) {
-    throw new Error(`Seed incoherente: nuevosConConversacion=${iNuevo} · noNuevosSinHilo=${iNoNuevo} · presupuestosSinHilo=${iPres} · fechaRespuestaDescorrelacionada=${iFur}`);
+  const iPerd = (await db.query(`select count(*)::int n from presupuestos p where cliente='DEMO' and estado='PERDIDO'
+    and not exists(select 1 from historial_acciones h where h.presupuesto_id=p.id and h.tipo='cambio_estado')`)).rows[0].n;
+  if (iNuevo || iNoNuevo || iPres || iFur || iPerd) {
+    throw new Error(`Seed incoherente: nuevosConConversacion=${iNuevo} · noNuevosSinHilo=${iNoNuevo} · presupuestosSinHilo=${iPres} · fechaRespuestaDescorrelacionada=${iFur} · perdidosSinHistorial=${iPerd}`);
   }
 
   await db.query("commit");
