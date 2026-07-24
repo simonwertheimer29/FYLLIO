@@ -58,9 +58,12 @@ export type ClinicaFila = {
   id: string;
   nombre: string;
   conversionPct: number | null;
+  /** Conversión del mes anterior (para el Δ en puntos). */
+  conversionPctPrevio: number | null;
   aceptadoMes: number;
   aceptadoMesPrevio: number;
-  pendiente: number;
+  /** Σ pendiente VENCIDO de la clínica (regla de cobros compartida). */
+  vencido: number;
   /** Δ% € aceptado vs mes anterior; null si el previo es 0. */
   tendenciaPct: number | null;
 };
@@ -92,8 +95,10 @@ export type DashboardRed = {
     };
   };
   clinicas: ClinicaFila[];
-  /** Σ € aceptado por mes, últimos 6 (viejo → nuevo), huecos a 0. */
-  progreso: Array<{ mes: string; importe: number }>;
+  /** Series mensuales, últimos 6 meses (viejo → nuevo), huecos a 0:
+   *  total = € aceptado · leads = nuevos · presupuestos = presentados ·
+   *  cobros = € cobrado. Mismos orígenes que el resto del dashboard. */
+  progreso: Array<{ mes: string; total: number; leads: number; presupuestos: number; cobros: number }>;
 };
 
 const mesKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
@@ -221,12 +226,16 @@ export async function calcularDashboardRed(opts: {
   }
 
   const riesgo: RiesgoItem[] = [];
+  // Copy (revisión 2026-07-23): cada card es una FRASE completa de negocio —
+  // qué pasó, de qué, por qué importa. Sin taquigrafía ni jerga; hechos
+  // verificables, cero afirmaciones de causalidad.
+  const s = (n: number) => (n === 1 ? "" : "s");
   if (reactivablesN > 0) {
     riesgo.push({
       tipo: "reactivables",
       n: reactivablesN,
       importe: reactivablesImporte,
-      label: `${reactivablesN} presupuesto${reactivablesN === 1 ? "" : "s"} por reactivar`,
+      label: `está${reactivablesN === 1 ? "" : "n"} parado${s(reactivablesN)} en ${reactivablesN} presupuesto${s(reactivablesN)} a los que se escribió, no respondieron y nadie ha vuelto a insistir.`,
       href: "/actuar-hoy?vista=presupuestos",
     });
   }
@@ -235,7 +244,7 @@ export async function calcularDashboardRed(opts: {
       tipo: "vencidos",
       n: vencidosN,
       importe: vencidosImporte,
-      label: `${vencidosN} cobro${vencidosN === 1 ? "" : "s"} vencido${vencidosN === 1 ? "" : "s"}`,
+      label: `siguen sin cobrarse a ${vencidosN} paciente${s(vencidosN)} que ya superó${vencidosN === 1 ? "" : "aron"} su plazo de pago.`,
       href: "/pacientes?tab=cobros&urgencia=vencido",
     });
   }
@@ -244,7 +253,7 @@ export async function calcularDashboardRed(opts: {
       tipo: "cierre_sin_accion",
       n: cierreN,
       importe: cierreImporte,
-      label: `${cierreN} caso${cierreN === 1 ? "" : "s"} a punto de cierre sin respuesta`,
+      label: `de ${cierreN} paciente${s(cierreN)} que ya ${cierreN === 1 ? "dijo que quiere aceptar y espera" : "dijeron que quieren aceptar y esperan"} tu respuesta para cerrar.`,
       href: "/actuar-hoy?vista=presupuestos",
     });
   }
@@ -253,7 +262,7 @@ export async function calcularDashboardRed(opts: {
       tipo: "sin_contacto",
       n: sinContactoN,
       importe: null,
-      label: `lead${sinContactoN === 1 ? "" : "s"} sin primer contacto`,
+      label: `lead${s(sinContactoN)} nuevo${s(sinContactoN)} que todavía no ${sinContactoN === 1 ? "ha" : "han"} recibido ni un mensaje ni una llamada.`,
       href: "/actuar-hoy?vista=leads&filtro=sin-contactar",
     });
   }
@@ -312,7 +321,7 @@ export async function calcularDashboardRed(opts: {
     exitos.push({
       tipo: "conversion",
       dato: `${convAct}%`,
-      label: `conversión de presupuestos este mes — +${convAct - convPrev} pts vs ${convPrev}% el anterior`,
+      label: `de los presupuestos presentados este mes acabaron aceptados — el mes pasado fue el ${convPrev}%.`,
     });
   }
   // Semana actual (7 días) vs anterior (7-14), sobre fecha_aceptado.
@@ -335,8 +344,8 @@ export async function calcularDashboardRed(opts: {
       dato: eurTxt(semana),
       label:
         semanaPrev > 0
-          ? `aceptado esta semana — +${eurTxt(semana - semanaPrev)} vs la anterior`
-          : `aceptado esta semana (la anterior: 0 €)`,
+          ? `en presupuestos aceptados esta semana, ${eurTxt(semana - semanaPrev)} más que la semana anterior.`
+          : `en presupuestos aceptados esta semana; la semana anterior no se firmó ninguno.`,
     });
   }
   // Mejor clínica de la semana (solo con red multi-clínica y con dato real).
@@ -353,7 +362,7 @@ export async function calcularDashboardRed(opts: {
       exitos.push({
         tipo: "mejor_clinica",
         dato: eurTxt(mejor[1]),
-        label: `${nombre} — la clínica que más firmó esta semana`,
+        label: `firmó ${nombre} esta semana — la clínica que más presupuesto aceptado consiguió de la red.`,
       });
     }
   }
@@ -370,7 +379,7 @@ export async function calcularDashboardRed(opts: {
       exitos.push({
         tipo: "mejor_tratamiento",
         dato: eurTxt(mejor[1]),
-        label: `${mejor[0]} — el tratamiento más firmado de la semana`,
+        label: `se firmaron en ${mejor[0]} esta semana — el tratamiento que más dinero aceptado sumó.`,
       });
     }
   }
@@ -380,20 +389,22 @@ export async function calcularDashboardRed(opts: {
     const deClinica = (rs: ReadonlyArray<{ fields: Record<string, unknown> }>) =>
       rs.filter((r) => pacDe(r)?.clinicaId === c.id);
     const presMes = deClinica(presAct).length;
+    const presMesPrevio = deClinica(presPrev).length;
     const acepMesRs = deClinica(acepAct);
     const acepPrevRs = deClinica(acepPrev);
     const aceptadoMes = importeDe(acepMesRs);
     const aceptadoMesPrevio = importeDe(acepPrevRs);
-    const pendiente = cobros
-      .filter((x) => x.clinicaId === c.id)
+    const vencido = cobros
+      .filter((x) => x.clinicaId === c.id && x.urgencia === "vencido")
       .reduce((s, x) => s + x.pendiente, 0);
     return {
       id: c.id,
       nombre: c.nombre,
       conversionPct: convPres(presMes, acepMesRs.length),
+      conversionPctPrevio: convPres(presMesPrevio, acepPrevRs.length),
       aceptadoMes,
       aceptadoMesPrevio,
-      pendiente,
+      vencido,
       tendenciaPct:
         aceptadoMesPrevio > 0
           ? Math.round(((aceptadoMes - aceptadoMesPrevio) / aceptadoMesPrevio) * 100)
@@ -404,12 +415,17 @@ export async function calcularDashboardRed(opts: {
   // sin tendencia al final).
   filas.sort((a, b) => (a.tendenciaPct ?? Infinity) - (b.tendenciaPct ?? Infinity));
 
-  // ── Sección 4 · progreso (6 meses) ───────────────────────────────────
-  const progreso: Array<{ mes: string; importe: number }> = [];
+  // ── Sección 4 · progreso (6 meses, 4 series) ─────────────────────────
+  const progreso: Array<{ mes: string; total: number; leads: number; presupuestos: number; cobros: number }> = [];
   for (let i = 5; i >= 0; i--) {
     const mes = mesKey(new Date(ahora.getFullYear(), ahora.getMonth() - i, 1));
-    const importe = importeDe(aceptados(mes));
-    progreso.push({ mes, importe });
+    progreso.push({
+      mes,
+      total: importeDe(aceptados(mes)),
+      leads: creados(mes).length,
+      presupuestos: presentados(mes).length,
+      cobros: cobradoEn(mes),
+    });
   }
 
   return {

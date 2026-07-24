@@ -56,9 +56,15 @@ async function main() {
     from presupuestos where estado='ACEPTADO' and fecha_aceptado is not null
     group by 1`);
   const sqlPorMes = new Map(sqlMeses.map((r: any) => [r.mes, Number(r.s)]));
+  const sqlCobros = await q(`
+    select to_char(fecha_pago::date, 'YYYY-MM') mes, coalesce(sum(importe),0)::numeric s
+    from pagos_paciente group by 1`);
+  const sqlCobrosPorMes = new Map(sqlCobros.map((r: any) => [r.mes, Number(r.s)]));
   for (const p of d.progreso) {
-    ok(`  ${p.mes}: ${p.importe} €`, p.importe === (sqlPorMes.get(p.mes) ?? 0),
+    ok(`  ${p.mes}: aceptado ${p.total} €`, p.total === (sqlPorMes.get(p.mes) ?? 0),
       `SQL: ${sqlPorMes.get(p.mes) ?? 0}`);
+    ok(`  ${p.mes}: cobrado ${p.cobros} €`, p.cobros === (sqlCobrosPorMes.get(p.mes) ?? 0),
+      `SQL: ${sqlCobrosPorMes.get(p.mes) ?? 0}`);
   }
 
   // ── Sección 2 · negocio vs SQL ──

@@ -17,8 +17,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   Tooltip,
@@ -137,7 +137,17 @@ function TituloSeccion({
 }
 
 // ─── Vista ──────────────────────────────────────────────────────────────
-type OrdenClinicas = "tendencia" | "conversion" | "aceptado" | "pendiente";
+type OrdenClinicas = "tendencia" | "conversion" | "aceptado" | "vencido";
+
+// Serie visible en la gráfica de progreso.
+type SerieProgreso = "total" | "leads" | "presupuestos" | "cobros";
+const SERIES: Array<[SerieProgreso, string, boolean]> = [
+  // [clave, etiqueta, es dinero]
+  ["total", "€ aceptado", true],
+  ["leads", "Leads nuevos", false],
+  ["presupuestos", "Presupuestos presentados", false],
+  ["cobros", "€ cobrado", true],
+];
 
 export function RedView({ user: _user }: { user: UserSession }) {
   const router = useRouter();
@@ -145,6 +155,7 @@ export function RedView({ user: _user }: { user: UserSession }) {
   const [data, setData] = useState<DashboardRed | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [orden, setOrden] = useState<OrdenClinicas>("tendencia");
+  const [serie, setSerie] = useState<SerieProgreso>("total");
 
   const load = useCallback(() => {
     setLoadError(false);
@@ -162,7 +173,7 @@ export function RedView({ user: _user }: { user: UserSession }) {
     if (orden === "tendencia") filas.sort((a, b) => (a.tendenciaPct ?? Infinity) - (b.tendenciaPct ?? Infinity));
     if (orden === "conversion") filas.sort((a, b) => (b.conversionPct ?? -1) - (a.conversionPct ?? -1));
     if (orden === "aceptado") filas.sort((a, b) => b.aceptadoMes - a.aceptadoMes);
-    if (orden === "pendiente") filas.sort((a, b) => b.pendiente - a.pendiente);
+    if (orden === "vencido") filas.sort((a, b) => b.vencido - a.vencido);
     return filas;
   }, [data, orden]);
 
@@ -198,6 +209,9 @@ export function RedView({ user: _user }: { user: UserSession }) {
 
   const { hoy, negocio, progreso } = data;
   const conv = negocio.presupuestos.conversionMes;
+  const serieDef = SERIES.find(([k]) => k === serie)!;
+  const etiquetaSerie = serieDef[1];
+  const esDinero = serieDef[2];
 
   return (
     <div className="flex-1 min-h-0 overflow-auto bg-[var(--color-background)]">
@@ -308,11 +322,11 @@ export function RedView({ user: _user }: { user: UserSession }) {
                 <div className="border-l-2 border-[var(--color-accent)] pl-4 lg:pl-5">
                   <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-3">Leads</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <Cifra label="Nuevos (mes)" valor={String(negocio.leads.nuevosMes.valor)} delta={negocio.leads.nuevosMes} />
-                    <Cifra label="En seguimiento" valor={String(negocio.leads.enSeguimiento)} />
-                    <Cifra label="Citados (mes)" valor={String(negocio.leads.citadosMes.valor)} delta={negocio.leads.citadosMes} />
+                    <Cifra label="Nuevos este mes" valor={String(negocio.leads.nuevosMes.valor)} delta={negocio.leads.nuevosMes} />
+                    <Cifra label="En seguimiento ahora" valor={String(negocio.leads.enSeguimiento)} />
+                    <Cifra label="Con cita este mes" valor={String(negocio.leads.citadosMes.valor)} delta={negocio.leads.citadosMes} />
                     <Cifra
-                      label="Conversión del mes"
+                      label="De los leads del mes, convertidos"
                       valor={negocio.leads.conversionMes.pct != null ? `${negocio.leads.conversionMes.pct}%` : "—"}
                       delta={
                         negocio.leads.conversionMes.pct != null && negocio.leads.conversionMes.pctPrevio != null
@@ -333,23 +347,23 @@ export function RedView({ user: _user }: { user: UserSession }) {
                   </h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <Cifra
-                      label="Presentados (mes)"
+                      label="Presentados este mes"
                       valor={`${negocio.presupuestos.presentadosMes.valor} · ${eur(negocio.presupuestos.presentadosImporteMes.valor)}`}
                       delta={negocio.presupuestos.presentadosMes}
                     />
                     <Cifra
-                      label="Aceptados (mes)"
+                      label="Aceptados este mes"
                       valor={`${negocio.presupuestos.aceptadosMes.valor} · ${eur(negocio.presupuestos.aceptadosImporteMes.valor)}`}
                       delta={negocio.presupuestos.aceptadosImporteMes}
                       formato={eur}
                     />
                     <Cifra
-                      label="Perdidos (mes)"
+                      label="Perdidos este mes"
                       valor={`${negocio.presupuestos.perdidosMes.valor} · ${eur(negocio.presupuestos.perdidosImporteMes.valor)}`}
                       delta={negocio.presupuestos.perdidosMes}
                     />
                     <Cifra
-                      label="Conversión presentado→aceptado"
+                      label="De los presentados, aceptados"
                       valor={conv.pct != null ? `${conv.pct}%` : "—"}
                       delta={conv.pct != null && conv.pctPrevio != null ? { valor: conv.pct, previo: conv.pctPrevio } : undefined}
                       destacada
@@ -359,9 +373,9 @@ export function RedView({ user: _user }: { user: UserSession }) {
                 <div className="border-l-2 border-[var(--color-accent)] pl-4 lg:pl-5">
                   <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-3">Cobros</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <Cifra label="Cobrado (mes)" valor={eur(negocio.cobros.cobradoMes.valor)} delta={negocio.cobros.cobradoMes} formato={eur} />
-                    <Cifra label="Pendiente" valor={eur(negocio.cobros.pendiente)} />
-                    <Cifra label="Vencido" valor={eur(negocio.cobros.vencido)} />
+                    <Cifra label="Cobrado este mes" valor={eur(negocio.cobros.cobradoMes.valor)} delta={negocio.cobros.cobradoMes} formato={eur} />
+                    <Cifra label="Pendiente de cobro" valor={eur(negocio.cobros.pendiente)} />
+                    <Cifra label="Vencido sin cobrar" valor={eur(negocio.cobros.vencido)} />
                   </div>
                 </div>
               </div>
@@ -370,124 +384,199 @@ export function RedView({ user: _user }: { user: UserSession }) {
 
           {/* ══ COLUMNA DERECHA (pendiente de rediseño tras el checkpoint) ══ */}
           <div className="lg:col-span-2 space-y-10">
-        {/* ── 4 · CLÍNICAS ────────────────────────────────────────────── */}
-        <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
-          <div className="px-5 pt-4 pb-2 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-[var(--color-foreground)]">Clínicas</h2>
-            <p className="text-[10px] text-[var(--color-muted)]">mes actual · clic en columna para ordenar</p>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
-                <tr className="border-b border-[var(--color-border)]">
-                  <th className="text-left font-semibold px-5 py-2">Clínica</th>
-                  {(
-                    [
-                      ["conversion", "Conversión"],
-                      ["aceptado", "€ aceptado"],
-                      ["pendiente", "€ pendiente"],
-                      ["tendencia", "Tendencia"],
-                    ] as Array<[OrdenClinicas, string]>
-                  ).map(([k, l]) => (
-                    <th key={k} className="text-right font-semibold px-3 py-2 whitespace-nowrap">
-                      <button
-                        type="button"
-                        onClick={() => setOrden(k)}
-                        className={`hover:text-[var(--color-foreground)] ${orden === k ? "text-[var(--color-accent)]" : ""}`}
-                      >
-                        {l}
-                      </button>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {clinicasOrdenadas.map((c) => (
-                  <tr
-                    key={c.id}
-                    onClick={() => irAClinica(c)}
-                    className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-muted)] cursor-pointer"
-                  >
-                    <td className="px-5 py-2.5 font-semibold text-[var(--color-foreground)]">{c.nombre}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-[var(--color-foreground)]">
-                      {c.conversionPct != null ? `${c.conversionPct}%` : "—"}
-                    </td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-[var(--color-foreground)]">{eur(c.aceptadoMes)}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums text-[var(--color-muted)]">{eur(c.pendiente)}</td>
-                    <td className="px-3 py-2.5 text-right">
-                      {c.tendenciaPct == null ? (
-                        <span className="text-[var(--color-muted)]" title="Sin € aceptado el mes anterior para comparar">—</span>
-                      ) : (
-                        <span
-                          className={`inline-flex items-center gap-1 font-semibold tabular-nums ${
-                            c.tendenciaPct < 0
-                              ? "text-rose-600 dark:text-rose-300"
-                              : c.tendenciaPct > 0
-                                ? "text-emerald-600 dark:text-emerald-300"
-                                : "text-[var(--color-muted)]"
-                          }`}
+        {/* ── 4 · TUS CLÍNICAS — orientada a evolución ── */}
+        <section>
+          <TituloSeccion icono={<Building2 size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
+            Tus clínicas
+          </TituloSeccion>
+          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+            <p className="px-5 pt-3 pb-2 text-[11px] text-[var(--color-muted)]">
+              Comparadas con el mes anterior. La que más cae va arriba — clic en una clínica para abrir su detalle.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
+                  <tr className="border-b border-[var(--color-border)]">
+                    <th className="text-left font-semibold px-5 py-2">Clínica</th>
+                    {(
+                      [
+                        ["conversion", "Conversión"],
+                        ["aceptado", "€ aceptado"],
+                        ["vencido", "€ vencido"],
+                        ["tendencia", "Tendencia"],
+                      ] as Array<[OrdenClinicas, string]>
+                    ).map(([k, l]) => (
+                      <th key={k} className="text-right font-semibold px-3 py-2 whitespace-nowrap">
+                        <button
+                          type="button"
+                          onClick={() => setOrden(k)}
+                          className={`hover:text-[var(--color-foreground)] ${orden === k ? "text-[var(--color-accent)]" : ""}`}
                         >
-                          {c.tendenciaPct < 0 ? (
-                            <TrendingDown size={12} strokeWidth={ICON_STROKE} aria-hidden />
-                          ) : c.tendenciaPct > 0 ? (
-                            <TrendingUp size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                          {l}
+                        </button>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {clinicasOrdenadas.map((c) => {
+                    const dPts =
+                      c.conversionPct != null && c.conversionPctPrevio != null
+                        ? c.conversionPct - c.conversionPctPrevio
+                        : null;
+                    const dAcept = c.aceptadoMes - c.aceptadoMesPrevio;
+                    return (
+                      <tr
+                        key={c.id}
+                        onClick={() => irAClinica(c)}
+                        className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-muted)] cursor-pointer"
+                      >
+                        <td className="px-5 py-3 font-semibold text-[var(--color-foreground)]">{c.nombre}</td>
+                        {/* Deltas como dato principal; el absoluto acompaña. */}
+                        <td className="px-3 py-3 text-right tabular-nums">
+                          {dPts == null ? (
+                            <span className="text-[var(--color-foreground)]">{c.conversionPct != null ? `${c.conversionPct}%` : "—"}</span>
                           ) : (
-                            <Minus size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                            <>
+                              <span className={`font-semibold ${dPts > 0 ? "text-[var(--color-success)]" : dPts < 0 ? "text-[var(--color-danger)]" : "text-[var(--color-muted)]"}`}>
+                                {dPts > 0 ? "+" : ""}{dPts} pts
+                              </span>
+                              <span className="block text-[10px] text-[var(--color-muted)]">{c.conversionPct}%</span>
+                            </>
                           )}
-                          {c.tendenciaPct > 0 ? "+" : ""}
-                          {c.tendenciaPct}%
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {clinicasOrdenadas.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-5 py-6 text-center text-[var(--color-muted)]">
-                      Sin clínicas visibles en tu sesión.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                        </td>
+                        <td className="px-3 py-3 text-right tabular-nums">
+                          <span className={`font-semibold ${dAcept > 0 ? "text-[var(--color-success)]" : dAcept < 0 ? "text-[var(--color-danger)]" : "text-[var(--color-muted)]"}`}>
+                            {dAcept > 0 ? "+" : ""}{eur(dAcept)}
+                          </span>
+                          <span className="block text-[10px] text-[var(--color-muted)]">{eur(c.aceptadoMes)}</span>
+                        </td>
+                        <td className="px-3 py-3 text-right tabular-nums">
+                          {c.vencido > 0 ? (
+                            <span className="font-semibold text-[var(--color-danger)]">{eur(c.vencido)}</span>
+                          ) : (
+                            <span className="text-[var(--color-muted)]">—</span>
+                          )}
+                        </td>
+                        <td className="px-3 py-3 text-right">
+                          {c.tendenciaPct == null ? (
+                            <span className="text-[var(--color-muted)]" title="El mes anterior no firmó presupuestos: no hay con qué comparar">—</span>
+                          ) : (
+                            <span
+                              className={`inline-flex items-center gap-1 font-semibold tabular-nums ${
+                                c.tendenciaPct < 0
+                                  ? "text-[var(--color-danger)]"
+                                  : c.tendenciaPct > 0
+                                    ? "text-[var(--color-success)]"
+                                    : "text-[var(--color-muted)]"
+                              }`}
+                            >
+                              {c.tendenciaPct < 0 ? (
+                                <TrendingDown size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                              ) : c.tendenciaPct > 0 ? (
+                                <TrendingUp size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                              ) : (
+                                <Minus size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                              )}
+                              {c.tendenciaPct > 0 ? "+" : ""}
+                              {c.tendenciaPct}%
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {clinicasOrdenadas.length === 0 && (
+                    <tr>
+                      <td colSpan={5} className="px-5 py-6 text-center text-[var(--color-muted)]">
+                        Tu sesión no tiene clínicas visibles.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </section>
 
-        {/* ── 4 · PROGRESO ────────────────────────────────────────────── */}
-        <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-          <h2 className="text-sm font-semibold text-[var(--color-foreground)]">€ aceptado por mes</h2>
-          <p className="text-[10px] text-[var(--color-muted)] mb-3">Últimos 6 meses</p>
-          <div className="h-52">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={progreso.map((p) => ({ ...p, label: mesLabel(p.mes) }))} margin={{ top: 4, right: 8, left: 8, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-                <XAxis
-                  dataKey="label"
-                  tick={{ fontSize: 10, fill: "var(--color-muted)" }}
-                  axisLine={{ stroke: "var(--color-border)" }}
-                  tickLine={false}
-                />
-                <YAxis
-                  tick={{ fontSize: 10, fill: "var(--color-muted)" }}
-                  tickFormatter={(v: number) => (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v))}
-                  axisLine={false}
-                  tickLine={false}
-                  width={34}
-                />
-                <Tooltip
-                  formatter={(v) => [eur(Number(v)), "Aceptado"]}
-                  contentStyle={{
-                    background: "var(--color-surface)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: 12,
-                    fontSize: 12,
-                    color: "var(--color-foreground)",
-                  }}
-                  cursor={{ fill: "var(--color-surface-muted)" }}
-                />
-                <Bar dataKey="importe" fill="var(--color-accent)" radius={[6, 6, 0, 0]} maxBarSize={48} />
-              </BarChart>
-            </ResponsiveContainer>
+        {/* ── 5 · PROGRESO — área con degradado + toggles ── */}
+        <section>
+          <TituloSeccion icono={<Activity size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
+            Progreso
+          </TituloSeccion>
+          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+            <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+              <p className="text-[11px] text-[var(--color-muted)]">
+                Evolución mensual de los últimos 6 meses.
+              </p>
+              <div className="flex gap-1 flex-wrap">
+                {SERIES.map(([k, l]) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setSerie(k)}
+                    className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${
+                      serie === k
+                        ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent"
+                        : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="h-52">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={progreso.map((p) => ({ ...p, label: mesLabel(p.mes) }))}
+                  margin={{ top: 4, right: 8, left: 8, bottom: 0 }}
+                >
+                  <defs>
+                    <linearGradient id="degradadoProgreso" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--color-accent)" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="var(--color-accent)" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 10, fill: "var(--color-muted)" }}
+                    axisLine={{ stroke: "var(--color-border)" }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: "var(--color-muted)" }}
+                    tickFormatter={(v: number) =>
+                      esDinero ? (v >= 1000 ? `${Math.round(v / 1000)}k` : String(v)) : String(v)
+                    }
+                    axisLine={false}
+                    tickLine={false}
+                    width={34}
+                  />
+                  <Tooltip
+                    formatter={(v) => [esDinero ? eur(Number(v)) : String(v), etiquetaSerie]}
+                    contentStyle={{
+                      background: "var(--color-surface)",
+                      border: "1px solid var(--color-border)",
+                      borderRadius: 12,
+                      fontSize: 12,
+                      color: "var(--color-foreground)",
+                    }}
+                    cursor={{ stroke: "var(--color-border)" }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey={serie}
+                    stroke="var(--color-accent)"
+                    strokeWidth={2}
+                    fill="url(#degradadoProgreso)"
+                    dot={{ r: 2.5, fill: "var(--color-accent)", strokeWidth: 0 }}
+                    activeDot={{ r: 4 }}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </section>
           </div>
