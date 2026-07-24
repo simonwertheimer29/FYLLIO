@@ -408,7 +408,13 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Mejora:** migrar la cola de cobros al derivado (`finanzas-paciente`), dejar de escribir
   las copias y eliminarlas del esquema en una migración.
 - **Impacto:** medio (mientras existan, cualquier flujo nuevo puede volver a leerlas).
-- **Fecha:** 2026-07-23 · 🔵
+- **Fecha:** 2026-07-23 · 🟢 **lectores a cero** (2026-07-24, módulo Cobros): migrados los
+  que quedaban — tools de cobros y buscador del Copilot, alertas de cobro (flag `Aceptado`
+  + `Presupuesto_Total`), `sumPendientePorIds`/`listResumenFinancieroPorIds` del repo
+  (→ /api/leads/kpis), `{{importe}}` de plantillas, payloads de la ficha y filtro
+  `?aceptado=`. QA: cero lectores fuera del repo/seeds. **Queda como paso aparte**
+  (acordado): dejar de ESCRIBIR las copias (`crearPago`→sync, seeds) y la migración que
+  elimina las 4 columnas — pequeña, tras QA verde del piloto.
 
 ## 29. CommandCenterView huérfano tras el dashboard de Red
 - **Zona:** `app/components/presupuestos/CommandCenterView.tsx` (636 líneas)
@@ -427,7 +433,10 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   patrón que en el dashboard devolvía 15 clínicas en vez de 4 hasta que el QA de RLS lo cazó.
 - **Mejora:** pasar `cliente: currentCliente()` (una línea) y auditar otros callers sin cliente.
 - **Impacto:** medio (higiene de tenant; hoy sin fuga demostrada en esta ruta).
-- **Fecha:** 2026-07-23 · 🔵
+- **Fecha:** 2026-07-23 · 🟢 hecha (2026-07-24, módulo Cobros): cliente explícito en el
+  nuevo /api/cobros (la ruta cola-cobros se retiró) y en los otros dos callers que cazó la
+  auditoría: /api/kpis/cobros y /api/kpis/no-shows. Sin más `listClinicas` sin cliente en
+  rutas de negocio.
 
 ## 31. Seed realista de volumen (agenda llena 6 meses, cientos de leads)
 - **Zona:** `scripts/db-seed-demo-rico.mjs`
@@ -440,3 +449,46 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   tiempos de /api/red/dashboard y las colas con ese volumen.
 - **Impacto:** medio (realismo de demo + test de rendimiento).
 - **Fecha:** 2026-07-23 · 🔵 (pedida por Simon en la revisión del dashboard; se hará aparte)
+- **Nota (2026-07-24, módulo Cobros):** el seed actual deja la Zona "Actuar" de /cobros casi
+  vacía — 1 vencido, 0 por vencer, 0 estancados. El seed de volumen debería incluir cobros
+  en los tres buckets para que la demo enseñe el módulo trabajando.
+
+## 32. Plantilla de liquidación — {{importe}} dice el total firmado, no lo pendiente
+- **Zona:** `app/lib/plantillas/plantillas.ts` (variables de render) + plantilla canónica
+  `recordatorio_liquidacion`
+- **Principio:** §2 facilidad / honestidad del dato de cara al paciente
+- **Problema:** el recordatorio dice "tienes pendiente la liquidación de {{importe}}€" con
+  el TOTAL aceptado (p. ej. 2.400 €) aunque el paciente ya pagara 1.440 € y deba 960 € —
+  un mensaje incorrecto en el momento más delicado (reclamar dinero). Detectado en el QA
+  del panel "Recordar pago".
+- **Mejora:** añadir la variable `{{pendiente}}` (derivada: Σ ACEPTADO − Σ pagos, ya
+  disponible) y usarla en la plantilla de liquidación.
+- **Impacto:** medio (confianza del paciente; hoy la coordinadora tiene que corregir el
+  importe a mano).
+- **Fecha:** 2026-07-24 · 🔵
+
+## 33. La penalización de re-contacto de cobros no ve a pacientes sin lead de origen
+- **Zona:** `/api/cobros` (cruce `ultimaCobranzaPorLead`) + `recordar/route.ts` (rama
+  `appendNotaPaciente`)
+- **Principio:** §3 anticipación — la cola promete "no re-contactar en 3 días" y solo lo
+  cumple a medias
+- **Problema:** el último contacto de cobranza se deriva de Acciones_Lead; si el paciente
+  no tiene `leadOrigenId`, el registro cae a una nota de texto que ningún cruce lee → su
+  card nunca se atenúa entre sesiones ni baja en la cola (verificado en QA con Clara Rey).
+  Limitación heredada de la sub-pestaña vieja.
+- **Mejora:** derivar el último contacto también del hilo (último saliente con contexto de
+  cobro) o registrar el contacto de cobranza en un sitio consultable para ambos casos.
+- **Impacto:** bajo-medio (riesgo de re-contactar dos veces al mismo paciente).
+- **Fecha:** 2026-07-24 · 🔵
+
+## 34. Backend Airtable (solo dev local): /cobros sin nombres de clínica ni scope fino
+- **Zona:** `/api/cobros` con `DATA_BACKEND_PG_*` sin configurar (rama Airtable): los
+  pacientes llevan ids de clínica de NEGOCIO y `listClinicas` devuelve ids CENTRALES
+- **Principio:** §6 coherencia (dos espacios de ids sin remapear)
+- **Problema:** con backend Airtable, `clinicaNombre` sale null y el filtro por clínica de
+  una coordinadora no casa (heredado de la cola vieja, que tenía exactamente lo mismo). En
+  producción los 3 clientes van por PG (ids centrales) y no aplica.
+- **Mejora:** si algún tenant volviera a Airtable, remapear con `clinicasNegocioAccesibles`
+  como hacen Actuar hoy y el dashboard; mientras tanto, nada.
+- **Impacto:** bajo (solo dev local sin flags PG).
+- **Fecha:** 2026-07-24 · ⚪ (documentada, sin acción salvo vuelta a Airtable)

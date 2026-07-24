@@ -297,3 +297,16 @@ antiguos sin historial se cuentan aparte, honesto) y seed con histórico de 6 me
 la invariante. El QA de paridad cazó un fallo real de tenant: listClinicas sin cliente devolvía
 las clínicas de TODOS los clientes (15 vs 4) — corregido en el dashboard, anotado el patrón (nº 30).
 La cola de cobros dejó de preferir las cachés del paciente al derivar (nº 28 avanzada de rebote).
+
+## 2026-07-24 — Cobros asciende a módulo propio; la fila del Registro es el paciente
+Cobros deja la sub-pestaña de Pacientes y pasa al nav tras Presupuestos: cola "Actuar"
+(vencidos · por vencer · estancados, cards que informan y panel que actúa, con el
+recordatorio de cobranza precargado) + "Registro" (vida financiera completa) + KPIs del
+dashboard. Decisión de modelado: los pagos ligan a PACIENTE, no a presupuesto
+(`pagos_paciente` sin `presupuesto_id`), así que la fila del Registro es el paciente con
+sus aceptados agregados — un "cobrado por presupuesto" habría sido un reparto inventado.
+El recordatorio ahora se PERSISTE en el hilo antes de confirmar (el endpoint viejo tragaba
+el fallo y confirmaba igual) y converge con estadoConversacion por construcción. QA:
+paridad exacta SQL independiente = /api/cobros = dashboard Red (8.790/960/15.020 €, 17
+filas); RLS adversarial 401/403/scope OK; mejoras 28 (lectores de cachés a cero) y 30
+(listClinicas con cliente, 3 rutas) cerradas de rebote.

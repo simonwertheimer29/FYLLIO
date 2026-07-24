@@ -149,7 +149,10 @@ export function CobrosView() {
   }
 
   return (
-    <div className="max-w-[1400px] mx-auto px-3 sm:px-6 py-6 space-y-8">
+    // overflow-x-hidden: sin él, el min-content de la tabla del Registro
+    // ensancha la vista entera en móvil (el scroll horizontal vive DENTRO
+    // del contenedor de la tabla, nunca en la página).
+    <div className="w-full max-w-[1400px] mx-auto px-3 sm:px-6 py-6 space-y-8 overflow-x-hidden">
       <div>
         <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
           Cobros
