@@ -428,3 +428,15 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Mejora:** pasar `cliente: currentCliente()` (una línea) y auditar otros callers sin cliente.
 - **Impacto:** medio (higiene de tenant; hoy sin fuga demostrada en esta ruta).
 - **Fecha:** 2026-07-23 · 🔵
+
+## 31. Seed realista de volumen (agenda llena 6 meses, cientos de leads)
+- **Zona:** `scripts/db-seed-demo-rico.mjs`
+- **Principio:** la demo debe parecerse al piloto; y las queries agregadas del dashboard
+  necesitan un test de rendimiento con volumen real
+- **Problema:** el seed actual es narrativo (decenas de registros); el dashboard de Red y
+  las colas nunca se han visto con cientos de leads/presupuestos y una agenda llena.
+- **Mejora:** seed de volumen aparte (o flag `--volumen`): ~6 meses de agenda completa,
+  cientos de leads/presupuestos/pagos coherentes con las invariantes existentes; medir
+  tiempos de /api/red/dashboard y las colas con ese volumen.
+- **Impacto:** medio (realismo de demo + test de rendimiento).
+- **Fecha:** 2026-07-23 · 🔵 (pedida por Simon en la revisión del dashboard; se hará aparte)

@@ -37,7 +37,7 @@ export type CifraDelta = { valor: number; previo: number };
 export type PctDelta = { pct: number | null; pctPrevio: number | null };
 
 export type RiesgoItem = {
-  tipo: "reactivables" | "vencidos" | "sin_contacto";
+  tipo: "reactivables" | "vencidos" | "sin_contacto" | "cierre_sin_accion";
   n: number;
   /** Σ € en juego (null para conteos sin importe). */
   importe: number | null;
@@ -45,7 +45,14 @@ export type RiesgoItem = {
   href: string;
 };
 
-export type LogroItem = { texto: string };
+/** "Qué está funcionando" — SOLO agregados con umbral de materialidad;
+ *  el logro anecdótico de un presupuesto suelto está prohibido (revisión
+ *  2026-07-23). Números verificables, cero causalidad. */
+export type ExitoItem = {
+  tipo: "conversion" | "aceptado_semana" | "mejor_clinica" | "mejor_tratamiento";
+  dato: string;
+  label: string;
+};
 
 export type ClinicaFila = {
   id: string;
@@ -59,7 +66,7 @@ export type ClinicaFila = {
 };
 
 export type DashboardRed = {
-  hoy: { riesgo: RiesgoItem[]; logros: LogroItem[] };
+  hoy: { riesgo: RiesgoItem[]; exitos: ExitoItem[] };
   negocio: {
     leads: {
       nuevosMes: CifraDelta;
@@ -110,7 +117,7 @@ export async function calcularDashboardRed(opts: {
       selectPresupuestosRaw({
         fields: [
           "Paciente", "Estado", "Importe", "FechaAlta", "Fecha_Aceptado",
-          "Tratamiento_nombre", "Fecha_ultima_respuesta",
+          "Tratamiento_nombre", "Intencion_detectada", "Fecha_ultima_respuesta",
           "Ultima_accion_registrada", "Tipo_ultima_accion",
         ],
       }),
@@ -151,6 +158,11 @@ export async function calcularDashboardRed(opts: {
   // ── Sección 1 · riesgo ───────────────────────────────────────────────
   let reactivablesN = 0;
   let reactivablesImporte = 0;
+  // Próximos a cierre sin acción: intención de cierre detectada y la pelota
+  // es NUESTRA (pendiente_responder) — misma clasificación compartida.
+  const INTENCIONES_CIERRE = new Set(["Acepta sin condiciones", "Acepta pero pregunta pago"]);
+  let cierreN = 0;
+  let cierreImporte = 0;
   for (const r of presusScope) {
     const f = r.fields as any;
     if (!abierto(String(f["Estado"] ?? ""))) continue;
@@ -162,9 +174,17 @@ export async function calcularDashboardRed(opts: {
       },
       ultimos.porPresupuesto.get(r.id),
     );
+    const importe = Number(f["Importe"] ?? 0) || 0;
     if (conv.estado === "reactivable") {
       reactivablesN++;
-      reactivablesImporte += Number(f["Importe"] ?? 0) || 0;
+      reactivablesImporte += importe;
+    }
+    if (
+      conv.estado === "pendiente_responder" &&
+      INTENCIONES_CIERRE.has(String(f["Intencion_detectada"] ?? ""))
+    ) {
+      cierreN++;
+      cierreImporte += importe;
     }
   }
 
@@ -219,12 +239,21 @@ export async function calcularDashboardRed(opts: {
       href: "/pacientes?tab=cobros&urgencia=vencido",
     });
   }
+  if (cierreN > 0) {
+    riesgo.push({
+      tipo: "cierre_sin_accion",
+      n: cierreN,
+      importe: cierreImporte,
+      label: `${cierreN} caso${cierreN === 1 ? "" : "s"} a punto de cierre sin respuesta`,
+      href: "/actuar-hoy?vista=presupuestos",
+    });
+  }
   if (sinContactoN > 0) {
     riesgo.push({
       tipo: "sin_contacto",
       n: sinContactoN,
       importe: null,
-      label: `${sinContactoN} lead${sinContactoN === 1 ? "" : "s"} sin primer contacto`,
+      label: `lead${sinContactoN === 1 ? "" : "s"} sin primer contacto`,
       href: "/actuar-hoy?vista=leads&filtro=sin-contactar",
     });
   }
@@ -274,34 +303,76 @@ export async function calcularDashboardRed(opts: {
   const cobradoEn = (mes: string) =>
     pagosScope.filter((p) => enMes(p.fechaPago, mes)).reduce((s, p) => s + p.importe, 0);
 
-  // ── Logros (solo si son verdad) ──────────────────────────────────────
-  const logros: LogroItem[] = [];
-  const hace7d = new Date(ahora.getTime() - 7 * 24 * 3600_000).toISOString().slice(0, 10);
-  const recientes = presusScope
-    .filter(
-      (r) =>
-        String((r.fields as any)["Estado"] ?? "") === "ACEPTADO" &&
-        String((r.fields as any)["Fecha_Aceptado"] ?? "") >= hace7d,
-    )
-    .sort(
-      (a, b) =>
-        (Number((b.fields as any)["Importe"] ?? 0) || 0) - (Number((a.fields as any)["Importe"] ?? 0) || 0),
-    );
-  const top = recientes[0];
-  if (top) {
-    const f = top.fields as any;
-    const pac = pacDe(top);
-    const imp = Number(f["Importe"] ?? 0) || 0;
-    logros.push({
-      texto: `${pac?.nombre ?? "Un paciente"} aceptó ${String(f["Tratamiento_nombre"] ?? "su tratamiento").toLowerCase()} por ${imp.toLocaleString("es-ES")} € esta semana`,
-    });
-  }
+  // ── "Qué está funcionando" — agregados con umbral de materialidad ────
+  const eurTxt = (n: number) => `${n.toLocaleString("es-ES")} €`;
+  const exitos: ExitoItem[] = [];
   const convAct = convPres(presAct.length, acepAct.length);
   const convPrev = convPres(presPrev.length, acepPrev.length);
   if (convAct != null && convPrev != null && convAct > convPrev) {
-    logros.push({
-      texto: `La conversión de presupuestos sube: ${convAct}% este mes vs ${convPrev}% el anterior`,
+    exitos.push({
+      tipo: "conversion",
+      dato: `${convAct}%`,
+      label: `conversión de presupuestos este mes — +${convAct - convPrev} pts vs ${convPrev}% el anterior`,
     });
+  }
+  // Semana actual (7 días) vs anterior (7-14), sobre fecha_aceptado.
+  const diaIso = (d: number) => new Date(ahora.getTime() - d * 24 * 3600_000).toISOString().slice(0, 10);
+  const hace7d = diaIso(7);
+  const hace14d = diaIso(14);
+  const aceptadosDesde = (desde: string, hasta?: string) =>
+    presusScope.filter((r) => {
+      const f = r.fields as any;
+      if (String(f["Estado"] ?? "") !== "ACEPTADO") return false;
+      const fecha = String(f["Fecha_Aceptado"] ?? "").slice(0, 10);
+      return !!fecha && fecha >= desde && (!hasta || fecha < hasta);
+    });
+  const semanaRs = aceptadosDesde(hace7d);
+  const semana = importeDe(semanaRs);
+  const semanaPrev = importeDe(aceptadosDesde(hace14d, hace7d));
+  if (semana > semanaPrev && semana > 0) {
+    exitos.push({
+      tipo: "aceptado_semana",
+      dato: eurTxt(semana),
+      label:
+        semanaPrev > 0
+          ? `aceptado esta semana — +${eurTxt(semana - semanaPrev)} vs la anterior`
+          : `aceptado esta semana (la anterior: 0 €)`,
+    });
+  }
+  // Mejor clínica de la semana (solo con red multi-clínica y con dato real).
+  if (clinicas.length > 1) {
+    const porClinica = new Map<string, number>();
+    for (const r of semanaRs) {
+      const cid = pacDe(r)?.clinicaId;
+      if (!cid) continue;
+      porClinica.set(cid, (porClinica.get(cid) ?? 0) + (Number((r.fields as any)["Importe"] ?? 0) || 0));
+    }
+    const mejor = [...porClinica.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (mejor && mejor[1] > 0) {
+      const nombre = clinicas.find((c) => c.id === mejor[0])?.nombre ?? "—";
+      exitos.push({
+        tipo: "mejor_clinica",
+        dato: eurTxt(mejor[1]),
+        label: `${nombre} — la clínica que más firmó esta semana`,
+      });
+    }
+  }
+  // Mejor tratamiento de la semana.
+  {
+    const porTrat = new Map<string, number>();
+    for (const r of semanaRs) {
+      const t = String((r.fields as any)["Tratamiento_nombre"] ?? "").trim();
+      if (!t) continue;
+      porTrat.set(t, (porTrat.get(t) ?? 0) + (Number((r.fields as any)["Importe"] ?? 0) || 0));
+    }
+    const mejor = [...porTrat.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (mejor && mejor[1] > 0) {
+      exitos.push({
+        tipo: "mejor_tratamiento",
+        dato: eurTxt(mejor[1]),
+        label: `${mejor[0]} — el tratamiento más firmado de la semana`,
+      });
+    }
   }
 
   // ── Sección 3 · clínicas ─────────────────────────────────────────────
@@ -342,7 +413,7 @@ export async function calcularDashboardRed(opts: {
   }
 
   return {
-    hoy: { riesgo: riesgo.slice(0, 3), logros: logros.slice(0, 2) },
+    hoy: { riesgo: riesgo.slice(0, 4), exitos: exitos.slice(0, 3) },
     negocio: {
       leads: {
         nuevosMes: { valor: nuevosAct.length, previo: nuevosPrev.length },

@@ -110,13 +110,16 @@ async function main() {
 
   // Reactivables: clasificación recompuesta desde SQL crudo + función pura.
   const abiertos = await q(`
-    select p.id, p.importe, p.fecha_ultima_respuesta, p.ultima_accion_registrada, p.tipo_ultima_accion,
+    select p.id, p.importe, p.intencion_detectada, p.fecha_ultima_respuesta, p.ultima_accion_registrada, p.tipo_ultima_accion,
       (select max(m.timestamp) from mensajes_whatsapp m where m.presupuesto_id=p.id and m.direccion='Entrante') ent,
       (select max(m.timestamp) from mensajes_whatsapp m where m.presupuesto_id=p.id and m.direccion='Saliente') sal
     from presupuestos p where p.estado not in ('ACEPTADO','PERDIDO')`);
   const TIPOS = new Set(["WhatsApp enviado", "Llamada realizada", "Sin respuesta tras llamada"]);
+  const CIERRE = new Set(["Acepta sin condiciones", "Acepta pero pregunta pago"]);
   let reactN = 0;
   let reactImp = 0;
+  let cierreN = 0;
+  let cierreImp = 0;
   for (const r of abiertos) {
     const iso = (v: any) => (v == null ? null : v instanceof Date ? v.toISOString() : String(v));
     const fur = iso(r.fecha_ultima_respuesta);
@@ -130,6 +133,10 @@ async function main() {
     if (conv.estado === "reactivable") {
       reactN++;
       reactImp += Number(r.importe ?? 0) || 0;
+    }
+    if (conv.estado === "pendiente_responder" && CIERRE.has(String(r.intencion_detectada ?? ""))) {
+      cierreN++;
+      cierreImp += Number(r.importe ?? 0) || 0;
     }
   }
   const riesgoReact = d.hoy.riesgo.find((r) => r.tipo === "reactivables");
@@ -158,6 +165,9 @@ async function main() {
   }
   const riesgoVenc = d.hoy.riesgo.find((r) => r.tipo === "vencidos");
   ok(`vencidos € = ${riesgoVenc?.importe ?? 0}`, (riesgoVenc?.importe ?? 0) === vencImp, `SQL: ${vencImp}`);
+  const riesgoCierre = d.hoy.riesgo.find((r) => r.tipo === "cierre_sin_accion");
+  ok(`cierre sin acción n = ${riesgoCierre?.n ?? 0}`, (riesgoCierre?.n ?? 0) === cierreN, `SQL: ${cierreN}`);
+  ok(`cierre sin acción € = ${riesgoCierre?.importe ?? 0}`, (riesgoCierre?.importe ?? 0) === cierreImp, `SQL: ${cierreImp}`);
 
   // ── RLS ──
   console.log("\nRLS · tenant");

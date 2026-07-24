@@ -34,10 +34,12 @@ import {
   TrendingUp,
   TrendingDown,
   Minus,
-  AlertTriangle,
-  PartyPopper,
+  CircleDollarSign,
   CheckCircle2,
   ChevronRight,
+  BarChart3,
+  Building2,
+  Activity,
   ICON_STROKE,
 } from "../../components/icons";
 
@@ -118,6 +120,22 @@ function Cifra({
   );
 }
 
+// ─── Título-pregunta de sección: el esqueleto escaneable de la página ───
+function TituloSeccion({
+  icono,
+  children,
+}: {
+  icono: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <h2 className="flex items-center gap-2.5 font-display text-lg lg:text-xl font-semibold tracking-tight text-[var(--color-foreground)] mb-4">
+      <span className="text-[var(--color-muted)]">{icono}</span>
+      {children}
+    </h2>
+  );
+}
+
 // ─── Vista ──────────────────────────────────────────────────────────────
 type OrdenClinicas = "tendencia" | "conversion" | "aceptado" | "pendiente";
 
@@ -183,8 +201,8 @@ export function RedView({ user: _user }: { user: UserSession }) {
 
   return (
     <div className="flex-1 min-h-0 overflow-auto bg-[var(--color-background)]">
-      <div className="max-w-5xl mx-auto p-4 lg:p-6 space-y-6">
-        <header className="flex items-start justify-between gap-3 flex-wrap">
+      <div className="max-w-screen-2xl mx-auto p-4 lg:p-8">
+        <header className="flex items-start justify-between gap-3 flex-wrap mb-6">
           <div>
             <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">Red</h1>
             <p className="text-xs text-[var(--color-muted)] mt-0.5">Dónde pierdes dinero, cómo va el negocio y qué clínica necesita atención</p>
@@ -193,7 +211,8 @@ export function RedView({ user: _user }: { user: UserSession }) {
             type="button"
             onClick={() => {
               const resumen = [
-                `Riesgo hoy: ${hoy.riesgo.map((r) => r.label).join(" · ") || "nada"}`,
+                `Riesgo hoy: ${hoy.riesgo.map((r) => `${r.importe != null ? eur(r.importe) + " en " : r.n + " "}${r.label}`).join(" · ") || "nada"}`,
+                `Funcionando: ${hoy.exitos.map((e) => `${e.dato} ${e.label}`).join(" · ") || "sin cambios destacables"}`,
                 `Aceptado mes: ${eur(negocio.presupuestos.aceptadosImporteMes.valor)} (prev ${eur(negocio.presupuestos.aceptadosImporteMes.previo)})`,
                 `Cobrado mes: ${eur(negocio.cobros.cobradoMes.valor)} · pendiente ${eur(negocio.cobros.pendiente)} · vencido ${eur(negocio.cobros.vencido)}`,
                 `Conversión presupuestos: ${conv.pct ?? "—"}% (prev ${conv.pctPrevio ?? "—"}%)`,
@@ -209,122 +228,149 @@ export function RedView({ user: _user }: { user: UserSession }) {
           </button>
         </header>
 
-        {/* ── 1 · HOY ─────────────────────────────────────────────────── */}
-        <section className="space-y-2">
-          {hoy.riesgo.length === 0 ? (
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4 flex items-center gap-2.5">
-              <CheckCircle2 size={18} strokeWidth={ICON_STROKE} className="text-emerald-600 dark:text-emerald-300 shrink-0" aria-hidden />
-              <p className="text-sm font-semibold text-[var(--color-foreground)]">
-                Nada en riesgo hoy — las colas están al día.
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {hoy.riesgo.map((r) => (
-                <Link
-                  key={r.tipo}
-                  href={r.href}
-                  className="group rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 flex items-center justify-between gap-3 hover:border-[var(--color-accent)] transition-colors"
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <AlertTriangle
-                      size={16}
-                      strokeWidth={ICON_STROKE}
-                      className="text-amber-500 dark:text-amber-300 shrink-0"
-                      aria-hidden
-                    />
-                    <div className="min-w-0">
-                      {r.importe != null && (
-                        <p className="font-display text-lg font-bold tabular-nums text-[var(--color-foreground)]">
-                          {eur(r.importe)}
-                        </p>
-                      )}
-                      <p className="text-xs text-[var(--color-muted)] truncate">{r.label}</p>
-                    </div>
+        {/* Dos columnas ~60/40 en desktop; una columna en móvil con el orden
+            riesgo → funcionando → negocio → clínicas → progreso. */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 items-start">
+          {/* ══ COLUMNA IZQUIERDA ══ */}
+          <div className="lg:col-span-3 space-y-10">
+            {/* ── 1 · ¿DÓNDE PIERDES DINERO HOY? ── */}
+            <section>
+              <TituloSeccion icono={<CircleDollarSign size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
+                ¿Dónde pierdes dinero hoy?
+              </TituloSeccion>
+              {hoy.riesgo.length === 0 ? (
+                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4 flex items-center gap-2.5">
+                  <CheckCircle2 size={18} strokeWidth={ICON_STROKE} className="text-[var(--color-success)] shrink-0" aria-hidden />
+                  <p className="text-sm font-semibold text-[var(--color-foreground)]">
+                    Nada en riesgo hoy — las colas están al día.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-[var(--color-danger)]/25 bg-[var(--color-danger-soft)] p-2 sm:p-3">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {hoy.riesgo.map((r) => (
+                      <Link
+                        key={r.tipo}
+                        href={r.href}
+                        className="group rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 flex items-center justify-between gap-3 hover:border-[var(--color-danger)]/50 transition-colors"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-display text-2xl font-bold tabular-nums text-[var(--color-foreground)]">
+                            {r.importe != null ? eur(r.importe) : r.n}
+                          </p>
+                          <p className="text-xs text-[var(--color-muted)] mt-0.5">{r.label}</p>
+                        </div>
+                        <ChevronRight
+                          size={16}
+                          strokeWidth={ICON_STROKE}
+                          className="text-[var(--color-muted)] group-hover:text-[var(--color-danger)] shrink-0 transition-colors"
+                          aria-hidden
+                        />
+                      </Link>
+                    ))}
                   </div>
-                  <ChevronRight
-                    size={14}
-                    strokeWidth={ICON_STROKE}
-                    className="text-[var(--color-muted)] group-hover:text-[var(--color-accent)] shrink-0"
-                    aria-hidden
-                  />
-                </Link>
-              ))}
-            </div>
-          )}
-          {hoy.logros.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {hoy.logros.map((l, i) => (
-                <p
-                  key={i}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300"
-                >
-                  <PartyPopper size={12} strokeWidth={ICON_STROKE} aria-hidden />
-                  {l.texto}
-                </p>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* ── 2 · EL NEGOCIO ──────────────────────────────────────────── */}
-        <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)]">
-          <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-5 gap-4 items-end">
-            <p className="col-span-2 sm:col-span-1 text-xs font-semibold text-[var(--color-muted)] self-center">Leads</p>
-            <Cifra label="Nuevos (mes)" valor={String(negocio.leads.nuevosMes.valor)} delta={negocio.leads.nuevosMes} />
-            <Cifra label="En seguimiento" valor={String(negocio.leads.enSeguimiento)} />
-            <Cifra label="Citados (mes)" valor={String(negocio.leads.citadosMes.valor)} delta={negocio.leads.citadosMes} />
-            <Cifra
-              label="Conversión del mes"
-              valor={negocio.leads.conversionMes.pct != null ? `${negocio.leads.conversionMes.pct}%` : "—"}
-              delta={
-                negocio.leads.conversionMes.pct != null && negocio.leads.conversionMes.pctPrevio != null
-                  ? { valor: negocio.leads.conversionMes.pct, previo: negocio.leads.conversionMes.pctPrevio }
-                  : undefined
-              }
-            />
-          </div>
-          <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-5 gap-4 items-end">
-            <p className="col-span-2 sm:col-span-1 text-xs font-semibold text-[var(--color-muted)] self-center">
-              Presupuestos
-              {negocio.presupuestos.perdidosSinFecha > 0 && (
-                <span className="block text-[9px] font-normal mt-0.5" title="Perdidos antiguos sin registro de fecha en el historial — no se atribuyen a ningún mes">
-                  +{negocio.presupuestos.perdidosSinFecha} perdido{negocio.presupuestos.perdidosSinFecha === 1 ? "" : "s"} sin fecha
-                </span>
+                </div>
               )}
-            </p>
-            <Cifra
-              label="Presentados (mes)"
-              valor={`${negocio.presupuestos.presentadosMes.valor} · ${eur(negocio.presupuestos.presentadosImporteMes.valor)}`}
-              delta={negocio.presupuestos.presentadosMes}
-            />
-            <Cifra
-              label="Aceptados (mes)"
-              valor={`${negocio.presupuestos.aceptadosMes.valor} · ${eur(negocio.presupuestos.aceptadosImporteMes.valor)}`}
-              delta={negocio.presupuestos.aceptadosImporteMes}
-              formato={eur}
-            />
-            <Cifra
-              label="Perdidos (mes)"
-              valor={`${negocio.presupuestos.perdidosMes.valor} · ${eur(negocio.presupuestos.perdidosImporteMes.valor)}`}
-              delta={negocio.presupuestos.perdidosMes}
-            />
-            <Cifra
-              label="Conversión presentado→aceptado"
-              valor={conv.pct != null ? `${conv.pct}%` : "—"}
-              delta={conv.pct != null && conv.pctPrevio != null ? { valor: conv.pct, previo: conv.pctPrevio } : undefined}
-              destacada
-            />
-          </div>
-          <div className="px-5 py-4 grid grid-cols-2 sm:grid-cols-5 gap-4 items-end">
-            <p className="col-span-2 sm:col-span-1 text-xs font-semibold text-[var(--color-muted)] self-center">Cobros</p>
-            <Cifra label="Cobrado (mes)" valor={eur(negocio.cobros.cobradoMes.valor)} delta={negocio.cobros.cobradoMes} formato={eur} />
-            <Cifra label="Pendiente" valor={eur(negocio.cobros.pendiente)} />
-            <Cifra label="Vencido" valor={eur(negocio.cobros.vencido)} />
-          </div>
-        </section>
+            </section>
 
-        {/* ── 3 · CLÍNICAS ────────────────────────────────────────────── */}
+            {/* ── 2 · QUÉ ESTÁ FUNCIONANDO ── */}
+            <section>
+              <TituloSeccion icono={<TrendingUp size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
+                Qué está funcionando
+              </TituloSeccion>
+              {hoy.exitos.length === 0 ? (
+                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
+                  <p className="text-sm text-[var(--color-muted)]">Sin cambios destacables esta semana.</p>
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-[var(--color-success)]/25 bg-[var(--color-success-soft)] p-2 sm:p-3">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {hoy.exitos.map((e) => (
+                      <div
+                        key={e.tipo}
+                        className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5"
+                      >
+                        <p className="font-display text-2xl font-bold tabular-nums text-[var(--color-foreground)]">{e.dato}</p>
+                        <p className="text-xs text-[var(--color-muted)] mt-0.5">{e.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* ── 3 · EL NEGOCIO ── */}
+            <section>
+              <TituloSeccion icono={<BarChart3 size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
+                El negocio
+              </TituloSeccion>
+              <div className="space-y-8">
+                <div className="border-l-2 border-[var(--color-accent)] pl-4 lg:pl-5">
+                  <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-3">Leads</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <Cifra label="Nuevos (mes)" valor={String(negocio.leads.nuevosMes.valor)} delta={negocio.leads.nuevosMes} />
+                    <Cifra label="En seguimiento" valor={String(negocio.leads.enSeguimiento)} />
+                    <Cifra label="Citados (mes)" valor={String(negocio.leads.citadosMes.valor)} delta={negocio.leads.citadosMes} />
+                    <Cifra
+                      label="Conversión del mes"
+                      valor={negocio.leads.conversionMes.pct != null ? `${negocio.leads.conversionMes.pct}%` : "—"}
+                      delta={
+                        negocio.leads.conversionMes.pct != null && negocio.leads.conversionMes.pctPrevio != null
+                          ? { valor: negocio.leads.conversionMes.pct, previo: negocio.leads.conversionMes.pctPrevio }
+                          : undefined
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="border-l-2 border-[var(--color-accent)] pl-4 lg:pl-5">
+                  <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-3">
+                    Presupuestos
+                    {negocio.presupuestos.perdidosSinFecha > 0 && (
+                      <span className="ml-2 text-[10px] font-normal text-[var(--color-muted)]" title="Perdidos antiguos sin registro de fecha en el historial — no se atribuyen a ningún mes">
+                        +{negocio.presupuestos.perdidosSinFecha} perdido{negocio.presupuestos.perdidosSinFecha === 1 ? "" : "s"} sin fecha
+                      </span>
+                    )}
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <Cifra
+                      label="Presentados (mes)"
+                      valor={`${negocio.presupuestos.presentadosMes.valor} · ${eur(negocio.presupuestos.presentadosImporteMes.valor)}`}
+                      delta={negocio.presupuestos.presentadosMes}
+                    />
+                    <Cifra
+                      label="Aceptados (mes)"
+                      valor={`${negocio.presupuestos.aceptadosMes.valor} · ${eur(negocio.presupuestos.aceptadosImporteMes.valor)}`}
+                      delta={negocio.presupuestos.aceptadosImporteMes}
+                      formato={eur}
+                    />
+                    <Cifra
+                      label="Perdidos (mes)"
+                      valor={`${negocio.presupuestos.perdidosMes.valor} · ${eur(negocio.presupuestos.perdidosImporteMes.valor)}`}
+                      delta={negocio.presupuestos.perdidosMes}
+                    />
+                    <Cifra
+                      label="Conversión presentado→aceptado"
+                      valor={conv.pct != null ? `${conv.pct}%` : "—"}
+                      delta={conv.pct != null && conv.pctPrevio != null ? { valor: conv.pct, previo: conv.pctPrevio } : undefined}
+                      destacada
+                    />
+                  </div>
+                </div>
+                <div className="border-l-2 border-[var(--color-accent)] pl-4 lg:pl-5">
+                  <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-3">Cobros</h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <Cifra label="Cobrado (mes)" valor={eur(negocio.cobros.cobradoMes.valor)} delta={negocio.cobros.cobradoMes} formato={eur} />
+                    <Cifra label="Pendiente" valor={eur(negocio.cobros.pendiente)} />
+                    <Cifra label="Vencido" valor={eur(negocio.cobros.vencido)} />
+                  </div>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          {/* ══ COLUMNA DERECHA (pendiente de rediseño tras el checkpoint) ══ */}
+          <div className="lg:col-span-2 space-y-10">
+        {/* ── 4 · CLÍNICAS ────────────────────────────────────────────── */}
         <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
           <div className="px-5 pt-4 pb-2 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-[var(--color-foreground)]">Clínicas</h2>
@@ -444,6 +490,8 @@ export function RedView({ user: _user }: { user: UserSession }) {
             </ResponsiveContainer>
           </div>
         </section>
+          </div>
+        </div>
       </div>
     </div>
   );
