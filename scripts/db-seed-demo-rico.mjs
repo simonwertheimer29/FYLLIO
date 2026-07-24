@@ -652,6 +652,18 @@ try {
     ["Bienvenida lead", "Bienvenida", "¡Hola {nombre}! Gracias por tu interés. ¿Cuándo te viene bien una primera visita sin compromiso?"],
     ["Financiación", "Comercial", "Hola {nombre}, podemos financiar tu tratamiento hasta 24 meses sin intereses. ¿Te preparo una simulación?"]];
   for (const [nombre, tipo, contenido] of PLANTILLAS) { await ins("plantillas_mensaje", { nombre, tipo, categoria: "General", contenido, activa: true }); await ins("plantillas_lead", { nombre, tipo, contenido, activa: true }); }
+  // Plantillas de COBRANZA (módulo Cobros 2026-07-24) — las 3 canónicas del
+  // sprint 14b (app/scripts/sprint14b-bloque4-plantillas.ts). Sin ellas el
+  // panel "Recordar pago" no puede precargar el recordatorio.
+  const PLANTILLAS_COBRANZA = [
+    ["recordatorio_senal", "Hola {{nombre}}, soy {{nombre_doctor}} de {{nombre_clinica}}. Confirmamos tu presupuesto de {{importe}}€ para {{tratamiento}}. Para reservar tu plaza, ¿podrías abonar la señal? Cualquier duda, aquí estamos."],
+    ["recordatorio_primer_pago", "Hola {{nombre}}, ¿cómo estás? Te recuerdo que tienes pendiente el primer pago de tu plan de tratamiento ({{importe}}€). ¿Cuándo te viene bien pasar por la clínica? Te esperamos."],
+    ["recordatorio_liquidacion", "Hola {{nombre}}, soy {{nombre_doctor}}. Tienes pendiente la liquidación de {{importe}}€ desde hace {{dias_vencido}} días. ¿Hay algo en lo que pueda ayudarte? Llámanos cuando quieras."],
+  ];
+  for (const [nombre, contenido] of PLANTILLAS_COBRANZA) {
+    const vars = [...new Set([...contenido.matchAll(/\{\{([a-zA-Z_]+)\}\}/g)].map((m) => m[1]))].join(", ");
+    await ins("plantillas_mensaje", { nombre, tipo: "Cobranza", categoria: "cobranza", contenido, variables_detectadas: vars, activa: true });
+  }
   // notificaciones, alertas, llamadas, copilot, informes, lista_espera
   for (let i = 0; i < 10; i++) await ins("notificaciones", { usuario: "todos", tipo: "Sistema", titulo: ["Nuevo lead", "Respuesta de paciente", "Presupuesto aceptado", "Cita confirmada"][i % 4], mensaje: "Tienes una novedad en tu bandeja.", link: "/actuar-hoy", leida: i > 3, fecha_creacion: dISO(-(i % 5)) });
   const adminId = (await db.query("select id from usuarios where cliente='DEMO' and rol='admin' limit 1")).rows[0]?.id;
