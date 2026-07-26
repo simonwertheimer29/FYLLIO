@@ -241,10 +241,13 @@ export function SeguimientoView({
 // ──────────────────────────────────────────────────────────────────────
 
 // Id de URL → cohorte de la lib ("conversacion" abrevia "en_conversacion").
+// "Sin respuesta" es el nombre visible de la cohorte rezagados (renombre
+// 2026-07-26); "rezagados" se acepta como valor viejo en enlaces guardados.
 const URL_A_COHORTE: Record<string, CohorteLead> = {
   citados: "citados",
   nuevos: "nuevos",
   conversacion: "en_conversacion",
+  "sin-respuesta": "rezagados",
   rezagados: "rezagados",
 };
 
@@ -491,11 +494,21 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
             label: "En conversación",
             count: cohortes.en_conversacion.length,
           },
-          { id: "rezagados" as CohorteLead, label: "Rezagados", count: cohortes.rezagados.length },
+          {
+            id: "rezagados" as CohorteLead,
+            label: "Sin respuesta",
+            count: cohortes.rezagados.length,
+          },
         ]}
         active={cohorte}
         onChange={(c) => setCohorteManual(c)}
       />
+
+      {cohorte === "rezagados" && (
+        <p className="text-xs text-[var(--color-muted)]">
+          Les escribiste y no contestaron — toca insistir.
+        </p>
+      )}
 
       {/* Sub-filtro temporal de Citados. "Más adelante" solo aparece con
           contenido: los tres tramos fijos cubren el trabajo normal, pero una
@@ -529,7 +542,7 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
                 ? "Sin leads nuevos por contactar"
                 : cohorte === "en_conversacion"
                   ? "Ninguna conversación abierta"
-                  : "Sin leads rezagados"
+                  : "Nadie pendiente de insistir"
           }
           hint={
             cohorte === "citados"
@@ -540,7 +553,7 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
                 ? "Los leads que entren sin primer contacto aparecerán aquí."
                 : cohorte === "en_conversacion"
                   ? "Cuando un lead te escriba o esté esperando tu respuesta, lo verás aquí."
-                  : "Los leads contactados que se enfríen sin respuesta aparecerán aquí para reactivarlos."
+                  : "Cuando a un lead se le escriba y no conteste, aparecerá aquí para insistir."
           }
         />
       ) : (

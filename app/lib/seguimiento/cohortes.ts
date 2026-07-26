@@ -15,6 +15,8 @@
 import type { EstadoConversacion } from "../presupuestos/estado-conversacion";
 import { UMBRAL_REACTIVACION_MS } from "../presupuestos/estado-conversacion";
 
+// "rezagados" se muestra en UI como "Sin respuesta" (renombre 2026-07-26);
+// el id interno no cambia para no tocar QA ni enlaces.
 export type CohorteLead = "citados" | "nuevos" | "en_conversacion" | "rezagados";
 export type CohortePresupuesto = "nuevos" | "en_conversacion" | "rezagados";
 
