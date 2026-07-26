@@ -330,3 +330,15 @@ historial_acciones poblado destapó un bug latente de orden FK en la lista WIPE 
 presupuestos antes que su historial). Primer test de rendimiento real: dashboard ~2,6 s y
 cobros ~3,3 s en local contra Supabase (RTT 182 ms/query) con CPU despreciable — el coste es
 round-trips, no filas (nº 35); en Vercel misma región queda en decenas de ms.
+
+## 2026-07-25 — Censo de Seguimiento: la cola de "Actuar hoy" escondía 6 de 31 leads activos
+El paso 0 del rediseño (censo caso a caso, replicando la lógica vieja literal) demostró que
+el filtro de "accionables" de ActuarHoyView dejaba invisibles 6 leads activos — 3 de ellos
+con el paciente ESPERANDO RESPUESTA. Ramas culpables: `esAccionable` solo admitía un
+"Contactado" si `l.createdAt <= hace48h` (un contactado reciente cuyo paciente responde no
+entra por ninguna rama), y un "Citado" con cita futura no caía en ningún filtro (ni citado
+hoy, ni esperando —descartado por cita futura—, ni Nuevo/Contactado-viejo). Decisión:
+cohortes derivadas TOTALES sobre estadoConversacion + precedencia de cita (lib
+`seguimiento/cohortes`), con invariante permanente `npm run qa:cohortes` que revienta si un
+activo queda sin cohorte. Regla: una cola de trabajo se define por PARTICIÓN del universo
+activo, nunca por una lista de condiciones de entrada.
