@@ -520,6 +520,9 @@ export default function IntervencionView({
         fetch(url.toString()),
         fetch("/api/presupuestos/kpi-hoy"),
       ]);
+      // Un 401/500 con body JSON parseable NO es una cola vacía: sin esto,
+      // el error se disfrazaba de "0 pendientes" (estándar: error honesto).
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const d: IntervencionResponse = await res.json();
       setData(d);
       setLoadError(false);
