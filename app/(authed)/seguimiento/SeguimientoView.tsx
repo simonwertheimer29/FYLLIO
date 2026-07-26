@@ -381,12 +381,16 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
           (a.l.fechaCita ?? "").localeCompare(b.l.fechaCita ?? "") ||
           (a.l.horaCita ?? "").localeCompare(b.l.horaCita ?? ""),
       ),
-      // Nuevos: los urgentes (≥48 h sin contactar) suben, el que más lleva
-      // esperando primero; el resto, más recientes primero.
+      // Nuevos: los FRESCOS (<48 h) primero, el más reciente arriba — un lead
+      // recién llegado es la máxima probabilidad de cierre y atenderlo YA es
+      // como se evita que se enfríe. Los desatendidos (≥48 h, chip ámbar)
+      // quedan como grupo de rescate debajo, el más antiguo primero. El orden
+      // premia el flujo correcto (contactar hoy lo de hoy), no el rescate
+      // (DECISIONES 2026-07-26).
       nuevos: de("nuevos").sort((a, b) => {
         const ua = esNuevoUrgente(a.l.createdAt, ahora) ? 1 : 0;
         const ub = esNuevoUrgente(b.l.createdAt, ahora) ? 1 : 0;
-        if (ua !== ub) return ub - ua;
+        if (ua !== ub) return ua - ub;
         return ua ? creado(a) - creado(b) : creado(b) - creado(a);
       }),
       // En conversación: pendientes de responder SIEMPRE arriba; dentro de
@@ -397,15 +401,19 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
         if (pa !== pb) return pa - pb;
         return (b.conv.haceMs ?? 0) - (a.conv.haceMs ?? 0);
       }),
-      // Rezagados: fuerza = días parados × interés (intención caliente ×2).
-      rezagados: de("rezagados")
-        .map((x) => ({
-          ...x,
-          fuerza:
-            ((x.conv.haceMs ?? 0) / 86_400_000) *
-            (x.l.intencionDetectada && INTENCION_CALIENTE.has(x.l.intencionDetectada) ? 2 : 1),
-        }))
-        .sort((a, b) => b.fuerza - a.fuerza),
+      // Rezagados: mandan los DÍAS PARADOS (más días primero) y la intención
+      // caliente solo desempata. La fórmula días×interés producía un orden
+      // ilegible: el multiplicador comprimía dimensiones distintas en la
+      // misma banda (6 días sin interés ≈ 2,6 días con interés ×2).
+      rezagados: de("rezagados").sort((a, b) => {
+        const d = (b.conv.haceMs ?? 0) - (a.conv.haceMs ?? 0);
+        if (d !== 0) return d;
+        const ca =
+          a.l.intencionDetectada && INTENCION_CALIENTE.has(a.l.intencionDetectada) ? 0 : 1;
+        const cb =
+          b.l.intencionDetectada && INTENCION_CALIENTE.has(b.l.intencionDetectada) ? 0 : 1;
+        return ca - cb;
+      }),
     };
   }, [clasificados]);
 

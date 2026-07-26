@@ -342,3 +342,10 @@ cohortes derivadas TOTALES sobre estadoConversacion + precedencia de cita (lib
 `seguimiento/cohortes`), con invariante permanente `npm run qa:cohortes` que revienta si un
 activo queda sin cohorte. Regla: una cola de trabajo se define por PARTICIÓN del universo
 activo, nunca por una lista de condiciones de entrada.
+
+## 2026-07-26 — Seguimiento: el orden de Nuevos premia el flujo correcto, no el rescate
+Los frescos (<48 h) van arriba con el más reciente primero: un lead recién llegado es la
+máxima probabilidad de cierre y atenderlo YA es como se evita que se enfríe; los desatendidos
+(≥48 h, chip ámbar) quedan como grupo debajo, el más antiguo primero. Y en Rezagados murió la
+fórmula días×interés: el multiplicador comprimía dimensiones distintas en una banda ilegible
+(6 días sin interés ≈ 2,6 días con interés ×2) — mandan los días parados, el interés desempata.
