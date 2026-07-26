@@ -1,10 +1,11 @@
 "use client";
 
-// Sprint 9 fix unificación — Actuar Hoy con sub-tabs visualmente
-// indistinguibles. Mismo header de KPIs, mismo modelo de cards, mismo
-// panel lateral derecho.
-//
-// [Leads] (default) · [Presupuestos]
+// Seguimiento (rediseño 2026-07-25, antes "Actuar hoy") — todos los
+// pacientes activos, ordenados por lo que toca hacer. Dos vistas (Leads ·
+// Presupuestos) y dentro de Leads cuatro COHORTES derivadas del motor
+// intacto (lib/seguimiento/cohortes sobre estadoConversacion + precedencia
+// de cita): Citados · Nuevos · En conversación · Rezagados. Partición
+// total: ningún activo invisible (invariante vigilada por qa-cohortes).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type {
@@ -15,7 +16,7 @@ import type {
 } from "../../lib/presupuestos/types";
 import type { Lead } from "../leads/types";
 import { useClinic } from "../../lib/context/ClinicContext";
-import { ActuarHoyHeader } from "../../components/shared/ActuarHoyHeader";
+import { SeguimientoHeader } from "../../components/shared/SeguimientoHeader";
 import { AccionCard } from "../../components/shared/AccionCard";
 import { AccionPanel } from "../../components/shared/AccionPanel";
 import { ColaTabs } from "../../components/shared/ColaTabs";
@@ -28,8 +29,15 @@ import MotivoPerdidaModal from "../../components/presupuestos/MotivoPerdidaModal
 import {
   estadoConversacion,
   UMBRAL_REACTIVACION_MS,
+  haceTexto,
+  type ConversacionClasificada,
 } from "../../lib/presupuestos/estado-conversacion";
 import { esLeadActivo } from "../../lib/leads/pipeline";
+import {
+  cohorteLead,
+  NUEVO_URGENTE_MS,
+  type CohorteLead,
+} from "../../lib/seguimiento/cohortes";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/Feedback";
 import { AlertTriangle, Inbox, ICON_STROKE } from "../../components/icons";
@@ -40,7 +48,7 @@ type Tab = "leads" | "presupuestos";
 // Bloque 2 P1 — doctores para el AgendarModal in situ del panel de lead.
 type Doctor = { id: string; nombre: string; clinicaId: string | null };
 
-export function ActuarHoyView({
+export function SeguimientoView({
   user,
   initialLeads,
   doctores,
@@ -57,7 +65,7 @@ export function ActuarHoyView({
     return v === "presupuestos" ? "presupuestos" : "leads";
   });
   // Sprint 9 fix unificación cierre — el SidePanel de Presupuestos se monta
-  // al nivel de ActuarHoyView (igual que el patrón pre-fix). Lo abrimos vía
+  // al nivel de SeguimientoView (igual que el patrón pre-fix). Lo abrimos vía
   // AccionPanel kind="presupuesto" para conservar el wrapper unificado.
   const [presupuestoDrawer, setPresupuestoDrawer] = useState<PresupuestoIntervencion | null>(null);
   const [presupuestoReloadKey, setPresupuestoReloadKey] = useState(0);
@@ -157,9 +165,9 @@ export function ActuarHoyView({
       <div className="flex-1 min-h-0 flex flex-col overflow-auto p-4 lg:p-6 gap-4">
         <header className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">Actuar hoy</h1>
+            <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">Seguimiento</h1>
             <p className="text-xs text-[var(--color-muted)]">
-              Cola priorizada para que cierres todo desde aquí, sin saltar al kanban.
+              Todos tus pacientes activos, ordenados por lo que toca hacer.
             </p>
           </div>
           <SegmentedToggle
@@ -232,7 +240,36 @@ export function ActuarHoyView({
 // Sub-tab Leads
 // ──────────────────────────────────────────────────────────────────────
 
-type LeadSubFilter = "todos" | "citados" | "sin-contactar" | "esperando";
+// Id de URL → cohorte de la lib ("conversacion" abrevia "en_conversacion").
+const URL_A_COHORTE: Record<string, CohorteLead> = {
+  citados: "citados",
+  nuevos: "nuevos",
+  conversacion: "en_conversacion",
+  rezagados: "rezagados",
+};
+
+// Tramos temporales DENTRO de la cohorte Citados.
+type TramoCita = "hoy" | "semana" | "proxima" | "despues";
+
+// Aritmética de fechas en LOCAL (sin toISOString: con huso +2 movería el
+// día). Devuelve el domingo de la semana de `hoy` + n semanas.
+function finDeSemana(hoy: string, semanas = 0): string {
+  const d = new Date(hoy + "T00:00:00");
+  const lunes0 = (d.getDay() + 6) % 7;
+  d.setDate(d.getDate() + (6 - lunes0) + semanas * 7);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function tramoDeCita(fechaCita: string, hoy: string): TramoCita {
+  if (fechaCita <= hoy) return "hoy";
+  if (fechaCita <= finDeSemana(hoy)) return "semana";
+  if (fechaCita <= finDeSemana(hoy, 1)) return "proxima";
+  return "despues";
+}
+
+const esNuevoUrgente = (createdAt: string, ahoraMs: number) =>
+  ahoraMs - (new Date(createdAt).getTime() || 0) >= NUEVO_URGENTE_MS;
 
 function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: Doctor[] }) {
   const { selectedClinicaId } = useClinic();
@@ -242,12 +279,16 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
   // (deliberado) pero avisamos de que puede estar desactualizada.
   const [sinConexion, setSinConexion] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  // ?filtro=sin-contactar|citados|esperando desde el dashboard de Red.
-  const [filter, setFilter] = useState<LeadSubFilter>(() => {
-    if (typeof window === "undefined") return "todos";
-    const f = new URLSearchParams(window.location.search).get("filtro");
-    return f === "citados" || f === "sin-contactar" || f === "esperando" ? f : "todos";
+  // ?cohorte=citados|nuevos|conversacion|rezagados (dashboard de Red y el
+  // redirect de /actuar-hoy). null = apertura automática en la primera
+  // cohorte con casos que exigen acción; el click del usuario la fija.
+  const [cohorteManual, setCohorteManual] = useState<CohorteLead | null>(() => {
+    if (typeof window === "undefined") return null;
+    const c = new URLSearchParams(window.location.search).get("cohorte");
+    return c ? (URL_A_COHORTE[c] ?? null) : null;
   });
+  // Sub-filtro temporal de Citados: null = primer tramo con citas.
+  const [tramoManual, setTramoManual] = useState<TramoCita | null>(null);
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null);
   const [asistenciaLead, setAsistenciaLead] = useState<Lead | null>(null);
   // Bloque 2 P1 — "Agendar" del panel abre AgendarModal in situ (sin saltar de módulo).
@@ -303,89 +344,107 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
   }, [fetchLeads]);
 
   const today = new Date().toISOString().slice(0, 10);
-  const hace48h = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
 
-  // Partición ÚNICA y MUTUAMENTE EXCLUYENTE de la cola, con el MISMO estado
-  // derivado que usa la lista (esperando respuesta). Cada lead accionable cae en
-  // exactamente un bucket → los pills cuadran entre sí y con el KPI del header
-  // (Todos = pendientes + esperando):
-  //   citados      = cita hoy sin asistir (pendiente de acción)
-  //   sinContactar = pendiente de acción que necesita contacto/seguimiento
-  //   esperando    = ya atendido, esperando respuesta del paciente (derivado)
-  // Universo accionable: arregla el hueco por el que un "Nuevo ya llamado"
-  // (o cualquier atendido) se caía de todos los buckets viejos y desaparecía.
-  const { citados, sinContactar, esperando } = useMemo(() => {
-    const citados: Lead[] = [];
-    const sinContactar: Lead[] = [];
-    const esperando: Lead[] = [];
-    for (const l of leads) {
-      // El estado de negocio manda: un lead cerrado (No Interesado, Convertido)
-      // sale de TODAS las colas de conversación aunque su hilo diga otra cosa.
-      if (l.convertido || !esLeadActivo(l.estado)) continue;
-      const esCitadoHoy =
-        (l.estado === "Citado" || l.estado === "Citados Hoy") &&
-        l.fechaCita === today &&
-        !l.asistido;
-      // Bifurcación por cita: con cita futura el lead no espera respuesta ni
-      // se reactiva — su próximo toque es el recordatorio, no esta cola.
-      const citaFutura = !!l.fechaCita && l.fechaCita > today;
-      const esEsperando =
-        !citaFutura &&
-        esperaLead(l, ultimaSalientePorLead, ultimaEntrantePorLead).esperando;
-      const esAccionable =
-        esCitadoHoy ||
-        esEsperando ||
-        l.estado === "Nuevo" ||
-        (l.estado === "Contactado" && l.createdAt <= hace48h);
-      if (!esAccionable) continue;
-      // Precedencia: cita hoy > esperando respuesta > pendiente por contactar.
-      if (esCitadoHoy) citados.push(l);
-      else if (esEsperando) esperando.push(l);
-      else sinContactar.push(l);
-    }
-    return { citados, sinContactar, esperando };
-  }, [leads, today, hace48h, ultimaSalientePorLead, ultimaEntrantePorLead]);
+  // ── Cohortes: PARTICIÓN TOTAL de los leads activos. Cero condiciones de
+  // entrada — el censo del rediseño demostró que la lista de condiciones
+  // vieja ("accionables") escondía 6 de 31 activos (DECISIONES 2026-07-25).
+  // Clasificación única: estadoConversacion sobre los timestamps fusionados
+  // del servidor + precedencia de cita — la MISMA lib que qa-cohortes.
+  const clasificados = useMemo(() => {
+    return leads
+      .filter((l) => !l.convertido && esLeadActivo(l.estado))
+      .map((l) => {
+        const conv = estadoConversacion(
+          {
+            ultimoEntranteAt: ultimaEntrantePorLead[l.id] ?? null,
+            ultimoSalienteAt: ultimaSalientePorLead[l.id] ?? null,
+          },
+          UMBRAL_REACTIVACION_MS.lead,
+        );
+        return {
+          l,
+          conv,
+          cohorte: cohorteLead({ fechaCita: l.fechaCita, hoy: today, conversacion: conv.estado }),
+        };
+      });
+  }, [leads, today, ultimaSalientePorLead, ultimaEntrantePorLead]);
 
-  const allAccionables = [...citados, ...sinContactar, ...esperando];
-  const filteredLeads =
-    filter === "todos"
-      ? allAccionables
-      : filter === "citados"
-        ? citados
-        : filter === "sin-contactar"
-          ? sinContactar
-          : esperando;
+  type Clasificado = (typeof clasificados)[number];
+  const cohortes = useMemo(() => {
+    const ahora = Date.now();
+    const de = (c: CohorteLead) => clasificados.filter((x) => x.cohorte === c);
+    const creado = (x: Clasificado) => new Date(x.l.createdAt).getTime() || 0;
+    return {
+      // Citados: la cita más cercana primero.
+      citados: de("citados").sort(
+        (a, b) =>
+          (a.l.fechaCita ?? "").localeCompare(b.l.fechaCita ?? "") ||
+          (a.l.horaCita ?? "").localeCompare(b.l.horaCita ?? ""),
+      ),
+      // Nuevos: los urgentes (≥48 h sin contactar) suben, el que más lleva
+      // esperando primero; el resto, más recientes primero.
+      nuevos: de("nuevos").sort((a, b) => {
+        const ua = esNuevoUrgente(a.l.createdAt, ahora) ? 1 : 0;
+        const ub = esNuevoUrgente(b.l.createdAt, ahora) ? 1 : 0;
+        if (ua !== ub) return ub - ua;
+        return ua ? creado(a) - creado(b) : creado(b) - creado(a);
+      }),
+      // En conversación: pendientes de responder SIEMPRE arriba; dentro de
+      // cada bloque, el que más tiempo lleva así primero.
+      en_conversacion: de("en_conversacion").sort((a, b) => {
+        const pa = a.conv.estado === "pendiente_responder" ? 0 : 1;
+        const pb = b.conv.estado === "pendiente_responder" ? 0 : 1;
+        if (pa !== pb) return pa - pb;
+        return (b.conv.haceMs ?? 0) - (a.conv.haceMs ?? 0);
+      }),
+      // Rezagados: fuerza = días parados × interés (intención caliente ×2).
+      rezagados: de("rezagados")
+        .map((x) => ({
+          ...x,
+          fuerza:
+            ((x.conv.haceMs ?? 0) / 86_400_000) *
+            (x.l.intencionDetectada && INTENCION_CALIENTE.has(x.l.intencionDetectada) ? 2 : 1),
+        }))
+        .sort((a, b) => b.fuerza - a.fuerza),
+    };
+  }, [clasificados]);
 
-  // Orden de la cola: primero los PENDIENTES, luego los que están ESPERANDO
-  // respuesta (abajo). Dentro de cada bloque, la prioridad se conserva
-  // (ALTO→MEDIO→BAJO); desempate por hora de cita / antigüedad. Así un ALTO
-  // esperando queda por encima de un MEDIO esperando, pero por debajo de
-  // cualquier pendiente.
-  const orderedLeads = useMemo(() => {
-    const decorated = filteredLeads.map((l) => ({
-      l,
-      esperando: esperaLead(l, ultimaSalientePorLead, ultimaEntrantePorLead).esperando ? 1 : 0,
-      rank: PRIORITY_RANK[priorityForLead(l, ultimaSalientePorLead).label],
-      hora: l.horaCita ?? "",
-      created: new Date(l.createdAt).getTime() || 0,
-    }));
-    decorated.sort(
-      (a, b) =>
-        a.esperando - b.esperando ||
-        a.rank - b.rank ||
-        (a.hora && b.hora ? a.hora.localeCompare(b.hora) : 0) ||
-        a.created - b.created,
-    );
-    return decorated.map((d) => d.l);
-  }, [filteredLeads, ultimaSalientePorLead, ultimaEntrantePorLead]);
+  // Apertura automática: primera cohorte con casos que exigen acción
+  // (pendientes de responder > nuevos urgentes > rezagados > citados);
+  // sin nada urgente, la primera con contenido.
+  const cohorteAuto = ((): CohorteLead => {
+    const ahora = Date.now();
+    if (cohortes.en_conversacion.some((x) => x.conv.estado === "pendiente_responder"))
+      return "en_conversacion";
+    if (cohortes.nuevos.some((x) => esNuevoUrgente(x.l.createdAt, ahora))) return "nuevos";
+    if (cohortes.rezagados.length > 0) return "rezagados";
+    if (cohortes.citados.length > 0) return "citados";
+    const orden: CohorteLead[] = ["nuevos", "en_conversacion", "citados"];
+    return orden.find((c) => cohortes[c].length > 0) ?? "nuevos";
+  })();
+  const cohorte = cohorteManual ?? cohorteAuto;
 
-  // Mutuamente excluyentes: Todos = Citados hoy + Sin contactar + Esperando.
-  const tabs: Array<[LeadSubFilter, string, number]> = [
-    ["todos", "Todos", allAccionables.length],
-    ["citados", "Citados hoy", citados.length],
-    ["sin-contactar", "Sin contactar", sinContactar.length],
-    ["esperando", "Esperando respuesta", esperando.length],
-  ];
+  // Tramos de Citados (sub-filtro temporal dentro de la cohorte).
+  const tramos = useMemo(() => {
+    const t: Record<TramoCita, Clasificado[]> = { hoy: [], semana: [], proxima: [], despues: [] };
+    for (const x of cohortes.citados) t[tramoDeCita(x.l.fechaCita!, today)].push(x);
+    return t;
+  }, [cohortes.citados, today]);
+  const tramoAuto = (["hoy", "semana", "proxima", "despues"] as TramoCita[]).find(
+    (t) => tramos[t].length > 0,
+  ) ?? "hoy";
+  const tramo = tramoManual ?? tramoAuto;
+
+  const visibles = cohorte === "citados" ? tramos[tramo] : cohortes[cohorte];
+
+  // KPIs del banner — cada lead cuenta UNA vez: pendientes = exigen acción
+  // tuya (responder, primer contacto, reactivar, confirmar la cita de hoy);
+  // atendidos = la pelota está en el paciente o la cita es futura.
+  const nPendientes =
+    cohortes.en_conversacion.filter((x) => x.conv.estado === "pendiente_responder").length +
+    cohortes.nuevos.length +
+    cohortes.rezagados.length +
+    cohortes.citados.filter((x) => x.l.fechaCita === today && !x.l.asistido).length;
 
   function onLeadChanged(updated: Lead) {
     setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
@@ -394,13 +453,11 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
 
   return (
     <>
-      <ActuarHoyHeader
-        subtitle="Cola de leads · Hoy"
+      <SeguimientoHeader
+        subtitle="Leads activos"
         kpis={{
-          // Cuadra con los pills: pendientes = Citados hoy + Sin contactar;
-          // atendidos = Esperando respuesta. Cada lead cuenta una sola vez.
-          pendientes: citados.length + sinContactar.length,
-          atendidosHoy: esperando.length,
+          pendientes: nPendientes,
+          atendidosHoy: clasificados.length - nPendientes,
           tiempoMedioMin,
         }}
         lastUpdate={lastUpdate}
@@ -415,40 +472,88 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
         </span>
       )}
 
-      {/* Pills de sub-filtro — componente compartido de las colas. */}
+      {/* Cohortes — pills compartidas de las colas. Una cohorte vacía sigue
+          visible con su 0: partición honesta, nada desaparece. */}
       <ColaTabs
-        tabs={tabs.map(([id, label, count]) => ({ id, label, count }))}
-        active={filter}
-        onChange={setFilter}
+        tabs={[
+          { id: "citados" as CohorteLead, label: "Citados", count: cohortes.citados.length },
+          { id: "nuevos" as CohorteLead, label: "Nuevos", count: cohortes.nuevos.length },
+          {
+            id: "en_conversacion" as CohorteLead,
+            label: "En conversación",
+            count: cohortes.en_conversacion.length,
+          },
+          { id: "rezagados" as CohorteLead, label: "Rezagados", count: cohortes.rezagados.length },
+        ]}
+        active={cohorte}
+        onChange={(c) => setCohorteManual(c)}
       />
 
-      {loading && filteredLeads.length === 0 ? (
+      {/* Sub-filtro temporal de Citados. "Más adelante" solo aparece con
+          contenido: los tres tramos fijos cubren el trabajo normal, pero una
+          cita a 3 semanas no puede quedar invisible. */}
+      {cohorte === "citados" && cohortes.citados.length > 0 && (
+        <ColaTabs
+          tabs={[
+            { id: "hoy" as TramoCita, label: "Hoy", count: tramos.hoy.length },
+            { id: "semana" as TramoCita, label: "Esta semana", count: tramos.semana.length },
+            { id: "proxima" as TramoCita, label: "Próxima semana", count: tramos.proxima.length },
+            ...(tramos.despues.length > 0
+              ? [{ id: "despues" as TramoCita, label: "Más adelante", count: tramos.despues.length }]
+              : []),
+          ]}
+          active={tramo}
+          onChange={(t) => setTramoManual(t)}
+        />
+      )}
+
+      {loading && visibles.length === 0 ? (
         <CardListSkeleton rows={4} />
-      ) : filteredLeads.length === 0 ? (
+      ) : visibles.length === 0 ? (
         <EmptyState
           icon={<Inbox size={20} strokeWidth={ICON_STROKE} />}
-          title="Sin casos en esta vista"
+          title={
+            cohorte === "citados"
+              ? cohortes.citados.length > 0
+                ? "Sin citas en este tramo"
+                : "Sin leads citados"
+              : cohorte === "nuevos"
+                ? "Sin leads nuevos por contactar"
+                : cohorte === "en_conversacion"
+                  ? "Ninguna conversación abierta"
+                  : "Sin leads rezagados"
+          }
           hint={
-            filter === "citados"
-              ? "No hay leads citados hoy."
-              : filter === "esperando"
-                ? "No hay leads esperando respuesta ahora mismo."
-                : filter === "sin-contactar"
-                  ? "No tienes leads pendientes por contactar."
-                  : "No hay leads accionables en este filtro."
+            cohorte === "citados"
+              ? cohortes.citados.length > 0
+                ? "Elige otro tramo para ver el resto de citas."
+                : "Cuando un lead tenga cita hoy o en el futuro, aparecerá aquí para confirmarla."
+              : cohorte === "nuevos"
+                ? "Los leads que entren sin primer contacto aparecerán aquí."
+                : cohorte === "en_conversacion"
+                  ? "Cuando un lead te escriba o esté esperando tu respuesta, lo verás aquí."
+                  : "Los leads contactados que se enfríen sin respuesta aparecerán aquí para reactivarlos."
           }
         />
       ) : (
         <div className="space-y-2">
-          {orderedLeads.map((l) => (
-            <LeadAccionRow
-              key={l.id}
-              lead={l}
-              onOpen={() => setDrawerLead(l)}
-              onAsistencia={() => setAsistenciaLead(l)}
-              ultimaSalientePorLead={ultimaSalientePorLead}
-              ultimaEntrantePorLead={ultimaEntrantePorLead}
-            />
+          {visibles.map((x, i) => (
+            // Cascada solo al montar o cambiar de cohorte (keys estables: un
+            // refresh de datos no re-anima).
+            <div
+              key={x.l.id}
+              className="fyllio-fade-in"
+              style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}
+            >
+              <LeadAccionRow
+                lead={x.l}
+                conv={x.conv}
+                cohorte={x.cohorte}
+                onOpen={() => setDrawerLead(x.l)}
+                onAsistencia={() => setAsistenciaLead(x.l)}
+                ultimaSalientePorLead={ultimaSalientePorLead}
+              />
+            </div>
           ))}
         </div>
       )}
@@ -504,32 +609,6 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
 // map no está cargado todavía, fallback al heurístico legacy.
 const INTENCION_CALIENTE = new Set(["Interesado", "Pide cita", "Pregunta precio"]);
 const HORAS_12_MS = 12 * 60 * 60 * 1000;
-
-// Orden de la cola: ALTO primero. Lo consume orderedLeads en LeadsTab.
-const PRIORITY_RANK: Record<"ALTO" | "MEDIO" | "BAJO", number> = {
-  ALTO: 0,
-  MEDIO: 1,
-  BAJO: 2,
-};
-
-// "Esperando respuesta": clasificación ÚNICA (estadoConversacion, umbral 48h
-// centralizado) sobre los timestamps que el servidor ya fusiona (hilo real +
-// acciones registradas). Esta vista no tiene criterio propio — antes su copia
-// local podía contradecir al panel del mismo lead.
-function esperaLead(
-  lead: Lead,
-  saliente: Record<string, string>,
-  entrante: Record<string, string>,
-): { esperando: boolean; desdeISO: string | null } {
-  const c = estadoConversacion(
-    { ultimoEntranteAt: entrante[lead.id] ?? null, ultimoSalienteAt: saliente[lead.id] ?? null },
-    UMBRAL_REACTIVACION_MS.lead,
-  );
-  return {
-    esperando: c.estado === "en_espera_paciente",
-    desdeISO: c.estado === "en_espera_paciente" ? c.ultimoToqueClinicaAt : null,
-  };
-}
 
 function relTimeShort(iso: string): string {
   const diffMin = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
@@ -589,27 +668,43 @@ function priorityForLead(
   return { variant: "neutral", label: "BAJO", borderColor: "var(--color-muted)" };
 }
 
+// "Cita el martes 29 jul" / "Cita mañana" — para el estado de Citados.
+function citaTexto(fechaCita: string, hoy: string): string {
+  if (fechaCita === hoy) return "Cita hoy";
+  const manana = new Date(hoy + "T00:00:00");
+  manana.setDate(manana.getDate() + 1);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const mananaIso = `${manana.getFullYear()}-${pad(manana.getMonth() + 1)}-${pad(manana.getDate())}`;
+  if (fechaCita === mananaIso) return "Cita mañana";
+  const txt = new Date(fechaCita + "T12:00:00").toLocaleDateString("es-ES", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+  });
+  return `Cita el ${txt}`;
+}
+
 function LeadAccionRow({
   lead,
+  conv,
+  cohorte,
   onOpen,
   onAsistencia,
   ultimaSalientePorLead,
-  ultimaEntrantePorLead,
 }: {
   lead: Lead;
+  /** Clasificación única de la conversación — la deriva LeadsTab (la misma
+   *  que decide la cohorte); la card no recalcula nada. */
+  conv: ConversacionClasificada;
+  cohorte: CohorteLead;
   onOpen: () => void;
   onAsistencia: () => void;
-  // Maps para priorityForLead y para derivar "esperando respuesta".
+  // Map para priorityForLead (trigger 'caliente sin acción >12h').
   ultimaSalientePorLead?: Record<string, string>;
-  ultimaEntrantePorLead?: Record<string, string>;
 }) {
-  // "Esperando respuesta" es un estado DERIVADO de los datos (última saliente vs
-  // entrante en Acciones_Lead), no del navegador: al recargar sigue igual.
-  const espera = esperaLead(
-    lead,
-    ultimaSalientePorLead ?? {},
-    ultimaEntrantePorLead ?? {},
-  );
+  // "Esperando respuesta" solo aplica dentro de En conversación: en Citados
+  // la precedencia de cita manda (el trabajo es confirmar, no esperar).
+  const esperando = cohorte === "en_conversacion" && conv.estado === "en_espera_paciente";
 
   const ts = new Date(lead.createdAt).getTime();
   const diasDesde = Number.isFinite(ts)
@@ -629,6 +724,45 @@ function LeadAccionRow({
     (lead.estado === "Citado" || lead.estado === "Citados Hoy") && lead.fechaCita === today;
 
   const priority = priorityForLead(lead, ultimaSalientePorLead);
+  const urgente = cohorte === "nuevos" && esNuevoUrgente(lead.createdAt, Date.now());
+
+  // Estado en dos niveles (patrón del dashboard de Red): qué pasa + qué toca
+  // hacer, según la cohorte. El caso "en espera" mantiene su botón fantasma.
+  const estado = (() => {
+    if (cohorte === "citados" && lead.fechaCita) {
+      const esHoy = lead.fechaCita === today;
+      return {
+        titular: `${citaTexto(lead.fechaCita, today)}${lead.horaCita ? ` a las ${lead.horaCita}` : ""}`,
+        detalle: esHoy
+          ? "Confirma su asistencia cuando llegue — o marca que no vino."
+          : "Recuérdale la cita desde su ficha: el mensaje va precargado.",
+      };
+    }
+    if (cohorte === "nuevos") {
+      return {
+        titular: "Primer contacto pendiente",
+        detalle: urgente
+          ? "Cada día sin respuesta enfría el lead — llámale o escríbele hoy."
+          : "Dale el primer toque desde su ficha.",
+      };
+    }
+    if (cohorte === "en_conversacion" && conv.estado === "pendiente_responder") {
+      return {
+        titular: `Te respondió ${conv.haceMs != null ? haceTexto(conv.haceMs) : ""}`.trim(),
+        detalle: "La pelota está en tu tejado — contéstale desde su ficha.",
+      };
+    }
+    if (cohorte === "rezagados") {
+      return {
+        titular:
+          conv.haceMs != null
+            ? `Le escribiste ${haceTexto(conv.haceMs)} y no ha respondido`
+            : "Sin respuesta desde el último contacto",
+        detalle: "Reactívalo desde su ficha con un mensaje nuevo.",
+      };
+    }
+    return undefined;
+  })();
 
   const tags = [];
   if (lead.tratamiento) tags.push({ label: lead.tratamiento, tone: "neutral" as const });
@@ -652,10 +786,10 @@ function LeadAccionRow({
   // ejecutar sin criterio — el de leads además abría wa.me SIN texto y decía
   // "Enviado" sin dejar nada en el hilo.
   const actions: React.ComponentProps<typeof AccionCard>["actions"] = [];
-  if (espera.esperando) {
+  if (esperando) {
     actions.push({
-      label: espera.desdeISO
-        ? `Esperando respuesta · ${relTimeShort(espera.desdeISO)}`
+      label: conv.ultimoToqueClinicaAt
+        ? `Esperando respuesta · ${relTimeShort(conv.ultimoToqueClinicaAt)}`
         : "Esperando respuesta",
       onClick: (e) => e.stopPropagation(),
       variant: "ghost",
@@ -684,7 +818,7 @@ function LeadAccionRow({
   return (
     <AccionCard
       borderColor={priority.borderColor}
-      faded={espera.esperando}
+      faded={esperando}
       title={
         lead.convertido && lead.pacienteId ? (
           <a
@@ -700,6 +834,11 @@ function LeadAccionRow({
       }
       titleRight={
         <div className="flex items-center gap-2">
+          {urgente && (
+            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md border bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30 tabular-nums">
+              Sin contactar hace {diasDesde ?? 0}d
+            </span>
+          )}
           {isCitadoHoy && lead.horaCita && (
             <span className="text-[10px] font-semibold text-rose-700 dark:text-rose-300 tabular-nums">
               {lead.horaCita}
@@ -721,6 +860,7 @@ function LeadAccionRow({
       tags={tags}
       meta={meta}
       quote={lead.notas ?? undefined}
+      estado={estado}
       accionSugerida={lead.accionSugerida ?? undefined}
       onOpen={onOpen}
       actions={actions}
@@ -730,10 +870,10 @@ function LeadAccionRow({
 
 // ──────────────────────────────────────────────────────────────────────
 // Sub-tab Presupuestos — P3 unificación (2026-07-23): IntervencionView usa
-// el MISMO modelo que Leads: ActuarHoyHeader compartido, AccionCard
+// el MISMO modelo que Leads: SeguimientoHeader compartido, AccionCard
 // compartida y dos pestañas derivadas de estadoConversacion ("Actuar ahora"
 // = pendiente_responder + reactivable · "Esperando respuesta" = en_espera).
-// El SidePanel se monta al nivel de ActuarHoyView vía AccionPanel
+// El SidePanel se monta al nivel de SeguimientoView vía AccionPanel
 // kind="presupuesto" (wrapper a IntervencionSidePanel), igual que leads.
 // ──────────────────────────────────────────────────────────────────────
 

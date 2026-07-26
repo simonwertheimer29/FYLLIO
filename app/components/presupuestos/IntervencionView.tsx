@@ -13,7 +13,7 @@ import { haceTexto } from "../../lib/presupuestos/estado-conversacion";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { ErrorState, EmptyState } from "../ui/Feedback";
 import { AccionCard } from "../shared/AccionCard";
-import { ActuarHoyHeader } from "../shared/ActuarHoyHeader";
+import { SeguimientoHeader } from "../shared/SeguimientoHeader";
 import { ColaTabs } from "../shared/ColaTabs";
 import { X, Inbox, ICON_STROKE } from "../icons";
 
@@ -576,7 +576,7 @@ export default function IntervencionView({
     <div className="space-y-4">
       {/* P3 unificación: MISMA cabecera que la sub-tab Leads. "Atendidos" =
           esperando respuesta (ya actuaste; la pelota es del paciente). */}
-      <ActuarHoyHeader
+      <SeguimientoHeader
         subtitle="Cola de presupuestos · Hoy"
         kpis={{
           pendientes: countForTab(globalFiltered, "actuar"),

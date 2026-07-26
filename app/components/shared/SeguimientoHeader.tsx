@@ -1,15 +1,14 @@
 "use client";
 
-// Sprint 9 fix unificación — header de KPIs común a las dos sub-tabs de
-// Actuar Hoy. Mismo lenguaje visual que el header de IntervencionView de
-// Presupuestos: contador "{N} pendientes · {M} completadas hoy", barra de
-// progreso, refresh, "actualizado hace Xs". Tokens del sistema.
+// Header de KPIs común a las dos vistas de Seguimiento (antes "Actuar Hoy").
+// Contador "{N} pendientes · {M} atendidos", barra de progreso, refresh,
+// "actualizado hace Xs". Tokens del sistema.
 
 import { useEffect, useState } from "react";
 import { openCopilot } from "../copilot/openCopilot";
 import { Sparkles, RefreshCw, Check, ICON_STROKE } from "../icons";
 
-export type ActuarHoyKpis = {
+export type SeguimientoKpis = {
   pendientes: number;
   /** Atendidos hoy = pasaron a "esperando respuesta" (acción saliente hoy).
    *  NO son completados ni cerrados: la pelota está en el paciente. */
@@ -19,7 +18,7 @@ export type ActuarHoyKpis = {
   tiempoMedioMin?: number | null;
 };
 
-export function ActuarHoyHeader({
+export function SeguimientoHeader({
   subtitle,
   kpis,
   lastUpdate,
@@ -27,7 +26,7 @@ export function ActuarHoyHeader({
   loading,
 }: {
   subtitle: string;
-  kpis: ActuarHoyKpis;
+  kpis: SeguimientoKpis;
   lastUpdate: Date;
   onRefresh: () => void;
   loading?: boolean;
@@ -98,7 +97,7 @@ export function ActuarHoyHeader({
           type="button"
           onClick={() => {
             const summary = [
-              `KPIs Actuar Hoy — ${subtitle}`,
+              `KPIs Seguimiento — ${subtitle}`,
               `Pendientes: ${kpis.pendientes}`,
               `Atendidos hoy: ${kpis.atendidosHoy}`,
               `Tiempo medio respuesta: ${

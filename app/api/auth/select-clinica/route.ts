@@ -70,7 +70,7 @@ export async function POST(req: Request) {
     }
 
     return buildLoginResponse({ ...user, cliente }, [elegida.id], {
-      redirect: "/actuar-hoy",
+      redirect: "/seguimiento",
       selectedClinicaId: elegida.id,
     });
   } catch {

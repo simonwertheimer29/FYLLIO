@@ -243,7 +243,7 @@ export async function calcularDashboardRed(opts: {
       importe: reactivablesImporte,
       titulo: "Presupuestos sin seguimiento",
       detalle: `Se escribió a ${reactivablesN} paciente${s(reactivablesN)}, no respondieron y nadie ha vuelto a insistir.`,
-      href: "/actuar-hoy?vista=presupuestos",
+      href: "/seguimiento?vista=presupuestos",
     });
   }
   if (vencidosN > 0) {
@@ -263,7 +263,7 @@ export async function calcularDashboardRed(opts: {
       importe: cierreImporte,
       titulo: "Cierres esperando tu respuesta",
       detalle: `${cierreN} paciente${s(cierreN)} ya ${cierreN === 1 ? "dijo que quiere aceptar y espera" : "dijeron que quieren aceptar y esperan"} respuesta para cerrar.`,
-      href: "/actuar-hoy?vista=presupuestos",
+      href: "/seguimiento?vista=presupuestos",
     });
   }
   if (sinContactoN > 0) {
@@ -273,7 +273,7 @@ export async function calcularDashboardRed(opts: {
       importe: null,
       titulo: "Leads sin primer contacto",
       detalle: `${sinContactoN} lead${s(sinContactoN)} nuevo${s(sinContactoN)} todavía no ${sinContactoN === 1 ? "ha" : "han"} recibido ni un mensaje ni una llamada.`,
-      href: "/actuar-hoy?vista=leads&filtro=sin-contactar",
+      href: "/seguimiento?vista=leads&cohorte=nuevos",
     });
   }
 

@@ -15,7 +15,7 @@ import { ThemeToggle } from "./ThemeToggle";
 type NavItem = { href: string; label: string };
 
 const NAV_COORD: NavItem[] = [
-  { href: "/actuar-hoy",      label: "Actuar hoy" },
+  { href: "/seguimiento",     label: "Seguimiento" },
   { href: "/leads",           label: "Leads" },
   { href: "/pacientes",       label: "Pacientes" },
   { href: "/presupuestos",    label: "Presupuestos" },
@@ -28,7 +28,7 @@ const NAV_COORD: NavItem[] = [
 const NAV_ADMIN: NavItem[] = [
   { href: "/red",             label: "Red" },
   { href: "/alertas",         label: "Alertas" },
-  { href: "/actuar-hoy",      label: "Actuar hoy" },
+  { href: "/seguimiento",     label: "Seguimiento" },
   { href: "/leads",           label: "Leads" },
   { href: "/pacientes",       label: "Pacientes" },
   { href: "/presupuestos",    label: "Presupuestos" },
