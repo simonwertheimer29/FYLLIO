@@ -12,6 +12,7 @@
     "demo:reset": "node scripts/db-seed-demo-rico.mjs",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:migrate:dry": "node scripts/db-migrate.mjs --dry",
+    "qa:cohortes": "tsx scripts/qa-cohortes.mts",
     "guard:rls": "node scripts/guard-service-role.mjs",
     "db:smoke-rls": "node scripts/db-smoke-rls.mjs"
   },
