@@ -70,9 +70,9 @@ const leads = (
 
 const presus = (
   await db.query(
-    `select id, estado, importe, fecha_ultima_respuesta, ultima_accion_registrada,
-            tipo_ultima_accion, created_at
-     from presupuestos`,
+    `select p.id, p.estado, p.importe, p.fecha_ultima_respuesta, p.ultima_accion_registrada,
+            p.tipo_ultima_accion, p.created_at, pa.nombre as paciente_nombre
+     from presupuestos p left join pacientes pa on pa.id = p.paciente_id`,
   )
 ).rows;
 
@@ -167,6 +167,7 @@ for (const l of leads) {
 // ── censo presupuestos ────────────────────────────────────────────────
 type FilaPresu = {
   id: string;
+  paciente: string;
   estado: string;
   importe: number;
   conv: EstadoConversacion;
@@ -190,6 +191,7 @@ for (const p of presus) {
   }
   abiertos.push({
     id: p.id,
+    paciente: p.paciente_nombre ?? "(sin paciente)",
     estado: p.estado,
     importe: Number(p.importe ?? 0) || 0,
     conv: conv.estado,
@@ -259,7 +261,7 @@ if (DETALLE) {
   }
   console.log("\n— Detalle presupuestos —");
   for (const f of abiertos) {
-    console.log(`${f.id} · ${f.estado} · ${eur(f.importe)} · ${f.conv} → ${f.cohorte}`);
+    console.log(`${f.id} · ${f.paciente} · ${f.estado} · ${eur(f.importe)} · ${f.conv} → ${f.cohorte}`);
   }
 }
 
