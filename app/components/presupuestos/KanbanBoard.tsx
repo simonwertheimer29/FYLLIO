@@ -209,6 +209,8 @@ function GhostCard({ presupuesto }: { presupuesto: Presupuesto }) {
 function DroppableColumn({
   estado,
   presupuestos,
+  ocultos = 0,
+  verTodos,
   probMap,
   velocidad,
   onOpenHistory,
@@ -216,6 +218,10 @@ function DroppableColumn({
 }: {
   estado: PresupuestoEstado;
   presupuestos: Presupuesto[];
+  /** Cerrados fuera de la ventana de 14 días (no se pintan aquí). */
+  ocultos?: number;
+  /** Pie "Ver todos →" hacia el archivo real de la columna cerrada. */
+  verTodos?: { label: string; onClick: () => void };
   probMap: Map<string, number | null>;
   velocidad: { media: number; lenta: boolean } | null;
   onOpenHistory: (p: Presupuesto) => void;
@@ -225,11 +231,13 @@ function DroppableColumn({
   const { setNodeRef, isOver } = useDroppable({ id: estado });
   const total = presupuestos.reduce((s, p) => s + (p.amount ?? 0), 0);
 
-  // Sprint 13 Bloque 4 — sub-info condensada a una línea.
+  // Sprint 13 Bloque 4 — sub-info condensada a una línea. Las columnas
+  // cerradas son mesa de trabajo, no archivo: anuncian su ventana de 14 días.
   const subInfo = [
     total > 0 ? `€${total.toLocaleString("es-ES")}` : null,
     velocidad && velocidad.media > 0 ? `media: ${velocidad.media}d` : null,
     cfg.accionable ? cfg.hint : null,
+    verTodos ? "últimos 14 días" : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -288,6 +296,16 @@ function DroppableColumn({
                 onEdit={onEdit}
               />
             ))
+        )}
+        {verTodos && (presupuestos.length > 0 || ocultos > 0) && (
+          <button
+            type="button"
+            onClick={verTodos.onClick}
+            className="w-full text-left text-[11px] font-semibold text-[var(--color-accent)] hover:underline px-1 py-1.5"
+          >
+            {verTodos.label}
+            {ocultos > 0 ? ` (${presupuestos.length + ocultos})` : ""} →
+          </button>
         )}
       </div>
     </div>
@@ -360,16 +378,35 @@ function ConfirmMoveModal({
 
 const SKIP_CONFIRM_KEY = "kanban_skip_confirm";
 
+// Ventana de las columnas cerradas (rediseño Seguimiento 2026-07-26): el
+// kanban es mesa de trabajo, no archivo. ACEPTADO/PERDIDO muestran solo los
+// últimos 14 días; el resto vive en su archivo real (Cobros / Vista Máxima).
+// Sin fecha de cierre conocida, el caso se MUESTRA (no se esconde por falta
+// de dato — los perdidos antiguos sin historial siguen a la vista).
+const VENTANA_CIERRE_DIAS = 14;
+function esCierreReciente(p: Presupuesto, hoy: string): boolean {
+  const fecha = p.estado === "ACEPTADO" ? p.fechaAceptado : p.fechaPerdida;
+  if (!fecha) return true;
+  const corte = new Date(hoy + "T00:00:00");
+  corte.setDate(corte.getDate() - VENTANA_CIERRE_DIAS);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return fecha >= `${corte.getFullYear()}-${pad(corte.getMonth() + 1)}-${pad(corte.getDate())}`;
+}
+
 export default function KanbanBoard({
   presupuestos,
   onChangeEstado,
   onOpenHistory,
   onEdit,
+  onVerTodosCerrados,
 }: {
   presupuestos: Presupuesto[];
   onChangeEstado: (id: string, estado: PresupuestoEstado, extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string; reactivar?: boolean }) => void;
   onOpenHistory: (p: Presupuesto) => void;
   onEdit: (p: Presupuesto) => void;
+  /** "Ver todos →" de las columnas cerradas: navega al archivo real
+   *  (ACEPTADO → Registro de Cobros; PERDIDO → Vista Máxima). */
+  onVerTodosCerrados: (estado: "ACEPTADO" | "PERDIDO") => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pendingChange, setPendingChange] = useState<{ id: string; targetEstado: PresupuestoEstado } | null>(null);
@@ -473,17 +510,35 @@ export default function KanbanBoard({
         {/* Gray frame container — fills parent height */}
         <div className="bg-[var(--color-surface-muted)] rounded-2xl p-2 overflow-hidden h-full flex flex-col">
           <div className="flex flex-row flex-1 min-h-0 overflow-x-auto overflow-y-hidden gap-2">
-            {PIPELINE_ORDEN.map((estado) => (
-              <DroppableColumn
-                key={estado}
-                estado={estado}
-                presupuestos={presupuestos.filter((p) => p.estado === estado)}
-                probMap={probMap}
-                velocidad={velocidadMap.get(estado) ?? null}
-                onOpenHistory={onOpenHistory}
-                onEdit={onEdit}
-              />
-            ))}
+            {PIPELINE_ORDEN.map((estado) => {
+              const items = presupuestos.filter((p) => p.estado === estado);
+              const cerrada = estado === "ACEPTADO" || estado === "PERDIDO";
+              const hoy = new Date().toISOString().slice(0, 10);
+              const visibles = cerrada ? items.filter((p) => esCierreReciente(p, hoy)) : items;
+              return (
+                <DroppableColumn
+                  key={estado}
+                  estado={estado}
+                  presupuestos={visibles}
+                  ocultos={items.length - visibles.length}
+                  verTodos={
+                    cerrada
+                      ? {
+                          label:
+                            estado === "ACEPTADO"
+                              ? "Ver todos en Cobros"
+                              : "Ver todos en Vista Máxima",
+                          onClick: () => onVerTodosCerrados(estado as "ACEPTADO" | "PERDIDO"),
+                        }
+                      : undefined
+                  }
+                  probMap={probMap}
+                  velocidad={velocidadMap.get(estado) ?? null}
+                  onOpenHistory={onOpenHistory}
+                  onEdit={onEdit}
+                />
+              );
+            })}
           </div>
         </div>
 

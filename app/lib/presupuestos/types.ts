@@ -66,6 +66,12 @@ export type Presupuesto = {
   reactivacion?: boolean;  // marcado para reactivar en 90 días tras perderse
   portalEnviado?: boolean; // portal de presupuesto enviado al paciente
   ofertaActiva?: boolean;  // se ha realizado una oferta activa al paciente
+  /** Fecha de cierre (kanban 2026-07-26): las columnas cerradas muestran solo
+   *  los últimos 14 días. fechaAceptado = columna real; fechaPerdida deriva
+   *  del historial (fechasPerdidaPorPresupuesto) — sin fecha conocida, el
+   *  caso se muestra (nunca se esconde por falta de dato). */
+  fechaAceptado?: string | null;
+  fechaPerdida?: string | null;
 };
 
 export type Contacto = {

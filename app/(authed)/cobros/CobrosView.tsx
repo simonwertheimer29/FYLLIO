@@ -54,8 +54,15 @@ export function CobrosView() {
   const [abierto, setAbierto] = useState<CobroItem | null>(null);
   // Cards atenuadas tras actuar (además de las contactadas ≤3d del server).
   const [actuados, setActuados] = useState<Set<string>>(new Set());
-  // Actuar / Registro — toggle segmentado en cabecera (patrón Actuar hoy).
-  const [pestana, setPestana] = useState<"actuar" | "registro">("actuar");
+  // Actuar / Registro — toggle segmentado en cabecera (patrón Seguimiento).
+  // ?vista=registro (el "Ver todos →" de la columna Aceptado del kanban)
+  // abre directamente el Registro.
+  const [pestana, setPestana] = useState<"actuar" | "registro">(() => {
+    if (typeof window === "undefined") return "actuar";
+    return new URLSearchParams(window.location.search).get("vista") === "registro"
+      ? "registro"
+      : "actuar";
+  });
   // Sub-pestañas de Actuar (mismo componente): un bucket a la vista, la
   // visión de conjunto vive en los contadores + Σ€ de cada pestaña.
   const [bucket, setBucket] = useState<"vencidos" | "por_vencer" | "estancados">("vencidos");

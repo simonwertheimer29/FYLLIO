@@ -4,7 +4,7 @@
 // Consume ClinicContext para filtrar por clínica global + filtros locales
 // de fecha y búsqueda.
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { Phone, MessageCircle, Check, Copy, Plus, ICON_STROKE } from "../../components/icons";
 import {
@@ -100,6 +100,27 @@ export function LeadsView({
   const [asistenciaLead, setAsistenciaLead] = useState<Lead | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Kanban como mesa de trabajo (rediseño Seguimiento 2026-07-26): la columna
+  // cerrada "No Interesado" muestra solo los de actividad reciente (≤14 días,
+  // por última acción/mensaje del lead — no hay fecha de cierre persistida);
+  // el resto se pliega tras "Ver todos". Sin actividad conocida → visible.
+  const [verTodosNoInteresados, setVerTodosNoInteresados] = useState(false);
+  const [ultimaActividadPorLead, setUltimaActividadPorLead] = useState<Record<string, string>>({});
+  useEffect(() => {
+    fetch("/api/leads/ultima-saliente")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        const out: Record<string, string> = { ...(d.ultimaSalientePorLead ?? {}) };
+        for (const [id, ts] of Object.entries(d.ultimaEntrantePorLead ?? {})) {
+          if (!out[id] || String(ts) > out[id]) out[id] = String(ts);
+        }
+        setUltimaActividadPorLead(out);
+      })
+      .catch(() => {
+        /* sin el mapa, la columna muestra todos — degradación visible, no rota */
+      });
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -370,6 +391,22 @@ export function LeadsView({
         <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
           {COLUMNS.map((col) => {
             const items = leadsPorColumna.get(col.id) ?? [];
+            // Columna cerrada: ventana de 14 días por última actividad; el
+            // resto se pliega tras "Ver todos" (expande en sitio — los No
+            // Interesado no tienen otro archivo).
+            const esCerrada = col.id === "No Interesado";
+            const corte = (() => {
+              const d = new Date();
+              d.setDate(d.getDate() - 14);
+              return d.toISOString();
+            })();
+            const visibles =
+              esCerrada && !verTodosNoInteresados
+                ? items.filter((l) => {
+                    const act = ultimaActividadPorLead[l.id];
+                    return !act || act >= corte;
+                  })
+                : items;
             return (
               <KanbanColumn
                 key={col.id}
@@ -377,7 +414,13 @@ export function LeadsView({
                 label={col.label}
                 accent={col.accent}
                 ringClass={col.ringClass}
-                items={items}
+                items={visibles}
+                ocultos={items.length - visibles.length}
+                onVerTodos={
+                  esCerrada && items.length > visibles.length
+                    ? () => setVerTodosNoInteresados(true)
+                    : undefined
+                }
                 onCardClick={(l) => setDrawerLead(l)}
                 onAsistencia={(l) => setAsistenciaLead(l)}
                 onNoAsistio={noAsistioInline}
@@ -454,6 +497,8 @@ function KanbanColumn({
   accent,
   ringClass,
   items,
+  ocultos = 0,
+  onVerTodos,
   onCardClick,
   onAsistencia,
   onNoAsistio,
@@ -463,6 +508,10 @@ function KanbanColumn({
   accent: string;
   ringClass?: string;
   items: Lead[];
+  /** Cerrados fuera de la ventana de 14 días (plegados). */
+  ocultos?: number;
+  /** Expande la columna cerrada en sitio (sin archivo externo). */
+  onVerTodos?: () => void;
   onCardClick: (l: Lead) => void;
   onAsistencia: (l: Lead) => void;
   onNoAsistio: (l: Lead) => void;
@@ -505,13 +554,22 @@ function KanbanColumn({
               <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
             ))
           )}
-          {items.length === 0 && (
+          {items.length === 0 && ocultos === 0 && (
             <div
               id={estado}
               className="h-full min-h-[80px] flex items-center justify-center text-[11px] text-[var(--color-muted)] italic"
             >
               Sin leads
             </div>
+          )}
+          {onVerTodos && ocultos > 0 && (
+            <button
+              type="button"
+              onClick={onVerTodos}
+              className="w-full text-left text-[11px] font-semibold text-[var(--color-accent)] hover:underline px-1 py-1.5"
+            >
+              Ver todos ({items.length + ocultos}) →
+            </button>
           )}
         </div>
       </SortableContext>

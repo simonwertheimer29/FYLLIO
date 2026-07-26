@@ -11,6 +11,7 @@ import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
 import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 import { isDemoAllowed } from "../../../lib/demo/seed";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { fechasPerdidaPorPresupuesto } from "../../../lib/historial/registrar";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
 
 const ZONE = "Europe/Madrid";
@@ -110,7 +111,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         "Paciente_nombre", "Teléfono", "Tratamiento_nombre",
         "Importe", "Estado", "Fecha", "Notas",
         "Paciente_Telefono", "Doctor", "Doctor_Especialidad",
-        "TipoPaciente", "TipoVisita", "FechaAlta", "Clinica",
+        "TipoPaciente", "TipoVisita", "FechaAlta", "Fecha_Aceptado", "Clinica",
         "ContactCount", "CreadoPor",
         "OrigenLead", "MotivoPerdida", "MotivoPerdidaTexto", "MotivoDuda",
         "Reactivacion", "PortalEnviado", "OfertaActiva",
@@ -200,6 +201,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         reactivacion: f["Reactivacion"] === true,
         portalEnviado: f["PortalEnviado"] === true,
         ofertaActiva: f["OfertaActiva"] === true,
+        fechaAceptado: f["Fecha_Aceptado"] ? String(f["Fecha_Aceptado"]).slice(0, 10) : null,
       };
       p.urgencyScore = computeUrgencyScore(p);
       return p;
@@ -247,6 +249,16 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     const estadoFilter = q.get("estado");
     if (estadoFilter) {
       presupuestos = presupuestos.filter((p) => p.estado === estadoFilter);
+    }
+
+    // Fecha de pérdida — derivada del historial real (la misma lib que el
+    // dashboard de Red; no existe columna fecha_perdida). Sin fecha conocida,
+    // fechaPerdida queda null y la columna del kanban NO esconde el caso.
+    const fechasPerdida = await fechasPerdidaPorPresupuesto();
+    for (const p of presupuestos) {
+      if (p.estado === "PERDIDO") {
+        p.fechaPerdida = fechasPerdida.get(p.id)?.slice(0, 10) ?? null;
+      }
     }
 
     return NextResponse.json({ presupuestos, isDemo: false });

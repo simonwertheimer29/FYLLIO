@@ -76,7 +76,14 @@ function usePresupuestos() {
 // ─── Main Shell ──────────────────────────────────────────────────────────────
 
 export default function PresupuestosShell({ user }: { user: UserSession }) {
-  const [tab, setTab] = useState<Tab>("kanban");
+  // ?vista=maxima abre directamente la Vista Máxima (el "Ver todos →" de la
+  // columna Perdido del kanban aterriza ahí).
+  const [tab, setTab] = useState<Tab>(() => {
+    if (typeof window === "undefined") return "kanban";
+    return new URLSearchParams(window.location.search).get("vista") === "maxima"
+      ? "maxima"
+      : "kanban";
+  });
   const [currentFilters, setCurrentFilters] = useState<Filters>({
     clinica: "", doctor: "", tipoPaciente: "", tipoVisita: "",
     estado: "", fechaDesde: "", fechaHasta: "", q: "",
@@ -420,6 +427,16 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
                   onChangeEstado={handleChangeEstado}
                   onOpenHistory={(p) => setHistoryPresupuesto(p)}
                   onEdit={handleEdit}
+                  onVerTodosCerrados={(estado) => {
+                    // Archivo real de cada columna cerrada: los aceptados
+                    // viven su vida financiera en Cobros; los perdidos, en la
+                    // tabla completa de la Vista Máxima.
+                    if (estado === "ACEPTADO") {
+                      window.location.href = "/cobros?vista=registro";
+                    } else {
+                      setTab("maxima");
+                    }
+                  }}
                 />
               </div>
             )}
