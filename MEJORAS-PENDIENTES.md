@@ -527,3 +527,26 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** medio en facilidad para redes con muchos vencidos.
 - **Fecha:** 2026-07-24 · 🔵 (anotada por Simon en el checkpoint de la revisión visual;
   post-piloto)
+
+## 37. Leads · sin fecha de cierre persistida (conversión / no interés)
+- **Zona:** tabla `leads` + kanban de Leads
+- **Principio:** coherencia/orden — la columna "No Interesado" recorta a 14 días por
+  ÚLTIMA ACTIVIDAD (acciones+hilo) porque no existe fecha de cierre; es un proxy razonable
+  pero impreciso (un lead cerrado sin mensajes nunca "envejece"), y las métricas de
+  conversión por mes tampoco tienen fecha real de conversión.
+- **Mejora:** persistir `fecha_cierre` (o una acción de cierre en acciones_lead) al pasar a
+  Convertido/No Interesado, y usarla en la ventana del kanban y en KPIs.
+- **Impacto:** bajo hoy (el proxy funciona con el DEMO), medio para métricas de piloto.
+- **Fecha:** 2026-07-26 · 🔵
+
+## 38. Sesión doble: fyllio_session + cookie legacy de presupuestos
+- **Zona:** `app/lib/auth/legacy-presupuestos.ts` + ~30 rutas `/api/presupuestos/*`
+- **Principio:** coherencia — dos sistemas de sesión con dos secretos (AUTH_SECRET y
+  PRESUPUESTOS_JWT_SECRET); documentado como deuda desde Sprint 7 ("hasta Sprint 8 que las
+  unifica") y sigue vivo: hoy volvió a morder (una sesión válida de fyllio_session recibe
+  401 de presupuestos si falta la cookie legacy).
+- **Mejora:** migrar las rutas legacy a `withAuth` (fyllio_session) y retirar
+  emitLegacyCookies; una sola sesión, un solo secreto.
+- **Impacto:** medio en fiabilidad (expiraciones desincronizadas = pantallas a medias) y en
+  simplicidad de auth.
+- **Fecha:** 2026-07-26 · 🔵
