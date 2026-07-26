@@ -775,7 +775,12 @@ function LeadAccionRow({
     lead.clinicaNombre,
     lead.telefono,
     tiempoMeta,
-    lead.fechaCita ? `Cita ${lead.fechaCita}${lead.horaCita ? ` ${lead.horaCita}` : ""}` : null,
+    lead.fechaCita
+      ? `Cita ${new Date(lead.fechaCita + "T12:00:00").toLocaleDateString("es-ES", {
+          day: "numeric",
+          month: "short",
+        })}${lead.horaCita ? ` · ${lead.horaCita}` : ""}`
+      : null,
   ]
     .filter(Boolean)
     .join(" · ");
