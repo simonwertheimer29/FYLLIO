@@ -6,10 +6,13 @@ import type {
   UserSession,
   PresupuestoIntervencion,
   IntervencionResponse,
-  IntervencionTab,
 } from "../../lib/presupuestos/types";
-import { URGENCIA_INTERVENCION_COLOR, INTERVENCION_TABS } from "../../lib/presupuestos/colors";
+import { URGENCIA_INTERVENCION_COLOR } from "../../lib/presupuestos/colors";
 import { haceTexto } from "../../lib/presupuestos/estado-conversacion";
+import {
+  cohortePresupuesto,
+  type CohortePresupuesto,
+} from "../../lib/seguimiento/cohortes";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { ErrorState, EmptyState } from "../ui/Feedback";
 import { AccionCard } from "../shared/AccionCard";
@@ -33,20 +36,26 @@ function formatTimeAgo(isoDate: string): string {
   return `Hace ${diffDay}d`;
 }
 
-// P3 unificación (2026-07-23): mismo modelo que Leads. Las dos pestañas son
-// una PARTICIÓN total de la cola según estadoConversacion — ningún caso puede
-// caerse entre pestañas:
-//   esperando = en_espera_paciente (ya actuaste; la pelota es del paciente)
-//   actuar    = todo lo demás (pendiente_responder, reactivable y los casos
-//               sin conversación o sin clasificar: necesitan un primer toque)
-function filterByTab(items: PresupuestoIntervencion[], tab: IntervencionTab): PresupuestoIntervencion[] {
-  if (tab === "esperando") return items.filter((p) => esperaPresupuesto(p).esperando);
-  return items.filter((p) => !esperaPresupuesto(p).esperando);
+// Rediseño Seguimiento (2026-07-26): tres COHORTES derivadas — la misma
+// partición total que Leads, con la lib compartida (cero criterios propios):
+//   nuevos          = sin_conversacion (presentado sin ningún movimiento)
+//   en_conversacion = pendiente_responder + en_espera_paciente
+//   rezagados       = reactivable — en UI, "Sin respuesta"
+// Un item sin clasificación del servidor cuenta como sin_conversacion:
+// necesita el primer toque, no puede quedar invisible.
+function cohorteDe(item: PresupuestoIntervencion): CohortePresupuesto {
+  return cohortePresupuesto(item.conversacion?.estado ?? "sin_conversacion");
 }
 
-function countForTab(items: PresupuestoIntervencion[], tab: IntervencionTab): number {
-  return filterByTab(items, tab).length;
-}
+// Id de URL → cohorte ("sin-respuesta" es el nombre visible de rezagados).
+const URL_A_COHORTE_PRESU: Record<string, CohortePresupuesto> = {
+  nuevos: "nuevos",
+  conversacion: "en_conversacion",
+  "sin-respuesta": "rezagados",
+  rezagados: "rezagados",
+};
+
+const fmtEUR = (n: number) => `${Math.round(n).toLocaleString("es-ES")} €`;
 
 function esLlamada(tipo?: string): boolean {
   return tipo === "Llamada realizada" || tipo === "Sin respuesta tras llamada";
@@ -478,8 +487,13 @@ export default function IntervencionView({
   // Sprint 7 Fase 5: filtro de clínica vive en ClinicContext global.
   const { selectedClinicaNombre } = useClinic();
 
-  // Sprint 2 state
-  const [subTab, setSubTab] = useState<IntervencionTab>("actuar");
+  // Cohorte visible: null = apertura automática en la primera que exige
+  // acción; ?cohorte= (enlaces del dashboard de Red) la preselecciona.
+  const [cohorteManual, setCohorteManual] = useState<CohortePresupuesto | null>(() => {
+    if (typeof window === "undefined") return null;
+    const c = new URLSearchParams(window.location.search).get("cohorte");
+    return c ? (URL_A_COHORTE_PRESU[c] ?? null) : null;
+  });
   const [filtroDoctor, setFiltroDoctor] = useState<string>("");
   const [filtroTratamiento, setFiltroTratamiento] = useState<string>("");
   const [quickResponseOpen, setQuickResponseOpen] = useState(false);
@@ -540,13 +554,53 @@ export default function IntervencionView({
     return items;
   }, [data, selectedClinicaNombre, filtroDoctor, filtroTratamiento]);
 
-  const filteredItems = useMemo(() => {
-    // Orden por PRIORIDAD (score bidireccional). La separación pendiente/
-    // esperando ya la hacen las pestañas — aquí no hay segundo criterio.
-    return filterByTab(globalFiltered, subTab).sort(
-      (a, b) => (b.urgenciaBidireccional?.scoreFinal ?? 0) - (a.urgenciaBidireccional?.scoreFinal ?? 0),
-    );
-  }, [globalFiltered, subTab]);
+  // ── Cohortes con orden propio ────────────────────────────────────────
+  const cohortes = useMemo(() => {
+    const de = (c: CohortePresupuesto) => globalFiltered.filter((p) => cohorteDe(p) === c);
+    return {
+      // Nuevos: el presentado más reciente primero (contactar hoy lo de hoy).
+      nuevos: de("nuevos").sort((a, b) =>
+        (b.fechaPresupuesto ?? "").localeCompare(a.fechaPresupuesto ?? ""),
+      ),
+      // En conversación: pendientes de responder SIEMPRE arriba; dentro de
+      // cada bloque, el que más tiempo lleva así primero (como Leads).
+      en_conversacion: de("en_conversacion").sort((a, b) => {
+        const pa = a.conversacion?.estado === "pendiente_responder" ? 0 : 1;
+        const pb = b.conversacion?.estado === "pendiente_responder" ? 0 : 1;
+        if (pa !== pb) return pa - pb;
+        return (b.conversacion?.haceMs ?? 0) - (a.conversacion?.haceMs ?? 0);
+      }),
+      // Sin respuesta: manda el IMPORTE (el € en juego es la palanca y está a
+      // la vista en la card); los días parados desempatan. Sin fórmulas
+      // multiplicativas — comprimen dimensiones distintas en un orden
+      // ilegible (DECISIONES 2026-07-26).
+      rezagados: de("rezagados").sort((a, b) => {
+        const d = (b.amount ?? 0) - (a.amount ?? 0);
+        if (d !== 0) return d;
+        return (b.conversacion?.haceMs ?? 0) - (a.conversacion?.haceMs ?? 0);
+      }),
+    };
+  }, [globalFiltered]);
+
+  // Apertura automática: pendientes de responder > nuevos > sin respuesta;
+  // sin nada que exija acción, la primera con contenido.
+  const cohorteAuto = ((): CohortePresupuesto => {
+    if (cohortes.en_conversacion.some((p) => p.conversacion?.estado === "pendiente_responder"))
+      return "en_conversacion";
+    if (cohortes.nuevos.length > 0) return "nuevos";
+    if (cohortes.rezagados.length > 0) return "rezagados";
+    return cohortes.en_conversacion.length > 0 ? "en_conversacion" : "nuevos";
+  })();
+  const cohorte = cohorteManual ?? cohorteAuto;
+  const filteredItems = cohortes[cohorte];
+
+  const sumImporte = (items: PresupuestoIntervencion[]) =>
+    items.reduce((s, p) => s + (p.amount ?? 0), 0);
+  const nPendientes =
+    cohortes.nuevos.length +
+    cohortes.rezagados.length +
+    cohortes.en_conversacion.filter((p) => p.conversacion?.estado === "pendiente_responder")
+      .length;
 
   const bulkSendable = filteredItems.filter((p) => {
     const phone = (p.patientPhone ?? "").replace(/\D/g, "");
@@ -574,13 +628,13 @@ export default function IntervencionView({
 
   return (
     <div className="space-y-4">
-      {/* P3 unificación: MISMA cabecera que la sub-tab Leads. "Atendidos" =
-          esperando respuesta (ya actuaste; la pelota es del paciente). */}
+      {/* MISMA cabecera que la vista Leads. "Atendidos" = en espera del
+          paciente (ya actuaste; la pelota es suya). */}
       <SeguimientoHeader
-        subtitle="Cola de presupuestos · Hoy"
+        subtitle="Presupuestos abiertos"
         kpis={{
-          pendientes: countForTab(globalFiltered, "actuar"),
-          atendidosHoy: countForTab(globalFiltered, "esperando"),
+          pendientes: nPendientes,
+          atendidosHoy: globalFiltered.length - nPendientes,
           tiempoMedioMin,
         }}
         lastUpdate={lastUpdate}
@@ -616,16 +670,33 @@ export default function IntervencionView({
         </select>
       </div>
 
-      {/* Dos pestañas — partición total por estadoConversacion, como Leads */}
+      {/* Cohortes — partición total por estadoConversacion, como Leads.
+          Contador + Σ € en la propia pestaña (patrón Cobros): la visión de
+          conjunto no se pierde al cambiar. Una cohorte vacía sigue visible. */}
       <ColaTabs
-        tabs={INTERVENCION_TABS.map((tab) => ({
-          id: tab.id,
-          label: tab.label,
-          count: countForTab(globalFiltered, tab.id),
-        }))}
-        active={subTab}
-        onChange={setSubTab}
+        tabs={[
+          {
+            id: "nuevos" as CohortePresupuesto,
+            label: `Nuevos · ${cohortes.nuevos.length} · ${fmtEUR(sumImporte(cohortes.nuevos))}`,
+          },
+          {
+            id: "en_conversacion" as CohortePresupuesto,
+            label: `En conversación · ${cohortes.en_conversacion.length} · ${fmtEUR(sumImporte(cohortes.en_conversacion))}`,
+          },
+          {
+            id: "rezagados" as CohortePresupuesto,
+            label: `Sin respuesta · ${cohortes.rezagados.length} · ${fmtEUR(sumImporte(cohortes.rezagados))}`,
+          },
+        ]}
+        active={cohorte}
+        onChange={(c) => setCohorteManual(c)}
       />
+
+      {cohorte === "rezagados" && (
+        <p className="text-xs text-[var(--color-muted)]">
+          Se les escribió y no contestaron — toca insistir.
+        </p>
+      )}
 
       {/* Enviar la cola uno a uno (honesto: abre WhatsApp por paciente) */}
       {bulkSendable.length >= 3 && (
@@ -637,27 +708,38 @@ export default function IntervencionView({
         </button>
       )}
 
-      {/* Empty state */}
+      {/* Empty state honesto por cohorte */}
       {filteredItems.length === 0 && (
         <EmptyState
           icon={<Inbox size={20} strokeWidth={ICON_STROKE} />}
-          title="Sin casos en esta vista"
+          title={
+            cohorte === "nuevos"
+              ? "Sin presupuestos recién presentados"
+              : cohorte === "en_conversacion"
+                ? "Ninguna conversación abierta"
+                : "Nadie pendiente de insistir"
+          }
           hint={
-            subTab === "actuar"
-              ? "Nada pendiente de acción: sin respuestas por atender ni casos que reactivar."
-              : "No hay presupuestos esperando respuesta ahora mismo."
+            cohorte === "nuevos"
+              ? "Los presupuestos presentados sin ningún contacto aparecerán aquí para el primer toque."
+              : cohorte === "en_conversacion"
+                ? "Cuando un paciente responda o esté esperando tu respuesta, lo verás aquí."
+                : "Cuando a un paciente se le escriba y no conteste, aparecerá aquí para insistir."
           }
         />
       )}
 
-      {/* Cards list — card compartida con Leads */}
+      {/* Cards list — card compartida con Leads; cascada solo al montar o
+          cambiar de cohorte (keys estables → un refresh no re-anima). */}
       <div className="space-y-2">
-        {filteredItems.map((item) => (
-          <PresupuestoAccionRow
+        {filteredItems.map((item, i) => (
+          <div
             key={item.id}
-            item={item}
-            onOpenPanel={onOpenDrawer}
-          />
+            className="fyllio-fade-in"
+            style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}
+          >
+            <PresupuestoAccionRow item={item} onOpenPanel={onOpenDrawer} />
+          </div>
         ))}
       </div>
 

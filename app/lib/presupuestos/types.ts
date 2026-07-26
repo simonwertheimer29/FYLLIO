@@ -308,7 +308,6 @@ export type TipoUltimaAccionIntervencion =
 // Pestañas de la cola — mismo modelo que Leads (P3 unificación 2026-07-23):
 // "actuar" = pendiente_responder + reactivable (+ sin clasificar) ·
 // "esperando" = en_espera_paciente. Las 8 pills por intención IA se retiraron.
-export type IntervencionTab = "actuar" | "esperando";
 
 // Urgencia bidireccional (3 ejes)
 export type UrgenciaBidireccional = {

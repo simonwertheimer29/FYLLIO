@@ -1003,7 +1003,7 @@ try {
     await ins("plantillas_mensaje", { nombre, tipo: "Cobranza", categoria: "cobranza", contenido, variables_detectadas: vars, activa: true });
   }
   // notificaciones, alertas, llamadas, copilot, informes, lista_espera
-  for (let i = 0; i < 10; i++) await ins("notificaciones", { usuario: "todos", tipo: "Sistema", titulo: ["Nuevo lead", "Respuesta de paciente", "Presupuesto aceptado", "Cita confirmada"][i % 4], mensaje: "Tienes una novedad en tu bandeja.", link: "/actuar-hoy", leida: i > 3, fecha_creacion: dISO(-(i % 5)) });
+  for (let i = 0; i < 10; i++) await ins("notificaciones", { usuario: "todos", tipo: "Sistema", titulo: ["Nuevo lead", "Respuesta de paciente", "Presupuesto aceptado", "Cita confirmada"][i % 4], mensaje: "Tienes una novedad en tu bandeja.", link: "/seguimiento", leida: i > 3, fecha_creacion: dISO(-(i % 5)) });
   const adminId = (await db.query("select id from usuarios where cliente='DEMO' and rol='admin' limit 1")).rows[0]?.id;
   const coordId = (await db.query("select id from usuarios where cliente='DEMO' and rol='coordinacion' limit 1")).rows[0]?.id;
   for (let i = 0; i < 8; i++) await ins("alertas_enviadas", { clinica_id: [CENTRO, NORTE, SUR, ESTE][i % 4], tipo_alerta: "cobro_vencido_7d", admin_origen_id: adminId, coordinadora_destino_id: coordId, mensaje: "Hay cobros pendientes vencidos que requieren atención.", error: false });
@@ -1011,6 +1011,34 @@ try {
   for (let i = 0; i < 3; i++) await ins("conversaciones_copilot", { usuario_id: coordId, clinica_id: CENTRO, titulo: ["Resumen del día", "Cobros vencidos", "Leads sin contactar"][i], mensajes: "[]", mensaje_count: 2 + i, modelo_usado: "claude", activa: true, updated_at: dISO(-i), resumen: "Consulta al copiloto" });
   for (let i = 0; i < 2; i++) await ins("informes_guardados", { tipo: i === 0 ? "semanal_ia" : "noshow", clinica_id: null, periodo: mesAct, titulo: i === 0 ? "Resumen semanal" : "Informe de no-shows", contenido_json: "{}", texto_narrativo: "La conversión mejoró un 8% respecto a la semana anterior.", generado_en: dISO(-1), generado_por: "IA" });
   for (let i = 0; i < 6; i++) { const pac = pacientes[30 + i]; await ins("lista_espera", { clinica_id: pac.cid, paciente_id: pac.id, tratamiento_id: tratamientos[i % tratamientos.length].id, dias_permitidos: "LUN,MAR,MIE,JUE,VIE", estado: "ACTIVE", prioridad: ["ALTA", "MEDIA", "BAJA"][i % 3], urgencia_nivel: "MED", permite_fuera_rango: false, notas: "Quiere hueco lo antes posible." }); }
+
+  // ── Presupuestos SIN CONTACTO (cohorte "Nuevos" de Seguimiento) ──────
+  // Aprobado 2026-07-26: 3 presupuestos presentados hace 1-2 días sin ningún
+  // movimiento (ni hilo, ni acción, ni fecha_ultima_respuesta) para que la
+  // cohorte Nuevos de la vista Presupuestos cuente su historia en la demo.
+  // Son la EXCEPCIÓN EXPLÍCITA de la invariante "todo presupuesto tiene
+  // hilo": se registran aquí y la invariante los excluye POR ID — la regla
+  // general no se relaja.
+  const PRESUS_SIN_CONTACTO = [];
+  {
+    const SIN_CONTACTO = [
+      { pi: 3, tnom: "Ortodoncia invisible", importe: 3400, altaOff: -1 },
+      { pi: 11, tnom: "Corona sobre implante", importe: 1650, altaOff: -1 },
+      { pi: 19, tnom: "Blanqueamiento LED", importe: 420, altaOff: -2 },
+    ];
+    for (const s of SIN_CONTACTO) {
+      const pac = pacientes[s.pi];
+      const pid = await ins("presupuestos", {
+        paciente_id: pac.id, clinica_id: pac.cid, tratamiento_nombre: s.tnom,
+        estado: "PRESENTADO", importe: s.importe,
+        fecha_alta: fecha10(s.altaOff), fecha: fecha10(s.altaOff),
+        doctor: docEn(pac.cid).nombre, tipo_paciente: "Nuevo", tipo_visita: "Primera visita",
+        paciente_telefono: pac.tel, contact_count: 0,
+        fase_seguimiento: "Inicial",
+      });
+      PRESUS_SIN_CONTACTO.push(pid);
+    }
+  }
 
   // ── KPIs (report de coherencia — vocabulario del dinero 2026-07-23) ──
   const aceptadoTot = (await db.query("select coalesce(sum(importe),0) s from presupuestos where cliente='DEMO' and estado='ACEPTADO'")).rows[0].s;
@@ -1035,8 +1063,11 @@ try {
       or exists(select 1 from acciones_lead a where a.lead_id=l.id))`)).rows[0].n;
   const iNoNuevo = (await db.query(`select count(*)::int n from leads l where cliente='DEMO' and estado<>'Nuevo'
     and not exists(select 1 from mensajes_whatsapp m where m.lead_id=l.id)`)).rows[0].n;
+  // Excepción declarada: los PRESUS_SIN_CONTACTO no tienen hilo A PROPÓSITO
+  // (cohorte Nuevos de Seguimiento). Se excluyen por id, no por condición.
   const iPres = (await db.query(`select count(*)::int n from presupuestos p where cliente='DEMO'
-    and not exists(select 1 from mensajes_whatsapp m where m.presupuesto_id=p.id)`)).rows[0].n;
+    and not exists(select 1 from mensajes_whatsapp m where m.presupuesto_id=p.id)
+    and not (p.id::text = any($1::text[]))`, [PRESUS_SIN_CONTACTO.map(String)])).rows[0].n;
   const iFur = (await db.query(`select count(*)::int n from presupuestos p where cliente='DEMO'
     and p.fecha_ultima_respuesta::timestamptz is distinct from (select max(m.timestamp) from mensajes_whatsapp m
       where m.presupuesto_id=p.id and m.direccion='Entrante')`)).rows[0].n;

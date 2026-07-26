@@ -243,7 +243,7 @@ export async function calcularDashboardRed(opts: {
       importe: reactivablesImporte,
       titulo: "Presupuestos sin seguimiento",
       detalle: `Se escribió a ${reactivablesN} paciente${s(reactivablesN)}, no respondieron y nadie ha vuelto a insistir.`,
-      href: "/seguimiento?vista=presupuestos",
+      href: "/seguimiento?vista=presupuestos&cohorte=sin-respuesta",
     });
   }
   if (vencidosN > 0) {
@@ -263,7 +263,7 @@ export async function calcularDashboardRed(opts: {
       importe: cierreImporte,
       titulo: "Cierres esperando tu respuesta",
       detalle: `${cierreN} paciente${s(cierreN)} ya ${cierreN === 1 ? "dijo que quiere aceptar y espera" : "dijeron que quieren aceptar y esperan"} respuesta para cerrar.`,
-      href: "/seguimiento?vista=presupuestos",
+      href: "/seguimiento?vista=presupuestos&cohorte=conversacion",
     });
   }
   if (sinContactoN > 0) {

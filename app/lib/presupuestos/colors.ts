@@ -1,5 +1,5 @@
 // app/lib/presupuestos/colors.ts
-import type { PresupuestoEstado, EspecialidadDoctor, OrigenLead, UrgenciaIntervencion, IntervencionTab, EstadoVisual } from "./types";
+import type { PresupuestoEstado, EspecialidadDoctor, OrigenLead, UrgenciaIntervencion, EstadoVisual } from "./types";
 
 export const ESTADO_CONFIG: Record<
   PresupuestoEstado,
@@ -76,13 +76,3 @@ export const URGENCIA_INTERVENCION_COLOR: Record<UrgenciaIntervencion, string> =
   "NINGUNO": "bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-500/15 dark:text-slate-300 dark:border-slate-500/25",
 };
 
-export const INTERVENCION_TABS: {
-  id: IntervencionTab;
-  label: string;
-}[] = [
-  // P3 unificación (2026-07-23): mismo modelo que Leads. "Actuar ahora" =
-  // pendiente_responder + reactivable (estadoConversacion); "Esperando
-  // respuesta" = en_espera_paciente. Las pills por intención IA se retiraron.
-  { id: "actuar",    label: "Actuar ahora" },
-  { id: "esperando", label: "Esperando respuesta" },
-];
