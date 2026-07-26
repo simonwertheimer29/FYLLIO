@@ -13,6 +13,7 @@ import { useClinic } from "../../lib/context/ClinicContext";
 import { KpiCard } from "../../components/ui/KpiCard";
 import { Skeleton, KpiCardSkeleton, TableRowSkeleton } from "../../components/ui/Skeleton";
 import { ColaTabs } from "../../components/shared/ColaTabs";
+import { SegmentedToggle } from "../../components/shared/SegmentedToggle";
 import { ErrorState, EmptyState } from "../../components/ui/Feedback";
 import { StatePill, type StatePillVariant } from "../../components/ui/StatePill";
 import { AccionCard } from "../../components/shared/AccionCard";
@@ -53,7 +54,7 @@ export function CobrosView() {
   const [abierto, setAbierto] = useState<CobroItem | null>(null);
   // Cards atenuadas tras actuar (además de las contactadas ≤3d del server).
   const [actuados, setActuados] = useState<Set<string>>(new Set());
-  // Dos pestañas con el componente compartido de las colas.
+  // Actuar / Registro — toggle segmentado en cabecera (patrón Actuar hoy).
   const [pestana, setPestana] = useState<"actuar" | "registro">("actuar");
   // Sub-pestañas de Actuar (mismo componente): un bucket a la vista, la
   // visión de conjunto vive en los contadores + Σ€ de cada pestaña.
@@ -159,14 +160,25 @@ export function CobrosView() {
     // ensancha la vista entera en móvil (el scroll horizontal vive DENTRO
     // del contenedor de la tabla, nunca en la página).
     <div className="w-full max-w-[1400px] mx-auto px-3 sm:px-6 py-6 space-y-8 overflow-x-hidden">
-      <div>
-        <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
-          Cobros
-        </h1>
-        <p className="text-[13px] text-[var(--color-muted)] mt-0.5">
-          Del presupuesto aceptado al dinero cobrado.
-        </p>
-      </div>
+      <header className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
+            Cobros
+          </h1>
+          <p className="text-[13px] text-[var(--color-muted)] mt-0.5">
+            Del presupuesto aceptado al dinero cobrado.
+          </p>
+        </div>
+        {/* Conmutador de vista en cabecera — mismo patrón que Actuar hoy. */}
+        <SegmentedToggle
+          options={[
+            { id: "actuar" as const, label: "Actuar", count: totalActuar },
+            { id: "registro" as const, label: "Registro", count: (data?.items ?? []).length },
+          ]}
+          active={pestana}
+          onChange={setPestana}
+        />
+      </header>
 
       {/* KPIs — misma derivación que el dashboard de Red */}
       {!kpis ? (
@@ -201,16 +213,6 @@ export function CobrosView() {
           />
         </div>
       )}
-
-      {/* ── Pestañas Actuar / Registro (componente compartido de las colas) ── */}
-      <ColaTabs
-        tabs={[
-          { id: "actuar" as const, label: "Actuar", count: totalActuar },
-          { id: "registro" as const, label: "Registro", count: (data?.items ?? []).length },
-        ]}
-        active={pestana}
-        onChange={setPestana}
-      />
 
       {/* ── Zona 1 · Actuar ─────────────────────────────────────────── */}
       {pestana === "actuar" && (
@@ -421,7 +423,7 @@ export function CobrosView() {
                         <button
                           type="button"
                           onClick={() => setPagoDe(i)}
-                          className="text-xs font-semibold px-2.5 py-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] hover:border-[var(--color-accent)] transition-colors whitespace-nowrap"
+                          className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)] hover:bg-[var(--color-accent)] hover:text-[var(--color-on-accent)] transition-colors whitespace-nowrap"
                         >
                           Registrar cobro
                         </button>

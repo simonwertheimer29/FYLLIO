@@ -19,6 +19,7 @@ import { ActuarHoyHeader } from "../../components/shared/ActuarHoyHeader";
 import { AccionCard } from "../../components/shared/AccionCard";
 import { AccionPanel } from "../../components/shared/AccionPanel";
 import { ColaTabs } from "../../components/shared/ColaTabs";
+import { SegmentedToggle } from "../../components/shared/SegmentedToggle";
 import { AsistenciaModal } from "../leads/AsistenciaModal";
 import { AgendarModal } from "../leads/AgendarModal";
 import IntervencionView from "../../components/presupuestos/IntervencionView";
@@ -161,27 +162,14 @@ export function ActuarHoyView({
               Cola priorizada para que cierres todo desde aquí, sin saltar al kanban.
             </p>
           </div>
-          <div className="flex gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
-            {(
-              [
-                ["leads", "Leads"],
-                ["presupuestos", "Presupuestos"],
-              ] as Array<[Tab, string]>
-            ).map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => setTab(id)}
-                className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-colors ${
-                  tab === id
-                    ? "bg-[var(--color-foreground)] text-[var(--color-background)]"
-                    : "text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
+          <SegmentedToggle
+            options={[
+              { id: "leads" as Tab, label: "Leads" },
+              { id: "presupuestos" as Tab, label: "Presupuestos" },
+            ]}
+            active={tab}
+            onChange={setTab}
+          />
         </header>
 
         {tab === "leads" ? (
