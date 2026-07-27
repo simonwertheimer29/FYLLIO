@@ -16,22 +16,23 @@ import { useDraggable } from "@dnd-kit/core";
 import type { Presupuesto, PresupuestoEstado, MotivoPerdida } from "../../lib/presupuestos/types";
 import { Check, Copy, ICON_STROKE } from "../icons";
 import { dentroDeRango, type RangoKanban } from "../shared/RangoTemporal";
+// El rango temporal (2026-07-26) sustituye el corte fijo de 14 días de las
+// columnas cerradas y aplica a TODAS. `fechaDeRango` vive en lib/pipeline
+// para que la cabecera cuente exactamente lo mismo que pinta el tablero.
+import { fechaDeRango } from "../../lib/presupuestos/pipeline";
 import { ESTADO_CONFIG, PIPELINE_ORDEN, ORIGEN_LABEL } from "../../lib/presupuestos/colors";
 import MotivoPerdidaModal from "./MotivoPerdidaModal";
 
-// Sprint 13.1 Bloque 3.2 — Barra de color superior por columna.
-// 3px que se asienta UNA VEZ encima del header. Cards quedan blancas
-// neutras como en Kanban Leads (sin border-left coloreado por card).
-// Sprint 15 Bloque 15.5 hotfix — barras subidas de 3px a 5px y
-// saturación elevada (-400/-500/-600) para que la columna se identifique
-// visualmente sin recurrir al header completo de color.
-const COLUMN_TOP_BAR: Record<PresupuestoEstado, string> = {
-  PRESENTADO: "bg-[var(--color-accent)]/60",
-  INTERESADO: "bg-[var(--color-accent)]",
-  EN_DUDA: "bg-amber-500",
-  EN_NEGOCIACION: "bg-orange-600",
-  ACEPTADO: "bg-emerald-600",
-  PERDIDO: "bg-rose-500",
+// Coherencia de kanban (2026-07-27): la columna se identifica por el color de
+// su contador, exactamente como en Leads (que es el canon). Antes era una barra
+// superior de 5px sobre un marco gris — otro lenguaje visual para lo mismo.
+const COLUMN_PILL: Record<PresupuestoEstado, string> = {
+  PRESENTADO: "bg-[var(--color-surface-muted)] text-[var(--color-foreground)]",
+  INTERESADO: "bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
+  EN_DUDA: "bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300",
+  EN_NEGOCIACION: "bg-orange-100 text-orange-800 dark:bg-orange-500/10 dark:text-orange-300",
+  ACEPTADO: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300",
+  PERDIDO: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
 };
 
 // ------------------------------------------------------------------
@@ -50,8 +51,37 @@ function CompactCard({
   onOpenFicha: (p: Presupuesto) => void;
   onEdit: (p: Presupuesto) => void;
 }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: presupuesto.id });
+  return (
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      onClick={(e) => {
+        // Canon Leads: la card entera abre la ficha (no un modal de historial).
+        if (isDragging) return;
+        e.stopPropagation();
+        onOpenFicha(presupuesto);
+      }}
+      className={isDragging ? "opacity-40" : ""}
+    >
+      <CompactCardBody presupuesto={presupuesto} onOpenFicha={onOpenFicha} onEdit={onEdit} />
+    </div>
+  );
+}
+
+// Cuerpo visual: lo comparten la card del tablero y el fantasma que se
+// arrastra (canon Leads — se arrastra la tarjeta entera, no una miniatura).
+function CompactCardBody({
+  presupuesto,
+  onOpenFicha,
+  onEdit,
+}: {
+  presupuesto: Presupuesto;
+  onOpenFicha: (p: Presupuesto) => void;
+  onEdit: (p: Presupuesto) => void;
+}) {
   const p = presupuesto;
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: p.id });
   const [copied, setCopied] = useState(false);
 
   async function copyPhone(e: React.MouseEvent) {
@@ -65,25 +95,12 @@ function CompactCard({
   }
 
   return (
-    <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
-      onClick={(e) => {
-        // Canon Leads: la card entera abre la ficha (no un modal de historial).
-        if (isDragging) return;
-        e.stopPropagation();
-        onOpenFicha(p);
-      }}
+    <article
       style={{
         borderColor: "var(--card-border)",
-        boxShadow: isDragging ? undefined : "var(--card-shadow-rest)",
+        boxShadow: "var(--card-shadow-rest)",
       }}
-      className={`group rounded-xl border bg-[var(--color-surface)] p-3 text-xs cursor-pointer select-none transition-[box-shadow,border-color] duration-150 ${
-        isDragging
-          ? "opacity-40"
-          : "hover:[border-color:var(--card-border-hover)] hover:[box-shadow:var(--card-shadow-hover)]"
-      }`}
+      className="rounded-xl border bg-[var(--color-surface)] p-3 text-xs cursor-pointer select-none transition-[box-shadow,border-color] duration-150 hover:[border-color:var(--card-border-hover)] hover:[box-shadow:var(--card-shadow-hover)]"
     >
       {/* Nombre — misma jerarquía que la card de Leads */}
       <p className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight">
@@ -175,17 +192,7 @@ function CompactCard({
           Editar
         </button>
       </div>
-    </div>
-  );
-}
-
-// Ghost card shown in DragOverlay
-function GhostCard({ presupuesto }: { presupuesto: Presupuesto }) {
-  return (
-    <div className="rounded-xl border border-[var(--color-accent)] bg-[var(--color-surface)] px-3 py-2.5 shadow-2xl w-48 opacity-90 rotate-2">
-      <p className="text-xs font-bold text-[var(--color-foreground)] truncate">{presupuesto.patientName}</p>
-      <p className="text-[10px] text-[var(--color-muted)] truncate">{presupuesto.treatments[0]}</p>
-    </div>
+    </article>
   );
 }
 
@@ -197,6 +204,7 @@ function DroppableColumn({
   estado,
   presupuestos,
   ocultos = 0,
+  onVerHistorico,
   verTodos,
   velocidad,
   onOpenFicha,
@@ -204,8 +212,10 @@ function DroppableColumn({
 }: {
   estado: PresupuestoEstado;
   presupuestos: Presupuesto[];
-  /** Cerrados fuera de la ventana de 14 días (no se pintan aquí). */
+  /** Casos que el rango temporal deja fuera (no se pintan aquí). */
   ocultos?: number;
+  /** "Ver N anteriores" — abre el rango a histórico sin salir del tablero. */
+  onVerHistorico: () => void;
   /** Pie "Ver todos →" hacia el archivo real de la columna cerrada. */
   verTodos?: { label: string; onClick: () => void };
   velocidad: { media: number; lenta: boolean } | null;
@@ -231,46 +241,41 @@ function DroppableColumn({
     .join(" · ");
 
   return (
-    <div className="w-[260px] min-w-[260px] shrink-0 h-full flex flex-col overflow-hidden">
-      {/* Sprint 13.1 Bloque 3.2 — Barra de color superior que
-          identifica la columna sin pintar el header completo.
-          Sprint 15.5 hotfix — 5px + saturación alta para mejor lectura
-          (antes 3px y tono pálido pasaban desapercibidos). */}
-      <div className={`h-[5px] rounded-t-md shrink-0 ${COLUMN_TOP_BAR[estado]}`} />
-
-      {/* Header columna estilo Leads — sin fondo de color sólido, solo
-          tipografia + contador; sub-info en una linea text-xs. */}
-      <div className="px-3 py-2.5 shrink-0">
+    // Columna = tarjeta con borde y cabecera, igual que en Leads.
+    <div
+      className={`flex flex-col min-h-0 rounded-xl bg-[var(--color-surface)] border transition-colors ${
+        isOver ? "border-[var(--color-accent)]" : "border-[var(--color-border)]"
+      }`}
+    >
+      <div className="px-3 py-2.5 border-b border-[var(--color-border)] shrink-0">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-semibold text-[var(--color-foreground)] truncate">
+          <span className="font-display text-[13px] font-medium text-[var(--color-foreground)] tracking-tight truncate">
             {cfg.label}
           </span>
-          <span className="text-xs text-[var(--color-muted)] tabular-nums shrink-0">
+          <span
+            className={`text-[10px] font-semibold tabular-nums px-2 py-0.5 rounded-full shrink-0 ${COLUMN_PILL[estado]}`}
+          >
             {presupuestos.length}
           </span>
         </div>
         {subInfo && (
-          <p
-            className="text-xs text-[var(--color-muted)] mt-0.5 truncate"
-            title={subInfo}
-          >
+          <p className="text-[11px] text-[var(--color-muted)] mt-0.5 truncate" title={subInfo}>
             {subInfo}
           </p>
         )}
       </div>
 
-      {/* Cards container — internal scroll */}
+      {/* Cards — el destino se ilumina al arrastrar por encima (canon de
+          Presupuestos, replicado también en Leads). */}
       <div
         ref={setNodeRef}
-        className={`flex-1 min-h-0 rounded-xl p-2 space-y-2 overflow-y-auto transition-colors border ${
-          isOver
-            ? "bg-[var(--color-accent-soft)] border-[var(--color-accent)]"
-            : "bg-[var(--color-background)] border-[var(--card-border)]"
+        className={`flex-1 min-h-[120px] p-2 space-y-2 overflow-y-auto transition-colors ${
+          isOver ? "bg-[var(--color-accent-soft)]" : ""
         }`}
       >
         {presupuestos.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--color-border)] p-3 text-center mt-1">
-            <p className="text-[10px] text-[var(--color-muted)]">Vacío</p>
+          <div className="h-full min-h-[80px] flex items-center justify-center text-[11px] text-[var(--color-muted)] italic">
+            Sin presupuestos
           </div>
         ) : (
           // El orden lo decide el board (un solo criterio compartido).
@@ -287,14 +292,24 @@ function DroppableColumn({
             Ver más ({restantes})
           </button>
         )}
+        {/* Lo que el rango esconde se DICE, en todas las columnas: antes las
+            activas recortaban en silencio y sólo las cerradas avisaban. */}
+        {ocultos > 0 && (
+          <button
+            type="button"
+            onClick={onVerHistorico}
+            className="w-full text-center text-[11px] font-semibold text-[var(--color-accent)] hover:underline px-1 py-1.5"
+          >
+            Ver {ocultos} anterior{ocultos === 1 ? "" : "es"} →
+          </button>
+        )}
         {verTodos && (presupuestos.length > 0 || ocultos > 0) && (
           <button
             type="button"
             onClick={verTodos.onClick}
             className="w-full text-left text-[11px] font-semibold text-[var(--color-accent)] hover:underline px-1 py-1.5"
           >
-            {verTodos.label}
-            {ocultos > 0 ? ` (${presupuestos.length + ocultos})` : ""} →
+            {verTodos.label} →
           </button>
         )}
       </div>
@@ -368,18 +383,6 @@ function ConfirmMoveModal({
 
 const SKIP_CONFIRM_KEY = "kanban_skip_confirm";
 
-// Rango temporal (tanda de coherencia 2026-07-26): sustituye el corte fijo
-// de 14 días de las columnas cerradas y aplica a TODAS las columnas. La
-// fecha que cuenta es la del hito de cada caso: cierre para ACEPTADO
-// (fecha_aceptado) y PERDIDO (derivada del historial), presentación para
-// las columnas activas. Sin fecha conocida el caso se MUESTRA — nunca se
-// esconde por falta de dato.
-function fechaDeRango(p: Presupuesto): string | null {
-  if (p.estado === "ACEPTADO") return p.fechaAceptado ?? null;
-  if (p.estado === "PERDIDO") return p.fechaPerdida ?? null;
-  return p.fechaPresupuesto ?? null;
-}
-
 // Carga progresiva: con "Histórico" una columna puede traer cientos de
 // cards. Se pintan de PAGINA en PAGINA con un "Ver más" honesto que dice
 // cuántas quedan — la vista nunca revienta y nada queda oculto en silencio.
@@ -392,6 +395,7 @@ export default function KanbanBoard({
   onEdit,
   onVerTodosCerrados,
   rango,
+  onVerHistorico,
 }: {
   presupuestos: Presupuesto[];
   onChangeEstado: (id: string, estado: PresupuestoEstado, extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string; reactivar?: boolean }) => void;
@@ -403,6 +407,8 @@ export default function KanbanBoard({
   onVerTodosCerrados: (estado: "ACEPTADO" | "PERDIDO") => void;
   /** Rango temporal activo — control único compartido con el kanban de Leads. */
   rango: RangoKanban;
+  /** Abrir el rango a histórico desde el pie de una columna recortada. */
+  onVerHistorico: () => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pendingChange, setPendingChange] = useState<{ id: string; targetEstado: PresupuestoEstado } | null>(null);
@@ -501,10 +507,10 @@ export default function KanbanBoard({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        {/* Gray frame container — fills parent height */}
-        <div className="bg-[var(--color-surface-muted)] rounded-2xl p-2 overflow-hidden h-full flex flex-col">
-          <div className="flex flex-row flex-1 min-h-0 overflow-x-auto overflow-y-hidden gap-2">
-            {PIPELINE_ORDEN.map((estado) => {
+        {/* Rejilla responsive como en Leads: en móvil las columnas se apilan
+            en vez de exigir scroll horizontal sobre columnas de 260px. */}
+        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
+          {PIPELINE_ORDEN.map((estado) => {
               const items = presupuestos.filter((p) => p.estado === estado);
               const cerrada = estado === "ACEPTADO" || estado === "PERDIDO";
               const visibles = items.filter((p) => dentroDeRango(fechaDeRango(p), rango));
@@ -514,6 +520,7 @@ export default function KanbanBoard({
                   estado={estado}
                   presupuestos={ordenarColumna(visibles)}
                   ocultos={items.length - visibles.length}
+                  onVerHistorico={onVerHistorico}
                   verTodos={
                     cerrada
                       ? {
@@ -531,11 +538,18 @@ export default function KanbanBoard({
                 />
               );
             })}
-          </div>
         </div>
 
         <DragOverlay>
-          {activePresupuesto ? <GhostCard presupuesto={activePresupuesto} /> : null}
+          {activePresupuesto && (
+            <div className="rotate-1 opacity-90">
+              <CompactCardBody
+                presupuesto={activePresupuesto}
+                onOpenFicha={onOpenFicha}
+                onEdit={onEdit}
+              />
+            </div>
+          )}
         </DragOverlay>
       </DndContext>
 

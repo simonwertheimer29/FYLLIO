@@ -14,16 +14,11 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
-  closestCenter,
+  useDraggable,
+  useDroppable,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { contarPipeline, textoPipeline } from "../../lib/leads/pipeline";
 import { NewLeadModal } from "./NewLeadModal";
@@ -142,19 +137,13 @@ export function LeadsView({
     })
   );
 
-  // Filtrado por clínica global + fecha + búsqueda.
-  const filteredLeads = useMemo(() => {
+  // Filtrado por clínica global + búsqueda (SIN rango: el rango se aplica
+  // después, para poder decir cuántos deja fuera cada columna).
+  const leadsBase = useMemo(() => {
     let out = leads;
     if (selectedClinicaId) {
       out = out.filter((l) => l.clinicaId === selectedClinicaId);
     }
-    // Rango temporal — control único compartido con el kanban de
-    // Presupuestos (2026-07-26). Aplica a TODAS las columnas: la fecha que
-    // cuenta es la de actividad si la hay (última acción/mensaje) y si no
-    // la de alta. Sin fecha conocida, el lead se muestra.
-    out = out.filter((l) =>
-      dentroDeRango((ultimaActividadPorLead[l.id] ?? l.createdAt)?.slice(0, 10), rango),
-    );
     if (search.trim()) {
       const q = search.toLowerCase().trim();
       out = out.filter(
@@ -165,7 +154,18 @@ export function LeadsView({
       );
     }
     return out;
-  }, [leads, selectedClinicaId, rango, search, ultimaActividadPorLead]);
+  }, [leads, selectedClinicaId, search]);
+
+  // Rango temporal — control único compartido con el kanban de Presupuestos
+  // (2026-07-26). Aplica a TODAS las columnas: la fecha que cuenta es la de
+  // actividad si la hay (última acción/mensaje) y si no la de alta. Sin fecha
+  // conocida, el lead se muestra.
+  const enRango = useCallback(
+    (l: Lead) => dentroDeRango((ultimaActividadPorLead[l.id] ?? l.createdAt)?.slice(0, 10), rango),
+    [ultimaActividadPorLead, rango],
+  );
+
+  const filteredLeads = useMemo(() => leadsBase.filter(enRango), [leadsBase, enRango]);
 
   // Citados Hoy es derivada: Estado="Citados Hoy" legacy OR Estado="Citado"
   // con Fecha_Cita=hoy. Resto cae en su columna de Estado nativa.
@@ -179,6 +179,19 @@ export function LeadsView({
     }
     return m;
   }, [filteredLeads]);
+
+  // Cuántos esconde el rango en cada columna — para decirlo en su pie.
+  const ocultosPorColumna = useMemo(() => {
+    const today = TODAY_ISO();
+    const m = new Map<LeadEstado, number>();
+    for (const col of COLUMNS) m.set(col.id, 0);
+    for (const l of leadsBase) {
+      if (enRango(l)) continue;
+      const col = columnOf(l, today);
+      if (m.has(col)) m.set(col, (m.get(col) ?? 0) + 1);
+    }
+    return m;
+  }, [leadsBase, enRango]);
 
   const handleDragStart = useCallback((e: DragStartEvent) => {
     setDraggingId(String(e.active.id));
@@ -385,12 +398,7 @@ export function LeadsView({
       )}
 
       {/* Kanban */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
           {COLUMNS.map((col) => {
             const items = leadsPorColumna.get(col.id) ?? [];
@@ -402,6 +410,8 @@ export function LeadsView({
                 accent={col.accent}
                 ringClass={col.ringClass}
                 items={items}
+                ocultos={ocultosPorColumna.get(col.id) ?? 0}
+                onVerHistorico={() => setRango("todo")}
                 onCardClick={(l) => setDrawerLead(l)}
                 onAsistencia={(l) => setAsistenciaLead(l)}
                 onNoAsistio={noAsistioInline}
@@ -490,6 +500,8 @@ function KanbanColumn({
   accent,
   ringClass,
   items,
+  ocultos,
+  onVerHistorico,
   onCardClick,
   onAsistencia,
   onNoAsistio,
@@ -499,10 +511,14 @@ function KanbanColumn({
   accent: string;
   ringClass?: string;
   items: Lead[];
+  /** Leads que el rango temporal deja fuera de esta columna. */
+  ocultos: number;
+  onVerHistorico: () => void;
   onCardClick: (l: Lead) => void;
   onAsistencia: (l: Lead) => void;
   onNoAsistio: (l: Lead) => void;
 }) {
+  const { setNodeRef, isOver } = useDroppable({ id: estado });
   // Carga progresiva: con "Histórico" una columna trae cientos de leads. Se
   // pintan por páginas con un "Ver más" honesto — nada oculto en silencio.
   const [pagina, setPagina] = useState(1);
@@ -511,8 +527,9 @@ function KanbanColumn({
   const restantes = items.length - pintados.length;
   return (
     <div
-      id={estado}
-      className={`flex flex-col min-h-0 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] ${ringClass ?? ""}`}
+      className={`flex flex-col min-h-0 rounded-xl bg-[var(--color-surface)] border transition-colors ${
+        isOver ? "border-[var(--color-accent)]" : "border-[var(--color-border)]"
+      } ${ringClass ?? ""}`}
     >
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-[var(--color-border)]">
         <span className="font-display text-[13px] font-medium text-[var(--color-foreground)] tracking-tight">{label}</span>
@@ -520,52 +537,59 @@ function KanbanColumn({
           {items.length}
         </span>
       </div>
-      <SortableContext
-        items={pintados.map((i) => i.id)}
-        strategy={verticalListSortingStrategy}
-        id={estado}
+      {/* El destino se ilumina al arrastrar por encima — venía del kanban de
+          Presupuestos, que aquí era el mejor de los dos. */}
+      <div
+        ref={setNodeRef}
+        className={`flex-1 min-h-[120px] p-2 space-y-2 overflow-y-auto transition-colors ${
+          isOver ? "bg-[var(--color-accent-soft)]" : ""
+        }`}
+        data-estado={estado}
       >
-        <div
-          className="flex-1 min-h-[120px] p-2 space-y-2 overflow-y-auto"
-          data-estado={estado}
-        >
-          {estado === "No Interesado" ? (
-            <NoInteresadoGroups items={pintados} onCardClick={onCardClick} />
-          ) : estado === "Citados Hoy" ? (
-            pintados.map((l) => (
-              <SortableLeadCard
-                key={l.id}
-                lead={l}
-                onClick={() => onCardClick(l)}
-                variant="citadosHoy"
-                onAsistencia={onAsistencia}
-                onNoAsistio={onNoAsistio}
-              />
-            ))
-          ) : (
-            pintados.map((l) => (
-              <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
-            ))
-          )}
-          {items.length === 0 && (
-            <div
-              id={estado}
-              className="h-full min-h-[80px] flex items-center justify-center text-[11px] text-[var(--color-muted)] italic"
-            >
-              Sin leads
-            </div>
-          )}
-          {restantes > 0 && (
-            <button
-              type="button"
-              onClick={() => setPagina((n) => n + 1)}
-              className="w-full text-center text-[11px] font-semibold text-[var(--color-accent)] hover:underline px-1 py-1.5"
-            >
-              Ver más ({restantes})
-            </button>
-          )}
-        </div>
-      </SortableContext>
+        {estado === "No Interesado" ? (
+          <NoInteresadoGroups items={pintados} onCardClick={onCardClick} />
+        ) : estado === "Citados Hoy" ? (
+          pintados.map((l) => (
+            <SortableLeadCard
+              key={l.id}
+              lead={l}
+              onClick={() => onCardClick(l)}
+              variant="citadosHoy"
+              onAsistencia={onAsistencia}
+              onNoAsistio={onNoAsistio}
+            />
+          ))
+        ) : (
+          pintados.map((l) => (
+            <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
+          ))
+        )}
+        {items.length === 0 && (
+          <div className="h-full min-h-[80px] flex items-center justify-center text-[11px] text-[var(--color-muted)] italic">
+            Sin leads
+          </div>
+        )}
+        {restantes > 0 && (
+          <button
+            type="button"
+            onClick={() => setPagina((n) => n + 1)}
+            className="w-full text-center text-[11px] font-semibold text-[var(--color-accent)] hover:underline px-1 py-1.5"
+          >
+            Ver más ({restantes})
+          </button>
+        )}
+        {/* Lo que el rango esconde se DICE, columna por columna (gemelo del
+            pie de Presupuestos). */}
+        {ocultos > 0 && (
+          <button
+            type="button"
+            onClick={onVerHistorico}
+            className="w-full text-center text-[11px] font-semibold text-[var(--color-accent)] hover:underline px-1 py-1.5"
+          >
+            Ver {ocultos} anterior{ocultos === 1 ? "" : "es"} →
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -608,6 +632,9 @@ function NoInteresadoGroups({
   );
 }
 
+// El arrastre mueve de columna; NO reordena. Antes era un sortable: la
+// tarjeta se recolocaba dentro de la columna y al recargar volvía a su sitio,
+// contradiciendo al criterio de orden declarado (actividad más reciente).
 function SortableLeadCard({
   lead,
   onClick,
@@ -621,18 +648,11 @@ function SortableLeadCard({
   onAsistencia?: (l: Lead) => void;
   onNoAsistio?: (l: Lead) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: lead.id,
-  });
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.3 : 1,
-  };
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: lead.id });
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      className={isDragging ? "opacity-40" : ""}
       {...attributes}
       {...listeners}
       onClick={(e) => {

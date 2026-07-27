@@ -10,7 +10,18 @@ import type { UserSession } from "../../lib/presupuestos/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function PresupuestosPage() {
+export default async function PresupuestosPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  // ?vista se resuelve en SERVIDOR: leerlo de window.location en el estado
+  // inicial provoca mismatch de hidratación (React #418, ya pagado en
+  // Seguimiento el 2026-07-26).
+  const params = await searchParams;
+  const v = params.vista;
+  const vistaInicial = (Array.isArray(v) ? v[0] : v) === "maxima" ? "maxima" : "kanban";
+
   const s = await getSession();
   // El layout authed ya hace redirect si falta sesión — defensa en profundidad.
   if (!s) redirect("/login");
@@ -22,5 +33,5 @@ export default async function PresupuestosPage() {
     clinica: null,
   };
 
-  return <PresupuestosShell user={user} />;
+  return <PresupuestosShell user={user} vistaInicial={vistaInicial} />;
 }

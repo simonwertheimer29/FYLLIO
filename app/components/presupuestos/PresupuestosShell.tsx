@@ -17,7 +17,7 @@ import type {
 } from "../../lib/presupuestos/types";
 import KanbanBoard from "./KanbanBoard";
 import MaximaView from "./MaximaView";
-import FiltersBar, { type Filters } from "./FiltersBar";
+import FiltersBar, { EMPTY_FILTERS, type Filters } from "./FiltersBar";
 import { useClinic } from "../../lib/context/ClinicContext";
 import NewPresupuestoModal from "./NewPresupuestoModal";
 import FichaPresupuesto from "./FichaPresupuesto";
@@ -26,7 +26,13 @@ import IntervencionSidePanel from "./IntervencionSidePanel";
 import NotificacionesPanel from "./NotificacionesPanel";
 import PagoCierreModal, { type PagoCierre } from "./PagoCierreModal";
 import MotivoPerdidaModal from "./MotivoPerdidaModal";
-import { RangoTemporal, RANGO_DEFAULT, type RangoKanban } from "../shared/RangoTemporal";
+import { RangoTemporal, RANGO_DEFAULT, dentroDeRango, type RangoKanban } from "../shared/RangoTemporal";
+import { SegmentedToggle } from "../shared/SegmentedToggle";
+import {
+  contarPipelinePresupuestos,
+  textoPipelinePresupuestos,
+  fechaDeRango,
+} from "../../lib/presupuestos/pipeline";
 
 type Tab = "kanban" | "maxima";
 
@@ -48,11 +54,6 @@ function usePresupuestos() {
         const url = new URL("/api/presupuestos/kanban", location.href);
         if (clinicaFromContext) url.searchParams.set("clinica", clinicaFromContext);
         if (filters.doctor) url.searchParams.set("doctor", filters.doctor);
-        if (filters.tipoPaciente) url.searchParams.set("tipoPaciente", filters.tipoPaciente);
-        if (filters.tipoVisita) url.searchParams.set("tipoVisita", filters.tipoVisita);
-        if (filters.estado) url.searchParams.set("estado", filters.estado);
-        if (filters.fechaDesde) url.searchParams.set("fechaDesde", filters.fechaDesde);
-        if (filters.fechaHasta) url.searchParams.set("fechaHasta", filters.fechaHasta);
         if (filters.q) url.searchParams.set("q", filters.q);
 
         const res = await fetch(url.toString());
@@ -75,26 +76,35 @@ function usePresupuestos() {
 
 // ─── Main Shell ──────────────────────────────────────────────────────────────
 
-export default function PresupuestosShell({ user }: { user: UserSession }) {
-  // ?vista=maxima abre directamente la Vista Máxima (el "Ver todos →" de la
-  // columna Perdido del kanban aterriza ahí).
-  const [tab, setTab] = useState<Tab>(() => {
-    if (typeof window === "undefined") return "kanban";
-    return new URLSearchParams(window.location.search).get("vista") === "maxima"
-      ? "maxima"
-      : "kanban";
-  });
+export default function PresupuestosShell({
+  user,
+  vistaInicial = "kanban",
+}: {
+  user: UserSession;
+  /** ?vista=maxima resuelto en servidor (el "Ver todos →" de la columna
+   *  Perdido aterriza ahí). Leerlo aquí de window rompía la hidratación. */
+  vistaInicial?: Tab;
+}) {
+  const [tab, setTab] = useState<Tab>(vistaInicial);
   // Rango temporal del tablero — control único compartido con Leads.
   const [rango, setRango] = useState<RangoKanban>(RANGO_DEFAULT);
-  const [currentFilters, setCurrentFilters] = useState<Filters>({
-    clinica: "", doctor: "", tipoPaciente: "", tipoVisita: "",
-    estado: "", fechaDesde: "", fechaHasta: "", q: "",
-  });
+  const [currentFilters, setCurrentFilters] = useState<Filters>(EMPTY_FILTERS);
   // Sprint 13.1 Bloque 2 — Clínica viene del GlobalHeader (ClinicContext).
   // El campo Filters.clinica se mantiene por backwards-compat pero no se
   // usa para filtrar (siempre vacío).
   const { selectedClinicaNombre } = useClinic();
   const { presupuestos, setPresupuestos, loading, isDemo, load } = usePresupuestos();
+
+  // El conteo de la cabecera se calcula sobre lo que el tablero PINTA (mismo
+  // rango, mismas funciones puras): un número que no cuadra con las tarjetas
+  // visibles es un número que nadie se cree.
+  const pipeline = useMemo(
+    () =>
+      contarPipelinePresupuestos(
+        presupuestos.filter((p) => dentroDeRango(fechaDeRango(p), rango)),
+      ),
+    [presupuestos, rango],
+  );
 
   const clinicasDisponibles = useMemo(() => {
     const s = new Set<string>(presupuestos.map((p) => p.clinica).filter(Boolean) as string[]);
@@ -313,18 +323,28 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
 
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-background)] overflow-hidden">
-      {/* Minibar: título + toggle + acciones + notificaciones */}
+      {/* Cabecera — misma anatomía que Leads (coherencia 2026-07-27): título
+          con el conteo que cuadra con las tarjetas visibles, y el toggle de
+          vistas en el patrón único del producto (SegmentedToggle, el de
+          Seguimiento y Cobros) en vez de un tercer estilo de pill local. */}
       <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-2 flex items-center gap-3 shrink-0">
-        <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">Presupuestos</h1>
-
-        <div className="flex gap-1">
-          <ToggleBtn active={tab === "kanban"} onClick={() => setTab("kanban")}>
-            Panel
-          </ToggleBtn>
-          <ToggleBtn active={tab === "maxima"} onClick={() => setTab("maxima")}>
-            Máxima
-          </ToggleBtn>
+        <div className="min-w-0">
+          <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">
+            Presupuestos
+          </h1>
+          <p className="text-xs text-[var(--color-muted)] mt-0.5 tabular-nums truncate">
+            {textoPipelinePresupuestos(pipeline)}
+          </p>
         </div>
+
+        <SegmentedToggle
+          options={[
+            { id: "kanban", label: "Panel" },
+            { id: "maxima", label: "Máxima" },
+          ]}
+          active={tab}
+          onChange={(id) => setTab(id)}
+        />
 
         <div className="ml-auto flex items-center gap-2">
           <button
@@ -377,9 +397,10 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
       <main className="flex-1 min-h-0 overflow-auto flex flex-col p-4 gap-4 w-full">
         {tab === "kanban" && (
           <div className="flex flex-col flex-1 min-h-0 gap-3">
-            <div className="shrink-0 space-y-2">
-              <FiltersBar user={user} onFiltersChange={handleFiltersChange} />
+            {/* Una sola fila de filtros, como en Leads: rango + buscador. */}
+            <div className="shrink-0 flex flex-wrap items-center gap-2">
               <RangoTemporal value={rango} onChange={setRango} />
+              <FiltersBar user={user} onFiltersChange={handleFiltersChange} />
             </div>
 
             {isDemo && (
@@ -430,6 +451,7 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
                   onOpenFicha={(p) => setDrawerPresupuesto(p)}
                   onEdit={handleEdit}
                   rango={rango}
+                  onVerHistorico={() => setRango("todo")}
                   onVerTodosCerrados={(estado) => {
                     // Archivo real de cada columna cerrada: los aceptados
                     // viven su vida financiera en Cobros; los perdidos, en la
@@ -548,29 +570,5 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         />
       )}
     </div>
-  );
-}
-
-function ToggleBtn({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-        active
-          ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
-          : "bg-[var(--color-surface)] text-[var(--color-muted)] border border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
