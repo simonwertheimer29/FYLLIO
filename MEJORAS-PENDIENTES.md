@@ -664,6 +664,18 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** alto en velocidad de cambio (hoy cada esquema cuesta el doble y puede
   desincronizarse) y en superficie de bug; nulo en datos (no hay nada vivo que migrar).
 - **Fecha:** 2026-07-27 · 🔵
+- **2026-07-27 · 🟠 EN CURSO (pasos 1 y 3 parciales)**:
+  - Paso 1 HECHO: el contexto de cliente vive en `lib/cliente-contexto`.
+  - Paso 3 al 70%: fuera la isla de prototipo que el proxy ya devolvía 404 en producción
+    desde el Sprint A (`/api/db`, `/api/dashboard`, `/api/scheduler`, `/api/dev`,
+    `/api/twilio`, `/api/import/gesden`, `/demo`, `/dashboard` y ~40 componentes que solo
+    ellas montaban): **15.173 líneas**. Podada la rama Airtable de 25 módulos de dominio y
+    del dominio Pacientes.
+  - **BLOQUEADO en no-shows**: quedan `airtableRepo` (30 usos), `staffRepo` (8) y sus
+    satélites, que solo consumen ya la zona no-shows y los dos crons. Retirar Airtable sin
+    resolverla la deja rota; migrarla es un sprint. Decisión pendiente (ver nº 39).
+  - Paso 4 (env fuera de Vercel) NO ejecutado a propósito: quitar las variables mientras
+    no-shows llama a Airtable rompe esa zona en producción.
 
 ## 45. Estado mixto: el alcance de clínicas y los doctores se leen de Airtable, los datos de Postgres
 - **Zona:** `lib/clinicas-negocio.ts:33`, `lib/scheduler/repo/staffRepo.ts`, y las páginas de
@@ -680,3 +692,6 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   que los pilotos empiecen a operar. Es el primer paso natural de la nº 44.
 - **Impacto:** alto — es una fuga funcional silenciosa en la superficie principal.
 - **Fecha:** 2026-07-27 · 🔵
+- **2026-07-27 · 🟢 CERRADA**: los seis módulos leen y escriben Postgres. Aviso: RB/INDEP
+  tampoco tienen `staff` en Postgres todavía — esto arregla DÓNDE se lee; los doctores de los
+  pilotos hay que darlos de alta antes de que operen.
