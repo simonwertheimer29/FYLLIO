@@ -2,7 +2,6 @@
 
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
-import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type {
   Presupuesto, UserSession, KpiData, KpiPorEstado, KpiPorDoctor,

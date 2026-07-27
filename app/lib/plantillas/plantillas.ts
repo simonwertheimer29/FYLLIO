@@ -3,8 +3,6 @@
 // Sprint 14b Bloque 4 — repositorio de Plantillas_Mensaje + helpers
 // de render.
 
-import { baseCentral, base, TABLES, fetchAll } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 import { selectPresupuestosRaw } from "../presupuestos/repo";
 import { getPaciente } from "../pacientes/pacientes";
 import { getOpcionEscalar } from "../configuraciones/configuraciones";

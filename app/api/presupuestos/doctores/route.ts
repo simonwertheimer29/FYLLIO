@@ -4,7 +4,6 @@
 import { NextResponse } from "next/server";
 import { listDoctoresPresupuestosRaw } from "../../../lib/presupuestos/doctores-repo";
 import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
-import { base, TABLES } from "../../../lib/airtable";
 import type { Doctor } from "../../../lib/presupuestos/types";
 import { DEMO_DOCTORES } from "../../../lib/presupuestos/demo";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";

@@ -20,7 +20,6 @@ import { mapStaffNombrePorIds } from "../../../lib/scheduler/repo/staffRepo";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicaIdsForUser, listClinicas } from "../../../lib/auth/users";
 import { listPacientes } from "../../../lib/pacientes/pacientes";
-import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import { listAllOpciones } from "../../../lib/configuraciones/configuraciones";
 
 export const dynamic = "force-dynamic";

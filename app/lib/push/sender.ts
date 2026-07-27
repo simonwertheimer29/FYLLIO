@@ -2,8 +2,6 @@
 // Utilidad interna para enviar Web Push notifications a través de Airtable Push_Subscriptions.
 
 import webpush from "web-push";
-import { base, TABLES } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 
 export interface PushPayload {
   title: string;

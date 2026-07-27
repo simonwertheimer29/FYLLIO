@@ -1,7 +1,6 @@
 // app/api/waitlist/[id]/route.ts
 import { NextResponse } from "next/server";
 import { updateWaitlistEstado } from "../../../lib/scheduler/repo/waitlistRepo";
-import { base, TABLES } from "../../../lib/airtable";
 
 type ParamsPromise = Promise<{ id: string }>;
 

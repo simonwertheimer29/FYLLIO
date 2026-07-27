@@ -7,8 +7,6 @@
 // propios recordToSecuencia); los que aceptan fórmula/fields crudos son
 // passthrough documentado — se tipan al voltear el módulo.
 
-import { base, TABLES } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 
 /** Cola filtrada (estado + fragmento opcional de clínica), más recientes
  *  primero. La fórmula la compone el caller con clinica-scope. */
@@ -49,23 +47,30 @@ export async function createSecuenciaRaw(fields: Record<string, unknown>): Promi
   
 }
 
+async function db() {
+  const { runWithClienteDb } = await import("../db/context");
+  const { requireCliente } = await import("../cliente-contexto");
+  return { runWithClienteDb, cliente: requireCliente("secuencias") };
+}
+
 /** SOLO DEMO — ids de secuencias cuyos presupuesto_id están en la lista. */
 export async function listSecuenciaIdsPorPresupuestos(presupuestoIds: string[]): Promise<string[]> {
-  const formula = `OR(${presupuestoIds.map((id) => `{presupuesto_id}="${id}"`).join(",")})`;
-  const recs = await base(TABLES.secuenciasAutomaticas as any)
-    .select({ filterByFormula: formula, fields: [] })
-    .all();
-  return recs.map((r) => r.id);
+  if (!presupuestoIds.length) return [];
+  const { runWithClienteDb, cliente } = await db();
+  const rows = await runWithClienteDb(cliente, (trx) =>
+    trx.selectFrom("secuencias_automaticas").select("id").where("presupuesto_id", "in", presupuestoIds).execute());
+  return rows.map((r: any) => r.id);
 }
 
 /** SOLO DEMO — borra secuencias por id. */
 export async function destroySecuencias(ids: string[]): Promise<void> {
-  if (ids.length) await base(TABLES.secuenciasAutomaticas as any).destroy(ids);
+  if (!ids.length) return;
+  const { runWithClienteDb, cliente } = await db();
+  await runWithClienteDb(cliente, (trx) =>
+    trx.deleteFrom("secuencias_automaticas").where("id", "in", ids).execute());
 }
 
 /** SOLO DEMO — alta en lote (seed). */
 export async function createSecuenciasRaw(fieldsList: Array<Record<string, unknown>>): Promise<void> {
-  await base(TABLES.secuenciasAutomaticas as any).create(
-    fieldsList.map((fields) => ({ fields })) as any,
-  );
+  for (const fields of fieldsList) await createSecuenciaRaw(fields);
 }

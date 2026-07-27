@@ -2,8 +2,6 @@
 //
 // Sprint 16b Bloque 1 — repo Airtable de Reglas / Acciones / Eventos.
 
-import { base, fetchAll, TABLES } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 import type {
   Regla,
   AccionLog,
@@ -96,43 +94,6 @@ export async function getRegla(id: string): Promise<Regla | null> {
   
 }
 
-export async function createRegla(input: {
-  codigo: string;
-  nombre: string;
-  descripcion: string;
-  triggerTipo: TriggerTipo;
-  condiciones: Condicion[];
-  acciones: Accion[];
-  clinicaId?: string | null;
-  activa?: boolean;
-  modoTest?: boolean;
-  pacienteTestId?: string | null;
-}): Promise<Regla> {
-  const now = new Date().toISOString();
-  const fields: Record<string, any> = {
-    Resumen: input.nombre,
-    Codigo: input.codigo,
-    Nombre: input.nombre,
-    Descripcion: input.descripcion,
-    Trigger_Tipo: input.triggerTipo,
-    Condiciones: JSON.stringify(input.condiciones),
-    Acciones: JSON.stringify(input.acciones),
-    Activa: input.activa ?? true,
-    Modo_Test: input.modoTest ?? false,
-    Veces_Disparada: 0,
-    Created_At: now,
-    Updated_At: now,
-  };
-  if (input.clinicaId) fields.Clinica_Link = [input.clinicaId];
-  if (input.pacienteTestId) fields.Paciente_Test_Id = input.pacienteTestId;
-
-  const created = (
-    await base(TABLES.reglasAutomatizacion).create([{ fields }], {
-      typecast: true,
-    })
-  )[0]!;
-  return toRegla(created);
-}
 
 export async function updateRegla(
   id: string,

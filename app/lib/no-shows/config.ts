@@ -5,7 +5,6 @@
 // Valor=JSON (mismo patrón que horario_laboral / Llamadas_IA). Fallback a
 // global (Clinica_Link vacío) y, si no hay nada, a los defaults del producto.
 
-import { base, TABLES, fetchAll } from "@/lib/airtable";
 
 export const MOTOR_NO_SHOWS_CATEGORIA = "Motor_NoShows";
 

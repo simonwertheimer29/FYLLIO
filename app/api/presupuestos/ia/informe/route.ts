@@ -5,7 +5,6 @@
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw } from "../../../../lib/presupuestos/repo";
 import Anthropic from "@anthropic-ai/sdk";
-import { base, TABLES } from "../../../../lib/airtable";
 import { construirMapaAnonimizacion, desanonimizarTexto } from "../../../../lib/anonimizacion";
 import { DateTime } from "luxon";
 import { ESTADOS_ACEPTADOS } from "../../../../lib/presupuestos/colors";

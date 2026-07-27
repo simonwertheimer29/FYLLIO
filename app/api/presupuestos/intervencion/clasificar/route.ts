@@ -3,7 +3,6 @@
 
 import { NextResponse } from "next/server";
 import { getPresupuestoPorIdRaw } from "../../../../lib/presupuestos/repo";
-import { base, TABLES } from "../../../../lib/airtable";
 import { clasificarRespuesta, guardarClasificacion } from "../../../../lib/presupuestos/intervencion";
 import { getServicioMensajeria } from "../../../../lib/presupuestos/mensajeria";
 import type { PresupuestoEstado } from "../../../../lib/presupuestos/types";

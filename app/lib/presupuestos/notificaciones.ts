@@ -1,8 +1,6 @@
 // app/lib/presupuestos/notificaciones.ts
 // Helper fire-and-forget para crear notificaciones in-app.
 
-import { base, TABLES } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 import type { TipoNotificacion } from "./types";
 
 export async function crearNotificacion(args: {

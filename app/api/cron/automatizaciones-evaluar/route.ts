@@ -24,7 +24,7 @@
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { listCitasEstadoVentanaRaw } from "../../../lib/scheduler/repo/airtableRepo";
-import { fetchAll, base, TABLES, runWithCliente } from "../../../lib/airtable";
+import { runWithCliente } from "../../../lib/airtable";
 import { PILOT_CLIENTE } from "../../../lib/multi-cliente-pendiente";
 import {
   evaluarRegla,

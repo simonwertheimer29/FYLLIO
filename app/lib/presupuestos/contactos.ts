@@ -3,8 +3,6 @@
 // FASE 1 migración (dominio Presupuestos) — repositorio de la tabla
 // Contactos_Presupuesto. Passthrough (ver nota en repo.ts).
 
-import { base, TABLES } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 
 /** Histórico de contactos de un presupuesto, más recientes primero. */
 export async function listContactosDePresupuestoRaw(presupuestoId: string): Promise<readonly any[]> {

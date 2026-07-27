@@ -4,7 +4,6 @@
 import { NextResponse } from "next/server";
 import { getPresupuestoPorIdRaw, updatePresupuestoRaw } from "../../../../lib/presupuestos/repo";
 import { createContactoRaw } from "../../../../lib/presupuestos/contactos";
-import { base, TABLES } from "../../../../lib/airtable";
 import { DateTime } from "luxon";
 import { registrarAccion } from "../../../../lib/historial/registrar";
 import { clasificarRespuesta, guardarClasificacion } from "../../../../lib/presupuestos/intervencion";

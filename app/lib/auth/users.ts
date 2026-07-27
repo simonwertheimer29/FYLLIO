@@ -6,8 +6,7 @@
 // Sprint B — Usuarios, Clínicas y Usuario_Clinicas son IDENTIDAD/REGISTRO y viven
 // en la base CENTRAL. Todo este módulo usa baseCentral() (nunca base(), que es
 // para datos de negocio por cliente).
-import { baseCentral, TABLES, fetchAll, type Cliente } from "../airtable";
-import { usaPostgresIdentidad } from "../db/data-backend";
+import { type Cliente } from "../airtable";
 
 export type Rol = "admin" | "coordinacion";
 
@@ -113,41 +112,13 @@ export async function findUserByEmail(email: string): Promise<Usuario | null> {
  const pg = await import("./users-pg"); return pg.findUserByEmailPg(email); 
 }
 
-// NOTA: Airtable `filterByFormula` con FIND/ARRAYJOIN sobre link fields compara
-// contra el primary field del target (Nombre), NO contra record IDs. Para filtrar
-// por record ID hay que traer todos los registros y filtrar en memoria sobre el
-// array de IDs que devuelve el campo. La junction Usuario_Clinicas tiene volumen
-// reducido (# usuarios × # clínicas), así que es aceptable.
-
-/** Devuelve todos los junction records (usado para filtrado en memoria). */
-async function allJunctions(): Promise<Array<{ userIds: string[]; clinicaIds: string[] }>> {
-  const recs = await fetchAll(baseCentral(TABLES.usuarioClinicas).select({}));
-  return recs.map((r) => ({
-    userIds: (r.fields?.["Usuario"] ?? []) as string[],
-    clinicaIds: (r.fields?.["Clinica"] ?? []) as string[],
-  }));
-}
-
 /**
- * Busca coordinaciones activas vinculadas a `clinicaId` vía Usuario_Clinicas.
+ * Coordinaciones activas vinculadas a `clinicaId`.
  * Devuelve todas las candidatas — el caller compara el PIN con bcrypt.
  */
 export async function findCoordinacionesByClinica(clinicaId: string): Promise<Usuario[]> {
-  const junctions = await allJunctions();
-  const userIds = new Set<string>();
-  for (const j of junctions) {
-    if (j.clinicaIds.includes(clinicaId)) {
-      for (const uid of j.userIds) userIds.add(uid);
-    }
-  }
-  if (userIds.size === 0) return [];
-
-  const usersAll = await fetchAll(
-    baseCentral(TABLES.usuarios).select({
-      filterByFormula: `AND({Rol}='coordinacion', {Activo})`,
-    })
-  );
-  return usersAll.filter((r) => userIds.has(r.id)).map(toUsuario);
+  const pg = await import("./users-pg");
+  return pg.findCoordinacionesByClinicaPg(clinicaId);
 }
 
 /** IDs de clínicas (Airtable record ids) accesibles por un usuario (vía junction). */

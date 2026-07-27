@@ -4,7 +4,6 @@
 
 import { NextResponse } from "next/server";
 import { listObjetivosRaw, findObjetivoRaw, updateObjetivoRaw, createObjetivoRaw } from "../../../lib/presupuestos/objetivos";
-import { base, TABLES } from "../../../lib/airtable";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import {
   nombresClinicasPermitidas,

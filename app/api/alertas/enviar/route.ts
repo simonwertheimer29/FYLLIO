@@ -5,7 +5,6 @@
 import { findClinicaCentralRaw } from "../../../lib/auth/users";
 import { NextResponse } from "next/server";
 import { withAdmin } from "../../../lib/auth/session";
-import { baseCentral, TABLES, fetchAll } from "../../../lib/airtable";
 import { findCoordinacionesByClinica } from "../../../lib/auth/users";
 import { calcularAlertas } from "../../../lib/alertas/calcular";
 import { checkCooldown, recordAlert } from "../../../lib/alertas/historial";

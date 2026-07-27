@@ -22,7 +22,7 @@ import { createAlertaCoordinacionRaw } from "../../../lib/alertas/historial";
 import { NextResponse } from "next/server";
 import { updateCitaEstado } from "../../../lib/scheduler/repo/airtableRepo";
 import crypto from "node:crypto";
-import { base, TABLES, runWithCliente } from "../../../lib/airtable";
+import { runWithCliente } from "../../../lib/airtable";
 import { PILOT_CLIENTE } from "../../../lib/multi-cliente-pendiente";
 import {
   getLlamadaPorVapiCallId,

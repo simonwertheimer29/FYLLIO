@@ -3,7 +3,6 @@
 
 import { selectPlantillasMensajeRaw, findPlantillaMensajeRaw, createPlantillaMensajeRaw, updatePlantillaMensajeRaw, destroyPlantillaMensajeRaw } from "../../../lib/plantillas/plantillas";
 import { NextResponse } from "next/server";
-import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type { PlantillaMensaje } from "../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";

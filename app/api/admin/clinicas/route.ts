@@ -5,7 +5,6 @@ import { createClinicaCentralRaw } from "../../../lib/auth/users";
 import { NextResponse } from "next/server";
 import { withAdmin } from "../../../lib/auth/session";
 import { listClinicas } from "../../../lib/auth/users";
-import { baseCentral, TABLES } from "../../../lib/airtable";
 export const dynamic = "force-dynamic";
 
 export const GET = withAdmin(async (session) => {

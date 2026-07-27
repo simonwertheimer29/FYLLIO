@@ -1,6 +1,4 @@
 // app/lib/scheduler/repo/treatmentsRepo.ts
-import { base, TABLES } from "../../airtable";
-import { usaPostgres } from "../../db/data-backend";
 
 export type TreatmentRow = {
   recordId: string;            // recXXXX
@@ -32,8 +30,7 @@ let _cache: { atMs: number; data: TreatmentRow[] } | null = null;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
 
 export async function listTreatments(_: { clinicRecordId?: string }): Promise<TreatmentRow[]> {
-  const table = TABLES.treatments;
-  const records = await base(table).select({ maxRecords: 200 }).all();
+  const records = await (await import("./pg")).listTratamientosRawPg(200);
 
   const out: TreatmentRow[] = records.map((r: any) => {
     const f: any = r.fields || {};
@@ -73,7 +70,6 @@ function filterByClinic(rows: TreatmentRow[], clinicRecordId: string): Treatment
 // FASE 1 migración — acceso restante a la tabla Tratamientos.
 // ─────────────────────────────────────────────────────────────────────
 
-import { fetchAll } from "../../airtable";
 
 /** PATCH de instrucciones pre-tratamiento (config del dropdown demo). */
 export async function updateTratamientoInstrucciones(

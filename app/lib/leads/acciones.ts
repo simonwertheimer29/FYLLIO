@@ -11,8 +11,6 @@
 //    coord asignado).
 //  - Solo going-forward. KPI muestra "—" hasta que haya datos.
 
-import { base, TABLES, fetchAll } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 
 export type TipoAccionLead =
   | "Llamada"
@@ -61,51 +59,6 @@ function toAccionLead(rec: any): AccionLead {
   };
 }
 
-/**
- * Núcleo compartido: acciones con Timestamp posterior a `desdeIso`,
- * opcionalmente filtradas por clínicas accesibles (cruza leadId→clinicaId
- * con un select compacto porque Acciones_Lead.Lead es un link).
- */
-async function listAccionesDesdeIso(
-  desdeIso: string,
-  clinicaIdsAllowed?: string[] | null,
-): Promise<AccionLead[]> {
-  const formula = `IS_AFTER({Timestamp}, '${desdeIso}')`;
-  try {
-    const recs = await fetchAll(
-      base(TABLES.accionesLead as any).select({ filterByFormula: formula }),
-    );
-    let acciones = recs.map(toAccionLead);
-    if (clinicaIdsAllowed && clinicaIdsAllowed.length > 0) {
-      const leadIds = Array.from(new Set(acciones.map((a) => a.leadId).filter(Boolean)));
-      if (leadIds.length === 0) return [];
-      const allowed = new Set(clinicaIdsAllowed);
-      const formulaLeads = `OR(${leadIds.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
-      const leadRecs = await fetchAll(
-        base(TABLES.leads as any).select({
-          filterByFormula: formulaLeads,
-          fields: ["Clinica"],
-        }),
-      );
-      const leadToClinica = new Map<string, string>();
-      for (const r of leadRecs) {
-        const c = (r.fields as any)?.["Clinica"];
-        if (Array.isArray(c) && c[0]) leadToClinica.set(r.id, String(c[0]));
-      }
-      acciones = acciones.filter((a) => {
-        const cli = leadToClinica.get(a.leadId);
-        return cli && allowed.has(cli);
-      });
-    }
-    return acciones;
-  } catch (err) {
-    console.error(
-      "[acciones-lead] listAccionesDesde error:",
-      err instanceof Error ? err.message : err,
-    );
-    return [];
-  }
-}
 
 /**
  * Lista acciones del día actual (zona Europe/Madrid) opcionalmente filtradas

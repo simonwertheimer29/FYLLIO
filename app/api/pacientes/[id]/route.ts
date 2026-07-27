@@ -11,7 +11,6 @@ import { camposNoEditables, propagarTelefonoAPresupuestos } from "../../../lib/p
 import { getLead } from "../../../lib/leads/leads";
 import { listAccionesByLead } from "../../../lib/leads/acciones";
 import { getPagosByPaciente } from "../../../lib/pagos";
-import { base, TABLES, fetchAll } from "../../../lib/airtable";
 
 export const dynamic = "force-dynamic";
 

@@ -15,7 +15,6 @@
 //      pacientes.fecha_cita es una copia suelta a deprecar).
 
 import { selectPresupuestosRaw, updatePresupuestoRaw } from "../presupuestos/repo";
-import { usaPostgres } from "../db/data-backend";
 
 /** Campos cuyo REGISTRO ORIGEN es el propio paciente (editables vía PATCH). */
 export const CAMPOS_PACIENTE_EDITABLES = new Set([
@@ -64,7 +63,6 @@ export async function propagarTelefonoAPresupuestos(
  * pacientes.fecha_cita (honesto: dato viejo mejor que dato inventado).
  */
 export async function proximaCitaPorPaciente(): Promise<Map<string, string>> {
-  if (!usaPostgres("pacientes")) return new Map();
   const { proximaCitaPorPacientePg } = await import("./pg");
   return proximaCitaPorPacientePg();
 }

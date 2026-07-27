@@ -3,8 +3,6 @@
 // FASE 1 migración (dominio Presupuestos) — repositorio de la tabla
 // Objetivos_Mensuales (único write-path de objetivos de la app).
 
-import { base, TABLES } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 
 /** Objetivos filtrados (la fórmula la compone el caller con su scope). */
 export async function listObjetivosRaw(filterByFormula: string): Promise<readonly any[]> {

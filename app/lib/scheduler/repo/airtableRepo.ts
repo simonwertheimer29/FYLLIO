@@ -1,7 +1,5 @@
 // app/lib/scheduler/repo/airtableRepo.ts
 import type { Appointment } from "../../types";
-import { usaPostgres } from "../../db/data-backend";
-import { base, TABLES, fetchAll } from "../../airtable";
 import { DateTime } from "luxon";
 
 /**
@@ -35,17 +33,6 @@ function fireEvaluarRiesgo(appointmentRecordId: string): void {
     .catch(() => {
       /* swallow */
     });
-}
-
-async function findRecordIdByField(tableName: any, fieldName: string, value: string): Promise<string | null> {
-  const safe = String(value).replace(/'/g, "\\'");
-  const formula = `{${fieldName}}='${safe}'`;
-  const recs = await base(tableName).select({ maxRecords: 1, filterByFormula: formula }).firstPage();
-  return recs?.[0]?.id ?? null;
-}
-
-export async function getStaffRecordIdByStaffId(staffId: string) {
-  return findRecordIdByField(TABLES.staff, "Staff ID", staffId);
 }
 
 export async function getPatientRecordIdByPhone(phoneE164: string) {
@@ -153,16 +140,8 @@ export async function upsertPatientWithoutPhone(params: {
   return { recordId: created.recordId, created: true };
 }
 
-
-
-export async function getSillonRecordIdBySillonId(sillonId: string) {
-  return findRecordIdByField(TABLES.sillones, "Sillón ID", sillonId);
-}
-
 export async function getAppointmentByRecordId(appointmentRecordId: string) {
-  const r = usaPostgres("agenda")
-    ? await (await import("./pg")).findCitaRawPg(appointmentRecordId)
-    : await base(TABLES.appointments).find(appointmentRecordId);
+  const r = await (await import("./pg")).findCitaRawPg(appointmentRecordId);
   const f: any = r.fields;
 
   // LINKS (en Airtable vienen como array de recordIds)
@@ -200,7 +179,6 @@ export async function getAppointmentByRecordId(appointmentRecordId: string) {
   };
 }
 
-
 function firstString(x: unknown): string {
   if (typeof x === "string") return x;
   if (Array.isArray(x) && typeof x[0] === "string") return x[0];
@@ -226,15 +204,7 @@ export async function findNextAppointmentByContactPhone(params: {
   // Busca próximas citas asociadas al número (paciente o tutor)
   const formula = `OR({${FIELD_PATIENT_PHONE}}='${esc(phoneE164)}',{${FIELD_TUTOR_PHONE}}='${esc(phoneE164)}')`;
 
-  const records = usaPostgres("agenda")
-    ? await (await import("./pg")).listCitasPorTelefonoRawPg(phoneE164) // ya ordena por hora_inicio asc
-    : await base(TABLES.appointments)
-        .select({
-          maxRecords: 5,
-          filterByFormula: formula,
-          sort: [{ field: FIELD_START, direction: "asc" }],
-        })
-        .all();
+  const records = await (await import("./pg")).listCitasPorTelefonoRawPg(phoneE164);
 
   // aquí puedes filtrar por "futuras" si tienes el campo start como datetime real.
   // Si no, devuelve la primera.
@@ -247,40 +217,20 @@ export async function findNextAppointmentByContactPhone(params: {
   };
 }
 
-
 export async function cancelAppointment(params: {
   appointmentRecordId: string;
   origin?: string;
 }) {
-  if (usaPostgres("agenda")) {
-    await (await import("./pg")).cancelAppointmentPg(params.appointmentRecordId, params.origin);
-  } else {
-    await base(TABLES.appointments).update([
-      {
-        id: params.appointmentRecordId,
-        fields: {
-          Estado: "Cancelado",
-          ...(params.origin ? { Origen: params.origin } : {}),
-        },
-      },
-    ]);
-  }
+  await (await import("./pg")).cancelAppointmentPg(params.appointmentRecordId, params.origin);
+  
   fireCitaEvento("cancelada", params.appointmentRecordId);
 }
 
 export async function completeAppointment(params: {
   appointmentRecordId: string;
 }) {
-  if (usaPostgres("agenda")) {
-    await (await import("./pg")).completeAppointmentPg(params.appointmentRecordId);
-  } else {
-    await base(TABLES.appointments).update([
-      {
-        id: params.appointmentRecordId,
-        fields: { Estado: "Completado" },
-      },
-    ]);
-  }
+  await (await import("./pg")).completeAppointmentPg(params.appointmentRecordId);
+  
   fireCitaEvento("asistio", params.appointmentRecordId);
 }
 
@@ -289,32 +239,16 @@ export async function markNoShow(params: {
   existingNotes?: string;
 }) {
   const notes = [params.existingNotes, "[NO_SHOW]"].filter(Boolean).join(" | ");
-  if (usaPostgres("agenda")) {
-    await (await import("./pg")).markNoShowPg(params.appointmentRecordId, notes);
-  } else {
-    await base(TABLES.appointments).update([
-      {
-        id: params.appointmentRecordId,
-        fields: { Estado: "Cancelado", Notas: notes },
-      },
-    ]);
-  }
+  await (await import("./pg")).markNoShowPg(params.appointmentRecordId, notes);
+  
   fireCitaEvento("no_show", params.appointmentRecordId);
 }
 
 export async function confirmAppointment(params: {
   appointmentRecordId: string;
 }) {
-  if (usaPostgres("agenda")) {
-    await (await import("./pg")).confirmAppointmentPg(params.appointmentRecordId);
-  } else {
-    await base(TABLES.appointments).update([
-      {
-        id: params.appointmentRecordId,
-        fields: { Estado: "Confirmada" },
-      },
-    ]);
-  }
+  await (await import("./pg")).confirmAppointmentPg(params.appointmentRecordId);
+  
   fireCitaEvento("confirmada", params.appointmentRecordId);
 }
 
@@ -327,24 +261,11 @@ export async function updateAppointment(params: {
   notes?: string;
 }) {
   const { appointmentRecordId, startIso, endIso, staffRecordId, treatmentRecordId, notes } = params;
-  if (usaPostgres("agenda")) {
-    await (await import("./pg")).updateAppointmentPg(appointmentRecordId, { startIso, endIso, staffRecordId, treatmentRecordId, notes });
-  } else {
-    const fields: any = {};
-    if (startIso) fields["Hora inicio"] = startIso;
-    if (endIso) fields["Hora final"] = endIso;
-    if (staffRecordId) fields["Profesional"] = [staffRecordId];
-    if (treatmentRecordId) fields["Tratamiento"] = [treatmentRecordId];
-    if (notes !== undefined) fields["Notas"] = notes;
-    if (!Object.keys(fields).length) return;
-    await base(TABLES.appointments).update([{ id: appointmentRecordId, fields }]);
-  }
+  await (await import("./pg")).updateAppointmentPg(appointmentRecordId, { startIso, endIso, staffRecordId, treatmentRecordId, notes });
+  
   // Reagendar (cambio de fecha/hora) → re-evaluar riesgo de no-show.
   if (startIso) fireEvaluarRiesgo(appointmentRecordId);
 }
-
-
-
 
 function toLocalNaiveIso(x: unknown): string {
   // Airtable devuelve ISO en UTC con Z. Lo convertimos a UTC naive para ser
@@ -357,7 +278,6 @@ function toLocalNaiveIso(x: unknown): string {
   // devolvemos sin offset y sin ms: "YYYY-MM-DDTHH:mm:ss"
   return dt.toFormat("yyyy-MM-dd'T'HH:mm:ss");
 }
-
 
 function normalizeChairIdFromSillonId(sillonId: string): number | undefined {
   // Convierte "CHR_01" -> 1, "CHR_02" -> 2
@@ -388,9 +308,7 @@ export async function listAppointmentsByDay(params: {
   const { dayIso, clinicId, onlyActive = false } = params;
 
   // Traemos citas (MVP: sin fórmula compleja, filtramos en JS)
-  const records = usaPostgres("agenda")
-    ? await (await import("./pg")).listCitasTodasPg(1000)
-    : await base(TABLES.appointments).select({ maxRecords: 1000 }).all();
+  const records = await (await import("./pg")).listCitasTodasPg(1000);
 
   const out: Appointment[] = [];
 
@@ -429,7 +347,6 @@ const end = toLocalNaiveIso(f["Hora final"]);
   if (isCancelled) continue;
 }
 
-
     const patientName = firstString(f["Paciente_nombre"]) || firstString(f["Nombre"]) || "Paciente";
     const type = firstString(f["Tratamiento_nombre"]) || "Tratamiento";
 
@@ -467,9 +384,7 @@ export async function listAppointmentsByWeek(params: {
   const sunday = monday.plus({ days: 6 });
   const sundayIso = sunday.toISODate()!;
 
-  const records = usaPostgres("agenda")
-    ? await (await import("./pg")).listCitasTodasPg(2000)
-    : await base(TABLES.appointments).select({ maxRecords: 2000 }).all();
+  const records = await (await import("./pg")).listCitasTodasPg(2000);
 
   const out: Array<{ start: string; estado: string; origen: string; notas: string }> = [];
 
@@ -520,32 +435,10 @@ export async function createAppointment(params: {
 const { name, startIso, endIso, clinicRecordId, notes, staffRecordId, sillonRecordId, treatmentRecordId, patientRecordId } = params;
 
   let recordId: string;
-  if (usaPostgres("agenda")) {
-    recordId = (await (await import("./pg")).createAppointmentPg({
-      name, startIso, endIso, clinicRecordId, notes, staffRecordId, sillonRecordId, treatmentRecordId, patientRecordId,
-    })).recordId;
-  } else {
-    const fields: any = {
-      "Nombre": name,
-      "Hora inicio": startIso,
-      "Hora final": endIso,
-    };
-
-    if (notes) fields["Notas"] = notes;
-    if (clinicRecordId) fields["Clínica"] = [clinicRecordId];
-
-    if (staffRecordId) fields["Profesional"] = [staffRecordId];
-    if (sillonRecordId) fields["Sillón"] = [sillonRecordId];
-
-    // ✅ esto arregla tu problema
-    if (treatmentRecordId) fields["Tratamiento"] = [treatmentRecordId];
-    if (patientRecordId) fields["Paciente"] = [patientRecordId];
-
-    const created = await base(TABLES.appointments).create([{ fields }]);
-    const rec = created?.[0];
-    if (!rec?.id) throw new Error("Airtable: no se pudo crear la cita (sin id).");
-    recordId = rec.id;
-  }
+  recordId = (await (await import("./pg")).createAppointmentPg({
+    name, startIso, endIso, clinicRecordId, notes, staffRecordId, sillonRecordId, treatmentRecordId, patientRecordId,
+  })).recordId;
+  
 
   fireCitaEvento("creada", recordId);
   fireEvaluarRiesgo(recordId);
@@ -567,18 +460,8 @@ export async function updateCitaEstado(
   estado: string,
   opts: { typecast?: boolean } = {},
 ): Promise<void> {
-  if (usaPostgres("agenda")) {
-    const pg = await import("./pg");
-    return pg.updateCitaEstadoPg(citaId, estado);
-  }
-  if (opts.typecast) {
-    await base(TABLES.appointments).update(
-      [{ id: citaId, fields: { Estado: estado } as any }],
-      { typecast: true },
-    );
-  } else {
-    await (base(TABLES.appointments) as any).update(citaId, { Estado: estado });
-  }
+  const pg = await import("./pg");
+  return pg.updateCitaEstadoPg(citaId, estado);
 }
 
 /** Registra una acción de recordatorio no-show sobre la cita. */
@@ -591,15 +474,8 @@ export async function registrarAccionNoShowEnCita(
     notasAccion?: string;
   },
 ): Promise<void> {
-  if (usaPostgres("agenda")) {
-    const pg = await import("./pg");
-    return pg.registrarAccionNoShowEnCitaPg(citaId, input);
-  }
-  const fields: Record<string, unknown> = { Ultima_accion: input.ultimaAccion };
-  if (input.tipoUltimaAccion) fields["Tipo_ultima_accion"] = input.tipoUltimaAccion;
-  if (input.faseRecordatorio) fields["Fase_recordatorio"] = input.faseRecordatorio;
-  if (input.notasAccion) fields["Notas_accion"] = input.notasAccion;
-  await (base(TABLES.appointments) as any).update(citaId, fields);
+  const pg = await import("./pg");
+  return pg.registrarAccionNoShowEnCitaPg(citaId, input);
 }
 
 /** Alta mínima de cita (agenda no-shows): solo campos confirmados como
@@ -610,18 +486,8 @@ export async function createCitaMinima(input: {
   horaFinalIso: string;
   notas?: string;
 }): Promise<{ id: string }> {
-  if (usaPostgres("agenda")) {
-    const pg = await import("./pg");
-    return pg.createCitaMinimaPg(input);
-  }
-  const fields: Record<string, unknown> = {
-    "Nombre": input.nombre,
-    "Hora inicio": input.horaInicioIso,
-    "Hora final": input.horaFinalIso,
-  };
-  if (input.notas) fields["Notas"] = input.notas;
-  const record = await (base(TABLES.appointments) as any).create(fields);
-  return { id: record.id };
+  const pg = await import("./pg");
+  return pg.createCitaMinimaPg(input);
 }
 
 /** Reagenda/mueve una cita (horas en toUTC().toISO()) y/o cambia Estado. */
@@ -629,24 +495,14 @@ export async function reprogramarCita(
   citaId: string,
   input: { horaInicioIso?: string; horaFinalIso?: string; estado?: string },
 ): Promise<void> {
-  if (usaPostgres("agenda")) {
-    const pg = await import("./pg");
-    return pg.reprogramarCitaPg(citaId, input);
-  }
-  const fields: Record<string, unknown> = {};
-  if (input.horaInicioIso) fields["Hora inicio"] = input.horaInicioIso;
-  if (input.horaFinalIso) fields["Hora final"] = input.horaFinalIso;
-  if (input.estado) fields["Estado"] = input.estado;
-  await (base(TABLES.appointments) as any).update(citaId, fields);
+  const pg = await import("./pg");
+  return pg.reprogramarCitaPg(citaId, input);
 }
 
 /** Record crudo de una cita (fields + createdTime). Lanza si no existe. */
 export async function findCitaRaw(citaId: string): Promise<any> {
-  if (usaPostgres("agenda")) {
-    const pg = await import("./pg");
-    return pg.findCitaRawPg(citaId);
-  }
-  return base(TABLES.appointments).find(citaId);
+  const pg = await import("./pg");
+  return pg.findCitaRawPg(citaId);
 }
 
 /** Citas con Hora inicio posterior a `desdeIso` (y anterior a `hastaIso` si
@@ -656,19 +512,8 @@ export async function listCitasDesdeRaw(
   desdeIso: string,
   opts: { hastaIso?: string } = {},
 ): Promise<any[]> {
-  if (usaPostgres("agenda")) {
-    const pg = await import("./pg");
-    return pg.listCitasDesdeRawPg(desdeIso, opts);
-  }
-  const formula = opts.hastaIso
-    ? `AND(IS_AFTER({Hora inicio}, '${desdeIso}'), IS_BEFORE({Hora inicio}, '${opts.hastaIso}'))`
-    : `IS_AFTER({Hora inicio}, '${desdeIso}')`;
-  return fetchAll(
-    base(TABLES.appointments).select({
-      filterByFormula: formula,
-      sort: [{ field: "Hora inicio", direction: "asc" }],
-    }),
-  );
+  const pg = await import("./pg");
+  return pg.listCitasDesdeRawPg(desdeIso, opts);
 }
 
 /** Citas en un Estado dado dentro de una ventana (crons "24h antes"). */
@@ -677,143 +522,22 @@ export async function listCitasEstadoVentanaRaw(params: {
   desdeIso: string;
   hastaIso: string;
 }): Promise<any[]> {
-  if (usaPostgres("agenda")) {
-    const pg = await import("./pg");
-    return pg.listCitasEstadoVentanaRawPg(params);
-  }
-  return fetchAll(
-    base(TABLES.appointments).select({
-      filterByFormula: `AND({Estado}="${params.estado}", IS_AFTER({Hora inicio}, "${params.desdeIso}"), IS_BEFORE({Hora inicio}, "${params.hastaIso}"))`,
-      pageSize: 100,
-    }),
-  );
+  const pg = await import("./pg");
+  return pg.listCitasEstadoVentanaRawPg(params);
 }
 
 /** Historial de citas por teléfono de paciente o tutor (predictor). */
 export async function listCitasPorTelefonoRaw(phone: string): Promise<readonly any[]> {
-  if (usaPostgres("agenda")) {
-    const pg = await import("./pg");
-    return pg.listCitasPorTelefonoRawPg(phone);
-  }
-  const safe = phone.replace(/'/g, "\\'");
-  return base(TABLES.appointments)
-    .select({
-      filterByFormula: `OR({Paciente_teléfono}='${safe}',{Paciente_tutor_teléfono}='${safe}')`,
-      maxRecords: 200,
-    })
-    .all();
+  const pg = await import("./pg");
+  return pg.listCitasPorTelefonoRawPg(phone);
 }
 
 /** Citas de un profesional por Profesional_id (agenda semanal/día/huecos). */
-export async function listCitasPorProfesionalRaw(
-  staffId: string,
-  opts: { maxRecords?: number } = {},
-): Promise<readonly any[]> {
-  if (usaPostgres("agenda")) {
-    const pg = await import("./pg");
-    return pg.listCitasPorProfesionalRawPg(staffId, opts);
-  }
-  const safe = staffId.replace(/'/g, "\\'");
-  return base(TABLES.appointments)
-    .select({
-      filterByFormula: `{Profesional_id}='${safe}'`,
-      maxRecords: opts.maxRecords ?? 500,
-    })
-    .all();
-}
 
-/** Citas para revenue mensual: opcionalmente del profesional, desde una
- *  fecha (comparador >= sobre Hora inicio, como siempre fue). */
-export async function listCitasRevenueRaw(params: {
-  staffId?: string | null;
-  fromIso: string;
-}): Promise<readonly any[]> {
-  if (usaPostgres("agenda")) {
-    const pg = await import("./pg");
-    return pg.listCitasRevenueRawPg(params);
-  }
-  const staffFilter = params.staffId
-    ? `{Profesional_id}='${params.staffId}' AND `
-    : "";
-  return base(TABLES.appointments)
-    .select({
-      filterByFormula: `AND(${staffFilter}{Hora inicio} >= '${params.fromIso}')`,
-      fields: ["Hora inicio", "Hora final", "Estado", "Tratamiento", "Profesional", "Profesional_id", "Nombre"],
-      maxRecords: 2000,
-    })
-    .all();
-}
-
-/** Volcado plano de citas (historial completo de la clínica). */
-export async function listCitasRaw(maxRecords: number): Promise<readonly any[]> {
-  if (usaPostgres("agenda")) {
-    const pg = await import("./pg");
-    return pg.listCitasRawPg(maxRecords);
-  }
-  return base(TABLES.appointments).select({ maxRecords }).all();
-}
-
-/** Citas ordenadas por Hora inicio descendente (recall / última visita). */
-export async function listCitasOrdenadasDescRaw(maxRecords: number): Promise<readonly any[]> {
-  if (usaPostgres("agenda")) {
-    const pg = await import("./pg");
-    return pg.listCitasOrdenadasDescRawPg(maxRecords);
-  }
-  return base(TABLES.appointments)
-    .select({ maxRecords, sort: [{ field: "Hora inicio", direction: "desc" }] })
-    .all();
-}
-
-/** Resumen semanal para el informe de automatizaciones (campos fijos). */
 export async function listCitasResumenNoShowRaw(): Promise<readonly any[]> {
-  if (usaPostgres("agenda")) {
-    const pg = await import("./pg");
-    return pg.listCitasResumenNoShowRawPg();
-  }
-  return base(TABLES.appointments)
-    .select({ maxRecords: 500, fields: ["Hora inicio", "Estado", "Notas", "Clínica ID"] })
-    .all();
+  const pg = await import("./pg");
+  return pg.listCitasResumenNoShowRawPg();
 }
 
 // ── SOLO DEV (seed/diagnóstico de no-shows) ──────────────────────────
 
-export async function sampleCitasFieldsDev(n: number): Promise<any[]> {
-  return (await (base(TABLES.appointments as any).select({ maxRecords: n }).firstPage() as any)) as any[];
-}
-
-export async function listCitasIdsPorMarcadorDev(marker: string, maxRecords: number): Promise<string[]> {
-  const recs = await base(TABLES.appointments)
-    .select({
-      filterByFormula: `FIND("${marker}", COALESCE({Notas},"")) > 0`,
-      maxRecords,
-    })
-    .all();
-  return recs.map((r) => r.id);
-}
-
-export async function destroyCitasDev(ids: string[]): Promise<void> {
-  for (let i = 0; i < ids.length; i += 10) {
-    await base(TABLES.appointments).destroy(ids.slice(i, i + 10));
-  }
-}
-
-export async function createCitaDev(fields: Record<string, unknown>): Promise<{ id: string }> {
-  const record = await (base(TABLES.appointments) as any).create(fields);
-  return { id: record.id };
-}
-
-export async function createCitasDevBatch(fieldsList: Array<Record<string, unknown>>): Promise<string[]> {
-  const ids: string[] = [];
-  for (let i = 0; i < fieldsList.length; i += 10) {
-    const batch = fieldsList.slice(i, i + 10);
-    if (batch.length === 1) {
-      const r = await (base(TABLES.appointments) as any).create(batch[0]);
-      ids.push(r.id);
-    } else {
-      const rs = await (base(TABLES.appointments) as any).create(batch.map((f) => ({ fields: f })));
-      for (const r of rs) ids.push(r.id);
-    }
-    if (i + 10 < fieldsList.length) await new Promise((r) => setTimeout(r, 250));
-  }
-  return ids;
-}

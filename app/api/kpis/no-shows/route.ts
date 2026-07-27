@@ -28,7 +28,6 @@ import { listStaffCamposRaw } from "../../../lib/scheduler/repo/staffRepo";
 import { DateTime } from "luxon";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicas } from "../../../lib/auth/users";
-import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import {
   getSupabaseAdmin,
   isSupabaseConfigured,

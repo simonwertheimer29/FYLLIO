@@ -4,7 +4,6 @@
 
 import { NextResponse } from "next/server";
 import { findConfigPorClinicaRaw, listConfigsRaw, updateConfigRaw, createConfigRaw } from "../../../lib/automatizaciones/configuracion";
-import { base, TABLES } from "../../../lib/airtable";
 import type { ConfiguracionAutomatizacion, ModoWhatsApp } from "../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import {

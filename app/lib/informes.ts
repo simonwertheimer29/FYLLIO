@@ -3,8 +3,6 @@
 // FASE 1 migración — repositorio de la tabla Informes_Guardados
 // (informes semanales IA + no-show). Passthrough.
 
-import { base, TABLES } from "./airtable";
-import { usaPostgres } from "./db/data-backend";
 
 export async function selectInformesRaw(opts: {
   fields?: string[];

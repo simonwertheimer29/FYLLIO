@@ -10,7 +10,6 @@ import { findConfigPorCategoriaYClinicaRaw, updateConfigClinicaRaw, createConfig
 import { NextResponse } from "next/server";
 import { withAuth } from "../../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../../lib/auth/users";
-import { fetchAll, base, TABLES } from "../../../../lib/airtable";
 import {
   HORARIO_DEFAULT,
   type HorarioLaboral,

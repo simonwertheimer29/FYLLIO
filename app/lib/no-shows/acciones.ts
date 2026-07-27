@@ -19,7 +19,6 @@ import { getPaciente } from "@/lib/pacientes/pacientes";
 import { renderizarPlantilla, listPlantillas } from "@/lib/plantillas/plantillas";
 import { sendWhatsAppMessage } from "@/lib/whatsapp/send";
 import { iniciarLlamada } from "@/lib/llamadas/iniciar";
-import { base, TABLES } from "@/lib/airtable";
 import { emitirEventoFireAndForget } from "@/lib/eventos/emitter";
 import { getMotorConfig } from "@/lib/no-shows/config";
 import type { RiesgoNivel } from "@/lib/supabase/client";

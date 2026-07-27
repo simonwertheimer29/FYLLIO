@@ -4,7 +4,6 @@
 
 import { selectNotificacionesRaw, updateNotificacionesBatchRaw } from "../../lib/presupuestos/notificaciones";
 import { NextResponse } from "next/server";
-import { base, TABLES } from "../../lib/airtable";
 import type { Notificacion } from "../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 

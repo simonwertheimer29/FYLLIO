@@ -3,7 +3,6 @@
 // Modo A (manual): persiste en Mensajes_WhatsApp + genera wa.me URL.
 // Modo B (WABA): envía vía Graph API de Meta, persiste, actualiza telemetría.
 
-import { baseCentral, base, TABLES, fetchAll } from "../airtable";
 import { DateTime } from "luxon";
 import type {
   MensajeWhatsApp,
@@ -15,7 +14,6 @@ import type {
 import { getWABACredentials, normalizarTelefono } from "./waba-credentials";
 import { checkRateLimit } from "./rate-limit";
 import { getIdempotentResult, setIdempotentResult } from "../scheduler/idempotency";
-import { usaPostgres } from "../db/data-backend";
 
 // ─── Acceso al LOG Mensajes_WhatsApp (delegado a Postgres por flag) ──────────
 // Solo el REGISTRO del mensaje. Idempotencia (KV), envío a Meta (WABA),
@@ -197,22 +195,22 @@ async function actualizarTelemetriaWABA(
   if (!clinica) return;
   try {
     const now = DateTime.now().setZone(ZONE).toISO() ?? new Date().toISOString();
-    const existing = await base(TABLES.configuracionWABA as any)
-      .select({
-        filterByFormula: `{Clinica}='${clinica}'`,
-        maxRecords: 1,
-      })
-      .firstPage();
-
-    if (existing.length > 0) {
-      await base(TABLES.configuracionWABA as any).update(existing[0].id, {
-        [campo]: now,
-      } as any);
-    } else {
-      await base(TABLES.configuracionWABA as any).create([{
-        fields: { Clinica: clinica, Activo: true, [campo]: now } as any,
-      }]);
-    }
+    // MEJORAS 44 — la telemetría vive en configuracion_waba (Postgres). El
+    // campo llega con el nombre viejo; se traduce aquí, en un solo sitio.
+    const col = campo === "Ultimo_mensaje_enviado" ? "ultimo_mensaje_enviado" : "ultimo_mensaje_recibido";
+    const { runWithClienteDb } = await import("../db/context");
+    const { requireCliente } = await import("../cliente-contexto");
+    const cliente = requireCliente("actualizarTelemetriaWABA");
+    await runWithClienteDb(cliente, async (trx) => {
+      const cli = await trx.selectFrom("clinicas").select("id").where("nombre", "=", clinica).executeTakeFirst();
+      if (!cli) return;
+      const ex = await trx.selectFrom("configuracion_waba").select("id").where("clinica_id", "=", cli.id).executeTakeFirst();
+      if (ex) {
+        await trx.updateTable("configuracion_waba").set({ [col]: new Date(now) } as any).where("id", "=", ex.id).execute();
+      } else {
+        await trx.insertInto("configuracion_waba").values({ cliente, clinica_id: cli.id, activo: true, [col]: new Date(now) } as any).execute();
+      }
+    });
   } catch (err) {
     console.error("[waba telemetry]", err instanceof Error ? err.message : err);
   }
@@ -490,13 +488,12 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
 async function getClinicaForMensaje(params: { presupuestoId?: string; leadId?: string }): Promise<string | undefined> {
   if (params.presupuestoId) {
     try {
-      const recs = await base(TABLES.presupuestos as any)
-        .select({
-          filterByFormula: `RECORD_ID()='${params.presupuestoId}'`,
-          fields: ["Clinica"],
-          maxRecords: 1,
-        })
-        .firstPage();
+      const { selectPresupuestosRaw } = await import("./repo");
+      const recs = await selectPresupuestosRaw({
+        filterByFormula: `RECORD_ID()='${params.presupuestoId}'`,
+        fields: ["Clinica"],
+        maxRecords: 1,
+      });
       if (recs.length > 0) {
         const c = (recs[0].fields as any)["Clinica"];
         if (c) return Array.isArray(c) ? String(c[0]) : String(c);

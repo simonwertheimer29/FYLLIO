@@ -14,7 +14,7 @@
 import { redirect } from "next/navigation";
 import { getSession } from "../../../../lib/auth/session";
 import { listPacientes } from "../../../../lib/pacientes/pacientes";
-import { base, TABLES, fetchAll, runWithCliente } from "../../../../lib/airtable";
+import { runWithCliente } from "../../../../lib/airtable";
 import Paciente360ViewLegacy from "../../../../components/presupuestos/Paciente360View";
 import type { UserSession } from "../../../../lib/presupuestos/types";
 
@@ -32,13 +32,12 @@ async function resolvePacienteId(nombre: string): Promise<string | null> {
   }
   // 2) Match desde Presupuestos.Paciente (linked record).
   try {
-    const recs = await fetchAll(
-      base(TABLES.presupuestos as any).select({
-        filterByFormula: `LOWER({Paciente_nombre}) = LOWER("${nombre.replace(/['"\\]/g, "")}")`,
-        fields: ["Paciente"],
-        maxRecords: 1,
-      }),
-    );
+    const { selectPresupuestosRaw } = await import("../../../../lib/presupuestos/repo");
+    const recs = await selectPresupuestosRaw({
+      filterByFormula: `LOWER({Paciente_nombre}) = LOWER("${nombre.replace(/['"\\]/g, "")}")`,
+      fields: ["Paciente"],
+      maxRecords: 1,
+    });
     const links = ((recs[0]?.fields as any)?.["Paciente"] ?? []) as string[];
     if (links[0]) return links[0];
   } catch {

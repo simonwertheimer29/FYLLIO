@@ -21,7 +21,6 @@
 
 import { findClinicaCentralRaw, selectClinicasCentralRaw } from "../auth/users";
 import { findConfigWABAPorClinicaRaw } from "../presupuestos/waba-credentials";
-import { baseCentral, base, TABLES } from "../airtable";
 import { findPresupuestoRaw, updatePresupuestoRaw } from "../presupuestos/repo";
 import { createContactoRaw } from "../presupuestos/contactos";
 import { listClinicaIdsForUser } from "../auth/users";

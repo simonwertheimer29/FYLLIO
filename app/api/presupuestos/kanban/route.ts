@@ -4,7 +4,6 @@
 
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw, createPresupuestoRaw } from "../../../lib/presupuestos/repo";
-import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type { Presupuesto, UserSession } from "../../../lib/presupuestos/types";
 import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";

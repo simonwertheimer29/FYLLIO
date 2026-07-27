@@ -11,7 +11,6 @@
 // Niveles: 0-30 bajo · 31-60 medio · 61-100 alto (umbral alto configurable).
 
 import { DateTime } from "luxon";
-import { base, TABLES } from "@/lib/airtable";
 import { listCitasPorTelefonoRaw, listCitasDesdeRaw, findCitaRaw } from "../scheduler/repo/airtableRepo";
 import { ZONE } from "@/lib/no-shows/score";
 import {

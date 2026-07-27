@@ -4,7 +4,6 @@
 
 import { selectColaEnviosRaw, createColaEnvioRaw, findColaEnvioRaw, updateColaEnvioRaw } from "../../../lib/presupuestos/cola-envios-repo";
 import { NextResponse } from "next/server";
-import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import { getServicioMensajeria } from "../../../lib/presupuestos/mensajeria";
 import type { EnvioItem, EstadoEnvio } from "../../../lib/presupuestos/types";

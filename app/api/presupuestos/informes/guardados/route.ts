@@ -4,7 +4,6 @@
 
 import { selectInformesRaw, updateInformeRaw, createInformeRaw } from "../../../../lib/informes";
 import { NextResponse } from "next/server";
-import { base, TABLES } from "../../../../lib/airtable";
 import type { InformeGuardado } from "../../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import {

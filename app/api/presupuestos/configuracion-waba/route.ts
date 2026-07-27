@@ -6,7 +6,6 @@
 
 import { findConfigWABAPorClinicaRaw, updateConfigWABARaw, createConfigWABARaw } from "../../../lib/presupuestos/waba-credentials";
 import { NextResponse } from "next/server";
-import { base, TABLES } from "../../../lib/airtable";
 import { hasWABACredentials, getWABACredentials } from "../../../lib/presupuestos/waba-credentials";
 import type { UserSession } from "../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";

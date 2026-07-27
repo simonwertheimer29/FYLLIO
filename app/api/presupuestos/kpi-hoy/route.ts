@@ -7,7 +7,6 @@
 
 import { selectMensajesWhatsAppRaw } from "../../../lib/presupuestos/mensajeria";
 import { NextResponse } from "next/server";
-import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
 export const dynamic = "force-dynamic";

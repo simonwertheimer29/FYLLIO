@@ -4,7 +4,6 @@
 
 import { selectClinicasCentralRaw } from "../auth/users";
 import { selectColaEnviosFetchAllRaw } from "../presupuestos/cola-envios-repo";
-import { baseCentral, base, TABLES, fetchAll } from "../airtable";
 import { selectPresupuestosRaw } from "../presupuestos/repo";
 import { listAllOpciones } from "../configuraciones/configuraciones";
 import { listLeads } from "../leads/leads";

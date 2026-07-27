@@ -2,8 +2,6 @@
 //
 // Sprint 17 Bloque 2/3 — repo Airtable para Llamadas_Vapi.
 
-import { base, fetchAll, TABLES } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 import type {
   EstadoLlamada,
   Llamada,

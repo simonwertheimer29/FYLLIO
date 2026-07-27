@@ -10,8 +10,6 @@
 // Esto permite que cada clinica adapte su workflow sin tocar codigo, y
 // que las clinicas que no han customizado nada hereden lo razonable.
 
-import { base, TABLES, fetchAll } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 
 export type ConfigCategoria =
   | "Metodos_Pago"

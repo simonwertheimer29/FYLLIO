@@ -20,7 +20,6 @@ import { createPacienteDesdeConversion } from "../../../../lib/pacientes/pacient
 import { withAuth } from "../../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../../lib/auth/users";
 import { getLead, markLeadConvertido, updateLead, appendLeadLog } from "../../../../lib/leads/leads";
-import { base, TABLES } from "../../../../lib/airtable";
 
 export const dynamic = "force-dynamic";
 

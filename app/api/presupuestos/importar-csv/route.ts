@@ -4,7 +4,6 @@
 
 import { NextResponse } from "next/server";
 import { createPresupuestosBatchRaw } from "../../../lib/presupuestos/repo";
-import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 

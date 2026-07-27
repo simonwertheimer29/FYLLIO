@@ -12,7 +12,6 @@
 import { findClinicaCentralRaw, selectClinicasCentralRaw } from "../auth/users";
 import { selectMensajesWhatsAppRaw } from "../presupuestos/mensajeria";
 import { DateTime } from "luxon";
-import { baseCentral, base, TABLES, fetchAll } from "../airtable";
 import { listClinicasNegocioCamposRaw } from "../clinicas-negocio";
 import { selectPresupuestosRaw } from "../presupuestos/repo";
 import { listPagosResumen } from "../pagos";

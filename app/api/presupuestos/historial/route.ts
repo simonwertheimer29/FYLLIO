@@ -1,9 +1,8 @@
 // app/api/presupuestos/historial/route.ts
 // GET: obtener historial de acciones de un presupuesto
 
-import { selectHistorialRaw } from "../../../lib/historial/registrar";
+import { listHistorialPorPresupuestos } from "../../../lib/historial/registrar";
 import { NextResponse } from "next/server";
-import { base, TABLES } from "../../../lib/airtable";
 import type { HistorialAccion } from "../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { verificarPresupuestoPermitido } from "../../../lib/presupuestos/clinica-scope";
@@ -23,12 +22,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   }
 
   try {
-    const formula = `{presupuesto_id}="${presupuestoId.replace(/"/g, '\\"')}"`;
-    const recs = await selectHistorialRaw({
-      filterByFormula: formula,
-      sort: [{ field: "fecha", direction: "desc" }],
-      maxRecords: 100,
-    });
+    const recs = await listHistorialPorPresupuestos([presupuestoId], 100);
 
     const historial: HistorialAccion[] = recs.map((rec) => {
       const f = (rec as any).fields as Record<string, unknown>;

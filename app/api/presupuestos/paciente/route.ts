@@ -1,10 +1,9 @@
 // app/api/presupuestos/paciente/route.ts
 // GET ?nombre=X — todos los presupuestos + historial de acciones de un paciente
 
-import { selectHistorialRaw } from "../../../lib/historial/registrar";
+import { listHistorialPorPresupuestos } from "../../../lib/historial/registrar";
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
-import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type { Presupuesto, HistorialAccion } from "../../../lib/presupuestos/types";
 import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
@@ -133,13 +132,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
 
     if (ids.length > 0) {
       try {
-        const orFormula = ids.map((id) => `{presupuesto_id}="${id}"`).join(",");
-        const formula = ids.length === 1 ? orFormula : `OR(${orFormula})`;
-        const hRecs = await selectHistorialRaw({
-          filterByFormula: formula,
-          sort: [{ field: "fecha", direction: "desc" }],
-          maxRecords: 200,
-        });
+        const hRecs = await listHistorialPorPresupuestos(ids, 200);
 
         historial = hRecs.map((r) => {
           const f = r.fields as any;

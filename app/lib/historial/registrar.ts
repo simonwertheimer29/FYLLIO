@@ -8,10 +8,8 @@
 // de pérdida de un presupuesto era inderivable — decisión de Simon: la
 // fecha de pérdida se deriva del cambio_estado→PERDIDO del historial).
 
-import { base, TABLES } from "../airtable";
 import type { TipoAccion } from "../presupuestos/types";
 import { DateTime } from "luxon";
-import { usaPostgres } from "../db/data-backend";
 
 export async function registrarAccion(args: {
   presupuestoId: string;
@@ -60,7 +58,6 @@ export async function registrarAccion(args: {
  */
 export async function fechasPerdidaPorPresupuesto(): Promise<Map<string, string>> {
   const map = new Map<string, string>();
-  if (!usaPostgres("presupuestos")) return map;
   try {
     const { runWithClienteDb } = await import("../db/context");
     const { currentCliente } = await import("../airtable");
@@ -93,11 +90,29 @@ export async function fechasPerdidaPorPresupuesto(): Promise<Map<string, string>
   return map;
 }
 
-// FASE 1 migración — lecturas de Historial_Acciones para las rutas.
-export async function selectHistorialRaw(opts: {
-  filterByFormula?: string;
-  sort?: Array<{ field: string; direction: "asc" | "desc" }>;
-  maxRecords?: number;
-}): Promise<readonly any[]> {
-  return base(TABLES.historialAcciones as any).select(opts as any).all();
+/**
+ * Historial de uno o varios presupuestos, más reciente primero. MEJORAS 44 —
+ * antes era un passthrough con filterByFormula y cada caller componía la
+ * fórmula a mano (uno con un OR de N ids).
+ */
+export async function listHistorialPorPresupuestos(
+  presupuestoIds: string[],
+  limite = 200,
+): Promise<Array<{ id: string; fields: Record<string, unknown> }>> {
+  if (!presupuestoIds.length) return [];
+  const { runWithClienteDb } = await import("../db/context");
+  const { requireCliente } = await import("../cliente-contexto");
+  const rows = await runWithClienteDb(requireCliente("listHistorialPorPresupuestos"), (trx) =>
+    trx.selectFrom("historial_acciones").selectAll()
+      .where("presupuesto_id", "in", presupuestoIds)
+      .orderBy("fecha", "desc").limit(limite).execute(),
+  );
+  return rows.map((r: any) => ({
+    id: r.id,
+    fields: {
+      presupuesto_id: r.presupuesto_id, tipo: r.tipo, descripcion: r.descripcion,
+      metadata: r.metadata, registrado_por: r.registrado_por,
+      fecha: r.fecha instanceof Date ? r.fecha.toISOString() : r.fecha,
+    },
+  }));
 }

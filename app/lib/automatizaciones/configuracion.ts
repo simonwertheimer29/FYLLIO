@@ -4,8 +4,6 @@
 // Configuracion_Automatizaciones (umbrales por clínica del subsistema de
 // secuencias). Único punto de acceso; en FASE 2 cambia a Postgres.
 
-import { base, TABLES } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 
 /** Config de una clínica (por nombre), o null. Record crudo. */
 export async function findConfigPorClinicaRaw(clinica: string): Promise<any | null> {

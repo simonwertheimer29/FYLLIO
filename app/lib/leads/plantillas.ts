@@ -4,8 +4,6 @@
 // Único punto de acceso a la tabla; Airtable vive solo aquí. En FASE 2 este
 // archivo cambia su interior a Postgres sin tocar a los callers.
 
-import { base, TABLES, fetchAll } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 
 export type PlantillaLead = {
   id: string;

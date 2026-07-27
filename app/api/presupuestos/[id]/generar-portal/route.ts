@@ -8,7 +8,6 @@ import { getPresupuestoPorIdRaw } from "../../../../lib/presupuestos/repo";
 import { kv } from "@vercel/kv";
 import { randomBytes } from "crypto";
 import Anthropic from "@anthropic-ai/sdk";
-import { base, TABLES } from "../../../../lib/airtable";
 import { registrarAccion } from "../../../../lib/historial/registrar";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../../lib/presupuestos/clinica-scope";

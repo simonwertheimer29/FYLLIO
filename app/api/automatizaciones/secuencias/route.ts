@@ -4,7 +4,6 @@
 
 import { NextResponse } from "next/server";
 import { listSecuenciasFiltradasRaw, patchSecuencia, findSecuenciaRaw } from "../../../lib/automatizaciones/secuencias";
-import { base, TABLES } from "../../../lib/airtable";
 import type { Secuencia } from "../../../lib/presupuestos/types";
 import { registrarAccion } from "../../../lib/historial/registrar";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";

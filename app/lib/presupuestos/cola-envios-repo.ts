@@ -3,8 +3,6 @@
 // FASE 1 migración — repositorio de la tabla Cola_Envios (passthrough).
 // FASE 2 — delegación por flag a Postgres (dominio "cola-envios").
 
-import { base, TABLES, fetchAll } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 
 export async function selectColaEnviosRaw(opts: {
   fields?: string[];

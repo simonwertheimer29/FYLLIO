@@ -5,7 +5,6 @@
 import { NextResponse } from "next/server";
 import { getPresupuestoPorIdRaw, updatePresupuestoRaw } from "../../../lib/presupuestos/repo";
 import { listContactosDePresupuestoRaw, createContactoConRecordRaw } from "../../../lib/presupuestos/contactos";
-import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type { Contacto } from "../../../lib/presupuestos/types";
 import { DEMO_CONTACTOS } from "../../../lib/presupuestos/demo";

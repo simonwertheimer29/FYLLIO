@@ -10,8 +10,6 @@
 // entradas/salidas se hace al voltear el módulo en FASE 2, verificado
 // contra los goldens de paridad (cola de intervención + KPIs).
 
-import { base, TABLES, fetchAll } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 
 export type SelectPresupuestosOpts = {
   fields?: string[];

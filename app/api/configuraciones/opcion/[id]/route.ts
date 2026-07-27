@@ -16,7 +16,6 @@ import { findConfigClinicaRaw } from "../../../../lib/configuraciones/configurac
 import { NextResponse } from "next/server";
 import { withAuth } from "../../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../../lib/auth/users";
-import { base, TABLES } from "../../../../lib/airtable";
 import {
   actualizarOpcion,
   eliminarOpcion,

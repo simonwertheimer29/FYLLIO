@@ -1,6 +1,4 @@
 // app/lib/scheduler/repo/waitlistRepo.ts
-import { base, TABLES } from "../../airtable";
-import { usaPostgres } from "../../db/data-backend";
 
 export type WaitlistEntry = {
   recordId: string;
@@ -162,9 +160,7 @@ export async function getPatientContact(params: { patientRecordId: string }) {
 
 /** Utilidad: leer tratamiento (duración/buffers/nombre) por recordId */
 export async function getTreatmentMeta(params: { treatmentRecordId: string }) {
-  const r = usaPostgres("agenda")
-    ? (await (await import("./pg")).listTratamientosPorIdsRawPg([params.treatmentRecordId]))[0]
-    : await base(TABLES.treatments).find(params.treatmentRecordId);
+  const r = (await (await import("./pg")).listTratamientosPorIdsRawPg([params.treatmentRecordId]))[0];
   const f: any = r?.fields || {};
   return {
     name: str(f["Categoria"]) || "Tratamiento",

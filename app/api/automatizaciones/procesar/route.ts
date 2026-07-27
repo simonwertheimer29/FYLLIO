@@ -12,7 +12,6 @@ import { listPresupuestoIdsPendientes, createSecuenciaRaw } from "../../../lib/a
 import { listCitasResumenNoShowRaw } from "../../../lib/scheduler/repo/airtableRepo";
 import { cookies } from "next/headers";
 import { kv } from "@vercel/kv";
-import { base, TABLES } from "../../../lib/airtable";
 import type { TipoEvento, ConfiguracionAutomatizacion } from "../../../lib/presupuestos/types";
 import { sendPushToClinica, sendPushToAll } from "../../../lib/push/sender";
 import { DateTime } from "luxon";

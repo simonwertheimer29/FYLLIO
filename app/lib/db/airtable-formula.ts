@@ -1,3 +1,9 @@
+// NOTA (MEJORAS 44, 2026-07-27): Airtable ya no existe en el producto, pero
+// este evaluador sigue vivo porque ~10 repos de Postgres reciben todavía un
+// `filterByFormula` en formato Airtable que componen sus callers. Es una
+// DEUDA acotada: el siguiente paso es tipar esos filtros y borrar este
+// intérprete. Mientras tanto no habla con Airtable — solo interpreta su
+// dialecto sobre filas de Postgres.
 // app/lib/db/airtable-formula.ts
 //
 // Evaluador del subconjunto de fórmulas Airtable (`filterByFormula`) que componen

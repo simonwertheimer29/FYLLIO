@@ -7,7 +7,6 @@ import { selectPlantillasMensajeRaw } from "../../../../lib/plantillas/plantilla
 import { selectColaEnviosRaw, createColaEnvioRaw } from "../../../../lib/presupuestos/cola-envios-repo";
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw } from "../../../../lib/presupuestos/repo";
-import { base, TABLES } from "../../../../lib/airtable";
 import { DateTime } from "luxon";
 import type {
   PlantillaMensaje,

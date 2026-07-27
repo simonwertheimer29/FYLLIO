@@ -23,7 +23,6 @@ import { listClinicaIdsForUser } from "../../../lib/auth/users";
 import { listLeads, type Lead, type LeadCanal } from "../../../lib/leads/leads";
 import { listAccionesDesde, primeraAccionLeadTimestamp } from "../../../lib/leads/acciones";
 import { getFacturadoEnPeriodo, getFacturadoPorPacientes } from "../../../lib/pagos";
-import { baseCentral, base, TABLES, fetchAll } from "../../../lib/airtable";
 export const dynamic = "force-dynamic";
 
 type Periodo = "hoy" | "semana" | "mes" | "mes_anterior" | "trimestre";

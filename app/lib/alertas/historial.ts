@@ -1,8 +1,6 @@
 // app/lib/alertas/historial.ts
 // Sprint 8 D.7 — acceso a Alertas_Enviadas para cooldown + log.
 
-import { base, TABLES, fetchAll } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 import type { TipoAlerta } from "./templates";
 
 export type AlertaEnviada = {

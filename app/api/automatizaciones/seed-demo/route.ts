@@ -4,7 +4,6 @@
 
 import { NextResponse } from "next/server";
 import { listSecuenciaIdsPorPresupuestos, destroySecuencias, createSecuenciasRaw } from "../../../lib/automatizaciones/secuencias";
-import { base, TABLES } from "../../../lib/airtable";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
 // Sprint B — migrado a withPresupuestosAuth para fijar el contexto de cliente.

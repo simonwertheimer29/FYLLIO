@@ -1,8 +1,6 @@
 // app/lib/leads/leads.ts
 // Sprint 8 Bloque B — repositorio de Leads.
 
-import { base, TABLES, fetchAll } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 
 /**
  * Sprint 9: el enum Airtable sigue incluyendo "Citados Hoy" como valor

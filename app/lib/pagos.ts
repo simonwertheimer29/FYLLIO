@@ -13,8 +13,6 @@
 //  - getFacturadoEnPeriodo() lee Pagos_Paciente directamente filtrando
 //    por Fecha_Pago. Soporta filtro por clinica + soloOrigenLead.
 
-import { base, TABLES, fetchAll } from "./airtable";
-import { usaPostgres } from "./db/data-backend";
 import {
   listResumenFinancieroPorIds,
   sumPendientePorIds,
@@ -132,39 +130,9 @@ async function getPendienteSum(pacIds: string[]): Promise<number> {
 // que la sincronización, su log de inconsistencias y su reconciliación mueren
 // con ellas: no se puede desincronizar lo que no se duplica.
 
-/**
- * Sprint 14a Bloque 6 — auditoria de operaciones CRUD en Acciones_Pago.
- * Fire-and-forget: si falla el log no abortamos la operacion principal,
- * solo console.error.
- */
-async function logAccionPago(args: {
-  pagoId: string;
-  pacienteId: string;
-  tipo: "Crear" | "Editar" | "Eliminar" | "Reembolsar";
-  importeAntes?: number | null;
-  importeDespues?: number | null;
-  usuarioId?: string | null;
-  notaCambio?: string;
-}): Promise<void> {
-  try {
-    const fields: Record<string, unknown> = {
-      Resumen: `${args.tipo} · ${args.pagoId.slice(0, 6)} · paciente ${args.pacienteId.slice(0, 6)}`,
-      Pago_Link: [args.pagoId],
-      Tipo: args.tipo,
-      Fecha: new Date().toISOString(),
-    };
-    if (args.importeAntes != null) fields["Importe_Antes"] = args.importeAntes;
-    if (args.importeDespues != null) fields["Importe_Despues"] = args.importeDespues;
-    if (args.usuarioId) fields["Usuario"] = [args.usuarioId];
-    if (args.notaCambio) fields["Nota_Cambio"] = args.notaCambio;
-    await base(TABLES.accionesPago as any).create([{ fields } as any]);
-  } catch (err) {
-    console.error(
-      "[pagos] log Acciones_Pago:",
-      err instanceof Error ? err.message : err,
-    );
-  }
-}
+// El log de auditoría de pagos lo escribe el repo de Postgres
+// (logAccionPagoPgIntern); aquí vivía su gemelo de Airtable, sin llamadores.
+
 
 /**
  * Crea un Pago en Pagos_Paciente y sincroniza Pacientes.Pagado (cache)
