@@ -575,10 +575,10 @@ export function LeadAccionPanel({
 
   async function cambiarEstado(nuevo: Lead["estado"], extra?: Record<string, unknown>) {
     setSavingEstado(true);
+    // El motivo viaja SIEMPRE explícito desde el botón que lo declara
+    // ("Rechazó" / "No asistió"). El default silencioso que había aquí
+    // inventaba "Rechazo_Producto" y contaminaba los KPIs de pérdida.
     const body: Record<string, unknown> = { estado: nuevo, ...extra };
-    if (nuevo === "No Interesado" && !lead.motivoNoInteres && !extra?.motivoNoInteres) {
-      body.motivoNoInteres = "Rechazo_Producto";
-    }
     try {
       const res = await fetch(`/api/leads/${lead.id}`, {
         method: "PATCH",

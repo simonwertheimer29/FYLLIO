@@ -29,6 +29,7 @@ import { contarPipeline, textoPipeline } from "../../lib/leads/pipeline";
 import { NewLeadModal } from "./NewLeadModal";
 import { AccionPanel } from "../../components/shared/AccionPanel";
 import { AgendarModal } from "./AgendarModal";
+import { MotivoNoInteresModal } from "./MotivoNoInteresModal";
 import { AsistenciaModal } from "./AsistenciaModal";
 import type { Lead, LeadEstado } from "./types";
 import {
@@ -105,6 +106,10 @@ export function LeadsView({
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null);
   const [agendarLead, setAgendarLead] = useState<Lead | null>(null);
   const [asistenciaLead, setAsistenciaLead] = useState<Lead | null>(null);
+  const [pendingNoInteres, setPendingNoInteres] = useState<{
+    lead: Lead;
+    destColumn: LeadEstado;
+  } | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   // Actividad por lead (última acción o mensaje) — alimenta el rango
@@ -179,48 +184,21 @@ export function LeadsView({
     setDraggingId(String(e.active.id));
   }, []);
 
-  const handleDragEnd = useCallback(
-    async (e: DragEndEvent) => {
-      setDraggingId(null);
-      const activeId = String(e.active.id);
-      const overId = e.over?.id ? String(e.over.id) : null;
-      if (!overId) return;
-      // overId puede ser una columna (id) o una tarjeta.
+  // Movimiento efectivo de un lead entre columnas. Separado del drag para que
+  // el modal de motivo pueda reanudarlo con la respuesta de la coordinadora.
+  const aplicarMovimiento = useCallback(
+    async (lead: Lead, destColumn: LeadEstado, motivoElegido?: Lead["motivoNoInteres"]) => {
       const today = TODAY_ISO();
-      const overColumn = COLUMNS.find((c) => c.id === overId);
-      const overLead = leads.find((l) => l.id === overId);
-      const destColumn: LeadEstado | undefined = overColumn
-        ? overColumn.id
-        : overLead
-          ? columnOf(overLead, today)
-          : undefined;
-      if (!destColumn) return;
-
-      const lead = leads.find((l) => l.id === activeId);
-      if (!lead) return;
-      const fromColumn = columnOf(lead, today);
-      if (fromColumn === destColumn) return;
-
+      const activeId = lead.id;
       // Citados Hoy es columna derivada: el Estado canónico que escribimos
       // en Airtable es "Citado" + Fecha_Cita=hoy.
-      const destEstado: LeadEstado =
-        destColumn === "Citados Hoy" ? "Citado" : destColumn;
+      const destEstado: LeadEstado = destColumn === "Citados Hoy" ? "Citado" : destColumn;
 
-      // Sprint 9 G.2: Contactado → Citado/Citados Hoy requiere modal
-      // obligatorio (fecha/hora/doctor/tratamiento/tipo_visita). Si la
-      // columna destino es Citados Hoy, AgendarModal ya defaultea a hoy.
-      if (lead.estado === "Contactado" && destEstado === "Citado") {
-        setAgendarLead(lead);
-        return;
-      }
-
-      // Sprint 9 G.4: arrastrar a "No Interesado" marca motivo=Rechazo por
-      // defecto. El flujo "No asistió" pasa por el botón dedicado del drawer.
-      // Otras transiciones limpian el motivo.
       const patchBody: Record<string, any> = { estado: destEstado };
-      if (destEstado === "No Interesado" && !lead.motivoNoInteres) {
-        patchBody.motivoNoInteres = "Rechazo_Producto";
-      } else if (destEstado !== "No Interesado" && lead.motivoNoInteres) {
+      if (destEstado === "No Interesado") {
+        // El motivo lo declara la coordinadora en el modal — nunca se asume.
+        if (motivoElegido) patchBody.motivoNoInteres = motivoElegido;
+      } else if (lead.motivoNoInteres) {
         patchBody.motivoNoInteres = null;
       }
       // Drop en columna "Citados Hoy" desde cualquier Estado≠Contactado:
@@ -271,7 +249,53 @@ export function LeadsView({
         toast.error("No se pudo mover el lead. Inténtalo de nuevo.");
       }
     },
-    [leads]
+    []
+  );
+
+  const handleDragEnd = useCallback(
+    async (e: DragEndEvent) => {
+      setDraggingId(null);
+      const activeId = String(e.active.id);
+      const overId = e.over?.id ? String(e.over.id) : null;
+      if (!overId) return;
+      // overId puede ser una columna (id) o una tarjeta.
+      const today = TODAY_ISO();
+      const overColumn = COLUMNS.find((c) => c.id === overId);
+      const overLead = leads.find((l) => l.id === overId);
+      const destColumn: LeadEstado | undefined = overColumn
+        ? overColumn.id
+        : overLead
+          ? columnOf(overLead, today)
+          : undefined;
+      if (!destColumn) return;
+
+      const lead = leads.find((l) => l.id === activeId);
+      if (!lead) return;
+      const fromColumn = columnOf(lead, today);
+      if (fromColumn === destColumn) return;
+
+      const destEstado: LeadEstado = destColumn === "Citados Hoy" ? "Citado" : destColumn;
+
+      // Sprint 9 G.2: Contactado → Citado/Citados Hoy requiere modal
+      // obligatorio (fecha/hora/doctor/tratamiento/tipo_visita). Si la
+      // columna destino es Citados Hoy, AgendarModal ya defaultea a hoy.
+      if (lead.estado === "Contactado" && destEstado === "Citado") {
+        setAgendarLead(lead);
+        return;
+      }
+
+      // Coherencia de kanban (2026-07-27): descartar un lead PREGUNTA el
+      // motivo, igual que su gemelo de Presupuestos. Antes se escribía
+      // "Rechazo_Producto" en silencio y ese dato inventado alimentaba los
+      // KPIs de motivo de pérdida.
+      if (destEstado === "No Interesado" && !lead.motivoNoInteres) {
+        setPendingNoInteres({ lead, destColumn });
+        return;
+      }
+
+      await aplicarMovimiento(lead, destColumn);
+    },
+    [leads, aplicarMovimiento]
   );
 
   async function onLeadCreated(lead: Lead) {
@@ -426,6 +450,18 @@ export function LeadsView({
           onSaved={(updated) => {
             onLeadUpdated(updated);
             setAgendarLead(null);
+          }}
+        />
+      )}
+
+      {pendingNoInteres && (
+        <MotivoNoInteresModal
+          nombre={pendingNoInteres.lead.nombre}
+          onCancel={() => setPendingNoInteres(null)}
+          onConfirm={(motivo) => {
+            const { lead, destColumn } = pendingNoInteres;
+            setPendingNoInteres(null);
+            aplicarMovimiento(lead, destColumn, motivo);
           }}
         />
       )}

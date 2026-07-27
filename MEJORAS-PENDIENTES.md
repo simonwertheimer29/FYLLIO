@@ -571,3 +571,41 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   único) y retirar el campo del payload.
 - **Impacto:** bajo hoy, medio como higiene (evita que el score reviva por la puerta de atrás).
 - **Fecha:** 2026-07-26 · 🔵
+
+## 41. El seed de demo escribe motivos de descarte fuera del vocabulario real
+- **Zona:** `scripts/db-seed-demo-rico.mjs:215` y `:735`; consumido por
+  `LeadsView` (agrupación de "No Interesado") y `LeadAccionPanel.tsx:140`
+- **Principio:** §5 confianza — el campo `Motivo_No_Interes` es un single-select de DOS
+  opciones en las dos bases reales (`Rechazo_Producto`, `No_Asistio`), pero el seed inventa
+  texto libre ("Problema de horarios", "Se fue a otra clínica más barata"): **158 de 158**
+  leads descartados de DEMO están fuera del enum. Consecuencia visible: la agrupación
+  "No asistió / Rechazo" mete todo en Rechazo, y el panel afirma "rechazó la propuesta" de
+  un lead cuyo motivo guardado dice otra cosa. Es la pantalla que se enseña en demos.
+- **Mejora:** que el seed use los dos valores reales; si se quiere el matiz rico, primero
+  ampliar el vocabulario (nº 42) y después sembrarlo.
+- **Impacto:** alto en credibilidad de demo, bajo en producción (las bases piloto están
+  vacías de leads).
+- **Fecha:** 2026-07-27 · 🔵
+
+## 42. El motivo de descarte de un lead tiene 2 opciones; el de un presupuesto, 7
+- **Zona:** single-select `Motivo_No_Interes` (Airtable, ambas bases), `LeadMotivoNoInteres`
+  en `app/lib/leads/leads.ts:32`, `MotivoNoInteresModal`
+- **Principio:** misión (§1, perder menos) — al preguntar el motivo (2026-07-27) queda a la
+  vista que sólo se puede responder "no le interesa" o "no asistió". El gemelo de
+  presupuestos distingue precio, otra clínica, financiación, miedo, sin respuesta… que es
+  justo lo que permite actuar sobre la causa.
+- **Mejora:** ampliar el single-select y el tipo con el vocabulario de presupuestos, y
+  añadir el "otro (especificar)" con texto libre.
+- **Impacto:** alto para los KPIs de pérdida de leads (hoy no dicen nada accionable);
+  requiere tocar esquema de Airtable, por eso no entró en la tanda de coherencia.
+- **Fecha:** 2026-07-27 · 🔵
+
+## 43. El Copilot sigue fijando el motivo de descarte por defecto
+- **Zona:** `app/lib/copilot/actions-exec.ts:81`
+- **Principio:** §5 confianza — al cerrar la escritura silenciosa del kanban y del panel
+  (2026-07-27) queda este cuarto camino: si se pide "marca a X como no interesado" sin
+  motivo, el Copilot escribe `Rechazo_Producto` por su cuenta.
+- **Mejora:** que la acción pida el motivo en la confirmación previa (el Copilot ya tiene
+  patrón de preview + Confirmar) en vez de rellenarlo.
+- **Impacto:** medio — mismo dato contaminado, por una puerta menos usada.
+- **Fecha:** 2026-07-27 · 🔵
