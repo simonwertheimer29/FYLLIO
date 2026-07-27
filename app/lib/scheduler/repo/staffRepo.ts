@@ -26,7 +26,10 @@ function firstBool(x: unknown): boolean {
 }
 
 export async function listStaff(): Promise<StaffRow[]> {
-  const records = await base(TABLES.staff).select({ maxRecords: 200 }).all();
+  // MEJORAS 45 — esta era la única función del repo sin gate: leía Airtable
+  // siempre, y Staff está vacía en las bases piloto.
+  const { listStaffFirstPageRawPg } = await import("./pg");
+  const records = await listStaffFirstPageRawPg(200);
 
   return records.map((r: any) => {
     const f: any = r.fields;

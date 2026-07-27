@@ -7,25 +7,13 @@ import { listClinicas } from "../../lib/auth/users";
 import { listPacientes } from "../../lib/pacientes/pacientes";
 import { finanzasPorPaciente } from "../../lib/finanzas-paciente";
 import { proximaCitaPorPaciente } from "../../lib/pacientes/edicion";
-import { base, TABLES, fetchAll, runWithCliente } from "../../lib/airtable";
+import { listDoctores } from "@/lib/staff/doctores";
+import { runWithCliente } from "../../lib/cliente-contexto";
 import { clinicasNegocioAccesibles, negocioIdToCentralId } from "../../lib/clinicas-negocio";
 import { PacientesView } from "./PacientesView";
 
 export const dynamic = "force-dynamic";
 
-async function listDoctores(): Promise<Array<{ id: string; nombre: string; clinicaId: string | null }>> {
-  const recs = await fetchAll(
-    base(TABLES.staff).select({ filterByFormula: "{Rol}='Dentista'" })
-  );
-  return recs.map((r) => {
-    const clis = (r.fields?.["Clínica"] ?? []) as string[];
-    return {
-      id: r.id,
-      nombre: String(r.fields?.["Nombre"] ?? ""),
-      clinicaId: clis[0] ?? null,
-    };
-  });
-}
 
 export default async function PacientesPage() {
   const session = await getSession();

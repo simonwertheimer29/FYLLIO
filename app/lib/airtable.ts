@@ -1,6 +1,11 @@
 // app/lib/airtable.ts
 import Airtable from "airtable";
-import { AsyncLocalStorage } from "node:async_hooks";
+// MEJORAS 44 paso 1 — el contexto de cliente ya no vive aquí: se reexporta
+// para no romper 160 imports de golpe, y desaparece con este módulo.
+import { runWithCliente, currentCliente, type Cliente } from "./cliente-contexto";
+
+export { runWithCliente, currentCliente };
+export type { Cliente };
 
 export const TABLES = {
   waitlist: "Lista_de_espera",
@@ -81,24 +86,6 @@ type TableName = (typeof TABLES)[keyof typeof TABLES];
 //
 // `baseCentral(tabla)` accede a IDENTIDAD y siempre usa la base central.
 
-export type Cliente = "RB" | "INDEP" | "DEMO";
-
-const clienteContext = new AsyncLocalStorage<Cliente>();
-
-/**
- * Ejecuta `fn` con `cliente` fijado en el contexto de la petición. Todas las
- * llamadas a `base()` dentro de `fn` (y su cadena async) resolverán esa base.
- * Es la ÚNICA forma de habilitar el acceso a datos de negocio.
- */
-export function runWithCliente<T>(cliente: Cliente, fn: () => T): T {
-  return clienteContext.run(cliente, fn);
-}
-
-/** Cliente actual del contexto, o null si no hay ninguno establecido. */
-export function currentCliente(): Cliente | null {
-  return clienteContext.getStore() ?? null;
-}
-
 function requireEnv(name: string): string {
   const v = process.env[name];
   if (!v) throw new Error(`Missing env var ${name} (Sprint B multi-base)`);
@@ -135,7 +122,7 @@ function airtableBase(baseId: string): Airtable.Base {
  * FAIL-CLOSED: lanza si no hay cliente establecido (nunca base por defecto).
  */
 export function base(tableName: TableName) {
-  const cliente = clienteContext.getStore();
+  const cliente = currentCliente();
   if (!cliente) {
     throw new Error(
       `[aislamiento] base("${tableName}") llamado sin cliente en contexto. ` +

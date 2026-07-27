@@ -6,25 +6,13 @@ import { redirect } from "next/navigation";
 import { getSession } from "../../lib/auth/session";
 import { listClinicas } from "../../lib/auth/users";
 import { listLeads } from "../../lib/leads/leads";
-import { base, TABLES, fetchAll, runWithCliente } from "../../lib/airtable";
+import { listDoctores } from "@/lib/staff/doctores";
+import { runWithCliente } from "../../lib/cliente-contexto";
 import { clinicasNegocioAccesibles, negocioIdToCentralId } from "../../lib/clinicas-negocio";
 import { LeadsView } from "./LeadsView";
 
 export const dynamic = "force-dynamic";
 
-async function listDoctores(): Promise<Array<{ id: string; nombre: string; clinicaId: string | null }>> {
-  const recs = await fetchAll(
-    base(TABLES.staff).select({ filterByFormula: "{Rol}='Dentista'" })
-  );
-  return recs.map((r) => {
-    const clis = (r.fields?.["Clínica"] ?? []) as string[];
-    return {
-      id: r.id,
-      nombre: String(r.fields?.["Nombre"] ?? ""),
-      clinicaId: clis[0] ?? null,
-    };
-  });
-}
 
 export default async function LeadsPage() {
   const session = await getSession();
