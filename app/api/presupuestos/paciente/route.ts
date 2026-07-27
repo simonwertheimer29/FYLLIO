@@ -7,7 +7,6 @@ import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type { Presupuesto, HistorialAccion } from "../../../lib/presupuestos/types";
-import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
@@ -107,7 +106,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         daysSince: daysSince(fechaPresupuesto),
         clinica: f["Clinica"] ? String(f["Clinica"]) : (metaMatch ? metaMatch[2].trim() : undefined),
         notes: notasStr || undefined,
-        urgencyScore: 0,
         contactCount: Number(f["ContactCount"] ?? 0),
         createdBy: f["CreadoPor"] ? String(f["CreadoPor"]) : undefined,
         origenLead: f["OrigenLead"] ?? undefined,
@@ -118,7 +116,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         portalEnviado: f["PortalEnviado"] === true,
         ofertaActiva: f["OfertaActiva"] === true,
       };
-      p.urgencyScore = computeUrgencyScore(p);
       return p;
     });
 

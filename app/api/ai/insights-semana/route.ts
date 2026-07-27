@@ -123,7 +123,9 @@ export async function POST(req: Request) {
       `  Tasa: ${curr.tasa}% (ant. ${prev.tasa}%)`,
       `  Importe aceptado: €${curr.importe.toLocaleString("es-ES")} (ant. €${prev.importe.toLocaleString("es-ES")})`,
       `Total activos en pipeline: ${presupuestos.filter((p) => ["INTERESADO","EN_DUDA","EN_NEGOCIACION"].includes(p.estado)).length}`,
-      `Riesgo alto sin contactar: ${presupuestos.filter((p) => p.urgencyScore >= 70 && ["INTERESADO","EN_DUDA","EN_NEGOCIACION"].includes(p.estado)).length}`,
+      // Mismo criterio que ordena el producto (días parados), no un score
+      // aparte: 14 días es el umbral de "esto lleva demasiado quieto".
+      `Parados 14 días o más: ${presupuestos.filter((p) => p.daysSince >= 14 && ["INTERESADO","EN_DUDA","EN_NEGOCIACION"].includes(p.estado)).length}`,
       `Genera 3 bullets accionables para el equipo de ventas esta semana.`,
     ].join("\n");
 

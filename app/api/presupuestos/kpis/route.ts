@@ -12,7 +12,6 @@ import type {
 } from "../../../lib/presupuestos/types";
 import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
 import { PIPELINE_ORDEN, ESTADOS_ACEPTADOS } from "../../../lib/presupuestos/colors";
-import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 import { detectarTecho } from "../../../lib/presupuestos/priceCeiling";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import {
@@ -329,14 +328,12 @@ async function fetchFromAirtable(session: UserSession, clinicaFormula: string | 
         daysSince: daysSince(fechaPresupuesto),
         clinica: f["Clinica"] ? String(f["Clinica"]) : undefined,
         notes: f["Notas"] ? String(f["Notas"]) : undefined,
-        urgencyScore: 0,
         lastContactDate: undefined,
         lastContactDaysAgo: undefined,
         contactCount: Number(f["ContactCount"] ?? 0),
         origenLead: f["OrigenLead"] ?? undefined,
         motivoPerdida: f["MotivoPerdida"] ?? undefined,
       };
-      p.urgencyScore = computeUrgencyScore(p);
       return p;
     });
   } catch {

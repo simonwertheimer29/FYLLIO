@@ -209,13 +209,6 @@ export const POST = withPresupuestosAuth(async (_session) => {
       const tratamiento = tratamientoRaw.split(/[,+]/)[0].trim() || "el tratamiento";
 
       const activos = ["PRESENTADO", "INTERESADO", "EN_DUDA", "EN_NEGOCIACION"];
-      const urgencyScore = (() => {
-        if (!activos.includes(estado)) return 0;
-        if (ds >= 30) return 85;
-        if (ds >= 14) return 75;
-        if (ds >= 7) return 55;
-        return 25;
-      })();
 
       const portalEnviado = f["PortalEnviado"] === true;
       const reactivacion = f["Reactivacion"] === true;
@@ -227,7 +220,9 @@ export const POST = withPresupuestosAuth(async (_session) => {
       // EVENTO 1 — presupuesto inactivo
       if (
         activos.includes(estado) &&
-        urgencyScore >= 50 &&
+        // Era `urgencyScore >= 50`, que con la escala del score significaba
+        // exactamente esto: 7 días parados (MEJORAS 40 — el score se retiró).
+        ds >= 7 &&
         ds >= config.diasInactividadAlerta
       ) {
         tipoEvento = "presupuesto_inactivo";
@@ -304,7 +299,7 @@ export const POST = withPresupuestosAuth(async (_session) => {
         if (!ACTIVOS.includes(estado)) return false;
         const fecha = String(f["Fecha"] ?? "").slice(0, 10);
         const ds = fecha ? daysSince(fecha) : 0;
-        return ds >= 14; // urgencyScore >= 75
+        return ds >= 14;
       });
       const enJuego = riesgoAlto.reduce((s, r) => {
         const f = r.fields as any;

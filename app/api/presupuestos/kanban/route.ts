@@ -8,7 +8,6 @@ import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type { Presupuesto, UserSession } from "../../../lib/presupuestos/types";
 import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
-import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 import { isDemoAllowed } from "../../../lib/demo/seed";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { fechasPerdidaPorPresupuesto } from "../../../lib/historial/registrar";
@@ -178,17 +177,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         daysSince: daysSince(fechaPresupuesto),
         clinica: f["Clinica"] ? String(f["Clinica"]) : parsedClinica,
         notes: notasStr || undefined,
-        urgencyScore: (() => {
-          const active = ["PRESENTADO", "INTERESADO", "EN_DUDA", "EN_NEGOCIACION"].includes(
-            String(f["Estado"] ?? "PRESENTADO")
-          );
-          if (!active) return 0;
-          const d = daysSince(fechaPresupuesto);
-          if (d >= 30) return 85;
-          if (d >= 14) return 75;
-          if (d >= 7)  return 55;
-          return 25;
-        })(),
         lastContactDate,
         lastContactDaysAgo: lastContactDate ? daysSince(lastContactDate) : undefined,
         contactCount: Number(f["ContactCount"] ?? 0),
@@ -203,7 +191,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         ofertaActiva: f["OfertaActiva"] === true,
         fechaAceptado: f["Fecha_Aceptado"] ? String(f["Fecha_Aceptado"]).slice(0, 10) : null,
       };
-      p.urgencyScore = computeUrgencyScore(p);
       return p;
     });
 
@@ -345,14 +332,11 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
       daysSince: 0,
       clinica: clinica ?? undefined,
       notes: notasValue || undefined,
-      urgencyScore: 0,
       contactCount: 0,
       createdBy: session.email,
       numeroHistoria: body.numeroHistoria ?? undefined,
       origenLead: body.origenLead ?? undefined,
     };
-    presupuesto.urgencyScore = computeUrgencyScore(presupuesto);
-
     return NextResponse.json({ presupuesto }, { status: 201 });
   } catch (err) {
     // P0.6: crear presupuesto es una escritura; un fallo devuelve error real

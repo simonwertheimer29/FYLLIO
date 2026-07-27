@@ -9,7 +9,6 @@ import { NextResponse } from "next/server";
 import { selectPresupuestosRaw, updatePresupuestoRaw } from "../../../lib/presupuestos/repo";
 import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import { DateTime } from "luxon";
-import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 import { generarMensajeSugerido } from "../../../lib/presupuestos/intervencion";
 import type {
   PresupuestoIntervencion,
@@ -273,7 +272,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         daysSince: ds,
         clinica: clinica || undefined,
         notes: f["Notas"] ? String(f["Notas"]) : undefined,
-        urgencyScore: 0,
         contactCount: Number(f["ContactCount"] ?? 0),
         origenLead: f["OrigenLead"] || undefined,
         motivoDuda: f["MotivoDuda"] || undefined,
@@ -291,7 +289,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         diasDesdeUltimoContacto,
       };
 
-      p.urgencyScore = computeUrgencyScore(p);
       p.urgenciaBidireccional = computeUrgenciaBidireccional(p);
 
       // UNA clasificación para todas las pantallas (helper compartido con el

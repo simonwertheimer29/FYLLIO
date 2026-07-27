@@ -53,7 +53,6 @@ export type Presupuesto = {
   daysSince: number;
   clinica?: string;
   notes?: string;
-  urgencyScore: number;
   lastContactDate?: string;
   lastContactDaysAgo?: number;
   contactCount: number;

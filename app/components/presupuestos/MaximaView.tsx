@@ -30,7 +30,10 @@ const PILL_DEFS: { id: PillCategory; label: string; estadosVisuales: EstadoVisua
 
 // ─── Sort fields ─────────────────────────────────────────────────────────────
 
-type SortField = "urgency" | "fecha" | "amount" | "nombre";
+// Ordenar por "urgencia" vivía aquí sin cabecera que lo disparase (MEJORAS 40):
+// código muerto de un criterio muerto. La fecha del presupuesto ordenada desc
+// ES el orden por días parados, así que no hace falta una cuarta columna.
+type SortField = "fecha" | "amount" | "nombre";
 
 function formatCurrency(n: number): string {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + " €";
@@ -138,9 +141,6 @@ export default function MaximaView({
     const sorted = [...items].sort((a, b) => {
       let cmp = 0;
       switch (sortField) {
-        case "urgency":
-          cmp = a.urgencyScore - b.urgencyScore;
-          break;
         case "fecha":
           cmp = a.fechaPresupuesto.localeCompare(b.fechaPresupuesto);
           break;

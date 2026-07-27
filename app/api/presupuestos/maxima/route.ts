@@ -5,7 +5,6 @@ import { NextResponse } from "next/server";
 import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import { DateTime } from "luxon";
-import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 import type {
   PresupuestoMaxima,
   MaximaResponse,
@@ -349,7 +348,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         daysSince: ds,
         clinica: clinica || undefined,
         notes: f["Notas"] ? String(f["Notas"]) : undefined,
-        urgencyScore: 0,
         contactCount,
         createdBy: f["CreadoPor"] ? String(f["CreadoPor"]) : undefined,
         origenLead: f["OrigenLead"] || undefined,
@@ -376,7 +374,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         proximaAccionTexto: computeProximaAccionTexto(estadoVisual),
       };
 
-      p.urgencyScore = computeUrgencyScore(p);
       p.urgenciaBidireccional = computeUrgenciaBidireccional(p);
       return p;
     });
@@ -393,11 +390,13 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       items = items.filter((p) => p.clinica === clinicaFilter);
     }
 
-    // Sort: urgencyScore DESC, then fecha DESC
-    items.sort((a, b) => {
-      if (b.urgencyScore !== a.urgencyScore) return b.urgencyScore - a.urgencyScore;
-      return b.fechaPresupuesto.localeCompare(a.fechaPresupuesto);
-    });
+    // Orden ÚNICO del producto (2026-07-26): días parados desc, importe
+    // desempata — el mismo de las columnas del kanban y de las cohortes de
+    // Seguimiento. Antes ordenaba por urgencyScore, un cuarto criterio que ya
+    // no gobernaba ninguna otra vista (MEJORAS 40).
+    items.sort(
+      (a, b) => b.daysSince - a.daysSince || (b.amount ?? 0) - (a.amount ?? 0),
+    );
 
     // Compute totals
     const porEstadoVisual: Record<string, number> = {};

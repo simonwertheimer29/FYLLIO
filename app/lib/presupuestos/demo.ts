@@ -3,7 +3,6 @@
 
 import type { Presupuesto, Contacto, Doctor } from "./types";
 import type { PresupuestoEstado, EspecialidadDoctor, TipoPaciente, TipoVisita } from "./types";
-import { computeUrgencyScore } from "./urgency";
 
 export const DEMO_DOCTORES: Doctor[] = [
   { id: "dr1", nombre: "Dr. García",    especialidad: "General",        clinica: "Clínica Madrid Centro", activo: true },
@@ -30,7 +29,7 @@ function mDate(monthsBack: number, dayOffset = 0): string {
   return d.toISOString().slice(0, 10);
 }
 
-type RawP = Omit<Presupuesto, "urgencyScore">;
+type RawP = Presupuesto;
 
 function mk(
   id: string,
@@ -177,10 +176,7 @@ const raw: RawP[] = [
   mk("m11_6","Wenceslao Mora",    "+34612300006", ["Blanqueamiento dental"],         "Dr. García",   "General",        "Privado",  "Paciente con Historia",  480, "PERDIDO",       mDate(11,10),"Clínica Madrid Centro"),
 ];
 
-export const DEMO_PRESUPUESTOS: Presupuesto[] = raw.map((p) => ({
-  ...p,
-  urgencyScore: computeUrgencyScore({ ...p, urgencyScore: 0 }),
-}));
+export const DEMO_PRESUPUESTOS: Presupuesto[] = raw;
 
 export const DEMO_CONTACTOS: Contacto[] = [
   { id: "c1",  presupuestoId: "m0_1", tipo: "llamada",  resultado: "contestó",     fechaHora: `${daysAgo(3)}T09:30:00`, nota: "Muy interesada, pide cita", registradoPor: "ventas@demo.com" },

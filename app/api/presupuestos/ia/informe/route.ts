@@ -8,7 +8,6 @@ import Anthropic from "@anthropic-ai/sdk";
 import { base, TABLES } from "../../../../lib/airtable";
 import { construirMapaAnonimizacion, desanonimizarTexto } from "../../../../lib/anonimizacion";
 import { DateTime } from "luxon";
-import { computeUrgencyScore } from "../../../../lib/presupuestos/urgency";
 import { ESTADOS_ACEPTADOS } from "../../../../lib/presupuestos/colors";
 import type { Presupuesto } from "../../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
@@ -77,13 +76,11 @@ async function fetchPresupuestosMes(
         fechaAlta: String(f["FechaAlta"] ?? fechaPresupuesto).slice(0, 10),
         daysSince: daysSince(fechaPresupuesto),
         clinica: f["Clinica"] ? String(f["Clinica"]) : undefined,
-        urgencyScore: 0,
         contactCount: Number(f["ContactCount"] ?? 0),
         origenLead: f["OrigenLead"] ?? undefined,
         motivoPerdida: f["MotivoPerdida"] ?? undefined,
         motivoDuda: f["MotivoDuda"] ?? undefined,
       };
-      p.urgencyScore = computeUrgencyScore(p);
       return p;
     });
 
