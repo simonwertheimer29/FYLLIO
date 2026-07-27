@@ -457,27 +457,22 @@ export default function MaximaView({
                           >
                             <Phone size={14} strokeWidth={ICON_STROKE} aria-hidden />
                           </a>
-                          <a
-                            href={`https://wa.me/${p.patientPhone.replace(/\D/g, "")}`}
+                          {/* Censo wa.me a cero (2026-07-26): abre el PANEL de
+                              conversación (hilo + composer con servicio
+                              central), nunca wa.me a pelo — aquello abría un
+                              chat vacío y fingía un registro sin contenido. */}
+                          <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
-                              // Abrir el chat = acción saliente registrada
-                              // (contacto + Ultima_accion; alimenta
-                              // estadoConversacion).
-                              fetch("/api/presupuestos/intervencion/registrar-respuesta", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ presupuestoId: p.id, tipo: "WhatsApp enviado" }),
-                              }).catch((err) => console.error("[MaximaView] registro saliente falló:", err));
+                              onOpenDrawer(p);
                             }}
-                            target="_blank"
-                            rel="noopener noreferrer"
                             className="rounded p-1 text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--fyllio-wa-green)]"
-                            title="WhatsApp"
-                            aria-label="Enviar WhatsApp"
+                            title="Abrir conversación"
+                            aria-label="Abrir conversación"
                           >
                             <MessageCircle size={14} strokeWidth={ICON_STROKE} aria-hidden />
-                          </a>
+                          </button>
                         </>
                       )}
                     </div>

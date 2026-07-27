@@ -656,13 +656,13 @@ function SortableLeadCard({
           onNoAsistio={onNoAsistio!}
         />
       ) : (
-        <LeadCardBody lead={lead} />
+        <LeadCardBody lead={lead} onOpenFicha={onClick} />
       )}
     </div>
   );
 }
 
-function LeadCardBody({ lead }: { lead: Lead }) {
+function LeadCardBody({ lead, onOpenFicha }: { lead: Lead; onOpenFicha?: () => void }) {
   const [copied, setCopied] = useState(false);
 
   async function copyPhone(e: React.MouseEvent) {
@@ -762,24 +762,20 @@ function LeadCardBody({ lead }: { lead: Lead }) {
             >
               Llamar
             </a>
-            <a
-              href={`https://wa.me/${lead.telefono.replace(/\D/g, "")}`}
+            {/* Censo wa.me a cero (2026-07-26): el botón abre la FICHA (hilo
+                visible + mensaje precargado + registro por el servicio
+                central), nunca wa.me a pelo — aquello abría un chat vacío y
+                fingía un registro sin contenido. */}
+            <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                // Abrir el chat cuenta como acción saliente: sin este registro,
-                // estadoConversacion no sabría que la clínica tocó el caso.
-                fetch("/api/leads/intervencion/registrar-respuesta", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ leadId: lead.id, tipo: "WhatsApp enviado" }),
-                }).catch((err) => console.error("[LeadsView] registro saliente falló:", err));
+                onOpenFicha?.();
               }}
-              target="_blank"
-              rel="noreferrer"
               className="flex-1 text-center rounded-md bg-[var(--fyllio-wa-green)] text-white text-[10px] font-medium py-1.5 hover:bg-[var(--fyllio-wa-green-hover)] transition-colors"
             >
               WhatsApp
-            </a>
+            </button>
           </>
         )}
       </div>

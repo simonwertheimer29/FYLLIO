@@ -66,15 +66,6 @@ function apptStartMin(appt: RiskyAppt): number {
   return h * 60 + m;
 }
 
-function buildWhatsApp(appt: RiskyAppt): string {
-  const nombre = appt.patientName.split(" ")[0];
-  const hora   = appt.startDisplay;
-  const trat   = appt.treatmentName;
-  if (appt.riskLevel === "HIGH")   return `Hola ${nombre}, queremos confirmar tu cita de ${trat} a las ${hora}. Por favor responde para confirmar. ¡Te esperamos!`;
-  if (appt.riskLevel === "MEDIUM") return `Hola ${nombre}, te recordamos tu cita de ${trat} a las ${hora}. Responde OK para confirmar.`;
-  return `Hola ${nombre}, recordatorio de tu cita de ${trat} a las ${hora}.`;
-}
-
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type PatientResult  = { id: string; nombre: string; telefono: string; clinica: string };
@@ -200,13 +191,7 @@ function SidePanel({
         <div className="p-4 border-t border-[var(--color-border)] space-y-2">
           {appt.patientPhone && (
             <div className="flex gap-2">
-              <a
-                href={`https://wa.me/${appt.patientPhone.replace(/\D/g, "")}?text=${encodeURIComponent(buildWhatsApp(appt))}`}
-                target="_blank" rel="noopener noreferrer"
-                className="flex-1 text-center text-sm font-bold py-2.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)] transition-colors"
-              >
-                WhatsApp
-              </a>
+              {/* Censo wa.me a cero (2026-07-26): el envío por WhatsApp vive en la ficha del paciente con registro en hilo; esta zona (congelada Sprint B) deja solo Llamar. */}
               <a
                 href={`tel:${appt.patientPhone}`}
                 className="flex-1 text-center text-sm font-bold py-2.5 rounded-xl border border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"

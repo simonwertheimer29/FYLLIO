@@ -139,23 +139,24 @@ export default function IAGeneradorDrawer({
   }
 
   async function handleEnviar(tono: TonoIA, msg: string) {
-    // Camino central (enviar-manual): persiste el saliente en el HILO antes
-    // de abrir wa.me — antes el mensaje no quedaba en el historial.
-    let url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msg)}`;
+    // Camino central (enviar-manual): persiste el saliente en el HILO y
+    // devuelve la URL. Persist-BEFORE-open (censo wa.me a cero, 2026-07-26):
+    // si el registro falla, no se abre nada — el fallback local enviaba sin
+    // dejar rastro.
     try {
       const res = await fetch("/api/presupuestos/intervencion/enviar-manual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ presupuestoId: p.id, telefono: cleanPhone, contenido: msg }),
       });
-      if (res.ok) {
-        const d = await res.json();
-        if (d.urlWhatsApp) url = d.urlWhatsApp;
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = await res.json();
+      if (!d.urlWhatsApp) throw new Error("sin urlWhatsApp");
+      window.open(d.urlWhatsApp, "_blank");
     } catch {
-      /* el fallo del registro queda en el log del servidor */
+      toast.error("No se pudo registrar el mensaje. Inténtalo de nuevo.");
+      return;
     }
-    window.open(url, "_blank");
     fetch("/api/presupuestos/contactos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

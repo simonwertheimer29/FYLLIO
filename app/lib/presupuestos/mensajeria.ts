@@ -102,6 +102,31 @@ export async function ultimosMensajesPorConversacion(): Promise<{
   return { porPresupuesto, porLead };
 }
 
+/**
+ * TEXTO del último mensaje ENTRANTE por lead — para que la card de
+ * "te respondió" cite las palabras reales del paciente (tanda de coherencia
+ * 2026-07-26; mismo patrón que ultimaRespuestaPaciente en presupuestos).
+ */
+export async function ultimoEntranteTextoPorLead(): Promise<Record<string, string>> {
+  if (usaPostgres("mensajes")) {
+    const pg = await import("./mensajeria-pg");
+    return pg.ultimoEntranteTextoPorLeadPg();
+  }
+  const recs = await selectMensajesRecords({});
+  const out: Record<string, { t: string; texto: string }> = {};
+  for (const rec of recs) {
+    const f = (rec.fields ?? {}) as Record<string, unknown>;
+    if (String(f["Direccion"] ?? "") !== "Entrante") continue;
+    const t = f["Timestamp"] ? String(f["Timestamp"]) : "";
+    const texto = f["Contenido"] ? String(f["Contenido"]) : "";
+    const leadLink = f["Lead_Link"];
+    const leadId = Array.isArray(leadLink) ? String(leadLink[0] ?? "") : "";
+    if (!t || !texto || !leadId) continue;
+    if (!out[leadId] || t > out[leadId].t) out[leadId] = { t, texto };
+  }
+  return Object.fromEntries(Object.entries(out).map(([id, v]) => [id, v.texto]));
+}
+
 const ZONE = "Europe/Madrid";
 const GRAPH_API_VERSION = "v21.0";
 

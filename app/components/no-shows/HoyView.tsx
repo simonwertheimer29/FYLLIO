@@ -35,19 +35,6 @@ type StaffEntry = { id: string; nombre: string };
 
 // ─── WhatsApp helpers ─────────────────────────────────────────────────────────
 
-function buildWhatsApp(appt: RiskyAppt): string {
-  const nombre = appt.patientName.split(" ")[0];
-  const hora = appt.startDisplay;
-  const tratamiento = appt.treatmentName;
-  if (appt.riskLevel === "HIGH") {
-    return `Hola ${nombre}, queremos confirmar tu cita de ${tratamiento} hoy a las ${hora}. Por favor responde este mensaje para confirmar o llámanos. ¡Te esperamos!`;
-  }
-  if (appt.riskLevel === "MEDIUM") {
-    return `Hola ${nombre}, te recordamos tu cita de ${tratamiento} a las ${hora}. Responde "OK" para confirmar.`;
-  }
-  return `Hola ${nombre}, recordatorio de tu cita a las ${hora} para ${tratamiento}.`;
-}
-
 // ─── computeGaps ─────────────────────────────────────────────────────────────
 
 function computeGaps(appts: RiskyAppt[], todayIso: string): GapSlot[] {
@@ -142,13 +129,7 @@ function ApptRow({
         </div>
         {!done && isEnRiesgo(appt) && (
           <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
-            {appt.patientPhone && (
-              <a
-                href={`https://wa.me/${appt.patientPhone.replace(/\D/g, "")}?text=${encodeURIComponent(buildWhatsApp(appt))}`}
-                target="_blank" rel="noopener noreferrer"
-                className="p-1.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white text-[10px] font-bold hover:bg-[var(--fyllio-wa-green-hover)] transition-colors"
-              >WA</a>
-            )}
+            {/* Censo wa.me a cero (2026-07-26): el envío por WhatsApp vive en la ficha del paciente con registro en hilo; esta zona (congelada Sprint B) deja solo Llamar. */}
             {appt.patientPhone && (
               <a href={`tel:${appt.patientPhone}`}
                 className="p-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] text-[10px] hover:bg-[var(--color-surface-muted)] transition-colors"

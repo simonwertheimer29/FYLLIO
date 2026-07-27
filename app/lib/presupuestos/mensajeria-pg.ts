@@ -110,6 +110,28 @@ export async function ultimosMensajesPorConversacionPg(): Promise<{
   return { porPresupuesto, porLead };
 }
 
+/** TEXTO del último entrante por lead (≡ rama Airtable en mensajeria.ts). */
+export async function ultimoEntranteTextoPorLeadPg(): Promise<Record<string, string>> {
+  const rows = await runWithClienteDb(cli(), async (trx) => {
+    const { sql } = await import("kysely");
+    const r: any = await sql
+      .raw(
+        `select distinct on (lead_id) lead_id, contenido
+         from mensajes_whatsapp
+         where lead_id is not null and direccion = 'Entrante'
+           and timestamp is not null and contenido is not null
+         order by lead_id, timestamp desc`,
+      )
+      .execute(trx);
+    return r.rows as any[];
+  });
+  const out: Record<string, string> = {};
+  for (const r of rows) {
+    if (r.lead_id && r.contenido) out[String(r.lead_id)] = String(r.contenido);
+  }
+  return out;
+}
+
 /** Inserta un registro de mensaje y devuelve el shape mínimo que leen los callers ({ id }). */
 export async function createMensajeWhatsAppPg(fields: Record<string, unknown>): Promise<{ id: string }> {
   const leadLink = fields["Lead_Link"];

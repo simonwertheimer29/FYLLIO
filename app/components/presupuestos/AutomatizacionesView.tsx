@@ -85,11 +85,20 @@ function TabCola({ user }: { user: UserSession }) {
 
   async function handleAccion(id: string, accion: "enviar" | "descartar" | "editar", mensaje?: string) {
     try {
-      await fetch("/api/automatizaciones/secuencias", {
+      const res = await fetch("/api/automatizaciones/secuencias", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, accion, mensaje }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = await res.json().catch(() => ({}));
+      if (accion === "enviar") {
+        // Censo wa.me a cero (2026-07-26): el saliente ya está en el hilo
+        // (servicio central, lado servidor) y SOLO entonces se abre la URL
+        // que devuelve — antes el cliente montaba wa.me por su cuenta.
+        if (d.urlWhatsApp) window.open(d.urlWhatsApp, "_blank", "noopener,noreferrer");
+        else toast.error("Registrado, pero no se pudo preparar WhatsApp. Ábrelo desde la ficha.");
+      }
       if (accion === "enviar" || accion === "descartar") {
         setSecuencias((prev) => prev.filter((s) => s.id !== id));
       } else if (accion === "editar" && mensaje != null) {
@@ -102,8 +111,8 @@ function TabCola({ user }: { user: UserSession }) {
   }
 
   function handleEnviar(sec: Secuencia) {
-    const phone = cleanPhone(sec.telefono);
-    if (phone) window.open(`https://wa.me/${phone}?text=${encodeURIComponent(sec.mensajeGenerado)}`, "_blank", "noopener,noreferrer");
+    // Persist-before-open: la URL la devuelve el servidor tras escribir el
+    // hilo (handleAccion) — aquí ya no se monta wa.me a mano.
     handleAccion(sec.id, "enviar");
   }
 

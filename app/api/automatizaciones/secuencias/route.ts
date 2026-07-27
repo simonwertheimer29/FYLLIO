@@ -117,6 +117,7 @@ export const PATCH = withPresupuestosAuth(async (session, req) => {
     });
 
     // Registrar en historial cuando se envía el mensaje
+    let urlWhatsApp: string | null = null;
     if (accion === "enviar") {
       try {
         const rec = await findSecuenciaRaw(id);
@@ -131,12 +132,15 @@ export const PATCH = withPresupuestosAuth(async (session, req) => {
             const { getServicioMensajeria } = await import(
               "../../../lib/presupuestos/mensajeria"
             );
-            await getServicioMensajeria("manual").enviarMensaje({
+            const resultado = await getServicioMensajeria("manual").enviarMensaje({
               presupuestoId: String(f["presupuesto_id"] ?? "") || undefined,
               telefono: telefonoSec,
               contenido: contenidoSec,
               fuente: "Plantilla_automatica",
             });
+            // El cliente abre ESTA url (censo wa.me a cero): el saliente ya
+            // quedó persistido en el hilo antes de devolverla.
+            urlWhatsApp = resultado.urlWhatsApp ?? null;
           } catch (err) {
             console.error("[secuencias PATCH] fila del hilo NO persistida:", err);
           }
@@ -154,7 +158,7 @@ export const PATCH = withPresupuestosAuth(async (session, req) => {
       }
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, urlWhatsApp });
   } catch (err) {
     console.error("[secuencias PATCH]", err);
     return NextResponse.json({ error: "Error al actualizar secuencia" }, { status: 500 });

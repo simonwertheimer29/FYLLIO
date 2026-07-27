@@ -12,13 +12,13 @@ type Patient = {
 };
 
 function whatsappLink(phone: string, name: string, lastTreatment: string) {
-  const msg = encodeURIComponent(
+  // Censo wa.me a cero (2026-07-26): zona demo sin ficha ni servicio —
+  // devuelve el TEXTO para copiar, nunca una URL de envío directo.
+  return (
     `Hola ${name} 🙂 Desde la clínica queríamos saber cómo estás después de tu última visita` +
-      (lastTreatment ? ` de ${lastTreatment}` : "") +
-      `. ¿Te gustaría programar una revisión? Escríbenos y te buscamos una franja disponible 🦷`
+    (lastTreatment ? ` de ${lastTreatment}` : "") +
+    `. ¿Te gustaría programar una revisión? Escríbenos y te buscamos una franja disponible 🦷`
   );
-  const clean = phone.replace(/\s+/g, "");
-  return `https://wa.me/${clean.replace("+", "")}?text=${msg}`;
 }
 
 export default function RecallPanel() {
@@ -114,14 +114,17 @@ export default function RecallPanel() {
 
                 <div className="flex items-center gap-2 shrink-0">
                   {p.phone ? (
-                    <a
-                      href={whatsappLink(p.phone, p.name, p.lastTreatment)}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                    <button
+                      type="button"
+                      onClick={() =>
+                        navigator.clipboard
+                          .writeText(whatsappLink(p.phone, p.name, p.lastTreatment))
+                          .catch(() => {})
+                      }
                       className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 font-semibold"
                     >
-                      💬 WhatsApp
-                    </a>
+                      Copiar mensaje
+                    </button>
                   ) : (
                     <span className="text-xs text-slate-400">Sin teléfono</span>
                   )}

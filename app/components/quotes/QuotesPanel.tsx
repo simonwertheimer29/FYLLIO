@@ -21,11 +21,8 @@ type Quote = {
 // -------------------------------------------------------------------
 
 function whatsappFollowUp(q: Quote): string {
-  const msg = encodeURIComponent(
-    `Hola ${q.patientName.split(" ")[0]} 🙂 Queríamos saber si tienes alguna duda sobre el presupuesto de *${q.treatment}* que preparamos. Estamos aquí para ayudarte. ¿Quieres que te llamemos o tienes alguna pregunta? 🦷`
-  );
-  const clean = (q.patientPhone ?? "").replace(/\s+/g, "").replace("+", "");
-  return `https://wa.me/${clean}?text=${msg}`;
+  // Censo wa.me a cero (2026-07-26): zona demo — texto para copiar, no URL.
+  return `Hola ${q.patientName.split(" ")[0]} 🙂 Queríamos saber si tienes alguna duda sobre el presupuesto de *${q.treatment}* que preparamos. Estamos aquí para ayudarte. ¿Quieres que te llamemos o tienes alguna pregunta? 🦷`;
 }
 
 // -------------------------------------------------------------------
@@ -90,14 +87,13 @@ function QuoteCard({
       {/* Actions */}
       <div className="flex flex-wrap gap-1.5">
         {quote.patientPhone && localStatus !== "CONFIRMADO" && localStatus !== "PERDIDO" && (
-          <a
-            href={whatsappFollowUp(quote)}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => navigator.clipboard.writeText(whatsappFollowUp(quote)).catch(() => {})}
             className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 hover:bg-emerald-100 font-semibold"
           >
-            💬 Recordar
-          </a>
+            Copiar recordatorio
+          </button>
         )}
 
         {localStatus === "PRESENTADO" && (

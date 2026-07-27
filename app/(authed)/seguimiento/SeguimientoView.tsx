@@ -304,8 +304,12 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
     Record<string, string>
   >({});
   // Última respuesta entrante del paciente por lead — con la saliente permite
-  // derivar el estado "esperando respuesta" (§ esperaLead).
+  // derivar estadoConversacion (la cohorte).
   const [ultimaEntrantePorLead, setUltimaEntrantePorLead] = useState<
+    Record<string, string>
+  >({});
+  // Texto del último entrante — la card de "te respondió" cita al paciente.
+  const [ultimoEntranteTextoPorLead, setUltimoEntranteTextoPorLead] = useState<
     Record<string, string>
   >({});
 
@@ -330,6 +334,11 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
       setUltimaEntrantePorLead(
         sal?.ultimaEntrantePorLead && typeof sal.ultimaEntrantePorLead === "object"
           ? sal.ultimaEntrantePorLead
+          : {},
+      );
+      setUltimoEntranteTextoPorLead(
+        sal?.ultimoEntranteTextoPorLead && typeof sal.ultimoEntranteTextoPorLead === "object"
+          ? sal.ultimoEntranteTextoPorLead
           : {},
       );
       setLastUpdate(new Date());
@@ -572,7 +581,7 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
                 cohorte={x.cohorte}
                 onOpen={() => setDrawerLead(x.l)}
                 onAsistencia={() => setAsistenciaLead(x.l)}
-                ultimaSalientePorLead={ultimaSalientePorLead}
+                ultimoEntranteTexto={ultimoEntranteTextoPorLead[x.l.id]}
               />
             </div>
           ))}
@@ -616,20 +625,11 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
   );
 }
 
-// Sprint 13 Bloque 5 — pill prioridad heuristica para leads.
-// Triggers ALTO (cerrados con Simon en pre-sprint):
-//  1. Citado/Citados Hoy con fechaCita=hoy y NO asistido.
-//  2. estado=Nuevo y diasDesde >= 1 (sin contactar >24h).
-//  3. estado=Contactado con intencionDetectada alta (Interesado, Pide cita,
-//     Pregunta precio) y sin actividad saliente posterior >12h.
-//
-// Sprint 15 Bloque 7 — el trigger 3 ahora usa timestamp real de
-// Acciones_Lead (Llamada o WhatsApp_Saliente). Antes era una
-// aproximación binaria (whatsappEnviados==0 && !llamado) que perdía
-// el caso "envié hace 5 días sin respuesta → sigue caliente". Si el
-// map no está cargado todavía, fallback al heurístico legacy.
+// La intención "caliente" del clasificador IA solo desempata el orden de
+// Sin respuesta (tanda de coherencia 2026-07-26: el badge ALTO/MEDIO/BAJO
+// murió — medía la frescura del último toque NUESTRO y castigaba justo los
+// casos donde el paciente espera; contradecía el orden de las cohortes).
 const INTENCION_CALIENTE = new Set(["Interesado", "Pide cita", "Pregunta precio"]);
-const HORAS_12_MS = 12 * 60 * 60 * 1000;
 
 function relTimeShort(iso: string): string {
   const diffMin = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
@@ -638,55 +638,6 @@ function relTimeShort(iso: string): string {
   const h = Math.round(diffMin / 60);
   if (h < 24) return `hace ${h} h`;
   return `hace ${Math.round(h / 24)} d`;
-}
-
-function priorityForLead(
-  lead: Lead,
-  ultimaSalienteISOPorLead: Record<string, string> = {},
-): {
-  variant: "danger" | "warning" | "neutral";
-  label: "ALTO" | "MEDIO" | "BAJO";
-  borderColor: string;
-} {
-  const today = new Date().toISOString().slice(0, 10);
-  const ts = new Date(lead.createdAt).getTime();
-  const diasDesde = Number.isFinite(ts)
-    ? Math.floor((Date.now() - ts) / (1000 * 60 * 60 * 24))
-    : 0;
-
-  const isCitadoHoy =
-    (lead.estado === "Citado" || lead.estado === "Citados Hoy") &&
-    lead.fechaCita === today &&
-    !lead.asistido;
-
-  const ultimaSalienteISO = ultimaSalienteISOPorLead[lead.id];
-  const ultimaSalienteMs = ultimaSalienteISO
-    ? new Date(ultimaSalienteISO).getTime()
-    : null;
-  const sinSalienteUltimas12h =
-    ultimaSalienteMs == null
-      ? lead.whatsappEnviados === 0 && !lead.llamado // fallback legacy
-      : Date.now() - ultimaSalienteMs > HORAS_12_MS;
-
-  const calienteSinAccion =
-    lead.estado === "Contactado" &&
-    lead.intencionDetectada != null &&
-    INTENCION_CALIENTE.has(lead.intencionDetectada) &&
-    sinSalienteUltimas12h;
-
-  if (isCitadoHoy || (lead.estado === "Nuevo" && diasDesde >= 1) || calienteSinAccion) {
-    return { variant: "danger", label: "ALTO", borderColor: "var(--color-danger)" };
-  }
-
-  const seguimientoMedio =
-    (lead.estado === "Contactado" && diasDesde >= 2) ||
-    (lead.estado === "Nuevo" && diasDesde < 1);
-
-  if (seguimientoMedio) {
-    return { variant: "warning", label: "MEDIO", borderColor: "var(--color-warning)" };
-  }
-
-  return { variant: "neutral", label: "BAJO", borderColor: "var(--color-muted)" };
 }
 
 // "Cita el martes 29 jul" / "Cita mañana" — para el estado de Citados.
@@ -711,7 +662,7 @@ function LeadAccionRow({
   cohorte,
   onOpen,
   onAsistencia,
-  ultimaSalientePorLead,
+  ultimoEntranteTexto,
 }: {
   lead: Lead;
   /** Clasificación única de la conversación — la deriva LeadsTab (la misma
@@ -720,8 +671,8 @@ function LeadAccionRow({
   cohorte: CohorteLead;
   onOpen: () => void;
   onAsistencia: () => void;
-  // Map para priorityForLead (trigger 'caliente sin acción >12h').
-  ultimaSalientePorLead?: Record<string, string>;
+  /** Último mensaje real del paciente — la card lo cita en "te respondió". */
+  ultimoEntranteTexto?: string;
 }) {
   // "Esperando respuesta" solo aplica dentro de En conversación: en Citados
   // la precedencia de cita manda (el trabajo es confirmar, no esperar).
@@ -744,8 +695,25 @@ function LeadAccionRow({
   const isCitadoHoy =
     (lead.estado === "Citado" || lead.estado === "Citados Hoy") && lead.fechaCita === today;
 
-  const priority = priorityForLead(lead, ultimaSalientePorLead);
   const urgente = cohorte === "nuevos" && esNuevoUrgente(lead.createdAt, Date.now());
+
+  // El color del borde deriva del MISMO criterio que ordena y titula la
+  // cohorte — nada de scores paralelos (el badge ALTO/MEDIO/BAJO murió por
+  // contradecir el orden en pantalla).
+  const borderColor =
+    cohorte === "citados"
+      ? isCitadoHoy
+        ? "var(--color-danger)"
+        : "var(--color-accent)"
+      : cohorte === "nuevos"
+        ? urgente
+          ? "var(--color-warning)"
+          : "var(--color-border)"
+        : cohorte === "rezagados"
+          ? "var(--color-warning)"
+          : conv.estado === "pendiente_responder"
+            ? "var(--color-danger)"
+            : "var(--color-border)";
 
   // Estado en dos niveles (patrón del dashboard de Red): qué pasa + qué toca
   // hacer, según la cohorte. El caso "en espera" mantiene su botón fantasma.
@@ -768,9 +736,11 @@ function LeadAccionRow({
       };
     }
     if (cohorte === "en_conversacion" && conv.estado === "pendiente_responder") {
+      // Patrón de la vista de Presupuestos: titular corto; el último mensaje
+      // real del paciente va citado en la card (quote) y la acción sugerida
+      // debajo — fuera la frase hecha.
       return {
         titular: `Te respondió ${conv.haceMs != null ? haceTexto(conv.haceMs) : ""}`.trim(),
-        detalle: "La pelota está en tu tejado — contéstale desde su ficha.",
       };
     }
     if (cohorte === "rezagados") {
@@ -841,9 +811,16 @@ function LeadAccionRow({
     variant: "primary",
   });
 
+  // Quote: en "te respondió", las palabras REALES del paciente mandan;
+  // si no hay texto (p. ej. rama Airtable), caen las notas.
+  const quote =
+    (conv.estado === "pendiente_responder" ? ultimoEntranteTexto : undefined) ??
+    lead.notas ??
+    undefined;
+
   return (
     <AccionCard
-      borderColor={priority.borderColor}
+      borderColor={borderColor}
       faded={esperando}
       title={
         lead.convertido && lead.pacienteId ? (
@@ -870,22 +847,11 @@ function LeadAccionRow({
               {lead.horaCita}
             </span>
           )}
-          <span
-            className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded-md border ${
-              priority.variant === "danger"
-                ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30"
-                : priority.variant === "warning"
-                  ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30"
-                  : "bg-[var(--color-surface-muted)] text-[var(--color-muted)] border-[var(--color-border)]"
-            }`}
-          >
-            {priority.label}
-          </span>
         </div>
       }
       tags={tags}
       meta={meta}
-      quote={lead.notas ?? undefined}
+      quote={quote}
       estado={estado}
       accionSugerida={lead.accionSugerida ?? undefined}
       onOpen={onOpen}

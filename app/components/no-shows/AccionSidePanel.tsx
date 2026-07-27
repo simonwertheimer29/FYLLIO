@@ -39,10 +39,6 @@ interface Props {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function buildWA(phone: string, msg: string): string {
-  return `https://wa.me/${phone.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`;
-}
-
 function formatFechaEs(iso: string): string {
   const d = new Date(iso + "T12:00:00Z");
   const days   = ["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
@@ -365,7 +361,6 @@ function PatientPanel({
   const fase = calcFaseLabel(item.hoursUntil);
   const ci = confianzaInfo(a.confianza);
   const sc = scoreColor(item.scoreAccion);
-  const waLink = buildWA(a.patientPhone, "");
   const pct = a.confianza !== undefined ? Math.round(a.confianza * 100) : 0;
 
   // Estado de contacto
@@ -493,10 +488,7 @@ function PatientPanel({
                 <Copy size={12} strokeWidth={ICON_STROKE} aria-hidden />
                 Copiar
               </button>
-              <a href={buildWA(a.patientPhone, mensaje)} target="_blank" rel="noopener noreferrer"
-                className="flex-1 py-1.5 text-xs rounded-lg bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)] font-semibold text-center transition-colors">
-                WhatsApp
-              </a>
+              {/* Censo wa.me a cero (2026-07-26): WhatsApp con registro vive en la ficha; zona congelada Sprint B — queda Llamar y Copiar. */}
               <a href={`tel:${a.patientPhone}`}
                 className="flex-1 py-1.5 text-xs rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] font-semibold text-center inline-flex items-center justify-center gap-1 transition-colors">
                 <Phone size={12} strokeWidth={ICON_STROKE} aria-hidden />
@@ -658,10 +650,7 @@ function GapPanel({
                 <a href={`tel:${r.patientPhone}`} className="text-xs text-[var(--color-accent)] hover:underline">{r.patientPhone}</a>
               </div>
               <div className="flex gap-2">
-                <a href={`https://wa.me/${r.patientPhone.replace(/\D/g, "")}`} target="_blank" rel="noopener noreferrer"
-                  className="flex-1 text-center py-1.5 text-xs rounded-lg bg-[var(--fyllio-wa-green)] text-white font-semibold hover:bg-[var(--fyllio-wa-green-hover)] transition-colors">
-                  WhatsApp
-                </a>
+                {/* Censo wa.me a cero (2026-07-26): WhatsApp con registro vive en la ficha; zona congelada Sprint B — queda Llamar y Copiar. */}
                 <a href={`tel:${r.patientPhone}`}
                   className="flex-1 py-1.5 text-xs rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)] font-semibold hover:text-[var(--color-accent-hover)] inline-flex items-center justify-center gap-1 transition-colors">
                   <Phone size={12} strokeWidth={ICON_STROKE} aria-hidden />

@@ -7,7 +7,6 @@ import type {
   PresupuestoIntervencion,
   IntervencionResponse,
 } from "../../lib/presupuestos/types";
-import { URGENCIA_INTERVENCION_COLOR } from "../../lib/presupuestos/colors";
 import { haceTexto } from "../../lib/presupuestos/estado-conversacion";
 import {
   cohortePresupuesto,
@@ -61,12 +60,6 @@ function esLlamada(tipo?: string): boolean {
   return tipo === "Llamada realizada" || tipo === "Sin respuesta tras llamada";
 }
 
-function scoreBorderHex(score: number): string {
-  if (score >= 70) return "#f43f5e";
-  if (score >= 50) return "#f97316";
-  if (score >= 30) return "#fbbf24";
-  return "#94a3b8";
-}
 
 // "Esperando respuesta": clasificación ÚNICA calculada en el servidor desde el
 // hilo real (estadoConversacion, umbral 72h centralizado). Esta vista ya no
@@ -108,7 +101,6 @@ function PresupuestoAccionRow({
   // registro, feedback). Un botón de Llamar/WhatsApp aquí invitaba a
   // ejecutar sin leer la conversación.
   const espera = esperaPresupuesto(item);
-  const ub = item.urgenciaBidireccional;
 
   const tiempoResp = item.fechaUltimaRespuesta
     ? formatTimeAgo(item.fechaUltimaRespuesta)
@@ -143,9 +135,19 @@ function PresupuestoAccionRow({
     variant: "primary",
   });
 
+  // Borde por el MISMO criterio que ordena y titula la cohorte (tanda de
+  // coherencia 2026-07-26): la barra de scoreFinal y la pill de urgencia IA
+  // murieron de la card — no ordenaban nada y contradecían el orden visible.
+  const borderColor =
+    item.conversacion?.estado === "pendiente_responder"
+      ? "var(--color-danger)"
+      : item.conversacion?.estado === "reactivable"
+        ? "var(--color-warning)"
+        : "var(--color-border)";
+
   return (
     <AccionCard
-      borderColor={scoreBorderHex(ub?.scoreFinal ?? 0)}
+      borderColor={borderColor}
       faded={espera.esperando}
       title={
         <a
@@ -157,24 +159,12 @@ function PresupuestoAccionRow({
         </a>
       }
       titleRight={
-        <div className="flex items-center gap-2">
-          {item.amount != null && (
-            <span className="font-display text-sm font-bold text-[var(--color-foreground)] tabular-nums">
-              &euro;{item.amount.toLocaleString("es-ES")}
-            </span>
-          )}
-          {item.urgenciaIntervencion && (
-            <span
-              className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${
-                URGENCIA_INTERVENCION_COLOR[item.urgenciaIntervencion]
-              }`}
-            >
-              {item.urgenciaIntervencion}
-            </span>
-          )}
-        </div>
+        item.amount != null ? (
+          <span className="font-display text-sm font-bold text-[var(--color-foreground)] tabular-nums">
+            &euro;{item.amount.toLocaleString("es-ES")}
+          </span>
+        ) : undefined
       }
-      score={ub?.scoreFinal}
       tags={item.treatments.map((t) => ({ label: t }))}
       meta={meta}
       quote={quote}
@@ -208,39 +198,41 @@ function BulkSendModal({
     setCurrentIndex(0);
   }
 
+  const [enviando, setEnviando] = useState(false);
+
+  // Persist-BEFORE-confirm (tanda de coherencia 2026-07-26): el saliente se
+  // registra en el hilo vía el servicio central y SOLO entonces se abre la
+  // URL wa.me que devuelve el servidor y se confirma. Antes: wa.me a mano +
+  // toast "Enviado" + registro fire-and-forget — un fallo se veía como éxito.
   async function handleSendCurrent() {
     const item = sendableItems[currentIndex];
-    if (!item) return;
-
-    const cleanPhone = (item.patientPhone ?? "").replace(/\D/g, "");
+    if (!item || enviando) return;
+    setEnviando(true);
     try {
-      await navigator.clipboard.writeText(item.mensajeSugerido!);
-    } catch { /* ignore */ }
-
-    window.open(
-      `https://wa.me/${cleanPhone}?text=${encodeURIComponent(item.mensajeSugerido!)}`,
-      "_blank"
-    );
-    toast.success(`Enviado a ${item.patientName}`);
-
-    fetch("/api/presupuestos/intervencion/registrar-respuesta", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        presupuestoId: item.id,
-        tipo: "WhatsApp enviado",
-        // El texto viaja al backend para que el saliente quede en el HILO
-        // (mensajes_whatsapp); antes se abría wa.me y el mensaje se perdía
-        // del historial de conversación.
-        mensaje: item.mensajeSugerido,
-      }),
-    }).catch(() => {});
-
-    setEnviados((prev) => prev + 1);
-    if (currentIndex < sendableItems.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
-    } else {
-      setCurrentIndex(sendableItems.length); // done
+      const res = await fetch("/api/presupuestos/intervencion/enviar-manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          presupuestoId: item.id,
+          telefono: item.patientPhone,
+          contenido: item.mensajeSugerido,
+        }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || !d?.ok) throw new Error(`HTTP ${res.status}`);
+      if (d.urlWhatsApp) window.open(d.urlWhatsApp, "_blank", "noopener,noreferrer");
+      toast.success(`Mensaje registrado para ${item.patientName}`);
+      setEnviados((prev) => prev + 1);
+      if (currentIndex < sendableItems.length - 1) {
+        setCurrentIndex((prev) => prev + 1);
+      } else {
+        setCurrentIndex(sendableItems.length); // done
+      }
+    } catch {
+      // El caso se queda en pantalla para reintentar — no se avanza.
+      toast.error(`No se pudo registrar el mensaje de ${item.patientName}. Inténtalo de nuevo.`);
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -297,9 +289,10 @@ function BulkSendModal({
               </div>
               <button
                 onClick={handleSendCurrent}
-                className="w-full text-sm font-semibold py-2.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]"
+                disabled={enviando}
+                className="w-full text-sm font-semibold py-2.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)] disabled:opacity-50"
               >
-                Enviar a {sendableItems[currentIndex].patientName}
+                {enviando ? "Registrando…" : `Enviar a ${sendableItems[currentIndex].patientName}`}
               </button>
             </div>
           )}

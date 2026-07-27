@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { Sparkles, MessageCircle, ICON_STROKE } from "../icons";
 import type { Presupuesto, TonoIA } from "../../lib/presupuestos/types";
 
@@ -73,25 +74,24 @@ export default function IAMensajePanel({
     if (!mensaje || !p.patientPhone) return;
     const cleanPhone = p.patientPhone.replace(/\D/g, "");
 
-    // Camino central (enviar-manual): persiste el saliente en el HILO
-    // (mensajes_whatsapp) y devuelve la URL wa.me. Antes se abría wa.me a
-    // mano y el mensaje no quedaba en el historial de conversación.
-    let url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(mensaje)}`;
+    // Camino central (enviar-manual): persiste el saliente en el HILO y
+    // devuelve la URL wa.me. Persist-BEFORE-open (censo wa.me a cero,
+    // 2026-07-26): si el registro falla, NO se abre nada — antes había un
+    // fallback local que enviaba sin dejar rastro en el hilo.
     try {
       const res = await fetch("/api/presupuestos/intervencion/enviar-manual", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ presupuestoId: p.id, telefono: cleanPhone, contenido: mensaje }),
       });
-      if (res.ok) {
-        const d = await res.json();
-        if (d.urlWhatsApp) url = d.urlWhatsApp;
-      }
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = await res.json();
+      if (!d.urlWhatsApp) throw new Error("sin urlWhatsApp");
+      window.open(d.urlWhatsApp, "_blank");
     } catch {
-      // El envío manual no se bloquea por el registro; el fallo queda en el
-      // log del servidor.
+      toast.error("No se pudo registrar el mensaje. Inténtalo de nuevo.");
+      return;
     }
-    window.open(url, "_blank");
 
     // Registrar contacto como IA
     setRegistrando(true);

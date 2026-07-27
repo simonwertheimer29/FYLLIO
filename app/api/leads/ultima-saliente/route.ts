@@ -10,7 +10,10 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "../../../lib/auth/session";
 import { ultimasAccionesDireccionPorLead } from "../../../lib/leads/acciones";
-import { ultimosMensajesPorConversacion } from "../../../lib/presupuestos/mensajeria";
+import {
+  ultimosMensajesPorConversacion,
+  ultimoEntranteTextoPorLead,
+} from "../../../lib/presupuestos/mensajeria";
 
 export const dynamic = "force-dynamic";
 
@@ -20,9 +23,12 @@ export const GET = withAuth(async () => {
   // deja texto (llamadas, aperturas de chat). Así la lista de Actuar hoy y el
   // panel del mismo lead clasifican igual — antes la lista miraba solo
   // acciones_lead y el panel solo el hilo, y podían contradecirse.
-  const [{ salientePorLead, entrantePorLead }, ultimos] = await Promise.all([
+  const [{ salientePorLead, entrantePorLead }, ultimos, ultimoEntranteTexto] = await Promise.all([
     ultimasAccionesDireccionPorLead(),
     ultimosMensajesPorConversacion(),
+    // Texto del último entrante — la card de "te respondió" cita las
+    // palabras reales del paciente (tanda de coherencia 2026-07-26).
+    ultimoEntranteTextoPorLead(),
   ]);
   const max = (a: string | undefined, b: string | null): string | undefined =>
     !b ? a : !a || b > a ? b : a;
@@ -35,5 +41,6 @@ export const GET = withAuth(async () => {
   return NextResponse.json({
     ultimaSalientePorLead: salientePorLead,
     ultimaEntrantePorLead: entrantePorLead,
+    ultimoEntranteTextoPorLead: ultimoEntranteTexto,
   });
 });

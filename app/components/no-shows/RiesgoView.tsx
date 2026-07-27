@@ -111,24 +111,6 @@ const AVG_TICKET_CLIENT = 85;
 
 // ─── WhatsApp ─────────────────────────────────────────────────────────────────
 
-function buildWhatsApp(appt: RiskyAppt): string {
-  const nombre = appt.patientName.split(" ")[0];
-  const hora = appt.startDisplay;
-  const tratamiento = appt.treatmentName;
-  if (appt.riskLevel === "HIGH") {
-    return `Hola ${nombre}, queremos confirmar tu cita de ${tratamiento} el ${formatDayLabel(appt.dayIso)} a las ${hora}. Por favor responde este mensaje para confirmar. ¡Te esperamos!`;
-  }
-  if (appt.riskLevel === "MEDIUM") {
-    return `Hola ${nombre}, te recordamos tu cita de ${tratamiento} el ${DIAS_CORTOS[new Date(appt.dayIso + "T12:00:00Z").getUTCDay() || 7]} a las ${hora}. Responde "OK" para confirmar.`;
-  }
-  return `Hola ${nombre}, recordatorio de tu cita el ${DIAS_CORTOS[new Date(appt.dayIso + "T12:00:00Z").getUTCDay() || 7]} a las ${hora} para ${tratamiento}.`;
-}
-
-function buildRecallWhatsApp(recall: RecallAlert): string {
-  const nombre = recall.patientName.split(" ")[0];
-  return `Hola ${nombre}, llevamos ${recall.weeksSinceLast} semanas desde tu última cita de ${recall.treatmentName}. ¿Te gustaría agendar tu próxima sesión?`;
-}
-
 // ─── RecallCard ───────────────────────────────────────────────────────────────
 
 function RecallCard({ recall }: { recall: RecallAlert }) {
@@ -143,13 +125,7 @@ function RecallCard({ recall }: { recall: RecallAlert }) {
         </p>
       </div>
       <div className="flex items-center gap-1.5 shrink-0">
-        {recall.patientPhone && (
-          <a
-            href={`https://wa.me/${recall.patientPhone.replace(/\D/g, "")}?text=${encodeURIComponent(buildRecallWhatsApp(recall))}`}
-            target="_blank" rel="noopener noreferrer"
-            className="p-1.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white text-xs hover:bg-[var(--fyllio-wa-green-hover)] transition-colors"
-          >WA</a>
-        )}
+        {/* Censo wa.me a cero (2026-07-26): WhatsApp con registro vive en la ficha; zona congelada Sprint B — queda Llamar y Copiar. */}
         {recall.patientPhone && (
           <a
             href={`tel:${recall.patientPhone}`}
@@ -210,13 +186,7 @@ function KanbanRiskCard({
       )}
       {!done && !isLow && (
         <div className="flex gap-1 mt-2">
-          {appt.patientPhone && (
-            <a
-              href={`https://wa.me/${appt.patientPhone.replace(/\D/g, "")}?text=${encodeURIComponent(buildWhatsApp(appt))}`}
-              target="_blank" rel="noopener noreferrer"
-              className="flex-1 text-center text-[10px] font-bold py-1 rounded-lg bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)] transition-colors"
-            >WA</a>
-          )}
+          {/* Censo wa.me a cero (2026-07-26): WhatsApp con registro vive en la ficha; zona congelada Sprint B — queda Llamar y Copiar. */}
           {appt.patientPhone && (
             <a
               href={`tel:${appt.patientPhone}`}

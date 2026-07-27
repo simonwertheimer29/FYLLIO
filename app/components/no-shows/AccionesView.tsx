@@ -45,10 +45,6 @@ const LS_HIST    = "fyllio_acciones_hist_v4";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function buildWA(phone: string, msg: string): string {
-  return `https://wa.me/${phone.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`;
-}
-
 function scoreColor(score: number): string {
   if (score >= 80) return "var(--color-danger)";
   if (score >= 60) return "var(--color-warning)";
@@ -837,8 +833,7 @@ function ItemCard({ item, compact, onClick }: {
         <div className="flex gap-1.5 ml-auto shrink-0">
           {item.type === "appt" && (
             <>
-              <a href={buildWA(item.data.patientPhone, "")} onClick={e => e.stopPropagation()}
-                className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]">WA</a>
+              {/* Censo wa.me a cero (2026-07-26): WhatsApp con registro vive en la ficha; zona congelada Sprint B — queda Llamar y Copiar. */}
               <a href={`tel:${item.data.patientPhone}`} onClick={e => e.stopPropagation()}
                 className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--color-accent-soft)] text-[var(--color-accent)]">Tel</a>
             </>
@@ -913,10 +908,7 @@ function ItemCard({ item, compact, onClick }: {
         {relativeDay(a.dayIso)}{a.doctorNombre ? ` · ${a.doctorNombre}` : ""}{a.clinicaNombre ? ` · ${a.clinicaNombre}` : ""}
       </p>
       <div className="flex gap-2">
-        <a href={buildWA(a.patientPhone, "")} onClick={e => e.stopPropagation()}
-          className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]">
-          WA
-        </a>
+        {/* Censo wa.me a cero (2026-07-26): WhatsApp con registro vive en la ficha; zona congelada Sprint B — queda Llamar y Copiar. */}
         <a href={`tel:${a.patientPhone}`} onClick={e => e.stopPropagation()}
           className="px-2.5 py-1 text-xs font-semibold rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]">
           Llamar
