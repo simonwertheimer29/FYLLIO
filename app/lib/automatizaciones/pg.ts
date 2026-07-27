@@ -105,6 +105,18 @@ export async function listEventosLeadCreadoSinProcesarRawPg(antesDeIso: string):
 export async function marcarEventoProcesadoPg(id: string): Promise<void> {
   await runWithClienteDb(cli(), (trx) => trx.updateTable("eventos_sistema").set({ procesado: true } as any).where("id", "=", id).execute());
 }
+/** MEJORAS 45 — salvaguarda de cooldown: envíos automáticos de WhatsApp a un
+ *  paciente en las últimas N horas. Antes se contaba leyendo Airtable a pelo
+ *  desde el motor, sin pasar por el gate. */
+export async function contarEnviosAutoPg(pacienteId: string, horas: number): Promise<number> {
+  return runWithClienteDb(cli(), async (trx) => {
+    const rows = await trx.selectFrom("acciones_automatizacion").select("detalle")
+      .where("paciente_id", "=", pacienteId).where("resultado", "=", "success")
+      .where("ejecutada_at", ">", new Date(Date.now() - horas * 3600_000)).execute();
+    return rows.filter((r: any) => String(r.detalle ?? "").includes("enviar_whatsapp_template")).length;
+  });
+}
+
 export async function yaDisparadaRecientementePg(a: { reglaId: string; presupuestoId?: string; pacienteId?: string; dias: number }): Promise<boolean> {
   return runWithClienteDb(cli(), async (trx) => {
     let q = trx.selectFrom("acciones_automatizacion").select("id")

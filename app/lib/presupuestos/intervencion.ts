@@ -2,7 +2,6 @@
 // Utilidades compartidas para la Cola de Intervención:
 // clasificación IA de respuestas de pacientes y persistencia en Airtable.
 
-import { base, TABLES } from "../airtable";
 import { registrarAccion } from "../historial/registrar";
 import { construirMapaAnonimizacion, anonimizarTexto, desanonimizarTexto } from "../anonimizacion";
 import { DateTime } from "luxon";
@@ -177,9 +176,7 @@ function fallbackClasificacion(): ClasificacionIA {
   };
 }
 
-/**
- * Persiste la clasificación y la respuesta del paciente en Airtable.
- */
+/** Persiste la clasificación y la respuesta del paciente. */
 export async function guardarClasificacion(args: {
   presupuestoId: string;
   respuestaPaciente: string;
@@ -189,7 +186,10 @@ export async function guardarClasificacion(args: {
   const now = DateTime.now().setZone(ZONE).toISO() ?? new Date().toISOString();
 
   try {
-    await base(TABLES.presupuestos as any).update(args.presupuestoId, {
+    // MEJORAS 45 — vía el repo del dominio (Postgres); antes escribía Airtable
+    // directamente, saltándose el gate de backend.
+    const { updatePresupuestoRaw } = await import("./repo");
+    await updatePresupuestoRaw(args.presupuestoId, {
       Ultima_respuesta_paciente: args.respuestaPaciente,
       Fecha_ultima_respuesta: now,
       Intencion_detectada: args.clasificacion.intencion,
@@ -197,9 +197,9 @@ export async function guardarClasificacion(args: {
       Accion_sugerida: args.clasificacion.accionSugerida,
       Mensaje_sugerido: args.clasificacion.mensajeSugerido,
       Fase_seguimiento: "En intervención",
-    } as any);
+    });
   } catch (err) {
-    console.error("[intervencion] guardarClasificacion Airtable error:", err);
+    console.error("[intervencion] guardarClasificacion error:", err);
   }
 
   await registrarAccion({

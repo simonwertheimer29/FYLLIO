@@ -1,15 +1,16 @@
 // app/api/presupuestos/recordatorios/configuracion/route.ts
 // GET/PUT — configuración de recordatorios por clínica
 
-import { selectConfigRecordatoriosRaw, updateConfigRecordatoriosRaw, createConfigRecordatoriosRaw } from "../../../../lib/presupuestos/recordatorios-config";
+import {
+  listConfigRecordatorios,
+  upsertConfigRecordatorios,
+} from "../../../../lib/presupuestos/recordatorios-config";
 import { NextResponse } from "next/server";
-import { base, TABLES } from "../../../../lib/airtable";
 import type { ConfigRecordatorios } from "../../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import {
   nombresClinicasPermitidas,
   permiteClinica,
-  formulaClinicaPermitida,
 } from "../../../../lib/presupuestos/clinica-scope";
 
 const DEFAULTS: Omit<ConfigRecordatorios, "clinica"> = {
@@ -20,19 +21,6 @@ const DEFAULTS: Omit<ConfigRecordatorios, "clinica"> = {
   activa: true,
 };
 
-function recordToConfig(r: any): ConfigRecordatorios {
-  const f = r.fields as any;
-  const secStr = String(f["Secuencia_dias"] ?? "3,7,10");
-  return {
-    id: r.id,
-    clinica: String(f["Clinica"] ?? ""),
-    secuenciaDias: secStr.split(",").map((s: string) => Number(s.trim())).filter((n: number) => !isNaN(n) && n > 0),
-    recordatorioMax: Number(f["Recordatorio_max"] ?? 3),
-    horaEnvio: String(f["Hora_envio"] ?? "09:00"),
-    diasRechazoAuto: Number(f["Dias_rechazo_auto"] ?? 30),
-    activa: f["Activa"] === true,
-  };
-}
 
 // GET — lee configuración de recordatorios
 export const GET = withPresupuestosAuth(async (session, req: Request) => {
@@ -46,15 +34,13 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     const requested = url.searchParams.get("clinica");
     const clinicaSel = requested && permiteClinica(permitidas, requested) ? requested : null;
     const efectivas = clinicaSel ? new Set([clinicaSel]) : permitidas;
-    const clinicaFormula = formulaClinicaPermitida(efectivas, "Clinica");
     const clinicaLabel =
       clinicaSel ?? (permitidas && permitidas.size === 1 ? [...permitidas][0]! : "");
 
-    const recs = await selectConfigRecordatoriosRaw({
-      fields: ["Clinica", "Secuencia_dias", "Recordatorio_max", "Hora_envio", "Dias_rechazo_auto", "Activa"],
-      ...(clinicaFormula ? { filterByFormula: clinicaFormula } : {}),
-      maxRecords: 10,
-    });
+    // El filtro por clínica se aplica en código (son ≤10 filas): antes viajaba
+    // como filterByFormula de Airtable.
+    const todas = await listConfigRecordatorios();
+    const recs = efectivas ? todas.filter((c) => efectivas.has(c.clinica)) : todas;
 
     if (recs.length === 0) {
       // Return defaults
@@ -63,7 +49,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       });
     }
 
-    const configs = recs.map(recordToConfig);
+    const configs: ConfigRecordatorios[] = recs;
     return NextResponse.json({
       configuracion: configs[0],
       configuraciones: configs,
@@ -89,27 +75,13 @@ export const PUT = withPresupuestosAuth(async (session, req: Request) => {
       return NextResponse.json({ error: "Clínica no permitida" }, { status: 403 });
     }
 
-    const fields: Record<string, any> = {
-      Clinica: clinica,
-      Secuencia_dias: (secuenciaDias ?? DEFAULTS.secuenciaDias).join(","),
-      Recordatorio_max: recordatorioMax ?? DEFAULTS.recordatorioMax,
-      Hora_envio: horaEnvio ?? DEFAULTS.horaEnvio,
-      Dias_rechazo_auto: diasRechazoAuto ?? DEFAULTS.diasRechazoAuto,
-      Activa: activa ?? true,
-    };
-
-    // Check if exists
-    const existing = await selectConfigRecordatoriosRaw({
-      filterByFormula: `{Clinica}='${clinica}'`,
-      maxRecords: 1,
-      fields: ["Clinica"],
+    await upsertConfigRecordatorios(clinica, {
+      secuenciaDias: secuenciaDias ?? DEFAULTS.secuenciaDias,
+      recordatorioMax: recordatorioMax ?? DEFAULTS.recordatorioMax,
+      horaEnvio: horaEnvio ?? DEFAULTS.horaEnvio,
+      diasRechazoAuto: diasRechazoAuto ?? DEFAULTS.diasRechazoAuto,
+      activa: activa ?? true,
     });
-
-    if (existing.length > 0) {
-      await updateConfigRecordatoriosRaw(existing[0].id, fields);
-    } else {
-      await createConfigRecordatoriosRaw(fields);
-    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

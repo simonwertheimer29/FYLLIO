@@ -2,7 +2,7 @@
 // POST — genera la cola de envíos del día basada en plantillas + configuración
 // Two-pass: collect candidates → sort by priority → limit 30/clinic → generate content
 
-import { selectConfigRecordatoriosRaw } from "../../../../lib/presupuestos/recordatorios-config";
+import { listConfigRecordatorios } from "../../../../lib/presupuestos/recordatorios-config";
 import { selectPlantillasMensajeRaw } from "../../../../lib/plantillas/plantillas";
 import { selectColaEnviosRaw, createColaEnvioRaw } from "../../../../lib/presupuestos/cola-envios-repo";
 import { NextResponse } from "next/server";
@@ -153,22 +153,18 @@ export const POST = withPresupuestosAuth(async (session) => {
 
   try {
     // 1. Cargar configuraciones de recordatorios
-    const configRecs = await selectConfigRecordatoriosRaw({
-      fields: ["Clinica", "Secuencia_dias", "Recordatorio_max", "Hora_envio", "Dias_rechazo_auto", "Activa"],
-    });
+    const configRecs = await listConfigRecordatorios();
 
     const configMap = new Map<string, Omit<ConfigRecordatorios, "clinica">>();
-    for (const rec of configRecs) {
-      const f = rec.fields as any;
-      const clinica = String(f["Clinica"] ?? "");
+    for (const cfg of configRecs) {
+      const clinica = cfg.clinica;
       if (!clinica) continue;
-      const secStr = String(f["Secuencia_dias"] ?? "3,7,10");
       configMap.set(clinica, {
-        secuenciaDias: secStr.split(",").map((s: string) => Number(s.trim())).filter((n: number) => !isNaN(n) && n > 0),
-        recordatorioMax: Number(f["Recordatorio_max"] ?? 3),
-        horaEnvio: String(f["Hora_envio"] ?? "09:00"),
-        diasRechazoAuto: Number(f["Dias_rechazo_auto"] ?? 30),
-        activa: f["Activa"] === true,
+        secuenciaDias: cfg.secuenciaDias,
+        recordatorioMax: cfg.recordatorioMax,
+        horaEnvio: cfg.horaEnvio,
+        diasRechazoAuto: cfg.diasRechazoAuto,
+        activa: cfg.activa,
       });
     }
 

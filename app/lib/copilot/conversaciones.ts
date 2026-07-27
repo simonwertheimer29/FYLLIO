@@ -16,7 +16,10 @@
 // >= MAX_MENSAJES, el caller debería cerrar la actual y abrir una nueva
 // con título "Continuación: …". La lógica vive en /api/copilot/chat.
 
-import { base, fetchAll, TABLES } from "../airtable";
+// MEJORAS 45 (2026-07-27) — la memoria del Copilot vivía en Airtable sin pasar
+// por el gate de backend. Ahora Postgres (tabla conversaciones_copilot).
+import { runWithClienteDb } from "../db/context";
+import { requireCliente } from "../cliente-contexto";
 import type { CopilotMessage } from "../../components/copilot/types";
 
 export const MAX_BYTES = 80_000;
@@ -39,16 +42,17 @@ export type Conversacion = ConversacionResumen & {
   mensajes: CopilotMessage[];
 };
 
-function toResumen(rec: any): ConversacionResumen {
-  const f = rec.fields ?? {};
+const iso = (v: any): string => (v instanceof Date ? v.toISOString() : String(v ?? ""));
+
+function toResumen(r: any): ConversacionResumen {
   return {
-    id: rec.id,
-    titulo: String(f["Titulo"] ?? "(sin título)"),
-    mensajeCount: typeof f["Mensaje_Count"] === "number" ? f["Mensaje_Count"] : 0,
-    modeloUsado: f["Modelo_Usado"] ? String(f["Modelo_Usado"]) : null,
-    createdAt: String(f["Created_At"] ?? rec._rawJson?.createdTime ?? ""),
-    updatedAt: String(f["Updated_At"] ?? rec._rawJson?.createdTime ?? ""),
-    activa: Boolean(f["Activa"] ?? false),
+    id: r.id,
+    titulo: String(r.titulo ?? "(sin título)"),
+    mensajeCount: Number(r.mensaje_count ?? 0),
+    modeloUsado: r.modelo_usado ? String(r.modelo_usado) : null,
+    createdAt: iso(r.created_at),
+    updatedAt: iso(r.updated_at ?? r.created_at),
+    activa: r.activa !== false,
   };
 }
 
@@ -63,15 +67,12 @@ function parseMensajes(raw: unknown): CopilotMessage[] {
   }
 }
 
-function toConversacion(rec: any): Conversacion {
-  const f = rec.fields ?? {};
-  const usuarioLinks = (f["Usuario_Link"] ?? []) as string[];
-  const clinicaLinks = (f["Clinica_Link"] ?? []) as string[];
+function toConversacion(r: any): Conversacion {
   return {
-    ...toResumen(rec),
-    usuarioId: usuarioLinks[0] ?? "",
-    clinicaId: clinicaLinks[0] ?? null,
-    mensajes: parseMensajes(f["Mensajes"]),
+    ...toResumen(r),
+    usuarioId: r.usuario_id ?? "",
+    clinicaId: r.clinica_id ?? null,
+    mensajes: parseMensajes(r.mensajes),
   };
 }
 
@@ -87,26 +88,27 @@ export async function listConversaciones(
   params: ListParams,
 ): Promise<ConversacionResumen[]> {
   const { usuarioId, limit = 10, soloActivas = false } = params;
-  const filters: string[] = [];
-  filters.push(`FIND("${usuarioId}", ARRAYJOIN({Usuario_Link}, ","))`);
-  if (soloActivas) filters.push(`{Activa} = TRUE()`);
-  const filterByFormula =
-    filters.length > 1 ? `AND(${filters.join(", ")})` : filters[0];
-
-  const recs = await fetchAll(
-    base(TABLES.conversacionesCopilot).select({
-      filterByFormula,
-      sort: [{ field: "Updated_At", direction: "desc" }],
-      pageSize: Math.min(limit, 100),
-    }),
-  );
-  return recs.slice(0, limit).map(toResumen);
+  const cliente = requireCliente("listConversaciones");
+  return runWithClienteDb(cliente, async (trx) => {
+    let q = trx
+      .selectFrom("conversaciones_copilot")
+      .selectAll()
+      .where("usuario_id", "=", usuarioId)
+      .orderBy("updated_at", "desc")
+      .limit(limit);
+    if (soloActivas) q = q.where("activa", "=", true);
+    const rows = await q.execute();
+    return rows.map(toResumen);
+  });
 }
 
 export async function getConversacion(id: string): Promise<Conversacion | null> {
   try {
-    const rec = await base(TABLES.conversacionesCopilot).find(id);
-    return toConversacion(rec);
+    const cliente = requireCliente("getConversacion");
+    const row = await runWithClienteDb(cliente, (trx) =>
+      trx.selectFrom("conversaciones_copilot").selectAll().where("id", "=", id).executeTakeFirst(),
+    );
+    return row ? toConversacion(row) : null;
   } catch {
     return null;
   }
@@ -134,21 +136,26 @@ export async function createConversacion(
   const mensajes = params.mensajes ?? [];
   const now = new Date().toISOString();
   const titulo = params.titulo ?? generarTitulo(mensajes);
-  const fields: Record<string, any> = {
-    Resumen: titulo,
-    Usuario_Link: [params.usuarioId],
-    Titulo: titulo,
-    Mensajes: JSON.stringify(mensajes),
-    Mensaje_Count: mensajes.length,
-    Created_At: now,
-    Updated_At: now,
-    Activa: true,
-  };
-  if (params.clinicaId) fields.Clinica_Link = [params.clinicaId];
-  if (params.modeloUsado) fields.Modelo_Usado = params.modeloUsado;
-
-  const created = (await base(TABLES.conversacionesCopilot).create([{ fields }]))[0]!;
-  return toConversacion(created);
+  const cliente = requireCliente("createConversacion");
+  const row = await runWithClienteDb(cliente, (trx) =>
+    trx
+      .insertInto("conversaciones_copilot")
+      .values({
+        cliente,
+        resumen: titulo,
+        usuario_id: params.usuarioId,
+        clinica_id: params.clinicaId ?? null,
+        titulo,
+        mensajes: JSON.stringify(mensajes),
+        mensaje_count: mensajes.length,
+        modelo_usado: params.modeloUsado ?? null,
+        activa: true,
+        updated_at: new Date(now),
+      } as any)
+      .returningAll()
+      .executeTakeFirstOrThrow(),
+  );
+  return toConversacion(row);
 }
 
 export type AppendResult = {
@@ -169,21 +176,30 @@ export async function appendMensajes(
   const truncado =
     serialized.length >= MAX_BYTES || merged.length >= MAX_MENSAJES;
 
-  const fields: Record<string, any> = {
-    Mensajes: serialized,
-    Mensaje_Count: merged.length,
-    Updated_At: new Date().toISOString(),
-  };
-  if (modeloUsado) fields.Modelo_Usado = modeloUsado;
-
-  const updated = (
-    await base(TABLES.conversacionesCopilot).update([{ id, fields }])
-  )[0]!;
-  return { conversacion: toConversacion(updated), truncado };
+  const cliente = requireCliente("appendMensajes");
+  const row = await runWithClienteDb(cliente, (trx) =>
+    trx
+      .updateTable("conversaciones_copilot")
+      .set({
+        mensajes: serialized,
+        mensaje_count: merged.length,
+        updated_at: new Date(),
+        ...(modeloUsado ? { modelo_usado: modeloUsado } : {}),
+      } as any)
+      .where("id", "=", id)
+      .returningAll()
+      .executeTakeFirstOrThrow(),
+  );
+  return { conversacion: toConversacion(row), truncado };
 }
 
 export async function cerrarConversacion(id: string): Promise<void> {
-  await base(TABLES.conversacionesCopilot).update([
-    { id, fields: { Activa: false, Updated_At: new Date().toISOString() } },
-  ]);
+  const cliente = requireCliente("cerrarConversacion");
+  await runWithClienteDb(cliente, (trx) =>
+    trx
+      .updateTable("conversaciones_copilot")
+      .set({ activa: false, updated_at: new Date() } as any)
+      .where("id", "=", id)
+      .execute(),
+  );
 }
