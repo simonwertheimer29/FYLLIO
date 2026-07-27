@@ -114,12 +114,34 @@ try {
   const estadosLead = [
     ...Array(8).fill("Nuevo"), ...Array(9).fill("Contactado"), ...Array(4).fill("Citado"),
     ...Array(2).fill("Citados Hoy"), ...Array(9).fill("Convertido"), ...Array(6).fill("No Interesado")];
-  const MOTIVOS_NO = ["Se fue a otra clínica más barata", "No le convenció el tratamiento", "Problema de horarios", "Precio fuera de presupuesto"];
+  // MEJORAS 41 (2026-07-27) — el campo Motivo_No_Interes es un single-select
+  // de DOS opciones en las bases reales (Rechazo_Producto · No_Asistio). El seed
+  // escribía aquí texto libre: los 158 descartados de DEMO quedaban fuera del
+  // enum, la columna los agrupaba TODOS en "Rechazo" y el panel afirmaba
+  // "rechazó la propuesta" de quien no había asistido. El matiz sigue vivo donde
+  // corresponde —el hilo de WhatsApp— y la columna guarda un valor válido.
+  // Ampliar el vocabulario es MEJORAS 42 (toca esquema).
+  const MOTIVOS_NO = [
+    "Se fue a otra clínica más barata",
+    "No le convenció el tratamiento",
+    "Problema de horarios",
+    "Precio fuera de presupuesto",
+    "No asistió a la cita",
+  ];
   const RECHAZO_LEAD = {
     "Se fue a otra clínica más barata": "Al final me lo voy a hacer en otra clínica que me sale más barato. Gracias de todas formas.",
     "No le convenció el tratamiento": "Lo he estado pensando y no me convence el tratamiento. Lo siento.",
     "Problema de horarios": "Con mis horarios me es imposible ir, lo tenemos que dejar.",
     "Precio fuera de presupuesto": "Ahora mismo se me va de presupuesto. ¡Gracias!",
+    "No asistió a la cita": "Perdona, no pude ir al final y no avisé. Ya te escribiré más adelante.",
+  };
+  /** Narrativa del hilo → valor real del campo. */
+  const MOTIVO_ENUM = {
+    "Se fue a otra clínica más barata": "Rechazo_Producto",
+    "No le convenció el tratamiento": "Rechazo_Producto",
+    "Problema de horarios": "Rechazo_Producto",
+    "Precio fuera de presupuesto": "Rechazo_Producto",
+    "No asistió a la cita": "No_Asistio",
   };
   const TRATS_INT = ["Implante unitario", "Ortodoncia invisible", "Blanqueamiento LED", "Endodoncia molar", "Limpieza dental", "Corona sobre implante"];
   const leadNombresExtra = ["Yolanda Ríos", "Tomás Benítez", "Lorena Cuevas", "Álvaro Méndez", "Noelia Ibáñez",
@@ -196,6 +218,11 @@ try {
     } else if (est === "No Interesado") {
       // Cerrado perdido: el rechazo del hilo CUADRA con el motivo registrado.
       motivoNo = MOTIVOS_NO[k % MOTIVOS_NO.length];
+      // Un "no asistió" tuvo cita: sin ella la ficha se contradice sola.
+      if (MOTIVO_ENUM[motivoNo] === "No_Asistio") {
+        fechaCita = dh(-5, 10).slice(0, 10);
+        horaCita = "10:00";
+      }
       guion.push({ dir: "Saliente", ts: dh(-6, 10), txt: `Hola ${primer}, ¿pudiste valorar lo que hablamos sobre ${tratLow}?` });
       guion.push({ dir: "Entrante", ts: dh(-5, 12), txt: RECHAZO_LEAD[motivoNo], intn: "No interesado" });
       guion.push({ dir: "Saliente", ts: dh(-5, 13), txt: "Entendido, gracias por avisar 😊 Aquí nos tienes si cambias de idea." });
@@ -212,7 +239,7 @@ try {
       fecha_cita: fechaCita, hora_cita: horaCita,
       llamado: acciones.some((a) => a.tipo === "Llamada"),
       whatsapp_enviados: salientes.length,
-      motivo_no_interes: motivoNo,
+      motivo_no_interes: motivoNo ? MOTIVO_ENUM[motivoNo] : null,
       intencion_detectada: lastEnt?.intn ?? null,
       convertido_a_paciente: conv, paciente_id: conv ? pac.id : null,
       ultima_accion: lastSal ? "WhatsApp_Saliente" : (acciones.length ? "Llamada" : null),
@@ -732,7 +759,8 @@ try {
           nombre, telefono: telL, tratamiento_interes: trat, canal_captacion: CANALES[(m + k) % CANALES.length],
           estado, clinica_id: cid, doctor_asignado_id: docEn(cid).id, tipo_visita: "Primera visita",
           llamado: false, whatsapp_enviados: guion.filter((x) => x.dir === "Saliente").length,
-          motivo_no_interes: motivoNo, intencion_detectada: lastEnt?.intn ?? null,
+          motivo_no_interes: motivoNo ? MOTIVO_ENUM[motivoNo] : null,
+          intencion_detectada: lastEnt?.intn ?? null,
           convertido_a_paciente: conv, paciente_id: conv ? pacConv.id : null,
           ultima_accion: guion.length ? "WhatsApp_Saliente" : null,
           created_at: creado.toISOString(),
