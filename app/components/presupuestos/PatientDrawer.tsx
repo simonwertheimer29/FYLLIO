@@ -414,18 +414,22 @@ export default function PatientDrawer({
                         const isLast = idx === items.length - 1;
                         if (item.kind === "contacto") {
                           const c = item.contacto;
-                          const TipoIcon = TIPO_ICON[c.tipo];
+                          // Fallback: un tipo que no esté en el mapa (dato
+                          // viejo o nuevo) no puede tumbar el panel entero
+                          // — antes React reventaba con un componente
+                          // undefined (error #130).
+                          const TipoIcon = TIPO_ICON[c.tipo] ?? MessageCircle;
                           return (
                             <div key={`c-${c.id}`} className="flex gap-3">
                               <div className="flex flex-col items-center">
-                                <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-0.5 ${TIPO_DOT_COLOR[c.tipo]}`} />
+                                <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-0.5 ${TIPO_DOT_COLOR[c.tipo] ?? "bg-slate-400"}`} />
                                 {!isLast && <div className="w-0.5 flex-1 bg-[var(--color-border)] my-1 min-h-[12px]" />}
                               </div>
                               <div className={`flex-1 ${isLast ? "pb-1" : "pb-3"}`}>
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[var(--color-foreground)]">
                                     <TipoIcon size={12} strokeWidth={ICON_STROKE} className="text-[var(--color-muted)]" aria-hidden />
-                                    {TIPO_LABEL[c.tipo]}
+                                    {TIPO_LABEL[c.tipo] ?? c.tipo}
                                   </span>
                                   {c.mensajeIAUsado && (
                                     <span className="inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)] font-semibold">
@@ -448,11 +452,11 @@ export default function PatientDrawer({
                           const h = item.accion;
                           // Contactos duplicados del historial (doble escritura) se filtran visualmente
                           if (h.tipo === "contacto") return null;
-                          const AccionIcon = TIPO_ACCION_ICON[h.tipo];
+                          const AccionIcon = TIPO_ACCION_ICON[h.tipo] ?? ArrowRight;
                           return (
                             <div key={`h-${h.id}`} className="flex gap-3">
                               <div className="flex flex-col items-center">
-                                <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-0.5 ${TIPO_ACCION_DOT[h.tipo]}`} />
+                                <div className={`w-2.5 h-2.5 rounded-full shrink-0 mt-0.5 ${TIPO_ACCION_DOT[h.tipo] ?? "bg-slate-400"}`} />
                                 {!isLast && <div className="w-0.5 flex-1 bg-[var(--color-border)] my-1 min-h-[12px]" />}
                               </div>
                               <div className={`flex-1 ${isLast ? "pb-1" : "pb-3"}`}>
