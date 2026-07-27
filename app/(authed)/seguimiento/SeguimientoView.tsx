@@ -52,18 +52,20 @@ export function SeguimientoView({
   user,
   initialLeads,
   doctores,
+  vistaInicial,
+  cohorteInicial,
 }: {
   user: UserSession;
   initialLeads: Lead[];
   doctores: Doctor[];
+  /** Resueltos en servidor desde la query — leerlos de window en el estado
+   *  inicial rompía la hidratación (React #418). */
+  vistaInicial: Tab;
+  cohorteInicial: string | null;
 }) {
   // Enlaces del dashboard de Red: ?vista=leads|presupuestos abre la cola
   // pedida (lectura en el init para no exigir Suspense de useSearchParams).
-  const [tab, setTab] = useState<Tab>(() => {
-    if (typeof window === "undefined") return "leads";
-    const v = new URLSearchParams(window.location.search).get("vista");
-    return v === "presupuestos" ? "presupuestos" : "leads";
-  });
+  const [tab, setTab] = useState<Tab>(vistaInicial);
   // Sprint 9 fix unificación cierre — el SidePanel de Presupuestos se monta
   // al nivel de SeguimientoView (igual que el patrón pre-fix). Lo abrimos vía
   // AccionPanel kind="presupuesto" para conservar el wrapper unificado.
@@ -181,7 +183,11 @@ export function SeguimientoView({
         </header>
 
         {tab === "leads" ? (
-          <LeadsTab initialLeads={initialLeads} doctores={doctores} />
+          <LeadsTab
+            initialLeads={initialLeads}
+            doctores={doctores}
+            cohorteInicial={cohorteInicial}
+          />
         ) : (
           <PresupuestosTab
             user={user}
@@ -274,7 +280,15 @@ function tramoDeCita(fechaCita: string, hoy: string): TramoCita {
 const esNuevoUrgente = (createdAt: string, ahoraMs: number) =>
   ahoraMs - (new Date(createdAt).getTime() || 0) >= NUEVO_URGENTE_MS;
 
-function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: Doctor[] }) {
+function LeadsTab({
+  initialLeads,
+  doctores,
+  cohorteInicial,
+}: {
+  initialLeads: Lead[];
+  doctores: Doctor[];
+  cohorteInicial: string | null;
+}) {
   const { selectedClinicaId } = useClinic();
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [loading, setLoading] = useState(false);
@@ -285,11 +299,9 @@ function LeadsTab({ initialLeads, doctores }: { initialLeads: Lead[]; doctores: 
   // ?cohorte=citados|nuevos|conversacion|rezagados (dashboard de Red y el
   // redirect de /actuar-hoy). null = apertura automática en la primera
   // cohorte con casos que exigen acción; el click del usuario la fija.
-  const [cohorteManual, setCohorteManual] = useState<CohorteLead | null>(() => {
-    if (typeof window === "undefined") return null;
-    const c = new URLSearchParams(window.location.search).get("cohorte");
-    return c ? (URL_A_COHORTE[c] ?? null) : null;
-  });
+  const [cohorteManual, setCohorteManual] = useState<CohorteLead | null>(
+    cohorteInicial ? (URL_A_COHORTE[cohorteInicial] ?? null) : null,
+  );
   // Sub-filtro temporal de Citados: null = primer tramo con citas.
   const [tramoManual, setTramoManual] = useState<TramoCita | null>(null);
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null);

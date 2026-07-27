@@ -31,7 +31,19 @@ async function listDoctores(): Promise<Array<{ id: string; nombre: string; clini
 
 export const dynamic = "force-dynamic";
 
-export default async function SeguimientoPage() {
+export default async function SeguimientoPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  // La vista y la cohorte se resuelven en SERVIDOR: leerlas de
+  // window.location en el estado inicial provocaba un mismatch de
+  // hidratación (React #418) con ?vista=presupuestos.
+  const params = await searchParams;
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? null;
+  const vistaInicial = one(params.vista) === "presupuestos" ? "presupuestos" : "leads";
+  const cohorteInicial = one(params.cohorte);
+
   const s = await getSession();
   if (!s) redirect("/login");
 
@@ -62,5 +74,13 @@ export default async function SeguimientoPage() {
     clinica: null,
   };
 
-  return <SeguimientoView user={user} initialLeads={leadsConClinica} doctores={doctores} />;
+  return (
+    <SeguimientoView
+      user={user}
+      initialLeads={leadsConClinica}
+      doctores={doctores}
+      vistaInicial={vistaInicial}
+      cohorteInicial={cohorteInicial}
+    />
+  );
 }
