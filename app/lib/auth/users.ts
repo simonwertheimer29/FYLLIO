@@ -4,8 +4,7 @@
 // Sprint 7: sistema canónico. NO tocar `Usuarios_Presupuestos` (legacy).
 
 // Sprint B — Usuarios, Clínicas y Usuario_Clinicas son IDENTIDAD/REGISTRO y viven
-// en la base CENTRAL. Todo este módulo usa baseCentral() (nunca base(), que es
-// para datos de negocio por cliente).
+// en el registro central de identidad (Postgres desde el corte).
 import { type Cliente } from "../airtable";
 
 export type Rol = "admin" | "coordinacion";

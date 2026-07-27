@@ -435,3 +435,19 @@ verdad de negocio en Postgres desde el corte. Decisión: los cambios de esquema 
 la retirada de la rama queda planificada (MEJORAS 44). El censo destapó además un estado mixto vivo:
 el alcance de clínicas y la lista de doctores se leen de Airtable mientras los datos vienen de
 Postgres — y Staff está VACÍA en las dos bases piloto (MEJORAS 45).
+
+## 2026-07-27 — Airtable fuera: un solo backend, sin dispatcher
+Cada dominio estaba escrito dos veces (17 archivos `*-pg`, 199 bifurcaciones `usaPostgres`) más un
+intérprete del dialecto de filtros de Airtable y "shims" que fingían sus records. Nada de eso tenía
+consumidor: última escritura en cualquier base el 2026-07-15 y bases piloto vacías. Se retiró la
+rama entera, el gate, el paquete npm, los 32 scripts de esquema y la isla de prototipo que el proxy
+ya devolvía 404 en producción desde el Sprint A (~15.000 líneas). Las variables salieron de Vercel.
+Sobrevive `db/airtable-formula` como deuda acotada y documentada: interpreta el dialecto sobre filas
+de Postgres porque ~10 repos aún reciben `filterByFormula` de sus callers.
+
+## 2026-07-27 — No-shows se congela en vez de fingir que funciona
+La zona vivía sobre Airtable y llevaba parada desde el Sprint B, con sus rutas respondiendo 401
+contra tablas vacías: una pantalla que aparentaba funcionar. Al retirar Airtable se congeló
+explícitamente — página que dice que está en reconstrucción, fuera del nav — en lugar de dejar un
+404 o un módulo roto. El motor predictivo y sus tablas de analítica NO se tocan y se siguen
+alimentando desde la agenda: lo congelado es la interfaz vieja, no el diferenciador.

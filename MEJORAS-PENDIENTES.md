@@ -575,6 +575,10 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   (persistir en hilo → abrir la URL que devuelve el server), como Cobros y Presupuestos.
 - **Impacto:** alto cuando se reactive la zona; nulo mientras siga congelada.
 - **Fecha:** 2026-07-26 · 🔵
+- **2026-07-27 · 🟠 CONGELADA**: la zona se retiró con Airtable. La página dice
+  que está en reconstrucción (lenguaje de coordinadora, primitivos de la app) y
+  no está en el nav. El motor predictivo y sus tablas de analítica siguen vivos
+  y alimentándose: reactivar = reconstruir la interfaz sobre Postgres.
 
 ## 40. `urgencyScore` sigue vivo como dato aunque ya no ordena ninguna vista
 - **Zona:** `app/lib/presupuestos/urgency.ts`, payload de `/api/presupuestos/kanban`, orden
@@ -664,7 +668,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** alto en velocidad de cambio (hoy cada esquema cuesta el doble y puede
   desincronizarse) y en superficie de bug; nulo en datos (no hay nada vivo que migrar).
 - **Fecha:** 2026-07-27 · 🔵
-- **2026-07-27 · 🟠 EN CURSO (pasos 1 y 3 parciales)**:
+- **2026-07-27 · 🟢 CERRADA (los cuatro pasos)**:
   - Paso 1 HECHO: el contexto de cliente vive en `lib/cliente-contexto`.
   - Paso 3 al 70%: fuera la isla de prototipo que el proxy ya devolvía 404 en producción
     desde el Sprint A (`/api/db`, `/api/dashboard`, `/api/scheduler`, `/api/dev`,
@@ -676,6 +680,16 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
     resolverla la deja rota; migrarla es un sprint. Decisión pendiente (ver nº 39).
   - Paso 4 (env fuera de Vercel) NO ejecutado a propósito: quitar las variables mientras
     no-shows llama a Airtable rompe esa zona en producción.
+  - Paso 2 y 3 COMPLETOS: cero llamadas a Airtable y **cero bifurcaciones
+    `usaPostgres`**. Fuera el gate, el paquete npm, los 32 scripts de esquema y
+    los módulos ya sin ruta que los montara. `lib/airtable.ts` queda como
+    reexport del contexto de cliente (solo sobrevive el nombre del archivo).
+  - Paso 4 HECHO: `AIRTABLE_API_KEY` y los 3 ids fuera de Vercel (production,
+    preview y development).
+  - **Deuda acotada que sobrevive**: `db/airtable-formula` interpreta el dialecto
+    de filtros de Airtable sobre filas de Postgres porque ~10 repos aún reciben
+    `filterByFormula` de sus callers. No habla con Airtable. Siguiente paso:
+    tipar esos filtros y borrarlo.
 
 ## 45. Estado mixto: el alcance de clínicas y los doctores se leen de Airtable, los datos de Postgres
 - **Zona:** `lib/clinicas-negocio.ts:33`, `lib/scheduler/repo/staffRepo.ts`, y las páginas de
