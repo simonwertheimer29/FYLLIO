@@ -13,12 +13,12 @@
 // de montarse aquí (era su último consumidor — retirada anotada en MEJORAS).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   ResponsiveContainer,
-  AreaChart,
+  ComposedChart,
   Area,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
@@ -456,8 +456,10 @@ const SERIES: Array<[SerieProgreso, string, boolean]> = [
 ];
 
 export function RedView({ user: _user }: { user: UserSession }) {
-  const router = useRouter();
-  const { setSelectedClinicaId } = useClinic();
+  // /red SIGUE AL SELECTOR GLOBAL (decisión 2026-07-27). Antes lo ignoraba: el
+  // manager cambiaba de clínica y la pantalla no se inmutaba, mientras su
+  // propia tabla usaba ese mismo selector para "abrir el detalle".
+  const { selectedClinicaId, selectedClinicaNombre, isHydrated, setSelectedClinicaId } = useClinic();
   const [data, setData] = useState<DashboardRed | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [orden, setOrden] = useState<OrdenClinicas>("tendencia");
@@ -465,14 +467,20 @@ export function RedView({ user: _user }: { user: UserSession }) {
 
   const load = useCallback(() => {
     setLoadError(false);
-    fetch("/api/red/dashboard")
+    const qs = selectedClinicaId ? `?clinica=${encodeURIComponent(selectedClinicaId)}` : "";
+    fetch(`/api/red/dashboard${qs}`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      // No se vacía `data` al recargar: la pantalla no parpadea a esqueleto al
+      // cambiar de clínica, y así el destello puede señalar QUÉ cifra cambió.
       .then((d) => setData(d))
       .catch(() => setLoadError(true));
-  }, []);
+  }, [selectedClinicaId]);
   useEffect(() => {
+    // Esperar a la hidratación del contexto: antes de ella selectedClinicaId es
+    // null y se pediría la red entera para descartarla al instante siguiente.
+    if (!isHydrated) return;
     load();
-  }, [load]);
+  }, [load, isHydrated]);
 
   const clinicasOrdenadas = useMemo(() => {
     const filas = [...(data?.clinicas ?? [])];
@@ -492,10 +500,10 @@ export function RedView({ user: _user }: { user: UserSession }) {
   }, [data, orden]);
 
   function irAClinica(c: ClinicaFila) {
-    // "Detalle de clínica" = fijar su ámbito en el selector global y abrir
-    // KPIs: todo el producto queda filtrado a esa clínica.
+    // Clic en una clínica = filtrar el dashboard a ella (y con él, el resto
+    // del producto, porque es el selector global). Antes empujaba a /kpis: la
+    // comparativa era un enlace de salida en vez de navegación de la pantalla.
     setSelectedClinicaId(c.id);
-    router.push("/kpis");
   }
 
   if (loadError) {
@@ -538,17 +546,50 @@ export function RedView({ user: _user }: { user: UserSession }) {
 
   const { hoy, negocio, progreso } = data;
   const conv = negocio.presupuestos.conversionMes;
+  // Con una clínica seleccionada, "Tus clínicas" compararía una fila consigo
+  // misma: se retira y "El negocio" ocupa la fila entera.
+  const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
   const serieDef = SERIES.find(([k]) => k === serie)!;
   const etiquetaSerie = serieDef[1];
   const esDinero = serieDef[2];
+
+  // El último punto es el MES EN CURSO: se pinta, pero punteado y etiquetado.
+  // `cerrado` lleva los meses completos y `enCurso` el último tramo — solapan
+  // en el penúltimo punto para que las dos líneas se unan sin hueco.
+  const ultimo = progreso.length - 1;
+  const datosProgreso = progreso.map((p, i) => ({
+    ...p,
+    label: mesLabel(p.mes) + (i === ultimo ? " · en curso" : ""),
+    cerrado: i <= ultimo - 1 ? p[serie] : null,
+    enCurso: i >= ultimo - 1 ? p[serie] : null,
+  }));
 
   return (
     <div className="flex-1 min-h-0 overflow-auto bg-[var(--color-background)]">
       <div className="max-w-screen-2xl mx-auto p-4 lg:p-8">
         <header className="flex items-start justify-between gap-3 flex-wrap mb-6">
-          <div>
-            <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">Red</h1>
-            <p className="text-xs text-[var(--color-muted)] mt-0.5">Dónde pierdes dinero, cómo va el negocio y qué clínica necesita atención</p>
+          <div className="min-w-0">
+            <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">
+              {clinicaFiltrada ? selectedClinicaNombre : "Red"}
+            </h1>
+            {/* El titular refleja el ámbito: la pantalla no puede decir "Red"
+                mientras enseña los números de una sola clínica. */}
+            {clinicaFiltrada ? (
+              <p className="text-xs text-[var(--color-muted)] mt-0.5 flex items-center gap-2 flex-wrap">
+                Dónde pierde dinero esta clínica y cómo va su negocio
+                <button
+                  type="button"
+                  onClick={() => setSelectedClinicaId(null)}
+                  className="font-medium text-[var(--color-accent)] hover:underline"
+                >
+                  Ver toda la red
+                </button>
+              </p>
+            ) : (
+              <p className="text-xs text-[var(--color-muted)] mt-0.5">
+                Dónde pierdes dinero, cómo va el negocio y qué clínica necesita atención
+              </p>
+            )}
           </div>
           <button
             type="button"
@@ -590,7 +631,12 @@ export function RedView({ user: _user }: { user: UserSession }) {
                 hoy.riesgo.length > 0 ? (
                   <>
                     <span className="font-semibold text-[var(--color-foreground)]">{eur(hoy.importeEnRiesgo)}</span> en
-                    riesgo · {hoy.clinicasEnRiesgo} clínica{hoy.clinicasEnRiesgo === 1 ? "" : "s"}
+                    riesgo
+                    {/* Con una sola clínica en pantalla, "· 1 clínica" no
+                        informa de nada. */}
+                    {!clinicaFiltrada && (
+                      <> · {hoy.clinicasEnRiesgo} clínica{hoy.clinicasEnRiesgo === 1 ? "" : "s"}</>
+                    )}
                   </>
                 ) : undefined
               }
@@ -662,7 +708,7 @@ export function RedView({ user: _user }: { user: UserSession }) {
 
           {/* ══ FILA 3 · EL NEGOCIO (izq) · TUS CLÍNICAS (der) ═══════════ */}
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 items-start">
-            <section className="lg:col-span-3">
+            <section className={clinicaFiltrada ? "lg:col-span-5" : "lg:col-span-3"}>
               <TituloSeccion icono={<BarChart3 size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
                 El negocio
               </TituloSeccion>
@@ -776,6 +822,7 @@ export function RedView({ user: _user }: { user: UserSession }) {
               </div>
             </section>
 
+            {!clinicaFiltrada && (
             <section className="lg:col-span-2">
               <TituloSeccion icono={<Building2 size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
                 Tus clínicas
@@ -788,7 +835,8 @@ export function RedView({ user: _user }: { user: UserSession }) {
               {ORDENES_CON_MUESTRA_CORTA.includes(orden) && clinicasOrdenadas.some((c) => c.muestraCorta)
                 ? "Las de pocos presupuestos van al final. "
                 : ""}
-              Comparadas con el mismo tramo del mes anterior — clic en una clínica para abrir su detalle.
+              Comparadas con el mismo tramo del mes anterior — clic en una clínica para filtrar el
+              dashboard a ella.
             </p>
             {/* Móvil: la misma información apilada. Una tabla de 5 columnas en
                 390px recortaba la última sin aviso — y aquí no sobra ninguna. */}
@@ -920,6 +968,7 @@ export function RedView({ user: _user }: { user: UserSession }) {
             </div>
               </Card>
             </section>
+            )}
           </div>
 
           {/* ══ FILA 4 · PROGRESO — ancho completo, curva legible ═════════ */}
@@ -930,7 +979,8 @@ export function RedView({ user: _user }: { user: UserSession }) {
             <Card padding="none" className="p-5">
             <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
               <p className="text-[11px] text-[var(--color-muted)]">
-                Evolución mensual de los últimos 6 meses.
+                Evolución mensual de los últimos 6 meses. El mes en curso va punteado: todavía no ha
+                terminado, así que su punto no es comparable con los anteriores.
               </p>
               {/* ColaTabs: el mismo primitivo de pills que filtra las colas —
                   aquí elige la serie. Antes eran pills a medida casi iguales. */}
@@ -942,8 +992,8 @@ export function RedView({ user: _user }: { user: UserSession }) {
             </div>
             <div className="h-72 lg:h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={progreso.map((p) => ({ ...p, label: mesLabel(p.mes) }))}
+                <ComposedChart
+                  data={datosProgreso}
                   margin={{ top: 4, right: 8, left: 8, bottom: 0 }}
                 >
                   <defs>
@@ -970,6 +1020,7 @@ export function RedView({ user: _user }: { user: UserSession }) {
                   />
                   <Tooltip
                     formatter={(v) => [esDinero ? eur(Number(v)) : String(v), etiquetaSerie]}
+                    filterNull
                     contentStyle={{
                       background: "var(--color-surface)",
                       border: "1px solid var(--color-border)",
@@ -979,16 +1030,53 @@ export function RedView({ user: _user }: { user: UserSession }) {
                     }}
                     cursor={{ stroke: "var(--color-border)" }}
                   />
+                  {/* Dos áreas con el MISMO juego de puntos que su trazo: si el
+                      relleno llevara la serie completa y el trazo solo los
+                      meses cerrados, las dos curvas `monotone` se calcularían
+                      sobre conjuntos distintos y se separarían a la vista. */}
                   <Area
                     type="monotone"
-                    dataKey={serie}
+                    dataKey="cerrado"
                     stroke="var(--color-accent)"
                     strokeWidth={2}
                     fill="url(#degradadoProgreso)"
                     dot={{ r: 2.5, fill: "var(--color-accent)", strokeWidth: 0 }}
-                    activeDot={{ r: 4 }}
+                    activeDot={false}
+                    connectNulls={false}
+                    tooltipType="none"
+                    isAnimationActive={false}
                   />
-                </AreaChart>
+                  {/* Mes en curso: mismo color, trazo punteado y atenuado. Se
+                      pinta —no se esconde— para que la tendencia siga leyéndose,
+                      pero un mes a medias no puede parecer una caída. */}
+                  <Area
+                    type="monotone"
+                    dataKey="enCurso"
+                    stroke="var(--color-accent)"
+                    strokeOpacity={0.55}
+                    strokeWidth={2}
+                    strokeDasharray="4 3"
+                    fill="url(#degradadoProgreso)"
+                    fillOpacity={0.55}
+                    dot={{ r: 2.5, fill: "var(--color-accent)", fillOpacity: 0.55, strokeWidth: 0 }}
+                    activeDot={false}
+                    connectNulls={false}
+                    tooltipType="none"
+                    isAnimationActive={false}
+                  />
+                  {/* Serie invisible: da UN valor por mes al tooltip. Las dos
+                      áreas se solapan en el mes de unión y, con el tooltip
+                      puesto en ellas, ese punto saldría duplicado. */}
+                  <Line
+                    type="monotone"
+                    dataKey={serie}
+                    name={etiquetaSerie}
+                    stroke="none"
+                    dot={false}
+                    activeDot={{ r: 4, fill: "var(--color-accent)", strokeWidth: 0 }}
+                    isAnimationActive={false}
+                  />
+                </ComposedChart>
               </ResponsiveContainer>
             </div>
             </Card>

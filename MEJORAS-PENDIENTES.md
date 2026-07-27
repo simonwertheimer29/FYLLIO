@@ -748,3 +748,26 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** medio — es la única pieza de la página que aún compara peras con
   manzanas.
 - **Fecha:** 2026-07-27 · 🔵
+- **2026-07-27 · 🟢 CERRADA**: decisión de Simon — se pinta, no se excluye. El último
+  tramo va punteado y atenuado, el eje lo etiqueta "en curso" y el pie lo explica.
+  Dos áreas con el MISMO juego de puntos que su trazo (con el relleno sobre la serie
+  completa, las dos curvas `monotone` se calculaban sobre conjuntos distintos y se
+  separaban a la vista) más una serie invisible que da un único valor al tooltip.
+
+## 49. /red ignoraba el selector global de clínica
+- **Zona:** `app/api/red/dashboard/route.ts`, `app/(authed)/red/RedView.tsx`
+- **Principio:** coherencia — el selector de la cabecera filtra todo el producto, pero
+  /red siempre usaba el scope de sesión: el manager cambiaba de clínica y la pantalla no
+  se inmutaba. Y su propia tabla usaba ese mismo selector para "abrir el detalle" en
+  /kpis, así que el control existía para esta pantalla pero no la afectaba.
+- **Impacto:** alto — el dashboard del manager no podía responder "¿cómo va ESTA
+  clínica?" sin salir a otra pantalla.
+- **Fecha:** 2026-07-27 · 🔵
+- **2026-07-27 · 🟢 CERRADA**: decisión de Simon — /red sigue al selector. Con una
+  clínica elegida se filtra la pantalla entera, el titular pasa a ser su nombre (con
+  "Ver toda la red"), "Tus clínicas" se retira (compararía una fila consigo misma) y
+  "El negocio" ocupa la fila. Clic en una clínica filtra en vez de saltar a /kpis. El
+  `?clinica=` viene del cliente y se verifica FAIL-CLOSED contra lo que ese usuario
+  puede ver: 403, nunca "sin filtro". QA adversarial `scripts/qa-red-scope.mjs`
+  (7/7 VERDE, incluidos clínica de otro cliente legal y clínica hermana desde
+  coordinación).

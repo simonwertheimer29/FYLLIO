@@ -489,3 +489,23 @@ dos animaciones están en el bloque de prefers-reduced-motion. Se reutilizan los
 Card (con un `style` opcional nuevo para el tinte y el borde semántico), Skeleton con la
 forma real de las cuatro filas, y ColaTabs en vez de las pills a medida de la gráfica. La
 tabla de clínicas se apila en móvil: cinco columnas en 390 px recortaban la última sin aviso.
+
+## 2026-07-27 — /red sigue al selector global, y el mes en curso se pinta punteado
+Cierre de la pasada visual de /red. (49) El selector de clínica de la cabecera filtra todo el
+producto pero /red lo ignoraba: usaba siempre el scope de sesión, así que el manager cambiaba
+de clínica y la pantalla no se movía — mientras su propia comparativa usaba ese selector para
+empujar a /kpis. Decisión de Simon: /red sigue al selector. Con una clínica elegida el
+titular es su nombre, "Tus clínicas" se retira (compararía una fila consigo misma), "El
+negocio" ocupa la fila y el clic en una clínica FILTRA en vez de navegar. El `?clinica=` llega
+del cliente, así que se verifica fail-closed contra lo que ese usuario puede ver — 403, nunca
+"sin filtro", que fue exactamente el bug de aislamiento del Sprint B. Probado intentando
+saltárselo (§5): id inventado, clínica de otro cliente legal y clínica hermana desde una
+sesión de coordinación → 403 los tres (`scripts/qa-red-scope.mjs`, 7/7). Efecto lateral
+bueno: al recargar por cambio de clínica el destello por fin tiene cuándo dispararse. (48) El
+mes en curso de la gráfica se pinta punteado y atenuado, con "en curso" en el eje, en vez de
+excluirlo: se ve la tendencia sin que un mes a medias parezca una caída — la misma doctrina
+que los deltas. Detalle que costó una iteración: con el relleno sobre la serie completa y el
+trazo solo sobre los meses cerrados, las dos curvas `monotone` se interpolan sobre conjuntos
+de puntos DISTINTOS y se separan visiblemente; cada área lleva ahora el mismo juego de puntos
+que su trazo, y una serie invisible alimenta el tooltip para que el mes de unión no salga
+duplicado.
