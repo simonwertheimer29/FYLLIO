@@ -418,3 +418,20 @@ todos en "Rechazo" y el panel afirmaba "rechazó la propuesta" de cualquiera —
 enseña en demos. El matiz se conserva donde corresponde (el hilo de WhatsApp) y la columna guarda un
 valor válido. Lección: un seed que no respeta el esquema real no es "datos de prueba", es una demo
 que miente.
+
+## 2026-07-27 — El vocabulario de descarte de un lead pasa de dos valores a seis, cerrados
+Con dos opciones ("no le interesa" / "no asistió") los KPIs de pérdida no decían nada accionable.
+Ahora son seis, sin "otro (texto libre)" a propósito: el texto libre es exactamente lo que rompió el
+dato en el episodio del seed. La partición que manda no es el motivo sino su consecuencia —¿queda
+algo que intentar?—, así que la columna de descartados se reparte en "se puede retomar" (no asistió ·
+no contesta · horarios) y "decisión tomada" (precio · otra clínica · ya no lo necesita).
+
+## 2026-07-27 — La rama Airtable ya no tiene consumidor real; se para de alimentarla
+Al ir a añadir opciones al single-select de motivos apareció que la API de meta de Airtable no lo
+permite: la vía documentada es escribir con `typecast:true`, o sea crear un registro temporal en una
+base de producción para bootstrapear una opción. Eso disparó el censo: última escritura en cualquier
+base de Airtable el 2026-07-15, bases piloto vacías de Leads/Citas/Staff/Tratamientos/Mensajes, y la
+verdad de negocio en Postgres desde el corte. Decisión: los cambios de esquema van solo a Postgres y
+la retirada de la rama queda planificada (MEJORAS 44). El censo destapó además un estado mixto vivo:
+el alcance de clínicas y la lista de doctores se leen de Airtable mientras los datos vienen de
+Postgres — y Staff está VACÍA en las dos bases piloto (MEJORAS 45).

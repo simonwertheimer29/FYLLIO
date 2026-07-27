@@ -547,6 +547,9 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   Convertido/No Interesado, y usarla en la ventana del kanban y en KPIs.
 - **Impacto:** bajo hoy (el proxy funciona con el DEMO), medio para métricas de piloto.
 - **Fecha:** 2026-07-26 · 🔵
+- **2026-07-27 · 🟢 CERRADA**: `leads.fecha_cierre` escrita en la transición dentro del repo
+  (y borrada al reactivar); el kanban la usa como fecha del hito. Sin backfill en datos reales
+  —null ⇒ el caso se muestra—, sembrada solo en DEMO. Solo Postgres (ver nº 44).
 
 ## 38. Sesión doble: fyllio_session + cookie legacy de presupuestos
 - **Zona:** `app/lib/auth/legacy-presupuestos.ts` + ~30 rutas `/api/presupuestos/*`
@@ -616,6 +619,10 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** alto para los KPIs de pérdida de leads (hoy no dicen nada accionable);
   requiere tocar esquema de Airtable, por eso no entró en la tanda de coherencia.
 - **Fecha:** 2026-07-27 · 🔵
+- **2026-07-27 · 🟢 CERRADA**: seis valores cerrados en `lib/leads/motivos`, sin texto libre;
+  la columna se reparte en "se puede retomar" vs "decisión tomada" y el motivo se lee en la
+  card. Solo Postgres: las opciones se añadieron al single-select de Airtable antes de parar,
+  pero esa rama ya no tiene consumidor (nº 44).
 
 ## 43. El Copilot sigue fijando el motivo de descarte por defecto
 - **Zona:** `app/lib/copilot/actions-exec.ts:81`
