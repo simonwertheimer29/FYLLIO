@@ -1,4 +1,3 @@
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 // app/api/informes/generar-ppt/route.ts
 // POST — genera presentación PPT mensual — 10 slides V5c
 // Gráficos generados server-side con chartjs-node-canvas
@@ -8,8 +7,7 @@ import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
+import { getSession } from "@/lib/auth/session";
 import PptxGenJS from "pptxgenjs";
 import {
   graficoLineas,
@@ -19,17 +17,11 @@ import {
   graficoAB,
 } from "../../../lib/charts/svg-charts";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
 
+// MEJORAS 38 — una sola sesión: antes esta ruta verificaba a mano la
+// cookie legacy con su propio secreto.
 async function isAuthed(): Promise<boolean> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return false;
-    await jwtVerify(token, secret);
-    return true;
-  } catch { return false; }
+  return (await getSession()) != null;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────

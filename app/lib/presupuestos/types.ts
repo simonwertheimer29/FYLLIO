@@ -110,10 +110,11 @@ export type UserSession = {
   nombre: string;
   rol: "manager_general" | "encargada_ventas" | "admin" | "ventas";
   clinica: string | null;
-  /** Sprint B — cliente legal (RB | INDEP). Determina la base de negocio.
-   *  Union inline (no importamos el tipo de airtable aquí porque types.ts lo
-   *  consumen componentes cliente). null = sesión legacy pre-Sprint B. */
-  cliente?: "RB" | "INDEP" | null;
+  /** Sprint B — cliente legal. Determina la base de negocio. Union inline (no
+   *  importamos el tipo de airtable aquí porque types.ts lo consumen
+   *  componentes cliente); debe seguir a `Cliente` de lib/airtable. El casteo
+   *  a ciegas de la cookie legacy escondía que DEMO faltaba aquí (MEJORAS 38). */
+  cliente?: "RB" | "INDEP" | "DEMO" | null;
   /** Sprint B Fase 4 — IDs de clínica accesibles (canónico, unificado con la
    *  sesión moderna). `["*"]` = todas las del cliente (admin/manager). Sustituye
    *  el filtrado por nombre (`clinica`), que era null y rompía el aislamiento. */

@@ -1,15 +1,14 @@
 // app/lib/auth/legacy-cookies.ts
 //
-// Sprint 7 Fase 5 fix: los endpoints de Sprints 1-5 (/api/presupuestos/*,
-// /api/no-shows/*, /api/ai/*, /api/informes/*, etc.) validan las cookies
-// legacy `fyllio_presupuestos_token` y `fyllio_noshows_token` firmadas con
-// PRESUPUESTOS_JWT_SECRET. El login nuevo emite solo `fyllio_session`, así
-// que esos endpoints responden 401 y las vistas quedan en blanco.
+// MEJORAS 38 (2026-07-27) — queda UNA cookie legacy: `fyllio_noshows_token`.
+// `fyllio_presupuestos_token` ya no se emite: las ~40 rutas que la validaban
+// (presupuestos, automatizaciones, notificaciones, push, informes, IA) leen
+// ahora `fyllio_session`. Tener dos cookies con dos caducidades (24 h la buena,
+// 7 d la legacy) hacía que una sesión válida recibiera 401 de media aplicación.
 //
-// Solución mínima (documentada como deuda hasta Sprint 8 que las unifica):
-// al hacer login en cualquiera de los endpoints nuevos, emitimos TAMBIÉN
-// las dos cookies legacy con el mismo payload adaptado. De este modo los
-// endpoints legacy siguen funcionando sin tocarse.
+// No-shows sigue con la suya porque su zona está congelada desde el Sprint B
+// (MEJORAS 39): se migrará cuando se reactive, y con ella muere
+// PRESUPUESTOS_JWT_SECRET.
 
 import { SignJWT } from "jose";
 import { NextResponse } from "next/server";
@@ -30,38 +29,14 @@ function cookieOptions(maxAge: number) {
   };
 }
 
-type LegacyRolPresupuestos = "manager_general" | "encargada_ventas" | "admin" | "ventas";
 type LegacyRolNoShows = "manager_general" | "encargada_ventas" | "ventas";
 
-function mapRolPresupuestos(rol: Session["rol"]): LegacyRolPresupuestos {
-  // admin global → manager_general (acceso full)
-  // coordinacion → encargada_ventas
-  return rol === "admin" ? "manager_general" : "encargada_ventas";
-}
 function mapRolNoShows(rol: Session["rol"]): LegacyRolNoShows {
   return rol === "admin" ? "manager_general" : "encargada_ventas";
 }
 
 export async function emitLegacyCookies(res: NextResponse, session: Session): Promise<void> {
-  // Presupuestos (UserSession): email, nombre, rol, clinica (nombre o null).
-  // Sprint B — incluimos `cliente` (resuelve la base) y `clinicasAccesibles` (IDs,
-  // el filtro real por clínica; antes era `clinica:null` y no filtraba nada).
-  const presupuestosPayload = {
-    email: "",
-    nombre: session.nombre,
-    rol: mapRolPresupuestos(session.rol),
-    clinica: null as string | null,
-    cliente: session.cliente,
-    clinicasAccesibles: session.clinicasAccesibles,
-  };
-  const presupuestosToken = await new SignJWT({ ...presupuestosPayload })
-    .setProtectedHeader({ alg: "HS256" })
-    .setIssuedAt()
-    .setExpirationTime("7d")
-    .sign(legacySecret);
-  res.cookies.set("fyllio_presupuestos_token", presupuestosToken, cookieOptions(LEGACY_MAX_AGE_SECONDS));
-
-  // No-shows (NoShowsUserSession): mismo shape salvo el rol.
+  // No-shows (NoShowsUserSession).
   const noshowsPayload = {
     email: "",
     nombre: session.nombre,

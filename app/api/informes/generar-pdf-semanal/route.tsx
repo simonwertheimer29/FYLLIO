@@ -1,4 +1,3 @@
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 // app/api/informes/generar-pdf-semanal/route.tsx
 // POST — genera informe semanal en PDF (100% server-side, sin capturas de DOM)
 // Body: { periodo, clinica, textoNarrativo, datos: SemanalDatos }
@@ -6,22 +5,15 @@ import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
+import { getSession } from "@/lib/auth/session";
 import { renderToBuffer, Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 import { PdfBarrasH } from "../../../lib/charts/pdf-charts";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
 
+// MEJORAS 38 — una sola sesión: antes esta ruta verificaba a mano la
+// cookie legacy con su propio secreto.
 async function isAuthed(): Promise<boolean> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return false;
-    await jwtVerify(token, secret);
-    return true;
-  } catch { return false; }
+  return (await getSession()) != null;
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────

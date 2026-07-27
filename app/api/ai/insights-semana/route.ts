@@ -2,24 +2,14 @@
 // POST — genera 3 bullets de insights accionables de la semana usando Claude
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
+import { getSession } from "@/lib/auth/session";
 import type { Presupuesto } from "../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
 
+// MEJORAS 38 — una sola sesión: antes esta ruta verificaba a mano la
+// cookie legacy con su propio secreto.
 async function isAuthed(): Promise<boolean> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return false;
-    await jwtVerify(token, secret);
-    return true;
-  } catch {
-    return false;
-  }
+  return (await getSession()) != null;
 }
 
 function getISOWeek(d: Date): number {
