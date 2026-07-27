@@ -367,3 +367,29 @@ del union, y FiltersBar mantenía un segundo juego de pills de fecha con otro vo
 Nota de QA: `set_config('app.cliente', x, false)` en un script de diagnóstico deja el ajuste
 pegado al backend del POOLER y hace fallar db:smoke-rls en ejecuciones posteriores — en
 scripts, siempre is_local=true.
+
+## 2026-07-27 — Dos fichas del mismo objeto: el kanban abría la vieja
+El clic en card del kanban de Presupuestos abría `PatientDrawer`; Seguimiento, Leads y la Vista
+Máxima abrían `AccionPanel`. No era un enlace mal puesto: eran dos modelos mentales — el drawer no
+enseñaba el hilo y pedía a la coordinadora que escribiera a mano una nota de lo ocurrido. Se unifica
+en `AccionPanel`, enriqueciendo por `?id=` en la ruta de intervención (sin eso el panel caía al
+fallback de "N días" y perdía la clasificación del motor). Se rescató lo único que no existía en el
+panel —el timeline de contactos y acciones— como sección plegable. Fuera `PatientDrawer` (598
+líneas) y `presupuestos/DoctorView` (sin importadores).
+
+## 2026-07-27 — El motivo de descarte de un lead se inventaba solo
+Arrastrar a "No Interesado" escribía `Rechazo_Producto` sin preguntar (y el `LeadAccionPanel` tenía
+el mismo default esperando a que alguien lo usara), mientras el gemelo de Presupuestos sí abría su
+modal: el dato inventado llegaba a los KPIs de pérdida indistinguible de uno declarado. Ahora se
+pregunta. Censo: cero contaminados —las bases piloto no tienen leads todavía— pero el seed de DEMO
+escribe motivos en texto libre fuera del single-select real de dos opciones, así que la agrupación
+"No asistió / Rechazo" y el copy del panel mienten en la demo (MEJORAS 41; 42 amplía el vocabulario,
+43 cierra la puerta del Copilot).
+
+## 2026-07-27 — Kanban: el canon es lo mejor de cada tablero, no Leads por defecto
+Igualar los dos tableros a Leads habría borrado dos cosas mejores de Presupuestos: iluminar la
+columna destino al arrastrar y preguntar el motivo al cerrar en perdido. Se invirtió la dirección en
+ambas. Y se retiró el sortable de Leads: reordenar dentro de la columna no persiste y al recargar
+vuelve a su sitio, contradiciendo al criterio de orden declarado — mover de columna es la acción
+real, reordenar era una acción sin efecto. Los dos tableros ganan un pie honesto por columna ("Ver N
+anteriores") porque el rango recortaba en silencio en las columnas activas.
