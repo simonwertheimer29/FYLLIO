@@ -38,6 +38,7 @@ import {
   type PrioridadPanel,
 } from "../shared/panel-accion-ui";
 import { Check, MessageCircle, Phone, XCircle, ICON_STROKE } from "../icons";
+import TimelineAcciones from "./TimelineAcciones";
 import { Pause } from "lucide-react";
 
 type PlantillaMensaje = { id: string; nombre: string; contenido: string };
@@ -508,6 +509,10 @@ export default function IntervencionSidePanel({
           }
         />
       </div>
+
+      {/* Bloque 1.5: auditoría plegable — "qué se ha hecho" (unificación de
+          fichas 2026-07-27: lo único que valía la pena del PatientDrawer). */}
+      <TimelineAcciones presupuestoId={item.id} />
 
       {/* Bloque 2: conversación — el resto de la pantalla */}
       <div className="flex-1 min-h-0 flex flex-col px-4 pb-4 pt-3 gap-2 bg-[var(--color-background)]">

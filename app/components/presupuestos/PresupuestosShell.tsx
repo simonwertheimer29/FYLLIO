@@ -20,7 +20,7 @@ import MaximaView from "./MaximaView";
 import FiltersBar, { type Filters } from "./FiltersBar";
 import { useClinic } from "../../lib/context/ClinicContext";
 import NewPresupuestoModal from "./NewPresupuestoModal";
-import PatientDrawer from "./PatientDrawer";
+import FichaPresupuesto from "./FichaPresupuesto";
 import ImportarCSVModal from "./ImportarCSVModal";
 import IntervencionSidePanel from "./IntervencionSidePanel";
 import NotificacionesPanel from "./NotificacionesPanel";
@@ -495,24 +495,23 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           }}
         />
       )}
+      {/* Unificación de fichas (2026-07-27): el clic en card del kanban abre
+          el MISMO panel de acción que Seguimiento y la Vista Máxima. Antes
+          abría PatientDrawer, una ficha paralela sin el hilo de conversación
+          en la que se registraba a mano lo que había pasado. */}
       {drawerPresupuesto && (
-        <PatientDrawer
+        <FichaPresupuesto
           presupuesto={drawerPresupuesto}
           onClose={() => setDrawerPresupuesto(null)}
-          onChangeEstado={(id, estado, extra) => {
-            handleChangeEstado(id, estado, extra);
-            // ACEPTADO se resuelve en el modal de pago (handleConfirmAceptado
-            // actualiza el drawer al confirmar); el resto refleja al momento.
-            if (estado !== "ACEPTADO") {
-              setDrawerPresupuesto((prev) =>
-                prev && prev.id === id ? { ...prev, estado } : prev
-              );
+          onChangeEstado={(id, estado) => {
+            handleChangeEstado(id, estado);
+            // ACEPTADO y PERDIDO se resuelven en su modal (pago / motivo) y
+            // cierran al confirmar; el resto refleja al momento.
+            if (estado !== "ACEPTADO" && estado !== "PERDIDO") {
+              setDrawerPresupuesto(null);
             }
           }}
-          onNewForPatient={() => {
-            setDrawerPresupuesto(null);
-            setShowNew(true);
-          }}
+          onRefresh={() => load(currentFiltersRef.current, selectedClinicaNombre)}
         />
       )}
       {intervencionItem && (

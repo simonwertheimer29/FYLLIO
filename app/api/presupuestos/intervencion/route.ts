@@ -113,8 +113,21 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const url = new URL(req.url);
   const clinicaFilter = url.searchParams.get("clinica") || "";
 
+  // Unificación de fichas (2026-07-27): ?id=<presupuesto> devuelve UN caso
+  // enriquecido ({ item }) para que el panel de acción se abra igual desde
+  // el kanban que desde Seguimiento. Sin esto el kanban sólo tenía el
+  // `Presupuesto` plano y el panel caía al fallback de "N días", perdiendo la
+  // clasificación del motor. El scope de clínica se aplica igual que en la
+  // cola: un id de otra clínica sale como no encontrado (fail-closed).
+  const idParam = url.searchParams.get("id");
+  // El id se interpola en una fórmula de Airtable: sólo record ids y uuids.
+  if (idParam !== null && !/^[A-Za-z0-9_-]{1,64}$/.test(idParam)) {
+    return NextResponse.json({ error: "id no válido" }, { status: 400 });
+  }
+
   // Check env vars
   if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
+    if (idParam) return NextResponse.json({ item: null, isDemo: true });
     return NextResponse.json({
       allItems: [],
       clinicas: [],
@@ -130,7 +143,11 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     // urgencia/fase/respuesta persistidas (el criterio viejo): un abierto sin
     // esos campos era invisible para la coordinadora aunque su hilo pidiera
     // acción. El estado de negocio sigue mandando: cerrados fuera.
-    const filterFormula = `AND(
+    // Por id NO se filtra por estado: desde el kanban se abre también la
+    // ficha de un ACEPTADO o un PERDIDO, y el panel sabe representarlos.
+    const filterFormula = idParam
+      ? `RECORD_ID()='${idParam}'`
+      : `AND(
       {Estado}!='ACEPTADO',
       {Estado}!='PERDIDO'
     )`.replace(/\n\s*/g, "");
@@ -336,6 +353,8 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     const doctores = [...new Set(items.map((p) => p.doctor).filter(Boolean) as string[])].sort();
     const tratamientos = [...new Set(items.flatMap((p) => p.treatments))].sort();
 
+    if (idParam) return NextResponse.json({ item: items[0] ?? null });
+
     return NextResponse.json({
       allItems: items,
       clinicas,
@@ -344,6 +363,10 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     });
   } catch (err) {
     console.error("[intervencion] GET error:", err);
+    if (idParam) {
+      // Nunca un fallo disfrazado de "no existe": el panel muestra error.
+      return NextResponse.json({ error: "Error al cargar el presupuesto" }, { status: 500 });
+    }
     return NextResponse.json({
       allItems: [],
       clinicas: [],
