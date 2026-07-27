@@ -81,21 +81,9 @@ async function main() {
     }
     ok(`aceptado derivado coherente en ${coherentes}/${total} pacientes`, coherentes === total && total > 0);
 
-    // ── Informe (no fallo): divergencia del cache manual vs derivado ──
-    // Esta ES la enfermedad que se cura: el reseed las correlacionará.
-    const pacientes = await listPacientes({});
-    let divAceptado = 0;
-    let divPagado = 0;
-    for (const p of pacientes) {
-      const f = fin.get(p.id);
-      const dAce = (f?.aceptado ?? null) !== (p.aceptado ?? null);
-      const dPag = (f?.cobrado ?? 0) !== (p.pagado ?? 0);
-      if (dAce) divAceptado++;
-      if (dPag) divPagado++;
-    }
-    console.log(
-      `  ℹ divergencia cache vs derivado (informativo, lo cura el reseed): aceptado ${divAceptado}/${pacientes.length} · pagado ${divPagado}/${pacientes.length}`,
-    );
+    // MEJORAS 28 paso 2 (2026-07-27) — aquí se informaba de la divergencia
+    // entre las copias del paciente y el derivado. Las copias ya no existen:
+    // no hay nada que pueda divergir.
   });
 
   console.log(fallos === 0 ? "\nVERDE — derivación de finanzas verificada" : `\nROJO — ${fallos} fallo(s)`);

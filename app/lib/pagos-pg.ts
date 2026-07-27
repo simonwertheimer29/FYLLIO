@@ -7,7 +7,7 @@ import { runWithClienteDb } from "./db/context";
 import { currentCliente, type Cliente } from "./airtable";
 import { usaPostgresIdentidad } from "./db/data-backend";
 import type { MetodoPago, TipoPago, Pago } from "./pagos-format";
-import { listResumenFinancieroPorIds, sumPendientePorIds, syncFinancieroPaciente } from "./pacientes/pacientes";
+import { listResumenFinancieroPorIds, sumPendientePorIds } from "./pacientes/pacientes";
 import type { PagoResumen } from "./pagos";
 
 function cli(): Cliente {
@@ -137,9 +137,6 @@ export async function crearPagoPg(args: {
       usuario_creador_id: usaPostgresIdentidad() && args.usuarioCreadorId ? args.usuarioCreadorId : null,
     } as any).returningAll().executeTakeFirstOrThrow());
   const pago = rowToPago(row);
-  const { getPagosByPaciente } = await import("./pagos");
-  const pagos = await getPagosByPaciente(args.pacienteId);
-  await syncFinancieroPaciente(args.pacienteId, pagos.reduce((s, p) => s + (p.importe || 0), 0));
   await logAccionPagoPgIntern(c, { pagoId: pago.id, pacienteId: args.pacienteId, tipo: "Crear", importeAntes: null, importeDespues: args.importe, usuarioId: args.usuarioCreadorId ?? null, notaCambio: args.nota });
   return pago;
 }
@@ -167,9 +164,6 @@ export async function actualizarPagoPg(pagoId: string, patch: Partial<{
   const updated = await runWithClienteDb(c, (trx) =>
     trx.updateTable("pagos_paciente").set(set as any).where("id", "=", pagoId).returningAll().executeTakeFirstOrThrow());
   if (pacienteId) {
-    const { getPagosByPaciente } = await import("./pagos");
-    const pagos = await getPagosByPaciente(pacienteId);
-    await syncFinancieroPaciente(pacienteId, pagos.reduce((s, p) => s + (p.importe || 0), 0));
   }
   await logAccionPagoPgIntern(c, { pagoId, pacienteId, tipo: "Editar", importeAntes, importeDespues: Number(updated.importe ?? 0) || 0, usuarioId: context.usuarioId ?? null });
   return rowToPago(updated);
@@ -183,27 +177,5 @@ export async function eliminarPagoPg(pagoId: string, context: { usuarioId?: stri
   const pacienteId = before.paciente_id ?? "";
   await logAccionPagoPgIntern(c, { pagoId, pacienteId, tipo: "Eliminar", importeAntes, importeDespues: null, usuarioId: context.usuarioId ?? null, notaCambio: `Pago ${before.tipo ?? ""} de ${importeAntes}€ eliminado` });
   await runWithClienteDb(c, (trx) => trx.deleteFrom("pagos_paciente").where("id", "=", pagoId).execute());
-  if (pacienteId) {
-    const { getPagosByPaciente } = await import("./pagos");
-    const pagos = await getPagosByPaciente(pacienteId);
-    await syncFinancieroPaciente(pacienteId, pagos.reduce((s, p) => s + (p.importe || 0), 0));
-  }
 }
 
-export async function reconciliarPagosCachePg(): Promise<{ procesados: number; ok: number; errores: number }> {
-  const c = cli();
-  const ids = await runWithClienteDb(c, async (trx) => {
-    const rows = await trx.selectFrom("pagos_paciente").select("paciente_id").distinct().execute();
-    return rows.map((r) => r.paciente_id).filter(Boolean) as string[];
-  });
-  let ok = 0, errores = 0;
-  const { getPagosByPaciente } = await import("./pagos");
-  for (const pid of ids) {
-    try {
-      const pagos = await getPagosByPaciente(pid);
-      await syncFinancieroPaciente(pid, pagos.reduce((s, p) => s + (p.importe || 0), 0));
-      ok++;
-    } catch (err) { console.error(`[reconciliar-pg] paciente ${pid}:`, err); errores++; }
-  }
-  return { procesados: ids.length, ok, errores };
-}

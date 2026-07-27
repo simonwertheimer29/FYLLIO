@@ -18,7 +18,6 @@ import { usaPostgres } from "./db/data-backend";
 import {
   listResumenFinancieroPorIds,
   sumPendientePorIds,
-  syncFinancieroPaciente,
 } from "./pacientes/pacientes";
 import type { MetodoPago, TipoPago, Pago } from "./pagos-format";
 
@@ -255,54 +254,12 @@ async function getPendienteSum(pacIds: string[]): Promise<number> {
 
 // ─── Escritura ─────────────────────────────────────────────────────────
 
-/**
- * Sprint 14a Bloque 6 — recalcula y reescribe Pacientes.Pagado +
- * Pacientes.Pendiente sumando todos los pagos del paciente. Si falla
- * deja entrada en Inconsistencias_Pagos para reconciliacion posterior.
- *
- * Estrategia: en lugar de aplicar deltas relativos (que se desalinean
- * en edits/eliminaciones), recalculamos el total absoluto desde la
- * tabla Pagos_Paciente. Mas robusto y trivial de razonar.
- */
-async function syncPacienteCache(
-  pacienteId: string,
-  pagoIdContext: string | null,
-): Promise<void> {
-  try {
-    // Sumar todos los pagos del paciente directamente.
-    const pagos = await getPagosByPaciente(pacienteId);
-    const totalPagado = pagos.reduce((s, p) => s + (p.importe || 0), 0);
-    // FASE 1 migración: recalculo Pagado/Pendiente en el repo del dominio.
-    await syncFinancieroPaciente(pacienteId, totalPagado);
-  } catch (err) {
-    console.error(
-      "[pagos] sync Pacientes cache:",
-      err instanceof Error ? err.message : err,
-    );
-    // Log a Inconsistencias_Pagos para reconciliacion via
-    // /api/admin/reconciliar-pagos.
-    try {
-      await base(TABLES.inconsistenciasPagos as any).create([
-        {
-          fields: {
-            Resumen: `Cache desync · paciente ${pacienteId}${pagoIdContext ? ` · pago ${pagoIdContext}` : ""}`,
-            Pago_RecordId: pagoIdContext ?? "",
-            Paciente_RecordId: pacienteId,
-            Error: err instanceof Error ? err.message : String(err),
-            Timestamp: new Date().toISOString(),
-            Resuelto: false,
-          },
-        },
-      ]);
-    } catch (logErr) {
-      // Si ni el log funciona, solo console.error.
-      console.error(
-        "[pagos] log inconsistencia tambien fallo:",
-        logErr instanceof Error ? logErr.message : logErr,
-      );
-    }
-  }
-}
+// MEJORAS 28 paso 2 (2026-07-27) — aquí vivía syncPacienteCache: recalculaba
+// y reescribía las copias Pacientes.Pagado/Pendiente en cada pago, y cuando
+// fallaba dejaba una entrada en Inconsistencias_Pagos para repararlas después.
+// Las cuatro copias ya no existen (todo se deriva de pagos + presupuestos), así
+// que la sincronización, su log de inconsistencias y su reconciliación mueren
+// con ellas: no se puede desincronizar lo que no se duplica.
 
 /**
  * Sprint 14a Bloque 6 — auditoria de operaciones CRUD en Acciones_Pago.
@@ -386,7 +343,6 @@ export async function crearPago(args: {
     )
   )[0]!;
 
-  await syncPacienteCache(args.pacienteId, created.id);
   await logAccionPago({
     pagoId: created.id,
     pacienteId: args.pacienteId,
@@ -452,7 +408,6 @@ export async function actualizarPago(
   )[0]!;
 
   if (pacienteId) {
-    await syncPacienteCache(pacienteId, pagoId);
   }
   const importeDespues = Number(((updated.fields as any) ?? {})["Importe"] ?? 0) || 0;
   await logAccionPago({
@@ -497,71 +452,7 @@ export async function eliminarPago(
   });
   await base(TABLES.pagosPaciente as any).destroy([pagoId]);
   if (pacienteId) {
-    await syncPacienteCache(pacienteId, pagoId);
   }
-}
-
-/**
- * Sprint 14a Bloque 6 — recompute Pacientes.Pagado/Pendiente para una
- * lista de pacienteIds (o todos los listados en Inconsistencias_Pagos
- * sin resolver, si no se pasan). Endpoint admin lo invoca.
- */
-export async function reconciliarPagosCache(args: {
-  pacienteIds?: string[];
-}): Promise<{ procesados: number; ok: number; errores: number }> {
-  if (usaPostgres("pagos")) {
-    const pg = await import("./pagos-pg");
-    return pg.reconciliarPagosCachePg();
-  }
-  let pacienteIds = args.pacienteIds;
-  let inconsistenciaIds: string[] = [];
-  if (!pacienteIds) {
-    // Cargar todos los pacientes con Inconsistencias.Resuelto=false.
-    const recs = await fetchAll(
-      base(TABLES.inconsistenciasPagos as any).select({
-        filterByFormula: `NOT({Resuelto})`,
-        fields: ["Paciente_RecordId"],
-      }),
-    );
-    inconsistenciaIds = recs.map((r) => r.id);
-    pacienteIds = Array.from(
-      new Set(
-        recs
-          .map((r) => String(((r.fields as any) ?? {})["Paciente_RecordId"] ?? ""))
-          .filter(Boolean),
-      ),
-    );
-  }
-  let ok = 0;
-  let errores = 0;
-  for (const pid of pacienteIds) {
-    try {
-      const pagos = await getPagosByPaciente(pid);
-      const totalPagado = pagos.reduce((s, p) => s + (p.importe || 0), 0);
-      // FASE 1 migración: mismo recalculo via repo del dominio Pacientes.
-      await syncFinancieroPaciente(pid, totalPagado);
-      ok++;
-    } catch (err) {
-      console.error(
-        `[reconciliar] paciente ${pid}:`,
-        err instanceof Error ? err.message : err,
-      );
-      errores++;
-    }
-  }
-  // Marcar inconsistencias como resueltas (solo si no se pasaron pacIds
-  // a mano — en ese caso es reconciliacion manual, no la batch del log).
-  if (!args.pacienteIds && inconsistenciaIds.length > 0) {
-    for (let i = 0; i < inconsistenciaIds.length; i += 10) {
-      const slice = inconsistenciaIds.slice(i, i + 10);
-      try {
-        await base(TABLES.inconsistenciasPagos as any).update(
-          slice.map((id) => ({ id, fields: { Resuelto: true } })),
-        );
-      } catch { /* noop */ }
-    }
-  }
-  return { procesados: pacienteIds.length, ok, errores };
 }
 
 // ─── Util fechas ─────────────────────────────────────────────────────

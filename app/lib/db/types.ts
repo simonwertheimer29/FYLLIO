@@ -89,10 +89,6 @@ export interface Tabla_pacientes {
   doctor_id: string | null;
   lead_origen_id: string | null;
   fecha_cita: string | null;
-  presupuesto_total: number | null;
-  aceptado: "Si" | "No" | "Pendiente" | null;
-  pagado: number | null;
-  pendiente: number | null;
   financiado: number | null;
   notas: string | null;
   canal_origen: string | null;

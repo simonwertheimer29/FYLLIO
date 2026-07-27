@@ -952,19 +952,9 @@ try {
   // ── BACKFILL financiero del paciente (cache derivada, una sola verdad) ──
   // presupuesto_total = Σ ACEPTADO · pagado = Σ pagos · pendiente = resta ·
   // aceptado = derivado de los estados reales (Si / Pendiente / No / null).
-  for (const pac of pacientes) {
-    const suyos = presupuestos.filter((x) => x.pac.id === pac.id);
-    const firmado = suyos.filter((x) => x.estado === "ACEPTADO").reduce((s, x) => s + x.importe, 0);
-    const cobrado = pagadoPorPaciente.get(pac.id) ?? 0;
-    const aceptado = suyos.some((x) => x.estado === "ACEPTADO") ? "Si"
-      : suyos.some((x) => x.estado !== "PERDIDO") ? "Pendiente"
-      : suyos.length > 0 ? "No" : null;
-    await db.query(
-      "update pacientes set presupuesto_total=$1, pagado=$2, pendiente=$3, aceptado=$4 where id=$5 and cliente='DEMO'",
-      [firmado || null, cobrado || null, firmado ? Math.max(0, firmado - cobrado) : null, aceptado, pac.id],
-    );
-  }
-  console.log(`pacientes: financiero backfilleado (derivado de presupuestos+pagos)`);
+  // MEJORAS 28 paso 2 (2026-07-27) — aquí se backfilleaban
+  // presupuesto_total/pagado/pendiente/aceptado en pacientes. Esas cuatro
+  // columnas ya no existen: el dinero se deriva siempre de presupuestos+pagos.
 
   // ── AUTOMATIZACIONES — TRIPLE CANDADO de no-envío ────────────────────
   const PACIENTE_TEST_INEXISTENTE = "recTESTNOEXISTE0000"; // no existe → modo_test nunca coincide
@@ -1071,13 +1061,23 @@ try {
   // ── KPIs (report de coherencia — vocabulario del dinero 2026-07-23) ──
   const aceptadoTot = (await db.query("select coalesce(sum(importe),0) s from presupuestos where cliente='DEMO' and estado='ACEPTADO'")).rows[0].s;
   const cobradoTot = (await db.query("select coalesce(sum(importe),0) s from pagos_paciente where cliente='DEMO'")).rows[0].s;
-  const pendiente = (await db.query("select coalesce(sum(pendiente),0) s from pacientes where cliente='DEMO'")).rows[0].s;
+  // MEJORAS 28 paso 2 — el pendiente se DERIVA (no había otra cosa que
+  // comparar: la columna cache que se leía aquí ya no existe).
+  const pendiente = Number(aceptadoTot) - Number(cobradoTot);
   const nLeads = (await db.query("select count(*) n from leads where cliente='DEMO'")).rows[0].n;
   const nConv = (await db.query("select count(*) n from leads where cliente='DEMO' and estado='Convertido'")).rows[0].n;
-  // Invariante dura del seed: pendiente == aceptado − cobrado. Si no cuadra,
-  // el seed está descorrelacionado y NO debe darse por bueno.
-  if (Number(aceptadoTot) - Number(cobradoTot) !== Number(pendiente)) {
-    throw new Error(`Seed descorrelacionado: aceptado(${aceptadoTot}) − cobrado(${cobradoTot}) ≠ pendiente(${pendiente})`);
+  // Invariante dura del seed: NINGÚN paciente puede haber pagado más de lo que
+  // tiene firmado. Antes se comparaba la caché contra su propio derivado —una
+  // tautología desde que la caché se backfilleaba con la misma fórmula—; esta
+  // sí caza un seed descorrelacionado (pagos que no cuelgan de un aceptado).
+  const negativos = (await db.query(`
+    select p.id, p.nombre,
+      coalesce((select sum(x.importe) from presupuestos x where x.paciente_id=p.id and x.cliente='DEMO' and x.estado='ACEPTADO'),0) firmado,
+      coalesce((select sum(g.importe) from pagos_paciente g where g.paciente_id=p.id and g.cliente='DEMO'),0) cobrado
+    from pacientes p where p.cliente='DEMO'`)).rows
+    .filter((r) => Number(r.cobrado) > Number(r.firmado));
+  if (negativos.length) {
+    throw new Error(`Seed descorrelacionado: ${negativos.length} paciente(s) con más cobrado que firmado (p.ej. ${negativos[0].nombre}: ${negativos[0].cobrado} > ${negativos[0].firmado})`);
   }
 
   // Invariante dura de COHERENCIA CONVERSACIONAL (cierre estadoConversacion):

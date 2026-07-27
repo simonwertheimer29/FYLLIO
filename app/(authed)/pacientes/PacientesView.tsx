@@ -33,10 +33,6 @@ type Paciente = {
   doctorLinkId: string | null;
   doctorNombre?: string | null;
   fechaCita: string | null;
-  presupuestoTotal: number | null;
-  aceptado: "Si" | "No" | "Pendiente" | null;
-  pagado: number | null;
-  pendiente: number | null;
   // Derivados en servidor (una sola verdad): dinero de presupuestos+pagos,
   // tratamientos de sus presupuestos, próxima cita de la agenda real.
   firmado: number;

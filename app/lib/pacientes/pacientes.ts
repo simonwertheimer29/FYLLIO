@@ -39,10 +39,9 @@ export type Paciente = {
   doctorLinkId: string | null;
   doctorNombre?: string;
   fechaCita: string | null;
-  presupuestoTotal: number | null;
-  aceptado: PacienteAceptado | null;
-  pagado: number | null;
-  pendiente: number | null;
+  // MEJORAS 28 paso 2 (2026-07-27) — presupuestoTotal/aceptado/pagado/pendiente
+  // salieron del tipo y del esquema: eran copias que había que sincronizar. La
+  // verdad se deriva de presupuestos + pagos (lib/finanzas-paciente).
   financiado: number | null;
   notas: string | null;
   canalOrigen: PacienteCanal | null;
@@ -67,10 +66,6 @@ function toPaciente(rec: any): Paciente {
     tratamientos: (f["Tratamientos"] ?? []) as PacienteTratamiento[],
     doctorLinkId: doctorLinks[0] ?? null,
     fechaCita: f["Fecha_Cita"] ? String(f["Fecha_Cita"]) : null,
-    presupuestoTotal: typeof f["Presupuesto_Total"] === "number" ? f["Presupuesto_Total"] : null,
-    aceptado: f["Aceptado"] ? (String(f["Aceptado"]) as PacienteAceptado) : null,
-    pagado: typeof f["Pagado"] === "number" ? f["Pagado"] : null,
-    pendiente: typeof f["Pendiente"] === "number" ? f["Pendiente"] : null,
     financiado: typeof f["Financiado"] === "number" ? f["Financiado"] : null,
     notas: f["Notas"] ? String(f["Notas"]) : null,
     canalOrigen: f["Canal_Origen"] ? (String(f["Canal_Origen"]) as PacienteCanal) : null,
@@ -169,9 +164,6 @@ export async function createPaciente(input: {
   tratamientos?: PacienteTratamiento[];
   doctorLinkId?: string;
   fechaCita?: string;
-  presupuestoTotal?: number;
-  aceptado?: PacienteAceptado;
-  pagado?: number;
   financiado?: number;
   notas?: string;
   canalOrigen?: PacienteCanal;
@@ -197,15 +189,6 @@ export async function createPaciente(input: {
   if (input.tratamientos?.length) fields["Tratamientos"] = input.tratamientos;
   if (input.doctorLinkId) fields["Doctor_Link"] = [input.doctorLinkId];
   if (input.fechaCita) fields["Fecha_Cita"] = input.fechaCita;
-  if (typeof input.presupuestoTotal === "number")
-    fields["Presupuesto_Total"] = input.presupuestoTotal;
-  if (input.aceptado) fields["Aceptado"] = input.aceptado;
-  if (typeof input.pagado === "number") {
-    fields["Pagado"] = input.pagado;
-    if (typeof input.presupuestoTotal === "number") {
-      fields["Pendiente"] = Math.max(0, input.presupuestoTotal - input.pagado);
-    }
-  }
   if (typeof input.financiado === "number") fields["Financiado"] = input.financiado;
   if (input.notas) fields["Notas"] = input.notas;
   if (input.canalOrigen) fields["Canal_Origen"] = input.canalOrigen;
@@ -257,16 +240,6 @@ export async function updatePaciente(
   // Sprint 16b Bloque 5 — flag opt-out de automatizaciones.
   if (patch.optoutAutomatizaciones !== undefined)
     fields["Optout_Automatizaciones"] = patch.optoutAutomatizaciones;
-
-  // Recalcular Pendiente si cambia Presupuesto o Pagado.
-  if (patch.presupuestoTotal !== undefined || patch.pagado !== undefined) {
-    const current = await getPaciente(id);
-    const total = patch.presupuestoTotal ?? current?.presupuestoTotal ?? null;
-    const pagado = patch.pagado ?? current?.pagado ?? null;
-    if (typeof total === "number" && typeof pagado === "number") {
-      fields["Pendiente"] = Math.max(0, total - pagado);
-    }
-  }
 
   const updated = (await base(TABLES.patients).update([{ id, fields }]))[0]!;
   return toPaciente(updated);
@@ -453,22 +426,6 @@ export async function sumPendientePorIds(pacIds: string[]): Promise<number> {
 
 /** Reescribe el cache financiero del paciente: Pagado = total real y
  *  Pendiente = max(0, Presupuesto_Total − total). Lanza si falla. */
-export async function syncFinancieroPaciente(
-  pacienteId: string,
-  totalPagado: number,
-): Promise<void> {
-  if (usaPostgres("pacientes")) {
-    const pg = await import("./pg");
-    return pg.syncFinancieroPacientePg(pacienteId, totalPagado);
-  }
-  const pacRec = await base(TABLES.patients as any).find(pacienteId);
-  const f = pacRec.fields as any;
-  const presupuesto = Number(f["Presupuesto_Total"] ?? 0) || 0;
-  await base(TABLES.patients as any).update(pacienteId, {
-    Pagado: totalPagado,
-    Pendiente: Math.max(0, presupuesto - totalPagado),
-  } as any);
-}
 
 /** ID del paciente cuyo Teléfono o Tutor teléfono coincide (waitlist). */
 export async function findPacienteIdPorTelefonoOTutor(phone: string): Promise<string | null> {

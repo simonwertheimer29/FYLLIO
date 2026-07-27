@@ -381,8 +381,8 @@ async function main() {
         clinicaId: doctor.clinicaId!,
         tratamientos: [s.tratamiento as any],
         doctorLinkId: doctor.id,
-        presupuestoTotal: s.presupuestoTotal,
-        aceptado: "Si",
+        // MEJORAS 28 paso 2 — el importe y el "aceptado" viven en el
+        // presupuesto, no copiados en el paciente.
         canalOrigen: s.canal as any,
         leadOrigenId: lead.id,
         notas: s.notaPaciente
