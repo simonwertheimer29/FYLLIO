@@ -14,21 +14,10 @@ import {
 } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
 import type { Presupuesto, PresupuestoEstado, MotivoPerdida } from "../../lib/presupuestos/types";
+import { Check, Copy, ICON_STROKE } from "../icons";
+import { dentroDeRango, type RangoKanban } from "../shared/RangoTemporal";
 import { ESTADO_CONFIG, PIPELINE_ORDEN, ORIGEN_LABEL } from "../../lib/presupuestos/colors";
-import { calcularProbabilidad } from "../../lib/presupuestos/probability";
 import MotivoPerdidaModal from "./MotivoPerdidaModal";
-import { StatePill, type StatePillVariant } from "../ui/StatePill";
-
-// Sprint 13 Bloque 4 — Kanban Presupuestos al estilo Leads.
-// Helper: probabilidad → variante StatePill.
-function probToVariant(prob: number): StatePillVariant {
-  if (prob >= 60) return "success";
-  if (prob >= 30) return "warning";
-  return "danger";
-}
-
-// Tipo paciente / TipoVisita → variant neutral (todas).
-const PILL_NEUTRAL: StatePillVariant = "neutral";
 
 // Sprint 13.1 Bloque 3.2 — Barra de color superior por columna.
 // 3px que se asienta UNA VEZ encima del header. Cards quedan blancas
@@ -53,137 +42,135 @@ const COLUMN_TOP_BAR: Record<PresupuestoEstado, string> = {
 
 function CompactCard({
   presupuesto,
-  prob,
-  onOpenHistory,
+  onOpenFicha,
   onEdit,
 }: {
   presupuesto: Presupuesto;
-  prob: number | null;
-  onOpenHistory: (p: Presupuesto) => void;
+  /** Clic en la card / botón WhatsApp → ficha del paciente (canon Leads). */
+  onOpenFicha: (p: Presupuesto) => void;
   onEdit: (p: Presupuesto) => void;
 }) {
   const p = presupuesto;
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: p.id });
+  const [copied, setCopied] = useState(false);
+
+  async function copyPhone(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!p.patientPhone) return;
+    try {
+      await navigator.clipboard.writeText(p.patientPhone);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {}
+  }
 
   return (
     <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
+      onClick={(e) => {
+        // Canon Leads: la card entera abre la ficha (no un modal de historial).
+        if (isDragging) return;
+        e.stopPropagation();
+        onOpenFicha(p);
+      }}
       style={{
         borderColor: "var(--card-border)",
         boxShadow: isDragging ? undefined : "var(--card-shadow-rest)",
       }}
-      className={`group rounded-xl border bg-[var(--color-surface)] px-3 py-2.5 cursor-grab active:cursor-grabbing select-none transition-[box-shadow,border-color] duration-150 ${
+      className={`group rounded-xl border bg-[var(--color-surface)] p-3 text-xs cursor-pointer select-none transition-[box-shadow,border-color] duration-150 ${
         isDragging
           ? "opacity-40"
           : "hover:[border-color:var(--card-border-hover)] hover:[box-shadow:var(--card-shadow-hover)]"
       }`}
     >
-      {/* Nombre + score discreto a la derecha */}
-      <div className="flex items-start gap-2">
-        <a
-          href={`/presupuestos/paciente/${encodeURIComponent(p.patientName)}`}
-          className="text-sm font-semibold text-[var(--color-foreground)] leading-tight flex-1 min-w-0 truncate hover:text-[var(--color-accent)] hover:underline"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {p.patientName}
-        </a>
-        {prob != null && (
-          <StatePill variant={probToVariant(prob)} size="sm" title={`Prob. cierre ${prob}%`}>
-            <span className="tabular-nums">{prob}%</span>
-          </StatePill>
-        )}
-      </div>
+      {/* Nombre — misma jerarquía que la card de Leads */}
+      <p className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight">
+        {p.patientName}
+      </p>
 
-      {/* Tag tratamiento principal + +N */}
-      {p.treatments.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-1.5">
-          <StatePill variant={PILL_NEUTRAL} size="sm">
+      {/* Tags: tratamiento principal (acento) + origen (neutral). Fuera
+          TipoPaciente/TipoVisita: ruido que no cambia ninguna decisión. */}
+      <div className="flex flex-wrap gap-1 mt-1.5">
+        {p.treatments[0] && (
+          <span className="inline-flex rounded-md bg-[var(--color-accent-soft)] text-[var(--color-accent)] border border-transparent px-1.5 py-0.5 text-[10px] font-medium">
             {p.treatments[0]}
-          </StatePill>
-          {p.treatments.length > 1 && (
-            <StatePill variant={PILL_NEUTRAL} size="sm">
-              +{p.treatments.length - 1}
-            </StatePill>
-          )}
-        </div>
-      )}
-
-      {/* TipoPaciente + TipoVisita + OrigenLead — todos neutrales */}
-      {(p.tipoPaciente || p.tipoVisita || p.origenLead) && (
-        <div className="flex flex-wrap gap-1 mt-1">
-          {p.tipoPaciente && (
-            <StatePill variant={PILL_NEUTRAL} size="sm">
-              {p.tipoPaciente}
-            </StatePill>
-          )}
-          {p.tipoVisita && (
-            <StatePill variant={PILL_NEUTRAL} size="sm">
-              {p.tipoVisita === "Primera Visita" ? "1ª Visita" : "Con historial"}
-            </StatePill>
-          )}
-          {p.origenLead && (
-            <StatePill variant={PILL_NEUTRAL} size="sm">
-              {ORIGEN_LABEL[p.origenLead]}
-            </StatePill>
-          )}
-        </div>
-      )}
-
-      {/* Bottom row: importe + fecha + dias */}
-      <div className="flex items-center justify-between mt-2 gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          {p.amount != null && (
-            <span className="font-display text-sm font-semibold text-[var(--color-foreground)] tabular-nums">
-              €{p.amount.toLocaleString("es-ES")}
-            </span>
-          )}
-          <span className="text-[10px] text-[var(--color-muted)] tabular-nums">
-            {p.fechaPresupuesto.split("-").reverse().join("/")}
+            {p.treatments.length > 1 ? ` +${p.treatments.length - 1}` : ""}
           </span>
-        </div>
-        <span className="text-[10px] text-[var(--color-muted)] shrink-0 tabular-nums">{p.daysSince}d</span>
+        )}
+        {p.origenLead && (
+          <span className="inline-flex rounded-md bg-[var(--color-surface-muted)] text-[var(--color-muted)] border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] font-medium">
+            {ORIGEN_LABEL[p.origenLead]}
+          </span>
+        )}
       </div>
 
-      {/* Quick actions — visibles solo en hover (consistencia con Leads) */}
-      <div
-        className="flex items-center gap-1 mt-2 pt-1.5 border-t border-[var(--color-border)] opacity-0 group-hover:opacity-100 transition-opacity"
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        {p.patientPhone && (
-          <a
-            href={`tel:${p.patientPhone}`}
-            className="flex-1 text-center text-[10px] font-medium px-2 py-1 rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-accent-soft)] transition-colors"
-            title="Llamar"
-            draggable={false}
-            onClick={(e) => e.stopPropagation()}
+      {p.patientPhone && (
+        <div className="flex items-center gap-1 mt-2">
+          <span className="text-[var(--color-muted)] text-[11px] font-mono truncate tabular-nums">
+            {p.patientPhone}
+          </span>
+          <button
+            type="button"
+            onClick={copyPhone}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
+            title="Copiar"
+            aria-label="Copiar teléfono"
           >
-            Llamar
-          </a>
+            {copied ? (
+              <Check size={12} strokeWidth={ICON_STROKE} className="text-[var(--color-success)]" aria-hidden />
+            ) : (
+              <Copy size={12} strokeWidth={ICON_STROKE} aria-hidden />
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Importe + días parados: los dos datos que deciden la prioridad —
+          el MISMO criterio que ordena la columna, legible en la card. */}
+      <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--color-muted)]">
+        {p.amount != null && (
+          <span className="font-display text-sm font-semibold text-[var(--color-foreground)] tabular-nums">
+            €{p.amount.toLocaleString("es-ES")}
+          </span>
         )}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenHistory(p);
-          }}
-          className="flex-1 text-[10px] font-medium px-2 py-1 rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-accent-soft)] transition-colors"
-          title="Historial"
-          draggable={false}
-        >
-          Historial
-        </button>
+        <span className="ml-auto tabular-nums">hace {p.daysSince}d</span>
+      </div>
+
+      {/* Acciones: Llamar + WhatsApp (a la ficha) + Editar. Fuera
+          "Historial" (abría un modal roto). */}
+      <div className="flex gap-1 mt-2.5" onPointerDown={(e) => e.stopPropagation()}>
+        {p.patientPhone && (
+          <>
+            <a
+              href={`tel:${p.patientPhone}`}
+              onClick={(e) => e.stopPropagation()}
+              draggable={false}
+              className="flex-1 text-center rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-[10px] font-medium py-1.5 hover:bg-[var(--color-border)] transition-colors"
+            >
+              Llamar
+            </a>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenFicha(p);
+              }}
+              className="flex-1 text-center rounded-md bg-[var(--fyllio-wa-green)] text-white text-[10px] font-medium py-1.5 hover:bg-[var(--fyllio-wa-green-hover)] transition-colors"
+            >
+              WhatsApp
+            </button>
+          </>
+        )}
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
             onEdit(p);
           }}
-          className="flex-1 text-[10px] font-medium px-2 py-1 rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-accent-soft)] transition-colors"
-          title="Editar"
-          draggable={false}
+          className="rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-[10px] font-medium px-2.5 py-1.5 hover:bg-[var(--color-border)] transition-colors"
         >
           Editar
         </button>
@@ -211,9 +198,8 @@ function DroppableColumn({
   presupuestos,
   ocultos = 0,
   verTodos,
-  probMap,
   velocidad,
-  onOpenHistory,
+  onOpenFicha,
   onEdit,
 }: {
   estado: PresupuestoEstado;
@@ -222,22 +208,24 @@ function DroppableColumn({
   ocultos?: number;
   /** Pie "Ver todos →" hacia el archivo real de la columna cerrada. */
   verTodos?: { label: string; onClick: () => void };
-  probMap: Map<string, number | null>;
   velocidad: { media: number; lenta: boolean } | null;
-  onOpenHistory: (p: Presupuesto) => void;
+  onOpenFicha: (p: Presupuesto) => void;
   onEdit: (p: Presupuesto) => void;
 }) {
   const cfg = ESTADO_CONFIG[estado];
   const { setNodeRef, isOver } = useDroppable({ id: estado });
+  // Carga progresiva — la columna pinta de página en página.
+  const [pagina, setPagina] = useState(1);
+  useEffect(() => setPagina(1), [presupuestos.length, estado]);
+  const pintadas = presupuestos.slice(0, pagina * PAGINA_CARDS);
+  const restantes = presupuestos.length - pintadas.length;
   const total = presupuestos.reduce((s, p) => s + (p.amount ?? 0), 0);
 
-  // Sprint 13 Bloque 4 — sub-info condensada a una línea. Las columnas
-  // cerradas son mesa de trabajo, no archivo: anuncian su ventana de 14 días.
+  // Sprint 13 Bloque 4 — sub-info condensada a una línea.
   const subInfo = [
     total > 0 ? `€${total.toLocaleString("es-ES")}` : null,
     velocidad && velocidad.media > 0 ? `media: ${velocidad.media}d` : null,
     cfg.accionable ? cfg.hint : null,
-    verTodos ? "últimos 14 días" : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -285,17 +273,19 @@ function DroppableColumn({
             <p className="text-[10px] text-[var(--color-muted)]">Vacío</p>
           </div>
         ) : (
-          presupuestos
-            .sort((a, b) => b.urgencyScore - a.urgencyScore)
-            .map((p) => (
-              <CompactCard
-                key={p.id}
-                presupuesto={p}
-                prob={probMap.get(p.id) ?? null}
-                onOpenHistory={onOpenHistory}
-                onEdit={onEdit}
-              />
-            ))
+          // El orden lo decide el board (un solo criterio compartido).
+          pintadas.map((p) => (
+            <CompactCard key={p.id} presupuesto={p} onOpenFicha={onOpenFicha} onEdit={onEdit} />
+          ))
+        )}
+        {restantes > 0 && (
+          <button
+            type="button"
+            onClick={() => setPagina((n) => n + 1)}
+            className="w-full text-center text-[11px] font-semibold text-[var(--color-accent)] hover:underline px-1 py-1.5"
+          >
+            Ver más ({restantes})
+          </button>
         )}
         {verTodos && (presupuestos.length > 0 || ocultos > 0) && (
           <button
@@ -378,54 +368,58 @@ function ConfirmMoveModal({
 
 const SKIP_CONFIRM_KEY = "kanban_skip_confirm";
 
-// Ventana de las columnas cerradas (rediseño Seguimiento 2026-07-26): el
-// kanban es mesa de trabajo, no archivo. ACEPTADO/PERDIDO muestran solo los
-// últimos 14 días; el resto vive en su archivo real (Cobros / Vista Máxima).
-// Sin fecha de cierre conocida, el caso se MUESTRA (no se esconde por falta
-// de dato — los perdidos antiguos sin historial siguen a la vista).
-const VENTANA_CIERRE_DIAS = 14;
-function esCierreReciente(p: Presupuesto, hoy: string): boolean {
-  const fecha = p.estado === "ACEPTADO" ? p.fechaAceptado : p.fechaPerdida;
-  if (!fecha) return true;
-  const corte = new Date(hoy + "T00:00:00");
-  corte.setDate(corte.getDate() - VENTANA_CIERRE_DIAS);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return fecha >= `${corte.getFullYear()}-${pad(corte.getMonth() + 1)}-${pad(corte.getDate())}`;
+// Rango temporal (tanda de coherencia 2026-07-26): sustituye el corte fijo
+// de 14 días de las columnas cerradas y aplica a TODAS las columnas. La
+// fecha que cuenta es la del hito de cada caso: cierre para ACEPTADO
+// (fecha_aceptado) y PERDIDO (derivada del historial), presentación para
+// las columnas activas. Sin fecha conocida el caso se MUESTRA — nunca se
+// esconde por falta de dato.
+function fechaDeRango(p: Presupuesto): string | null {
+  if (p.estado === "ACEPTADO") return p.fechaAceptado ?? null;
+  if (p.estado === "PERDIDO") return p.fechaPerdida ?? null;
+  return p.fechaPresupuesto ?? null;
 }
+
+// Carga progresiva: con "Histórico" una columna puede traer cientos de
+// cards. Se pintan de PAGINA en PAGINA con un "Ver más" honesto que dice
+// cuántas quedan — la vista nunca revienta y nada queda oculto en silencio.
+const PAGINA_CARDS = 25;
 
 export default function KanbanBoard({
   presupuestos,
   onChangeEstado,
-  onOpenHistory,
+  onOpenFicha,
   onEdit,
   onVerTodosCerrados,
+  rango,
 }: {
   presupuestos: Presupuesto[];
   onChangeEstado: (id: string, estado: PresupuestoEstado, extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string; reactivar?: boolean }) => void;
-  onOpenHistory: (p: Presupuesto) => void;
+  /** Clic en card o WhatsApp → ficha del paciente (canon Leads). */
+  onOpenFicha: (p: Presupuesto) => void;
   onEdit: (p: Presupuesto) => void;
   /** "Ver todos →" de las columnas cerradas: navega al archivo real
    *  (ACEPTADO → Registro de Cobros; PERDIDO → Vista Máxima). */
   onVerTodosCerrados: (estado: "ACEPTADO" | "PERDIDO") => void;
+  /** Rango temporal activo — control único compartido con el kanban de Leads. */
+  rango: RangoKanban;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pendingChange, setPendingChange] = useState<{ id: string; targetEstado: PresupuestoEstado } | null>(null);
   const [pendingPerdido, setPendingPerdido] = useState<{ id: string } | null>(null);
   const [skipConfirm, setSkipConfirm] = useState(false);
 
-  // Probabilidad de cierre — calculada una vez con el histórico en memoria
-  const historico = useMemo(
-    () => presupuestos.filter((p) => p.estado === "ACEPTADO" || p.estado === "PERDIDO"),
-    [presupuestos]
-  );
-  const probMap = useMemo(() => {
-    const map = new Map<string, number | null>();
-    if (historico.length < 5) return map; // datos insuficientes
-    presupuestos
-      .filter((p) => p.estado !== "ACEPTADO" && p.estado !== "PERDIDO")
-      .forEach((p) => map.set(p.id, calcularProbabilidad(p, historico)));
-    return map;
-  }, [presupuestos, historico]);
+  // Orden ÚNICO de las columnas (tanda de coherencia 2026-07-26): días
+  // parados desc, importe desempata — el MISMO criterio conceptual que las
+  // cohortes de Seguimiento ("quién lleva más esperando, a igualdad el que
+  // más vale") y legible en la card, que muestra ambos. Murieron los tres
+  // scores paralelos: computeUrgencyScore (ordenaba aquí), scoreFinal (las
+  // cards de Seguimiento) y la probabilidad "71%" — esta última se sostenía
+  // sobre pools de ≥3 cerrados similares, ruido estadístico con el volumen
+  // real de una clínica.
+  const ordenarColumna = (items: Presupuesto[]) =>
+    [...items].sort((a, b) => (b.daysSince - a.daysSince) || ((b.amount ?? 0) - (a.amount ?? 0)));
+
 
   useEffect(() => {
     setSkipConfirm(localStorage.getItem(SKIP_CONFIRM_KEY) === "true");
@@ -513,13 +507,12 @@ export default function KanbanBoard({
             {PIPELINE_ORDEN.map((estado) => {
               const items = presupuestos.filter((p) => p.estado === estado);
               const cerrada = estado === "ACEPTADO" || estado === "PERDIDO";
-              const hoy = new Date().toISOString().slice(0, 10);
-              const visibles = cerrada ? items.filter((p) => esCierreReciente(p, hoy)) : items;
+              const visibles = items.filter((p) => dentroDeRango(fechaDeRango(p), rango));
               return (
                 <DroppableColumn
                   key={estado}
                   estado={estado}
-                  presupuestos={visibles}
+                  presupuestos={ordenarColumna(visibles)}
                   ocultos={items.length - visibles.length}
                   verTodos={
                     cerrada
@@ -532,9 +525,8 @@ export default function KanbanBoard({
                         }
                       : undefined
                   }
-                  probMap={probMap}
                   velocidad={velocidadMap.get(estado) ?? null}
-                  onOpenHistory={onOpenHistory}
+                  onOpenFicha={onOpenFicha}
                   onEdit={onEdit}
                 />
               );

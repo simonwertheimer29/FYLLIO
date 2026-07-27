@@ -31,6 +31,12 @@ import { AccionPanel } from "../../components/shared/AccionPanel";
 import { AgendarModal } from "./AgendarModal";
 import { AsistenciaModal } from "./AsistenciaModal";
 import type { Lead, LeadEstado } from "./types";
+import {
+  RangoTemporal,
+  RANGO_DEFAULT,
+  dentroDeRango,
+  type RangoKanban,
+} from "../../components/shared/RangoTemporal";
 
 export type { Lead } from "./types";
 
@@ -70,14 +76,15 @@ const COLUMNS: Array<{ id: LeadEstado; label: string; accent: string; ringClass?
 
 const TODAY_ISO = () => new Date().toISOString().slice(0, 10);
 
+// Cards pintadas por página en cada columna (carga progresiva).
+const PAGINA_CARDS = 25;
+
 function columnOf(lead: Lead, today: string): LeadEstado {
   // Citados Hoy = Estado legacy "Citados Hoy" OR Estado="Citado" con Fecha_Cita=hoy.
   if (lead.estado === "Citados Hoy") return "Citados Hoy";
   if (lead.estado === "Citado" && lead.fechaCita === today) return "Citados Hoy";
   return lead.estado;
 }
-
-type DateFilter = "semana" | "mes" | "personalizado" | "todo";
 
 type Doctor = { id: string; nombre: string; clinicaId: string | null };
 
@@ -93,18 +100,15 @@ export function LeadsView({
   const { selectedClinicaId } = useClinic();
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [search, setSearch] = useState("");
-  const [dateFilter, setDateFilter] = useState<DateFilter>("todo");
+  const [rango, setRango] = useState<RangoKanban>(RANGO_DEFAULT);
   const [newLeadOpen, setNewLeadOpen] = useState(false);
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null);
   const [agendarLead, setAgendarLead] = useState<Lead | null>(null);
   const [asistenciaLead, setAsistenciaLead] = useState<Lead | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Kanban como mesa de trabajo (rediseño Seguimiento 2026-07-26): la columna
-  // cerrada "No Interesado" muestra solo los de actividad reciente (≤14 días,
-  // por última acción/mensaje del lead — no hay fecha de cierre persistida);
-  // el resto se pliega tras "Ver todos". Sin actividad conocida → visible.
-  const [verTodosNoInteresados, setVerTodosNoInteresados] = useState(false);
+  // Actividad por lead (última acción o mensaje) — alimenta el rango
+  // temporal del tablero. Sin dato conocido se usa la fecha de alta.
   const [ultimaActividadPorLead, setUltimaActividadPorLead] = useState<Record<string, string>>({});
   useEffect(() => {
     fetch("/api/leads/ultima-saliente")
@@ -139,18 +143,13 @@ export function LeadsView({
     if (selectedClinicaId) {
       out = out.filter((l) => l.clinicaId === selectedClinicaId);
     }
-    if (dateFilter !== "todo") {
-      const now = new Date();
-      let from = new Date(0);
-      if (dateFilter === "semana") {
-        from = new Date(now);
-        from.setDate(from.getDate() - 7);
-      } else if (dateFilter === "mes") {
-        from = new Date(now);
-        from.setDate(from.getDate() - 30);
-      }
-      out = out.filter((l) => new Date(l.createdAt) >= from);
-    }
+    // Rango temporal — control único compartido con el kanban de
+    // Presupuestos (2026-07-26). Aplica a TODAS las columnas: la fecha que
+    // cuenta es la de actividad si la hay (última acción/mensaje) y si no
+    // la de alta. Sin fecha conocida, el lead se muestra.
+    out = out.filter((l) =>
+      dentroDeRango((ultimaActividadPorLead[l.id] ?? l.createdAt)?.slice(0, 10), rango),
+    );
     if (search.trim()) {
       const q = search.toLowerCase().trim();
       out = out.filter(
@@ -161,7 +160,7 @@ export function LeadsView({
       );
     }
     return out;
-  }, [leads, selectedClinicaId, dateFilter, search]);
+  }, [leads, selectedClinicaId, rango, search, ultimaActividadPorLead]);
 
   // Citados Hoy es derivada: Estado="Citados Hoy" legacy OR Estado="Citado"
   // con Fecha_Cita=hoy. Resto cae en su columna de Estado nativa.
@@ -345,27 +344,7 @@ export function LeadsView({
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1">
-          {([
-            ["todo", "Todo"],
-            ["semana", "Esta semana"],
-            ["mes", "Este mes"],
-            ["personalizado", "Personalizado"],
-          ] as Array<[DateFilter, string]>).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setDateFilter(key)}
-              className={`text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-colors ${
-                dateFilter === key
-                  ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
-                  : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-muted)]"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <RangoTemporal value={rango} onChange={setRango} />
         <input
           type="search"
           placeholder="Buscar lead…"
@@ -391,22 +370,6 @@ export function LeadsView({
         <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
           {COLUMNS.map((col) => {
             const items = leadsPorColumna.get(col.id) ?? [];
-            // Columna cerrada: ventana de 14 días por última actividad; el
-            // resto se pliega tras "Ver todos" (expande en sitio — los No
-            // Interesado no tienen otro archivo).
-            const esCerrada = col.id === "No Interesado";
-            const corte = (() => {
-              const d = new Date();
-              d.setDate(d.getDate() - 14);
-              return d.toISOString();
-            })();
-            const visibles =
-              esCerrada && !verTodosNoInteresados
-                ? items.filter((l) => {
-                    const act = ultimaActividadPorLead[l.id];
-                    return !act || act >= corte;
-                  })
-                : items;
             return (
               <KanbanColumn
                 key={col.id}
@@ -414,13 +377,7 @@ export function LeadsView({
                 label={col.label}
                 accent={col.accent}
                 ringClass={col.ringClass}
-                items={visibles}
-                ocultos={items.length - visibles.length}
-                onVerTodos={
-                  esCerrada && items.length > visibles.length
-                    ? () => setVerTodosNoInteresados(true)
-                    : undefined
-                }
+                items={items}
                 onCardClick={(l) => setDrawerLead(l)}
                 onAsistencia={(l) => setAsistenciaLead(l)}
                 onNoAsistio={noAsistioInline}
@@ -497,8 +454,6 @@ function KanbanColumn({
   accent,
   ringClass,
   items,
-  ocultos = 0,
-  onVerTodos,
   onCardClick,
   onAsistencia,
   onNoAsistio,
@@ -508,14 +463,16 @@ function KanbanColumn({
   accent: string;
   ringClass?: string;
   items: Lead[];
-  /** Cerrados fuera de la ventana de 14 días (plegados). */
-  ocultos?: number;
-  /** Expande la columna cerrada en sitio (sin archivo externo). */
-  onVerTodos?: () => void;
   onCardClick: (l: Lead) => void;
   onAsistencia: (l: Lead) => void;
   onNoAsistio: (l: Lead) => void;
 }) {
+  // Carga progresiva: con "Histórico" una columna trae cientos de leads. Se
+  // pintan por páginas con un "Ver más" honesto — nada oculto en silencio.
+  const [pagina, setPagina] = useState(1);
+  useEffect(() => setPagina(1), [items.length, estado]);
+  const pintados = items.slice(0, pagina * PAGINA_CARDS);
+  const restantes = items.length - pintados.length;
   return (
     <div
       id={estado}
@@ -528,7 +485,7 @@ function KanbanColumn({
         </span>
       </div>
       <SortableContext
-        items={items.map((i) => i.id)}
+        items={pintados.map((i) => i.id)}
         strategy={verticalListSortingStrategy}
         id={estado}
       >
@@ -537,9 +494,9 @@ function KanbanColumn({
           data-estado={estado}
         >
           {estado === "No Interesado" ? (
-            <NoInteresadoGroups items={items} onCardClick={onCardClick} />
+            <NoInteresadoGroups items={pintados} onCardClick={onCardClick} />
           ) : estado === "Citados Hoy" ? (
-            items.map((l) => (
+            pintados.map((l) => (
               <SortableLeadCard
                 key={l.id}
                 lead={l}
@@ -550,11 +507,11 @@ function KanbanColumn({
               />
             ))
           ) : (
-            items.map((l) => (
+            pintados.map((l) => (
               <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
             ))
           )}
-          {items.length === 0 && ocultos === 0 && (
+          {items.length === 0 && (
             <div
               id={estado}
               className="h-full min-h-[80px] flex items-center justify-center text-[11px] text-[var(--color-muted)] italic"
@@ -562,13 +519,13 @@ function KanbanColumn({
               Sin leads
             </div>
           )}
-          {onVerTodos && ocultos > 0 && (
+          {restantes > 0 && (
             <button
               type="button"
-              onClick={onVerTodos}
-              className="w-full text-left text-[11px] font-semibold text-[var(--color-accent)] hover:underline px-1 py-1.5"
+              onClick={() => setPagina((n) => n + 1)}
+              className="w-full text-center text-[11px] font-semibold text-[var(--color-accent)] hover:underline px-1 py-1.5"
             >
-              Ver todos ({items.length + ocultos}) →
+              Ver más ({restantes})
             </button>
           )}
         </div>

@@ -19,7 +19,6 @@ import KanbanBoard from "./KanbanBoard";
 import MaximaView from "./MaximaView";
 import FiltersBar, { type Filters } from "./FiltersBar";
 import { useClinic } from "../../lib/context/ClinicContext";
-import ContactHistoryModal from "./ContactHistoryModal";
 import NewPresupuestoModal from "./NewPresupuestoModal";
 import PatientDrawer from "./PatientDrawer";
 import ImportarCSVModal from "./ImportarCSVModal";
@@ -27,6 +26,7 @@ import IntervencionSidePanel from "./IntervencionSidePanel";
 import NotificacionesPanel from "./NotificacionesPanel";
 import PagoCierreModal, { type PagoCierre } from "./PagoCierreModal";
 import MotivoPerdidaModal from "./MotivoPerdidaModal";
+import { RangoTemporal, RANGO_DEFAULT, type RangoKanban } from "../shared/RangoTemporal";
 
 type Tab = "kanban" | "maxima";
 
@@ -84,6 +84,8 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
       ? "maxima"
       : "kanban";
   });
+  // Rango temporal del tablero — control único compartido con Leads.
+  const [rango, setRango] = useState<RangoKanban>(RANGO_DEFAULT);
   const [currentFilters, setCurrentFilters] = useState<Filters>({
     clinica: "", doctor: "", tipoPaciente: "", tipoVisita: "",
     estado: "", fechaDesde: "", fechaHasta: "", q: "",
@@ -100,7 +102,6 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   }, [presupuestos]);
 
   // Modals / drawers
-  const [historyPresupuesto, setHistoryPresupuesto] = useState<Presupuesto | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [showImportCSV, setShowImportCSV] = useState(false);
   const [editPresupuesto, setEditPresupuesto] = useState<Presupuesto | null>(null);
@@ -376,8 +377,9 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
       <main className="flex-1 min-h-0 overflow-auto flex flex-col p-4 gap-4 w-full">
         {tab === "kanban" && (
           <div className="flex flex-col flex-1 min-h-0 gap-3">
-            <div className="shrink-0">
+            <div className="shrink-0 space-y-2">
               <FiltersBar user={user} onFiltersChange={handleFiltersChange} />
+              <RangoTemporal value={rango} onChange={setRango} />
             </div>
 
             {isDemo && (
@@ -425,8 +427,9 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
                 <KanbanBoard
                   presupuestos={presupuestos}
                   onChangeEstado={handleChangeEstado}
-                  onOpenHistory={(p) => setHistoryPresupuesto(p)}
+                  onOpenFicha={(p) => setDrawerPresupuesto(p)}
                   onEdit={handleEdit}
+                  rango={rango}
                   onVerTodosCerrados={(estado) => {
                     // Archivo real de cada columna cerrada: los aceptados
                     // viven su vida financiera en Cobros; los perdidos, en la
@@ -472,13 +475,6 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
             setIntervencionItem((prev) => (prev && prev.id === id ? null : prev));
           }}
           onCancel={() => setMotivoPerdido(null)}
-        />
-      )}
-      {historyPresupuesto && (
-        <ContactHistoryModal
-          presupuestoId={historyPresupuesto.id}
-          patientName={historyPresupuesto.patientName}
-          onClose={() => setHistoryPresupuesto(null)}
         />
       )}
       {showNew && (
