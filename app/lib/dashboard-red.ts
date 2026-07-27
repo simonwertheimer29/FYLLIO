@@ -33,8 +33,42 @@ import { calcularCobrosPorPaciente } from "./cobros";
 import { fechasPerdidaPorPresupuesto } from "./historial/registrar";
 import { esLeadActivo } from "./leads/pipeline";
 
+/** Comparación contra el MISMO TRAMO del mes anterior (días 1..hoy).
+ *  Un mes a medias no se compara nunca contra uno entero: el día 3 todos los
+ *  deltas dirían "−90%" (pasada visual 2026-07-27). */
 export type CifraDelta = { valor: number; previo: number };
-export type PctDelta = { pct: number | null; pctPrevio: number | null };
+
+/** Conversión medida sobre la COHORTE de presentación: numerador y denominador
+ *  son LOS MISMOS presupuestos. Antes el numerador contaba por fecha de
+ *  aceptación y el denominador por fecha de alta — dos conjuntos distintos, con
+ *  una etiqueta ("de los presentados, aceptados") que prometía el ratio de
+ *  cohorte que la fórmula no calculaba; podía pasar del 100%.
+ *
+ *  `abiertos` es la parte de la cohorte que todavía no ha decidido. Mientras
+ *  pese más que UMBRAL_COHORTE_ABIERTA la comparación no existe: en julio, 28
+ *  de 48 presupuestos seguían en el aire y el 29% resultante se leía como un
+ *  desplome frente a meses ya resueltos al 100%. */
+export type ConversionCohorte = {
+  pct: number | null;
+  pctPrevio: number | null;
+  presentados: number;
+  presentadosPrevio: number;
+  aceptados: number;
+  aceptadosPrevio: number;
+  /** De la cohorte del mes en curso, cuántos siguen sin decidirse. */
+  abiertos: number;
+  /** false → la cohorte aún está madurando: se muestra el % pero SIN delta. */
+  comparable: boolean;
+  /** true → el denominador es demasiado corto para leer un porcentaje. */
+  muestraCorta: boolean;
+};
+
+/** Denominador mínimo para que un porcentaje se pinte como señal (y para que
+ *  una clínica pueda encabezar el ranking de caídas). Con 2 presupuestos, un
+ *  100% es ruido con autoridad. */
+export const BASE_MINIMA_COHORTE = 5;
+/** Parte de la cohorte que puede seguir abierta sin invalidar la comparación. */
+export const UMBRAL_COHORTE_ABIERTA = 0.2;
 
 export type RiesgoItem = {
   tipo: "reactivables" | "vencidos" | "sin_contacto" | "cierre_sin_accion";
@@ -63,15 +97,22 @@ export type ExitoItem = {
 export type ClinicaFila = {
   id: string;
   nombre: string;
+  /** Conversión de la COHORTE de presentación (misma regla que el negocio). */
   conversionPct: number | null;
-  /** Conversión del mes anterior (para el Δ en puntos). */
   conversionPctPrevio: number | null;
+  /** Crudos del ratio: la tabla los enseña cuando la muestra es corta. */
+  presentadosMes: number;
+  presentadosMesPrevio: number;
+  aceptadosMes: number;
+  aceptadosMesPrevio: number;
   aceptadoMes: number;
   aceptadoMesPrevio: number;
   /** Σ pendiente VENCIDO de la clínica (regla de cobros compartida). */
   vencido: number;
-  /** Δ% € aceptado vs mes anterior; null si el previo es 0. */
+  /** Δ% € aceptado vs el mismo tramo del mes anterior; null si el previo es 0. */
   tendenciaPct: number | null;
+  /** Pocos presupuestos en juego: ni pinta señal ni encabeza el ranking. */
+  muestraCorta: boolean;
 };
 
 export type DashboardRed = {
@@ -79,9 +120,12 @@ export type DashboardRed = {
   negocio: {
     leads: {
       nuevosMes: CifraDelta;
+      /** Leads en el pipeline AHORA — misma definición que /seguimiento y que
+       *  la cabecera del tablero (lib/leads/pipeline). Antes contaba solo
+       *  "Contactado": un tercer número para el mismo concepto. */
       enSeguimiento: number;
       citadosMes: CifraDelta;
-      conversionMes: PctDelta;
+      conversionMes: ConversionCohorte;
     };
     presupuestos: {
       presentadosMes: CifraDelta;
@@ -92,7 +136,7 @@ export type DashboardRed = {
       perdidosImporteMes: CifraDelta;
       /** Perdidos históricos sin entrada de historial (sin mes atribuible). */
       perdidosSinFecha: number;
-      conversionMes: PctDelta;
+      conversionMes: ConversionCohorte;
     };
     cobros: {
       cobradoMes: CifraDelta;
@@ -235,14 +279,20 @@ export async function calcularDashboardRed(opts: {
   // Copy (revisión 2026-07-23): cada card es una FRASE completa de negocio —
   // qué pasó, de qué, por qué importa. Sin taquigrafía ni jerga; hechos
   // verificables, cero afirmaciones de causalidad.
+  //
+  // `s()` pluraliza SUSTANTIVOS y `v()` conjuga VERBOS. Están separados porque
+  // usar el de sustantivos en un verbo producía "superó"+"aron" → "superóaron",
+  // y "sigue"+"s" → "sigues", que además le decía a la manager que era ELLA
+  // quien no pagaba (pasada visual 2026-07-27).
   const s = (n: number) => (n === 1 ? "" : "s");
+  const v = (n: number, singular: string, plural: string) => (n === 1 ? singular : plural);
   if (reactivablesN > 0) {
     riesgo.push({
       tipo: "reactivables",
       n: reactivablesN,
       importe: reactivablesImporte,
       titulo: "Presupuestos sin seguimiento",
-      detalle: `Se escribió a ${reactivablesN} paciente${s(reactivablesN)}, no respondieron y nadie ha vuelto a insistir.`,
+      detalle: `Se escribió a ${reactivablesN} paciente${s(reactivablesN)}, no ${v(reactivablesN, "respondió", "respondieron")} y nadie ha vuelto a insistir.`,
       href: "/seguimiento?vista=presupuestos&cohorte=sin-respuesta",
     });
   }
@@ -252,7 +302,7 @@ export async function calcularDashboardRed(opts: {
       n: vencidosN,
       importe: vencidosImporte,
       titulo: "Cobros fuera de plazo",
-      detalle: `${vencidosN} paciente${s(vencidosN)} superó${vencidosN === 1 ? "" : "aron"} su plazo de pago y sigue${s(vencidosN)} sin pagar.`,
+      detalle: `${vencidosN} paciente${s(vencidosN)} ${v(vencidosN, "superó", "superaron")} su plazo de pago y ${v(vencidosN, "sigue", "siguen")} sin pagar.`,
       href: "/cobros?urgencia=vencido",
     });
   }
@@ -262,7 +312,7 @@ export async function calcularDashboardRed(opts: {
       n: cierreN,
       importe: cierreImporte,
       titulo: "Cierres esperando tu respuesta",
-      detalle: `${cierreN} paciente${s(cierreN)} ya ${cierreN === 1 ? "dijo que quiere aceptar y espera" : "dijeron que quieren aceptar y esperan"} respuesta para cerrar.`,
+      detalle: `${cierreN} paciente${s(cierreN)} ya ${v(cierreN, "dijo que quiere aceptar y espera", "dijeron que quieren aceptar y esperan")} respuesta para cerrar.`,
       href: "/seguimiento?vista=presupuestos&cohorte=conversacion",
     });
   }
@@ -272,7 +322,7 @@ export async function calcularDashboardRed(opts: {
       n: sinContactoN,
       importe: null,
       titulo: "Leads sin primer contacto",
-      detalle: `${sinContactoN} lead${s(sinContactoN)} nuevo${s(sinContactoN)} todavía no ${sinContactoN === 1 ? "ha" : "han"} recibido ni un mensaje ni una llamada.`,
+      detalle: `${sinContactoN} lead${s(sinContactoN)} nuevo${s(sinContactoN)} todavía no ${v(sinContactoN, "ha", "han")} recibido ni un mensaje ni una llamada.`,
       href: "/seguimiento?vista=leads&cohorte=nuevos",
     });
   }
@@ -280,22 +330,33 @@ export async function calcularDashboardRed(opts: {
   // ── Sección 2 · el negocio ───────────────────────────────────────────
   const enMes = (iso: string | null | undefined, mes: string) => !!iso && mesDeIso(iso) === mes;
 
+  // Mismo TRAMO del mes: días 1..hoy en ambos meses. Sin esto, un mes a medias
+  // se compara contra uno entero y el día 3 todo cae un 90%. Se aplica a lo
+  // RETROSPECTIVO (altas, aceptaciones, pérdidas, pagos); NO a la fecha de cita,
+  // que es prospectiva — capar el futuro borraría citas ya agendadas del mes.
+  const diaHoy = ahora.getDate();
+  const enTramo = (iso: string | null | undefined, mes: string) => {
+    if (!enMes(iso, mes)) return false;
+    const dia = Number(iso!.slice(8, 10));
+    return !Number.isFinite(dia) || dia === 0 ? true : dia <= diaHoy;
+  };
+
   // Leads
-  const creados = (mes: string) => leads.filter((l) => enMes(l.createdAt, mes));
+  const creados = (mes: string) => leads.filter((l) => enTramo(l.createdAt, mes));
   const nuevosAct = creados(mesActual);
   const nuevosPrev = creados(mesPrevio);
-  const convPct = (arr: typeof leads) =>
-    arr.length ? Math.round((arr.filter((l) => l.convertido).length / arr.length) * 100) : null;
   const citadosEnMes = (mes: string) => leads.filter((l) => enMes(l.fechaCita, mes)).length;
 
   // Presupuestos
   const presentados = (mes: string) =>
-    presusScope.filter((r) => enMes(String((r.fields as any)["FechaAlta"] ?? "") || null, mes));
+    presusScope.filter((r) => enTramo(String((r.fields as any)["FechaAlta"] ?? "") || null, mes));
+  /** Aceptados POR FECHA DE ACEPTACIÓN — "cuánto se firmó este mes". No sirve
+   *  como numerador de la conversión: son otra cohorte (ver conversionDe). */
   const aceptados = (mes: string) =>
     presusScope.filter(
       (r) =>
         String((r.fields as any)["Estado"] ?? "") === "ACEPTADO" &&
-        enMes(String((r.fields as any)["Fecha_Aceptado"] ?? "") || null, mes),
+        enTramo(String((r.fields as any)["Fecha_Aceptado"] ?? "") || null, mes),
     );
   const importeDe = (rs: ReadonlyArray<{ fields: Record<string, unknown> }>) =>
     rs.reduce((s, r) => s + (Number((r.fields as any)["Importe"] ?? 0) || 0), 0);
@@ -303,7 +364,7 @@ export async function calcularDashboardRed(opts: {
     presusScope.filter((r) => {
       if (String((r.fields as any)["Estado"] ?? "") !== "PERDIDO") return false;
       const fecha = perdidaPorPresupuesto.get(r.id);
-      return !!fecha && mesDeIso(fecha) === mes;
+      return !!fecha && enTramo(fecha, mes);
     });
   const perdidosSinFecha = presusScope.filter(
     (r) => String((r.fields as any)["Estado"] ?? "") === "PERDIDO" && !perdidaPorPresupuesto.get(r.id),
@@ -315,19 +376,86 @@ export async function calcularDashboardRed(opts: {
   const acepPrev = aceptados(mesPrevio);
   const perdAct = perdidosDe(mesActual);
   const perdPrev = perdidosDe(mesPrevio);
-  const convPres = (pres: number, acep: number) =>
-    pres > 0 ? Math.round((acep / pres) * 100) : null;
+
+  /** Conversión de una COHORTE de presupuestos: de ESTOS mismos, cuántos ya se
+   *  aceptaron. El numerador es un subconjunto del denominador por
+   *  construcción, así que no puede pasar del 100% ni desmentir a su etiqueta. */
+  const ratioCohorte = (rs: ReadonlyArray<{ fields: Record<string, unknown> }>) => {
+    let aceptadosN = 0;
+    let abiertosN = 0;
+    for (const r of rs) {
+      const estado = String(r.fields["Estado"] ?? "");
+      if (estado === "ACEPTADO") aceptadosN++;
+      else if (abierto(estado)) abiertosN++;
+    }
+    return {
+      total: rs.length,
+      aceptados: aceptadosN,
+      abiertos: abiertosN,
+      pct: rs.length > 0 ? Math.round((aceptadosN / rs.length) * 100) : null,
+    };
+  };
+  const conversionDe = (
+    act: ReturnType<typeof ratioCohorte>,
+    prev: ReturnType<typeof ratioCohorte>,
+  ): ConversionCohorte => ({
+    pct: act.pct,
+    pctPrevio: prev.pct,
+    presentados: act.total,
+    presentadosPrevio: prev.total,
+    aceptados: act.aceptados,
+    aceptadosPrevio: prev.aceptados,
+    abiertos: act.abiertos,
+    comparable:
+      act.total > 0 &&
+      prev.total > 0 &&
+      act.abiertos / act.total <= UMBRAL_COHORTE_ABIERTA,
+    muestraCorta: act.total < BASE_MINIMA_COHORTE || prev.total < BASE_MINIMA_COHORTE,
+  });
+
+  const cohortePres = ratioCohorte(presAct);
+  const cohortePresPrev = ratioCohorte(presPrev);
+  const conversionPresupuestos = conversionDe(cohortePres, cohortePresPrev);
+
+  /** Misma regla para leads: de los captados en el mes, cuántos ya convirtieron.
+   *  Un lead de esta semana todavía no ha tenido tiempo de convertir. */
+  const ratioLeads = (arr: typeof leads) => {
+    let convertidosN = 0;
+    let abiertosN = 0;
+    for (const l of arr) {
+      if (l.convertido) convertidosN++;
+      else if (esLeadActivo(l.estado)) abiertosN++;
+    }
+    return {
+      total: arr.length,
+      aceptados: convertidosN,
+      abiertos: abiertosN,
+      pct: arr.length > 0 ? Math.round((convertidosN / arr.length) * 100) : null,
+    };
+  };
+  const conversionLeads = conversionDe(ratioLeads(nuevosAct), ratioLeads(nuevosPrev));
 
   // Cobros
   const cobradoEn = (mes: string) =>
     pagosScope.filter((p) => enMes(p.fechaPago, mes)).reduce((s, p) => s + p.importe, 0);
 
   // ── "Qué está funcionando" — agregados con umbral de materialidad ────
-  const eurTxt = (n: number) => `${n.toLocaleString("es-ES")} €`;
+  // `useGrouping` explícito: sin él, es-ES escribe "5900 €" y "11.580 €" en la
+  // misma franja de cards.
+  const eurTxt = (n: number) => `${n.toLocaleString("es-ES", { useGrouping: true })} €`;
   const exitos: ExitoItem[] = [];
-  const convAct = convPres(presAct.length, acepAct.length);
-  const convPrev = convPres(presPrev.length, acepPrev.length);
-  if (convAct != null && convPrev != null && convAct > convPrev) {
+  const convAct = conversionPresupuestos.pct;
+  const convPrev = conversionPresupuestos.pctPrevio;
+  // Solo se celebra una subida que se puede comparar: con la cohorte del mes
+  // aún madurando o con una muestra corta, el "sube" sería el mismo espejismo
+  // en verde.
+  if (
+    convAct != null &&
+    convPrev != null &&
+    convAct > convPrev &&
+    conversionPresupuestos.comparable &&
+    !conversionPresupuestos.muestraCorta
+  ) {
     exitos.push({
       tipo: "conversion",
       dato: `${convAct}%`,
@@ -392,7 +520,8 @@ export async function calcularDashboardRed(opts: {
       exitos.push({
         tipo: "mejor_tratamiento",
         dato: eurTxt(mejor[1]),
-        titulo: `${mejor[0]} tira del mes`,
+        // El dato es de los últimos 7 días: el titular dice semana, no mes.
+        titulo: `${mejor[0]} tira de la semana`,
         detalle: "Es el tratamiento que más dinero aceptado sumó esta semana.",
       });
     }
@@ -402,20 +531,24 @@ export async function calcularDashboardRed(opts: {
   const filas: ClinicaFila[] = clinicas.map((c) => {
     const deClinica = (rs: ReadonlyArray<{ fields: Record<string, unknown> }>) =>
       rs.filter((r) => pacDe(r)?.clinicaId === c.id);
-    const presMes = deClinica(presAct).length;
-    const presMesPrevio = deClinica(presPrev).length;
-    const acepMesRs = deClinica(acepAct);
-    const acepPrevRs = deClinica(acepPrev);
-    const aceptadoMes = importeDe(acepMesRs);
-    const aceptadoMesPrevio = importeDe(acepPrevRs);
+    // Conversión con la MISMA regla de cohorte que el bloque de negocio: de los
+    // presupuestos presentados por esta clínica, cuántos ya se aceptaron.
+    const cohorte = ratioCohorte(deClinica(presAct));
+    const cohortePrevia = ratioCohorte(deClinica(presPrev));
+    const aceptadoMes = importeDe(deClinica(acepAct));
+    const aceptadoMesPrevio = importeDe(deClinica(acepPrev));
     const vencido = cobros
       .filter((x) => x.clinicaId === c.id && x.urgencia === "vencido")
       .reduce((s, x) => s + x.pendiente, 0);
     return {
       id: c.id,
       nombre: c.nombre,
-      conversionPct: convPres(presMes, acepMesRs.length),
-      conversionPctPrevio: convPres(presMesPrevio, acepPrevRs.length),
+      conversionPct: cohorte.pct,
+      conversionPctPrevio: cohortePrevia.pct,
+      presentadosMes: cohorte.total,
+      presentadosMesPrevio: cohortePrevia.total,
+      aceptadosMes: cohorte.aceptados,
+      aceptadosMesPrevio: cohortePrevia.aceptados,
       aceptadoMes,
       aceptadoMesPrevio,
       vencido,
@@ -423,11 +556,17 @@ export async function calcularDashboardRed(opts: {
         aceptadoMesPrevio > 0
           ? Math.round(((aceptadoMes - aceptadoMesPrevio) / aceptadoMesPrevio) * 100)
           : null,
+      muestraCorta:
+        cohorte.total < BASE_MINIMA_COHORTE || cohortePrevia.total < BASE_MINIMA_COHORTE,
     };
   });
-  // Orden por defecto: mayor caída arriba (tendencia más negativa primero;
-  // sin tendencia al final).
-  filas.sort((a, b) => (a.tendenciaPct ?? Infinity) - (b.tendenciaPct ?? Infinity));
+  // Orden por defecto: mayor caída arriba. Las clínicas con muestra corta van
+  // DESPUÉS de las fiables aunque su caída sea la mayor: un 100% salido de dos
+  // presupuestos no puede encabezar el ranking de "la que más cae".
+  filas.sort((a, b) => {
+    if (a.muestraCorta !== b.muestraCorta) return a.muestraCorta ? 1 : -1;
+    return (a.tendenciaPct ?? Infinity) - (b.tendenciaPct ?? Infinity);
+  });
 
   // ── Sección 4 · progreso (6 meses, 4 series) ─────────────────────────
   const progreso: Array<{ mes: string; total: number; leads: number; presupuestos: number; cobros: number }> = [];
@@ -447,9 +586,13 @@ export async function calcularDashboardRed(opts: {
     negocio: {
       leads: {
         nuevosMes: { valor: nuevosAct.length, previo: nuevosPrev.length },
-        enSeguimiento: leads.filter((l) => l.estado === "Contactado" && !l.convertido).length,
+        // Pipeline = la MISMA definición de /seguimiento y de la cabecera del
+        // tablero (lib/leads/pipeline). Contar solo "Contactado" dejaba fuera a
+        // Nuevos y Citados: el cuarto número para el mismo concepto que la
+        // decisión del 2026-07-23 vino a matar.
+        enSeguimiento: leads.filter((l) => !l.convertido && esLeadActivo(l.estado)).length,
         citadosMes: { valor: citadosEnMes(mesActual), previo: citadosEnMes(mesPrevio) },
-        conversionMes: { pct: convPct(nuevosAct), pctPrevio: convPct(nuevosPrev) },
+        conversionMes: conversionLeads,
       },
       presupuestos: {
         presentadosMes: { valor: presAct.length, previo: presPrev.length },
@@ -459,7 +602,7 @@ export async function calcularDashboardRed(opts: {
         perdidosMes: { valor: perdAct.length, previo: perdPrev.length },
         perdidosImporteMes: { valor: importeDe(perdAct), previo: importeDe(perdPrev) },
         perdidosSinFecha,
-        conversionMes: { pct: convAct, pctPrevio: convPrev },
+        conversionMes: conversionPresupuestos,
       },
       cobros: {
         cobradoMes: { valor: cobradoEn(mesActual), previo: cobradoEn(mesPrevio) },

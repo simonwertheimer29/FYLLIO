@@ -25,7 +25,7 @@ import {
   CartesianGrid,
 } from "recharts";
 import type { UserSession } from "../../lib/presupuestos/types";
-import type { DashboardRed, CifraDelta, ClinicaFila } from "../../lib/dashboard-red";
+import type { DashboardRed, ConversionCohorte, ClinicaFila } from "../../lib/dashboard-red";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { openCopilot } from "../../components/copilot/openCopilot";
 import { ErrorState } from "../../components/ui/Feedback";
@@ -43,8 +43,15 @@ import {
   ICON_STROKE,
 } from "../../components/icons";
 
+// `useGrouping` explícito: es-ES omite el separador en los números de cuatro
+// cifras, así que en una columna de importes convivían "12.430 €" y "5100 €".
 const eur = (n: number) =>
-  n.toLocaleString("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+  n.toLocaleString("es-ES", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+    useGrouping: true,
+  });
 
 const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const mesLabel = (yyyyMm: string) => {
@@ -52,38 +59,87 @@ const mesLabel = (yyyyMm: string) => {
   return `${MESES_CORTOS[m - 1] ?? yyyyMm} ${yyyyMm.slice(2, 4)}`;
 };
 
-// ─── Delta ↑↓ vs mes anterior ───────────────────────────────────────────
-function Delta({ d, formato }: { d: CifraDelta; formato?: (n: number) => string }) {
-  if (d.previo === 0 && d.valor === 0) return null;
-  if (d.previo === 0) {
+// ─── Comparación: UNA sola gramática en toda la página ──────────────────
+//
+// El valor manda y la referencia va detrás, expresada EN LAS MISMAS UNIDADES
+// que el valor: «48 (eran 14)» · «12.400 € (eran 9.800 €)» · «33% (era 100%)».
+// Antes convivían tres gramáticas —Δ% relativo en los chips, Δ absoluto en
+// "pts" en la tabla y Δ% otra vez en Tendencia—, y cuando el chip recibía un
+// porcentaje producía un % de un %: 29 vs 67 se pintaba «−57%» con el mismo
+// sufijo que un delta de unidades. Nadie podía leer eso bien.
+//
+// La dirección la dan color y flecha; nunca un segundo número.
+
+type TipoCifra = "numero" | "dinero" | "porcentaje";
+
+const fmtCifra = (n: number, tipo: TipoCifra) =>
+  tipo === "dinero" ? eur(n) : tipo === "porcentaje" ? `${n}%` : n.toLocaleString("es-ES");
+
+function Comparativa({
+  valor,
+  previo,
+  tipo,
+  /** Sin señal de dirección: la comparación se lee, pero no juzga. */
+  neutral,
+  /** Métricas donde subir es MALO (perdidos, vencido): el color va al revés.
+   *  Sin esto, "7 perdidos, eran 5" se pintaba en verde de subida. */
+  subirEsMalo,
+  titulo,
+}: {
+  valor: number;
+  previo: number;
+  tipo: TipoCifra;
+  neutral?: boolean;
+  subirEsMalo?: boolean;
+  titulo?: string;
+}) {
+  if (previo === 0 && valor === 0) return null;
+  if (previo === 0) {
     return (
-      <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-[var(--color-muted)]" title="Sin datos del mes anterior para comparar">
-        <Minus size={10} strokeWidth={ICON_STROKE} aria-hidden /> nuevo
+      <span
+        className="text-[11px] text-[var(--color-muted)]"
+        title="El mes anterior no registró nada en este tramo: no hay con qué comparar."
+      >
+        sin referencia
       </span>
     );
   }
-  const pct = Math.round(((d.valor - d.previo) / d.previo) * 100);
-  const sube = pct > 0;
-  const igual = pct === 0;
+  const sube = valor > previo;
+  const igual = valor === previo;
+  const verbo = tipo === "numero" && previo === 1 ? "era" : tipo === "porcentaje" ? "era" : "eran";
+  // La flecha dice hacia dónde se movió el número; el color, si eso es bueno.
+  const bueno = subirEsMalo ? !sube : sube;
+  const tono = neutral || igual
+    ? "text-[var(--color-muted)]"
+    : bueno
+      ? "text-[var(--color-success)]"
+      : "text-[var(--color-danger)]";
   return (
     <span
-      className={`inline-flex items-center gap-0.5 text-[10px] font-semibold tabular-nums ${
-        igual
-          ? "text-[var(--color-muted)]"
-          : sube
-            ? "text-emerald-600 dark:text-emerald-300"
-            : "text-rose-600 dark:text-rose-300"
-      }`}
-      title={`Mes anterior: ${formato ? formato(d.previo) : d.previo.toLocaleString("es-ES")}`}
+      className={`inline-flex items-center gap-1 text-[11px] tabular-nums ${tono}`}
+      title={titulo ?? "Comparado con el mismo tramo del mes anterior (días 1 a hoy)."}
     >
-      {igual ? (
-        <Minus size={10} strokeWidth={ICON_STROKE} aria-hidden />
+      {neutral || igual ? (
+        <Minus size={11} strokeWidth={ICON_STROKE} aria-hidden />
       ) : sube ? (
-        <TrendingUp size={10} strokeWidth={ICON_STROKE} aria-hidden />
+        <TrendingUp size={11} strokeWidth={ICON_STROKE} aria-hidden />
       ) : (
-        <TrendingDown size={10} strokeWidth={ICON_STROKE} aria-hidden />
+        <TrendingDown size={11} strokeWidth={ICON_STROKE} aria-hidden />
       )}
-      {igual ? "=" : `${sube ? "+" : ""}${pct}%`}
+      {igual ? "igual que el mes pasado" : `${verbo} ${fmtCifra(previo, tipo)}`}
+    </span>
+  );
+}
+
+/** Comparación imposible todavía: la cohorte del mes sigue decidiéndose. */
+function SinComparar({ abiertos, total, unidad }: { abiertos: number; total: number; unidad: string }) {
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[11px] text-[var(--color-muted)]"
+      title={`Todavía no se puede comparar: ${abiertos} de los ${total} ${unidad} de este mes siguen sin decidirse. Frente a un mes ya cerrado, la caída sería falsa.`}
+    >
+      <Minus size={11} strokeWidth={ICON_STROKE} aria-hidden />
+      aún en juego
     </span>
   );
 }
@@ -91,14 +147,16 @@ function Delta({ d, formato }: { d: CifraDelta; formato?: (n: number) => string 
 function Cifra({
   label,
   valor,
-  delta,
-  formato,
+  /** Segunda magnitud del mismo hecho (el importe de un recuento, el crudo de
+   *  un porcentaje). Nunca una comparación. */
+  detalle,
+  comparacion,
   destacada,
 }: {
   label: string;
   valor: string;
-  delta?: CifraDelta;
-  formato?: (n: number) => string;
+  detalle?: string;
+  comparacion?: React.ReactNode;
   destacada?: boolean;
 }) {
   return (
@@ -110,13 +168,57 @@ function Cifra({
         }`}
       >
         {valor}
-        {delta && (
-          <span className="ml-1.5 align-middle">
-            <Delta d={delta} formato={formato} />
-          </span>
-        )}
       </p>
+      {detalle && <p className="text-[11px] tabular-nums text-[var(--color-muted)] mt-0.5">{detalle}</p>}
+      {comparacion && <p className="mt-0.5">{comparacion}</p>}
     </div>
+  );
+}
+
+/** Conversión de cohorte: el porcentaje SIEMPRE enseña su denominador y la
+ *  parte que aún no ha decidido. Un número que muestra de dónde sale no puede
+ *  mentir, y mientras la cohorte madura no se compara con nada. */
+function ConversionCifra({
+  label,
+  c,
+  unidad,
+  destacada,
+}: {
+  label: string;
+  c: ConversionCohorte;
+  unidad: string;
+  destacada?: boolean;
+}) {
+  const detalle =
+    c.pct == null
+      ? undefined
+      : c.abiertos > 0
+        ? `${c.aceptados} de ${c.presentados} · ${c.abiertos} aún sin decidir`
+        : `${c.aceptados} de ${c.presentados}`;
+  return (
+    <Cifra
+      label={label}
+      valor={c.pct != null ? `${c.pct}%` : "—"}
+      detalle={detalle}
+      destacada={destacada}
+      comparacion={
+        c.pct == null || c.pctPrevio == null ? undefined : !c.comparable ? (
+          <SinComparar abiertos={c.abiertos} total={c.presentados} unidad={unidad} />
+        ) : (
+          <Comparativa
+            valor={c.pct}
+            previo={c.pctPrevio}
+            tipo="porcentaje"
+            neutral={c.muestraCorta}
+            titulo={
+              c.muestraCorta
+                ? `Muestra corta: ${c.presentados} ${unidad} este mes y ${c.presentadosPrevio} el anterior. El porcentaje se enseña, pero no se lee como señal.`
+                : undefined
+            }
+          />
+        )
+      }
+    />
   );
 }
 
@@ -138,6 +240,16 @@ function TituloSeccion({
 
 // ─── Vista ──────────────────────────────────────────────────────────────
 type OrdenClinicas = "tendencia" | "conversion" | "aceptado" | "vencido";
+
+const CAPTION_ORDEN: Record<OrdenClinicas, string> = {
+  tendencia: "Ordenadas por evolución del € aceptado, de la mayor caída a la mayor subida.",
+  conversion: "Ordenadas por conversión, de mayor a menor.",
+  aceptado: "Ordenadas por € aceptado, de mayor a menor.",
+  vencido: "Ordenadas por € vencido, de mayor a menor.",
+};
+/** Los dos órdenes derivados de un ratio mandan al final a las clínicas con
+ *  pocos presupuestos: el pie tiene que decirlo o vuelve a mentir. */
+const ORDENES_CON_MUESTRA_CORTA: OrdenClinicas[] = ["tendencia", "conversion"];
 
 // Serie visible en la gráfica de progreso.
 type SerieProgreso = "total" | "leads" | "presupuestos" | "cobros";
@@ -170,8 +282,16 @@ export function RedView({ user: _user }: { user: UserSession }) {
 
   const clinicasOrdenadas = useMemo(() => {
     const filas = [...(data?.clinicas ?? [])];
-    if (orden === "tendencia") filas.sort((a, b) => (a.tendenciaPct ?? Infinity) - (b.tendenciaPct ?? Infinity));
-    if (orden === "conversion") filas.sort((a, b) => (b.conversionPct ?? -1) - (a.conversionPct ?? -1));
+    // Los órdenes DERIVADOS de un ratio (caída y conversión) mandan al final a
+    // las clínicas con muestra corta: un 100% salido de dos presupuestos no
+    // puede encabezar el ranking. Los órdenes por importe absoluto no lo
+    // necesitan — 4.200 € son 4.200 € vengan de dos casos o de veinte.
+    const cortaAlFinal = (a: ClinicaFila, b: ClinicaFila) =>
+      a.muestraCorta === b.muestraCorta ? 0 : a.muestraCorta ? 1 : -1;
+    if (orden === "tendencia")
+      filas.sort((a, b) => cortaAlFinal(a, b) || (a.tendenciaPct ?? Infinity) - (b.tendenciaPct ?? Infinity));
+    if (orden === "conversion")
+      filas.sort((a, b) => cortaAlFinal(a, b) || (b.conversionPct ?? -1) - (a.conversionPct ?? -1));
     if (orden === "aceptado") filas.sort((a, b) => b.aceptadoMes - a.aceptadoMes);
     if (orden === "vencido") filas.sort((a, b) => b.vencido - a.vencido);
     return filas;
@@ -229,7 +349,15 @@ export function RedView({ user: _user }: { user: UserSession }) {
                 `Funcionando: ${hoy.exitos.map((e) => `${e.titulo} (${e.dato}) — ${e.detalle}`).join(" · ") || "sin cambios destacables"}`,
                 `Aceptado mes: ${eur(negocio.presupuestos.aceptadosImporteMes.valor)} (prev ${eur(negocio.presupuestos.aceptadosImporteMes.previo)})`,
                 `Cobrado mes: ${eur(negocio.cobros.cobradoMes.valor)} · pendiente ${eur(negocio.cobros.pendiente)} · vencido ${eur(negocio.cobros.vencido)}`,
-                `Conversión presupuestos: ${conv.pct ?? "—"}% (prev ${conv.pctPrevio ?? "—"}%)`,
+                // El Copilot recibe la MISMA lectura honesta que la pantalla:
+                // si la cohorte del mes sigue abierta, no se le da un "cayó".
+                `Conversión presupuestos: ${conv.pct ?? "—"}% (${conv.aceptados} de ${conv.presentados} presentados este mes` +
+                  (conv.abiertos > 0 ? `, ${conv.abiertos} aún sin decidir` : "") +
+                  `). ${
+                    conv.comparable
+                      ? `El mes anterior fue ${conv.pctPrevio ?? "—"}%.`
+                      : "La cohorte de este mes todavía está madurando: no es comparable con el mes anterior."
+                  }`,
               ].join("\n");
               openCopilot({
                 context: { kind: "red_admin", summary: resumen },
@@ -325,17 +453,30 @@ export function RedView({ user: _user }: { user: UserSession }) {
                 <div className="border-l-2 border-[var(--color-accent)] pl-4 lg:pl-5">
                   <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-3">Leads</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <Cifra label="Nuevos este mes" valor={String(negocio.leads.nuevosMes.valor)} delta={negocio.leads.nuevosMes} />
-                    <Cifra label="En seguimiento ahora" valor={String(negocio.leads.enSeguimiento)} />
-                    <Cifra label="Con cita este mes" valor={String(negocio.leads.citadosMes.valor)} delta={negocio.leads.citadosMes} />
                     <Cifra
-                      label="De los leads del mes, convertidos"
-                      valor={negocio.leads.conversionMes.pct != null ? `${negocio.leads.conversionMes.pct}%` : "—"}
-                      delta={
-                        negocio.leads.conversionMes.pct != null && negocio.leads.conversionMes.pctPrevio != null
-                          ? { valor: negocio.leads.conversionMes.pct, previo: negocio.leads.conversionMes.pctPrevio }
-                          : undefined
+                      label="Nuevos este mes"
+                      valor={String(negocio.leads.nuevosMes.valor)}
+                      comparacion={<Comparativa valor={negocio.leads.nuevosMes.valor} previo={negocio.leads.nuevosMes.previo} tipo="numero" />}
+                    />
+                    {/* Misma definición de activo que /seguimiento y que la
+                        cabecera del tablero (lib/leads/pipeline). */}
+                    <Cifra label="Activos en seguimiento" valor={String(negocio.leads.enSeguimiento)} detalle="ahora mismo" />
+                    <Cifra
+                      label="Con cita este mes"
+                      valor={String(negocio.leads.citadosMes.valor)}
+                      comparacion={
+                        <Comparativa
+                          valor={negocio.leads.citadosMes.valor}
+                          previo={negocio.leads.citadosMes.previo}
+                          tipo="numero"
+                          titulo="Citas agendadas dentro del mes, comparadas con el mes anterior completo (una cita se agenda por adelantado: aquí no se recorta el tramo)."
+                        />
                       }
+                    />
+                    <ConversionCifra
+                      label="De los leads del mes, ya convertidos"
+                      c={negocio.leads.conversionMes}
+                      unidad="leads"
                     />
                   </div>
                 </div>
@@ -348,27 +489,51 @@ export function RedView({ user: _user }: { user: UserSession }) {
                       </span>
                     )}
                   </h3>
+                  {/* Cada comparación se refiere SIEMPRE al número grande de su
+                      card. Antes dos cards gemelas comparaban cosas distintas
+                      —una el recuento, otra el importe— sin que se notara. */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <Cifra
                       label="Presentados este mes"
-                      valor={`${negocio.presupuestos.presentadosMes.valor} · ${eur(negocio.presupuestos.presentadosImporteMes.valor)}`}
-                      delta={negocio.presupuestos.presentadosMes}
+                      valor={String(negocio.presupuestos.presentadosMes.valor)}
+                      detalle={eur(negocio.presupuestos.presentadosImporteMes.valor)}
+                      comparacion={
+                        <Comparativa
+                          valor={negocio.presupuestos.presentadosMes.valor}
+                          previo={negocio.presupuestos.presentadosMes.previo}
+                          tipo="numero"
+                        />
+                      }
                     />
                     <Cifra
                       label="Aceptados este mes"
-                      valor={`${negocio.presupuestos.aceptadosMes.valor} · ${eur(negocio.presupuestos.aceptadosImporteMes.valor)}`}
-                      delta={negocio.presupuestos.aceptadosImporteMes}
-                      formato={eur}
+                      valor={eur(negocio.presupuestos.aceptadosImporteMes.valor)}
+                      detalle={`${negocio.presupuestos.aceptadosMes.valor} presupuesto${negocio.presupuestos.aceptadosMes.valor === 1 ? "" : "s"}`}
+                      comparacion={
+                        <Comparativa
+                          valor={negocio.presupuestos.aceptadosImporteMes.valor}
+                          previo={negocio.presupuestos.aceptadosImporteMes.previo}
+                          tipo="dinero"
+                        />
+                      }
                     />
                     <Cifra
                       label="Perdidos este mes"
-                      valor={`${negocio.presupuestos.perdidosMes.valor} · ${eur(negocio.presupuestos.perdidosImporteMes.valor)}`}
-                      delta={negocio.presupuestos.perdidosMes}
+                      valor={String(negocio.presupuestos.perdidosMes.valor)}
+                      detalle={eur(negocio.presupuestos.perdidosImporteMes.valor)}
+                      comparacion={
+                        <Comparativa
+                          valor={negocio.presupuestos.perdidosMes.valor}
+                          previo={negocio.presupuestos.perdidosMes.previo}
+                          tipo="numero"
+                          subirEsMalo
+                        />
+                      }
                     />
-                    <Cifra
-                      label="De los presentados, aceptados"
-                      valor={conv.pct != null ? `${conv.pct}%` : "—"}
-                      delta={conv.pct != null && conv.pctPrevio != null ? { valor: conv.pct, previo: conv.pctPrevio } : undefined}
+                    <ConversionCifra
+                      label="De los presentados, ya aceptados"
+                      c={conv}
+                      unidad="presupuestos"
                       destacada
                     />
                   </div>
@@ -376,9 +541,19 @@ export function RedView({ user: _user }: { user: UserSession }) {
                 <div className="border-l-2 border-[var(--color-accent)] pl-4 lg:pl-5">
                   <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-3">Cobros</h3>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <Cifra label="Cobrado este mes" valor={eur(negocio.cobros.cobradoMes.valor)} delta={negocio.cobros.cobradoMes} formato={eur} />
-                    <Cifra label="Pendiente de cobro" valor={eur(negocio.cobros.pendiente)} />
-                    <Cifra label="Vencido sin cobrar" valor={eur(negocio.cobros.vencido)} />
+                    <Cifra
+                      label="Cobrado este mes"
+                      valor={eur(negocio.cobros.cobradoMes.valor)}
+                      comparacion={
+                        <Comparativa
+                          valor={negocio.cobros.cobradoMes.valor}
+                          previo={negocio.cobros.cobradoMes.previo}
+                          tipo="dinero"
+                        />
+                      }
+                    />
+                    <Cifra label="Pendiente de cobro" valor={eur(negocio.cobros.pendiente)} detalle="firmado y sin cobrar" />
+                    <Cifra label="Vencido sin cobrar" valor={eur(negocio.cobros.vencido)} detalle="fuera de plazo" />
                   </div>
                 </div>
               </div>
@@ -393,8 +568,14 @@ export function RedView({ user: _user }: { user: UserSession }) {
             Tus clínicas
           </TituloSeccion>
           <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+            {/* El pie describe el orden REAL: al reordenar por otra columna,
+                "la que más cae va arriba" dejaba de ser cierto. */}
             <p className="px-5 pt-3 pb-2 text-[11px] text-[var(--color-muted)]">
-              Comparadas con el mes anterior. La que más cae va arriba — clic en una clínica para abrir su detalle.
+              {CAPTION_ORDEN[orden]}{" "}
+              {ORDENES_CON_MUESTRA_CORTA.includes(orden) && clinicasOrdenadas.some((c) => c.muestraCorta)
+                ? "Las de pocos presupuestos van al final. "
+                : ""}
+              Comparadas con el mismo tramo del mes anterior — clic en una clínica para abrir su detalle.
             </p>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
@@ -403,16 +584,17 @@ export function RedView({ user: _user }: { user: UserSession }) {
                     <th className="text-left font-semibold px-5 py-2">Clínica</th>
                     {(
                       [
-                        ["conversion", "Conversión"],
-                        ["aceptado", "€ aceptado"],
-                        ["vencido", "€ vencido"],
-                        ["tendencia", "Tendencia"],
-                      ] as Array<[OrdenClinicas, string]>
-                    ).map(([k, l]) => (
+                        ["conversion", "Conversión", "De los presupuestos presentados este mes, cuántos ya se aceptaron."],
+                        ["aceptado", "€ aceptado", "Importe firmado en el mismo tramo del mes."],
+                        ["vencido", "€ vencido", "Importe firmado que ya superó su plazo de pago."],
+                        ["tendencia", "Evolución €", "Cambio del € aceptado frente al mismo tramo del mes anterior."],
+                      ] as Array<[OrdenClinicas, string, string]>
+                    ).map(([k, l, ayuda]) => (
                       <th key={k} className="text-right font-semibold px-3 py-2 whitespace-nowrap">
                         <button
                           type="button"
                           onClick={() => setOrden(k)}
+                          title={ayuda}
                           className={`hover:text-[var(--color-foreground)] ${orden === k ? "text-[var(--color-accent)]" : ""}`}
                         >
                           {l}
@@ -422,37 +604,40 @@ export function RedView({ user: _user }: { user: UserSession }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {clinicasOrdenadas.map((c) => {
-                    const dPts =
-                      c.conversionPct != null && c.conversionPctPrevio != null
-                        ? c.conversionPct - c.conversionPctPrevio
-                        : null;
-                    const dAcept = c.aceptadoMes - c.aceptadoMesPrevio;
-                    return (
+                  {clinicasOrdenadas.map((c) => (
                       <tr
                         key={c.id}
                         onClick={() => irAClinica(c)}
                         className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-muted)] cursor-pointer"
                       >
                         <td className="px-5 py-3 font-semibold text-[var(--color-foreground)]">{c.nombre}</td>
-                        {/* Deltas como dato principal; el absoluto acompaña. */}
+                        {/* El VALOR manda y la referencia va debajo, en las
+                            mismas unidades. Fuera los "pts": eran una tercera
+                            gramática de delta en la misma pantalla. */}
                         <td className="px-3 py-3 text-right tabular-nums">
-                          {dPts == null ? (
-                            <span className="text-[var(--color-foreground)]">{c.conversionPct != null ? `${c.conversionPct}%` : "—"}</span>
-                          ) : (
-                            <>
-                              <span className={`font-semibold ${dPts > 0 ? "text-[var(--color-success)]" : dPts < 0 ? "text-[var(--color-danger)]" : "text-[var(--color-muted)]"}`}>
-                                {dPts > 0 ? "+" : ""}{dPts} pts
-                              </span>
-                              <span className="block text-[10px] text-[var(--color-muted)]">{c.conversionPct}%</span>
-                            </>
-                          )}
+                          <span
+                            className={`font-semibold ${c.muestraCorta ? "text-[var(--color-muted)]" : "text-[var(--color-foreground)]"}`}
+                            title={
+                              c.muestraCorta
+                                ? `Muestra corta: ${c.presentadosMes} presupuesto${c.presentadosMes === 1 ? "" : "s"} este mes y ${c.presentadosMesPrevio} el anterior. El porcentaje se enseña, pero no se lee como señal.`
+                                : undefined
+                            }
+                          >
+                            {c.conversionPct != null ? `${c.conversionPct}%` : "—"}
+                          </span>
+                          <span className="block text-[10px] text-[var(--color-muted)]">
+                            {c.muestraCorta
+                              ? `${c.aceptadosMes} de ${c.presentadosMes}`
+                              : c.conversionPctPrevio != null
+                                ? `era ${c.conversionPctPrevio}%`
+                                : "sin referencia"}
+                          </span>
                         </td>
                         <td className="px-3 py-3 text-right tabular-nums">
-                          <span className={`font-semibold ${dAcept > 0 ? "text-[var(--color-success)]" : dAcept < 0 ? "text-[var(--color-danger)]" : "text-[var(--color-muted)]"}`}>
-                            {dAcept > 0 ? "+" : ""}{eur(dAcept)}
+                          <span className="font-semibold text-[var(--color-foreground)]">{eur(c.aceptadoMes)}</span>
+                          <span className="block text-[10px] text-[var(--color-muted)]">
+                            {c.aceptadoMesPrevio > 0 ? `eran ${eur(c.aceptadoMesPrevio)}` : "sin referencia"}
                           </span>
-                          <span className="block text-[10px] text-[var(--color-muted)]">{eur(c.aceptadoMes)}</span>
                         </td>
                         <td className="px-3 py-3 text-right tabular-nums">
                           {c.vencido > 0 ? (
@@ -461,25 +646,36 @@ export function RedView({ user: _user }: { user: UserSession }) {
                             <span className="text-[var(--color-muted)]">—</span>
                           )}
                         </td>
+                        {/* Δ% de un IMPORTE (no de un porcentaje): comparación
+                            legítima y la clave del orden por defecto. Con
+                            muestra corta se pinta neutra, no como señal. */}
                         <td className="px-3 py-3 text-right">
                           {c.tendenciaPct == null ? (
                             <span className="text-[var(--color-muted)]" title="El mes anterior no firmó presupuestos: no hay con qué comparar">—</span>
                           ) : (
                             <span
                               className={`inline-flex items-center gap-1 font-semibold tabular-nums ${
-                                c.tendenciaPct < 0
-                                  ? "text-[var(--color-danger)]"
-                                  : c.tendenciaPct > 0
-                                    ? "text-[var(--color-success)]"
-                                    : "text-[var(--color-muted)]"
+                                c.muestraCorta || c.tendenciaPct === 0
+                                  ? "text-[var(--color-muted)]"
+                                  : c.tendenciaPct < 0
+                                    ? "text-[var(--color-danger)]"
+                                    : "text-[var(--color-success)]"
                               }`}
+                              title={
+                                c.muestraCorta
+                                  ? "Pocos presupuestos en juego: la evolución se enseña, pero no ordena el ranking."
+                                  : "Cambio del € aceptado frente al mismo tramo del mes anterior."
+                              }
                             >
-                              {c.tendenciaPct < 0 ? (
-                                <TrendingDown size={12} strokeWidth={ICON_STROKE} aria-hidden />
-                              ) : c.tendenciaPct > 0 ? (
-                                <TrendingUp size={12} strokeWidth={ICON_STROKE} aria-hidden />
-                              ) : (
+                              {/* Con muestra corta no se pinta flecha: un icono
+                                  de dirección junto a un "-30%" ya con signo se
+                                  leía como dos símbolos peleándose. */}
+                              {c.muestraCorta ? null : c.tendenciaPct === 0 ? (
                                 <Minus size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                              ) : c.tendenciaPct < 0 ? (
+                                <TrendingDown size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                              ) : (
+                                <TrendingUp size={12} strokeWidth={ICON_STROKE} aria-hidden />
                               )}
                               {c.tendenciaPct > 0 ? "+" : ""}
                               {c.tendenciaPct}%
@@ -487,12 +683,11 @@ export function RedView({ user: _user }: { user: UserSession }) {
                           )}
                         </td>
                       </tr>
-                    );
-                  })}
+                  ))}
                   {clinicasOrdenadas.length === 0 && (
                     <tr>
                       <td colSpan={5} className="px-5 py-6 text-center text-[var(--color-muted)]">
-                        Tu sesión no tiene clínicas visibles.
+                        No tienes clínicas asignadas.
                       </td>
                     </tr>
                   )}

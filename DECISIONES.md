@@ -451,3 +451,24 @@ contra tablas vacías: una pantalla que aparentaba funcionar. Al retirar Airtabl
 explícitamente — página que dice que está en reconstrucción, fuera del nav — en lugar de dejar un
 404 o un módulo roto. El motor predictivo y sus tablas de analítica NO se tocan y se siguen
 alimentando desde la agenda: lo congelado es la interfaz vieja, no el diferenciador.
+
+## 2026-07-27 — /red: la conversión medía dos cohortes distintas y tres gramáticas de delta
+Pasada visual, parte 1. El numerador contaba aceptados por fecha de aceptación y el
+denominador presentados por fecha de alta: dos conjuntos distintos bajo una etiqueta ("de los
+presentados, aceptados") que prometía el ratio de cohorte que la fórmula no calculaba —
+capaz de pasar del 100% con retardos reales. Ahora la conversión es de cohorte (mismos
+presupuestos arriba y abajo), enseña siempre su denominador y la parte sin decidir, y
+**calla el delta mientras >20% de la cohorte siga abierta**: los 28 de 48 presupuestos en el
+aire de julio pintaban un desplome del 67% al 29% frente a meses resueltos al 100%. El resto
+se compara contra el MISMO TRAMO del mes (días 1..hoy), salvo la fecha de cita, que es
+prospectiva. Diagnóstico: el mes incompleto era marginal (jun 1–27 = 14 vs 15 del mes
+entero); mandaba la maduración, y el escalón ×3 del mes en curso lo fabrica el seed
+(MEJORAS 46). Murieron las tres gramáticas de delta —Δ% relativo, "pts" absolutos y Δ% otra
+vez— por una sola: «48 (eran 14)», «12.430 € (eran 7.950 €)», «33% (era 100%)». Un 100%
+salido de 2 presupuestos ya no pinta señal ni encabeza el ranking de caídas. De paso, nueve
+erratas: `s()` pluralizaba sustantivos y se usaba en verbos ("8 pacientes **superóaron** su
+plazo y **sigues** sin pagar" — le decía a la manager que era ella quien no pagaba), un
+titular decía "del mes" sobre un dato semanal, "En seguimiento ahora" contaba solo
+"Contactado" (cuarto número para el pipeline que unificó la decisión del 23/7), dos cards
+gemelas comparaban una el recuento y otra el importe sin que se notara, el pie prometía un
+orden que cambiaba al reordenar, y "7 perdidos, eran 5" se pintaba en verde.

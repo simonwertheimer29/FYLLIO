@@ -709,3 +709,42 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **2026-07-27 · 🟢 CERRADA**: los seis módulos leen y escriben Postgres. Aviso: RB/INDEP
   tampoco tienen `staff` en Postgres todavía — esto arregla DÓNDE se lee; los doctores de los
   pilotos hay que darlos de alta antes de que operen.
+
+## 46. El seed de DEMO apila los casos vivos en el mes en curso y revienta todos los deltas
+- **Zona:** `scripts/db-seed-demo-rico.mjs` (capa de volumen mensual)
+- **Principio:** §5 confianza — la demo es la pantalla que se enseña.
+- **Problema (medido hoy):** la serie mensual de presupuestos presentados es
+  11 · 16 · 13 · 20 · 15 · **48**. Los 33 de más del mes en curso son los casos
+  narrativos (kanban, colas, conversaciones) que el seed necesita "vivos", y
+  **28 de esos 48 siguen sin decidirse**, 25 presentados en los últimos 7 días.
+  Efecto: cualquier comparación mes contra mes sale absurda (+220% en
+  presentados) aunque la fórmula sea correcta. Verificado que NO es el mes
+  incompleto: días 1–27 de junio = 14 presentados frente a 15 del mes entero.
+- **Mejora:** repartir la carga narrativa hacia atrás (que los casos vivos
+  nazcan escalonados en las últimas 6-8 semanas) o subir el volumen de los
+  meses cerrados para que la forma mensual no tenga un escalón ×3 en el último.
+- **Impacto:** alto en credibilidad de demo; nulo en producción.
+- **Fecha:** 2026-07-27 · 🔵 **prioridad subida por Simon: se mira justo después
+  de cerrar /red.**
+
+## 47. `/presupuestos/login` es una pantalla muerta contra un endpoint 410
+- **Zona:** `app/presupuestos/login/page.tsx` → `POST /api/presupuestos/auth/login`
+- **Principio:** §5 confianza — el formulario pide email y contraseña y su ruta
+  responde 410 "método retirado" desde el Sprint A: el usuario que llegue solo
+  puede fracasar. Sobrevivió a la unificación de sesión del 2026-07-27.
+- **Mejora:** borrar la página (y con ella el endpoint 410) o redirigir a
+  `/login`.
+- **Impacto:** bajo; higiene pura (una puerta que no lleva a ningún sitio).
+- **Fecha:** 2026-07-27 · 🔵
+
+## 48. La gráfica de Progreso pinta el mes en curso junto a meses completos
+- **Zona:** `app/lib/dashboard-red.ts` (serie `progreso`), `RedView` (AreaChart)
+- **Principio:** coherencia — tras arreglar los deltas para comparar el mismo
+  tramo del mes (2026-07-27), la gráfica sigue mezclando 5 meses cerrados con
+  un sexto punto a medias. El último tramo de la curva no es comparable con el
+  resto y se lee como una caída (o subida) real.
+- **Mejora:** marcar el punto en curso (trazo discontinuo o etiqueta "en curso")
+  o proyectar el mes al ritmo del tramo. No decidido: es decisión de producto.
+- **Impacto:** medio — es la única pieza de la página que aún compara peras con
+  manzanas.
+- **Fecha:** 2026-07-27 · 🔵
