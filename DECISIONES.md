@@ -509,3 +509,20 @@ trazo solo sobre los meses cerrados, las dos curvas `monotone` se interpolan sob
 de puntos DISTINTOS y se separan visiblemente; cada área lleva ahora el mismo juego de puntos
 que su trazo, y una serie invisible alimenta el tooltip para que el mes de unión no salga
 duplicado.
+
+## 2026-07-27 — /red segunda pasada de layout, y el embudo se queda sin la etapa "citados"
+Tres filas en vez de cuatro: riesgo (60%) y logros (40%) COMPARTEN la primera, cada uno como
+bloque con el tinte de su categoría; negocio + clínicas la segunda; evolución y embudo la
+tercera. El fallo que se corrige: solo la card destacada llevaba color y las secundarias eran
+blancas, así que no se leían como parte de su categoría — ahora todas llevan borde semántico
+izquierdo y el número en el color del tono, sobre superficie limpia encima del tinte del
+bloque. El embudo cuenta la promesa del producto, pero le falta una etapa y NO se inventó:
+"citados" no es derivable. De 268 leads de DEMO solo 7 tienen `fecha_cita` y `asistido` está
+sin escribir en los 268; de los 79 que llegaron a ser paciente, CERO tienen cita registrada
+—la cita solo se graba al arrastrar a "Citado" en el tablero—, así que meter esa etapa haría
+que el embudo SUBIERA de 7 a 35, imposible en una cohorte anidada (MEJORAS 50). Quedan cuatro
+etapas realmente anidadas sobre la misma cohorte de leads: captados 268 → llegaron a la
+clínica 79 → recibieron presupuesto 35 → aceptaron 7. Detalle de honestidad visual: la barra
+empezó siendo una caja que contenía su texto, lo que obligaba a un ancho mínimo que igualaba
+visualmente 35 y 7 —la barra desmentía a su número—; ahora es un relleno de fondo sobre una
+pista a ancho completo, proporcional de verdad, con el texto siempre legible encima.

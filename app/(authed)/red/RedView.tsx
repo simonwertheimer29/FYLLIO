@@ -25,7 +25,12 @@ import {
   CartesianGrid,
 } from "recharts";
 import type { UserSession } from "../../lib/presupuestos/types";
-import type { DashboardRed, ConversionCohorte, ClinicaFila } from "../../lib/dashboard-red";
+import type {
+  DashboardRed,
+  ConversionCohorte,
+  ClinicaFila,
+  EmbudoEtapa,
+} from "../../lib/dashboard-red";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { openCopilot } from "../../components/copilot/openCopilot";
 import { ErrorState } from "../../components/ui/Feedback";
@@ -43,6 +48,7 @@ import {
   BarChart3,
   Building2,
   Activity,
+  Filter,
   ICON_STROKE,
 } from "../../components/icons";
 
@@ -307,41 +313,33 @@ function SenalCard({
     <Card
       padding="none"
       interactive={!!href}
-      className={`relative flex items-center gap-4 pl-5 pr-4 py-3.5 h-full ${
-        destacada ? "fyllio-pulso-unico" : ""
-      }`}
+      className={`relative h-full overflow-hidden ${
+        destacada ? "flex items-center gap-4 pl-5 pr-4 py-3.5" : "block pl-4 pr-3 py-3"
+      } ${destacada ? "fyllio-pulso-unico" : ""}`}
       style={
         destacada
-          ? ({
-              background: FONDO_TONO[tono],
-              borderColor: `color-mix(in srgb, ${color} 35%, transparent)`,
-              // La lee el keyframe del pulso, que vive en globals.css.
-              ["--pulso-color" as string]: color,
-            } as React.CSSProperties)
+          ? ({ ["--pulso-color" as string]: color } as React.CSSProperties)
           : undefined
       }
     >
-      {/* Borde semántico: barra de categoría a la izquierda, solo en la
-          destacada. Es el cuarto rasgo de peso, junto al tinte, la sombra y
-          el número mayor. */}
-      {destacada && (
-        <span
-          aria-hidden
-          className="absolute inset-y-0 left-0 w-1 rounded-l-xl"
-          style={{ background: color }}
-        />
-      )}
-      {/* Ancho mínimo para que los titulares de una misma fila arranquen
-          alineados aunque un valor sea "16" y otro "12.725 €". */}
+      {/* Borde semántico en TODAS las cards, no solo en la destacada: el resto
+          eran blancas y no se leían como parte de su categoría. La superficie
+          sigue limpia — el color de bloque lo pone el tinte de la franja. */}
+      <span
+        aria-hidden
+        className={`absolute inset-y-0 left-0 ${destacada ? "w-1.5" : "w-1"}`}
+        style={{ background: color }}
+      />
       <p
         key={cambios}
-        className={`font-display font-bold tabular-nums text-[var(--color-foreground)] shrink-0 ${
-          destacada ? "text-3xl" : "text-2xl sm:min-w-[6rem]"
+        className={`font-display font-bold tabular-nums shrink-0 ${
+          destacada ? "text-3xl" : "text-xl"
         } ${cambios > 0 ? "fyllio-destello rounded-md" : ""}`}
+        style={{ color }}
       >
         {valor}
       </p>
-      <div className="min-w-0 flex-1">
+      <div className={destacada ? "min-w-0 flex-1" : "min-w-0 mt-0.5"}>
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm font-medium text-[var(--color-foreground)]">{titulo}</p>
           {etiqueta && (
@@ -353,9 +351,11 @@ function SenalCard({
             </span>
           )}
         </div>
-        <p className="text-xs text-[var(--color-muted)] mt-0.5">{detalle}</p>
+        <p className={`text-xs text-[var(--color-muted)] mt-0.5 ${destacada ? "" : "line-clamp-2"}`}>
+          {detalle}
+        </p>
       </div>
-      {href && (
+      {href && destacada && (
         <ChevronRight
           size={16}
           strokeWidth={ICON_STROKE}
@@ -368,9 +368,141 @@ function SenalCard({
 
   if (!href) return cuerpo;
   return (
-    <Link href={href} className="block rounded-xl focus-visible:outline-none">
+    <Link href={href} className="block h-full rounded-xl focus-visible:outline-none">
       {cuerpo}
     </Link>
+  );
+}
+
+/** Franja de señales: bloque con el tinte de su categoría, cabecera con el
+ *  resumen, destacada arriba y secundarias uniformes en rejilla. */
+function FranjaSenales({
+  tono,
+  icono,
+  titulo,
+  resumen,
+  columnas,
+  vacio,
+  items,
+}: {
+  tono: TonoSenal;
+  icono: React.ReactNode;
+  titulo: string;
+  resumen?: React.ReactNode;
+  /** Columnas de la rejilla de secundarias. */
+  columnas: string;
+  vacio: React.ReactNode;
+  items: Array<{ clave: string; valor: string; titulo: string; detalle: string; href?: string }>;
+}) {
+  const color = COLOR_TONO[tono];
+  return (
+    <section
+      className="rounded-2xl p-3 sm:p-4 h-full"
+      style={{
+        background: FONDO_TONO[tono],
+        border: `1px solid color-mix(in srgb, ${color} 22%, transparent)`,
+      }}
+    >
+      <div className="flex items-baseline justify-between gap-3 flex-wrap px-1 mb-2.5">
+        <h2 className="flex items-center gap-2 font-display text-base font-semibold tracking-tight text-[var(--color-foreground)]">
+          <span style={{ color }} className="self-center">
+            {icono}
+          </span>
+          {titulo}
+        </h2>
+        {resumen && <p className="text-xs text-[var(--color-muted)] tabular-nums">{resumen}</p>}
+      </div>
+      {items.length === 0 ? (
+        <Card padding="none" className="px-4 py-3">
+          {vacio}
+        </Card>
+      ) : (
+        <div className="space-y-2">
+          <SenalCard
+            tono={tono}
+            destacada
+            etiqueta={tono === "riesgo" ? "lo más urgente" : "lo que más suma"}
+            valor={items[0].valor}
+            titulo={items[0].titulo}
+            detalle={items[0].detalle}
+            href={items[0].href}
+          />
+          {items.length > 1 && (
+            <div className={`grid gap-2 ${columnas}`}>
+              {items.slice(1).map((s) => (
+                <SenalCard
+                  key={s.clave}
+                  tono={tono}
+                  valor={s.valor}
+                  titulo={s.titulo}
+                  detalle={s.detalle}
+                  href={s.href}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ─── Embudo de conversión ───────────────────────────────────────────────
+//
+// Cuenta la promesa del producto: dónde se pierde la gente entre que pregunta
+// y que firma. Cada etapa es un subconjunto de la anterior, así que las barras
+// solo pueden encoger. El acento único pinta las barras; la caída va en gris,
+// no en rojo: un embudo SIEMPRE baja, y pintarlo de alarma sería ruido.
+function Embudo({ etapas, meses }: { etapas: EmbudoEtapa[]; meses: number }) {
+  const base = etapas[0]?.n ?? 0;
+  return (
+    <div className="space-y-1">
+      {etapas.map((e, i) => {
+        // Suelo del 1,5% solo para que una etapa con casos no desaparezca del
+        // todo; por encima de eso el ancho es proporcional y fiel.
+        const ancho = base > 0 ? Math.max((e.n / base) * 100, e.n > 0 ? 1.5 : 0) : 0;
+        return (
+          <div key={e.clave}>
+            {i > 0 && (
+              <p className="flex items-center gap-1.5 pl-1 py-1 text-[11px] text-[var(--color-muted)] tabular-nums">
+                <TrendingDown size={11} strokeWidth={ICON_STROKE} aria-hidden />
+                {e.siguePct == null
+                  ? "sin datos de la etapa anterior"
+                  : `sigue el ${e.siguePct}% · se pierde el ${100 - e.siguePct}%`}
+              </p>
+            )}
+            {/* La barra es un RELLENO de fondo sobre una pista a ancho
+                completo, no una caja que contenga el texto. Con el texto
+                dentro hacía falta un ancho mínimo para que se leyera, y ese
+                mínimo igualaba visualmente 35 y 7 — la barra desmentía a su
+                propio número. Así el ancho es fiel y el texto siempre legible. */}
+            <div className="relative rounded-lg overflow-hidden bg-[var(--color-surface-muted)] px-3 py-2">
+              <span
+                aria-hidden
+                className="absolute inset-y-0 left-0"
+                style={{
+                  width: `${ancho}%`,
+                  background: "color-mix(in srgb, var(--color-accent) 28%, transparent)",
+                }}
+              />
+              <div className="relative">
+                <p className="flex items-baseline gap-2 flex-wrap">
+                  <span className="font-display text-lg font-bold tabular-nums text-[var(--color-foreground)]">
+                    {e.n.toLocaleString("es-ES")}
+                  </span>
+                  <span className="text-xs font-medium text-[var(--color-foreground)]">{e.etiqueta}</span>
+                </p>
+                <p className="text-[11px] text-[var(--color-muted)]">{e.detalle}</p>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+      <p className="pt-2 text-[11px] text-[var(--color-muted)]">
+        Sobre los {base.toLocaleString("es-ES")} leads captados en los últimos {meses} meses, seguidos
+        uno a uno hasta donde llegaron. No incluye pacientes que llegaron sin pasar por un lead.
+      </p>
+    </div>
   );
 }
 
@@ -521,24 +653,20 @@ export function RedView({ user: _user }: { user: UserSession }) {
     // layout real, con el primitivo Skeleton (shimmer compartido).
     return (
       <div className="flex-1 min-h-0 overflow-auto bg-[var(--color-background)]">
-        <div className="max-w-screen-2xl mx-auto p-4 lg:p-8 space-y-10">
+        <div className="max-w-screen-2xl mx-auto p-4 lg:p-8 space-y-8">
           <Skeleton className="h-8 w-40 rounded-lg" />
-          {[0, 1].map((f) => (
-            <div key={f} className="space-y-2.5">
-              <Skeleton className="h-6 w-64 rounded-lg" />
-              <Skeleton className="h-[76px] rounded-xl" />
-              <div className="flex flex-col sm:flex-row gap-2.5">
-                <Skeleton className="h-[68px] flex-1 rounded-xl" />
-                <Skeleton className="h-[68px] flex-1 rounded-xl" />
-                <Skeleton className="h-[68px] flex-1 rounded-xl" />
-              </div>
-            </div>
-          ))}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            <Skeleton className="h-[220px] lg:col-span-3 rounded-2xl" />
+            <Skeleton className="h-[220px] lg:col-span-2 rounded-2xl" />
+          </div>
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
             <Skeleton className="h-72 lg:col-span-3 rounded-xl" />
             <Skeleton className="h-72 lg:col-span-2 rounded-xl" />
           </div>
-          <Skeleton className="h-80 rounded-xl" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
+            <Skeleton className="h-80 rounded-xl" />
+            <Skeleton className="h-80 rounded-xl" />
+          </div>
         </div>
       </div>
     );
@@ -620,93 +748,80 @@ export function RedView({ user: _user }: { user: UserSession }) {
           </button>
         </header>
 
-        {/* Cuatro filas a ancho completo. En móvil es el mismo orden apilado:
-            riesgo → funcionando → negocio · clínicas → progreso. */}
-        <div className="space-y-10">
-          {/* ══ FILA 1 · ¿DÓNDE PIERDES DINERO HOY? ══════════════════════ */}
-          <section>
-            <TituloSeccion
-              icono={<CircleDollarSign size={20} strokeWidth={ICON_STROKE} aria-hidden />}
-              resumen={
-                hoy.riesgo.length > 0 ? (
-                  <>
-                    <span className="font-semibold text-[var(--color-foreground)]">{eur(hoy.importeEnRiesgo)}</span> en
-                    riesgo
-                    {/* Con una sola clínica en pantalla, "· 1 clínica" no
-                        informa de nada. */}
-                    {!clinicaFiltrada && (
-                      <> · {hoy.clinicasEnRiesgo} clínica{hoy.clinicasEnRiesgo === 1 ? "" : "s"}</>
-                    )}
-                  </>
-                ) : undefined
-              }
-            >
-              ¿Dónde pierdes dinero hoy?
-            </TituloSeccion>
-            {hoy.riesgo.length === 0 ? (
-              <Card padding="none" className="px-5 py-4 flex items-center gap-2.5">
-                <CheckCircle2 size={18} strokeWidth={ICON_STROKE} className="text-[var(--color-success)] shrink-0" aria-hidden />
-                <p className="text-sm font-semibold text-[var(--color-foreground)]">
-                  Nada en riesgo hoy — las colas están al día.
-                </p>
-              </Card>
-            ) : (
-              <div className="space-y-2.5">
-                {/* Destacada = la primera del orden por urgencia de ACCIÓN que
-                    fija el servidor (no la de más importe). */}
-                <SenalCard
-                  tono="riesgo"
-                  destacada
-                  etiqueta="lo más urgente"
-                  valor={hoy.riesgo[0].importe != null ? eur(hoy.riesgo[0].importe) : String(hoy.riesgo[0].n)}
-                  titulo={hoy.riesgo[0].titulo}
-                  detalle={hoy.riesgo[0].detalle}
-                  href={hoy.riesgo[0].href}
-                />
-                {hoy.riesgo.length > 1 && (
-                  // flex-1 con ancho mínimo: reparte el ancho entre las que
-                  // haya y envuelve sin dejar huecos de rejilla.
-                  <div className="flex flex-wrap gap-2.5">
-                    {hoy.riesgo.slice(1).map((r) => (
-                      <div key={r.tipo} className="flex-1 min-w-[240px]">
-                        <SenalCard
-                          tono="riesgo"
-                          valor={r.importe != null ? eur(r.importe) : String(r.n)}
-                          titulo={r.titulo}
-                          detalle={r.detalle}
-                          href={r.href}
-                        />
-                      </div>
-                    ))}
+        {/* Tres filas. En móvil, el mismo orden apilado: riesgo → logros →
+            negocio → clínicas → evolución → embudo. */}
+        <div className="space-y-8">
+          {/* ══ FILA 1 · RIESGO (60%) · LOGROS (40%) ═════════════════════ */}
+          {/* Sin items-start: los dos bloques igualan altura y la fila se lee
+              como una sola pieza, no como dos cajas desalineadas. */}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            <div className="lg:col-span-3">
+              <FranjaSenales
+                tono="riesgo"
+                icono={<CircleDollarSign size={18} strokeWidth={ICON_STROKE} aria-hidden />}
+                titulo="¿Dónde pierdes dinero hoy?"
+                resumen={
+                  hoy.riesgo.length > 0 ? (
+                    <>
+                      <span className="font-semibold text-[var(--color-foreground)]">
+                        {eur(hoy.importeEnRiesgo)}
+                      </span>{" "}
+                      en riesgo
+                      {/* Con una sola clínica en pantalla, "· 1 clínica" no
+                          informa de nada. */}
+                      {!clinicaFiltrada && (
+                        <> · {hoy.clinicasEnRiesgo} clínica{hoy.clinicasEnRiesgo === 1 ? "" : "s"}</>
+                      )}
+                    </>
+                  ) : undefined
+                }
+                columnas="sm:grid-cols-3"
+                vacio={
+                  <div className="flex items-center gap-2.5">
+                    <CheckCircle2
+                      size={18}
+                      strokeWidth={ICON_STROKE}
+                      className="text-[var(--color-success)] shrink-0"
+                      aria-hidden
+                    />
+                    <p className="text-sm font-semibold text-[var(--color-foreground)]">
+                      Nada en riesgo hoy — las colas están al día.
+                    </p>
                   </div>
-                )}
-              </div>
-            )}
-          </section>
+                }
+                // El orden lo fija el servidor por urgencia de ACCIÓN: la
+                // primera es la destacada, no la de más importe.
+                items={hoy.riesgo.map((r) => ({
+                  clave: r.tipo,
+                  valor: r.importe != null ? eur(r.importe) : String(r.n),
+                  titulo: r.titulo,
+                  detalle: r.detalle,
+                  href: r.href,
+                }))}
+              />
+            </div>
+            <div className="lg:col-span-2">
+              <FranjaSenales
+                tono="exito"
+                icono={<TrendingUp size={18} strokeWidth={ICON_STROKE} aria-hidden />}
+                titulo="Qué está funcionando"
+                columnas="sm:grid-cols-2"
+                vacio={
+                  <p className="text-sm text-[var(--color-muted)]">
+                    Sin cambios destacables esta semana.
+                  </p>
+                }
+                items={hoy.exitos.map((e) => ({
+                  clave: e.tipo,
+                  valor: e.dato,
+                  titulo: e.titulo,
+                  detalle: e.detalle,
+                }))}
+              />
+            </div>
+          </div>
 
-          {/* ══ FILA 2 · QUÉ ESTÁ FUNCIONANDO ════════════════════════════ */}
-          <section>
-            <TituloSeccion icono={<TrendingUp size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
-              Qué está funcionando
-            </TituloSeccion>
-            {hoy.exitos.length === 0 ? (
-              <Card padding="none" className="px-5 py-4">
-                <p className="text-sm text-[var(--color-muted)]">Sin cambios destacables esta semana.</p>
-              </Card>
-            ) : (
-              // Ninguna destaca: un logro no pide acción, así que aquí no hay
-              // "el más urgente". Todas uniformes, mismo peso.
-              <div className="flex flex-wrap gap-2.5">
-                {hoy.exitos.map((e) => (
-                  <div key={e.tipo} className="flex-1 min-w-[240px]">
-                    <SenalCard tono="exito" valor={e.dato} titulo={e.titulo} detalle={e.detalle} />
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-
-          {/* ══ FILA 3 · EL NEGOCIO (izq) · TUS CLÍNICAS (der) ═══════════ */}
+          {/* ══ FILA 2 · EL NEGOCIO (60%) · TUS CLÍNICAS (40%) ═══════════ */}
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 items-start">
             <section className={clinicaFiltrada ? "lg:col-span-5" : "lg:col-span-3"}>
               <TituloSeccion icono={<BarChart3 size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
@@ -971,7 +1086,8 @@ export function RedView({ user: _user }: { user: UserSession }) {
             )}
           </div>
 
-          {/* ══ FILA 4 · PROGRESO — ancho completo, curva legible ═════════ */}
+          {/* ══ FILA 3 · EVOLUCIÓN (izq) · EMBUDO (der) ══════════════════ */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-start">
           <section>
             <TituloSeccion icono={<Activity size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
               Progreso
@@ -1081,6 +1197,16 @@ export function RedView({ user: _user }: { user: UserSession }) {
             </div>
             </Card>
           </section>
+
+          <section>
+            <TituloSeccion icono={<Filter size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
+              Dónde se pierde la gente
+            </TituloSeccion>
+            <Card padding="none" className="p-5">
+              <Embudo etapas={data.embudo.etapas} meses={data.embudo.meses} />
+            </Card>
+          </section>
+          </div>
         </div>
       </div>
     </div>

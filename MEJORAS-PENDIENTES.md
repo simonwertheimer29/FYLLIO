@@ -771,3 +771,32 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   puede ver: 403, nunca "sin filtro". QA adversarial `scripts/qa-red-scope.mjs`
   (7/7 VERDE, incluidos clínica de otro cliente legal y clínica hermana desde
   coordinación).
+
+## 50. El embudo no puede tener etapa "citados": el dato no existe
+- **Zona:** `leads.fecha_cita` / `leads.asistido`, `scripts/db-seed-demo-rico.mjs`,
+  conversión lead→paciente (`markLeadConvertido`)
+- **Principio:** §5 confianza — al montar el embudo de /red (2026-07-27) se pidió la
+  etapa "citados" y resultó no ser derivable.
+- **Evidencia (DEMO, medida hoy):** de 268 leads, solo **7** tienen `fecha_cita` y
+  `asistido` está sin escribir en **los 268**. Pero **79** llegaron a ser paciente, y de
+  esos 79, **cero** tienen `fecha_cita`. Un lead solo registra su cita si alguien lo
+  arrastra a "Citado" en el tablero; cualquier otro camino de conversión la deja vacía.
+  Consecuencia: un embudo con esa etapa SUBIRÍA de 7 citados a 35 con presupuesto, que es
+  imposible en una cohorte anidada.
+- **Mejora:** que la cita quede registrada en el lead venga por donde venga (agendar desde
+  el panel, conversión, o derivarla de `citas` por paciente), y que `asistido` se escriba.
+  Entonces la etapa entra en el embudo sin inventar nada.
+- **Impacto:** alto para el embudo (hoy le falta justo el paso donde una clínica pierde
+  más gente: los que piden cita y no aparecen) y medio para los KPIs de leads.
+- **Fecha:** 2026-07-27 · 🔵
+
+## 51. El embudo solo cubre el 28% de los presupuestos: el resto no viene de un lead
+- **Zona:** `lib/dashboard-red.ts` (embudo), modelo lead → paciente
+- **Principio:** §5 confianza — de 123 presupuestos en DEMO, solo **35** pertenecen a un
+  paciente que vino de un lead. El embudo lo dice en su pie ("no incluye pacientes que
+  llegaron sin pasar por un lead"), pero conviene decidir si eso es realidad del negocio
+  (pacientes de siempre, derivaciones, puerta fría) o un hueco del seed.
+- **Mejora:** confirmar contra un piloto real; si en producción la mayoría de presupuestos
+  tampoco nace de un lead, el embudo necesita una segunda entrada además de "lead captado".
+- **Impacto:** medio — condiciona si el embudo describe el negocio o solo una esquina.
+- **Fecha:** 2026-07-27 · 🔵

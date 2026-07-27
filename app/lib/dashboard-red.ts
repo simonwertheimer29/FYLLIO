@@ -115,6 +115,25 @@ export type ClinicaFila = {
   muestraCorta: boolean;
 };
 
+/** Embudo de conversión sobre la COHORTE de leads captados en la ventana.
+ *  Cada etapa es un SUBCONJUNTO de la anterior (mismos leads, no cuentas
+ *  independientes), así que el embudo solo puede bajar.
+ *
+ *  NO incluye "citados": el dato no existe. De los 79 leads convertidos a
+ *  paciente en DEMO, CERO tienen `fecha_cita`, y `asistido` está sin escribir
+ *  en los 268. La cita del lead solo se registra al arrastrar a "Citado" desde
+ *  el tablero; cualquier otro camino de conversión la deja vacía. Meter esa
+ *  etapa haría que el embudo SUBIERA de 7 citados a 35 con presupuesto. */
+export type EmbudoEtapa = {
+  clave: "captados" | "pacientes" | "presupuesto" | "aceptado";
+  etiqueta: string;
+  /** Qué significa la etapa, en lenguaje de negocio. */
+  detalle: string;
+  n: number;
+  /** % de la etapa ANTERIOR que llega aquí; null en la primera. */
+  siguePct: number | null;
+};
+
 export type DashboardRed = {
   hoy: {
     riesgo: RiesgoItem[];
@@ -153,6 +172,8 @@ export type DashboardRed = {
     };
   };
   clinicas: ClinicaFila[];
+  /** Embudo de la misma ventana de 6 meses que `progreso`. */
+  embudo: { etapas: EmbudoEtapa[]; meses: number };
   /** Series mensuales, últimos 6 meses (viejo → nuevo), huecos a 0:
    *  total = € aceptado · leads = nuevos · presupuestos = presentados ·
    *  cobros = € cobrado. Mismos orígenes que el resto del dashboard. */
@@ -621,6 +642,63 @@ export async function calcularDashboardRed(opts: {
     });
   }
 
+  // ── Sección 5 · embudo (misma ventana de 6 meses que el progreso) ────
+  //
+  // Cohorte: los leads captados en la ventana. Cada etapa filtra la MISMA
+  // lista, así que el numerador siempre está contenido en el denominador —
+  // el embudo no puede subir. Se derivan de los datos que ya están cargados
+  // (leads en scope + presupuestos en scope): cero consultas nuevas.
+  const MESES_EMBUDO = 6;
+  const desdeEmbudo = mesKey(new Date(ahora.getFullYear(), ahora.getMonth() - (MESES_EMBUDO - 1), 1));
+  const cohorteLeads = leads.filter(
+    (l) => !!l.createdAt && mesDeIso(l.createdAt) >= desdeEmbudo,
+  );
+  const pacientesConPresupuesto = new Set<string>();
+  const pacientesConAceptado = new Set<string>();
+  for (const r of presusScope) {
+    const links = (r.fields["Paciente"] ?? []) as string[];
+    const pid = Array.isArray(links) ? links[0] : undefined;
+    if (!pid) continue;
+    pacientesConPresupuesto.add(pid);
+    if (String(r.fields["Estado"] ?? "") === "ACEPTADO") pacientesConAceptado.add(pid);
+  }
+  const convertidos = cohorteLeads.filter((l) => l.convertido && l.pacienteId);
+  const conPresupuesto = convertidos.filter((l) => pacientesConPresupuesto.has(l.pacienteId!));
+  const conAceptado = convertidos.filter((l) => pacientesConAceptado.has(l.pacienteId!));
+  const etapasCrudas: Array<Omit<EmbudoEtapa, "siguePct">> = [
+    {
+      clave: "captados",
+      etiqueta: "Leads captados",
+      detalle: "Personas que preguntaron por un tratamiento",
+      n: cohorteLeads.length,
+    },
+    {
+      clave: "pacientes",
+      etiqueta: "Llegaron a la clínica",
+      detalle: "Leads que acabaron dados de alta como paciente",
+      n: convertidos.length,
+    },
+    {
+      clave: "presupuesto",
+      etiqueta: "Recibieron presupuesto",
+      detalle: "De esos pacientes, a cuántos se les presentó uno",
+      n: conPresupuesto.length,
+    },
+    {
+      clave: "aceptado",
+      etiqueta: "Aceptaron",
+      detalle: "Presupuesto firmado: el tratamiento sale adelante",
+      n: conAceptado.length,
+    },
+  ];
+  const etapasEmbudo: EmbudoEtapa[] = etapasCrudas.map((e, i) => {
+    const previa = i === 0 ? null : etapasCrudas[i - 1].n;
+    return {
+      ...e,
+      siguePct: previa == null ? null : previa > 0 ? Math.round((e.n / previa) * 100) : null,
+    };
+  });
+
   return {
     hoy: {
       // La franja ocupa el ancho completo y admite hasta 6 señales; hoy el
@@ -658,6 +736,7 @@ export async function calcularDashboardRed(opts: {
       },
     },
     clinicas: filas,
+    embudo: { etapas: etapasEmbudo, meses: MESES_EMBUDO },
     progreso,
   };
 }
