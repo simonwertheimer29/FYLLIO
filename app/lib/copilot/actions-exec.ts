@@ -78,7 +78,17 @@ async function execCambiarEstadoLead(env: ExecEnv, p: any): Promise<ExecResult> 
   if (!("lead" in access)) return access;
   const patch: any = { estado: String(p.nuevoEstado) };
   if (p.nuevoEstado === "No Interesado") {
-    patch.motivoNoInteres = p.motivoNoInteres ?? "Rechazo_Producto";
+    // MEJORAS 43 — el motivo se declara, no se rellena. Aquí quedaba la última
+    // puerta silenciosa tras cerrar la del kanban y la del panel: "márcalo como
+    // no interesado" escribía Rechazo_Producto por su cuenta y ese dato entraba
+    // en los KPIs de pérdida como si alguien lo hubiera dicho.
+    if (!p.motivoNoInteres) {
+      return {
+        ok: false,
+        error: `¿Por qué se descarta a ${access.lead.nombre}? Dime si no le interesa o si no asistió a su cita.`,
+      };
+    }
+    patch.motivoNoInteres = String(p.motivoNoInteres);
   } else if (access.lead.motivoNoInteres) {
     patch.motivoNoInteres = null;
   }

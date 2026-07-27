@@ -337,8 +337,9 @@ export const ACTION_TOOLS: AnthropicTool[] = [
     name: "cambiar_estado_lead",
     description:
       "Sugiere cambiar el estado de un lead. Estados válidos: Nuevo, Contactado, Citado, " +
-      "No Interesado. Si destino es 'No Interesado', incluir motivoNoInteres " +
-      "(Rechazo_Producto o No_Asistio).",
+      "No Interesado. Si el destino es 'No Interesado', motivoNoInteres es OBLIGATORIO " +
+      "(Rechazo_Producto o No_Asistio): nunca lo elijas tú por defecto — si el usuario no " +
+      "lo ha dicho, pregúntaselo antes de proponer la acción.",
     input_schema: {
       type: "object",
       properties: {
