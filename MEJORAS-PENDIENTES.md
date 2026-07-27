@@ -89,6 +89,9 @@ Estado: 🔵 propuesta (sin decidir) · ✅ aprobada · 🟢 hecha · ⚪ descar
 - **Impacto:** **medio** en conversión (a futuro) — sin el motivo real no se aprende por qué
   se pierden leads y no se puede mejorar la captación.
 - **Fecha:** 2026-07-15 · 🔵
+- **2026-07-27 · 🟢 CERRADA**: MotivoNoInteresModal al arrastrar a "No Interesado" (y fuera
+  el mismo default silencioso del panel y del Copilot, nº 43). El vocabulario disponible sigue
+  siendo pobre — dos opciones: ver nº 42.
 
 ## 5. Presupuestos — el "envío en lote" no es en lote
 - **Zona:** `app/components/presupuestos/IntervencionView.tsx:328`
