@@ -25,6 +25,7 @@ import { NewLeadModal } from "./NewLeadModal";
 import { AccionPanel } from "../../components/shared/AccionPanel";
 import { AgendarModal } from "./AgendarModal";
 import { MotivoNoInteresModal } from "./MotivoNoInteresModal";
+import { esReactivable, labelMotivo } from "../../lib/leads/motivos";
 import { AsistenciaModal } from "./AsistenciaModal";
 import type { Lead, LeadEstado } from "./types";
 import {
@@ -160,8 +161,16 @@ export function LeadsView({
   // (2026-07-26). Aplica a TODAS las columnas: la fecha que cuenta es la de
   // actividad si la hay (última acción/mensaje) y si no la de alta. Sin fecha
   // conocida, el lead se muestra.
+  // La fecha que cuenta es la del HITO del caso: cierre para los cerrados
+  // (MEJORAS 37 — antes se usaba la actividad como proxy y un lead cerrado sin
+  // mensajes no envejecía nunca), actividad para los vivos, alta si no hay nada.
+  // Sin fecha conocida el lead se MUESTRA: nunca se esconde por falta de dato.
   const enRango = useCallback(
-    (l: Lead) => dentroDeRango((ultimaActividadPorLead[l.id] ?? l.createdAt)?.slice(0, 10), rango),
+    (l: Lead) =>
+      dentroDeRango(
+        (l.fechaCierre ?? ultimaActividadPorLead[l.id] ?? l.createdAt)?.slice(0, 10),
+        rango,
+      ),
     [ultimaActividadPorLead, rango],
   );
 
@@ -594,9 +603,10 @@ function KanbanColumn({
   );
 }
 
-// Sprint 9 G.4: en la columna "No Interesado" separamos visualmente los
-// leads por motivo (No asistió vs Rechazo producto) para distinguir los
-// reactivables (No asistió) del rechazo definitivo.
+// La columna de descartados se parte por lo único que cambia la decisión:
+// ¿queda algo que intentar? (MEJORAS 42). Antes separaba "No asistió" del
+// resto, cuando "el resto" era un único motivo genérico; con seis motivos la
+// partición útil es reactivables vs decisión tomada.
 function NoInteresadoGroups({
   items,
   onCardClick,
@@ -604,37 +614,27 @@ function NoInteresadoGroups({
   items: Lead[];
   onCardClick: (l: Lead) => void;
 }) {
-  const noAsistio = items.filter((l) => l.motivoNoInteres === "No_Asistio");
-  const rechazo = items.filter((l) => l.motivoNoInteres !== "No_Asistio");
+  const reactivables = items.filter((l) => esReactivable(l.motivoNoInteres));
+  const cerrados = items.filter((l) => !esReactivable(l.motivoNoInteres));
+  const grupo = (titulo: string, clase: string, lista: Lead[]) =>
+    lista.length > 0 && (
+      <>
+        <p className={`text-[10px] font-semibold uppercase tracking-wide px-1 mt-1 ${clase}`}>
+          {titulo} · {lista.length}
+        </p>
+        {lista.map((l) => (
+          <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
+        ))}
+      </>
+    );
   return (
     <>
-      {noAsistio.length > 0 && (
-        <>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300 px-1 mt-1">
-            No asistió · {noAsistio.length}
-          </p>
-          {noAsistio.map((l) => (
-            <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
-          ))}
-        </>
-      )}
-      {rechazo.length > 0 && (
-        <>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-muted)] px-1 mt-2">
-            Rechazo · {rechazo.length}
-          </p>
-          {rechazo.map((l) => (
-            <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
-          ))}
-        </>
-      )}
+      {grupo("Se puede retomar", "text-amber-700 dark:text-amber-300", reactivables)}
+      {grupo("Decisión tomada", "text-[var(--color-muted)]", cerrados)}
     </>
   );
 }
 
-// El arrastre mueve de columna; NO reordena. Antes era un sortable: la
-// tarjeta se recolocaba dentro de la columna y al recargar volvía a su sitio,
-// contradiciendo al criterio de orden declarado (actividad más reciente).
 function SortableLeadCard({
   lead,
   onClick,
@@ -714,6 +714,12 @@ function LeadCardBody({ lead, onOpenFicha }: { lead: Lead; onOpenFicha?: () => v
       )}
 
       <div className="flex flex-wrap gap-1 mt-1.5">
+        {/* Descartado: el motivo se lee en la card, no hay que abrir la ficha. */}
+        {lead.motivoNoInteres && (
+          <span className="inline-flex rounded-md bg-[var(--color-surface-muted)] text-[var(--color-muted)] border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] font-medium">
+            {labelMotivo(lead.motivoNoInteres)}
+          </span>
+        )}
         {lead.canal && (
           <span className="inline-flex rounded-md bg-[var(--color-surface-muted)] text-[var(--color-muted)] border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] font-medium">
             {lead.canal}

@@ -54,6 +54,8 @@ import {
   ICON_STROKE,
 } from "../icons";
 import { RotateCcw } from "lucide-react";
+import { labelMotivo } from "../../lib/leads/motivos";
+import { MotivoNoInteresModal } from "../../(authed)/leads/MotivoNoInteresModal";
 
 // ─── Situación: mismos triggers que la cola de Actuar hoy ──────────────
 
@@ -137,7 +139,7 @@ function situacionLead(
   if (lead.estado === "No Interesado") {
     return {
       prioridad: "baja",
-      quePasa: `Motivo registrado: ${lead.motivoNoInteres === "No_Asistio" ? "no asistió a su cita" : "rechazó la propuesta"}.`,
+      quePasa: `Motivo registrado: ${labelMotivo(lead.motivoNoInteres).toLowerCase()}.`,
       recomendacion: "Lead perdido — reactívalo si ves opción",
       primaria: "escribir",
       citadoHoy,
@@ -288,6 +290,8 @@ export function LeadAccionPanel({
   const [composerTexto, setComposerTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [composerError, setComposerError] = useState<string | null>(null);
+  // Descartar pregunta el motivo (MEJORAS 42) — el mismo modal del kanban.
+  const [pidiendoMotivo, setPidiendoMotivo] = useState(false);
   const [generandoIA, setGenerandoIA] = useState(false);
   const [plantillas, setPlantillas] = useState<PlantillaLead[]>([]);
   const [wabaActivo, setWabaActivo] = useState(false);
@@ -710,7 +714,7 @@ export function LeadAccionPanel({
               <button
                 type="button"
                 disabled={savingEstado}
-                onClick={() => cambiarEstado("No Interesado", { motivoNoInteres: "Rechazo_Producto" })}
+                onClick={() => setPidiendoMotivo(true)}
                 className="text-[11px] font-medium text-[var(--color-muted)] hover:text-[var(--color-danger)] transition-colors disabled:opacity-50"
               >
                 Marcar no interesado
@@ -767,6 +771,16 @@ export function LeadAccionPanel({
           textareaRef={composerRef}
         />
       </div>
+      {pidiendoMotivo && (
+        <MotivoNoInteresModal
+          nombre={lead.nombre}
+          onCancel={() => setPidiendoMotivo(false)}
+          onConfirm={(motivo) => {
+            setPidiendoMotivo(false);
+            cambiarEstado("No Interesado", { motivoNoInteres: motivo });
+          }}
+        />
+      )}
     </PanelAccionShell>
   );
 }

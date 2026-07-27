@@ -29,7 +29,11 @@ export const LEAD_ESTADOS: LeadEstado[] = [
 ];
 
 export type LeadTipoVisita = "Primera visita" | "Revisión" | "Urgencia";
-export type LeadMotivoNoInteres = "Rechazo_Producto" | "No_Asistio";
+// MEJORAS 42 (2026-07-27) — vocabulario de seis valores + el legacy que
+// pueda quedar guardado. La definición (etiquetas, si es reactivable) vive en
+// lib/leads/motivos, compartida por UI, repo y Copilot.
+import type { MotivoLeadAlmacenado } from "./motivos";
+export type LeadMotivoNoInteres = MotivoLeadAlmacenado;
 
 /** Sprint 10 B — intenciones IA específicas para leads (distintas de las
  *  de presupuestos porque el funnel es previo a propuesta económica). */
@@ -84,6 +88,9 @@ export type Lead = {
   tipoVisita: LeadTipoVisita | null;
   /** Sprint 9: motivo de la transición a "No Interesado". */
   motivoNoInteres: LeadMotivoNoInteres | null;
+  /** MEJORAS 37 — cuándo pasó a Convertido / No Interesado. Null = cerrado
+   *  antes de que existiera el dato (no se inventan fechas hacia atrás). */
+  fechaCierre: string | null;
   /** Sprint 10 B — última intención clasificada por IA (cacheada). */
   intencionDetectada: LeadIntencion | null;
   /** Sprint 10 B — sugerencia IA para responder al último entrante. */
@@ -120,6 +127,9 @@ function toLead(rec: any): Lead {
     doctorAsignadoId: doctorLinks[0] ?? null,
     tipoVisita: f["Tipo_Visita"] ? (String(f["Tipo_Visita"]) as LeadTipoVisita) : null,
     motivoNoInteres: f["Motivo_No_Interes"] ? (String(f["Motivo_No_Interes"]) as LeadMotivoNoInteres) : null,
+    // La fecha de cierre solo existe en Postgres (MEJORAS 37): no se añadió a
+    // Airtable porque esa rama ya no tiene consumidor real (MEJORAS 44).
+    fechaCierre: null,
     intencionDetectada: f["Intencion_Detectada"] ? (String(f["Intencion_Detectada"]) as LeadIntencion) : null,
     mensajeSugerido: f["Mensaje_Sugerido"] ? String(f["Mensaje_Sugerido"]) : null,
     accionSugerida: f["Accion_Sugerida"] ? String(f["Accion_Sugerida"]) : null,

@@ -1,30 +1,15 @@
 "use client";
 
-// Motivo al mover un lead a "No Interesado" (coherencia de kanban 2026-07-27).
+// Motivo al descartar un lead (kanban y panel).
 //
-// Antes, arrastrar a la columna escribía "Rechazo_Producto" en silencio: el
-// gemelo de Presupuestos SÍ preguntaba, y el dato falso llegaba a los KPIs de
-// motivo de pérdida como si la coordinadora lo hubiera declarado. El vocabulario
-// de leads sólo tiene dos motivos hoy (ver MEJORAS nº 43); el modal usa los dos
-// reales y no inventa ninguno.
+// Antes se escribía "Rechazo_Producto" en silencio; desde el 2026-07-27 se
+// pregunta, y desde MEJORAS 42 hay seis motivos reales en vez de dos. El
+// vocabulario es CERRADO a propósito: nada de "otro (texto libre)" —el texto
+// libre es lo que rompió el dato en la nº 41— y cada motivo dice si el caso
+// aún se puede rescatar, que es lo que decide dónde vive después.
 
 import { useState } from "react";
-import type { Lead } from "./types";
-
-type MotivoLead = NonNullable<Lead["motivoNoInteres"]>;
-
-const MOTIVOS: Array<{ valor: MotivoLead; label: string; hint: string }> = [
-  {
-    valor: "Rechazo_Producto",
-    label: "No le interesa",
-    hint: "Rechaza la propuesta o el tratamiento",
-  },
-  {
-    valor: "No_Asistio",
-    label: "No asistió",
-    hint: "Tenía cita y no se presentó — reactivable más adelante",
-  },
-];
+import { MOTIVOS_ORDENADOS, MOTIVO_DEF, type MotivoLead } from "../../lib/leads/motivos";
 
 export function MotivoNoInteresModal({
   nombre,
@@ -37,14 +22,43 @@ export function MotivoNoInteresModal({
 }) {
   const [seleccionado, setSeleccionado] = useState<MotivoLead | null>(null);
 
+  const reactivables = MOTIVOS_ORDENADOS.filter((m) => MOTIVO_DEF[m].reactivable);
+  const descartados = MOTIVOS_ORDENADOS.filter((m) => !MOTIVO_DEF[m].reactivable);
+
+  const opcion = (m: MotivoLead) => (
+    <label
+      key={m}
+      className={`flex items-start gap-3 rounded-xl border px-3 py-2 cursor-pointer transition-colors ${
+        seleccionado === m
+          ? "border-rose-400 bg-rose-50 dark:border-rose-500/50 dark:bg-rose-500/10"
+          : "border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
+      }`}
+    >
+      <input
+        type="radio"
+        name="motivo-no-interes"
+        value={m}
+        checked={seleccionado === m}
+        onChange={() => setSeleccionado(m)}
+        className="accent-[var(--color-danger)] mt-0.5"
+      />
+      <span>
+        <span className="block text-xs font-medium text-[var(--color-foreground)]">
+          {MOTIVO_DEF[m].label}
+        </span>
+        <span className="block text-[11px] text-[var(--color-muted)]">{MOTIVO_DEF[m].hint}</span>
+      </span>
+    </label>
+  );
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel();
       }}
     >
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-2xl p-6 w-full max-w-sm mx-4">
+      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-2xl p-6 w-full max-w-sm max-h-[90dvh] overflow-y-auto">
         <p className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">
           ¿Por qué se descarta este lead?
         </p>
@@ -53,31 +67,15 @@ export function MotivoNoInteresModal({
           <span className="font-bold text-[var(--color-danger)]">No Interesado</span>
         </p>
 
-        <div className="space-y-2 mb-4">
-          {MOTIVOS.map((m) => (
-            <label
-              key={m.valor}
-              className={`flex items-start gap-3 rounded-xl border px-3 py-2.5 cursor-pointer transition-colors ${
-                seleccionado === m.valor
-                  ? "border-rose-400 bg-rose-50 dark:border-rose-500/50 dark:bg-rose-500/10"
-                  : "border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
-              }`}
-            >
-              <input
-                type="radio"
-                name="motivo-no-interes"
-                value={m.valor}
-                checked={seleccionado === m.valor}
-                onChange={() => setSeleccionado(m.valor)}
-                className="accent-[var(--color-danger)] mt-0.5"
-              />
-              <span>
-                <span className="block text-xs font-medium text-[var(--color-foreground)]">{m.label}</span>
-                <span className="block text-[11px] text-[var(--color-muted)]">{m.hint}</span>
-              </span>
-            </label>
-          ))}
-        </div>
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300 mb-1.5">
+          Se puede retomar
+        </p>
+        <div className="space-y-2 mb-4">{reactivables.map(opcion)}</div>
+
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-muted)] mb-1.5">
+          Decisión tomada
+        </p>
+        <div className="space-y-2 mb-4">{descartados.map(opcion)}</div>
 
         <div className="flex gap-2">
           <button

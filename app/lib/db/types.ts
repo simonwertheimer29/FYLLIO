@@ -117,6 +117,7 @@ export interface Tabla_leads {
   doctor_asignado_id: string | null;
   tipo_visita: string | null;
   motivo_no_interes: string | null;
+  fecha_cierre: Date | null;
   intencion_detectada: string | null;
   mensaje_sugerido: string | null;
   accion_sugerida: string | null;

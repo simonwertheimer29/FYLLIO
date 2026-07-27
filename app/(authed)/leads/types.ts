@@ -25,7 +25,10 @@ export type Lead = {
   horaCita: string | null;
   doctorAsignadoId: string | null;
   tipoVisita: "Primera visita" | "Revisión" | "Urgencia" | null;
-  motivoNoInteres: "Rechazo_Producto" | "No_Asistio" | null;
+  motivoNoInteres: import("../../lib/leads/motivos").MotivoLeadAlmacenado | null;
+  /** Cuándo se cerró (Convertido / No Interesado). Null = cerrado antes de
+   *  que el dato existiera, o todavía abierto. */
+  fechaCierre: string | null;
   /** Sprint 10 B — clasificación IA cacheada. */
   intencionDetectada:
     | "Interesado"

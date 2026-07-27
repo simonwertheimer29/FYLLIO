@@ -38,6 +38,7 @@ function rowToLead(r: any): Lead {
     doctorAsignadoId: r.doctor_asignado_id,
     tipoVisita: r.tipo_visita,
     motivoNoInteres: r.motivo_no_interes,
+    fechaCierre: r.fecha_cierre ? new Date(r.fecha_cierre).toISOString() : null,
     intencionDetectada: r.intencion_detectada,
     mensajeSugerido: r.mensaje_sugerido,
     accionSugerida: r.accion_sugerida,
@@ -168,10 +169,20 @@ const PATCH_COLS: Record<string, string> = {
   asistido: "asistido",
 };
 
+// Estados que cierran el ciclo de un lead. La fecha de cierre se escribe AQUÍ,
+// en el repo, para que la persistan todos los caminos (kanban, panel, Copilot,
+// conversión) y no dependa de que cada llamador se acuerde (MEJORAS 37).
+const ESTADOS_CIERRE = new Set(["Convertido", "No Interesado"]);
+
 export async function updateLeadPg(id: string, patch: Record<string, unknown>): Promise<Lead> {
   const set: Record<string, unknown> = {};
   for (const [k, col] of Object.entries(PATCH_COLS)) {
     if (patch[k] !== undefined) set[col] = patch[k] ?? null;
+  }
+  if (patch.estado !== undefined) {
+    // Entra en cierre → se sella la fecha; sale de cierre (reactivación) → se
+    // borra: un lead que vuelve al embudo no está cerrado.
+    set.fecha_cierre = ESTADOS_CIERRE.has(String(patch.estado)) ? new Date() : null;
   }
   const row = await runWithClienteDb(clienteActual(), async (trx) =>
     trx.updateTable("leads").set(set as any).where("id", "=", id).returningAll().executeTakeFirstOrThrow(),
@@ -192,7 +203,7 @@ export async function appendLeadLogPg(leadId: string, event: string): Promise<vo
 export async function markLeadConvertidoPg(leadId: string, pacienteId: string): Promise<Lead> {
   const row = await runWithClienteDb(clienteActual(), async (trx) =>
     trx.updateTable("leads")
-      .set({ convertido_a_paciente: true, paciente_id: pacienteId } as any)
+      .set({ convertido_a_paciente: true, paciente_id: pacienteId, fecha_cierre: new Date() } as any)
       .where("id", "=", leadId).returningAll().executeTakeFirstOrThrow(),
   );
   return rowToLead(row);

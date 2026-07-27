@@ -149,6 +149,7 @@ T.leads = {
     ["doctor_asignado_id", "fk:staff"],
     ["tipo_visita", "t"],
     ["motivo_no_interes", "t"],
+    ["fecha_cierre", "ts", { comment: "MEJORAS 37 — cierre (Convertido / No Interesado); null = sin dato, nunca inventado" }],
     ["intencion_detectada", "t"],
     ["mensaje_sugerido", "t"],
     ["accion_sugerida", "t"],

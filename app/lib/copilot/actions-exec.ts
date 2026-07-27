@@ -26,6 +26,7 @@ import { findPresupuestoRaw, updatePresupuestoRaw } from "../presupuestos/repo";
 import { createContactoRaw } from "../presupuestos/contactos";
 import { listClinicaIdsForUser } from "../auth/users";
 import { getLead, updateLead, appendLeadLog } from "../leads/leads";
+import { MOTIVOS_LEAD, MOTIVO_DEF } from "../leads/motivos";
 import { logAccionLead } from "../leads/acciones";
 import { getServicioMensajeria, type EnviarMensajeParams } from "../presupuestos/mensajeria";
 import { getPaciente } from "../pacientes/pacientes";
@@ -82,10 +83,10 @@ async function execCambiarEstadoLead(env: ExecEnv, p: any): Promise<ExecResult> 
     // puerta silenciosa tras cerrar la del kanban y la del panel: "márcalo como
     // no interesado" escribía Rechazo_Producto por su cuenta y ese dato entraba
     // en los KPIs de pérdida como si alguien lo hubiera dicho.
-    if (!p.motivoNoInteres) {
+    if (!p.motivoNoInteres || !(MOTIVOS_LEAD as readonly string[]).includes(String(p.motivoNoInteres))) {
       return {
         ok: false,
-        error: `¿Por qué se descarta a ${access.lead.nombre}? Dime si no le interesa o si no asistió a su cita.`,
+        error: `¿Por qué se descarta a ${access.lead.nombre}? ${MOTIVOS_LEAD.map((m) => MOTIVO_DEF[m].label).join(" · ")}.`,
       };
     }
     patch.motivoNoInteres = String(p.motivoNoInteres);
