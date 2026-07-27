@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { Doctor, UserSession } from "../../lib/presupuestos/types";
 import { Card } from "../ui/Card";
-import { X, Euro, Tag, Megaphone, ICON_STROKE } from "../icons";
+import { Euro, Tag, Megaphone, ICON_STROKE } from "../icons";
 
 export type Filters = {
   clinica: string;
@@ -65,106 +65,6 @@ function detectPattern(q: string): Pattern | null {
     if (t.includes(kw)) return { kind: "origen", label };
   }
   return null;
-}
-
-// ─── Period preset selector ────────────────────────────────────────────────────
-
-type Preset = "todo" | "mes" | "3m" | "6m" | "anio";
-const PRESET_LABELS: Record<Preset, string> = {
-  todo: "Todo",
-  mes: "Este mes",
-  "3m": "3 meses",
-  "6m": "6 meses",
-  anio: "Este año",
-};
-
-function computePresetDates(p: Preset): { desde: string; hasta: string } {
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  const today = fmt(now);
-  if (p === "todo") return { desde: "", hasta: "" };
-  if (p === "mes") {
-    return { desde: fmt(new Date(now.getFullYear(), now.getMonth(), 1)), hasta: today };
-  }
-  if (p === "3m") {
-    return { desde: fmt(new Date(now.getFullYear(), now.getMonth() - 2, 1)), hasta: today };
-  }
-  if (p === "6m") {
-    return { desde: fmt(new Date(now.getFullYear(), now.getMonth() - 5, 1)), hasta: today };
-  }
-  return { desde: `${now.getFullYear()}-01-01`, hasta: today };
-}
-
-function detectPreset(desde: string, hasta: string): Preset | "personalizado" | null {
-  if (!desde && !hasta) return "todo";
-  const now = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  const today = fmt(now);
-  if (hasta === today) {
-    if (desde === fmt(new Date(now.getFullYear(), now.getMonth(), 1))) return "mes";
-    if (desde === fmt(new Date(now.getFullYear(), now.getMonth() - 2, 1))) return "3m";
-    if (desde === fmt(new Date(now.getFullYear(), now.getMonth() - 5, 1))) return "6m";
-    if (desde === `${now.getFullYear()}-01-01`) return "anio";
-  }
-  return "personalizado";
-}
-
-function PeriodPreset({
-  fechaDesde, fechaHasta, onChange,
-}: {
-  fechaDesde: string;
-  fechaHasta: string;
-  onChange: (desde: string, hasta: string) => void;
-}) {
-  const active = detectPreset(fechaDesde, fechaHasta);
-  const hasCustomDates = !!(fechaDesde || fechaHasta);
-
-  return (
-    <div className="flex items-center gap-1 flex-wrap">
-      {(["todo", "mes", "3m", "6m", "anio"] as Preset[]).map((p) => (
-        <button
-          key={p}
-          onClick={() => {
-            const { desde, hasta } = computePresetDates(p);
-            onChange(desde, hasta);
-          }}
-          className={`px-2.5 py-1 rounded-md text-[11px] font-medium transition-colors whitespace-nowrap border ${
-            active === p
-              ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-[var(--color-border)]"
-              : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-foreground)]"
-          }`}
-        >
-          {PRESET_LABELS[p]}
-        </button>
-      ))}
-      <span className="text-[var(--color-muted)] text-xs select-none px-0.5">|</span>
-      <input
-        type="date"
-        value={fechaDesde}
-        onChange={(e) => onChange(e.target.value, fechaHasta)}
-        className="rounded-lg border border-[var(--color-border)] px-2 py-1 text-[11px] text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)] w-[120px]"
-      />
-      <span className="text-[var(--color-muted)] text-[11px]">→</span>
-      <input
-        type="date"
-        value={fechaHasta}
-        onChange={(e) => onChange(fechaDesde, e.target.value)}
-        className="rounded-lg border border-[var(--color-border)] px-2 py-1 text-[11px] text-[var(--color-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)] w-[120px]"
-      />
-      {hasCustomDates && active === "personalizado" && (
-        <button
-          onClick={() => onChange("", "")}
-          className="text-[var(--color-muted)] hover:text-rose-500 transition-colors px-1"
-          title="Limpiar fechas"
-          aria-label="Limpiar fechas"
-        >
-          <X size={12} strokeWidth={ICON_STROKE} aria-hidden />
-        </button>
-      )}
-    </div>
-  );
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -341,17 +241,9 @@ export default function FiltersBar({
           <option value="Paciente con Historia">Con Historia</option>
         </select>
 
-        {/* Período */}
-        <PeriodPreset
-          fechaDesde={filters.fechaDesde}
-          fechaHasta={filters.fechaHasta}
-          onChange={(desde, hasta) => {
-            const next = { ...filtersRef.current, fechaDesde: desde, fechaHasta: hasta };
-            setFilters(next);
-            filtersRef.current = next;
-            onFiltersChange(next);
-          }}
-        />
+        {/* El período vive en el control ÚNICO RangoTemporal del tablero
+            (2026-07-26) — aquí había un segundo juego de pills de fecha,
+            con vocabulario distinto (3m/6m/Este año) al del rango. */}
 
         {hasActiveFilters && (
           <button

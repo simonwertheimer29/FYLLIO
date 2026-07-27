@@ -133,11 +133,9 @@ export function AccionCard({
             {meta && (
               <p className="text-[10px] text-[var(--color-muted)] mt-1 truncate">{meta}</p>
             )}
-            {quote && (
-              <div className="mt-2 rounded-lg bg-[var(--color-surface-muted)] px-3 py-2 border border-[var(--color-border)]">
-                <p className="text-xs text-[var(--color-foreground)] line-clamp-2">&quot;{quote}&quot;</p>
-              </div>
-            )}
+            {/* Orden del patrón de Presupuestos (2026-07-26): titular corto
+                primero, la cita literal del paciente debajo, y la acción
+                sugerida al final. */}
             {estado && (
               <div className="mt-1.5">
                 <p className="font-display text-[13px] font-semibold text-[var(--color-foreground)] leading-snug">
@@ -146,6 +144,11 @@ export function AccionCard({
                 {estado.detalle && (
                   <p className="text-[11px] text-[var(--color-muted)] mt-0.5">{estado.detalle}</p>
                 )}
+              </div>
+            )}
+            {quote && (
+              <div className="mt-2 rounded-lg bg-[var(--color-surface-muted)] px-3 py-2 border border-[var(--color-border)]">
+                <p className="text-xs text-[var(--color-foreground)] line-clamp-2">&quot;{quote}&quot;</p>
               </div>
             )}
             {accionSugerida && (
