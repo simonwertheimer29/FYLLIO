@@ -550,3 +550,24 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** medio en fiabilidad (expiraciones desincronizadas = pantallas a medias) y en
   simplicidad de auth.
 - **Fecha:** 2026-07-26 · 🔵
+
+## 39. Zona no-shows sin camino de WhatsApp con registro
+- **Zona:** `/no-shows` (HoyView, AgendaView, RiesgoView, AccionesView, AccionSidePanel)
+- **Principio:** §5 confianza — al cerrar el censo wa.me (2026-07-26) esta zona se quedó
+  solo con Llamar/Copiar: sus recordatorios no tienen ficha ni panel de conversación al que
+  enviar, porque sus APIs siguen fail-closed del Sprint B.
+- **Mejora:** cuando se reactive No-Shows, dar a sus acciones el mismo camino central
+  (persistir en hilo → abrir la URL que devuelve el server), como Cobros y Presupuestos.
+- **Impacto:** alto cuando se reactive la zona; nulo mientras siga congelada.
+- **Fecha:** 2026-07-26 · 🔵
+
+## 40. `urgencyScore` sigue vivo como dato aunque ya no ordena ninguna vista
+- **Zona:** `app/lib/presupuestos/urgency.ts`, payload de `/api/presupuestos/kanban`, orden
+  opcional de la Vista Máxima
+- **Principio:** coherencia — tras unificar el criterio de orden (2026-07-26) el score dejó
+  de gobernar el kanban, pero se sigue calculando en cada request y la Máxima permite
+  ordenar por él: un cuarto criterio latente esperando a contradecir a los demás.
+- **Mejora:** sustituir esa opción de orden por "días parados" e "importe" (los del criterio
+  único) y retirar el campo del payload.
+- **Impacto:** bajo hoy, medio como higiene (evita que el score reviva por la puerta de atrás).
+- **Fecha:** 2026-07-26 · 🔵

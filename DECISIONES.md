@@ -349,3 +349,21 @@ máxima probabilidad de cierre y atenderlo YA es como se evita que se enfríe; l
 (≥48 h, chip ámbar) quedan como grupo debajo, el más antiguo primero. Y en Rezagados murió la
 fórmula días×interés: el multiplicador comprimía dimensiones distintas en una banda ilegible
 (6 días sin interés ≈ 2,6 días con interés ×2) — mandan los días parados, el interés desempata.
+
+## 2026-07-26 — Tanda de coherencia: mueren tres scores paralelos y el último wa.me suelto
+El diagnóstico destapó que el badge ALTO/MEDIO/BAJO de los leads medía la frescura del
+último toque NUESTRO (castigando justo los casos donde el paciente espera) y no participaba
+en ningún orden; y que en Presupuestos convivían TRES scores para el mismo concepto
+(scoreFinal de las cards, computeUrgencyScore del kanban y la "probabilidad 71%", basada en
+pools de ≥3 cerrados similares — ruido estadístico al volumen de una clínica). Los tres
+fuera: un solo criterio conceptual, "quién lleva más esperando, a igualdad el que más vale",
+compartido por cohortes y columnas, con ambos datos visibles en la card. Regla: un indicador
+que no ordena y no se puede leer desde la card no es información, es ruido con autoridad.
+Cerrado también el censo wa.me (era la tercera vez que reaparecía en otra zona): todo envío
+pasa por el servicio central y el cliente solo abre la URL que devuelve el servidor DESPUÉS
+de persistir el hilo; el "Enviar uno a uno" confirmaba con toast antes de guardar. Dos bugs
+latentes destapados: la ficha reventaba (React #130) con cualquier tipo de historial fuera
+del union, y FiltersBar mantenía un segundo juego de pills de fecha con otro vocabulario.
+Nota de QA: `set_config('app.cliente', x, false)` en un script de diagnóstico deja el ajuste
+pegado al backend del POOLER y hace fallar db:smoke-rls en ejecuciones posteriores — en
+scripts, siempre is_local=true.
