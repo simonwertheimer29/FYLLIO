@@ -116,7 +116,15 @@ export type ClinicaFila = {
 };
 
 export type DashboardRed = {
-  hoy: { riesgo: RiesgoItem[]; exitos: ExitoItem[] };
+  hoy: {
+    riesgo: RiesgoItem[];
+    exitos: ExitoItem[];
+    /** Σ € de las señales que tienen importe (los leads sin contactar no lo
+     *  tienen). Titular de la franja: cuánto hay en juego hoy. */
+    importeEnRiesgo: number;
+    /** Clínicas distintas con al menos un caso en riesgo. */
+    clinicasEnRiesgo: number;
+  };
   negocio: {
     leads: {
       nuevosMes: CifraDelta;
@@ -218,6 +226,10 @@ export async function calcularDashboardRed(opts: {
   const INTENCIONES_CIERRE = new Set(["Acepta sin condiciones", "Acepta pero pregunta pago"]);
   let cierreN = 0;
   let cierreImporte = 0;
+  // Clínicas distintas tocadas por alguna señal de riesgo — solo para el
+  // titular de la franja ("… en N clínicas"). Se acumula donde ya se decide
+  // cada caso: cero recorridos nuevos y cero criterios paralelos.
+  const clinicasRiesgo = new Set<string>();
   for (const r of presusScope) {
     const f = r.fields as any;
     if (!abierto(String(f["Estado"] ?? ""))) continue;
@@ -230,9 +242,11 @@ export async function calcularDashboardRed(opts: {
       ultimos.porPresupuesto.get(r.id),
     );
     const importe = Number(f["Importe"] ?? 0) || 0;
+    const clinicaDelCaso = pacDe(r)?.clinicaId;
     if (conv.estado === "reactivable") {
       reactivablesN++;
       reactivablesImporte += importe;
+      if (clinicaDelCaso) clinicasRiesgo.add(clinicaDelCaso);
     }
     if (
       conv.estado === "pendiente_responder" &&
@@ -240,6 +254,7 @@ export async function calcularDashboardRed(opts: {
     ) {
       cierreN++;
       cierreImporte += importe;
+      if (clinicaDelCaso) clinicasRiesgo.add(clinicaDelCaso);
     }
   }
 
@@ -257,6 +272,7 @@ export async function calcularDashboardRed(opts: {
     if (c.urgencia === "vencido") {
       vencidosN++;
       vencidosImporte += c.pendiente;
+      if (c.clinicaId) clinicasRiesgo.add(c.clinicaId);
     }
   }
 
@@ -272,7 +288,10 @@ export async function calcularDashboardRed(opts: {
       },
       UMBRAL_REACTIVACION_MS.lead,
     );
-    if (conv.estado === "sin_conversacion") sinContactoN++;
+    if (conv.estado === "sin_conversacion") {
+      sinContactoN++;
+      if (l.clinicaId) clinicasRiesgo.add(l.clinicaId);
+    }
   }
 
   const riesgo: RiesgoItem[] = [];
@@ -326,6 +345,27 @@ export async function calcularDashboardRed(opts: {
       href: "/seguimiento?vista=leads&cohorte=nuevos",
     });
   }
+
+  // Orden por URGENCIA DE ACCIÓN, no por importe (pasada visual 2026-07-27).
+  // El criterio es cuánto se estropea el caso por esperar un día más:
+  //   1. Cierres esperándonos — el paciente ya dijo que sí y la pelota es
+  //      nuestra: es dinero firmado que se enfría por no contestar.
+  //   2. Leads sin primer contacto — la frescura ES la conversión (la misma
+  //      razón por la que Seguimiento pone los nuevos arriba, 2026-07-26).
+  //   3. Reactivables — ya se enfriaron; se recuperan, pero el reloj corre.
+  //   4. Cobros vencidos — duele, pero el tratamiento está firmado y el
+  //      dinero no se evapora por esperar un día.
+  // Un importe grande NO adelanta a un caso más perecedero: por eso el
+  // titular de la franja lleva el Σ€ aparte.
+  const ORDEN_URGENCIA_ACCION: RiesgoItem["tipo"][] = [
+    "cierre_sin_accion",
+    "sin_contacto",
+    "reactivables",
+    "vencidos",
+  ];
+  riesgo.sort(
+    (a, b) => ORDEN_URGENCIA_ACCION.indexOf(a.tipo) - ORDEN_URGENCIA_ACCION.indexOf(b.tipo),
+  );
 
   // ── Sección 2 · el negocio ───────────────────────────────────────────
   const enMes = (iso: string | null | undefined, mes: string) => !!iso && mesDeIso(iso) === mes;
@@ -582,7 +622,14 @@ export async function calcularDashboardRed(opts: {
   }
 
   return {
-    hoy: { riesgo: riesgo.slice(0, 4), exitos: exitos.slice(0, 3) },
+    hoy: {
+      // La franja ocupa el ancho completo y admite hasta 6 señales; hoy el
+      // catálogo tiene 4 tipos, así que el tope no recorta nada.
+      riesgo: riesgo.slice(0, 6),
+      exitos: exitos.slice(0, 3),
+      importeEnRiesgo: riesgo.reduce((s, r) => s + (r.importe ?? 0), 0),
+      clinicasEnRiesgo: clinicasRiesgo.size,
+    },
     negocio: {
       leads: {
         nuevosMes: { valor: nuevosAct.length, previo: nuevosPrev.length },

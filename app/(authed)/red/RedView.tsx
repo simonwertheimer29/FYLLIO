@@ -29,6 +29,9 @@ import type { DashboardRed, ConversionCohorte, ClinicaFila } from "../../lib/das
 import { useClinic } from "../../lib/context/ClinicContext";
 import { openCopilot } from "../../components/copilot/openCopilot";
 import { ErrorState } from "../../components/ui/Feedback";
+import { Card } from "../../components/ui/Card";
+import { Skeleton } from "../../components/ui/Skeleton";
+import { ColaTabs } from "../../components/shared/ColaTabs";
 import {
   Sparkles,
   TrendingUp,
@@ -225,16 +228,149 @@ function ConversionCifra({
 // ─── Título-pregunta de sección: el esqueleto escaneable de la página ───
 function TituloSeccion({
   icono,
+  resumen,
   children,
 }: {
   icono: React.ReactNode;
+  /** Titular-resumen discreto a la derecha (Σ€ · nº clínicas). Acompaña al
+   *  título; nunca compite con él. */
+  resumen?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <h2 className="flex items-center gap-2.5 font-display text-lg lg:text-xl font-semibold tracking-tight text-[var(--color-foreground)] mb-4">
-      <span className="text-[var(--color-muted)]">{icono}</span>
-      {children}
-    </h2>
+    <div className="flex items-baseline justify-between gap-4 flex-wrap mb-3">
+      <h2 className="flex items-center gap-2.5 font-display text-lg lg:text-xl font-semibold tracking-tight text-[var(--color-foreground)]">
+        <span className="text-[var(--color-muted)] self-center">{icono}</span>
+        {children}
+      </h2>
+      {resumen && <p className="text-xs text-[var(--color-muted)] tabular-nums">{resumen}</p>}
+    </div>
+  );
+}
+
+// ─── Señales de la franja (riesgo · logros) ─────────────────────────────
+//
+// Anatomía única: número · titular · contexto en UN renglón visual, card
+// horizontal y baja. Dos pesos como máximo por franja: la destacada y el
+// resto, uniforme. No hay un tercer tamaño.
+
+type TonoSenal = "riesgo" | "exito";
+
+const COLOR_TONO: Record<TonoSenal, string> = {
+  riesgo: "var(--color-danger)",
+  exito: "var(--color-success)",
+};
+const FONDO_TONO: Record<TonoSenal, string> = {
+  riesgo: "var(--color-danger-soft)",
+  exito: "var(--color-success-soft)",
+};
+
+/** Cuenta los cambios REALES del valor entre cargas (nunca dispara al montar).
+ *  Se usa como `key` del nodo para re-lanzar el destello: el movimiento señala
+ *  que ese dato cambió, no decora.
+ *
+ *  Ajuste de estado en render — el patrón oficial de React para "reaccionar a
+ *  que una prop cambió" sin useEffect (no provoca render en cascada: React
+ *  reintenta el mismo componente antes de pintar). */
+function useDestello(valor: string): number {
+  const [previo, setPrevio] = useState(valor);
+  const [cambios, setCambios] = useState(0);
+  if (previo !== valor) {
+    setPrevio(valor);
+    setCambios((c) => c + 1);
+  }
+  return cambios;
+}
+
+function SenalCard({
+  tono,
+  destacada,
+  valor,
+  titulo,
+  detalle,
+  href,
+  etiqueta,
+}: {
+  tono: TonoSenal;
+  destacada?: boolean;
+  valor: string;
+  titulo: string;
+  detalle: string;
+  href?: string;
+  /** Chip que explica POR QUÉ esta card destaca. */
+  etiqueta?: string;
+}) {
+  const cambios = useDestello(valor);
+  const color = COLOR_TONO[tono];
+
+  const cuerpo = (
+    <Card
+      padding="none"
+      interactive={!!href}
+      className={`relative flex items-center gap-4 pl-5 pr-4 py-3.5 h-full ${
+        destacada ? "fyllio-pulso-unico" : ""
+      }`}
+      style={
+        destacada
+          ? ({
+              background: FONDO_TONO[tono],
+              borderColor: `color-mix(in srgb, ${color} 35%, transparent)`,
+              // La lee el keyframe del pulso, que vive en globals.css.
+              ["--pulso-color" as string]: color,
+            } as React.CSSProperties)
+          : undefined
+      }
+    >
+      {/* Borde semántico: barra de categoría a la izquierda, solo en la
+          destacada. Es el cuarto rasgo de peso, junto al tinte, la sombra y
+          el número mayor. */}
+      {destacada && (
+        <span
+          aria-hidden
+          className="absolute inset-y-0 left-0 w-1 rounded-l-xl"
+          style={{ background: color }}
+        />
+      )}
+      {/* Ancho mínimo para que los titulares de una misma fila arranquen
+          alineados aunque un valor sea "16" y otro "12.725 €". */}
+      <p
+        key={cambios}
+        className={`font-display font-bold tabular-nums text-[var(--color-foreground)] shrink-0 ${
+          destacada ? "text-3xl" : "text-2xl sm:min-w-[6rem]"
+        } ${cambios > 0 ? "fyllio-destello rounded-md" : ""}`}
+      >
+        {valor}
+      </p>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <p className="text-sm font-medium text-[var(--color-foreground)]">{titulo}</p>
+          {etiqueta && (
+            <span
+              className="text-[10px] uppercase tracking-wider font-semibold rounded-full px-2 py-0.5"
+              style={{ color, background: `color-mix(in srgb, ${color} 14%, transparent)` }}
+            >
+              {etiqueta}
+            </span>
+          )}
+        </div>
+        <p className="text-xs text-[var(--color-muted)] mt-0.5">{detalle}</p>
+      </div>
+      {href && (
+        <ChevronRight
+          size={16}
+          strokeWidth={ICON_STROKE}
+          className="text-[var(--color-muted)] shrink-0"
+          aria-hidden
+        />
+      )}
+    </Card>
+  );
+
+  if (!href) return cuerpo;
+  return (
+    <Link href={href} className="block rounded-xl focus-visible:outline-none">
+      {cuerpo}
+    </Link>
   );
 }
 
@@ -250,6 +386,64 @@ const CAPTION_ORDEN: Record<OrdenClinicas, string> = {
 /** Los dos órdenes derivados de un ratio mandan al final a las clínicas con
  *  pocos presupuestos: el pie tiene que decirlo o vuelve a mentir. */
 const ORDENES_CON_MUESTRA_CORTA: OrdenClinicas[] = ["tendencia", "conversion"];
+
+/** Textos de una fila de clínica. Los comparten la tabla (escritorio) y la
+ *  lista apilada (móvil): una sola redacción, dos disposiciones. */
+function celdasClinica(c: ClinicaFila) {
+  return {
+    conversion: c.conversionPct != null ? `${c.conversionPct}%` : "—",
+    conversionRef: c.muestraCorta
+      ? `${c.aceptadosMes} de ${c.presentadosMes}`
+      : c.conversionPctPrevio != null
+        ? `era ${c.conversionPctPrevio}%`
+        : "sin referencia",
+    aceptado: eur(c.aceptadoMes),
+    aceptadoRef: c.aceptadoMesPrevio > 0 ? `eran ${eur(c.aceptadoMesPrevio)}` : "sin referencia",
+    tituloMuestraCorta: c.muestraCorta
+      ? `Muestra corta: ${c.presentadosMes} presupuesto${c.presentadosMes === 1 ? "" : "s"} este mes y ${c.presentadosMesPrevio} el anterior. El porcentaje se enseña, pero no se lee como señal.`
+      : undefined,
+  };
+}
+
+/** Evolución del € aceptado: mismo tratamiento en tabla y en móvil. */
+function EvolucionClinica({ c }: { c: ClinicaFila }) {
+  if (c.tendenciaPct == null) {
+    return (
+      <span className="text-[var(--color-muted)]" title="El mes anterior no firmó presupuestos: no hay con qué comparar">
+        —
+      </span>
+    );
+  }
+  const neutra = c.muestraCorta || c.tendenciaPct === 0;
+  return (
+    <span
+      className={`inline-flex items-center gap-1 font-semibold tabular-nums ${
+        neutra
+          ? "text-[var(--color-muted)]"
+          : c.tendenciaPct < 0
+            ? "text-[var(--color-danger)]"
+            : "text-[var(--color-success)]"
+      }`}
+      title={
+        c.muestraCorta
+          ? "Pocos presupuestos en juego: la evolución se enseña, pero no ordena el ranking."
+          : "Cambio del € aceptado frente al mismo tramo del mes anterior."
+      }
+    >
+      {/* Con muestra corta no se pinta flecha: un icono de dirección junto a un
+          "-30%" ya con signo se leía como dos símbolos peleándose. */}
+      {c.muestraCorta ? null : c.tendenciaPct === 0 ? (
+        <Minus size={12} strokeWidth={ICON_STROKE} aria-hidden />
+      ) : c.tendenciaPct < 0 ? (
+        <TrendingDown size={12} strokeWidth={ICON_STROKE} aria-hidden />
+      ) : (
+        <TrendingUp size={12} strokeWidth={ICON_STROKE} aria-hidden />
+      )}
+      {c.tendenciaPct > 0 ? "+" : ""}
+      {c.tendenciaPct}%
+    </span>
+  );
+}
 
 // Serie visible en la gráfica de progreso.
 type SerieProgreso = "total" | "leads" | "presupuestos" | "cobros";
@@ -315,13 +509,28 @@ export function RedView({ user: _user }: { user: UserSession }) {
   }
 
   if (!data) {
+    // La pantalla mantiene su forma mientras carga: las cuatro filas del
+    // layout real, con el primitivo Skeleton (shimmer compartido).
     return (
-      <div className="flex-1 min-h-0 overflow-auto bg-[var(--color-background)] p-6">
-        <div className="max-w-5xl mx-auto space-y-4 animate-pulse">
-          <div className="h-24 rounded-2xl bg-[var(--color-surface-muted)]" />
-          <div className="h-40 rounded-2xl bg-[var(--color-surface-muted)]" />
-          <div className="h-48 rounded-2xl bg-[var(--color-surface-muted)]" />
-          <div className="h-56 rounded-2xl bg-[var(--color-surface-muted)]" />
+      <div className="flex-1 min-h-0 overflow-auto bg-[var(--color-background)]">
+        <div className="max-w-screen-2xl mx-auto p-4 lg:p-8 space-y-10">
+          <Skeleton className="h-8 w-40 rounded-lg" />
+          {[0, 1].map((f) => (
+            <div key={f} className="space-y-2.5">
+              <Skeleton className="h-6 w-64 rounded-lg" />
+              <Skeleton className="h-[76px] rounded-xl" />
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <Skeleton className="h-[68px] flex-1 rounded-xl" />
+                <Skeleton className="h-[68px] flex-1 rounded-xl" />
+                <Skeleton className="h-[68px] flex-1 rounded-xl" />
+              </div>
+            </div>
+          ))}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
+            <Skeleton className="h-72 lg:col-span-3 rounded-xl" />
+            <Skeleton className="h-72 lg:col-span-2 rounded-xl" />
+          </div>
+          <Skeleton className="h-80 rounded-xl" />
         </div>
       </div>
     );
@@ -370,82 +579,90 @@ export function RedView({ user: _user }: { user: UserSession }) {
           </button>
         </header>
 
-        {/* Dos columnas ~60/40 en desktop; una columna en móvil con el orden
-            riesgo → funcionando → negocio → clínicas → progreso. */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 items-start">
-          {/* ══ COLUMNA IZQUIERDA ══ */}
-          <div className="lg:col-span-3 space-y-10">
-            {/* ── 1 · ¿DÓNDE PIERDES DINERO HOY? ── */}
-            <section>
-              <TituloSeccion icono={<CircleDollarSign size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
-                ¿Dónde pierdes dinero hoy?
-              </TituloSeccion>
-              {hoy.riesgo.length === 0 ? (
-                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4 flex items-center gap-2.5">
-                  <CheckCircle2 size={18} strokeWidth={ICON_STROKE} className="text-[var(--color-success)] shrink-0" aria-hidden />
-                  <p className="text-sm font-semibold text-[var(--color-foreground)]">
-                    Nada en riesgo hoy — las colas están al día.
-                  </p>
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-[var(--color-danger)]/25 bg-[var(--color-danger-soft)] p-2 sm:p-3">
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {hoy.riesgo.map((r) => (
-                      <Link
-                        key={r.tipo}
-                        href={r.href}
-                        className="group rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5 flex items-center justify-between gap-3 hover:border-[var(--color-danger)]/50 transition-colors"
-                      >
-                        <div className="min-w-0">
-                          <p className="font-display text-2xl font-bold tabular-nums text-[var(--color-foreground)]">
-                            {r.importe != null ? eur(r.importe) : r.n}
-                          </p>
-                          {/* Dos niveles: titular (el qué) + detalle (contexto). */}
-                          <p className="text-sm font-medium text-[var(--color-foreground)] mt-0.5">{r.titulo}</p>
-                          <p className="text-xs text-[var(--color-muted)] mt-0.5">{r.detalle}</p>
-                        </div>
-                        <ChevronRight
-                          size={16}
-                          strokeWidth={ICON_STROKE}
-                          className="text-[var(--color-muted)] group-hover:text-[var(--color-danger)] shrink-0 transition-colors"
-                          aria-hidden
+        {/* Cuatro filas a ancho completo. En móvil es el mismo orden apilado:
+            riesgo → funcionando → negocio · clínicas → progreso. */}
+        <div className="space-y-10">
+          {/* ══ FILA 1 · ¿DÓNDE PIERDES DINERO HOY? ══════════════════════ */}
+          <section>
+            <TituloSeccion
+              icono={<CircleDollarSign size={20} strokeWidth={ICON_STROKE} aria-hidden />}
+              resumen={
+                hoy.riesgo.length > 0 ? (
+                  <>
+                    <span className="font-semibold text-[var(--color-foreground)]">{eur(hoy.importeEnRiesgo)}</span> en
+                    riesgo · {hoy.clinicasEnRiesgo} clínica{hoy.clinicasEnRiesgo === 1 ? "" : "s"}
+                  </>
+                ) : undefined
+              }
+            >
+              ¿Dónde pierdes dinero hoy?
+            </TituloSeccion>
+            {hoy.riesgo.length === 0 ? (
+              <Card padding="none" className="px-5 py-4 flex items-center gap-2.5">
+                <CheckCircle2 size={18} strokeWidth={ICON_STROKE} className="text-[var(--color-success)] shrink-0" aria-hidden />
+                <p className="text-sm font-semibold text-[var(--color-foreground)]">
+                  Nada en riesgo hoy — las colas están al día.
+                </p>
+              </Card>
+            ) : (
+              <div className="space-y-2.5">
+                {/* Destacada = la primera del orden por urgencia de ACCIÓN que
+                    fija el servidor (no la de más importe). */}
+                <SenalCard
+                  tono="riesgo"
+                  destacada
+                  etiqueta="lo más urgente"
+                  valor={hoy.riesgo[0].importe != null ? eur(hoy.riesgo[0].importe) : String(hoy.riesgo[0].n)}
+                  titulo={hoy.riesgo[0].titulo}
+                  detalle={hoy.riesgo[0].detalle}
+                  href={hoy.riesgo[0].href}
+                />
+                {hoy.riesgo.length > 1 && (
+                  // flex-1 con ancho mínimo: reparte el ancho entre las que
+                  // haya y envuelve sin dejar huecos de rejilla.
+                  <div className="flex flex-wrap gap-2.5">
+                    {hoy.riesgo.slice(1).map((r) => (
+                      <div key={r.tipo} className="flex-1 min-w-[240px]">
+                        <SenalCard
+                          tono="riesgo"
+                          valor={r.importe != null ? eur(r.importe) : String(r.n)}
+                          titulo={r.titulo}
+                          detalle={r.detalle}
+                          href={r.href}
                         />
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </section>
-
-            {/* ── 2 · QUÉ ESTÁ FUNCIONANDO ── */}
-            <section>
-              <TituloSeccion icono={<TrendingUp size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
-                Qué está funcionando
-              </TituloSeccion>
-              {hoy.exitos.length === 0 ? (
-                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
-                  <p className="text-sm text-[var(--color-muted)]">Sin cambios destacables esta semana.</p>
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-[var(--color-success)]/25 bg-[var(--color-success-soft)] p-2 sm:p-3">
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {hoy.exitos.map((e) => (
-                      <div
-                        key={e.tipo}
-                        className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3.5"
-                      >
-                        <p className="font-display text-2xl font-bold tabular-nums text-[var(--color-foreground)]">{e.dato}</p>
-                        <p className="text-sm font-medium text-[var(--color-foreground)] mt-0.5">{e.titulo}</p>
-                        <p className="text-xs text-[var(--color-muted)] mt-0.5">{e.detalle}</p>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
-            </section>
+                )}
+              </div>
+            )}
+          </section>
 
-            {/* ── 3 · EL NEGOCIO ── */}
-            <section>
+          {/* ══ FILA 2 · QUÉ ESTÁ FUNCIONANDO ════════════════════════════ */}
+          <section>
+            <TituloSeccion icono={<TrendingUp size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
+              Qué está funcionando
+            </TituloSeccion>
+            {hoy.exitos.length === 0 ? (
+              <Card padding="none" className="px-5 py-4">
+                <p className="text-sm text-[var(--color-muted)]">Sin cambios destacables esta semana.</p>
+              </Card>
+            ) : (
+              // Ninguna destaca: un logro no pide acción, así que aquí no hay
+              // "el más urgente". Todas uniformes, mismo peso.
+              <div className="flex flex-wrap gap-2.5">
+                {hoy.exitos.map((e) => (
+                  <div key={e.tipo} className="flex-1 min-w-[240px]">
+                    <SenalCard tono="exito" valor={e.dato} titulo={e.titulo} detalle={e.detalle} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* ══ FILA 3 · EL NEGOCIO (izq) · TUS CLÍNICAS (der) ═══════════ */}
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8 items-start">
+            <section className="lg:col-span-3">
               <TituloSeccion icono={<BarChart3 size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
                 El negocio
               </TituloSeccion>
@@ -558,16 +775,12 @@ export function RedView({ user: _user }: { user: UserSession }) {
                 </div>
               </div>
             </section>
-          </div>
 
-          {/* ══ COLUMNA DERECHA (pendiente de rediseño tras el checkpoint) ══ */}
-          <div className="lg:col-span-2 space-y-10">
-        {/* ── 4 · TUS CLÍNICAS — orientada a evolución ── */}
-        <section>
-          <TituloSeccion icono={<Building2 size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
-            Tus clínicas
-          </TituloSeccion>
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+            <section className="lg:col-span-2">
+              <TituloSeccion icono={<Building2 size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
+                Tus clínicas
+              </TituloSeccion>
+              <Card padding="none" className="overflow-hidden">
             {/* El pie describe el orden REAL: al reordenar por otra columna,
                 "la que más cae va arriba" dejaba de ser cierto. */}
             <p className="px-5 pt-3 pb-2 text-[11px] text-[var(--color-muted)]">
@@ -577,7 +790,58 @@ export function RedView({ user: _user }: { user: UserSession }) {
                 : ""}
               Comparadas con el mismo tramo del mes anterior — clic en una clínica para abrir su detalle.
             </p>
-            <div className="overflow-x-auto">
+            {/* Móvil: la misma información apilada. Una tabla de 5 columnas en
+                390px recortaba la última sin aviso — y aquí no sobra ninguna. */}
+            <ul className="sm:hidden border-t border-[var(--color-border)]">
+              {clinicasOrdenadas.map((c) => {
+                const t = celdasClinica(c);
+                return (
+                  <li key={c.id} className="border-b border-[var(--color-border)] last:border-0">
+                    <button
+                      type="button"
+                      onClick={() => irAClinica(c)}
+                      className="w-full text-left px-5 py-3 hover:bg-[var(--color-surface-muted)] transition-colors"
+                    >
+                      <div className="flex items-baseline justify-between gap-3">
+                        <p className="text-sm font-semibold text-[var(--color-foreground)]">{c.nombre}</p>
+                        <span className="text-xs shrink-0">
+                          <EvolucionClinica c={c} />
+                        </span>
+                      </div>
+                      <dl className="mt-1.5 grid grid-cols-2 gap-x-4 gap-y-1 text-xs tabular-nums">
+                        <div className="flex items-baseline gap-1.5">
+                          <dt className="text-[var(--color-muted)]">Conversión</dt>
+                          <dd
+                            className={c.muestraCorta ? "text-[var(--color-muted)]" : "font-semibold text-[var(--color-foreground)]"}
+                            title={t.tituloMuestraCorta}
+                          >
+                            {t.conversion} <span className="text-[10px] text-[var(--color-muted)] font-normal">{t.conversionRef}</span>
+                          </dd>
+                        </div>
+                        <div className="flex items-baseline gap-1.5">
+                          <dt className="text-[var(--color-muted)]">Aceptado</dt>
+                          <dd className="font-semibold text-[var(--color-foreground)]">
+                            {t.aceptado} <span className="text-[10px] text-[var(--color-muted)] font-normal">{t.aceptadoRef}</span>
+                          </dd>
+                        </div>
+                        {c.vencido > 0 && (
+                          <div className="flex items-baseline gap-1.5">
+                            <dt className="text-[var(--color-muted)]">Vencido</dt>
+                            <dd className="font-semibold text-[var(--color-danger)]">{eur(c.vencido)}</dd>
+                          </div>
+                        )}
+                      </dl>
+                    </button>
+                  </li>
+                );
+              })}
+              {clinicasOrdenadas.length === 0 && (
+                <li className="px-5 py-6 text-center text-xs text-[var(--color-muted)]">
+                  No tienes clínicas asignadas.
+                </li>
+              )}
+            </ul>
+            <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-xs">
                 <thead className="text-[10px] uppercase tracking-wider text-[var(--color-muted)]">
                   <tr className="border-b border-[var(--color-border)]">
@@ -604,7 +868,9 @@ export function RedView({ user: _user }: { user: UserSession }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {clinicasOrdenadas.map((c) => (
+                  {clinicasOrdenadas.map((c) => {
+                    const t = celdasClinica(c);
+                    return (
                       <tr
                         key={c.id}
                         onClick={() => irAClinica(c)}
@@ -617,27 +883,15 @@ export function RedView({ user: _user }: { user: UserSession }) {
                         <td className="px-3 py-3 text-right tabular-nums">
                           <span
                             className={`font-semibold ${c.muestraCorta ? "text-[var(--color-muted)]" : "text-[var(--color-foreground)]"}`}
-                            title={
-                              c.muestraCorta
-                                ? `Muestra corta: ${c.presentadosMes} presupuesto${c.presentadosMes === 1 ? "" : "s"} este mes y ${c.presentadosMesPrevio} el anterior. El porcentaje se enseña, pero no se lee como señal.`
-                                : undefined
-                            }
+                            title={t.tituloMuestraCorta}
                           >
-                            {c.conversionPct != null ? `${c.conversionPct}%` : "—"}
+                            {t.conversion}
                           </span>
-                          <span className="block text-[10px] text-[var(--color-muted)]">
-                            {c.muestraCorta
-                              ? `${c.aceptadosMes} de ${c.presentadosMes}`
-                              : c.conversionPctPrevio != null
-                                ? `era ${c.conversionPctPrevio}%`
-                                : "sin referencia"}
-                          </span>
+                          <span className="block text-[10px] text-[var(--color-muted)]">{t.conversionRef}</span>
                         </td>
                         <td className="px-3 py-3 text-right tabular-nums">
-                          <span className="font-semibold text-[var(--color-foreground)]">{eur(c.aceptadoMes)}</span>
-                          <span className="block text-[10px] text-[var(--color-muted)]">
-                            {c.aceptadoMesPrevio > 0 ? `eran ${eur(c.aceptadoMesPrevio)}` : "sin referencia"}
-                          </span>
+                          <span className="font-semibold text-[var(--color-foreground)]">{t.aceptado}</span>
+                          <span className="block text-[10px] text-[var(--color-muted)]">{t.aceptadoRef}</span>
                         </td>
                         <td className="px-3 py-3 text-right tabular-nums">
                           {c.vencido > 0 ? (
@@ -647,43 +901,13 @@ export function RedView({ user: _user }: { user: UserSession }) {
                           )}
                         </td>
                         {/* Δ% de un IMPORTE (no de un porcentaje): comparación
-                            legítima y la clave del orden por defecto. Con
-                            muestra corta se pinta neutra, no como señal. */}
+                            legítima y la clave del orden por defecto. */}
                         <td className="px-3 py-3 text-right">
-                          {c.tendenciaPct == null ? (
-                            <span className="text-[var(--color-muted)]" title="El mes anterior no firmó presupuestos: no hay con qué comparar">—</span>
-                          ) : (
-                            <span
-                              className={`inline-flex items-center gap-1 font-semibold tabular-nums ${
-                                c.muestraCorta || c.tendenciaPct === 0
-                                  ? "text-[var(--color-muted)]"
-                                  : c.tendenciaPct < 0
-                                    ? "text-[var(--color-danger)]"
-                                    : "text-[var(--color-success)]"
-                              }`}
-                              title={
-                                c.muestraCorta
-                                  ? "Pocos presupuestos en juego: la evolución se enseña, pero no ordena el ranking."
-                                  : "Cambio del € aceptado frente al mismo tramo del mes anterior."
-                              }
-                            >
-                              {/* Con muestra corta no se pinta flecha: un icono
-                                  de dirección junto a un "-30%" ya con signo se
-                                  leía como dos símbolos peleándose. */}
-                              {c.muestraCorta ? null : c.tendenciaPct === 0 ? (
-                                <Minus size={12} strokeWidth={ICON_STROKE} aria-hidden />
-                              ) : c.tendenciaPct < 0 ? (
-                                <TrendingDown size={12} strokeWidth={ICON_STROKE} aria-hidden />
-                              ) : (
-                                <TrendingUp size={12} strokeWidth={ICON_STROKE} aria-hidden />
-                              )}
-                              {c.tendenciaPct > 0 ? "+" : ""}
-                              {c.tendenciaPct}%
-                            </span>
-                          )}
+                          <EvolucionClinica c={c} />
                         </td>
                       </tr>
-                  ))}
+                    );
+                  })}
                   {clinicasOrdenadas.length === 0 && (
                     <tr>
                       <td colSpan={5} className="px-5 py-6 text-center text-[var(--color-muted)]">
@@ -694,37 +918,29 @@ export function RedView({ user: _user }: { user: UserSession }) {
                 </tbody>
               </table>
             </div>
+              </Card>
+            </section>
           </div>
-        </section>
 
-        {/* ── 5 · PROGRESO — área con degradado + toggles ── */}
-        <section>
-          <TituloSeccion icono={<Activity size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
-            Progreso
-          </TituloSeccion>
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-            <div className="flex items-center justify-between gap-2 flex-wrap mb-3">
+          {/* ══ FILA 4 · PROGRESO — ancho completo, curva legible ═════════ */}
+          <section>
+            <TituloSeccion icono={<Activity size={20} strokeWidth={ICON_STROKE} aria-hidden />}>
+              Progreso
+            </TituloSeccion>
+            <Card padding="none" className="p-5">
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
               <p className="text-[11px] text-[var(--color-muted)]">
                 Evolución mensual de los últimos 6 meses.
               </p>
-              <div className="flex gap-1 flex-wrap">
-                {SERIES.map(([k, l]) => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => setSerie(k)}
-                    className={`text-[10px] font-semibold px-2.5 py-1 rounded-full border transition-colors ${
-                      serie === k
-                        ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent"
-                        : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
-                    }`}
-                  >
-                    {l}
-                  </button>
-                ))}
-              </div>
+              {/* ColaTabs: el mismo primitivo de pills que filtra las colas —
+                  aquí elige la serie. Antes eran pills a medida casi iguales. */}
+              <ColaTabs
+                tabs={SERIES.map(([k, l]) => ({ id: k, label: l }))}
+                active={serie}
+                onChange={setSerie}
+              />
             </div>
-            <div className="h-52">
+            <div className="h-72 lg:h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart
                   data={progreso.map((p) => ({ ...p, label: mesLabel(p.mes) }))}
@@ -775,9 +991,8 @@ export function RedView({ user: _user }: { user: UserSession }) {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          </div>
-        </section>
-          </div>
+            </Card>
+          </section>
         </div>
       </div>
     </div>

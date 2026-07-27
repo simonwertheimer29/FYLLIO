@@ -472,3 +472,20 @@ titular decía "del mes" sobre un dato semanal, "En seguimiento ahora" contaba s
 "Contactado" (cuarto número para el pipeline que unificó la decisión del 23/7), dos cards
 gemelas comparaban una el recuento y otra el importe sin que se notara, el pie prometía un
 orden que cambiaba al reordenar, y "7 perdidos, eran 5" se pintaba en verde.
+
+## 2026-07-27 — /red: cuatro filas a ancho completo y una destacada que se gana el sitio por urgencia
+Pasada visual, parte 2. El dashboard vivía en dos columnas 60/40 con las cinco secciones
+apiladas dentro, así que la franja de riesgo era una rejilla 2×2 estrecha con huecos y la
+gráfica de 6 meses cabía en 208 px. Ahora son cuatro filas a ancho completo (riesgo ·
+funcionando · negocio+clínicas · progreso), el mismo orden que en móvil. Las señales pasan a
+cards horizontales y bajas —número · titular · contexto en un renglón— repartidas con
+`flex-1` para que nunca quede un hueco de rejilla. **La destacada la elige el servidor por
+urgencia de ACCIÓN, no por importe**: cierres esperándonos > leads sin primer contacto >
+reactivables > cobros vencidos, ordenados por cuánto se estropea el caso esperando un día
+más. Por eso arriba manda una card de 5.900 € y no la de 12.725 €, y el Σ€ del titular va
+aparte. Viveza: un pulso ÚNICO al montar en la destacada (halo del color de categoría que se
+apaga) y un destello solo cuando un valor cambia entre dos cargas — nada late en bucle, y las
+dos animaciones están en el bloque de prefers-reduced-motion. Se reutilizan los primitivos:
+Card (con un `style` opcional nuevo para el tinte y el borde semántico), Skeleton con la
+forma real de las cuatro filas, y ColaTabs en vez de las pills a medida de la gráfica. La
+tabla de clínicas se apila en móvil: cinco columnas en 390 px recortaban la última sin aviso.
