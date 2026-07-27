@@ -628,3 +628,48 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Fecha:** 2026-07-27 · 🔵
 - **2026-07-27 · 🟢 CERRADA**: la acción falla pidiendo el motivo y la herramienta instruye
   al modelo a preguntarlo antes de proponer nada.
+
+## 44. Retirar la rama Airtable: dos implementaciones de cada dominio sin consumidor real
+- **Zona:** `lib/airtable.ts` (base/TABLES/runWithCliente), las 15 ramas gateadas por
+  `usaPostgres`, `lib/db/airtable-formula.ts`, y los módulos sin rama PG (abajo)
+- **Principio:** coherencia — cada dominio está escrito DOS veces (17 archivos `*-pg.ts`,
+  3.553 líneas, 199 puntos de bifurcación `if (usaPostgres…)`), y la rama PG carga además un
+  **intérprete de `filterByFormula` de Airtable** (97 líneas) y "shims" que fingen la forma de
+  un record de Airtable — código cuyo único motivo de existir es emular al backend que se
+  retiró.
+- **Evidencia de que no hay consumidor:** última escritura en cualquier base de Airtable,
+  2026-07-15 (tablas de negocio: 2026-07-06). Las dos bases piloto están VACÍAS de Leads,
+  Citas, Staff, Tratamientos y Mensajes; solo quedan restos pre-corte. La verdad de negocio
+  vive en Postgres desde el corte del 2026-07-21.
+- **Coste de mantenerla (medido hoy):** todo cambio de esquema se aplica dos veces y en dos
+  lenguajes (migración SQL + esquema Airtable ×2 bases), a mano y sin nada que verifique que
+  coinciden — exactamente la clase de desajuste de la nº 41. Y la API de meta de Airtable **no
+  permite añadir opciones a un single-select**: la vía documentada es escribir con
+  `typecast:true`, o sea crear un registro temporal en una base de producción para bootstrapear
+  una opción.
+- **Mejora:** retirar la rama. Orden propuesto: (1) extraer el contexto de cliente
+  (`runWithCliente`/`currentCliente`) de `lib/airtable.ts` a su propio módulo — todo depende de
+  él; (2) escribir contra PG los 6 módulos que hoy NO tienen rama (ver nº 45) y el repo del
+  scheduler (staff/tratamientos/sillones, ~2.171 líneas); (3) borrar la rama Airtable de los 15
+  dominios gateados, el dispatcher, el intérprete de fórmulas y los shims; (4) sacar
+  `AIRTABLE_API_KEY` y los 3 ids de base de Vercel. No-shows queda aparte (nº 39): o migra con
+  su reactivación o es el último consumidor.
+- **Impacto:** alto en velocidad de cambio (hoy cada esquema cuesta el doble y puede
+  desincronizarse) y en superficie de bug; nulo en datos (no hay nada vivo que migrar).
+- **Fecha:** 2026-07-27 · 🔵
+
+## 45. Estado mixto: el alcance de clínicas y los doctores se leen de Airtable, los datos de Postgres
+- **Zona:** `lib/clinicas-negocio.ts:33`, `lib/scheduler/repo/staffRepo.ts`, y las páginas de
+  Leads / Seguimiento / Pacientes (`base(TABLES.staff)` directo)
+- **Principio:** §5 confianza / una sola verdad — estos módulos NO pasan por `usaPostgres`:
+  leen Airtable siempre, aunque su dominio esté volteado.
+- **Problema (verificado hoy):** la tabla **Staff está vacía en las dos bases piloto**, así que
+  el selector de doctor de Leads, Seguimiento y Pacientes sale vacío para RB/INDEP mientras
+  Postgres SÍ tiene tabla `staff`. Y `clinicasNegocioAccesibles` resuelve el alcance de
+  clínicas leyendo Airtable y lo cruza **por nombre** con los datos de Postgres: hoy cuadra de
+  milagro (RB 10/10, INDEP 1/1), pero una clínica creada solo en Postgres dejaría sus leads y
+  pacientes invisibles, sin error.
+- **Mejora:** llevar los dos a Postgres (las tablas `staff` y `clinicas` ya existen) antes de
+  que los pilotos empiecen a operar. Es el primer paso natural de la nº 44.
+- **Impacto:** alto — es una fuga funcional silenciosa en la superficie principal.
+- **Fecha:** 2026-07-27 · 🔵
