@@ -23,38 +23,28 @@ export async function registrarAccion(args: {
 }): Promise<void> {
   const fecha = DateTime.now().setZone("Europe/Madrid").toISO() ?? new Date().toISOString();
   try {
-    if (usaPostgres("presupuestos")) {
-      const { runWithClienteDb } = await import("../db/context");
-      const { currentCliente } = await import("../airtable");
-      const cliente = currentCliente();
-      if (!cliente) throw new Error("[historial] sin cliente en contexto (fail-closed)");
-      await runWithClienteDb(cliente, (trx) =>
-        trx
-          .insertInto("historial_acciones")
-          .values({
-            cliente,
-            presupuesto_id: args.presupuestoId,
-            tipo: args.tipo,
-            descripcion: args.descripcion,
-            metadata: args.metadata ? JSON.stringify(args.metadata) : "",
-            registrado_por: args.registradoPor ?? "",
-            clinica_id: null,
-            fecha: new Date(fecha),
-          })
-          .execute(),
-      );
-      return;
-    }
-    await base(TABLES.historialAcciones as any).create({
-      presupuesto_id: args.presupuestoId,
-      tipo: args.tipo,
-      descripcion: args.descripcion,
-      metadata: args.metadata ? JSON.stringify(args.metadata) : "",
-      registrado_por: args.registradoPor ?? "",
-      clinica: args.clinica ?? "",
-      fecha,
-    } as any);
-  } catch (err) {
+    const { runWithClienteDb } = await import("../db/context");
+    const { currentCliente } = await import("../airtable");
+    const cliente = currentCliente();
+    if (!cliente) throw new Error("[historial] sin cliente en contexto (fail-closed)");
+    await runWithClienteDb(cliente, (trx) =>
+      trx
+        .insertInto("historial_acciones")
+        .values({
+          cliente,
+          presupuesto_id: args.presupuestoId,
+          tipo: args.tipo,
+          descripcion: args.descripcion,
+          metadata: args.metadata ? JSON.stringify(args.metadata) : "",
+          registrado_por: args.registradoPor ?? "",
+          clinica_id: null,
+          fecha: new Date(fecha),
+        })
+        .execute(),
+    );
+    return;
+    
+} catch (err) {
     console.error("[historial] registrarAccion error:", args.tipo, err);
     // nunca lanzar — el historial es secundario, no debe romper el flujo principal
   }

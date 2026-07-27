@@ -21,11 +21,9 @@ import { usaPostgres } from "../db/data-backend";
 // Solo el REGISTRO del mensaje. Idempotencia (KV), envío a Meta (WABA),
 // rate-limit y telemetría son ortogonales y NO pasan por aquí.
 async function crearMensajeWhatsAppRecord(fields: Record<string, unknown>): Promise<{ id: string }> {
-  if (usaPostgres("mensajes")) {
-    const pg = await import("./mensajeria-pg");
-    return pg.createMensajeWhatsAppPg(fields);
-  }
-  return (await base(TABLES.mensajesWhatsApp as any).create(fields as any)) as any;
+  const pg = await import("./mensajeria-pg");
+  return pg.createMensajeWhatsAppPg(fields);
+  
 }
 // MEJORA nº 25 (2026-07-23): un mensaje NUEVO del paciente invalida el
 // Mensaje_sugerido cacheado del presupuesto — esa sugerencia se generó para
@@ -47,15 +45,9 @@ async function selectMensajesRecords(opts: {
   sort?: Array<{ field: string; direction: "asc" | "desc" }>;
   maxRecords?: number;
 }): Promise<any[]> {
-  if (usaPostgres("mensajes")) {
-    const pg = await import("./mensajeria-pg");
-    return pg.selectMensajesWhatsAppPg(opts);
-  }
-  const sel: Record<string, unknown> = {};
-  if (opts.filterByFormula) sel.filterByFormula = opts.filterByFormula;
-  if (opts.sort) sel.sort = opts.sort;
-  if (opts.maxRecords !== undefined) sel.maxRecords = opts.maxRecords;
-  return fetchAll(base(TABLES.mensajesWhatsApp as any).select(sel as any));
+  const pg = await import("./mensajeria-pg");
+  return pg.selectMensajesWhatsAppPg(opts);
+  
 }
 
 /**
@@ -67,39 +59,9 @@ export async function ultimosMensajesPorConversacion(): Promise<{
   porPresupuesto: Map<string, { entranteAt: string | null; salienteAt: string | null }>;
   porLead: Map<string, { entranteAt: string | null; salienteAt: string | null }>;
 }> {
-  if (usaPostgres("mensajes")) {
-    const pg = await import("./mensajeria-pg");
-    return pg.ultimosMensajesPorConversacionPg();
-  }
-  const recs = await selectMensajesRecords({});
-  const porPresupuesto = new Map<string, { entranteAt: string | null; salienteAt: string | null }>();
-  const porLead = new Map<string, { entranteAt: string | null; salienteAt: string | null }>();
-  const meter = (
-    map: Map<string, { entranteAt: string | null; salienteAt: string | null }>,
-    id: string,
-    direccion: string,
-    t: string,
-  ) => {
-    const cur = map.get(id) ?? { entranteAt: null, salienteAt: null };
-    if (direccion === "Entrante") {
-      if (!cur.entranteAt || t > cur.entranteAt) cur.entranteAt = t;
-    } else {
-      if (!cur.salienteAt || t > cur.salienteAt) cur.salienteAt = t;
-    }
-    map.set(id, cur);
-  };
-  for (const rec of recs) {
-    const f = (rec.fields ?? {}) as Record<string, unknown>;
-    const t = f["Timestamp"] ? String(f["Timestamp"]) : "";
-    if (!t) continue;
-    const dir = String(f["Direccion"] ?? "Entrante");
-    const presupuestoId = f["Presupuesto"] ? String(f["Presupuesto"]) : "";
-    const leadLink = f["Lead_Link"];
-    const leadId = Array.isArray(leadLink) ? String(leadLink[0] ?? "") : "";
-    if (presupuestoId) meter(porPresupuesto, presupuestoId, dir, t);
-    if (leadId) meter(porLead, leadId, dir, t);
-  }
-  return { porPresupuesto, porLead };
+  const pg = await import("./mensajeria-pg");
+  return pg.ultimosMensajesPorConversacionPg();
+  
 }
 
 /**
@@ -108,23 +70,9 @@ export async function ultimosMensajesPorConversacion(): Promise<{
  * 2026-07-26; mismo patrón que ultimaRespuestaPaciente en presupuestos).
  */
 export async function ultimoEntranteTextoPorLead(): Promise<Record<string, string>> {
-  if (usaPostgres("mensajes")) {
-    const pg = await import("./mensajeria-pg");
-    return pg.ultimoEntranteTextoPorLeadPg();
-  }
-  const recs = await selectMensajesRecords({});
-  const out: Record<string, { t: string; texto: string }> = {};
-  for (const rec of recs) {
-    const f = (rec.fields ?? {}) as Record<string, unknown>;
-    if (String(f["Direccion"] ?? "") !== "Entrante") continue;
-    const t = f["Timestamp"] ? String(f["Timestamp"]) : "";
-    const texto = f["Contenido"] ? String(f["Contenido"]) : "";
-    const leadLink = f["Lead_Link"];
-    const leadId = Array.isArray(leadLink) ? String(leadLink[0] ?? "") : "";
-    if (!t || !texto || !leadId) continue;
-    if (!out[leadId] || t > out[leadId].t) out[leadId] = { t, texto };
-  }
-  return Object.fromEntries(Object.entries(out).map(([id, v]) => [id, v.texto]));
+  const pg = await import("./mensajeria-pg");
+  return pg.ultimoEntranteTextoPorLeadPg();
+  
 }
 
 const ZONE = "Europe/Madrid";

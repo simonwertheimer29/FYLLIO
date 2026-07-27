@@ -52,12 +52,9 @@ export function toOpcion(rec: any): ConfigOpcion {
  * panel admin. Para consumo a runtime usa getOpcionesActivasParaClinica.
  */
 export async function listAllOpciones(): Promise<ConfigOpcion[]> {
-  if (usaPostgres("configuraciones")) {
-    const pg = await import("./configuraciones-pg");
-    return pg.listAllOpcionesPg();
-  }
-  const recs = await fetchAll(base(TABLES.configuracionesClinica as any).select({}));
-  return recs.map(toOpcion);
+  const pg = await import("./configuraciones-pg");
+  return pg.listAllOpcionesPg();
+  
 }
 
 /**
@@ -112,49 +109,24 @@ export async function crearOpcion(input: {
   valor: string;
   orden?: number;
 }): Promise<ConfigOpcion> {
-  if (usaPostgres("configuraciones")) {
-    const pg = await import("./configuraciones-pg");
-    return pg.crearOpcionPg(input);
-  }
-  const fields: Record<string, unknown> = {
-    Resumen: `${input.categoria} · ${input.valor}${input.clinicaId ? ` · clinica` : ` · global`}`,
-    Categoria: input.categoria,
-    Valor: input.valor,
-    Activo: true,
-    Orden: input.orden ?? 0,
-    Created_At: new Date().toISOString(),
-  };
-  if (input.clinicaId) fields["Clinica_Link"] = [input.clinicaId];
-  const created = (
-    await base(TABLES.configuracionesClinica as any).create([{ fields } as any])
-  )[0]!;
-  return toOpcion(created);
+  const pg = await import("./configuraciones-pg");
+  return pg.crearOpcionPg(input);
+  
 }
 
 export async function actualizarOpcion(
   id: string,
   patch: Partial<{ valor: string; activo: boolean; orden: number }>,
 ): Promise<ConfigOpcion> {
-  if (usaPostgres("configuraciones")) {
-    const pg = await import("./configuraciones-pg");
-    return pg.actualizarOpcionPg(id, patch);
-  }
-  const fields: Record<string, unknown> = {};
-  if (patch.valor !== undefined) fields["Valor"] = patch.valor;
-  if (patch.activo !== undefined) fields["Activo"] = patch.activo;
-  if (patch.orden !== undefined) fields["Orden"] = patch.orden;
-  const updated = (
-    await base(TABLES.configuracionesClinica as any).update([{ id, fields } as any])
-  )[0]!;
-  return toOpcion(updated);
+  const pg = await import("./configuraciones-pg");
+  return pg.actualizarOpcionPg(id, patch);
+  
 }
 
 export async function eliminarOpcion(id: string): Promise<void> {
-  if (usaPostgres("configuraciones")) {
-    const pg = await import("./configuraciones-pg");
-    return pg.eliminarOpcionPg(id);
-  }
-  await base(TABLES.configuracionesClinica as any).destroy([id]);
+  const pg = await import("./configuraciones-pg");
+  return pg.eliminarOpcionPg(id);
+  
 }
 
 /** UX label legible para Categoria. */
@@ -168,50 +140,30 @@ export const CATEGORIA_LABEL: Record<ConfigCategoria, string> = {
 // FASE 1 migración — accesos genéricos a Configuraciones_Clinica para los
 // consumidores por categoría (horario laboral, llamadas IA, motor no-shows).
 export async function findConfigClinicaRaw(id: string): Promise<any> {
-  if (usaPostgres("configuraciones")) {
-    const pg = await import("./configuraciones-pg");
-    return pg.findConfigClinicaRawPg(id);
-  }
-  return base(TABLES.configuracionesClinica as any).find(id);
+  const pg = await import("./configuraciones-pg");
+  return pg.findConfigClinicaRawPg(id);
+  
 }
 export async function findConfigPorCategoriaYClinicaRaw(
   categoria: string,
   clinicaId: string,
 ): Promise<any | null> {
-  if (usaPostgres("configuraciones")) {
-    const pg = await import("./configuraciones-pg");
-    return pg.findConfigPorCategoriaYClinicaRawPg(categoria, clinicaId);
-  }
-  const recs = await fetchAll(
-    base(TABLES.configuracionesClinica).select({
-      filterByFormula: `AND({Categoria}="${categoria}", FIND("${clinicaId}", ARRAYJOIN({Clinica_Link}, ",")))`,
-      maxRecords: 1,
-    }),
-  );
-  return recs[0] ?? null;
+  const pg = await import("./configuraciones-pg");
+  return pg.findConfigPorCategoriaYClinicaRawPg(categoria, clinicaId);
+  
 }
 export async function selectConfigsPorCategoriaRaw(categoria: string): Promise<any[]> {
-  if (usaPostgres("configuraciones")) {
-    const pg = await import("./configuraciones-pg");
-    return pg.selectConfigsPorCategoriaRawPg(categoria);
-  }
-  return fetchAll(
-    base(TABLES.configuracionesClinica).select({
-      filterByFormula: `{Categoria}="${categoria}"`,
-    }),
-  );
+  const pg = await import("./configuraciones-pg");
+  return pg.selectConfigsPorCategoriaRawPg(categoria);
+  
 }
 export async function updateConfigClinicaRaw(id: string, fields: Record<string, unknown>): Promise<void> {
-  if (usaPostgres("configuraciones")) {
-    const pg = await import("./configuraciones-pg");
-    return pg.updateConfigClinicaRawPg(id, fields);
-  }
-  await base(TABLES.configuracionesClinica).update([{ id, fields } as any]);
+  const pg = await import("./configuraciones-pg");
+  return pg.updateConfigClinicaRawPg(id, fields);
+  
 }
 export async function createConfigClinicaRaw(fields: Record<string, unknown>): Promise<void> {
-  if (usaPostgres("configuraciones")) {
-    const pg = await import("./configuraciones-pg");
-    return pg.createConfigClinicaRawPg(fields);
-  }
-  await base(TABLES.configuracionesClinica).create([{ fields } as any], { typecast: true });
+  const pg = await import("./configuraciones-pg");
+  return pg.createConfigClinicaRawPg(fields);
+  
 }

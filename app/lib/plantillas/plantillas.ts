@@ -48,12 +48,9 @@ function toPlantilla(rec: any): Plantilla {
 
 /** Lista TODAS las plantillas (panel admin las cruza). */
 export async function listPlantillas(): Promise<Plantilla[]> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.listPlantillasPg();
-  }
-  const recs = await fetchAll(base(TABLES.plantillasMensaje as any).select({}));
-  return recs.map(toPlantilla);
+  const pg = await import("./plantillas-pg");
+  return pg.listPlantillasPg();
+  
 }
 
 /**
@@ -93,16 +90,9 @@ export async function getPlantillasActivas(args: {
 }
 
 export async function getPlantillaById(id: string): Promise<Plantilla | null> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.getPlantillaByIdPg(id);
-  }
-  try {
-    const rec = await base(TABLES.plantillasMensaje as any).find(id);
-    return toPlantilla(rec);
-  } catch {
-    return null;
-  }
+  const pg = await import("./plantillas-pg");
+  return pg.getPlantillaByIdPg(id);
+  
 }
 
 /** Extrae nombres de variables {{var}} del contenido. Util para
@@ -122,27 +112,9 @@ export async function createPlantilla(input: {
   clinicaId: string | null;
   tipo?: string; // legacy 'Tipo' (Primer contacto, Recordatorio, ...)
 }): Promise<Plantilla> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.createPlantillaPg(input);
-  }
-  const fields: Record<string, unknown> = {
-    Nombre: input.nombre,
-    Tipo: input.tipo ?? "Recordatorio",
-    Categoria: input.categoria,
-    Contenido: input.contenido,
-    Variables_Detectadas: extractVariables(input.contenido).join(", "),
-    Activa: true,
-    Fecha_creacion: new Date().toISOString(),
-  };
-  if (input.clinicaId) fields["Clinica_Link"] = [input.clinicaId];
-  const created = (
-    await (base(TABLES.plantillasMensaje as any) as any).create(
-      [{ fields }],
-      { typecast: true },
-    )
-  )[0]!;
-  return toPlantilla(created);
+  const pg = await import("./plantillas-pg");
+  return pg.createPlantillaPg(input);
+  
 }
 
 export async function updatePlantilla(
@@ -154,25 +126,9 @@ export async function updatePlantilla(
     activa: boolean;
   }>,
 ): Promise<Plantilla> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.updatePlantillaPg(id, patch);
-  }
-  const fields: Record<string, unknown> = {};
-  if (patch.nombre !== undefined) fields["Nombre"] = patch.nombre;
-  if (patch.categoria !== undefined) fields["Categoria"] = patch.categoria;
-  if (patch.contenido !== undefined) {
-    fields["Contenido"] = patch.contenido;
-    fields["Variables_Detectadas"] = extractVariables(patch.contenido).join(", ");
-  }
-  if (patch.activa !== undefined) fields["Activa"] = patch.activa;
-  const updated = (
-    await (base(TABLES.plantillasMensaje as any) as any).update(
-      [{ id, fields }],
-      { typecast: true },
-    )
-  )[0]!;
-  return toPlantilla(updated);
+  const pg = await import("./plantillas-pg");
+  return pg.updatePlantillaPg(id, patch);
+  
 }
 
 // ─── Render ────────────────────────────────────────────────────────────
@@ -395,37 +351,27 @@ function fmtFechaEs(iso: string): string {
 // FASE 1 migración — passthroughs de Plantillas_Mensaje para el CRUD de la
 // ruta de plantillas y el generador de cola de envíos.
 export async function selectPlantillasMensajeRaw(opts: Record<string, unknown>): Promise<readonly any[]> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.selectPlantillasMensajeRawPg(opts as any);
-  }
-  return base(TABLES.plantillasMensaje as any).select(opts as any).all();
+  const pg = await import("./plantillas-pg");
+  return pg.selectPlantillasMensajeRawPg(opts as any);
+  
 }
 export async function findPlantillaMensajeRaw(id: string): Promise<any> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.findPlantillaMensajeRawPg(id);
-  }
-  return base(TABLES.plantillasMensaje as any).find(id);
+  const pg = await import("./plantillas-pg");
+  return pg.findPlantillaMensajeRawPg(id);
+  
 }
 export async function createPlantillaMensajeRaw(fields: Record<string, unknown>): Promise<any> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.createPlantillaMensajeRawPg(fields);
-  }
-  return (base(TABLES.plantillasMensaje as any).create as any)(fields);
+  const pg = await import("./plantillas-pg");
+  return pg.createPlantillaMensajeRawPg(fields);
+  
 }
 export async function updatePlantillaMensajeRaw(id: string, fields: Record<string, unknown>): Promise<void> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.updatePlantillaMensajeRawPg(id, fields);
-  }
-  await (base(TABLES.plantillasMensaje as any) as any).update(id, fields);
+  const pg = await import("./plantillas-pg");
+  return pg.updatePlantillaMensajeRawPg(id, fields);
+  
 }
 export async function destroyPlantillaMensajeRaw(id: string): Promise<void> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.destroyPlantillaMensajeRawPg(id);
-  }
-  await base(TABLES.plantillasMensaje as any).destroy(id);
+  const pg = await import("./plantillas-pg");
+  return pg.destroyPlantillaMensajeRawPg(id);
+  
 }

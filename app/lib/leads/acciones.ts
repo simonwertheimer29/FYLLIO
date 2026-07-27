@@ -42,33 +42,9 @@ export async function logAccionLead(args: {
   /** Override timestamp (por defecto = now). El webhook lo usa para honrar el ts del mensaje original. */
   timestamp?: string;
 }): Promise<void> {
-  if (usaPostgres("leads")) {
-    const pg = await import("./pg");
-    return pg.logAccionLeadPg(args);
-  }
-  try {
-    const ts = args.timestamp ?? new Date().toISOString();
-    const tsHumano = ts.replace("T", " ").slice(0, 16);
-    const fields: Record<string, unknown> = {
-      Resumen: `${args.tipo} · ${tsHumano}`,
-      Lead: [args.leadId],
-      Tipo_Accion: args.tipo,
-      Timestamp: ts,
-    };
-    // NO escribimos el link `Usuario`: post-Sprint-B session.userId es un id de
-    // la base CENTRAL de identidad, y Acciones_Lead (base de negocio) solo puede
-    // enlazar usuarios de su propia base → el link es inválido y hacía FALLAR el
-    // create entero (silenciado por el catch), así que la acción no se registraba
-    // (rompía el KPI de tiempo medio y el estado "esperando respuesta"). El campo
-    // no lo consume ningún KPI.
-    if (args.detalles) fields.Detalles = args.detalles;
-    await base(TABLES.accionesLead as any).create([{ fields } as any]);
-  } catch (err) {
-    console.error(
-      "[acciones-lead] error logging:",
-      err instanceof Error ? err.message : err,
-    );
-  }
+  const pg = await import("./pg");
+  return pg.logAccionLeadPg(args);
+  
 }
 
 function toAccionLead(rec: any): AccionLead {
@@ -139,13 +115,9 @@ export async function listAccionesHoy(params: {
   /** Si se pasa, solo devuelve acciones cuyo lead tenga clinicaId en la lista. */
   clinicaIdsAllowed?: string[] | null;
 } = {}): Promise<AccionLead[]> {
-  if (usaPostgres("leads")) {
-    const pg = await import("./pg");
-    return pg.listAccionesHoyPgShim(params);
-  }
-  // Hoy en Madrid: tomamos UTC offset y devolvemos rango [00:00, 23:59].
-  const today = new Date().toISOString().slice(0, 10);
-  return listAccionesDesdeIso(`${today}T00:00:00.000Z`, params.clinicaIdsAllowed);
+  const pg = await import("./pg");
+  return pg.listAccionesHoyPgShim(params);
+  
 }
 
 /** Acciones posteriores a `desde` (KPIs de leads por periodo). */
@@ -153,11 +125,9 @@ export async function listAccionesDesde(
   desde: Date,
   clinicaIdsAllowed?: string[] | null,
 ): Promise<AccionLead[]> {
-  if (usaPostgres("leads")) {
-    const pg = await import("./pg");
-    return pg.listAccionesDesdePg(desde, clinicaIdsAllowed);
-  }
-  return listAccionesDesdeIso(desde.toISOString(), clinicaIdsAllowed);
+  const pg = await import("./pg");
+  return pg.listAccionesDesdePg(desde, clinicaIdsAllowed);
+  
 }
 
 /**
@@ -169,32 +139,9 @@ export async function ultimasAccionesDireccionPorLead(): Promise<{
   salientePorLead: Record<string, string>;
   entrantePorLead: Record<string, string>;
 }> {
-  if (usaPostgres("leads")) {
-    const pg = await import("./pg");
-    return pg.ultimasAccionesDireccionPorLeadPg();
-  }
-  const recs = await fetchAll(
-    base(TABLES.accionesLead as any).select({
-      filterByFormula: `OR({Tipo_Accion}='Llamada', {Tipo_Accion}='WhatsApp_Saliente', {Tipo_Accion}='WhatsApp_Entrante')`,
-      fields: ["Lead", "Timestamp", "Tipo_Accion"],
-    }),
-  );
-  const salientePorLead: Record<string, string> = {};
-  const entrantePorLead: Record<string, string> = {};
-  for (const r of recs) {
-    const f = r.fields as any;
-    const links = (f["Lead"] ?? []) as string[];
-    const lid = links[0];
-    if (!lid) continue;
-    const ts = String(
-      f["Timestamp"] ?? (r as any)._rawJson?.createdTime ?? (r as any).createdTime ?? "",
-    );
-    if (!ts) continue;
-    const map = f["Tipo_Accion"] === "WhatsApp_Entrante" ? entrantePorLead : salientePorLead;
-    const prev = map[lid];
-    if (!prev || ts > prev) map[lid] = ts;
-  }
-  return { salientePorLead, entrantePorLead };
+  const pg = await import("./pg");
+  return pg.ultimasAccionesDireccionPorLeadPg();
+  
 }
 
 /**
@@ -203,22 +150,9 @@ export async function ultimasAccionesDireccionPorLead(): Promise<{
  * ARRAYJOIN sobre el primary field; volumen por tabla es bajo).
  */
 export async function listAccionesByLead(leadId: string): Promise<AccionLead[]> {
-  if (usaPostgres("leads")) {
-    const pg = await import("./pg");
-    return pg.listAccionesByLeadPg(leadId);
-  }
-  const recs = await fetchAll(
-    base(TABLES.accionesLead as any).select({
-      fields: ["Lead", "Tipo_Accion", "Timestamp", "Usuario", "Detalles"],
-    }),
-  );
-  return recs
-    .filter((r) => {
-      const links = ((r.fields as any)?.["Lead"] ?? []) as string[];
-      return links[0] === leadId;
-    })
-    .map(toAccionLead)
-    .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
+  const pg = await import("./pg");
+  return pg.listAccionesByLeadPg(leadId);
+  
 }
 
 /**
@@ -227,49 +161,17 @@ export async function listAccionesByLead(leadId: string): Promise<AccionLead[]> 
  * leadId → ISO timestamp más reciente.
  */
 export async function ultimaCobranzaPorLead(): Promise<Map<string, string>> {
-  if (usaPostgres("leads")) {
-    const pg = await import("./pg");
-    return pg.ultimaCobranzaPorLeadPg();
-  }
-  const recs = await fetchAll(
-    base(TABLES.accionesLead as any).select({
-      filterByFormula: `FIND('[Cobranza]', {Detalles}&'')>0`,
-      fields: ["Lead", "Timestamp"],
-    }),
-  );
-  const out = new Map<string, string>();
-  for (const r of recs) {
-    const f = r.fields as any;
-    const links = (f["Lead"] ?? []) as string[];
-    const lid = links[0];
-    if (!lid) continue;
-    const ts = String(f["Timestamp"] ?? "");
-    if (!ts) continue;
-    const prev = out.get(lid);
-    if (!prev || ts > prev) out.set(lid, ts);
-  }
-  return out;
+  const pg = await import("./pg");
+  return pg.ultimaCobranzaPorLeadPg();
+  
 }
 
 /** Timestamp del primer Acciones_Lead registrado (tooltip explicativo de
  *  KPIs). null si la tabla está vacía o inaccesible. */
 export async function primeraAccionLeadTimestamp(): Promise<string | null> {
-  if (usaPostgres("leads")) {
-    const pg = await import("./pg");
-    return pg.primeraAccionLeadTimestampPg();
-  }
-  try {
-    const primero = await fetchAll(
-      base(TABLES.accionesLead as any).select({
-        sort: [{ field: "Timestamp", direction: "asc" }],
-        maxRecords: 1,
-        fields: ["Timestamp"],
-      }),
-    );
-    return primero[0] ? String((primero[0].fields as any)?.["Timestamp"] ?? "") : null;
-  } catch {
-    return null;
-  }
+  const pg = await import("./pg");
+  return pg.primeraAccionLeadTimestampPg();
+  
 }
 
 /**
@@ -284,23 +186,9 @@ export async function crearAccionAutomatizacion(input: {
   tipo: string;
   descripcion: string;
 }): Promise<void> {
-  if (usaPostgres("leads")) {
-    const pg = await import("./pg");
-    return pg.crearAccionAutomatizacionPg(input);
-  }
-  await base(TABLES.accionesLead).create(
-    [
-      {
-        fields: {
-          Lead: [input.leadId],
-          Tipo: input.tipo,
-          Descripcion: input.descripcion,
-          Timestamp: new Date().toISOString(),
-        },
-      },
-    ],
-    { typecast: true },
-  );
+  const pg = await import("./pg");
+  return pg.crearAccionAutomatizacionPg(input);
+  
 }
 
 /**

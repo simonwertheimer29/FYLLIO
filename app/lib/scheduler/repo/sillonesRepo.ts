@@ -9,33 +9,17 @@ import { usaPostgres } from "../../db/data-backend";
 /** Volcado con fields explícitos (superficie diferida no-shows: map
  *  Sillón ID → Nombre; seeders dev: Nombre → recordId). */
 export async function listSillonesCamposRaw(fields: string[]): Promise<readonly any[]> {
-  if (usaPostgres("agenda")) {
-    const pg = await import("./pg");
-    return pg.listSillonesCamposRawPg(fields);
-  }
-  return base(TABLES.sillones as any).select({ fields }).all();
+  const pg = await import("./pg");
+  return pg.listSillonesCamposRawPg(fields);
+  
 }
 
 /** Records crudos por lote de IDs (vista semanal demo lee via rec.get()).
  *  firstPage por chunk de 40, como el helper que sustituye. */
 export async function listSillonesPorIdsRaw(ids: string[]): Promise<any[]> {
-  if (usaPostgres("agenda")) {
-    const pg = await import("./pg");
-    return pg.listSillonesPorIdsRawPg(ids);
-  }
-  if (!ids.length) return [];
-  const uniq = [...new Set(ids)];
-  const out: any[] = [];
-  const chunkSize = 40;
-  for (let i = 0; i < uniq.length; i += chunkSize) {
-    const chunk = uniq.slice(i, i + chunkSize);
-    const formula = `OR(${chunk.map((id) => `RECORD_ID()='${id}'`).join(",")})`;
-    const recs = await base(TABLES.sillones as any)
-      .select({ filterByFormula: formula })
-      .firstPage();
-    out.push(...(recs as any[]));
-  }
-  return out;
+  const pg = await import("./pg");
+  return pg.listSillonesPorIdsRawPg(ids);
+  
 }
 
 /** SOLO DEV — alta cruda de sillón (seeder). */

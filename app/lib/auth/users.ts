@@ -105,30 +105,12 @@ export async function emailInUse(email: string, excludeUserId?: string): Promise
  * flujo de coordinación por clínica.
  */
 export async function findUsersByEmail(email: string): Promise<Usuario[]> {
-  if (usaPostgresIdentidad()) { const pg = await import("./users-pg"); return pg.findUsersByEmailPg(email); }
-  const safe = escapeFormula(email.toLowerCase().trim());
-  if (!safe) return [];
-  const recs = await baseCentral(TABLES.usuarios)
-    .select({
-      filterByFormula: `AND(LOWER({Email})='${safe}', {Activo})`,
-      maxRecords: 10,
-    })
-    .firstPage();
-  return recs.map(toUsuario);
+ const pg = await import("./users-pg"); return pg.findUsersByEmailPg(email); 
 }
 
 /** Busca un admin por email. Devuelve null si no existe o no es admin activo. */
 export async function findUserByEmail(email: string): Promise<Usuario | null> {
-  if (usaPostgresIdentidad()) { const pg = await import("./users-pg"); return pg.findUserByEmailPg(email); }
-  const safe = escapeFormula(email.toLowerCase().trim());
-  const recs = await baseCentral(TABLES.usuarios)
-    .select({
-      filterByFormula: `AND({Email}='${safe}', {Rol}='admin', {Activo})`,
-      maxRecords: 1,
-    })
-    .firstPage();
-  if (!recs.length) return null;
-  return toUsuario(recs[0]);
+ const pg = await import("./users-pg"); return pg.findUserByEmailPg(email); 
 }
 
 // NOTA: Airtable `filterByFormula` con FIND/ARRAYJOIN sobre link fields compara
@@ -170,15 +152,7 @@ export async function findCoordinacionesByClinica(clinicaId: string): Promise<Us
 
 /** IDs de clínicas (Airtable record ids) accesibles por un usuario (vía junction). */
 export async function listClinicaIdsForUser(userId: string): Promise<string[]> {
-  if (usaPostgresIdentidad()) { const pg = await import("./users-pg"); return pg.listClinicaIdsForUserPg(userId); }
-  const junctions = await allJunctions();
-  const ids = new Set<string>();
-  for (const j of junctions) {
-    if (j.userIds.includes(userId)) {
-      for (const cid of j.clinicaIds) ids.add(cid);
-    }
-  }
-  return Array.from(ids);
+ const pg = await import("./users-pg"); return pg.listClinicaIdsForUserPg(userId); 
 }
 
 /**
@@ -190,31 +164,15 @@ export async function listClinicaIdsForUser(userId: string): Promise<string[]> {
 export async function listClinicas(
   opts: { onlyActivas?: boolean; cliente?: Cliente } = {},
 ): Promise<Clinica[]> {
-  if (usaPostgresIdentidad()) { const pg = await import("./users-pg"); return pg.listClinicasPg(opts); }
-  const parts: string[] = [];
-  if (opts.onlyActivas) parts.push("{Activa}");
-  if (opts.cliente) parts.push(`{Cliente}='${opts.cliente}'`);
-  const filter = parts.length === 0 ? "" : parts.length === 1 ? parts[0] : `AND(${parts.join(",")})`;
-  const recs = await fetchAll(
-    baseCentral(TABLES.clinics).select(filter ? { filterByFormula: filter } : {})
-  );
-  return recs.map(toClinica);
+ const pg = await import("./users-pg"); return pg.listClinicasPg(opts); 
 }
 
 export async function getUsuarioById(id: string): Promise<Usuario | null> {
-  if (usaPostgresIdentidad()) { const pg = await import("./users-pg"); return pg.getUsuarioByIdPg(id); }
-  try {
-    const rec = await baseCentral(TABLES.usuarios).find(id);
-    return toUsuario(rec);
-  } catch {
-    return null;
-  }
+ const pg = await import("./users-pg"); return pg.getUsuarioByIdPg(id); 
 }
 
 export async function listUsuarios(): Promise<Usuario[]> {
-  if (usaPostgresIdentidad()) { const pg = await import("./users-pg"); return pg.listUsuariosPg(); }
-  const recs = await fetchAll(baseCentral(TABLES.usuarios).select({}));
-  return recs.map(toUsuario);
+ const pg = await import("./users-pg"); return pg.listUsuariosPg(); 
 }
 
 /**
@@ -226,40 +184,12 @@ export async function listUsuarios(): Promise<Usuario[]> {
 export async function listUsuariosConClinicas(cliente?: Cliente): Promise<
   Array<Usuario & { clinicas: Array<{ id: string; nombre: string }> }>
 > {
-  if (usaPostgresIdentidad()) { const pg = await import("./users-pg"); return pg.listUsuariosConClinicasPg(cliente); }
-  const [usuariosAll, allClinicas, junctions] = await Promise.all([
-    listUsuarios(),
-    listClinicas({ cliente }),
-    allJunctions(),
-  ]);
-  // Fase 4 — solo los usuarios del cliente del admin (no los de otro cliente).
-  const usuarios = cliente ? usuariosAll.filter((u) => u.cliente === cliente) : usuariosAll;
-  const clinicaById = new Map(allClinicas.map((c) => [c.id, c]));
-  const clinicasByUserId = new Map<string, Array<{ id: string; nombre: string }>>();
-  for (const j of junctions) {
-    for (const uid of j.userIds) {
-      if (!clinicasByUserId.has(uid)) clinicasByUserId.set(uid, []);
-      for (const cid of j.clinicaIds) {
-        const c = clinicaById.get(cid);
-        if (c) clinicasByUserId.get(uid)!.push({ id: c.id, nombre: c.nombre });
-      }
-    }
-  }
-  return usuarios.map((u) => ({
-    ...u,
-    clinicas: u.rol === "admin" ? [] : clinicasByUserId.get(u.id) ?? [],
-  }));
+ const pg = await import("./users-pg"); return pg.listUsuariosConClinicasPg(cliente); 
 }
 
 /** Admins activos con Pin_hash seteado (candidatos a admin-pin-login). */
 export async function listAdminCandidates(): Promise<Usuario[]> {
-  if (usaPostgresIdentidad()) { const pg = await import("./users-pg"); return pg.listAdminCandidatesPg(); }
-  const recs = await fetchAll(
-    baseCentral(TABLES.usuarios).select({
-      filterByFormula: `AND({Rol}='admin', {Activo}, {Pin_hash}!='')`,
-    })
-  );
-  return recs.map(toUsuario);
+ const pg = await import("./users-pg"); return pg.listAdminCandidatesPg(); 
 }
 
 /** Crea un usuario. No hashea — el caller pasa hashes ya calculados. */
@@ -276,21 +206,7 @@ export async function createUsuario(args: {
   pinLength?: 4 | 6;
   activo?: boolean;
 }): Promise<Usuario> {
-  if (usaPostgresIdentidad()) { const pg = await import("./users-pg"); return pg.createUsuarioPg(args); }
-  const fields: Record<string, any> = {
-    Nombre: args.nombre,
-    Rol: args.rol,
-    Activo: args.activo ?? true,
-    Cliente: args.cliente,
-  };
-  if (args.email) fields["Email"] = args.email.toLowerCase().trim();
-  if (args.telefono) fields["Telefono"] = args.telefono.trim();
-  if (args.passwordHash) fields["Password_hash"] = args.passwordHash;
-  if (args.pinHash) fields["Pin_hash"] = args.pinHash;
-  if (args.pinLength) fields["Pin_length"] = args.pinLength;
-
-  const created = (await baseCentral(TABLES.usuarios).create([{ fields }]))[0];
-  return toUsuario(created);
+ const pg = await import("./users-pg"); return pg.createUsuarioPg(args); 
 }
 
 export async function updateUsuario(
@@ -305,18 +221,7 @@ export async function updateUsuario(
     activo: boolean;
   }>
 ): Promise<Usuario> {
-  if (usaPostgresIdentidad()) { const pg = await import("./users-pg"); return pg.updateUsuarioPg(id, patch); }
-  const fields: Record<string, any> = {};
-  if (patch.nombre !== undefined) fields["Nombre"] = patch.nombre;
-  if (patch.email !== undefined) fields["Email"] = patch.email;
-  if (patch.telefono !== undefined) fields["Telefono"] = patch.telefono ?? "";
-  if (patch.passwordHash !== undefined) fields["Password_hash"] = patch.passwordHash;
-  if (patch.pinHash !== undefined) fields["Pin_hash"] = patch.pinHash;
-  if (patch.pinLength !== undefined) fields["Pin_length"] = patch.pinLength;
-  if (patch.activo !== undefined) fields["Activo"] = patch.activo;
-
-  const updated = (await baseCentral(TABLES.usuarios).update([{ id, fields }]))[0];
-  return toUsuario(updated);
+ const pg = await import("./users-pg"); return pg.updateUsuarioPg(id, patch); 
 }
 
 /**
@@ -327,48 +232,12 @@ export async function updateUsuario(
  * Idempotente.
  */
 export async function setUsuarioClinicas(userId: string, clinicaIds: string[]): Promise<void> {
-  if (usaPostgresIdentidad()) { const pg = await import("./users-pg"); return pg.setUsuarioClinicasPg(userId, clinicaIds); }
-  const target = new Set(clinicaIds);
-  const recs = await fetchAll(baseCentral(TABLES.usuarioClinicas).select({}));
-  const toDelete: string[] = [];
-  const keep = new Set<string>();
-  for (const rec of recs) {
-    const userLinks = (rec.fields?.["Usuario"] ?? []) as string[];
-    if (!userLinks.includes(userId)) continue;
-    const clinicaLinks = (rec.fields?.["Clinica"] ?? []) as string[];
-    // Junction con ambos lados single-link (lo creamos así); asumimos clinicaLinks[0].
-    const cid = clinicaLinks[0];
-    if (!cid || !target.has(cid)) {
-      toDelete.push(rec.id);
-    } else {
-      keep.add(cid);
-    }
-  }
-  // Borrar sobrantes en batches de 10.
-  for (let i = 0; i < toDelete.length; i += 10) {
-    await baseCentral(TABLES.usuarioClinicas).destroy(toDelete.slice(i, i + 10));
-  }
-  // Crear los que faltan.
-  const missing = clinicaIds.filter((cid) => !keep.has(cid));
-  const toCreate = missing.map((cid) => ({
-    fields: { Usuario: [userId], Clinica: [cid] },
-  }));
-  for (let i = 0; i < toCreate.length; i += 10) {
-    await baseCentral(TABLES.usuarioClinicas).create(toCreate.slice(i, i + 10));
-  }
+ const pg = await import("./users-pg"); return pg.setUsuarioClinicasPg(userId, clinicaIds); 
 }
 
 /** Enlaza un usuario a una clínica (idempotente: no crea duplicados). */
 export async function linkUsuarioClinica(userId: string, clinicaId: string): Promise<void> {
-  if (usaPostgresIdentidad()) { const pg = await import("./users-pg"); return pg.linkUsuarioClinicaPg(userId, clinicaId); }
-  const junctions = await allJunctions();
-  const exists = junctions.some(
-    (j) => j.userIds.includes(userId) && j.clinicaIds.includes(clinicaId)
-  );
-  if (exists) return;
-  await baseCentral(TABLES.usuarioClinicas).create([
-    { fields: { Usuario: [userId], Clinica: [clinicaId] } },
-  ]);
+ const pg = await import("./users-pg"); return pg.linkUsuarioClinicaPg(userId, clinicaId); 
 }
 
 /** Elimina los vínculos de un usuario a una lista de clínicas. Usar con cuidado. */
@@ -377,19 +246,7 @@ export async function unlinkUsuarioFromClinicas(
   clinicaIds: string[]
 ): Promise<void> {
   if (!clinicaIds.length) return;
-  if (usaPostgresIdentidad()) { const pg = await import("./users-pg"); return pg.unlinkUsuarioFromClinicasPg(userId, clinicaIds); }
-  const recs = await fetchAll(baseCentral(TABLES.usuarioClinicas).select({}));
-  const toDelete: string[] = [];
-  for (const rec of recs) {
-    const userLinks = (rec.fields?.["Usuario"] ?? []) as string[];
-    if (!userLinks.includes(userId)) continue;
-    const clinicaLinks = (rec.fields?.["Clinica"] ?? []) as string[];
-    if (clinicaLinks.some((cid) => clinicaIds.includes(cid))) toDelete.push(rec.id);
-  }
-  if (!toDelete.length) return;
-  for (let i = 0; i < toDelete.length; i += 10) {
-    await baseCentral(TABLES.usuarioClinicas).destroy(toDelete.slice(i, i + 10));
-  }
+ const pg = await import("./users-pg"); return pg.unlinkUsuarioFromClinicasPg(userId, clinicaIds); 
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -399,24 +256,20 @@ export async function unlinkUsuarioFromClinicas(
 // ─────────────────────────────────────────────────────────────────────
 
 export async function findClinicaCentralRaw(id: string): Promise<any> {
-  if (usaPostgresIdentidad()) { const pg = await import("./users-pg"); return pg.findClinicaCentralRawPg(id); }
-  return baseCentral(TABLES.clinics as any).find(id);
+ const pg = await import("./users-pg"); return pg.findClinicaCentralRawPg(id); 
 }
 
 export async function selectClinicasCentralRaw(opts: {
   fields?: string[];
   filterByFormula?: string;
 }): Promise<any[]> {
-  if (usaPostgresIdentidad()) { const pg = await import("./users-pg"); return pg.selectClinicasCentralRawPg(opts); }
-  return fetchAll(baseCentral(TABLES.clinics as any).select(opts as any));
+ const pg = await import("./users-pg"); return pg.selectClinicasCentralRawPg(opts); 
 }
 
 export async function createClinicaCentralRaw(fields: Record<string, unknown>): Promise<any> {
-  if (usaPostgresIdentidad()) { const pg = await import("./users-pg"); return pg.createClinicaCentralRawPg(fields); }
-  return (await baseCentral(TABLES.clinics).create([{ fields } as any]))[0]!;
+ const pg = await import("./users-pg"); return pg.createClinicaCentralRawPg(fields); 
 }
 
 export async function updateClinicaCentralRaw(id: string, fields: Record<string, unknown>): Promise<any> {
-  if (usaPostgresIdentidad()) { const pg = await import("./users-pg"); return pg.updateClinicaCentralRawPg(id, fields); }
-  return (await baseCentral(TABLES.clinics).update([{ id, fields } as any]))[0]!;
+ const pg = await import("./users-pg"); return pg.updateClinicaCentralRawPg(id, fields); 
 }

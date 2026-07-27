@@ -153,51 +153,15 @@ export type ListLeadsParams = {
 };
 
 export async function listLeads(params: ListLeadsParams = {}): Promise<Lead[]> {
-  if (usaPostgres("leads")) {
-    const pg = await import("./pg");
-    return pg.listLeadsPg(params);
-  }
-  const recs = await fetchAll(base(TABLES.leads).select({}));
-  let leads = recs.map(toLead);
-
-  if (params.clinicaIds && params.clinicaIds.length > 0) {
-    const set = new Set(params.clinicaIds);
-    leads = leads.filter((l) => l.clinicaId && set.has(l.clinicaId));
-  }
-  if (params.estado) {
-    leads = leads.filter((l) => l.estado === params.estado);
-  }
-  if (params.search) {
-    const q = params.search.toLowerCase().trim();
-    if (q) {
-      leads = leads.filter(
-        (l) =>
-          l.nombre.toLowerCase().includes(q) ||
-          (l.telefono ?? "").toLowerCase().includes(q) ||
-          (l.email ?? "").toLowerCase().includes(q)
-      );
-    }
-  }
-  if (params.fechaDesde) {
-    leads = leads.filter((l) => l.createdAt >= params.fechaDesde!);
-  }
-  if (params.fechaHasta) {
-    leads = leads.filter((l) => l.createdAt <= params.fechaHasta!);
-  }
-  return leads;
+  const pg = await import("./pg");
+  return pg.listLeadsPg(params);
+  
 }
 
 export async function getLead(id: string): Promise<Lead | null> {
-  if (usaPostgres("leads")) {
-    const pg = await import("./pg");
-    return pg.getLeadPg(id);
-  }
-  try {
-    const rec = await base(TABLES.leads).find(id);
-    return toLead(rec);
-  } catch {
-    return null;
-  }
+  const pg = await import("./pg");
+  return pg.getLeadPg(id);
+  
 }
 
 /**
@@ -205,16 +169,9 @@ export async function getLead(id: string): Promise<Lead | null> {
  * Usado por el cron de automatizaciones (trigger lead_inactivo_n_dias).
  */
 export async function listLeadsPorEstados(estados: string[]): Promise<Lead[]> {
-  if (usaPostgres("leads")) {
-    const pg = await import("./pg");
-    return pg.listLeadsPorEstadosPg(estados);
-  }
-  if (estados.length === 0) return [];
-  const formula = `OR(${estados.map((e) => `{Estado}="${e}"`).join(", ")})`;
-  const recs = await fetchAll(
-    base(TABLES.leads).select({ filterByFormula: formula, pageSize: 100 }),
-  );
-  return recs.map(toLead);
+  const pg = await import("./pg");
+  return pg.listLeadsPorEstadosPg(estados);
+  
 }
 
 /**
@@ -226,36 +183,9 @@ export async function listLeadsPorEstados(estados: string[]): Promise<Lead[]> {
 export async function buscarLeadActivoPorTelefono(
   telefonoNormalizado: string,
 ): Promise<{ id: string; clinicaId?: string } | null> {
-  if (usaPostgres("leads")) {
-    const pg = await import("./pg");
-    return pg.buscarLeadActivoPorTelefonoPg(telefonoNormalizado);
-  }
-  const tel = telefonoNormalizado;
-  const formula = `AND(
-    NOT({Convertido_A_Paciente}),
-    FIND('${tel}', SUBSTITUTE(SUBSTITUTE(SUBSTITUTE({Telefono}&'', ' ', ''), '+', ''), '-', ''))
-  )`.replace(/\s+/g, " ");
-  try {
-    const recs = await fetchAll(
-      base(TABLES.leads as any).select({
-        filterByFormula: formula,
-        fields: ["Telefono", "Clinica"],
-        maxRecords: 1,
-      }),
-    );
-    if (recs.length === 0) return null;
-    const r = recs[0]!;
-    const clis = (r.fields as any)?.["Clinica"];
-    const clinicaId = Array.isArray(clis) ? String(clis[0]) : undefined;
-    return { id: r.id as string, clinicaId };
-  } catch (err) {
-    // Redacción de tokens en el log (paridad con el sanitizeError del webhook).
-    const msg = (err instanceof Error ? err.message : String(err))
-      .replace(/Bearer\s+[A-Za-z0-9_\-.]+/g, "Bearer [REDACTED]")
-      .replace(/EAA[A-Za-z0-9_\-]{30,}/g, "[REDACTED_TOKEN]");
-    console.error("[leads] buscarLeadActivoPorTelefono:", msg);
-    return null;
-  }
+  const pg = await import("./pg");
+  return pg.buscarLeadActivoPorTelefonoPg(telefonoNormalizado);
+  
 }
 
 export async function createLead(input: {
@@ -269,52 +199,9 @@ export async function createLead(input: {
   fechaCita?: string;
   notas?: string;
 }): Promise<Lead> {
-  if (usaPostgres("leads")) {
-    const pg = await import("./pg");
-    return pg.createLeadPg(input);
-  }
-  const fields: Record<string, any> = {
-    Nombre: input.nombre,
-    Estado: input.estado ?? "Nuevo",
-    Clinica: [input.clinicaId],
-    WhatsApp_Enviados: 0,
-    Llamado: false,
-    Convertido_A_Paciente: false,
-  };
-  if (input.telefono) fields["Telefono"] = input.telefono;
-  if (input.email) fields["Email"] = input.email;
-  if (input.tratamiento) fields["Tratamiento_Interes"] = input.tratamiento;
-  if (input.canal) fields["Canal_Captacion"] = input.canal;
-  if (input.fechaCita) fields["Fecha_Cita"] = input.fechaCita;
-  if (input.notas) fields["Notas"] = input.notas;
-
-  const created = (await base(TABLES.leads).create([{ fields }]))[0]!;
-  const lead = toLead(created);
-
-  // Sprint 16b Bloque 1 — emitir evento "lead_creado" para el motor.
-  // No await.catch para que un fallo del motor NO tumbe el create.
-  // Lazy import para evitar ciclos en builds donde leads se importa
-  // desde el propio engine (presupuestos/Acciones_Lead).
-  void (async () => {
-    try {
-      const { emitirEvento } = await import("../automatizaciones/engine");
-      await emitirEvento({
-        tipo: "lead_creado",
-        entidadTipo: "Lead",
-        entidadId: lead.id,
-        payload: {
-          clinicaId: lead.clinicaId,
-          estado: lead.estado,
-          canal: lead.canal,
-          tratamiento: lead.tratamiento,
-        },
-      });
-    } catch (err) {
-      console.error("[automatizaciones createLead] emit falló:", err);
-    }
-  })();
-
-  return lead;
+  const pg = await import("./pg");
+  return pg.createLeadPg(input);
+  
 }
 
 export async function updateLead(
@@ -342,76 +229,20 @@ export async function updateLead(
     asistido: boolean;
   }>
 ): Promise<Lead> {
-  if (usaPostgres("leads")) {
-    const pg = await import("./pg");
-    return pg.updateLeadPg(id, patch as Record<string, unknown>);
-  }
-  const fields: Record<string, any> = {};
-  if (patch.nombre !== undefined) fields["Nombre"] = patch.nombre;
-  if (patch.telefono !== undefined) fields["Telefono"] = patch.telefono ?? "";
-  if (patch.email !== undefined) fields["Email"] = patch.email ?? "";
-  if (patch.tratamiento !== undefined) fields["Tratamiento_Interes"] = patch.tratamiento ?? null;
-  if (patch.canal !== undefined) fields["Canal_Captacion"] = patch.canal ?? null;
-  if (patch.estado !== undefined) fields["Estado"] = patch.estado;
-  if (patch.clinicaId !== undefined) fields["Clinica"] = [patch.clinicaId];
-  if (patch.fechaCita !== undefined) fields["Fecha_Cita"] = patch.fechaCita ?? "";
-  if (patch.horaCita !== undefined) fields["Hora_Cita"] = patch.horaCita ?? "";
-  if (patch.doctorAsignadoId !== undefined)
-    fields["Doctor_Asignado"] = patch.doctorAsignadoId ? [patch.doctorAsignadoId] : [];
-  if (patch.tipoVisita !== undefined) fields["Tipo_Visita"] = patch.tipoVisita ?? null;
-  if (patch.motivoNoInteres !== undefined) fields["Motivo_No_Interes"] = patch.motivoNoInteres ?? null;
-  if (patch.intencionDetectada !== undefined) fields["Intencion_Detectada"] = patch.intencionDetectada ?? null;
-  if (patch.mensajeSugerido !== undefined) fields["Mensaje_Sugerido"] = patch.mensajeSugerido ?? "";
-  if (patch.accionSugerida !== undefined) fields["Accion_Sugerida"] = patch.accionSugerida ?? "";
-  if (patch.llamado !== undefined) fields["Llamado"] = patch.llamado;
-  if (patch.whatsappEnviados !== undefined) fields["WhatsApp_Enviados"] = patch.whatsappEnviados;
-  if (patch.ultimaAccion !== undefined) fields["Ultima_Accion"] = patch.ultimaAccion ?? "";
-  if (patch.notas !== undefined) fields["Notas"] = patch.notas ?? "";
-  if (patch.asistido !== undefined) fields["Asistido"] = patch.asistido;
-
-  // typecast: true permite que Airtable cree automáticamente la opción del
-  // singleSelect Estado la primera vez que llega "Convertido" (añadido en
-  // Sprint 9 sin PATCH de schema — Metadata API no acepta modificaciones
-  // de choices sobre un singleSelect existente en este token).
-  const updated = (
-    await base(TABLES.leads).update([{ id, fields }], { typecast: true })
-  )[0]!;
-  return toLead(updated);
+  const pg = await import("./pg");
+  return pg.updateLeadPg(id, patch as Record<string, unknown>);
+  
 }
 
 /** Añade una entrada con timestamp al campo `Ultima_Accion` (log ligero). */
 export async function appendLeadLog(leadId: string, event: string): Promise<void> {
-  if (usaPostgres("leads")) {
-    const pg = await import("./pg");
-    return pg.appendLeadLogPg(leadId, event);
-  }
-  try {
-    const rec = await base(TABLES.leads).find(leadId);
-    const prev = String(rec.fields?.["Ultima_Accion"] ?? "");
-    const stamp = new Date().toISOString().replace(".000Z", "Z");
-    const line = `[${stamp}] ${event}`;
-    const next = prev ? `${prev}\n${line}` : line;
-    await base(TABLES.leads).update([{ id: leadId, fields: { Ultima_Accion: next } }]);
-  } catch {
-    /* silencioso: log sin impacto funcional */
-  }
+  const pg = await import("./pg");
+  return pg.appendLeadLogPg(leadId, event);
+  
 }
 
 export async function markLeadConvertido(leadId: string, pacienteId: string): Promise<Lead> {
-  if (usaPostgres("leads")) {
-    const pg = await import("./pg");
-    return pg.markLeadConvertidoPg(leadId, pacienteId);
-  }
-  const updated = (
-    await base(TABLES.leads).update([
-      {
-        id: leadId,
-        fields: {
-          Convertido_A_Paciente: true,
-          Paciente_ID: [pacienteId],
-        },
-      },
-    ])
-  )[0]!;
-  return toLead(updated);
+  const pg = await import("./pg");
+  return pg.markLeadConvertidoPg(leadId, pacienteId);
+  
 }

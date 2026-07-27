@@ -52,29 +52,9 @@ function toPago(rec: any): Pago {
 // ─── Lectura ──────────────────────────────────────────────────────────
 
 export async function getPagosByPaciente(pacienteId: string): Promise<Pago[]> {
-  if (usaPostgres("pagos")) {
-    const pg = await import("./pagos-pg");
-    return pg.getPagosByPacientePg(pacienteId);
-  }
-  if (!pacienteId) return [];
-  // Sprint 14a — usa Paciente_RecordId (texto plano rellenado por
-  // codigo) para filterByFormula directo. Reemplaza el workaround
-  // load-all+filter-JS del Sprint 13.1.1, que se introdujo porque
-  // ARRAYJOIN({Paciente_Link}) devuelve el primary field de Pacientes
-  // ("PAT_NNN") en vez de record IDs.
-  const formula = `{Paciente_RecordId} = '${pacienteId}'`;
-  try {
-    const recs = await fetchAll(
-      base(TABLES.pagosPaciente as any).select({
-        filterByFormula: formula,
-        sort: [{ field: "Fecha_Pago", direction: "desc" }],
-      }),
-    );
-    return recs.map(toPago);
-  } catch (err) {
-    console.error("[pagos] getPagosByPaciente:", err instanceof Error ? err.message : err);
-    return [];
-  }
+  const pg = await import("./pagos-pg");
+  return pg.getPagosByPacientePg(pacienteId);
+  
 }
 
 /**
@@ -95,67 +75,9 @@ export async function getFacturadoEnPeriodo(args: {
   /** Filtra a una clinica concreta (record id de Clinicas). */
   clinicaId?: string;
 }): Promise<{ total: number; pendiente: number; pagosCount: number }> {
-  if (usaPostgres("pagos")) {
-    const pg = await import("./pagos-pg");
-    return pg.getFacturadoEnPeriodoPg(args);
-  }
-  const desdeISO = args.desde.toISOString().slice(0, 10);
-  const hastaISO = args.hasta.toISOString().slice(0, 10);
-  // Airtable IS_AFTER y IS_BEFORE son inclusivos por dia? Usamos rango
-  // explícito IS_SAME_OR_AFTER + IS_SAME_OR_BEFORE.
-  const formula = `AND(
-    IS_AFTER({Fecha_Pago}, '${shiftDay(desdeISO, -1)}'),
-    IS_BEFORE({Fecha_Pago}, '${shiftDay(hastaISO, 1)}')
-  )`.replace(/\s+/g, " ");
-
-  let pagos: Pago[];
-  try {
-    const recs = await fetchAll(
-      base(TABLES.pagosPaciente as any).select({ filterByFormula: formula }),
-    );
-    pagos = recs.map(toPago);
-  } catch (err) {
-    console.error("[pagos] getFacturadoEnPeriodo:", err instanceof Error ? err.message : err);
-    return { total: 0, pendiente: 0, pagosCount: 0 };
-  }
-
-  if (pagos.length === 0) {
-    return { total: 0, pendiente: 0, pagosCount: 0 };
-  }
-
-  // Si no hay filtros adicionales, total = suma directa.
-  if (!args.soloOrigenLead && !args.clinicaId) {
-    const total = pagos.reduce((s, p) => s + p.importe, 0);
-    const pacIds = Array.from(new Set(pagos.map((p) => p.pacienteId).filter(Boolean)));
-    const pendiente = await getPendienteSum(pacIds);
-    return { total, pendiente, pagosCount: pagos.length };
-  }
-
-  // Cruce con Pacientes para filtrar por clinica/origen lead.
-  const pacIds = Array.from(new Set(pagos.map((p) => p.pacienteId).filter(Boolean)));
-  if (pacIds.length === 0) return { total: 0, pendiente: 0, pagosCount: 0 };
-  // FASE 1 migración: el cruce con Pacientes vive en el repo del dominio.
-  let pacResumen: Awaited<ReturnType<typeof listResumenFinancieroPorIds>> = [];
-  try {
-    pacResumen = await listResumenFinancieroPorIds(pacIds);
-  } catch (err) {
-    console.error("[pagos] crossing pacientes:", err instanceof Error ? err.message : err);
-    return { total: 0, pendiente: 0, pagosCount: 0 };
-  }
-  const pacAllowed = new Set<string>();
-  let pendienteSum = 0;
-  for (const p of pacResumen) {
-    const ok =
-      (!args.clinicaId || p.clinicaIds.includes(args.clinicaId)) &&
-      (!args.soloOrigenLead || p.tieneLeadOrigen);
-    if (ok) {
-      pacAllowed.add(p.id);
-      pendienteSum += p.pendiente;
-    }
-  }
-  const filtrados = pagos.filter((p) => pacAllowed.has(p.pacienteId));
-  const total = filtrados.reduce((s, p) => s + p.importe, 0);
-  return { total, pendiente: pendienteSum, pagosCount: filtrados.length };
+  const pg = await import("./pagos-pg");
+  return pg.getFacturadoEnPeriodoPg(args);
+  
 }
 
 /**
@@ -191,60 +113,9 @@ export async function getFacturadoPorPacientes(args: {
   desde: Date;
   hasta: Date;
 }): Promise<{ total: number; pendiente: number; pagosCount: number }> {
-  if (usaPostgres("pagos")) {
-    const pg = await import("./pagos-pg");
-    return pg.getFacturadoPorPacientesPg(args);
-  }
-  if (args.pacienteIds.length === 0) {
-    return { total: 0, pendiente: 0, pagosCount: 0 };
-  }
-  const desdeISO = args.desde.toISOString().slice(0, 10);
-  const hastaISO = args.hasta.toISOString().slice(0, 10);
-  const desdeShift = shiftDay(desdeISO, -1);
-  const hastaShift = shiftDay(hastaISO, 1);
-
-  let total = 0;
-  let pagosCount = 0;
-
-  const batches: string[][] = [];
-  for (let i = 0; i < args.pacienteIds.length; i += BATCH_SIZE_PACIENTES) {
-    batches.push(args.pacienteIds.slice(i, i + BATCH_SIZE_PACIENTES));
-  }
-
-  await Promise.all(
-    batches.map(async (batch) => {
-      const orPart = batch
-        .map((id) => `{Paciente_RecordId}='${id}'`)
-        .join(",");
-      const formula = `AND(
-        IS_AFTER({Fecha_Pago}, '${desdeShift}'),
-        IS_BEFORE({Fecha_Pago}, '${hastaShift}'),
-        OR(${orPart})
-      )`.replace(/\s+/g, " ");
-      try {
-        const recs = await fetchAll(
-          base(TABLES.pagosPaciente as any).select({
-            filterByFormula: formula,
-            fields: ["Importe"],
-          }),
-        );
-        for (const r of recs) {
-          total += Number((r.fields as any)?.["Importe"] ?? 0) || 0;
-          pagosCount++;
-        }
-      } catch (err) {
-        console.error(
-          "[pagos] getFacturadoPorPacientes batch:",
-          err instanceof Error ? err.message : err,
-        );
-      }
-    }),
-  );
-
-  // Pendiente: cache desde Pacientes.Pendiente (mantenido por crearPago).
-  const pendiente = await getPendienteSum(args.pacienteIds);
-
-  return { total, pendiente, pagosCount };
+  const pg = await import("./pagos-pg");
+  return pg.getFacturadoPorPacientesPg(args);
+  
 }
 
 async function getPendienteSum(pacIds: string[]): Promise<number> {
@@ -309,51 +180,9 @@ export async function crearPago(args: {
   /** Sprint 14a — id de Usuario que registra el pago (auditoria real). */
   usuarioCreadorId?: string;
 }): Promise<Pago> {
-  if (usaPostgres("pagos")) {
-    const pg = await import("./pagos-pg");
-    return pg.crearPagoPg(args);
-  }
-  const fechaPago = args.fechaPago ?? new Date().toISOString().slice(0, 10);
-  const metodo = args.metodo ?? "Otro";
-  const tipo = args.tipo ?? "Liquidacion";
-  const resumen = `${metodo} · ${fechaPago} · ${args.importe.toFixed(2)}€`;
-
-  const created = (
-    await base(TABLES.pagosPaciente as any).create(
-      [
-        {
-          fields: {
-            Resumen: resumen,
-            Paciente_Link: [args.pacienteId],
-            Paciente_RecordId: args.pacienteId,
-            Fecha_Pago: fechaPago,
-            Importe: args.importe,
-            Metodo: metodo,
-            Tipo: tipo,
-            ...(args.nota ? { Nota: args.nota } : {}),
-            ...(args.usuarioCreadorId
-              ? { Usuario_Creador: [args.usuarioCreadorId] }
-              : {}),
-          },
-        },
-      ],
-      // typecast: Airtable extiende los enums Tipo/Metodo si llega un
-      // valor nuevo (necesario para Primer_Pago_Plan tras el re-scope).
-      { typecast: true } as any,
-    )
-  )[0]!;
-
-  await logAccionPago({
-    pagoId: created.id,
-    pacienteId: args.pacienteId,
-    tipo: "Crear",
-    importeAntes: null,
-    importeDespues: args.importe,
-    usuarioId: args.usuarioCreadorId,
-    notaCambio: `Pago ${tipo} · ${metodo} · ${fechaPago}`,
-  });
-
-  return toPago(created);
+  const pg = await import("./pagos-pg");
+  return pg.crearPagoPg(args);
+  
 }
 
 /**
@@ -371,56 +200,9 @@ export async function actualizarPago(
   }>,
   context: { usuarioId?: string | null } = {},
 ): Promise<Pago> {
-  if (usaPostgres("pagos")) {
-    const pg = await import("./pagos-pg");
-    return pg.actualizarPagoPg(pagoId, patch, context);
-  }
-  const before = await base(TABLES.pagosPaciente as any).find(pagoId);
-  const beforeFields = before.fields as any;
-  const importeAntes = Number(beforeFields["Importe"] ?? 0) || 0;
-  const pacIds = (beforeFields["Paciente_Link"] ?? []) as string[];
-  const pacienteId =
-    String(beforeFields["Paciente_RecordId"] ?? "") || pacIds[0] || "";
-
-  const fields: Record<string, unknown> = {};
-  if (patch.importe !== undefined) fields["Importe"] = patch.importe;
-  if (patch.fechaPago !== undefined) fields["Fecha_Pago"] = patch.fechaPago;
-  if (patch.metodo !== undefined) fields["Metodo"] = patch.metodo;
-  if (patch.tipo !== undefined) fields["Tipo"] = patch.tipo;
-  if (patch.nota !== undefined) fields["Nota"] = patch.nota ?? "";
-  // Refrescar Resumen si cambia algo visible.
-  if (
-    patch.importe !== undefined ||
-    patch.fechaPago !== undefined ||
-    patch.metodo !== undefined
-  ) {
-    const fechaPago = patch.fechaPago ?? String(beforeFields["Fecha_Pago"] ?? "").slice(0, 10);
-    const metodo = patch.metodo ?? String(beforeFields["Metodo"] ?? "Otro");
-    const importe = patch.importe ?? importeAntes;
-    fields["Resumen"] = `${metodo} · ${fechaPago} · ${importe.toFixed(2)}€`;
-  }
-
-  const updated = (
-    await (base(TABLES.pagosPaciente as any) as any).update(
-      [{ id: pagoId, fields }],
-      { typecast: true },
-    )
-  )[0]!;
-
-  if (pacienteId) {
-  }
-  const importeDespues = Number(((updated.fields as any) ?? {})["Importe"] ?? 0) || 0;
-  await logAccionPago({
-    pagoId,
-    pacienteId,
-    tipo: "Editar",
-    importeAntes,
-    importeDespues,
-    usuarioId: context.usuarioId ?? null,
-    notaCambio: Object.keys(patch).join(", "),
-  });
-
-  return toPago(updated);
+  const pg = await import("./pagos-pg");
+  return pg.actualizarPagoPg(pagoId, patch, context);
+  
 }
 
 /**
@@ -430,29 +212,9 @@ export async function eliminarPago(
   pagoId: string,
   context: { usuarioId?: string | null } = {},
 ): Promise<void> {
-  if (usaPostgres("pagos")) {
-    const pg = await import("./pagos-pg");
-    return pg.eliminarPagoPg(pagoId, context);
-  }
-  const before = await base(TABLES.pagosPaciente as any).find(pagoId);
-  const beforeFields = before.fields as any;
-  const importeAntes = Number(beforeFields["Importe"] ?? 0) || 0;
-  const pacIds = (beforeFields["Paciente_Link"] ?? []) as string[];
-  const pacienteId =
-    String(beforeFields["Paciente_RecordId"] ?? "") || pacIds[0] || "";
-
-  await logAccionPago({
-    pagoId,
-    pacienteId,
-    tipo: "Eliminar",
-    importeAntes,
-    importeDespues: null,
-    usuarioId: context.usuarioId ?? null,
-    notaCambio: `Pago ${beforeFields["Tipo"] ?? ""} de ${importeAntes}€ eliminado`,
-  });
-  await base(TABLES.pagosPaciente as any).destroy([pagoId]);
-  if (pacienteId) {
-  }
+  const pg = await import("./pagos-pg");
+  return pg.eliminarPagoPg(pagoId, context);
+  
 }
 
 // ─── Util fechas ─────────────────────────────────────────────────────
@@ -487,29 +249,7 @@ export async function listPagosResumen(opts: {
   desdeExclusivoIso?: string;
   hastaExclusivoIso?: string;
 } = {}): Promise<PagoResumen[]> {
-  if (usaPostgres("pagos")) {
-    const pg = await import("./pagos-pg");
-    return pg.listPagosResumenPg(opts);
-  }
-  const partes: string[] = [];
-  if (opts.desdeExclusivoIso) partes.push(`IS_AFTER({Fecha_Pago}, '${opts.desdeExclusivoIso}')`);
-  if (opts.hastaExclusivoIso) partes.push(`IS_BEFORE({Fecha_Pago}, '${opts.hastaExclusivoIso}')`);
-  const filterByFormula =
-    partes.length > 1 ? `AND(${partes.join(",")})` : partes.length === 1 ? partes[0] : undefined;
-  const recs = await fetchAll(
-    base(TABLES.pagosPaciente as any).select({
-      ...(filterByFormula ? { filterByFormula } : {}),
-      fields: ["Paciente_RecordId", "Importe", "Metodo", "Tipo", "Fecha_Pago"],
-    }),
-  );
-  return recs.map((r) => {
-    const f = r.fields as any;
-    return {
-      pacienteRecordId: String(f["Paciente_RecordId"] ?? ""),
-      importe: Number(f["Importe"] ?? 0) || 0,
-      metodo: String(f["Metodo"] ?? ""),
-      tipo: String(f["Tipo"] ?? ""),
-      fechaPago: String(f["Fecha_Pago"] ?? ""),
-    };
-  });
+  const pg = await import("./pagos-pg");
+  return pg.listPagosResumenPg(opts);
+  
 }
