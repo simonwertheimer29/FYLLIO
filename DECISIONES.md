@@ -393,3 +393,28 @@ ambas. Y se retiró el sortable de Leads: reordenar dentro de la columna no pers
 vuelve a su sitio, contradiciendo al criterio de orden declarado — mover de columna es la acción
 real, reordenar era una acción sin efecto. Los dos tableros ganan un pie honesto por columna ("Ver N
 anteriores") porque el rango recortaba en silencio en las columnas activas.
+
+## 2026-07-27 — Una sola sesión: muere la cookie legacy de presupuestos
+Deuda documentada desde el Sprint 7 ("hasta Sprint 8 que las unifica") que mordió dos veces: dos
+cookies con dos secretos y dos caducidades (24 h la buena, 7 d la legacy) hacían que una sesión
+válida recibiera 401 de media aplicación. `withPresupuestosAuth` lee ahora `fyllio_session` y deriva
+la misma forma que el login firmaba; las 5 rutas que verificaban la cookie a mano pasan por
+`getSession`. Queda viva la de no-shows (zona congelada); con ella morirá PRESUPUESTOS_JWT_SECRET.
+Detalle revelador: el casteo a ciegas de la cookie escondía que el tipo no admitía el cliente DEMO.
+
+## 2026-07-27 — Cuatro copias financieras del paciente, fuera
+`presupuesto_total/pagado/pendiente/aceptado` eran caché de lo que ya viven presupuestos y pagos, y
+sostenían una maquinaria entera: sincronizar en cada pago, registrar inconsistencias cuando la
+sincronización fallaba y un endpoint admin para reconciliarlas. Con las columnas fuera (migración
+008) muere todo eso: no se puede desincronizar lo que no se duplica. QA antes/después idéntico cifra
+a cifra y alta/baja de pago verificada en vivo. De paso se descubrió que la invariante del seed
+comparaba la caché contra su propio derivado —una tautología—; ahora comprueba algo que sí puede
+fallar: ningún paciente con más cobrado que firmado.
+
+## 2026-07-27 — El seed inventaba motivos de descarte que el esquema no admite
+`Motivo_No_Interes` es un single-select de dos opciones en las bases reales, pero el seed escribía
+texto libre: los 158 leads descartados de DEMO quedaban fuera del enum, la columna los agrupaba
+todos en "Rechazo" y el panel afirmaba "rechazó la propuesta" de cualquiera — en la pantalla que se
+enseña en demos. El matiz se conserva donde corresponde (el hilo de WhatsApp) y la columna guarda un
+valor válido. Lección: un seed que no respeta el esquema real no es "datos de prueba", es una demo
+que miente.

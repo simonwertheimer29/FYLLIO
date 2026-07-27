@@ -415,6 +415,9 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   `?aceptado=`. QA: cero lectores fuera del repo/seeds. **Queda como paso aparte**
   (acordado): dejar de ESCRIBIR las copias (`crearPago`→sync, seeds) y la migración que
   elimina las 4 columnas — pequeña, tras QA verde del piloto.
+- **2026-07-27 · 🟢 CERRADA (paso 2)**: migración 008 elimina las 4 columnas; fuera
+  syncPacienteCache, la tabla de inconsistencias como mecanismo y /api/admin/reconciliar-pagos.
+  QA antes/después idéntico cifra a cifra + alta/baja de pago verificada.
 
 ## 29. CommandCenterView huérfano tras el dashboard de Red
 - **Zona:** `app/components/presupuestos/CommandCenterView.tsx` (636 líneas)
@@ -424,6 +427,9 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Mejora:** borrar el componente (y sus helpers exclusivos) tras el preview del dashboard.
 - **Impacto:** bajo (limpieza).
 - **Fecha:** 2026-07-23 · 🔵
+- **2026-07-27 · 🟢 CERRADA**: CommandCenterView cayó con el dashboard de Red; barrido
+  posterior de 9 componentes sin importador (~1.900 líneas), incluidos dos de los tres
+  generadores de mensaje IA del catálogo de olores.
 
 ## 30. listClinicas sin cliente en cola-cobros (mismo patrón que cazó el QA del dashboard)
 - **Zona:** `app/api/cola-cobros/route.ts` (listClinicas({ onlyActivas: true }) sin cliente)
@@ -550,6 +556,9 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** medio en fiabilidad (expiraciones desincronizadas = pantallas a medias) y en
   simplicidad de auth.
 - **Fecha:** 2026-07-26 · 🔵
+- **2026-07-27 · 🟢 CERRADA**: withPresupuestosAuth lee fyllio_session; las 5 rutas que
+  verificaban la cookie a mano pasan por getSession; el login deja de emitirla. Queda la de
+  no-shows (zona congelada, nº 39); con ella morirá PRESUPUESTOS_JWT_SECRET.
 
 ## 39. Zona no-shows sin camino de WhatsApp con registro
 - **Zona:** `/no-shows` (HoyView, AgendaView, RiesgoView, AccionesView, AccionSidePanel)
@@ -571,6 +580,8 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   único) y retirar el campo del payload.
 - **Impacto:** bajo hoy, medio como higiene (evita que el score reviva por la puerta de atrás).
 - **Fecha:** 2026-07-26 · 🔵
+- **2026-07-27 · 🟢 CERRADA**: fuera lib/urgency, el campo del contrato y las 6 rutas que
+  lo calculaban; la Máxima ordena por el criterio único; el insight de IA usa días parados.
 
 ## 41. El seed de demo escribe motivos de descarte fuera del vocabulario real
 - **Zona:** `scripts/db-seed-demo-rico.mjs:215` y `:735`; consumido por
@@ -586,6 +597,9 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** alto en credibilidad de demo, bajo en producción (las bases piloto están
   vacías de leads).
 - **Fecha:** 2026-07-27 · 🔵
+- **2026-07-27 · 🟢 CERRADA**: el hilo conserva las narrativas, la columna guarda el valor
+  válido; añadida la narrativa "no asistió" (con cita en el pasado) para que ese grupo exista
+  en la demo. Reseed: 127 Rechazo_Producto + 31 No_Asistio, cero fuera del enum.
 
 ## 42. El motivo de descarte de un lead tiene 2 opciones; el de un presupuesto, 7
 - **Zona:** single-select `Motivo_No_Interes` (Airtable, ambas bases), `LeadMotivoNoInteres`
@@ -609,3 +623,5 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   patrón de preview + Confirmar) en vez de rellenarlo.
 - **Impacto:** medio — mismo dato contaminado, por una puerta menos usada.
 - **Fecha:** 2026-07-27 · 🔵
+- **2026-07-27 · 🟢 CERRADA**: la acción falla pidiendo el motivo y la herramienta instruye
+  al modelo a preguntarlo antes de proponer nada.
