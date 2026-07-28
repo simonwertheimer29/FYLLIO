@@ -805,3 +805,60 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   tampoco nace de un lead, el embudo necesita una segunda entrada además de "lead captado".
 - **Impacto:** medio — condiciona si el embudo describe el negocio o solo una esquina.
 - **Fecha:** 2026-07-27 · 🔵
+
+## 52. `toISOString().slice(0,10)` como "hoy": ocho pantallas usan el día en UTC
+- **Zona:** `SeguimientoView.tsx:367` y `:703`, `LeadAccionPanel.tsx:87`, `:174`, `:393`,
+  `MaximaView.tsx:519`, `NewPresupuestoModal.tsx:52`, `PagoModal.tsx:62`
+- **Principio:** §5 confianza — el ISO en UTC adelanta el día a partir de las 22:00 en
+  Madrid (23:00 en invierno). Cazado en la pasada visual de /leads a las 21:32 del
+  2026-07-27: una cita del 29 se anunciaba como **"mañana"** y un lead citado para hoy
+  dejaba de caer en la columna "Citados Hoy" — la coordinadora perdía de vista sus citas
+  del día justo en el turno de tarde.
+- **Mejora:** `hoyISO()` ya existe en `lib/time` y /leads ya lo usa. Sustituir las ocho
+  ocurrencias restantes; la de Seguimiento es la más grave porque decide cohortes.
+- **Impacto:** alto en las dos horas finales del día, cero el resto — que es justo lo que
+  lo hace difícil de reproducir y fácil de dejar pasar.
+- **Fecha:** 2026-07-27 · 🔵
+
+## 53. El tablero de Leads no prioriza: 12 cards idénticas en "Nuevo"
+- **Zona:** `app/(authed)/leads/LeadsView.tsx`
+- **Principio:** §3 anticipación — el kanban ordena por nada. La coordinadora abre "Nuevo"
+  con doce cards del mismo peso y decide ella por dónde empezar, mientras /seguimiento ya
+  tiene un motor que sabe cuál urge. La pasada visual del 2026-07-27 añadió la etiqueta
+  "Necesita atención" (mismo umbral del motor), pero es una señal, no un orden.
+- **Mejora:** ordenar cada columna por el criterio del motor de cohortes que ya existe, en
+  vez de por fecha de creación. Cero criterio nuevo: reutilizar el de /seguimiento.
+- **Impacto:** medio-alto en pérdida evitada, bajo en coste — el motor ya está escrito.
+- **Fecha:** 2026-07-27 · 🔵
+
+## 54. Leads en móvil: 12.000 px de scroll y lo urgente en cuarta posición
+- **Zona:** `app/(authed)/leads/LeadsView.tsx` (layout del tablero)
+- **Principio:** §2 facilidad — en 390 px las cinco columnas se apilan sin selector, así que
+  "Citados Hoy" (la única con hora, la que caduca hoy) queda tras unas 28 cards. La
+  coordinadora usa el móvil entre paciente y paciente.
+- **Mejora:** selector de columna en móvil (pestañas tipo ColaTabs) o abrir directamente por
+  la columna con trabajo del día. **Fuera del alcance de la pasada visual del 2026-07-27**:
+  toca la estructura del tablero, que Simon dejó explícitamente sin tocar.
+- **Impacto:** alto en uso real de móvil.
+- **Fecha:** 2026-07-27 · 🔵
+
+## 55. La cabecera de Leads cuenta la pantalla, no el negocio
+- **Zona:** `app/(authed)/leads/LeadsView.tsx` (cabecera)
+- **Principio:** §1 misión — "27 leads activos · 7 no interesados" es un recuento de lo que
+  ya se ve. /red y /cobros abren con cifras de negocio (en riesgo, cobrado, pendiente);
+  aquí no hay ninguna: ni cuántos sin contactar, ni tiempo medio de respuesta, ni cuántos
+  citados esta semana.
+- **Mejora:** franja compacta con 3 cifras, reutilizando `Cifra`/`Comparativa`.
+- **Impacto:** medio. **Fuera del alcance de la pasada visual del 2026-07-27** (añade
+  estructura nueva, y el encargo excluía tocar la del tablero).
+- **Fecha:** 2026-07-27 · 🔵
+
+## 56. "Ver 151 anteriores" en No Interesado no lleva a nada útil
+- **Zona:** `app/(authed)/leads/LeadsView.tsx` (pie de columna)
+- **Principio:** §2 facilidad — el enlace cambia el rango a "Histórico" y vuelca 151 leads
+  descartados en una columna del tablero de trabajo. Nadie revisa 151 descartes; lo que sí
+  tiene valor es el subgrupo "Se puede retomar".
+- **Mejora:** en No Interesado, que el pie ofrezca solo los reactivables ("Ver 23 que se
+  pueden retomar") en vez del volcado completo.
+- **Impacto:** bajo-medio.
+- **Fecha:** 2026-07-27 · 🔵

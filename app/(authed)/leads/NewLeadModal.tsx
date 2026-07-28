@@ -184,7 +184,7 @@ export function NewLeadModal({
         </Labeled>
 
         {error && (
-          <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/25 rounded-xl px-3 py-2">
+          <p className="text-xs text-[var(--color-danger)] bg-[var(--color-danger-soft)] border border-[var(--color-danger)]/25 rounded-xl px-3 py-2">
             {error}
           </p>
         )}
@@ -223,7 +223,7 @@ function Labeled({
     <div>
       <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">
         {label}
-        {required && <span className="text-rose-500 dark:text-rose-400 ml-0.5">*</span>}
+        {required && <span className="text-[var(--color-danger)] ml-0.5">*</span>}
       </label>
       {children}
     </div>

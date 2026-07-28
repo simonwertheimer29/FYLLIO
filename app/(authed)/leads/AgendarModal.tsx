@@ -9,6 +9,7 @@
 import { useState } from "react";
 import { X, ICON_STROKE } from "../../components/icons";
 import type { Lead } from "./types";
+import { hoyISO } from "../../lib/time";
 
 const TRATAMIENTOS = [
   "Implantología",
@@ -39,7 +40,7 @@ export function AgendarModal({
   onClose: () => void;
   onSaved: (updated: Lead) => void;
 }) {
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = hoyISO();
 
   const [fechaCita, setFechaCita] = useState<string>(lead.fechaCita ?? hoy);
   const [horaCita, setHoraCita] = useState<string>(lead.horaCita ?? "");
@@ -157,7 +158,7 @@ export function AgendarModal({
             ))}
           </select>
           {doctoresClinica.length === 0 && (
-            <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1">
+            <p className="text-[10px] text-[var(--color-warning)] mt-1">
               La clínica no tiene dentistas cargados. Añade uno desde Ajustes.
             </p>
           )}
@@ -208,7 +209,7 @@ export function AgendarModal({
         </Labeled>
 
         {error && (
-          <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/25 rounded-xl px-3 py-2">
+          <p className="text-xs text-[var(--color-danger)] bg-[var(--color-danger-soft)] border border-[var(--color-danger)]/25 rounded-xl px-3 py-2">
             {error}
           </p>
         )}
@@ -247,7 +248,7 @@ function Labeled({
     <div>
       <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">
         {label}
-        {required && <span className="text-rose-500 dark:text-rose-400 ml-0.5">*</span>}
+        {required && <span className="text-[var(--color-danger)] ml-0.5">*</span>}
       </label>
       {children}
     </div>

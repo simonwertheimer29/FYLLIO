@@ -45,3 +45,14 @@ export function formatTime(iso: string) {
 export function sortByStart<T extends { start: string }>(items: T[]) {
   return [...items].sort((x, y) => parseLocal(x.start).getTime() - parseLocal(y.start).getTime());
 }
+
+/**
+ * El "hoy" del usuario, en su zona horaria. `toISOString().slice(0,10)` da el
+ * día EN UTC: en Madrid, a partir de las 22:00 (o de las 23:00 en invierno) ya
+ * devuelve el día siguiente. Lo cazó la pasada visual de /leads (2026-07-27,
+ * 21:32 local): una cita del 29 se anunciaba como "mañana" y un lead citado
+ * para hoy dejaba de caer en la columna "Citados Hoy".
+ */
+export function hoyISO(d: Date = new Date()): string {
+  return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+}

@@ -48,4 +48,12 @@ export type Lead = {
   pacienteId: string | null;
   asistido: boolean;
   createdAt: string;
+  /** Estado de la conversación según el MOTOR compartido (el de /seguimiento y
+   *  /red), calculado en el servidor. La card lo usa para decir algo cierto
+   *  sobre el tiempo: "sin respuesta hace 3 días" no se puede medir desde la
+   *  captación. Opcional porque los modales construyen Leads parciales. */
+  conversacion?: import("../../lib/presupuestos/estado-conversacion").EstadoConversacion;
+  /** Último mensaje/acción ENTRANTE y SALIENTE (ISO), de las mismas fuentes. */
+  entranteAt?: string | null;
+  salienteAt?: string | null;
 };

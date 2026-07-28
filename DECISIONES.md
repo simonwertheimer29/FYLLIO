@@ -579,3 +579,34 @@ modelo, la barrera va en el servidor). El kanban ya no permite arrastrar a Citad
 por Agendar desde ninguna columna: antes solo lo exigía viniendo de "Contactado".
 `scripts/qa-leads-cita.mjs` prueba las dos puertas y la invariante del embudo, y restaura el
 seed al terminar.
+
+## 2026-07-27 — Leads: una sola urgencia en el tablero, y "Citados Hoy" se queda en rojo
+Pasada visual del kanban. **Decisión de producto declarada:** la columna "Citados Hoy" sigue
+en rojo, no por accidente de paleta sino porque es lo más importante del tablero y tiene que
+tirar del ojo (Simon, 2026-07-27). Dos condiciones que la hacen legítima: va con el token del
+sistema (`--color-danger-soft`), nunca con Tailwind crudo + `dark:` a mano; y dentro de la
+columna se distingue el caso en el que el rojo SÍ significa problema — cita cuya hora ya pasó
+sin cerrar, con borde izquierdo y "Su hora ya pasó · sin cerrar". De ahí sale la regla del
+resto del tablero: el color marca URGENCIA, no identidad de columna, y en este tablero solo
+hay una — los otros cuatro badges pasan a neutro (antes eran gris · ámbar · azul · rosa ·
+gris sin criterio; "Contactado" no es un aviso). El verde de marca de WhatsApp sale de las
+cards: se repetía 27 veces en una pantalla, era el color dominante y arrastraba el ojo a la
+acción menos importante; los dos botones bajan a neutro de bajo contraste y el acento queda
+para lo que decide algo ("Marcar asistido"). Los tres micro-elementos sueltos del pie
+(icono "Llamado" · bocadillo con un número · "hace 0d") se funden en UNA línea que dice algo
+cierto: "Te respondió hace 10 h" (acento, es lo que toca responder), "Sin respuesta hace 4
+días · 2 enviados", "Sin contactar · hace 13 días". El bocadillo con un número no decía si
+eran entrantes, salientes ni si tocaba responder — y "sin respuesta hace X" NO se puede medir
+desde la captación, así que /leads carga el estado de conversación del MISMO motor que /red y
+/seguimiento y mide desde el último saliente real. La etiqueta "Necesita atención" usa el
+umbral del motor (`esNuevoUrgente`, 48 h), que sube de SeguimientoView a `lib/seguimiento/
+cohortes` para que no haya dos copias.
+
+## 2026-07-27 — El "hoy" de UTC adelantaba el día a las 22:00
+Cazado a las 21:32 local mientras se revisaban las fechas humanas de /leads: `new
+Date().toISOString().slice(0,10)` devuelve el día EN UTC, así que en Madrid a partir de las
+22:00 (23:00 en invierno) el producto cree que ya es mañana. Consecuencias reales: una cita
+del 29 se anunciaba como "mañana", y un lead citado para HOY dejaba de caer en la columna
+"Citados Hoy" — la coordinadora perdía sus citas del día justo en el turno de tarde. Vive
+ahora como `hoyISO()` en `lib/time`. /leads corregido; quedan ocho ocurrencias en otras
+pantallas anotadas como MEJORAS 52 (la de Seguimiento es la peor: decide cohortes).

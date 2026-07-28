@@ -35,7 +35,7 @@ import {
 import { esLeadActivo } from "../../lib/leads/pipeline";
 import {
   cohorteLead,
-  NUEVO_URGENTE_MS,
+  esNuevoUrgente,
   type CohorteLead,
 } from "../../lib/seguimiento/cohortes";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
@@ -276,9 +276,6 @@ function tramoDeCita(fechaCita: string, hoy: string): TramoCita {
   if (fechaCita <= finDeSemana(hoy, 1)) return "proxima";
   return "despues";
 }
-
-const esNuevoUrgente = (createdAt: string, ahoraMs: number) =>
-  ahoraMs - (new Date(createdAt).getTime() || 0) >= NUEVO_URGENTE_MS;
 
 function LeadsTab({
   initialLeads,

@@ -9,6 +9,12 @@ import { listLeads } from "../../lib/leads/leads";
 import { listDoctores } from "@/lib/staff/doctores";
 import { runWithCliente } from "../../lib/cliente-contexto";
 import { clinicasNegocioAccesibles, negocioIdToCentralId } from "../../lib/clinicas-negocio";
+import { ultimosMensajesPorConversacion } from "../../lib/presupuestos/mensajeria";
+import { ultimasAccionesDireccionPorLead } from "../../lib/leads/acciones";
+import {
+  estadoConversacion,
+  UMBRAL_REACTIVACION_MS,
+} from "../../lib/presupuestos/estado-conversacion";
 import { LeadsView } from "./LeadsView";
 
 export const dynamic = "force-dynamic";
@@ -30,14 +36,33 @@ export default async function LeadsPage() {
         clinicasNegocioAccesibles(session),
         listDoctores(),
       ]);
-      const leads = await listLeads({
-        clinicaIds: scope.ids === null ? undefined : scope.ids,
+      const [leads, ultimos, accionesLead] = await Promise.all([
+        listLeads({ clinicaIds: scope.ids === null ? undefined : scope.ids }),
+        // Pasada visual 2026-07-27 — la card necesita decir algo verdadero
+        // sobre el tiempo ("sin respuesta hace 3 días" NO se puede medir desde
+        // la captación). Se leen las MISMAS fuentes que /red y /seguimiento y
+        // se clasifica con el MISMO motor: aquí no nace ningún criterio.
+        ultimosMensajesPorConversacion(),
+        ultimasAccionesDireccionPorLead(),
+      ]);
+      const masReciente = (a?: string | null, b?: string | null) =>
+        !a ? (b ?? null) : !b || a > b ? a : b;
+      const leadsWithClinica = leads.map((l) => {
+        const hilo = ultimos.porLead.get(l.id);
+        const entranteAt = masReciente(accionesLead.entrantePorLead[l.id], hilo?.entranteAt);
+        const salienteAt = masReciente(accionesLead.salientePorLead[l.id], hilo?.salienteAt);
+        return {
+          ...l,
+          clinicaId: negocioIdToCentralId(scope, l.clinicaId),
+          clinicaNombre: l.clinicaId ? scope.nombreById.get(l.clinicaId) ?? null : null,
+          entranteAt,
+          salienteAt,
+          conversacion: estadoConversacion(
+            { ultimoEntranteAt: entranteAt, ultimoSalienteAt: salienteAt },
+            UMBRAL_REACTIVACION_MS.lead,
+          ).estado,
+        };
       });
-      const leadsWithClinica = leads.map((l) => ({
-        ...l,
-        clinicaId: negocioIdToCentralId(scope, l.clinicaId),
-        clinicaNombre: l.clinicaId ? scope.nombreById.get(l.clinicaId) ?? null : null,
-      }));
       const doctoresCentral = doctores.map((d) => ({
         ...d,
         clinicaId: negocioIdToCentralId(scope, d.clinicaId),

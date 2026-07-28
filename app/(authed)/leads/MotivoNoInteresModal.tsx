@@ -30,7 +30,7 @@ export function MotivoNoInteresModal({
       key={m}
       className={`flex items-start gap-3 rounded-xl border px-3 py-2 cursor-pointer transition-colors ${
         seleccionado === m
-          ? "border-rose-400 bg-rose-50 dark:border-rose-500/50 dark:bg-rose-500/10"
+          ? "border-[var(--color-danger)] bg-[var(--color-danger-soft)]"
           : "border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
       }`}
     >
@@ -67,7 +67,7 @@ export function MotivoNoInteresModal({
           <span className="font-bold text-[var(--color-danger)]">No Interesado</span>
         </p>
 
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300 mb-1.5">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-warning)] mb-1.5">
           Se puede retomar
         </p>
         <div className="space-y-2 mb-4">{reactivables.map(opcion)}</div>

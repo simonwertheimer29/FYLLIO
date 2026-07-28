@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Phone, MessageCircle, Check, Copy, Plus, ICON_STROKE } from "../../components/icons";
+import { Phone, MessageCircle, Check, Copy, Plus, AlertTriangle, ICON_STROKE } from "../../components/icons";
 import {
   DndContext,
   DragOverlay,
@@ -26,6 +26,9 @@ import { AccionPanel } from "../../components/shared/AccionPanel";
 import { AgendarModal } from "./AgendarModal";
 import { MotivoNoInteresModal } from "./MotivoNoInteresModal";
 import { esReactivable, labelMotivo } from "../../lib/leads/motivos";
+import { haceTexto } from "../../lib/presupuestos/estado-conversacion";
+import { hoyISO } from "../../lib/time";
+import { cohorteLead, esNuevoUrgente } from "../../lib/seguimiento/cohortes";
 import { AsistenciaModal } from "./AsistenciaModal";
 import type { Lead, LeadEstado } from "./types";
 import {
@@ -41,37 +44,131 @@ export type { Lead } from "./types";
 // leads con Estado="Citado" cuya Fecha_Cita=hoy aparecen ahí (no en Citado).
 // Estado="Citados Hoy" como valor literal se mantiene como legacy (el seed
 // ya lo migró a "Citado", pero algún registro antiguo podría sobrevivir).
+//
+// REGLA DE COLOR DEL TABLERO (pasada visual 2026-07-27): el color no marca la
+// identidad de una columna, marca URGENCIA — y en este tablero solo hay una.
+// Antes había cuatro badges de cuatro colores sin criterio (gris · ámbar ·
+// azul · rosa · gris): "Contactado" no es un aviso y "Citado" no es una acción
+// pendiente. Todas van en neutro salvo "Citados Hoy".
+//
+// "Citados Hoy" en rojo es DECISIÓN DE PRODUCTO declarada, no un accidente de
+// paleta: es lo más importante del tablero y tiene que tirar del ojo. Va con el
+// token del sistema (--color-danger-soft), nunca con Tailwind crudo + dark: a
+// mano, que era lo que hacía antes.
+const BADGE_NEUTRO = "bg-[var(--color-surface-muted)] text-[var(--color-muted)]";
 const COLUMNS: Array<{ id: LeadEstado; label: string; accent: string; ringClass?: string }> = [
-  {
-    id: "Nuevo",
-    label: "Nuevo",
-    accent: "bg-[var(--color-surface-muted)] text-[var(--color-foreground)]",
-  },
-  {
-    id: "Contactado",
-    label: "Contactado",
-    accent: "bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300",
-  },
-  {
-    id: "Citado",
-    label: "Citado",
-    accent: "bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
-  },
+  { id: "Nuevo", label: "Nuevo", accent: BADGE_NEUTRO },
+  { id: "Contactado", label: "Contactado", accent: BADGE_NEUTRO },
+  { id: "Citado", label: "Citado", accent: BADGE_NEUTRO },
   {
     id: "Citados Hoy",
     label: "Citados Hoy",
-    accent: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
-    // Sprint 12 H.3 — acento rose mas sutil (ring-1 + opacidad).
-    ringClass: "ring-1 ring-rose-200/70 dark:ring-rose-500/30",
+    accent: "bg-[var(--color-danger-soft)] text-[var(--color-danger)]",
+    ringClass: "ring-1 ring-[var(--color-danger)]/25",
   },
-  {
-    id: "No Interesado",
-    label: "No Interesado",
-    accent: "bg-[var(--color-surface-muted)] text-[var(--color-muted)]",
-  },
+  { id: "No Interesado", label: "No Interesado", accent: BADGE_NEUTRO },
 ];
 
-const TODAY_ISO = () => new Date().toISOString().slice(0, 10);
+// El "hoy" del usuario, no el de UTC (lib/time): a las 22:00 en Madrid el ISO
+// en UTC ya es el día siguiente, y con él la columna "Citados Hoy" se vaciaba
+// sola y una cita del 29 se anunciaba como "mañana".
+const TODAY_ISO = () => hoyISO();
+
+// ─── Copy de la card ────────────────────────────────────────────────────
+//
+// Las fechas se escribían en ISO crudo ("Cita: 2026-07-29") y el tiempo en
+// "hace 0d". Ninguna coordinadora lee un ISO, y "0d" no es español.
+
+/** "hoy" · "mañana" · "ayer" · "mié 29 jul". */
+function fechaHumana(iso: string, hoyIso: string): string {
+  if (iso === hoyIso) return "hoy";
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  const hoy = new Date(`${hoyIso}T12:00:00`);
+  const dias = Math.round((d.getTime() - hoy.getTime()) / 86_400_000);
+  if (dias === 1) return "mañana";
+  if (dias === -1) return "ayer";
+  // es-ES mete una coma tras el día de la semana ("mié, 29 jul"), que detrás de
+  // "Cita" se lee como una pausa rara. Fuera.
+  return d
+    .toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" })
+    .replace(",", "");
+}
+
+/** "hoy a las 16:30" · "mié 29 jul a las 16:30". */
+function citaTexto(fechaCita: string, horaCita: string | null, hoyIso: string): string {
+  const cuando = fechaHumana(fechaCita, hoyIso);
+  return horaCita ? `${cuando} a las ${horaCita}` : cuando;
+}
+
+type LineaEstado = { texto: string; tono: "muted" | "accent" };
+
+/**
+ * UNA línea que dice qué pasa con este lead y desde cuándo. Sustituye a los
+ * tres micro-elementos sueltos de antes (icono "Llamado" · bocadillo con un
+ * número · "hace 0d"), que juntos no contaban nada: el bocadillo no decía si
+ * eran entrantes o salientes ni si tocaba responder.
+ *
+ * Cada columna mide su tiempo desde donde toca: "sin respuesta hace 3 días" NO
+ * se puede medir desde la captación, así que sale del último saliente real.
+ */
+function lineaEstado(
+  lead: Lead,
+  columna: LeadEstado,
+  hoyIso: string,
+  ahoraMs: number,
+): LineaEstado | null {
+  const desde = (iso?: string | null) =>
+    iso ? haceTexto(Math.max(0, ahoraMs - new Date(iso).getTime())) : null;
+
+  if (columna === "No Interesado") {
+    const cerrado = desde(lead.fechaCierre ?? lead.createdAt);
+    return { texto: cerrado ? `Descartado ${cerrado}` : "Descartado", tono: "muted" };
+  }
+  // El paciente escribió lo último: es lo que toca responder, venga de donde venga.
+  if (lead.entranteAt && (!lead.salienteAt || lead.entranteAt > lead.salienteAt)) {
+    return { texto: `Te respondió ${desde(lead.entranteAt)}`, tono: "accent" };
+  }
+  // Con cita por delante, "sin respuesta hace 1 día" es ruido: el trabajo aquí
+  // es confirmar, y la línea de la cita ya lo dice. Misma precedencia que el
+  // motor de cohortes (cita > conversación).
+  if (lead.fechaCita && lead.fechaCita >= hoyIso) return null;
+
+  if (lead.conversacion === "sin_conversacion" || (!lead.llamado && lead.whatsappEnviados === 0)) {
+    const espera = desde(lead.createdAt);
+    // Sin tono de alarma: cuando toca, la etiqueta "Necesita atención" ya está
+    // arriba, y dos señales rojas para el mismo hecho se pisan.
+    return { texto: espera ? `Sin contactar · ${espera}` : "Sin contactar", tono: "muted" };
+  }
+  const espera = desde(lead.salienteAt);
+  const enviados =
+    lead.whatsappEnviados > 0
+      ? `${lead.whatsappEnviados} enviado${lead.whatsappEnviados === 1 ? "" : "s"}`
+      : "llamado";
+  // Primero el hecho accionable (que no contesta) y después el detalle.
+  return {
+    texto: espera ? `Sin respuesta ${espera} · ${enviados}` : `Contactado · ${enviados}`,
+    tono: "muted",
+  };
+}
+
+/** Señal "Necesita atención": el MISMO criterio del motor de /seguimiento
+ *  (cohorte "nuevos" + umbral de 48 h), importado, no reescrito. Solo aparece
+ *  cuando se cumple: si saliera en media columna dejaría de significar nada. */
+function necesitaAtencion(lead: Lead, hoyIso: string, ahoraMs: number): boolean {
+  if (!lead.conversacion) return false;
+  const cohorte = cohorteLead({
+    fechaCita: lead.fechaCita,
+    hoy: hoyIso,
+    conversacion: lead.conversacion,
+  });
+  return cohorte === "nuevos" && esNuevoUrgente(lead.createdAt, ahoraMs);
+}
+
+const TONO_LINEA: Record<LineaEstado["tono"], string> = {
+  muted: "text-[var(--color-muted)]",
+  accent: "text-[var(--color-accent)] font-medium",
+};
 
 // Cards pintadas por página en cada columna (carga progresiva).
 const PAGINA_CARDS = 25;
@@ -633,7 +730,7 @@ function NoInteresadoGroups({
     );
   return (
     <>
-      {grupo("Se puede retomar", "text-amber-700 dark:text-amber-300", reactivables)}
+      {grupo("Se puede retomar", "text-[var(--color-warning)]", reactivables)}
       {grupo("Decisión tomada", "text-[var(--color-muted)]", cerrados)}
     </>
   );
@@ -692,9 +789,14 @@ function LeadCardBody({ lead, onOpenFicha }: { lead: Lead; onOpenFicha?: () => v
     } catch {}
   }
 
-  const diasDesdeCreacion = Math.floor(
-    (Date.now() - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60 * 24)
-  );
+  // El reloj se congela al montar la card: leerlo en cada render es una función
+  // impura dentro del render (lo marca el compilador de React) y además no
+  // aporta nada — el tablero no cambia de minuto mientras se mira.
+  const [ahoraMs] = useState(() => Date.now());
+  const [hoyIso] = useState(() => TODAY_ISO());
+  const esDescartado = lead.estado === "No Interesado";
+  const linea = lineaEstado(lead, esDescartado ? "No Interesado" : lead.estado, hoyIso, ahoraMs);
+  const atencion = necesitaAtencion(lead, hoyIso, ahoraMs);
 
   return (
     <article
@@ -704,41 +806,62 @@ function LeadCardBody({ lead, onOpenFicha }: { lead: Lead; onOpenFicha?: () => v
       }}
       className="rounded-xl bg-[var(--color-surface)] border p-3 text-xs hover:[border-color:var(--card-border-hover)] hover:[box-shadow:var(--card-shadow-hover)] transition-[box-shadow,border-color] duration-150 cursor-pointer"
     >
-      {/* Sprint 14a Bloque 1.5 — leads convertidos enlazan al Paciente360. */}
-      {lead.convertido && lead.pacienteId ? (
-        <a
-          href={`/pacientes/${lead.pacienteId}`}
-          onClick={(e) => e.stopPropagation()}
-          className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight hover:text-[var(--color-accent)] hover:underline block"
-        >
-          {lead.nombre}
-        </a>
-      ) : (
-        <p className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight">{lead.nombre}</p>
-      )}
+      <div className="flex items-start justify-between gap-2">
+        {/* Sprint 14a Bloque 1.5 — leads convertidos enlazan al Paciente360. */}
+        {lead.convertido && lead.pacienteId ? (
+          <a
+            href={`/pacientes/${lead.pacienteId}`}
+            onClick={(e) => e.stopPropagation()}
+            className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight hover:text-[var(--color-accent)] hover:underline block"
+          >
+            {lead.nombre}
+          </a>
+        ) : (
+          <p className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight">{lead.nombre}</p>
+        )}
+        {atencion && (
+          <span
+            className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[var(--color-danger-soft)] text-[var(--color-danger)] px-1.5 py-0.5 text-[10px] font-semibold"
+            title="Sin ningún contacto y ya pasó el plazo del motor de seguimiento (48 h)."
+          >
+            <AlertTriangle size={10} strokeWidth={ICON_STROKE} aria-hidden />
+            Necesita atención
+          </span>
+        )}
+      </div>
 
-      <div className="flex flex-wrap gap-1 mt-1.5">
-        {/* Descartado: el motivo se lee en la card, no hay que abrir la ficha. */}
-        {lead.motivoNoInteres && (
-          <span className="inline-flex rounded-md bg-[var(--color-surface-muted)] text-[var(--color-muted)] border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] font-medium">
-            {labelMotivo(lead.motivoNoInteres)}
-          </span>
-        )}
-        {lead.canal && (
-          <span className="inline-flex rounded-md bg-[var(--color-surface-muted)] text-[var(--color-muted)] border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] font-medium">
-            {lead.canal}
-          </span>
-        )}
-        {lead.tratamiento && (
-          <span className="inline-flex rounded-md bg-[var(--color-accent-soft)] text-[var(--color-accent)] border border-transparent px-1.5 py-0.5 text-[10px] font-medium">
-            {lead.tratamiento}
-          </span>
+      {/* Jerarquía de los chips: el TRATAMIENTO manda —dice cuánto dinero hay
+          en juego— y el origen baja a texto sutil sin relleno. Antes los tres
+          pesaban igual, así que "Horarios o distancia" (por qué se perdió) y
+          "Recomendación" (de dónde vino) se leían como lo mismo.
+          En No Interesado va SOLO el motivo: es la columna que menos importa y
+          la que más ruido llevaba. */}
+      <div className="flex items-baseline gap-1.5 flex-wrap mt-1.5">
+        {esDescartado ? (
+          lead.motivoNoInteres && (
+            <span className="inline-flex rounded-md bg-[var(--color-surface-muted)] text-[var(--color-muted)] px-1.5 py-0.5 text-[10px] font-medium">
+              {labelMotivo(lead.motivoNoInteres)}
+            </span>
+          )
+        ) : (
+          <>
+            {lead.tratamiento && (
+              <span className="inline-flex rounded-md bg-[var(--color-accent-soft)] text-[var(--color-accent)] px-1.5 py-0.5 text-[11px] font-semibold">
+                {lead.tratamiento}
+              </span>
+            )}
+            {lead.canal && (
+              <span className="text-[10px] text-[var(--color-muted)]">{lead.canal}</span>
+            )}
+          </>
         )}
       </div>
 
       {lead.telefono && (
         <div className="flex items-center gap-1 mt-2">
-          <span className="text-[var(--color-muted)] text-[11px] font-mono truncate tabular-nums">{lead.telefono}</span>
+          {/* Fuera `font-mono`: era una tercera familia tipográfica que el
+              estándar no declara. Con cifras tabulares alinea igual. */}
+          <span className="text-[var(--color-muted)] text-[11px] truncate tabular-nums">{lead.telefono}</span>
           <button
             type="button"
             onClick={copyPhone}
@@ -755,34 +878,28 @@ function LeadCardBody({ lead, onOpenFicha }: { lead: Lead; onOpenFicha?: () => v
         </div>
       )}
 
-      {lead.fechaCita && (
-        <p className="mt-1 text-[10px] text-[var(--color-muted)] tabular-nums">Cita: {lead.fechaCita}</p>
+      {lead.fechaCita && !esDescartado && (
+        <p className="mt-1.5 text-[11px] font-medium text-[var(--color-foreground)]">
+          Cita {citaTexto(lead.fechaCita, lead.horaCita, hoyIso)}
+        </p>
       )}
 
-      <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--color-muted)]">
-        {lead.llamado && (
-          <span className="inline-flex items-center gap-1">
-            <Phone size={12} strokeWidth={ICON_STROKE} className="text-[var(--color-muted)]" /> Llamado
-          </span>
-        )}
-        {lead.whatsappEnviados > 0 && (
-          <span className="inline-flex items-center gap-1 tabular-nums">
-            <MessageCircle size={12} strokeWidth={ICON_STROKE} className="text-[var(--color-muted)]" /> {lead.whatsappEnviados}
-          </span>
-        )}
-        <span className="ml-auto tabular-nums">
-          {Number.isFinite(diasDesdeCreacion) ? `hace ${diasDesdeCreacion}d` : "—"}
-        </span>
-      </div>
+      {linea && <p className={`mt-1.5 text-[11px] ${TONO_LINEA[linea.tono]}`}>{linea.texto}</p>}
 
-      <div className="flex gap-1 mt-2.5">
+      <div className="flex gap-1.5 mt-2.5">
         {lead.telefono && (
           <>
+            {/* Los dos botones bajan a neutro de bajo contraste (pasada visual
+                2026-07-27). El verde de marca de WhatsApp se repetía 27 veces
+                en una pantalla: era el color dominante y arrastraba el ojo a la
+                acción menos importante. El acento se reserva para lo que
+                decide algo — "Marcar asistido". */}
             <a
               href={`tel:${lead.telefono}`}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 text-center rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-[10px] font-medium py-1.5 hover:bg-[var(--color-border)] transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-medium py-1.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
             >
+              <Phone size={12} strokeWidth={ICON_STROKE} aria-hidden />
               Llamar
             </a>
             {/* Censo wa.me a cero (2026-07-26): el botón abre la FICHA (hilo
@@ -795,8 +912,9 @@ function LeadCardBody({ lead, onOpenFicha }: { lead: Lead; onOpenFicha?: () => v
                 e.stopPropagation();
                 onOpenFicha?.();
               }}
-              className="flex-1 text-center rounded-md bg-[var(--fyllio-wa-green)] text-white text-[10px] font-medium py-1.5 hover:bg-[var(--fyllio-wa-green-hover)] transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-medium py-1.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
             >
+              <MessageCircle size={12} strokeWidth={ICON_STROKE} aria-hidden />
               WhatsApp
             </button>
           </>
@@ -819,42 +937,57 @@ function CitadosHoyCardBody({
   onAsistencia: (l: Lead) => void;
   onNoAsistio: (l: Lead) => void;
 }) {
+  // La hora ya pasó y nadie ha cerrado la cita: ESE es el caso en el que el
+  // rojo significa problema, y no se distinguía del resto de la columna. Todo
+  // lo demás en Citados Hoy es la oportunidad del día, no un fallo.
+  const [ahora] = useState(() => new Date());
+  const horaPasada =
+    !!lead.horaCita &&
+    lead.fechaCita === hoyISO(ahora) &&
+    lead.horaCita < `${String(ahora.getHours()).padStart(2, "0")}:${String(ahora.getMinutes()).padStart(2, "0")}`;
+
   return (
     <article
-      style={{ boxShadow: "var(--card-shadow-rest)" }}
-      className="rounded-xl bg-rose-50/50 dark:bg-rose-500/5 border border-rose-200 dark:border-rose-500/30 p-3 text-xs hover:[box-shadow:var(--card-shadow-hover)] transition-[box-shadow,border-color] duration-150 cursor-pointer"
+      style={{
+        boxShadow: "var(--card-shadow-rest)",
+        background: "var(--color-danger-soft)",
+        borderColor: "color-mix(in srgb, var(--color-danger) 25%, transparent)",
+        ...(horaPasada
+          ? { borderLeft: "4px solid var(--color-danger)" }
+          : {}),
+      }}
+      className="rounded-xl border p-3 text-xs hover:[box-shadow:var(--card-shadow-hover)] transition-[box-shadow,border-color] duration-150 cursor-pointer"
     >
       <div className="flex items-start justify-between gap-2">
         <p className="font-display font-semibold text-[var(--color-foreground)] truncate flex-1">{lead.nombre}</p>
         {lead.horaCita && (
-          <span className="text-[10px] font-semibold text-rose-700 dark:text-rose-300 shrink-0 tabular-nums">
+          <span className="text-[11px] font-semibold text-[var(--color-danger)] shrink-0 tabular-nums">
             {lead.horaCita}
           </span>
         )}
       </div>
 
-      <div className="flex flex-wrap gap-1 mt-1">
-        {lead.canal && (
-          <span className="inline-flex rounded-full bg-[var(--color-surface)] text-[var(--color-accent)] border border-[var(--color-border)] px-2 py-0.5 text-[10px] font-semibold">
-            {lead.canal}
-          </span>
-        )}
+      <div className="flex items-baseline gap-1.5 flex-wrap mt-1">
         {lead.tratamiento && (
-          <span className="inline-flex rounded-full bg-[var(--color-surface)] text-[var(--color-accent)] border border-[var(--color-border)] px-2 py-0.5 text-[10px] font-semibold">
+          <span className="inline-flex rounded-md bg-[var(--color-surface)] text-[var(--color-accent)] px-1.5 py-0.5 text-[11px] font-semibold">
             {lead.tratamiento}
           </span>
+        )}
+        {lead.canal && (
+          <span className="text-[10px] text-[var(--color-muted)]">{lead.canal}</span>
         )}
       </div>
 
       {lead.telefono && (
-        <p className="text-[var(--color-muted)] text-[11px] font-mono mt-2 truncate tabular-nums">
+        <p className="text-[var(--color-muted)] text-[11px] mt-2 truncate tabular-nums">
           {lead.telefono}
         </p>
       )}
-      {lead.fechaCita && (
-        <p className="mt-0.5 text-[10px] text-[var(--color-muted)] tabular-nums">
-          Cita: {lead.fechaCita}
-          {lead.horaCita ? ` · ${lead.horaCita}` : ""}
+      {/* La hora ya está arriba, destacada: repetirla aquí en ISO era decir dos
+          veces lo mismo y una de ellas en un formato que nadie lee. */}
+      {horaPasada && (
+        <p className="mt-1.5 text-[11px] font-medium text-[var(--color-danger)]">
+          Su hora ya pasó · sin cerrar
         </p>
       )}
 

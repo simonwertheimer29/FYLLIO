@@ -28,6 +28,12 @@ export type CohortePresupuesto = "nuevos" | "en_conversacion" | "rezagados";
  */
 export const NUEVO_URGENTE_MS = UMBRAL_REACTIVACION_MS.lead;
 
+/** Un lead sin primer contacto que ya superó el umbral. Vivía suelto dentro de
+ *  SeguimientoView; sube aquí porque el tablero de Leads pinta la misma señal
+ *  y dos copias del mismo umbral acaban divergiendo. */
+export const esNuevoUrgente = (createdAt: string, ahoraMs: number) =>
+  ahoraMs - (new Date(createdAt).getTime() || 0) >= NUEVO_URGENTE_MS;
+
 /**
  * Cohorte de un lead ACTIVO. Precedencia (la del motor, intacta):
  *   1. cita hoy o futura → citados (el trabajo es confirmar/recordar; con
