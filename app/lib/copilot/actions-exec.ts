@@ -76,6 +76,16 @@ async function execCambiarEstadoLead(env: ExecEnv, p: any): Promise<ExecResult> 
   if (block) return block;
   const access = await ensureLeadAccessible(env, String(p.leadId));
   if (!("lead" in access)) return access;
+  // MEJORAS 50 — citar exige fecha, y esta acción no la pide. El enum de la
+  // tool ya no ofrece "Citado", pero el enum es una sugerencia al modelo, no
+  // una barrera: la barrera está aquí. Sin esto, un lead quedaba en Citado sin
+  // cuándo y su cita no existía para el embudo ni para el motor de no-shows.
+  if (p.nuevoEstado === "Citado" || p.nuevoEstado === "Citados Hoy") {
+    return {
+      ok: false,
+      error: `Para citar a ${access.lead.nombre} hace falta fecha y hora: usa «Agendar» en su ficha o arrástralo a Citado en el tablero.`,
+    };
+  }
   const patch: any = { estado: String(p.nuevoEstado) };
   if (p.nuevoEstado === "No Interesado") {
     // MEJORAS 43 — el motivo se declara, no se rellena. Aquí quedaba la última

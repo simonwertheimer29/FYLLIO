@@ -546,3 +546,36 @@ puede pesar más que la persona a la que hay que llamar. El Registro pliega los 
 `SegmentedToggle` pintaba la pastilla activa en `--color-foreground` (negro sólido, un color
 de marca que Fyllio no tiene) en el control más visible de tres pantallas: era el primitivo,
 no una variante suelta, así que Cobros, Seguimiento y Presupuestos pasan al acento a la vez.
+
+## 2026-07-27 — La comparación es el CAMBIO, no el mes anterior
+La gramática «48 · eran 14» obligaba a restar mentalmente y dejaba dos cifras grandes
+compitiendo por métrica. Pasa a la magnitud del cambio en las unidades del valor: «+34 vs mes
+pasado», «+10.424 € vs mes pasado», «−29 pts» (un porcentaje cambia en PUNTOS, nunca en % de
+un %). Fuera las flechas: el signo ya dice la dirección y el icono al lado eran dos símbolos
+peleándose — la lección estaba escrita desde hacía días en la columna de evolución de /red y
+no se había aplicado al resto. El color queda solo para "bueno/malo para ESTA métrica". El
+mes anterior a cero deja de ser caso especial: con delta absoluto no hay división imposible.
+La tabla de clínicas pierde el subtexto del € aceptado (la columna Evolución, pegada, ya es
+su cambio: eran tres cifras de una métrica en la misma fila); esa columna se queda en % a
+propósito, porque es lo único comparable entre clínicas de tamaños distintos y es el criterio
+del orden.
+
+## 2026-07-27 — MEJORAS 50: la cita del lead se DERIVA, no se duplica
+De 79 leads convertidos en DEMO, cero tenían `fecha_cita`… y los 79 tenían citas reales en la
+agenda a través de su paciente. El dato existía; faltaba el enlace. Copiar la fecha al lead
+habría creado una segunda verdad que se desincroniza en cuanto alguien mueve la cita, así que
+`lib/leads/cita` resuelve en un solo sitio: la del propio lead si alguien la agendó desde
+Fyllio, y si no la primera cita de su paciente **dentro de 90 días** desde la captación. La
+ventana no es de gusto: de los 77 leads con cita posterior, 73 la tienen en 30 días, los 77 en
+60, y el máximo real es 57. Fuera de la ventana no se atribuye y se declara en el propio
+embudo ("2 sin fecha atribuible"). Un convertido cuenta como citado aunque su cita caiga
+fuera — llegar a paciente implica haber pisado la clínica — y eso es lo que mantiene la
+invariante de que el embudo nunca sube. Con eso entra la etapa que faltaba: 268 captados → 86
+con cita → 79 llegaron → 35 con presupuesto → 7 aceptaron, y el agujero grande del negocio
+queda a la vista (se pierde el 68% antes de pisar la clínica). Se cerraron las dos puertas que
+dejaban un lead "Citado" sin cuándo: el PATCH de leads lo rechaza con 400, y el copiloto
+pierde "Citado" de su enum **y** lo bloquea en el ejecutor (el enum es una sugerencia al
+modelo, la barrera va en el servidor). El kanban ya no permite arrastrar a Citado sin pasar
+por Agendar desde ninguna columna: antes solo lo exigía viniendo de "Contactado".
+`scripts/qa-leads-cita.mjs` prueba las dos puertas y la invariante del embudo, y restaura el
+seed al terminar.

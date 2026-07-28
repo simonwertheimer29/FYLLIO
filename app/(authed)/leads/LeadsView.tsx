@@ -298,10 +298,14 @@ export function LeadsView({
 
       const destEstado: LeadEstado = destColumn === "Citados Hoy" ? "Citado" : destColumn;
 
-      // Sprint 9 G.2: Contactado → Citado/Citados Hoy requiere modal
-      // obligatorio (fecha/hora/doctor/tratamiento/tipo_visita). Si la
-      // columna destino es Citados Hoy, AgendarModal ya defaultea a hoy.
-      if (lead.estado === "Contactado" && destEstado === "Citado") {
+      // Sprint 9 G.2: pasar a Citado requiere modal obligatorio (fecha/hora/
+      // doctor/tratamiento/tipo_visita). Si la columna destino es Citados Hoy,
+      // AgendarModal ya defaultea a hoy.
+      // MEJORAS 50 (2026-07-27): la cita se declara, no se rellena. Antes el
+      // modal solo se exigía VINIENDO de "Contactado", así que arrastrar de
+      // Nuevo a Citado escribía el estado sin fecha: el lead quedaba citado sin
+      // cuándo, y esa cita no existía para nadie más.
+      if (destEstado === "Citado" && destColumn !== "Citados Hoy" && !lead.fechaCita) {
         setAgendarLead(lead);
         return;
       }

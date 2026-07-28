@@ -32,6 +32,7 @@ import {
 import { calcularCobrosPorPaciente } from "./cobros";
 import { fechasPerdidaPorPresupuesto } from "./historial/registrar";
 import { esLeadActivo } from "./leads/pipeline";
+import { citaDelLead, citasPorPacienteDeLeads } from "./leads/cita";
 
 /** Comparación contra el MISMO TRAMO del mes anterior (días 1..hoy).
  *  Un mes a medias no se compara nunca contra uno entero: el día 3 todos los
@@ -119,13 +120,13 @@ export type ClinicaFila = {
  *  Cada etapa es un SUBCONJUNTO de la anterior (mismos leads, no cuentas
  *  independientes), así que el embudo solo puede bajar.
  *
- *  NO incluye "citados": el dato no existe. De los 79 leads convertidos a
- *  paciente en DEMO, CERO tienen `fecha_cita`, y `asistido` está sin escribir
- *  en los 268. La cita del lead solo se registra al arrastrar a "Citado" desde
- *  el tablero; cualquier otro camino de conversión la deja vacía. Meter esa
- *  etapa haría que el embudo SUBIERA de 7 citados a 35 con presupuesto. */
+ *  La etapa "citados" entró con MEJORAS 50 (2026-07-27). Antes no estaba
+ *  porque el dato parecía no existir: de los 79 leads convertidos, CERO tenían
+ *  `fecha_cita`. Resultó que los 79 SÍ tenían citas reales en la agenda, a
+ *  través de su paciente — faltaba el enlace, no el dato. Lo resuelve
+ *  `lib/leads/cita` con su ventana de atribución. */
 export type EmbudoEtapa = {
-  clave: "captados" | "pacientes" | "presupuesto" | "aceptado";
+  clave: "captados" | "citados" | "pacientes" | "presupuesto" | "aceptado";
   etiqueta: string;
   /** Qué significa la etapa, en lenguaje de negocio. */
   detalle: string;
@@ -665,12 +666,42 @@ export async function calcularDashboardRed(opts: {
   const convertidos = cohorteLeads.filter((l) => l.convertido && l.pacienteId);
   const conPresupuesto = convertidos.filter((l) => pacientesConPresupuesto.has(l.pacienteId!));
   const conAceptado = convertidos.filter((l) => pacientesConAceptado.has(l.pacienteId!));
+
+  // Citas de la cohorte (MEJORAS 50): la del propio lead si alguien la agendó
+  // desde Fyllio, y si no la primera de su paciente dentro de la ventana de
+  // atribución. Una consulta de tres columnas sobre los pacientes de la cohorte.
+  const citasPorPac = await citasPorPacienteDeLeads(
+    cohorteLeads.map((l) => l.pacienteId).filter((x): x is string => !!x),
+  );
+  const conCitaAtribuible = new Set<string>();
+  for (const l of cohorteLeads) {
+    if (citaDelLead(l, citasPorPac)) conCitaAtribuible.add(l.id);
+  }
+  // Llegar a ser paciente implica haber pisado la clínica, así que un convertido
+  // cuenta como citado aunque su cita caiga fuera de la ventana. Es lo único
+  // que mantiene el embudo sin subir — y de paso se declara cuántos son.
+  const citados = cohorteLeads.filter(
+    (l) => conCitaAtribuible.has(l.id) || (l.convertido && l.pacienteId),
+  );
+  const convertidosSinCitaAtribuible = convertidos.filter(
+    (l) => !conCitaAtribuible.has(l.id),
+  ).length;
+
   const etapasCrudas: Array<Omit<EmbudoEtapa, "siguePct">> = [
     {
       clave: "captados",
       etiqueta: "Leads captados",
       detalle: "Personas que preguntaron por un tratamiento",
       n: cohorteLeads.length,
+    },
+    {
+      clave: "citados",
+      etiqueta: "Consiguieron cita",
+      detalle:
+        convertidosSinCitaAtribuible > 0
+          ? `Con cita agendada o registrada en la agenda · ${convertidosSinCitaAtribuible} sin fecha atribuible`
+          : "Con cita agendada desde Fyllio o registrada en la agenda",
+      n: citados.length,
     },
     {
       clave: "pacientes",

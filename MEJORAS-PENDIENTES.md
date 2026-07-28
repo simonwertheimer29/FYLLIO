@@ -772,7 +772,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   (7/7 VERDE, incluidos clínica de otro cliente legal y clínica hermana desde
   coordinación).
 
-## 50. El embudo no puede tener etapa "citados": el dato no existe
+## 50. ✅ CERRADA — El embudo no podía tener etapa "citados": faltaba el enlace, no el dato
 - **Zona:** `leads.fecha_cita` / `leads.asistido`, `scripts/db-seed-demo-rico.mjs`,
   conversión lead→paciente (`markLeadConvertido`)
 - **Principio:** §5 confianza — al montar el embudo de /red (2026-07-27) se pidió la
@@ -788,9 +788,12 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   Entonces la etapa entra en el embudo sin inventar nada.
 - **Impacto:** alto para el embudo (hoy le falta justo el paso donde una clínica pierde
   más gente: los que piden cita y no aparecen) y medio para los KPIs de leads.
-- **Fecha:** 2026-07-27 · 🔵 **PRIORIDAD SUBIDA por Simon**: sin este dato no hay embudo
-  completo NI señal para el motor predictivo de no-shows. Se propone el fix al cerrar la
-  pasada visual, antes de volver a tocar producto.
+- **Fecha:** 2026-07-27 · ✅ **CERRADA el mismo día**. Resuelta derivando, no duplicando:
+  `lib/leads/cita` resuelve la cita del lead (la suya, o la primera de su paciente dentro de
+  90 días desde la captación) y declara lo no atribuible. Etapa "Consiguieron cita" en el
+  embudo (268 → 86 → 79 → 35 → 7). Cerradas las dos puertas de escritura (PATCH de leads y
+  copiloto) y el kanban exige Agendar desde cualquier columna. Sin tocar esquema.
+  QA: `scripts/qa-leads-cita.mjs`. Ver DECISIONES.md.
 
 ## 51. El embudo solo cubre el 28% de los presupuestos: el resto no viene de un lead
 - **Zona:** `lib/dashboard-red.ts` (embudo), modelo lead → paciente
