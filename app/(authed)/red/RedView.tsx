@@ -37,12 +37,11 @@ import { ErrorState } from "../../components/ui/Feedback";
 import { Card } from "../../components/ui/Card";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { ColaTabs } from "../../components/shared/ColaTabs";
-import { Cifra, Comparativa, eur } from "../../components/shared/Cifra";
+import { Cifra, Comparativa, eur, fmtDelta } from "../../components/shared/Cifra";
 import {
   Sparkles,
   TrendingUp,
   TrendingDown,
-  Minus,
   CircleDollarSign,
   CheckCircle2,
   ChevronRight,
@@ -65,10 +64,9 @@ const mesLabel = (yyyyMm: string) => {
 function SinComparar({ abiertos, total, unidad }: { abiertos: number; total: number; unidad: string }) {
   return (
     <span
-      className="inline-flex items-center gap-1 text-[11px] text-[var(--color-muted)]"
+      className="text-[11px] text-[var(--color-muted)]"
       title={`Todavía no se puede comparar: ${abiertos} de los ${total} ${unidad} de este mes siguen sin decidirse. Frente a un mes ya cerrado, la caída sería falsa.`}
     >
-      <Minus size={11} strokeWidth={ICON_STROKE} aria-hidden />
       aún en juego
     </span>
   );
@@ -412,15 +410,31 @@ const ORDENES_CON_MUESTRA_CORTA: OrdenClinicas[] = ["tendencia", "conversion"];
 /** Textos de una fila de clínica. Los comparten la tabla (escritorio) y la
  *  lista apilada (móvil): una sola redacción, dos disposiciones. */
 function celdasClinica(c: ClinicaFila) {
+  const deltaPts =
+    c.conversionPct != null && c.conversionPctPrevio != null
+      ? c.conversionPct - c.conversionPctPrevio
+      : null;
   return {
     conversion: c.conversionPct != null ? `${c.conversionPct}%` : "—",
+    // Con muestra corta el subtexto NO es un delta: con 3 presupuestos en juego
+    // "+33 pts" es ruido, y "1 de 3" es lo único que se puede afirmar.
     conversionRef: c.muestraCorta
       ? `${c.aceptadosMes} de ${c.presentadosMes}`
-      : c.conversionPctPrevio != null
-        ? `era ${c.conversionPctPrevio}%`
-        : "sin referencia",
+      : deltaPts == null
+        ? "sin referencia"
+        : deltaPts === 0
+          ? "igual"
+          : fmtDelta(deltaPts, "porcentaje"),
+    conversionRefTono:
+      !c.muestraCorta && deltaPts != null && deltaPts !== 0
+        ? deltaPts > 0
+          ? "text-[var(--color-success)]"
+          : "text-[var(--color-danger)]"
+        : "text-[var(--color-muted)]",
+    // El € aceptado ya NO lleva subtexto: la columna Evolución, pegada a ella,
+    // es su cambio. "12.430 € / eran 7.950 € / +56%" eran tres cifras de una
+    // sola métrica compitiendo en la misma fila.
     aceptado: eur(c.aceptadoMes),
-    aceptadoRef: c.aceptadoMesPrevio > 0 ? `eran ${eur(c.aceptadoMesPrevio)}` : "sin referencia",
     tituloMuestraCorta: c.muestraCorta
       ? `Muestra corta: ${c.presentadosMes} presupuesto${c.presentadosMes === 1 ? "" : "s"} este mes y ${c.presentadosMesPrevio} el anterior. El porcentaje se enseña, pero no se lee como señal.`
       : undefined,
@@ -439,7 +453,7 @@ function EvolucionClinica({ c }: { c: ClinicaFila }) {
   const neutra = c.muestraCorta || c.tendenciaPct === 0;
   return (
     <span
-      className={`inline-flex items-center gap-1 font-semibold tabular-nums ${
+      className={`font-semibold tabular-nums ${
         neutra
           ? "text-[var(--color-muted)]"
           : c.tendenciaPct < 0
@@ -449,20 +463,13 @@ function EvolucionClinica({ c }: { c: ClinicaFila }) {
       title={
         c.muestraCorta
           ? "Pocos presupuestos en juego: la evolución se enseña, pero no ordena el ranking."
-          : "Cambio del € aceptado frente al mismo tramo del mes anterior."
+          : "Cambio del € aceptado frente al mismo tramo del mes anterior. En % y no en €: es lo único comparable entre clínicas de tamaños distintos, y es el criterio del orden."
       }
     >
-      {/* Con muestra corta no se pinta flecha: un icono de dirección junto a un
-          "-30%" ya con signo se leía como dos símbolos peleándose. */}
-      {c.muestraCorta ? null : c.tendenciaPct === 0 ? (
-        <Minus size={12} strokeWidth={ICON_STROKE} aria-hidden />
-      ) : c.tendenciaPct < 0 ? (
-        <TrendingDown size={12} strokeWidth={ICON_STROKE} aria-hidden />
-      ) : (
-        <TrendingUp size={12} strokeWidth={ICON_STROKE} aria-hidden />
-      )}
-      {c.tendenciaPct > 0 ? "+" : ""}
-      {c.tendenciaPct}%
+      {/* Sin flecha: el signo ya dice la dirección, y un icono al lado eran dos
+          símbolos peleándose. Misma regla que la Comparativa compartida. */}
+      {c.tendenciaPct > 0 ? "+" : c.tendenciaPct < 0 ? "−" : ""}
+      {Math.abs(c.tendenciaPct)}%
     </span>
   );
 }
@@ -868,14 +875,12 @@ export function RedView({ user: _user }: { user: UserSession }) {
                             className={c.muestraCorta ? "text-[var(--color-muted)]" : "font-semibold text-[var(--color-foreground)]"}
                             title={t.tituloMuestraCorta}
                           >
-                            {t.conversion} <span className="text-[10px] text-[var(--color-muted)] font-normal">{t.conversionRef}</span>
+                            {t.conversion} <span className={`text-[10px] font-normal ${t.conversionRefTono}`}>{t.conversionRef}</span>
                           </dd>
                         </div>
                         <div className="flex items-baseline gap-1.5">
                           <dt className="text-[var(--color-muted)]">Aceptado</dt>
-                          <dd className="font-semibold text-[var(--color-foreground)]">
-                            {t.aceptado} <span className="text-[10px] text-[var(--color-muted)] font-normal">{t.aceptadoRef}</span>
-                          </dd>
+                          <dd className="font-semibold text-[var(--color-foreground)]">{t.aceptado}</dd>
                         </div>
                         {c.vencido > 0 && (
                           <div className="flex items-baseline gap-1.5">
@@ -930,9 +935,8 @@ export function RedView({ user: _user }: { user: UserSession }) {
                         className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-muted)] cursor-pointer"
                       >
                         <td className="px-5 py-3 font-semibold text-[var(--color-foreground)]">{c.nombre}</td>
-                        {/* El VALOR manda y la referencia va debajo, en las
-                            mismas unidades. Fuera los "pts": eran una tercera
-                            gramática de delta en la misma pantalla. */}
+                        {/* El VALOR manda y debajo va el CAMBIO en las unidades
+                            del valor: un porcentaje cambia en puntos. */}
                         <td className="px-3 py-3 text-right tabular-nums">
                           <span
                             className={`font-semibold ${c.muestraCorta ? "text-[var(--color-muted)]" : "text-[var(--color-foreground)]"}`}
@@ -940,11 +944,10 @@ export function RedView({ user: _user }: { user: UserSession }) {
                           >
                             {t.conversion}
                           </span>
-                          <span className="block text-[10px] text-[var(--color-muted)]">{t.conversionRef}</span>
+                          <span className={`block text-[10px] ${t.conversionRefTono}`}>{t.conversionRef}</span>
                         </td>
                         <td className="px-3 py-3 text-right tabular-nums">
                           <span className="font-semibold text-[var(--color-foreground)]">{t.aceptado}</span>
-                          <span className="block text-[10px] text-[var(--color-muted)]">{t.aceptadoRef}</span>
                         </td>
                         <td className="px-3 py-3 text-right tabular-nums">
                           {c.vencido > 0 ? (
