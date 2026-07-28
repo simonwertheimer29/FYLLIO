@@ -526,3 +526,23 @@ clínica 79 → recibieron presupuesto 35 → aceptaron 7. Detalle de honestidad
 empezó siendo una caja que contenía su texto, lo que obligaba a un ancho mínimo que igualaba
 visualmente 35 y 7 —la barra desmentía a su número—; ahora es un relleno de fondo sobre una
 pista a ancho completo, proporcional de verdad, con el texto siempre legible encima.
+
+## 2026-07-27 — Cobros: una gramática compartida, la cola cabe en pantalla y el toggle deja el negro
+Pasada visual de /cobros. Contenido: `fmtEUR` escribía `toLocaleString` sin `useGrouping` y
+es-ES omite el separador en cuatro cifras — "1050 €" y "12.725 €" en la misma pantalla, en
+cards, pestañas, tabla y copy de estado; ahora hay UN formateador para todo el producto. Y
+`/api/cobros` comparaba el mes en curso contra el mes anterior COMPLETO mientras /red ya
+comparaba el mismo tramo: la misma cifra con dos reglas según la pantalla (el día 3 de un mes
+/cobros habría dicho "−90%"). Se extrajo `Cifra`+`Comparativa` de RedView a
+`components/shared/Cifra` para que la gramática de comparación sea una sola en todo Fyllio.
+Layout: las tres KpiCard de 36px se funden en una franja compacta —se repetían idénticas en
+las dos vistas y en móvil empujaban el primer cobro 480px hacia abajo—, y la cola estrena la
+densidad "compacta" de AccionCard (identidad · estado · importe en horizontal, opt-in: las
+otras colas no cambian), con lo que los 8 vencidos caben en una pantalla donde antes cabían 3.
+`emphasis` iba a las OCHO cards del bucket: ahora solo a la primera, porque cuando todas
+gritan ninguna destaca. El importe deja de ir a 24px junto a un nombre de 14px: el número no
+puede pesar más que la persona a la que hay que llamar. El Registro pliega los ya cobrados
+(40 de 68 filas) bajo "Ver N ya cobrados", salvo si se filtra por "pagado" explícitamente.
+`SegmentedToggle` pintaba la pastilla activa en `--color-foreground` (negro sólido, un color
+de marca que Fyllio no tiene) en el control más visible de tres pantallas: era el primitivo,
+no una variante suelta, así que Cobros, Seguimiento y Presupuestos pasan al acento a la vez.

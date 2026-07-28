@@ -10,10 +10,11 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useClinic } from "../../lib/context/ClinicContext";
-import { KpiCard } from "../../components/ui/KpiCard";
-import { Skeleton, KpiCardSkeleton, TableRowSkeleton } from "../../components/ui/Skeleton";
+import { Skeleton, TableRowSkeleton } from "../../components/ui/Skeleton";
+import { Card } from "../../components/ui/Card";
 import { ColaTabs } from "../../components/shared/ColaTabs";
 import { SegmentedToggle } from "../../components/shared/SegmentedToggle";
+import { Cifra, Comparativa } from "../../components/shared/Cifra";
 import { ErrorState, EmptyState } from "../../components/ui/Feedback";
 import { StatePill, type StatePillVariant } from "../../components/ui/StatePill";
 import { AccionCard } from "../../components/shared/AccionCard";
@@ -77,6 +78,7 @@ export function CobrosView() {
   const [filtroClinica, setFiltroClinica] = useState("");
   const [filtroDoctor, setFiltroDoctor] = useState("");
   const [busqueda, setBusqueda] = useState("");
+  const [mostrarCobrados, setMostrarCobrados] = useState(false);
   const [pagoDe, setPagoDe] = useState<CobroItem | null>(null);
 
   useEffect(() => {
@@ -98,12 +100,6 @@ export function CobrosView() {
   }, [selectedClinicaId, reloadKey]);
 
   const kpis = data?.kpis;
-  const deltaCobrado =
-    kpis && kpis.cobradoMes.previo > 0
-      ? Math.round(
-          ((kpis.cobradoMes.valor - kpis.cobradoMes.previo) / kpis.cobradoMes.previo) * 100,
-        )
-      : null;
 
   // ── Zona 1: buckets por urgencia, contactados recientes al final ──────
   const buckets = useMemo(() => {
@@ -147,6 +143,17 @@ export function CobrosView() {
       });
   }, [data, filtroEstado, filtroClinica, filtroDoctor, busqueda]);
 
+  // Los ya cobrados (pendiente 0) son 40 de las 68 filas: ruido debajo de lo
+  // accionable. Se pliegan bajo un pie que dice cuántos son — nunca se
+  // esconden. Si la coordinadora FILTRA por "pagado", los está pidiendo
+  // explícitamente y no se pliega nada.
+  const plegarCobrados = filtroEstado === "todos";
+  const registroConPendiente = plegarCobrados ? registro.filter((i) => i.pendiente > 0) : registro;
+  const registroCobrados = plegarCobrados ? registro.filter((i) => i.pendiente <= 0) : [];
+  const registroVisible = mostrarCobrados
+    ? [...registroConPendiente, ...registroCobrados]
+    : registroConPendiente;
+
   function marcarActuado(pacienteId: string) {
     setActuados((prev) => new Set(prev).add(pacienteId));
   }
@@ -167,59 +174,70 @@ export function CobrosView() {
     // ensancha la vista entera en móvil (el scroll horizontal vive DENTRO
     // del contenedor de la tabla, nunca en la página).
     <div className="w-full max-w-[1400px] mx-auto px-3 sm:px-6 py-6 space-y-8 overflow-x-hidden">
-      <header className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
-            Cobros
-          </h1>
-          <p className="text-[13px] text-[var(--color-muted)] mt-0.5">
-            Del presupuesto aceptado al dinero cobrado.
-          </p>
+      {/* Cabecera compacta: título, las tres cifras y el conmutador en UNA
+          franja. Las cifras son comunes a las dos vistas —antes se repetían
+          idénticas en ambas— y en tres KpiCard de 36px empujaban la cola
+          fuera de pantalla en móvil: 480px de alto antes del primer cobro. */}
+      <header className="space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
+              Cobros
+            </h1>
+            <p className="text-[13px] text-[var(--color-muted)] mt-0.5">
+              Del presupuesto aceptado al dinero cobrado.
+            </p>
+          </div>
+          {/* Conmutador de vista en cabecera — mismo patrón que Seguimiento. */}
+          <SegmentedToggle
+            options={[
+              { id: "actuar" as const, label: "Actuar", count: totalActuar },
+              { id: "registro" as const, label: "Registro", count: (data?.items ?? []).length },
+            ]}
+            active={pestana}
+            onChange={setPestana}
+          />
         </div>
-        {/* Conmutador de vista en cabecera — mismo patrón que Actuar hoy. */}
-        <SegmentedToggle
-          options={[
-            { id: "actuar" as const, label: "Actuar", count: totalActuar },
-            { id: "registro" as const, label: "Registro", count: (data?.items ?? []).length },
-          ]}
-          active={pestana}
-          onChange={setPestana}
-        />
-      </header>
 
-      {/* KPIs — misma derivación que el dashboard de Red */}
-      {!kpis ? (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <KpiCardSkeleton />
-          <KpiCardSkeleton />
-          <KpiCardSkeleton />
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <KpiCard
-            label="Pendiente de cobro"
-            value={kpis.pendienteTotal}
-            formatter={fmtEUR}
-            subline="De todos los presupuestos aceptados"
-            accent="neutral"
-          />
-          <KpiCard
-            label="Vencido"
-            value={kpis.vencidoTotal}
-            formatter={fmtEUR}
-            subline="Con el plazo de su clínica superado"
-            accent={kpis.vencidoTotal > 0 ? "rose" : "neutral"}
-          />
-          <KpiCard
-            label="Cobrado este mes"
-            value={kpis.cobradoMes.valor}
-            formatter={fmtEUR}
-            subline={`El mes pasado: ${fmtEUR(kpis.cobradoMes.previo)}`}
-            deltaPct={deltaCobrado}
-            accent="emerald"
-          />
-        </div>
-      )}
+        <Card padding="none" className="px-5 py-3.5">
+          {!kpis ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="space-y-1.5">
+                  <Skeleton width={110} height={10} />
+                  <Skeleton width={90} height={20} />
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <Cifra
+                label="Pendiente de cobro"
+                valor={fmtEUR(kpis.pendienteTotal)}
+                detalle="de todos los aceptados"
+              />
+              <Cifra
+                label="Vencido"
+                valor={fmtEUR(kpis.vencidoTotal)}
+                detalle="fuera de plazo"
+              />
+              {/* Misma gramática de comparación que /red: el valor manda y la
+                  referencia va detrás en sus mismas unidades. */}
+              <Cifra
+                label="Cobrado este mes"
+                valor={fmtEUR(kpis.cobradoMes.valor)}
+                comparacion={
+                  <Comparativa
+                    valor={kpis.cobradoMes.valor}
+                    previo={kpis.cobradoMes.previo}
+                    tipo="dinero"
+                  />
+                }
+              />
+            </div>
+          )}
+        </Card>
+      </header>
 
       {/* ── Zona 1 · Actuar ─────────────────────────────────────────── */}
       {pestana === "actuar" && (
@@ -381,7 +399,7 @@ export function CobrosView() {
                 </tr>
               </thead>
               <tbody>
-                {registro.map((i, idx) => (
+                {registroVisible.map((i, idx) => (
                   <tr
                     key={i.pacienteId}
                     className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-muted)] transition-colors fyllio-fade-in"
@@ -438,6 +456,28 @@ export function CobrosView() {
                     </td>
                   </tr>
                 ))}
+                {registroVisible.length === 0 && (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-4 text-center text-[var(--color-muted)]">
+                      Nada pendiente de cobro con estos filtros.
+                    </td>
+                  </tr>
+                )}
+                {registroCobrados.length > 0 && (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-2.5 border-t border-[var(--color-border)]">
+                      <button
+                        type="button"
+                        onClick={() => setMostrarCobrados((v) => !v)}
+                        className="text-xs font-medium text-[var(--color-accent)] hover:underline"
+                      >
+                        {mostrarCobrados
+                          ? `Ocultar los ${registroCobrados.length} ya cobrados`
+                          : `Ver ${registroCobrados.length} ya cobrado${registroCobrados.length === 1 ? "" : "s"}`}
+                      </button>
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
@@ -501,50 +541,52 @@ function Bucket({
     );
   }
   return (
-    <div className="space-y-2">
-      <ul className="space-y-2">
-        {items.map((it, i) => {
-          const estado = copyEstado(it);
-          const faded =
-            actuados.has(it.pacienteId) || (it.diasDesdeUltimaContacto ?? Infinity) <= 3;
-          return (
-            <li
-              key={it.pacienteId}
-              className="fyllio-fade-in"
-              style={{ animationDelay: `${Math.min(i * 35, 500)}ms` }}
-            >
-              <AccionCard
-                borderColor={BORDER[it.urgencia] ?? "var(--color-border)"}
-                faded={faded}
-                emphasis={emphasis}
-                title={it.nombre}
-                titleRight={
-                  <span
-                    className={`font-display font-bold text-[var(--color-danger)] tabular-nums ${
-                      emphasis ? "text-2xl leading-none" : "text-sm"
-                    }`}
-                  >
-                    {fmtEUR(it.pendiente)}
-                  </span>
-                }
-                tags={it.tratamientos.slice(0, 2).map((t) => ({ label: t }))}
-                meta={[
-                  it.clinicaNombre,
-                  it.doctorNombre,
-                  it.diasDesdeUltimaContacto != null
-                    ? `último contacto hace ${it.diasDesdeUltimaContacto}d`
-                    : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-                estado={estado}
-                onOpen={() => onOpen(it)}
-              />
-            </li>
-          );
-        })}
-      </ul>
-    </div>
+    <ul className="space-y-1.5">
+      {items.map((it, i) => {
+        const estado = copyEstado(it);
+        const faded =
+          actuados.has(it.pacienteId) || (it.diasDesdeUltimaContacto ?? Infinity) <= 3;
+        // UNA destacada por cola: la primera del orden, y solo si el bucket es
+        // el urgente. Antes `emphasis` iba a las OCHO cards de vencidos —
+        // cuando todas gritan, ninguna destaca (misma doctrina que /red).
+        const destacada = !!emphasis && i === 0 && !faded;
+        return (
+          <li
+            key={it.pacienteId}
+            className="fyllio-fade-in"
+            style={{ animationDelay: `${Math.min(i * 30, 400)}ms` }}
+          >
+            <AccionCard
+              densidad="compacta"
+              borderColor={BORDER[it.urgencia] ?? "var(--color-border)"}
+              faded={faded}
+              emphasis={destacada}
+              title={it.nombre}
+              titleRight={
+                // Un solo peso para el importe en toda la cola: antes la card
+                // destacada lo ponía en 24px junto a un nombre de 14px, y el
+                // número pesaba más que la persona a la que hay que llamar.
+                <span className="font-display font-bold text-base text-[var(--color-danger)] tabular-nums">
+                  {fmtEUR(it.pendiente)}
+                </span>
+              }
+              tags={it.tratamientos.slice(0, 1).map((t) => ({ label: t }))}
+              meta={[
+                it.clinicaNombre,
+                it.doctorNombre,
+                it.diasDesdeUltimaContacto != null
+                  ? `último contacto hace ${it.diasDesdeUltimaContacto}d`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+              estado={estado}
+              onOpen={() => onOpen(it)}
+            />
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

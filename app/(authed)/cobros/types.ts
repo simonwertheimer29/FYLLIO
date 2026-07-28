@@ -39,8 +39,12 @@ export type CobrosApiResponse = {
   clinicasDisponibles: Array<{ id: string; nombre: string }>;
 };
 
-export const fmtEUR = (n: number) =>
-  `${n.toLocaleString("es-ES", { maximumFractionDigits: 0 })} €`;
+/** Un solo formateador de euros en todo el producto. El de aquí escribía
+ *  `toLocaleString` sin `useGrouping`, y es-ES omite el separador en los
+ *  números de cuatro cifras: en la misma pantalla convivían "1050 €" y
+ *  "12.725 €" (pasada visual 2026-07-27). */
+import { eur } from "../../components/shared/Cifra";
+export const fmtEUR = eur;
 
 /** Copy de dos niveles de la card/panel (patrón del dashboard de Red). */
 export function copyEstado(item: CobroItem): { titular: string; detalle: string } {

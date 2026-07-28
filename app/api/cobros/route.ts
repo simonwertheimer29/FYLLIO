@@ -167,13 +167,21 @@ export const GET = withAuth(async (session, req) => {
   const prevDate = new Date(today);
   prevDate.setUTCMonth(prevDate.getUTCMonth() - 1);
   const mesPrevio = prevDate.toISOString().slice(0, 7);
+  // MISMO TRAMO del mes (días 1..hoy) en los dos meses, igual que el dashboard
+  // de Red (2026-07-27). Antes esta ruta comparaba el mes en curso contra el
+  // mes anterior COMPLETO: la misma cifra tenía dos reglas según la pantalla, y
+  // el día 3 de un mes /cobros habría dicho "−90%" mientras /red no.
+  const diaHoy = new Date(today).getUTCDate();
   let cobradoMes = 0;
   let cobradoMesPrevio = 0;
   for (const pago of pagosRecs) {
     if (!pago.pacienteRecordId || !pacientePorId.has(pago.pacienteRecordId)) continue;
-    const mes = String(pago.fechaPago ?? "").slice(0, 7);
+    const iso = String(pago.fechaPago ?? "");
+    const mes = iso.slice(0, 7);
+    const dia = Number(iso.slice(8, 10));
+    const dentroDelTramo = !Number.isFinite(dia) || dia === 0 ? true : dia <= diaHoy;
     if (mes === mesActual) cobradoMes += pago.importe;
-    else if (mes === mesPrevio) cobradoMesPrevio += pago.importe;
+    else if (mes === mesPrevio && dentroDelTramo) cobradoMesPrevio += pago.importe;
   }
 
   return NextResponse.json({

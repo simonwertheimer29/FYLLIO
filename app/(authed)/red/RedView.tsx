@@ -37,6 +37,7 @@ import { ErrorState } from "../../components/ui/Feedback";
 import { Card } from "../../components/ui/Card";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { ColaTabs } from "../../components/shared/ColaTabs";
+import { Cifra, Comparativa, eur } from "../../components/shared/Cifra";
 import {
   Sparkles,
   TrendingUp,
@@ -52,95 +53,15 @@ import {
   ICON_STROKE,
 } from "../../components/icons";
 
-// `useGrouping` explícito: es-ES omite el separador en los números de cuatro
-// cifras, así que en una columna de importes convivían "12.430 €" y "5100 €".
-const eur = (n: number) =>
-  n.toLocaleString("es-ES", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-    useGrouping: true,
-  });
-
 const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 const mesLabel = (yyyyMm: string) => {
   const m = Number(yyyyMm.slice(5, 7));
   return `${MESES_CORTOS[m - 1] ?? yyyyMm} ${yyyyMm.slice(2, 4)}`;
 };
 
-// ─── Comparación: UNA sola gramática en toda la página ──────────────────
-//
-// El valor manda y la referencia va detrás, expresada EN LAS MISMAS UNIDADES
-// que el valor: «48 (eran 14)» · «12.400 € (eran 9.800 €)» · «33% (era 100%)».
-// Antes convivían tres gramáticas —Δ% relativo en los chips, Δ absoluto en
-// "pts" en la tabla y Δ% otra vez en Tendencia—, y cuando el chip recibía un
-// porcentaje producía un % de un %: 29 vs 67 se pintaba «−57%» con el mismo
-// sufijo que un delta de unidades. Nadie podía leer eso bien.
-//
-// La dirección la dan color y flecha; nunca un segundo número.
-
-type TipoCifra = "numero" | "dinero" | "porcentaje";
-
-const fmtCifra = (n: number, tipo: TipoCifra) =>
-  tipo === "dinero" ? eur(n) : tipo === "porcentaje" ? `${n}%` : n.toLocaleString("es-ES");
-
-function Comparativa({
-  valor,
-  previo,
-  tipo,
-  /** Sin señal de dirección: la comparación se lee, pero no juzga. */
-  neutral,
-  /** Métricas donde subir es MALO (perdidos, vencido): el color va al revés.
-   *  Sin esto, "7 perdidos, eran 5" se pintaba en verde de subida. */
-  subirEsMalo,
-  titulo,
-}: {
-  valor: number;
-  previo: number;
-  tipo: TipoCifra;
-  neutral?: boolean;
-  subirEsMalo?: boolean;
-  titulo?: string;
-}) {
-  if (previo === 0 && valor === 0) return null;
-  if (previo === 0) {
-    return (
-      <span
-        className="text-[11px] text-[var(--color-muted)]"
-        title="El mes anterior no registró nada en este tramo: no hay con qué comparar."
-      >
-        sin referencia
-      </span>
-    );
-  }
-  const sube = valor > previo;
-  const igual = valor === previo;
-  const verbo = tipo === "numero" && previo === 1 ? "era" : tipo === "porcentaje" ? "era" : "eran";
-  // La flecha dice hacia dónde se movió el número; el color, si eso es bueno.
-  const bueno = subirEsMalo ? !sube : sube;
-  const tono = neutral || igual
-    ? "text-[var(--color-muted)]"
-    : bueno
-      ? "text-[var(--color-success)]"
-      : "text-[var(--color-danger)]";
-  return (
-    <span
-      className={`inline-flex items-center gap-1 text-[11px] tabular-nums ${tono}`}
-      title={titulo ?? "Comparado con el mismo tramo del mes anterior (días 1 a hoy)."}
-    >
-      {neutral || igual ? (
-        <Minus size={11} strokeWidth={ICON_STROKE} aria-hidden />
-      ) : sube ? (
-        <TrendingUp size={11} strokeWidth={ICON_STROKE} aria-hidden />
-      ) : (
-        <TrendingDown size={11} strokeWidth={ICON_STROKE} aria-hidden />
-      )}
-      {igual ? "igual que el mes pasado" : `${verbo} ${fmtCifra(previo, tipo)}`}
-    </span>
-  );
-}
-
-/** Comparación imposible todavía: la cohorte del mes sigue decidiéndose. */
+/** Comparación imposible todavía: la cohorte del mes sigue decidiéndose.
+ *  Vive aquí y no en el módulo compartido porque es propio de la conversión
+ *  por cohorte de este dashboard. */
 function SinComparar({ abiertos, total, unidad }: { abiertos: number; total: number; unidad: string }) {
   return (
     <span
@@ -150,37 +71,6 @@ function SinComparar({ abiertos, total, unidad }: { abiertos: number; total: num
       <Minus size={11} strokeWidth={ICON_STROKE} aria-hidden />
       aún en juego
     </span>
-  );
-}
-
-function Cifra({
-  label,
-  valor,
-  /** Segunda magnitud del mismo hecho (el importe de un recuento, el crudo de
-   *  un porcentaje). Nunca una comparación. */
-  detalle,
-  comparacion,
-  destacada,
-}: {
-  label: string;
-  valor: string;
-  detalle?: string;
-  comparacion?: React.ReactNode;
-  destacada?: boolean;
-}) {
-  return (
-    <div className="min-w-0">
-      <p className="text-[10px] uppercase tracking-wider font-semibold text-[var(--color-muted)]">{label}</p>
-      <p
-        className={`font-display font-bold tabular-nums text-[var(--color-foreground)] ${
-          destacada ? "text-2xl" : "text-xl"
-        }`}
-      >
-        {valor}
-      </p>
-      {detalle && <p className="text-[11px] tabular-nums text-[var(--color-muted)] mt-0.5">{detalle}</p>}
-      {comparacion && <p className="mt-0.5">{comparacion}</p>}
-    </div>
   );
 }
 

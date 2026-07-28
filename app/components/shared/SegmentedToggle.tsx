@@ -6,7 +6,15 @@
 // color de primer plano cuando está activa.
 //
 // No confundir con ColaTabs (pills de filtro dentro del contenido): este
-// conmuta VISTAS de una página; aquellas filtran una cola.
+// conmuta VISTAS de una página; aquellas filtran una cola. Lo que los
+// distingue es el RAÍL: este vive dentro de una pista con borde, aquellas
+// flotan sobre el fondo.
+//
+// La pastilla activa iba en `--color-foreground` (negro sólido en claro): un
+// color de marca que Fyllio no tiene, en el control más visible de tres
+// pantallas. Pasa al acento único (pasada visual 2026-07-27). El cambio es del
+// primitivo, así que Cobros, Seguimiento y Presupuestos lo heredan a la vez —
+// que es justo lo que se quiere: no había variante suelta que arreglar.
 
 export type SegmentedOption<T extends string = string> = {
   id: T;
@@ -32,7 +40,7 @@ export function SegmentedToggle<T extends string>({
           onClick={() => onChange(o.id)}
           className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-colors whitespace-nowrap ${
             o.id === active
-              ? "bg-[var(--color-foreground)] text-[var(--color-background)]"
+              ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
               : "text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
           }`}
         >

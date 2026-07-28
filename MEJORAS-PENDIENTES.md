@@ -788,7 +788,9 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   Entonces la etapa entra en el embudo sin inventar nada.
 - **Impacto:** alto para el embudo (hoy le falta justo el paso donde una clínica pierde
   más gente: los que piden cita y no aparecen) y medio para los KPIs de leads.
-- **Fecha:** 2026-07-27 · 🔵
+- **Fecha:** 2026-07-27 · 🔵 **PRIORIDAD SUBIDA por Simon**: sin este dato no hay embudo
+  completo NI señal para el motor predictivo de no-shows. Se propone el fix al cerrar la
+  pasada visual, antes de volver a tocar producto.
 
 ## 51. El embudo solo cubre el 28% de los presupuestos: el resto no viene de un lead
 - **Zona:** `lib/dashboard-red.ts` (embudo), modelo lead → paciente
