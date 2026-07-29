@@ -41,10 +41,12 @@ function recordToConfig(rec: { fields: Record<string, unknown> }, clinica: strin
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
 export const GET = withPresupuestosAuth(async (session, req) => {
-  // Demo mode
-  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-    return NextResponse.json({ configuracion: null, defaults: DEFAULTS, isDemo: true });
-  }
+  // (Aquí había una puerta a datos DEMO condicionada a AIRTABLE_API_KEY /
+  // AIRTABLE_BASE_ID. Airtable está retirado y esas variables no existen en
+  // Vercel, así que la condición se cumplía SIEMPRE en producción: la ruta no
+  // llegaba nunca a su código real. Eliminada, no re-condicionada — si no se
+  // pueden servir datos reales, se devuelve un error honesto, jamás inventados.
+  // §4 y §1, 2026-07-29.)
 
   const { searchParams } = new URL(req.url);
   const clinicaParam = searchParams.get("clinica") ?? "";
@@ -107,10 +109,6 @@ export const PUT = withPresupuestosAuth(async (session, req) => {
     return NextResponse.json({ error: "Clínica no permitida" }, { status: 403 });
   }
 
-  // Demo mode
-  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-    return NextResponse.json({ ok: true, isDemo: true });
-  }
 
   const now = new Date().toISOString();
 

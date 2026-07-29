@@ -72,10 +72,12 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     return NextResponse.json({ error: "No hay registros para importar" }, { status: 400 });
   }
 
-  // Demo mode — acknowledge without writing
-  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-    return NextResponse.json({ importados: registros.length, errores: [], total: registros.length, demo: true });
-  }
+  // (Aquí había una puerta a datos DEMO condicionada a AIRTABLE_API_KEY /
+  // AIRTABLE_BASE_ID. Airtable está retirado y esas variables no existen en
+  // Vercel, así que la condición se cumplía SIEMPRE en producción: la ruta no
+  // llegaba nunca a su código real. Eliminada, no re-condicionada — si no se
+  // pueden servir datos reales, se devuelve un error honesto, jamás inventados.
+  // §4 y §1, 2026-07-29.)
 
   const today = DateTime.now().setZone(ZONE).toISODate()!;
   const toCreate = registros.map((r) => ({ fields: buildFields(r, clinicaId, origenDefault, today) }));

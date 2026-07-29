@@ -897,7 +897,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** bajo hoy, medio cuando el dato exista.
 - **Fecha:** 2026-07-29 · 🔵
 
-## 59. Nueve rutas sirven datos DEMO si faltan dos variables de Airtable ya muerto
+## 59. ✅ CERRADA — Rutas sirviendo datos DEMO en producción por variables de Airtable retiradas
 - **Zona:** `automatizaciones/secuencias`, `automatizaciones/configuracion`,
   `automatizaciones/seed-demo`, `automatizaciones/procesar`, `presupuestos/intervencion`,
   `presupuestos/objetivos` (×2) y las que queden con el mismo patrón
@@ -910,9 +910,12 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Mejora:** retirar la puerta en las nueve, como ya se hizo en `presupuestos/paciente`
   (2026-07-29). Y comprobar si esas variables siguen definidas en Vercel — si no lo están,
   esto está activo en producción.
-- **Impacto:** alto si en producción faltan las variables; nulo si están. **Hay que mirarlo
-  antes de decidir la prioridad.**
-- **Fecha:** 2026-07-29 · 🔵
+- **Impacto:** CONFIRMADO EN PRODUCCIÓN. Simon verificó que las dos variables no existen en
+  Vercel, así que la condición se cumplía SIEMPRE. No eran nueve rutas sino **quince sitios en
+  trece archivos**, incluido el cron de automatizaciones y seis ESCRITURAS que confirmaban
+  éxito sin escribir.
+- **Fecha:** 2026-07-29 · ✅ **CERRADA el mismo día.** Eliminadas todas las puertas, no
+  re-condicionadas. Ver DECISIONES.md para el detalle de qué devolvía cada una.
 
 ## 60. `NoShowRiskPanel` llama a una ruta que no existe (404)
 - **Zona:** `app/components/dashboard/NoShowRiskPanel.tsx:353` → `/api/dashboard/noshow-risk`

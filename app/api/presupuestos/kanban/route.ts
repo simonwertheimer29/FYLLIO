@@ -7,7 +7,6 @@ import { selectPresupuestosRaw, createPresupuestoRaw } from "../../../lib/presup
 import { DateTime } from "luxon";
 import type { Presupuesto, UserSession } from "../../../lib/presupuestos/types";
 import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
-import { isDemoAllowed } from "../../../lib/demo/seed";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { fechasPerdidaPorPresupuesto } from "../../../lib/historial/registrar";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
@@ -25,43 +24,8 @@ function daysSince(iso: string): number {
 // Demo data helper
 // -------------------------------------------------------------------
 
-function getDemoPresupuestos(session: UserSession, q: URLSearchParams): Presupuesto[] {
-  let data = [...DEMO_PRESUPUESTOS];
+// (getDemoPresupuestos retirado: esta ruta ya no inventa un pipeline nunca.)
 
-  if (session.rol === "encargada_ventas" && session.clinica) {
-    data = data.filter((p) => p.clinica === session.clinica);
-  } else if (q.get("clinica")) {
-    data = data.filter((p) => p.clinica === q.get("clinica"));
-  }
-
-  const doctor = q.get("doctor");
-  if (doctor) data = data.filter((p) => p.doctor === doctor);
-
-  const tipoPaciente = q.get("tipoPaciente");
-  if (tipoPaciente) data = data.filter((p) => p.tipoPaciente === tipoPaciente);
-
-  const tipoVisita = q.get("tipoVisita");
-  if (tipoVisita) data = data.filter((p) => p.tipoVisita === tipoVisita);
-
-  const fechaDesde = q.get("fechaDesde");
-  if (fechaDesde) data = data.filter((p) => p.fechaPresupuesto >= fechaDesde);
-  const fechaHasta = q.get("fechaHasta");
-  if (fechaHasta) data = data.filter((p) => p.fechaPresupuesto <= fechaHasta);
-
-  const search = q.get("q")?.toLowerCase() ?? "";
-  if (search) {
-    data = data.filter(
-      (p) =>
-        p.patientName.toLowerCase().includes(search) ||
-        p.treatments.some((t) => t.toLowerCase().includes(search))
-    );
-  }
-
-  const estadoFilter = q.get("estado");
-  if (estadoFilter) data = data.filter((p) => p.estado === estadoFilter);
-
-  return data;
-}
 
 // -------------------------------------------------------------------
 // GET /api/presupuestos/kanban
@@ -71,26 +35,12 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const url = new URL(req.url);
   const q = url.searchParams;
 
-  // Detect missing env vars and return actionable demo response
-  const missingEnvs = [
-    !process.env.AIRTABLE_API_KEY && "AIRTABLE_API_KEY",
-    !process.env.AIRTABLE_BASE_ID && "AIRTABLE_BASE_ID",
-  ].filter(Boolean) as string[];
-
-  if (missingEnvs.length > 0) {
-    // P0.6 corrección 2: en producción NUNCA servimos demo. Si falta Airtable en
-    // prod es una misconfiguración real que debe verse, no un pipeline falso.
-    if (!isDemoAllowed()) {
-      console.error("[kanban GET] Airtable env missing in production:", missingEnvs);
-      return NextResponse.json({ error: "Configuración de datos no disponible" }, { status: 500 });
-    }
-    return NextResponse.json({
-      presupuestos: getDemoPresupuestos(session, q),
-      isDemo: true,
-      demoReason: "env_missing",
-      missingVars: missingEnvs,
-    });
-  }
+  // (Aquí se detectaban AIRTABLE_API_KEY / AIRTABLE_BASE_ID ausentes: en
+  // producción devolvía 500 y en desarrollo un pipeline DEMO. Con Airtable
+  // retirado esas variables no existen en Vercel, así que ESTA RUTA LLEVABA
+  // DEVOLVIENDO 500 EN PRODUCCIÓN desde el retiro — y la pantalla lo pintaba
+  // como "0 presupuestos abiertos · 0 €". Eliminado: los datos salen de
+  // Postgres y el catch de abajo ya devuelve un error honesto si fallan.)
 
   try {
     // Build Airtable filter — only use fields that exist in the base schema
@@ -250,18 +200,11 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
 
     return NextResponse.json({ presupuestos, isDemo: false });
   } catch (err) {
-    console.error("[kanban GET] Airtable error:", err);
-    // P0.6 corrección 2: en producción un error de Airtable NO se enmascara con
-    // datos demo (evita mostrar un pipeline falso a una clínica real). El cliente
-    // muestra el estado de error. En no-producción sí devolvemos demo para dev.
-    if (!isDemoAllowed()) {
-      return NextResponse.json({ error: "No se pudieron cargar los presupuestos" }, { status: 500 });
-    }
-    return NextResponse.json({
-      presupuestos: getDemoPresupuestos(session, q),
-      isDemo: true,
-      demoReason: "error",
-    });
+    // Ni siquiera en desarrollo se enmascara un fallo con datos demo: un
+    // pipeline falso en local es exactamente cómo se aprende a no fiarse de la
+    // pantalla, y es lo que retrasó el diagnóstico de los ceros (2026-07-29).
+    console.error("[kanban GET] error:", err);
+    return NextResponse.json({ error: "No se pudieron cargar los presupuestos" }, { status: 500 });
   }
 });
 

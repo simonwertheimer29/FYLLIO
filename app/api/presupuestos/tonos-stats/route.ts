@@ -17,20 +17,19 @@ export interface TonoStat {
 
 export type TonosStats = Record<"directo" | "empatico" | "urgencia", TonoStat>;
 
-const DEMO_STATS: TonosStats = {
-  directo:  { contactados: 28, aceptados: 8,  tasa: 29 },
-  empatico: { contactados: 31, aceptados: 13, tasa: 42 },
-  urgencia: { contactados: 24, aceptados: 6,  tasa: 25 },
-};
+// (DEMO_STATS retirado: no se inventan estadísticas de tono.)
+
 
 const MIN_CONTACTS = 10;
 const TONOS = ["directo", "empatico", "urgencia"] as const;
 
 export const GET = withPresupuestosAuth(async (session, req: Request) => {
-  // Demo mode
-  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-    return NextResponse.json({ stats: DEMO_STATS, isDemo: true });
-  }
+  // (Aquí había una puerta a datos DEMO condicionada a AIRTABLE_API_KEY /
+  // AIRTABLE_BASE_ID. Airtable está retirado y esas variables no existen en
+  // Vercel, así que la condición se cumplía SIEMPRE en producción: la ruta no
+  // llegaba nunca a su código real. Eliminada, no re-condicionada — si no se
+  // pueden servir datos reales, se devuelve un error honesto, jamás inventados.
+  // §4 y §1, 2026-07-29.)
 
   const { searchParams } = new URL(req.url);
   const clinicaFilter = searchParams.get("clinica") ?? "";
@@ -114,7 +113,10 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     }
 
     return NextResponse.json({ stats });
-  } catch {
-    return NextResponse.json({ stats: DEMO_STATS, isDemo: true });
+  } catch (err) {
+    // Devolvía estadísticas DEMO inventadas: números de tono con cara de reales
+    // sobre los que se decide qué se le escribe a un paciente.
+    console.error("[tonos-stats]", err);
+    return NextResponse.json({ error: "No se pudieron calcular las estadísticas" }, { status: 500 });
   }
 });

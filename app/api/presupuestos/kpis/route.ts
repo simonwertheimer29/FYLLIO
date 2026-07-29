@@ -9,7 +9,6 @@ import type {
   KpiTendenciaTarifa, KpiTendenciaVisita,
   KpiPorOrigen, KpiPorMotivoPerdida, KpiPorClinica,
 } from "../../../lib/presupuestos/types";
-import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
 import { PIPELINE_ORDEN, ESTADOS_ACEPTADOS } from "../../../lib/presupuestos/colors";
 import { detectarTecho } from "../../../lib/presupuestos/priceCeiling";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
@@ -376,19 +375,15 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const prevDate = new Date(mesY, mesM - 2, 1);
   const mesPrevio = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
 
-  // Try Airtable first
-  const airtableData = await fetchFromAirtable(session, clinicaFormula, doctor);
-  let data: Presupuesto[];
-  let isDemo = false;
-
-  if (airtableData) {
-    data = airtableData;
-  } else {
-    isDemo = true;
-    data = [...DEMO_PRESUPUESTOS];
-    if (efectivas) data = data.filter((p) => efectivas.has(p.clinica ?? ""));
-    if (doctor) data = data.filter((p) => p.doctor === doctor);
+  // Si la carga falla, los KPIs NO se calculan sobre presupuestos inventados:
+  // eran números de negocio con cara de reales sobre los que se toman
+  // decisiones (§4, 2026-07-29).
+  const datosReales = await fetchFromAirtable(session, clinicaFormula, doctor);
+  if (!datosReales) {
+    return NextResponse.json({ error: "No se pudieron cargar los KPIs" }, { status: 500 });
   }
+  const data: Presupuesto[] = datosReales;
+  const isDemo = false;
 
   const dataMes = data.filter((p) => isoToYYYYMM(p.fechaPresupuesto) === mesFiltro);
   const dataPrevMes = data.filter((p) => isoToYYYYMM(p.fechaPresupuesto) === mesPrevio);

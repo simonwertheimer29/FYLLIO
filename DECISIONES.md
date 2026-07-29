@@ -773,3 +773,23 @@ estado e importe, cobrado y pendiente, y tres botones —nuevo presupuesto, regi
 (los modales que ya existen, cero nuevos) y "Ver ficha completa". Es deliberadamente corto: si
 creciera hasta duplicar la ficha, sobraría una de las dos. El fallo de carga del detalle se
 declara y ofrece reintentar, no se pinta como "este paciente no tiene nada".
+
+## 2026-07-29 — Producción llevaba semanas sirviendo datos inventados (o nada)
+Simon confirmó que `AIRTABLE_API_KEY` y `AIRTABLE_BASE_ID` **no existen en Vercel** desde que
+se retiró Airtable. Trece archivos decidían su comportamiento con esas variables, así que la
+condición se cumplía SIEMPRE en producción y esas rutas **no llegaban nunca a su código real**
+— que hoy lee de Postgres y funciona perfectamente.
+Lo que estuvo pasando, por gravedad: **seis escrituras confirmaban éxito sin escribir nada**
+(guardar la configuración de automatizaciones, marcar una secuencia como enviada/descartada,
+guardar objetivos del mes, guardar la configuración de WhatsApp Business, y un importador de
+CSV que respondía "importados N" con cero escritos) — mandamiento §1 al revés. **El motor de
+automatizaciones estaba muerto**: su cron abortaba con 500 en cada ejecución. **La cola de
+intervención salía vacía** ("no hay nada que hacer" con 28 casos reales). Y **/presupuestos
+devolvía 500**, que la pantalla pintaba como "0 presupuestos abiertos · 0 €" — el síntoma que
+Simon reportó.
+Se eliminaron TODAS las puertas, no se re-condicionaron a otra variable: si una ruta no puede
+servir datos reales, error honesto. De paso cayeron los últimos fallbacks a datos demo en los
+catch —presupuestos inventados en los KPIs, contactos inventados en el historial de una
+conversación, doctores inventados que acaban impresos en el portal del paciente, y estadísticas
+de tono inventadas— incluido el de desarrollo: un pipeline falso en local es exactamente cómo
+se aprende a no fiarse de la pantalla, y es lo que retrasó este diagnóstico.
