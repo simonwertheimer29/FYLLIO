@@ -25,6 +25,7 @@ import { finanzasPorPaciente } from "../finanzas-paciente";
 import { getFacturadoEnPeriodo } from "../pagos";
 import type { Session } from "../auth/session";
 import type { ReadToolName } from "./tools-spec";
+import { sumaDias } from "../time";
 
 const ZONE = "Europe/Madrid";
 
@@ -643,11 +644,8 @@ async function execGetTopPacientesFacturado(
   return { total: ranking.length, ranking: ranking.slice(0, n) };
 }
 
-function shiftDay(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
+// (shiftDay vivía aquí; ahora es `sumaDias` en lib/time.)
+const shiftDay = sumaDias;
 
 // ─── buscar_paciente_por_nombre ────────────────────────────────────────
 //

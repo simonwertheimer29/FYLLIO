@@ -23,12 +23,13 @@ import {
   createColaEnvioRaw,
 } from "../app/lib/presupuestos/cola-envios-repo";
 import { usaPostgres } from "../app/lib/db/data-backend";
+import { hoyISO } from "../app/lib/time";
 
 let fallos = 0, pasos = 0;
 const ok = (n: string, c: boolean, extra = "") => { console.log(`  ${c ? "✓" : "✗ FALLO"} ${n}${extra ? "  — " + extra : ""}`); pasos++; if (!c) fallos++; };
 const seccion = (t: string) => console.log(`\n\x1b[1m${t}\x1b[0m`);
 const MARK = "[QA_COLA]";
-const today = new Date().toISOString().slice(0, 10);
+const today = hoyISO();
 
 async function limpiar() {
   const c = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL_APP, ssl: { rejectUnauthorized: false } });

@@ -7,6 +7,7 @@ import type {
   EspecialidadDoctor, TipoPaciente, TipoVisita, OrigenLead,
 } from "../../lib/presupuestos/types";
 import { ORIGEN_LABEL } from "../../lib/presupuestos/colors";
+import { hoyISO } from "../../lib/time";
 
 const ESPECIALIDADES: EspecialidadDoctor[] = [
   "General", "Prostodoncista", "Implantólogo", "Endodoncista", "Ortodoncia",
@@ -49,7 +50,7 @@ export default function NewPresupuestoModal({
   );
   const [amount, setAmount] = useState(presupuesto?.amount != null ? String(presupuesto.amount) : "");
   const [fechaPresupuesto, setFechaPresupuesto] = useState(
-    presupuesto?.fechaPresupuesto ?? new Date().toISOString().slice(0, 10)
+    presupuesto?.fechaPresupuesto ?? hoyISO()
   );
   const [notes, setNotes] = useState((presupuesto?.notes ?? "").replace(/\[SEED_[A-Z_]+\]/g, "").trim());
   const [numeroHistoria, setNumeroHistoria] = useState(presupuesto?.numeroHistoria ?? "");

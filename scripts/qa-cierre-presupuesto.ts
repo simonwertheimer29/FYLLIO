@@ -31,6 +31,7 @@ import {
 } from "../app/lib/presupuestos/repo";
 import { crearPago, eliminarPago, getPagosByPaciente } from "../app/lib/pagos";
 import { getPaciente } from "../app/lib/pacientes/pacientes";
+import { hoyISO } from "../app/lib/time";
 
 let fallos = 0;
 const ok = (n: string, c: boolean, extra = "") => {
@@ -68,7 +69,7 @@ async function main() {
 
     try {
       // ── 1. Cierre completo en una escritura ──
-      const hoy = new Date().toISOString().slice(0, 10);
+      const hoy = hoyISO();
       await updatePresupuestoRaw(id, {
         Estado: "ACEPTADO",
         Fecha_Aceptado: hoy,

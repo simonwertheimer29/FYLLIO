@@ -23,6 +23,7 @@ import { EmptyState } from "../../components/ui/Feedback";
 import { MessageCircle, Users, Euro, Pencil, ICON_STROKE } from "../../components/icons";
 import { PagoModal } from "../../components/pacientes/PagoModal";
 import { EstadoPresupuestoFlow, type PresupuestoBrief } from "./EstadoPresupuestoFlow";
+import { horaClinica, TZ_CLINICA } from "../../lib/time";
 
 type Paciente = {
   id: string;
@@ -66,11 +67,14 @@ function fmtProximaCita(p: Paciente): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) return iso.slice(0, 10);
-  const fecha = d.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
-  const conHora = iso.length > 10 && !(d.getHours() === 0 && d.getMinutes() === 0);
-  return conHora
-    ? `${fecha} · ${d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" })}`
-    : fecha;
+  // Fecha y hora DE LA CLÍNICA: el navegador de quien mira puede estar en otro
+  // huso, y una cita de las 09:00 no puede leerse como las 03:00 (MEJORAS 52).
+  const fecha = d.toLocaleDateString("es-ES", {
+    day: "2-digit", month: "2-digit", year: "numeric", timeZone: TZ_CLINICA,
+  });
+  const hora = horaClinica(d);
+  const conHora = iso.length > 10 && hora !== "00:00";
+  return conHora ? `${fecha} · ${hora}` : fecha;
 }
 
 // ─── Celda de texto editable inline (nivel 1: datos no sensibles) ───────

@@ -56,6 +56,7 @@ import {
 import { RotateCcw } from "lucide-react";
 import { labelMotivo } from "../../lib/leads/motivos";
 import { MotivoNoInteresModal } from "../../(authed)/leads/MotivoNoInteresModal";
+import { hoyISO, sumaDias } from "../../lib/time";
 
 // ─── Situación: mismos triggers que la cola de Actuar hoy ──────────────
 
@@ -84,7 +85,7 @@ function situacionLead(
   // no puedan contradecirse (una llamada registrada también cuenta).
   accion?: { salienteAt?: string | null; entranteAt?: string | null },
 ): SituacionLead {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = hoyISO();
   const diasPipeline = Math.max(
     0,
     Math.floor((Date.now() - new Date(lead.createdAt).getTime()) / 86400000),
@@ -171,7 +172,7 @@ function situacionLead(
   // confirmación de asistencia, nunca seguimiento comercial. La respuesta
   // pendiente del paciente (arriba) sí gana: a un mensaje se contesta.
   if (lead.fechaCita && lead.fechaCita > today) {
-    const manana = new Date(Date.now() + 86400_000).toISOString().slice(0, 10);
+    const manana = sumaDias(today, 1);
     return {
       prioridad: lead.fechaCita === manana ? "media" : "baja",
       quePasa: `Tiene cita el ${lead.fechaCita}${lead.horaCita ? ` a las ${lead.horaCita}` : ""}.`,
@@ -390,7 +391,7 @@ export function LeadAccionPanel({
   // mensaje que procede es de recordatorio/confirmación — no de seguimiento
   // comercial. Se precarga SOLO si el campo está vacío (nunca pisa nada).
   useEffect(() => {
-    const hoy = new Date().toISOString().slice(0, 10);
+    const hoy = hoyISO();
     if (!lead.fechaCita || lead.fechaCita < hoy) return;
     if (lead.convertido || lead.estado === "No Interesado") return;
     const fechaLarga = new Date(`${lead.fechaCita}T00:00:00`).toLocaleDateString("es-ES", {

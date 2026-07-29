@@ -24,6 +24,7 @@ import { listPacientes } from "../../lib/pacientes/pacientes";
 import { ultimaCobranzaPorLead } from "../../lib/leads/acciones";
 import { listAllOpciones } from "../../lib/configuraciones/configuraciones";
 import { calcularCobrosPorPaciente, type EstadoCobro, type UrgenciaCobro } from "../../lib/cobros";
+import { hoyISO, mesISO } from "../../lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -163,15 +164,18 @@ export const GET = withAuth(async (session, req) => {
     if (i.urgencia === "vencido") vencidoTotal += i.pendiente;
   }
 
-  const mesActual = new Date(today).toISOString().slice(0, 7);
+  // Mes y día DE LA CLÍNICA (MEJORAS 52): en Vercel el proceso corre en UTC,
+  // así que entre las 00:00 y las 02:00 de Madrid el día 1 de mes esta cifra
+  // seguía sumando al mes anterior.
+  const mesActual = mesISO(new Date(today));
   const prevDate = new Date(today);
   prevDate.setUTCMonth(prevDate.getUTCMonth() - 1);
-  const mesPrevio = prevDate.toISOString().slice(0, 7);
+  const mesPrevio = mesISO(prevDate);
   // MISMO TRAMO del mes (días 1..hoy) en los dos meses, igual que el dashboard
   // de Red (2026-07-27). Antes esta ruta comparaba el mes en curso contra el
   // mes anterior COMPLETO: la misma cifra tenía dos reglas según la pantalla, y
   // el día 3 de un mes /cobros habría dicho "−90%" mientras /red no.
-  const diaHoy = new Date(today).getUTCDate();
+  const diaHoy = Number(hoyISO(new Date(today)).slice(8, 10));
   let cobradoMes = 0;
   let cobradoMesPrevio = 0;
   for (const pago of pagosRecs) {

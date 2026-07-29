@@ -18,6 +18,7 @@ import { AccionCard } from "../shared/AccionCard";
 import { SeguimientoHeader } from "../shared/SeguimientoHeader";
 import { ColaTabs } from "../shared/ColaTabs";
 import { X, Inbox, ICON_STROKE } from "../icons";
+import { horaClinica } from "../../lib/time";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -533,7 +534,9 @@ export default function IntervencionView({
   useEffect(() => {
     fetchData();
     // Auto-refresh: 15s en horario operativo (9h-20h), 30s fuera de ese rango.
-    const hour = new Date().getHours();
+    // Horario operativo DE LA CLÍNICA (MEJORAS 52): con el reloj del navegador,
+    // una coordinadora en otro huso refrescaba cada 30 s en plena mañana.
+    const hour = Number(horaClinica().slice(0, 2));
     const refreshMs = hour >= 9 && hour < 20 ? 15_000 : 30_000;
     intervalRef.current = setInterval(fetchData, refreshMs);
     return () => {

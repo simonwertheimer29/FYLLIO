@@ -16,6 +16,8 @@
 // FALSE, TODAY, RECORD_ID, LOWER, ARRAYJOIN, SUBSTITUTE, FIND, IS_AFTER/BEFORE/SAME,
 // DATEADD(fecha,n,unidad), concatenación `&`, literales de cadena/número y `{campo}`.
 
+import { hoyISO } from "../time";
+
 export type Shim = {
   id: string;
   fields: Record<string, unknown>;
@@ -40,7 +42,7 @@ export function evalFormula(src: string, ctx: Ctx): boolean {
     if (lit("BLANK()")) return "";
     if (lit("TRUE()")) return true;
     if (lit("FALSE()")) return false;
-    if (lit("TODAY()")) return new Date().toISOString().slice(0, 10);
+    if (lit("TODAY()")) return hoyISO();
     if (lit("RECORD_ID()")) return ctx.rec.id;
     if (lit("LOWER(")) { const xs = args(); return String(xs[0] ?? "").toLowerCase(); }
     if (lit("ARRAYJOIN(")) { const xs = args(); const v = xs[0]; const sep = xs.length > 1 ? String(xs[1]) : ","; return Array.isArray(v) ? v.join(sep) : String(v ?? ""); }

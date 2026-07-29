@@ -46,6 +46,7 @@ import {
 } from "../../../lib/plantillas/plantillas";
 import { getPaciente } from "../../../lib/pacientes/pacientes";
 import type { Session } from "../../../lib/auth/session";
+import { hoyISO } from "../../../lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -576,7 +577,7 @@ async function toCopilotAction(
       const metodo = input.metodo ? String(input.metodo) : "(método sin especificar)";
       const fechaPago = input.fechaPago
         ? String(input.fechaPago)
-        : new Date().toISOString().slice(0, 10);
+        : hoyISO();
       const nota = input.nota ? String(input.nota) : "";
       const importeStr = importe.toLocaleString("es-ES", {
         minimumFractionDigits: 0,

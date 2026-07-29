@@ -25,6 +25,7 @@ import {
 } from "../app/lib/presupuestos/estado-conversacion";
 import { conversacionDePresupuesto } from "../app/lib/presupuestos/conversacion-presupuesto";
 import { esLeadActivo } from "../app/lib/leads/pipeline";
+import { hoyISO } from "../app/lib/time";
 import {
   cohorteLead,
   cohortePresupuesto,
@@ -50,7 +51,7 @@ if (ctx !== "DEMO") {
 }
 
 const AHORA = Date.now();
-const HOY = new Date(AHORA).toISOString().slice(0, 10);
+const HOY = hoyISO(new Date(AHORA));
 const DETALLE = process.env.QA_COHORTES_DETALLE === "1";
 const fallos: string[] = [];
 

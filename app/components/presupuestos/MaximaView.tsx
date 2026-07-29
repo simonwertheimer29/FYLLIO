@@ -14,6 +14,7 @@ import type {
 import { ESTADO_VISUAL_CONFIG } from "../../lib/presupuestos/colors";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { CardListSkeleton, KpiCardSkeleton } from "../ui/Skeleton";
+import { hoyISO } from "../../lib/time";
 
 // ─── Filter pill categories ─────────────────────────────────────────────────
 
@@ -516,7 +517,7 @@ function ExportCsvButton({
       const blob = await res.blob();
       const cd = res.headers.get("content-disposition") ?? "";
       const filenameMatch = cd.match(/filename="([^"]+)"/i);
-      const today = new Date().toISOString().slice(0, 10);
+      const today = hoyISO();
       const filename = filenameMatch?.[1] ?? `fyllio_presupuestos_${today}.csv`;
       const objUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");

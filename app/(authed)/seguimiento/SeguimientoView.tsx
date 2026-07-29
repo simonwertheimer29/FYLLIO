@@ -33,6 +33,7 @@ import {
   type ConversacionClasificada,
 } from "../../lib/presupuestos/estado-conversacion";
 import { esLeadActivo } from "../../lib/leads/pipeline";
+import { hoyISO } from "../../lib/time";
 import {
   cohorteLead,
   esNuevoUrgente,
@@ -364,7 +365,7 @@ function LeadsTab({
     fetchLeads();
   }, [fetchLeads]);
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = hoyISO();
 
   // ── Cohortes: PARTICIÓN TOTAL de los leads activos. Cero condiciones de
   // entrada — el censo del rediseño demostró que la lista de condiciones
@@ -700,7 +701,7 @@ function LeadAccionRow({
           ? "hace 1d"
           : `hace ${diasDesde}d`;
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = hoyISO();
   const isCitadoHoy =
     (lead.estado === "Citado" || lead.estado === "Citados Hoy") && lead.fechaCita === today;
 

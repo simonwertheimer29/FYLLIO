@@ -11,6 +11,7 @@ import { camposNoEditables, propagarTelefonoAPresupuestos } from "../../../lib/p
 import { getLead } from "../../../lib/leads/leads";
 import { listAccionesByLead } from "../../../lib/leads/acciones";
 import { getPagosByPaciente } from "../../../lib/pagos";
+import { hoyISO } from "../../../lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +90,7 @@ export const GET = withAuth<Ctx>(async (session, _req, ctx) => {
   // Próxima cita: paciente.fechaCita si es >= hoy.
   let proximaCita: string | null = null;
   if (paciente.fechaCita) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = hoyISO();
     if (paciente.fechaCita >= today) proximaCita = paciente.fechaCita;
   }
 

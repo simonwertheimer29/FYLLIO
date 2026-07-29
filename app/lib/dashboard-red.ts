@@ -33,6 +33,7 @@ import { calcularCobrosPorPaciente } from "./cobros";
 import { fechasPerdidaPorPresupuesto } from "./historial/registrar";
 import { esLeadActivo } from "./leads/pipeline";
 import { citaDelLead, citasPorPacienteDeLeads } from "./leads/cita";
+import { hoyISO, mesISO } from "./time";
 
 /** Comparación contra el MISMO TRAMO del mes anterior (días 1..hoy).
  *  Un mes a medias no se compara nunca contra uno entero: el día 3 todos los
@@ -181,7 +182,20 @@ export type DashboardRed = {
   progreso: Array<{ mes: string; total: number; leads: number; presupuestos: number; cobros: number }>;
 };
 
-const mesKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+// Mes DE LA CLÍNICA: `getMonth()` es el mes del runtime, y en Vercel eso es
+// UTC (MEJORAS 52).
+const mesKey = (d: Date) => mesISO(d);
+/** Resta meses SOBRE EL CALENDARIO de la clínica ("2026-07" − 1 = "2026-06").
+ *  Hacerlo con `new Date(ahora.getFullYear(), ahora.getMonth() - n, 1)` mezcla
+ *  el calendario del runtime con el de la clínica: entre las 00:00 y las 02:00
+ *  del día 1 de mes los dos no coinciden. */
+const mesMenos = (mes: string, n: number) => {
+  const y = Number(mes.slice(0, 4));
+  const m = Number(mes.slice(5, 7)) - 1 - n;
+  const anio = y + Math.floor(m / 12);
+  const mm = ((m % 12) + 12) % 12;
+  return `${anio}-${String(mm + 1).padStart(2, "0")}`;
+};
 const mesDeIso = (iso: string) => iso.slice(0, 7);
 
 export async function calcularDashboardRed(opts: {
@@ -191,7 +205,7 @@ export async function calcularDashboardRed(opts: {
 }): Promise<DashboardRed> {
   const ahora = opts.ahora ?? new Date();
   const mesActual = mesKey(ahora);
-  const mesPrevio = mesKey(new Date(ahora.getFullYear(), ahora.getMonth() - 1, 1));
+  const mesPrevio = mesMenos(mesActual, 1);
 
   const [clinicasAll, pacientes, presus, pagos, leadsAll, opciones, ultimos, accionesLead, perdidaPorPresupuesto] =
     await Promise.all([
@@ -396,7 +410,7 @@ export async function calcularDashboardRed(opts: {
   // se compara contra uno entero y el día 3 todo cae un 90%. Se aplica a lo
   // RETROSPECTIVO (altas, aceptaciones, pérdidas, pagos); NO a la fecha de cita,
   // que es prospectiva — capar el futuro borraría citas ya agendadas del mes.
-  const diaHoy = ahora.getDate();
+  const diaHoy = Number(hoyISO(ahora).slice(8, 10));
   const enTramo = (iso: string | null | undefined, mes: string) => {
     if (!enMes(iso, mes)) return false;
     const dia = Number(iso!.slice(8, 10));
@@ -526,7 +540,7 @@ export async function calcularDashboardRed(opts: {
     });
   }
   // Semana actual (7 días) vs anterior (7-14), sobre fecha_aceptado.
-  const diaIso = (d: number) => new Date(ahora.getTime() - d * 24 * 3600_000).toISOString().slice(0, 10);
+  const diaIso = (d: number) => hoyISO(new Date(ahora.getTime() - d * 24 * 3600_000));
   const hace7d = diaIso(7);
   const hace14d = diaIso(14);
   const aceptadosDesde = (desde: string, hasta?: string) =>
@@ -633,7 +647,7 @@ export async function calcularDashboardRed(opts: {
   // ── Sección 4 · progreso (6 meses, 4 series) ─────────────────────────
   const progreso: Array<{ mes: string; total: number; leads: number; presupuestos: number; cobros: number }> = [];
   for (let i = 5; i >= 0; i--) {
-    const mes = mesKey(new Date(ahora.getFullYear(), ahora.getMonth() - i, 1));
+    const mes = mesMenos(mesActual, i);
     progreso.push({
       mes,
       total: importeDe(aceptados(mes)),
@@ -650,7 +664,7 @@ export async function calcularDashboardRed(opts: {
   // el embudo no puede subir. Se derivan de los datos que ya están cargados
   // (leads en scope + presupuestos en scope): cero consultas nuevas.
   const MESES_EMBUDO = 6;
-  const desdeEmbudo = mesKey(new Date(ahora.getFullYear(), ahora.getMonth() - (MESES_EMBUDO - 1), 1));
+  const desdeEmbudo = mesMenos(mesActual, MESES_EMBUDO - 1);
   const cohorteLeads = leads.filter(
     (l) => !!l.createdAt && mesDeIso(l.createdAt) >= desdeEmbudo,
   );

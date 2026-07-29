@@ -806,19 +806,24 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** medio — condiciona si el embudo describe el negocio o solo una esquina.
 - **Fecha:** 2026-07-27 · 🔵
 
-## 52. `toISOString().slice(0,10)` como "hoy": ocho pantallas usan el día en UTC
+## 52. ✅ CERRADA — `toISOString().slice(0,10)` como "hoy": el día salía de UTC
 - **Zona:** `SeguimientoView.tsx:367` y `:703`, `LeadAccionPanel.tsx:87`, `:174`, `:393`,
   `MaximaView.tsx:519`, `NewPresupuestoModal.tsx:52`, `PagoModal.tsx:62`
-- **Principio:** §5 confianza — el ISO en UTC adelanta el día a partir de las 22:00 en
-  Madrid (23:00 en invierno). Cazado en la pasada visual de /leads a las 21:32 del
-  2026-07-27: una cita del 29 se anunciaba como **"mañana"** y un lead citado para hoy
-  dejaba de caer en la columna "Citados Hoy" — la coordinadora perdía de vista sus citas
-  del día justo en el turno de tarde.
+- **Principio:** §5 confianza. **Ventana real, medida (corrige lo que puse el 27):** para
+  Madrid, UTC va por DETRÁS, así que el día se desincroniza entre las **00:00 y las 02:00**
+  (00:00-01:00 en invierno) y ahí el producto cree que sigue siendo ayer. Lo que se vio a
+  las 21:32 fue el error espejo de una máquina en UTC−4 (la de las demos), donde UTC va por
+  delante desde las 20:00 locales. Efecto: una cita del 29 anunciada como "mañana" y un lead
+  citado para hoy fuera de la columna "Citados Hoy".
 - **Mejora:** `hoyISO()` ya existe en `lib/time` y /leads ya lo usa. Sustituir las ocho
   ocurrencias restantes; la de Seguimiento es la más grave porque decide cohortes.
-- **Impacto:** alto en las dos horas finales del día, cero el resto — que es justo lo que
-  lo hace difícil de reproducir y fácil de dejar pasar.
-- **Fecha:** 2026-07-27 · 🔵
+- **Impacto:** alto en una ventana de dos horas al día y cero el resto — que es justo lo que
+  lo hacía difícil de reproducir y fácil de dejar pasar.
+- **Fecha:** 2026-07-27 · ✅ **CERRADA el 2026-07-29.** No eran ocho ocurrencias sino 56 del
+  patrón; censo completo en DECISIONES.md. `lib/time` pasa a ser tz-aware
+  (`TZ_CLINICA`, `hoyISO`, `mesISO`, `horaClinica`, `sumaDias`, `inicioDelDiaUTC`) porque en
+  Vercel el proceso corre en UTC y la hora local del runtime tampoco servía. Test permanente:
+  `npm run qa:fechas` (31 comprobaciones, verdes con TZ=UTC · Madrid · New_York · Tokyo).
 
 ## 53. El tablero de Leads no prioriza: 12 cards idénticas en "Nuevo"
 - **Zona:** `app/(authed)/leads/LeadsView.tsx`

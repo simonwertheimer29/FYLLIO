@@ -602,11 +602,43 @@ desde la captación, así que /leads carga el estado de conversación del MISMO 
 umbral del motor (`esNuevoUrgente`, 48 h), que sube de SeguimientoView a `lib/seguimiento/
 cohortes` para que no haya dos copias.
 
-## 2026-07-27 — El "hoy" de UTC adelantaba el día a las 22:00
-Cazado a las 21:32 local mientras se revisaban las fechas humanas de /leads: `new
-Date().toISOString().slice(0,10)` devuelve el día EN UTC, así que en Madrid a partir de las
-22:00 (23:00 en invierno) el producto cree que ya es mañana. Consecuencias reales: una cita
-del 29 se anunciaba como "mañana", y un lead citado para HOY dejaba de caer en la columna
-"Citados Hoy" — la coordinadora perdía sus citas del día justo en el turno de tarde. Vive
-ahora como `hoyISO()` en `lib/time`. /leads corregido; quedan ocho ocurrencias en otras
-pantallas anotadas como MEJORAS 52 (la de Seguimiento es la peor: decide cohortes).
+## 2026-07-27 — El "hoy" salía de UTC y no del calendario de la clínica
+Cazado a las 21:32 revisando las fechas humanas de /leads: `new
+Date().toISOString().slice(0,10)` devuelve el día EN UTC. Una cita del 29 se anunciaba como
+"mañana" y un lead citado para hoy se caía de la columna "Citados Hoy". Vive ahora como
+`hoyISO()` en `lib/time`; el resto queda anotado como MEJORAS 52.
+**Corrección del día siguiente (2026-07-29), medida en vez de supuesta:** la ventana de fallo
+que escribí aquí ("a partir de las 22:00 en Madrid") estaba al revés. Para Madrid, UTC va
+por DETRÁS: el día se desincroniza entre las **00:00 y las 02:00** de Madrid (00:00-01:00 en
+invierno), y ahí el producto sigue creyendo que es ayer. Lo que vi a las 21:32 fue el error
+espejo, propio de una máquina al oeste de Greenwich (UTC−4), donde UTC va por delante desde
+las 20:00 locales — o sea, durante las demos. Los dos son reales y los dos los arregla la
+misma pieza, pero la afirmación era imprecisa y el detalle importa para saber a quién
+afecta: a la clínica en la madrugada, y a las demos por la tarde.
+
+## 2026-07-29 — MEJORAS 52: el día de la clínica, y el censo completo (no eran ocho)
+El censo del patrón dio **56 ocurrencias**, no las ocho que se vieron en /leads. Clasificadas:
+**decidían lógica (19)** — cohortes de /seguimiento (×2), `LeadAccionPanel` (×3), alertas del
+cron, `listAccionesHoyPg`, `kpi-hoy`, próxima cita de un paciente, `TODAY()` del intérprete de
+fórmulas, semana de /red, series de KPIs de leads (×2), rangos de KPIs de cobros (×2), mes y
+tramo de /api/cobros, mes MTD de automatizaciones, fecha del presupuesto en la conversión y
+fecha de un pago (×2, ESCRIBEN un dato). **Decidían solo UI (5)** — defaults de fecha en dos
+modales, nombre del CSV, hora de la próxima cita, cadencia de auto-refresh. **Inocuas (32)** —
+los `d10()` que convierten un `date` de Postgres, cuatro copias de `shiftDay` (aritmética de
+calendario en UTC puro, correcta), los seeds (anclan a las 09:00, así que ningún huso realista
+les cambia el día) y logs de scripts de sanity.
+Lo importante del arreglo: `hoyISO()` NO puede usar la hora local del proceso, porque en
+Vercel el proceso es UTC. La zona es la **de la clínica** (`TZ_CLINICA = "Europe/Madrid"`),
+declarada explícitamente y nunca heredada del runtime; cuando haya clínicas en otro huso
+saldrá de su ficha. `lib/time` gana `hoyISO`, `mesISO`, `horaClinica`, `sumaDias` e
+`inicioDelDiaUTC` — este último es el que arregla las consultas por timestamp: el día empieza
+a las 00:00 de Madrid, que en julio son las 22:00 UTC del día anterior, y filtrar por
+`T00:00:00Z` se comía las dos primeras horas de trabajo. De paso, las cuatro copias de
+`shiftDay` pasan a ser una. En /api/kpis/cobros había un `const ZONE = "Europe/Madrid"` sin
+usar con un export falso para callar al linter: alguien vio el problema, lo anotó y siguió
+usando el TZ del runtime.
+Test permanente `npm run qa:fechas`: puro, sin BD ni servidor, porque el bug vive en una
+ventana de dos horas al día y "probarlo a mano" es tirar una moneda. Afirma que el día de la
+clínica no depende de la zona del proceso (verde con TZ=UTC, Madrid, New_York y Tokyo), que
+la fórmula vieja SÍ falla y exactamente dónde, y la consecuencia de negocio: un lead citado
+hoy sigue en su cohorte y en su columna las 24 horas del día (con la fórmula vieja se caía 2).

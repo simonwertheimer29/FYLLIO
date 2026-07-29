@@ -27,7 +27,7 @@ import { AgendarModal } from "./AgendarModal";
 import { MotivoNoInteresModal } from "./MotivoNoInteresModal";
 import { esReactivable, labelMotivo } from "../../lib/leads/motivos";
 import { haceTexto } from "../../lib/presupuestos/estado-conversacion";
-import { hoyISO } from "../../lib/time";
+import { hoyISO, horaClinica } from "../../lib/time";
 import { cohorteLead, esNuevoUrgente } from "../../lib/seguimiento/cohortes";
 import { AsistenciaModal } from "./AsistenciaModal";
 import type { Lead, LeadEstado } from "./types";
@@ -69,9 +69,11 @@ const COLUMNS: Array<{ id: LeadEstado; label: string; accent: string; ringClass?
   { id: "No Interesado", label: "No Interesado", accent: BADGE_NEUTRO },
 ];
 
-// El "hoy" del usuario, no el de UTC (lib/time): a las 22:00 en Madrid el ISO
-// en UTC ya es el día siguiente, y con él la columna "Citados Hoy" se vaciaba
-// sola y una cita del 29 se anunciaba como "mañana".
+// El día DE LA CLÍNICA (lib/time), nunca el de UTC ni el del runtime. Entre las
+// 00:00 y las 02:00 de Madrid el ISO en UTC todavía dice AYER: un lead citado
+// para hoy se caía de esta columna durante esas dos horas. (Y en una máquina al
+// oeste de Greenwich el error va al revés y empieza por la tarde — así se cazó,
+// a las 21:32 de una máquina en UTC−4: una cita del 29 decía "mañana".)
 const TODAY_ISO = () => hoyISO();
 
 // ─── Copy de la card ────────────────────────────────────────────────────
@@ -941,10 +943,13 @@ function CitadosHoyCardBody({
   // rojo significa problema, y no se distinguía del resto de la columna. Todo
   // lo demás en Citados Hoy es la oportunidad del día, no un fallo.
   const [ahora] = useState(() => new Date());
+  // La hora de la CLÍNICA, no la del navegador: `hora_cita` se guarda como
+  // "16:30" de la clínica, así que compararla con el reloj de quien mira sería
+  // comparar dos husos distintos.
   const horaPasada =
     !!lead.horaCita &&
     lead.fechaCita === hoyISO(ahora) &&
-    lead.horaCita < `${String(ahora.getHours()).padStart(2, "0")}:${String(ahora.getMinutes()).padStart(2, "0")}`;
+    lead.horaCita < horaClinica(ahora);
 
   return (
     <article

@@ -10,6 +10,7 @@ import { listLeads } from "../leads/leads";
 import { listPacientes } from "../pacientes/pacientes";
 import { listPagosResumen } from "../pagos";
 import type { TipoAlerta } from "./templates";
+import { hoyISO } from "../time";
 
 export type AlertaClinica = {
   clinicaId: string;
@@ -60,7 +61,7 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
   }
 
   const now = Date.now();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = hoyISO();
 
   // 1. LEADS sin gestionar: Estado=Nuevo + Fecha_Creacion >24h + Llamado=false + WhatsApp_Enviados=0
   for (const l of leads) {

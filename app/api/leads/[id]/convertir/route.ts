@@ -20,6 +20,7 @@ import { createPacienteDesdeConversion } from "../../../../lib/pacientes/pacient
 import { withAuth } from "../../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../../lib/auth/users";
 import { getLead, markLeadConvertido, updateLead, appendLeadLog } from "../../../../lib/leads/leads";
+import { hoyISO } from "../../../../lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -107,7 +108,7 @@ export const POST = withAuth<Ctx>(async (session, req, ctx) => {
   if (body.crearPresupuesto) {
     const importe = Number(body.importe);
     const tratamiento = String(body.tratamiento);
-    const today = new Date().toISOString().slice(0, 10);
+    const today = hoyISO();
     // Map Lead.TipoVisita → Presupuestos.TipoVisita (valores ya alineados).
     const tipoVisita = lead.tipoVisita ?? "Primera visita";
 

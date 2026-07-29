@@ -18,6 +18,7 @@ import {
   sumPendientePorIds,
 } from "./pacientes/pacientes";
 import type { MetodoPago, TipoPago, Pago } from "./pagos-format";
+import { sumaDias } from "./time";
 
 // Sprint B — los tipos y helpers PUROS (MetodoPago, TipoPago, Pago, TIPOS_PAGO,
 // METODOS_PAGO, formatTipo) viven ahora en pagos-format.ts (sin dependencia de
@@ -187,11 +188,8 @@ export async function eliminarPago(
 
 // ─── Util fechas ─────────────────────────────────────────────────────
 
-function shiftDay(iso: string, days: number): string {
-  const d = new Date(`${iso}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
+// (shiftDay vivía aquí; ahora es `sumaDias` en lib/time.)
+const shiftDay = sumaDias;
 
 // ─────────────────────────────────────────────────────────────────────
 // FASE 1 migración — lectura consolidada de Pagos_Paciente para los

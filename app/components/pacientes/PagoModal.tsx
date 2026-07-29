@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import type { Pago, TipoPago, MetodoPago } from "../../lib/pagos-format";
 import { AlertTriangle, ICON_STROKE } from "../icons";
+import { hoyISO } from "../../lib/time";
 
 export const TIPOS_PAGO_OPTS: Array<{ value: TipoPago; label: string; help: string }> = [
   {
@@ -59,7 +60,7 @@ export function PagoModal({
     pago ? String(pago.importe) : "",
   );
   const [fechaPago, setFechaPago] = useState<string>(
-    pago?.fechaPago ?? new Date().toISOString().slice(0, 10),
+    pago?.fechaPago ?? hoyISO(),
   );
   const [metodo, setMetodo] = useState<string>(pago?.metodo ?? "Tarjeta");
   const [tipo, setTipo] = useState<TipoPago>(pago?.tipo ?? "Senal");

@@ -8,6 +8,7 @@ import { currentCliente, type Cliente } from "./airtable";
 import type { MetodoPago, TipoPago, Pago } from "./pagos-format";
 import { listResumenFinancieroPorIds, sumPendientePorIds } from "./pacientes/pacientes";
 import type { PagoResumen } from "./pagos";
+import { hoyISO, sumaDias } from "./time";
 
 function cli(): Cliente {
   const c = currentCliente();
@@ -58,17 +59,14 @@ async function pagosEntre(desdeShift: string, hastaShift: string): Promise<Pago[
     return rows.map(rowToPago);
   });
 }
-const shiftDay = (isoD: string, days: number) => {
-  const d = new Date(isoD + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-};
+// (shiftDay vivía aquí; ahora es `sumaDias` en lib/time — había cuatro copias.)
 
 export async function getFacturadoEnPeriodoPg(args: {
   desde: Date; hasta: Date; soloOrigenLead?: boolean; clinicaId?: string;
 }): Promise<{ total: number; pendiente: number; pagosCount: number }> {
   let pagos: Pago[];
   try {
-    pagos = await pagosEntre(shiftDay(args.desde.toISOString().slice(0, 10), -1), shiftDay(args.hasta.toISOString().slice(0, 10), 1));
+    pagos = await pagosEntre(sumaDias(hoyISO(args.desde), -1), sumaDias(hoyISO(args.hasta), 1));
   } catch (err) { console.error("[pagos-pg] getFacturadoEnPeriodo:", err); return { total: 0, pendiente: 0, pagosCount: 0 }; }
   if (pagos.length === 0) return { total: 0, pendiente: 0, pagosCount: 0 };
   const pacIds = Array.from(new Set(pagos.map((p) => p.pacienteId).filter(Boolean)));
@@ -91,8 +89,8 @@ export async function getFacturadoEnPeriodoPg(args: {
 
 export async function getFacturadoPorPacientesPg(args: { pacienteIds: string[]; desde: Date; hasta: Date }): Promise<{ total: number; pendiente: number; pagosCount: number }> {
   if (args.pacienteIds.length === 0) return { total: 0, pendiente: 0, pagosCount: 0 };
-  const desdeShift = shiftDay(args.desde.toISOString().slice(0, 10), -1);
-  const hastaShift = shiftDay(args.hasta.toISOString().slice(0, 10), 1);
+  const desdeShift = sumaDias(hoyISO(args.desde), -1);
+  const hastaShift = sumaDias(hoyISO(args.hasta), 1);
   const r = await runWithClienteDb(cli(), async (trx) => {
     const row = await trx.selectFrom("pagos_paciente")
       .select([sql<string>`coalesce(sum(importe),0)`.as("total"), sql<string>`count(*)`.as("n")])
@@ -126,7 +124,7 @@ export async function crearPagoPg(args: {
   tipo?: TipoPago; nota?: string; usuarioCreadorId?: string;
 }): Promise<Pago> {
   const c = cli();
-  const fechaPago = args.fechaPago ?? new Date().toISOString().slice(0, 10);
+  const fechaPago = args.fechaPago ?? hoyISO();
   const metodo = args.metodo ?? "Otro"; const tipo = args.tipo ?? "Liquidacion";
   const row = await runWithClienteDb(c, (trx) =>
     trx.insertInto("pagos_paciente").values({

@@ -13,6 +13,7 @@ import { currentCliente, type Cliente } from "../airtable";
 import type { Lead, LeadEstado, ListLeadsParams } from "./leads";
 import type { AccionLead, TipoAccionLead } from "./acciones";
 import type { PlantillaLead } from "./plantillas";
+import { hoyISO, inicioDelDiaUTC } from "../time";
 
 function clienteActual(): Cliente {
   const c = currentCliente();
@@ -358,6 +359,7 @@ export async function listPlantillasLeadActivasPg(): Promise<PlantillaLead[]> {
 export async function listAccionesHoyPgShim(params: {
   clinicaIdsAllowed?: string[] | null;
 } = {}): Promise<AccionLead[]> {
-  const today = new Date().toISOString().slice(0, 10);
-  return listAccionesDesdePg(new Date(`${today}T00:00:00.000Z`), params.clinicaIdsAllowed);
+  // El día empieza a las 00:00 DE LA CLÍNICA, no a las 00:00 UTC: filtrar por
+  // `T00:00:00.000Z` se comía las dos primeras horas de trabajo.
+  return listAccionesDesdePg(inicioDelDiaUTC(hoyISO()), params.clinicaIdsAllowed);
 }
