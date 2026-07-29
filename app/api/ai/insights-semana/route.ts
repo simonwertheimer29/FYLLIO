@@ -2,24 +2,14 @@
 // POST — genera 3 bullets de insights accionables de la semana usando Claude
 
 import { NextResponse } from "next/server";
-import { jwtVerify } from "jose";
-import { cookies } from "next/headers";
+import { getSession } from "@/lib/auth/session";
 import type { Presupuesto } from "../../../lib/presupuestos/types";
-import { legacyJwtSecret } from "@/lib/auth/legacy-secret";
 
-const COOKIE = "fyllio_presupuestos_token";
-const secret = legacyJwtSecret();
 
+// MEJORAS 38 — una sola sesión: antes esta ruta verificaba a mano la
+// cookie legacy con su propio secreto.
 async function isAuthed(): Promise<boolean> {
-  try {
-    const cookieStore = await cookies();
-    const token = cookieStore.get(COOKIE)?.value;
-    if (!token) return false;
-    await jwtVerify(token, secret);
-    return true;
-  } catch {
-    return false;
-  }
+  return (await getSession()) != null;
 }
 
 function getISOWeek(d: Date): number {
@@ -73,11 +63,11 @@ function calcWeekStats(presupuestos: Presupuesto[], start: Date, end: Date): Wee
   return { total, aceptados, perdidos, tasa, importe, nuevos: inRange.length };
 }
 
-const DEMO_INSIGHTS = [
-  "La tasa de conversión esta semana es 42%, 8% por encima de la semana anterior — los tratamientos de implantes están cerrando muy bien.",
-  "3 presupuestos de más de €5.000 llevan más de 30 días sin avance; priorizar una llamada de negociación activa esta semana podría recuperar €18.000 en seguimiento.",
-  "El tono «Empático» sigue siendo el más efectivo (41% de conversión vs. 27% «Directo»); considera usarlo como estilo por defecto para pacientes en duda.",
-];
+// (Aquí vivían tres INSIGHTS INVENTADOS —"la tasa de conversión esta semana es
+// 42%", "3 presupuestos de más de 5.000 € llevan 30 días sin avance"— que se
+// devolvían cuando faltaba la API key. Números de negocio con cara de reales
+// sobre los que se decide a quién llamar. Fuera: sin IA no hay insights.)
+
 
 const SYSTEM_PROMPT = `Eres un analista de ventas de una clínica dental en España.
 Analiza los KPIs de la semana y genera EXACTAMENTE 3 bullets accionables.
@@ -110,7 +100,10 @@ export async function POST(req: Request) {
 
     const apiKey = process.env["ANTHROPIC_API_KEY"];
     if (!apiKey) {
-      return NextResponse.json({ insights: DEMO_INSIGHTS, semana: getISOWeek(new Date()) });
+      return NextResponse.json(
+        { error: "El análisis de la semana necesita la IA configurada." },
+        { status: 503 },
+      );
     }
 
     const delta = (a: number, b: number) =>
@@ -123,7 +116,9 @@ export async function POST(req: Request) {
       `  Tasa: ${curr.tasa}% (ant. ${prev.tasa}%)`,
       `  Importe aceptado: €${curr.importe.toLocaleString("es-ES")} (ant. €${prev.importe.toLocaleString("es-ES")})`,
       `Total activos en pipeline: ${presupuestos.filter((p) => ["INTERESADO","EN_DUDA","EN_NEGOCIACION"].includes(p.estado)).length}`,
-      `Riesgo alto sin contactar: ${presupuestos.filter((p) => p.urgencyScore >= 70 && ["INTERESADO","EN_DUDA","EN_NEGOCIACION"].includes(p.estado)).length}`,
+      // Mismo criterio que ordena el producto (días parados), no un score
+      // aparte: 14 días es el umbral de "esto lleva demasiado quieto".
+      `Parados 14 días o más: ${presupuestos.filter((p) => p.daysSince >= 14 && ["INTERESADO","EN_DUDA","EN_NEGOCIACION"].includes(p.estado)).length}`,
       `Genera 3 bullets accionables para el equipo de ventas esta semana.`,
     ].join("\n");
 
@@ -158,6 +153,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ insights, semana: getISOWeek(new Date()) });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error desconocido";
-    return NextResponse.json({ insights: [], error: message });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

@@ -4,13 +4,13 @@
 
 import { selectClinicasCentralRaw } from "../auth/users";
 import { selectColaEnviosFetchAllRaw } from "../presupuestos/cola-envios-repo";
-import { baseCentral, base, TABLES, fetchAll } from "../airtable";
 import { selectPresupuestosRaw } from "../presupuestos/repo";
 import { listAllOpciones } from "../configuraciones/configuraciones";
 import { listLeads } from "../leads/leads";
 import { listPacientes } from "../pacientes/pacientes";
 import { listPagosResumen } from "../pagos";
 import type { TipoAlerta } from "./templates";
+import { hoyISO } from "../time";
 
 export type AlertaClinica = {
   clinicaId: string;
@@ -61,7 +61,7 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
   }
 
   const now = Date.now();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = hoyISO();
 
   // 1. LEADS sin gestionar: Estado=Nuevo + Fecha_Creacion >24h + Llamado=false + WhatsApp_Enviados=0
   for (const l of leads) {
@@ -190,20 +190,14 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
   const ESTANCADO_DAYS = 30 * DAY_MS;
   const ESTANCADO_IMPORTE_MIN = 2000;
 
-  // Iteramos sobre pacientes pero la fuente de verdad para "aceptado" es
-  // tener un Presupuesto en Estado=ACEPTADO (los campos
-  // Pacientes.Aceptado y Presupuestos.Estado=ACEPTADO son independientes;
-  // los seed legacy a veces tienen el flag de paciente desincronizado).
-  // Considera al paciente alertable si EL O presupuesto tiene Estado=
-  // ACEPTADO O el flag Aceptado=Si está marcado (cubre ambos seeds).
+  // MEJORAS nº 28 (2026-07-24) — la ÚNICA verdad de "aceptado" es tener un
+  // Presupuesto en Estado=ACEPTADO, y el importe es la suma de esos
+  // registros. El flag Pacientes.Aceptado y la caché Presupuesto_Total (que
+  // antes se preferían "por los seeds legacy") dejan de leerse: eran las
+  // columnas en deprecación y podían divergir de los presupuestos reales.
   for (const p of pacientes) {
-    const tienePresupAceptado = fechaAceptadoPorPaciente.has(p.id);
-    const flagAceptado = p.aceptado === "Si";
-    if (!tienePresupAceptado && !flagAceptado) continue;
-    const presupuestoTotal =
-      typeof p.presupuestoTotal === "number"
-        ? p.presupuestoTotal
-        : importeAceptadoPorPaciente.get(p.id) ?? 0;
+    if (!fechaAceptadoPorPaciente.has(p.id)) continue;
+    const presupuestoTotal = importeAceptadoPorPaciente.get(p.id) ?? 0;
     if (!presupuestoTotal || presupuestoTotal <= 0) continue;
     const cid = p.clinicaId;
     if (!cid || !clinicaById.has(cid)) continue;

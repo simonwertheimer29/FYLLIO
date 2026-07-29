@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 export default async function RedPage() {
   const s = await getSession();
   if (!s) redirect("/login");
-  if (s.rol !== "admin") redirect("/actuar-hoy");
+  if (s.rol !== "admin") redirect("/seguimiento");
 
   const user: UserSession = {
     email: "",

@@ -18,9 +18,9 @@ import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { listPagosResumen } from "../../../lib/pagos";
 import { mapStaffNombrePorIds } from "../../../lib/scheduler/repo/staffRepo";
 import { withAuth } from "../../../lib/auth/session";
+import { hoyISO, inicioDelDiaUTC, sumaDias } from "../../../lib/time";
 import { listClinicaIdsForUser, listClinicas } from "../../../lib/auth/users";
 import { listPacientes } from "../../../lib/pacientes/pacientes";
-import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import { listAllOpciones } from "../../../lib/configuraciones/configuraciones";
 
 export const dynamic = "force-dynamic";
@@ -28,38 +28,31 @@ export const dynamic = "force-dynamic";
 type Periodo = "hoy" | "semana" | "mes" | "mes_anterior" | "trimestre";
 
 function rangoPeriodo(p: Periodo): { desde: Date; hasta: Date } {
+  // Los límites son días DE LA CLÍNICA, no del runtime: en Vercel el proceso
+  // corre en UTC, así que "hoy" empezaba a las 02:00 de Madrid y las dos
+  // primeras horas de caja quedaban fuera del periodo (MEJORAS 52).
   const now = new Date();
-  if (p === "hoy") {
-    const inicio = new Date(now);
-    inicio.setHours(0, 0, 0, 0);
-    return { desde: inicio, hasta: now };
-  }
-  if (p === "semana") {
-    const desde = new Date(now);
-    desde.setDate(desde.getDate() - 7);
-    return { desde, hasta: now };
-  }
-  if (p === "mes") {
-    return { desde: new Date(now.getFullYear(), now.getMonth(), 1), hasta: now };
-  }
+  const hoy = hoyISO(now);
+  const primeroDeEsteMes = `${hoy.slice(0, 7)}-01`;
+  if (p === "hoy") return { desde: inicioDelDiaUTC(hoy), hasta: now };
+  if (p === "semana") return { desde: inicioDelDiaUTC(sumaDias(hoy, -7)), hasta: now };
+  if (p === "mes") return { desde: inicioDelDiaUTC(primeroDeEsteMes), hasta: now };
   if (p === "mes_anterior") {
+    const ultimoDelPrevio = sumaDias(primeroDeEsteMes, -1);
     return {
-      desde: new Date(now.getFullYear(), now.getMonth() - 1, 1),
-      hasta: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59),
+      desde: inicioDelDiaUTC(`${ultimoDelPrevio.slice(0, 7)}-01`),
+      // Un milisegundo antes de que empiece este mes en la clínica.
+      hasta: new Date(inicioDelDiaUTC(primeroDeEsteMes).getTime() - 1),
     };
   }
-  const desde = new Date(now);
-  desde.setMonth(desde.getMonth() - 3);
-  return { desde, hasta: now };
+  const trimestre = new Date(now);
+  trimestre.setUTCMonth(trimestre.getUTCMonth() - 3);
+  return { desde: inicioDelDiaUTC(hoyISO(trimestre)), hasta: now };
 }
 
-function shiftDayIso(iso: string, days: number): string {
-  const d = new Date(iso + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
+// (shiftDayIso vivía aquí; ahora es `sumaDias` en lib/time.)
+const shiftDayIso = sumaDias;
 
-const ZONE = "Europe/Madrid";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const GET = withAuth(async (session, req) => {
@@ -81,7 +74,9 @@ export const GET = withAuth(async (session, req) => {
     : (accesiblesIds ?? null); // null = admin con "Todas"
 
   // ── Clinicas para nombres + comparativa rows ─────────────────────
-  const clinicasAll = await listClinicas({ onlyActivas: true });
+  // MEJORAS nº 30 — cliente explícito: sin él, la rama PG lee el directorio
+  // global de clínicas de TODOS los clientes.
+  const clinicasAll = await listClinicas({ onlyActivas: true, cliente: session.cliente });
   const clinicaNombrePorId = new Map<string, string>();
   for (const c of clinicasAll) clinicaNombrePorId.set(c.id, c.nombre);
   const clinicasScope = scopeIds
@@ -95,8 +90,8 @@ export const GET = withAuth(async (session, req) => {
   const pacienteById = new Map(pacientesAll.map((p) => [p.id, p]));
 
   // ── Pagos del periodo (1 query) ──────────────────────────────────
-  const desdeISO = desde.toISOString().slice(0, 10);
-  const hastaISO = hasta.toISOString().slice(0, 10);
+  const desdeISO = hoyISO(desde);
+  const hastaISO = hoyISO(hasta);
   // FASE 1 migración: lectura via repo del dominio Pagos.
   const pagosPeriodoRecs = await listPagosResumen({
     desdeExclusivoIso: shiftDayIso(desdeISO, -1),
@@ -405,6 +400,6 @@ export const GET = withAuth(async (session, req) => {
   });
 });
 
-// Hint para el linter: marcar ZONE como usada (futuro extender con
-// formato Madrid si hace falta). Por ahora se usa el TZ del runtime.
-export const _zone = ZONE;
+// (Aquí vivía un `const ZONE = "Europe/Madrid"` sin usar, con un export
+// falso para callar al linter: alguien vio el problema, lo dejó anotado y
+// siguió usando el TZ del runtime. Ahora la zona sale de lib/time.)

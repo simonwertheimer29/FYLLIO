@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 export default async function AlertasPage() {
   const s = await getSession();
   if (!s) redirect("/login");
-  if (s.rol !== "admin") redirect("/actuar-hoy");
+  if (s.rol !== "admin") redirect("/seguimiento");
 
   return <AlertasView />;
 }

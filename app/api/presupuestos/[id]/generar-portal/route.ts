@@ -8,10 +8,10 @@ import { getPresupuestoPorIdRaw } from "../../../../lib/presupuestos/repo";
 import { kv } from "@vercel/kv";
 import { randomBytes } from "crypto";
 import Anthropic from "@anthropic-ai/sdk";
-import { base, TABLES } from "../../../../lib/airtable";
 import { registrarAccion } from "../../../../lib/historial/registrar";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../../lib/presupuestos/clinica-scope";
+import { esAseguradora } from "../../../../lib/pacientes/tipos-paciente";
 
 const TTL_DAYS = 90;
 
@@ -24,6 +24,12 @@ export interface PortalData {
   clinicaTelefono?: string;
   doctor?: string;
   tipoPaciente?: string;
+  /** ¿Ese tipo es una ASEGURADORA? Se resuelve aquí, donde hay contexto de
+   *  cliente, y viaja en el payload: el portal es público y no puede consultar
+   *  el catálogo. Antes el portal comparaba `tipoPaciente === "Adeslas"`, así
+   *  que un paciente de Sanitas habría dejado de ver su desglose de cobertura
+   *  sin que nadie se enterara (spec 2026-07-29, punto 5). */
+  tieneAseguradora?: boolean;
   descripcionHumanizada?: string;
   createdAt: string;
   expiresAt: string;
@@ -90,6 +96,7 @@ export const POST = withPresupuestosAuth(
         amount: 4200,
         clinica: "Clínica Demo",
         tipoPaciente: "Privado",
+        tieneAseguradora: false,
         descripcionHumanizada,
         createdAt: now.toISOString(),
         expiresAt,
@@ -117,6 +124,8 @@ export const POST = withPresupuestosAuth(
     }
     const doctor = f["Doctor"] ? String(f["Doctor"]) : undefined;
     const tipoPaciente = f["TipoPaciente"] ? String(f["TipoPaciente"]) : undefined;
+    // "¿tiene aseguradora?", no "¿se llama Adeslas?".
+    const tieneAseguradora = await esAseguradora(tipoPaciente ?? null);
 
     // Generate humanized description in parallel with saving
     const descripcionHumanizada = await generarDescripcion(treatments);
@@ -130,6 +139,7 @@ export const POST = withPresupuestosAuth(
       clinicaTelefono: undefined,   // No clinic phone in Airtable yet
       doctor,
       tipoPaciente,
+      tieneAseguradora,
       descripcionHumanizada,
       createdAt: now.toISOString(),
       expiresAt,

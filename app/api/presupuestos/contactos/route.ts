@@ -5,10 +5,8 @@
 import { NextResponse } from "next/server";
 import { getPresupuestoPorIdRaw, updatePresupuestoRaw } from "../../../lib/presupuestos/repo";
 import { listContactosDePresupuestoRaw, createContactoConRecordRaw } from "../../../lib/presupuestos/contactos";
-import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type { Contacto } from "../../../lib/presupuestos/types";
-import { DEMO_CONTACTOS } from "../../../lib/presupuestos/demo";
 import { registrarAccion } from "../../../lib/historial/registrar";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { verificarPresupuestoPermitido } from "../../../lib/presupuestos/clinica-scope";
@@ -52,10 +50,11 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     });
 
     return NextResponse.json({ contactos });
-  } catch {
-    // Demo fallback
-    const contactos = DEMO_CONTACTOS.filter((c) => c.presupuestoId === presupuestoId);
-    return NextResponse.json({ contactos, isDemo: true });
+  } catch (err) {
+    // Devolvía CONTACTOS DEMO del presupuesto: un historial de conversación
+    // inventado sobre el que la coordinadora decide qué escribir (§4).
+    console.error("[presupuestos/contactos]", err);
+    return NextResponse.json({ error: "No se pudo cargar el historial de contactos" }, { status: 500 });
   }
 });
 

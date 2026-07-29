@@ -4,7 +4,6 @@
 
 import { NextResponse } from "next/server";
 import { listSecuenciasFiltradasRaw, patchSecuencia, findSecuenciaRaw } from "../../../lib/automatizaciones/secuencias";
-import { base, TABLES } from "../../../lib/airtable";
 import type { Secuencia } from "../../../lib/presupuestos/types";
 import { registrarAccion } from "../../../lib/historial/registrar";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
@@ -41,10 +40,12 @@ function recordToSecuencia(rec: { id: string; fields: Record<string, unknown> })
 // ─── GET ──────────────────────────────────────────────────────────────────────
 
 export const GET = withPresupuestosAuth(async (session, req) => {
-  // Demo mode
-  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-    return NextResponse.json({ secuencias: [], isDemo: true });
-  }
+  // (Aquí había una puerta a datos DEMO condicionada a AIRTABLE_API_KEY /
+  // AIRTABLE_BASE_ID. Airtable está retirado y esas variables no existen en
+  // Vercel, así que la condición se cumplía SIEMPRE en producción: la ruta no
+  // llegaba nunca a su código real. Eliminada, no re-condicionada — si no se
+  // pueden servir datos reales, se devuelve un error honesto, jamás inventados.
+  // §4 y §1, 2026-07-29.)
 
   const { searchParams } = new URL(req.url);
   const estadoFilter = searchParams.get("estado") ?? "pendiente";
@@ -91,10 +92,6 @@ export const PATCH = withPresupuestosAuth(async (session, req) => {
     return NextResponse.json({ error: "Faltan campos: id, accion" }, { status: 400 });
   }
 
-  // Demo mode
-  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-    return NextResponse.json({ ok: true, isDemo: true });
-  }
 
   const now = new Date().toISOString();
 
@@ -117,10 +114,34 @@ export const PATCH = withPresupuestosAuth(async (session, req) => {
     });
 
     // Registrar en historial cuando se envía el mensaje
+    let urlWhatsApp: string | null = null;
     if (accion === "enviar") {
       try {
         const rec = await findSecuenciaRaw(id);
         const f = (rec as any).fields as Record<string, unknown>;
+        // El saliente queda en el HILO (mensajes_whatsapp) vía el servicio
+        // central — antes el texto de la secuencia se abría en wa.me y no
+        // dejaba rastro en la conversación (estadoConversacion lo necesita).
+        const telefonoSec = String(f["telefono"] ?? "");
+        const contenidoSec = String(f["mensaje_generado"] ?? "");
+        if (contenidoSec) {
+          try {
+            const { getServicioMensajeria } = await import(
+              "../../../lib/presupuestos/mensajeria"
+            );
+            const resultado = await getServicioMensajeria("manual").enviarMensaje({
+              presupuestoId: String(f["presupuesto_id"] ?? "") || undefined,
+              telefono: telefonoSec,
+              contenido: contenidoSec,
+              fuente: "Plantilla_automatica",
+            });
+            // El cliente abre ESTA url (censo wa.me a cero): el saliente ya
+            // quedó persistido en el hilo antes de devolverla.
+            urlWhatsApp = resultado.urlWhatsApp ?? null;
+          } catch (err) {
+            console.error("[secuencias PATCH] fila del hilo NO persistida:", err);
+          }
+        }
         await registrarAccion({
           presupuestoId: String(f["presupuesto_id"] ?? ""),
           tipo: "mensaje_automatico",
@@ -134,7 +155,7 @@ export const PATCH = withPresupuestosAuth(async (session, req) => {
       }
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, urlWhatsApp });
   } catch (err) {
     console.error("[secuencias PATCH]", err);
     return NextResponse.json({ error: "Error al actualizar secuencia" }, { status: 500 });

@@ -4,7 +4,6 @@
 
 import { selectInformesRaw, updateInformeRaw, createInformeRaw } from "../../../../lib/informes";
 import { NextResponse } from "next/server";
-import { base, TABLES } from "../../../../lib/airtable";
 import type { InformeGuardado } from "../../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import {
@@ -69,7 +68,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     const recs = await selectInformesRaw(selectOpts);
     return NextResponse.json({ informes: recs.map((r) => mapRecord({ id: r.id, fields: r.fields as Record<string, unknown> })) });
   } catch {
-    return NextResponse.json({ informes: [], isDemo: true });
+    return NextResponse.json({ error: "No se pudieron cargar los informes" }, { status: 500 });
   }
 });
 

@@ -12,7 +12,6 @@ import { listPresupuestoIdsPendientes, createSecuenciaRaw } from "../../../lib/a
 import { listCitasResumenNoShowRaw } from "../../../lib/scheduler/repo/airtableRepo";
 import { cookies } from "next/headers";
 import { kv } from "@vercel/kv";
-import { base, TABLES } from "../../../lib/airtable";
 import type { TipoEvento, ConfiguracionAutomatizacion } from "../../../lib/presupuestos/types";
 import { sendPushToClinica, sendPushToAll } from "../../../lib/push/sender";
 import { DateTime } from "luxon";
@@ -136,10 +135,12 @@ export const POST = withPresupuestosAuth(async (_session) => {
     } catch { /* kv optional */ }
   }
 
-  // Demo mode — sin Airtable
-  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-    return NextResponse.json({ procesados: 0, nuevas: 0, isDemo: true });
-  }
+  // (Aquí había una puerta a datos DEMO condicionada a AIRTABLE_API_KEY /
+  // AIRTABLE_BASE_ID. Airtable está retirado y esas variables no existen en
+  // Vercel, así que la condición se cumplía SIEMPRE en producción: la ruta no
+  // llegaba nunca a su código real. Eliminada, no re-condicionada — si no se
+  // pueden servir datos reales, se devuelve un error honesto, jamás inventados.
+  // §4 y §1, 2026-07-29.)
 
   const now = new Date().toISOString();
 
@@ -209,13 +210,6 @@ export const POST = withPresupuestosAuth(async (_session) => {
       const tratamiento = tratamientoRaw.split(/[,+]/)[0].trim() || "el tratamiento";
 
       const activos = ["PRESENTADO", "INTERESADO", "EN_DUDA", "EN_NEGOCIACION"];
-      const urgencyScore = (() => {
-        if (!activos.includes(estado)) return 0;
-        if (ds >= 30) return 85;
-        if (ds >= 14) return 75;
-        if (ds >= 7) return 55;
-        return 25;
-      })();
 
       const portalEnviado = f["PortalEnviado"] === true;
       const reactivacion = f["Reactivacion"] === true;
@@ -227,7 +221,9 @@ export const POST = withPresupuestosAuth(async (_session) => {
       // EVENTO 1 — presupuesto inactivo
       if (
         activos.includes(estado) &&
-        urgencyScore >= 50 &&
+        // Era `urgencyScore >= 50`, que con la escala del score significaba
+        // exactamente esto: 7 días parados (MEJORAS 40 — el score se retiró).
+        ds >= 7 &&
         ds >= config.diasInactividadAlerta
       ) {
         tipoEvento = "presupuesto_inactivo";
@@ -304,7 +300,7 @@ export const POST = withPresupuestosAuth(async (_session) => {
         if (!ACTIVOS.includes(estado)) return false;
         const fecha = String(f["Fecha"] ?? "").slice(0, 10);
         const ds = fecha ? daysSince(fecha) : 0;
-        return ds >= 14; // urgencyScore >= 75
+        return ds >= 14;
       });
       const enJuego = riesgoAlto.reduce((s, r) => {
         const f = r.fields as any;

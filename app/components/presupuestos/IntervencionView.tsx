@@ -6,12 +6,20 @@ import type {
   UserSession,
   PresupuestoIntervencion,
   IntervencionResponse,
-  IntervencionTab,
 } from "../../lib/presupuestos/types";
-import { URGENCIA_INTERVENCION_COLOR, INTERVENCION_TABS } from "../../lib/presupuestos/colors";
+import { haceTexto } from "../../lib/presupuestos/estado-conversacion";
+import { eur } from "../shared/Cifra";
+import {
+  cohortePresupuesto,
+  type CohortePresupuesto,
+} from "../../lib/seguimiento/cohortes";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { ErrorState, EmptyState } from "../ui/Feedback";
-import { Check, X, ChevronRight, Inbox, ICON_STROKE } from "../icons";
+import { AccionCard } from "../shared/AccionCard";
+import { SeguimientoHeader } from "../shared/SeguimientoHeader";
+import { ColaTabs } from "../shared/ColaTabs";
+import { X, Inbox, ICON_STROKE } from "../icons";
+import { horaClinica } from "../../lib/time";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -29,77 +37,44 @@ function formatTimeAgo(isoDate: string): string {
   return `Hace ${diffDay}d`;
 }
 
-function filterByTab(items: PresupuestoIntervencion[], tab: IntervencionTab): PresupuestoIntervencion[] {
-  if (tab === "todas") return items;
-  // "Esperando respuesta": ya atendidos, la pelota está en el paciente (derivado).
-  if (tab === "esperando") return items.filter((p) => esperaPresupuesto(p).esperando);
-  // "Actuar ahora" NO incluye los que esperan respuesta: ya actuaste sobre ellos,
-  // no toca actuar otra vez hasta que el paciente conteste (o expire el plazo).
-  if (tab === "actuar")
-    return items.filter(
-      (p) => (p.urgenciaBidireccional?.scoreFinal ?? 0) >= 60 && !esperaPresupuesto(p).esperando,
-    );
-  const tabDef = INTERVENCION_TABS.find((t) => t.id === tab);
-  if (!tabDef?.intenciones) return items;
-  return items.filter((p) => {
-    const intencion = p.intencionDetectada ?? "Sin clasificar";
-    return tabDef.intenciones!.includes(intencion);
-  });
+// Rediseño Seguimiento (2026-07-26): tres COHORTES derivadas — la misma
+// partición total que Leads, con la lib compartida (cero criterios propios):
+//   nuevos          = sin_conversacion (presentado sin ningún movimiento)
+//   en_conversacion = pendiente_responder + en_espera_paciente
+//   rezagados       = reactivable — en UI, "Sin respuesta"
+// Un item sin clasificación del servidor cuenta como sin_conversacion:
+// necesita el primer toque, no puede quedar invisible.
+function cohorteDe(item: PresupuestoIntervencion): CohortePresupuesto {
+  return cohortePresupuesto(item.conversacion?.estado ?? "sin_conversacion");
 }
 
-function countForTab(items: PresupuestoIntervencion[], tab: IntervencionTab): number {
-  return filterByTab(items, tab).length;
+// Id de URL → cohorte ("sin-respuesta" es el nombre visible de rezagados).
+const URL_A_COHORTE_PRESU: Record<string, CohortePresupuesto> = {
+  nuevos: "nuevos",
+  conversacion: "en_conversacion",
+  "sin-respuesta": "rezagados",
+  rezagados: "rezagados",
+};
+
+// Un solo formateador de euros en el producto (components/shared/Cifra).
+const fmtEUR = eur;
+
+function esLlamada(tipo?: string): boolean {
+  return tipo === "Llamada realizada" || tipo === "Sin respuesta tras llamada";
 }
 
-function scoreColor(score: number): string {
-  if (score >= 70) return "bg-rose-500";
-  if (score >= 50) return "bg-orange-500";
-  if (score >= 30) return "bg-amber-400";
-  return "bg-slate-400";
-}
 
-function scoreBorderHex(score: number): string {
-  if (score >= 70) return "#f43f5e";
-  if (score >= 50) return "#f97316";
-  if (score >= 30) return "#fbbf24";
-  return "#94a3b8";
-}
-
-// ─── UrgencyBar ──────────────────────────────────────────────────────────────
-
-function UrgencyBar({ score, intencion, resp, cierre }: {
-  score: number; intencion: number; resp: number; cierre: number;
-}) {
-  return (
-    <div className="flex items-center gap-2 shrink-0" title={`Intención ${intencion} · Resp. ${resp} · Cierre ${cierre}`}>
-      <div className="w-16 h-1.5 bg-[var(--color-surface-muted)] rounded-full overflow-hidden">
-        <div className={`h-full rounded-full transition-all ${scoreColor(score)}`} style={{ width: `${score}%` }} />
-      </div>
-      <span className="text-[9px] font-bold text-[var(--color-muted)] tabular-nums">{score}</span>
-    </div>
-  );
-}
-
-// "Esperando respuesta" (estado DERIVADO, no del navegador): mi última acción
-// (Ultima_accion_registrada) es posterior a la última respuesta del paciente
-// (Fecha_ultima_respuesta) y dentro de 72h. Vuelve a "pendiente" cuando el
-// paciente responde (el webhook bumpea Fecha_ultima_respuesta → En intervención)
-// o al pasar 72h. Se recalcula al cargar, así que persiste al recargar.
-const N_ESPERA_PRESUP_MS = 72 * 60 * 60 * 1000;
-
+// "Esperando respuesta": clasificación ÚNICA calculada en el servidor desde el
+// hilo real (estadoConversacion, umbral 72h centralizado). Esta vista ya no
+// tiene criterio propio — antes comparaba dos timestamps persistidos y podía
+// contradecir a la ficha del mismo caso.
 function esperaPresupuesto(item: PresupuestoIntervencion): {
   esperando: boolean;
   desdeISO: string | null;
 } {
-  const acc = item.ultimaAccionRegistrada
-    ? new Date(item.ultimaAccionRegistrada).getTime()
-    : 0;
-  if (!acc) return { esperando: false, desdeISO: null };
-  const resp = item.fechaUltimaRespuesta
-    ? new Date(item.fechaUltimaRespuesta).getTime()
-    : 0;
-  const esperando = acc > resp && Date.now() - acc < N_ESPERA_PRESUP_MS;
-  return { esperando, desdeISO: esperando ? item.ultimaAccionRegistrada! : null };
+  const c = item.conversacion;
+  if (!c || c.estado !== "en_espera_paciente") return { esperando: false, desdeISO: null };
+  return { esperando: true, desdeISO: c.ultimoToqueClinicaAt };
 }
 
 function relEsperaShort(iso: string): string {
@@ -111,241 +86,95 @@ function relEsperaShort(iso: string): string {
   return `hace ${Math.round(h / 24)} d`;
 }
 
-// ─── IntervencionCard ────────────────────────────────────────────────────────
+// ─── PresupuestoAccionRow ────────────────────────────────────────────────────
+// P3 unificación: la MISMA card compartida que la sub-tab Leads (AccionCard,
+// 100% presentacional); aquí solo se mapean los datos y acciones del
+// presupuesto. El panel lateral ya era compartido (AccionPanel).
 
-function IntervencionCard({
+function PresupuestoAccionRow({
   item,
   onOpenPanel,
-  onRefresh,
 }: {
   item: PresupuestoIntervencion;
   onOpenPanel: (p: PresupuestoIntervencion) => void;
-  onRefresh: () => void;
 }) {
-  const [waEnviado, setWaEnviado] = useState(false);
-  const [llamando, setLlamando] = useState(false);
-  const [respuestaInput, setRespuestaInput] = useState("");
-  const [clasificando, setClasificando] = useState(false);
-
-  // Estado derivado de datos: al enviar (waEnviado, optimista) o si al recargar
-  // sigue esperando respuesta (derivado), la card se atenúa y no re-ofrece envío.
+  // Decisión de producto (2026-07-23): la card INFORMA — contexto,
+  // recomendación, prioridad — y toda ella abre el panel, donde viven las
+  // acciones reales con su flujo completo (hilo visible, mensaje precargado,
+  // registro, feedback). Un botón de Llamar/WhatsApp aquí invitaba a
+  // ejecutar sin leer la conversación.
   const espera = esperaPresupuesto(item);
-  const esperandoRespuesta = waEnviado || espera.esperando;
-
-  const cleanPhone = (item.patientPhone ?? "").replace(/\D/g, "");
-  const urgenciaColor = item.urgenciaIntervencion
-    ? URGENCIA_INTERVENCION_COLOR[item.urgenciaIntervencion]
-    : "bg-[var(--color-surface-muted)] text-[var(--color-muted)]";
-
-  const ub = item.urgenciaBidireccional;
-
-  async function handleEnviarWA() {
-    if (!cleanPhone || !item.mensajeSugerido) return;
-
-    try {
-      await navigator.clipboard.writeText(item.mensajeSugerido);
-    } catch { /* fallback: user can paste manually */ }
-
-    window.open(
-      `https://wa.me/${cleanPhone}?text=${encodeURIComponent(item.mensajeSugerido)}`,
-      "_blank"
-    );
-
-    setWaEnviado(true);
-    fetch("/api/presupuestos/intervencion/registrar-respuesta", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        presupuestoId: item.id,
-        tipo: "WhatsApp enviado",
-      }),
-    }).then(() => onRefresh()).catch(() => {});
-  }
-
-  async function handleLlamar() {
-    window.open(`tel:${item.patientPhone}`, "_self");
-    setLlamando(true);
-
-    fetch("/api/presupuestos/intervencion/registrar-respuesta", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        presupuestoId: item.id,
-        tipo: "Llamada realizada",
-      }),
-    }).catch(() => {});
-  }
-
-  async function handleClasificarRespuesta() {
-    if (!respuestaInput.trim()) return;
-    setClasificando(true);
-    try {
-      await fetch("/api/presupuestos/intervencion/registrar-respuesta", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          presupuestoId: item.id,
-          tipo: "Mensaje recibido",
-          mensaje: respuestaInput.trim(),
-        }),
-      });
-      setRespuestaInput("");
-      setLlamando(false);
-      onRefresh();
-    } catch {
-      toast.error("No se pudo registrar la respuesta. Inténtalo de nuevo.");
-    } finally {
-      setClasificando(false);
-    }
-  }
 
   const tiempoResp = item.fechaUltimaRespuesta
     ? formatTimeAgo(item.fechaUltimaRespuesta)
     : item.diasDesdeUltimoContacto != null
       ? `Hace ${item.diasDesdeUltimoContacto}d`
       : "";
+  const meta = [item.doctor, item.clinica, tiempoResp].filter(Boolean).join(" · ");
+
+  // Reactivable → contexto XYZ completo como cita de la card: qué se hizo,
+  // hace cuánto, sobre qué y con qué insistir (mensaje del generador IA
+  // existente). Si el paciente respondió, su texto literal manda.
+  const esReactivable =
+    item.conversacion?.estado === "reactivable" && item.conversacion.haceMs != null;
+  const quote =
+    item.ultimaRespuestaPaciente ??
+    (esReactivable
+      ? `${esLlamada(item.tipoUltimaAccion) ? "Se le llamó" : "Se le escribió por WhatsApp"} ${haceTexto(item.conversacion!.haceMs!)} sobre ${item.treatments.length ? item.treatments.join(", ") : "su presupuesto"} y no ha respondido${item.mensajeSugerido ? ` — insiste con: "${item.mensajeSugerido}"` : ""}`
+      : undefined);
+
+  const actions: React.ComponentProps<typeof AccionCard>["actions"] = [];
+  if (espera.esperando) {
+    actions.push({
+      label: `Esperando respuesta${espera.desdeISO ? ` · ${relEsperaShort(espera.desdeISO)}` : ""}`,
+      onClick: (e) => e.stopPropagation(),
+      variant: "ghost",
+      disabled: true,
+    });
+  }
+  actions.push({
+    label: "Ver ficha →",
+    onClick: (e) => { e.stopPropagation(); onOpenPanel(item); },
+    variant: "primary",
+  });
+
+  // Borde por el MISMO criterio que ordena y titula la cohorte (tanda de
+  // coherencia 2026-07-26): la barra de scoreFinal y la pill de urgencia IA
+  // murieron de la card — no ordenaban nada y contradecían el orden visible.
+  const borderColor =
+    item.conversacion?.estado === "pendiente_responder"
+      ? "var(--color-danger)"
+      : item.conversacion?.estado === "reactivable"
+        ? "var(--color-warning)"
+        : "var(--color-border)";
 
   return (
-    <div
-      className={`rounded-xl border bg-[var(--color-surface)] transition-[box-shadow,border-color] duration-150 hover:[box-shadow:var(--card-shadow-hover)] ${esperandoRespuesta ? "opacity-50" : ""}`}
-      style={{
-        borderColor: "var(--card-border)",
-        boxShadow: "var(--card-shadow-rest)",
-        borderLeft: `4px solid ${scoreBorderHex(ub?.scoreFinal ?? 0)}`,
-      }}
-    >
-      {/* Card body — clickable */}
-      <div
-        className="p-4 cursor-pointer select-none"
-        onClick={() => onOpenPanel(item)}
-      >
-        <div className="flex items-start gap-3">
-          <div className="shrink-0 flex flex-col gap-1 items-start">
-            {item.urgenciaIntervencion && (
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full uppercase ${urgenciaColor}`}>
-                {item.urgenciaIntervencion}
-              </span>
-            )}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <a
-                href={`/presupuestos/paciente/${encodeURIComponent(item.patientName)}`}
-                className="font-semibold text-sm text-[var(--color-foreground)] truncate hover:text-[var(--color-accent)] hover:underline"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {item.patientName}
-              </a>
-              {item.amount != null && (
-                <span className="font-display text-sm font-bold text-[var(--color-foreground)] shrink-0 tabular-nums">
-                  &euro;{item.amount.toLocaleString("es-ES")}
-                </span>
-              )}
-              {ub && (
-                <UrgencyBar
-                  score={ub.scoreFinal}
-                  intencion={ub.scoreIntencion}
-                  resp={ub.scoreRespClinica}
-                  cierre={ub.scoreCierre}
-                />
-              )}
-            </div>
-            <div className="flex flex-wrap gap-1 mt-0.5">
-              {item.treatments.map((t, i) => (
-                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)]">{t}</span>
-              ))}
-            </div>
-            <div className="flex items-center gap-2 mt-1 text-[10px] text-[var(--color-muted)]">
-              {item.doctor && <span>{item.doctor}</span>}
-              {item.clinica && <span>· {item.clinica}</span>}
-              {tiempoResp && <span>· {tiempoResp}</span>}
-            </div>
-
-            {/* Última respuesta del paciente */}
-            {item.ultimaRespuestaPaciente && (
-              <div className="mt-2 rounded-lg bg-[var(--color-surface-muted)] px-3 py-2 border border-[var(--color-border)]">
-                <p className="text-xs text-[var(--color-foreground)] line-clamp-2">
-                  &quot;{item.ultimaRespuestaPaciente}&quot;
-                </p>
-              </div>
-            )}
-
-            {/* Acción sugerida */}
-            {item.accionSugerida && (
-              <p className="text-[10px] text-[var(--color-accent)] font-semibold mt-1.5">
-                {item.accionSugerida}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Action bar */}
-      <div className="flex items-center gap-2 px-4 pb-3 flex-wrap" onClick={(e) => e.stopPropagation()}>
-        {cleanPhone && item.mensajeSugerido && (
-          <button
-            onClick={handleEnviarWA}
-            disabled={esperandoRespuesta}
-            className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)] disabled:opacity-40"
-          >
-            {waEnviado
-              ? "WhatsApp enviado"
-              : espera.esperando
-                ? `Esperando respuesta${espera.desdeISO ? ` · ${relEsperaShort(espera.desdeISO)}` : ""}`
-                : "Enviar WhatsApp"}
-          </button>
-        )}
-        {cleanPhone && (
-          <button
-            onClick={handleLlamar}
-            className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--color-surface-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-accent-soft)]"
-          >
-            Llamar
-          </button>
-        )}
-        <button
-          onClick={() => onOpenPanel(item)}
-          className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] ml-auto"
+    <AccionCard
+      borderColor={borderColor}
+      faded={espera.esperando}
+      title={
+        <a
+          href={`/presupuestos/paciente/${encodeURIComponent(item.patientName)}`}
+          className="hover:text-[var(--color-accent)] hover:underline"
+          onClick={(e) => e.stopPropagation()}
         >
-          Ver ficha
-        </button>
-      </div>
-
-      {/* Quick input after call */}
-      {llamando && (
-        <div className="px-4 pb-3" onClick={(e) => e.stopPropagation()}>
-          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-3">
-            <p className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-1">Respuesta del paciente</p>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={respuestaInput}
-                onChange={(e) => setRespuestaInput(e.target.value)}
-                placeholder="Respuesta del paciente (opcional)"
-                className="flex-1 text-xs px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleClasificarRespuesta();
-                }}
-              />
-              <button
-                onClick={handleClasificarRespuesta}
-                disabled={!respuestaInput.trim() || clasificando}
-                className="text-xs font-semibold px-3 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
-              >
-                {clasificando ? "..." : "Clasificar"}
-              </button>
-              <button
-                onClick={() => setLlamando(false)}
-                className="text-xs px-2 py-2 rounded-lg text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
-                aria-label="Cerrar"
-              >
-                <X size={14} strokeWidth={ICON_STROKE} aria-hidden />
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+          {item.patientName}
+        </a>
+      }
+      titleRight={
+        item.amount != null ? (
+          <span className="font-display text-sm font-bold text-[var(--color-foreground)] tabular-nums">
+            &euro;{item.amount.toLocaleString("es-ES")}
+          </span>
+        ) : undefined
+      }
+      tags={item.treatments.map((t) => ({ label: t }))}
+      meta={meta}
+      quote={quote}
+      accionSugerida={esReactivable ? undefined : item.accionSugerida}
+      onOpen={() => onOpenPanel(item)}
+      actions={actions}
+    />
   );
 }
 
@@ -372,35 +201,41 @@ function BulkSendModal({
     setCurrentIndex(0);
   }
 
+  const [enviando, setEnviando] = useState(false);
+
+  // Persist-BEFORE-confirm (tanda de coherencia 2026-07-26): el saliente se
+  // registra en el hilo vía el servicio central y SOLO entonces se abre la
+  // URL wa.me que devuelve el servidor y se confirma. Antes: wa.me a mano +
+  // toast "Enviado" + registro fire-and-forget — un fallo se veía como éxito.
   async function handleSendCurrent() {
     const item = sendableItems[currentIndex];
-    if (!item) return;
-
-    const cleanPhone = (item.patientPhone ?? "").replace(/\D/g, "");
+    if (!item || enviando) return;
+    setEnviando(true);
     try {
-      await navigator.clipboard.writeText(item.mensajeSugerido!);
-    } catch { /* ignore */ }
-
-    window.open(
-      `https://wa.me/${cleanPhone}?text=${encodeURIComponent(item.mensajeSugerido!)}`,
-      "_blank"
-    );
-    toast.success(`Enviado a ${item.patientName}`);
-
-    fetch("/api/presupuestos/intervencion/registrar-respuesta", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        presupuestoId: item.id,
-        tipo: "WhatsApp enviado",
-      }),
-    }).catch(() => {});
-
-    setEnviados((prev) => prev + 1);
-    if (currentIndex < sendableItems.length - 1) {
-      setCurrentIndex((prev) => prev + 1);
-    } else {
-      setCurrentIndex(sendableItems.length); // done
+      const res = await fetch("/api/presupuestos/intervencion/enviar-manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          presupuestoId: item.id,
+          telefono: item.patientPhone,
+          contenido: item.mensajeSugerido,
+        }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok || !d?.ok) throw new Error(`HTTP ${res.status}`);
+      if (d.urlWhatsApp) window.open(d.urlWhatsApp, "_blank", "noopener,noreferrer");
+      toast.success(`Mensaje registrado para ${item.patientName}`);
+      setEnviados((prev) => prev + 1);
+      if (currentIndex < sendableItems.length - 1) {
+        setCurrentIndex((prev) => prev + 1);
+      } else {
+        setCurrentIndex(sendableItems.length); // done
+      }
+    } catch {
+      // El caso se queda en pantalla para reintentar — no se avanza.
+      toast.error(`No se pudo registrar el mensaje de ${item.patientName}. Inténtalo de nuevo.`);
+    } finally {
+      setEnviando(false);
     }
   }
 
@@ -457,9 +292,10 @@ function BulkSendModal({
               </div>
               <button
                 onClick={handleSendCurrent}
-                className="w-full text-sm font-semibold py-2.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]"
+                disabled={enviando}
+                className="w-full text-sm font-semibold py-2.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)] disabled:opacity-50"
               >
-                Enviar a {sendableItems[currentIndex].patientName}
+                {enviando ? "Registrando…" : `Enviar a ${sendableItems[currentIndex].patientName}`}
               </button>
             </div>
           )}
@@ -502,7 +338,7 @@ function BulkSendModal({
 function optionLabel(p: PresupuestoIntervencion): string {
   const detalle =
     p.treatments[0] ??
-    (p.amount != null ? `€${p.amount.toLocaleString("es-ES")}` : "Sin detalle");
+    (p.amount != null ? eur(p.amount) : "Sin detalle");
   const importe =
     p.treatments[0] && p.amount != null
       ? ` · €${p.amount.toLocaleString("es-ES")}`
@@ -512,13 +348,10 @@ function optionLabel(p: PresupuestoIntervencion): string {
 
 function QuickResponseModal({
   items,
-  completados,
   onClose,
   onRefresh,
 }: {
   items: PresupuestoIntervencion[];
-  /** Casos ya completados hoy: el paciente puede responder más tarde. */
-  completados: PresupuestoIntervencion[];
   onClose: () => void;
   onRefresh: () => void;
 }) {
@@ -580,7 +413,7 @@ function QuickResponseModal({
         <div className="px-5 py-4 space-y-3">
           <div>
             <label className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide">Presupuesto</label>
-            {items.length === 0 && completados.length === 0 ? (
+            {items.length === 0 ? (
               <p className="mt-1 text-xs text-[var(--color-muted)] rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2">
                 Aún no hay presupuestos cargados. Espera a que la vista termine de
                 cargar y vuelve a abrir este atajo.
@@ -592,22 +425,11 @@ function QuickResponseModal({
                 className="w-full text-xs px-3 py-2 mt-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] focus:border-[var(--color-accent)] focus:ring-1 focus:ring-[var(--color-accent)] outline-none"
               >
                 <option value="">Selecciona un presupuesto…</option>
-                <optgroup label="Pendientes">
-                  {items.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {optionLabel(p)}
-                    </option>
-                  ))}
-                </optgroup>
-                {completados.length > 0 && (
-                  <optgroup label="Atendidos hoy">
-                    {completados.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {optionLabel(p)}
-                      </option>
-                    ))}
-                  </optgroup>
-                )}
+                {items.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {optionLabel(p)}
+                  </option>
+                ))}
               </select>
             )}
           </div>
@@ -656,26 +478,22 @@ export default function IntervencionView({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
-  const [completadosOpen, setCompletadosOpen] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Sprint 7 Fase 5: filtro de clínica vive en ClinicContext global.
   const { selectedClinicaNombre } = useClinic();
 
-  // Sprint 2 state
-  const [subTab, setSubTab] = useState<IntervencionTab>("actuar");
+  // Cohorte visible: null = apertura automática en la primera que exige
+  // acción; ?cohorte= (enlaces del dashboard de Red) la preselecciona.
+  const [cohorteManual, setCohorteManual] = useState<CohortePresupuesto | null>(() => {
+    if (typeof window === "undefined") return null;
+    const c = new URLSearchParams(window.location.search).get("cohorte");
+    return c ? (URL_A_COHORTE_PRESU[c] ?? null) : null;
+  });
   const [filtroDoctor, setFiltroDoctor] = useState<string>("");
   const [filtroTratamiento, setFiltroTratamiento] = useState<string>("");
   const [quickResponseOpen, setQuickResponseOpen] = useState(false);
   const [bulkSendOpen, setBulkSendOpen] = useState(false);
-  const [, setTick] = useState(0); // force re-render for live counter
-
-  // Live second counter
-  useEffect(() => {
-    const t = setInterval(() => setTick((c) => c + 1), 1000);
-    return () => clearInterval(t);
-  }, []);
-
   // Keyboard shortcut: Ctrl+Shift+L
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -698,6 +516,9 @@ export default function IntervencionView({
         fetch(url.toString()),
         fetch("/api/presupuestos/kpi-hoy"),
       ]);
+      // Un 401/500 con body JSON parseable NO es una cola vacía: sin esto,
+      // el error se disfrazaba de "0 pendientes" (estándar: error honesto).
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const d: IntervencionResponse = await res.json();
       setData(d);
       setLoadError(false);
@@ -715,15 +536,15 @@ export default function IntervencionView({
   useEffect(() => {
     fetchData();
     // Auto-refresh: 15s en horario operativo (9h-20h), 30s fuera de ese rango.
-    const hour = new Date().getHours();
+    // Horario operativo DE LA CLÍNICA (MEJORAS 52): con el reloj del navegador,
+    // una coordinadora en otro huso refrescaba cada 30 s en plena mañana.
+    const hour = Number(horaClinica().slice(0, 2));
     const refreshMs = hour >= 9 && hour < 20 ? 15_000 : 30_000;
     intervalRef.current = setInterval(fetchData, refreshMs);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [fetchData]);
-
-  const secondsAgo = Math.round((Date.now() - lastUpdate.getTime()) / 1000);
 
   // Client-side filtering. El filtro de clínica viene del ClinicContext global.
   const globalFiltered = useMemo(() => {
@@ -734,18 +555,53 @@ export default function IntervencionView({
     return items;
   }, [data, selectedClinicaNombre, filtroDoctor, filtroTratamiento]);
 
-  const filteredItems = useMemo(() => {
-    // Primero PENDIENTES, luego los que están ESPERANDO respuesta (abajo).
-    // Dentro de cada bloque, por score de urgencia (la prioridad se conserva).
-    return filterByTab(globalFiltered, subTab).sort((a, b) => {
-      const ea = esperaPresupuesto(a).esperando ? 1 : 0;
-      const eb = esperaPresupuesto(b).esperando ? 1 : 0;
-      return (
-        ea - eb ||
-        (b.urgenciaBidireccional?.scoreFinal ?? 0) - (a.urgenciaBidireccional?.scoreFinal ?? 0)
-      );
-    });
-  }, [globalFiltered, subTab]);
+  // ── Cohortes con orden propio ────────────────────────────────────────
+  const cohortes = useMemo(() => {
+    const de = (c: CohortePresupuesto) => globalFiltered.filter((p) => cohorteDe(p) === c);
+    return {
+      // Nuevos: el presentado más reciente primero (contactar hoy lo de hoy).
+      nuevos: de("nuevos").sort((a, b) =>
+        (b.fechaPresupuesto ?? "").localeCompare(a.fechaPresupuesto ?? ""),
+      ),
+      // En conversación: pendientes de responder SIEMPRE arriba; dentro de
+      // cada bloque, el que más tiempo lleva así primero (como Leads).
+      en_conversacion: de("en_conversacion").sort((a, b) => {
+        const pa = a.conversacion?.estado === "pendiente_responder" ? 0 : 1;
+        const pb = b.conversacion?.estado === "pendiente_responder" ? 0 : 1;
+        if (pa !== pb) return pa - pb;
+        return (b.conversacion?.haceMs ?? 0) - (a.conversacion?.haceMs ?? 0);
+      }),
+      // Sin respuesta: manda el IMPORTE (el € en juego es la palanca y está a
+      // la vista en la card); los días parados desempatan. Sin fórmulas
+      // multiplicativas — comprimen dimensiones distintas en un orden
+      // ilegible (DECISIONES 2026-07-26).
+      rezagados: de("rezagados").sort((a, b) => {
+        const d = (b.amount ?? 0) - (a.amount ?? 0);
+        if (d !== 0) return d;
+        return (b.conversacion?.haceMs ?? 0) - (a.conversacion?.haceMs ?? 0);
+      }),
+    };
+  }, [globalFiltered]);
+
+  // Apertura automática: pendientes de responder > nuevos > sin respuesta;
+  // sin nada que exija acción, la primera con contenido.
+  const cohorteAuto = ((): CohortePresupuesto => {
+    if (cohortes.en_conversacion.some((p) => p.conversacion?.estado === "pendiente_responder"))
+      return "en_conversacion";
+    if (cohortes.nuevos.length > 0) return "nuevos";
+    if (cohortes.rezagados.length > 0) return "rezagados";
+    return cohortes.en_conversacion.length > 0 ? "en_conversacion" : "nuevos";
+  })();
+  const cohorte = cohorteManual ?? cohorteAuto;
+  const filteredItems = cohortes[cohorte];
+
+  const sumImporte = (items: PresupuestoIntervencion[]) =>
+    items.reduce((s, p) => s + (p.amount ?? 0), 0);
+  const nPendientes =
+    cohortes.nuevos.length +
+    cohortes.rezagados.length +
+    cohortes.en_conversacion.filter((p) => p.conversacion?.estado === "pendiente_responder")
+      .length;
 
   const bulkSendable = filteredItems.filter((p) => {
     const phone = (p.patientPhone ?? "").replace(/\D/g, "");
@@ -771,60 +627,21 @@ export default function IntervencionView({
     );
   }
 
-  const totalPendientes = data?.totalPendientes ?? 0;
-  const completadasHoy = data?.completadasHoy ?? 0;
-  const total = totalPendientes + completadasHoy;
-  const pct = total > 0 ? Math.round((completadasHoy / total) * 100) : 0;
-
   return (
     <div className="space-y-4">
-      {/* Banner Cola Intervención — tokens accent */}
-      <div className="rounded-2xl bg-[var(--color-accent-soft)] border border-[var(--color-border)] p-6">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div>
-            <p className="text-xs font-semibold text-[var(--color-accent)] uppercase tracking-wide">
-              Cola de intervención · Hoy
-            </p>
-            <h2 className="font-display text-4xl font-bold mt-2 tracking-tight tabular-nums text-[var(--color-foreground)]">
-              {totalPendientes} pendiente{totalPendientes !== 1 ? "s" : ""} · {completadasHoy} atendido{completadasHoy !== 1 ? "s" : ""}
-            </h2>
-            {/* Sprint 10 C — KPI tiempo medio respuesta. */}
-            <p className="text-sm text-[var(--color-muted)] mt-1">
-              Tiempo medio respuesta:{" "}
-              <span className="font-semibold text-[var(--color-foreground)] tabular-nums">
-                {tiempoMedioMin == null ? "—" : `${tiempoMedioMin} min`}
-              </span>
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            {total > 0 && (
-              <div className="text-center">
-                <div className="w-32 h-1.5 bg-[var(--color-surface-muted)] rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-[var(--color-accent)] rounded-full transition-all duration-300"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-                <p className="text-[10px] text-[var(--color-muted)] mt-1.5 tabular-nums">
-                  {pct}% del plan de hoy
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-2 mt-5 flex-wrap">
-          <button
-            onClick={() => { setLoading(true); fetchData(); }}
-            className="text-xs font-medium px-3 py-1.5 rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
-          >
-            Actualizar
-          </button>
-          <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30 tabular-nums">
-            <Check size={12} strokeWidth={ICON_STROKE} aria-hidden />
-            Actualizado hace {secondsAgo < 60 ? `${secondsAgo}s` : `${Math.round(secondsAgo / 60)}m`}
-          </span>
-        </div>
-      </div>
+      {/* MISMA cabecera que la vista Leads. "Atendidos" = en espera del
+          paciente (ya actuaste; la pelota es suya). */}
+      <SeguimientoHeader
+        subtitle="Presupuestos abiertos"
+        kpis={{
+          pendientes: nPendientes,
+          atendidosHoy: globalFiltered.length - nPendientes,
+          tiempoMedioMin,
+        }}
+        lastUpdate={lastUpdate}
+        onRefresh={() => { setLoading(true); fetchData(); }}
+        loading={loading}
+      />
 
       {/* Global filters — el selector de clínica vive en el GlobalHeader
           (Sprint 7 Fase 5). Aquí solo quedan filtros específicos del área. */}
@@ -854,26 +671,33 @@ export default function IntervencionView({
         </select>
       </div>
 
-      {/* Secondary navbar — 8 pills */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
-        {INTERVENCION_TABS.map((tab) => {
-          const count = countForTab(globalFiltered, tab.id);
-          const isActive = subTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setSubTab(tab.id)}
-              className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
-                isActive
-                  ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
-                  : "bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
-              }`}
-            >
-              {tab.label} · {count}
-            </button>
-          );
-        })}
-      </div>
+      {/* Cohortes — partición total por estadoConversacion, como Leads.
+          Contador + Σ € en la propia pestaña (patrón Cobros): la visión de
+          conjunto no se pierde al cambiar. Una cohorte vacía sigue visible. */}
+      <ColaTabs
+        tabs={[
+          {
+            id: "nuevos" as CohortePresupuesto,
+            label: `Nuevos · ${cohortes.nuevos.length} · ${fmtEUR(sumImporte(cohortes.nuevos))}`,
+          },
+          {
+            id: "en_conversacion" as CohortePresupuesto,
+            label: `En conversación · ${cohortes.en_conversacion.length} · ${fmtEUR(sumImporte(cohortes.en_conversacion))}`,
+          },
+          {
+            id: "rezagados" as CohortePresupuesto,
+            label: `Sin respuesta · ${cohortes.rezagados.length} · ${fmtEUR(sumImporte(cohortes.rezagados))}`,
+          },
+        ]}
+        active={cohorte}
+        onChange={(c) => setCohorteManual(c)}
+      />
+
+      {cohorte === "rezagados" && (
+        <p className="text-xs text-[var(--color-muted)]">
+          Se les escribió y no contestaron — toca insistir.
+        </p>
+      )}
 
       {/* Enviar la cola uno a uno (honesto: abre WhatsApp por paciente) */}
       {bulkSendable.length >= 3 && (
@@ -885,73 +709,40 @@ export default function IntervencionView({
         </button>
       )}
 
-      {/* Empty state */}
+      {/* Empty state honesto por cohorte */}
       {filteredItems.length === 0 && (
         <EmptyState
           icon={<Inbox size={20} strokeWidth={ICON_STROKE} />}
-          title="Sin casos en esta vista"
+          title={
+            cohorte === "nuevos"
+              ? "Sin presupuestos recién presentados"
+              : cohorte === "en_conversacion"
+                ? "Ninguna conversación abierta"
+                : "Nadie pendiente de insistir"
+          }
           hint={
-            subTab === "actuar"
-              ? "No hay casos con urgencia alta pendientes de acción. Revisa otras pestañas."
-              : subTab === "esperando"
-                ? "No hay presupuestos esperando respuesta ahora mismo."
-                : "Los presupuestos con respuesta del paciente o urgencia asignada aparecerán aquí."
+            cohorte === "nuevos"
+              ? "Los presupuestos presentados sin ningún contacto aparecerán aquí para el primer toque."
+              : cohorte === "en_conversacion"
+                ? "Cuando un paciente responda o esté esperando tu respuesta, lo verás aquí."
+                : "Cuando a un paciente se le escriba y no conteste, aparecerá aquí para insistir."
           }
         />
       )}
 
-      {/* Cards list */}
+      {/* Cards list — card compartida con Leads; cascada solo al montar o
+          cambiar de cohorte (keys estables → un refresh no re-anima). */}
       <div className="space-y-2">
-        {filteredItems.map((item) => (
-          <IntervencionCard
+        {filteredItems.map((item, i) => (
+          <div
             key={item.id}
-            item={item}
-            onOpenPanel={onOpenDrawer}
-            onRefresh={fetchData}
-          />
+            className="fyllio-fade-in"
+            style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}
+          >
+            <PresupuestoAccionRow item={item} onOpenPanel={onOpenDrawer} />
+          </div>
         ))}
       </div>
-
-      {/* Completed today — collapsible */}
-      {completadasHoy > 0 && (
-        <div>
-          <button
-            onClick={() => setCompletadosOpen(!completadosOpen)}
-            className="flex items-center gap-2 text-xs font-semibold text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
-          >
-            <ChevronRight
-              size={14}
-              strokeWidth={ICON_STROKE}
-              className={`transition-transform ${completadosOpen ? "rotate-90" : ""}`}
-              aria-hidden
-            />
-            Atendidos hoy ({completadasHoy})
-          </button>
-          {completadosOpen && data?.casosCompletados && (
-            <div className="mt-2 space-y-2 opacity-60">
-              {data.casosCompletados.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-2xl border bg-emerald-50 border-emerald-100 dark:bg-emerald-500/10 dark:border-emerald-500/30 p-3 cursor-pointer"
-                  onClick={() => onOpenDrawer(item)}
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-300">
-                      <Check size={12} strokeWidth={ICON_STROKE} aria-hidden />
-                      Atendido
-                    </span>
-                    <span className="text-sm font-semibold text-[var(--color-foreground)]">{item.patientName}</span>
-                    {item.amount != null && (
-                      <span className="text-sm font-bold text-[var(--color-muted)] tabular-nums">&euro;{item.amount.toLocaleString("es-ES")}</span>
-                    )}
-                    <span className="text-[10px] text-[var(--color-muted)] ml-auto">{item.tipoUltimaAccion}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Modals */}
       {bulkSendOpen && (
@@ -964,7 +755,6 @@ export default function IntervencionView({
       {quickResponseOpen && (
         <QuickResponseModal
           items={data?.allItems ?? []}
-          completados={data?.casosCompletados ?? []}
           onClose={() => setQuickResponseOpen(false)}
           onRefresh={fetchData}
         />

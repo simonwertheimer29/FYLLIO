@@ -28,6 +28,9 @@ export type AccionCardProps = {
   meta?: string;
   /** Cita textual del paciente / sugerencia destacada. */
   quote?: string;
+  /** Estado en dos niveles (patrón del dashboard de Red): titular de
+   *  negocio en 3-5 palabras + detalle muted. */
+  estado?: { titular: string; detalle?: string };
   /** Acción sugerida en color destacado (violet). */
   accionSugerida?: string;
   /** Botones de la barra inferior. */
@@ -40,6 +43,16 @@ export type AccionCardProps = {
   /** Click sobre la card (no sobre los botones) → abrir panel. */
   onOpen?: () => void;
   faded?: boolean;
+  /** Máxima urgencia (p. ej. cobro vencido): borde-izq más grueso y tinte
+   *  danger sutil de fondo — se distingue sin leer nada. */
+  emphasis?: boolean;
+  /** "compacta" reparte el contenido en horizontal (identidad · estado ·
+   *  importe) en vez de apilarlo. Nació de que la cola de Cobros dejaba el 65%
+   *  del ancho vacío y ocho cards no cabían en pantalla (MEJORAS 36). Es
+   *  OPT-IN: las colas que no la piden siguen exactamente igual.
+   *  No admite `score`, `quote`, `accionSugerida` ni `actions` — si una card
+   *  necesita todo eso, no es compacta. */
+  densidad?: "normal" | "compacta";
 };
 
 export function AccionCard({
@@ -50,15 +63,75 @@ export function AccionCard({
   tags,
   meta,
   quote,
+  estado,
   accionSugerida,
   actions,
   onOpen,
   faded,
+  emphasis,
+  densidad = "normal",
 }: AccionCardProps) {
+  if (densidad === "compacta") {
+    return (
+      <div
+        className={`rounded-xl border border-[var(--color-border)] transition-[opacity,border-color,box-shadow] duration-150 ease-out ${
+          onOpen ? "hover:border-[var(--color-accent)] hover:shadow-sm cursor-pointer" : ""
+        } ${faded ? "opacity-50" : ""} ${emphasis ? "fyllio-pulso-unico" : ""}`}
+        style={{
+          borderLeft: `${emphasis ? 5 : 3}px solid ${borderColor}`,
+          background: emphasis
+            ? `color-mix(in srgb, ${borderColor} 6%, var(--color-surface))`
+            : "var(--color-surface)",
+          ["--pulso-color" as string]: borderColor,
+        }}
+        onClick={onOpen}
+      >
+        {/* Tres columnas en escritorio, apilado en móvil: quién · qué pasa ·
+            cuánto. El importe va a la derecha, alineado entre cards, para que
+            la columna de dinero se lea de un barrido vertical. */}
+        <div className="px-4 py-2.5 select-none flex flex-col sm:flex-row sm:items-center gap-x-4 gap-y-1">
+          <div className="min-w-0 sm:flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-sm text-[var(--color-foreground)]">{title}</span>
+              {tags?.slice(0, 1).map((t, i) => (
+                <span
+                  key={i}
+                  className="text-[10px] px-1.5 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)]"
+                >
+                  {t.label}
+                </span>
+              ))}
+            </div>
+            {meta && <p className="text-[11px] text-[var(--color-muted)] truncate">{meta}</p>}
+          </div>
+          {estado && (
+            <div className="min-w-0 sm:flex-1">
+              <p className="text-[13px] font-medium text-[var(--color-foreground)] leading-snug">
+                {estado.titular}
+              </p>
+              {estado.detalle && (
+                <p className="text-[11px] text-[var(--color-muted)] truncate">{estado.detalle}</p>
+              )}
+            </div>
+          )}
+          {titleRight && <div className="shrink-0 sm:text-right">{titleRight}</div>}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
-      className={`rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] transition-opacity ${faded ? "opacity-50" : ""}`}
-      style={{ borderLeft: `4px solid ${borderColor}` }}
+      className={`rounded-2xl border border-[var(--color-border)] transition-[opacity,border-color,box-shadow] duration-150 ease-out ${
+        onOpen ? "hover:border-[var(--color-accent)] hover:shadow-sm" : ""
+      } ${faded ? "opacity-50" : ""}`}
+      style={{
+        borderLeft: `${emphasis ? 6 : 4}px solid ${borderColor}`,
+        // Tinte sutil sobre el token de superficie — nunca un hex a mano.
+        background: emphasis
+          ? `color-mix(in srgb, ${borderColor} 5%, var(--color-surface))`
+          : "var(--color-surface)",
+      }}
     >
       <div
         className={`p-4 select-none ${onOpen ? "cursor-pointer" : ""}`}
@@ -116,6 +189,19 @@ export function AccionCard({
             )}
             {meta && (
               <p className="text-[10px] text-[var(--color-muted)] mt-1 truncate">{meta}</p>
+            )}
+            {/* Orden del patrón de Presupuestos (2026-07-26): titular corto
+                primero, la cita literal del paciente debajo, y la acción
+                sugerida al final. */}
+            {estado && (
+              <div className="mt-1.5">
+                <p className="font-display text-[13px] font-semibold text-[var(--color-foreground)] leading-snug">
+                  {estado.titular}
+                </p>
+                {estado.detalle && (
+                  <p className="text-[11px] text-[var(--color-muted)] mt-0.5">{estado.detalle}</p>
+                )}
+              </div>
             )}
             {quote && (
               <div className="mt-2 rounded-lg bg-[var(--color-surface-muted)] px-3 py-2 border border-[var(--color-border)]">

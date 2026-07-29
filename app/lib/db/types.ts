@@ -88,11 +88,10 @@ export interface Tabla_pacientes {
   clinica_id: string | null;
   doctor_id: string | null;
   lead_origen_id: string | null;
+  /** Privado o el nombre de su aseguradora; null = sin tipo (estado válido).
+   *  El catálogo vive en configuraciones_clinica, nunca en un enum. */
+  tipo_paciente: string | null;
   fecha_cita: string | null;
-  presupuesto_total: number | null;
-  aceptado: "Si" | "No" | "Pendiente" | null;
-  pagado: number | null;
-  pendiente: number | null;
   financiado: number | null;
   notas: string | null;
   canal_origen: string | null;
@@ -121,6 +120,7 @@ export interface Tabla_leads {
   doctor_asignado_id: string | null;
   tipo_visita: string | null;
   motivo_no_interes: string | null;
+  fecha_cierre: Date | null;
   intencion_detectada: string | null;
   mensaje_sugerido: string | null;
   accion_sugerida: string | null;

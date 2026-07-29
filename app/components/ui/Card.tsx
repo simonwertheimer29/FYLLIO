@@ -37,6 +37,10 @@ export type CardProps = {
   radius?: "lg" | "xl";
   /** Override del color de borde (ej. ring-1 ring-rose-200 para Citados Hoy). */
   ringClass?: string;
+  /** Estilos extra fusionados SOBRE los base. Para lo que una clase de
+   *  Tailwind no puede ganarle al style inline del primitivo (tinte de fondo,
+   *  borde semántico) o para pasar custom properties a un hijo. */
+  style?: React.CSSProperties;
   id?: string;
 };
 
@@ -48,7 +52,7 @@ const BASE_STYLE = {
 };
 
 export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
-  { children, interactive, padding = "md", className = "", onClick, radius = "xl", ringClass, id },
+  { children, interactive, padding = "md", className = "", onClick, radius = "xl", ringClass, style, id },
   ref,
 ) {
   const radiusClass = radius === "lg" ? "rounded-lg" : "rounded-xl";
@@ -63,7 +67,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
       ref={ref}
       id={id}
       onClick={onClick}
-      style={BASE_STYLE}
+      style={style ? { ...BASE_STYLE, ...style } : BASE_STYLE}
       className={`${BASE_CLASSES} ${radiusClass} ${PADDING[padding]} ${interactiveClass} ${ringClass ?? ""} ${className}`}
     >
       {children}

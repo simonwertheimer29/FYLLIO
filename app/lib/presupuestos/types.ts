@@ -8,7 +8,12 @@ export type PresupuestoEstado =
   | "ACEPTADO"
   | "PERDIDO";
 
-export type TipoPaciente = "Adeslas" | "Privado";
+/** El tipo de paciente YA NO ES UN ENUM (spec 2026-07-29): el catálogo es
+ *  configurable por clínica y vive en configuraciones_clinica
+ *  (lib/pacientes/tipos-paciente). Dar de alta una aseguradora no puede exigir
+ *  un despliegue, que es exactamente lo que pasaba con `"Adeslas" | "Privado"`
+ *  clavado aquí y en otras cuatro capas. */
+export type TipoPaciente = string;
 export type OrigenLead = "google_ads" | "seo_organico" | "referido_paciente" | "redes_sociales" | "walk_in" | "otro";
 export type MotivoPerdida = "precio_alto" | "otra_clinica" | "sin_urgencia" | "necesita_financiacion" | "miedo_tratamiento" | "no_responde" | "otro";
 export type MotivoDuda = "precio" | "otra_clinica" | "sin_urgencia" | "financiacion" | "miedo" | "comparando_opciones" | "otro";
@@ -53,7 +58,6 @@ export type Presupuesto = {
   daysSince: number;
   clinica?: string;
   notes?: string;
-  urgencyScore: number;
   lastContactDate?: string;
   lastContactDaysAgo?: number;
   contactCount: number;
@@ -66,6 +70,12 @@ export type Presupuesto = {
   reactivacion?: boolean;  // marcado para reactivar en 90 días tras perderse
   portalEnviado?: boolean; // portal de presupuesto enviado al paciente
   ofertaActiva?: boolean;  // se ha realizado una oferta activa al paciente
+  /** Fecha de cierre (kanban 2026-07-26): las columnas cerradas muestran solo
+   *  los últimos 14 días. fechaAceptado = columna real; fechaPerdida deriva
+   *  del historial (fechasPerdidaPorPresupuesto) — sin fecha conocida, el
+   *  caso se muestra (nunca se esconde por falta de dato). */
+  fechaAceptado?: string | null;
+  fechaPerdida?: string | null;
 };
 
 export type Contacto = {
@@ -105,10 +115,11 @@ export type UserSession = {
   nombre: string;
   rol: "manager_general" | "encargada_ventas" | "admin" | "ventas";
   clinica: string | null;
-  /** Sprint B — cliente legal (RB | INDEP). Determina la base de negocio.
-   *  Union inline (no importamos el tipo de airtable aquí porque types.ts lo
-   *  consumen componentes cliente). null = sesión legacy pre-Sprint B. */
-  cliente?: "RB" | "INDEP" | null;
+  /** Sprint B — cliente legal. Determina la base de negocio. Union inline (no
+   *  importamos el tipo de airtable aquí porque types.ts lo consumen
+   *  componentes cliente); debe seguir a `Cliente` de lib/airtable. El casteo
+   *  a ciegas de la cookie legacy escondía que DEMO faltaba aquí (MEJORAS 38). */
+  cliente?: "RB" | "INDEP" | "DEMO" | null;
   /** Sprint B Fase 4 — IDs de clínica accesibles (canónico, unificado con la
    *  sesión moderna). `["*"]` = todas las del cliente (admin/manager). Sustituye
    *  el filtrado por nombre (`clinica`), que era null y rompía el aislamiento. */
@@ -167,11 +178,15 @@ export type KpiComparacion = {
   diffPct: number;
 };
 
+/** Tendencia por tarifa con series DINÁMICAS: una por valor del catálogo de
+ *  la clínica. Antes eran cuatro columnas fijas (privado/adeslas × ofrecido/
+ *  aceptado), así que dar de alta una aseguradora exigía tocar el tipo, la API
+ *  y el gráfico (spec 2026-07-29). Claves: `<tarifa>` = ofrecidos y
+ *  `<tarifa>__acept` = aceptados. */
 export type KpiTendenciaTarifa = {
-  mes: string; label: string;
-  privado: number; privadoAcept: number;
-  adeslas: number; adeslasAcept: number;
-};
+  mes: string;
+  label: string;
+} & Record<string, number | string>;
 
 export type KpiTendenciaVisita = {
   mes: string; label: string;
@@ -305,17 +320,9 @@ export type TipoUltimaAccionIntervencion =
   | "Mensaje recibido"
   | "Sin respuesta tras llamada";
 
-// Pestañas secundarias de la cola
-export type IntervencionTab =
-  | "actuar"
-  | "cerrados"
-  | "esperando"
-  | "todas"
-  | "pago"
-  | "dudas"
-  | "oferta"
-  | "pensarlo"
-  | "sin_respuesta";
+// Pestañas de la cola — mismo modelo que Leads (P3 unificación 2026-07-23):
+// "actuar" = pendiente_responder + reactivable (+ sin clasificar) ·
+// "esperando" = en_espera_paciente. Las 8 pills por intención IA se retiraron.
 
 // Urgencia bidireccional (3 ejes)
 export type UrgenciaBidireccional = {
@@ -326,6 +333,9 @@ export type UrgenciaBidireccional = {
 };
 
 export type PresupuestoIntervencion = Presupuesto & {
+  /** Clasificación única de la conversación (lib/presupuestos/estado-conversacion),
+   *  calculada en servidor desde el hilo. Las vistas NO recalculan su criterio. */
+  conversacion?: import("./estado-conversacion").ConversacionClasificada;
   ultimaRespuestaPaciente?: string;
   fechaUltimaRespuesta?: string;
   intencionDetectada?: IntencionDetectada;
@@ -339,21 +349,13 @@ export type PresupuestoIntervencion = Presupuesto & {
   urgenciaBidireccional?: UrgenciaBidireccional;
 };
 
-export type SeccionIntervencion = {
-  id: string;
-  titulo: string;
-  color: string;
-  icono: string;
-  hexAccent: string;
-  items: PresupuestoIntervencion[];
-};
-
+// P3 unificación (2026-07-23): la cola devuelve TODOS los casos y las
+// pestañas se derivan de item.conversacion en cliente. Se eliminaron
+// `secciones` (payload que ningún cliente leía), `completadasHoy` y
+// `casosCompletados` (segunda representación del viejo criterio de espera:
+// "acción registrada hoy" ≈ en_espera_paciente, que ya clasifica el estado).
 export type IntervencionResponse = {
-  secciones: SeccionIntervencion[];
   allItems: PresupuestoIntervencion[];
-  totalPendientes: number;
-  completadasHoy: number;
-  casosCompletados: PresupuestoIntervencion[];
   clinicas: string[];
   doctores: string[];
   tratamientos: string[];
@@ -497,6 +499,8 @@ export type KpiData = {
   porTipoVisita: { tipo: string; total: number; aceptados: number; tasa: number; importe: number }[];
   tendenciaMensual: KpiMensual[];
   tendenciaPorTarifa: KpiTendenciaTarifa[];
+  /** Los valores del catálogo que el gráfico de tarifas debe pintar, en orden. */
+  tarifas: string[];
   tendenciaPorVisita: KpiTendenciaVisita[];
   doctores: string[];
   porOrigenLead: KpiPorOrigen[];

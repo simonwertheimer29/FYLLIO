@@ -119,7 +119,7 @@ export async function POST(req: Request) {
     if (clinicas.length === 1) {
       const unica = clinicas[0]!;
       return buildLoginResponse({ ...matched, cliente }, [unica.id], {
-        redirect: "/actuar-hoy",
+        redirect: "/seguimiento",
         selectedClinicaId: unica.id,
       });
     }

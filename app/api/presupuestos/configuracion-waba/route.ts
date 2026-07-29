@@ -6,7 +6,6 @@
 
 import { findConfigWABAPorClinicaRaw, updateConfigWABARaw, createConfigWABARaw } from "../../../lib/presupuestos/waba-credentials";
 import { NextResponse } from "next/server";
-import { base, TABLES } from "../../../lib/airtable";
 import { hasWABACredentials, getWABACredentials } from "../../../lib/presupuestos/waba-credentials";
 import type { UserSession } from "../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
@@ -64,7 +63,8 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   let ultimoMensajeEnviado: string | undefined;
   let ultimoMensajeRecibido: string | undefined;
 
-  if (clinica && process.env.AIRTABLE_API_KEY) {
+  // La lectura ya no depende de una variable de Airtable retirada.
+  if (clinica) {
     try {
       const rec0 = await findConfigWABAPorClinicaRaw(clinica);
       const recs = rec0 ? [rec0] : [];
@@ -106,9 +106,12 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     return NextResponse.json({ error: "Falta clinica o no permitida" }, { status: 400 });
   }
 
-  if (!process.env.AIRTABLE_API_KEY) {
-    return NextResponse.json({ ok: true, isDemo: true });
-  }
+  // (Aquí había una puerta a datos DEMO condicionada a AIRTABLE_API_KEY /
+  // AIRTABLE_BASE_ID. Airtable está retirado y esas variables no existen en
+  // Vercel, así que la condición se cumplía SIEMPRE en producción: la ruta no
+  // llegaba nunca a su código real. Eliminada, no re-condicionada — si no se
+  // pueden servir datos reales, se devuelve un error honesto, jamás inventados.
+  // §4 y §1, 2026-07-29.)
 
   try {
     const existingRec = await findConfigWABAPorClinicaRaw(clinica);

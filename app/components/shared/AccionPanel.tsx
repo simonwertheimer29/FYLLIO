@@ -27,6 +27,8 @@ type Props =
       onClose: () => void;
       onChanged: (l: Lead) => void;
       onAsistencia: (l: Lead) => void;
+      /** Bloque 2 P1 — "Agendar" in situ vía AgendarModal (lo monta el padre). */
+      onAgendar?: (l: Lead) => void;
     };
 
 export function AccionPanel(props: Props) {
@@ -46,6 +48,7 @@ export function AccionPanel(props: Props) {
       onClose={props.onClose}
       onChanged={props.onChanged}
       onAsistencia={props.onAsistencia}
+      onAgendar={props.onAgendar}
     />
   );
 }

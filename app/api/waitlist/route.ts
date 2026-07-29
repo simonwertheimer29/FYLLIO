@@ -1,7 +1,6 @@
 // app/api/waitlist/route.ts
 import { NextResponse } from "next/server";
 import { listWaitlistPorClinicaRaw } from "../../lib/scheduler/repo/waitlistRepo";
-import { base, TABLES } from "../../lib/airtable";
 
 function escapeAirtableString(s: string) {
   // Airtable formulas use single quotes for strings; escape single quotes by doubling

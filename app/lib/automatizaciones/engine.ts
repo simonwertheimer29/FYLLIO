@@ -18,7 +18,6 @@
 //   4. horario laboral → skip si la acción es enviar_whatsapp_template
 //      y NOW está fuera del horario de la clínica.
 
-import { fetchAll, base, TABLES } from "../airtable";
 import {
   listReglasActivasParaTrigger,
   incrementarDisparos,
@@ -444,27 +443,13 @@ async function getOptoutPaciente(pacienteId: string): Promise<boolean> {
 }
 
 async function contarMensajesAutoUltimas24h(pacienteId: string): Promise<number> {
-  // Usamos Acciones_Automatizacion como source-of-truth: cualquier
-  // resultado=success cuya regla envió WA cuenta. Filtro temporal
-  // últimas 24h. Si la query falla (tabla no existe en prod, etc.)
-  // devolvemos 0 — la salvaguarda cooldown queda inactiva por
-  // defecto, mejor que tumbar el motor entero.
+  // Acciones_Automatizacion como source-of-truth: cualquier resultado=success
+  // cuya regla envió WA cuenta, en las últimas COOLDOWN_HORAS. Si la query
+  // falla devolvemos 0 — la salvaguarda queda inactiva, mejor que tumbar el
+  // motor entero (el fallo sí se loguea).
   try {
-    const desdeIso = new Date(
-      Date.now() - COOLDOWN_HORAS * 60 * 60 * 1000,
-    ).toISOString();
-    const recs = await fetchAll(
-      base(TABLES.accionesAutomatizacion).select({
-        filterByFormula: `AND(FIND("${pacienteId}", ARRAYJOIN({Paciente_Link}, ",")), {Resultado} = "success", IS_AFTER({Ejecutada_At}, "${desdeIso}"))`,
-        pageSize: 100,
-      }),
-    );
-    let count = 0;
-    for (const r of recs) {
-      const det = String(r.fields["Detalle"] ?? "");
-      if (det.includes("enviar_whatsapp_template")) count += 1;
-    }
-    return count;
+    const { contarEnviosAutoPg } = await import("./pg");
+    return await contarEnviosAutoPg(pacienteId, COOLDOWN_HORAS);
   } catch (err) {
     console.error("[automatizaciones cooldown query]", err);
     return 0;

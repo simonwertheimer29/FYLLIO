@@ -9,7 +9,7 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "El asistente que ordena el día de tu clínica.",
     // Arranca en la pantalla de trabajo; si no hay sesión, el proxy
     // redirige a /login como en cualquier visita normal.
-    start_url: "/actuar-hoy",
+    start_url: "/seguimiento",
     display: "standalone",
     background_color: "#fafbfc",
     theme_color: "#3d6fb2",

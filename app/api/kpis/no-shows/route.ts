@@ -28,7 +28,6 @@ import { listStaffCamposRaw } from "../../../lib/scheduler/repo/staffRepo";
 import { DateTime } from "luxon";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicas } from "../../../lib/auth/users";
-import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import {
   getSupabaseAdmin,
   isSupabaseConfigured,
@@ -98,7 +97,8 @@ export const GET = withAuth(async (session, req) => {
 
     // ── Clínicas (nombres + mapa record→canónico) ────────────────────
     const [clinicasGlobal, clinicaRecs, staffRecs, allRecs] = await Promise.all([
-      listClinicas({ onlyActivas: true }),
+      // MEJORAS nº 30 — cliente explícito (sin él, directorio global en PG).
+      listClinicas({ onlyActivas: true, cliente: session.cliente }),
       listClinicasNegocioCamposRaw(["Clínica ID", "Nombre"]),
       listStaffCamposRaw(["Staff ID", "Nombre", "Clínica"]),
       listCitasDesdeRaw(desdeRankingIso),

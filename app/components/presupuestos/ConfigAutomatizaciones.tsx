@@ -21,6 +21,7 @@ import {
 } from "../icons";
 import { ErrorState } from "../ui/Feedback";
 import type { UserSession, ConfiguracionAutomatizacion, ModoWhatsApp, PlantillaMensaje, TipoPlantilla, ConfigRecordatorios } from "../../lib/presupuestos/types";
+import { mesISO } from "../../lib/time";
 
 interface Props {
   user: UserSession;
@@ -303,7 +304,7 @@ function SectionObjetivos({ user }: { user: UserSession }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
-  const mesMTD = new Date().toISOString().slice(0, 7);
+  const mesMTD = mesISO();
 
   const load = useCallback(async () => {
     setLoading(true);

@@ -23,7 +23,6 @@ import { selectClinicasCentralRaw } from "../../../lib/auth/users";
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { withAdmin } from "../../../lib/auth/session";
-import { baseCentral, base, TABLES, fetchAll } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 
 export const dynamic = "force-dynamic";

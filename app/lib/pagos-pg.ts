@@ -5,10 +5,10 @@
 import { sql } from "kysely";
 import { runWithClienteDb } from "./db/context";
 import { currentCliente, type Cliente } from "./airtable";
-import { usaPostgresIdentidad } from "./db/data-backend";
 import type { MetodoPago, TipoPago, Pago } from "./pagos-format";
-import { listResumenFinancieroPorIds, sumPendientePorIds, syncFinancieroPaciente } from "./pacientes/pacientes";
+import { listResumenFinancieroPorIds, sumPendientePorIds } from "./pacientes/pacientes";
 import type { PagoResumen } from "./pagos";
+import { hoyISO, sumaDias } from "./time";
 
 function cli(): Cliente {
   const c = currentCliente();
@@ -59,17 +59,14 @@ async function pagosEntre(desdeShift: string, hastaShift: string): Promise<Pago[
     return rows.map(rowToPago);
   });
 }
-const shiftDay = (isoD: string, days: number) => {
-  const d = new Date(isoD + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-};
+// (shiftDay vivía aquí; ahora es `sumaDias` en lib/time — había cuatro copias.)
 
 export async function getFacturadoEnPeriodoPg(args: {
   desde: Date; hasta: Date; soloOrigenLead?: boolean; clinicaId?: string;
 }): Promise<{ total: number; pendiente: number; pagosCount: number }> {
   let pagos: Pago[];
   try {
-    pagos = await pagosEntre(shiftDay(args.desde.toISOString().slice(0, 10), -1), shiftDay(args.hasta.toISOString().slice(0, 10), 1));
+    pagos = await pagosEntre(sumaDias(hoyISO(args.desde), -1), sumaDias(hoyISO(args.hasta), 1));
   } catch (err) { console.error("[pagos-pg] getFacturadoEnPeriodo:", err); return { total: 0, pendiente: 0, pagosCount: 0 }; }
   if (pagos.length === 0) return { total: 0, pendiente: 0, pagosCount: 0 };
   const pacIds = Array.from(new Set(pagos.map((p) => p.pacienteId).filter(Boolean)));
@@ -92,8 +89,8 @@ export async function getFacturadoEnPeriodoPg(args: {
 
 export async function getFacturadoPorPacientesPg(args: { pacienteIds: string[]; desde: Date; hasta: Date }): Promise<{ total: number; pendiente: number; pagosCount: number }> {
   if (args.pacienteIds.length === 0) return { total: 0, pendiente: 0, pagosCount: 0 };
-  const desdeShift = shiftDay(args.desde.toISOString().slice(0, 10), -1);
-  const hastaShift = shiftDay(args.hasta.toISOString().slice(0, 10), 1);
+  const desdeShift = sumaDias(hoyISO(args.desde), -1);
+  const hastaShift = sumaDias(hoyISO(args.hasta), 1);
   const r = await runWithClienteDb(cli(), async (trx) => {
     const row = await trx.selectFrom("pagos_paciente")
       .select([sql<string>`coalesce(sum(importe),0)`.as("total"), sql<string>`count(*)`.as("n")])
@@ -117,7 +114,7 @@ async function logAccionPagoPgIntern(trxCliente: Cliente, a: {
         pago_id: a.tipo === "Eliminar" ? null : a.pagoId, tipo: a.tipo, fecha: new Date(),
         importe_antes: a.importeAntes ?? null, importe_despues: a.importeDespues ?? null,
         // CORTE: con identidad en PG, id real; pre-corte NULL (FK). Gateado.
-        usuario_id: usaPostgresIdentidad() && a.usuarioId ? a.usuarioId : null, nota_cambio: a.notaCambio ?? null,
+        usuario_id: a.usuarioId ?? null, nota_cambio: a.notaCambio ?? null,
       } as any).execute());
   } catch (err) { console.error("[pagos-pg] logAccionPago:", err); }
 }
@@ -127,19 +124,16 @@ export async function crearPagoPg(args: {
   tipo?: TipoPago; nota?: string; usuarioCreadorId?: string;
 }): Promise<Pago> {
   const c = cli();
-  const fechaPago = args.fechaPago ?? new Date().toISOString().slice(0, 10);
+  const fechaPago = args.fechaPago ?? hoyISO();
   const metodo = args.metodo ?? "Otro"; const tipo = args.tipo ?? "Liquidacion";
   const row = await runWithClienteDb(c, (trx) =>
     trx.insertInto("pagos_paciente").values({
       cliente: c, resumen: `${metodo} · ${fechaPago} · ${args.importe.toFixed(2)}€`,
       paciente_id: args.pacienteId, fecha_pago: fechaPago, importe: args.importe,
       metodo, tipo, nota: args.nota ?? null,
-      usuario_creador_id: usaPostgresIdentidad() && args.usuarioCreadorId ? args.usuarioCreadorId : null,
+      usuario_creador_id: args.usuarioCreadorId ?? null,
     } as any).returningAll().executeTakeFirstOrThrow());
   const pago = rowToPago(row);
-  const { getPagosByPaciente } = await import("./pagos");
-  const pagos = await getPagosByPaciente(args.pacienteId);
-  await syncFinancieroPaciente(args.pacienteId, pagos.reduce((s, p) => s + (p.importe || 0), 0));
   await logAccionPagoPgIntern(c, { pagoId: pago.id, pacienteId: args.pacienteId, tipo: "Crear", importeAntes: null, importeDespues: args.importe, usuarioId: args.usuarioCreadorId ?? null, notaCambio: args.nota });
   return pago;
 }
@@ -167,9 +161,6 @@ export async function actualizarPagoPg(pagoId: string, patch: Partial<{
   const updated = await runWithClienteDb(c, (trx) =>
     trx.updateTable("pagos_paciente").set(set as any).where("id", "=", pagoId).returningAll().executeTakeFirstOrThrow());
   if (pacienteId) {
-    const { getPagosByPaciente } = await import("./pagos");
-    const pagos = await getPagosByPaciente(pacienteId);
-    await syncFinancieroPaciente(pacienteId, pagos.reduce((s, p) => s + (p.importe || 0), 0));
   }
   await logAccionPagoPgIntern(c, { pagoId, pacienteId, tipo: "Editar", importeAntes, importeDespues: Number(updated.importe ?? 0) || 0, usuarioId: context.usuarioId ?? null });
   return rowToPago(updated);
@@ -183,27 +174,5 @@ export async function eliminarPagoPg(pagoId: string, context: { usuarioId?: stri
   const pacienteId = before.paciente_id ?? "";
   await logAccionPagoPgIntern(c, { pagoId, pacienteId, tipo: "Eliminar", importeAntes, importeDespues: null, usuarioId: context.usuarioId ?? null, notaCambio: `Pago ${before.tipo ?? ""} de ${importeAntes}€ eliminado` });
   await runWithClienteDb(c, (trx) => trx.deleteFrom("pagos_paciente").where("id", "=", pagoId).execute());
-  if (pacienteId) {
-    const { getPagosByPaciente } = await import("./pagos");
-    const pagos = await getPagosByPaciente(pacienteId);
-    await syncFinancieroPaciente(pacienteId, pagos.reduce((s, p) => s + (p.importe || 0), 0));
-  }
 }
 
-export async function reconciliarPagosCachePg(): Promise<{ procesados: number; ok: number; errores: number }> {
-  const c = cli();
-  const ids = await runWithClienteDb(c, async (trx) => {
-    const rows = await trx.selectFrom("pagos_paciente").select("paciente_id").distinct().execute();
-    return rows.map((r) => r.paciente_id).filter(Boolean) as string[];
-  });
-  let ok = 0, errores = 0;
-  const { getPagosByPaciente } = await import("./pagos");
-  for (const pid of ids) {
-    try {
-      const pagos = await getPagosByPaciente(pid);
-      await syncFinancieroPaciente(pid, pagos.reduce((s, p) => s + (p.importe || 0), 0));
-      ok++;
-    } catch (err) { console.error(`[reconciliar-pg] paciente ${pid}:`, err); errores++; }
-  }
-  return { procesados: ids.length, ok, errores };
-}

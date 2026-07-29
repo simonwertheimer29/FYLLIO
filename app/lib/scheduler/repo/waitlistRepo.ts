@@ -1,6 +1,4 @@
 // app/lib/scheduler/repo/waitlistRepo.ts
-import { base, TABLES } from "../../airtable";
-import { usaPostgres } from "../../db/data-backend";
 
 export type WaitlistEntry = {
   recordId: string;
@@ -91,58 +89,8 @@ export async function listActiveWaitlistByTreatment(params: {
   maxRecords?: number;
 }): Promise<WaitlistEntry[]> {
   const { treatmentRecordId, clinicRecordId, maxRecords = 200 } = params;
-
-  if (usaPostgres("agenda")) {
     return (await import("./waitlist-pg")).listActiveWaitlistByTreatmentPg({ treatmentRecordId, clinicRecordId, maxRecords });
-  }
-
-  const parts: string[] = [
-    `{${F.estado}}='ACTIVE'`,
-    `FIND('${esc(treatmentRecordId)}', ARRAYJOIN({${F.treatment}}))`,
-  ];
-
-  if (clinicRecordId) {
-    parts.push(`FIND('${esc(clinicRecordId)}', ARRAYJOIN({${F.clinic}}))`);
-  }
-
-  const formula = `AND(${parts.join(",")})`;
-
-  const recs = await base(TABLES.waitlist)
-    .select({ filterByFormula: formula, maxRecords })
-    .all();
-
-  return recs.map((r: any) => {
-    const f: any = r.fields || {};
-    return {
-      recordId: r.id,
-
-      clinicRecordId: firstId(f[F.clinic]),
-      patientRecordId: firstId(f[F.patient]),
-      treatmentRecordId: firstId(f[F.treatment]),
-      preferredStaffRecordId: firstId(f[F.preferredStaff]),
-
-      diasPermitidos: Array.isArray(f[F.dias]) ? f[F.dias].map(String) : [],
-      rangoStart: str(f[F.start]) || undefined,
-      rangoEnd: str(f[F.end]) || undefined,
-
-      estado: str(f[F.estado]) || undefined,
-      prioridad: str(f[F.prioridad]) || undefined,
-      urgencia: str(f[F.urgencia]) || undefined,
-      permiteFueraRango: bool(f[F.permiteFuera]),
-
-      offerHoldId: str(f[F.offerHoldId]) || undefined,
-      offerExpiresAt: str(f[F.offerExpiresAt]) || undefined,
-      offerCycle: num(f[F.offerCycle]),
-
-      lastOfferedSlotKey: str(f[F.lastSlotKey]) || undefined,
-      lastOfferResult: str(f[F.lastResult]) || undefined,
-
-      citaSeguraRecordId: firstId(f[F.citaSegura]),
-      citaCerradaRecordId: firstId(f[F.citaCerrada]),
-
-      createdAt: str(f[F.createdAt]) || undefined,
-    } as WaitlistEntry;
-  });
+  
 }
 
 export async function listWaitlist(params: {
@@ -157,68 +105,8 @@ export async function listWaitlist(params: {
     estados = ["ACTIVE", "OFFERED"],
     maxRecords = 200,
   } = params;
-
-  if (usaPostgres("agenda")) {
     return (await import("./waitlist-pg")).listWaitlistPg({ clinicRecordId, preferredStaffRecordId, estados, maxRecords });
-  }
-
-  const parts: string[] = [];
-
-  // estados
-  if (estados.length === 1) {
-    parts.push(`{${F.estado}}='${esc(estados[0])}'`);
-  } else if (estados.length > 1) {
-    parts.push(`OR(${estados.map((s) => `{${F.estado}}='${esc(s)}'`).join(",")})`);
-  }
-
-  // clinica
-  if (clinicRecordId) {
-    parts.push(`FIND('${esc(clinicRecordId)}', ARRAYJOIN({${F.clinic}}))`);
-  }
-
-  // profesional preferido
-  if (preferredStaffRecordId) {
-    parts.push(`FIND('${esc(preferredStaffRecordId)}', ARRAYJOIN({${F.preferredStaff}}))`);
-  }
-
-  const formula = parts.length ? `AND(${parts.join(",")})` : "";
-
-  const recs = await base(TABLES.waitlist)
-    .select({ filterByFormula: formula || undefined, maxRecords })
-    .all();
-
-  return recs.map((r: any) => {
-    const f: any = r.fields || {};
-    return {
-      recordId: r.id,
-
-      clinicRecordId: firstId(f[F.clinic]),
-      patientRecordId: firstId(f[F.patient]),
-      treatmentRecordId: firstId(f[F.treatment]),
-      preferredStaffRecordId: firstId(f[F.preferredStaff]),
-
-      diasPermitidos: Array.isArray(f[F.dias]) ? f[F.dias].map(String) : [],
-      rangoStart: str(f[F.start]) || undefined,
-      rangoEnd: str(f[F.end]) || undefined,
-
-      estado: str(f[F.estado]) || undefined,
-      prioridad: str(f[F.prioridad]) || undefined,
-      urgencia: str(f[F.urgencia]) || undefined,
-      permiteFueraRango: bool(f[F.permiteFuera]),
-
-      offerHoldId: str(f[F.offerHoldId]) || undefined,
-      offerExpiresAt: str(f[F.offerExpiresAt]) || undefined,
-      offerCycle: num(f[F.offerCycle]),
-
-      lastOfferedSlotKey: str(f[F.lastSlotKey]) || undefined,
-      lastOfferResult: str(f[F.lastResult]) || undefined,
-
-      citaSeguraRecordId: firstId(f[F.citaSegura]),
-      citaCerradaRecordId: firstId(f[F.citaCerrada]),
-
-      createdAt: str(f[F.createdAt]) || undefined,
-    } as WaitlistEntry;
-  });
+  
 }
 
 
@@ -233,42 +121,8 @@ export async function getOfferedEntryByPhone(params: {
   const { findPacienteIdPorTelefonoOTutor } = await import("../../pacientes/pacientes");
   const patientId = await findPacienteIdPorTelefonoOTutor(phone);
   if (!patientId) return null;
-
-  if (usaPostgres("agenda")) {
     return (await import("./waitlist-pg")).getOfferedEntryByPatientIdPg(patientId);
-  }
-
-  const waitFormula = `AND({${F.estado}}='OFFERED',FIND('${esc(patientId)}', ARRAYJOIN({${F.patient}})))`;
-  const wait = await base(TABLES.waitlist)
-    .select({ filterByFormula: waitFormula, maxRecords: 1 })
-    .firstPage();
-
-  const r = wait?.[0];
-  if (!r) return null;
-
-  const f: any = r.fields || {};
-  return {
-    recordId: r.id,
-    clinicRecordId: firstId(f[F.clinic]),
-    patientRecordId: firstId(f[F.patient]),
-    treatmentRecordId: firstId(f[F.treatment]),
-    preferredStaffRecordId: firstId(f[F.preferredStaff]),
-    diasPermitidos: Array.isArray(f[F.dias]) ? f[F.dias].map(String) : [],
-    rangoStart: str(f[F.start]) || undefined,
-    rangoEnd: str(f[F.end]) || undefined,
-    estado: str(f[F.estado]) || undefined,
-    prioridad: str(f[F.prioridad]) || undefined,
-    urgencia: str(f[F.urgencia]) || undefined,
-    permiteFueraRango: bool(f[F.permiteFuera]),
-    offerHoldId: str(f[F.offerHoldId]) || undefined,
-    offerExpiresAt: str(f[F.offerExpiresAt]) || undefined,
-    offerCycle: num(f[F.offerCycle]),
-    lastOfferedSlotKey: str(f[F.lastSlotKey]) || undefined,
-    lastOfferResult: str(f[F.lastResult]) || undefined,
-    citaSeguraRecordId: firstId(f[F.citaSegura]),
-    citaCerradaRecordId: firstId(f[F.citaCerrada]),
-    createdAt: str(f[F.createdAt]) || undefined,
-  };
+  
 }
 
 export async function markWaitlistOffered(params: {
@@ -277,58 +131,24 @@ export async function markWaitlistOffered(params: {
   expiresAtIso: string; // Airtable ISO
   slotKey: string;
 }) {
-  if (usaPostgres("agenda")) {
-    return (await import("./waitlist-pg")).markWaitlistOfferedPg(params);
-  }
-  await base(TABLES.waitlist).update([
-    {
-      id: params.waitlistRecordId,
-      fields: {
-        [F.estado]: "OFFERED",
-        [F.offerHoldId]: params.holdId,
-        [F.offerExpiresAt]: params.expiresAtIso,
-        [F.lastSlotKey]: params.slotKey,
-        [F.lastResult]: "SENT",
-      },
-    },
-  ]);
+  return (await import("./waitlist-pg")).markWaitlistOfferedPg(params);
+  
 }
 
 export async function markWaitlistActiveWithResult(params: {
   waitlistRecordId: string;
   result: "REJECTED" | "EXPIRED";
 }) {
-  if (usaPostgres("agenda")) {
-    return (await import("./waitlist-pg")).markWaitlistActiveWithResultPg(params);
-  }
-  await base(TABLES.waitlist).update([
-    {
-      id: params.waitlistRecordId,
-      fields: {
-        [F.estado]: params.result === "EXPIRED" ? "EXPIRED" : "ACTIVE",
-        [F.lastResult]: params.result,
-      },
-    },
-  ]);
+  return (await import("./waitlist-pg")).markWaitlistActiveWithResultPg(params);
+  
 }
 
 export async function markWaitlistBooked(params: {
   waitlistRecordId: string;
   appointmentRecordId: string;
 }) {
-  if (usaPostgres("agenda")) {
-    return (await import("./waitlist-pg")).markWaitlistBookedPg(params);
-  }
-  await base(TABLES.waitlist).update([
-    {
-      id: params.waitlistRecordId,
-      fields: {
-        [F.estado]: "BOOKED",
-        [F.lastResult]: "ACCEPTED",
-        [F.citaCerrada]: [params.appointmentRecordId],
-      },
-    },
-  ]);
+  return (await import("./waitlist-pg")).markWaitlistBookedPg(params);
+  
 }
 
 /** Utilidad: obtener nombre/teléfono desde Paciente link (para mensajes) */
@@ -340,9 +160,7 @@ export async function getPatientContact(params: { patientRecordId: string }) {
 
 /** Utilidad: leer tratamiento (duración/buffers/nombre) por recordId */
 export async function getTreatmentMeta(params: { treatmentRecordId: string }) {
-  const r = usaPostgres("agenda")
-    ? (await (await import("./pg")).listTratamientosPorIdsRawPg([params.treatmentRecordId]))[0]
-    : await base(TABLES.treatments).find(params.treatmentRecordId);
+  const r = (await (await import("./pg")).listTratamientosPorIdsRawPg([params.treatmentRecordId]))[0];
   const f: any = r?.fields || {};
   return {
     name: str(f["Categoria"]) || "Tratamiento",
@@ -360,27 +178,8 @@ export async function updateWaitlistEntry(params: {
   };
 }) {
   const { waitlistRecordId, patch } = params;
-
-  if (usaPostgres("agenda")) {
     return (await import("./waitlist-pg")).updateWaitlistEntryPg(waitlistRecordId, patch);
-  }
-
-  const fields: any = {};
-
-  if (patch.estado !== undefined) {
-    fields["Estado"] = patch.estado;
-  }
-
-  if (patch.ultimoContacto !== undefined) {
-    fields["Último contacto"] = patch.ultimoContacto;
-  }
-
-  await base(TABLES.waitlist).update([
-    {
-      id: waitlistRecordId,
-      fields,
-    },
-  ]);
+  
 }
 
 export async function createWaitlistEntry(params: {
@@ -397,41 +196,8 @@ export async function createWaitlistEntry(params: {
   permiteFueraRango?: boolean;
   notas?: string;
 }) {
-  if (usaPostgres("agenda")) {
-    return (await import("./waitlist-pg")).createWaitlistEntryPg(params);
-  }
-  const {
-    clinicRecordId,
-    patientRecordId,
-    treatmentRecordId,
-    preferredStaffRecordId,
-    diasPermitidos = ["LUN", "MAR", "MIE", "JUE", "VIE"],
-    rangoStartIso,
-    rangoEndIso,
-    prioridad = "MEDIA",
-    urgencia = "LOW",
-    permiteFueraRango = false,
-    notas,
-  } = params;
-
-  const fields: any = {
-    [F.clinic]: [clinicRecordId],
-    [F.patient]: [patientRecordId],
-    [F.treatment]: [treatmentRecordId],
-    [F.dias]: diasPermitidos,
-    [F.estado]: "ACTIVE",
-    [F.prioridad]: prioridad,
-    [F.urgencia]: urgencia,
-    [F.permiteFuera]: permiteFueraRango,
-    ...(preferredStaffRecordId ? { [F.preferredStaff]: [preferredStaffRecordId] } : {}),
-    ...(rangoStartIso ? { [F.start]: rangoStartIso } : {}),
-    ...(rangoEndIso ? { [F.end]: rangoEndIso } : {}),
-    ...(notas ? { [F.notas]: notas } : {}),
-  };
-
-  const created = await base(TABLES.waitlist).create([{ fields }]);
-  const r: any = created?.[0];
-  return { recordId: r?.id as string };
+  return (await import("./waitlist-pg")).createWaitlistEntryPg(params);
+  
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -441,23 +207,8 @@ export async function createWaitlistEntry(params: {
 /** Cola de espera de una clínica (por NOMBRE de clínica, como el caller
  *  original), sin Aceptado/Expirado, orden Prioridad desc. Records crudos. */
 export async function listWaitlistPorClinicaRaw(clinicSafe: string): Promise<readonly any[]> {
-  if (usaPostgres("agenda")) {
-    return (await import("./waitlist-pg")).listWaitlistPorClinicaRawPg(clinicSafe);
-  }
-  const filterByFormula = `
-AND(
-  {Clínica} = '${clinicSafe}',
-  {Estado} != 'Aceptado',
-  {Estado} != 'Expirado'
-)
-`.trim();
-  return base(TABLES.waitlist)
-    .select({
-      filterByFormula,
-      sort: [{ field: "Prioridad", direction: "desc" }],
-      maxRecords: 200,
-    })
-    .all();
+  return (await import("./waitlist-pg")).listWaitlistPorClinicaRawPg(clinicSafe);
+  
 }
 
 /** Update simple de Estado (+ Último contacto opcional) de una entrada. */
@@ -466,14 +217,8 @@ export async function updateWaitlistEstado(
   estado: string,
   ultimoContacto?: string,
 ): Promise<{ id: string }> {
-  if (usaPostgres("agenda")) {
-    return (await import("./waitlist-pg")).updateWaitlistEstadoPg(id, estado, ultimoContacto);
-  }
-  const updated = await (base(TABLES.waitlist) as any).update(id, {
-    Estado: estado,
-    ...(ultimoContacto ? { "Último contacto": ultimoContacto } : {}),
-  });
-  return { id: updated.id };
+  return (await import("./waitlist-pg")).updateWaitlistEstadoPg(id, estado, ultimoContacto);
+  
 }
 
 /** Alta con Estado/Prioridad/Urgencia explícitos y opcionales (formulario
@@ -493,26 +238,6 @@ export async function createWaitlistEntradaFlexible(params: {
   permiteFueraRango: boolean;
   notas?: string;
 }): Promise<{ id: string | undefined }> {
-  if (usaPostgres("agenda")) {
-    return (await import("./waitlist-pg")).createWaitlistEntradaFlexiblePg(params);
-  }
-  const created = await base(TABLES.waitlist).create([
-    {
-      fields: {
-        [F.clinic]: [params.clinicRecordId],
-        [F.patient]: [params.patientRecordId],
-        [F.treatment]: [params.treatmentRecordId],
-        ...(params.preferredStaffRecordId ? { [F.preferredStaff]: [params.preferredStaffRecordId] } : {}),
-        [F.dias]: params.diasPermitidos,
-        ...(params.rangoStartIso ? { [F.start]: params.rangoStartIso } : {}),
-        ...(params.rangoEndIso ? { [F.end]: params.rangoEndIso } : {}),
-        [F.estado]: params.estado,
-        ...(params.prioridad ? { [F.prioridad]: params.prioridad } : {}),
-        ...(params.urgencia ? { [F.urgencia]: params.urgencia } : {}),
-        [F.permiteFuera]: params.permiteFueraRango,
-        ...(params.notas ? { [F.notas]: params.notas } : {}),
-      } as any,
-    },
-  ]);
-  return { id: (created as any)?.[0]?.id };
+  return (await import("./waitlist-pg")).createWaitlistEntradaFlexiblePg(params);
+  
 }

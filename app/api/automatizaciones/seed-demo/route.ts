@@ -4,7 +4,6 @@
 
 import { NextResponse } from "next/server";
 import { listSecuenciaIdsPorPresupuestos, destroySecuencias, createSecuenciasRaw } from "../../../lib/automatizaciones/secuencias";
-import { base, TABLES } from "../../../lib/airtable";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
 // Sprint B — migrado a withPresupuestosAuth para fijar el contexto de cliente.
@@ -54,10 +53,12 @@ export const POST = withPresupuestosAuth(async (session) => {
     return NextResponse.json({ error: "Sin permisos" }, { status: 403 });
   }
 
-  // Demo mode
-  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-    return NextResponse.json({ ok: true, isDemo: true });
-  }
+  // (Aquí había una puerta a datos DEMO condicionada a AIRTABLE_API_KEY /
+  // AIRTABLE_BASE_ID. Airtable está retirado y esas variables no existen en
+  // Vercel, así que la condición se cumplía SIEMPRE en producción: la ruta no
+  // llegaba nunca a su código real. Eliminada, no re-condicionada — si no se
+  // pueden servir datos reales, se devuelve un error honesto, jamás inventados.
+  // §4 y §1, 2026-07-29.)
 
   const now = new Date().toISOString();
 

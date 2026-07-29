@@ -24,7 +24,7 @@
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { listCitasEstadoVentanaRaw } from "../../../lib/scheduler/repo/airtableRepo";
-import { fetchAll, base, TABLES, runWithCliente } from "../../../lib/airtable";
+import { runWithCliente } from "../../../lib/airtable";
 import { PILOT_CLIENTE } from "../../../lib/multi-cliente-pendiente";
 import {
   evaluarRegla,
@@ -88,16 +88,10 @@ async function handle(req: Request) {
   const start = Date.now();
   console.log("[cron/automatizaciones] start");
 
-  // ── Pre-flight: que las env vars Airtable estén ──
-  if (!process.env["AIRTABLE_BASE_ID"] || !process.env["AIRTABLE_API_KEY"]) {
-    return NextResponse.json(
-      {
-        error: "missing_env",
-        detail: "AIRTABLE_BASE_ID o AIRTABLE_API_KEY ausentes en producción",
-      },
-      { status: 500 },
-    );
-  }
+  // (Aquí había un pre-flight que abortaba el cron si faltaban las variables de
+  // Airtable. Retirado Airtable, esas variables no existen en Vercel: EL MOTOR
+  // DE AUTOMATIZACIONES LLEVABA MUERTO EN PRODUCCIÓN desde entonces, devolviendo
+  // 500 en cada ejecución. Eliminado — los datos salen de Postgres.)
 
   const detalle: Record<string, TriggerResult> = {};
 

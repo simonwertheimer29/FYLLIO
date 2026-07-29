@@ -5,6 +5,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { Notificacion } from "../../lib/presupuestos/types";
+import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
 
 const TIPO_DOT: Record<string, string> = {
   Intervencion_urgente: "bg-red-500",
@@ -36,15 +37,21 @@ export default function NotificacionesPanel({
 }) {
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [loading, setLoading] = useState(true);
+  // Un fallo dejaba la campana a cero, indistinguible de "no tienes nada
+  // pendiente" (censo 2026-07-29). Se conserva lo último bueno y se dice.
+  const [error, setError] = useState<string | null>(null);
 
   const fetchNotifs = useCallback(async () => {
     try {
-      const res = await fetch("/api/notificaciones");
-      const data = await res.json();
-      setNotificaciones(data.notificaciones ?? []);
+      const data = await cargarJSON<{ notificaciones: Notificacion[]; noLeidas?: number }>(
+        "/api/notificaciones",
+        { validar: traeLista("notificaciones") },
+      );
+      setError(null);
+      setNotificaciones(data.notificaciones);
       onNotifCountChange?.(data.noLeidas ?? 0);
-    } catch {
-      setNotificaciones([]);
+    } catch (e) {
+      setError(mensajeDeError(e));
     } finally {
       setLoading(false);
     }
@@ -133,7 +140,20 @@ export default function NotificacionesPanel({
             </div>
           )}
 
-          {!loading && notificaciones.length === 0 && (
+          {!loading && error && (
+            <div className="p-4">
+              <p className="text-xs text-[var(--color-danger)]">{error}</p>
+              <button
+                type="button"
+                onClick={() => { setLoading(true); void fetchNotifs(); }}
+                className="text-xs font-semibold text-[var(--color-accent)] hover:underline mt-1"
+              >
+                Reintentar
+              </button>
+            </div>
+          )}
+
+          {!loading && !error && notificaciones.length === 0 && (
             <div className="p-8 text-center">
               <p className="text-sm text-slate-400">Sin notificaciones</p>
             </div>

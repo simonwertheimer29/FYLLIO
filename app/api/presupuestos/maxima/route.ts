@@ -3,9 +3,7 @@
 
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
-import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import { DateTime } from "luxon";
-import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 import type {
   PresupuestoMaxima,
   MaximaResponse,
@@ -211,15 +209,12 @@ function computeUrgenciaBidireccional(p: {
 // -------------------------------------------------------------------
 
 export const GET = withPresupuestosAuth(async (session, req: Request) => {
-  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-    return NextResponse.json({
-      presupuestos: [],
-      totales: { total: 0, importeTotal: 0, porEstadoVisual: {} },
-      doctoresUnicos: [],
-      tratamientosUnicos: [],
-      clinicasUnicas: [],
-    });
-  }
+  // (Aquí había una puerta a datos DEMO condicionada a AIRTABLE_API_KEY /
+  // AIRTABLE_BASE_ID. Airtable está retirado y esas variables no existen en
+  // Vercel, así que la condición se cumplía SIEMPRE en producción: la ruta no
+  // llegaba nunca a su código real. Eliminada, no re-condicionada — si no se
+  // pueden servir datos reales, se devuelve un error honesto, jamás inventados.
+  // §4 y §1, 2026-07-29.)
 
   try {
     // Fetch TODOS los presupuestos del último año (sin filtrar por estado)
@@ -349,7 +344,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         daysSince: ds,
         clinica: clinica || undefined,
         notes: f["Notas"] ? String(f["Notas"]) : undefined,
-        urgencyScore: 0,
         contactCount,
         createdBy: f["CreadoPor"] ? String(f["CreadoPor"]) : undefined,
         origenLead: f["OrigenLead"] || undefined,
@@ -376,7 +370,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         proximaAccionTexto: computeProximaAccionTexto(estadoVisual),
       };
 
-      p.urgencyScore = computeUrgencyScore(p);
       p.urgenciaBidireccional = computeUrgenciaBidireccional(p);
       return p;
     });
@@ -393,11 +386,13 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       items = items.filter((p) => p.clinica === clinicaFilter);
     }
 
-    // Sort: urgencyScore DESC, then fecha DESC
-    items.sort((a, b) => {
-      if (b.urgencyScore !== a.urgencyScore) return b.urgencyScore - a.urgencyScore;
-      return b.fechaPresupuesto.localeCompare(a.fechaPresupuesto);
-    });
+    // Orden ÚNICO del producto (2026-07-26): días parados desc, importe
+    // desempata — el mismo de las columnas del kanban y de las cohortes de
+    // Seguimiento. Antes ordenaba por urgencyScore, un cuarto criterio que ya
+    // no gobernaba ninguna otra vista (MEJORAS 40).
+    items.sort(
+      (a, b) => b.daysSince - a.daysSince || (b.amount ?? 0) - (a.amount ?? 0),
+    );
 
     // Compute totals
     const porEstadoVisual: Record<string, number> = {};
@@ -427,13 +422,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     return NextResponse.json(response);
   } catch (err) {
     console.error("[maxima] GET error:", err);
-    return NextResponse.json({
-      presupuestos: [],
-      totales: { total: 0, importeTotal: 0, porEstadoVisual: {} },
-      doctoresUnicos: [],
-      tratamientosUnicos: [],
-      clinicasUnicas: [],
-      error: "Error al cargar vista máxima",
-    });
+    return NextResponse.json({ error: "No se pudo cargar la tabla de presupuestos" }, { status: 500 });
   }
 });

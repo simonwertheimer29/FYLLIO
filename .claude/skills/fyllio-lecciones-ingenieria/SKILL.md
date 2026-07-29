@@ -101,6 +101,51 @@ datos perdidos.
 > de acciones llevaba roto desde la separación de bases, y con él el KPI de tiempo de
 > respuesta, sin que nadie lo supiera.
 
+### 10. Un fallo de carga nunca se convierte en una lista vacía
+`?? []` sobre la respuesta de un fetch es el bug, no un descuido: convierte
+"no se pudo preguntar" en "no hay nada", y para la coordinadora son
+indistinguibles — salvo que la segunda es la que hace que deje de mirar. La
+regla operativa: **ningún cliente escribe `fetch` a pelo**; todos pasan por
+`cargarJSON()` de `lib/fetch-json`, que comprueba el status, el cuerpo y el
+campo `error` (varias rutas lo mandaban con 200), y **lanza** en vez de
+devolver un valor por defecto. Y del lado del servidor, un catch devuelve
+**status real**: mientras una ruta responda 200 con `{lista: []}`, cada cliente
+tiene que acordarse de mirar un campo que nadie mira.
+El patrón de consumo, entero: **conservar lo último bueno + error honesto +
+reintentar**. Vaciar la pantalla ya es perder información que sí teníamos.
+> **Nos lo enseñó:** tres veces el mismo bug — un 401 dejaba la cola de
+> presupuestos vacía, otro 401 pintaba Cobros como "¡todo cobrado!", y en
+> julio de 2026 un dev server roto hizo que /presupuestos anunciara "0
+> presupuestos abiertos · 0 €" con 123 en la base. El censo que siguió
+> encontró 8 clientes y 11 rutas con la misma forma, más una ruta que
+> devolvía **presupuestos demo inventados** a un paciente real cuando la base
+> fallaba.
+
+### 11. Retirar una dependencia se verifica en el entorno real, no en local
+Quitar una integración no termina cuando el código deja de usarla: termina cuando se ha
+comprobado **en el entorno donde corre de verdad**. El peligro no es el código que la
+llamaba —ese se borra y se ve—, sino el que **decidía su comportamiento** con sus
+variables. Al desaparecer del entorno, ese código cambia de rama sin que nadie lo toque, y
+en local no se nota porque las variables siguen en `.env.local`.
+Reglas operativas al retirar algo:
+1. **Censar quién DECIDE con sus variables**, no solo quién las usa: `if (!process.env.X)`
+   es el patrón peligroso; `process.env.X` a secas, no.
+2. **Quitar esas ramas ANTES de quitar las variables** del entorno, no después.
+3. **Comprobar contra el entorno desplegado** que las rutas afectadas devuelven datos
+   reales y que **una escritura persiste al releerla** — un 200 no demuestra que se haya
+   escrito (`npm run verificar:produccion`).
+4. Lo que el entorno necesita se **declara** (`lib/entorno`) y se comprueba al arrancar
+   (`instrumentation.ts`): en producción aborta, en desarrollo grita. Fallar al arrancar es
+   barato; degradar en silencio no.
+> **Nos lo enseñó:** al retirar Airtable se quitaron `AIRTABLE_API_KEY` y `AIRTABLE_BASE_ID`
+> de Vercel. Trece archivos decidían con ellas, así que **producción degradó en silencio
+> durante semanas**: seis escrituras confirmaban éxito sin escribir (incluido un importador
+> de CSV que respondía "importados N" con cero escritos), el motor de automatizaciones
+> abortaba en cada ejecución, la cola de intervención salía vacía con 28 casos reales, y
+> /presupuestos devolvía 500 que la pantalla pintaba como "0 presupuestos abiertos". Ningún
+> QA local podía verlo: en local las variables seguían existiendo. Lo destapó una pregunta
+> del fundador sobre unos ceros en pantalla, no una alarma.
+
 ## Checklist antes de dar por bueno un cambio de backend
 
 - [ ] ¿Todo "éxito" que comunico está **persistido antes** de comunicarse? (§1)
@@ -112,6 +157,8 @@ datos perdidos.
 - [ ] ¿Puedo citar `archivo:línea` de la causa que estoy arreglando? (§7)
 - [ ] Si toqué esquema/bases de Airtable, ¿revisé los **linked fields** afectados? (§8)
 - [ ] ¿Algún catch de este cambio puede **tragarse un fallo sistemático**? (§9)
+- [ ] Si el cambio carga datos, ¿usa `cargarJSON()` y **no** hay ningún `?? []`? (§10)
+- [ ] Si retiro una dependencia, ¿he censado quién **decide** con sus variables, y lo he verificado **en el entorno desplegado**? (§11)
 
 ## Cómo crece este skill
 

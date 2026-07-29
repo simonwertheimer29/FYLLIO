@@ -3,10 +3,14 @@
 // - Hard limit: 10 mensajes/minuto (bloquea).
 // - Soft warning: >200 mensajes/día (permite pero avisa).
 //
-// Implementación: query a Mensajes_WhatsApp con filterByFormula sobre Timestamp.
+// MEJORAS 45 (2026-07-27) — dos conteos sobre mensajes_whatsapp en Postgres.
+// Antes eran dos SELECT completos a Airtable con filterByFormula y luego
+// `.length`: se traían hasta 210 registros para contarlos en memoria.
 // Cache in-memory de 5s para evitar N queries simultáneas bajo ráfaga.
 
-import { base, TABLES, fetchAll } from "../airtable";
+import { runWithClienteDb } from "../db/context";
+import { requireCliente } from "../cliente-contexto";
+import { sql } from "kysely";
 
 export type RateLimitResult = {
   allowed: boolean;
@@ -33,26 +37,19 @@ export async function checkRateLimit(): Promise<RateLimitResult> {
   let mensajesHoy = 0;
 
   try {
-    const queryMinuto = base(TABLES.mensajesWhatsApp as any).select({
-      filterByFormula: `AND({Fuente}='Modo_B_WABA', {Direccion}='Saliente', IS_AFTER({Timestamp}, DATEADD(NOW(),-60,'seconds')))`,
-      fields: ["Timestamp"],
-      maxRecords: MAX_POR_MINUTO + 5,
-    });
-    const queryDia = base(TABLES.mensajesWhatsApp as any).select({
-      filterByFormula: `AND({Fuente}='Modo_B_WABA', {Direccion}='Saliente', IS_SAME({Timestamp}, TODAY(), 'day'))`,
-      fields: ["Timestamp"],
-      maxRecords: MAX_POR_DIA + 10,
-    });
-
-    const [recsMin, recsDia] = await Promise.all([
-      fetchAll(queryMinuto),
-      fetchAll(queryDia),
-    ]);
-    mensajesPorMinuto = recsMin.length;
-    mensajesHoy = recsDia.length;
+    const cliente = requireCliente("checkRateLimit");
+    const r: any = await runWithClienteDb(cliente, (trx) =>
+      sql`select
+            count(*) filter (where timestamp > now() - interval '60 seconds')::int as minuto,
+            count(*) filter (where timestamp::date = current_date)::int as dia
+          from mensajes_whatsapp
+          where fuente = 'Modo_B_WABA' and direccion = 'Saliente'`.execute(trx),
+    );
+    mensajesPorMinuto = Number(r.rows?.[0]?.minuto ?? 0);
+    mensajesHoy = Number(r.rows?.[0]?.dia ?? 0);
   } catch (err) {
     // Si falla la query, fail-open pero log. Alternativa sería fail-closed,
-    // pero bloquearía envíos manuales legítimos ante cualquier fallo de Airtable.
+    // pero bloquearía envíos manuales legítimos ante cualquier fallo de la BD.
     console.error("[rate-limit] query error:", err instanceof Error ? err.message : err);
   }
 

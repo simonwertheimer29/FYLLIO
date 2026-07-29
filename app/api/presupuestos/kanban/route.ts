@@ -4,14 +4,12 @@
 
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw, createPresupuestoRaw } from "../../../lib/presupuestos/repo";
-import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type { Presupuesto, UserSession } from "../../../lib/presupuestos/types";
-import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
-import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
-import { isDemoAllowed } from "../../../lib/demo/seed";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { fechasPerdidaPorPresupuesto } from "../../../lib/historial/registrar";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
+import { getPaciente } from "../../../lib/pacientes/pacientes";
 
 const ZONE = "Europe/Madrid";
 
@@ -25,43 +23,8 @@ function daysSince(iso: string): number {
 // Demo data helper
 // -------------------------------------------------------------------
 
-function getDemoPresupuestos(session: UserSession, q: URLSearchParams): Presupuesto[] {
-  let data = [...DEMO_PRESUPUESTOS];
+// (getDemoPresupuestos retirado: esta ruta ya no inventa un pipeline nunca.)
 
-  if (session.rol === "encargada_ventas" && session.clinica) {
-    data = data.filter((p) => p.clinica === session.clinica);
-  } else if (q.get("clinica")) {
-    data = data.filter((p) => p.clinica === q.get("clinica"));
-  }
-
-  const doctor = q.get("doctor");
-  if (doctor) data = data.filter((p) => p.doctor === doctor);
-
-  const tipoPaciente = q.get("tipoPaciente");
-  if (tipoPaciente) data = data.filter((p) => p.tipoPaciente === tipoPaciente);
-
-  const tipoVisita = q.get("tipoVisita");
-  if (tipoVisita) data = data.filter((p) => p.tipoVisita === tipoVisita);
-
-  const fechaDesde = q.get("fechaDesde");
-  if (fechaDesde) data = data.filter((p) => p.fechaPresupuesto >= fechaDesde);
-  const fechaHasta = q.get("fechaHasta");
-  if (fechaHasta) data = data.filter((p) => p.fechaPresupuesto <= fechaHasta);
-
-  const search = q.get("q")?.toLowerCase() ?? "";
-  if (search) {
-    data = data.filter(
-      (p) =>
-        p.patientName.toLowerCase().includes(search) ||
-        p.treatments.some((t) => t.toLowerCase().includes(search))
-    );
-  }
-
-  const estadoFilter = q.get("estado");
-  if (estadoFilter) data = data.filter((p) => p.estado === estadoFilter);
-
-  return data;
-}
 
 // -------------------------------------------------------------------
 // GET /api/presupuestos/kanban
@@ -71,26 +34,12 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const url = new URL(req.url);
   const q = url.searchParams;
 
-  // Detect missing env vars and return actionable demo response
-  const missingEnvs = [
-    !process.env.AIRTABLE_API_KEY && "AIRTABLE_API_KEY",
-    !process.env.AIRTABLE_BASE_ID && "AIRTABLE_BASE_ID",
-  ].filter(Boolean) as string[];
-
-  if (missingEnvs.length > 0) {
-    // P0.6 corrección 2: en producción NUNCA servimos demo. Si falta Airtable en
-    // prod es una misconfiguración real que debe verse, no un pipeline falso.
-    if (!isDemoAllowed()) {
-      console.error("[kanban GET] Airtable env missing in production:", missingEnvs);
-      return NextResponse.json({ error: "Configuración de datos no disponible" }, { status: 500 });
-    }
-    return NextResponse.json({
-      presupuestos: getDemoPresupuestos(session, q),
-      isDemo: true,
-      demoReason: "env_missing",
-      missingVars: missingEnvs,
-    });
-  }
+  // (Aquí se detectaban AIRTABLE_API_KEY / AIRTABLE_BASE_ID ausentes: en
+  // producción devolvía 500 y en desarrollo un pipeline DEMO. Con Airtable
+  // retirado esas variables no existen en Vercel, así que ESTA RUTA LLEVABA
+  // DEVOLVIENDO 500 EN PRODUCCIÓN desde el retiro — y la pantalla lo pintaba
+  // como "0 presupuestos abiertos · 0 €". Eliminado: los datos salen de
+  // Postgres y el catch de abajo ya devuelve un error honesto si fallan.)
 
   try {
     // Build Airtable filter — only use fields that exist in the base schema
@@ -110,7 +59,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         "Paciente_nombre", "Teléfono", "Tratamiento_nombre",
         "Importe", "Estado", "Fecha", "Notas",
         "Paciente_Telefono", "Doctor", "Doctor_Especialidad",
-        "TipoPaciente", "TipoVisita", "FechaAlta", "Clinica",
+        "TipoPaciente", "TipoVisita", "FechaAlta", "Fecha_Aceptado", "Clinica",
         "ContactCount", "CreadoPor",
         "OrigenLead", "MotivoPerdida", "MotivoPerdidaTexto", "MotivoDuda",
         "Reactivacion", "PortalEnviado", "OfertaActiva",
@@ -177,17 +126,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         daysSince: daysSince(fechaPresupuesto),
         clinica: f["Clinica"] ? String(f["Clinica"]) : parsedClinica,
         notes: notasStr || undefined,
-        urgencyScore: (() => {
-          const active = ["PRESENTADO", "INTERESADO", "EN_DUDA", "EN_NEGOCIACION"].includes(
-            String(f["Estado"] ?? "PRESENTADO")
-          );
-          if (!active) return 0;
-          const d = daysSince(fechaPresupuesto);
-          if (d >= 30) return 85;
-          if (d >= 14) return 75;
-          if (d >= 7)  return 55;
-          return 25;
-        })(),
         lastContactDate,
         lastContactDaysAgo: lastContactDate ? daysSince(lastContactDate) : undefined,
         contactCount: Number(f["ContactCount"] ?? 0),
@@ -200,8 +138,8 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         reactivacion: f["Reactivacion"] === true,
         portalEnviado: f["PortalEnviado"] === true,
         ofertaActiva: f["OfertaActiva"] === true,
+        fechaAceptado: f["Fecha_Aceptado"] ? String(f["Fecha_Aceptado"]).slice(0, 10) : null,
       };
-      p.urgencyScore = computeUrgencyScore(p);
       return p;
     });
 
@@ -249,20 +187,23 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       presupuestos = presupuestos.filter((p) => p.estado === estadoFilter);
     }
 
+    // Fecha de pérdida — derivada del historial real (la misma lib que el
+    // dashboard de Red; no existe columna fecha_perdida). Sin fecha conocida,
+    // fechaPerdida queda null y la columna del kanban NO esconde el caso.
+    const fechasPerdida = await fechasPerdidaPorPresupuesto();
+    for (const p of presupuestos) {
+      if (p.estado === "PERDIDO") {
+        p.fechaPerdida = fechasPerdida.get(p.id)?.slice(0, 10) ?? null;
+      }
+    }
+
     return NextResponse.json({ presupuestos, isDemo: false });
   } catch (err) {
-    console.error("[kanban GET] Airtable error:", err);
-    // P0.6 corrección 2: en producción un error de Airtable NO se enmascara con
-    // datos demo (evita mostrar un pipeline falso a una clínica real). El cliente
-    // muestra el estado de error. En no-producción sí devolvemos demo para dev.
-    if (!isDemoAllowed()) {
-      return NextResponse.json({ error: "No se pudieron cargar los presupuestos" }, { status: 500 });
-    }
-    return NextResponse.json({
-      presupuestos: getDemoPresupuestos(session, q),
-      isDemo: true,
-      demoReason: "error",
-    });
+    // Ni siquiera en desarrollo se enmascara un fallo con datos demo: un
+    // pipeline falso en local es exactamente cómo se aprende a no fiarse de la
+    // pantalla, y es lo que retrasó el diagnóstico de los ceros (2026-07-29).
+    console.error("[kanban GET] error:", err);
+    return NextResponse.json({ error: "No se pudieron cargar los presupuestos" }, { status: 500 });
   }
 });
 
@@ -276,12 +217,29 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     const body = await req.json();
     const today = DateTime.now().setZone(ZONE).toISODate()!;
 
-    // Pack extra info into Notas since extended fields may not exist
+    // El presupuesto SIEMPRE cuelga de un paciente (principio "no hay dos tipos
+    // de paciente", 2026-07-29). Antes esta ruta no escribía `Paciente` y el
+    // nombre solo viajaba en la respuesta JSON: la UI lo pintaba, parecía que
+    // había funcionado, y al recargar la tarjeta se llamaba literalmente
+    // "Paciente" con teléfono undefined. Aquel presupuesto quedaba invisible en
+    // Cobros, en la ficha y en el embudo, porque todo agrupa por paciente_id.
+    // Fail-closed (§3): sin paciente no se crea nada.
+    const pacienteId = typeof body.pacienteId === "string" ? body.pacienteId.trim() : "";
+    if (!pacienteId) {
+      return NextResponse.json(
+        { error: "Elige un paciente de la lista: un presupuesto no puede existir sin paciente." },
+        { status: 400 },
+      );
+    }
+    const paciente = await getPaciente(pacienteId);
+    if (!paciente) {
+      return NextResponse.json({ error: "Paciente no encontrado" }, { status: 404 });
+    }
+
     const tratamientoStr = Array.isArray(body.treatments)
       ? body.treatments.join(" + ")
       : String(body.treatments ?? "");
-    const extraParts: string[] = [];
-    if (body.doctor) extraParts.push(`Doctor: ${body.doctor}`);
+
     // Sprint B Fase 4 — la clínica del presupuesto creado debe ser una permitida:
     // admin (sin restricción) usa la del body; coordinación solo puede etiquetar
     // una de sus clínicas (si tiene una sola, se asume esa).
@@ -297,21 +255,36 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     } else {
       clinica = permitidasPost.size === 1 ? [...permitidasPost][0]! : null;
     }
-    if (clinica) extraParts.push(clinica);
-    if (body.tipoPaciente) extraParts.push(body.tipoPaciente);
-    if (body.tipoVisita) extraParts.push(body.tipoVisita);
-    const notasMeta = extraParts.length > 0 ? ` | ${extraParts.join(" | ")}` : "";
-    const notasValue = `${body.notes ?? ""}${notasMeta}`.trim();
+    // Las notas son las notas. Doctor, clínica y tipos tienen su columna desde
+    // siempre; se colaban aquí con pipes («| Paciente con Historia») porque esta
+    // ruta no los escribía — el apaño delataba el bug.
+    const notasValue = String(body.notes ?? "").trim();
 
+    // Todo lo que la respuesta afirma, escrito. Estas columnas existían desde
+    // siempre (doctor, tipo_paciente, tipo_visita, clinica_id, paciente_telefono,
+    // creado_por): la ruta simplemente no las usaba.
     const fields: Record<string, unknown> = {
+      Paciente: [pacienteId],
       Tratamiento_nombre: tratamientoStr,
       Estado: body.estadoInicial || "PRESENTADO",
       Fecha: body.fechaPresupuesto || today,
+      FechaAlta: today,
     };
-
+    // `session.email` viene vacío en esta sesión (el wrapper legacy no lo trae):
+    // escribir "" o null como autor es peor que no escribir autor.
+    const autor = session.email || session.nombre;
+    if (autor) fields["CreadoPor"] = autor;
+    if (clinica) fields["Clinica"] = clinica;
+    if (paciente.telefono) fields["Paciente_Telefono"] = paciente.telefono;
     if (body.amount != null) fields["Importe"] = Number(body.amount);
     if (notasValue) fields["Notas"] = notasValue;
-    if (body.origenLead) fields["OrigenLead"] = body.origenLead;
+    if (body.doctor) fields["Doctor"] = body.doctor;
+    // El tipo HEREDA del paciente, no se pregunta: una persona no cambia de
+    // mutua entre dos presupuestos del mismo mes (spec 2026-07-29). El campo
+    // del presupuesto se conserva porque lo consumen los KPIs históricos, pero
+    // ya no es fuente — la fuente es el paciente.
+    if (paciente.tipoPaciente) fields["TipoPaciente"] = paciente.tipoPaciente;
+    if (body.tipoVisita) fields["TipoVisita"] = body.tipoVisita;
 
     const created = await createPresupuestoRaw(fields) as any;
     const f = created.fields as any;
@@ -319,8 +292,10 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
 
     const presupuesto: Presupuesto = {
       id: created.id,
-      patientName: body.patientName,
-      patientPhone: body.patientPhone ?? undefined,
+      // Del PACIENTE persistido, no del texto que llegó en el body: la respuesta
+      // no puede afirmar nada que no esté escrito.
+      patientName: paciente.nombre,
+      patientPhone: paciente.telefono ?? undefined,
       treatments: body.treatments,
       doctor: body.doctor ?? undefined,
       doctorEspecialidad: body.doctorEspecialidad ?? undefined,
@@ -333,14 +308,10 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
       daysSince: 0,
       clinica: clinica ?? undefined,
       notes: notasValue || undefined,
-      urgencyScore: 0,
       contactCount: 0,
       createdBy: session.email,
       numeroHistoria: body.numeroHistoria ?? undefined,
-      origenLead: body.origenLead ?? undefined,
     };
-    presupuesto.urgencyScore = computeUrgencyScore(presupuesto);
-
     return NextResponse.json({ presupuesto }, { status: 201 });
   } catch (err) {
     // P0.6: crear presupuesto es una escritura; un fallo devuelve error real

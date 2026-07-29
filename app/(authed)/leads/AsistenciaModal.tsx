@@ -35,7 +35,11 @@ export function AsistenciaModal({
   /** Se llama con el lead actualizado (asistido+convertido) para refrescar el kanban. */
   onDone: (updated: Lead) => void;
 }) {
-  const [crearPresupuesto, setCrearPresupuesto] = useState(true);
+  // El presupuesto ya NO es opcional en este camino (spec 2026-07-29). Marcar
+  // asistido es lo que convierte a un lead en paciente, y un paciente que nace
+  // del pipeline nace con su presupuesto: si no, aparece en la lista sin nada y
+  // ensucia la tasa de aceptación de todos los demás. El camino del scheduler
+  // (paciente que nace de una cita de agenda) es distinto y sigue siendo válido.
   const [importe, setImporte] = useState<string>("");
   const [tratamiento, setTratamiento] = useState<string>(lead.tratamiento ?? "");
   const [notasAdicionales, setNotasAdicionales] = useState<string>("");
@@ -43,8 +47,8 @@ export function AsistenciaModal({
   const [error, setError] = useState<string | null>(null);
 
   const importeNum = Number(importe);
-  const importeValido = !crearPresupuesto || (Number.isFinite(importeNum) && importeNum > 0);
-  const tratamientoValido = !crearPresupuesto || Boolean(tratamiento);
+  const importeValido = Number.isFinite(importeNum) && importeNum > 0;
+  const tratamientoValido = Boolean(tratamiento);
   const canSave = importeValido && tratamientoValido && !saving;
 
   async function submit(e: React.FormEvent) {
@@ -58,9 +62,8 @@ export function AsistenciaModal({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           asistido: true,
-          crearPresupuesto,
-          importe: crearPresupuesto ? importeNum : undefined,
-          tratamiento: crearPresupuesto ? tratamiento : undefined,
+          importe: importeNum,
+          tratamiento,
           notasAdicionales: notasAdicionales || undefined,
         }),
       });
@@ -107,17 +110,11 @@ export function AsistenciaModal({
           {lead.pacienteId ? " (ya vinculado)" : ""}.
         </p>
 
-        <label className="flex items-center gap-2 text-xs font-medium text-[var(--color-foreground)] cursor-pointer">
-          <input
-            type="checkbox"
-            checked={crearPresupuesto}
-            onChange={(e) => setCrearPresupuesto(e.target.checked)}
-            className="accent-[var(--color-accent)]"
-          />
-          <span>Crear presupuesto inicial</span>
-        </label>
+        <p className="text-[11px] font-medium text-[var(--color-foreground)]">
+          Presupuesto inicial
+        </p>
 
-        {crearPresupuesto && (
+        {(
           <div className="space-y-3 rounded-xl bg-[var(--color-surface-muted)] border border-[var(--color-border)] p-3">
             <Labeled label="Tratamiento" required>
               <select
@@ -160,7 +157,7 @@ export function AsistenciaModal({
         </Labeled>
 
         {error && (
-          <p className="text-xs text-rose-600 bg-rose-50 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/25 rounded-xl px-3 py-2">
+          <p className="text-xs text-[var(--color-danger)] bg-[var(--color-danger-soft)] border border-[var(--color-danger)]/25 rounded-xl px-3 py-2">
             {error}
           </p>
         )}
@@ -199,7 +196,7 @@ function Labeled({
     <div>
       <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">
         {label}
-        {required && <span className="text-rose-500 dark:text-rose-400 ml-0.5">*</span>}
+        {required && <span className="text-[var(--color-danger)] ml-0.5">*</span>}
       </label>
       {children}
     </div>

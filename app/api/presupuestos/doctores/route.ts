@@ -4,9 +4,7 @@
 import { NextResponse } from "next/server";
 import { listDoctoresPresupuestosRaw } from "../../../lib/presupuestos/doctores-repo";
 import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
-import { base, TABLES } from "../../../lib/airtable";
 import type { Doctor } from "../../../lib/presupuestos/types";
-import { DEMO_DOCTORES } from "../../../lib/presupuestos/demo";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import {
   nombresClinicasPermitidas,
@@ -77,13 +75,11 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       const doctores = Array.from(doctorMap.values())
         .sort((a, b) => a.nombre.localeCompare(b.nombre));
       return NextResponse.json({ doctores });
-    } catch {
-      // Final fallback: demo doctores
-      let doctores = DEMO_DOCTORES.filter((d) => d.activo);
-      if (efectivas) {
-        doctores = doctores.filter((d) => d.clinica !== undefined && efectivas.has(d.clinica));
-      }
-      return NextResponse.json({ doctores, isDemo: true });
+    } catch (err) {
+      // Devolvía DOCTORES DEMO: nombres inventados que se asignan a un
+      // presupuesto real y acaban impresos en el portal del paciente.
+      console.error("[presupuestos/doctores]", err);
+      return NextResponse.json({ error: "No se pudieron cargar los doctores" }, { status: 500 });
     }
   }
 });

@@ -18,10 +18,10 @@ function rowToPaciente(r: any): Paciente {
     id: r.id, nombre: r.nombre ?? "", telefono: r.telefono, email: r.email,
     tratamientos: (r.tratamientos ? String(r.tratamientos).split(",") : []) as Paciente["tratamientos"],
     doctorLinkId: r.doctor_id, fechaCita: r.fecha_cita,
-    presupuestoTotal: numN(r.presupuesto_total), aceptado: r.aceptado as PacienteAceptado | null,
-    pagado: numN(r.pagado), pendiente: numN(r.pendiente), financiado: numN(r.financiado),
+    financiado: numN(r.financiado),
     notas: r.notas, canalOrigen: r.canal_origen, clinicaId: r.clinica_id,
-    leadOrigenId: r.lead_origen_id, activo: Boolean(r.activo ?? true),
+    leadOrigenId: r.lead_origen_id, tipoPaciente: r.tipo_paciente ?? null,
+    activo: Boolean(r.activo ?? true),
     optoutAutomatizaciones: Boolean(r.optout_automatizaciones), createdAt: iso(r.created_at),
   };
 }
@@ -32,7 +32,6 @@ export async function listPacientesPg(params: ListPacientesParams = {}): Promise
       .orderBy("created_at", "desc").orderBy("id", "asc").execute();
     let ps = rows.map(rowToPaciente);
     if (params.clinicaIds?.length) { const s = new Set(params.clinicaIds); ps = ps.filter((p) => p.clinicaId && s.has(p.clinicaId)); }
-    if (params.aceptado) ps = ps.filter((p) => p.aceptado === params.aceptado);
     if (params.search) { const q = params.search.toLowerCase().trim(); if (q) ps = ps.filter((p) => p.nombre.toLowerCase().includes(q) || (p.telefono ?? "").toLowerCase().includes(q) || (p.email ?? "").toLowerCase().includes(q)); }
     if (params.fechaDesde) ps = ps.filter((p) => p.createdAt >= params.fechaDesde!);
     if (params.fechaHasta) ps = ps.filter((p) => p.createdAt <= params.fechaHasta!);
@@ -58,9 +57,6 @@ export async function createPacientePg(input: CreateInput): Promise<Paciente> {
       telefono: input.telefono ?? null, email: input.email ?? null,
       tratamientos: input.tratamientos?.length ? input.tratamientos.join(",") : null,
       doctor_id: input.doctorLinkId ?? null, fecha_cita: input.fechaCita ?? null,
-      presupuesto_total: input.presupuestoTotal ?? null, aceptado: input.aceptado ?? null,
-      pagado: input.pagado ?? null,
-      pendiente: typeof input.presupuestoTotal === "number" && typeof input.pagado === "number" ? Math.max(0, input.presupuestoTotal - input.pagado) : null,
       financiado: input.financiado ?? null, notas: input.notas ?? null,
       canal_origen: input.canalOrigen ?? null, lead_origen_id: input.leadOrigenId ?? null,
     } as any).returningAll().executeTakeFirstOrThrow());
@@ -69,21 +65,15 @@ export async function createPacientePg(input: CreateInput): Promise<Paciente> {
 
 const COLS: Record<string, string> = {
   nombre: "nombre", telefono: "telefono", email: "email", doctorLinkId: "doctor_id",
-  fechaCita: "fecha_cita", presupuestoTotal: "presupuesto_total", aceptado: "aceptado",
-  pagado: "pagado", financiado: "financiado", notas: "notas", canalOrigen: "canal_origen",
+  fechaCita: "fecha_cita", financiado: "financiado", notas: "notas", canalOrigen: "canal_origen",
   activo: "activo", optoutAutomatizaciones: "optout_automatizaciones",
+  tipoPaciente: "tipo_paciente",
 };
 export async function updatePacientePg(id: string, patch: Record<string, unknown>): Promise<Paciente> {
   const set: Record<string, unknown> = {};
   for (const [k, c] of Object.entries(COLS)) if (patch[k] !== undefined) set[c] = patch[k] ?? null;
   if (patch.tratamientos !== undefined) set.tratamientos = Array.isArray(patch.tratamientos) ? (patch.tratamientos as string[]).join(",") : null;
   const row = await runWithClienteDb(cli(), async (trx) => {
-    if (patch.presupuestoTotal !== undefined || patch.pagado !== undefined) {
-      const cur = await trx.selectFrom("pacientes").select(["presupuesto_total", "pagado"]).where("id", "=", id).executeTakeFirst();
-      const total = (patch.presupuestoTotal as number | null | undefined) ?? numN(cur?.presupuesto_total);
-      const pag = (patch.pagado as number | null | undefined) ?? numN(cur?.pagado);
-      if (typeof total === "number" && typeof pag === "number") set.pendiente = Math.max(0, total - pag);
-    }
     return trx.updateTable("pacientes").set(set as any).where("id", "=", id).returningAll().executeTakeFirstOrThrow();
   });
   return rowToPaciente(row);
@@ -136,13 +126,39 @@ export async function listPacientesBusquedaRapidaPg(maxRecords = 300) {
   });
 }
 
+// MEJORAS nº 28 (2026-07-24) — pendiente DERIVADO de los registros reales
+// (Σ presupuestos ACEPTADO − Σ pagos), nunca de la columna caché
+// pacientes.pendiente. Misma aritmética que lib/finanzas-paciente.
+async function pendienteDerivadoPorIds(trx: any, ids: string[]): Promise<Map<string, number>> {
+  const [firmadoRows, pagadoRows] = await Promise.all([
+    trx.selectFrom("presupuestos")
+      .select(["paciente_id", sql<string>`coalesce(sum(importe), 0)`.as("s")])
+      .where("estado", "=", "ACEPTADO").where("paciente_id", "in", ids)
+      .groupBy("paciente_id").execute(),
+    trx.selectFrom("pagos_paciente")
+      .select(["paciente_id", sql<string>`coalesce(sum(importe), 0)`.as("s")])
+      .where("paciente_id", "in", ids)
+      .groupBy("paciente_id").execute(),
+  ]);
+  const pagadoPor = new Map<string, number>(
+    pagadoRows.map((r: any) => [String(r.paciente_id), Number(r.s ?? 0) || 0]),
+  );
+  const out = new Map<string, number>();
+  for (const r of firmadoRows as any[]) {
+    const id = String(r.paciente_id);
+    out.set(id, Math.max(0, (Number(r.s ?? 0) || 0) - (pagadoPor.get(id) ?? 0)));
+  }
+  return out;
+}
+
 export async function listResumenFinancieroPorIdsPg(ids: string[]) {
   if (!ids.length) return [];
   return runWithClienteDb(cli(), async (trx) => {
-    const rows = await trx.selectFrom("pacientes").select(["id", "clinica_id", "lead_origen_id", "pendiente"]).where("id", "in", ids).execute();
+    const rows = await trx.selectFrom("pacientes").select(["id", "clinica_id", "lead_origen_id"]).where("id", "in", ids).execute();
+    const pendientePor = await pendienteDerivadoPorIds(trx, ids);
     return rows.map((r) => ({
       id: r.id, clinicaIds: r.clinica_id ? [r.clinica_id] : [],
-      tieneLeadOrigen: r.lead_origen_id != null, pendiente: Number(r.pendiente ?? 0) || 0,
+      tieneLeadOrigen: r.lead_origen_id != null, pendiente: pendientePor.get(r.id) ?? 0,
     }));
   });
 }
@@ -151,20 +167,14 @@ export async function sumPendientePorIdsPg(ids: string[]): Promise<number> {
   if (!ids.length) return 0;
   try {
     return await runWithClienteDb(cli(), async (trx) => {
-      const r = await trx.selectFrom("pacientes")
-        .select(sql<string>`coalesce(sum(pendiente), 0)`.as("s")).where("id", "in", ids).executeTakeFirst();
-      return Number(r?.s ?? 0) || 0;
+      const pendientePor = await pendienteDerivadoPorIds(trx, ids);
+      let total = 0;
+      for (const v of pendientePor.values()) total += v;
+      return total;
     });
   } catch { return 0; }
 }
 
-export async function syncFinancieroPacientePg(pacienteId: string, totalPagado: number): Promise<void> {
-  await runWithClienteDb(cli(), async (trx) => {
-    const r = await trx.selectFrom("pacientes").select("presupuesto_total").where("id", "=", pacienteId).executeTakeFirstOrThrow();
-    const presupuesto = Number(r.presupuesto_total ?? 0) || 0;
-    await trx.updateTable("pacientes").set({ pagado: totalPagado, pendiente: Math.max(0, presupuesto - totalPagado) } as any).where("id", "=", pacienteId).execute();
-  });
-}
 
 const telNorm = (col: string) => sql<string>`replace(replace(replace(coalesce(${sql.ref(col)},''),' ',''),'+',''),'-','')`;
 export async function findPacienteIdPorTelefonoOTutorPg(phone: string): Promise<string | null> {
@@ -245,5 +255,26 @@ export async function listPacientesIdsDevPg(maxRecords: number): Promise<string[
   return runWithClienteDb(cli(), async (trx) => {
     const rows = await trx.selectFrom("pacientes").select("id").limit(maxRecords).execute();
     return rows.map((r) => r.id);
+  });
+}
+
+// Bloque 3 (deuda D3) — próxima cita REAL por paciente desde la agenda:
+// mínimo hora_inicio >= ahora, excluyendo canceladas. El campo suelto
+// pacientes.fecha_cita queda como copia a deprecar.
+export async function proximaCitaPorPacientePg(): Promise<Map<string, string>> {
+  return runWithClienteDb(cli(), async (trx) => {
+    const rows = await trx
+      .selectFrom("citas")
+      .select(["paciente_id", sql<string>`min(hora_inicio)`.as("proxima")])
+      .where("hora_inicio", ">=", sql<any>`now()`)
+      .where("estado", "!=", "Cancelado")
+      .where("paciente_id", "is not", null)
+      .groupBy("paciente_id")
+      .execute();
+    const map = new Map<string, string>();
+    for (const r of rows) {
+      if (r.paciente_id && r.proxima) map.set(String(r.paciente_id), iso(r.proxima));
+    }
+    return map;
   });
 }

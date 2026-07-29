@@ -22,7 +22,6 @@
 
 import { runWithClienteDb } from "../db/context";
 import { currentCliente, type Cliente } from "../airtable";
-import { usaPostgresIdentidad } from "../db/data-backend";
 import { evalFormula, makeShim, type Shim } from "../db/airtable-formula";
 import type { AlertaEnviada } from "./historial";
 import type { TipoAlerta } from "./templates";
@@ -118,8 +117,8 @@ export async function recordAlertPg(input: {
   // tipo_alerta es TEXT abierto en PG → se inserta el valor tal cual.
   // CORTE: con identidad en PG se escriben los ids REALES (admin/coord) para no
   // perder el rastro de origen/destino; pre-corte NULL (usuarios no está en PG →
-  // el id de sesión no es FK-válido). Gateado por usaPostgresIdentidad().
-  const idU = (id?: string) => (usaPostgresIdentidad() && id ? id : null);
+  // el id de sesión no es FK-válido).
+  const idU = (id?: string) => id ?? null;
   const c = cli();
   const row = await runWithClienteDb(c, (trx) =>
     trx

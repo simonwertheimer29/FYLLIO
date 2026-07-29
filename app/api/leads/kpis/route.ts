@@ -23,7 +23,7 @@ import { listClinicaIdsForUser } from "../../../lib/auth/users";
 import { listLeads, type Lead, type LeadCanal } from "../../../lib/leads/leads";
 import { listAccionesDesde, primeraAccionLeadTimestamp } from "../../../lib/leads/acciones";
 import { getFacturadoEnPeriodo, getFacturadoPorPacientes } from "../../../lib/pagos";
-import { baseCentral, base, TABLES, fetchAll } from "../../../lib/airtable";
+import { hoyISO } from "../../../lib/time";
 export const dynamic = "force-dynamic";
 
 type Periodo = "hoy" | "semana" | "mes" | "mes_anterior" | "trimestre";
@@ -577,7 +577,7 @@ async function buildSparkline30d(
     const created = new Date(l.createdAt).getTime();
     const first = firstSalienteByLead.get(l.id);
     if (!Number.isFinite(created) || first == null) continue;
-    const fecha = new Date(first).toISOString().slice(0, 10);
+    const fecha = hoyISO(new Date(first));
     const minutos = (first - created) / (1000 * 60);
     if (!sumByDay.has(fecha)) sumByDay.set(fecha, { suma: 0, n: 0 });
     const o = sumByDay.get(fecha)!;
@@ -589,7 +589,7 @@ async function buildSparkline30d(
   for (let i = 0; i < 30; i++) {
     const d = new Date(desde);
     d.setDate(d.getDate() + i);
-    const k = d.toISOString().slice(0, 10);
+    const k = hoyISO(d);
     const o = sumByDay.get(k);
     out.push({ fecha: k, minutos: o ? Math.round(o.suma / o.n) : 0 });
   }

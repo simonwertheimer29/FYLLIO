@@ -4,7 +4,6 @@
 
 import { selectNotificacionesRaw, updateNotificacionesBatchRaw } from "../../lib/presupuestos/notificaciones";
 import { NextResponse } from "next/server";
-import { base, TABLES } from "../../lib/airtable";
 import type { Notificacion } from "../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
@@ -47,7 +46,7 @@ export const GET = withPresupuestosAuth(async (session) => {
     return NextResponse.json({ notificaciones, noLeidas });
   } catch (err) {
     console.error("[notificaciones] GET error:", err);
-    return NextResponse.json({ notificaciones: [], noLeidas: 0 });
+    return NextResponse.json({ error: "No se pudieron cargar las notificaciones" }, { status: 500 });
   }
 });
 

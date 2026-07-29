@@ -3,7 +3,6 @@
 
 import { selectPlantillasMensajeRaw, findPlantillaMensajeRaw, createPlantillaMensajeRaw, updatePlantillaMensajeRaw, destroyPlantillaMensajeRaw } from "../../../lib/plantillas/plantillas";
 import { NextResponse } from "next/server";
-import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type { PlantillaMensaje } from "../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
@@ -69,7 +68,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     return NextResponse.json({ plantillas });
   } catch (err) {
     console.error("[plantillas] GET error:", err);
-    return NextResponse.json({ plantillas: [], error: "Error al cargar plantillas" });
+    return NextResponse.json({ error: "No se pudieron cargar las plantillas" }, { status: 500 });
   }
 });
 

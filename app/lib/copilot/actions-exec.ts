@@ -21,11 +21,11 @@
 
 import { findClinicaCentralRaw, selectClinicasCentralRaw } from "../auth/users";
 import { findConfigWABAPorClinicaRaw } from "../presupuestos/waba-credentials";
-import { baseCentral, base, TABLES } from "../airtable";
 import { findPresupuestoRaw, updatePresupuestoRaw } from "../presupuestos/repo";
 import { createContactoRaw } from "../presupuestos/contactos";
 import { listClinicaIdsForUser } from "../auth/users";
 import { getLead, updateLead, appendLeadLog } from "../leads/leads";
+import { MOTIVOS_LEAD, MOTIVO_DEF } from "../leads/motivos";
 import { logAccionLead } from "../leads/acciones";
 import { getServicioMensajeria, type EnviarMensajeParams } from "../presupuestos/mensajeria";
 import { getPaciente } from "../pacientes/pacientes";
@@ -76,9 +76,29 @@ async function execCambiarEstadoLead(env: ExecEnv, p: any): Promise<ExecResult> 
   if (block) return block;
   const access = await ensureLeadAccessible(env, String(p.leadId));
   if (!("lead" in access)) return access;
+  // MEJORAS 50 — citar exige fecha, y esta acción no la pide. El enum de la
+  // tool ya no ofrece "Citado", pero el enum es una sugerencia al modelo, no
+  // una barrera: la barrera está aquí. Sin esto, un lead quedaba en Citado sin
+  // cuándo y su cita no existía para el embudo ni para el motor de no-shows.
+  if (p.nuevoEstado === "Citado" || p.nuevoEstado === "Citados Hoy") {
+    return {
+      ok: false,
+      error: `Para citar a ${access.lead.nombre} hace falta fecha y hora: usa «Agendar» en su ficha o arrástralo a Citado en el tablero.`,
+    };
+  }
   const patch: any = { estado: String(p.nuevoEstado) };
   if (p.nuevoEstado === "No Interesado") {
-    patch.motivoNoInteres = p.motivoNoInteres ?? "Rechazo_Producto";
+    // MEJORAS 43 — el motivo se declara, no se rellena. Aquí quedaba la última
+    // puerta silenciosa tras cerrar la del kanban y la del panel: "márcalo como
+    // no interesado" escribía Rechazo_Producto por su cuenta y ese dato entraba
+    // en los KPIs de pérdida como si alguien lo hubiera dicho.
+    if (!p.motivoNoInteres || !(MOTIVOS_LEAD as readonly string[]).includes(String(p.motivoNoInteres))) {
+      return {
+        ok: false,
+        error: `¿Por qué se descarta a ${access.lead.nombre}? ${MOTIVOS_LEAD.map((m) => MOTIVO_DEF[m].label).join(" · ")}.`,
+      };
+    }
+    patch.motivoNoInteres = String(p.motivoNoInteres);
   } else if (access.lead.motivoNoInteres) {
     patch.motivoNoInteres = null;
   }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DateTime } from "luxon";
+import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 
 const ZONE = "Europe/Madrid";
 
@@ -345,19 +346,22 @@ export default function NoShowRiskPanel({
 }) {
   const [data, setData] = useState<RiskData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [doneIds, setDoneIds] = useState<Set<string>>(readDoneIds);
 
   async function load() {
     setLoading(true);
     try {
       const url = `/api/dashboard/noshow-risk${staffId ? `?staffId=${staffId}` : ""}`;
-      const res = await fetch(url, { cache: "no-store" });
-      const json = await res.json();
+      const json = await cargarJSON<RiskData>(url, { cache: "no-store" });
+      setError(null);
       setData(json);
       // Re-read in case OperationsPanel updated localStorage
       setDoneIds(readDoneIds());
-    } catch {
-      /* silent */
+    } catch (e) {
+      // Era un `catch { /* silent */ }` literal: el panel se quedaba con lo que
+      // hubiera y nadie se enteraba de que el riesgo no se había calculado.
+      setError(mensajeDeError(e));
     } finally {
       setLoading(false);
     }
@@ -381,8 +385,17 @@ export default function NoShowRiskPanel({
 
   if (!data || !data.appointments) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-6 text-center text-slate-500 text-sm">
-        No se pudieron cargar los datos de riesgo.
+      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center text-sm">
+        <p className="text-[var(--color-danger)]">
+          {error ?? "No se pudieron cargar los datos de riesgo."}
+        </p>
+        <button
+          type="button"
+          onClick={() => { setLoading(true); void load(); }}
+          className="text-xs font-semibold text-[var(--color-accent)] hover:underline mt-1"
+        >
+          Reintentar
+        </button>
       </div>
     );
   }

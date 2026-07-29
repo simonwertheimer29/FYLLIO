@@ -13,6 +13,7 @@ import type { UserSession, InformeGuardado } from "../../lib/presupuestos/types"
 import { Card } from "../ui/Card";
 import { EmptyState, ErrorState } from "../ui/Feedback";
 import { BarChart3, Download, AlertTriangle, X, Info, Sparkles, FileText, ChevronDown, ICON_STROKE } from "../icons";
+import { eur } from "../shared/Cifra";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -292,8 +293,8 @@ function InformeCard({
           {[
             { label: "Total", value: String(informe.datosUsados.total) },
             { label: "Aceptados", value: `${informe.datosUsados.aceptados} (${informe.datosUsados.tasa}%)` },
-            { label: "Importe", value: `€${informe.datosUsados.importeTotal.toLocaleString("es-ES")}` },
-            { label: "Seguimiento", value: `€${informe.datosUsados.importePipeline.toLocaleString("es-ES")}` },
+            { label: "Importe", value: eur(informe.datosUsados.importeTotal) },
+            { label: "Seguimiento", value: eur(informe.datosUsados.importePipeline) },
           ].map((item) => (
             <div key={item.label} className="rounded-xl bg-[var(--color-surface-muted)] p-3">
               <p className="text-[10px] text-[var(--color-muted)] font-semibold uppercase tracking-wide mb-0.5">{item.label}</p>
@@ -959,7 +960,7 @@ export default function InformesView({ user }: { user: UserSession }) {
             >
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 12 }} />
-              <YAxis tickFormatter={(v: number) => `€${Math.round(v / 1000)}k`} tick={{ fontSize: 11 }} />
+              <YAxis tickFormatter={(v: number) => `${Math.round(v / 1000)}k €`} tick={{ fontSize: 11 }} />
               <Bar isAnimationActive={false} dataKey="importeProyectado" name="Proyectado" maxBarSize={80}>
                 {forecasting.map((_, i) => (
                   <Cell key={i} fill={(["#16A34A", "#D97706", "#9CA3AF"] as string[])[i] ?? "#9CA3AF"} />

@@ -336,9 +336,15 @@ export const ACTION_TOOLS: AnthropicTool[] = [
   {
     name: "cambiar_estado_lead",
     description:
-      "Sugiere cambiar el estado de un lead. Estados válidos: Nuevo, Contactado, Citado, " +
-      "No Interesado. Si destino es 'No Interesado', incluir motivoNoInteres " +
-      "(Rechazo_Producto o No_Asistio).",
+      "Sugiere cambiar el estado de un lead. Estados válidos: Nuevo, Contactado, " +
+      "No Interesado. NO puedes citar un lead desde aquí: una cita necesita fecha, hora y " +
+      "doctor, y esta herramienta no los pide. Si te piden citar a alguien, di que se hace " +
+      "con «Agendar» en la ficha del lead o arrastrándolo a Citado en el tablero. " +
+      "Si el destino es 'No Interesado', motivoNoInteres es OBLIGATORIO y " +
+      "nunca lo elijes tú: si el usuario no lo ha dicho, pregúntaselo antes de proponer la " +
+      "acción. Valores: No_Asistio (tenía cita y no fue), No_Contesta (varios intentos sin " +
+      "respuesta), Horarios (no le encaja el cuándo o el dónde), Precio, Otra_Clinica, " +
+      "Ya_No_Necesita.",
     input_schema: {
       type: "object",
       properties: {
@@ -346,11 +352,11 @@ export const ACTION_TOOLS: AnthropicTool[] = [
         nombreLead: { type: "string", description: "Solo display, para construir el botón." },
         nuevoEstado: {
           type: "string",
-          enum: ["Nuevo", "Contactado", "Citado", "No Interesado"],
+          enum: ["Nuevo", "Contactado", "No Interesado"],
         },
         motivoNoInteres: {
           type: "string",
-          enum: ["Rechazo_Producto", "No_Asistio"],
+          enum: ["No_Asistio", "No_Contesta", "Horarios", "Precio", "Otra_Clinica", "Ya_No_Necesita"],
         },
       },
       required: ["leadId", "nuevoEstado"],

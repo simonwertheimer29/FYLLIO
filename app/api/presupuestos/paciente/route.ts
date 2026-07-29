@@ -1,14 +1,11 @@
 // app/api/presupuestos/paciente/route.ts
 // GET ?nombre=X — todos los presupuestos + historial de acciones de un paciente
 
-import { selectHistorialRaw } from "../../../lib/historial/registrar";
+import { listHistorialPorPresupuestos } from "../../../lib/historial/registrar";
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
-import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type { Presupuesto, HistorialAccion } from "../../../lib/presupuestos/types";
-import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
-import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
 
@@ -27,13 +24,13 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     return NextResponse.json({ error: "Falta parámetro nombre" }, { status: 400 });
   }
 
-  // Demo mode
-  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-    const demo = DEMO_PRESUPUESTOS.filter(
-      (p) => p.patientName.toLowerCase() === nombre.toLowerCase()
-    );
-    return NextResponse.json({ presupuestos: demo, historial: [], isDemo: true });
-  }
+  // (Aquí había una segunda puerta a los datos inventados: si faltaban
+  // AIRTABLE_API_KEY o AIRTABLE_BASE_ID, la ruta servía presupuestos DEMO. Con
+  // Airtable retirado del producto esa condición ya no significa nada —los
+  // datos salen de Postgres— así que era una bomba: bastaba con que el entorno
+  // no tuviera unas variables muertas para que un paciente viera tratamientos
+  // e importes falsos. Quedan otras nueve rutas con la misma puerta, anotadas
+  // en MEJORAS.)
 
   try {
     const today = DateTime.now().setZone(ZONE).toISODate()!;
@@ -107,7 +104,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         daysSince: daysSince(fechaPresupuesto),
         clinica: f["Clinica"] ? String(f["Clinica"]) : (metaMatch ? metaMatch[2].trim() : undefined),
         notes: notasStr || undefined,
-        urgencyScore: 0,
         contactCount: Number(f["ContactCount"] ?? 0),
         createdBy: f["CreadoPor"] ? String(f["CreadoPor"]) : undefined,
         origenLead: f["OrigenLead"] ?? undefined,
@@ -118,7 +114,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         portalEnviado: f["PortalEnviado"] === true,
         ofertaActiva: f["OfertaActiva"] === true,
       };
-      p.urgencyScore = computeUrgencyScore(p);
       return p;
     });
 
@@ -136,13 +131,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
 
     if (ids.length > 0) {
       try {
-        const orFormula = ids.map((id) => `{presupuesto_id}="${id}"`).join(",");
-        const formula = ids.length === 1 ? orFormula : `OR(${orFormula})`;
-        const hRecs = await selectHistorialRaw({
-          filterByFormula: formula,
-          sort: [{ field: "fecha", direction: "desc" }],
-          maxRecords: 200,
-        });
+        const hRecs = await listHistorialPorPresupuestos(ids, 200);
 
         historial = hRecs.map((r) => {
           const f = r.fields as any;
@@ -174,10 +163,15 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       pacienteId: presupuestosVisibles.length ? resolvedPacienteId : null,
     });
   } catch (err) {
+    // Aquí se devolvían PRESUPUESTOS DEMO INVENTADOS filtrados por el nombre
+    // buscado: ante un fallo de la base, el paciente veía tratamientos e
+    // importes que no existen. Es el mandamiento §4 en su versión grave — no un
+    // vacío feliz, sino datos falsos con cara de reales, y encima en la
+    // superficie que ve el PACIENTE. Un fallo es un fallo (censo 2026-07-29).
     console.error("[paciente GET]", err);
-    const demo = DEMO_PRESUPUESTOS.filter(
-      (p) => p.patientName.toLowerCase() === nombre.toLowerCase()
+    return NextResponse.json(
+      { error: "No se pudieron cargar los presupuestos de este paciente." },
+      { status: 500 },
     );
-    return NextResponse.json({ presupuestos: demo, historial: [], isDemo: true });
   }
 });

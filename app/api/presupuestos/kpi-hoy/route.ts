@@ -7,14 +7,15 @@
 
 import { selectMensajesWhatsAppRaw } from "../../../lib/presupuestos/mensajeria";
 import { NextResponse } from "next/server";
-import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { hoyISO, inicioDelDiaUTC } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
 export const GET = withPresupuestosAuth(async () => {
-  const today = new Date().toISOString().slice(0, 10);
-  const formula = `IS_AFTER({Timestamp}, '${today}T00:00:00.000Z')`;
+  // "Hoy" es el día de la clínica y empieza a sus 00:00, no a las de UTC.
+  const desde = inicioDelDiaUTC(hoyISO()).toISOString();
+  const formula = `IS_AFTER({Timestamp}, '${desde}')`;
 
   try {
     const recs = await selectMensajesWhatsAppRaw({ filterByFormula: formula });
@@ -60,6 +61,6 @@ export const GET = withPresupuestosAuth(async () => {
     return NextResponse.json({ tiempoMedioMin, totalMensajes: recs.length });
   } catch (err) {
     console.error("[presupuestos/kpi-hoy]", err instanceof Error ? err.message : err);
-    return NextResponse.json({ tiempoMedioMin: null, totalMensajes: 0 });
+    return NextResponse.json({ error: "No se pudo calcular el KPI de hoy" }, { status: 500 });
   }
 });

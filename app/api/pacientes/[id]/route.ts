@@ -7,10 +7,12 @@ import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicaIdsForUser, listUsuarios } from "../../../lib/auth/users";
 import { getPaciente, updatePaciente, deletePaciente } from "../../../lib/pacientes/pacientes";
+import { valoresTipoPaciente, catalogoTiposPaciente } from "../../../lib/pacientes/tipos-paciente";
+import { camposNoEditables, propagarTelefonoAPresupuestos } from "../../../lib/pacientes/edicion";
 import { getLead } from "../../../lib/leads/leads";
 import { listAccionesByLead } from "../../../lib/leads/acciones";
 import { getPagosByPaciente } from "../../../lib/pagos";
-import { base, TABLES, fetchAll } from "../../../lib/airtable";
+import { hoyISO } from "../../../lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -51,16 +53,17 @@ export const GET = withAuth<Ctx>(async (session, _req, ctx) => {
 
   const acciones = lead ? await fetchAccionesByLead(lead.id) : [];
 
-  // KPIs pagos.
+  // KPIs pagos — el pendiente se deriva de los presupuestos REALES del
+  // paciente (Σ ACEPTADO), no del select manual `aceptado` ni del campo
+  // `presupuesto_total`, que divergían de los presupuestos de verdad.
   const totalFacturado = pagos.reduce((s, p) => s + (p.importe || 0), 0);
   const numPagos = pagos.length;
+  const firmado = presupuestos
+    .filter((p) => p.estado === "ACEPTADO")
+    .reduce((s, p) => s + (p.importe ?? 0), 0);
   let pendiente: number | null = null;
-  if (
-    paciente.aceptado === "Si" &&
-    typeof paciente.presupuestoTotal === "number" &&
-    paciente.presupuestoTotal > 0
-  ) {
-    pendiente = Math.max(0, paciente.presupuestoTotal - totalFacturado);
+  if (firmado > 0) {
+    pendiente = Math.max(0, firmado - totalFacturado);
   }
   const ultimoPagoHaceDias = pagos[0] ? daysBetween(pagos[0].fechaPago) : null;
 
@@ -88,7 +91,7 @@ export const GET = withAuth<Ctx>(async (session, _req, ctx) => {
   // Próxima cita: paciente.fechaCita si es >= hoy.
   let proximaCita: string | null = null;
   if (paciente.fechaCita) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = hoyISO();
     if (paciente.fechaCita >= today) proximaCita = paciente.fechaCita;
   }
 
@@ -102,18 +105,20 @@ export const GET = withAuth<Ctx>(async (session, _req, ctx) => {
       tratamientos: paciente.tratamientos,
       doctorLinkId: paciente.doctorLinkId,
       fechaCita: paciente.fechaCita,
-      presupuestoTotal: paciente.presupuestoTotal,
-      aceptado: paciente.aceptado,
-      pagado: paciente.pagado,
-      pendienteCache: paciente.pendiente,
-      financiado: paciente.financiado,
+      // MEJORAS nº 28 — las cachés de dinero (presupuestoTotal/aceptado/
+      // pagado/pendiente/financiado) salieron del payload: la ficha deriva
+      // todo de presupuestos y pagos reales.
       notas: paciente.notas,
       canalOrigen: paciente.canalOrigen,
+      tipoPaciente: paciente.tipoPaciente,
       leadOrigenId: paciente.leadOrigenId,
       activo: paciente.activo,
       createdAt: paciente.createdAt,
     },
     lead,
+    // El catálogo de SU clínica: la ficha ofrece lo que esa clínica tiene
+    // configurado, no un enum compilado.
+    tiposPaciente: await catalogoTiposPaciente(paciente.clinicaId),
     presupuestos,
     pagos,
     acciones,
@@ -121,6 +126,7 @@ export const GET = withAuth<Ctx>(async (session, _req, ctx) => {
     kpisPagos: {
       totalFacturado,
       pendiente,
+      firmado,
       numPagos,
       ultimoPagoHaceDias,
     },
@@ -239,8 +245,42 @@ export const PATCH = withAuth<Ctx>(async (session, req, ctx) => {
     return NextResponse.json({ error: "Body inválido" }, { status: 400 });
   }
 
+  // Bloque 3 — la tabla es una ventana: solo campos cuyo origen ES el
+  // paciente. Cachés de dinero y derivados se rechazan (fail-closed); se
+  // corrigen en su registro origen (presupuestos/pagos).
+  const rechazados = camposNoEditables(body);
+  if (rechazados.length) {
+    return NextResponse.json(
+      { error: `No editable desde el paciente: ${rechazados.join(", ")}. Corrige su registro origen (presupuesto/pago).` },
+      { status: 400 },
+    );
+  }
+
+  // El tipo de paciente se valida CONTRA EL CATÁLOGO de su clínica: es un
+  // texto libre en la base a propósito (el catálogo es configurable, no un
+  // enum), así que la barrera está aquí. Vaciarlo es legítimo: "sin tipo" es un
+  // estado válido.
+  if (body.tipoPaciente !== undefined && body.tipoPaciente !== null && body.tipoPaciente !== "") {
+    const permitidos = await valoresTipoPaciente(paciente.clinicaId);
+    if (!permitidos.some((v) => v.toLowerCase() === String(body.tipoPaciente).toLowerCase())) {
+      return NextResponse.json(
+        { error: `"${body.tipoPaciente}" no está en el catálogo de la clínica. Añádelo en Ajustes → Aseguradoras.` },
+        { status: 400 },
+      );
+    }
+  }
+
+  // Deuda D1 — el teléfono vive copiado en los presupuestos abiertos
+  // (paciente_telefono, lo usa la cola para escribirle). Propagación con
+  // cascada VISIBLE: el conteo viaja a la vista y el toast lo nombra.
+  let presupuestosActualizados = 0;
+  const telefonoNuevo = typeof body.telefono === "string" ? body.telefono.trim() : null;
+  if (telefonoNuevo && telefonoNuevo !== (paciente.telefono ?? "")) {
+    presupuestosActualizados = await propagarTelefonoAPresupuestos(id, telefonoNuevo);
+  }
+
   const updated = await updatePaciente(id, body);
-  return NextResponse.json({ paciente: updated });
+  return NextResponse.json({ paciente: updated, presupuestosActualizados });
 });
 
 export const DELETE = withAuth<Ctx>(async (session, _req, ctx) => {

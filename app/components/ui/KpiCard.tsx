@@ -105,7 +105,12 @@ export function KpiCard({
       </p>
       <div className="mt-2 flex items-center gap-2">
         {deltaPct != null && (
-          <span className={`text-xs font-semibold ${deltaColor}`}>
+          // Aparece tras el counter (fade+slide de 220ms con delay) — solo al
+          // montar; un cambio de valor no re-anima (el nodo persiste).
+          <span
+            className={`text-xs font-semibold fyllio-fade-in ${deltaColor}`}
+            style={{ animationDelay: "260ms" }}
+          >
             {deltaArrow} {Math.abs(deltaPct).toFixed(0)}%
           </span>
         )}
@@ -120,13 +125,22 @@ export function KpiCard({
 // ─── Counter animado (Sprint 12 F) ─────────────────────────────────────
 
 function useAnimatedNumber(target: number, durationMs = 400): number {
-  const [display, setDisplay] = useState(target);
-  const fromRef = useRef(target);
+  // Revisión visual Cobros (2026-07-24): el counter anima también AL MONTAR
+  // (0 → valor), no solo en cambios de valor. Arranca en 0 en servidor y
+  // cliente (cero hydration mismatch); con prefers-reduced-motion el efecto
+  // fija el valor directo sin tween.
+  const [display, setDisplay] = useState(0);
+  const fromRef = useRef(0);
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     const from = fromRef.current;
     if (from === target) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setDisplay(target);
+      fromRef.current = target;
+      return;
+    }
     const start = performance.now();
     const tick = (now: number) => {
       const t = Math.min(1, (now - start) / durationMs);

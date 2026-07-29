@@ -2,8 +2,6 @@
 //
 // Sprint 17 Bloque 2/3 — repo Airtable para Llamadas_Vapi.
 
-import { base, fetchAll, TABLES } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 import type {
   EstadoLlamada,
   Llamada,
@@ -43,28 +41,9 @@ export async function createLlamada(input: {
   estado?: EstadoLlamada;
   notas?: string;
 }): Promise<Llamada> {
-  if (usaPostgres("vapi")) {
-    const pg = await import("./repo-pg");
-    return pg.createLlamadaPg(input);
-  }
-  const now = new Date().toISOString();
-  const fields: Record<string, any> = {
-    Resumen: `${input.tipo} · ${input.pacienteId.slice(-6)}`,
-    Paciente_Link: [input.pacienteId],
-    Tipo_Llamada: input.tipo,
-    Estado: input.estado ?? "iniciada",
-    Resultado: "sin_resultado",
-    Iniciada_At: now,
-    Created_At: now,
-    Updated_At: now,
-  };
-  if (input.citaId) fields.Cita_Link = [input.citaId];
-  if (input.vapiCallId) fields.Vapi_Call_Id = input.vapiCallId;
-  if (input.notas) fields.Notas = input.notas;
-  const created = (
-    await base(TABLES.llamadasVapi).create([{ fields }], { typecast: true })
-  )[0]!;
-  return toLlamada(created);
+  const pg = await import("./repo-pg");
+  return pg.createLlamadaPg(input);
+  
 }
 
 export async function updateLlamada(
@@ -80,56 +59,23 @@ export async function updateLlamada(
     vapiCallId: string;
   }>,
 ): Promise<Llamada> {
-  if (usaPostgres("vapi")) {
-    const pg = await import("./repo-pg");
-    return pg.updateLlamadaPg(id, patch);
-  }
-  const fields: Record<string, any> = { Updated_At: new Date().toISOString() };
-  if (patch.estado !== undefined) fields.Estado = patch.estado;
-  if (patch.resultado !== undefined) fields.Resultado = patch.resultado;
-  if (patch.finalizadaAt !== undefined)
-    fields.Finalizada_At = patch.finalizadaAt ?? "";
-  if (patch.duracionSegundos !== undefined)
-    fields.Duracion_Segundos = patch.duracionSegundos;
-  if (patch.notas !== undefined) fields.Notas = patch.notas;
-  if (patch.transcripcion !== undefined)
-    fields.Transcripcion = patch.transcripcion;
-  if (patch.costeUSD !== undefined) fields.Coste_USD = patch.costeUSD;
-  if (patch.vapiCallId !== undefined) fields.Vapi_Call_Id = patch.vapiCallId;
-  const updated = (
-    await base(TABLES.llamadasVapi).update([{ id, fields }], { typecast: true })
-  )[0]!;
-  return toLlamada(updated);
+  const pg = await import("./repo-pg");
+  return pg.updateLlamadaPg(id, patch);
+  
 }
 
 export async function getLlamada(id: string): Promise<Llamada | null> {
-  if (usaPostgres("vapi")) {
-    const pg = await import("./repo-pg");
-    return pg.getLlamadaPg(id);
-  }
-  try {
-    const rec = await base(TABLES.llamadasVapi).find(id);
-    return toLlamada(rec);
-  } catch {
-    return null;
-  }
+  const pg = await import("./repo-pg");
+  return pg.getLlamadaPg(id);
+  
 }
 
 export async function getLlamadaPorVapiCallId(
   vapiCallId: string,
 ): Promise<Llamada | null> {
-  if (usaPostgres("vapi")) {
-    const pg = await import("./repo-pg");
-    return pg.getLlamadaPorVapiCallIdPg(vapiCallId);
-  }
-  const recs = await fetchAll(
-    base(TABLES.llamadasVapi).select({
-      filterByFormula: `{Vapi_Call_Id} = "${vapiCallId.replace(/"/g, '\\"')}"`,
-      maxRecords: 1,
-    }),
-  );
-  const r = recs[0];
-  return r ? toLlamada(r) : null;
+  const pg = await import("./repo-pg");
+  return pg.getLlamadaPorVapiCallIdPg(vapiCallId);
+  
 }
 
 export type ListLlamadasFilters = {
@@ -144,65 +90,18 @@ export type ListLlamadasFilters = {
 export async function listLlamadas(
   f: ListLlamadasFilters = {},
 ): Promise<Llamada[]> {
-  if (usaPostgres("vapi")) {
-    const pg = await import("./repo-pg");
-    return pg.listLlamadasPg(f);
-  }
-  const partes: string[] = [];
-  if (f.pacienteId)
-    partes.push(`FIND("${f.pacienteId}", ARRAYJOIN({Paciente_Link}, ","))`);
-  if (f.estado) partes.push(`{Estado}="${f.estado}"`);
-  if (f.resultado) partes.push(`{Resultado}="${f.resultado}"`);
-  if (f.desde) partes.push(`IS_AFTER({Iniciada_At}, "${f.desde}")`);
-  if (f.hasta) partes.push(`IS_BEFORE({Iniciada_At}, "${f.hasta}")`);
-  const filterByFormula =
-    partes.length === 0
-      ? undefined
-      : partes.length === 1
-        ? partes[0]
-        : `AND(${partes.join(", ")})`;
-
-  try {
-    const recs = await fetchAll(
-      base(TABLES.llamadasVapi).select({
-        ...(filterByFormula ? { filterByFormula } : {}),
-        sort: [{ field: "Iniciada_At", direction: "desc" }],
-        pageSize: 100,
-      }),
-    );
-    const limit = f.limit ?? 50;
-    return recs.slice(0, limit).map(toLlamada);
-  } catch (err) {
-    console.error("[llamadas listLlamadas]", err);
-    return [];
-  }
+  const pg = await import("./repo-pg");
+  return pg.listLlamadasPg(f);
+  
 }
 
 /** Cooldown 24h: ¿se llamó al paciente por IA en últimas 24h? */
 export async function pacienteLlamadoUltimas24h(
   pacienteId: string,
 ): Promise<boolean> {
-  if (usaPostgres("vapi")) {
-    const pg = await import("./repo-pg");
-    return pg.pacienteLlamadoUltimas24hPg(pacienteId);
-  }
-  const desde = new Date(Date.now() - 24 * 3600 * 1000).toISOString();
-  const partes = [
-    `FIND("${pacienteId}", ARRAYJOIN({Paciente_Link}, ","))`,
-    `IS_AFTER({Iniciada_At}, "${desde}")`,
-    `OR({Estado}="iniciada", {Estado}="en_curso", {Estado}="completada")`,
-  ];
-  try {
-    const recs = await fetchAll(
-      base(TABLES.llamadasVapi).select({
-        filterByFormula: `AND(${partes.join(", ")})`,
-        maxRecords: 1,
-      }),
-    );
-    return recs.length > 0;
-  } catch {
-    return false;
-  }
+  const pg = await import("./repo-pg");
+  return pg.pacienteLlamadoUltimas24hPg(pacienteId);
+  
 }
 
 /** Cuenta llamadas iniciadas hoy en una clínica. Para validar el límite
@@ -212,54 +111,18 @@ export async function pacienteLlamadoUltimas24h(
 export async function contarLlamadasHoyPorPaciente(
   pacienteIds: string[],
 ): Promise<number> {
-  if (usaPostgres("vapi")) {
-    const pg = await import("./repo-pg");
-    return pg.contarLlamadasHoyPorPacientePg(pacienteIds);
-  }
-  if (pacienteIds.length === 0) return 0;
-  const inicioHoy = new Date();
-  inicioHoy.setHours(0, 0, 0, 0);
-  const partes = [
-    pacienteIds
-      .map((p) => `FIND("${p}", ARRAYJOIN({Paciente_Link}, ","))`)
-      .join(", "),
-    `IS_AFTER({Iniciada_At}, "${inicioHoy.toISOString()}")`,
-  ];
-  const formula = `AND(OR(${partes[0]}), ${partes[1]})`;
-  try {
-    const recs = await fetchAll(
-      base(TABLES.llamadasVapi).select({
-        filterByFormula: formula,
-        pageSize: 100,
-      }),
-    );
-    return recs.length;
-  } catch {
-    return 0;
-  }
+  const pg = await import("./repo-pg");
+  return pg.contarLlamadasHoyPorPacientePg(pacienteIds);
+  
 }
 
 /** Cuenta todas las llamadas iniciadas hoy. Aproximación al límite
  *  por clínica (en V1 asumimos una clínica = un tenant de Fyllio;
  *  cuando crezcamos se filtrará por clinicaId via join Paciente_Link). */
 export async function contarLlamadasHoy(): Promise<number> {
-  if (usaPostgres("vapi")) {
-    const pg = await import("./repo-pg");
-    return pg.contarLlamadasHoyPg();
-  }
-  const inicioHoy = new Date();
-  inicioHoy.setHours(0, 0, 0, 0);
-  try {
-    const recs = await fetchAll(
-      base(TABLES.llamadasVapi).select({
-        filterByFormula: `IS_AFTER({Iniciada_At}, "${inicioHoy.toISOString()}")`,
-        pageSize: 100,
-      }),
-    );
-    return recs.length;
-  } catch {
-    return 0;
-  }
+  const pg = await import("./repo-pg");
+  return pg.contarLlamadasHoyPg();
+  
 }
 
 /** Tasa de fallidas en última hora — usado por la salvaguarda
@@ -269,24 +132,7 @@ export async function tasaFallidasUltimaHora(): Promise<{
   fallidas: number;
   pct: number;
 }> {
-  if (usaPostgres("vapi")) {
-    const pg = await import("./repo-pg");
-    return pg.tasaFallidasUltimaHoraPg();
-  }
-  const desde = new Date(Date.now() - 3600 * 1000).toISOString();
-  try {
-    const recs = await fetchAll(
-      base(TABLES.llamadasVapi).select({
-        filterByFormula: `IS_AFTER({Iniciada_At}, "${desde}")`,
-        pageSize: 100,
-      }),
-    );
-    const total = recs.length;
-    const fallidas = recs.filter((r: any) => r.fields["Estado"] === "fallida")
-      .length;
-    const pct = total > 0 ? Math.round((fallidas / total) * 100) : 0;
-    return { total, fallidas, pct };
-  } catch {
-    return { total: 0, fallidas: 0, pct: 0 };
-  }
+  const pg = await import("./repo-pg");
+  return pg.tasaFallidasUltimaHoraPg();
+  
 }

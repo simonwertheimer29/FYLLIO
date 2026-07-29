@@ -1,16 +1,16 @@
 // app/api/presupuestos/intervencion/route.ts
-// GET — devuelve la cola de intervención del día, agrupada por intención
+// GET — devuelve la cola de intervención del día. P3 unificación (2026-07-23):
+// TODOS los casos viajan en allItems con su item.conversacion; las pestañas
+// (Actuar ahora / Esperando respuesta) clasifican en cliente con esa única
+// verdad. Se eliminó el split "completados hoy" (segunda representación del
+// viejo criterio de espera) y las "secciones" por intención (payload muerto).
 
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw, updatePresupuestoRaw } from "../../../lib/presupuestos/repo";
-import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import { DateTime } from "luxon";
-import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 import { generarMensajeSugerido } from "../../../lib/presupuestos/intervencion";
-import { INTENCION_SECTIONS } from "../../../lib/presupuestos/colors";
 import type {
   PresupuestoIntervencion,
-  SeccionIntervencion,
   IntencionDetectada,
   UrgenciaIntervencion,
   UrgenciaBidireccional,
@@ -20,6 +20,8 @@ import type {
 } from "../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
+import { ultimosMensajesPorConversacion } from "../../../lib/presupuestos/mensajeria";
+import { conversacionDePresupuesto } from "../../../lib/presupuestos/conversacion-presupuesto";
 
 export const dynamic = "force-dynamic";
 
@@ -30,14 +32,6 @@ function daysSince(iso: string): number {
   const d = DateTime.fromISO(iso).startOf("day");
   return Math.round(today.diff(d, "days").days);
 }
-
-const URGENCIA_ORDER: Record<string, number> = {
-  "CRÍTICO": 0,
-  "ALTO": 1,
-  "MEDIO": 2,
-  "BAJO": 3,
-  "NINGUNO": 4,
-};
 
 // -------------------------------------------------------------------
 // Urgencia bidireccional (3 ejes)
@@ -117,33 +111,38 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const url = new URL(req.url);
   const clinicaFilter = url.searchParams.get("clinica") || "";
 
-  // Check env vars
-  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-    return NextResponse.json({
-      secciones: [],
-      allItems: [],
-      totalPendientes: 0,
-      completadasHoy: 0,
-      casosCompletados: [],
-      clinicas: [],
-      doctores: [],
-      tratamientos: [],
-      isDemo: true,
-    });
+  // Unificación de fichas (2026-07-27): ?id=<presupuesto> devuelve UN caso
+  // enriquecido ({ item }) para que el panel de acción se abra igual desde
+  // el kanban que desde Seguimiento. Sin esto el kanban sólo tenía el
+  // `Presupuesto` plano y el panel caía al fallback de "N días", perdiendo la
+  // clasificación del motor. El scope de clínica se aplica igual que en la
+  // cola: un id de otra clínica sale como no encontrado (fail-closed).
+  const idParam = url.searchParams.get("id");
+  // El id se interpola en una fórmula de Airtable: sólo record ids y uuids.
+  if (idParam !== null && !/^[A-Za-z0-9_-]{1,64}$/.test(idParam)) {
+    return NextResponse.json({ error: "id no válido" }, { status: 400 });
   }
 
+  // (Aquí había una puerta a datos DEMO condicionada a AIRTABLE_API_KEY /
+  // AIRTABLE_BASE_ID. Airtable está retirado y esas variables no existen en
+  // Vercel, así que la condición se cumplía SIEMPRE en producción: la ruta no
+  // llegaba nunca a su código real. Eliminada, no re-condicionada — si no se
+  // pueden servir datos reales, se devuelve un error honesto, jamás inventados.
+  // §4 y §1, 2026-07-29.)
+
   try {
-    // Fetch presupuestos activos (no cerrados) que tengan respuesta, urgencia,
-    // o estén "esperando respuesta" (envié y aún no contesta) — este último para
-    // que un caso al que mandé WhatsApp no desaparezca de la cola.
-    const filterFormula = `AND(
+    // MEJORA nº 26 (2026-07-23): entran TODOS los presupuestos abiertos y
+    // estadoConversacion decide la pestaña. Antes la entrada dependía de
+    // urgencia/fase/respuesta persistidas (el criterio viejo): un abierto sin
+    // esos campos era invisible para la coordinadora aunque su hilo pidiera
+    // acción. El estado de negocio sigue mandando: cerrados fuera.
+    // Por id NO se filtra por estado: desde el kanban se abre también la
+    // ficha de un ACEPTADO o un PERDIDO, y el panel sabe representarlos.
+    const filterFormula = idParam
+      ? `RECORD_ID()='${idParam}'`
+      : `AND(
       {Estado}!='ACEPTADO',
-      {Estado}!='PERDIDO',
-      OR(
-        {Ultima_respuesta_paciente}!='',
-        AND({Urgencia_intervencion}!='', {Urgencia_intervencion}!='NINGUNO'),
-        {Fase_seguimiento}='Esperando respuesta'
-      )
+      {Estado}!='PERDIDO'
     )`.replace(/\n\s*/g, "");
 
     const recsPromise = selectPresupuestosRaw({
@@ -164,7 +163,10 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       sort: [{ field: "Fecha_ultima_respuesta", direction: "desc" }],
     });
 
-    const recs = await recsPromise;
+    // El HILO (mensajes_whatsapp) es la fuente primaria del estado de cada
+    // conversación (estadoConversacion); los timestamps persistidos del
+    // presupuesto quedan como complemento (llamadas, datos pre-hilo).
+    const [recs, ultimos] = await Promise.all([recsPromise, ultimosMensajesPorConversacion()]);
 
     const today = DateTime.now().setZone(ZONE).startOf("day");
 
@@ -264,7 +266,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         daysSince: ds,
         clinica: clinica || undefined,
         notes: f["Notas"] ? String(f["Notas"]) : undefined,
-        urgencyScore: 0,
         contactCount: Number(f["ContactCount"] ?? 0),
         origenLead: f["OrigenLead"] || undefined,
         motivoDuda: f["MotivoDuda"] || undefined,
@@ -282,8 +283,15 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         diasDesdeUltimoContacto,
       };
 
-      p.urgencyScore = computeUrgencyScore(p);
       p.urgenciaBidireccional = computeUrgenciaBidireccional(p);
+
+      // UNA clasificación para todas las pantallas (helper compartido con el
+      // dashboard de Red): último mensaje del hilo, complementado con la
+      // respuesta/acción registradas. El cliente no recalcula su criterio.
+      p.conversacion = conversacionDePresupuesto(
+        { fechaUltimaRespuesta, ultimaAccionRegistrada, tipoUltimaAccion },
+        ultimos.porPresupuesto.get(r.id),
+      );
       return p;
     });
 
@@ -311,79 +319,47 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         });
         if (msg) {
           p.mensajeSugerido = msg;
-          // Save to Airtable in background
-          updatePresupuestoRaw(p.id, { Mensaje_sugerido: msg })
-            .catch(() => {});
+          // MEJORA nº 25 (2026-07-23): la escritura de la caché se ESPERA y
+          // se loguea. Fire-and-forget aquí significaba que en serverless la
+          // promesa podía morir tras responder → los mismos 5 casos se
+          // regeneraban en CADA refresh de 15 s (hasta ~1.200 llamadas
+          // IA/hora por pestaña abierta) sin ninguna señal.
+          try {
+            await updatePresupuestoRaw(p.id, { Mensaje_sugerido: msg });
+          } catch (e) {
+            console.error("[intervencion] no se pudo persistir Mensaje_sugerido de", p.id, e);
+          }
         }
       });
       await Promise.all(generaciones);
     }
 
-    // Separate completed today vs pending
-    const completadosHoy: PresupuestoIntervencion[] = [];
-    const pendientes: PresupuestoIntervencion[] = [];
-
-    for (const p of items) {
-      if (p.ultimaAccionRegistrada) {
-        const accionDate = DateTime.fromISO(p.ultimaAccionRegistrada).setZone(ZONE).startOf("day");
-        if (accionDate.equals(today) && p.tipoUltimaAccion && p.tipoUltimaAccion !== "Mensaje recibido") {
-          completadosHoy.push(p);
-          continue;
-        }
-      }
-      pendientes.push(p);
-    }
-
-    // Group pending items into sections
-    const secciones: SeccionIntervencion[] = INTENCION_SECTIONS.map((sec) => {
-      const sectionItems = pendientes
-        .filter((p) => {
-          const intencion = p.intencionDetectada ?? "Sin clasificar";
-          return sec.intenciones.includes(intencion);
-        })
-        .sort((a, b) => {
-          const ua = URGENCIA_ORDER[a.urgenciaIntervencion ?? "NINGUNO"] ?? 4;
-          const ub = URGENCIA_ORDER[b.urgenciaIntervencion ?? "NINGUNO"] ?? 4;
-          if (ua !== ub) return ua - ub;
-          // Then by fecha ultima respuesta (most recent first)
-          const da = a.fechaUltimaRespuesta ?? "";
-          const db = b.fechaUltimaRespuesta ?? "";
-          return db.localeCompare(da);
-        });
-
-      return {
-        id: sec.id,
-        titulo: sec.titulo,
-        color: sec.color,
-        icono: sec.icono,
-        hexAccent: sec.hexAccent,
-        items: sectionItems,
-      };
-    }).filter((s) => s.items.length > 0);
+    // Orden por prioridad (score bidireccional): la pestaña decide el resto.
+    items.sort(
+      (a, b) => (b.urgenciaBidireccional?.scoreFinal ?? 0) - (a.urgenciaBidireccional?.scoreFinal ?? 0),
+    );
 
     // Extract unique filter values
     const clinicas = [...new Set(items.map((p) => p.clinica).filter(Boolean) as string[])].sort();
     const doctores = [...new Set(items.map((p) => p.doctor).filter(Boolean) as string[])].sort();
     const tratamientos = [...new Set(items.flatMap((p) => p.treatments))].sort();
 
+    if (idParam) return NextResponse.json({ item: items[0] ?? null });
+
     return NextResponse.json({
-      secciones,
-      allItems: pendientes,
-      totalPendientes: pendientes.length,
-      completadasHoy: completadosHoy.length,
-      casosCompletados: completadosHoy,
+      allItems: items,
       clinicas,
       doctores,
       tratamientos,
     });
   } catch (err) {
     console.error("[intervencion] GET error:", err);
+    if (idParam) {
+      // Nunca un fallo disfrazado de "no existe": el panel muestra error.
+      return NextResponse.json({ error: "Error al cargar el presupuesto" }, { status: 500 });
+    }
     return NextResponse.json({
-      secciones: [],
       allItems: [],
-      totalPendientes: 0,
-      completadasHoy: 0,
-      casosCompletados: [],
       clinicas: [],
       doctores: [],
       tratamientos: [],

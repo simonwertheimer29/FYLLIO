@@ -3,11 +3,10 @@
 // Sprint 14b Bloque 4 — repositorio de Plantillas_Mensaje + helpers
 // de render.
 
-import { baseCentral, base, TABLES, fetchAll } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 import { selectPresupuestosRaw } from "../presupuestos/repo";
 import { getPaciente } from "../pacientes/pacientes";
 import { getOpcionEscalar } from "../configuraciones/configuraciones";
+import { finanzasDePaciente } from "../finanzas-paciente";
 
 export type PlantillaCategoria =
   | "cobranza"
@@ -47,12 +46,9 @@ function toPlantilla(rec: any): Plantilla {
 
 /** Lista TODAS las plantillas (panel admin las cruza). */
 export async function listPlantillas(): Promise<Plantilla[]> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.listPlantillasPg();
-  }
-  const recs = await fetchAll(base(TABLES.plantillasMensaje as any).select({}));
-  return recs.map(toPlantilla);
+  const pg = await import("./plantillas-pg");
+  return pg.listPlantillasPg();
+  
 }
 
 /**
@@ -92,16 +88,9 @@ export async function getPlantillasActivas(args: {
 }
 
 export async function getPlantillaById(id: string): Promise<Plantilla | null> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.getPlantillaByIdPg(id);
-  }
-  try {
-    const rec = await base(TABLES.plantillasMensaje as any).find(id);
-    return toPlantilla(rec);
-  } catch {
-    return null;
-  }
+  const pg = await import("./plantillas-pg");
+  return pg.getPlantillaByIdPg(id);
+  
 }
 
 /** Extrae nombres de variables {{var}} del contenido. Util para
@@ -121,27 +110,9 @@ export async function createPlantilla(input: {
   clinicaId: string | null;
   tipo?: string; // legacy 'Tipo' (Primer contacto, Recordatorio, ...)
 }): Promise<Plantilla> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.createPlantillaPg(input);
-  }
-  const fields: Record<string, unknown> = {
-    Nombre: input.nombre,
-    Tipo: input.tipo ?? "Recordatorio",
-    Categoria: input.categoria,
-    Contenido: input.contenido,
-    Variables_Detectadas: extractVariables(input.contenido).join(", "),
-    Activa: true,
-    Fecha_creacion: new Date().toISOString(),
-  };
-  if (input.clinicaId) fields["Clinica_Link"] = [input.clinicaId];
-  const created = (
-    await (base(TABLES.plantillasMensaje as any) as any).create(
-      [{ fields }],
-      { typecast: true },
-    )
-  )[0]!;
-  return toPlantilla(created);
+  const pg = await import("./plantillas-pg");
+  return pg.createPlantillaPg(input);
+  
 }
 
 export async function updatePlantilla(
@@ -153,25 +124,9 @@ export async function updatePlantilla(
     activa: boolean;
   }>,
 ): Promise<Plantilla> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.updatePlantillaPg(id, patch);
-  }
-  const fields: Record<string, unknown> = {};
-  if (patch.nombre !== undefined) fields["Nombre"] = patch.nombre;
-  if (patch.categoria !== undefined) fields["Categoria"] = patch.categoria;
-  if (patch.contenido !== undefined) {
-    fields["Contenido"] = patch.contenido;
-    fields["Variables_Detectadas"] = extractVariables(patch.contenido).join(", ");
-  }
-  if (patch.activa !== undefined) fields["Activa"] = patch.activa;
-  const updated = (
-    await (base(TABLES.plantillasMensaje as any) as any).update(
-      [{ id, fields }],
-      { typecast: true },
-    )
-  )[0]!;
-  return toPlantilla(updated);
+  const pg = await import("./plantillas-pg");
+  return pg.updatePlantillaPg(id, patch);
+  
 }
 
 // ─── Render ────────────────────────────────────────────────────────────
@@ -180,6 +135,7 @@ export type RenderOverrides = {
   /** Sample data para preview en el panel admin (sin tocar Airtable). */
   nombre?: string;
   importe?: number;
+  pendiente?: number;
   tratamiento?: string;
   nombre_doctor?: string;
   nombre_clinica?: string;
@@ -196,7 +152,11 @@ export type RenderOverrides = {
  *
  * Variables soportadas:
  *   {{nombre}}            paciente.nombre
- *   {{importe}}           presupuesto firmado o sample (formato 1.234,56€ via overrides)
+ *   {{importe}}           Σ presupuestos ACEPTADO (formato 1.234,56)
+ *   {{pendiente}}         importe − pagos reales (MEJORAS nº 32) — la cifra
+ *                         que se RECLAMA en un recordatorio de cobro; deriva
+ *                         de finanzasDePaciente (la lib compartida), nunca
+ *                         cálculo propio
  *   {{tratamiento}}       paciente.tratamientos.join(", ")
  *   {{nombre_doctor}}     Staff.Nombre del paciente.doctorLinkId
  *   {{nombre_clinica}}    Clinica.Nombre del paciente.clinicaId
@@ -255,15 +215,15 @@ async function resolveValoresParaPaciente(
     return overridesToStrings(overrides);
   }
 
-  // Doctor + clinica (1 query cada uno, in parallel).
-  const [doctorNombre, clinicaNombre] = await Promise.all([
+  // Doctor + clinica + dinero + fecha de aceptación, en paralelo. El dinero
+  // sale de finanzasDePaciente — la MISMA lib que la ficha y el módulo
+  // Cobros (firmado = Σ ACEPTADO, pendiente = firmado − pagos reales).
+  const [doctorNombre, clinicaNombre, finanzas, fechaAceptadoIso] = await Promise.all([
     paciente.doctorLinkId ? loadStaffNombre(paciente.doctorLinkId) : Promise.resolve(null),
     paciente.clinicaId ? loadClinicaNombre(paciente.clinicaId) : Promise.resolve(null),
+    finanzasDePaciente(pacienteId),
+    loadFechaPrimerAceptado(pacienteId),
   ]);
-
-  // Presupuesto firmado más reciente (primer ACEPTADO con Fecha_Aceptado).
-  const presupuestoFirmado = await loadPresupuestoFirmado(pacienteId);
-  const fechaAceptadoIso = presupuestoFirmado?.fechaAceptado ?? null;
 
   // Plazo liquidacion (de config clinica con fallback global 90).
   const plazoDias = await getOpcionEscalar({
@@ -283,11 +243,14 @@ async function resolveValoresParaPaciente(
     );
   }
 
-  const importeRaw = paciente.presupuestoTotal ?? presupuestoFirmado?.importe ?? null;
+  // MEJORAS nº 28/32 — {{importe}} y {{pendiente}} salen de la derivación
+  // compartida, nunca de las cachés del paciente ni de un cálculo propio.
+  const conAceptado = finanzas.firmado > 0;
 
   const base: Record<string, string> = {
     nombre: paciente.nombre || "",
-    importe: importeRaw != null ? fmtImporteEs(importeRaw) : "",
+    importe: conAceptado ? fmtImporteEs(finanzas.firmado) : "",
+    pendiente: conAceptado ? fmtImporteEs(finanzas.pendiente) : "",
     tratamiento: (paciente.tratamientos ?? []).join(", "),
     nombre_doctor: doctorNombre ?? "",
     nombre_clinica: clinicaNombre ?? "",
@@ -305,6 +268,7 @@ function overridesToStrings(o?: RenderOverrides): Record<string, string> {
   const out: Record<string, string> = {};
   if (o.nombre !== undefined) out.nombre = o.nombre;
   if (o.importe !== undefined) out.importe = fmtImporteEs(o.importe);
+  if (o.pendiente !== undefined) out.pendiente = fmtImporteEs(o.pendiente);
   if (o.tratamiento !== undefined) out.tratamiento = o.tratamiento;
   if (o.nombre_doctor !== undefined) out.nombre_doctor = o.nombre_doctor;
   if (o.nombre_clinica !== undefined) out.nombre_clinica = o.nombre_clinica;
@@ -336,30 +300,26 @@ async function loadClinicaNombre(clinicaId: string): Promise<string | null> {
   }
 }
 
-async function loadPresupuestoFirmado(
-  pacienteId: string,
-): Promise<{ importe: number | null; fechaAceptado: string | null } | null> {
+// Fecha de la PRIMERA aceptación — la que arranca el plazo en la cola de
+// cobros. El dinero ({{importe}}/{{pendiente}}) ya no sale de aquí sino de
+// finanzasDePaciente (MEJORAS nº 28/32).
+async function loadFechaPrimerAceptado(pacienteId: string): Promise<string | null> {
   // Mismo patrón load+filter-JS que en Bloque 1.5 (Presupuestos no
   // tiene Paciente_RecordId todavia; deuda Sprint 14b/15).
   try {
     const recs = await selectPresupuestosRaw({
-      fields: ["Paciente", "Estado", "Importe", "Fecha_Aceptado"],
+      fields: ["Paciente", "Estado", "Fecha_Aceptado"],
     });
-    const propios = recs.filter((r) => {
-      const links = ((r.fields as any)?.["Paciente"] ?? []) as string[];
-      return links[0] === pacienteId;
-    });
-    const aceptado = propios.find(
-      (r) => String(((r.fields as any) ?? {})["Estado"] ?? "") === "ACEPTADO",
-    );
-    if (!aceptado) return null;
-    const f = aceptado.fields as any;
-    return {
-      importe: f["Importe"] != null ? Number(f["Importe"]) : null,
-      fechaAceptado: f["Fecha_Aceptado"]
-        ? String(f["Fecha_Aceptado"]).slice(0, 10)
-        : null,
-    };
+    let fechaMin: string | null = null;
+    for (const r of recs) {
+      const f = r.fields as any;
+      const links = (f?.["Paciente"] ?? []) as string[];
+      if (links[0] !== pacienteId) continue;
+      if (String(f["Estado"] ?? "") !== "ACEPTADO") continue;
+      const fecha = f["Fecha_Aceptado"] ? String(f["Fecha_Aceptado"]).slice(0, 10) : null;
+      if (fecha && (!fechaMin || fecha < fechaMin)) fechaMin = fecha;
+    }
+    return fechaMin;
   } catch {
     return null;
   }
@@ -389,37 +349,27 @@ function fmtFechaEs(iso: string): string {
 // FASE 1 migración — passthroughs de Plantillas_Mensaje para el CRUD de la
 // ruta de plantillas y el generador de cola de envíos.
 export async function selectPlantillasMensajeRaw(opts: Record<string, unknown>): Promise<readonly any[]> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.selectPlantillasMensajeRawPg(opts as any);
-  }
-  return base(TABLES.plantillasMensaje as any).select(opts as any).all();
+  const pg = await import("./plantillas-pg");
+  return pg.selectPlantillasMensajeRawPg(opts as any);
+  
 }
 export async function findPlantillaMensajeRaw(id: string): Promise<any> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.findPlantillaMensajeRawPg(id);
-  }
-  return base(TABLES.plantillasMensaje as any).find(id);
+  const pg = await import("./plantillas-pg");
+  return pg.findPlantillaMensajeRawPg(id);
+  
 }
 export async function createPlantillaMensajeRaw(fields: Record<string, unknown>): Promise<any> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.createPlantillaMensajeRawPg(fields);
-  }
-  return (base(TABLES.plantillasMensaje as any).create as any)(fields);
+  const pg = await import("./plantillas-pg");
+  return pg.createPlantillaMensajeRawPg(fields);
+  
 }
 export async function updatePlantillaMensajeRaw(id: string, fields: Record<string, unknown>): Promise<void> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.updatePlantillaMensajeRawPg(id, fields);
-  }
-  await (base(TABLES.plantillasMensaje as any) as any).update(id, fields);
+  const pg = await import("./plantillas-pg");
+  return pg.updatePlantillaMensajeRawPg(id, fields);
+  
 }
 export async function destroyPlantillaMensajeRaw(id: string): Promise<void> {
-  if (usaPostgres("plantillas-mensaje")) {
-    const pg = await import("./plantillas-pg");
-    return pg.destroyPlantillaMensajeRawPg(id);
-  }
-  await base(TABLES.plantillasMensaje as any).destroy(id);
+  const pg = await import("./plantillas-pg");
+  return pg.destroyPlantillaMensajeRawPg(id);
+  
 }

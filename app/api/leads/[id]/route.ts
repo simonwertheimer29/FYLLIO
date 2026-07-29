@@ -28,6 +28,22 @@ export const PATCH = withAuth<Ctx>(async (session, req, ctx) => {
     return NextResponse.json({ error: "Body inválido" }, { status: 400 });
   }
 
+  // MEJORAS 50 — un lead no pasa a "Citado" sin cuándo. La puerta estaba
+  // abierta: esta ruta escribía el body tal cual, así que el kanban (desde
+  // cualquier columna que no fuera Contactado) y el copiloto podían dejar un
+  // lead citado sin fecha. Esa cita no existía para el embudo, ni para
+  // /seguimiento, ni para el motor de no-shows. Misma doctrina que el motivo
+  // de descarte (MEJORAS 43): se declara, no se rellena.
+  const pasaACitado = body.estado === "Citado" || body.estado === "Citados Hoy";
+  const fechaResultante =
+    body.fechaCita !== undefined ? body.fechaCita : lead.fechaCita;
+  if (pasaACitado && !fechaResultante) {
+    return NextResponse.json(
+      { error: "Un lead citado necesita fecha de cita. Usa Agendar." },
+      { status: 400 },
+    );
+  }
+
   const updated = await updateLead(id, body);
   return NextResponse.json({ lead: updated });
 });

@@ -1,6 +1,11 @@
 "use client";
 
-// Sprint 8 D.6 — /presupuestos simplificado a toggle Panel / Máxima.
+// Sprint 8 D.6 — /presupuestos simplificado a un toggle de DOS VISTAS DE LO
+// MISMO: "Tablero" (kanban por estado, el trabajo del día) y "Tabla" (por
+// fecha, para monitorizar). Se llamaban "Panel" y "Máxima"; "Máxima" no
+// significaba nada para una coordinadora y "Panel" tampoco decía que fuese un
+// kanban (renombre 2026-07-29). El id interno `maxima` se conserva para no
+// romper los enlaces `?vista=maxima` que ya existen.
 // Red/Intervención/KPIs/Informes/Tareas/Envíos/Doctor/Automatizaciones/Config
 // se migran a rutas top-level. Aquí solo queda el pipeline de presupuestos.
 
@@ -17,14 +22,22 @@ import type {
 } from "../../lib/presupuestos/types";
 import KanbanBoard from "./KanbanBoard";
 import MaximaView from "./MaximaView";
-import FiltersBar, { type Filters } from "./FiltersBar";
+import FiltersBar, { EMPTY_FILTERS, type Filters } from "./FiltersBar";
 import { useClinic } from "../../lib/context/ClinicContext";
-import ContactHistoryModal from "./ContactHistoryModal";
 import NewPresupuestoModal from "./NewPresupuestoModal";
-import PatientDrawer from "./PatientDrawer";
+import FichaPresupuesto from "./FichaPresupuesto";
 import ImportarCSVModal from "./ImportarCSVModal";
 import IntervencionSidePanel from "./IntervencionSidePanel";
 import NotificacionesPanel from "./NotificacionesPanel";
+import PagoCierreModal, { type PagoCierre } from "./PagoCierreModal";
+import MotivoPerdidaModal from "./MotivoPerdidaModal";
+import { RangoTemporal, RANGO_DEFAULT, dentroDeRango, type RangoKanban } from "../shared/RangoTemporal";
+import { SegmentedToggle } from "../shared/SegmentedToggle";
+import {
+  contarPipelinePresupuestos,
+  textoPipelinePresupuestos,
+  fechaDeRango,
+} from "../../lib/presupuestos/pipeline";
 
 type Tab = "kanban" | "maxima";
 
@@ -36,6 +49,12 @@ function usePresupuestos() {
   const [isDemo, setIsDemo] = useState(false);
   const [demoReason, setDemoReason] = useState<string | undefined>();
   const [missingVars, setMissingVars] = useState<string[]>([]);
+  // Un fallo de carga NO puede pintarse como "0 presupuestos abiertos · 0 €"
+  // (§4). Pasaba: tanto un 500 como un error de red dejaban la lista vacía y la
+  // cabecera cantaba ceros con toda tranquilidad — indistinguible de una clínica
+  // que de verdad no tiene nada. Cazado el 2026-07-29 cuando Simon vio ceros con
+  // 123 presupuestos en la base.
+  const [error, setError] = useState<string | null>(null);
 
   // Sprint 13.1 Bloque 2 — la clinica viene SIEMPRE del ClinicContext
   // (GlobalHeader). El filtro local fue eliminado de FiltersBar.
@@ -46,21 +65,22 @@ function usePresupuestos() {
         const url = new URL("/api/presupuestos/kanban", location.href);
         if (clinicaFromContext) url.searchParams.set("clinica", clinicaFromContext);
         if (filters.doctor) url.searchParams.set("doctor", filters.doctor);
-        if (filters.tipoPaciente) url.searchParams.set("tipoPaciente", filters.tipoPaciente);
-        if (filters.tipoVisita) url.searchParams.set("tipoVisita", filters.tipoVisita);
-        if (filters.estado) url.searchParams.set("estado", filters.estado);
-        if (filters.fechaDesde) url.searchParams.set("fechaDesde", filters.fechaDesde);
-        if (filters.fechaHasta) url.searchParams.set("fechaHasta", filters.fechaHasta);
         if (filters.q) url.searchParams.set("q", filters.q);
 
         const res = await fetch(url.toString());
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const d = await res.json();
-        setPresupuestos(d.presupuestos ?? []);
+        if (!Array.isArray(d.presupuestos)) throw new Error("respuesta sin presupuestos");
+        setError(null);
+        setPresupuestos(d.presupuestos);
         setIsDemo(d.isDemo ?? false);
         setDemoReason(d.demoReason);
         setMissingVars(d.missingVars ?? []);
-      } catch {
-        setPresupuestos([]);
+      } catch (e) {
+        // Se conserva lo último que sí cargó y se DICE que no se pudo
+        // actualizar: mejor un dato de hace un minuto, señalado, que un cero
+        // inventado.
+        setError(e instanceof Error ? e.message : "error de red");
       } finally {
         setLoading(false);
       }
@@ -68,22 +88,40 @@ function usePresupuestos() {
     [],
   );
 
-  return { presupuestos, setPresupuestos, loading, isDemo, demoReason, missingVars, load };
+  return { presupuestos, setPresupuestos, loading, isDemo, demoReason, missingVars, error, load };
 }
 
 // ─── Main Shell ──────────────────────────────────────────────────────────────
 
-export default function PresupuestosShell({ user }: { user: UserSession }) {
-  const [tab, setTab] = useState<Tab>("kanban");
-  const [currentFilters, setCurrentFilters] = useState<Filters>({
-    clinica: "", doctor: "", tipoPaciente: "", tipoVisita: "",
-    estado: "", fechaDesde: "", fechaHasta: "", q: "",
-  });
+export default function PresupuestosShell({
+  user,
+  vistaInicial = "kanban",
+}: {
+  user: UserSession;
+  /** ?vista=maxima resuelto en servidor (el "Ver todos →" de la columna
+   *  Perdido aterriza ahí). Leerlo aquí de window rompía la hidratación. */
+  vistaInicial?: Tab;
+}) {
+  const [tab, setTab] = useState<Tab>(vistaInicial);
+  // Rango temporal del tablero — control único compartido con Leads.
+  const [rango, setRango] = useState<RangoKanban>(RANGO_DEFAULT);
+  const [currentFilters, setCurrentFilters] = useState<Filters>(EMPTY_FILTERS);
   // Sprint 13.1 Bloque 2 — Clínica viene del GlobalHeader (ClinicContext).
   // El campo Filters.clinica se mantiene por backwards-compat pero no se
   // usa para filtrar (siempre vacío).
   const { selectedClinicaNombre } = useClinic();
-  const { presupuestos, setPresupuestos, loading, isDemo, load } = usePresupuestos();
+  const { presupuestos, setPresupuestos, loading, isDemo, error, load } = usePresupuestos();
+
+  // El conteo de la cabecera se calcula sobre lo que el tablero PINTA (mismo
+  // rango, mismas funciones puras): un número que no cuadra con las tarjetas
+  // visibles es un número que nadie se cree.
+  const pipeline = useMemo(
+    () =>
+      contarPipelinePresupuestos(
+        presupuestos.filter((p) => dentroDeRango(fechaDeRango(p), rango)),
+      ),
+    [presupuestos, rango],
+  );
 
   const clinicasDisponibles = useMemo(() => {
     const s = new Set<string>(presupuestos.map((p) => p.clinica).filter(Boolean) as string[]);
@@ -91,12 +129,27 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
   }, [presupuestos]);
 
   // Modals / drawers
-  const [historyPresupuesto, setHistoryPresupuesto] = useState<Presupuesto | null>(null);
   const [showNew, setShowNew] = useState(false);
   const [showImportCSV, setShowImportCSV] = useState(false);
   const [editPresupuesto, setEditPresupuesto] = useState<Presupuesto | null>(null);
   const [drawerPresupuesto, setDrawerPresupuesto] = useState<Presupuesto | null>(null);
   const [intervencionItem, setIntervencionItem] = useState<PresupuestoIntervencion | null>(null);
+  // Cierre «Aceptó y pagó»: el modal de pago hace de confirmación del
+  // ACEPTADO (gemelo del MotivoPerdidaModal en PERDIDO). Nada se escribe ni
+  // se pinta hasta confirmar; cancelar no deja ningún estado a medias.
+  const [pagoCierre, setPagoCierre] = useState<{
+    id: string;
+    patientName?: string;
+    amount?: number;
+    prevEstado?: PresupuestoEstado;
+  } | null>(null);
+  // Cierre malo desde el panel de acción: «Rechazó» llegaba sin motivo
+  // (mientras kanban y drawer SÍ preguntan). Un PERDIDO sin motivo abre
+  // aquí el mismo MotivoPerdidaModal; nada se escribe hasta confirmar.
+  const [motivoPerdido, setMotivoPerdido] = useState<{
+    id: string;
+    patientName?: string;
+  } | null>(null);
   const [notifCount, setNotifCount] = useState(0);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
 
@@ -185,6 +238,30 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     estado: PresupuestoEstado,
     extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string; reactivar?: boolean }
   ) {
+    if (estado === "ACEPTADO") {
+      // Cierre bueno → modal de pago (señal, parcial, total o sin pago aún).
+      // El PATCH real sale al confirmar, en handleConfirmAceptado.
+      const src =
+        presupuestos.find((p) => p.id === id) ??
+        (intervencionItem?.id === id ? intervencionItem : undefined) ??
+        (drawerPresupuesto?.id === id ? drawerPresupuesto : undefined);
+      setPagoCierre({
+        id,
+        patientName: src?.patientName,
+        amount: src?.amount,
+        prevEstado: src?.estado,
+      });
+      return;
+    }
+    if (estado === "PERDIDO" && !extra?.motivoPerdida) {
+      // Sin motivo = viene del panel de acción («Rechazó»); kanban y drawer
+      // ya lo traen de su propio MotivoPerdidaModal.
+      const src =
+        presupuestos.find((p) => p.id === id) ??
+        (intervencionItem?.id === id ? intervencionItem : undefined);
+      setMotivoPerdido({ id, patientName: src?.patientName });
+      return;
+    }
     // Guardar estado previo para rollback puntual (patrón de LeadsView).
     const prevEstado = presupuestos.find((p) => p.id === id)?.estado;
     setPresupuestos((prev) => prev.map((p) => (p.id === id ? { ...p, estado } : p)));
@@ -221,24 +298,83 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
     }
   }
 
+  // Confirmación del cierre ACEPTADO: optimista en tablero + panel/drawer
+  // abiertos, PATCH con el pago adjunto (una sola petición: estado + cobro),
+  // rollback de los tres si falla. Si el estado se guardó pero el pago no,
+  // el servidor responde pagoRegistrado:false y se avisa honesto.
+  async function handleConfirmAceptado(pago: PagoCierre | null) {
+    if (!pagoCierre) return;
+    const { id, prevEstado } = pagoCierre;
+    setPagoCierre(null);
+    setPresupuestos((prev) => prev.map((p) => (p.id === id ? { ...p, estado: "ACEPTADO" } : p)));
+    setIntervencionItem((prev) => (prev && prev.id === id ? { ...prev, estado: "ACEPTADO" } : prev));
+    setDrawerPresupuesto((prev) => (prev && prev.id === id ? { ...prev, estado: "ACEPTADO" } : prev));
+    try {
+      const res = await fetch(`/api/presupuestos/kanban/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: "ACEPTADO", ...(pago ? { pago } : {}) }),
+      });
+      if (!res.ok) throw new Error("update failed");
+      const data = await res.json().catch(() => ({}));
+      if (pago && data.pagoRegistrado === false) {
+        toast.error(
+          "El presupuesto quedó aceptado, pero el pago no se pudo registrar. Regístralo desde la ficha del paciente.",
+        );
+      } else if (pago) {
+        toast.success(`Pago de ${pago.importe.toLocaleString("es-ES")} € registrado`);
+      }
+    } catch {
+      if (prevEstado !== undefined) {
+        setPresupuestos((prev) => prev.map((p) => (p.id === id ? { ...p, estado: prevEstado } : p)));
+        setIntervencionItem((prev) => (prev && prev.id === id ? { ...prev, estado: prevEstado } : prev));
+        setDrawerPresupuesto((prev) => (prev && prev.id === id ? { ...prev, estado: prevEstado } : prev));
+      }
+      toast.error("No se pudo aceptar el presupuesto. Inténtalo de nuevo.");
+    }
+  }
+
   function handleEdit(p: Presupuesto) {
     setEditPresupuesto(p);
   }
 
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-background)] overflow-hidden">
-      {/* Minibar: título + toggle + acciones + notificaciones */}
+      {/* Cabecera — misma anatomía que Leads (coherencia 2026-07-27): título
+          con el conteo que cuadra con las tarjetas visibles, y el toggle de
+          vistas en el patrón único del producto (SegmentedToggle, el de
+          Seguimiento y Cobros) en vez de un tercer estilo de pill local. */}
       <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-2 flex items-center gap-3 shrink-0">
-        <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">Presupuestos</h1>
-
-        <div className="flex gap-1">
-          <ToggleBtn active={tab === "kanban"} onClick={() => setTab("kanban")}>
-            Panel
-          </ToggleBtn>
-          <ToggleBtn active={tab === "maxima"} onClick={() => setTab("maxima")}>
-            Máxima
-          </ToggleBtn>
+        <div className="min-w-0">
+          <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">
+            Presupuestos
+          </h1>
+          {error ? (
+            <p className="text-xs text-[var(--color-danger)] mt-0.5 truncate">
+              No se pudieron cargar los presupuestos.{" "}
+              <button
+                type="button"
+                onClick={() => void load(currentFiltersRef.current, selectedClinicaNombre)}
+                className="font-semibold underline"
+              >
+                Reintentar
+              </button>
+            </p>
+          ) : (
+            <p className="text-xs text-[var(--color-muted)] mt-0.5 tabular-nums truncate">
+              {textoPipelinePresupuestos(pipeline)}
+            </p>
+          )}
         </div>
+
+        <SegmentedToggle
+          options={[
+            { id: "kanban", label: "Tablero" },
+            { id: "maxima", label: "Tabla" },
+          ]}
+          active={tab}
+          onChange={(id) => setTab(id)}
+        />
 
         <div className="ml-auto flex items-center gap-2">
           <button
@@ -291,7 +427,9 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
       <main className="flex-1 min-h-0 overflow-auto flex flex-col p-4 gap-4 w-full">
         {tab === "kanban" && (
           <div className="flex flex-col flex-1 min-h-0 gap-3">
-            <div className="shrink-0">
+            {/* Una sola fila de filtros, como en Leads: rango + buscador. */}
+            <div className="shrink-0 flex flex-wrap items-center gap-2">
+              <RangoTemporal value={rango} onChange={setRango} />
               <FiltersBar user={user} onFiltersChange={handleFiltersChange} />
             </div>
 
@@ -340,8 +478,20 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
                 <KanbanBoard
                   presupuestos={presupuestos}
                   onChangeEstado={handleChangeEstado}
-                  onOpenHistory={(p) => setHistoryPresupuesto(p)}
+                  onOpenFicha={(p) => setDrawerPresupuesto(p)}
                   onEdit={handleEdit}
+                  rango={rango}
+                  onVerHistorico={() => setRango("todo")}
+                  onVerTodosCerrados={(estado) => {
+                    // Archivo real de cada columna cerrada: los aceptados
+                    // viven su vida financiera en Cobros; los perdidos, en la
+                    // tabla completa (vista "Tabla").
+                    if (estado === "ACEPTADO") {
+                      window.location.href = "/cobros?vista=registro";
+                    } else {
+                      setTab("maxima");
+                    }
+                  }}
                 />
               </div>
             )}
@@ -354,11 +504,29 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
       </main>
 
       {/* Modals / drawers */}
-      {historyPresupuesto && (
-        <ContactHistoryModal
-          presupuestoId={historyPresupuesto.id}
-          patientName={historyPresupuesto.patientName}
-          onClose={() => setHistoryPresupuesto(null)}
+      {pagoCierre && (
+        <PagoCierreModal
+          patientName={pagoCierre.patientName}
+          amount={pagoCierre.amount}
+          onConfirm={handleConfirmAceptado}
+          onCancel={() => setPagoCierre(null)}
+        />
+      )}
+      {motivoPerdido && (
+        <MotivoPerdidaModal
+          patientName={motivoPerdido.patientName ?? ""}
+          onConfirm={(motivo, texto, reactivar) => {
+            const { id } = motivoPerdido;
+            setMotivoPerdido(null);
+            handleChangeEstado(id, "PERDIDO", {
+              motivoPerdida: motivo,
+              motivoPerdidaTexto: texto,
+              reactivar,
+            });
+            // El panel de acción se cierra al CONFIRMAR (cancelar no toca nada).
+            setIntervencionItem((prev) => (prev && prev.id === id ? null : prev));
+          }}
+          onCancel={() => setMotivoPerdido(null)}
         />
       )}
       {showNew && (
@@ -379,20 +547,23 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           }}
         />
       )}
+      {/* Unificación de fichas (2026-07-27): el clic en card del kanban abre
+          el MISMO panel de acción que Seguimiento y la Tabla. Antes
+          abría PatientDrawer, una ficha paralela sin el hilo de conversación
+          en la que se registraba a mano lo que había pasado. */}
       {drawerPresupuesto && (
-        <PatientDrawer
+        <FichaPresupuesto
           presupuesto={drawerPresupuesto}
           onClose={() => setDrawerPresupuesto(null)}
-          onChangeEstado={(id, estado, extra) => {
-            handleChangeEstado(id, estado, extra);
-            setDrawerPresupuesto((prev) =>
-              prev && prev.id === id ? { ...prev, estado } : prev
-            );
+          onChangeEstado={(id, estado) => {
+            handleChangeEstado(id, estado);
+            // ACEPTADO y PERDIDO se resuelven en su modal (pago / motivo) y
+            // cierran al confirmar; el resto refleja al momento.
+            if (estado !== "ACEPTADO" && estado !== "PERDIDO") {
+              setDrawerPresupuesto(null);
+            }
           }}
-          onNewForPatient={() => {
-            setDrawerPresupuesto(null);
-            setShowNew(true);
-          }}
+          onRefresh={() => load(currentFiltersRef.current, selectedClinicaNombre)}
         />
       )}
       {intervencionItem && (
@@ -401,9 +572,16 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
           onClose={() => setIntervencionItem(null)}
           onChangeEstado={(id, estado) => {
             handleChangeEstado(id, estado);
-            setIntervencionItem(null);
+            // Bloque 2 — cierre→aviso: ACEPTADO y PERDIDO se resuelven en su
+            // modal (pago / motivo de pérdida) y el cierre del panel ocurre
+            // al confirmar; cualquier otro estado cierra como antes.
+            if (estado !== "ACEPTADO" && estado !== "PERDIDO") {
+              setIntervencionItem(null);
+            }
           }}
-          onRefresh={() => setIntervencionItem(null)}
+          // Enviar/llamar ya no cierran el panel; la cola se recupera con su
+          // propio polling interno.
+          onRefresh={() => {}}
         />
       )}
       {showImportCSV && (
@@ -422,29 +600,5 @@ export default function PresupuestosShell({ user }: { user: UserSession }) {
         />
       )}
     </div>
-  );
-}
-
-function ToggleBtn({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${
-        active
-          ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
-          : "bg-[var(--color-surface)] text-[var(--color-muted)] border border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
-      }`}
-    >
-      {children}
-    </button>
   );
 }

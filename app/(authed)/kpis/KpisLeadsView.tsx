@@ -305,7 +305,7 @@ function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolea
         accent="accent"
       />
       <KpiCard
-        label="Facturado"
+        label="Cobrado"
         value={k.facturado.actual}
         formatter={formatEUR}
         subline={`Pendiente: ${formatEUR(k.facturado.pendiente)}`}
@@ -438,7 +438,7 @@ function ComparativaClinicas({
               ["leads", "Leads"],
               ["tasaCitado", "% Cita"],
               ["tasaConversion", "% Conv"],
-              ["facturado", "Facturado"],
+              ["facturado", "Cobrado"],
             ] as Array<[CritClinica, string]>
           ).map(([id, label]) => (
             <button
@@ -466,7 +466,7 @@ function ComparativaClinicas({
               <th className="text-right font-semibold py-2 px-2 w-16">Valor</th>
               <th className="text-right font-semibold py-2 px-2 w-16">% Cita</th>
               <th className="text-right font-semibold py-2 px-2 w-16">% Conv</th>
-              <th className="text-right font-semibold py-2 px-3 w-28">Facturado</th>
+              <th className="text-right font-semibold py-2 px-3 w-28">Cobrado</th>
               <th className="text-right font-semibold py-2 px-3 w-28">Pendiente</th>
             </tr>
           </thead>
@@ -569,7 +569,7 @@ function ClinicKpiDrawer({
                   value={data.kpis.pacientesCitados.actual.toString()}
                 />
                 <MiniKpi label="% Conv" value={`${data.kpis.tasaConversion.actual}%`} />
-                <MiniKpi label="Facturado" value={formatEUR(data.kpis.facturado.actual)} />
+                <MiniKpi label="Cobrado" value={formatEUR(data.kpis.facturado.actual)} />
               </div>
               <Card padding="md">
                 <p className="text-[10px] uppercase tracking-widest font-semibold text-[var(--color-muted)] mb-2">
@@ -1042,7 +1042,7 @@ function RankingDoctores({ data }: { data: ApiResponse | null }) {
               <th className="text-left font-semibold py-2 px-4">Doctor</th>
               <th className="text-right font-semibold py-2 px-3">Convertidos</th>
               <th className="text-right font-semibold py-2 px-3">Tasa</th>
-              <th className="text-right font-semibold py-2 px-4">Facturado</th>
+              <th className="text-right font-semibold py-2 px-4">Cobrado</th>
             </tr>
           </thead>
           <tbody>
@@ -1100,7 +1100,7 @@ function RankingDoctores({ data }: { data: ApiResponse | null }) {
         </table>
         {data._warning === "calculo_facturado_pendiente" && (
           <p className="text-[11px] text-[var(--color-muted)] px-4 py-2 bg-[var(--color-surface-muted)] border-t border-[var(--color-border)]">
-            Cálculo de facturado en proceso. Refresca en unos segundos.
+            Cálculo de cobros en proceso. Refresca en unos segundos.
           </p>
         )}
       </Card>

@@ -221,3 +221,21 @@ export async function updateClinicaCentralRawPg(id: string, fields: Record<strin
     return clinicaShim(r);
   });
 }
+
+/**
+ * Coordinaciones activas de una clínica (login clinic-first: el caller compara
+ * el PIN con bcrypt). MEJORAS 44 — antes leía la base CENTRAL de Airtable y
+ * filtraba la junction en memoria porque filterByFormula no sabe comparar
+ * contra record ids.
+ */
+export async function findCoordinacionesByClinicaPg(clinicaId: string): Promise<Usuario[]> {
+  const rows = await getDb()
+    .selectFrom("usuarios as u")
+    .innerJoin("usuario_clinicas as uc", "uc.usuario_id", "u.id")
+    .selectAll("u")
+    .where("uc.clinica_id", "=", clinicaId)
+    .where("u.rol", "=", "coordinacion")
+    .where("u.activo", "=", true)
+    .execute();
+  return rows.map(rowToUsuario);
+}

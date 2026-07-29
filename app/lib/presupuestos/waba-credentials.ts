@@ -62,21 +62,53 @@ export function normalizarTelefono(raw: string): string {
   return raw.replace(/[^0-9]/g, "");
 }
 
-// FASE 1 migración — repo de Configuracion_WABA (activación por clínica).
-import { base as _base, TABLES as _TABLES } from "../airtable";
+// Configuracion_WABA (activación por clínica) — Postgres (MEJORAS 44).
+// La clínica sigue identificándose por NOMBRE de cara fuera; la traducción a
+// id vive aquí.
+
+async function db() {
+  const { runWithClienteDb } = await import("../db/context");
+  const { requireCliente } = await import("../cliente-contexto");
+  return { runWithClienteDb, cliente: requireCliente("configuracion-waba") };
+}
+
+const CAMPOS: Record<string, string> = {
+  Activo: "activo",
+  Ultimo_mensaje_enviado: "ultimo_mensaje_enviado",
+  Ultimo_mensaje_recibido: "ultimo_mensaje_recibido",
+};
 
 export async function findConfigWABAPorClinicaRaw(clinica: string): Promise<any | null> {
-  const recs = await _base(_TABLES.configuracionWABA as any)
-    .select({
-      filterByFormula: `{Clinica}='${clinica}'`,
-      maxRecords: 1,
-    })
-    .firstPage();
-  return recs?.[0] ?? null;
+  const { runWithClienteDb, cliente } = await db();
+  return runWithClienteDb(cliente, async (trx) => {
+    const r = await trx
+      .selectFrom("configuracion_waba as w")
+      .innerJoin("clinicas as c", "c.id", "w.clinica_id")
+      .select(["w.id as id", "w.activo as activo", "c.nombre as nombre"])
+      .where("c.nombre", "=", clinica)
+      .executeTakeFirst();
+    return r ? { id: r.id, fields: { Clinica: r.nombre, Activo: r.activo } } : null;
+  });
 }
+
 export async function updateConfigWABARaw(id: string, fields: Record<string, unknown>): Promise<void> {
-  await (_base(_TABLES.configuracionWABA as any) as any).update(id, fields);
+  const set: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(fields)) if (CAMPOS[k]) set[CAMPOS[k]] = v;
+  if (!Object.keys(set).length) return;
+  const { runWithClienteDb, cliente } = await db();
+  await runWithClienteDb(cliente, (trx) =>
+    trx.updateTable("configuracion_waba").set(set as any).where("id", "=", id).execute());
 }
+
 export async function createConfigWABARaw(fields: Record<string, unknown>): Promise<void> {
-  await _base(_TABLES.configuracionWABA as any).create([{ fields }] as any);
+  const clinica = String(fields["Clinica"] ?? "");
+  if (!clinica) throw new Error("[configuracion-waba] falta la clínica");
+  const set: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(fields)) if (CAMPOS[k]) set[CAMPOS[k]] = v;
+  const { runWithClienteDb, cliente } = await db();
+  await runWithClienteDb(cliente, async (trx) => {
+    const c = await trx.selectFrom("clinicas").select("id").where("nombre", "=", clinica).executeTakeFirst();
+    if (!c) throw new Error(`[configuracion-waba] clínica no encontrada: ${clinica}`);
+    await trx.insertInto("configuracion_waba").values({ cliente, clinica_id: c.id, ...set } as any).execute();
+  });
 }

@@ -9,6 +9,7 @@ import { Inbox, Smartphone, MessageCircle, CheckCircle2, CalendarClock, ICON_STR
 import { EmptyState, ErrorState } from "../ui/Feedback";
 import { KpiCard } from "../ui/KpiCard";
 import type { Presupuesto, Secuencia, TipoEvento, UserSession } from "../../lib/presupuestos/types";
+import { cargarJSON, traeLista } from "../../lib/fetch-json";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,9 +56,13 @@ function TabCola({ user }: { user: UserSession }) {
       if (user.rol === "encargada_ventas" && user.clinica) {
         url.searchParams.set("clinica", user.clinica);
       }
-      const res = await fetch(url.toString());
-      const d = await res.json();
-      setSecuencias(d.secuencias ?? []);
+      // Sin comprobar el status, un 500 con {error} salía como lista vacía sin
+      // pasar por el catch: `loadError` no se activaba y la pantalla decía "no
+      // hay nada" (censo 2026-07-29). `cargarJSON` lanza.
+      const d = await cargarJSON<{ secuencias: Secuencia[] }>(url.toString(), {
+        validar: traeLista("secuencias"),
+      });
+      setSecuencias(d.secuencias);
     } catch {
       setSecuencias([]);
       setLoadError(true);
@@ -85,11 +90,20 @@ function TabCola({ user }: { user: UserSession }) {
 
   async function handleAccion(id: string, accion: "enviar" | "descartar" | "editar", mensaje?: string) {
     try {
-      await fetch("/api/automatizaciones/secuencias", {
+      const res = await fetch("/api/automatizaciones/secuencias", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, accion, mensaje }),
       });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const d = await res.json().catch(() => ({}));
+      if (accion === "enviar") {
+        // Censo wa.me a cero (2026-07-26): el saliente ya está en el hilo
+        // (servicio central, lado servidor) y SOLO entonces se abre la URL
+        // que devuelve — antes el cliente montaba wa.me por su cuenta.
+        if (d.urlWhatsApp) window.open(d.urlWhatsApp, "_blank", "noopener,noreferrer");
+        else toast.error("Registrado, pero no se pudo preparar WhatsApp. Ábrelo desde la ficha.");
+      }
       if (accion === "enviar" || accion === "descartar") {
         setSecuencias((prev) => prev.filter((s) => s.id !== id));
       } else if (accion === "editar" && mensaje != null) {
@@ -102,8 +116,8 @@ function TabCola({ user }: { user: UserSession }) {
   }
 
   function handleEnviar(sec: Secuencia) {
-    const phone = cleanPhone(sec.telefono);
-    if (phone) window.open(`https://wa.me/${phone}?text=${encodeURIComponent(sec.mensajeGenerado)}`, "_blank", "noopener,noreferrer");
+    // Persist-before-open: la URL la devuelve el servidor tras escribir el
+    // hilo (handleAccion) — aquí ya no se monta wa.me a mano.
     handleAccion(sec.id, "enviar");
   }
 
@@ -266,13 +280,18 @@ function TabHistorial({ user }: { user: UserSession }) {
       const clinicaQ = user.rol === "encargada_ventas" && user.clinica
         ? `&clinica=${encodeURIComponent(user.clinica)}` : "";
       const [r1, r2] = await Promise.all([
-        fetch(`/api/automatizaciones/secuencias?estado=enviado${clinicaQ}`).then((r) => r.json()),
-        fetch(`/api/automatizaciones/secuencias?estado=descartado${clinicaQ}`).then((r) => r.json()),
+        cargarJSON<{ secuencias: Secuencia[] }>(
+          `/api/automatizaciones/secuencias?estado=enviado${clinicaQ}`,
+          { validar: traeLista("secuencias") },
+        ),
+        cargarJSON<{ secuencias: Secuencia[] }>(
+          `/api/automatizaciones/secuencias?estado=descartado${clinicaQ}`,
+          { validar: traeLista("secuencias") },
+        ),
       ]);
-      const combined: Secuencia[] = [
-        ...(r1.secuencias ?? []),
-        ...(r2.secuencias ?? []),
-      ].sort((a, b) => (b.creadoEn > a.creadoEn ? 1 : -1));
+      const combined: Secuencia[] = [...r1.secuencias, ...r2.secuencias].sort((a, b) =>
+        b.creadoEn > a.creadoEn ? 1 : -1,
+      );
       setItems(combined);
     } catch {
       setItems([]);
@@ -406,9 +425,10 @@ function TabProximas({ user }: { user: UserSession }) {
       if (user.rol === "encargada_ventas" && user.clinica) {
         url.searchParams.set("clinica", user.clinica);
       }
-      const res = await fetch(url.toString());
-      const d = await res.json();
-      const all: Presupuesto[] = d.presupuestos ?? [];
+      const d = await cargarJSON<{ presupuestos: Presupuesto[] }>(url.toString(), {
+        validar: traeLista("presupuestos"),
+      });
+      const all: Presupuesto[] = d.presupuestos;
       const conReactivacion = all.filter((p) => p.reactivacion === true);
       // Sort: closest to 90-day mark first (ascending remaining days)
       conReactivacion.sort((a, b) => (90 - a.daysSince) - (90 - b.daysSince));

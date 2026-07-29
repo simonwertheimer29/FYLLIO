@@ -6,25 +6,19 @@ import { redirect } from "next/navigation";
 import { getSession } from "../../lib/auth/session";
 import { listClinicas } from "../../lib/auth/users";
 import { listLeads } from "../../lib/leads/leads";
-import { base, TABLES, fetchAll, runWithCliente } from "../../lib/airtable";
+import { listDoctores } from "@/lib/staff/doctores";
+import { runWithCliente } from "../../lib/cliente-contexto";
 import { clinicasNegocioAccesibles, negocioIdToCentralId } from "../../lib/clinicas-negocio";
+import { ultimosMensajesPorConversacion } from "../../lib/presupuestos/mensajeria";
+import { ultimasAccionesDireccionPorLead } from "../../lib/leads/acciones";
+import {
+  estadoConversacion,
+  UMBRAL_REACTIVACION_MS,
+} from "../../lib/presupuestos/estado-conversacion";
 import { LeadsView } from "./LeadsView";
 
 export const dynamic = "force-dynamic";
 
-async function listDoctores(): Promise<Array<{ id: string; nombre: string; clinicaId: string | null }>> {
-  const recs = await fetchAll(
-    base(TABLES.staff).select({ filterByFormula: "{Rol}='Dentista'" })
-  );
-  return recs.map((r) => {
-    const clis = (r.fields?.["Clínica"] ?? []) as string[];
-    return {
-      id: r.id,
-      nombre: String(r.fields?.["Nombre"] ?? ""),
-      clinicaId: clis[0] ?? null,
-    };
-  });
-}
 
 export default async function LeadsPage() {
   const session = await getSession();
@@ -42,14 +36,33 @@ export default async function LeadsPage() {
         clinicasNegocioAccesibles(session),
         listDoctores(),
       ]);
-      const leads = await listLeads({
-        clinicaIds: scope.ids === null ? undefined : scope.ids,
+      const [leads, ultimos, accionesLead] = await Promise.all([
+        listLeads({ clinicaIds: scope.ids === null ? undefined : scope.ids }),
+        // Pasada visual 2026-07-27 — la card necesita decir algo verdadero
+        // sobre el tiempo ("sin respuesta hace 3 días" NO se puede medir desde
+        // la captación). Se leen las MISMAS fuentes que /red y /seguimiento y
+        // se clasifica con el MISMO motor: aquí no nace ningún criterio.
+        ultimosMensajesPorConversacion(),
+        ultimasAccionesDireccionPorLead(),
+      ]);
+      const masReciente = (a?: string | null, b?: string | null) =>
+        !a ? (b ?? null) : !b || a > b ? a : b;
+      const leadsWithClinica = leads.map((l) => {
+        const hilo = ultimos.porLead.get(l.id);
+        const entranteAt = masReciente(accionesLead.entrantePorLead[l.id], hilo?.entranteAt);
+        const salienteAt = masReciente(accionesLead.salientePorLead[l.id], hilo?.salienteAt);
+        return {
+          ...l,
+          clinicaId: negocioIdToCentralId(scope, l.clinicaId),
+          clinicaNombre: l.clinicaId ? scope.nombreById.get(l.clinicaId) ?? null : null,
+          entranteAt,
+          salienteAt,
+          conversacion: estadoConversacion(
+            { ultimoEntranteAt: entranteAt, ultimoSalienteAt: salienteAt },
+            UMBRAL_REACTIVACION_MS.lead,
+          ).estado,
+        };
       });
-      const leadsWithClinica = leads.map((l) => ({
-        ...l,
-        clinicaId: negocioIdToCentralId(scope, l.clinicaId),
-        clinicaNombre: l.clinicaId ? scope.nombreById.get(l.clinicaId) ?? null : null,
-      }));
       const doctoresCentral = doctores.map((d) => ({
         ...d,
         clinicaId: negocioIdToCentralId(scope, d.clinicaId),

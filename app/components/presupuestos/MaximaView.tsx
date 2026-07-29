@@ -14,6 +14,7 @@ import type {
 import { ESTADO_VISUAL_CONFIG } from "../../lib/presupuestos/colors";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { CardListSkeleton, KpiCardSkeleton } from "../ui/Skeleton";
+import { hoyISO } from "../../lib/time";
 
 // ─── Filter pill categories ─────────────────────────────────────────────────
 
@@ -30,7 +31,10 @@ const PILL_DEFS: { id: PillCategory; label: string; estadosVisuales: EstadoVisua
 
 // ─── Sort fields ─────────────────────────────────────────────────────────────
 
-type SortField = "urgency" | "fecha" | "amount" | "nombre";
+// Ordenar por "urgencia" vivía aquí sin cabecera que lo disparase (MEJORAS 40):
+// código muerto de un criterio muerto. La fecha del presupuesto ordenada desc
+// ES el orden por días parados, así que no hace falta una cuarta columna.
+type SortField = "fecha" | "amount" | "nombre";
 
 function formatCurrency(n: number): string {
   return n.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + " €";
@@ -138,9 +142,6 @@ export default function MaximaView({
     const sorted = [...items].sort((a, b) => {
       let cmp = 0;
       switch (sortField) {
-        case "urgency":
-          cmp = a.urgencyScore - b.urgencyScore;
-          break;
         case "fecha":
           cmp = a.fechaPresupuesto.localeCompare(b.fechaPresupuesto);
           break;
@@ -457,17 +458,22 @@ export default function MaximaView({
                           >
                             <Phone size={14} strokeWidth={ICON_STROKE} aria-hidden />
                           </a>
-                          <a
-                            href={`https://wa.me/${p.patientPhone.replace(/\D/g, "")}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            onClick={(e) => e.stopPropagation()}
+                          {/* Censo wa.me a cero (2026-07-26): abre el PANEL de
+                              conversación (hilo + composer con servicio
+                              central), nunca wa.me a pelo — aquello abría un
+                              chat vacío y fingía un registro sin contenido. */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenDrawer(p);
+                            }}
                             className="rounded p-1 text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--fyllio-wa-green)]"
-                            title="WhatsApp"
-                            aria-label="Enviar WhatsApp"
+                            title="Abrir conversación"
+                            aria-label="Abrir conversación"
                           >
                             <MessageCircle size={14} strokeWidth={ICON_STROKE} aria-hidden />
-                          </a>
+                          </button>
                         </>
                       )}
                     </div>
@@ -511,7 +517,7 @@ function ExportCsvButton({
       const blob = await res.blob();
       const cd = res.headers.get("content-disposition") ?? "";
       const filenameMatch = cd.match(/filename="([^"]+)"/i);
-      const today = new Date().toISOString().slice(0, 10);
+      const today = hoyISO();
       const filename = filenameMatch?.[1] ?? `fyllio_presupuestos_${today}.csv`;
       const objUrl = URL.createObjectURL(blob);
       const a = document.createElement("a");

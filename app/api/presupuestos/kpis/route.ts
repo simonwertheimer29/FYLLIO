@@ -2,7 +2,6 @@
 
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
-import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import type {
   Presupuesto, UserSession, KpiData, KpiPorEstado, KpiPorDoctor,
@@ -10,9 +9,7 @@ import type {
   KpiTendenciaTarifa, KpiTendenciaVisita,
   KpiPorOrigen, KpiPorMotivoPerdida, KpiPorClinica,
 } from "../../../lib/presupuestos/types";
-import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
 import { PIPELINE_ORDEN, ESTADOS_ACEPTADOS } from "../../../lib/presupuestos/colors";
-import { computeUrgencyScore } from "../../../lib/presupuestos/urgency";
 import { detectarTecho } from "../../../lib/presupuestos/priceCeiling";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import {
@@ -20,6 +17,7 @@ import {
   permiteClinica,
   formulaClinicaPermitida,
 } from "../../../lib/presupuestos/clinica-scope";
+import { catalogoTiposPaciente } from "../../../lib/pacientes/tipos-paciente";
 
 const ZONE = "Europe/Madrid";
 
@@ -45,7 +43,17 @@ function isoToYYYYMM(iso: string): string {
   return iso.slice(0, 7);
 }
 
-function buildKpis(allPresupuestos: Presupuesto[]): KpiData {
+function buildKpis(allPresupuestos: Presupuesto[], catalogo: string[] = []): KpiData {
+  // Las tarifas a medir: el catálogo configurable de la clínica MÁS cualquier
+  // valor que ya exista en los datos. Lo segundo evita que un cambio en Ajustes
+  // haga desaparecer histórico de las gráficas — el dato pasado no se borra
+  // porque hoy ya no se ofrezca esa mutua.
+  const tarifas = Array.from(
+    new Set([
+      ...catalogo,
+      ...allPresupuestos.map((p) => p.tipoPaciente).filter((t): t is string => !!t),
+    ]),
+  );
   const now = new Date();
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -193,13 +201,13 @@ function buildKpis(allPresupuestos: Presupuesto[]): KpiData {
 
     tendenciaMensual.push({ mes, label, total: list.length, aceptados: countAcepted(list) });
 
-    const privados = list.filter((p) => p.tipoPaciente === "Privado");
-    const adeslas = list.filter((p) => p.tipoPaciente === "Adeslas");
-    tendenciaPorTarifa.push({
-      mes, label,
-      privado: privados.length, privadoAcept: countAcepted(privados),
-      adeslas: adeslas.length, adeslasAcept: countAcepted(adeslas),
-    });
+    const fila: KpiTendenciaTarifa = { mes, label };
+    for (const tarifa of tarifas) {
+      const delTipo = list.filter((p) => p.tipoPaciente === tarifa);
+      fila[tarifa] = delTipo.length;
+      fila[`${tarifa}__acept`] = countAcepted(delTipo);
+    }
+    tendenciaPorTarifa.push(fila);
 
     const primera = list.filter((p) => p.tipoVisita === "Primera Visita");
     const historia = list.filter((p) => p.tipoVisita === "Paciente con Historia");
@@ -269,7 +277,8 @@ function buildKpis(allPresupuestos: Presupuesto[]): KpiData {
     porEstado,
     porDoctor,
     porTratamiento,
-    porTipoPaciente: ["Privado", "Adeslas"].map(tipoFn),
+    porTipoPaciente: tarifas.map(tipoFn),
+    tarifas,
     porTipoVisita: ["Primera Visita", "Paciente con Historia"].map(visitaFn),
     tendenciaMensual,
     tendenciaPorTarifa,
@@ -329,14 +338,12 @@ async function fetchFromAirtable(session: UserSession, clinicaFormula: string | 
         daysSince: daysSince(fechaPresupuesto),
         clinica: f["Clinica"] ? String(f["Clinica"]) : undefined,
         notes: f["Notas"] ? String(f["Notas"]) : undefined,
-        urgencyScore: 0,
         lastContactDate: undefined,
         lastContactDaysAgo: undefined,
         contactCount: Number(f["ContactCount"] ?? 0),
         origenLead: f["OrigenLead"] ?? undefined,
         motivoPerdida: f["MotivoPerdida"] ?? undefined,
       };
-      p.urgencyScore = computeUrgencyScore(p);
       return p;
     });
   } catch {
@@ -368,26 +375,24 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const prevDate = new Date(mesY, mesM - 2, 1);
   const mesPrevio = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
 
-  // Try Airtable first
-  const airtableData = await fetchFromAirtable(session, clinicaFormula, doctor);
-  let data: Presupuesto[];
-  let isDemo = false;
-
-  if (airtableData) {
-    data = airtableData;
-  } else {
-    isDemo = true;
-    data = [...DEMO_PRESUPUESTOS];
-    if (efectivas) data = data.filter((p) => efectivas.has(p.clinica ?? ""));
-    if (doctor) data = data.filter((p) => p.doctor === doctor);
+  // Si la carga falla, los KPIs NO se calculan sobre presupuestos inventados:
+  // eran números de negocio con cara de reales sobre los que se toman
+  // decisiones (§4, 2026-07-29).
+  const datosReales = await fetchFromAirtable(session, clinicaFormula, doctor);
+  if (!datosReales) {
+    return NextResponse.json({ error: "No se pudieron cargar los KPIs" }, { status: 500 });
   }
+  const data: Presupuesto[] = datosReales;
+  const isDemo = false;
 
   const dataMes = data.filter((p) => isoToYYYYMM(p.fechaPresupuesto) === mesFiltro);
   const dataPrevMes = data.filter((p) => isoToYYYYMM(p.fechaPresupuesto) === mesPrevio);
 
-  const kpis = buildKpis(data);
-  const kpisMes = buildKpis(dataMes);
-  const kpisPrevMes = buildKpis(dataPrevMes);
+  // El catálogo se lee UNA vez y se pasa a los tres cortes.
+  const catalogo = (await catalogoTiposPaciente(null)).map((t) => t.valor);
+  const kpis = buildKpis(data, catalogo);
+  const kpisMes = buildKpis(dataMes, catalogo);
+  const kpisPrevMes = buildKpis(dataPrevMes, catalogo);
 
   return NextResponse.json({ kpis, kpisMes, kpisPrevMes, isDemo, mes: mesFiltro });
 });

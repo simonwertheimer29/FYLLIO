@@ -2,8 +2,6 @@
 //
 // Sprint 16b Bloque 1 — repo Airtable de Reglas / Acciones / Eventos.
 
-import { base, fetchAll, TABLES } from "../airtable";
-import { usaPostgres } from "../db/data-backend";
 import type {
   Regla,
   AccionLog,
@@ -53,22 +51,9 @@ function toRegla(rec: any): Regla {
 }
 
 export async function listReglas(): Promise<Regla[]> {
-  if (usaPostgres("automatizaciones")) {
-    const pg = await import("./pg");
-    return pg.listReglasPg();
-  }
-  // Defensivo: si la tabla no existe en prod (migración no corrida),
-  // devolvemos lista vacía en lugar de tumbar al caller (cron, KPIs UI).
-  // Logueamos para que aparezca en Vercel logs.
-  try {
-    const recs = await fetchAll(
-      base(TABLES.reglasAutomatizacion).select({}),
-    );
-    return recs.map(toRegla);
-  } catch (err) {
-    console.error("[automatizaciones listReglas] tabla inaccesible:", err);
-    return [];
-  }
+  const pg = await import("./pg");
+  return pg.listReglasPg();
+  
 }
 
 /** Devuelve reglas activas que coinciden con el trigger. Aplica
@@ -104,55 +89,11 @@ export async function listReglasActivasParaTrigger(
 }
 
 export async function getRegla(id: string): Promise<Regla | null> {
-  if (usaPostgres("automatizaciones")) {
-    const pg = await import("./pg");
-    return pg.getReglaPg(id);
-  }
-  try {
-    const rec = await base(TABLES.reglasAutomatizacion).find(id);
-    return toRegla(rec);
-  } catch {
-    return null;
-  }
+  const pg = await import("./pg");
+  return pg.getReglaPg(id);
+  
 }
 
-export async function createRegla(input: {
-  codigo: string;
-  nombre: string;
-  descripcion: string;
-  triggerTipo: TriggerTipo;
-  condiciones: Condicion[];
-  acciones: Accion[];
-  clinicaId?: string | null;
-  activa?: boolean;
-  modoTest?: boolean;
-  pacienteTestId?: string | null;
-}): Promise<Regla> {
-  const now = new Date().toISOString();
-  const fields: Record<string, any> = {
-    Resumen: input.nombre,
-    Codigo: input.codigo,
-    Nombre: input.nombre,
-    Descripcion: input.descripcion,
-    Trigger_Tipo: input.triggerTipo,
-    Condiciones: JSON.stringify(input.condiciones),
-    Acciones: JSON.stringify(input.acciones),
-    Activa: input.activa ?? true,
-    Modo_Test: input.modoTest ?? false,
-    Veces_Disparada: 0,
-    Created_At: now,
-    Updated_At: now,
-  };
-  if (input.clinicaId) fields.Clinica_Link = [input.clinicaId];
-  if (input.pacienteTestId) fields.Paciente_Test_Id = input.pacienteTestId;
-
-  const created = (
-    await base(TABLES.reglasAutomatizacion).create([{ fields }], {
-      typecast: true,
-    })
-  )[0]!;
-  return toRegla(created);
-}
 
 export async function updateRegla(
   id: string,
@@ -166,44 +107,15 @@ export async function updateRegla(
     descripcion: string;
   }>,
 ): Promise<Regla> {
-  if (usaPostgres("automatizaciones")) {
-    const pg = await import("./pg");
-    return pg.updateReglaPg(id, patch as Record<string, unknown>);
-  }
-  const fields: Record<string, any> = { Updated_At: new Date().toISOString() };
-  if (patch.activa !== undefined) fields.Activa = patch.activa;
-  if (patch.modoTest !== undefined) fields.Modo_Test = patch.modoTest;
-  if (patch.pacienteTestId !== undefined)
-    fields.Paciente_Test_Id = patch.pacienteTestId ?? "";
-  if (patch.condiciones !== undefined)
-    fields.Condiciones = JSON.stringify(patch.condiciones);
-  if (patch.acciones !== undefined)
-    fields.Acciones = JSON.stringify(patch.acciones);
-  if (patch.nombre !== undefined) fields.Nombre = patch.nombre;
-  if (patch.descripcion !== undefined) fields.Descripcion = patch.descripcion;
-
-  const updated = (
-    await base(TABLES.reglasAutomatizacion).update([{ id, fields }])
-  )[0]!;
-  return toRegla(updated);
+  const pg = await import("./pg");
+  return pg.updateReglaPg(id, patch as Record<string, unknown>);
+  
 }
 
 export async function incrementarDisparos(reglaId: string): Promise<void> {
-  if (usaPostgres("automatizaciones")) {
-    const pg = await import("./pg");
-    return pg.incrementarDisparosPg(reglaId);
-  }
-  const r = await getRegla(reglaId);
-  if (!r) return;
-  await base(TABLES.reglasAutomatizacion).update([
-    {
-      id: reglaId,
-      fields: {
-        Veces_Disparada: r.vecesDisparada + 1,
-        Ultima_Disparada_At: new Date().toISOString(),
-      },
-    },
-  ]);
+  const pg = await import("./pg");
+  return pg.incrementarDisparosPg(reglaId);
+  
 }
 
 // ─── Acciones (log) ───────────────────────────────────────────────────
@@ -216,23 +128,9 @@ export async function logAccion(input: {
   resultado: ResultadoEjecucion;
   detalle: Record<string, unknown>;
 }): Promise<void> {
-  if (usaPostgres("automatizaciones")) {
-    const pg = await import("./pg");
-    return pg.logAccionPg(input);
-  }
-  const fields: Record<string, any> = {
-    Resumen: `${input.reglaId.slice(-6)} · ${input.resultado}`,
-    Regla_Link: [input.reglaId],
-    Resultado: input.resultado,
-    Detalle: JSON.stringify(input.detalle),
-    Ejecutada_At: new Date().toISOString(),
-  };
-  if (input.pacienteId) fields.Paciente_Link = [input.pacienteId];
-  if (input.leadId) fields.Lead_Link = [input.leadId];
-  if (input.presupuestoId) fields.Presupuesto_Link = [input.presupuestoId];
-  await base(TABLES.accionesAutomatizacion).create([{ fields }], {
-    typecast: true,
-  });
+  const pg = await import("./pg");
+  return pg.logAccionPg(input);
+  
 }
 
 export type AccionLogRow = AccionLog & {
@@ -261,35 +159,9 @@ function toAccionLog(rec: any): AccionLog {
 export async function listAcciones(
   filtros: { reglaId?: string; soloErrores?: boolean; limit?: number } = {},
 ): Promise<AccionLog[]> {
-  if (usaPostgres("automatizaciones")) {
-    const pg = await import("./pg");
-    return pg.listAccionesPg(filtros);
-  }
-  const formulas: string[] = [];
-  if (filtros.reglaId) {
-    formulas.push(
-      `FIND("${filtros.reglaId}", ARRAYJOIN({Regla_Link}, ","))`,
-    );
-  }
-  if (filtros.soloErrores) {
-    formulas.push(`{Resultado} = "error"`);
-  }
-  const filterByFormula =
-    formulas.length === 0
-      ? undefined
-      : formulas.length === 1
-        ? formulas[0]
-        : `AND(${formulas.join(", ")})`;
-
-  const recs = await fetchAll(
-    base(TABLES.accionesAutomatizacion).select({
-      ...(filterByFormula ? { filterByFormula } : {}),
-      sort: [{ field: "Ejecutada_At", direction: "desc" }],
-      pageSize: 100,
-    }),
-  );
-  const limit = filtros.limit ?? 50;
-  return recs.slice(0, limit).map(toAccionLog);
+  const pg = await import("./pg");
+  return pg.listAccionesPg(filtros);
+  
 }
 
 // ─── Eventos ──────────────────────────────────────────────────────────
@@ -300,26 +172,9 @@ export async function emitirEventoRow(input: {
   entidadId: string;
   payload: Record<string, unknown>;
 }): Promise<void> {
-  if (usaPostgres("automatizaciones")) {
-    const pg = await import("./pg");
-    return pg.emitirEventoRowPg(input);
-  }
-  await base(TABLES.eventosSistema).create(
-    [
-      {
-        fields: {
-          Resumen: `${input.tipo} · ${input.entidadId.slice(-6)}`,
-          Tipo: input.tipo,
-          Entidad_Tipo: input.entidadTipo,
-          Entidad_Id: input.entidadId,
-          Payload: JSON.stringify(input.payload),
-          Procesado: false,
-          Created_At: new Date().toISOString(),
-        },
-      },
-    ],
-    { typecast: true },
-  );
+  const pg = await import("./pg");
+  return pg.emitirEventoRowPg(input);
+  
 }
 
 // ─────────────────────────────────────────────────────────────────────
@@ -330,27 +185,16 @@ export async function emitirEventoRow(input: {
 /** Eventos lead_creado sin procesar anteriores a `antesDeIso` (trigger
  *  lead_sin_gestionar_2h). Records crudos: el cron lee Payload/Entidad_Id. */
 export async function listEventosLeadCreadoSinProcesarRaw(antesDeIso: string): Promise<any[]> {
-  if (usaPostgres("automatizaciones")) {
-    const pg = await import("./pg");
-    return pg.listEventosLeadCreadoSinProcesarRawPg(antesDeIso);
-  }
-  return fetchAll(
-    base(TABLES.eventosSistema).select({
-      filterByFormula: `AND({Tipo}="lead_creado", NOT({Procesado}), IS_BEFORE({Created_At}, "${antesDeIso}"))`,
-      pageSize: 100,
-    }),
-  );
+  const pg = await import("./pg");
+  return pg.listEventosLeadCreadoSinProcesarRawPg(antesDeIso);
+  
 }
 
 /** Marca un evento del sistema como procesado. */
 export async function marcarEventoProcesado(eventoId: string): Promise<void> {
-  if (usaPostgres("automatizaciones")) {
-    const pg = await import("./pg");
-    return pg.marcarEventoProcesadoPg(eventoId);
-  }
-  await base(TABLES.eventosSistema).update([
-    { id: eventoId, fields: { Procesado: true } },
-  ]);
+  const pg = await import("./pg");
+  return pg.marcarEventoProcesadoPg(eventoId);
+  
 }
 
 /**
@@ -363,33 +207,7 @@ export async function yaDisparadaRecientemente(args: {
   pacienteId?: string;
   dias: number;
 }): Promise<boolean> {
-  if (usaPostgres("automatizaciones")) {
-    const pg = await import("./pg");
-    return pg.yaDisparadaRecientementePg(args);
-  }
-  const desde = new Date(
-    Date.now() - args.dias * 24 * 3600 * 1000,
-  ).toISOString();
-  const partes: string[] = [
-    `FIND("${args.reglaId}", ARRAYJOIN({Regla_Link}, ","))`,
-    `{Resultado}="success"`,
-    `IS_AFTER({Ejecutada_At}, "${desde}")`,
-  ];
-  if (args.presupuestoId) {
-    partes.push(
-      `FIND("${args.presupuestoId}", ARRAYJOIN({Presupuesto_Link}, ","))`,
-    );
-  }
-  if (args.pacienteId) {
-    partes.push(
-      `FIND("${args.pacienteId}", ARRAYJOIN({Paciente_Link}, ","))`,
-    );
-  }
-  const recs = await fetchAll(
-    base(TABLES.accionesAutomatizacion).select({
-      filterByFormula: `AND(${partes.join(", ")})`,
-      maxRecords: 1,
-    }),
-  );
-  return recs.length > 0;
+  const pg = await import("./pg");
+  return pg.yaDisparadaRecientementePg(args);
+  
 }

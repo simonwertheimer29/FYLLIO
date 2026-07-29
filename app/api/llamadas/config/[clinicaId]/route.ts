@@ -9,7 +9,6 @@ import { findConfigPorCategoriaYClinicaRaw, updateConfigClinicaRaw, createConfig
 import { NextResponse } from "next/server";
 import { withAuth } from "../../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../../lib/auth/users";
-import { fetchAll, base, TABLES } from "../../../../lib/airtable";
 
 export const dynamic = "force-dynamic";
 

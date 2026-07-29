@@ -14,35 +14,26 @@ import {
 } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
 import type { Presupuesto, PresupuestoEstado, MotivoPerdida } from "../../lib/presupuestos/types";
+import { Check, Copy, ICON_STROKE } from "../icons";
+import { dentroDeRango, type RangoKanban } from "../shared/RangoTemporal";
+// El rango temporal (2026-07-26) sustituye el corte fijo de 14 días de las
+// columnas cerradas y aplica a TODAS. `fechaDeRango` vive en lib/pipeline
+// para que la cabecera cuente exactamente lo mismo que pinta el tablero.
+import { fechaDeRango } from "../../lib/presupuestos/pipeline";
 import { ESTADO_CONFIG, PIPELINE_ORDEN, ORIGEN_LABEL } from "../../lib/presupuestos/colors";
-import { calcularProbabilidad } from "../../lib/presupuestos/probability";
 import MotivoPerdidaModal from "./MotivoPerdidaModal";
-import { StatePill, type StatePillVariant } from "../ui/StatePill";
+import { eur } from "../shared/Cifra";
 
-// Sprint 13 Bloque 4 — Kanban Presupuestos al estilo Leads.
-// Helper: probabilidad → variante StatePill.
-function probToVariant(prob: number): StatePillVariant {
-  if (prob >= 60) return "success";
-  if (prob >= 30) return "warning";
-  return "danger";
-}
-
-// Tipo paciente / TipoVisita → variant neutral (todas).
-const PILL_NEUTRAL: StatePillVariant = "neutral";
-
-// Sprint 13.1 Bloque 3.2 — Barra de color superior por columna.
-// 3px que se asienta UNA VEZ encima del header. Cards quedan blancas
-// neutras como en Kanban Leads (sin border-left coloreado por card).
-// Sprint 15 Bloque 15.5 hotfix — barras subidas de 3px a 5px y
-// saturación elevada (-400/-500/-600) para que la columna se identifique
-// visualmente sin recurrir al header completo de color.
-const COLUMN_TOP_BAR: Record<PresupuestoEstado, string> = {
-  PRESENTADO: "bg-[var(--color-accent)]/60",
-  INTERESADO: "bg-[var(--color-accent)]",
-  EN_DUDA: "bg-amber-500",
-  EN_NEGOCIACION: "bg-orange-600",
-  ACEPTADO: "bg-emerald-600",
-  PERDIDO: "bg-rose-500",
+// Coherencia de kanban (2026-07-27): la columna se identifica por el color de
+// su contador, exactamente como en Leads (que es el canon). Antes era una barra
+// superior de 5px sobre un marco gris — otro lenguaje visual para lo mismo.
+const COLUMN_PILL: Record<PresupuestoEstado, string> = {
+  PRESENTADO: "bg-[var(--color-surface-muted)] text-[var(--color-foreground)]",
+  INTERESADO: "bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
+  EN_DUDA: "bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300",
+  EN_NEGOCIACION: "bg-orange-100 text-orange-800 dark:bg-orange-500/10 dark:text-orange-300",
+  ACEPTADO: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300",
+  PERDIDO: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
 };
 
 // ------------------------------------------------------------------
@@ -53,152 +44,156 @@ const COLUMN_TOP_BAR: Record<PresupuestoEstado, string> = {
 
 function CompactCard({
   presupuesto,
-  prob,
-  onOpenHistory,
+  onOpenFicha,
   onEdit,
 }: {
   presupuesto: Presupuesto;
-  prob: number | null;
-  onOpenHistory: (p: Presupuesto) => void;
+  /** Clic en la card / botón WhatsApp → ficha del paciente (canon Leads). */
+  onOpenFicha: (p: Presupuesto) => void;
   onEdit: (p: Presupuesto) => void;
 }) {
-  const p = presupuesto;
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: p.id });
-
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: presupuesto.id });
   return (
     <div
       ref={setNodeRef}
       {...attributes}
       {...listeners}
+      onClick={(e) => {
+        // Canon Leads: la card entera abre la ficha (no un modal de historial).
+        if (isDragging) return;
+        e.stopPropagation();
+        onOpenFicha(presupuesto);
+      }}
+      className={isDragging ? "opacity-40" : ""}
+    >
+      <CompactCardBody presupuesto={presupuesto} onOpenFicha={onOpenFicha} onEdit={onEdit} />
+    </div>
+  );
+}
+
+// Cuerpo visual: lo comparten la card del tablero y el fantasma que se
+// arrastra (canon Leads — se arrastra la tarjeta entera, no una miniatura).
+function CompactCardBody({
+  presupuesto,
+  onOpenFicha,
+  onEdit,
+}: {
+  presupuesto: Presupuesto;
+  onOpenFicha: (p: Presupuesto) => void;
+  onEdit: (p: Presupuesto) => void;
+}) {
+  const p = presupuesto;
+  const [copied, setCopied] = useState(false);
+
+  async function copyPhone(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!p.patientPhone) return;
+    try {
+      await navigator.clipboard.writeText(p.patientPhone);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {}
+  }
+
+  return (
+    <article
       style={{
         borderColor: "var(--card-border)",
-        boxShadow: isDragging ? undefined : "var(--card-shadow-rest)",
+        boxShadow: "var(--card-shadow-rest)",
       }}
-      className={`group rounded-xl border bg-[var(--color-surface)] px-3 py-2.5 cursor-grab active:cursor-grabbing select-none transition-[box-shadow,border-color] duration-150 ${
-        isDragging
-          ? "opacity-40"
-          : "hover:[border-color:var(--card-border-hover)] hover:[box-shadow:var(--card-shadow-hover)]"
-      }`}
+      className="rounded-xl border bg-[var(--color-surface)] p-3 text-xs cursor-pointer select-none transition-[box-shadow,border-color] duration-150 hover:[border-color:var(--card-border-hover)] hover:[box-shadow:var(--card-shadow-hover)]"
     >
-      {/* Nombre + score discreto a la derecha */}
-      <div className="flex items-start gap-2">
-        <a
-          href={`/presupuestos/paciente/${encodeURIComponent(p.patientName)}`}
-          className="text-sm font-semibold text-[var(--color-foreground)] leading-tight flex-1 min-w-0 truncate hover:text-[var(--color-accent)] hover:underline"
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {p.patientName}
-        </a>
-        {prob != null && (
-          <StatePill variant={probToVariant(prob)} size="sm" title={`Prob. cierre ${prob}%`}>
-            <span className="tabular-nums">{prob}%</span>
-          </StatePill>
-        )}
-      </div>
+      {/* Nombre — misma jerarquía que la card de Leads */}
+      <p className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight">
+        {p.patientName}
+      </p>
 
-      {/* Tag tratamiento principal + +N */}
-      {p.treatments.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-1.5">
-          <StatePill variant={PILL_NEUTRAL} size="sm">
+      {/* Tags: tratamiento principal (acento) + origen (neutral). Fuera
+          TipoPaciente/TipoVisita: ruido que no cambia ninguna decisión. */}
+      <div className="flex flex-wrap gap-1 mt-1.5">
+        {p.treatments[0] && (
+          <span className="inline-flex rounded-md bg-[var(--color-accent-soft)] text-[var(--color-accent)] border border-transparent px-1.5 py-0.5 text-[10px] font-medium">
             {p.treatments[0]}
-          </StatePill>
-          {p.treatments.length > 1 && (
-            <StatePill variant={PILL_NEUTRAL} size="sm">
-              +{p.treatments.length - 1}
-            </StatePill>
-          )}
-        </div>
-      )}
-
-      {/* TipoPaciente + TipoVisita + OrigenLead — todos neutrales */}
-      {(p.tipoPaciente || p.tipoVisita || p.origenLead) && (
-        <div className="flex flex-wrap gap-1 mt-1">
-          {p.tipoPaciente && (
-            <StatePill variant={PILL_NEUTRAL} size="sm">
-              {p.tipoPaciente}
-            </StatePill>
-          )}
-          {p.tipoVisita && (
-            <StatePill variant={PILL_NEUTRAL} size="sm">
-              {p.tipoVisita === "Primera Visita" ? "1ª Visita" : "Con historial"}
-            </StatePill>
-          )}
-          {p.origenLead && (
-            <StatePill variant={PILL_NEUTRAL} size="sm">
-              {ORIGEN_LABEL[p.origenLead]}
-            </StatePill>
-          )}
-        </div>
-      )}
-
-      {/* Bottom row: importe + fecha + dias */}
-      <div className="flex items-center justify-between mt-2 gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          {p.amount != null && (
-            <span className="font-display text-sm font-semibold text-[var(--color-foreground)] tabular-nums">
-              €{p.amount.toLocaleString("es-ES")}
-            </span>
-          )}
-          <span className="text-[10px] text-[var(--color-muted)] tabular-nums">
-            {p.fechaPresupuesto.split("-").reverse().join("/")}
+            {p.treatments.length > 1 ? ` +${p.treatments.length - 1}` : ""}
           </span>
-        </div>
-        <span className="text-[10px] text-[var(--color-muted)] shrink-0 tabular-nums">{p.daysSince}d</span>
+        )}
+        {p.origenLead && (
+          <span className="inline-flex rounded-md bg-[var(--color-surface-muted)] text-[var(--color-muted)] border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] font-medium">
+            {ORIGEN_LABEL[p.origenLead]}
+          </span>
+        )}
       </div>
 
-      {/* Quick actions — visibles solo en hover (consistencia con Leads) */}
-      <div
-        className="flex items-center gap-1 mt-2 pt-1.5 border-t border-[var(--color-border)] opacity-0 group-hover:opacity-100 transition-opacity"
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        {p.patientPhone && (
-          <a
-            href={`tel:${p.patientPhone}`}
-            className="flex-1 text-center text-[10px] font-medium px-2 py-1 rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-accent-soft)] transition-colors"
-            title="Llamar"
-            draggable={false}
-            onClick={(e) => e.stopPropagation()}
+      {p.patientPhone && (
+        <div className="flex items-center gap-1 mt-2">
+          <span className="text-[var(--color-muted)] text-[11px] font-mono truncate tabular-nums">
+            {p.patientPhone}
+          </span>
+          <button
+            type="button"
+            onClick={copyPhone}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
+            title="Copiar"
+            aria-label="Copiar teléfono"
           >
-            Llamar
-          </a>
+            {copied ? (
+              <Check size={12} strokeWidth={ICON_STROKE} className="text-[var(--color-success)]" aria-hidden />
+            ) : (
+              <Copy size={12} strokeWidth={ICON_STROKE} aria-hidden />
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* Importe + días parados: los dos datos que deciden la prioridad —
+          el MISMO criterio que ordena la columna, legible en la card. */}
+      <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--color-muted)]">
+        {p.amount != null && (
+          <span className="font-display text-sm font-semibold text-[var(--color-foreground)] tabular-nums">
+            €{p.amount.toLocaleString("es-ES")}
+          </span>
         )}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            onOpenHistory(p);
-          }}
-          className="flex-1 text-[10px] font-medium px-2 py-1 rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-accent-soft)] transition-colors"
-          title="Historial"
-          draggable={false}
-        >
-          Historial
-        </button>
+        <span className="ml-auto tabular-nums">hace {p.daysSince}d</span>
+      </div>
+
+      {/* Acciones: Llamar + WhatsApp (a la ficha) + Editar. Fuera
+          "Historial" (abría un modal roto). */}
+      <div className="flex gap-1 mt-2.5" onPointerDown={(e) => e.stopPropagation()}>
+        {p.patientPhone && (
+          <>
+            <a
+              href={`tel:${p.patientPhone}`}
+              onClick={(e) => e.stopPropagation()}
+              draggable={false}
+              className="flex-1 text-center rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-[10px] font-medium py-1.5 hover:bg-[var(--color-border)] transition-colors"
+            >
+              Llamar
+            </a>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenFicha(p);
+              }}
+              className="flex-1 text-center rounded-md bg-[var(--fyllio-wa-green)] text-white text-[10px] font-medium py-1.5 hover:bg-[var(--fyllio-wa-green-hover)] transition-colors"
+            >
+              WhatsApp
+            </button>
+          </>
+        )}
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation();
             onEdit(p);
           }}
-          className="flex-1 text-[10px] font-medium px-2 py-1 rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-accent-soft)] transition-colors"
-          title="Editar"
-          draggable={false}
+          className="rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-[10px] font-medium px-2.5 py-1.5 hover:bg-[var(--color-border)] transition-colors"
         >
           Editar
         </button>
       </div>
-    </div>
-  );
-}
-
-// Ghost card shown in DragOverlay
-function GhostCard({ presupuesto }: { presupuesto: Presupuesto }) {
-  return (
-    <div className="rounded-xl border border-[var(--color-accent)] bg-[var(--color-surface)] px-3 py-2.5 shadow-2xl w-48 opacity-90 rotate-2">
-      <p className="text-xs font-bold text-[var(--color-foreground)] truncate">{presupuesto.patientName}</p>
-      <p className="text-[10px] text-[var(--color-muted)] truncate">{presupuesto.treatments[0]}</p>
-    </div>
+    </article>
   );
 }
 
@@ -209,25 +204,37 @@ function GhostCard({ presupuesto }: { presupuesto: Presupuesto }) {
 function DroppableColumn({
   estado,
   presupuestos,
-  probMap,
+  ocultos = 0,
+  onVerHistorico,
+  verTodos,
   velocidad,
-  onOpenHistory,
+  onOpenFicha,
   onEdit,
 }: {
   estado: PresupuestoEstado;
   presupuestos: Presupuesto[];
-  probMap: Map<string, number | null>;
+  /** Casos que el rango temporal deja fuera (no se pintan aquí). */
+  ocultos?: number;
+  /** "Ver N anteriores" — abre el rango a histórico sin salir del tablero. */
+  onVerHistorico: () => void;
+  /** Pie "Ver todos →" hacia el archivo real de la columna cerrada. */
+  verTodos?: { label: string; onClick: () => void };
   velocidad: { media: number; lenta: boolean } | null;
-  onOpenHistory: (p: Presupuesto) => void;
+  onOpenFicha: (p: Presupuesto) => void;
   onEdit: (p: Presupuesto) => void;
 }) {
   const cfg = ESTADO_CONFIG[estado];
   const { setNodeRef, isOver } = useDroppable({ id: estado });
+  // Carga progresiva — la columna pinta de página en página.
+  const [pagina, setPagina] = useState(1);
+  useEffect(() => setPagina(1), [presupuestos.length, estado]);
+  const pintadas = presupuestos.slice(0, pagina * PAGINA_CARDS);
+  const restantes = presupuestos.length - pintadas.length;
   const total = presupuestos.reduce((s, p) => s + (p.amount ?? 0), 0);
 
   // Sprint 13 Bloque 4 — sub-info condensada a una línea.
   const subInfo = [
-    total > 0 ? `€${total.toLocaleString("es-ES")}` : null,
+    total > 0 ? eur(total) : null,
     velocidad && velocidad.media > 0 ? `media: ${velocidad.media}d` : null,
     cfg.accionable ? cfg.hint : null,
   ]
@@ -235,59 +242,76 @@ function DroppableColumn({
     .join(" · ");
 
   return (
-    <div className="w-[260px] min-w-[260px] shrink-0 h-full flex flex-col overflow-hidden">
-      {/* Sprint 13.1 Bloque 3.2 — Barra de color superior que
-          identifica la columna sin pintar el header completo.
-          Sprint 15.5 hotfix — 5px + saturación alta para mejor lectura
-          (antes 3px y tono pálido pasaban desapercibidos). */}
-      <div className={`h-[5px] rounded-t-md shrink-0 ${COLUMN_TOP_BAR[estado]}`} />
-
-      {/* Header columna estilo Leads — sin fondo de color sólido, solo
-          tipografia + contador; sub-info en una linea text-xs. */}
-      <div className="px-3 py-2.5 shrink-0">
+    // Columna = tarjeta con borde y cabecera, igual que en Leads.
+    <div
+      className={`flex flex-col min-h-0 rounded-xl bg-[var(--color-surface)] border transition-colors ${
+        isOver ? "border-[var(--color-accent)]" : "border-[var(--color-border)]"
+      }`}
+    >
+      <div className="px-3 py-2.5 border-b border-[var(--color-border)] shrink-0">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-sm font-semibold text-[var(--color-foreground)] truncate">
+          <span className="font-display text-[13px] font-medium text-[var(--color-foreground)] tracking-tight truncate">
             {cfg.label}
           </span>
-          <span className="text-xs text-[var(--color-muted)] tabular-nums shrink-0">
+          <span
+            className={`text-[10px] font-semibold tabular-nums px-2 py-0.5 rounded-full shrink-0 ${COLUMN_PILL[estado]}`}
+          >
             {presupuestos.length}
           </span>
         </div>
         {subInfo && (
-          <p
-            className="text-xs text-[var(--color-muted)] mt-0.5 truncate"
-            title={subInfo}
-          >
+          <p className="text-[11px] text-[var(--color-muted)] mt-0.5 truncate" title={subInfo}>
             {subInfo}
           </p>
         )}
       </div>
 
-      {/* Cards container — internal scroll */}
+      {/* Cards — el destino se ilumina al arrastrar por encima (canon de
+          Presupuestos, replicado también en Leads). */}
       <div
         ref={setNodeRef}
-        className={`flex-1 min-h-0 rounded-xl p-2 space-y-2 overflow-y-auto transition-colors border ${
-          isOver
-            ? "bg-[var(--color-accent-soft)] border-[var(--color-accent)]"
-            : "bg-[var(--color-background)] border-[var(--card-border)]"
+        className={`flex-1 min-h-[120px] p-2 space-y-2 overflow-y-auto transition-colors ${
+          isOver ? "bg-[var(--color-accent-soft)]" : ""
         }`}
       >
         {presupuestos.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--color-border)] p-3 text-center mt-1">
-            <p className="text-[10px] text-[var(--color-muted)]">Vacío</p>
+          <div className="h-full min-h-[80px] flex items-center justify-center text-[11px] text-[var(--color-muted)] italic">
+            Sin presupuestos
           </div>
         ) : (
-          presupuestos
-            .sort((a, b) => b.urgencyScore - a.urgencyScore)
-            .map((p) => (
-              <CompactCard
-                key={p.id}
-                presupuesto={p}
-                prob={probMap.get(p.id) ?? null}
-                onOpenHistory={onOpenHistory}
-                onEdit={onEdit}
-              />
-            ))
+          // El orden lo decide el board (un solo criterio compartido).
+          pintadas.map((p) => (
+            <CompactCard key={p.id} presupuesto={p} onOpenFicha={onOpenFicha} onEdit={onEdit} />
+          ))
+        )}
+        {restantes > 0 && (
+          <button
+            type="button"
+            onClick={() => setPagina((n) => n + 1)}
+            className="w-full text-center text-[11px] font-semibold text-[var(--color-accent)] hover:underline px-1 py-1.5"
+          >
+            Ver más ({restantes})
+          </button>
+        )}
+        {/* Lo que el rango esconde se DICE, en todas las columnas: antes las
+            activas recortaban en silencio y sólo las cerradas avisaban. */}
+        {ocultos > 0 && (
+          <button
+            type="button"
+            onClick={onVerHistorico}
+            className="w-full text-center text-[11px] font-semibold text-[var(--color-accent)] hover:underline px-1 py-1.5"
+          >
+            Ver {ocultos} anterior{ocultos === 1 ? "" : "es"} →
+          </button>
+        )}
+        {verTodos && (presupuestos.length > 0 || ocultos > 0) && (
+          <button
+            type="button"
+            onClick={verTodos.onClick}
+            className="w-full text-left text-[11px] font-semibold text-[var(--color-accent)] hover:underline px-1 py-1.5"
+          >
+            {verTodos.label} →
+          </button>
         )}
       </div>
     </div>
@@ -360,35 +384,49 @@ function ConfirmMoveModal({
 
 const SKIP_CONFIRM_KEY = "kanban_skip_confirm";
 
+// Carga progresiva: con "Histórico" una columna puede traer cientos de
+// cards. Se pintan de PAGINA en PAGINA con un "Ver más" honesto que dice
+// cuántas quedan — la vista nunca revienta y nada queda oculto en silencio.
+const PAGINA_CARDS = 25;
+
 export default function KanbanBoard({
   presupuestos,
   onChangeEstado,
-  onOpenHistory,
+  onOpenFicha,
   onEdit,
+  onVerTodosCerrados,
+  rango,
+  onVerHistorico,
 }: {
   presupuestos: Presupuesto[];
   onChangeEstado: (id: string, estado: PresupuestoEstado, extra?: { motivoPerdida?: MotivoPerdida; motivoPerdidaTexto?: string; reactivar?: boolean }) => void;
-  onOpenHistory: (p: Presupuesto) => void;
+  /** Clic en card o WhatsApp → ficha del paciente (canon Leads). */
+  onOpenFicha: (p: Presupuesto) => void;
   onEdit: (p: Presupuesto) => void;
+  /** "Ver todos →" de las columnas cerradas: navega al archivo real
+   *  (ACEPTADO → Registro de Cobros; PERDIDO → la Tabla). */
+  onVerTodosCerrados: (estado: "ACEPTADO" | "PERDIDO") => void;
+  /** Rango temporal activo — control único compartido con el kanban de Leads. */
+  rango: RangoKanban;
+  /** Abrir el rango a histórico desde el pie de una columna recortada. */
+  onVerHistorico: () => void;
 }) {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [pendingChange, setPendingChange] = useState<{ id: string; targetEstado: PresupuestoEstado } | null>(null);
   const [pendingPerdido, setPendingPerdido] = useState<{ id: string } | null>(null);
   const [skipConfirm, setSkipConfirm] = useState(false);
 
-  // Probabilidad de cierre — calculada una vez con el histórico en memoria
-  const historico = useMemo(
-    () => presupuestos.filter((p) => p.estado === "ACEPTADO" || p.estado === "PERDIDO"),
-    [presupuestos]
-  );
-  const probMap = useMemo(() => {
-    const map = new Map<string, number | null>();
-    if (historico.length < 5) return map; // datos insuficientes
-    presupuestos
-      .filter((p) => p.estado !== "ACEPTADO" && p.estado !== "PERDIDO")
-      .forEach((p) => map.set(p.id, calcularProbabilidad(p, historico)));
-    return map;
-  }, [presupuestos, historico]);
+  // Orden ÚNICO de las columnas (tanda de coherencia 2026-07-26): días
+  // parados desc, importe desempata — el MISMO criterio conceptual que las
+  // cohortes de Seguimiento ("quién lleva más esperando, a igualdad el que
+  // más vale") y legible en la card, que muestra ambos. Murieron los tres
+  // scores paralelos: computeUrgencyScore (ordenaba aquí), scoreFinal (las
+  // cards de Seguimiento) y la probabilidad "71%" — esta última se sostenía
+  // sobre pools de ≥3 cerrados similares, ruido estadístico con el volumen
+  // real de una clínica.
+  const ordenarColumna = (items: Presupuesto[]) =>
+    [...items].sort((a, b) => (b.daysSince - a.daysSince) || ((b.amount ?? 0) - (a.amount ?? 0)));
+
 
   useEffect(() => {
     setSkipConfirm(localStorage.getItem(SKIP_CONFIRM_KEY) === "true");
@@ -416,7 +454,10 @@ export default function KanbanBoard({
 
     if (targetEstado === "PERDIDO") {
       setPendingPerdido({ id: String(active.id) });
-    } else if (skipConfirm) {
+    } else if (targetEstado === "ACEPTADO" || skipConfirm) {
+      // ACEPTADO: el modal de pago del cierre (en el shell) hace de
+      // confirmación — gemelo del MotivoPerdidaModal de PERDIDO. No se
+      // apila el confirm genérico encima.
       onChangeEstado(String(active.id), targetEstado);
     } else {
       setPendingChange({ id: String(active.id), targetEstado });
@@ -467,25 +508,49 @@ export default function KanbanBoard({
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
       >
-        {/* Gray frame container — fills parent height */}
-        <div className="bg-[var(--color-surface-muted)] rounded-2xl p-2 overflow-hidden h-full flex flex-col">
-          <div className="flex flex-row flex-1 min-h-0 overflow-x-auto overflow-y-hidden gap-2">
-            {PIPELINE_ORDEN.map((estado) => (
-              <DroppableColumn
-                key={estado}
-                estado={estado}
-                presupuestos={presupuestos.filter((p) => p.estado === estado)}
-                probMap={probMap}
-                velocidad={velocidadMap.get(estado) ?? null}
-                onOpenHistory={onOpenHistory}
-                onEdit={onEdit}
-              />
-            ))}
-          </div>
+        {/* Rejilla responsive como en Leads: en móvil las columnas se apilan
+            en vez de exigir scroll horizontal sobre columnas de 260px. */}
+        <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
+          {PIPELINE_ORDEN.map((estado) => {
+              const items = presupuestos.filter((p) => p.estado === estado);
+              const cerrada = estado === "ACEPTADO" || estado === "PERDIDO";
+              const visibles = items.filter((p) => dentroDeRango(fechaDeRango(p), rango));
+              return (
+                <DroppableColumn
+                  key={estado}
+                  estado={estado}
+                  presupuestos={ordenarColumna(visibles)}
+                  ocultos={items.length - visibles.length}
+                  onVerHistorico={onVerHistorico}
+                  verTodos={
+                    cerrada
+                      ? {
+                          label:
+                            estado === "ACEPTADO"
+                              ? "Ver todos en Cobros"
+                              : "Ver todos en la Tabla",
+                          onClick: () => onVerTodosCerrados(estado as "ACEPTADO" | "PERDIDO"),
+                        }
+                      : undefined
+                  }
+                  velocidad={velocidadMap.get(estado) ?? null}
+                  onOpenFicha={onOpenFicha}
+                  onEdit={onEdit}
+                />
+              );
+            })}
         </div>
 
         <DragOverlay>
-          {activePresupuesto ? <GhostCard presupuesto={activePresupuesto} /> : null}
+          {activePresupuesto && (
+            <div className="rotate-1 opacity-90">
+              <CompactCardBody
+                presupuesto={activePresupuesto}
+                onOpenFicha={onOpenFicha}
+                onEdit={onEdit}
+              />
+            </div>
+          )}
         </DragOverlay>
       </DndContext>
 

@@ -4,9 +4,9 @@
 // Consume ClinicContext para filtrar por clínica global + filtros locales
 // de fecha y búsqueda.
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Phone, MessageCircle, Check, Copy, Plus, ICON_STROKE } from "../../components/icons";
+import { Phone, MessageCircle, Check, Copy, Plus, AlertTriangle, ICON_STROKE } from "../../components/icons";
 import {
   DndContext,
   DragOverlay,
@@ -14,22 +14,29 @@ import {
   TouchSensor,
   useSensor,
   useSensors,
-  closestCenter,
+  useDraggable,
+  useDroppable,
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { contarPipeline, textoPipeline } from "../../lib/leads/pipeline";
 import { NewLeadModal } from "./NewLeadModal";
 import { AccionPanel } from "../../components/shared/AccionPanel";
 import { AgendarModal } from "./AgendarModal";
+import { MotivoNoInteresModal } from "./MotivoNoInteresModal";
+import { esReactivable, labelMotivo } from "../../lib/leads/motivos";
+import { haceTexto } from "../../lib/presupuestos/estado-conversacion";
+import { hoyISO, horaClinica } from "../../lib/time";
+import { cohorteLead, esNuevoUrgente } from "../../lib/seguimiento/cohortes";
 import { AsistenciaModal } from "./AsistenciaModal";
 import type { Lead, LeadEstado } from "./types";
+import {
+  RangoTemporal,
+  RANGO_DEFAULT,
+  dentroDeRango,
+  type RangoKanban,
+} from "../../components/shared/RangoTemporal";
 
 export type { Lead } from "./types";
 
@@ -37,37 +44,136 @@ export type { Lead } from "./types";
 // leads con Estado="Citado" cuya Fecha_Cita=hoy aparecen ahí (no en Citado).
 // Estado="Citados Hoy" como valor literal se mantiene como legacy (el seed
 // ya lo migró a "Citado", pero algún registro antiguo podría sobrevivir).
+//
+// REGLA DE COLOR DEL TABLERO (pasada visual 2026-07-27): el color no marca la
+// identidad de una columna, marca URGENCIA — y en este tablero solo hay una.
+// Antes había cuatro badges de cuatro colores sin criterio (gris · ámbar ·
+// azul · rosa · gris): "Contactado" no es un aviso y "Citado" no es una acción
+// pendiente. Todas van en neutro salvo "Citados Hoy".
+//
+// "Citados Hoy" en rojo es DECISIÓN DE PRODUCTO declarada, no un accidente de
+// paleta: es lo más importante del tablero y tiene que tirar del ojo. Va con el
+// token del sistema (--color-danger-soft), nunca con Tailwind crudo + dark: a
+// mano, que era lo que hacía antes.
+const BADGE_NEUTRO = "bg-[var(--color-surface-muted)] text-[var(--color-muted)]";
 const COLUMNS: Array<{ id: LeadEstado; label: string; accent: string; ringClass?: string }> = [
-  {
-    id: "Nuevo",
-    label: "Nuevo",
-    accent: "bg-[var(--color-surface-muted)] text-[var(--color-foreground)]",
-  },
-  {
-    id: "Contactado",
-    label: "Contactado",
-    accent: "bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300",
-  },
-  {
-    id: "Citado",
-    label: "Citado",
-    accent: "bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
-  },
+  { id: "Nuevo", label: "Nuevo", accent: BADGE_NEUTRO },
+  { id: "Contactado", label: "Contactado", accent: BADGE_NEUTRO },
+  { id: "Citado", label: "Citado", accent: BADGE_NEUTRO },
   {
     id: "Citados Hoy",
     label: "Citados Hoy",
-    accent: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
-    // Sprint 12 H.3 — acento rose mas sutil (ring-1 + opacidad).
-    ringClass: "ring-1 ring-rose-200/70 dark:ring-rose-500/30",
+    accent: "bg-[var(--color-danger-soft)] text-[var(--color-danger)]",
+    ringClass: "ring-1 ring-[var(--color-danger)]/25",
   },
-  {
-    id: "No Interesado",
-    label: "No Interesado",
-    accent: "bg-[var(--color-surface-muted)] text-[var(--color-muted)]",
-  },
+  { id: "No Interesado", label: "No Interesado", accent: BADGE_NEUTRO },
 ];
 
-const TODAY_ISO = () => new Date().toISOString().slice(0, 10);
+// El día DE LA CLÍNICA (lib/time), nunca el de UTC ni el del runtime. Entre las
+// 00:00 y las 02:00 de Madrid el ISO en UTC todavía dice AYER: un lead citado
+// para hoy se caía de esta columna durante esas dos horas. (Y en una máquina al
+// oeste de Greenwich el error va al revés y empieza por la tarde — así se cazó,
+// a las 21:32 de una máquina en UTC−4: una cita del 29 decía "mañana".)
+const TODAY_ISO = () => hoyISO();
+
+// ─── Copy de la card ────────────────────────────────────────────────────
+//
+// Las fechas se escribían en ISO crudo ("Cita: 2026-07-29") y el tiempo en
+// "hace 0d". Ninguna coordinadora lee un ISO, y "0d" no es español.
+
+/** "hoy" · "mañana" · "ayer" · "mié 29 jul". */
+function fechaHumana(iso: string, hoyIso: string): string {
+  if (iso === hoyIso) return "hoy";
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  const hoy = new Date(`${hoyIso}T12:00:00`);
+  const dias = Math.round((d.getTime() - hoy.getTime()) / 86_400_000);
+  if (dias === 1) return "mañana";
+  if (dias === -1) return "ayer";
+  // es-ES mete una coma tras el día de la semana ("mié, 29 jul"), que detrás de
+  // "Cita" se lee como una pausa rara. Fuera.
+  return d
+    .toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" })
+    .replace(",", "");
+}
+
+/** "hoy a las 16:30" · "mié 29 jul a las 16:30". */
+function citaTexto(fechaCita: string, horaCita: string | null, hoyIso: string): string {
+  const cuando = fechaHumana(fechaCita, hoyIso);
+  return horaCita ? `${cuando} a las ${horaCita}` : cuando;
+}
+
+type LineaEstado = { texto: string; tono: "muted" | "accent" };
+
+/**
+ * UNA línea que dice qué pasa con este lead y desde cuándo. Sustituye a los
+ * tres micro-elementos sueltos de antes (icono "Llamado" · bocadillo con un
+ * número · "hace 0d"), que juntos no contaban nada: el bocadillo no decía si
+ * eran entrantes o salientes ni si tocaba responder.
+ *
+ * Cada columna mide su tiempo desde donde toca: "sin respuesta hace 3 días" NO
+ * se puede medir desde la captación, así que sale del último saliente real.
+ */
+function lineaEstado(
+  lead: Lead,
+  columna: LeadEstado,
+  hoyIso: string,
+  ahoraMs: number,
+): LineaEstado | null {
+  const desde = (iso?: string | null) =>
+    iso ? haceTexto(Math.max(0, ahoraMs - new Date(iso).getTime())) : null;
+
+  if (columna === "No Interesado") {
+    const cerrado = desde(lead.fechaCierre ?? lead.createdAt);
+    return { texto: cerrado ? `Descartado ${cerrado}` : "Descartado", tono: "muted" };
+  }
+  // El paciente escribió lo último: es lo que toca responder, venga de donde venga.
+  if (lead.entranteAt && (!lead.salienteAt || lead.entranteAt > lead.salienteAt)) {
+    return { texto: `Te respondió ${desde(lead.entranteAt)}`, tono: "accent" };
+  }
+  // Con cita por delante, "sin respuesta hace 1 día" es ruido: el trabajo aquí
+  // es confirmar, y la línea de la cita ya lo dice. Misma precedencia que el
+  // motor de cohortes (cita > conversación).
+  if (lead.fechaCita && lead.fechaCita >= hoyIso) return null;
+
+  if (lead.conversacion === "sin_conversacion" || (!lead.llamado && lead.whatsappEnviados === 0)) {
+    const espera = desde(lead.createdAt);
+    // Sin tono de alarma: cuando toca, la etiqueta "Necesita atención" ya está
+    // arriba, y dos señales rojas para el mismo hecho se pisan.
+    return { texto: espera ? `Sin contactar · ${espera}` : "Sin contactar", tono: "muted" };
+  }
+  const espera = desde(lead.salienteAt);
+  const enviados =
+    lead.whatsappEnviados > 0
+      ? `${lead.whatsappEnviados} enviado${lead.whatsappEnviados === 1 ? "" : "s"}`
+      : "llamado";
+  // Primero el hecho accionable (que no contesta) y después el detalle.
+  return {
+    texto: espera ? `Sin respuesta ${espera} · ${enviados}` : `Contactado · ${enviados}`,
+    tono: "muted",
+  };
+}
+
+/** Señal "Necesita atención": el MISMO criterio del motor de /seguimiento
+ *  (cohorte "nuevos" + umbral de 48 h), importado, no reescrito. Solo aparece
+ *  cuando se cumple: si saliera en media columna dejaría de significar nada. */
+function necesitaAtencion(lead: Lead, hoyIso: string, ahoraMs: number): boolean {
+  if (!lead.conversacion) return false;
+  const cohorte = cohorteLead({
+    fechaCita: lead.fechaCita,
+    hoy: hoyIso,
+    conversacion: lead.conversacion,
+  });
+  return cohorte === "nuevos" && esNuevoUrgente(lead.createdAt, ahoraMs);
+}
+
+const TONO_LINEA: Record<LineaEstado["tono"], string> = {
+  muted: "text-[var(--color-muted)]",
+  accent: "text-[var(--color-accent)] font-medium",
+};
+
+// Cards pintadas por página en cada columna (carga progresiva).
+const PAGINA_CARDS = 25;
 
 function columnOf(lead: Lead, today: string): LeadEstado {
   // Citados Hoy = Estado legacy "Citados Hoy" OR Estado="Citado" con Fecha_Cita=hoy.
@@ -75,8 +181,6 @@ function columnOf(lead: Lead, today: string): LeadEstado {
   if (lead.estado === "Citado" && lead.fechaCita === today) return "Citados Hoy";
   return lead.estado;
 }
-
-type DateFilter = "semana" | "mes" | "personalizado" | "todo";
 
 type Doctor = { id: string; nombre: string; clinicaId: string | null };
 
@@ -92,13 +196,51 @@ export function LeadsView({
   const { selectedClinicaId } = useClinic();
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [search, setSearch] = useState("");
-  const [dateFilter, setDateFilter] = useState<DateFilter>("todo");
+  const [rango, setRango] = useState<RangoKanban>(RANGO_DEFAULT);
   const [newLeadOpen, setNewLeadOpen] = useState(false);
   const [drawerLead, setDrawerLead] = useState<Lead | null>(null);
   const [agendarLead, setAgendarLead] = useState<Lead | null>(null);
   const [asistenciaLead, setAsistenciaLead] = useState<Lead | null>(null);
+  const [pendingNoInteres, setPendingNoInteres] = useState<{
+    lead: Lead;
+    destColumn: LeadEstado;
+  } | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Enlace profundo `/leads?lead=<id>`: abre la ficha de ESE lead. Lo usa el
+  // modal de presupuesto cuando la persona buscada todavía no es paciente —
+  // mandar a la coordinadora al tablero a buscarla entre 27 cards no es ayudar.
+  // Se abre una sola vez y se limpia la URL para que un refresco no reabra el
+  // panel que acaba de cerrar.
+  const [leadPedido, setLeadPedido] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("lead");
+  });
+  useEffect(() => {
+    if (!leadPedido) return;
+    const l = leads.find((x) => x.id === leadPedido);
+    if (l) setDrawerLead(l);
+    setLeadPedido(null);
+    window.history.replaceState({}, "", window.location.pathname);
+  }, [leadPedido, leads]);
+  // Actividad por lead (última acción o mensaje) — alimenta el rango
+  // temporal del tablero. Sin dato conocido se usa la fecha de alta.
+  const [ultimaActividadPorLead, setUltimaActividadPorLead] = useState<Record<string, string>>({});
+  useEffect(() => {
+    fetch("/api/leads/ultima-saliente")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        const out: Record<string, string> = { ...(d.ultimaSalientePorLead ?? {}) };
+        for (const [id, ts] of Object.entries(d.ultimaEntrantePorLead ?? {})) {
+          if (!out[id] || String(ts) > out[id]) out[id] = String(ts);
+        }
+        setUltimaActividadPorLead(out);
+      })
+      .catch(() => {
+        /* sin el mapa, la columna muestra todos — degradación visible, no rota */
+      });
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -111,23 +253,12 @@ export function LeadsView({
     })
   );
 
-  // Filtrado por clínica global + fecha + búsqueda.
-  const filteredLeads = useMemo(() => {
+  // Filtrado por clínica global + búsqueda (SIN rango: el rango se aplica
+  // después, para poder decir cuántos deja fuera cada columna).
+  const leadsBase = useMemo(() => {
     let out = leads;
     if (selectedClinicaId) {
       out = out.filter((l) => l.clinicaId === selectedClinicaId);
-    }
-    if (dateFilter !== "todo") {
-      const now = new Date();
-      let from = new Date(0);
-      if (dateFilter === "semana") {
-        from = new Date(now);
-        from.setDate(from.getDate() - 7);
-      } else if (dateFilter === "mes") {
-        from = new Date(now);
-        from.setDate(from.getDate() - 30);
-      }
-      out = out.filter((l) => new Date(l.createdAt) >= from);
     }
     if (search.trim()) {
       const q = search.toLowerCase().trim();
@@ -139,15 +270,26 @@ export function LeadsView({
       );
     }
     return out;
-  }, [leads, selectedClinicaId, dateFilter, search]);
+  }, [leads, selectedClinicaId, search]);
 
-  // "En el pipeline" excluye los No Interesado (leads perdidos), igual que el
-  // dashboard de Red (RedView). Sin esto, la cabecera contaba los perdidos y no
-  // cuadraba con Red. Las columnas del kanban sí muestran la de No Interesado.
-  const pipelineCount = useMemo(
-    () => filteredLeads.filter((l) => l.estado !== "No Interesado").length,
-    [filteredLeads]
+  // Rango temporal — control único compartido con el kanban de Presupuestos
+  // (2026-07-26). Aplica a TODAS las columnas: la fecha que cuenta es la de
+  // actividad si la hay (última acción/mensaje) y si no la de alta. Sin fecha
+  // conocida, el lead se muestra.
+  // La fecha que cuenta es la del HITO del caso: cierre para los cerrados
+  // (MEJORAS 37 — antes se usaba la actividad como proxy y un lead cerrado sin
+  // mensajes no envejecía nunca), actividad para los vivos, alta si no hay nada.
+  // Sin fecha conocida el lead se MUESTRA: nunca se esconde por falta de dato.
+  const enRango = useCallback(
+    (l: Lead) =>
+      dentroDeRango(
+        (l.fechaCierre ?? ultimaActividadPorLead[l.id] ?? l.createdAt)?.slice(0, 10),
+        rango,
+      ),
+    [ultimaActividadPorLead, rango],
   );
+
+  const filteredLeads = useMemo(() => leadsBase.filter(enRango), [leadsBase, enRango]);
 
   // Citados Hoy es derivada: Estado="Citados Hoy" legacy OR Estado="Citado"
   // con Fecha_Cita=hoy. Resto cae en su columna de Estado nativa.
@@ -162,52 +304,38 @@ export function LeadsView({
     return m;
   }, [filteredLeads]);
 
+  // Cuántos esconde el rango en cada columna — para decirlo en su pie.
+  const ocultosPorColumna = useMemo(() => {
+    const today = TODAY_ISO();
+    const m = new Map<LeadEstado, number>();
+    for (const col of COLUMNS) m.set(col.id, 0);
+    for (const l of leadsBase) {
+      if (enRango(l)) continue;
+      const col = columnOf(l, today);
+      if (m.has(col)) m.set(col, (m.get(col) ?? 0) + 1);
+    }
+    return m;
+  }, [leadsBase, enRango]);
+
   const handleDragStart = useCallback((e: DragStartEvent) => {
     setDraggingId(String(e.active.id));
   }, []);
 
-  const handleDragEnd = useCallback(
-    async (e: DragEndEvent) => {
-      setDraggingId(null);
-      const activeId = String(e.active.id);
-      const overId = e.over?.id ? String(e.over.id) : null;
-      if (!overId) return;
-      // overId puede ser una columna (id) o una tarjeta.
+  // Movimiento efectivo de un lead entre columnas. Separado del drag para que
+  // el modal de motivo pueda reanudarlo con la respuesta de la coordinadora.
+  const aplicarMovimiento = useCallback(
+    async (lead: Lead, destColumn: LeadEstado, motivoElegido?: Lead["motivoNoInteres"]) => {
       const today = TODAY_ISO();
-      const overColumn = COLUMNS.find((c) => c.id === overId);
-      const overLead = leads.find((l) => l.id === overId);
-      const destColumn: LeadEstado | undefined = overColumn
-        ? overColumn.id
-        : overLead
-          ? columnOf(overLead, today)
-          : undefined;
-      if (!destColumn) return;
-
-      const lead = leads.find((l) => l.id === activeId);
-      if (!lead) return;
-      const fromColumn = columnOf(lead, today);
-      if (fromColumn === destColumn) return;
-
+      const activeId = lead.id;
       // Citados Hoy es columna derivada: el Estado canónico que escribimos
       // en Airtable es "Citado" + Fecha_Cita=hoy.
-      const destEstado: LeadEstado =
-        destColumn === "Citados Hoy" ? "Citado" : destColumn;
+      const destEstado: LeadEstado = destColumn === "Citados Hoy" ? "Citado" : destColumn;
 
-      // Sprint 9 G.2: Contactado → Citado/Citados Hoy requiere modal
-      // obligatorio (fecha/hora/doctor/tratamiento/tipo_visita). Si la
-      // columna destino es Citados Hoy, AgendarModal ya defaultea a hoy.
-      if (lead.estado === "Contactado" && destEstado === "Citado") {
-        setAgendarLead(lead);
-        return;
-      }
-
-      // Sprint 9 G.4: arrastrar a "No Interesado" marca motivo=Rechazo por
-      // defecto. El flujo "No asistió" pasa por el botón dedicado del drawer.
-      // Otras transiciones limpian el motivo.
       const patchBody: Record<string, any> = { estado: destEstado };
-      if (destEstado === "No Interesado" && !lead.motivoNoInteres) {
-        patchBody.motivoNoInteres = "Rechazo_Producto";
-      } else if (destEstado !== "No Interesado" && lead.motivoNoInteres) {
+      if (destEstado === "No Interesado") {
+        // El motivo lo declara la coordinadora en el modal — nunca se asume.
+        if (motivoElegido) patchBody.motivoNoInteres = motivoElegido;
+      } else if (lead.motivoNoInteres) {
         patchBody.motivoNoInteres = null;
       }
       // Drop en columna "Citados Hoy" desde cualquier Estado≠Contactado:
@@ -258,7 +386,57 @@ export function LeadsView({
         toast.error("No se pudo mover el lead. Inténtalo de nuevo.");
       }
     },
-    [leads]
+    []
+  );
+
+  const handleDragEnd = useCallback(
+    async (e: DragEndEvent) => {
+      setDraggingId(null);
+      const activeId = String(e.active.id);
+      const overId = e.over?.id ? String(e.over.id) : null;
+      if (!overId) return;
+      // overId puede ser una columna (id) o una tarjeta.
+      const today = TODAY_ISO();
+      const overColumn = COLUMNS.find((c) => c.id === overId);
+      const overLead = leads.find((l) => l.id === overId);
+      const destColumn: LeadEstado | undefined = overColumn
+        ? overColumn.id
+        : overLead
+          ? columnOf(overLead, today)
+          : undefined;
+      if (!destColumn) return;
+
+      const lead = leads.find((l) => l.id === activeId);
+      if (!lead) return;
+      const fromColumn = columnOf(lead, today);
+      if (fromColumn === destColumn) return;
+
+      const destEstado: LeadEstado = destColumn === "Citados Hoy" ? "Citado" : destColumn;
+
+      // Sprint 9 G.2: pasar a Citado requiere modal obligatorio (fecha/hora/
+      // doctor/tratamiento/tipo_visita). Si la columna destino es Citados Hoy,
+      // AgendarModal ya defaultea a hoy.
+      // MEJORAS 50 (2026-07-27): la cita se declara, no se rellena. Antes el
+      // modal solo se exigía VINIENDO de "Contactado", así que arrastrar de
+      // Nuevo a Citado escribía el estado sin fecha: el lead quedaba citado sin
+      // cuándo, y esa cita no existía para nadie más.
+      if (destEstado === "Citado" && destColumn !== "Citados Hoy" && !lead.fechaCita) {
+        setAgendarLead(lead);
+        return;
+      }
+
+      // Coherencia de kanban (2026-07-27): descartar un lead PREGUNTA el
+      // motivo, igual que su gemelo de Presupuestos. Antes se escribía
+      // "Rechazo_Producto" en silencio y ese dato inventado alimentaba los
+      // KPIs de motivo de pérdida.
+      if (destEstado === "No Interesado" && !lead.motivoNoInteres) {
+        setPendingNoInteres({ lead, destColumn });
+        return;
+      }
+
+      await aplicarMovimiento(lead, destColumn);
+    },
+    [leads, aplicarMovimiento]
   );
 
   async function onLeadCreated(lead: Lead) {
@@ -312,8 +490,11 @@ export function LeadsView({
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">Leads</h1>
+          {/* Una sola definición de pipeline (lib/leads/pipeline): activos =
+              las 4 columnas accionables; los No Interesado se desglosan para
+              que el número cuadre con las tarjetas visibles del tablero. */}
           <p className="text-xs text-[var(--color-muted)] mt-0.5 tabular-nums">
-            {pipelineCount} lead{pipelineCount === 1 ? "" : "s"} en el pipeline
+            {textoPipeline(contarPipeline(filteredLeads))}
           </p>
         </div>
         <button
@@ -328,27 +509,7 @@ export function LeadsView({
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1">
-          {([
-            ["todo", "Todo"],
-            ["semana", "Esta semana"],
-            ["mes", "Este mes"],
-            ["personalizado", "Personalizado"],
-          ] as Array<[DateFilter, string]>).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setDateFilter(key)}
-              className={`text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-colors ${
-                dateFilter === key
-                  ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
-                  : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-muted)]"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <RangoTemporal value={rango} onChange={setRango} />
         <input
           type="search"
           placeholder="Buscar lead…"
@@ -365,12 +526,7 @@ export function LeadsView({
       )}
 
       {/* Kanban */}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-3">
           {COLUMNS.map((col) => {
             const items = leadsPorColumna.get(col.id) ?? [];
@@ -382,6 +538,8 @@ export function LeadsView({
                 accent={col.accent}
                 ringClass={col.ringClass}
                 items={items}
+                ocultos={ocultosPorColumna.get(col.id) ?? 0}
+                onVerHistorico={() => setRango("todo")}
                 onCardClick={(l) => setDrawerLead(l)}
                 onAsistencia={(l) => setAsistenciaLead(l)}
                 onNoAsistio={noAsistioInline}
@@ -418,6 +576,7 @@ export function LeadsView({
           onClose={() => setDrawerLead(null)}
           onChanged={(updated) => onLeadUpdated(updated)}
           onAsistencia={(l) => setAsistenciaLead(l)}
+          onAgendar={(l) => setAgendarLead(l)}
         />
       )}
 
@@ -429,6 +588,18 @@ export function LeadsView({
           onSaved={(updated) => {
             onLeadUpdated(updated);
             setAgendarLead(null);
+          }}
+        />
+      )}
+
+      {pendingNoInteres && (
+        <MotivoNoInteresModal
+          nombre={pendingNoInteres.lead.nombre}
+          onCancel={() => setPendingNoInteres(null)}
+          onConfirm={(motivo) => {
+            const { lead, destColumn } = pendingNoInteres;
+            setPendingNoInteres(null);
+            aplicarMovimiento(lead, destColumn, motivo);
           }}
         />
       )}
@@ -457,6 +628,8 @@ function KanbanColumn({
   accent,
   ringClass,
   items,
+  ocultos,
+  onVerHistorico,
   onCardClick,
   onAsistencia,
   onNoAsistio,
@@ -466,14 +639,25 @@ function KanbanColumn({
   accent: string;
   ringClass?: string;
   items: Lead[];
+  /** Leads que el rango temporal deja fuera de esta columna. */
+  ocultos: number;
+  onVerHistorico: () => void;
   onCardClick: (l: Lead) => void;
   onAsistencia: (l: Lead) => void;
   onNoAsistio: (l: Lead) => void;
 }) {
+  const { setNodeRef, isOver } = useDroppable({ id: estado });
+  // Carga progresiva: con "Histórico" una columna trae cientos de leads. Se
+  // pintan por páginas con un "Ver más" honesto — nada oculto en silencio.
+  const [pagina, setPagina] = useState(1);
+  useEffect(() => setPagina(1), [items.length, estado]);
+  const pintados = items.slice(0, pagina * PAGINA_CARDS);
+  const restantes = items.length - pintados.length;
   return (
     <div
-      id={estado}
-      className={`flex flex-col min-h-0 rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] ${ringClass ?? ""}`}
+      className={`flex flex-col min-h-0 rounded-xl bg-[var(--color-surface)] border transition-colors ${
+        isOver ? "border-[var(--color-accent)]" : "border-[var(--color-border)]"
+      } ${ringClass ?? ""}`}
     >
       <div className="flex items-center justify-between px-3 py-2.5 border-b border-[var(--color-border)]">
         <span className="font-display text-[13px] font-medium text-[var(--color-foreground)] tracking-tight">{label}</span>
@@ -481,50 +665,67 @@ function KanbanColumn({
           {items.length}
         </span>
       </div>
-      <SortableContext
-        items={items.map((i) => i.id)}
-        strategy={verticalListSortingStrategy}
-        id={estado}
+      {/* El destino se ilumina al arrastrar por encima — venía del kanban de
+          Presupuestos, que aquí era el mejor de los dos. */}
+      <div
+        ref={setNodeRef}
+        className={`flex-1 min-h-[120px] p-2 space-y-2 overflow-y-auto transition-colors ${
+          isOver ? "bg-[var(--color-accent-soft)]" : ""
+        }`}
+        data-estado={estado}
       >
-        <div
-          className="flex-1 min-h-[120px] p-2 space-y-2 overflow-y-auto"
-          data-estado={estado}
-        >
-          {estado === "No Interesado" ? (
-            <NoInteresadoGroups items={items} onCardClick={onCardClick} />
-          ) : estado === "Citados Hoy" ? (
-            items.map((l) => (
-              <SortableLeadCard
-                key={l.id}
-                lead={l}
-                onClick={() => onCardClick(l)}
-                variant="citadosHoy"
-                onAsistencia={onAsistencia}
-                onNoAsistio={onNoAsistio}
-              />
-            ))
-          ) : (
-            items.map((l) => (
-              <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
-            ))
-          )}
-          {items.length === 0 && (
-            <div
-              id={estado}
-              className="h-full min-h-[80px] flex items-center justify-center text-[11px] text-[var(--color-muted)] italic"
-            >
-              Sin leads
-            </div>
-          )}
-        </div>
-      </SortableContext>
+        {estado === "No Interesado" ? (
+          <NoInteresadoGroups items={pintados} onCardClick={onCardClick} />
+        ) : estado === "Citados Hoy" ? (
+          pintados.map((l) => (
+            <SortableLeadCard
+              key={l.id}
+              lead={l}
+              onClick={() => onCardClick(l)}
+              variant="citadosHoy"
+              onAsistencia={onAsistencia}
+              onNoAsistio={onNoAsistio}
+            />
+          ))
+        ) : (
+          pintados.map((l) => (
+            <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
+          ))
+        )}
+        {items.length === 0 && (
+          <div className="h-full min-h-[80px] flex items-center justify-center text-[11px] text-[var(--color-muted)] italic">
+            Sin leads
+          </div>
+        )}
+        {restantes > 0 && (
+          <button
+            type="button"
+            onClick={() => setPagina((n) => n + 1)}
+            className="w-full text-center text-[11px] font-semibold text-[var(--color-accent)] hover:underline px-1 py-1.5"
+          >
+            Ver más ({restantes})
+          </button>
+        )}
+        {/* Lo que el rango esconde se DICE, columna por columna (gemelo del
+            pie de Presupuestos). */}
+        {ocultos > 0 && (
+          <button
+            type="button"
+            onClick={onVerHistorico}
+            className="w-full text-center text-[11px] font-semibold text-[var(--color-accent)] hover:underline px-1 py-1.5"
+          >
+            Ver {ocultos} anterior{ocultos === 1 ? "" : "es"} →
+          </button>
+        )}
+      </div>
     </div>
   );
 }
 
-// Sprint 9 G.4: en la columna "No Interesado" separamos visualmente los
-// leads por motivo (No asistió vs Rechazo producto) para distinguir los
-// reactivables (No asistió) del rechazo definitivo.
+// La columna de descartados se parte por lo único que cambia la decisión:
+// ¿queda algo que intentar? (MEJORAS 42). Antes separaba "No asistió" del
+// resto, cuando "el resto" era un único motivo genérico; con seis motivos la
+// partición útil es reactivables vs decisión tomada.
 function NoInteresadoGroups({
   items,
   onCardClick,
@@ -532,30 +733,23 @@ function NoInteresadoGroups({
   items: Lead[];
   onCardClick: (l: Lead) => void;
 }) {
-  const noAsistio = items.filter((l) => l.motivoNoInteres === "No_Asistio");
-  const rechazo = items.filter((l) => l.motivoNoInteres !== "No_Asistio");
+  const reactivables = items.filter((l) => esReactivable(l.motivoNoInteres));
+  const cerrados = items.filter((l) => !esReactivable(l.motivoNoInteres));
+  const grupo = (titulo: string, clase: string, lista: Lead[]) =>
+    lista.length > 0 && (
+      <>
+        <p className={`text-[10px] font-semibold uppercase tracking-wide px-1 mt-1 ${clase}`}>
+          {titulo} · {lista.length}
+        </p>
+        {lista.map((l) => (
+          <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
+        ))}
+      </>
+    );
   return (
     <>
-      {noAsistio.length > 0 && (
-        <>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-300 px-1 mt-1">
-            No asistió · {noAsistio.length}
-          </p>
-          {noAsistio.map((l) => (
-            <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
-          ))}
-        </>
-      )}
-      {rechazo.length > 0 && (
-        <>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-muted)] px-1 mt-2">
-            Rechazo · {rechazo.length}
-          </p>
-          {rechazo.map((l) => (
-            <SortableLeadCard key={l.id} lead={l} onClick={() => onCardClick(l)} />
-          ))}
-        </>
-      )}
+      {grupo("Se puede retomar", "text-[var(--color-warning)]", reactivables)}
+      {grupo("Decisión tomada", "text-[var(--color-muted)]", cerrados)}
     </>
   );
 }
@@ -573,18 +767,11 @@ function SortableLeadCard({
   onAsistencia?: (l: Lead) => void;
   onNoAsistio?: (l: Lead) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
-    id: lead.id,
-  });
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.3 : 1,
-  };
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: lead.id });
   return (
     <div
       ref={setNodeRef}
-      style={style}
+      className={isDragging ? "opacity-40" : ""}
       {...attributes}
       {...listeners}
       onClick={(e) => {
@@ -601,13 +788,13 @@ function SortableLeadCard({
           onNoAsistio={onNoAsistio!}
         />
       ) : (
-        <LeadCardBody lead={lead} />
+        <LeadCardBody lead={lead} onOpenFicha={onClick} />
       )}
     </div>
   );
 }
 
-function LeadCardBody({ lead }: { lead: Lead }) {
+function LeadCardBody({ lead, onOpenFicha }: { lead: Lead; onOpenFicha?: () => void }) {
   const [copied, setCopied] = useState(false);
 
   async function copyPhone(e: React.MouseEvent) {
@@ -620,9 +807,14 @@ function LeadCardBody({ lead }: { lead: Lead }) {
     } catch {}
   }
 
-  const diasDesdeCreacion = Math.floor(
-    (Date.now() - new Date(lead.createdAt).getTime()) / (1000 * 60 * 60 * 24)
-  );
+  // El reloj se congela al montar la card: leerlo en cada render es una función
+  // impura dentro del render (lo marca el compilador de React) y además no
+  // aporta nada — el tablero no cambia de minuto mientras se mira.
+  const [ahoraMs] = useState(() => Date.now());
+  const [hoyIso] = useState(() => TODAY_ISO());
+  const esDescartado = lead.estado === "No Interesado";
+  const linea = lineaEstado(lead, esDescartado ? "No Interesado" : lead.estado, hoyIso, ahoraMs);
+  const atencion = necesitaAtencion(lead, hoyIso, ahoraMs);
 
   return (
     <article
@@ -632,35 +824,62 @@ function LeadCardBody({ lead }: { lead: Lead }) {
       }}
       className="rounded-xl bg-[var(--color-surface)] border p-3 text-xs hover:[border-color:var(--card-border-hover)] hover:[box-shadow:var(--card-shadow-hover)] transition-[box-shadow,border-color] duration-150 cursor-pointer"
     >
-      {/* Sprint 14a Bloque 1.5 — leads convertidos enlazan al Paciente360. */}
-      {lead.convertido && lead.pacienteId ? (
-        <a
-          href={`/pacientes/${lead.pacienteId}`}
-          onClick={(e) => e.stopPropagation()}
-          className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight hover:text-[var(--color-accent)] hover:underline block"
-        >
-          {lead.nombre}
-        </a>
-      ) : (
-        <p className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight">{lead.nombre}</p>
-      )}
-
-      <div className="flex flex-wrap gap-1 mt-1.5">
-        {lead.canal && (
-          <span className="inline-flex rounded-md bg-[var(--color-surface-muted)] text-[var(--color-muted)] border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] font-medium">
-            {lead.canal}
+      <div className="flex items-start justify-between gap-2">
+        {/* Sprint 14a Bloque 1.5 — leads convertidos enlazan al Paciente360. */}
+        {lead.convertido && lead.pacienteId ? (
+          <a
+            href={`/pacientes/${lead.pacienteId}`}
+            onClick={(e) => e.stopPropagation()}
+            className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight hover:text-[var(--color-accent)] hover:underline block"
+          >
+            {lead.nombre}
+          </a>
+        ) : (
+          <p className="font-display font-medium text-[var(--color-foreground)] truncate tracking-tight">{lead.nombre}</p>
+        )}
+        {atencion && (
+          <span
+            className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[var(--color-danger-soft)] text-[var(--color-danger)] px-1.5 py-0.5 text-[10px] font-semibold"
+            title="Sin ningún contacto y ya pasó el plazo del motor de seguimiento (48 h)."
+          >
+            <AlertTriangle size={10} strokeWidth={ICON_STROKE} aria-hidden />
+            Necesita atención
           </span>
         )}
-        {lead.tratamiento && (
-          <span className="inline-flex rounded-md bg-[var(--color-accent-soft)] text-[var(--color-accent)] border border-transparent px-1.5 py-0.5 text-[10px] font-medium">
-            {lead.tratamiento}
-          </span>
+      </div>
+
+      {/* Jerarquía de los chips: el TRATAMIENTO manda —dice cuánto dinero hay
+          en juego— y el origen baja a texto sutil sin relleno. Antes los tres
+          pesaban igual, así que "Horarios o distancia" (por qué se perdió) y
+          "Recomendación" (de dónde vino) se leían como lo mismo.
+          En No Interesado va SOLO el motivo: es la columna que menos importa y
+          la que más ruido llevaba. */}
+      <div className="flex items-baseline gap-1.5 flex-wrap mt-1.5">
+        {esDescartado ? (
+          lead.motivoNoInteres && (
+            <span className="inline-flex rounded-md bg-[var(--color-surface-muted)] text-[var(--color-muted)] px-1.5 py-0.5 text-[10px] font-medium">
+              {labelMotivo(lead.motivoNoInteres)}
+            </span>
+          )
+        ) : (
+          <>
+            {lead.tratamiento && (
+              <span className="inline-flex rounded-md bg-[var(--color-accent-soft)] text-[var(--color-accent)] px-1.5 py-0.5 text-[11px] font-semibold">
+                {lead.tratamiento}
+              </span>
+            )}
+            {lead.canal && (
+              <span className="text-[10px] text-[var(--color-muted)]">{lead.canal}</span>
+            )}
+          </>
         )}
       </div>
 
       {lead.telefono && (
         <div className="flex items-center gap-1 mt-2">
-          <span className="text-[var(--color-muted)] text-[11px] font-mono truncate tabular-nums">{lead.telefono}</span>
+          {/* Fuera `font-mono`: era una tercera familia tipográfica que el
+              estándar no declara. Con cifras tabulares alinea igual. */}
+          <span className="text-[var(--color-muted)] text-[11px] truncate tabular-nums">{lead.telefono}</span>
           <button
             type="button"
             onClick={copyPhone}
@@ -677,45 +896,45 @@ function LeadCardBody({ lead }: { lead: Lead }) {
         </div>
       )}
 
-      {lead.fechaCita && (
-        <p className="mt-1 text-[10px] text-[var(--color-muted)] tabular-nums">Cita: {lead.fechaCita}</p>
+      {lead.fechaCita && !esDescartado && (
+        <p className="mt-1.5 text-[11px] font-medium text-[var(--color-foreground)]">
+          Cita {citaTexto(lead.fechaCita, lead.horaCita, hoyIso)}
+        </p>
       )}
 
-      <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--color-muted)]">
-        {lead.llamado && (
-          <span className="inline-flex items-center gap-1">
-            <Phone size={12} strokeWidth={ICON_STROKE} className="text-[var(--color-muted)]" /> Llamado
-          </span>
-        )}
-        {lead.whatsappEnviados > 0 && (
-          <span className="inline-flex items-center gap-1 tabular-nums">
-            <MessageCircle size={12} strokeWidth={ICON_STROKE} className="text-[var(--color-muted)]" /> {lead.whatsappEnviados}
-          </span>
-        )}
-        <span className="ml-auto tabular-nums">
-          {Number.isFinite(diasDesdeCreacion) ? `hace ${diasDesdeCreacion}d` : "—"}
-        </span>
-      </div>
+      {linea && <p className={`mt-1.5 text-[11px] ${TONO_LINEA[linea.tono]}`}>{linea.texto}</p>}
 
-      <div className="flex gap-1 mt-2.5">
+      <div className="flex gap-1.5 mt-2.5">
         {lead.telefono && (
           <>
+            {/* Los dos botones bajan a neutro de bajo contraste (pasada visual
+                2026-07-27). El verde de marca de WhatsApp se repetía 27 veces
+                en una pantalla: era el color dominante y arrastraba el ojo a la
+                acción menos importante. El acento se reserva para lo que
+                decide algo — "Marcar asistido". */}
             <a
               href={`tel:${lead.telefono}`}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 text-center rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-[10px] font-medium py-1.5 hover:bg-[var(--color-border)] transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-medium py-1.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
             >
+              <Phone size={12} strokeWidth={ICON_STROKE} aria-hidden />
               Llamar
             </a>
-            <a
-              href={`https://wa.me/${lead.telefono.replace(/\D/g, "")}`}
-              target="_blank"
-              rel="noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="flex-1 text-center rounded-md bg-[var(--fyllio-wa-green)] text-white text-[10px] font-medium py-1.5 hover:bg-[var(--fyllio-wa-green-hover)] transition-colors"
+            {/* Censo wa.me a cero (2026-07-26): el botón abre la FICHA (hilo
+                visible + mensaje precargado + registro por el servicio
+                central), nunca wa.me a pelo — aquello abría un chat vacío y
+                fingía un registro sin contenido. */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onOpenFicha?.();
+              }}
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-medium py-1.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
             >
+              <MessageCircle size={12} strokeWidth={ICON_STROKE} aria-hidden />
               WhatsApp
-            </a>
+            </button>
           </>
         )}
       </div>
@@ -736,42 +955,60 @@ function CitadosHoyCardBody({
   onAsistencia: (l: Lead) => void;
   onNoAsistio: (l: Lead) => void;
 }) {
+  // La hora ya pasó y nadie ha cerrado la cita: ESE es el caso en el que el
+  // rojo significa problema, y no se distinguía del resto de la columna. Todo
+  // lo demás en Citados Hoy es la oportunidad del día, no un fallo.
+  const [ahora] = useState(() => new Date());
+  // La hora de la CLÍNICA, no la del navegador: `hora_cita` se guarda como
+  // "16:30" de la clínica, así que compararla con el reloj de quien mira sería
+  // comparar dos husos distintos.
+  const horaPasada =
+    !!lead.horaCita &&
+    lead.fechaCita === hoyISO(ahora) &&
+    lead.horaCita < horaClinica(ahora);
+
   return (
     <article
-      style={{ boxShadow: "var(--card-shadow-rest)" }}
-      className="rounded-xl bg-rose-50/50 dark:bg-rose-500/5 border border-rose-200 dark:border-rose-500/30 p-3 text-xs hover:[box-shadow:var(--card-shadow-hover)] transition-[box-shadow,border-color] duration-150 cursor-pointer"
+      style={{
+        boxShadow: "var(--card-shadow-rest)",
+        background: "var(--color-danger-soft)",
+        borderColor: "color-mix(in srgb, var(--color-danger) 25%, transparent)",
+        ...(horaPasada
+          ? { borderLeft: "4px solid var(--color-danger)" }
+          : {}),
+      }}
+      className="rounded-xl border p-3 text-xs hover:[box-shadow:var(--card-shadow-hover)] transition-[box-shadow,border-color] duration-150 cursor-pointer"
     >
       <div className="flex items-start justify-between gap-2">
         <p className="font-display font-semibold text-[var(--color-foreground)] truncate flex-1">{lead.nombre}</p>
         {lead.horaCita && (
-          <span className="text-[10px] font-semibold text-rose-700 dark:text-rose-300 shrink-0 tabular-nums">
+          <span className="text-[11px] font-semibold text-[var(--color-danger)] shrink-0 tabular-nums">
             {lead.horaCita}
           </span>
         )}
       </div>
 
-      <div className="flex flex-wrap gap-1 mt-1">
-        {lead.canal && (
-          <span className="inline-flex rounded-full bg-[var(--color-surface)] text-[var(--color-accent)] border border-[var(--color-border)] px-2 py-0.5 text-[10px] font-semibold">
-            {lead.canal}
-          </span>
-        )}
+      <div className="flex items-baseline gap-1.5 flex-wrap mt-1">
         {lead.tratamiento && (
-          <span className="inline-flex rounded-full bg-[var(--color-surface)] text-[var(--color-accent)] border border-[var(--color-border)] px-2 py-0.5 text-[10px] font-semibold">
+          <span className="inline-flex rounded-md bg-[var(--color-surface)] text-[var(--color-accent)] px-1.5 py-0.5 text-[11px] font-semibold">
             {lead.tratamiento}
           </span>
+        )}
+        {lead.canal && (
+          <span className="text-[10px] text-[var(--color-muted)]">{lead.canal}</span>
         )}
       </div>
 
       {lead.telefono && (
-        <p className="text-[var(--color-muted)] text-[11px] font-mono mt-2 truncate tabular-nums">
+        <p className="text-[var(--color-muted)] text-[11px] mt-2 truncate tabular-nums">
           {lead.telefono}
         </p>
       )}
-      {lead.fechaCita && (
-        <p className="mt-0.5 text-[10px] text-[var(--color-muted)] tabular-nums">
-          Cita: {lead.fechaCita}
-          {lead.horaCita ? ` · ${lead.horaCita}` : ""}
+      {/* La hora ya está arriba, destacada: repetirla aquí en ISO era decir dos
+          veces lo mismo y una de ellas en un formato que nadie lee. */}
+      {horaPasada && (
+        <p className="mt-1.5 text-[11px] font-medium text-[var(--color-danger)]">
+          Su hora ya pasó · sin cerrar
         </p>
       )}
 

@@ -11,6 +11,8 @@ import { ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
 import { Card } from "../ui/Card";
 import { ErrorState } from "../ui/Feedback";
 import { Info, Star, ChevronDown, ChevronRight, ICON_STROKE } from "../icons";
+import { eur } from "../shared/Cifra";
+import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
 
 type SubTab = "general" | "tarifas" | "paciente" | "tratamientos" | "doctores" | "benchmark" | "ia";
 
@@ -109,7 +111,7 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
         />
         <HeaderBlock
           title="Presupuestos en seguimiento"
-          main={`€${resumen.importeActivos.toLocaleString("es-ES")}`}
+          main={eur(resumen.importeActivos)}
           sub1="Interesado + En Duda + En Negociación"
           tooltip="Presupuestos activos en etapas Interesado, En Duda o En Negociación"
         />
@@ -136,7 +138,7 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
           ].map(({ label, curr, prev, unit }) => (
             <div key={label}>
               <p className="text-[10px] text-[var(--color-muted)] font-medium mb-1">{label}</p>
-              <p className="font-display text-lg font-bold tabular-nums text-[var(--color-foreground)]">{unit === "€" ? `€${curr.toLocaleString("es-ES")}` : `${curr}${unit ?? ""}`}</p>
+              <p className="font-display text-lg font-bold tabular-nums text-[var(--color-foreground)]">{unit === "€" ? eur(curr) : `${curr}${unit ?? ""}`}</p>
               <TrendBadge curr={curr} prev={prev} unit={unit === "€" ? "" : (unit ?? "")} />
             </div>
           ))}
@@ -178,20 +180,22 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
 function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
   kpisMes: KpiData; kpisPrevMes: KpiData; kpis: KpiData; mesLabel: string;
 }) {
-  const privadoMes = kpisMes.porTipoPaciente.find((t) => t.tipo === "Privado");
-  const adeslasMes = kpisMes.porTipoPaciente.find((t) => t.tipo === "Adeslas");
-  const privadoPrev = kpisPrevMes.porTipoPaciente.find((t) => t.tipo === "Privado");
-  const adeslasPrev = kpisPrevMes.porTipoPaciente.find((t) => t.tipo === "Adeslas");
+  // Una card por valor del CATÁLOGO, no dos escritas a mano. Antes esta
+  // pestaña buscaba "Privado" y "Adeslas" literales; con el dato real diciendo
+  // otra cosa llevaba enseñando 0 y 0 desde que existe (spec 2026-07-29).
+  const tarifas = kpis.tarifas ?? [];
+  const bloques = tarifas.map((tarifa) => ({
+    tipo: tarifa,
+    mes: kpisMes.porTipoPaciente.find((t) => t.tipo === tarifa),
+    prev: kpisPrevMes.porTipoPaciente.find((t) => t.tipo === tarifa),
+  }));
 
   return (
     <div className="space-y-5">
       {/* Bloques del mes */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {[
-          { tipo: "Privado", mes: privadoMes, prev: privadoPrev, color: "bg-[var(--color-accent-soft)] border-[var(--color-border)]" },
-          { tipo: "Adeslas", mes: adeslasMes, prev: adeslasPrev, color: "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30" },
-        ].map(({ tipo, mes, prev, color }) => (
-          <div key={tipo} className={`rounded-2xl border p-5 ${color}`}>
+        {bloques.map(({ tipo, mes, prev }) => (
+          <div key={tipo} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
             <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">{tipo} — {mesLabel}</p>
             <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">{mes?.total ?? 0}</p>
             <p className="text-xs text-[var(--color-muted)] mt-1">
@@ -218,10 +222,29 @@ function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
             <YAxis tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} allowDecimals={false} />
             <Tooltip contentStyle={TOOLTIP_STYLE} />
             <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
-            <Bar dataKey="privado" name="Privado ofrecido" fill="#93c5fd" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="privadoAcept" name="Privado aceptado" fill="#2563eb" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="adeslas" name="Adeslas ofrecido" fill="#fed7aa" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="adeslasAcept" name="Adeslas aceptado" fill="#ea580c" radius={[3, 3, 0, 0]} />
+            {/* Series dinámicas y colores DESDE EL TOKEN del acento: cada
+                tarifa es un escalón de la misma familia (ofrecido translúcido,
+                aceptado sólido). Antes eran cuatro hex a mano que además se
+                rompían en oscuro. */}
+            {tarifas.flatMap((tarifa, i) => {
+              const mezcla = Math.max(30, 100 - i * 22);
+              return [
+                <Bar
+                  key={`${tarifa}-of`}
+                  dataKey={tarifa}
+                  name={`${tarifa} ofrecido`}
+                  fill={`color-mix(in srgb, var(--color-accent) ${Math.round(mezcla * 0.35)}%, transparent)`}
+                  radius={[3, 3, 0, 0]}
+                />,
+                <Bar
+                  key={`${tarifa}-ac`}
+                  dataKey={`${tarifa}__acept`}
+                  name={`${tarifa} aceptado`}
+                  fill={`color-mix(in srgb, var(--color-accent) ${mezcla}%, transparent)`}
+                  radius={[3, 3, 0, 0]}
+                />,
+              ];
+            })}
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -511,6 +534,7 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
 }) {
   const [evolDoctor, setEvolDoctor] = useState<string | null>(null);
   const [evolData, setEvolData] = useState<KpiData | null>(null);
+  const [evolError, setEvolError] = useState<string | null>(null);
 
   function downloadCsv() {
     const rows = [
@@ -532,11 +556,15 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
     try {
       const url = new URL("/api/presupuestos/kpis", location.href);
       url.searchParams.set("doctor", doctor);
-      const res = await fetch(url.toString());
-      const d = await res.json();
+      // Sin status ni error declarado, un fallo dejaba la evolución del doctor
+      // en blanco sin decir nada (censo 2026-07-29).
+      const d = await cargarJSON<{ kpis?: KpiData }>(url.toString());
       setEvolDoctor(doctor);
       setEvolData(d.kpis ?? null);
-    } catch { /* ignore */ }
+      setEvolError(null);
+    } catch (e) {
+      setEvolError(mensajeDeError(e));
+    }
   }
 
   const prevMap = new Map(kpisPrevMes.porDoctor.map((d) => [d.doctor, d]));
@@ -634,6 +662,13 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                       <td className="px-3 py-2.5 font-bold text-[var(--color-foreground)]">{d.tasa}%</td>
                       <td className="px-3 py-2.5"><TrendBadge curr={d.total} prev={prev?.total ?? 0} /></td>
                     </tr>
+                    {isSelected && evolError && (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-3 text-xs text-[var(--color-danger)] border-b border-[var(--color-border)]">
+                          {evolError}
+                        </td>
+                      </tr>
+                    )}
                     {isSelected && evolData && (
                       <tr>
                         <td colSpan={6} className="px-4 py-4 bg-[var(--color-accent-soft)] border-b border-[var(--color-border)]">
@@ -779,7 +814,7 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
                         </span>
                       </td>
                       <td className="px-4 py-2 text-right text-[var(--color-muted)]">
-                        {o.importe > 0 ? `€${o.importe.toLocaleString("es-ES")}` : "—"}
+                        {o.importe > 0 ? eur(o.importe) : "—"}
                       </td>
                     </tr>
                   ))}
@@ -829,7 +864,7 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-right text-[var(--color-muted)]">
-                      {c.importe > 0 ? `€${c.importe.toLocaleString("es-ES")}` : "—"}
+                      {c.importe > 0 ? eur(c.importe) : "—"}
                     </td>
                   </tr>
                 ))}
@@ -1093,10 +1128,14 @@ export default function KpiView({ user, showBenchmark = true }: { user: UserSess
 
   useEffect(() => {
     if (user.rol !== "manager_general") return;
-    fetch("/api/presupuestos/clinicas")
-      .then((r) => r.json())
-      .then((d) => setClinicas(d.clinicas ?? []))
-      .catch(() => {});
+    cargarJSON<{ clinicas: string[] }>("/api/presupuestos/clinicas", {
+      validar: traeLista("clinicas"),
+    })
+      .then((d) => setClinicas(d.clinicas))
+      .catch(() => {
+        // El selector de clínica vacío no miente sobre datos de negocio: se
+        // deja como está y el error se ve en el KPI principal, que sí carga.
+      });
   }, [user.rol]);
 
   // Lazy fetch for Motor IA tab — only once

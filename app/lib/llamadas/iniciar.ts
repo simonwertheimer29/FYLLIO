@@ -15,7 +15,6 @@
 // Por eso vive en lib/, no en app/api/.
 
 import { createAlertaCoordinacionRaw, selectAlertasEnviadasRaw } from "../alertas/historial";
-import { base, fetchAll, TABLES } from "../airtable";
 import { findCitaRaw } from "../scheduler/repo/airtableRepo";
 import { getPaciente } from "../pacientes/pacientes";
 import { getHorarioClinica } from "../automatizaciones/engine";

@@ -4,7 +4,6 @@
 
 import { NextResponse } from "next/server";
 import { listObjetivosRaw, findObjetivoRaw, updateObjetivoRaw, createObjetivoRaw } from "../../../lib/presupuestos/objetivos";
-import { base, TABLES } from "../../../lib/airtable";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import {
   nombresClinicasPermitidas,
@@ -23,10 +22,12 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const { searchParams } = new URL(req.url);
   const mes = searchParams.get("mes") ?? getMesMTD();
 
-  // Demo mode (sin Airtable)
-  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-    return NextResponse.json({ objetivos: [], isDemo: true });
-  }
+  // (Aquí había una puerta a datos DEMO condicionada a AIRTABLE_API_KEY /
+  // AIRTABLE_BASE_ID. Airtable está retirado y esas variables no existen en
+  // Vercel, así que la condición se cumplía SIEMPRE en producción: la ruta no
+  // llegaba nunca a su código real. Eliminada, no re-condicionada — si no se
+  // pueden servir datos reales, se devuelve un error honesto, jamás inventados.
+  // §4 y §1, 2026-07-29.)
 
   // Sprint B Fase 4 — aislamiento por clínica: un coord solo ve los objetivos de
   // sus clínicas permitidas; admin/manager (null) ven todas las del cliente.
@@ -89,10 +90,6 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     }
   }
 
-  // Demo mode
-  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-    return NextResponse.json({ ok: true, isDemo: true });
-  }
 
   const now = new Date().toISOString();
 

@@ -4,7 +4,6 @@
 
 import { findSuscripcionPorEndpointRaw, updateSuscripcionRaw, createSuscripcionRaw } from "../../../lib/push/sender";
 import { NextResponse } from "next/server";
-import { base, TABLES } from "../../../lib/airtable";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 
 // Sprint B — migrado a withPresupuestosAuth: fija el contexto de cliente para

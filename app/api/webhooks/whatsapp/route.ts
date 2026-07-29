@@ -12,7 +12,6 @@
 
 import { NextResponse, after } from "next/server";
 import crypto from "crypto";
-import { base, TABLES, fetchAll } from "../../../lib/airtable";
 import { selectPresupuestosRaw, updatePresupuestoRaw } from "../../../lib/presupuestos/repo";
 import {
   hasWABACredentials,

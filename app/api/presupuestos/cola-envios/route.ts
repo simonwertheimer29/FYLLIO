@@ -4,7 +4,6 @@
 
 import { selectColaEnviosRaw, createColaEnvioRaw, findColaEnvioRaw, updateColaEnvioRaw } from "../../../lib/presupuestos/cola-envios-repo";
 import { NextResponse } from "next/server";
-import { base, TABLES } from "../../../lib/airtable";
 import { DateTime } from "luxon";
 import { getServicioMensajeria } from "../../../lib/presupuestos/mensajeria";
 import type { EnvioItem, EstadoEnvio } from "../../../lib/presupuestos/types";
@@ -83,7 +82,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     return NextResponse.json({ envios });
   } catch (err) {
     console.error("[cola-envios] GET error:", err);
-    return NextResponse.json({ envios: [], error: "Error al cargar envíos" });
+    return NextResponse.json({ error: "No se pudo cargar la cola de envíos" }, { status: 500 });
   }
 });
 

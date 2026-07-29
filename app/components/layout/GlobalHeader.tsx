@@ -1,8 +1,8 @@
 "use client";
 
 // Sprint 8 Bloque D — GlobalHeader con navbar top-level por rol.
-// Coord (6): Actuar hoy · Leads · Pacientes · Presupuestos · KPIs · Automatizaciones
-// Admin (9): Red · Alertas · Actuar hoy · Leads · Pacientes · Presupuestos · KPIs · Automatizaciones · Ajustes
+// Coord: Actuar hoy · Leads · Pacientes · Presupuestos · Cobros · KPIs · Automatizaciones · Llamadas IA
+// Admin: Red · Alertas · + los de coord · Ajustes
 
 import Image from "next/image";
 import Link from "next/link";
@@ -14,11 +14,15 @@ import { ThemeToggle } from "./ThemeToggle";
 
 type NavItem = { href: string; label: string };
 
+// Pacientes va DELANTE de Seguimiento (2026-07-29): es la base de datos de
+// personas de la clínica, el centro del producto. Lo demás son vistas sobre
+// ella — el pipeline de quien todavía no lo es, y las colas de trabajo.
 const NAV_COORD: NavItem[] = [
-  { href: "/actuar-hoy",      label: "Actuar hoy" },
-  { href: "/leads",           label: "Leads" },
   { href: "/pacientes",       label: "Pacientes" },
+  { href: "/seguimiento",     label: "Seguimiento" },
+  { href: "/leads",           label: "Leads" },
   { href: "/presupuestos",    label: "Presupuestos" },
+  { href: "/cobros",          label: "Cobros" },
   { href: "/kpis",            label: "KPIs" },
   { href: "/automatizaciones",label: "Automatizaciones" },
   { href: "/llamadas",        label: "Llamadas IA" },
@@ -27,10 +31,11 @@ const NAV_COORD: NavItem[] = [
 const NAV_ADMIN: NavItem[] = [
   { href: "/red",             label: "Red" },
   { href: "/alertas",         label: "Alertas" },
-  { href: "/actuar-hoy",      label: "Actuar hoy" },
-  { href: "/leads",           label: "Leads" },
   { href: "/pacientes",       label: "Pacientes" },
+  { href: "/seguimiento",     label: "Seguimiento" },
+  { href: "/leads",           label: "Leads" },
   { href: "/presupuestos",    label: "Presupuestos" },
+  { href: "/cobros",          label: "Cobros" },
   { href: "/kpis",            label: "KPIs" },
   { href: "/automatizaciones",label: "Automatizaciones" },
   { href: "/llamadas",        label: "Llamadas IA" },
