@@ -82,7 +82,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     return NextResponse.json({ envios });
   } catch (err) {
     console.error("[cola-envios] GET error:", err);
-    return NextResponse.json({ envios: [], error: "Error al cargar envíos" });
+    return NextResponse.json({ error: "No se pudo cargar la cola de envíos" }, { status: 500 });
   }
 });
 

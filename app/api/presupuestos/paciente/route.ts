@@ -6,7 +6,6 @@ import { NextResponse } from "next/server";
 import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { DateTime } from "luxon";
 import type { Presupuesto, HistorialAccion } from "../../../lib/presupuestos/types";
-import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
 
@@ -25,13 +24,13 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     return NextResponse.json({ error: "Falta parámetro nombre" }, { status: 400 });
   }
 
-  // Demo mode
-  if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) {
-    const demo = DEMO_PRESUPUESTOS.filter(
-      (p) => p.patientName.toLowerCase() === nombre.toLowerCase()
-    );
-    return NextResponse.json({ presupuestos: demo, historial: [], isDemo: true });
-  }
+  // (Aquí había una segunda puerta a los datos inventados: si faltaban
+  // AIRTABLE_API_KEY o AIRTABLE_BASE_ID, la ruta servía presupuestos DEMO. Con
+  // Airtable retirado del producto esa condición ya no significa nada —los
+  // datos salen de Postgres— así que era una bomba: bastaba con que el entorno
+  // no tuviera unas variables muertas para que un paciente viera tratamientos
+  // e importes falsos. Quedan otras nueve rutas con la misma puerta, anotadas
+  // en MEJORAS.)
 
   try {
     const today = DateTime.now().setZone(ZONE).toISODate()!;
@@ -164,10 +163,15 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       pacienteId: presupuestosVisibles.length ? resolvedPacienteId : null,
     });
   } catch (err) {
+    // Aquí se devolvían PRESUPUESTOS DEMO INVENTADOS filtrados por el nombre
+    // buscado: ante un fallo de la base, el paciente veía tratamientos e
+    // importes que no existen. Es el mandamiento §4 en su versión grave — no un
+    // vacío feliz, sino datos falsos con cara de reales, y encima en la
+    // superficie que ve el PACIENTE. Un fallo es un fallo (censo 2026-07-29).
     console.error("[paciente GET]", err);
-    const demo = DEMO_PRESUPUESTOS.filter(
-      (p) => p.patientName.toLowerCase() === nombre.toLowerCase()
+    return NextResponse.json(
+      { error: "No se pudieron cargar los presupuestos de este paciente." },
+      { status: 500 },
     );
-    return NextResponse.json({ presupuestos: demo, historial: [], isDemo: true });
   }
 });

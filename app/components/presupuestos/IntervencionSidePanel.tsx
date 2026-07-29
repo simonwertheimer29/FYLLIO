@@ -163,6 +163,7 @@ export default function IntervencionSidePanel({
 
   const [mensajes, setMensajes] = useState<MensajeWhatsApp[]>([]);
   const [loadingMensajes, setLoadingMensajes] = useState(true);
+  const [errorMensajes, setErrorMensajes] = useState(false);
   // El motor ya trae mensaje sugerido: se precarga en el campo (sin llamada).
   const [composerTexto, setComposerTexto] = useState(item.mensajeSugerido ?? "");
   const [enviando, setEnviando] = useState(false);
@@ -180,9 +181,13 @@ export default function IntervencionSidePanel({
     setLoadingMensajes(true);
     fetch(`/api/presupuestos/mensajes?presupuestoId=${item.id}`)
       .then((r) => r.json())
-      .catch(() => ({ mensajes: [] }))
+      // Antes: `.catch(() => ({ mensajes: [] }))`. Un fallo pintaba la
+      // conversación del paciente VACÍA — la coordinadora escribía creyendo que
+      // no había hilo previo (censo 2026-07-29).
+      .catch(() => ({ mensajes: null }))
       .then((mData) => {
-        setMensajes(mData.mensajes ?? []);
+        setMensajes(Array.isArray(mData.mensajes) ? mData.mensajes : []);
+        setErrorMensajes(!Array.isArray(mData.mensajes));
         setLoadingMensajes(false);
       });
   }, [item.id]);
@@ -525,6 +530,11 @@ export default function IntervencionSidePanel({
               <div className="h-10 rounded-2xl bg-[var(--color-surface-muted)] ml-8" />
               <div className="h-10 rounded-2xl bg-[var(--color-surface-muted)] mr-8" />
             </div>
+          ) : errorMensajes ? (
+            <p className="text-xs text-[var(--color-danger)] text-center py-6">
+              No se pudo cargar la conversación. No escribas todavía: puede haber
+              mensajes previos que no estás viendo.
+            </p>
           ) : mensajes.length === 0 ? (
             <p className="text-xs text-[var(--color-muted)] italic text-center py-6">
               Sin mensajes todavía — escribe el primero abajo.

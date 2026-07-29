@@ -46,7 +46,7 @@ export const GET = withPresupuestosAuth(async (session) => {
     return NextResponse.json({ notificaciones, noLeidas });
   } catch (err) {
     console.error("[notificaciones] GET error:", err);
-    return NextResponse.json({ notificaciones: [], noLeidas: 0 });
+    return NextResponse.json({ error: "No se pudieron cargar las notificaciones" }, { status: 500 });
   }
 });
 

@@ -61,6 +61,6 @@ export const GET = withPresupuestosAuth(async () => {
     return NextResponse.json({ tiempoMedioMin, totalMensajes: recs.length });
   } catch (err) {
     console.error("[presupuestos/kpi-hoy]", err instanceof Error ? err.message : err);
-    return NextResponse.json({ tiempoMedioMin: null, totalMensajes: 0 });
+    return NextResponse.json({ error: "No se pudo calcular el KPI de hoy" }, { status: 500 });
   }
 });

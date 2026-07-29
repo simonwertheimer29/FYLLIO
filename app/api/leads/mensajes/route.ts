@@ -32,6 +32,6 @@ export const GET = withAuth(async (session, req) => {
     return NextResponse.json({ mensajes });
   } catch (err) {
     console.error("[leads/mensajes] GET error:", err);
-    return NextResponse.json({ mensajes: [], error: "Error al cargar mensajes" });
+    return NextResponse.json({ error: "No se pudieron cargar los mensajes" }, { status: 500 });
   }
 });

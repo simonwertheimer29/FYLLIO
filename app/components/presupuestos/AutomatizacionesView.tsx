@@ -9,6 +9,7 @@ import { Inbox, Smartphone, MessageCircle, CheckCircle2, CalendarClock, ICON_STR
 import { EmptyState, ErrorState } from "../ui/Feedback";
 import { KpiCard } from "../ui/KpiCard";
 import type { Presupuesto, Secuencia, TipoEvento, UserSession } from "../../lib/presupuestos/types";
+import { cargarJSON, traeLista } from "../../lib/fetch-json";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,9 +56,13 @@ function TabCola({ user }: { user: UserSession }) {
       if (user.rol === "encargada_ventas" && user.clinica) {
         url.searchParams.set("clinica", user.clinica);
       }
-      const res = await fetch(url.toString());
-      const d = await res.json();
-      setSecuencias(d.secuencias ?? []);
+      // Sin comprobar el status, un 500 con {error} salía como lista vacía sin
+      // pasar por el catch: `loadError` no se activaba y la pantalla decía "no
+      // hay nada" (censo 2026-07-29). `cargarJSON` lanza.
+      const d = await cargarJSON<{ secuencias: Secuencia[] }>(url.toString(), {
+        validar: traeLista("secuencias"),
+      });
+      setSecuencias(d.secuencias);
     } catch {
       setSecuencias([]);
       setLoadError(true);
@@ -275,13 +280,18 @@ function TabHistorial({ user }: { user: UserSession }) {
       const clinicaQ = user.rol === "encargada_ventas" && user.clinica
         ? `&clinica=${encodeURIComponent(user.clinica)}` : "";
       const [r1, r2] = await Promise.all([
-        fetch(`/api/automatizaciones/secuencias?estado=enviado${clinicaQ}`).then((r) => r.json()),
-        fetch(`/api/automatizaciones/secuencias?estado=descartado${clinicaQ}`).then((r) => r.json()),
+        cargarJSON<{ secuencias: Secuencia[] }>(
+          `/api/automatizaciones/secuencias?estado=enviado${clinicaQ}`,
+          { validar: traeLista("secuencias") },
+        ),
+        cargarJSON<{ secuencias: Secuencia[] }>(
+          `/api/automatizaciones/secuencias?estado=descartado${clinicaQ}`,
+          { validar: traeLista("secuencias") },
+        ),
       ]);
-      const combined: Secuencia[] = [
-        ...(r1.secuencias ?? []),
-        ...(r2.secuencias ?? []),
-      ].sort((a, b) => (b.creadoEn > a.creadoEn ? 1 : -1));
+      const combined: Secuencia[] = [...r1.secuencias, ...r2.secuencias].sort((a, b) =>
+        b.creadoEn > a.creadoEn ? 1 : -1,
+      );
       setItems(combined);
     } catch {
       setItems([]);
@@ -415,9 +425,10 @@ function TabProximas({ user }: { user: UserSession }) {
       if (user.rol === "encargada_ventas" && user.clinica) {
         url.searchParams.set("clinica", user.clinica);
       }
-      const res = await fetch(url.toString());
-      const d = await res.json();
-      const all: Presupuesto[] = d.presupuestos ?? [];
+      const d = await cargarJSON<{ presupuestos: Presupuesto[] }>(url.toString(), {
+        validar: traeLista("presupuestos"),
+      });
+      const all: Presupuesto[] = d.presupuestos;
       const conReactivacion = all.filter((p) => p.reactivacion === true);
       // Sort: closest to 90-day mark first (ascending remaining days)
       conReactivacion.sort((a, b) => (90 - a.daysSince) - (90 - b.daysSince));

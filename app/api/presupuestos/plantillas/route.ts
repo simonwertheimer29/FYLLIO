@@ -68,7 +68,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     return NextResponse.json({ plantillas });
   } catch (err) {
     console.error("[plantillas] GET error:", err);
-    return NextResponse.json({ plantillas: [], error: "Error al cargar plantillas" });
+    return NextResponse.json({ error: "No se pudieron cargar las plantillas" }, { status: 500 });
   }
 });
 

@@ -425,13 +425,6 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     return NextResponse.json(response);
   } catch (err) {
     console.error("[maxima] GET error:", err);
-    return NextResponse.json({
-      presupuestos: [],
-      totales: { total: 0, importeTotal: 0, porEstadoVisual: {} },
-      doctoresUnicos: [],
-      tratamientosUnicos: [],
-      clinicasUnicas: [],
-      error: "Error al cargar vista máxima",
-    });
+    return NextResponse.json({ error: "No se pudo cargar la tabla de presupuestos" }, { status: 500 });
   }
 });

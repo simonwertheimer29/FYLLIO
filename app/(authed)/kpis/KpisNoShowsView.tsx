@@ -78,8 +78,13 @@ export function KpisNoShowsView() {
     setError(null);
     const url = new URL("/api/kpis/no-shows", location.href);
     if (selectedClinicaId) url.searchParams.set("clinica", selectedClinicaId);
+    // Antes no se comprobaba el status: un 500 con {error} entraba como dato
+    // válido y el dashboard pintaba ceros (censo 2026-07-29).
     fetch(url.toString())
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((d) => setData(d as ApiResponse))
       .catch(() => {
         setData(null);

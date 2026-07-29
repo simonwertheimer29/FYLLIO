@@ -20,6 +20,6 @@ export const GET = withAuth(async () => {
     return NextResponse.json({ plantillas });
   } catch (err) {
     console.error("[leads/plantillas]", err instanceof Error ? err.message : err);
-    return NextResponse.json({ plantillas: [] });
+    return NextResponse.json({ error: "No se pudieron cargar las plantillas" }, { status: 500 });
   }
 });

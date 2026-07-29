@@ -118,6 +118,8 @@ export default function Paciente360View({ nombre }: Props) {
         setIsDemo(d.isDemo ?? false);
         setPacienteId(d.pacienteId ?? null);
       } catch {
+        // (Este SÍ estaba bien: vacía las listas pero marca `loadError`, que
+        // pinta un ErrorState. Revisado en el censo 2026-07-29.)
         setPresupuestos([]);
         setHistorial([]);
         setPacienteId(null);

@@ -12,6 +12,7 @@ import { Card } from "../ui/Card";
 import { ErrorState } from "../ui/Feedback";
 import { Info, Star, ChevronDown, ChevronRight, ICON_STROKE } from "../icons";
 import { eur } from "../shared/Cifra";
+import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
 
 type SubTab = "general" | "tarifas" | "paciente" | "tratamientos" | "doctores" | "benchmark" | "ia";
 
@@ -533,6 +534,7 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
 }) {
   const [evolDoctor, setEvolDoctor] = useState<string | null>(null);
   const [evolData, setEvolData] = useState<KpiData | null>(null);
+  const [evolError, setEvolError] = useState<string | null>(null);
 
   function downloadCsv() {
     const rows = [
@@ -554,11 +556,15 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
     try {
       const url = new URL("/api/presupuestos/kpis", location.href);
       url.searchParams.set("doctor", doctor);
-      const res = await fetch(url.toString());
-      const d = await res.json();
+      // Sin status ni error declarado, un fallo dejaba la evolución del doctor
+      // en blanco sin decir nada (censo 2026-07-29).
+      const d = await cargarJSON<{ kpis?: KpiData }>(url.toString());
       setEvolDoctor(doctor);
       setEvolData(d.kpis ?? null);
-    } catch { /* ignore */ }
+      setEvolError(null);
+    } catch (e) {
+      setEvolError(mensajeDeError(e));
+    }
   }
 
   const prevMap = new Map(kpisPrevMes.porDoctor.map((d) => [d.doctor, d]));
@@ -656,6 +662,13 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                       <td className="px-3 py-2.5 font-bold text-[var(--color-foreground)]">{d.tasa}%</td>
                       <td className="px-3 py-2.5"><TrendBadge curr={d.total} prev={prev?.total ?? 0} /></td>
                     </tr>
+                    {isSelected && evolError && (
+                      <tr>
+                        <td colSpan={6} className="px-4 py-3 text-xs text-[var(--color-danger)] border-b border-[var(--color-border)]">
+                          {evolError}
+                        </td>
+                      </tr>
+                    )}
                     {isSelected && evolData && (
                       <tr>
                         <td colSpan={6} className="px-4 py-4 bg-[var(--color-accent-soft)] border-b border-[var(--color-border)]">
@@ -1115,10 +1128,14 @@ export default function KpiView({ user, showBenchmark = true }: { user: UserSess
 
   useEffect(() => {
     if (user.rol !== "manager_general") return;
-    fetch("/api/presupuestos/clinicas")
-      .then((r) => r.json())
-      .then((d) => setClinicas(d.clinicas ?? []))
-      .catch(() => {});
+    cargarJSON<{ clinicas: string[] }>("/api/presupuestos/clinicas", {
+      validar: traeLista("clinicas"),
+    })
+      .then((d) => setClinicas(d.clinicas))
+      .catch(() => {
+        // El selector de clínica vacío no miente sobre datos de negocio: se
+        // deja como está y el error se ve en el KPI principal, que sí carga.
+      });
   }, [user.rol]);
 
   // Lazy fetch for Motor IA tab — only once

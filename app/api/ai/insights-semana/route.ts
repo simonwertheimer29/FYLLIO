@@ -150,6 +150,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ insights, semana: getISOWeek(new Date()) });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Error desconocido";
-    return NextResponse.json({ insights: [], error: message });
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

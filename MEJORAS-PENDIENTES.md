@@ -896,3 +896,34 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   uso). Decisión de Simon del 2026-07-29: **no añadirlo ahora**.
 - **Impacto:** bajo hoy, medio cuando el dato exista.
 - **Fecha:** 2026-07-29 · 🔵
+
+## 59. Nueve rutas sirven datos DEMO si faltan dos variables de Airtable ya muerto
+- **Zona:** `automatizaciones/secuencias`, `automatizaciones/configuracion`,
+  `automatizaciones/seed-demo`, `automatizaciones/procesar`, `presupuestos/intervencion`,
+  `presupuestos/objetivos` (×2) y las que queden con el mismo patrón
+- **Principio:** §4 — todas empiezan con
+  `if (!process.env.AIRTABLE_API_KEY || !process.env.AIRTABLE_BASE_ID) return <datos demo>`.
+  **Airtable está retirado del producto** (los datos salen de Postgres), así que esa condición
+  no significa nada: basta con que un entorno no tenga unas variables muertas para que la
+  pantalla sirva datos inventados con cara de reales. En local existen en `.env.local`, por
+  eso no se nota; en Vercel no se ha comprobado.
+- **Mejora:** retirar la puerta en las nueve, como ya se hizo en `presupuestos/paciente`
+  (2026-07-29). Y comprobar si esas variables siguen definidas en Vercel — si no lo están,
+  esto está activo en producción.
+- **Impacto:** alto si en producción faltan las variables; nulo si están. **Hay que mirarlo
+  antes de decidir la prioridad.**
+- **Fecha:** 2026-07-29 · 🔵
+
+## 60. `NoShowRiskPanel` llama a una ruta que no existe (404)
+- **Zona:** `app/components/dashboard/NoShowRiskPanel.tsx:353` → `/api/dashboard/noshow-risk`
+- **Principio:** §9 — la carpeta `app/api/dashboard/` **no existe**. El panel llevaba
+  fallando siempre, y no se notaba porque su catch era `{ /* silent */ }` literal. Lo destapó
+  el barrido de errores del 2026-07-29.
+- **Matiz:** el componente **no está montado en ninguna pantalla** — no tiene ningún consumidor
+  (se comprobó por grep). Así que hoy no rompe nada visible: es código muerto que apuntaba a
+  una ruta muerta.
+- **Mejora:** decidir si el panel entra en el módulo de no-shows (congelado) o se retira. No
+  dejarlo a medias: un componente que llama a una ruta inexistente es una trampa para el
+  siguiente que lo monte.
+- **Impacto:** nulo hoy, alto el día que alguien lo monte creyendo que funciona.
+- **Fecha:** 2026-07-29 · 🔵

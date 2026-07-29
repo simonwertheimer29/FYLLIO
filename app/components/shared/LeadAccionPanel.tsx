@@ -31,6 +31,7 @@ import {
   UMBRAL_REACTIVACION_MS,
 } from "../../lib/presupuestos/estado-conversacion";
 import type { PlantillaLead } from "../../api/leads/plantillas/route";
+import { cargarJSON, traeLista } from "../../lib/fetch-json";
 import {
   PanelAccionShell,
   PanelCabecera,
@@ -323,9 +324,13 @@ export function LeadAccionPanel({
   const cargarMensajes = useCallback(() => {
     setLoadingMensajes(true);
     setErrorMensajes(false);
-    fetch(`/api/leads/mensajes?leadId=${lead.id}`)
-      .then((r) => r.json())
-      .then((d) => setMensajes(d.mensajes ?? []))
+    // `cargarJSON` comprueba el status: antes un 500 con {error} entraba por el
+    // `?? []` sin pasar por el catch, así que `errorMensajes` no se activaba y
+    // el hilo salía vacío (censo 2026-07-29).
+    cargarJSON<{ mensajes: unknown[] }>(`/api/leads/mensajes?leadId=${lead.id}`, {
+      validar: traeLista("mensajes"),
+    })
+      .then((d) => setMensajes(d.mensajes as never))
       .catch(() => {
         setMensajes([]);
         setErrorMensajes(true);
