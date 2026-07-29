@@ -207,6 +207,22 @@ export function LeadsView({
   } | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Enlace profundo `/leads?lead=<id>`: abre la ficha de ESE lead. Lo usa el
+  // modal de presupuesto cuando la persona buscada todavía no es paciente —
+  // mandar a la coordinadora al tablero a buscarla entre 27 cards no es ayudar.
+  // Se abre una sola vez y se limpia la URL para que un refresco no reabra el
+  // panel que acaba de cerrar.
+  const [leadPedido, setLeadPedido] = useState<string | null>(() => {
+    if (typeof window === "undefined") return null;
+    return new URLSearchParams(window.location.search).get("lead");
+  });
+  useEffect(() => {
+    if (!leadPedido) return;
+    const l = leads.find((x) => x.id === leadPedido);
+    if (l) setDrawerLead(l);
+    setLeadPedido(null);
+    window.history.replaceState({}, "", window.location.pathname);
+  }, [leadPedido, leads]);
   // Actividad por lead (última acción o mensaje) — alimenta el rango
   // temporal del tablero. Sin dato conocido se usa la fecha de alta.
   const [ultimaActividadPorLead, setUltimaActividadPorLead] = useState<Record<string, string>>({});

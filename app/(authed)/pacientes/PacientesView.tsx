@@ -20,8 +20,9 @@ import { toast } from "sonner";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { KpiCard } from "../../components/ui/KpiCard";
 import { EmptyState } from "../../components/ui/Feedback";
-import { MessageCircle, Users, Euro, Pencil, ICON_STROKE } from "../../components/icons";
+import { MessageCircle, Users, Euro, Pencil, FileText, ICON_STROKE } from "../../components/icons";
 import { PagoModal } from "../../components/pacientes/PagoModal";
+import NewPresupuestoModal from "../../components/presupuestos/NewPresupuestoModal";
 import { EstadoPresupuestoFlow, type PresupuestoBrief } from "./EstadoPresupuestoFlow";
 import { horaClinica, TZ_CLINICA } from "../../lib/time";
 
@@ -148,6 +149,11 @@ export function PacientesView({
   const [pagoDe, setPagoDe] = useState<{ paciente: Paciente; clinicaId: string | null } | null>(null);
   const [estadoDe, setEstadoDe] = useState<{ paciente: Paciente; abiertos: PresupuestoBrief[] } | null>(null);
   const [cargandoFlujo, setCargandoFlujo] = useState<string | null>(null);
+  // Segunda entrada al MISMO modal de presupuesto (spec 2026-07-29, punto 4):
+  // desde una fila ya se sabe quién es el paciente, así que se abre con él
+  // preseleccionado y la coordinadora se salta el paso de buscarlo. Sin
+  // variantes: es el componente del kanban, con una prop de más.
+  const [presupuestoDe, setPresupuestoDe] = useState<Paciente | null>(null);
 
   const filtered = useMemo(() => {
     let out = pacientes;
@@ -555,6 +561,15 @@ export function PacientesView({
                         >
                           <Euro size={14} strokeWidth={ICON_STROKE} aria-hidden />
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setPresupuestoDe(p)}
+                          className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[var(--color-accent)] hover:bg-[var(--color-surface-muted)] transition-colors"
+                          title="Crear presupuesto para este paciente"
+                          aria-label={`Crear presupuesto para ${p.nombre}`}
+                        >
+                          <FileText size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                        </button>
                         {/* La conversación vive en la ficha (hilo + registro);
                             nunca wa.me directo desde la tabla. */}
                         <Link
@@ -598,6 +613,27 @@ export function PacientesView({
             setPagoDe(null);
             toast.success("Cobro registrado — actualizado en Presupuestos y Cobros");
             void refrescarFila(pagoDe.paciente.id);
+          }}
+        />
+      )}
+
+      {/* Nuevo presupuesto sobre un paciente que ya existe — el caso que hasta
+          hoy no se podía hacer: era la mitad del negocio de una clínica real. */}
+      {presupuestoDe && (
+        <NewPresupuestoModal
+          user={{ rol: "admin", clinica: presupuestoDe.clinicaNombre ?? null }}
+          pacienteInicial={{
+            id: presupuestoDe.id,
+            nombre: presupuestoDe.nombre,
+            telefono: presupuestoDe.telefono,
+            clinicaId: presupuestoDe.clinicaId,
+            clinicaNombre: presupuestoDe.clinicaNombre ?? null,
+          }}
+          onClose={() => setPresupuestoDe(null)}
+          onCreated={() => {
+            setPresupuestoDe(null);
+            toast.success("Presupuesto creado — ya está en Presupuestos y en su ficha");
+            void refrescarFila(presupuestoDe.id);
           }}
         />
       )}

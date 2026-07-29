@@ -659,3 +659,32 @@ si nació de captación o ya existía, y esa marca existe SOLO para que las mét
 mezclen (la conversión de leads se calcula únicamente sobre los de captación); (4) el modal
 de presupuesto NUNCA crea el paciente: sería un segundo camino al mismo resultado, sin
 asistencia registrada ni trazabilidad de origen.
+
+## 2026-07-29 — El presupuesto se crea sobre un paciente buscado, no sobre un nombre tecleado
+Ejecución de la spec del principio anterior. Tres hallazgos que la cambiaron:
+**(1)** El modal no buscaba sobre leads, como se sospechaba: no buscaba sobre NADA. El nombre
+era un `<input type="text">` y lo único que consultaba era un aviso de presupuestos
+duplicados, no de personas. **(2)** El POST no escribía `Paciente` —ni doctor, ni tipos, ni
+clínica, ni teléfono—: el presupuesto nacía huérfano y la tarjeta se llamaba literalmente
+"Paciente" al recargar. Por eso alguien colaba esos campos en las notas con pipes; el apaño
+delataba el bug. Verificado en vivo antes y después contra DEMO. **(3)** Huérfanos existentes:
+CERO, en las tres bases. El bug nunca llegó a morder porque nadie había usado el alta manual,
+así que no hay nada que migrar ni que adivinar.
+Decisiones de diseño: el buscador es UNA función (`lib/pacientes/busqueda`) — es la frontera
+con el PMS. El origen del paciente NO se calcula ahí: el picker no lo enseña y hacerlo costaba
+una carga entera de leads por tecla (2,3 s por pulsación); vive aparte, para quien mide. El
+enlace al lead va a `/leads?lead=<id>`, que abre su ficha: mandar al tablero a buscarlo entre
+27 cards no es ayudar. Y el modal no crea pacientes ni preguntando: solo señala qué falta.
+Del modal salen Nº de historia, teléfono, especialidad, tipo de paciente, tipo de visita y
+origen. Los tres primeros salen del paciente o del doctor. **La especialidad no existía en el
+modelo**: `staff` tiene `rol` (Dentista/Higienista) y un campo `tratamientos` vacío, y el
+endpoint leía un campo de una tabla inexistente devolviendo "General" para todos — no había
+nada que derivar, solo un desplegable decorativo. Los tratamientos pasan de texto libre a
+selector del catálogo real (12, con categoría, cubre el 100% de los usados hoy).
+
+## 2026-07-29 — Supuesto validado: el paciente migrado necesita un identificador estable
+Validado por Simon. La búsqueda de pacientes vive tras una sola función; hoy consulta
+Postgres y mañana podría consultar el PMS del cliente sin rehacer UI ni flujo. Pero para
+CREAR sobre un paciente hace falta colgarle el presupuesto de un id: si el PMS no expone un
+identificador estable, leer de él solo sirve para consultar y **migrar pasa a ser la única
+vía**. Esa es exactamente la frontera y el único punto que queda pendiente de decidir.
