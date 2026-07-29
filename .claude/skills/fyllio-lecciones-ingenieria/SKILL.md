@@ -101,6 +101,26 @@ datos perdidos.
 > de acciones llevaba roto desde la separación de bases, y con él el KPI de tiempo de
 > respuesta, sin que nadie lo supiera.
 
+### 10. Un fallo de carga nunca se convierte en una lista vacía
+`?? []` sobre la respuesta de un fetch es el bug, no un descuido: convierte
+"no se pudo preguntar" en "no hay nada", y para la coordinadora son
+indistinguibles — salvo que la segunda es la que hace que deje de mirar. La
+regla operativa: **ningún cliente escribe `fetch` a pelo**; todos pasan por
+`cargarJSON()` de `lib/fetch-json`, que comprueba el status, el cuerpo y el
+campo `error` (varias rutas lo mandaban con 200), y **lanza** en vez de
+devolver un valor por defecto. Y del lado del servidor, un catch devuelve
+**status real**: mientras una ruta responda 200 con `{lista: []}`, cada cliente
+tiene que acordarse de mirar un campo que nadie mira.
+El patrón de consumo, entero: **conservar lo último bueno + error honesto +
+reintentar**. Vaciar la pantalla ya es perder información que sí teníamos.
+> **Nos lo enseñó:** tres veces el mismo bug — un 401 dejaba la cola de
+> presupuestos vacía, otro 401 pintaba Cobros como "¡todo cobrado!", y en
+> julio de 2026 un dev server roto hizo que /presupuestos anunciara "0
+> presupuestos abiertos · 0 €" con 123 en la base. El censo que siguió
+> encontró 8 clientes y 11 rutas con la misma forma, más una ruta que
+> devolvía **presupuestos demo inventados** a un paciente real cuando la base
+> fallaba.
+
 ## Checklist antes de dar por bueno un cambio de backend
 
 - [ ] ¿Todo "éxito" que comunico está **persistido antes** de comunicarse? (§1)
@@ -112,6 +132,7 @@ datos perdidos.
 - [ ] ¿Puedo citar `archivo:línea` de la causa que estoy arreglando? (§7)
 - [ ] Si toqué esquema/bases de Airtable, ¿revisé los **linked fields** afectados? (§8)
 - [ ] ¿Algún catch de este cambio puede **tragarse un fallo sistemático**? (§9)
+- [ ] Si el cambio carga datos, ¿usa `cargarJSON()` y **no** hay ningún `?? []`? (§10)
 
 ## Cómo crece este skill
 
