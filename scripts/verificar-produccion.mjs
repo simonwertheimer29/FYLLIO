@@ -30,10 +30,15 @@ if (!URL_BASE || !COOKIE) {
   console.error("Faltan FYLLIO_URL y FYLLIO_COOKIE. Ver la cabecera de este archivo.");
   process.exit(1);
 }
+// El bypass se manda como CABECERA en cada petición y punto. Nada de
+// `x-vercel-set-bypass-cookie`: esa le pide a Vercel que deje el bypass en una
+// cookie, y para entregarla contesta con un redirect a la misma URL — que es
+// justo lo que un script no necesita y lo que confundía el diagnóstico
+// (307 sin causa aparente sobre una ruta que ni siquiera pasa por el proxy).
 const H = {
   cookie: COOKIE,
   "Content-Type": "application/json",
-  ...(BYPASS ? { "x-vercel-protection-bypass": BYPASS, "x-vercel-set-bypass-cookie": "true" } : {}),
+  ...(BYPASS ? { "x-vercel-protection-bypass": BYPASS } : {}),
 };
 
 /** Un error puede llegar como string, como objeto o como Error. Concatenarlo
@@ -46,24 +51,58 @@ const msg = (x) => {
   return String(x);
 };
 
+const MAX_SALTOS = 3;
+
+/**
+ * Sigue las redirecciones A MANO, guardando la cadena. Ni `follow` ni `manual`
+ * sirven solos: con `follow` acabas leyendo el login de vercel.com y creyendo
+ * que la app dio 401; con `manual` te quedas con un "307" mudo y sin saber
+ * adónde apuntaba. Aquí se sigue Y se cuenta, que es lo que permite decir "el
+ * 307 va a la MISMA URL con Set-Cookie de Vercel" en vez de "hay un 307".
+ *
+ * No se salta de host: si la redirección sale de URL_BASE se para y se reporta
+ * — un salto a vercel.com es el diagnóstico, no un paso intermedio.
+ */
 const pedir = async (ruta, init = {}) => {
-  // `manual`: si Vercel intercepta con un 302 al SSO queremos VER el 302, no
-  // acabar leyendo el login de vercel.com y creer que la app dio 401.
-  let r;
-  try {
-    r = await fetch(URL_BASE + ruta, {
-      ...init,
-      redirect: "manual",
-      headers: { ...H, ...(init.headers ?? {}) },
-    });
-  } catch (err) {
-    return { status: 0, d: null, t: "", fallo: msg(err) };
+  let url = URL_BASE + ruta;
+  const cadena = [];
+  for (let salto = 0; ; salto++) {
+    let r;
+    try {
+      r = await fetch(url, { ...init, redirect: "manual", headers: { ...H, ...(init.headers ?? {}) } });
+    } catch (err) {
+      return { status: 0, d: null, t: "", cadena, fallo: msg(err) };
+    }
+    const location = r.headers.get("location");
+    const setCookie = r.headers.get("set-cookie");
+    const esRedirect = r.status >= 300 && r.status < 400 && location;
+
+    if (!esRedirect || salto >= MAX_SALTOS) {
+      const t = await r.text();
+      let d = null;
+      try { d = JSON.parse(t); } catch { /* html o texto plano */ }
+      return { status: r.status, d, t, location, setCookie, cadena, url };
+    }
+
+    const destino = new URL(location, url);
+    const mismaUrl = destino.href === url;
+    cadena.push({ status: r.status, desde: url, hacia: destino.href, mismaUrl, setCookie });
+
+    // Fuera de nuestro host no se sigue: eso ya es la respuesta.
+    if (destino.origin !== new URL(URL_BASE).origin) {
+      return { status: r.status, d: null, t: "", location, setCookie, cadena, url, fueraDeHost: destino.href };
+    }
+    // Un redirect a sí mismo no converge: cortar y contarlo.
+    if (mismaUrl) {
+      return { status: r.status, d: null, t: "", location, setCookie, cadena, url, bucle: true };
+    }
+    url = destino.href;
   }
-  const t = await r.text();
-  let d = null;
-  try { d = JSON.parse(t); } catch { /* html */ }
-  return { status: r.status, d, t, location: r.headers.get("location") };
 };
+
+/** La cadena de saltos en una línea, para que un 3xx nunca sea mudo. */
+const rutaSeguida = (r) =>
+  (r.cadena ?? []).map((s) => `${s.status}→${s.mismaUrl ? "(la misma URL)" : s.hacia}`).join(" ");
 
 /** ¿Nos ha contestado Vercel en vez de la app? Tres formas, las tres
  *  comprobadas contra un despliegue real (2026-07-29):
@@ -90,7 +129,8 @@ const check = (n, cond, detalle = "") => {
 const porQue = (r) => {
   if (r.status === 0) return `no se pudo conectar — ${r.fallo}`;
   const partes = [`status ${r.status}`];
-  if (r.location) partes.push(`→ ${r.location.slice(0, 60)}`);
+  if (r.cadena?.length) partes.push(rutaSeguida(r));
+  else if (r.location) partes.push(`→ ${r.location.slice(0, 60)}`);
   if (r.d?.isDemo) partes.push("¡isDemo!");
   if (r.d?.error) partes.push(msg(r.d.error));
   if (!r.d && r.t) partes.push(`respuesta no-JSON: ${r.t.replace(/\s+/g, " ").trim().slice(0, 90)}`);
@@ -113,6 +153,30 @@ if (interceptadoPorVercel(sonda)) {
 }
 if (sonda.status === 0) {
   console.error(`\n✗ No se pudo conectar con ${URL_BASE} — ${sonda.fallo}`);
+  process.exit(2);
+}
+// Redirect a sí mismo: el handshake de la cookie de bypass de Vercel (307 a la
+// misma ruta + Set-Cookie: _vercel_jwt). Un navegador lo sigue; un script que
+// manda la cabecera en cada petición no lo necesita y se queda dando vueltas.
+if (sonda.bucle) {
+  const esBypass = /_vercel_jwt/.test(sonda.setCookie ?? "");
+  console.error(
+    `\n✗ ${sonda.status} en bucle: ${URL_BASE}/api/salud redirige a sí mismo.\n` +
+      `   ${rutaSeguida(sonda)}\n` +
+      (esBypass
+        ? "   Es el handshake de la cookie de bypass de Vercel (Set-Cookie: _vercel_jwt).\n" +
+          "   Quita la cabecera x-vercel-set-bypass-cookie: el bypass ya viaja en\n" +
+          "   x-vercel-protection-bypass en cada petición y la cookie sobra."
+        : `   Set-Cookie: ${(sonda.setCookie ?? "(ninguna)").slice(0, 80)}`),
+  );
+  process.exit(2);
+}
+// Cualquier otro salto fuera de nuestro host es, por sí solo, el diagnóstico.
+if (sonda.fueraDeHost) {
+  console.error(
+    `\n✗ ${URL_BASE}/api/salud sale de nuestro host: ${rutaSeguida(sonda)}\n` +
+      `   Quien contesta no es Fyllio.`,
+  );
   process.exit(2);
 }
 // La app SIEMPRE responde JSON en /api/salud, incluido su 401 sin sesión. Si
