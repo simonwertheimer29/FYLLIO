@@ -642,3 +642,20 @@ ventana de dos horas al día y "probarlo a mano" es tirar una moneda. Afirma que
 clínica no depende de la zona del proceso (verde con TZ=UTC, Madrid, New_York y Tokyo), que
 la fórmula vieja SÍ falla y exactamente dónde, y la consecuencia de negocio: un lead citado
 hoy sigue en su cohorte y en su columna las 24 horas del día (con la fórmula vieja se caía 2).
+
+## 2026-07-29 — Principio: no hay dos tipos de paciente
+Decisión de producto de Simon, anotada antes de tocar código. **Hay pacientes, y algunos
+tienen un lead de origen.** El lead es PROCEDENCIA, no una clase distinta. Al marcar
+asistido, el lead deja de serlo y nace un paciente con historial en la clínica; a partir de
+ahí es un paciente más, buscable como cualquier otro. Un paciente con historial puede
+recibir presupuestos nuevos **sin pasar por el pipeline de leads** — hoy ese caso
+sencillamente no existe en Fyllio, y es la mitad del negocio de una clínica real: medido en
+DEMO, el **52% de los pacientes (87 de 166) no tiene ningún lead**.
+Consecuencias que gobiernan lo que se construya a partir de aquí: (1) el buscador de un
+presupuesto nuevo busca sobre PACIENTES, no sobre leads ni sobre texto libre; (2) un
+presupuesto creado sobre un paciente con historial es indistinguible aguas abajo —
+seguimiento, cobros y ficha lo tratan igual, sin ramas por origen; (3) el paciente registra
+si nació de captación o ya existía, y esa marca existe SOLO para que las métricas no los
+mezclen (la conversión de leads se calcula únicamente sobre los de captación); (4) el modal
+de presupuesto NUNCA crea el paciente: sería un segundo camino al mismo resultado, sin
+asistencia registrada ni trazabilidad de origen.
