@@ -867,3 +867,32 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   pueden retomar") en vez del volcado completo.
 - **Impacto:** bajo-medio.
 - **Fecha:** 2026-07-27 · 🔵
+
+## 57. 🔴 El portal del paciente no se ha probado de punta a punta (necesita Vercel KV)
+- **Zona:** `app/api/presupuestos/[id]/generar-portal/route.ts`, `app/api/portal/[token]/route.ts`,
+  `scripts/qa-tipo-paciente.mjs`
+- **Principio:** §5 confianza. El portal enseñaba el desglose de cobertura solo si
+  `tipoPaciente === "Adeslas"`; ahora usa la marca de aseguradora del catálogo. **La REGLA
+  está verificada** (el QA comprueba que `esAseguradora` distingue Privado de las mutuas),
+  **pero el FLUJO COMPLETO no**: `generar-portal` escribe en Vercel KV y en local devuelve
+  500 ("fetch failed"), así que la cadena generar → leer → pintar no se ha ejecutado nunca
+  con el código nuevo.
+- **Agravante:** la primera versión de ese QA daba **verde por casualidad** —
+  `Boolean(undefined) === false` hacía pasar el caso "Privado"— y roja para las tres mutuas.
+  Ahora el script DECLARA que omite la prueba en vez de fingir que pasa, pero eso no la
+  sustituye.
+- **Mejora:** correr `node scripts/qa-tipo-paciente.mjs` una vez contra un entorno con KV
+  (preview de Vercel o KV local) y confirmar que un paciente de Sanitas ve su desglose.
+- **Impacto:** alto — es lo que ve el PACIENTE, no la coordinadora, y falla en silencio.
+- **Fecha:** 2026-07-29 · 🔵 **PRIORIDAD ALTA por Simon**: no se da por cerrado hasta
+  comprobarlo.
+
+## 58. Filtro por tipo de paciente en el kanban: cuando el dato tenga contenido
+- **Zona:** `app/api/presupuestos/kanban/route.ts` (`?tipoPaciente=` ya se acepta), UI del kanban
+- **Principio:** §2 facilidad — el parámetro existe en la API desde siempre y ninguna pantalla
+  lo ofrece. Con el campo recién creado y sin backfill, un filtro por tipo hoy filtraría a
+  cero en producción: sería ruido con aspecto de función.
+- **Mejora:** añadirlo cuando el piloto tenga tipos rellenados de verdad (se rellenan con el
+  uso). Decisión de Simon del 2026-07-29: **no añadirlo ahora**.
+- **Impacto:** bajo hoy, medio cuando el dato exista.
+- **Fecha:** 2026-07-29 · 🔵
