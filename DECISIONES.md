@@ -814,3 +814,11 @@ guardián que nadie ejecuta.
 perfectamente sin ellas — eran interruptores muertos de la migración a Postgres. Y `CRON_SECRET`
 pasó a exigirse solo en producción: un contrato que grita en falso en el portátil de todos los
 días acaba ignorado, y entonces no avisa cuando importa.
+
+## 2026-07-29 — El guardián entra en el build (no hay CI aparte)
+No hay GitHub Actions: el deploy va por Vercel, que ejecuta `npm run build`. Así que la puerta
+real es el propio build, vía `prebuild` — npm lo ejecuta siempre antes, sin poder saltárselo y
+sin depender de que nadie se acuerde. Verificado en los dos sentidos: con el repo limpio el
+build sigue; introduciendo a propósito una variable fuera del contrato, el build se detiene con
+el motivo escrito. Impacto confirmado a cero: las bases piloto están vacías y sin usuarios, así
+que las semanas de producción degradada no perdieron datos de nadie.

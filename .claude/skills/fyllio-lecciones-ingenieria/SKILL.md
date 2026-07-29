@@ -121,6 +121,31 @@ reintentar**. Vaciar la pantalla ya es perder información que sí teníamos.
 > devolvía **presupuestos demo inventados** a un paciente real cuando la base
 > fallaba.
 
+### 11. Retirar una dependencia se verifica en el entorno real, no en local
+Quitar una integración no termina cuando el código deja de usarla: termina cuando se ha
+comprobado **en el entorno donde corre de verdad**. El peligro no es el código que la
+llamaba —ese se borra y se ve—, sino el que **decidía su comportamiento** con sus
+variables. Al desaparecer del entorno, ese código cambia de rama sin que nadie lo toque, y
+en local no se nota porque las variables siguen en `.env.local`.
+Reglas operativas al retirar algo:
+1. **Censar quién DECIDE con sus variables**, no solo quién las usa: `if (!process.env.X)`
+   es el patrón peligroso; `process.env.X` a secas, no.
+2. **Quitar esas ramas ANTES de quitar las variables** del entorno, no después.
+3. **Comprobar contra el entorno desplegado** que las rutas afectadas devuelven datos
+   reales y que **una escritura persiste al releerla** — un 200 no demuestra que se haya
+   escrito (`npm run verificar:produccion`).
+4. Lo que el entorno necesita se **declara** (`lib/entorno`) y se comprueba al arrancar
+   (`instrumentation.ts`): en producción aborta, en desarrollo grita. Fallar al arrancar es
+   barato; degradar en silencio no.
+> **Nos lo enseñó:** al retirar Airtable se quitaron `AIRTABLE_API_KEY` y `AIRTABLE_BASE_ID`
+> de Vercel. Trece archivos decidían con ellas, así que **producción degradó en silencio
+> durante semanas**: seis escrituras confirmaban éxito sin escribir (incluido un importador
+> de CSV que respondía "importados N" con cero escritos), el motor de automatizaciones
+> abortaba en cada ejecución, la cola de intervención salía vacía con 28 casos reales, y
+> /presupuestos devolvía 500 que la pantalla pintaba como "0 presupuestos abiertos". Ningún
+> QA local podía verlo: en local las variables seguían existiendo. Lo destapó una pregunta
+> del fundador sobre unos ceros en pantalla, no una alarma.
+
 ## Checklist antes de dar por bueno un cambio de backend
 
 - [ ] ¿Todo "éxito" que comunico está **persistido antes** de comunicarse? (§1)
@@ -133,6 +158,7 @@ reintentar**. Vaciar la pantalla ya es perder información que sí teníamos.
 - [ ] Si toqué esquema/bases de Airtable, ¿revisé los **linked fields** afectados? (§8)
 - [ ] ¿Algún catch de este cambio puede **tragarse un fallo sistemático**? (§9)
 - [ ] Si el cambio carga datos, ¿usa `cargarJSON()` y **no** hay ningún `?? []`? (§10)
+- [ ] Si retiro una dependencia, ¿he censado quién **decide** con sus variables, y lo he verificado **en el entorno desplegado**? (§11)
 
 ## Cómo crece este skill
 

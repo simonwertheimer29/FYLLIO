@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "prebuild": "node scripts/qa-sin-fallbacks.mjs",
     "start": "next start",
     "lint": "eslint",
     "clean": "rm -rf .next",
