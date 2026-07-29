@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Check, X, FolderOpen, CheckCircle2, AlertTriangle, ChevronLeft, ArrowRight, ICON_STROKE } from "../icons";
 import type { Presupuesto, UserSession } from "../../lib/presupuestos/types";
 import { resolverTipoPaciente, type TipoPacienteOpcion } from "../../lib/pacientes/tipos-paciente-puro";
+import { eur } from "../shared/Cifra";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -500,7 +501,7 @@ export default function ImportarCSVModal({
                         <td className="px-3 py-2 font-medium text-[var(--color-foreground)] max-w-[120px] truncate">{r.paciente || "—"}</td>
                         <td className="px-3 py-2 text-[var(--color-muted)] max-w-[150px] truncate">{r.tratamiento || "—"}</td>
                         <td className="px-3 py-2 text-right font-semibold text-[var(--color-foreground)]">
-                          {r.importe != null ? `€${r.importe.toLocaleString("es-ES")}` : "—"}
+                          {r.importe != null ? eur(r.importe) : "—"}
                         </td>
                         <td className="px-3 py-2 text-[var(--color-muted)] whitespace-nowrap">{r.fecha || "—"}</td>
                         <td className="px-3 py-2 text-[var(--color-muted)] max-w-[110px] truncate">{r.doctor || "—"}</td>

@@ -20,6 +20,7 @@ import { estadosAlcanzables } from "../../lib/presupuestos/transiciones";
 import { ESTADO_CONFIG } from "../../lib/presupuestos/colors";
 import type { PresupuestoEstado, MotivoPerdida } from "../../lib/presupuestos/types";
 import { X, ICON_STROKE } from "../../components/icons";
+import { eur } from "../../components/shared/Cifra";
 
 export type PresupuestoBrief = {
   id: string;
@@ -28,7 +29,8 @@ export type PresupuestoBrief = {
   tratamiento: string | null;
 };
 
-const fmtEUR = (n: number) => `${n.toLocaleString("es-ES")} €`;
+// Un solo formateador de euros en el producto (components/shared/Cifra).
+const fmtEUR = eur;
 
 export function EstadoPresupuestoFlow({
   pacienteNombre,

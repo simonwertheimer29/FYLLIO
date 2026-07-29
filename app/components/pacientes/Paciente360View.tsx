@@ -29,6 +29,8 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import type { Pago, TipoPago, MetodoPago } from "../../lib/pagos-format";
 import { formatTipo } from "../../lib/pagos-format";
+import { eur } from "../shared/Cifra";
+import { TZ_CLINICA } from "../../lib/time";
 import { PagoModal } from "./PagoModal";
 import {
   estadoConversacion,
@@ -193,6 +195,11 @@ type MensajeHilo = {
 };
 
 // ─── Helpers de formato ────────────────────────────────────────────────
+//
+// Todas las fechas y horas se pintan en la zona DE LA CLÍNICA. Con la del
+// navegador, un mensaje enviado a las 10:00 de la mañana se leía como las
+// 04:00 desde una máquina en otro huso — y el hilo de una conversación con
+// horas imposibles no se puede usar para nada (MEJORAS 52).
 
 function formatFecha(iso: string | null | undefined): string {
   if (!iso) return "";
@@ -201,6 +208,7 @@ function formatFecha(iso: string | null | undefined): string {
       day: "2-digit",
       month: "short",
       year: "numeric",
+      timeZone: TZ_CLINICA,
     });
   } catch {
     return String(iso).slice(0, 10);
@@ -213,6 +221,7 @@ function formatFechaCorta(iso: string | null | undefined): string {
     return new Date(iso).toLocaleDateString("es-ES", {
       day: "2-digit",
       month: "short",
+      timeZone: TZ_CLINICA,
     });
   } catch {
     return String(iso).slice(0, 10);
@@ -231,7 +240,9 @@ function hace(dias: number): string {
   return `hace ${dias} días`;
 }
 
-const fmtEUR = (n: number) => `€${n.toLocaleString("es-ES")}`;
+// (Aquí vivía la sexta implementación del formateo de euros — `€1977`, con el
+// símbolo delante y sin separador de miles. Una sola en todo el producto.)
+const fmtEUR = eur;
 
 function iniciales(nombre: string): string {
   const parts = nombre.trim().split(/\s+/);
@@ -579,7 +590,7 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[var(--color-background)] px-4 py-6 max-w-3xl mx-auto space-y-4">
+      <div className="min-h-screen bg-[var(--color-background)] px-4 py-6 max-w-5xl mx-auto space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <KpiCardSkeleton />
           <KpiCardSkeleton />
@@ -654,7 +665,11 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
         )}
       </div>
 
-      <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
+      {/* max-w-3xl dejaba la ficha en 1.030 px de 1.440 con dos márgenes
+          enormes mientras el contenido estaba plegado. 5xl aprovecha el
+          escritorio sin que la conversación se vuelva ilegible (las burbujas
+          ya tienen su propio tope al 75%). */}
+      <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 sm:py-6 space-y-4">
         {/* ── Zona 1: qué hacer ahora ── */}
         <ZonaAccion
           situacion={situacion}
@@ -772,21 +787,38 @@ function ZonaAccion({
   const cls = (accion: Situacion["primaria"]) =>
     situacion.primaria === accion ? btnPrimario : btnSecundario;
 
+  // Cuando NO hay nada que hacer, el bloque deja de gritar: era el elemento más
+  // grande de la pantalla para decir "Sin acción pendiente". Baja a superficie
+  // neutra y a un titular del tamaño del texto; cuando SÍ hay algo, mantiene
+  // todo su peso (pasada visual 2026-07-29).
+  const enReposo = situacion.prioridad === "baja" && situacion.titulo.startsWith("Sin acción");
+
   return (
-    <div className="rounded-2xl border border-[color-mix(in_srgb,var(--color-accent)_25%,transparent)] bg-[var(--color-accent-soft)] p-4">
+    <div
+      className={`rounded-2xl border p-4 ${
+        enReposo
+          ? "border-[var(--color-border)] bg-[var(--color-surface)]"
+          : "border-[color-mix(in_srgb,var(--color-accent)_25%,transparent)] bg-[var(--color-accent-soft)]"
+      }`}
+    >
       <div className="flex items-start justify-between gap-2">
-        <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-accent)]">
+        <p
+          className={`text-[11px] font-semibold uppercase tracking-widest ${
+            enReposo ? "text-[var(--color-muted)]" : "text-[var(--color-accent)]"
+          }`}
+        >
           Qué hacer ahora
         </p>
-        {situacion.objecion && (
-          <StatePill variant="info" title="Intención detectada en su último mensaje">
-            <Sparkles size={10} strokeWidth={ICON_STROKE} aria-hidden />
-            {situacion.objecion}
-          </StatePill>
-        )}
+        {/* El chip de intención IA vive PEGADO al mensaje que lo originó, en la
+            conversación: ahí dice de dónde sale. Aquí salía una segunda vez, sin
+            las palabras que lo justifican — dos veces lo mismo y la copia peor. */}
       </div>
 
-      <h2 className="font-display text-base sm:text-lg font-semibold text-[var(--color-foreground)] mt-2 leading-snug">
+      <h2
+        className={`font-display font-semibold text-[var(--color-foreground)] mt-2 leading-snug ${
+          enReposo ? "text-sm" : "text-base sm:text-lg"
+        }`}
+      >
         {situacion.titulo}
       </h2>
       <p className="text-sm text-[var(--color-foreground)] opacity-80 mt-1 leading-relaxed">
@@ -972,6 +1004,7 @@ function ZonaConversacion({
                             month: "short",
                             hour: "2-digit",
                             minute: "2-digit",
+                            timeZone: TZ_CLINICA,
                           })}
                         </p>
                       </div>
@@ -993,15 +1026,19 @@ function Plegable({
   titulo,
   resumen,
   atencion,
+  abiertoInicial,
   children,
 }: {
   titulo: string;
   resumen?: string;
   /** Punto ámbar en la cabecera (falta un dato clave dentro). */
   atencion?: boolean;
+  /** Abierto al entrar. Los cuatro cerrados dejaban el 40% inferior de la
+   *  pantalla vacío en escritorio y toda la vida del paciente a un clic. */
+  abiertoInicial?: boolean;
   children: React.ReactNode;
 }) {
-  const [abierto, setAbierto] = useState(false);
+  const [abierto, setAbierto] = useState(!!abiertoInicial);
   return (
     <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden">
       <button
@@ -1186,9 +1223,13 @@ function ZonaDatos({
         </div>
       </Plegable>
 
+      {/* Abre por defecto: es la razón de ser de la ficha en un CRM de
+          conversión, y con los cuatro cerrados la mitad inferior quedaba en
+          blanco mientras el dato que importa estaba escondido. */}
       <Plegable
         titulo="Tratamiento y presupuesto"
         resumen={`${presupuestos.length} presupuesto${presupuestos.length === 1 ? "" : "s"}`}
+        abiertoInicial
       >
         {paciente.tratamientos.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-3">
@@ -1247,7 +1288,14 @@ function ZonaDatos({
         )}
       </Plegable>
 
-      <Plegable titulo="Económico y pagos" resumen={resumenEco} atencion={(kpisPagos.pendiente ?? 0) > 0}>
+      {/* Abre solo si hay dinero pendiente: entonces sí es lo primero que hay
+          que mirar. Si está todo cobrado, no roba sitio. */}
+      <Plegable
+        titulo="Económico y pagos"
+        resumen={resumenEco}
+        atencion={(kpisPagos.pendiente ?? 0) > 0}
+        abiertoInicial={(kpisPagos.pendiente ?? 0) > 0}
+      >
         <PagosBloque
           pagos={pagos}
           kpis={kpisPagos}
@@ -1586,7 +1634,7 @@ function DeletePagoDialog({
         <p className="text-xs text-[var(--color-muted)] mt-2">
           Pago de{" "}
           <span className="font-semibold text-[var(--color-foreground)]">
-            €{pago.importe.toLocaleString("es-ES")}
+            {eur(pago.importe)}
           </span>{" "}
           del {formatFecha(pago.fechaPago)} ({formatTipo(pago.tipo)}).
         </p>

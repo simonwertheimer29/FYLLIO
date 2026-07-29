@@ -3,11 +3,10 @@
 // Presupuesto inicial como parte del formulario de asistencia. Marca el
 // lead como Asistido + Convertido (Estado="Convertido" vía typecast).
 //
-// Body (todos opcionales — sin body funciona el flujo Sprint 8 original):
+// Body:
+//   importe: number             — OBLIGATORIO. Importe del presupuesto inicial.
+//   tratamiento: string         — OBLIGATORIO. Tratamiento del presupuesto.
 //   asistido: boolean           — marca Lead.Asistido=true
-//   crearPresupuesto: boolean   — si true, exige importe+tratamiento
-//   importe: number             — Importe del presupuesto a crear
-//   tratamiento: string         — Tratamiento_nombre del presupuesto
 //   notasAdicionales: string    — append a Notas del paciente + Ultima_Accion
 //
 // Idempotencia: si lead.pacienteId ya existe, reutilizamos ese paciente en
@@ -28,7 +27,6 @@ type Ctx = { params: Promise<{ id: string }> };
 
 type Body = {
   asistido?: boolean;
-  crearPresupuesto?: boolean;
   importe?: number;
   tratamiento?: string;
   notasAdicionales?: string;
@@ -66,14 +64,21 @@ export const POST = withAuth<Ctx>(async (session, req, ctx) => {
     // Body vacío → flujo Sprint 8 original (sin asistencia, sin presupuesto).
   }
 
-  if (body.crearPresupuesto) {
-    const importe = Number(body.importe);
-    if (!Number.isFinite(importe) || importe <= 0) {
-      return NextResponse.json({ error: "Importe inválido" }, { status: 400 });
-    }
-    if (!body.tratamiento || typeof body.tratamiento !== "string") {
-      return NextResponse.json({ error: "Tratamiento requerido" }, { status: 400 });
-    }
+  // El presupuesto es OBLIGATORIO en este camino (spec 2026-07-29). Antes era
+  // opcional —y la cabecera de este archivo lo documentaba como "flujo Sprint 8
+  // original", sin body—, así que convertir sin presupuesto dejaba un paciente
+  // en la lista sin nada que medir. Ese hueco diluía la tasa de aceptación de
+  // todos los demás: 41% en pantalla cuando la real era 57%.
+  // Fail-closed (§3): el dato se declara, no se rellena.
+  const importe = Number(body.importe);
+  if (!Number.isFinite(importe) || importe <= 0) {
+    return NextResponse.json(
+      { error: "Un paciente que llega por el pipeline nace con su presupuesto: indica el importe." },
+      { status: 400 },
+    );
+  }
+  if (!body.tratamiento || typeof body.tratamiento !== "string") {
+    return NextResponse.json({ error: "Indica el tratamiento del presupuesto." }, { status: 400 });
   }
 
   // 1) Resolver paciente (reutilizar si ya existe, crear si no).
@@ -105,8 +110,7 @@ export const POST = withAuth<Ctx>(async (session, req, ctx) => {
 
   // 2) Crear presupuesto opcional enlazado al paciente.
   let presupuestoCreated: { id: string; importe: number; tratamiento: string } | null = null;
-  if (body.crearPresupuesto) {
-    const importe = Number(body.importe);
+  {
     const tratamiento = String(body.tratamiento);
     const today = hoyISO();
     // Map Lead.TipoVisita → Presupuestos.TipoVisita (valores ya alineados).

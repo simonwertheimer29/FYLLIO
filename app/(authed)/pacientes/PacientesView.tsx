@@ -18,13 +18,14 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useClinic } from "../../lib/context/ClinicContext";
-import { KpiCard } from "../../components/ui/KpiCard";
+import { Card } from "../../components/ui/Card";
+import { Cifra, eur } from "../../components/shared/Cifra";
 import { EmptyState } from "../../components/ui/Feedback";
 import { MessageCircle, Users, Euro, Pencil, FileText, ICON_STROKE } from "../../components/icons";
 import { PagoModal } from "../../components/pacientes/PagoModal";
 import NewPresupuestoModal from "../../components/presupuestos/NewPresupuestoModal";
 import { EstadoPresupuestoFlow, type PresupuestoBrief } from "./EstadoPresupuestoFlow";
-import { horaClinica, TZ_CLINICA } from "../../lib/time";
+import { horaClinica, hoyISO, TZ_CLINICA } from "../../lib/time";
 
 type Paciente = {
   id: string;
@@ -57,26 +58,43 @@ type Doctor = { id: string; nombre: string; clinicaId: string | null };
 
 type DateFilter = "semana" | "mes" | "personalizado" | "todo";
 
-const fmtEUR = (n: number) =>
-  n.toLocaleString("es-ES", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  });
+/** Filas pintadas por página. */
+const PAGINA_FILAS = 30;
 
+// (Aquí vivía un `fmtEUR` propio — la quinta implementación del mismo
+// formateo. Ahora todo el producto usa `eur` de components/shared/Cifra.)
+
+/** "hoy a las 19:30" · "mié 5 ago a las 19:30" — la MISMA gramática de fechas
+ *  que /leads. Antes: "05/08/2026 · 19:30", que nadie lee de un vistazo.
+ *  Fecha y hora DE LA CLÍNICA: el navegador de quien mira puede estar en otro
+ *  huso, y una cita de las 09:00 no puede leerse como las 03:00 (MEJORAS 52). */
 function fmtProximaCita(p: Paciente): string {
   const iso = p.proximaCita ?? p.fechaCita;
   if (!iso) return "—";
   const d = new Date(iso);
   if (!Number.isFinite(d.getTime())) return iso.slice(0, 10);
-  // Fecha y hora DE LA CLÍNICA: el navegador de quien mira puede estar en otro
-  // huso, y una cita de las 09:00 no puede leerse como las 03:00 (MEJORAS 52).
-  const fecha = d.toLocaleDateString("es-ES", {
-    day: "2-digit", month: "2-digit", year: "numeric", timeZone: TZ_CLINICA,
-  });
+  const diaISO = hoyISO(d);
+  const hoy = hoyISO();
+  let cuando: string;
+  if (diaISO === hoy) cuando = "hoy";
+  else {
+    const dias = Math.round(
+      (new Date(`${diaISO}T12:00:00`).getTime() - new Date(`${hoy}T12:00:00`).getTime()) / 86_400_000,
+    );
+    cuando =
+      dias === 1
+        ? "mañana"
+        : dias === -1
+          ? "ayer"
+          : d
+              .toLocaleDateString("es-ES", {
+                weekday: "short", day: "numeric", month: "short", timeZone: TZ_CLINICA,
+              })
+              .replace(",", "");
+  }
   const hora = horaClinica(d);
   const conHora = iso.length > 10 && hora !== "00:00";
-  return conHora ? `${fecha} · ${hora}` : fecha;
+  return conHora ? `${cuando} a las ${hora}` : cuando;
 }
 
 // ─── Celda de texto editable inline (nivel 1: datos no sensibles) ───────
@@ -101,7 +119,7 @@ function CeldaEditable({
         type="button"
         onClick={() => setEditing(true)}
         aria-label={soloLapiz ? "Editar" : undefined}
-        className={`group inline-flex items-center gap-1 text-left hover:underline ${mono ? "font-mono text-[10px] text-[var(--color-muted)]" : ""}`}
+        className={`group inline-flex items-center gap-1 text-left hover:underline ${mono ? "text-[10px] text-[var(--color-muted)] tabular-nums" : ""}`}
       >
         {!soloLapiz && <span>{valor || placeholder || "—"}</span>}
         <Pencil
@@ -151,6 +169,10 @@ export function PacientesView({
   const [editingNotas, setEditingNotas] = useState<string | null>(null);
   const [editingDoctor, setEditingDoctor] = useState<string | null>(null);
   const [editingTipo, setEditingTipo] = useState<string | null>(null);
+  // Carga progresiva: 166 filas de golpe eran 29.000 px de scroll. Mismo patrón
+  // honesto que el kanban de Leads — se dice cuántas quedan, nada se esconde en
+  // silencio. La página se reinicia al cambiar el filtro o la búsqueda.
+  const [pagina, setPagina] = useState(1);
   // Flujos con modal (nivel 2: mutaciones de negocio por su flujo origen).
   const [pagoDe, setPagoDe] = useState<{ paciente: Paciente; clinicaId: string | null } | null>(null);
   const [estadoDe, setEstadoDe] = useState<{ paciente: Paciente; abiertos: PresupuestoBrief[] } | null>(null);
@@ -185,13 +207,34 @@ export function PacientesView({
 
   // KPIs — sobre los DERIVADOS (presupuestos+pagos), no sobre los campos
   // manuales/cache del paciente, que divergían.
+  //
+  // LA TASA SE MIDE SOBRE QUIEN RECIBIÓ PRESUPUESTO, no sobre todos los
+  // pacientes. Decía "41% del total" con 166 en el denominador, de los que 46
+  // nunca recibieron ninguno: la aceptación real era el 57%. Numerador ⊂
+  // denominador, y los que aún no han decidido se declaran — misma regla que la
+  // conversión de /red (pasada visual 2026-07-29).
   const total = filtered.length;
-  const aceptados = filtered.filter((p) => p.aceptadoDerivado === "Si").length;
-  const noAceptados = filtered.filter((p) => p.aceptadoDerivado === "No").length;
+  const conPresupuesto = filtered.filter((p) => p.aceptadoDerivado !== null);
+  const base = conPresupuesto.length;
+  const aceptados = conPresupuesto.filter((p) => p.aceptadoDerivado === "Si").length;
+  const noAceptados = conPresupuesto.filter((p) => p.aceptadoDerivado === "No").length;
+  const abiertos = conPresupuesto.filter((p) => p.aceptadoDerivado === "Pendiente").length;
+  const sinPresupuesto = total - base;
   const cobrado = filtered.reduce((s, p) => s + (p.cobrado ?? 0), 0);
   const pendienteTotal = filtered.reduce((s, p) => s + (p.pendienteReal ?? 0), 0);
-  const pctAceptados = total ? Math.round((aceptados / total) * 100) : 0;
-  const pctNoAceptados = total ? Math.round((noAceptados / total) * 100) : 0;
+  const pctAceptados = base ? Math.round((aceptados / base) * 100) : null;
+  const pctNoAceptados = base ? Math.round((noAceptados / base) * 100) : null;
+
+  // Ajuste durante el render (patrón oficial de React): si cambia el conjunto
+  // filtrado, la página vuelve a la primera sin pasar por un efecto.
+  const [filtroPrevio, setFiltroPrevio] = useState("");
+  const claveFiltro = `${selectedClinicaId}|${dateFilter}|${search}`;
+  if (filtroPrevio !== claveFiltro) {
+    setFiltroPrevio(claveFiltro);
+    setPagina(1);
+  }
+  const visibles = filtered.slice(0, pagina * PAGINA_FILAS);
+  const restantes = filtered.length - visibles.length;
 
   // PATCH al registro origen (paciente) — solo campos de la whitelist del
   // servidor. Devuelve presupuestosActualizados para nombrar la cascada.
@@ -303,40 +346,49 @@ export function PacientesView({
 
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-background)] p-6 gap-4 overflow-auto">
-      <header className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
-            Pacientes asistidos
-          </h1>
-          <p className="text-xs text-[var(--color-muted)]">
-            {`${total} paciente${total === 1 ? "" : "s"} en el periodo seleccionado`}
-          </p>
-        </div>
+      <header>
+        <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
+          Pacientes
+        </h1>
+        {/* El subtítulo dice QUÉ es esta pantalla. "Pacientes asistidos" no lo
+            decía, y "en el periodo seleccionado" hablaba de un periodo con el
+            filtro puesto en "Todo". */}
+        <p className="text-xs text-[var(--color-muted)] mt-0.5">
+          Todo el que ya es paciente de la clínica, con su dinero y su próxima cita.
+          {dateFilter !== "todo" && " Filtrado por fecha de alta."}
+        </p>
       </header>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <KpiCard label="Total pacientes" value={total} accent="neutral" />
-        <KpiCard
-          label="Aceptados"
-          value={aceptados}
-          subline={`${pctAceptados}% del total`}
-          accent="emerald"
-        />
-        <KpiCard
-          label="No aceptados"
-          value={noAceptados}
-          subline={`${pctNoAceptados}% del total`}
-          accent="rose"
-        />
-        <KpiCard
-          label="Cobrado"
-          value={cobrado}
-          formatter={fmtEUR}
-          subline={`pendiente ${fmtEUR(pendienteTotal)}`}
-          accent="accent"
-        />
-      </div>
+      {/* Franja compacta, como en /cobros: cuatro cards de 100 px empujaban la
+          primera fila 1.000 px hacia abajo en móvil, y el importe se salía de
+          su card. El color se reserva para lo que compara — un recuento no es
+          bueno ni malo, así que fuera el verde y el rojo de la cabecera. */}
+      <Card padding="none" className="px-5 py-3.5">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <Cifra label="Pacientes" valor={String(total)} detalle={`${base} con presupuesto`} />
+          <Cifra
+            label="Aceptaron"
+            valor={pctAceptados == null ? "—" : `${pctAceptados}%`}
+            detalle={base ? `${aceptados} de ${base}${abiertos > 0 ? ` · ${abiertos} aún sin decidir` : ""}` : "sin presupuestos"}
+          />
+          <Cifra
+            label="No aceptaron"
+            valor={pctNoAceptados == null ? "—" : `${pctNoAceptados}%`}
+            detalle={base ? `${noAceptados} de ${base}` : "sin presupuestos"}
+          />
+          <Cifra
+            label="Cobrado"
+            valor={eur(cobrado)}
+            detalle={`${eur(pendienteTotal)} pendiente`}
+          />
+        </div>
+        {sinPresupuesto > 0 && (
+          <p className="text-[11px] text-[var(--color-muted)] mt-2.5 pt-2.5 border-t border-[var(--color-border)]">
+            Los porcentajes se miden sobre los {base} pacientes que recibieron presupuesto.
+            Los otros {sinPresupuesto} todavía no han recibido ninguno.
+          </p>
+        )}
+      </Card>
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
@@ -381,8 +433,8 @@ export function PacientesView({
                 <Th>Doctor</Th>
                 <Th>Tipo</Th>
                 <Th>Próxima cita</Th>
+                <Th>Firmado</Th>
                 <Th>Presupuesto</Th>
-                <Th>Aceptado</Th>
                 <Th>Cobrado</Th>
                 <Th>Pendiente</Th>
                 <Th>Notas</Th>
@@ -390,7 +442,7 @@ export function PacientesView({
               </tr>
             </thead>
             <tbody>
-              {filtered.map((p, i) => {
+              {visibles.map((p, i) => {
                 const doctoresDeClinica = p.clinicaId
                   ? doctores.filter((d) => d.clinicaId === p.clinicaId)
                   : doctores;
@@ -532,7 +584,7 @@ export function PacientesView({
                     {/* Dinero DERIVADO: presupuesto firmado (Σ ACEPTADO),
                         aceptación según presupuestos reales, cobrado (Σ pagos)
                         y su resta. Se corrigen en su origen, no aquí. */}
-                    <Td>{p.firmado > 0 ? `€${p.firmado.toFixed(0)}` : "—"}</Td>
+                    <Td>{p.firmado > 0 ? eur(p.firmado) : "—"}</Td>
                     <Td>
                       <button
                         type="button"
@@ -541,19 +593,7 @@ export function PacientesView({
                         title="Cambiar el estado del presupuesto origen (mismo flujo que el kanban)"
                         className="group inline-flex items-center gap-1 disabled:opacity-50"
                       >
-                        <span
-                          className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
-                            p.aceptadoDerivado === "Si"
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/25"
-                              : p.aceptadoDerivado === "No"
-                              ? "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/25"
-                              : p.aceptadoDerivado === "Pendiente"
-                              ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/25"
-                              : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)]"
-                          }`}
-                        >
-                          {p.aceptadoDerivado === "Si" ? "Sí" : p.aceptadoDerivado ?? "—"}
-                        </span>
+                        <EstadoPresupuestoChip estado={p.aceptadoDerivado} />
                         <Pencil
                           size={10}
                           strokeWidth={ICON_STROKE}
@@ -562,8 +602,8 @@ export function PacientesView({
                         />
                       </button>
                     </Td>
-                    <Td>{p.cobrado > 0 ? `€${p.cobrado.toFixed(0)}` : "—"}</Td>
-                    <Td>{p.pendienteReal > 0 ? `€${p.pendienteReal.toFixed(0)}` : "—"}</Td>
+                    <Td>{p.cobrado > 0 ? eur(p.cobrado) : "—"}</Td>
+                    <Td>{p.pendienteReal > 0 ? eur(p.pendienteReal) : "—"}</Td>
                     <Td>
                       {editingNotas === p.id ? (
                         <textarea
@@ -638,6 +678,15 @@ export function PacientesView({
             </tbody>
           </table>
         </div>
+        {restantes > 0 && (
+          <button
+            type="button"
+            onClick={() => setPagina((n) => n + 1)}
+            className="w-full border-t border-[var(--color-border)] px-4 py-2.5 text-[11px] font-semibold text-[var(--color-accent)] hover:bg-[var(--color-surface-muted)] transition-colors"
+          >
+            Ver {Math.min(restantes, PAGINA_FILAS)} más · quedan {restantes} de {filtered.length}
+          </button>
+        )}
       </div>
 
       {/* Registrar cobro — el MISMO PagoModal de la ficha (registro origen:
@@ -687,6 +736,29 @@ export function PacientesView({
         />
       )}
     </div>
+  );
+}
+
+/** Los CUATRO estados que de verdad tiene la columna, dichos por su nombre.
+ *  Se llamaba "Aceptado" con valores Sí / No / Pendiente / — : una cabecera que
+ *  se lee binaria sobre algo que no lo es, y que además colapsa seis estados de
+ *  presupuesto. "Sin presupuesto" pierde el pill: un borde vacío repetido 46
+ *  veces es ruido, y el hueco ya dice lo que pasa. */
+function EstadoPresupuestoChip({ estado }: { estado: "Si" | "No" | "Pendiente" | null }) {
+  if (estado === null) {
+    return <span className="text-[var(--color-muted)]">Sin presupuesto</span>;
+  }
+  const estilo =
+    estado === "Si"
+      ? "bg-[var(--color-success-soft)] text-[var(--color-success)]"
+      : estado === "No"
+        ? "bg-[var(--color-danger-soft)] text-[var(--color-danger)]"
+        : "bg-[var(--color-warning-soft)] text-[var(--color-warning)]";
+  const texto = estado === "Si" ? "Aceptado" : estado === "No" ? "Perdido" : "Abierto";
+  return (
+    <span className={`inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-medium ${estilo}`}>
+      {texto}
+    </span>
   );
 }
 

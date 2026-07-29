@@ -1,14 +1,11 @@
 // app/api/pacientes/route.ts
-// Sprint 8 Bloque C — GET (listar con filtros) + POST (crear).
+// Sprint 8 Bloque C — GET (listar con filtros). El POST se retiró en la
+// pasada de Pacientes (2026-07-29): ver la nota al final del archivo.
 
 import { NextResponse } from "next/server";
 import { withAuth } from "../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../lib/auth/users";
-import {
-  listPacientes,
-  createPaciente,
-  type PacienteAceptado,
-} from "../../lib/pacientes/pacientes";
+import { listPacientes } from "../../lib/pacientes/pacientes";
 import { finanzasPorPaciente } from "../../lib/finanzas-paciente";
 import { proximaCitaPorPaciente } from "../../lib/pacientes/edicion";
 
@@ -75,15 +72,12 @@ export const GET = withAuth(async (session, req) => {
   return NextResponse.json({ pacientes: enriquecidos });
 });
 
-export const POST = withAuth(async (session, req) => {
-  const body = (await req.json().catch(() => null)) as any;
-  if (!body?.nombre?.trim() || !body?.clinicaId) {
-    return NextResponse.json({ error: "Nombre y clinicaId requeridos" }, { status: 400 });
-  }
-  const allowed = await allowedClinicas(session);
-  if (allowed !== null && !allowed.includes(body.clinicaId)) {
-    return NextResponse.json({ error: "forbidden" }, { status: 403 });
-  }
-  const paciente = await createPaciente(body);
-  return NextResponse.json({ paciente });
-});
+// POST retirado (spec 2026-07-29). Creaba un paciente con solo nombre y
+// clínica —sin presupuesto y sin lead—, y NO LO LLAMABA NADIE en la UI: una
+// puerta abierta sin consumidor. Los caminos válidos para que nazca un
+// paciente son dos y están declarados en DECISIONES: marcar asistido en el
+// pipeline (que exige presupuesto) y la agenda del scheduler (una cita crea al
+// paciente, y ahí no tiene por qué haber presupuesto todavía).
+//
+// Si algún día hace falta un alta manual, se construye con su flujo y su
+// pantalla — no reabriendo este endpoint.

@@ -12,6 +12,7 @@ import { formatTipo } from "../../lib/pagos-format";
 import { ESTADO_CONFIG } from "../../lib/presupuestos/colors";
 import { Card } from "../ui/Card";
 import { EmptyState, ErrorState } from "../ui/Feedback";
+import { eur } from "../shared/Cifra";
 import {
   ArrowRight,
   Phone,
@@ -493,7 +494,7 @@ function PagosTabContent({
   if (!data) return null;
 
   const { pagos, kpis, usuariosNombres, paciente } = data;
-  const fmtEUR = (n: number) => `€${n.toLocaleString("es-ES")}`;
+  const fmtEUR = eur;
   // pendiente=null ⇔ sin presupuesto ACEPTADO (derivado en servidor de los
   // presupuestos reales, ya no del campo manual del paciente).
   const pendienteTooltip =

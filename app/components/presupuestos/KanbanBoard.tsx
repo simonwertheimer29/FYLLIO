@@ -22,6 +22,7 @@ import { dentroDeRango, type RangoKanban } from "../shared/RangoTemporal";
 import { fechaDeRango } from "../../lib/presupuestos/pipeline";
 import { ESTADO_CONFIG, PIPELINE_ORDEN, ORIGEN_LABEL } from "../../lib/presupuestos/colors";
 import MotivoPerdidaModal from "./MotivoPerdidaModal";
+import { eur } from "../shared/Cifra";
 
 // Coherencia de kanban (2026-07-27): la columna se identifica por el color de
 // su contador, exactamente como en Leads (que es el canon). Antes era una barra
@@ -233,7 +234,7 @@ function DroppableColumn({
 
   // Sprint 13 Bloque 4 — sub-info condensada a una línea.
   const subInfo = [
-    total > 0 ? `€${total.toLocaleString("es-ES")}` : null,
+    total > 0 ? eur(total) : null,
     velocidad && velocidad.media > 0 ? `media: ${velocidad.media}d` : null,
     cfg.accionable ? cfg.hint : null,
   ]

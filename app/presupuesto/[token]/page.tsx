@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback, use } from "react";
 import { toast } from "sonner";
 import { ErrorState } from "../../components/ui/Feedback";
+import { eur } from "../../components/shared/Cifra";
 import {
   Lock,
   Phone,
@@ -65,9 +66,9 @@ function formatFecha(iso: string): string {
   });
 }
 
-function formatEuro(n: number): string {
-  return `€${n.toLocaleString("es-ES")}`;
-}
+// El mismo formateo que el resto del producto: el paciente ve "2.100 €", no
+// "€2100" (components/shared/Cifra).
+const formatEuro = eur;
 
 // ─── FAQ data ─────────────────────────────────────────────────────────────────
 

@@ -17,6 +17,7 @@ import { useClinic } from "../../lib/context/ClinicContext";
 import { KpiCard } from "../../components/ui/KpiCard";
 import { KpiCardSkeleton } from "../../components/ui/Skeleton";
 import { ErrorState, EmptyState } from "../../components/ui/Feedback";
+import { eur } from "../../components/shared/Cifra";
 import {
   X,
   Building2,
@@ -80,12 +81,8 @@ const METRIC_LABELS: Record<ComparativaMetric, string> = {
   liquidacionesVencidas: "Liquidaciones vencidas",
 };
 
-const fmtEUR = (n: number) =>
-  `€${n.toLocaleString("es-ES", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-    useGrouping: true,
-  })}`;
+// Un solo formateador de euros en el producto (components/shared/Cifra).
+const fmtEUR = eur;
 
 // Escala ordinal derivada del acento (mayor cuota → paso más intenso).
 // color-mix con la superficie → se adapta solo a tema claro/oscuro.

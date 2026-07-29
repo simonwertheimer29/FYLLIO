@@ -722,3 +722,35 @@ Cazado de paso: importar la librería del catálogo desde el modal de CSV arrast
 `db/context` (y `async_hooks`) al bundle del navegador. La parte pura vive ahora en
 `tipos-paciente-puro.ts`. Regla: si algo lo necesita el navegador, no puede compartir archivo
 con un repo.
+
+## 2026-07-29 — Pacientes: la tasa deja de diluirse y el euro se escribe una sola vez
+Pasada visual de /pacientes + ficha. **La cifra que estaba mal:** decía "41% del total" y
+"16% del total" con los 166 pacientes en el denominador, incluidos 46 a los que nunca se les
+presentó un presupuesto. La aceptación real era **57% y 23%**. Ahora se mide sobre los 120 que
+sí recibieron uno, con los 25 que aún no han decidido declarados y una línea al pie que dice
+sobre cuántos se está midiendo — misma regla que la conversión de /red.
+**El euro tenía SEIS implementaciones** y tres formatos convivían en la misma pantalla
+(«€2100», «118.297 €», «€1977»). Todas caen: tabla, ficha, KPIs de cobros y de no-shows, la
+cola de intervención, el kanban, los informes, el importador y **el portal del paciente** —
+que enseñaba "€2100" a quien recibe el presupuesto. Una sola función, `eur`.
+La columna "Aceptado" tenía cuatro valores bajo una cabecera binaria: pasa a "Presupuesto"
+con Aceptado · Perdido · Abierto · Sin presupuesto, y quien no tiene presupuesto pierde el
+pill (un borde vacío repetido 46 veces es ruido). De paso se cazó que la columna de dinero y
+la de estado quedaban ambas llamadas "Presupuesto": la de dinero es "Firmado", que es lo que
+mide (Σ de los aceptados).
+Se cierran las tres puertas por las que nacía un paciente sin presupuesto: el checkbox
+desmarcable del modal de asistencia, `crearPresupuesto` opcional en la API de conversión —que
+la propia cabecera documentaba como "flujo Sprint 8 original, sin body"— y `POST
+/api/pacientes`, que **no lo llamaba nadie en la UI** y se retira. **El cuarto camino se
+conserva y es válido:** el scheduler, donde un paciente nace de una cita de agenda y no tiene
+por qué traer presupuesto todavía.
+Horas del seed: se generaban con `setHours` del reloj de la máquina que siembra, así que desde
+UTC−4 la clínica demo citaba entre las 15:00 y las 20:30 de Madrid. Ahora se generan en zona
+de clínica y caen entre las **09:00 y las 16:30**. Cazado al hacerlo: `setHours` desbordaba
+solo (hora 25 → día siguiente) y la primera versión del helper no, así que el seed reventó a
+mitad — con rollback, porque es transaccional. Se normaliza en minutos totales.
+En la ficha, "Qué hacer ahora" deja de gritar cuando no hay nada que hacer (superficie neutra
+y titular pequeño; con acción, todo su peso), "Tratamiento y presupuesto" abre por defecto —es
+la razón de ser de la ficha, y con los cuatro plegables cerrados la mitad inferior quedaba en
+blanco—, "Económico y pagos" abre solo si hay pendiente, el chip de intención IA se queda
+pegado al mensaje que lo originó (salía dos veces) y el ancho sube de 1.030 a 1.280 px.

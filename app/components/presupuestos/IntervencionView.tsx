@@ -8,6 +8,7 @@ import type {
   IntervencionResponse,
 } from "../../lib/presupuestos/types";
 import { haceTexto } from "../../lib/presupuestos/estado-conversacion";
+import { eur } from "../shared/Cifra";
 import {
   cohortePresupuesto,
   type CohortePresupuesto,
@@ -55,7 +56,8 @@ const URL_A_COHORTE_PRESU: Record<string, CohortePresupuesto> = {
   rezagados: "rezagados",
 };
 
-const fmtEUR = (n: number) => `${Math.round(n).toLocaleString("es-ES")} €`;
+// Un solo formateador de euros en el producto (components/shared/Cifra).
+const fmtEUR = eur;
 
 function esLlamada(tipo?: string): boolean {
   return tipo === "Llamada realizada" || tipo === "Sin respuesta tras llamada";
@@ -336,7 +338,7 @@ function BulkSendModal({
 function optionLabel(p: PresupuestoIntervencion): string {
   const detalle =
     p.treatments[0] ??
-    (p.amount != null ? `€${p.amount.toLocaleString("es-ES")}` : "Sin detalle");
+    (p.amount != null ? eur(p.amount) : "Sin detalle");
   const importe =
     p.treatments[0] && p.amount != null
       ? ` · €${p.amount.toLocaleString("es-ES")}`

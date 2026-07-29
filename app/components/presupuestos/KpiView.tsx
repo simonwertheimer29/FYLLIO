@@ -11,6 +11,7 @@ import { ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
 import { Card } from "../ui/Card";
 import { ErrorState } from "../ui/Feedback";
 import { Info, Star, ChevronDown, ChevronRight, ICON_STROKE } from "../icons";
+import { eur } from "../shared/Cifra";
 
 type SubTab = "general" | "tarifas" | "paciente" | "tratamientos" | "doctores" | "benchmark" | "ia";
 
@@ -109,7 +110,7 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
         />
         <HeaderBlock
           title="Presupuestos en seguimiento"
-          main={`€${resumen.importeActivos.toLocaleString("es-ES")}`}
+          main={eur(resumen.importeActivos)}
           sub1="Interesado + En Duda + En Negociación"
           tooltip="Presupuestos activos en etapas Interesado, En Duda o En Negociación"
         />
@@ -136,7 +137,7 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
           ].map(({ label, curr, prev, unit }) => (
             <div key={label}>
               <p className="text-[10px] text-[var(--color-muted)] font-medium mb-1">{label}</p>
-              <p className="font-display text-lg font-bold tabular-nums text-[var(--color-foreground)]">{unit === "€" ? `€${curr.toLocaleString("es-ES")}` : `${curr}${unit ?? ""}`}</p>
+              <p className="font-display text-lg font-bold tabular-nums text-[var(--color-foreground)]">{unit === "€" ? eur(curr) : `${curr}${unit ?? ""}`}</p>
               <TrendBadge curr={curr} prev={prev} unit={unit === "€" ? "" : (unit ?? "")} />
             </div>
           ))}
@@ -800,7 +801,7 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
                         </span>
                       </td>
                       <td className="px-4 py-2 text-right text-[var(--color-muted)]">
-                        {o.importe > 0 ? `€${o.importe.toLocaleString("es-ES")}` : "—"}
+                        {o.importe > 0 ? eur(o.importe) : "—"}
                       </td>
                     </tr>
                   ))}
@@ -850,7 +851,7 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-right text-[var(--color-muted)]">
-                      {c.importe > 0 ? `€${c.importe.toLocaleString("es-ES")}` : "—"}
+                      {c.importe > 0 ? eur(c.importe) : "—"}
                     </td>
                   </tr>
                 ))}

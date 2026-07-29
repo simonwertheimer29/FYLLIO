@@ -27,8 +27,43 @@ const ctx = (await db.query("select current_setting('app.cliente', true) as c"))
 if (ctx !== "DEMO") { console.error("✗ contexto no es DEMO:", ctx); process.exit(1); }
 
 // ── util fechas relativas ─────────────────────────────────────────────
+//
+// LAS HORAS SON DE LA CLÍNICA, no de la máquina que siembra (2026-07-29).
+// `setHours(16, 30)` fija las 16:30 LOCALES de quien corre el seed; desde una
+// máquina en UTC−4 eso son las 20:30 UTC, que en Madrid se leen como las 22:30.
+// La demo enseñaba una clínica dental citando a las 19:30 y 21:30, que ninguna
+// clínica española hace. La FECHA ya era segura (ancla a las 09:00 y ningún
+// huso realista cambia el día); la hora no lo era.
+const TZ_CLINICA = "Europe/Madrid";
+const p2 = (n) => String(n).padStart(2, "0");
+const diaEnClinica = (d) =>
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: TZ_CLINICA, year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(d);
+/** El INSTANTE cuya hora en la clínica es h:m del día de `d`.
+ *  Admite h fuera de 0-23 y desborda al día siguiente, como hacía `setHours`:
+ *  el seed llama con `9 + k` y k llega a pasar de 14. Sin esto, "T25:00:00Z"
+ *  es una fecha inválida y el seed revienta a mitad (lo hizo). */
+function aHoraClinica(d, h, m = 0) {
+  // Se normaliza en MINUTOS TOTALES para que desborden tanto las horas ≥ 24 como
+  // los minutos ≥ 60: el seed llama con `9 + k` (k pasa de 14) y con minutos
+  // calculados. `setHours` desbordaba solo; "T10:90:00Z" es fecha inválida y el
+  // seed reventaba a mitad — con rollback, pero reventaba.
+  const totalMin = Math.round(h * 60 + m);
+  const base = new Date(`${diaEnClinica(d)}T00:00:00Z`);
+  base.setUTCDate(base.getUTCDate() + Math.floor(totalMin / 1440));
+  const enElDia = ((totalMin % 1440) + 1440) % 1440;
+  const hh = Math.floor(enElDia / 60);
+  const mm = enElDia % 60;
+  const aprox = new Date(`${diaEnClinica(base)}T${p2(hh)}:${p2(mm)}:00Z`);
+  const off =
+    new Date(aprox.toLocaleString("en-US", { timeZone: TZ_CLINICA })).getTime() -
+    new Date(aprox.toLocaleString("en-US", { timeZone: "UTC" })).getTime();
+  return new Date(aprox.getTime() - off);
+}
+
 const HOY = new Date(); HOY.setHours(9, 0, 0, 0);
-const dPlus = (n, h = 9, m = 0) => { const x = new Date(HOY); x.setDate(x.getDate() + n); x.setHours(h, m, 0, 0); return x; };
+const dPlus = (n, h = 9, m = 0) => { const x = new Date(HOY); x.setDate(x.getDate() + n); return aHoraClinica(x, h, m); };
 const dISO = (n) => dPlus(n).toISOString();
 const fecha10 = (n) => dPlus(n).toISOString().slice(0, 10);
 const mesAct = HOY.toISOString().slice(0, 7);
@@ -463,8 +498,8 @@ try {
   // pendiente antiguo que alimenta los "cobros vencidos" del dashboard.
   // Un PERDIDO en el mes anterior (con historial) da el delta de perdidos.
   const dMes = (mesesAtras, dia, h = 11) => {
-    const x = new Date(HOY); x.setMonth(x.getMonth() - mesesAtras); x.setDate(dia); x.setHours(h, 0, 0, 0);
-    return x;
+    const x = new Date(HOY); x.setMonth(x.getMonth() - mesesAtras); x.setDate(dia);
+    return aHoraClinica(x, h);
   };
   const HIST = [
     { m: 1, importe: 3200, trat: "Implante unitario", pct: 1 },
@@ -482,7 +517,7 @@ try {
     const primer = pac.nombre.split(" ")[0];
     const dia = 6 + (np % 18);
     const acept = dMes(hct.m, dia);
-    const iso = (d, hh, mm = 0) => { const x = new Date(d); x.setHours(hh, mm, 0, 0); return x.toISOString(); };
+    const iso = (d, hh, mm = 0) => aHoraClinica(d, hh, mm).toISOString();
     const antes = new Date(acept); antes.setDate(antes.getDate() - 2);
     const fechaAceptado = acept.toISOString().slice(0, 10);
     const tratLow = hct.trat.toLowerCase();
@@ -525,7 +560,7 @@ try {
     const pac = pacientes[np % pacientes.length]; np++;
     const primer = pac.nombre.split(" ")[0];
     const perd = dMes(1, 20);
-    const iso = (d, hh) => { const x = new Date(d); x.setHours(hh, 0, 0, 0); return x.toISOString(); };
+    const iso = (d, hh) => aHoraClinica(d, hh).toISOString();
     const antes = new Date(perd); antes.setDate(antes.getDate() - 1);
     const guion = [
       { dir: "Saliente", ts: iso(antes, 10), txt: `Hola ${primer}, ¿qué te pareció el presupuesto de limpieza dental (700€)?` },
@@ -653,7 +688,7 @@ try {
     const VCLIS = [CENTRO, CENTRO, CENTRO, NORTE, NORTE, SUR, SUR, ESTE]; // Centro flagship
     const dOffISO = (dias, h = 10, m = 0) => dPlus(-dias, h, m).toISOString();
     const iso10 = (d) => d.toISOString().slice(0, 10);
-    const enHora = (d, h, m = 0) => { const x = new Date(d); x.setHours(h, m, 0, 0); return x.toISOString(); };
+    const enHora = (d, h, m = 0) => aHoraClinica(d, h, m).toISOString();
     const diasAntes = (d, n) => { const x = new Date(d); x.setDate(x.getDate() - n); return x; };
     // Fecha ANCLADA al mes de calendario `mesesAtras` (día con jitter). Para
     // el mes actual se acota a [1, hoy]: la invariante de serie mensual no
@@ -663,8 +698,7 @@ try {
       x.setDate(1); x.setMonth(x.getMonth() - mesesAtras);
       const tope = mesesAtras === 0 ? Math.max(1, HOY.getDate() - 2) : 27;
       x.setDate(1 + Math.floor(rnd() * tope));
-      x.setHours(h, 0, 0, 0);
-      return x;
+      return aHoraClinica(x, h);
     };
     // Ningún timestamp del volumen puede quedar en el futuro (borde: reset a
     // primera hora en los días 1-2 del mes).

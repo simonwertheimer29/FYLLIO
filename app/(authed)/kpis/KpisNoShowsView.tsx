@@ -19,6 +19,7 @@ import { KpiCard } from "../../components/ui/KpiCard";
 import { StatePill } from "../../components/ui/StatePill";
 import { KpiCardSkeleton } from "../../components/ui/Skeleton";
 import { ErrorState } from "../../components/ui/Feedback";
+import { eur } from "../../components/shared/Cifra";
 
 type ApiResponse = {
   periodo: "mes";
@@ -55,12 +56,8 @@ type ApiResponse = {
 };
 
 const fmtPct = (n: number) => `${(n * 100).toFixed(1)}%`;
-const fmtEUR = (n: number) =>
-  n.toLocaleString("es-ES", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-  });
+// Un solo formateador de euros en el producto (components/shared/Cifra).
+const fmtEUR = eur;
 
 // Riesgo → color (nivel del predictor: alto/medio/bajo).
 function tasaTone(tasa: number): "emerald" | "amber" | "rose" {
