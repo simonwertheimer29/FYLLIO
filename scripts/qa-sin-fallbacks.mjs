@@ -42,6 +42,13 @@ function archivos(dir, ext = [".ts", ".tsx"]) {
 //
 // La regla del trinquete: **esta lista solo puede encoger**. Cualquier `?? []`
 // NUEVO hace fallar el script. Al migrar uno a `cargarJSON`, se borra su línea.
+//
+// CUÁNDO se limpian (decisión de Simon, 2026-07-29): cuando a esa pantalla le
+// toque su pasada visual, que es cuando ya se está dentro del archivo. No como
+// tanda propia — abrir quince archivos para cambiar una línea en cada uno es
+// caro y arriesgado; hacerlo de paso no cuesta nada. Los peligrosos (los que
+// no comprobaban el status) ya están corregidos; estos van detrás de un
+// `res.ok` y hoy no mienten.
 const DEUDA = new Set([
   "app/(authed)/ajustes/clinica-equipo/ClinicaEquipoView.tsx: `d.clinicas ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
   "app/(authed)/ajustes/clinica-equipo/ClinicaEquipoView.tsx: `d.usuarios ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
