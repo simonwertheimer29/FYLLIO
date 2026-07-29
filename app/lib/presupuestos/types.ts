@@ -8,7 +8,12 @@ export type PresupuestoEstado =
   | "ACEPTADO"
   | "PERDIDO";
 
-export type TipoPaciente = "Adeslas" | "Privado";
+/** El tipo de paciente YA NO ES UN ENUM (spec 2026-07-29): el catálogo es
+ *  configurable por clínica y vive en configuraciones_clinica
+ *  (lib/pacientes/tipos-paciente). Dar de alta una aseguradora no puede exigir
+ *  un despliegue, que es exactamente lo que pasaba con `"Adeslas" | "Privado"`
+ *  clavado aquí y en otras cuatro capas. */
+export type TipoPaciente = string;
 export type OrigenLead = "google_ads" | "seo_organico" | "referido_paciente" | "redes_sociales" | "walk_in" | "otro";
 export type MotivoPerdida = "precio_alto" | "otra_clinica" | "sin_urgencia" | "necesita_financiacion" | "miedo_tratamiento" | "no_responde" | "otro";
 export type MotivoDuda = "precio" | "otra_clinica" | "sin_urgencia" | "financiacion" | "miedo" | "comparando_opciones" | "otro";
@@ -173,11 +178,15 @@ export type KpiComparacion = {
   diffPct: number;
 };
 
+/** Tendencia por tarifa con series DINÁMICAS: una por valor del catálogo de
+ *  la clínica. Antes eran cuatro columnas fijas (privado/adeslas × ofrecido/
+ *  aceptado), así que dar de alta una aseguradora exigía tocar el tipo, la API
+ *  y el gráfico (spec 2026-07-29). Claves: `<tarifa>` = ofrecidos y
+ *  `<tarifa>__acept` = aceptados. */
 export type KpiTendenciaTarifa = {
-  mes: string; label: string;
-  privado: number; privadoAcept: number;
-  adeslas: number; adeslasAcept: number;
-};
+  mes: string;
+  label: string;
+} & Record<string, number | string>;
 
 export type KpiTendenciaVisita = {
   mes: string; label: string;
@@ -490,6 +499,8 @@ export type KpiData = {
   porTipoVisita: { tipo: string; total: number; aceptados: number; tasa: number; importe: number }[];
   tendenciaMensual: KpiMensual[];
   tendenciaPorTarifa: KpiTendenciaTarifa[];
+  /** Los valores del catálogo que el gráfico de tarifas debe pintar, en orden. */
+  tarifas: string[];
   tendenciaPorVisita: KpiTendenciaVisita[];
   doctores: string[];
   porOrigenLead: KpiPorOrigen[];

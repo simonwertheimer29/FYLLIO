@@ -39,6 +39,7 @@ interface PortalPublico {
   clinicaTelefono?: string;
   doctor?: string;
   tipoPaciente?: string;
+  tieneAseguradora?: boolean;
   descripcionHumanizada?: string;
   expiresAt: string;
   respondido: boolean;
@@ -426,11 +427,14 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
           {data.doctor && (
             <p className="text-[16px] text-[var(--color-muted)]">Tratante: {data.doctor}</p>
           )}
-          {/* Mutua desglose — solo si es Adeslas */}
-          {data.tipoPaciente === "Adeslas" && (
+          {/* Desglose de cobertura — para CUALQUIER aseguradora del catálogo,
+              no solo la que estaba escrita a mano en el código. */}
+          {data.tieneAseguradora && (
             <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex flex-col gap-1">
               <div className="flex justify-between text-[16px]">
-                <span className="text-[var(--color-muted)]">Tu mutua cubre:</span>
+                <span className="text-[var(--color-muted)]">
+                  {data.tipoPaciente ? `${data.tipoPaciente} cubre:` : "Tu mutua cubre:"}
+                </span>
                 <span className="text-[var(--color-foreground)] font-semibold">Consultar</span>
               </div>
               <div className="flex justify-between text-[16px]">

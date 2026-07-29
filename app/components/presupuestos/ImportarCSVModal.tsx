@@ -4,12 +4,13 @@
 // Modal 5 pasos para importar presupuestos desde CSV/Excel de Gesden.
 // Paso 1: Subir fichero  ·  Paso 2: Mapear columnas  ·  Paso 3: Revisar  ·  Paso 4: Confirmar  ·  Paso 5: Resultado
 
-import { useState, useRef, useMemo } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { Check, X, FolderOpen, CheckCircle2, AlertTriangle, ChevronLeft, ArrowRight, ICON_STROKE } from "../icons";
 import type { Presupuesto, UserSession } from "../../lib/presupuestos/types";
+import { resolverTipoPaciente, type TipoPacienteOpcion } from "../../lib/pacientes/tipos-paciente-puro";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -83,11 +84,13 @@ function autoMapear(headers: string[]): Mapeo {
   };
 }
 
-function normalizeTipo(raw: string): string {
-  const l = raw.toLowerCase();
-  if (l.includes("mutua") || l.includes("seguro") || l.includes("ades")) return "Adeslas";
-  if (l.includes("priv")) return "Privado";
-  return raw;
+/** Resuelve la celda contra el CATÁLOGO de la clínica. Antes escribía
+ *  "Adeslas" en cuanto veía "mutua" o "seguro", así que una clínica de Sanitas
+ *  habría importado a todos sus pacientes con la aseguradora equivocada
+ *  (spec 2026-07-29). Sin coincidencia devuelve "" — vacío es mejor que
+ *  inventado, y el tipo se rellena después con el uso. */
+function normalizeTipo(raw: string, catalogo: TipoPacienteOpcion[]): string {
+  return resolverTipoPaciente(raw, catalogo) ?? "";
 }
 
 function parseImporte(raw: string): number | null {
@@ -97,7 +100,7 @@ function parseImporte(raw: string): number | null {
   return isNaN(n) ? null : n;
 }
 
-function applyMapeo(rows: string[][], m: Mapeo): RegistroReview[] {
+function applyMapeo(rows: string[][], m: Mapeo, catalogo: TipoPacienteOpcion[]): RegistroReview[] {
   const get = (row: string[], col: number | null) => col != null ? (row[col] ?? "").trim() : "";
   return rows
     .map((row, idx) => ({
@@ -107,7 +110,7 @@ function applyMapeo(rows: string[][], m: Mapeo): RegistroReview[] {
       importe:     parseImporte(get(row, m.importe)),
       fecha:       get(row, m.fecha),
       doctor:      get(row, m.doctor),
-      tipoPaciente:normalizeTipo(get(row, m.tipoPaciente)),
+      tipoPaciente:normalizeTipo(get(row, m.tipoPaciente), catalogo),
       estado:      get(row, m.estado),
       isDuplicate: false,
       ignorar:     false,
@@ -177,6 +180,16 @@ export default function ImportarCSVModal({
   const [paso, setPaso] = useState<1 | 2 | 3 | 4 | 5>(1);
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // El catálogo de tipos de la clínica: el CSV se resuelve CONTRA él, no
+  // contra una heurística que escribía siempre la misma aseguradora.
+  const [catalogo, setCatalogo] = useState<TipoPacienteOpcion[]>([]);
+  useEffect(() => {
+    fetch("/api/pacientes/tipos")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setCatalogo(d?.tipos ?? []))
+      .catch(() => {});
+  }, []);
 
   // Step 1
   const [rawHeaders, setRawHeaders] = useState<string[]>([]);
@@ -248,7 +261,7 @@ export default function ImportarCSVModal({
 
     if (detectGesden(headers)) {
       // Skip mapping step — go straight to review
-      const mapped = applyMapeo(rows, m);
+      const mapped = applyMapeo(rows, m, catalogo);
       setRegistros(tagDuplicates(mapped, existingPresupuestos));
       setPaso(3);
     } else {
@@ -266,7 +279,7 @@ export default function ImportarCSVModal({
   // ─── Step 2 → 3 ─────────────────────────────────────────────────────────────
 
   function applyMappingAndContinue() {
-    const mapped = applyMapeo(rawRows, mapeo);
+    const mapped = applyMapeo(rawRows, mapeo, catalogo);
     setRegistros(tagDuplicates(mapped, existingPresupuestos));
     setPaso(3);
   }

@@ -178,20 +178,22 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
 function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
   kpisMes: KpiData; kpisPrevMes: KpiData; kpis: KpiData; mesLabel: string;
 }) {
-  const privadoMes = kpisMes.porTipoPaciente.find((t) => t.tipo === "Privado");
-  const adeslasMes = kpisMes.porTipoPaciente.find((t) => t.tipo === "Adeslas");
-  const privadoPrev = kpisPrevMes.porTipoPaciente.find((t) => t.tipo === "Privado");
-  const adeslasPrev = kpisPrevMes.porTipoPaciente.find((t) => t.tipo === "Adeslas");
+  // Una card por valor del CATÁLOGO, no dos escritas a mano. Antes esta
+  // pestaña buscaba "Privado" y "Adeslas" literales; con el dato real diciendo
+  // otra cosa llevaba enseñando 0 y 0 desde que existe (spec 2026-07-29).
+  const tarifas = kpis.tarifas ?? [];
+  const bloques = tarifas.map((tarifa) => ({
+    tipo: tarifa,
+    mes: kpisMes.porTipoPaciente.find((t) => t.tipo === tarifa),
+    prev: kpisPrevMes.porTipoPaciente.find((t) => t.tipo === tarifa),
+  }));
 
   return (
     <div className="space-y-5">
       {/* Bloques del mes */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {[
-          { tipo: "Privado", mes: privadoMes, prev: privadoPrev, color: "bg-[var(--color-accent-soft)] border-[var(--color-border)]" },
-          { tipo: "Adeslas", mes: adeslasMes, prev: adeslasPrev, color: "bg-amber-50 dark:bg-amber-500/10 border-amber-200 dark:border-amber-500/30" },
-        ].map(({ tipo, mes, prev, color }) => (
-          <div key={tipo} className={`rounded-2xl border p-5 ${color}`}>
+        {bloques.map(({ tipo, mes, prev }) => (
+          <div key={tipo} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
             <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">{tipo} — {mesLabel}</p>
             <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">{mes?.total ?? 0}</p>
             <p className="text-xs text-[var(--color-muted)] mt-1">
@@ -218,10 +220,29 @@ function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
             <YAxis tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} allowDecimals={false} />
             <Tooltip contentStyle={TOOLTIP_STYLE} />
             <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
-            <Bar dataKey="privado" name="Privado ofrecido" fill="#93c5fd" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="privadoAcept" name="Privado aceptado" fill="#2563eb" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="adeslas" name="Adeslas ofrecido" fill="#fed7aa" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="adeslasAcept" name="Adeslas aceptado" fill="#ea580c" radius={[3, 3, 0, 0]} />
+            {/* Series dinámicas y colores DESDE EL TOKEN del acento: cada
+                tarifa es un escalón de la misma familia (ofrecido translúcido,
+                aceptado sólido). Antes eran cuatro hex a mano que además se
+                rompían en oscuro. */}
+            {tarifas.flatMap((tarifa, i) => {
+              const mezcla = Math.max(30, 100 - i * 22);
+              return [
+                <Bar
+                  key={`${tarifa}-of`}
+                  dataKey={tarifa}
+                  name={`${tarifa} ofrecido`}
+                  fill={`color-mix(in srgb, var(--color-accent) ${Math.round(mezcla * 0.35)}%, transparent)`}
+                  radius={[3, 3, 0, 0]}
+                />,
+                <Bar
+                  key={`${tarifa}-ac`}
+                  dataKey={`${tarifa}__acept`}
+                  name={`${tarifa} aceptado`}
+                  fill={`color-mix(in srgb, var(--color-accent) ${mezcla}%, transparent)`}
+                  radius={[3, 3, 0, 0]}
+                />,
+              ];
+            })}
           </BarChart>
         </ResponsiveContainer>
       </div>

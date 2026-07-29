@@ -45,6 +45,10 @@ export type Paciente = {
   clinicaId: string | null;
   clinicaNombre?: string;
   leadOrigenId: string | null;
+  /** Privado o el nombre de su aseguradora. El catálogo es configurable por
+   *  clínica (lib/pacientes/tipos-paciente); null = sin tipo, que es un estado
+   *  válido y visible, no un hueco que rellenar con un default. */
+  tipoPaciente: string | null;
   activo: boolean;
   optoutAutomatizaciones: boolean;
   createdAt: string;
@@ -66,6 +70,7 @@ function toPaciente(rec: any): Paciente {
     financiado: typeof f["Financiado"] === "number" ? f["Financiado"] : null,
     notas: f["Notas"] ? String(f["Notas"]) : null,
     canalOrigen: f["Canal_Origen"] ? (String(f["Canal_Origen"]) as PacienteCanal) : null,
+    tipoPaciente: f["Tipo_Paciente"] ? String(f["Tipo_Paciente"]) : null,
     clinicaId: clinicaLinks[0] ?? null,
     leadOrigenId: leadLinks[0] ?? null,
     activo: Boolean(f["Activo"] ?? true),

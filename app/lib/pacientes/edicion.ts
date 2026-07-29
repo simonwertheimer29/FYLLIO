@@ -24,6 +24,10 @@ export const CAMPOS_PACIENTE_EDITABLES = new Set([
   "notas",
   "doctorLinkId",
   "optoutAutomatizaciones",
+  // Privado / aseguradora (2026-07-29). Su registro origen ES el paciente: una
+  // persona no cambia de mutua entre dos presupuestos del mismo mes. El valor
+  // se valida contra el catálogo de la clínica en el PATCH.
+  "tipoPaciente",
 ]);
 
 /** Devuelve los campos del body que NO son editables desde el paciente. */

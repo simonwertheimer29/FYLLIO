@@ -27,6 +27,8 @@ type Categoria =
   | "Metodos_Pago"
   | "Plazos_Liquidacion"
   | "Razones_No_Interesado"
+  | "Tipos_Paciente"
+  | "Tipos_Paciente_Aseguradora"
   | "Plantillas_Scope"
   | "Horario_Laboral"
   | "Llamadas_IA"
@@ -57,6 +59,16 @@ const TABS: Array<{ key: Categoria; label: string; help: string }> = [
     key: "Razones_No_Interesado",
     label: "Razones \"No Interesado\"",
     help: "Frases que la coordinadora selecciona al transicionar un lead a No Interesado.",
+  },
+  {
+    key: "Tipos_Paciente",
+    label: "Tipos de paciente",
+    help: "Los tipos que NO son una aseguradora — normalmente solo \"Privado\". Es lo que se elige en la ficha de cada paciente junto a las aseguradoras de la pestaña siguiente.",
+  },
+  {
+    key: "Tipos_Paciente_Aseguradora",
+    label: "Aseguradoras",
+    help: "Las mutuas con las que trabaja la clínica. Un paciente con aseguradora ve el desglose de su cobertura en el portal, así que dar una de alta aquí es lo único que hace falta: no requiere ningún cambio de código.",
   },
   {
     key: "Plantillas_Scope",

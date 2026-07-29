@@ -34,6 +34,7 @@ import { fechasPerdidaPorPresupuesto } from "./historial/registrar";
 import { esLeadActivo } from "./leads/pipeline";
 import { citaDelLead, citasPorPacienteDeLeads } from "./leads/cita";
 import { hoyISO, mesISO } from "./time";
+import { catalogoTiposPaciente } from "./pacientes/tipos-paciente";
 
 /** Comparación contra el MISMO TRAMO del mes anterior (días 1..hoy).
  *  Un mes a medias no se compara nunca contra uno entero: el día 3 todos los
@@ -172,6 +173,17 @@ export type DashboardRed = {
       pendiente: number;
       vencido: number;
     };
+    /** Mezcla privado / aseguradora: el titular, no el detalle. La dirección
+     *  quiere saber de qué depende su facturación; el desglose por mutua y su
+     *  evolución viven en la pestaña Tarifas de KPIs (spec 2026-07-29). */
+    mezcla: {
+      pacientesConTipo: number;
+      pacientesSinTipo: number;
+      privadoPct: number | null;
+      aseguradoraPct: number | null;
+      aceptadoPrivado: number;
+      aceptadoAseguradora: number;
+    } | null;
   };
   clinicas: ClinicaFila[];
   /** Embudo de la misma ventana de 6 meses que `progreso`. */
@@ -644,6 +656,45 @@ export async function calcularDashboardRed(opts: {
     return (a.tendenciaPct ?? Infinity) - (b.tendenciaPct ?? Infinity);
   });
 
+  // ── Mezcla privado / aseguradora ─────────────────────────────────────
+  // Se mide sobre los pacientes CON TIPO, y los que no lo tienen se declaran:
+  // el campo es nuevo y se rellena con el uso, así que un porcentaje sobre el
+  // total diría "38% privado" cuando la verdad es "de los que sabemos".
+  const catalogoMezcla = await catalogoTiposPaciente(null);
+  const aseguradoras = new Set(
+    catalogoMezcla.filter((t) => t.esAseguradora).map((t) => t.valor.toLowerCase()),
+  );
+  const esAseg = (tipo: string | null) => !!tipo && aseguradoras.has(tipo.toLowerCase());
+  let conTipo = 0;
+  let privados = 0;
+  let aceptadoPrivado = 0;
+  let aceptadoAseguradora = 0;
+  for (const p of pacientes) {
+    if (!p.tipoPaciente) continue;
+    conTipo++;
+    if (!esAseg(p.tipoPaciente)) privados++;
+  }
+  for (const r of presusScope) {
+    if (String(r.fields["Estado"] ?? "") !== "ACEPTADO") continue;
+    const links = (r.fields["Paciente"] ?? []) as string[];
+    const pac = Array.isArray(links) ? pacPorId.get(links[0]!) : undefined;
+    if (!pac?.tipoPaciente) continue;
+    const importe = Number(r.fields["Importe"] ?? 0) || 0;
+    if (esAseg(pac.tipoPaciente)) aceptadoAseguradora += importe;
+    else aceptadoPrivado += importe;
+  }
+  const mezcla =
+    conTipo === 0
+      ? null
+      : {
+          pacientesConTipo: conTipo,
+          pacientesSinTipo: pacientes.length - conTipo,
+          privadoPct: Math.round((privados / conTipo) * 100),
+          aseguradoraPct: 100 - Math.round((privados / conTipo) * 100),
+          aceptadoPrivado,
+          aceptadoAseguradora,
+        };
+
   // ── Sección 4 · progreso (6 meses, 4 series) ─────────────────────────
   const progreso: Array<{ mes: string; total: number; leads: number; presupuestos: number; cobros: number }> = [];
   for (let i = 5; i >= 0; i--) {
@@ -779,6 +830,7 @@ export async function calcularDashboardRed(opts: {
         pendiente: pendienteTotal,
         vencido: vencidosImporte,
       },
+      mezcla,
     },
     clinicas: filas,
     embudo: { etapas: etapasEmbudo, meses: MESES_EMBUDO },

@@ -688,3 +688,37 @@ Postgres y mañana podría consultar el PMS del cliente sin rehacer UI ni flujo.
 CREAR sobre un paciente hace falta colgarle el presupuesto de un id: si el PMS no expone un
 identificador estable, leer de él solo sirve para consultar y **migrar pasa a ser la única
 vía**. Esa es exactamente la frontera y el único punto que queda pendiente de decidir.
+
+## 2026-07-29 — Tipo de paciente: catálogo configurable, no enum
+El tipo (Privado / aseguradora) pasa a ser propiedad de LA PERSONA y su catálogo vive en
+`configuraciones_clinica`, el mismo sitio que los métodos de pago. **Dos categorías, y la
+categoría ES la marca de aseguradora**: `Tipos_Paciente` (los que no lo son) y
+`Tipos_Paciente_Aseguradora` (las mutuas). Se descartó meter un flag dentro del valor porque
+es exactamente el pecado que acabábamos de quitar de `presupuestos.notas` — metadatos colados
+en un campo de texto. La categoría es el vocabulario propio de la tabla y no cuesta esquema
+nuevo; en Ajustes son dos pestañas del editor genérico que ya existía.
+El enum `TipoPaciente = "Adeslas" | "Privado"` desaparece, y con él los cuatro puntos donde
+estaba clavada una aseguradora concreta: el array literal que definía qué se mide en los
+KPIs, las dos cards y las cuatro barras (con hex a mano) de la vista de Tarifas, la
+heurística del importador CSV y el portal del paciente.
+**El bug que la spec pedía evitar, evitado:** el portal enseñaba el desglose de cobertura si
+`tipoPaciente === "Adeslas"`, así que un paciente de Sanitas habría dejado de verlo sin que
+nadie se enterara. Ahora la pregunta es "¿tiene aseguradora?", resuelta en `generar-portal`
+—donde sí hay contexto de cliente— y viajando en el payload, porque el portal es público y no
+puede consultar el catálogo. El QA lo cubre, y **declara que la prueba de punta a punta se
+omite sin Vercel KV** en vez de darla por verde: un test que pasa porque `undefined === false`
+es peor que no tenerlo.
+`presupuestos.tipo_paciente` se conserva (lo consumen KPIs históricos) pero deja de ser
+fuente: HEREDA del paciente al crear. Sin backfill en datos reales — los 123 presupuestos
+decían "Nuevo", que no es un tipo de paciente, y derivarlo sería inventar; el "Nuevo" se
+limpia en la migración. En DEMO **sí** se reparten tipos, porque sin ellos la pestaña Tarifas
+enseña cuatro cards a cero y la línea de mezcla de /red no enseña ninguna mezcla: ahí el dato
+es inventado por diseño y el script lo dice.
+La mezcla entra en /red como UNA línea ("De qué depende la facturación": % privado vs
+aseguradora con su € aceptado, y cuántos pacientes sin tipo quedan). El detalle y la evolución
+se quedan en Tarifas. La medida es sobre los pacientes CON TIPO y los que no lo tienen se
+declaran: el campo es nuevo y se rellena con el uso.
+Cazado de paso: importar la librería del catálogo desde el modal de CSV arrastraba
+`db/context` (y `async_hooks`) al bundle del navegador. La parte pura vive ahora en
+`tipos-paciente-puro.ts`. Regla: si algo lo necesita el navegador, no puede compartir archivo
+con un repo.

@@ -88,6 +88,9 @@ export interface Tabla_pacientes {
   clinica_id: string | null;
   doctor_id: string | null;
   lead_origen_id: string | null;
+  /** Privado o el nombre de su aseguradora; null = sin tipo (estado válido).
+   *  El catálogo vive en configuraciones_clinica, nunca en un enum. */
+  tipo_paciente: string | null;
   fecha_cita: string | null;
   financiado: number | null;
   notas: string | null;

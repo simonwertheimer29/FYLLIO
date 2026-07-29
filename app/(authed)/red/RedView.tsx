@@ -831,6 +831,39 @@ export function RedView({ user: _user }: { user: UserSession }) {
                     <Cifra label="Vencido sin cobrar" valor={eur(negocio.cobros.vencido)} detalle="fuera de plazo" />
                   </div>
                 </div>
+                {/* Mezcla privado / aseguradora: UNA línea, el titular. De qué
+                    depende la facturación es información de dirección; el
+                    desglose por mutua y su evolución viven en KPIs → Tarifas.
+                    Los pacientes sin tipo se declaran: el campo es nuevo y se
+                    rellena con el uso, así que el % es "de los que sabemos". */}
+                {negocio.mezcla && (
+                  <div className="border-l-2 border-[var(--color-accent)] pl-4 lg:pl-5">
+                    <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-3">
+                      De qué depende la facturación
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      <Cifra
+                        label="Privados"
+                        valor={`${negocio.mezcla.privadoPct}%`}
+                        detalle={eur(negocio.mezcla.aceptadoPrivado)}
+                      />
+                      <Cifra
+                        label="Con aseguradora"
+                        valor={`${negocio.mezcla.aseguradoraPct}%`}
+                        detalle={eur(negocio.mezcla.aceptadoAseguradora)}
+                      />
+                      <Cifra
+                        label="Sobre cuántos"
+                        valor={String(negocio.mezcla.pacientesConTipo)}
+                        detalle={
+                          negocio.mezcla.pacientesSinTipo > 0
+                            ? `${negocio.mezcla.pacientesSinTipo} aún sin tipo`
+                            : "todos con tipo"
+                        }
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
 

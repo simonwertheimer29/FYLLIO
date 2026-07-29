@@ -18,6 +18,7 @@ import {
   permiteClinica,
   formulaClinicaPermitida,
 } from "../../../lib/presupuestos/clinica-scope";
+import { catalogoTiposPaciente } from "../../../lib/pacientes/tipos-paciente";
 
 const ZONE = "Europe/Madrid";
 
@@ -43,7 +44,17 @@ function isoToYYYYMM(iso: string): string {
   return iso.slice(0, 7);
 }
 
-function buildKpis(allPresupuestos: Presupuesto[]): KpiData {
+function buildKpis(allPresupuestos: Presupuesto[], catalogo: string[] = []): KpiData {
+  // Las tarifas a medir: el catálogo configurable de la clínica MÁS cualquier
+  // valor que ya exista en los datos. Lo segundo evita que un cambio en Ajustes
+  // haga desaparecer histórico de las gráficas — el dato pasado no se borra
+  // porque hoy ya no se ofrezca esa mutua.
+  const tarifas = Array.from(
+    new Set([
+      ...catalogo,
+      ...allPresupuestos.map((p) => p.tipoPaciente).filter((t): t is string => !!t),
+    ]),
+  );
   const now = new Date();
   const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -191,13 +202,13 @@ function buildKpis(allPresupuestos: Presupuesto[]): KpiData {
 
     tendenciaMensual.push({ mes, label, total: list.length, aceptados: countAcepted(list) });
 
-    const privados = list.filter((p) => p.tipoPaciente === "Privado");
-    const adeslas = list.filter((p) => p.tipoPaciente === "Adeslas");
-    tendenciaPorTarifa.push({
-      mes, label,
-      privado: privados.length, privadoAcept: countAcepted(privados),
-      adeslas: adeslas.length, adeslasAcept: countAcepted(adeslas),
-    });
+    const fila: KpiTendenciaTarifa = { mes, label };
+    for (const tarifa of tarifas) {
+      const delTipo = list.filter((p) => p.tipoPaciente === tarifa);
+      fila[tarifa] = delTipo.length;
+      fila[`${tarifa}__acept`] = countAcepted(delTipo);
+    }
+    tendenciaPorTarifa.push(fila);
 
     const primera = list.filter((p) => p.tipoVisita === "Primera Visita");
     const historia = list.filter((p) => p.tipoVisita === "Paciente con Historia");
@@ -267,7 +278,8 @@ function buildKpis(allPresupuestos: Presupuesto[]): KpiData {
     porEstado,
     porDoctor,
     porTratamiento,
-    porTipoPaciente: ["Privado", "Adeslas"].map(tipoFn),
+    porTipoPaciente: tarifas.map(tipoFn),
+    tarifas,
     porTipoVisita: ["Primera Visita", "Paciente con Historia"].map(visitaFn),
     tendenciaMensual,
     tendenciaPorTarifa,
@@ -381,9 +393,11 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const dataMes = data.filter((p) => isoToYYYYMM(p.fechaPresupuesto) === mesFiltro);
   const dataPrevMes = data.filter((p) => isoToYYYYMM(p.fechaPresupuesto) === mesPrevio);
 
-  const kpis = buildKpis(data);
-  const kpisMes = buildKpis(dataMes);
-  const kpisPrevMes = buildKpis(dataPrevMes);
+  // El catálogo se lee UNA vez y se pasa a los tres cortes.
+  const catalogo = (await catalogoTiposPaciente(null)).map((t) => t.valor);
+  const kpis = buildKpis(data, catalogo);
+  const kpisMes = buildKpis(dataMes, catalogo);
+  const kpisPrevMes = buildKpis(dataPrevMes, catalogo);
 
   return NextResponse.json({ kpis, kpisMes, kpisPrevMes, isDemo, mes: mesFiltro });
 });

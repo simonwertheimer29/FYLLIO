@@ -15,7 +15,11 @@ export type ConfigCategoria =
   | "Metodos_Pago"
   | "Plazos_Liquidacion"
   | "Razones_No_Interesado"
-  | "Plantillas_Scope";
+  | "Plantillas_Scope"
+  // Tipos de paciente (2026-07-29). Dos categorías porque la categoría ES la
+  // marca de aseguradora: ver lib/pacientes/tipos-paciente.
+  | "Tipos_Paciente"
+  | "Tipos_Paciente_Aseguradora";
 
 export type ConfigOpcion = {
   id: string;
@@ -133,6 +137,8 @@ export const CATEGORIA_LABEL: Record<ConfigCategoria, string> = {
   Plazos_Liquidacion: "Plazos de liquidación",
   Razones_No_Interesado: "Razones de \"No Interesado\"",
   Plantillas_Scope: "Plantillas WhatsApp",
+  Tipos_Paciente: "Tipos de paciente",
+  Tipos_Paciente_Aseguradora: "Aseguradoras",
 };
 
 // FASE 1 migración — accesos genéricos a Configuraciones_Clinica para los

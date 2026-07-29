@@ -73,11 +73,61 @@ type PacientePayload = {
   fechaCita: string | null;
   notas: string | null;
   canalOrigen: string | null;
+  tipoPaciente: string | null;
   leadOrigenId: string | null;
   activo: boolean;
   optoutAutomatizaciones?: boolean;
   createdAt: string;
 };
+
+/** Tipo de paciente editable en la ficha: mismo patrón de edición directa que
+ *  el resto de datos no sensibles (Bloque 3). El desplegable ofrece el catálogo
+ *  de SU clínica; "sin tipo" es una opción legítima, no un hueco. */
+function TipoPacienteSelect({
+  pacienteId,
+  valor,
+  tipos,
+  onSaved,
+}: {
+  pacienteId: string;
+  valor: string | null;
+  tipos: TipoPacienteOpcion[];
+  onSaved: () => void;
+}) {
+  const [guardando, setGuardando] = useState(false);
+  async function guardar(nuevo: string) {
+    setGuardando(true);
+    try {
+      const res = await fetch(`/api/pacientes/${pacienteId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipoPaciente: nuevo || null }),
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        toast.error(d.error ?? "No se pudo guardar el tipo");
+        return;
+      }
+      toast.success(nuevo ? `Tipo: ${nuevo}` : "Tipo sin asignar");
+      onSaved();
+    } finally {
+      setGuardando(false);
+    }
+  }
+  return (
+    <select
+      value={valor ?? ""}
+      disabled={guardando || tipos.length === 0}
+      onChange={(e) => void guardar(e.target.value)}
+      className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-2 py-1 text-sm disabled:opacity-50"
+    >
+      <option value="">Sin tipo</option>
+      {tipos.map((t) => (
+        <option key={t.valor} value={t.valor}>{t.valor}</option>
+      ))}
+    </select>
+  );
+}
 
 type LeadPayload = {
   id: string;
@@ -111,9 +161,13 @@ type AccionPayload = {
   detalles: string | null;
 };
 
+type TipoPacienteOpcion = { valor: string; esAseguradora: boolean };
+
 type Paciente360Payload = {
   paciente: PacientePayload;
   lead: LeadPayload;
+  /** Catálogo configurable de la clínica del paciente. */
+  tiposPaciente?: TipoPacienteOpcion[];
   presupuestos: PresupuestoPayload[];
   pagos: Pago[];
   acciones: AccionPayload[];
@@ -624,6 +678,7 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
         <ZonaDatos
           paciente={paciente}
           lead={lead}
+          tiposPaciente={data.tiposPaciente ?? []}
           presupuestos={presupuestos}
           pagos={pagos}
           kpisPagos={kpisPagos}
@@ -1060,9 +1115,11 @@ function ZonaDatos({
   onEditPago,
   onDeletePago,
   onDatoGuardado,
+  tiposPaciente,
 }: {
   paciente: PacientePayload;
   lead: LeadPayload;
+  tiposPaciente: TipoPacienteOpcion[];
   presupuestos: PresupuestoPayload[];
   pagos: Pago[];
   kpisPagos: Paciente360Payload["kpisPagos"];
@@ -1108,6 +1165,17 @@ function ZonaDatos({
             )}
           </div>
           <KV k="Canal origen" v={paciente.canalOrigen ?? "—"} />
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] text-[var(--color-muted)] uppercase tracking-wide">
+              Tipo de paciente
+            </span>
+            <TipoPacienteSelect
+              pacienteId={paciente.id}
+              valor={paciente.tipoPaciente}
+              tipos={tiposPaciente}
+              onSaved={onDatoGuardado}
+            />
+          </div>
           <KV k="Alta" v={formatFecha(paciente.createdAt)} />
         </div>
         <div className="mt-4 pt-3 border-t border-[var(--color-border)]">

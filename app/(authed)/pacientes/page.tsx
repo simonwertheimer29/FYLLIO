@@ -10,6 +10,7 @@ import { proximaCitaPorPaciente } from "../../lib/pacientes/edicion";
 import { listDoctores } from "@/lib/staff/doctores";
 import { runWithCliente } from "../../lib/cliente-contexto";
 import { clinicasNegocioAccesibles, negocioIdToCentralId } from "../../lib/clinicas-negocio";
+import { catalogoTiposPaciente } from "../../lib/pacientes/tipos-paciente";
 import { PacientesView } from "./PacientesView";
 
 export const dynamic = "force-dynamic";
@@ -24,11 +25,15 @@ export default async function PacientesPage() {
   // referencian sus enlaces), y luego se remapea cada clinicaId al ID CENTRAL
   // (por nombre) para que el filtro cliente-side por ClinicContext (IDs centrales)
   // coincida. Sin esto, el coord veía la tabla vacía (IDs de bases distintas).
-  const { allClinicas, doctores, withNames } = await runWithCliente(session.cliente, async () => {
-    const [allClinicas, scope, doctores] = await Promise.all([
+  const { allClinicas, doctores, withNames, tiposPaciente } = await runWithCliente(session.cliente, async () => {
+    const [allClinicas, scope, doctores, tiposPaciente] = await Promise.all([
       listClinicas({ onlyActivas: true, cliente: session.cliente }),
       clinicasNegocioAccesibles(session),
       listDoctores(),
+      // Catálogo configurable (Privado + aseguradoras de la clínica). Global
+      // aquí porque la tabla puede mezclar clínicas; el PATCH valida contra el
+      // catálogo de LA clínica del paciente.
+      catalogoTiposPaciente(null),
     ]);
     const [pacientes, finanzas, proximasCitas] = await Promise.all([
       listPacientes({
@@ -63,7 +68,7 @@ export default async function PacientesPage() {
       ...d,
       clinicaId: negocioIdToCentralId(scope, d.clinicaId),
     }));
-    return { allClinicas, doctores: doctoresCentral, withNames };
+    return { allClinicas, doctores: doctoresCentral, withNames, tiposPaciente };
   });
 
   return (
@@ -71,6 +76,7 @@ export default async function PacientesPage() {
       initialPacientes={withNames}
       clinicas={allClinicas.map((c) => ({ id: c.id, nombre: c.nombre }))}
       doctores={doctores}
+      tiposPaciente={tiposPaciente}
     />
   );
 }

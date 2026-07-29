@@ -63,6 +63,7 @@ export async function GET(
       clinicaTelefono: data.clinicaTelefono,
       doctor: data.doctor,
       tipoPaciente: data.tipoPaciente,
+      tieneAseguradora: data.tieneAseguradora ?? false,
       descripcionHumanizada: data.descripcionHumanizada,
       expiresAt: data.expiresAt,
       respondido: data.respondido,

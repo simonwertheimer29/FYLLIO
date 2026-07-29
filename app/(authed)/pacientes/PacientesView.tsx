@@ -48,6 +48,7 @@ type Paciente = {
   clinicaId: string | null;
   clinicaNombre?: string | null;
   leadOrigenId: string | null;
+  tipoPaciente: string | null;
   activo: boolean;
   createdAt: string;
 };
@@ -134,10 +135,14 @@ export function PacientesView({
   initialPacientes,
   clinicas,
   doctores,
+  tiposPaciente,
 }: {
   initialPacientes: Paciente[];
   clinicas: Array<{ id: string; nombre: string }>;
   doctores: Doctor[];
+  /** Catálogo configurable de la clínica (Privado + sus aseguradoras). Nunca
+   *  un enum: dar de alta una mutua no puede exigir un despliegue. */
+  tiposPaciente: Array<{ valor: string; esAseguradora: boolean }>;
 }) {
   const { selectedClinicaId } = useClinic();
   const [pacientes, setPacientes] = useState<Paciente[]>(initialPacientes);
@@ -145,6 +150,7 @@ export function PacientesView({
   const [dateFilter, setDateFilter] = useState<DateFilter>("todo");
   const [editingNotas, setEditingNotas] = useState<string | null>(null);
   const [editingDoctor, setEditingDoctor] = useState<string | null>(null);
+  const [editingTipo, setEditingTipo] = useState<string | null>(null);
   // Flujos con modal (nivel 2: mutaciones de negocio por su flujo origen).
   const [pagoDe, setPagoDe] = useState<{ paciente: Paciente; clinicaId: string | null } | null>(null);
   const [estadoDe, setEstadoDe] = useState<{ paciente: Paciente; abiertos: PresupuestoBrief[] } | null>(null);
@@ -373,6 +379,7 @@ export function PacientesView({
                 <Th>Paciente</Th>
                 <Th>Tratamientos</Th>
                 <Th>Doctor</Th>
+                <Th>Tipo</Th>
                 <Th>Próxima cita</Th>
                 <Th>Presupuesto</Th>
                 <Th>Aceptado</Th>
@@ -487,6 +494,38 @@ export function PacientesView({
                         </button>
                       )}
                     </Td>
+                    {/* Privado / aseguradora — propiedad de la persona, edición
+                        directa como el doctor (dato no sensible, Bloque 3). */}
+                    <Td>
+                      {editingTipo === p.id ? (
+                        <select
+                          autoFocus
+                          value={p.tipoPaciente ?? ""}
+                          onChange={async (e) => {
+                            const v = e.target.value || null;
+                            setEditingTipo(null);
+                            if (await patch(p.id, { tipoPaciente: v }) !== null) {
+                              toast.success(v ? `Tipo: ${v}` : "Tipo sin asignar");
+                            }
+                          }}
+                          onBlur={() => setEditingTipo(null)}
+                          className="rounded border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-2 py-1 text-xs"
+                        >
+                          <option value="">Sin tipo</option>
+                          {tiposPaciente.map((t) => (
+                            <option key={t.valor} value={t.valor}>{t.valor}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setEditingTipo(p.id)}
+                          aria-label={`Cambiar tipo de ${p.nombre}`}
+                        >
+                          <TipoPacienteChip valor={p.tipoPaciente} tipos={tiposPaciente} />
+                        </button>
+                      )}
+                    </Td>
                     {/* Próxima cita REAL desde la agenda (derivado; el campo
                         suelto del paciente solo queda como respaldo). */}
                     <Td>{fmtProximaCita(p)}</Td>
@@ -587,7 +626,7 @@ export function PacientesView({
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="p-4">
+                  <td colSpan={11} className="p-4">
                     <EmptyState
                       icon={<Users size={24} strokeWidth={ICON_STROKE} />}
                       title="Sin pacientes en el filtro actual"
@@ -648,6 +687,38 @@ export function PacientesView({
         />
       )}
     </div>
+  );
+}
+
+/** Chip del tipo. "Sin tipo" NO se esconde: es un estado real y el hueco es
+ *  justo lo que invita a rellenarlo. La aseguradora se distingue del privado
+ *  por peso, no por un color nuevo — el acento sigue reservado a la acción. */
+function TipoPacienteChip({
+  valor,
+  tipos,
+}: {
+  valor: string | null;
+  tipos: Array<{ valor: string; esAseguradora: boolean }>;
+}) {
+  if (!valor) {
+    return (
+      <span className="inline-flex rounded-md border border-dashed border-[var(--color-border)] px-1.5 py-0.5 text-[10px] text-[var(--color-muted)]">
+        Sin tipo
+      </span>
+    );
+  }
+  const esAseg = tipos.find((t) => t.valor === valor)?.esAseguradora ?? false;
+  return (
+    <span
+      className={`inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-medium ${
+        esAseg
+          ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
+          : "bg-[var(--color-surface-muted)] text-[var(--color-muted)]"
+      }`}
+      title={esAseg ? `Aseguradora: ${valor}` : valor}
+    >
+      {valor}
+    </span>
   );
 }
 

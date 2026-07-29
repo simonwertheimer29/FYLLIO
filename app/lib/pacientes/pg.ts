@@ -20,7 +20,8 @@ function rowToPaciente(r: any): Paciente {
     doctorLinkId: r.doctor_id, fechaCita: r.fecha_cita,
     financiado: numN(r.financiado),
     notas: r.notas, canalOrigen: r.canal_origen, clinicaId: r.clinica_id,
-    leadOrigenId: r.lead_origen_id, activo: Boolean(r.activo ?? true),
+    leadOrigenId: r.lead_origen_id, tipoPaciente: r.tipo_paciente ?? null,
+    activo: Boolean(r.activo ?? true),
     optoutAutomatizaciones: Boolean(r.optout_automatizaciones), createdAt: iso(r.created_at),
   };
 }
@@ -66,6 +67,7 @@ const COLS: Record<string, string> = {
   nombre: "nombre", telefono: "telefono", email: "email", doctorLinkId: "doctor_id",
   fechaCita: "fecha_cita", financiado: "financiado", notas: "notas", canalOrigen: "canal_origen",
   activo: "activo", optoutAutomatizaciones: "optout_automatizaciones",
+  tipoPaciente: "tipo_paciente",
 };
 export async function updatePacientePg(id: string, patch: Record<string, unknown>): Promise<Paciente> {
   const set: Record<string, unknown> = {};

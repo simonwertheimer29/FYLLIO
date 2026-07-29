@@ -337,7 +337,11 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     if (body.amount != null) fields["Importe"] = Number(body.amount);
     if (notasValue) fields["Notas"] = notasValue;
     if (body.doctor) fields["Doctor"] = body.doctor;
-    if (body.tipoPaciente) fields["TipoPaciente"] = body.tipoPaciente;
+    // El tipo HEREDA del paciente, no se pregunta: una persona no cambia de
+    // mutua entre dos presupuestos del mismo mes (spec 2026-07-29). El campo
+    // del presupuesto se conserva porque lo consumen los KPIs históricos, pero
+    // ya no es fuente — la fuente es el paciente.
+    if (paciente.tipoPaciente) fields["TipoPaciente"] = paciente.tipoPaciente;
     if (body.tipoVisita) fields["TipoVisita"] = body.tipoVisita;
 
     const created = await createPresupuestoRaw(fields) as any;

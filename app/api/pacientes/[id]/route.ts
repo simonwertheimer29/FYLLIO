@@ -7,6 +7,7 @@ import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicaIdsForUser, listUsuarios } from "../../../lib/auth/users";
 import { getPaciente, updatePaciente, deletePaciente } from "../../../lib/pacientes/pacientes";
+import { valoresTipoPaciente, catalogoTiposPaciente } from "../../../lib/pacientes/tipos-paciente";
 import { camposNoEditables, propagarTelefonoAPresupuestos } from "../../../lib/pacientes/edicion";
 import { getLead } from "../../../lib/leads/leads";
 import { listAccionesByLead } from "../../../lib/leads/acciones";
@@ -109,11 +110,15 @@ export const GET = withAuth<Ctx>(async (session, _req, ctx) => {
       // todo de presupuestos y pagos reales.
       notas: paciente.notas,
       canalOrigen: paciente.canalOrigen,
+      tipoPaciente: paciente.tipoPaciente,
       leadOrigenId: paciente.leadOrigenId,
       activo: paciente.activo,
       createdAt: paciente.createdAt,
     },
     lead,
+    // El catálogo de SU clínica: la ficha ofrece lo que esa clínica tiene
+    // configurado, no un enum compilado.
+    tiposPaciente: await catalogoTiposPaciente(paciente.clinicaId),
     presupuestos,
     pagos,
     acciones,
@@ -249,6 +254,20 @@ export const PATCH = withAuth<Ctx>(async (session, req, ctx) => {
       { error: `No editable desde el paciente: ${rechazados.join(", ")}. Corrige su registro origen (presupuesto/pago).` },
       { status: 400 },
     );
+  }
+
+  // El tipo de paciente se valida CONTRA EL CATÁLOGO de su clínica: es un
+  // texto libre en la base a propósito (el catálogo es configurable, no un
+  // enum), así que la barrera está aquí. Vaciarlo es legítimo: "sin tipo" es un
+  // estado válido.
+  if (body.tipoPaciente !== undefined && body.tipoPaciente !== null && body.tipoPaciente !== "") {
+    const permitidos = await valoresTipoPaciente(paciente.clinicaId);
+    if (!permitidos.some((v) => v.toLowerCase() === String(body.tipoPaciente).toLowerCase())) {
+      return NextResponse.json(
+        { error: `"${body.tipoPaciente}" no está en el catálogo de la clínica. Añádelo en Ajustes → Aseguradoras.` },
+        { status: 400 },
+      );
+    }
   }
 
   // Deuda D1 — el teléfono vive copiado en los presupuestos abiertos
