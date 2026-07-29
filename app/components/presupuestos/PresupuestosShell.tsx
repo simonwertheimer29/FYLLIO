@@ -44,6 +44,12 @@ function usePresupuestos() {
   const [isDemo, setIsDemo] = useState(false);
   const [demoReason, setDemoReason] = useState<string | undefined>();
   const [missingVars, setMissingVars] = useState<string[]>([]);
+  // Un fallo de carga NO puede pintarse como "0 presupuestos abiertos · 0 €"
+  // (§4). Pasaba: tanto un 500 como un error de red dejaban la lista vacía y la
+  // cabecera cantaba ceros con toda tranquilidad — indistinguible de una clínica
+  // que de verdad no tiene nada. Cazado el 2026-07-29 cuando Simon vio ceros con
+  // 123 presupuestos en la base.
+  const [error, setError] = useState<string | null>(null);
 
   // Sprint 13.1 Bloque 2 — la clinica viene SIEMPRE del ClinicContext
   // (GlobalHeader). El filtro local fue eliminado de FiltersBar.
@@ -57,13 +63,19 @@ function usePresupuestos() {
         if (filters.q) url.searchParams.set("q", filters.q);
 
         const res = await fetch(url.toString());
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const d = await res.json();
-        setPresupuestos(d.presupuestos ?? []);
+        if (!Array.isArray(d.presupuestos)) throw new Error("respuesta sin presupuestos");
+        setError(null);
+        setPresupuestos(d.presupuestos);
         setIsDemo(d.isDemo ?? false);
         setDemoReason(d.demoReason);
         setMissingVars(d.missingVars ?? []);
-      } catch {
-        setPresupuestos([]);
+      } catch (e) {
+        // Se conserva lo último que sí cargó y se DICE que no se pudo
+        // actualizar: mejor un dato de hace un minuto, señalado, que un cero
+        // inventado.
+        setError(e instanceof Error ? e.message : "error de red");
       } finally {
         setLoading(false);
       }
@@ -71,7 +83,7 @@ function usePresupuestos() {
     [],
   );
 
-  return { presupuestos, setPresupuestos, loading, isDemo, demoReason, missingVars, load };
+  return { presupuestos, setPresupuestos, loading, isDemo, demoReason, missingVars, error, load };
 }
 
 // ─── Main Shell ──────────────────────────────────────────────────────────────
@@ -93,7 +105,7 @@ export default function PresupuestosShell({
   // El campo Filters.clinica se mantiene por backwards-compat pero no se
   // usa para filtrar (siempre vacío).
   const { selectedClinicaNombre } = useClinic();
-  const { presupuestos, setPresupuestos, loading, isDemo, load } = usePresupuestos();
+  const { presupuestos, setPresupuestos, loading, isDemo, error, load } = usePresupuestos();
 
   // El conteo de la cabecera se calcula sobre lo que el tablero PINTA (mismo
   // rango, mismas funciones puras): un número que no cuadra con las tarjetas
@@ -332,9 +344,22 @@ export default function PresupuestosShell({
           <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">
             Presupuestos
           </h1>
-          <p className="text-xs text-[var(--color-muted)] mt-0.5 tabular-nums truncate">
-            {textoPipelinePresupuestos(pipeline)}
-          </p>
+          {error ? (
+            <p className="text-xs text-[var(--color-danger)] mt-0.5 truncate">
+              No se pudieron cargar los presupuestos.{" "}
+              <button
+                type="button"
+                onClick={() => void load(currentFiltersRef.current, selectedClinicaNombre)}
+                className="font-semibold underline"
+              >
+                Reintentar
+              </button>
+            </p>
+          ) : (
+            <p className="text-xs text-[var(--color-muted)] mt-0.5 tabular-nums truncate">
+              {textoPipelinePresupuestos(pipeline)}
+            </p>
+          )}
         </div>
 
         <SegmentedToggle
