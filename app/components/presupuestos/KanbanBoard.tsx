@@ -404,7 +404,7 @@ export default function KanbanBoard({
   onOpenFicha: (p: Presupuesto) => void;
   onEdit: (p: Presupuesto) => void;
   /** "Ver todos →" de las columnas cerradas: navega al archivo real
-   *  (ACEPTADO → Registro de Cobros; PERDIDO → Vista Máxima). */
+   *  (ACEPTADO → Registro de Cobros; PERDIDO → la Tabla). */
   onVerTodosCerrados: (estado: "ACEPTADO" | "PERDIDO") => void;
   /** Rango temporal activo — control único compartido con el kanban de Leads. */
   rango: RangoKanban;
@@ -528,7 +528,7 @@ export default function KanbanBoard({
                           label:
                             estado === "ACEPTADO"
                               ? "Ver todos en Cobros"
-                              : "Ver todos en Vista Máxima",
+                              : "Ver todos en la Tabla",
                           onClick: () => onVerTodosCerrados(estado as "ACEPTADO" | "PERDIDO"),
                         }
                       : undefined

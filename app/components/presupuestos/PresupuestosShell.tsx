@@ -1,6 +1,11 @@
 "use client";
 
-// Sprint 8 D.6 — /presupuestos simplificado a toggle Panel / Máxima.
+// Sprint 8 D.6 — /presupuestos simplificado a un toggle de DOS VISTAS DE LO
+// MISMO: "Tablero" (kanban por estado, el trabajo del día) y "Tabla" (por
+// fecha, para monitorizar). Se llamaban "Panel" y "Máxima"; "Máxima" no
+// significaba nada para una coordinadora y "Panel" tampoco decía que fuese un
+// kanban (renombre 2026-07-29). El id interno `maxima` se conserva para no
+// romper los enlaces `?vista=maxima` que ya existen.
 // Red/Intervención/KPIs/Informes/Tareas/Envíos/Doctor/Automatizaciones/Config
 // se migran a rutas top-level. Aquí solo queda el pipeline de presupuestos.
 
@@ -364,8 +369,8 @@ export default function PresupuestosShell({
 
         <SegmentedToggle
           options={[
-            { id: "kanban", label: "Panel" },
-            { id: "maxima", label: "Máxima" },
+            { id: "kanban", label: "Tablero" },
+            { id: "maxima", label: "Tabla" },
           ]}
           active={tab}
           onChange={(id) => setTab(id)}
@@ -480,7 +485,7 @@ export default function PresupuestosShell({
                   onVerTodosCerrados={(estado) => {
                     // Archivo real de cada columna cerrada: los aceptados
                     // viven su vida financiera en Cobros; los perdidos, en la
-                    // tabla completa de la Vista Máxima.
+                    // tabla completa (vista "Tabla").
                     if (estado === "ACEPTADO") {
                       window.location.href = "/cobros?vista=registro";
                     } else {
@@ -543,7 +548,7 @@ export default function PresupuestosShell({
         />
       )}
       {/* Unificación de fichas (2026-07-27): el clic en card del kanban abre
-          el MISMO panel de acción que Seguimiento y la Vista Máxima. Antes
+          el MISMO panel de acción que Seguimiento y la Tabla. Antes
           abría PatientDrawer, una ficha paralela sin el hilo de conversación
           en la que se registraba a mano lo que había pasado. */}
       {drawerPresupuesto && (

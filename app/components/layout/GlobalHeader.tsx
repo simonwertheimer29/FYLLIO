@@ -14,10 +14,13 @@ import { ThemeToggle } from "./ThemeToggle";
 
 type NavItem = { href: string; label: string };
 
+// Pacientes va DELANTE de Seguimiento (2026-07-29): es la base de datos de
+// personas de la clínica, el centro del producto. Lo demás son vistas sobre
+// ella — el pipeline de quien todavía no lo es, y las colas de trabajo.
 const NAV_COORD: NavItem[] = [
+  { href: "/pacientes",       label: "Pacientes" },
   { href: "/seguimiento",     label: "Seguimiento" },
   { href: "/leads",           label: "Leads" },
-  { href: "/pacientes",       label: "Pacientes" },
   { href: "/presupuestos",    label: "Presupuestos" },
   { href: "/cobros",          label: "Cobros" },
   { href: "/kpis",            label: "KPIs" },
@@ -28,9 +31,9 @@ const NAV_COORD: NavItem[] = [
 const NAV_ADMIN: NavItem[] = [
   { href: "/red",             label: "Red" },
   { href: "/alertas",         label: "Alertas" },
+  { href: "/pacientes",       label: "Pacientes" },
   { href: "/seguimiento",     label: "Seguimiento" },
   { href: "/leads",           label: "Leads" },
-  { href: "/pacientes",       label: "Pacientes" },
   { href: "/presupuestos",    label: "Presupuestos" },
   { href: "/cobros",          label: "Cobros" },
   { href: "/kpis",            label: "KPIs" },

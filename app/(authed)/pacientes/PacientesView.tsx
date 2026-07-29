@@ -14,14 +14,14 @@
 //     Próxima cita) NO se editan: se corrigen en su origen.
 //   - El icono de WhatsApp abre la conversación en la ficha, nunca wa.me.
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { Card } from "../../components/ui/Card";
 import { Cifra, eur } from "../../components/shared/Cifra";
 import { EmptyState } from "../../components/ui/Feedback";
-import { MessageCircle, Users, Euro, Pencil, FileText, ICON_STROKE } from "../../components/icons";
+import { MessageCircle, Users, Euro, Pencil, FileText, ChevronDown, ICON_STROKE } from "../../components/icons";
 import { PagoModal } from "../../components/pacientes/PagoModal";
 import NewPresupuestoModal from "../../components/presupuestos/NewPresupuestoModal";
 import { EstadoPresupuestoFlow, type PresupuestoBrief } from "./EstadoPresupuestoFlow";
@@ -60,6 +60,21 @@ type DateFilter = "semana" | "mes" | "personalizado" | "todo";
 
 /** Filas pintadas por página. */
 const PAGINA_FILAS = 30;
+
+type PresupuestoFila = PresupuestoBrief & { estado: string; fecha?: string | null };
+
+/** Lo que se enseña al desplegar una fila. `cargando` y `error` son estados
+ *  propios: un fallo no puede parecer "este paciente no tiene nada" (§4). */
+type DetalleFila =
+  | { estado: "cargando" }
+  | { estado: "error" }
+  | {
+      estado: "listo";
+      clinicaId: string | null;
+      presupuestos: PresupuestoFila[];
+      pendiente: number;
+      cobrado: number;
+    };
 
 // (Aquí vivía un `fmtEUR` propio — la quinta implementación del mismo
 // formateo. Ahora todo el producto usa `eur` de components/shared/Cifra.)
@@ -182,6 +197,13 @@ export function PacientesView({
   // preseleccionado y la coordinadora se salta el paso de buscarlo. Sin
   // variantes: es el componente del kanban, con una prop de más.
   const [presupuestoDe, setPresupuestoDe] = useState<Paciente | null>(null);
+  const [presupuestoNuevo, setPresupuestoNuevo] = useState(false);
+  // Fila expandible (2026-07-29): un RESUMEN ACCIONABLE corto, no una
+  // mini-ficha. Si creciera hasta duplicar la ficha sobraría una de las dos, así
+  // que aquí solo cabe lo que se responde de un vistazo —qué presupuestos tiene
+  // y cuánto debe— y los dos botones que ya existen.
+  const [expandido, setExpandido] = useState<string | null>(null);
+  const [detalles, setDetalles] = useState<Record<string, DetalleFila>>({});
 
   const filtered = useMemo(() => {
     let out = pacientes;
@@ -304,6 +326,32 @@ export function PacientesView({
   }
 
   // Carga la ficha para los flujos de negocio (clinicaId real + presupuestos).
+  /** Abre o cierra la fila, cargando su detalle la primera vez. */
+  async function alternarFila(p: Paciente) {
+    if (expandido === p.id) { setExpandido(null); return; }
+    setExpandido(p.id);
+    if (detalles[p.id]) return;
+    setDetalles((prev) => ({ ...prev, [p.id]: { estado: "cargando" } }));
+    try {
+      const res = await fetch(`/api/pacientes/${p.id}`);
+      if (!res.ok) throw new Error(String(res.status));
+      const d = await res.json();
+      setDetalles((prev) => ({
+        ...prev,
+        [p.id]: {
+          estado: "listo",
+          clinicaId: (d.paciente?.clinicaId as string | null) ?? null,
+          presupuestos: (d.presupuestos ?? []) as PresupuestoFila[],
+          pendiente: (d.kpisPagos?.pendiente ?? 0) as number,
+          cobrado: (d.kpisPagos?.totalFacturado ?? 0) as number,
+        },
+      }));
+    } catch {
+      // Un fallo NO se pinta como "este paciente no tiene nada" (§4).
+      setDetalles((prev) => ({ ...prev, [p.id]: { estado: "error" } }));
+    }
+  }
+
   async function cargarDetalle(id: string) {
     const res = await fetch(`/api/pacientes/${id}`);
     if (!res.ok) {
@@ -364,7 +412,7 @@ export function PacientesView({
           su card. El color se reserva para lo que compara — un recuento no es
           bueno ni malo, así que fuera el verde y el rojo de la cabecera. */}
       <Card padding="none" className="px-5 py-3.5">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
           <Cifra label="Pacientes" valor={String(total)} detalle={`${base} con presupuesto`} />
           <Cifra
             label="Aceptaron"
@@ -375,6 +423,13 @@ export function PacientesView({
             label="No aceptaron"
             valor={pctNoAceptados == null ? "—" : `${pctNoAceptados}%`}
             detalle={base ? `${noAceptados} de ${base}` : "sin presupuestos"}
+          />
+          {/* Los que están decidiéndose AHORA: es el trabajo pendiente, no una
+              foto del pasado como los otros dos porcentajes. */}
+          <Cifra
+            label="Decidiendo"
+            valor={String(abiertos)}
+            detalle={abiertos === 1 ? "presupuesto abierto" : "presupuestos abiertos"}
           />
           <Cifra
             label="Cobrado"
@@ -420,6 +475,17 @@ export function PacientesView({
           onChange={(e) => setSearch(e.target.value)}
           className="flex-1 min-w-[180px] max-w-sm rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
         />
+        {/* Crear presupuesto también desde arriba: si la coordinadora ya sabe a
+            quién, no tiene por qué buscar su fila primero. Es el MISMO modal,
+            aquí sin paciente preseleccionado. */}
+        <button
+          type="button"
+          onClick={() => setPresupuestoNuevo(true)}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)] px-4 py-1.5 text-xs font-semibold hover:bg-[var(--color-accent-hover)] transition-colors"
+        >
+          <FileText size={14} strokeWidth={ICON_STROKE} aria-hidden />
+          Nuevo presupuesto
+        </button>
       </div>
 
       {/* Tabla */}
@@ -446,14 +512,31 @@ export function PacientesView({
                 const doctoresDeClinica = p.clinicaId
                   ? doctores.filter((d) => d.clinicaId === p.clinicaId)
                   : doctores;
+                const abierta = expandido === p.id;
                 return (
+                  <Fragment key={p.id}>
                   <tr
-                    key={p.id}
-                    className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface-muted)] fyllio-fade-in"
+                    onClick={(e) => {
+                      // Solo si el clic no era para otra cosa (enlace, botón,
+                      // celda editable): la fila entera es el disparador, pero
+                      // no se come las acciones que ya tenía.
+                      if ((e.target as HTMLElement).closest("a,button,input,select,textarea")) return;
+                      void alternarFila(p);
+                    }}
+                    aria-expanded={abierta}
+                    className={`border-t border-[var(--color-border)] hover:bg-[var(--color-surface-muted)] fyllio-fade-in cursor-pointer ${
+                      abierta ? "bg-[var(--color-surface-muted)]" : ""
+                    }`}
                     style={{ animationDelay: `${Math.min(i * 30, 600)}ms` }}
                   >
                     <Td>
                       <div className="flex items-center gap-1.5">
+                        <ChevronDown
+                          size={12}
+                          strokeWidth={ICON_STROKE}
+                          aria-hidden
+                          className={`shrink-0 text-[var(--color-muted)] transition-transform ${abierta ? "" : "-rotate-90"}`}
+                        />
                         <Link
                           href={`/pacientes/${p.id}`}
                           className="font-semibold text-[var(--color-foreground)] hover:text-[var(--color-accent)] hover:underline transition-colors"
@@ -662,6 +745,28 @@ export function PacientesView({
                       </div>
                     </Td>
                   </tr>
+                  {abierta && (
+                    <tr className="border-t border-[var(--color-border)] bg-[var(--color-surface-muted)]">
+                      <td colSpan={11} className="px-5 py-3">
+                        <ResumenPaciente
+                          paciente={p}
+                          detalle={detalles[p.id]}
+                          onCrearPresupuesto={() => setPresupuestoDe(p)}
+                          onRegistrarCobro={() => void abrirRegistrarCobro(p)}
+                          onReintentar={() => {
+                            setDetalles((prev) => {
+                              const s = { ...prev };
+                              delete s[p.id];
+                              return s;
+                            });
+                            setExpandido(null);
+                            void alternarFila(p);
+                          }}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
                 );
               })}
               {filtered.length === 0 && (
@@ -726,6 +831,18 @@ export function PacientesView({
         />
       )}
 
+      {/* El mismo modal, sin paciente preseleccionado: se busca dentro. */}
+      {presupuestoNuevo && (
+        <NewPresupuestoModal
+          user={{ rol: "admin", clinica: null }}
+          onClose={() => setPresupuestoNuevo(false)}
+          onCreated={() => {
+            setPresupuestoNuevo(false);
+            toast.success("Presupuesto creado — ya está en Presupuestos y en su ficha");
+          }}
+        />
+      )}
+
       {/* Estado de presupuesto — mismos modales y transiciones del kanban. */}
       {estadoDe && (
         <EstadoPresupuestoFlow
@@ -735,6 +852,108 @@ export function PacientesView({
           onMutado={() => void refrescarFila(estadoDe.paciente.id)}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * El resumen que aparece al desplegar una fila. CORTO a propósito: responde
+ * "¿qué tiene abierto y cuánto debe?" y ofrece las dos acciones que ya existen.
+ * Todo lo demás —conversación, historial, pagos uno a uno— vive en la ficha, y
+ * "Ver ficha completa" lleva ahí. Si esto creciera hasta duplicar la ficha,
+ * sobraría una de las dos.
+ */
+function ResumenPaciente({
+  paciente,
+  detalle,
+  onCrearPresupuesto,
+  onRegistrarCobro,
+  onReintentar,
+}: {
+  paciente: Paciente;
+  detalle: DetalleFila | undefined;
+  onCrearPresupuesto: () => void;
+  onRegistrarCobro: () => void;
+  onReintentar: () => void;
+}) {
+  if (!detalle || detalle.estado === "cargando") {
+    return <p className="text-[11px] text-[var(--color-muted)]">Cargando…</p>;
+  }
+  if (detalle.estado === "error") {
+    return (
+      <p className="text-[11px] text-[var(--color-danger)]">
+        No se pudo cargar la información de {paciente.nombre}.{" "}
+        <button type="button" onClick={onReintentar} className="font-semibold underline">
+          Reintentar
+        </button>
+      </p>
+    );
+  }
+  const abiertos = detalle.presupuestos.filter(
+    (x) => x.estado !== "ACEPTADO" && x.estado !== "PERDIDO",
+  );
+  const btn =
+    "inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[11px] font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors";
+  return (
+    <div className="flex flex-col lg:flex-row lg:items-start gap-4">
+      <div className="min-w-0 flex-1">
+        {detalle.presupuestos.length === 0 ? (
+          <p className="text-[11px] text-[var(--color-muted)]">
+            Todavía no tiene ningún presupuesto.
+          </p>
+        ) : (
+          <ul className="space-y-1">
+            {detalle.presupuestos.slice(0, 4).map((pr) => (
+              <li key={pr.id} className="flex items-center gap-2 text-[11px]">
+                <EstadoPresupuestoChip
+                  estado={
+                    pr.estado === "ACEPTADO" ? "Si" : pr.estado === "PERDIDO" ? "No" : "Pendiente"
+                  }
+                />
+                <span className="text-[var(--color-foreground)] truncate">
+                  {pr.tratamiento ?? "Sin tratamiento"}
+                </span>
+                <span className="ml-auto tabular-nums text-[var(--color-foreground)] shrink-0">
+                  {pr.importe != null ? eur(pr.importe) : "—"}
+                </span>
+              </li>
+            ))}
+            {detalle.presupuestos.length > 4 && (
+              <li className="text-[11px] text-[var(--color-muted)]">
+                y {detalle.presupuestos.length - 4} más
+              </li>
+            )}
+          </ul>
+        )}
+      </div>
+
+      <div className="shrink-0 text-[11px] tabular-nums lg:w-44">
+        <p className="text-[var(--color-muted)]">
+          Cobrado <span className="text-[var(--color-foreground)] font-medium">{eur(detalle.cobrado)}</span>
+        </p>
+        <p className={detalle.pendiente > 0 ? "text-[var(--color-danger)] font-medium" : "text-[var(--color-muted)]"}>
+          {detalle.pendiente > 0 ? `${eur(detalle.pendiente)} pendiente` : "Sin pendiente"}
+        </p>
+        {abiertos.length > 0 && (
+          <p className="text-[var(--color-muted)] mt-0.5">
+            {abiertos.length} {abiertos.length === 1 ? "decidiéndose" : "decidiéndose"}
+          </p>
+        )}
+      </div>
+
+      <div className="shrink-0 flex flex-wrap gap-1.5">
+        <button type="button" onClick={onCrearPresupuesto} className={btn}>
+          <FileText size={12} strokeWidth={ICON_STROKE} aria-hidden />
+          Nuevo presupuesto
+        </button>
+        <button type="button" onClick={onRegistrarCobro} className={btn}>
+          <Euro size={12} strokeWidth={ICON_STROKE} aria-hidden />
+          Registrar cobro
+        </button>
+        <Link href={`/pacientes/${paciente.id}`} className={btn}>
+          Ver ficha completa
+        </Link>
+      </div>
     </div>
   );
 }

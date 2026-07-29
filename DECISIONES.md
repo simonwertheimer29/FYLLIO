@@ -754,3 +754,22 @@ y titular pequeño; con acción, todo su peso), "Tratamiento y presupuesto" abre
 la razón de ser de la ficha, y con los cuatro plegables cerrados la mitad inferior quedaba en
 blanco—, "Económico y pagos" abre solo si hay pendiente, el chip de intención IA se queda
 pegado al mensaje que lo originó (salía dos veces) y el ancho sube de 1.030 a 1.280 px.
+
+## 2026-07-29 — Pacientes al centro, y "Máxima" pasa a ser "Tabla"
+Reordenación de módulos. **Pacientes va delante de Seguimiento en el nav**: es la base de
+datos de personas de la clínica, y lo demás son vistas sobre ella.
+**"Máxima" se reconvierte, no se borra.** La auditoría previa lo dejó claro: no es una vista
+de pacientes, es una vista de PRESUPUESTOS —su unidad es el presupuesto— con pills de estado
+de seguimiento (Intervención · Acepta sin pagar · Sin contactar · En seguimiento · Cerrados),
+última y próxima acción, filtros de doctor y tratamiento, orden por columna y la ÚNICA
+exportación CSV del producto. Borrarla habría perdido las tres últimas cosas. Y no duplicaba
+nada de Pacientes: donde coinciden los nombres de columna (doctor, tratamiento), la unidad de
+la fila es distinta. Así que se queda como la segunda vista del toggle y solo cambia el
+nombre: **"Tablero" · "Tabla"**. "Máxima" no significaba nada para una coordinadora y "Panel"
+tampoco decía que fuese un kanban. El id interno `maxima` se conserva para no romper los
+enlaces `?vista=maxima` que ya existen.
+La fila de Pacientes **se despliega** con un resumen accionable corto: sus presupuestos con
+estado e importe, cobrado y pendiente, y tres botones —nuevo presupuesto, registrar cobro
+(los modales que ya existen, cero nuevos) y "Ver ficha completa". Es deliberadamente corto: si
+creciera hasta duplicar la ficha, sobraría una de las dos. El fallo de carga del detalle se
+declara y ofrece reintentar, no se pinta como "este paciente no tiene nada".
