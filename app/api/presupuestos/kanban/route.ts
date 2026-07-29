@@ -11,6 +11,7 @@ import { isDemoAllowed } from "../../../lib/demo/seed";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { fechasPerdidaPorPresupuesto } from "../../../lib/historial/registrar";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
+import { getPaciente } from "../../../lib/pacientes/pacientes";
 
 const ZONE = "Europe/Madrid";
 
@@ -274,12 +275,29 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     const body = await req.json();
     const today = DateTime.now().setZone(ZONE).toISODate()!;
 
-    // Pack extra info into Notas since extended fields may not exist
+    // El presupuesto SIEMPRE cuelga de un paciente (principio "no hay dos tipos
+    // de paciente", 2026-07-29). Antes esta ruta no escribía `Paciente` y el
+    // nombre solo viajaba en la respuesta JSON: la UI lo pintaba, parecía que
+    // había funcionado, y al recargar la tarjeta se llamaba literalmente
+    // "Paciente" con teléfono undefined. Aquel presupuesto quedaba invisible en
+    // Cobros, en la ficha y en el embudo, porque todo agrupa por paciente_id.
+    // Fail-closed (§3): sin paciente no se crea nada.
+    const pacienteId = typeof body.pacienteId === "string" ? body.pacienteId.trim() : "";
+    if (!pacienteId) {
+      return NextResponse.json(
+        { error: "Elige un paciente de la lista: un presupuesto no puede existir sin paciente." },
+        { status: 400 },
+      );
+    }
+    const paciente = await getPaciente(pacienteId);
+    if (!paciente) {
+      return NextResponse.json({ error: "Paciente no encontrado" }, { status: 404 });
+    }
+
     const tratamientoStr = Array.isArray(body.treatments)
       ? body.treatments.join(" + ")
       : String(body.treatments ?? "");
-    const extraParts: string[] = [];
-    if (body.doctor) extraParts.push(`Doctor: ${body.doctor}`);
+
     // Sprint B Fase 4 — la clínica del presupuesto creado debe ser una permitida:
     // admin (sin restricción) usa la del body; coordinación solo puede etiquetar
     // una de sus clínicas (si tiene una sola, se asume esa).
@@ -295,21 +313,32 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     } else {
       clinica = permitidasPost.size === 1 ? [...permitidasPost][0]! : null;
     }
-    if (clinica) extraParts.push(clinica);
-    if (body.tipoPaciente) extraParts.push(body.tipoPaciente);
-    if (body.tipoVisita) extraParts.push(body.tipoVisita);
-    const notasMeta = extraParts.length > 0 ? ` | ${extraParts.join(" | ")}` : "";
-    const notasValue = `${body.notes ?? ""}${notasMeta}`.trim();
+    // Las notas son las notas. Doctor, clínica y tipos tienen su columna desde
+    // siempre; se colaban aquí con pipes («| Paciente con Historia») porque esta
+    // ruta no los escribía — el apaño delataba el bug.
+    const notasValue = String(body.notes ?? "").trim();
 
+    // Todo lo que la respuesta afirma, escrito. Estas columnas existían desde
+    // siempre (doctor, tipo_paciente, tipo_visita, clinica_id, paciente_telefono,
+    // creado_por): la ruta simplemente no las usaba.
     const fields: Record<string, unknown> = {
+      Paciente: [pacienteId],
       Tratamiento_nombre: tratamientoStr,
       Estado: body.estadoInicial || "PRESENTADO",
       Fecha: body.fechaPresupuesto || today,
+      FechaAlta: today,
     };
-
+    // `session.email` viene vacío en esta sesión (el wrapper legacy no lo trae):
+    // escribir "" o null como autor es peor que no escribir autor.
+    const autor = session.email || session.nombre;
+    if (autor) fields["CreadoPor"] = autor;
+    if (clinica) fields["Clinica"] = clinica;
+    if (paciente.telefono) fields["Paciente_Telefono"] = paciente.telefono;
     if (body.amount != null) fields["Importe"] = Number(body.amount);
     if (notasValue) fields["Notas"] = notasValue;
-    if (body.origenLead) fields["OrigenLead"] = body.origenLead;
+    if (body.doctor) fields["Doctor"] = body.doctor;
+    if (body.tipoPaciente) fields["TipoPaciente"] = body.tipoPaciente;
+    if (body.tipoVisita) fields["TipoVisita"] = body.tipoVisita;
 
     const created = await createPresupuestoRaw(fields) as any;
     const f = created.fields as any;
@@ -317,8 +346,10 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
 
     const presupuesto: Presupuesto = {
       id: created.id,
-      patientName: body.patientName,
-      patientPhone: body.patientPhone ?? undefined,
+      // Del PACIENTE persistido, no del texto que llegó en el body: la respuesta
+      // no puede afirmar nada que no esté escrito.
+      patientName: paciente.nombre,
+      patientPhone: paciente.telefono ?? undefined,
       treatments: body.treatments,
       doctor: body.doctor ?? undefined,
       doctorEspecialidad: body.doctorEspecialidad ?? undefined,
@@ -334,7 +365,6 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
       contactCount: 0,
       createdBy: session.email,
       numeroHistoria: body.numeroHistoria ?? undefined,
-      origenLead: body.origenLead ?? undefined,
     };
     return NextResponse.json({ presupuesto }, { status: 201 });
   } catch (err) {
