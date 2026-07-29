@@ -97,9 +97,29 @@ Fire-and-forget "para no romper el flujo principal" solo es aceptable si el fall
 (falla el 100% de las veces), tiene que acabar delante de alguien — no enterrado en un
 `console.error` que nadie lee. Un catch que traga convierte un bug de un día en semanas de
 datos perdidos.
+
+**Matiz — esto aplica también a nuestras herramientas, y ahí el fallo silencioso tiene otra
+forma: el error sin nombre, repetido.** Un script de QA o de verificación que devuelve N
+fallos idénticos y anónimos no está informando, está degradando — y encima parece que
+funciona. Reglas:
+- **Sonda antes de la batería.** Si lo primero que se comprueba delata que no estamos
+  hablando con lo que creemos (contesta otro servidor, la URL no es la nuestra, la respuesta
+  no tiene la forma esperada), se **aborta con un motivo** y un código de salida propio, en
+  vez de arrastrar el mismo error por las N comprobaciones. N fallos iguales son **un** fallo
+  de la herramienta, no N hallazgos.
+- **Distingue "no pude comprobar" de "comprobé y está mal".** Códigos de salida distintos:
+  el CI y la persona toman decisiones opuestas ante cada uno.
+- **Renderiza el error, no lo concatenes.** Un `error` puede llegar como texto, como objeto
+  o como `Error`; `"… " + err` imprime `[object Object]` y borra justo el dato que hacía
+  falta.
+
 > **Nos lo enseñó:** el fallo del mandamiento 8 vivía en un catch silencioso — el registro
 > de acciones llevaba roto desde la separación de bases, y con él el KPI de tiempo de
-> respuesta, sin que nadie lo supiera.
+> respuesta, sin que nadie lo supiera. Y el matiz, `verificar-produccion`: daba 401 en sus
+> ocho comprobaciones contra un despliegue sano porque la petición ni llegaba a la app (la
+> paraba Deployment Protection de Vercel), y el motivo se imprimía como `[object Object]`
+> porque Vercel manda su error dentro de un objeto. Una herramienta que informa mal
+> convierte un problema de dos minutos en una tarde.
 
 ### 10. Un fallo de carga nunca se convierte en una lista vacía
 `?? []` sobre la respuesta de un fetch es el bug, no un descuido: convierte
@@ -157,6 +177,7 @@ Reglas operativas al retirar algo:
 - [ ] ¿Puedo citar `archivo:línea` de la causa que estoy arreglando? (§7)
 - [ ] Si toqué esquema/bases de Airtable, ¿revisé los **linked fields** afectados? (§8)
 - [ ] ¿Algún catch de este cambio puede **tragarse un fallo sistemático**? (§9)
+- [ ] Si es una herramienta de QA/verificación: ¿tiene **sonda previa**, distingue "no pude comprobar" de "está mal", y **renderiza** el error en vez de concatenarlo? (§9)
 - [ ] Si el cambio carga datos, ¿usa `cargarJSON()` y **no** hay ningún `?? []`? (§10)
 - [ ] Si retiro una dependencia, ¿he censado quién **decide** con sus variables, y lo he verificado **en el entorno desplegado**? (§11)
 

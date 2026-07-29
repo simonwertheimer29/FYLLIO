@@ -822,3 +822,28 @@ sin depender de que nadie se acuerde. Verificado en los dos sentidos: con el rep
 build sigue; introduciendo a propósito una variable fuera del contrato, el build se detiene con
 el motivo escrito. Impacto confirmado a cero: las bases piloto están vacías y sin usuarios, así
 que las semanas de producción degradada no perdieron datos de nadie.
+
+## 2026-07-29 — La herramienta de verificación también tiene que fallar diciendo por qué
+`verificar-produccion` dio 401 en sus ocho comprobaciones contra un despliegue sano. No era la
+app: era **Deployment Protection de Vercel**, que mientras el proyecto no tenga dominio propio
+cubre TODOS los `.vercel.app` — incluido el alias de producción sin hash, así que quitar el hash
+de la URL no cambiaba nada. Contesta de tres formas, y la traicionera es la tercera: con
+`Content-Type: application/json` devuelve un JSON PROPIO, `{error:{message:"Protected
+deployment"},protection:{vercel_auth_enabled:true}}`, que parece la app respondiendo 401 y cuyo
+`error` es un objeto — concatenarlo imprimía `[object Object]`, que es lo que hacía imposible el
+diagnóstico. El script ahora hace una **sonda previa**: si contesta el borde, si la URL no es
+Fyllio o si no hay JSON, aborta con exit 2 y una línea que dice qué hacer, en vez de repetir
+ocho veces el mismo error sin nombre. Misma lección que el contrato de entorno, aplicada un
+nivel más arriba: **una herramienta que informa mal convierte un problema de dos minutos en una
+tarde**, y ocho fallos idénticos son un fallo de la herramienta, no ocho hallazgos.
+El camino soportado para atravesar la protección desde un script es el secreto de *Protection
+Bypass for Automation* (`x-vercel-protection-bypass`), ya cableado como `FYLLIO_BYPASS`; la
+solución de fondo es dar al proyecto un dominio propio.
+
+## 2026-07-29 — `fyllio.vercel.app` NO es nuestro
+Es el proyecto de otra persona: responde 200 y sirve un create-react-app con `<title>React
+App</title>`. Aparece en cualquier búsqueda de "la URL de Fyllio" y **da 200 a todo**, así que
+usarla como referencia de "producción funciona" es un falso verde perfecto. Nuestro alias es
+`fyllio-simon-wertheimers-projects.vercel.app` (proyecto `fyllio`, `prj_awFaf3Nk…`). El
+verificador lo detecta y aborta: si `/api/salud` devuelve HTML en vez de JSON, quien contesta no
+es Fyllio.
