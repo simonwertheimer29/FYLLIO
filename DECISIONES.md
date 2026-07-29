@@ -793,3 +793,24 @@ catch —presupuestos inventados en los KPIs, contactos inventados en el histori
 conversación, doctores inventados que acaban impresos en el portal del paciente, y estadísticas
 de tono inventadas— incluido el de desarrollo: un pipeline falso en local es exactamente cómo
 se aprende a no fiarse de la pantalla, y es lo que retrasó este diagnóstico.
+
+## 2026-07-29 — El entorno se declara y se comprueba al arrancar
+Respuesta al "¿cómo se detecta esto automáticamente?" tras semanas de producción degradada en
+silencio. Cuatro piezas, y ninguna es una revisión manual:
+**`lib/entorno`** declara qué necesita Fyllio y qué se rompe sin cada cosa, en lenguaje de
+producto ("el login: nadie puede entrar"), con dos niveles: crítica (no se arranca) y
+funcional (se arranca, pero una capacidad no existe y hay que saberlo — nunca se descubre por
+una pantalla vacía). **`instrumentation.ts`** lo comprueba en el arranque del servidor: en
+producción aborta, en desarrollo grita. Fallar al arrancar es barato; degradar en silencio no.
+**`/api/salud`** responde desde FUERA si un entorno sirve datos reales — el contrato más una
+lectura de verdad, porque un entorno puede tener todas las variables y no llegar a los datos.
+**`npm run qa:sin-fallbacks`** guarda el PATRÓN: falla si una ruta de API importa datos demo,
+si alguien decide comportamiento con una variable fuera del contrato, o si aparece un `?? []`
+nuevo sobre una respuesta de fetch. Los 15 `?? []` anteriores entran como deuda declarada con
+regla de trinquete: la lista solo puede encoger. Un guardián que bloquea por deuda vieja es un
+guardián que nadie ejecuta.
+**La herramienta se delató a sí misma en la primera ejecución:** el contrato marcaba
+`DATA_BACKEND_PG_CLIENTES` y `DATA_BACKEND_PG_DOMINIOS` como críticas y la app funcionaba
+perfectamente sin ellas — eran interruptores muertos de la migración a Postgres. Y `CRON_SECRET`
+pasó a exigirse solo en producción: un contrato que grita en falso en el portátil de todos los
+días acaba ignorado, y entonces no avisa cuando importa.

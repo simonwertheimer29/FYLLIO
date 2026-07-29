@@ -6,7 +6,6 @@ import { NextResponse } from "next/server";
 import { selectPresupuestosRaw, createPresupuestoRaw } from "../../../lib/presupuestos/repo";
 import { DateTime } from "luxon";
 import type { Presupuesto, UserSession } from "../../../lib/presupuestos/types";
-import { DEMO_PRESUPUESTOS } from "../../../lib/presupuestos/demo";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { fechasPerdidaPorPresupuesto } from "../../../lib/historial/registrar";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";

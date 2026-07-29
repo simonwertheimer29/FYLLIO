@@ -63,11 +63,11 @@ function calcWeekStats(presupuestos: Presupuesto[], start: Date, end: Date): Wee
   return { total, aceptados, perdidos, tasa, importe, nuevos: inRange.length };
 }
 
-const DEMO_INSIGHTS = [
-  "La tasa de conversión esta semana es 42%, 8% por encima de la semana anterior — los tratamientos de implantes están cerrando muy bien.",
-  "3 presupuestos de más de €5.000 llevan más de 30 días sin avance; priorizar una llamada de negociación activa esta semana podría recuperar €18.000 en seguimiento.",
-  "El tono «Empático» sigue siendo el más efectivo (41% de conversión vs. 27% «Directo»); considera usarlo como estilo por defecto para pacientes en duda.",
-];
+// (Aquí vivían tres INSIGHTS INVENTADOS —"la tasa de conversión esta semana es
+// 42%", "3 presupuestos de más de 5.000 € llevan 30 días sin avance"— que se
+// devolvían cuando faltaba la API key. Números de negocio con cara de reales
+// sobre los que se decide a quién llamar. Fuera: sin IA no hay insights.)
+
 
 const SYSTEM_PROMPT = `Eres un analista de ventas de una clínica dental en España.
 Analiza los KPIs de la semana y genera EXACTAMENTE 3 bullets accionables.
@@ -100,7 +100,10 @@ export async function POST(req: Request) {
 
     const apiKey = process.env["ANTHROPIC_API_KEY"];
     if (!apiKey) {
-      return NextResponse.json({ insights: DEMO_INSIGHTS, semana: getISOWeek(new Date()) });
+      return NextResponse.json(
+        { error: "El análisis de la semana necesita la IA configurada." },
+        { status: 503 },
+      );
     }
 
     const delta = (a: number, b: number) =>
