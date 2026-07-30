@@ -5,7 +5,7 @@
 
 import { NextResponse } from "next/server";
 import { updatePresupuestoRaw } from "../../../../lib/presupuestos/repo";
-import { kv } from "@vercel/kv";
+import { kv } from "../../../../lib/kv";
 import { runWithCliente } from "../../../../lib/airtable";
 import type { PortalData } from "../../../presupuestos/[id]/generar-portal/route";
 import { registrarAccion } from "../../../../lib/historial/registrar";

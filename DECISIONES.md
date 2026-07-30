@@ -936,3 +936,32 @@ según el rango; la Tabla siempre 123. La contradicción que Simon vio ("29 abie
 presupuestos") no eran dos medidas del mismo conjunto sino dos universos distintos sin
 etiqueta que lo dijera — eso ya está cerrado; lo que falta es decidir si el rango gobierna
 las dos vistas.
+
+## 2026-07-29 — El portal del paciente funciona, y comprobarlo destapó un bug más
+MEJORAS 57 cerrada: 19 comprobaciones verdes de `npm run qa:portal` contra el build de
+producción y un KV nuevo. Es la primera vez que la cadena generar → leer → aceptar se
+ejecuta entera, y la primera vez que alguien acepta un presupuesto desde el portal y la
+clínica se entera.
+**Las variables de KV llevan prefijo obligatorio en Vercel** (`FYLLIO_KV_REST_API_URL` /
+`FYLLIO_KV_REST_API_TOKEN`) y el singleton `kv` de `@vercel/kv` lee los nombres SIN prefijo
+directamente de `process.env`. Diez archivos importaban ese singleton: diez archivos habrían
+dejado de encontrar sus credenciales sin que nadie tocara una línea — la forma exacta de la
+avería de Airtable (§11). El cliente se construye ahora en `lib/kv`, el único sitio que
+conoce esos nombres, y los diez importan de ahí. **Sin fallback a los nombres viejos**: un
+`X || Y` es un camino que funciona en un entorno y no en el otro, que es justo lo que hace
+que un entorno degrade en silencio. `lib/kv` también centraliza la única pregunta sobre su
+entorno (`kvConfigurado()`, que usa el rate limiter del login para degradarse a memoria).
+**La ejecución pagó por sí misma:** la comprobación espejo —poner "Privado" en la persona y
+esperar que el bloque de cobertura desaparezca— salió ROJA. El portal resolvía la aseguradora
+desde `presupuestos.tipo_paciente`, la instantánea que se hereda al crear, en vez de desde el
+paciente. Corregir la mutua de alguien no cambiaba lo que veía en su enlace, y el enlace se
+genera DESPUÉS de cualquier corrección. Contradecía la decisión del mismo día ("el tipo es
+propiedad de LA PERSONA; la columna del presupuesto se conserva para KPIs históricos pero
+deja de ser fuente"). Ahora manda el paciente, y "sin tipo" es una respuesta —no hay
+mutua— no un hueco que se rellene con el valor viejo; la copia solo sirve para los
+presupuestos huérfanos anteriores al alta por buscador.
+Nota de método: el QA no se pudo correr contra el dev server porque `next dev` bloquea
+`.next/dev/lock` y ya había uno vivo. Se corrió contra `next start` en otro puerto, que es
+modo PRODUCCIÓN — y ahí el contrato de entorno hizo su trabajo dos veces: exigió
+`CRON_SECRET` (declarado solo-en-producción, se pasó uno de un solo uso) y listó las
+capacidades desactivadas, donde KV dejó de aparecer en cuanto los nombres cuadraron.

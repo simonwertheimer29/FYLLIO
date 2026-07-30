@@ -5,13 +5,14 @@
 
 import { NextResponse } from "next/server";
 import { getPresupuestoPorIdRaw } from "../../../../lib/presupuestos/repo";
-import { kv } from "@vercel/kv";
+import { kv } from "../../../../lib/kv";
 import { randomBytes } from "crypto";
 import Anthropic from "@anthropic-ai/sdk";
 import { registrarAccion } from "../../../../lib/historial/registrar";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../../lib/presupuestos/clinica-scope";
 import { esAseguradora } from "../../../../lib/pacientes/tipos-paciente";
+import { getPaciente } from "../../../../lib/pacientes/pacientes";
 import type { Cliente } from "../../../../lib/airtable";
 
 const TTL_DAYS = 90;
@@ -118,7 +119,29 @@ export const POST = withPresupuestosAuth(
       return NextResponse.json({ error: "No encontrado" }, { status: 404 });
     }
     const doctor = f["Doctor"] ? String(f["Doctor"]) : undefined;
-    const tipoPaciente = f["TipoPaciente"] ? String(f["TipoPaciente"]) : undefined;
+
+    // El tipo sale del PACIENTE, no de la copia del presupuesto.
+    //
+    // `presupuestos.tipo_paciente` es una instantánea que se HEREDA al crear y
+    // que los KPIs históricos consumen, pero dejó de ser fuente el 2026-07-29:
+    // el tipo es propiedad de la persona. Leyendo la copia, corregir la mutua de
+    // un paciente no cambiaba lo que el paciente ve en su enlace — y el enlace
+    // se genera DESPUÉS de cualquier corrección. Lo cazó `npm run qa:portal`
+    // (comprobación 3 del espejo: poner "Privado" en la persona seguía
+    // enseñándole el bloque de cobertura de su mutua anterior).
+    // Si el presupuesto tiene paciente, MANDA el paciente — incluso si no tiene
+    // tipo: "sin tipo" es una respuesta ("no hay mutua"), no un hueco que
+    // rellenar con el valor viejo. La copia solo se usa para los presupuestos
+    // huérfanos anteriores al alta por buscador, donde es lo único que hay.
+    const pacienteId = Array.isArray(f["Paciente_Link"])
+      ? String((f["Paciente_Link"] as string[])[0] ?? "")
+      : "";
+    const pac = pacienteId ? await getPaciente(pacienteId) : null;
+    const tipoPaciente = pac
+      ? (pac.tipoPaciente ?? undefined)
+      : f["TipoPaciente"]
+        ? String(f["TipoPaciente"])
+        : undefined;
     // "¿tiene aseguradora?", no "¿se llama Adeslas?".
     const tieneAseguradora = await esAseguradora(tipoPaciente ?? null);
 

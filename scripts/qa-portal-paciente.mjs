@@ -46,16 +46,16 @@ function noComprobable(motivo, comoArreglarlo) {
 // ── Sonda previa: antes de la batería, verificar que hablamos con lo que
 // creemos. Ocho fallos idénticos son UN fallo de la herramienta, no ocho
 // hallazgos (lección de verificar-produccion, 2026-07-29).
-for (const v of ["SUPABASE_DB_URL_ADMIN", "AUTH_SECRET", "KV_REST_API_URL", "KV_REST_API_TOKEN"]) {
+for (const v of ["SUPABASE_DB_URL_ADMIN", "AUTH_SECRET", "FYLLIO_KV_REST_API_URL", "FYLLIO_KV_REST_API_TOKEN"]) {
   if (!process.env[v]) noComprobable(`falta ${v} en el entorno`, "añádela a .env.local");
 }
 
 {
-  const url = process.env.KV_REST_API_URL;
+  const url = process.env.FYLLIO_KV_REST_API_URL;
   let r;
   try {
     r = await fetch(`${url}/set/qa_portal_sonda/ok?EX=60`, {
-      headers: { Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}` },
+      headers: { Authorization: `Bearer ${process.env.FYLLIO_KV_REST_API_TOKEN}` },
     });
   } catch (e) {
     noComprobable(
@@ -64,7 +64,7 @@ for (const v of ["SUPABASE_DB_URL_ADMIN", "AUTH_SECRET", "KV_REST_API_URL", "KV_
     );
   }
   if (!r.ok) {
-    noComprobable(`KV devolvió ${r.status} al escribir`, "revisa KV_REST_API_TOKEN");
+    noComprobable(`KV devolvió ${r.status} al escribir`, "revisa FYLLIO_KV_REST_API_TOKEN");
   }
 }
 
@@ -276,9 +276,9 @@ try {
   // exactamente lo que hacía el portal siempre (resolvía a PILOT_CLIENTE).
   const tokenAjeno = `qa-portal-ajeno-${Date.now().toString(36)}`;
   const dataAjena = { ...portal, cliente: "RB", presupuestoId: caso.presupuesto_id, visto: true, respondido: false, createdAt: new Date().toISOString(), expiresAt: new Date(Date.now() + 3600e3).toISOString() };
-  await fetch(`${process.env.KV_REST_API_URL}/set/portal:${tokenAjeno}?EX=3600`, {
+  await fetch(`${process.env.FYLLIO_KV_REST_API_URL}/set/portal:${tokenAjeno}?EX=3600`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${process.env.FYLLIO_KV_REST_API_TOKEN}`, "Content-Type": "application/json" },
     body: JSON.stringify(dataAjena),
   });
   const fallo = await fetch(`${BASE}/api/portal/${tokenAjeno}/responder`, {

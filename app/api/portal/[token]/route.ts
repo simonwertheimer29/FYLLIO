@@ -3,7 +3,7 @@
 // Ruta pública (sin auth del CRM)
 
 import { NextResponse } from "next/server";
-import { kv } from "@vercel/kv";
+import { kv } from "../../../lib/kv";
 import { runWithCliente } from "../../../lib/airtable";
 import type { PortalData } from "../../presupuestos/[id]/generar-portal/route";
 import { sendPushToClinica } from "../../../lib/push/sender";

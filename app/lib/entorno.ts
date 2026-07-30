@@ -71,13 +71,19 @@ export const CONTRATO: Requisito[] = [
   // se enteró de que el store al que apuntaban las variables ya no existía
   // (DNS ENOTFOUND, 2026-07-29). Es la única pantalla que ve un cliente de
   // nuestro cliente, y sin KV el enlace no se puede ni generar ni abrir.
+  //
+  // Con PREFIJO `FYLLIO_`, que es lo que Vercel exige en este proyecto. El
+  // singleton de `@vercel/kv` lee los nombres sin prefijo, así que el cliente se
+  // construye en `lib/kv` — el único sitio del código que conoce estos nombres.
+  // Los `KV_REST_*` sin prefijo NO se leen en ningún sitio: un fallback "una u
+  // otra" es un camino que funciona en un entorno y no en el otro.
   {
-    nombre: "KV_REST_API_URL",
+    nombre: "FYLLIO_KV_REST_API_URL",
     rompe: "El portal del paciente: no se puede generar ni abrir un enlace de presupuesto.",
     nivel: "funcional",
   },
   {
-    nombre: "KV_REST_API_TOKEN",
+    nombre: "FYLLIO_KV_REST_API_TOKEN",
     rompe: "El portal del paciente: falta la credencial del almacén de enlaces.",
     nivel: "funcional",
   },

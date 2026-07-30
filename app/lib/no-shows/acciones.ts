@@ -13,7 +13,7 @@
 // no duplicar mensajería con los recordatorios/confirmaciones existentes. Las
 // acciones manuales desde la UI sí están activas. Ver docs/motor-no-shows.md.
 
-import { kv } from "@vercel/kv";
+import { kv } from "../kv";
 import { getAppointmentByRecordId } from "@/lib/scheduler/repo/airtableRepo";
 import { getPaciente } from "@/lib/pacientes/pacientes";
 import { renderizarPlantilla, listPlantillas } from "@/lib/plantillas/plantillas";

@@ -10,7 +10,7 @@ import { listTratamientosInstrucciones } from "../../../lib/scheduler/repo/treat
 import { DateTime } from "luxon";
 import { listAppointmentsByDay, completeAppointment } from "../../../lib/scheduler/repo/airtableRepo";
 import { sendWhatsAppMessage } from "../../../lib/whatsapp/send";
-import { kv } from "@vercel/kv";
+import { kv } from "../../../lib/kv";
 import { runWithCliente } from "../../../lib/airtable";
 import { PILOT_CLIENTE } from "../../../lib/multi-cliente-pendiente";
 

@@ -868,7 +868,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** bajo-medio.
 - **Fecha:** 2026-07-27 · 🔵
 
-## 57. 🔴 El portal del paciente no se ha probado de punta a punta (necesita Vercel KV)
+## 57. ✅ CERRADA — El portal del paciente, probado de punta a punta (19/19)
 - **Zona:** `app/api/presupuestos/[id]/generar-portal/route.ts`, `app/api/portal/[token]/route.ts`,
   `scripts/qa-tipo-paciente.mjs`
 - **Principio:** §5 confianza. El portal enseñaba el desglose de cobertura solo si
@@ -899,11 +899,31 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   `lib/db/escritura`) y saber en qué base escribir (ahora el cliente viaja en el
   token). QA nuevo `npm run qa:portal` (`scripts/qa-portal-paciente.mjs`) con los
   SEIS puntos, incluido leer la fila del kanban tras aceptar.
-  **BLOQUEADA POR ENTORNO:** el store de KV al que apuntan `KV_REST_API_URL` /
-  `KV_REST_API_TOKEN` **no existe** — `direct-dassie-46333.upstash.io` da
-  `ENOTFOUND` (comprobado también fuera del sandbox). El QA aborta con exit 2 y el
-  motivo escrito, en vez de fingir. KV entra en el contrato de `lib/entorno`: no
-  estaba declarado, y por eso su desaparición no avisó a nadie.
+  Primer intento BLOQUEADO POR ENTORNO: el store de KV al que apuntaban las variables
+  **no existía** (`direct-dassie-46333.upstash.io` → `ENOTFOUND`, comprobado también
+  fuera del sandbox). El QA abortó con exit 2 y el motivo escrito, en vez de fingir.
+- **2026-07-29 · ✅ CERRADA. CORRIDA Y VERDE: 19 comprobaciones, 0 KO**
+  (`QA_BASE_URL=http://localhost:3100 npm run qa:portal`, contra el build de
+  producción y el KV nuevo `prompt-chicken-173778`). Los seis puntos afirmados:
+  se genera el enlace · el paciente ve SUS datos (nombre, importe y clínica reales,
+  y un presupuesto ilegible da 404 en vez de un enlace fabricado) · el desglose
+  aparece por la REGLA "tiene aseguradora" y no por el nombre —comprobado con
+  **Sanitas**, que activa, y con **Privado**, que no— · nombra la aseguradora
+  correcta · los importes salen de `eur()` y el fuente del portal no escribe ni un
+  euro a mano · y aceptar PERSISTE: la fila queda ACEPTADO **leída de la base**, con
+  fecha de aceptación, sin borrar las notas, con la firma en el historial, un
+  segundo envío rechazado con 409, y —forzando el fallo con un token de otro
+  cliente— error honesto, presupuesto intacto y enlace todavía reutilizable.
+  **Las variables de KV pasan a `FYLLIO_KV_REST_API_URL` / `FYLLIO_KV_REST_API_TOKEN`**
+  (Vercel exige prefijo en este proyecto). El singleton de `@vercel/kv` lee los
+  nombres sin prefijo, así que el cliente se construye en `lib/kv` — un solo sitio,
+  sin ramas "una u otra"— y los diez consumidores importan de ahí.
+  **Y la propia ejecución cazó un bug que el código anterior tenía:** el portal
+  resolvía la aseguradora desde `presupuestos.tipo_paciente`, la copia congelada al
+  crear, en vez de desde el paciente. Corregir la mutua de una persona no cambiaba lo
+  que veía en su enlace, y el enlace se genera DESPUÉS de la corrección. Ahora manda
+  el paciente (y "sin tipo" es una respuesta, no un hueco que rellenar con el valor
+  viejo); la copia solo se usa para presupuestos huérfanos.
 
 ## 58. Filtro por tipo de paciente en el kanban: cuando el dato tenga contenido
 - **Zona:** `app/api/presupuestos/kanban/route.ts` (`?tipoPaciente=` ya se acepta), UI del kanban

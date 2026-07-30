@@ -1,4 +1,4 @@
-import { kv } from "@vercel/kv";
+import { kv } from "../kv";
 import type { Hold, Slot } from "./types";
 import { toLocalIso } from "../time";
 

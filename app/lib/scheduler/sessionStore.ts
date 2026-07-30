@@ -1,5 +1,5 @@
 // app/lib/scheduler/sessionStore.ts
-import { kv } from "@vercel/kv";
+import { kv } from "../kv";
 
 export type StoredSession<T> = T & { createdAtMs: number };
 

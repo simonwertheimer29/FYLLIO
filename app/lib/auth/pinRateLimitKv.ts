@@ -15,7 +15,7 @@
 // colgada dejaría la petición pendiente para siempre; con timeout se abandona
 // y se degrada a memoria).
 
-import { kv } from "@vercel/kv";
+import { kv, kvConfigurado } from "../kv";
 import {
   checkLimit as memCheck,
   recordFailure as memFail,
@@ -46,9 +46,9 @@ export type KvCheckResult =
   | { allowed: true }
   | { allowed: false; retryAfterSeconds: number; reason: "blocked" };
 
-function kvConfigured(): boolean {
-  return Boolean(process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN);
-}
+// La pregunta vive en `lib/kv` (un solo sitio que conoce los nombres reales de
+// las variables). Aquí solo se consume.
+const kvConfigured = kvConfigurado;
 
 /** Clave normalizada por usuario. El email se normaliza para que "Ana@X.es"
  *  y "ana@x.es " cuenten como el mismo objetivo. */
