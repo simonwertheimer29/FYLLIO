@@ -16,11 +16,23 @@ export type PresupuestoEstado =
  *  un despliegue, que es exactamente lo que pasaba con `"Adeslas" | "Privado"`
  *  clavado aquí y en otras cuatro capas. */
 export type TipoPaciente = string;
-export type OrigenLead = "google_ads" | "seo_organico" | "referido_paciente" | "redes_sociales" | "walk_in" | "otro";
+/** El canal por el que llegó. NO es un enum cerrado: la unión de abajo es la
+ *  forma antigua del dato, y lo que circula hoy son los canales de Leads
+ *  ("Google", "Instagram", "Walk-in"…) más los dos casos que se declaran aparte
+ *  (`ORIGEN_SIN_CAPTACION`, `ORIGEN_LEAD_SIN_CANAL`). Cerrarlo mentía: obligaba
+ *  a castear el dato real para que entrase. */
+export type OrigenLead = string;
+/** Los valores de la forma antigua, por si queda histórico que traducir. */
+export const ORIGENES_LEAD_LEGADO = [
+  "google_ads", "seo_organico", "referido_paciente", "redes_sociales", "walk_in", "otro",
+] as const;
 export type MotivoPerdida = "precio_alto" | "otra_clinica" | "sin_urgencia" | "necesita_financiacion" | "miedo_tratamiento" | "no_responde" | "otro";
 export type MotivoDuda = "precio" | "otra_clinica" | "sin_urgencia" | "financiacion" | "miedo" | "comparando_opciones" | "otro";
 export type TonoIA = "directo" | "empatico" | "urgencia";
-export type TipoVisita = "Primera Visita" | "Paciente con Historia";
+/** Igual que `OrigenLead`: abierto. El vocabulario real lo pone Leads
+ *  ("Primera visita" · "Revisión" · "Urgencia") y `lib/presupuestos/tipo-visita`
+ *  es quien sabe leerlo. Ver MEJORAS 77. */
+export type TipoVisita = string;
 export type EspecialidadDoctor =
   | "General"
   | "Prostodoncista"

@@ -22,6 +22,9 @@ import {
   formulaClinicaPermitida,
 } from "../../../lib/presupuestos/clinica-scope";
 import { catalogoTiposPaciente } from "../../../lib/pacientes/tipos-paciente";
+import {
+  canalCaptacionPorPaciente, ORIGEN_SIN_CAPTACION, ORIGEN_LEAD_SIN_CANAL,
+} from "../../../lib/leads/captacion";
 
 const ZONE = "Europe/Madrid";
 
@@ -33,9 +36,15 @@ function daysSince(iso: string): number {
 
 const MES_LABEL = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
+// Las claves en snake_case son de una forma de dato anterior; hoy lo que se
+// guarda (y lo que se deriva del lead) son los canales tal cual: "Google",
+// "Instagram", "Walk-in"… El mapa se queda por si queda histórico y el `?? origen`
+// deja pasar los actuales sin traducir.
 const ORIGEN_DISPLAY: Record<string, string> = {
   google_ads: "Google Ads", seo_organico: "Google orgánico", referido_paciente: "Referido",
-  redes_sociales: "Redes sociales", walk_in: "Visita directa", otro: "Otro", sin_origen: "Sin origen",
+  redes_sociales: "Redes sociales", walk_in: "Visita directa", otro: "Otro",
+  [ORIGEN_SIN_CAPTACION]: "Paciente ya en la clínica",
+  [ORIGEN_LEAD_SIN_CANAL]: "Captado, canal sin registrar",
 };
 const MOTIVO_DISPLAY: Record<string, string> = {
   precio_alto: "Precio alto", otra_clinica: "Otra clínica", sin_urgencia: "Sin urgencia",
@@ -244,7 +253,7 @@ function buildKpis(allPresupuestos: Presupuesto[], catalogo: string[] = []): Kpi
   // porOrigenLead
   const porOrigenLead: KpiPorOrigen[] = [
     ...agrupar(
-      allPresupuestos.map((p) => [p.origenLead ?? "sin_origen", p] as [string, Presupuesto]),
+      allPresupuestos.map((p) => [p.origenLead ?? ORIGEN_SIN_CAPTACION, p] as [string, Presupuesto]),
     ).entries(),
   ]
     .map(([origen, ps]) => ({
@@ -324,7 +333,7 @@ async function fetchFromAirtable(session: UserSession, clinicaFormula: string | 
         "Paciente_nombre", "Paciente_Telefono", "Tratamiento_nombre",
         "Doctor", "Doctor_Especialidad", "TipoPaciente", "TipoVisita",
         "Importe", "Estado", "Fecha", "FechaAlta", "Clinica", "Notas",
-        "ContactCount", "OrigenLead", "MotivoPerdida",
+        "ContactCount", "OrigenLead", "MotivoPerdida", "Paciente_Link",
       ],
       sort: [{ field: "Fecha", direction: "desc" }],
       maxRecords: 2000,
@@ -335,7 +344,7 @@ async function fetchFromAirtable(session: UserSession, clinicaFormula: string | 
     if (recs.length === 0) return null;
 
     const today = DateTime.now().setZone(ZONE).toISODate()!;
-    return recs.map((r) => {
+    const conPaciente = recs.map((r) => {
       const f = r.fields as any;
       const fechaPresupuesto = String(f["Fecha"] ?? "").slice(0, 10) || today;
       const patientName = Array.isArray(f["Paciente_nombre"])
@@ -364,11 +373,30 @@ async function fetchFromAirtable(session: UserSession, clinicaFormula: string | 
         origenLead: f["OrigenLead"] ?? undefined,
         motivoPerdida: f["MotivoPerdida"] ?? undefined,
       };
-      return p;
+      return { p, pacienteId: idDePaciente(f["Paciente_Link"]) };
+    });
+
+    // MEJORAS 78 — el canal de captación no está en el presupuesto (`origen_lead`
+    // solo lo escribe la conversión lead→presupuesto), pero sí en el lead que
+    // trajo al paciente. Se deriva, con UNA consulta de dos columnas; mismo
+    // patrón que la asistencia del embudo.
+    const canalPorPaciente = await canalCaptacionPorPaciente(
+      conPaciente.map((x) => x.pacienteId).filter((x): x is string => !!x),
+    );
+    return conPaciente.map(({ p, pacienteId }) => {
+      if (p.origenLead) return p;
+      const canal = pacienteId ? canalPorPaciente.get(pacienteId) : undefined;
+      return canal ? { ...p, origenLead: canal } : p;
     });
   } catch {
     return null;
   }
+}
+
+/** El id del paciente enlazado, venga como array (link) o como texto. */
+function idDePaciente(v: unknown): string | null {
+  if (Array.isArray(v)) return v[0] ? String(v[0]) : null;
+  return v ? String(v) : null;
 }
 
 export const GET = withPresupuestosAuth(async (session, req: Request) => {

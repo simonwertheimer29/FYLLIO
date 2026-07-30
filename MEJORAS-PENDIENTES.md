@@ -1262,18 +1262,21 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** medio — es una de las siete pestañas de /kpis y hoy no dice nada.
 - **Fecha:** 2026-07-30 · 🔵
 
-## 78. `origen_lead` está vacío en los 123 presupuestos: el análisis de captación no tiene datos
-- **Zona:** `api/presupuestos/kpis/route.ts` (`porOrigenLead`), `db-seed-demo-rico.mjs`
-- **Principio:** §4 — "Conversión por fuente" y el gráfico de canales salen de
-  `presupuestos.origen_lead`, que está a null en las 123 filas. La pantalla enseña
-  una sola categoría, "Sin origen", con una tabla y un gráfico alrededor. No es
-  falso, pero ocupa media pestaña para no decir nada.
-- **Mejora:** el seed debe poblarlo (el canal del lead del que viene el paciente ya
-  se conoce), y en producción la conversión ya lo escribe — así que es sobre todo
-  un agujero de la demo. Mientras esté vacío, el bloque debería declararlo en vez
-  de dibujarse.
-- **Impacto:** medio en demo (es la pestaña "Comparativa"), bajo en producción.
-- **Fecha:** 2026-07-30 · 🔵
+## 78. ✅ CERRADA — El origen sí se sabía: estaba en el lead, no en el presupuesto
+- **Zona:** `lib/leads/captacion.ts` (nuevo), `api/presupuestos/kpis/route.ts`
+- **Cerrada:** 2026-07-30. La intuición de Simon era correcta: misma forma que la
+  79. `presupuestos.origen_lead` está a null en las 123 filas —solo lo escribe la
+  conversión lead→presupuesto—, pero el canal vive en el lead que trajo al
+  paciente, por el mismo vínculo `leads.paciente_id` que destapó el "Cobrado 0 €".
+  Se deriva con una consulta de dos columnas, sin duplicar nada.
+- **El matiz que cambia el arreglo:** cubre 35 de 123 (28%), y no porque falte
+  dato — los otros 88 son pacientes que la clínica YA tenía, y no vinieron de
+  ninguna captación. Es el mismo 28% anotado en la nº 51 para el embudo. Por eso
+  los dos casos se separan con etiquetas distintas: "Paciente ya en la clínica"
+  (no aplica) y "Captado, canal sin registrar" (no se sabe). Meterlos en el mismo
+  saco "Sin origen" era el bug de fondo.
+- **Verificado:** la pestaña pasa de 1 fila a 7 que discriminan de verdad —
+  pacientes de siempre cierran al 95%, la captación entre el 17% y el 33%.
 
 ## 79. El vínculo lead→paciente está guardado dos veces y solo se llena uno
 - **Zona:** `pacientes.lead_origen_id` vs `leads.paciente_id`;
