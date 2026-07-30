@@ -710,7 +710,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   tampoco tienen `staff` en Postgres todavía — esto arregla DÓNDE se lee; los doctores de los
   pilotos hay que darlos de alta antes de que operen.
 
-## 46. El seed de DEMO apila los casos vivos en el mes en curso y revienta todos los deltas
+## 46. ✅ CERRADA — El seed repartía los casos vivos en el mes en curso
 - **Zona:** `scripts/db-seed-demo-rico.mjs` (capa de volumen mensual)
 - **Principio:** §5 confianza — la demo es la pantalla que se enseña.
 - **Problema (medido hoy):** la serie mensual de presupuestos presentados es
@@ -724,8 +724,52 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   nazcan escalonados en las últimas 6-8 semanas) o subir el volumen de los
   meses cerrados para que la forma mensual no tenga un escalón ×3 en el último.
 - **Impacto:** alto en credibilidad de demo; nulo en producción.
-- **Fecha:** 2026-07-27 · 🔵 **prioridad subida por Simon: se mira justo después
-  de cerrar /red.**
+- **Fecha:** 2026-07-27 · ✅ **CERRADA el 2026-07-29.** La causa era que `fecha` (cuándo se
+  presentó) y el ancla de la CONVERSACIÓN eran la misma variable (`altaOff`), así que dejar
+  los hilos vivos obligaba a que todo naciera en las últimas dos semanas. Se separan, porque
+  son dos hechos distintos: un presupuesto presentado hace seis semanas cuya conversación está
+  viva hoy no es un artificio, es **el caso que el producto existe para rescatar** — y era el
+  que faltaba. Reparto ponderado por mes (40/30/20/10: la cartera abierta pesa hacia lo
+  reciente porque lo antiguo ya está decidido), determinista, y **también en los cerrados** —
+  su fecha de cierre no se toca, pero presentarse en junio y aceptarse en julio es lo normal;
+  dejarlos anclados era la otra mitad del escalón.
+  · **Resultado:** presentados 9 · 16 · 13 · 28 · 24 · 28 → salto **×1.2** (era ×3.2, +220 %).
+    "Firmado este mes" 33.181 € vs 22.757 € (+10.424 €) y "Se cierran" 67 % de 21 decididos
+    vs 67 % de 15: comparables y creíbles.
+  · **Efecto secundario bueno:** los días parados de los abiertos pasan de 2-11 a **2-49**, así
+    que el criterio único de orden ("quién lleva más esperando") por fin tiene señal.
+  · **Dos garantías duras** en el propio seed: la presentación nunca es posterior al primer
+    mensaje del hilo ni a la fecha de cierre (verificado, 0 casos). Y **invariante nueva (C)**:
+    el seed REVIENTA si los presentados del mes en curso superan ×2 los del mismo TRAMO del mes
+    anterior — comparar contra el mes entero sería la trampa de siempre.
+  · **Re-anclaje**: correr `demo:reset` el día 1 o 2 no tiene días donde repartir, así que la
+    cuota del mes en curso se arrastra al anterior en vez de apilar catorce casos en la misma
+    fecha (el mismo defecto, reproducido en un día). Simulado para los días 1, 2, 5, 15 y 29.
+  · **Regresión que destapó la sonda de `qa:portal`:** `demo:reset` borra
+    `configuraciones_clinica` en el wipe y **nunca sembró el catálogo de tipos de paciente** —
+    el que existía venía de fuera del seed, así que cada reseed lo dejaba vacío. Sin él, la
+    pestaña Tarifas enseña cards a cero, /red no enseña mezcla y el portal no puede mostrar
+    cobertura. Añadidos el catálogo (1 propio + 3 aseguradoras) y la mezcla en pacientes
+    (143/166, con cola sin tipo a propósito).
+
+## 75. El rango por defecto esconde la mitad del trabajo abierto
+- **Zona:** `RANGO_DEFAULT = "2s"` (`components/shared/RangoTemporal.tsx`) + `fechaDeRango`
+  (`lib/presupuestos/pipeline.ts`), aplicado ahora a las dos vistas (nº 71)
+- **Principio:** §1 misión ("no se te pierde nada") — **medido hoy con el seed realista de la
+  nº 46: con el rango por defecto el tablero enseña 14 de 28 presupuestos abiertos.** Los que
+  esconde son los presentados hace más de dos semanas, o sea **los más parados**, que es
+  exactamente lo que el criterio único de orden considera más urgente. Antes no se veía porque
+  todos los abiertos nacían dentro de la ventana.
+- **Diagnóstico:** el rango nació para acotar el ARCHIVO (sustituyó el corte fijo de 14 días de
+  las columnas cerradas) y se aplicó luego a todas. Para un caso cerrado, "de qué periodo" es
+  la pregunta correcta; para uno abierto, es trabajo vivo independientemente de cuándo se
+  presentó.
+- **Recomendación (mía, sin ejecutar):** que el rango gobierne solo los CERRADOS y no esconda
+  nunca un abierto. `fechaDeRango` ya distingue los dos casos (fecha de cierre vs de
+  presentación), así que la asimetría está medio hecha en el diseño. Alternativa si se quiere
+  un solo comportamiento: subir el defecto a "Trimestre", que hoy enseña 28 de 28.
+- **Impacto:** alto — es la pantalla de trabajo del día escondiendo la mitad de la cola.
+- **Fecha:** 2026-07-29 · 🔵 **pendiente de decisión de Simon.**
 
 ## 47. `/presupuestos/login` es una pantalla muerta contra un endpoint 410
 - **Zona:** `app/presupuestos/login/page.tsx` → `POST /api/presupuestos/auth/login`

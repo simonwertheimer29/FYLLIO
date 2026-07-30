@@ -315,6 +315,59 @@ try {
   };
   const presupuestos = []; let np = 0; let idxAcept = 0; let mensajesN = 0;
   const IMPORTES_ACEPT = [2800, 3500, 4200, 3800, 3850, 2100, 1200, 950]; // Σ = 22.400 (facturado mes)
+  // MEJORAS 46 — la PRESENTACIÓN se reparte hacia atrás; la CONVERSACIÓN no se
+  // mueve. Eran la misma variable (`altaOff`) y por eso los 28 casos vivos
+  // nacían todos en las últimas dos semanas: la serie mensual de presentados
+  // daba 15 → 48 (+220%) y cualquier comparativa de la cabecera o de /red se
+  // leía absurda aunque la fórmula fuese correcta.
+  //
+  // Se separan porque son dos hechos distintos: "cuándo se presentó" y "de qué
+  // se ha hablado últimamente". Un presupuesto presentado hace seis semanas cuya
+  // conversación está viva HOY no es un artificio del seed — es exactamente el
+  // caso que el producto existe para rescatar, y era el que faltaba.
+  //
+  // Reparto determinista en las últimas 8 semanas, con la garantía dura de que
+  // la presentación NUNCA es posterior al primer mensaje del hilo (un
+  // presupuesto no puede tener conversación antes de existir).
+  // Reparto PONDERADO por mes, no uniforme: en una clínica real los
+  // presupuestos antiguos ya están casi todos decididos, así que la cartera
+  // abierta pesa hacia los meses recientes. 40 % este mes · 30 % el anterior ·
+  // 20 % · 10 %. Determinista (sin azar) para que `demo:reset` sea reproducible.
+  const PESOS_REPARTO = [0.4, 0.3, 0.2, 0.1];
+  const diaDelMes = HOY.getDate();
+  /** Offsets en días, uno por caso abierto, repartidos dentro de cada mes. */
+  function calendarioReparto(total) {
+    const offs = [];
+    let arrastre = 0; // casos que no caben en el mes en curso
+    for (let m = 0; m < PESOS_REPARTO.length; m++) {
+      // Días disponibles del mes m hacia atrás: el mes en curso solo llega a hoy.
+      const inicio = m === 0 ? 0 : -(diaDelMes + 30 * (m - 1));
+      const largo = m === 0 ? diaDelMes : 30;
+      let cuantos = Math.max(1, Math.round(total * PESOS_REPARTO[m])) + arrastre;
+      arrastre = 0;
+      // Si el mes en curso NO tiene días donde repartir (correr `demo:reset` el
+      // día 1, o el 2), su cuota se arrastra al mes anterior en vez de apilar
+      // catorce casos en la misma fecha — que es exactamente el defecto que esto
+      // viene a arreglar, reproducido en un solo día.
+      if (m === 0 && cuantos > largo) {
+        arrastre = cuantos - largo;
+        cuantos = largo;
+      }
+      for (let i = 0; i < cuantos; i++) {
+        offs.push(inicio - Math.round(((i + 0.5) * (largo - 1)) / cuantos));
+      }
+    }
+    return offs;
+  }
+  const OFFS_REPARTO = calendarioReparto(EST_PRES.reduce((a, [, n]) => a + n, 0));
+  let nReparto = 0;
+  const presentOffDe = (anclaConversacion) => {
+    const off = OFFS_REPARTO[nReparto++ % OFFS_REPARTO.length];
+    // Garantía dura: la presentación NUNCA es posterior al primer mensaje del
+    // hilo — un presupuesto no puede tener conversación antes de existir.
+    return Math.min(off, anclaConversacion);
+  };
+
   for (const [estado, n] of EST_PRES) {
     for (let k = 0; k < n; k++) {
       const pac = pacientes[np % pacientes.length]; np++;
@@ -455,12 +508,31 @@ try {
 
       // Campos persistidos DERIVADOS del guion — una sola verdad.
       const cerrado = estado === "ACEPTADO" || estado === "PERDIDO";
+      // La presentación se reparte TAMBIÉN en los cerrados: su fecha de CIERRE
+      // no se toca —es la que alimenta "Firmado este mes" y los deltas de
+      // aceptados/perdidos, que ya eran correctos— pero presentarse y cerrarse
+      // son dos fechas distintas, y un presupuesto presentado en junio y
+      // aceptado en julio es lo NORMAL, no un artificio. Dejarlos anclados al
+      // mes en curso era la otra mitad del escalón de MEJORAS 46.
+      //
+      // Dos garantías duras, en este orden: la presentación va antes del primer
+      // mensaje del hilo (no hay conversación antes de existir) y antes del
+      // cierre (no se cierra lo que no se ha presentado).
+      const primerMsg = guion.length
+        ? Math.round((new Date(guion[0].ts) - dPlus(0)) / 86_400_000)
+        : altaOff;
+      const cierreOff = fechaAceptado
+        ? Math.round((new Date(`${fechaAceptado}T12:00:00Z`) - dPlus(0)) / 86_400_000)
+        : fechaPerdida
+          ? Math.round((new Date(fechaPerdida) - dPlus(0)) / 86_400_000)
+          : 0;
+      const presentOff = presentOffDe(Math.min(altaOff, primerMsg, cierreOff));
       const lastEnt = [...guion].reverse().find((m) => m.dir === "Entrante") ?? null;
       const lastMsg = guion[guion.length - 1];
       const salientes = guion.filter((m) => m.dir === "Saliente");
       const pid = await ins("presupuestos", {
         paciente_id: pac.id, clinica_id: pac.cid, tratamiento_nombre: tnom, estado, importe,
-        fecha_alta: fecha10(altaOff), fecha: fecha10(altaOff),
+        fecha_alta: fecha10(presentOff), fecha: fecha10(presentOff),
         fecha_aceptado: fechaAceptado,
         doctor: docEn(pac.cid).nombre, tipo_paciente: "Nuevo", tipo_visita: "Primera visita",
         paciente_telefono: pac.tel, contact_count: salientes.length,
@@ -1065,8 +1137,18 @@ try {
     await ins("objetivos_mensuales", { clinica_id: cid, mes: mesAct, objetivo_aceptados: cid === CENTRO ? 12 : 6, creado_por: "Administración", actualizado_en: dISO(-1) });
     await ins("objetivos_mensuales", { clinica_id: cid, mes: mesPrev, objetivo_aceptados: cid === CENTRO ? 12 : 6, creado_por: "Administración", actualizado_en: dISO(-30) });
   }
+  // El CATÁLOGO DE TIPOS DE PACIENTE (decisión 2026-07-29: propiedad de la
+  // persona, catálogo configurable por clínica, y la CATEGORÍA es la marca de
+  // aseguradora). Faltaba aquí: `demo:reset` borra `configuraciones_clinica` en
+  // el wipe, así que cada reseed dejaba el catálogo VACÍO — sin él la pestaña
+  // Tarifas enseña cards a cero, la línea de mezcla de /red no enseña mezcla y
+  // el portal del paciente nunca puede mostrar el bloque de cobertura. Lo
+  // destapó la sonda de `npm run qa:portal`, que abortó con "el catálogo no
+  // tiene mutua y no-mutua" en vez de dar por bueno un catálogo vacío.
   const CONFIG = [["Metodos_Pago", ["Tarjeta", "Efectivo", "Transferencia", "Financiación 12m", "Financiación 24m"]],
-    ["Razones_No_Interesado", ["Precio", "Se fue a otra clínica", "Horarios", "Cambió de opinión"]]];
+    ["Razones_No_Interesado", ["Precio", "Se fue a otra clínica", "Horarios", "Cambió de opinión"]],
+    ["Tipos_Paciente", ["Privado"]],
+    ["Tipos_Paciente_Aseguradora", ["Adeslas", "Sanitas", "DKV"]]];
   for (const [cat, vals] of CONFIG) for (let o = 0; o < vals.length; o++) await ins("configuraciones_clinica", { clinica_id: null, categoria: cat, valor: vals[o], activo: true, orden: o, resumen: `${cat} · ${vals[o]}` });
   // Las plantillas generales se siembran ARRIBA, curadas por dominio
   // (leads vs presupuestos, tipos válidos y placeholders que la UI
@@ -1123,6 +1205,23 @@ try {
       });
       PRESUS_SIN_CONTACTO.push(pid);
     }
+  }
+
+  // Tipos EN LOS PACIENTES. Inventado POR DISEÑO y dicho: el campo es nuevo y en
+  // producción se rellena con el uso, pero sin él la demo no puede enseñar la
+  // mezcla privado/aseguradora ni el desglose del portal. Reparto ~55/45 con una
+  // cola de pacientes SIN tipo, que es lo que de verdad se ve en una clínica que
+  // acaba de empezar a rellenarlo (y lo que las pantallas declaran aparte).
+  {
+    const TIPOS_MEZCLA = ["Privado", "Privado", "Privado", "Adeslas", "Sanitas", "DKV", null];
+    const todos = (await db.query("select id from pacientes where cliente='DEMO' order by id")).rows;
+    let n = 0;
+    for (const p of todos) {
+      const t = TIPOS_MEZCLA[n++ % TIPOS_MEZCLA.length];
+      if (t) await db.query("update pacientes set tipo_paciente=$2 where id=$1 and cliente='DEMO'", [p.id, t]);
+    }
+    const conTipo = (await db.query("select count(*)::int n from pacientes where cliente='DEMO' and tipo_paciente is not null")).rows[0].n;
+    console.log(`tipos de paciente: catálogo 1 propio + 3 aseguradoras · ${conTipo}/${todos.length} pacientes con tipo (el resto, sin tipo a propósito)`);
   }
 
   // ── KPIs (report de coherencia — vocabulario del dinero 2026-07-23) ──
@@ -1217,7 +1316,33 @@ try {
   if (mesesMalos.length) {
     throw new Error(`Serie mensual con huecos: ${mesesMalos.map((s) => `${s.mes}(acept=${s.aceptados},cobrado=${s.cobrado},leads=${s.leads})`).join(" · ")}`);
   }
+  //   C) La serie de PRESENTADOS no tiene un escalón absurdo en el mes en curso
+  //      (MEJORAS 46). Era 15 → 48: +220 % mes contra mes, así que cualquier
+  //      comparativa de la cabecera de /presupuestos o de la gráfica de /red se
+  //      leía como una locura aunque la fórmula fuese correcta. La causa era que
+  //      los casos VIVOS nacían todos en las últimas dos semanas; ahora se
+  //      reparten (ver PESOS_REPARTO). El tope se compara contra el mismo TRAMO
+  //      del mes anterior, no contra el mes entero: a día 5 el mes en curso
+  //      lleva cinco días y compararlo con 30 sería la trampa de siempre.
+  const pres = (await db.query(`
+    select to_char(d.mes,'YYYY-MM') mes,
+      (select count(*) from presupuestos where cliente='DEMO'
+        and to_char(fecha,'YYYY-MM') = to_char(d.mes,'YYYY-MM')
+        and extract(day from fecha) <= $1) n
+    from generate_series(date_trunc('month', current_date) - interval '5 months',
+                         date_trunc('month', current_date), interval '1 month') d(mes)
+    order by 1`, [new Date().getDate()])).rows;
+  const nAct = Number(pres[pres.length - 1].n);
+  const nPrev = Number(pres[pres.length - 2].n);
+  const salto = nPrev > 0 ? nAct / nPrev : Infinity;
+  if (salto > 2) {
+    throw new Error(
+      `Presentados apilados en el mes en curso (MEJORAS 46): ${nPrev} → ${nAct} en el mismo tramo (×${salto.toFixed(1)}, tope ×2). ` +
+      `Serie: ${pres.map((p) => `${p.mes}:${p.n}`).join(" · ")}`,
+    );
+  }
   console.log("  serie 6 meses:", serie.map((s) => `${s.mes}: ${s.leads}L/${s.aceptados}A/${Number(s.cobrado).toLocaleString("es")}€`).join(" · "));
+  console.log(`  presentados (mismo tramo del mes): ${pres.map((p) => `${p.mes}:${p.n}`).join(" · ")} → salto ×${salto.toFixed(1)}`);
   console.log(`  buckets Cobros: vencidos=${bVenc} · por vencer=${bPorVencer} · estancados=${bEstanc}`);
 
   await db.query("commit");

@@ -983,3 +983,33 @@ en vez de mirar solo la que se había tocado — con el filtro recién puesto, l
 dando 123 · 123 · 123 · 123 y el fallo era invisible desde la pantalla. La ruta añade
 `fechaAceptado` y deriva `fechaPerdida` del historial con las mismas piezas que el kanban.
 Ahora cuadran: 45·45, 49·49, 86·86, 123·123.
+
+## 2026-07-29 — El seed apilaba los casos vivos porque presentar y conversar eran la misma fecha
+MEJORAS 46. La serie de presentados daba 15 → 48 (+220 %) y cualquier comparativa se leía
+absurda aunque la fórmula fuese correcta. La causa no era el volumen: `fecha` (cuándo se
+presentó) y el ancla de la CONVERSACIÓN eran **la misma variable**, así que mantener los hilos
+vivos obligaba a que los 28 casos abiertos naciesen todos en las últimas dos semanas.
+Se separan, porque son dos hechos distintos. Un presupuesto presentado hace seis semanas cuya
+conversación está viva hoy no es un artificio del seed: es **el caso que el producto existe
+para rescatar**, y era justo el que no había. Reparto ponderado por mes (40/30/20/10 — la
+cartera abierta pesa hacia lo reciente porque lo antiguo ya está decidido), determinista, y
+aplicado **también a los cerrados**: su fecha de cierre no se toca, pero presentarse en junio y
+aceptarse en julio es lo normal, y dejarlos anclados al mes en curso era la otra mitad del
+escalón. Resultado: 9 · 16 · 13 · 28 · 24 · 28, salto ×1.2. Efecto secundario bueno: los días
+parados pasan de 2-11 a 2-49, así que el criterio único de orden por fin tiene señal.
+Dos garantías duras en el seed (presentación nunca posterior al primer mensaje ni al cierre) y
+una **invariante nueva**: revienta si los presentados del mes en curso superan ×2 los del mismo
+TRAMO del mes anterior — contra el mes entero sería la trampa de comparar cinco días con
+treinta. El re-anclaje cubre el borde: correr `demo:reset` el día 1 no tiene días donde
+repartir, así que la cuota se arrastra al mes anterior en vez de apilar catorce casos en una
+fecha (el mismo defecto en un solo día).
+**Y la sonda de `qa:portal` destapó una regresión vieja de camino:** `demo:reset` borra
+`configuraciones_clinica` en el wipe y **nunca sembró el catálogo de tipos de paciente**. El
+que había venía de fuera del seed, así que cada reseed lo dejaba vacío — sin catálogo, la
+pestaña Tarifas enseña cards a cero, /red no enseña mezcla y el portal no puede mostrar
+cobertura. Un QA que aborta con "el catálogo no tiene mutua y no-mutua" en vez de dar por bueno
+un catálogo vacío es la diferencia entre enterarse hoy y enterarse en una demo.
+**Lo que el seed realista deja a la vista (MEJORAS 75, sin decidir):** con el rango por defecto
+de dos semanas, el tablero enseña **14 de 28** abiertos. Los que esconde son los más parados,
+que es lo que el criterio de orden considera más urgente. Antes no se notaba porque todos los
+abiertos caían dentro de la ventana.
