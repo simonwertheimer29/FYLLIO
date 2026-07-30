@@ -12,10 +12,18 @@ import { registrarAccion } from "../../../../lib/historial/registrar";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../../lib/presupuestos/clinica-scope";
 import { esAseguradora } from "../../../../lib/pacientes/tipos-paciente";
+import type { Cliente } from "../../../../lib/airtable";
 
 const TTL_DAYS = 90;
 
 export interface PortalData {
+  /** Cliente dueño del presupuesto, GUARDADO AL GENERAR. El portal es público
+   *  y no tiene sesión de la que derivarlo: si no viaja aquí, quien responda no
+   *  sabe en qué base escribir. Antes se resolvía a `PILOT_CLIENTE` (RB) para
+   *  todo el mundo, así que aceptar un presupuesto de cualquier otro cliente
+   *  escribía cero filas bajo RLS y el paciente leía "gracias por aceptar"
+   *  mientras el kanban no se enteraba (mandamiento §6). */
+  cliente: Cliente;
   presupuestoId: string;
   patientName: string;
   treatments: string[];
@@ -67,6 +75,10 @@ export const POST = withPresupuestosAuth(
   async (session, _req: Request, { params }: { params: Promise<{ id: string }> }) => {
   const { id } = await params;
   if (!id) return NextResponse.json({ error: "ID requerido" }, { status: 400 });
+  // `withPresupuestosAuth` ya devuelve 401 sin cliente; se estrecha aquí porque
+  // el token no puede nacer sin él (si naciera, nadie podría responderlo).
+  const cliente = session.cliente;
+  if (!cliente) return NextResponse.json({ error: "No autorizado" }, { status: 401 });
 
   try {
     // Fetch presupuesto data from Airtable
@@ -81,31 +93,14 @@ export const POST = withPresupuestosAuth(
     const permitidas = await nombresClinicasPermitidas(session);
 
     if (recs.length === 0) {
-      // Un usuario restringido no puede generar portal de un id que no existe en
-      // su base (posible id de otra clínica/cliente): 404 en vez del demo.
-      if (permitidas !== null) {
-        return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-      }
-      // Demo fallback (solo roles sin restricción de clínica)
-      const treatments = ["Ortodoncia invisible"];
-      const descripcionHumanizada = await generarDescripcion(treatments);
-      const data: PortalData = {
-        presupuestoId: id,
-        patientName: "Paciente Demo",
-        treatments,
-        amount: 4200,
-        clinica: "Clínica Demo",
-        tipoPaciente: "Privado",
-        tieneAseguradora: false,
-        descripcionHumanizada,
-        createdAt: now.toISOString(),
-        expiresAt,
-        visto: false,
-        respondido: false,
-      };
-      await kv.set(KV_PREFIX + token, data, { ex: TTL_DAYS * 86400 });
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-      return NextResponse.json({ url: `${appUrl}/presupuesto/${token}`, token, expiresAt });
+      // 404 para TODOS, sin excepción de rol. Aquí vivía un "demo fallback"
+      // (solo para roles sin restricción de clínica) que fabricaba un paciente
+      // llamado "Paciente Demo" con una ortodoncia de 4.200 € en una "Clínica
+      // Demo", lo guardaba en KV y devolvía un enlace que FUNCIONABA: un admin
+      // podía mandarle a un paciente real un presupuesto inventado. La barrida
+      // de datos demo del 2026-07-29 (MEJORAS 59) no lo cazó porque esta puerta
+      // no la gobernaba una variable de entorno, sino `recs.length === 0`.
+      return NextResponse.json({ error: "No encontrado" }, { status: 404 });
     }
 
     const f = recs[0].fields as Record<string, unknown>;
@@ -131,6 +126,7 @@ export const POST = withPresupuestosAuth(
     const descripcionHumanizada = await generarDescripcion(treatments);
 
     const data: PortalData = {
+      cliente,
       presupuestoId: id,
       patientName,
       treatments,

@@ -15,6 +15,7 @@
     "db:migrate:dry": "node scripts/db-migrate.mjs --dry",
     "qa:cohortes": "tsx scripts/qa-cohortes.mts",
     "qa:fechas": "tsx scripts/qa-fechas-tz.mts",
+    "qa:portal": "node scripts/qa-portal-paciente.mjs",
     "qa:sin-fallbacks": "node scripts/qa-sin-fallbacks.mjs",
     "verificar:produccion": "node scripts/verificar-produccion.mjs",
     "guard:rls": "node scripts/guard-service-role.mjs",

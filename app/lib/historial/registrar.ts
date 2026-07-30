@@ -18,6 +18,16 @@ export async function registrarAccion(args: {
   metadata?: Record<string, unknown>;
   registradoPor?: string;
   clinica?: string;
+  /**
+   * Por defecto el historial es SECUNDARIO: si falla, se loguea y el flujo
+   * principal sigue (no vale romper un envío porque no se pudo anotar).
+   *
+   * Con `obligatorio: true` el fallo SE PROPAGA, porque hay entradas que no son
+   * telemetría sino el dato en sí: la firma con la que un paciente acepta su
+   * presupuesto desde el portal no vive en ninguna columna, vive aquí. Perderla
+   * en silencio es perder la aceptación.
+   */
+  obligatorio?: boolean;
 }): Promise<void> {
   const fecha = DateTime.now().setZone("Europe/Madrid").toISO() ?? new Date().toISOString();
   try {
@@ -44,7 +54,9 @@ export async function registrarAccion(args: {
     
 } catch (err) {
     console.error("[historial] registrarAccion error:", args.tipo, err);
-    // nunca lanzar — el historial es secundario, no debe romper el flujo principal
+    // El historial es secundario POR DEFECTO y no debe romper el flujo
+    // principal; con `obligatorio` la entrada ES el dato y el fallo se propaga.
+    if (args.obligatorio) throw err;
   }
 }
 

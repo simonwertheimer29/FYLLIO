@@ -99,31 +99,12 @@ try {
     JSON.stringify(tipos),
   );
 
-  // De punta a punta: solo si hay KV. En local no lo hay, y un test que da
-  // verde porque `undefined === false` es peor que no tenerlo.
-  if (!presu) {
-    console.log("· portal de punta a punta: OMITIDO (el paciente no tiene presupuesto)");
-  } else {
-    await wr("update pacientes set tipo_paciente='Sanitas' where id=$1", [paciente.id]);
-    await wr("update presupuestos set tipo_paciente='Sanitas' where id=$1", [presu.id]);
-    const gen = await fetch(`${BASE}/api/presupuestos/${presu.id}/generar-portal`, {
-      method: "POST", headers: H, body: "{}",
-    });
-    const gd = await gen.json().catch(() => ({}));
-    if (!gen.ok || !gd.token) {
-      console.log(
-        `· portal de punta a punta: OMITIDO — generar-portal devolvió ${gen.status} (${gd.error ?? "sin detalle"}).` +
-        " Necesita Vercel KV; correr este QA en un entorno con KV para cubrirlo.",
-      );
-    } else {
-      const portal = await (await fetch(`${BASE}/api/portal/${gd.token}`)).json();
-      check(
-        "portal · Sanitas SÍ enseña el desglose de cobertura (antes solo lo hacía Adeslas)",
-        portal.tieneAseguradora === true,
-        `tieneAseguradora=${portal.tieneAseguradora}`,
-      );
-    }
-  }
+  // El flujo de punta a punta del portal ya NO se prueba aquí: vive en
+  // `npm run qa:portal` (scripts/qa-portal-paciente.mjs), que cubre los seis
+  // puntos y ABORTA con motivo si no hay KV en vez de declarar una omisión en
+  // medio de una batería verde. Aquí se queda la REGLA, que es lo que este
+  // script gobierna: `esAseguradora` sobre el catálogo.
+  console.log("· portal de punta a punta: lo cubre `npm run qa:portal`");
 
   // ── 3 · el presupuesto hereda del paciente ───────────────────────────
   await wr("update pacientes set tipo_paciente='DKV' where id=$1", [paciente.id]);

@@ -428,21 +428,22 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
           {data.doctor && (
             <p className="text-[16px] text-[var(--color-muted)]">Tratante: {data.doctor}</p>
           )}
-          {/* Desglose de cobertura — para CUALQUIER aseguradora del catálogo,
-              no solo la que estaba escrita a mano en el código. */}
+          {/* Aseguradora: se NOMBRA, no se finge un desglose.
+              Aquí había dos filas —"Sanitas cubre: Consultar" y "Tu parte:
+              2.400 €"— que presentaban el total entero como la parte del
+              paciente. No es un desglose incompleto: es una cifra falsa en el
+              sitio más delicado del producto. Y no hay nada que desglosar: el
+              modelo no guarda cuánto cubre cada mutua (no existe columna de
+              cobertura), así que se dice la verdad y se remite a la clínica.
+              El día que exista ese dato, aquí van dos cifras reales. */}
           {data.tieneAseguradora && (
-            <div className="mt-3 pt-3 border-t border-[var(--color-border)] flex flex-col gap-1">
-              <div className="flex justify-between text-[16px]">
-                <span className="text-[var(--color-muted)]">
-                  {data.tipoPaciente ? `${data.tipoPaciente} cubre:` : "Tu mutua cubre:"}
-                </span>
-                <span className="text-[var(--color-foreground)] font-semibold">Consultar</span>
-              </div>
-              <div className="flex justify-between text-[16px]">
-                <span className="text-[var(--color-muted)]">Tu parte:</span>
-                <span className="text-[var(--color-foreground)] font-bold tabular-nums">{data.amount != null ? formatEuro(data.amount) : "—"}</span>
-              </div>
-            </div>
+            <p className="mt-3 pt-3 border-t border-[var(--color-border)] text-[15px] text-[var(--color-muted)] leading-relaxed">
+              Este es el importe total del tratamiento.{" "}
+              {data.tipoPaciente
+                ? `Tu seguro de ${data.tipoPaciente} puede cubrir parte`
+                : "Tu seguro puede cubrir parte"}
+              : te confirmamos cuánto en la clínica, antes de empezar.
+            </p>
           )}
         </div>
 

@@ -67,6 +67,20 @@ export const CONTRATO: Requisito[] = [
     rompe: "El envío de WhatsApp: falta el número emisor.",
     nivel: "funcional",
   },
+  // El portal del paciente vive en KV y NO estaba declarado aquí: por eso nadie
+  // se enteró de que el store al que apuntaban las variables ya no existía
+  // (DNS ENOTFOUND, 2026-07-29). Es la única pantalla que ve un cliente de
+  // nuestro cliente, y sin KV el enlace no se puede ni generar ni abrir.
+  {
+    nombre: "KV_REST_API_URL",
+    rompe: "El portal del paciente: no se puede generar ni abrir un enlace de presupuesto.",
+    nivel: "funcional",
+  },
+  {
+    nombre: "KV_REST_API_TOKEN",
+    rompe: "El portal del paciente: falta la credencial del almacén de enlaces.",
+    nivel: "funcional",
+  },
 ];
 
 export type EstadoEntorno = {

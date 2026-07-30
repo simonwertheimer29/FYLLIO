@@ -31,13 +31,11 @@ const MENOS = "−";
 
 /** `useGrouping` explícito: es-ES omite el separador en los números de cuatro
  *  cifras, así que en una misma columna convivían "12.430 €" y "5100 €". */
-export const eur = (n: number) =>
-  n.toLocaleString("es-ES", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: 0,
-    useGrouping: true,
-  });
+/** La implementación vive en `lib/dinero` (módulo puro) porque también la
+ *  necesitan rutas de servidor; se reexporta aquí para que la UI siga teniendo
+ *  UNA sola puerta y ningún componente cambie de import. */
+export { eur } from "../../lib/dinero";
+import { eur } from "../../lib/dinero";
 
 export type TipoCifra = "numero" | "dinero" | "porcentaje";
 
