@@ -28,10 +28,7 @@ import { listStaffCamposRaw } from "../../../lib/scheduler/repo/staffRepo";
 import { DateTime } from "luxon";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicas } from "../../../lib/auth/users";
-import {
-  getSupabaseAdmin,
-  isSupabaseConfigured,
-} from "../../../lib/supabase/client";
+// (Supabase se leía aquí solo para la precisión del predictor, retirada.)
 
 export const dynamic = "force-dynamic";
 
@@ -262,37 +259,12 @@ export const GET = withAuth(async (session, req) => {
       }))
       .sort((a, b) => b.tasa - a.tasa);
 
-    // ── Precisión del predictor (opcional, vía Supabase) ─────────────
-    let precisionPredictor:
-      | { correctas: number; total: number; precision: number }
-      | null = null;
-    if (isSupabaseConfigured()) {
-      try {
-        const supabase = getSupabaseAdmin();
-        let query = supabase
-          .from("factores_no_show")
-          .select("prediccion_correcta, clinica_id")
-          .not("prediccion_correcta", "is", null);
-        if (scopeSet) {
-          query = query.in("clinica_id", [...scopeSet]);
-        }
-        const { data, error } = await query;
-        if (!error && data) {
-          const rows = data as Array<{ prediccion_correcta: boolean | null }>;
-          const total = rows.length;
-          const correctas = rows.filter((x) => x.prediccion_correcta === true).length;
-          if (total > 0) {
-            precisionPredictor = {
-              correctas,
-              total,
-              precision: correctas / total,
-            };
-          }
-        }
-      } catch {
-        precisionPredictor = null;
-      }
-    }
+    // La precisión del predictor se retiró de la pantalla el 2026-07-30: con el
+    // motor de no-shows congelado (Sprint B) solo había 2 predicciones cerradas,
+    // y "0% de acierto" sobre dos filas es una promesa de inteligencia sin nada
+    // que la sostenga. El campo sigue en la respuesta como null para no romper a
+    // ningún consumidor; se recalcula cuando el módulo vuelva.
+    const precisionPredictor: { correctas: number; total: number; precision: number } | null = null;
 
     let clinicaResp: { id: string; nombre: string } | undefined;
     if (restrictedToOne) {

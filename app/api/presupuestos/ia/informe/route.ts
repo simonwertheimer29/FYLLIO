@@ -8,6 +8,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { construirMapaAnonimizacion, desanonimizarTexto } from "../../../../lib/anonimizacion";
 import { DateTime } from "luxon";
 import { ESTADOS_ACEPTADOS } from "../../../../lib/presupuestos/colors";
+import { tasaCierre, textoTasa, notaTasa } from "../../../../lib/presupuestos/tasa";
 import type { Presupuesto } from "../../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../../lib/presupuestos/clinica-scope";
@@ -104,19 +105,27 @@ function buildDatosResumen(
   const aceptados = presupuestos.filter((p) => ESTADOS_ACEPTADOS.includes(p.estado));
   const perdidos = presupuestos.filter((p) => p.estado === "PERDIDO");
   const activos = presupuestos.filter((p) => !ESTADOS_ACEPTADOS.includes(p.estado) && p.estado !== "PERDIDO");
-  const tasa = total > 0 ? Math.round((aceptados.length / total) * 100) : 0;
+  // La MISMA tasa que /kpis y que la cabecera de /presupuestos. Este informe se
+  // narra con IA y se GUARDA: una tasa distinta aquí queda escrita en un
+  // documento que luego nadie recalcula.
+  const tasa = tasaCierre(presupuestos);
   const importeTotal = aceptados.reduce((s, p) => s + (p.amount ?? 0), 0);
   const importePipeline = activos.reduce((s, p) => s + (p.amount ?? 0), 0);
 
   // Por doctor
-  const docMap = new Map<string, { total: number; aceptados: number }>();
+  const docMap = new Map<string, Presupuesto[]>();
   presupuestos.forEach((p) => {
     const k = p.doctor ?? "Sin doctor";
-    const v = docMap.get(k) ?? { total: 0, aceptados: 0 };
-    docMap.set(k, { total: v.total + 1, aceptados: v.aceptados + (ESTADOS_ACEPTADOS.includes(p.estado) ? 1 : 0) });
+    const arr = docMap.get(k);
+    if (arr) arr.push(p); else docMap.set(k, [p]);
   });
   const porDoctor = [...docMap.entries()]
-    .map(([doctor, v]) => ({ doctor, ...v, tasa: v.total > 0 ? Math.round((v.aceptados / v.total) * 100) : 0 }))
+    .map(([doctor, ps]) => ({
+      doctor,
+      total: ps.length,
+      aceptados: ps.filter((p) => ESTADOS_ACEPTADOS.includes(p.estado)).length,
+      tasa: tasaCierre(ps),
+    }))
     .sort((a, b) => b.total - a.total);
 
   // Por origen
@@ -133,14 +142,20 @@ function buildDatosResumen(
     .map(([k, c]) => ({ motivo: MOTIVO_DISPLAY[k] ?? k, count: c }))
     .sort((a, b) => b.count - a.count);
 
-  // Tipo paciente
-  const privados = presupuestos.filter((p) => p.tipoPaciente === "Privado");
-  const adeslas = presupuestos.filter((p) => p.tipoPaciente === "Adeslas");
-  const tasaPrivados = privados.length > 0 ? Math.round((privados.filter((p) => ESTADOS_ACEPTADOS.includes(p.estado)).length / privados.length) * 100) : 0;
-  const tasaAdeslas = adeslas.length > 0 ? Math.round((adeslas.filter((p) => ESTADOS_ACEPTADOS.includes(p.estado)).length / adeslas.length) * 100) : 0;
+  // Tipo paciente — el catálogo es configurable por clínica (decisión
+  // 2026-07-29): se miden los valores que HAY, no dos literales escritos a mano
+  // que vienen de un cliente concreto y dejaban ceros en cualquier otro.
+  const porTipoPaciente = [
+    ...new Set(presupuestos.map((p) => p.tipoPaciente).filter((t): t is string => !!t)),
+  ]
+    .map((tipo) => {
+      const list = presupuestos.filter((p) => p.tipoPaciente === tipo);
+      return { tipo, total: list.length, tasa: tasaCierre(list) };
+    })
+    .sort((a, b) => b.total - a.total);
 
   // Tendencia mensual — últimos 12 meses (desde allPresupuestos sin filtro de clínica)
-  const tendenciaMensual: { mes: string; label: string; total: number; aceptados: number }[] = [];
+  const tendenciaMensual: { mes: string; label: string; total: number; aceptados: number; perdidos: number }[] = [];
   if (mes) {
     const [mesY, mesM] = mes.split("-").map(Number);
     for (let i = 11; i >= 0; i--) {
@@ -149,33 +164,38 @@ function buildDatosResumen(
       while (m <= 0) { m += 12; y--; }
       const mesStr = `${y}-${String(m).padStart(2, "0")}`;
       const delMes = allPresupuestos.filter((p) => p.fechaPresupuesto.startsWith(mesStr));
-      const acept = delMes.filter((p) => ESTADOS_ACEPTADOS.includes(p.estado));
-      tendenciaMensual.push({ mes: mesStr, label: MES_SHORT[m - 1], total: delMes.length, aceptados: acept.length });
+      const t = tasaCierre(delMes);
+      tendenciaMensual.push({
+        mes: mesStr, label: MES_SHORT[m - 1], total: delMes.length,
+        aceptados: t.aceptados, perdidos: t.perdidos,
+      });
     }
   }
 
   // Por clínica (desde allPresupuestos sin filtro de mes)
-  const clinicaMap = new Map<string, { total: number; aceptados: number; importeTotal: number }>();
+  const clinicaMap = new Map<string, Presupuesto[]>();
   allPresupuestos.forEach((p) => {
     const k = p.clinica ?? "Sin clínica";
-    const v = clinicaMap.get(k) ?? { total: 0, aceptados: 0, importeTotal: 0 };
-    const esAcep = ESTADOS_ACEPTADOS.includes(p.estado);
-    clinicaMap.set(k, {
-      total: v.total + 1,
-      aceptados: v.aceptados + (esAcep ? 1 : 0),
-      importeTotal: v.importeTotal + (esAcep ? (p.amount ?? 0) : 0),
-    });
+    const arr = clinicaMap.get(k);
+    if (arr) arr.push(p); else clinicaMap.set(k, [p]);
   });
   const porClinica = [...clinicaMap.entries()]
-    .map(([clinica, v]) => ({ clinica, ...v, tasa: v.total > 0 ? Math.round((v.aceptados / v.total) * 100) : 0 }))
+    .map(([clinica, ps]) => ({
+      clinica,
+      total: ps.length,
+      aceptados: ps.filter((p) => ESTADOS_ACEPTADOS.includes(p.estado)).length,
+      importeTotal: ps
+        .filter((p) => ESTADOS_ACEPTADOS.includes(p.estado))
+        .reduce((s, p) => s + (p.amount ?? 0), 0),
+      tasa: tasaCierre(ps),
+    }))
     .sort((a, b) => b.total - a.total);
 
   return {
     total, aceptados: aceptados.length, perdidos: perdidos.length, activos: activos.length,
     tasa, importeTotal, importePipeline,
     porDoctor, porOrigen, porMotivo,
-    privados: { total: privados.length, tasa: tasaPrivados },
-    adeslas: { total: adeslas.length, tasa: tasaAdeslas },
+    porTipoPaciente,
     tendenciaMensual,
     porClinica,
   };
@@ -186,8 +206,13 @@ function buildPrompt(mes: string, clinicaNombre: string, datos: ReturnType<typeo
   const mesLabel = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"][m - 1];
   const periodoLabel = `${mesLabel} de ${y}`;
 
+  // La IA narra lo que le damos: si le pasamos una tasa sin su denominador,
+  // escribe frases sobre un número que no significa lo que parece.
   const doctoresStr = datos.porDoctor.slice(0, 5)
-    .map((d) => `  - ${d.doctor}: ${d.total} presupuestos, ${d.aceptados} aceptados (${d.tasa}%)`)
+    .map((d) => `  - ${d.doctor}: ${d.total} presupuestos, ${d.aceptados} aceptados · cierra ${textoTasa(d.tasa)} (${notaTasa(d.tasa)})`)
+    .join("\n");
+  const tipoPacienteStr = datos.porTipoPaciente
+    .map((t) => `  - ${t.tipo}: ${t.total} presupuestos, cierra ${textoTasa(t.tasa)} (${notaTasa(t.tasa)})`)
     .join("\n");
   const origenStr = datos.porOrigen.slice(0, 4)
     .map((o) => `  - ${o.origen}: ${o.count}`)
@@ -199,9 +224,11 @@ function buildPrompt(mes: string, clinicaNombre: string, datos: ReturnType<typeo
   return `Eres analista de negocio de una red de clínicas dentales en España.
 
 DATOS DE ${periodoLabel.toUpperCase()} — ${clinicaNombre.toUpperCase()}:
-- Total presupuestos: ${datos.total} | Aceptados: ${datos.aceptados} (${datos.tasa}%) | Perdidos: ${datos.perdidos}
+- Total presupuestos: ${datos.total} | Aceptados: ${datos.aceptados} | Perdidos: ${datos.perdidos} | Sin decidir todavía: ${datos.tasa.abiertos}
+- Tasa de cierre: ${textoTasa(datos.tasa)} — ${notaTasa(datos.tasa)}. IMPORTANTE: se mide sobre los DECIDIDOS. Los que siguen abiertos NO cuentan como rechazo; no los trates como pérdidas.
 - Importe aceptado: €${datos.importeTotal.toLocaleString("es-ES")} | Pipeline activo: €${datos.importePipeline.toLocaleString("es-ES")}
-- Privado: ${datos.privados.total} presupuestos, tasa ${datos.privados.tasa}% | Adeslas: ${datos.adeslas.total} presupuestos, tasa ${datos.adeslas.tasa}%
+Por tipo de paciente:
+${tipoPacienteStr || "  - Sin datos"}
 
 Doctores (top 5):
 ${doctoresStr || "  - Sin datos"}
@@ -215,7 +242,7 @@ ${motivosStr}
 Genera un informe ejecutivo con EXACTAMENTE esta estructura (5 párrafos, sin títulos):
 
 PÁRRAFO 1 — RESUMEN GLOBAL: tasa del mes, importe aceptado, comparativa si hay datos del mes anterior.
-PÁRRAFO 2 — ANÁLISIS: doctor con mejor tasa y el que más necesita mejora (con números). Diferencia privado/Adeslas si es relevante.
+PÁRRAFO 2 — ANÁLISIS: doctor con mejor tasa y el que más necesita mejora (con números). Diferencias por tipo de paciente si son relevantes.
 PÁRRAFO 3 — BARRERAS: motivo de pérdida más frecuente, qué porcentaje representa, hipótesis sobre por qué ocurre.
 PÁRRAFO 4 — CAPTACIÓN: canal con mejor volumen y cualquier patrón relevante en el origen de leads.
 PÁRRAFO 5 — PLAN DE ACCIÓN: exactamente 3 recomendaciones concretas numeradas en una sola oración cada una.

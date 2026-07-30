@@ -21,6 +21,7 @@ import { mapStaffNombrePorIds } from "../../../lib/scheduler/repo/staffRepo";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../lib/auth/users";
 import { listLeads, type Lead, type LeadCanal } from "../../../lib/leads/leads";
+import { citaDelLead, citasPorPacienteDeLeads, type CitaMinima } from "../../../lib/leads/cita";
 import { listAccionesDesde, primeraAccionLeadTimestamp } from "../../../lib/leads/acciones";
 import { getFacturadoEnPeriodo, getFacturadoPorPacientes } from "../../../lib/pagos";
 import { hoyISO } from "../../../lib/time";
@@ -98,11 +99,37 @@ const ESTADOS_MATRIZ: Array<Lead["estado"] | "Asistido"> = [
   "No Interesado",
 ];
 
-function leadEstadoForMatriz(l: Lead): typeof ESTADOS_MATRIZ[number] {
-  if (l.asistido) return "Asistido";
+function leadEstadoForMatriz(l: Lead, asistio: boolean): typeof ESTADOS_MATRIZ[number] {
+  if (asistio) return "Asistido";
   if (l.estado === "Citados Hoy") return "Citado";
-  if (l.estado === "Convertido") return "Asistido";
   return l.estado as typeof ESTADOS_MATRIZ[number];
+}
+
+// ─── Asistencia: derivada, no inventada (MEJORAS 50) ──────────────────
+//
+// `leads.asistido` no lo escribe casi nadie: solo el modal de asistencia y la
+// conversión manual. En DEMO está en false para los 268 leads, incluidos los 79
+// convertidos, y por eso el embudo enseñaba "0 Asistió" seguido de "15
+// Convertido" — un embudo que cae a cero y resucita, que es imposible.
+//
+// La asistencia real ya se sabe: está en la agenda (`citas.estado`), y la pieza
+// que la atribuye a un lead —con su ventana de 90 días— es `citaDelLead`, la
+// misma que usa el embudo de /red. Se reutiliza, no se copia.
+//
+// Y llegar a ser paciente implica haber pisado la clínica (es lo que hace la
+// conversión), así que un convertido cuenta como asistido aunque su cita caiga
+// fuera de la ventana. Eso es lo que mantiene la anidación: cada etapa contiene
+// a la siguiente por construcción, no por casualidad de los datos.
+function asistio(l: Lead, citasPorPac: Map<string, CitaMinima[]>): boolean {
+  if (l.asistido) return true;
+  if (l.convertido && l.pacienteId) return true;
+  return citaDelLead(l, citasPorPac)?.asistio === true;
+}
+
+function tieneCita(l: Lead, citasPorPac: Map<string, CitaMinima[]>): boolean {
+  if (l.estado === "Citado" || l.estado === "Citados Hoy") return true;
+  if (asistio(l, citasPorPac)) return true;
+  return citaDelLead(l, citasPorPac) != null;
 }
 
 export const GET = withAuth(async (session, req) => {
@@ -145,14 +172,16 @@ export const GET = withAuth(async (session, req) => {
   const canalCounts: Record<CanalGrupo, number> = { organicos: 0, pagados: 0, web: 0, otro: 0 };
   for (const l of enPeriodo) canalCounts[grupoCanal(l.canal)]++;
 
+  // Citas de la cohorte (la del propio lead, o la de su paciente dentro de la
+  // ventana de atribución). Una consulta de tres columnas para los dos periodos.
+  const citasPorPac = await citasPorPacienteDeLeads(
+    [...enPeriodo, ...enPrev].map((l) => l.pacienteId).filter((x): x is string => !!x),
+  );
+
   // Pacientes citados.
-  const citados = enPeriodo.filter(
-    (l) => l.estado === "Citado" || l.estado === "Citados Hoy" || l.asistido || l.convertido,
-  );
-  const citadosPrev = enPrev.filter(
-    (l) => l.estado === "Citado" || l.estado === "Citados Hoy" || l.asistido || l.convertido,
-  );
-  const asistidos = enPeriodo.filter((l) => l.asistido).length;
+  const citados = enPeriodo.filter((l) => tieneCita(l, citasPorPac));
+  const citadosPrev = enPrev.filter((l) => tieneCita(l, citasPorPac));
+  const asistidos = enPeriodo.filter((l) => asistio(l, citasPorPac)).length;
   const pendientes = citados.length - asistidos;
 
   const tasaCitado = recibidos === 0 ? 0 : Math.round((citados.length / recibidos) * 100);
@@ -162,7 +191,7 @@ export const GET = withAuth(async (session, req) => {
 
   // Tasa asistencia y conversion lead → paciente.
   const tasaAsistencia = citados.length === 0 ? 0 : Math.round((asistidos / citados.length) * 100);
-  const asistidosPrev = enPrev.filter((l) => l.asistido).length;
+  const asistidosPrev = enPrev.filter((l) => asistio(l, citasPorPac)).length;
   const tasaAsistenciaPrev =
     citadosPrev.length === 0 ? 0 : Math.round((asistidosPrev / citadosPrev.length) * 100);
   const convertidos = enPeriodo.filter((l) => l.convertido).length;
@@ -186,14 +215,15 @@ export const GET = withAuth(async (session, req) => {
   });
 
   // ── 4.2 Funnel ──────────────────────────────────────────────────────
+  // Cada etapa CONTIENE a la siguiente por construcción: un contactado incluye
+  // a los citados, un citado a los que asistieron, y asistir incluye convertir.
+  // Sin eso el embudo puede caer a cero y volver a subir, que fue el bug.
+  const contactados = enPeriodo.filter(
+    (l) => l.llamado || l.whatsappEnviados > 0 || l.estado !== "Nuevo",
+  ).length;
   const funnel = [
     { etapa: "Nuevo", total: enPeriodo.length },
-    {
-      etapa: "Contactado",
-      total: enPeriodo.filter(
-        (l) => l.llamado || l.whatsappEnviados > 0 || l.estado !== "Nuevo",
-      ).length,
-    },
+    { etapa: "Contactado", total: Math.max(contactados, citados.length) },
     { etapa: "Citado", total: citados.length },
     { etapa: "Asistió", total: asistidos },
     { etapa: "Convertido", total: convertidos },
@@ -229,9 +259,7 @@ export const GET = withAuth(async (session, req) => {
     }
     const o = porClinica.get(l.clinicaId)!;
     o.leads++;
-    if (l.estado === "Citado" || l.estado === "Citados Hoy" || l.asistido || l.convertido) {
-      o.citados++;
-    }
+    if (tieneCita(l, citasPorPac)) o.citados++;
     if (l.convertido) o.convertidos++;
   }
   // Resolver nombres clinicas + facturado por clinica.
@@ -312,7 +340,7 @@ export const GET = withAuth(async (session, req) => {
     const o = matrizFuenteMap.get(k)!;
     o.total++;
     if (l.convertido) o.convertidos++;
-    o[leadEstadoForMatriz(l)]++;
+    o[leadEstadoForMatriz(l, asistio(l, citasPorPac))]++;
   }
   const matrizFuente = Array.from(matrizFuenteMap.entries())
     .map(([fuente, c]) => ({
@@ -349,7 +377,7 @@ export const GET = withAuth(async (session, req) => {
     const o = matrizTratamientoMap.get(k)!;
     o.total++;
     if (l.convertido) o.convertidos++;
-    o[leadEstadoForMatriz(l)]++;
+    o[leadEstadoForMatriz(l, asistio(l, citasPorPac))]++;
   }
   const matrizTratamiento = Array.from(matrizTratamientoMap.entries())
     .map(([tratamiento, c]) => ({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
 import domtoimage from "dom-to-image-more";
 import {
@@ -14,6 +14,11 @@ import { Card } from "../ui/Card";
 import { EmptyState, ErrorState } from "../ui/Feedback";
 import { BarChart3, Download, AlertTriangle, X, Info, Sparkles, FileText, ChevronDown, ICON_STROKE } from "../icons";
 import { eur } from "../shared/Cifra";
+import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
+import {
+  tasaCierre, textoTasa, leerTasaGuardada, notaTasaGuardada,
+  type TasaCierre,
+} from "../../lib/presupuestos/tasa";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -51,24 +56,33 @@ type InformeData = {
     aceptados: number;
     perdidos: number;
     activos: number;
-    tasa: number;
+    /** Objeto en los informes de ahora; número suelto en los guardados antes
+     *  del 2026-07-30 (ver `leerTasaGuardada`). */
+    tasa: unknown;
     importeTotal: number;
     importePipeline: number;
-    porDoctor?: { doctor: string; total: number; aceptados: number; tasa: number }[];
+    porDoctor?: { doctor: string; total: number; aceptados: number; tasa: unknown }[];
     porOrigen?: { origen: string; count: number }[];
     porMotivo?: { motivo: string; count: number }[];
-    privados?: { total: number; tasa: number };
-    adeslas?: { total: number; tasa: number };
-    tendenciaMensual?: { mes: string; label: string; total: number; aceptados: number }[];
-    porClinica?: { clinica: string; total: number; aceptados: number; importeTotal: number; tasa: number }[];
+    porTipoPaciente?: { tipo: string; total: number; tasa: unknown }[];
+    tendenciaMensual?: { mes: string; label: string; total: number; aceptados: number; perdidos?: number }[];
+    porClinica?: { clinica: string; total: number; aceptados: number; importeTotal: number; tasa: unknown }[];
     abTonos?: { tono: string; mensajes: number; aceptados: number; tasa: number }[];
   };
+};
+
+/** Lo que el forecast y la serie de 12 meses necesitan de cada presupuesto. */
+type PresupuestoBase = {
+  clinica?: string;
+  fechaPresupuesto: string;
+  estado: string;
+  amount?: number;
 };
 
 type KpisMes = {
   total: number;
   aceptados: number;
-  tasa: number;
+  tasa: TasaCierre;
   importe: number;
 };
 
@@ -292,7 +306,13 @@ function InformeCard({
         <div className="grid grid-cols-4 gap-3 mb-5">
           {[
             { label: "Total", value: String(informe.datosUsados.total) },
-            { label: "Aceptados", value: `${informe.datosUsados.aceptados} (${informe.datosUsados.tasa}%)` },
+            {
+              label: "Aceptados",
+              value: (() => {
+                const t = leerTasaGuardada(informe.datosUsados.tasa, informe.datosUsados.total, informe.datosUsados.aceptados);
+                return `${informe.datosUsados.aceptados} · cierra ${textoTasa(t)} ${notaTasaGuardada(t)}`;
+              })(),
+            },
             { label: "Importe", value: eur(informe.datosUsados.importeTotal) },
             { label: "Seguimiento", value: eur(informe.datosUsados.importePipeline) },
           ].map((item) => (
@@ -356,46 +376,64 @@ export default function InformesView({ user }: { user: UserSession }) {
   );
 
   // Media de conversión del informe actual (para colorear gráficos de doctores/clínicas)
+  // La media contra la que se colorea cada clínica y cada doctor. Sale de la
+  // MISMA tasa que el resto: calculada aparte volvía a incluir a los abiertos.
   const mediaRedInforme = useMemo(
-    () => informe?.datosUsados
-      ? (informe.datosUsados.total > 0 ? Math.round(informe.datosUsados.aceptados / informe.datosUsados.total * 100) : 0)
-      : 0,
-    [informe]
+    () =>
+      informe?.datosUsados
+        ? leerTasaGuardada(
+            informe.datosUsados.tasa,
+            informe.datosUsados.total,
+            informe.datosUsados.aceptados,
+          ).pct ?? 0
+        : 0,
+    [informe],
   );
 
-  // Load clinica list and compute kpisMeses from kanban data
-  useEffect(() => {
-    fetch("/api/presupuestos/kanban")
-      .then((r) => r.json())
-      .then((d) => {
-        const presupuestos: { clinica?: string; fechaPresupuesto: string; estado: string; amount?: number }[] = d.presupuestos ?? [];
+  /** El % plano para las gráficas del informe, leyendo los dos formatos. */
+  const pctDe = (t: unknown, total: number, aceptados: number) =>
+    leerTasaGuardada(t, total, aceptados).pct;
 
-        // Build clinica list
+  // La base de los 12 meses y del forecast. Aquí vivía el fallo más caro de
+  // esta pantalla: `.catch(() => {})` + `?? []`. Un 401 o un 500 dejaba la
+  // serie entera a cero, la pantalla no decía nada, y el informe se generaba
+  // sobre esos ceros — se los mandaba a la IA para que los narrase y SE
+  // GUARDABA. No era una pantalla en blanco: era un documento firmado con
+  // datos falsos. Ahora un fallo se ve y bloquea la generación.
+  const [errorBase, setErrorBase] = useState<string | null>(null);
+  const cargarBase = useCallback(() => {
+    setErrorBase(null);
+    cargarJSON<{ presupuestos: PresupuestoBase[] }>("/api/presupuestos/kanban", {
+      validar: traeLista("presupuestos"),
+    })
+      .then(({ presupuestos }) => {
         const set = new Set<string>(presupuestos.map((p) => p.clinica ?? "Sin clínica"));
         setClinicas(Array.from(set).sort());
 
-        // Compute kpisMeses for last 12 months
+        // 12 meses con la MISMA tasa que /kpis y que la cabecera de
+        // /presupuestos: aceptados sobre decididos.
         const now = new Date();
         const map = new Map<string, KpisMes>();
         for (let i = 0; i < 12; i++) {
           const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
           const mes = getYYYYMM(d);
           const delMes = presupuestos.filter((p) => p.fechaPresupuesto.startsWith(mes));
-          const aceptados = delMes.filter((p) => p.estado === "ACEPTADO");
-          const importe = aceptados.reduce((s, p) => s + (p.amount ?? 0), 0);
-          const tasa = delMes.length > 0 ? Math.round((aceptados.length / delMes.length) * 100) : 0;
-          map.set(mes, { total: delMes.length, aceptados: aceptados.length, tasa, importe });
+          const t = tasaCierre(delMes);
+          const importe = delMes
+            .filter((p) => p.estado === "ACEPTADO")
+            .reduce((s, p) => s + (p.amount ?? 0), 0);
+          map.set(mes, { total: delMes.length, aceptados: t.aceptados, tasa: t, importe });
         }
         setKpisMeses(map);
 
-        // Pipeline importe for forecasting fallback
         const pipeline = presupuestos
           .filter((p) => ["INTERESADO", "EN_DUDA", "EN_NEGOCIACION"].includes(p.estado))
           .reduce((s, p) => s + (p.amount ?? 0), 0);
         setPipelineImporte(pipeline);
       })
-      .catch(() => {});
+      .catch((e) => setErrorBase(mensajeDeError(e)));
   }, []);
+  useEffect(() => { cargarBase(); }, [cargarBase]);
 
   // Reset informe when filters change
   useEffect(() => {
@@ -408,9 +446,10 @@ export default function InformesView({ user }: { user: UserSession }) {
   function loadGuardados() {
     setLoadingGuardados(true);
     setErrorGuardados(false);
-    fetch("/api/presupuestos/informes/guardados")
-      .then((r) => r.json())
-      .then((d) => setInformesGuardados(d.informes ?? []))
+    cargarJSON<{ informes: InformeGuardado[] }>("/api/presupuestos/informes/guardados", {
+      validar: traeLista("informes"),
+    })
+      .then((d) => setInformesGuardados(d.informes))
       .catch(() => setErrorGuardados(true))
       .finally(() => setLoadingGuardados(false));
   }
@@ -425,19 +464,19 @@ export default function InformesView({ user }: { user: UserSession }) {
     setLoadingInforme(true);
     setErrorInforme(null);
     try {
-      const res = await fetch("/api/presupuestos/ia/informe", {
+      const data = await cargarJSON<InformeData>("/api/presupuestos/ia/informe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mes: selectedMes, clinicaId: selectedClinica }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Error desconocido");
       setInforme(data);
 
       // Auto-save to Informes_Guardados (fire-and-forget)
       const clinicaValue = selectedClinica === "todas" ? "todas" : selectedClinica;
       const tituloInforme = `Informe ${mesLabel}${clinicaValue !== "todas" ? ` — ${clinicaValue}` : ""}`;
-      fetch("/api/presupuestos/informes/guardados", {
+      // El autoguardado NO es fire-and-forget mudo: el informe sale en el
+      // historial y se re-descarga desde ahí. Si no se guardó, se dice.
+      cargarJSON<{ informe?: InformeGuardado }>("/api/presupuestos/informes/guardados", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -450,18 +489,19 @@ export default function InformesView({ user }: { user: UserSession }) {
           generadoPor: "usuario",
         }),
       })
-        .then((r) => r.json())
         .then((d) => {
           if (d.informe) {
             setInformesGuardados((prev) => {
               const filtered = prev.filter(
                 (i) => !(i.tipo === "mensual" && i.clinica === clinicaValue && i.periodo === selectedMes)
               );
-              return [d.informe, ...filtered];
+              return [d.informe!, ...filtered];
             });
           }
         })
-        .catch(() => {}); // Silent fail — don't block UI
+        .catch((e) =>
+          toast.error(`El informe se ha generado pero no se pudo guardar: ${mensajeDeError(e)}`),
+        );
     } catch (e: unknown) {
       setErrorInforme(e instanceof Error ? e.message : "Error al generar informe");
     } finally {
@@ -471,6 +511,15 @@ export default function InformesView({ user }: { user: UserSession }) {
 
   async function downloadDocument(format: "pdf" | "ppt") {
     if (!informe) return;
+    // El documento lleva dentro la gráfica de previsión, que sale del histórico.
+    // Si el histórico no cargó, se exportaría un pronóstico de €0 con pinta de
+    // pronóstico real — y eso sale de aquí para acabar en manos del cliente.
+    if (errorBase) {
+      setDownloadError(
+        `No se puede exportar: falta el histórico del que sale la previsión. ${errorBase}`,
+      );
+      return;
+    }
     setDownloading(format);
     setDownloadError(null);
     try {
@@ -671,15 +720,26 @@ export default function InformesView({ user }: { user: UserSession }) {
             />
           </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {forecasting.map((f) => (
-            <ForecastCard key={f.mes} {...f} tasaEsperada={tasaEsperada} />
-          ))}
-        </div>
-        <p className="text-[11px] text-[var(--color-muted)] mt-2">
-          * Proyección basada en el volumen histórico de los últimos 3 meses y la tasa esperada seleccionada.
-          La confianza disminuye para meses más lejanos.
-        </p>
+        {/* Sin el histórico no hay previsión: antes salían tres tarjetas a
+            €0 con cara de pronóstico, y esas tarjetas se exportan al PDF. */}
+        {errorBase ? (
+          <ErrorState
+            detail={`No se pudo cargar el histórico, así que no hay previsión que enseñar. ${errorBase}`}
+            onRetry={cargarBase}
+          />
+        ) : (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {forecasting.map((f) => (
+                <ForecastCard key={f.mes} {...f} tasaEsperada={tasaEsperada} />
+              ))}
+            </div>
+            <p className="text-[11px] text-[var(--color-muted)] mt-2">
+              * Proyección basada en el volumen histórico de los últimos 3 meses y la tasa esperada seleccionada.
+              La confianza disminuye para meses más lejanos.
+            </p>
+          </>
+        )}
       </div>
 
       {/* Informes guardados */}
@@ -883,16 +943,17 @@ export default function InformesView({ user }: { user: UserSession }) {
             <div id="chart-clinicas" style={{ width: 860, height: 320, backgroundColor: "white", padding: "10px 5px" }}>
               <BarChart
                 layout="vertical" width={840} height={300}
-                data={informe.datosUsados.porClinica}
+                data={(informe.datosUsados.porClinica ?? []).map((c) => ({ ...c, tasaPct: pctDe(c.tasa, c.total, c.aceptados) }))}
                 margin={{ top: 5, right: 40, left: 10, bottom: 5 }}
               >
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                 <XAxis type="number" domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} />
                 <YAxis type="category" dataKey="clinica" width={130} tick={{ fontSize: 10 }} />
-                <Bar isAnimationActive={false} dataKey="tasa" name="Conversión">
-                  {(informe.datosUsados.porClinica ?? []).map((c, i) => (
-                    <Cell key={i} fill={c.tasa >= mediaRedInforme ? "#16A34A" : "#DC2626"} />
-                  ))}
+                <Bar isAnimationActive={false} dataKey="tasaPct" name="Conversión">
+                  {(informe.datosUsados.porClinica ?? []).map((c, i) => {
+                    const pct = pctDe(c.tasa, c.total, c.aceptados);
+                    return <Cell key={i} fill={pct == null ? "#94A3B8" : pct >= mediaRedInforme ? "#16A34A" : "#DC2626"} />;
+                  })}
                 </Bar>
               </BarChart>
             </div>
@@ -919,16 +980,17 @@ export default function InformesView({ user }: { user: UserSession }) {
             <div id="chart-doctores" style={{ width: 900, height: 360, backgroundColor: "white", padding: "10px 5px" }}>
               <ComposedChart
                 width={880} height={340}
-                data={informe.datosUsados.porDoctor?.slice(0, 8)}
+                data={(informe.datosUsados.porDoctor ?? []).slice(0, 8).map((d) => ({ ...d, tasaPct: pctDe(d.tasa, d.total, d.aceptados) }))}
                 margin={{ top: 10, right: 60, left: 10, bottom: 35 }}
               >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="doctor" tick={{ fontSize: 10 }} angle={-20} textAnchor="end" height={50} />
                 <YAxis domain={[0, 100]} unit="%" tick={{ fontSize: 11 }} />
-                <Bar isAnimationActive={false} dataKey="tasa" name="Tasa" maxBarSize={60}>
-                  {(informe.datosUsados.porDoctor ?? []).slice(0, 8).map((d, i) => (
-                    <Cell key={i} fill={d.tasa >= mediaRedInforme ? "#16A34A" : "#DC2626"} />
-                  ))}
+                <Bar isAnimationActive={false} dataKey="tasaPct" name="Tasa" maxBarSize={60}>
+                  {(informe.datosUsados.porDoctor ?? []).slice(0, 8).map((d, i) => {
+                    const pct = pctDe(d.tasa, d.total, d.aceptados);
+                    return <Cell key={i} fill={pct == null ? "#94A3B8" : pct >= mediaRedInforme ? "#16A34A" : "#DC2626"} />;
+                  })}
                 </Bar>
                 <ReferenceLine y={mediaRedInforme} stroke="#3d6fb2" strokeDasharray="4 4" label={{ value: `Media ${mediaRedInforme}%`, position: "insideTopRight", fill: "#3d6fb2", fontSize: 10 }} />
               </ComposedChart>

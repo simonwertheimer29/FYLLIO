@@ -13,6 +13,8 @@ import { ErrorState } from "../ui/Feedback";
 import { Info, Star, ChevronDown, ChevronRight, ICON_STROKE } from "../icons";
 import { eur } from "../shared/Cifra";
 import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
+import { textoTasa, notaTasa, type TasaCierre } from "../../lib/presupuestos/tasa";
+import { etiquetaTipoVisita } from "../../lib/presupuestos/tipo-visita";
 
 type SubTab = "general" | "tarifas" | "paciente" | "tratamientos" | "doctores" | "benchmark" | "ia";
 
@@ -40,6 +42,16 @@ function getLast12Months(): { mes: string; label: string }[] {
     const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     return { mes, label: formatMesLabel(mes) };
   });
+}
+
+/** Color de una tasa. Sin decididos NO se juzga: gris, no rojo — "todavía no
+ *  se sabe" y "va mal" son cosas distintas. (El umbral en sí sigue sin
+ *  declararse en pantalla; eso es del bloque visual.) */
+function colorTasa(t: TasaCierre): string {
+  if (t.pct == null) return "text-[var(--color-muted)]";
+  if (t.pct >= 50) return "text-emerald-700 dark:text-emerald-300";
+  if (t.pct >= 25) return "text-amber-700 dark:text-amber-300";
+  return "text-rose-600 dark:text-rose-400";
 }
 
 // ─── Shared components ────────────────────────────────────────────────────────
@@ -105,9 +117,9 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
         <HeaderBlock
           title="Aceptados"
           main={String(resumen.aceptados)}
-          sub1={`${resumen.tasaAceptacion}% de conversión`}
+          sub1={`${textoTasa(resumen.tasa)} se cierran · ${notaTasa(resumen.tasa, `de los presentados en ${mesLabel}`)}`}
           sub2={`vs mes anterior: ${prevRes.aceptados}`}
-          tooltip="% de presupuestos presentados que el paciente ha aceptado en el mes seleccionado"
+          tooltip="De los presupuestos presentados en el mes elegido que YA se decidieron, cuántos aceptó el paciente. Los que siguen abiertos no cuentan: todavía no han dicho que no. Ojo: la cabecera de Presupuestos mide otra cosa a propósito — lo que se CERRÓ este mes, se presentara cuando se presentara."
         />
         <HeaderBlock
           title="Presupuestos en seguimiento"
@@ -133,13 +145,24 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
           {[
             { label: "Presupuestos", curr: resumen.total, prev: prevRes.total },
             { label: "Aceptados", curr: resumen.aceptados, prev: prevRes.aceptados },
-            { label: "Tasa %", curr: resumen.tasaAceptacion, prev: prevRes.tasaAceptacion, unit: "%" },
+            // Sin decididos no hay tasa que comparar: se enseña "—" y no se
+            // fabrica un 0% que se leería como "no cerró ninguno".
+            {
+              label: "Se cierran",
+              curr: resumen.tasa.pct,
+              prev: prevRes.tasa.pct,
+              unit: "%",
+            },
             { label: "En juego €", curr: resumen.importeActivos, prev: prevRes.importeActivos, unit: "€" },
           ].map(({ label, curr, prev, unit }) => (
             <div key={label}>
               <p className="text-[10px] text-[var(--color-muted)] font-medium mb-1">{label}</p>
-              <p className="font-display text-lg font-bold tabular-nums text-[var(--color-foreground)]">{unit === "€" ? eur(curr) : `${curr}${unit ?? ""}`}</p>
-              <TrendBadge curr={curr} prev={prev} unit={unit === "€" ? "" : (unit ?? "")} />
+              <p className="font-display text-lg font-bold tabular-nums text-[var(--color-foreground)]">
+                {curr == null ? "—" : unit === "€" ? eur(curr) : `${curr}${unit ?? ""}`}
+              </p>
+              {curr != null && prev != null && (
+                <TrendBadge curr={curr} prev={prev} unit={unit === "€" ? "" : (unit ?? "")} />
+              )}
             </div>
           ))}
         </div>
@@ -199,7 +222,7 @@ function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
             <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">{tipo} — {mesLabel}</p>
             <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">{mes?.total ?? 0}</p>
             <p className="text-xs text-[var(--color-muted)] mt-1">
-              {mes?.aceptados ?? 0} aceptados · {mes?.tasa ?? 0}% conversión
+              {mes?.aceptados ?? 0} aceptados · {mes ? `${textoTasa(mes.tasa)} se cierran` : "—"}
             </p>
             {(mes?.importe ?? 0) > 0 && (
               <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mt-0.5">€{(mes?.importe ?? 0).toLocaleString("es-ES")} aceptado</p>
@@ -268,7 +291,7 @@ function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                   <td className="px-4 py-3 font-semibold text-[var(--color-foreground)]">{t.tipo}</td>
                   <td className="px-4 py-3 text-[var(--color-foreground)]">{t.total}</td>
                   <td className="px-4 py-3 font-semibold text-emerald-700 dark:text-emerald-300">{t.aceptados}</td>
-                  <td className="px-4 py-3 font-bold text-[var(--color-foreground)]">{t.tasa}%</td>
+                  <td className="px-4 py-3 font-bold text-[var(--color-foreground)]" title={notaTasa(t.tasa)}>{textoTasa(t.tasa)}</td>
                   <td className="px-4 py-3 text-[var(--color-foreground)]">€{t.importe.toLocaleString("es-ES")}</td>
                   <td className="px-4 py-3"><TrendBadge curr={t.total} prev={p?.total ?? 0} /></td>
                 </tr>
@@ -286,7 +309,7 @@ function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
 function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
   kpisMes: KpiData; kpisPrevMes: KpiData; kpis: KpiData; mesLabel: string;
 }) {
-  const tipoLabel = (t: string) => t === "Primera Visita" ? "1ª Visita (Nuevo)" : "Con historial (Recurrente)";
+  const tipoLabel = etiquetaTipoVisita;
 
   return (
     <div className="space-y-5">
@@ -297,7 +320,7 @@ function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
             <div key={t.tipo} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
               <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">{tipoLabel(t.tipo)} — {mesLabel}</p>
               <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">{t.total}</p>
-              <p className="text-xs text-[var(--color-muted)] mt-1">{t.aceptados} aceptados · {t.tasa}% conversión</p>
+              <p className="text-xs text-[var(--color-muted)] mt-1">{t.aceptados} aceptados · {textoTasa(t.tasa)} se cierran</p>
               {t.importe > 0 && <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mt-0.5">€{t.importe.toLocaleString("es-ES")} aceptado</p>}
               <div className="mt-2"><TrendBadge curr={t.total} prev={prev?.total ?? 0} /></div>
             </div>
@@ -341,7 +364,7 @@ function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                   <td className="px-4 py-3 font-semibold text-[var(--color-foreground)]">{tipoLabel(t.tipo)}</td>
                   <td className="px-4 py-3 text-[var(--color-foreground)]">{t.total}</td>
                   <td className="px-4 py-3 font-semibold text-emerald-700 dark:text-emerald-300">{t.aceptados}</td>
-                  <td className="px-4 py-3 font-bold text-[var(--color-foreground)]">{t.tasa}%</td>
+                  <td className="px-4 py-3 font-bold text-[var(--color-foreground)]" title={notaTasa(t.tasa)}>{textoTasa(t.tasa)}</td>
                   <td className="px-4 py-3 text-[var(--color-foreground)]">€{t.importe.toLocaleString("es-ES")}</td>
                   <td className="px-4 py-3"><TrendBadge curr={t.total} prev={prev?.total ?? 0} /></td>
                 </tr>
@@ -363,8 +386,16 @@ const CONFIANZA_BADGE: Record<string, { bg: string; text: string; label: string 
 };
 
 function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: KpiData; mesLabel: string }) {
-  const top8 = [...kpisMes.porTratamiento].sort((a, b) => b.tasa - a.tasa).slice(0, 8);
-  const top8HistAll = [...kpis.porTratamiento].sort((a, b) => b.tasa - a.tasa).slice(0, 8);
+  // Los gráficos necesitan el % plano; los que aún no tienen decididos no
+  // pintan barra (recharts se salta el null) en vez de fingir un 0%.
+  const serieTasa = <T extends { tasa: TasaCierre }>(filas: T[]) =>
+    filas.map((f) => ({ ...f, tasaPct: f.tasa.pct }));
+  const top8 = serieTasa(
+    [...kpisMes.porTratamiento].sort((a, b) => (b.tasa.pct ?? -1) - (a.tasa.pct ?? -1)).slice(0, 8),
+  );
+  const top8HistAll = serieTasa(
+    [...kpis.porTratamiento].sort((a, b) => (b.tasa.pct ?? -1) - (a.tasa.pct ?? -1)).slice(0, 8),
+  );
 
   // Tratamientos con umbral de precio detectado (histórico — más datos)
   const tratConTecho = [...kpis.porTratamiento]
@@ -458,7 +489,7 @@ function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: 
               <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} unit="%" />
               <YAxis type="category" dataKey="grupo" tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} width={100} />
               <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`${v}%`, "Tasa"]} />
-              <Bar dataKey="tasa" name="Tasa %" fill="var(--color-accent)" radius={[0, 4, 4, 0]} />
+              <Bar dataKey="tasaPct" name="Tasa %" fill="var(--color-accent)" radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
         )}
@@ -488,7 +519,7 @@ function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: 
                     <td className="px-4 py-3 font-medium text-[var(--color-foreground)]">{t.grupo}</td>
                     <td className="px-4 py-3 text-[var(--color-foreground)]">{t.total}</td>
                     <td className="px-4 py-3 font-semibold text-emerald-700 dark:text-emerald-300">{t.aceptados}</td>
-                    <td className="px-4 py-3 font-bold text-[var(--color-foreground)]">{t.tasa}%</td>
+                    <td className="px-4 py-3 font-bold text-[var(--color-foreground)]" title={notaTasa(t.tasa)}>{textoTasa(t.tasa)}</td>
                     <td className="px-4 py-3 text-[var(--color-foreground)]">€{t.importe.toLocaleString("es-ES")}</td>
                     <td className="px-4 py-3">
                       {techo ? (
@@ -519,7 +550,7 @@ function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: 
             <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} unit="%" />
             <YAxis type="category" dataKey="grupo" tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} width={100} />
             <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`${v}%`, "Tasa"]} />
-            <Bar dataKey="tasa" name="Tasa %" fill="#0891b2" radius={[0, 4, 4, 0]} />
+            <Bar dataKey="tasaPct" name="Tasa %" fill="#0891b2" radius={[0, 4, 4, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -538,10 +569,16 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
 
   function downloadCsv() {
     const rows = [
-      ["Doctor", "Especialidad", "Este mes", "Aceptados", "Tasa%", "vs prev mes"],
+      // El CSV declara su denominador igual que la pantalla: la tasa sin la
+      // columna "decididos" al lado se vuelve a leer mal en cuanto sale de aquí.
+      ["Doctor", "Especialidad", "Este mes", "Aceptados", "Decididos", "Sin decidir", "Se cierran", "vs prev mes"],
       ...kpisMes.porDoctor.map((d) => {
         const p = kpisPrevMes.porDoctor.find((x) => x.doctor === d.doctor);
-        return [d.doctor, d.especialidad, d.total, d.aceptados, d.tasa + "%", (p ? d.total - p.total : 0)];
+        return [
+          d.doctor, d.especialidad, d.total, d.aceptados,
+          d.tasa.decididos, d.tasa.abiertos, textoTasa(d.tasa),
+          (p ? d.total - p.total : 0),
+        ];
       }),
     ];
     const csv = rows.map((r) => r.join(";")).join("\n");
@@ -577,7 +614,7 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
           <p className="text-sm font-bold text-[var(--color-foreground)] mb-1">Comparativa de doctores — {mesLabel}</p>
           <p className="text-xs text-[var(--color-muted)] mb-4">Ordenados por tasa de aceptación</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {[...kpisMes.porDoctor].sort((a, b) => b.tasa - a.tasa).map((d) => {
+            {[...kpisMes.porDoctor].sort((a, b) => (b.tasa.pct ?? -1) - (a.tasa.pct ?? -1)).map((d) => {
               const prev = prevMap.get(d.doctor);
               const espColor = ESPECIALIDAD_COLOR[d.especialidad as keyof typeof ESPECIALIDAD_COLOR] ?? "#e2e8f0";
               return (
@@ -598,13 +635,13 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                     {d.especialidad}
                   </span>
                   {/* Tasa grande */}
-                  <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)] mt-1">{d.tasa}%</p>
-                  <p className="text-[10px] text-[var(--color-muted)] mb-2">tasa aceptación</p>
+                  <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)] mt-1">{textoTasa(d.tasa)}</p>
+                  <p className="text-[10px] text-[var(--color-muted)] mb-2">se cierran · {notaTasa(d.tasa)}</p>
                   {/* Progress bar */}
                   <div className="w-full bg-[var(--color-border)] rounded-full h-1.5 mb-2">
                     <div
                       className="h-1.5 rounded-full bg-emerald-500 transition-all"
-                      style={{ width: `${d.tasa}%` }}
+                      style={{ width: `${d.tasa.pct ?? 0}%` }}
                     />
                   </div>
                   <p className="text-[10px] text-[var(--color-muted)]">
@@ -659,7 +696,7 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                       <td className="px-3 py-2.5 text-[var(--color-muted)]">{d.especialidad}</td>
                       <td className="px-3 py-2.5 text-[var(--color-foreground)]">{d.total}</td>
                       <td className="px-3 py-2.5 font-semibold text-emerald-700 dark:text-emerald-300">{d.aceptados}</td>
-                      <td className="px-3 py-2.5 font-bold text-[var(--color-foreground)]">{d.tasa}%</td>
+                      <td className="px-3 py-2.5 font-bold text-[var(--color-foreground)]" title={notaTasa(d.tasa)}>{textoTasa(d.tasa)}</td>
                       <td className="px-3 py-2.5"><TrendBadge curr={d.total} prev={prev?.total ?? 0} /></td>
                     </tr>
                     {isSelected && evolError && (
@@ -722,7 +759,7 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                   <td className="px-3 py-2.5 text-[var(--color-foreground)]">{d.primeraVisita}</td>
                   <td className="px-3 py-2.5 text-[var(--color-foreground)]">{d.conHistoria}</td>
                   <td className="px-3 py-2.5 font-semibold text-emerald-700 dark:text-emerald-300">{d.aceptados}</td>
-                  <td className="px-3 py-2.5 font-bold text-[var(--color-foreground)]">{d.tasa}%</td>
+                  <td className="px-3 py-2.5 font-bold text-[var(--color-foreground)]" title={notaTasa(d.tasa)}>{textoTasa(d.tasa)}</td>
                 </tr>
               ))}
             </tbody>
@@ -765,8 +802,8 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: ORIGEN_COLORS[i % ORIGEN_COLORS.length] }} />
                     <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase truncate">{o.label}</p>
                   </div>
-                  <p className="font-display text-2xl font-bold tabular-nums text-[var(--color-foreground)]">{o.tasa}%</p>
-                  <p className="text-[10px] text-[var(--color-muted)] mt-1">{o.aceptados}/{o.total} aceptados</p>
+                  <p className="font-display text-2xl font-bold tabular-nums text-[var(--color-foreground)]">{textoTasa(o.tasa)}</p>
+                  <p className="text-[10px] text-[var(--color-muted)] mt-1">{notaTasa(o.tasa)}</p>
                   {o.importe > 0 && <p className="text-[10px] text-[var(--color-accent)] font-semibold mt-0.5">€{o.importe.toLocaleString("es-ES")}</p>}
                 </div>
               ))}
@@ -778,14 +815,14 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
               <ResponsiveContainer width="100%" height={Math.max(180, origenData.filter((o) => o.origen !== "sin_origen").length * 44)}>
                 <BarChart
                   layout="vertical"
-                  data={origenData.filter((o) => o.origen !== "sin_origen")}
+                  data={origenData.filter((o) => o.origen !== "sin_origen").map((o) => ({ ...o, tasaPct: o.tasa.pct }))}
                   margin={{ left: 8, right: 24, top: 4, bottom: 4 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="var(--color-border)" />
                   <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fill: "var(--color-muted)", fontSize: 10 }} />
                   <YAxis type="category" dataKey="label" tick={{ fill: "var(--color-muted)", fontSize: 11 }} width={80} />
                   <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v: any) => [`${v}%`, "Tasa"]} />
-                  <Bar dataKey="tasa" radius={[0, 6, 6, 0]} fill="var(--color-accent)" />
+                  <Bar dataKey="tasaPct" radius={[0, 6, 6, 0]} fill="var(--color-accent)" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -809,8 +846,8 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
                       <td className="px-3 py-2 text-right text-[var(--color-muted)]">{o.total}</td>
                       <td className="px-3 py-2 text-right text-[var(--color-muted)]">{o.aceptados}</td>
                       <td className="px-3 py-2 text-right">
-                        <span className={`font-bold ${o.tasa >= 50 ? "text-emerald-700 dark:text-emerald-300" : o.tasa >= 25 ? "text-amber-700 dark:text-amber-300" : "text-rose-600 dark:text-rose-400"}`}>
-                          {o.tasa}%
+                        <span className={`font-bold ${colorTasa(o.tasa)}`} title={notaTasa(o.tasa)}>
+                          {textoTasa(o.tasa)}
                         </span>
                       </td>
                       <td className="px-4 py-2 text-right text-[var(--color-muted)]">
@@ -859,8 +896,8 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
                     <td className="px-3 py-2.5 text-right text-[var(--color-muted)]">{c.total}</td>
                     <td className="px-3 py-2.5 text-right text-[var(--color-muted)]">{c.aceptados}</td>
                     <td className="px-3 py-2.5 text-right">
-                      <span className={`font-bold ${c.tasa >= 50 ? "text-emerald-700 dark:text-emerald-300" : c.tasa >= 25 ? "text-amber-700 dark:text-amber-300" : "text-rose-600 dark:text-rose-400"}`}>
-                        {c.tasa}%
+                      <span className={`font-bold ${colorTasa(c.tasa)}`} title={notaTasa(c.tasa)}>
+                        {textoTasa(c.tasa)}
                       </span>
                     </td>
                     <td className="px-4 py-2.5 text-right text-[var(--color-muted)]">

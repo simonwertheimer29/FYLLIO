@@ -159,10 +159,24 @@ export async function listResumenFinancieroPorIdsPg(ids: string[]) {
   if (!ids.length) return [];
   return runWithClienteDb(cli(), async (trx) => {
     const rows = await trx.selectFrom("pacientes").select(["id", "clinica_id", "lead_origen_id"]).where("id", "in", ids).execute();
+    // "Vino de un lead" está guardado en DOS sitios y solo uno se llena:
+    // `pacientes.lead_origen_id` no lo escribe nadie —la conversión nunca lo
+    // puso— y `leads.paciente_id` sí. Medido el 2026-07-30 en DEMO: 0 de 166
+    // pacientes con lead_origen_id, y 79 leads apuntando a su paciente. Por eso
+    // "Cobrado" salía 0 € con 15 convertidos y pagos reales en la base.
+    // Se leen los dos lados; basta con que uno lo afirme.
+    const desdeLeads = await trx
+      .selectFrom("leads").select("paciente_id")
+      .where("paciente_id", "in", ids)
+      .execute();
+    const conLead = new Set<string>(
+      desdeLeads.map((r) => r.paciente_id).filter((x): x is string => !!x),
+    );
     const pendientePor = await pendienteDerivadoPorIds(trx, ids);
     return rows.map((r) => ({
       id: r.id, clinicaIds: r.clinica_id ? [r.clinica_id] : [],
-      tieneLeadOrigen: r.lead_origen_id != null, pendiente: pendientePor.get(r.id) ?? 0,
+      tieneLeadOrigen: r.lead_origen_id != null || conLead.has(r.id),
+      pendiente: pendientePor.get(r.id) ?? 0,
     }));
   });
 }

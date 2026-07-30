@@ -177,22 +177,17 @@ function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolea
         subline={`${c.noShows} no-shows × ${fmtEUR(c.ticketMedio)} ticket medio`}
         accent="rose"
       />
-      {data.precisionPredictor ? (
-        <KpiCard
-          label="Precisión predictor"
-          value={Number((data.precisionPredictor.precision * 100).toFixed(0))}
-          formatter={(n) => `${n}%`}
-          subline={`${data.precisionPredictor.correctas} de ${data.precisionPredictor.total} predicciones cerradas`}
-          accent="ia"
-        />
-      ) : (
-        <KpiCard
-          label="No-shows del mes"
-          value={t.noShows}
-          subline={`Sobre ${t.total} citas registradas`}
-          accent="amber"
-        />
-      )}
+      {/* Aquí iba "Precisión predictor". Enseñaba "0% · 0 de 2 predicciones
+          cerradas": una promesa de inteligencia sostenida por dos filas. El
+          motor de no-shows está congelado (Sprint B), así que no hay
+          predicciones cerradas de verdad que medir. Vuelve cuando el módulo se
+          reactive y el número signifique algo. */}
+      <KpiCard
+        label="No-shows del mes"
+        value={t.noShows}
+        subline={`Sobre ${t.total} citas registradas`}
+        accent="amber"
+      />
     </div>
   );
 }

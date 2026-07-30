@@ -1,5 +1,7 @@
 // app/lib/presupuestos/types.ts
 
+import type { TasaCierre } from "./tasa";
+
 export type PresupuestoEstado =
   | "PRESENTADO"
   | "INTERESADO"
@@ -127,12 +129,16 @@ export type UserSession = {
 };
 
 // KPI types
+// Toda tasa de aceptación de este módulo es un `TasaCierre` de
+// `lib/presupuestos/tasa`: aceptados sobre DECIDIDOS, con los abiertos
+// declarados. Una sola definición para /kpis, los informes y la cabecera de
+// /presupuestos — antes cada una calculaba la suya y se contradecían.
 export type KpiResumen = {
   total: number;
   primeraVisita: number;
   conHistoria: number;
   aceptados: number;
-  tasaAceptacion: number;
+  tasa: TasaCierre;
   importeActivos: number;
 };
 
@@ -145,14 +151,14 @@ export type KpiPorDoctor = {
   primeraVisita: number;
   conHistoria: number;
   aceptados: number;
-  tasa: number;
+  tasa: TasaCierre;
 };
 
 export type KpiPorTratamiento = {
   grupo: string;
   total: number;
   aceptados: number;
-  tasa: number;
+  tasa: TasaCierre;
   importe: number;
   techoPrecio?: number | null; // detected price ceiling (€)
   techoInfo?: {
@@ -169,6 +175,9 @@ export type KpiMensual = {
   label: string; // "Ene", "Feb", ...
   total: number;
   aceptados: number;
+  /** Los perdidos viajan con la serie para que quien calcule una tasa sobre
+   *  ella pueda hacerlo bien; sin esto solo cabía aceptados/total. */
+  perdidos: number;
 };
 
 export type KpiComparacion = {
@@ -199,7 +208,15 @@ export type KpiPorOrigen = {
   label: string;
   total: number;
   aceptados: number;
-  tasa: number;
+  tasa: TasaCierre;
+  importe: number;
+};
+
+export type KpiPorTipo = {
+  tipo: string;
+  total: number;
+  aceptados: number;
+  tasa: TasaCierre;
   importe: number;
 };
 
@@ -214,7 +231,7 @@ export type KpiPorClinica = {
   clinica: string;
   total: number;
   aceptados: number;
-  tasa: number;
+  tasa: TasaCierre;
   importe: number;
 };
 
@@ -495,8 +512,8 @@ export type KpiData = {
   porEstado: KpiPorEstado[];
   porDoctor: KpiPorDoctor[];
   porTratamiento: KpiPorTratamiento[];
-  porTipoPaciente: { tipo: string; total: number; aceptados: number; tasa: number; importe: number }[];
-  porTipoVisita: { tipo: string; total: number; aceptados: number; tasa: number; importe: number }[];
+  porTipoPaciente: KpiPorTipo[];
+  porTipoVisita: KpiPorTipo[];
   tendenciaMensual: KpiMensual[];
   tendenciaPorTarifa: KpiTendenciaTarifa[];
   /** Los valores del catálogo que el gráfico de tarifas debe pintar, en orden. */

@@ -7,20 +7,20 @@
 //
 // Módulo PURO (sin datos ni Airtable/PG): lo consumen componentes cliente.
 
-import type { Presupuesto, PresupuestoEstado } from "./types";
+import type { Presupuesto } from "./types";
 import { eur } from "../dinero";
 import { casoVisibleConRango, type RangoKanban } from "../../components/shared/RangoTemporal";
+import { esPresupuestoAbierto, tasaDeRecuentos, type TasaCierre } from "./tasa";
 
-export const ESTADOS_PRESUPUESTO_ABIERTOS: PresupuestoEstado[] = [
-  "PRESENTADO",
-  "INTERESADO",
-  "EN_DUDA",
-  "EN_NEGOCIACION",
-];
-
-export function esPresupuestoAbierto(estado: PresupuestoEstado): boolean {
-  return ESTADOS_PRESUPUESTO_ABIERTOS.includes(estado);
-}
+// Qué es "abierto" y cómo se calcula una tasa viven en `./tasa` (puro, sin
+// imports de cliente) porque las rutas de servidor también lo necesitan.
+export {
+  ESTADOS_PRESUPUESTO_ABIERTOS,
+  esPresupuestoAbierto,
+  tasaCierre,
+  textoTasa,
+  notaTasa,
+} from "./tasa";
 
 /**
  * Fecha del hito de cada caso, la que decide si entra en el rango temporal:
@@ -114,14 +114,11 @@ export type CifrasNegocio = {
   /** Σ € aceptado en el mes de calendario en curso, y en el anterior. */
   firmadoMes: number;
   firmadoMesPrevio: number;
-  /** Aceptados sobre DECIDIDOS del mes (aceptados + perdidos). El numerador es
-   *  subconjunto del denominador por construcción; los que siguen abiertos NO
-   *  entran y se declaran aparte. Sin decididos, `null` — no un 0% que miente. */
-  tasa: number | null;
-  tasaPrevia: number | null;
-  decididos: number;
-  /** Presentados este mes que aún no se han decidido: el denominador que falta. */
-  sinDecidir: number;
+  /** La tasa del mes, calculada por la ÚNICA función de tasa del producto
+   *  (`lib/presupuestos/tasa`): aceptados sobre decididos, con los abiertos
+   *  declarados aparte. La misma que usan /kpis y los informes. */
+  tasa: TasaCierre;
+  tasaPrevia: TasaCierre;
 };
 
 /**
@@ -145,7 +142,8 @@ export function cifrasNegocioPresupuestos(
   let perdidosMes = 0;
   let aceptadosPrevio = 0;
   let perdidosPrevio = 0;
-  let sinDecidir = 0;
+  let abiertosMes = 0;
+  let abiertosPrevio = 0;
 
   for (const p of todos) {
     const mes = mesDeCierre(p);
@@ -155,22 +153,18 @@ export function cifrasNegocioPresupuestos(
     } else if (p.estado === "PERDIDO") {
       if (mes === mesActual) perdidosMes++;
       else if (mes === mesPrevio) perdidosPrevio++;
-    } else if (esPresupuestoAbierto(p.estado) && mes === mesActual) {
-      sinDecidir++;
+    } else if (esPresupuestoAbierto(p.estado)) {
+      if (mes === mesActual) abiertosMes++;
+      else if (mes === mesPrevio) abiertosPrevio++;
     }
   }
-
-  const pct = (a: number, d: number) => (d === 0 ? null : Math.round((a / d) * 100));
-  const decididos = aceptadosMes + perdidosMes;
 
   return {
     enJuego: visiblesAbiertos.importeAbierto,
     abiertos: visiblesAbiertos.abiertos,
     firmadoMes,
     firmadoMesPrevio,
-    tasa: pct(aceptadosMes, decididos),
-    tasaPrevia: pct(aceptadosPrevio, aceptadosPrevio + perdidosPrevio),
-    decididos,
-    sinDecidir,
+    tasa: tasaDeRecuentos(aceptadosMes, perdidosMes, abiertosMes),
+    tasaPrevia: tasaDeRecuentos(aceptadosPrevio, perdidosPrevio, abiertosPrevio),
   };
 }

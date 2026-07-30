@@ -7,6 +7,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { leerTasaGuardada, notaTasaGuardada } from "../../../lib/presupuestos/tasa";
 import { getSession } from "@/lib/auth/session";
 import { renderToBuffer, Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
 import {
@@ -27,16 +28,17 @@ async function isAuthed(): Promise<boolean> {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type TendenciaMes = { mes: string; label: string; total: number; aceptados: number };
-type ClinicaKpi = { clinica: string; total: number; aceptados: number; importeTotal: number; tasa: number };
-type DoctorKpi = { doctor: string; total: number; aceptados: number; tasa: number };
+type ClinicaKpi = { clinica: string; total: number; aceptados: number; importeTotal: number; tasa: unknown };
+type DoctorKpi = { doctor: string; total: number; aceptados: number; tasa: unknown };
 type KpiResumen = {
   total: number; aceptados: number; perdidos: number; activos: number;
-  tasa: number; importeTotal: number; importePipeline: number;
+  tasa: unknown; importeTotal: number; importePipeline: number;
   porDoctor: DoctorKpi[];
   porOrigen: { origen: string; count: number }[];
   porMotivo: { motivo: string; count: number }[];
-  privados: { total: number; tasa: number };
-  adeslas: { total: number; tasa: number };
+  /** Los tipos de paciente que HAY (el catálogo es configurable por clínica).
+   *  Antes eran dos literales fijos, "Privado" y "Adeslas". */
+  porTipoPaciente?: { tipo: string; total: number; tasa: unknown }[];
   tendenciaMensual?: TendenciaMes[];
   porClinica?: ClinicaKpi[];
   abTonos?: { tono: string; mensajes: number; aceptados: number; tasa: number }[];
@@ -117,6 +119,28 @@ const S = StyleSheet.create({
   analysisBody: { fontSize: 8.5, lineHeight: 1.55, color: C.text },
 });
 
+// ─── La tasa, leída venga como venga ─────────────────────────────────────────
+//
+// Este documento se genera a partir de `datos`, que puede llegar de dos sitios:
+// del informe recién calculado (donde `tasa` es ya el objeto con su
+// denominador) o de un informe GUARDADO antes del 2026-07-30, donde era un
+// número suelto que significaba aceptados/TOTAL — con los que aún no habían
+// decidido dentro del denominador. Los guardados no se reescriben: son
+// documentos ya emitidos. Pero sí se declara de qué denominador habla cada uno,
+// que es justo lo que faltaba.
+type TasaPlana = { pct: number | null; nota: string };
+
+function leerTasa(valor: unknown, total: number, aceptados: number): TasaPlana {
+  const t = leerTasaGuardada(valor, total, aceptados);
+  return { pct: t.pct, nota: notaTasaGuardada(t) };
+}
+
+/** El % para pintar. Sin decididos, una raya — nunca un cero que se lea como
+ *  "no cerró ninguno". */
+function textoPct(pct: number | null): string {
+  return pct == null ? "—" : `${pct}%`;
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const MES_LABEL = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
@@ -135,17 +159,20 @@ function plainText(s: string): string {
   return s.replace(/\*\*(.+?)\*\*/g, "$1");
 }
 
-function tasaColor(tasa: number): string {
+function tasaColor(tasa: number | null): string {
+  if (tasa == null) return C.muted;
   if (tasa >= 40) return C.green;
   if (tasa >= 20) return C.text;
   return C.red;
 }
 
 function doctorEstado(d: DoctorKpi): string {
+  const { pct } = leerTasa(d.tasa, d.total, d.aceptados);
   if (d.total < 3) return "Sin datos";
-  if (d.tasa === 0) return "🔴 Urgente";
-  if (d.tasa >= 50) return "✅ Referencia";
-  if (d.tasa >= 30) return "⚠ Atención";
+  // Sin nadie decidido no se juzga: "todavía no se sabe" no es "va mal".
+  if (pct == null) return "Sin decidir";
+  if (pct === 0) return "🔴 Urgente";
+  if (pct >= 50) return "✅ Referencia";
   return "⚠ Atención";
 }
 
@@ -189,12 +216,15 @@ function motivoAnalisis(motivo: string, count: number, totalPerdidos: number): s
 }
 
 function doctorAnalisis(d: DoctorKpi, mediaRed: number): string {
-  const diff = d.tasa - mediaRed;
+  const { pct, nota } = leerTasa(d.tasa, d.total, d.aceptados);
   if (d.total < 3) return `${d.total} presupuesto${d.total !== 1 ? "s" : ""} — muestra insuficiente para análisis estadístico.`;
-  if (d.tasa >= 50) return `${d.aceptados}/${d.total} cierres — ${Math.abs(diff)}% por encima de la media de la red. Modelo de referencia para el equipo. Documentar su protocolo de presentación.`;
-  if (d.tasa === 0) return `0/${d.total} cierres — resultado crítico. Verificar perfil de pacientes asignados; si es similar al resto del equipo, convocar revisión urgente.`;
-  if (diff < 0) return `${d.aceptados}/${d.total} cierres — ${Math.abs(diff)}% por debajo de la media. Revisar presupuestos activos; el asistente de mensajes puede ayudar a mejorar los resultados el próximo mes.`;
-  return `${d.aceptados}/${d.total} cierres — en línea con la media de la red (${mediaRed}%).`;
+  if (pct == null) return `${d.total} presupuestos, ninguno decidido todavía — sin tasa que analizar.`;
+  const diff = pct - mediaRed;
+  const cierres = `${d.aceptados} cierres ${nota}`;
+  if (pct >= 50) return `${cierres} — ${Math.abs(diff)} puntos por encima de la media de la red. Modelo de referencia para el equipo. Documentar su protocolo de presentación.`;
+  if (pct === 0) return `0 cierres ${nota} — resultado crítico. Verificar perfil de pacientes asignados; si es similar al resto del equipo, convocar revisión urgente.`;
+  if (diff < 0) return `${cierres} — ${Math.abs(diff)} puntos por debajo de la media. Revisar presupuestos activos; el asistente de mensajes puede ayudar a mejorar los resultados el próximo mes.`;
+  return `${cierres} — en línea con la media de la red (${mediaRed}%).`;
 }
 
 function proyeccionMeses(tendencia: TendenciaMes[], mes: string): { mes: string; valor: number }[] {
@@ -225,7 +255,10 @@ function InformePDF({
   const label = mesLabel(mes);
   const fecha = new Date(generadoEn).toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
   const parrafos = informe.split("\n\n").filter(Boolean).map((p) => plainText(p.trim()));
-  const mediaRed = datos.total > 0 ? Math.round(datos.aceptados / datos.total * 100) : 0;
+  // La media contra la que se compara a cada doctor sale de la misma tasa que
+  // todo lo demás; si se calculara aparte volvería a diluirse con los abiertos.
+  const tasaGlobal = leerTasa(datos.tasa, datos.total, datos.aceptados);
+  const mediaRed = tasaGlobal.pct ?? 0;
   const tendenciaTxt = tendenciaAnalisis(datos.tendenciaMensual ?? [], mes);
 
   // Pre-compute plan items to avoid IIFE inside JSX (causes issues in @react-pdf/renderer)
@@ -266,7 +299,9 @@ function InformePDF({
           </View>
           <View style={S.metricCard}>
             <Text style={{ ...S.metricValue, color: C.green }}>{datos.aceptados}</Text>
-            <Text style={S.metricLabel}>Aceptados ({datos.tasa}%)</Text>
+            <Text style={S.metricLabel}>
+              Aceptados · cierra {tasaGlobal.pct == null ? "—" : `${tasaGlobal.pct}%`} {tasaGlobal.nota}
+            </Text>
           </View>
           <View style={S.metricCard}>
             <Text style={S.metricValue}>{euro(datos.importeTotal)}</Text>
@@ -279,16 +314,17 @@ function InformePDF({
             <Text style={{ ...S.metricValue, fontSize: 16, color: C.orange }}>{euro(datos.importePipeline)}</Text>
             <Text style={S.metricLabel}>Seguimiento activo</Text>
           </View>
-          <View style={S.metricCard}>
-            <Text style={{ ...S.metricValue, fontSize: 16 }}>{datos.privados.total} ({datos.privados.tasa}%)</Text>
-            <Text style={S.metricLabel}>Privados</Text>
-          </View>
-          <View style={S.metricCard}>
-            <Text style={{ ...S.metricValue, fontSize: 16, color: datos.adeslas.tasa === 0 ? C.red : C.text }}>
-              {datos.adeslas.total} ({datos.adeslas.tasa}%)
-            </Text>
-            <Text style={S.metricLabel}>Adeslas</Text>
-          </View>
+          {(datos.porTipoPaciente ?? []).slice(0, 2).map((t, i) => {
+            const tt = leerTasa(t.tasa, t.total, 0);
+            return (
+              <View key={i} style={S.metricCard}>
+                <Text style={{ ...S.metricValue, fontSize: 16 }}>
+                  {t.total} ({tt.pct == null ? "—" : `${tt.pct}%`})
+                </Text>
+                <Text style={S.metricLabel}>{t.tipo}</Text>
+              </View>
+            );
+          })}
         </View>
         {parrafos.slice(0, 2).map((p, i) => (
           <Text key={i} style={S.paragraph}>{p}</Text>
@@ -355,7 +391,7 @@ function InformePDF({
                 <Text style={{ ...S.td, flex: 2 }}>{c.clinica}</Text>
                 <Text style={{ ...S.td, textAlign: "right" }}>{c.total}</Text>
                 <Text style={{ ...S.td, textAlign: "right" }}>{c.aceptados}</Text>
-                <Text style={{ ...S.td, textAlign: "right", color: tasaColor(c.tasa) }}>{c.tasa}%</Text>
+                <Text style={{ ...S.td, textAlign: "right", color: tasaColor(leerTasa(c.tasa, c.total, c.aceptados).pct) }}>{textoPct(leerTasa(c.tasa, c.total, c.aceptados).pct)}</Text>
                 <Text style={{ ...S.td, textAlign: "right" }}>{euro(c.importeTotal)}</Text>
               </View>
             ))}
@@ -422,7 +458,7 @@ function InformePDF({
               <Text style={{ ...S.td, flex: 2 }}>{d.doctor}</Text>
               <Text style={{ ...S.td, textAlign: "right" }}>{d.total}</Text>
               <Text style={{ ...S.td, textAlign: "right" }}>{d.aceptados}</Text>
-              <Text style={{ ...S.td, textAlign: "right", color: tasaColor(d.tasa) }}>{d.tasa}%</Text>
+              <Text style={{ ...S.td, textAlign: "right", color: tasaColor(leerTasa(d.tasa, d.total, d.aceptados).pct) }}>{textoPct(leerTasa(d.tasa, d.total, d.aceptados).pct)}</Text>
               <Text style={{ ...S.td, flex: 1.2, fontSize: 8 }}>{doctorEstado(d)}</Text>
             </View>
           ))}
@@ -430,7 +466,7 @@ function InformePDF({
         {/* Análisis por doctor (solo con ≥3 presupuestos) */}
         {datos.porDoctor.filter((d) => d.total >= 3).slice(0, 4).map((d, i) => (
           <View key={i} style={S.analysisBlock}>
-            <Text style={S.analysisTitle}>{d.doctor} — {d.tasa}% tasa</Text>
+            <Text style={S.analysisTitle}>{d.doctor} — cierra {textoPct(leerTasa(d.tasa, d.total, d.aceptados).pct)}</Text>
             <Text style={S.analysisBody}>{doctorAnalisis(d, mediaRed)}</Text>
           </View>
         ))}
@@ -568,7 +604,10 @@ export async function POST(req: Request) {
       clientCharts: clientChartKeys,
     });
 
-    const mediaRed = datos.total > 0 ? Math.round(datos.aceptados / datos.total * 100) : 0;
+    // La media contra la que se compara a cada doctor sale de la misma tasa que
+  // todo lo demás; si se calculara aparte volvería a diluirse con los abiertos.
+  const tasaGlobal = leerTasa(datos.tasa, datos.total, datos.aceptados);
+  const mediaRed = tasaGlobal.pct ?? 0;
     const proyeccion = proyeccionMeses(datos.tendenciaMensual ?? [], mes);
 
     // Use client-captured charts (from Recharts/html2canvas) if available; generate server-side as fallback
@@ -582,17 +621,26 @@ export async function POST(req: Request) {
           (datos.tendenciaMensual ?? []).map((t) => ({ label: t.label, ofrecidos: t.total, aceptados: t.aceptados }))
         ),
         useChart("clinicas") ? Promise.resolve(null) : graficoBarrasH(
-          (datos.porClinica ?? []).map((c) => ({
-            label: c.clinica,
-            value: c.tasa,
-            color: c.tasa >= mediaRed ? "#16A34A" : "#DC2626",
-          }))
+          // Las clínicas sin nada decidido no pintan barra: una barra a cero
+          // se lee como "no cerró ninguno", que es otra cosa.
+          (datos.porClinica ?? [])
+            .map((c) => ({ c, pct: leerTasa(c.tasa, c.total, c.aceptados).pct }))
+            .filter((x): x is { c: ClinicaKpi; pct: number } => x.pct != null)
+            .map(({ c, pct }) => ({
+              label: c.clinica,
+              value: pct,
+              color: pct >= mediaRed ? "#16A34A" : "#DC2626",
+            }))
         ),
         useChart("motivos") ? Promise.resolve(null) : graficoBarrasH(
           datos.porMotivo.map((m) => ({ label: m.motivo, value: m.count, color: "#DC2626" }))
         ),
         useChart("doctores") ? Promise.resolve(null) : graficoBarrasV(
-          datos.porDoctor.slice(0, 8).map((d) => ({ label: d.doctor, value: d.tasa })),
+          datos.porDoctor
+            .map((d) => ({ d, pct: leerTasa(d.tasa, d.total, d.aceptados).pct }))
+            .filter((x): x is { d: DoctorKpi; pct: number } => x.pct != null)
+            .slice(0, 8)
+            .map(({ d, pct }) => ({ label: d.doctor, value: pct })),
           mediaRed
         ),
         useChart("canales") ? Promise.resolve(null) : graficoBarrasH(

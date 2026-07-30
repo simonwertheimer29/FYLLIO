@@ -7,9 +7,13 @@ import type {
   Presupuesto, UserSession, KpiData, KpiPorEstado, KpiPorDoctor,
   KpiPorTratamiento, KpiMensual, KpiComparacion,
   KpiTendenciaTarifa, KpiTendenciaVisita,
-  KpiPorOrigen, KpiPorMotivoPerdida, KpiPorClinica,
+  KpiPorOrigen, KpiPorMotivoPerdida, KpiPorClinica, KpiPorTipo,
 } from "../../../lib/presupuestos/types";
 import { PIPELINE_ORDEN, ESTADOS_ACEPTADOS } from "../../../lib/presupuestos/colors";
+import { tasaCierre } from "../../../lib/presupuestos/tasa";
+import {
+  esPrimeraVisita, esVisitaRecurrente, categoriaTipoVisita, TIPOS_VISITA_MEDIDOS,
+} from "../../../lib/presupuestos/tipo-visita";
 import { detectarTecho } from "../../../lib/presupuestos/priceCeiling";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import {
@@ -110,10 +114,9 @@ function buildKpis(allPresupuestos: Presupuesto[], catalogo: string[] = []): Kpi
   };
 
   const total = allPresupuestos.length;
-  const primeraVisita = allPresupuestos.filter((p) => p.tipoVisita === "Primera Visita").length;
-  const conHistoria = allPresupuestos.filter((p) => p.tipoVisita === "Paciente con Historia").length;
+  const primeraVisita = allPresupuestos.filter((p) => esPrimeraVisita(p.tipoVisita)).length;
+  const conHistoria = allPresupuestos.filter((p) => esVisitaRecurrente(p.tipoVisita)).length;
   const aceptados = countAcepted(allPresupuestos);
-  const tasaAceptacion = total > 0 ? Math.round((aceptados / total) * 100) : 0;
   const importeActivos = allPresupuestos
     .filter((p) => !ESTADOS_ACEPTADOS.includes(p.estado) && p.estado !== "PERDIDO")
     .reduce((s, p) => s + (p.amount ?? 0), 0);
@@ -123,29 +126,42 @@ function buildKpis(allPresupuestos: Presupuesto[], catalogo: string[] = []): Kpi
     return { estado, count: g.length, importe: g.reduce((s, p) => s + (p.amount ?? 0), 0) };
   });
 
-  const doctorMap = new Map<string, KpiPorDoctor>();
-  for (const p of allPresupuestos) {
-    const key = p.doctor ?? "Sin doctor";
-    if (!doctorMap.has(key)) {
-      doctorMap.set(key, { doctor: key, especialidad: p.doctorEspecialidad ?? "General", total: 0, primeraVisita: 0, conHistoria: 0, aceptados: 0, tasa: 0 });
+  // Cada corte se agrupa y su tasa la calcula la ÚNICA función de tasa del
+  // producto — antes cada uno repetía `aceptados / total`, que mete a los que
+  // todavía no han decidido en el denominador.
+  const agrupar = <K extends string>(
+    filas: ReadonlyArray<[K, Presupuesto]>,
+  ): Map<K, Presupuesto[]> => {
+    const m = new Map<K, Presupuesto[]>();
+    for (const [k, p] of filas) {
+      const arr = m.get(k);
+      if (arr) arr.push(p);
+      else m.set(k, [p]);
     }
-    const d = doctorMap.get(key)!;
-    d.total++;
-    if (p.tipoVisita === "Primera Visita") d.primeraVisita++;
-    else d.conHistoria++;
-    if (ESTADOS_ACEPTADOS.includes(p.estado)) d.aceptados++;
-  }
-  const porDoctor: KpiPorDoctor[] = [...doctorMap.values()]
-    .map((d) => ({ ...d, tasa: d.total > 0 ? Math.round((d.aceptados / d.total) * 100) : 0 }))
-    .sort((a, b) => b.tasa - a.tasa);
+    return m;
+  };
 
-  const tratMap = new Map<string, { total: number; aceptados: number; importe: number }>();
+  const porDoctorGrupos = agrupar(
+    allPresupuestos.map((p) => [p.doctor ?? "Sin doctor", p] as [string, Presupuesto]),
+  );
+  const porDoctor: KpiPorDoctor[] = [...porDoctorGrupos.entries()]
+    .map(([doctor, ps]) => ({
+      doctor,
+      especialidad: ps[0]?.doctorEspecialidad ?? "General",
+      total: ps.length,
+      primeraVisita: ps.filter((p) => esPrimeraVisita(p.tipoVisita)).length,
+      conHistoria: ps.filter((p) => esVisitaRecurrente(p.tipoVisita)).length,
+      aceptados: countAcepted(ps),
+      tasa: tasaCierre(ps),
+    }))
+    .sort((a, b) => (b.tasa.pct ?? -1) - (a.tasa.pct ?? -1));
+
+  const tratMap = new Map<string, Presupuesto[]>();
   for (const p of allPresupuestos) {
     for (const t of p.treatments) {
-      if (!tratMap.has(t)) tratMap.set(t, { total: 0, aceptados: 0, importe: 0 });
-      const g = tratMap.get(t)!;
-      g.total++;
-      if (ESTADOS_ACEPTADOS.includes(p.estado)) { g.aceptados++; g.importe += p.amount ?? 0; }
+      const arr = tratMap.get(t);
+      if (arr) arr.push(p);
+      else tratMap.set(t, [p]);
     }
   }
   // Prepare per-treatment closed items for ceiling detection
@@ -158,13 +174,13 @@ function buildKpis(allPresupuestos: Presupuesto[], catalogo: string[] = []): Kpi
     }
   }
   const porTratamiento: KpiPorTratamiento[] = [...tratMap.entries()]
-    .map(([grupo, g]) => {
+    .map(([grupo, ps]) => {
       const items = tratItemsMap.get(grupo) ?? [];
       const techo = detectarTecho(items);
       return {
-        grupo, total: g.total, aceptados: g.aceptados,
-        tasa: g.total > 0 ? Math.round((g.aceptados / g.total) * 100) : 0,
-        importe: g.importe,
+        grupo, total: ps.length, aceptados: countAcepted(ps),
+        tasa: tasaCierre(ps),
+        importe: sumImporte(ps),
         techoPrecio: techo?.precio ?? null,
         techoInfo: techo ? {
           tasaBelow: techo.tasaBelow,
@@ -177,16 +193,17 @@ function buildKpis(allPresupuestos: Presupuesto[], catalogo: string[] = []): Kpi
     })
     .sort((a, b) => b.total - a.total);
 
-  const tipoFn = (tipo: string) => {
-    const list = allPresupuestos.filter((p) => p.tipoPaciente === tipo);
-    const ac = countAcepted(list);
-    return { tipo, total: list.length, aceptados: ac, tasa: list.length > 0 ? Math.round((ac / list.length) * 100) : 0, importe: sumImporte(list) };
-  };
-  const visitaFn = (tipo: string) => {
-    const list = allPresupuestos.filter((p) => p.tipoVisita === tipo);
-    const ac = countAcepted(list);
-    return { tipo, total: list.length, aceptados: ac, tasa: list.length > 0 ? Math.round((ac / list.length) * 100) : 0, importe: sumImporte(list) };
-  };
+  const corte = (tipo: string, list: Presupuesto[]): KpiPorTipo => ({
+    tipo,
+    total: list.length,
+    aceptados: countAcepted(list),
+    tasa: tasaCierre(list),
+    importe: sumImporte(list),
+  });
+  const tipoFn = (tipo: string) =>
+    corte(tipo, allPresupuestos.filter((p) => p.tipoPaciente === tipo));
+  const visitaFn = (tipo: string) =>
+    corte(tipo, allPresupuestos.filter((p) => categoriaTipoVisita(p.tipoVisita) === tipo));
 
   // Tendencia mensual (12 meses)
   const tendenciaMensual: KpiMensual[] = [];
@@ -199,7 +216,11 @@ function buildKpis(allPresupuestos: Presupuesto[], catalogo: string[] = []): Kpi
     const label = MES_LABEL[d.getMonth()];
     const list = allPresupuestos.filter((p) => isoToYYYYMM(p.fechaPresupuesto) === mes);
 
-    tendenciaMensual.push({ mes, label, total: list.length, aceptados: countAcepted(list) });
+    const tasaMes = tasaCierre(list);
+    tendenciaMensual.push({
+      mes, label, total: list.length,
+      aceptados: tasaMes.aceptados, perdidos: tasaMes.perdidos,
+    });
 
     const fila: KpiTendenciaTarifa = { mes, label };
     for (const tarifa of tarifas) {
@@ -209,8 +230,8 @@ function buildKpis(allPresupuestos: Presupuesto[], catalogo: string[] = []): Kpi
     }
     tendenciaPorTarifa.push(fila);
 
-    const primera = list.filter((p) => p.tipoVisita === "Primera Visita");
-    const historia = list.filter((p) => p.tipoVisita === "Paciente con Historia");
+    const primera = list.filter((p) => esPrimeraVisita(p.tipoVisita));
+    const historia = list.filter((p) => esVisitaRecurrente(p.tipoVisita));
     tendenciaPorVisita.push({
       mes, label,
       primera: primera.length, primeraAcept: countAcepted(primera),
@@ -221,20 +242,18 @@ function buildKpis(allPresupuestos: Presupuesto[], catalogo: string[] = []): Kpi
   const doctores = porDoctor.map((d) => d.doctor);
 
   // porOrigenLead
-  const origenMap = new Map<string, { total: number; aceptados: number; importe: number }>();
-  for (const p of allPresupuestos) {
-    const key = p.origenLead ?? "sin_origen";
-    if (!origenMap.has(key)) origenMap.set(key, { total: 0, aceptados: 0, importe: 0 });
-    const g = origenMap.get(key)!;
-    g.total++;
-    if (ESTADOS_ACEPTADOS.includes(p.estado)) { g.aceptados++; g.importe += p.amount ?? 0; }
-  }
-  const porOrigenLead: KpiPorOrigen[] = [...origenMap.entries()]
-    .map(([origen, g]) => ({
+  const porOrigenLead: KpiPorOrigen[] = [
+    ...agrupar(
+      allPresupuestos.map((p) => [p.origenLead ?? "sin_origen", p] as [string, Presupuesto]),
+    ).entries(),
+  ]
+    .map(([origen, ps]) => ({
       origen,
       label: ORIGEN_DISPLAY[origen] ?? origen,
-      ...g,
-      tasa: g.total > 0 ? Math.round((g.aceptados / g.total) * 100) : 0,
+      total: ps.length,
+      aceptados: countAcepted(ps),
+      importe: sumImporte(ps),
+      tasa: tasaCierre(ps),
     }))
     .sort((a, b) => b.total - a.total);
 
@@ -254,32 +273,33 @@ function buildKpis(allPresupuestos: Presupuesto[], catalogo: string[] = []): Kpi
     }))
     .sort((a, b) => b.count - a.count);
 
-  // porClinica
-  const clinicaMap = new Map<string, { total: number; aceptados: number; importe: number }>();
-  for (const p of allPresupuestos) {
-    const key = p.clinica ?? "Sin clínica";
-    if (!clinicaMap.has(key)) clinicaMap.set(key, { total: 0, aceptados: 0, importe: 0 });
-    const g = clinicaMap.get(key)!;
-    g.total++;
-    if (ESTADOS_ACEPTADOS.includes(p.estado)) { g.aceptados++; g.importe += p.amount ?? 0; }
-  }
-  const porClinica: KpiPorClinica[] = [...clinicaMap.entries()]
-    .map(([clinica, g]) => ({
+  // porClinica — la Comparativa de clínicas usa la misma tasa que todo lo demás.
+  const porClinica: KpiPorClinica[] = [
+    ...agrupar(
+      allPresupuestos.map((p) => [p.clinica ?? "Sin clínica", p] as [string, Presupuesto]),
+    ).entries(),
+  ]
+    .map(([clinica, ps]) => ({
       clinica,
-      ...g,
-      tasa: g.total > 0 ? Math.round((g.aceptados / g.total) * 100) : 0,
+      total: ps.length,
+      aceptados: countAcepted(ps),
+      importe: sumImporte(ps),
+      tasa: tasaCierre(ps),
     }))
-    .sort((a, b) => b.tasa - a.tasa);
+    .sort((a, b) => (b.tasa.pct ?? -1) - (a.tasa.pct ?? -1));
 
   return {
-    resumen: { total, primeraVisita, conHistoria, aceptados, tasaAceptacion, importeActivos },
+    resumen: {
+      total, primeraVisita, conHistoria, aceptados, importeActivos,
+      tasa: tasaCierre(allPresupuestos),
+    },
     comparacion,
     porEstado,
     porDoctor,
     porTratamiento,
     porTipoPaciente: tarifas.map(tipoFn),
     tarifas,
-    porTipoVisita: ["Primera Visita", "Paciente con Historia"].map(visitaFn),
+    porTipoVisita: TIPOS_VISITA_MEDIDOS.map(visitaFn),
     tendenciaMensual,
     tendenciaPorTarifa,
     tendenciaPorVisita,

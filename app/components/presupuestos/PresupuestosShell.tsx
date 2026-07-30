@@ -42,6 +42,8 @@ import {
   contarPipelinePresupuestos,
   cifrasNegocioPresupuestos,
   seVeConRango,
+  textoTasa,
+  notaTasa,
 } from "../../lib/presupuestos/pipeline";
 
 type Tab = "kanban" | "maxima";
@@ -469,19 +471,18 @@ export default function PresupuestosShell({
                     />
                   }
                 />
+                {/* La MISMA función de tasa que /kpis y los informes: aceptados
+                    sobre decididos, abiertos declarados. Antes cada pantalla
+                    calculaba la suya y se contradecían (55% allí, 72% aquí). */}
                 <Cifra
                   label="Se cierran"
-                  valor={cifras.tasa != null ? `${cifras.tasa}%` : "—"}
-                  detalle={
-                    cifras.tasa != null
-                      ? `de ${cifras.decididos} decidido${cifras.decididos === 1 ? "" : "s"} este mes · ${cifras.sinDecidir} sin decidir`
-                      : `ninguno decidido este mes · ${cifras.sinDecidir} sin decidir`
-                  }
+                  valor={textoTasa(cifras.tasa)}
+                  detalle={notaTasa(cifras.tasa, "que se cerraron este mes")}
                   comparacion={
-                    cifras.tasa != null && cifras.tasaPrevia != null ? (
+                    cifras.tasa.pct != null && cifras.tasaPrevia.pct != null ? (
                       <Comparativa
-                        valor={cifras.tasa}
-                        previo={cifras.tasaPrevia}
+                        valor={cifras.tasa.pct}
+                        previo={cifras.tasaPrevia.pct}
                         tipo="porcentaje"
                       />
                     ) : undefined

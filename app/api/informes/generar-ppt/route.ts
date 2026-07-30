@@ -7,6 +7,7 @@
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
+import { leerTasaGuardada, notaTasaGuardada } from "../../../lib/presupuestos/tasa";
 import { getSession } from "@/lib/auth/session";
 import PptxGenJS from "pptxgenjs";
 import {
@@ -27,20 +28,43 @@ async function isAuthed(): Promise<boolean> {
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type TendenciaMes = { mes: string; label: string; total: number; aceptados: number };
-type ClinicaKpi = { clinica: string; total: number; aceptados: number; importeTotal: number; tasa: number };
-type DoctorKpi = { doctor: string; total: number; aceptados: number; tasa: number };
+type ClinicaKpi = { clinica: string; total: number; aceptados: number; importeTotal: number; tasa: unknown };
+type DoctorKpi = { doctor: string; total: number; aceptados: number; tasa: unknown };
 type KpiResumen = {
   total: number; aceptados: number; perdidos: number; activos: number;
-  tasa: number; importeTotal: number; importePipeline: number;
+  tasa: unknown; importeTotal: number; importePipeline: number;
   porDoctor: DoctorKpi[];
   porOrigen: { origen: string; count: number }[];
   porMotivo: { motivo: string; count: number }[];
-  privados: { total: number; tasa: number };
-  adeslas: { total: number; tasa: number };
+  /** Los tipos de paciente que HAY (el catálogo es configurable por clínica).
+   *  Antes eran dos literales fijos, "Privado" y "Adeslas". */
+  porTipoPaciente?: { tipo: string; total: number; tasa: unknown }[];
   tendenciaMensual?: TendenciaMes[];
   porClinica?: ClinicaKpi[];
   abTonos?: { tono: string; mensajes: number; aceptados: number; tasa: number }[];
 };
+
+// ─── La tasa, leída venga como venga ─────────────────────────────────────────
+//
+// Este documento se genera a partir de `datos`, que puede llegar de dos sitios:
+// del informe recién calculado (donde `tasa` es ya el objeto con su
+// denominador) o de un informe GUARDADO antes del 2026-07-30, donde era un
+// número suelto que significaba aceptados/TOTAL — con los que aún no habían
+// decidido dentro del denominador. Los guardados no se reescriben: son
+// documentos ya emitidos. Pero sí se declara de qué denominador habla cada uno,
+// que es justo lo que faltaba.
+type TasaPlana = { pct: number | null; nota: string };
+
+function leerTasa(valor: unknown, total: number, aceptados: number): TasaPlana {
+  const t = leerTasaGuardada(valor, total, aceptados);
+  return { pct: t.pct, nota: notaTasaGuardada(t) };
+}
+
+/** El % para pintar. Sin decididos, una raya — nunca un cero que se lea como
+ *  "no cerró ninguno". */
+function textoPct(pct: number | null): string {
+  return pct == null ? "—" : `${pct}%`;
+}
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -60,7 +84,8 @@ function plainText(s: string): string {
   return s.replace(/\*\*(.+?)\*\*/g, "$1");
 }
 
-function semaforoColor(tasa: number, media: number): string {
+function semaforoColor(tasa: number | null, media: number): string {
+  if (tasa == null) return MUTED;
   if (tasa >= media * 1.1) return "16A34A"; // green
   if (tasa >= media * 0.8) return "D97706"; // orange
   return "DC2626";                           // red
@@ -153,7 +178,10 @@ export async function POST(req: Request) {
     const labelCaps = label.charAt(0).toUpperCase() + label.slice(1);
     const clinicaName = clinica ?? "Clínicas";
     const parrafos = informe.split("\n\n").filter(Boolean).map((p) => plainText(p.trim()));
-    const mediaRed = datos.total > 0 ? Math.round(datos.aceptados / datos.total * 100) : 0;
+    // La media contra la que se compara a cada doctor sale de la misma tasa que
+    // todo lo demás; si se calculara aparte volvería a diluirse con los abiertos.
+    const tasaGlobal = leerTasa(datos.tasa, datos.total, datos.aceptados);
+    const mediaRed = tasaGlobal.pct ?? 0;
     const proyeccion = proyeccionMeses(datos.tendenciaMensual ?? [], mes);
 
     // Use client-captured charts (from Recharts/html2canvas) if available; generate server-side as fallback
@@ -167,17 +195,26 @@ export async function POST(req: Request) {
           (datos.tendenciaMensual ?? []).map((t) => ({ label: t.label, ofrecidos: t.total, aceptados: t.aceptados }))
         ),
         useChart("clinicas") ? Promise.resolve(null) : graficoBarrasH(
-          (datos.porClinica ?? []).map((c) => ({
-            label: c.clinica,
-            value: c.tasa,
-            color: c.tasa >= mediaRed ? "#16A34A" : "#DC2626",
-          }))
+          // Las clínicas sin nada decidido no pintan barra: una barra a cero
+          // se lee como "no cerró ninguno", que es otra cosa.
+          (datos.porClinica ?? [])
+            .map((c) => ({ c, pct: leerTasa(c.tasa, c.total, c.aceptados).pct }))
+            .filter((x): x is { c: ClinicaKpi; pct: number } => x.pct != null)
+            .map(({ c, pct }) => ({
+              label: c.clinica,
+              value: pct,
+              color: pct >= mediaRed ? "#16A34A" : "#DC2626",
+            }))
         ),
         useChart("motivos") ? Promise.resolve(null) : graficoBarrasH(
           datos.porMotivo.map((m) => ({ label: m.motivo, value: m.count, color: "#DC2626" }))
         ),
         useChart("doctores") ? Promise.resolve(null) : graficoBarrasV(
-          datos.porDoctor.slice(0, 8).map((d) => ({ label: d.doctor, value: d.tasa })),
+          datos.porDoctor
+            .map((d) => ({ d, pct: leerTasa(d.tasa, d.total, d.aceptados).pct }))
+            .filter((x): x is { d: DoctorKpi; pct: number } => x.pct != null)
+            .slice(0, 8)
+            .map(({ d, pct }) => ({ label: d.doctor, value: pct })),
           mediaRed
         ),
         useChart("canales") ? Promise.resolve(null) : graficoBarrasH(
@@ -259,7 +296,7 @@ export async function POST(req: Request) {
       // 4 cajas KPI con número grande
       const kpis = [
         { val: String(datos.total), lbl: "PRESUPUESTOS", x: 0.35 },
-        { val: String(datos.aceptados), lbl: `ACEPTADOS (${datos.tasa}%)`, x: 3.6 },
+        { val: String(datos.aceptados), lbl: `ACEPTADOS · CIERRA ${textoPct(tasaGlobal.pct)} ${tasaGlobal.nota.toUpperCase()}`, x: 3.6 },
         { val: euro(datos.importeTotal), lbl: "IMPORTE ACEPTADO", x: 6.85 },
         { val: String(datos.activos), lbl: "PIPELINE ACTIVO", x: 10.1 },
       ];
@@ -335,7 +372,8 @@ export async function POST(req: Request) {
         const row = i % 2;
         const x = 0.35 + col * 6.55;
         const y = 1.05 + row * 2.9;
-        const bColor = semaforoColor(c.tasa, mediaRed);
+        const cPct = leerTasa(c.tasa, c.total, c.aceptados).pct;
+        const bColor = semaforoColor(cPct, mediaRed);
         // Card
         s.addShape(pptx.ShapeType.rect, {
           x, y, w: 6.2, h: 2.5,
@@ -347,7 +385,7 @@ export async function POST(req: Request) {
           x: x + 0.25, y: y + 0.12, w: 4.5, h: 0.5,
           fontSize: 18, bold: true, color: DARK, fontFace: "Calibri",
         });
-        s.addText(`${c.tasa}%`, {
+        s.addText(textoPct(cPct), {
           x: x + 4.9, y: y + 0.08, w: 1.2, h: 0.6,
           fontSize: 32, bold: true, color: bColor, align: "right", fontFace: "Calibri",
         });
@@ -429,14 +467,16 @@ export async function POST(req: Request) {
         s.addImage({ data: `data:image/png;base64,${pngDoctores}`, x: 0.4, y: 0.97, w: 12.5, h: 3.3 });
       }
       // Highlight card
-      const topDoc = datos.porDoctor.find((d) => d.total >= 3 && d.tasa >= 50);
+      const topDoc = datos.porDoctor
+        .map((d) => ({ d, pct: leerTasa(d.tasa, d.total, d.aceptados).pct }))
+        .find((x) => x.d.total >= 3 && x.pct != null && x.pct >= 50);
       if (topDoc) {
         s.addShape(pptx.ShapeType.rect, {
           x: 0.4, y: 4.4, w: 12.5, h: 0.75,
           fill: { color: "F5F3FF" }, line: { color: "DDD6FE", width: 1 },
         });
         s.addText(
-          `★ ${topDoc.doctor} (${topDoc.tasa}%) — ${topDoc.tasa - mediaRed}% por encima de la media de la red (${mediaRed}%). Documentar su protocolo de presentación.`,
+          `★ ${topDoc.d.doctor} (cierra ${topDoc.pct}%) — ${topDoc.pct! - mediaRed} puntos por encima de la media de la red (${mediaRed}%). Documentar su protocolo de presentación.`,
           { x: 0.6, y: 4.5, w: 12.1, h: 0.55, fontSize: 13, color: "4C1D95", fontFace: "Calibri", wrap: true }
         );
       }
@@ -448,14 +488,25 @@ export async function POST(req: Request) {
          cell({ text: "Tasa", bold: true, fontSize: 11, color: MUTED, fill: "F1F5F9", align: "center" }),
          cell({ text: "Estado", bold: true, fontSize: 11, color: MUTED, fill: "F1F5F9" })],
         ...datos.porDoctor.slice(0, 6).map((d, i) => {
-          const estado = d.tasa === 0 && d.total >= 3 ? "🔴 Urgente" : d.tasa >= 50 ? "✅ Referencia" : "⚠ Atención";
-          const tasaC = d.tasa === 0 && d.total >= 3 ? RED : d.tasa >= 50 ? GREEN : DARK;
+          const pct = leerTasa(d.tasa, d.total, d.aceptados).pct;
+          // Sin nadie decidido no se juzga al doctor: "todavía no se sabe" y
+          // "va mal" son cosas distintas, y esto acaba en una presentación.
+          const estado =
+            pct == null ? "Sin decidir"
+            : pct === 0 && d.total >= 3 ? "🔴 Urgente"
+            : pct >= 50 ? "✅ Referencia"
+            : "⚠ Atención";
+          const tasaC =
+            pct == null ? MUTED
+            : pct === 0 && d.total >= 3 ? RED
+            : pct >= 50 ? GREEN
+            : DARK;
           const bg = i % 2 === 0 ? WHITE : "FAFAFA";
           return [
-            cell({ text: d.doctor, bold: d.tasa >= 50, fontSize: 11, fill: bg }),
+            cell({ text: d.doctor, bold: pct != null && pct >= 50, fontSize: 11, fill: bg }),
             cell({ text: String(d.total), fontSize: 11, fill: bg, align: "center" }),
             cell({ text: String(d.aceptados), fontSize: 11, fill: bg, align: "center" }),
-            cell({ text: `${d.tasa}%`, bold: true, fontSize: 11, color: tasaC, fill: bg, align: "center" }),
+            cell({ text: textoPct(pct), bold: true, fontSize: 11, color: tasaC, fill: bg, align: "center" }),
             cell({ text: estado, fontSize: 10, fill: bg }),
           ];
         }),

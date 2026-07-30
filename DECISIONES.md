@@ -1055,3 +1055,55 @@ Y el copy que declara la asimetría es **literalmente el mismo** en las dos pant
 constante compartida (`NOTA_RANGO_SOLO_CERRADOS`) y no dos frases parecidas: dos textos que
 dicen lo mismo con palabras distintas son dos textos que divergen. Verificado: 31/31 activos y
 28/28 abiertos visibles en los cuatro rangos.
+
+## 2026-07-30 — /kpis bloque 1: la tasa de aceptación, una sola vez
+Cuatro pantallas calculaban "tasa de aceptación" y ninguna igual. `/kpis` hacía
+`aceptados / total` con **todos** los presupuestos en el denominador, incluidos los que aún no
+han decidido: enseñaba 55% donde la tasa sobre los 95 decididos era 72%. Diecisiete puntos, y
+repetidos en `porDoctor` (cada doctor entre 13 y 20 puntos peor de lo que es — Iván Castaño
+63%→83%, Lucía Ferrer 55%→71%), en `porTratamiento`, en la Comparativa de clínicas, en el
+informe que se narra con IA y en el PDF/PPT que se le entrega al cliente. El ranking de
+doctores no cambiaba de orden, lo comprobé; los números sí, todos.
+Es el mismo defecto que la pasada de /pacientes cerró un día antes, y para entonces la cabecera
+de /presupuestos ya lo calculaba bien: **dos pantallas del mismo producto daban dos tasas del
+mismo hecho.** Por eso la regla no vive en ninguna de las dos, sino en `lib/presupuestos/tasa`
+(módulo puro, sin imports de cliente, para que también lo usen las rutas de servidor). Un
+`TasaCierre` lleva el % **y su denominador**: `decididos`, `abiertos`, y `pct: null` cuando nadie
+ha decidido —no un 0% que se lee como "los rechazaron a todos"—. Lo consumen la ruta de KPIs
+(sus siete cortes), el informe IA, el PDF, el PPT y la cabecera. Y `notaTasa` es la coletilla
+compartida que lo declara, con un argumento `cohorte` porque la única diferencia legítima que
+queda entre pantallas es **de qué conjunto** habla el denominador: la cabecera mide lo que se
+CERRÓ este mes (14 de 21 → 67%) y /kpis lo decidido de lo PRESENTADO este mes (6 de 7 → 86%).
+Las dos son ciertas; lo que no valía es que ninguna dijera cuál.
+Anotar el tipo como objeto y no como número fue deliberado: el compilador señaló los 25 sitios
+que leían la tasa, incluido un `d.tasa + "%"` en la exportación CSV que habría escrito
+`[object Object]%`. Un `number` los habría dejado pasar en silencio.
+
+## 2026-07-30 — Lo que enseña arreglar un cero: el cero tapaba el hueco
+Cuatro de los seis puntos del bloque eran ceros en pantalla, y en tres de ellos el cero no era
+un error de cálculo sino **un dato que nadie escribe**:
+- "1ª Visita: 0 · Con historial: 0" con 123 presupuestos: el código comparaba con
+  `"Primera Visita"` y la base guarda `"Primera visita"`. Arreglado el literal, sale 123 y 0 —
+  porque nadie escribe nunca el otro valor. El cero tapaba que el corte no existe (MEJORAS 77).
+- "Cobrado 0 €" con 15 convertidos y pagos reales: el filtro "vino de un lead" leía
+  `pacientes.lead_origen_id`, que la conversión **nunca escribe**. 0 de 166 pacientes lo tenían.
+  El vínculo sí existe, por el otro lado (`leads.paciente_id`, 79 filas). La lectura ahora acepta
+  los dos; que el vínculo esté guardado dos veces queda anotado (MEJORAS 79).
+- "0 Asistió" seguido de "15 Convertido": un embudo que cae a cero y resucita. `leads.asistido`
+  está en false en los 268 leads. La asistencia real estaba en la agenda, y la pieza que la
+  atribuye —`citaDelLead`, con su ventana de 90 días— ya existía para el embudo de /red: se
+  **reutiliza, no se copia**. Y las etapas se construyen anidadas (convertir implica haber
+  pisado la clínica), así que el embudo no puede volver a subir.
+Regla que queda: **un KPI a cero se investiga como un fallo de datos, no se acepta como un dato.**
+
+## 2026-07-30 — El catch mudo de Informes: lo que sí rompía y lo que no
+`InformesView` cargaba el histórico con `.catch(() => {})` y `?? []`. Lo dije más grande de lo
+que era y lo corrijo: **el informe narrado por la IA NO salía de ahí** —lo calcula el servidor
+con sus propios datos—, así que ningún informe guardado llevaba ceros inventados. Comprobado en
+los tres tenants: 0 informes mensuales guardados, en DEMO, RB e INDEP.
+Lo que sí envenenaba es la **previsión a 3 meses**: sin histórico, `avgTotal` cae a 0, el
+fallback también, y salían tres tarjetas a €0 con cara de pronóstico — y esa gráfica **se captura
+y se incrusta en el PDF que se entrega**. Ahora el fallo se ve (error honesto + reintentar donde
+iba la previsión) y **bloquea la exportación**, porque un documento con un pronóstico de cero es
+peor que no tener documento. Los seis `fetch` de la pantalla pasan por `cargarJSON`, y el
+autoguardado dejó de ser fire-and-forget mudo: si el informe se genera pero no se guarda, se dice.
