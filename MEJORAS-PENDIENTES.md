@@ -1307,6 +1307,11 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   abre 2-3 transacciones propias. Reparto medido: comparativa de clínicas 5,9 s ·
   ranking de doctores 3,5 s · los dos facturados 5,7 s · `listLeads` 2,7 s ·
   `primeraAccionLeadTimestamp` 2,0 s **solo para componer un tooltip**.
+- **Lo PRIMERO, porque no depende del enlace:** `primeraAccionLeadTimestamp()`
+  cuesta **2 s** para componer un tooltip ("Datos disponibles desde …"). Es un
+  `min(timestamp)` sobre `acciones_lead`: dos segundos ahí son falta de índice,
+  no latencia. O se indexa, o el tooltip se calcula una vez y se cachea, o se
+  retira. Es el único punto de la lista cuyo coste seguiría en producción.
 - **Mejora:** un `getFacturadoPorClinicaEnPeriodo` que devuelva el mapa de todas
   las clínicas en UNA pasada (los datos ya se leen enteros y luego se filtran),
   y agrupar las lecturas sueltas dentro de una sola transacción. Ya se quitaron
@@ -1334,3 +1339,17 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   Antes parecía obedecer a los controles de arriba y no lo hacía.
 - **Impacto:** medio · **Esfuerzo:** medio (ruta nueva + entrada de navegación).
 - **Fecha:** 2026-07-30 · 🔵 **decisión de producto pendiente**
+
+## 82. El seed pone acciones ANTES de crear el lead: 30 de 58 fuera del tiempo de respuesta
+- **Zona:** `scripts/db-seed-demo-rico.mjs` (guion de conversación de los leads)
+- **Principio:** §4 — el KPI "tiempo medio de respuesta" salía **−4.314 min**, un
+  tiempo negativo. La causa: para 30 de los 58 leads del mes, la primera acción
+  saliente tiene un timestamp ANTERIOR al alta del lead. El KPI ya descarta esos
+  casos y lo declara en su tooltip (2026-07-30), así que la pantalla no miente —
+  pero está midiendo sobre 12 de 58 leads, no sobre 42.
+- **Mejora:** que el guion ancle sus mensajes DESPUÉS de `created_at` siempre. En
+  producción no puede pasar (la acción se escribe cuando ocurre), así que es
+  deuda de la demo, no del producto — pero deja la tasa de contactación de la
+  demo en 12/58, que se enseña.
+- **Impacto:** bajo en producto, medio en demo (es un KPI de la pantalla).
+- **Fecha:** 2026-07-30 · 🔵

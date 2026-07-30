@@ -39,7 +39,7 @@ async function shot({ theme = "light", width = 1440, height = 1000, modulo = nul
   await page.waitForTimeout(1200);
   if (modulo) {
     await page.getByRole("button", { name: modulo, exact: true }).first().click();
-    await page.waitForTimeout(6000);
+    await page.waitForTimeout(25000);
   }
   await page.screenshot({ path: `${OUT}/${name}.png`, fullPage: true });
   await ctx.close();

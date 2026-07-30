@@ -60,10 +60,17 @@ const fmtPct = (n: number) => `${(n * 100).toFixed(1)}%`;
 // Un solo formateador de euros en el producto (components/shared/Cifra).
 const fmtEUR = eur;
 
-// Riesgo → color (nivel del predictor: alto/medio/bajo).
+// Los umbrales de la tasa de ausencias, DECLARADOS y en un solo sitio: los usan
+// el color, la escala de las barras y el texto que los explica en pantalla. Un
+// color que juzga sin decir su criterio es una opinión disfrazada de dato.
+const TASA_ALTA = 0.2;
+const TASA_MEDIA = 0.1;
+export const NOTA_UMBRAL_NOSHOW =
+  "Verde por debajo del 10% · ámbar del 10% al 20% · rojo por encima del 20%.";
+
 function tasaTone(tasa: number): "emerald" | "amber" | "rose" {
-  if (tasa >= 0.2) return "rose";
-  if (tasa >= 0.1) return "amber";
+  if (tasa >= TASA_ALTA) return "rose";
+  if (tasa >= TASA_MEDIA) return "amber";
   return "emerald";
 }
 
@@ -150,15 +157,15 @@ function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolea
   }
 
   const t = data.tasaMes;
-  // Para no-shows BAJAR es bueno: invertimos el signo para KpiCard, que pinta
-  // delta>0 en verde y delta<0 en rojo. Así una caída de la tasa se muestra
-  // en verde (mejora) y una subida en rojo (empeora).
-  const deltaParaKpi =
-    t.deltaPct == null ? null : -t.deltaPct;
+  // Aquí se invertía el SIGNO del delta para engañar al color de KpiCard, y el
+  // resultado era «↑ 31%» en verde sobre una tasa que había BAJADO de 7,7% a
+  // 5,4%: el color acertaba y la flecha mentía. Ahora el significado viaja como
+  // tal (`subirEsMalo`) y no hay flecha que contradecir — el signo del cambio
+  // dice la dirección y el color dice si eso es bueno.
   const sublineTasa =
-    t.deltaPct == null
+    t.tasaAnterior == null
       ? `${t.noShows} de ${t.total} citas · sin base mes anterior`
-      : `${t.noShows} de ${t.total} citas · mes ant. ${fmtPct(t.tasaAnterior)}`;
+      : `${t.noShows} de ${t.total} citas`;
 
   const c = data.costeOportunidad;
 
@@ -168,7 +175,9 @@ function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolea
         label="Tasa no-show (mes)"
         value={Number((t.tasa * 100).toFixed(1))}
         formatter={(n) => `${n}%`}
-        deltaPct={deltaParaKpi}
+        previo={t.tasaAnterior == null ? null : Number((t.tasaAnterior * 100).toFixed(1))}
+        tipo="porcentaje"
+        subirEsMalo
         subline={sublineTasa}
         accent={tasaTone(t.tasa)}
       />
@@ -179,6 +188,8 @@ function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolea
         subline={`${c.noShows} no-shows × ${fmtEUR(c.ticketMedio)} ticket medio`}
         accent="rose"
       />
+      {/* Nota: aquí no hay comparación porque la ruta no manda el coste del mes
+          anterior. Antes tampoco la había; lo que no se hace es inventarla. */}
       {/* Aquí iba "Precisión predictor". Enseñaba "0% · 0 de 2 predicciones
           cerradas": una promesa de inteligencia sostenida por dos filas. El
           motor de no-shows está congelado (Sprint B), así que no hay
@@ -264,7 +275,10 @@ function ComparativaClinicas({
         <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
           Comparativa de clínicas
         </h3>
-        <p className="text-xs text-[var(--color-muted)] mt-0.5">Tasa no-show del mes en curso.</p>
+        <p className="text-xs text-[var(--color-muted)] mt-0.5">
+          Tasa no-show del mes en curso. La barra llega al final en el 20%.
+        </p>
+        <p className="text-[11px] text-[var(--color-muted)] mt-0.5">{NOTA_UMBRAL_NOSHOW}</p>
       </div>
       {loading && !data ? (
         <div className="p-4 space-y-2">
@@ -278,8 +292,14 @@ function ComparativaClinicas({
       ) : (
         <ul className="divide-y divide-[var(--color-border)]">
           {data.comparativaClinicas.map((c, i) => {
-            const max = data.comparativaClinicas[0]?.tasa || 1;
-            const pct = max > 0 ? Math.max(3, (c.tasa / max) * 100) : 0;
+            // La escala era RELATIVA a la peor clínica de la lista, así que la
+            // primera siempre llenaba la barra y el resto salía casi igual de
+            // llena: con 7,0 · 6,5 · 4,9 · 3,2% se pintaban 100 · 93 · 70 · 46%.
+            // El largo sugería una diferencia que no existe y no decía nada del
+            // nivel real. Ahora la escala es ABSOLUTA y termina en el umbral que
+            // ya declaramos como tasa alta: la barra mide cuánto te falta para
+            // estar mal, que es la pregunta.
+            const pct = Math.min(100, Math.max(2, (c.tasa / TASA_ALTA) * 100));
             const tone = tasaTone(c.tasa);
             const barColor =
               tone === "rose"

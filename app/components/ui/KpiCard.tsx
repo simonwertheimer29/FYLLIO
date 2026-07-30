@@ -6,7 +6,9 @@
 // Filosofía:
 //  - Label arriba en mayúsculas, tracking-widest, gris.
 //  - Número en font-display grande con tabular-nums.
-//  - Comparativa abajo con flecha de color funcional.
+//  - Comparativa abajo con la MISMA gramática que `Cifra`: la magnitud del
+//    cambio en las unidades del valor, sin flecha (el signo ya dice la
+//    dirección) y con el color atado al SIGNIFICADO, no al signo aritmético.
 //  - Botón ✨ Copilot opcional arriba-derecha (Sprint 11 C.5 + Sprint 12 G).
 //
 // Counter animado (Sprint 12 F): el número se interpola en 400ms del valor
@@ -15,6 +17,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Card } from "./Card";
+import { Comparativa, type TipoCifra } from "../shared/Cifra";
 import { openCopilot } from "../copilot/openCopilot";
 import { Sparkles, ICON_STROKE } from "../icons";
 
@@ -26,8 +29,20 @@ export type KpiCardProps = {
   formatter?: (n: number) => string;
   /** Texto secundario debajo (subline informativa). */
   subline?: string;
-  /** Variación porcentual respecto al periodo anterior. Si null, no se muestra. */
-  deltaPct?: number | null;
+  /** El valor del periodo anterior. La comparación se calcula aquí, con la
+   *  gramática de `Cifra`: magnitud en las unidades del valor, nunca un % de un
+   *  %. `null` o ausente → no se compara.
+   *
+   *  Antes esto era `deltaPct`, un porcentaje ya masticado que llegaba con su
+   *  flecha: para un KPI que YA es un porcentaje producía «↑ 31%» sobre un
+   *  cambio de 7,7% a 5,4% —un % de un %— y encima la flecha decía "arriba"
+   *  mientras el número bajaba. */
+  previo?: number | null;
+  /** En qué unidades se lee el cambio. Un porcentaje cambia en PUNTOS. */
+  tipo?: TipoCifra;
+  /** Métricas donde SUBIR es malo: no-shows, vencidos, perdidos, días parados.
+   *  Sin esto, "más ausencias" se pintaba de verde por ser un número mayor. */
+  subirEsMalo?: boolean;
   /** Tono del label badge. `accent` = azul clínico; `ia` = señal IA (mismo
    *  azul + Sparkles). "sky" y "violet" quedan como alias legacy de accent/ia. */
   accent?: "neutral" | "accent" | "emerald" | "amber" | "rose" | "ia" | "sky" | "violet";
@@ -59,21 +74,14 @@ export function KpiCard({
   value,
   formatter = DEFAULT_FORMAT,
   subline,
-  deltaPct,
+  previo,
+  tipo = "numero",
+  subirEsMalo,
   accent = "neutral",
   copilotSummary,
   copilotInitial,
 }: KpiCardProps) {
   const display = useAnimatedNumber(value);
-  const deltaColor =
-    deltaPct == null
-      ? null
-      : deltaPct > 0
-        ? "text-[var(--color-success)]"
-        : deltaPct < 0
-          ? "text-[var(--color-danger)]"
-          : "text-[var(--color-muted)]";
-  const deltaArrow = deltaPct == null ? "" : deltaPct > 0 ? "↑" : deltaPct < 0 ? "↓" : "→";
 
   return (
     <Card padding="lg" className="relative">
@@ -103,15 +111,12 @@ export function KpiCard({
       <p className="font-display text-4xl font-bold text-[var(--color-foreground)] tabular-nums leading-tight mt-3">
         {formatter(display)}
       </p>
-      <div className="mt-2 flex items-center gap-2">
-        {deltaPct != null && (
+      <div className="mt-2 flex items-center gap-2 flex-wrap">
+        {previo != null && (
           // Aparece tras el counter (fade+slide de 220ms con delay) — solo al
           // montar; un cambio de valor no re-anima (el nodo persiste).
-          <span
-            className={`text-xs font-semibold fyllio-fade-in ${deltaColor}`}
-            style={{ animationDelay: "260ms" }}
-          >
-            {deltaArrow} {Math.abs(deltaPct).toFixed(0)}%
+          <span className="fyllio-fade-in" style={{ animationDelay: "260ms" }}>
+            <Comparativa valor={value} previo={previo} tipo={tipo} subirEsMalo={subirEsMalo} />
           </span>
         )}
         {subline && (

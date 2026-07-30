@@ -14,6 +14,7 @@ import {
   Tooltip as ReTooltip,
 } from "recharts";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { colorCategoria } from "../../components/shared/paleta-grafica";
 import type { PeriodoKpi } from "../../lib/periodo";
 import { KpiCard } from "../../components/ui/KpiCard";
 import { KpiCardSkeleton } from "../../components/ui/Skeleton";
@@ -78,14 +79,6 @@ const METRIC_LABELS: Record<ComparativaMetric, string> = {
 
 // Un solo formateador de euros en el producto (components/shared/Cifra).
 const fmtEUR = eur;
-
-// Escala ordinal derivada del acento (mayor cuota → paso más intenso).
-// color-mix con la superficie → se adapta solo a tema claro/oscuro.
-// Último paso: neutro para categorías de cola. Alineada con el donut
-// de origen de leads (KpisLeadsView).
-const SKY_PALETTE = [100, 80, 60, 40, 20]
-  .map((p) => `color-mix(in srgb, var(--color-accent) ${p}%, var(--color-surface))`)
-  .concat("var(--color-muted)");
 
 export function KpisCobrosView({ periodo }: { periodo: Periodo }) {
   const [data, setData] = useState<ApiResponse | null>(null);
@@ -389,7 +382,7 @@ function DistribucionMetodos({ data }: { data: ApiResponse | null }) {
                   {items.map((_, i) => (
                     <Cell
                       key={i}
-                      fill={SKY_PALETTE[i % SKY_PALETTE.length]}
+                      fill={colorCategoria(i)}
                     />
                   ))}
                 </Pie>
@@ -416,7 +409,7 @@ function DistribucionMetodos({ data }: { data: ApiResponse | null }) {
               >
                 <span
                   className="inline-block w-3 h-3 rounded-sm"
-                  style={{ backgroundColor: SKY_PALETTE[i % SKY_PALETTE.length] }}
+                  style={{ backgroundColor: colorCategoria(i) }}
                 />
                 <span className="flex-1 truncate">{m.metodo}</span>
                 <span className="tabular-nums text-[var(--color-muted)]">{m.pct}%</span>

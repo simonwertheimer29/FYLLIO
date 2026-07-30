@@ -7,11 +7,13 @@ import {
   ResponsiveContainer, Legend,
 } from "recharts";
 import type { KpiData, UserSession } from "../../lib/presupuestos/types";
-import { ESPECIALIDAD_COLOR } from "../../lib/presupuestos/colors";
+import {
+  COLOR_OFRECIDO, COLOR_ACEPTADO, colorCategoria, pasoAcento,
+} from "../shared/paleta-grafica";
 import { Card } from "../ui/Card";
 import { ErrorState } from "../ui/Feedback";
 import { Info, Star, ChevronDown, ChevronRight, ICON_STROKE } from "../icons";
-import { eur } from "../shared/Cifra";
+import { Comparativa, eur, type TipoCifra } from "../shared/Cifra";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import { textoTasa, notaTasa, type TasaCierre } from "../../lib/presupuestos/tasa";
 import { etiquetaTipoVisita } from "../../lib/presupuestos/tipo-visita";
@@ -46,9 +48,9 @@ const SUB_TABS: { id: SubTab; label: string }[] = [
  *  declararse en pantalla; eso es del bloque visual.) */
 function colorTasa(t: TasaCierre): string {
   if (t.pct == null) return "text-[var(--color-muted)]";
-  if (t.pct >= 50) return "text-emerald-700 dark:text-emerald-300";
-  if (t.pct >= 25) return "text-amber-700 dark:text-amber-300";
-  return "text-rose-600 dark:text-rose-400";
+  if (t.pct >= 50) return "text-[var(--color-success)]";
+  if (t.pct >= 25) return "text-[var(--color-warning)]";
+  return "text-[var(--color-danger)]";
 }
 
 // ─── Shared components ────────────────────────────────────────────────────────
@@ -73,16 +75,27 @@ function HeaderBlock({ title, main, sub1, sub2, highlight, tooltip }: {
   );
 }
 
-function TrendBadge({ curr, prev, unit = "" }: { curr: number; prev: number; unit?: string }) {
+/**
+ * La comparación de esta pantalla ES la del resto del producto.
+ *
+ * Aquí vivía `TrendBadge`, con las tres cosas que la gramática de `Cifra`
+ * prohíbe a la vez: una flecha peleándose con el signo del número, la magnitud
+ * seguida de un porcentaje entre paréntesis —«↑ 14% (19%)», un % de un %— y el
+ * color atado al signo aritmético, que pinta de verde "+2 perdidos".
+ */
+function TrendBadge({
+  curr,
+  prev,
+  tipo = "numero",
+  subirEsMalo,
+}: {
+  curr: number;
+  prev: number;
+  tipo?: TipoCifra;
+  subirEsMalo?: boolean;
+}) {
   if (prev === 0 && curr === 0) return <span className="text-xs text-[var(--color-muted)]">—</span>;
-  const diff = curr - prev;
-  const pct = prev > 0 ? Math.round((diff / prev) * 100) : 0;
-  const up = diff >= 0;
-  return (
-    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${up ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-300"}`}>
-      {up ? "↑" : "↓"} {Math.abs(diff)}{unit} ({Math.abs(pct)}%)
-    </span>
-  );
+  return <Comparativa valor={curr} previo={prev} tipo={tipo} subirEsMalo={subirEsMalo} />;
 }
 
 const TOOLTIP_STYLE = {
@@ -158,7 +171,7 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                 {curr == null ? "—" : unit === "€" ? eur(curr) : `${curr}${unit ?? ""}`}
               </p>
               {curr != null && prev != null && (
-                <TrendBadge curr={curr} prev={prev} unit={unit === "€" ? "" : (unit ?? "")} />
+                <TrendBadge curr={curr} prev={prev} tipo={unit === "€" ? "dinero" : unit === "%" ? "porcentaje" : "numero"} />
               )}
             </div>
           ))}
@@ -173,12 +186,12 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
           <AreaChart data={kpis.tendenciaMensual} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
             <defs>
               <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.18} />
-                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                <stop offset="5%" stopColor={COLOR_OFRECIDO} stopOpacity={0.18} />
+                <stop offset="95%" stopColor={COLOR_OFRECIDO} stopOpacity={0} />
               </linearGradient>
               <linearGradient id="g2" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#22c55e" stopOpacity={0.22} />
-                <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                <stop offset="5%" stopColor={COLOR_ACEPTADO} stopOpacity={0.22} />
+                <stop offset="95%" stopColor={COLOR_ACEPTADO} stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
@@ -186,8 +199,8 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
             <YAxis tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} allowDecimals={false} />
             <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ fontWeight: 700 }} />
             <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
-            <Area type="monotone" dataKey="total" name="Ofrecidos" stroke="#3b82f6" strokeWidth={2} fill="url(#g1)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
-            <Area type="monotone" dataKey="aceptados" name="Aceptados" stroke="#22c55e" strokeWidth={2} fill="url(#g2)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+            <Area type="monotone" dataKey="total" name="Ofrecidos" stroke={COLOR_OFRECIDO} strokeWidth={2} fill="url(#g1)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
+            <Area type="monotone" dataKey="aceptados" name="Aceptados" stroke={COLOR_ACEPTADO} strokeWidth={2} fill="url(#g2)" dot={false} activeDot={{ r: 4, strokeWidth: 0 }} />
           </AreaChart>
         </ResponsiveContainer>
       </Card>
@@ -222,7 +235,7 @@ function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
               {mes?.aceptados ?? 0} aceptados · {mes ? `${textoTasa(mes.tasa)} se cierran` : "—"}
             </p>
             {(mes?.importe ?? 0) > 0 && (
-              <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mt-0.5">€{(mes?.importe ?? 0).toLocaleString("es-ES")} aceptado</p>
+              <p className="text-xs font-semibold text-[var(--color-success)] mt-0.5">{eur((mes?.importe ?? 0))} aceptado</p>
             )}
             <div className="mt-2">
               <TrendBadge curr={mes?.total ?? 0} prev={prev?.total ?? 0} />
@@ -287,9 +300,9 @@ function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                 <tr key={t.tipo} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-muted)]">
                   <td className="px-4 py-3 font-semibold text-[var(--color-foreground)]">{t.tipo}</td>
                   <td className="px-4 py-3 text-[var(--color-foreground)]">{t.total}</td>
-                  <td className="px-4 py-3 font-semibold text-emerald-700 dark:text-emerald-300">{t.aceptados}</td>
+                  <td className="px-4 py-3 font-semibold text-[var(--color-success)]">{t.aceptados}</td>
                   <td className="px-4 py-3 font-bold text-[var(--color-foreground)]" title={notaTasa(t.tasa)}>{textoTasa(t.tasa)}</td>
-                  <td className="px-4 py-3 text-[var(--color-foreground)]">€{t.importe.toLocaleString("es-ES")}</td>
+                  <td className="px-4 py-3 text-[var(--color-foreground)]">{eur(t.importe)}</td>
                   <td className="px-4 py-3"><TrendBadge curr={t.total} prev={p?.total ?? 0} /></td>
                 </tr>
               );
@@ -318,7 +331,7 @@ function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
               <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">{tipoLabel(t.tipo)} — {mesLabel}</p>
               <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">{t.total}</p>
               <p className="text-xs text-[var(--color-muted)] mt-1">{t.aceptados} aceptados · {textoTasa(t.tasa)} se cierran</p>
-              {t.importe > 0 && <p className="text-xs font-semibold text-emerald-700 dark:text-emerald-300 mt-0.5">€{t.importe.toLocaleString("es-ES")} aceptado</p>}
+              {t.importe > 0 && <p className="text-xs font-semibold text-[var(--color-success)] mt-0.5">{eur(t.importe)} aceptado</p>}
               <div className="mt-2"><TrendBadge curr={t.total} prev={prev?.total ?? 0} /></div>
             </div>
           );
@@ -335,10 +348,15 @@ function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
             <YAxis tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} allowDecimals={false} />
             <Tooltip contentStyle={TOOLTIP_STYLE} />
             <Legend wrapperStyle={{ fontSize: "11px", paddingTop: "8px" }} />
-            <Bar dataKey="primera" name="1ª Visita ofrecido" fill="#93c5fd" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="primeraAcept" name="1ª Visita aceptado" fill="#2563eb" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="historia" name="Con historial ofrecido" fill="#a5f3fc" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="historiaAcept" name="Con historial aceptado" fill="#0891b2" radius={[3, 3, 0, 0]} />
+            {/* Dos categorías (1ª visita / con historial) × dos estados
+                (ofrecido / aceptado). La CATEGORÍA la lleva el paso de la escala
+                y el ESTADO la intensidad: lo ofrecido en claro, lo aceptado en
+                el mismo tono lleno. Antes eran cuatro azules-cianes a mano que
+                en oscuro se comían entre ellos. */}
+            <Bar dataKey="primera" name="1ª visita · ofrecidos" fill={pasoAcento(35)} radius={[3, 3, 0, 0]} />
+            <Bar dataKey="primeraAcept" name="1ª visita · aceptados" fill={COLOR_OFRECIDO} radius={[3, 3, 0, 0]} />
+            <Bar dataKey="historia" name="Ya eran pacientes · ofrecidos" fill="color-mix(in srgb, var(--color-success) 35%, var(--color-surface))" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="historiaAcept" name="Ya eran pacientes · aceptados" fill={COLOR_ACEPTADO} radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -360,9 +378,9 @@ function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                 <tr key={t.tipo} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-muted)]">
                   <td className="px-4 py-3 font-semibold text-[var(--color-foreground)]">{tipoLabel(t.tipo)}</td>
                   <td className="px-4 py-3 text-[var(--color-foreground)]">{t.total}</td>
-                  <td className="px-4 py-3 font-semibold text-emerald-700 dark:text-emerald-300">{t.aceptados}</td>
+                  <td className="px-4 py-3 font-semibold text-[var(--color-success)]">{t.aceptados}</td>
                   <td className="px-4 py-3 font-bold text-[var(--color-foreground)]" title={notaTasa(t.tasa)}>{textoTasa(t.tasa)}</td>
-                  <td className="px-4 py-3 text-[var(--color-foreground)]">€{t.importe.toLocaleString("es-ES")}</td>
+                  <td className="px-4 py-3 text-[var(--color-foreground)]">{eur(t.importe)}</td>
                   <td className="px-4 py-3"><TrendBadge curr={t.total} prev={prev?.total ?? 0} /></td>
                 </tr>
               );
@@ -377,8 +395,8 @@ function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
 // ─── Tab: Tratamientos ────────────────────────────────────────────────────────
 
 const CONFIANZA_BADGE: Record<string, { bg: string; text: string; label: string }> = {
-  alta:  { bg: "bg-emerald-100 dark:bg-emerald-500/15", text: "text-emerald-700 dark:text-emerald-300", label: "Alta confianza" },
-  media: { bg: "bg-amber-100 dark:bg-amber-500/15",   text: "text-amber-700 dark:text-amber-300",   label: "Confianza media" },
+  alta:  { bg: "bg-[var(--color-success-soft)] dark:bg-[var(--color-success)]/15", text: "text-[var(--color-success)]", label: "Alta confianza" },
+  media: { bg: "bg-[var(--color-warning-soft)] dark:bg-[var(--color-warning)]/15",   text: "text-[var(--color-warning)]",   label: "Confianza media" },
   baja:  { bg: "bg-[var(--color-surface-muted)]",   text: "text-[var(--color-muted)]",   label: "Pocos datos" },
 };
 
@@ -407,7 +425,7 @@ function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: 
 
       {/* Umbrales de precio detectados */}
       {tratConTecho.length > 0 && (
-        <div className="rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 p-5">
+        <div className="rounded-2xl border border-[var(--color-warning)] bg-[var(--color-warning-soft)] p-5">
           <p className="text-sm font-bold text-[var(--color-foreground)] mb-1">Umbrales de precio detectados</p>
           <p className="text-xs text-[var(--color-muted)] mb-4">
             Importe a partir del cual la tasa de aceptación cae significativamente para cada tratamiento.
@@ -418,12 +436,12 @@ function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: 
               const badge = CONFIANZA_BADGE[info.confianza] ?? CONFIANZA_BADGE.baja;
               const maxTasa = Math.max(info.tasaBelow, info.tasaAbove, 1);
               return (
-                <div key={t.grupo} className="bg-[var(--color-surface)] rounded-xl border border-amber-100 dark:border-amber-500/20 p-4">
+                <div key={t.grupo} className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-warning)] p-4">
                   <div className="flex items-center justify-between mb-3">
                     <p className="font-semibold text-sm text-[var(--color-foreground)]">{t.grupo}</p>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-amber-700 dark:text-amber-300">
-                        ~€{t.techoPrecio!.toLocaleString("es-ES")}
+                      <span className="text-sm font-bold text-[var(--color-warning)]">
+                        ~{eur(t.techoPrecio!)}
                       </span>
                       <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${badge.bg} ${badge.text}`}>
                         {badge.label}
@@ -434,30 +452,30 @@ function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: 
                   <div className="space-y-1.5">
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] text-[var(--color-muted)] w-28 shrink-0">
-                        ≤€{t.techoPrecio!.toLocaleString("es-ES")}
+                        ≤{eur(t.techoPrecio!)}
                       </span>
                       <div className="flex-1 h-5 bg-[var(--color-surface-muted)] rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-emerald-400 rounded-full transition-all"
+                          className="h-full bg-[var(--color-success)] rounded-full transition-all"
                           style={{ width: `${Math.round((info.tasaBelow / maxTasa) * 100)}%` }}
                         />
                       </div>
-                      <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300 w-8 text-right">
+                      <span className="text-[11px] font-bold text-[var(--color-success)] w-8 text-right">
                         {info.tasaBelow}%
                       </span>
                     </div>
                     {/* Barra superior al techo */}
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] text-[var(--color-muted)] w-28 shrink-0">
-                        &gt;€{t.techoPrecio!.toLocaleString("es-ES")}
+                        &gt;{eur(t.techoPrecio!)}
                       </span>
                       <div className="flex-1 h-5 bg-[var(--color-surface-muted)] rounded-full overflow-hidden">
                         <div
-                          className="h-full bg-rose-400 rounded-full transition-all"
+                          className="h-full bg-[var(--color-danger)] rounded-full transition-all"
                           style={{ width: `${Math.round((info.tasaAbove / maxTasa) * 100)}%` }}
                         />
                       </div>
-                      <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 w-8 text-right">
+                      <span className="text-[11px] font-bold text-[var(--color-danger)] w-8 text-right">
                         {info.tasaAbove}%
                       </span>
                     </div>
@@ -515,16 +533,16 @@ function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: 
                   <tr key={t.grupo} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-muted)]">
                     <td className="px-4 py-3 font-medium text-[var(--color-foreground)]">{t.grupo}</td>
                     <td className="px-4 py-3 text-[var(--color-foreground)]">{t.total}</td>
-                    <td className="px-4 py-3 font-semibold text-emerald-700 dark:text-emerald-300">{t.aceptados}</td>
+                    <td className="px-4 py-3 font-semibold text-[var(--color-success)]">{t.aceptados}</td>
                     <td className="px-4 py-3 font-bold text-[var(--color-foreground)]" title={notaTasa(t.tasa)}>{textoTasa(t.tasa)}</td>
-                    <td className="px-4 py-3 text-[var(--color-foreground)]">€{t.importe.toLocaleString("es-ES")}</td>
+                    <td className="px-4 py-3 text-[var(--color-foreground)]">{eur(t.importe)}</td>
                     <td className="px-4 py-3">
                       {techo ? (
                         <span
-                          className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 cursor-default"
+                          className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-warning-soft)] dark:bg-[var(--color-warning)]/15 text-[var(--color-warning)] cursor-default"
                           title="La tasa de conversión cae significativamente a partir de este importe"
                         >
-                          ~€{techo.toLocaleString("es-ES")}
+                          ~{eur(techo)}
                         </span>
                       ) : (
                         <span className="text-[10px] text-[var(--color-muted)]">—</span>
@@ -547,7 +565,7 @@ function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: 
             <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} unit="%" />
             <YAxis type="category" dataKey="grupo" tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} width={100} />
             <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`${v}%`, "Tasa"]} />
-            <Bar dataKey="tasaPct" name="Tasa %" fill="#0891b2" radius={[0, 4, 4, 0]} />
+            <Bar dataKey="tasaPct" name="Tasa %" fill={pasoAcento(70)} radius={[0, 4, 4, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -613,22 +631,21 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
             {[...kpisMes.porDoctor].sort((a, b) => (b.tasa.pct ?? -1) - (a.tasa.pct ?? -1)).map((d) => {
               const prev = prevMap.get(d.doctor);
-              const espColor = ESPECIALIDAD_COLOR[d.especialidad as keyof typeof ESPECIALIDAD_COLOR] ?? "#e2e8f0";
               return (
+                // La tarjeta se teñía con un pastel por ESPECIALIDAD: cinco
+                // colores de identidad que no decían nada del doctor y que en
+                // oscuro eran cinco claros sobre fondo oscuro. La especialidad
+                // ya se lee justo debajo, en texto.
                 <div
                   key={d.doctor}
                   onClick={() => loadDoctorEvol(d.doctor)}
-                  className="rounded-xl border border-[var(--color-border)] p-4 cursor-pointer hover:shadow-md transition-shadow"
-                  style={{ background: espColor + "18" }}
+                  className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 cursor-pointer hover:shadow-md transition-shadow"
                 >
                   <div className="flex items-start justify-between gap-1 mb-2">
                     <p className="text-xs font-bold text-[var(--color-foreground)] leading-tight">{d.doctor}</p>
                     {prev && <TrendBadge curr={d.total} prev={prev.total} />}
                   </div>
-                  <span
-                    className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full mb-3 inline-block"
-                    style={{ background: espColor, color: "#1e293b" }}
-                  >
+                  <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded-full mb-3 inline-block bg-[var(--color-surface-muted)] text-[var(--color-muted)]">
                     {d.especialidad}
                   </span>
                   {/* Tasa grande */}
@@ -637,7 +654,7 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                   {/* Progress bar */}
                   <div className="w-full bg-[var(--color-border)] rounded-full h-1.5 mb-2">
                     <div
-                      className="h-1.5 rounded-full bg-emerald-500 transition-all"
+                      className="h-1.5 rounded-full bg-[var(--color-success)] transition-all"
                       style={{ width: `${d.tasa.pct ?? 0}%` }}
                     />
                   </div>
@@ -680,7 +697,6 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                     <tr
                       onClick={() => loadDoctorEvol(d.doctor)}
                       className={`border-b border-[var(--color-border)] cursor-pointer transition-colors ${isSelected ? "bg-[var(--color-accent-soft)]" : "hover:bg-[var(--color-surface-muted)]"}`}
-                      style={{ background: isSelected ? undefined : (ESPECIALIDAD_COLOR[d.especialidad as keyof typeof ESPECIALIDAD_COLOR] ?? "#f8fafc") + "18" }}
                     >
                       <td className="px-3 py-2.5 font-medium text-[var(--color-foreground)] whitespace-nowrap">
                         <span className="mr-1 inline-flex align-middle text-[var(--color-muted)]" aria-hidden>
@@ -692,7 +708,7 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                       </td>
                       <td className="px-3 py-2.5 text-[var(--color-muted)]">{d.especialidad}</td>
                       <td className="px-3 py-2.5 text-[var(--color-foreground)]">{d.total}</td>
-                      <td className="px-3 py-2.5 font-semibold text-emerald-700 dark:text-emerald-300">{d.aceptados}</td>
+                      <td className="px-3 py-2.5 font-semibold text-[var(--color-success)]">{d.aceptados}</td>
                       <td className="px-3 py-2.5 font-bold text-[var(--color-foreground)]" title={notaTasa(d.tasa)}>{textoTasa(d.tasa)}</td>
                       <td className="px-3 py-2.5"><TrendBadge curr={d.total} prev={prev?.total ?? 0} /></td>
                     </tr>
@@ -720,7 +736,7 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                               <YAxis tick={{ fontSize: 9, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} allowDecimals={false} />
                               <Tooltip contentStyle={TOOLTIP_STYLE} />
                               <Area type="monotone" dataKey="total" name="Ofrecidos" stroke="var(--color-accent)" strokeWidth={2} fill="url(#gd1)" dot={false} />
-                              <Area type="monotone" dataKey="aceptados" name="Aceptados" stroke="#22c55e" strokeWidth={2} fill="none" dot={false} />
+                              <Area type="monotone" dataKey="aceptados" name="Aceptados" stroke={COLOR_ACEPTADO} strokeWidth={2} fill="none" dot={false} />
                             </AreaChart>
                           </ResponsiveContainer>
                         </td>
@@ -748,14 +764,13 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
             </thead>
             <tbody>
               {kpis.porDoctor.map((d) => (
-                <tr key={d.doctor} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-muted)]"
-                  style={{ background: (ESPECIALIDAD_COLOR[d.especialidad as keyof typeof ESPECIALIDAD_COLOR] ?? "#f8fafc") + "28" }}>
+                <tr key={d.doctor} className="border-b border-[var(--color-border)] last:border-0 hover:bg-[var(--color-surface-muted)]">
                   <td className="px-3 py-2.5 font-medium text-[var(--color-foreground)] whitespace-nowrap">{d.doctor}</td>
                   <td className="px-3 py-2.5 text-[var(--color-muted)]">{d.especialidad}</td>
                   <td className="px-3 py-2.5 text-[var(--color-foreground)]">{d.total}</td>
                   <td className="px-3 py-2.5 text-[var(--color-foreground)]">{d.primeraVisita}</td>
                   <td className="px-3 py-2.5 text-[var(--color-foreground)]">{d.conHistoria}</td>
-                  <td className="px-3 py-2.5 font-semibold text-emerald-700 dark:text-emerald-300">{d.aceptados}</td>
+                  <td className="px-3 py-2.5 font-semibold text-[var(--color-success)]">{d.aceptados}</td>
                   <td className="px-3 py-2.5 font-bold text-[var(--color-foreground)]" title={notaTasa(d.tasa)}>{textoTasa(d.tasa)}</td>
                 </tr>
               ))}
@@ -769,7 +784,10 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
 
 // ─── Tab: Benchmark ───────────────────────────────────────────────────────────
 
-const ORIGEN_COLORS = ["#3d6fb2","#3b82f6","#10b981","#f59e0b","#ef4444","#0891b2","#94a3b8"];
+// Aquí vivía `ORIGEN_COLORS`: siete hex sueltos que además eran SEMÁNTICOS
+// (verde, ámbar, rojo) usados como identidad, así que un canal cualquiera salía
+// pintado de rojo y se leía como una alerta. Ahora la escala categórica
+// compartida — ver `shared/paleta-grafica`.
 
 function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }) {
   const origenData = kpis.porOrigenLead ?? [];
@@ -796,12 +814,12 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
               {origenData.filter((o) => o.origen !== "sin_origen").map((o, i) => (
                 <div key={o.origen} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
                   <div className="flex items-center gap-1.5 mb-2">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: ORIGEN_COLORS[i % ORIGEN_COLORS.length] }} />
+                    <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: colorCategoria(i) }} />
                     <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase truncate">{o.label}</p>
                   </div>
                   <p className="font-display text-2xl font-bold tabular-nums text-[var(--color-foreground)]">{textoTasa(o.tasa)}</p>
                   <p className="text-[10px] text-[var(--color-muted)] mt-1">{notaTasa(o.tasa)}</p>
-                  {o.importe > 0 && <p className="text-[10px] text-[var(--color-accent)] font-semibold mt-0.5">€{o.importe.toLocaleString("es-ES")}</p>}
+                  {o.importe > 0 && <p className="text-[10px] text-[var(--color-accent)] font-semibold mt-0.5">{eur(o.importe)}</p>}
                 </div>
               ))}
             </div>
@@ -880,11 +898,11 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
                   <tr key={c.clinica} className={i % 2 === 0 ? "" : "bg-[var(--color-surface-muted)]"}>
                     <td className="px-4 py-2.5">
                       {i === 0 ? (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300">#1</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--color-warning-soft)] dark:bg-[var(--color-warning)]/15 text-[var(--color-warning)]">#1</span>
                       ) : i === 1 ? (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)]">#2</span>
                       ) : i === 2 ? (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400">#3</span>
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-[var(--color-warning-soft)] text-[var(--color-warning)]">#3</span>
                       ) : (
                         <span className="text-[10px] text-[var(--color-muted)]">#{i + 1}</span>
                       )}
@@ -953,7 +971,7 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
                     <tr key={m.motivo} className={i % 2 === 0 ? "" : "bg-[var(--color-surface-muted)]"}>
                       <td className="px-4 py-2 font-medium text-[var(--color-foreground)]">{m.label}</td>
                       <td className="px-3 py-2 text-right text-[var(--color-muted)]">{m.count}</td>
-                      <td className="px-4 py-2 text-right font-bold text-rose-600 dark:text-rose-400">{m.pct}%</td>
+                      <td className="px-4 py-2 text-right font-bold text-[var(--color-danger)]">{m.pct}%</td>
                     </tr>
                   ))}
                 </tbody>
@@ -972,14 +990,25 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
 const TONO_META: Record<string, { label: string; color: string; textColor: string; hex: string }> = {
   directo:  { label: "Directo",  color: "bg-[var(--color-surface-muted)]",   textColor: "text-[var(--color-foreground)]", hex: "var(--color-muted)" },
   empatico: { label: "Empático", color: "bg-[var(--color-accent-soft)]",   textColor: "text-[var(--color-accent)]", hex: "var(--color-accent)" },
-  urgencia: { label: "Urgencia", color: "bg-rose-50 dark:bg-rose-500/10",     textColor: "text-rose-700 dark:text-rose-300",   hex: "var(--color-danger)" },
+  urgencia: { label: "Urgencia", color: "bg-[var(--color-danger-soft)]",     textColor: "text-[var(--color-danger)]",   hex: "var(--color-danger)" },
 };
 
-function TabMotorIA({ stats, loading, isDemo }: {
+function TabMotorIA({ stats, loading, isDemo, error }: {
   stats: TonosStats | null;
   loading: boolean;
   isDemo: boolean;
+  /** El motivo real del fallo. Sin esto, "no se pudo preguntar" se pintaba
+   *  igual que "todavía no hay datos de tonos". */
+  error: string | null;
 }) {
+  if (error) {
+    return (
+      <ErrorState
+        title="No se pudieron cargar los datos del asistente"
+        detail={error}
+      />
+    );
+  }
   if (loading) {
     return (
       <div className="space-y-3 animate-pulse">
@@ -1016,7 +1045,7 @@ function TabMotorIA({ stats, loading, isDemo }: {
   return (
     <div className="space-y-5">
       {isDemo && (
-        <div className="rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-300">
+        <div className="rounded-xl border border-[var(--color-warning)] bg-[var(--color-warning-soft)] px-4 py-2 text-xs text-[var(--color-warning)]">
           <span className="font-semibold">Datos de demostración.</span>{" "}
           Esta clínica aún no tiene datos conectados. Contacta con Fyllio para activarlos.
         </div>
@@ -1076,10 +1105,10 @@ function TabMotorIA({ stats, loading, isDemo }: {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-[var(--color-foreground)] font-semibold">{s.contactados}</td>
-                  <td className="px-4 py-3 font-semibold text-emerald-700 dark:text-emerald-300">{s.aceptados}</td>
+                  <td className="px-4 py-3 font-semibold text-[var(--color-success)]">{s.aceptados}</td>
                   <td className="px-4 py-3">
                     {s.tasa != null ? (
-                      <span className={`font-bold text-sm ${s.tasa >= 40 ? "text-emerald-700 dark:text-emerald-300" : s.tasa >= 20 ? "text-amber-700 dark:text-amber-300" : "text-rose-600 dark:text-rose-400"}`}>
+                      <span className={`font-bold text-sm ${s.tasa >= 40 ? "text-[var(--color-success)]" : s.tasa >= 20 ? "text-[var(--color-warning)]" : "text-[var(--color-danger)]"}`}>
                         {s.tasa}%
                       </span>
                     ) : (
@@ -1170,6 +1199,7 @@ export default function KpiView({
   const [tonosStats, setTonosStats] = useState<TonosStats | null>(null);
   const [tonosLoading, setTonosLoading] = useState(false);
   const [tonosIsDemo, setTonosIsDemo] = useState(false);
+  const [tonosError, setTonosError] = useState<string | null>(null);
   const tonosFetchedRef = useRef(false);
 
   // Lazy fetch for Motor IA tab — only once
@@ -1179,13 +1209,19 @@ export default function KpiView({
     setTonosLoading(true);
     const url = new URL("/api/presupuestos/tonos-stats", location.href);
     if (clinicaEfectiva) url.searchParams.set("clinica", clinicaEfectiva);
-    fetch(url.toString())
-      .then((r) => r.json())
+    // El último `fetch` a pelo de la pantalla, con su catch mudo: un fallo
+    // dejaba la pestaña "Asistente IA" con `stats` en null y su propio vacío
+    // ("aún no hay datos de tonos"), indistinguible de que no se pudo preguntar.
+    cargarJSON<{ stats?: TonosStats | null; isDemo?: boolean }>(url.toString())
       .then((d) => {
         setTonosStats(d.stats ?? null);
         setTonosIsDemo(d.isDemo ?? false);
+        setTonosError(null);
       })
-      .catch(() => {})
+      .catch((e) => {
+        setTonosStats(null);
+        setTonosError(mensajeDeError(e));
+      })
       .finally(() => setTonosLoading(false));
   }, [subTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1255,7 +1291,7 @@ export default function KpiView({
       {subTab === "tratamientos" && <TabTratamientos kpisMes={kpisMes} kpis={kpis} mesLabel={mesLabel} />}
       {subTab === "doctores" && <TabDoctores kpisMes={kpisMes} kpisPrevMes={kpisPrevMes} kpis={kpis} mesLabel={mesLabel} />}
       {subTab === "benchmark" && <TabBenchmark kpis={kpis} isManager={isManager} />}
-      {subTab === "ia" && <TabMotorIA stats={tonosStats} loading={tonosLoading} isDemo={tonosIsDemo} />}
+      {subTab === "ia" && <TabMotorIA stats={tonosStats} loading={tonosLoading} isDemo={tonosIsDemo} error={tonosError} />}
     </div>
   );
 }

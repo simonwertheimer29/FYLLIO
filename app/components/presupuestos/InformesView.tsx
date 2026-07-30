@@ -154,8 +154,8 @@ function calcularForecasting(
 function ConfianzaBar({ nivel }: { nivel: 3 | 2 | 1 }) {
   const labels: Record<number, string> = { 3: "Alta", 2: "Media", 1: "Baja" };
   const colors: Record<number, string> = {
-    3: "bg-emerald-500",
-    2: "bg-amber-400",
+    3: "bg-[var(--color-success)]",
+    2: "bg-[var(--color-warning)]",
     1: "bg-[var(--color-border)]",
   };
   return (
@@ -190,7 +190,7 @@ function ForecastCard({
         <ConfianzaBar nivel={confianza} />
       </div>
       <p className={`font-display text-2xl font-bold tabular-nums ${isCurrent ? "text-[var(--color-accent)]" : "text-[var(--color-foreground)]"}`}>
-        €{importeProyectado.toLocaleString("es-ES")}
+        {eur(importeProyectado)}
       </p>
       <p className="text-[11px] text-[var(--color-muted)] mt-1">Con tasa esperada {tasaEsperada}%</p>
     </div>
@@ -222,12 +222,12 @@ function InformeCard({
 
   if (error) {
     return (
-      <div className="rounded-2xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 p-6">
-        <p className="text-sm font-semibold text-rose-700 dark:text-rose-300 mb-1">Error al generar informe</p>
-        <p className="text-xs text-rose-600 dark:text-rose-400">{error}</p>
+      <div className="rounded-2xl border border-[var(--color-danger)] bg-[var(--color-danger-soft)] p-6">
+        <p className="text-sm font-semibold text-[var(--color-danger)] mb-1">Error al generar informe</p>
+        <p className="text-xs text-[var(--color-danger)]">{error}</p>
         <button
           onClick={onGenerar}
-          className="mt-3 text-xs font-semibold px-3 py-1.5 rounded-lg bg-rose-100 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300 hover:bg-rose-200 dark:hover:bg-rose-500/25"
+          className="mt-3 text-xs font-semibold px-3 py-1.5 rounded-lg bg-[var(--color-danger-soft)] dark:bg-[var(--color-danger-soft)]0/15 text-[var(--color-danger)] hover:bg-[var(--color-danger-soft)] dark:hover:bg-[var(--color-danger-soft)]0/25"
         >
           Reintentar
         </button>
@@ -684,13 +684,13 @@ export default function InformesView({ user }: { user: UserSession }) {
         downloading={downloading}
       />
       {downloadError && (
-        <div className="rounded-xl border border-rose-200 dark:border-rose-500/30 bg-rose-50 dark:bg-rose-500/10 px-4 py-3 flex items-start gap-3">
-          <AlertTriangle size={16} strokeWidth={ICON_STROKE} className="text-rose-500 mt-0.5 shrink-0" aria-hidden />
+        <div className="rounded-xl border border-[var(--color-danger)] bg-[var(--color-danger-soft)] px-4 py-3 flex items-start gap-3">
+          <AlertTriangle size={16} strokeWidth={ICON_STROKE} className="text-[var(--color-danger)] mt-0.5 shrink-0" aria-hidden />
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold text-rose-700 dark:text-rose-300">No se pudo generar el documento</p>
-            <p className="text-xs text-rose-600 dark:text-rose-400 mt-0.5 break-words">{downloadError}</p>
+            <p className="text-sm font-semibold text-[var(--color-danger)]">No se pudo generar el documento</p>
+            <p className="text-xs text-[var(--color-danger)] mt-0.5 break-words">{downloadError}</p>
           </div>
-          <button onClick={() => setDownloadError(null)} className="text-rose-400 hover:text-rose-600" aria-label="Cerrar aviso">
+          <button onClick={() => setDownloadError(null)} className="text-[var(--color-danger)] hover:text-[var(--color-danger)]" aria-label="Cerrar aviso">
             <X size={14} strokeWidth={ICON_STROKE} aria-hidden />
           </button>
         </div>
@@ -866,7 +866,7 @@ export default function InformesView({ user }: { user: UserSession }) {
                             </div>
                             {semanalData.eurosSeguimiento != null && (
                               <p className="text-xs text-[var(--color-muted)]">
-                                €{Number(semanalData.eurosSeguimiento).toLocaleString("es-ES")} en seguimiento
+                                {eur(Number(semanalData.eurosSeguimiento))} en seguimiento
                               </p>
                             )}
                           </div>
@@ -906,8 +906,15 @@ export default function InformesView({ user }: { user: UserSession }) {
       </div>
 
       {/* ── Gráficos ocultos para captura PDF/PPT ─────────────────────────────
-          Renderizados fuera de pantalla con Recharts; capturados con html2canvas
-          cuando el usuario descarga el documento.
+          Renderizados fuera de pantalla con Recharts; capturados a PNG cuando el
+          usuario descarga el documento.
+
+          LOS HEX DE AQUÍ ABAJO SON DELIBERADOS, no deuda. Esto no se pinta en
+          pantalla: se captura sobre fondo BLANCO forzado y acaba dentro de un
+          PDF impreso. Un `var(--color-*)` resolvería al tema del NAVEGADOR, así
+          que quien tuviera el modo oscuro puesto exportaría un informe con
+          colores de tema oscuro sobre papel blanco. El documento tiene su propia
+          paleta, fija, igual que la tienen las rutas de generar-pdf/ppt.
       ────────────────────────────────────────────────────────────────────────── */}
       {informe != null && (
         <div

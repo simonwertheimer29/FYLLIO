@@ -1,5 +1,5 @@
 // app/lib/presupuestos/colors.ts
-import type { PresupuestoEstado, EspecialidadDoctor, OrigenLead, EstadoVisual } from "./types";
+import type { PresupuestoEstado, EstadoVisual } from "./types";
 import type { StatePillVariant } from "../../components/ui/StatePill";
 
 export const ESTADO_CONFIG: Record<
@@ -43,15 +43,17 @@ export const ESTADOS_ACCIONABLES: PresupuestoEstado[] = [
 
 export const ESTADOS_ACEPTADOS: PresupuestoEstado[] = ["ACEPTADO"];
 
-export const ESPECIALIDAD_COLOR: Record<EspecialidadDoctor, string> = {
-  General:        "#C6EFCE",
-  Prostodoncista: "#BDD7EE",
-  Implantólogo:   "#9DC3E6",
-  Endodoncista:   "#E2AFCF",
-  Ortodoncia:     "#D9B3E0",
-} as const;
+// Aquí vivía ESPECIALIDAD_COLOR: cinco pastel escritos a mano (#C6EFCE #BDD7EE
+// #9DC3E6 #E2AFCF #D9B3E0), con el alfa concatenado como texto ("+ 18") y un
+// fallback #e2e8f0. Era IDENTIDAD, no estado: cinco colores que no decían nada
+// del doctor —solo de su especialidad, que ya se lee al lado en texto— y que en
+// tema oscuro eran cinco claros sobre fondo oscuro. Retirados el 2026-07-30: la
+// especialidad se lee, no se pinta.
 
-export const ORIGEN_LABEL: Record<OrigenLead, string> = {
+/** Los canales de la forma ANTIGUA del dato (`OrigenLead` ya no es un enum:
+ *  hoy circulan "Google", "Instagram", "Walk-in"…). Se queda para traducir
+ *  histórico; lo actual pasa tal cual. */
+export const ORIGEN_LABEL: Record<string, string> = {
   google_ads:         "Google Ads",
   seo_organico:       "Google orgánico",
   referido_paciente:  "Referido",

@@ -34,13 +34,6 @@ export const dynamic = "force-dynamic";
 // días del proceso, no de la clínica. En Vercel el proceso corre en UTC, así que
 // "hoy" empezaba a las 02:00 de Madrid. Es el mismo bug que MEJORAS 52 arregló en
 // Cobros y que aquí seguía vivo porque la función estaba duplicada.
-type Periodo = PeriodoKpi;
-
-function pctVar(actual: number, prev: number): number | null {
-  if (prev === 0) return null;
-  return Math.round(((actual - prev) / prev) * 100);
-}
-
 // ─── Sprint 13.1 punto 1 — mapeo canal a 3 grupos ─────────────────────
 type CanalGrupo = "organicos" | "pagados" | "web" | "otro";
 function grupoCanal(canal: LeadCanal | null): CanalGrupo {
@@ -168,7 +161,6 @@ export const GET = withAuth(async (session, req) => {
   const tasaCitado = recibidos === 0 ? 0 : Math.round((citados.length / recibidos) * 100);
   const tasaCitadoPrev =
     enPrev.length === 0 ? 0 : Math.round((citadosPrev.length / enPrev.length) * 100);
-  const tasaCitadoPP = tasaCitado - tasaCitadoPrev; // delta puntos porcentuales
 
   // Tasa asistencia y conversion lead → paciente.
   const tasaAsistencia = citados.length === 0 ? 0 : Math.round((asistidos / citados.length) * 100);
@@ -389,6 +381,7 @@ export const GET = withAuth(async (session, req) => {
     }
   }
   let conTimestamp = 0;
+  let incoherentes = 0;
   let menos2h = 0;
   let menos24h = 0;
   let mas24h = 0;
@@ -397,8 +390,13 @@ export const GET = withAuth(async (session, req) => {
     const created = new Date(l.createdAt).getTime();
     const first = firstSalienteByLead.get(l.id);
     if (!Number.isFinite(created) || first == null) continue;
-    conTimestamp++;
+    // Un primer contacto ANTERIOR al alta del lead da un tiempo de respuesta
+    // negativo: la pantalla llegó a enseñar «−4.314 min». No es una respuesta
+    // rapidísima, es un dato imposible (el lead se dio de alta después de la
+    // acción, o el timestamp está mal). No se promedia; se declara aparte.
     const horas = (first - created) / (1000 * 60 * 60);
+    if (horas < 0) { incoherentes++; continue; }
+    conTimestamp++;
     sumaHoras += horas;
     if (horas < 2) menos2h++;
     else if (horas < 24) menos24h++;
@@ -423,7 +421,9 @@ export const GET = withAuth(async (session, req) => {
     const created = new Date(l.createdAt).getTime();
     const first = firstSalientePrev.get(l.id);
     if (!Number.isFinite(created) || first == null) continue;
-    sumaHorasPrev += (first - created) / (1000 * 60 * 60);
+    const h = (first - created) / (1000 * 60 * 60);
+    if (h < 0) continue;
+    sumaHorasPrev += h;
     nPrev++;
   }
   const tiempoMedioPrev = nPrev === 0 ? null : Math.round((sumaHorasPrev / nPrev) * 10) / 10;
@@ -454,7 +454,10 @@ export const GET = withAuth(async (session, req) => {
     } catch (err) {
       console.error("[kpis-leads ranking]", err instanceof Error ? err.message : err);
       // Fallback graceful: ranking sin facturado.
-      rankingDoctores = computeRankingDoctoresShallow(enPeriodo);
+      // El fallback devolvía `nombre: "Doctor"` para TODOS: cuatro filas
+      // llamadas igual, que se leen como cuatro doctores distintos sin nombre.
+      // Los nombres son una consulta barata y no están dentro de la carrera.
+      rankingDoctores = await computeRankingDoctoresShallow(enPeriodo);
       rankingWarning = "calculo_facturado_pendiente";
     }
   }
@@ -474,9 +477,12 @@ export const GET = withAuth(async (session, req) => {
     rango: { desde: desde.toISOString(), hasta: hasta.toISOString() },
     clinica: clinicaResp,
     kpis: {
+      // Se manda el VALOR PREVIO, no un delta ya masticado: la comparación es
+      // gramática de presentación (`Cifra`), y un `deltaPct` sobre un KPI que ya
+      // es un porcentaje produce un % de un %.
       recibidos: {
         actual: recibidos,
-        deltaPct: pctVar(recibidos, recibidosPrev),
+        previo: recibidosPrev,
         canal: {
           organicos: canalCounts.organicos,
           pagados: canalCounts.pagados,
@@ -485,25 +491,25 @@ export const GET = withAuth(async (session, req) => {
       },
       pacientesCitados: {
         actual: citados.length,
-        deltaPct: pctVar(citados.length, citadosPrev.length),
+        previo: citadosPrev.length,
         asistidos,
         pendientes,
       },
       tasaCitado: {
         actual: tasaCitado,
-        deltaPP: tasaCitadoPP,
+        previo: tasaCitadoPrev,
       },
       tasaAsistencia: {
         actual: tasaAsistencia,
-        deltaPct: pctVar(tasaAsistencia, tasaAsistenciaPrev),
+        previo: tasaAsistenciaPrev,
       },
       tasaConversion: {
         actual: tasaConversion,
-        deltaPct: pctVar(tasaConversion, tasaConversionPrev),
+        previo: tasaConversionPrev,
       },
       facturado: {
         actual: facturadoActual.total,
-        deltaPct: pctVar(facturadoActual.total, facturadoPrev.total),
+        previo: facturadoPrev.total,
         pendiente: facturadoActual.pendiente,
       },
       tiempoMedioRespuestaHoras: tiempoMedioH,
@@ -515,7 +521,12 @@ export const GET = withAuth(async (session, req) => {
       mas24h,
       conTimestamp,
       total: enPeriodo.length,
-      tooltip: `Calculado sobre ${conTimestamp} de ${enPeriodo.length} leads con timestamp de contacto registrado`,
+      incoherentes,
+      tooltip:
+        `Calculado sobre ${conTimestamp} de ${enPeriodo.length} leads con timestamp de contacto registrado` +
+        (incoherentes > 0
+          ? ` · ${incoherentes} descartado${incoherentes === 1 ? "" : "s"}: su primer contacto es anterior al alta del lead`
+          : ""),
     },
     funnel: {
       etapas: funnel,
@@ -594,6 +605,7 @@ async function buildSparkline30d(
     if (!Number.isFinite(created) || first == null) continue;
     const fecha = hoyISO(new Date(first));
     const minutos = (first - created) / (1000 * 60);
+    if (minutos < 0) continue; // mismo criterio que el KPI: dato imposible, fuera
     if (!sumByDay.has(fecha)) sumByDay.set(fecha, { suma: 0, n: 0 });
     const o = sumByDay.get(fecha)!;
     o.suma += minutos;
@@ -712,9 +724,9 @@ async function computeRankingDoctores(
   return out.sort((a, b) => b.total - a.total).slice(0, 10);
 }
 
-function computeRankingDoctoresShallow(
+async function computeRankingDoctoresShallow(
   enPeriodo: Lead[],
-): Array<{ id: string; nombre: string; total: number; tasaConversion: number; facturadoGenerado: number | null }> {
+): Promise<Array<{ id: string; nombre: string; total: number; tasaConversion: number; facturadoGenerado: number | null }>> {
   const porDoctor = new Map<string, { convertidos: number; asignados: number }>();
   for (const l of enPeriodo) {
     if (!l.doctorAsignadoId) continue;
@@ -725,10 +737,20 @@ function computeRankingDoctoresShallow(
     o.asignados++;
     if (l.convertido) o.convertidos++;
   }
+  const nombres: Record<string, string> = {};
+  try {
+    for (const [id, nombre] of await mapStaffNombrePorIds([...porDoctor.keys()])) {
+      nombres[id] = nombre || id;
+    }
+  } catch (err) {
+    console.error("[ranking-doctores shallow] nombres:", err instanceof Error ? err.message : err);
+  }
   return Array.from(porDoctor.entries())
     .map(([id, agg]) => ({
       id,
-      nombre: "Doctor",
+      // Si el nombre no se resuelve se DICE que no se resolvió, en vez de
+      // llamar "Doctor" a todos y que parezcan cuatro personas anónimas.
+      nombre: nombres[id] ?? "Doctor sin identificar",
       total: agg.convertidos,
       tasaConversion: agg.asignados === 0 ? 0 : Math.round((agg.convertidos / agg.asignados) * 100),
       facturadoGenerado: null,

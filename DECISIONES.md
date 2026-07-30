@@ -1150,3 +1150,63 @@ pedir el facturado ya calculado).
 "cargando" — decía "Sin datos en el periodo" y los otros seis bloques devolvían `null`, o sea
 página en blanco. Es el pecado del `?? []` por la puerta del estado de carga. Ahora todo enseña
 esqueleto mientras no haya respuesta, y la página mantiene su forma.
+
+## 2026-07-30 — /kpis bloque 3: el color que significa se queda; el que finge, fuera
+La corrección de Simon ordenó el bloque: en KPIs el color aporta más que en ninguna otra
+pantalla, así que no se trataba de despintar sino de que cada color signifique algo. **Se
+queda y se refuerza**: las series de gráficas (ofrecidos/aceptados), la señal bueno/malo en los
+deltas, las categorías dentro de un gráfico y las barras comparativas. **Se retira lo que finge
+información**: el degradado por celda cuando los valores no varían, los badges de color sin
+umbral declarado y los cinco pastel de especialidad.
+La regla que queda: **si el color cambia, algo tiene que haber cambiado de verdad, y el usuario
+debe poder saber qué.**
+
+**La flecha sigue al significado, no al signo.** `KpiCard` pintaba `deltaPct` con `↑/↓` y color
+atado al signo aritmético. En no-shows alguien había invertido el signo del delta para engañar
+al color, y el resultado era «↑ 31%» en verde sobre una tasa que había BAJADO de 7,7% a 5,4%:
+el color acertaba y la flecha mentía. Ahora `KpiCard` recibe el valor PREVIO y pinta
+`Comparativa` — la misma pieza que `Cifra`, sin flechas (el signo ya dice la dirección) y con
+`subirEsMalo` para las métricas donde bajar es mejorar. Las rutas mandan el previo en vez de un
+delta ya masticado: la comparación es gramática de presentación, no dato.
+`TrendBadge` de KpiView tenía las tres prohibiciones a la vez —flecha, «↑ 14% (19%)» (un % de un
+%) y color por signo—; ahora es un envoltorio de `Comparativa`. Y el tiempo medio de respuesta
+de Leads se compara en MINUTOS con `subirEsMalo`, no en un porcentaje de un porcentaje.
+
+**Los umbrales se declaran o no se pintan.** «36% en verde al lado de 27% en ámbar» sin criterio
+visible era una opinión disfrazada de dato. Ahora hay dos constantes con su frase en pantalla:
+"Verde a partir del 30% · ámbar del 15% al 30% · rojo por debajo del 15%" en las tasas de Leads,
+y "Verde por debajo del 10% · ámbar del 10% al 20% · rojo por encima del 20%" en no-shows.
+
+**Las barras de no-shows escalaban contra la peor clínica de la lista**, así que la primera
+siempre llenaba la barra: con 7,0 · 6,5 · 4,9 · 3,2% se pintaban 100 · 93 · 70 · 46% y todas
+verdes. La escala ahora es ABSOLUTA y termina en el 20%, el umbral que ya declaramos como tasa
+alta: la barra mide cuánto te falta para estar mal, que es la pregunta.
+
+**Una paleta de gráficas, derivada de tokens** (`shared/paleta-grafica`). Había `ORIGEN_COLORS`
+con siete hex sueltos —y semánticos: el canal "Instagram" salía rojo y parecía una alerta— más
+DOS copias de la escala del acento, una en KPIs de Leads y otra en Cobros, con el mismo
+comentario encima. `ESPECIALIDAD_COLOR` (cinco pastel con el alfa concatenado como texto) se
+retira: era identidad, no estado, y la especialidad ya se lee al lado en texto.
+**42 hex → 0** en la zona visible, ~100 clases de paleta a tokens semánticos, 12 euros a mano a
+`eur()`, y el embudo de Leads reconstruido con el patrón de /red (barras proporcionales, la
+caída entre etapas en gris porque un embudo siempre baja, y "No Interesado" contado aparte en
+vez de colgando de la misma escala).
+
+**Los hex de `InformesView` NO se tocaron, y eso es deliberado**: viven en el bloque oculto que
+se captura a PNG sobre fondo blanco forzado para el PDF. Un `var(--color-*)` ahí resolvería al
+tema del NAVEGADOR, así que quien tuviera el modo oscuro exportaría un informe con colores de
+tema oscuro sobre papel blanco. Queda comentado para que la próxima pasada no los "limpie".
+
+## 2026-07-30 — Dos números imposibles que solo se vieron con la página delante
+Al revisar la captura de Leads, dos cosas que ningún test habría cazado:
+**«Tiempo medio respuesta: −4.314 min».** Un tiempo negativo. La ruta hacía `(primera acción −
+alta del lead)` sin comprobar el orden, y para 30 de los 58 leads del mes la acción está
+fechada ANTES del alta (deuda del seed, MEJORAS 82). Ahora esos casos se descartan y el tooltip
+lo dice: "30 descartados: su primer contacto es anterior al alta del lead". La media pasa a 27 h,
+que es un número posible.
+**Cuatro filas llamadas «Doctor».** El fallback rápido del ranking devolvía `nombre: "Doctor"`
+para todos, así que cuatro doctores distintos aparecían con el mismo nombre y se leían como
+cuatro anónimos. Los nombres son una consulta barata y el fallback no está dentro de la carrera
+de 3,5 s: ahora se resuelven, y lo que no se resuelve dice "Doctor sin identificar".
+La lección: **la pasada visual encuentra bugs de datos que la pasada de datos no encontró**,
+porque un número imposible solo canta cuando está escrito en su sitio.

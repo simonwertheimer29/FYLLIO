@@ -17,14 +17,16 @@ import {
   LineChart,
   Line,
 } from "recharts";
-import { Trophy } from "lucide-react";
+import { Trophy, TrendingDown } from "lucide-react";
 import { Card } from "../../components/ui/Card";
 import { StatePill } from "../../components/ui/StatePill";
 import { KpiCard } from "../../components/ui/KpiCard";
+import { Comparativa } from "../../components/shared/Cifra";
 import { KpiCardSkeleton } from "../../components/ui/Skeleton";
 import { ErrorState } from "../../components/ui/Feedback";
 import { X, ICON_STROKE } from "../../components/icons";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { colorCategoria } from "../../components/shared/paleta-grafica";
 import type { PeriodoKpi } from "../../lib/periodo";
 
 // El vocabulario del periodo y su control viven en la cabecera de /kpis
@@ -34,12 +36,12 @@ type Periodo = PeriodoKpi;
 
 type RecibidosKpi = {
   actual: number;
-  deltaPct: number | null;
+  previo: number;
   canal: { organicos: number; pagados: number; web: number };
 };
 type CitadosKpi = {
   actual: number;
-  deltaPct: number | null;
+  previo: number;
   asistidos: number;
   pendientes: number;
 };
@@ -50,10 +52,10 @@ type ApiResponse = {
   kpis: {
     recibidos: RecibidosKpi;
     pacientesCitados: CitadosKpi;
-    tasaCitado: { actual: number; deltaPP: number };
-    tasaAsistencia: { actual: number; deltaPct: number | null };
-    tasaConversion: { actual: number; deltaPct: number | null };
-    facturado: { actual: number; deltaPct: number | null; pendiente: number };
+    tasaCitado: { actual: number; previo: number };
+    tasaAsistencia: { actual: number; previo: number };
+    tasaConversion: { actual: number; previo: number };
+    facturado: { actual: number; previo: number; pendiente: number };
     tiempoMedioRespuestaHoras: number | null;
     tiempoMedioRespuestaPrev: number | null;
   };
@@ -63,6 +65,9 @@ type ApiResponse = {
     mas24h: number;
     conTimestamp: number;
     total: number;
+    /** Leads con un primer contacto anterior a su alta: dato imposible, fuera
+     *  de la media y declarado. */
+    incoherentes: number;
     tooltip: string;
   };
   funnel: {
@@ -94,6 +99,21 @@ type ApiResponse = {
   }>;
   _warning: string | null;
 };
+
+// Los umbrales que colorean las tasas, declarados una vez y DICHOS en pantalla.
+// Antes cada celda decidía por su cuenta con números escritos a mano y sin
+// contarle a nadie el criterio: un 36% en verde al lado de un 27% en ámbar sin
+// que se pudiera saber por qué.
+const TASA_BUENA = 30;
+const TASA_FLOJA = 15;
+const NOTA_UMBRAL_TASA =
+  "Verde a partir del 30% · ámbar del 15% al 30% · rojo por debajo del 15%.";
+
+function varianteTasa(pct: number): "success" | "warning" | "danger" {
+  if (pct >= TASA_BUENA) return "success";
+  if (pct >= TASA_FLOJA) return "warning";
+  return "danger";
+}
 
 type MatrixRow = {
   fuente?: string;
@@ -269,26 +289,24 @@ function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolea
         label="Leads recibidos"
         value={k.recibidos.actual}
         subline={`${k.recibidos.canal.organicos} orgánicos · ${k.recibidos.canal.pagados} pagados · ${k.recibidos.canal.web} web`}
-        deltaPct={k.recibidos.deltaPct}
+        previo={k.recibidos.previo}
         accent="accent"
       />
       <KpiCard
         label="Pacientes citados"
         value={k.pacientesCitados.actual}
         subline={`${k.pacientesCitados.asistidos} asistieron · ${k.pacientesCitados.pendientes} pendientes`}
-        deltaPct={k.pacientesCitados.deltaPct}
+        previo={k.pacientesCitados.previo}
         accent="accent"
       />
+      {/* La tasa cambia en PUNTOS: el "pp vs mes anterior" que se escribía a mano
+          en la subline es exactamente lo que `Comparativa` ya sabe decir. */}
       <KpiCard
         label="Tasa cita"
         value={k.tasaCitado.actual}
         formatter={(n) => `${n}%`}
-        subline={
-          k.tasaCitado.deltaPP === 0
-            ? "Sin cambio vs mes anterior"
-            : `${k.tasaCitado.deltaPP > 0 ? "+" : ""}${k.tasaCitado.deltaPP} pp vs mes anterior`
-        }
-        deltaPct={null}
+        previo={k.tasaCitado.previo}
+        tipo="porcentaje"
         accent="accent"
       />
       <KpiCard
@@ -296,7 +314,8 @@ function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolea
         value={k.facturado.actual}
         formatter={formatEUR}
         subline={`Pendiente: ${formatEUR(k.facturado.pendiente)}`}
-        deltaPct={k.facturado.deltaPct}
+        previo={k.facturado.previo}
+        tipo="dinero"
         accent="emerald"
       />
     </div>
@@ -326,74 +345,78 @@ function BloquesEsqueleto() {
 function FunnelBlock({ data }: { data: ApiResponse | null }) {
   if (!data) return null;
   const etapas = data.funnel.etapas;
-  const max = etapas[0]?.total || 1;
-  // Escala del acento por paso via color-mix (funciona en ambos temas).
-  const STEP_MIX = [12, 22, 32, 42, 52];
-  const stepBg = (i: number) =>
-    `color-mix(in srgb, var(--color-accent) ${STEP_MIX[i] ?? STEP_MIX[0]}%, var(--color-surface))`;
+  const base = etapas[0]?.total ?? 0;
   return (
     <Card padding="lg">
       <p className="text-xs font-semibold tracking-wide text-[var(--color-muted)] uppercase">
         Embudo de conversión
       </p>
-      <div className="mt-4 flex items-end gap-2 h-[200px]">
-        {etapas.map((step, i) => {
-          const altura = max > 0 ? Math.max(40, Math.round((step.total / max) * 200)) : 40;
-          const dropoff =
-            i > 0 && etapas[i - 1]!.total > 0
-              ? Math.round(
-                  ((etapas[i - 1]!.total - step.total) / etapas[i - 1]!.total) * 100,
-                )
-              : 0;
+      {/* Mismo patrón que el embudo de /red, no una segunda invención: barras
+          proporcionales sobre una pista a ancho completo, la caída entre etapas
+          escrita en gris (un embudo SIEMPRE baja; pintarlo de alarma es ruido) y
+          el texto siempre fuera del relleno, para que el ancho pueda ser fiel
+          sin dejar de leerse.
+
+          Lo que había: cajas de altura arbitraria con un suelo de 40 px que
+          igualaba visualmente etapas muy distintas, un "−100%" flotando encima
+          de la barra, y una caja "No Interesado" aparte, colgando de la misma
+          escala pero sin pertenecer a la cadena. */}
+      <div className="mt-4 space-y-1">
+        {etapas.map((e, i) => {
+          const previa = i > 0 ? etapas[i - 1]!.total : null;
+          const sigue = previa == null ? null : previa > 0 ? Math.round((e.total / previa) * 100) : null;
+          const ancho = base > 0 ? Math.max((e.total / base) * 100, e.total > 0 ? 1.5 : 0) : 0;
           return (
-            <div key={step.etapa} className="flex-1 flex flex-col items-stretch gap-2 group relative">
-              <div className="flex-1 flex flex-col justify-end">
-                <div
-                  className="rounded-t-lg flex flex-col items-center justify-center px-2 py-3 transition-all"
-                  style={{ height: altura, background: stepBg(i) }}
-                  title={`${Math.round((step.total / (etapas[0]?.total || 1)) * 100)}% del total inicial${
-                    step.etapa === "No Interesado" || step.etapa === "Convertido"
-                      ? `\n${data.funnel.tooltipPrimerLog}`
-                      : ""
-                  }`}
-                >
-                  <p className="font-display text-2xl font-bold text-[var(--color-foreground)] tabular-nums">
-                    {step.total}
-                  </p>
-                  <p className="text-xs text-[var(--color-foreground)]">{step.etapa}</p>
+            <div key={e.etapa}>
+              {i > 0 && (
+                <p className="flex items-center gap-1.5 pl-1 py-1 text-[11px] text-[var(--color-muted)] tabular-nums">
+                  <TrendingDown size={11} strokeWidth={ICON_STROKE} aria-hidden />
+                  {sigue == null
+                    ? "sin datos de la etapa anterior"
+                    : `sigue el ${sigue}% · se pierde el ${100 - sigue}%`}
+                </p>
+              )}
+              <div className="relative rounded-lg overflow-hidden bg-[var(--color-surface-muted)] px-3 py-2">
+                <span
+                  aria-hidden
+                  className="absolute inset-y-0 left-0"
+                  style={{
+                    width: `${ancho}%`,
+                    background: "color-mix(in srgb, var(--color-accent) 28%, transparent)",
+                  }}
+                />
+                <div className="relative flex items-baseline gap-2 flex-wrap">
+                  <span className="font-display text-lg font-bold tabular-nums text-[var(--color-foreground)]">
+                    {e.total.toLocaleString("es-ES")}
+                  </span>
+                  <span className="text-xs font-medium text-[var(--color-foreground)]">{e.etapa}</span>
                 </div>
               </div>
-              {i > 0 && dropoff > 0 && (
-                <span className="absolute -left-2 top-1/2 -translate-y-1/2 text-[10px] text-[var(--color-muted)] tabular-nums bg-[var(--color-surface)] px-1">
-                  −{dropoff}%
-                </span>
-              )}
             </div>
           );
         })}
-        {/* No Interesado separado */}
-        <div className="w-px bg-[var(--color-border)] mx-3 self-stretch" />
-        <div className="w-24 flex flex-col justify-end">
-          <div
-            className="rounded-t-lg bg-[var(--color-surface-muted)] border border-[var(--color-border)] flex flex-col items-center justify-center px-2 py-3"
-            style={{
-              height: max > 0 ? Math.max(40, Math.round((data.funnel.noInteresado / max) * 200)) : 40,
-            }}
-            title={
-              data.funnel.razonesPerdida.length > 0
-                ? `Razones de pérdida:\n${data.funnel.razonesPerdida
-                    .map((r) => `· ${r.motivo}: ${r.total}`)
-                    .join("\n")}`
-                : "Sin razones registradas"
-            }
-          >
-            <p className="font-display text-2xl font-bold text-[var(--color-foreground)] tabular-nums">
-              {data.funnel.noInteresado}
-            </p>
-            <p className="text-xs text-[var(--color-muted)]">No Interesado</p>
-          </div>
-        </div>
       </div>
+      {/* "No Interesado" NO es una etapa del embudo: es lo que se cae por el
+          lado. Se cuenta aparte y se dice, en vez de colgarlo de la misma
+          escala como si fuera un paso más. */}
+      <div className="mt-4 pt-3 border-t border-[var(--color-border)] flex items-baseline gap-2 flex-wrap">
+        <span className="font-display text-lg font-bold tabular-nums text-[var(--color-foreground)]">
+          {data.funnel.noInteresado.toLocaleString("es-ES")}
+        </span>
+        <span className="text-xs text-[var(--color-muted)]">
+          marcados como No Interesado
+          {data.funnel.razonesPerdida.length > 0
+            ? ` · ${data.funnel.razonesPerdida
+                .slice(0, 3)
+                .map((r) => `${r.motivo}: ${r.total}`)
+                .join(" · ")}`
+            : " · sin motivo registrado"}
+        </span>
+      </div>
+      <p className="pt-3 text-[11px] text-[var(--color-muted)]">
+        Sobre los {base.toLocaleString("es-ES")} leads del periodo, seguidos uno a uno hasta donde
+        llegaron. Cada etapa contiene a la siguiente. {data.funnel.tooltipPrimerLog}.
+      </p>
     </Card>
   );
 }
@@ -649,14 +672,6 @@ function Distribuciones({ data }: { data: ApiResponse | null }) {
   );
 }
 
-// Escala ordinal derivada del acento (mayor cuota → paso más intenso).
-// color-mix con la superficie → se adapta solo a tema claro/oscuro.
-// Último paso: neutro para categorías de cola. La identidad de cada
-// porción la lleva la leyenda (nombre + total + %), no solo el color.
-const DONUT_PALETTE = [100, 80, 60, 40, 20]
-  .map((p) => `color-mix(in srgb, var(--color-accent) ${p}%, var(--color-surface))`)
-  .concat("var(--color-muted)");
-
 function DonutOrigen({
   distribucion,
   compact = false,
@@ -685,7 +700,7 @@ function DonutOrigen({
               strokeWidth={2}
             >
               {distribucion.map((_, i) => (
-                <Cell key={i} fill={DONUT_PALETTE[i % DONUT_PALETTE.length]} />
+                <Cell key={i} fill={colorCategoria(i)} />
               ))}
             </Pie>
           </PieChart>
@@ -703,7 +718,7 @@ function DonutOrigen({
             <li key={d.nombre} className="flex items-center gap-2 text-xs">
               <span
                 className="w-2.5 h-2.5 rounded-full shrink-0"
-                style={{ background: DONUT_PALETTE[i % DONUT_PALETTE.length] }}
+                style={{ background: colorCategoria(i) }}
               />
               <span className="flex-1 truncate text-[var(--color-foreground)]">{d.nombre}</span>
               <span className="tabular-nums font-semibold text-[var(--color-foreground)] w-8 text-right">
@@ -780,11 +795,7 @@ function MatrizSection({
     { key: "Asistido", label: "Asistido" },
     { key: "No Interesado", label: "No Inter." },
   ];
-  // Cap maximo por columna para gradient.
-  const maxByCol: Record<string, number> = {};
-  for (const c of cols) {
-    maxByCol[c.key as string] = Math.max(...rows.map((r) => Number(r[c.key]) || 0));
-  }
+
   return (
     <section className="space-y-2">
       <div>
@@ -792,6 +803,7 @@ function MatrizSection({
           {title}
         </h3>
         <p className="text-sm text-[var(--color-muted)]">{subtitle}</p>
+        <p className="text-[11px] text-[var(--color-muted)]">{NOTA_UMBRAL_TASA}</p>
       </div>
       <Card padding="none">
         <div className="overflow-x-auto">
@@ -820,54 +832,28 @@ function MatrizSection({
                     <td className="py-2.5 px-2 text-right tabular-nums font-medium">
                       {r.total}
                     </td>
-                    {cols.map((c) => {
-                      const val = Number(r[c.key]) || 0;
-                      const max = maxByCol[c.key as string] || 1;
-                      const intensity = max > 0 ? val / max : 0;
-                      // Heatmap con el acento (color-mix → vale en ambos temas).
-                      const bg =
-                        intensity === 0
-                          ? "transparent"
-                          : intensity < 0.34
-                            ? "color-mix(in srgb, var(--color-accent) 8%, transparent)"
-                            : intensity < 0.67
-                              ? "color-mix(in srgb, var(--color-accent) 18%, transparent)"
-                              : "color-mix(in srgb, var(--color-accent) 32%, transparent)";
-                      return (
-                        <td
-                          key={c.key as string}
-                          className="py-2.5 px-2 text-right tabular-nums text-[var(--color-foreground)]"
-                          style={{ background: bg }}
-                        >
-                          {val}
-                        </td>
-                      );
-                    })}
-                    <td className="py-2.5 px-2 text-right tabular-nums">
-                      <StatePill
-                        variant={
-                          r.tasaCitado >= 30
-                            ? "success"
-                            : r.tasaCitado >= 15
-                              ? "warning"
-                              : "danger"
-                        }
-                        size="sm"
+                    {/* Aquí cada celda se pintaba con un degradado del acento
+                        según su valor RELATIVO al máximo de su columna. Con los
+                        valores reales —1, 2, 3— el color sugería una variación
+                        que no existe, y en oscuro dejaba los números ilegibles.
+                        Si el dato no discrimina, el color tampoco debe fingir
+                        que sí: se leen los números. La señal se ha movido a la
+                        columna que SÍ discrimina, la de conversión. */}
+                    {cols.map((c) => (
+                      <td
+                        key={c.key as string}
+                        className="py-2.5 px-2 text-right tabular-nums text-[var(--color-foreground)]"
                       >
+                        {Number(r[c.key]) || 0}
+                      </td>
+                    ))}
+                    <td className="py-2.5 px-2 text-right tabular-nums">
+                      <StatePill variant={varianteTasa(r.tasaCitado)} size="sm">
                         {r.tasaCitado}%
                       </StatePill>
                     </td>
                     <td className="py-2.5 px-3 text-right tabular-nums">
-                      <StatePill
-                        variant={
-                          r.tasaConversion >= 30
-                            ? "success"
-                            : r.tasaConversion >= 15
-                              ? "warning"
-                              : "danger"
-                        }
-                        size="sm"
-                      >
+                      <StatePill variant={varianteTasa(r.tasaConversion)} size="sm">
                         {r.tasaConversion}%
                       </StatePill>
                     </td>
@@ -890,24 +876,6 @@ function ContactacionRespuesta({ data }: { data: ApiResponse | null }) {
   if (!data) return null;
   const c = data.contactacion;
   const k = data.kpis;
-  // delta del tiempo medio: menor es mejor, asi que invertimos el signo.
-  let tiempoVar: { variant: "success" | "danger" | "neutral"; label: string };
-  if (k.tiempoMedioRespuestaPrev == null || k.tiempoMedioRespuestaHoras == null) {
-    tiempoVar = { variant: "neutral", label: "—" };
-  } else {
-    const prev = k.tiempoMedioRespuestaPrev;
-    const ahora = k.tiempoMedioRespuestaHoras;
-    if (prev === 0) {
-      tiempoVar = { variant: "neutral", label: "—" };
-    } else {
-      const pct = Math.round(((ahora - prev) / prev) * 100);
-      const variant = pct < 0 ? "success" : pct > 0 ? "danger" : "neutral";
-      tiempoVar = {
-        variant,
-        label: `${pct < 0 ? "↓" : pct > 0 ? "↑" : "→"} ${Math.abs(pct)}%`,
-      };
-    }
-  }
   const tiempoFmt =
     k.tiempoMedioRespuestaHoras == null
       ? "—"
@@ -940,20 +908,22 @@ function ContactacionRespuesta({ data }: { data: ApiResponse | null }) {
         {/* Mini barra apilada */}
         {c.menos2h + c.menos24h + c.mas24h > 0 && (
           <div className="mt-3 h-2 rounded-full overflow-hidden bg-[var(--color-surface-muted)] flex">
+            {/* Los tres tramos comparten los tokens semánticos con las pastillas
+                de arriba: mismo significado, mismo color, en los dos temas. */}
             <div
-              className="bg-emerald-500"
+              className="bg-[var(--color-success)]"
               style={{
                 width: `${(c.menos2h / (c.menos2h + c.menos24h + c.mas24h)) * 100}%`,
               }}
             />
             <div
-              className="bg-amber-500"
+              className="bg-[var(--color-warning)]"
               style={{
                 width: `${(c.menos24h / (c.menos2h + c.menos24h + c.mas24h)) * 100}%`,
               }}
             />
             <div
-              className="bg-rose-500"
+              className="bg-[var(--color-danger)]"
               style={{
                 width: `${(c.mas24h / (c.menos2h + c.menos24h + c.mas24h)) * 100}%`,
               }}
@@ -965,13 +935,21 @@ function ContactacionRespuesta({ data }: { data: ApiResponse | null }) {
         <p className="text-xs font-semibold tracking-wide text-[var(--color-muted)] uppercase">
           Tiempo medio respuesta
         </p>
-        <div className="flex items-baseline justify-between gap-2 mt-2">
+        <div className="flex items-baseline justify-between gap-2 mt-2 flex-wrap">
           <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">
             {tiempoFmt}
           </p>
-          <StatePill variant={tiempoVar.variant} size="sm" className="tabular-nums">
-            {tiempoVar.label}
-          </StatePill>
+          {/* Tardar MENOS en contestar es mejor: el color va al significado, no
+              al signo. Y el cambio se lee en minutos, no en un % de un %. */}
+          {k.tiempoMedioRespuestaHoras != null && k.tiempoMedioRespuestaPrev != null && (
+            <Comparativa
+              valor={Math.round(k.tiempoMedioRespuestaHoras * 60)}
+              previo={Math.round(k.tiempoMedioRespuestaPrev * 60)}
+              tipo="numero"
+              subirEsMalo
+              titulo="Minutos de más o de menos hasta el primer contacto, frente al periodo anterior."
+            />
+          )}
         </div>
         <p className="text-xs text-[var(--color-muted)] mt-1">
           Tendencia de los últimos 30 días (no sigue al selector de periodo).
@@ -1037,6 +1015,7 @@ function RankingDoctores({ data }: { data: ApiResponse | null }) {
         <p className="text-sm text-[var(--color-muted)]">
           Calidad del cierre desde la primera visita.
         </p>
+        <p className="text-[11px] text-[var(--color-muted)]">{NOTA_UMBRAL_TASA}</p>
       </div>
       <Card padding="none">
         <table className="w-full text-sm">
@@ -1063,7 +1042,7 @@ function RankingDoctores({ data }: { data: ApiResponse | null }) {
                 >
                   <td className="py-2.5 px-4 text-[var(--color-foreground)]">
                     <span className="inline-flex items-center gap-2">
-                      {i < 3 && <Trophy size={12} strokeWidth={1.5} className="text-amber-500 dark:text-amber-300" aria-hidden />}
+                      {i < 3 && <Trophy size={12} strokeWidth={1.5} className="text-[var(--color-warning)]" aria-hidden />}
                       {d.nombre}
                     </span>
                   </td>
@@ -1071,16 +1050,7 @@ function RankingDoctores({ data }: { data: ApiResponse | null }) {
                     {d.total}
                   </td>
                   <td className="py-2.5 px-3 text-right tabular-nums">
-                    <StatePill
-                      variant={
-                        d.tasaConversion > 40
-                          ? "success"
-                          : d.tasaConversion >= 25
-                            ? "warning"
-                            : "danger"
-                      }
-                      size="sm"
-                    >
+                    <StatePill variant={varianteTasa(d.tasaConversion)} size="sm">
                       {d.tasaConversion}%
                     </StatePill>
                   </td>

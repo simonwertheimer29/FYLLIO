@@ -71,8 +71,7 @@ const DEUDA = new Set([
   "app/(authed)/llamadas/LlamadasView.tsx: `r.llamadas ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
   "app/components/pacientes/Paciente360View.tsx: `j.mensajes ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
   "app/components/presupuestos/ConfigAutomatizaciones.tsx: `d.clinicas ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/components/presupuestos/InformesView.tsx: `d.presupuestos ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/components/presupuestos/InformesView.tsx: `d.informes ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
+  // (Las dos de InformesView se pagaron el 2026-07-30, bloque 1.2 de /kpis.)
   // OperationsPanel NO tiene consumidor (igual que NoShowRiskPanel, MEJORAS 60):
   // código muerto que además llama a rutas del prototipo retirado. Se declara
   // aquí para no bloquear el build por deuda de un archivo que hay que BORRAR,
