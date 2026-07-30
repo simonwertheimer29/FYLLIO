@@ -1107,3 +1107,46 @@ y se incrusta en el PDF que se entrega**. Ahora el fallo se ve (error honesto + 
 iba la previsión) y **bloquea la exportación**, porque un documento con un pronóstico de cero es
 peor que no tener documento. Los seis `fetch` de la pantalla pasan por `cargarJSON`, y el
 autoguardado dejó de ser fire-and-forget mudo: si el informe se genera pero no se guarda, se dice.
+
+## 2026-07-30 — /kpis bloque 2: cuatro navegaciones y un bug escondido en la copia
+La pantalla tenía cuatro navegaciones a la vez: los módulos en una barra propia pegada al borde
+(con `SubTabButton`, quinto patrón de pestañas del producto), los filtros de clínica/doctor/mes
+SOLO dentro de Presupuestos, siete pestañas internas con subrayado, y unas pills de periodo que
+existían en Leads y Cobros pero no en Presupuestos ni en No-shows. Cambiar de módulo cambiaba la
+forma de los controles.
+Ahora: la anatomía del resto del producto (título y subtítulo en el cuerpo), `SegmentedToggle`
+para los módulos —el mismo de Cobros y Seguimiento—, `ColaTabs` para el periodo y para las siete
+pestañas internas, y **cero primitivos nuevos**. La clínica sale del selector global de la
+cabecera de la app: KpiView tenía además el suyo, un segundo desplegable de clínicas en una
+pantalla que ya tenía uno arriba.
+**Y extraer el control no fue limpieza: fue el arreglo.** De las tres implementaciones del
+periodo, la de Cobros calculaba los límites en días DE LA CLÍNICA (`inicioDelDiaUTC`, MEJORAS 52)
+y la de Leads con `setHours(0,0,0,0)` — días del PROCESO. En Vercel el proceso corre en UTC, así
+que en Leads "hoy" empezaba a las 02:00 de Madrid. El mismo bug que Cobros ya había pagado,
+vivo en la pestaña de al lado porque la función estaba copiada. Se queda la buena, en
+`lib/periodo`, y de paso el periodo previo deja de ser "los N días de antes" para los periodos de
+calendario: es el MISMO TRAMO del mes anterior, que es lo que significa "vs mes anterior" y lo
+que evita comparar medio mes contra uno entero (el día 3, todo caía un 90%). Esa regla vivía
+como función local en `dashboard-red`; ahora la comparten las cuatro pestañas, y también la
+comparación interna de /kpis, que la tenía pendiente.
+Donde un módulo no puede honrar un filtro se DECLARA en vez de esconderlo: el filtro de doctor
+sigue visible y deshabilitado en Cobros y No-shows con su motivo, y No-shows avisa de que sus
+números no obedecen al selector porque el motor está congelado. Un control que desaparece al
+cambiar de pestaña se lee como un fallo.
+
+## 2026-07-30 — 23 segundos que no eran de la ruta
+Al capturar el checkpoint, la pestaña de Leads salía con esqueletos y "Sin datos en el periodo"
+con 58 leads en la base. `/api/leads/kpis` tardaba **23 s**. Antes de reportarlo como una
+emergencia lo medí: el round-trip a Supabase desde mi portátil es de **~200 ms**, un
+`runWithClienteDb` son cuatro viajes (BEGIN + set_config + query + COMMIT) ≈ 1 s medido, y la
+ruta abre unas veinte. Los 23 s son mi enlace multiplicado por el número de transacciones. **En
+Vercel, con la base en la misma región, el viaje es de ~1-5 ms.** No era una emergencia de
+producción; la lección es no reportarla como tal sin medir.
+Lo estructural sí queda anotado (MEJORAS 80): `getFacturadoEnPeriodo` se llama seis veces por
+carga —periodo, previo y una por clínica— y cada una abre sus propias transacciones. Se quitaron
+dos duplicados obvios (el sparkline releía TODOS los leads; el sanity check del ranking volvía a
+pedir el facturado ya calculado).
+**Lo que sí se arregló porque es del usuario:** mientras la ruta tardaba, la pantalla no decía
+"cargando" — decía "Sin datos en el periodo" y los otros seis bloques devolvían `null`, o sea
+página en blanco. Es el pecado del `?? []` por la puerta del estado de carga. Ahora todo enseña
+esqueleto mientras no haya respuesta, y la página mantiene su forma.

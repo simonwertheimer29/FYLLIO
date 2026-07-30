@@ -25,36 +25,16 @@ import { citaDelLead, citasPorPacienteDeLeads, type CitaMinima } from "../../../
 import { listAccionesDesde, primeraAccionLeadTimestamp } from "../../../lib/leads/acciones";
 import { getFacturadoEnPeriodo, getFacturadoPorPacientes } from "../../../lib/pagos";
 import { hoyISO } from "../../../lib/time";
+import { leerPeriodo, rangoDePeriodo, rangoPrevio, type PeriodoKpi } from "../../../lib/periodo";
+
 export const dynamic = "force-dynamic";
 
-type Periodo = "hoy" | "semana" | "mes" | "mes_anterior" | "trimestre";
-
-function rangoPeriodo(p: Periodo): { desde: Date; hasta: Date } {
-  const now = new Date();
-  if (p === "hoy") {
-    const inicio = new Date(now);
-    inicio.setHours(0, 0, 0, 0);
-    return { desde: inicio, hasta: now };
-  }
-  if (p === "semana") {
-    const desde = new Date(now);
-    desde.setDate(desde.getDate() - 7);
-    return { desde, hasta: now };
-  }
-  if (p === "mes") {
-    return { desde: new Date(now.getFullYear(), now.getMonth(), 1), hasta: now };
-  }
-  if (p === "mes_anterior") {
-    return {
-      desde: new Date(now.getFullYear(), now.getMonth() - 1, 1),
-      hasta: new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59),
-    };
-  }
-  // trimestre
-  const desde = new Date(now);
-  desde.setMonth(desde.getMonth() - 3);
-  return { desde, hasta: now };
-}
+// El rango del periodo vive en `lib/periodo` desde el 2026-07-30. Aquí había una
+// COPIA que calculaba los límites con `setHours(0,0,0,0)` y `new Date(y, m, 1)`:
+// días del proceso, no de la clínica. En Vercel el proceso corre en UTC, así que
+// "hoy" empezaba a las 02:00 de Madrid. Es el mismo bug que MEJORAS 52 arregló en
+// Cobros y que aquí seguía vivo porque la función estaba duplicada.
+type Periodo = PeriodoKpi;
 
 function pctVar(actual: number, prev: number): number | null {
   if (prev === 0) return null;
@@ -134,14 +114,15 @@ function tieneCita(l: Lead, citasPorPac: Map<string, CitaMinima[]>): boolean {
 
 export const GET = withAuth(async (session, req) => {
   const url = new URL(req.url);
-  const periodo = (url.searchParams.get("periodo") as Periodo) ?? "mes";
+  const periodo = leerPeriodo(url.searchParams.get("periodo"));
   // ?clinica=<id> drilldown desde el drawer (Bloque 4.3.bis).
   const clinicaQuery = url.searchParams.get("clinica");
-  const { desde, hasta } = rangoPeriodo(periodo);
-
-  const span = hasta.getTime() - desde.getTime();
-  const prevHasta = new Date(desde.getTime() - 1);
-  const prevDesde = new Date(prevHasta.getTime() - span);
+  const { desde, hasta } = rangoDePeriodo(periodo);
+  // La ventana de comparación ya no es "los N días de antes" a secas: para los
+  // periodos de calendario es el MISMO TRAMO del mes anterior, que es lo que
+  // significa "vs mes anterior" y lo que evita comparar medio mes contra uno
+  // entero. La regla vive en `lib/periodo`, compartida con las otras tres.
+  const { desde: prevDesde, hasta: prevHasta } = rangoPrevio(periodo);
 
   const allowed =
     session.rol === "admin" ? null : await listClinicaIdsForUser(session.userId);
@@ -277,6 +258,9 @@ export const GET = withAuth(async (session, req) => {
       }
     } catch { /* noop */ }
   }
+  // Una llamada por clínica a `getFacturadoEnPeriodo` era una lectura completa
+  // de pagos + un cruce a pacientes POR CADA fila de la tabla. Con 4 clínicas son
+  // 4 pasadas idénticas sobre los mismos datos.
   const comparativaClinicas = await Promise.all(
     Array.from(porClinica.entries()).map(async ([cid, agg]) => {
       const fact = await getFacturadoEnPeriodo({
@@ -446,7 +430,7 @@ export const GET = withAuth(async (session, req) => {
 
   // Sparkline 30d (siempre 30 dias back desde hoy, NO sigue al selector
   // de periodo — punto 5 ambiguity).
-  const sparkline = await buildSparkline30d(allowed);
+  const sparkline = await buildSparkline30d(allowed, allLeads);
 
   // ── 4.8 Ranking doctores con facturado generado ───────────────────
   const cacheKey = `${clinicaQuery ?? "all"}|${periodo}|${desde.toISOString().slice(0, 10)}`;
@@ -458,7 +442,7 @@ export const GET = withAuth(async (session, req) => {
   } else {
     try {
       rankingDoctores = await Promise.race([
-        computeRankingDoctores(enPeriodo, desde, hasta, clinicaQuery),
+        computeRankingDoctores(enPeriodo, desde, hasta, clinicaQuery, facturadoActual.total),
         new Promise<RankingCacheEntry["data"]>((_resolve, reject) =>
           setTimeout(() => reject(new Error("ranking_timeout")), RANKING_TIMEOUT_MS),
         ),
@@ -574,6 +558,10 @@ async function fetchAccionesPeriodo(
 
 async function buildSparkline30d(
   allowed: string[] | null,
+  /** Los leads YA cargados por el handler. Antes esta función volvía a pedir la
+   *  lista entera a la base para quedarse con los de 35 días: una segunda
+   *  lectura completa de `leads` por cada carga de la pantalla. */
+  leadsAll: Lead[],
 ): Promise<Array<{ fecha: string; minutos: number }>> {
   const today = new Date();
   const desde = new Date(today);
@@ -583,7 +571,6 @@ async function buildSparkline30d(
   // leads de los ultimos 35 dias para emparejar primer saliente.
   const desdeAmpliado = new Date(desde);
   desdeAmpliado.setDate(desdeAmpliado.getDate() - 5);
-  const leadsAll = await listLeads({ clinicaIds: allowed ?? undefined });
   const leadsPeriodo = leadsAll.filter((l) => {
     const t = new Date(l.createdAt).getTime();
     return t >= desdeAmpliado.getTime();
@@ -629,6 +616,9 @@ async function computeRankingDoctores(
   desde: Date,
   hasta: Date,
   _clinicaQuery: string | null,
+  /** El facturado del periodo YA calculado arriba: el sanity check lo volvía a
+   *  pedir, y `getFacturadoEnPeriodo` es de las llamadas más caras de la ruta. */
+  facturadoPeriodo: number,
 ): Promise<
   Array<{ id: string; nombre: string; total: number; tasaConversion: number; facturadoGenerado: number | null }>
 > {
@@ -703,12 +693,7 @@ async function computeRankingDoctores(
   // calidad de dato y hay que reportarlo (no solo absorberlo).
   try {
     const totalRanking = out.reduce((s, d) => s + (d.facturadoGenerado ?? 0), 0);
-    const refFact = await getFacturadoEnPeriodo({
-      desde,
-      hasta,
-      soloOrigenLead: true,
-      clinicaId: _clinicaQuery ?? undefined,
-    });
+    const refFact = { total: facturadoPeriodo };
     const delta = refFact.total - totalRanking;
     const deltaPct =
       refFact.total === 0 ? 0 : Math.abs(Math.round((delta / refFact.total) * 100));

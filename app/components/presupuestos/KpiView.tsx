@@ -12,9 +12,20 @@ import { Card } from "../ui/Card";
 import { ErrorState } from "../ui/Feedback";
 import { Info, Star, ChevronDown, ChevronRight, ICON_STROKE } from "../icons";
 import { eur } from "../shared/Cifra";
-import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
+import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import { textoTasa, notaTasa, type TasaCierre } from "../../lib/presupuestos/tasa";
 import { etiquetaTipoVisita } from "../../lib/presupuestos/tipo-visita";
+import { type PeriodoKpi } from "../../lib/periodo";
+
+/** El periodo dicho dentro de una frase, no como etiqueta de botón. */
+const NOMBRE_EN_FRASE: Record<PeriodoKpi, string> = {
+  hoy: "hoy",
+  semana: "esta semana",
+  mes: "este mes",
+  mes_anterior: "el mes pasado",
+  trimestre: "este trimestre",
+};
+import { ColaTabs } from "../shared/ColaTabs";
 
 type SubTab = "general" | "tarifas" | "paciente" | "tratamientos" | "doctores" | "benchmark" | "ia";
 
@@ -28,21 +39,7 @@ const SUB_TABS: { id: SubTab; label: string }[] = [
   { id: "ia", label: "Asistente IA" },
 ];
 
-const MES_LABEL = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
 
-function formatMesLabel(yyyymm: string): string {
-  const [y, m] = yyyymm.split("-").map(Number);
-  return `${MES_LABEL[m - 1]} ${y}`;
-}
-
-function getLast12Months(): { mes: string; label: string }[] {
-  const now = new Date();
-  return Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const mes = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-    return { mes, label: formatMesLabel(mes) };
-  });
-}
 
 /** Color de una tasa. Sin decididos NO se juzga: gris, no rojo — "todavía no
  *  se sabe" y "va mal" son cosas distintas. (El umbral en sí sigue sin
@@ -109,7 +106,7 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
       {/* Header blocks — datos del mes seleccionado */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <HeaderBlock
-          title={`Presupuestos ${mesLabel}`}
+          title={`Presupuestos · ${mesLabel}`}
           main={String(resumen.total)}
           sub1={`1ª Visita: ${resumen.primeraVisita} · Con historial: ${resumen.conHistoria}`}
           sub2={resumen.total === 0 ? "Sin presupuestos este mes" : undefined}
@@ -139,7 +136,7 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
       {/* Comparación vs mes anterior */}
       <Card>
         <p className="text-xs font-bold text-[var(--color-foreground)] mb-3">
-          {mesLabel} vs mes anterior
+          Comparación · {mesLabel}
         </p>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
@@ -1138,24 +1135,36 @@ function TabMotorIA({ stats, loading, isDemo }: {
 
 // ─── Main KpiView ─────────────────────────────────────────────────────────────
 
-export default function KpiView({ user, showBenchmark = true }: { user: UserSession; showBenchmark?: boolean }) {
-  const now = new Date();
-  const defaultMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-
+// El periodo, el doctor y la clínica ya NO se eligen aquí: llegan de la cabecera
+// compartida de /kpis (bloque 2, 2026-07-30). Esta pantalla tenía su propia fila
+// de tres filtros —incluido un segundo desplegable de clínicas, con el selector
+// global ya en la cabecera de la app— que además no existía en las otras tres
+// pestañas: cambiar de módulo hacía desaparecer los controles.
+export default function KpiView({
+  user,
+  showBenchmark = true,
+  periodo,
+  doctor,
+  clinicaNombre,
+}: {
+  user: UserSession;
+  showBenchmark?: boolean;
+  periodo: PeriodoKpi;
+  doctor: string;
+  clinicaNombre: string | null;
+}) {
   const [kpis, setKpis] = useState<KpiData | null>(null);
   const [kpisMes, setKpisMes] = useState<KpiData | null>(null);
   const [kpisPrevMes, setKpisPrevMes] = useState<KpiData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [clinicas, setClinicas] = useState<string[]>([]);
-  const [filterClinica, setFilterClinica] = useState(
-    user.rol === "encargada_ventas" && user.clinica ? user.clinica : ""
-  );
-  const [filterDoctor, setFilterDoctor] = useState("");
-  const [filterMes, setFilterMes] = useState(defaultMes);
+  const [error, setError] = useState<string | null>(null);
   const [subTab, setSubTab] = useState<SubTab>("general");
   // Solo presentación: reintento del ErrorState — re-dispara el mismo useEffect de carga.
   const [reloadKey, setReloadKey] = useState(0);
-  const meses = getLast12Months();
+  // La clínica efectiva: la encargada solo ve la suya; el resto, la del selector
+  // global. Una sola fuente, ninguna copia local.
+  const clinicaEfectiva =
+    user.rol === "encargada_ventas" && user.clinica ? user.clinica : clinicaNombre;
 
   // Motor IA tab state
   const [tonosStats, setTonosStats] = useState<TonosStats | null>(null);
@@ -1163,26 +1172,13 @@ export default function KpiView({ user, showBenchmark = true }: { user: UserSess
   const [tonosIsDemo, setTonosIsDemo] = useState(false);
   const tonosFetchedRef = useRef(false);
 
-  useEffect(() => {
-    if (user.rol !== "manager_general") return;
-    cargarJSON<{ clinicas: string[] }>("/api/presupuestos/clinicas", {
-      validar: traeLista("clinicas"),
-    })
-      .then((d) => setClinicas(d.clinicas))
-      .catch(() => {
-        // El selector de clínica vacío no miente sobre datos de negocio: se
-        // deja como está y el error se ve en el KPI principal, que sí carga.
-      });
-  }, [user.rol]);
-
   // Lazy fetch for Motor IA tab — only once
   useEffect(() => {
     if (subTab !== "ia" || tonosFetchedRef.current) return;
     tonosFetchedRef.current = true;
     setTonosLoading(true);
     const url = new URL("/api/presupuestos/tonos-stats", location.href);
-    const clinicaVal = user.rol === "encargada_ventas" && user.clinica ? user.clinica : filterClinica;
-    if (clinicaVal) url.searchParams.set("clinica", clinicaVal);
+    if (clinicaEfectiva) url.searchParams.set("clinica", clinicaEfectiva);
     fetch(url.toString())
       .then((r) => r.json())
       .then((d) => {
@@ -1195,21 +1191,26 @@ export default function KpiView({ user, showBenchmark = true }: { user: UserSess
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
     const url = new URL("/api/presupuestos/kpis", location.href);
-    if (user.rol === "encargada_ventas" && user.clinica) url.searchParams.set("clinica", user.clinica);
-    else if (filterClinica) url.searchParams.set("clinica", filterClinica);
-    if (filterDoctor) url.searchParams.set("doctor", filterDoctor);
-    url.searchParams.set("mes", filterMes);
-    fetch(url.toString())
-      .then((r) => r.json())
+    if (clinicaEfectiva) url.searchParams.set("clinica", clinicaEfectiva);
+    if (doctor) url.searchParams.set("doctor", doctor);
+    url.searchParams.set("periodo", periodo);
+    // Aquí había un `fetch` a pelo sin comprobar el status: un 500 con {error}
+    // entraba como respuesta buena y solo se salvaba porque los tres `?? null`
+    // acababan en el ErrorState. Funcionaba por accidente (§10).
+    cargarJSON<{ kpis: KpiData; kpisMes: KpiData; kpisPrevMes: KpiData }>(url.toString())
       .then((d) => {
-        setKpis(d.kpis ?? null);
-        setKpisMes(d.kpisMes ?? null);
-        setKpisPrevMes(d.kpisPrevMes ?? null);
-        setLoading(false);
+        setKpis(d.kpis);
+        setKpisMes(d.kpisMes);
+        setKpisPrevMes(d.kpisPrevMes);
       })
-      .catch(() => setLoading(false));
-  }, [user, filterClinica, filterDoctor, filterMes, reloadKey]);
+      .catch((e) => {
+        setKpis(null);
+        setError(mensajeDeError(e));
+      })
+      .finally(() => setLoading(false));
+  }, [clinicaEfectiva, doctor, periodo, reloadKey]);
 
   if (loading) {
     return (
@@ -1224,56 +1225,28 @@ export default function KpiView({ user, showBenchmark = true }: { user: UserSess
     return (
       <ErrorState
         title="No se pudieron cargar los KPIs"
-        detail="Los indicadores de presupuestos no están disponibles ahora mismo."
+        detail={error ?? "Los indicadores de presupuestos no están disponibles ahora mismo."}
         onRetry={() => setReloadKey((k) => k + 1)}
       />
     );
   }
 
-  const mesLabel = formatMesLabel(filterMes);
-  const doctorOpciones = kpis.doctores;
+  // Cómo se nombra el periodo DENTRO de una frase ("presupuestos de este mes",
+  // "de los presentados en la semana"). `etiquetaPeriodo` da la etiqueta del
+  // botón —"Mes"—, que en medio de una frase se lee como un error.
+  const mesLabel = NOMBRE_EN_FRASE[periodo];
   const isManager = user.rol === "manager_general";
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 items-center">
-        {user.rol === "manager_general" && (
-          <select value={filterClinica} onChange={(e) => setFilterClinica(e.target.value)}
-            className={`rounded-xl border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)] ${filterClinica ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]" : "border-[var(--color-border)] text-[var(--color-foreground)]"}`}>
-            <option value="">Todas las clínicas</option>
-            {clinicas.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        )}
-        {doctorOpciones.length > 1 && (
-          <select value={filterDoctor} onChange={(e) => setFilterDoctor(e.target.value)}
-            className={`rounded-xl border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)] ${filterDoctor ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]" : "border-[var(--color-border)] text-[var(--color-foreground)]"}`}>
-            <option value="">Todos los doctores</option>
-            {doctorOpciones.map((d) => <option key={d} value={d}>{d}</option>)}
-          </select>
-        )}
-        {/* Mes selector */}
-        <select value={filterMes} onChange={(e) => setFilterMes(e.target.value)}
-          className="rounded-xl border border-[var(--color-accent)] bg-[var(--color-accent-soft)] px-2.5 py-1.5 text-xs text-[var(--color-accent)] font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)]">
-          {meses.map(({ mes, label }) => (
-            <option key={mes} value={mes}>{label}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Sub-tabs */}
-      <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] -mx-4 px-4">
-        <div className="flex gap-0">
-          {SUB_TABS.filter((t) => (showBenchmark || t.id !== "benchmark")).map((t) => (
-            <button key={t.id} onClick={() => setSubTab(t.id)}
-              className={`px-4 py-2.5 text-xs font-semibold border-b-2 transition-colors whitespace-nowrap ${
-                subTab === t.id ? "border-[var(--color-accent)] text-[var(--color-accent)]" : "border-transparent text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
-              }`}>
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Las siete pestañas internas usan el primitivo compartido de pills
+          (`ColaTabs`, el de las colas de Presupuestos y Cobros) en vez del
+          subrayado propio que era el quinto patrón de pestañas del producto. */}
+      <ColaTabs
+        tabs={SUB_TABS.filter((t) => showBenchmark || t.id !== "benchmark")}
+        active={subTab}
+        onChange={setSubTab}
+      />
 
       {/* Tab content */}
       {subTab === "general" && <TabGeneral kpisMes={kpisMes} kpisPrevMes={kpisPrevMes} kpis={kpis} mesLabel={mesLabel} />}

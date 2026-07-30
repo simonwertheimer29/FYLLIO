@@ -14,6 +14,7 @@
 
 import { useEffect, useState } from "react";
 import { useClinic } from "../../lib/context/ClinicContext";
+import type { PeriodoKpi } from "../../lib/periodo";
 import { Card } from "../../components/ui/Card";
 import { KpiCard } from "../../components/ui/KpiCard";
 import { StatePill } from "../../components/ui/StatePill";
@@ -66,7 +67,11 @@ function tasaTone(tasa: number): "emerald" | "amber" | "rose" {
   return "emerald";
 }
 
-export function KpisNoShowsView() {
+// El periodo llega de la cabecera compartida. La ruta de no-shows todavía mide
+// SIEMPRE el mes en curso (el motor está congelado, Sprint B), así que en vez de
+// ignorar el selector en silencio se dice: un número que no obedece a su control
+// y no lo avisa es peor que uno que no tiene control.
+export function KpisNoShowsView({ periodo }: { periodo: PeriodoKpi }) {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -94,17 +99,14 @@ export function KpisNoShowsView() {
   }, [selectedClinicaId, reloadKey]);
 
   return (
-    <div className="p-4 lg:p-6 space-y-12 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h2 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">
-            KPIs No-shows
-          </h2>
-          <p className="text-xs text-[var(--color-muted)] mt-0.5">
-            Tasa de ausencias del mes en curso vs el mes anterior.
-          </p>
-        </div>
-      </div>
+    <div className="space-y-12">
+      {periodo !== "mes" && (
+        <p className="text-[11px] text-[var(--color-muted)] rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-3 py-2">
+          No-shows se mide siempre sobre el <strong>mes en curso</strong>: el motor
+          está congelado y todavía no sabe responder a otros periodos. Lo de abajo
+          no cambia con el selector.
+        </p>
+      )}
 
       {error ? (
         <ErrorState

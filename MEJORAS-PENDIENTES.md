@@ -1293,3 +1293,44 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** medio — mientras existan los dos, cualquier consulta nueva puede
   volver a elegir el vacío.
 - **Fecha:** 2026-07-30 · 🔵
+
+## 80. `/api/leads/kpis` abre ~20 transacciones para pintar una pantalla
+- **Zona:** `api/leads/kpis/route.ts`, `lib/pagos-pg.ts:getFacturadoEnPeriodoPg`
+- **Principio:** §3 facilidad / rendimiento. **Medido el 2026-07-30, y ojo con la
+  interpretación:** la ruta tarda **23 s desde local** pero eso es sobre todo la
+  latencia de mi portátil con Supabase, no la ruta. Round-trip medido: **~200 ms**.
+  Un `runWithClienteDb` son 4 viajes (BEGIN + set_config + query + COMMIT) ≈ 1 s
+  medido. La ruta abre unas 20 → los 23 s cuadran. **En Vercel, con la base en la
+  misma región, el viaje es de ~1-5 ms y la misma ruta debería ir en ~1 s.**
+- **Lo que sí es estructural:** `getFacturadoEnPeriodo` se llama **6 veces** por
+  carga (periodo + previo + una POR CLÍNICA en la comparativa) y cada llamada
+  abre 2-3 transacciones propias. Reparto medido: comparativa de clínicas 5,9 s ·
+  ranking de doctores 3,5 s · los dos facturados 5,7 s · `listLeads` 2,7 s ·
+  `primeraAccionLeadTimestamp` 2,0 s **solo para componer un tooltip**.
+- **Mejora:** un `getFacturadoPorClinicaEnPeriodo` que devuelva el mapa de todas
+  las clínicas en UNA pasada (los datos ya se leen enteros y luego se filtran),
+  y agrupar las lecturas sueltas dentro de una sola transacción. Ya se quitaron
+  dos duplicados obvios (el sparkline releía TODOS los leads; el sanity check del
+  ranking volvía a pedir el facturado que ya estaba calculado).
+- **Impacto:** bajo en producción hoy, alto en cuanto la base no esté al lado —
+  y es la diferencia entre "va bien en Vercel" y "no se puede usar desde fuera".
+- **Fecha:** 2026-07-30 · 🔵
+
+## 81. `/kpis` "Exportar informe" es una pantalla entera dentro de un cajón
+- **Zona:** `(authed)/kpis/KpisView.tsx:ExportDrawer` → `InformesView` (995 líneas)
+- **Principio:** §6 coherencia — el patrón del producto es "las tarjetas informan,
+  los paneles actúan". Esto es un panel que **contiene otra pantalla**: filtros
+  propios de mes y clínica, dos pestañas internas, un historial de informes
+  guardados, y gráficas fuera de pantalla que se capturan a PNG para el PDF. Un
+  cajón de 896 px que hace scroll sobre 995 líneas no es un panel de acción.
+- **Además es frágil:** la captura con `dom-to-image-more` necesita los nodos
+  montados, y un cajón que se desmonta al cerrar es mal anfitrión para eso.
+- **Mejora (mi recomendación):** pantalla propia, `/informes`. Generar un informe
+  con IA tarda segundos, produce un documento y luego se navega el historial: eso
+  es una pantalla, no una acción de un clic. La alternativa —un botón que genera y
+  descarga sin montar nada— pierde el historial, que es la mitad del valor.
+- **Ya hecho de paso (2026-07-30):** el botón pasa a llamarse "Informe mensual" y
+  el cajón declara que va por MES de calendario, no por el periodo de la cabecera.
+  Antes parecía obedecer a los controles de arriba y no lo hacía.
+- **Impacto:** medio · **Esfuerzo:** medio (ruta nueva + entrada de navegación).
+- **Fecha:** 2026-07-30 · 🔵 **decisión de producto pendiente**

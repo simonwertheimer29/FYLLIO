@@ -25,16 +25,12 @@ import { KpiCardSkeleton } from "../../components/ui/Skeleton";
 import { ErrorState } from "../../components/ui/Feedback";
 import { X, ICON_STROKE } from "../../components/icons";
 import { useClinic } from "../../lib/context/ClinicContext";
+import type { PeriodoKpi } from "../../lib/periodo";
 
-type Periodo = "hoy" | "semana" | "mes" | "mes_anterior" | "trimestre";
-
-const PERIODOS: Array<{ id: Periodo; label: string }> = [
-  { id: "hoy", label: "Hoy" },
-  { id: "semana", label: "Semana" },
-  { id: "mes", label: "Mes" },
-  { id: "mes_anterior", label: "Mes anterior" },
-  { id: "trimestre", label: "Trimestre" },
-];
+// El vocabulario del periodo y su control viven en la cabecera de /kpis
+// (`lib/periodo`): aquí había una COPIA de la lista y otra del markup de las
+// pills, con estilos ligeramente distintos a los de Cobros.
+type Periodo = PeriodoKpi;
 
 type RecibidosKpi = {
   actual: number;
@@ -114,8 +110,7 @@ type MatrixRow = {
 
 // ─── Componente principal ─────────────────────────────────────────────
 
-export function KpisLeadsView() {
-  const [periodo, setPeriodo] = useState<Periodo>("mes");
+export function KpisLeadsView({ periodo }: { periodo: Periodo }) {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -176,31 +171,12 @@ export function KpisLeadsView() {
     loadDrill();
   }, [loadDrill]);
 
-  return (
-    <div className="p-4 lg:p-6 space-y-12 max-w-7xl mx-auto">
-      {/* Header + selector periodo */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">
-          KPIs de leads
-        </h2>
-        <div className="flex gap-1">
-          {PERIODOS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setPeriodo(p.id)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
-                periodo === p.id
-                  ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-[var(--color-accent)]"
-                  : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </div>
+  // "Cargando" es no tener datos todavía y no haber fallado: con eso basta, y
+  // no depende de que `loading` y `data` estén sincronizados.
+  const cargando = !data && !error;
 
+  return (
+    <div className="space-y-12">
       {/* Error honesto: el fetch falló → no dejamos la página en blanco. */}
       {error && !loading && (
         <ErrorState
@@ -210,8 +186,17 @@ export function KpisLeadsView() {
       )}
 
       {/* 4.1 Hero KPIs */}
-      <HeroKpis data={data} loading={loading} />
+      {!error && <HeroKpis data={data} loading={cargando} />}
 
+      {/* Mientras carga, TODO enseña esqueleto. Antes los bloques devolvían
+          `null` (pantalla en blanco) y las Distribuciones anunciaban "Sin datos
+          en el periodo" — con la ruta tardando lo que tarda, la coordinadora
+          leía "no hay leads" durante veinte segundos. Es el mismo pecado del
+          `?? []`, por la puerta del estado de carga. */}
+      {cargando ? (
+        <BloquesEsqueleto />
+      ) : (
+        <>
       {/* 4.2 Funnel */}
       <FunnelBlock data={data} />
 
@@ -246,6 +231,8 @@ export function KpisLeadsView() {
 
       {/* 4.8 Ranking doctores */}
       <RankingDoctores data={data} />
+        </>
+      )}
 
       {/* Drilldown drawer */}
       {drillClinicaId && (
@@ -265,7 +252,7 @@ export function KpisLeadsView() {
 // ═════════════════════════════════════════════════════════════════════
 
 function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolean }) {
-  if (loading && !data) {
+  if (loading || !data) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
         {[1, 2, 3, 4].map((i) => (
@@ -312,6 +299,22 @@ function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolea
         deltaPct={k.facturado.deltaPct}
         accent="emerald"
       />
+    </div>
+  );
+}
+
+/** El hueco que dejan los siete bloques mientras llega la respuesta: la página
+ *  mantiene su forma en vez de colapsar a nada. */
+function BloquesEsqueleto() {
+  return (
+    <div className="space-y-12" aria-hidden>
+      <div className="fyllio-skeleton h-[260px] rounded-2xl" />
+      <div className="fyllio-skeleton h-[220px] rounded-2xl" />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="fyllio-skeleton h-[280px] rounded-2xl" />
+        <div className="fyllio-skeleton h-[280px] rounded-2xl" />
+      </div>
+      <div className="fyllio-skeleton h-[200px] rounded-2xl" />
     </div>
   );
 }

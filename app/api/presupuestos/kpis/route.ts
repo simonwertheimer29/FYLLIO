@@ -23,6 +23,10 @@ import {
 } from "../../../lib/presupuestos/clinica-scope";
 import { catalogoTiposPaciente } from "../../../lib/pacientes/tipos-paciente";
 import {
+  leerPeriodo, rangoDePeriodo, rangoPrevio, enRangoISO,
+} from "../../../lib/periodo";
+import { hoyISO, inicioDelDiaUTC, sumaDias } from "../../../lib/time";
+import {
   canalCaptacionPorPaciente, ORIGEN_SIN_CAPTACION, ORIGEN_LEAD_SIN_CANAL,
 } from "../../../lib/leads/captacion";
 
@@ -101,6 +105,21 @@ function buildKpis(allPresupuestos: Presupuesto[], catalogo: string[] = []): Kpi
       .reduce((s, p) => s + (p.amount ?? 0), 0);
   }
 
+  // MISMO TRAMO: días 1..hoy en los dos periodos. Sin esto, un mes (o un año) a
+  // medias se compara contra uno entero y el día 3 todo cae un 90%. Es la misma
+  // regla que /red aplica desde el 2026-07-27, aquí pendiente.
+  const diaHoy = now.getDate();
+  const mesHoy = now.getMonth();
+  const dentroDelTramoMes = (p: Presupuesto) => {
+    const d = Number(p.fechaPresupuesto.slice(8, 10));
+    return !Number.isFinite(d) || d <= diaHoy;
+  };
+  const dentroDelTramoAnio = (p: Presupuesto) => {
+    const m = Number(p.fechaPresupuesto.slice(5, 7)) - 1;
+    if (!Number.isFinite(m)) return true;
+    return m < mesHoy || (m === mesHoy && dentroDelTramoMes(p));
+  };
+
   function mkComparacion(curr: Presupuesto[], prev: Presupuesto[]): KpiComparacion {
     const a = curr.length;
     const b = prev.length;
@@ -109,16 +128,16 @@ function buildKpis(allPresupuestos: Presupuesto[], catalogo: string[] = []): Kpi
 
   const comparacion = {
     mesActual: mkComparacion(
-      allPresupuestos.filter((p) => inPeriod(p, "month")),
-      allPresupuestos.filter((p) => inPeriod(p, "prevMonth"))
+      allPresupuestos.filter((p) => inPeriod(p, "month") && dentroDelTramoMes(p)),
+      allPresupuestos.filter((p) => inPeriod(p, "prevMonth") && dentroDelTramoMes(p))
     ),
     trimestre: mkComparacion(
       allPresupuestos.filter((p) => inPeriod(p, "quarter")),
       allPresupuestos.filter((p) => inPeriod(p, "prevQuarter"))
     ),
     anio: mkComparacion(
-      allPresupuestos.filter((p) => inPeriod(p, "year")),
-      allPresupuestos.filter((p) => inPeriod(p, "prevYear"))
+      allPresupuestos.filter((p) => inPeriod(p, "year") && dentroDelTramoAnio(p)),
+      allPresupuestos.filter((p) => inPeriod(p, "prevYear") && dentroDelTramoAnio(p))
     ),
   };
 
@@ -393,6 +412,21 @@ async function fetchFromAirtable(session: UserSession, clinicaFormula: string | 
   }
 }
 
+/** El rango de un mes de calendario "YYYY-MM", en días de la clínica. */
+function rangoDeMes(mes: string): { desde: Date; hasta: Date } {
+  const primero = `${mes}-01`;
+  const primeroSiguiente = sumaDias(`${mes}-28`, 5).slice(0, 7) + "-01";
+  return {
+    desde: inicioDelDiaUTC(primero),
+    hasta: new Date(inicioDelDiaUTC(primeroSiguiente).getTime() - 1),
+  };
+}
+
+function mesAnteriorDe(mes: string): string {
+  const [a, m] = mes.split("-").map(Number);
+  return m === 1 ? `${a - 1}-12` : `${a}-${String(m - 1).padStart(2, "0")}`;
+}
+
 /** El id del paciente enlazado, venga como array (link) o como texto. */
 function idDePaciente(v: unknown): string | null {
   if (Array.isArray(v)) return v[0] ? String(v[0]) : null;
@@ -413,15 +447,19 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const clinicaFormula = formulaClinicaPermitida(efectivas, "Clinica");
   const doctor = url.searchParams.get("doctor") ?? null;
 
-  // Selected month (default: current month)
-  const now = new Date();
-  const defaultMes = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const mesFiltro = url.searchParams.get("mes") ?? defaultMes;
-
-  // Compute previous month
-  const [mesY, mesM] = mesFiltro.split("-").map(Number);
-  const prevDate = new Date(mesY, mesM - 2, 1);
-  const mesPrevio = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+  // El periodo, con el mismo vocabulario que las otras tres pestañas
+  // (`lib/periodo`). Antes esta ruta solo entendía `?mes=YYYY-MM`: era la única
+  // de /kpis con selector de mes y ninguna de las otras lo tenía, así que el
+  // control cambiaba de forma al cambiar de pestaña. Se sigue aceptando `mes`
+  // para el informe mensual, que SÍ es de un mes de calendario concreto.
+  const mesExplicito = url.searchParams.get("mes");
+  const periodo = leerPeriodo(url.searchParams.get("periodo"));
+  const { desde, hasta } = mesExplicito
+    ? rangoDeMes(mesExplicito)
+    : rangoDePeriodo(periodo);
+  const { desde: prevDesde, hasta: prevHasta } = mesExplicito
+    ? rangoDeMes(mesAnteriorDe(mesExplicito))
+    : rangoPrevio(periodo);
 
   // Si la carga falla, los KPIs NO se calculan sobre presupuestos inventados:
   // eran números de negocio con cara de reales sobre los que se toman
@@ -433,8 +471,12 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const data: Presupuesto[] = datosReales;
   const isDemo = false;
 
-  const dataMes = data.filter((p) => isoToYYYYMM(p.fechaPresupuesto) === mesFiltro);
-  const dataPrevMes = data.filter((p) => isoToYYYYMM(p.fechaPresupuesto) === mesPrevio);
+  // El corte es por rango, no por cadena de mes: así "Semana" y "Trimestre"
+  // significan algo aquí y no solo en Leads y Cobros.
+  const enRango = (p: Presupuesto, r: { desde: Date; hasta: Date }) =>
+    enRangoISO(p.fechaPresupuesto, r);
+  const dataMes = data.filter((p) => enRango(p, { desde, hasta }));
+  const dataPrevMes = data.filter((p) => enRango(p, { desde: prevDesde, hasta: prevHasta }));
 
   // El catálogo se lee UNA vez y se pasa a los tres cortes.
   const catalogo = (await catalogoTiposPaciente(null)).map((t) => t.valor);
@@ -442,5 +484,11 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
   const kpisMes = buildKpis(dataMes, catalogo);
   const kpisPrevMes = buildKpis(dataPrevMes, catalogo);
 
-  return NextResponse.json({ kpis, kpisMes, kpisPrevMes, isDemo, mes: mesFiltro });
+  return NextResponse.json({
+    kpis, kpisMes, kpisPrevMes, isDemo,
+    periodo: mesExplicito ? "mes" : periodo,
+    mes: mesExplicito ?? isoToYYYYMM(hoyISO(hasta)),
+    // Qué ventana se ha medido de verdad, para que la pantalla lo pueda decir.
+    rango: { desde: hoyISO(desde), hasta: hoyISO(hasta) },
+  });
 });

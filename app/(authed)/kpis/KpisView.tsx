@@ -1,16 +1,40 @@
 "use client";
 
-// Sprint 8 D.4 — sub-tabs Presupuestos / Leads + botón Exportar informe
-// (reutiliza InformesView embebido en drawer).
+// La cabecera de /kpis (pasada visual 2026-07-30, bloque 2).
+//
+// Lo que había: una barra propia pegada al borde superior con `SubTabButton`
+// —un quinto patrón de pestañas— y, dentro de cada módulo, su propia cabecera y
+// su propio control. Cuatro navegaciones en la misma pantalla: los módulos
+// arriba, los filtros de clínica/doctor/mes SOLO en Presupuestos, siete pestañas
+// internas, y unas pills de periodo que existían en Leads y Cobros pero no en
+// Presupuestos ni en No-shows. Cambiar de módulo cambiaba la forma del control.
+//
+// Lo que hay: la anatomía del resto del producto (título y subtítulo en el
+// cuerpo, sin barra propia), el conmutador de módulo a la derecha alineado con
+// el título —`SegmentedToggle`, como Cobros y Seguimiento— y UN control de
+// periodo compartido por los cuatro, con el mismo vocabulario y en el mismo
+// sitio. Cero primitivos nuevos.
+//
+// Y donde un módulo no puede honrar un filtro, se DECLARA. Un control que
+// desaparece al cambiar de pestaña se lee como un fallo; uno que dice "esto aquí
+// no aplica, y por qué" enseña cómo funciona el producto.
 
 import NextDynamic from "next/dynamic";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { UserSession } from "../../lib/presupuestos/types";
 import { X, ICON_STROKE } from "../../components/icons";
 import KpiView from "../../components/presupuestos/KpiView";
 import { KpisLeadsView } from "./KpisLeadsView";
 import { KpisCobrosView } from "./KpisCobrosView";
 import { KpisNoShowsView } from "./KpisNoShowsView";
+import { SegmentedToggle } from "../../components/shared/SegmentedToggle";
+import { ColaTabs } from "../../components/shared/ColaTabs";
+import { Card } from "../../components/ui/Card";
+import {
+  PERIODOS_KPI, PERIODO_DEFAULT, etiquetaComparacion, type PeriodoKpi,
+} from "../../lib/periodo";
+import { useClinic } from "../../lib/context/ClinicContext";
+import { cargarJSON, traeLista } from "../../lib/fetch-json";
 
 // InformesView depende de dom-to-image-more → ssr:false (mismo fix que
 // PresupuestosShell).
@@ -21,55 +45,119 @@ const InformesView = NextDynamic(
 
 type SubTab = "presupuestos" | "leads" | "cobros" | "no-shows";
 
+const MODULOS: Array<{ id: SubTab; label: string }> = [
+  { id: "presupuestos", label: "Presupuestos" },
+  { id: "leads", label: "Leads" },
+  { id: "cobros", label: "Cobros" },
+  { id: "no-shows", label: "No-shows" },
+];
+
+/** Qué sabe hacer cada módulo con los filtros comunes. Lo que no soporta se
+ *  declara con su motivo — no se esconde el control. */
+const SOPORTE: Record<SubTab, { doctor: boolean; nota?: string }> = {
+  presupuestos: { doctor: true },
+  leads: { doctor: true },
+  cobros: {
+    doctor: false,
+    nota: "Los cobros no se atribuyen a un doctor: el pago es del paciente, no del tratamiento que lo generó.",
+  },
+  "no-shows": {
+    doctor: false,
+    nota: "El motor de no-shows está congelado; sus métricas no se pueden filtrar por doctor todavía.",
+  },
+};
+
 export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolean }) {
   const [tab, setTab] = useState<SubTab>("presupuestos");
+  const [periodo, setPeriodo] = useState<PeriodoKpi>(PERIODO_DEFAULT);
+  const [doctor, setDoctor] = useState("");
+  const [doctores, setDoctores] = useState<string[]>([]);
   const [exportOpen, setExportOpen] = useState(false);
+  const soporte = SOPORTE[tab];
+  // La clínica NO es un control nuevo: es el selector global de la cabecera de
+  // la app, el mismo que usan Leads, Cobros, Pacientes y Seguimiento. KpiView
+  // tenía además el SUYO propio, un segundo desplegable de clínicas en una
+  // pantalla que ya tenía uno arriba.
+  const { selectedClinicaNombre } = useClinic();
+
+  const cargarDoctores = useCallback(() => {
+    const url = new URL("/api/presupuestos/doctores", location.href);
+    if (selectedClinicaNombre) url.searchParams.set("clinica", selectedClinicaNombre);
+    cargarJSON<{ doctores: Array<{ nombre: string }> }>(url.toString(), {
+      validar: traeLista("doctores"),
+    })
+      .then((d) => setDoctores(d.doctores.map((x) => x.nombre).filter(Boolean)))
+      // Sin lista de doctores el filtro se queda vacío y se dice; lo que no se
+      // hace es tumbar la pantalla entera por un desplegable.
+      .catch(() => setDoctores([]));
+  }, [selectedClinicaNombre]);
+  useEffect(() => { cargarDoctores(); }, [cargarDoctores]);
+
+  // Al cambiar a un módulo que no filtra por doctor, el filtro no se aplica
+  // pero TAMPOCO se pierde: al volver sigue donde estaba.
+  const doctorEfectivo = soporte.doctor ? doctor : "";
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-background)] overflow-hidden">
-      {/* Sprint 12 — barra superior estilo Linear: pills accent activas. */}
-      <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-2.5 flex items-center justify-between gap-3 shrink-0">
-        <div className="flex items-center gap-1">
-          <SubTabButton
-            active={tab === "presupuestos"}
-            onClick={() => setTab("presupuestos")}
-            label="Presupuestos"
-          />
-          <SubTabButton
-            active={tab === "leads"}
-            onClick={() => setTab("leads")}
-            label="Leads"
-          />
-          <SubTabButton
-            active={tab === "cobros"}
-            onClick={() => setTab("cobros")}
-            label="Cobros"
-          />
-          <SubTabButton
-            active={tab === "no-shows"}
-            onClick={() => setTab("no-shows")}
-            label="No-shows"
-          />
-        </div>
-        <button
-          type="button"
-          onClick={() => setExportOpen(true)}
-          className="rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-semibold px-3 py-1.5 hover:bg-[var(--color-accent-hover)] transition-colors"
-        >
-          Exportar informe
-        </button>
-      </div>
-
-      {/* Contenido */}
-      <div className="flex-1 min-h-0 overflow-auto">
-        {tab === "presupuestos" && (
-          <div className="p-4 lg:p-6">
-            <KpiView user={user} showBenchmark={isAdmin} />
+    <div className="w-full max-w-[1400px] mx-auto px-3 sm:px-6 py-6 space-y-6 overflow-x-hidden">
+      <header className="space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
+              KPIs
+            </h1>
+            <p className="text-[13px] text-[var(--color-muted)] mt-0.5">
+              Cómo va el negocio, por módulo y por periodo.
+            </p>
           </div>
+          <SegmentedToggle options={MODULOS} active={tab} onChange={setTab} />
+        </div>
+
+        {/* Fila de controles: el periodo manda en los cuatro módulos y no se
+            mueve de sitio al cambiar de pestaña. */}
+        <Card padding="none" className="px-4 py-3 space-y-2">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <ColaTabs
+              tabs={PERIODOS_KPI}
+              active={periodo}
+              onChange={(p) => setPeriodo(p as PeriodoKpi)}
+            />
+            <div className="flex items-center gap-2">
+              <DoctorFiltro
+                valor={doctor}
+                onChange={setDoctor}
+                opciones={doctores}
+                habilitado={soporte.doctor}
+                nota={soporte.nota}
+              />
+              <button
+                type="button"
+                onClick={() => setExportOpen(true)}
+                className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] text-xs font-semibold px-3 py-1.5 hover:bg-[var(--color-surface-muted)] transition-colors whitespace-nowrap"
+              >
+                Informe mensual
+              </button>
+            </div>
+          </div>
+          <p className="text-[11px] text-[var(--color-muted)]">
+            Las comparaciones van {etiquetaComparacion(periodo)}.
+            {soporte.nota ? ` ${soporte.nota}` : ""}
+          </p>
+        </Card>
+      </header>
+
+      <div>
+        {tab === "presupuestos" && (
+          <KpiView
+            user={user}
+            showBenchmark={isAdmin}
+            periodo={periodo}
+            doctor={doctorEfectivo}
+            clinicaNombre={selectedClinicaNombre}
+          />
         )}
-        {tab === "leads" && <KpisLeadsView />}
-        {tab === "cobros" && <KpisCobrosView />}
-        {tab === "no-shows" && <KpisNoShowsView />}
+        {tab === "leads" && <KpisLeadsView periodo={periodo} />}
+        {tab === "cobros" && <KpisCobrosView periodo={periodo} />}
+        {tab === "no-shows" && <KpisNoShowsView periodo={periodo} />}
       </div>
 
       {exportOpen && (
@@ -79,30 +167,51 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
   );
 }
 
-function SubTabButton({
-  active,
-  onClick,
-  label,
+/** El filtro de doctor. Cuando el módulo activo no lo soporta se queda visible y
+ *  deshabilitado con su motivo: desaparecer se lee como un fallo. */
+function DoctorFiltro({
+  valor,
+  onChange,
+  opciones,
+  habilitado,
+  nota,
 }: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
+  valor: string;
+  onChange: (v: string) => void;
+  opciones: string[];
+  habilitado: boolean;
+  nota?: string;
 }) {
+  const vacio = opciones.length === 0;
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`font-display px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-        active
-          ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
-          : "text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
+    <select
+      value={habilitado ? valor : ""}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={!habilitado || vacio}
+      title={
+        !habilitado ? nota
+        : vacio ? "No se pudo cargar la lista de doctores"
+        : "Filtrar por doctor"
+      }
+      className={`rounded-md border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)] ${
+        !habilitado || vacio
+          ? "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-muted)] cursor-not-allowed"
+          : valor
+            ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
+            : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]"
       }`}
     >
-      {label}
-    </button>
+      <option value="">
+        {!habilitado ? "Doctor · no aplica"
+          : vacio ? "Doctores · no disponibles"
+          : "Todos los doctores"}
+      </option>
+      {opciones.map((d) => (
+        <option key={d} value={d}>{d}</option>
+      ))}
+    </select>
   );
 }
-
 
 function ExportDrawer({
   onClose,
@@ -123,10 +232,10 @@ function ExportDrawer({
         <header className="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
           <div>
             <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">
-              Exportar informe
+              Informe mensual
             </h2>
             <p className="text-[11px] text-[var(--color-muted)]">
-              PDF / PPT mensuales e informes semanales
+              Se genera por MES de calendario, no por el periodo de arriba.
             </p>
           </div>
           <button

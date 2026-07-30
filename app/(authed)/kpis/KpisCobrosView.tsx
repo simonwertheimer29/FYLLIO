@@ -14,6 +14,7 @@ import {
   Tooltip as ReTooltip,
 } from "recharts";
 import { useClinic } from "../../lib/context/ClinicContext";
+import type { PeriodoKpi } from "../../lib/periodo";
 import { KpiCard } from "../../components/ui/KpiCard";
 import { KpiCardSkeleton } from "../../components/ui/Skeleton";
 import { ErrorState, EmptyState } from "../../components/ui/Feedback";
@@ -26,15 +27,9 @@ import {
   ICON_STROKE,
 } from "../../components/icons";
 
-type Periodo = "hoy" | "semana" | "mes" | "mes_anterior" | "trimestre";
-
-const PERIODOS: Array<{ id: Periodo; label: string }> = [
-  { id: "hoy", label: "Hoy" },
-  { id: "semana", label: "Semana" },
-  { id: "mes", label: "Mes" },
-  { id: "mes_anterior", label: "Mes anterior" },
-  { id: "trimestre", label: "Trimestre" },
-];
+// El vocabulario del periodo y su control viven en la cabecera de /kpis
+// (`lib/periodo`): esta lista era la gemela de la de Leads.
+type Periodo = PeriodoKpi;
 
 type ApiResponse = {
   periodo: Periodo;
@@ -92,8 +87,7 @@ const SKY_PALETTE = [100, 80, 60, 40, 20]
   .map((p) => `color-mix(in srgb, var(--color-accent) ${p}%, var(--color-surface))`)
   .concat("var(--color-muted)");
 
-export function KpisCobrosView() {
-  const [periodo, setPeriodo] = useState<Periodo>("mes");
+export function KpisCobrosView({ periodo }: { periodo: Periodo }) {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -148,29 +142,7 @@ export function KpisCobrosView() {
   }, [drillClinicaId, periodo, drillReloadKey]);
 
   return (
-    <div className="p-4 lg:p-6 space-y-12 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h2 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">
-          KPIs Cobros
-        </h2>
-        <div className="flex gap-1">
-          {PERIODOS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setPeriodo(p.id)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
-                periodo === p.id
-                  ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-transparent"
-                  : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
+    <div className="space-y-12">
       {error ? (
         <ErrorState
           detail="Los cobros no se han podido cargar."

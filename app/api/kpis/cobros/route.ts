@@ -23,32 +23,14 @@ import { listClinicaIdsForUser, listClinicas } from "../../../lib/auth/users";
 import { listPacientes } from "../../../lib/pacientes/pacientes";
 import { listAllOpciones } from "../../../lib/configuraciones/configuraciones";
 
+import { leerPeriodo, rangoDePeriodo, rangoPrevio, type PeriodoKpi } from "../../../lib/periodo";
+
 export const dynamic = "force-dynamic";
 
-type Periodo = "hoy" | "semana" | "mes" | "mes_anterior" | "trimestre";
-
-function rangoPeriodo(p: Periodo): { desde: Date; hasta: Date } {
-  // Los límites son días DE LA CLÍNICA, no del runtime: en Vercel el proceso
-  // corre en UTC, así que "hoy" empezaba a las 02:00 de Madrid y las dos
-  // primeras horas de caja quedaban fuera del periodo (MEJORAS 52).
-  const now = new Date();
-  const hoy = hoyISO(now);
-  const primeroDeEsteMes = `${hoy.slice(0, 7)}-01`;
-  if (p === "hoy") return { desde: inicioDelDiaUTC(hoy), hasta: now };
-  if (p === "semana") return { desde: inicioDelDiaUTC(sumaDias(hoy, -7)), hasta: now };
-  if (p === "mes") return { desde: inicioDelDiaUTC(primeroDeEsteMes), hasta: now };
-  if (p === "mes_anterior") {
-    const ultimoDelPrevio = sumaDias(primeroDeEsteMes, -1);
-    return {
-      desde: inicioDelDiaUTC(`${ultimoDelPrevio.slice(0, 7)}-01`),
-      // Un milisegundo antes de que empiece este mes en la clínica.
-      hasta: new Date(inicioDelDiaUTC(primeroDeEsteMes).getTime() - 1),
-    };
-  }
-  const trimestre = new Date(now);
-  trimestre.setUTCMonth(trimestre.getUTCMonth() - 3);
-  return { desde: inicioDelDiaUTC(hoyISO(trimestre)), hasta: now };
-}
+// El vocabulario del periodo y sus dos rangos viven en `lib/periodo` desde el
+// 2026-07-30: esta implementación era la buena de las tres y ahora la comparten
+// las cuatro pestañas de /kpis.
+type Periodo = PeriodoKpi;
 
 // (shiftDayIso vivía aquí; ahora es `sumaDias` en lib/time.)
 const shiftDayIso = sumaDias;
@@ -57,9 +39,9 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 export const GET = withAuth(async (session, req) => {
   const url = new URL(req.url);
-  const periodo = (url.searchParams.get("periodo") as Periodo) ?? "mes";
+  const periodo = leerPeriodo(url.searchParams.get("periodo"));
   const clinicaQuery = url.searchParams.get("clinica");
-  const { desde, hasta } = rangoPeriodo(periodo);
+  const { desde, hasta } = rangoDePeriodo(periodo);
 
   // ── Scope clinicas accesibles ─────────────────────────────────────
   const accesiblesIds =
