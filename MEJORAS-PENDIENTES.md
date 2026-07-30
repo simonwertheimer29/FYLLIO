@@ -1089,7 +1089,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** alto en uso real de móvil.
 - **Fecha:** 2026-07-29 · 🔵
 
-## 71. El rango temporal aplica al Tablero y no a la Tabla, y su selector desaparece
+## 71. ✅ CERRADA — El rango gobierna las DOS vistas y el selector no desaparece
 - **Zona:** `PresupuestosShell.tsx` (`RangoTemporal` solo se renderiza en la vista
   Tablero), `MaximaView.tsx` (no filtra por rango en absoluto)
 - **Principio:** §6 coherencia — son DOS VISTAS DE LO MISMO y un filtro que
@@ -1111,7 +1111,21 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   (cero criterio nuevo). Las dos cifras del mes siguen declarando su ventana en
   su etiqueta, que es lo que las hace no contradictorias.
 - **Impacto:** medio-alto en confianza en los números de la pantalla.
-- **Fecha:** 2026-07-29 · 🔵 **pendiente de decisión de Simon.**
+- **Fecha:** 2026-07-29 · ✅ **CERRADA el 2026-07-29.** Decisión de Simon: rango en las dos
+  ("un filtro que aplica a una vista y no a su gemela es una trampa"). El selector sube a la
+  fila de la CABECERA, junto al conmutador, así que ya no desaparece al cambiar de lente; la
+  Tabla filtra con las MISMAS funciones puras del tablero (`fechaDeRango` + `dentroDeRango`),
+  cero criterio nuevo, y sus pills y recuentos se derivan del conjunto en rango — un pill que
+  cuenta filas que la tabla no pinta es el mismo error un nivel más abajo. Lo que el rango
+  esconde se DICE ("N fuera del periodo"), como en las columnas del kanban, y el vacío
+  distingue "el periodo no tiene nada" de "ajusta los filtros".
+  **Lo que faltaba y no se veía:** pasarle el rango a la vista no bastaba. `/api/presupuestos/maxima`
+  **no mandaba las fechas de cierre**, así que `fechaDeRango` devolvía null para todo
+  ACEPTADO/PERDIDO y `dentroDeRango` los mostraba siempre — la Tabla seguía enseñando los 123
+  en cualquier periodo. El filtro estaba puesto; el dato con el que filtrar no viajaba. La
+  ruta añade `fechaAceptado` y deriva `fechaPerdida` del historial, con las mismas piezas que
+  el kanban. Verificado: tablero y tabla cuadran en los cuatro rangos (45·45, 49·49, 86·86,
+  123·123).
 
 ## 72. `verificar:produccion` deja un presupuesto de prueba en los datos cada vez
 - **Zona:** `scripts/verificar-produccion.mjs:239-255`

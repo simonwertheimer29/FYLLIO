@@ -14,6 +14,8 @@ import { StatePill } from "../ui/StatePill";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { CardListSkeleton } from "../ui/Skeleton";
 import { hoyISO } from "../../lib/time";
+import { dentroDeRango, type RangoKanban } from "../shared/RangoTemporal";
+import { fechaDeRango } from "../../lib/presupuestos/pipeline";
 import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
 import { eur } from "../shared/Cifra";
 
@@ -65,8 +67,14 @@ function formatDate(iso: string): string {
 export default function MaximaView({
   onOpenDrawer,
   refreshKey = 0,
+  rango,
 }: {
   onOpenDrawer: (p: PresupuestoIntervencion) => void;
+  /** El MISMO rango que el Tablero, con las MISMAS funciones puras
+   *  (`fechaDeRango` + `dentroDeRango`): cero criterio nuevo. Antes esta vista
+   *  no lo aplicaba, así que enseñaba 123 filas mientras el Tablero enseñaba 45
+   *  y el selector desaparecía al cambiar de lente (MEJORAS 71). */
+  rango: RangoKanban;
   /** Sube cuando se actúa desde el panel. Antes el Shell pasaba
    *  `onRefresh={() => {}}` con el comentario "la cola se recupera con su propio
    *  polling interno" — y esta vista NO tiene polling: carga al montar y nada
@@ -123,9 +131,17 @@ export default function MaximaView({
 
   // ─── Filtered + sorted list ─────────────────────────────────────────────────
 
+  /** El conjunto del que habla TODA la vista: filas dentro del rango. Los pills
+   *  y el recuento se derivan de aquí, no del total — un pill que cuenta cosas
+   *  que la tabla no pinta es el mismo error, un nivel más abajo. */
+  const enRango = useMemo(
+    () => (data ? data.presupuestos.filter((p) => dentroDeRango(fechaDeRango(p), rango)) : []),
+    [data, rango],
+  );
+
   const filtered = useMemo(() => {
     if (!data) return [];
-    let items = data.presupuestos;
+    let items = enRango;
 
     // Clinic filter (desde ClinicContext global, Sprint 7 Fase 5).
     if (selectedClinicaNombre) {
@@ -173,24 +189,19 @@ export default function MaximaView({
     });
 
     return sorted;
-  }, [data, selectedClinicaNombre, filtroDoctor, filtroTratamiento, pillActiva, searchQuery, sortField, sortDir]);
+  }, [data, enRango, selectedClinicaNombre, filtroDoctor, filtroTratamiento, pillActiva, searchQuery, sortField, sortDir]);
 
   // ─── Pill counts ────────────────────────────────────────────────────────────
 
   const pillCounts = useMemo(() => {
-    if (!data) return {} as Record<PillCategory, number>;
     const counts: Record<string, number> = {};
     for (const pill of PILL_DEFS) {
-      if (!pill.estadosVisuales) {
-        counts[pill.id] = data.presupuestos.length;
-      } else {
-        counts[pill.id] = data.presupuestos.filter((p) =>
-          pill.estadosVisuales!.includes(p.estadoVisual)
-        ).length;
-      }
+      counts[pill.id] = pill.estadosVisuales
+        ? enRango.filter((p) => pill.estadosVisuales!.includes(p.estadoVisual)).length
+        : enRango.length;
     }
     return counts as Record<PillCategory, number>;
-  }, [data]);
+  }, [enRango]);
 
   // Intervención count for priority block
   const intervencionCount = pillCounts["intervencion"] ?? 0;
@@ -242,7 +253,11 @@ export default function MaximaView({
           veces, uno de ellos a pantalla completa. */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-[var(--color-muted)] tabular-nums">
-          {data.totales.total} presupuesto{data.totales.total === 1 ? "" : "s"} en total
+          {enRango.length} presupuesto{enRango.length === 1 ? "" : "s"} en el periodo
+          {/* Lo que el rango esconde se DICE, igual que en las columnas del
+              tablero: nunca se recorta en silencio. */}
+          {data.totales.total > enRango.length &&
+            ` · ${data.totales.total - enRango.length} fuera del periodo`}
           {intervencionCount > 0 && (
             <>
               {" · "}
@@ -339,7 +354,7 @@ export default function MaximaView({
 
       {/* Results count */}
       <p className="text-xs text-[var(--color-muted)]">
-        Mostrando {filtered.length} de {data.totales.total}
+        Mostrando {filtered.length} de {enRango.length} del periodo
       </p>
 
       {/* Table */}
@@ -378,10 +393,17 @@ export default function MaximaView({
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={10} className="px-6 py-6">
+                  {/* "Ajusta los filtros" no sirve si lo que sobra es el RANGO:
+                      el vacío tiene que decir cuál de las dos cosas pasa, y
+                      ofrecer la salida. */}
                   <EmptyState
                     icon={<Search size={20} strokeWidth={ICON_STROKE} />}
                     title="Sin resultados"
-                    hint="Ajusta los filtros o la búsqueda para ver presupuestos."
+                    hint={
+                      enRango.length === 0 && data.totales.total > 0
+                        ? `Ningún presupuesto en el periodo elegido. Hay ${data.totales.total} fuera de él.`
+                        : "Ajusta los filtros o la búsqueda para ver presupuestos."
+                    }
                   />
                 </td>
               </tr>

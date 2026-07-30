@@ -392,20 +392,29 @@ export default function PresupuestosShell({
               </p>
             </div>
 
-            <SegmentedToggle
-              options={[
-                { id: "kanban", label: "Tablero" },
-                { id: "maxima", label: "Tabla" },
-              ]}
-              active={tab}
-              onChange={(id) => setTab(id)}
-            />
+            {/* El rango vive AQUÍ, en la cabecera, y no en la fila de filtros
+                del Tablero: gobierna las DOS vistas, así que no puede
+                desaparecer al cambiar de lente. Antes solo se renderizaba en el
+                Tablero y solo lo filtraba a él — la Tabla enseñaba los 123
+                mientras el Tablero enseñaba 45, sin que nada dijera por qué.
+                Un filtro que aplica a una vista y no a su gemela es una trampa. */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <RangoTemporal value={rango} onChange={setRango} />
+              <SegmentedToggle
+                options={[
+                  { id: "kanban", label: "Tablero" },
+                  { id: "maxima", label: "Tabla" },
+                ]}
+                active={tab}
+                onChange={(id) => setTab(id)}
+              />
+            </div>
           </div>
 
           {/* Cifras de NEGOCIO, no el recuento de lo que ya se ve. Cada una
-              declara su ventana: "en juego" es el tablero visible; las otras dos
-              son el mes de la clínica. Un fallo de carga se dice aquí y se
-              conserva lo último bueno — nunca tres ceros con cara de reales. */}
+              declara su ventana: "en juego" es lo visible en el periodo; las
+              otras dos son el mes de la clínica. Un fallo de carga se dice aquí y
+              se conserva lo último bueno — nunca tres ceros con cara de reales. */}
           <Card padding="none" className="px-5 py-3.5">
             {error ? (
               <div className="flex items-center gap-2 text-xs">
@@ -476,12 +485,7 @@ export default function PresupuestosShell({
         {/* Fila de acciones: los filtros de la vista a la izquierda y las tres
             acciones a la derecha, a esta altura y no en la cabecera. */}
         <div className="shrink-0 flex flex-wrap items-center gap-2">
-          {tab === "kanban" && (
-            <>
-              <RangoTemporal value={rango} onChange={setRango} />
-              <FiltersBar user={user} onFiltersChange={handleFiltersChange} />
-            </>
-          )}
+          {tab === "kanban" && <FiltersBar user={user} onFiltersChange={handleFiltersChange} />}
           <div className="ml-auto flex items-center gap-2">
             <button
               onClick={() => setShowImportCSV(true)}
@@ -591,7 +595,11 @@ export default function PresupuestosShell({
         )}
 
         {tab === "maxima" && (
-          <MaximaView onOpenDrawer={(p) => setIntervencionItem(p)} refreshKey={refrescoTabla} />
+          <MaximaView
+            onOpenDrawer={(p) => setIntervencionItem(p)}
+            refreshKey={refrescoTabla}
+            rango={rango}
+          />
         )}
       </main>
 

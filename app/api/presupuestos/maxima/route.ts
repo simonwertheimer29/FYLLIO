@@ -17,6 +17,7 @@ import type {
 } from "../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
+import { fechasPerdidaPorPresupuesto } from "../../../lib/historial/registrar";
 
 export const dynamic = "force-dynamic";
 
@@ -368,6 +369,13 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         ultimaAccionRegistrada,
         tipoUltimaAccion,
         diasDesdeUltimoContacto,
+        // Fechas de CIERRE. Sin ellas, `fechaDeRango` devolvía null para todo
+        // ACEPTADO/PERDIDO y `dentroDeRango` los mostraba siempre ("sin fecha
+        // conocida el caso se MUESTRA"): la Tabla enseñaba los 123 en cualquier
+        // periodo mientras el Tablero enseñaba 45. Es lo que quedaba de MEJORAS 71
+        // después de pasarle el rango a la vista — el filtro estaba puesto, pero
+        // el dato con el que filtrar no viajaba. Mismas piezas que el kanban.
+        fechaAceptado: f["Fecha_Aceptado"] ? String(f["Fecha_Aceptado"]).slice(0, 10) : null,
         // Maxima-specific
         estadoVisual,
         ultimaAccionTexto: computeUltimaAccionTexto({ tipoUltimaAccion, ultimaAccionRegistrada, contactCount, ultimaRespuestaPaciente, fechaUltimaRespuesta }),
@@ -377,6 +385,14 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       p.urgenciaBidireccional = computeUrgenciaBidireccional(p);
       return p;
     });
+
+    // fechaPerdida se DERIVA del historial (no existe columna): mismo criterio
+    // y misma función que el kanban. Sin entrada de historial queda null y la
+    // fila NO se esconde — honesto con los presupuestos antiguos.
+    const fechasPerdida = await fechasPerdidaPorPresupuesto();
+    for (const p of items) {
+      if (p.estado === "PERDIDO") p.fechaPerdida = fechasPerdida.get(p.id)?.slice(0, 10) ?? null;
+    }
 
     // Sprint B Fase 4 — aislamiento por clínica: restringir SIEMPRE a las
     // clínicas permitidas (IDs de la sesión); dentro de eso, el filtro elegido.

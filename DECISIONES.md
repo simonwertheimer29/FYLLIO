@@ -965,3 +965,21 @@ Nota de método: el QA no se pudo correr contra el dev server porque `next dev` 
 modo PRODUCCIÓN — y ahí el contrato de entorno hizo su trabajo dos veces: exigió
 `CRON_SECRET` (declarado solo-en-producción, se pasó uno de un solo uso) y listó las
 capacidades desactivadas, donde KV dejó de aparecer en cuanto los nombres cuadraron.
+
+## 2026-07-29 — El rango gobierna las dos vistas de Presupuestos
+MEJORAS 71, decisión de Simon: "un filtro que aplica a una vista y no a su gemela es una
+trampa". El selector sube a la fila de la cabecera —junto al conmutador— para que no
+desaparezca al cambiar de lente, y la Tabla filtra con las MISMAS funciones puras del tablero
+(`fechaDeRango` + `dentroDeRango`): cero criterio nuevo. Sus pills y su recuento se derivan
+del conjunto en rango, porque un pill que cuenta filas que la tabla no pinta es exactamente
+el mismo error un nivel más abajo; lo que el rango esconde se dice ("N fuera del periodo") y
+el vacío distingue "el periodo no tiene nada" de "ajusta los filtros".
+**Lo interesante es lo que no bastaba.** Pasarle el rango a la vista dejó la Tabla enseñando
+los 123 en cualquier periodo: `/api/presupuestos/maxima` **no mandaba las fechas de cierre**,
+así que `fechaDeRango` devolvía null para todo ACEPTADO/PERDIDO y la regla honesta de "sin
+fecha conocida el caso se MUESTRA" los mostraba todos. El filtro estaba puesto; el dato con
+el que filtrar no viajaba. Lo cazó una comprobación que compara las dos vistas rango a rango
+en vez de mirar solo la que se había tocado — con el filtro recién puesto, la Tabla seguía
+dando 123 · 123 · 123 · 123 y el fallo era invisible desde la pantalla. La ruta añade
+`fechaAceptado` y deriva `fechaPerdida` del historial con las mismas piezas que el kanban.
+Ahora cuadran: 45·45, 49·49, 86·86, 123·123.
