@@ -886,6 +886,24 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** alto — es lo que ve el PACIENTE, no la coordinadora, y falla en silencio.
 - **Fecha:** 2026-07-29 · 🔵 **PRIORIDAD ALTA por Simon**: no se da por cerrado hasta
   comprobarlo.
+- **2026-07-29 · el código está arreglado; la EJECUCIÓN sigue pendiente.** Al leerlo
+  aparecieron dos cosas peores que la que se iba a comprobar, ya cerradas:
+  (a) `generar-portal` FABRICABA un "Paciente Demo" con 4.200 € y devolvía un enlace
+  que funcionaba, si el presupuesto no se podía leer y el usuario era admin — la
+  barrida de la nº 59 no la vio porque esa puerta no la gobernaba una variable de
+  entorno; (b) aceptar desde el portal era un **no-op silencioso para todos**: se
+  resolvía a `PILOT_CLIENTE` (RB), RLS filtraba la fila, el UPDATE afectaba a cero
+  filas sin lanzar, y el token quedaba marcado como respondido. El paciente leía
+  "gracias por aceptar" y el kanban no se enteraba. El orden de escritura de la
+  nº 20 era correcto; faltaba comprobar que la escritura escribió (ahora
+  `lib/db/escritura`) y saber en qué base escribir (ahora el cliente viaja en el
+  token). QA nuevo `npm run qa:portal` (`scripts/qa-portal-paciente.mjs`) con los
+  SEIS puntos, incluido leer la fila del kanban tras aceptar.
+  **BLOQUEADA POR ENTORNO:** el store de KV al que apuntan `KV_REST_API_URL` /
+  `KV_REST_API_TOKEN` **no existe** — `direct-dassie-46333.upstash.io` da
+  `ENOTFOUND` (comprobado también fuera del sandbox). El QA aborta con exit 2 y el
+  motivo escrito, en vez de fingir. KV entra en el contrato de `lib/entorno`: no
+  estaba declarado, y por eso su desaparición no avisó a nadie.
 
 ## 58. Filtro por tipo de paciente en el kanban: cuando el dato tenga contenido
 - **Zona:** `app/api/presupuestos/kanban/route.ts` (`?tipoPaciente=` ya se acepta), UI del kanban
@@ -929,4 +947,184 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   dejarlo a medias: un componente que llama a una ruta inexistente es una trampa para el
   siguiente que lo monte.
 - **Impacto:** nulo hoy, alto el día que alguien lo monte creyendo que funciona.
+- **Fecha:** 2026-07-29 · 🔵
+
+## 61. El CSV de la Tabla exporta otra cosa que la que estás viendo (D7)
+- **Zona:** `MaximaView.tsx` (`ExportCsvButton`) → `/api/export/presupuestos.csv`
+- **Principio:** §5 confianza — filtras "Intervención · 12", exportas y te llevas
+  los 123. Ni el pill, ni el doctor, ni el tratamiento, ni la búsqueda viajan al
+  endpoint; solo la clínica. El prop `estado` era literalmente
+  `pillActiva === "todos" ? null : null` (la misma rama dos veces), retirado el
+  2026-07-29 en vez de seguir fingiendo que se mandaba algo.
+- **Mejora:** pasar los cuatro filtros activos al endpoint (o exportar en cliente
+  la lista ya filtrada, que es lo que la coordinadora cree que está haciendo).
+  Es la ÚNICA exportación del producto.
+- **Impacto:** medio — quien la usa para un informe se lleva datos que no pidió.
+- **Fecha:** 2026-07-29 · 🔵
+
+## 62. Las notas del presupuesto siguen enseñando el apaño de los pipes (D10)
+- **Zona:** `app/api/presupuestos/kanban/route.ts:102-128` (parseo de
+  `| Doctor: X | Clínica Y | Privado | 1ª Visita |` desde `Notas`, y `notes`
+  viajando crudo al cliente), `NewPresupuestoModal.tsx:119`
+- **Principio:** §2 facilidad / estándar visual §5 (jerga en superficie de
+  coordinadora) — el modal limpia el `[SEED_PRES]` pero NO los pipes: al pulsar
+  "Editar", la coordinadora ve metadatos de infraestructura dentro de su caja de
+  notas, y si guarda los reescribe. El apaño nació porque el POST no escribía
+  esos campos (arreglado el 2026-07-29); el lado de LECTURA sigue vivo.
+- **Mejora:** retirar el parseo y limpiar los pipes de `notes` antes de servirlo;
+  migración opcional que los borre de las filas que los tengan.
+- **Impacto:** bajo-medio (credibilidad; ninguna decisión depende de eso).
+- **Fecha:** 2026-07-29 · 🔵
+
+## 63. El sondeo del tablero trae 500 registros cada minuto para contarlos (D12)
+- **Zona:** `PresupuestosShell.tsx` (intervalo de 60 s sobre `/api/presupuestos/kanban`)
+- **Principio:** eficiencia — el banner "N presupuestos nuevos" necesita UN
+  número y se descarga la cola entera. (Los dos bugs de ese sondeo —contar la red
+  entera ignorando el filtro de clínica, y el `?? []` con catch mudo que dejaba
+  el contador en 0 y luego anunciaba "123 nuevos"— se cerraron el 2026-07-29.)
+- **Mejora:** un `HEAD`/endpoint de recuento, o cabecera `X-Total`.
+- **Impacto:** bajo (en producción la DB está al lado); higiene.
+- **Fecha:** 2026-07-29 · 🔵
+
+## 64. El evento del motor se emite después de la respuesta sin `after()` (D13)
+- **Zona:** `app/api/presupuestos/kanban/[id]/route.ts` (`void (async () => …)()`
+  justo antes del `return`)
+- **Principio:** mandamiento §1 — en Vercel el sandbox se congela tras responder,
+  así que ese trabajo no está garantizado. El webhook de WhatsApp usa `after()`
+  por esta razón exacta (`webhooks/whatsapp/route.ts:280`).
+- **Mejora:** envolverlo en `after()`.
+- **Impacto:** latente mientras la vía WhatsApp sea esqueleto; el día que envíe,
+  un cambio de estado puede no disparar su regla.
+- **Fecha:** 2026-07-29 · 🔵
+
+## 65. Tope silencioso de 500 presupuestos en el tablero (D14)
+- **Zona:** `app/api/presupuestos/kanban/route.ts` (`maxRecords: 500`)
+- **Principio:** §9 — las columnas y la Tabla SÍ dicen lo que esconden ("Ver más
+  (N)", "Ver N anteriores"); este tope no dice nada. Con 123 en DEMO no muerde.
+- **Mejora:** o paginar de verdad, o declarar el corte en pantalla cuando se
+  alcance ("se muestran los 500 más recientes").
+- **Impacto:** bajo hoy, alto para una red con volumen.
+- **Fecha:** 2026-07-29 · 🔵
+
+## 66. `Europe/Madrid` escrito a mano en diez archivos (D16)
+- **Zona:** `const ZONE = "Europe/Madrid"` en `api/presupuestos/kanban/route.ts`,
+  `kanban/[id]/route.ts`, `lib/presupuestos/intervencion.ts`,
+  `lib/presupuestos/mensajeria.ts`, `lib/copilot/tools-exec.ts`,
+  `lib/no-shows/score.ts`, `lib/demo/seed.ts`,
+  `lib/scheduler/waitlist/eligibility.ts`, `api/kpis/no-shows/route.ts`,
+  `components/dashboard/NoShowRiskPanel.tsx`, `components/actions/OperationsPanel.tsx`
+- **Principio:** una sola verdad — `TZ_CLINICA` vive en `lib/time` desde que se
+  cerró MEJORAS 52. Hoy todas dicen lo mismo; el día que un cliente esté en otra
+  zona, se cambia en un sitio y hay diez que no.
+- **Mejora:** importar `TZ_CLINICA` en las diez.
+- **Impacto:** bajo hoy, alto el día del segundo huso. Cambio mecánico.
+- **Fecha:** 2026-07-29 · 🔵
+
+## 67. Llamar desde la card no deja rastro; el mismo botón en el panel sí (D17)
+- **Zona:** `KanbanBoard.tsx` (`<a href="tel:">` puro) vs
+  `IntervencionSidePanel.tsx:264` (`handleLlamar` registra con `res.ok` + toast)
+- **Principio:** §6 coherencia / §5 feedback — misma acción, dos comportamientos.
+  Las llamadas hechas desde el tablero no entran en el hilo ni en el KPI de
+  tiempo de respuesta. Si la regla es "las cards informan, los paneles actúan",
+  la propuesta es QUITAR los botones de la card, no duplicar el registro. Es
+  decisión de producto. (Twin en Leads: allí la card tiene los mismos dos botones.)
+- **Impacto:** medio para los KPIs de actividad.
+- **Fecha:** 2026-07-29 · 🔵
+
+## 68. El link al paciente va por NOMBRE y resuelve al primero que encuentre (D18)
+- **Zona:** `MaximaView.tsx` (celda Paciente) → `/presupuestos/paciente/[nombre]`
+  → `page.tsx:32` (`listPacientes({search})`, y si no hay match exacto `pacs[0]`)
+- **Principio:** §5 confianza — dos pacientes con el mismo nombre y siempre se
+  abre la ficha del primero. El payload de la Tabla no lleva `pacienteId`
+  (`types.ts`, `Presupuesto` no lo tiene), así que el arreglo empieza en el
+  contrato: añadir el id y enlazar a `/pacientes/[id]` directamente.
+- **Impacto:** medio (abrir la ficha equivocada de un paciente es grave, aunque
+  sea raro).
+- **Fecha:** 2026-07-29 · 🔵
+
+## 69. Higiene de la zona de Presupuestos
+- **Zona:** varios
+- **Qué:** `velocidad.lenta` se calcula en `KanbanBoard.tsx` y no se pinta nunca ·
+  `fechaDesde`/`fechaHasta` que la API acepta y ningún cliente manda
+  (`kanban/route.ts:48`) · el overlay de modal escrito de tres formas distintas
+  (`bg-slate-900/40` ×3 y `bg-black/30`, ninguna con token) · emoji en el push de
+  presupuesto aceptado (`"✅ Presupuesto aceptado"`, `kanban/[id]/route.ts`) ·
+  `components/presupuestos/Paciente360View.tsx` (636 líneas) es una ficha
+  PARALELA a la buena, viva solo por el fallback de un nombre que no resuelve, y
+  con hex a mano y dos de los `?? []` declarados · los indicadores de orden de la
+  Tabla son `▲`/`▼` de texto, no lucide · `TimelineAcciones.tsx:101` pinta fechas
+  con la zona del navegador.
+- **Impacto:** ⚪ higiene. Suelto, no una tanda.
+- **Fecha:** 2026-07-29 · 🔵
+
+## 70. Presupuestos en móvil: seis columnas apiladas y la tabla a 950 px
+- **Zona:** `KanbanBoard.tsx` (`grid-cols-1 md:grid-cols-2 xl:grid-cols-6`),
+  `MaximaView.tsx` (tabla `table-fixed` de ~950 px con scroll horizontal)
+- **Principio:** §2 facilidad — gemelo exacto de la nº 54 (Leads) y peor:
+  PRESENTADO va primera con hasta 25 cards antes de llegar a lo accionable. La
+  coordinadora usa el móvil entre paciente y paciente.
+- **Mejora:** selector de columna en móvil (patrón ColaTabs), y abrir por la
+  columna con trabajo del día. Fuera del alcance de la pasada visual: toca la
+  estructura del tablero.
+- **Impacto:** alto en uso real de móvil.
+- **Fecha:** 2026-07-29 · 🔵
+
+## 71. El rango temporal aplica al Tablero y no a la Tabla, y su selector desaparece
+- **Zona:** `PresupuestosShell.tsx` (`RangoTemporal` solo se renderiza en la vista
+  Tablero), `MaximaView.tsx` (no filtra por rango en absoluto)
+- **Principio:** §6 coherencia — son DOS VISTAS DE LO MISMO y un filtro que
+  aplica a una y no a la otra es una trampa.
+- **Medido hoy en DEMO (123 presupuestos):** el Tablero pinta 45 · 49 · 86 · 123
+  según el rango (2 semanas · mes · trimestre · histórico); la Tabla siempre 123.
+  Los ABIERTOS son 28 en los cuatro rangos —todos se presentaron en las últimas
+  dos semanas, efecto de la nº 46— así que lo que el rango esconde son los
+  CERRADOS. Y el selector no existe en la Tabla, así que no hay forma de saber
+  que hay un rango en juego.
+- **Diagnóstico de la contradicción original ("29 abiertos" vs "124
+  presupuestos"):** no eran dos medidas del mismo conjunto, eran dos universos
+  distintos —abiertos-en-el-rango vs todos-los-estados-sin-rango— y ninguna
+  etiqueta lo decía. Eso ya está cerrado el 2026-07-29: la cabecera dice "N
+  presupuestos abiertos en el periodo" y la Tabla "N presupuestos en total".
+- **Recomendación (mía, sin ejecutar):** rango en LAS DOS, con el selector movido
+  a la fila de la cabecera para que no desaparezca al cambiar de vista, y
+  MaximaView filtrando con las MISMAS `fechaDeRango`/`dentroDeRango` del tablero
+  (cero criterio nuevo). Las dos cifras del mes siguen declarando su ventana en
+  su etiqueta, que es lo que las hace no contradictorias.
+- **Impacto:** medio-alto en confianza en los números de la pantalla.
+- **Fecha:** 2026-07-29 · 🔵 **pendiente de decisión de Simon.**
+
+## 72. `verificar:produccion` deja un presupuesto de prueba en los datos cada vez
+- **Zona:** `scripts/verificar-produccion.mjs:239-255`
+- **Principio:** §9 — la herramienta AVISA de que lo deja ("bórralo desde la
+  tabla") porque la ruta no expone DELETE, pero el aviso se pierde en el log y la
+  fila se queda en la pantalla que se enseña en demos. Se borró uno a mano el
+  2026-07-29 (1 €, "Revisión general", notas "VERIFICACION DE DESPLIEGUE").
+- **Mejora:** que la comprobación de escritura use un PATCH reversible sobre una
+  fila existente (escribir y restaurar, como hace `qa-portal-paciente`), o exponer
+  el borrado. Una verificación que ensucia los datos se deja de correr.
+- **Impacto:** bajo, pero crece: una fila por ejecución.
+- **Fecha:** 2026-07-29 · 🔵
+
+## 73. El portal del paciente no tiene teléfono de la clínica
+- **Zona:** `generar-portal/route.ts` (`clinicaTelefono: undefined` con el
+  comentario "No clinic phone in Airtable yet")
+- **Principio:** §1 misión — el paciente recibe un presupuesto de miles de euros
+  y no tiene a quién llamar. `clinicas` en Postgres puede tener el teléfono; el
+  comentario es de la época de Airtable.
+- **Mejora:** poblarlo desde `clinicas` al generar el token y enseñarlo en el
+  portal.
+- **Impacto:** medio en conversión (una duda sin canal es una duda que no se
+  resuelve).
+- **Fecha:** 2026-07-29 · 🔵
+
+## 74. Dos sintaxis de placeholder en la misma tabla de plantillas
+- **Zona:** `IntervencionSidePanel.tsx` (`replace(/\{importe\}/g, …)`) vs
+  `lib/plantillas/plantillas.ts:154` (documenta `{{nombre}}`)
+- **Principio:** §6 coherencia — la tabla `plantillas_mensaje` guarda las dos
+  familias. Las de presupuestos usan `{importe}` y las de cobranza `{{importe}}`;
+  una plantilla escrita con dobles llaves y aplicada desde el panel llega al
+  paciente como `{2.400 €}`.
+- **Mejora:** un solo renderizador de plantillas para las dos familias.
+- **Impacto:** bajo hoy (las familias se separan por `tipo`), medio en cuanto la
+  coordinadora escriba sus propias plantillas en Ajustes.
 - **Fecha:** 2026-07-29 · 🔵

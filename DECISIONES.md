@@ -847,3 +847,92 @@ usarla como referencia de "producción funciona" es un falso verde perfecto. Nue
 `fyllio-simon-wertheimers-projects.vercel.app` (proyecto `fyllio`, `prj_awFaf3Nk…`). El
 verificador lo detecta y aborta: si `/api/salud` devuelve HTML en vez de JSON, quien contesta no
 es Fyllio.
+
+## 2026-07-29 — El portal del paciente: nadie había aceptado nunca un presupuesto
+Al ir a CORRER el QA de MEJORAS 57 aparecieron dos cosas peores que la que se iba a
+comprobar. **Una:** `generar-portal` tenía un "demo fallback" para roles sin restricción
+de clínica — si no podía leer el presupuesto, fabricaba un "Paciente Demo" con una
+ortodoncia de 4.200 € en una "Clínica Demo", lo guardaba en KV y devolvía un enlace **que
+funcionaba**. Un admin podía mandarle a un paciente real un presupuesto que nadie
+presupuestó. La barrida de datos demo de ese mismo día (MEJORAS 59) no la cazó porque esa
+puerta no la gobernaba una variable de entorno, sino `recs.length === 0`.
+**Dos, y es la grave:** aceptar desde el portal era un **no-op silencioso, para todos**.
+`responder` envolvía todo en `runWithCliente(PILOT_CLIENTE)` = RB; RB está vacío y los
+presupuestos vivos son de otros clientes, así que RLS filtraba la fila, el `update … where
+id = ?` afectaba a **cero filas sin lanzar nada**, y la ruta seguía adelante: marcaba el
+token como respondido y devolvía `{ok:true}`. El paciente leía "gracias por aceptar" y la
+clínica no se enteraba nunca. El orden de escritura que arregló MEJORAS 20 era correcto —
+lo que faltaba era **comprobar que la escritura escribió**, y **saber en qué base escribir**.
+De aquí salen dos piezas. `lib/db/escritura` (`actualizarUna`) afirma que un update por id
+tocó una fila y lanza `EscrituraSinEfecto` si no; aplicada a las 18 escrituras por id que
+confirman algo a alguien, con cuatro exclusiones comentadas en su línea donde cero filas es
+legítimo. Y `PortalData.cliente`: el cliente se guarda al generar el token y se lee al
+responder (era el paso ya escrito en `multi-cliente-pendiente.ts`), fail-closed si falta.
+Cazado de paso leyendo el resto: el GET del portal **no fijaba contexto de cliente**, así
+que sus dos efectos —el aviso al equipo y el registro de "portal visto"— morían en `base()`
+sin contexto y se los comía un `.catch(() => {})`: no se registró **ni una** apertura desde
+que existe. Su TTL podía salir 0 en el último segundo de vida, que para KV significa "sin
+expiración". Y aceptar escribía la firma en `Notas`, un campo de texto único: **borraba lo
+que la coordinadora hubiera escrito del caso**. La firma pasa al historial, con
+`registrarAccion({obligatorio:true})` — porque por defecto se traga su propio fallo y un
+`await` daba una falsa sensación de garantía.
+El "desglose de cobertura" decía "Sanitas cubre: **Consultar**" y "Tu parte: **2.400 €**",
+el total entero, a un paciente con mutua. No es un desglose incompleto: es una cifra falsa
+en el momento de hablar de dinero, y no hay nada que desglosar porque el modelo no guarda
+cuánto cubre cada mutua. Se nombra la aseguradora y se remite a la clínica.
+**Lo que NO se pudo cerrar:** el store de KV al que apuntan las variables no existe
+(`ENOTFOUND`, también fuera del sandbox), así que el QA de punta a punta sigue sin correrse.
+El script nuevo (`npm run qa:portal`, los seis puntos, incluido leer la fila del kanban tras
+aceptar) **aborta con exit 2 y el motivo escrito** en vez de omitir en silencio. KV entra en
+el contrato de `lib/entorno`: no estaba declarado, y por eso su desaparición no avisó.
+
+## 2026-07-29 — Presupuestos: la cabecera contaba la pantalla, y el euro seguía roto
+Pasada visual de /presupuestos. **La barra de cabecera propia era el único módulo con una**
+y un tercer patrón: por eso el título quedaba pegado al borde mientras Pacientes y Cobros
+respiran. Ahora la anatomía del resto (título y subtítulo dentro del cuerpo, conmutador al
+extremo derecho alineado con el título) y las tres acciones a la altura de la fila de
+filtros, presentes también en la Tabla — antes esa fila solo existía en el Tablero.
+**Las cifras dejan de contar la pantalla:** "En juego ahora" (sigue al tablero y lo dice en
+su detalle), "Firmado este mes" con `Comparativa` en euros, y "Se cierran" = aceptados sobre
+**decididos** del mes, cohorte anidada por construcción, con los que siguen abiertos
+declarados al pie y el delta en pts. Sin decididos dice "—", nunca 0%.
+**El euro tenía CINCO implementaciones más en esta zona** después de que la pasada de
+/pacientes matara seis: la card escribía `€2.400`, la cabecera del panel `2.400€` y el
+subtotal de la columna `2.400 €` — con `eur` importado **en el mismo archivo**. Tres
+formatos visibles en tres clics sobre el mismo importe. `eur` se parte a `lib/dinero`
+(módulo puro) porque una ruta de servidor lo necesitaba y `Cifra.tsx` es `"use client"`;
+Cifra lo reexporta, así que ningún componente cambia de import. Misma regla que
+`tipos-paciente-puro`, en el sentido contrario.
+**Dos bugs de "dice que sí y no lo hace":** cambiar el DOCTOR de un presupuesto no guardaba
+nada (el modal lo mandaba desde siempre, la ruta nunca lo mapeó a un campo), y un fallo del
+buscador de pacientes se leía como "no está ni como paciente ni como lead citado" y mandaba
+a la coordinadora a darlo de alta por Leads — el §10 en su forma más caras: no vacía una
+lista, **dicta la acción contraria**.
+**El guardián de `?? []` medía mal su propia deuda.** Solo reconocía
+`const d = await res.json()`; la forma `.then((d) => setX(d.cosas ?? []))` no la veía, y se
+llevaba siete casos fuera del recuento. Al ampliar la heurística aparecieron cuatro más: la
+deuda real no era 15 ni 22, era **26**. Ocho migradas aquí, 18 declaradas (tres de ellas en
+un componente sin consumidor). Y se excluye el cuerpo de PETICIÓN (`req.json()`), donde
+`?? []` sí es un default legítimo — un guardián con falsos positivos se acaba desactivando.
+**El arcoíris que StatePill vino a matar seguía vivo aquí**: `ESTADO_VISUAL_CONFIG` tenía
+nueve colores en hex —violeta y púrpura incluidos, retirados del producto— más un tinte de
+fila por estado. La cabecera de `StatePill` dice literalmente que existe para "reemplazar la
+dispersión morado/celeste/amarillo/rosa/naranja", y este archivo era el último sitio donde
+sobrevivían los cinco. Con él, el contador de columna (donde `orange` era un sexto color sin
+token) y los dos `cfg.hex` del modal de mover, ilegibles en oscuro.
+**El panel de la campana estaba entero fuera del sprint visual** —`bg-white` fijo, nueve
+slate sin variante oscura, violeta en tres sitios, `✕` en vez de lucide— y sus dos
+mutaciones no comprobaban `res.ok` mientras la UI bajaba el contador: la campana se ponía a
+cero sin que el servidor lo supiera, y al recargar volvían.
+Y tres promesas que no se cumplían: el banner rojo "N casos requieren intervención" hacía
+exactamente lo mismo que el pill de dos líneas más abajo; "Próx. acción: Intervención
+urgente" era una etiqueta de estado disfrazada de acción (ahora "Llamar hoy"); y el botón
+verde "WhatsApp" de la card no envía WhatsApp — abre la ficha, así que se llama "Escribir" y
+baja a neutro de bajo contraste como en Leads, donde el verde repetido 25 veces era el color
+dominante de la pantalla.
+**Lo que queda medido y sin decidir (MEJORAS 71):** el rango temporal aplica al Tablero y no
+a la Tabla, y su selector desaparece al cambiar de vista. El Tablero pinta 45 · 49 · 86 · 123
+según el rango; la Tabla siempre 123. La contradicción que Simon vio ("29 abiertos" vs "124
+presupuestos") no eran dos medidas del mismo conjunto sino dos universos distintos sin
+etiqueta que lo dijera — eso ya está cerrado; lo que falta es decidir si el rango gobierna
+las dos vistas.
