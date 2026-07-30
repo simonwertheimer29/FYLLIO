@@ -26,6 +26,27 @@ nunca para persistencia. Si llamas a un tercero (Meta, Vapi), registra ANTES de 
 > plano" sin `await` — mensajes de pacientes perdidos sin rastro ni reintento (S1); y el
 > kanban decía "hecho" con el update de Airtable fallado (S2).
 
+**Matiz (pagado en el portal del paciente) — una escritura que no toca ninguna fila NO es
+un éxito.** `await` no basta: `UPDATE … WHERE id = ?` sobre una fila que no existe, o que
+RLS no deja ver, **afecta a cero filas y no lanza nada**. El await se cumple, el catch no
+salta, y el flujo sigue confirmando. Toda escritura por id que confirma algo a alguien
+comprueba su recuento de filas (`lib/db/escritura` → `actualizarUna`). Excepción, y se
+comenta en su línea: cuando cero filas es un resultado legítimo (un opt-out por un teléfono
+que no es de nadie, un "marcar todas leídas" sin nada pendiente) — ahí forzar un error es
+ruido que acaba silenciado con un catch, que es peor.
+> **Nos lo enseñó:** aceptar un presupuesto desde el portal era un no-op silencioso para
+> TODOS los clientes. El portal resolvía su cliente a `PILOT_CLIENTE` (RB) porque el token
+> no lo guardaba; RB está vacío, así que RLS filtraba la fila, el update afectaba a cero
+> filas, la ruta marcaba el token como respondido y devolvía `{ok:true}`. El paciente leía
+> "gracias por aceptar" y la clínica no se enteraba nunca. El ORDEN de escritura era
+> correcto desde meses antes: lo que faltaba era comprobar que la escritura escribió.
+
+**Matiz 2 — un `await` sobre algo que se traga su propio fallo es una garantía falsa.**
+Si una función tiene un `catch` interno que loguea y no relanza, `await`arla no persiste
+nada: solo espera. Cuando lo que escribe ES el dato (la firma de una aceptación, que no
+tiene columna propia y vive en el historial), hay que pedirle explícitamente que falle
+(`registrarAccion({ obligatorio: true })`).
+
 ### 2. Idempotencia en todo lo que envía mensajes o crea registros
 Los reintentos ocurren siempre: Meta reentrega, la coordinadora vuelve a pulsar, el cron se
 reejecuta. Todo envío y toda creación llevan clave de idempotencia o dedup **atómico**
@@ -169,6 +190,7 @@ Reglas operativas al retirar algo:
 ## Checklist antes de dar por bueno un cambio de backend
 
 - [ ] ¿Todo "éxito" que comunico está **persistido antes** de comunicarse? (§1)
+- [ ] Si es una escritura por id, ¿**compruebo que tocó una fila**? ¿Y la función que llamo relanza su fallo o se lo traga? (§1, matices)
 - [ ] ¿Qué pasa si esto se ejecuta **dos veces**? ¿Duplica mensajes o registros? (§2)
 - [ ] Si falta contexto/secreto/permiso, ¿esto **falla con error** o cae a un default? (§3)
 - [ ] Ante un fallo de la fuente de datos, ¿el usuario ve un **error honesto**? (§4)

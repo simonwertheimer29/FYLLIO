@@ -156,20 +156,30 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
   const [motivoSeleccionado, setMotivoSeleccionado] = useState("");
   const [enviando, setEnviando] = useState(false);
 
+  // Solo dos errores tienen pantalla propia ("no es válido" / "ha expirado");
+  // CUALQUIER otra respuesta que no traiga un presupuesto es un fallo temporal,
+  // y se pinta como tal con reintentar. Antes esto caía a `setEstado("portal")`
+  // con lo que hubiera venido: un 503 (KV caído) o un 500 se renderizaban como
+  // un portal cuyo `treatments` era undefined, y la página reventaba en el
+  // navegador. Lo destapó el 503 honesto que se añadió hoy en la API.
   const cargar = useCallback(() => {
     setEstado("loading");
     fetch(`/api/portal/${token}`)
       .then((r) => r.json())
       .then((d) => {
-        if (d.error === "not_found") { setEstado("not_found"); return; }
-        if (d.error === "expired")   { setEstado("expired"); return; }
-        if (d.respondido) {
-          setData(d);
-          setEstado(d.respuesta === "aceptado" ? "done_aceptado" : "done_rechazado");
-          return;
-        }
+        if (d?.error === "not_found") { setEstado("not_found"); return; }
+        if (d?.error === "expired")   { setEstado("expired"); return; }
+        const esPresupuesto =
+          d && typeof d.patientName === "string" && Array.isArray(d.treatments);
+        if (!esPresupuesto) { setEstado("load_error"); return; }
         setData(d);
-        setEstado("portal");
+        setEstado(
+          d.respondido
+            ? d.respuesta === "aceptado"
+              ? "done_aceptado"
+              : "done_rechazado"
+            : "portal",
+        );
       })
       .catch(() => setEstado("load_error"));
   }, [token]);
@@ -186,14 +196,21 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ accion, ...opts }),
       });
-      const d = await res.json();
+      const d = await res.json().catch(() => ({}));
       if (d.error === "ya_respondido" || res.ok) {
         setEstado(accion === "aceptar" ? "done_aceptado" : "done_rechazado");
         return;
       }
-      throw new Error(d.error ?? "Error");
-    } catch {
-      toast.error("Ha ocurrido un error. Por favor, inténtalo de nuevo.");
+      // Un guardado que no llega NO puede acabar en "gracias": el enlace sigue
+      // vivo a propósito para que se pueda reintentar (ver la ruta `responder`).
+      throw new Error(String(d.error ?? `HTTP ${res.status}`));
+    } catch (e) {
+      const motivo = e instanceof Error ? e.message : "";
+      toast.error(
+        motivo === "enlace_caducado_regenerar"
+          ? "Este enlace es de una versión anterior. Pídele a la clínica que te envíe uno nuevo."
+          : "No hemos podido guardar tu respuesta. Vuelve a intentarlo — tu enlace sigue válido.",
+      );
     } finally {
       setEnviando(false);
     }
@@ -209,7 +226,7 @@ export default function PortalPage({ params }: { params: Promise<{ token: string
         <ErrorState
           className="w-full max-w-sm"
           title="No hemos podido cargar tu presupuesto"
-          detail="Comprueba tu conexión e inténtalo de nuevo."
+          detail="Puede ser tu conexión o algo por nuestra parte. Vuelve a intentarlo; tu enlace sigue siendo válido."
           onRetry={cargar}
         />
       </div>
