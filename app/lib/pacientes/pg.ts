@@ -111,6 +111,10 @@ export async function upsertPacienteImportPorTelefonoPg(fields: Record<string, s
       const set: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(fields)) if (G[k]) set[G[k]] = v;
       const ex = await trx.selectFrom("pacientes").select("id").where("telefono", "=", phone).limit(1).executeTakeFirst();
+      // Sin `actualizarUna` a propósito: el id sale de un select de ESTA misma
+      // transacción, así que la fila existe por construcción. Lo que sí es
+      // deuda aquí es el `catch { return "skipped" }` de abajo, que convierte
+      // un fallo real en una fila "omitida" sin decir por qué.
       if (ex) { await trx.updateTable("pacientes").set(set as any).where("id", "=", ex.id).execute(); return "updated"; }
       await trx.insertInto("pacientes").values({ cliente: cli(), nombre: fields["Nombre"] ?? "(sin nombre)", ...set } as any).execute();
       return "created";

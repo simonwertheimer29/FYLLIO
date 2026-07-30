@@ -21,6 +21,7 @@
 import { runWithClienteDb } from "../db/context";
 import { requireCliente } from "../cliente-contexto";
 import type { CopilotMessage } from "../../components/copilot/types";
+import { actualizarUna } from "../db/escritura";
 
 export const MAX_BYTES = 80_000;
 export const MAX_MENSAJES = 50;
@@ -196,10 +197,13 @@ export async function appendMensajes(
 export async function cerrarConversacion(id: string): Promise<void> {
   const cliente = requireCliente("cerrarConversacion");
   await runWithClienteDb(cliente, (trx) =>
-    trx
-      .updateTable("conversaciones_copilot")
-      .set({ activa: false, updated_at: new Date() } as any)
-      .where("id", "=", id)
-      .execute(),
+    actualizarUna(
+      trx
+        .updateTable("conversaciones_copilot")
+        .set({ activa: false, updated_at: new Date() } as any)
+        .where("id", "=", id),
+      "conversaciones_copilot",
+      id,
+    ),
   );
 }

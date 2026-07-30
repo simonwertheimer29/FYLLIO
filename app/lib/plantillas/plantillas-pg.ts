@@ -23,6 +23,7 @@ import { runWithClienteDb } from "../db/context";
 import { currentCliente, type Cliente } from "../airtable";
 import { evalFormula, makeShim, type Shim } from "../db/airtable-formula";
 import { extractVariables, type Plantilla, type PlantillaCategoria } from "./plantillas";
+import { actualizarUna } from "../db/escritura";
 
 function cli(): Cliente {
   const c = currentCliente();
@@ -242,7 +243,7 @@ export async function updatePlantillaMensajeRawPg(id: string, fields: Record<str
       set.clinica_id = await resolveClinicaId(trx, fields["Clinica"] == null ? null : String(fields["Clinica"]));
     }
     if (Object.keys(set).length === 0) return;
-    await trx.updateTable("plantillas_mensaje").set(set as any).where("id", "=", id).execute();
+    await actualizarUna(trx.updateTable("plantillas_mensaje").set(set as any).where("id", "=", id), "plantillas_mensaje", id);
   });
 }
 

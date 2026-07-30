@@ -8,6 +8,7 @@
 import { runWithClienteDb } from "../db/context";
 import { currentCliente, type Cliente } from "../airtable";
 import { evalFormula, makeShim, type Shim } from "../db/airtable-formula";
+import { actualizarUna } from "../db/escritura";
 
 function cli(): Cliente {
   const c = currentCliente();
@@ -90,7 +91,7 @@ export async function updateNotificacionesBatchRawPg(
       const set: Record<string, unknown> = {};
       if ("Leida" in item.fields) set.leida = item.fields["Leida"];
       if (Object.keys(set).length === 0) continue;
-      await trx.updateTable("notificaciones").set(set as any).where("id", "=", item.id).execute();
+      await actualizarUna(trx.updateTable("notificaciones").set(set as any).where("id", "=", item.id), "notificaciones", item.id);
     }
   });
 }

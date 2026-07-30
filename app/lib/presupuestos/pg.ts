@@ -9,6 +9,7 @@
 import { runWithClienteDb } from "../db/context";
 import { currentCliente, type Cliente } from "../airtable";
 import { evalFormula, type Shim } from "../db/airtable-formula";
+import { actualizarUna } from "../db/escritura";
 
 function cli(): Cliente {
   const c = currentCliente();
@@ -132,7 +133,13 @@ export async function updatePresupuestoRawPg(id: string, fields: Record<string, 
       const c2 = await trx.selectFrom("clinicas").select("id").where("nombre", "=", clinicaNombre).executeTakeFirst();
       (set as any).clinica_id = c2?.id ?? null;
     }
-    await trx.updateTable("presupuestos").set(set as any).where("id", "=", id).execute();
+    // Cero filas = el presupuesto no existe o el cliente activo no lo ve
+    // (RLS). Nunca un éxito: quien llame a esto CONFIRMA algo al usuario.
+    await actualizarUna(
+      trx.updateTable("presupuestos").set(set as any).where("id", "=", id),
+      "presupuestos",
+      id,
+    );
   });
 }
 export async function createPresupuestoRawPg(fields: Record<string, unknown>): Promise<any> {
@@ -218,7 +225,13 @@ export async function updateObjetivoRawPg(id: string, fields: Record<string, unk
   const set: Record<string, unknown> = {};
   if (fields["objetivo_aceptados"] !== undefined) set.objetivo_aceptados = fields["objetivo_aceptados"];
   if (fields["actualizado_en"] !== undefined) set.actualizado_en = new Date(String(fields["actualizado_en"]));
-  await runWithClienteDb(cli(), (trx) => trx.updateTable("objetivos_mensuales").set(set as any).where("id", "=", id).execute());
+  await runWithClienteDb(cli(), (trx) =>
+    actualizarUna(
+      trx.updateTable("objetivos_mensuales").set(set as any).where("id", "=", id),
+      "objetivos_mensuales",
+      id,
+    ),
+  );
 }
 export async function createObjetivoRawPg(fields: Record<string, unknown>): Promise<void> {
   await runWithClienteDb(cli(), async (trx) => {

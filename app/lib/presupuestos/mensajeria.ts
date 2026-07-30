@@ -206,6 +206,9 @@ async function actualizarTelemetriaWABA(
       if (!cli) return;
       const ex = await trx.selectFrom("configuracion_waba").select("id").where("clinica_id", "=", cli.id).executeTakeFirst();
       if (ex) {
+        // Sin `actualizarUna`: `ex.id` sale de un select de esta transacción y
+        // esto es contabilidad de "último mensaje", no la escritura que se
+        // confirma al usuario (esa es la fila de mensajes_whatsapp).
         await trx.updateTable("configuracion_waba").set({ [col]: new Date(now) } as any).where("id", "=", ex.id).execute();
       } else {
         await trx.insertInto("configuracion_waba").values({ cliente, clinica_id: cli.id, activo: true, [col]: new Date(now) } as any).execute();

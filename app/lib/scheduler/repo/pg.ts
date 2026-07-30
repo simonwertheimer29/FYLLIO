@@ -8,6 +8,7 @@
 
 import { runWithClienteDb } from "../../db/context";
 import { currentCliente, type Cliente } from "../../airtable";
+import { actualizarUna } from "../../db/escritura";
 
 function cli(): Cliente {
   const c = currentCliente();
@@ -116,7 +117,7 @@ export async function findCitaRawPg(citaId: string): Promise<any> {
 // ── Citas: escrituras ─────────────────────────────────────────────────
 export async function updateCitaEstadoPg(citaId: string, estado: string): Promise<void> {
   await runWithClienteDb(cli(), (trx) =>
-    trx.updateTable("citas").set({ estado } as any).where("id", "=", citaId).execute());
+    actualizarUna(trx.updateTable("citas").set({ estado } as any).where("id", "=", citaId), "citas", citaId));
 }
 export async function registrarAccionNoShowEnCitaPg(citaId: string, i: {
   ultimaAccion: string; tipoUltimaAccion?: string; faseRecordatorio?: string; notasAccion?: string;
@@ -125,7 +126,8 @@ export async function registrarAccionNoShowEnCitaPg(citaId: string, i: {
   if (i.tipoUltimaAccion) set.tipo_ultima_accion = i.tipoUltimaAccion;
   if (i.faseRecordatorio) set.fase_recordatorio = i.faseRecordatorio;
   if (i.notasAccion) set.notas_accion = i.notasAccion;
-  await runWithClienteDb(cli(), (trx) => trx.updateTable("citas").set(set as any).where("id", "=", citaId).execute());
+  await runWithClienteDb(cli(), (trx) =>
+    actualizarUna(trx.updateTable("citas").set(set as any).where("id", "=", citaId), "citas", citaId));
 }
 export async function createCitaMinimaPg(i: { nombre: string; horaInicioIso: string; horaFinalIso: string; notas?: string }): Promise<{ id: string }> {
   const r = await runWithClienteDb(cli(), (trx) =>
@@ -139,7 +141,8 @@ export async function reprogramarCitaPg(citaId: string, i: { horaInicioIso?: str
   if (i.horaInicioIso) set.hora_inicio = new Date(i.horaInicioIso);
   if (i.horaFinalIso) set.hora_final = new Date(i.horaFinalIso);
   if (i.estado) set.estado = i.estado;
-  await runWithClienteDb(cli(), (trx) => trx.updateTable("citas").set(set as any).where("id", "=", citaId).execute());
+  await runWithClienteDb(cli(), (trx) =>
+    actualizarUna(trx.updateTable("citas").set(set as any).where("id", "=", citaId), "citas", citaId));
 }
 
 // ── Citas: métodos TIPADOS del scheduler (cierre del split-brain gate 5) ──
@@ -148,7 +151,8 @@ export async function reprogramarCitaPg(citaId: string, i: { horaInicioIso?: str
 // side-effects (fireCitaEvento/fireEvaluarRiesgo) los conserva el caller.
 async function setCita(citaId: string, set: Record<string, unknown>): Promise<void> {
   if (!Object.keys(set).length) return;
-  await runWithClienteDb(cli(), (trx) => trx.updateTable("citas").set(set as any).where("id", "=", citaId).execute());
+  await runWithClienteDb(cli(), (trx) =>
+    actualizarUna(trx.updateTable("citas").set(set as any).where("id", "=", citaId), "citas", citaId));
 }
 export async function cancelAppointmentPg(citaId: string, origin?: string): Promise<void> {
   await setCita(citaId, origin ? { estado: "Cancelado", origen: origin } : { estado: "Cancelado" });
@@ -269,7 +273,8 @@ export async function listTratamientosInstruccionesPg(): Promise<Array<{ nombre:
   });
 }
 export async function updateTratamientoInstruccionesPg(id: string, instrucciones: string): Promise<void> {
-  await runWithClienteDb(cli(), (trx) => trx.updateTable("tratamientos").set({ instrucciones_pre: instrucciones } as any).where("id", "=", id).execute());
+  await runWithClienteDb(cli(), (trx) =>
+    actualizarUna(trx.updateTable("tratamientos").set({ instrucciones_pre: instrucciones } as any).where("id", "=", id), "tratamientos", id));
 }
 export async function mapTratamientosPorIdsPg(ids: string[], _fields: string[]): Promise<Map<string, Record<string, unknown>>> {
   const map = new Map<string, Record<string, unknown>>();

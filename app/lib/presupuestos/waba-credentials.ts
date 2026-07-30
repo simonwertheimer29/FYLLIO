@@ -69,7 +69,8 @@ export function normalizarTelefono(raw: string): string {
 async function db() {
   const { runWithClienteDb } = await import("../db/context");
   const { requireCliente } = await import("../cliente-contexto");
-  return { runWithClienteDb, cliente: requireCliente("configuracion-waba") };
+  const { actualizarUna } = await import("../db/escritura");
+  return { runWithClienteDb, actualizarUna, cliente: requireCliente("configuracion-waba") };
 }
 
 const CAMPOS: Record<string, string> = {
@@ -95,9 +96,9 @@ export async function updateConfigWABARaw(id: string, fields: Record<string, unk
   const set: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(fields)) if (CAMPOS[k]) set[CAMPOS[k]] = v;
   if (!Object.keys(set).length) return;
-  const { runWithClienteDb, cliente } = await db();
+  const { runWithClienteDb, actualizarUna, cliente } = await db();
   await runWithClienteDb(cliente, (trx) =>
-    trx.updateTable("configuracion_waba").set(set as any).where("id", "=", id).execute());
+    actualizarUna(trx.updateTable("configuracion_waba").set(set as any).where("id", "=", id), "configuracion_waba", id));
 }
 
 export async function createConfigWABARaw(fields: Record<string, unknown>): Promise<void> {

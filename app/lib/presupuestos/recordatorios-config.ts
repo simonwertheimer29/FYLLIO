@@ -7,6 +7,7 @@
 
 import { runWithClienteDb } from "../db/context";
 import { requireCliente } from "../cliente-contexto";
+import { actualizarUna } from "../db/escritura";
 
 export type ConfigRecordatoriosRow = {
   id: string;
@@ -86,11 +87,14 @@ export async function upsertConfigRecordatorios(
       .where("clinica_id", "=", clinica.id)
       .executeTakeFirst();
     if (existente) {
-      await trx
-        .updateTable("configuracion_recordatorios")
-        .set(set as any)
-        .where("id", "=", existente.id)
-        .execute();
+      await actualizarUna(
+        trx
+          .updateTable("configuracion_recordatorios")
+          .set(set as any)
+          .where("id", "=", existente.id),
+        "configuracion_recordatorios",
+        existente.id,
+      );
     } else {
       await trx
         .insertInto("configuracion_recordatorios")

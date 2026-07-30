@@ -10,6 +10,7 @@
 import { runWithClienteDb } from "../../db/context";
 import { currentCliente, type Cliente } from "../../airtable";
 import type { WaitlistEntry } from "./waitlistRepo";
+import { actualizarUna } from "../../db/escritura";
 
 function cli(): Cliente {
   const c = currentCliente();
@@ -109,7 +110,8 @@ export async function listWaitlistPorClinicaRawPg(clinicNombre: string): Promise
 // ── Escrituras ─────────────────────────────────────────────────────────
 async function setWaitlist(id: string, set: Record<string, unknown>): Promise<void> {
   if (!Object.keys(set).length) return;
-  await runWithClienteDb(cli(), (trx) => trx.updateTable("lista_espera").set(set as any).where("id", "=", id).execute());
+  await runWithClienteDb(cli(), (trx) =>
+    actualizarUna(trx.updateTable("lista_espera").set(set as any).where("id", "=", id), "lista_espera", id));
 }
 export async function markWaitlistOfferedPg(p: { waitlistRecordId: string; holdId: string; expiresAtIso: string; slotKey: string }): Promise<void> {
   await setWaitlist(p.waitlistRecordId, { estado: "OFFERED", offer_hold_id: p.holdId, offer_expires_at: new Date(p.expiresAtIso), last_offered_slot_key: p.slotKey, last_offer_result: "SENT" });

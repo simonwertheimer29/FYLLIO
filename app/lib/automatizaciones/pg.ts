@@ -5,6 +5,7 @@ import { sql } from "kysely";
 import { runWithClienteDb } from "../db/context";
 import { currentCliente, type Cliente } from "../airtable";
 import type { Regla, AccionLog, ResultadoEjecucion, EventoTipo, EventoSistema, Condicion, Accion } from "./types";
+import { actualizarUna } from "../db/escritura";
 
 function cli(): Cliente {
   const c = currentCliente();
@@ -103,7 +104,8 @@ export async function listEventosLeadCreadoSinProcesarRawPg(antesDeIso: string):
   });
 }
 export async function marcarEventoProcesadoPg(id: string): Promise<void> {
-  await runWithClienteDb(cli(), (trx) => trx.updateTable("eventos_sistema").set({ procesado: true } as any).where("id", "=", id).execute());
+  await runWithClienteDb(cli(), (trx) =>
+    actualizarUna(trx.updateTable("eventos_sistema").set({ procesado: true } as any).where("id", "=", id), "eventos_sistema", id));
 }
 /** MEJORAS 45 — salvaguarda de cooldown: envíos automáticos de WhatsApp a un
  *  paciente en las últimas N horas. Antes se contaba leyendo Airtable a pelo
@@ -158,7 +160,8 @@ export async function patchSecuenciaPg(id: string, u: { estado?: string; mensaje
   const set: Record<string, unknown> = { actualizado_en: new Date(u.actualizadoEn) };
   if (u.estado !== undefined) set.estado = u.estado;
   if (u.mensajeGenerado !== undefined) set.mensaje_generado = u.mensajeGenerado;
-  await runWithClienteDb(cli(), (trx) => trx.updateTable("secuencias_automaticas").set(set as any).where("id", "=", id).execute());
+  await runWithClienteDb(cli(), (trx) =>
+    actualizarUna(trx.updateTable("secuencias_automaticas").set(set as any).where("id", "=", id), "secuencias_automaticas", id));
 }
 export async function findSecuenciaRawPg(id: string): Promise<any> {
   return runWithClienteDb(cli(), async (trx) => {
@@ -220,7 +223,8 @@ export async function updateConfigRawPg(id: string, fields: Record<string, unkno
   const M: Record<string, string> = { activa: "activa", dias_inactividad_alerta: "dias_inactividad_alerta", dias_portal_sin_respuesta: "dias_portal_sin_respuesta", dias_reactivacion: "dias_reactivacion", modo_whatsapp: "modo_whatsapp", actualizado_en: "actualizado_en" };
   const set: Record<string, unknown> = {};
   for (const [k, c] of Object.entries(M)) if (fields[k] !== undefined) set[c] = k === "actualizado_en" ? new Date(String(fields[k])) : fields[k];
-  await runWithClienteDb(cli(), (trx) => trx.updateTable("configuracion_automatizaciones").set(set as any).where("id", "=", id).execute());
+  await runWithClienteDb(cli(), (trx) =>
+    actualizarUna(trx.updateTable("configuracion_automatizaciones").set(set as any).where("id", "=", id), "configuracion_automatizaciones", id));
 }
 export async function createConfigRawPg(fields: Record<string, unknown>): Promise<void> {
   await runWithClienteDb(cli(), async (trx) => {

@@ -28,6 +28,7 @@
 import { runWithClienteDb } from "./db/context";
 import { currentCliente, type Cliente } from "./airtable";
 import { evalFormula, makeShim, type Shim } from "./db/airtable-formula";
+import { actualizarUna } from "./db/escritura";
 
 function cli(): Cliente {
   const c = currentCliente();
@@ -152,7 +153,11 @@ export async function updateInformeRawPg(id: string, fields: Record<string, unkn
   return runWithClienteDb(cli(), async (trx) => {
     if (clinicaProvided) (set as any).clinica_id = await clinicaIdDe(trx, clinicaNombre);
     if (Object.keys(set).length > 0) {
-      await trx.updateTable("informes_guardados").set(set as any).where("id", "=", id).execute();
+      await actualizarUna(
+        trx.updateTable("informes_guardados").set(set as any).where("id", "=", id),
+        "informes_guardados",
+        id,
+      );
     }
     const shims = await allShims(trx);
     return shims.find((s) => s.id === id);

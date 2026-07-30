@@ -10,6 +10,7 @@
 import { runWithClienteDb } from "../db/context";
 import { currentCliente, type Cliente } from "../airtable";
 import { evalFormula, makeShim, type Shim } from "../db/airtable-formula";
+import { actualizarUna } from "../db/escritura";
 
 function cli(): Cliente {
   const c = currentCliente();
@@ -58,6 +59,9 @@ export async function fetchSubscriptionsPg(formula: string): Promise<any[]> {
 export async function deactivateSubscriptionPg(recId: string): Promise<void> {
   try {
     await runWithClienteDb(cli(), async (trx) => {
+      // Sin `actualizarUna`: desactivar una suscripción que ya no está es un
+      // resultado legítimo (el navegador la borró antes que nosotros) y no se
+      // confirma nada a nadie. Cero filas aquí no es una mentira.
       await trx.updateTable("push_subscriptions").set({ activa: false } as any).where("id", "=", recId).execute();
     });
   } catch {
@@ -100,7 +104,12 @@ export async function updateSuscripcionRawPg(id: string, fields: Record<string, 
   const set = mapFields(fields);
   if (Object.keys(set).length === 0) return;
   await runWithClienteDb(cli(), async (trx) => {
-    await trx.updateTable("push_subscriptions").set(set as any).where("id", "=", id).execute();
+    // Aquí SÍ: /api/push/suscribir confirma al navegador que quedó suscrito.
+    await actualizarUna(
+      trx.updateTable("push_subscriptions").set(set as any).where("id", "=", id),
+      "push_subscriptions",
+      id,
+    );
   });
 }
 

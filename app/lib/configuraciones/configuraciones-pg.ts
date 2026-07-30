@@ -19,6 +19,7 @@ import { runWithClienteDb } from "../db/context";
 import { currentCliente, type Cliente } from "../airtable";
 import { evalFormula, makeShim, type Shim } from "../db/airtable-formula";
 import { toOpcion, type ConfigCategoria, type ConfigOpcion } from "./configuraciones";
+import { actualizarUna } from "../db/escritura";
 
 function cli(): Cliente {
   const c = currentCliente();
@@ -169,7 +170,11 @@ export async function updateConfigClinicaRawPg(
   const set = fieldsToColumns(fields);
   if (Object.keys(set).length === 0) return;
   await runWithClienteDb(cli(), (trx) =>
-    trx.updateTable("configuraciones_clinica").set(set as any).where("id", "=", id).execute(),
+    actualizarUna(
+      trx.updateTable("configuraciones_clinica").set(set as any).where("id", "=", id),
+      "configuraciones_clinica",
+      id,
+    ),
   );
 }
 

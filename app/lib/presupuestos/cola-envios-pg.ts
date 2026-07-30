@@ -11,6 +11,7 @@
 import { runWithClienteDb } from "../db/context";
 import { currentCliente, type Cliente } from "../airtable";
 import { evalFormula, makeShim, type Shim } from "../db/airtable-formula";
+import { actualizarUna } from "../db/escritura";
 
 function cli(): Cliente {
   const c = currentCliente();
@@ -111,7 +112,7 @@ export async function updateColaEnvioRawPg(id: string, fields: Record<string, un
   const set = fieldsToRow(fields);
   if (Object.keys(set).length === 0) return;
   await runWithClienteDb(cli(), async (trx) => {
-    await trx.updateTable("cola_envios").set(set as any).where("id", "=", id).execute();
+    await actualizarUna(trx.updateTable("cola_envios").set(set as any).where("id", "=", id), "cola_envios", id);
   });
 }
 
