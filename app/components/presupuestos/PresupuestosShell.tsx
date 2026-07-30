@@ -31,7 +31,7 @@ import IntervencionSidePanel from "./IntervencionSidePanel";
 import NotificacionesPanel from "./NotificacionesPanel";
 import PagoCierreModal, { type PagoCierre } from "./PagoCierreModal";
 import MotivoPerdidaModal from "./MotivoPerdidaModal";
-import { RangoTemporal, RANGO_DEFAULT, dentroDeRango, type RangoKanban } from "../shared/RangoTemporal";
+import { RangoTemporal, RANGO_DEFAULT, type RangoKanban } from "../shared/RangoTemporal";
 import { SegmentedToggle } from "../shared/SegmentedToggle";
 import { Card } from "../ui/Card";
 import { Skeleton } from "../ui/Skeleton";
@@ -41,7 +41,7 @@ import { cargarJSON, traeLista } from "../../lib/fetch-json";
 import {
   contarPipelinePresupuestos,
   cifrasNegocioPresupuestos,
-  fechaDeRango,
+  seVeConRango,
 } from "../../lib/presupuestos/pipeline";
 
 type Tab = "kanban" | "maxima";
@@ -130,7 +130,7 @@ export default function PresupuestosShell({
   const pipeline = useMemo(
     () =>
       contarPipelinePresupuestos(
-        presupuestos.filter((p) => dentroDeRango(fechaDeRango(p), rango)),
+        presupuestos.filter((p) => seVeConRango(p, rango)),
       ),
     [presupuestos, rango],
   );
@@ -399,7 +399,17 @@ export default function PresupuestosShell({
                 mientras el Tablero enseñaba 45, sin que nada dijera por qué.
                 Un filtro que aplica a una vista y no a su gemela es una trampa. */}
             <div className="flex items-center gap-2 flex-wrap">
-              <RangoTemporal value={rango} onChange={setRango} />
+              {/* La ASIMETRÍA se declara (MEJORAS 75): el rango acota el archivo
+                  de cerrados y no esconde nunca trabajo abierto. Sin decirlo, un
+                  control que filtra la mitad de la pantalla y no la otra parece
+                  un fallo. Va como título del control, donde se lee justo cuando
+                  se va a usar. */}
+              <div className="flex flex-col items-end">
+                <RangoTemporal value={rango} onChange={setRango} />
+                <p className="text-[10px] text-[var(--color-muted)] mt-1 text-right">
+                  Acota aceptados y perdidos. Lo abierto se ve siempre.
+                </p>
+              </div>
               <SegmentedToggle
                 options={[
                   { id: "kanban", label: "Tablero" },
@@ -446,7 +456,7 @@ export default function PresupuestosShell({
                   valor={eur(cifras.enJuego)}
                   detalle={`${cifras.abiertos} presupuesto${cifras.abiertos === 1 ? "" : "s"} abierto${
                     cifras.abiertos === 1 ? "" : "s"
-                  } en el periodo`}
+                  }, todos`}
                 />
                 <Cifra
                   label="Firmado este mes"

@@ -15,11 +15,13 @@ import {
 import { useDraggable } from "@dnd-kit/core";
 import type { Presupuesto, PresupuestoEstado, MotivoPerdida } from "../../lib/presupuestos/types";
 import { Check, Copy, Phone, MessageCircle, Pencil, ICON_STROKE } from "../icons";
-import { dentroDeRango, type RangoKanban } from "../shared/RangoTemporal";
+import { type RangoKanban } from "../shared/RangoTemporal";
 // El rango temporal (2026-07-26) sustituye el corte fijo de 14 días de las
-// columnas cerradas y aplica a TODAS. `fechaDeRango` vive en lib/pipeline
-// para que la cabecera cuente exactamente lo mismo que pinta el tablero.
-import { fechaDeRango } from "../../lib/presupuestos/pipeline";
+// columnas cerradas. `seVeConRango` vive en lib/pipeline para que la cabecera y
+// la Tabla cuenten exactamente lo mismo que pinta el tablero — y desde el
+// 2026-07-29 (MEJORAS 75) gobierna SOLO las columnas cerradas: un caso abierto
+// se ve siempre, porque es trabajo pendiente venga de cuando venga.
+import { seVeConRango } from "../../lib/presupuestos/pipeline";
 import { ESTADO_CONFIG, ESTADO_VARIANTE, PIPELINE_ORDEN, ORIGEN_LABEL } from "../../lib/presupuestos/colors";
 import { StatePill } from "../ui/StatePill";
 import MotivoPerdidaModal from "./MotivoPerdidaModal";
@@ -528,7 +530,7 @@ export default function KanbanBoard({
           {PIPELINE_ORDEN.map((estado) => {
               const items = presupuestos.filter((p) => p.estado === estado);
               const cerrada = estado === "ACEPTADO" || estado === "PERDIDO";
-              const visibles = items.filter((p) => dentroDeRango(fechaDeRango(p), rango));
+              const visibles = items.filter((p) => seVeConRango(p, rango));
               return (
                 <DroppableColumn
                   key={estado}

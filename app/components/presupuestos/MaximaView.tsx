@@ -14,8 +14,8 @@ import { StatePill } from "../ui/StatePill";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { CardListSkeleton } from "../ui/Skeleton";
 import { hoyISO } from "../../lib/time";
-import { dentroDeRango, type RangoKanban } from "../shared/RangoTemporal";
-import { fechaDeRango } from "../../lib/presupuestos/pipeline";
+import { type RangoKanban } from "../shared/RangoTemporal";
+import { seVeConRango } from "../../lib/presupuestos/pipeline";
 import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
 import { eur } from "../shared/Cifra";
 
@@ -70,10 +70,11 @@ export default function MaximaView({
   rango,
 }: {
   onOpenDrawer: (p: PresupuestoIntervencion) => void;
-  /** El MISMO rango que el Tablero, con las MISMAS funciones puras
-   *  (`fechaDeRango` + `dentroDeRango`): cero criterio nuevo. Antes esta vista
-   *  no lo aplicaba, así que enseñaba 123 filas mientras el Tablero enseñaba 45
-   *  y el selector desaparecía al cambiar de lente (MEJORAS 71). */
+  /** El MISMO rango que el Tablero, con la MISMA función pura (`seVeConRango`):
+   *  cero criterio nuevo. Antes esta vista no lo aplicaba, así que enseñaba 123
+   *  filas mientras el Tablero enseñaba 45 y el selector desaparecía al cambiar
+   *  de lente (MEJORAS 71). Y desde MEJORAS 75 el rango acota SOLO los cerrados:
+   *  un caso abierto es trabajo pendiente y no se esconde nunca. */
   rango: RangoKanban;
   /** Sube cuando se actúa desde el panel. Antes el Shell pasaba
    *  `onRefresh={() => {}}` con el comentario "la cola se recupera con su propio
@@ -135,7 +136,7 @@ export default function MaximaView({
    *  y el recuento se derivan de aquí, no del total — un pill que cuenta cosas
    *  que la tabla no pinta es el mismo error, un nivel más abajo. */
   const enRango = useMemo(
-    () => (data ? data.presupuestos.filter((p) => dentroDeRango(fechaDeRango(p), rango)) : []),
+    () => (data ? data.presupuestos.filter((p) => seVeConRango(p, rango)) : []),
     [data, rango],
   );
 
@@ -253,11 +254,12 @@ export default function MaximaView({
           veces, uno de ellos a pantalla completa. */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-[var(--color-muted)] tabular-nums">
-          {enRango.length} presupuesto{enRango.length === 1 ? "" : "s"} en el periodo
+          {enRango.length} presupuesto{enRango.length === 1 ? "" : "s"}
           {/* Lo que el rango esconde se DICE, igual que en las columnas del
-              tablero: nunca se recorta en silencio. */}
+              tablero: nunca se recorta en silencio. Y se dice QUÉ esconde —solo
+              cerrados—, porque desde MEJORAS 75 lo abierto no se filtra nunca. */}
           {data.totales.total > enRango.length &&
-            ` · ${data.totales.total - enRango.length} fuera del periodo`}
+            ` · ${data.totales.total - enRango.length} cerrado${data.totales.total - enRango.length === 1 ? "" : "s"} fuera del periodo`}
           {intervencionCount > 0 && (
             <>
               {" · "}
@@ -354,7 +356,7 @@ export default function MaximaView({
 
       {/* Results count */}
       <p className="text-xs text-[var(--color-muted)]">
-        Mostrando {filtered.length} de {enRango.length} del periodo
+        Mostrando {filtered.length} de {enRango.length}
       </p>
 
       {/* Table */}
@@ -401,7 +403,7 @@ export default function MaximaView({
                     title="Sin resultados"
                     hint={
                       enRango.length === 0 && data.totales.total > 0
-                        ? `Ningún presupuesto en el periodo elegido. Hay ${data.totales.total} fuera de él.`
+                        ? `Sin presupuestos abiertos, y ningún cierre en el periodo elegido. Hay ${data.totales.total} cerrados fuera de él.`
                         : "Ajusta los filtros o la búsqueda para ver presupuestos."
                     }
                   />

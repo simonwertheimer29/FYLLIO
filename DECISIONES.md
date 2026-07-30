@@ -1013,3 +1013,25 @@ un catálogo vacío es la diferencia entre enterarse hoy y enterarse en una demo
 de dos semanas, el tablero enseña **14 de 28** abiertos. Los que esconde son los más parados,
 que es lo que el criterio de orden considera más urgente. Antes no se notaba porque todos los
 abiertos caían dentro de la ventana.
+
+## 2026-07-29 — El rango acota el archivo, no el trabajo vivo
+MEJORAS 75, decisión de Simon. **Un caso ABIERTO es trabajo pendiente independientemente de
+cuándo se presentó, y esconderlo contradice de frente el criterio único de orden**, que dice
+que los más parados son los más urgentes: con el rango por defecto de dos semanas el tablero
+enseñaba 14 de 28 abiertos, y los 14 que escondía eran justo los que su propio orden pone
+arriba. Para un caso CERRADO la pregunta "¿de qué periodo?" sí es la correcta — es para lo que
+el control nació, sustituyendo el corte fijo de 14 días de las columnas cerradas.
+La regla vive en UNA función pura, `seVeConRango` (`lib/presupuestos/pipeline`), que consumen
+los tres sitios que antes repetían la misma línea copiada: el tablero, la Tabla y el recuento
+de la cabecera. Un criterio compartido en tres copias es tres criterios esperando a divergir.
+**La asimetría se declara en la UI**, y eso no es decoración: un control que filtra media
+pantalla y no la otra, sin decirlo, se lee como un fallo. Bajo el propio selector: "Acota
+aceptados y perdidos. Lo abierto se ve siempre". Con ella, "En juego ahora" deja de decir "en el
+periodo" —ya no depende de él— y la Tabla dice QUÉ esconde ("N cerrados fuera del periodo"),
+igual que las columnas del kanban dicen lo que recortan. Verificado: 28/28 abiertos visibles en
+los cuatro rangos, y las dos vistas siguen cuadrando.
+**El gemelo en Leads queda anotado (nº 76), no tocado.** Está atenuado por diseño —filtra por
+última ACTIVIDAD, no por fecha de alta, así que un lead con conversación reciente no
+desaparece— pero de 31 leads activos el defecto enseña 26, y los 5 que esconde son los que
+llevan más tiempo sin actividad. Mismo razonamiento por otra puerta; la decisión se tomó para
+Presupuestos y ahí se queda hasta que Simon diga.

@@ -752,7 +752,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
     cobertura. Añadidos el catálogo (1 propio + 3 aseguradoras) y la mezcla en pacientes
     (143/166, con cola sin tipo a propósito).
 
-## 75. El rango por defecto esconde la mitad del trabajo abierto
+## 75. ✅ CERRADA — El rango escondía la mitad del trabajo abierto
 - **Zona:** `RANGO_DEFAULT = "2s"` (`components/shared/RangoTemporal.tsx`) + `fechaDeRango`
   (`lib/presupuestos/pipeline.ts`), aplicado ahora a las dos vistas (nº 71)
 - **Principio:** §1 misión ("no se te pierde nada") — **medido hoy con el seed realista de la
@@ -769,7 +769,33 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   presentación), así que la asimetría está medio hecha en el diseño. Alternativa si se quiere
   un solo comportamiento: subir el defecto a "Trimestre", que hoy enseña 28 de 28.
 - **Impacto:** alto — es la pantalla de trabajo del día escondiendo la mitad de la cola.
-- **Fecha:** 2026-07-29 · 🔵 **pendiente de decisión de Simon.**
+- **Fecha:** 2026-07-29 · ✅ **CERRADA el 2026-07-29.** Decisión de Simon: el rango gobierna
+  solo los cerrados y nunca esconde un abierto. La regla vive en UNA función pura,
+  `seVeConRango` (`lib/presupuestos/pipeline`), que consumen los tres sitios que antes
+  repetían la misma línea: el tablero, la Tabla y el recuento de la cabecera.
+  **La asimetría se DECLARA en la UI**, que era la otra mitad del encargo: bajo el propio
+  control, "Acota aceptados y perdidos. Lo abierto se ve siempre" — sin decirlo, un control que
+  filtra media pantalla y no la otra parece un fallo. Con ella, "En juego ahora" deja de decir
+  "en el periodo" (ya no depende de él) y la Tabla dice qué esconde: "N **cerrados** fuera del
+  periodo". El vacío también distingue los dos casos.
+  Verificado en los cuatro rangos: **28/28 abiertos visibles siempre**, y las dos vistas
+  siguen cuadrando (45·45, 49·49, 86·86, 123·123).
+
+## 76. El gemelo en Leads: el rango esconde los leads activos más inactivos
+- **Zona:** `app/(authed)/leads/LeadsView.tsx` (`enRango`), mismo control `RangoTemporal`
+- **Principio:** §1 misión — hermano de la nº 75, y **atenuado a propósito por cómo está
+  hecho**: Leads no filtra por fecha de alta sino por la del HITO (cierre para los cerrados,
+  **última actividad** para los vivos, alta si no hay nada). Así que un lead con conversación
+  reciente no desaparece nunca, venga de cuando venga — eso ya está bien.
+- **Lo que sí queda (medido hoy en DEMO):** de **31 leads activos**, el rango por defecto de
+  dos semanas enseña **26**. Los 5 que esconde son los que llevan más tiempo sin actividad —
+  exactamente los que hay que rescatar. Es el mismo razonamiento de la nº 75 por otra puerta:
+  un lead vivo es trabajo pendiente independientemente de cuándo se le tocó por última vez.
+- **Mejora:** el gemelo de `seVeConRango` para leads (el rango acota solo Convertido y No
+  Interesado), y declarar la asimetría junto al control como en Presupuestos.
+- **Impacto:** medio-alto, y bajo en coste: la pieza ya está escrita al lado.
+- **Fecha:** 2026-07-29 · 🔵 (la decisión de Simon se tomó para Presupuestos; esto es su
+  gemelo y no se toca sin su OK).
 
 ## 47. `/presupuestos/login` es una pantalla muerta contra un endpoint 410
 - **Zona:** `app/presupuestos/login/page.tsx` → `POST /api/presupuestos/auth/login`

@@ -9,6 +9,7 @@
 
 import type { Presupuesto, PresupuestoEstado } from "./types";
 import { eur } from "../dinero";
+import { dentroDeRango, type RangoKanban } from "../../components/shared/RangoTemporal";
 
 export const ESTADOS_PRESUPUESTO_ABIERTOS: PresupuestoEstado[] = [
   "PRESENTADO",
@@ -31,6 +32,28 @@ export function fechaDeRango(p: Presupuesto): string | null {
   if (p.estado === "ACEPTADO") return p.fechaAceptado ?? null;
   if (p.estado === "PERDIDO") return p.fechaPerdida ?? null;
   return p.fechaPresupuesto ?? null;
+}
+
+/**
+ * ¿Se ve este caso con el rango elegido? UNA definición para las dos vistas y
+ * para el recuento de la cabecera — antes los tres filtraban por su cuenta con
+ * la misma línea copiada.
+ *
+ * **El rango gobierna el ARCHIVO, no el trabajo vivo** (decisión 2026-07-29,
+ * MEJORAS 75). Un presupuesto ABIERTO se ve siempre, venga de cuando venga: es
+ * trabajo pendiente independientemente de cuándo se presentó, y esconderlo
+ * contradice de frente el criterio único de orden, que dice que **los más
+ * parados son los más urgentes**. Con el rango por defecto de dos semanas el
+ * tablero enseñaba 14 de 28 abiertos, y los 14 que escondía eran justo los que
+ * el propio orden pone arriba.
+ *
+ * Para un caso CERRADO la pregunta "¿de qué periodo?" sí es la correcta —y es
+ * para lo que el control nació: sustituyó el corte fijo de 14 días de las
+ * columnas cerradas—, así que ahí el rango manda.
+ */
+export function seVeConRango(p: Presupuesto, rango: RangoKanban): boolean {
+  if (esPresupuestoAbierto(p.estado)) return true;
+  return dentroDeRango(fechaDeRango(p), rango);
 }
 
 export type PipelinePresupuestos = {
