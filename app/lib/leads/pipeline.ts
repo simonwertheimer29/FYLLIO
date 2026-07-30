@@ -14,6 +14,8 @@
 //
 // Módulo PURO (sin datos ni Airtable/PG): lo consumen componentes cliente.
 
+import { casoVisibleConRango, type RangoKanban } from "../../components/shared/RangoTemporal";
+
 export const ESTADOS_LEAD_ACTIVOS = [
   "Nuevo",
   "Contactado",
@@ -23,6 +25,42 @@ export const ESTADOS_LEAD_ACTIVOS = [
 
 export function esLeadActivo(estado: string): boolean {
   return (ESTADOS_LEAD_ACTIVOS as readonly string[]).includes(estado);
+}
+
+/**
+ * Fecha del HITO de un lead, la que decide si entra en el rango: cierre para los
+ * cerrados (MEJORAS 37 — antes se usaba la actividad como proxy y un lead
+ * cerrado sin mensajes no envejecía nunca), última actividad para los vivos,
+ * alta si no hay nada. Sin fecha conocida el lead se MUESTRA.
+ */
+export function fechaDeRangoLead(l: {
+  fechaCierre?: string | null;
+  createdAt?: string | null;
+}, ultimaActividad?: string | null): string | null {
+  return (l.fechaCierre ?? ultimaActividad ?? l.createdAt)?.slice(0, 10) ?? null;
+}
+
+/**
+ * ¿Se ve este lead con el rango elegido? Gemelo exacto de `seVeConRango` de
+ * presupuestos, y con la MISMA regla: la comparte `casoVisibleConRango` — el
+ * rango acota lo cerrado (Convertido, No Interesado) y no esconde nunca un lead
+ * activo, porque un lead vivo es trabajo pendiente independientemente de cuándo
+ * se le tocó por última vez.
+ *
+ * Estaba atenuado aquí por cómo se eligió el hito —última ACTIVIDAD, no fecha de
+ * alta, así que un lead con conversación reciente nunca desaparecía— pero de 31
+ * leads activos el rango por defecto enseñaba 26, y los 5 que escondía eran los
+ * que llevaban más tiempo sin actividad: los que hay que rescatar (MEJORAS 76).
+ */
+export function seVeLeadConRango(
+  l: { estado: string; fechaCierre?: string | null; createdAt?: string | null },
+  rango: RangoKanban,
+  ultimaActividad?: string | null,
+): boolean {
+  return casoVisibleConRango(rango, {
+    cerrado: !esLeadActivo(l.estado),
+    fechaHito: fechaDeRangoLead(l, ultimaActividad),
+  });
 }
 
 export type PipelineLeads = {

@@ -49,6 +49,35 @@ export function dentroDeRango(
   return fecha.slice(0, 10) >= corte;
 }
 
+/**
+ * **El rango acota el ARCHIVO, no el trabajo vivo.** Una sola definición para
+ * los DOS tableros (decisión 2026-07-29, MEJORAS 75 y 76): cada dominio aporta
+ * sus dos hechos —¿está cerrado? ¿cuál es la fecha de su hito?— y la regla vive
+ * aquí, no copiada en cada uno.
+ *
+ * Por qué: un caso abierto es trabajo pendiente independientemente de cuándo
+ * entró, y esconderlo contradice de frente el criterio de orden, que dice que
+ * los más parados son los más urgentes. Medido antes de arreglarlo: el tablero
+ * de Presupuestos enseñaba 14 de 28 abiertos y Leads 26 de 31 activos, y en los
+ * dos casos lo que escondía era justo lo que el orden pone arriba.
+ *
+ * Para un caso CERRADO la pregunta "¿de qué periodo?" sí es la correcta — es
+ * para lo que este control nació: sustituyó el corte fijo de 14 días de las
+ * columnas cerradas.
+ */
+export function casoVisibleConRango(
+  rango: RangoKanban,
+  caso: { cerrado: boolean; fechaHito: string | null | undefined },
+): boolean {
+  if (!caso.cerrado) return true;
+  return dentroDeRango(caso.fechaHito, rango);
+}
+
+/** El copy que declara la asimetría, IDÉNTICO en los dos tableros: un control
+ *  que filtra media pantalla y no la otra, sin decirlo, se lee como un fallo. */
+export const NOTA_RANGO_SOLO_CERRADOS =
+  "Acota lo cerrado. Lo que sigue vivo se ve siempre.";
+
 export function RangoTemporal({
   value,
   onChange,

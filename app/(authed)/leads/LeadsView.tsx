@@ -20,7 +20,7 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { useClinic } from "../../lib/context/ClinicContext";
-import { contarPipeline, textoPipeline } from "../../lib/leads/pipeline";
+import { contarPipeline, textoPipeline, seVeLeadConRango } from "../../lib/leads/pipeline";
 import { NewLeadModal } from "./NewLeadModal";
 import { AccionPanel } from "../../components/shared/AccionPanel";
 import { AgendarModal } from "./AgendarModal";
@@ -34,7 +34,7 @@ import type { Lead, LeadEstado } from "./types";
 import {
   RangoTemporal,
   RANGO_DEFAULT,
-  dentroDeRango,
+  NOTA_RANGO_SOLO_CERRADOS,
   type RangoKanban,
 } from "../../components/shared/RangoTemporal";
 
@@ -280,12 +280,14 @@ export function LeadsView({
   // (MEJORAS 37 — antes se usaba la actividad como proxy y un lead cerrado sin
   // mensajes no envejecía nunca), actividad para los vivos, alta si no hay nada.
   // Sin fecha conocida el lead se MUESTRA: nunca se esconde por falta de dato.
+  // La regla vive en `seVeLeadConRango` (lib/leads/pipeline), que comparte
+  // `casoVisibleConRango` con el tablero de Presupuestos: **el rango acota lo
+  // cerrado y nunca esconde un lead activo** (MEJORAS 76). Antes filtraba
+  // TAMBIÉN los vivos por su última actividad, así que de 31 leads activos el
+  // defecto de dos semanas enseñaba 26 — y los 5 que escondía eran los que
+  // llevaban más tiempo sin actividad, o sea los que hay que rescatar.
   const enRango = useCallback(
-    (l: Lead) =>
-      dentroDeRango(
-        (l.fechaCierre ?? ultimaActividadPorLead[l.id] ?? l.createdAt)?.slice(0, 10),
-        rango,
-      ),
+    (l: Lead) => seVeLeadConRango(l, rango, ultimaActividadPorLead[l.id]),
     [ultimaActividadPorLead, rango],
   );
 
@@ -509,7 +511,13 @@ export function LeadsView({
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">
-        <RangoTemporal value={rango} onChange={setRango} />
+        {/* La asimetría se declara con el MISMO copy que Presupuestos
+            (NOTA_RANGO_SOLO_CERRADOS, una sola constante compartida): el rango
+            acota lo cerrado y no esconde nunca un lead activo. */}
+        <div className="flex flex-col">
+          <RangoTemporal value={rango} onChange={setRango} />
+          <p className="text-[10px] text-[var(--color-muted)] mt-1">{NOTA_RANGO_SOLO_CERRADOS}</p>
+        </div>
         <input
           type="search"
           placeholder="Buscar lead…"

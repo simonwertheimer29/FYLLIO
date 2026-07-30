@@ -781,7 +781,7 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   Verificado en los cuatro rangos: **28/28 abiertos visibles siempre**, y las dos vistas
   siguen cuadrando (45·45, 49·49, 86·86, 123·123).
 
-## 76. El gemelo en Leads: el rango esconde los leads activos más inactivos
+## 76. ✅ CERRADA — El gemelo en Leads: el rango escondía los activos más inactivos
 - **Zona:** `app/(authed)/leads/LeadsView.tsx` (`enRango`), mismo control `RangoTemporal`
 - **Principio:** §1 misión — hermano de la nº 75, y **atenuado a propósito por cómo está
   hecho**: Leads no filtra por fecha de alta sino por la del HITO (cierre para los cerrados,
@@ -794,8 +794,20 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Mejora:** el gemelo de `seVeConRango` para leads (el rango acota solo Convertido y No
   Interesado), y declarar la asimetría junto al control como en Presupuestos.
 - **Impacto:** medio-alto, y bajo en coste: la pieza ya está escrita al lado.
-- **Fecha:** 2026-07-29 · 🔵 (la decisión de Simon se tomó para Presupuestos; esto es su
-  gemelo y no se toca sin su OK).
+- **Fecha:** 2026-07-29 · ✅ **CERRADA el 2026-07-29**, aprobada por Simon con la misma regla.
+  Y no es una copia: la REGLA se extrajo a `casoVisibleConRango` (`components/shared/
+  RangoTemporal`, junto a `dentroDeRango`, que es el hogar del vocabulario de rango). Cada
+  dominio aporta solo sus DOS hechos —¿está cerrado? ¿cuál es la fecha de su hito?— y su
+  envoltorio legible: `seVeConRango` para presupuestos y `seVeLeadConRango` para leads. Dos
+  envoltorios, una regla; si mañana cambia el criterio, cambia en un sitio.
+  De paso `fechaDeRangoLead` sale de dentro del componente a `lib/leads/pipeline`, donde ya
+  vivían `esLeadActivo` y el recuento — el hito de un lead es lógica de dominio, no de vista.
+  **La asimetría se declara con el MISMO copy**, y literalmente el mismo: una constante
+  compartida (`NOTA_RANGO_SOLO_CERRADOS`, "Acota lo cerrado. Lo que sigue vivo se ve siempre")
+  bajo el selector en las dos pantallas. Dos textos que dicen lo mismo con palabras distintas
+  son dos textos que divergen.
+  Verificado en los cuatro rangos: **31/31 leads activos visibles siempre** (antes 26/31 con el
+  defecto), y 28/28 presupuestos abiertos sigue en verde.
 
 ## 47. `/presupuestos/login` es una pantalla muerta contra un endpoint 410
 - **Zona:** `app/presupuestos/login/page.tsx` → `POST /api/presupuestos/auth/login`

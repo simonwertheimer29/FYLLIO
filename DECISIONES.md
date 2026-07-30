@@ -1035,3 +1035,23 @@ los cuatro rangos, y las dos vistas siguen cuadrando.
 desaparece— pero de 31 leads activos el defecto enseña 26, y los 5 que esconde son los que
 llevan más tiempo sin actividad. Mismo razonamiento por otra puerta; la decisión se tomó para
 Presupuestos y ahí se queda hasta que Simon diga.
+
+## 2026-07-29 — La regla del rango, una sola vez para los dos tableros
+MEJORAS 76, aprobada con la misma regla que la 75: en Leads el rango acota lo cerrado
+(Convertido, No Interesado) y nunca esconde un lead activo. Antes filtraba también los vivos
+por su última actividad, así que de 31 leads activos el defecto de dos semanas enseñaba 26 — y
+los 5 que escondía eran los que llevaban más tiempo sin actividad, o sea los que hay que
+rescatar. Mismo razonamiento que en Presupuestos por otra puerta.
+Lo que importa del cierre no es el arreglo, es dónde quedó la regla. **No se copió**: se extrajo
+a `casoVisibleConRango`, en `components/shared/RangoTemporal`, junto a `dentroDeRango` — el
+hogar del vocabulario de rango. Cada dominio aporta solo sus dos hechos (¿cerrado? ¿fecha del
+hito?) y su envoltorio legible: `seVeConRango` para presupuestos, `seVeLeadConRango` para leads.
+Dos envoltorios, una regla. Es la lección de esta semana aplicada antes de pagarla: el mismo
+criterio en tres copias fue lo que dejó la Tabla enseñando 123 filas cuando el Tablero enseñaba
+45, y el euro en siete implementaciones. De paso `fechaDeRangoLead` sale del componente a
+`lib/leads/pipeline`, donde ya vivían `esLeadActivo` y el recuento: el hito de un lead es lógica
+de dominio, no de vista.
+Y el copy que declara la asimetría es **literalmente el mismo** en las dos pantallas, una
+constante compartida (`NOTA_RANGO_SOLO_CERRADOS`) y no dos frases parecidas: dos textos que
+dicen lo mismo con palabras distintas son dos textos que divergen. Verificado: 31/31 activos y
+28/28 abiertos visibles en los cuatro rangos.

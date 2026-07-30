@@ -31,7 +31,7 @@ import IntervencionSidePanel from "./IntervencionSidePanel";
 import NotificacionesPanel from "./NotificacionesPanel";
 import PagoCierreModal, { type PagoCierre } from "./PagoCierreModal";
 import MotivoPerdidaModal from "./MotivoPerdidaModal";
-import { RangoTemporal, RANGO_DEFAULT, type RangoKanban } from "../shared/RangoTemporal";
+import { RangoTemporal, RANGO_DEFAULT, NOTA_RANGO_SOLO_CERRADOS, type RangoKanban } from "../shared/RangoTemporal";
 import { SegmentedToggle } from "../shared/SegmentedToggle";
 import { Card } from "../ui/Card";
 import { Skeleton } from "../ui/Skeleton";
@@ -407,7 +407,7 @@ export default function PresupuestosShell({
               <div className="flex flex-col items-end">
                 <RangoTemporal value={rango} onChange={setRango} />
                 <p className="text-[10px] text-[var(--color-muted)] mt-1 text-right">
-                  Acota aceptados y perdidos. Lo abierto se ve siempre.
+                  {NOTA_RANGO_SOLO_CERRADOS}
                 </p>
               </div>
               <SegmentedToggle
