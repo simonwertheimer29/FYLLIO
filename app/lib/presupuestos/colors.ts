@@ -1,5 +1,6 @@
 // app/lib/presupuestos/colors.ts
-import type { PresupuestoEstado, EspecialidadDoctor, OrigenLead, UrgenciaIntervencion, EstadoVisual } from "./types";
+import type { PresupuestoEstado, EspecialidadDoctor, OrigenLead, EstadoVisual } from "./types";
+import type { StatePillVariant } from "../../components/ui/StatePill";
 
 export const ESTADO_CONFIG: Record<
   PresupuestoEstado,
@@ -12,6 +13,18 @@ export const ESTADO_CONFIG: Record<
   ACEPTADO:      { label: "Aceptado",       hex: "#22c55e", textColor: "#fff",    order: 4, accionable: false, hint: "Presupuesto aceptado" },
   PERDIDO:       { label: "Perdido",        hex: "#ef4444", textColor: "#fff",    order: 5, accionable: false, hint: "No procede" },
 } as const;
+
+// El contador de cada columna del tablero, con el mismo vocabulario de cinco
+// variantes. Aquí había amber/orange/emerald/rose escritos a mano en el propio
+// componente — y `orange` es un SEXTO color sin token en el sistema.
+export const ESTADO_VARIANTE: Record<PresupuestoEstado, StatePillVariant> = {
+  PRESENTADO: "neutral",     // recién presentado: aún no hay señal
+  INTERESADO: "info",
+  EN_DUDA: "warning",
+  EN_NEGOCIACION: "warning", // misma familia que "en duda": abierto y caliente
+  ACEPTADO: "success",
+  PERDIDO: "danger",
+};
 
 export const PIPELINE_ORDEN: PresupuestoEstado[] = [
   "PRESENTADO",
@@ -38,8 +51,6 @@ export const ESPECIALIDAD_COLOR: Record<EspecialidadDoctor, string> = {
   Ortodoncia:     "#D9B3E0",
 } as const;
 
-export const CHART_COLORS = PIPELINE_ORDEN.map((e) => ESTADO_CONFIG[e].hex);
-
 export const ORIGEN_LABEL: Record<OrigenLead, string> = {
   google_ads:         "Google Ads",
   seo_organico:       "Google orgánico",
@@ -51,28 +62,28 @@ export const ORIGEN_LABEL: Record<OrigenLead, string> = {
 
 // ─── Vista Máxima ────────────────────────────────────────────────────────────
 
-export const ESTADO_VISUAL_CONFIG: Record<
-  EstadoVisual,
-  { hex: string; badgeClass: string; bgClass: string }
-> = {
-  "Inicial":                  { hex: "#3b82f6", badgeClass: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-500/15 dark:text-blue-300 dark:border-blue-500/25",     bgClass: "bg-blue-50 dark:bg-blue-500/10" },
-  "Primer contacto":          { hex: "#eab308", badgeClass: "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-500/15 dark:text-yellow-300 dark:border-yellow-500/25", bgClass: "bg-yellow-50 dark:bg-yellow-500/10" },
-  "Segundo contacto":         { hex: "#f97316", badgeClass: "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/25", bgClass: "bg-orange-50 dark:bg-orange-500/10" },
-  "Necesita intervención":    { hex: "#ef4444", badgeClass: "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/25",       bgClass: "bg-red-50 dark:bg-red-500/10" },
-  "Acepta sin pagar":         { hex: "#8b5cf6", badgeClass: "bg-violet-100 text-violet-700 border-violet-200 dark:bg-violet-500/15 dark:text-violet-300 dark:border-violet-500/25", bgClass: "bg-violet-50 dark:bg-violet-500/10" },
-  "Con cita sin pagar":       { hex: "#6d28d9", badgeClass: "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-500/15 dark:text-purple-300 dark:border-purple-500/25", bgClass: "bg-purple-50 dark:bg-purple-500/10" },
-  "Tratamiento iniciado":     { hex: "#86efac", badgeClass: "bg-green-100 text-green-600 border-green-200 dark:bg-green-500/15 dark:text-green-300 dark:border-green-500/25",   bgClass: "bg-green-50 dark:bg-green-500/10" },
-  "Cerrado ganado":           { hex: "#22c55e", badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/25", bgClass: "bg-emerald-50 dark:bg-emerald-500/10" },
-  "Cerrado perdido":          { hex: "#94a3b8", badgeClass: "bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-500/15 dark:text-slate-300 dark:border-slate-500/25",   bgClass: "bg-slate-50 dark:bg-slate-500/10" },
+// Cada estado de seguimiento se pinta con una de las CINCO variantes
+// funcionales de StatePill, no con un color propio.
+//
+// Aquí vivían NUEVE colores escritos a mano en hex —incluidos `#8b5cf6` violeta
+// y `#6d28d9` púrpura— más su `badgeClass` y un `bgClass` que teñía la fila
+// entera. `StatePill` se creó justo para esto: su cabecera dice literalmente que
+// "reemplaza la dispersión morado/celeste/amarillo/rosa/naranja que había por
+// todo el producto", y este archivo era el último sitio donde sobrevivían los
+// cinco. El violeta, además, es color retirado del producto (estándar §1).
+//
+// El fondo por fila desaparece: nueve tintes de fila sobre una tabla de diez
+// columnas es ruido, y el estado ya se lee en su badge.
+export const ESTADO_VISUAL_VARIANTE: Record<EstadoVisual, StatePillVariant> = {
+  "Inicial":               "info",     // aún no se ha hecho nada: informativo
+  "Primer contacto":       "warning",  // en curso, esperando
+  "Segundo contacto":      "warning",
+  "Necesita intervención": "danger",   // lo que urge
+  "Acepta sin pagar":      "warning",  // dijo sí y falta el dinero
+  "Con cita sin pagar":    "warning",
+  "Tratamiento iniciado":  "success",
+  "Cerrado ganado":        "success",
+  "Cerrado perdido":       "neutral",  // cerrado y frío: no compite por atención
 };
 
-// ─── Cola de Intervención ─────────────────────────────────────────────────────
-
-export const URGENCIA_INTERVENCION_COLOR: Record<UrgenciaIntervencion, string> = {
-  "CRÍTICO": "bg-red-100 text-red-700 border-red-200 dark:bg-red-500/15 dark:text-red-300 dark:border-red-500/25",
-  "ALTO":    "bg-orange-100 text-orange-700 border-orange-200 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-500/25",
-  "MEDIO":   "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:border-amber-500/25",
-  "BAJO":    "bg-[var(--color-accent-soft)] text-[var(--color-accent)] border-[var(--color-border)]",
-  "NINGUNO": "bg-slate-100 text-slate-500 border-slate-200 dark:bg-slate-500/15 dark:text-slate-300 dark:border-slate-500/25",
-};
 

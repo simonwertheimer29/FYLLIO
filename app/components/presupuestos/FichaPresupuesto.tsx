@@ -21,6 +21,7 @@ import type {
 import { AccionPanel } from "../shared/AccionPanel";
 import { PanelAccionShell, PanelCabecera } from "../shared/panel-accion-ui";
 import { ErrorState } from "../ui/Feedback";
+import { eur } from "../shared/Cifra";
 
 export default function FichaPresupuesto({
   presupuesto,
@@ -67,8 +68,7 @@ export default function FichaPresupuesto({
     );
   }
 
-  const importe =
-    presupuesto.amount != null ? `${presupuesto.amount.toLocaleString("es-ES")}€` : "sin importe";
+  const importe = presupuesto.amount != null ? eur(presupuesto.amount) : "sin importe";
 
   return (
     <PanelAccionShell onClose={onClose}>

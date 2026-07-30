@@ -2,19 +2,20 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Download, Phone, MessageCircle, Search, ICON_STROKE } from "../icons";
+import { Download, Phone, MessageCircle, Search, ICON_STROKE } from "../icons";
 import { ErrorState, EmptyState } from "../ui/Feedback";
 import type {
-  UserSession,
   PresupuestoIntervencion,
-  PresupuestoMaxima,
   MaximaResponse,
   EstadoVisual,
 } from "../../lib/presupuestos/types";
-import { ESTADO_VISUAL_CONFIG } from "../../lib/presupuestos/colors";
+import { ESTADO_VISUAL_VARIANTE } from "../../lib/presupuestos/colors";
+import { StatePill } from "../ui/StatePill";
 import { useClinic } from "../../lib/context/ClinicContext";
-import { CardListSkeleton, KpiCardSkeleton } from "../ui/Skeleton";
+import { CardListSkeleton } from "../ui/Skeleton";
 import { hoyISO } from "../../lib/time";
+import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
+import { eur } from "../shared/Cifra";
 
 // ─── Filter pill categories ─────────────────────────────────────────────────
 
@@ -36,13 +37,18 @@ const PILL_DEFS: { id: PillCategory; label: string; estadosVisuales: EstadoVisua
 // ES el orden por días parados, así que no hace falta una cuarta columna.
 type SortField = "fecha" | "amount" | "nombre";
 
-function formatCurrency(n: number): string {
-  return n.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 0 }) + " €";
-}
+// El euro sale de `eur` (components/shared/Cifra), como en todo el producto.
+// Aquí vivía un `formatCurrency` propio: la séptima implementación, y convivía
+// con `€2.400` de la card del tablero y `2.400€` del panel — tres formatos
+// visibles en tres clics sobre el mismo importe.
 
 function formatDate(iso: string): string {
   if (!iso) return "—";
-  const date = new Date(iso);
+  // Ancla al mediodía: `new Date("2026-07-29")` es medianoche UTC y al pintarla
+  // en la zona del navegador se corre un día hacia atrás desde cualquier huso
+  // por detrás de UTC (la máquina de las demos va en UTC−4). Es la clase de bug
+  // que cerró MEJORAS 52, y esta es la única vista que se ORDENA por fecha.
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00` : iso);
   if (isNaN(date.getTime())) return "—";
   return date.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
 }
@@ -57,15 +63,21 @@ function formatDate(iso: string): string {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function MaximaView({
-  user,
   onOpenDrawer,
+  refreshKey = 0,
 }: {
-  user: UserSession;
   onOpenDrawer: (p: PresupuestoIntervencion) => void;
+  /** Sube cuando se actúa desde el panel. Antes el Shell pasaba
+   *  `onRefresh={() => {}}` con el comentario "la cola se recupera con su propio
+   *  polling interno" — y esta vista NO tiene polling: carga al montar y nada
+   *  más. Enviar un WhatsApp dejaba la fila diciendo la última acción de antes
+   *  hasta que alguien pulsara "Actualizar". */
+  refreshKey?: number;
 }) {
   const { selectedClinicaNombre, selectedClinicaId } = useClinic();
   const [data, setData] = useState<MaximaResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Filters — el filtro de clínica pasa a consumirse desde ClinicContext
   // (selectedClinicaNombre). Este Shell filtra por `p.clinica === nombre`.
@@ -85,16 +97,21 @@ export default function MaximaView({
 
   // ─── Fetch ──────────────────────────────────────────────────────────────────
 
+  // Antes: `fetch` a pelo, `if (res.ok)` sin else y `catch { /* silent */ }`. En
+  // el primer arranque acababa en ErrorState por casualidad (data seguía null),
+  // pero al pulsar "Actualizar" un fallo NO cambiaba nada: la tabla seguía
+  // enseñando datos viejos como si fuesen frescos, sin decir una palabra.
+  // Ahora `cargarJSON` (§10) y el fallo se dice conservando lo último bueno.
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/presupuestos/maxima");
-      if (res.ok) {
-        const json: MaximaResponse = await res.json();
-        setData(json);
-      }
-    } catch {
-      // silent
+      const json = await cargarJSON<MaximaResponse>("/api/presupuestos/maxima", {
+        validar: traeLista("presupuestos"),
+      });
+      setError(null);
+      setData(json);
+    } catch (e) {
+      setError(mensajeDeError(e));
     } finally {
       setLoading(false);
     }
@@ -102,7 +119,7 @@ export default function MaximaView({
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [fetchData, refreshKey]);
 
   // ─── Filtered + sorted list ─────────────────────────────────────────────────
 
@@ -196,24 +213,14 @@ export default function MaximaView({
 
   // ─── Loading state ──────────────────────────────────────────────────────────
 
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <KpiCardSkeleton />
-          <KpiCardSkeleton />
-          <KpiCardSkeleton />
-          <KpiCardSkeleton />
-        </div>
-        <CardListSkeleton rows={5} />
-      </div>
-    );
+  if (loading && !data) {
+    return <CardListSkeleton rows={6} />;
   }
 
   if (!data) {
     return (
       <ErrorState
-        detail="No se pudieron cargar los presupuestos."
+        detail={error ?? "No se pudieron cargar los presupuestos."}
         onRetry={fetchData}
       />
     );
@@ -223,50 +230,53 @@ export default function MaximaView({
 
   return (
     <div className="space-y-4">
-      {/* Header */}
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-5">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">Vista máxima</h2>
-            <p className="text-xs text-[var(--color-muted)] mt-0.5">Presupuestos centralizados</p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">
-              {data.totales.total} presupuestos &middot;{" "}
-              {formatCurrency(data.totales.importeTotal)} pipeline
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <ExportCsvButton
-              clinicaId={selectedClinicaId}
-              estado={pillActiva === "todos" ? null : null /* pillActiva no mapea 1:1 a Estado; lo cubre el server */}
-            />
-            <button
-              onClick={fetchData}
-              className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] transition-colors"
-            >
-              Actualizar
-            </button>
-          </div>
+      {/* La cabecera propia se retiró: el título de la pantalla y sus cifras
+          viven en el Shell, una sola vez para las dos vistas. Aquí decía "Vista
+          máxima · Presupuestos centralizados" —el nombre que se retiró el
+          2026-07-29 y una frase que no dice nada— y repetía un total que ya
+          estaba arriba. Queda solo lo que es de ESTA vista: exportar y refrescar.
+
+          El banner rojo "N casos requieren intervención" también sale: hacía
+          exactamente lo mismo que el pill "Intervención · N" de dos líneas más
+          abajo (setPillActiva("intervencion")), así que era el mismo botón dos
+          veces, uno de ellos a pantalla completa. */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-[var(--color-muted)] tabular-nums">
+          {data.totales.total} presupuesto{data.totales.total === 1 ? "" : "s"} en total
+          {intervencionCount > 0 && (
+            <>
+              {" · "}
+              <button
+                type="button"
+                onClick={() => setPillActiva("intervencion")}
+                className="font-semibold text-[var(--color-danger)] hover:underline"
+              >
+                {intervencionCount} necesita{intervencionCount === 1 ? "" : "n"} intervención
+              </button>
+            </>
+          )}
+        </p>
+        <div className="flex gap-2">
+          <ExportCsvButton clinicaId={selectedClinicaId} />
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-medium text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] transition-colors disabled:opacity-50"
+          >
+            {loading ? "Actualizando…" : "Actualizar"}
+          </button>
         </div>
       </div>
 
-      {/* Priority block — Sprint 15 Bloque 8: estilo banner alerta
-          coherente con el resto del sistema (rose-50 + border-left
-          rose-700 + AlertTriangle Lucide). */}
-      {intervencionCount > 0 && (
-        <button
-          onClick={() => setPillActiva("intervencion")}
-          className="w-full rounded-xl bg-rose-50 dark:bg-rose-500/10 px-5 py-3 text-left transition-colors hover:bg-rose-100 dark:hover:bg-rose-500/20 border-l-4 border-rose-700 dark:border-rose-400 flex items-center gap-3"
-        >
-          <AlertTriangle
-            size={20}
-            strokeWidth={ICON_STROKE}
-            className="text-rose-700 dark:text-rose-300 shrink-0"
-            aria-hidden="true"
-          />
-          <p className="text-sm font-semibold text-rose-900 dark:text-rose-200">
-            {intervencionCount} {intervencionCount === 1 ? "caso requiere" : "casos requieren"} intervención hoy
-          </p>
-        </button>
+      {/* Un refresco fallido se DICE conservando la tabla, en vez de dejarla
+          enseñando datos de hace un rato con cara de recién cargados. */}
+      {error && (
+        <p className="text-xs text-[var(--color-danger)]">
+          No se pudo actualizar la tabla (se muestra lo último que sí cargó).{" "}
+          <button type="button" onClick={fetchData} className="font-semibold underline">
+            Reintentar
+          </button>
+        </p>
       )}
 
       {/* Filters row — el selector de clínica vive en el GlobalHeader
@@ -377,27 +387,23 @@ export default function MaximaView({
               </tr>
             )}
             {filtered.map((p) => {
-              const cfg = ESTADO_VISUAL_CONFIG[p.estadoVisual];
               const isIntervencion = p.estadoVisual === "Necesita intervención";
               return (
                 <tr
                   key={p.id}
                   onClick={() => onOpenDrawer(p)}
-                  className={`cursor-pointer border-b border-[var(--color-border)] transition-colors hover:bg-[var(--color-surface-muted)] ${cfg.bgClass}`}
+                  className="cursor-pointer border-b border-[var(--color-border)] transition-colors hover:bg-[var(--color-surface-muted)]"
                 >
-                  {/* Urgency bar */}
+                  {/* Marca de urgencia: una línea fija en el borde, sin latido.
+                      Era `animate-pulse` — decoración que se mueve en una tabla
+                      que se lee de arriba abajo. Y el resto de estados pintaban
+                      su propio hex al 50%: nueve colores de barra para nueve
+                      colores de badge, la misma información dos veces. */}
                   <td className="px-0">
                     <div
                       className={`h-full w-[3px] ${
-                        isIntervencion
-                          ? "bg-rose-500 animate-pulse"
-                          : ""
+                        isIntervencion ? "bg-[var(--color-danger)]" : ""
                       }`}
-                      style={
-                        isIntervencion
-                          ? { animationDuration: "3s" }
-                          : { backgroundColor: cfg.hex, opacity: 0.5 }
-                      }
                     />
                   </td>
                   {/* Fecha */}
@@ -426,15 +432,14 @@ export default function MaximaView({
                   </td>
                   {/* Importe */}
                   <td className="px-3 py-2.5 text-right font-medium text-[var(--color-foreground)] tabular-nums">
-                    {p.amount != null ? formatCurrency(p.amount) : "—"}
+                    {p.amount != null ? eur(p.amount) : "—"}
                   </td>
-                  {/* Estado visual badge */}
+                  {/* Estado de seguimiento — primitivo compartido, cinco
+                      variantes funcionales, no un color por estado. */}
                   <td className="px-3 py-2.5">
-                    <span
-                      className={`inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold leading-tight ${cfg.badgeClass}`}
-                    >
+                    <StatePill variant={ESTADO_VISUAL_VARIANTE[p.estadoVisual]}>
                       {p.estadoVisual}
-                    </span>
+                    </StatePill>
                   </td>
                   {/* Última acción */}
                   <td className="truncate px-3 py-2.5 text-[var(--color-muted)]">
@@ -494,20 +499,18 @@ export default function MaximaView({
 // no llega; cuando llega el body, lo convierte en blob y dispara
 // download con el filename del header Content-Disposition.
 
-function ExportCsvButton({
-  clinicaId,
-  estado,
-}: {
-  clinicaId: string | null;
-  estado: string | null;
-}) {
+// OJO (a MEJORAS): esto exporta con el filtro de CLÍNICA, no con el filtro que
+// la coordinadora tiene puesto en la tabla. Antes recibía un `estado` que era
+// `pillActiva === "todos" ? null : null` —un ternario con la misma rama dos
+// veces— así que el parámetro no existía de verdad; se retira en vez de fingir
+// que se manda algo.
+function ExportCsvButton({ clinicaId }: { clinicaId: string | null }) {
   const [busy, setBusy] = useState(false);
   async function handleClick() {
     setBusy(true);
     try {
       const params = new URLSearchParams();
       if (clinicaId) params.set("clinicaId", clinicaId);
-      if (estado) params.set("estado", estado);
       const url = `/api/export/presupuestos.csv${params.toString() ? `?${params.toString()}` : ""}`;
       const res = await fetch(url);
       if (!res.ok) {

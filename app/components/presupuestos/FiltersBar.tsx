@@ -14,6 +14,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { Doctor, UserSession } from "../../lib/presupuestos/types";
 import { Euro, ICON_STROKE } from "../icons";
+import { cargarJSON, traeLista } from "../../lib/fetch-json";
+import { eur } from "../shared/Cifra";
 
 export type Filters = {
   doctor: string;
@@ -49,16 +51,23 @@ export default function FiltersBar({
 
   // Doctores: para coordinadora, los de su clínica; para admin, todos (la
   // clínica vive en el ClinicContext del GlobalHeader).
-  useEffect(() => {
+  //
+  // Este `?? []` con catch mudo era una de las SIETE deudas que el guardián no
+  // veía (solo reconocía `const d = await res.json()`, no `.then((d) => …)`).
+  // Si la petición falla, el filtro se queda con "Todos los doctores" y punto:
+  // la coordinadora concluye que la clínica no tiene doctores.
+  const [errorDoctores, setErrorDoctores] = useState(false);
+  const cargarDoctores = useCallback(() => {
     const url = new URL("/api/presupuestos/doctores", location.href);
     if (user.rol === "encargada_ventas" && user.clinica) {
       url.searchParams.set("clinica", user.clinica);
     }
-    fetch(url.toString())
-      .then((r) => r.json())
-      .then((d) => setDoctores(d.doctores ?? []))
-      .catch(() => {});
+    setErrorDoctores(false);
+    cargarJSON<{ doctores: Doctor[] }>(url.toString(), { validar: traeLista("doctores") })
+      .then((d) => setDoctores(d.doctores))
+      .catch(() => setErrorDoctores(true));
   }, [user.rol, user.clinica]);
+  useEffect(cargarDoctores, [cargarDoctores]);
 
   const updateImmediate = useCallback(
     (key: keyof Filters, value: string) => {
@@ -113,10 +122,19 @@ export default function FiltersBar({
         ))}
       </select>
 
+      {errorDoctores && (
+        <span className="text-[11px] text-[var(--color-danger)]">
+          No se pudo cargar la lista de doctores.{" "}
+          <button type="button" onClick={cargarDoctores} className="font-semibold underline">
+            Reintentar
+          </button>
+        </span>
+      )}
+
       {importe != null && (
         <span className="inline-flex items-center gap-1 text-[11px] px-2 py-1 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)] font-medium">
           <Euro size={12} strokeWidth={ICON_STROKE} aria-hidden />
-          Buscando por importe ≈ {importe.toLocaleString("es-ES")} €
+          Buscando por importe ≈ {eur(importe)}
         </span>
       )}
     </div>

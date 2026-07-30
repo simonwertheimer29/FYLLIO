@@ -40,6 +40,7 @@ import {
 import { Check, MessageCircle, Phone, XCircle, ICON_STROKE } from "../icons";
 import TimelineAcciones from "./TimelineAcciones";
 import { Pause } from "lucide-react";
+import { eur } from "../shared/Cifra";
 
 type PlantillaMensaje = { id: string; nombre: string; contenido: string };
 
@@ -69,7 +70,7 @@ function prioridadDe(item: PresupuestoIntervencion, dias: number): PrioridadPane
 
 function situacionPresupuesto(item: PresupuestoIntervencion): SituacionPresupuesto {
   const dias = item.diasDesdeUltimoContacto ?? item.daysSince;
-  const importe = item.amount != null ? `${item.amount.toLocaleString("es-ES")}€` : "";
+  const importe = item.amount != null ? eur(item.amount) : "";
   const estadoLabel = ESTADO_CONFIG[item.estado]?.label ?? item.estado;
 
   if (item.estado === "PERDIDO") {
@@ -234,7 +235,7 @@ export default function IntervencionSidePanel({
     if (prev && prev.id === item.id && prev.estado !== "ACEPTADO" && item.estado === "ACEPTADO") {
       const nombre = item.patientName.split(" ")[0];
       const trat = (item.treatments ?? [])[0] ?? "tu tratamiento";
-      const importe = item.amount != null ? `${item.amount.toLocaleString("es-ES")}€` : "";
+      const importe = item.amount != null ? eur(item.amount) : "";
       const tpl = plantillas.find((p) => p.nombre === "Confirmación de aceptación");
       setComposerTexto(
         tpl
@@ -409,7 +410,7 @@ export default function IntervencionSidePanel({
     if (!tpl) return;
     const nombre = item.patientName.split(" ")[0];
     const tratamiento = (item.treatments ?? [])[0] ?? "tu tratamiento";
-    const importe = item.amount != null ? `${item.amount.toLocaleString("es-ES")}€` : "";
+    const importe = item.amount != null ? eur(item.amount) : "";
     setComposerTexto(
       tpl.contenido
         .replace(/\{nombre\}/g, nombre)
@@ -439,7 +440,7 @@ export default function IntervencionSidePanel({
       .catch(() => toast.error("No se pudo pausar el seguimiento"));
   }
 
-  const importeStr = item.amount != null ? `${item.amount.toLocaleString("es-ES")}€` : "Sin importe";
+  const importeStr = item.amount != null ? eur(item.amount) : "Sin importe";
   const etiqueta =
     item.intencionDetectada && item.intencionDetectada !== "Sin clasificar"
       ? item.intencionDetectada

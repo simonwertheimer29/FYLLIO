@@ -25,6 +25,7 @@ import type {
   Doctor, Presupuesto, PresupuestoEstado, UserSession,
 } from "../../lib/presupuestos/types";
 import { hoyISO } from "../../lib/time";
+import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
 
 const ESTADOS_INICIALES: { value: PresupuestoEstado; label: string }[] = [
   { value: "PRESENTADO", label: "Presentado" },
@@ -103,7 +104,12 @@ export default function NewPresupuestoModal({
   const [leads, setLeads] = useState<LeadCitadoEncontrado[]>([]);
   const [buscando, setBuscando] = useState(false);
   const [buscado, setBuscado] = useState(false);
+  // Un fallo de la búsqueda NO puede leerse como "esta persona no existe": es la
+  // forma más caras del §10, porque no vacía una lista, DICTA una acción
+  // equivocada ("entra por Leads" sobre un paciente que sí está).
+  const [errorBusqueda, setErrorBusqueda] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [errorDoctores, setErrorDoctores] = useState(false);
 
   // ── Presupuesto ──────────────────────────────────────────────────────
   const [tratamientos, setTratamientos] = useState<string[]>(presupuesto?.treatments ?? []);
@@ -115,20 +121,25 @@ export default function NewPresupuestoModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  const cargarDoctores = useCallback(() => {
     const url = new URL("/api/presupuestos/doctores", location.href);
     if (user.rol === "encargada_ventas" && user.clinica) url.searchParams.set("clinica", user.clinica);
-    fetch(url.toString())
-      .then((r) => r.json())
-      .then((d) => setDoctores(d.doctores ?? []))
-      .catch(() => {});
-  }, [user]);
+    setErrorDoctores(false);
+    // Antes: `.then((d) => setDoctores(d.doctores ?? [])).catch(() => {})`. Un
+    // fallo dejaba el desplegable con solo "Sin asignar", indistinguible de una
+    // clínica sin doctores dados de alta.
+    cargarJSON<{ doctores: Doctor[] }>(url.toString(), { validar: traeLista("doctores") })
+      .then((d) => setDoctores(d.doctores))
+      .catch(() => setErrorDoctores(true));
+  }, [user.rol, user.clinica]);
+  useEffect(cargarDoctores, [cargarDoctores]);
 
   const cargarCatalogo = useCallback(() => {
     setErrorCatalogo(false);
-    fetch("/api/presupuestos/tratamientos")
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error("catalogo"))))
-      .then((d) => setCatalogo(d.tratamientos ?? []))
+    cargarJSON<{ tratamientos: Tratamiento[] }>("/api/presupuestos/tratamientos", {
+      validar: traeLista("tratamientos"),
+    })
+      .then((d) => setCatalogo(d.tratamientos))
       .catch(() => setErrorCatalogo(true));
   }, []);
   useEffect(cargarCatalogo, [cargarCatalogo]);
@@ -137,6 +148,7 @@ export default function NewPresupuestoModal({
   function alBuscar(valor: string) {
     setBusqueda(valor);
     setBuscado(false);
+    setErrorBusqueda(null);
     if (timerRef.current) clearTimeout(timerRef.current);
     if (valor.trim().length < 2) {
       setResultados([]);
@@ -146,16 +158,24 @@ export default function NewPresupuestoModal({
     setBuscando(true);
     timerRef.current = setTimeout(async () => {
       try {
-        const r = await fetch(`/api/pacientes/buscar?q=${encodeURIComponent(valor.trim())}`);
-        const d = await r.json();
-        setResultados(d.pacientes ?? []);
-        setLeads(d.leads ?? []);
-      } catch {
+        const d = await cargarJSON<{
+          pacientes: PacienteEncontrado[];
+          leads: LeadCitadoEncontrado[];
+        }>(`/api/pacientes/buscar?q=${encodeURIComponent(valor.trim())}`, {
+          validar: traeLista("pacientes"),
+        });
+        setResultados(d.pacientes);
+        setLeads(d.leads);  // la ruta manda siempre el array (vacío si hay pacientes)
+        setBuscado(true);
+      } catch (e) {
+        // Cero resultados + error: la pantalla NO puede decir "no está ni como
+        // paciente ni como lead". No sabemos si está.
         setResultados([]);
         setLeads([]);
+        setBuscado(false);
+        setErrorBusqueda(mensajeDeError(e));
       } finally {
         setBuscando(false);
-        setBuscado(true);
       }
     }, 350);
   }
@@ -266,6 +286,22 @@ export default function NewPresupuestoModal({
 
                   {buscando && (
                     <p className="mt-1.5 text-[11px] text-[var(--color-muted)] px-1">Buscando…</p>
+                  )}
+
+                  {errorBusqueda && !buscando && (
+                    <div className="mt-1.5 rounded-xl border border-[var(--color-danger)]/25 bg-[var(--color-danger-soft)] px-3 py-2">
+                      <p className="text-[11px] text-[var(--color-danger)]">
+                        No se pudo buscar. No sabemos si esta persona está o no —
+                        no la des de alta por Leads sin comprobarlo.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => alBuscar(busqueda)}
+                        className="text-[11px] font-semibold text-[var(--color-accent)] hover:underline mt-0.5"
+                      >
+                        Reintentar
+                      </button>
+                    </div>
                   )}
 
                   {!buscando && resultados.length > 0 && (
@@ -385,6 +421,14 @@ export default function NewPresupuestoModal({
                   <option key={d.id} value={d.nombre}>{d.nombre}</option>
                 ))}
               </select>
+              {errorDoctores && (
+                <p className="mt-1 text-[11px] text-[var(--color-danger)]">
+                  No se pudo cargar la lista de doctores.{" "}
+                  <button type="button" onClick={cargarDoctores} className="font-semibold underline">
+                    Reintentar
+                  </button>
+                </p>
+              )}
             </div>
             <div>
               <label className={LABEL}>Importe (€)</label>

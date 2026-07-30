@@ -12,6 +12,7 @@
 import { useState } from "react";
 import { METODOS_PAGO, type MetodoPago } from "../../lib/pagos-format";
 import { Check, ICON_STROKE } from "../icons";
+import { eur } from "../shared/Cifra";
 
 export type PagoCierre = { importe: number; metodo?: string };
 
@@ -34,7 +35,7 @@ export default function PagoCierreModal({
 
   const importe = Number(importeStr.replace(",", "."));
   const importeValido = Number.isFinite(importe) && importe > 0;
-  const totalStr = amount != null ? `${amount.toLocaleString("es-ES")} €` : null;
+  const totalStr = amount != null ? eur(amount) : null;
   const superaTotal = importeValido && amount != null && importe > amount;
 
   function confirmar(pago: PagoCierre | null) {
@@ -121,7 +122,7 @@ export default function PagoCierreModal({
         >
           <Check size={14} strokeWidth={ICON_STROKE} aria-hidden />
           {importeValido
-            ? `Registrar pago de ${importe.toLocaleString("es-ES")} €`
+            ? `Registrar pago de ${eur(importe)}`
             : "Registrar pago"}
         </button>
         <div className="flex gap-2">

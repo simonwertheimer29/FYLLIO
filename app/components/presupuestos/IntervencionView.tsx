@@ -164,7 +164,7 @@ function PresupuestoAccionRow({
       titleRight={
         item.amount != null ? (
           <span className="font-display text-sm font-bold text-[var(--color-foreground)] tabular-nums">
-            &euro;{item.amount.toLocaleString("es-ES")}
+            {eur(item.amount)}
           </span>
         ) : undefined
       }
@@ -268,7 +268,7 @@ function BulkSendModal({
                   <div key={item.id} className="flex items-center gap-2 text-xs">
                     <span className="font-semibold text-[var(--color-foreground)]">{item.patientName}</span>
                     {item.amount != null && (
-                      <span className="text-[var(--color-muted)] tabular-nums">&euro;{item.amount.toLocaleString("es-ES")}</span>
+                      <span className="text-[var(--color-muted)] tabular-nums">{eur(item.amount)}</span>
                     )}
                   </div>
                 ))}
@@ -341,7 +341,7 @@ function optionLabel(p: PresupuestoIntervencion): string {
     (p.amount != null ? eur(p.amount) : "Sin detalle");
   const importe =
     p.treatments[0] && p.amount != null
-      ? ` · €${p.amount.toLocaleString("es-ES")}`
+      ? ` · ${eur(p.amount)}`
       : "";
   return `${p.patientName} — ${detalle}${importe}`;
 }

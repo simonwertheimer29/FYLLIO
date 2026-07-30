@@ -60,6 +60,12 @@ export const PATCH = withPresupuestosAuth(
     const fields: Record<string, unknown> = {};
     // Only write to fields that exist in the base Airtable schema
     if (body.estado !== undefined) fields["Estado"] = body.estado;
+    // `doctor` NO estaba aquí: el modal de "Editar presupuesto" lo manda desde
+    // siempre (NewPresupuestoModal), la ruta lo tiraba en silencio, y el modal
+    // cerraba con "Guardar cambios" hecho. Cambiar el doctor de un presupuesto
+    // era un no-op con cara de éxito (§1). El repo sí sabía escribirlo — la
+    // columna está en el mapa de escribibles de presupuestos/pg.
+    if (body.doctor !== undefined) fields["Doctor"] = body.doctor || null;
     if (body.faseSeguimiento !== undefined) fields["Fase_seguimiento"] = body.faseSeguimiento;
     if (body.fechaPresupuesto !== undefined) fields["Fecha"] = body.fechaPresupuesto;
     if (body.amount !== undefined) fields["Importe"] = Number(body.amount);

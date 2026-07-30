@@ -14,27 +14,23 @@ import {
 } from "@dnd-kit/core";
 import { useDraggable } from "@dnd-kit/core";
 import type { Presupuesto, PresupuestoEstado, MotivoPerdida } from "../../lib/presupuestos/types";
-import { Check, Copy, ICON_STROKE } from "../icons";
+import { Check, Copy, Phone, MessageCircle, Pencil, ICON_STROKE } from "../icons";
 import { dentroDeRango, type RangoKanban } from "../shared/RangoTemporal";
 // El rango temporal (2026-07-26) sustituye el corte fijo de 14 días de las
 // columnas cerradas y aplica a TODAS. `fechaDeRango` vive en lib/pipeline
 // para que la cabecera cuente exactamente lo mismo que pinta el tablero.
 import { fechaDeRango } from "../../lib/presupuestos/pipeline";
-import { ESTADO_CONFIG, PIPELINE_ORDEN, ORIGEN_LABEL } from "../../lib/presupuestos/colors";
+import { ESTADO_CONFIG, ESTADO_VARIANTE, PIPELINE_ORDEN, ORIGEN_LABEL } from "../../lib/presupuestos/colors";
+import { StatePill } from "../ui/StatePill";
 import MotivoPerdidaModal from "./MotivoPerdidaModal";
 import { eur } from "../shared/Cifra";
 
 // Coherencia de kanban (2026-07-27): la columna se identifica por el color de
 // su contador, exactamente como en Leads (que es el canon). Antes era una barra
 // superior de 5px sobre un marco gris — otro lenguaje visual para lo mismo.
-const COLUMN_PILL: Record<PresupuestoEstado, string> = {
-  PRESENTADO: "bg-[var(--color-surface-muted)] text-[var(--color-foreground)]",
-  INTERESADO: "bg-[var(--color-accent-soft)] text-[var(--color-accent)]",
-  EN_DUDA: "bg-amber-100 text-amber-800 dark:bg-amber-500/10 dark:text-amber-300",
-  EN_NEGOCIACION: "bg-orange-100 text-orange-800 dark:bg-orange-500/10 dark:text-orange-300",
-  ACEPTADO: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300",
-  PERDIDO: "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300",
-};
+//
+// El color sale de `ESTADO_VARIANTE` + StatePill (2026-07-29): aquí vivían
+// amber/orange/emerald/rose a mano, con `orange` como sexto color sin token.
 
 // ------------------------------------------------------------------
 // Sprint 13 Bloque 4 — CompactCard al estilo Leads
@@ -92,7 +88,11 @@ function CompactCardBody({
       await navigator.clipboard.writeText(p.patientPhone);
       setCopied(true);
       setTimeout(() => setCopied(false), 1200);
-    } catch {}
+    } catch (e) {
+      // El check no aparece y nadie decía por qué. Sigue siendo accesorio, pero
+      // el fallo se ve (§9): el portapapeles falla sin permiso o sin HTTPS.
+      console.error("[kanban] no se pudo copiar el teléfono:", e);
+    }
   }
 
   return (
@@ -151,23 +151,32 @@ function CompactCardBody({
       <div className="flex items-center gap-2 mt-2 text-[10px] text-[var(--color-muted)]">
         {p.amount != null && (
           <span className="font-display text-sm font-semibold text-[var(--color-foreground)] tabular-nums">
-            €{p.amount.toLocaleString("es-ES")}
+            {eur(p.amount)}
           </span>
         )}
         <span className="ml-auto tabular-nums">hace {p.daysSince}d</span>
       </div>
 
-      {/* Acciones: Llamar + WhatsApp (a la ficha) + Editar. Fuera
-          "Historial" (abría un modal roto). */}
-      <div className="flex gap-1 mt-2.5" onPointerDown={(e) => e.stopPropagation()}>
+      {/* Acciones: mismo tratamiento que la card de Leads (el canon) —
+          neutro de bajo contraste con icono lucide, no un bloque verde.
+          El verde de WhatsApp se repetía una vez por card: en una columna de 25
+          era el color dominante de la pantalla y arrastraba el ojo a la acción
+          menos importante. El acento se reserva para lo que decide algo.
+
+          Y el botón se llama "Escribir", no "WhatsApp": NO envía nada, abre la
+          ficha con el hilo y el mensaje precargado. Prometer un envío en la
+          etiqueta y entregar un panel es la misma clase de mentira pequeña que
+          un "hecho" sin guardar. */}
+      <div className="flex gap-1.5 mt-2.5" onPointerDown={(e) => e.stopPropagation()}>
         {p.patientPhone && (
           <>
             <a
               href={`tel:${p.patientPhone}`}
               onClick={(e) => e.stopPropagation()}
               draggable={false}
-              className="flex-1 text-center rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-[10px] font-medium py-1.5 hover:bg-[var(--color-border)] transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-medium py-1.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
             >
+              <Phone size={12} strokeWidth={ICON_STROKE} aria-hidden />
               Llamar
             </a>
             <button
@@ -176,9 +185,10 @@ function CompactCardBody({
                 e.stopPropagation();
                 onOpenFicha(p);
               }}
-              className="flex-1 text-center rounded-md bg-[var(--fyllio-wa-green)] text-white text-[10px] font-medium py-1.5 hover:bg-[var(--fyllio-wa-green-hover)] transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-medium py-1.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
             >
-              WhatsApp
+              <MessageCircle size={12} strokeWidth={ICON_STROKE} aria-hidden />
+              Escribir
             </button>
           </>
         )}
@@ -188,9 +198,10 @@ function CompactCardBody({
             e.stopPropagation();
             onEdit(p);
           }}
-          className="rounded-md bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-[10px] font-medium px-2.5 py-1.5 hover:bg-[var(--color-border)] transition-colors"
+          className="inline-flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-medium px-2.5 py-1.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
+          aria-label={`Editar presupuesto de ${p.patientName}`}
         >
-          Editar
+          <Pencil size={12} strokeWidth={ICON_STROKE} aria-hidden />
         </button>
       </div>
     </article>
@@ -253,11 +264,13 @@ function DroppableColumn({
           <span className="font-display text-[13px] font-medium text-[var(--color-foreground)] tracking-tight truncate">
             {cfg.label}
           </span>
-          <span
-            className={`text-[10px] font-semibold tabular-nums px-2 py-0.5 rounded-full shrink-0 ${COLUMN_PILL[estado]}`}
+          <StatePill
+            variant={ESTADO_VARIANTE[estado]}
+            borderless
+            className="rounded-full font-semibold tabular-nums px-2 shrink-0"
           >
             {presupuestos.length}
-          </span>
+          </StatePill>
         </div>
         {subInfo && (
           <p className="text-[11px] text-[var(--color-muted)] mt-0.5 truncate" title={subInfo}>
@@ -345,7 +358,9 @@ function ConfirmMoveModal({
         <p className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">Confirmar cambio de estado</p>
         <p className="text-xs text-[var(--color-muted)] mb-4">
           Mover <span className="font-semibold">{patientName}</span> a{" "}
-          <span className="font-bold" style={{ color: cfg.hex }}>{cfg.label}</span>
+          {/* El nombre del estado iba pintado con `cfg.hex` — un hex a mano que
+              en modo oscuro quedaba ilegible sobre la superficie del modal. */}
+          <span className="font-semibold text-[var(--color-foreground)]">{cfg.label}</span>
         </p>
 
         <label className="flex items-center gap-2 text-xs text-[var(--color-muted)] mb-5 cursor-pointer select-none">
@@ -367,8 +382,7 @@ function ConfirmMoveModal({
           </button>
           <button
             onClick={() => onConfirm(skipFuture)}
-            className="flex-1 rounded-xl text-white text-sm font-semibold py-2"
-            style={{ background: cfg.hex }}
+            className="flex-1 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:bg-[var(--color-accent-hover)]"
           >
             Confirmar
           </button>

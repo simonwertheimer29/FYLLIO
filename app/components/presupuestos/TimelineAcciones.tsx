@@ -34,6 +34,7 @@ import {
   ICON_STROKE,
 } from "../icons";
 import { Link as LinkIcon } from "lucide-react";
+import { cargarJSON, traeLista } from "../../lib/fetch-json";
 
 type IconType = React.ComponentType<{
   size?: number;
@@ -120,15 +121,19 @@ export default function TimelineAcciones({ presupuestoId }: { presupuestoId: str
     setCargando(true);
     setError(false);
     try {
-      const [rc, rh] = await Promise.all([
-        fetch(`/api/presupuestos/contactos?presupuestoId=${presupuestoId}`),
-        fetch(`/api/presupuestos/historial?presupuestoId=${presupuestoId}`),
-      ]);
       // Un fallo de carga se ve como fallo, nunca como "sin acciones aún".
-      if (!rc.ok || !rh.ok) throw new Error(`HTTP ${rc.status}/${rh.status}`);
-      const dc = await rc.json();
-      const dh = await rh.json();
-      setContactos(dc.contactos ?? []);
+      // `cargarJSON` comprueba además el campo `error` que varias rutas mandan
+      // con 200 — el `?? []` de aquí lo habría convertido en "sin contactos".
+      const [dc, dh] = await Promise.all([
+        cargarJSON<{ contactos: Contacto[] }>(
+          `/api/presupuestos/contactos?presupuestoId=${presupuestoId}`,
+          { validar: traeLista("contactos") },
+        ),
+        cargarJSON<HistorialAccion[]>(
+          `/api/presupuestos/historial?presupuestoId=${presupuestoId}`,
+        ),
+      ]);
+      setContactos(dc.contactos);
       setHistorial(Array.isArray(dh) ? dh : []);
     } catch {
       setContactos([]);

@@ -33,9 +33,14 @@ import PagoCierreModal, { type PagoCierre } from "./PagoCierreModal";
 import MotivoPerdidaModal from "./MotivoPerdidaModal";
 import { RangoTemporal, RANGO_DEFAULT, dentroDeRango, type RangoKanban } from "../shared/RangoTemporal";
 import { SegmentedToggle } from "../shared/SegmentedToggle";
+import { Card } from "../ui/Card";
+import { Skeleton } from "../ui/Skeleton";
+import { Cifra, Comparativa, eur } from "../shared/Cifra";
+import { mesISO } from "../../lib/time";
+import { cargarJSON, traeLista } from "../../lib/fetch-json";
 import {
   contarPipelinePresupuestos,
-  textoPipelinePresupuestos,
+  cifrasNegocioPresupuestos,
   fechaDeRango,
 } from "../../lib/presupuestos/pipeline";
 
@@ -43,17 +48,30 @@ type Tab = "kanban" | "maxima";
 
 // ─── Mini hook para cargar presupuestos ──────────────────────────────────────
 
+/** URL de la cola del tablero — una sola definición para la carga y el sondeo,
+ *  que antes pedían cosas distintas (el sondeo se olvidaba de la clínica). */
+function urlKanban(filters: Filters, clinica: string | null): string {
+  const url = new URL("/api/presupuestos/kanban", location.href);
+  if (clinica) url.searchParams.set("clinica", clinica);
+  if (filters.doctor) url.searchParams.set("doctor", filters.doctor);
+  if (filters.q) url.searchParams.set("q", filters.q);
+  return url.toString();
+}
+
 function usePresupuestos() {
   const [presupuestos, setPresupuestos] = useState<Presupuesto[]>([]);
   const [loading, setLoading] = useState(false);
-  const [isDemo, setIsDemo] = useState(false);
-  const [demoReason, setDemoReason] = useState<string | undefined>();
-  const [missingVars, setMissingVars] = useState<string[]>([]);
   // Un fallo de carga NO puede pintarse como "0 presupuestos abiertos · 0 €"
   // (§4). Pasaba: tanto un 500 como un error de red dejaban la lista vacía y la
   // cabecera cantaba ceros con toda tranquilidad — indistinguible de una clínica
   // que de verdad no tiene nada. Cazado el 2026-07-29 cuando Simon vio ceros con
   // 123 presupuestos en la base.
+  //
+  // `isDemo`/`demoReason`/`missingVars` se retiraron: la ruta devuelve
+  // `isDemo: false` en sus DOS salidas desde que se eliminaron los datos demo
+  // (MEJORAS 59), así que el banner ámbar "Datos de demostración" no podía
+  // aparecer nunca — y uno de los `?? []` de la deuda estaba sobre un campo que
+  // el servidor ya no manda.
   const [error, setError] = useState<string | null>(null);
 
   // Sprint 13.1 Bloque 2 — la clinica viene SIEMPRE del ClinicContext
@@ -62,20 +80,14 @@ function usePresupuestos() {
     async (filters: Filters, clinicaFromContext: string | null) => {
       setLoading(true);
       try {
-        const url = new URL("/api/presupuestos/kanban", location.href);
-        if (clinicaFromContext) url.searchParams.set("clinica", clinicaFromContext);
-        if (filters.doctor) url.searchParams.set("doctor", filters.doctor);
-        if (filters.q) url.searchParams.set("q", filters.q);
-
-        const res = await fetch(url.toString());
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const d = await res.json();
-        if (!Array.isArray(d.presupuestos)) throw new Error("respuesta sin presupuestos");
+        // cargarJSON en vez de fetch a pelo: comprueba status, cuerpo y el campo
+        // `error` que varias rutas mandan con 200, y LANZA (§10).
+        const d = await cargarJSON<{ presupuestos: Presupuesto[] }>(
+          urlKanban(filters, clinicaFromContext),
+          { validar: traeLista("presupuestos") },
+        );
         setError(null);
         setPresupuestos(d.presupuestos);
-        setIsDemo(d.isDemo ?? false);
-        setDemoReason(d.demoReason);
-        setMissingVars(d.missingVars ?? []);
       } catch (e) {
         // Se conserva lo último que sí cargó y se DICE que no se pudo
         // actualizar: mejor un dato de hace un minuto, señalado, que un cero
@@ -88,7 +100,7 @@ function usePresupuestos() {
     [],
   );
 
-  return { presupuestos, setPresupuestos, loading, isDemo, demoReason, missingVars, error, load };
+  return { presupuestos, setPresupuestos, loading, error, load };
 }
 
 // ─── Main Shell ──────────────────────────────────────────────────────────────
@@ -110,9 +122,9 @@ export default function PresupuestosShell({
   // El campo Filters.clinica se mantiene por backwards-compat pero no se
   // usa para filtrar (siempre vacío).
   const { selectedClinicaNombre } = useClinic();
-  const { presupuestos, setPresupuestos, loading, isDemo, error, load } = usePresupuestos();
+  const { presupuestos, setPresupuestos, loading, error, load } = usePresupuestos();
 
-  // El conteo de la cabecera se calcula sobre lo que el tablero PINTA (mismo
+  // El conteo del tablero se calcula sobre lo que el tablero PINTA (mismo
   // rango, mismas funciones puras): un número que no cuadra con las tarjetas
   // visibles es un número que nadie se cree.
   const pipeline = useMemo(
@@ -121,6 +133,14 @@ export default function PresupuestosShell({
         presupuestos.filter((p) => dentroDeRango(fechaDeRango(p), rango)),
       ),
     [presupuestos, rango],
+  );
+
+  // Las cifras de negocio: "en juego" sigue al tablero; las dos del mes se
+  // calculan sobre TODO lo cargado y declaran su ventana en su etiqueta. El mes
+  // sale de la zona de la clínica, nunca del reloj del proceso (§fechas).
+  const cifras = useMemo(
+    () => cifrasNegocioPresupuestos(presupuestos, pipeline, mesISO()),
+    [presupuestos, pipeline],
   );
 
   const clinicasDisponibles = useMemo(() => {
@@ -150,6 +170,9 @@ export default function PresupuestosShell({
     id: string;
     patientName?: string;
   } | null>(null);
+  // Cada acción del panel sube esto: es cómo se enteran las dos vistas de que
+  // algo cambió (el tablero recarga con `load`, la Tabla con su refreshKey).
+  const [refrescoTabla, setRefrescoTabla] = useState(0);
   const [notifCount, setNotifCount] = useState(0);
   const [showNotifPanel, setShowNotifPanel] = useState(false);
 
@@ -198,11 +221,12 @@ export default function PresupuestosShell({
   useEffect(() => {
     async function pollNotifs() {
       try {
-        const res = await fetch("/api/notificaciones");
-        const d = await res.json();
+        const d = await cargarJSON<{ noLeidas?: number }>("/api/notificaciones");
         setNotifCount(d.noLeidas ?? 0);
-      } catch {
-        /* silent */
+      } catch (e) {
+        // El contador de la campana es accesorio, pero el fallo se VE (§9): un
+        // catch literalmente vacío es cómo se pierde un endpoint roto meses.
+        console.error("[presupuestos] no se pudo leer el contador de avisos:", e);
       }
     }
     pollNotifs();
@@ -210,22 +234,33 @@ export default function PresupuestosShell({
     return () => clearInterval(n);
   }, []);
 
+  // Sondeo de "hay presupuestos nuevos". Dos bugs que tenía:
+  //   · pedía la cola SIN el filtro de clínica, así que contaba la red entera
+  //     mientras el tablero mostraba una clínica: el banner anunciaba nuevos que
+  //     no eran de aquí (y no anunciaba los que sí).
+  //   · `(d.presupuestos ?? []).length` con catch mudo: un 200 con `{error}` o un
+  //     fallo dejaba el contador en 0 y en la vuelta siguiente el banner decía
+  //     "123 presupuestos nuevos desde tu última carga".
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
-        const res = await fetch("/api/presupuestos/kanban");
-        const d = await res.json();
-        const count: number = (d.presupuestos ?? []).length;
+        const d = await cargarJSON<{ presupuestos: Presupuesto[] }>(
+          urlKanban(currentFiltersRef.current, selectedClinicaNombre),
+          { validar: traeLista("presupuestos") },
+        );
+        const count = d.presupuestos.length;
         if (lastCountRef.current !== null && count > lastCountRef.current) {
           setNewPresupuestosCount(count - lastCountRef.current);
         }
         lastCountRef.current = count;
-      } catch {
-        /* silent */
+      } catch (e) {
+        // Un fallo NO mueve el contador: dejar `lastCountRef` como estaba evita
+        // el falso "123 nuevos" de la siguiente vuelta.
+        console.error("[presupuestos] sondeo de nuevos falló:", e);
       }
     }, 60_000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedClinicaNombre]);
 
   function handleBannerRefresh() {
     setNewPresupuestosCount(0);
@@ -322,7 +357,7 @@ export default function PresupuestosShell({
           "El presupuesto quedó aceptado, pero el pago no se pudo registrar. Regístralo desde la ficha del paciente.",
         );
       } else if (pago) {
-        toast.success(`Pago de ${pago.importe.toLocaleString("es-ES")} € registrado`);
+        toast.success(`Pago de ${eur(pago.importe)} registrado`);
       }
     } catch {
       if (prevEstado !== undefined) {
@@ -340,106 +375,163 @@ export default function PresupuestosShell({
 
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-background)] overflow-hidden">
-      {/* Cabecera — misma anatomía que Leads (coherencia 2026-07-27): título
-          con el conteo que cuadra con las tarjetas visibles, y el toggle de
-          vistas en el patrón único del producto (SegmentedToggle, el de
-          Seguimiento y Cobros) en vez de un tercer estilo de pill local. */}
-      <div className="bg-[var(--color-surface)] border-b border-[var(--color-border)] px-4 py-2 flex items-center gap-3 shrink-0">
-        <div className="min-w-0">
-          <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">
-            Presupuestos
-          </h1>
-          {error ? (
-            <p className="text-xs text-[var(--color-danger)] mt-0.5 truncate">
-              No se pudieron cargar los presupuestos.{" "}
-              <button
-                type="button"
-                onClick={() => void load(currentFiltersRef.current, selectedClinicaNombre)}
-                className="font-semibold underline"
-              >
-                Reintentar
-              </button>
-            </p>
-          ) : (
-            <p className="text-xs text-[var(--color-muted)] mt-0.5 tabular-nums truncate">
-              {textoPipelinePresupuestos(pipeline)}
-            </p>
-          )}
-        </div>
-
-        <SegmentedToggle
-          options={[
-            { id: "kanban", label: "Tablero" },
-            { id: "maxima", label: "Tabla" },
-          ]}
-          active={tab}
-          onChange={(id) => setTab(id)}
-        />
-
-        <div className="ml-auto flex items-center gap-2">
-          <button
-            onClick={() => setShowImportCSV(true)}
-            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
-            title="Importar CSV"
-          >
-            <Upload size={14} strokeWidth={ICON_STROKE} aria-hidden />
-            <span className="hidden sm:inline">Importar CSV</span>
-          </button>
-          <button
-            onClick={() => setShowNew(true)}
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)]"
-            title="Nuevo presupuesto (N)"
-          >
-            <Plus size={14} strokeWidth={ICON_STROKE} aria-hidden />
-            <span className="hidden sm:inline">Nuevo</span>
-          </button>
-          <button
-            onClick={() => setShowNotifPanel(true)}
-            className="relative px-1.5 py-1 rounded-lg text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] transition-colors"
-            title="Notificaciones"
-          >
-            <Bell size={16} strokeWidth={ICON_STROKE} aria-hidden />
-            {notifCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center text-[9px] font-bold bg-[var(--color-danger)] text-[var(--color-on-accent)] rounded-full px-1">
-                {notifCount > 9 ? "9+" : notifCount}
-              </span>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {newPresupuestosCount > 0 && (
-        <div className="shrink-0 bg-[var(--color-accent)] text-[var(--color-on-accent)] px-4 py-2 flex items-center justify-between gap-4">
-          <span className="text-xs font-semibold">
-            {newPresupuestosCount} presupuesto
-            {newPresupuestosCount !== 1 ? "s" : ""} nuevo
-            {newPresupuestosCount !== 1 ? "s" : ""} desde tu última carga
-          </span>
-          <button
-            onClick={handleBannerRefresh}
-            className="text-xs font-bold underline hover:no-underline"
-          >
-            Actualizar
-          </button>
-        </div>
-      )}
-
-      <main className="flex-1 min-h-0 overflow-auto flex flex-col p-4 gap-4 w-full">
-        {tab === "kanban" && (
-          <div className="flex flex-col flex-1 min-h-0 gap-3">
-            {/* Una sola fila de filtros, como en Leads: rango + buscador. */}
-            <div className="shrink-0 flex flex-wrap items-center gap-2">
-              <RangoTemporal value={rango} onChange={setRango} />
-              <FiltersBar user={user} onFiltersChange={handleFiltersChange} />
+      <main className="flex-1 min-h-0 overflow-auto flex flex-col w-full max-w-[1400px] mx-auto px-3 sm:px-6 py-6 gap-4">
+        {/* Cabecera con la ANATOMÍA del resto del producto (Cobros, Pacientes):
+            título y subtítulo dentro del cuerpo y el conmutador al extremo
+            derecho, alineado con el título. Antes esto era una barra propia
+            pegada al borde superior — el único módulo con una, y un tercer
+            patrón de cabecera. */}
+        <header className="shrink-0 space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="min-w-0">
+              <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">
+                Presupuestos
+              </h1>
+              <p className="text-[13px] text-[var(--color-muted)] mt-0.5">
+                Del presupuesto presentado al tratamiento aceptado.
+              </p>
             </div>
 
-            {isDemo && (
-              <div className="shrink-0 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">
-                <span className="font-semibold">Datos de demostración.</span>{" "}
-                Esta clínica aún no tiene datos conectados. Contacta con Fyllio para activarlos.
+            <SegmentedToggle
+              options={[
+                { id: "kanban", label: "Tablero" },
+                { id: "maxima", label: "Tabla" },
+              ]}
+              active={tab}
+              onChange={(id) => setTab(id)}
+            />
+          </div>
+
+          {/* Cifras de NEGOCIO, no el recuento de lo que ya se ve. Cada una
+              declara su ventana: "en juego" es el tablero visible; las otras dos
+              son el mes de la clínica. Un fallo de carga se dice aquí y se
+              conserva lo último bueno — nunca tres ceros con cara de reales. */}
+          <Card padding="none" className="px-5 py-3.5">
+            {error ? (
+              <div className="flex items-center gap-2 text-xs">
+                <span className="text-[var(--color-danger)]">
+                  No se pudieron actualizar los presupuestos
+                  {presupuestos.length > 0 ? " (se muestra lo último que sí cargó)" : ""}.
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void load(currentFiltersRef.current, selectedClinicaNombre)}
+                  className="font-semibold text-[var(--color-accent)] hover:underline"
+                >
+                  Reintentar
+                </button>
+              </div>
+            ) : loading && presupuestos.length === 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {[0, 1, 2].map((i) => (
+                  <div key={i} className="space-y-1.5">
+                    <Skeleton width={110} height={10} />
+                    <Skeleton width={90} height={20} />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                <Cifra
+                  label="En juego ahora"
+                  valor={eur(cifras.enJuego)}
+                  detalle={`${cifras.abiertos} presupuesto${cifras.abiertos === 1 ? "" : "s"} abierto${
+                    cifras.abiertos === 1 ? "" : "s"
+                  } en el periodo`}
+                />
+                <Cifra
+                  label="Firmado este mes"
+                  valor={eur(cifras.firmadoMes)}
+                  comparacion={
+                    <Comparativa
+                      valor={cifras.firmadoMes}
+                      previo={cifras.firmadoMesPrevio}
+                      tipo="dinero"
+                    />
+                  }
+                />
+                <Cifra
+                  label="Se cierran"
+                  valor={cifras.tasa != null ? `${cifras.tasa}%` : "—"}
+                  detalle={
+                    cifras.tasa != null
+                      ? `de ${cifras.decididos} decidido${cifras.decididos === 1 ? "" : "s"} este mes · ${cifras.sinDecidir} sin decidir`
+                      : `ninguno decidido este mes · ${cifras.sinDecidir} sin decidir`
+                  }
+                  comparacion={
+                    cifras.tasa != null && cifras.tasaPrevia != null ? (
+                      <Comparativa
+                        valor={cifras.tasa}
+                        previo={cifras.tasaPrevia}
+                        tipo="porcentaje"
+                      />
+                    ) : undefined
+                  }
+                />
               </div>
             )}
+          </Card>
+        </header>
 
+        {/* Fila de acciones: los filtros de la vista a la izquierda y las tres
+            acciones a la derecha, a esta altura y no en la cabecera. */}
+        <div className="shrink-0 flex flex-wrap items-center gap-2">
+          {tab === "kanban" && (
+            <>
+              <RangoTemporal value={rango} onChange={setRango} />
+              <FiltersBar user={user} onFiltersChange={handleFiltersChange} />
+            </>
+          )}
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={() => setShowImportCSV(true)}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
+              title="Importar CSV"
+            >
+              <Upload size={14} strokeWidth={ICON_STROKE} aria-hidden />
+              <span className="hidden sm:inline">Importar CSV</span>
+            </button>
+            <button
+              onClick={() => setShowNew(true)}
+              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)]"
+              title="Nuevo presupuesto (N)"
+            >
+              <Plus size={14} strokeWidth={ICON_STROKE} aria-hidden />
+              <span className="hidden sm:inline">Nuevo</span>
+            </button>
+            <button
+              onClick={() => setShowNotifPanel(true)}
+              className="relative px-1.5 py-1 rounded-lg text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] transition-colors"
+              title="Notificaciones"
+            >
+              <Bell size={16} strokeWidth={ICON_STROKE} aria-hidden />
+              {notifCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 flex items-center justify-center text-[9px] font-bold bg-[var(--color-danger)] text-[var(--color-on-accent)] rounded-full px-1">
+                  {notifCount > 9 ? "9+" : notifCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {newPresupuestosCount > 0 && (
+          <div className="shrink-0 rounded-xl bg-[var(--color-accent-soft)] text-[var(--color-accent)] px-4 py-2 flex items-center justify-between gap-4">
+            <span className="text-xs font-semibold">
+              {newPresupuestosCount} presupuesto
+              {newPresupuestosCount !== 1 ? "s" : ""} nuevo
+              {newPresupuestosCount !== 1 ? "s" : ""} desde tu última carga
+            </span>
+            <button
+              onClick={handleBannerRefresh}
+              className="text-xs font-bold underline hover:no-underline"
+            >
+              Actualizar
+            </button>
+          </div>
+        )}
+
+        {tab === "kanban" && (
+          <div className="flex flex-col flex-1 min-h-0 gap-3">
             {loading ? (
               <div className="flex-1 min-h-0 grid grid-cols-3 lg:grid-cols-6 gap-3 animate-pulse content-start">
                 {Array.from({ length: 6 }).map((_, i) => (
@@ -499,7 +591,7 @@ export default function PresupuestosShell({
         )}
 
         {tab === "maxima" && (
-          <MaximaView user={user} onOpenDrawer={(p) => setIntervencionItem(p)} />
+          <MaximaView onOpenDrawer={(p) => setIntervencionItem(p)} refreshKey={refrescoTabla} />
         )}
       </main>
 
@@ -579,9 +671,9 @@ export default function PresupuestosShell({
               setIntervencionItem(null);
             }
           }}
-          // Enviar/llamar ya no cierran el panel; la cola se recupera con su
-          // propio polling interno.
-          onRefresh={() => {}}
+          // Enviar/llamar no cierran el panel, pero la Tabla que está detrás sí
+          // tiene que enterarse: es la que enseña "Última acción".
+          onRefresh={() => setRefrescoTabla((n) => n + 1)}
         />
       )}
       {showImportCSV && (

@@ -5,6 +5,7 @@
 import { registrarAccion } from "../historial/registrar";
 import { construirMapaAnonimizacion, anonimizarTexto, desanonimizarTexto } from "../anonimizacion";
 import { DateTime } from "luxon";
+import { eur } from "../dinero";
 import type {
   ClasificacionIA,
   IntencionDetectada,
@@ -90,7 +91,7 @@ export async function clasificarRespuesta(args: {
     [
       `Paciente: ${firstName}`,
       `Tratamiento: ${args.treatments.join(", ")}`,
-      `Importe: ${args.amount != null ? "€" + args.amount.toLocaleString("es-ES") : "no especificado"}`,
+      `Importe: ${args.amount != null ? eur(args.amount) : "no especificado"}`,
       `Estado actual: ${args.estado}`,
       args.clinica ? `Clínica: ${args.clinica}` : null,
       ``,
@@ -239,7 +240,7 @@ export async function generarMensajeSugerido(args: {
     [
       `Genera un mensaje de WhatsApp para retomar contacto con ${firstName}.`,
       `Tratamiento: ${args.treatments.join(", ")}`,
-      `Importe: ${args.amount != null ? "€" + args.amount.toLocaleString("es-ES") : "no especificado"}`,
+      `Importe: ${args.amount != null ? eur(args.amount) : "no especificado"}`,
       args.intencion ? `Intención detectada: ${args.intencion}` : null,
       args.clinica ? `Clínica: ${args.clinica}` : null,
       `Escribe 2-3 frases, tono cálido y profesional, sin emojis. Solo español.`,

@@ -111,22 +111,26 @@ function computeUltimaAccionTexto(p: {
 // Texto descriptivo de próxima acción sugerida
 // -------------------------------------------------------------------
 
+// La columna se llama "Próxima acción", así que cada valor tiene que ser una
+// ACCIÓN que la coordinadora pueda ejecutar. Antes había etiquetas de estado
+// disfrazadas de acción — "Intervención urgente" no dice qué hacer, y
+// "Segundo seguimiento" / "Verificar evolución" son nombres de fase, no verbos.
 function computeProximaAccionTexto(estadoVisual: EstadoVisual): string | undefined {
   switch (estadoVisual) {
     case "Inicial":
       return "Enviar primer mensaje";
     case "Primer contacto":
-      return "Segundo seguimiento";
+      return "Escribir de nuevo";
     case "Segundo contacto":
-      return "Llamar para seguimiento";
+      return "Llamar";
     case "Necesita intervención":
-      return "Intervención urgente";
+      return "Llamar hoy";
     case "Acepta sin pagar":
-      return "Gestionar pago";
+      return "Cobrar la señal";
     case "Con cita sin pagar":
-      return "Confirmar pago pre-cita";
+      return "Cobrar antes de la cita";
     case "Tratamiento iniciado":
-      return "Verificar evolución";
+      return "Preguntar cómo va";
     case "Cerrado ganado":
     case "Cerrado perdido":
       return undefined;

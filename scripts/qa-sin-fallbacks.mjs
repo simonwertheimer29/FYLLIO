@@ -49,6 +49,11 @@ function archivos(dir, ext = [".ts", ".tsx"]) {
 // caro y arriesgado; hacerlo de paso no cuesta nada. Los peligrosos (los que
 // no comprobaban el status) ya están corregidos; estos van detrás de un
 // `res.ok` y hoy no mienten.
+// AMPLIACIÓN (2026-07-29): la heurística solo reconocía `const d = await
+// res.json()`. La forma `.then((d) => setX(d.cosas ?? []))` no la veía, así que
+// había SIETE deudas fuera del recuento — el trinquete apretaba 15 y la deuda
+// real era 22. Un guardián que no ve una de las dos sintaxis del mismo bug no
+// mide la deuda, la subestima. Las siete entran abajo declaradas.
 const DEUDA = new Set([
   "app/(authed)/ajustes/clinica-equipo/ClinicaEquipoView.tsx: `d.clinicas ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
   "app/(authed)/ajustes/clinica-equipo/ClinicaEquipoView.tsx: `d.usuarios ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
@@ -59,14 +64,22 @@ const DEUDA = new Set([
   "app/(authed)/pacientes/PacientesView.tsx: `d.presupuestos ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
   "app/(authed)/pacientes/PacientesView.tsx: `d.presupuestos ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
   "app/components/presupuestos/ConfigAutomatizaciones.tsx: `data.plantillas ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/components/presupuestos/NewPresupuestoModal.tsx: `d.doctores ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/components/presupuestos/NewPresupuestoModal.tsx: `d.tratamientos ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/components/presupuestos/NewPresupuestoModal.tsx: `d.pacientes ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/components/presupuestos/NewPresupuestoModal.tsx: `d.leads ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
   "app/components/presupuestos/Paciente360View.tsx: `d.presupuestos ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
   "app/components/presupuestos/Paciente360View.tsx: `d.historial ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/components/presupuestos/PresupuestosShell.tsx: `d.missingVars ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/components/presupuestos/PresupuestosShell.tsx: `d.presupuestos ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
+  // Las siete que la heurística vieja no veía (forma `.then((d) => …)`).
+  "app/(authed)/automatizaciones/MotorReglasView.tsx: `r.reglas ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
+  "app/(authed)/llamadas/LlamadasView.tsx: `r.llamadas ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
+  "app/components/pacientes/Paciente360View.tsx: `j.mensajes ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
+  "app/components/presupuestos/ConfigAutomatizaciones.tsx: `d.clinicas ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
+  "app/components/presupuestos/InformesView.tsx: `d.presupuestos ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
+  "app/components/presupuestos/InformesView.tsx: `d.informes ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
+  // OperationsPanel NO tiene consumidor (igual que NoShowRiskPanel, MEJORAS 60):
+  // código muerto que además llama a rutas del prototipo retirado. Se declara
+  // aquí para no bloquear el build por deuda de un archivo que hay que BORRAR,
+  // no migrar — la decisión de retirarlo va con la nº 60.
+  "app/components/actions/OperationsPanel.tsx: `txJson.patients ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
+  "app/components/actions/OperationsPanel.tsx: `fbJson.negativeAlerts ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
+  "app/components/actions/OperationsPanel.tsx: `qJson.quotes ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
 ]);
 
 const fallos = [];
@@ -110,11 +123,23 @@ for (const f of archivos("app")) {
 // ── 3 · ningún `?? []` sobre una respuesta de fetch ────────────────────
 for (const f of archivos("app")) {
   const s = sinComentarios(readFileSync(join(RAIZ, f), "utf8"));
-  if (!/res\.json\(\)|r\.json\(\)|\.then\(\(r\) => r\.json\(\)\)/.test(s)) continue;
+  if (!/\.json\(\)/.test(s)) continue;
   for (const m of s.matchAll(/(\w+)\.(\w+)\s*\?\?\s*\[\]/g)) {
-    // Heurística: `d.cosas ?? []` donde `d` salió de un json de respuesta.
     const v = m[1];
-    if (new RegExp(`(const|let)\\s+${v}\\s*=\\s*await\\s+\\w+\\.json\\(\\)`).test(s)) {
+    // Las DOS sintaxis del mismo bug. La segunda faltaba y se llevaba siete
+    // casos por delante:
+    //   a) `const d = await res.json()` … `d.cosas ?? []`
+    //   b) `.then((d) => setX(d.cosas ?? []))`  ← invisible hasta 2026-07-29
+    const desAwait = new RegExp(`(const|let)\\s+${v}\\s*=\\s*await\\s+\\w+\\.json\\(\\)`).test(s);
+    const desThen = new RegExp(`\\.then\\(\\(?\\s*${v}\\s*\\)?\\s*=>`).test(s);
+    // El cuerpo de una PETICIÓN que entra no es la respuesta de un fetch: ahí
+    // `?? []` es un default legítimo ("no me mandaron registros"), no un fallo
+    // de carga disfrazado de vacío. `const body = await req.json()` matchea
+    // igual que `res.json()`, así que se excluye explícitamente.
+    const esCuerpoDePeticion = new RegExp(
+      `(const|let)\\s+${v}\\s*=\\s*await\\s+(req|request)\\.json\\(\\)`,
+    ).test(s);
+    if ((desAwait || desThen) && !esCuerpoDePeticion) {
       const aviso = `${f}: \`${m[0]}\` sobre una respuesta de fetch — usa cargarJSON (§10)`;
       if (!DEUDA.has(aviso)) fallos.push(aviso);
     }
