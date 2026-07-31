@@ -32,7 +32,7 @@ Principio derivado, ya en DECISIONES: no hay dos tipos de paciente. Hay paciente
 
 ### El mercado español es de captación, no de cartera
 
-Más de 9.000 clínicas solo en Madrid. Mayoría privadas y medianas (2-4 sillones), redes privadas tipo RB, y multinacionales o aseguradoras jugando en otro terreno. Con esa densidad se compite en precio, calidad de atención, rapidez y experiencia, y **la vía es captar**, no sostener una agenda cerrada. Mantener pacientes fieles es más difícil que en mercados más conservadores donde manda la recomendación y la confianza del círculo cercano.
+Mercado de altísima densidad — miles de clínicas solo en Madrid, mayoría privadas y medianas (2-4 sillones), redes privadas tipo RB, y multinacionales o aseguradoras jugando en otro terreno. *(Orden de magnitud, no dato: la cifra con fuente citable está pendiente y es la primera de las preguntas sin destinatario del §5.)* Con esa densidad se compite en precio, calidad de atención, rapidez y experiencia, y **la vía es captar**, no sostener una agenda cerrada. Mantener pacientes fieles es más difícil que en mercados más conservadores donde manda la recomendación y la confianza del círculo cercano.
 
 Fyllio está orientado a la clínica privada española tipo RB. Que RB sea una red no cambia el encaje: **funciona igual para una sola clínica del mismo estilo**.
 
@@ -149,6 +149,7 @@ Deducciones nuestras a partir de la evidencia. No son hechos: son lecturas que p
 
 ### Sin destinatario aún
 
+- Conseguir la cifra real de clínicas dentales en Madrid y en España, **con fuente citable** (INE, Consejo General de Dentistas, colegios profesionales). *(Hace falta para el pitch, y hoy el fundamento del §1 va con un orden de magnitud sin fuente.)*
 - ¿El comprador de una clínica de 2-3 sillones tiene el mismo dolor que una red de 10? ¿Paga lo mismo?
 - ¿Cuál es el precio de referencia de los softwares de pago único con los que competimos y qué incluyen?
 
