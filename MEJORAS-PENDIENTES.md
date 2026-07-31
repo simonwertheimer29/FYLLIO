@@ -1507,4 +1507,20 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   agosto — dos días.
 - **Esfuerzo:** ~5 líneas (separar `enTramo` de la serie) + volver a poner verde
   el QA de paridad.
-- **Fecha:** 2026-08-01 · 🔵 **esperando OK de Simon**
+- **Fecha:** 2026-08-01 · 🟢 **CERRADA el mismo día**, con prioridad por la reunión.
+  `enTramo` deja de ser la única ventana: los contadores la RECIBEN
+  (`creados`/`presentados`/`aceptados`/`cobradoEn`), y la serie usa `enSerie` —
+  mes cerrado entero, mes en curso hasta hoy, que es lo que su propio trazo
+  punteado ya declara.
+  **Y apareció el error ESPEJO al arreglarlo:** `cobradoEn` usaba el mes ENTERO
+  para el delta mes-contra-mes, así que hoy /red diría «−28.261 € vs mes pasado»
+  y /cobros «+0 €» por la MISMA cifra — con un comentario en `/api/cobros`
+  afirmando desde el 2026-07-27 que lo hacía "igual que el dashboard de Red",
+  que llevaba cinco días siendo falso. Las dos direcciones del mismo fallo, en
+  la misma función.
+  **QA:** `qa-dashboard-red` en VERDE, con sección nueva que simula el reloj los
+  días **1, 2 y 15** y exige que los meses cerrados den lo mismo en los tres,
+  más el contraste medido de que la fórmula vieja daba 0 €. De paso, su SQL de
+  "mes previo" pasa al mismo tramo: comparaba contra el mes entero y le estaba
+  dando por bueno al dashboard justo el error que la decisión del 27/7 mató.
+  Regla destilada en el skill de lecciones (§16).

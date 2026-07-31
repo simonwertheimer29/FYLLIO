@@ -26,6 +26,7 @@ Claude for Chrome, sección por sección). Detalle en [`DECISIONES.md`](DECISION
 | El dinero de `/red` cambiaba entre dos F5 | ✅ el umbral de reactivación pasa de ventana rodante a **días de calendario de la clínica** |
 | "Una tarjeta que desaparece" en `/red` | ✅ no era una avería: el filtro de clínica persiste y retira "Tus clínicas". Ahora se **declara en pantalla** |
 | El seed escribía valores fuera del union | ✅ invariante D en `demo:reset` — la que evita la cuarta vez |
+| La gráfica de 6 meses de `/red`, plana el día 1 | ✅ [MEJORAS 88](MEJORAS-PENDIENTES.md) — pre-existente, cazado al cambiar de mes con la reunión a dos días |
 
 **Sigue abierta la pasada visual pantalla por pantalla.** Método: diagnóstico primero, reportar,
 esperar aprobación, después ejecutar.
@@ -51,16 +52,6 @@ Quedan del plan de la sesión:
 
 Aparte y ya aprobada, en su propia tanda: **`/informes` como pantalla propia**
 ([MEJORAS 81](MEJORAS-PENDIENTES.md)).
-
----
-
-## 🔴 Antes de la reunión
-
-**[MEJORAS 88](MEJORAS-PENDIENTES.md) — la gráfica de 6 meses de `/red` está plana el día 1 de cada
-mes.** La serie histórica se recorta al día de hoy (`enTramo`), así que solo es correcta a final de
-mes; hoy, 1 de agosto, marca cero en cinco de los seis meses. Es **pre-existente** (verificado con
-los cambios del día guardados) y `/red` es el acto I del guion, que no se recorta nunca. ~5 líneas.
-**Esperando OK.**
 
 ---
 
@@ -127,8 +118,7 @@ importe en el mismo WhatsApp, que es dato de salud del art. 9.
 | Fronteras de error | **15** (13 secciones + grupo + global) |
 | Aviso de filtro de clínica | en las **8** pantallas que siguen al selector |
 | Deuda de `?? []` | **16**, y el trinquete solo deja bajar (`npm run qa:sin-fallbacks`) |
-| QA verde | `qa:fechas` **52/52** en 4 husos · `qa:cohortes` · `qa:estado-conversacion` · `qa:sin-fallbacks` · `demo:reset` con 4 invariantes |
-| QA en ROJO | `qa-dashboard-red` — 6 fallos, todos de [MEJORAS 88](MEJORAS-PENDIENTES.md). Pre-existente |
+| QA verde | `qa:fechas` **52/52** en 4 husos · `qa:cohortes` · `qa:estado-conversacion` · `qa:sin-fallbacks` · **`qa-dashboard-red`** (paridad + días 1/2/15) · `demo:reset` con 4 invariantes |
 | QA de /kpis | 18/18 (`npm run qa:kpis`, necesita el server en :3100) |
-| MEJORAS | 88 entradas · **65 abiertas** 🔵 · 29 hechas 🟢 · 19 cerradas ✅ · 4 descartadas ⚪ |
+| MEJORAS | 88 entradas · **64 abiertas** 🔵 · 30 hechas 🟢 · 19 cerradas ✅ · 4 descartadas ⚪ |
 | Sin verificar en producción | Ver Bloqueado. Lo de hoy sí se verificó en navegador real contra el build de producción |

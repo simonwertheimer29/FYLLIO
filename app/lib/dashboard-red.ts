@@ -421,35 +421,57 @@ export async function calcularDashboardRed(opts: {
   );
 
   // ── Sección 2 · el negocio ───────────────────────────────────────────
-  const enMes = (iso: string | null | undefined, mes: string) => !!iso && mesDeIso(iso) === mes;
+  /** "¿esta fecha entra en este mes?" — la pregunta cambia según PARA QUÉ se
+   *  cuenta, así que los contadores la reciben en vez de darla por supuesta. */
+  type Ventana = (iso: string | null | undefined, mes: string) => boolean;
+  const enMes: Ventana = (iso, mes) => !!iso && mesDeIso(iso) === mes;
 
   // Mismo TRAMO del mes: días 1..hoy en ambos meses. Sin esto, un mes a medias
   // se compara contra uno entero y el día 3 todo cae un 90%. Se aplica a lo
   // RETROSPECTIVO (altas, aceptaciones, pérdidas, pagos); NO a la fecha de cita,
   // que es prospectiva — capar el futuro borraría citas ya agendadas del mes.
   const diaHoy = Number(hoyISO(ahora).slice(8, 10));
-  const enTramo = (iso: string | null | undefined, mes: string) => {
+  const enTramo: Ventana = (iso, mes) => {
     if (!enMes(iso, mes)) return false;
     const dia = Number(iso!.slice(8, 10));
     return !Number.isFinite(dia) || dia === 0 ? true : dia <= diaHoy;
   };
 
+  // Y para la SERIE HISTÓRICA, otra ventana (MEJORAS 88, 2026-08-01).
+  //
+  // `enTramo` compara TRAMOS; no construye series. Se escribió para que "este
+  // mes" no se comparase contra un mes entero (el día 3, todo caía un 90%), y
+  // se reutilizó tal cual en la gráfica de 6 meses — donde significa otra cosa:
+  // recortar TODOS los meses cerrados al día de hoy. Efecto medido el 1 de
+  // agosto: marzo·abril·mayo·julio a 0 € y junio a 4.800 €, con 31.584 · 15.786
+  // · 44.062 · 37.881 € reales en la base. La gráfica solo era correcta a final
+  // de mes, y contradecía su propia decisión de diseño (2026-07-27: el mes en
+  // curso se pinta punteado EN VEZ de excluirlo, "para ver la tendencia sin que
+  // un mes a medias parezca una caída" — si los cerrados también se recortan,
+  // no hay tendencia que ver).
+  //
+  // Un mes CERRADO se cuenta entero; el mes EN CURSO, hasta hoy — que es
+  // exactamente lo que su trazo punteado ya le está diciendo al usuario.
+  const enSerie: Ventana = (iso, mes) =>
+    mes === mesActual ? enTramo(iso, mes) : enMes(iso, mes);
+
   // Leads
-  const creados = (mes: string) => leads.filter((l) => enTramo(l.createdAt, mes));
+  const creados = (mes: string, dentro: Ventana = enTramo) =>
+    leads.filter((l) => dentro(l.createdAt, mes));
   const nuevosAct = creados(mesActual);
   const nuevosPrev = creados(mesPrevio);
   const citadosEnMes = (mes: string) => leads.filter((l) => enMes(l.fechaCita, mes)).length;
 
   // Presupuestos
-  const presentados = (mes: string) =>
-    presusScope.filter((r) => enTramo(String((r.fields as any)["FechaAlta"] ?? "") || null, mes));
+  const presentados = (mes: string, dentro: Ventana = enTramo) =>
+    presusScope.filter((r) => dentro(String((r.fields as any)["FechaAlta"] ?? "") || null, mes));
   /** Aceptados POR FECHA DE ACEPTACIÓN — "cuánto se firmó este mes". No sirve
    *  como numerador de la conversión: son otra cohorte (ver conversionDe). */
-  const aceptados = (mes: string) =>
+  const aceptados = (mes: string, dentro: Ventana = enTramo) =>
     presusScope.filter(
       (r) =>
         String((r.fields as any)["Estado"] ?? "") === "ACEPTADO" &&
-        enTramo(String((r.fields as any)["Fecha_Aceptado"] ?? "") || null, mes),
+        dentro(String((r.fields as any)["Fecha_Aceptado"] ?? "") || null, mes),
     );
   const importeDe = (rs: ReadonlyArray<{ fields: Record<string, unknown> }>) =>
     rs.reduce((s, r) => s + (Number((r.fields as any)["Importe"] ?? 0) || 0), 0);
@@ -529,8 +551,16 @@ export async function calcularDashboardRed(opts: {
   const conversionLeads = conversionDe(ratioLeads(nuevosAct), ratioLeads(nuevosPrev));
 
   // Cobros
-  const cobradoEn = (mes: string) =>
-    pagosScope.filter((p) => enMes(p.fechaPago, mes)).reduce((s, p) => s + p.importe, 0);
+  //
+  // La ventana también se recibe (MEJORAS 88, segunda mitad). Esta era la única
+  // de las cinco métricas que comparaba el mes en curso contra el mes anterior
+  // ENTERO, y el comentario de `/api/cobros` afirmaba desde el 2026-07-27 que lo
+  // hacía "igual que el dashboard de Red" — pero /red nunca lo hizo para cobros.
+  // Medido hoy, 1 de agosto: /red diría «−28.261 € vs mes pasado» y /cobros
+  // «+0 €», por la misma cifra. Es la trampa exacta que aquella decisión vino a
+  // matar, viva en el sitio que se daba por bueno.
+  const cobradoEn = (mes: string, dentro: Ventana = enTramo) =>
+    pagosScope.filter((p) => dentro(p.fechaPago, mes)).reduce((s, p) => s + p.importe, 0);
 
   // ── "Qué está funcionando" — agregados con umbral de materialidad ────
   // `useGrouping` explícito: sin él, es-ES escribe "5900 €" y "11.580 €" en la
@@ -706,10 +736,13 @@ export async function calcularDashboardRed(opts: {
     const mes = mesMenos(mesActual, i);
     progreso.push({
       mes,
-      total: importeDe(aceptados(mes)),
-      leads: creados(mes).length,
-      presupuestos: presentados(mes).length,
-      cobros: cobradoEn(mes),
+      // `enSerie`, no `enTramo`: los meses cerrados van ENTEROS (MEJORAS 88).
+      // `cobradoEn` ya usaba `enMes` — era la única de las cuatro que no
+      // estaba recortada, y por eso la línea de cobros era la única creíble.
+      total: importeDe(aceptados(mes, enSerie)),
+      leads: creados(mes, enSerie).length,
+      presupuestos: presentados(mes, enSerie).length,
+      cobros: cobradoEn(mes, enSerie),
     });
   }
 

@@ -1341,3 +1341,29 @@ deliberada de los tipos de `app/lib`: cambiar un union sin pensar en el seed tie
 próximo reseed, no en una demo. Probado en los dos sentidos — con el valor malo, rojo y exit 1; sin
 él, verde. Un seed que no respeta el esquema real no son "datos de prueba": es una demo que miente,
 y a veces una demo que se cae.
+
+## 2026-08-01 — MEJORAS 88: `enTramo` compara tramos, no construye series
+Cazado al cambiar de mes, con la reunión de RB a dos días. La serie de 6 meses de /red usaba
+`enTramo`, que recorta cada mes al día de hoy: el **día 1** marcaba **0 €** en cuatro de los cinco
+meses cerrados, con 31.584 · 15.786 · 44.062 · 37.881 € reales en la base, y solo era correcta a
+final de mes. Contradecía de frente su propia decisión del 2026-07-27 —el mes en curso se pinta
+punteado *en vez de excluirlo*, "para ver la tendencia sin que un mes a medias parezca una caída"—
+porque si los cerrados también se recortan no hay tendencia que ver. **Pre-existente**, verificado
+con `git stash`; ninguna pasada visual lo había pisado porque vive en una ventana de dos días al mes.
+El arreglo no es elegir una ventana: los contadores la **reciben** (`creados`, `presentados`,
+`aceptados`, `cobradoEn`), y la serie usa `enSerie` — mes cerrado entero, mes en curso hasta hoy.
+`enTramo` se queda donde nació, en los deltas mes-contra-mes.
+**Al arreglarlo apareció el error espejo**, en la misma función y en la dirección contraria:
+`cobradoEn` usaba el mes ENTERO para el delta, así que hoy /red diría «−28.261 € vs mes pasado» y
+/cobros «+0 €» **por la misma cifra** — y el comentario de `/api/cobros` llevaba desde el 27/7
+afirmando que lo hacía "igual que el dashboard de Red", que era falso: /red nunca lo hizo para
+cobros. La misma cifra con dos reglas según la pantalla, que es exactamente lo que aquella decisión
+vino a matar.
+**QA:** `qa-dashboard-red` vuelve a VERDE y gana una sección que **simula el reloj los días 1, 2 y
+15** y exige que los meses cerrados den lo mismo en los tres, más el contraste medido de que la
+fórmula vieja daba 0 € — un bug de dos días al mes no se prueba a mano, igual que el de los husos.
+De paso, su propio SQL de "mes previo" pasa al mismo tramo: comparaba contra el mes entero y le
+estaba dando por bueno al dashboard justo el error que se iba a arreglar.
+Regla destilada: **§16 del skill de lecciones** — una función correcta puede estar mal usada fuera
+de su dominio; al reutilizar una utilidad hay que preguntarse si su definición significa lo mismo
+ahí, y cuando la ambigüedad es real, que reciba el criterio en vez de suponerlo.

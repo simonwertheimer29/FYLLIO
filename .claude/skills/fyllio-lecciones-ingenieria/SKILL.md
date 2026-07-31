@@ -233,6 +233,30 @@ el seed tiene que romper en el próximo `demo:reset`.
 > vs `"Primera visita"` (MEJORAS 77), y `tipo_evento="seguimiento"` + `tipo_llamada="recordatorio"`
 > el 31 de julio. Las tres se cazaron mirando una pantalla, ninguna con un test.
 
+### 16. Una función correcta puede estar MAL USADA fuera de su dominio
+Reutilizar una utilidad no es gratis: su definición se escribió para responder **una** pregunta, y
+al llevarla a un contexto nuevo hay que preguntarse si ahí sigue significando lo mismo. No basta
+con que compile ni con que el nombre encaje; lo que tiene que encajar es la **semántica**.
+`enTramo` compara TRAMOS —"este mes contra los mismos días del anterior"— y no construye SERIES. Al
+reutilizarla para la gráfica histórica pasó a significar otra cosa: recortar todos los meses
+cerrados al día de hoy. Cuando la ambigüedad es real, el arreglo no es elegir una: es que la
+función **reciba** la ventana en vez de darla por supuesta, para que cada caller declare cuál es su
+pregunta.
+> **Nos lo enseñó:** el 1 de agosto de 2026 la gráfica de 6 meses de /red marcaba **0 € en cuatro
+> de los cinco meses cerrados** con 31.584 · 15.786 · 44.062 · 37.881 € reales en la base. Solo era
+> correcta a final de mes, y contradecía de frente su propia decisión de diseño (el mes en curso se
+> pinta punteado *en vez de excluirlo*, "para ver la tendencia"). Vivía en una ventana de dos días
+> al mes, así que ninguna pasada visual la había pisado. Y el mismo día apareció el error ESPEJO,
+> por reutilizar la ventana equivocada en la otra dirección: `cobradoEn` usaba el mes ENTERO para el
+> delta mes-contra-mes, de modo que /red decía «−28.261 € vs mes pasado» y /cobros «+0 €» por la
+> misma cifra — con un comentario en /cobros afirmando que lo hacía "igual que el dashboard de Red",
+> que llevaba cinco días siendo falso.
+
+**Corolario para los tests: un bug que solo existe unos días al mes no se prueba a mano.** Se
+simula el reloj y se afirma la invariante en los días de riesgo (`qa-dashboard-red` fija el día 1,
+el 2 y el 15 y exige que los meses cerrados den lo mismo en los tres), y se demuestra que la
+fórmula vieja SÍ fallaba, en vez de suponerlo. Misma forma que `qa:fechas` con los husos.
+
 ## Checklist antes de dar por bueno un cambio de backend
 
 - [ ] ¿Todo "éxito" que comunico está **persistido antes** de comunicarse? (§1)
@@ -252,6 +276,8 @@ el seed tiene que romper en el próximo `demo:reset`.
 - [ ] Si hay un umbral de tiempo, ¿se cuenta en **días de la clínica**? Y si cambié la unidad de una constante, ¿cambié también su **nombre**? (§13)
 - [ ] ¿Algún parámetro de este cálculo se ignora por dentro (`ahora`, `ahoraMs`)? (§14)
 - [ ] Si toqué un union o un enum, ¿el seed lo respeta y la invariante lo comprueba? (§15)
+- [ ] Si **reutilicé** una utilidad en un contexto nuevo, ¿su definición significa ahí lo mismo? ¿O debería recibir el criterio en vez de suponerlo? (§16)
+- [ ] Si el bug solo aparece ciertos días u horas, ¿el test **simula el reloj** en vez de confiar en cuándo se ejecute? (§16, §13)
 
 ## Cómo crece este skill
 

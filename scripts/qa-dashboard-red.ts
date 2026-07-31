@@ -22,7 +22,7 @@ process.env.DATA_BACKEND_PG_CLIENTES = "DEMO";
 import pg from "pg";
 import { runWithCliente } from "../app/lib/airtable";
 import { calcularDashboardRed } from "../app/lib/dashboard-red";
-import { mesISO } from "../app/lib/time";
+import { mesISO, hoyISO, inicioDelDiaUTC } from "../app/lib/time";
 import {
   estadoConversacion,
   UMBRAL_REACTIVACION_DIAS,
@@ -97,9 +97,14 @@ async function main() {
     `select coalesce(sum(importe),0)::numeric s from pagos_paciente
      where to_char(fecha_pago::date,'YYYY-MM')=$1`, [mesActual]);
   ok(`cobrado mes = ${d.negocio.cobros.cobradoMes.valor}`, d.negocio.cobros.cobradoMes.valor === Number(cobMes.s), `SQL: ${cobMes.s}`);
+  // MISMO TRAMO (días 1..hoy), que es la regla del producto desde el
+  // 2026-07-27. Compararlo contra el mes ENTERO era darle por bueno al
+  // dashboard justo el error que esa decisión mató (MEJORAS 88).
+  const diaHoy = Number(hoyISO(AHORA).slice(8, 10));
   const [cobPrev] = await q(
     `select coalesce(sum(importe),0)::numeric s from pagos_paciente
-     where to_char(fecha_pago::date,'YYYY-MM')=$1`, [mesPrevio]);
+     where to_char(fecha_pago::date,'YYYY-MM')=$1
+       and extract(day from fecha_pago::date) <= $2`, [mesPrevio, diaHoy]);
   ok(`cobrado mes previo = ${d.negocio.cobros.cobradoMes.previo}`, d.negocio.cobros.cobradoMes.previo === Number(cobPrev.s), `SQL: ${cobPrev.s}`);
   const [pend] = await q(`
     select coalesce(sum(x.pendiente),0)::numeric s from (
@@ -116,7 +121,8 @@ async function main() {
   const [perdPrev] = await q(
     `select count(*)::int n from historial_acciones
      where tipo='cambio_estado' and metadata like '%PERDIDO%'
-       and to_char(fecha,'YYYY-MM')=$1`, [mesPrevio]);
+       and to_char(fecha,'YYYY-MM')=$1
+       and extract(day from fecha) <= $2`, [mesPrevio, diaHoy]);
   ok(`perdidos mes previo = ${d.negocio.presupuestos.perdidosMes.previo}`, d.negocio.presupuestos.perdidosMes.previo === perdPrev.n, `SQL: ${perdPrev.n}`);
   const [nuevosMes] = await q(
     `select count(*)::int n from leads where to_char(created_at,'YYYY-MM')=$1`, [mesActual]);
@@ -208,6 +214,45 @@ async function main() {
     failClosed = true;
   }
   ok("sin contexto de cliente → falla (fail-closed), nunca datos de otro", failClosed);
+
+  // ── La gráfica de 6 meses NO depende del día del mes (MEJORAS 88) ──
+  //
+  // El bug vivía en una ventana de DOS DÍAS al mes: la serie se recortaba con
+  // `enTramo`, así que el día 1 los cinco meses cerrados marcaban 0 € y solo
+  // era correcta a final de mes. Nadie lo iba a probar a mano — exactamente
+  // como el de las zonas horarias. Se simula el reloj en tres días distintos
+  // y los meses CERRADOS tienen que dar lo mismo en los tres.
+  console.log("\nS6 · la serie de 6 meses no depende del día del mes");
+  const seriePorDia = new Map<number, Map<string, number>>();
+  for (const dia of [1, 2, 15]) {
+    const simulado = new Date(inicioDelDiaUTC(`${mesActual}-${String(dia).padStart(2, "0")}`).getTime() + 12 * 3_600_000);
+    const dd = await runWithCliente("DEMO", () =>
+      calcularDashboardRed({ clinicaIds: null, ahora: simulado }));
+    seriePorDia.set(dia, new Map(dd.progreso.map((p) => [p.mes, p.total])));
+  }
+  // Meses cerrados = todos menos el actual (el en curso SÍ debe crecer con los días).
+  const cerrados = [...seriePorDia.get(15)!.keys()].filter((m) => m !== mesActual);
+  for (const mes of cerrados) {
+    const vals = [1, 2, 15].map((d) => seriePorDia.get(d)!.get(mes) ?? 0);
+    ok(
+      `  ${mes}: mismo € mirando el día 1, el 2 y el 15`,
+      new Set(vals).size === 1 && vals[0] === (sqlPorMes.get(mes) ?? 0),
+      `día1=${vals[0]} · día2=${vals[1]} · día15=${vals[2]} · SQL=${sqlPorMes.get(mes) ?? 0}`,
+    );
+  }
+  // Y el contraste: la fórmula vieja SÍ dependía del día. Se demuestra, no se
+  // supone — con `enTramo` el día 1 solo entraba lo fechado el día 1.
+  const conTramoDia1 = (await q(
+    `select coalesce(sum(importe),0)::numeric s from presupuestos
+     where estado='ACEPTADO' and to_char(fecha_aceptado::date,'YYYY-MM')=$1
+       and extract(day from fecha_aceptado::date) <= 1`, [cerrados[0]]))[0];
+  const viejoDia1 = Number(conTramoDia1.s);
+  const realCerrado = sqlPorMes.get(cerrados[0]!) ?? 0;
+  ok(
+    `contraste: la fórmula vieja habría dado ${viejoDia1} € en ${cerrados[0]} el día 1, no ${realCerrado} €`,
+    viejoDia1 !== realCerrado,
+    viejoDia1 === realCerrado ? "este mes no distingue las dos fórmulas; el contraste no prueba nada" : "",
+  );
 
   await c.query("rollback");
   await c.end();
