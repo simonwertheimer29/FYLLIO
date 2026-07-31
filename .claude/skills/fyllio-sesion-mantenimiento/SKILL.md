@@ -63,6 +63,28 @@ archivo y formato que la lente de auditoría: zona · qué · severidad · propu
 fecha · estado 🔵). No dupliques entradas ya existentes; si un hallazgo ya está, actualiza su
 severidad si ha empeorado.
 
+## 4 bis. Cierre de sesión: regenerar `ESTADO.md`
+
+**Antes de terminar cualquier sesión de trabajo** —no solo las de mantenimiento— regenera
+[`ESTADO.md`](../../../ESTADO.md) en la raíz del repo. Es la pantalla que Simon lee al abrir la
+siguiente sesión, y existe para que no tenga que reconstruir el estado a mano ni preguntármelo.
+
+Se genera **leyendo** `MEJORAS-PENDIENTES.md`, `MERCADO.md`, `DECISIONES.md` y
+`REUNION-RB-DENTAL.md`, y responde de un vistazo: qué se está haciendo, qué está bloqueado y
+por quién, los próximos tres hitos con su fecha o su condición, las hipótesis abiertas
+esperando validación, los pendientes que no son código, y la salud del repo.
+
+**La regla que lo mantiene sano: es derivado, nunca fuente.** Todo lo que aparezca ahí vive
+con su detalle en otro archivo y se resume enlazando. Si al regenerarlo te encuentras
+escribiendo algo que no está en ninguna otra parte, **el sitio correcto no es ESTADO.md**:
+llévalo a su documento (`MEJORAS-PENDIENTES.md` si es una propuesta, `DECISIONES.md` si es
+algo que se cerró, `MERCADO.md` si es conocimiento de mercado) y deja aquí la línea que
+enlaza. Un ESTADO.md que se convierte en el único sitio donde está algo deja de ser un resumen
+y pasa a ser una cuarta fuente de verdad que nadie mantiene.
+
+Y lo mismo al revés: si un bloqueo desaparece o un hito se cumple, **quítalo**. Un estado que
+acumula deja de leerse.
+
 ## 5. Límites
 
 - **Cero arreglos sin aprobación**, ni siquiera "los triviales de paso". El diff de una sesión

@@ -3,15 +3,23 @@
 CRM vertical para clínicas dentales. Ordena el flujo del paciente antes de ser paciente
 (lead → presupuesto → conversión) y evita que se pierda lo que ya está en marcha.
 
+## Por dónde empezar
+
+**[`ESTADO.md`](ESTADO.md)** — dónde está el proyecto hoy en una pantalla: qué se está
+haciendo, qué está bloqueado, los próximos hitos, y qué falta que no es código. Es **derivado**:
+resume y enlaza los documentos de abajo, nunca guarda nada en exclusiva. Se regenera al cerrar
+cada sesión de trabajo.
+
 ## Documentos vivos
 
-Los cuatro se mantienen a mano y hay que leerlos antes de tocar su terreno:
+Se mantienen a mano y hay que leerlos antes de tocar su terreno:
 
 | Documento | Qué guarda | Cuándo se escribe |
 |---|---|---|
 | [`MERCADO.md`](MERCADO.md) | **Por qué** el producto tiene sentido: fundamentos, evidencia de conversaciones reales, interpretaciones, hipótesis con su estado y preguntas abiertas | Después de cada conversación con una clínica |
 | [`DECISIONES.md`](DECISIONES.md) | **Qué** se decidió y qué se arregló: bugs importantes, decisiones de arquitectura, hallazgos cerrados | En el mismo cambio que cierra el asunto |
 | [`MEJORAS-PENDIENTES.md`](MEJORAS-PENDIENTES.md) | Lo detectado y **no** aprobado todavía. Nada de aquí se ejecuta sin el visto bueno del fundador | Al detectar algo fuera del alcance de la tarea |
+| [`REUNION-RB-DENTAL.md`](REUNION-RB-DENTAL.md) | El guion de la reunión con el cliente piloto: qué preguntar, en qué orden, qué hipótesis cierra cada pregunta, y los pendientes de onboarding | Antes de cada reunión, y el mismo día después |
 | [`AUDITORIA_FABLE.md`](AUDITORIA_FABLE.md) | La auditoría técnica de julio de 2026 y su tabla de fiabilidad (S1-S12) | Congelado; es referencia histórica |
 
 Y las **investigaciones externas**, que son fotos fechadas y **no se editan** — cuando haya
