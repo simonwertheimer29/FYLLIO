@@ -10,6 +10,7 @@ import { EmptyState, ErrorState } from "../ui/Feedback";
 import { KpiCard } from "../ui/KpiCard";
 import type { Presupuesto, Secuencia, TipoEvento, UserSession } from "../../lib/presupuestos/types";
 import { cargarJSON, traeLista } from "../../lib/fetch-json";
+import { deDiccionario } from "../../lib/diccionario";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,12 +30,21 @@ function getYYYYMM(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+const NEUTRO = "bg-[var(--color-surface-muted)] text-[var(--color-muted)]";
+
 const EVENTO_CONFIG: Record<TipoEvento, { label: string; color: string }> = {
   presupuesto_inactivo:              { label: "Sin actividad", color: "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300" },
   portal_visto_sin_respuesta:        { label: "Portal visto",  color: "bg-[var(--color-accent-soft)] text-[var(--color-accent)]" },
   reactivacion_programada:           { label: "Reactivación",  color: "bg-[var(--color-accent-soft)] text-[var(--color-accent)]" },
   presupuesto_aceptado_notificacion: { label: "Aceptado",      color: "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" },
 };
+
+/** Un tipo de evento que no está en el diccionario NO tumba la pantalla: sale
+ *  neutro y sin nombre inventado. Lo tumbaba hasta el 2026-07-31 — el seed
+ *  escribía `"seguimiento"`, fuera del union. */
+const EVENTO_DESCONOCIDO = { label: "Sin clasificar", color: NEUTRO };
+const eventoCfg = (t: string | null | undefined) =>
+  deDiccionario(EVENTO_CONFIG, t, EVENTO_DESCONOCIDO, "secuencias_automaticas.tipo_evento");
 
 // ─── TAB 1 — Cola ─────────────────────────────────────────────────────────────
 
@@ -188,7 +198,7 @@ function TabCola({ user }: { user: UserSession }) {
 
       {/* Message cards */}
       {filtered.map((sec) => {
-        const cfg = EVENTO_CONFIG[sec.tipoEvento];
+        const cfg = eventoCfg(sec.tipoEvento);
         const isEditing = editingId === sec.id;
         const isInternal = sec.canalSugerido === "interno";
 
@@ -326,7 +336,7 @@ function TabHistorial({ user }: { user: UserSession }) {
 
   const ESTADO_CONFIG: Record<string, { label: string; color: string }> = {
     enviado:    { label: "Enviado",    color: "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" },
-    descartado: { label: "Descartado", color: "bg-[var(--color-surface-muted)] text-[var(--color-muted)]" },
+    descartado: { label: "Descartado", color: NEUTRO },
   };
 
   if (loading) {
@@ -389,8 +399,13 @@ function TabHistorial({ user }: { user: UserSession }) {
       ) : (
         <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden divide-y divide-[var(--color-border)]">
           {filtered.map((sec) => {
-            const cfg = EVENTO_CONFIG[sec.tipoEvento];
-            const estadoCfg = ESTADO_CONFIG[sec.estado] ?? { label: sec.estado, color: "bg-[var(--color-surface-muted)] text-[var(--color-muted)]" };
+            const cfg = eventoCfg(sec.tipoEvento);
+            const estadoCfg = deDiccionario(
+              ESTADO_CONFIG,
+              sec.estado,
+              { label: "Sin clasificar", color: NEUTRO },
+              "secuencias_automaticas.estado",
+            );
             const fecha = sec.creadoEn ? new Date(sec.creadoEn).toLocaleDateString("es-ES", { day: "2-digit", month: "short" }) : "—";
             return (
               <div key={sec.id} className="flex items-center gap-3 px-4 py-3">

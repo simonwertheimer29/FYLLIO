@@ -20,7 +20,12 @@
 //      desaparece de la columna "Citados Hoy" y de su cohorte de Seguimiento.
 
 import { hoyISO, mesISO, horaClinica, inicioDelDiaUTC, sumaDias, TZ_CLINICA } from "../app/lib/time";
-import { cohorteLead } from "../app/lib/seguimiento/cohortes";
+import { cohorteLead, esNuevoUrgente } from "../app/lib/seguimiento/cohortes";
+import {
+  estadoConversacion,
+  diasDeClinicaEntre,
+  UMBRAL_REACTIVACION_DIAS,
+} from "../app/lib/presupuestos/estado-conversacion";
 
 let ok = 0;
 const fallos: string[] = [];
@@ -100,6 +105,86 @@ check("inicio del día en verano son las 22:00 UTC del día anterior",
   inicioDelDiaUTC("2026-07-28").toISOString() === "2026-07-27T22:00:00.000Z");
 check("inicio del día en invierno son las 23:00 UTC del día anterior",
   inicioDelDiaUTC("2026-01-15").toISOString() === "2026-01-14T23:00:00.000Z");
+
+// ── 5 · el umbral de reactivación no se mueve dentro del mismo día ─────
+//
+// El bug (2026-07-31): `reactivable` era "hace ≥72 h EXACTAS" contra
+// `Date.now()`, o sea una ventana rodante que se cruza al segundo. Medido en
+// /red, el titular «cuánto hay en juego hoy» subía 1.750 € en dos minutos y un
+// 62 % en 24 h sin que nadie tocara nada, y dos F5 seguidos daban dos cifras
+// distintas. Anclado al día de la clínica, la clasificación de un caso solo
+// puede cambiar a las 00:00 — nunca en mitad de una demo.
+{
+  const escrito = "2026-07-25T14:30:00Z"; // saliente nuestro, sin respuesta
+  const entrada = { ultimoEntranteAt: null, ultimoSalienteAt: escrito };
+
+  // A lo largo de un día completo de la clínica, el estado es CONSTANTE.
+  for (const dia of ["2026-07-27", "2026-07-28"]) {
+    const estados = new Set<string>();
+    for (let m = 0; m < 24 * 60; m += 7) {
+      const instante = new Date(inicioDelDiaUTC(dia).getTime() + m * 60_000);
+      estados.add(
+        estadoConversacion(entrada, UMBRAL_REACTIVACION_DIAS.presupuesto, instante).estado,
+      );
+    }
+    check(
+      `el estado de un presupuesto no cambia durante el día ${dia}`,
+      estados.size === 1,
+      `cambió entre ${[...estados].join(" y ")}`,
+    );
+  }
+
+  // Y sí cambia justo en el cambio de día: el 27 son 2 días (en espera), el 28
+  // son 3 (reactivable). El umbral hace su trabajo, solo que a medianoche.
+  const el27 = estadoConversacion(
+    entrada, UMBRAL_REACTIVACION_DIAS.presupuesto,
+    new Date(inicioDelDiaUTC("2026-07-27").getTime() + 12 * 3_600_000),
+  ).estado;
+  const el28 = estadoConversacion(
+    entrada, UMBRAL_REACTIVACION_DIAS.presupuesto,
+    new Date(inicioDelDiaUTC("2026-07-28").getTime() + 12 * 3_600_000),
+  ).estado;
+  check("a los 2 días sigue en espera", el27 === "en_espera_paciente", `dio ${el27}`);
+  check("a los 3 días pasa a reactivable", el28 === "reactivable", `dio ${el28}`);
+
+  // La fórmula vieja SÍ se movía dentro del día: se demuestra, no se supone.
+  const UMBRAL_VIEJO_MS = 72 * 3_600_000;
+  const escritoMs = new Date(escrito).getTime();
+  const estadoViejo = (instante: Date) =>
+    instante.getTime() - escritoMs < UMBRAL_VIEJO_MS ? "en_espera_paciente" : "reactivable";
+  const viejos = new Set<string>();
+  for (let m = 0; m < 24 * 60; m += 7) {
+    viejos.add(estadoViejo(new Date(inicioDelDiaUTC("2026-07-28").getTime() + m * 60_000)));
+  }
+  check(
+    "la fórmula vieja SÍ cambiaba de estado a media tarde",
+    viejos.size === 2,
+    `no reprodujo el bug (dio ${[...viejos].join(", ")})`,
+  );
+
+  // Y el día se cuenta en la zona de la CLÍNICA, no en la del proceso: un
+  // saliente a las 00:30 de Madrid es de hoy, aunque en UTC sea de ayer.
+  const medianoche = { ultimoEntranteAt: null, ultimoSalienteAt: "2026-07-27T22:30:00Z" };
+  check(
+    "un saliente de las 00:30 de Madrid cuenta como de HOY, no de ayer",
+    diasDeClinicaEntre(
+      new Date(medianoche.ultimoSalienteAt),
+      new Date(inicioDelDiaUTC("2026-07-28").getTime() + 10 * 3_600_000),
+    ) === 0,
+  );
+
+  // Un lead sin contactar usa el MISMO reloj de días (era `NUEVO_URGENTE_MS`,
+  // que al pasar el umbral a días habría significado "2 milisegundos").
+  const alta = "2026-07-26T09:00:00Z";
+  check(
+    "un lead de hace 1 día todavía no es urgente",
+    !esNuevoUrgente(alta, new Date(inicioDelDiaUTC("2026-07-27").getTime() + 12 * 3_600_000)),
+  );
+  check(
+    "un lead de hace 2 días ya es urgente",
+    esNuevoUrgente(alta, new Date(inicioDelDiaUTC("2026-07-28").getTime() + 12 * 3_600_000)),
+  );
+}
 
 // ── resultado ──────────────────────────────────────────────────────────
 if (fallos.length > 0) {

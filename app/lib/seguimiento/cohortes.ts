@@ -13,7 +13,10 @@
 // Módulo PURO y client-safe: lo consumen la UI de Seguimiento y el QA.
 
 import type { EstadoConversacion } from "../presupuestos/estado-conversacion";
-import { UMBRAL_REACTIVACION_MS } from "../presupuestos/estado-conversacion";
+import {
+  UMBRAL_REACTIVACION_DIAS,
+  diasDeClinicaEntre,
+} from "../presupuestos/estado-conversacion";
 
 // "rezagados" se muestra en UI como "Sin respuesta" (renombre 2026-07-26);
 // el id interno no cambia para no tocar QA ni enlaces.
@@ -21,18 +24,26 @@ export type CohorteLead = "citados" | "nuevos" | "en_conversacion" | "rezagados"
 export type CohortePresupuesto = "nuevos" | "en_conversacion" | "rezagados";
 
 /**
- * Umbral de urgencia dentro de "Nuevos": un lead sin primer contacto que
- * supera este tiempo sube con señal visible. Es EL MISMO umbral de
- * reactivación de leads (48 h) — la propia justificación del motor ("un lead
- * se enfría en horas") aplica con más razón al que nadie ha tocado nunca.
+ * Umbral de urgencia dentro de "Nuevos": un lead sin primer contacto que lleva
+ * estos DÍAS DE CLÍNICA sube con señal visible. Es EL MISMO umbral de
+ * reactivación de leads — la justificación del motor ("un lead se enfría
+ * rápido") aplica con más razón al que nadie ha tocado nunca.
+ *
+ * Se llamaba `NUEVO_URGENTE_MS` y era el umbral en milisegundos. Al pasar el
+ * umbral a días (2026-07-31) el nombre viejo habría seguido COMPILANDO y
+ * significando "2 milisegundos": todos los leads urgentes, para siempre, sin
+ * un solo error. Por eso cambia el nombre y el tipo del parámetro.
  */
-export const NUEVO_URGENTE_MS = UMBRAL_REACTIVACION_MS.lead;
+export const NUEVO_URGENTE_DIAS = UMBRAL_REACTIVACION_DIAS.lead;
 
 /** Un lead sin primer contacto que ya superó el umbral. Vivía suelto dentro de
  *  SeguimientoView; sube aquí porque el tablero de Leads pinta la misma señal
  *  y dos copias del mismo umbral acaban divergiendo. */
-export const esNuevoUrgente = (createdAt: string, ahoraMs: number) =>
-  ahoraMs - (new Date(createdAt).getTime() || 0) >= NUEVO_URGENTE_MS;
+export const esNuevoUrgente = (createdAt: string, ahora: Date) => {
+  const alta = new Date(createdAt);
+  if (!Number.isFinite(alta.getTime())) return false;
+  return diasDeClinicaEntre(alta, ahora) >= NUEVO_URGENTE_DIAS;
+};
 
 /**
  * Cohorte de un lead ACTIVO. Precedencia (la del motor, intacta):

@@ -1107,7 +1107,13 @@ try {
   let eventosN = 0;
   for (let i = 0; i < 15; i++) { await ins("eventos_sistema", { tipo: "lead_creado", entidad_tipo: "Lead", entidad_id: leads[i % leads.length].id, payload: "{}", procesado: true, resumen: "Evento lead_creado (procesado)" }); eventosN++; }
   // secuencias (operativo)
-  for (let i = 0; i < 12; i++) { const p = presupuestos[i]; await ins("secuencias_automaticas", { presupuesto_id: p.id, clinica_id: p.pac.cid, paciente_nombre: p.pac.nombre, telefono: p.pac.tel, tratamiento: "Tratamiento", tipo_evento: "seguimiento", estado: i % 3 === 0 ? "pendiente" : "enviado", mensaje_generado: "Hola, ¿seguimos adelante con tu tratamiento?", tono_usado: "cercano", canal_sugerido: "whatsapp", actualizado_en: dISO(-(i % 4)) }); }
+  // `tipo_evento` y `tono_usado` van del VOCABULARIO REAL (ver VOCABULARIO al
+  // final): esta línea escribía `tipo_evento:"seguimiento"`, que no existe en
+  // el tipo `TipoEvento`, y con eso la pestaña Automatizaciones → Operativo
+  // reventaba entera (`EVENTO_CONFIG[…].color` sobre undefined). El tono era
+  // "cercano", que tampoco está en los tres que mide la tabla A/B de /kpis, así
+  // que 12 de 28 mensajes se descartaban en silencio.
+  for (let i = 0; i < 12; i++) { const p = presupuestos[i]; await ins("secuencias_automaticas", { presupuesto_id: p.id, clinica_id: p.pac.cid, paciente_nombre: p.pac.nombre, telefono: p.pac.tel, tratamiento: "Tratamiento", tipo_evento: "presupuesto_inactivo", estado: i % 3 === 0 ? "pendiente" : "enviado", mensaje_generado: "Hola, ¿seguimos adelante con tu tratamiento?", tono_usado: i % 2 === 0 ? "empatico" : "directo", canal_sugerido: "whatsapp", actualizado_en: dISO(-(i % 4)) }); }
   console.log(`automatizaciones: ${reglas.length} reglas · ${eventosN} eventos(procesado) · config manual ×4`);
 
   // ── PLANTILLAS DE MENSAJE (globales: clinica_id NULL ⇒ "Todas") ──────
@@ -1174,7 +1180,11 @@ try {
   const adminId = (await db.query("select id from usuarios where cliente='DEMO' and rol='admin' limit 1")).rows[0]?.id;
   const coordId = (await db.query("select id from usuarios where cliente='DEMO' and rol='coordinacion' limit 1")).rows[0]?.id;
   for (let i = 0; i < 8; i++) await ins("alertas_enviadas", { clinica_id: [CENTRO, NORTE, SUR, ESTE][i % 4], tipo_alerta: "cobro_vencido_7d", admin_origen_id: adminId, coordinadora_destino_id: coordId, mensaje: "Hay cobros pendientes vencidos que requieren atención.", error: false });
-  for (let i = 0; i < 12; i++) { const pac = pacientes[i]; await ins("llamadas_vapi", { paciente_id: pac.id, tipo_llamada: "recordatorio", estado: i % 4 === 3 ? "fallida" : "completada", resultado: i % 4 === 3 ? "no_contesta" : "confirmada", iniciada_at: dISO(-(i % 6)), finalizada_at: dISO(-(i % 6)), duracion_segundos: i % 4 === 3 ? 0 : 45 + i, resumen: i % 4 === 3 ? "No contestó" : "Cita confirmada por el paciente.", coste_usd: i % 4 === 3 ? 0 : 0.12 }); }
+  // `tipo_llamada` del vocabulario real: era "recordatorio", que no está en
+  // `TipoLlamada`, y por eso la columna "Tipo" de /llamadas salía VACÍA en las
+  // 12 filas. Mismo desajuste que tumbaba Operativo; aquí solo borraba una
+  // columna, sin avisar a nadie.
+  for (let i = 0; i < 12; i++) { const pac = pacientes[i]; await ins("llamadas_vapi", { paciente_id: pac.id, tipo_llamada: "confirmacion_cita", estado: i % 4 === 3 ? "fallida" : "completada", resultado: i % 4 === 3 ? "no_contesta" : "confirmada", iniciada_at: dISO(-(i % 6)), finalizada_at: dISO(-(i % 6)), duracion_segundos: i % 4 === 3 ? 0 : 45 + i, resumen: i % 4 === 3 ? "No contestó" : "Cita confirmada por el paciente.", coste_usd: i % 4 === 3 ? 0 : 0.12 }); }
   for (let i = 0; i < 3; i++) await ins("conversaciones_copilot", { usuario_id: coordId, clinica_id: CENTRO, titulo: ["Resumen del día", "Cobros vencidos", "Leads sin contactar"][i], mensajes: "[]", mensaje_count: 2 + i, modelo_usado: "claude", activa: true, updated_at: dISO(-i), resumen: "Consulta al copiloto" });
   for (let i = 0; i < 2; i++) await ins("informes_guardados", { tipo: i === 0 ? "semanal_ia" : "noshow", clinica_id: null, periodo: mesAct, titulo: i === 0 ? "Resumen semanal" : "Informe de no-shows", contenido_json: "{}", texto_narrativo: "La conversión mejoró un 8% respecto a la semana anterior.", generado_en: dISO(-1), generado_por: "IA" });
   for (let i = 0; i < 6; i++) { const pac = pacientes[30 + i]; await ins("lista_espera", { clinica_id: pac.cid, paciente_id: pac.id, tratamiento_id: tratamientos[i % tratamientos.length].id, dias_permitidos: "LUN,MAR,MIE,JUE,VIE", estado: "ACTIVE", prioridad: ["ALTA", "MEDIA", "BAJA"][i % 3], urgencia_nivel: "MED", permite_fuera_rango: false, notas: "Quiere hueco lo antes posible." }); }
@@ -1341,6 +1351,59 @@ try {
       `Serie: ${pres.map((p) => `${p.mes}:${p.n}`).join(" · ")}`,
     );
   }
+  //   D) NINGUNA columna de vocabulario cerrado guarda un valor que el producto
+  //      no conozca. Es la invariante que evita la CUARTA vez:
+  //        · jul-27 (MEJORAS 41): motivos de descarte en texto libre → la
+  //          columna agrupaba mal y el panel afirmaba un motivo que no era.
+  //        · jul-30 (MEJORAS 77): `"Primera Visita"` vs `"Primera visita"` →
+  //          un KPI a cero que tapaba que el corte no existía.
+  //        · jul-31: `tipo_evento:"seguimiento"` REVENTABA Automatizaciones →
+  //          Operativo entera, y `tipo_llamada:"recordatorio"` dejaba la
+  //          columna "Tipo" de /llamadas vacía en las 12 filas.
+  //      Las tres se cazaron mirando una pantalla, nunca un test. Un seed que
+  //      no respeta el vocabulario real no son "datos de prueba": es una demo
+  //      que miente — y a veces una demo que se cae.
+  //
+  //      El vocabulario se declara AQUÍ, a mano y a propósito: es una copia
+  //      deliberada de los tipos de `app/lib`, para que cambiar el union sin
+  //      pensar en el seed reviente en el próximo `demo:reset` en vez de en una
+  //      demo. Si un valor nuevo es legítimo, se añade en los dos sitios.
+  const VOCABULARIO = [
+    // tabla                     columna           valores admitidos (unión de app/lib)
+    ["secuencias_automaticas", "tipo_evento", ["presupuesto_inactivo", "portal_visto_sin_respuesta", "reactivacion_programada", "presupuesto_aceptado_notificacion"]],
+    ["secuencias_automaticas", "estado", ["pendiente", "enviado", "descartado"]],
+    ["secuencias_automaticas", "canal_sugerido", ["whatsapp", "email", "interno"]],
+    // Los tres tonos que mide la tabla A/B de /kpis (tonos-stats). Un cuarto
+    // no rompe nada: se descarta en silencio, que es peor.
+    ["secuencias_automaticas", "tono_usado", ["directo", "empatico", "urgencia"]],
+    ["llamadas_vapi", "tipo_llamada", ["confirmacion_cita", "reactivacion", "recuperacion_presupuesto"]],
+    ["llamadas_vapi", "estado", ["pendiente", "iniciada", "en_curso", "completada", "fallida", "cancelada"]],
+    ["llamadas_vapi", "resultado", ["confirmada", "reagenda_solicitada", "cancelada", "no_contesta", "escalado_humano", "sin_resultado"]],
+    ["presupuestos", "estado", ["PRESENTADO", "INTERESADO", "EN_DUDA", "EN_NEGOCIACION", "ACEPTADO", "PERDIDO"]],
+    ["leads", "motivo_no_interes", ["No_Asistio", "No_Contesta", "Horarios", "Precio", "Otra_Clinica", "Ya_No_Necesita"]],
+    ["acciones_automatizacion", "resultado", ["success", "error", "pendiente_integracion", "skipped_cooldown", "skipped_optout", "skipped_horario", "skipped_test", "skipped_dedupe"]],
+    ["mensajes_whatsapp", "direccion", ["Entrante", "Saliente"]],
+  ];
+  const fueraDeVocabulario = [];
+  for (const [tabla, columna, admitidos] of VOCABULARIO) {
+    const filas = (await db.query(
+      `select ${columna} v, count(*)::int n from ${tabla}
+       where cliente='DEMO' and ${columna} is not null and ${columna} <> ''
+       group by 1`,
+    )).rows;
+    for (const f of filas) {
+      if (!admitidos.includes(f.v)) fueraDeVocabulario.push(`${tabla}.${columna}="${f.v}" (${f.n} filas; admitidos: ${admitidos.join("|")})`);
+    }
+  }
+  if (fueraDeVocabulario.length) {
+    throw new Error(
+      `El seed escribe valores que el producto no conoce:\n    ` +
+      fueraDeVocabulario.join("\n    ") +
+      `\n  Añade el valor al union en app/lib Y a VOCABULARIO aquí, o usa uno existente.`,
+    );
+  }
+  console.log(`  vocabulario: ${VOCABULARIO.length} columnas comprobadas, cero valores fuera del union`);
+
   console.log("  serie 6 meses:", serie.map((s) => `${s.mes}: ${s.leads}L/${s.aceptados}A/${Number(s.cobrado).toLocaleString("es")}€`).join(" · "));
   console.log(`  presentados (mismo tramo del mes): ${pres.map((p) => `${p.mes}:${p.n}`).join(" · ")} → salto ×${salto.toFixed(1)}`);
   console.log(`  buckets Cobros: vencidos=${bVenc} · por vencer=${bPorVencer} · estancados=${bEstanc}`);

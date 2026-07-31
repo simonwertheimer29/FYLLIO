@@ -187,6 +187,52 @@ Reglas operativas al retirar algo:
 > QA local podía verlo: en local las variables seguían existiendo. Lo destapó una pregunta
 > del fundador sobre unos ceros en pantalla, no una alarma.
 
+### 12. Un valor que viene de datos nunca se indexa a pelo, y una sección nunca tumba la app
+Dos caras del mismo día. **(a)** `DICC[x].campo` donde `x` sale de la base es un crash esperando
+su fila: el tipo NO garantiza nada, porque entre la columna y el componente hay siempre un casteo
+(`String(f["Estado"]) as Estado`) o un seed que escribe otra cosa. Se lee con `deDiccionario`
+(`lib/diccionario`), que devuelve un fallback **y avisa una vez por clave** — un fallback mudo
+esconde el desajuste igual de bien que un catch mudo (§9). **(b)** Y toda sección tiene su
+`error.tsx`: sin frontera, un fallo de render en un widget desmonta el árbol entero y deja al
+usuario sin menú, con la URL como única salida.
+> **Nos lo enseñó:** `EVENTO_CONFIG[sec.tipoEvento].color` con `tipo_evento="seguimiento"` —valor
+> que escribía nuestro propio seed— tumbaba Automatizaciones y con ella la navegación de todo el
+> producto. En el MISMO archivo, 194 líneas más abajo, el diccionario de al lado ya tenía su `??`:
+> por eso la respuesta es una función compartida, no acordarse. Y el censo destapó que la "columna
+> Tipo vacía" de /llamadas era el mismo bug con otra sintaxis (`DICC[x]` en vez de `DICC[x].campo`):
+> uno rompía y el otro borraba un dato en silencio.
+
+### 13. Un umbral de negocio se cuenta en días de la clínica, no en una ventana rodante
+"Hace 72 h" contra `Date.now()` se cruza al SEGUNDO: la cifra cambia sola entre dos recargas y no
+hay nada que el usuario pueda hacer para explicárselo. El negocio de una clínica se mide en días de
+calendario ("hace tres días que le escribimos"), así que la CLASIFICACIÓN se ancla al día de la
+clínica y solo cambia a las 00:00. El tiempo transcurrido exacto se sigue mostrando: precisión en lo
+que se lee, estabilidad en lo que se decide.
+Corolario, y es donde está el peligro: **cambiar la unidad de una constante exige cambiar su NOMBRE
+y, si se puede, su tipo.** `48*3600*1000` y `2` son los dos `number`: un caller sin migrar compila y
+significa otra cosa por un factor de 86 millones, en silencio.
+> **Nos lo enseñó:** el titular «cuánto hay en juego hoy» de /red subía 1.750 € en dos minutos y un
+> 62 % en 24 h sin que nadie tocara nada, y dos cruces separados 1,2 s daban el salto de 310 € que
+> reportó una revisión externa. Al migrar, el compilador cazó 6 callers — y se escaparon dos que
+> hacían aritmética en milisegundos con la constante, precisamente porque el tipo no cambiaba.
+
+### 14. Un parámetro que el código ignora es peor que no tenerlo
+`calcularDashboardRed({ ahora })` existía, nadie lo pasaba, y la función que decidía la mitad de la
+pantalla llamaba a `Date.now()` por dentro. El QA creía estar fijando el instante y no fijaba nada:
+no podía afirmar nada sobre esa sección, y su comprobación de paridad podía fallar sola si un caso
+cruzaba el umbral entre las dos lecturas del reloj. Si un cálculo depende del tiempo, el instante se
+**inyecta desde el borde y se enhebra hasta el fondo**; si no se va a enhebrar, no se acepta el
+parámetro.
+
+### 15. El seed respeta el vocabulario real, y hay una invariante que lo comprueba
+Un seed que escribe un valor fuera del union no son "datos de prueba": es una demo que miente, y a
+veces una demo que se cae. La comprobación va **dentro** del seed (transaccional, con rollback), no
+en un script aparte que nadie corre, y declara el vocabulario a mano: cambiar un union sin pensar en
+el seed tiene que romper en el próximo `demo:reset`.
+> **Nos lo enseñó:** tres veces. Motivos de descarte en texto libre (MEJORAS 41), `"Primera Visita"`
+> vs `"Primera visita"` (MEJORAS 77), y `tipo_evento="seguimiento"` + `tipo_llamada="recordatorio"`
+> el 31 de julio. Las tres se cazaron mirando una pantalla, ninguna con un test.
+
 ## Checklist antes de dar por bueno un cambio de backend
 
 - [ ] ¿Todo "éxito" que comunico está **persistido antes** de comunicarse? (§1)
@@ -202,6 +248,10 @@ Reglas operativas al retirar algo:
 - [ ] Si es una herramienta de QA/verificación: ¿tiene **sonda previa**, distingue "no pude comprobar" de "está mal", y **renderiza** el error en vez de concatenarlo? (§9)
 - [ ] Si el cambio carga datos, ¿usa `cargarJSON()` y **no** hay ningún `?? []`? (§10)
 - [ ] Si retiro una dependencia, ¿he censado quién **decide** con sus variables, y lo he verificado **en el entorno desplegado**? (§11)
+- [ ] ¿Indexo un diccionario con una clave que viene de datos? ¿Pasa por `deDiccionario`? ¿Tiene su sección `error.tsx`? (§12)
+- [ ] Si hay un umbral de tiempo, ¿se cuenta en **días de la clínica**? Y si cambié la unidad de una constante, ¿cambié también su **nombre**? (§13)
+- [ ] ¿Algún parámetro de este cálculo se ignora por dentro (`ahora`, `ahoraMs`)? (§14)
+- [ ] Si toqué un union o un enum, ¿el seed lo respeta y la invariante lo comprueba? (§15)
 
 ## Cómo crece este skill
 

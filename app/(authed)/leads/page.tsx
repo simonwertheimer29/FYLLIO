@@ -13,7 +13,7 @@ import { ultimosMensajesPorConversacion } from "../../lib/presupuestos/mensajeri
 import { ultimasAccionesDireccionPorLead } from "../../lib/leads/acciones";
 import {
   estadoConversacion,
-  UMBRAL_REACTIVACION_MS,
+  UMBRAL_REACTIVACION_DIAS,
 } from "../../lib/presupuestos/estado-conversacion";
 import { LeadsView } from "./LeadsView";
 
@@ -59,7 +59,7 @@ export default async function LeadsPage() {
           salienteAt,
           conversacion: estadoConversacion(
             { ultimoEntranteAt: entranteAt, ultimoSalienteAt: salienteAt },
-            UMBRAL_REACTIVACION_MS.lead,
+            UMBRAL_REACTIVACION_DIAS.lead,
           ).estado,
         };
       });

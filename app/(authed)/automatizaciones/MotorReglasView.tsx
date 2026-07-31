@@ -24,6 +24,7 @@ import {
   ICON_STROKE,
 } from "../../components/icons";
 import { WA_ENGINE_OPERATIVO } from "../../lib/automatizaciones/types";
+import { deDiccionario } from "../../lib/diccionario";
 
 type Regla = {
   id: string;
@@ -100,6 +101,18 @@ const RESULTADO_BADGE: Record<AccionLog["resultado"], { tone: string; label: str
   skipped_test: { tone: NEUTRAL_TONE, label: "En pruebas" },
   skipped_dedupe: { tone: NEUTRAL_TONE, label: "Ya enviado" },
 };
+
+// El `resultado` viene de la base, así que el tipo no garantiza que esté aquí:
+// un motivo nuevo en el motor y esta pestaña —que es la de ENTRADA de
+// /automatizaciones— se caía entera. Con `deDiccionario` sale neutro y el
+// desajuste queda en el log en vez de en la cara de la coordinadora.
+const resultadoBadge = (r: string | null | undefined) =>
+  deDiccionario(
+    RESULTADO_BADGE,
+    r,
+    { tone: NEUTRAL_TONE, label: "Sin clasificar" },
+    "acciones_automatizacion.resultado",
+  );
 
 // Honestidad (mantenimiento jul-2026): el envío WA del motor aún no está
 // integrado (ver WA_ENGINE_OPERATIVO en lib/automatizaciones/types.ts). Las
@@ -296,9 +309,9 @@ export function MotorReglasView({ isAdmin }: { isAdmin: boolean }) {
                           {relTime(e.ejecutadaAt)}
                         </span>
                         <span
-                          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${RESULTADO_BADGE[e.resultado].tone}`}
+                          className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${resultadoBadge(e.resultado).tone}`}
                         >
-                          {RESULTADO_BADGE[e.resultado].label}
+                          {resultadoBadge(e.resultado).label}
                         </span>
                       </div>
                       <p className="mt-1.5 text-[11px] text-[var(--color-muted)]">
@@ -567,9 +580,9 @@ function HistorialDrawer({
                 >
                   <div className="flex items-center gap-2 text-[11px]">
                     <span
-                      className={`font-semibold px-1.5 py-0.5 rounded-full border ${RESULTADO_BADGE[it.resultado].tone}`}
+                      className={`font-semibold px-1.5 py-0.5 rounded-full border ${resultadoBadge(it.resultado).tone}`}
                     >
-                      {RESULTADO_BADGE[it.resultado].label}
+                      {resultadoBadge(it.resultado).label}
                     </span>
                     <span className="text-[var(--color-muted)] tabular-nums">
                       {new Date(it.ejecutadaAt).toLocaleString("es-ES", {

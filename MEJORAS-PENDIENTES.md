@@ -1379,3 +1379,86 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Esfuerzo:** medio (plantillas por defecto + aviso en el editor + la vista de
   detalle con enlace, que no existe).
 - **Fecha:** 2026-07-31 · 🔵 **decisión de producto pendiente**
+
+## 84. El tono "cercano" no existe para la tabla A/B, y se descarta en silencio
+- **Zona:** `app/api/presupuestos/tonos-stats/route.ts:96` (`if (!counts[tono]) continue`),
+  `KpiView.tsx:990` (`TONO_META`, tres claves)
+- **Principio:** §4 no inventar / §5 confianza — la pestaña "Motor IA" de /kpis mide
+  tres tonos (directo · empático · urgencia) y **descarta cualquier otro sin
+  decirlo**. El seed de DEMO escribía `"cercano"` en 12 de 28 secuencias: casi la
+  mitad de los mensajes no aparecían en ninguna fila y la tabla no lo declaraba.
+  El seed ya está corregido (2026-07-31), así que hoy no muerde — pero la ruta
+  sigue tragándose en silencio cualquier tono que no sea uno de los tres.
+- **Mejora:** o el descarte se declara al pie ("N mensajes con otro tono, fuera de
+  la comparativa"), o la tabla se deriva de los tonos que existen en los datos.
+  Lo segundo es más honesto; lo primero, más barato.
+- **Impacto:** bajo hoy (pestaña de /kpis, fuera del guion de demo), medio cuando
+  el piloto genere tonos reales.
+- **Esfuerzo:** horas.
+- **Fecha:** 2026-07-31 · 🔵
+
+## 85. Cobros mide su plazo en milisegundos rodantes, no en días de clínica
+- **Zona:** `app/lib/cobros.ts:120-145` (`venceMs = aceptadoMs + plazoDias * DAY_MS`
+  comparado contra `today`)
+- **Principio:** coherencia — el umbral de reactivación pasó a **días de calendario
+  de la clínica** el 2026-07-31 justo porque una ventana rodante hacía que la cifra
+  de portada de /red cambiara entre dos recargas. Cobros conserva la aritmética
+  vieja: el bucket "vencido" cruza en un instante fijo derivado de
+  `fecha_aceptado`, no a las 00:00 de Madrid.
+- **Por qué no se tocó en la misma tanda:** hoy no muerde (medido: los vencidos
+  no se movieron en 24 h simuladas, porque `fecha_aceptado` es una fecha y el
+  cruce cae a medianoche UTC) y cambiar cuándo un cobro pasa a "vencido" es una
+  decisión de negocio, no una refactorización.
+- **Mejora:** contar el plazo con `diasDeClinicaEntre`, como el resto.
+- **Impacto:** bajo · **Esfuerzo:** horas.
+- **Fecha:** 2026-07-31 · 🔵
+
+## 86. El aviso de "estás viendo una sola clínica" solo existe en /red
+- **Zona:** `components/shared/AvisoFiltroClinica.tsx` (nuevo), consumido solo por
+  `RedView`. Siguen al mismo selector: `/pacientes`, `/seguimiento`, `/leads`,
+  `/cobros`, `/kpis` (×4 pestañas), `/alertas`, `/presupuestos`
+- **Principio:** §5 confianza — la regla que se acordó el 2026-07-31 es general:
+  *un estado persistido que cambia lo que se ve debe declararse en pantalla*. El
+  selector guarda la clínica en `localStorage`, así que en TODAS esas pantallas se
+  puede llegar con el filtro puesto sin haberlo tocado en la sesión. Se arregló
+  donde mordió (y donde además se retira una sección entera), no en las demás.
+- **Mejora:** montar el mismo aviso en las que filtran de verdad, con su propio
+  `ocultaAdemas` cuando escondan algo. La pieza ya está escrita.
+- **Impacto:** medio · **Esfuerzo:** horas (cada pantalla tiene su cabecera).
+- **Fecha:** 2026-07-31 · 🔵
+
+## 87. Lo que queda del informe de revisión externa (jul 2026) — flujo, no fallos
+- **Zona:** transversal · **Origen:** recorrido completo de producción con
+  Claude for Chrome, sección por sección (2026-07-31). Los bloqueantes de ese
+  informe se cerraron el mismo día; **esto es lo que se dejó fuera a propósito**,
+  y son decisiones de producto, no arreglos.
+- **Red:** los KPIs no son clicables — se lee "5.900 € esperando tu respuesta" y
+  hay que reconstruir a mano dónde están esos tres pacientes. Cada cifra debería
+  ser enlace profundo a su lista ya filtrada. Además, la tabla "Tus clínicas" se
+  corta por la derecha sin scroll visible, y las tarjetas pequeñas truncan con "…"
+  justo donde está el dato útil.
+- **Alertas:** ~7 s de carga con texto plano "Cargando alertas…" en vez de
+  skeleton; todas las alertas pesan visualmente igual (ordenar por dinero en
+  riesgo, no por clínica); no se puede descartar ni posponer; "Enviar alerta" no
+  se convierte en estado ("Enviada hace 2 h"); errata **"liquidaciónes"** con
+  tilde en varias líneas.
+- **Pacientes:** se pintan los 166 de golpe, sin paginación ni virtualización, y
+  al final hay una zona en negro enorme; la columna "Notas" trunca siempre en
+  "Paciente recurrent…"; los tres iconos de acciones no tienen tooltip; el
+  formato de fecha es inconsistente; no se puede ordenar por cabecera (y
+  "pendiente de cobro" es justo lo que querrías ordenar).
+- **Ficha de paciente:** no se puede escribir desde ahí (hay botón de WhatsApp
+  pero no el compositor que sí existe en el drawer de Seguimiento — dos
+  componentes para lo mismo); falta histórico de acciones visible y navegación
+  anterior/siguiente.
+- **Seguimiento:** cuatro cifras distintas en la misma pantalla ("15 pendientes ·
+  13 atendidos" vs chips que suman 28 vs botón "Enviar uno a uno (17)"); abre por
+  defecto en "En conversación" en vez del grupo más urgente; Leads y Presupuestos
+  son vistas hermanas con capacidades muy distintas; no hay forma de marcar nada
+  como atendido desde la lista, así que la barra de progreso nunca se mueve; el
+  fondo no bloquea el scroll con el drawer abierto. Propuesta del informe:
+  "Hecho / Posponer" por tarjeta y **modo cola** (al cerrar el drawer, saltar al
+  siguiente pendiente), que es lo que la convertiría en la herramienta diaria.
+- **Impacto:** alto en conjunto (es la diferencia entre diagnosticar y actuar),
+  pero **son varias tandas**, no una.
+- **Fecha:** 2026-07-31 · 🔵 **sin priorizar — Simon decide el orden**

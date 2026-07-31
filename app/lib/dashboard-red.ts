@@ -27,7 +27,7 @@ import { ultimasAccionesDireccionPorLead } from "./leads/acciones";
 import { conversacionDePresupuesto } from "./presupuestos/conversacion-presupuesto";
 import {
   estadoConversacion,
-  UMBRAL_REACTIVACION_MS,
+  UMBRAL_REACTIVACION_DIAS,
 } from "./presupuestos/estado-conversacion";
 import { calcularCobrosPorPaciente } from "./cobros";
 import { fechasPerdidaPorPresupuesto } from "./historial/registrar";
@@ -288,6 +288,7 @@ export async function calcularDashboardRed(opts: {
         tipoUltimaAccion: f["Tipo_ultima_accion"] ? String(f["Tipo_ultima_accion"]) : null,
       },
       ultimos.porPresupuesto.get(r.id),
+      ahora,
     );
     const importe = Number(f["Importe"] ?? 0) || 0;
     const clinicaDelCaso = pacDe(r)?.clinicaId;
@@ -311,6 +312,9 @@ export async function calcularDashboardRed(opts: {
     presupuestos: presusScope as any,
     pagos: pagosScope,
     opciones,
+    // `ahoraMs` existía y el dashboard no lo pasaba: otro parámetro que el QA
+    // creía estar controlando y no controlaba.
+    ahoraMs: ahora.getTime(),
   });
   let vencidosN = 0;
   let vencidosImporte = 0;
@@ -334,7 +338,8 @@ export async function calcularDashboardRed(opts: {
         ultimoEntranteAt: max(accionesLead.entrantePorLead[l.id], hilo?.entranteAt),
         ultimoSalienteAt: max(accionesLead.salientePorLead[l.id], hilo?.salienteAt),
       },
-      UMBRAL_REACTIVACION_MS.lead,
+      UMBRAL_REACTIVACION_DIAS.lead,
+      ahora,
     );
     if (conv.estado === "sin_conversacion") {
       sinContactoN++;

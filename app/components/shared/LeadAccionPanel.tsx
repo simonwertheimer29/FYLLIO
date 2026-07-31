@@ -28,7 +28,7 @@ import {
   estadoConversacion,
   entradaDesdeMensajes,
   haceTexto,
-  UMBRAL_REACTIVACION_MS,
+  UMBRAL_REACTIVACION_DIAS,
 } from "../../lib/presupuestos/estado-conversacion";
 import type { PlantillaLead } from "../../api/leads/plantillas/route";
 import { cargarJSON, traeLista } from "../../lib/fetch-json";
@@ -110,7 +110,7 @@ function situacionLead(
       ultimoEntranteAt: maxIso(hilo.ultimoEntranteAt, accion?.entranteAt),
       ultimoSalienteAt: maxIso(hilo.ultimoSalienteAt, accion?.salienteAt),
     },
-    UMBRAL_REACTIVACION_MS.lead,
+    UMBRAL_REACTIVACION_DIAS.lead,
   );
 
   const citadoHoy =

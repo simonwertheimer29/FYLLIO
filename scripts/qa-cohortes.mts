@@ -20,7 +20,7 @@ import pg from "pg";
 import * as dotenv from "dotenv";
 import {
   estadoConversacion,
-  UMBRAL_REACTIVACION_MS,
+  UMBRAL_REACTIVACION_DIAS,
   type EstadoConversacion,
 } from "../app/lib/presupuestos/estado-conversacion";
 import { conversacionDePresupuesto } from "../app/lib/presupuestos/conversacion-presupuesto";
@@ -29,7 +29,7 @@ import { hoyISO } from "../app/lib/time";
 import {
   cohorteLead,
   cohortePresupuesto,
-  NUEVO_URGENTE_MS,
+  esNuevoUrgente,
   type CohorteLead,
   type CohortePresupuesto,
 } from "../app/lib/seguimiento/cohortes";
@@ -50,8 +50,8 @@ if (ctx !== "DEMO") {
   process.exit(1);
 }
 
-const AHORA = Date.now();
-const HOY = hoyISO(new Date(AHORA));
+const AHORA = new Date();
+const HOY = hoyISO(AHORA);
 const DETALLE = process.env.QA_COHORTES_DETALLE === "1";
 const fallos: string[] = [];
 
@@ -145,7 +145,7 @@ for (const l of leads) {
       ultimoEntranteAt: max(accEntrante.get(l.id) ?? null, hilo?.entranteAt ?? null),
       ultimoSalienteAt: max(accSaliente.get(l.id) ?? null, hilo?.salienteAt ?? null),
     },
-    UMBRAL_REACTIVACION_MS.lead,
+    UMBRAL_REACTIVACION_DIAS.lead,
     AHORA,
   );
   const fechaCita = l.fecha_cita ? String(l.fecha_cita).slice(0, 10) : null;
@@ -161,7 +161,7 @@ for (const l of leads) {
     citaFutura: !!fechaCita && fechaCita >= HOY,
     cohorte,
     urgente:
-      cohorte === "nuevos" && AHORA - new Date(iso(l.created_at)!).getTime() >= NUEVO_URGENTE_MS,
+      cohorte === "nuevos" && esNuevoUrgente(iso(l.created_at)!, AHORA),
   });
 }
 
@@ -185,6 +185,7 @@ for (const p of presus) {
       tipoUltimaAccion: p.tipo_ultima_accion ? String(p.tipo_ultima_accion) : null,
     },
     hiloPresu.get(p.id),
+    AHORA,
   );
   const cohorte = cohortePresupuesto(conv.estado);
   if (!COHORTES_PRESU.includes(cohorte)) {
@@ -236,13 +237,13 @@ for (const f of abiertos) {
 
 // ── informe ───────────────────────────────────────────────────────────
 const eur = (n: number) => `${Math.round(n).toLocaleString("es-ES")} €`;
-console.log(`\nCENSO SEGUIMIENTO · DEMO · ${new Date(AHORA).toISOString()}\n`);
+console.log(`\nCENSO SEGUIMIENTO · DEMO · ${AHORA.toISOString()}\n`);
 console.log(`Leads activos: ${activosLead.length}`);
 for (const c of COHORTES_LEAD) {
   const filas = porCohorteLead[c];
   const extra =
     c === "nuevos" && filas.some((f) => f.urgente)
-      ? ` (${filas.filter((f) => f.urgente).length} sin contactar ≥48 h)`
+      ? ` (${filas.filter((f) => f.urgente).length} sin contactar ≥2 días)`
       : "";
   console.log(`  ${c.padEnd(16)} ${String(filas.length).padStart(3)}${extra}`);
 }

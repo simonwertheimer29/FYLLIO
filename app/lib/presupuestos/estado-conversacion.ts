@@ -21,7 +21,10 @@
 // contestar de más que dejar a alguien colgado.
 //
 // Módulo PURO y client-safe (sin datos, sin luxon): lo consumen rutas de API
-// (cola de presupuestos, leads) y componentes (paneles, fichas).
+// (cola de presupuestos, leads) y componentes (paneles, fichas). `lib/time` es
+// puro también — Intl, sin datos ni async_hooks.
+
+import { hoyISO } from "../time";
 
 export type EstadoConversacion =
   | "pendiente_responder"
@@ -30,16 +33,35 @@ export type EstadoConversacion =
   | "sin_conversacion";
 
 /**
- * Umbral de reactivación (ahora constante; por clínica más adelante).
- * 48 h leads / 72 h presupuestos: son los valores que el producto ya usaba
- * (comparable antes/después) y la asimetría es comercial — un lead se enfría
- * en horas y a las 48 h insistir es correcto; un presupuesto es una decisión
- * lenta (familia, financiación) y a las 48 h insistir es presión, a las 72 h
- * es seguimiento. Coherente con el "Recordatorio 3d" del enum de fases.
+ * Umbral de reactivación, en DÍAS DE CALENDARIO DE LA CLÍNICA (ahora constante;
+ * por clínica más adelante). 2 días leads / 3 días presupuestos: la asimetría
+ * es comercial — un lead se enfría rápido y al segundo día insistir es
+ * correcto; un presupuesto es una decisión lenta (familia, financiación) y al
+ * segundo día insistir es presión, al tercero es seguimiento. Coherente con el
+ * "Recordatorio 3d" del enum de fases.
+ *
+ * POR QUÉ DÍAS Y NO 48/72 HORAS (2026-07-31). Eran 48 h y 72 h exactas contra
+ * `Date.now()`, o sea una ventana RODANTE que se cruza al segundo. Efecto
+ * medido en /red: el titular «cuánto hay en juego hoy» subía de 38.215 € a
+ * 39.965 € en DOS MINUTOS y un 62 % en 24 h, sin que nadie tocara nada, porque
+ * cada caso que cumplía sus 72 h se sumaba al instante. Y como el seed ancla
+ * los mensajes al mismo momento de generación, había cruces a 1,2 segundos de
+ * distancia: dos F5 seguidos daban dos cifras distintas. El cálculo era
+ * correcto; lo que fallaba es que una cifra que se presenta como «tu dinero
+ * hoy» y se mueve entre dos recargas destruye la confianza en todas las demás.
+ *
+ * El negocio de una clínica se mide en días de calendario, no en milisegundos:
+ * «hace tres días que le escribimos y no contesta». Anclado al día, la cifra
+ * cambia UNA VEZ, a las 00:00 de la clínica, y nunca en mitad de una demo.
+ * Misma doctrina que `hoyISO()` (MEJORAS 52).
+ *
+ * El umbral en MILISEGUNDOS se retiró a propósito y no vuelve: los dos eran
+ * `number`, así que un caller sin migrar habría compilado y significado 172
+ * millones de días — nada volvería a ser reactivable, en silencio.
  */
-export const UMBRAL_REACTIVACION_MS = {
-  lead: 48 * 60 * 60 * 1000,
-  presupuesto: 72 * 60 * 60 * 1000,
+export const UMBRAL_REACTIVACION_DIAS = {
+  lead: 2,
+  presupuesto: 3,
 } as const;
 
 export type EntradaConversacion = {
@@ -65,11 +87,25 @@ function ms(iso?: string | null): number | null {
   return Number.isFinite(t) ? t : null;
 }
 
+/** Días de calendario COMPLETOS entre dos instantes, contados en el día de la
+ *  clínica. Escribir a las 23:50 del lunes y mirar a las 00:10 del martes es 1
+ *  día, no 20 minutos: es como lo cuenta una persona en una clínica. */
+export function diasDeClinicaEntre(desde: Date, hasta: Date): number {
+  const a = Date.parse(`${hoyISO(desde)}T00:00:00Z`);
+  const b = Date.parse(`${hoyISO(hasta)}T00:00:00Z`);
+  return Math.round((b - a) / 86_400_000);
+}
+
 export function estadoConversacion(
   entrada: EntradaConversacion,
-  umbralMs: number,
-  ahoraMs: number = Date.now(),
+  /** Umbral en DÍAS de la clínica — `UMBRAL_REACTIVACION_DIAS.lead|presupuesto`. */
+  umbralDias: number,
+  /** El instante de referencia. Se pasa explícito desde las rutas para que el
+   *  QA pueda afirmar algo: antes el `ahora` del dashboard era un parámetro
+   *  muerto porque esta función llamaba a `Date.now()` por dentro. */
+  ahora: Date = new Date(),
 ): ConversacionClasificada {
+  const ahoraMs = ahora.getTime();
   const entrante = ms(entrada.ultimoEntranteAt);
   const salienteHilo = ms(entrada.ultimoSalienteAt);
   const accion = ms(entrada.ultimaAccionSalienteAt);
@@ -93,9 +129,13 @@ export function estadoConversacion(
       haceMs: Math.max(0, ahoraMs - entrante),
     };
   }
+  // El estado se decide en DÍAS de la clínica (estable, cambia a medianoche);
+  // `haceMs` sigue siendo el tiempo real transcurrido, porque es lo que las
+  // cards escriben ("sin respuesta hace 4 días") y ahí sí se quiere precisión.
   const haceMs = Math.max(0, ahoraMs - (saliente as number));
+  const haceDias = diasDeClinicaEntre(new Date(saliente as number), ahora);
   return {
-    estado: haceMs < umbralMs ? "en_espera_paciente" : "reactivable",
+    estado: haceDias < umbralDias ? "en_espera_paciente" : "reactivable",
     ultimoToqueClinicaAt: salienteIso,
     haceMs,
   };

@@ -14,6 +14,7 @@ import {
 import { ErrorState, EmptyState } from "../../components/ui/Feedback";
 import { toast } from "sonner";
 import { Phone, RefreshCw, X, User, ICON_STROKE } from "../../components/icons";
+import { deDiccionario } from "../../lib/diccionario";
 
 type Llamada = {
   id: string;
@@ -84,6 +85,20 @@ const RESULTADO_BADGE: Record<Llamada["resultado"], { tone: string; label: strin
   escalado_humano: { tone: AMBER_TONE, label: "Escalado" },
   sin_resultado: { tone: NEUTRAL_TONE, label: "Sin resultado" },
 };
+
+// Los tres diccionarios se leen con `deDiccionario` porque el repo castea a
+// ciegas lo que venga de la base (`String(f["Estado"]) as EstadoLlamada`), así
+// que el tipo NO garantiza nada aquí. Y no era teórico: `tipo_llamada` vale
+// "recordatorio" en las 12 filas de DEMO, fuera del union — por eso la columna
+// "Tipo" salía vacía en todas. Mismo desajuste que tumbaba Automatizaciones;
+// solo cambiaba que aquí se pintaba el valor y allí se leía `.color` de él.
+const SIN_CLASIFICAR = { tone: NEUTRAL_TONE, label: "Sin clasificar" };
+const tipoLabel = (t: string | null | undefined) =>
+  deDiccionario(TIPO_LABEL, t, "Sin clasificar", "llamadas_vapi.tipo_llamada");
+const estadoBadge = (e: string | null | undefined) =>
+  deDiccionario(ESTADO_BADGE, e, SIN_CLASIFICAR, "llamadas_vapi.estado");
+const resultadoBadge = (r: string | null | undefined) =>
+  deDiccionario(RESULTADO_BADGE, r, SIN_CLASIFICAR, "llamadas_vapi.resultado");
 
 function fmtFecha(iso: string): string {
   if (!iso) return "—";
@@ -298,20 +313,20 @@ export function LlamadasView({ isAdmin }: { isAdmin: boolean }) {
                             </Link>
                           </td>
                           <td className="px-3 py-2 text-[var(--color-muted)] text-xs">
-                            {TIPO_LABEL[l.tipo]}
+                            {tipoLabel(l.tipo)}
                           </td>
                           <td className="px-3 py-2">
                             <span
-                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${ESTADO_BADGE[l.estado].tone}`}
+                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${estadoBadge(l.estado).tone}`}
                             >
-                              {ESTADO_BADGE[l.estado].label}
+                              {estadoBadge(l.estado).label}
                             </span>
                           </td>
                           <td className="px-3 py-2">
                             <span
-                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${RESULTADO_BADGE[l.resultado].tone}`}
+                              className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${resultadoBadge(l.resultado).tone}`}
                             >
-                              {RESULTADO_BADGE[l.resultado].label}
+                              {resultadoBadge(l.resultado).label}
                             </span>
                           </td>
                           <td className="px-3 py-2 text-[var(--color-muted)] text-xs font-mono">
@@ -389,7 +404,7 @@ function LlamadaDrawer({
               Llamada IA
             </p>
             <p className="text-sm font-semibold text-[var(--color-foreground)] mt-0.5">
-              {TIPO_LABEL[llamada.tipo]}
+              {tipoLabel(llamada.tipo)}
             </p>
           </div>
           <button
@@ -407,9 +422,9 @@ function LlamadaDrawer({
               label="Estado"
               value={
                 <span
-                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${ESTADO_BADGE[llamada.estado].tone}`}
+                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${estadoBadge(llamada.estado).tone}`}
                 >
-                  {ESTADO_BADGE[llamada.estado].label}
+                  {estadoBadge(llamada.estado).label}
                 </span>
               }
             />
@@ -417,9 +432,9 @@ function LlamadaDrawer({
               label="Resultado"
               value={
                 <span
-                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${RESULTADO_BADGE[llamada.resultado].tone}`}
+                  className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full border ${resultadoBadge(llamada.resultado).tone}`}
                 >
-                  {RESULTADO_BADGE[llamada.resultado].label}
+                  {resultadoBadge(llamada.resultado).label}
                 </span>
               }
             />

@@ -12,7 +12,7 @@
 //   de chat), sin fila de hilo. Antes lista (acciones) y panel (hilo) se
 //   contradecían; ahora ambos usan los timestamps fusionados → en_espera.
 // Caso 3 — presupuesto: saliente hace 5 días sin respuesta → reactivable en
-//   cola Y ficha (umbral 72h centralizado).
+//   cola Y ficha (umbral centralizado, 3 días de la clínica).
 //
 // Solo DEMO; limpieza total de residuos [QA_CONV].
 
@@ -32,7 +32,8 @@ import {
 import {
   estadoConversacion,
   entradaDesdeMensajes,
-  UMBRAL_REACTIVACION_MS,
+  UMBRAL_REACTIVACION_DIAS,
+  diasDeClinicaEntre,
 } from "../app/lib/presupuestos/estado-conversacion";
 import {
   selectPresupuestosRaw,
@@ -75,7 +76,7 @@ async function estadoSegunCola(presupuestoId: string) {
       ultimoSalienteAt: hilo?.salienteAt ?? null,
       ultimaAccionSalienteAt: accionSaliente,
     },
-    UMBRAL_REACTIVACION_MS.presupuesto,
+    UMBRAL_REACTIVACION_DIAS.presupuesto,
   );
 }
 
@@ -84,7 +85,7 @@ async function estadoSegunFicha(presupuestoId: string) {
   const mensajes = await servicio.getHistorialConversacion({ presupuestoId, limit: 50 });
   return estadoConversacion(
     entradaDesdeMensajes(mensajes as any),
-    UMBRAL_REACTIVACION_MS.presupuesto,
+    UMBRAL_REACTIVACION_DIAS.presupuesto,
   );
 }
 
@@ -179,13 +180,13 @@ async function main() {
       ultimoEntranteAt: max(entrantePorLead[lead2.id], hiloLead?.entranteAt),
       ultimoSalienteAt: max(salientePorLead[lead2.id], hiloLead?.salienteAt),
     };
-    const lista2 = estadoConversacion(entradaLista, UMBRAL_REACTIVACION_MS.lead);
+    const lista2 = estadoConversacion(entradaLista, UMBRAL_REACTIVACION_DIAS.lead);
     const panel2 = estadoConversacion(
       {
         ultimoEntranteAt: max(null, entradaLista.ultimoEntranteAt),
         ultimoSalienteAt: max(null, entradaLista.ultimoSalienteAt),
       },
-      UMBRAL_REACTIVACION_MS.lead,
+      UMBRAL_REACTIVACION_DIAS.lead,
     );
     ok(`lista = ${lista2.estado}`, lista2.estado === "en_espera_paciente");
     ok(`panel = ${panel2.estado}`, panel2.estado === "en_espera_paciente");
@@ -196,18 +197,25 @@ async function main() {
     // saliente hace ≥4 días, sin respuesta): no hace falta fabricar nada —
     // se verifica que cola y ficha coinciden sobre el caso REAL.
     console.log("\nCASO 3 · presupuesto: saliente viejo sin respuesta → reactivable");
+    // El umbral se cuenta en DÍAS de la clínica desde 2026-07-31. Estas tres
+    // comparaciones eran `Date.now() - x < UMBRAL…` en milisegundos: al cambiar
+    // la constante habrían significado "3 milisegundos" y habrían seguido
+    // compilando, eligiendo un caso3 cualquiera por el motivo equivocado. Se
+    // usa la MISMA función que el producto para contar los días.
+    const AHORA = new Date();
+    const diasDesde = (v: unknown) => diasDeClinicaEntre(new Date(String(v)), AHORA);
     const caso3 = abiertos.find((r: any) => {
       const h = ultimos0.porPresupuesto.get(r.id);
       const f = r.fields as any;
       const acc = f["Ultima_accion_registrada"];
-      const accReciente = acc && Date.now() - new Date(String(acc)).getTime() < UMBRAL_REACTIVACION_MS.presupuesto;
+      const accReciente = acc && diasDesde(acc) < UMBRAL_REACTIVACION_DIAS.presupuesto;
       const salienteViejo =
         h?.salienteAt &&
         (!h.entranteAt || h.entranteAt < h.salienteAt) &&
-        Date.now() - new Date(h.salienteAt).getTime() >= UMBRAL_REACTIVACION_MS.presupuesto;
+        diasDesde(h.salienteAt) >= UMBRAL_REACTIVACION_DIAS.presupuesto;
       const furReciente =
         f["Fecha_ultima_respuesta"] &&
-        Date.now() - new Date(String(f["Fecha_ultima_respuesta"])).getTime() < UMBRAL_REACTIVACION_MS.presupuesto;
+        diasDesde(f["Fecha_ultima_respuesta"]) < UMBRAL_REACTIVACION_DIAS.presupuesto;
       return r.id !== caso1.id && salienteViejo && !accReciente && !furReciente;
     });
     if (!caso3) throw new Error("No hay presupuesto reactivable en DEMO — corre npm run demo:reset");

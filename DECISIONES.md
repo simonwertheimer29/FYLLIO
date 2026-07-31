@@ -1214,3 +1214,77 @@ cuatro anónimos. Los nombres son una consulta barata y el fallback no está den
 de 3,5 s: ahora se resuelven, y lo que no se resuelve dice "Doctor sin identificar".
 La lección: **la pasada visual encuentra bugs de datos que la pasada de datos no encontró**,
 porque un número imposible solo canta cuando está escrito en su sitio.
+
+## 2026-07-31 — Un widget tumbaba el producto entero: no había NI UNA frontera de error
+Revisión externa navegando producción: Automatizaciones → Operativo dejaba la pantalla en blanco
+con "Application error". Causa exacta, `AutomatizacionesView.tsx:191→201`:
+`EVENTO_CONFIG[sec.tipoEvento].color` con `tipo_evento="seguimiento"` (12 filas en DEMO), un valor
+que el union no tiene y que escribía **nuestro propio seed**. Pero el bug de fondo era otro: cero
+`error.tsx` y cero `componentDidCatch` en toda la app, así que React desmontaba el árbol y la única
+salida era recargar escribiendo la URL. Ahora hay frontera **por sección** (13) + una de grupo + una
+global, todas sobre `SeccionRota` — honesta, con reintentar y con salida, y logueando `digest`.
+Verificado forzando un throw real en /alertas: se ve la frontera, el menú sigue montado y se sale
+con un clic.
+El censo del patrón dio cuatro zonas más con la misma forma, y **la más reveladora no rompía**:
+`TIPO_LABEL[l.tipo]` en /llamadas con `tipo_llamada="recordatorio"` — la "columna Tipo vacía en
+todas las filas" del informe **es exactamente el mismo bug**, y la única diferencia es que se
+escribe `DICT[x]` en vez de `DICT[x].campo`. Un `??` a mano no valía como arreglo: en el MISMO
+archivo del crash, 194 líneas más abajo, `ESTADO_CONFIG` ya llevaba el suyo. Nace `lib/diccionario`
+(`deDiccionario`), que devuelve fallback **y avisa una vez por clave** con tabla, columna y valores
+conocidos: un fallback mudo esconde el desajuste igual que un catch mudo (§9).
+
+## 2026-07-31 — El dinero de /red se movía entre dos F5: la ventana rodante pasa a día de clínica
+Lo más grave del informe externo (30.205 € → 30.515 € en dos cargas seguidas). **Primero se
+descartó lo obvio**: 8 corridas seguidas del dashboard, byte-idénticas — no era orden de consulta.
+Era el tiempo. `reactivable` eran 48 h/72 h EXACTAS contra `Date.now()`: una ventana rodante que se
+cruza al segundo. Medido: el titular subía de 38.215 € a **39.965 € en dos minutos** y un **62 % en
+24 h** sin que nadie tocara nada; y como el seed ancla los mensajes al mismo instante de generación,
+había dos cruces a **1,2 segundos** de distancia que sumaban exactamente **310 €** — el salto que se
+reportó. El cálculo era correcto; lo insostenible es que la cifra que se vende como "tu dinero hoy"
+cambie entre dos recargas.
+El umbral pasa a **días de calendario de la clínica** (2 leads / 3 presupuestos): la cifra cambia
+una vez, a las 00:00 de Madrid, nunca en mitad de una demo. Verificado: constante las 24 h del día
+(39.965 €) y solo salta al día siguiente. `haceMs` sigue siendo el tiempo real, porque es lo que las
+cards escriben ("sin respuesta hace 4 días") y ahí sí se quiere precisión.
+**`UMBRAL_REACTIVACION_MS` se borró en vez de renombrarse**: los dos eran `number`, así que un
+caller sin migrar habría compilado y significado 172 millones de días. El compilador cazó los 6.
+Y aun así el peligro apareció donde el tipo no llega: `NUEVO_URGENTE_MS` (que habría pasado a valer
+"2 milisegundos") y tres restas en milisegundos dentro de `qa-estado-conversacion`. Por eso ambos
+cambiaron de NOMBRE y de TIPO de parámetro, no solo de valor.
+De paso, **`{ahora}` era un parámetro muerto** en `calcularDashboardRed` —nadie lo pasaba y la
+franja de riesgo llamaba a `Date.now()` por dentro—, igual que `ahoraMs` en
+`calcularCobrosPorPaciente`. Ahora se enhebran de verdad y `qa-dashboard-red` fija UN instante para
+el dashboard y para su contraste SQL: antes cada lado leía su propio reloj y un cruce entre ambas
+lecturas podía hacer fallar la paridad sin que nada estuviera roto. `qa:fechas` gana 8
+comprobaciones que afirman que el estado no cambia en 24 h y que la fórmula vieja SÍ cambiaba
+(verde con TZ=UTC · Madrid · New_York · Tokyo).
+**Cazado de rebote:** `qa-dashboard-red` daba ROJO en un producto sano los días 29, 30 y 31 —
+`setMonth(-1)` sobre un 31 de julio pide "31 de junio", JavaScript lo rueda al 1 de julio, y el
+"mes previo" era el mes actual comparándose consigo mismo.
+
+## 2026-07-31 — Un estado persistido que cambia lo que se ve tiene que declararse EN PANTALLA
+Decisión de producto de Simon, y regla general. La revisión externa reportó "una tarjeta entera que
+desaparece" en /red: era la tabla "Tus clínicas", que el producto **retira a propósito** cuando hay
+una clínica seleccionada (decisión del 27/7). El filtro vive en el selector de la cabecera y
+**persiste en localStorage**, así que se llega a la pantalla con él puesto sin haberlo tocado en
+esta sesión: los euros son otros y falta una sección, y nada lo dice. La única señal era un enlace
+de 12 px dentro del subtítulo, que el revisor no vio.
+La regla: **el control cuenta lo que hiciste hace tres días; la página tiene que contar lo que estás
+viendo AHORA**, y la salida va al lado de la declaración, no de vuelta en el control. /red estrena
+`AvisoFiltroClinica` — banda en acento bajo la cabecera, con el nombre de la clínica, **qué deja de
+verse por tener el filtro puesto** (sin eso, la ausencia se sigue leyendo como avería) y "Ver toda
+la red". Verificado en navegador reproduciendo el recorrido del informe: elegir clínica → recargar →
+el aviso está. Las demás pantallas que siguen al selector quedan anotadas (MEJORAS 86).
+
+## 2026-07-31 — El seed no puede escribir valores que el producto no conoce (invariante D)
+Cuarta vez que el mismo error iba a costar caro: jul-27 los motivos de descarte en texto libre
+(MEJORAS 41), jul-30 `"Primera Visita"` vs `"Primera visita"` (MEJORAS 77), y hoy dos —
+`tipo_evento="seguimiento"`, que **reventaba una sección entera**, y `tipo_llamada="recordatorio"`,
+que dejaba una columna vacía en las 12 filas. Las tres se cazaron mirando una pantalla, nunca un
+test. `demo:reset` gana la invariante **D**: 11 columnas de vocabulario cerrado comprobadas contra
+la unión declarada; si aparece un valor desconocido, revienta con tabla · columna · valor · nº de
+filas · valores admitidos, y hace rollback. El vocabulario se declara **a mano en el seed**, copia
+deliberada de los tipos de `app/lib`: cambiar un union sin pensar en el seed tiene que romper en el
+próximo reseed, no en una demo. Probado en los dos sentidos — con el valor malo, rojo y exit 1; sin
+él, verde. Un seed que no respeta el esquema real no son "datos de prueba": es una demo que miente,
+y a veces una demo que se cae.

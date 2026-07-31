@@ -35,7 +35,7 @@ import { PagoModal } from "./PagoModal";
 import {
   estadoConversacion,
   entradaDesdeMensajes,
-  UMBRAL_REACTIVACION_MS,
+  UMBRAL_REACTIVACION_DIAS,
 } from "../../lib/presupuestos/estado-conversacion";
 import { CardListSkeleton, KpiCardSkeleton } from "../ui/Skeleton";
 import { ErrorState, EmptyState } from "../ui/Feedback";
@@ -347,7 +347,7 @@ function derivarSituacion(data: Paciente360Payload, mensajes: MensajeHilo[]): Si
   // tiene criterio propio de "quién tiene la pelota".
   const conv = estadoConversacion(
     entradaDesdeMensajes(orden),
-    UMBRAL_REACTIVACION_MS.presupuesto,
+    UMBRAL_REACTIVACION_DIAS.presupuesto,
   );
   const dEnt = ultimoEntrante ? diasDesde(ultimoEntrante.timestamp) : null;
 

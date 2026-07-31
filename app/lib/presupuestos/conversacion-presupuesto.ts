@@ -12,7 +12,7 @@
 
 import {
   estadoConversacion,
-  UMBRAL_REACTIVACION_MS,
+  UMBRAL_REACTIVACION_DIAS,
   type ConversacionClasificada,
 } from "./estado-conversacion";
 
@@ -29,6 +29,11 @@ export function conversacionDePresupuesto(
     tipoUltimaAccion?: string | null;
   },
   hilo?: { entranteAt?: string | null; salienteAt?: string | null },
+  /** Instante de referencia. Se pasa desde el caller para que el `ahora` del
+   *  dashboard llegue de verdad hasta aquí: mientras esta función llamaba a
+   *  `Date.now()` por dentro, `calcularDashboardRed({ahora})` era un parámetro
+   *  muerto y el QA no podía afirmar nada sobre la franja de riesgo. */
+  ahora: Date = new Date(),
 ): ConversacionClasificada {
   const fur = campos.fechaUltimaRespuesta || null;
   const accionSaliente =
@@ -45,6 +50,7 @@ export function conversacionDePresupuesto(
       ultimoSalienteAt: hilo?.salienteAt ?? null,
       ultimaAccionSalienteAt: accionSaliente,
     },
-    UMBRAL_REACTIVACION_MS.presupuesto,
+    UMBRAL_REACTIVACION_DIAS.presupuesto,
+    ahora,
   );
 }

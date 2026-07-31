@@ -164,7 +164,7 @@ function necesitaAtencion(lead: Lead, hoyIso: string, ahoraMs: number): boolean 
     hoy: hoyIso,
     conversacion: lead.conversacion,
   });
-  return cohorte === "nuevos" && esNuevoUrgente(lead.createdAt, ahoraMs);
+  return cohorte === "nuevos" && esNuevoUrgente(lead.createdAt, new Date(ahoraMs));
 }
 
 const TONO_LINEA: Record<LineaEstado["tono"], string> = {

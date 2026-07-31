@@ -38,6 +38,7 @@ import { Card } from "../../components/ui/Card";
 import { Skeleton } from "../../components/ui/Skeleton";
 import { ColaTabs } from "../../components/shared/ColaTabs";
 import { Cifra, Comparativa, eur, fmtDelta } from "../../components/shared/Cifra";
+import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
 import {
   Sparkles,
   TrendingUp,
@@ -600,15 +601,11 @@ export function RedView({ user: _user }: { user: UserSession }) {
             {/* El titular refleja el ámbito: la pantalla no puede decir "Red"
                 mientras enseña los números de una sola clínica. */}
             {clinicaFiltrada ? (
-              <p className="text-xs text-[var(--color-muted)] mt-0.5 flex items-center gap-2 flex-wrap">
+              // La salida vive en el aviso de abajo, que es lo que se ve: este
+              // enlace de 12 px dentro del subtítulo era la única señal de que
+              // había un filtro puesto, y una revisión externa no lo vio.
+              <p className="text-xs text-[var(--color-muted)] mt-0.5">
                 Dónde pierde dinero esta clínica y cómo va su negocio
-                <button
-                  type="button"
-                  onClick={() => setSelectedClinicaId(null)}
-                  className="font-medium text-[var(--color-accent)] hover:underline"
-                >
-                  Ver toda la red
-                </button>
               </p>
             ) : (
               <p className="text-xs text-[var(--color-muted)] mt-0.5">
@@ -644,6 +641,17 @@ export function RedView({ user: _user }: { user: UserSession }) {
             <Sparkles size={14} strokeWidth={ICON_STROKE} aria-hidden /> Analiza el mes
           </button>
         </header>
+
+        {/* El filtro de clínica PERSISTE en localStorage: se puede llegar aquí
+            con él puesto sin haberlo tocado en esta sesión. Se declara en la
+            página, no solo en el selector de la cabecera. */}
+        {clinicaFiltrada && (
+          <AvisoFiltroClinica
+            nombre={selectedClinicaNombre!}
+            onVerTodas={() => setSelectedClinicaId(null)}
+            ocultaAdemas="La comparativa entre clínicas solo aparece viendo la red entera."
+          />
+        )}
 
         {/* Tres filas. En móvil, el mismo orden apilado: riesgo → logros →
             negocio → clínicas → evolución → embudo. */}

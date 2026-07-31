@@ -17,18 +17,39 @@ Dónde está Fyllio hoy, en una pantalla. Se lee al abrir sesión y se regenera 
 
 ## Ahora mismo
 
-**Pasada visual pantalla por pantalla**, aplicando el estándar visual y limpiando la deuda de
-`?? []` de cada zona por el camino. Método: diagnóstico primero, reportar, esperar aprobación,
-después ejecutar. Lo que se descubre de paso va a MEJORAS, nunca al diff.
+**Cerrados los dos bloqueantes de la revisión externa de producción** (recorrido completo con
+Claude for Chrome, sección por sección). Detalle en [`DECISIONES.md`](DECISIONES.md), 31 jul:
+
+| Qué | Estado |
+|---|---|
+| El crash de Automatizaciones → Operativo | ✅ arreglado, y con él la causa de fondo: **no había ni una frontera de error** en toda la app |
+| El dinero de `/red` cambiaba entre dos F5 | ✅ el umbral de reactivación pasa de ventana rodante a **días de calendario de la clínica** |
+| "Una tarjeta que desaparece" en `/red` | ✅ no era una avería: el filtro de clínica persiste y retira "Tus clínicas". Ahora se **declara en pantalla** |
+| El seed escribía valores fuera del union | ✅ invariante D en `demo:reset` — la que evita la cuarta vez |
+
+**Sigue abierta la pasada visual pantalla por pantalla.** Método: diagnóstico primero, reportar,
+esperar aprobación, después ejecutar.
 
 | Pantalla | Estado |
 |---|---|
-| `/presupuestos` · `/kpis` | ✅ hechas |
-| `/alertas` | ⬅ **siguiente**, diagnóstico primero |
-| `/automatizaciones` · `/ajustes` · `/llamadas` · `/seguimiento` | pendientes, en ese orden |
+| `/presupuestos` · `/kpis` · `/red` · `/cobros` · `/pacientes` · `/leads` | ✅ hechas |
+| `/llamadas` | ⬅ **siguiente** (sube de última a primera: es la que peor imagen da) |
+| `/automatizaciones` + `/ajustes` · `/alertas` · `/seguimiento` | pendientes, en ese orden |
+
+Los tres bloques de trabajo que quedan del plan de esta sesión, sin empezar:
+
+- **Bloque 2 — `/llamadas`**: fuera del contenedor estándar, "Coste mes" cortado, columna Paciente
+  sin nombres, fechas a las 02:00 (familia de [MEJORAS 52](MEJORAS-PENDIENTES.md)) y coste en
+  dólares. *(La columna "Tipo" vacía ya está cerrada: era el mismo bug que el crash.)*
+- **Bloque 3 — `/automatizaciones` + `/ajustes` juntos**: hay **dos centros de ajustes**
+  ([MEJORAS 13](MEJORAS-PENDIENTES.md)). Es arquitectura de información: se tocan juntos o es
+  trabajo doble. Proponer la fusión antes de ejecutar.
+- **Bloque 4 — `/alertas`** y **Bloque 5 — reconciliación de cifras** (Tablero 28 vs Tabla 44,
+  67 % vs 86 %, 6 aceptados vs 14…): censar qué es definición legítima y qué es bug, como se hizo
+  con la tasa de aceptación.
 
 Aparte y ya aprobada, en su propia tanda: **`/informes` como pantalla propia**
-([MEJORAS 81](MEJORAS-PENDIENTES.md)) — hoy es una pantalla entera metida en un cajón de `/kpis`.
+([MEJORAS 81](MEJORAS-PENDIENTES.md)).
 
 ---
 
@@ -48,7 +69,7 @@ Aparte y ya aprobada, en su propia tanda: **`/informes` como pantalla propia**
    de las once hipótesis abiertas se tocan ahí. Preguntas y checklist previo en
    [`REUNION-RB-DENTAL.md`](REUNION-RB-DENTAL.md); cómo se enseña el producto, en
    [`guion-demo-fyllio.md`](guion-demo-fyllio.md).
-2. **Cerrar la pasada visual** — condición: las cinco pantallas que quedan, en el orden de
+2. **Cerrar la pasada visual** — condición: las cuatro pantallas que quedan, en el orden de
    arriba. Sin fecha; va por tandas aprobadas una a una.
 3. **Arranque del piloto** — condición: que RB diga que sí, más los seis pendientes de
    onboarding de abajo. Fecha a fijar en la propia reunión.
@@ -92,7 +113,9 @@ importe en el mismo WhatsApp, que es dato de salud del art. 9.
 | | |
 |---|---|
 | Rama | `main`, limpia y al día con `origin` |
+| Fronteras de error | **15** (13 secciones + grupo + global) — antes: cero |
 | Deuda de `?? []` | **16**, y el trinquete solo deja bajar (`npm run qa:sin-fallbacks`) |
+| QA verde | `qa:fechas` 39/39 en 4 husos · `qa:cohortes` · `qa:estado-conversacion` · `qa-dashboard-red` (paridad) · `qa:sin-fallbacks` · `demo:reset` con 4 invariantes |
 | QA de /kpis | 18/18 (`npm run qa:kpis`, necesita el server en :3100) |
-| MEJORAS | 83 entradas · **62 abiertas** 🔵 · 27 hechas 🟢 · 19 cerradas ✅ · 4 descartadas ⚪ |
-| Sin verificar en producción | Ver Bloqueado |
+| MEJORAS | 87 entradas · **66 abiertas** 🔵 · 27 hechas 🟢 · 19 cerradas ✅ · 4 descartadas ⚪ |
+| Sin verificar en producción | Ver Bloqueado. Lo de hoy sí se verificó en navegador real contra el build de producción |

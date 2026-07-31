@@ -28,7 +28,7 @@ import PagoCierreModal from "../../components/presupuestos/PagoCierreModal";
 import MotivoPerdidaModal from "../../components/presupuestos/MotivoPerdidaModal";
 import {
   estadoConversacion,
-  UMBRAL_REACTIVACION_MS,
+  UMBRAL_REACTIVACION_DIAS,
   haceTexto,
   type ConversacionClasificada,
 } from "../../lib/presupuestos/estado-conversacion";
@@ -381,7 +381,7 @@ function LeadsTab({
             ultimoEntranteAt: ultimaEntrantePorLead[l.id] ?? null,
             ultimoSalienteAt: ultimaSalientePorLead[l.id] ?? null,
           },
-          UMBRAL_REACTIVACION_MS.lead,
+          UMBRAL_REACTIVACION_DIAS.lead,
         );
         return {
           l,
@@ -410,8 +410,8 @@ function LeadsTab({
       // premia el flujo correcto (contactar hoy lo de hoy), no el rescate
       // (DECISIONES 2026-07-26).
       nuevos: de("nuevos").sort((a, b) => {
-        const ua = esNuevoUrgente(a.l.createdAt, ahora) ? 1 : 0;
-        const ub = esNuevoUrgente(b.l.createdAt, ahora) ? 1 : 0;
+        const ua = esNuevoUrgente(a.l.createdAt, new Date(ahora)) ? 1 : 0;
+        const ub = esNuevoUrgente(b.l.createdAt, new Date(ahora)) ? 1 : 0;
         if (ua !== ub) return ua - ub;
         return ua ? creado(a) - creado(b) : creado(b) - creado(a);
       }),
@@ -446,7 +446,7 @@ function LeadsTab({
     const ahora = Date.now();
     if (cohortes.en_conversacion.some((x) => x.conv.estado === "pendiente_responder"))
       return "en_conversacion";
-    if (cohortes.nuevos.some((x) => esNuevoUrgente(x.l.createdAt, ahora))) return "nuevos";
+    if (cohortes.nuevos.some((x) => esNuevoUrgente(x.l.createdAt, new Date(ahora)))) return "nuevos";
     if (cohortes.rezagados.length > 0) return "rezagados";
     if (cohortes.citados.length > 0) return "citados";
     const orden: CohorteLead[] = ["nuevos", "en_conversacion", "citados"];
@@ -705,7 +705,7 @@ function LeadAccionRow({
   const isCitadoHoy =
     (lead.estado === "Citado" || lead.estado === "Citados Hoy") && lead.fechaCita === today;
 
-  const urgente = cohorte === "nuevos" && esNuevoUrgente(lead.createdAt, Date.now());
+  const urgente = cohorte === "nuevos" && esNuevoUrgente(lead.createdAt, new Date());
 
   // El color del borde deriva del MISMO criterio que ordena y titula la
   // cohorte — nada de scores paralelos (el badge ALTO/MEDIO/BAJO murió por

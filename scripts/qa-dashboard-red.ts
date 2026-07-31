@@ -22,10 +22,19 @@ process.env.DATA_BACKEND_PG_CLIENTES = "DEMO";
 import pg from "pg";
 import { runWithCliente } from "../app/lib/airtable";
 import { calcularDashboardRed } from "../app/lib/dashboard-red";
+import { mesISO } from "../app/lib/time";
 import {
   estadoConversacion,
-  UMBRAL_REACTIVACION_MS,
+  UMBRAL_REACTIVACION_DIAS,
 } from "../app/lib/presupuestos/estado-conversacion";
+
+// UN instante para toda la corrida, pasado explícitamente al dashboard Y a la
+// derivación de contraste. Hasta el 2026-07-31 cada lado llamaba a `Date.now()`
+// por su cuenta y el umbral era una ventana rodante al segundo: un caso que
+// cruzara entre las dos lecturas hacía fallar la paridad sin que nada
+// estuviera roto. Y `calcularDashboardRed({ahora})` ni siquiera llegaba a la
+// franja de riesgo — era un parámetro muerto.
+const AHORA = new Date();
 
 let fallos = 0;
 const ok = (n: string, c: boolean, extra = "") => {
@@ -42,12 +51,22 @@ async function main() {
   await c.query("select set_config('app.cliente','DEMO',true)");
   const q = async (sql: string, params: any[] = []) => (await c.query(sql, params)).rows;
 
-  const d = await runWithCliente("DEMO", () => calcularDashboardRed({ clinicaIds: null }));
+  const d = await runWithCliente("DEMO", () => calcularDashboardRed({ clinicaIds: null, ahora: AHORA }));
 
-  const mesActual = new Date().toISOString().slice(0, 7);
-  const prevDate = new Date();
-  prevDate.setMonth(prevDate.getMonth() - 1);
-  const mesPrevio = `${prevDate.getFullYear()}-${String(prevDate.getMonth() + 1).padStart(2, "0")}`;
+  // Mes de la CLÍNICA, y resta sobre el calendario — no con `setMonth`.
+  // Este test daba ROJO en un producto sano los días 29, 30 y 31: `setMonth(-1)`
+  // sobre un 31 de julio pide "31 de junio", que no existe, y JavaScript lo
+  // rueda al 1 de julio → el "mes previo" era el mes ACTUAL, así que dos
+  // comprobaciones se comparaban contra sí mismas. Mismo defecto que MEJORAS 52
+  // por otra puerta, y en la herramienta en vez de en el producto (§9: una
+  // herramienta que informa mal cuesta más que el bug que buscaba).
+  const mesActual = mesISO(AHORA);
+  const mesPrevio = (() => {
+    const y = Number(mesActual.slice(0, 4));
+    const m = Number(mesActual.slice(5, 7)) - 2; // -1 mes, -1 por el índice 0
+    const anio = y + Math.floor(m / 12);
+    return `${anio}-${String((((m % 12) + 12) % 12) + 1).padStart(2, "0")}`;
+  })();
 
   // ── Sección 4 · progreso: Σ aceptado por mes vs SQL ──
   console.log("\nS4 · € aceptado por mes (6 meses) vs SQL");
@@ -134,7 +153,8 @@ async function main() {
     const entrante = !ent || (fur && fur > ent) ? fur : ent;
     const conv = estadoConversacion(
       { ultimoEntranteAt: entrante, ultimoSalienteAt: iso(r.sal), ultimaAccionSalienteAt: accion },
-      UMBRAL_REACTIVACION_MS.presupuesto,
+      UMBRAL_REACTIVACION_DIAS.presupuesto,
+      AHORA,
     );
     if (conv.estado === "reactivable") {
       reactN++;
