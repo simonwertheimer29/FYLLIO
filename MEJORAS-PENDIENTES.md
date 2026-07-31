@@ -1353,3 +1353,29 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   demo en 12/58, que se enseña.
 - **Impacto:** bajo en producto, medio en demo (es un KPI de la pantalla).
 - **Fecha:** 2026-07-30 · 🔵
+
+## 83. Las plantillas de WhatsApp nombran tratamiento e importe en el mismo mensaje
+- **Zona:** `scripts/db-seed-demo-rico.mjs:1164` (plantilla de ejemplo) ·
+  `app/(authed)/ajustes/configuracion/ConfiguracionView.tsx:1011` (editor que
+  ofrece las variables) · `app/lib/plantillas/plantillas.ts:137,160`
+- **Principio:** §1 misión — un riesgo legal que cae sobre la clínica no ayuda a
+  convertir ni a perder menos; lo que hace es dar una objeción en la reunión.
+- **Problema:** la plantilla que servimos como ejemplo dice *"Confirmamos tu
+  presupuesto de {{importe}}€ para {{tratamiento}}"*, y el editor ofrece las dos
+  variables juntas a cualquier clínica. Un tratamiento dental concreto vinculado
+  a un teléfono **es dato de salud (art. 9 RGPD)**, y la propia Política de
+  mensajes de WhatsApp Business restringe enviar información de salud cuando la
+  regulación aplicable lo limita (ver `INVESTIGACION-MERCADO-2026-07.md` §4). El
+  riesgo es de la clínica, que es la responsable del tratamiento — pero se lo
+  damos nosotros hecho y por defecto.
+- **Mejora:** plantillas neutras por defecto ("tienes un presupuesto pendiente,
+  entra aquí") con enlace a una vista propia donde sí se ve el detalle; dejar
+  `{{tratamiento}}` disponible pero **con aviso en el editor** de qué implica
+  usarlo. El competidor (Engrana) ya publica su cumplimiento como argumento de
+  venta, así que esto no es solo defensa.
+- **Impacto:** alto en venta y riesgo · medio en conversión (H9 mide si el
+  mensaje neutro convierte igual; si convierte menos, hay que decidir con la
+  cifra delante, no por intuición).
+- **Esfuerzo:** medio (plantillas por defecto + aviso en el editor + la vista de
+  detalle con enlace, que no existe).
+- **Fecha:** 2026-07-31 · 🔵 **decisión de producto pendiente**

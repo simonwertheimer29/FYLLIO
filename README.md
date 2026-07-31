@@ -14,6 +14,13 @@ Los cuatro se mantienen a mano y hay que leerlos antes de tocar su terreno:
 | [`MEJORAS-PENDIENTES.md`](MEJORAS-PENDIENTES.md) | Lo detectado y **no** aprobado todavía. Nada de aquí se ejecuta sin el visto bueno del fundador | Al detectar algo fuera del alcance de la tarea |
 | [`AUDITORIA_FABLE.md`](AUDITORIA_FABLE.md) | La auditoría técnica de julio de 2026 y su tabla de fiabilidad (S1-S12) | Congelado; es referencia histórica |
 
+Y las **investigaciones externas**, que son fotos fechadas y **no se editan** — cuando haya
+investigación nueva se añade otro archivo y el anterior se queda como está:
+
+| Archivo | Qué es |
+|---|---|
+| [`INVESTIGACION-MERCADO-2026-07.md`](INVESTIGACION-MERCADO-2026-07.md) | Investigación de mercado de julio de 2026: Gesden y su integración, competencia, WhatsApp y RGPD, canal de entrada. Mezcla datos verificados, afirmaciones comerciales de terceros y recomendaciones **no aprobadas** — lo que de ahí pasó a ser conocimiento nuestro está volcado en `MERCADO.md` separando evidencia de interpretación |
+
 `MERCADO.md` **no gobierna cómo se construye** — para eso están los skills de
 [`.claude/skills/`](.claude/skills/). Documenta por qué lo que se construye tiene sentido.
 Tiene una **regla de higiene que no se salta**: todo lleva fuente y fecha, y los datos del
