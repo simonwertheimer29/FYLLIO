@@ -8,6 +8,10 @@ Esto es el **historial**. Las reglas generales destiladas de estos errores viven
 [`.claude/skills/fyllio-lecciones-ingenieria`](.claude/skills/fyllio-lecciones-ingenieria/SKILL.md):
 aquí se cuenta qué pasó; allí, la ley para que no se repita.
 
+Y el **porqué** —lo que sabemos del mercado y que justifica que una decisión tuviera
+sentido— vive en [`MERCADO.md`](MERCADO.md). Cuando una decisión de producto nazca de algo
+que nos dijo una clínica, la entrada de aquí cita la de allí.
+
 ---
 
 ## 2026-07-06 — Auditoría técnica pre-pilotos (AUDITORIA_FABLE.md)

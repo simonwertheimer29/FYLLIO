@@ -35,6 +35,14 @@ Cada feature se justifica contra **tres palancas**, y tiene que servir al menos 
 Si una idea no mueve ninguna de las tres, **no se construye** (o se propone eliminarla).
 "Es una feature bonita" no es una razón; "reduce presupuestos perdidos" sí lo es.
 
+**De dónde salen estas creencias:** de [`MERCADO.md`](../../../MERCADO.md), en la raíz del
+repo — fundamentos, lo que han dicho clínicas reales, las hipótesis abiertas y lo que aún no
+sabemos. **No es un skill y no gobierna cómo construyes**: documenta por qué el producto
+tiene sentido. Léelo cuando una decisión dependa de cómo funciona el mercado y no de cómo
+funciona el código, y respeta su regla de higiene si lo actualizas: todo lleva fuente y
+fecha, y **los datos del seed de DEMO nunca son evidencia de mercado** — son inventados. Se
+citó una vez un número del seed como si describiera el mercado, y por eso existe la regla.
+
 ## 2. "Parece fácil aunque sea difícil"
 
 La complejidad la absorbe **el sistema**, nunca el usuario. Un flujo puede ser dificilísimo

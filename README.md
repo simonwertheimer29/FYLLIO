@@ -1,4 +1,28 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Fyllio
+
+CRM vertical para clínicas dentales. Ordena el flujo del paciente antes de ser paciente
+(lead → presupuesto → conversión) y evita que se pierda lo que ya está en marcha.
+
+## Documentos vivos
+
+Los cuatro se mantienen a mano y hay que leerlos antes de tocar su terreno:
+
+| Documento | Qué guarda | Cuándo se escribe |
+|---|---|---|
+| [`MERCADO.md`](MERCADO.md) | **Por qué** el producto tiene sentido: fundamentos, evidencia de conversaciones reales, interpretaciones, hipótesis con su estado y preguntas abiertas | Después de cada conversación con una clínica |
+| [`DECISIONES.md`](DECISIONES.md) | **Qué** se decidió y qué se arregló: bugs importantes, decisiones de arquitectura, hallazgos cerrados | En el mismo cambio que cierra el asunto |
+| [`MEJORAS-PENDIENTES.md`](MEJORAS-PENDIENTES.md) | Lo detectado y **no** aprobado todavía. Nada de aquí se ejecuta sin el visto bueno del fundador | Al detectar algo fuera del alcance de la tarea |
+| [`AUDITORIA_FABLE.md`](AUDITORIA_FABLE.md) | La auditoría técnica de julio de 2026 y su tabla de fiabilidad (S1-S12) | Congelado; es referencia histórica |
+
+`MERCADO.md` **no gobierna cómo se construye** — para eso están los skills de
+[`.claude/skills/`](.claude/skills/). Documenta por qué lo que se construye tiene sentido.
+Tiene una **regla de higiene que no se salta**: todo lleva fuente y fecha, y los datos del
+seed de DEMO **nunca** cuentan como evidencia de mercado (son inventados). Ya se cometió ese
+error una vez y por eso existe la regla.
+
+---
+
+Proyecto [Next.js](https://nextjs.org) creado con [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
 
