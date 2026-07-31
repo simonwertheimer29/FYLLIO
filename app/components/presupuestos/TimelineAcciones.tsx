@@ -35,6 +35,7 @@ import {
 } from "../icons";
 import { Link as LinkIcon } from "lucide-react";
 import { cargarJSON, traeLista } from "../../lib/fetch-json";
+import { fechaHoraClinica } from "../../lib/time";
 
 type IconType = React.ComponentType<{
   size?: number;
@@ -96,18 +97,9 @@ type TimelineItem =
   | { kind: "contacto"; contacto: Contacto; date: string }
   | { kind: "historial"; accion: HistorialAccion; date: string };
 
+// Zona de la CLÍNICA, no la del navegador (MEJORAS 69, cerrada 2026-08-01).
 function fmt(iso: string) {
-  try {
-    return new Date(iso).toLocaleString("es-ES", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return iso;
-  }
+  return fechaHoraClinica(iso, { anio: true }, iso);
 }
 
 export default function TimelineAcciones({ presupuestoId }: { presupuestoId: string }) {

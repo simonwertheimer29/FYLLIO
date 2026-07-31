@@ -11,6 +11,7 @@ import { KpiCard } from "../ui/KpiCard";
 import type { Presupuesto, Secuencia, TipoEvento, UserSession } from "../../lib/presupuestos/types";
 import { cargarJSON, traeLista } from "../../lib/fetch-json";
 import { deDiccionario } from "../../lib/diccionario";
+import { fechaClinica } from "../../lib/time";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -406,7 +407,7 @@ function TabHistorial({ user }: { user: UserSession }) {
               { label: "Sin clasificar", color: NEUTRO },
               "secuencias_automaticas.estado",
             );
-            const fecha = sec.creadoEn ? new Date(sec.creadoEn).toLocaleDateString("es-ES", { day: "2-digit", month: "short" }) : "—";
+            const fecha = fechaClinica(sec.creadoEn);
             return (
               <div key={sec.id} className="flex items-center gap-3 px-4 py-3">
                 <span className="text-[10px] text-[var(--color-muted)] w-14 shrink-0">{fecha}</span>

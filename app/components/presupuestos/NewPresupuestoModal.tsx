@@ -24,7 +24,7 @@ import {
 import type {
   Doctor, Presupuesto, PresupuestoEstado, UserSession,
 } from "../../lib/presupuestos/types";
-import { hoyISO } from "../../lib/time";
+import { hoyISO, fechaClinica } from "../../lib/time";
 import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
 
 const ESTADOS_INICIALES: { value: PresupuestoEstado; label: string }[] = [
@@ -62,9 +62,7 @@ function fechaHumana(iso: string, hoy: string): string {
   const dias = Math.round((d.getTime() - new Date(`${hoy}T12:00:00`).getTime()) / 86_400_000);
   if (dias === 1) return "mañana";
   if (dias === -1) return "ayer";
-  return d
-    .toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" })
-    .replace(",", "");
+  return fechaClinica(iso, { diaSemana: true }, iso);
 }
 
 const INPUT =

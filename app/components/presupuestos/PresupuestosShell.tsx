@@ -38,6 +38,7 @@ import { Skeleton } from "../ui/Skeleton";
 import { Cifra, Comparativa, eur } from "../shared/Cifra";
 import { mesISO } from "../../lib/time";
 import { cargarJSON, traeLista } from "../../lib/fetch-json";
+import { AvisoFiltroClinica } from "../shared/AvisoFiltroClinica";
 import {
   contarPipelinePresupuestos,
   cifrasNegocioPresupuestos,
@@ -123,7 +124,9 @@ export default function PresupuestosShell({
   // Sprint 13.1 Bloque 2 — Clínica viene del GlobalHeader (ClinicContext).
   // El campo Filters.clinica se mantiene por backwards-compat pero no se
   // usa para filtrar (siempre vacío).
-  const { selectedClinicaNombre } = useClinic();
+  const { selectedClinicaNombre, selectedClinicaId, setSelectedClinicaId } = useClinic();
+  // Con clínica elegida la pantalla cambia de ámbito y hay que decirlo.
+  const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
   const { presupuestos, setPresupuestos, loading, error, load } = usePresupuestos();
 
   // El conteo del tablero se calcula sobre lo que el tablero PINTA (mismo
@@ -492,6 +495,15 @@ export default function PresupuestosShell({
             )}
           </Card>
         </header>
+        {/* El filtro de clínica PERSISTE en localStorage: se puede llegar
+            aquí con él puesto sin haberlo tocado en esta sesión, y las cifras
+            son otras. Se declara en la página, no solo en el selector. */}
+        {clinicaFiltrada && (
+          <AvisoFiltroClinica
+            nombre={selectedClinicaNombre!}
+            onVerTodas={() => setSelectedClinicaId(null)}
+          />
+        )}
 
         {/* Fila de acciones: los filtros de la vista a la izquierda y las tres
             acciones a la derecha, a esta altura y no en la cabecera. */}

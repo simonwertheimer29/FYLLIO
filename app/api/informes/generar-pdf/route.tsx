@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 import { leerTasaGuardada, notaTasaGuardada } from "../../../lib/presupuestos/tasa";
 import { getSession } from "@/lib/auth/session";
 import { renderToBuffer, Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
+import { fechaClinica } from "../../../lib/time";
 import {
   graficoLineas,
   graficoBarrasH,
@@ -253,7 +254,7 @@ function InformePDF({
   proyeccion: { mes: string; valor: number }[];
 }) {
   const label = mesLabel(mes);
-  const fecha = new Date(generadoEn).toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
+  const fecha = fechaClinica(generadoEn, { mesLargo: true, anio: true });
   const parrafos = informe.split("\n\n").filter(Boolean).map((p) => plainText(p.trim()));
   // La media contra la que se compara a cada doctor sale de la misma tasa que
   // todo lo demás; si se calculara aparte volvería a diluirse con los abiertos.

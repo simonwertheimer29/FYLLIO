@@ -36,6 +36,7 @@ import {
 } from "../plantillas/plantillas";
 import type { Session } from "../auth/session";
 import type { CopilotAction } from "../../components/copilot/types";
+import { fechaHoraClinica } from "../time";
 
 export type ExecResult = { ok: true; message: string } | { ok: false; error: string };
 
@@ -592,12 +593,9 @@ async function execAgendarLlamadaCobranza(
     // libre). Esto es el patrón usado en Sprint 11 marcar_atendido.
     // Si el paciente tiene leadOrigenId, vinculamos al lead; si no,
     // creamos una nota en paciente.notas.
-    const fechaTxt = dt.toLocaleString("es-ES", {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    // Zona de la clínica: esto acaba escrito en una nota que lee una persona,
+    // y una ruta de servidor corre en UTC.
+    const fechaTxt = fechaHoraClinica(dt);
     const detalles = `Llamada de cobranza agendada para ${fechaTxt}${p.nota ? ` — ${p.nota}` : ""}`;
     if (access.paciente.leadOrigenId) {
       await logAccionLead({

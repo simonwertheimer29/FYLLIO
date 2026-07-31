@@ -11,7 +11,7 @@ Dónde está Fyllio hoy, en una pantalla. Se lee al abrir sesión y se regenera 
 > [`REUNION-RB-DENTAL.md`](REUNION-RB-DENTAL.md) ·
 > [`guion-demo-fyllio.md`](guion-demo-fyllio.md).
 
-**Regenerado:** 31 de julio de 2026.
+**Regenerado:** 1 de agosto de 2026.
 
 ---
 
@@ -32,24 +32,35 @@ esperar aprobación, después ejecutar.
 
 | Pantalla | Estado |
 |---|---|
-| `/presupuestos` · `/kpis` · `/red` · `/cobros` · `/pacientes` · `/leads` | ✅ hechas |
-| `/llamadas` | ⬅ **siguiente** (sube de última a primera: es la que peor imagen da) |
-| `/automatizaciones` + `/ajustes` · `/alertas` · `/seguimiento` | pendientes, en ese orden |
+| `/presupuestos` · `/kpis` · `/red` · `/cobros` · `/pacientes` · `/leads` · `/llamadas` | ✅ hechas |
+| `/automatizaciones` + `/ajustes` | ⬅ **siguiente**, y **juntas**: hay dos centros de ajustes ([MEJORAS 13](MEJORAS-PENDIENTES.md)). Es arquitectura de información — proponer la fusión antes de ejecutar |
+| `/alertas` · `/seguimiento` | pendientes, en ese orden |
 
-Los tres bloques de trabajo que quedan del plan de esta sesión, sin empezar:
+Cerrado también el **Bloque 2 (`/llamadas`)** el 1 de agosto: contenedor de página, nombre de
+paciente, hora en zona de clínica, coste fuera de la fila de KPIs, y **Vapi declarado en el
+contrato de entorno** con aviso honesto de "pendiente de activar" (opción B de Simon). Con él, la
+última familia de [MEJORAS 52](MEJORAS-PENDIENTES.md) —el día que se ESCRIBE— y
+[MEJORAS 85 y 86](MEJORAS-PENDIENTES.md).
 
-- **Bloque 2 — `/llamadas`**: fuera del contenedor estándar, "Coste mes" cortado, columna Paciente
-  sin nombres, fechas a las 02:00 (familia de [MEJORAS 52](MEJORAS-PENDIENTES.md)) y coste en
-  dólares. *(La columna "Tipo" vacía ya está cerrada: era el mismo bug que el crash.)*
-- **Bloque 3 — `/automatizaciones` + `/ajustes` juntos**: hay **dos centros de ajustes**
-  ([MEJORAS 13](MEJORAS-PENDIENTES.md)). Es arquitectura de información: se tocan juntos o es
-  trabajo doble. Proponer la fusión antes de ejecutar.
-- **Bloque 4 — `/alertas`** y **Bloque 5 — reconciliación de cifras** (Tablero 28 vs Tabla 44,
-  67 % vs 86 %, 6 aceptados vs 14…): censar qué es definición legítima y qué es bug, como se hizo
-  con la tasa de aceptación.
+Quedan del plan de la sesión:
+
+- **Bloque 4 — `/alertas`**: la spec está en MEJORAS; añadir los 7 s de carga con texto plano y la
+  errata "liquidaciónes" ([MEJORAS 87](MEJORAS-PENDIENTES.md)).
+- **Bloque 5 — reconciliación de cifras** (Tablero 28 vs Tabla 44, 67 % vs 86 %, 6 aceptados vs
+  14…): censar qué es definición legítima y qué es bug, como se hizo con la tasa de aceptación.
 
 Aparte y ya aprobada, en su propia tanda: **`/informes` como pantalla propia**
 ([MEJORAS 81](MEJORAS-PENDIENTES.md)).
+
+---
+
+## 🔴 Antes de la reunión
+
+**[MEJORAS 88](MEJORAS-PENDIENTES.md) — la gráfica de 6 meses de `/red` está plana el día 1 de cada
+mes.** La serie histórica se recorta al día de hoy (`enTramo`), así que solo es correcta a final de
+mes; hoy, 1 de agosto, marca cero en cinco de los seis meses. Es **pre-existente** (verificado con
+los cambios del día guardados) y `/red` es el acto I del guion, que no se recorta nunca. ~5 líneas.
+**Esperando OK.**
 
 ---
 
@@ -113,9 +124,11 @@ importe en el mismo WhatsApp, que es dato de salud del art. 9.
 | | |
 |---|---|
 | Rama | `main`, limpia y al día con `origin` |
-| Fronteras de error | **15** (13 secciones + grupo + global) — antes: cero |
+| Fronteras de error | **15** (13 secciones + grupo + global) |
+| Aviso de filtro de clínica | en las **8** pantallas que siguen al selector |
 | Deuda de `?? []` | **16**, y el trinquete solo deja bajar (`npm run qa:sin-fallbacks`) |
-| QA verde | `qa:fechas` 39/39 en 4 husos · `qa:cohortes` · `qa:estado-conversacion` · `qa-dashboard-red` (paridad) · `qa:sin-fallbacks` · `demo:reset` con 4 invariantes |
+| QA verde | `qa:fechas` **52/52** en 4 husos · `qa:cohortes` · `qa:estado-conversacion` · `qa:sin-fallbacks` · `demo:reset` con 4 invariantes |
+| QA en ROJO | `qa-dashboard-red` — 6 fallos, todos de [MEJORAS 88](MEJORAS-PENDIENTES.md). Pre-existente |
 | QA de /kpis | 18/18 (`npm run qa:kpis`, necesita el server en :3100) |
-| MEJORAS | 87 entradas · **66 abiertas** 🔵 · 27 hechas 🟢 · 19 cerradas ✅ · 4 descartadas ⚪ |
+| MEJORAS | 88 entradas · **65 abiertas** 🔵 · 29 hechas 🟢 · 19 cerradas ✅ · 4 descartadas ⚪ |
 | Sin verificar en producción | Ver Bloqueado. Lo de hoy sí se verificó en navegador real contra el build de producción |

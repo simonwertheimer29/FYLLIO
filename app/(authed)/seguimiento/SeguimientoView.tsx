@@ -33,7 +33,7 @@ import {
   type ConversacionClasificada,
 } from "../../lib/presupuestos/estado-conversacion";
 import { esLeadActivo } from "../../lib/leads/pipeline";
-import { hoyISO } from "../../lib/time";
+import { hoyISO, fechaClinica } from "../../lib/time";
 import {
   cohorteLead,
   esNuevoUrgente,
@@ -43,6 +43,7 @@ import { CardListSkeleton } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/Feedback";
 import { AlertTriangle, Inbox, ICON_STROKE } from "../../components/icons";
 import { toast } from "sonner";
+import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
 
 type Tab = "leads" | "presupuestos";
 
@@ -64,6 +65,11 @@ export function SeguimientoView({
   vistaInicial: Tab;
   cohorteInicial: string | null;
 }) {
+  // El filtro de clínica gobierna las dos pestañas (LeadsTab lo pasa a
+  // /api/leads, PresupuestosTab a su cola), así que el aviso vive aquí arriba,
+  // junto a la cabecera que comparten.
+  const { selectedClinicaId, selectedClinicaNombre, setSelectedClinicaId } = useClinic();
+  const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
   // Enlaces del dashboard de Red: ?vista=leads|presupuestos abre la cola
   // pedida (lectura en el init para no exigir Suspense de useSearchParams).
   const [tab, setTab] = useState<Tab>(vistaInicial);
@@ -182,6 +188,15 @@ export function SeguimientoView({
             onChange={setTab}
           />
         </header>
+        {/* El filtro de clínica PERSISTE en localStorage: se puede llegar
+            aquí con él puesto sin haberlo tocado en esta sesión, y las cifras
+            son otras. Se declara en la página, no solo en el selector. */}
+        {clinicaFiltrada && (
+          <AvisoFiltroClinica
+            nombre={selectedClinicaNombre!}
+            onVerTodas={() => setSelectedClinicaId(null)}
+          />
+        )}
 
         {tab === "leads" ? (
           <LeadsTab
@@ -287,7 +302,9 @@ function LeadsTab({
   doctores: Doctor[];
   cohorteInicial: string | null;
 }) {
-  const { selectedClinicaId } = useClinic();
+  const { selectedClinicaId, selectedClinicaNombre, setSelectedClinicaId } = useClinic();
+  // Con clínica elegida la pantalla cambia de ámbito y hay que decirlo.
+  const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [loading, setLoading] = useState(false);
   // Indicador sutil cuando el refresh falla: mantenemos la lista anterior
@@ -658,11 +675,7 @@ function citaTexto(fechaCita: string, hoy: string): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   const mananaIso = `${manana.getFullYear()}-${pad(manana.getMonth() + 1)}-${pad(manana.getDate())}`;
   if (fechaCita === mananaIso) return "Cita mañana";
-  const txt = new Date(fechaCita + "T12:00:00").toLocaleDateString("es-ES", {
-    weekday: "long",
-    day: "numeric",
-    month: "short",
-  });
+  const txt = fechaClinica(fechaCita, { diaSemana: true });
   return `Cita el ${txt}`;
 }
 
@@ -777,10 +790,7 @@ function LeadAccionRow({
     lead.telefono,
     tiempoMeta,
     lead.fechaCita
-      ? `Cita ${new Date(lead.fechaCita + "T12:00:00").toLocaleDateString("es-ES", {
-          day: "numeric",
-          month: "short",
-        })}${lead.horaCita ? ` · ${lead.horaCita}` : ""}`
+      ? `Cita ${fechaClinica(lead.fechaCita)}${lead.horaCita ? ` · ${lead.horaCita}` : ""}`
       : null,
   ]
     .filter(Boolean)

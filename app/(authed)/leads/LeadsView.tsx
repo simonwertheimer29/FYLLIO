@@ -27,8 +27,9 @@ import { AgendarModal } from "./AgendarModal";
 import { MotivoNoInteresModal } from "./MotivoNoInteresModal";
 import { esReactivable, labelMotivo } from "../../lib/leads/motivos";
 import { haceTexto } from "../../lib/presupuestos/estado-conversacion";
-import { hoyISO, horaClinica } from "../../lib/time";
+import { hoyISO, horaClinica, fechaClinica } from "../../lib/time";
 import { cohorteLead, esNuevoUrgente } from "../../lib/seguimiento/cohortes";
+import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
 import { AsistenciaModal } from "./AsistenciaModal";
 import type { Lead, LeadEstado } from "./types";
 import {
@@ -90,11 +91,7 @@ function fechaHumana(iso: string, hoyIso: string): string {
   const dias = Math.round((d.getTime() - hoy.getTime()) / 86_400_000);
   if (dias === 1) return "mañana";
   if (dias === -1) return "ayer";
-  // es-ES mete una coma tras el día de la semana ("mié, 29 jul"), que detrás de
-  // "Cita" se lee como una pausa rara. Fuera.
-  return d
-    .toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" })
-    .replace(",", "");
+  return fechaClinica(iso, { diaSemana: true }, iso);
 }
 
 /** "hoy a las 16:30" · "mié 29 jul a las 16:30". */
@@ -193,7 +190,9 @@ export function LeadsView({
   clinicasSelectables: Array<{ id: string; nombre: string }>;
   doctores: Doctor[];
 }) {
-  const { selectedClinicaId } = useClinic();
+  const { selectedClinicaId, selectedClinicaNombre, setSelectedClinicaId } = useClinic();
+  // Con clínica elegida la pantalla cambia de ámbito y hay que decirlo.
+  const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
   const [search, setSearch] = useState("");
   const [rango, setRango] = useState<RangoKanban>(RANGO_DEFAULT);
@@ -508,6 +507,17 @@ export function LeadsView({
           Nuevo lead
         </button>
       </div>
+
+      {/* El filtro de clínica PERSISTE en localStorage: se puede llegar aquí
+          con él puesto sin haberlo tocado en esta sesión, y el tablero entero
+          es otro. Se declara en la página, no solo en el selector. */}
+      {clinicaFiltrada && (
+        <AvisoFiltroClinica
+          nombre={selectedClinicaNombre!}
+          onVerTodas={() => setSelectedClinicaId(null)}
+          ocultaAdemas="El recuento de la cabecera también es solo de esta clínica."
+        />
+      )}
 
       {/* Filtros */}
       <div className="flex flex-wrap items-center gap-2">

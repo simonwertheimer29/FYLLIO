@@ -87,7 +87,32 @@ export const CONTRATO: Requisito[] = [
     rompe: "El portal del paciente: falta la credencial del almacén de enlaces.",
     nivel: "funcional",
   },
+
+  // Las llamadas de voz (Vapi) tampoco estaban declaradas, y es el MISMO
+  // agujero que dejó el portal del paciente sin avisar: /llamadas se veía como
+  // una pantalla en marcha —doce llamadas con su duración, su resultado y su
+  // coste— mientras cualquier intento de llamar moría en "VAPI_API_KEY no
+  // configurada". Declararlo es lo que hace que la pantalla pueda DECIRLO
+  // (`llamadasOperativas()`), en vez de que se descubra pulsando un botón.
+  // Es una integración pendiente de activar, no algo averiado: por eso es
+  // funcional y no crítica, y por eso el registro histórico se sigue viendo.
+  {
+    nombre: "VAPI_API_KEY",
+    rompe: "Las llamadas de voz con IA: no se puede iniciar ninguna. El registro de las anteriores se sigue viendo.",
+    nivel: "funcional",
+  },
+  {
+    nombre: "VAPI_PHONE_NUMBER_ID",
+    rompe: "Las llamadas de voz con IA: falta el número desde el que se llama.",
+    nivel: "funcional",
+  },
 ];
+
+/** ¿Se pueden iniciar llamadas de voz? Lo consultan la UI y la ruta de
+ *  reintento para no prometer lo que el entorno no puede cumplir. */
+export function llamadasOperativas(env: NodeJS.ProcessEnv = process.env): boolean {
+  return Boolean(env.VAPI_API_KEY?.trim() && env.VAPI_PHONE_NUMBER_ID?.trim());
+}
 
 export type EstadoEntorno = {
   ok: boolean;

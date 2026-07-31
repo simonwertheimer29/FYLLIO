@@ -13,7 +13,7 @@ import { ESTADO_VISUAL_VARIANTE } from "../../lib/presupuestos/colors";
 import { StatePill } from "../ui/StatePill";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { CardListSkeleton } from "../ui/Skeleton";
-import { hoyISO } from "../../lib/time";
+import { hoyISO, fechaClinica } from "../../lib/time";
 import { type RangoKanban } from "../shared/RangoTemporal";
 import { seVeConRango } from "../../lib/presupuestos/pipeline";
 import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
@@ -46,13 +46,10 @@ type SortField = "fecha" | "amount" | "nombre";
 
 function formatDate(iso: string): string {
   if (!iso) return "—";
-  // Ancla al mediodía: `new Date("2026-07-29")` es medianoche UTC y al pintarla
-  // en la zona del navegador se corre un día hacia atrás desde cualquier huso
-  // por detrás de UTC (la máquina de las demos va en UTC−4). Es la clase de bug
-  // que cerró MEJORAS 52, y esta es la única vista que se ORDENA por fecha.
-  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? `${iso}T12:00:00` : iso);
-  if (isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("es-ES", { day: "numeric", month: "short" });
+  // `fechaClinica` distingue un día de calendario de un instante y hace lo
+  // correcto con cada uno. Aquí vivía a mano el ancla al mediodía; era correcta
+  // pero muda, y es la única vista que se ORDENA por fecha.
+  return fechaClinica(iso);
 }
 
 // ─── CSV Export ──────────────────────────────────────────────────────────────

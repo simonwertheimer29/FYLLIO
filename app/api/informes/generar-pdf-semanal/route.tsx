@@ -8,6 +8,7 @@ import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
 import { renderToBuffer, Document, Page, View, Text, StyleSheet } from "@react-pdf/renderer";
 import { PdfBarrasH } from "../../../lib/charts/pdf-charts";
+import { fechaClinica } from "../../../lib/time";
 
 
 // MEJORAS 38 — una sola sesión: antes esta ruta verificaba a mano la
@@ -165,9 +166,7 @@ function InformeSemanalPDF({
   const semana = datos.semana ?? Number((periodo.split("-W")[1] ?? "0"));
   const anio = datos.anio ?? Number((periodo.split("-W")[0] ?? "0"));
   const semanaLabel = `Semana ${semana}, ${anio}`;
-  const fecha = new Date(generadoEn).toLocaleDateString("es-ES", {
-    day: "2-digit", month: "long", year: "numeric",
-  });
+  const fecha = fechaClinica(generadoEn, { mesLargo: true, anio: true });
 
   // Pre-compute objetivos table rows to avoid complex JSX
   const objetivosEntries = Object.entries(datos.objetivos ?? {});

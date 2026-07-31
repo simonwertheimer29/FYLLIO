@@ -112,3 +112,111 @@ export function inicioDelDiaUTC(iso: string, tz: string = TZ_CLINICA): Date {
   const enZona = new Date(aprox.toLocaleString("en-US", { timeZone: tz }));
   return new Date(aprox.getTime() - (enZona.getTime() - enUtc.getTime()));
 }
+
+// ─── Escribir una fecha en pantalla ─────────────────────────────────────
+//
+// LA ÚLTIMA FAMILIA DE MEJORAS 52, cerrada el 2026-08-01. Las funciones de
+// arriba arreglaron el día que el producto CALCULA; estas arreglan el que
+// ESCRIBE, que iba por libre: `toLocaleString("es-ES", …)` sin `timeZone` pinta
+// en la zona del NAVEGADOR (o, en una ruta de servidor, en la de Vercel = UTC).
+//
+// No era teórico. En /llamadas las doce llamadas están registradas a las 07:00Z,
+// que son las 09:00 de Madrid — hora de clínica perfecta. Lo que se veía:
+//     Madrid 09:00 · UTC 07:00 · New_York 03:00 · Chicago 02:00
+// La revisión externa reportó "todas las fechas marcan 02:00" porque su
+// navegador estaba en horario central de EE. UU. El dato era correcto; la misma
+// pantalla le enseñaba una hora distinta a cada persona. Y en el portátil desde
+// el que se hacen las demos (UTC−4/−5) pasa exactamente igual.
+//
+// **Dos funciones y no una, a propósito**, porque hay DOS cosas distintas:
+//   · un INSTANTE (`timestamptz`: cuándo ocurrió algo) → se convierte a la zona
+//     de la clínica;
+//   · un DÍA DE CALENDARIO (`date`, "2026-07-29": la fecha de una cita) → NO se
+//     convierte, porque no tiene hora que convertir. Pasarlo por un huso es
+//     precisamente cómo se pierde un día.
+// El código venía resolviendo lo segundo con `new Date(dia + "T12:00:00")`: un
+// truco correcto pero mudo, que el siguiente en pasar "limpia" y rompe.
+// `fechaClinica` reconoce los dos formatos y hace lo que toca con cada uno.
+
+const ES_DIA_CALENDARIO = /^\d{4}-\d{2}-\d{2}$/;
+
+export type OpcionesFecha = {
+  /** "lun 31 jul" en vez de "31 jul". */
+  diaSemana?: boolean;
+  /** "31 jul 2026". */
+  anio?: boolean;
+  /** "31 de julio" en vez de "31 jul". */
+  mesLargo?: boolean;
+};
+
+function opcionesIntl(o: OpcionesFecha = {}): Intl.DateTimeFormatOptions {
+  return {
+    ...(o.diaSemana ? { weekday: o.mesLargo ? ("long" as const) : ("short" as const) } : {}),
+    day: "numeric",
+    month: o.mesLargo ? "long" : "short",
+    ...(o.anio ? { year: "numeric" as const } : {}),
+  };
+}
+
+/** Convierte lo que llegue a un Date, o null si no es una fecha. */
+function aDate(valor: string | Date | null | undefined): Date | null {
+  if (!valor) return null;
+  // Un día de calendario se ancla a MEDIODÍA UTC y se formatea en UTC: así el
+  // día impreso es el que dice la cadena, en cualquier huso del planeta.
+  const d =
+    typeof valor === "string" && ES_DIA_CALENDARIO.test(valor)
+      ? new Date(`${valor}T12:00:00Z`)
+      : valor instanceof Date
+        ? valor
+        : new Date(valor);
+  return Number.isFinite(d.getTime()) ? d : null;
+}
+
+const esDia = (valor: string | Date | null | undefined) =>
+  typeof valor === "string" && ES_DIA_CALENDARIO.test(valor);
+
+/**
+ * La fecha, en el día de la clínica. Acepta un instante ISO/Date o un día de
+ * calendario "YYYY-MM-DD" y hace lo correcto con cada uno.
+ * → "31 jul" · "lun 31 jul" · "31 de julio de 2026"
+ * Devuelve `vacio` (por defecto "—") si no hay fecha o no se puede leer: casi
+ * todos los sitios que sustituye ya hacían ese guardia a mano.
+ */
+export function fechaClinica(
+  valor: string | Date | null | undefined,
+  opciones: OpcionesFecha = {},
+  vacio = "—",
+): string {
+  const d = aDate(valor);
+  if (!d) return vacio;
+  return d
+    .toLocaleDateString("es-ES", {
+      ...opcionesIntl(opciones),
+      timeZone: esDia(valor) ? "UTC" : TZ_CLINICA,
+    })
+    // es-ES mete una coma tras el día de la semana ("mié, 29 jul"), que detrás
+    // de "Cita" se lee como una pausa rara.
+    .replace(/^(\p{L}+),/u, "$1");
+}
+
+/**
+ * La fecha Y LA HORA de un INSTANTE, en la zona de la clínica.
+ * → "31 jul, 09:00"
+ * No acepta días de calendario: un `date` no tiene hora, y fingir una es
+ * inventar un dato. Si llega uno, se devuelve solo la fecha.
+ */
+export function fechaHoraClinica(
+  valor: string | Date | null | undefined,
+  opciones: OpcionesFecha = {},
+  vacio = "—",
+): string {
+  if (esDia(valor)) return fechaClinica(valor, opciones, vacio);
+  const d = aDate(valor);
+  if (!d) return vacio;
+  return d.toLocaleString("es-ES", {
+    ...opcionesIntl(opciones),
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: TZ_CLINICA,
+  });
+}

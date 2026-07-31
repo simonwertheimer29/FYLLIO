@@ -57,7 +57,7 @@ import {
 import { RotateCcw } from "lucide-react";
 import { labelMotivo } from "../../lib/leads/motivos";
 import { MotivoNoInteresModal } from "../../(authed)/leads/MotivoNoInteresModal";
-import { hoyISO, sumaDias } from "../../lib/time";
+import { hoyISO, sumaDias, fechaClinica } from "../../lib/time";
 
 // ─── Situación: mismos triggers que la cola de Actuar hoy ──────────────
 
@@ -377,11 +377,7 @@ export function LeadAccionPanel({
     const key = `${lead.fechaCita ?? ""}|${lead.horaCita ?? ""}`;
     const prev = citaPrevia.current;
     if (prev && prev.id === lead.id && prev.key !== key && lead.fechaCita) {
-      const fechaLarga = new Date(`${lead.fechaCita}T00:00:00`).toLocaleDateString("es-ES", {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-      });
+      const fechaLarga = fechaClinica(lead.fechaCita, { diaSemana: true, mesLargo: true });
       setComposerTexto(
         `Hola ${lead.nombre.split(" ")[0]}, te confirmo tu cita${lead.tratamiento ? ` para ${lead.tratamiento}` : ""} el ${fechaLarga}${lead.horaCita ? ` a las ${lead.horaCita}` : ""}${lead.clinicaNombre ? ` en ${lead.clinicaNombre}` : ""}. Si te surge cualquier cosa, escríbeme por aquí. ¡Te esperamos!`,
       );

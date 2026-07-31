@@ -17,6 +17,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { MensajeWhatsApp } from "../../lib/presupuestos/types";
 import { StatePill, type StatePillVariant } from "../ui/StatePill";
+import { fechaHoraClinica } from "../../lib/time";
 import {
   ChevronDown,
   ChevronRight,
@@ -212,12 +213,7 @@ export function Burbujas({ mensajes }: { mensajes: MensajeWhatsApp[] }) {
               }`}
             >
               {msg.timestamp
-                ? new Date(msg.timestamp).toLocaleString("es-ES", {
-                    day: "numeric",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
+                ? fechaHoraClinica(msg.timestamp)
                 : ""}
             </p>
           </div>
@@ -262,12 +258,7 @@ export function RegistroColapsable({
               {l.texto}
               {l.fecha && (
                 <span className="block text-[9px] mt-0.5 opacity-80">
-                  {new Date(l.fecha).toLocaleString("es-ES", {
-                    day: "numeric",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {fechaHoraClinica(l.fecha)}
                 </span>
               )}
             </div>

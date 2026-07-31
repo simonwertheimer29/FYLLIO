@@ -9,19 +9,26 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "../../../lib/auth/session";
 import { listLlamadas } from "../../../lib/llamadas/repo";
+import { hoyISO, inicioDelDiaUTC } from "../../../lib/time";
 
 export const dynamic = "force-dynamic";
 
+const TOPE = 200;
+
 export const GET = withAuth(async () => {
-  const inicioHoy = new Date();
-  inicioHoy.setHours(0, 0, 0, 0);
-  const inicioMes = new Date(inicioHoy.getFullYear(), inicioHoy.getMonth(), 1);
+  // Día y mes de la CLÍNICA. `setHours(0,0,0,0)` y `new Date(y, m, 1)` son los
+  // del PROCESO, y en Vercel el proceso corre en UTC: "llamadas hoy" empezaba a
+  // las 02:00 de Madrid y se comía las dos primeras horas del día. Es la misma
+  // familia de MEJORAS 52 que ya se cerró en /cobros y en /kpis.
+  const hoy = hoyISO();
+  const inicioHoy = inicioDelDiaUTC(hoy);
+  const inicioMes = inicioDelDiaUTC(`${hoy.slice(0, 7)}-01`);
 
   // Trae las del mes y filtra en JS — más simple y económico que
   // 4 queries separadas para volúmenes pequeños esperados.
   const llamadasMes = await listLlamadas({
     desde: inicioMes.toISOString(),
-    limit: 200,
+    limit: TOPE,
   });
 
   let llamadasHoy = 0;
@@ -43,5 +50,9 @@ export const GET = withAuth(async () => {
     confirmadasHoy,
     fallidasHoy,
     costeMesUSD: Math.round(costeMesUSD * 100) / 100,
+    // Un tope que no se declara convierte "el coste del mes" en "el coste de
+    // las 200 primeras" sin que nadie se entere (familia de MEJORAS 65). Con
+    // 12 llamadas no muerde; con volumen, mentiría.
+    topeAlcanzado: llamadasMes.length >= TOPE,
   });
 });

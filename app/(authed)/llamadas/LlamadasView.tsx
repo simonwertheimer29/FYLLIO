@@ -13,13 +13,15 @@ import {
 } from "../../components/ui/Skeleton";
 import { ErrorState, EmptyState } from "../../components/ui/Feedback";
 import { toast } from "sonner";
-import { Phone, RefreshCw, X, User, ICON_STROKE } from "../../components/icons";
+import { Phone, RefreshCw, X, User, Info, ICON_STROKE } from "../../components/icons";
 import { deDiccionario } from "../../lib/diccionario";
+import { fechaHoraClinica } from "../../lib/time";
 
 type Llamada = {
   id: string;
   citaId: string | null;
   pacienteId: string;
+  pacienteNombre: string | null;
   tipo: "confirmacion_cita" | "reactivacion" | "recuperacion_presupuesto";
   vapiCallId: string | null;
   estado:
@@ -49,6 +51,8 @@ type Kpis = {
   confirmadasHoy: number;
   fallidasHoy: number;
   costeMesUSD: number;
+  /** El coste solo suma las N más recientes del mes; con volumen, se dice. */
+  topeAlcanzado?: boolean;
 };
 
 const TIPO_LABEL: Record<Llamada["tipo"], string> = {
@@ -100,17 +104,18 @@ const estadoBadge = (e: string | null | undefined) =>
 const resultadoBadge = (r: string | null | undefined) =>
   deDiccionario(RESULTADO_BADGE, r, SIN_CLASIFICAR, "llamadas_vapi.resultado");
 
-function fmtFecha(iso: string): string {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleString("es-ES", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+// La hora se pinta en la zona de la CLÍNICA. Sin eso, estas doce llamadas
+// —registradas a las 09:00 de Madrid— salían a las 02:00 en el navegador de la
+// revisión (horario central de EE. UU.) y a las 03:00 en el portátil de las
+// demos: la misma pantalla, una hora distinta por persona.
+const fmtFecha = (iso: string) => fechaHoraClinica(iso, { anio: false });
+
+/** El coste del proveedor va en dólares y así se queda: convertirlo con un
+ *  tipo de cambio escrito a mano sería inventar un número (§4). Un solo
+ *  formateador, como `eur` para los euros — el `$${n.toFixed(2)}` suelto era la
+ *  enésima implementación del dinero a mano. */
+const fmtUSD = (n: number) =>
+  `${n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
 
 function fmtDuracion(seg: number | null): string {
   if (!seg && seg !== 0) return "—";
@@ -119,7 +124,15 @@ function fmtDuracion(seg: number | null): string {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export function LlamadasView({ isAdmin }: { isAdmin: boolean }) {
+export function LlamadasView({
+  isAdmin,
+  operativas,
+}: {
+  isAdmin: boolean;
+  /** ¿Está activado el servicio de voz? Lo resuelve el servidor contra el
+   *  contrato de entorno (`llamadasOperativas`). */
+  operativas: boolean;
+}) {
   const [llamadas, setLlamadas] = useState<Llamada[]>([]);
   const [kpis, setKpis] = useState<Kpis | null>(null);
   const [loading, setLoading] = useState(true);
@@ -169,37 +182,71 @@ export function LlamadasView({ isAdmin }: { isAdmin: boolean }) {
   }, [llamadas, filtroEstado, filtroResultado]);
 
   return (
-    <div className="space-y-5 max-w-6xl">
-      <header>
-        <div className="flex items-center gap-2">
-          <Phone
-            size={20}
-            strokeWidth={ICON_STROKE}
-            className="text-[var(--color-accent)]"
-            aria-hidden
-          />
-          <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
-            Llamadas IA
-          </h1>
-        </div>
-        <p className="text-sm text-[var(--color-muted)] mt-1">
-          Llamadas de voz con IA para confirmar citas 24 horas antes,
-          reactivar pacientes y recuperar presupuestos.
-        </p>
-      </header>
+    // Contenedor de página, como el resto del producto. /llamadas era la ÚNICA
+    // pantalla sin él: devolvía un `space-y-5 max-w-6xl` suelto, sin fondo, sin
+    // padding y sin scroll propio, así que el título arrancaba pegado al borde
+    // y la fila de KPIs se salía por la derecha (de ahí el "Coste mes cortado"
+    // del informe — no era el texto, era la rejilla desbordando).
+    <div className="flex-1 min-h-0 overflow-auto bg-[var(--color-background)]">
+      <div className="max-w-screen-2xl mx-auto p-4 lg:p-6 space-y-5">
+        <header>
+          <div className="flex items-center gap-2">
+            <Phone
+              size={20}
+              strokeWidth={ICON_STROKE}
+              className="text-[var(--color-accent)]"
+              aria-hidden
+            />
+            <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
+              Llamadas IA
+            </h1>
+          </div>
+          <p className="text-sm text-[var(--color-muted)] mt-1">
+            Llamadas de voz con IA para confirmar citas 24 horas antes,
+            reactivar pacientes y recuperar presupuestos.
+          </p>
+        </header>
 
-      {error && !loading ? (
+        {/* Pendiente de activar ≠ averiado. Misma doctrina que el Motor con
+            WhatsApp: la pantalla dice qué puede y qué no, en vez de dejar que
+            se descubra pulsando un botón que siempre falla. */}
+        {!operativas && (
+          <div className="flex flex-wrap items-start gap-x-3 gap-y-2 rounded-xl border border-[var(--color-warning)]/30 bg-[var(--color-warning-soft)] px-4 py-3">
+            <Info
+              size={16}
+              strokeWidth={ICON_STROKE}
+              className="mt-0.5 shrink-0 text-[var(--color-warning)]"
+              aria-hidden
+            />
+            <div className="min-w-0 flex-1">
+              <p className="text-[13px] font-semibold text-[var(--color-warning)]">
+                Las llamadas todavía no están conectadas
+              </p>
+              <p className="mt-0.5 text-[13px] text-[var(--color-warning)] opacity-90">
+                Falta activar el servicio de voz, y es un paso de configuración
+                que se hace al arrancar — no hay nada averiado. Mientras tanto
+                esta pantalla es el registro: aquí ves las llamadas que ya se
+                hicieron, con su resultado y su duración.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {error && !loading ? (
         <ErrorState
           detail="Las llamadas no están disponibles ahora mismo."
           onRetry={fetchAll}
         />
       ) : (
         <>
-          {/* KPIs hero */}
-          <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* KPIs hero — SOLO actividad. El coste sale de esta fila (abajo):
+              es lo que nos cuesta a NOSOTROS el servicio de voz, en dólares,
+              no dinero de la clínica. Al lado de tres cifras de pacientes, y
+              con todo el resto del producto en euros, invitaba a confundirlos
+              con facturación. */}
+          <section className="grid grid-cols-3 gap-3">
             {loading || !kpis ? (
               <>
-                <KpiCardSkeleton />
                 <KpiCardSkeleton />
                 <KpiCardSkeleton />
                 <KpiCardSkeleton />
@@ -221,15 +268,25 @@ export function LlamadasView({ isAdmin }: { isAdmin: boolean }) {
                   value={kpis.fallidasHoy}
                   accent={kpis.fallidasHoy > 0 ? "rose" : "neutral"}
                 />
-                <KpiCard
-                  label="Coste mes (USD)"
-                  value={kpis.costeMesUSD}
-                  formatter={(n) => `$${n.toFixed(2)}`}
-                  accent="neutral"
-                />
               </>
             )}
           </section>
+
+          {/* Coste del servicio: una línea discreta, dicha con todas sus
+              palabras. Sigue en dólares porque el proveedor factura en dólares
+              y convertir con un cambio a mano sería inventarse una cifra. */}
+          {!loading && kpis && (
+            <p className="text-xs text-[var(--color-muted)]">
+              Coste del servicio de voz este mes:{" "}
+              <span className="font-medium tabular-nums text-[var(--color-foreground)]">
+                {fmtUSD(kpis.costeMesUSD)}
+              </span>
+              . Es lo que cuesta la herramienta, no facturación de la clínica.
+              {kpis.topeAlcanzado && (
+                <> Solo se han sumado las 200 llamadas más recientes del mes.</>
+              )}
+            </p>
+          )}
 
           {/* Filtros */}
           <section className="flex flex-wrap gap-2 items-center">
@@ -299,18 +356,23 @@ export function LlamadasView({ isAdmin }: { isAdmin: boolean }) {
                           className="border-t border-[var(--color-border)] hover:bg-[var(--color-surface-muted)] cursor-pointer"
                         >
                           <td className="px-3 py-2">
-                            <Link
-                              href={`/pacientes/${l.pacienteId}`}
-                              onClick={(e) => e.stopPropagation()}
-                              className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-accent)] hover:underline"
-                            >
-                              <User
-                                size={14}
-                                strokeWidth={ICON_STROKE}
-                                aria-hidden
-                              />
-                              Ver ficha
-                            </Link>
+                            {/* La PERSONA primero; "Ver ficha" es la acción,
+                                no la identidad. Antes esta celda era doce veces
+                                "Ver ficha" seguidas. */}
+                            {l.pacienteNombre ? (
+                              <Link
+                                href={`/pacientes/${l.pacienteId}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-sm font-medium text-[var(--color-foreground)] hover:text-[var(--color-accent)] hover:underline"
+                              >
+                                {l.pacienteNombre}
+                              </Link>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-xs text-[var(--color-muted)]">
+                                <User size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                                Paciente sin identificar
+                              </span>
+                            )}
                           </td>
                           <td className="px-3 py-2 text-[var(--color-muted)] text-xs">
                             {tipoLabel(l.tipo)}
@@ -343,13 +405,15 @@ export function LlamadasView({ isAdmin }: { isAdmin: boolean }) {
               </Card>
             )}
           </section>
-        </>
-      )}
+          </>
+        )}
+      </div>
 
       {drawerLlamada && (
         <LlamadaDrawer
           llamada={drawerLlamada}
           isAdmin={isAdmin}
+          operativas={operativas}
           onClose={() => setDrawerLlamada(null)}
           onReintentado={() => {
             setDrawerLlamada(null);
@@ -364,11 +428,13 @@ export function LlamadasView({ isAdmin }: { isAdmin: boolean }) {
 function LlamadaDrawer({
   llamada,
   isAdmin,
+  operativas,
   onClose,
   onReintentado,
 }: {
   llamada: Llamada;
   isAdmin: boolean;
+  operativas: boolean;
   onClose: () => void;
   onReintentado: () => void;
 }) {
@@ -447,7 +513,7 @@ function LlamadaDrawer({
             <Field
               label="Coste"
               value={
-                llamada.costeUSD != null ? `$${llamada.costeUSD.toFixed(3)}` : "—"
+                llamada.costeUSD != null ? fmtUSD(llamada.costeUSD) : "—"
               }
             />
           </div>
@@ -486,14 +552,22 @@ function LlamadaDrawer({
         </div>
         {isAdmin && llamada.estado === "fallida" && (
           <footer className="border-t border-[var(--color-border)] p-3 shrink-0">
+            {/* Sin servicio de voz el botón no se esconde: se deshabilita Y
+                dice por qué. Esconderlo dejaría a quien lo conoce buscándolo;
+                dejarlo activo era ofrecer una acción que siempre falla. */}
             <button
               type="button"
               onClick={reintentar}
-              disabled={reintentando}
-              className="w-full rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors"
+              disabled={reintentando || !operativas}
+              className="w-full rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:bg-[var(--color-accent-hover)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {reintentando ? "Reintentando…" : "Reintentar llamada"}
             </button>
+            {!operativas && (
+              <p className="mt-2 text-[11px] text-[var(--color-muted)] text-center">
+                Disponible en cuanto se active el servicio de voz.
+              </p>
+            )}
           </footer>
         )}
       </aside>

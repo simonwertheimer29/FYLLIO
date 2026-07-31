@@ -26,6 +26,7 @@ import { PagoModal } from "../../components/pacientes/PagoModal";
 import NewPresupuestoModal from "../../components/presupuestos/NewPresupuestoModal";
 import { EstadoPresupuestoFlow, type PresupuestoBrief } from "./EstadoPresupuestoFlow";
 import { horaClinica, hoyISO, TZ_CLINICA } from "../../lib/time";
+import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
 
 type Paciente = {
   id: string;
@@ -177,7 +178,9 @@ export function PacientesView({
    *  un enum: dar de alta una mutua no puede exigir un despliegue. */
   tiposPaciente: Array<{ valor: string; esAseguradora: boolean }>;
 }) {
-  const { selectedClinicaId } = useClinic();
+  const { selectedClinicaId, selectedClinicaNombre, setSelectedClinicaId } = useClinic();
+  // Con clínica elegida la pantalla cambia de ámbito y hay que decirlo.
+  const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
   const [pacientes, setPacientes] = useState<Paciente[]>(initialPacientes);
   const [search, setSearch] = useState("");
   const [dateFilter, setDateFilter] = useState<DateFilter>("todo");
@@ -406,6 +409,15 @@ export function PacientesView({
           {dateFilter !== "todo" && " Filtrado por fecha de alta."}
         </p>
       </header>
+      {/* El filtro de clínica PERSISTE en localStorage: se puede llegar
+          aquí con él puesto sin haberlo tocado en esta sesión, y las cifras
+          son otras. Se declara en la página, no solo en el selector. */}
+      {clinicaFiltrada && (
+        <AvisoFiltroClinica
+          nombre={selectedClinicaNombre!}
+          onVerTodas={() => setSelectedClinicaId(null)}
+        />
+      )}
 
       {/* Franja compacta, como en /cobros: cuatro cards de 100 px empujaban la
           primera fila 1.000 px hacia abajo en móvil, y el importe se salía de

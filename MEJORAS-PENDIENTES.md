@@ -1411,7 +1411,13 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   decisión de negocio, no una refactorización.
 - **Mejora:** contar el plazo con `diasDeClinicaEntre`, como el resto.
 - **Impacto:** bajo · **Esfuerzo:** horas.
-- **Fecha:** 2026-07-31 · 🔵
+- **Fecha:** 2026-07-31 · 🟢 **CERRADA el 2026-08-01.** Medido primero, que era la
+  condición: la cifra **no** se mueve entre recargas (`fecha_aceptado` es `date`;
+  el bucket salió constante en 24 h de muestreo), así que no era el caso de /red.
+  Lo que sí apareció al medir: los cruces caían a las **07:00 de Madrid** —la
+  medianoche local del runtime que lee la fila—, y desde Vercel habrían caído a
+  las 02:00. Ahora se cuenta con `diasDeClinicaEntre`. La definición de negocio
+  no cambia: 90 días siguen siendo 90 días.
 
 ## 86. El aviso de "estás viendo una sola clínica" solo existe en /red
 - **Zona:** `components/shared/AvisoFiltroClinica.tsx` (nuevo), consumido solo por
@@ -1425,7 +1431,11 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Mejora:** montar el mismo aviso en las que filtran de verdad, con su propio
   `ocultaAdemas` cuando escondan algo. La pieza ya está escrita.
 - **Impacto:** medio · **Esfuerzo:** horas (cada pantalla tiene su cabecera).
-- **Fecha:** 2026-07-31 · 🔵
+- **Fecha:** 2026-07-31 · 🟢 **CERRADA el 2026-08-01**, en la misma tanda de
+  /llamadas: las ocho lo llevan (Pacientes, Seguimiento, Leads, Cobros, KPIs,
+  Alertas, Presupuestos, y /red que ya lo tenía). Alertas y Leads añaden su
+  `ocultaAdemas`. Verificado en navegador recorriendo las ocho con clínica
+  elegida y recargando.
 
 ## 87. Lo que queda del informe de revisión externa (jul 2026) — flujo, no fallos
 - **Zona:** transversal · **Origen:** recorrido completo de producción con
@@ -1462,3 +1472,39 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
 - **Impacto:** alto en conjunto (es la diferencia entre diagnosticar y actuar),
   pero **son varias tandas**, no una.
 - **Fecha:** 2026-07-31 · 🔵 **sin priorizar — Simon decide el orden**
+
+## 88. 🔴 La gráfica de 6 meses de /red está PLANA el día 1 de cada mes
+- **Zona:** `app/lib/dashboard-red.ts` — la serie `progreso` se construye con
+  `aceptados(mes)`/`presentados(mes)`/`creados(mes)`, y las tres pasan por
+  `enTramo`, que recorta a `día <= díaHoy`.
+- **Principio:** §5 confianza — y contradice de frente la decisión del
+  2026-07-27: "el mes en curso se pinta punteado **en vez de excluirlo**, se ve
+  la tendencia sin que un mes a medias parezca una caída". Si los meses CERRADOS
+  también se recortan al día de hoy, no hay tendencia que ver.
+- **`enTramo` es correcto donde nació**: comparar "este mes" contra "el mismo
+  tramo del anterior" evita comparar cinco días con treinta. Lo que está mal es
+  aplicarlo a una serie histórica de meses completos.
+- **Medido hoy (1 de agosto), mirando la misma base a distintos días del mes:**
+
+  | Se mira el | mar | abr | may | jun | jul |
+  |---|---|---|---|---|---|
+  | **1 ago** | 0 € | 0 € | 0 € | 4.800 € | 0 € |
+  | 5 ago | 2.334 € | 1.800 € | 10.659 € | 6.210 € | 1.520 € |
+  | 15 ago | 20.367 € | 9.713 € | 30.268 € | 8.410 € | 3.020 € |
+  | 28 ago | 31.584 € | 15.786 € | 44.062 € | 22.857 € | 37.881 € |
+
+  Solo es correcta a final de mes. El día 1 la gráfica está a cero.
+- **Es PRE-EXISTENTE**, verificado con los cambios del día guardados (`git
+  stash`): falla igual. No lo destapó ninguna pasada visual porque nunca se
+  había mirado /red un día 1 o 2.
+- **Lo tiene rojo ahora mismo:** `npx tsx scripts/qa-dashboard-red.ts` (6 fallos,
+  cinco de la serie y "perdidos mes previo").
+- **Mejora:** que la serie histórica use meses COMPLETOS y solo el mes en curso
+  vaya a día de hoy — que además es lo que su propio trazo punteado ya declara.
+  `enTramo` se queda para los deltas mes-contra-mes, que es para lo que nació.
+- **Impacto:** 🔴 **alto y con fecha**: /red es el acto I del guion de demo y el
+  guion dice que no se recorta nunca. La reunión con RB es la semana del 3 de
+  agosto — dos días.
+- **Esfuerzo:** ~5 líneas (separar `enTramo` de la serie) + volver a poner verde
+  el QA de paridad.
+- **Fecha:** 2026-08-01 · 🔵 **esperando OK de Simon**

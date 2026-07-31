@@ -35,6 +35,7 @@ import {
 } from "../../lib/periodo";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { cargarJSON, traeLista } from "../../lib/fetch-json";
+import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
 
 // InformesView depende de dom-to-image-more → ssr:false (mismo fix que
 // PresupuestosShell).
@@ -78,7 +79,9 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
   // la app, el mismo que usan Leads, Cobros, Pacientes y Seguimiento. KpiView
   // tenía además el SUYO propio, un segundo desplegable de clínicas en una
   // pantalla que ya tenía uno arriba.
-  const { selectedClinicaNombre } = useClinic();
+  const { selectedClinicaNombre, selectedClinicaId, setSelectedClinicaId } = useClinic();
+  // Con clínica elegida la pantalla cambia de ámbito y hay que decirlo.
+  const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
 
   const cargarDoctores = useCallback(() => {
     const url = new URL("/api/presupuestos/doctores", location.href);
@@ -144,6 +147,15 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
           </p>
         </Card>
       </header>
+      {/* El filtro de clínica PERSISTE en localStorage: se puede llegar
+          aquí con él puesto sin haberlo tocado en esta sesión, y las cifras
+          son otras. Se declara en la página, no solo en el selector. */}
+      {clinicaFiltrada && (
+        <AvisoFiltroClinica
+          nombre={selectedClinicaNombre!}
+          onVerTodas={() => setSelectedClinicaId(null)}
+        />
+      )}
 
       <div>
         {tab === "presupuestos" && (

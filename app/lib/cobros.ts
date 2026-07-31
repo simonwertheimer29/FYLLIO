@@ -14,6 +14,8 @@
 // también la vida financiera completa (Registro): tratamientos, último pago
 // y estadoCobro (pagado/parcial/pendiente/vencido) por paciente.
 
+import { diasDeClinicaEntre } from "./presupuestos/estado-conversacion";
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type UrgenciaCobro = "vencido" | "por_vencer" | "estancado" | "normal";
@@ -53,6 +55,7 @@ export function calcularCobrosPorPaciente(args: {
   incluirSaldados?: boolean;
 }): CobroPaciente[] {
   const today = args.ahoraMs ?? Date.now();
+  const ahora = new Date(today);
 
   // Plazos por clínica (config) con fallback global.
   const plazoPorClinica = new Map<string | null, number>();
@@ -123,17 +126,24 @@ export function calcularCobrosPorPaciente(args: {
     const fechaAceptado = fechaAceptadoMinPorPac.get(p.id) ?? null;
     const aceptadoMs = fechaAceptado ? new Date(fechaAceptado).getTime() : null;
     const plazoDias = plazoFor(p.clinicaId);
+    // Los días se cuentan en el CALENDARIO DE LA CLÍNICA (2026-08-01). Antes
+    // era resta de milisegundos contra `Date.now()`: el plazo no vencía a
+    // medianoche sino en el instante que heredaba del huso del proceso que
+    // leyera la fila — medido, cruzaba a las 07:00 de Madrid desde este
+    // portátil y habría cruzado a las 02:00 desde Vercel. La DEFINICIÓN no
+    // cambia (90 días siguen siendo 90 días); cambia CUÁNDO se cruza, que
+    // ahora es la medianoche de la clínica, como todo lo demás (MEJORAS 52).
     const diasDesdeAceptacion = aceptadoMs
-      ? Math.max(0, Math.floor((today - aceptadoMs) / DAY_MS))
+      ? Math.max(0, diasDeClinicaEntre(new Date(aceptadoMs), ahora))
       : null;
 
     let diasVencido: number | null = null;
     let diasParaVencer: number | null = null;
     let urgencia: UrgenciaCobro = "normal";
-    if (aceptadoMs) {
-      const venceMs = aceptadoMs + plazoDias * DAY_MS;
-      if (venceMs < today) diasVencido = Math.floor((today - venceMs) / DAY_MS);
-      else diasParaVencer = Math.floor((venceMs - today) / DAY_MS);
+    if (diasDesdeAceptacion != null) {
+      const restantes = plazoDias - diasDesdeAceptacion;
+      if (restantes < 0) diasVencido = -restantes;
+      else diasParaVencer = restantes;
     }
     const tieneLiquidacion = tieneLiquidacionPac.has(p.id);
     const tieneAlgunPago = (pagosCountPorPac.get(p.id) ?? 0) > 0;

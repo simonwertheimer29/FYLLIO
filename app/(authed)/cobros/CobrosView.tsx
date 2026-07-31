@@ -22,6 +22,8 @@ import { PagoModal } from "../../components/pacientes/PagoModal";
 import { Inbox, ICON_STROKE } from "../../components/icons";
 import { CobroPanel } from "./CobroPanel";
 import { type CobroItem, type CobrosApiResponse, type EstadoCobro, copyEstado, fmtEUR } from "./types";
+import { fechaClinica } from "../../lib/time";
+import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
 
 const BORDER: Record<string, string> = {
   vencido: "var(--color-danger)",
@@ -47,7 +49,9 @@ const SELECT_CLASS =
   "text-xs px-3 py-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]";
 
 export function CobrosView() {
-  const { selectedClinicaId } = useClinic();
+  const { selectedClinicaId, selectedClinicaNombre, setSelectedClinicaId } = useClinic();
+  // Con clínica elegida la pantalla cambia de ámbito y hay que decirlo.
+  const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
   const [data, setData] = useState<CobrosApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -238,6 +242,15 @@ export function CobrosView() {
           )}
         </Card>
       </header>
+      {/* El filtro de clínica PERSISTE en localStorage: se puede llegar
+          aquí con él puesto sin haberlo tocado en esta sesión, y las cifras
+          son otras. Se declara en la página, no solo en el selector. */}
+      {clinicaFiltrada && (
+        <AvisoFiltroClinica
+          nombre={selectedClinicaNombre!}
+          onVerTodas={() => setSelectedClinicaId(null)}
+        />
+      )}
 
       {/* ── Zona 1 · Actuar ─────────────────────────────────────────── */}
       {pestana === "actuar" && (
@@ -434,10 +447,7 @@ export function CobrosView() {
                     </td>
                     <td className="px-3 py-2.5 text-[var(--color-muted)] tabular-nums whitespace-nowrap">
                       {i.ultimoPagoISO
-                        ? new Date(i.ultimoPagoISO).toLocaleDateString("es-ES", {
-                            day: "numeric",
-                            month: "short",
-                          })
+                        ? fechaClinica(i.ultimoPagoISO)
                         : "—"}
                     </td>
                     <td className="px-3 py-2.5 text-[var(--color-muted)] max-w-[160px] truncate">

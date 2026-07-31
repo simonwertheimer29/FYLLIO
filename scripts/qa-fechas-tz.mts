@@ -19,7 +19,10 @@
 //      día — que es la consecuencia de negocio: si el día se desplaza, el caso
 //      desaparece de la columna "Citados Hoy" y de su cohorte de Seguimiento.
 
-import { hoyISO, mesISO, horaClinica, inicioDelDiaUTC, sumaDias, TZ_CLINICA } from "../app/lib/time";
+import {
+  hoyISO, mesISO, horaClinica, inicioDelDiaUTC, sumaDias, TZ_CLINICA,
+  fechaClinica, fechaHoraClinica,
+} from "../app/lib/time";
 import { cohorteLead, esNuevoUrgente } from "../app/lib/seguimiento/cohortes";
 import {
   estadoConversacion,
@@ -184,6 +187,64 @@ check("inicio del día en invierno son las 23:00 UTC del día anterior",
     "un lead de hace 2 días ya es urgente",
     esNuevoUrgente(alta, new Date(inicioDelDiaUTC("2026-07-28").getTime() + 12 * 3_600_000)),
   );
+}
+
+// ── 6 · lo que se ESCRIBE en pantalla, también en zona de clínica ──────
+//
+// El bug (2026-08-01): `toLocaleString("es-ES", …)` sin `timeZone` pinta en la
+// zona del NAVEGADOR. Las doce llamadas de /llamadas están registradas a las
+// 07:00Z = 09:00 de Madrid, y la revisión externa las vio TODAS a las 02:00
+// porque su navegador iba en horario central de EE. UU. El dato era correcto;
+// la pantalla enseñaba una hora distinta a cada persona.
+{
+  const instante = "2026-07-31T07:00:00Z"; // 09:00 en Madrid
+  check(
+    "un instante se pinta en hora de la CLÍNICA, no la del proceso",
+    fechaHoraClinica(instante) === "31 jul, 09:00",
+    `dio "${fechaHoraClinica(instante)}"`,
+  );
+  // Lo mismo desde cualquier zona: el test corre con TZ=UTC/Madrid/NY/Tokyo y
+  // esta línea tiene que dar lo mismo en las cuatro.
+  check(
+    "y no depende de la zona del proceso",
+    fechaHoraClinica(instante) === fechaHoraClinica(new Date(instante)),
+  );
+  // La fórmula vieja SÍ dependía: se demuestra el bug, no se supone.
+  const vieja = (tz: string) =>
+    new Date(instante).toLocaleString("es-ES", {
+      day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: tz,
+    });
+  check(
+    "la fórmula vieja daba 02:00 en horario central de EE. UU.",
+    vieja("America/Chicago").includes("02:00"),
+    `dio "${vieja("America/Chicago")}"`,
+  );
+
+  // Un DÍA DE CALENDARIO no se convierte: no tiene hora que convertir, y
+  // pasarlo por un huso es exactamente cómo se pierde un día.
+  check("un día de calendario imprime SU día", fechaClinica("2026-07-29") === "29 jul",
+    `dio "${fechaClinica("2026-07-29")}"`);
+  check("…también el 1 de mes", fechaClinica("2026-08-01") === "1 ago",
+    `dio "${fechaClinica("2026-08-01")}"`);
+  check("…con día de la semana y sin la coma de es-ES",
+    fechaClinica("2026-07-29", { diaSemana: true }) === "mié 29 jul",
+    `dio "${fechaClinica("2026-07-29", { diaSemana: true })}"`);
+  check("…y en largo", fechaClinica("2026-07-29", { mesLargo: true, anio: true }) === "29 de julio de 2026",
+    `dio "${fechaClinica("2026-07-29", { mesLargo: true, anio: true })}"`);
+  // Pedirle la HORA a un día de calendario no inventa una hora.
+  check("un día de calendario no gana una hora falsa",
+    !fechaHoraClinica("2026-07-29").includes(":"),
+    `dio "${fechaHoraClinica("2026-07-29")}"`);
+
+  // Un instante de la madrugada: es donde el huso decide el DÍA, no solo la hora.
+  check("00:30 de Madrid es del día de Madrid, no del de UTC",
+    fechaClinica("2026-07-27T22:30:00Z") === "28 jul",
+    `dio "${fechaClinica("2026-07-27T22:30:00Z")}"`);
+
+  // Vacíos y basura no imprimen "Invalid Date" en la cara del usuario.
+  for (const malo of [null, undefined, "", "no soy una fecha"]) {
+    check(`"${String(malo)}" → guion, no "Invalid Date"`, fechaClinica(malo) === "—");
+  }
 }
 
 // ── resultado ──────────────────────────────────────────────────────────

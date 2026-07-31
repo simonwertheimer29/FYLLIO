@@ -11,6 +11,7 @@ import { useClinic } from "../../lib/context/ClinicContext";
 import { Bell, CheckCircle2, ICON_STROKE } from "../../components/icons";
 import { StatePill } from "../../components/ui/StatePill";
 import { EmptyState, ErrorState } from "../../components/ui/Feedback";
+import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
 
 type Tipo =
   | "leads"
@@ -68,7 +69,9 @@ const COBRO_TIPOS: Tipo[] = [
 type SubTab = "todos" | "cobros" | Tipo;
 
 export function AlertasView() {
-  const { selectedClinicaId } = useClinic();
+  const { selectedClinicaId, selectedClinicaNombre, setSelectedClinicaId } = useClinic();
+  // Con clínica elegida la pantalla cambia de ámbito y hay que decirlo.
+  const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
   const [cards, setCards] = useState<Card[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null); // error de envío (inline)
@@ -174,6 +177,16 @@ export function AlertasView() {
             </StatePill>
           )}
         </header>
+        {/* El filtro de clínica PERSISTE en localStorage: se puede llegar
+            aquí con él puesto sin haberlo tocado en esta sesión, y las cifras
+            son otras. Se declara en la página, no solo en el selector. */}
+        {clinicaFiltrada && (
+          <AvisoFiltroClinica
+            nombre={selectedClinicaNombre!}
+            onVerTodas={() => setSelectedClinicaId(null)}
+            ocultaAdemas="Las alertas se agrupan por clínica; con el filtro puesto solo se ve una."
+          />
+        )}
 
         {/* Tabs secundarios — estilo Linear: pill accent-soft activa. */}
         <div className="flex flex-wrap gap-1">

@@ -27,6 +27,9 @@ export type Llamada = {
   id: string;
   citaId: string | null;
   pacienteId: string;
+  /** Nombre del paciente, resuelto en la consulta. `null` si la fila no tiene
+   *  paciente o ya no existe: nunca se muestra el id en su lugar. */
+  pacienteNombre: string | null;
   tipo: TipoLlamada;
   vapiCallId: string | null;
   estado: EstadoLlamada;

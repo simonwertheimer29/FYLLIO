@@ -13,6 +13,7 @@ import { ESTADO_CONFIG } from "../../lib/presupuestos/colors";
 import { Card } from "../ui/Card";
 import { EmptyState, ErrorState } from "../ui/Feedback";
 import { eur } from "../shared/Cifra";
+import { fechaClinica } from "../../lib/time";
 import {
   ArrowRight,
   Phone,
@@ -43,8 +44,7 @@ const TIPO_ACCION_ICON: Record<TipoAccion, ReactNode> = {
 function formatFecha(iso: string): string {
   if (!iso) return "";
   try {
-    const d = new Date(iso);
-    return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short", year: "numeric" });
+    return fechaClinica(iso, { anio: true }, "");
   } catch {
     return iso.slice(0, 10);
   }
@@ -53,8 +53,7 @@ function formatFecha(iso: string): string {
 function formatFechaCorta(iso: string): string {
   if (!iso) return "";
   try {
-    const d = new Date(iso);
-    return d.toLocaleDateString("es-ES", { day: "2-digit", month: "short" });
+    return fechaClinica(iso, {}, "");
   } catch {
     return iso.slice(0, 10);
   }

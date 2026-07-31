@@ -38,6 +38,7 @@ function rowToShim(r: any): Shim {
       "Resumen": r.resumen,
       "Cita_Link": r.cita_id ? [r.cita_id] : undefined,
       "Paciente_Link": r.paciente_id ? [r.paciente_id] : undefined,
+      "Paciente_Nombre": r._paciente_nombre,
       "Tipo_Llamada": r.tipo_llamada,
       "Vapi_Call_Id": r.vapi_call_id,
       "Estado": r.estado,
@@ -64,6 +65,7 @@ function toLlamada(rec: Shim): Llamada {
     id: rec.id,
     citaId: citaLinks[0] ?? null,
     pacienteId: pacLinks[0] ?? "",
+    pacienteNombre: f["Paciente_Nombre"] ? String(f["Paciente_Nombre"]) : null,
     tipo: String(f["Tipo_Llamada"] ?? "confirmacion_cita") as TipoLlamada,
     vapiCallId: f["Vapi_Call_Id"] ? String(f["Vapi_Call_Id"]) : null,
     estado: String(f["Estado"] ?? "pendiente") as EstadoLlamada,
@@ -90,7 +92,14 @@ async function selectLlamadasRaw(opts: {
   const rows = await runWithClienteDb(cli(), async (trx) => {
     const { sql } = await import("kysely");
     const r: any = await sql
-      .raw(`select * from llamadas_vapi order by created_at desc, id asc`)
+      // El NOMBRE del paciente viaja con la llamada. Sin él, la columna
+      // "Paciente" de /llamadas era doce veces "Ver ficha" seguidas: una tabla
+      // que no se puede leer, ni buscar, ni ordenar por persona. Un id no vale
+      // en superficie de coordinadora (estándar visual §5).
+      .raw(`select l.*, p.nombre as _paciente_nombre
+              from llamadas_vapi l
+              left join pacientes p on p.id = l.paciente_id
+             order by l.created_at desc, l.id asc`)
       .execute(trx);
     return r.rows as any[];
   });

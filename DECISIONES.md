@@ -1276,6 +1276,59 @@ verse por tener el filtro puesto** (sin eso, la ausencia se sigue leyendo como a
 la red". Verificado en navegador reproduciendo el recorrido del informe: elegir clínica → recargar →
 el aviso está. Las demás pantallas que siguen al selector quedan anotadas (MEJORAS 86).
 
+## 2026-08-01 — La última familia de MEJORAS 52: el día que se ESCRIBE
+Las piezas de julio arreglaron el día que el producto CALCULA; el que ESCRIBE seguía yendo por
+libre. `toLocaleString("es-ES", …)` sin `timeZone` pinta en la zona del NAVEGADOR (o en la de
+Vercel, UTC, si es una ruta de servidor). Las doce llamadas de /llamadas están registradas a las
+07:00Z = **09:00 de Madrid**, hora de clínica perfecta; la revisión externa las vio **todas a las
+02:00** porque su navegador iba en horario central de EE. UU. El dato era correcto: la misma
+pantalla enseñaba una hora distinta a cada persona, y en el portátil de las demos (UTC−4/−5)
+pasaba igual. Reproducido antes de tocar nada — Madrid 09:00 · UTC 07:00 · New_York 03:00 ·
+**Chicago 02:00** — y verificado después en navegador con `timezoneId: America/Chicago`.
+`lib/time` gana `fechaClinica` y `fechaHoraClinica`, y son **dos y no una a propósito**: un
+INSTANTE se convierte a la zona de la clínica; un DÍA DE CALENDARIO (`date`, "2026-07-29") no,
+porque no tiene hora que convertir y pasarlo por un huso es justo cómo se pierde un día. El código
+resolvía lo segundo con `new Date(dia + "T12:00:00")`, un truco correcto pero mudo que el siguiente
+en pasar "limpia" y rompe: ahora la función lo reconoce y lo absorbe. 16 sitios migrados, incluidos
+cuatro de SERVIDOR (el copiloto, los dos PDF de informes) que renderizaban en UTC. `qa:fechas` sube
+a **52 comprobaciones**, verdes en UTC · Madrid · New_York · Tokyo.
+
+## 2026-08-01 — /llamadas: la integración no existía y nadie se enteraba
+`VAPI_API_KEY` no estaba en ninguna parte —ni en el entorno ni en el contrato de `lib/entorno`— así
+que cualquier llamada moría en "VAPI_API_KEY no configurada", mientras la pantalla se veía como un
+módulo en marcha y ofrecía a un admin un botón "Reintentar llamada" que siempre fallaba. Es el
+MISMO agujero que dejó el portal del paciente sin avisar (§11): una capacidad que desaparece y no
+grita. **Decisión de Simon: opción B** — se declara y se dice, no se congela. Vapi entra en el
+contrato como capacidad *funcional*, `llamadasOperativas()` lo resuelve en servidor, y la pantalla
+lleva un aviso con la distinción que importa: **pendiente de activar ≠ averiado** ("falta activar el
+servicio de voz, es un paso de configuración... mientras tanto esta pantalla es el registro"). El
+botón se deshabilita **y dice por qué** en vez de esconderse: esconderlo deja buscándolo a quien lo
+conoce. Misma doctrina que el Motor con WhatsApp.
+Y el resto de la pantalla: era **la ÚNICA sin contenedor de página** (devolvía un `space-y-5
+max-w-6xl` suelto, sin fondo ni padding ni scroll propio) — de ahí el título pegado al borde y el
+"Coste mes cortado", que no era el texto sino la rejilla desbordando. La columna Paciente era doce
+veces "Ver ficha" seguidas porque el contrato no llevaba el nombre: ahora `pacienteNombre` viaja
+desde la consulta y la PERSONA va primero, con "Ver ficha" como acción. El coste **sale de la fila
+de KPIs**: es lo que nos cuesta a nosotros el servicio, en dólares, y al lado de tres cifras de
+pacientes invitaba a leerlo como facturación de la clínica; sigue en USD porque convertir con un
+cambio a mano sería inventar un número (§4), pero con un formateador y no un `$${n}` suelto. Sus
+KPIs pasan al día de la clínica (`setHours(0,0,0,0)` era el día del proceso) y el tope de 200 del
+coste mensual se declara cuando se alcanza.
+
+## 2026-08-01 — El aviso de filtro, en las ocho pantallas que faltaban
+MEJORAS 86, aprobada con la regla del 31/7: un estado persistido que cambia lo que se ve se declara
+en pantalla. `AvisoFiltroClinica` estaba solo en /red; ahora lo llevan también Pacientes,
+Seguimiento, Leads, Cobros, KPIs, Alertas y Presupuestos — las ocho que siguen al selector.
+Verificado en navegador recorriendo las ocho con una clínica elegida y recargando.
+
+## 2026-08-01 — Cobros: el plazo vence a medianoche de la clínica, no según el huso del proceso
+Medido antes de decidir, porque la pregunta era si la cifra se movía entre recargas como la de /red:
+**no se movía** (`fecha_aceptado` es `date`, y el bucket salió constante en 24 h de muestreo). Pero
+al medirlo apareció otra cosa: los cruces caían a las **07:00 de Madrid**, no a medianoche, porque
+`new Date(fecha_aceptado)` da la medianoche LOCAL DEL RUNTIME — desde Vercel habría cruzado a las
+02:00. La definición no cambia (90 días siguen siendo 90 días); cambia cuándo se cruza, que ahora es
+la medianoche de la clínica como todo lo demás.
+
 ## 2026-07-31 — El seed no puede escribir valores que el producto no conoce (invariante D)
 Cuarta vez que el mismo error iba a costar caro: jul-27 los motivos de descarte en texto libre
 (MEJORAS 41), jul-30 `"Primera Visita"` vs `"Primera visita"` (MEJORAS 77), y hoy dos —

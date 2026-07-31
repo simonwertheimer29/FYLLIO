@@ -46,7 +46,7 @@ import {
 } from "../../../lib/plantillas/plantillas";
 import { getPaciente } from "../../../lib/pacientes/pacientes";
 import type { Session } from "../../../lib/auth/session";
-import { hoyISO } from "../../../lib/time";
+import { hoyISO, fechaHoraClinica } from "../../../lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -644,13 +644,7 @@ async function toCopilotAction(
       let fechaHoraTxt = fechaHora;
       const dt = new Date(fechaHora);
       if (!Number.isNaN(dt.getTime())) {
-        fechaHoraTxt = dt.toLocaleString("es-ES", {
-          weekday: "long",
-          day: "2-digit",
-          month: "long",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+        fechaHoraTxt = fechaHoraClinica(dt, { diaSemana: true, mesLargo: true });
       }
       const preview = [
         `Paciente: ${pac}`,

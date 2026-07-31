@@ -15,6 +15,7 @@ import { EmptyState, ErrorState } from "../ui/Feedback";
 import { BarChart3, Download, AlertTriangle, X, Info, Sparkles, FileText, ChevronDown, ICON_STROKE } from "../icons";
 import { eur } from "../shared/Cifra";
 import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
+import { fechaHoraClinica, fechaClinica } from "../../lib/time";
 import {
   tasaCierre, textoTasa, leerTasaGuardada, notaTasaGuardada,
   type TasaCierre,
@@ -261,7 +262,7 @@ function InformeCard({
           <p className="text-xs font-semibold text-[var(--color-muted)] uppercase tracking-wide">Informe narrativo</p>
           {informe.generadoEn && (
             <p className="text-[10px] text-[var(--color-muted)] mt-0.5">
-              Generado el {new Date(informe.generadoEn).toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+              Generado el {fechaHoraClinica(informe.generadoEn)}
             </p>
           )}
         </div>
@@ -792,9 +793,7 @@ export default function InformesView({ user }: { user: UserSession }) {
               {filtrados.map((inf) => {
                 const isExpanded = expandedInformeId === inf.id;
                 const fechaLabel = inf.generadoEn
-                  ? new Date(inf.generadoEn).toLocaleDateString("es-ES", {
-                      day: "numeric", month: "short", year: "numeric",
-                    })
+                  ? fechaClinica(inf.generadoEn, { anio: true })
                   : "";
                 let semanalData: Record<string, unknown> | null = null;
                 if (inf.tipo === "semanal" && inf.contenidoJson) {

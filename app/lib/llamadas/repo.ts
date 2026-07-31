@@ -17,6 +17,7 @@ function toLlamada(rec: any): Llamada {
     id: rec.id,
     citaId: citaLinks[0] ?? null,
     pacienteId: pacLinks[0] ?? "",
+    pacienteNombre: f["Paciente_Nombre"] ? String(f["Paciente_Nombre"]) : null,
     tipo: String(f["Tipo_Llamada"] ?? "confirmacion_cita") as TipoLlamada,
     vapiCallId: f["Vapi_Call_Id"] ? String(f["Vapi_Call_Id"]) : null,
     estado: String(f["Estado"] ?? "pendiente") as EstadoLlamada,

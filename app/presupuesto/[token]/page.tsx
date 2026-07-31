@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback, use } from "react";
 import { toast } from "sonner";
 import { ErrorState } from "../../components/ui/Feedback";
 import { eur } from "../../components/shared/Cifra";
+import { fechaClinica } from "../../lib/time";
 import {
   Lock,
   Phone,
@@ -61,9 +62,7 @@ const MOTIVOS = [
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function formatFecha(iso: string): string {
-  return new Date(iso).toLocaleDateString("es-ES", {
-    day: "2-digit", month: "long", year: "numeric",
-  });
+  return fechaClinica(iso, { mesLargo: true, anio: true });
 }
 
 // El mismo formateo que el resto del producto: el paciente ve "2.100 €", no

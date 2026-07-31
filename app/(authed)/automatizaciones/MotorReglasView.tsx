@@ -25,6 +25,7 @@ import {
 } from "../../components/icons";
 import { WA_ENGINE_OPERATIVO } from "../../lib/automatizaciones/types";
 import { deDiccionario } from "../../lib/diccionario";
+import { fechaHoraClinica } from "../../lib/time";
 
 type Regla = {
   id: string;
@@ -585,12 +586,7 @@ function HistorialDrawer({
                       {resultadoBadge(it.resultado).label}
                     </span>
                     <span className="text-[var(--color-muted)] tabular-nums">
-                      {new Date(it.ejecutadaAt).toLocaleString("es-ES", {
-                        day: "2-digit",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      {fechaHoraClinica(it.ejecutadaAt)}
                     </span>
                   </div>
                   <p className="mt-1.5 text-[11px] text-[var(--color-muted)]">
