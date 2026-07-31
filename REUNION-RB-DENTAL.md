@@ -24,8 +24,9 @@ Guion de la reunión con RB Dental — red de 10 clínicas en Madrid (marcas RB 
 ## 1 · Antes de la reunión
 
 - [ ] `npm run demo:reset` el mismo día, para que las fechas estén ancladas.
-- [ ] Repasar el guion de demo (`guion-demo-fyllio.md`).
+- [ ] Repasar el guion de demo ([`guion-demo-fyllio.md`](guion-demo-fyllio.md)), que trae su propia checklist de preparación.
 - [ ] Verificar en preview: `/red`, `/seguimiento`, `/cobros`, `/presupuestos` y la ficha de paciente.
+- [ ] **Tener el tenant de RB montado con sus diez clínicas y sus dos marcas.** Es el cierre de la demo y lo que la convierte en propuesta; sin él, el último acto no existe.
 - [ ] Llevar con qué tomar notas — y, si aceptan, **grabar la reunión**. Pídelo al principio: "¿os importa que grabe para no perder detalle?". Vale oro después.
 - [ ] Decidir de antemano qué NO vas a prometer. Si piden algo que no existe, la respuesta es "eso hoy no lo hace; cuéntame cómo lo resolveríais vosotros" — nunca "sí, se puede hacer".
 
@@ -43,6 +44,8 @@ Guion de la reunión con RB Dental — red de 10 clínicas en Madrid (marcas RB 
 | Cierre | 5 | Siguientes pasos con fecha |
 
 Si el tiempo se acorta, **el bloque A no se recorta**. Se recorta la demo.
+
+El bloque B va por [`guion-demo-fyllio.md`](guion-demo-fyllio.md), que está escrito para 35-45 minutos: en estos 20 se recorta por su §9, y lo que nunca se cae es `/red`, `/seguimiento`, la ficha con el panel de acción y el cierre con su tenant vacío.
 
 ---
 
@@ -201,7 +204,7 @@ Independientemente de lo que salga en la reunión, estas cosas hay que hacerlas 
 - [ ] NDA con RB.
 
 **Técnicos**
-- [ ] Dar de alta a los doctores de RB en Postgres (la tabla `staff` está vacía en las bases piloto; el selector de doctor saldría vacío).
+- [ ] Dar de alta a los doctores de RB en Postgres (la tabla `staff` está vacía en las bases piloto; el selector de doctor saldría vacío). **Esto se nota ya en la demo**: el guion manda avisar antes de que lo vean.
 - [ ] Revisar las plantillas de cobranza de la base de RB y actualizarlas a `{{pendiente}}`.
 - [ ] Cambiar los teléfonos del seed de DEMO al rango reservado +34 600 000 xxx.
 

@@ -20,6 +20,7 @@ Se mantienen a mano y hay que leerlos antes de tocar su terreno:
 | [`DECISIONES.md`](DECISIONES.md) | **Qué** se decidió y qué se arregló: bugs importantes, decisiones de arquitectura, hallazgos cerrados | En el mismo cambio que cierra el asunto |
 | [`MEJORAS-PENDIENTES.md`](MEJORAS-PENDIENTES.md) | Lo detectado y **no** aprobado todavía. Nada de aquí se ejecuta sin el visto bueno del fundador | Al detectar algo fuera del alcance de la tarea |
 | [`REUNION-RB-DENTAL.md`](REUNION-RB-DENTAL.md) | El guion de la reunión con el cliente piloto: qué preguntar, en qué orden, qué hipótesis cierra cada pregunta, y los pendientes de onboarding | Antes de cada reunión, y el mismo día después |
+| [`guion-demo-fyllio.md`](guion-demo-fyllio.md) | Cómo se enseña el producto: el hilo narrativo, qué pantalla en qué orden, qué NO se enseña y qué responder a las preguntas que van a hacer | Cuando cambie el producto que se demuestra |
 | [`AUDITORIA_FABLE.md`](AUDITORIA_FABLE.md) | La auditoría técnica de julio de 2026 y su tabla de fiabilidad (S1-S12) | Congelado; es referencia histórica |
 
 Y las **investigaciones externas**, que son fotos fechadas y **no se editan** — cuando haya

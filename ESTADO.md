@@ -8,7 +8,8 @@ Dónde está Fyllio hoy, en una pantalla. Se lee al abrir sesión y se regenera 
 >
 > Se genera leyendo [`MEJORAS-PENDIENTES.md`](MEJORAS-PENDIENTES.md) ·
 > [`MERCADO.md`](MERCADO.md) · [`DECISIONES.md`](DECISIONES.md) ·
-> [`REUNION-RB-DENTAL.md`](REUNION-RB-DENTAL.md).
+> [`REUNION-RB-DENTAL.md`](REUNION-RB-DENTAL.md) ·
+> [`guion-demo-fyllio.md`](guion-demo-fyllio.md).
 
 **Regenerado:** 31 de julio de 2026.
 
@@ -36,8 +37,7 @@ Aparte y ya aprobada, en su propia tanda: **`/informes` como pantalla propia**
 | Qué | Por qué | Lo desbloquea |
 |---|---|---|
 | `npm run verificar:produccion` | Falta `FYLLIO_COOKIE`. `FYLLIO_URL` y `FYLLIO_BYPASS` ya están | Simon |
-| Guion de demo para la reunión de RB | `guion-demo-fyllio.md` no está en el repo y la reunión es la semana del 3 de agosto | Simon (aportarlo o decidir que se improvisa) |
-| Fusionar `cuestiones-previas-piloto.md` en el guion de reunión | El archivo no está en el repo ni es accesible desde aquí | Simon (aportarlo) |
+| El cierre de la demo de RB | El tenant de RB tiene que estar montado con sus diez clínicas y sus dos marcas. Sin él, el último acto del guion —"esto es lo suyo"— no existe | Montarlo antes del 3 de agosto |
 | Piloto con datos reales de RB | Sin art. 28 y NDA firmados no se toca un dato de paciente | Firma de ambas partes |
 
 ---
@@ -45,8 +45,9 @@ Aparte y ya aprobada, en su propia tanda: **`/informes` como pantalla propia**
 ## Próximos tres hitos
 
 1. **Reunión con RB Dental** — semana del **3 de agosto de 2026**. Es la fecha que manda: ocho
-   de las once hipótesis abiertas se tocan ahí. Guion y checklist previo en
-   [`REUNION-RB-DENTAL.md`](REUNION-RB-DENTAL.md).
+   de las once hipótesis abiertas se tocan ahí. Preguntas y checklist previo en
+   [`REUNION-RB-DENTAL.md`](REUNION-RB-DENTAL.md); cómo se enseña el producto, en
+   [`guion-demo-fyllio.md`](guion-demo-fyllio.md).
 2. **Cerrar la pasada visual** — condición: las cinco pantallas que quedan, en el orden de
    arriba. Sin fecha; va por tandas aprobadas una a una.
 3. **Arranque del piloto** — condición: que RB diga que sí, más los seis pendientes de
