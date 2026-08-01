@@ -14,6 +14,7 @@ import {
   Bell,
   Building2,
   User,
+  AlertTriangle,
   Check,
   Plus,
   X,
@@ -1289,13 +1290,43 @@ function SectionPlantillas({ user }: { user: UserSession }) {
                 </div>
               </div>
 
-              {/* Variables hint */}
+              {/* Variables hint
+                  El aviso de la sintaxis NO es decoración. Hay DOS editores de
+                  plantillas sobre la MISMA tabla `plantillas_mensaje`, cada uno
+                  con su vocabulario: este usa una llave y {doctor}/{clinica};
+                  el de Ajustes → Plantillas WhatsApp usa DOS llaves y
+                  {{nombre_doctor}}/{{nombre_clinica}}. Una plantilla escrita
+                  aquí con dobles llaves llega al paciente con las llaves
+                  puestas: "tienes pendiente {{pendiente}}€". Ya casi pasa una
+                  vez (MEJORAS 74). La fusión de los dos editores está aprobada
+                  para después del piloto (MEJORAS 13); mientras tanto, esto es
+                  lo que evita que alguien escriba la sintaxis del otro. */}
               <div className="rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border)] p-3">
                 <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide mb-1">Variables disponibles</p>
                 <p className="text-xs text-[var(--color-muted)] font-mono">
                   {"{nombre}"} {"{tratamiento}"} {"{importe}"} {"{doctor}"} {"{clinica}"}
                 </p>
+                <p className="mt-2 flex items-start gap-1.5 text-[11px] text-[var(--color-warning)]">
+                  <AlertTriangle size={12} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0" aria-hidden />
+                  <span>
+                    Aquí las variables van con <strong>una sola llave</strong>:{" "}
+                    <code className="font-mono">{"{nombre}"}</code>, no{" "}
+                    <code className="font-mono">{"{{nombre}}"}</code>. Escribe
+                    solo las de esta lista — cualquier otra cosa le llega al
+                    paciente tal cual, con las llaves puestas.
+                  </span>
+                </p>
               </div>
+              {/* Y si ya la ha escrito, se le dice antes de guardar. */}
+              {/\{\{\s*\w+\s*\}\}/.test(formContenido) && (
+                <div className="rounded-lg border border-[var(--color-danger)]/30 bg-[var(--color-danger-soft)] px-3 py-2">
+                  <p className="text-[11px] text-[var(--color-danger)]">
+                    Has escrito una variable con <strong>dos llaves</strong>. En
+                    esta pantalla no se sustituye: el paciente recibiría el texto
+                    con las llaves. Déjala con una sola.
+                  </p>
+                </div>
+              )}
 
               {/* Contenido */}
               <div>

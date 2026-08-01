@@ -1245,6 +1245,54 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   coordinadora escriba sus propias plantillas en Ajustes.
 - **Fecha:** 2026-07-29 · 🔵
 
+### CENSO COMPLETO — 2026-08-01 (pedido por Simon antes de la reunión de RB)
+
+**La causa no son dos sintaxis: son DOS EDITORES sobre la MISMA tabla**
+(`plantillas_mensaje`), cada uno con su API y su vocabulario. Las sintaxis son
+el síntoma.
+
+| | Automatizaciones → Plantillas | Ajustes → Plantillas WhatsApp |
+|---|---|---|
+| Ruta | `/automatizaciones` → "Reglas y objetivos" → Plantillas | `/ajustes/configuracion` → Plantillas WhatsApp |
+| API | `/api/presupuestos/plantillas` | `/api/plantillas` |
+| Discriminador en la fila | `categoria = NULL` | `categoria = 'cobranza'` |
+| Sintaxis | `{una llave}` | `{{dos llaves}}` |
+| Variables | `{nombre}` `{tratamiento}` `{importe}` `{doctor}` `{clinica}` | `{{nombre}}` `{{tratamiento}}` `{{importe}}` `{{nombre_doctor}}` `{{nombre_clinica}}` `{{pendiente}}` `{{dias_vencido}}` |
+
+**No es solo el número de llaves: los NOMBRES también difieren** — `{doctor}` vs
+`{{nombre_doctor}}`, `{clinica}` vs `{{nombre_clinica}}`. Son dos diccionarios
+de variables distintos, no dos formatos del mismo.
+
+**Las 8 filas que existen hoy, en las tres bases:**
+
+| Cliente | Nombre | tipo | categoria | Sintaxis | Editor |
+|---|---|---|---|---|---|
+| DEMO | Confirmación de aceptación | Confirmacion | — | `{simples}` | Automatizaciones |
+| DEMO | Detalles de pago | Detalles de pago | — | `{simples}` | Automatizaciones |
+| DEMO | Financiación | Financiacion | — | `{simples}` | Automatizaciones |
+| DEMO | Reactivación | Reactivacion | — | `{simples}` | Automatizaciones |
+| DEMO | Seguimiento de presupuesto | Seguimiento | — | `{simples}` | Automatizaciones |
+| DEMO | recordatorio_liquidacion | Cobranza | cobranza | `{{dobles}}` | Ajustes |
+| DEMO | recordatorio_primer_pago | Cobranza | cobranza | `{{dobles}}` | Ajustes |
+| DEMO | recordatorio_senal | Cobranza | cobranza | `{{dobles}}` | Ajustes |
+
+**Tres hechos que importan para la reunión:**
+1. **RB e INDEP tienen CERO plantillas.** Las 8 son de DEMO. No hay nada que
+   migrar, y todo lo que RB escriba caerá en el editor que abra primero.
+2. **Cero filas mezclan las dos sintaxis** hoy. La separación es limpia y el
+   reparto es exactamente por editor — lo que confirma que el editor es la causa.
+3. `{{pendiente}}` y `{{dias_vencido}}` **solo existen** en la familia de
+   Ajustes. `{{pendiente}}` es la variable que se creó el 2026-07-24 para que un
+   recordatorio de cobro no reclamara el total firmado: si alguien la escribe en
+   el editor de Automatizaciones, no se sustituye y el paciente recibe el texto
+   con las llaves puestas.
+
+**Mitigación puesta hoy (no es el arreglo):** el editor de Automatizaciones avisa
+de que ahí las variables van con **una sola llave**, y si se detecta `{{…}}` en
+el contenido sale una advertencia antes de guardar. Es una tirita hasta la fusión
+(MEJORAS 13, aprobada para después del piloto), que es donde esto se cierra de
+verdad: un editor, un vocabulario, un renderizador.
+
 ## 77. "1ª visita vs con historial" no existe en el dato: el 100% son primeras visitas
 - **Zona:** `lib/presupuestos/tipo-visita.ts`, `api/presupuestos/kpis/route.ts`
 - **Principio:** §1 misión / §4 no inventar — el KPI enseñaba "0 y 0" por una

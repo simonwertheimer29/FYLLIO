@@ -1,10 +1,13 @@
 // app/(authed)/ajustes/layout.tsx
 // Sprint 7 Fase 6 — layout de la sección Ajustes.
-// Acceso restringido a admin; coord se redirige a /presupuestos.
+// Acceso restringido a admin; coord se redirige a /seguimiento.
+//
+// La navegación vive en `AjustesNav` (cliente): necesita saber qué sección está
+// activa y existir también en móvil. Aquí solo queda la puerta y el marco.
 
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "../../lib/auth/session";
+import { AjustesNav } from "./AjustesNav";
 
 export const dynamic = "force-dynamic";
 
@@ -18,28 +21,11 @@ export default async function AjustesLayout({
   if (session.rol !== "admin") redirect("/seguimiento");
 
   return (
-    <div className="flex-1 min-h-0 flex overflow-hidden">
-      <aside className="hidden md:block w-56 shrink-0 border-r border-slate-200 bg-white p-4 overflow-y-auto">
-        <h2 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-3">
-          Ajustes
-        </h2>
-        <nav className="space-y-1">
-          <Link
-            href="/ajustes/clinica-equipo"
-            className="block text-sm font-semibold rounded-lg px-3 py-2 text-slate-800 hover:bg-slate-100"
-          >
-            Clínica y equipo
-          </Link>
-          <Link
-            href="/ajustes/configuracion"
-            className="block text-sm font-semibold rounded-lg px-3 py-2 text-slate-800 hover:bg-slate-100"
-          >
-            Configuración
-          </Link>
-          {/* Siguientes secciones se añaden aquí (Automatizaciones, etc.) */}
-        </nav>
-      </aside>
-      <main className="flex-1 min-w-0 overflow-y-auto p-6">{children}</main>
+    // En móvil la navegación va arriba en horizontal, así que la caja apila;
+    // en escritorio es barra lateral + contenido.
+    <div className="flex-1 min-h-0 flex flex-col overflow-hidden bg-[var(--color-background)] md:flex-row">
+      <AjustesNav />
+      <main className="flex-1 min-w-0 overflow-y-auto p-4 lg:p-6">{children}</main>
     </div>
   );
 }
