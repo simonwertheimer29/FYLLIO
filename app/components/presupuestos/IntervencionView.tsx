@@ -16,6 +16,7 @@ import {
 import { useClinic } from "../../lib/context/ClinicContext";
 import { ErrorState, EmptyState } from "../ui/Feedback";
 import { AccionCard } from "../shared/AccionCard";
+import type { useVistosHoy } from "../../lib/seguimiento/useVistosHoy";
 import { SeguimientoHeader } from "../shared/SeguimientoHeader";
 import { ColaTabs } from "../shared/ColaTabs";
 import { X, Inbox, ICON_STROKE } from "../icons";
@@ -94,9 +95,13 @@ function relEsperaShort(iso: string): string {
 function PresupuestoAccionRow({
   item,
   onOpenPanel,
+  visto,
+  onVisto,
 }: {
   item: PresupuestoIntervencion;
   onOpenPanel: (p: PresupuestoIntervencion) => void;
+  visto: boolean;
+  onVisto: (deshacer: boolean) => void;
 }) {
   // Decisión de producto (2026-07-23): la card INFORMA — contexto,
   // recomendación, prioridad — y toda ella abre el panel, donde viven las
@@ -132,6 +137,13 @@ function PresupuestoAccionRow({
       disabled: true,
     });
   }
+  // "Visto hoy" — mismo botón y mismo significado que en la pestaña de Leads:
+  // ya se miró y hoy no toca nada. No cierra el caso.
+  actions.push({
+    label: visto ? "Visto hoy · deshacer" : "Visto hoy",
+    onClick: (e) => { e.stopPropagation(); onVisto(visto); },
+    variant: "ghost",
+  });
   actions.push({
     label: "Ver ficha →",
     onClick: (e) => { e.stopPropagation(); onOpenPanel(item); },
@@ -151,7 +163,7 @@ function PresupuestoAccionRow({
   return (
     <AccionCard
       borderColor={borderColor}
-      faded={espera.esperando}
+      faded={espera.esperando || visto}
       title={
         <a
           href={`/presupuestos/paciente/${encodeURIComponent(item.patientName)}`}
@@ -470,9 +482,13 @@ function QuickResponseModal({
 export default function IntervencionView({
   user,
   onOpenDrawer,
+  vistos,
 }: {
   user: UserSession;
   onOpenDrawer: (p: PresupuestoIntervencion) => void;
+  /** "Visto hoy" es de la COLA entera, así que el estado lo trae el padre y
+   *  lo comparte con la pestaña de Leads. */
+  vistos: ReturnType<typeof useVistosHoy>;
 }) {
   const [data, setData] = useState<IntervencionResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -597,16 +613,30 @@ export default function IntervencionView({
 
   const sumImporte = (items: PresupuestoIntervencion[]) =>
     items.reduce((s, p) => s + (p.amount ?? 0), 0);
-  const nPendientes =
-    cohortes.nuevos.length +
-    cohortes.rezagados.length +
-    cohortes.en_conversacion.filter((p) => p.conversacion?.estado === "pendiente_responder")
-      .length;
+  const nEnConversacionTeEsperan = cohortes.en_conversacion.filter(
+    (p) => p.conversacion?.estado === "pendiente_responder",
+  ).length;
+  const exigenAccion = [
+    ...cohortes.nuevos,
+    ...cohortes.rezagados,
+    ...cohortes.en_conversacion.filter((p) => p.conversacion?.estado === "pendiente_responder"),
+  ];
+  // Un caso VISTO HOY sale de pendientes y entra en atendidos: es lo que
+  // permite que la barra del plan del día pueda llegar al 100 %.
+  const vistosEntrePendientes = exigenAccion.filter((p) =>
+    vistos.estaVisto("presupuesto", p.id),
+  ).length;
+  const nPendientes = exigenAccion.length - vistosEntrePendientes;
 
   const bulkSendable = filteredItems.filter((p) => {
     const phone = (p.patientPhone ?? "").replace(/\D/g, "");
     return phone && p.mensajeSugerido;
   });
+  // Cuántos de la cohorte se quedan fuera del envío por no tener mensaje. La
+  // ruta genera 5 por carga (`slice(0, 5)`), así que este número BAJA cada vez
+  // que se recarga: si no se dice, el botón parece dar una cifra del negocio
+  // cuando en realidad cuenta cuántas veces has entrado en la pantalla.
+  const sinMensajePreparado = filteredItems.filter((p) => !p.mensajeSugerido).length;
 
   if (loading && !data) {
     return (
@@ -636,6 +666,7 @@ export default function IntervencionView({
         kpis={{
           pendientes: nPendientes,
           atendidosHoy: globalFiltered.length - nPendientes,
+          vistosSinAccion: vistosEntrePendientes,
           tiempoMedioMin,
         }}
         lastUpdate={lastUpdate}
@@ -682,7 +713,15 @@ export default function IntervencionView({
           },
           {
             id: "en_conversacion" as CohortePresupuesto,
-            label: `En conversación · ${cohortes.en_conversacion.length} · ${fmtEUR(sumImporte(cohortes.en_conversacion))}`,
+            // La cohorte mezcla dos cosas OPUESTAS: los que te deben respuesta
+            // a ti (pendiente_responder, urgente) y aquellos en los que la
+            // pelota es del paciente. El chip decía solo el total, así que la
+            // pestaña donde hay que trabajar era la única que no decía cuánto
+            // trabajo tiene. `estadoConversacion` ya lo sabe: cero criterio nuevo.
+            label:
+              nEnConversacionTeEsperan > 0
+                ? `En conversación · ${nEnConversacionTeEsperan} te esperan de ${cohortes.en_conversacion.length} · ${fmtEUR(sumImporte(cohortes.en_conversacion))}`
+                : `En conversación · ${cohortes.en_conversacion.length} · ${fmtEUR(sumImporte(cohortes.en_conversacion))}`,
           },
           {
             id: "rezagados" as CohortePresupuesto,
@@ -699,14 +738,27 @@ export default function IntervencionView({
         </p>
       )}
 
-      {/* Enviar la cola uno a uno (honesto: abre WhatsApp por paciente) */}
+      {/* Enviar la cola uno a uno (honesto: abre WhatsApp por paciente).
+          El número es de la COHORTE que se está viendo y solo cuenta los que
+          tienen teléfono Y mensaje preparado — dos filtros que no se veían por
+          ningún lado, así que el botón parecía contradecir al chip de arriba.
+          Ahora dice de cuántos, y qué falta para el resto. */}
       {bulkSendable.length >= 3 && (
-        <button
-          onClick={() => setBulkSendOpen(true)}
-          className="text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]"
-        >
-          Enviar uno a uno ({bulkSendable.length})
-        </button>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <button
+            onClick={() => setBulkSendOpen(true)}
+            className="text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]"
+          >
+            Enviar uno a uno · {bulkSendable.length} de {filteredItems.length}
+          </button>
+          {sinMensajePreparado > 0 && (
+            <p className="text-[11px] text-[var(--color-muted)]">
+              {sinMensajePreparado}{" "}
+              {sinMensajePreparado === 1 ? "no tiene" : "no tienen"} mensaje preparado
+              todavía — se preparan de cinco en cada carga de la pantalla.
+            </p>
+          )}
+        </div>
       )}
 
       {/* Empty state honesto por cohorte */}
@@ -739,7 +791,12 @@ export default function IntervencionView({
             className="fyllio-fade-in"
             style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}
           >
-            <PresupuestoAccionRow item={item} onOpenPanel={onOpenDrawer} />
+            <PresupuestoAccionRow
+              item={item}
+              onOpenPanel={onOpenDrawer}
+              visto={vistos.estaVisto("presupuesto", item.id)}
+              onVisto={(deshacer) => vistos.marcar("presupuesto", item.id, deshacer)}
+            />
           </div>
         ))}
       </div>

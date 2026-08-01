@@ -1420,3 +1420,49 @@ servidor en vez de reconstruirla el cliente restando un `2*60*60*1000` a mano; `
 de `?? []` (deuda declarada 16 → 15); una sola lista `TIPOS_ALERTA` en vez de tres escritas a mano,
 que es lo que dejaba fuera a los tipos de cobros; y fuera `toAlerta`, el mapper de la era Airtable
 con cero consumidores.
+
+## 2026-08-01 — La misma pregunta, respuesta OPUESTA según qué es la pantalla
+Decisión de producto de Simon, y el contraste es la lección. En **/alertas NO hay descartar**: es
+una pantalla de SUPERVISIÓN, una alerta es un hecho del negocio que sigue siendo cierto hasta que
+alguien lo resuelve en su clínica, y si se puede tapar lo incómodo la pantalla deja de servir para
+lo único que hace. En **/seguimiento SÍ hay "visto hoy"**: es la COLA DE TRABAJO de la
+coordinadora, que necesita poder decir "este lo he mirado y hoy no toca nada" sin que reaparezca en
+cada refresco — sin eso la barra de "% del plan de hoy" no puede llegar nunca al 100 % y deja de
+significar algo. Dos pantallas, la misma pregunta, y la respuesta depende de PARA QUÉ existe cada
+una. Copiar la respuesta de una a la otra habría roto la que se copiara.
+**Qué es y qué no:** se marca desde la card, dura hasta el final del día (`dia` es una FECHA y no
+un timestamp — lección de MEJORAS 88: "hasta el final del día" es calendario, y un instante rodante
+haría que la cola cambiara sola a media mañana), y mañana vuelve si el caso sigue abierto. **No
+cambia el estado del caso**: el lead sigue Nuevo y el presupuesto sigue abierto. Solo declara que
+hoy ya se decidió sobre él.
+**El desglose no es decoración:** la cabecera distingue "atendido porque actuaste" de "visto sin
+acción". Si el segundo grupo crece mucho no es que se trabaje más — es que la cola trae ruido, y
+eso hay que poder verlo. El estado vive en un hook compartido por las dos pestañas
+(`useVistosHoy`), porque leads y presupuestos son la misma cola vista por dos lentes y dos copias
+del mismo estado acaban divergiendo. Marcado optimista con vuelta atrás y aviso si el servidor
+falla: es la acción más frecuente de la pantalla, pero un fallo no puede quedarse pintado como
+éxito.
+
+## 2026-08-01 — /seguimiento: dos de las cuatro cifras del informe no eran contradictorias
+Cierre de la pasada visual. **Antes de arreglar, medir**: el informe externo hablaba de "cuatro
+cifras distintas en la misma pantalla", y tres reconcilian por construcción — `13 pendientes + 15
+atendidos = 28` y los chips `3 + 21 + 4 = 28` particionan el mismo conjunto. La que no encajaba era
+el botón: contaba solo la cohorte visible y además filtraba por "tiene teléfono Y mensaje
+preparado", sin que nada lo dijera — el mismo patrón de MEJORAS 71 (dos universos, ninguna
+etiqueta). Y el fondo era peor que el número: **solo 15 de 28 tienen mensaje sugerido** y la ruta
+genera 5 por carga (`slice(0, 5)`), así que **el número del botón subía cada vez que recargabas**.
+Ahora dice "15 de 21" y explica los 6 que faltan.
+**Y el defecto de pestaña tampoco era lo que parecía.** El informe decía que abre en el grupo
+equivocado; en realidad `cohorteAuto` abre en "En conversación" PRECISAMENTE cuando hay alguien
+esperando respuesta, que es lo más urgente. El fallo era que esa cohorte mezcla dos cosas opuestas
+—6 que te deben respuesta a ti y 15 donde la pelota es del paciente— y el chip solo decía 21: la
+pestaña donde hay que trabajar era la única que no decía cuánto trabajo tiene. Ahora dice "6 te
+esperan de 21", con `estadoConversacion`, cero criterio nuevo.
+**Lo que NO se tocó, por no reproducirse:** el informe decía que el fondo no bloquea el scroll con
+el drawer abierto. `panel-accion-ui` sí pone `body.overflow = "hidden"` y lo medí en el navegador
+con el panel abierto: el fondo no se mueve. Un hallazgo sin evidencia no se arregla.
+**Y la asimetría entre las dos pestañas era menor de lo reportado**: `AccionCard` ya es compartida
+desde la unificación P3 (2026-07-23) y Leads tenía una acción MÁS que Presupuestos, no menos. La
+asimetría real eran los filtros de doctor y tratamiento, que ahora tiene también Leads — con sus
+opciones derivadas de los leads ACTIVOS y no del catálogo, porque un filtro que ofrece valores sin
+resultados es ruido con aspecto de función.

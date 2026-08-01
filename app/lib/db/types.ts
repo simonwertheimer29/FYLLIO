@@ -440,6 +440,19 @@ export interface Tabla_alertas_enviadas {
   created_at: Generated<Date>;
 }
 
+/** Casos que la coordinadora ya miró hoy y decidió que no requieren acción.
+ *  Dura un día; no cambia el estado del caso. */
+export interface Tabla_seguimiento_vistos {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  tipo_caso: string;
+  caso_id: string;
+  dia: string;
+  visto_por: string;
+  visto_por_nombre: string | null;
+  created_at: Generated<Date>;
+}
+
 /** Alertas ocultas hasta una fecha. Solo posponer, nunca descartar. */
 export interface Tabla_alertas_pospuestas {
   id: Generated<string>;
@@ -638,6 +651,7 @@ export interface DB {
   configuracion_waba: Tabla_configuracion_waba;
   alertas_enviadas: Tabla_alertas_enviadas;
   alertas_pospuestas: Tabla_alertas_pospuestas;
+  seguimiento_vistos: Tabla_seguimiento_vistos;
   acciones_lead: Tabla_acciones_lead;
   plantillas_lead: Tabla_plantillas_lead;
   pagos_paciente: Tabla_pagos_paciente;

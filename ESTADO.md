@@ -36,7 +36,7 @@ esperar aprobación, después ejecutar.
 | `/presupuestos` · `/kpis` · `/red` · `/cobros` · `/pacientes` · `/leads` · `/llamadas` | ✅ hechas |
 | `/automatizaciones` + `/ajustes` | ⬅ **siguiente**, y **juntas**: hay dos centros de ajustes ([MEJORAS 13](MEJORAS-PENDIENTES.md)). Es arquitectura de información — proponer la fusión antes de ejecutar |
 | `/alertas` | ✅ hecha (1 ago) |
-| `/seguimiento` | pendiente, la última |
+| `/seguimiento` | ✅ hecha (1 ago) — **la pasada visual queda CERRADA** |
 
 Cerrado también el **Bloque 2 (`/llamadas`)** el 1 de agosto: contenedor de página, nombre de
 paciente, hora en zona de clínica, coste fuera de la fila de KPIs, y **Vapi declarado en el
@@ -44,7 +44,7 @@ contrato de entorno** con aviso honesto de "pendiente de activar" (opción B de 
 última familia de [MEJORAS 52](MEJORAS-PENDIENTES.md) —el día que se ESCRIBE— y
 [MEJORAS 85 y 86](MEJORAS-PENDIENTES.md).
 
-Quedan del plan de la sesión:
+Queda del plan de la sesión:
 
 - **Bloque 5 — reconciliación de cifras** (Tablero 28 vs Tabla 44, 67 % vs 86 %, 6 aceptados vs
   14…): censar qué es definición legítima y qué es bug, como se hizo con la tasa de aceptación.
@@ -120,5 +120,5 @@ importe en el mismo WhatsApp, que es dato de salud del art. 9.
 | QA verde | `qa:fechas` **52/52** en 4 husos · `qa:cohortes` · `qa:estado-conversacion` · `qa:sin-fallbacks` · **`qa-dashboard-red`** (paridad + días 1/2/15) · `demo:reset` con 4 invariantes |
 | QA de /kpis | 18/18 (`npm run qa:kpis`, necesita el server en :3100) |
 | MEJORAS | 88 entradas · **64 abiertas** 🔵 · 30 hechas 🟢 · 19 cerradas ✅ · 4 descartadas ⚪ |
-| Migraciones | 011 (posponer + foto del aviso) y 012 (destinatario) aplicadas |
+| Migraciones | 011 · 012 · 013 (visto hoy) aplicadas |
 | Sin verificar en producción | Ver Bloqueado. Lo de hoy sí se verificó en navegador real contra el build de producción |

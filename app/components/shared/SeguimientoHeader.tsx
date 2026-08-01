@@ -13,6 +13,12 @@ export type SeguimientoKpis = {
   /** Atendidos hoy = pasaron a "esperando respuesta" (acción saliente hoy).
    *  NO son completados ni cerrados: la pelota está en el paciente. */
   atendidosHoy: number;
+  /** De los atendidos, cuántos lo están porque la coordinadora los MIRÓ y
+   *  decidió que hoy no tocaba nada ("visto hoy"), no porque actuara.
+   *
+   *  Se desglosa a propósito: si este grupo crece mucho, no es que se trabaje
+   *  más — es que la cola trae ruido, y eso hay que poder verlo. */
+  vistosSinAccion?: number;
   /** Sprint 10 C — tiempo medio entre entrante y siguiente saliente del
    *  mismo lead/presupuesto (minutos). null = aún no hay datos hoy. */
   tiempoMedioMin?: number | null;
@@ -55,6 +61,16 @@ export function SeguimientoHeader({
             {kpis.pendientes} pendiente{kpis.pendientes !== 1 ? "s" : ""} ·{" "}
             {kpis.atendidosHoy} atendido{kpis.atendidosHoy !== 1 ? "s" : ""}
           </h2>
+          {/* El desglose: "atendido" no es una sola cosa. Actuar y decidir que
+              no hay que actuar cuentan los dos como trabajo hecho, pero no
+              significan lo mismo — y si el segundo se dispara, la señal es que
+              la cola está trayendo casos que no debería. */}
+          {!!kpis.vistosSinAccion && kpis.vistosSinAccion > 0 && (
+            <p className="text-sm text-[var(--color-muted)] mt-1 tabular-nums">
+              De los atendidos, {kpis.atendidosHoy - kpis.vistosSinAccion} por acción y{" "}
+              {kpis.vistosSinAccion} vistos sin que hiciera falta.
+            </p>
+          )}
           <p className="text-sm text-[var(--color-muted)] mt-1">
             Tiempo medio de respuesta:{" "}
             <span className="font-semibold text-[var(--color-foreground)] tabular-nums">

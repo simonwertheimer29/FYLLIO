@@ -16,6 +16,7 @@ import type {
 } from "../../lib/presupuestos/types";
 import type { Lead } from "../leads/types";
 import { useClinic } from "../../lib/context/ClinicContext";
+import { useVistosHoy } from "../../lib/seguimiento/useVistosHoy";
 import { SeguimientoHeader } from "../../components/shared/SeguimientoHeader";
 import { AccionCard } from "../../components/shared/AccionCard";
 import { AccionPanel } from "../../components/shared/AccionPanel";
@@ -70,6 +71,9 @@ export function SeguimientoView({
   // junto a la cabecera que comparten.
   const { selectedClinicaId, selectedClinicaNombre, setSelectedClinicaId } = useClinic();
   const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
+  // "Visto hoy" es de la COLA, no de una pestaña: una sola carga y un solo
+  // `marcar` para leads y presupuestos (ver lib/seguimiento/useVistosHoy).
+  const vistos = useVistosHoy();
   // Enlaces del dashboard de Red: ?vista=leads|presupuestos abre la cola
   // pedida (lectura en el init para no exigir Suspense de useSearchParams).
   const [tab, setTab] = useState<Tab>(vistaInicial);
@@ -203,12 +207,14 @@ export function SeguimientoView({
             initialLeads={initialLeads}
             doctores={doctores}
             cohorteInicial={cohorteInicial}
+            vistos={vistos}
           />
         ) : (
           <PresupuestosTab
             user={user}
             onOpenDrawer={setPresupuestoDrawer}
             reloadKey={presupuestoReloadKey}
+            vistos={vistos}
           />
         )}
       </div>
@@ -297,15 +303,19 @@ function LeadsTab({
   initialLeads,
   doctores,
   cohorteInicial,
+  vistos,
 }: {
   initialLeads: Lead[];
   doctores: Doctor[];
   cohorteInicial: string | null;
+  vistos: ReturnType<typeof useVistosHoy>;
 }) {
   const { selectedClinicaId, selectedClinicaNombre, setSelectedClinicaId } = useClinic();
   // Con clínica elegida la pantalla cambia de ámbito y hay que decirlo.
   const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
+  const [filtroDoctor, setFiltroDoctor] = useState("");
+  const [filtroTratamiento, setFiltroTratamiento] = useState("");
   const [loading, setLoading] = useState(false);
   // Indicador sutil cuando el refresh falla: mantenemos la lista anterior
   // (deliberado) pero avisamos de que puede estar desactualizada.
@@ -384,6 +394,23 @@ function LeadsTab({
 
   const today = hoyISO();
 
+  // Las opciones salen de los leads ACTIVOS, no del catálogo entero: un filtro
+  // que ofrece valores sin resultados es ruido con aspecto de función.
+  const activos = useMemo(
+    () => leads.filter((l) => !l.convertido && esLeadActivo(l.estado)),
+    [leads],
+  );
+  const doctoresConLeads = useMemo(
+    () =>
+      doctores.filter((d) => activos.some((l) => l.doctorAsignadoId === d.id)),
+    [doctores, activos],
+  );
+  const tratamientosConLeads = useMemo(
+    () =>
+      [...new Set(activos.map((l) => l.tratamiento).filter((t): t is string => !!t))].sort(),
+    [activos],
+  );
+
   // ── Cohortes: PARTICIÓN TOTAL de los leads activos. Cero condiciones de
   // entrada — el censo del rediseño demostró que la lista de condiciones
   // vieja ("accionables") escondía 6 de 31 activos (DECISIONES 2026-07-25).
@@ -392,6 +419,11 @@ function LeadsTab({
   const clasificados = useMemo(() => {
     return leads
       .filter((l) => !l.convertido && esLeadActivo(l.estado))
+      // Filtros de doctor y tratamiento, los mismos que la pestaña hermana de
+      // Presupuestos ya tenía: eran la única asimetría REAL entre las dos
+      // vistas (la card ya es compartida desde la unificación P3).
+      .filter((l) => !filtroDoctor || l.doctorAsignadoId === filtroDoctor)
+      .filter((l) => !filtroTratamiento || l.tratamiento === filtroTratamiento)
       .map((l) => {
         const conv = estadoConversacion(
           {
@@ -406,7 +438,7 @@ function LeadsTab({
           cohorte: cohorteLead({ fechaCita: l.fechaCita, hoy: today, conversacion: conv.estado }),
         };
       });
-  }, [leads, today, ultimaSalientePorLead, ultimaEntrantePorLead]);
+  }, [leads, today, ultimaSalientePorLead, ultimaEntrantePorLead, filtroDoctor, filtroTratamiento]);
 
   type Clasificado = (typeof clasificados)[number];
   const cohortes = useMemo(() => {
@@ -487,11 +519,17 @@ function LeadsTab({
   // KPIs del banner — cada lead cuenta UNA vez: pendientes = exigen acción
   // tuya (responder, primer contacto, reactivar, confirmar la cita de hoy);
   // atendidos = la pelota está en el paciente o la cita es futura.
-  const nPendientes =
-    cohortes.en_conversacion.filter((x) => x.conv.estado === "pendiente_responder").length +
-    cohortes.nuevos.length +
-    cohortes.rezagados.length +
-    cohortes.citados.filter((x) => x.l.fechaCita === today && !x.l.asistido).length;
+  const exigenAccion = [
+    ...cohortes.en_conversacion.filter((x) => x.conv.estado === "pendiente_responder"),
+    ...cohortes.nuevos,
+    ...cohortes.rezagados,
+    ...cohortes.citados.filter((x) => x.l.fechaCita === today && !x.l.asistido),
+  ];
+  // Un caso VISTO HOY deja de ser pendiente y cuenta como atendido — es lo que
+  // permite que la barra del plan pueda llegar al 100 %. Sigue abierto: mañana
+  // vuelve si nadie lo ha resuelto.
+  const vistosEntrePendientes = exigenAccion.filter((x) => vistos.estaVisto("lead", x.l.id)).length;
+  const nPendientes = exigenAccion.length - vistosEntrePendientes;
 
   function onLeadChanged(updated: Lead) {
     setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
@@ -505,6 +543,7 @@ function LeadsTab({
         kpis={{
           pendientes: nPendientes,
           atendidosHoy: clasificados.length - nPendientes,
+          vistosSinAccion: vistosEntrePendientes,
           tiempoMedioMin,
         }}
         lastUpdate={lastUpdate}
@@ -517,6 +556,37 @@ function LeadsTab({
           <AlertTriangle size={12} strokeWidth={ICON_STROKE} aria-hidden />
           Sin conexión · mostrando los últimos datos, se reintentará al actualizar
         </span>
+      )}
+
+      {/* Filtros del área — mismos que la pestaña de Presupuestos. La clínica
+          vive en el selector global de la cabecera. */}
+      {(doctoresConLeads.length > 0 || tratamientosConLeads.length > 0) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {doctoresConLeads.length > 0 && (
+            <select
+              value={filtroDoctor}
+              onChange={(e) => setFiltroDoctor(e.target.value)}
+              className="text-[10px] font-semibold px-2 py-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] outline-none focus:border-[var(--color-accent)]"
+            >
+              <option value="">Todos los doctores</option>
+              {doctoresConLeads.map((d) => (
+                <option key={d.id} value={d.id}>{d.nombre}</option>
+              ))}
+            </select>
+          )}
+          {tratamientosConLeads.length > 0 && (
+            <select
+              value={filtroTratamiento}
+              onChange={(e) => setFiltroTratamiento(e.target.value)}
+              className="text-[10px] font-semibold px-2 py-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] outline-none focus:border-[var(--color-accent)]"
+            >
+              <option value="">Todos los tratamientos</option>
+              {tratamientosConLeads.map((t) => (
+                <option key={t} value={t}>{t}</option>
+              ))}
+            </select>
+          )}
+        </div>
       )}
 
       {/* Cohortes — pills compartidas de las colas. Una cohorte vacía sigue
@@ -609,6 +679,8 @@ function LeadsTab({
                 onOpen={() => setDrawerLead(x.l)}
                 onAsistencia={() => setAsistenciaLead(x.l)}
                 ultimoEntranteTexto={ultimoEntranteTextoPorLead[x.l.id]}
+                visto={vistos.estaVisto("lead", x.l.id)}
+                onVisto={(deshacer) => vistos.marcar("lead", x.l.id, deshacer)}
               />
             </div>
           ))}
@@ -686,6 +758,8 @@ function LeadAccionRow({
   onOpen,
   onAsistencia,
   ultimoEntranteTexto,
+  visto,
+  onVisto,
 }: {
   lead: Lead;
   /** Clasificación única de la conversación — la deriva LeadsTab (la misma
@@ -696,6 +770,9 @@ function LeadAccionRow({
   onAsistencia: () => void;
   /** Último mensaje real del paciente — la card lo cita en "te respondió". */
   ultimoEntranteTexto?: string;
+  /** Ya mirado hoy: la coordinadora decidió que no toca nada. */
+  visto: boolean;
+  onVisto: (deshacer: boolean) => void;
 }) {
   // "Esperando respuesta" solo aplica dentro de En conversación: en Citados
   // la precedencia de cita manda (el trabajo es confirmar, no esperar).
@@ -822,6 +899,18 @@ function LeadAccionRow({
       variant: "primary",
     });
   }
+  // "Visto hoy": la coordinadora ya lo miró y hoy no toca nada. NO cierra el
+  // caso ni cambia su estado — mañana vuelve si sigue abierto. Es lo que
+  // permite que la barra del plan del día llegue al 100 % (decisión 2026-08-01;
+  // en /alertas la respuesta es la contraria, y ahí está el porqué).
+  actions.push({
+    label: visto ? "Visto hoy · deshacer" : "Visto hoy",
+    onClick: (e) => {
+      e.stopPropagation();
+      onVisto(visto);
+    },
+    variant: "ghost",
+  });
   actions.push({
     label: "Ver ficha →",
     onClick: (e) => {
@@ -841,7 +930,7 @@ function LeadAccionRow({
   return (
     <AccionCard
       borderColor={borderColor}
-      faded={esperando}
+      faded={esperando || visto}
       title={
         lead.convertido && lead.pacienteId ? (
           <a
@@ -893,16 +982,19 @@ function PresupuestosTab({
   user,
   onOpenDrawer,
   reloadKey,
+  vistos,
 }: {
   user: UserSession;
   onOpenDrawer: (p: PresupuestoIntervencion) => void;
   reloadKey: number;
+  vistos: ReturnType<typeof useVistosHoy>;
 }) {
   return (
     <IntervencionView
       key={reloadKey}
       user={user}
       onOpenDrawer={onOpenDrawer}
+      vistos={vistos}
     />
   );
 }
