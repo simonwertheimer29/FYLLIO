@@ -1367,3 +1367,56 @@ estaba dando por bueno al dashboard justo el error que se iba a arreglar.
 Regla destilada: **§16 del skill de lecciones** — una función correcta puede estar mal usada fuera
 de su dominio; al reutilizar una utilidad hay que preguntarse si su definición significa lo mismo
 ahí, y cuando la ambigüedad es real, que reciba el criterio en vez de suponerlo.
+
+## 2026-08-01 — /alertas: de "un botón de avisar" a supervisión
+Pasada de la pantalla, con tres decisiones de producto de Simon.
+
+**Lo estructural: /alertas calculaba los cobros por su cuenta.** `calcular.ts` reimplementaba a
+mano la regla de vencimiento (plazo por clínica, `venceMs = aceptadoMs + plazo*DAY_MS`,
+`tieneLiquidacion`, >2.000 €, >30 días) en vez de usar `calcularCobrosPorPaciente`, la función que
+/red y /cobros comparten. Los conjuntos COINCIDÍAN (8 y 8 vencidos, 5 y 5 estancados, medido) —
+pero por suerte: ese mismo día el plazo de cobros pasó a días de clínica y esta copia se quedó en
+milisegundos rodantes, así que las dos pantallas ya cruzaban el umbral en instantes distintos. Al
+unificar entra gratis lo que la pantalla necesitaba: **el dinero**, porque `calcularAlertas` ya
+cargaba pacientes, presupuestos, pagos y opciones. 12.725 € en vencidos — el mismo euro que /red.
+Los tres triggers se derivan de los CAMPOS y no del bucket `urgencia`, y es deliberado: `urgencia`
+es un único valor con precedencia porque la cola pinta un paciente en una fila, mientras que aquí
+son hechos independientes (un paciente puede estar vencido Y ser un estancado alto); y "por vencer"
+en la cola son 7 días mientras esta alerta dice 3 y se queda en 3. Lo que se comparte es el reloj y
+la derivación, no el umbral de cada pantalla. `cobros.ts` expone `tieneLiquidacion` para eso.
+
+**El orden medía lo que no importa.** El color de urgencia salía del RECUENTO (>5 rojo, 3-5 ámbar),
+así que seis leads sin gestionar salían en rojo y dos liquidaciones vencidas de 12.725 € salían en
+gris. Ahora la unidad de la pantalla es la ALERTA y no la clínica —agrupar por clínica era lo que
+impedía ordenar por daño—, manda el dinero cuando lo hay, y los tipos sin importe **no se inventan
+uno**: van después, ordenados por urgencia de acción como en /red.
+
+**Posponer, y solo posponer** (decisión de Simon). Una alerta no es una tarea que el manager
+completa: es un hecho del negocio que sigue siendo cierto hasta que alguien lo resuelve en su
+clínica. Si se pudiera descartar, se descartaría lo incómodo y la pantalla dejaría de servir para
+supervisar. Se oculta hasta mañana guardando quién y cuándo; al día siguiente vuelve **si sigue
+existiendo**, y si no existe no vuelve, que era el objetivo. `oculta_hasta` es una FECHA y no un
+timestamp: "hasta mañana" es una frase de calendario, y un instante rodante traería de vuelta el
+problema de MEJORAS 88. Contador discreto de pospuestas para que no sean un cajón invisible.
+
+**¿Sirvió el aviso?** Era barato y entró. `alertas_enviadas` guardaba QUE se envió, no CONTRA QUÉ:
+ahora se guarda la foto (`n_al_enviar`, `importe_al_enviar`) y la card dice "Avisada el 31 jul a
+Marta de 3. Hoy quedan 2: el aviso movió 1". El nombre del destinatario se GUARDA en vez de
+resolverse del id al leer — si esa coordinadora cambia de clínica, el histórico debe seguir diciendo
+a quién se avisó. Las alertas anteriores no tienen foto y lo dicen en vez de inventarla.
+
+**Rendimiento: 13,7 s → 2,6 s en local.** `lastAlertForPg` lee la tabla ENTERA y filtra en memoria,
+y la ruta la llamaba en un bucle por (clínica × tipo) EN SERIE: ocho lecturas completas para pintar
+ocho líneas, 7,2 s de los 13,7 medidos. Ahora es una pasada. **No afirmo que esto explique los ~7 s
+que vio la revisión en producción** —allí el RTT es de 1-5 ms y aquí de 200— pero la forma era mala
+en cualquier caso. Lo que sí arregla la espera es el skeleton, que sustituye al "Cargando alertas…"
+en texto plano.
+
+**Y lo pequeño:** la errata "liquidaciónes" (el plural de "liquidación" pierde la tilde; el código
+concatenaba "es" — misma clase que el "superóaron" de /red); los cooldowns se calculan para los
+OCHO tipos y no para cinco (los tres de cobros nunca se veían "Avisada" y el servidor respondía 429
+a quien pulsaba: la UI ofrecía una acción que iba a fallar); la ventana del cooldown la declara el
+servidor en vez de reconstruirla el cliente restando un `2*60*60*1000` a mano; `cargarJSON` en vez
+de `?? []` (deuda declarada 16 → 15); una sola lista `TIPOS_ALERTA` en vez de tres escritas a mano,
+que es lo que dejaba fuera a los tipos de cobros; y fuera `toAlerta`, el mapper de la era Airtable
+con cero consumidores.

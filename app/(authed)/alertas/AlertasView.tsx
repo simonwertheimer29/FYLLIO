@@ -1,17 +1,34 @@
 "use client";
 
-// Sprint 8 D.7 — Alertas: lista de clínicas con situaciones pendientes
-// agrupadas por tipo. Admin puede disparar alerta WA por clínica+tipo
-// con cooldown 2h. Respeta ClinicContext (filtra por clínica del header).
+// Sprint 8 D.7 — Alertas: situaciones que requieren acción de coordinación.
+//
+// Pasada visual + de producto (2026-08-01). Lo que cambia y por qué:
+//
+//  · CADA ALERTA LLEVA SU DINERO y la lista se ordena por DAÑO, no por
+//    recuento ni por clínica. Antes el color de urgencia salía de cuántas
+//    había (>5 rojo, 3-5 ámbar), así que seis leads sin gestionar salían en
+//    rojo y dos liquidaciones vencidas de 12.725 € salían en gris.
+//  · POSPONER, y solo posponer. Una alerta es un hecho del negocio, no una
+//    tarea que se completa; si se pudiera descartar, se descartaría lo
+//    incómodo y la pantalla dejaría de servir para supervisar.
+//  · ¿SIRVIÓ EL AVISO? Se guarda contra cuántos casos se envió, así que la
+//    card puede decir "avisaste ayer de 3 · hoy siguen siendo 3".
+//  · Skeleton en vez de "Cargando alertas…" en texto plano, y `cargarJSON`
+//    en vez de `?? []` (§10 — baja la deuda declarada).
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
 import { useClinic } from "../../lib/context/ClinicContext";
-import { Bell, CheckCircle2, ICON_STROKE } from "../../components/icons";
+import { Bell, CheckCircle2, Clock, ICON_STROKE } from "../../components/icons";
 import { StatePill } from "../../components/ui/StatePill";
 import { EmptyState, ErrorState } from "../../components/ui/Feedback";
+import { CardListSkeleton } from "../../components/ui/Skeleton";
 import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
+import { eur } from "../../components/shared/Cifra";
+import { cargarJSON, traeLista } from "../../lib/fetch-json";
+import { fechaHoraClinica } from "../../lib/time";
+import { deDiccionario } from "../../lib/diccionario";
 
 type Tipo =
   | "leads"
@@ -19,76 +36,124 @@ type Tipo =
   | "citados"
   | "asistencias"
   | "automatizaciones"
-  // Sprint 14b Bloque 3 — cobros financieros.
   | "cobro_vence_3d"
   | "cobro_vencido_7d"
   | "pendiente_alto_estancado";
+
+type UltimoAviso = {
+  enviadaEn: string;
+  a: string | null;
+  nEntonces: number | null;
+  nAhora: number;
+};
 
 type Card = {
   clinicaId: string;
   clinicaNombre: string;
   counts: Record<Tipo, number>;
+  importes: Partial<Record<Tipo, number>>;
   cooldowns: Partial<Record<Tipo, { untilMs: number } | null>>;
+  ultimoAviso: Partial<Record<Tipo, UltimoAviso | null>>;
+  pospuesta: Partial<Record<Tipo, { ocultaHasta: string; por: string | null } | null>>;
 };
 
 const TIPO_LABEL: Record<Tipo, string> = {
   leads: "Leads sin gestionar",
   presupuestos: "Presupuestos sin seguimiento",
-  // Sprint 9 G.6: el nuevo tipo "asistencias" reemplaza semánticamente a
-  // "citados". "citados" se mantiene por compatibilidad con históricos.
   citados: "Citados no asistidos",
   asistencias: "Asistencias sin cerrar",
   automatizaciones: "Automatizaciones con error",
-  cobro_vence_3d: "Liquidaciones a vencer",
+  cobro_vence_3d: "Liquidaciones a punto de vencer",
   cobro_vencido_7d: "Liquidaciones vencidas",
   pendiente_alto_estancado: "Presupuestos altos estancados",
 };
 
+// El plural de "liquidación" es "liquidaciones", SIN tilde. El código hacía
+// `liquidación${n===1?"":"es"}` y escribía "2 liquidaciónes" en la pantalla que
+// se enseña. Misma clase que el "superóaron" de /red (2026-07-27): pluralizar
+// concatenando sin mirar la palabra. Se escriben las dos formas y se elige.
+const plural = (n: number, singular: string, plural_: string) => (n === 1 ? singular : plural_);
+
 const TIPO_SUBTITLE: Record<Tipo, (n: number) => string> = {
-  leads: (n) => `${n} lead${n === 1 ? "" : "s"} nuevo${n === 1 ? "" : "s"} sin gestionar`,
+  leads: (n) => `${n} ${plural(n, "lead nuevo sin gestionar", "leads nuevos sin gestionar")}`,
   presupuestos: (n) =>
-    `${n} presupuesto${n === 1 ? "" : "s"} sin seguimiento desde hace >48h`,
-  citados: (n) => `${n} cita${n === 1 ? "" : "s"} pasada${n === 1 ? "" : "s"} sin marcar asistido`,
-  asistencias: (n) =>
-    `${n} cita${n === 1 ? "" : "s"} sin cerrar (asistió/no asistió pendiente)`,
-  automatizaciones: (n) => `${n} envío${n === 1 ? "" : "s"} con estado Fallido`,
+    `${n} ${plural(n, "presupuesto", "presupuestos")} sin seguimiento desde hace más de 48 h`,
+  citados: (n) => `${n} ${plural(n, "cita pasada", "citas pasadas")} sin marcar asistido`,
+  asistencias: (n) => `${n} ${plural(n, "cita", "citas")} sin cerrar (falta asistió / no asistió)`,
+  automatizaciones: (n) => `${n} ${plural(n, "envío", "envíos")} con estado Fallido`,
   cobro_vence_3d: (n) =>
-    `${n} liquidación${n === 1 ? "" : "es"} vence${n === 1 ? "" : "n"} en los próximos 3 días`,
+    `${n} ${plural(n, "liquidación vence", "liquidaciones vencen")} en los próximos 3 días`,
   cobro_vencido_7d: (n) =>
-    `${n} liquidación${n === 1 ? "" : "es"} vencida${n === 1 ? "" : "s"} hace más de 7 días`,
+    `${n} ${plural(n, "liquidación vencida", "liquidaciones vencidas")} hace más de 7 días`,
   pendiente_alto_estancado: (n) =>
-    `${n} presupuesto${n === 1 ? "" : "s"} >2.000€ aceptado${n === 1 ? "" : "s"} hace >30d sin cobro`,
+    `${n} ${plural(n, "presupuesto", "presupuestos")} de más de 2.000 € ${plural(n, "aceptado", "aceptados")} hace más de 30 días sin ningún cobro`,
 };
 
-const COBRO_TIPOS: Tipo[] = [
-  "cobro_vence_3d",
-  "cobro_vencido_7d",
-  "pendiente_alto_estancado",
+const COBRO_TIPOS: Tipo[] = ["cobro_vence_3d", "cobro_vencido_7d", "pendiente_alto_estancado"];
+
+/**
+ * El ORDEN. Antes era el recuento; ahora manda el daño, y el daño se mide en
+ * euros cuando los hay. Los tipos sin importe (leads, asistencias…) no se
+ * inventan uno: van después de los que sí lo tienen, ordenados entre ellos por
+ * cuánto se estropea el caso esperando — el mismo criterio de urgencia de
+ * acción que /red (decisión 2026-07-27).
+ */
+const URGENCIA_SIN_IMPORTE: Tipo[] = [
+  "leads",
+  "asistencias",
+  "presupuestos",
+  "citados",
+  "automatizaciones",
 ];
+
+type Fila = {
+  clinicaId: string;
+  clinicaNombre: string;
+  tipo: Tipo;
+  n: number;
+  importe: number | null;
+  cooldown: { untilMs: number } | null;
+  ultimoAviso: UltimoAviso | null;
+  pospuesta: { ocultaHasta: string; por: string | null } | null;
+};
+
+function ordenar(a: Fila, b: Fila): number {
+  // Con importe siempre por delante de sin importe, y entre ellos por €.
+  if (a.importe != null && b.importe != null) return b.importe - a.importe;
+  if (a.importe != null) return -1;
+  if (b.importe != null) return 1;
+  const ia = URGENCIA_SIN_IMPORTE.indexOf(a.tipo);
+  const ib = URGENCIA_SIN_IMPORTE.indexOf(b.tipo);
+  if (ia !== ib) return ia - ib;
+  return b.n - a.n;
+}
 
 type SubTab = "todos" | "cobros" | Tipo;
 
 export function AlertasView() {
   const { selectedClinicaId, selectedClinicaNombre, setSelectedClinicaId } = useClinic();
-  // Con clínica elegida la pantalla cambia de ámbito y hay que decirlo.
   const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
   const [cards, setCards] = useState<Card[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null); // error de envío (inline)
-  const [loadError, setLoadError] = useState(false); // error de carga → ErrorState
-  const [sending, setSending] = useState<string | null>(null); // clinicaId:tipo
+  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [ocupada, setOcupada] = useState<string | null>(null);
   const [tab, setTab] = useState<SubTab>("todos");
+  const [verPospuestas, setVerPospuestas] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(false);
     try {
-      const res = await fetch("/api/alertas");
-      if (!res.ok) throw new Error("fetch failed");
-      const d = await res.json();
-      setCards(d.alertas ?? []);
+      // `cargarJSON` en vez de `d.alertas ?? []`: un fallo de carga no puede
+      // pintarse como "sin situaciones pendientes" en la pantalla cuyo trabajo
+      // es avisar de que las hay (§10).
+      const d = await cargarJSON<{ alertas: Card[] }>("/api/alertas", {
+        validar: traeLista("alertas"),
+      });
+      setCards(d.alertas);
       setError(null);
-    } catch (e) {
+    } catch {
       setLoadError(true);
     } finally {
       setLoading(false);
@@ -99,56 +164,57 @@ export function AlertasView() {
     load();
   }, [load]);
 
-  const filtered = useMemo<Card[]>(() => {
-    const all = cards ?? [];
-    const byClinic = selectedClinicaId
-      ? all.filter((c) => c.clinicaId === selectedClinicaId)
-      : all;
-    if (tab === "todos") return byClinic;
-    if (tab === "cobros") {
-      return byClinic.filter((c) =>
-        COBRO_TIPOS.some((t) => c.counts[t] > 0),
-      );
+  // Cards → FILAS planas. La unidad de esta pantalla es la alerta, no la
+  // clínica: agrupar por clínica era lo que impedía ordenar por daño.
+  const todasLasFilas = useMemo<Fila[]>(() => {
+    const out: Fila[] = [];
+    for (const c of cards ?? []) {
+      if (selectedClinicaId && c.clinicaId !== selectedClinicaId) continue;
+      for (const tipo of Object.keys(c.counts) as Tipo[]) {
+        const n = c.counts[tipo];
+        if (!n || n <= 0) continue;
+        out.push({
+          clinicaId: c.clinicaId,
+          clinicaNombre: c.clinicaNombre,
+          tipo,
+          n,
+          importe: c.importes?.[tipo] ?? null,
+          cooldown: c.cooldowns?.[tipo] ?? null,
+          ultimoAviso: c.ultimoAviso?.[tipo] ?? null,
+          pospuesta: c.pospuesta?.[tipo] ?? null,
+        });
+      }
     }
-    return byClinic.filter((c) => c.counts[tab as Tipo] > 0);
-  }, [cards, selectedClinicaId, tab]);
-
-  const totalPendientes = useMemo(() => {
-    const all = cards ?? [];
-    const scope = selectedClinicaId
-      ? all.filter((c) => c.clinicaId === selectedClinicaId)
-      : all;
-    return scope.reduce(
-      (s, c) =>
-        s +
-        c.counts.leads +
-        c.counts.presupuestos +
-        c.counts.citados +
-        c.counts.asistencias +
-        c.counts.automatizaciones +
-        (c.counts.cobro_vence_3d ?? 0) +
-        (c.counts.cobro_vencido_7d ?? 0) +
-        (c.counts.pendiente_alto_estancado ?? 0),
-      0,
-    );
+    return out.sort(ordenar);
   }, [cards, selectedClinicaId]);
 
-  async function enviar(clinicaId: string, tipo: Tipo) {
-    const key = `${clinicaId}:${tipo}`;
-    setSending(key);
+  const porPestana = useMemo(
+    () =>
+      todasLasFilas.filter((f) =>
+        tab === "todos" ? true : tab === "cobros" ? COBRO_TIPOS.includes(f.tipo) : f.tipo === tab,
+      ),
+    [todasLasFilas, tab],
+  );
+  const activas = porPestana.filter((f) => !f.pospuesta);
+  const pospuestas = porPestana.filter((f) => f.pospuesta);
+  const visibles = verPospuestas ? porPestana : activas;
+
+  const totalActivas = activas.reduce((s, f) => s + f.n, 0);
+  const dineroActivo = activas.reduce((s, f) => s + (f.importe ?? 0), 0);
+
+  async function enviar(f: Fila) {
+    const key = `${f.clinicaId}:${f.tipo}`;
+    setOcupada(key);
     setError(null);
     try {
       const res = await fetch("/api/alertas/enviar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clinicaId, tipoAlerta: tipo }),
+        body: JSON.stringify({ clinicaId: f.clinicaId, tipoAlerta: f.tipo }),
       });
       const d = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(d?.error ?? "No se pudo enviar la alerta");
-        if (res.status === 400 && typeof d?.error === "string" && d.error.includes("Falta teléfono")) {
-          // sugerencia UI: link a ajustes
-        }
         return;
       }
       toast.success("Alerta enviada");
@@ -156,7 +222,29 @@ export function AlertasView() {
     } catch {
       setError("No se pudo enviar la alerta. Revisa tu conexión.");
     } finally {
-      setSending(null);
+      setOcupada(null);
+    }
+  }
+
+  async function posponer(f: Fila, deshacer = false) {
+    const key = `${f.clinicaId}:${f.tipo}`;
+    setOcupada(key);
+    setError(null);
+    try {
+      const res = await fetch("/api/alertas/posponer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clinicaId: f.clinicaId, tipoAlerta: f.tipo, deshacer }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(deshacer ? "Vuelve a la lista" : "Pospuesta hasta mañana");
+      await load();
+    } catch {
+      setError(
+        deshacer ? "No se pudo recuperar la alerta." : "No se pudo posponer la alerta.",
+      );
+    } finally {
+      setOcupada(null);
     }
   }
 
@@ -165,40 +253,44 @@ export function AlertasView() {
       <div className="max-w-5xl mx-auto p-4 lg:p-6 space-y-5">
         <header className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">Alertas</h1>
+            <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">
+              Alertas
+            </h1>
             <p className="text-xs text-[var(--color-muted)] mt-0.5">
               Situaciones que requieren acción por parte de coordinación
             </p>
           </div>
-          {totalPendientes > 0 && (
-            <StatePill variant="danger" size="md" className="tabular-nums">
-              {totalPendientes} alerta{totalPendientes === 1 ? "" : "s"} activa
-              {totalPendientes === 1 ? "" : "s"}
-            </StatePill>
+          {!loading && totalActivas > 0 && (
+            <div className="text-right shrink-0">
+              <StatePill variant="danger" size="md" className="tabular-nums">
+                {totalActivas} {plural(totalActivas, "situación activa", "situaciones activas")}
+              </StatePill>
+              {dineroActivo > 0 && (
+                <p className="mt-1 text-xs text-[var(--color-muted)] tabular-nums">
+                  {eur(dineroActivo)} en juego
+                </p>
+              )}
+            </div>
           )}
         </header>
-        {/* El filtro de clínica PERSISTE en localStorage: se puede llegar
-            aquí con él puesto sin haberlo tocado en esta sesión, y las cifras
-            son otras. Se declara en la página, no solo en el selector. */}
+
         {clinicaFiltrada && (
           <AvisoFiltroClinica
             nombre={selectedClinicaNombre!}
             onVerTodas={() => setSelectedClinicaId(null)}
-            ocultaAdemas="Las alertas se agrupan por clínica; con el filtro puesto solo se ve una."
+            ocultaAdemas="Las alertas de las demás clínicas no se están contando."
           />
         )}
 
-        {/* Tabs secundarios — estilo Linear: pill accent-soft activa. */}
         <div className="flex flex-wrap gap-1">
           {(
             [
-              ["todos", "Todos"],
+              ["todos", "Todas"],
+              ["cobros", "Cobros"],
               ["leads", "Leads sin gestionar"],
               ["presupuestos", "Presupuestos sin seguimiento"],
               ["asistencias", "Asistencias sin cerrar"],
               ["automatizaciones", "Automatizaciones con error"],
-              // Sprint 14b Bloque 3 — agrupación cobros (3 sub-tipos).
-              ["cobros", "Cobros"],
             ] as Array<[SubTab, string]>
           ).map(([key, label]) => (
             <button
@@ -217,19 +309,19 @@ export function AlertasView() {
         </div>
 
         {error && (
-          <p className="text-xs text-rose-700 bg-rose-50 border border-rose-200 dark:text-rose-300 dark:bg-rose-500/10 dark:border-rose-500/25 rounded-md px-3 py-2">
+          <p className="rounded-md border border-[var(--color-danger)]/30 bg-[var(--color-danger-soft)] px-3 py-2 text-xs text-[var(--color-danger)]">
             {error}{" "}
             {error.includes("teléfono") && (
-              <Link href="/ajustes/clinica-equipo" className="underline font-semibold">
+              <Link href="/ajustes/clinica-equipo" className="font-semibold underline">
                 Ir a Ajustes
               </Link>
             )}
           </p>
         )}
 
-        {loading && !cards && (
-          <p className="text-xs text-[var(--color-muted)]">Cargando alertas…</p>
-        )}
+        {/* Skeleton, no un "Cargando alertas…" en texto plano: la pantalla
+            mantiene su forma mientras carga (estándar visual §4). */}
+        {loading && !cards && <CardListSkeleton rows={5} />}
 
         {!loading && loadError && (
           <ErrorState
@@ -239,100 +331,191 @@ export function AlertasView() {
           />
         )}
 
-        {!loading && !loadError && filtered.length === 0 && (
+        {!loading && !loadError && visibles.length === 0 && (
           <EmptyState
             icon={<CheckCircle2 size={20} strokeWidth={ICON_STROKE} />}
-            title="Sin situaciones pendientes"
+            title={pospuestas.length > 0 ? "Nada activo ahora mismo" : "Sin situaciones pendientes"}
             hint={
-              selectedClinicaId
-                ? "Esta clínica no tiene alertas en este filtro."
-                : "Ninguna clínica tiene alertas en el filtro seleccionado."
+              pospuestas.length > 0
+                ? `Hay ${pospuestas.length} pospuesta${pospuestas.length === 1 ? "" : "s"} hasta mañana.`
+                : selectedClinicaId
+                  ? "Esta clínica no tiene alertas en este filtro."
+                  : "Ninguna clínica tiene alertas en el filtro seleccionado."
             }
           />
         )}
 
-        <div className="space-y-3">
-          {filtered.map((card) => {
-            const tipos: Tipo[] =
-              tab === "todos"
-                ? (Object.keys(card.counts) as Tipo[]).filter((t) => card.counts[t] > 0)
-                : tab === "cobros"
-                  ? COBRO_TIPOS.filter((t) => card.counts[t] > 0)
-                  : [tab as Tipo];
-            if (tipos.length === 0) return null;
-            return (
-              <div
-                key={card.clinicaId}
-                className="rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] p-5 hover:border-[color-mix(in_srgb,var(--color-accent)_30%,transparent)] transition-colors"
-              >
-                <p className="font-display text-base font-semibold text-[var(--color-foreground)] mb-3 tracking-tight">
-                  {card.clinicaNombre}
-                </p>
-                <div className="space-y-2">
-                  {tipos.map((tipo) => {
-                    const n = card.counts[tipo];
-                    if (n === 0) return null;
-                    const cooldown = card.cooldowns?.[tipo] ?? null;
-                    const isOnCooldown = !!cooldown;
-                    const busy = sending === `${card.clinicaId}:${tipo}`;
-                    // Sprint 12 H.4 — urgencia funcional: rose>5, amber 3-5, neutro <3.
-                    const urgenciaBg =
-                      n > 5
-                        ? "bg-rose-50 text-rose-700 dark:bg-rose-500/10 dark:text-rose-300"
-                        : n >= 3
-                        ? "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300"
-                        : "bg-[var(--color-surface-muted)] text-[var(--color-muted)]";
-                    return (
-                      <div
-                        key={tipo}
-                        className="flex items-center gap-3 rounded-lg bg-[var(--color-surface-muted)] px-3 py-2.5 border border-[var(--color-border)]"
-                      >
-                        <span
-                          className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${urgenciaBg}`}
-                          aria-hidden="true"
-                        >
-                          <Bell size={16} strokeWidth={ICON_STROKE} />
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[11px] font-medium text-[var(--color-foreground)]">
-                            {TIPO_LABEL[tipo]}
-                          </p>
-                          <p className="text-xs text-[var(--color-muted)] tabular-nums">{TIPO_SUBTITLE[tipo](n)}</p>
-                          {isOnCooldown && (
-                            <p className="text-[10px] text-[var(--color-muted)] mt-0.5 tabular-nums">
-                              Alerta enviada hace {minutesAgo(cooldown!.untilMs - 2 * 60 * 60 * 1000)}
-                            </p>
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => enviar(card.clinicaId, tipo)}
-                          disabled={busy || isOnCooldown}
-                          className="shrink-0 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-semibold px-3 py-1.5 hover:bg-[var(--color-accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          {busy
-                            ? "Enviando…"
-                            : isOnCooldown
-                            ? "Enviada"
-                            : "Enviar alerta"}
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        {!loading && !loadError && visibles.length > 0 && (
+          <div className="space-y-2">
+            {visibles.map((f) => (
+              <FilaAlerta
+                key={`${f.clinicaId}:${f.tipo}`}
+                fila={f}
+                ocupada={ocupada === `${f.clinicaId}:${f.tipo}`}
+                onEnviar={() => enviar(f)}
+                onPosponer={(deshacer) => posponer(f, deshacer)}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Un contador discreto para que las pospuestas no se conviertan en un
+            cajón invisible: se pueden ver siempre que se quiera. */}
+        {!loading && !loadError && pospuestas.length > 0 && (
+          <button
+            type="button"
+            onClick={() => setVerPospuestas((v) => !v)}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
+          >
+            <Clock size={13} strokeWidth={ICON_STROKE} aria-hidden />
+            {verPospuestas
+              ? "Ocultar las pospuestas"
+              : `${pospuestas.length} ${plural(pospuestas.length, "pospuesta", "pospuestas")} hasta mañana — ver`}
+          </button>
+        )}
       </div>
     </div>
   );
 }
 
-function minutesAgo(timestampMs: number): string {
-  const mins = Math.floor((Date.now() - timestampMs) / 60000);
-  if (mins < 1) return "hace instantes";
-  if (mins < 60) return `hace ${mins} min`;
-  const hrs = Math.floor(mins / 60);
-  return `hace ${hrs}h`;
+function FilaAlerta({
+  fila,
+  ocupada,
+  onEnviar,
+  onPosponer,
+}: {
+  fila: Fila;
+  ocupada: boolean;
+  onEnviar: () => void;
+  onPosponer: (deshacer: boolean) => void;
+}) {
+  const { tipo, n, importe, cooldown, ultimoAviso, pospuesta } = fila;
+  const enCooldown = !!cooldown;
+  const label = deDiccionario(TIPO_LABEL, tipo, "Situación pendiente", "alertas.tipo");
+  const subtitulo = TIPO_SUBTITLE[tipo]?.(n) ?? `${n} pendientes`;
+
+  // El tono lo marca el DINERO cuando lo hay; si no, el propio tipo. Nunca el
+  // recuento: seis leads no son más graves que 12.725 € sin cobrar.
+  const tono =
+    importe != null && importe > 0
+      ? "danger"
+      : tipo === "leads" || tipo === "asistencias"
+        ? "warning"
+        : "neutral";
+  const iconoTono =
+    tono === "danger"
+      ? "bg-[var(--color-danger-soft)] text-[var(--color-danger)]"
+      : tono === "warning"
+        ? "bg-[var(--color-warning-soft)] text-[var(--color-warning)]"
+        : "bg-[var(--color-surface-muted)] text-[var(--color-muted)]";
+
+  return (
+    <div
+      className={`flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 transition-colors ${
+        pospuesta ? "opacity-60" : ""
+      }`}
+    >
+      <span
+        className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${iconoTono}`}
+        aria-hidden
+      >
+        <Bell size={16} strokeWidth={ICON_STROKE} />
+      </span>
+
+      <div className="min-w-0 flex-1">
+        <p className="flex flex-wrap items-baseline gap-x-2 text-sm font-semibold text-[var(--color-foreground)]">
+          {label}
+          <span className="text-xs font-normal text-[var(--color-muted)]">
+            {fila.clinicaNombre}
+          </span>
+        </p>
+        <p className="text-xs text-[var(--color-muted)] tabular-nums">{subtitulo}</p>
+
+        {/* ¿SIRVIÓ EL AVISO? La pregunta que cierra el bucle. */}
+        {ultimoAviso && <EfectoDelAviso aviso={ultimoAviso} />}
+
+        {pospuesta && (
+          <p className="mt-1 text-[11px] text-[var(--color-muted)]">
+            Pospuesta{pospuesta.por ? ` por ${pospuesta.por}` : ""} · vuelve mañana
+          </p>
+        )}
+      </div>
+
+      {importe != null && importe > 0 && (
+        <p className="shrink-0 font-display text-base font-semibold tabular-nums text-[var(--color-danger)]">
+          {eur(importe)}
+        </p>
+      )}
+
+      <div className="flex shrink-0 items-center gap-1.5">
+        {pospuesta ? (
+          <button
+            type="button"
+            onClick={() => onPosponer(true)}
+            disabled={ocupada}
+            className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-muted)] disabled:opacity-40"
+          >
+            {ocupada ? "…" : "Recuperar"}
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => onPosponer(false)}
+              disabled={ocupada}
+              className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs font-medium text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-muted)] disabled:opacity-40"
+            >
+              Posponer
+            </button>
+            <button
+              type="button"
+              onClick={onEnviar}
+              disabled={ocupada || enCooldown}
+              className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)] disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {ocupada ? "Enviando…" : enCooldown ? "Avisada" : "Avisar"}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * "Avisaste ayer de 3 · hoy siguen siendo 3."
+ *
+ * Es lo que convierte la pantalla en supervisión. Se apoya en la foto que se
+ * guarda al enviar (`n_al_enviar`): sin ella solo se podía decir CUÁNDO se
+ * avisó, nunca si el aviso movió algo. Las alertas anteriores al 2026-08-01 no
+ * tienen foto y lo dicen —"no se guardó contra cuántos"— en vez de inventarla.
+ */
+function EfectoDelAviso({ aviso }: { aviso: UltimoAviso }) {
+  const cuando = fechaHoraClinica(aviso.enviadaEn);
+  const destino = aviso.a ? ` a ${aviso.a}` : "";
+  if (aviso.nEntonces == null) {
+    return (
+      <p className="mt-1 text-[11px] text-[var(--color-muted)]">
+        Avisada el {cuando}
+        {destino}.
+      </p>
+    );
+  }
+  const bajo = aviso.nAhora < aviso.nEntonces;
+  const igual = aviso.nAhora === aviso.nEntonces;
+  return (
+    <p
+      className={`mt-1 text-[11px] ${
+        bajo ? "text-[var(--color-success)]" : igual ? "text-[var(--color-warning)]" : "text-[var(--color-danger)]"
+      }`}
+    >
+      Avisada el {cuando}
+      {destino} de {aviso.nEntonces}.{" "}
+      {bajo
+        ? `Hoy quedan ${aviso.nAhora}: el aviso movió ${aviso.nEntonces - aviso.nAhora}.`
+        : igual
+          ? "Hoy siguen siendo los mismos."
+          : `Hoy son ${aviso.nAhora}: han ido a más.`}
+    </p>
+  );
 }

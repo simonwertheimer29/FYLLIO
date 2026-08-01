@@ -433,6 +433,22 @@ export interface Tabla_alertas_enviadas {
   resumen: string | null;
   tipo: string | null;
   urgencia: string | null;
+  /** Foto del momento del envío — permite responder "¿sirvió el aviso?". */
+  n_al_enviar: number | null;
+  importe_al_enviar: string | number | null;
+  coordinadora_destino_nombre: string | null;
+  created_at: Generated<Date>;
+}
+
+/** Alertas ocultas hasta una fecha. Solo posponer, nunca descartar. */
+export interface Tabla_alertas_pospuestas {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  clinica_id: string;
+  tipo_alerta: string;
+  oculta_hasta: string;
+  pospuesta_por: string;
+  pospuesta_por_nombre: string | null;
   created_at: Generated<Date>;
 }
 
@@ -621,6 +637,7 @@ export interface DB {
   notificaciones: Tabla_notificaciones;
   configuracion_waba: Tabla_configuracion_waba;
   alertas_enviadas: Tabla_alertas_enviadas;
+  alertas_pospuestas: Tabla_alertas_pospuestas;
   acciones_lead: Tabla_acciones_lead;
   plantillas_lead: Tabla_plantillas_lead;
   pagos_paciente: Tabla_pagos_paciente;

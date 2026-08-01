@@ -11,11 +11,15 @@ import { listPacientes } from "../pacientes/pacientes";
 import { listPagosResumen } from "../pagos";
 import type { TipoAlerta } from "./templates";
 import { hoyISO } from "../time";
+import { calcularCobrosPorPaciente } from "../cobros";
 
 export type AlertaClinica = {
   clinicaId: string;
   clinicaNombre: string;
   counts: Record<TipoAlerta, number>;
+  /** € en juego por tipo. Solo los tipos de cobro lo tienen; el resto, ausente
+   *  — que no es lo mismo que cero. */
+  importes: Partial<Record<TipoAlerta, number>>;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -43,8 +47,17 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
 
   // Mapas temporales
   const result = new Map<string, Record<TipoAlerta, number>>();
-  function add(clinicaId: string, tipo: TipoAlerta, n = 1): void {
+  // € en juego por (clínica, tipo). Solo lo tienen los tipos de cobro: un
+  // "lead sin gestionar" no tiene importe todavía, y **inventarle uno sería
+  // peor que no tenerlo** — la pantalla dice "—" y ordena por lo que sabe.
+  const importes = new Map<string, Partial<Record<TipoAlerta, number>>>();
+  function add(clinicaId: string, tipo: TipoAlerta, n = 1, importe?: number): void {
     if (!clinicaId || !clinicaById.has(clinicaId)) return;
+    if (importe != null) {
+      if (!importes.has(clinicaId)) importes.set(clinicaId, {});
+      const m = importes.get(clinicaId)!;
+      m[tipo] = (m[tipo] ?? 0) + importe;
+    }
     if (!result.has(clinicaId)) {
       result.set(clinicaId, {
         leads: 0,
@@ -135,113 +148,55 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
   // 7. pendiente_alto_estancado: presupuesto > 2000€ + Aceptado hace >30d +
   //                            sin pago registrado de ningún tipo.
   //
-  // Plazo por clínica (Configuraciones_Clinica.Plazos_Liquidacion) con
-  // fallback a global (default 90).
-  const plazoPorClinica = new Map<string | null, number>();
-  for (const o of opciones) {
-    if (o.categoria !== "Plazos_Liquidacion" || !o.activo) continue;
-    const n = Number(o.valor);
-    if (!Number.isFinite(n) || n <= 0) continue;
-    if (!plazoPorClinica.has(o.clinicaId)) plazoPorClinica.set(o.clinicaId, n);
-  }
-  const plazoGlobal = plazoPorClinica.get(null) ?? 90;
-  const plazoFor = (clinicaId: string | null): number =>
-    clinicaId && plazoPorClinica.has(clinicaId)
-      ? plazoPorClinica.get(clinicaId)!
-      : plazoGlobal;
-
-  // Mapas auxiliares: pagos por paciente (cuántos + tieneLiquidacion).
-  const pagosCountPorPaciente = new Map<string, number>();
-  const tieneLiquidacionPorPaciente = new Set<string>();
-  for (const pago of pagos) {
-    const pid = pago.pacienteRecordId;
-    if (!pid) continue;
-    pagosCountPorPaciente.set(pid, (pagosCountPorPaciente.get(pid) ?? 0) + 1);
-    if (pago.tipo === "Liquidacion") {
-      tieneLiquidacionPorPaciente.add(pid);
-    }
-  }
-
-  // Map paciente.id → primera Fecha_Aceptado de presupuestos ACEPTADO de
-  // ese paciente (para los 3 triggers de cobros).
-  const fechaAceptadoPorPaciente = new Map<string, string>();
-  const importeAceptadoPorPaciente = new Map<string, number>();
-  for (const r of presupuestos) {
-    const f = r.fields ?? {};
-    if (String(f["Estado"] ?? "") !== "ACEPTADO") continue;
-    const links = (f["Paciente"] ?? []) as string[];
-    const pid = links[0];
-    if (!pid) continue;
-    const fecha = String(f["Fecha_Aceptado"] ?? f["FechaAlta"] ?? "").slice(0, 10);
-    if (fecha) {
-      const prev = fechaAceptadoPorPaciente.get(pid);
-      if (!prev || fecha < prev) fechaAceptadoPorPaciente.set(pid, fecha);
-    }
-    const importe = Number(f["Importe"] ?? 0) || 0;
-    importeAceptadoPorPaciente.set(
-      pid,
-      (importeAceptadoPorPaciente.get(pid) ?? 0) + importe,
-    );
-  }
-
-  const HOY_MS = now;
-  const VENCE_3D_MS = HOY_MS + 3 * DAY_MS;
-  const VENCIDO_7D_OFFSET = 7 * DAY_MS;
-  const ESTANCADO_DAYS = 30 * DAY_MS;
+  // LOS TRES TRIGGERS DE COBROS SALEN DE LA FUNCIÓN COMPARTIDA (2026-08-01).
+  //
+  // Aquí vivía una reimplementación a mano de la regla de vencimiento —plazo
+  // por clínica, `venceMs = aceptadoMs + plazo*DAY_MS`, tieneLiquidacion,
+  // >2.000 €, >30 días—, es decir un segundo cálculo del mismo concepto que ya
+  // resuelven `/cobros` y `/red` con `calcularCobrosPorPaciente`. Coincidían
+  // (8 y 8 vencidos, 5 y 5 estancados, medido), pero por suerte y no por
+  // construcción: al anclar el plazo al día de la clínica ese mismo día, esta
+  // copia se quedó en milisegundos rodantes y las dos pantallas empezaron a
+  // cruzar el umbral en instantes distintos. Es el olor §6 en su forma cara.
+  //
+  // Y al unificar entra gratis lo que la pantalla necesitaba: el DINERO. La
+  // función devuelve el pendiente por paciente, así que cada alerta de cobro
+  // puede decir cuánto hay en juego sin una consulta nueva — los datos que
+  // necesita (pacientes, presupuestos, pagos, opciones) ya estaban cargados
+  // aquí arriba para el cálculo viejo.
+  const cobros = calcularCobrosPorPaciente({
+    pacientes,
+    presupuestos: presupuestos as ReadonlyArray<{ id: string; fields: Record<string, unknown> }>,
+    pagos,
+    opciones,
+  });
+  // Se derivan de los CAMPOS, no del bucket `urgencia`, y es deliberado por
+  // dos razones que cambiarían los números en silencio si se ignoraran:
+  //   · `urgencia` es un ÚNICO valor con precedencia (vencido > por vencer >
+  //     estancado), porque la cola de Cobros pinta un paciente en una sola
+  //     fila. Aquí son HECHOS INDEPENDIENTES: un paciente puede estar vencido
+  //     y además ser un estancado alto, y las dos cosas hay que avisarlas.
+  //   · el bucket "por vencer" de la cola son 7 días; esta alerta dice "vence
+  //     en los próximos 3 días" y se queda en 3. La ventana es más estrecha a
+  //     propósito — lo que se comparte es el RELOJ y la derivación, no el
+  //     umbral de cada pantalla.
   const ESTANCADO_IMPORTE_MIN = 2000;
-
-  // MEJORAS nº 28 (2026-07-24) — la ÚNICA verdad de "aceptado" es tener un
-  // Presupuesto en Estado=ACEPTADO, y el importe es la suma de esos
-  // registros. El flag Pacientes.Aceptado y la caché Presupuesto_Total (que
-  // antes se preferían "por los seeds legacy") dejan de leerse: eran las
-  // columnas en deprecación y podían divergir de los presupuestos reales.
-  for (const p of pacientes) {
-    if (!fechaAceptadoPorPaciente.has(p.id)) continue;
-    const presupuestoTotal = importeAceptadoPorPaciente.get(p.id) ?? 0;
-    if (!presupuestoTotal || presupuestoTotal <= 0) continue;
-    const cid = p.clinicaId;
-    if (!cid || !clinicaById.has(cid)) continue;
-
-    // Fecha aceptado: prioridad al Fecha_Aceptado del presupuesto
-    // ACEPTADO; fallback a la fecha de alta del paciente.
-    const fechaAceptado =
-      fechaAceptadoPorPaciente.get(p.id) ?? p.createdAt.slice(0, 10);
-    const aceptadoMs = fechaAceptado
-      ? new Date(fechaAceptado).getTime()
-      : null;
-    const tieneLiquidacion = tieneLiquidacionPorPaciente.has(p.id);
-    const tieneAlgunPago = (pagosCountPorPaciente.get(p.id) ?? 0) > 0;
-
-    if (aceptadoMs && Number.isFinite(aceptadoMs)) {
-      const venceMs = aceptadoMs + plazoFor(cid) * DAY_MS;
-
-      // Trigger 1: cobro_vence_3d (rango [hoy, hoy+3d]).
-      if (
-        venceMs >= HOY_MS &&
-        venceMs <= VENCE_3D_MS &&
-        !tieneLiquidacion
-      ) {
-        add(cid, "cobro_vence_3d");
-      }
-
-      // Trigger 2: cobro_vencido_7d (vencido hace > 7 días).
-      if (
-        HOY_MS - venceMs > VENCIDO_7D_OFFSET &&
-        !tieneLiquidacion
-      ) {
-        add(cid, "cobro_vencido_7d");
-      }
+  for (const c of cobros) {
+    if (!c.clinicaId || !clinicaById.has(c.clinicaId)) continue;
+    if (c.pendiente <= 0) continue;
+    if (c.diasVencido != null && c.diasVencido > 7 && !c.tieneLiquidacion) {
+      add(c.clinicaId, "cobro_vencido_7d", 1, c.pendiente);
     }
-
-    // Trigger 3: pendiente_alto_estancado (presupuesto >2000 +
-    // Aceptado hace >30d + sin NINGÚN pago).
+    if (c.diasParaVencer != null && c.diasParaVencer <= 3 && !c.tieneLiquidacion) {
+      add(c.clinicaId, "cobro_vence_3d", 1, c.pendiente);
+    }
     if (
-      presupuestoTotal > ESTANCADO_IMPORTE_MIN &&
-      aceptadoMs &&
-      HOY_MS - aceptadoMs > ESTANCADO_DAYS &&
-      !tieneAlgunPago
+      c.firmado > ESTANCADO_IMPORTE_MIN &&
+      c.diasDesdeAceptacion != null &&
+      c.diasDesdeAceptacion > 30 &&
+      c.numPagos === 0
     ) {
-      add(cid, "pendiente_alto_estancado");
+      add(c.clinicaId, "pendiente_alto_estancado", 1, c.pendiente);
     }
   }
 
@@ -262,6 +217,7 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
       clinicaId,
       clinicaNombre: clinicaById.get(clinicaId)?.nombre ?? "",
       counts,
+      importes: importes.get(clinicaId) ?? {},
     });
   }
   out.sort((a, b) => totalOf(b.counts) - totalOf(a.counts));

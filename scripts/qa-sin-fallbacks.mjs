@@ -59,7 +59,6 @@ const DEUDA = new Set([
   "app/(authed)/ajustes/clinica-equipo/ClinicaEquipoView.tsx: `d.usuarios ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
   "app/(authed)/ajustes/configuracion/ConfiguracionView.tsx: `j.opciones ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
   "app/(authed)/ajustes/configuracion/ConfiguracionView.tsx: `j.plantillas ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/(authed)/alertas/AlertasView.tsx: `d.alertas ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
   "app/(authed)/pacientes/PacientesView.tsx: `d.presupuestos ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
   "app/(authed)/pacientes/PacientesView.tsx: `d.presupuestos ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
   "app/(authed)/pacientes/PacientesView.tsx: `d.presupuestos ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",

@@ -53,6 +53,10 @@ function toShim(r: any): Shim {
       "Tipo": r.tipo,
       "Urgencia": r.urgencia,
       "Created_At": created, // campo escribible en Airtable; en PG = created_at
+      // La foto del momento del envío (011/012).
+      "N_Al_Enviar": r.n_al_enviar,
+      "Importe_Al_Enviar": r.importe_al_enviar == null ? undefined : Number(r.importe_al_enviar),
+      "Coordinadora_Destino_Nombre": r.coordinadora_destino_nombre,
     },
     created,
   );
@@ -75,6 +79,11 @@ function shimToAlerta(rec: Shim): AlertaEnviada {
     mensaje: String(f["Mensaje"] ?? ""),
     error: Boolean(f["Error"] ?? false),
     createdAt: String(rec._rawJson?.createdTime ?? ""),
+    nAlEnviar: typeof f["N_Al_Enviar"] === "number" ? f["N_Al_Enviar"] : null,
+    importeAlEnviar: typeof f["Importe_Al_Enviar"] === "number" ? f["Importe_Al_Enviar"] : null,
+    coordinadoraNombre: f["Coordinadora_Destino_Nombre"]
+      ? String(f["Coordinadora_Destino_Nombre"])
+      : null,
   };
 }
 
@@ -105,13 +114,35 @@ export async function lastAlertForPg(clinicaId: string, tipo: TipoAlerta): Promi
   return match[0] ?? null;
 }
 
+/**
+ * TODAS las últimas alertas de una vez, indexadas por `clinicaId:tipo`.
+ *
+ * `lastAlertForPg` lee la tabla ENTERA y filtra en memoria, así que la ruta
+ * llamándola en un bucle por (clínica × tipo) hacía **8 lecturas completas de
+ * la tabla, en serie** — 7,2 s de los 13,7 s medidos. Es una sola pasada.
+ */
+export async function ultimasAlertasPorClinicaTipoPg(): Promise<Map<string, AlertaEnviada>> {
+  const out = new Map<string, AlertaEnviada>();
+  // `fetchAllShims` ya ordena por created_at desc: la primera que se ve de cada
+  // par es la más reciente, así que no hace falta volver a ordenar.
+  for (const a of (await fetchAllShims()).map(shimToAlerta)) {
+    if (!a.clinicaId || !a.tipo || a.error) continue;
+    const k = `${a.clinicaId}:${a.tipo}`;
+    if (!out.has(k)) out.set(k, a);
+  }
+  return out;
+}
+
 export async function recordAlertPg(input: {
   clinicaId: string;
   tipo: TipoAlerta;
   adminId: string;
   coordinadoraId: string;
+  coordinadoraNombre?: string | null;
   mensaje: string;
   error: boolean;
+  nAlEnviar?: number | null;
+  importeAlEnviar?: number | null;
 }): Promise<AlertaEnviada> {
   // typecast:true de Airtable (extender el singleSelect Tipo_Alerta) no aplica:
   // tipo_alerta es TEXT abierto en PG → se inserta el valor tal cual.
@@ -129,8 +160,11 @@ export async function recordAlertPg(input: {
         tipo_alerta: input.tipo,
         admin_origen_id: idU(input.adminId),
         coordinadora_destino_id: idU(input.coordinadoraId),
+        coordinadora_destino_nombre: input.coordinadoraNombre ?? null,
         mensaje: input.mensaje,
         error: input.error,
+        n_al_enviar: input.nAlEnviar ?? null,
+        importe_al_enviar: input.importeAlEnviar ?? null,
       } as any)
       .returningAll()
       .executeTakeFirstOrThrow(),

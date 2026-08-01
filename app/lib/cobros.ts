@@ -36,6 +36,10 @@ export type CobroPaciente = {
   diasParaVencer: number | null; // positivo = vence en N
   urgencia: UrgenciaCobro;
   numPagos: number;
+  /** Tiene un pago de tipo "Liquidacion". Lo expone la derivación porque hay
+   *  callers (las alertas de cobro) que necesitan los HECHOS por separado y no
+   *  el bucket `urgencia`, que colapsa por precedencia. */
+  tieneLiquidacion: boolean;
   /** Tratamientos de sus presupuestos ACEPTADO (si el caller pidió el campo). */
   tratamientos: string[];
   ultimoPagoISO: string | null;
@@ -187,6 +191,7 @@ export function calcularCobrosPorPaciente(args: {
       diasParaVencer,
       urgencia,
       numPagos: pagosCountPorPac.get(p.id) ?? 0,
+      tieneLiquidacion,
       tratamientos: [...(tratamientosPorPac.get(p.id) ?? [])],
       ultimoPagoISO: ultimoPagoPorPac.get(p.id) ?? null,
       estadoCobro,

@@ -7,7 +7,7 @@ import { NextResponse } from "next/server";
 import { withAdmin } from "../../../lib/auth/session";
 import { findCoordinacionesByClinica } from "../../../lib/auth/users";
 import { calcularAlertas } from "../../../lib/alertas/calcular";
-import { checkCooldown, recordAlert } from "../../../lib/alertas/historial";
+import { checkCooldown, recordAlert, COOLDOWN_ALERTA_MS } from "../../../lib/alertas/historial";
 import { renderAlertaMessage, type TipoAlerta } from "../../../lib/alertas/templates";
 
 export const dynamic = "force-dynamic";
@@ -106,6 +106,7 @@ export const POST = withAdmin(async (session, req) => {
   const all = await calcularAlertas();
   const entry = all.find((a) => a.clinicaId === clinicaId);
   const n = entry?.counts[tipo] ?? 0;
+  const importe = entry?.importes?.[tipo] ?? null;
   if (n === 0) {
     return NextResponse.json(
       { error: "Ya no hay situaciones pendientes de este tipo" },
@@ -120,13 +121,22 @@ export const POST = withAdmin(async (session, req) => {
   const result = await sendViaTwilio(`whatsapp:${tel}`, mensaje);
 
   // Registrar SIEMPRE (ok o error) para auditoría.
+  // La FOTO del momento del envío: contra cuántos casos y cuánto dinero se
+  // avisó, y a quién. Sin ella no se puede responder después "avisaste ayer de
+  // 3 liquidaciones vencidas, ¿siguen siendo 3?" — que es lo que distingue
+  // supervisar de pulsar un botón. El nombre se guarda, no se resuelve luego:
+  // si la coordinadora cambia de clínica, el histórico debe seguir diciendo a
+  // quién se avisó.
   await recordAlert({
     clinicaId,
     tipo,
     adminId: session.userId,
     coordinadoraId: coord.id,
+    coordinadoraNombre: coord.nombre,
     mensaje,
     error: !result.ok,
+    nAlEnviar: n,
+    importeAlEnviar: importe,
   });
 
   if (!result.ok) {
@@ -139,6 +149,9 @@ export const POST = withAdmin(async (session, req) => {
   return NextResponse.json({
     ok: true,
     sentAt: new Date().toISOString(),
-    cooldownUntilMs: Date.now() + 2 * 60 * 60 * 1000,
+    // La ventana la declara el servidor, que es quien la aplica. El cliente la
+    // reconstruía restando un `2*60*60*1000` escrito a mano: si esto cambiaba,
+    // la hora que se mostraba mentía en silencio.
+    cooldownUntilMs: Date.now() + COOLDOWN_ALERTA_MS,
   });
 });

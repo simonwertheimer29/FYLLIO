@@ -16,6 +16,21 @@ export type TipoAlerta =
   | "cobro_vencido_7d"
   | "pendiente_alto_estancado";
 
+/** Los OCHO tipos, en un solo sitio. Estaban escritos a mano en tres listas
+ *  distintas (la ruta GET con cinco, la whitelist del POST con ocho, las
+ *  pestañas de la vista con seis) — y la de cinco era la que dejaba a los tipos
+ *  de cobros sin cooldown. Una lista, derivada del union. */
+export const TIPOS_ALERTA: TipoAlerta[] = [
+  "leads",
+  "presupuestos",
+  "citados",
+  "asistencias",
+  "automatizaciones",
+  "cobro_vence_3d",
+  "cobro_vencido_7d",
+  "pendiente_alto_estancado",
+];
+
 const TEMPLATES: Record<TipoAlerta, string> = {
   leads:
     "Hola {nombre}, en {clinica} hay {n} leads nuevos sin gestionar. Por favor, revisa Fyllio cuando puedas.",

@@ -35,7 +35,8 @@ esperar aprobación, después ejecutar.
 |---|---|
 | `/presupuestos` · `/kpis` · `/red` · `/cobros` · `/pacientes` · `/leads` · `/llamadas` | ✅ hechas |
 | `/automatizaciones` + `/ajustes` | ⬅ **siguiente**, y **juntas**: hay dos centros de ajustes ([MEJORAS 13](MEJORAS-PENDIENTES.md)). Es arquitectura de información — proponer la fusión antes de ejecutar |
-| `/alertas` · `/seguimiento` | pendientes, en ese orden |
+| `/alertas` | ✅ hecha (1 ago) |
+| `/seguimiento` | pendiente, la última |
 
 Cerrado también el **Bloque 2 (`/llamadas`)** el 1 de agosto: contenedor de página, nombre de
 paciente, hora en zona de clínica, coste fuera de la fila de KPIs, y **Vapi declarado en el
@@ -45,8 +46,6 @@ contrato de entorno** con aviso honesto de "pendiente de activar" (opción B de 
 
 Quedan del plan de la sesión:
 
-- **Bloque 4 — `/alertas`**: la spec está en MEJORAS; añadir los 7 s de carga con texto plano y la
-  errata "liquidaciónes" ([MEJORAS 87](MEJORAS-PENDIENTES.md)).
 - **Bloque 5 — reconciliación de cifras** (Tablero 28 vs Tabla 44, 67 % vs 86 %, 6 aceptados vs
   14…): censar qué es definición legítima y qué es bug, como se hizo con la tasa de aceptación.
 
@@ -117,8 +116,9 @@ importe en el mismo WhatsApp, que es dato de salud del art. 9.
 | Rama | `main`, limpia y al día con `origin` |
 | Fronteras de error | **15** (13 secciones + grupo + global) |
 | Aviso de filtro de clínica | en las **8** pantallas que siguen al selector |
-| Deuda de `?? []` | **16**, y el trinquete solo deja bajar (`npm run qa:sin-fallbacks`) |
+| Deuda de `?? []` | **15**, y el trinquete solo deja bajar (`npm run qa:sin-fallbacks`) |
 | QA verde | `qa:fechas` **52/52** en 4 husos · `qa:cohortes` · `qa:estado-conversacion` · `qa:sin-fallbacks` · **`qa-dashboard-red`** (paridad + días 1/2/15) · `demo:reset` con 4 invariantes |
 | QA de /kpis | 18/18 (`npm run qa:kpis`, necesita el server en :3100) |
 | MEJORAS | 88 entradas · **64 abiertas** 🔵 · 30 hechas 🟢 · 19 cerradas ✅ · 4 descartadas ⚪ |
+| Migraciones | 011 (posponer + foto del aviso) y 012 (destinatario) aplicadas |
 | Sin verificar en producción | Ver Bloqueado. Lo de hoy sí se verificó en navegador real contra el build de producción |
