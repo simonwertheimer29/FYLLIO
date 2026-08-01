@@ -17,49 +17,61 @@ Dónde está Fyllio hoy, en una pantalla. Se lee al abrir sesión y se regenera 
 
 ## Ahora mismo
 
-**Cerrados los dos bloqueantes de la revisión externa de producción** (recorrido completo con
-Claude for Chrome, sección por sección). Detalle en [`DECISIONES.md`](DECISIONES.md), 31 jul:
+**Sesión del 31 jul – 1 ago cerrada: pasada visual completa y reconciliación de cifras hecha.**
+Nació de una revisión externa que recorrió producción sección por sección; el detalle de cada
+cierre está en [`DECISIONES.md`](DECISIONES.md).
 
 | Qué | Estado |
 |---|---|
-| El crash de Automatizaciones → Operativo | ✅ arreglado, y con él la causa de fondo: **no había ni una frontera de error** en toda la app |
-| El dinero de `/red` cambiaba entre dos F5 | ✅ el umbral de reactivación pasa de ventana rodante a **días de calendario de la clínica** |
-| "Una tarjeta que desaparece" en `/red` | ✅ no era una avería: el filtro de clínica persiste y retira "Tus clínicas". Ahora se **declara en pantalla** |
-| El seed escribía valores fuera del union | ✅ invariante D en `demo:reset` — la que evita la cuarta vez |
-| La gráfica de 6 meses de `/red`, plana el día 1 | ✅ [MEJORAS 88](MEJORAS-PENDIENTES.md) — pre-existente, cazado al cambiar de mes con la reunión a dos días |
+| El crash de Automatizaciones → Operativo | ✅ y con él la causa de fondo: **no había ni una frontera de error** en toda la app (ahora 15) |
+| El dinero de `/red` cambiaba entre dos F5 | ✅ el umbral pasa de ventana rodante a **días de calendario de la clínica** |
+| "Una tarjeta que desaparece" | ✅ no era avería: el filtro de clínica persiste. Ahora se **declara en las 8 pantallas** que lo siguen |
+| La gráfica de 6 meses, plana el día 1 | ✅ [MEJORAS 88](MEJORAS-PENDIENTES.md) — pre-existente, cazado al cambiar de mes |
+| Las 02:00 de `/llamadas` | ✅ el dato era correcto; fallaba el render. Cerrada la **última familia de MEJORAS 52** |
+| `/alertas` no decía el dinero | ✅ y de paso murió su cálculo paralelo de cobros |
+| Las "cuatro cifras que no cuadran" | ✅ censadas: **cero errores de cálculo**, tres definiciones legítimas |
 
-**Sigue abierta la pasada visual pantalla por pantalla.** Método: diagnóstico primero, reportar,
-esperar aprobación, después ejecutar.
+**La pasada visual pantalla por pantalla está TERMINADA:** `/red` · `/kpis` · `/presupuestos` ·
+`/cobros` · `/pacientes` · `/leads` · `/llamadas` · `/alertas` · `/seguimiento`.
 
-| Pantalla | Estado |
-|---|---|
-| `/presupuestos` · `/kpis` · `/red` · `/cobros` · `/pacientes` · `/leads` · `/llamadas` | ✅ hechas |
-| `/automatizaciones` + `/ajustes` | ⬅ **siguiente**, y **juntas**: hay dos centros de ajustes ([MEJORAS 13](MEJORAS-PENDIENTES.md)). Es arquitectura de información — proponer la fusión antes de ejecutar |
-| `/alertas` | ✅ hecha (1 ago) |
-| `/seguimiento` | ✅ hecha (1 ago) — **la pasada visual queda CERRADA** |
+### En cola, ya aprobado, para después de la reunión
 
-Cerrado también el **Bloque 2 (`/llamadas`)** el 1 de agosto: contenedor de página, nombre de
-paciente, hora en zona de clínica, coste fuera de la fila de KPIs, y **Vapi declarado en el
-contrato de entorno** con aviso honesto de "pendiente de activar" (opción B de Simon). Con él, la
-última familia de [MEJORAS 52](MEJORAS-PENDIENTES.md) —el día que se ESCRIBE— y
-[MEJORAS 85 y 86](MEJORAS-PENDIENTES.md).
-
-Queda del plan de la sesión:
-
-- **Bloque 5 — reconciliación de cifras** (Tablero 28 vs Tabla 44, 67 % vs 86 %, 6 aceptados vs
-  14…): censar qué es definición legítima y qué es bug, como se hizo con la tasa de aceptación.
-
-Aparte y ya aprobada, en su propia tanda: **`/informes` como pantalla propia**
-([MEJORAS 81](MEJORAS-PENDIENTES.md)).
+- **Fusión de `/automatizaciones` + `/ajustes`** ([MEJORAS 13](MEJORAS-PENDIENTES.md)) — hay dos
+  centros de ajustes. Propuesta escrita y aprobada; **1-2 días**. Su paso 1 es unificar los dos
+  editores de plantillas, que es el único con riesgo de dato: censo hecho en
+  [MEJORAS 74](MEJORAS-PENDIENTES.md). El layout ya está en tokens (era lo único urgente).
+- **`/informes` como pantalla propia** ([MEJORAS 81](MEJORAS-PENDIENTES.md)).
+- **El resto del informe externo**, que es flujo y no fallos: KPIs clicables, modo cola en el
+  drawer, paginación de Pacientes ([MEJORAS 87](MEJORAS-PENDIENTES.md), sin priorizar).
 
 ---
 
-## Bloqueado
+## 🔴 Bloqueante de la demo — lo único que impide enseñarla
+
+**El código no bloquea nada.** Lo que falta es de montaje, y la reunión es la semana del 3.
+
+| Qué | Por qué bloquea | Quién |
+|---|---|---|
+| **El tenant de RB, montado** con sus diez clínicas y sus dos marcas | Es el **acto V del guion** ("esto es lo suyo"), y el guion dice que ese acto **no se recorta nunca**. Sin él la demo termina en datos inventados en vez de en una propuesta | Simon, antes del 3 de agosto |
+| **`npm run demo:reset` el mismo día** | Ancla las fechas a "hoy". Sin él, la demo envejece y las comparativas del mes salen raras | Simon, el mismo día |
+| **Los doctores de RB dados de alta** en Postgres | `staff` está vacía en las bases piloto: el selector de doctor sale vacío. El guion manda avisarlo antes de que lo vean, pero es mejor que no pase | Simon |
+
+**No bloquean la demo, pero conviene saberlo antes de entrar:**
+
+- **Sin dominio propio** — la URL es un `.vercel.app` con hash. Es lo primero que se ve.
+- **`npm run verificar:produccion` sigue sin poder correr**: falta `FYLLIO_COOKIE`. Es la única
+  comprobación que mira el entorno desplegado de verdad; todo lo verificado esta sesión ha sido
+  contra el build de producción **en local**.
+- **Los teléfonos del seed** no están en el rango reservado +34 600 000 xxx.
+- **`/automatizaciones` y `/llamadas` no se enseñan** (guion §6). Llamadas ya lo dice en pantalla
+  desde hoy; Automatizaciones no.
+
+---
+
+## Bloqueado (más allá de la demo)
 
 | Qué | Por qué | Lo desbloquea |
 |---|---|---|
-| `npm run verificar:produccion` | Falta `FYLLIO_COOKIE`. `FYLLIO_URL` y `FYLLIO_BYPASS` ya están | Simon |
-| El cierre de la demo de RB | El tenant de RB tiene que estar montado con sus diez clínicas y sus dos marcas. Sin él, el último acto del guion —"esto es lo suyo"— no existe | Montarlo antes del 3 de agosto |
 | Piloto con datos reales de RB | Sin art. 28 y NDA firmados no se toca un dato de paciente | Firma de ambas partes |
 
 ---
@@ -70,8 +82,8 @@ Aparte y ya aprobada, en su propia tanda: **`/informes` como pantalla propia**
    de las once hipótesis abiertas se tocan ahí. Preguntas y checklist previo en
    [`REUNION-RB-DENTAL.md`](REUNION-RB-DENTAL.md); cómo se enseña el producto, en
    [`guion-demo-fyllio.md`](guion-demo-fyllio.md).
-2. **Cerrar la pasada visual** — condición: las cuatro pantallas que quedan, en el orden de
-   arriba. Sin fecha; va por tandas aprobadas una a una.
+2. **Fusión de ajustes + `/informes`** — condición: que pase la reunión. Ambas aprobadas y con
+   propuesta escrita.
 3. **Arranque del piloto** — condición: que RB diga que sí, más los seis pendientes de
    onboarding de abajo. Fecha a fijar en la propia reunión.
 
