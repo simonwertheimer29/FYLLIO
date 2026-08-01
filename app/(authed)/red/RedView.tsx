@@ -744,18 +744,17 @@ export function RedView({ user: _user }: { user: UserSession }) {
                     {/* Misma definición de activo que /seguimiento y que la
                         cabecera del tablero (lib/leads/pipeline). */}
                     <Cifra label="Activos en seguimiento" valor={String(negocio.leads.enSeguimiento)} detalle="ahora mismo" />
-                    <Cifra
-                      label="Con cita este mes"
-                      valor={String(negocio.leads.citadosMes.valor)}
-                      comparacion={
-                        <Comparativa
-                          valor={negocio.leads.citadosMes.valor}
-                          previo={negocio.leads.citadosMes.previo}
-                          tipo="numero"
-                          titulo="Citas agendadas dentro del mes, comparadas con el mes anterior completo (una cita se agenda por adelantado: aquí no se recorta el tramo)."
-                        />
-                      }
-                    />
+                    {/* "Con cita este mes" se RETIRÓ (censo de cifras,
+                        2026-08-01). Era la única cifra prospectiva de una fila
+                        que mide lo que ya pasó, y respondía a "¿cuántas citas
+                        hay en el calendario de julio?" — una pregunta de
+                        agenda, no de negocio, en el panel que existe para
+                        decir dónde se pierde dinero. Ninguna decisión cambiaba
+                        con ella. La cifra de citas que SÍ sirve es la de
+                        /kpis, porque allí es una etapa del embudo y se mide
+                        contra su propia cohorte de leads. Una cifra que no
+                        cambia ninguna decisión es ruido; declararla no la
+                        habría hecho útil. */}
                     <ConversionCifra
                       label="De los leads del mes, ya convertidos"
                       c={negocio.leads.conversionMes}
@@ -791,7 +790,14 @@ export function RedView({ user: _user }: { user: UserSession }) {
                     <Cifra
                       label="Aceptados este mes"
                       valor={eur(negocio.presupuestos.aceptadosImporteMes.valor)}
-                      detalle={`${negocio.presupuestos.aceptadosMes.valor} presupuesto${negocio.presupuestos.aceptadosMes.valor === 1 ? "" : "s"}`}
+                      // La cohorte, a la vista. Esta cifra cuenta por FECHA DE
+                      // ACEPTACIÓN —lo que se firmó este mes, se presentara
+                      // cuando se presentara— y /kpis cuenta otra cosa a
+                      // propósito: los aceptados DE LOS PRESENTADOS este mes.
+                      // En julio son 16 y 8. Las dos son ciertas; sin decir
+                      // cuál, "aceptados este mes" se lee como la de /kpis,
+                      // que es justo la que aquí NO se está midiendo.
+                      detalle={`${negocio.presupuestos.aceptadosMes.valor} presupuesto${negocio.presupuestos.aceptadosMes.valor === 1 ? "" : "s"} firmado${negocio.presupuestos.aceptadosMes.valor === 1 ? "" : "s"} este mes, se presentaran cuando se presentaran`}
                       comparacion={
                         <Comparativa
                           valor={negocio.presupuestos.aceptadosImporteMes.valor}

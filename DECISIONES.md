@@ -1466,3 +1466,42 @@ desde la unificación P3 (2026-07-23) y Leads tenía una acción MÁS que Presup
 asimetría real eran los filtros de doctor y tratamiento, que ahora tiene también Leads — con sus
 opciones derivadas de los leads ACTIVOS y no del catálogo, porque un filtro que ofrece valores sin
 resultados es ruido con aspecto de función.
+
+## 2026-08-01 — Bloque 5: el censo de cifras da CERO errores de cálculo
+Cierre de la sesión. Se midió contra SQL cada cifra que aparece en más de una pantalla, con julio
+como mes de referencia (hoy es día 1 y el mes en curso está a cero, así que no informa). Resultado:
+
+**Cubo A — errores de cálculo: ninguno.** Y de las cuatro contradicciones del informe externo,
+**tres ya estaban resueltas**: "28 abiertos vs 44" murió con MEJORAS 71 (29 jul) y hoy Tablero,
+Tabla, cola y SQL dicen 28 los cuatro; "15 pendientes · 13 atendidos vs los chips" reconciliaba por
+construcción y el mentiroso era el botón, cerrado esta misma sesión; y "67% vs 86%" es una
+divergencia legítima que ya se declaraba en las dos pantallas desde el 30 de julio. Leads activos
+(31), pendiente (46.665 €) y vencido (12.725 €) coinciden en las tres pantallas donde salen.
+
+**Cubo B — definiciones distintas legítimas: tres**, y solo una estaba sin declarar.
+· *Aceptados 16 (/red) vs 8 (/kpis)* — fecha de aceptación contra cohorte de presentación. /kpis lo
+  declaraba con un tooltip que hasta nombra la otra pantalla; **/red no**, y decía "Aceptados este
+  mes", que se lee justo como la definición que NO estaba usando. Arreglado: ahora dice "N
+  presupuestos firmados este mes, se presentaran cuando se presentaran".
+· *Tasa 80% vs 67%* — ya declarada en las dos vía `notaTasa` con su argumento de cohorte.
+· *Citados 3 (/red) vs 7 (/kpis)* — encontrada en el barrido, no venía en el informe. /kpis declara
+  ahora "de los N leads del periodo".
+
+**Y una que no se etiqueta: se elimina.** "Con cita este mes" sale de /red. Era la única cifra
+prospectiva de una fila que mide lo que ya pasó, y respondía a "¿cuántas citas hay en el calendario
+de julio?" — una pregunta de agenda, no de negocio, en el panel que existe para decir dónde se
+pierde dinero. **Una cifra que no cambia ninguna decisión es ruido, y declararla no la habría hecho
+útil.** La de /kpis se queda porque allí es una etapa del embudo y se mide contra su propia cohorte.
+
+**Lo que el censo deja registrado, y vale más que los tres arreglos:**
+1. **El patrón funciona.** "Cada cifra con su cohorte a la vista" (`notaTasa`, la conversión de
+   cohorte de /red, la tasa de /pacientes) ya estaba montado y aplicado en 12 sitios. Lo que faltaba
+   no era la pieza: eran tres etiquetas que se quedaron fuera. Un número que enseña su denominador
+   no puede mentir, y por eso la reconciliación fue de copy y no de cálculo.
+2. **Las revisiones externas señalan bien los SÍNTOMAS y mal las CAUSAS.** Las cuatro
+   contradicciones del informe eran observaciones honestas de la pantalla, y las cuatro tenían una
+   causa distinta de la que el informe suponía —tres ya estaban arregladas y la cuarta era un botón,
+   no una cifra. Lo mismo pasó con el crash ("un estado nuevo" era nuestro seed), con las 02:00 (el
+   dato era correcto, fallaba el render) y con "la tarjeta que desaparece" (era el producto
+   obedeciendo a un filtro). **El valor de la revisión externa es dónde mirar, no qué arreglar**: se
+   agradece el dedo y se mide la causa antes de tocar.

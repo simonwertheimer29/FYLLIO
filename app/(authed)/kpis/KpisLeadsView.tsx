@@ -295,7 +295,12 @@ function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolea
       <KpiCard
         label="Pacientes citados"
         value={k.pacientesCitados.actual}
-        subline={`${k.pacientesCitados.asistidos} asistieron · ${k.pacientesCitados.pendientes} pendientes`}
+        // La cohorte, a la vista: son los leads DEL PERIODO que consiguieron
+        // cita, no las citas que caen en el periodo. /red medía lo segundo y
+        // por eso daba otro número (3 frente a 7 en julio) — esa cifra se
+        // retiró de allí por no cambiar ninguna decisión; esta se queda porque
+        // es una etapa del embudo y se mide contra su propia cohorte.
+        subline={`de los ${k.recibidos.actual} leads del periodo · ${k.pacientesCitados.asistidos} asistieron · ${k.pacientesCitados.pendientes} pendientes`}
         previo={k.pacientesCitados.previo}
         accent="accent"
       />
