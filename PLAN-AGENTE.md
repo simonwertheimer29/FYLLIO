@@ -38,7 +38,7 @@ Lo detectado pero no aprobado sigue yendo a [`MEJORAS-PENDIENTES.md`](MEJORAS-PE
 | Fase | Qué es | Estado |
 |---|---|---|
 | **0** · El trámite | Registro fiscal, Meta Business, número de prueba, plantillas | ✅ **Decidida** — bloqueante declarado en [`ESTADO.md`](ESTADO.md) |
-| **1** · Estado de automatización y cola de quiebre | La tercera coordenada de cada caso y su cohorte en Seguimiento | ✅ **Decidida** — no depende de WhatsApp |
+| **1** · Estado de automatización y cola de quiebre | La tercera coordenada de cada caso, su cohorte en Seguimiento, **la tasa de coincidencia agente-humano** y **el conjunto de evaluación** | ✅ **Decidida** — no depende de WhatsApp |
 | **2** · El simulador | Modo demostración del embudo entero | ⬜ **No decidida** |
 | **3** · Modo B — el agente envía lo rutinario | Envío y recepción reales por WhatsApp | ⬜ **No decidida** |
 | **4** · Modo C y configuración por clínica | Autonomía hasta el quiebre, matriz por fase | ⬜ **No decidida** |
@@ -69,9 +69,20 @@ Y hay una consecuencia buena: **la fase 1 mejora el modo A, que ya funciona hoy.
 
 **Dónde corta de verdad la dependencia** (importa para no declarar un bloqueo más grande del que es):
 
-- Los pasos 3-5 **no** necesitan registro fiscal: el número de prueba y las plantillas se consiguen sin verificación de empresa. Con eso se desarrolla y se demuestra.
-- El registro fiscal es lo que desbloquea la **verificación de empresa**, y la verificación es lo que quita el techo de 250 destinatarios únicos / 24 h, abre el escalado de tiers y es requisito de la fase 5 (Tech Provider).
-- Traducción: sin registro fiscal se puede *probar*, pero no se puede sostener un piloto que crezca ni incorporar a un segundo cliente. Por eso está declarado como bloqueo con dependencia en [`ESTADO.md`](ESTADO.md).
+**Sin registro fiscal se puede hacer todo esto:** crear la app de Meta Business, obtener el número
+de prueba con su plantilla ya aprobada, montar el webhook y **enviar y recibir mensajes reales a
+cinco destinatarios**. Es decir: **se puede construir la fase 3 entera**, probarla de punta a punta
+y demostrarla. El desarrollo no espera a Hacienda ni un día.
+
+**El alta fiscal desbloquea exactamente tres cosas, ninguna de ellas de código:**
+
+1. La **verificación de empresa** de Meta.
+2. El **número de teléfono real** de la clínica (el de prueba no vale para pacientes).
+3. **Salir del límite de 250 destinatarios únicos / 24 h** y entrar en el escalado de tiers.
+
+Y por dependencia, la fase 5 (Tech Provider) también. Traducción: sin registro fiscal se construye
+y se demuestra todo; lo que no se puede es **atender pacientes reales a escala**. Por eso está
+declarado como bloqueo con dependencia en [`ESTADO.md`](ESTADO.md) — del piloto, no del desarrollo.
 
 **Qué se espera ver:** un mensaje enviado desde Fyllio y recibido en un WhatsApp real, aunque sea a tu propio número.
 
@@ -90,10 +101,51 @@ Y hay una consecuencia buena: **la fase 1 mejora el modo A, que ya funciona hoy.
 - Distintivo visual del estado en cada tarjeta, en todas las ventanas.
 - **Devolver al agente o quedárselo**, con registro de quién decidió qué.
 - **El estado «agotado»**: cuando la cadencia se acaba sin respuesta, el caso pasa a la cola con la llamada telefónica como acción recomendada.
+- **La tasa de coincidencia agente-humano** — ver abajo.
+- **El conjunto de evaluación** — ver abajo.
 
 **Por qué esta fase primero:** mejora el modo A que ya existe. Hoy el producto genera mensajes y la coordinadora los envía; con esto, además, sabe cuáles puede mandar sin pensar y cuáles exigen que se pare a leer.
 
-**Qué se espera ver:** abrir Seguimiento y que lo primero sean los casos que necesitan criterio humano, con el motivo, ordenados por dinero. Y que la barra del día se mueva.
+### La tasa de coincidencia agente-humano
+
+**El modo A tiene que medir, no solo preparar.** Hoy el agente redacta y la coordinadora envía, y
+no queda rastro de qué pasó por el medio. Falta capturar, en cada envío, cuál de estas tres cosas
+ocurrió:
+
+- **Enviado tal cual** — el agente acertó.
+- **Editado** — acertó el fondo, falló la forma. Se guarda también el texto final, que es la
+  corrección con la que se mejora el prompt.
+- **Reescrito entero o descartado** — el agente no servía para este caso.
+
+Se implementa como **un campo en el momento de enviar** (comparación del texto sugerido con el
+enviado, más la elección explícita cuando la coordinadora descarta) **y su contador agregado por
+intención**. Por intención, no global: una tasa media del 70 % puede esconder un 95 % en
+recordatorios y un 30 % en cualquier cosa que roce el precio, y son decisiones distintas.
+
+**Para qué sirve exactamente:** es **el criterio objetivo que decide cuándo se puede subir de
+modo**. Sin ella, pasar de A a B es una corazonada — y la corazonada se toma justo cuando más
+ilusión hace y menos evidencia hay. Con ella, la conversación con la clínica deja de ser «¿te
+fías?» y pasa a ser «de los últimos 200 recordatorios que preparó, mandaste 191 sin tocar una
+coma». Enlaza con la matriz de la fase 4: cada celda tiene su umbral.
+
+### El conjunto de evaluación
+
+**Los evals entran aquí, no después.** Un conjunto de **30-50 conversaciones reales** —anonimizadas,
+del propio histórico— con **la respuesta correcta anotada a mano**: qué debía hacer el agente
+(responder / quebrar / callar), con qué intención clasificada y, cuando toca responder, qué debía
+decir en lo esencial.
+
+Contra ese conjunto pasa **cada cambio de prompt y cada cambio de regla**, antes de tocar
+producción. No es opcional ni es «cuando haya tiempo»: es lo único que separa *creo que ha
+mejorado* de saberlo, y **es lo único que detecta que el agente ha empeorado sin que nadie se dé
+cuenta** — que es la avería silenciosa de este tipo de sistemas, porque no da error, solo peores
+respuestas.
+
+Construirlo en la fase 1 es barato (el histórico ya está en `mensajes_whatsapp` y las intenciones
+ya se clasifican) y construirlo después es caro: cada semana sin evals es una semana de cambios de
+prompt cuyo efecto real nadie puede reconstruir.
+
+**Qué se espera ver:** abrir Seguimiento y que lo primero sean los casos que necesitan criterio humano, con el motivo, ordenados por dinero. Y que la barra del día se mueva. Y, en ajustes, la tasa de coincidencia por intención con su histórico.
 
 **Cómo se pone a prueba:**
 - Censo: todo caso activo tiene exactamente un estado de automatización, ninguno en dos, ninguno sin.
@@ -101,6 +153,8 @@ Y hay una consecuencia buena: **la fase 1 mejora el modo A, que ya funciona hoy.
 - Inyectar respuestas neutras y verificar que **no** quiebra.
 - Agotar una cadencia y verificar que aparece la recomendación de llamada.
 - Devolver al agente y verificar que la cadencia se reanuda donde estaba.
+- **Coincidencia:** enviar tal cual, editar y descartar tres mensajes preparados, y verificar que cada uno cae en su categoría y que el contador de su intención se mueve. Y que un mensaje escrito de cero por la coordinadora, sin sugerencia previa, **no** cuenta en el denominador.
+- **Evals:** el conjunto corre entero por línea de comandos y da un número. Se degrada el prompt a propósito y el número **tiene que bajar** — si no baja, el eval no mide nada y hay que rehacerlo antes de fiarse de él.
 
 ---
 
@@ -150,14 +204,52 @@ Y hay una consecuencia buena: **la fase 1 mejora el modo A, que ya funciona hoy.
 **No decidida.** Requiere aprobación explícita antes de arrancar.
 
 **Lo que se construye:**
-- El agente autónomo hasta el quiebre en las fases donde la clínica lo autorice.
-- **La matriz de configuración**: fase × modo, por clínica.
+- El agente autónomo hasta el quiebre en lo que la clínica autorice.
+- **La matriz de configuración**: **intención × modo**, agrupada por fase. Ver abajo.
 - Cadencias, umbrales y horarios configurables.
 - Disparadores propios que se pueden añadir — nunca quitar los de dinero ni los clínicos.
 
-**Qué se espera ver:** dos clínicas con el mismo producto y comportamientos distintos, sin tocar código.
+### La autonomía se concede por intención, no por fase entera
 
-**Cómo se pone a prueba:** configurar dos tenants con perfiles opuestos (uno todo en A, otro todo en C) y verificar que ninguno se comporta como el otro.
+La matriz de la primera versión era **fase × modo**, y es demasiado gruesa. «Seguimiento de
+presupuestos» no es una cosa: dentro conviven *confirmar que el presupuesto sigue vigente* —que
+tiene una respuesta correcta conocida y no compromete nada— y *cualquier cosa que roce el precio*,
+que no debe ser autónoma **nunca**, en ninguna clínica, con ningún nivel de confianza. Obligar a
+elegir un solo modo para las dos es obligar a elegir mal: o se frena lo inofensivo o se suelta lo
+peligroso.
+
+Así que el eje pasa a ser **la intención**, y la fase queda solo como agrupador visual:
+
+| Fase | Intención | Puede llegar a |
+|---|---|---|
+| Captación | Pedir cita · proponer hueco · confirmar cita | **C** |
+| Captación | Preguntar precio | **Nunca sale de A** |
+| Recordatorios | Recordar · confirmar asistencia · reagendar | **C** |
+| Recordatorios | Cancelar dando motivo | **B** (registra, no gestiona) |
+| Presupuestos | **Confirmar que sigue vigente** · reenviar el enlace del portal | **C** |
+| Presupuestos | Aceptar sin condiciones | **B** |
+| Presupuestos | **Cualquier cosa que roce el precio** · objeción · comparación | **Nunca sale de A** |
+| Presupuestos | Pregunta clínica | **Nunca sale de A** |
+| Cobros | Avisar de vencimiento · confirmar pago recibido | **C** |
+| Cobros | Reclamar importe vencido | **B** |
+| Cobros | Aplazar · renegociar · reclamación | **Nunca sale de A** |
+
+**Por qué encaja mejor con lo que ya está diseñado:** los disparadores de quiebre **ya son por
+intención** (`arquitectura-agente-quiebre.html`), y el clasificador que existe hoy ya etiqueta
+intenciones. Conceder la autonomía en la misma unidad en la que se corta significa que hay **un
+solo vocabulario** para las dos mitades del sistema, en vez de traducir de fases a intenciones
+cada vez. Y el techo de la tabla («nunca sale de A») es el mismo límite del producto que la
+sección de disparadores no configurables — dicho una vez, aplicado en los dos sitios.
+
+**Cómo se sube de celda:** con la tasa de coincidencia de esa intención (fase 1), no con una
+sensación. Cada celda tiene su umbral y su histórico.
+
+**Qué se espera ver:** dos clínicas con el mismo producto y comportamientos distintos, sin tocar código. Y dentro de una misma fase, dos intenciones con autonomía distinta.
+
+**Cómo se pone a prueba:**
+- Configurar dos tenants con perfiles opuestos (uno todo en A, otro todo en C) y verificar que ninguno se comporta como el otro.
+- Poner «confirmar vigencia» en C y «pregunta precio» en A **en la misma clínica y la misma fase**, e inyectar una respuesta de cada tipo: la primera sale sola, la segunda para y espera a una persona.
+- Intentar subir a B o C una intención marcada «nunca sale de A» **por API, no por la interfaz**: tiene que rechazarse en el servidor. Una regla que solo vive en el desplegable no es una regla.
 
 ---
 

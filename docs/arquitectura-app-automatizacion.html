@@ -352,9 +352,11 @@
   <h2>04 · Personalización</h2>
   <p class="h2sub">La matriz que hace que dos clínicas distintas usen el mismo producto</p>
   <p class="intro">
-    Cada clínica decide su nivel por fase, no de golpe. Una puede automatizar los recordatorios de cita
-    desde el día uno y no querer que nadie hable de dinero sin supervisión durante meses.
-    El eje vertical son las fases; el horizontal, cuánta autonomía tiene el agente en cada una.
+    La autonomía se concede <strong>por intención, no por fase entera</strong>. «Seguimiento de presupuestos»
+    no es una cosa: dentro conviven <em>confirmar que el presupuesto sigue vigente</em> —que tiene una respuesta
+    correcta conocida y no compromete nada— y <em>cualquier cosa que roce el precio</em>, que no debe ser autónoma
+    nunca. Obligar a elegir un solo modo para las dos es obligar a elegir mal: o se frena lo inofensivo o se
+    suelta lo peligroso. Así que el eje es la intención y la fase queda solo como agrupador.
   </p>
 
   <div class="card">
@@ -362,43 +364,105 @@
       <thead>
         <tr>
           <th>Fase</th>
-          <th>A · prepara</th>
-          <th>B · envía lo rutinario</th>
-          <th>C · autónomo</th>
-          <th style="text-align:left">Ejemplo real</th>
+          <th style="text-align:left">Intención</th>
+          <th>A</th>
+          <th>B</th>
+          <th>C</th>
+          <th style="text-align:left">Por qué ahí</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td class="fase">Captación de leads<small>primer contacto y agenda</small></td>
+          <td class="fase">Captación</td>
+          <td style="text-align:left">Pedir cita · proponer hueco · confirmar</td>
           <td><span class="mode m-on">A</span></td>
           <td><span class="mode m-on">B</span></td>
           <td><span class="mode m-on">C</span></td>
           <td style="text-align:left;font-size:13px;color:#475569">Clínica con muchos leads de Instagram: <strong>C desde el principio</strong>. Responder en un minuto vale más que el riesgo.</td>
         </tr>
         <tr>
-          <td class="fase">Recordatorio de citas<small>confirmación y reagenda</small></td>
+          <td class="fase">Captación</td>
+          <td style="text-align:left"><strong>Preguntar precio</strong></td>
+          <td><span class="mode m-on">A</span></td>
+          <td><span class="mode m-off">B</span></td>
+          <td><span class="mode m-off">C</span></td>
+          <td style="text-align:left;font-size:13px;color:var(--human)"><strong>Nunca sale de A.</strong> Es el límite del producto, no una configuración.</td>
+        </tr>
+        <tr>
+          <td class="fase">Recordatorios</td>
+          <td style="text-align:left">Recordar · confirmar asistencia · reagendar</td>
           <td><span class="mode m-on">A</span></td>
           <td><span class="mode m-on">B</span></td>
           <td><span class="mode m-on">C</span></td>
-          <td style="text-align:left;font-size:13px;color:#475569">Nadie discute esto. Es la fase donde toda clínica acepta <strong>C</strong> primero.</td>
+          <td style="text-align:left;font-size:13px;color:#475569">Nadie discute esto. Es donde toda clínica acepta <strong>C</strong> primero.</td>
         </tr>
         <tr>
-          <td class="fase">Seguimiento de presupuestos<small>la cadencia hasta la decisión</small></td>
+          <td class="fase">Recordatorios</td>
+          <td style="text-align:left">Cancelar dando motivo</td>
           <td><span class="mode m-on">A</span></td>
           <td><span class="mode m-on">B</span></td>
-          <td><span class="mode m-mid">C</span></td>
-          <td style="text-align:left;font-size:13px;color:#475569">Aquí vive el dinero. Muchas clínicas se quedarán en <strong>B</strong> mucho tiempo, y está bien.</td>
+          <td><span class="mode m-off">C</span></td>
+          <td style="text-align:left;font-size:13px;color:#475569">El agente registra la cancelación; no negocia el motivo.</td>
         </tr>
         <tr>
-          <td class="fase">Cobros<small>recordatorio de pago</small></td>
+          <td class="fase">Presupuestos</td>
+          <td style="text-align:left"><strong>Confirmar que sigue vigente</strong> · reenviar el portal</td>
           <td><span class="mode m-on">A</span></td>
           <td><span class="mode m-on">B</span></td>
-          <td><span class="mode m-mid">C</span></td>
+          <td><span class="mode m-on">C</span></td>
+          <td style="text-align:left;font-size:13px;color:#475569">Aquí está la ganancia de la granularidad: es la mayoría del volumen de la fase y es inofensivo.</td>
+        </tr>
+        <tr>
+          <td class="fase">Presupuestos</td>
+          <td style="text-align:left">Aceptar sin condiciones</td>
+          <td><span class="mode m-on">A</span></td>
+          <td><span class="mode m-on">B</span></td>
+          <td><span class="mode m-off">C</span></td>
+          <td style="text-align:left;font-size:13px;color:#475569">Confirma y avisa a la clínica; el cierre lo valida una persona.</td>
+        </tr>
+        <tr>
+          <td class="fase">Presupuestos</td>
+          <td style="text-align:left"><strong>Cualquier cosa que roce el precio</strong> · objeción · comparación · pregunta clínica</td>
+          <td><span class="mode m-on">A</span></td>
+          <td><span class="mode m-off">B</span></td>
+          <td><span class="mode m-off">C</span></td>
+          <td style="text-align:left;font-size:13px;color:var(--human)"><strong>Nunca sale de A.</strong> En la misma fase que la fila de arriba, y con autonomía opuesta.</td>
+        </tr>
+        <tr>
+          <td class="fase">Cobros</td>
+          <td style="text-align:left">Avisar de vencimiento · confirmar pago recibido</td>
+          <td><span class="mode m-on">A</span></td>
+          <td><span class="mode m-on">B</span></td>
+          <td><span class="mode m-on">C</span></td>
+          <td style="text-align:left;font-size:13px;color:#475569">Informar de lo ya decidido no compromete nada.</td>
+        </tr>
+        <tr>
+          <td class="fase">Cobros</td>
+          <td style="text-align:left">Reclamar importe vencido</td>
+          <td><span class="mode m-on">A</span></td>
+          <td><span class="mode m-on">B</span></td>
+          <td><span class="mode m-off">C</span></td>
           <td style="text-align:left;font-size:13px;color:#475569">Reclamar dinero por escrito es delicado de tono. <strong>B</strong> es el sitio natural.</td>
+        </tr>
+        <tr>
+          <td class="fase">Cobros</td>
+          <td style="text-align:left"><strong>Aplazar · renegociar · reclamación</strong></td>
+          <td><span class="mode m-on">A</span></td>
+          <td><span class="mode m-off">B</span></td>
+          <td><span class="mode m-off">C</span></td>
+          <td style="text-align:left;font-size:13px;color:var(--human)"><strong>Nunca sale de A.</strong></td>
         </tr>
       </tbody>
     </table>
+  </div>
+
+  <div class="note">
+    <strong>Por qué la intención y no la fase:</strong> los disparadores de quiebre <em>ya son por intención</em>
+    (ver el documento del punto de quiebre), y el clasificador que existe hoy ya las etiqueta. Conceder la
+    autonomía en la misma unidad en la que se corta significa <strong>un solo vocabulario</strong> para las dos
+    mitades del sistema, en vez de traducir de fases a intenciones cada vez. Y <strong>de celda se sube con la
+    tasa de coincidencia agente-humano de esa intención</strong>, no con una sensación: cada celda tiene su umbral
+    y su histórico.
   </div>
 
   <p class="intro" style="margin-top:18px">Y por debajo de la matriz, cada clínica ajusta lo suyo sin tocar el motor:</p>
@@ -460,7 +524,7 @@
         <li><strong>El estado de automatización</strong> por caso, con sus transiciones y su distintivo en cada tarjeta.</li>
         <li><strong>La reanudación</strong> — devolver al agente o quedárselo, con el registro de quién decidió qué.</li>
         <li><strong>El agotamiento y la llamada</strong> — cuando el texto se agota, la recomendación cambia de canal.</li>
-        <li><strong>La matriz de configuración</strong> por clínica y por fase.</li>
+        <li><strong>La matriz de configuración</strong> por clínica y por <em>intención</em>, más la tasa de coincidencia agente-humano que decide cuándo se sube de celda.</li>
         <li><strong>El envío y la recepción reales</strong> — WhatsApp Business API. Es el trámite más largo y no depende de código.</li>
       </ul>
     </div>

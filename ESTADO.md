@@ -34,6 +34,26 @@ Los dos HTML se abren en el navegador y **no forman parte de la aplicación**: v
 [`MERCADO.md`](MERCADO.md)**: son fuentes secundarias del 1 de agosto y sus precios y plazos
 **hay que reverificarlos antes de comprometerlos con un cliente**.
 
+**Y el mismo día, dos correcciones al plan recién escrito:**
+
+**1 · La auditoría de WhatsApp — el modo B no está por construir, está construido y desconectado.**
+Censo completo del código antes de arrancar la fase 0; detalle en [`DECISIONES.md`](DECISIONES.md).
+El envío por Graph API, el webhook con firma y deduplicación, el rate-limit, la idempotencia y el
+switch en la UI **ya existen y funcionan**. Lo que falta es el **envío por plantilla**:
+`enviarPlantilla` está implementado y **no lo llama nadie**, y sin plantilla no se inicia
+conversación fuera de la ventana de 24 h — que es todo lo que hace un recordatorio. **La fase 3 es
+más pequeña de lo que el plan decía, y su parte cara es la que el plan no mencionaba.** Salieron
+además cuatro restos y una avería (`/api/whatsapp/send` da 404 desde dos paneles vivos), ninguno
+tocado.
+
+**2 · Tres afinados de metodología en [`PLAN-AGENTE.md`](PLAN-AGENTE.md)**, todos dentro de la fase 1
+o la 4, ninguno cambia el orden: **la tasa de coincidencia agente-humano** (medir si la coordinadora
+envía tal cual, edita o reescribe — es el criterio objetivo para subir de modo, en vez de una
+corazonada), **el conjunto de evaluación** de 30-50 conversaciones reales anotadas contra el que pasa
+cada cambio de prompt, y **la autonomía concedida por intención en vez de por fase entera** (dentro
+de presupuestos, «sigue vigente» puede ser autónomo y «cualquier cosa que roce el precio» no lo es
+nunca). Los tres entran en la fase 1 salvo la matriz, que es de la 4.
+
 **Sesión anterior (31 jul – 1 ago) cerrada: pasada visual completa y reconciliación de cifras.**
 Nació de una revisión externa que recorrió producción sección por sección; el detalle de cada
 cierre está en [`DECISIONES.md`](DECISIONES.md).
@@ -58,9 +78,10 @@ cierre está en [`DECISIONES.md`](DECISIONES.md).
   editores de plantillas, que es el único con riesgo de dato: censo hecho en
   [MEJORAS 74](MEJORAS-PENDIENTES.md). El layout ya está en tokens (era lo único urgente).
 - **`/informes` como pantalla propia** ([MEJORAS 81](MEJORAS-PENDIENTES.md)).
-- **Fase 1 de [`PLAN-AGENTE.md`](PLAN-AGENTE.md)** — estado de automatización por caso y cohorte
-  de quiebre en Seguimiento. Decidida, **no depende de WhatsApp**, y mejora el modo A que ya
-  funciona hoy. Sin prioridad fijada frente a las dos de arriba.
+- **Fase 1 de [`PLAN-AGENTE.md`](PLAN-AGENTE.md)** — estado de automatización por caso, cohorte de
+  quiebre en Seguimiento, **tasa de coincidencia agente-humano** y **conjunto de evaluación**.
+  Decidida, **no depende de WhatsApp**, y mejora el modo A que ya funciona hoy. Sin prioridad
+  fijada frente a las dos de arriba.
 - **El resto del informe externo**, que es flujo y no fallos: KPIs clicables, modo cola en el
   drawer, paginación de Pacientes ([MEJORAS 87](MEJORAS-PENDIENTES.md), sin priorizar).
 
@@ -98,13 +119,17 @@ cierre está en [`DECISIONES.md`](DECISIONES.md).
 | Qué | Por qué | Lo desbloquea |
 |---|---|---|
 | Piloto con datos reales de RB | Sin art. 28 y NDA firmados no se toca un dato de paciente | Firma de ambas partes |
-| **Envío real por WhatsApp — fase 0 de [`PLAN-AGENTE.md`](PLAN-AGENTE.md)** | **Cadena de dependencia declarada: sin registro fiscal no hay verificación de empresa de Meta, y sin verificación no hay piloto real.** El 036/037 con NIF (o Fyllio S.L. constituida) es lo que habilita la verificación; la verificación es lo que quita el techo de **250 destinatarios únicos / 24 h**, abre el escalado de tiers y es requisito de Tech Provider (fase 5). Es **el camino crítico del proyecto, y no es código** | Simon: alta fiscal ante Hacienda **+** email de dominio propio |
+| **Piloto real por WhatsApp — fase 0 de [`PLAN-AGENTE.md`](PLAN-AGENTE.md)** | **Cadena de dependencia declarada: sin registro fiscal no hay verificación de empresa de Meta, y sin verificación no hay piloto real.** El 036/037 con NIF (o Fyllio S.L. constituida) es lo que habilita la verificación; la verificación es lo que da el **número real** de la clínica, quita el techo de **250 destinatarios únicos / 24 h** y es requisito de Tech Provider (fase 5). Es **el camino crítico del piloto, y no es código** | Simon: alta fiscal ante Hacienda **+** email de dominio propio |
 
-**El matiz que evita declarar el bloqueo más grande de lo que es:** el **número de prueba** de Meta
-(5 destinatarios, plantilla ya aprobada) se consigue **hoy y sin verificación**, y con él se
-desarrolla y se demuestra la integración entera. Lo que el registro fiscal bloquea es el **piloto
-que crece** y el segundo cliente, no el desarrollo. Por eso las fases 1 y 2 del plan no dependen
-de esto.
+**Dónde corta exactamente, para no declarar el bloqueo más grande de lo que es.** Sin registro
+fiscal se puede crear la app de Meta, coger el **número de prueba** con su plantilla ya aprobada,
+montar el webhook y **enviar y recibir mensajes reales a cinco destinatarios**: o sea, **construir y
+probar la fase 3 entera**. El alta fiscal desbloquea tres cosas y ninguna es de código —
+verificación de empresa, número real, y salir de los 250 destinatarios diarios. **Bloquea atender
+pacientes a escala, no el desarrollo.** Las fases 1, 2 y 3 pueden avanzar hoy.
+
+Y con la auditoría de arriba, ese margen es aún mayor de lo que parecía: buena parte de la fase 3
+**ya está escrita**.
 
 ---
 
@@ -177,4 +202,5 @@ importe en el mismo WhatsApp, que es dato de salud del art. 9.
 | MEJORAS | 88 entradas · **64 abiertas** 🔵 · 30 hechas 🟢 · 19 cerradas ✅ · 4 descartadas ⚪ |
 | Migraciones | 011 · 012 · 013 (visto hoy) aplicadas |
 | Documentos de discusión | **2** HTML en [`docs/`](docs/), fuera del build. Verificado: `npm run build` no los sirve ni los empaqueta |
+| Zona WhatsApp (censada 3 ago) | Envío WABA, webhook, rate-limit e idempotencia **vivos y completos** · **plantillas: 0 call sites** · 2 ficheros muertos (`whatsapp/outbound.ts`, `whatsapp/llm.ts`, 352 líneas) · **1 avería: `/api/whatsapp/send` da 404** desde 2 paneles vivos · Twilio en retirada pero vivo en 4 crons y no-shows, tragando fallos |
 | Sin verificar en producción | Ver Bloqueado. Lo verificado la sesión pasada fue en navegador real contra el build de producción **en local** |

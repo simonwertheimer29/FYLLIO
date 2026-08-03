@@ -1505,3 +1505,39 @@ pierde dinero. **Una cifra que no cambia ninguna decisión es ruido, y declararl
    dato era correcto, fallaba el render) y con "la tarjeta que desaparece" (era el producto
    obedeciendo a un filtro). **El valor de la revisión externa es dónde mirar, no qué arreglar**: se
    agradece el dedo y se mide la causa antes de tocar.
+
+## 2026-08-03 — Auditoría de WhatsApp: la fase 3 del plan estaba mal dimensionada
+Antes de arrancar la fase 0 de [`PLAN-AGENTE.md`](PLAN-AGENTE.md) se censó todo el código que toca
+WhatsApp. Resultado: **el modo B (WABA) no está por construir, está construido y desconectado.**
+`ServicioMensajeriaWABA` en `lib/presupuestos/mensajeria.ts` hace POST real a Graph API v21.0 con
+idempotencia (KV), rate-limit y telemetría; el webhook de `api/webhooks/whatsapp` valida HMAC con
+`timingSafeEqual`, deduplica por `WABA_message_id`, persiste **antes** del 200 y difiere la IA con
+`after()`; y la UI de intervención ya ramifica `wabaActivo ? enviar-waba : enviar-manual`. El punto
+de extensión (`getServicioMensajeria(modo)` + `modo_whatsapp` en Postgres) **ya está abierto**.
+
+**Lo que sí falta, y el plan no lo decía:** el envío por **plantilla**. `enviarPlantilla` está
+implementado y tiene **cero call sites** — `getServicioMensajeriaWABA` no lo llama nadie. Sin
+plantilla no se inicia conversación fuera de la ventana de 24 h, que es literalmente todo lo que
+hace un recordatorio o un seguimiento: **todo lo construido asume la ventana ya abierta**. La fase 3
+no es "construir el envío y la recepción"; es *conectar credenciales* (casi gratis) **más construir
+la capa de plantillas** (catálogo WABA, mapeo a las plantillas de Fyllio, nombres aprobados), que es
+la parte cara y la que el plan no mencionaba.
+
+**Restos y una avería encontrados de paso, ninguno tocado (van a MEJORAS):**
+- `lib/whatsapp/outbound.ts` (184 líneas, plantillas Meta con botones) tiene **cero importadores** y
+  es el único consumidor de `META_WHATSAPP_TOKEN`/`META_PHONE_NUMBER_ID` — **un segundo juego de env
+  vars para lo mismo que `WABA_*`**. MEJORAS #5B lo cita como "la pieza que existe para el bulk
+  real": apunta a código muerto. `lib/whatsapp/llm.ts` (168 líneas), también sin importadores.
+- **`/api/whatsapp/send` no existe** y sigue siendo llamado desde `NoShowRiskPanel.tsx:157` y
+  `OperationsPanel.tsx:222` → **404 en runtime**.
+- `lib/whatsapp/send.ts` (Twilio, vivo en 4 crons y en no-shows) es `Promise<void>`: **loguea el
+  fallo y sigue**. Un envío fallido es indistinguible de uno correcto para quien llama — el mismo
+  patrón que el Sprint A mató en las escrituras, sobreviviendo en los envíos.
+- `normalizarTelefono` quita el `+` pero **no añade prefijo de país**: un `"667188097"` saldría a
+  Meta tal cual. Hay que auditar los teléfonos reales antes de enviar nada.
+- `checkRateLimit` es **fail-open**: si la query a Postgres falla, deja pasar. Con cuota real cuesta
+  dinero.
+
+**Lo que queda registrado como lección:** el plan se escribió sin censar el código, y estimó de más
+lo construido y de menos lo que faltaba **a la vez**. Un plan de fases que toca una zona vieja se
+escribe *después* del censo de esa zona, no antes.
