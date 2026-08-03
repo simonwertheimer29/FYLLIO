@@ -134,7 +134,21 @@ async function enviarPlantilla(args: {
     pacienteId: ctx.pacienteId,
   });
   const to = ctx.phone.startsWith("whatsapp:") ? ctx.phone : `whatsapp:${ctx.phone}`;
-  await sendWhatsAppMessage(to, texto);
+
+  // §1 — nada de lo de abajo puede pasar si el mensaje no salió. `sendWhatsAppMessage`
+  // lanza desde 2026-08-03 (antes se tragaba el fallo y este bloque corría igual):
+  // se consumía el cooldown de plantilla extra y se emitía `mensaje_enviado` por un
+  // mensaje que el paciente nunca recibió, y la acción se registraba como `ok`.
+  try {
+    await sendWhatsAppMessage(to, texto);
+  } catch (err) {
+    console.error("[no-shows] envío de plantilla fallido", plantillaNombre, ctx.pacienteId, err);
+    return {
+      ok: false,
+      motivo: "envio_fallido",
+      detalle: `${plantillaNombre}: ${err instanceof Error ? err.message : String(err)}`,
+    };
+  }
 
   if (respetarCooldownExtra) await marcarPlantillaExtraEnviada(ctx.pacienteId);
 

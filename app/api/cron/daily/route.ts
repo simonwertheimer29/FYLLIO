@@ -9,7 +9,7 @@ import { listCitasEstadoVentanaRaw } from "../../../lib/scheduler/repo/airtableR
 import { listTratamientosInstrucciones } from "../../../lib/scheduler/repo/treatmentsRepo";
 import { DateTime } from "luxon";
 import { listAppointmentsByDay, completeAppointment } from "../../../lib/scheduler/repo/airtableRepo";
-import { sendWhatsAppMessage } from "../../../lib/whatsapp/send";
+import { sendWhatsAppMessage, EnvioWhatsAppError } from "../../../lib/whatsapp/send";
 import { kv } from "../../../lib/kv";
 import { runWithCliente } from "../../../lib/airtable";
 import { PILOT_CLIENTE } from "../../../lib/multi-cliente-pendiente";
@@ -48,6 +48,36 @@ async function yaEnviadoHoy(tipo: string, apptId: string, runDateIso: string): P
   } catch {
     return false; // KV caído → best-effort, no bloqueamos el envío
   }
+}
+
+/**
+ * Compensación del marcado de arriba. `yaEnviadoHoy` marca ANTES de enviar (es lo
+ * correcto: marcar después reabre la carrera de doble envío que cerró el Sprint A).
+ * El precio es que un envío fallido quedaba marcado como hecho y la cita se saltaba
+ * durante 3 días, en silencio. Eso solo se podía ver desde que `sendWhatsAppMessage`
+ * lanza (2026-08-03); antes ningún envío fallaba "hacia fuera".
+ *
+ * §2 — solo se libera cuando SABEMOS que el mensaje no salió (`entregaRechazada`).
+ * Ante un fallo sin respuesta de Twilio la clave se queda puesta: mejor un
+ * recordatorio de menos que el mismo mensaje dos veces al paciente.
+ */
+async function liberarEnviadoHoy(tipo: string, apptId: string, runDateIso: string): Promise<void> {
+  try {
+    await kv.del(`cron:sent:${tipo}:${apptId}:${runDateIso}`);
+  } catch (err) {
+    // No romper el cron por esto, pero que se vea: la cita quedará saltada 3 días.
+    console.error(`[daily] no se pudo liberar el dedup de ${tipo}:${apptId}`, err);
+  }
+}
+
+/** Mensaje legible del fallo (§9: renderizar el error, no concatenarlo). */
+function motivoFallo(e: unknown): string {
+  return e instanceof Error ? e.message : String(e);
+}
+
+/** ¿Sabemos con certeza que el mensaje no salió? Ver `EnvioWhatsAppError`. */
+function entregaRechazada(e: unknown): boolean {
+  return e instanceof EnvioWhatsAppError && e.entregaRechazada;
 }
 
 export async function GET(req: Request) {
@@ -129,7 +159,8 @@ async function runDailyCron(): Promise<NextResponse> {
       remindersSent++;
     } catch (e) {
       console.error("[daily] reminder send failed", appt.id, e);
-      errors.push(`reminder:${appt.id}: ${String(e)}`);
+      errors.push(`reminder:${appt.id}: ${motivoFallo(e)}`);
+      if (entregaRechazada(e)) await liberarEnviadoHoy("reminder", appt.id, todayIso);
     }
   }
 
@@ -175,7 +206,8 @@ async function runDailyCron(): Promise<NextResponse> {
       ).catch(() => null);
     } catch (e) {
       console.error("[daily] confirm send failed", appt.id, e);
-      errors.push(`confirm:${appt.id}: ${String(e)}`);
+      errors.push(`confirm:${appt.id}: ${motivoFallo(e)}`);
+      if (entregaRechazada(e)) await liberarEnviadoHoy("confirm", appt.id, todayIso);
     }
   }
 
@@ -218,7 +250,8 @@ async function runDailyCron(): Promise<NextResponse> {
       );
     } catch (e) {
       console.error("[daily] feedback send failed", appt.id, e);
-      errors.push(`feedback:${appt.id}: ${String(e)}`);
+      errors.push(`feedback:${appt.id}: ${motivoFallo(e)}`);
+      if (entregaRechazada(e)) await liberarEnviadoHoy("feedback", appt.id, todayIso);
     }
   }
 
