@@ -19,6 +19,7 @@ Se mantienen a mano y hay que leerlos antes de tocar su terreno:
 | [`MERCADO.md`](MERCADO.md) | **Por qué** el producto tiene sentido: fundamentos, evidencia de conversaciones reales, interpretaciones, hipótesis con su estado y preguntas abiertas | Después de cada conversación con una clínica |
 | [`DECISIONES.md`](DECISIONES.md) | **Qué** se decidió y qué se arregló: bugs importantes, decisiones de arquitectura, hallazgos cerrados | En el mismo cambio que cierra el asunto |
 | [`MEJORAS-PENDIENTES.md`](MEJORAS-PENDIENTES.md) | Lo detectado y **no** aprobado todavía. Nada de aquí se ejecuta sin el visto bueno del fundador | Al detectar algo fuera del alcance de la tarea |
+| [`PLAN-AGENTE.md`](PLAN-AGENTE.md) | **Qué se construiría** en la capa de automatización si se decide: cinco fases con qué se espera ver y cómo se pone a prueba, más el anexo de WhatsApp Business API. **Plan de producto, no hoja de ruta comprometida** — cada fase requiere aprobación; hoy solo la 0 y la 1 están decididas | Cuando cambie el plan o se apruebe una fase |
 | [`REUNION-RB-DENTAL.md`](REUNION-RB-DENTAL.md) | El guion de la reunión con el cliente piloto: qué preguntar, en qué orden, qué hipótesis cierra cada pregunta, y los pendientes de onboarding | Antes de cada reunión, y el mismo día después |
 | [`guion-demo-fyllio.md`](guion-demo-fyllio.md) | Cómo se enseña el producto: el hilo narrativo, qué pantalla en qué orden, qué NO se enseña y qué responder a las preguntas que van a hacer | Cuando cambie el producto que se demuestra |
 | [`AUDITORIA_FABLE.md`](AUDITORIA_FABLE.md) | La auditoría técnica de julio de 2026 y su tabla de fiabilidad (S1-S12) | Congelado; es referencia histórica |
@@ -29,6 +30,16 @@ investigación nueva se añade otro archivo y el anterior se queda como está:
 | Archivo | Qué es |
 |---|---|
 | [`INVESTIGACION-MERCADO-2026-07.md`](INVESTIGACION-MERCADO-2026-07.md) | Investigación de mercado de julio de 2026: Gesden y su integración, competencia, WhatsApp y RGPD, canal de entrada. Mezcla datos verificados, afirmaciones comerciales de terceros y recomendaciones **no aprobadas** — lo que de ahí pasó a ser conocimiento nuestro está volcado en `MERCADO.md` separando evidencia de interpretación |
+
+Y los **documentos visuales de discusión**, que se abren en el navegador. **No son specs, no forman
+parte de la aplicación y no se compilan**: viven en [`docs/`](docs/), fuera de `app/` y de `public/`,
+así que Next ni los sirve ni los mete en el bundle. Nada de ellos se implementa sin decisión
+explícita en `DECISIONES.md`:
+
+| Archivo | Qué es |
+|---|---|
+| [`docs/arquitectura-agente-quiebre.html`](docs/arquitectura-agente-quiebre.html) | Dónde trabaja el agente y dónde entra la persona, etapa por etapa del embudo: qué hace solo, qué dispara el quiebre y los seis disparadores universales |
+| [`docs/arquitectura-app-automatizacion.html`](docs/arquitectura-app-automatizacion.html) | La reorganización de la app por función (Pipeline · Tablas · Seguimiento · Pacientes) y la máquina de estados de automatización de un caso |
 
 `MERCADO.md` **no gobierna cómo se construye** — para eso están los skills de
 [`.claude/skills/`](.claude/skills/). Documenta por qué lo que se construye tiene sentido.

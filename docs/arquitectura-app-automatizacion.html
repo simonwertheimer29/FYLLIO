@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fyllio · Arquitectura de la aplicación con capa de automatización</title>
+<style>
+  :root {
+    --accent: #3D6FB2;
+    --accent-soft: #EDF3FB;
+    --accent-line: #C7DAF0;
+    --agent: #3D6FB2;
+    --agent-soft: #EDF3FB;
+    --human: #C2410C;
+    --human-soft: #FFF3EC;
+    --human-line: #F0CDBB;
+    --wait: #A16207;
+    --wait-soft: #FEF9E7;
+    --done: #15803D;
+    --done-soft: #EFF9F1;
+    --ink: #0F172A;
+    --muted: #64748B;
+    --line: #E2E8F0;
+    --surface: #FFFFFF;
+    --bg: #F8FAFC;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 44px 28px 70px;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+
+  h1 { font-size: 30px; font-weight: 650; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); font-size: 15px; margin: 0 0 18px; }
+
+  /* aviso de estado del documento */
+  .draft {
+    font-size: 13px; line-height: 1.5; color: var(--muted);
+    border: 1px dashed #CBD5E1; border-radius: 8px;
+    padding: 11px 15px; margin: 0 0 30px; background: var(--surface);
+  }
+  .draft strong { color: var(--ink); font-weight: 620; }
+
+  h2 {
+    font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--accent); margin: 46px 0 4px;
+  }
+  .h2sub { font-size: 21px; font-weight: 620; margin: 0 0 8px; letter-spacing: -0.01em; }
+  .intro { font-size: 14.5px; line-height: 1.6; color: #334155; margin: 0 0 20px; max-width: 78ch; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+
+  /* ── 1 · ventanas por función ── */
+  .windows { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  .win { padding: 18px 18px 20px; }
+  .win-verb {
+    font-size: 10.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 7px;
+  }
+  .win-name { font-size: 17px; font-weight: 640; margin-bottom: 4px; }
+  .win-q { font-size: 13px; color: var(--muted); font-style: italic; margin-bottom: 13px; line-height: 1.4; }
+  .win-body { font-size: 13px; line-height: 1.55; color: #334155; }
+  .win-tags { margin-top: 12px; display: flex; gap: 5px; flex-wrap: wrap; }
+  .tag {
+    font-size: 11px; padding: 3px 8px; border-radius: 4px;
+    background: var(--accent-soft); color: var(--accent); font-weight: 550;
+  }
+
+  /* ── 2 · máquina de estados ── */
+  .machine { padding: 26px 24px; }
+  .row { display: flex; align-items: stretch; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+  .node {
+    flex: 1; min-width: 170px; border-radius: 9px; padding: 13px 15px; border: 1.5px solid;
+  }
+  .node .nlabel { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 5px; }
+  .node .ntitle { font-size: 14.5px; font-weight: 620; margin-bottom: 4px; }
+  .node .ndesc { font-size: 12.5px; line-height: 1.5; }
+
+  .n-agent { background: var(--agent-soft); border-color: var(--accent-line); }
+  .n-agent .nlabel, .n-agent .ntitle { color: var(--accent); }
+  .n-agent .ndesc { color: #1E3A5F; }
+
+  .n-wait { background: var(--wait-soft); border-color: #F2E3B8; }
+  .n-wait .nlabel, .n-wait .ntitle { color: var(--wait); }
+  .n-wait .ndesc { color: #713F12; }
+
+  .n-human { background: var(--human-soft); border-color: var(--human-line); }
+  .n-human .nlabel, .n-human .ntitle { color: var(--human); }
+  .n-human .ndesc { color: #7C2D12; }
+
+  .n-done { background: var(--done-soft); border-color: #C6E6CE; }
+  .n-done .nlabel, .n-done .ntitle { color: var(--done); }
+  .n-done .ndesc { color: #14532D; }
+
+  .n-off { background: #F1F5F9; border-color: #DDE4EC; }
+  .n-off .nlabel, .n-off .ntitle { color: #475569; }
+  .n-off .ndesc { color: #475569; }
+
+  .arrow-row { display: flex; align-items: center; gap: 9px; margin: 4px 0 12px; padding-left: 4px; }
+  .arrow-row .from { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .arrow-row .cond {
+    font-size: 12.5px; color: #334155; background: #F8FAFC;
+    border: 1px solid var(--line); border-radius: 5px; padding: 4px 10px;
+  }
+  .arr { color: #94A3B8; font-size: 13px; }
+
+  .flowline {
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 7px 0; color: var(--muted); font-size: 12px;
+  }
+
+  /* ── 3 · bucle ── */
+  .loop { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; }
+  .step { padding: 20px 18px; border-right: 1px solid var(--line); position: relative; }
+  .step:last-child { border-right: none; }
+  .step-n {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: #fff;
+    font-size: 12px; font-weight: 700; display: flex; align-items: center; justify-content: center;
+    margin-bottom: 10px;
+  }
+  .step h4 { font-size: 14.5px; font-weight: 620; margin: 0 0 5px; }
+  .step p { font-size: 12.5px; line-height: 1.55; color: #475569; margin: 0; }
+
+  /* ── 4 · matriz ── */
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th {
+    text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); padding: 13px 16px;
+    border-bottom: 1px solid var(--line); background: #FCFDFE;
+  }
+  th:not(:first-child) { text-align: center; }
+  td { padding: 13px 16px; border-bottom: 1px solid #F1F5F9; vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  td:not(:first-child) { text-align: center; }
+  .fase { font-weight: 600; }
+  .fase small { display: block; font-weight: 400; font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .mode { display: inline-block; width: 26px; height: 26px; line-height: 26px; border-radius: 6px; font-weight: 700; font-size: 12.5px; }
+  .m-on { background: var(--done-soft); color: var(--done); }
+  .m-mid { background: var(--wait-soft); color: var(--wait); }
+  .m-off { background: #F1F5F9; color: #94A3B8; }
+
+  /* ── 5 · qué cambia ── */
+  .split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .panel { padding: 20px 22px; }
+  .panel h3 { font-size: 15px; font-weight: 620; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+  .panel ul { margin: 0; padding: 0; list-style: none; }
+  .panel li { font-size: 13.5px; line-height: 1.55; padding: 5px 0 5px 17px; position: relative; color: #334155; }
+  .panel li::before { content: ""; position: absolute; left: 2px; top: 12px; width: 5px; height: 5px; border-radius: 50%; }
+  .keep li::before { background: var(--done); }
+  .move li::before { background: var(--accent); }
+  .new li::before { background: var(--human); }
+
+  .three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+
+  .note {
+    padding: 15px 19px; background: var(--accent-soft); border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0; font-size: 14px; line-height: 1.6; margin: 16px 0 0;
+  }
+  .note strong { font-weight: 620; }
+
+  .warn {
+    padding: 15px 19px; background: var(--human-soft); border-left: 3px solid var(--human);
+    border-radius: 0 8px 8px 0; font-size: 14px; line-height: 1.6; margin: 16px 0 0;
+  }
+
+  footer { margin-top: 44px; font-size: 12.5px; color: var(--muted); text-align: center; }
+
+  @media (max-width: 900px) {
+    .windows, .loop, .split, .three { grid-template-columns: 1fr; }
+    .step { border-right: none; border-bottom: 1px solid var(--line); }
+    .node { min-width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>La aplicación con capa de automatización</h1>
+  <p class="sub">Cómo se reorganiza Fyllio para que un caso atraviese el embudo entero, solo o acompañado</p>
+
+  <p class="draft">
+    <strong>Documento de discusión, no especificación.</strong> Nada de aquí se implementa sin decisión
+    explícita anotada en <code>DECISIONES.md</code>. El plan de desarrollo que lo acompaña está en
+    <code>PLAN-AGENTE.md</code>, y de sus cinco fases solo la 0 y la 1 están decididas. La sección
+    <em>05 · Coste real</em> es una estimación, no un compromiso.
+  </p>
+
+  <!-- ────────── 1 ────────── -->
+  <h2>01 · La reorganización</h2>
+  <p class="h2sub">Cuatro ventanas, un verbo cada una</p>
+  <p class="intro">
+    Hoy las pantallas están partidas por <em>fase</em> —Leads, Presupuestos, Cobros— y cada una repite
+    las mismas tres cosas: un tablero, una tabla y una cola. La coordinadora no piensa por fases:
+    piensa <em>«¿a quién le toca ahora?»</em>. La propuesta invierte el eje: se parte por <strong>función</strong>,
+    y cada ventana deja elegir el dominio dentro.
+  </p>
+
+  <div class="windows">
+    <div class="card win">
+      <div class="win-verb">Ver la forma</div>
+      <div class="win-name">Pipeline</div>
+      <div class="win-q">¿cómo va el flujo?</div>
+      <div class="win-body">
+        El tablero kanban de siempre, con un conmutador arriba entre los tres dominios.
+        Cuánta gente hay en cada fase, cuánto dinero, y cómo avanza.
+      </div>
+      <div class="win-tags"><span class="tag">Leads</span><span class="tag">Presupuestos</span><span class="tag">Cobros</span></div>
+    </div>
+    <div class="card win">
+      <div class="win-verb">Ver el detalle</div>
+      <div class="win-name">Tablas</div>
+      <div class="win-q">¿qué hay exactamente?</div>
+      <div class="win-body">
+        Las mismas tres realidades en formato tabla: filtrable, ordenable, exportable.
+        Para consultar, auditar y sacar listados.
+      </div>
+      <div class="win-tags"><span class="tag">Leads</span><span class="tag">Presupuestos</span><span class="tag">Cobros</span></div>
+    </div>
+    <div class="card win" style="border-color: var(--human-line); border-width: 2px;">
+      <div class="win-verb" style="color: var(--human)">Hacer el trabajo</div>
+      <div class="win-name">Seguimiento</div>
+      <div class="win-q">¿a quién le toca ahora?</div>
+      <div class="win-body">
+        La única cola de trabajo. Aquí caen los quiebres del agente y lo que exige criterio,
+        de los tres dominios a la vez, ordenado por urgencia y dinero.
+      </div>
+      <div class="win-tags"><span class="tag" style="background:var(--human-soft);color:var(--human)">La casa del quiebre</span></div>
+    </div>
+    <div class="card win">
+      <div class="win-verb">Buscar a alguien</div>
+      <div class="win-name">Pacientes</div>
+      <div class="win-q">¿quién es esta persona?</div>
+      <div class="win-body">
+        La base de datos. Toda la vida del paciente: tratamientos, dinero, conversaciones, citas.
+        Punto de entrada para crear presupuestos sobre gente que ya tienes.
+      </div>
+      <div class="win-tags"><span class="tag">Base de datos</span></div>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>La decisión que ordena todo lo demás:</strong> un caso quebrado <em>es</em> un caso que necesita a
+    una persona ahora. Eso ya es la definición de Seguimiento. Así que la cola de intervenciones no es
+    una ventana nueva — es la primera cohorte de Seguimiento. Crear una pantalla aparte volvería a
+    partir el trabajo de la coordinadora en dos sitios.
+  </div>
+
+  <!-- ────────── 2 ────────── -->
+  <h2>02 · La capa nueva</h2>
+  <p class="h2sub">Estado de automatización de un caso</p>
+  <p class="intro">
+    Hoy un caso tiene dos coordenadas: <em>en qué fase está</em> y <em>quién tiene la pelota</em>.
+    Se añade una tercera: <strong>quién lo lleva</strong>. Es la misma para leads, presupuestos y cobros,
+    y es lo que se pinta como distintivo en cada tarjeta de cualquier ventana.
+  </p>
+
+  <div class="card machine">
+    <div class="row">
+      <div class="node n-agent">
+        <div class="nlabel">Agente</div>
+        <div class="ntitle">Trabajando</div>
+        <div class="ndesc">Tiene el siguiente toque programado y lo va a enviar.</div>
+      </div>
+      <div class="node n-wait">
+        <div class="nlabel">Agente</div>
+        <div class="ntitle">Esperando</div>
+        <div class="ndesc">Escribió y espera respuesta. Volverá según la cadencia.</div>
+      </div>
+      <div class="node n-human">
+        <div class="nlabel">Quiebre</div>
+        <div class="ntitle">Necesita persona</div>
+        <div class="ndesc">Algo disparó el corte. El agente no toca nada más hasta que un humano actúe.</div>
+      </div>
+      <div class="node n-human">
+        <div class="nlabel">Persona</div>
+        <div class="ntitle">En manos de alguien</div>
+        <div class="ndesc">Lo cogió la coordinadora. Ve la conversación entera y por qué se paró.</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="node n-wait" style="background:#FDF2F8; border-color:#F5D0E4;">
+        <div class="nlabel" style="color:#9D2C6B">Agente</div>
+        <div class="ntitle" style="color:#9D2C6B">Agotado</div>
+        <div class="ndesc" style="color:#831843">Hizo toda su cadencia sin respuesta. <strong>Recomienda llamada personal</strong> — el texto ya no da más de sí.</div>
+      </div>
+      <div class="node n-off">
+        <div class="nlabel">Configuración</div>
+        <div class="ntitle">Manual</div>
+        <div class="ndesc">Esta clínica no automatiza esta fase. El caso vive en la cola desde el principio.</div>
+      </div>
+      <div class="node n-done">
+        <div class="nlabel">Fin</div>
+        <div class="ntitle">Cerrado</div>
+        <div class="ndesc">Aceptó, pagó, se perdió o pasó a la fase siguiente.</div>
+      </div>
+      <div class="node n-agent" style="background:#F0FDFA; border-color:#B8E6DE;">
+        <div class="nlabel" style="color:#0F766E">Persona → Agente</div>
+        <div class="ntitle" style="color:#0F766E">Devuelto</div>
+        <div class="ndesc" style="color:#134E4A">La persona resolvió lo que hacía falta y devuelve el caso al agente. La automatización se reanuda.</div>
+      </div>
+    </div>
+
+    <div class="flowline">↓ transiciones ↓</div>
+
+    <div class="arrow-row"><span class="from">Trabajando</span><span class="arr">→</span><span class="cond">envía un toque</span><span class="arr">→</span><span class="from">Esperando</span></div>
+    <div class="arrow-row"><span class="from">Esperando</span><span class="arr">→</span><span class="cond">llega respuesta neutra («vale», «gracias»)</span><span class="arr">→</span><span class="from">Trabajando</span></div>
+    <div class="arrow-row"><span class="from">Esperando</span><span class="arr">→</span><span class="cond">llega respuesta con disparador de quiebre</span><span class="arr">→</span><span class="from" style="color:var(--human)">Necesita persona</span></div>
+    <div class="arrow-row"><span class="from">Esperando</span><span class="arr">→</span><span class="cond">se acaba la cadencia sin respuesta</span><span class="arr">→</span><span class="from" style="color:#9D2C6B">Agotado · recomienda llamar</span></div>
+    <div class="arrow-row"><span class="from" style="color:#9D2C6B">Agotado</span><span class="arr">→</span><span class="cond">entra en la cola con la llamada como acción sugerida</span><span class="arr">→</span><span class="from" style="color:var(--human)">Necesita persona</span></div>
+    <div class="arrow-row"><span class="from" style="color:var(--human)">En manos de alguien</span><span class="arr">→</span><span class="cond">resuelto lo que exigía criterio</span><span class="arr">→</span><span class="from" style="color:#0F766E">Devuelto al agente</span></div>
+    <div class="arrow-row"><span class="from" style="color:var(--human)">En manos de alguien</span><span class="arr">→</span><span class="cond">«sigo yo con este caso»</span><span class="arr">→</span><span class="from">Manual hasta el cierre</span></div>
+  </div>
+
+  <div class="note">
+    <strong>La reactivación es una decisión, no un automatismo.</strong> Cuando la coordinadora termina de
+    hablar con el paciente, elige: <em>devolver al agente</em> (sigue la cadencia) o <em>me lo quedo</em>
+    (manual hasta el final). Sin esa elección explícita, el agente escribiría encima de una conversación
+    humana en curso — que es la peor cosa que puede hacer un sistema así.
+  </div>
+
+  <!-- ────────── 3 ────────── -->
+  <h2>03 · El bucle</h2>
+  <p class="h2sub">Qué pasa exactamente en un quiebre</p>
+
+  <div class="card loop">
+    <div class="step">
+      <div class="step-n">1</div>
+      <h4>El agente detecta</h4>
+      <p>Llega un mensaje del paciente. La clasificación de intención dice que hay disparador: dinero, criterio clínico, queja, ambigüedad.</p>
+    </div>
+    <div class="step">
+      <div class="step-n">2</div>
+      <h4>Para y no responde</h4>
+      <p>El agente no improvisa ni gana tiempo con un mensaje de relleno. Marca el caso, registra el motivo del corte y calla.</p>
+    </div>
+    <div class="step">
+      <div class="step-n">3</div>
+      <h4>Sube a la cola</h4>
+      <p>Aparece en Seguimiento, arriba, con el motivo escrito: <em>«pregunta si hay descuento»</em>. La coordinadora ve el hilo entero, no un resumen.</p>
+    </div>
+    <div class="step">
+      <div class="step-n">4</div>
+      <h4>Vuelve o se queda</h4>
+      <p>Ella responde y decide: devolver al agente para que siga la cadencia, o quedárselo. La barra de trabajo del día se mueve.</p>
+    </div>
+  </div>
+
+  <!-- ────────── 4 ────────── -->
+  <h2>04 · Personalización</h2>
+  <p class="h2sub">La matriz que hace que dos clínicas distintas usen el mismo producto</p>
+  <p class="intro">
+    Cada clínica decide su nivel por fase, no de golpe. Una puede automatizar los recordatorios de cita
+    desde el día uno y no querer que nadie hable de dinero sin supervisión durante meses.
+    El eje vertical son las fases; el horizontal, cuánta autonomía tiene el agente en cada una.
+  </p>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Fase</th>
+          <th>A · prepara</th>
+          <th>B · envía lo rutinario</th>
+          <th>C · autónomo</th>
+          <th style="text-align:left">Ejemplo real</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="fase">Captación de leads<small>primer contacto y agenda</small></td>
+          <td><span class="mode m-on">A</span></td>
+          <td><span class="mode m-on">B</span></td>
+          <td><span class="mode m-on">C</span></td>
+          <td style="text-align:left;font-size:13px;color:#475569">Clínica con muchos leads de Instagram: <strong>C desde el principio</strong>. Responder en un minuto vale más que el riesgo.</td>
+        </tr>
+        <tr>
+          <td class="fase">Recordatorio de citas<small>confirmación y reagenda</small></td>
+          <td><span class="mode m-on">A</span></td>
+          <td><span class="mode m-on">B</span></td>
+          <td><span class="mode m-on">C</span></td>
+          <td style="text-align:left;font-size:13px;color:#475569">Nadie discute esto. Es la fase donde toda clínica acepta <strong>C</strong> primero.</td>
+        </tr>
+        <tr>
+          <td class="fase">Seguimiento de presupuestos<small>la cadencia hasta la decisión</small></td>
+          <td><span class="mode m-on">A</span></td>
+          <td><span class="mode m-on">B</span></td>
+          <td><span class="mode m-mid">C</span></td>
+          <td style="text-align:left;font-size:13px;color:#475569">Aquí vive el dinero. Muchas clínicas se quedarán en <strong>B</strong> mucho tiempo, y está bien.</td>
+        </tr>
+        <tr>
+          <td class="fase">Cobros<small>recordatorio de pago</small></td>
+          <td><span class="mode m-on">A</span></td>
+          <td><span class="mode m-on">B</span></td>
+          <td><span class="mode m-mid">C</span></td>
+          <td style="text-align:left;font-size:13px;color:#475569">Reclamar dinero por escrito es delicado de tono. <strong>B</strong> es el sitio natural.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="intro" style="margin-top:18px">Y por debajo de la matriz, cada clínica ajusta lo suyo sin tocar el motor:</p>
+
+  <div class="three">
+    <div class="card panel">
+      <h3>Cadencia</h3>
+      <ul class="move">
+        <li>Cuántos toques antes de agotar</li>
+        <li>Cada cuántos días</li>
+        <li>En qué franja horaria puede escribir</li>
+        <li>Cuándo se considera enfriado</li>
+      </ul>
+    </div>
+    <div class="card panel">
+      <h3>Disparadores</h3>
+      <ul class="new">
+        <li>Los seis universales no se tocan</li>
+        <li>Se pueden <em>añadir</em> propios: «pregunta por el Dr. X»</li>
+        <li>Nunca se pueden quitar los de dinero ni los clínicos</li>
+      </ul>
+    </div>
+    <div class="card panel">
+      <h3>Voz</h3>
+      <ul class="keep">
+        <li>Tono: cercano o formal</li>
+        <li>Plantillas propias</li>
+        <li>Vocabulario de estados y motivos</li>
+        <li>Qué firma pone al final</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="warn">
+    <strong>Lo que no es configurable, a propósito:</strong> los disparadores de dinero y de criterio clínico.
+    Una clínica podría querer que el agente conteste precios «porque los tenemos cerrados», y ese es
+    exactamente el día en que el agente le promete algo a un paciente que la clínica tiene que sostener.
+    Es el límite del producto, y se defiende como decisión, no como limitación.
+  </div>
+
+  <!-- ────────── 5 ────────── -->
+  <h2>05 · Coste real</h2>
+  <p class="h2sub">Qué de esto ya existe y qué hay que construir</p>
+
+  <div class="split">
+    <div class="card panel">
+      <h3 style="color:var(--done)">Ya está construido</h3>
+      <ul class="keep">
+        <li><strong>El clasificador de intención</strong> — ya detecta «acepta sin condiciones», «pide cita», «pregunta precio». Es el disparador del quiebre, solo tiene que <em>cortar</em> en vez de solo etiquetar.</li>
+        <li><strong>La cola de trabajo</strong> — Seguimiento con cohortes derivadas. El quiebre es una cohorte más.</li>
+        <li><strong>La generación de mensajes</strong> — el modo A ya funciona hoy.</li>
+        <li><strong>Los tres modos</strong> — el motor de reglas ya los tiene declarados.</li>
+        <li><strong>Los tableros y tablas</strong> — existen los tres, solo hay que unificarlos bajo un conmutador.</li>
+      </ul>
+    </div>
+    <div class="card panel">
+      <h3 style="color:var(--human)">Hay que construirlo</h3>
+      <ul class="new">
+        <li><strong>El estado de automatización</strong> por caso, con sus transiciones y su distintivo en cada tarjeta.</li>
+        <li><strong>La reanudación</strong> — devolver al agente o quedárselo, con el registro de quién decidió qué.</li>
+        <li><strong>El agotamiento y la llamada</strong> — cuando el texto se agota, la recomendación cambia de canal.</li>
+        <li><strong>La matriz de configuración</strong> por clínica y por fase.</li>
+        <li><strong>El envío y la recepción reales</strong> — WhatsApp Business API. Es el trámite más largo y no depende de código.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>El orden que propongo:</strong> primero el estado de automatización y la cola de quiebre, porque
+    <em>mejoran el modo A que ya funciona hoy</em> — sin agente que envíe, la coordinadora ya gana un sitio
+    donde ve qué exige criterio y qué no. Después la configuración por fase. La reorganización de las
+    cuatro ventanas, al final: es la que más toca y la única que conviene enseñar antes a un cliente real.
+  </div>
+
+  <footer>Fyllio · arquitectura de producto · borrador para discusión</footer>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fyllio · Arquitectura del punto de quiebre</title>
+<style>
+  :root {
+    --accent: #3D6FB2;
+    --accent-soft: #EAF1FA;
+    --agent: #3D6FB2;
+    --agent-soft: #EDF3FB;
+    --human: #C2410C;
+    --human-soft: #FFF3EC;
+    --danger: #B91C1C;
+    --success: #15803D;
+    --success-soft: #EFF9F1;
+    --ink: #0F172A;
+    --muted: #64748B;
+    --line: #E2E8F0;
+    --surface: #FFFFFF;
+    --bg: #F8FAFC;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 48px 32px;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  h1 { font-size: 30px; font-weight: 650; margin: 0 0 6px; letter-spacing: -0.02em; }
+  .sub { color: var(--muted); font-size: 15px; margin: 0 0 8px; }
+  .thesis {
+    font-size: 16px; line-height: 1.55; margin: 0 0 36px;
+    padding: 16px 20px; background: var(--accent-soft);
+    border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0;
+  }
+
+  /* aviso de estado del documento */
+  .draft {
+    font-size: 13px; line-height: 1.5; color: var(--muted);
+    border: 1px dashed #CBD5E1; border-radius: 8px;
+    padding: 11px 15px; margin: 0 0 22px; background: var(--surface);
+  }
+  .draft strong { color: var(--ink); font-weight: 620; }
+
+  /* leyenda */
+  .legend { display: flex; gap: 26px; flex-wrap: wrap; margin-bottom: 34px; font-size: 13px; }
+  .legend span { display: flex; align-items: center; gap: 8px; color: var(--muted); }
+  .dot { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+  /* etapa */
+  .stage { margin-bottom: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  .stage-head {
+    display: flex; align-items: baseline; gap: 12px;
+    padding: 16px 22px; border-bottom: 1px solid var(--line);
+    background: #FCFDFE;
+  }
+  .num {
+    font-size: 12px; font-weight: 700; letter-spacing: .08em;
+    color: var(--accent); background: var(--accent-soft);
+    padding: 4px 9px; border-radius: 5px;
+  }
+  .stage-name { font-size: 17px; font-weight: 620; }
+  .stage-q { font-size: 13.5px; color: var(--muted); margin-left: auto; font-style: italic; }
+
+  .lanes { display: grid; grid-template-columns: 1fr 44px 1fr; }
+  .lane { padding: 18px 22px 20px; }
+  .lane-title {
+    font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+    margin-bottom: 12px; display: flex; align-items: center; gap: 7px;
+  }
+  .lane.agent .lane-title { color: var(--agent); }
+  .lane.human .lane-title { color: var(--human); }
+  .lane.agent { background: var(--agent-soft); }
+  .lane.human { background: var(--human-soft); }
+
+  ul { margin: 0; padding: 0; list-style: none; }
+  li {
+    font-size: 13.5px; line-height: 1.5; padding: 5px 0 5px 16px;
+    position: relative; color: #1E293B;
+  }
+  li::before {
+    content: ""; position: absolute; left: 2px; top: 12px;
+    width: 5px; height: 5px; border-radius: 50%;
+  }
+  .lane.agent li::before { background: var(--agent); }
+  .lane.human li::before { background: var(--human); }
+
+  /* flecha de quiebre */
+  .breaker {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: linear-gradient(to right, var(--agent-soft) 50%, var(--human-soft) 50%);
+    position: relative;
+  }
+  .breaker svg { display: block; }
+  .breaker-label {
+    position: absolute; top: 14px;
+    font-size: 9px; font-weight: 700; letter-spacing: .08em;
+    color: var(--muted); writing-mode: vertical-rl; text-orientation: mixed;
+  }
+
+  /* triggers */
+  .triggers { padding: 14px 22px 18px; border-top: 1px dashed var(--line); background: #FFFCFA; }
+  .triggers-title {
+    font-size: 11px; font-weight: 700; letter-spacing: .09em; text-transform: uppercase;
+    color: var(--human); margin-bottom: 10px;
+  }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip {
+    font-size: 12.5px; padding: 5px 11px; border-radius: 999px;
+    background: #FFF; border: 1px solid #F0CDBB; color: #7C2D12;
+  }
+
+  /* bloque universal */
+  .universal {
+    margin: 34px 0 14px; background: var(--surface);
+    border: 2px solid var(--human); border-radius: 12px; padding: 22px 24px;
+  }
+  .universal h2 { font-size: 16px; font-weight: 640; margin: 0 0 4px; color: var(--human); }
+  .universal p { font-size: 13.5px; color: var(--muted); margin: 0 0 16px; }
+  .ugrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .ucard { background: var(--human-soft); border-radius: 8px; padding: 12px 14px; }
+  .ucard strong { display: block; font-size: 13.5px; margin-bottom: 4px; }
+  .ucard span { font-size: 12.5px; color: #7C2D12; line-height: 1.45; }
+
+  /* reglas */
+  .rules { margin-top: 34px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .rule {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 10px; padding: 16px 18px;
+  }
+  .rule strong { display: block; font-size: 14px; margin-bottom: 6px; }
+  .rule span { font-size: 13px; color: var(--muted); line-height: 1.55; }
+
+  footer { margin-top: 38px; font-size: 12.5px; color: var(--muted); text-align: center; }
+
+  @media (max-width: 860px) {
+    .lanes { grid-template-columns: 1fr; }
+    .breaker { height: 44px; background: linear-gradient(to bottom, var(--agent-soft) 50%, var(--human-soft) 50%); }
+    .breaker svg { transform: rotate(90deg); }
+    .breaker-label { writing-mode: horizontal-tb; top: 4px; }
+    .ugrid, .rules { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>Arquitectura del punto de quiebre</h1>
+  <p class="sub">Fyllio · dónde trabaja el agente y dónde entra la persona</p>
+
+  <p class="draft">
+    <strong>Documento de discusión, no especificación.</strong> Nada de aquí se implementa sin decisión
+    explícita anotada en <code>DECISIONES.md</code>. El plan de desarrollo que lo acompaña está en
+    <code>PLAN-AGENTE.md</code>, y de sus cinco fases solo la 0 y la 1 están decididas.
+  </p>
+
+  <p class="thesis">
+    Fyllio no es un chatbot ni un CRM. Es el sistema que <strong>decide en qué momento exacto
+    una conversación deja de ser repetitiva y pasa a necesitar criterio humano</strong>.
+    El agente se ocupa de todo lo que tiene una respuesta correcta conocida.
+    La persona entra cuando hay que decidir algo que compromete a la clínica.
+  </p>
+
+  <div class="legend">
+    <span><i class="dot" style="background:var(--agent)"></i> Agente · automático</span>
+    <span><i class="dot" style="background:var(--human)"></i> Persona · criterio</span>
+    <span><i class="dot" style="background:#CBD5E1"></i> Quiebre · el agente para y avisa</span>
+  </div>
+
+  <!-- ETAPA 1 -->
+  <div class="stage">
+    <div class="stage-head">
+      <span class="num">01</span>
+      <span class="stage-name">Lead entrante</span>
+      <span class="stage-q">¿quién es y qué necesita?</span>
+    </div>
+    <div class="lanes">
+      <div class="lane agent">
+        <div class="lane-title">El agente lo hace solo</div>
+        <ul>
+          <li>Responde al instante, a cualquier hora</li>
+          <li>Pregunta motivo de consulta y qué le duele</li>
+          <li>Identifica el tratamiento de interés</li>
+          <li>Deduce la especialidad que corresponde</li>
+          <li>Consulta la agenda y los huecos reales</li>
+          <li>Propone horarios y agenda la cita</li>
+          <li>Confirma y registra todo en el hilo</li>
+        </ul>
+      </div>
+      <div class="breaker">
+        <span class="breaker-label">QUIEBRE</span>
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <path d="M2 11h16m0 0l-5-5m5 5l-5 5" stroke="#94A3B8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="lane human">
+        <div class="lane-title">Entra la persona</div>
+        <ul>
+          <li>Urgencia con dolor: prioridad clínica, hueco fuera de agenda</li>
+          <li>Caso complejo que no encaja en una especialidad clara</li>
+          <li>Pregunta el precio antes de venir</li>
+          <li>Pide explícitamente hablar con alguien</li>
+        </ul>
+      </div>
+    </div>
+    <div class="triggers">
+      <div class="triggers-title">Qué dispara el quiebre en esta etapa</div>
+      <div class="chips">
+        <span class="chip">«¿cuánto cuesta un implante?»</span>
+        <span class="chip">«me duele muchísimo»</span>
+        <span class="chip">«¿me atiende el Dr. X?»</span>
+        <span class="chip">«prefiero hablar por teléfono»</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ETAPA 2 -->
+  <div class="stage">
+    <div class="stage-head">
+      <span class="num">02</span>
+      <span class="stage-name">Cita agendada</span>
+      <span class="stage-q">¿va a venir?</span>
+    </div>
+    <div class="lanes">
+      <div class="lane agent">
+        <div class="lane-title">El agente lo hace solo</div>
+        <ul>
+          <li>Recordatorio 48 h y 24 h antes</li>
+          <li>Pide confirmación y la registra</li>
+          <li>Reagenda si el paciente no puede</li>
+          <li>Ofrece el hueco liberado a quien está en espera</li>
+          <li>Reactiva al que no asistió sin reproche</li>
+        </ul>
+      </div>
+      <div class="breaker">
+        <span class="breaker-label">QUIEBRE</span>
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <path d="M2 11h16m0 0l-5-5m5 5l-5 5" stroke="#94A3B8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="lane human">
+        <div class="lane-title">Entra la persona</div>
+        <ul>
+          <li><strong>Marcar si asistió o no</strong> — es presencial, nunca automatizable</li>
+          <li>Cancela definitivamente y da un motivo</li>
+          <li>Segunda ausencia seguida: hay algo detrás</li>
+        </ul>
+      </div>
+    </div>
+    <div class="triggers">
+      <div class="triggers-title">Qué dispara el quiebre en esta etapa</div>
+      <div class="chips">
+        <span class="chip">«al final no me interesa»</span>
+        <span class="chip">«lo dejo para más adelante»</span>
+        <span class="chip">segunda ausencia</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ETAPA 3 -->
+  <div class="stage">
+    <div class="stage-head">
+      <span class="num">03</span>
+      <span class="stage-name">Presupuesto presentado</span>
+      <span class="stage-q">¿lo va a aceptar?</span>
+    </div>
+    <div class="lanes">
+      <div class="lane agent">
+        <div class="lane-title">El agente lo hace solo</div>
+        <ul>
+          <li>Seguimiento con cadencia: 2 o 3 toques espaciados</li>
+          <li>Recuerda que el presupuesto sigue vigente</li>
+          <li>Reenvía el enlace del portal si se perdió</li>
+          <li>Si acepta sin condiciones, cierra y avisa a la clínica</li>
+          <li>Si no responde tras la cadencia, lo marca como enfriado</li>
+        </ul>
+      </div>
+      <div class="breaker">
+        <span class="breaker-label">QUIEBRE</span>
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <path d="M2 11h16m0 0l-5-5m5 5l-5 5" stroke="#94A3B8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="lane human">
+        <div class="lane-title">Entra la persona</div>
+        <ul>
+          <li><strong>Cualquier conversación sobre dinero</strong>: precio, descuento, condiciones</li>
+          <li>«¿lo puedo pagar a plazos?» · «¿hay descuento si pago todo?»</li>
+          <li>Objeción: «es caro», «me lo tengo que pensar con mi familia»</li>
+          <li>Pregunta clínica: «¿duele?», «¿cuánto dura?», «¿hay otra opción?»</li>
+          <li>Compara con otra clínica</li>
+        </ul>
+      </div>
+    </div>
+    <div class="triggers">
+      <div class="triggers-title">Qué dispara el quiebre en esta etapa</div>
+      <div class="chips">
+        <span class="chip">«¿me haríais descuento?»</span>
+        <span class="chip">«¿se puede fraccionar?»</span>
+        <span class="chip">«me han dado mejor precio en otro sitio»</span>
+        <span class="chip">«¿es imprescindible hacerlo entero?»</span>
+        <span class="chip">«me da respeto el tratamiento»</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ETAPA 4 -->
+  <div class="stage">
+    <div class="stage-head">
+      <span class="num">04</span>
+      <span class="stage-name">Aceptado · cobro</span>
+      <span class="stage-q">¿va a pagar?</span>
+    </div>
+    <div class="lanes">
+      <div class="lane agent">
+        <div class="lane-title">El agente lo hace solo</div>
+        <ul>
+          <li>Avisa de la cuota que vence en unos días</li>
+          <li>Reclama el importe pendiente cuando vence</li>
+          <li>Confirma el pago recibido y agradece</li>
+          <li>Recuerda el siguiente paso del tratamiento</li>
+        </ul>
+      </div>
+      <div class="breaker">
+        <span class="breaker-label">QUIEBRE</span>
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <path d="M2 11h16m0 0l-5-5m5 5l-5 5" stroke="#94A3B8" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="lane human">
+        <div class="lane-title">Entra la persona</div>
+        <ul>
+          <li>«He pagado y no me llega la factura»</li>
+          <li>«Este mes no puedo, ¿me lo podéis aplazar?»</li>
+          <li>Quiere renegociar plazos o importe</li>
+          <li>Impago prolongado: decisión de la clínica, no del sistema</li>
+          <li>Cualquier queja o reclamación</li>
+        </ul>
+      </div>
+    </div>
+    <div class="triggers">
+      <div class="triggers-title">Qué dispara el quiebre en esta etapa</div>
+      <div class="chips">
+        <span class="chip">«no me ha llegado nada»</span>
+        <span class="chip">«¿puedo pagarlo el mes que viene?»</span>
+        <span class="chip">«creo que ya lo pagué»</span>
+        <span class="chip">cualquier reclamación</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- UNIVERSALES -->
+  <div class="universal">
+    <h2>Disparadores universales · rompen en cualquier etapa</h2>
+    <p>Da igual dónde esté el paciente en el embudo: si aparece cualquiera de estas seis cosas, el agente para y avisa.</p>
+    <div class="ugrid">
+      <div class="ucard"><strong>Dinero</strong><span>Precio, descuento, fraccionamiento, condiciones. Comprometer un importe es decisión de la clínica.</span></div>
+      <div class="ucard"><strong>Criterio clínico</strong><span>Cualquier pregunta sobre el tratamiento, el dolor, alternativas o riesgos.</span></div>
+      <div class="ucard"><strong>Queja o problema</strong><span>Algo salió mal. La primera respuesta la da una persona, siempre.</span></div>
+      <div class="ucard"><strong>Pide hablar con alguien</strong><span>Si el paciente lo pide, se le da. Sin insistir ni redirigir.</span></div>
+      <div class="ucard"><strong>Ambigüedad</strong><span>Dos intentos sin entender qué quiere y para. Mejor una persona que una respuesta equivocada.</span></div>
+      <div class="ucard"><strong>Tono negativo</strong><span>Enfado, urgencia emocional, insistencia. El agente no gestiona conflicto.</span></div>
+    </div>
+  </div>
+
+  <!-- REGLAS -->
+  <div class="rules">
+    <div class="rule">
+      <strong>Ante la duda, humano</strong>
+      <span>Un agente que escala de más molesta un poco. Uno que escala de menos le dice algo equivocado a un paciente, y de eso responde la clínica. La asimetría manda: se escala generoso.</span>
+    </div>
+    <div class="rule">
+      <strong>El quiebre lo dispara la intención, no la etapa</strong>
+      <span>Lo que decide no es en qué punto del embudo está el paciente, sino qué acaba de decir. El producto ya clasifica intenciones: acepta, pide cita, pregunta precio. Eso es lo que corta.</span>
+    </div>
+    <div class="rule">
+      <strong>El agente nunca compromete nada</strong>
+      <span>No da precios que no estén en el presupuesto, no concede descuentos, no fija condiciones de pago, no opina sobre un tratamiento. Informa de lo que ya está decidido.</span>
+    </div>
+    <div class="rule">
+      <strong>Al quebrar, el humano hereda el contexto</strong>
+      <span>Cuando entra la persona, ve la conversación entera, qué pasó y por qué se paró. No empieza de cero ni pide al paciente que repita.</span>
+    </div>
+    <div class="rule">
+      <strong>Tres modos de confianza</strong>
+      <span>A: el agente prepara y la persona envía. B: envía solo lo rutinario y consulta el resto. C: autónomo hasta el quiebre. Cada clínica elige dónde está y sube cuando se fía.</span>
+    </div>
+    <div class="rule">
+      <strong>Todo queda registrado igual</strong>
+      <span>Lo diga el agente o lo diga la coordinadora, va al mismo hilo y al mismo historial. La clínica siempre puede ver quién dijo qué y cuándo.</span>
+    </div>
+  </div>
+
+  <footer>Fyllio · documento de arquitectura de producto · borrador para discusión</footer>
+
+</div>
+</body>
+</html>

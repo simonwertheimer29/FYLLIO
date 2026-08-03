@@ -9,15 +9,32 @@ Dónde está Fyllio hoy, en una pantalla. Se lee al abrir sesión y se regenera 
 > Se genera leyendo [`MEJORAS-PENDIENTES.md`](MEJORAS-PENDIENTES.md) ·
 > [`MERCADO.md`](MERCADO.md) · [`DECISIONES.md`](DECISIONES.md) ·
 > [`REUNION-RB-DENTAL.md`](REUNION-RB-DENTAL.md) ·
-> [`guion-demo-fyllio.md`](guion-demo-fyllio.md).
+> [`guion-demo-fyllio.md`](guion-demo-fyllio.md) ·
+> [`PLAN-AGENTE.md`](PLAN-AGENTE.md).
 
-**Regenerado:** 1 de agosto de 2026.
+**Regenerado:** 3 de agosto de 2026.
 
 ---
 
 ## Ahora mismo
 
-**Sesión del 31 jul – 1 ago cerrada: pasada visual completa y reconciliación de cifras hecha.**
+**Hoy (3 ago) entran al repo los tres documentos de la capa de automatización.** Son de producto
+y estrategia, **no specs**: nada de ellos se implementa sin decisión explícita en
+[`DECISIONES.md`](DECISIONES.md).
+
+| Documento | Qué es | Estado |
+|---|---|---|
+| [`PLAN-AGENTE.md`](PLAN-AGENTE.md) | El plan por fases + anexo de WhatsApp Business API | **Plan de producto, no hoja de ruta comprometida.** De cinco fases, **solo la 0 y la 1 decididas** |
+| [`docs/arquitectura-agente-quiebre.html`](docs/arquitectura-agente-quiebre.html) | Dónde trabaja el agente y dónde entra la persona, etapa por etapa | Borrador visual para discusión |
+| [`docs/arquitectura-app-automatizacion.html`](docs/arquitectura-app-automatizacion.html) | La app reorganizada por función + la máquina de estados de un caso | Borrador visual para discusión |
+
+Los dos HTML se abren en el navegador y **no forman parte de la aplicación**: viven en
+[`docs/`](docs/), fuera de `app/` y de `public/`, así que Next ni los sirve ni los compila
+(verificado con `npm run build`). El anexo de WhatsApp lleva **la misma regla de higiene que
+[`MERCADO.md`](MERCADO.md)**: son fuentes secundarias del 1 de agosto y sus precios y plazos
+**hay que reverificarlos antes de comprometerlos con un cliente**.
+
+**Sesión anterior (31 jul – 1 ago) cerrada: pasada visual completa y reconciliación de cifras.**
 Nació de una revisión externa que recorrió producción sección por sección; el detalle de cada
 cierre está en [`DECISIONES.md`](DECISIONES.md).
 
@@ -41,6 +58,9 @@ cierre está en [`DECISIONES.md`](DECISIONES.md).
   editores de plantillas, que es el único con riesgo de dato: censo hecho en
   [MEJORAS 74](MEJORAS-PENDIENTES.md). El layout ya está en tokens (era lo único urgente).
 - **`/informes` como pantalla propia** ([MEJORAS 81](MEJORAS-PENDIENTES.md)).
+- **Fase 1 de [`PLAN-AGENTE.md`](PLAN-AGENTE.md)** — estado de automatización por caso y cohorte
+  de quiebre en Seguimiento. Decidida, **no depende de WhatsApp**, y mejora el modo A que ya
+  funciona hoy. Sin prioridad fijada frente a las dos de arriba.
 - **El resto del informe externo**, que es flujo y no fallos: KPIs clicables, modo cola en el
   drawer, paginación de Pacientes ([MEJORAS 87](MEJORAS-PENDIENTES.md), sin priorizar).
 
@@ -48,23 +68,28 @@ cierre está en [`DECISIONES.md`](DECISIONES.md).
 
 ## 🔴 Bloqueante de la demo — lo único que impide enseñarla
 
-**El código no bloquea nada.** Lo que falta es de montaje, y la reunión es la semana del 3.
+**El código no bloquea nada.** Lo que falta es de montaje, **y la semana de la reunión es esta**.
 
 | Qué | Por qué bloquea | Quién |
 |---|---|---|
-| **El tenant de RB, montado** con sus diez clínicas y sus dos marcas | Es el **acto V del guion** ("esto es lo suyo"), y el guion dice que ese acto **no se recorta nunca**. Sin él la demo termina en datos inventados en vez de en una propuesta | Simon, antes del 3 de agosto |
+| **El tenant de RB, montado** con sus diez clínicas y sus dos marcas | Es el **acto V del guion** ("esto es lo suyo"), y el guion dice que ese acto **no se recorta nunca**. Sin él la demo termina en datos inventados en vez de en una propuesta | Simon, antes de la reunión |
 | **`npm run demo:reset` el mismo día** | Ancla las fechas a "hoy". Sin él, la demo envejece y las comparativas del mes salen raras | Simon, el mismo día |
 | **Los doctores de RB dados de alta** en Postgres | `staff` está vacía en las bases piloto: el selector de doctor sale vacío. El guion manda avisarlo antes de que lo vean, pero es mejor que no pase | Simon |
 
 **No bloquean la demo, pero conviene saberlo antes de entrar:**
 
-- **Sin dominio propio** — la URL es un `.vercel.app` con hash. Es lo primero que se ve.
+- **Sin dominio propio** — la URL es un `.vercel.app` con hash. Es lo primero que se ve, **y desde
+  hoy bloquea también el trámite de WhatsApp** (ver abajo): Meta rechaza las verificaciones hechas
+  con Gmail.
 - **`npm run verificar:produccion` sigue sin poder correr**: falta `FYLLIO_COOKIE`. Es la única
-  comprobación que mira el entorno desplegado de verdad; todo lo verificado esta sesión ha sido
-  contra el build de producción **en local**.
+  comprobación que mira el entorno desplegado de verdad; todo lo verificado la sesión pasada ha
+  sido contra el build de producción **en local**.
 - **Los teléfonos del seed** no están en el rango reservado +34 600 000 xxx.
-- **`/automatizaciones` y `/llamadas` no se enseñan** (guion §6). Llamadas ya lo dice en pantalla
-  desde hoy; Automatizaciones no.
+- **`/automatizaciones` y `/llamadas` no se enseñan** (guion §6). Llamadas ya lo dice en pantalla;
+  Automatizaciones no.
+- **La automatización no se promete.** Los tres documentos de hoy son borradores internos: en la
+  reunión se enseña lo que existe, no el plan. Si sale el tema, lo honesto es "está diseñado, no
+  construido, y arranca por lo que no depende de WhatsApp".
 
 ---
 
@@ -73,19 +98,29 @@ cierre está en [`DECISIONES.md`](DECISIONES.md).
 | Qué | Por qué | Lo desbloquea |
 |---|---|---|
 | Piloto con datos reales de RB | Sin art. 28 y NDA firmados no se toca un dato de paciente | Firma de ambas partes |
+| **Envío real por WhatsApp — fase 0 de [`PLAN-AGENTE.md`](PLAN-AGENTE.md)** | **Cadena de dependencia declarada: sin registro fiscal no hay verificación de empresa de Meta, y sin verificación no hay piloto real.** El 036/037 con NIF (o Fyllio S.L. constituida) es lo que habilita la verificación; la verificación es lo que quita el techo de **250 destinatarios únicos / 24 h**, abre el escalado de tiers y es requisito de Tech Provider (fase 5). Es **el camino crítico del proyecto, y no es código** | Simon: alta fiscal ante Hacienda **+** email de dominio propio |
+
+**El matiz que evita declarar el bloqueo más grande de lo que es:** el **número de prueba** de Meta
+(5 destinatarios, plantilla ya aprobada) se consigue **hoy y sin verificación**, y con él se
+desarrolla y se demuestra la integración entera. Lo que el registro fiscal bloquea es el **piloto
+que crece** y el segundo cliente, no el desarrollo. Por eso las fases 1 y 2 del plan no dependen
+de esto.
 
 ---
 
 ## Próximos tres hitos
 
-1. **Reunión con RB Dental** — semana del **3 de agosto de 2026**. Es la fecha que manda: ocho
-   de las once hipótesis abiertas se tocan ahí. Preguntas y checklist previo en
+1. **Reunión con RB Dental** — **esta semana** (semana del 3 de agosto de 2026). Es la fecha que
+   manda: ocho de las once hipótesis abiertas se tocan ahí. Preguntas y checklist previo en
    [`REUNION-RB-DENTAL.md`](REUNION-RB-DENTAL.md); cómo se enseña el producto, en
    [`guion-demo-fyllio.md`](guion-demo-fyllio.md).
 2. **Fusión de ajustes + `/informes`** — condición: que pase la reunión. Ambas aprobadas y con
    propuesta escrita.
-3. **Arranque del piloto** — condición: que RB diga que sí, más los seis pendientes de
-   onboarding de abajo. Fecha a fijar en la propia reunión.
+3. **Arranque del piloto** — condición: que RB diga que sí, más los pendientes de onboarding de
+   abajo. Fecha a fijar en la propia reunión.
+
+Y en paralelo, sin depender de nada de lo anterior: **fase 0** (el trámite, que solo avanza si
+avanza el alta fiscal) y **fase 1** del plan de automatización.
 
 ---
 
@@ -100,6 +135,11 @@ Once, todas en [`MERCADO.md` §4](MERCADO.md). Lo que las cierra:
 Refutadas y por qué, en la misma sección: **R1** (el 52% salía del seed de DEMO) y **R2** (los
 9.000 de Madrid eran dentistas colegiados, no clínicas).
 
+**H9** es ahora también la hipótesis que condiciona el diseño de las plantillas del agente: si el
+mensaje neutro con enlace al portal no convierte igual, la restricción de datos de salud del art. 9
+(anexo de [`PLAN-AGENTE.md`](PLAN-AGENTE.md), [MEJORAS 83](MEJORAS-PENDIENTES.md)) deja de ser
+sólo una regla de cumplimiento y pasa a ser un coste medible.
+
 ---
 
 ## Pendientes que no son código
@@ -108,12 +148,15 @@ De [`REUNION-RB-DENTAL.md` §9](REUNION-RB-DENTAL.md), que es la lista viva:
 
 - [ ] **Contrato art. 28 RGPD** firmado — bloqueante, antes de tocar un dato real.
 - [ ] **NDA con RB** — bloqueante.
+- [ ] **Alta fiscal ante Hacienda** (036/037 con NIF, o Fyllio S.L. constituida) — **nuevo, y es el
+      camino crítico de la capa de automatización.** Ver Bloqueado.
+- [ ] **Dominio propio** (`app.fyllio.com` o similar) — ahora con **dos** razones: una URL de Vercel
+      con hash no se enseña a un cliente, **y** Meta rechaza o retrasa la verificación de empresa
+      hecha con Gmail. Dejó de ser cosmético.
 - [ ] **Alta de los doctores de RB** en Postgres: `staff` está vacía en las bases piloto y el
       selector de doctor saldría vacío.
 - [ ] **Plantillas de cobranza de RB** actualizadas a `{{pendiente}}`.
 - [ ] **Teléfonos del seed de DEMO** al rango reservado +34 600 000 xxx.
-- [ ] **Dominio propio** (`app.fyllio.com` o similar): una URL de Vercel con hash no se enseña
-      a un cliente.
 
 Y uno que salió de la investigación de mercado y sí es de producto, pero decide Simon:
 [MEJORAS 83](MEJORAS-PENDIENTES.md) — nuestras plantillas de ejemplo nombran tratamiento e
@@ -133,4 +176,5 @@ importe en el mismo WhatsApp, que es dato de salud del art. 9.
 | QA de /kpis | 18/18 (`npm run qa:kpis`, necesita el server en :3100) |
 | MEJORAS | 88 entradas · **64 abiertas** 🔵 · 30 hechas 🟢 · 19 cerradas ✅ · 4 descartadas ⚪ |
 | Migraciones | 011 · 012 · 013 (visto hoy) aplicadas |
-| Sin verificar en producción | Ver Bloqueado. Lo de hoy sí se verificó en navegador real contra el build de producción |
+| Documentos de discusión | **2** HTML en [`docs/`](docs/), fuera del build. Verificado: `npm run build` no los sirve ni los empaqueta |
+| Sin verificar en producción | Ver Bloqueado. Lo verificado la sesión pasada fue en navegador real contra el build de producción **en local** |
