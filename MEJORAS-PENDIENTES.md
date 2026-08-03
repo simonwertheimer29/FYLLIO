@@ -1049,7 +1049,17 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   dejarlo a medias: un componente que llama a una ruta inexistente es una trampa para el
   siguiente que lo monte.
 - **Impacto:** nulo hoy, alto el día que alguien lo monte creyendo que funciona.
-- **Fecha:** 2026-07-29 · 🔵
+- **Fecha:** 2026-07-29 · ✅ **cerrada el 2026-08-03: se retira.** La auditoría de WhatsApp
+  destapó que el panel llamaba además a `/api/whatsapp/send`, y la arqueología dio la respuesta:
+  esa ruta y las tres que usaba `OperationsPanel` (`/api/db/appointments`, `/api/db/quotes`,
+  `/api/dashboard/*`) **se borraron a propósito** en `a8717a3` («fuera la isla de prototipo
+  bloqueada en producción»), junto con las páginas `/demo` y `/dashboard` y ~40 componentes.
+  `NoShowRiskPanel` y `OperationsPanel` eran **los dos supervivientes de esa misma limpieza**:
+  el censo de huérfanos confirmó que nadie los importaba (solo se citaban entre sí, en
+  comentarios). Se borran los dos (1.599 líneas), y con ellos las **3 entradas de deuda `?? []`**
+  que el trinquete llevaba declaradas precisamente porque el archivo «hay que BORRAR, no
+  migrar»: la deuda baja de **15 a 12**. Queda **cero** rutas inexistentes llamadas desde
+  componentes. `InformesView` sigue sin montar, pero eso es MEJORAS 81, no residuo.
 
 ## 61. El CSV de la Tabla exporta otra cosa que la que estás viendo (D7)
 - **Zona:** `MaximaView.tsx` (`ExportCsvButton`) → `/api/export/presupuestos.csv`
@@ -1113,8 +1123,8 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   `kanban/[id]/route.ts`, `lib/presupuestos/intervencion.ts`,
   `lib/presupuestos/mensajeria.ts`, `lib/copilot/tools-exec.ts`,
   `lib/no-shows/score.ts`, `lib/demo/seed.ts`,
-  `lib/scheduler/waitlist/eligibility.ts`, `api/kpis/no-shows/route.ts`,
-  `components/dashboard/NoShowRiskPanel.tsx`, `components/actions/OperationsPanel.tsx`
+  `lib/scheduler/waitlist/eligibility.ts`, `api/kpis/no-shows/route.ts`
+  *(las dos de `components/` desaparecieron con MEJORAS 60 el 2026-08-03: quedan **ocho**)*
 - **Principio:** una sola verdad — `TZ_CLINICA` vive en `lib/time` desde que se
   cerró MEJORAS 52. Hoy todas dicen lo mismo; el día que un cliente esté en otra
   zona, se cambia en un sitio y hay diez que no.

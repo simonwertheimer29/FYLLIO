@@ -71,13 +71,10 @@ const DEUDA = new Set([
   "app/components/pacientes/Paciente360View.tsx: `j.mensajes ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
   "app/components/presupuestos/ConfigAutomatizaciones.tsx: `d.clinicas ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
   // (Las dos de InformesView se pagaron el 2026-07-30, bloque 1.2 de /kpis.)
-  // OperationsPanel NO tiene consumidor (igual que NoShowRiskPanel, MEJORAS 60):
-  // código muerto que además llama a rutas del prototipo retirado. Se declara
-  // aquí para no bloquear el build por deuda de un archivo que hay que BORRAR,
-  // no migrar — la decisión de retirarlo va con la nº 60.
-  "app/components/actions/OperationsPanel.tsx: `txJson.patients ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/components/actions/OperationsPanel.tsx: `fbJson.negativeAlerts ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/components/actions/OperationsPanel.tsx: `qJson.quotes ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
+  // (Las tres de OperationsPanel se pagaron el 2026-08-03 BORRANDO el archivo,
+  //  que es lo que esta nota pedía: era código muerto —sin consumidor, igual que
+  //  NoShowRiskPanel— llamando a rutas del prototipo retirado en a8717a3.
+  //  MEJORAS 60 cerrada.)
 ]);
 
 const fallos = [];
