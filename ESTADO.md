@@ -41,10 +41,17 @@ Censo completo del código antes de arrancar la fase 0; detalle en [`DECISIONES.
 El envío por Graph API, el webhook con firma y deduplicación, el rate-limit, la idempotencia y el
 switch en la UI **ya existen y funcionan**. Lo que falta es el **envío por plantilla**:
 `enviarPlantilla` está implementado y **no lo llama nadie**, y sin plantilla no se inicia
-conversación fuera de la ventana de 24 h — que es todo lo que hace un recordatorio. **La fase 3 es
-más pequeña de lo que el plan decía, y su parte cara es la que el plan no mencionaba.** Salieron
-además cuatro restos y una avería (`/api/whatsapp/send` da 404 desde dos paneles vivos), ninguno
-tocado.
+conversación fuera de la ventana de 24 h — que es todo lo que hace un recordatorio. **La fase 3 del
+plan quedó reescrita entera**: qué está hecho, qué falta, y el catálogo de **11 plantillas** con qué
+cadencia usa cuál, sus variables y su coste (medio día de redacción + la espera de Meta, que es lo
+que marca el calendario). Estimación honesta: **~1 semana de código + el tiempo de Meta**.
+
+De la auditoría salieron además dos cosas que **ya están cerradas hoy**:
+
+| Qué era | Cómo se cerró |
+|---|---|
+| **`sendWhatsAppMessage` se tragaba los fallos de envío** — sus 5 callers tenían `try/catch` muerto, `sent++` contaba envíos que no salieron, y el motor de no-shows consumía cooldown y emitía `mensaje_enviado` por mensajes que nadie recibió. Era [`7399c55`](DECISIONES.md) sobreviviendo en la capa de envíos | ✅ Lanza `EnvioWhatsAppError`, que distingue **«sé que no salió»** de **«no lo sé»** (§2: no se reintenta a ciegas). De paso, un envío fallido ya no queda marcado como hecho en el dedup del cron. **12/12** en las cuatro ramas |
+| **[MEJORAS 60](MEJORAS-PENDIENTES.md) · `/api/whatsapp/send` daba 404** desde dos paneles | ✅ La arqueología dio la respuesta: la ruta **se borró a propósito** en `a8717a3`, y `NoShowRiskPanel` + `OperationsPanel` eran **los dos supervivientes** de esa limpieza — sin consumidor, llamando a 4 rutas muertas. Borrados (1.599 líneas). La deuda de `?? []` baja de **15 a 12** |
 
 **2 · Tres afinados de metodología en [`PLAN-AGENTE.md`](PLAN-AGENTE.md)**, todos dentro de la fase 1
 o la 4, ninguno cambia el orden: **la tasa de coincidencia agente-humano** (medir si la coordinadora
@@ -196,11 +203,12 @@ importe en el mismo WhatsApp, que es dato de salud del art. 9.
 | Rama | `main`, limpia y al día con `origin` |
 | Fronteras de error | **15** (13 secciones + grupo + global) |
 | Aviso de filtro de clínica | en las **8** pantallas que siguen al selector |
-| Deuda de `?? []` | **15**, y el trinquete solo deja bajar (`npm run qa:sin-fallbacks`) |
+| Deuda de `?? []` | **12** (eran 15; las 3 de `OperationsPanel` se pagaron borrando el archivo), y el trinquete solo deja bajar (`npm run qa:sin-fallbacks`) |
+| Rutas inexistentes llamadas desde componentes | **0** (eran 4, todas en los dos huérfanos retirados) |
 | QA verde | `qa:fechas` **52/52** en 4 husos · `qa:cohortes` · `qa:estado-conversacion` · `qa:sin-fallbacks` · **`qa-dashboard-red`** (paridad + días 1/2/15) · `demo:reset` con 4 invariantes |
 | QA de /kpis | 18/18 (`npm run qa:kpis`, necesita el server en :3100) |
 | MEJORAS | 88 entradas · **64 abiertas** 🔵 · 30 hechas 🟢 · 19 cerradas ✅ · 4 descartadas ⚪ |
 | Migraciones | 011 · 012 · 013 (visto hoy) aplicadas |
 | Documentos de discusión | **2** HTML en [`docs/`](docs/), fuera del build. Verificado: `npm run build` no los sirve ni los empaqueta |
-| Zona WhatsApp (censada 3 ago) | Envío WABA, webhook, rate-limit e idempotencia **vivos y completos** · **plantillas: 0 call sites** · 2 ficheros muertos (`whatsapp/outbound.ts`, `whatsapp/llm.ts`, 352 líneas) · **1 avería: `/api/whatsapp/send` da 404** desde 2 paneles vivos · Twilio en retirada pero vivo en 4 crons y no-shows, tragando fallos |
+| Zona WhatsApp (censada 3 ago) | Envío WABA, webhook, rate-limit e idempotencia **vivos y completos** · **plantillas: 0 call sites** (es lo que falta) · siguen muertos `whatsapp/outbound.ts` y `whatsapp/llm.ts` (352 líneas, **sin retirar**: `outbound.ts` es el único que usa `META_WHATSAPP_TOKEN`/`META_PHONE_NUMBER_ID`, un segundo juego de env vars para lo mismo que `WABA_*`) · Twilio ya **no** traga fallos |
 | Sin verificar en producción | Ver Bloqueado. Lo verificado la sesión pasada fue en navegador real contra el build de producción **en local** |

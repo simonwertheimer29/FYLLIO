@@ -40,7 +40,7 @@ Lo detectado pero no aprobado sigue yendo a [`MEJORAS-PENDIENTES.md`](MEJORAS-PE
 | **0** · El trámite | Registro fiscal, Meta Business, número de prueba, plantillas | ✅ **Decidida** — bloqueante declarado en [`ESTADO.md`](ESTADO.md) |
 | **1** · Estado de automatización y cola de quiebre | La tercera coordenada de cada caso, su cohorte en Seguimiento, **la tasa de coincidencia agente-humano** y **el conjunto de evaluación** | ✅ **Decidida** — no depende de WhatsApp |
 | **2** · El simulador | Modo demostración del embudo entero | ⬜ **No decidida** |
-| **3** · Modo B — el agente envía lo rutinario | Envío y recepción reales por WhatsApp | ⬜ **No decidida** |
+| **3** · Modo B — el agente envía lo rutinario | **Conectar** el envío/recepción (ya construidos) y **construir el catálogo de 11 plantillas** | ⬜ **No decidida** — reescrita el 3 ago tras censar el código |
 | **4** · Modo C y configuración por clínica | Autonomía hasta el quiebre, matriz por fase | ⬜ **No decidida** |
 | **5** · Tech Provider y alta de clientes | Embedded Signup, una WABA por clínica | ⬜ **No decidida** |
 
@@ -64,7 +64,7 @@ Y hay una consecuencia buena: **la fase 1 mejora el modo A, que ya funciona hoy.
 2. **Email de dominio propio.** Meta rechaza o retrasa las verificaciones hechas con Gmail. Necesitas `algo@fyllio.com` — lo que enlaza con el pendiente del dominio, que ya estaba en la lista por otra razón.
 3. **Crear la cuenta de Meta Business** con el nombre legal exacto, la dirección fiscal exacta y el NIF. Cualquier discrepancia con los documentos es rechazo automático.
 4. **Coger el número de prueba** — gratis, inmediato, con una plantilla ya aprobada y hasta 5 destinatarios. Sirve para desarrollar y para demostrar.
-5. **Enviar las plantillas de utilidad a aprobación.** Gratis. La aprobación va de minutos a 48 h y la mayoría en menos de 24. Las tuyas son todas de utilidad (recordatorio de cita, seguimiento de presupuesto, recordatorio de pago), que es la categoría más barata y la que menos se rechaza.
+5. **Enviar las plantillas de utilidad a aprobación.** Gratis. La aprobación va de minutos a 48 h y la mayoría en menos de 24. Son **once**, todas de utilidad —la categoría más barata y la que menos se rechaza— y están listadas con su cadencia y sus variables en el **catálogo de plantillas de la fase 3**. Es el paso que marca el calendario, así que se envían el primer día aunque el resto no esté.
 6. **Verificación de empresa.** Cuando el paso 1 esté resuelto. Sin ella: 250 destinatarios únicos por 24 h y solo plantillas de utilidad y autenticación — que para un piloto de una clínica es suficiente.
 
 **Dónde corta de verdad la dependencia** (importa para no declarar un bloqueo más grande del que es):
@@ -181,21 +181,116 @@ prompt cuyo efecto real nadie puede reconstruir.
 
 ## Fase 3 · Modo B — el agente envía lo rutinario
 
-**No decidida.** **Depende de:** la fase 0 completada y las plantillas aprobadas.
+**No decidida.** **Depende de:** el número de prueba de la fase 0 (no del alta fiscal) y de las plantillas aprobadas.
 
-**Lo que se construye:**
-- Envío real por WhatsApp Business API de lo que no admite discusión: recordatorios de cita, confirmaciones, avisos de vencimiento de pago.
-- Recepción de respuestas por webhook y clasificación en vivo.
-- El quiebre funcionando de verdad: llega una respuesta con disparador y el caso sube a la cola.
-- Todo lo enviado por el agente queda en el mismo hilo que lo enviado por la coordinadora.
+> **Reescrita el 3 de agosto de 2026 tras censar el código.** La versión anterior decía «se
+> construye el envío y la recepción reales». Era falso en las dos direcciones a la vez: estimaba
+> **de más** lo que faltaba construir y **de menos** lo que faltaba de verdad. El censo está en
+> [`DECISIONES.md`](DECISIONES.md).
 
-**Qué se espera ver:** un paciente real recibe un recordatorio que nadie escribió, responde, y su respuesta aparece clasificada en la cola de la coordinadora.
+### Lo que YA está construido y solo hay que conectar
+
+Poniendo las seis variables de entorno (`WABA_PHONE_NUMBER_ID`, `WABA_BUSINESS_ACCOUNT_ID`,
+`WABA_ACCESS_TOKEN`, `WABA_VERIFY_TOKEN`, `META_APP_SECRET`, `WABA_ENABLED`) funciona **sin tocar
+código**:
+
+| Pieza | Dónde |
+|---|---|
+| Envío de texto por Graph API v21.0, con idempotencia, rate-limit y telemetría | `lib/presupuestos/mensajeria.ts` → `ServicioMensajeriaWABA` |
+| Webhook completo: challenge, firma HMAC con `timingSafeEqual`, deduplicación atómica por `WABA_message_id`, persistencia **antes** del 200, IA diferida con `after()` | `api/webhooks/whatsapp/route.ts` |
+| Matching del entrante: teléfono → presupuesto (gana) → lead activo → huérfano | *ídem* |
+| Clasificación de intención + notificación + subida a la cola de intervención | *ídem* |
+| El conmutador manual/WABA, ya cableado en la interfaz | `IntervencionSidePanel` · `LeadAccionPanel` |
+| Health check real del número y detección de token caducado | `api/presupuestos/configuracion-waba` |
+
+**El punto de extensión ya está abierto:** `getServicioMensajeria(modo)` con dos implementaciones de
+la misma interfaz y el modo en `configuracion_automatizaciones.modo_whatsapp`. No hay que abrirlo.
+
+### Lo que falta de verdad
+
+1. **El catálogo de plantillas — la pieza cara, y es su propia sección.** Ver abajo.
+2. **Conectar la cadencia al envío.** Hoy nada programa un toque: el motor de reglas tiene
+   `ejecutarEnviarWA` como esqueleto honesto que devuelve `pendiente_integracion` y nunca `success`
+   (`WA_ENGINE_OPERATIVO = false`). Hay que enganchar el cliente WABA real y **borrar el esqueleto**,
+   no dejar los dos.
+3. **Multi-cliente en el webhook.** `resolveClienteFromWebhook` compara contra un único
+   `phone_number_id` de entorno. Con el número de prueba basta; con dos clínicas, no.
+4. **Normalizar el teléfono a E.164 de verdad.** `normalizarTelefono` quita el `+` pero **no añade
+   prefijo de país**: un `"667188097"` guardado sin prefijo sale a Meta tal cual. Auditar los
+   teléfonos reales **antes** del primer envío, no después.
+5. **Cerrar el `fail-open` del rate limit.** Si la consulta a Postgres falla, hoy deja pasar. Con
+   cuota real de Meta eso cuesta dinero.
+
+### El catálogo de plantillas
+
+**Es la pieza que el plan no mencionaba y la que marca el calendario**, porque no depende de
+nosotros: la aprueba Meta.
+
+**Por qué es imprescindible, y no un detalle de implementación.** WhatsApp solo deja escribir texto
+libre **dentro de las 24 h siguientes al último mensaje del paciente**. Fuera de esa ventana solo
+sale una plantilla aprobada. Y **todo lo que hace este producto empieza fuera de la ventana**: un
+recordatorio de cita, un toque de seguimiento, un aviso de vencimiento — el paciente no ha escrito
+nada. Traducción: **la plantilla es lo que abre la conversación, y el texto libre del agente solo
+vive dentro de la ventana que la plantilla abrió.** Todo lo construido hoy asume la ventana ya
+abierta.
+
+**La consecuencia de producto, que hay que decidir antes de escribir el catálogo:** una plantilla es
+un texto **fijo con variables**, aprobado de antemano. El mensaje personalizado que la IA redacta hoy
+**no puede ser el primer toque de una cadencia**. Ya está anotado en MEJORAS #5B. El patrón que
+funciona: *plantilla neutra que abre → el paciente responde → ahí sí, el agente conversa libre*.
+
+**Y se cruza con la restricción de datos de salud** (art. 9 RGPD, anexo): **ninguna plantilla puede
+nombrar el tratamiento ni el importe.** Todas apuntan al portal, donde el paciente se identifica.
+Eso es lo que mide la hipótesis **H9** de [`MERCADO.md`](MERCADO.md).
+
+#### Qué cadencia usa qué plantilla
+
+Diseño de producto que **no existe todavía**. Todas son de categoría **utilidad** (la más barata y
+la que menos se rechaza), todas en español, ninguna nombra tratamiento ni importe:
+
+| Cadencia | Toque | Plantilla | Variables | Abre ventana para |
+|---|---|---|---|---|
+| **Cita** | 48 h antes | `recordatorio_cita_48h` | nombre · clínica · fecha · hora | reagendar, cancelar, preguntar |
+| **Cita** | 24 h antes | `confirmacion_cita_24h` | nombre · fecha · hora | confirmar asistencia |
+| **Cita** | al reagendar | `cita_reagendada` | nombre · fecha · hora nuevas | confirmar |
+| **Cita** | hueco liberado | `hueco_disponible` | nombre · fecha · hora | aceptar el hueco |
+| **Presupuesto** | toque 1 (~3 días) | `seguimiento_info_disponible` | nombre · clínica · enlace portal | **toda la conversación de la cadencia** |
+| **Presupuesto** | toque 2 (~10 días) | `seguimiento_sigue_vigente` | nombre · fecha de vigencia · enlace | dudas, precio → **quiebre** |
+| **Presupuesto** | toque 3 / reactivación | `reactivacion_sin_reproche` | nombre · clínica · enlace | reabrir el caso |
+| **Cobro** | 3 días antes | `pago_proximo` | nombre · fecha · enlace portal | aplazar → **quiebre** |
+| **Cobro** | al vencer | `pago_vencido` | nombre · enlace portal | negociar → **quiebre** |
+| **Cobro** | al recibir | `pago_recibido` | nombre | agradecer, siguiente paso |
+| **Lead** | lead de formulario | `lead_primer_contacto` | nombre · clínica | **toda la captación** |
+
+**Once plantillas.** Las cuatro de cita y `pago_recibido` son las que menos riesgo de rechazo tienen;
+las de seguimiento y cobro son las delicadas de tono.
+
+**El coste real, que es de calendario y no de código:**
+
+- Escribir y categorizar las once: **medio día**. Es redacción, y la ortografía impecable y el
+  objetivo único por mensaje son lo que evita el rechazo.
+- Enviarlas a aprobación: gratis. **De minutos a 48 h**, la mayoría en menos de 24.
+- **La causa nº 1 de rechazo es la categoría equivocada, no el contenido.** Once plantillas de
+  utilidad bien categorizadas deberían pasar; presupuestar igualmente **una ronda de rechazo y
+  reenvío**.
+- Una vez aprobada, se puede editar **10 veces en 30 días**. Reenviar una rechazada sin cambiarla a
+  fondo **penaliza la calidad de la cuenta** — no se itera a lo bruto.
+- **En código**, en cambio, es barato: `enviarPlantilla` ya está implementado en `mensajeria.ts` y
+  hoy tiene **cero llamadas**. Falta el catálogo (nombre aprobado ↔ plantilla de Fyllio ↔ variables)
+  y llamarlo desde la cadencia. **Uno o dos días.**
+
+**Estimación honesta de la fase 3 entera:** ~**1 semana de código** (catálogo, cadencia, los cuatro
+arreglos de arriba) **más el tiempo de Meta**, que corre en paralelo y conviene empezar el primer
+día. Lo que no cabe es dar por hecha la aprobación en una fecha comprometida con un cliente.
+
+**Qué se espera ver:** un paciente real recibe un recordatorio que nadie escribió, responde, y su respuesta aparece clasificada en la cola de la coordinadora — con el hilo entero, plantilla y texto libre juntos.
 
 **Cómo se pone a prueba:**
 - Con el número de prueba y 5 destinatarios controlados, recorrer los seis disparadores en conversaciones reales.
-- Verificar que ningún mensaje sale sin plantilla aprobada fuera de la ventana de 24 h.
-- Verificar que el contenido no revela tratamiento ni importe (ver la restricción de datos de salud en el anexo).
-- Verificar que un fallo de envío no marca el caso como enviado.
+- **Que ningún mensaje salga sin plantilla aprobada fuera de la ventana de 24 h.** Se prueba al revés, que es como se prueba de verdad: forzar un envío de texto libre con la ventana cerrada y verificar que el sistema **se niega**, en el servidor. Si solo se niega la interfaz, no está probado.
+- **Que ninguna plantilla del catálogo nombre tratamiento ni importe.** Invariante automática sobre el catálogo, no revisión a ojo: el día que alguien añada la número doce, tiene que romper.
+- Que un fallo de envío **no** marque el caso como enviado, y que un fallo *sin respuesta* de Meta no dispare un reintento (mismo criterio que `EnvioWhatsAppError`).
+- Que el teléfono sale en E.164 con prefijo, sobre los teléfonos reales del cliente y no sobre los del seed.
 
 ---
 
@@ -274,7 +369,7 @@ Secuencia y dependencias. **No son fechas comprometidas**, y las fases marcadas 
 | Hoy | ✅ Fase 0 · trámite y número de prueba | Situación fiscal · dominio propio |
 | Semanas 1-2 | ✅ Fase 1 · estado de automatización y cola de quiebre | Nada |
 | Semana 3 | ⬜ Fase 2 · simulador | Fase 1 + decisión |
-| Cuando Meta apruebe | ⬜ Fase 3 · modo B real | Fase 0 completa + decisión |
+| Cuando Meta apruebe las plantillas | ⬜ Fase 3 · modo B real (~1 semana de código + espera de Meta) | Número de prueba + catálogo enviado + decisión |
 | Después del piloto | ⬜ Fase 4 · modo C y configuración | Fase 3 + criterio del cliente |
 | Con el segundo cliente | ⬜ Fase 5 · Tech Provider | Volumen |
 
