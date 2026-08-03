@@ -14,11 +14,37 @@
 //   1 → censado y HAY teléfonos que no saldrían
 //   2 → no se pudo censar (sin conexión, sin contexto de cliente)
 
+import * as dotenv from "dotenv";
+
+// Este censo está PENSADO para correrse contra el entorno real, así que acepta un
+// fichero de entorno distinto de `.env.local` — el que deja `vercel env pull`:
+//   ENV_FILE=.env.production.local npm run qa:telefonos
+const ENV_FILE = process.env.ENV_FILE ?? ".env.local";
+dotenv.config({ path: ENV_FILE });
+dotenv.config();
+
 import { runWithCliente } from "../app/lib/airtable";
 import { runWithClienteDb } from "../app/lib/db/context";
 import { PILOT_CLIENTE } from "../app/lib/multi-cliente-pendiente";
 import { normalizarE164, esMovilEspanol } from "../app/lib/telefono";
 import { sql } from "kysely";
+
+/**
+ * Host de la base, SIN credenciales. §9 — una herramienta tiene que decir con qué
+ * está hablando: si no, se puede censar la base local y creer que se censó
+ * producción, que es exactamente el falso aprobado que este script existe para
+ * evitar.
+ */
+function hostDeLaBase(): string {
+  const url = process.env.SUPABASE_DB_URL_APP;
+  if (!url) return "(sin configurar)";
+  try {
+    const u = new URL(url);
+    return `${u.hostname}:${u.port || "5432"}${u.pathname}`;
+  } catch {
+    return "(URL no parseable)";
+  }
+}
 
 type Fila = { tabla: string; id: string; nombre: string; telefono: string | null };
 
@@ -38,13 +64,18 @@ async function censar(cliente: string): Promise<Fila[]> {
 
 const cliente = process.argv[2] ?? PILOT_CLIENTE;
 
+console.log(`\n· entorno: ${ENV_FILE}`);
+console.log(`· base:    ${hostDeLaBase()}`);
+console.log(`· cliente: ${cliente}`);
+console.log(`· lectura: solo SELECT — este script no escribe nada.`);
+
 let filas: Fila[];
 try {
   filas = await censar(cliente);
 } catch (err) {
   // Sonda: si no podemos hablar con la base, se aborta CON MOTIVO en vez de
   // arrastrar el mismo error por cada comprobación (§9).
-  console.error(`✗ No se pudo censar el cliente "${cliente}".`);
+  console.error(`\n✗ No se pudo censar el cliente "${cliente}".`);
   console.error(`  Motivo: ${err instanceof Error ? err.message : String(err)}`);
   process.exit(2);
 }
