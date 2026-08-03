@@ -26,7 +26,7 @@ Guion de la reunión con RB Dental — red de 10 clínicas en Madrid (marcas RB 
 - [ ] `npm run demo:reset` el mismo día, para que las fechas estén ancladas.
 - [ ] Repasar el guion de demo ([`guion-demo-fyllio.md`](guion-demo-fyllio.md)), que trae su propia checklist de preparación.
 - [ ] Verificar en preview: `/red`, `/seguimiento`, `/cobros`, `/presupuestos` y la ficha de paciente.
-- [ ] **Tener el tenant de RB montado con sus diez clínicas y sus dos marcas.** Es el cierre de la demo y lo que la convierte en propuesta; sin él, el último acto no existe.
+- [ ] **La demo va íntegramente sobre DEMO — no se cambia de tenant.** Decidido el 3 ago de 2026: el entorno de RB **no se monta antes** de esta reunión, porque la mitad de esas decisiones salen precisamente de aquí. Su alta pasa a ser el primer paso del onboarding. El cierre de la demo ya no es "su Fyllio vacío" sino el **selector multi-clínica de DEMO** (§5 del guion). Si tienes una sesión abierta con el tenant de RB, ciérrala antes.
 - [ ] Llevar con qué tomar notas — y, si aceptan, **grabar la reunión**. Pídelo al principio: "¿os importa que grabe para no perder detalle?". Vale oro después.
 - [ ] Decidir de antemano qué NO vas a prometer. Si piden algo que no existe, la respuesta es "eso hoy no lo hace; cuéntame cómo lo resolveríais vosotros" — nunca "sí, se puede hacer".
 
@@ -45,7 +45,7 @@ Guion de la reunión con RB Dental — red de 10 clínicas en Madrid (marcas RB 
 
 Si el tiempo se acorta, **el bloque A no se recorta**. Se recorta la demo.
 
-El bloque B va por [`guion-demo-fyllio.md`](guion-demo-fyllio.md), que está escrito para 35-45 minutos: en estos 20 se recorta por su §9, y lo que nunca se cae es `/red`, `/seguimiento`, la ficha con el panel de acción y el cierre con su tenant vacío.
+El bloque B va por [`guion-demo-fyllio.md`](guion-demo-fyllio.md), que está escrito para 35-45 minutos: en estos 20 se recorta por su §9, y lo que nunca se cae es `/red`, `/seguimiento`, la ficha con el panel de acción y el cierre con el selector multi-clínica (que desde el 3 ago cuesta dos minutos y no cambia de tenant).
 
 ---
 

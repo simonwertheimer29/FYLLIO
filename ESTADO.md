@@ -100,9 +100,20 @@ cierre está en [`DECISIONES.md`](DECISIONES.md).
 
 | Qué | Por qué bloquea | Quién |
 |---|---|---|
-| **El tenant de RB, montado** con sus diez clínicas y sus dos marcas | Es el **acto V del guion** ("esto es lo suyo"), y el guion dice que ese acto **no se recorta nunca**. Sin él la demo termina en datos inventados en vez de en una propuesta | Simon, antes de la reunión |
-| **`npm run demo:reset` el mismo día** | Ancla las fechas a "hoy". Sin él, la demo envejece y las comparativas del mes salen raras | Simon, el mismo día |
-| **El tenant de RB está VACÍO ENTERO**, no solo `staff` | Censado el 3 ago con `npm run qa:telefonos`: **RB e INDEP devuelven 0 pacientes y 0 leads**, por el mismo camino por el que DEMO devuelve 434 — así que el mecanismo funciona y están vacíos de verdad. Se creía que faltaban solo los doctores; falta todo. El selector de doctor vacío era el síntoma visible de esto | Simon |
+| **`npm run demo:reset` el mismo día** | Ancla las fechas a "hoy". Sin él, la demo envejece y las comparativas del mes salen raras. **Es el único bloqueante que queda** | Simon, el mismo día |
+
+**El tenant de RB dejó de ser bloqueante el 3 de agosto: la demo se hace íntegramente sobre DEMO.**
+No se monta antes de la reunión porque **faltan decisiones que solo salen de esa conversación**, así
+que pasa a ser el primer paso del onboarding. El §5 del guion ya no cambia de tenant: cierra
+enseñando el **selector multi-clínica de DEMO** —«así es como van a mirar su red»— y coloca el alta
+de su entorno como arranque del piloto. Sale más barato de recortar que el cierre anterior (dos
+minutos sobre `/red`, sin cambiar de sesión) y no enseña ni una pantalla vacía.
+
+Dato que sostiene la decisión, censado el 3 ago: **RB e INDEP devuelven 0 pacientes y 0 leads**, por
+el mismo camino por el que DEMO devuelve 434 — así que están vacíos de verdad, no es un filtro. Se
+creía que faltaban solo los doctores; falta todo. Sus **diez clínicas sí están creadas**, con sus
+nombres reales y sus dos marcas, así que eso es cierto y se puede decir en la reunión — pero no se
+enseña.
 
 **No bloquean la demo, pero conviene saberlo antes de entrar:**
 
@@ -188,8 +199,18 @@ De [`REUNION-RB-DENTAL.md` §9](REUNION-RB-DENTAL.md), que es la lista viva:
 - [ ] **Dominio propio** (`app.fyllio.com` o similar) — ahora con **dos** razones: una URL de Vercel
       con hash no se enseña a un cliente, **y** Meta rechaza o retrasa la verificación de empresa
       hecha con Gmail. Dejó de ser cosmético.
-- [ ] **Alta de los doctores de RB** en Postgres: `staff` está vacía en las bases piloto y el
-      selector de doctor saldría vacío.
+**Pasos de onboarding del tenant de RB** — dejaron de ser bloqueantes de la demo el 3 ago y son el
+primer trabajo del piloto, en este orden:
+
+- [ ] **Cargar pacientes y leads de RB.** Hoy: **0 y 0**. Las diez clínicas ya existen con sus
+      nombres y sus dos marcas; lo que falta son los datos. Depende de qué PMS usen y de si se puede
+      exportar — que es una de las preguntas de la reunión.
+- [ ] **Alta de los doctores de RB** en Postgres: `staff` está vacía y el selector de doctor saldría
+      vacío.
+- [ ] **Censo de teléfonos con `npm run qa:telefonos`** en cuanto haya datos cargados, y **antes** de
+      cualquier envío. Hoy no dice nada porque no hay a quién censar; el día que carguen, dice
+      cuántos números saldrían mal a Meta, cuántos son fijos (WhatsApp no entrega ahí) y cuántos hay
+      que mirar a mano. Es requisito de entrada a la fase 3 de [`PLAN-AGENTE.md`](PLAN-AGENTE.md).
 - [ ] **Plantillas de cobranza de RB** actualizadas a `{{pendiente}}`.
 - [ ] **Teléfonos del seed de DEMO** al rango reservado +34 600 000 xxx.
 

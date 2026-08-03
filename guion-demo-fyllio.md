@@ -30,7 +30,8 @@ Si en algún momento te descubres explicando cómo funciona algo por dentro, has
 - [ ] Verificar en el navegador que cargan: `/red`, `/seguimiento`, `/leads`, `/presupuestos`, `/pacientes`, `/cobros`, `/kpis`.
 - [ ] Abrir las pestañas por adelantado, en el orden del guion. Nada de navegar por el menú delante del cliente.
 - [ ] Modo claro. El oscuro está bien, pero en proyector o pantalla compartida el claro se lee mejor.
-- [ ] Tener el tenant de RB preparado y accesible (ver §5).
+- [ ] **Sesión iniciada en DEMO, y en DEMO se queda.** La demo no cambia de tenant en ningún momento (ver §5). Si tienes otra sesión abierta con el tenant de RB, ciérrala: no es un sitio al que quieras llegar por error.
+- [ ] Comprobar que el **selector de clínica** de arriba lista las cuatro de DEMO y que al cambiar de una a otra las cifras se mueven — es el cierre (§5).
 - [ ] Cerrar Slack, correo y notificaciones.
 - [ ] Comprobar que el enlace de portal de paciente funciona, por si sale la conversación.
 
@@ -155,21 +156,45 @@ Enseña el ranking por doctor y para.
 
 ---
 
-## 5 · El cierre — su Fyllio, vacío (~5 min)
+## 5 · El cierre — cómo se verá su red (~5 min)
 
-Cambia al tenant de RB. **Esto es lo que convierte una demo en una propuesta.**
+**La demo entera va sobre DEMO. No se cambia de tenant.** Enseñar su Fyllio vacío se cayó el 3 de
+agosto de 2026: faltan decisiones que solo salen de esta conversación, así que su tenant se monta
+**después**, como primer paso del piloto. Diez pantallas vacías no convierten una demo en una
+propuesta — la convierten en una promesa.
 
-> "Todo lo que han visto era un entorno de demostración con datos inventados. Esto es lo suyo."
+Lo que sí hace ese trabajo, y no necesita ni un dato suyo, es **el selector de clínica**.
 
-Enseña sus clínicas configuradas con sus nombres reales, y las pantallas vacías.
+**Qué enseñar:** vuelve a `/red` y usa el selector de arriba, no la tabla (esa ya salió en el Acto I).
 
-> "Está montado, aislado, y esperando sus datos. Sus diez clínicas, sus dos marcas. Lo que falta es cargar sus pacientes y sus doctores, conectar el WhatsApp, y empezar."
+1. Con **todas las clínicas** seleccionadas: el agregado.
+2. Cambia a **una sola** — Demo Norte, por ejemplo — y **deja que vean cómo se recoloca el producto entero**: el dinero en juego, la cola de seguimiento, los cobros. No solo la pantalla en la que estás.
+3. Navega a `/seguimiento` **sin volver a tocar el selector**, para que vean que el filtro **viaja con ellos**.
 
-**Por qué funciona:** ver su propio nombre en el producto lo hace real de una forma que ninguna demo con datos ficticios consigue.
+**Qué decir:**
 
-**Cuidado con dos cosas:**
-- Que las pantallas vacías se vean **intencionadas, no rotas**. Un estado vacío que dice "todavía no hay presupuestos" es honesto; una pantalla en blanco parece un error.
-- Si el selector de doctores sale vacío o algo chirría, dilo antes de que lo vean: *"esto se llena al dar de alta a su equipo, es parte del arranque."*
+> "Esto que ven aquí son cuatro clínicas de mentira. Ustedes tienen diez, en dos marcas. Así es como lo van a mirar: la red entera cuando quieran la foto de conjunto, y una clínica cuando quieran saber qué pasa en Pinto."
+
+> "Y fíjense en que al cambiar de clínica no cambia solo esta pantalla: cambia el producto entero. El filtro va con usted."
+
+Y el cierre, que es lo que abre la siguiente conversación:
+
+> "Su entorno se crea al arrancar el piloto, con sus diez clínicas, sus doctores y sus pacientes. Eso no lo he montado antes de hoy a propósito: la mitad de esas decisiones dependen de lo que me cuenten ustedes."
+
+**Por qué funciona:** convierte lo que falta en **la propuesta**, en vez de en un hueco. El montaje del
+tenant deja de ser una tarea pendiente y pasa a ser el primer paso del trabajo conjunto — y de paso
+justifica por qué la reunión importa.
+
+**Cuidado con tres cosas:**
+
+- **No cambies de tenant, ni para "enseñar un momentito".** Si RB tiene 0 pacientes en las diez
+  clínicas, todo lo que se abra ahí sale vacío, y una pantalla vacía delante de un cliente pesa más
+  que veinte minutos buenos.
+- **Sus diez clínicas ya están creadas con sus nombres reales y sus dos marcas** (verificado el 3 ago
+  de 2026). Es cierto y se puede decir. Pero **si dicen "enséñemelo", no lo enseñes**: *"prefiero
+  enseñárselo con sus datos dentro que vacío; es lo primero que hacemos al arrancar."*
+- **No prometas fechas de carga.** Cargar sus pacientes depende de qué sistema usen y de si se puede
+  exportar — que es justo una de las preguntas de la reunión.
 
 ---
 
@@ -232,4 +257,12 @@ El orden de arriba está pensado para 35-45. En el plan de 90 minutos de la reun
 2. **`/pacientes`** (§4.2). La objeción del paciente con historial se puede responder hablando, sin pantalla.
 3. **`/cobros`** (§4.1) se acorta a las tres pestañas y su importe, sin abrir el panel de recordatorio.
 
-**Lo que no se toca nunca:** `/red` (§2), `/seguimiento` (§3.1), la ficha con el panel de acción (§3.2) y el cierre con su tenant vacío (§5). Ahí está la historia entera: dónde se pierde, quién lo recupera, y que ya está montado a su nombre.
+**Lo que no se toca nunca:** `/red` (§2), `/seguimiento` (§3.1), la ficha con el panel de acción (§3.2) y el cierre (§5). Ahí está la historia entera: dónde se pierde, quién lo recupera, y cómo lo van a mirar ellos.
+
+**El cierre aguanta mejor el recorte desde el 3 de agosto de 2026.** Antes exigía cambiar de tenant
+—otra sesión, otro entorno, y cinco minutos que en una demo de veinte no sobran— y era el candidato
+natural a caerse justo cuando más falta hacía. Ahora son **dos minutos sobre `/red`**, que ya está
+abierta desde el Acto I: se toca el selector, se cambia de clínica, se navega una vez a
+`/seguimiento` para enseñar que el filtro viaja, y se cierra hablando. **Si vas muy justo, recórtalo
+a un solo movimiento del selector y la frase del cierre — pero no lo elimines**: es lo único del
+guion que mira hacia adelante en vez de hacia el producto.
