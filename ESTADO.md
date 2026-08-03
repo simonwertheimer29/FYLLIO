@@ -102,16 +102,19 @@ cierre está en [`DECISIONES.md`](DECISIONES.md).
 |---|---|---|
 | **El tenant de RB, montado** con sus diez clínicas y sus dos marcas | Es el **acto V del guion** ("esto es lo suyo"), y el guion dice que ese acto **no se recorta nunca**. Sin él la demo termina en datos inventados en vez de en una propuesta | Simon, antes de la reunión |
 | **`npm run demo:reset` el mismo día** | Ancla las fechas a "hoy". Sin él, la demo envejece y las comparativas del mes salen raras | Simon, el mismo día |
-| **Los doctores de RB dados de alta** en Postgres | `staff` está vacía en las bases piloto: el selector de doctor sale vacío. El guion manda avisarlo antes de que lo vean, pero es mejor que no pase | Simon |
+| **El tenant de RB está VACÍO ENTERO**, no solo `staff` | Censado el 3 ago con `npm run qa:telefonos`: **RB e INDEP devuelven 0 pacientes y 0 leads**, por el mismo camino por el que DEMO devuelve 434 — así que el mecanismo funciona y están vacíos de verdad. Se creía que faltaban solo los doctores; falta todo. El selector de doctor vacío era el síntoma visible de esto | Simon |
 
 **No bloquean la demo, pero conviene saberlo antes de entrar:**
 
 - **Sin dominio propio** — la URL es un `.vercel.app` con hash. Es lo primero que se ve, **y desde
   hoy bloquea también el trámite de WhatsApp** (ver abajo): Meta rechaza las verificaciones hechas
   con Gmail.
-- **`npm run verificar:produccion` sigue sin poder correr**: falta `FYLLIO_COOKIE`. Es la única
-  comprobación que mira el entorno desplegado de verdad; todo lo verificado la sesión pasada ha
-  sido contra el build de producción **en local**.
+- **`FYLLIO_COOKIE` bloquea ya DOS cosas, no una.** Sin ella no corre `verificar:produccion` **ni**
+  se puede leer `/api/salud`, que es lo único que responde desde fuera «¿este entorno sirve datos
+  reales?». El 3 ago hizo falta y no estaba: `SUPABASE_DB_URL_APP` está marcada **Sensitive** en
+  Vercel, así que `vercel env pull` devuelve `"[SENSITIVE]"` y **no hay forma de comprobar por
+  valor** que la base de `.env.local` es la de producción. Con `/api/salud` se sabría en un GET.
+  Ha subido de prioridad.
 - **Los teléfonos del seed** no están en el rango reservado +34 600 000 xxx.
 - **`/automatizaciones` y `/llamadas` no se enseñan** (guion §6). Llamadas ya lo dice en pantalla;
   Automatizaciones no.
