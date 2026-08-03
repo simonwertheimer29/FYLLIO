@@ -18,6 +18,7 @@
     "qa:portal": "node scripts/qa-portal-paciente.mjs",
     "qa:kpis": "node scripts/qa-kpis-tasas.mjs",
     "qa:sin-fallbacks": "node scripts/qa-sin-fallbacks.mjs",
+    "qa:telefonos": "tsx scripts/qa-telefonos.mts",
     "verificar:produccion": "node scripts/verificar-produccion.mjs",
     "guard:rls": "node scripts/guard-service-role.mjs",
     "db:smoke-rls": "node scripts/db-smoke-rls.mjs"

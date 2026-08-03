@@ -208,6 +208,15 @@ la misma interfaz y el modo en `configuracion_automatizaciones.modo_whatsapp`. N
 
 ### Lo que falta de verdad
 
+0. ~~**Normalizar el teléfono a E.164.**~~ ✅ **Hecho el 3 de agosto, adelantado a la fase 0** —
+   no esperaba a la fase 3 porque el fallo solo se ve en el primer envío a un paciente real, que
+   es el peor momento para descubrir que la carga del cliente venía sin prefijos. `lib/telefono` es
+   ahora la única verdad del formato y se aplica en la **frontera de escritura** (crear y actualizar
+   paciente y lead, y el importador `upsertPacienteImportPorTelefono`), no en el envío: así cubre
+   cualquier importador que se escriba después sin que nadie tenga que acordarse. Lo que no se puede
+   afirmar se marca **dudoso y se conserva tal cual** — no se inventa un país. **Queda una cosa por
+   hacer, y es de datos, no de código:** correr `npm run qa:telefonos` contra el entorno real y
+   arreglar lo ya guardado. Es requisito de entrada a la fase 3.
 1. **El catálogo de plantillas — la pieza cara, y es su propia sección.** Ver abajo.
 2. **Conectar la cadencia al envío.** Hoy nada programa un toque: el motor de reglas tiene
    `ejecutarEnviarWA` como esqueleto honesto que devuelve `pendiente_integracion` y nunca `success`
@@ -215,10 +224,7 @@ la misma interfaz y el modo en `configuracion_automatizaciones.modo_whatsapp`. N
    no dejar los dos.
 3. **Multi-cliente en el webhook.** `resolveClienteFromWebhook` compara contra un único
    `phone_number_id` de entorno. Con el número de prueba basta; con dos clínicas, no.
-4. **Normalizar el teléfono a E.164 de verdad.** `normalizarTelefono` quita el `+` pero **no añade
-   prefijo de país**: un `"667188097"` guardado sin prefijo sale a Meta tal cual. Auditar los
-   teléfonos reales **antes** del primer envío, no después.
-5. **Cerrar el `fail-open` del rate limit.** Si la consulta a Postgres falla, hoy deja pasar. Con
+4. **Cerrar el `fail-open` del rate limit.** Si la consulta a Postgres falla, hoy deja pasar. Con
    cuota real de Meta eso cuesta dinero.
 
 ### El catálogo de plantillas
@@ -290,7 +296,7 @@ día. Lo que no cabe es dar por hecha la aprobación en una fecha comprometida c
 - **Que ningún mensaje salga sin plantilla aprobada fuera de la ventana de 24 h.** Se prueba al revés, que es como se prueba de verdad: forzar un envío de texto libre con la ventana cerrada y verificar que el sistema **se niega**, en el servidor. Si solo se niega la interfaz, no está probado.
 - **Que ninguna plantilla del catálogo nombre tratamiento ni importe.** Invariante automática sobre el catálogo, no revisión a ojo: el día que alguien añada la número doce, tiene que romper.
 - Que un fallo de envío **no** marque el caso como enviado, y que un fallo *sin respuesta* de Meta no dispare un reintento (mismo criterio que `EnvioWhatsAppError`).
-- Que el teléfono sale en E.164 con prefijo, sobre los teléfonos reales del cliente y no sobre los del seed.
+- Que el teléfono sale en E.164 con prefijo: `npm run qa:telefonos` **en verde sobre los teléfonos reales del cliente**, no sobre los del seed. Distingue «no pude comprobar» (salida 2) de «comprobé y está mal» (salida 1), así que un entorno mal configurado no puede pasar por aprobado.
 
 ---
 

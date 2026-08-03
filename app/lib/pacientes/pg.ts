@@ -4,6 +4,7 @@ import { sql } from "kysely";
 import { runWithClienteDb } from "../db/context";
 import { currentCliente, type Cliente } from "../airtable";
 import type { Paciente, PacienteAceptado, ListPacientesParams } from "./pacientes";
+import { telefonoParaGuardar } from "../telefono";
 
 function cli(): Cliente {
   const c = currentCliente();
@@ -54,7 +55,8 @@ export async function createPacientePg(input: CreateInput): Promise<Paciente> {
     trx.insertInto("pacientes").values({
       cliente: cli(), nombre: input.nombre, clinica_id: input.clinicaId, activo: true,
       canal_preferido: "Whatsapp", consentimiento_whatsapp: true,
-      telefono: input.telefono ?? null, email: input.email ?? null,
+      // E.164 en la frontera de escritura, no en el envío (ver lib/telefono).
+      telefono: telefonoParaGuardar(input.telefono), email: input.email ?? null,
       tratamientos: input.tratamientos?.length ? input.tratamientos.join(",") : null,
       doctor_id: input.doctorLinkId ?? null, fecha_cita: input.fechaCita ?? null,
       financiado: input.financiado ?? null, notas: input.notas ?? null,
@@ -72,6 +74,7 @@ const COLS: Record<string, string> = {
 export async function updatePacientePg(id: string, patch: Record<string, unknown>): Promise<Paciente> {
   const set: Record<string, unknown> = {};
   for (const [k, c] of Object.entries(COLS)) if (patch[k] !== undefined) set[c] = patch[k] ?? null;
+  if (patch.telefono !== undefined) set.telefono = telefonoParaGuardar(patch.telefono as string | null);
   if (patch.tratamientos !== undefined) set.tratamientos = Array.isArray(patch.tratamientos) ? (patch.tratamientos as string[]).join(",") : null;
   const row = await runWithClienteDb(cli(), async (trx) => {
     return trx.updateTable("pacientes").set(set as any).where("id", "=", id).returningAll().executeTakeFirstOrThrow();
@@ -97,7 +100,7 @@ export async function createPacienteDesdeConversionPg(input: {
     trx.insertInto("pacientes").values({
       cliente: cli(), nombre: input.nombre, clinica_id: input.clinicaId,
       canal_preferido: "Whatsapp", consentimiento_whatsapp: true, activo: true,
-      notas: input.notas, telefono: input.telefono ?? null,
+      notas: input.notas, telefono: telefonoParaGuardar(input.telefono),
     } as any).returning(["id", "nombre"]).executeTakeFirstOrThrow());
   return { id: row.id, nombre: row.nombre ?? input.nombre };
 }
@@ -106,11 +109,21 @@ const G: Record<string, string> = { "Nombre": "nombre", "Teléfono": "telefono",
 export async function upsertPacienteImportPorTelefonoPg(fields: Record<string, string>): Promise<"created" | "updated" | "skipped"> {
   const phone = fields["Teléfono"];
   if (!phone) return "skipped";
+  // E.164 en la entrada, que es el punto en el que este importador toca datos de
+  // un cliente. `telefonoParaGuardar` conserva el original cuando no puede
+  // afirmar el prefijo, así que aquí nunca se inventa un país (ver lib/telefono).
+  const phoneE164 = telefonoParaGuardar(phone) ?? phone;
   try {
     return await runWithClienteDb(cli(), async (trx) => {
       const set: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(fields)) if (G[k]) set[G[k]] = v;
-      const ex = await trx.selectFrom("pacientes").select("id").where("telefono", "=", phone).limit(1).executeTakeFirst();
+      set["telefono"] = phoneE164;
+      // El emparejamiento busca las DOS formas. Si solo buscara la normalizada,
+      // una segunda importación sobre pacientes ya guardados sin prefijo no
+      // encontraría a nadie y crearía un duplicado por cada uno — el importador
+      // dejaría de ser idempotente justo al arreglarle el formato (§2).
+      const formas = phoneE164 === phone ? [phone] : [phoneE164, phone];
+      const ex = await trx.selectFrom("pacientes").select("id").where("telefono", "in", formas).limit(1).executeTakeFirst();
       // Sin `actualizarUna` a propósito: el id sale de un select de ESTA misma
       // transacción, así que la fila existe por construcción. Lo que sí es
       // deuda aquí es el `catch { return "skipped" }` de abajo, que convierte

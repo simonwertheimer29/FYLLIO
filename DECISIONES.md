@@ -1541,3 +1541,41 @@ la parte cara y la que el plan no mencionaba.
 **Lo que queda registrado como lección:** el plan se escribió sin censar el código, y estimó de más
 lo construido y de menos lo que faltaba **a la vez**. Un plan de fases que toca una zona vieja se
 escribe *después* del censo de esa zona, no antes.
+
+## 2026-08-03 — El teléfono se normaliza al guardar, no al enviar
+Salió de la auditoría de WhatsApp: `normalizarTelefono` (waba-credentials) quita el "+" y los
+separadores pero **no añade prefijo de país**, así que un `"667188097"` guardado sin prefijo se
+mandaría a Meta tal cual. El fallo no aparecía hasta el **primer envío a un paciente real**, que es
+el peor momento para descubrir que la carga de datos del cliente venía sin prefijos.
+
+Se crea `lib/telefono` como única verdad del formato y se aplica en la **frontera de escritura**
+—crear/actualizar paciente y lead, y el importador `upsertPacienteImportPorTelefono`— en vez de en
+el envío. Por qué ahí: no hay hoy ninguna ruta de importación de pacientes, así que ponerlo "en la
+importación" sería ponerlo en un sitio que no existe; en la frontera de escritura cubre cualquier
+importador que se escriba después sin que nadie tenga que acordarse.
+
+**Lo que NO hace, a propósito:** adivinar el país. Ante 10+ dígitos sin "+" devuelve `dudoso` y
+**conserva el original**. El normalizador viejo de Gesden (`columnMap.normalizePhone`, sin
+consumidores) le pegaba un "+" y lo daba por bueno — eso convierte un dato malo en un dato malo con
+pinta de bueno. Se unifica delegando en el compartido, para no dejar dos convenciones del mismo
+formato (el error que sigue vivo con `META_WHATSAPP_TOKEN` frente a `WABA_ACCESS_TOKEN`).
+
+**El emparejamiento del importador busca las dos formas** (normalizada y original): si solo buscara
+la normalizada, una segunda importación sobre pacientes ya guardados sin prefijo no encontraría a
+nadie y crearía un duplicado por cada uno — el importador dejaría de ser idempotente justo al
+arreglarle el formato (§2).
+
+Y `npm run qa:telefonos` censa **lo ya guardado**, que el cambio de frontera no arregla: cuántos
+saldrían mal, cuántos son fijos (WhatsApp no entrega ahí) y cuántos son dudosos de mirar a mano.
+Con sonda previa y salidas distintas para "no pude comprobar" (2) y "comprobé y está mal" (1), §9.
+Es requisito de entrada a la fase 3. Verificado 12/12 sobre el normalizador; el censo necesita el
+entorno real (en local falta `SUPABASE_DB_URL_APP`, y la sonda lo dice en vez de dar un falso ok).
+
+**Y una corrección de documentación que valía tanto como el código:** MEJORAS #5B describía
+`lib/whatsapp/outbound.ts` como "la pieza que existe para el bulk real". Es código muerto con cero
+importadores, y el único consumidor de `META_WHATSAPP_TOKEN`/`META_PHONE_NUMBER_ID` — un segundo
+juego de variables para lo mismo que las `WABA_*` del producto vivo. Quien retomara esa mejora habría
+configurado variables que no alimentan nada y construido sobre un archivo que nadie ejecuta. La
+entrada queda corregida: la pieza real es `enviarPlantilla`, y de sus dos dependencias declaradas
+solo una era cierta. Retirar `outbound.ts` sigue pendiente y es §11 (censar quién DECIDE con esas
+variables antes de quitarlas), en pasada aparte.

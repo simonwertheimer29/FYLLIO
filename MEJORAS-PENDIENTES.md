@@ -103,9 +103,9 @@ Estado: 🔵 propuesta (sin decidir) · ✅ aprobada · 🟢 hecha · ⚪ descar
   (`mensajeria.ts`), con confirmación de cuántos salieron.
 - **Impacto:** **alto** en orden/esfuerzo — es trabajo repetitivo diario sobre los casos con
   más valor.
-- **Estimación de esfuerzo (jul 2026):** el "bulk real" server-side existe como pieza
-  (`app/lib/whatsapp/outbound.ts` → Meta WABA), pero está **bloqueado por dos dependencias
-  externas**: (1) `META_WHATSAPP_TOKEN`/`META_PHONE_NUMBER_ID` en producción, y (2) una
+- **Estimación de esfuerzo (jul 2026):** ~~el "bulk real" server-side existe como pieza
+  (`app/lib/whatsapp/outbound.ts` → Meta WABA)~~, pero está **bloqueado por dos dependencias
+  externas**: (1) ~~`META_WHATSAPP_TOKEN`/`META_PHONE_NUMBER_ID` en producción~~, y (2) una
   **plantilla aprobada por Meta** para el mensaje de intervención (aprobación tarda días y
   obliga a un mensaje FIJO con variables — Meta NO permite enviar en lote el texto IA
   personalizado actual). Conclusión: el bulk real de mensajes IA **no es viable "ahora"**.
@@ -113,11 +113,35 @@ Estado: 🔵 propuesta (sin decidir) · ✅ aprobada · 🟢 hecha · ⚪ descar
   "lote", renombrar a envío uno-a-uno con progreso "X de N" y reutilizar el feedback de #2 —
   demo-safe; **(B) bulk real por plantilla** (~1-2 días de código + espera de aprobación
   Meta + cambiar el mensaje a plantilla fija) — no entra en la ventana de la demo.
+
+  > ⚠️ **CORRECCIÓN 2026-08-03 — lo tachado arriba era falso, y quien retomara la opción B
+  > habría construido sobre nada.** `app/lib/whatsapp/outbound.ts` **no es la pieza del bulk
+  > real**: es **código muerto con cero importadores**, resto del prototipo anterior a Fyllio.
+  > Y es el **único** consumidor de `META_WHATSAPP_TOKEN`/`META_PHONE_NUMBER_ID`, que son un
+  > **segundo juego de variables para lo mismo** que las `WABA_*` que sí usa el producto vivo.
+  > O sea: esta entrada mandaba a configurar unas variables que no alimentan nada y a apoyarse
+  > en un archivo que nadie ejecuta.
+  >
+  > **Dónde está de verdad la pieza:** `lib/presupuestos/mensajeria.ts` →
+  > `ServicioMensajeriaWABA.enviarPlantilla`, ya implementado, con idempotencia y rate-limit,
+  > y hoy con **cero llamadas**. La dependencia (1) por tanto **no existe**: se resuelve con las
+  > `WABA_*` que ya lee todo el producto. La dependencia (2) —la plantilla aprobada por Meta—
+  > **sigue siendo real y es la única**, y ya no es un problema solo de esta mejora: el catálogo
+  > de las 11 plantillas está diseñado en la **fase 3 de [`PLAN-AGENTE.md`](PLAN-AGENTE.md)**,
+  > y la de esta entrada es `seguimiento_info_disponible`.
+  >
+  > **Retirar `outbound.ts` (y `whatsapp/llm.ts`, también muerto: 352 líneas entre los dos) NO
+  > es un `git rm`**, es §11: primero hay que censar quién **decide** con
+  > `META_WHATSAPP_TOKEN`/`META_PHONE_NUMBER_ID` —el patrón peligroso es `if (!process.env.X)`,
+  > que cambia de rama solo cuando la variable desaparece del entorno— y quitar esas ramas
+  > **antes** de quitar las variables. Es exactamente el error que costó semanas de degradación
+  > silenciosa al retirar Airtable. **Pasada aparte, no en la misma tanda que otro cambio.**
 - **Fecha:** 2026-07-15 · 🟢 **opción A hecha** (tanda pre-demo, rama `pre-demo-actuar-hoy`):
   el flujo deja de prometer "lote" — botón "Enviar uno a uno (N)", título "Paciente X de N",
   copy honesto ("abrirás WhatsApp para cada paciente, uno a uno") y toast por envío.
   **Opción B (bulk real por plantilla WABA) queda en BACKLOG** para después del piloto; las
-  plantillas de Meta se decidirán con el cliente.
+  plantillas de Meta se decidirán con el cliente. · **Descripción corregida el 2026-08-03**
+  tras la auditoría de WhatsApp (ver [`DECISIONES.md`](DECISIONES.md)).
 
 ## 6. Jerga e IDs crudos en superficies de coordinadora
 - **Zona:** `app/(authed)/automatizaciones/MotorReglasView.tsx` (paciente de prueba),

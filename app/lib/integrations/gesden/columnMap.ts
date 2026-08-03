@@ -3,6 +3,8 @@
 // Each key is a Fyllio field; the value is a list of candidate Gesden column headers
 // (case-insensitive match, first match wins).
 
+import { telefonoParaGuardar } from "../../telefono";
+
 export const GESDEN_PATIENT_CANDIDATES = {
   primerApellido: ["Primer apellido", "Apellido 1", "Primer Apellido"],
   segundoApellido: ["Segundo apellido", "Apellido 2"],
@@ -82,13 +84,17 @@ export function parseCSV(text: string): { headers: string[]; rows: Record<string
   return { headers, rows };
 }
 
-/** Clean a phone string to E.164-ish format (digits only, add +34 if Spanish mobile) */
+/**
+ * Normaliza un teléfono a E.164. Delega en `lib/telefono`, que es la única
+ * verdad del formato desde 2026-08-03.
+ *
+ * Esta función tenía su propia versión, y difería en lo que importa: ante 10+
+ * dígitos sin "+" le pegaba un "+" y devolvía el número como si fuera bueno.
+ * Eso convierte un dato malo en un dato malo con pinta de bueno, que es peor —
+ * el compartido lo devuelve como dudoso y conserva el original. Se unifica en
+ * vez de dejar dos convenciones para lo mismo (el error que ya tenemos vivo con
+ * `META_WHATSAPP_TOKEN` frente a `WABA_ACCESS_TOKEN`, ver MEJORAS 5B).
+ */
 export function normalizePhone(raw: string): string {
-  const digits = raw.replace(/\D/g, "");
-  if (!digits) return "";
-  if (digits.length === 9 && (digits.startsWith("6") || digits.startsWith("7"))) {
-    return `+34${digits}`;
-  }
-  if (digits.length >= 10) return `+${digits}`;
-  return digits;
+  return telefonoParaGuardar(raw) ?? "";
 }

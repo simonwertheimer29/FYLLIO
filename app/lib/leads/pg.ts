@@ -12,6 +12,7 @@ import { runWithClienteDb } from "../db/context";
 import { currentCliente, type Cliente } from "../airtable";
 import type { Lead, LeadEstado, ListLeadsParams } from "./leads";
 import type { AccionLead, TipoAccionLead } from "./acciones";
+import { telefonoParaGuardar } from "../telefono";
 import type { PlantillaLead } from "./plantillas";
 import { hoyISO, inicioDelDiaUTC } from "../time";
 
@@ -131,7 +132,8 @@ export async function createLeadPg(input: CreateLeadInput): Promise<Lead> {
         whatsapp_enviados: 0,
         llamado: false,
         convertido_a_paciente: false,
-        telefono: input.telefono ?? null,
+        // E.164 en la frontera de escritura (ver lib/telefono).
+        telefono: telefonoParaGuardar(input.telefono),
         email: input.email ?? null,
         tratamiento_interes: input.tratamiento ?? null,
         canal_captacion: input.canal ?? null,
@@ -180,6 +182,7 @@ export async function updateLeadPg(id: string, patch: Record<string, unknown>): 
   for (const [k, col] of Object.entries(PATCH_COLS)) {
     if (patch[k] !== undefined) set[col] = patch[k] ?? null;
   }
+  if (patch.telefono !== undefined) set.telefono = telefonoParaGuardar(patch.telefono as string | null);
   if (patch.estado !== undefined) {
     // Entra en cierre → se sella la fecha; sale de cierre (reactivación) → se
     // borra: un lead que vuelve al embudo no está cerrado.
