@@ -507,25 +507,36 @@
   <h2>05 · Coste real</h2>
   <p class="h2sub">Qué de esto ya existe y qué hay que construir</p>
 
+  <div class="warn" style="margin:0 0 16px">
+    <strong>Sección corregida el 5 de agosto de 2026, después de censar el código.</strong> La versión
+    anterior tenía <strong>tres afirmaciones falsas</strong>, y las tres en la misma dirección: daban por
+    construido lo que no lo estaba. Se corrigen abajo con lo verificado, y cada una lleva escrito
+    <em>qué falta exactamente</em>. La lección va en <code>DECISIONES.md</code>: <strong>un inventario de
+    «ya está hecho» escrito de memoria envejece hacia el optimismo</strong>, y quien planifique contra él
+    presupuesta de menos.
+  </div>
+
   <div class="split">
     <div class="card panel">
       <h3 style="color:var(--done)">Ya está construido</h3>
       <ul class="keep">
-        <li><strong>El clasificador de intención</strong> — ya detecta «acepta sin condiciones», «pide cita», «pregunta precio». Es el disparador del quiebre, solo tiene que <em>cortar</em> en vez de solo etiquetar.</li>
-        <li><strong>La cola de trabajo</strong> — Seguimiento con cohortes derivadas. El quiebre es una cohorte más.</li>
-        <li><strong>La generación de mensajes</strong> — el modo A ya funciona hoy.</li>
-        <li><strong>Los tres modos</strong> — el motor de reglas ya los tiene declarados.</li>
-        <li><strong>Los tableros y tablas</strong> — existen los tres, solo hay que unificarlos bajo un conmutador.</li>
+        <li><strong>El clasificador de intención</strong> — detecta «acepta sin condiciones», «acepta pero pregunta pago», «tiene duda sobre tratamiento», «pide oferta/descuento», «quiere pensarlo» y «rechaza». Solo tiene que <em>cortar</em> en vez de solo etiquetar.
+          <br><span style="color:var(--human)"><strong>Corregido:</strong> «pide cita» <strong>no existe</strong> en el enum, y el clasificador <strong>solo corre para presupuestos</strong> — el webhook guarda los mensajes de leads pero no los clasifica. Cubre <strong>3 de los 6</strong> disparadores universales: dinero, criterio clínico y ambigüedad. <strong>Queja, pide persona y tono negativo no se detectan.</strong></span></li>
+        <li><strong>La cola de trabajo</strong> — Seguimiento con cohortes derivadas y su invariante de partición vigilada por <code>qa:cohortes</code>.
+          <br><span style="color:var(--human)"><strong>Matiz:</strong> el quiebre <em>no</em> es «una cohorte más»: no es un valor de <code>EstadoConversacion</code>, así que no entra en ese <code>switch</code> sin romper su totalidad. Entra como <strong>precedencia</strong> por encima, igual que «citados». Y Seguimiento solo tiene dos dominios: <strong>cobros no está</strong>.</span></li>
+        <li><strong>La generación de mensajes</strong> — el modo A funciona hoy, y el mensaje sugerido se persiste en presupuestos y en leads. Es lo que hace medible la coincidencia agente-humano sin campos nuevos.</li>
+        <li><strong>La idempotencia, el rate-limit y el hilo único</strong> — verificado: todo lo que se envía o se recibe cae en la misma tabla con deduplicación atómica.</li>
       </ul>
     </div>
     <div class="card panel">
       <h3 style="color:var(--human)">Hay que construirlo</h3>
       <ul class="new">
-        <li><strong>El estado de automatización</strong> por caso, con sus transiciones y su distintivo en cada tarjeta.</li>
+        <li><strong>Los tres modos A/B/C</strong> — <strong>están diseñados, no construidos.</strong> Lo único que existe es <code>modo_whatsapp: manual | waba</code>, que es el <em>transporte</em> (enlace de WhatsApp frente a envío por API), no la autonomía. La matriz de la sección 04 se construye entera.</li>
+        <li><strong>El estado de automatización</strong> por caso, con su distintivo en cada tarjeta. De los siete estados, <strong>cuatro se derivan</strong> de datos que ya existen y solo <strong>uno</strong> exige persistir algo nuevo: quién tiene el caso ahora.</li>
         <li><strong>La reanudación</strong> — devolver al agente o quedárselo, con el registro de quién decidió qué.</li>
         <li><strong>El agotamiento y la llamada</strong> — cuando el texto se agota, la recomendación cambia de canal.</li>
-        <li><strong>La matriz de configuración</strong> por clínica y por <em>intención</em>, más la tasa de coincidencia agente-humano que decide cuándo se sube de celda.</li>
-        <li><strong>El envío y la recepción reales</strong> — WhatsApp Business API. Es el trámite más largo y no depende de código.</li>
+        <li><strong>Los tableros y tablas unificados</strong> — <strong>no «existen los tres».</strong> Hay <strong>dos tableros</strong> (leads y presupuestos, con <em>dos implementaciones distintas</em>) y <strong>dos tablas</strong> (presupuestos y cobros). Faltan el tablero de cobros y la tabla de leads, y unificar los dos kanban no es «un conmutador».</li>
+        <li><strong>El envío por plantilla</strong> — no el envío entero: el texto libre por API, el webhook, la firma, la deduplicación y el conmutador de la interfaz <em>ya funcionan</em>. Lo que falta es el catálogo de plantillas aprobadas, que es lo que abre conversación fuera de la ventana de 24 h. Ver la fase 3 del plan.</li>
       </ul>
     </div>
   </div>

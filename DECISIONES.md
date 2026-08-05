@@ -1579,3 +1579,37 @@ configurado variables que no alimentan nada y construido sobre un archivo que na
 entrada queda corregida: la pieza real es `enviarPlantilla`, y de sus dos dependencias declaradas
 solo una era cierta. Retirar `outbound.ts` sigue pendiente y es §11 (censar quién DECIDE con esas
 variables antes de quitarlas), en pasada aparte.
+
+## 2026-08-05 — Un inventario de "ya está hecho" escrito de memoria envejece hacia el optimismo
+Segunda pasada sobre la sección 05 de `arquitectura-app-automatizacion.html`, la que dice qué está
+construido y qué falta. En dos censos ha dado **cuatro afirmaciones falsas**, y las cuatro en la
+misma dirección: **daban por hecho lo que no lo estaba**, o por hacer lo que ya estaba.
+
+Lo corregido, todo verificado contra el código:
+
+1. **«Los tres modos A/B/C — el motor de reglas ya los tiene declarados».** No existen. Lo único que
+   hay es `modo_whatsapp: manual | waba` (el **transporte**, no la autonomía) y `modo_test: boolean`.
+2. **«El clasificador ya detecta acepta / pide cita / pregunta precio».** «Pide cita» **no está en el
+   enum**, y `clasificarRespuesta` **solo corre para presupuestos**: el webhook guarda los mensajes
+   de leads y explícitamente no los clasifica. Cubre **3 de los 6** disparadores universales —
+   quedan fuera queja, pide persona y tono negativo.
+3. **«Los tableros y tablas — existen los tres, solo hay que unificarlos bajo un conmutador».** Hay
+   **dos tableros** (leads y presupuestos, con **dos implementaciones distintas** — leads monta su
+   propio dnd-kit, presupuestos usa `KanbanBoard`) y **dos tablas** (presupuestos y cobros). Faltan
+   el tablero de cobros y la tabla de leads, y fundir dos kanban no es «un conmutador».
+4. **«El envío y la recepción reales — hay que construirlo».** Al revés: estaban construidos. Lo que
+   falta es el catálogo de plantillas (corregido el 3 ago).
+
+**La regla que queda:** un documento que enumera «ya está hecho» **no se escribe de memoria y se
+recensa antes de planificar contra él**. El sesgo no es aleatorio — es sistemáticamente optimista,
+porque uno recuerda haber diseñado la pieza y no recuerda si llegó a cablearla. Quien planifica
+contra ese inventario presupuesta de menos, y aquí llegó a mandar a configurar variables de entorno
+que no alimentan nada (MEJORAS 5B).
+
+**Y el alcance de la fase 1, cerrado con el censo delante:** fuera el estado «trabajando» (ningún
+dato puede producirlo en modo A: es una promesa falsa en pantalla, como los scores del predictor);
+el quiebre corta con **tres** disparadores **y lo declara en pantalla**, porque una coordinadora que
+cree que el sistema caza quejas deja de leer los mensajes que el sistema no marcó; y cobros recibe
+distintivo pero no entra en la cola. De los seis estados, cuatro se derivan y **lo único que se
+persiste es la decisión humana**, en una tabla append-only y no en una columna de estado — una
+columna tendría que sincronizarse con seis señales que cambian solas.

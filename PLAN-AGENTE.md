@@ -39,7 +39,7 @@ Lo detectado pero no aprobado sigue yendo a [`MEJORAS-PENDIENTES.md`](MEJORAS-PE
 |---|---|---|
 | **0** · El trámite | Registro fiscal, Meta Business, número de prueba, plantillas | ✅ **Decidida** — bloqueante declarado en [`ESTADO.md`](ESTADO.md) |
 | **1** · Estado de automatización y cola de quiebre | La tercera coordenada de cada caso, su cohorte en Seguimiento, **la tasa de coincidencia agente-humano** y **el conjunto de evaluación** | ✅ **Decidida** — no depende de WhatsApp |
-| **2** · El simulador | Modo demostración del embudo entero | ⬜ **No decidida** |
+| **2** · Clasificador completo + simulador | **Los 3 disparadores que faltan** (queja, pide persona, tono negativo) medidos contra los evals, y el modo demostración del embudo entero | ⬜ **No decidida** |
 | **3** · Modo B — el agente envía lo rutinario | **Conectar** el envío/recepción (ya construidos) y **construir el catálogo de 11 plantillas** | ⬜ **No decidida** — reescrita el 3 ago tras censar el código |
 | **4** · Modo C y configuración por clínica | Autonomía hasta el quiebre, matriz por fase | ⬜ **No decidida** |
 | **5** · Tech Provider y alta de clientes | Embedded Signup, una WABA por clínica | ⬜ **No decidida** |
@@ -96,7 +96,7 @@ declarado como bloqueo con dependencia en [`ESTADO.md`](ESTADO.md) — del pilot
 
 **Lo que se construye:** la tercera coordenada de cada caso — quién lo lleva — y su consecuencia en la cola de trabajo.
 
-- Estado de automatización por caso: trabajando · esperando · quebrado · en manos de alguien · agotado · manual · cerrado.
+- Estado de automatización por caso: **esperando · quebrado · en manos de alguien · agotado · manual · cerrado**. Seis, no siete — ver el alcance de abajo.
 - **La cohorte de quiebre en Seguimiento**, primera y arriba, con el motivo escrito: *«pregunta si hay descuento»*.
 - Distintivo visual del estado en cada tarjeta, en todas las ventanas.
 - **Devolver al agente o quedárselo**, con registro de quién decidió qué.
@@ -105,6 +105,61 @@ declarado como bloqueo con dependencia en [`ESTADO.md`](ESTADO.md) — del pilot
 - **El conjunto de evaluación** — ver abajo.
 
 **Por qué esta fase primero:** mejora el modo A que ya existe. Hoy el producto genera mensajes y la coordinadora los envía; con esto, además, sabe cuáles puede mandar sin pensar y cuáles exigen que se pare a leer.
+
+### Alcance cerrado el 5 de agosto de 2026, tras censar el código
+
+Tres recortes, los tres decididos con el censo delante y no de memoria:
+
+**1 · «Trabajando» no entra.** Significaba «tiene el siguiente toque programado», y en modo A **no
+hay nada que programe un toque**. Un estado que ningún dato puede producir es una promesa falsa en
+pantalla — lo mismo que ya se retiró tres veces este año (los scores del predictor, el «precisión
+0 %»). Entra en la fase 3, cuando exista la cadencia que lo produce. **Quedan seis estados.**
+
+**2 · El quiebre corta con tres disparadores, y el producto lo dice.** La clasificación de intención
+que ya existe cubre **dinero** (pide oferta/descuento, acepta pero pregunta pago), **criterio
+clínico** (duda sobre tratamiento) y **ambigüedad** (sin clasificar). **Queja, pide persona y tono
+negativo no se detectan**, porque el enum del clasificador responde a *«¿acepta el presupuesto?»* y
+no a *«¿qué necesita esta persona?»*.
+
+Se declara **en pantalla, no solo aquí**: si la coordinadora cree que el sistema caza quejas y no las
+caza, es peor que si sabe que no las caza — deja de leer los mensajes que el sistema no marcó.
+Ampliar a los seis va en la **fase 2**, después de los evals: tocar el prompt del clasificador sin el
+conjunto de evaluación montado contradice esta misma fase.
+
+**3 · Cobros recibe el distintivo, no la cola.** Seguimiento tiene hoy dos dominios (Leads y
+Presupuestos) con su partición vigilada; cobros es una pantalla aparte. Meterlo en la cola es la
+reorganización de cuatro ventanas, que va al final.
+
+### Lo que se persiste, y por qué es lo único que se persiste
+
+De los seis estados, **cuatro se derivan enteros** de datos que ya existen —`esperando` de
+`estadoConversacion`, `agotado` de `reactivable` + los contadores de toques, `manual` de la
+configuración, `cerrado` del estado del caso— y el quiebre deriva su *condición* de
+`intencion_detectada`, ya persistida.
+
+**Lo único que ningún dato existente puede producir es la decisión humana**: quién cogió el caso,
+cuándo, y qué eligió al terminar. Eso va a **una tabla append-only**, no a una columna de estado.
+
+**Por qué log y no columna:** una columna tendría que mantenerse en sincronía con seis señales que
+cambian solas — llega un mensaje del paciente y el estado de conversación cambia sin que nadie
+escriba nada, y la columna se queda mintiendo hasta que algo la reescriba. Es exactamente la
+divergencia que este proyecto ya ha pagado. Un log solo acumula decisiones; el estado se **calcula**
+como *derivado + último evento humano*.
+
+**Campos nuevos, en total: una tabla y una columna de configuración**
+(`toques_antes_de_agotar`, que es una decisión de la clínica y no deriva de nada).
+
+### Cómo entra el quiebre en Seguimiento sin romper `qa:cohortes`
+
+La invariante de partición se sostiene sobre un `switch` **exhaustivo** de `EstadoConversacion`.
+El quiebre **no es un valor de ese tipo** —un caso quebrado es *además* `pendiente_responder`—, así
+que añadirlo como quinto caso rompería la totalidad.
+
+Entra como **precedencia por encima del switch**, que es el mecanismo que el módulo ya usa con
+«citados»: *quebrado → citados → switch(conversación)*. El switch queda intacto y sigue siendo la
+rama por defecto. Ningún caso en dos sitios (la función es total y ordenada), ninguno en ninguno
+(el switch sigue cubriendo los cuatro estados). El caso quebrado **conserva su estado de
+conversación** y la tarjeta pinta los dos.
 
 ### La tasa de coincidencia agente-humano
 
@@ -162,7 +217,26 @@ prompt cuyo efecto real nadie puede reconstruir.
 
 **No decidida.** Requiere aprobación explícita antes de arrancar.
 
-**Lo que se construye:** un modo demostración donde un caso recorre el embudo entero delante de quien mires, con interacciones que no son reales pero sí realistas.
+**Lo que se construye:** dos cosas — la ampliación del clasificador a los seis disparadores, y el simulador.
+
+### Los tres disparadores que faltan
+
+Viene de la fase 1, que corta con tres de los seis: **queja, pide persona y tono negativo no se
+detectan hoy**. Ampliar el enum del clasificador y su prompt.
+
+**Va aquí y no en la fase 1 por una razón de orden, no de prioridad:** el conjunto de evaluación se
+construye en la fase 1, y **tocar el prompt del clasificador sin él montado es exactamente lo que la
+fase 1 declara que no se debe hacer**. Con los evals delante, la ampliación se mide: los tres
+disparadores nuevos tienen que subir la detección sin bajar la de los tres que ya funcionan.
+
+**Cómo se pone a prueba:** el conjunto de evaluación gana casos de queja, petición de persona y tono
+negativo con su respuesta correcta anotada, y **la ampliación no se da por buena hasta que el número
+sube sin que baje el de los otros tres**. Y el aviso en pantalla de «esto todavía no se detecta»
+desaparece **en el mismo cambio** que lo hace detectable — ni antes ni después.
+
+### El simulador
+
+Un modo demostración donde un caso recorre el embudo entero delante de quien mires, con interacciones que no son reales pero sí realistas.
 
 - Lanzas un caso y lo ves avanzar: el agente escribe, el paciente responde, el agente sigue.
 - **Tú eliges qué responde el paciente** de una lista de respuestas típicas, para enseñar cada rama: el que acepta, el que pregunta precio, el que no contesta nunca, el que se queja.
@@ -306,6 +380,10 @@ día. Lo que no cabe es dar por hecha la aprobación en una fecha comprometida c
 
 **Lo que se construye:**
 - El agente autónomo hasta el quiebre en lo que la clínica autorice.
+- **Los tres modos A/B/C, que hoy NO existen** — censado el 5 ago de 2026. Lo único que hay es
+  `modo_whatsapp: manual | waba`, que es el **transporte** (enlace de WhatsApp frente a envío por
+  API), no la autonomía. La sección 05 de `arquitectura-app-automatizacion.html` los daba por
+  construidos y era falso; queda corregida.
 - **La matriz de configuración**: **intención × modo**, agrupada por fase. Ver abajo.
 - Cadencias, umbrales y horarios configurables.
 - Disparadores propios que se pueden añadir — nunca quitar los de dinero ni los clínicos.
