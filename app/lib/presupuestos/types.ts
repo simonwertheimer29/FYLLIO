@@ -365,6 +365,14 @@ export type PresupuestoIntervencion = Presupuesto & {
   /** Clasificación única de la conversación (lib/presupuestos/estado-conversacion),
    *  calculada en servidor desde el hilo. Las vistas NO recalculan su criterio. */
   conversacion?: import("./estado-conversacion").ConversacionClasificada;
+  /** Tercera coordenada: quién lleva el caso (fase 1 de PLAN-AGENTE). Derivada
+   *  en el servidor y viajada al cliente: el cliente NO recalcula su criterio. */
+  automatizacion?: {
+    estado: import("../automatizacion/estado").EstadoAutomatizacion;
+    disparador: import("../automatizacion/estado").Disparador | null;
+    /** Motivo ya legible por la coordinadora, compuesto en el servidor. */
+    motivo: string | null;
+  };
   ultimaRespuestaPaciente?: string;
   fechaUltimaRespuesta?: string;
   intencionDetectada?: IntencionDetectada;

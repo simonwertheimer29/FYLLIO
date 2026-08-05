@@ -22,6 +22,7 @@ import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
 import { ultimosMensajesPorConversacion } from "../../../lib/presupuestos/mensajeria";
 import { conversacionDePresupuesto } from "../../../lib/presupuestos/conversacion-presupuesto";
+import { resolverEstados, estadosSinEventos } from "../../../lib/automatizacion/servicio";
 
 export const dynamic = "force-dynamic";
 
@@ -332,6 +333,32 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         }
       });
       await Promise.all(generaciones);
+    }
+
+    // ── Tercera coordenada: quién lleva el caso (fase 1 de PLAN-AGENTE) ──
+    // Se resuelve DESPUÉS del filtro de clínica: no se consulta el estado de
+    // casos que el usuario no puede ver. Y se degrada si la consulta falla, en
+    // vez de dejar la cola sin cohorte de quiebre (ver `estadosSinEventos`).
+    {
+      const paraEstado = items.map((p) => ({
+        id: p.id,
+        cerrado: p.estado === "ACEPTADO" || p.estado === "PERDIDO",
+        conversacion: p.conversacion?.estado ?? "sin_conversacion",
+        intencion: p.intencionDetectada ?? null,
+        toques: p.contactCount ?? 0,
+        ultimaRespuesta: p.ultimaRespuestaPaciente ?? null,
+      }));
+      let estados;
+      try {
+        estados = await resolverEstados("presupuesto", paraEstado);
+      } catch (e) {
+        console.error("[intervencion] estado de automatización degradado:", e);
+        estados = estadosSinEventos(paraEstado);
+      }
+      for (const p of items) {
+        const r = estados.get(p.id);
+        if (r) p.automatizacion = { estado: r.estado, disparador: r.disparador, motivo: r.motivo };
+      }
     }
 
     // Orden por prioridad (score bidireccional): la pestaña decide el resto.

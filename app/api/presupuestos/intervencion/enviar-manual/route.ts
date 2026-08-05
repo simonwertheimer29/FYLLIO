@@ -10,8 +10,45 @@ import { NextResponse } from "next/server";
 import { getServicioMensajeria } from "../../../../lib/presupuestos/mensajeria";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { verificarPresupuestoPermitido } from "../../../../lib/presupuestos/clinica-scope";
+import { medirYRegistrarEnvio } from "../../../../lib/automatizacion/medir-envio";
+import type { UserSession } from "../../../../lib/presupuestos/types";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * Lee el sugerido de la BASE (no del cuerpo de la petición) y registra la
+ * medida. Aislado en una función para que el fallo de la métrica no pueda
+ * arrastrar al envío: todo lo de aquí es best-effort y logueado.
+ */
+async function medirEnvioDePresupuesto(
+  presupuestoId: string,
+  enviado: string,
+  session: UserSession,
+): Promise<void> {
+  try {
+    const { selectPresupuestosRaw } = await import("../../../../lib/presupuestos/repo");
+    const recs = await selectPresupuestosRaw({
+      filterByFormula: `RECORD_ID()='${presupuestoId}'`,
+      fields: ["Mensaje_sugerido"],
+      maxRecords: 1,
+    });
+    const sugerido = (recs[0]?.fields as Record<string, unknown> | undefined)?.["Mensaje_sugerido"];
+    await medirYRegistrarEnvio({
+      tipoCaso: "presupuesto",
+      casoId: presupuestoId,
+      sugerido: typeof sugerido === "string" ? sugerido : null,
+      enviado,
+      actorId: session.email ?? null,
+      actorNombre: session.nombre ?? null,
+    });
+  } catch (err) {
+    console.error(
+      "[presupuestos/enviar-manual] no se pudo medir la coincidencia de",
+      presupuestoId,
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
 
 export const POST = withPresupuestosAuth(async (session, req: Request) => {
   const body = await req.json().catch(() => null);
@@ -33,6 +70,14 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
   try {
     const servicio = getServicioMensajeria("manual");
     const result = await servicio.enviarMensaje({ presupuestoId, telefono, contenido });
+
+    // Coincidencia agente-humano (fase 1). Se mide DESPUÉS del envío y con el
+    // sugerido leído de la base, no del cuerpo de la petición: si el cliente
+    // mandara "esto me propusiste", la métrica mediría al cliente. Nunca lanza.
+    if (presupuestoId) {
+      await medirEnvioDePresupuesto(presupuestoId, contenido, session);
+    }
+
     return NextResponse.json({
       ok: true,
       mensajeId: result.mensajeId,

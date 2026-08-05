@@ -12,6 +12,7 @@ import { withAuth } from "../../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../../lib/auth/users";
 import { getServicioMensajeria } from "../../../../lib/presupuestos/mensajeria";
 import { getLead } from "../../../../lib/leads/leads";
+import { medirYRegistrarEnvio } from "../../../../lib/automatizacion/medir-envio";
 
 export const dynamic = "force-dynamic";
 
@@ -37,6 +38,20 @@ export const POST = withAuth(async (session, req) => {
   try {
     const servicio = getServicioMensajeria("manual");
     const result = await servicio.enviarMensaje({ leadId, telefono, contenido });
+
+    // Coincidencia agente-humano (fase 1). El sugerido sale del lead ya cargado
+    // arriba — de la base, no del cuerpo de la petición. Nunca lanza.
+    await medirYRegistrarEnvio({
+      tipoCaso: "lead",
+      casoId: leadId,
+      sugerido: lead.mensajeSugerido ?? null,
+      enviado: contenido,
+      actorId: session.userId ?? null,
+      actorNombre: session.nombre ?? null,
+    }).catch((err) =>
+      console.error("[leads/enviar-manual] no se pudo medir la coincidencia de", leadId, err),
+    );
+
     return NextResponse.json({
       ok: true,
       mensajeId: result.mensajeId,

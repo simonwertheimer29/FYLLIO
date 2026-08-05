@@ -622,7 +622,32 @@ export interface Tabla_llamadas_vapi {
   created_at: Generated<Date>;
 }
 
+/** Log append-only de decisiones humanas sobre la automatización de un caso
+ *  (migración 014). No guarda estado: el estado se deriva y solo se combina con
+ *  el último evento de aquí. Ver `lib/automatizacion/estado.ts`. */
+export interface Tabla_eventos_automatizacion {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  tipo_caso: "presupuesto" | "lead" | "cobro";
+  caso_id: string;
+  evento:
+    | "quiebre_reconocido"
+    | "asumido"
+    | "devuelto_al_agente"
+    | "asumido_manual"
+    | "mensaje_enviado";
+  actor_id: string | null;
+  actor_nombre: string | null;
+  motivo_texto: string | null;
+  /** Distancia de edición normalizada [0,1]. Se guarda la MEDIDA, no la
+   *  categoría: el umbral se calibra después sin perder el histórico. */
+  distancia_edicion: number | null;
+  largo_sugerido: number | null;
+  created_at: Generated<Date>;
+}
+
 export interface DB {
+  eventos_automatizacion: Tabla_eventos_automatizacion;
   clinicas: Tabla_clinicas;
   usuarios: Tabla_usuarios;
   usuario_clinicas: Tabla_usuario_clinicas;

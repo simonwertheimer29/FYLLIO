@@ -3,6 +3,7 @@
 
 import { NextResponse } from "next/server";
 import { withAuth } from "../../lib/auth/session";
+import { ultimosEventosPorCaso, toquesAntesDeAgotar } from "../../lib/automatizacion/pg";
 import { listClinicaIdsForUser } from "../../lib/auth/users";
 import { listLeads, createLead, type LeadEstado } from "../../lib/leads/leads";
 
@@ -51,7 +52,32 @@ export const GET = withAuth(async (session, req) => {
     fechaHasta: hasta,
   });
 
-  return NextResponse.json({ leads });
+  // ── Tercera coordenada, la mitad que solo puede dar el servidor ──
+  // Fase 1 de PLAN-AGENTE. En leads el estado se COMPONE EN EL CLIENTE, porque
+  // ahí es donde ya se deriva `estadoConversacion` (los timestamps viajan y la
+  // vista los clasifica). Lo que el cliente no puede saber es el último evento
+  // humano ni el umbral de la clínica, así que viajan aquí.
+  //
+  // El criterio NO se duplica: las dos colas llaman a la MISMA función pura
+  // `estadoAutomatizacion()`; lo único que cambia es dónde se compone, y cambia
+  // porque las dos ya derivaban su conversación en sitios distintos.
+  let eventos: Record<string, string> = {};
+  let toques = 3;
+  try {
+    const [mapa, umbral] = await Promise.all([
+      ultimosEventosPorCaso("lead"),
+      toquesAntesDeAgotar(clinicaParam ?? null),
+    ]);
+    eventos = Object.fromEntries(mapa);
+    toques = umbral;
+  } catch (e) {
+    // Degradación acotada (§3, matiz): sin la capa humana el estado sigue
+    // derivándose, y un caso ya asumido se vería como pendiente — se avisa DE
+    // MÁS, que es la asimetría correcta. Peor sería quedarse sin cohorte.
+    console.error("[leads] estado de automatización degradado:", e);
+  }
+
+  return NextResponse.json({ leads, automatizacion: { eventos, toquesAntesDeAgotar: toques } });
 });
 
 export const POST = withAuth(async (session, req) => {

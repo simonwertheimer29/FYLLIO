@@ -40,6 +40,14 @@ import {
   esNuevoUrgente,
   type CohorteLead,
 } from "../../lib/seguimiento/cohortes";
+import {
+  estadoAutomatizacion,
+  type EventoAutomatizacion,
+  type EstadoAutomatizacion,
+  type Disparador,
+} from "../../lib/automatizacion/estado";
+import { QueSeDetecta } from "../../components/automatizacion/QueSeDetecta";
+import { EstadoAutomatizacionPill } from "../../components/automatizacion/EstadoAutomatizacionPill";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
 import { EmptyState } from "../../components/ui/Feedback";
 import { AlertTriangle, Inbox, ICON_STROKE } from "../../components/icons";
@@ -314,6 +322,14 @@ function LeadsTab({
   // Con clínica elegida la pantalla cambia de ámbito y hay que decirlo.
   const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
   const [leads, setLeads] = useState<Lead[]>(initialLeads);
+  // Lo que solo puede dar el servidor de la tercera coordenada: el último evento
+  // humano por caso y el umbral de la clínica. El estado se compone abajo con la
+  // función pura compartida. Default 3 = el mismo de la migración: si la carga
+  // falla, el estado se deriva igual y se avisa de más, no de menos.
+  const [autom, setAutom] = useState<{
+    eventos: Record<string, EventoAutomatizacion>;
+    toquesAntesDeAgotar: number;
+  }>({ eventos: {}, toquesAntesDeAgotar: 3 });
   const [filtroDoctor, setFiltroDoctor] = useState("");
   const [filtroTratamiento, setFiltroTratamiento] = useState("");
   const [loading, setLoading] = useState(false);
@@ -360,6 +376,15 @@ function LeadsTab({
       ]);
       const d = await leadsRes.json();
       if (Array.isArray(d?.leads)) setLeads(d.leads);
+      if (d?.automatizacion && typeof d.automatizacion === "object") {
+        setAutom({
+          eventos: d.automatizacion.eventos ?? {},
+          toquesAntesDeAgotar:
+            typeof d.automatizacion.toquesAntesDeAgotar === "number"
+              ? d.automatizacion.toquesAntesDeAgotar
+              : 3,
+        });
+      }
       const kpi = await kpiRes.json().catch(() => ({}));
       setTiempoMedioMin(typeof kpi?.tiempoMedioMin === "number" ? kpi.tiempoMedioMin : null);
       const sal = await salRes.json().catch(() => ({}));
@@ -432,13 +457,35 @@ function LeadsTab({
           },
           UMBRAL_REACTIVACION_DIAS.lead,
         );
+        // Tercera coordenada (fase 1 de PLAN-AGENTE). MISMA función pura que usa
+        // la cola de presupuestos: aquí se compone en cliente porque aquí es
+        // donde ya se deriva la conversación, pero el criterio es uno solo.
+        //
+        // `intencion` va a null a propósito y no por olvido: el webhook guarda
+        // los mensajes de leads SIN clasificarlos, así que un lead no puede
+        // quebrar por intención. Lo que sí funciona aquí es "agotado", que sale
+        // de whatsappEnviados. Ver PLAN-AGENTE §fase 1, recorte 4.
+        const auto = estadoAutomatizacion({
+          cerrado: false, // ya filtrados arriba por esLeadActivo + !convertido
+          conversacion: conv.estado,
+          intencion: null,
+          toques: l.whatsappEnviados ?? 0,
+          toquesAntesDeAgotar: autom.toquesAntesDeAgotar,
+          ultimoEvento: autom.eventos[l.id] ?? null,
+        });
         return {
           l,
           conv,
-          cohorte: cohorteLead({ fechaCita: l.fechaCita, hoy: today, conversacion: conv.estado }),
+          auto,
+          cohorte: cohorteLead({
+            fechaCita: l.fechaCita,
+            hoy: today,
+            conversacion: conv.estado,
+            automatizacion: { estado: auto.estado },
+          }),
         };
       });
-  }, [leads, today, ultimaSalientePorLead, ultimaEntrantePorLead, filtroDoctor, filtroTratamiento]);
+  }, [leads, today, ultimaSalientePorLead, ultimaEntrantePorLead, filtroDoctor, filtroTratamiento, autom]);
 
   type Clasificado = (typeof clasificados)[number];
   const cohortes = useMemo(() => {
@@ -446,6 +493,14 @@ function LeadsTab({
     const de = (c: CohorteLead) => clasificados.filter((x) => x.cohorte === c);
     const creado = (x: Clasificado) => new Date(x.l.createdAt).getTime() || 0;
     return {
+      // Quiebre: la primera cohorte, y en leads SIEMPRE VACÍA hoy — el
+      // clasificador no corre para leads. Se declara igualmente para que la
+      // partición sea total y para que el día que la fase 2 la llene no haya
+      // que tocar nada aquí.
+      quiebre: de("quiebre"),
+      // Agotado: el que más tiempo lleva sin respuesta primero — es al que
+      // antes hay que llamar.
+      agotado: de("agotado").sort((a, b) => (b.conv.haceMs ?? 0) - (a.conv.haceMs ?? 0)),
       // Citados: la cita más cercana primero.
       citados: de("citados").sort(
         (a, b) =>
@@ -493,6 +548,9 @@ function LeadsTab({
   // sin nada urgente, la primera con contenido.
   const cohorteAuto = ((): CohorteLead => {
     const ahora = Date.now();
+    // Quiebre y agotado ganan a todo: son las dos que exigen criterio humano.
+    if (cohortes.quiebre.length > 0) return "quiebre";
+    if (cohortes.agotado.length > 0) return "agotado";
     if (cohortes.en_conversacion.some((x) => x.conv.estado === "pendiente_responder"))
       return "en_conversacion";
     if (cohortes.nuevos.some((x) => esNuevoUrgente(x.l.createdAt, new Date(ahora)))) return "nuevos";
@@ -520,6 +578,11 @@ function LeadsTab({
   // tuya (responder, primer contacto, reactivar, confirmar la cita de hoy);
   // atendidos = la pelota está en el paciente o la cita es futura.
   const exigenAccion = [
+    // Quiebre y agotado son, por definición, los que exigen acción. Van primero
+    // y NO se solapan con las demás: la cohorte es una partición, así que un
+    // caso agotado ya no está en rezagados y no se cuenta dos veces.
+    ...cohortes.quiebre,
+    ...cohortes.agotado,
     ...cohortes.en_conversacion.filter((x) => x.conv.estado === "pendiente_responder"),
     ...cohortes.nuevos,
     ...cohortes.rezagados,
@@ -593,6 +656,11 @@ function LeadsTab({
           visible con su 0: partición honesta, nada desaparece. */}
       <ColaTabs
         tabs={[
+          // Quiebre primero y arriba, aunque hoy en leads sea siempre 0: la
+          // partición se enseña entera. Un 0 honesto vale más que ocultar una
+          // cohorte y que la coordinadora no sepa que existe.
+          { id: "quiebre" as CohorteLead, label: "Necesita persona", count: cohortes.quiebre.length },
+          { id: "agotado" as CohorteLead, label: "Toca llamar", count: cohortes.agotado.length },
           { id: "citados" as CohorteLead, label: "Citados", count: cohortes.citados.length },
           { id: "nuevos" as CohorteLead, label: "Nuevos", count: cohortes.nuevos.length },
           {
@@ -613,6 +681,17 @@ function LeadsTab({
       {cohorte === "rezagados" && (
         <p className="text-xs text-[var(--color-muted)]">
           Les escribiste y no contestaron — toca insistir.
+        </p>
+      )}
+
+      {/* Declaración honesta: en leads el aviso NO lee el contenido. Sin esto,
+          una cohorte "Necesita persona" siempre a 0 se lee como "no hay nada
+          que atender" en vez de como "esto todavía no mira". */}
+      {(cohorte === "quiebre" || cohorte === "agotado") && <QueSeDetecta dominio="leads" />}
+
+      {cohorte === "agotado" && (
+        <p className="text-xs text-[var(--color-muted)]">
+          Se agotó el seguimiento por escrito: el siguiente paso es una llamada.
         </p>
       )}
 
@@ -675,6 +754,7 @@ function LeadsTab({
               <LeadAccionRow
                 lead={x.l}
                 conv={x.conv}
+                auto={x.auto}
                 cohorte={x.cohorte}
                 onOpen={() => setDrawerLead(x.l)}
                 onAsistencia={() => setAsistenciaLead(x.l)}
@@ -754,6 +834,7 @@ function citaTexto(fechaCita: string, hoy: string): string {
 function LeadAccionRow({
   lead,
   conv,
+  auto,
   cohorte,
   onOpen,
   onAsistencia,
@@ -762,6 +843,9 @@ function LeadAccionRow({
   onVisto,
 }: {
   lead: Lead;
+  /** Estado de automatización — lo deriva LeadsTab con la función pura
+   *  compartida, igual que la conversación. La card no recalcula nada. */
+  auto?: { estado: EstadoAutomatizacion; disparador: Disparador | null };
   /** Clasificación única de la conversación — la deriva LeadsTab (la misma
    *  que decide la cohorte); la card no recalcula nada. */
   conv: ConversacionClasificada;
@@ -931,6 +1015,9 @@ function LeadAccionRow({
     <AccionCard
       borderColor={borderColor}
       faded={esperando || visto}
+      distintivo={
+        auto ? <EstadoAutomatizacionPill estado={auto.estado} /> : undefined
+      }
       title={
         lead.convertido && lead.pacienteId ? (
           <a

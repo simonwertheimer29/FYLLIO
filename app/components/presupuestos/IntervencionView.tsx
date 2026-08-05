@@ -19,6 +19,8 @@ import { AccionCard } from "../shared/AccionCard";
 import type { useVistosHoy } from "../../lib/seguimiento/useVistosHoy";
 import { SeguimientoHeader } from "../shared/SeguimientoHeader";
 import { ColaTabs } from "../shared/ColaTabs";
+import { QueSeDetecta } from "../automatizacion/QueSeDetecta";
+import { EstadoAutomatizacionPill } from "../automatizacion/EstadoAutomatizacionPill";
 import { X, Inbox, ICON_STROKE } from "../icons";
 import { horaClinica } from "../../lib/time";
 
@@ -45,8 +47,12 @@ function formatTimeAgo(isoDate: string): string {
 //   rezagados       = reactivable — en UI, "Sin respuesta"
 // Un item sin clasificación del servidor cuenta como sin_conversacion:
 // necesita el primer toque, no puede quedar invisible.
+// El estado de automatización llega ya RESUELTO del servidor (item.automatizacion):
+// el cliente no lo recalcula, igual que no recalcula la conversación.
 function cohorteDe(item: PresupuestoIntervencion): CohortePresupuesto {
-  return cohortePresupuesto(item.conversacion?.estado ?? "sin_conversacion");
+  return cohortePresupuesto(item.conversacion?.estado ?? "sin_conversacion", {
+    estado: item.automatizacion?.estado,
+  });
 }
 
 // Id de URL → cohorte ("sin-respuesta" es el nombre visible de rezagados).
@@ -181,6 +187,14 @@ function PresupuestoAccionRow({
         ) : undefined
       }
       tags={item.treatments.map((t) => ({ label: t }))}
+      distintivo={
+        item.automatizacion ? (
+          <EstadoAutomatizacionPill
+            estado={item.automatizacion.estado}
+            motivo={item.automatizacion.motivo}
+          />
+        ) : undefined
+      }
       meta={meta}
       quote={quote}
       accionSugerida={esReactivable ? undefined : item.accionSugerida}
@@ -575,6 +589,15 @@ export default function IntervencionView({
   const cohortes = useMemo(() => {
     const de = (c: CohortePresupuesto) => globalFiltered.filter((p) => cohorteDe(p) === c);
     return {
+      // Quiebre: la primera cohorte. Ordenada por IMPORTE — cuando lo que hay
+      // que decidir es delicado, el dinero en juego es lo que dice por cuál
+      // empezar. El motivo va escrito en la card, así que el orden no esconde
+      // por qué está ahí cada uno.
+      quiebre: de("quiebre").sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0)),
+      // Agotado: el que más lleva sin respuesta primero — al que antes llamar.
+      agotado: de("agotado").sort(
+        (a, b) => (b.conversacion?.haceMs ?? 0) - (a.conversacion?.haceMs ?? 0),
+      ),
       // Nuevos: el presentado más reciente primero (contactar hoy lo de hoy).
       nuevos: de("nuevos").sort((a, b) =>
         (b.fechaPresupuesto ?? "").localeCompare(a.fechaPresupuesto ?? ""),
@@ -602,6 +625,10 @@ export default function IntervencionView({
   // Apertura automática: pendientes de responder > nuevos > sin respuesta;
   // sin nada que exija acción, la primera con contenido.
   const cohorteAuto = ((): CohortePresupuesto => {
+    // Quiebre y agotado abren la cola: es lo que no puede esperar a que alguien
+    // navegue hasta ahí.
+    if (cohortes.quiebre.length > 0) return "quiebre";
+    if (cohortes.agotado.length > 0) return "agotado";
     if (cohortes.en_conversacion.some((p) => p.conversacion?.estado === "pendiente_responder"))
       return "en_conversacion";
     if (cohortes.nuevos.length > 0) return "nuevos";
@@ -617,6 +644,8 @@ export default function IntervencionView({
     (p) => p.conversacion?.estado === "pendiente_responder",
   ).length;
   const exigenAccion = [
+    ...cohortes.quiebre,
+    ...cohortes.agotado,
     ...cohortes.nuevos,
     ...cohortes.rezagados,
     ...cohortes.en_conversacion.filter((p) => p.conversacion?.estado === "pendiente_responder"),
@@ -707,6 +736,16 @@ export default function IntervencionView({
           conjunto no se pierde al cambiar. Una cohorte vacía sigue visible. */}
       <ColaTabs
         tabs={[
+          // Las dos primeras son las que exigen criterio humano. Van con su
+          // importe como el resto: lo que está en juego se lee igual en todas.
+          {
+            id: "quiebre" as CohortePresupuesto,
+            label: `Necesita persona · ${cohortes.quiebre.length} · ${fmtEUR(sumImporte(cohortes.quiebre))}`,
+          },
+          {
+            id: "agotado" as CohortePresupuesto,
+            label: `Toca llamar · ${cohortes.agotado.length} · ${fmtEUR(sumImporte(cohortes.agotado))}`,
+          },
           {
             id: "nuevos" as CohortePresupuesto,
             label: `Nuevos · ${cohortes.nuevos.length} · ${fmtEUR(sumImporte(cohortes.nuevos))}`,
@@ -781,6 +820,11 @@ export default function IntervencionView({
           }
         />
       )}
+
+      {/* Declaración honesta de qué dispara el aviso y qué no. Sin esto,
+          una cohorte de quiebre pequeña se lee como "casi no hay nada
+          delicado" cuando lo que pasa es que solo mira tres cosas. */}
+      {(cohorte === "quiebre" || cohorte === "agotado") && <QueSeDetecta dominio="presupuestos" />}
 
       {/* Cards list — card compartida con Leads; cascada solo al montar o
           cambiar de cohorte (keys estables → un refresh no re-anima). */}

@@ -56,4 +56,14 @@ export type Lead = {
   /** Último mensaje/acción ENTRANTE y SALIENTE (ISO), de las mismas fuentes. */
   entranteAt?: string | null;
   salienteAt?: string | null;
+  /** Tercera coordenada: quién lleva el caso (fase 1 de PLAN-AGENTE). Derivada
+   *  en el servidor. En leads NUNCA vale "quebrado": el webhook guarda sus
+   *  mensajes sin clasificarlos, así que no hay intención que pueda disparar el
+   *  corte. Sí vale "agotado", que sale de `whatsappEnviados`. Ver
+   *  PLAN-AGENTE §fase 1, recorte 4. */
+  automatizacion?: {
+    estado: import("../../lib/automatizacion/estado").EstadoAutomatizacion;
+    disparador: import("../../lib/automatizacion/estado").Disparador | null;
+    motivo: string | null;
+  };
 };

@@ -1613,3 +1613,47 @@ cree que el sistema caza quejas deja de leer los mensajes que el sistema no marc
 distintivo pero no entra en la cola. De los seis estados, cuatro se derivan y **lo único que se
 persiste es la decisión humana**, en una tabla append-only y no en una columna de estado — una
 columna tendría que sincronizarse con seis señales que cambian solas.
+
+## 2026-08-05 — Fase 1 del agente: el estado de automatización se DERIVA, y el log solo guarda decisiones
+Tercera coordenada de cada caso (quién lo lleva) y cohorte de quiebre en Seguimiento, con el alcance
+cerrado tras censar el código en vez de escribirlo de memoria.
+
+**La decisión que ordena todo: no hay columna `estado_automatizacion`.** De los seis estados, cuatro
+se derivan de datos que ya existen (`esperando` ← estadoConversacion · `agotado` ← reactivable +
+`contact_count`/`whatsapp_enviados` · `manual` y `cerrado` ← configuración y estado del caso) y el
+quiebre deriva su condición de `intencion_detectada`, ya persistida. Una columna tendría que
+sincronizarse con seis señales que **cambian solas** —llega un mensaje y el estado de conversación
+cambia sin que nadie escriba nada—, y se quedaría mintiendo hasta que algo la reescribiera. Lo único
+que ningún dato existente puede producir es la **decisión humana**, y eso va a
+`eventos_automatizacion`, append-only (`grant select, insert`, sin update ni delete: un log que se
+puede reescribir es una columna con más pasos). Campos nuevos en total: **una tabla y una columna de
+configuración** (`toques_antes_de_agotar`, que es una decisión comercial y no deriva de nada).
+
+**La cohorte de quiebre entra como PRECEDENCIA, no como caso del switch.** La invariante de partición
+se sostiene sobre un `switch` exhaustivo de `EstadoConversacion`, y el quiebre no es uno de sus
+valores: es ortogonal (un caso quebrado es *además* `pendiente_responder`). Entra como guarda por
+encima, igual que «citados». El switch queda intacto — `qa:cohortes` sigue en verde sin tocarlo — y
+`qa:automatizacion` prueba las 24 combinaciones (conversación × estado) para que ninguna caiga fuera.
+
+**Tres recortes, los tres por lo mismo — no prometer lo que ningún dato produce:**
+1. Fuera el estado «trabajando»: significaba «tiene el siguiente toque programado» y en modo A no hay
+   nada que programe. Es la tercera vez que se retira una promesa así (scores del predictor,
+   «precisión 0 %»).
+2. El quiebre corta con **3 de los 6** disparadores y **lo declara en pantalla**. Si la coordinadora
+   cree que el sistema caza quejas, deja de leer los mensajes que el sistema no marcó — peor que no
+   avisar. El bloque desaparece en el mismo cambio que los haga detectables (fase 2).
+3. **El quiebre por intención es solo de presupuestos**: `clasificarRespuesta` no corre para leads (el
+   webhook los guarda sin clasificar). Declarado en el plan y en pantalla para que nadie lo pruebe en
+   un lead dentro de tres semanas y concluya que está roto.
+
+**La coincidencia guarda la MEDIDA, no la categoría.** Distancia de edición normalizada [0,1] sobre
+texto sin acentos, sin dobles espacios y con comillas unificadas — así un acento o un espacio no
+cuentan como edición. `tal_cual`/`editado`/`reescrito` se derivan al leer con un umbral que hay que
+calibrar: si se guardara la categoría y el umbral resultara malo, el histórico estaría perdido. Y se
+mide en el **servidor**, leyendo `mensaje_sugerido` de la base y no del cuerpo de la petición: si el
+cliente dijera «esto me propusiste», la métrica mediría al cliente, y es la métrica que decide cuándo
+se sube de modo A a modo B.
+
+Verificado: `qa:automatizacion` 41 comprobaciones en verde (censo de 29 presupuestos reales: 26
+esperando, 3 quebrado), `qa:cohortes` intacto, tsc y build limpios, y capturas en claro, oscuro y
+móvil.

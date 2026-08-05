@@ -24,6 +24,11 @@ export type AccionCardProps = {
   score?: number;
   /** Tags visibles bajo el título (tratamiento, canal, etc). */
   tags?: Tag[];
+  /** Distintivo de estado de automatización — "quién lleva este caso" (fase 1
+   *  de PLAN-AGENTE). Va junto a los tags porque es del mismo rango visual: un
+   *  dato del caso, no una acción. Se pasa ya renderizado (EstadoAutomatizacionPill)
+   *  para que la card siga siendo 100 % presentacional y no conozca el dominio. */
+  distintivo?: React.ReactNode;
   /** Subtítulo gris (clínica · doctor · tiempo desde…). */
   meta?: string;
   /** Cita textual del paciente / sugerencia destacada. */
@@ -61,6 +66,7 @@ export function AccionCard({
   titleRight,
   score,
   tags,
+  distintivo,
   meta,
   quote,
   estado,
@@ -93,6 +99,9 @@ export function AccionCard({
           <div className="min-w-0 sm:flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-sm text-[var(--color-foreground)]">{title}</span>
+              {/* Cobros usa esta densidad: aquí el distintivo es TODO lo que
+                  recibe de la fase 1 (no entra en la cola de quiebre). */}
+              {distintivo}
               {tags?.slice(0, 1).map((t, i) => (
                 <span
                   key={i}
@@ -167,9 +176,13 @@ export function AccionCard({
                 </div>
               )}
             </div>
-            {tags && tags.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-0.5">
-                {tags.map((t, i) => (
+            {/* El distintivo entra aunque no haya tags: si dependiera de ellos,
+                una card sin tratamiento perdería el aviso de "necesita persona",
+                que es justo la que más lo necesita. */}
+            {(distintivo || (tags && tags.length > 0)) && (
+              <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                {distintivo}
+                {(tags ?? []).map((t, i) => (
                   <span
                     key={i}
                     className={`text-[10px] px-1.5 py-0.5 rounded-full ${

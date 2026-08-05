@@ -130,6 +130,31 @@ conjunto de evaluación montado contradice esta misma fase.
 Presupuestos) con su partición vigilada; cobros es una pantalla aparte. Meterlo en la cola es la
 reorganización de cuatro ventanas, que va al final.
 
+**4 · El quiebre por intención es SOLO de presupuestos. Los leads no quiebran por intención.**
+
+Esto no es una decisión de alcance: es lo que hay. `clasificarRespuesta` **solo corre para
+presupuestos** — el webhook de WhatsApp, al recibir un mensaje de un lead activo, lo persiste,
+lo anota en el timeline y **vuelve sin clasificar**, con el comentario puesto (`api/webhooks/whatsapp`).
+No hay `intencion_detectada` que leer en un lead que responde, así que no hay nada que pueda
+disparar un quiebre.
+
+**Qué significa en la práctica, y hay que saberlo antes de probar:**
+
+| | Presupuestos | Leads |
+|---|---|---|
+| Quiebre por **intención** (dinero, criterio clínico, ambigüedad) | ✅ | ❌ **no ocurre** |
+| Entrada a la cola por **estado de conversación** | ✅ | ✅ |
+| Entrada a la cola por **agotamiento** | ✅ | ✅ |
+| Distintivo de estado en la tarjeta | ✅ | ✅ |
+
+**Está escrito aquí porque si no, dentro de tres semanas alguien prueba el quiebre en un lead, no
+pasa nada, y concluye que está roto.** No está roto: nunca se construyó esa mitad. Clasificar
+respuestas de leads es trabajo propio —el enum actual responde a «¿acepta el presupuesto?», que no
+es la pregunta de un lead— y va con la ampliación a los seis disparadores en la **fase 2**.
+
+En pantalla se declara igual que los tres disparadores: la cola de leads no promete un quiebre que
+no puede producir.
+
 ### Lo que se persiste, y por qué es lo único que se persiste
 
 De los seis estados, **cuatro se derivan enteros** de datos que ya existen —`esperando` de
