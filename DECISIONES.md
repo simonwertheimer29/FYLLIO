@@ -1988,3 +1988,38 @@ retiran**: el texto cambió, así que respondían a otra pregunta. Y el marcador
 un momento en la columna del id, donde **rompió el parser y sacó los dos casos del conjunto sin
 avisar** — se detectó porque el recuento pasó de 50 a 48. Un corpus que se lee mal no da error: da
 menos casos.
+
+## 2026-08-06 — Corpus completo anotado: 93 %, y los tres fallos dicen cosas distintas
+Simon anotó los 50 casos (30 de la tanda 2 presentados en orden alterado: en el corpus están
+agrupados por categoría y verlos en bloque haría reconocer el patrón en vez de juzgar cada mensaje).
+
+**43 puntuables, 7 dudosos, y el clasificador saca 93 % (40/43).** Pero el agregado esconde lo
+importante: **los tres fallos no son la misma cosa.**
+
+| Caso | Qué es |
+|---|---|
+| **#37** «Pues nada, gracias.» | **Fallo ESPERADO y declarado.** Es tono negativo, uno de los tres disparadores que la fase 1 no detecta. Cuenta como fallo a propósito: es la línea base contra la que se medirá la fase 2 |
+| **#24** «¿Cuánto tiempo tengo que estar sin comer normal?» | **Fallo REAL.** El clasificador lo categorizó como «Tiene duda sobre tratamiento» —criterio clínico, disparador ACTIVO— **y aun así no paró**. La decisión y la categoría se contradicen dentro de la misma respuesta |
+| **#18** «Al final creo que no.» | **Decisión de producto sin tomar**, no fallo de clasificación. ¿Un rechazo tras doce días y dos toques debe subir a la cola para intentar rescatarlo? Simon dice que sí; el sistema lo trata como un cierre |
+
+**Lo que dice el desglose por bloque, y vale más que el 93 %:**
+
+- **Los tres disparadores activos y los tres pendientes, todos B sin una sola duda**: criterio clínico
+  6/6, queja 5/5, pide persona 5/5, tono negativo 4/4. **El criterio de Simon sobre qué exige una
+  persona es completamente estable**, y eso valida las seis reglas del documento de arquitectura con
+  datos en vez de con intuición.
+- **Las 12 neutras: 11 A y una duda.** El bloque que existe para que la cola no se llene de ruido
+  hace su trabajo.
+- **Dinero es el bloque que más duda genera** (2 de 7): el seguro (#22) y el fraccionamiento tras
+  aceptar (#21). Tiene sentido — son los dos casos donde «informar» y «negociar» se tocan, que es la
+  línea que se acaba de dibujar hoy con el IVA.
+
+**Acuerdo Simon vs la anotación sellada de Claude: 95 % sobre 39 comparables**, con solo dos
+discrepancias (#1 el IVA, ya resuelta como decisión de producto, y #4 «vale» tras un presupuesto).
+Con 50 casos el acuerdo SUBIÓ respecto al 82 % de los primeros 20, lo que sugiere que las
+discrepancias iniciales eran casos mal escritos y no criterios distintos.
+
+**Y el caso 2 sigue dudoso después de reescribirlo.** Se corrigió la contradicción («cita mañana» vs
+«voy de camino») y Simon lo volvió a marcar «?». Así que la ambigüedad **no era la contradicción**:
+es que «llego cinco minutos tarde» a una cita de hoy es logística pura, pero alguien tiene que
+enterarse para no dar el hueco por perdido. Es un caso legítimamente difícil, no un caso roto.
