@@ -70,6 +70,18 @@ export async function clasificarRespuesta(args: {
   estado: PresupuestoEstado;
   amount?: number;
   clinica?: string;
+  /**
+   * SOLO para el conjunto de evaluación (`npm run qa:evals -- --degradar`).
+   * Sustituye el prompt del sistema para poder **degradarlo a propósito** y
+   * comprobar que la puntuación BAJA — si no baja, el eval no mide nada y hay
+   * que arreglar el eval antes que el clasificador.
+   *
+   * Existe como parámetro y no como copia del prompt en el script a propósito:
+   * un test que no ejecuta el código de producción no prueba el código de
+   * producción. Ninguna ruta lo pasa; si algún día alguna lo hiciera, sería un
+   * bug — el prompt de producción es uno solo.
+   */
+  _promptOverride?: string;
 }): Promise<ClasificacionIA> {
   const apiKey = process.env["ANTHROPIC_API_KEY"];
   if (!apiKey) {
@@ -117,7 +129,7 @@ export async function clasificarRespuesta(args: {
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 400,
-        system: SYSTEM_PROMPT_CLASIFICAR,
+        system: args._promptOverride ?? SYSTEM_PROMPT_CLASIFICAR,
         messages: [{ role: "user", content: userPrompt }],
       }),
       signal: controller.signal,

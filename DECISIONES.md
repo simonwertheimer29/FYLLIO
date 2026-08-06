@@ -1726,3 +1726,31 @@ fase 1 — no por orden estético.
 **censar el código cuesta minutos y estimar de memoria cuesta fases**. Las tres correcciones
 (WhatsApp el 3 ago, §05 el 5 ago, esta) las destapó leer el código, no usar el producto. Antes de
 escribir «hay que construir X», se busca X.
+
+## 2026-08-05 — La prueba del termómetro reprobó mi propia expectativa, y eso era el hallazgo
+Se montó el conjunto de evaluación del agente (`evals/`, `npm run qa:evals`) y, antes de puntuar
+nada, la prueba que exige el plan: degradar el prompt a propósito y comprobar que el número baja.
+
+**La primera degradación fue «quitar la categoría de dinero del prompt». El número SUBIÓ, de 63 % a
+88 %.** Investigado en vez de ajustado: al quitar la categoría, los mensajes de dinero no caen en un
+limbo — caen en OTRA categoría que también quiebra («¿me haríais descuento?» → «Tiene duda sobre
+tratamiento»), y «Sin clasificar» quiebra por ambigüedad.
+
+**No era un fallo del eval: es una propiedad del sistema, y buena.** El producto escala ante lo que
+no entiende, que es literalmente la regla «ante la duda, humano». La decisión de quiebre es ROBUSTA a
+que el clasificador se confunda de categoría. Lo que estaba mal era mi expectativa.
+
+**Lo que sí queda demostrado, y es una limitación real del conjunto:** un eval que mide SOLO la
+decisión de quiebre **no puede ver** una degradación de categoría. Para eso haría falta anotar
+también la categoría correcta, y hoy solo está anotada la decisión — a propósito, porque «¿esto lo
+podía contestar el sistema solo?» es la pregunta que una persona responde con seguridad y «¿qué
+intención es esta?» es taxonomía. Queda escrito en el script para cuando exista esa anotación.
+
+Rediseñadas las degradaciones para que ataquen lo que este conjunto SÍ mide —la decisión— con dos
+extremos: un clasificador **complaciente** (nunca quiebra) y uno **alarmista** (siempre quiebra).
+Los dos puntúan peor que el real (44 % y 56 % frente a 63 %), así que el eval discrimina en las dos
+direcciones y no premia a un clasificador que conteste siempre lo mismo.
+
+**Y el número que importa: el clasificador real saca 63 % (10 de 16) contra la anotación de Simon.**
+Sobre casos sintéticos, con 16 puntuables y sin la segunda tanda todavía, así que no es una
+conclusión — pero tampoco es un número que se pueda mirar hacia otro lado.
