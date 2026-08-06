@@ -1909,3 +1909,44 @@ del IVA de un presupuesto ya emitido es «comprometer dinero»? Queda anotada, n
 `/red`, cohortes, automatización y sin-fallbacks sin moverse. La medición se hizo con el corpus
 CONGELADO: los casos 2 y 7 (mal escritos, detectados por el «no lo tengo claro» de Simon) se corrigen
 ahora, después de medir, para no cambiar la vara a mitad.
+
+## 2026-08-06 — Zolutium por dentro, y el entrenamiento continuo deja de ser servicio
+Dos registros que van a documentos distintos porque responden a preguntas distintas.
+
+**A `MERCADO.md`, evidencia DE CAMPO** (no documental: sale de usar el producto en el encargo de
+Pisopak, no de su web): Zolutium es una plataforma CRM con IA, genérica y multivertical, con agentes
+entrenados por prompts sobre modelos de OpenAI, workflows de arrastrar y soltar, llamadas IA,
+campañas, y conexión a WhatsApp, Instagram y TikTok. Su bucle de entrenamiento es manual: se
+conversa con un agente de prueba, se califica cada respuesta, y las malas se corrigen a mano y se
+guardan como preguntas frecuentes. Coste observado: **~1.200 USD de puesta en marcha, pagados a un
+consultor externo**.
+
+**Lo que se dejó escrito para que nadie lo lea mal:** esos 1.200 USD **no son comparables** con la
+mensualidad de la hipótesis H10 — son coste de configuración, no licencia. Su recurrente no lo
+sabemos, y está en §5 como pregunta abierta. Compararlos habría dado una conclusión falsa en las dos
+direcciones.
+
+**Interpretación (§3, marcada como tal):** su libertad de workflows es su debilidad frente a un
+vertical — quien no sabe qué flujo quiere no compra un lienzo en blanco, compra un flujo. Y su
+modelo implica consultoría, que factura horas y no escala: **es el hueco por el que entra un vertical
+que no cobra por configurar**. Se dedujo además que su agente no tiene concepto de traspaso a una
+persona —su bucle corrige *qué dijo*, nunca *si debió decir algo*—, y si se confirma no competimos en
+lo mismo. **Marcado como NO confirmado a propósito:** una ventaja competitiva sostenida sobre «no lo
+he visto» es justo lo que la regla de higiene existe para no dar por buena.
+
+**A `PLAN-AGENTE.md`, fase 4: el entrenamiento continuo es PRODUCTO, no servicio.** Fyllio no cobra
+por configurar ni por entrenar. El bucle no pide trabajo extra: cada corrección de un mensaje
+sugerido ya se captura desde la fase 1 (es la distancia de edición); cuando se acumulan varias del
+mismo tipo el sistema **propone** el cambio y la coordinadora acepta o no —nunca se aplica solo—; y
+el quiebre se afina en las dos direcciones, con los casos que se pasaron sin hacer falta y los que se
+resolvieron solos y acabaron mal. En el arranque solo se piden treinta minutos de conversación:
+preguntas frecuentes, precios y políticas, y **qué NO puede decir el agente**.
+
+**Y una corrección al modelo premium:** la diferencia del plan superior **no es «yo te entreno el
+agente»** — son los flujos intermedios. Entrenar con la voz de la clínica va en todos los planes
+porque se hace solo; cobrarlo aparte sería cobrar por algo que no cuesta trabajo, y además nos
+convertiría en el modelo del consultor del que queremos diferenciarnos.
+
+**La dependencia, escrita donde se va a leer:** el bucle no arranca sin conversaciones reales, y hoy
+hay **cero** en el sistema. Es otra razón de peso —además de medir— para pedir el histórico de
+WhatsApp de RB en la misma tanda que el contrato del art. 28.

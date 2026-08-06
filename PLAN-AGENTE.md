@@ -41,7 +41,7 @@ Lo detectado pero no aprobado sigue yendo a [`MEJORAS-PENDIENTES.md`](MEJORAS-PE
 | **1** · Estado de automatización y cola de quiebre | La tercera coordenada de cada caso, su cohorte en Seguimiento, **la tasa de coincidencia agente-humano** y **el conjunto de evaluación** | ✅ **Decidida** — no depende de WhatsApp |
 | **2** · Clasificador completo + simulador | **Enganchar el clasificador de leads** (existe; solo falta el disparador — medio día) y **los 3 disparadores que faltan**, ambos medidos contra los evals. Más el simulador | ⬜ **No decidida** |
 | **3** · Modo B — el agente envía lo rutinario | **Conectar** el envío/recepción (ya construidos) y **construir el catálogo de 11 plantillas** | ⬜ **No decidida** — reescrita el 3 ago tras censar el código |
-| **4** · Modo C y configuración por clínica | Autonomía hasta el quiebre, matriz por fase | ⬜ **No decidida** |
+| **4** · Modo C, configuración e **entrenamiento continuo** | Autonomía hasta el quiebre, matriz por intención, y el bucle que aprende de las correcciones **sin cobrar por configurar** | ⬜ **No decidida** |
 | **5** · Tech Provider y alta de clientes | Embedded Signup, una WABA por clínica | ⬜ **No decidida** |
 
 ---
@@ -450,6 +450,7 @@ día. Lo que no cabe es dar por hecha la aprobación en una fecha comprometida c
   API), no la autonomía. La sección 05 de `arquitectura-app-automatizacion.html` los daba por
   construidos y era falso; queda corregida.
 - **La matriz de configuración**: **intención × modo**, agrupada por fase. Ver abajo.
+- **El entrenamiento continuo**, que es producto y no servicio. Ver abajo.
 - Cadencias, umbrales y horarios configurables.
 - Disparadores propios que se pueden añadir — nunca quitar los de dinero ni los clínicos.
 
@@ -488,10 +489,72 @@ sección de disparadores no configurables — dicho una vez, aplicado en los dos
 **Cómo se sube de celda:** con la tasa de coincidencia de esa intención (fase 1), no con una
 sensación. Cada celda tiene su umbral y su histórico.
 
+### El entrenamiento continuo es producto, no servicio
+
+**Fyllio no vende configuración y no cobra por entrenar el agente.** El sistema aprende de lo que la
+clínica **ya hace**, sin sesiones de entrenamiento ni equipo dedicado.
+
+**Por qué es una decisión de negocio y no una preferencia técnica.** Cobrar por configurar es
+facturar horas: no escala, y supone una clínica con alguien dispuesto a sentarse a diseñar flujos.
+Una clínica de dos sillones no quiere un equipo reconfigurándole nada — quiere que deje de
+perdérsele dinero. Es exactamente el hueco que deja el modelo de al lado: Zolutium cobra ~1.200 USD
+de puesta en marcha **a un consultor externo** que configura y entrena los agentes
+([`MERCADO.md` §2.1](MERCADO.md), observado por dentro el 5 ago de 2026).
+
+#### El bucle, que no le pide trabajo extra a nadie
+
+**1 · Cada corrección es una lección, y ya se está capturando.** Cuando la coordinadora edita o
+reescribe un mensaje sugerido, se guardan el original y el suyo. **Esto existe desde la fase 1**: es
+la distancia de edición de la tasa de coincidencia. No hay que construir la captura, solo leerla con
+otra pregunta.
+
+**2 · Cuando se acumulan correcciones del mismo tipo, el sistema PROPONE.** *«Sueles reescribir esto
+de otra manera, ¿lo escribo así a partir de ahora?»*. Ella acepta o no. **Nunca se aplica solo** — la
+misma barrera que las categorías propuestas de la fase 2: acumular es automático, adoptar es una
+decisión humana.
+
+**3 · Lo mismo con el quiebre, y en las dos direcciones.** Cada caso que se le pasó y **no hacía
+falta** es señal de que la línea está demasiado adelante; cada caso que el agente resolvió solo y
+**acabó mal**, de que está demasiado atrás. Las dos señales afinan dónde está la línea, y las dos
+salen del uso normal.
+
+#### Lo único que se pide al arrancar
+
+**Media hora de conversación en el onboarding, no un servicio aparte:**
+
+- Las preguntas frecuentes con sus respuestas.
+- Precios y políticas.
+- **Qué NO puede decir el agente.**
+
+Nada más. Todo lo demás lo aprende de trabajar.
+
+#### Corrección al modelo estándar / premium
+
+**La diferencia del plan superior NO es «yo te entreno el agente».** Son los **flujos intermedios**:
+el paso propio de esa clínica que el estándar no cubre —el tratamiento en pausa de Flores, la
+derivación a un implantólogo externo—, que es lo que ya dice [`MERCADO.md` §1](MERCADO.md).
+
+**Entrenar el agente con la voz de la clínica va en TODOS los planes, porque se hace solo.** Ponerlo
+en el premium sería cobrar por algo que no cuesta trabajo, y además rompería el argumento: si
+entrenar se paga aparte, ya somos el modelo del consultor.
+
+#### La dependencia que hay que dejar escrita
+
+**Nada de este bucle funciona sin conversaciones reales, y hoy hay CERO en el sistema.** RB e INDEP
+están vacíos y los 349 mensajes de DEMO son 15 plantillas del seed (censo del 5 ago de 2026, ver
+[`evals/README.md`](evals/README.md)). Sin correcciones reales no hay nada que acumular y el bucle
+no arranca.
+
+Es **otra razón, y de peso, para pedir el histórico de WhatsApp de RB en la misma tanda que el
+contrato de tratamiento de datos** ([`REUNION-RB-DENTAL.md` §D.2 bis](REUNION-RB-DENTAL.md)). No es
+solo para medir si el agente acierta: es para que pueda aprender.
+
 **Qué se espera ver:** dos clínicas con el mismo producto y comportamientos distintos, sin tocar código. Y dentro de una misma fase, dos intenciones con autonomía distinta.
 
 **Cómo se pone a prueba:**
 - Configurar dos tenants con perfiles opuestos (uno todo en A, otro todo en C) y verificar que ninguno se comporta como el otro.
+- **Entrenamiento continuo:** acumular varias correcciones del mismo tipo y verificar que el sistema **propone** el cambio en vez de aplicarlo. Rechazar la propuesta y comprobar que **no vuelve a proponerla igual** al día siguiente — una sugerencia que reaparece tras un «no» deja de ser una propuesta y pasa a ser insistencia.
+- Verificar que **la clínica no ha tenido que abrir ninguna pantalla de entrenamiento** para que el bucle funcione: si hace falta, es un servicio disfrazado de producto.
 - Poner «confirmar vigencia» en C y «pregunta precio» en A **en la misma clínica y la misma fase**, e inyectar una respuesta de cada tipo: la primera sale sola, la segunda para y espera a una persona.
 - Intentar subir a B o C una intención marcada «nunca sale de A» **por API, no por la interfaz**: tiene que rechazarse en el servidor. Una regla que solo vive en el desplegable no es una regla.
 

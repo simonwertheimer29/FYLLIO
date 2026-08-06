@@ -86,6 +86,37 @@ Lo que sabemos hasta ahora:
 
 *(Pendiente de completar tras la reunión.)*
 
+#### Zolutium — plataforma CRM con IA, multivertical · 5 ago 2026
+
+**Fuente: Simon, usando el producto por dentro** en el encargo de Pisopak. No sale de su web ni de
+una demo comercial: sale de configurarlo y trabajar con él. Es la evidencia más fuerte que tenemos
+sobre un competidor adyacente, y por eso está en «de campo» y no en «documental».
+
+Lo observado:
+
+- **Es genérica y multivertical.** No está construida para un sector concreto.
+- **Los agentes se entrenan con prompts**: personalidad, objetivos e información adicional, con
+  posibilidad de adjuntar documentos y calendarios. Sobre modelos de OpenAI.
+- **El bucle de entrenamiento es manual y supervisado**: se conversa con un agente de prueba, se
+  califica cada respuesta como buena o mala, y si es mala **se escribe la correcta y se guarda como
+  pregunta frecuente**. Las lagunas de conocimiento se acumulan solas y se van rellenando.
+- **Las automatizaciones se arman con workflows de arrastrar y soltar**, con disparadores según el
+  plan contratado.
+- Incluye **llamadas IA**, campañas de marketing, y conexión a varios **WhatsApp, Instagram y
+  TikTok**, con captación y respuesta desde ahí.
+- Tiene un **asistente de IA propio** para resolver dudas sobre la plataforma y crear workflows.
+- **Precio observado: ~1.200 USD** por configurar y entrenar los agentes y montar la arquitectura del
+  CRM, **con el trabajo hecho por un consultor externo**.
+
+> ⚠️ **Ese precio NO es comparable con la mensualidad de Fyllio.** Es un **coste de puesta en marcha
+> pagado a un consultor**, no la suscripción del software. Compararlo con los 89-149 €/mes de la
+> hipótesis H10 sería comparar cosas distintas y llegar a una conclusión falsa en las dos
+> direcciones. **Lo que cuesta su licencia recurrente no lo sabemos** — está en §5, preguntas
+> abiertas.
+
+*(Pendiente de confirmar desde dentro: si su agente tiene algún concepto de traspaso a una persona.
+Por lo observado no lo tiene, pero «no lo he visto» no es «no existe» — ver §3 y §5.)*
+
 ### 2.2 Documental — datos con fuente citable
 
 Todo lo de abajo entró el **31 jul 2026** desde [`INVESTIGACION-MERCADO-2026-07.md`](INVESTIGACION-MERCADO-2026-07.md); la fuente original va citada en cada línea.
@@ -140,6 +171,30 @@ Deducciones nuestras a partir de la evidencia. No son hechos: son lecturas que p
 **El tratamiento en pausa es un flujo intermedio, no un módulo del estándar.** Habrá clínicas que lo necesiten y clínicas que no. El producto debe poder albergarlo **sin romper el ciclo**, y eso lo convierte en candidato natural a premium.
 
 **El tipo de tratamiento probablemente predice el no-show mejor que el historial de comportamiento.** Se deduce de la observación de Flores (se falta cuando no duele). Es un dato que ya está en cada cita y sería la variable de más señal si se reactiva el predictivo.
+
+**Zolutium es HubSpot con IA encima, y su libertad es su debilidad frente a un vertical.** *(De la
+observación directa del 5 ago 2026.)* Un lienzo en blanco de workflows exige que el cliente **sepa
+qué flujo quiere**, y una clínica dental pequeña no lo sabe: sabe que se le pierden presupuestos.
+Quien no sabe qué flujo quiere no compra un lienzo — compra un flujo. Fyllio lo trae puesto, y eso
+**se defiende como ventaja, no como límite**: es la misma línea que ya se decidió con la rigidez que
+señaló Flores («este es el producto estándar; su necesidad concreta la cubrimos como flujo
+intermedio»). El corolario incómodo: cuando alguien nos diga «HubSpot ya hace esto», la respuesta no
+es una lista de funciones, es *«¿y quién le ha montado el flujo?»*.
+
+**Su modelo de negocio implica consultoría, el nuestro no puede.** Los ~1.200 USD se pagan a un
+consultor externo que configura y entrena. Eso factura horas y no escala, y además supone una clínica
+con alguien dispuesto a sentarse a diseñar flujos. **Es exactamente el hueco por el que entra un
+vertical que no cobra por configurar** — y es la premisa del entrenamiento continuo de la fase 4 de
+[`PLAN-AGENTE.md`](PLAN-AGENTE.md): el sistema aprende de lo que la clínica ya hace, sin sesiones ni
+equipo dedicado.
+
+**Su agente probablemente no tiene punto de quiebre — y si se confirma, es LA diferencia.** Su bucle
+de entrenamiento («califica la respuesta, y si está mal escribe la correcta») presupone que el agente
+**siempre contesta**: lo que se corrige es *qué dijo*, no *si debió decir algo*. Eso es un producto
+que optimiza la respuesta; Fyllio decide **cuándo no responder**. Si se confirma, no compiten en lo
+mismo. **Marcado como no confirmado a propósito**: se dedujo de usar la plataforma, no de leer su
+documentación ni de preguntárselo, y una ventaja competitiva que se sostiene sobre «no lo he visto»
+es exactamente la clase de afirmación que esta sección existe para no dar por buena.
 
 **El interlocutor puede no ser joven.** Si quien decide y paga en muchas clínicas es alguien de 55-65 años, el tono de la comunicación por WhatsApp (cercano, con emojis) podría estar calibrado para el usuario equivocado.
 
@@ -229,6 +284,12 @@ Deducciones nuestras a partir de la evidencia. No son hechos: son lecturas que p
 - **Convocatoria vigente de Kit Digital** en acelerapyme.gob.es: importes reales y requisitos para darse de alta como agente digitalizador.
 - ¿El comprador de una clínica de 2-3 sillones tiene el mismo dolor que una red de 10? ¿Paga lo mismo?
 - ¿Cuál es el precio de referencia de los softwares de pago único con los que competimos y qué incluyen?
+- **Zolutium: cuál es su licencia recurrente.** Lo único que sabemos es el coste de puesta en marcha
+  (~1.200 USD a un consultor); la mensualidad del software no la conocemos, y sin ella no se puede
+  comparar con H10. *(De la observación del 5 ago 2026 — ver §2.1.)*
+- **Zolutium: ¿su agente traspasa a una persona en algún momento?** Por dentro no se vio nada, pero
+  no se leyó su documentación ni se preguntó. Es la diferencia que más pesaría si se confirma, así
+  que **es la que menos se puede dar por supuesta** — ver §3.
 
 ---
 
