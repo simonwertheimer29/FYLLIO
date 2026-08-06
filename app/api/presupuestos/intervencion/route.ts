@@ -147,6 +147,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
         "Intencion_detectada", "Urgencia_intervencion",
         "Accion_sugerida", "Mensaje_sugerido",
         "Fase_seguimiento", "Ultima_accion_registrada", "Tipo_ultima_accion",
+        "Requiere_persona", "Motivo_quiebre",
       ],
       filterByFormula: filterFormula,
       sort: [{ field: "Fecha_ultima_respuesta", direction: "desc" }],
@@ -328,11 +329,19 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     // casos que el usuario no puede ver. Y se degrada si la consulta falla, en
     // vez de dejar la cola sin cohorte de quiebre (ver `estadosSinEventos`).
     {
+      // Los campos nuevos no viven en `PresupuestoIntervencion` (es el contrato
+      // con el cliente y no tiene por qué crecer por esto): se leen del registro
+      // crudo, indexado una vez.
+      const recsPorId = new Map(recs.map((r) => [r.id as string, r.fields as Record<string, unknown>]));
       const paraEstado = items.map((p) => ({
         id: p.id,
         cerrado: p.estado === "ACEPTADO" || p.estado === "PERDIDO",
         conversacion: p.conversacion?.estado ?? "sin_conversacion",
         intencion: p.intencionDetectada ?? null,
+        // La decisión persistida manda sobre la derivación de la categoría.
+        // `undefined` (fila anterior al rediseño) → se deriva, como antes.
+        requierePersona: (recsPorId.get(p.id)?.["Requiere_persona"] as boolean | null) ?? null,
+        motivoQuiebre: (recsPorId.get(p.id)?.["Motivo_quiebre"] as string | null) ?? null,
         toques: p.contactCount ?? 0,
         ultimaRespuesta: p.ultimaRespuestaPaciente ?? null,
       }));

@@ -17,34 +17,65 @@ const ZONE = "Europe/Madrid";
 
 /** Exportado para que el conjunto de evaluación pruebe el prompt REAL y no una
  *  copia: si la prueba usa otro texto, no dice nada del sistema que corre. */
-export const SYSTEM_PROMPT_CLASIFICAR = `Eres un asistente de una clínica dental española. Analizas respuestas de pacientes sobre presupuestos de tratamiento dental.
+export const SYSTEM_PROMPT_CLASIFICAR = `Eres el asistente de una clínica dental española. Analizas un mensaje que acaba de escribir un paciente.
 
-Tu tarea es:
-1. Clasificar la intención del paciente en UNA de estas opciones:
-   - "Acepta sin condiciones"
-   - "Acepta pero pregunta pago"
-   - "Tiene duda sobre tratamiento"
-   - "Pide oferta/descuento"
-   - "Quiere pensarlo"
-   - "Rechaza"
-   - "Sin clasificar"
+━━ PASO 1 — LA DECISIÓN. Es la que manda y se decide SOLA, sin pensar en categorías.
 
-2. Asignar urgencia de intervención:
-   - "CRÍTICO": acepta o pregunta pago → cerrar venta ya
-   - "ALTO": duda concreta sobre tratamiento o pide oferta
-   - "MEDIO": quiere pensarlo, sin respuesta clara
-   - "BAJO": rechazo definitivo o sin información suficiente
+"requierePersona": true|false — ¿tiene que leerlo una persona de la clínica antes de responder?
 
-3. Sugerir una acción específica y breve (3-6 palabras)
+Es TRUE si el mensaje toca cualquiera de estas seis cosas:
+1. DINERO — precio, descuento, fraccionamiento, financiación, seguro, condiciones de pago, comparar precios con otro sitio.
+2. CRITERIO CLÍNICO — dudas sobre el tratamiento, dolor, riesgos, alternativas, si es necesario, medicación, embarazo, cuidados posteriores.
+3. QUEJA O PROBLEMA — algo salió mal: esperas, errores de cobro, nadie le llamó, reincidencia.
+4. PIDE HABLAR CON UNA PERSONA — por teléfono, en persona, o con alguien concreto.
+5. AMBIGÜEDAD REAL — no se entiende qué quiere, ni siquiera con el contexto de arriba.
+6. TONO NEGATIVO — enfado, ironía, hartazgo, urgencia emocional.
 
-4. Redactar un mensaje de respuesta por WhatsApp (máximo 3 frases, tono cálido y profesional, sin emojis, firmado por la clínica, usa solo el primer nombre del paciente)
+Es FALSE para un mensaje corriente: "ok", "vale", "gracias", "recibido", "confirmo la cita",
+"llego cinco minutos tarde", preguntar el horario, la dirección o dónde aparcar.
+
+Ante la duda, TRUE. Avisar de más molesta un poco; avisar de menos hace que la clínica
+sostenga algo que dijo el sistema.
+
+"motivoQuiebre": si es true, UNA frase corta y llana, como se la dirías a la coordinadora
+("pregunta si hay descuento", "dice que le duele"). Si es false, cadena vacía.
+
+━━ PASO 2 — LA CATEGORÍA. No cambia la decisión que ya has tomado arriba.
+
+"intencion", exactamente una de:
+- "Acepta sin condiciones" — dice que sí, sin peros.
+- "Acepta pero pregunta pago" — dice que sí y pregunta cómo pagarlo.
+- "Tiene duda sobre tratamiento" — pregunta algo del tratamiento.
+- "Pide oferta/descuento" — pregunta por precio, descuento o financiación.
+- "Quiere pensarlo" — se lo va a pensar o lo consulta con alguien.
+- "Rechaza" — dice que no.
+- "Acuse de recibo" — "ok", "vale", "gracias", "recibido".
+- "Logística" — horarios, dirección, aparcamiento, avisar de un retraso.
+- "Otra" — no encaja en ninguna de las anteriores.
+- "Sin clasificar" — no entiendes el mensaje.
+
+"categoriaPropuesta": SOLO si elegiste "Otra". Dos a cuatro palabras en minúscula que
+describan de qué va ("pide factura", "cambio de doctor"). Si no, cadena vacía.
+
+"urgencia": "CRÍTICO" (acepta o pregunta pago) | "ALTO" (duda o pide oferta) | "MEDIO" | "BAJO".
+"accionSugerida": 3-6 palabras.
+
+━━ PASO 3 — EL MENSAJE.
+
+"mensajeSugerido": SOLO si requierePersona es false. Máximo 3 frases, tono cálido y
+profesional, sin emojis, solo el primer nombre del paciente.
+Si requierePersona es true, DÉJALO VACÍO: hace falta una persona precisamente porque hay
+que pensar qué se dice, y un borrador esperando es una invitación a mandarlo sin pensar.
 
 RESPONDE EXCLUSIVAMENTE con un JSON válido con estos campos exactos:
 {
+  "requierePersona": true,
+  "motivoQuiebre": "...",
   "intencion": "...",
+  "categoriaPropuesta": "",
   "urgencia": "...",
   "accionSugerida": "...",
-  "mensajeSugerido": "..."
+  "mensajeSugerido": ""
 }
 
 NO añadas texto fuera del JSON.`;
@@ -56,6 +87,9 @@ const VALID_INTENCIONES: IntencionDetectada[] = [
   "Pide oferta/descuento",
   "Quiere pensarlo",
   "Rechaza",
+  "Acuse de recibo",
+  "Logística",
+  "Otra",
   "Sin clasificar",
 ];
 
@@ -86,14 +120,7 @@ export async function clasificarRespuesta(args: {
   _promptOverride?: string;
 }): Promise<ClasificacionIA> {
   const apiKey = process.env["ANTHROPIC_API_KEY"];
-  if (!apiKey) {
-    return {
-      intencion: "Sin clasificar",
-      urgencia: "MEDIO",
-      accionSugerida: "Revisar manualmente",
-      mensajeSugerido: "",
-    };
-  }
+  if (!apiKey) return fallbackClasificacion();
 
   const firstName = args.patientName.split(" ")[0];
 
@@ -162,14 +189,29 @@ export async function clasificarRespuesta(args: {
       ? (parsed.urgencia as UrgenciaIntervencion)
       : "MEDIO";
 
-    // Desanonimizar el mensaje sugerido
-    const mensajeSugerido = desanonimizarTexto(
-      String(parsed.mensajeSugerido ?? ""),
-      mapa
-    );
+    // La DECISIÓN. Si el modelo no la devuelve o la devuelve ilegible, se asume
+    // que sí hace falta una persona: es el lado seguro de la asimetría, y es la
+    // misma regla que el fallback («ante la duda, humano»).
+    const requierePersona = parsed.requierePersona === false ? false : true;
+
+    // Desanonimizar el mensaje sugerido. Si el caso quiebra se descarta aunque
+    // el modelo lo haya escrito igual: la regla la impone el código, no la
+    // obediencia del modelo al prompt.
+    const mensajeSugerido = requierePersona
+      ? ""
+      : desanonimizarTexto(String(parsed.mensajeSugerido ?? ""), mapa);
+
+    const motivoBruto = String(parsed.motivoQuiebre ?? "").trim();
+    const propuestaBruta = String(parsed.categoriaPropuesta ?? "").trim();
 
     return {
+      requierePersona,
+      motivoQuiebre: requierePersona && motivoBruto ? motivoBruto.slice(0, 200) : null,
       intencion,
+      // Solo tiene sentido con «Otra»: con cualquier otra categoría, una
+      // propuesta es ruido que ensuciaría la tabla de sugerencias.
+      categoriaPropuesta:
+        intencion === "Otra" && propuestaBruta ? propuestaBruta.slice(0, 60) : null,
       urgencia,
       accionSugerida: String(parsed.accionSugerida ?? "Revisar manualmente").slice(0, 100),
       mensajeSugerido,
@@ -182,9 +224,22 @@ export async function clasificarRespuesta(args: {
   }
 }
 
+/**
+ * Qué se decide cuando la clasificación NO se pudo hacer (sin clave, timeout,
+ * respuesta ilegible).
+ *
+ * `requierePersona: true` a propósito: si el sistema no ha podido leer el
+ * mensaje, la única respuesta honesta es que lo lea alguien. Lo contrario
+ * —dejarlo pasar como si fuera corriente— es exactamente cómo un fallo técnico
+ * se convierte en un paciente mal atendido. Y el motivo lo DICE, en vez de
+ * fingir que hubo un criterio.
+ */
 function fallbackClasificacion(): ClasificacionIA {
   return {
+    requierePersona: true,
+    motivoQuiebre: "No se pudo leer el mensaje automáticamente",
     intencion: "Sin clasificar",
+    categoriaPropuesta: null,
     urgencia: "MEDIO",
     accionSugerida: "Revisar manualmente",
     mensajeSugerido: "",
@@ -208,6 +263,12 @@ export async function guardarClasificacion(args: {
       Ultima_respuesta_paciente: args.respuestaPaciente,
       Fecha_ultima_respuesta: now,
       Intencion_detectada: args.clasificacion.intencion,
+      // La DECISIÓN se persiste porque no se puede derivar: es la salida de un
+      // modelo sobre un texto concreto, y recalcularla exigiría volver a
+      // llamarlo (y daría otra cosa). Ver migración 016.
+      Requiere_persona: args.clasificacion.requierePersona,
+      Motivo_quiebre: args.clasificacion.motivoQuiebre,
+      Intencion_propuesta: args.clasificacion.categoriaPropuesta,
       Urgencia_intervencion: args.clasificacion.urgencia,
       Accion_sugerida: args.clasificacion.accionSugerida,
       Mensaje_sugerido: args.clasificacion.mensajeSugerido,
@@ -215,6 +276,16 @@ export async function guardarClasificacion(args: {
     });
   } catch (err) {
     console.error("[intervencion] guardarClasificacion error:", err);
+  }
+
+  // La categoría propuesta se ACUMULA para revisión; no entra al catálogo ni
+  // decide nada. Ver `automatizacion/sugerencias` para la barrera.
+  if (args.clasificacion.categoriaPropuesta) {
+    const { acumularSugerencia } = await import("../automatizacion/sugerencias");
+    await acumularSugerencia({
+      texto: args.clasificacion.categoriaPropuesta,
+      ejemplo: args.respuestaPaciente,
+    });
   }
 
   await registrarAccion({

@@ -1865,3 +1865,47 @@ metiendo conflictos en `DECISIONES.md` y en un skill. Nada se perdió (todo esta
 dos stashes viejos siguen intactos), pero la lección es la de siempre y esta vez me la apliqué a mí:
 **redirigir stderr a /dev/null convierte un fallo en un silencio**, y `git stash pop` sin argumento
 saca lo que haya arriba, no lo que tú creas que pusiste.
+
+## 2026-08-06 — La decisión se pide, no se deriva de la categoría: 56 % → 94 %
+Rediseño del clasificador. Antes: la IA clasificaba en siete casillas y una tabla traducía casilla →
+quiebra. Un mensaje que no encajaba en ninguna caía en «Sin clasificar», que estaba mapeado a
+quebrar, y la cola se llenaba de «ok» y «confirmo la cita». Medido: **56 %, exactamente lo mismo que
+un clasificador que quebrara SIEMPRE**.
+
+Ahora se le pide **la decisión directamente**, con las seis reglas explícitas, y la categoría
+**después** y sin que condicione nada. **94 % (17 de 18)**, contra un techo del 100 % y una clase
+mayoritaria del 56 %.
+
+| | |
+|---|---|
+| Antes | 56 % (10/18) |
+| **Después** | **94 % (17/18)** |
+| Termómetro: complaciente / alarmista | 83 % / 56 % — sigue discriminando |
+
+**El único fallo que queda es el caso #1**, uno de los tres en los que Simon y Claude ya discrepaban
+al anotar: «me cuadra todo, ¿el importe es con IVA o sin?». El clasificador para; Simon dice que no
+hace falta. **No es un fallo de clasificación: es una decisión de producto sin tomar** — ¿informar
+del IVA de un presupuesto ya emitido es «comprometer dinero»? Queda anotada, no promediada.
+
+**Cuatro decisiones de diseño que sostienen el cambio:**
+
+1. **El enum crece con `Acuse de recibo`, `Logística` y `Otra`**, y `Sin clasificar` deja de ser el
+   cajón de sastre para significar solo «no lo entiendo». Los `Record` exhaustivos de
+   `presupuestos/intenciones` **rompieron la compilación en los tres diccionarios** hasta decidir qué
+   significaba cada una: la garantía del refactor de esta mañana funcionó a la primera ocasión.
+2. **La decisión se PERSISTE** (`requiere_persona`, `motivo_quiebre`). No contradice la fase 1: allí
+   se dijo que no se persiste lo DERIVABLE, y esto no lo es — es la salida de un modelo sobre un
+   texto concreto, y recalcularla exigiría volver a llamarlo. Las filas anteriores siguen derivándose
+   de la categoría, por una rama de compatibilidad que se retira cuando no quede ninguna.
+3. **El mensaje sugerido queda VACÍO cuando el caso quiebra**, y lo impone el código además del
+   prompt: un borrador esperando para una pregunta de dinero es una invitación a mandarlo. El panel
+   lo explica («esto necesita tu criterio — no he preparado ningún borrador a propósito»), porque un
+   hueco en blanco sin más se lee como una avería.
+4. **Las categorías propuestas no entran solas al catálogo.** Van a `intencion_propuesta` y se
+   acumulan con recuento en `sugerencias_categoria`; pasar al enum exige una migración que **rompe la
+   compilación** hasta que alguien decida qué significa la nueva. La barrera es estructural, no de
+   disciplina: sin ella, en un mes hay doscientas etiquetas y ninguna sirve para contar nada.
+
+`/red`, cohortes, automatización y sin-fallbacks sin moverse. La medición se hizo con el corpus
+CONGELADO: los casos 2 y 7 (mal escritos, detectados por el «no lo tengo claro» de Simon) se corrigen
+ahora, después de medir, para no cambiar la vara a mitad.

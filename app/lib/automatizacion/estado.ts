@@ -131,6 +131,18 @@ export type EntradaEstado = {
    * PLAN-AGENTE §fase 1, recorte 4.
    */
   intencion?: IntencionDetectada | null;
+  /**
+   * LA DECISIÓN, tal y como la tomó el clasificador (rediseño 2026-08-06).
+   * Cuando existe, MANDA: se le pidió directamente al modelo con las seis reglas
+   * y no se deriva de ninguna categoría.
+   *
+   * `null|undefined` = fila clasificada ANTES del rediseño. Para esas se sigue
+   * derivando de `intencion`, que es lo único que hay — no se recalcula ni se
+   * inventa. El día que no quede ninguna, esta rama se retira.
+   */
+  requierePersona?: boolean | null;
+  /** Motivo legible que redactó el modelo con la decisión. */
+  motivoQuiebre?: string | null;
   /** Toques salientes acumulados: `contact_count` o `whatsapp_enviados`. */
   toques: number;
   /** Umbral de la clínica (`configuracion_automatizaciones.toques_antes_de_agotar`). */
@@ -173,12 +185,19 @@ export function estadoAutomatizacion(e: EntradaEstado): EstadoDerivado {
   // «donde estaba» no necesita guardar posición: el siguiente toque es
   // `toques + 1` y sale del contador que ya existe.
 
-  // 3 · Quiebre. Solo si el paciente ha escrito lo último (si contestamos
-  //     después, el quiebre ya se atendió aunque nadie lo registrara) y la
-  //     intención mapea a un disparador.
+  // 3 · Quiebre. Solo si el paciente ha escrito lo último: si contestamos
+  //     después, el quiebre ya se atendió aunque nadie lo registrara.
   if (e.conversacion === "pendiente_responder") {
-    const disparador = disparadorDeIntencion(e.intencion);
-    if (disparador) return { estado: "quebrado", disparador };
+    if (typeof e.requierePersona === "boolean") {
+      // Camino nuevo: la decisión ya está tomada y viene con su motivo.
+      if (e.requierePersona) {
+        return { estado: "quebrado", disparador: disparadorDeIntencion(e.intencion) };
+      }
+    } else {
+      // Camino de compatibilidad: filas anteriores al 2026-08-06.
+      const disparador = disparadorDeIntencion(e.intencion);
+      if (disparador) return { estado: "quebrado", disparador };
+    }
   }
 
   // 4 · Agotado. El contador SOLO no basta: un caso con cinco toques que acaba

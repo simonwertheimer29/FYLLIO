@@ -48,6 +48,11 @@ export const ES_CIERRE: Record<IntencionDetectada, boolean> = {
   "Quiere pensarlo": false,
   Rechaza: false,
   "Sin clasificar": false,
+  // Añadidas el 2026-08-06. Ninguna es un cierre: son mensajes corrientes o
+  // desconocidos, y meterlos aquí inflaría el titular de dinero de /red.
+  "Acuse de recibo": false,
+  "Logística": false,
+  Otra: false,
 };
 
 /**
@@ -62,6 +67,12 @@ export const SCORE_INTENCION: Record<IntencionDetectada, number> = {
   "Sin clasificar": 15,
   "Quiere pensarlo": 10,
   Rechaza: 5,
+  // Un «ok» no urge nada; una pregunta de horario se contesta en un minuto;
+  // una categoría desconocida pesa lo mismo que «Sin clasificar» porque es lo
+  // mismo que sabemos de ella: nada.
+  "Acuse de recibo": 0,
+  "Logística": 8,
+  Otra: 15,
 };
 
 /** El peso de un valor que la base tiene y el producto no conoce. */
@@ -97,6 +108,9 @@ export const PREGUNTA_POR_EL_PAGO: Record<IntencionDetectada, boolean> = {
   "Quiere pensarlo": false,
   Rechaza: false,
   "Sin clasificar": false,
+  "Acuse de recibo": false,
+  "Logística": false,
+  Otra: false,
 };
 
 export function preguntaPorElPago(intencion: string | null | undefined): boolean {

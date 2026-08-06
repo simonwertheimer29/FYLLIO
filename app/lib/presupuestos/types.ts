@@ -330,6 +330,18 @@ export type IntencionDetectada =
   | "Pide oferta/descuento"
   | "Quiere pensarlo"
   | "Rechaza"
+  // ── Añadidas en el rediseño del 2026-08-06 ──
+  // El enum no cubría los mensajes CORRIENTES, así que «ok», «gracias» y
+  // «confirmo la cita» no tenían dónde caer y acababan en «Sin clasificar».
+  /** «ok», «vale», «gracias», «recibido». */
+  | "Acuse de recibo"
+  /** Horarios, dirección, aparcamiento, «llego tarde». */
+  | "Logística"
+  /** Ninguna encaja. El modelo propone una en `categoriaPropuesta`, que se
+   *  acumula para revisión — NO entra al catálogo sola. */
+  | "Otra"
+  /** Reservada para lo que el modelo NO entiende. Ya no es el cajón de sastre:
+   *  para eso están «Acuse de recibo», «Logística» y «Otra». */
   | "Sin clasificar";
 
 export type UrgenciaIntervencion = "CRÍTICO" | "ALTO" | "MEDIO" | "BAJO" | "NINGUNO";
@@ -400,9 +412,29 @@ export type IntervencionResponse = {
 };
 
 export type ClasificacionIA = {
+  /**
+   * LA DECISIÓN, y es la que manda (rediseño 2026-08-06). Se le PIDE al modelo
+   * con las seis reglas explícitas; no se deriva de `intencion`. Antes se
+   * derivaba, y un mensaje que no encajaba en ninguna casilla («ok», «confirmo
+   * la cita») caía en «Sin clasificar» → quiebra, llenando la cola de ruido.
+   */
+  requierePersona: boolean;
+  /** Por qué para, en la voz de la coordinadora. Null si no para. */
+  motivoQuiebre: string | null;
+  /** La categoría. Sirve para medir, ordenar y recomendar — NO decide nada. */
   intencion: IntencionDetectada;
+  /**
+   * Cuando `intencion` es «Otra»: qué propone el modelo, en lenguaje natural.
+   * No entra al catálogo sola — se acumula en `sugerencias_categoria`.
+   */
+  categoriaPropuesta: string | null;
   urgencia: UrgenciaIntervencion;
   accionSugerida: string;
+  /**
+   * VACÍO cuando `requierePersona` es true, a propósito: un borrador esperando
+   * en el compositor para una pregunta de dinero es una invitación a mandarlo.
+   * Si hace falta una persona es porque hay que pensar qué se dice.
+   */
   mensajeSugerido: string;
 };
 

@@ -21,6 +21,10 @@ export type CasoParaEstado = {
   conversacion: EstadoConversacion;
   /** Solo presupuestos: en leads siempre null (el webhook no los clasifica). */
   intencion?: IntencionDetectada | null;
+  /** La decisión persistida. `null` en filas anteriores al rediseño. */
+  requierePersona?: boolean | null;
+  /** Motivo que redactó el modelo con la decisión. */
+  motivoQuiebre?: string | null;
   /** `contact_count` en presupuestos, `whatsapp_enviados` en leads. */
   toques: number;
   /** La frase real del paciente, para componer el motivo legible. */
@@ -28,6 +32,23 @@ export type CasoParaEstado = {
 };
 
 export type ResultadoEstado = EstadoDerivado & { motivo: string | null };
+
+/**
+ * El motivo que lee la coordinadora.
+ *
+ * Prioriza el que redactó el MODELO junto con la decisión: explica esa decisión
+ * concreta («pregunta si le cubre el seguro»), no una traducción posterior de
+ * una etiqueta. Si no lo hay —filas anteriores al rediseño— se compone del
+ * disparador más las palabras reales del paciente, como hasta ahora.
+ */
+function motivoDe(d: EstadoDerivado, c: CasoParaEstado): string | null {
+  if (d.estado !== "quebrado") return null;
+  if (c.motivoQuiebre?.trim()) {
+    const frase = (c.ultimaRespuesta ?? "").trim().replace(/\s+/g, " ");
+    return frase ? `${c.motivoQuiebre.trim()} · «${frase.slice(0, 88)}»` : c.motivoQuiebre.trim();
+  }
+  return d.disparador ? motivoLegible(d.disparador, c.ultimaRespuesta) : null;
+}
 
 /**
  * Resuelve el estado de una lista entera. Dos consultas en total —el mapa de
@@ -52,14 +73,12 @@ export async function resolverEstados(
       cerrado: c.cerrado,
       conversacion: c.conversacion,
       intencion: c.intencion ?? null,
+      requierePersona: c.requierePersona ?? null,
       toques: c.toques,
       toquesAntesDeAgotar: umbral,
       ultimoEvento: eventos.get(c.id) ?? null,
     });
-    salida.set(c.id, {
-      ...derivado,
-      motivo: derivado.disparador ? motivoLegible(derivado.disparador, c.ultimaRespuesta) : null,
-    });
+    salida.set(c.id, { ...derivado, motivo: motivoDe(derivado, c) });
   }
   return salida;
 }
@@ -85,14 +104,12 @@ export function estadosSinEventos(
       cerrado: c.cerrado,
       conversacion: c.conversacion,
       intencion: c.intencion ?? null,
+      requierePersona: c.requierePersona ?? null,
       toques: c.toques,
       toquesAntesDeAgotar: umbral,
       ultimoEvento: null,
     });
-    salida.set(c.id, {
-      ...derivado,
-      motivo: derivado.disparador ? motivoLegible(derivado.disparador, c.ultimaRespuesta) : null,
-    });
+    salida.set(c.id, { ...derivado, motivo: motivoDe(derivado, c) });
   }
   return salida;
 }

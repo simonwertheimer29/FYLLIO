@@ -38,7 +38,7 @@ import {
   btnAccionSecundario,
   type PrioridadPanel,
 } from "../shared/panel-accion-ui";
-import { Check, MessageCircle, Phone, XCircle, ICON_STROKE } from "../icons";
+import { Check, MessageCircle, Phone, XCircle, ICON_STROKE, AlertTriangle } from "../icons";
 import TimelineAcciones from "./TimelineAcciones";
 import { Pause } from "lucide-react";
 import { eur } from "../shared/Cifra";
@@ -546,6 +546,30 @@ export default function IntervencionSidePanel({
           )}
           <div ref={chatEndRef} />
         </div>
+
+        {/* Por qué el compositor está vacío. Un hueco en blanco sin más se lee
+            como un fallo del sistema; con esto se lee como lo que es: una
+            decisión. El borrador no se prepara a propósito — uno esperando para
+            una pregunta de dinero es una invitación a mandarlo, y si hace falta
+            una persona es precisamente porque hay que pensar qué se dice. */}
+        {item.automatizacion?.estado === "quebrado" && !composerTexto.trim() && (
+          <div className="mx-3 mb-2 flex gap-2.5 rounded-lg border border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)] bg-[var(--color-danger-soft)] px-3.5 py-2.5">
+            <AlertTriangle
+              className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-danger)]"
+              aria-hidden
+            />
+            <div className="min-w-0 text-[13px] leading-relaxed text-[var(--color-foreground)]">
+              <p className="font-medium">Esto necesita tu criterio</p>
+              <p className="mt-0.5 text-[var(--color-muted)]">
+                {item.automatizacion.motivo
+                  ? `${item.automatizacion.motivo}. `
+                  : ""}
+                No he preparado ningún borrador a propósito: lo que se conteste aquí lo
+                sostiene la clínica.
+              </p>
+            </div>
+          </div>
+        )}
 
         <Composer
           value={composerTexto}

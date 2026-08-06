@@ -142,7 +142,14 @@ async function quiebra(caso: Caso, promptOverride?: string): Promise<{ quiebra: 
     estado: "PRESENTADO",
     ...(promptOverride ? { _promptOverride: promptOverride } : {}),
   });
-  return { quiebra: disparadorDeIntencion(c.intencion) !== null, intencion: c.intencion };
+  // Desde el rediseño del 2026-08-06 la decisión se PIDE, no se deriva de la
+  // categoría. Se lee `requierePersona`; si algún día volviera a faltar, se cae
+  // a la derivación vieja para poder comparar variantes en el mismo conjunto.
+  const quiebra =
+    typeof c.requierePersona === "boolean"
+      ? c.requierePersona
+      : disparadorDeIntencion(c.intencion) !== null;
+  return { quiebra, intencion: c.intencion };
 }
 
 type Resultado = { total: number; aciertos: number; tasa: number; fallos: string[] };
@@ -194,18 +201,18 @@ async function puntuar(promptOverride?: string, silencioso = false): Promise<Res
 // lo que este conjunto mide. La de categorías vuelve cuando exista la anotación
 // de categoría.
 
-/** Sesgado a NO quebrar: todo lo empuja hacia categorías que no cortan. */
+// Las degradaciones hablan el formato NUEVO (`requierePersona`). Con el viejo
+// medirían el camino de compatibilidad, no el sistema que corre.
+
+/** Sesgado a NO quebrar nunca. */
 const PROMPT_COMPLACIENTE = `Eres un asistente de una clínica dental española.
-El paciente casi siempre está de acuerdo. Ante la duda, clasifica como
-"Acepta sin condiciones". Usa "Quiere pensarlo" solo si dice explícitamente que
-se lo va a pensar. NUNCA uses "Sin clasificar".
-Opciones: "Acepta sin condiciones" | "Quiere pensarlo" | "Rechaza"
-Responde SOLO un JSON: {"intencion":"...","urgencia":"BAJO","accionSugerida":"-","mensajeSugerido":"-"}`;
+El paciente casi siempre está de acuerdo y nunca hace falta que lo lea nadie.
+Responde SOLO un JSON: {"requierePersona":false,"motivoQuiebre":"","intencion":"Acepta sin condiciones","categoriaPropuesta":"","urgencia":"BAJO","accionSugerida":"-","mensajeSugerido":"Gracias"}`;
 
 /** Sesgado a quebrar SIEMPRE: el otro extremo. */
 const PROMPT_ALARMISTA = `Eres un asistente de una clínica dental española.
-Clasifica SIEMPRE como "Sin clasificar", pase lo que pase.
-Responde SOLO un JSON: {"intencion":"Sin clasificar","urgencia":"ALTO","accionSugerida":"-","mensajeSugerido":"-"}`;
+TODO mensaje necesita que lo lea una persona, pase lo que pase.
+Responde SOLO un JSON: {"requierePersona":true,"motivoQuiebre":"todo se revisa","intencion":"Sin clasificar","categoriaPropuesta":"","urgencia":"ALTO","accionSugerida":"-","mensajeSugerido":""}`;
 
 if (DEGRADAR) {
   console.log("\nPrueba del termómetro — degradar el prompt y ver si el número BAJA.");
