@@ -2023,3 +2023,46 @@ discrepancias iniciales eran casos mal escritos y no criterios distintos.
 «voy de camino») y Simon lo volvió a marcar «?». Así que la ambigüedad **no era la contradicción**:
 es que «llego cinco minutos tarde» a una cita de hoy es logística pura, pero alguien tiene que
 enterarse para no dar el hueco por perdido. Es un caso legítimamente difícil, no un caso roto.
+
+## 2026-08-06 — Los tres cierres del clasificador: 93 % → 98 %, y lo único que falla es lo declarado
+Tres decisiones de Simon, implementadas y medidas juntas.
+
+**1 · El #24 era un defecto real y se arregla con una red de UNA SOLA DIRECCIÓN.** El clasificador
+categorizaba «¿cuánto tiempo tengo que estar sin comer?» como *duda sobre tratamiento* —criterio
+clínico, disparador activo— y aun así decidía que no hacía falta persona: una contradicción dentro de
+la misma respuesta. Ahora, si la categoría es de las que exigen persona por definición (duda clínica
+o petición de descuento) y la decisión dice que no, **gana la categoría**. Solo empuja hacia PARAR,
+nunca hacia dejar pasar, así que no reintroduce el «categoría → quiebre» que el rediseño quitó: es
+una red de seguridad, no el mecanismo. Y **loguea** cuando corrige, para que la incoherencia se vea
+en vez de taparse. Se añadió también al prompt que muchas preguntas clínicas PARECEN logística
+(«¿puedo conducir después?»).
+
+**2 · El #18 estrena estado: `cierre_pendiente`.** Un «al final creo que no» tras dos semanas no es
+«necesita persona urgente», es **«ciérralo tú y anota por qué»**. Un cierre automático se lleva por
+delante la única oportunidad de saber por qué se perdió: el motivo no se puede reconstruir después —
+o lo anota quien habló con el paciente, o no existe. **Se DERIVA de la intención** («Rechaza» + caso
+abierto), así que no hace falta ni una columna ni preguntárselo al modelo, y entra como cohorte
+propia («Cierra y anota») con el mismo mecanismo de precedencia que las otras dos.
+
+**Y obligó a corregir el eval, que estaba midiendo de menos.** Medía solo la decisión del
+CLASIFICADOR, pero un caso puede acabar delante de una persona por dos caminos: que el clasificador
+pare, o que el ESTADO DERIVADO lo suba. Ahora compone los dos y mide **la decisión del producto**,
+que es lo que Simon anotó.
+
+**3 · La frontera del dinero, cerrada: leer una política que ya existe, sí; adaptarla a este
+paciente, no.** «¿Trabajáis con Sanitas?» se contesta; «¿cuánto me cubriría a mí?» para. «¿Cómo se
+puede pagar?» se contesta; «¿me lo dejáis en cuatro plazos?» para.
+
+**Y el diagnóstico de datos partió en dos:** las **aseguradoras SÍ existen**
+(`configuraciones_clinica` → Adeslas, Sanitas, DKV), así que ese lado funciona ya. El **plan de pago
+estándar NO existe** — solo hay formas de pago y un número de financiación por paciente—, así que hoy
+todo fraccionamiento acaba en la cola, incluido el que solo preguntaba cómo funciona. Va a
+[MEJORAS 90](MEJORAS-PENDIENTES.md), hermana de la 89 del IVA: **son la misma carencia vista desde dos
+preguntas.** Y el contraste entre los dos casos es la mejor ilustración de §17: **con el dato el
+agente informa, sin el dato deriva — y la diferencia no es la IA, es una tabla.**
+
+**Resultado: 98 % (42/43), estable en tres corridas.** El único fallo que queda es **#37 «Pues nada,
+gracias»**, que es tono negativo: uno de los tres disparadores que la fase 1 **declara** que no
+detecta. O sea, **el clasificador acierta el 100 % de lo que el producto dice saber hacer**, y lo
+único que falla es exactamente lo que está escrito que no hace. El termómetro sigue discriminando
+(complaciente 84 %, alarmista 67 %).

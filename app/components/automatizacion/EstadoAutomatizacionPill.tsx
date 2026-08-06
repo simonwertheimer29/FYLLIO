@@ -14,7 +14,7 @@
 // que cambia lo que hay que hacer: necesita persona, toca llamar, ya lo lleva
 // alguien, o está fuera de automatización por decisión propia.
 
-import { AlertTriangle, PhoneCall, UserCheck, Hand } from "../icons";
+import { AlertTriangle, PhoneCall, UserCheck, Hand, ClipboardList } from "../icons";
 import { StatePill, type StatePillVariant } from "../ui/StatePill";
 import {
   ETIQUETA_ESTADO,
@@ -32,6 +32,9 @@ const CONFIG: Partial<Record<EstadoAutomatizacion, Config>> = {
   quebrado: { variant: "danger", Icono: AlertTriangle },
   // Ámbar: no es un error, es un cambio de canal.
   agotado: { variant: "warning", Icono: PhoneCall },
+  // Neutro con borde: hay que hacer algo, pero no es urgente ni delicado —
+  // es cerrar el caso y dejar escrito por qué se perdió.
+  cierre_pendiente: { variant: "neutral", Icono: ClipboardList },
   // Azul de acento: informativo, no urgente.
   en_manos_de_alguien: { variant: "info", Icono: UserCheck },
   // Neutro: una decisión tomada, sin urgencia.

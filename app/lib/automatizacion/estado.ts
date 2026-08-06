@@ -29,6 +29,17 @@ export type EstadoAutomatizacion =
   | "en_manos_de_alguien"
   /** Se acabó la cadencia sin respuesta: el texto ya no da más de sí. */
   | "agotado"
+  /**
+   * El paciente ha dicho que no y el caso sigue abierto. NO es «necesita
+   * persona urgente»: es «ciérralo tú y anota por qué».
+   *
+   * Por qué existe (decisión del 2026-08-06): un cierre automático se lleva por
+   * delante la única oportunidad de saber POR QUÉ se perdió. El motivo de
+   * pérdida no se puede reconstruir después — o lo anota quien habló con el
+   * paciente, o no existe. Y de paso, un «no» tras dos semanas de silencio a
+   * veces tiene algo recuperable detrás.
+   */
+  | "cierre_pendiente"
   /** «Sigo yo con este caso» — manual hasta el cierre. */
   | "manual"
   /** Aceptó, pagó, se perdió, o pasó a la fase siguiente. */
@@ -200,14 +211,20 @@ export function estadoAutomatizacion(e: EntradaEstado): EstadoDerivado {
     }
   }
 
-  // 4 · Agotado. El contador SOLO no basta: un caso con cinco toques que acaba
+  // 4 · Cierre pendiente. El paciente dijo que no y el caso sigue abierto: hay
+  //     que cerrarlo Y anotar el motivo. Se DERIVA de la intención, no se pide
+  //     al clasificador: «Rechaza» ya es esa señal, y el caso sigue abierto
+  //     porque `cerrado` se comprobó en el paso 1.
+  if (e.intencion === "Rechaza") return sin("cierre_pendiente");
+
+  // 5 · Agotado. El contador SOLO no basta: un caso con cinco toques que acaba
   //     de responder no está agotado, está esperando respuesta nuestra. Por eso
   //     exige `reactivable` — le escribimos, no contestó, y pasó el umbral.
   if (e.conversacion === "reactivable" && e.toques >= e.toquesAntesDeAgotar) {
     return sin("agotado");
   }
 
-  // 5 · Residual.
+  // 6 · Residual.
   return sin("esperando");
 }
 
@@ -215,6 +232,7 @@ export function estadoAutomatizacion(e: EntradaEstado): EstadoDerivado {
 
 export const ETIQUETA_ESTADO: Record<EstadoAutomatizacion, string> = {
   esperando: "En curso",
+  cierre_pendiente: "Cierra y anota",
   quebrado: "Necesita persona",
   en_manos_de_alguien: "Lo lleva una persona",
   agotado: "Toca llamar",
@@ -228,6 +246,7 @@ export const ETIQUETA_ESTADO: Record<EstadoAutomatizacion, string> = {
  */
 export const ACCION_ESTADO: Record<EstadoAutomatizacion, string> = {
   esperando: "Sigue el curso normal",
+  cierre_pendiente: "Dijo que no: ciérralo tú y anota por qué se perdió",
   quebrado: "Léelo antes de responder",
   en_manos_de_alguien: "Ya lo está atendiendo alguien",
   agotado: "El texto se agotó: llama por teléfono",
@@ -239,8 +258,11 @@ export const ACCION_ESTADO: Record<EstadoAutomatizacion, string> = {
 export const PRIORIDAD_ESTADO: Record<EstadoAutomatizacion, number> = {
   quebrado: 0,
   agotado: 1,
-  en_manos_de_alguien: 2,
-  esperando: 3,
-  manual: 4,
-  cerrado: 5,
+  // Después de lo urgente pero antes de lo rutinario: no corre prisa, pero el
+  // motivo de pérdida se olvida en días y luego ya no se puede reconstruir.
+  cierre_pendiente: 2,
+  en_manos_de_alguien: 3,
+  esperando: 4,
+  manual: 5,
+  cerrado: 6,
 };

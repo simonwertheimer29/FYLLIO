@@ -27,14 +27,23 @@ Es TRUE si el mensaje toca cualquiera de estas seis cosas:
 1. DINERO — cuando el paciente quiere CAMBIAR las condiciones económicas: pide descuento, quiere
    fraccionar o aplazar, pregunta por financiación, quiere que se lo cubra el seguro, propone
    quitar parte del tratamiento para que baje, o compara el precio con otra clínica.
-   NO ES DINERO preguntar por un dato del presupuesto YA EMITIDO: cuánto es, si el importe lleva
-   IVA, qué tratamiento incluye o hasta cuándo es válido. Eso es leer un documento, no negociarlo.
+   NO ES DINERO preguntar por un dato del presupuesto YA EMITIDO ni por una política que la clínica
+   ya tiene publicada: cuánto es, si el importe lleva IVA, qué tratamiento incluye, hasta cuándo es
+   válido, o con qué aseguradoras se trabaja. Eso es leer, no negociarlo.
+   EL CORTE ES SIEMPRE EL MISMO: **leer una política que ya existe, sí; adaptarla a este paciente,
+   no.** «¿Trabajáis con Sanitas?» se contesta. «¿Cuánto me cubriría a mí?» para, porque hay que
+   calcular sobre su caso. «¿Cómo se puede pagar?» se contesta. «¿Me lo podéis dejar en cuatro
+   plazos?» para, porque es un plan a medida.
    Y OJO: que tú no tengas ese dato a mano TAMPOCO es motivo para parar. «Se lo confirmamos
    enseguida» es una respuesta correcta y no compromete nada. Parar es para cuando hay que DECIDIR
    algo, no para cuando hay que consultar algo.
    La regla existe para que no COMPROMETAS condiciones nuevas, no para que no puedas informar de
    las que ya están decididas.
-2. CRITERIO CLÍNICO — dudas sobre el tratamiento, dolor, riesgos, alternativas, si es necesario, medicación, embarazo, cuidados posteriores.
+2. CRITERIO CLÍNICO — dudas sobre el tratamiento, dolor, riesgos, alternativas, si es necesario,
+   medicación, embarazo, y **los cuidados antes y después**. OJO: muchas de estas preguntas PARECEN
+   logística y no lo son — «¿cuánto tiempo tengo que estar sin comer?», «¿puedo conducir después?»,
+   «¿cuándo me puedo lavar los dientes?» son indicaciones clínicas, no horarios. Si la respuesta
+   correcta depende de lo que le hayan hecho en la boca, es criterio clínico.
 3. QUEJA O PROBLEMA — algo salió mal: esperas, errores de cobro, nadie le llamó, reincidencia.
 4. PIDE HABLAR CON UNA PERSONA — por teléfono, en persona, o con alguien concreto.
 5. AMBIGÜEDAD REAL — no se entiende qué quiere, ni siquiera con el contexto de arriba.
@@ -109,6 +118,20 @@ const VALID_INTENCIONES: IntencionDetectada[] = [
 ];
 
 const VALID_URGENCIAS: UrgenciaIntervencion[] = ["CRÍTICO", "ALTO", "MEDIO", "BAJO", "NINGUNO"];
+
+/**
+ * Categorías incompatibles con «lo contesta el sistema solo». Una duda clínica y
+ * una petición de descuento exigen criterio por definición; si la decisión dice
+ * lo contrario, la decisión está mal.
+ *
+ * Deliberadamente CORTA. No entra «Acepta pero pregunta pago», porque desde la
+ * regla del IVA (2026-08-06) preguntar por el pago puede ser informativo —
+ * «¿cómo se puede pagar?» se contesta; «¿me lo dejáis en cuatro plazos?» no.
+ */
+const SIEMPRE_EXIGEN_PERSONA = new Set<IntencionDetectada>([
+  "Tiene duda sobre tratamiento",
+  "Pide oferta/descuento",
+]);
 
 /**
  * Llama a Claude Haiku para clasificar la respuesta de un paciente.
@@ -207,7 +230,27 @@ export async function clasificarRespuesta(args: {
     // La DECISIÓN. Si el modelo no la devuelve o la devuelve ilegible, se asume
     // que sí hace falta una persona: es el lado seguro de la asimetría, y es la
     // misma regla que el fallback («ante la duda, humano»).
-    const requierePersona = parsed.requierePersona === false ? false : true;
+    let requierePersona = parsed.requierePersona === false ? false : true;
+
+    // ── Red de seguridad DE UNA SOLA DIRECCIÓN ──
+    // Hay categorías que, por definición, no las puede contestar el sistema: si
+    // el mensaje es una duda sobre el tratamiento o una petición de descuento,
+    // decir «no hace falta persona» es una contradicción dentro de la misma
+    // respuesta. Cuando pasa, gana la categoría.
+    //
+    // Solo empuja hacia PARAR, nunca hacia dejar pasar: la decisión sigue
+    // mandando para lo demás y esto no reintroduce el «categoría → quiebre» que
+    // el rediseño quitó. Es la asimetría de siempre — escalar de más molesta,
+    // escalar de menos lo sostiene la clínica.
+    //
+    // Lo destapó el eval: «¿cuánto tiempo tengo que estar sin comer?» salió
+    // clasificado como duda sobre tratamiento Y con requierePersona=false.
+    if (!requierePersona && SIEMPRE_EXIGEN_PERSONA.has(intencion)) {
+      console.warn(
+        `[intervencion] incoherencia corregida: categoría «${intencion}» con requierePersona=false`,
+      );
+      requierePersona = true;
+    }
 
     // Desanonimizar el mensaje sugerido. Si el caso quiebra se descarta aunque
     // el modelo lo haya escrito igual: la regla la impone el código, no la

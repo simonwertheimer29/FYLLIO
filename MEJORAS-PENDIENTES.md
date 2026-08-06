@@ -1632,3 +1632,25 @@ verdad: un editor, un vocabulario, un renderizador.
   > si el dato está.
 
 - **Fecha:** 2026-08-06 · 🔵
+
+## 90. La clínica no tiene dónde declarar su plan de pago estándar
+- **Zona:** no existe. `configuraciones_clinica` tiene `Metodos_Pago` (efectivo, tarjeta…) pero eso
+  son FORMAS de pago, no un plan; `pacientes.financiado` es un número por paciente, no una política.
+- **Principio:** §17 de las lecciones — el agente informa de lo que ya está decidido; la persona
+  decide lo que no lo está. Para informar de una política, la política tiene que existir.
+- **Problema:** el 6 de agosto de 2026 se cerró la frontera del dinero — **leer una política que ya
+  existe, sí; adaptarla a este paciente, no**. Aplicado al fraccionamiento: si la clínica tiene un
+  plan de pago estándar publicado, el agente lo informa; si el paciente pide uno a medida, para.
+  **Pero el plan estándar no existe en el sistema**, así que hoy el agente no puede informar de nada
+  y todo fraccionamiento acaba en la cola, incluido el que solo preguntaba cómo funciona.
+- **Contraste con las aseguradoras, que sí funcionan:** `configuraciones_clinica` →
+  `Tipos_Paciente_Aseguradora` ya tiene Adeslas, Sanitas y DKV, así que «¿trabajáis con Sanitas?» se
+  contesta solo. Es exactamente el mismo patrón: **con el dato, el agente informa; sin el dato,
+  deriva.** La diferencia entre los dos casos no es la IA, es una tabla.
+- **Mejora:** una categoría de configuración por clínica con su plan de pago estándar (entrada,
+  número de plazos, si hay intereses) y su política de validez de presupuesto. Va con
+  [MEJORAS 89](MEJORAS-PENDIENTES.md), que pide lo mismo para el IVA — **son la misma carencia** vista
+  desde dos preguntas distintas.
+- **Impacto:** medio hoy, **alto** en la fase 3: dos de las once plantillas del catálogo necesitan
+  estos datos como variables.
+- **Fecha:** 2026-08-06 · 🔵

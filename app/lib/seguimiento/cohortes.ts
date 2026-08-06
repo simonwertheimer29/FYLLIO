@@ -23,8 +23,8 @@ import {
 //
 // "quiebre" y "agotado" entran en 2026-08-05 (fase 1 de PLAN-AGENTE) como
 // PRECEDENCIAS, no como valores nuevos del switch — ver la nota de `cohorteLead`.
-export type CohorteLead = "quiebre" | "agotado" | "citados" | "nuevos" | "en_conversacion" | "rezagados";
-export type CohortePresupuesto = "quiebre" | "agotado" | "nuevos" | "en_conversacion" | "rezagados";
+export type CohorteLead = "quiebre" | "agotado" | "cerrar" | "citados" | "nuevos" | "en_conversacion" | "rezagados";
+export type CohortePresupuesto = "quiebre" | "agotado" | "cerrar" | "nuevos" | "en_conversacion" | "rezagados";
 
 /**
  * Umbral de urgencia dentro de "Nuevos": un lead sin primer contacto que lleva
@@ -69,8 +69,13 @@ export const esNuevoUrgente = (createdAt: string, ahora: Date) => {
  */
 type Automatizacion = {
   /** `estadoAutomatizacion(...)` de `lib/automatizacion/estado`. El caller lo
-   *  calcula una vez y lo pasa: aquí no se deriva nada dos veces. */
-  estado?: "esperando" | "quebrado" | "en_manos_de_alguien" | "agotado" | "manual" | "cerrado";
+   *  calcula una vez y lo pasa: aquí no se deriva nada dos veces.
+   *
+   *  Se importa el tipo en vez de repetir el union a mano: al añadir
+   *  «cierre_pendiente» (2026-08-06) la copia local se quedó corta y rompió la
+   *  compilación en las dos vistas. Bien que rompiera — pero mejor no tener dos
+   *  listas del mismo union. */
+  estado?: import("../automatizacion/estado").EstadoAutomatizacion;
 };
 
 /**
@@ -99,6 +104,7 @@ export function cohorteLead(args: {
 }): CohorteLead {
   if (args.automatizacion?.estado === "quebrado") return "quiebre";
   if (args.automatizacion?.estado === "agotado") return "agotado";
+  if (args.automatizacion?.estado === "cierre_pendiente") return "cerrar";
   if (args.fechaCita && args.fechaCita >= args.hoy) return "citados";
   switch (args.conversacion) {
     case "sin_conversacion":
@@ -122,6 +128,7 @@ export function cohortePresupuesto(
 ): CohortePresupuesto {
   if (automatizacion?.estado === "quebrado") return "quiebre";
   if (automatizacion?.estado === "agotado") return "agotado";
+  if (automatizacion?.estado === "cierre_pendiente") return "cerrar";
   switch (conversacion) {
     case "sin_conversacion":
       return "nuevos";
@@ -136,8 +143,8 @@ export function cohortePresupuesto(
 /** Orden de la cola: lo que exige criterio primero. Lo usan la vista y el QA,
  *  para que «la primera cohorte» sea la misma en los dos sitios. */
 export const ORDEN_COHORTE_LEAD: readonly CohorteLead[] = [
-  "quiebre", "agotado", "citados", "nuevos", "en_conversacion", "rezagados",
+  "quiebre", "agotado", "cerrar", "citados", "nuevos", "en_conversacion", "rezagados",
 ];
 export const ORDEN_COHORTE_PRESUPUESTO: readonly CohortePresupuesto[] = [
-  "quiebre", "agotado", "nuevos", "en_conversacion", "rezagados",
+  "quiebre", "agotado", "cerrar", "nuevos", "en_conversacion", "rezagados",
 ];

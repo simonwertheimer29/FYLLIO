@@ -598,6 +598,9 @@ export default function IntervencionView({
       agotado: de("agotado").sort(
         (a, b) => (b.conversacion?.haceMs ?? 0) - (a.conversacion?.haceMs ?? 0),
       ),
+      // Cerrar y anotar: por importe — un «no» de 6.800 € merece que alguien
+      // pregunte por qué antes que uno de 300.
+      cerrar: de("cerrar").sort((a, b) => (b.amount ?? 0) - (a.amount ?? 0)),
       // Nuevos: el presentado más reciente primero (contactar hoy lo de hoy).
       nuevos: de("nuevos").sort((a, b) =>
         (b.fechaPresupuesto ?? "").localeCompare(a.fechaPresupuesto ?? ""),
@@ -629,6 +632,7 @@ export default function IntervencionView({
     // navegue hasta ahí.
     if (cohortes.quiebre.length > 0) return "quiebre";
     if (cohortes.agotado.length > 0) return "agotado";
+    if (cohortes.cerrar.length > 0) return "cerrar";
     if (cohortes.en_conversacion.some((p) => p.conversacion?.estado === "pendiente_responder"))
       return "en_conversacion";
     if (cohortes.nuevos.length > 0) return "nuevos";
@@ -646,6 +650,7 @@ export default function IntervencionView({
   const exigenAccion = [
     ...cohortes.quiebre,
     ...cohortes.agotado,
+    ...cohortes.cerrar,
     ...cohortes.nuevos,
     ...cohortes.rezagados,
     ...cohortes.en_conversacion.filter((p) => p.conversacion?.estado === "pendiente_responder"),
@@ -745,6 +750,10 @@ export default function IntervencionView({
           {
             id: "agotado" as CohortePresupuesto,
             label: `Toca llamar · ${cohortes.agotado.length} · ${fmtEUR(sumImporte(cohortes.agotado))}`,
+          },
+          {
+            id: "cerrar" as CohortePresupuesto,
+            label: `Cierra y anota · ${cohortes.cerrar.length} · ${fmtEUR(sumImporte(cohortes.cerrar))}`,
           },
           {
             id: "nuevos" as CohortePresupuesto,

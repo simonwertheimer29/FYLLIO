@@ -142,14 +142,23 @@ async function quiebra(caso: Caso, promptOverride?: string): Promise<{ quiebra: 
     estado: "PRESENTADO",
     ...(promptOverride ? { _promptOverride: promptOverride } : {}),
   });
-  // Desde el rediseño del 2026-08-06 la decisión se PIDE, no se deriva de la
-  // categoría. Se lee `requierePersona`; si algún día volviera a faltar, se cae
-  // a la derivación vieja para poder comparar variantes en el mismo conjunto.
-  const quiebra =
+  // ── Se mide la decisión DEL PRODUCTO, no solo la del clasificador ──
+  //
+  // Lo que Simon anotó es «¿querías verlo tú?», y un caso puede acabar delante
+  // de una persona por dos caminos: porque el clasificador lo pare
+  // (`requierePersona`) o porque el ESTADO DERIVADO lo suba. Medir solo el
+  // primero dejaría fuera el segundo y daría un fallo donde el producto acierta.
+  //
+  // Hoy el segundo camino es «Rechaza» → `cierre_pendiente`: el paciente dijo
+  // que no, el caso sigue abierto, y alguien tiene que cerrarlo Y anotar por qué
+  // (decisión del 2026-08-06). No lo decide el clasificador porque no hace falta:
+  // se deriva de la categoría, que ya la tenemos.
+  const paraElClasificador =
     typeof c.requierePersona === "boolean"
       ? c.requierePersona
       : disparadorDeIntencion(c.intencion) !== null;
-  return { quiebra, intencion: c.intencion };
+  const subePorEstado = c.intencion === "Rechaza";
+  return { quiebra: paraElClasificador || subePorEstado, intencion: c.intencion };
 }
 
 type Resultado = { total: number; aciertos: number; tasa: number; fallos: string[] };

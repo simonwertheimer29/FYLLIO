@@ -502,6 +502,9 @@ function LeadsTab({
       // Agotado: el que más tiempo lleva sin respuesta primero — es al que
       // antes hay que llamar.
       agotado: de("agotado").sort((a, b) => (b.conv.haceMs ?? 0) - (a.conv.haceMs ?? 0)),
+      // Cerrar y anotar: el más antiguo primero — el motivo de pérdida se olvida
+      // en días y después ya no se puede reconstruir.
+      cerrar: de("cerrar").sort((a, b) => creado(a) - creado(b)),
       // Citados: la cita más cercana primero.
       citados: de("citados").sort(
         (a, b) =>
@@ -552,6 +555,7 @@ function LeadsTab({
     // Quiebre y agotado ganan a todo: son las dos que exigen criterio humano.
     if (cohortes.quiebre.length > 0) return "quiebre";
     if (cohortes.agotado.length > 0) return "agotado";
+    if (cohortes.cerrar.length > 0) return "cerrar";
     if (cohortes.en_conversacion.some((x) => x.conv.estado === "pendiente_responder"))
       return "en_conversacion";
     if (cohortes.nuevos.some((x) => esNuevoUrgente(x.l.createdAt, new Date(ahora)))) return "nuevos";
@@ -584,6 +588,7 @@ function LeadsTab({
     // caso agotado ya no está en rezagados y no se cuenta dos veces.
     ...cohortes.quiebre,
     ...cohortes.agotado,
+    ...cohortes.cerrar,
     ...cohortes.en_conversacion.filter((x) => x.conv.estado === "pendiente_responder"),
     ...cohortes.nuevos,
     ...cohortes.rezagados,
@@ -662,6 +667,7 @@ function LeadsTab({
           // cohorte y que la coordinadora no sepa que existe.
           { id: "quiebre" as CohorteLead, label: "Necesita persona", count: cohortes.quiebre.length },
           { id: "agotado" as CohorteLead, label: "Toca llamar", count: cohortes.agotado.length },
+          { id: "cerrar" as CohorteLead, label: "Cierra y anota", count: cohortes.cerrar.length },
           { id: "citados" as CohorteLead, label: "Citados", count: cohortes.citados.length },
           { id: "nuevos" as CohorteLead, label: "Nuevos", count: cohortes.nuevos.length },
           {
@@ -689,6 +695,13 @@ function LeadsTab({
           una cohorte "Necesita persona" siempre a 0 se lee como "no hay nada
           que atender" en vez de como "esto todavía no mira". */}
       {(cohorte === "quiebre" || cohorte === "agotado") && <QueSeDetecta dominio="leads" />}
+
+      {cohorte === "cerrar" && (
+        <p className="text-xs text-[var(--color-muted)]">
+          Dijeron que no y el caso sigue abierto. Ciérralo tú y **anota por qué se perdió**: ese
+          motivo no se puede reconstruir después.
+        </p>
+      )}
 
       {cohorte === "agotado" && (
         <p className="text-xs text-[var(--color-muted)]">
