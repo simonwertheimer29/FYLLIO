@@ -48,19 +48,39 @@ function cargarCasos(): Caso[] {
   return casos;
 }
 
-/** Anotaciones de Simon: id → A | B | ?. Se fusionan todas las tandas. */
+/**
+ * Anotaciones de Simon: id → A | B | ?.
+ *
+ * CONSOLIDACIÓN EXPLÍCITA cuando un caso se anotó más de una vez (tandas 1A y
+ * 1B del test-retest). Antes esto era «el último fichero que se lee gana», que
+ * daba el resultado correcto por accidente — y un accidente deja de acertar en
+ * cuanto alguien añade una tanda 1C.
+ *
+ *   iguales            → esa respuesta
+ *   una «?» y una definida → la definida (la duda se resolvió)
+ *   A en una y B en otra   → «?» (el anotador se contradijo: no hay verdad que
+ *                            exigir, y forzar una sería inventarla)
+ */
 function cargarAnotaciones(): Map<number, string> {
   const dir = join(DIR, "anotaciones");
-  const out = new Map<number, string>();
-  if (!existsSync(dir)) return out;
-  const ficheros = readdirSync(dir).filter(
-    (f) => f.endsWith(".md") && f !== "PLANTILLA.md" && (!tandaArg || f === `${tandaArg}.md`),
-  );
+  const porCaso = new Map<number, string[]>();
+  if (!existsSync(dir)) return new Map();
+  const ficheros = readdirSync(dir)
+    .filter((f) => f.endsWith(".md") && f !== "PLANTILLA.md" && (!tandaArg || f === `${tandaArg}.md`))
+    .sort();
   for (const f of ficheros) {
     for (const linea of readFileSync(join(dir, f), "utf8").split("\n")) {
       const m = /^\|\s*(\d+)\s*\|\s*([AB?])\s*\|/.exec(linea);
-      if (m) out.set(Number(m[1]), m[2]);
+      if (!m) continue;
+      const id = Number(m[1]);
+      if (!porCaso.has(id)) porCaso.set(id, []);
+      porCaso.get(id)!.push(m[2]);
     }
+  }
+  const out = new Map<number, string>();
+  for (const [id, rs] of porCaso) {
+    const definidas = [...new Set(rs.filter((r) => r !== "?"))];
+    out.set(id, definidas.length === 1 ? definidas[0] : "?");
   }
   return out;
 }
@@ -89,12 +109,36 @@ if (anotaciones.size === 0) {
 
 // ── La cadena bajo prueba ────────────────────────────────────────────────────
 
+/**
+ * El contexto del caso, traducido a los argumentos que recibe el clasificador
+ * EN PRODUCCIÓN.
+ *
+ * Sin esto el eval le pasaba la frase pelada, sin importe ni tratamiento — y
+ * entonces mediría el arnés, no el producto: un «vale» sin ningún contexto es
+ * mucho más difícil de clasificar que un «vale» sobre un presupuesto de 1.800 €
+ * de ortodoncia, que es lo que la ruta real le da. Un test que no reproduce las
+ * condiciones de producción no dice nada sobre producción.
+ */
+function contextoDelCaso(contexto: string): { treatments: string[]; amount?: number } {
+  const mImporte = /([\d.]+)\s*€/.exec(contexto);
+  const amount = mImporte ? Number(mImporte[1].replace(/\./g, "")) : undefined;
+  const TRATAMIENTOS = [
+    "ortodoncia invisible", "ortodoncia", "implante", "endodoncia", "blanqueamiento",
+    "carillas", "corona", "extracción", "revisión",
+  ];
+  const bajo = contexto.toLowerCase();
+  const t = TRATAMIENTOS.find((x) => bajo.includes(x));
+  return { treatments: t ? [t] : [], ...(amount ? { amount } : {}) };
+}
+
 /** `true` = el sistema debería PARAR y avisar (equivale a la «B» de Simon). */
 async function quiebra(caso: Caso, promptOverride?: string): Promise<{ quiebra: boolean; intencion: string }> {
+  const ctx = contextoDelCaso(caso.contexto);
   const c = await clasificarRespuesta({
     respuestaPaciente: caso.mensaje,
     patientName: "Paciente",
-    treatments: [],
+    treatments: ctx.treatments,
+    ...(ctx.amount ? { amount: ctx.amount } : {}),
     estado: "PRESENTADO",
     ...(promptOverride ? { _promptOverride: promptOverride } : {}),
   });

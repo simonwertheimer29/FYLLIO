@@ -1754,3 +1754,38 @@ direcciones y no premia a un clasificador que conteste siempre lo mismo.
 **Y el número que importa: el clasificador real saca 63 % (10 de 16) contra la anotación de Simon.**
 Sobre casos sintéticos, con 16 puntuables y sin la segunda tanda todavía, así que no es una
 conclusión — pero tampoco es un número que se pueda mirar hacia otro lado.
+
+## 2026-08-06 — El eval encontró un bug en la fase 1, escrito dos días antes
+Segunda tanda del test-retest (1B) y primera medición real del clasificador. Tres resultados.
+
+**1 · El techo del eval es 100 %.** Simon anotó los mismos 20 casos con un día de intervalo y en
+orden permutado: **cero contradicciones** (ninguna A↔B). Dos casos quedaron «no lo tengo claro» las
+dos veces (ambigüedad real, fuera del conjunto puntuable) y dos dudas se resolvieron. El criterio es
+estable, así que el techo no limita al clasificador y cualquier fallo es del clasificador, no del
+anotador. El acuerdo entre Simon y la anotación sellada de Claude fue del **82 %** (17 comparables,
+3 discrepancias) — sirvió para lo que sirve: encontrar casos mal escritos.
+
+**2 · El clasificador saca 56 %, exactamente lo mismo que uno que quiebre SIEMPRE.** La prueba del
+termómetro lo deja sin margen de interpretación: `complaciente` (nunca quiebra) 44 %, `alarmista`
+(siempre quiebra) **56 %**, real **56 %**. En este conjunto, el clasificador de producción es
+**indistinguible de escalarlo todo**.
+
+**3 · La causa es un bug MÍO en la fase 1.** Cinco de los ocho fallos son el mismo: «vale», «Ok»,
+«Sí, confirmo la cita.», «¿a qué hora abrís los sábados?» → el clasificador devuelve `Sin clasificar`
+y `INTENCION_A_DISPARADOR` lo mapea a **ambigüedad → quiebra**. O sea: **cualquier mensaje trivial
+acaba en la cola de «Necesita persona»**, que es justo lo que vacía de valor esa cohorte — si la
+mitad de la cola son «Ok», la coordinadora deja de mirarla.
+
+Y no es una decisión de diseño discutible: **contradice el propio documento de arquitectura**, que
+dice «Ambigüedad — **Dos intentos** sin entender qué quiere y para». Implementé UNO. El eval encontró
+en su primera ejecución un defecto en código escrito dos días antes, del tipo que ninguna pasada
+visual habría visto porque no rompe nada: solo llena la cola de ruido.
+
+Anotado como pendiente de arreglo con decisión de producto: qué cuenta exactamente como «dos
+intentos» (dos entrantes consecutivos sin clasificar, ¿en la misma conversación?, ¿reseteados por
+una respuesta nuestra?).
+
+**Y el arnés también tenía lo suyo:** la primera medición pasaba al clasificador la frase pelada, sin
+importe ni tratamiento, cuando en producción recibe los dos. Un test que no reproduce las condiciones
+de producción no dice nada sobre producción. Corregido antes de dar el número (y bajó de 61 % a
+56 %: el contexto no le ayudaba, le daba más motivos para clasificar como algo del presupuesto).

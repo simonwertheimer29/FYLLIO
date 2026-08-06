@@ -1,0 +1,12 @@
+{
+  "_": "Mapeo de la tanda 1B: posición presentada → id del caso en casos.md. Sellado el 2026-08-06 al presentar la tanda. Se usa para comparar 1A con 1B; no se enseña al anotador, porque ver los ids originales le devolvería el orden de la 1A y con él el recuerdo de sus respuestas.",
+  "por_que_reordenado": "Test-retest: si se presenta en el mismo orden, el anotador reconoce la secuencia y reproduce su respuesta anterior de memoria. Entonces no se mide la ambigüedad del caso, se mide el recuerdo. El TEXTO es idéntico a propósito — cambiar una palabra sería medir otro estímulo.",
+  "intervalo": "1A el 2026-08-05, 1B el 2026-08-06 — un día. Suficiente para que el recuerdo literal se haya diluido.",
+  "posicion_a_caso": {
+    "1": 12, "2": 3, "3": 19, "4": 7, "5": 14,
+    "6": 1, "7": 10, "8": 17, "9": 6, "10": 20,
+    "11": 4, "12": 13, "13": 8, "14": 16, "15": 2,
+    "16": 11, "17": 18, "18": 5, "19": 15, "20": 9
+  },
+  "comprobacion": "Es una permutación sin puntos fijos (ninguna posición N contiene el caso N), para que ni el número sirva de pista."
+}
