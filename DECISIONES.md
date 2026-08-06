@@ -1657,3 +1657,48 @@ se sube de modo A a modo B.
 Verificado: `qa:automatizacion` 41 comprobaciones en verde (censo de 29 presupuestos reales: 26
 esperando, 3 quebrado), `qa:cohortes` intacto, tsc y build limpios, y capturas en claro, oscuro y
 móvil.
+
+## 2026-08-05 — Una migración de esquema no toca credenciales
+`db:migrate` ejecutaba, tras aplicar cada migración, un `alter role fyllio_app with password` desde
+`FYLLIO_APP_DB_PASSWORD`. Son dos secretos distintos que nadie compara: el de quien corre la
+migración y el que lleva embebido el `SUPABASE_DB_URL_APP` de Vercel. **El día que divergieran,
+añadir una columna dejaba a producción sin acceso a su base**, y el síntoma habría salido en la app,
+lejos del comando que lo causó.
+
+Ya dio el aviso el mismo día: tras aplicar la 014 el pooler de Supabase rechazó credenciales unos
+segundos, porque `alter role` invalida su caché **aunque la contraseña sea la misma**. Esa vez lo
+era; se comprobó comparando hashes, no confiando.
+
+Separado en `npm run db:password`, que además **comprueba antes de rotar** que lo que va a fijar es
+lo que la app ya usa, y si no coinciden aborta explicando el orden correcto (Vercel → local →
+rotar). Rotar es ahora una decisión explícita, no el efecto secundario de añadir una columna.
+
+**Y una trampa vecina, anotada donde se va a leer:** `app/lib/db/types.ts` decía «GENERADO — NO
+editar a mano», pero desde la migración 011 hay tablas añadidas a mano que el generador no conoce
+(`alertas_pospuestas`, `seguimiento_vistos`, `eventos_automatizacion`). Regenerar se las llevaría en
+silencio. La cabecera ahora lo dice.
+
+## 2026-08-05 — La coincidencia agente-humano tiene pantalla, y vive en Automatizaciones
+La métrica que decide cuándo el agente puede enviar solo ya se registraba pero no se leía en ningún
+sitio: un dato que se acumula bien y no informa a nadie.
+
+**Dónde vive: `/automatizaciones` → «¿Escribe bien?», no `/kpis`.** KPIs mide el NEGOCIO de la
+clínica (dinero, aceptación, no-shows) y esto mide la HERRAMIENTA; mezclarlas diluiría la pantalla
+con la que la gerencia decide sobre su clínica. Y la decisión que este número dispara —subir la
+autonomía— se toma en Automatizaciones. La pestaña se llama «¿Escribe bien?» y no «Coincidencia»:
+la coordinadora no tiene por qué saber qué es una tasa de coincidencia.
+
+**El corte principal es POR INTENCIÓN**, porque es lo que alimenta la matriz de la fase 4: una media
+del 54 % esconde un 80 % en «acepta sin condiciones» y un 10 % en «pide oferta/descuento», que son
+decisiones opuestas. Para eso la intención viaja **con el evento** (migración 015) en vez de
+resolverse al agregar: el clasificador la reescribe en la siguiente respuesta del paciente, así que
+un join daría la intención de HOY y el histórico entero cambiaría de significado retroactivamente.
+Mismo criterio que el nombre de la coordinadora en `alertas_enviadas`.
+
+**El denominador se ve entero**, incluidos los envíos que NO cuentan: los mensajes escritos de cero
+salen en su propia línea («otros 412 salieron sin que el asistente hubiera preparado nada») en vez
+de desaparecer del cálculo sin decirlo.
+
+**Y el vacío es honesto:** con cero envíos medidos la pantalla dice «todavía no hay ningún envío
+medido — no es un 0 %», porque «el agente no acierta nunca» y «no se ha medido nada» son la misma
+cifra con significados opuestos. Es la misma regla que mató el «precisión del predictor 0 %».

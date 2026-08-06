@@ -13,6 +13,7 @@
     "demo:reset": "node scripts/db-seed-demo-rico.mjs",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:migrate:dry": "node scripts/db-migrate.mjs --dry",
+    "db:password": "node scripts/db-password.mjs",
     "qa:cohortes": "tsx scripts/qa-cohortes.mts",
     "qa:fechas": "tsx scripts/qa-fechas-tz.mts",
     "qa:portal": "node scripts/qa-portal-paciente.mjs",

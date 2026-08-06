@@ -34,6 +34,8 @@ export async function medirYRegistrarEnvio(args: {
   enviado: string;
   actorId?: string | null;
   actorNombre?: string | null;
+  /** Intención del paciente en este momento. Se guarda con el evento. */
+  intencion?: string | null;
 }): Promise<void> {
   const medida = medirCoincidencia(args.sugerido, args.enviado);
   if (!medida.medible) return; // sin sugerido no hay nada que comparar
@@ -45,5 +47,6 @@ export async function medirYRegistrarEnvio(args: {
     actorNombre: args.actorNombre ?? null,
     distanciaEdicion: medida.distancia,
     largoSugerido: medida.largoSugerido,
+    intencion: args.intencion ?? null,
   });
 }

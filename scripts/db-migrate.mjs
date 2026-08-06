@@ -62,11 +62,25 @@ for (const f of archivos) {
 }
 console.log(DRY ? `${n} pendientes.` : `${n} aplicadas.`);
 
-// Post-paso: fijar el password del rol de app desde env (nunca en el repo).
-if (!DRY && process.env.FYLLIO_APP_DB_PASSWORD) {
-  await client.query(
-    `alter role fyllio_app with password '${process.env.FYLLIO_APP_DB_PASSWORD.replace(/'/g, "''")}'`,
-  );
-  console.log("✓ password de fyllio_app fijado desde FYLLIO_APP_DB_PASSWORD.");
-}
+// ─── Lo que este script YA NO hace, y por qué ────────────────────────────────
+//
+// Aquí había un post-paso que ejecutaba `alter role fyllio_app with password`
+// desde `FYLLIO_APP_DB_PASSWORD` en CADA migración aplicada. Se retiró el
+// 2026-08-05: **una migración de esquema no toca credenciales.**
+//
+// El fallo que evita: el valor de `FYLLIO_APP_DB_PASSWORD` de quien corre la
+// migración y la contraseña embebida en el `SUPABASE_DB_URL_APP` de Vercel son
+// dos secretos distintos que nadie compara. El día que diverjan —alguien rota
+// uno, alguien clona el repo con un .env viejo, alguien no tiene la variable—
+// aplicar una migración de esquema **deja producción sin acceso a su base**, y
+// el síntoma aparece en la app, lejos del comando que lo causó.
+//
+// Ya dio un aviso el 2026-08-05: tras aplicar la 014 el pooler de Supabase
+// rechazó credenciales durante unos segundos, porque el `alter role` invalida
+// su caché aunque la contraseña sea LA MISMA. Esa vez lo era. La siguiente no
+// tiene por qué.
+//
+// La rotación vive ahora en `npm run db:password`, que es lo que se quería:
+// una operación explícita, que se ejecuta cuando se rota una credencial y no
+// cuando se añade una columna.
 await client.end();

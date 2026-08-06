@@ -40,6 +40,10 @@ export type RegistrarEventoArgs = {
   /** Coincidencia agente-humano; solo en `mensaje_enviado`. */
   distanciaEdicion?: number | null;
   largoSugerido?: number | null;
+  /** Intención en el momento del envío. Viaja CON el evento porque después no
+   *  se puede reconstruir: el clasificador la reescribe en la siguiente
+   *  respuesta del paciente. */
+  intencion?: string | null;
 };
 
 /**
@@ -67,6 +71,7 @@ export async function registrarEvento(args: RegistrarEventoArgs): Promise<void> 
         motivo_texto: args.motivoTexto ?? null,
         distancia_edicion: args.distanciaEdicion ?? null,
         largo_sugerido: args.largoSugerido ?? null,
+        intencion: args.intencion ?? null,
       } as never)
       .execute(),
   );
@@ -86,6 +91,7 @@ export async function registrarEnvioMedido(args: {
   actorNombre?: string | null;
   distanciaEdicion: number | null;
   largoSugerido: number | null;
+  intencion?: string | null;
 }): Promise<void> {
   try {
     await registrarEvento({ ...args, evento: "mensaje_enviado" });
@@ -130,4 +136,72 @@ export async function distanciasDeEnvios(limite = 500): Promise<number[]> {
         limit ${limite}`.execute(trx),
   );
   return (r.rows ?? []).map((x: any) => Number(x.distancia_edicion)).filter(Number.isFinite);
+}
+
+export type FilaCoincidencia = {
+  /** Clave del corte: intención, tipo de caso o semana ISO. */
+  clave: string | null;
+  distancias: number[];
+};
+
+/**
+ * Los envíos medidos, en crudo, para agregarlos con la función pura compartida.
+ *
+ * Devuelve las DISTANCIAS y no un recuento por categoría a propósito: el umbral
+ * que separa «editado» de «reescrito» vive en `coincidencia.ts` y hay que poder
+ * cambiarlo sin tocar SQL ni perder el histórico. Si la base agregara por
+ * categoría, el umbral estaría clavado en dos sitios.
+ */
+export async function enviosMedidos(desdeDias = 90): Promise<
+  Array<{ distancia: number; intencion: string | null; tipoCaso: string; creadoAt: string }>
+> {
+  const cliente = requireCliente("enviosMedidos");
+  const r: any = await runWithClienteDb(cliente, (trx) =>
+    sql`select distancia_edicion, intencion, tipo_caso, created_at
+        from eventos_automatizacion
+        where evento = 'mensaje_enviado'
+          and distancia_edicion is not null
+          and created_at >= now() - make_interval(days => ${desdeDias})
+        order by created_at desc
+        limit 5000`.execute(trx),
+  );
+  return (r.rows ?? [])
+    .map((x: any) => ({
+      distancia: Number(x.distancia_edicion),
+      intencion: x.intencion ?? null,
+      tipoCaso: String(x.tipo_caso),
+      creadoAt: (x.created_at instanceof Date ? x.created_at : new Date(x.created_at)).toISOString(),
+    }))
+    .filter((x: any) => Number.isFinite(x.distancia));
+}
+
+/**
+ * Cuántos envíos NO se pudieron medir por no haber mensaje sugerido. Es el
+ * número que hace honesto al denominador: sin él, «12 de 12 tal cual» esconde
+ * que hubo otros 40 que la coordinadora escribió de cero — y eso también dice
+ * algo del agente, aunque no sea coincidencia.
+ *
+ * Se cuenta desde `mensajes_whatsapp` (salientes) menos los eventos medidos:
+ * el evento solo existe cuando había sugerido, así que la diferencia son los
+ * envíos sin propuesta.
+ */
+export async function enviosSinSugerido(desdeDias = 90): Promise<number> {
+  const cliente = requireCliente("enviosSinSugerido");
+  try {
+    const r: any = await runWithClienteDb(cliente, (trx) =>
+      sql`select
+            (select count(*) from mensajes_whatsapp
+              where direccion = 'Saliente'
+                and timestamp >= now() - make_interval(days => ${desdeDias}))::int as salientes,
+            (select count(*) from eventos_automatizacion
+              where evento = 'mensaje_enviado'
+                and created_at >= now() - make_interval(days => ${desdeDias}))::int as medidos`.execute(trx),
+    );
+    const salientes = Number(r.rows?.[0]?.salientes ?? 0);
+    const medidos = Number(r.rows?.[0]?.medidos ?? 0);
+    return Math.max(0, salientes - medidos);
+  } catch (err) {
+    console.error("[automatizacion] enviosSinSugerido:", err instanceof Error ? err.message : err);
+    return 0;
+  }
 }

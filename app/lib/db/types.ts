@@ -1,6 +1,23 @@
 // app/lib/db/types.ts
-// GENERADO por scripts/db-schema-spec.mjs — NO editar a mano.
-// Interfaz Kysely del esquema (misma fuente que 001/002 SQL).
+// Interfaz Kysely del esquema.
+//
+// EL GRUESO ESTÁ GENERADO por scripts/db-schema-spec.mjs (misma fuente que
+// 001_esquema_negocio.sql y 002_rls.sql) y NO se edita a mano.
+//
+// ⚠️ PERO las tablas creadas por migraciones POSTERIORES a la 002 se añaden aquí
+// A MANO, porque el generador no las conoce. Hoy son tres:
+//     · alertas_pospuestas        (011)
+//     · seguimiento_vistos        (013)
+//     · eventos_automatizacion    (014, + columna `intencion` en la 015)
+// más las columnas sueltas que esas migraciones añadieron a tablas existentes
+// (p. ej. `configuracion_automatizaciones.toques_antes_de_agotar`, 014).
+//
+// Consecuencia que hay que saber ANTES de tocar el generador: volver a
+// ejecutarlo REESCRIBE este archivo y **se lleva por delante esas tres tablas**,
+// en silencio y sin que nada falle hasta que alguien las use. Si se regenera,
+// hay que volver a pegarlas. La cabecera decía «NO editar a mano» a secas y ya
+// era falsa desde la 011; se corrige el 2026-08-05 para que la trampa esté
+// escrita donde se va a leer.
 
 import type { Generated } from "kysely";
 
@@ -643,6 +660,9 @@ export interface Tabla_eventos_automatizacion {
    *  categoría: el umbral se calibra después sin perder el histórico. */
   distancia_edicion: number | null;
   largo_sugerido: number | null;
+  /** Intención EN EL MOMENTO del envío (migración 015). No se resuelve después:
+   *  el clasificador la reescribe y el histórico cambiaría de significado. */
+  intencion: string | null;
   created_at: Generated<Date>;
 }
 

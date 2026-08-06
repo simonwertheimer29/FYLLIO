@@ -10,8 +10,9 @@ import type { UserSession } from "../../lib/presupuestos/types";
 import AutomatizacionesView from "../../components/presupuestos/AutomatizacionesView";
 import ConfigAutomatizaciones from "../../components/presupuestos/ConfigAutomatizaciones";
 import { MotorReglasView } from "./MotorReglasView";
+import { CoincidenciaView } from "../../components/automatizacion/CoincidenciaView";
 
-type Tab = "motor" | "operativo" | "reglas";
+type Tab = "motor" | "coincidencia" | "operativo" | "reglas";
 
 export function AutomatizacionesTopView({
   user,
@@ -37,6 +38,12 @@ export function AutomatizacionesTopView({
         <TabBtn active={tab === "motor"} onClick={() => setTab("motor")}>
           Motor
         </TabBtn>
+        {/* «¿Escribe bien?» y no «Coincidencia»: la coordinadora no tiene por
+            qué saber qué es una tasa de coincidencia, pero sí quiere saber si
+            puede fiarse de lo que le proponen. */}
+        <TabBtn active={tab === "coincidencia"} onClick={() => setTab("coincidencia")}>
+          ¿Escribe bien?
+        </TabBtn>
         <TabBtn active={tab === "operativo"} onClick={() => setTab("operativo")}>
           Operativo
         </TabBtn>
@@ -46,6 +53,7 @@ export function AutomatizacionesTopView({
       </div>
       <div className="flex-1 min-h-0 overflow-auto p-4 lg:p-6">
         {tab === "motor" && <MotorReglasView isAdmin={isAdmin} />}
+        {tab === "coincidencia" && <CoincidenciaView />}
         {tab === "operativo" && <AutomatizacionesView user={user} />}
         {tab === "reglas" && <ConfigAutomatizaciones user={user} />}
       </div>

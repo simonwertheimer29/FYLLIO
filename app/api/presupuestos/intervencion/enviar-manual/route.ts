@@ -29,10 +29,12 @@ async function medirEnvioDePresupuesto(
     const { selectPresupuestosRaw } = await import("../../../../lib/presupuestos/repo");
     const recs = await selectPresupuestosRaw({
       filterByFormula: `RECORD_ID()='${presupuestoId}'`,
-      fields: ["Mensaje_sugerido"],
+      fields: ["Mensaje_sugerido", "Intencion_detectada"],
       maxRecords: 1,
     });
-    const sugerido = (recs[0]?.fields as Record<string, unknown> | undefined)?.["Mensaje_sugerido"];
+    const campos = recs[0]?.fields as Record<string, unknown> | undefined;
+    const sugerido = campos?.["Mensaje_sugerido"];
+    const intencion = campos?.["Intencion_detectada"];
     await medirYRegistrarEnvio({
       tipoCaso: "presupuesto",
       casoId: presupuestoId,
@@ -40,6 +42,7 @@ async function medirEnvioDePresupuesto(
       enviado,
       actorId: session.email ?? null,
       actorNombre: session.nombre ?? null,
+      intencion: typeof intencion === "string" ? intencion : null,
     });
   } catch (err) {
     console.error(
