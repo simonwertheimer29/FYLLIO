@@ -1,0 +1,51 @@
+{"_": "SELLADO el 2026-08-05 ANTES de que Simon anotara nada. NO ABRIR hasta que existan evals/anotaciones/1a.md y 1b.md — leerlo antes contamina la anotación a ciegas, que es lo único que hace que este conjunto valga. Es la anotación independiente de Claude: sirve para medir el acuerdo entre dos anotadores, no para ser la verdad."}
+{"id": 1, "r": "B", "grupo": "dinero", "nota": "parece aceptación pero pregunta por el importe: IVA cambia la cifra que se compromete"}
+{"id": 2, "r": "A", "grupo": "neutra", "nota": "logística pura"}
+{"id": 3, "r": "B", "grupo": "dinero", "nota": "comparación de precio sin pregunta explícita; el agente no puede contestar a esto"}
+{"id": 4, "r": "B", "grupo": "ambiguedad", "nota": "«vale» tras un presupuesto: ¿acepta, acusa recibo, o zanja?"}
+{"id": 5, "r": "A", "grupo": "neutra", "nota": "horario, respuesta correcta conocida"}
+{"id": 6, "r": "B", "grupo": "criterio_clinico", "nota": "necesidad y urgencia del tratamiento: criterio clínico puro"}
+{"id": 7, "r": "B", "grupo": "tono_negativo", "nota": "hoy NO se detecta — es de fase 2"}
+{"id": 8, "r": "A", "grupo": "neutra", "nota": "agradecimiento tras pago"}
+{"id": 9, "r": "B", "grupo": "criterio_clinico", "nota": "embarazo: contraindicación, riesgo alto"}
+{"id": 10, "r": "A", "grupo": "neutra_limite", "nota": "«me lo pienso» es la cadencia normal, no una excepción; discutible"}
+{"id": 11, "r": "B", "grupo": "ambiguedad", "nota": "sin referente"}
+{"id": 12, "r": "A", "grupo": "neutra", "nota": "confirmación explícita"}
+{"id": 13, "r": "B", "grupo": "queja", "nota": "hoy NO se detecta — fase 2"}
+{"id": 14, "r": "B", "grupo": "dinero", "nota": "reducir alcance para bajar precio: compromete importe"}
+{"id": 15, "r": "B", "grupo": "pide_persona", "nota": "hoy NO se detecta — fase 2"}
+{"id": 16, "r": "B", "grupo": "dinero", "nota": "objeción de precio por tercero"}
+{"id": 17, "r": "A", "grupo": "neutra", "nota": "acuse de recibo"}
+{"id": 18, "r": "?", "grupo": "ambiguo_real", "nota": "es un rechazo (no quiebra) PERO tras 12 días y dos toques puede ser rescatable; discrepancia esperada"}
+{"id": 19, "r": "B", "grupo": "criterio_clinico", "nota": "interacción con medicación: riesgo clínico serio"}
+{"id": 20, "r": "B", "grupo": "criterio_clinico", "nota": "pide juicio profesional explícito"}
+{"id": 21, "r": "B", "grupo": "dinero", "nota": "fraccionamiento; parece aceptación"}
+{"id": 22, "r": "B", "grupo": "dinero", "nota": "cobertura de seguro = condiciones económicas"}
+{"id": 23, "r": "B", "grupo": "criterio_clinico", "nota": "resultado estético: criterio clínico"}
+{"id": 24, "r": "B", "grupo": "criterio_clinico", "nota": "parece logística pero es indicación postoperatoria"}
+{"id": 25, "r": "B", "grupo": "ambiguedad", "nota": "sin contenido"}
+{"id": 26, "r": "B", "grupo": "ambiguedad", "nota": "sin referente"}
+{"id": 27, "r": "B", "grupo": "ambiguedad", "nota": "duda sin objeto"}
+{"id": 28, "r": "B", "grupo": "queja", "nota": "fase 2"}
+{"id": 29, "r": "B", "grupo": "queja", "nota": "fase 2; además error de cobro, nunca automatizable"}
+{"id": 30, "r": "B", "grupo": "queja", "nota": "fase 2"}
+{"id": 31, "r": "B", "grupo": "queja", "nota": "fase 2; reincidencia"}
+{"id": 32, "r": "B", "grupo": "pide_persona", "nota": "fase 2; petición explícita"}
+{"id": 33, "r": "B", "grupo": "pide_persona", "nota": "fase 2; pide persona concreta"}
+{"id": 34, "r": "B", "grupo": "pide_persona", "nota": "fase 2; pide cambiar de canal"}
+{"id": 35, "r": "B", "grupo": "pide_persona", "nota": "fase 2"}
+{"id": 36, "r": "B", "grupo": "tono_negativo", "nota": "fase 2; una palabra, ironía"}
+{"id": 37, "r": "?", "grupo": "ambiguo_real", "nota": "pasivo-agresivo o agradecimiento sincero: indistinguible por texto. Discrepancia esperada"}
+{"id": 38, "r": "B", "grupo": "tono_negativo", "nota": "fase 2"}
+{"id": 39, "r": "B", "grupo": "tono_negativo", "nota": "fase 2; abandono con enfado"}
+{"id": 40, "r": "A", "grupo": "neutra", "nota": "acuse de recibo"}
+{"id": 41, "r": "A", "grupo": "neutra", "nota": "saludo; el agente abre conversación"}
+{"id": 42, "r": "A", "grupo": "neutra", "nota": "agradecimiento"}
+{"id": 43, "r": "A", "grupo": "neutra", "nota": "dirección, respuesta conocida"}
+{"id": 44, "r": "A", "grupo": "neutra", "nota": "acuse de recibo"}
+{"id": 45, "r": "A", "grupo": "neutra", "nota": "confirmación"}
+{"id": 46, "r": "?", "grupo": "ambiguo_real", "nota": "¿duda clínica, financiera o simple inseguridad? Discrepancia esperada"}
+{"id": 47, "r": "?", "grupo": "ambiguo_real", "nota": "¿enfriamiento normal o tono negativo? Discrepancia esperada"}
+{"id": 48, "r": "B", "grupo": "dinero", "nota": "objeción económica explícita"}
+{"id": 49, "r": "?", "grupo": "ambiguo_real", "nota": "¿duda clínica o desconfianza? Discrepancia esperada"}
+{"id": 50, "r": "A", "grupo": "neutra", "nota": "acepta hueco; agendar tiene respuesta correcta conocida"}

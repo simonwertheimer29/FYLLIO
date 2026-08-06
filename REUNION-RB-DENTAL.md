@@ -153,6 +153,43 @@ El bloque B va por [`guion-demo-fyllio.md`](guion-demo-fyllio.md), que está esc
   - *Un tratamiento dental identificable asociado a una persona es dato de salud (art. 9 RGPD). Si ya lo hacen, el riesgo existe hoy y Fyllio lo hereda. Si no lo tienen resuelto, resolvérselo es argumento de venta, no solo cumplimiento. **Y ojo: nuestras plantillas de ejemplo hoy nombran los dos — MEJORAS 83.***
 - ¿Alguien os ha planteado alguna vez este tema?
 
+### D.2 bis · El histórico de conversaciones — **se pide en esta reunión o no llega**
+
+Va aquí, pegado al art. 28, **a propósito**: es el mismo contrato y la misma firma. Pedirlo después
+obliga a reabrir una conversación legal que ya estaba cerrada, y en la práctica eso significa meses.
+
+**Cómo se formula.** No es «dadme vuestros WhatsApps». Es:
+
+> «Para que el sistema aprenda a distinguir qué puede contestar solo y qué necesita a una persona,
+> hace falta que vea conversaciones de verdad. Las inventadas no valen: salen demasiado limpias, y un
+> sistema entrenado con ellas falla justo en los mensajes raros, que son los que importan.
+>
+> Lo que pedimos es acceso a vuestro histórico de conversaciones de WhatsApp con pacientes, **dentro
+> del mismo contrato de encargado de tratamiento que ya tenemos que firmar** — no es un permiso
+> aparte ni un uso distinto: es exactamente para lo que se firma. Y sirve para dos cosas concretas:
+> medir si el sistema acierta, y saber **cuánto** acierta antes de dejarle mandar nada solo.»
+
+**Lo que hay que ofrecer sin que lo pidan** (y decirlo antes de que lo pregunten):
+
+- **Se pueden anonimizar** al importarlos: el nombre y el teléfono no hacen falta para esto. Lo que
+  importa es qué dijo el paciente, no quién lo dijo.
+- **No hace falta todo el histórico.** Con unos cientos de conversaciones ya se puede medir; no es un
+  volcado de la base.
+- **No sale de nuestros sistemas** y se borra cuando termine el piloto si así lo quieren.
+
+**Qué preguntar:**
+
+- ¿Vuestro WhatsApp permite exportar conversaciones? ¿Es número personal, Business o API? *(De un
+  número personal la exportación es manual, chat a chat — cambia mucho el esfuerzo.)*
+- ¿Cuánto histórico tenéis y desde cuándo?
+- ¿Quién tendría que autorizarlo por vuestra parte, además de la firma?
+
+**Por qué importa, para que no se recorte:** sin conversaciones reales el conjunto de evaluación
+arranca **sintético** —escrito por nosotros—, y un sistema que solo aprueba exámenes que nos hemos
+escrito nosotros no ha demostrado nada. Se puede empezar así y así está planificado, pero el corpus
+real es lo que convierte la medición en evidencia. Es la diferencia entre «creemos que acierta» y
+«acierta el 84 % de las veces, medido sobre vuestras propias conversaciones».
+
 ### D.3 · Competencia
 
 - ¿Os ha llamado alguien con una propuesta parecida a esta? (Engrana, Kandent, agencias de automatización con IA)
@@ -202,6 +239,11 @@ Independientemente de lo que salga en la reunión, estas cosas hay que hacerlas 
 **Bloqueantes — sin esto no se toca un dato real**
 - [ ] Contrato de encargado de tratamiento (art. 28 RGPD) firmado.
 - [ ] NDA con RB.
+- [ ] **Acceso al histórico de conversaciones de WhatsApp**, dentro de ese mismo contrato (D.2 bis).
+      **Se pide en la reunión o no llega**: pedirlo después obliga a reabrir una conversación legal
+      ya cerrada. Sin él, el conjunto de evaluación del agente arranca sintético — se puede, y así
+      está planificado, pero es la diferencia entre «creemos que acierta» y «acierta el 84 %, medido
+      sobre vuestras conversaciones».
 
 **Técnicos**
 - [ ] Dar de alta a los doctores de RB en Postgres (la tabla `staff` está vacía en las bases piloto; el selector de doctor saldría vacío). **Esto se nota ya en la demo**: el guion manda avisar antes de que lo vean.
