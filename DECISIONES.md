@@ -1828,3 +1828,40 @@ que no es prioridad aunque sea barata.
 **Y una lección de método:** las tres hipótesis eran razonables y dos de las tres eran mías. La que
 lo resolvió no salió de razonar mejor, salió de **medir el cambio antes de hacerlo** — 20 minutos de
 sonda contra medio día de implementar un parche que no habría movido el número.
+
+## 2026-08-06 — El significado de una intención vivía en cinco copias, y una era el dinero de /red
+Antes de rediseñar la clasificación, se retiraron los cinco literales sueltos que traducían
+«intención → qué significa»: un `Set` en `dashboard-red`, dos `Array.includes` en las rutas de
+intervención y máxima, y tres `===` en dos paneles. **Añadir una categoría al enum no rompía nada:
+simplemente dejaba de aplicar en cada uno de esos sitios, en silencio.**
+
+**El número, medido en DEMO antes de tocar nada** — titular «próximos a cierre sin acción» de `/red`:
+
+| | |
+|---|---|
+| Hoy | 3 casos · **5.900 €** |
+| Si una categoría nueva absorbiera «Acepta sin condiciones» | 1 caso · **1.200 €** — **−80 %** |
+| Si absorbiera «Acepta pero pregunta pago» | 2 casos · 4.700 € — −20 % |
+
+**El dinero en pantalla caía un 80 % sin excepción, sin log y sin un solo test en rojo.** Misma
+familia que la ventana rodante de julio: una cifra que se mueve sola y se lleva por delante la
+confianza en todas las demás.
+
+Ahora el significado vive en `presupuestos/intenciones` y `leads/intenciones`, con **dos garantías
+que se necesitan las dos**:
+
+1. **`Record<Intencion, …>` exhaustivo** — añadir un valor al enum **rompe la compilación** y obliga
+   a decidir qué significa. Verificado: al añadir «Acuse de recibo» al enum, `tsc` falla en los tres
+   diccionarios. No es un comentario pidiendo que alguien se acuerde.
+2. **Lectura por `deDiccionario`** — el valor viene de la BASE, así que el tipo no garantiza nada
+   (§12); un valor desconocido devuelve el fallback **y avisa una vez** en vez de degradar mudo.
+
+`qa-dashboard-red` en verde: el refactor no mueve ni un euro.
+
+**Y un error propio que conviene no repetir:** para «demostrar» que antes NO habría roto, hice
+`git stash push -q <rutas> 2>/dev/null` con ficheros sin trackear. El push **falló en silencio** —lo
+tragó mi propio `2>/dev/null`— y el `git stash pop` siguiente sacó **un stash antiguo de otra rama**,
+metiendo conflictos en `DECISIONES.md` y en un skill. Nada se perdió (todo estaba commiteado y los
+dos stashes viejos siguen intactos), pero la lección es la de siempre y esta vez me la apliqué a mí:
+**redirigir stderr a /dev/null convierte un fallo en un silencio**, y `git stash pop` sin argumento
+saca lo que haya arriba, no lo que tú creas que pusiste.

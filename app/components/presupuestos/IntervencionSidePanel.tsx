@@ -20,6 +20,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
+import { preguntaPorElPago } from "../../lib/presupuestos/intenciones";
 import type {
   PresupuestoIntervencion,
   PresupuestoEstado,
@@ -89,7 +90,7 @@ function situacionPresupuesto(item: PresupuestoIntervencion): SituacionPresupues
       primaria: "escribir",
     };
   }
-  if (item.intencionDetectada === "Acepta pero pregunta pago") {
+  if (preguntaPorElPago(item.intencionDetectada)) {
     return {
       prioridad: "alta",
       quePasa: `Está listo para aceptar y preguntó por las opciones de pago.`,

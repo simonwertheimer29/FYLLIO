@@ -34,6 +34,7 @@ import {
   type ConversacionClasificada,
 } from "../../lib/presupuestos/estado-conversacion";
 import { esLeadActivo } from "../../lib/leads/pipeline";
+import { esLeadCaliente } from "../../lib/leads/intenciones";
 import { hoyISO, fechaClinica } from "../../lib/time";
 import {
   cohorteLead,
@@ -535,9 +536,9 @@ function LeadsTab({
         const d = (b.conv.haceMs ?? 0) - (a.conv.haceMs ?? 0);
         if (d !== 0) return d;
         const ca =
-          a.l.intencionDetectada && INTENCION_CALIENTE.has(a.l.intencionDetectada) ? 0 : 1;
+          esLeadCaliente(a.l.intencionDetectada) ? 0 : 1;
         const cb =
-          b.l.intencionDetectada && INTENCION_CALIENTE.has(b.l.intencionDetectada) ? 0 : 1;
+          esLeadCaliente(b.l.intencionDetectada) ? 0 : 1;
         return ca - cb;
       }),
     };
@@ -808,7 +809,6 @@ function LeadsTab({
 // Sin respuesta (tanda de coherencia 2026-07-26: el badge ALTO/MEDIO/BAJO
 // murió — medía la frescura del último toque NUESTRO y castigaba justo los
 // casos donde el paciente espera; contradecía el orden de las cohortes).
-const INTENCION_CALIENTE = new Set(["Interesado", "Pide cita", "Pregunta precio"]);
 
 function relTimeShort(iso: string): string {
   const diffMin = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));

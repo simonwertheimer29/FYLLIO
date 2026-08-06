@@ -3,6 +3,7 @@
 
 import { NextResponse } from "next/server";
 import { selectPresupuestosRaw } from "../../../lib/presupuestos/repo";
+import { esIntencionDeCierre, scoreDeIntencion } from "../../../lib/presupuestos/intenciones";
 import { DateTime } from "luxon";
 import type {
   PresupuestoMaxima,
@@ -47,9 +48,7 @@ function computeEstadoVisual(p: {
   if (
     p.urgenciaIntervencion &&
     p.urgenciaIntervencion !== "NINGUNO" &&
-    p.intencionDetectada &&
-    (p.intencionDetectada === "Acepta sin condiciones" ||
-     p.intencionDetectada === "Acepta pero pregunta pago")
+    esIntencionDeCierre(p.intencionDetectada)
   ) {
     return "Acepta sin pagar";
   }
@@ -142,21 +141,6 @@ function computeProximaAccionTexto(estadoVisual: EstadoVisual): string | undefin
 // Urgencia bidireccional (replicada del endpoint intervencion)
 // -------------------------------------------------------------------
 
-const INTENCION_SCORE: Record<string, number> = {
-  "Acepta sin condiciones": 40,
-  "Acepta pero pregunta pago": 40,
-  "Pide oferta/descuento": 25,
-  "Tiene duda sobre tratamiento": 20,
-  "Sin clasificar": 15,
-  "Quiere pensarlo": 10,
-  "Rechaza": 5,
-};
-
-const INTENCIONES_CIERRE: Array<string | undefined> = [
-  "Acepta sin condiciones",
-  "Acepta pero pregunta pago",
-];
-
 function computeUrgenciaBidireccional(p: {
   intencionDetectada?: IntencionDetectada;
   fechaUltimaRespuesta?: string;
@@ -164,8 +148,8 @@ function computeUrgenciaBidireccional(p: {
   amount?: number;
   estado: PresupuestoEstado;
 }): UrgenciaBidireccional {
-  const scoreIntencion = INTENCION_SCORE[p.intencionDetectada ?? "Sin clasificar"] ?? 15;
-  const esCierre = INTENCIONES_CIERRE.includes(p.intencionDetectada);
+  const scoreIntencion = scoreDeIntencion(p.intencionDetectada);
+  const esCierre = esIntencionDeCierre(p.intencionDetectada);
 
   let scoreRespClinica = 0;
   let minutosDesdeRespuesta = Infinity;

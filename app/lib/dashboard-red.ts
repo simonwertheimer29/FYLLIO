@@ -24,6 +24,7 @@ import { listPagosResumen } from "./pagos";
 import { listAllOpciones } from "./configuraciones/configuraciones";
 import { ultimosMensajesPorConversacion } from "./presupuestos/mensajeria";
 import { ultimasAccionesDireccionPorLead } from "./leads/acciones";
+import { esIntencionDeCierre } from "./presupuestos/intenciones";
 import { conversacionDePresupuesto } from "./presupuestos/conversacion-presupuesto";
 import {
   estadoConversacion,
@@ -271,7 +272,12 @@ export async function calcularDashboardRed(opts: {
   let reactivablesImporte = 0;
   // Próximos a cierre sin acción: intención de cierre detectada y la pelota
   // es NUESTRA (pendiente_responder) — misma clasificación compartida.
-  const INTENCIONES_CIERRE = new Set(["Acepta sin condiciones", "Acepta pero pregunta pago"]);
+  //
+  // El `Set` literal que vivía aquí se retiró el 2026-08-06: era una de cinco
+  // copias del mismo criterio, y añadir una categoría al enum habría bajado
+  // ESTE TITULAR DE DINERO un 80 % (de 5.900 € a 1.200 € en DEMO) sin fallar
+  // nada. Ahora el significado vive en `presupuestos/intenciones`, con un
+  // `Record` exhaustivo que rompe la compilación si aparece una categoría nueva.
   let cierreN = 0;
   let cierreImporte = 0;
   // Clínicas distintas tocadas por alguna señal de riesgo — solo para el
@@ -299,7 +305,7 @@ export async function calcularDashboardRed(opts: {
     }
     if (
       conv.estado === "pendiente_responder" &&
-      INTENCIONES_CIERRE.has(String(f["Intencion_detectada"] ?? ""))
+      esIntencionDeCierre(f["Intencion_detectada"] as string | null)
     ) {
       cierreN++;
       cierreImporte += importe;

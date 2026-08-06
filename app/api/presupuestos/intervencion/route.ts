@@ -22,6 +22,7 @@ import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../lib/presupuestos/clinica-scope";
 import { ultimosMensajesPorConversacion } from "../../../lib/presupuestos/mensajeria";
 import { conversacionDePresupuesto } from "../../../lib/presupuestos/conversacion-presupuesto";
+import { esIntencionDeCierre, scoreDeIntencion } from "../../../lib/presupuestos/intenciones";
 import { resolverEstados, estadosSinEventos } from "../../../lib/automatizacion/servicio";
 
 export const dynamic = "force-dynamic";
@@ -38,25 +39,12 @@ function daysSince(iso: string): number {
 // Urgencia bidireccional (3 ejes)
 // -------------------------------------------------------------------
 
-const INTENCION_SCORE: Record<string, number> = {
-  "Acepta sin condiciones": 40,
-  "Acepta pero pregunta pago": 40,
-  "Pide oferta/descuento": 25,
-  "Tiene duda sobre tratamiento": 20,
-  "Sin clasificar": 15,
-  "Quiere pensarlo": 10,
-  "Rechaza": 5,
-};
-
-const INTENCIONES_CIERRE: Array<string | undefined> = [
-  "Acepta sin condiciones",
-  "Acepta pero pregunta pago",
-];
-
 function computeUrgenciaBidireccional(p: PresupuestoIntervencion): UrgenciaBidireccional {
   // Eje 1 — Intención del paciente (0-40)
-  const scoreIntencion = INTENCION_SCORE[p.intencionDetectada ?? "Sin clasificar"] ?? 15;
-  const esCierre = INTENCIONES_CIERRE.includes(p.intencionDetectada);
+  // El significado de cada intención vive en `presupuestos/intenciones`, no
+  // aquí: esto era una de cinco copias del mismo criterio (2026-08-06).
+  const scoreIntencion = scoreDeIntencion(p.intencionDetectada);
+  const esCierre = esIntencionDeCierre(p.intencionDetectada);
 
   // Eje 2 — Tiempo de respuesta de la clínica (0-30)
   let scoreRespClinica = 0;

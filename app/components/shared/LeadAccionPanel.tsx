@@ -58,10 +58,10 @@ import { RotateCcw } from "lucide-react";
 import { labelMotivo } from "../../lib/leads/motivos";
 import { MotivoNoInteresModal } from "../../(authed)/leads/MotivoNoInteresModal";
 import { hoyISO, sumaDias, fechaClinica } from "../../lib/time";
+import { esLeadCaliente, leadPideCita } from "../../lib/leads/intenciones";
 
 // ─── Situación: mismos triggers que la cola de Actuar hoy ──────────────
 
-const INTENCION_CALIENTE = new Set(["Interesado", "Pide cita", "Pregunta precio"]);
 const HORAS_12_MS = 12 * 60 * 60 * 1000;
 
 type SituacionLead = {
@@ -149,7 +149,7 @@ function situacionLead(
   }
 
   if (conv.estado === "pendiente_responder") {
-    if (lead.intencionDetectada === "Pide cita" && !lead.fechaCita) {
+    if (leadPideCita(lead.intencionDetectada) && !lead.fechaCita) {
       return {
         prioridad: "alta",
         quePasa: `Pidió cita ${hace(dUlt ?? 0)} y todavía no la tiene.`,
@@ -218,15 +218,14 @@ function situacionLead(
       : Date.now() - salMs > HORAS_12_MS;
   if (
     lead.estado === "Contactado" &&
-    lead.intencionDetectada != null &&
-    INTENCION_CALIENTE.has(lead.intencionDetectada) &&
+    esLeadCaliente(lead.intencionDetectada) &&
     sinSaliente12h
   ) {
     return {
       prioridad: "alta",
       quePasa: `Su última respuesta fue «${lead.intencionDetectada}» y lleva más de 12 h sin un contacto tuyo.`,
-      recomendacion: lead.intencionDetectada === "Pide cita" ? "Agéndale la cita" : "Retómalo — está caliente",
-      primaria: lead.intencionDetectada === "Pide cita" ? "agendar" : "escribir",
+      recomendacion: leadPideCita(lead.intencionDetectada) ? "Agéndale la cita" : "Retómalo — está caliente",
+      primaria: leadPideCita(lead.intencionDetectada) ? "agendar" : "escribir",
       citadoHoy,
     };
   }
