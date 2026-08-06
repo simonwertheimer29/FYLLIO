@@ -39,7 +39,7 @@ Lo detectado pero no aprobado sigue yendo a [`MEJORAS-PENDIENTES.md`](MEJORAS-PE
 |---|---|---|
 | **0** · El trámite | Registro fiscal, Meta Business, número de prueba, plantillas | ✅ **Decidida** — bloqueante declarado en [`ESTADO.md`](ESTADO.md) |
 | **1** · Estado de automatización y cola de quiebre | La tercera coordenada de cada caso, su cohorte en Seguimiento, **la tasa de coincidencia agente-humano** y **el conjunto de evaluación** | ✅ **Decidida** — no depende de WhatsApp |
-| **2** · Clasificador completo + simulador | **Los 3 disparadores que faltan** (queja, pide persona, tono negativo) medidos contra los evals, y el modo demostración del embudo entero | ⬜ **No decidida** |
+| **2** · Clasificador completo + simulador | **Enganchar el clasificador de leads** (existe; solo falta el disparador — medio día) y **los 3 disparadores que faltan**, ambos medidos contra los evals. Más el simulador | ⬜ **No decidida** |
 | **3** · Modo B — el agente envía lo rutinario | **Conectar** el envío/recepción (ya construidos) y **construir el catálogo de 11 plantillas** | ⬜ **No decidida** — reescrita el 3 ago tras censar el código |
 | **4** · Modo C y configuración por clínica | Autonomía hasta el quiebre, matriz por fase | ⬜ **No decidida** |
 | **5** · Tech Provider y alta de clientes | Embedded Signup, una WABA por clínica | ⬜ **No decidida** |
@@ -132,11 +132,20 @@ reorganización de cuatro ventanas, que va al final.
 
 **4 · El quiebre por intención es SOLO de presupuestos. Los leads no quiebran por intención.**
 
-Esto no es una decisión de alcance: es lo que hay. `clasificarRespuesta` **solo corre para
-presupuestos** — el webhook de WhatsApp, al recibir un mensaje de un lead activo, lo persiste,
-lo anota en el timeline y **vuelve sin clasificar**, con el comentario puesto (`api/webhooks/whatsapp`).
-No hay `intencion_detectada` que leer en un lead que responde, así que no hay nada que pueda
-disparar un quiebre.
+Esto no es una decisión de alcance: es lo que hay. El webhook de WhatsApp, al recibir un mensaje de
+un lead activo, lo persiste, lo anota en el timeline y **vuelve sin clasificar**
+(`api/webhooks/whatsapp`). Cuando un lead responde no queda `intencion_detectada` nueva que leer, así
+que no hay nada que pueda disparar un quiebre.
+
+> **Corregida la CAUSA el 5 de agosto de 2026.** Aquí ponía que «esa mitad no se construyó». **Es
+> falso, y en la dirección cara:** el clasificador de leads existe, tiene su propio enum de seis
+> categorías y está en producción — lo que pasa es que **solo se dispara a mano**, desde el botón de
+> IA del panel. No es que falte construirlo: es que **no está enganchado al webhook**. Son medio día
+> de trabajo, no una fase, y el detalle está en la fase 2.
+>
+> La consecuencia práctica no cambia —en la fase 1 un lead no quiebra por intención— pero la
+> estimación sí, y por eso se corrige: quien planificara contra la versión anterior habría
+> presupuestado construir de cero algo que ya está escrito.
 
 **Qué significa en la práctica, y hay que saberlo antes de probar:**
 
@@ -244,20 +253,51 @@ prompt cuyo efecto real nadie puede reconstruir.
 
 **Lo que se construye:** dos cosas — la ampliación del clasificador a los seis disparadores, y el simulador.
 
+### Enganchar el clasificador de leads — medio día, no una fase
+
+> **Corregido el 5 de agosto de 2026 tras leer el código.** Esta sección decía que había que
+> construir la clasificación de leads. **Es falso: ya existe, funciona y está en producción.**
+
+`/api/leads/intervencion/clasificar` clasifica respuestas de leads con su **propio enum de seis
+categorías**, distinto del de presupuestos a propósito y cerrado en el Sprint 10:
+
+`Interesado` · `Pide más info` · `Pregunta precio` · `Pide cita` · `No interesado` · `Sin clasificar`
+
+Persiste `intencion_detectada`, `accion_sugerida` y `mensaje_sugerido`, deja log en `acciones_lead`,
+y `LeadAccionPanel` ya actúa sobre el resultado (si la intención es «Pide cita» y no hay fecha,
+recomienda agendar). En DEMO hay **268 leads clasificados**.
+
+**Lo único que falta es el disparador.** El clasificador **solo se ejecuta cuando la coordinadora
+pulsa el botón de IA en el panel**. El webhook, al recibir un mensaje de un lead activo, lo guarda,
+lo anota en el timeline y **hace `return` sin clasificar**. Enganchar la llamada dentro del `after()`
+que ya existe para presupuestos es **medio día**.
+
+Y el enum **no hay que rediseñarlo**: la premisa de que «las preguntas de un lead no son las de un
+presupuesto» ya está resuelta en el código. Para el quiebre, el de leads cubre incluso **más** —
+`Pregunta precio` → dinero, `Pide más info` → criterio clínico— aunque sigue sin cubrir queja, pide
+persona ni tono negativo.
+
+**El riesgo real no es construirlo: es encenderlo sin poder medirlo.**
+
+Clasificar en el webhook significa **una llamada al modelo por cada mensaje entrante de lead,
+automática y sin que nadie la pida**, que **reescribe `intencion_detectada` sin supervisión humana**.
+Hoy ese campo solo cambia cuando una persona pulsa un botón y ve el resultado; encendido, cambia
+solo, en cientos de leads, y es el campo del que cuelgan las recomendaciones del panel.
+
+Un cambio de prompt que degrade la clasificación **empeoraría cientos de leads en silencio**: no da
+error, no rompe nada, solo recomienda peor. Esa avería es indetectable sin un conjunto de evaluación
+— y por eso esto va **después** de los evals de la fase 1, no antes. No es una cuestión de orden
+estético: sin evals no hay forma de saber si el cambio mejoró o empeoró.
+
 ### Los tres disparadores que faltan
 
-Viene de la fase 1, que corta con tres de los seis: **queja, pide persona y tono negativo no se
-detectan hoy**. Ampliar el enum del clasificador y su prompt.
-
-**Va aquí y no en la fase 1 por una razón de orden, no de prioridad:** el conjunto de evaluación se
-construye en la fase 1, y **tocar el prompt del clasificador sin él montado es exactamente lo que la
-fase 1 declara que no se debe hacer**. Con los evals delante, la ampliación se mide: los tres
-disparadores nuevos tienen que subir la detección sin bajar la de los tres que ya funcionan.
+**Queja, pide persona y tono negativo** no los detecta ninguno de los dos enums. Ampliarlos es el
+trabajo de verdad de esta fase, y va con la misma condición: **con los evals delante**.
 
 **Cómo se pone a prueba:** el conjunto de evaluación gana casos de queja, petición de persona y tono
 negativo con su respuesta correcta anotada, y **la ampliación no se da por buena hasta que el número
-sube sin que baje el de los otros tres**. Y el aviso en pantalla de «esto todavía no se detecta»
-desaparece **en el mismo cambio** que lo hace detectable — ni antes ni después.
+sube sin que baje el de los que ya funcionan**. Y el aviso en pantalla de «esto todavía no se
+detecta» desaparece **en el mismo cambio** que lo hace detectable — ni antes ni después.
 
 ### El simulador
 

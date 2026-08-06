@@ -1702,3 +1702,27 @@ de desaparecer del cálculo sin decirlo.
 **Y el vacío es honesto:** con cero envíos medidos la pantalla dice «todavía no hay ningún envío
 medido — no es un 0 %», porque «el agente no acierta nunca» y «no se ha medido nada» son la misma
 cifra con significados opuestos. Es la misma regla que mató el «precisión del predictor 0 %».
+
+## 2026-08-05 — El clasificador de leads existía: no faltaba construirlo, faltaba engancharlo
+Tercera corrección del mismo tipo en tres días, y la tercera en la dirección cara. El plan decía que
+la clasificación de respuestas de leads estaba por construir. **Existe desde el Sprint 10**:
+`/api/leads/intervencion/clasificar`, con su propio enum de seis categorías (`Interesado` · `Pide más
+info` · `Pregunta precio` · `Pide cita` · `No interesado` · `Sin clasificar`), distinto del de
+presupuestos a propósito, persistiendo intención + acción + mensaje sugerido, con log, y con
+`LeadAccionPanel` actuando ya sobre el resultado. En DEMO hay 268 leads clasificados.
+
+**Lo que falta es el disparador:** solo corre cuando la coordinadora pulsa el botón de IA. El webhook
+guarda el mensaje del lead y hace `return` sin clasificar. Engancharlo al `after()` que ya existe
+para presupuestos es **medio día**, no una fase.
+
+**Y el riesgo real, que sí es nuevo:** encenderlo convierte una clasificación *bajo demanda y con una
+persona mirando el resultado* en una *automática, por cada mensaje entrante, sin supervisión*, que
+reescribe el campo del que cuelgan las recomendaciones del panel. Un cambio de prompt que degrade la
+clasificación empeoraría cientos de leads **en silencio**: no da error, solo recomienda peor. Es la
+avería que solo detecta un conjunto de evaluación, y por eso la fase 2 va después de los evals de la
+fase 1 — no por orden estético.
+
+**Lo que hay que aprender de la tercera vez.** El patrón no es «el plan estaba mal»: es que
+**censar el código cuesta minutos y estimar de memoria cuesta fases**. Las tres correcciones
+(WhatsApp el 3 ago, §05 el 5 ago, esta) las destapó leer el código, no usar el producto. Antes de
+escribir «hay que construir X», se busca X.
