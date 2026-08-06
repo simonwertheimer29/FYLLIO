@@ -1789,3 +1789,42 @@ una respuesta nuestra?).
 importe ni tratamiento, cuando en producción recibe los dos. Un test que no reproduce las condiciones
 de producción no dice nada sobre producción. Corregido antes de dar el número (y bajó de 61 % a
 56 %: el contexto no le ayudaba, le daba más motivos para clasificar como algo del presupuesto).
+
+## 2026-08-06 — El clasificador no está ciego de contexto: su taxonomía no cubre los mensajes normales
+Hipótesis de Simon: los cinco fallos de «Sin clasificar» («vale», «Ok», «Sí, confirmo la cita»,
+«¿a qué hora abrís los sábados?») son porque el clasificador lee el mensaje sin ver a qué responde.
+Es una hipótesis mejor que mi parche del contador de dos intentos, así que se midió antes de tocar.
+
+**Qué recibe hoy, verificado en el código:** nombre, tratamiento, importe, estado del presupuesto,
+clínica y el mensaje entrante. **Ni el hilo ni el último mensaje que enviamos nosotros.** Y todo lo
+necesario para pasárselo ya existe: `getHistorialConversacion({presupuestoId})` lleva tiempo en el
+repo y la usan tres rutas; los tres sitios donde se clasifica tienen el `presupuestoId` a mano.
+
+**Pero medido, no cambia nada: 61 % sin contexto, 61 % con el último mensaje nuestro.** Solo dos
+casos cambian de decisión, uno a mejor y otro a peor.
+
+**La causa real es otra, y más profunda que las dos hipótesis.** El enum del clasificador
+—`Acepta sin condiciones` · `Acepta pero pregunta pago` · `Tiene duda sobre tratamiento` · `Pide
+oferta/descuento` · `Quiere pensarlo` · `Rechaza` · `Sin clasificar`— **no tiene ninguna categoría
+para un mensaje que simplemente no va de la decisión del presupuesto**. Un «Ok» no tiene dónde caer.
+Así que `Sin clasificar` hace hoy DOS trabajos incompatibles:
+
+  · «esto no va del presupuesto» → inofensivo, no debería quebrar
+  · «no entiendo qué quiere» → ambigüedad real, sí debería quebrar
+
+y `INTENCION_A_DISPARADOR` los manda a los dos a quebrar.
+
+**La prueba más limpia de esto es el caso que EMPEORÓ con contexto:** «Sí, confirmo la cita» pasó de
+`Acepta sin condiciones` (no quebraba, por accidente) a `Sin clasificar` (quiebra). Con más contexto
+el modelo acertó más —vio que el mensaje no iba del presupuesto— **y la taxonomía lo castigó por
+acertar**.
+
+Orden correcto de arreglo, que ninguna de las dos hipótesis iniciales daba: **partir «Sin
+clasificar» en dos categorías** (una neutra que no quiebra y una de confusión real que sí); el
+contador de dos intentos aplica solo a la segunda —y ahí sí es lo que dice el documento de
+arquitectura—; y el contexto de conversación queda como mejora medida a 0 sobre este conjunto, así
+que no es prioridad aunque sea barata.
+
+**Y una lección de método:** las tres hipótesis eran razonables y dos de las tres eran mías. La que
+lo resolvió no salió de razonar mejor, salió de **medir el cambio antes de hacerlo** — 20 minutos de
+sonda contra medio día de implementar un parche que no habría movido el número.

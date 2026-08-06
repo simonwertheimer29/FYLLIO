@@ -15,7 +15,9 @@ import type {
 
 const ZONE = "Europe/Madrid";
 
-const SYSTEM_PROMPT_CLASIFICAR = `Eres un asistente de una clínica dental española. Analizas respuestas de pacientes sobre presupuestos de tratamiento dental.
+/** Exportado para que el conjunto de evaluación pruebe el prompt REAL y no una
+ *  copia: si la prueba usa otro texto, no dice nada del sistema que corre. */
+export const SYSTEM_PROMPT_CLASIFICAR = `Eres un asistente de una clínica dental española. Analizas respuestas de pacientes sobre presupuestos de tratamiento dental.
 
 Tu tarea es:
 1. Clasificar la intención del paciente en UNA de estas opciones:
