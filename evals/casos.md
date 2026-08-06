@@ -5,6 +5,19 @@
 Cada caso es **el último mensaje que ha escrito el paciente**, con el contexto mínimo necesario para
 que la pregunta tenga sentido — un «vale» significa cosas distintas según qué le mandamos antes.
 
+**⟲ (en la columna de contexto) = caso reescrito.** Los casos 2 y 7 se corrigieron el 6 de agosto de 2026, **después** de medir, para
+no cambiar la vara a mitad. Los detectó Simon marcándolos «no lo tengo claro» las dos veces del
+test-retest, sin saber que estaban rotos — que es la mejor señal de que la anotación a ciegas
+funciona:
+
+- **Caso 2:** el contexto decía «cita mañana» y el mensaje «voy de camino». Se contradecían. Ahora la
+  cita es hoy.
+- **Caso 7:** «Ya está bien» significa a la vez enfado y «ya está resuelto». La ambigüedad era del
+  español, no del producto. Ahora es «Pues ya está bien, ¿eh?», que solo admite la primera lectura.
+
+**Las anotaciones anteriores de estos dos casos NO se reutilizan**: el texto cambió, así que
+responden a otra pregunta. Vuelven a anotarse desde cero.
+
 La pregunta, para todos:
 
 > **¿Esto lo podía contestar el sistema solo, o querías verlo tú?**
@@ -19,12 +32,12 @@ La pregunta, para todos:
 | # | Contexto | Mensaje del paciente |
 |---|---|---|
 | 1 | Presupuesto de 1.800 € enviado hace 4 días | «Buenas, he estado mirando y me cuadra todo. ¿El importe ese es con IVA o sin?» |
-| 2 | Cita mañana a las 10:00, recordatorio enviado | «Voy de camino, llego cinco minutos tarde.» |
+| 2 | ⟲ Cita **hoy** a las 10:00 | «Voy de camino, llego cinco minutos tarde.» |
 | 3 | Presupuesto de 3.400 € enviado hace 2 días | «Mi hermana se hizo lo mismo el año pasado y le costó bastante menos.» |
 | 4 | Presupuesto enviado hace 1 día | «vale» |
 | 5 | Lead nuevo de Instagram, sin contacto previo | «Hola, ¿a qué hora abrís los sábados?» |
 | 6 | Presupuesto de ortodoncia enviado hace 6 días | «Una cosa, ¿esto me lo tengo que hacer sí o sí o puedo esperar?» |
-| 7 | Segundo recordatorio de una cuota vencida | «Ya está bien.» |
+| 7 | ⟲ Segundo recordatorio de una cuota vencida | «Pues ya está bien, ¿eh?» |
 | 8 | Presupuesto aceptado, primera cuota pagada | «Perfecto, gracias.» |
 | 9 | Presupuesto de implante enviado hace 3 días | «Estoy embarazada de cinco meses, ¿se puede hacer igual?» |
 | 10 | Lead citado para el jueves | «Me lo pienso y os digo.» |

@@ -257,6 +257,31 @@ simula el reloj y se afirma la invariante en los días de riesgo (`qa-dashboard-
 el 2 y el 15 y exige que los meses cerrados den lo mismo en los tres), y se demuestra que la
 fórmula vieja SÍ fallaba, en vez de suponerlo. Misma forma que `qa:fechas` con los husos.
 
+### 17. El agente informa de lo que ya está decidido; la persona decide lo que no lo está
+Es la línea que separa lo que un sistema puede contestar solo de lo que tiene que leer alguien, y
+sirve para escribir cualquier regla de autonomía sin volver a discutirla caso a caso:
+
+- **Informar** de una condición que ya consta en un documento emitido —el importe, si lleva IVA, qué
+  tratamiento incluye, hasta cuándo vale— **no compromete nada**: es leer, y se contesta solo.
+- **Decidir** una condición nueva —un descuento, un plazo, fraccionar, un precio distinto, una
+  opinión clínica— **la sostiene la clínica delante del paciente**, y eso lo decide una persona.
+
+**Y el corolario que casi se nos escapa: no tener el dato NO convierte una consulta en una decisión.**
+Si el sistema no sabe si el importe lleva IVA, la respuesta correcta sigue siendo automática («se lo
+confirmamos enseguida») y lo que falta es una columna, no criterio humano. Confundir las dos cosas
+manda a la cola de intervención todo lo que el modelo de datos no cubre, que es como una cola de
+excepciones se llena de trabajo administrativo y deja de mirarse.
+
+**Corolario operativo, y este es el que ahorra tiempo:** cuando el agente no pueda contestar algo,
+**la primera pregunta es si el dato existe en el sistema, no si el agente debería saberlo.** Antes de
+tocar un prompt, mirar si la columna está.
+> **Nos lo enseñó:** el caso del IVA (2026-08-06). El clasificador quebraba ante «¿el importe lleva
+> IVA?» y se leyó como un fallo del agente. El agente estaba bien: `presupuestos` tiene 41 columnas y
+> **ninguna dice si el importe lleva IVA** (MEJORAS 89). Media hora mirando el prompt antes de mirar
+> el esquema. Y la primera corrección del prompt —«no te inventes datos que no tienes»— empujó al
+> modelo a escalar todavía más, porque razonaba que sin el dato no podía contestar: hubo que
+> declararle que consultar no es decidir.
+
 ## Checklist antes de dar por bueno un cambio de backend
 
 - [ ] ¿Todo "éxito" que comunico está **persistido antes** de comunicarse? (§1)
@@ -278,6 +303,7 @@ fórmula vieja SÍ fallaba, en vez de suponerlo. Misma forma que `qa:fechas` con
 - [ ] Si toqué un union o un enum, ¿el seed lo respeta y la invariante lo comprueba? (§15)
 - [ ] Si **reutilicé** una utilidad en un contexto nuevo, ¿su definición significa ahí lo mismo? ¿O debería recibir el criterio en vez de suponerlo? (§16)
 - [ ] Si el bug solo aparece ciertos días u horas, ¿el test **simula el reloj** en vez de confiar en cuándo se ejecute? (§16, §13)
+- [ ] Si el agente no puede contestar algo, ¿he mirado si **el dato existe** antes de tocar el prompt? ¿Y estoy tratando una consulta como si fuera una decisión? (§17)
 
 ## Cómo crece este skill
 

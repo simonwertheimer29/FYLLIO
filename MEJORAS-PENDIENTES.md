@@ -1606,3 +1606,29 @@ verdad: un editor, un vocabulario, un renderizador.
   "mes previo" pasa al mismo tramo: comparaba contra el mes entero y le estaba
   dando por bueno al dashboard justo el error que la decisión del 27/7 mató.
   Regla destilada en el skill de lecciones (§16).
+
+## 89. El presupuesto no declara si el importe lleva IVA (ni hasta cuándo vale)
+- **Zona:** tabla `presupuestos` — 41 columnas y ninguna de IVA, base imponible ni plazo de validez.
+  `importe` es un número suelto.
+- **Principio:** §4 honestidad — el agente no puede informar de un dato que el sistema no tiene, y
+  la carencia es del PRESUPUESTO, no suya.
+- **Problema:** el 6 de agosto de 2026 se decidió que preguntar por el IVA de un presupuesto ya
+  emitido **no** debe quebrar (es un dato, no una negociación: la regla del dinero existe para que
+  el agente no comprometa nada nuevo, no para que no pueda leer lo que ya consta). Al implementarlo
+  apareció que **el dato no existe**. Hoy el agente contesta lo único honesto —«se lo confirmamos
+  enseguida»— y la coordinadora tiene que ir a buscarlo. Igual con «¿hasta cuándo me vale este
+  presupuesto?».
+- **Mejora:** declarar en el presupuesto si el importe **incluye IVA** y su **plazo de validez**.
+  Los dos son datos que la clínica ya tiene en la cabeza y que hoy viven fuera del sistema — y los
+  dos aparecen literalmente en el catálogo de plantillas de la fase 3 (`seguimiento_sigue_vigente`
+  necesita la fecha de vigencia como variable).
+- **Impacto:** medio hoy (una consulta más para la coordinadora), **alto** cuando el agente envíe
+  solo: es la diferencia entre contestar y derivar en una de las preguntas más frecuentes.
+
+  > **La lectura general, que vale más que esta entrada.** Cada vez que el agente no pueda contestar
+  > algo, **la primera pregunta es si el dato existe en el sistema, no si el agente debería saberlo.**
+  > Es fácil leer «el agente no sabe contestar al IVA» como un problema del agente y ponerse a tocar
+  > el prompt; el agente estaba bien y lo que faltaba era una columna. Antes de mejorar la IA, mirar
+  > si el dato está.
+
+- **Fecha:** 2026-08-06 · 🔵

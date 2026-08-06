@@ -1950,3 +1950,41 @@ convertiría en el modelo del consultor del que queremos diferenciarnos.
 **La dependencia, escrita donde se va a leer:** el bucle no arranca sin conversaciones reales, y hoy
 hay **cero** en el sistema. Es otra razón de peso —además de medir— para pedir el histórico de
 WhatsApp de RB en la misma tanda que el contrato del art. 28.
+
+## 2026-08-06 — El IVA no quiebra: informar no es decidir, y el dato no existía
+Decisión de producto de Simon: preguntar por el IVA de un presupuesto ya emitido **no** debe quebrar.
+La regla del dinero existe para que el agente **no comprometa** nada nuevo —un descuento, un plazo,
+un precio distinto—, no para que no pueda leer una cifra que ya consta en un documento emitido.
+
+Ajustado el prompt para separar **informar** de **modificar condiciones**. El eval sube de 94 % a
+**100 %**… con un matiz que hay que decir: **el número oscila entre 94 % y 100 % entre corridas**
+(5 corridas: 100, 100, 100, 94, 94). El caso del IVA está en el filo y el modelo no es determinista.
+Afirmar «100 %» a secas sería el mismo optimismo que este proyecto lleva semanas corrigiendo: **el
+número honesto es 94-100 %, y el caso que oscila es siempre el mismo.**
+
+**Y aparecieron dos cosas por el camino:**
+
+**1 · El dato no existe.** `presupuestos` tiene 41 columnas y **ninguna dice si el importe lleva
+IVA**, ni cuál es el plazo de validez. Así que se permitió al agente contestar algo que el sistema no
+sabe. Se cerró añadiendo al prompt la regla de no inventar («solo informas de los datos que te han
+dado; si no lo tienes, escribe que se lo confirmamos»), y va a [MEJORAS 89](MEJORAS-PENDIENTES.md).
+
+**2 · La primera versión de esa guarda empeoró el número.** Al decirle «no te inventes datos que no
+tienes», el modelo empezó a **escalar más**: razonaba que sin el dato no podía contestar. Volvió a
+94 % y hubo que declararle explícitamente que **consultar no es decidir** — «se lo confirmamos
+enseguida» es una respuesta correcta y automática. Es un caso de manual de por qué se mide cada
+cambio de prompt: una instrucción razonable, en el sitio equivocado, movió la decisión.
+
+**La regla general queda en el skill como §17** («el agente informa de lo que ya está decidido; la
+persona decide lo que no lo está»), con su corolario operativo: **cuando el agente no pueda contestar
+algo, la primera pregunta es si el dato existe en el sistema, no si el agente debería saberlo.** Se
+perdió media hora mirando el prompt antes de mirar el esquema.
+
+**Corpus:** los casos 2 y 7 se reescribieron **después** de medir, como estaba acordado. Los detectó
+Simon marcándolos «no lo tengo claro» las dos veces del test-retest sin saber que estaban rotos — el
+2 tenía el contexto contradiciendo el mensaje («cita mañana» / «voy de camino») y el 7 usaba «Ya está
+bien», que en español significa a la vez enfado y «ya está resuelto». **Sus anotaciones anteriores se
+retiran**: el texto cambió, así que respondían a otra pregunta. Y el marcador de reescritura estuvo
+un momento en la columna del id, donde **rompió el parser y sacó los dos casos del conjunto sin
+avisar** — se detectó porque el recuento pasó de 50 a 48. Un corpus que se lee mal no da error: da
+menos casos.
