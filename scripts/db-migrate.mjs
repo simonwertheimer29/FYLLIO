@@ -84,3 +84,25 @@ console.log(DRY ? `${n} pendientes.` : `${n} aplicadas.`);
 // una operación explícita, que se ejecuta cuando se rota una credencial y no
 // cuando se añade una columna.
 await client.end();
+
+// ─── Aviso: ¿ha quedado esquema sin tipo? ────────────────────────────────────
+//
+// El generador de tipos solo conoce las migraciones 001 y 002; lo que añaden las
+// posteriores se declara a mano en `app/lib/db/types.ts`. Olvidarlo no rompe
+// nada —da un `any`, que parece comprobado y no lo está—, así que el momento de
+// enterarse es JUSTO AQUÍ, al aplicar la migración, y no tres días después.
+//
+// Avisa, no falla: las migraciones YA se han aplicado, y salir con error haría
+// dudar de si se aplicaron. Quien quiera el código de salida tiene `qa:tipos`.
+{
+  const { spawnSync } = await import("node:child_process");
+  const r = spawnSync(process.execPath, [new URL("qa-tipos-db.mjs", import.meta.url).pathname], {
+    encoding: "utf8",
+  });
+  if (r.status !== 0) {
+    console.log("\n" + "─".repeat(76));
+    console.log("⚠  Las migraciones se aplicaron, PERO hay esquema sin declarar en los tipos:");
+    console.log((r.stderr || r.stdout || "").trimEnd());
+    console.log("─".repeat(76));
+  }
+}

@@ -19,6 +19,7 @@
     "qa:portal": "node scripts/qa-portal-paciente.mjs",
     "qa:kpis": "node scripts/qa-kpis-tasas.mjs",
     "qa:sin-fallbacks": "node scripts/qa-sin-fallbacks.mjs",
+    "qa:tipos": "node scripts/qa-tipos-db.mjs",
     "qa:telefonos": "tsx scripts/qa-telefonos.mts",
     "qa:automatizacion": "tsx scripts/qa-automatizacion.mts",
     "qa:evals": "tsx scripts/qa-evals.mts",

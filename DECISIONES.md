@@ -2199,3 +2199,36 @@ paciente no ha pagado es la forma más rápida de que una reclamación se convie
 Queda **una sola promesa** en todo el catálogo, y hay que cumplirla: el «si prefieres que no te
 escribamos más, dínoslo y lo respetamos» de la nº 7 obliga a la cadencia a parar de verdad. Es
 también la forma más barata de conseguir un motivo de pérdida, que hoy casi no se registra.
+
+## 2026-08-07 — El generador de tipos ya no puede borrar lo escrito a mano, y lo que apareció al mirarlo
+`app/lib/db/types.ts` era **generado y a mano a la vez**: el grueso lo escribía
+`db-schema-spec.mjs` y las tablas de las migraciones posteriores a la 002 se pegaban debajo. Volver a
+ejecutar el generador se las llevaba **en silencio**, sin que nada fallara hasta que alguien usara
+una. La defensa era un aviso en la cabecera, que es la peor que existe: funciona mientras alguien se
+acuerde de leerla. Ahora el generador escribe en `types-generado.ts` y **no toca `types.ts` nunca**,
+que es el que declara lo añadido después e importa lo generado. No hay nada que recordar.
+
+**El daño ya estaba hecho, y era mayor de lo que parecía.** Nadie se atrevía a regenerar, así que
+los dos productos del generador llevaban meses congelados y **divergiendo del spec en direcciones
+opuestas**: `001_esquema_negocio.sql` no recogía `leads.fecha_cierre` (009) ni las cuatro columnas de
+`pacientes` que borró la 008, y `types.ts` decía que `contactos_presupuesto.presupuesto_id` era
+`string` y `tipo_contacto` una unión de cuatro valores **cuando las migraciones 006 y 007 habían
+quitado justo eso** — el `not null` y el `check`. Eran dos mentiras del tipo hacia el código, del
+lado peligroso: prometían que un valor no podía ser nulo cuando la base ya permitía que lo fuera.
+Nadie había tropezado todavía. Se corrige al regenerar; **001 se deja como está** porque reescribir
+una migración ya aplicada es decisión de producto, no limpieza (anotado en MEJORAS).
+
+**Y un guard nuevo, `npm run qa:tipos`**, que lee las migraciones y comprueba que cada tabla y cada
+columna está declarada. En su primera ejecución encontró **cuatro cosas sin tipo, todas mías y de
+esta misma semana**: la tabla `sugerencias_categoria` y las columnas `requiere_persona`,
+`motivo_quiebre` e `intencion_propuesta` (016). Ninguna daba error, porque **un tipo que falta no
+falla: da un `any`**, y un `any` parece comprobado. `sugerencias_categoria` llevaba tres días
+usándose con `sql` crudo.
+
+Es estático —no se conecta a la base, así que corre en cualquier sitio y no depende del pooler— y
+distingue «está mal» (salida 1) de «no pude comprobar» (salida 2). Esa distinción se ganó sola: el
+guard **se dejaba una columna** porque leía `add column` suelto y la 016 usa
+`alter table … add column a, add column b;`. El arreglo no fue solo el patrón, fue **contar lo que
+hay en el SQL y lo que se ha sabido leer, y abortar si no cuadra** — probado con las tres salidas.
+Se engancha a `db:migrate`, que avisa (no falla: las migraciones ya se aplicaron y salir con error
+haría dudar de si se aplicaron).

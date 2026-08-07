@@ -1,463 +1,56 @@
 // app/lib/db/types.ts
-// Interfaz Kysely del esquema.
+// El tipo Kysely del esquema REAL. Es el que importa la aplicación.
 //
-// EL GRUESO ESTÁ GENERADO por scripts/db-schema-spec.mjs (misma fuente que
-// 001_esquema_negocio.sql y 002_rls.sql) y NO se edita a mano.
+// ─── Cómo está partido, y por qué ───────────────────────────────────────────
 //
-// ⚠️ PERO las tablas creadas por migraciones POSTERIORES a la 002 se añaden aquí
-// A MANO, porque el generador no las conoce. Hoy son tres:
-//     · alertas_pospuestas        (011)
-//     · seguimiento_vistos        (013)
-//     · eventos_automatizacion    (014, + columna `intencion` en la 015)
-// más las columnas sueltas que esas migraciones añadieron a tablas existentes
-// (p. ej. `configuracion_automatizaciones.toques_antes_de_agotar`, 014).
+// El grueso lo genera `scripts/db-schema-spec.mjs` en `types-generado.ts`, desde
+// la misma fuente que 001_esquema_negocio.sql y 002_rls.sql: SQL y tipos no
+// pueden divergir.
 //
-// Consecuencia que hay que saber ANTES de tocar el generador: volver a
-// ejecutarlo REESCRIBE este archivo y **se lleva por delante esas tres tablas**,
-// en silencio y sin que nada falle hasta que alguien las use. Si se regenera,
-// hay que volver a pegarlas. La cabecera decía «NO editar a mano» a secas y ya
-// era falsa desde la 011; se corrige el 2026-08-05 para que la trampa esté
-// escrita donde se va a leer.
+// Pero el generador **solo conoce las migraciones 001 y 002**. Todo lo que
+// añadieron las posteriores —tablas nuevas y columnas sueltas— se escribe aquí,
+// A MANO, y este archivo **el generador no lo escribe nunca**.
+//
+// Antes los dos eran el mismo archivo, y la trampa era ésta: regenerar borraba
+// lo añadido a mano **en silencio**, sin que nada fallara hasta que alguien
+// usaba una de esas tablas. La cabecera avisaba, que es la peor defensa que
+// existe — funciona mientras alguien se acuerde de leerla. Ahora no hay nada que
+// recordar: el generador escribe en otro archivo, así que no puede llevárselo.
+//
+// Lo que SÍ sigue haciendo falta: **al añadir una migración que crea una tabla o
+// una columna, declararla abajo.** Eso lo comprueba `npm run qa:tipos`, que lee
+// las migraciones y este archivo y compara. No es opcional: `sugerencias_categoria`
+// (016) estuvo tres días sin tipo y nadie se enteró porque se usaba con `sql`
+// crudo y un `any`.
 
 import type { Generated } from "kysely";
+import type {
+  DBGenerado,
+  Tabla_alertas_enviadas,
+  Tabla_configuracion_automatizaciones,
+  Tabla_pacientes,
+  Tabla_presupuestos,
+} from "./types-generado";
 
+// Todo lo generado se reexporta desde aquí: quien importa tipos importa de
+// `db/types` y no tiene que saber de esta partición.
+export * from "./types-generado";
 
-export interface Tabla_clinicas {
+// ─── Tablas creadas por migraciones posteriores a la 002 ────────────────────
+
+/** Alertas ocultas hasta una fecha. Solo posponer, nunca descartar (011). */
+export interface Tabla_alertas_pospuestas {
   id: Generated<string>;
   cliente: "RB" | "INDEP" | "DEMO";
-  nombre: string;
-  ciudad: string | null;
-  telefono: string | null;
-  activa: boolean | null;
-  clinica_id_airtable: string | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_usuarios {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  nombre: string | null;
-  email: string;
-  telefono: string | null;
-  rol: "admin" | "coordinacion" | null;
-  activo: boolean | null;
-  password_hash: string | null;
-  pin_hash: string | null;
-  pin_length: number | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_usuario_clinicas {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  usuario_id: string;
   clinica_id: string;
+  tipo_alerta: string;
+  oculta_hasta: string;
+  pospuesta_por: string;
+  pospuesta_por_nombre: string | null;
   created_at: Generated<Date>;
 }
 
-export interface Tabla_staff {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  staff_id: string | null;
-  nombre: string | null;
-  activo: boolean | null;
-  rol: string | null;
-  tratamientos: string | null;
-  horario_laboral: string | null;
-  horario: string | null;
-  almuerzo_inicio: string | null;
-  almuerzo_fin: string | null;
-  clinica_id: string | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_tratamientos {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  tratamientos_id: string | null;
-  categoria: string | null;
-  nombre: string | null;
-  duracion_min: number | null;
-  buffer_antes_min: number | null;
-  buffer_despues_min: number | null;
-  instrucciones_pre: string | null;
-  clinica_id: string | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_sillones {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  sillon_id: string | null;
-  nombre: string | null;
-  clinica_id: string | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_pacientes {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  nombre: string;
-  telefono: string | null;
-  tutor_telefono: string | null;
-  email: string | null;
-  tratamientos: string | null;
-  clinica_id: string | null;
-  doctor_id: string | null;
-  lead_origen_id: string | null;
-  /** Privado o el nombre de su aseguradora; null = sin tipo (estado válido).
-   *  El catálogo vive en configuraciones_clinica, nunca en un enum. */
-  tipo_paciente: string | null;
-  fecha_cita: string | null;
-  financiado: number | null;
-  notas: string | null;
-  canal_origen: string | null;
-  activo: boolean | null;
-  optout_automatizaciones: boolean | null;
-  opt_out: boolean | null;
-  canal_preferido: string | null;
-  consentimiento_whatsapp: boolean | null;
-  edad: number | null;
-  fecha_nacimiento: string | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_leads {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  nombre: string;
-  telefono: string | null;
-  email: string | null;
-  tratamiento_interes: string | null;
-  canal_captacion: string | null;
-  estado: "Nuevo" | "Contactado" | "Citado" | "Citados Hoy" | "No Interesado" | "Convertido" | null;
-  clinica_id: string | null;
-  fecha_cita: string | null;
-  hora_cita: string | null;
-  doctor_asignado_id: string | null;
-  tipo_visita: string | null;
-  motivo_no_interes: string | null;
-  fecha_cierre: Date | null;
-  intencion_detectada: string | null;
-  mensaje_sugerido: string | null;
-  accion_sugerida: string | null;
-  llamado: boolean | null;
-  whatsapp_enviados: number | null;
-  ultima_accion: string | null;
-  notas: string | null;
-  convertido_a_paciente: boolean | null;
-  paciente_id: string | null;
-  asistido: boolean | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_citas {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  nombre: string | null;
-  hora_inicio: Date | null;
-  hora_final: Date | null;
-  estado: string | null;
-  notas: string | null;
-  origen: string | null;
-  paciente_id: string | null;
-  tratamiento_id: string | null;
-  profesional_id: string | null;
-  sillon_id: string | null;
-  clinica_id: string | null;
-  ultima_accion: Date | null;
-  tipo_ultima_accion: string | null;
-  fase_recordatorio: string | null;
-  notas_accion: string | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_lista_espera {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  clinica_id: string | null;
-  paciente_id: string | null;
-  tratamiento_id: string | null;
-  profesional_preferido_id: string | null;
-  dias_permitidos: string | null;
-  rango_deseado_start: Date | null;
-  rango_deseado_end: Date | null;
-  estado: string | null;
-  prioridad: "ALTA" | "MEDIA" | "BAJA" | null;
-  urgencia_nivel: "LOW" | "MED" | "HIGH" | null;
-  permite_fuera_rango: boolean | null;
-  offer_hold_id: string | null;
-  offer_expires_at: Date | null;
-  offer_cycle: number | null;
-  last_offered_slot_key: string | null;
-  last_offer_result: "SENT" | "REJECTED" | "EXPIRED" | "ACCEPTED" | null;
-  cita_segura_id: string | null;
-  cita_cerrada_id: string | null;
-  notas: string | null;
-  ultimo_contacto: string | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_presupuestos {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  paciente_id: string | null;
-  presupuesto_id_negocio: string | null;
-  tratamiento_nombre: string | null;
-  estado: "PRESENTADO" | "INTERESADO" | "EN_DUDA" | "EN_NEGOCIACION" | "ACEPTADO" | "PERDIDO" | null;
-  fecha: Date | null;
-  fecha_alta: Date | null;
-  fecha_aceptado: Date | null;
-  importe: number | null;
-  notas: string | null;
-  doctor: string | null;
-  doctor_especialidad: string | null;
-  tipo_paciente: string | null;
-  tipo_visita: string | null;
-  clinica_id: string | null;
-  contact_count: number | null;
-  creado_por: string | null;
-  num_historia: string | null;
-  origen_lead: string | null;
-  motivo_perdida: string | null;
-  motivo_perdida_texto: string | null;
-  motivo_duda: string | null;
-  reactivacion: boolean | null;
-  portal_enviado: boolean | null;
-  oferta_activa: boolean | null;
-  ultimo_contacto: Date | null;
-  paciente_telefono: string | null;
-  ultima_respuesta_paciente: string | null;
-  fecha_ultima_respuesta: Date | null;
-  intencion_detectada: string | null;
-  urgencia_intervencion: string | null;
-  accion_sugerida: string | null;
-  mensaje_sugerido: string | null;
-  fase_seguimiento: string | null;
-  ultima_accion_registrada: Date | null;
-  tipo_ultima_accion: string | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_contactos_presupuesto {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  presupuesto_id: string;
-  tipo_contacto: "llamada" | "whatsapp" | "email" | "visita" | null;
-  resultado: string | null;
-  fecha_hora: Date | null;
-  nota: string | null;
-  registrado_por: string | null;
-  mensaje_ia_usado: boolean | null;
-  tono_usado: string | null;
-  oferta: boolean | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_doctores_presupuestos {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  nombre: string | null;
-  especialidad: string | null;
-  clinica_id: string | null;
-  activo: boolean | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_usuarios_presupuestos {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  datos: string | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_objetivos_mensuales {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  clinica_id: string | null;
-  mes: string;
-  objetivo_aceptados: number | null;
-  creado_por: string | null;
-  actualizado_en: Date | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_secuencias_automaticas {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  presupuesto_id: string | null;
-  clinica_id: string | null;
-  paciente_nombre: string | null;
-  telefono: string | null;
-  tratamiento: string | null;
-  tipo_evento: string | null;
-  estado: "pendiente" | "enviado" | "descartado" | null;
-  mensaje_generado: string | null;
-  tono_usado: string | null;
-  canal_sugerido: string | null;
-  actualizado_en: Date | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_configuracion_automatizaciones {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  clinica_id: string | null;
-  activa: boolean | null;
-  dias_inactividad_alerta: number | null;
-  dias_portal_sin_respuesta: number | null;
-  dias_reactivacion: number | null;
-  modo_whatsapp: "manual" | "waba" | null;
-  actualizado_en: Date | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_push_subscriptions {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  user_email: string | null;
-  clinica_id: string | null;
-  endpoint: string;
-  p256dh: string | null;
-  auth: string | null;
-  user_agent: string | null;
-  activa: boolean | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_historial_acciones {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  presupuesto_id: string | null;
-  tipo: string | null;
-  descripcion: string | null;
-  metadata: string | null;
-  registrado_por: string | null;
-  clinica_id: string | null;
-  fecha: Date | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_informes_guardados {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  tipo: string | null;
-  clinica_id: string | null;
-  periodo: string | null;
-  titulo: string | null;
-  contenido_json: string | null;
-  texto_narrativo: string | null;
-  generado_en: Date | null;
-  generado_por: string | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_mensajes_whatsapp {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  paciente_id: string | null;
-  presupuesto_id: string | null;
-  lead_id: string | null;
-  telefono: string | null;
-  direccion: "Entrante" | "Saliente" | null;
-  contenido: string | null;
-  timestamp: Date | null;
-  fuente: string | null;
-  procesado_por_ia: boolean | null;
-  intencion_detectada: string | null;
-  waba_message_id: string | null;
-  notas: string | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_plantillas_mensaje {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  nombre: string | null;
-  tipo: string | null;
-  categoria: string | null;
-  contenido: string | null;
-  variables_detectadas: string | null;
-  clinica_id: string | null;
-  doctor: string | null;
-  tratamiento: string | null;
-  activa: boolean | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_configuracion_recordatorios {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  clinica_id: string | null;
-  secuencia_dias: string | null;
-  recordatorio_max: number | null;
-  hora_envio: string | null;
-  dias_rechazo_auto: number | null;
-  activa: boolean | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_cola_envios {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  presupuesto_ref: string | null;
-  paciente_nombre: string | null;
-  telefono: string | null;
-  contenido: string | null;
-  tipo: string | null;
-  estado: "Pendiente" | "Enviado" | "Fallido" | "Cancelado" | null;
-  programado_para: Date | null;
-  plantilla_usada: string | null;
-  tratamiento: string | null;
-  importe: number | null;
-  doctor: string | null;
-  enviado_en: Date | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_notificaciones {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  usuario: string | null;
-  tipo: string | null;
-  titulo: string | null;
-  mensaje: string | null;
-  link: string | null;
-  leida: boolean | null;
-  fecha_creacion: Date | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_configuracion_waba {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  clinica_id: string | null;
-  activo: boolean | null;
-  ultimo_mensaje_enviado: Date | null;
-  ultimo_mensaje_recibido: Date | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_alertas_enviadas {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  clinica_id: string | null;
-  tipo_alerta: string | null;
-  admin_origen_id: string | null;
-  coordinadora_destino_id: string | null;
-  mensaje: string | null;
-  error: boolean | null;
-  resumen: string | null;
-  tipo: string | null;
-  urgencia: string | null;
-  /** Foto del momento del envío — permite responder "¿sirvió el aviso?". */
-  n_al_enviar: number | null;
-  importe_al_enviar: string | number | null;
-  coordinadora_destino_nombre: string | null;
-  created_at: Generated<Date>;
-}
-
-/** Casos que la coordinadora ya miró hoy y decidió que no requieren acción.
+/** Casos que la coordinadora ya miró hoy y decidió que no requieren acción (013).
  *  Dura un día; no cambia el estado del caso. */
 export interface Tabla_seguimiento_vistos {
   id: Generated<string>;
@@ -470,178 +63,9 @@ export interface Tabla_seguimiento_vistos {
   created_at: Generated<Date>;
 }
 
-/** Alertas ocultas hasta una fecha. Solo posponer, nunca descartar. */
-export interface Tabla_alertas_pospuestas {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  clinica_id: string;
-  tipo_alerta: string;
-  oculta_hasta: string;
-  pospuesta_por: string;
-  pospuesta_por_nombre: string | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_acciones_lead {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  resumen: string | null;
-  lead_id: string | null;
-  tipo_accion: string | null;
-  timestamp: Date | null;
-  detalles: string | null;
-  usuario_id: string | null;
-  tipo: string | null;
-  descripcion: string | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_plantillas_lead {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  nombre: string | null;
-  tipo: string | null;
-  contenido: string | null;
-  activa: boolean | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_pagos_paciente {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  resumen: string | null;
-  paciente_id: string;
-  fecha_pago: Date | null;
-  importe: number | null;
-  metodo: string | null;
-  tipo: string | null;
-  nota: string | null;
-  usuario_creador_id: string | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_acciones_pago {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  resumen: string | null;
-  pago_id: string | null;
-  tipo: "Crear" | "Editar" | "Eliminar" | "Reembolsar" | null;
-  fecha: Date | null;
-  importe_antes: number | null;
-  importe_despues: number | null;
-  usuario_id: string | null;
-  nota_cambio: string | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_inconsistencias_pagos {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  resumen: string | null;
-  pago_id: string | null;
-  paciente_id: string | null;
-  error: string | null;
-  timestamp: Date | null;
-  resuelto: boolean | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_configuraciones_clinica {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  resumen: string | null;
-  clinica_id: string | null;
-  categoria: string | null;
-  valor: string | null;
-  activo: boolean | null;
-  orden: number | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_conversaciones_copilot {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  resumen: string | null;
-  usuario_id: string | null;
-  clinica_id: string | null;
-  titulo: string | null;
-  mensajes: string | null;
-  mensaje_count: number | null;
-  modelo_usado: string | null;
-  updated_at: Date | null;
-  activa: boolean | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_reglas_automatizacion {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  resumen: string | null;
-  clinica_id: string | null;
-  codigo: string | null;
-  nombre: string | null;
-  descripcion: string | null;
-  trigger_tipo: string | null;
-  condiciones: string | null;
-  acciones: string | null;
-  activa: boolean | null;
-  veces_disparada: number | null;
-  ultima_disparada_at: Date | null;
-  modo_test: boolean | null;
-  paciente_test_id: string | null;
-  updated_at: Date | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_acciones_automatizacion {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  resumen: string | null;
-  regla_id: string | null;
-  paciente_id: string | null;
-  lead_id: string | null;
-  presupuesto_id: string | null;
-  resultado: "success" | "error" | "pendiente_integracion" | "skipped_dedupe" | "skipped_test" | "skipped_optout" | "skipped_cooldown" | "skipped_horario" | null;
-  detalle: string | null;
-  ejecutada_at: Date | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_eventos_sistema {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  resumen: string | null;
-  tipo: string | null;
-  entidad_tipo: "Lead" | "Paciente" | "Presupuesto" | "Cita" | null;
-  entidad_id: string | null;
-  payload: string | null;
-  procesado: boolean | null;
-  created_at: Generated<Date>;
-}
-
-export interface Tabla_llamadas_vapi {
-  id: Generated<string>;
-  cliente: "RB" | "INDEP" | "DEMO";
-  resumen: string | null;
-  cita_id: string | null;
-  paciente_id: string | null;
-  tipo_llamada: string | null;
-  vapi_call_id: string | null;
-  estado: "pendiente" | "iniciada" | "en_curso" | "completada" | "fallida" | null;
-  resultado: string | null;
-  iniciada_at: Date | null;
-  finalizada_at: Date | null;
-  duracion_segundos: number | null;
-  notas: string | null;
-  transcripcion: string | null;
-  coste_usd: number | null;
-  updated_at: Date | null;
-  created_at: Generated<Date>;
-}
-
 /** Log append-only de decisiones humanas sobre la automatización de un caso
- *  (migración 014). No guarda estado: el estado se deriva y solo se combina con
- *  el último evento de aquí. Ver `lib/automatizacion/estado.ts`. */
+ *  (014). No guarda estado: el estado se deriva y solo se combina con el último
+ *  evento de aquí. Ver `lib/automatizacion/estado.ts`. */
 export interface Tabla_eventos_automatizacion {
   id: Generated<string>;
   cliente: "RB" | "INDEP" | "DEMO";
@@ -660,52 +84,87 @@ export interface Tabla_eventos_automatizacion {
    *  categoría: el umbral se calibra después sin perder el histórico. */
   distancia_edicion: number | null;
   largo_sugerido: number | null;
-  /** Intención EN EL MOMENTO del envío (migración 015). No se resuelve después:
-   *  el clasificador la reescribe y el histórico cambiaría de significado. */
+  /** Intención EN EL MOMENTO del envío (015). No se resuelve después: el
+   *  clasificador la reescribe y el histórico cambiaría de significado. */
   intencion: string | null;
   created_at: Generated<Date>;
 }
 
-export interface DB {
-  eventos_automatizacion: Tabla_eventos_automatizacion;
-  clinicas: Tabla_clinicas;
-  usuarios: Tabla_usuarios;
-  usuario_clinicas: Tabla_usuario_clinicas;
-  staff: Tabla_staff;
-  tratamientos: Tabla_tratamientos;
-  sillones: Tabla_sillones;
-  pacientes: Tabla_pacientes;
-  leads: Tabla_leads;
-  citas: Tabla_citas;
-  lista_espera: Tabla_lista_espera;
-  presupuestos: Tabla_presupuestos;
-  contactos_presupuesto: Tabla_contactos_presupuesto;
-  doctores_presupuestos: Tabla_doctores_presupuestos;
-  usuarios_presupuestos: Tabla_usuarios_presupuestos;
-  objetivos_mensuales: Tabla_objetivos_mensuales;
-  secuencias_automaticas: Tabla_secuencias_automaticas;
-  configuracion_automatizaciones: Tabla_configuracion_automatizaciones;
-  push_subscriptions: Tabla_push_subscriptions;
-  historial_acciones: Tabla_historial_acciones;
-  informes_guardados: Tabla_informes_guardados;
-  mensajes_whatsapp: Tabla_mensajes_whatsapp;
-  plantillas_mensaje: Tabla_plantillas_mensaje;
-  configuracion_recordatorios: Tabla_configuracion_recordatorios;
-  cola_envios: Tabla_cola_envios;
-  notificaciones: Tabla_notificaciones;
-  configuracion_waba: Tabla_configuracion_waba;
-  alertas_enviadas: Tabla_alertas_enviadas;
+/** Categorías que el clasificador propuso en lenguaje natural y que NO están en
+ *  el catálogo (016). Se acumulan con su cuenta y un ejemplo real; entrar en el
+ *  enum es decisión de una persona, nunca automática. */
+export interface Tabla_sugerencias_categoria {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  /** Minúsculas y sin acentos: «Pide Factura» y «pide factura» son la misma. */
+  texto_norm: string;
+  /** El primero que se vio, tal cual, para poder enseñarlo sin inventar. */
+  texto: string;
+  veces: Generated<number>;
+  primera_vez: Generated<Date>;
+  ultima_vez: Generated<Date>;
+  estado: Generated<"pendiente" | "aceptada" | "descartada">;
+  /** Mensaje real que la provocó: sin él, una etiqueta suelta no se puede juzgar. */
+  ejemplo: string | null;
+  created_at: Generated<Date>;
+}
+
+// ─── Columnas añadidas por migraciones posteriores a tablas que SÍ genera ───
+//
+// Van como intersección en el mapa `DB` de abajo, no editando la interfaz
+// generada — que se reescribe entera en la próxima regeneración.
+
+/** 011 y 012 — foto del momento del envío, para poder responder «¿sirvió el aviso?». */
+type ExtraAlertasEnviadas = {
+  n_al_enviar: number | null;
+  importe_al_enviar: string | number | null;
+  coordinadora_destino_nombre: string | null;
+};
+
+/** 010 — privado o el nombre de su aseguradora; null = sin tipo (estado válido). */
+type ExtraPacientes = {
+  tipo_paciente: string | null;
+};
+
+/** 014 — cuántos toques antes de dar la cadencia por agotada. */
+type ExtraConfiguracionAutomatizaciones = {
+  toques_antes_de_agotar: number | null;
+};
+
+/** 016 — el rediseño «decisión primero»: la decisión se guarda aparte de la
+ *  categoría, porque son dos preguntas distintas y mezclarlas fue lo que dejó el
+ *  clasificador en el 56 %. Las tres estuvieron sin tipo hasta que las encontró
+ *  `qa:tipos`, y se leían con un `any` en `presupuestos/pg.ts`. */
+type ExtraPresupuestos = {
+  /** La decisión: ¿esto lo contesta el sistema o tiene que verlo una persona? */
+  requiere_persona: boolean | null;
+  /** Por qué quiebra, en lenguaje de coordinadora. */
+  motivo_quiebre: string | null;
+  /** Categoría que el modelo propuso y que NO está en el catálogo. Aquí se
+   *  guarda tal cual; el recuento vive en `sugerencias_categoria`. */
+  intencion_propuesta: string | null;
+};
+
+// ─── El esquema real ────────────────────────────────────────────────────────
+
+export interface DB
+  extends Omit<
+    DBGenerado,
+    | "alertas_enviadas"
+    | "pacientes"
+    | "configuracion_automatizaciones"
+    | "presupuestos"
+  > {
+  // Generadas, con columnas añadidas después.
+  alertas_enviadas: Tabla_alertas_enviadas & ExtraAlertasEnviadas;
+  pacientes: Tabla_pacientes & ExtraPacientes;
+  configuracion_automatizaciones: Tabla_configuracion_automatizaciones &
+    ExtraConfiguracionAutomatizaciones;
+  presupuestos: Tabla_presupuestos & ExtraPresupuestos;
+
+  // Creadas después.
   alertas_pospuestas: Tabla_alertas_pospuestas;
   seguimiento_vistos: Tabla_seguimiento_vistos;
-  acciones_lead: Tabla_acciones_lead;
-  plantillas_lead: Tabla_plantillas_lead;
-  pagos_paciente: Tabla_pagos_paciente;
-  acciones_pago: Tabla_acciones_pago;
-  inconsistencias_pagos: Tabla_inconsistencias_pagos;
-  configuraciones_clinica: Tabla_configuraciones_clinica;
-  conversaciones_copilot: Tabla_conversaciones_copilot;
-  reglas_automatizacion: Tabla_reglas_automatizacion;
-  acciones_automatizacion: Tabla_acciones_automatizacion;
-  eventos_sistema: Tabla_eventos_sistema;
-  llamadas_vapi: Tabla_llamadas_vapi;
+  eventos_automatizacion: Tabla_eventos_automatizacion;
+  sugerencias_categoria: Tabla_sugerencias_categoria;
 }

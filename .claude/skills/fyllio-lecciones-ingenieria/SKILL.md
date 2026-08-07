@@ -282,6 +282,24 @@ tocar un prompt, mirar si la columna está.
 > modelo a escalar todavía más, porque razonaba que sin el dato no podía contestar: hubo que
 > declararle que consultar no es decidir.
 
+### 18. Generado y escrito a mano no caben en el mismo archivo
+Un archivo que un script reescribe entero **no puede** contener también trabajo a mano: el día que
+alguien regenere, lo borra en silencio, y no falla nada hasta que alguien usa lo que ya no está. Un
+aviso en la cabecera no es una defensa —funciona mientras alguien se acuerde de leerla—; la defensa
+es que el generador **escriba en otro archivo**, y que el de a mano importe del generado. Y el efecto
+secundario de no separarlos es peor que el borrado: como regenerar da miedo, **nadie regenera**, y
+todos los productos del generador se congelan y empiezan a mentir cada uno por su lado.
+Corolario, porque aquí el fallo no se ve: **un tipo que falta no da error, da un `any`** — y un `any`
+parece comprobado. Si el esquema se declara a mano, hace falta algo que compare el esquema real con
+lo declarado y que corra solo (`qa:tipos`, enganchado a `db:migrate`).
+> **Nos lo enseñó:** `app/lib/db/types.ts` era generado y a mano a la vez. Nadie se atrevía a
+> regenerar, así que el spec siguió avanzando y sus dos productos se quedaron atrás **en direcciones
+> opuestas**: el 001 sin la columna que añadió la 009, y los tipos prometiendo un `not null` y un
+> `check` que las migraciones 006 y 007 ya habían quitado — mentiras del lado peligroso, que juran
+> que un valor no puede ser nulo cuando la base ya permite que lo sea. Al separar los archivos y
+> escribir el guard, la primera ejecución encontró **cuatro cosas sin tipo de esa misma semana**,
+> entre ellas una tabla que llevaba tres días usándose con `sql` crudo y un `any`.
+
 ## Checklist antes de dar por bueno un cambio de backend
 
 - [ ] ¿Todo "éxito" que comunico está **persistido antes** de comunicarse? (§1)
@@ -304,6 +322,7 @@ tocar un prompt, mirar si la columna está.
 - [ ] Si **reutilicé** una utilidad en un contexto nuevo, ¿su definición significa ahí lo mismo? ¿O debería recibir el criterio en vez de suponerlo? (§16)
 - [ ] Si el bug solo aparece ciertos días u horas, ¿el test **simula el reloj** en vez de confiar en cuándo se ejecute? (§16, §13)
 - [ ] Si el agente no puede contestar algo, ¿he mirado si **el dato existe** antes de tocar el prompt? ¿Y estoy tratando una consulta como si fuera una decisión? (§17)
+- [ ] Si escribí una migración, ¿la tabla o la columna está **declarada en los tipos**? (`npm run qa:tipos`) ¿Y estoy metiendo trabajo a mano en un archivo que un script reescribe? (§18)
 
 ## Cómo crece este skill
 

@@ -721,9 +721,18 @@ revoke all on login_clinicas_directorio from anon, authenticated;`);
 
 export function generarTypes() {
   const out = [];
-  out.push(`// app/lib/db/types.ts
-// GENERADO por scripts/db-schema-spec.mjs — NO editar a mano.
+  out.push(`// app/lib/db/types-generado.ts
+// GENERADO por scripts/db-schema-spec.mjs — NO editar a mano. Se reescribe entero.
 // Interfaz Kysely del esquema (misma fuente que 001/002 SQL).
+//
+// Aquí solo está lo que el generador conoce: el esquema de las migraciones 001 y
+// 002. Todo lo que añadieron las migraciones POSTERIORES —tablas nuevas y
+// columnas sueltas— vive en \`types.ts\`, que se mantiene A MANO y que el
+// generador NO escribe nunca. Por eso regenerar ya no puede llevárselo por
+// delante, que es justo lo que pasaba cuando los dos eran el mismo archivo.
+//
+// El tipo que se usa en la aplicación es el \`DB\` de \`types.ts\`, no el
+// \`DBGenerado\` de aquí: este está incompleto a propósito.
 
 import type { Generated } from "kysely";
 `);
@@ -746,19 +755,58 @@ import type { Generated } from "kysely";
     ifaces.push([tabla, iface]);
     out.push(`export interface ${iface} {\n${props.join("\n")}\n}`);
   }
-  out.push(`export interface DB {\n${ifaces.map(([t2, i]) => `  ${t2}: ${i};`).join("\n")}\n}`);
+  out.push(
+    `/** El esquema que conoce el generador. INCOMPLETO a propósito: le faltan las\n` +
+      ` *  tablas y columnas de las migraciones posteriores a la 002. El tipo bueno es\n` +
+      ` *  el \`DB\` de \`types.ts\`, que parte de este y le añade lo que falta. */\n` +
+      `export interface DBGenerado {\n${ifaces.map(([t2, i]) => `  ${t2}: ${i};`).join("\n")}\n}`,
+  );
   return out.join("\n\n") + "\n";
 }
 
 // ─── main ────────────────────────────────────────────────────────────────────
-import { writeFileSync } from "node:fs";
+import { writeFileSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
+// El generador NO escribe `app/lib/db/types.ts`. Ese archivo es el que sostiene
+// las tablas y columnas de las migraciones posteriores a la 002, que se añaden a
+// mano porque el generador no las conoce; cuando los dos eran el mismo archivo,
+// regenerar se las llevaba por delante en silencio y nada fallaba hasta que
+// alguien las usaba. La separación es el arreglo — este guard solo impide que se
+// deshaga sin darse cuenta.
+function comprobarQueTypesSigueSiendoAMano(root) {
+  const ruta = join(root, "app/lib/db/types.ts");
+  let texto;
+  try {
+    texto = readFileSync(ruta, "utf8");
+  } catch {
+    console.error(
+      "✗ No existe app/lib/db/types.ts.\n" +
+        "  Ese archivo se mantiene A MANO y sostiene las tablas de las migraciones\n" +
+        "  posteriores a la 002. Si se ha borrado, recupéralo de git ANTES de regenerar:\n" +
+        "    git checkout app/lib/db/types.ts",
+    );
+    process.exit(2);
+  }
+  if (!texto.includes("./types-generado")) {
+    console.error(
+      "✗ app/lib/db/types.ts ya no importa de ./types-generado.\n" +
+        "  O alguien ha vuelto a apuntar el generador a types.ts, o se ha pegado ahí\n" +
+        "  la salida generada. En cualquiera de los dos casos, regenerar borraría las\n" +
+        "  tablas añadidas a mano. Se aborta sin escribir nada.",
+    );
+    process.exit(2);
+  }
+}
+
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+  comprobarQueTypesSigueSiendoAMano(root);
   writeFileSync(join(root, "db/migrations/001_esquema_negocio.sql"), generarSchemaSql());
   writeFileSync(join(root, "db/migrations/002_rls.sql"), generarRlsSql());
-  writeFileSync(join(root, "app/lib/db/types.ts"), generarTypes());
-  console.log("✓ generados: 001_esquema_negocio.sql, 002_rls.sql, app/lib/db/types.ts");
+  writeFileSync(join(root, "app/lib/db/types-generado.ts"), generarTypes());
+  console.log("✓ generados: 001_esquema_negocio.sql, 002_rls.sql, app/lib/db/types-generado.ts");
+  console.log("  (app/lib/db/types.ts NO se toca: es el que lleva lo añadido a mano)");
+  console.log("  Comprueba que no ha quedado nada fuera:  npm run qa:tipos");
 }

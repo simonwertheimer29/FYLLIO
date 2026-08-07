@@ -1654,3 +1654,27 @@ verdad: un editor, un vocabulario, un renderizador.
 - **Impacto:** medio hoy, **alto** en la fase 3: dos de las once plantillas del catálogo necesitan
   estos datos como variables.
 - **Fecha:** 2026-08-06 · 🔵
+
+## 91. `001_esquema_negocio.sql` lleva meses sin regenerarse y ya no dice lo que crea
+- **Detectado:** 2026-08-07, al separar el generador de tipos de lo escrito a mano.
+- **Qué pasa:** `db-schema-spec.mjs` genera dos cosas desde el mismo spec, `001_esquema_negocio.sql`
+  y los tipos. El spec **se ha ido actualizando** al ritmo de las migraciones, pero el 001 en disco
+  **no se ha vuelto a escribir**, porque regenerar borraba las tablas añadidas a mano en `types.ts`
+  y nadie quería tocarlo. Resultado: el 001 del repo **no coincide con lo que produciría el
+  generador hoy**. Le faltan `leads.fecha_cierre` (009) y le sobran las cuatro columnas de
+  `pacientes` que borró la 008; además mantiene el `not null` y el `check` que quitaron la 006 y la
+  007. La causa de la congelación **ya está arreglada** (el generador ya no toca `types.ts`); lo que
+  queda es decidir qué hacer con el archivo.
+- **Por qué no lo he hecho:** reescribir una migración **ya aplicada en producción** no es limpieza,
+  es una decisión. No afecta a las bases existentes —el runner va por nombre de fichero, la 001 no se
+  vuelve a ejecutar—, pero **sí cambia lo que se crea en una base nueva**, que es el camino de
+  `demo:reset` y el de cualquier cliente que se dé de alta.
+- **Riesgo de dejarlo:** el 001 es lo que alguien lee para saber cómo es el esquema, y hoy miente en
+  cuatro sitios. Riesgo de arreglarlo sin mirar: las migraciones 006-016 se aplicarían encima de un
+  001 distinto del que vieron cuando se escribieron; son idempotentes (`if not exists`), así que en
+  principio no rompen, pero **eso hay que comprobarlo creando una base desde cero**, no suponerlo.
+- **Mejora:** regenerar el 001 y **verificar con una base limpia** que las 16 migraciones aplican
+  seguidas sin error y dejan el mismo esquema que una base ya migrada. Con eso hecho, el 001 vuelve
+  a ser generado de verdad y `qa:tipos` cubre el resto.
+- **Impacto:** bajo hoy, **medio al dar de alta el primer cliente nuevo**.
+- **Fecha:** 2026-08-07 · 🔵
