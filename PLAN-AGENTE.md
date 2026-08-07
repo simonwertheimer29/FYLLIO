@@ -390,8 +390,9 @@ Eso es lo que mide la hipótesis **H9** de [`MERCADO.md`](MERCADO.md).
 
 #### Qué cadencia usa qué plantilla
 
-**Escritas el 7 de agosto de 2026 en [`PLANTILLAS-WHATSAPP.md`](PLANTILLAS-WHATSAPP.md)**, con su
-texto completo, sus variables con ejemplos y qué conversación abre cada una.
+**Escritas y revisadas el 7 de agosto de 2026 en [`PLANTILLAS-WHATSAPP.md`](PLANTILLAS-WHATSAPP.md)**,
+con su texto completo, sus variables con ejemplos y qué conversación abre cada una. El texto está
+**aprobado por Simon**: es criterio de negocio, no técnico.
 
 > ⏸️ **Tenerlas escritas NO adelanta plazo, y conviene no confundirlo.** Enviarlas a aprobación exige
 > una cuenta de Meta Business con el nombre legal y el NIF, así que **el reloj de Meta no ha empezado
@@ -399,9 +400,14 @@ texto completo, sus variables con ejemplos y qué conversación abre cada una.
 > envío sea de horas y no de días. Planificar la fase 3 contando con que la aprobación ya está en
 > marcha daría una fecha falsa.
 >
-> **Y una de las once está bloqueada por dato, no por trámite:** `seguimiento_sigue_vigente` necesita
-> el plazo de validez del presupuesto, que no existe en el modelo ([MEJORAS 89](MEJORAS-PENDIENTES.md)).
-> Las otras diez se pueden enviar en cuanto haya cuenta.
+> **Ninguna está bloqueada por datos.** `seguimiento_sigue_vigente` sí lo estuvo —necesitaba el plazo
+> de validez del presupuesto, que no existe ([MEJORAS 89](MEJORAS-PENDIENTES.md))— y se reescribió sin
+> él en la revisión, para que las once salgan el mismo día. Cuando llegue el dato se puede afinar, y
+> afinarla es **una reedición que vuelve a revisión de Meta**, no un cambio en caliente.
+>
+> **El tono está decidido y no es configurable: se tutea** (`DECISIONES.md`, 7 ago). Meta aprueba
+> textos, no tonos, así que ofrecer el usted por clínica son **once plantillas más pasando revisión**,
+> no una casilla en Ajustes. Dentro de la ventana de 24 h el agente sí puede adaptar el registro.
 
 Resumen de las once (el detalle, en el catálogo): Todas son de categoría **utilidad** (la más barata y
 la que menos se rechaza), todas en español, ninguna nombra tratamiento ni importe:
@@ -413,12 +419,12 @@ la que menos se rechaza), todas en español, ninguna nombra tratamiento ni impor
 | **Cita** | al reagendar | `cita_reagendada` | nombre · fecha · hora nuevas | confirmar |
 | **Cita** | hueco liberado | `hueco_disponible` | nombre · fecha · hora | aceptar el hueco |
 | **Presupuesto** | toque 1 (~3 días) | `seguimiento_info_disponible` | nombre · clínica · enlace portal | **toda la conversación de la cadencia** |
-| **Presupuesto** | toque 2 (~10 días) | `seguimiento_sigue_vigente` | nombre · fecha de vigencia · enlace | dudas, precio → **quiebre** |
+| **Presupuesto** | toque 2 (~10 días) | `seguimiento_sigue_vigente` | nombre · clínica · enlace | dudas, precio → **quiebre** |
 | **Presupuesto** | toque 3 / reactivación | `reactivacion_sin_reproche` | nombre · clínica · enlace | reabrir el caso |
 | **Cobro** | 3 días antes | `pago_proximo` | nombre · fecha · enlace portal | aplazar → **quiebre** |
 | **Cobro** | al vencer | `pago_vencido` | nombre · enlace portal | negociar → **quiebre** |
 | **Cobro** | al recibir | `pago_recibido` | nombre | agradecer, siguiente paso |
-| **Lead** | lead de formulario | `lead_primer_contacto` | nombre · clínica | **toda la captación** |
+| **Lead** | lead de formulario | `lead_primer_contacto` | nombre · clínica · **origen** | **toda la captación** |
 
 **Once plantillas.** Las cuatro de cita y `pago_recibido` son las que menos riesgo de rechazo tienen;
 las de seguimiento y cobro son las delicadas de tono.

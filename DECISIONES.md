@@ -2168,3 +2168,34 @@ timeout. **No se ha medido**, y decirlo como causa sin medirlo sería el error d
 **Lo único que ya está bien:** las dos veces, la aplicación **enseñó un error honesto con reintentar**
 en vez de una pantalla de ceros. Es exactamente lo que §4 y §10 vinieron a garantizar, funcionando en
 un fallo real y no en un test.
+
+## 2026-08-07 — Las once plantillas de WhatsApp, revisadas: el tuteo es decisión de producto, no un ajuste
+Escritas las once y **revisadas por Simon antes de fijarlas** — el texto que ve un paciente es
+criterio de negocio, no técnico. Cinco cambios, y todos comparten regla: **nada coloquial y nada que
+pida perdón por escribir**. Fuera «no queremos darte la lata» (se disculpaba por hacer seguimiento),
+fuera «con un sí nos vale» y «sin problema», fuera el «tampoco» que llevaba reproche dentro, y fuera
+el reloj de dos horas del hueco libre: informaba de lo mismo presionando, y en una clínica la
+urgencia comercial suena mal. La nº 11 ahora dice **de dónde viene la consulta** (web, Instagram,
+formulario), porque escribirle a alguien que no ha escrito parece un error de destinatario, y un
+mensaje que parece equivocado no se contesta: se bloquea.
+
+**Decisión de producto: se tutea, y no es configurable.** El documento de arquitectura listaba «tono
+cercano o formal» como ajuste de clínica en la fase 4, y es falso: **Meta aprueba textos, no tonos**,
+así que ofrecer el usted no es una casilla en Ajustes sino **un segundo catálogo entero de once
+plantillas pasando revisión**. Dentro de la ventana de 24 h el agente sí puede adaptar el registro,
+porque ahí escribe libre. Corregido en `docs/arquitectura-app-automatizacion.html` §fase 4.
+
+**Y la nº 6 se reescribió para no depender de un dato que no existe.** Prometía «disponible hasta el
+{fecha}» con el plazo de validez del presupuesto, que no está en el modelo (MEJORAS 89): eso la
+dejaba bloqueada por algo que no era el trámite de Meta. Sin la fecha, el toque 2 queda más flojo
+—ya solo dice «seguimos aquí»— pero **las once son enviables el mismo día**, que era lo que estaba
+en juego. Afinarla cuando llegue el dato es una reedición que vuelve a revisión, no un cambio en
+caliente.
+
+Lo que **no** cambió, y por qué: la nº 9 (pago vencido) sigue diciendo «si ya lo has hecho, avísanos
+y lo comprobamos» **antes** de reclamar. El error de cobro existe y es nuestro; dar por hecho que el
+paciente no ha pagado es la forma más rápida de que una reclamación se convierta en una queja.
+
+Queda **una sola promesa** en todo el catálogo, y hay que cumplirla: el «si prefieres que no te
+escribamos más, dínoslo y lo respetamos» de la nº 7 obliga a la cadencia a parar de verdad. Es
+también la forma más barata de conseguir un motivo de pérdida, que hoy casi no se registra.

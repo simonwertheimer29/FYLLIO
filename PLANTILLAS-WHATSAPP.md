@@ -3,7 +3,7 @@
 Las once plantillas de utilidad que Fyllio envía por WhatsApp Business API. Es el catálogo de la
 **fase 3** de [`PLAN-AGENTE.md`](PLAN-AGENTE.md).
 
-**Escritas el 7 de agosto de 2026. Sin enviar a aprobación.**
+**Escritas y revisadas el 7 de agosto de 2026. Texto aprobado por Simon. Sin enviar a Meta.**
 
 ---
 
@@ -43,16 +43,24 @@ qué conversación abre es una plantilla que no se sabe para qué se manda.
 
 ## Decisiones de redacción, para que se puedan discutir
 
-- **Tuteo.** Coherente con el resto del producto. El plan de la fase 4 contempla el tono formal como
-  configurable por clínica — y hay que saber que eso significa **un segundo juego de plantillas
-  aprobadas**, no un ajuste: Meta aprueba textos, no tonos.
+- **Se tutea. Decisión de producto, no ajuste** (7 de agosto de 2026, `DECISIONES.md`). El usted
+  **no es una casilla en Ajustes**: Meta aprueba textos, no tonos, así que un catálogo formal son
+  once plantillas más pasando revisión. Dentro de la ventana de 24 h el agente sí puede adaptar el
+  registro; la puerta de entrada, no.
+- **Nada coloquial y nada que pida perdón por escribir.** Ni muletillas («sin problema», «con un sí
+  nos vale»), ni disculpas por hacer seguimiento («no queremos darte la lata»). Lo primero suena a
+  mensaje improvisado; lo segundo le quita autoridad al mensaje y sugiere que escribir era un abuso.
+  Una clínica informa a su paciente: no le pide permiso para existir.
 - **Sin emojis.** Estándar visual del producto, y además reducen la tasa de aprobación.
 - **URL completas**, nunca acortadas: Meta rechaza acortadores.
-- **Sin urgencia falsa** («¡última oportunidad!», mayúsculas). Es la causa nº 2 de rechazo tras la
-  categoría equivocada.
+- **Sin urgencia falsa** («¡última oportunidad!», relojes, mayúsculas). Es la causa nº 2 de rechazo
+  tras la categoría equivocada — y en una clínica la prisa comercial suena peor que en cualquier
+  otro sitio.
 - **La firma es el nombre de la clínica**, que va como variable — no «el equipo de Fyllio». El
   paciente tiene relación con su clínica, no con nosotros.
 - **Un solo objetivo por mensaje.** Meta rechaza los que mezclan.
+- **Sin adjetivos con género.** «Si te sigue interesando», no «si sigues interesado»: la plantilla
+  se manda a todo el mundo y el masculino por defecto se nota.
 
 ---
 
@@ -68,11 +76,14 @@ qué conversación abre es una plantilla que no se sabe para qué se manda.
 ```
 Hola {{1}}, te recordamos tu cita en {{2}} el {{3}} a las {{4}}.
 
-Si te viene mal, dínoslo por aquí y lo cambiamos sin problema.
+Si no puedes venir ese día, dínoslo por aquí y lo cambiamos.
 ```
 
 `{{1}}` nombre · ej. `Ana` — `{{2}}` clínica · ej. `Clínica Demo Centro`
 `{{3}}` fecha · ej. `jueves 14 de agosto` — `{{4}}` hora · ej. `10:30`
+
+> Fuera «sin problema»: tranquilizar sobre algo que nadie ha planteado como problema lo convierte en
+> uno. «Y lo cambiamos» ya dice todo lo que tenía que decir.
 
 ---
 
@@ -88,10 +99,14 @@ Si te viene mal, dínoslo por aquí y lo cambiamos sin problema.
 ```
 Hola {{1}}, mañana te esperamos a las {{2}} en {{3}}.
 
-¿Nos confirmas que podrás venir? Con un "sí" nos vale.
+¿Nos confirmas que podrás venir? Con responder a este mensaje es suficiente.
 ```
 
 `{{1}}` nombre — `{{2}}` hora · ej. `10:30` — `{{3}}` clínica
+
+> Fuera «con un "sí" nos vale»: era coloquial, y las comillas dentro de una plantilla son ruido
+> añadido en la revisión de Meta. La versión nueva dice lo mismo y además **es una instrucción
+> exacta** — cualquier respuesta abre la ventana de 24 h, no hace falta que sea la palabra «sí».
 
 > **Por qué solo si no confirmó:** mandar los dos a todo el mundo es el camino más corto a que dejen
 > de leerlos. La condición la evalúa la cadencia, no la plantilla.
@@ -110,10 +125,13 @@ Hola {{1}}, mañana te esperamos a las {{2}} en {{3}}.
 ```
 Hola {{1}}, tu cita queda para el {{2}} a las {{3}} en {{4}}.
 
-Si ese día tampoco te encaja, dínoslo y buscamos otro.
+Si ese día no te encaja, dínoslo y buscamos otro.
 ```
 
 `{{1}}` nombre — `{{2}}` fecha nueva — `{{3}}` hora nueva — `{{4}}` clínica
+
+> Fuera el «tampoco»: lleva dentro un reproche que va en una dirección o en la otra según quién
+> pidiera el cambio, y el mensaje no sabe cuál de las dos fue.
 
 ---
 
@@ -129,14 +147,16 @@ Si ese día tampoco te encaja, dínoslo y buscamos otro.
 ```
 Hola {{1}}, se nos ha quedado libre un hueco el {{2}} a las {{3}} en {{4}}.
 
-¿Te lo reservamos? Si no me dices nada en un par de horas se lo ofrezco a otra persona.
+¿Te lo reservamos? Si no puedes, dínoslo y lo ofrecemos a otra persona.
 ```
 
 `{{1}}` nombre — `{{2}}` fecha — `{{3}}` hora — `{{4}}` clínica
 
-> **Ojo con «un par de horas»:** es información real (el hueco se ofrece a otro), no urgencia
-> fabricada. Pero **si la cadencia no lo cumple de verdad, hay que quitarlo del texto** — prometer
-> una ventana que no se respeta es peor que no darla.
+> **Fuera el reloj** (decisión de Simon, 7 de agosto). La versión anterior decía «si no me dices nada
+> en un par de horas se lo ofrezco a otra persona». Informaba de lo mismo —el hueco se ofrece a
+> otro— pero **presionando**, y en una clínica la urgencia comercial suena mal. De paso desaparece
+> una promesa que la cadencia tendría que cumplir al minuto, que era el otro problema: prometer una
+> ventana que no se respeta es peor que no darla.
 
 ---
 
@@ -173,17 +193,22 @@ Si te surge cualquier duda, escríbenos por aquí.
 | **Abre conversación para** | Dudas y objeciones — casi siempre **quiebra** hacia una persona |
 
 ```
-Hola {{1}}, te escribimos de {{2}} para recordarte que lo que hablamos sigue disponible hasta el {{3}}.
+Hola {{1}}, te escribimos de {{2}} por si quieres retomar lo que vimos en tu visita.
 
-Puedes verlo aquí cuando quieras: {{4}}
+Lo tienes aquí: {{3}}. Y si prefieres que lo repasemos contigo, escríbenos por aquí.
 ```
 
-`{{1}}` nombre — `{{2}}` clínica — `{{3}}` fecha de vigencia · ej. `30 de septiembre`
-`{{4}}` enlace del portal
+`{{1}}` nombre — `{{2}}` clínica — `{{3}}` enlace del portal
 
-> ⚠️ **Esta plantilla necesita un dato que HOY NO EXISTE.** `presupuestos` no tiene columna de plazo
-> de validez ([MEJORAS 89](MEJORAS-PENDIENTES.md)). Sin ella, `{{3}}` no se puede rellenar. **Es
-> bloqueante de esta plantilla concreta**, no de las otras diez.
+> **Reescrita sin el plazo de validez** (7 de agosto). La versión anterior decía «sigue disponible
+> hasta el {{fecha}}» y dependía de un dato que **no existe**: `presupuestos` no tiene columna de
+> vigencia ([MEJORAS 89](MEJORAS-PENDIENTES.md)). Eso la dejaba bloqueada por algo que no era el
+> trámite de Meta. Ahora **las once son enviables**.
+>
+> Lo que se pierde: el toque 2 ya no tiene una razón propia para existir más allá de «seguimos
+> aquí». Es honesto —hoy no hay fecha de caducidad que contar— pero es más flojo que el toque 1.
+> Cuando llegue MEJORAS 89 se puede afinar; conviene saber que **afinarla es una reedición que
+> vuelve a revisión de Meta**, no un cambio en caliente.
 
 ---
 
@@ -197,17 +222,24 @@ Puedes verlo aquí cuando quieras: {{4}}
 | **Abre conversación para** | Reabrir el caso — o cerrarlo con un motivo, que también vale |
 
 ```
-Hola {{1}}, soy de {{2}}. Hace un tiempo que no sabemos de ti y no queremos darte la lata.
+Hola {{1}}, soy de {{2}}. Hace un tiempo que no hablamos y quería saber si te sigue interesando.
 
-Si sigues interesado, aquí lo tienes: {{3}}. Y si no, dínoslo y no volvemos a escribirte.
+Aquí tienes la información: {{3}}. Si prefieres que no te escribamos más, dínoslo y lo respetamos.
 ```
 
 `{{1}}` nombre — `{{2}}` clínica — `{{3}}` enlace del portal
 
-> **«Y si no, dínoslo y no volvemos a escribirte» es deliberado.** Da salida, que es lo que hace que
-> el mensaje no se lea como acoso — y además **es la forma más barata de conseguir un motivo de
-> pérdida**, que hoy no se registra casi nunca. Si el paciente dice que no, ese «no» vale.
-> **Y hay que cumplirlo:** si dice que no y la cadencia sigue escribiendo, la plantilla miente.
+> **Reescrita por Simon** (7 de agosto). Fuera «no queremos darte la lata»: era jerga y, peor, **se
+> disculpaba por hacer seguimiento**. Un mensaje que empieza pidiendo perdón por existir ya ha
+> renunciado a que le hagan caso.
+>
+> Único cambio sobre su texto: **«si te sigue interesando» en vez de «si sigues interesado»**. La
+> plantilla se manda a todo el mundo y el masculino por defecto se nota.
+>
+> **«Si prefieres que no te escribamos más, dínoslo y lo respetamos» es deliberado.** Da salida, que
+> es lo que hace que el mensaje no se lea como acoso — y además es **la forma más barata de
+> conseguir un motivo de pérdida**, que hoy no se registra casi nunca. **Y hay que cumplirlo:** si
+> dice que no y la cadencia sigue escribiendo, la plantilla miente.
 
 ---
 
@@ -286,13 +318,26 @@ Si necesitas la factura o quieres saber cuál es el siguiente paso, dínoslo por
 | **Abre conversación para** | **Toda la captación** — motivo de consulta, agendar, precio |
 
 ```
-Hola {{1}}, soy de {{2}}. Nos ha llegado tu consulta y estamos aquí para ayudarte.
+Hola {{1}}, soy de {{2}}. Nos ha llegado tu consulta desde {{3}}.
 
 ¿Nos cuentas qué necesitas y te buscamos hueco?
 ```
 
-`{{1}}` nombre — `{{2}}` clínica
+`{{1}}` nombre — `{{2}}` clínica — `{{3}}` origen · ej. `nuestra web`, `Instagram`,
+`el formulario de contacto`, `una llamada perdida`
 
+> **El origen va dentro** (decisión de Simon, 7 de agosto). «Nos ha llegado tu consulta» a alguien
+> que no ha escrito por WhatsApp parece **un error de destinatario**, y un mensaje que parece
+> equivocado no se contesta: se bloquea. Diciendo de dónde viene, el paciente reconoce su propio
+> gesto y el mensaje deja de ser frío.
+>
+> `{{3}}` sale del campo de origen del lead, y **tiene que encajar detrás de «desde»**: se manda «la
+> web», no «Web»; «una llamada perdida», no «Teléfono». Es una traducción del enum a lenguaje de
+> paciente, y si el origen no se conoce, esta plantilla no se manda — se manda otra cosa o se llama.
+>
+> Fuera «estamos aquí para ayudarte»: es relleno corporativo. La pregunta que sigue ya demuestra
+> que estamos para ayudar, en vez de anunciarlo.
+>
 > **Solo para leads que NO han escrito ellos.** Si el paciente escribió primero, la ventana de 24 h
 > ya está abierta y no hace falta plantilla: se responde directamente, que además sale gratis.
 
@@ -300,13 +345,16 @@ Hola {{1}}, soy de {{2}}. Nos ha llegado tu consulta y estamos aquí para ayudar
 
 ## Antes de enviarlas a aprobación
 
-- [ ] **Revisión de Simon** — el texto que ve un paciente es criterio de negocio, no técnico.
+- [x] **Revisión de Simon** — hecha el 7 de agosto: cinco cambios de texto y el tuteo decidido.
+- [x] **Decidir el tuteo o el usted** — se tutea, y es decisión de producto, no ajuste (ver arriba).
+- [x] **La nº 6 ya no depende de [MEJORAS 89](MEJORAS-PENDIENTES.md)** — reescrita sin el plazo de
+      validez, para que las once sean enviables el mismo día.
 - [ ] Resolver el **alta fiscal** y crear la cuenta de Meta Business (bloqueo de `ESTADO.md`).
 - [ ] Sustituir `app.fyllio.com` por el **dominio real** en los ejemplos de URL.
-- [ ] Decidir el **tuteo o el usted** — cambiarlo después es un catálogo nuevo, no un ajuste.
-- [ ] La nº 6 necesita el **plazo de validez** en el modelo ([MEJORAS 89](MEJORAS-PENDIENTES.md)):
-      o se añade el dato, o esa plantilla se reescribe sin `{{3}}`.
-- [ ] Comprobar que **la nº 4 y la nº 7 dicen la verdad**: la ventana de dos horas y el «no volvemos
-      a escribirte» tienen que cumplirse en la cadencia, o se quitan del texto.
+- [ ] **La nº 7 tiene que decir la verdad**: si alguien contesta que no le escriban más, la cadencia
+      **tiene que parar de verdad**. Es la única promesa que queda en todo el catálogo, y sin ella la
+      plantilla miente. (La ventana de dos horas de la nº 4 ya no existe: se quitó en la revisión.)
+- [ ] **La nº 11 necesita la traducción del origen a lenguaje de paciente** — «desde nuestra web», no
+      «desde Web». Sin ese mapeo la variable produce un mensaje mal escrito.
 
-**Las diez restantes se pueden enviar sin nada más.**
+**Ninguna está bloqueada por datos.** Lo único que falta para las once es la cuenta verificada.
