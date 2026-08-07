@@ -87,6 +87,32 @@ test del termómetro, no del paciente.
 
 ---
 
+## Los casos que quedan fuera a propósito
+
+Cinco casos están anotados «no lo tengo claro» y **se quedan así**: no son casos mal escritos ni
+indecisión del anotador — son **decisiones de producto que no se han tomado**, y borrarlas del
+conjunto sería fingir que están resueltas.
+
+No puntúan, pero siguen en el corpus **señaladas**, y no son cinco dudas sueltas: son **tres
+preguntas**.
+
+**1 · Ambigüedad: ¿un intento o dos?** — casos **11** («Es que claro»), **26** («Lo del otro día»),
+**27** («Sí pero no sé»).
+El documento de arquitectura dice *«Ambigüedad — **dos intentos** sin entender qué quiere y para»*.
+La fase 1 lo implementó con **uno**, el rediseño del 6 de agosto lo dejó como regla directa sin
+precisarlo, y estos tres casos son exactamente el filo. **Es la pregunta más rentable de las tres:**
+afecta a la cohorte de quiebre entera.
+
+**2 · ¿Dónde acaba la logística y empieza «alguien tiene que enterarse»?** — caso **2** («Voy de
+camino, llego cinco minutos tarde», con la cita hoy).
+Se reescribió una vez para quitarle una contradicción y **siguió saliendo dudoso**, así que la
+ambigüedad no era del texto: avisar de un retraso es logística pura, pero si nadie lo lee, el hueco
+se da por perdido. La pregunta no es del clasificador, es de qué hace la clínica con ese aviso.
+
+**3 · ¿Enfriamiento o tono negativo?** — caso **47** («Bueno, ya veremos»).
+La misma frase es resignación educada o hartazgo según quién la lea. Toca el disparador de tono
+negativo, que es de la fase 2 — así que hoy no se puede resolver ni midiendo.
+
 ## Archivos
 
 | | |

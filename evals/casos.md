@@ -18,6 +18,10 @@ funciona:
 **Las anotaciones anteriores de estos dos casos NO se reutilizan**: el texto cambió, así que
 responden a otra pregunta. Vuelven a anotarse desde cero.
 
+**⊘ = fuera del conjunto puntuable a propósito.** Cinco casos quedaron «no lo tengo claro» y se
+mantienen así: son **decisiones de producto sin tomar**, no casos rotos. Agrupadas en tres preguntas
+en el [`README.md`](README.md).
+
 La pregunta, para todos:
 
 > **¿Esto lo podía contestar el sistema solo, o querías verlo tú?**
@@ -32,7 +36,7 @@ La pregunta, para todos:
 | # | Contexto | Mensaje del paciente |
 |---|---|---|
 | 1 | Presupuesto de 1.800 € enviado hace 4 días | «Buenas, he estado mirando y me cuadra todo. ¿El importe ese es con IVA o sin?» |
-| 2 | ⟲ Cita **hoy** a las 10:00 | «Voy de camino, llego cinco minutos tarde.» |
+| 2 | ⟲ Cita **hoy** a las 10:00 | «Voy de camino, llego cinco minutos tarde.» **⊘** |
 | 3 | Presupuesto de 3.400 € enviado hace 2 días | «Mi hermana se hizo lo mismo el año pasado y le costó bastante menos.» |
 | 4 | Presupuesto enviado hace 1 día | «vale» |
 | 5 | Lead nuevo de Instagram, sin contacto previo | «Hola, ¿a qué hora abrís los sábados?» |
@@ -41,7 +45,7 @@ La pregunta, para todos:
 | 8 | Presupuesto aceptado, primera cuota pagada | «Perfecto, gracias.» |
 | 9 | Presupuesto de implante enviado hace 3 días | «Estoy embarazada de cinco meses, ¿se puede hacer igual?» |
 | 10 | Lead citado para el jueves | «Me lo pienso y os digo.» |
-| 11 | Presupuesto enviado hace 9 días, sin respuesta hasta hoy | «Es que claro.» |
+| 11 | Presupuesto enviado hace 9 días, sin respuesta hasta hoy | «Es que claro.» **⊘** |
 | 12 | Cita confirmada para el martes | «Sí, confirmo la cita.» |
 | 13 | Tras una visita la semana pasada | «Llevo dos semanas esperando que alguien me llame.» |
 | 14 | Presupuesto de 950 € enviado hace 5 días | «¿Y si me quito la corona de arriba, cuánto se quedaría?» |
@@ -65,8 +69,8 @@ La pregunta, para todos:
 | 23 | Presupuesto de carillas enviado hace 4 días | «¿Me va a quedar el diente del mismo color?» |
 | 24 | Cita para una extracción, confirmada | «¿Cuánto tiempo tengo que estar sin comer normal?» |
 | 25 | Presupuesto enviado hace 7 días | «??» |
-| 26 | Lead contactado hace 3 días | «Lo del otro día.» |
-| 27 | Presupuesto enviado hace 5 días | «Sí pero no sé.» |
+| 26 | Lead contactado hace 3 días | «Lo del otro día.» **⊘** |
+| 27 | Presupuesto enviado hace 5 días | «Sí pero no sé.» **⊘** |
 | 28 | Tras una visita de revisión | «La última vez me tuvieron una hora en la sala.» |
 | 29 | Reclamación de cuota vencida | «Me habéis cobrado dos veces la misma cosa.» |
 | 30 | Tras no poder ser atendido ayer | «Ayer me fui sin que me atendieran.» |
@@ -86,7 +90,7 @@ La pregunta, para todos:
 | 44 | Cita para el jueves | «Me lo apunto.» |
 | 45 | Cita confirmada para el jueves | «Vale, nos vemos el jueves.» |
 | 46 | Presupuesto de 1.500 € enviado hace 6 días | «¿Y si al final no me convence?» |
-| 47 | Presupuesto enviado hace 10 días | «Bueno, ya veremos.» |
+| 47 | Presupuesto enviado hace 10 días | «Bueno, ya veremos.» **⊘** |
 | 48 | Presupuesto de 2.900 € enviado hace 3 días | «Es que ahora mismo no estoy para gastos.» |
 | 49 | Presupuesto de ortodoncia invisible enviado hace 4 días | «Lo he estado mirando por internet y hay opiniones de todo.» |
 | 50 | Presupuesto enviado hace 5 días, primera respuesta | «El martes me viene bien.» |

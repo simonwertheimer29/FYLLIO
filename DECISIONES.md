@@ -2066,3 +2066,41 @@ gracias»**, que es tono negativo: uno de los tres disparadores que la fase 1 **
 detecta. O sea, **el clasificador acierta el 100 % de lo que el producto dice saber hacer**, y lo
 único que falla es exactamente lo que está escrito que no hace. El termómetro sigue discriminando
 (complaciente 84 %, alarmista 67 %).
+
+## 2026-08-06 — El eval dio un 64 % con las 45 llamadas fallando. §9, otra vez, y esta vez la escribí yo
+Se implementó la regla de los DOS INTENTOS para la ambigüedad (decisión de Simon, y la que ya decía
+el documento de arquitectura): un mensaje raro suelto no para —el agente pide que se lo aclaren, que
+es lo que haría una persona—; dos seguidos sin entenderse, sí. **El contador se deriva del hilo**
+(`entrantesSinResponderPg`: entrantes posteriores al último saliente), así que se reinicia solo en
+cuanto respondemos y no hace falta persistir nada. Verificado: 1º → no para y pide aclaración; 2º →
+para; y un «¿me haríais descuento?» sigue parando al primero porque se entiende perfectamente.
+
+**Pero la medición posterior se descontroló, y ahí está lo importante.** Seis corridas seguidas del
+mismo eval con el mismo prompt: **89 · 87 · 80 · 64 · 64 · 64**. No era varianza: era monótono
+decreciente. Causa: **se agotaron los créditos de la API de Anthropic**. Las 45 llamadas devolvían
+error 400, caían al fallback —que por diseño es `requierePersona: true`— y el eval **imprimía un
+64 % tan tranquilo**. Ese 64 % no medía el clasificador: medía el fallback, que escala todo, y por
+eso se parecía sospechosamente al perfil «alarmista».
+
+**Un número falso es peor que ningún número**, porque se apunta y se compara. Y lo peor: la regla que
+lo evita está escrita en el skill desde julio —«sonda antes de la batería», «distingue *no pude
+comprobar* de *comprobé y está mal*»— y la escribí yo después de que `verificar-produccion` diera
+ocho 401 contra un despliegue sano. **La escribí para las herramientas de verificación y no la
+apliqué al eval, que es una herramienta de verificación.**
+
+Arreglado con las dos mitades:
+- **Sonda previa**: una clasificación trivial antes de la batería; si vuelve del fallback, aborta con
+  código **2** y explica que es «no pude comprobar».
+- **Contador durante la corrida**: los créditos se pueden agotar a mitad, así que si CUALQUIER
+  clasificación cae al fallback, **el porcentaje no se imprime**. Nada de medias verdades.
+
+**Consecuencia práctica: las mediciones de hoy posteriores al 98 % no valen.** El último número
+fiable es el 98 % (42/43) de antes de la regla de los dos intentos. **El efecto de esa regla está
+sin medir** y no se puede medir hasta que haya créditos.
+
+**Y una sospecha que habrá que confirmar cuando se pueda medir:** en las dos corridas con crédito
+(89 % y 87 %) fallaban casos de disparadores de **fase 2** —«¿Está la doctora?», «Increíble.»— que
+antes acertaba. La hipótesis es que **la red de «Sin clasificar → quiebra» los estaba cazando por
+accidente**, y al exigir dos intentos para la ambigüedad esa red desaparece y las carencias
+declaradas quedan al descubierto. Si se confirma, el 98 % anterior estaba inflado por suerte y el
+número honesto tras la regla es más bajo — que es exactamente lo que un eval debe destapar.

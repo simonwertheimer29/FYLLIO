@@ -22,7 +22,7 @@ dotenv.config();
 
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { clasificarRespuesta } from "../app/lib/presupuestos/intervencion";
+import { clasificarRespuesta, MOTIVO_FALLBACK } from "../app/lib/presupuestos/intervencion";
 import { disparadorDeIntencion } from "../app/lib/automatizacion/estado";
 
 const DIR = join(process.cwd(), "evals");
@@ -42,7 +42,12 @@ function cargarCasos(): Caso[] {
   const casos: Caso[] = [];
   for (const linea of md.split("\n")) {
     // | 12 | Contexto | «Mensaje» |
-    const m = /^\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|\s*«(.+?)»\s*\|/.exec(linea);
+    // El `.*` final tolera marcadores tras el mensaje (⟲ reescrito, ⊘ fuera del
+    // conjunto). Sin él, añadir un símbolo a una fila SACABA ESE CASO del corpus
+    // sin error — pasó dos veces (6 ago) y las dos se detectaron por casualidad,
+    // mirando el recuento. Un corpus que se lee mal no falla: da menos casos, y
+    // el porcentaje sigue pareciendo válido.
+    const m = /^\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|\s*«(.+?)».*\|/.exec(linea);
     if (m) casos.push({ id: Number(m[1]), contexto: m[2].trim(), mensaje: m[3].trim() });
   }
   return casos;
@@ -107,6 +112,50 @@ if (anotaciones.size === 0) {
   process.exit(2);
 }
 
+// ── SONDA ANTES DE LA BATERÍA (§9) ──────────────────────────────────────────
+//
+// EL FALLO QUE LO TRAJO, el 6 de agosto de 2026: se agotaron los créditos de la
+// API. Las 45 llamadas devolvieron el fallback —que es `requierePersona: true`—
+// y **el eval imprimió un 64 % tan tranquilo**. Ese 64 % no medía el
+// clasificador: medía el fallback, que por diseño lo escala todo. Un número
+// falso es peor que ningún número, porque se apunta y se compara.
+//
+// Una clasificación que llega del fallback NO es un fallo del clasificador: es
+// «no pude comprobar», y tiene su propio código de salida.
+{
+  const sonda = await clasificarRespuesta({
+    respuestaPaciente: "Gracias",
+    patientName: "Prueba",
+    treatments: [],
+    estado: "PRESENTADO",
+  });
+  if (sonda.motivoQuiebre === MOTIVO_FALLBACK) {
+    console.error("\n✗ El clasificador NO está respondiendo: la sonda devolvió el fallback.");
+    console.error("  Causa típica: falta la clave, se agotaron los créditos, o la API está caída.");
+    console.error("  (Mira el error de arriba: se imprime con el status y el cuerpo de la respuesta.)");
+    console.error("\n  Esto es «NO PUDE COMPROBAR», no «el clasificador falla». Sin esta sonda, el");
+    console.error("  eval habría dado un porcentaje calculado sobre 45 fallbacks — y el fallback");
+    console.error("  escala TODO, así que el número se parece sospechosamente a uno real.\n");
+    process.exit(2);
+  }
+}
+
+// ── Guarda: el corpus no puede encoger en silencio ──────────────────────────
+//
+// Si hay una anotación para un caso que `casos.md` ya no devuelve, es que el
+// corpus se leyó mal — no que el caso desapareciera. Sin esto, el porcentaje
+// sigue saliendo y parece válido: solo se calcula sobre menos casos.
+{
+  const ids = new Set(casos.map((c) => c.id));
+  const huerfanas = [...anotaciones.keys()].filter((id) => !ids.has(id));
+  if (huerfanas.length > 0) {
+    console.error(`\n✗ ${huerfanas.length} casos ANOTADOS que el corpus no devuelve: ${huerfanas.join(", ")}`);
+    console.error("  El corpus se está leyendo mal (¿un marcador nuevo rompió el parseo de esas");
+    console.error("  filas?). Esto NO es «esos casos ya no existen»: es que no se leen.\n");
+    process.exit(2);
+  }
+}
+
 // ── La cadena bajo prueba ────────────────────────────────────────────────────
 
 /**
@@ -132,7 +181,10 @@ function contextoDelCaso(contexto: string): { treatments: string[]; amount?: num
 }
 
 /** `true` = el sistema debería PARAR y avisar (equivale a la «B» de Simon). */
-async function quiebra(caso: Caso, promptOverride?: string): Promise<{ quiebra: boolean; intencion: string }> {
+async function quiebra(
+  caso: Caso,
+  promptOverride?: string,
+): Promise<{ quiebra: boolean; intencion: string; fallback: boolean }> {
   const ctx = contextoDelCaso(caso.contexto);
   const c = await clasificarRespuesta({
     respuestaPaciente: caso.mensaje,
@@ -158,10 +210,18 @@ async function quiebra(caso: Caso, promptOverride?: string): Promise<{ quiebra: 
       ? c.requierePersona
       : disparadorDeIntencion(c.intencion) !== null;
   const subePorEstado = c.intencion === "Rechaza";
-  return { quiebra: paraElClasificador || subePorEstado, intencion: c.intencion };
+  return {
+    quiebra: paraElClasificador || subePorEstado,
+    intencion: c.intencion,
+    fallback: c.motivoQuiebre === MOTIVO_FALLBACK,
+  };
 }
 
 type Resultado = { total: number; aciertos: number; tasa: number; fallos: string[] };
+
+/** Llamadas que cayeron al fallback DURANTE la corrida — la sonda solo mira al
+ *  principio, y los créditos se pueden agotar a mitad. */
+let fallbacks = 0;
 
 async function puntuar(promptOverride?: string, silencioso = false): Promise<Resultado> {
   let total = 0, aciertos = 0;
@@ -174,6 +234,7 @@ async function puntuar(promptOverride?: string, silencioso = false): Promise<Res
     if (!esperado || esperado === "?") continue;
     total++;
     const r = await quiebra(caso, promptOverride);
+    if (r.fallback) fallbacks++;
     const acierto = r.quiebra === (esperado === "B");
     if (acierto) aciertos++;
     else fallos.push(`#${caso.id} «${caso.mensaje.slice(0, 46)}» → ${r.intencion} (${r.quiebra ? "quebró" : "no quebró"}), anotado ${esperado}`);
@@ -276,6 +337,12 @@ console.log(`  ${casos.length} casos · ${anotaciones.size} anotados · ${puntua
 
 const r = await puntuar();
 
+if (fallbacks > 0) {
+  console.error(`\n✗ ${fallbacks} de ${r.total} clasificaciones cayeron al FALLBACK a mitad de la`);
+  console.error("  corrida (créditos agotados, API caída…). El porcentaje NO se imprime: estaría");
+  console.error("  calculado en parte sobre un clasificador que no respondió.\n");
+  process.exit(2);
+}
 console.log(`\n  ${r.tasa}%  (${r.aciertos} de ${r.total})\n`);
 if (r.fallos.length) {
   console.log("Fallos:");

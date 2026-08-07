@@ -46,7 +46,17 @@ Es TRUE si el mensaje toca cualquiera de estas seis cosas:
    correcta depende de lo que le hayan hecho en la boca, es criterio clínico.
 3. QUEJA O PROBLEMA — algo salió mal: esperas, errores de cobro, nadie le llamó, reincidencia.
 4. PIDE HABLAR CON UNA PERSONA — por teléfono, en persona, o con alguien concreto.
-5. AMBIGÜEDAD REAL — no se entiende qué quiere, ni siquiera con el contexto de arriba.
+5. AMBIGÜEDAD REAL — **y esta tiene regla propia: hacen falta DOS intentos, no uno.**
+   Un mensaje raro suelto puede ser un dedazo o una frase a medias; dos seguidos sin entenderse ya
+   es una conversación que no va a ningún sitio.
+   Arriba te dicen cuántos mensajes lleva el paciente sin que le contestemos:
+   · Si es el PRIMERO y no lo entiendes → **NO pares**. Pídele que te lo aclare («¿te refieres
+     a…?»), que es lo que haría una persona.
+   · Si ya es el SEGUNDO seguido sin respuesta nuestra y sigues sin entenderlo → **para**.
+   El contador se reinicia con cualquier respuesta nuestra, así que si pone «1» es que acabamos de
+   escribirle o es su primer mensaje.
+   Ojo: esto solo aplica a NO ENTENDER. Si el mensaje se entiende y toca dinero, criterio clínico,
+   queja, persona o tono negativo, se para al primero.
 6. TONO NEGATIVO — enfado, ironía, hartazgo, urgencia emocional.
 
 Es FALSE para un mensaje corriente: "ok", "vale", "gracias", "recibido", "confirmo la cita",
@@ -145,6 +155,18 @@ export async function clasificarRespuesta(args: {
   amount?: number;
   clinica?: string;
   /**
+   * Cuántos mensajes seguidos ha mandado el paciente sin que le hayamos
+   * contestado, contando el actual. Alimenta la regla de los DOS INTENTOS de la
+   * ambigüedad (decisión del 6 ago de 2026, como dice el documento de
+   * arquitectura): un mensaje raro suelto no para; dos seguidos sin entenderse,
+   * sí. Se DERIVA del hilo —no se persiste— y el contador se reinicia solo en
+   * cuanto respondemos, porque entonces deja de haber entrantes sin responder.
+   *
+   * Por defecto 1: sin contexto de hilo, se trata como primer intento, que es
+   * el lado que NO llena la cola.
+   */
+  entrantesSinResponder?: number;
+  /**
    * SOLO para el conjunto de evaluación (`npm run qa:evals -- --degradar`).
    * Sustituye el prompt del sistema para poder **degradarlo a propósito** y
    * comprobar que la puntuación BAJA — si no baja, el eval no mide nada y hay
@@ -172,6 +194,7 @@ export async function clasificarRespuesta(args: {
       `Tratamiento: ${args.treatments.join(", ")}`,
       `Importe: ${args.amount != null ? eur(args.amount) : "no especificado"}`,
       `Estado actual: ${args.estado}`,
+      `Mensajes suyos sin que le hayamos contestado (contando este): ${args.entrantesSinResponder ?? 1}`,
       args.clinica ? `Clínica: ${args.clinica}` : null,
       ``,
       `Respuesta del paciente:`,
@@ -292,10 +315,12 @@ export async function clasificarRespuesta(args: {
  * se convierte en un paciente mal atendido. Y el motivo lo DICE, en vez de
  * fingir que hubo un criterio.
  */
+export const MOTIVO_FALLBACK = "No se pudo leer el mensaje automáticamente";
+
 function fallbackClasificacion(): ClasificacionIA {
   return {
     requierePersona: true,
-    motivoQuiebre: "No se pudo leer el mensaje automáticamente",
+    motivoQuiebre: MOTIVO_FALLBACK,
     intencion: "Sin clasificar",
     categoriaPropuesta: null,
     urgencia: "MEDIO",

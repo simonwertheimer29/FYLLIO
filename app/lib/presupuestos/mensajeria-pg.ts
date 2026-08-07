@@ -74,6 +74,36 @@ export type UltimosPorConversacion = Map<
  * alimenta estadoConversacion en las colas (presupuestos y leads) sin traer
  * el hilo entero de cada caso.
  */
+/**
+ * Entrantes seguidos SIN respuesta nuestra, por presupuesto. Alimenta la regla
+ * de los dos intentos de la ambigüedad.
+ *
+ * Se DERIVA del hilo en una sola consulta: cero estado nuevo, y el contador se
+ * reinicia solo en cuanto sale un saliente — porque entonces ya no hay entrantes
+ * posteriores a él.
+ */
+export async function entrantesSinResponderPg(): Promise<Map<string, number>> {
+  const rows = await runWithClienteDb(cli(), async (trx) => {
+    const { sql } = await import("kysely");
+    const r: any = await sql
+      .raw(
+        `select m.presupuesto_id, count(*)::int as n
+         from mensajes_whatsapp m
+         where m.presupuesto_id is not null
+           and m.direccion = 'Entrante'
+           and m.timestamp is not null
+           and m.timestamp > coalesce(
+                 (select max(s.timestamp) from mensajes_whatsapp s
+                  where s.presupuesto_id = m.presupuesto_id and s.direccion = 'Saliente'),
+                 '-infinity'::timestamptz)
+         group by m.presupuesto_id`,
+      )
+      .execute(trx);
+    return r.rows as any[];
+  });
+  return new Map(rows.map((r) => [String(r.presupuesto_id), Number(r.n) || 0]));
+}
+
 export async function ultimosMensajesPorConversacionPg(): Promise<{
   porPresupuesto: UltimosPorConversacion;
   porLead: UltimosPorConversacion;

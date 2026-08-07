@@ -281,8 +281,19 @@ async function processIncomingMessage(body: unknown): Promise<void> {
     if (!clienteParaAfter) return;
     await runWithCliente(clienteParaAfter, async () => {
     try {
+      // Regla de los dos intentos (6 ago 2026): el contador de entrantes sin
+      // responder se deriva del hilo en el momento de clasificar. Si falla, se
+      // asume 1 —primer intento—, que es el lado que NO llena la cola.
+      let entrantesSinResponder = 1;
+      try {
+        const { entrantesSinResponderPg } = await import("../../../lib/presupuestos/mensajeria-pg");
+        entrantesSinResponder = (await entrantesSinResponderPg()).get(infoParaClasificar.id) ?? 1;
+      } catch (e) {
+        console.error("[waba webhook] contador de entrantes sin responder:", sanitizeError(e));
+      }
       const clasificacion = await clasificarRespuesta({
         respuestaPaciente: contenido,
+        entrantesSinResponder,
         patientName: infoParaClasificar.patientName,
         treatments: infoParaClasificar.treatments,
         estado: infoParaClasificar.estado,
