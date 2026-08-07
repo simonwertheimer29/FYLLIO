@@ -390,7 +390,20 @@ Eso es lo que mide la hipótesis **H9** de [`MERCADO.md`](MERCADO.md).
 
 #### Qué cadencia usa qué plantilla
 
-Diseño de producto que **no existe todavía**. Todas son de categoría **utilidad** (la más barata y
+**Escritas el 7 de agosto de 2026 en [`PLANTILLAS-WHATSAPP.md`](PLANTILLAS-WHATSAPP.md)**, con su
+texto completo, sus variables con ejemplos y qué conversación abre cada una.
+
+> ⏸️ **Tenerlas escritas NO adelanta plazo, y conviene no confundirlo.** Enviarlas a aprobación exige
+> una cuenta de Meta Business con el nombre legal y el NIF, así que **el reloj de Meta no ha empezado
+> a correr y no empieza hasta que se resuelva el alta fiscal**. Lo que se ha ganado es que ese día el
+> envío sea de horas y no de días. Planificar la fase 3 contando con que la aprobación ya está en
+> marcha daría una fecha falsa.
+>
+> **Y una de las once está bloqueada por dato, no por trámite:** `seguimiento_sigue_vigente` necesita
+> el plazo de validez del presupuesto, que no existe en el modelo ([MEJORAS 89](MEJORAS-PENDIENTES.md)).
+> Las otras diez se pueden enviar en cuanto haya cuenta.
+
+Resumen de las once (el detalle, en el catálogo): Todas son de categoría **utilidad** (la más barata y
 la que menos se rechaza), todas en español, ninguna nombra tratamiento ni importe:
 
 | Cadencia | Toque | Plantilla | Variables | Abre ventana para |
