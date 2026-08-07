@@ -2130,3 +2130,41 @@ añadirlo era una consulta más sobre la pantalla del dinero. Queda para cuando 
 Verificado sembrando dos avisos y borrándolos después: la franja aparece con hora y nombre, ordenada
 por la cita más temprana, y `qa-dashboard-red` sigue en verde — **el importe en riesgo no se mueve**
 (50.355 € antes y después).
+
+## 2026-08-07 — El pooler de Supabase: dos incidentes, tres manifestaciones. Registro por si vuelve
+Se anota porque con dos apariciones distintas en tres días ya no es una anécdota, y porque las dos
+se recuperaron solas — que es justo lo que hace que nadie las registre y luego nadie sepa que ya
+había pasado.
+
+**Primero, una corrección de mi propia frase:** dije «es la tercera vez hoy que el pooler da
+problemas». No es exacto. Son **dos incidentes con causa distinta**, y el segundo se vio en dos
+sitios. Lo escribo bien porque un registro que exagera la frecuencia hace tomar decisiones sobre un
+patrón que no existe.
+
+**Incidente 1 — 5 de agosto, justo después de `npm run db:migrate` (migración 014.)**
+Error `28P01`: *«Authentication credentials are invalid. Please reconnect with fresh credentials to
+restore pool functionality»* — mensaje del pooler (Supavisor), no de Postgres.
+**Causa identificada:** el post-paso de `db:migrate` ejecutaba `alter role fyllio_app with password`,
+y eso invalida las credenciales cacheadas del pooler **aunque la contraseña sea la misma** (se
+verificó comparando hashes: lo era). Recuperó **al primer reintento**, unos segundos después.
+**Ya está mitigado:** ese post-paso se sacó de `db:migrate` a `db:password` el mismo día, así que una
+migración de esquema ya no puede provocarlo.
+
+**Incidente 2 — 7 de agosto, dos manifestaciones en la misma ventana de minutos.**
+`timeout exceeded when trying to connect` (`pg-pool`), al calcular `calcularDashboardRed` desde un
+script; y **la misma causa vista en el navegador**, con `/red` mostrando su estado de error honesto
+(«No se pudieron cargar los datos» + Reintentar). Recuperó **al primer reintento**.
+**Causa NO identificada.** Hipótesis, sin confirmar: el `next dev` del 3000 lleva abierto desde el 29
+de julio con su pool vivo, y encima de eso la sesión ha abierto muchos clientes `pg` sueltos desde
+scripts. Si el pooler de Supabase limita conexiones por proyecto, agotarlas daría exactamente este
+timeout. **No se ha medido**, y decirlo como causa sin medirlo sería el error de siempre.
+
+**Qué mirar si vuelve a pasar**, en este orden:
+1. Cuántas conexiones hay abiertas contra el pooler (el panel de Supabase lo dice).
+2. Si coincide con un `next dev` de días o con una tanda de scripts.
+3. Si es reproducible sin nada más corriendo — porque si lo es, la hipótesis de arriba cae y hay que
+   buscar otra.
+
+**Lo único que ya está bien:** las dos veces, la aplicación **enseñó un error honesto con reintentar**
+en vez de una pantalla de ceros. Es exactamente lo que §4 y §10 vinieron a garantizar, funcionando en
+un fallo real y no en un test.
