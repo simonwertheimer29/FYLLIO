@@ -12,7 +12,7 @@ Dónde está Fyllio hoy, en una pantalla. Se lee al abrir sesión y se regenera 
 > [`guion-demo-fyllio.md`](guion-demo-fyllio.md) ·
 > [`PLAN-AGENTE.md`](PLAN-AGENTE.md).
 
-**Regenerado:** 3 de agosto de 2026.
+**Regenerado:** 7 de agosto de 2026.
 
 ---
 

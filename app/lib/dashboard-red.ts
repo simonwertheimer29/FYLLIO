@@ -86,6 +86,34 @@ export type RiesgoItem = {
   href: string;
 };
 
+/**
+ * Aviso del DÍA: alguien con cita hoy ha escrito hoy.
+ *
+ * POR QUÉ NO ES UN `RiesgoItem` (decisión del 6 ago de 2026). No es trabajo
+ * pendiente ni dinero en juego: es **información con caducidad de horas**. Un
+ * «llego cinco minutos tarde» a las 09:55 no significa nada a las 12:00, y una
+ * cohorte de la cola lo tendría ahí hasta que alguien lo marcara visto. Va a la
+ * franja del día porque el destinatario es distinto: el de la cola es quien hace
+ * seguimiento, el de esto es quien está en recepción ahora mismo.
+ *
+ * Y NO suma a `importeEnRiesgo`: no hay dinero en juego. Meterlo ahí movería el
+ * titular por una razón que no es pérdida.
+ */
+export type AvisoHoyItem = {
+  /** Nombre del paciente o lead. Nunca un id (§5 del estándar visual). */
+  quien: string;
+  /** Hora de su cita de hoy, "HH:MM" — o null si el dato no está. */
+  horaCita: string | null;
+  /**
+   * Qué dijo, si la clasificación lo sabe («Logística», «Acuse de recibo»…).
+   * `null` cuando el mensaje aún no está clasificado, que es lo normal mientras
+   * el agente no esté operativo: entonces la señal sigue valiendo — «ha escrito»
+   * ya es motivo para mirarlo si viene hoy.
+   */
+  deQueVa: string | null;
+  href: string;
+};
+
 /** "Qué está funcionando" — SOLO agregados con umbral de materialidad;
  *  el logro anecdótico de un presupuesto suelto está prohibido (revisión
  *  2026-07-23). Números verificables, cero causalidad. */
@@ -142,6 +170,8 @@ export type DashboardRed = {
   hoy: {
     riesgo: RiesgoItem[];
     exitos: ExitoItem[];
+    /** Con cita hoy y ha escrito hoy — ver `AvisoHoyItem`. */
+    avisos: AvisoHoyItem[];
     /** Σ € de las señales que tienen importe (los leads sin contactar no lo
      *  tienen). Titular de la franja: cuánto hay en juego hoy. */
     importeEnRiesgo: number;
@@ -839,12 +869,46 @@ export async function calcularDashboardRed(opts: {
     };
   });
 
+  // ── Avisos del día: con cita hoy y ha escrito hoy ──────────────────────────
+  //
+  // Se compone de datos YA cargados arriba: `ultimos` (último entrante por
+  // conversación) y las citas de los leads. Cero consultas nuevas.
+  //
+  // LO QUE ESTA SEÑAL NO SABE, y se declara en vez de disimularse: no distingue
+  // «llego tarde» de «no puedo ir» ni de «gracias». Eso lo sabría la
+  // clasificación (`intencion_detectada`), que solo existe cuando el agente ha
+  // corrido. Mientras no exista, `deQueVa` va en null y la señal dice lo único
+  // que sabe: **ha escrito, y viene hoy**. Que ya es motivo para mirarlo.
+  const avisosDelDia: AvisoHoyItem[] = [];
+  {
+    // El día de la CLÍNICA, anclado al `ahora` que recibe la función — nunca
+    // `Date.now()` por dentro (§14).
+    const hoyStr = hoyISO(ahora);
+    const esHoy = (iso: string | null | undefined) => !!iso && hoyISO(new Date(iso)) === hoyStr;
+    for (const l of leads) {
+      if (l.convertido || !esLeadActivo(l.estado)) continue;
+      const citaHoy = l.fechaCita && String(l.fechaCita).slice(0, 10) === hoyStr;
+      if (!citaHoy) continue;
+      const entrante = ultimos.porLead.get(l.id)?.entranteAt ?? null;
+      if (!esHoy(entrante)) continue;
+      avisosDelDia.push({
+        quien: l.nombre,
+        horaCita: l.horaCita ? String(l.horaCita).slice(0, 5) : null,
+        deQueVa: l.intencionDetectada ?? null,
+        href: `/seguimiento?vista=leads`,
+      });
+    }
+    // La cita más temprana primero: es la que antes deja de poder atenderse.
+    avisosDelDia.sort((a, b) => (a.horaCita ?? "99:99").localeCompare(b.horaCita ?? "99:99"));
+  }
+
   return {
     hoy: {
       // La franja ocupa el ancho completo y admite hasta 6 señales; hoy el
       // catálogo tiene 4 tipos, así que el tope no recorta nada.
       riesgo: riesgo.slice(0, 6),
       exitos: exitos.slice(0, 3),
+      avisos: avisosDelDia,
       importeEnRiesgo: riesgo.reduce((s, r) => s + (r.importe ?? 0), 0),
       clinicasEnRiesgo: clinicasRiesgo.size,
     },

@@ -2104,3 +2104,29 @@ antes acertaba. La hipótesis es que **la red de «Sin clasificar → quiebra» 
 accidente**, y al exigir dos intentos para la ambigüedad esa red desaparece y las carencias
 declaradas quedan al descubierto. Si se confirma, el 98 % anterior estaba inflado por suerte y el
 número honesto tras la regla es más bajo — que es exactamente lo que un eval debe destapar.
+
+## 2026-08-07 — El aviso del día no es una cohorte: es información que caduca en horas
+Un paciente con cita hoy que escribe («voy de camino, llego cinco minutos tarde») no es trabajo
+pendiente ni dinero en juego. Meterlo en la cola de Seguimiento lo trataría como un caso: seguiría
+ahí hasta que alguien lo marcara visto, cuando a las 12:00 ya no significa nada. **Y el destinatario
+es otro:** el de la cola es quien hace seguimiento; el de esto es quien está en recepción ahora.
+
+Va a una franja propia de `/red` —«Vienen hoy y han escrito»— y **NO suma a `importeEnRiesgo`**:
+no hay dinero en juego, y meterlo movería el titular por algo que no es pérdida.
+
+**Cero consultas nuevas:** se compone de datos que el dashboard ya carga (el último entrante por
+conversación y la cita del lead).
+
+**Lo que la señal NO sabe, declarado en vez de disimulado:** no distingue «llego tarde» de «no puedo
+ir» ni de «gracias». Eso lo sabría la clasificación, que solo existe cuando el agente ha corrido —y
+hoy los créditos están agotados. Mientras no exista, la etiqueta va vacía y la señal dice lo único
+que sabe: **ha escrito, y viene hoy.** Que ya es motivo para mirarlo. Cuando la clasificación existe,
+la fila la enseña (en la prueba salió «Pregunta precio»).
+
+**Y una limitación de alcance que conviene saber:** hoy solo cubre **leads** con cita. Un paciente
+con cita en la agenda que no venga de un lead no aparece — el dashboard no carga `citas` para esto y
+añadirlo era una consulta más sobre la pantalla del dinero. Queda para cuando haga falta.
+
+Verificado sembrando dos avisos y borrándolos después: la franja aparece con hora y nombre, ordenada
+por la cita más temprana, y `qa-dashboard-red` sigue en verde — **el importe en riesgo no se mueve**
+(50.355 € antes y después).

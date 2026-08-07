@@ -51,6 +51,7 @@ import {
   Activity,
   Filter,
   ICON_STROKE,
+  Clock,
 } from "../../components/icons";
 
 const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -705,7 +706,53 @@ export function RedView({ user: _user }: { user: UserSession }) {
                 }))}
               />
             </div>
-            <div className="lg:col-span-2">
+            <div className="lg:col-span-2 space-y-4">
+              {/* Avisos del día. NO va con las señales de riesgo a propósito: no
+                  es dinero en juego ni trabajo pendiente, es información que
+                  caduca en horas y cuyo destinatario es quien está en recepción
+                  ahora. Solo aparece si hay algo — una franja vacía más en la
+                  pantalla del dinero es ruido. */}
+              {hoy.avisos.length > 0 && (
+                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+                  <div className="flex items-center gap-2">
+                    <Clock
+                      size={18}
+                      strokeWidth={ICON_STROKE}
+                      className="shrink-0 text-[var(--color-accent)]"
+                      aria-hidden
+                    />
+                    <h3 className="font-display text-sm font-semibold text-[var(--color-foreground)]">
+                      Vienen hoy y han escrito
+                    </h3>
+                  </div>
+                  <p className="mt-1 text-xs text-[var(--color-muted)]">
+                    Míralo antes de dar el hueco por perdido.
+                  </p>
+                  <ul className="mt-2.5 space-y-1.5">
+                    {hoy.avisos.map((a, i) => (
+                      <li key={`${a.quien}-${i}`} className="flex items-baseline gap-2 text-sm">
+                        <span className="w-11 shrink-0 tabular-nums text-[var(--color-muted)]">
+                          {a.horaCita ?? "—"}
+                        </span>
+                        <a
+                          href={a.href}
+                          className="min-w-0 flex-1 truncate font-medium text-[var(--color-foreground)] hover:text-[var(--color-accent)] hover:underline"
+                        >
+                          {a.quien}
+                        </a>
+                        {/* Solo si la clasificación existe. Sin ella no se
+                            inventa un titular: «ha escrito» ya es la señal. */}
+                        {a.deQueVa && (
+                          <span className="shrink-0 text-xs text-[var(--color-muted)]">
+                            {a.deQueVa}
+                          </span>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
               <FranjaSenales
                 tono="exito"
                 icono={<TrendingUp size={18} strokeWidth={ICON_STROKE} aria-hidden />}
