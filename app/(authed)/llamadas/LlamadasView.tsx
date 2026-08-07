@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Phone, RefreshCw, X, User, Info, ICON_STROKE } from "../../components/icons";
 import { deDiccionario } from "../../lib/diccionario";
 import { fechaHoraClinica } from "../../lib/time";
+import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
 
 type Llamada = {
   id: string;
@@ -136,7 +137,7 @@ export function LlamadasView({
   const [llamadas, setLlamadas] = useState<Llamada[]>([]);
   const [kpis, setKpis] = useState<Kpis | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [filtroEstado, setFiltroEstado] = useState<Llamada["estado"] | "todas">(
     "todas",
   );
@@ -147,22 +148,22 @@ export function LlamadasView({
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
-    setError(false);
+    setError(null);
     try {
+      // `cargarJSON` en vez de `r.llamadas ?? []`: comprueba el status, el
+      // cuerpo y el campo `error` (que varias rutas mandan con 200), y LANZA en
+      // vez de devolver una lista vacía. Un fallo de carga aquí se veía igual
+      // que "hoy no ha llamado nadie" (§10).
       const [r, k] = await Promise.all([
-        fetch("/api/llamadas?limit=100").then((r) => {
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return r.json();
+        cargarJSON<{ llamadas: Llamada[] }>("/api/llamadas?limit=100", {
+          validar: traeLista("llamadas"),
         }),
-        fetch("/api/llamadas/kpis").then((r) => {
-          if (!r.ok) throw new Error(`HTTP ${r.status}`);
-          return r.json();
-        }),
+        cargarJSON<Kpis>("/api/llamadas/kpis"),
       ]);
-      setLlamadas(r.llamadas ?? []);
+      setLlamadas(r.llamadas);
       setKpis(k);
-    } catch {
-      setError(true);
+    } catch (e) {
+      setError(mensajeDeError(e));
     } finally {
       setLoading(false);
     }
@@ -234,7 +235,7 @@ export function LlamadasView({
 
         {error && !loading ? (
         <ErrorState
-          detail="Las llamadas no están disponibles ahora mismo."
+          detail={`Las llamadas no están disponibles ahora mismo. ${error}`}
           onRetry={fetchAll}
         />
       ) : (

@@ -17,6 +17,7 @@ import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { ErrorState } from "../../../components/ui/Feedback";
 import { AlertTriangle, Target, ICON_STROKE } from "../../../components/icons";
+import { cargarJSON, traeLista, mensajeDeError } from "../../../lib/fetch-json";
 import { HorarioLaboralPanel } from "./HorarioLaboralPanel";
 import { LlamadasIaPanel } from "./LlamadasIaPanel";
 import { MotorNoShowsPanel } from "./MotorNoShowsPanel";
@@ -120,17 +121,21 @@ export default function ConfiguracionView({
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetch(
+    // `cargarJSON` (§10): comprueba también el cuerpo, no solo el status —
+    // varias rutas mandan `{error}` con 200, y ahí `j.opciones ?? []` dejaba la
+    // categoría vacía sin decir nada. Y el mensaje que ve el usuario deja de ser
+    // «HTTP 500».
+    cargarJSON<{ opciones: Opcion[] }>(
       `/api/configuraciones/${scope}?all=true&categoria=${categoria}`,
+      { validar: traeLista("opciones") },
     )
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((j) => {
         if (cancelled) return;
-        setOpciones(j.opciones ?? []);
+        setOpciones(j.opciones);
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Error al cargar");
+        setError(mensajeDeError(err));
       })
       .finally(() => !cancelled && setLoading(false));
     return () => {
@@ -664,15 +669,16 @@ function PlantillasPanel({ scope }: { scope: Scope }) {
     if (scope !== "global") params.set("clinicaId", scope);
     params.set("categoria", filtroCategoria);
     params.set("all", "true");
-    fetch(`/api/plantillas?${params.toString()}`)
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+    cargarJSON<{ plantillas: Plantilla[] }>(`/api/plantillas?${params.toString()}`, {
+      validar: traeLista("plantillas"),
+    })
       .then((j) => {
         if (cancelled) return;
-        setPlantillas(j.plantillas ?? []);
+        setPlantillas(j.plantillas);
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Error al cargar");
+        setError(mensajeDeError(err));
       })
       .finally(() => !cancelled && setLoading(false));
     return () => {

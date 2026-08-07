@@ -54,28 +54,41 @@ function archivos(dir, ext = [".ts", ".tsx"]) {
 // había SIETE deudas fuera del recuento — el trinquete apretaba 15 y la deuda
 // real era 22. Un guardián que no ve una de las dos sintaxis del mismo bug no
 // mide la deuda, la subestima. Las siete entran abajo declaradas.
-const DEUDA = new Set([
-  "app/(authed)/ajustes/clinica-equipo/ClinicaEquipoView.tsx: `d.clinicas ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/(authed)/ajustes/clinica-equipo/ClinicaEquipoView.tsx: `d.usuarios ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/(authed)/ajustes/configuracion/ConfiguracionView.tsx: `j.opciones ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/(authed)/ajustes/configuracion/ConfiguracionView.tsx: `j.plantillas ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/(authed)/pacientes/PacientesView.tsx: `d.presupuestos ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/(authed)/pacientes/PacientesView.tsx: `d.presupuestos ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/(authed)/pacientes/PacientesView.tsx: `d.presupuestos ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/components/presupuestos/ConfigAutomatizaciones.tsx: `data.plantillas ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/components/presupuestos/Paciente360View.tsx: `d.presupuestos ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/components/presupuestos/Paciente360View.tsx: `d.historial ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  // Las siete que la heurística vieja no veía (forma `.then((d) => …)`).
-  "app/(authed)/automatizaciones/MotorReglasView.tsx: `r.reglas ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/(authed)/llamadas/LlamadasView.tsx: `r.llamadas ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/components/pacientes/Paciente360View.tsx: `j.mensajes ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  "app/components/presupuestos/ConfigAutomatizaciones.tsx: `d.clinicas ?? []` sobre una respuesta de fetch — usa cargarJSON (§10)",
-  // (Las dos de InformesView se pagaron el 2026-07-30, bloque 1.2 de /kpis.)
-  // (Las tres de OperationsPanel se pagaron el 2026-08-03 BORRANDO el archivo,
-  //  que es lo que esta nota pedía: era código muerto —sin consumidor, igual que
-  //  NoShowRiskPanel— llamando a rutas del prototipo retirado en a8717a3.
-  //  MEJORAS 60 cerrada.)
-]);
+// AL DÍA (2026-08-07): la lista está VACÍA. Las doce se migraron a `cargarJSON`
+// de una tanda — no como decía la nota de julio ("cuando a esa pantalla le toque
+// su pasada visual"), porque un año después la mitad seguían ahí. Hacerlo junto
+// costó una tarde y el compilador cazó cada sitio.
+//
+// Dos cosas que aparecieron al migrarlas, y las dos van en la misma dirección:
+//
+// 1. **La nota de julio se quedó corta.** Decía que "todos van detrás de un
+//    `res.ok` comprobado, así que hoy no mienten". CINCO de los loaders no
+//    miraban el status siquiera: los cuatro de ConfigAutomatizaciones y el
+//    principal de MotorReglasView. Ahí un 500 con `{error}` se pintaba como "no
+//    hay reglas", "no hay clínicas" o "no hay plantillas". Y dos más SÍ lo
+//    comprobaban pero **fallaban en silencio**: las dos recargas de
+//    ClinicaEquipoView y el `refrescarFila` de PacientesView hacían `return` sin
+//    decir nada justo después de una mutación, así que la pantalla se quedaba
+//    con las cifras de antes y parecía que el cambio no se había guardado.
+//
+// 2. **El detector veía menos de lo que había.** Las doce entradas de la lista
+//    eran doce mensajes DISTINTOS, pero catorce líneas (tres de PacientesView
+//    eran idénticas y el Set las contaba como una). Y al abrir los archivos
+//    aparecieron cinco `?? []` más de la misma familia que la heurística no
+//    reconocía, por venir de un `Promise.all` con desestructuración o de un
+//    `(await res.json()) as T` con paréntesis. Total migrado: diecinueve.
+//
+// Un inventario de deuda escrito de memoria envejece hacia el optimismo, y un
+// detector que no ve todas las formas del mismo bug la subestima.
+//
+// De aquí en adelante: cualquier `?? []` sobre una respuesta de fetch hace
+// fallar el script. Si hace falta añadir uno, se justifica aquí con su motivo —
+// pero el motivo casi nunca existe: para eso está `cargarJSON`.
+//
+// (Las dos de InformesView se pagaron el 2026-07-30, bloque 1.2 de /kpis. Las
+//  tres de OperationsPanel, el 2026-08-03 BORRANDO el archivo: era código muerto
+//  llamando a rutas del prototipo retirado en a8717a3. MEJORAS 60 cerrada.)
+const DEUDA = new Set([]);
 
 const fallos = [];
 const sinComentarios = (s) =>

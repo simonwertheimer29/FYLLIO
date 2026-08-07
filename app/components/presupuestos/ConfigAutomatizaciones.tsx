@@ -23,6 +23,7 @@ import {
 import { ErrorState } from "../ui/Feedback";
 import type { UserSession, ConfiguracionAutomatizacion, ModoWhatsApp, PlantillaMensaje, TipoPlantilla, ConfigRecordatorios } from "../../lib/presupuestos/types";
 import { mesISO } from "../../lib/time";
+import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
 
 interface Props {
   user: UserSession;
@@ -55,23 +56,29 @@ function SectionAutomatizaciones({ user }: { user: UserSession }) {
     setLoading(true);
     setLoadError(false);
     try {
+      // `cargarJSON` (§10). Ninguna de las dos comprobaba el status: un 500 con
+      // `{error}` llegaba como objeto sin `clinicas`, el `?? []` lo convertía en
+      // lista vacía y la pantalla decía que no hay clínicas.
       const [configRes, clinicasRes] = await Promise.all([
-        fetch("/api/automatizaciones/configuracion").then((r) => r.json()),
-        fetch("/api/presupuestos/clinicas").then((r) => r.json()),
+        cargarJSON<{
+          configuraciones?: ConfiguracionAutomatizacion[];
+          configuracion?: ConfiguracionAutomatizacion;
+        }>("/api/automatizaciones/configuracion"),
+        cargarJSON<{ clinicas: string[] }>("/api/presupuestos/clinicas", {
+          validar: traeLista("clinicas"),
+        }),
       ]);
       const map: ConfigMap = {};
       if (configRes.configuraciones) {
-        for (const c of configRes.configuraciones as ConfiguracionAutomatizacion[]) {
-          map[c.clinica] = c;
-        }
+        for (const c of configRes.configuraciones) map[c.clinica] = c;
       } else if (configRes.configuracion) {
-        const c = configRes.configuracion as ConfiguracionAutomatizacion;
-        map[c.clinica] = c;
+        map[configRes.configuracion.clinica] = configRes.configuracion;
       }
       setConfigs(map);
-      setClinicas(clinicasRes.clinicas ?? []);
+      setClinicas(clinicasRes.clinicas);
     } catch {
-      setConfigs({});
+      // No se vacía `configs`: lo último bueno se conserva y el error se
+      // enseña encima. Vaciar ya es perder información que sí teníamos (§10).
       setLoadError(true);
     } finally {
       setLoading(false);
@@ -312,25 +319,32 @@ function SectionObjetivos({ user }: { user: UserSession }) {
     setLoadError(false);
     try {
       const [objData, kanbanData, clinicasData] = await Promise.all([
-        fetch(`/api/presupuestos/objetivos?mes=${mesMTD}`).then((r) => r.json()),
-        fetch(`/api/presupuestos/kanban`).then((r) => r.json()),
-        fetch("/api/presupuestos/clinicas").then((r) => r.json()),
+        cargarJSON<{ objetivos: { clinica: string; objetivo_aceptados: number }[] }>(
+          `/api/presupuestos/objetivos?mes=${mesMTD}`,
+          { validar: traeLista("objetivos") },
+        ),
+        cargarJSON<{
+          presupuestos: { estado: string; fechaPresupuesto?: string; clinica?: string }[];
+        }>(`/api/presupuestos/kanban`, { validar: traeLista("presupuestos") }),
+        cargarJSON<{ clinicas: string[] }>("/api/presupuestos/clinicas", {
+          validar: traeLista("clinicas"),
+        }),
       ]);
       const objMap: Record<string, number> = {};
-      for (const o of (objData.objetivos ?? [])) {
+      for (const o of objData.objetivos) {
         objMap[o.clinica] = o.objetivo_aceptados;
       }
       setObjetivos(objMap);
 
       const aceptMap: Record<string, number> = {};
-      for (const p of (kanbanData.presupuestos ?? [])) {
+      for (const p of kanbanData.presupuestos) {
         if (p.estado === "ACEPTADO" && p.fechaPresupuesto?.startsWith(mesMTD)) {
           const key = p.clinica ?? "Sin clínica";
           aceptMap[key] = (aceptMap[key] ?? 0) + 1;
         }
       }
       setAceptadosMTD(aceptMap);
-      setClinicas(clinicasData.clinicas ?? []);
+      setClinicas(clinicasData.clinicas);
     } catch { setLoadError(true); }
     finally { setLoading(false); }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -659,14 +673,23 @@ function SectionNotificaciones() {
 function SectionClinica({ user }: { user: UserSession }) {
   const [clinicas, setClinicas] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/api/presupuestos/clinicas")
-      .then((r) => r.json())
-      .then((d) => { setClinicas(d.clinicas ?? []); })
-      .catch(() => {})
+  // Antes: `.catch(() => {})` + `?? []`. Si la carga fallaba, la pantalla
+  // enseñaba una red de CERO clínicas sin decir nada — y esta sección existe
+  // justo para enseñar cuántas hay (§10).
+  const cargar = useCallback(() => {
+    setLoading(true);
+    setLoadError(null);
+    cargarJSON<{ clinicas: string[] }>("/api/presupuestos/clinicas", {
+      validar: traeLista("clinicas"),
+    })
+      .then((d) => setClinicas(d.clinicas))
+      .catch((e) => setLoadError(mensajeDeError(e)))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { cargar(); }, [cargar]);
 
   const rolLabel: Record<string, string> = {
     manager_general:  "Manager General",
@@ -708,6 +731,12 @@ function SectionClinica({ user }: { user: UserSession }) {
         <div className="space-y-2 animate-pulse">
           {[0, 1].map((i) => <div key={i} className="h-14 rounded-2xl bg-[var(--color-surface-muted)]" />)}
         </div>
+      ) : loadError ? (
+        <ErrorState
+          title="No se pudo cargar la red de clínicas"
+          detail={loadError}
+          onRetry={cargar}
+        />
       ) : clinicas.length > 0 ? (
         <div>
           <h4 className="text-xs font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-3">
@@ -1054,9 +1083,13 @@ function SectionPlantillas({ user }: { user: UserSession }) {
     setLoading(true);
     setLoadError(false);
     try {
-      const res = await fetch("/api/presupuestos/plantillas");
-      const data = await res.json();
-      setPlantillas(data.plantillas ?? []);
+      // Sin comprobar el status, un 500 dejaba la lista de plantillas vacía y
+      // parecía que la clínica no tenía ninguna configurada (§10).
+      const data = await cargarJSON<{ plantillas: PlantillaMensaje[] }>(
+        "/api/presupuestos/plantillas",
+        { validar: traeLista("plantillas") },
+      );
+      setPlantillas(data.plantillas);
     } catch { setLoadError(true); }
     finally { setLoading(false); }
   }

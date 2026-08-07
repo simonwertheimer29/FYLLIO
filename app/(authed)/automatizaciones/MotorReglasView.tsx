@@ -26,6 +26,7 @@ import {
 import { WA_ENGINE_OPERATIVO } from "../../lib/automatizaciones/types";
 import { deDiccionario } from "../../lib/diccionario";
 import { fechaHoraClinica } from "../../lib/time";
+import { cargarJSON, traeLista } from "../../lib/fetch-json";
 
 type Regla = {
   id: string;
@@ -138,16 +139,23 @@ export function MotorReglasView({ isAdmin }: { isAdmin: boolean }) {
     setLoading(true);
     setError(false);
     try {
+      // `cargarJSON` (§10). Ninguna de las tres comprobaba el status: un 500
+      // llegaba como `{error}`, los `?? []` lo volvían listas vacías y la
+      // pantalla del motor decía «ninguna regla» y «ningún error» — que es
+      // exactamente lo que se quiere ver, y por eso nadie lo miraría dos veces.
       const [r, k, e] = await Promise.all([
-        fetch("/api/automatizaciones/reglas").then((r) => r.json()),
-        fetch("/api/automatizaciones/kpis").then((r) => r.json()),
-        fetch("/api/automatizaciones/acciones?soloErrores=true&limit=10").then((r) =>
-          r.json(),
+        cargarJSON<{ reglas: Regla[] }>("/api/automatizaciones/reglas", {
+          validar: traeLista("reglas"),
+        }),
+        cargarJSON<Kpis>("/api/automatizaciones/kpis"),
+        cargarJSON<{ acciones: AccionLog[] }>(
+          "/api/automatizaciones/acciones?soloErrores=true&limit=10",
+          { validar: traeLista("acciones") },
         ),
       ]);
-      setReglas(r.reglas ?? []);
+      setReglas(r.reglas);
       setKpis(k);
-      setErrores(e.acciones ?? []);
+      setErrores(e.acciones);
     } catch {
       setError(true);
     } finally {
@@ -492,11 +500,11 @@ function HistorialDrawer({
         url.searchParams.set("reglaId", reglaId);
         if (filter === "errors") url.searchParams.set("soloErrores", "true");
         url.searchParams.set("limit", "50");
-        const res = await fetch(url.toString());
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const d = (await res.json()) as { acciones?: AccionLog[] };
+        const d = await cargarJSON<{ acciones: AccionLog[] }>(url.toString(), {
+          validar: traeLista("acciones"),
+        });
         if (!cancelled) {
-          let arr = d.acciones ?? [];
+          let arr = d.acciones;
           if (filter === "success") arr = arr.filter((a) => a.resultado === "success");
           setItems(arr);
         }

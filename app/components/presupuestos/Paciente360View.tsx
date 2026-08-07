@@ -12,6 +12,7 @@ import { formatTipo } from "../../lib/pagos-format";
 import { ESTADO_CONFIG } from "../../lib/presupuestos/colors";
 import { Card } from "../ui/Card";
 import { EmptyState, ErrorState } from "../ui/Feedback";
+import { cargarJSON, traeLista } from "../../lib/fetch-json";
 import { eur } from "../shared/Cifra";
 import { fechaClinica } from "../../lib/time";
 import {
@@ -109,19 +110,23 @@ export default function Paciente360View({ nombre }: Props) {
       try {
         const url = new URL("/api/presupuestos/paciente", location.href);
         url.searchParams.set("nombre", nombre);
-        const res = await fetch(url.toString());
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const d = await res.json();
-        setPresupuestos(d.presupuestos ?? []);
-        setHistorial(d.historial ?? []);
+        // `cargarJSON` (§10): el `res.ok` de antes no veía un 200 con `{error}`,
+        // y los `?? []` lo pintaban como un paciente sin presupuestos ni
+        // historial — en la pantalla que la coordinadora abre justo para saber
+        // qué se le ha hecho a ese paciente.
+        const d = await cargarJSON<{
+          presupuestos: Presupuesto[];
+          historial: HistorialAccion[];
+          isDemo?: boolean;
+          pacienteId?: string | null;
+        }>(url.toString(), { validar: traeLista("presupuestos") });
+        setPresupuestos(d.presupuestos);
+        setHistorial(d.historial);
         setIsDemo(d.isDemo ?? false);
         setPacienteId(d.pacienteId ?? null);
       } catch {
-        // (Este SÍ estaba bien: vacía las listas pero marca `loadError`, que
-        // pinta un ErrorState. Revisado en el censo 2026-07-29.)
-        setPresupuestos([]);
-        setHistorial([]);
-        setPacienteId(null);
+        // No se vacían las listas: si había datos de una carga anterior, se
+        // conservan y el error se enseña encima (§10).
         setLoadError(true);
       } finally {
         setLoading(false);

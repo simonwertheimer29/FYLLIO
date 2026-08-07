@@ -2232,3 +2232,32 @@ guard **se dejaba una columna** porque leía `add column` suelto y la 016 usa
 hay en el SQL y lo que se ha sabido leer, y abortar si no cuadra** — probado con las tres salidas.
 Se engancha a `db:migrate`, que avisa (no falla: las migraciones ya se aplicaron y salir con error
 haría dudar de si se aplicaron).
+
+## 2026-08-07 — Pagada la deuda de `?? []`: la lista del trinquete está a cero
+Los doce `?? []` sobre respuestas de fetch que quedaban declarados en `qa:sin-fallbacks` pasan a
+`cargarJSON`. Eran doce mensajes distintos pero **catorce líneas** (tres de PacientesView eran
+idénticas y el Set las contaba como una), y al abrir los archivos aparecieron **cinco más** de la
+misma familia que el detector no reconocía —venían de un `Promise.all` con desestructuración o de un
+`(await res.json()) as T` con paréntesis—. Diecinueve en total, en ocho pantallas.
+
+**La nota de julio decía que ninguno mentía, y no era verdad.** Escrita así: «todos van detrás de un
+`res.ok` comprobado». **Cinco loaders no miraban el status siquiera** —los cuatro de
+`ConfigAutomatizaciones` y el principal de `MotorReglasView`—, así que un 500 con `{error}` se
+pintaba como «no hay reglas», «no hay clínicas» o «no hay plantillas». Y **dos más lo comprobaban y
+fallaban en silencio**: las recargas de `ClinicaEquipoView` y el `refrescarFila` de `PacientesView`
+hacían `return` sin decir nada **justo después de una mutación**, así que la pantalla se quedaba con
+las cifras de antes y el usuario no podía distinguir «no se guardó» de «no se recargó».
+
+Es el mismo patrón que el de la semana pasada con §05 del documento de arquitectura: **un inventario
+escrito de memoria envejece hacia el optimismo.** La nota además fijaba cuándo pagarla —«cuando a esa
+pantalla le toque su pasada visual»— y un año después la mitad seguían ahí. Hacerlo de una tanda
+costó una tarde, porque el compilador señala cada sitio.
+
+De paso, dos arreglos que no eran de la lista: `SectionClinica` tenía un `.catch(() => {})` que
+enseñaba una red de CERO clínicas sin decir nada, y el hilo de mensajes de `Paciente360View` dejaba
+pasar un 200 con `{error}` como hilo vacío **sin sumar a su contador de fallos**, así que el aviso de
+«no se pudo cargar el hilo» no llegaba a encenderse. El 404 sigue tratándose aparte, que ahí sí es un
+caso legítimo: ese presupuesto no tiene conversación.
+
+Con la lista vacía, el guardián ya no puede demostrar nada por sí solo, así que se comprobó al revés:
+metiendo un `?? []` nuevo a propósito y viendo que falla con salida 1.

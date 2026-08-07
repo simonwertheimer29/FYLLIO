@@ -32,6 +32,7 @@ import { formatTipo } from "../../lib/pagos-format";
 import { eur } from "../shared/Cifra";
 import { TZ_CLINICA } from "../../lib/time";
 import { PagoModal } from "./PagoModal";
+import { cargarJSON, traeLista, ErrorDeCarga } from "../../lib/fetch-json";
 import {
   estadoConversacion,
   entradaDesdeMensajes,
@@ -560,15 +561,19 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
     setHiloError(false);
     let fallos = 0;
     Promise.all(
+      // `cargarJSON` (§10). Lo que faltaba: un 200 cuyo cuerpo NO trae
+      // `mensajes` —un `{error}`, que varias rutas mandan con 200— se colaba
+      // por el `?? []` como hilo vacío **sin sumar a `fallos`**, así que el
+      // aviso de "no se pudo cargar el hilo" no se encendía. El 404 sigue
+      // siendo un caso legítimo: ese presupuesto no tiene conversación.
       ps.map((p) =>
-        fetch(`/api/presupuestos/mensajes?presupuestoId=${p.id}`)
-          .then((r) => {
-            if (r.status === 404) return { mensajes: [] };
-            if (!r.ok) throw new Error();
-            return r.json();
-          })
-          .then((j) => (j.mensajes ?? []) as MensajeHilo[])
-          .catch(() => {
+        cargarJSON<{ mensajes: MensajeHilo[] }>(
+          `/api/presupuestos/mensajes?presupuestoId=${p.id}`,
+          { validar: traeLista("mensajes") },
+        )
+          .then((j) => j.mensajes)
+          .catch((e) => {
+            if (e instanceof ErrorDeCarga && e.status === 404) return [] as MensajeHilo[];
             fallos++;
             return [] as MensajeHilo[];
           }),

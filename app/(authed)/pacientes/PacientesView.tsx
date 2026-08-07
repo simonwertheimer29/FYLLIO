@@ -21,6 +21,7 @@ import { useClinic } from "../../lib/context/ClinicContext";
 import { Card } from "../../components/ui/Card";
 import { Cifra, eur } from "../../components/shared/Cifra";
 import { EmptyState } from "../../components/ui/Feedback";
+import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
 import { MessageCircle, Users, Euro, Pencil, FileText, ChevronDown, ICON_STROKE } from "../../components/icons";
 import { PagoModal } from "../../components/pacientes/PagoModal";
 import NewPresupuestoModal from "../../components/presupuestos/NewPresupuestoModal";
@@ -290,14 +291,26 @@ export function PacientesView({
     return typeof d.presupuestosActualizados === "number" ? d.presupuestosActualizados : 0;
   }
 
+  /** La ficha de un paciente. Los TRES sitios que la piden pasan por aquí, y
+   *  por `cargarJSON`, que lanza en vez de devolver una lista vacía (§10).
+   *  Antes cada uno la leía a su manera y los tres tenían un `?? []` sobre
+   *  `presupuestos`: uno hacía `return` en silencio tras una mutación —la fila
+   *  se quedaba con las cifras de antes, sin avisar—, otro lo pintaba como
+   *  paciente sin presupuestos, y el tercero enseñaba «HTTP 500». */
+  async function cargarFicha(id: string) {
+    return cargarJSON<{
+      paciente?: { clinicaId?: string | null };
+      presupuestos: unknown[];
+      kpisPagos?: { pendiente?: number; totalFacturado?: number; firmado?: number };
+    }>(`/api/pacientes/${id}`, { validar: traeLista("presupuestos") });
+  }
+
   // Refresca los DERIVADOS de una fila tras una mutación de negocio (cobro,
   // estado): relee la ficha y recalcula con sus presupuestos/pagos reales.
   async function refrescarFila(id: string) {
     try {
-      const res = await fetch(`/api/pacientes/${id}`);
-      if (!res.ok) return;
-      const d = await res.json();
-      const presus = (d.presupuestos ?? []) as Array<{ estado: string; tratamiento: string | null }>;
+      const d = await cargarFicha(id);
+      const presus = d.presupuestos as Array<{ estado: string; tratamiento: string | null }>;
       const nAcept = presus.filter((x) => x.estado === "ACEPTADO").length;
       const nPerd = presus.filter((x) => x.estado === "PERDIDO").length;
       const nVivos = presus.length - nAcept - nPerd;
@@ -336,15 +349,13 @@ export function PacientesView({
     if (detalles[p.id]) return;
     setDetalles((prev) => ({ ...prev, [p.id]: { estado: "cargando" } }));
     try {
-      const res = await fetch(`/api/pacientes/${p.id}`);
-      if (!res.ok) throw new Error(String(res.status));
-      const d = await res.json();
+      const d = await cargarFicha(p.id);
       setDetalles((prev) => ({
         ...prev,
         [p.id]: {
           estado: "listo",
-          clinicaId: (d.paciente?.clinicaId as string | null) ?? null,
-          presupuestos: (d.presupuestos ?? []) as PresupuestoFila[],
+          clinicaId: d.paciente?.clinicaId ?? null,
+          presupuestos: d.presupuestos as PresupuestoFila[],
           pendiente: (d.kpisPagos?.pendiente ?? 0) as number,
           cobrado: (d.kpisPagos?.totalFacturado ?? 0) as number,
         },
@@ -356,16 +367,16 @@ export function PacientesView({
   }
 
   async function cargarDetalle(id: string) {
-    const res = await fetch(`/api/pacientes/${id}`);
-    if (!res.ok) {
-      toast.error("No se pudo cargar el paciente — inténtalo de nuevo");
+    try {
+      const d = await cargarFicha(id);
+      return {
+        clinicaId: d.paciente?.clinicaId ?? null,
+        presupuestos: d.presupuestos as Array<PresupuestoBrief & { estado: string }>,
+      };
+    } catch (e) {
+      toast.error(mensajeDeError(e));
       return null;
     }
-    const d = await res.json();
-    return {
-      clinicaId: (d.paciente?.clinicaId as string | null) ?? null,
-      presupuestos: (d.presupuestos ?? []) as Array<PresupuestoBrief & { estado: string }>,
-    };
   }
 
   async function abrirRegistrarCobro(p: Paciente) {

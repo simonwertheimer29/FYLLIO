@@ -8,6 +8,7 @@ import { useCallback, useState } from "react";
 import { Card } from "../../../components/ui/Card";
 import { StatePill } from "../../../components/ui/StatePill";
 import { X, ICON_STROKE } from "../../../components/icons";
+import { cargarJSON, traeLista, mensajeDeError } from "../../../lib/fetch-json";
 
 // Mismo criterio que el backend (isValidLoginEmail): sin espacios/comillas.
 const EMAIL_RE = /^[^\s@'"\\]+@[^\s@'"\\]+\.[^\s@'"\\]+$/;
@@ -47,18 +48,30 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
   );
   const [error, setError] = useState<string | null>(null);
 
+  // Las dos recargas van por `cargarJSON` (§10). Antes eran
+  // `if (res.ok) { … ?? [] }`: si la recarga fallaba, la función **no hacía
+  // nada y no lo decía**, así que la pantalla se quedaba con la lista de antes
+  // justo después de un cambio — el usuario veía su clínica desactivada seguir
+  // activa y no tenía forma de saber si el cambio no se guardó o solo no se
+  // recargó. Conservar lo último bueno está bien; conservarlo en silencio, no.
   const refreshClinicas = useCallback(async () => {
-    const res = await fetch("/api/admin/clinicas");
-    if (res.ok) {
-      const d = await res.json();
-      setClinicas(d.clinicas ?? []);
+    try {
+      const d = await cargarJSON<{ clinicas: Clinica[] }>("/api/admin/clinicas", {
+        validar: traeLista("clinicas"),
+      });
+      setClinicas(d.clinicas);
+    } catch (e) {
+      setError(`El cambio se guardó, pero la lista no se pudo recargar. ${mensajeDeError(e)}`);
     }
   }, []);
   const refreshUsuarios = useCallback(async () => {
-    const res = await fetch("/api/admin/usuarios");
-    if (res.ok) {
-      const d = await res.json();
-      setUsuarios(d.usuarios ?? []);
+    try {
+      const d = await cargarJSON<{ usuarios: Usuario[] }>("/api/admin/usuarios", {
+        validar: traeLista("usuarios"),
+      });
+      setUsuarios(d.usuarios);
+    } catch (e) {
+      setError(`El cambio se guardó, pero la lista no se pudo recargar. ${mensajeDeError(e)}`);
     }
   }, []);
 
