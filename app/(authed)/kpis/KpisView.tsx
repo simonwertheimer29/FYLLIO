@@ -19,10 +19,8 @@
 // desaparece al cambiar de pestaña se lee como un fallo; uno que dice "esto aquí
 // no aplica, y por qué" enseña cómo funciona el producto.
 
-import NextDynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import type { UserSession } from "../../lib/presupuestos/types";
-import { X, ICON_STROKE } from "../../components/icons";
 import KpiView from "../../components/presupuestos/KpiView";
 import { KpisLeadsView } from "./KpisLeadsView";
 import { KpisCobrosView } from "./KpisCobrosView";
@@ -33,16 +31,10 @@ import { Card } from "../../components/ui/Card";
 import {
   PERIODOS_KPI, PERIODO_DEFAULT, etiquetaComparacion, type PeriodoKpi,
 } from "../../lib/periodo";
+import Link from "next/link";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { cargarJSON, traeLista } from "../../lib/fetch-json";
 import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
-
-// InformesView depende de dom-to-image-more → ssr:false (mismo fix que
-// PresupuestosShell).
-const InformesView = NextDynamic(
-  () => import("../../components/presupuestos/InformesView"),
-  { ssr: false }
-);
 
 type SubTab = "presupuestos" | "leads" | "cobros" | "no-shows";
 
@@ -73,7 +65,6 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
   const [periodo, setPeriodo] = useState<PeriodoKpi>(PERIODO_DEFAULT);
   const [doctor, setDoctor] = useState("");
   const [doctores, setDoctores] = useState<string[]>([]);
-  const [exportOpen, setExportOpen] = useState(false);
   const soporte = SOPORTE[tab];
   // La clínica NO es un control nuevo: es el selector global de la cabecera de
   // la app, el mismo que usan Leads, Cobros, Pacientes y Seguimiento. KpiView
@@ -132,13 +123,16 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
                 habilitado={soporte.doctor}
                 nota={soporte.nota}
               />
-              <button
-                type="button"
-                onClick={() => setExportOpen(true)}
+              {/* Enlace, no cajón (MEJORAS 81). El informe es una pantalla:
+                  tiene sus propios filtros de mes y clínica, su historial, y
+                  captura gráficas a PNG — cosa que un cajón que se desmonta al
+                  cerrarse hacía frágil. */}
+              <Link
+                href="/informes"
                 className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] text-xs font-semibold px-3 py-1.5 hover:bg-[var(--color-surface-muted)] transition-colors whitespace-nowrap"
               >
                 Informe mensual
-              </button>
+              </Link>
             </div>
           </div>
           <p className="text-[11px] text-[var(--color-muted)]">
@@ -172,9 +166,6 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
         {tab === "no-shows" && <KpisNoShowsView periodo={periodo} />}
       </div>
 
-      {exportOpen && (
-        <ExportDrawer onClose={() => setExportOpen(false)} user={user} />
-      )}
     </div>
   );
 }
@@ -225,44 +216,3 @@ function DoctorFiltro({
   );
 }
 
-function ExportDrawer({
-  onClose,
-  user,
-}: {
-  onClose: () => void;
-  user: UserSession;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-sm flex items-stretch justify-end"
-      onClick={onClose}
-    >
-      <aside
-        onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-4xl bg-[var(--color-surface)] border-l border-[var(--color-border)] flex flex-col overflow-y-auto shadow-xl"
-      >
-        <header className="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
-          <div>
-            <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">
-              Informe mensual
-            </h2>
-            <p className="text-[11px] text-[var(--color-muted)]">
-              Se genera por MES de calendario, no por el periodo de arriba.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] transition-colors"
-            aria-label="Cerrar"
-          >
-            <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
-          </button>
-        </header>
-        <div className="flex-1 min-h-0 overflow-auto">
-          <InformesView user={user} />
-        </div>
-      </aside>
-    </div>
-  );
-}

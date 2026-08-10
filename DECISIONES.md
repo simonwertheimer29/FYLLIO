@@ -2294,3 +2294,36 @@ renderizarse. Se llevó al editor superviviente con el vocabulario correcto en v
 
 Lo barato de hacerlo hoy: **8 filas y todas de DEMO.** RB e INDEP están a cero. La misma migración
 después del onboarding movería plantillas escritas por una clínica, con su texto y su criterio.
+
+## 2026-08-10 — /informes deja de ser un cajón y pasa a ser una pantalla
+MEJORAS 81. El «Informe mensual» de /kpis era un panel lateral de 896 px que contenía **otra
+pantalla**: filtros propios de mes y clínica, dos pestañas internas, historial de informes guardados
+y gráficas que se capturan a PNG para el PDF. El patrón del producto es «las tarjetas informan, los
+paneles actúan», y esto no es una acción de un clic.
+
+Y había una razón técnica además de la de coherencia, que es la que lo hacía frágil: la captura con
+`dom-to-image-more` necesita los nodos **montados**, y un cajón que se desmonta al cerrarse es mal
+anfitrión para eso.
+
+Al sacarlo apareció algo que el cajón escondía: **`InformesView` nunca tuvo padding propio**. Lo
+heredaba del contenedor del cajón, así que suelto se quedaba pegado al borde izquierdo. Lo pone ahora
+la pantalla, que es donde va. Es la misma clase de dependencia invisible que el editor de plantillas
+esperando el `loading` de una petición que no usaba: cosas que solo se ven al mover la pieza.
+
+Lleva su `error.tsx`, y aquí no es rutina: de todas las secciones, esta es la que más superficie de
+fallo de render tiene.
+
+## 2026-08-10 — Pooler de Supabase, incidente 3 (misma firma que el 2)
+`Connection terminated due to connection timeout` durante la tanda de capturas de la fusión, en dos
+peticiones de la misma pasada (`/ajustes/whatsapp` y `/informes`). Recuperó **al primer reintento**,
+igual que las veces anteriores.
+
+Lo que este incidente añade a la hipótesis del 7 de agosto, y va en contra de ella: **el `next dev`
+llevaba una hora, no doce días** — lo reinicié hoy al empezar. Así que «servidor de desarrollo viejo»
+no explica esto. Lo que sí coincide con los tres episodios es lo otro: **una tanda de scripts
+abriendo clientes `pg` sueltos contra el pooler en pocos minutos**. Sigue sin medirse; lo que hay que
+mirar cuando vuelva a pasar sigue siendo lo escrito en la entrada del 7 de agosto, empezando por el
+número de conexiones abiertas en el panel de Supabase.
+
+Y lo que sigue funcionando bien: las dos veces, la aplicación enseñó su error honesto en vez de una
+pantalla de ceros.

@@ -24,6 +24,7 @@ const NAV_COORD: NavItem[] = [
   { href: "/presupuestos",    label: "Presupuestos" },
   { href: "/cobros",          label: "Cobros" },
   { href: "/kpis",            label: "KPIs" },
+  { href: "/informes",        label: "Informes" },
   { href: "/automatizaciones",label: "Automatizaciones" },
   { href: "/llamadas",        label: "Llamadas IA" },
 ];
@@ -37,6 +38,7 @@ const NAV_ADMIN: NavItem[] = [
   { href: "/presupuestos",    label: "Presupuestos" },
   { href: "/cobros",          label: "Cobros" },
   { href: "/kpis",            label: "KPIs" },
+  { href: "/informes",        label: "Informes" },
   { href: "/automatizaciones",label: "Automatizaciones" },
   { href: "/llamadas",        label: "Llamadas IA" },
   { href: "/ajustes",         label: "Ajustes" },

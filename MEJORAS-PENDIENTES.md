@@ -1431,7 +1431,12 @@ verdad: un editor, un vocabulario, un renderizador.
   el cajón declara que va por MES de calendario, no por el periodo de la cabecera.
   Antes parecía obedecer a los controles de arriba y no lo hacía.
 - **Impacto:** medio · **Esfuerzo:** medio (ruta nueva + entrada de navegación).
-- **Fecha:** 2026-07-30 · 🔵 **decisión de producto pendiente**
+- **Fecha:** 2026-07-30 · ✅ **HECHA el 2026-08-10.** `/informes` es una pantalla, con su
+  entrada en la navegación y su `error.tsx` — que aquí no es rutina: es la pantalla que
+  monta gráficas y las captura a PNG, o sea la que más superficie de fallo de render tiene.
+  El botón de /kpis pasa a ser un enlace. Al sacarlo del cajón apareció que `InformesView`
+  **nunca tuvo padding propio**: lo heredaba del cajón, y suelto se quedaba pegado al borde.
+  Lo pone ahora la pantalla.
 
 ## 82. El seed pone acciones ANTES de crear el lead: 30 de 58 fuera del tiempo de respuesta
 - **Zona:** `scripts/db-seed-demo-rico.mjs` (guion de conversación de los leads)

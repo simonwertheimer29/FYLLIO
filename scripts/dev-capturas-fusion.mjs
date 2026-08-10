@@ -72,10 +72,14 @@ for (const [ruta, name] of [
   ["/ajustes/whatsapp", "fusion-whatsapp-claro"],
   ["/ajustes/notificaciones", "fusion-notificaciones-claro"],
   ["/automatizaciones", "fusion-automatizaciones-claro"],
+  ["/informes", "informes-pantalla-claro"],
+  ["/kpis", "informes-kpis-sin-cajon"],
 ]) {
   fallos.push(...(await shot(ruta, name)));
 }
 fallos.push(...(await shot("/ajustes/objetivos", "fusion-objetivos-oscuro", { theme: "dark" })));
+fallos.push(...(await shot("/informes", "informes-pantalla-oscuro", { theme: "dark" })));
+fallos.push(...(await shot("/informes", "informes-pantalla-movil", { width: 390, height: 844 })));
 fallos.push(
   ...(await shot("/ajustes/objetivos", "fusion-objetivos-movil", { width: 390, height: 844 })),
 );
