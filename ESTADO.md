@@ -80,11 +80,12 @@ cierre está en [`DECISIONES.md`](DECISIONES.md).
 
 ### En cola, ya aprobado, para después de la reunión
 
-- **Fusión de `/automatizaciones` + `/ajustes`** ([MEJORAS 13](MEJORAS-PENDIENTES.md)) — hay dos
-  centros de ajustes. Propuesta escrita y aprobada; **1-2 días**. Su paso 1 es unificar los dos
-  editores de plantillas, que es el único con riesgo de dato: censo hecho en
-  [MEJORAS 74](MEJORAS-PENDIENTES.md). El layout ya está en tokens (era lo único urgente).
-- **`/informes` como pantalla propia** ([MEJORAS 81](MEJORAS-PENDIENTES.md)).
+- ~~Fusión de `/automatizaciones` + `/ajustes`~~ · ~~`/informes` como pantalla propia~~ —
+  **las dos hechas el 10 de agosto** ([MEJORAS 13](MEJORAS-PENDIENTES.md) ·
+  [81](MEJORAS-PENDIENTES.md), y de paso [74](MEJORAS-PENDIENTES.md)). `/ajustes` es el único centro
+  de configuración con una URL por sección; `/automatizaciones` se queda con Motor, ¿Escribe bien? y
+  Operativo; `/informes` sale del cajón de `/kpis`. El paso de riesgo era mayor de lo escrito: no
+  eran dos editores duplicados, era **una tabla con dos idiomas** (migración 017).
 - **Fase 1 de [`PLAN-AGENTE.md`](PLAN-AGENTE.md)** — estado de automatización por caso, cohorte de
   quiebre en Seguimiento, **tasa de coincidencia agente-humano** y **conjunto de evaluación**.
   Decidida, **no depende de WhatsApp**, y mejora el modo A que ya funciona hoy. Sin prioridad
