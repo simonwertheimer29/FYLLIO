@@ -12,15 +12,19 @@
 // MÓVIL, donde la barra lateral era `hidden md:block` y simplemente no existía —
 // desde un móvil no había forma de pasar de una sección a la otra.
 //
-// El comentario "siguientes secciones se añaden aquí" lleva desde el Sprint 7
-// señalando este sitio; la fusión con /automatizaciones (MEJORAS 13) lo llenará.
+// El comentario "siguientes secciones se añaden aquí" llevaba desde el Sprint 7
+// señalando este sitio; la fusión con /automatizaciones (MEJORAS 13) lo está
+// llenando — «Objetivos del mes» es la primera que llega.
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+// El orden es el de uso, no el alfabético: lo que se toca cada mes arriba, lo
+// que se toca una vez al montar la clínica abajo.
 const SECCIONES = [
-  { href: "/ajustes/clinica-equipo", label: "Clínica y equipo" },
+  { href: "/ajustes/objetivos", label: "Objetivos del mes" },
   { href: "/ajustes/configuracion", label: "Configuración" },
+  { href: "/ajustes/clinica-equipo", label: "Clínica y equipo" },
 ];
 
 export function AjustesNav() {

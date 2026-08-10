@@ -47,8 +47,11 @@ export function AutomatizacionesTopView({
         <TabBtn active={tab === "operativo"} onClick={() => setTab("operativo")}>
           Operativo
         </TabBtn>
+        {/* Ya no dice «Reglas y objetivos»: los objetivos se mudaron a
+            /ajustes/objetivos el 2026-08-10, y reglas nunca tuvo. Esta pestaña
+            entera desaparece cuando termine la mudanza (MEJORAS 13). */}
         <TabBtn active={tab === "reglas"} onClick={() => setTab("reglas")}>
-          Reglas y objetivos
+          Configuración
         </TabBtn>
       </div>
       <div className="flex-1 min-h-0 overflow-auto p-4 lg:p-6">

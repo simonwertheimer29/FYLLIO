@@ -29,7 +29,7 @@ interface Props {
   user: UserSession;
 }
 
-type SidebarSection = "automatizaciones" | "objetivos" | "notificaciones" | "clinica" | "whatsapp" | "plantillas" | "recordatorios";
+type SidebarSection = "automatizaciones" | "notificaciones" | "clinica" | "whatsapp" | "plantillas" | "recordatorios";
 
 const DEFAULTS: Omit<ConfiguracionAutomatizacion, "clinica"> = {
   activa: true,
@@ -300,194 +300,16 @@ function SectionAutomatizaciones({ user }: { user: UserSession }) {
   );
 }
 
-// ─── Section ②: Objetivos del mes ────────────────────────────────────────────
-
-function SectionObjetivos({ user }: { user: UserSession }) {
-  const [objetivos, setObjetivos] = useState<Record<string, number>>({});
-  const [editVals, setEditVals] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState<Record<string, boolean>>({});
-  const [saved, setSaved] = useState<Record<string, boolean>>({});
-  const [aceptadosMTD, setAceptadosMTD] = useState<Record<string, number>>({});
-  const [clinicas, setClinicas] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-
-  const mesMTD = mesISO();
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setLoadError(false);
-    try {
-      const [objData, kanbanData, clinicasData] = await Promise.all([
-        cargarJSON<{ objetivos: { clinica: string; objetivo_aceptados: number }[] }>(
-          `/api/presupuestos/objetivos?mes=${mesMTD}`,
-          { validar: traeLista("objetivos") },
-        ),
-        cargarJSON<{
-          presupuestos: { estado: string; fechaPresupuesto?: string; clinica?: string }[];
-        }>(`/api/presupuestos/kanban`, { validar: traeLista("presupuestos") }),
-        cargarJSON<{ clinicas: string[] }>("/api/presupuestos/clinicas", {
-          validar: traeLista("clinicas"),
-        }),
-      ]);
-      const objMap: Record<string, number> = {};
-      for (const o of objData.objetivos) {
-        objMap[o.clinica] = o.objetivo_aceptados;
-      }
-      setObjetivos(objMap);
-
-      const aceptMap: Record<string, number> = {};
-      for (const p of kanbanData.presupuestos) {
-        if (p.estado === "ACEPTADO" && p.fechaPresupuesto?.startsWith(mesMTD)) {
-          const key = p.clinica ?? "Sin clínica";
-          aceptMap[key] = (aceptMap[key] ?? 0) + 1;
-        }
-      }
-      setAceptadosMTD(aceptMap);
-      setClinicas(clinicasData.clinicas);
-    } catch { setLoadError(true); }
-    finally { setLoading(false); }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const allClinicas = Array.from(new Set([...Object.keys(objetivos), ...clinicas])).sort();
-
-  async function saveObjetivo(clinica: string) {
-    const rawVal = editVals[clinica];
-    const val = rawVal !== undefined ? Number(rawVal) : objetivos[clinica];
-    if (!val) return;
-    setSaving((p) => ({ ...p, [clinica]: true }));
-    try {
-      await fetch("/api/presupuestos/objetivos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clinica, mes: mesMTD, objetivo_aceptados: val }),
-      });
-      setObjetivos((prev) => ({ ...prev, [clinica]: val }));
-      setSaved((p) => ({ ...p, [clinica]: true }));
-      setTimeout(() => setSaved((p) => ({ ...p, [clinica]: false })), 2000);
-    } catch {
-      toast.error("No se pudo guardar el objetivo. Inténtalo de nuevo.");
-    }
-    finally { setSaving((p) => ({ ...p, [clinica]: false })); }
-  }
-
-  if (loading) {
-    return (
-      <div className="space-y-3 animate-pulse">
-        {[0, 1].map((i) => <div key={i} className="h-24 rounded-2xl bg-[var(--color-surface-muted)]" />)}
-      </div>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <ErrorState
-        detail="Los objetivos del mes no están disponibles ahora mismo."
-        onRetry={load}
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">Objetivo mensual</h3>
-        <p className="text-xs text-[var(--color-muted)] mb-4">Define cuántos presupuestos deberían aceptarse este mes por clínica</p>
-      </div>
-
-      {allClinicas.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-[var(--color-border)] p-8 text-center">
-          <p className="text-[var(--color-muted)] text-sm">No hay clínicas disponibles todavía.</p>
-        </div>
-      )}
-
-      <div className="space-y-4">
-        {allClinicas.map((clinica) => {
-          const obj = objetivos[clinica];
-          const actual = aceptadosMTD[clinica] ?? 0;
-          const pct = obj ? Math.min(100, Math.round((actual / obj) * 100)) : 0;
-          const isSaving = saving[clinica] ?? false;
-          const isSaved = saved[clinica] ?? false;
-          const editVal = editVals[clinica] ?? (obj != null ? String(obj) : "");
-          return (
-            <div key={clinica} className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-              <div className="flex items-center gap-3 mb-4">
-                <h4 className="font-semibold text-[var(--color-foreground)] flex-1">{clinica}</h4>
-                {obj != null && (
-                  <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full ${
-                    actual >= obj
-                      ? "bg-emerald-100 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
-                      : pct >= 70 ? "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300"
-                      : "bg-[var(--color-surface-muted)] text-[var(--color-muted)]"
-                  }`}>
-                    {actual}/{obj}
-                  </span>
-                )}
-              </div>
-
-              {obj != null && (
-                <div className="mb-4">
-                  <div className="h-2 rounded-full bg-[var(--color-surface-muted)] overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all ${
-                        actual >= obj ? "bg-emerald-500" : pct >= 70 ? "bg-amber-400" : "bg-rose-400"
-                      }`}
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <p className="text-[10px] text-[var(--color-muted)] mt-1">{pct}% del objetivo este mes</p>
-                </div>
-              )}
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-4">
-                  <label className="text-sm text-[var(--color-muted)]">Objetivo de aceptados</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={editVal}
-                    onChange={(e) => setEditVals((prev) => ({ ...prev, [clinica]: e.target.value }))}
-                    className="w-20 text-center border border-[var(--color-border)] rounded-lg px-2 py-1 text-sm focus:outline-none focus:border-[var(--color-accent)]"
-                    placeholder="—"
-                  />
-                </div>
-                <div className="flex items-center justify-between gap-4 opacity-50">
-                  <label className="text-sm text-[var(--color-muted)]">
-                    Objetivo de emitidos
-                    <span className="text-[10px] text-[var(--color-muted)] block">Próximamente</span>
-                  </label>
-                  <input
-                    type="number"
-                    disabled
-                    className="w-20 text-center border border-[var(--color-border)] rounded-lg px-2 py-1 text-sm bg-[var(--color-surface-muted)] text-[var(--color-muted)] cursor-not-allowed"
-                    placeholder="—"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end mt-4">
-                <button
-                  onClick={() => saveObjetivo(clinica)}
-                  disabled={isSaving || !editVal}
-                  className={`inline-flex items-center gap-1 text-sm font-semibold px-4 py-2 rounded-xl transition-colors disabled:opacity-50 ${
-                    isSaved
-                      ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30"
-                      : "bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
-                  }`}
-                >
-                  {isSaving ? "Guardando…" : isSaved ? <><Check size={14} strokeWidth={ICON_STROKE} aria-hidden /> Guardado</> : "Guardar"}
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+// ─── Section ②: Objetivos del mes → SE MUDÓ ─────────────────────────────────
+//
+// Vive en `/ajustes/objetivos` (`components/ajustes/ObjetivosMesPanel.tsx`)
+// desde el 2026-08-10, primer paso de la fusión de MEJORAS 13. Era el ÚNICO
+// editor de objetivos mensuales de la app y estaba escondido detrás de una
+// pestaña de /automatizaciones llamada «Reglas y objetivos» que no contenía
+// ninguna regla.
+//
+// Esta nota se queda hasta que este archivo desaparezca: quien venga buscando
+// «SectionObjetivos» aquí tiene que encontrar a dónde fue, no un hueco.
 
 // ─── Section ③: Notificaciones ────────────────────────────────────────────────
 
@@ -1609,7 +1431,6 @@ function SectionRecordatorios({ user }: { user: UserSession }) {
 
 const SIDEBAR_ITEMS: { id: SidebarSection; label: string; icon: ReactNode }[] = [
   { id: "automatizaciones", label: "Automatizaciones", icon: <Bot size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
-  { id: "objetivos",        label: "Objetivos del mes", icon: <Target size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
   { id: "whatsapp",         label: "WhatsApp",          icon: <MessageCircle size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
   { id: "plantillas",       label: "Plantillas",        icon: <FileText size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
   { id: "recordatorios",    label: "Recordatorios",     icon: <CalendarClock size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
@@ -1645,7 +1466,6 @@ export default function ConfigAutomatizaciones({ user }: Props) {
       {/* Content */}
       <div className="flex-1 min-w-0 overflow-auto pb-6">
         {activeSection === "automatizaciones" && <SectionAutomatizaciones user={user} />}
-        {activeSection === "objetivos"        && <SectionObjetivos user={user} />}
         {activeSection === "whatsapp"         && <SectionWhatsApp user={user} />}
         {activeSection === "plantillas"       && <SectionPlantillas user={user} />}
         {activeSection === "recordatorios"    && <SectionRecordatorios user={user} />}
