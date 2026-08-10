@@ -23,7 +23,10 @@ import { usePathname } from "next/navigation";
 // que se toca una vez al montar la clínica abajo.
 const SECCIONES = [
   { href: "/ajustes/objetivos", label: "Objetivos del mes" },
+  { href: "/ajustes/automatizaciones", label: "Automatizaciones" },
   { href: "/ajustes/configuracion", label: "Configuración" },
+  { href: "/ajustes/whatsapp", label: "WhatsApp" },
+  { href: "/ajustes/notificaciones", label: "Notificaciones" },
   { href: "/ajustes/clinica-equipo", label: "Clínica y equipo" },
 ];
 

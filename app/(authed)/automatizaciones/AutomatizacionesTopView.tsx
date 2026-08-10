@@ -1,18 +1,20 @@
 "use client";
 
-// /automatizaciones top-level — Motor v4 como tab por defecto.
-// Las vistas Operativo/Reglas se conservan para admin sin el sufijo
-// "(legacy)": Reglas contiene el único editor de objetivos mensuales
-// por clínica y Operativo la cola de secuencias pendientes.
+// /automatizaciones — el MOTOR y la COLA. Aquí no se configura nada.
+//
+// Tenía una cuarta pestaña, «Reglas y objetivos», que era un menú lateral de
+// siete secciones de configuración metido dentro de una pestaña. Todo eso vive
+// ahora en /ajustes, con una URL por sección (MEJORAS 13, 2026-08-10). Lo que
+// queda son las tres cosas que sí son operación: qué hace el motor, si escribe
+// bien, y qué hay en la cola.
 
 import { useState } from "react";
 import type { UserSession } from "../../lib/presupuestos/types";
 import AutomatizacionesView from "../../components/presupuestos/AutomatizacionesView";
-import ConfigAutomatizaciones from "../../components/presupuestos/ConfigAutomatizaciones";
 import { MotorReglasView } from "./MotorReglasView";
 import { CoincidenciaView } from "../../components/automatizacion/CoincidenciaView";
 
-type Tab = "motor" | "coincidencia" | "operativo" | "reglas";
+type Tab = "motor" | "coincidencia" | "operativo";
 
 export function AutomatizacionesTopView({
   user,
@@ -47,18 +49,11 @@ export function AutomatizacionesTopView({
         <TabBtn active={tab === "operativo"} onClick={() => setTab("operativo")}>
           Operativo
         </TabBtn>
-        {/* Ya no dice «Reglas y objetivos»: los objetivos se mudaron a
-            /ajustes/objetivos el 2026-08-10, y reglas nunca tuvo. Esta pestaña
-            entera desaparece cuando termine la mudanza (MEJORAS 13). */}
-        <TabBtn active={tab === "reglas"} onClick={() => setTab("reglas")}>
-          Configuración
-        </TabBtn>
       </div>
       <div className="flex-1 min-h-0 overflow-auto p-4 lg:p-6">
         {tab === "motor" && <MotorReglasView isAdmin={isAdmin} />}
         {tab === "coincidencia" && <CoincidenciaView />}
         {tab === "operativo" && <AutomatizacionesView user={user} />}
-        {tab === "reglas" && <ConfigAutomatizaciones user={user} />}
       </div>
     </div>
   );

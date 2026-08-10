@@ -246,7 +246,18 @@ sin integrar (`fca5065`) y borrado de código muerto (`fcd27de`). Lo demás, aba
   Ajustes. ⚠️ **La sección "Objetivos del mes" es el ÚNICO editor de objetivos mensuales
   de la app (`ConfigAutomatizaciones.tsx:347`): se muda, nunca se borra.**
 - **Esfuerzo:** 1-2 días.
-- **Fecha:** 2026-07-16 · 🔵 acordado: espera feedback del cliente del piloto.
+- **Fecha:** 2026-07-16 · ✅ **HECHA el 2026-08-10.** `/ajustes` es el único centro de
+  configuración, con una URL por sección (Objetivos · Automatizaciones · Configuración ·
+  WhatsApp · Notificaciones · Clínica y equipo), y `/automatizaciones` se queda con las tres
+  cosas que sí son operación: Motor, ¿Escribe bien? y Operativo.
+  - **Objetivos del mes** se movió el primero, por ser el único editor que hay. Al verificarlo
+    apareció que el botón decía «Guardado» aunque el servidor respondiera 403 — arreglado, y de
+    paso la pantalla ahora declara la regla del día 5 en vez de dejar intentar lo imposible.
+  - **Los dos editores de plantillas** eran el paso de riesgo y resultó ser mayor de lo escrito
+    aquí: no era solo duplicación, era **una tabla con dos idiomas** (`tipo` vs `categoria`, y
+    una llave vs dos). Migración 017 + `demo:reset` alineado. Cierra también MEJORAS 74.
+  - **«Clínica y equipo»** de Automatizaciones era una copia de solo lectura de
+    `/ajustes/clinica-equipo`: borrada, no movida.
 
 ## 14. Restos de prototipo en superficie de admin
 - **Zona:** `ConfigAutomatizaciones.tsx:110` (botón "Cargar demo"), `:177,444` + 

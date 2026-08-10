@@ -1,7 +1,21 @@
 "use client";
 
-// app/components/presupuestos/ConfigAutomatizaciones.tsx
-// Centro de control: Automatizaciones · Objetivos · Notificaciones · Clínica
+// app/components/ajustes/PanelesConfiguracion.tsx
+//
+// Los paneles de configuración que vivían en la pestaña «Reglas y objetivos» de
+// /automatizaciones. Cada uno es ahora una sección de /ajustes con su propia
+// URL (MEJORAS 13): antes había un menú lateral DENTRO de una pestaña dentro de
+// otra pantalla, y la configuración de la clínica estaba repartida entre dos
+// sitios que no se citaban entre sí.
+//
+// Qué salió de aquí, por si alguien lo busca:
+//   · Objetivos del mes → components/ajustes/ObjetivosMesPanel.tsx (10 ago)
+//   · Plantillas        → el editor de /ajustes/configuracion; este era un
+//                         SEGUNDO editor sobre la misma tabla (migración 017)
+//   · Clínica y equipo  → era una copia de solo lectura de
+//                         /ajustes/clinica-equipo, que sí deja editar. Borrada.
+//
+// El archivo conserva el historial de `components/presupuestos/ConfigAutomatizaciones.tsx`.
 
 import { useState, useEffect, useCallback, type ReactNode } from "react";
 import { toast } from "sonner";
@@ -42,7 +56,7 @@ type ConfigMap = Record<string, ConfiguracionAutomatizacion>;
 
 // ─── Section ①: Automatizaciones ─────────────────────────────────────────────
 
-function SectionAutomatizaciones({ user }: { user: UserSession }) {
+export function SectionAutomatizaciones({ user }: { user: UserSession }) {
   const [configs, setConfigs] = useState<ConfigMap>({});
   const [saving, setSaving] = useState<Record<string, boolean>>({});
   const [saved, setSaved] = useState<Record<string, boolean>>({});
@@ -338,7 +352,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   return outputArray;
 }
 
-function SectionNotificaciones() {
+export function SectionNotificaciones() {
   const [prefs, setPrefs] = useState<NotifPrefs>(DEFAULT_PREFS);
   const [permGranted, setPermGranted] = useState(false);
   const [activating, setActivating] = useState(false);
@@ -492,91 +506,6 @@ function SectionNotificaciones() {
 
 // ─── Section ④: Clínica y equipo ─────────────────────────────────────────────
 
-function SectionClinica({ user }: { user: UserSession }) {
-  const [clinicas, setClinicas] = useState<string[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
-
-  // Antes: `.catch(() => {})` + `?? []`. Si la carga fallaba, la pantalla
-  // enseñaba una red de CERO clínicas sin decir nada — y esta sección existe
-  // justo para enseñar cuántas hay (§10).
-  const cargar = useCallback(() => {
-    setLoading(true);
-    setLoadError(null);
-    cargarJSON<{ clinicas: string[] }>("/api/presupuestos/clinicas", {
-      validar: traeLista("clinicas"),
-    })
-      .then((d) => setClinicas(d.clinicas))
-      .catch((e) => setLoadError(mensajeDeError(e)))
-      .finally(() => setLoading(false));
-  }, []);
-
-  useEffect(() => { cargar(); }, [cargar]);
-
-  const rolLabel: Record<string, string> = {
-    manager_general:  "Manager General",
-    encargada_ventas: "Encargada de Ventas",
-    admin:            "Administrador",
-  };
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">Clínica y equipo</h3>
-        <p className="text-xs text-[var(--color-muted)] mb-4">Información sobre la red de clínicas y tu cuenta</p>
-      </div>
-
-      {/* Current user */}
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5 space-y-4">
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-[var(--color-accent-soft)] flex items-center justify-center shrink-0">
-            <User size={18} strokeWidth={ICON_STROKE} className="text-[var(--color-accent)]" aria-hidden />
-          </div>
-          <div>
-            <p className="font-semibold text-[var(--color-foreground)]">{user.nombre}</p>
-            <p className="text-xs text-[var(--color-muted)]">{user.email}</p>
-            <span className="inline-block mt-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-accent-soft)] text-[var(--color-accent)]">
-              {rolLabel[user.rol] ?? user.rol}
-            </span>
-          </div>
-        </div>
-        {user.clinica && (
-          <div className="flex items-center gap-2 pt-3 border-t border-[var(--color-border)]">
-            <span className="text-[10px] font-semibold text-[var(--color-muted)] uppercase tracking-wide">Clínica asignada</span>
-            <span className="text-xs font-semibold text-[var(--color-foreground)]">{user.clinica}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Clinic list */}
-      {loading ? (
-        <div className="space-y-2 animate-pulse">
-          {[0, 1].map((i) => <div key={i} className="h-14 rounded-2xl bg-[var(--color-surface-muted)]" />)}
-        </div>
-      ) : loadError ? (
-        <ErrorState
-          title="No se pudo cargar la red de clínicas"
-          detail={loadError}
-          onRetry={cargar}
-        />
-      ) : clinicas.length > 0 ? (
-        <div>
-          <h4 className="text-xs font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-3">
-            Red de clínicas ({clinicas.length})
-          </h4>
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)]">
-            {clinicas.map((c) => (
-              <div key={c} className="flex items-center gap-3 px-4 py-3">
-                <Building2 size={16} strokeWidth={ICON_STROKE} className="shrink-0 text-[var(--color-muted)]" aria-hidden />
-                <span className="text-sm text-[var(--color-foreground)]">{c}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 // ─── Section ⑤: Integración WhatsApp ──────────────────────────────────────────
 
@@ -602,7 +531,7 @@ function formatearHace(iso?: string): string {
   return `hace ${d}d`;
 }
 
-function SectionWhatsApp({ user }: { user: UserSession }) {
+export function SectionWhatsApp({ user }: { user: UserSession }) {
   const [modo, setModo] = useState<ModoWhatsApp>("manual");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -881,7 +810,7 @@ const RECORDATORIOS_DEFAULTS: Omit<ConfigRecordatorios, "clinica"> = {
   activa: true,
 };
 
-function SectionRecordatorios({ user }: { user: UserSession }) {
+export function SectionRecordatorios({ user }: { user: UserSession }) {
   const [config, setConfig] = useState<ConfigRecordatorios>({
     clinica: user.clinica || "default",
     ...RECORDATORIOS_DEFAULTS,
@@ -1044,53 +973,6 @@ function SectionRecordatorios({ user }: { user: UserSession }) {
             {saving ? "Guardando…" : saved ? <><Check size={14} strokeWidth={ICON_STROKE} aria-hidden /> Guardado</> : "Guardar configuración"}
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
-
-const SIDEBAR_ITEMS: { id: SidebarSection; label: string; icon: ReactNode }[] = [
-  { id: "automatizaciones", label: "Automatizaciones", icon: <Bot size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
-  { id: "whatsapp",         label: "WhatsApp",          icon: <MessageCircle size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
-  { id: "recordatorios",    label: "Recordatorios",     icon: <CalendarClock size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
-  { id: "notificaciones",   label: "Notificaciones",    icon: <Bell size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
-  { id: "clinica",          label: "Clínica y equipo",  icon: <Building2 size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
-];
-
-export default function ConfigAutomatizaciones({ user }: Props) {
-  const [activeSection, setActiveSection] = useState<SidebarSection>("automatizaciones");
-
-  return (
-    <div className="flex gap-6 min-h-0">
-      {/* Sidebar */}
-      <aside className="w-52 shrink-0">
-        <nav className="space-y-1">
-          {SIDEBAR_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => setActiveSection(item.id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left ${
-                activeSection === item.id
-                  ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
-                  : "text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
-              }`}
-            >
-              {item.icon && <span className="shrink-0 leading-none" aria-hidden>{item.icon}</span>}
-              {item.label}
-            </button>
-          ))}
-        </nav>
-      </aside>
-
-      {/* Content */}
-      <div className="flex-1 min-w-0 overflow-auto pb-6">
-        {activeSection === "automatizaciones" && <SectionAutomatizaciones user={user} />}
-        {activeSection === "whatsapp"         && <SectionWhatsApp user={user} />}
-        {activeSection === "recordatorios"    && <SectionRecordatorios user={user} />}
-        {activeSection === "notificaciones"   && <SectionNotificaciones />}
-        {activeSection === "clinica"          && <SectionClinica user={user} />}
       </div>
     </div>
   );

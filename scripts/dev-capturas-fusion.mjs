@@ -68,6 +68,9 @@ for (const [ruta, name] of [
   ["/ajustes/objetivos", "fusion-objetivos-claro"],
   ["/ajustes/configuracion", "fusion-configuracion-claro"],
   ["/ajustes/clinica-equipo", "fusion-clinica-claro"],
+  ["/ajustes/automatizaciones", "fusion-ajustes-automatizaciones-claro"],
+  ["/ajustes/whatsapp", "fusion-whatsapp-claro"],
+  ["/ajustes/notificaciones", "fusion-notificaciones-claro"],
   ["/automatizaciones", "fusion-automatizaciones-claro"],
 ]) {
   fallos.push(...(await shot(ruta, name)));

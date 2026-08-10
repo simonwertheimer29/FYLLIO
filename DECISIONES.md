@@ -2261,3 +2261,36 @@ caso legítimo: ese presupuesto no tiene conversación.
 
 Con la lista vacía, el guardián ya no puede demostrar nada por sí solo, así que se comprobó al revés:
 metiendo un `?? []` nuevo a propósito y viendo que falla con salida 1.
+
+## 2026-08-10 — La fusión de /ajustes y /automatizaciones, y la tabla que hablaba dos idiomas
+`/ajustes` pasa a ser el único centro de configuración, con una URL por sección, y
+`/automatizaciones` se queda con Motor, «¿Escribe bien?» y Operativo. Tenía una cuarta pestaña,
+«Reglas y objetivos», que era **un menú lateral de siete secciones metido dentro de una pestaña** y
+que no contenía ninguna regla. MEJORAS 13, aprobada en julio, ejecutada hoy en el orden que pedía
+Simon: primero lo único, después lo arriesgado, después mover pantallas.
+
+**Objetivos del mes fue primero por ser el único editor de objetivos de la app**, y verificarlo
+—escribiendo de verdad y mirando la FILA, no el 200— destapó que el botón decía «Guardado» pasara lo
+que pasara: `saveObjetivo` no miraba la respuesta. El servidor llevaba tiempo respondiendo 403 a
+partir del día 5 del mes por una regla de negocio correcta que **la pantalla no contaba en ningún
+sitio**. Un administrador podía fijar el objetivo del mes, ver el tick verde, y no haber fijado nada.
+
+**El paso de las plantillas era más grande de lo que decía la mejora.** No era duplicación de UI: era
+una tabla, `plantillas_mensaje`, con **dos idiomas y un corte exacto** — 5 filas de un editor
+(clasificadas por `tipo`, con variables de UNA llave) y 3 del otro (`categoria`, DOS llaves). El
+renderizador que se usa de verdad solo sustituye `{{…}}`, así que las 5 primeras llegarían al
+paciente con las llaves puestas; y `categoria` a NULL no fallaba, el lector la convertía en
+«seguimiento de leads» en silencio. Migración 017 traduce, rellena, y cierra la columna con NOT NULL
++ CHECK. Cierra de paso MEJORAS 74, que había avisado de esto y se había quedado en un aviso dentro
+de un textarea.
+
+**Cuál sobrevive no fue una preferencia, fue un censo:** los consumidores de `categoria` están vivos
+(cobros ×2, copiloto ×2); el único de `tipo` es el generador de cola de envíos, que no está en los
+crons, no lo llama nadie y vive detrás de `WA_ENGINE_OPERATIVO=false`.
+
+**Y «Generar con IA» estaba roto de raíz:** sus prompts pedían `{nombre}` y `{doctor}` —una llave, y
+dos nombres que no existen en el resolver—, así que toda plantilla generada con IA nacía sin poder
+renderizarse. Se llevó al editor superviviente con el vocabulario correcto en vez de perderse.
+
+Lo barato de hacerlo hoy: **8 filas y todas de DEMO.** RB e INDEP están a cero. La misma migración
+después del onboarding movería plantillas escritas por una clínica, con su texto y su criterio.
