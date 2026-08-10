@@ -1128,14 +1128,23 @@ try {
   ];
   for (const [nombre, tipo, contenido] of PLANTILLAS_LEAD) await ins("plantillas_lead", { nombre, tipo, contenido, activa: true });
 
+  // Estas cinco usaban UNA llave ({nombre}) y no traían `categoria`, que es
+  // exactamente lo que arregló la migración 017: el renderizador que se usa de
+  // verdad solo sustituye {{…}}, así que con una llave llegaban al paciente con
+  // las llaves puestas, y sin categoría el lector las archivaba donde le
+  // parecía. Si el seed las volviera a escribir así, `demo:reset` deshace la
+  // migración — que es el §15 de las lecciones, y ya nos ha mordido tres veces.
   const PLANTILLAS_PRESUPUESTO = [
-    ["Seguimiento de presupuesto", "Seguimiento", "Hola {nombre}, te escribo por el presupuesto de {tratamiento} ({importe}). ¿Has podido pensarlo? Cualquier duda te la resuelvo por aquí, sin compromiso."],
-    ["Detalles de pago", "Detalles de pago", "Hola {nombre}, ¡gracias por tu confianza! Estas son las opciones de pago para tu {tratamiento} ({importe}):\n\n· Pago único con 5% de descuento\n· Financiación hasta 24 meses sin intereses\n\nDime cuál te encaja mejor y lo dejamos todo listo."],
-    ["Financiación", "Financiacion", "Hola {nombre}, sobre el presupuesto de {tratamiento} ({importe}): podemos financiarlo hasta en 24 meses sin intereses, quedaría en una cuota mucho más cómoda. ¿Te preparo una simulación sin compromiso?"],
-    ["Confirmación de aceptación", "Confirmacion", "¡Enhorabuena {nombre}! Hemos registrado la aceptación de tu presupuesto de {tratamiento} ({importe}). El siguiente paso es agendar el inicio del tratamiento con {doctor} — ¿te viene bien esta semana?"],
-    ["Reactivación", "Reactivacion", "Hola {nombre}, soy del equipo de {clinica}. Hace un tiempo te preparamos un presupuesto de {tratamiento} y quedó pendiente. Si quieres retomarlo, lo revisamos juntos y vemos las opciones actuales. ¿Te llamo?"],
+    ["Seguimiento de presupuesto", "Seguimiento", "lead_seguimiento", "Hola {{nombre}}, te escribo por el presupuesto de {{tratamiento}} ({{importe}}). ¿Has podido pensarlo? Cualquier duda te la resuelvo por aquí, sin compromiso."],
+    ["Detalles de pago", "Detalles de pago", "cobranza", "Hola {{nombre}}, ¡gracias por tu confianza! Estas son las opciones de pago para tu {{tratamiento}} ({{importe}}):\n\n· Pago único con 5% de descuento\n· Financiación hasta 24 meses sin intereses\n\nDime cuál te encaja mejor y lo dejamos todo listo."],
+    ["Financiación", "Financiacion", "cobranza", "Hola {{nombre}}, sobre el presupuesto de {{tratamiento}} ({{importe}}): podemos financiarlo hasta en 24 meses sin intereses, quedaría en una cuota mucho más cómoda. ¿Te preparo una simulación sin compromiso?"],
+    ["Confirmación de aceptación", "Confirmacion", "cobranza", "¡Enhorabuena {{nombre}}! Hemos registrado la aceptación de tu presupuesto de {{tratamiento}} ({{importe}}). El siguiente paso es agendar el inicio del tratamiento con {{nombre_doctor}} — ¿te viene bien esta semana?"],
+    ["Reactivación", "Reactivacion", "lead_seguimiento", "Hola {{nombre}}, soy del equipo de {{nombre_clinica}}. Hace un tiempo te preparamos un presupuesto de {{tratamiento}} y quedó pendiente. Si quieres retomarlo, lo revisamos juntos y vemos las opciones actuales. ¿Te llamo?"],
   ];
-  for (const [nombre, tipo, contenido] of PLANTILLAS_PRESUPUESTO) await ins("plantillas_mensaje", { nombre, tipo, contenido, activa: true });
+  for (const [nombre, tipo, categoria, contenido] of PLANTILLAS_PRESUPUESTO) {
+    const vars = [...new Set([...contenido.matchAll(/\{\{([a-zA-Z_]+)\}\}/g)].map((m) => m[1]))].sort().join(", ");
+    await ins("plantillas_mensaje", { nombre, tipo, categoria, contenido, variables_detectadas: vars, activa: true });
+  }
   console.log(`plantillas: ${PLANTILLAS_LEAD.length} de leads · ${PLANTILLAS_PRESUPUESTO.length} de presupuestos`);
 
   // ── OBJETIVOS, CONFIG, MISC ──────────────────────────────────────────
@@ -1175,6 +1184,27 @@ try {
     const vars = [...new Set([...contenido.matchAll(/\{\{([a-zA-Z_]+)\}\}/g)].map((m) => m[1]))].join(", ");
     await ins("plantillas_mensaje", { nombre, tipo: "Cobranza", categoria: "cobranza", contenido, variables_detectadas: vars, activa: true });
   }
+  // INVARIANTE (§15): ninguna plantilla puede quedar con una sola llave ni sin
+  // categoría. Se comprueba AQUÍ, dentro de la transacción, para que un seed
+  // que rompa el vocabulario reviente en el próximo `demo:reset` en vez de
+  // pasar meses enseñando "{nombre}" en una demo.
+  {
+    const { rows } = await db.query(
+      `select nombre, categoria, contenido from plantillas_mensaje where cliente = 'DEMO'`,
+    );
+    const CATS = new Set(["cobranza", "lead_seguimiento", "cita_recordatorio"]);
+    const malas = rows.filter(
+      (r) => !CATS.has(r.categoria) || /(^|[^{])\{[a-zA-Z_]+\}([^}]|$)/.test(r.contenido),
+    );
+    if (malas.length) {
+      throw new Error(
+        `[seed] ${malas.length} plantilla(s) con vocabulario inválido — categoría fuera del catálogo ` +
+          `o variables de una sola llave, que el renderizador no sustituye: ` +
+          malas.map((m) => m.nombre).join(", "),
+      );
+    }
+  }
+
   // notificaciones, alertas, llamadas, copilot, informes, lista_espera
   for (let i = 0; i < 10; i++) await ins("notificaciones", { usuario: "todos", tipo: "Sistema", titulo: ["Nuevo lead", "Respuesta de paciente", "Presupuesto aceptado", "Cita confirmada"][i % 4], mensaje: "Tienes una novedad en tu bandeja.", link: "/seguimiento", leida: i > 3, fecha_creacion: dISO(-(i % 5)) });
   const adminId = (await db.query("select id from usuarios where cliente='DEMO' and rol='admin' limit 1")).rows[0]?.id;

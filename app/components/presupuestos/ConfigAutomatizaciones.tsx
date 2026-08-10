@@ -29,7 +29,7 @@ interface Props {
   user: UserSession;
 }
 
-type SidebarSection = "automatizaciones" | "notificaciones" | "clinica" | "whatsapp" | "plantillas" | "recordatorios";
+type SidebarSection = "automatizaciones" | "notificaciones" | "clinica" | "whatsapp" | "recordatorios";
 
 const DEFAULTS: Omit<ConfiguracionAutomatizacion, "clinica"> = {
   activa: true,
@@ -854,402 +854,24 @@ function SectionWhatsApp({ user }: { user: UserSession }) {
   );
 }
 
-// ─── Section ⑥: Plantillas de Mensaje ─────────────────────────────────────────
-
-const TIPO_PLANTILLA_ORDER: TipoPlantilla[] = ["Primer contacto", "Recordatorio", "Detalles de pago", "Reactivacion"];
-const TIPO_PLANTILLA_LABEL: Record<TipoPlantilla, string> = {
-  "Primer contacto": "PRIMER CONTACTO",
-  "Recordatorio": "RECORDATORIO",
-  "Detalles de pago": "DETALLES DE PAGO",
-  "Reactivacion": "REACTIVACIÓN",
-};
-
-const PREVIEW_DATA = {
-  nombre: "María",
-  tratamiento: "Implantes dentales",
-  importe: "3.500€",
-  doctor: "Dr. Rojas",
-  clinica: "Clínica Central",
-};
-
-function sustituirVariablesPreview(contenido: string): string {
-  return contenido
-    .replace(/\{nombre\}/g, PREVIEW_DATA.nombre)
-    .replace(/\{tratamiento\}/g, PREVIEW_DATA.tratamiento)
-    .replace(/\{importe\}/g, PREVIEW_DATA.importe)
-    .replace(/\{doctor\}/g, PREVIEW_DATA.doctor)
-    .replace(/\{clinica\}/g, PREVIEW_DATA.clinica);
-}
-
-function SectionPlantillas({ user }: { user: UserSession }) {
-  const [plantillas, setPlantillas] = useState<PlantillaMensaje[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editingPlantilla, setEditingPlantilla] = useState<PlantillaMensaje | null>(null);
-  const [generandoIA, setGenerandoIA] = useState(false);
-
-  // Form state
-  const [formNombre, setFormNombre] = useState("");
-  const [formTipo, setFormTipo] = useState<TipoPlantilla>("Primer contacto");
-  const [formDoctor, setFormDoctor] = useState("");
-  const [formTratamiento, setFormTratamiento] = useState("");
-  const [formContenido, setFormContenido] = useState("");
-  const [formSaving, setFormSaving] = useState(false);
-
-  useEffect(() => {
-    fetchPlantillas();
-  }, []);
-
-  async function fetchPlantillas() {
-    setLoading(true);
-    setLoadError(false);
-    try {
-      // Sin comprobar el status, un 500 dejaba la lista de plantillas vacía y
-      // parecía que la clínica no tenía ninguna configurada (§10).
-      const data = await cargarJSON<{ plantillas: PlantillaMensaje[] }>(
-        "/api/presupuestos/plantillas",
-        { validar: traeLista("plantillas") },
-      );
-      setPlantillas(data.plantillas);
-    } catch { setLoadError(true); }
-    finally { setLoading(false); }
-  }
-
-  function openNew() {
-    setEditingPlantilla(null);
-    setFormNombre("");
-    setFormTipo("Primer contacto");
-    setFormDoctor("");
-    setFormTratamiento("");
-    setFormContenido("");
-    setModalOpen(true);
-  }
-
-  function openEdit(p: PlantillaMensaje) {
-    setEditingPlantilla(p);
-    setFormNombre(p.nombre);
-    setFormTipo(p.tipo);
-    setFormDoctor(p.doctor);
-    setFormTratamiento(p.tratamiento);
-    setFormContenido(p.contenido);
-    setModalOpen(true);
-  }
-
-  async function handleSave() {
-    if (!formNombre || !formContenido) return;
-    setFormSaving(true);
-    try {
-      const body: any = {
-        nombre: formNombre,
-        tipo: formTipo,
-        clinica: user.clinica || "Todas",
-        doctor: formDoctor,
-        tratamiento: formTratamiento,
-        contenido: formContenido,
-      };
-      if (editingPlantilla) {
-        body.id = editingPlantilla.id;
-        const res = await fetch("/api/presupuestos/plantillas", {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      } else {
-        const res = await fetch("/api/presupuestos/plantillas", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      }
-      setModalOpen(false);
-      fetchPlantillas();
-      toast.success(editingPlantilla ? "Plantilla actualizada" : "Plantilla creada");
-    } catch {
-      toast.error("No se pudo guardar la plantilla. Inténtalo de nuevo.");
-    }
-    finally { setFormSaving(false); }
-  }
-
-  async function handleDelete(id: string) {
-    try {
-      const res = await fetch("/api/presupuestos/plantillas", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id }),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      setPlantillas((prev) => prev.filter((p) => p.id !== id));
-      if (editingPlantilla?.id === id) setModalOpen(false);
-      toast.success("Plantilla eliminada");
-    } catch {
-      toast.error("No se pudo eliminar la plantilla. Inténtalo de nuevo.");
-    }
-  }
-
-  async function handleGenerarIA() {
-    setGenerandoIA(true);
-    try {
-      const res = await fetch("/api/presupuestos/plantillas/generar-ia", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          tipo: formTipo,
-          doctor: formDoctor || undefined,
-          tratamiento: formTratamiento || undefined,
-          clinica: user.clinica || undefined,
-        }),
-      });
-      const data = await res.json();
-      if (data.contenido) setFormContenido(data.contenido);
-    } catch {
-      toast.error("No se pudo generar el contenido. Inténtalo de nuevo.");
-    }
-    finally { setGenerandoIA(false); }
-  }
-
-  // Group by type
-  const grouped = TIPO_PLANTILLA_ORDER.map((tipo) => ({
-    tipo,
-    items: plantillas.filter((p) => p.tipo === tipo),
-  }));
-
-  if (loading) {
-    return (
-      <div className="space-y-3 animate-pulse">
-        {[0, 1, 2].map((i) => <div key={i} className="h-16 rounded-2xl bg-[var(--color-surface-muted)]" />)}
-      </div>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <ErrorState
-        detail="Las plantillas de mensaje no están disponibles ahora mismo."
-        onRetry={fetchPlantillas}
-      />
-    );
-  }
-
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">Plantillas de mensaje</h3>
-          <p className="text-xs text-[var(--color-muted)]">Plantillas reutilizables con variables personalizables</p>
-        </div>
-        <button
-          onClick={openNew}
-          className="inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] transition-colors"
-        >
-          <Plus size={13} strokeWidth={ICON_STROKE} aria-hidden />
-          Nueva plantilla
-        </button>
-      </div>
-
-      {/* Grouped list */}
-      {grouped.map(({ tipo, items }) => (
-        <div key={tipo}>
-          <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide mb-2">
-            {TIPO_PLANTILLA_LABEL[tipo]} ({items.length})
-          </p>
-          {items.length === 0 ? (
-            <p className="text-xs text-[var(--color-muted)] italic mb-4">Sin plantillas</p>
-          ) : (
-            <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] divide-y divide-[var(--color-border)] mb-4">
-              {items.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => openEdit(p)}
-                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-[var(--color-surface-muted)] transition-colors"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[var(--color-foreground)] truncate">{p.nombre}</p>
-                    <p className="text-[10px] text-[var(--color-muted)] mt-0.5">
-                      {p.doctor ? p.doctor : "Todos los doctores"}
-                      {p.tratamiento ? ` · ${p.tratamiento}` : ""}
-                    </p>
-                  </div>
-                  {!p.activa && (
-                    <span className="text-[9px] font-semibold px-2 py-0.5 rounded-full bg-[var(--color-surface-muted)] text-[var(--color-muted)]">
-                      Inactiva
-                    </span>
-                  )}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
-
-      {/* Modal */}
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-[var(--color-border)]">
-              <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
-                {editingPlantilla ? "Editar plantilla" : "Nueva plantilla"}
-              </h3>
-            </div>
-
-            <div className="px-6 py-4 space-y-4">
-              {/* Nombre */}
-              <div>
-                <label className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide">Nombre</label>
-                <input
-                  type="text"
-                  value={formNombre}
-                  onChange={(e) => setFormNombre(e.target.value)}
-                  placeholder="Ej: Primer contacto implantes"
-                  className="mt-1 w-full border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--color-accent)]"
-                />
-              </div>
-
-              {/* Tipo */}
-              <div>
-                <label className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide">Tipo</label>
-                <select
-                  value={formTipo}
-                  onChange={(e) => setFormTipo(e.target.value as TipoPlantilla)}
-                  className="mt-1 w-full border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--color-accent)]"
-                >
-                  {TIPO_PLANTILLA_ORDER.map((t) => (
-                    <option key={t} value={t}>{t}</option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Doctor + Tratamiento */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide">Doctor (opcional)</label>
-                  <input
-                    type="text"
-                    value={formDoctor}
-                    onChange={(e) => setFormDoctor(e.target.value)}
-                    placeholder="Todos"
-                    className="mt-1 w-full border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--color-accent)]"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide">Tratamiento (opcional)</label>
-                  <input
-                    type="text"
-                    value={formTratamiento}
-                    onChange={(e) => setFormTratamiento(e.target.value)}
-                    placeholder="Todos"
-                    className="mt-1 w-full border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--color-accent)]"
-                  />
-                </div>
-              </div>
-
-              {/* Variables hint
-                  El aviso de la sintaxis NO es decoración. Hay DOS editores de
-                  plantillas sobre la MISMA tabla `plantillas_mensaje`, cada uno
-                  con su vocabulario: este usa una llave y {doctor}/{clinica};
-                  el de Ajustes → Plantillas WhatsApp usa DOS llaves y
-                  {{nombre_doctor}}/{{nombre_clinica}}. Una plantilla escrita
-                  aquí con dobles llaves llega al paciente con las llaves
-                  puestas: "tienes pendiente {{pendiente}}€". Ya casi pasa una
-                  vez (MEJORAS 74). La fusión de los dos editores está aprobada
-                  para después del piloto (MEJORAS 13); mientras tanto, esto es
-                  lo que evita que alguien escriba la sintaxis del otro. */}
-              <div className="rounded-lg bg-[var(--color-surface-muted)] border border-[var(--color-border)] p-3">
-                <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide mb-1">Variables disponibles</p>
-                <p className="text-xs text-[var(--color-muted)] font-mono">
-                  {"{nombre}"} {"{tratamiento}"} {"{importe}"} {"{doctor}"} {"{clinica}"}
-                </p>
-                <p className="mt-2 flex items-start gap-1.5 text-[11px] text-[var(--color-warning)]">
-                  <AlertTriangle size={12} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0" aria-hidden />
-                  <span>
-                    Aquí las variables van con <strong>una sola llave</strong>:{" "}
-                    <code className="font-mono">{"{nombre}"}</code>, no{" "}
-                    <code className="font-mono">{"{{nombre}}"}</code>. Escribe
-                    solo las de esta lista — cualquier otra cosa le llega al
-                    paciente tal cual, con las llaves puestas.
-                  </span>
-                </p>
-              </div>
-              {/* Y si ya la ha escrito, se le dice antes de guardar. */}
-              {/\{\{\s*\w+\s*\}\}/.test(formContenido) && (
-                <div className="rounded-lg border border-[var(--color-danger)]/30 bg-[var(--color-danger-soft)] px-3 py-2">
-                  <p className="text-[11px] text-[var(--color-danger)]">
-                    Has escrito una variable con <strong>dos llaves</strong>. En
-                    esta pantalla no se sustituye: el paciente recibiría el texto
-                    con las llaves. Déjala con una sola.
-                  </p>
-                </div>
-              )}
-
-              {/* Contenido */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide">Contenido</label>
-                  <button
-                    onClick={handleGenerarIA}
-                    disabled={generandoIA}
-                    className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] transition-colors disabled:opacity-50"
-                  >
-                    {generandoIA ? "Generando..." : "Generar con IA"}
-                  </button>
-                </div>
-                <textarea
-                  value={formContenido}
-                  onChange={(e) => setFormContenido(e.target.value)}
-                  rows={5}
-                  placeholder="Hola {nombre}, te escribimos desde {clinica}..."
-                  className="w-full border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-[var(--color-accent)] resize-none"
-                />
-              </div>
-
-              {/* Preview */}
-              {formContenido && (
-                <div>
-                  <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase tracking-wide mb-1">Vista previa</p>
-                  <div className="rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 p-3">
-                    <p className="text-sm text-emerald-800 dark:text-emerald-300 whitespace-pre-wrap leading-relaxed">
-                      {sustituirVariablesPreview(formContenido)}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="px-6 py-4 border-t border-[var(--color-border)] flex items-center gap-2">
-              {editingPlantilla && (
-                <button
-                  onClick={() => handleDelete(editingPlantilla.id)}
-                  className="text-xs font-semibold px-3 py-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-colors"
-                >
-                  Eliminar
-                </button>
-              )}
-              <div className="flex-1" />
-              <button
-                onClick={() => setModalOpen(false)}
-                className="text-xs font-semibold px-3 py-2 rounded-xl text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] transition-colors"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleSave}
-                disabled={formSaving || !formNombre || !formContenido}
-                className="text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] transition-colors disabled:opacity-50"
-              >
-                {formSaving ? "Guardando..." : editingPlantilla ? "Actualizar" : "Crear"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Section ⑦: Recordatorios Automáticos ─────────────────────────────────────
+// ─── Section ⑥: Plantillas de Mensaje → SE BORRÓ ────────────────────────────
+//
+// El editor de plantillas vive AHORA SOLO en /ajustes/configuracion → Plantillas
+// (MEJORAS 13, 2026-08-10). Aquí había un SEGUNDO editor sobre la MISMA tabla
+// `plantillas_mensaje`, con otro idioma:
+//
+//   · clasificaba por `tipo` en vez de por `categoria`,
+//   · escribía UNA llave ({nombre}, {doctor}) donde el renderizador de verdad
+//     solo sustituye DOS ({{nombre}}, {{nombre_doctor}}), así que lo escrito
+//     aquí llegaba al paciente con las llaves puestas — MEJORAS 74,
+//   · y su vista previa sustituía las variables con datos inventados en el
+//     cliente («María», «3.500€»), en vez de con un paciente real como hace la
+//     de /ajustes.
+//
+// La migración 017 tradujo las filas y cerró la columna. «Generar con IA» no se
+// perdió: se llevó al editor superviviente, con los prompts corregidos.
+//
+// La nota se queda hasta que este archivo desaparezca.
 
 const RECORDATORIOS_DEFAULTS: Omit<ConfigRecordatorios, "clinica"> = {
   secuenciaDias: [3, 7, 10],
@@ -1432,7 +1054,6 @@ function SectionRecordatorios({ user }: { user: UserSession }) {
 const SIDEBAR_ITEMS: { id: SidebarSection; label: string; icon: ReactNode }[] = [
   { id: "automatizaciones", label: "Automatizaciones", icon: <Bot size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
   { id: "whatsapp",         label: "WhatsApp",          icon: <MessageCircle size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
-  { id: "plantillas",       label: "Plantillas",        icon: <FileText size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
   { id: "recordatorios",    label: "Recordatorios",     icon: <CalendarClock size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
   { id: "notificaciones",   label: "Notificaciones",    icon: <Bell size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
   { id: "clinica",          label: "Clínica y equipo",  icon: <Building2 size={16} strokeWidth={ICON_STROKE} aria-hidden /> },
@@ -1467,7 +1088,6 @@ export default function ConfigAutomatizaciones({ user }: Props) {
       <div className="flex-1 min-w-0 overflow-auto pb-6">
         {activeSection === "automatizaciones" && <SectionAutomatizaciones user={user} />}
         {activeSection === "whatsapp"         && <SectionWhatsApp user={user} />}
-        {activeSection === "plantillas"       && <SectionPlantillas user={user} />}
         {activeSection === "recordatorios"    && <SectionRecordatorios user={user} />}
         {activeSection === "notificaciones"   && <SectionNotificaciones />}
         {activeSection === "clinica"          && <SectionClinica user={user} />}

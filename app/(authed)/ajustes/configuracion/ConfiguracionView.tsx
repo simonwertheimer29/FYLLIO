@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { Card } from "../../../components/ui/Card";
 import { ConfirmDialog } from "../../../components/ui/ConfirmDialog";
 import { ErrorState } from "../../../components/ui/Feedback";
-import { AlertTriangle, Target, ICON_STROKE } from "../../../components/icons";
+import { AlertTriangle, Target, Sparkles, ICON_STROKE } from "../../../components/icons";
 import { cargarJSON, traeLista, mensajeDeError } from "../../../lib/fetch-json";
 import { HorarioLaboralPanel } from "./HorarioLaboralPanel";
 import { LlamadasIaPanel } from "./LlamadasIaPanel";
@@ -229,6 +229,14 @@ export default function ConfiguracionView({
         )
       ) : categoria === "Motor_NoShows" ? (
         <MotorNoShowsPanel clinicaId={scope} />
+      ) : categoria === "Plantillas_Scope" ? (
+        // Sube aquí, al lado de los otros paneles con datos propios. Estaba
+        // dentro de `CategoriaPanel`, o sea DETRÁS del `loading` de
+        // /api/configuraciones — una petición que para esta pestaña no
+        // devuelve nada útil (`Plantillas_Scope` no tiene opciones, es una
+        // clave de sitio). El editor esperaba ~1,7 s a un dato que no usa, y
+        // desde la fusión es el ÚNICO editor de plantillas que hay.
+        <PlantillasPanel scope={scope} />
       ) : loading ? (
         <p className="text-sm text-[var(--color-muted)] animate-pulse">Cargando opciones…</p>
       ) : error ? (
@@ -313,12 +321,6 @@ function CategoriaPanel({
         onChanged={onChanged}
       />
     );
-  }
-
-  if (categoria === "Plantillas_Scope") {
-    // Sprint 14b Bloque 4 — UI funcional de plantillas. El scope viene
-    // de la prop `scope` del wrapper (global o clinicaId).
-    return <PlantillasPanel scope={scope} />;
   }
 
   return (
@@ -872,6 +874,33 @@ function PlantillaEditor({
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string>("");
   const [previewBusy, setPreviewBusy] = useState(false);
+  const [generandoIA, setGenerandoIA] = useState(false);
+
+  // «Generar con IA» venía del editor de /automatizaciones, que se retira en la
+  // fusión (MEJORAS 13). Se trae en vez de perderse — pero corregido: allí los
+  // prompts pedían variables de UNA llave ({nombre}, {doctor}), que este
+  // renderizador no sustituye, así que lo generado nacía roto y llegaba al
+  // paciente con las llaves puestas. Ahora la ruta pide categoría y enseña el
+  // vocabulario real.
+  async function generarConIA() {
+    setGenerandoIA(true);
+    setError(null);
+    try {
+      const j = await cargarJSON<{ contenido: string }>(
+        "/api/presupuestos/plantillas/generar-ia",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ categoria }),
+        },
+      );
+      setContenido(j.contenido);
+    } catch (e) {
+      setError(mensajeDeError(e));
+    } finally {
+      setGenerandoIA(false);
+    }
+  }
 
   // Preview en vivo (debounced 300ms).
   useEffect(() => {
@@ -1002,9 +1031,20 @@ function PlantillaEditor({
             </div>
           </div>
           <div>
-            <label className="text-[11px] uppercase font-semibold text-[var(--color-muted)] tracking-wide">
-              Cuerpo del mensaje
-            </label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-[11px] uppercase font-semibold text-[var(--color-muted)] tracking-wide">
+                Cuerpo del mensaje
+              </label>
+              <button
+                type="button"
+                onClick={generarConIA}
+                disabled={isGlobalReadOnly || generandoIA}
+                className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-1 rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)] transition-colors disabled:opacity-50"
+              >
+                <Sparkles size={12} strokeWidth={ICON_STROKE} aria-hidden />
+                {generandoIA ? "Generando…" : "Generar con IA"}
+              </button>
+            </div>
             <textarea
               value={contenido}
               onChange={(e) => setContenido(e.target.value)}

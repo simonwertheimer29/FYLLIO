@@ -1,43 +1,65 @@
 // app/api/presupuestos/plantillas/generar-ia/route.ts
-// POST — genera contenido de plantilla con Claude Haiku
+// POST — genera el contenido de una plantilla con Claude Haiku.
+//
+// ─── Lo que estaba mal, y por qué importaba ─────────────────────────────────
+//
+// Los prompts le pedían al modelo que usara `{nombre}`, `{tratamiento}`,
+// `{doctor}` y `{clinica}`: UNA llave, y dos nombres que no existen. El
+// renderizador que se usa de verdad (`aplicarVariables`) **solo sustituye
+// {{…}}**, y su vocabulario es `nombre_doctor` / `nombre_clinica`. O sea: toda
+// plantilla generada con IA nacía rota, y se enviaba al paciente con las llaves
+// puestas — «Hola {nombre}». Es MEJORAS 74, esta vez desde el otro lado.
+//
+// Se reescribe con el vocabulario real y se re-indexa por CATEGORÍA, que es la
+// clasificación que queda viva tras unificar los dos editores (MEJORAS 13). El
+// `tipo` seguía siendo el del editor viejo.
+//
+// Nota operativa: esto necesita ANTHROPIC_API_KEY y hoy los créditos están
+// agotados (bloqueo declarado en ESTADO.md), así que el botón devuelve un error
+// honesto hasta que se recarguen. Se prefiere eso a esconderlo: el día que haya
+// créditos, funciona sin tocar nada.
 
 import { NextResponse } from "next/server";
-import type { TipoPlantilla } from "../../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import type { PlantillaCategoria } from "../../../../lib/plantillas/plantillas";
 
-const PROMPTS: Record<TipoPlantilla, (ctx: { doctor?: string; tratamiento?: string; clinica?: string }) => string> = {
-  "Primer contacto": (ctx) =>
-    `Redacta una plantilla de mensaje de WhatsApp para hacer el primer contacto con un paciente de clínica dental que ha recibido un presupuesto${ctx.tratamiento ? ` de ${ctx.tratamiento}` : ""}${ctx.doctor ? ` con ${ctx.doctor}` : ""}.
-El mensaje debe:
-- Ser breve (2-3 frases), cálido y profesional
-- Usar las variables {nombre}, {tratamiento}, {importe}, {doctor}, {clinica} donde corresponda
-- No usar emojis excesivos
-- Invitar al paciente a resolver dudas
-- Estar en español`,
+/** Las únicas variables que el renderizador sabe sustituir. Si esta lista y la
+ *  de `resolveValoresParaPaciente` se separan, el modelo escribe variables que
+ *  llegan literales al paciente. */
+const VARIABLES =
+  "{{nombre}}, {{tratamiento}}, {{importe}}, {{pendiente}}, {{nombre_doctor}}, " +
+  "{{nombre_clinica}}, {{fecha_aceptado}}, {{plazo_dias}}, {{dias_vencido}}";
 
-  "Recordatorio": (ctx) =>
-    `Redacta una plantilla de mensaje de WhatsApp de recordatorio/seguimiento para un paciente de clínica dental que recibió un presupuesto${ctx.tratamiento ? ` de ${ctx.tratamiento}` : ""} y no ha respondido.
-El mensaje debe:
-- Ser breve (2-3 frases), amable y sin presión
-- Usar las variables {nombre}, {tratamiento}, {importe}, {doctor}, {clinica} donde corresponda
-- Recordar que estamos a su disposición
-- Estar en español`,
+const REGLAS = `
+- Escribe en español, tuteando (decisión de producto, ver PLANTILLAS-WHATSAPP.md).
+- Breve: 2 o 3 frases. Sin emojis.
+- Nada coloquial y nada que pida perdón por escribir.
+- Usa SOLO estas variables, con DOS llaves, tal cual: ${VARIABLES}
+- No inventes otras variables: cualquier cosa entre llaves que no esté en esa
+  lista llega al paciente con las llaves puestas.
+- Devuelve únicamente el texto de la plantilla, sin comillas ni explicación.`;
 
-  "Detalles de pago": (ctx) =>
-    `Redacta una plantilla de mensaje de WhatsApp con opciones de pago para un paciente de clínica dental que ha aceptado un presupuesto${ctx.tratamiento ? ` de ${ctx.tratamiento}` : ""} pero tiene dudas sobre el pago.
-El mensaje debe:
-- Incluir opciones: pago único con descuento, financiación a 6 meses sin intereses, financiación a 12 meses
-- Usar las variables {nombre}, {tratamiento}, {importe}, {doctor}, {clinica} donde corresponda
-- Ser claro y profesional
-- Estar en español`,
+const PROMPTS: Record<
+  PlantillaCategoria,
+  (ctx: { doctor?: string; tratamiento?: string; clinica?: string }) => string
+> = {
+  cobranza: (ctx) =>
+    `Redacta una plantilla de WhatsApp para recordar un pago pendiente a un paciente de clínica dental${
+      ctx.tratamiento ? ` con un tratamiento de ${ctx.tratamiento}` : ""
+    }.
+El mensaje debe dar por hecho que puede haber pagado ya y ofrecer comprobarlo antes de reclamar, para que un recordatorio no se convierta en una queja.${REGLAS}`,
 
-  "Reactivacion": (ctx) =>
-    `Redacta una plantilla de mensaje de WhatsApp de reactivación para un paciente de clínica dental que mostró interés en un tratamiento${ctx.tratamiento ? ` de ${ctx.tratamiento}` : ""} hace tiempo pero no llegó a aceptar.
-El mensaje debe:
-- Ser breve (2-3 frases), cálido, sin presión
-- Usar las variables {nombre}, {tratamiento}, {importe}, {doctor}, {clinica} donde corresponda
-- Mencionar que seguimos a su disposición
-- Estar en español`,
+  lead_seguimiento: (ctx) =>
+    `Redacta una plantilla de WhatsApp de seguimiento para un paciente de clínica dental que recibió un presupuesto${
+      ctx.tratamiento ? ` de ${ctx.tratamiento}` : ""
+    }${ctx.doctor ? ` con ${ctx.doctor}` : ""} y todavía no ha respondido.
+El mensaje debe ser amable y sin presión, y dejar claro que puede preguntar lo que quiera.${REGLAS}`,
+
+  cita_recordatorio: (ctx) =>
+    `Redacta una plantilla de WhatsApp para recordar una cita a un paciente de clínica dental${
+      ctx.clinica ? ` en ${ctx.clinica}` : ""
+    }.
+El mensaje debe recordar la cita y ofrecer cambiarla sin fricción si no puede venir.${REGLAS}`,
 };
 
 export const POST = withPresupuestosAuth(async (session, req: Request) => {
@@ -48,18 +70,21 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
 
   try {
     const body = await req.json();
-    const { tipo, doctor, tratamiento, clinica } = body as {
-      tipo: TipoPlantilla;
+    const { categoria, doctor, tratamiento, clinica } = body as {
+      categoria: PlantillaCategoria;
       doctor?: string;
       tratamiento?: string;
       clinica?: string;
     };
 
-    if (!tipo || !PROMPTS[tipo]) {
-      return NextResponse.json({ error: "tipo inválido" }, { status: 400 });
+    if (!categoria || !PROMPTS[categoria]) {
+      return NextResponse.json(
+        { error: `categoría inválida. Permitidas: ${Object.keys(PROMPTS).join(", ")}` },
+        { status: 400 },
+      );
     }
 
-    const prompt = PROMPTS[tipo]({ doctor, tratamiento, clinica });
+    const prompt = PROMPTS[categoria]({ doctor, tratamiento, clinica });
 
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -76,12 +101,26 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     });
 
     if (!res.ok) {
-      console.error("[plantillas/generar-ia] API error:", res.status);
-      return NextResponse.json({ error: "Error al generar con IA" }, { status: 500 });
+      // El motivo se RENDERIZA, no se concatena (§9): un 400 por créditos
+      // agotados y un 500 del proveedor piden cosas distintas de quien lo lee.
+      const detalle = await res.text().catch(() => "");
+      console.error("[plantillas/generar-ia] API error:", res.status, detalle.slice(0, 300));
+      return NextResponse.json(
+        {
+          error:
+            res.status === 400 || res.status === 429
+              ? "El servicio de IA no está disponible ahora mismo (puede ser saldo agotado). La plantilla se puede escribir a mano."
+              : `El servicio de IA respondió ${res.status}`,
+        },
+        { status: 502 },
+      );
     }
 
     const data = await res.json();
     const contenido = (data.content?.[0]?.text ?? "").trim();
+    if (!contenido) {
+      return NextResponse.json({ error: "La IA devolvió una plantilla vacía" }, { status: 502 });
+    }
 
     return NextResponse.json({ contenido });
   } catch (err) {

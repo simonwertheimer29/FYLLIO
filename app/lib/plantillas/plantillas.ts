@@ -346,30 +346,15 @@ function fmtFechaEs(iso: string): string {
   return `${dd}/${mm}/${yyyy}`;
 }
 
-// FASE 1 migración — passthroughs de Plantillas_Mensaje para el CRUD de la
-// ruta de plantillas y el generador de cola de envíos.
+// Passthrough de Plantillas_Mensaje para el GENERADOR DE COLA DE ENVÍOS, que es
+// lo único que queda leyendo por aquí.
+//
+// Los de escritura (create/update/destroy) se borraron el 2026-08-10 con la
+// ruta que los usaba: eran la puerta trasera por la que se creaban plantillas
+// sin `categoria` y con variables de una sola llave. Ahora se escribe por un
+// solo sitio, /api/plantillas, y la columna es NOT NULL (migración 017).
 export async function selectPlantillasMensajeRaw(opts: Record<string, unknown>): Promise<readonly any[]> {
   const pg = await import("./plantillas-pg");
   return pg.selectPlantillasMensajeRawPg(opts as any);
-  
-}
-export async function findPlantillaMensajeRaw(id: string): Promise<any> {
-  const pg = await import("./plantillas-pg");
-  return pg.findPlantillaMensajeRawPg(id);
-  
-}
-export async function createPlantillaMensajeRaw(fields: Record<string, unknown>): Promise<any> {
-  const pg = await import("./plantillas-pg");
-  return pg.createPlantillaMensajeRawPg(fields);
-  
-}
-export async function updatePlantillaMensajeRaw(id: string, fields: Record<string, unknown>): Promise<void> {
-  const pg = await import("./plantillas-pg");
-  return pg.updatePlantillaMensajeRawPg(id, fields);
-  
-}
-export async function destroyPlantillaMensajeRaw(id: string): Promise<void> {
-  const pg = await import("./plantillas-pg");
-  return pg.destroyPlantillaMensajeRawPg(id);
   
 }

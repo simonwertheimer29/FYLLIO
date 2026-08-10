@@ -80,6 +80,24 @@ fallos.push(
   ...(await shot("/automatizaciones", "fusion-automatizaciones-movil", { width: 390, height: 844 })),
 );
 
+// El editor de plantillas único, que es el paso de riesgo de la fusión: hay que
+// verlo con las 8 filas ya traducidas por la migración 017.
+{
+  const { ctx, page } = await nuevaPagina("light", 1280, 900);
+  const errs = [];
+  page.on("pageerror", (e) => errs.push(String(e)));
+  await page.goto(`${BASE}/ajustes/configuracion`, { waitUntil: "networkidle", timeout: 60000 });
+  await page.getByRole("button", { name: "Plantillas WhatsApp" }).first().click();
+  // Se espera a que aparezca una plantilla, no a un reloj: un `waitForTimeout`
+  // corto ya dio una captura de "Cargando…" que parecía una pantalla rota.
+  await page.getByText("recordatorio_senal").first().waitFor({ timeout: 20000 });
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${OUT}/fusion-plantillas-claro.png`, fullPage: true });
+  await ctx.close();
+  fallos.push(...errs);
+  console.log(errs.length ? `✗ fusion-plantillas-claro — ${errs[0]}` : "✓ fusion-plantillas-claro");
+}
+
 // ─── 2 · El editor de objetivos escribe de verdad ───────────────────────────
 //
 // Aquí hay una regla de negocio que la primera versión de este script confundió

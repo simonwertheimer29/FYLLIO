@@ -24,12 +24,21 @@ import { currentCliente, type Cliente } from "../airtable";
 import { evalFormula, makeShim, type Shim } from "../db/airtable-formula";
 import { extractVariables, type Plantilla, type PlantillaCategoria } from "./plantillas";
 import { actualizarUna } from "../db/escritura";
+import { deDiccionario } from "../diccionario";
 
 function cli(): Cliente {
   const c = currentCliente();
   if (!c) throw new Error("[plantillas-pg] sin cliente (fail-closed)");
   return c;
 }
+
+/** Catálogo cerrado de categorías. Es un Record exhaustivo a propósito: añadir
+ *  una categoría al union obliga a pasar por aquí. */
+const CATEGORIAS_CONOCIDAS: Record<PlantillaCategoria, PlantillaCategoria> = {
+  cobranza: "cobranza",
+  lead_seguimiento: "lead_seguimiento",
+  cita_recordatorio: "cita_recordatorio",
+};
 
 const iso = (v: any): string => (v == null ? "" : v instanceof Date ? v.toISOString() : String(v));
 
@@ -41,7 +50,18 @@ function rowToPlantilla(r: any): Plantilla {
   return {
     id: r.id,
     nombre: String(r.nombre ?? ""),
-    categoria: String(r.categoria ?? "lead_seguimiento") as PlantillaCategoria,
+    // Sin `?? "lead_seguimiento"`. Ese default archivaba en «seguimiento de
+    // leads» toda plantilla sin categoría —5 de 8 lo estaban— y nadie se
+    // enteraba. Desde la migración 017 la columna es NOT NULL con CHECK, así
+    // que aquí no hace falta inventar nada; si aun así llegara un valor fuera
+    // del catálogo, se avisa una vez y se ve como «sin clasificar» en vez de
+    // colarse en un cajón que no le toca (§12).
+    categoria: deDiccionario(
+      CATEGORIAS_CONOCIDAS,
+      r.categoria,
+      "lead_seguimiento",
+      "plantillas_mensaje.categoria",
+    ),
     contenido: String(r.contenido ?? ""),
     variablesDetectadas: varsRaw
       ? varsRaw.split(",").map((v) => v.trim()).filter(Boolean)
