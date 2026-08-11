@@ -15,6 +15,11 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
   const presupuestoId = body?.presupuestoId as string | undefined;
   const telefono = body?.telefono as string | undefined;
   const contenido = body?.contenido as string | undefined;
+  // Lo declara el panel: si el texto salió del botón de IA y se envió sin
+  // reescribirlo, el agente es su autor aunque lo mandara una persona. Es lo
+  // que hace que la pestaña «Ha respondido el agente» diga algo en modo A, en
+  // vez de esperar al modo B para tener contenido.
+  const sugeridoPorIa = body?.sugeridoPorIa === true;
 
   if (!telefono || !contenido) {
     return NextResponse.json({ error: "Faltan telefono o contenido" }, { status: 400 });
@@ -43,6 +48,8 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
       telefono,
       contenido,
       idempotencyKey,
+      autor: "persona",
+      sugeridoPorIa,
     });
     return NextResponse.json({
       ok: true,

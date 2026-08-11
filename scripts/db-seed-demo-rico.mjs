@@ -289,6 +289,11 @@ try {
         lead_id: lid, telefono: telLead, direccion: m.dir, contenido: m.txt,
         timestamp: m.ts, fuente: "Modo_A_manual", procesado_por_ia: m.dir === "Entrante",
         intencion_detectada: m.intn ?? null,
+        // 018 — la autoría. En modo A el saliente lo manda una persona; el
+        // texto es de plantilla, no de la IA. Sembrarlo en NULL dejaría la
+        // pestaña «Ha respondido el agente» de la bandeja midiendo el vacío.
+        autor: m.dir === "Saliente" ? "persona" : null,
+        sugerido_por_ia: m.dir === "Saliente" ? false : null,
       });
       mensajesLeadN++;
     }
@@ -559,6 +564,8 @@ try {
           paciente_id: pac.id, presupuesto_id: pid, telefono: pac.tel, direccion: m.dir,
           contenido: m.txt, timestamp: m.ts, fuente: "Modo_A_manual", procesado_por_ia: m.dir === "Entrante",
           intencion_detectada: m.intn ?? null,
+          autor: m.dir === "Saliente" ? "persona" : null,
+          sugerido_por_ia: m.dir === "Saliente" ? false : null,
         });
         mensajesN++;
       }
@@ -625,6 +632,11 @@ try {
         paciente_id: pac.id, presupuesto_id: pid, telefono: pac.tel, direccion: m.dir,
         contenido: m.txt, timestamp: m.ts, fuente: "Modo_A_manual", procesado_por_ia: m.dir === "Entrante",
         intencion_detectada: m.intn ?? null,
+        // 018 — la autoría. En modo A el saliente lo manda una persona; el
+        // texto es de plantilla, no de la IA. Sembrarlo en NULL dejaría la
+        // pestaña «Ha respondido el agente» de la bandeja midiendo el vacío.
+        autor: m.dir === "Saliente" ? "persona" : null,
+        sugerido_por_ia: m.dir === "Saliente" ? false : null,
       });
       mensajesN++;
     }
@@ -669,6 +681,11 @@ try {
         paciente_id: pac.id, presupuesto_id: pid, telefono: pac.tel, direccion: m.dir,
         contenido: m.txt, timestamp: m.ts, fuente: "Modo_A_manual", procesado_por_ia: m.dir === "Entrante",
         intencion_detectada: m.intn ?? null,
+        // 018 — la autoría. En modo A el saliente lo manda una persona; el
+        // texto es de plantilla, no de la IA. Sembrarlo en NULL dejaría la
+        // pestaña «Ha respondido el agente» de la bandeja midiendo el vacío.
+        autor: m.dir === "Saliente" ? "persona" : null,
+        sugerido_por_ia: m.dir === "Saliente" ? false : null,
       });
       mensajesN++;
     }
@@ -1184,6 +1201,26 @@ try {
     const vars = [...new Set([...contenido.matchAll(/\{\{([a-zA-Z_]+)\}\}/g)].map((m) => m[1]))].join(", ");
     await ins("plantillas_mensaje", { nombre, tipo: "Cobranza", categoria: "cobranza", contenido, variables_detectadas: vars, activa: true });
   }
+  // INVARIANTE (§15) — mensajería: todo saliente declara quién lo escribió, y
+  // todo teléfono va en E.164. Lo segundo es la CLAVE DEL HILO de la bandeja:
+  // si el seed y el webhook guardan formatos distintos, la misma persona sale
+  // como dos conversaciones y se ve en pantalla, no en un test.
+  {
+    const { rows } = await db.query(
+      `select
+         count(*) filter (where direccion = 'Saliente' and autor is null)::int sin_autor,
+         count(*) filter (where telefono not like '+%')::int sin_e164
+       from mensajes_whatsapp where cliente = 'DEMO'`,
+    );
+    const { sin_autor: sinAutor, sin_e164: sinE164 } = rows[0];
+    if (sinAutor || sinE164) {
+      throw new Error(
+        `[seed] mensajería inconsistente: ${sinAutor} saliente(s) sin autor, ` +
+          `${sinE164} teléfono(s) fuera de E.164`,
+      );
+    }
+  }
+
   // INVARIANTE (§15): ninguna plantilla puede quedar con una sola llave ni sin
   // categoría. Se comprueba AQUÍ, dentro de la transacción, para que un seed
   // que rompa el vocabulario reviente en el próximo `demo:reset` en vez de

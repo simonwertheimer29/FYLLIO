@@ -179,6 +179,13 @@ export async function createMensajeWhatsAppPg(fields: Record<string, unknown>): 
     intencion_detectada: refOrNull(fields["Intencion_detectada"]),
     waba_message_id: refOrNull(fields["WABA_message_id"]),
     notas: refOrNull(fields["Notas"]),
+    // 018 — los tres cimientos de Mensajería. `autor` solo se escribe en
+    // salientes: en un entrante quien escribió es el paciente y ponerle una
+    // etiqueta de las nuestras sería inventar.
+    autor: refOrNull(fields["Autor"]),
+    sugerido_por_ia:
+      fields["Sugerido_por_IA"] == null ? null : Boolean(fields["Sugerido_por_IA"]),
+    nombre_perfil: refOrNull(fields["Nombre_perfil"]),
   };
   const inserted = await runWithClienteDb(cli(), async (trx) => {
     return trx.insertInto("mensajes_whatsapp").values(row as any).returning("id").executeTakeFirstOrThrow();

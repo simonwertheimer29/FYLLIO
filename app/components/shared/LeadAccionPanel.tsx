@@ -294,6 +294,10 @@ export function LeadAccionPanel({
   // Descartar pregunta el motivo (MEJORAS 42) — el mismo modal del kanban.
   const [pidiendoMotivo, setPidiendoMotivo] = useState(false);
   const [generandoIA, setGenerandoIA] = useState(false);
+  // ¿El texto del compositor lo escribió la IA? Mismo seguimiento que en el
+  // panel de presupuestos: el servidor solo ve un string, así que quien lo sabe
+  // es esta pantalla. Alimenta la pestaña «Ha respondido el agente».
+  const [textoDeIA, setTextoDeIA] = useState(false);
   const [plantillas, setPlantillas] = useState<PlantillaLead[]>([]);
   const [wabaActivo, setWabaActivo] = useState(false);
   const [savingEstado, setSavingEstado] = useState(false);
@@ -463,7 +467,12 @@ export function LeadAccionPanel({
         const res = await fetch("/api/leads/intervencion/enviar-waba", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ leadId: lead.id, telefono: cleanPhone, contenido: texto }),
+          body: JSON.stringify({
+            leadId: lead.id,
+            telefono: cleanPhone,
+            contenido: texto,
+            sugeridoPorIa: textoDeIA,
+          }),
         });
         if (!res.ok) {
           const d = await res.json().catch(() => ({}));
@@ -480,7 +489,12 @@ export function LeadAccionPanel({
         const res = await fetch("/api/leads/intervencion/enviar-manual", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ leadId: lead.id, telefono: cleanPhone, contenido: texto }),
+          body: JSON.stringify({
+            leadId: lead.id,
+            telefono: cleanPhone,
+            contenido: texto,
+            sugeridoPorIa: textoDeIA,
+          }),
         });
         if (!res.ok) {
           const d = await res.json().catch(() => ({}));
@@ -530,6 +544,7 @@ export function LeadAccionPanel({
         });
         const d = await res.json();
         if (d.clasificacion?.mensajeSugerido) {
+          setTextoDeIA(true);
           setComposerTexto(d.clasificacion.mensajeSugerido);
           if (d.lead) onChanged(adoptarClinicaNombre(d.lead, lead));
           return;
@@ -552,6 +567,7 @@ export function LeadAccionPanel({
         }),
       });
       const d = await res.json();
+      setTextoDeIA(true);
       if (d.mensaje) setComposerTexto(d.mensaje);
     } catch {
       toast.error("No se pudo generar el mensaje. Inténtalo de nuevo.");
@@ -758,6 +774,7 @@ export function LeadAccionPanel({
           onChange={(v) => {
             setComposerTexto(v);
             setComposerError(null);
+            setTextoDeIA(false);
           }}
           onEnviar={handleEnviar}
           enviando={enviando}

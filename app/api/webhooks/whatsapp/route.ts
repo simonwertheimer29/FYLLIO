@@ -193,8 +193,34 @@ async function processIncomingMessage(body: unknown): Promise<void> {
 
   const contact = contacts[0];
   const telefonoRaw = msg.from || contact?.wa_id || "";
-  const telefono = normalizarTelefono(telefonoRaw);
-  if (!telefono) return;
+
+  // ─── La clave del hilo ──────────────────────────────────────────────────
+  //
+  // `normalizarTelefono` devuelve DÍGITOS SIN «+» («34667188097»), y así se
+  // venía guardando. Pero el resto del sistema guarda E.164 CON «+»
+  // (`telefonoParaGuardar`): los 166 pacientes, los 268 leads y los 1.114
+  // mensajes del seed lo llevan. Con los dos formatos conviviendo, agrupar la
+  // bandeja por teléfono partía a la misma persona en dos conversaciones — una
+  // con los mensajes que mandamos y otra con los que nos manda.
+  //
+  // Se guarda en E.164, que es el formato del sistema. Poner el «+» delante no
+  // es adivinar un prefijo: el `wa_id` de WhatsApp **es** internacional por
+  // definición, así que el «+» es un hecho, no una suposición — que es la línea
+  // que `normalizarE164` no cruza y por eso no se usa aquí.
+  //
+  // El emparejamiento contra presupuestos y leads sigue con los dígitos: sus
+  // fórmulas quitan «+», espacios y guiones de los dos lados, así que comparar
+  // dígitos con dígitos era y sigue siendo correcto.
+  const digitos = normalizarTelefono(telefonoRaw);
+  if (!digitos) return;
+  const telefono = `+${digitos}`;
+
+  // El nombre de perfil de WhatsApp lo manda Meta en cada entrante y lo
+  // estábamos tirando, teniéndolo declarado en el tipo. Es el último eslabón de
+  // la cadena de nombre —paciente → lead → perfil → número—, y sin él una
+  // conversación de alguien que no está en ningún pipeline es una línea que
+  // solo dice un número.
+  const nombrePerfil = contact?.profile?.name?.trim() || null;
 
   // Deduplicación atómica por WABA_message_id vía KV (P0.7). Meta reentrega el
   // mismo mensaje si no recibió el 200 a tiempo. El anterior "consultar-y-crear"
@@ -209,8 +235,8 @@ async function processIncomingMessage(body: unknown): Promise<void> {
   // Sprint 9 fix unificación: matching por teléfono.
   // Reglas (cerradas con Simon): si hay presupuesto, gana. Si no, intentamos
   // un Lead activo (no convertido). El mensaje queda huérfano si nada matchea.
-  const presupuestoInfo = await buscarPresupuestoPorTelefono(telefono);
-  const leadInfo = presupuestoInfo ? null : await buscarLeadActivoPorTelefono(telefono);
+  const presupuestoInfo = await buscarPresupuestoPorTelefono(digitos);
+  const leadInfo = presupuestoInfo ? null : await buscarLeadActivoPorTelefono(digitos);
 
   const timestamp = msg.timestamp
     ? new Date(Number(msg.timestamp) * 1000).toISOString()
@@ -222,6 +248,7 @@ async function processIncomingMessage(body: unknown): Promise<void> {
   const servicio = getServicioMensajeria("waba");
   await servicio.recibirMensaje({
     telefono,
+    nombrePerfil,
     contenido,
     presupuestoId: presupuestoInfo?.id,
     leadId: leadInfo?.id,
@@ -257,7 +284,12 @@ async function processIncomingMessage(body: unknown): Promise<void> {
 
   // Sin presupuesto y sin lead asociado: solo persistimos.
   if (!presupuestoInfo) {
-    console.log(`[waba webhook] mensaje de ${telefono} sin presupuesto ni lead asociado`);
+    // Huérfano: no es paciente, no es lead. Se persiste igual —y ahora con su
+    // nombre de perfil—, pero hoy NO aparece en ninguna pantalla. Eso lo viene
+    // a resolver el módulo de Mensajería; hasta entonces, el log es lo único.
+    console.log(
+      `[waba webhook] mensaje de ${telefono}${nombrePerfil ? ` (${nombrePerfil})` : ""} sin presupuesto ni lead asociado`,
+    );
     return;
   }
 

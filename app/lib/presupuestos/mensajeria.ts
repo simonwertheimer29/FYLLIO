@@ -78,9 +78,30 @@ const GRAPH_API_VERSION = "v21.0";
 
 // ─── Interface ───────────────────────────────────────────────────────────────
 
+/** Quién PULSÓ ENVIAR. No es lo mismo que quién escribió el texto: en modo A el
+ *  agente redacta y una persona manda, así que los dos datos hacen falta. */
+export type AutorMensaje =
+  /** Un humano le dio a enviar, escribiera él el texto o lo escribiera la IA. */
+  | "persona"
+  /** El sistema envió solo, sin nadie delante (modo B). */
+  | "agente"
+  /** Envío programado de una cadencia: tampoco había nadie, pero el texto no se
+   *  redactó para este caso — salió de una plantilla. */
+  | "cadencia";
+
 export interface EnviarMensajeParams {
   pacienteId?: string;
   presupuestoId?: string;
+  /** OBLIGATORIO a propósito. Es el dato que hoy no existe —`fuente` vale
+   *  'Modo_A_manual' en los 1.114 mensajes— y sin él la bandeja no puede
+   *  responder «qué ha contestado el agente». Al ser obligatorio, el compilador
+   *  obliga a cada uno de los ~10 sitios que envían a declararlo, en vez de
+   *  dejar que hereden un valor por defecto que nadie revisa. */
+  autor: AutorMensaje;
+  /** Si el TEXTO lo redactó la IA. Se declara aparte de `autor` porque en modo A
+   *  la respuesta a «qué dice el agente» son los mensajes que él escribió y otra
+   *  persona envió. Por defecto `false`: quien no lo diga, no lo hizo. */
+  sugeridoPorIa?: boolean;
   /** Sprint 9 fix unificación: cuando se envía desde Actuar Hoy → Leads,
    *  vincula el mensaje al Lead vía campo `Lead_Link`. */
   leadId?: string;
@@ -108,6 +129,10 @@ export interface RecibirMensajeParams {
   leadId?: string;
   timestamp?: string;
   wabaMessageId?: string;
+  /** Nombre de perfil de WhatsApp del contacto. Meta lo manda en cada entrante
+   *  y hasta hoy se descartaba. Es el último recurso para poner nombre a un
+   *  hilo de alguien que no es paciente ni lead. */
+  nombrePerfil?: string | null;
 }
 
 export interface RecibirMensajeResult {
@@ -234,6 +259,8 @@ class ServicioMensajeriaManual implements ServicioMensajeria {
       Timestamp: now,
       Fuente: params.fuente ?? "Modo_A_manual",
       Procesado_por_IA: false,
+      Autor: params.autor,
+      Sugerido_por_IA: params.sugeridoPorIa ?? false,
     };
     if (params.leadId) fields.Lead_Link = [params.leadId];
     const record = await crearMensajeWhatsAppRecord(fields);
@@ -256,6 +283,7 @@ class ServicioMensajeriaManual implements ServicioMensajeria {
       Timestamp: ts,
       Fuente: "Modo_A_manual",
       Procesado_por_IA: false,
+      Nombre_perfil: params.nombrePerfil ?? null,
     };
 
     if (params.presupuestoId) fields.Presupuesto = params.presupuestoId;
@@ -377,6 +405,7 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
       Timestamp: ts,
       Fuente: "Modo_B_WABA",
       Procesado_por_IA: false,
+      Nombre_perfil: params.nombrePerfil ?? null,
     };
 
     if (params.presupuestoId) fields.Presupuesto = params.presupuestoId;

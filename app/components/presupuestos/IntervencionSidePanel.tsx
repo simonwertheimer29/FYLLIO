@@ -171,6 +171,14 @@ export default function IntervencionSidePanel({
   const [enviando, setEnviando] = useState(false);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [generandoIA, setGenerandoIA] = useState(false);
+  // ¿El texto que hay en el compositor lo escribió la IA?
+  //
+  // Se sigue aquí y no en el servidor porque es lo único que lo sabe: la ruta
+  // solo recibe un string. Se pone a true cuando el botón de IA rellena el
+  // campo y vuelve a false en cuanto la persona teclea — si lo reescribe, ya no
+  // es del agente. Es lo que hace que la pestaña «Ha respondido el agente» de
+  // la bandeja tenga contenido en modo A, donde el agente redacta pero no envía.
+  const [textoDeIA, setTextoDeIA] = useState(false);
   const [plantillas, setPlantillas] = useState<PlantillaMensaje[]>([]);
   const [wabaActivo, setWabaActivo] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -304,7 +312,12 @@ export default function IntervencionSidePanel({
         const res = await fetch("/api/presupuestos/intervencion/enviar-waba", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ presupuestoId: item.id, telefono: cleanPhone, contenido: texto }),
+          body: JSON.stringify({
+            presupuestoId: item.id,
+            telefono: cleanPhone,
+            contenido: texto,
+            sugeridoPorIa: textoDeIA,
+          }),
         });
         if (!res.ok) {
           const d = await res.json().catch(() => ({}));
@@ -327,7 +340,12 @@ export default function IntervencionSidePanel({
         const res = await fetch("/api/presupuestos/intervencion/enviar-manual", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ presupuestoId: item.id, telefono: cleanPhone, contenido: texto }),
+          body: JSON.stringify({
+            presupuestoId: item.id,
+            telefono: cleanPhone,
+            contenido: texto,
+            sugeridoPorIa: textoDeIA,
+          }),
         });
         if (!res.ok) {
           const d = await res.json().catch(() => ({}));
@@ -376,6 +394,7 @@ export default function IntervencionSidePanel({
         });
         const d = await res.json();
         if (d.clasificacion?.mensajeSugerido) {
+          setTextoDeIA(true);
           setComposerTexto(d.clasificacion.mensajeSugerido);
           onRefresh();
           return;
@@ -576,6 +595,8 @@ export default function IntervencionSidePanel({
           onChange={(v) => {
             setComposerTexto(v);
             setComposerError(null);
+            // Si lo reescribe una persona, deja de ser del agente.
+            setTextoDeIA(false);
           }}
           onEnviar={handleEnviar}
           enviando={enviando}

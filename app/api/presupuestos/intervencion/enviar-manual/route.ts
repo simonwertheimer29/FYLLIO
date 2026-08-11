@@ -58,6 +58,11 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
   const presupuestoId = body?.presupuestoId as string | undefined;
   const telefono = body?.telefono as string | undefined;
   const contenido = body?.contenido as string | undefined;
+  // Lo declara el panel: si el texto salió del botón de IA y se envió sin
+  // reescribirlo, el agente es su autor aunque lo mandara una persona. Es lo
+  // que hace que la pestaña «Ha respondido el agente» diga algo en modo A, en
+  // vez de esperar al modo B para tener contenido.
+  const sugeridoPorIa = body?.sugeridoPorIa === true;
 
   if (!telefono || !contenido) {
     return NextResponse.json({ error: "Faltan telefono o contenido" }, { status: 400 });
@@ -72,7 +77,7 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
 
   try {
     const servicio = getServicioMensajeria("manual");
-    const result = await servicio.enviarMensaje({ presupuestoId, telefono, contenido });
+    const result = await servicio.enviarMensaje({ presupuestoId, telefono, contenido, autor: "persona", sugeridoPorIa });
 
     // Coincidencia agente-humano (fase 1). Se mide DESPUÉS del envío y con el
     // sugerido leído de la base, no del cuerpo de la petición: si el cliente

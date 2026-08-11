@@ -18,6 +18,11 @@ export const POST = withAuth(async (session, req) => {
   const leadId = body?.leadId as string | undefined;
   const telefono = body?.telefono as string | undefined;
   const contenido = body?.contenido as string | undefined;
+  // Lo declara el panel: si el texto salió del botón de IA y se envió sin
+  // reescribirlo, el agente es su autor aunque lo mandara una persona. Es lo
+  // que hace que la pestaña «Ha respondido el agente» diga algo en modo A, en
+  // vez de esperar al modo B para tener contenido.
+  const sugeridoPorIa = body?.sugeridoPorIa === true;
 
   if (!leadId || !telefono || !contenido) {
     return NextResponse.json({ error: "Faltan leadId, telefono o contenido" }, { status: 400 });
@@ -43,7 +48,7 @@ export const POST = withAuth(async (session, req) => {
   let result;
   try {
     const servicio = getServicioMensajeria("waba");
-    result = await servicio.enviarMensaje({ leadId, telefono, contenido, idempotencyKey });
+    result = await servicio.enviarMensaje({ leadId, telefono, contenido, idempotencyKey, autor: "persona", sugeridoPorIa });
   } catch (err) {
     // El envío NO llegó a salir (o rate limit): el caller puede reintentar sin duplicar.
     const anyErr = err as { statusCode?: number; retryAfterMs?: number; message?: string };

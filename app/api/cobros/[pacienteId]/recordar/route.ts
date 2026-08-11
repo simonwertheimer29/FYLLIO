@@ -53,6 +53,9 @@ export const POST = withAuth<Ctx>(async (session, req, ctx) => {
         pacienteId: paciente.id,
         telefono: paciente.telefono,
         contenido: mensaje,
+        // Lo pulsa la coordinadora desde el panel de cobros. El texto sale de
+        // plantilla, no de la IA — por eso `sugeridoPorIa` se queda en false.
+        autor: "persona",
       });
       if (!out.ok) throw new Error("enviarMensaje devolvió !ok");
       urlWhatsApp = out.urlWhatsApp ?? null;

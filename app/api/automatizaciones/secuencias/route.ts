@@ -134,6 +134,9 @@ export const PATCH = withPresupuestosAuth(async (session, req) => {
               telefono: telefonoSec,
               contenido: contenidoSec,
               fuente: "Plantilla_automatica",
+              // Envío programado: no hay nadie delante y el texto sale de una
+              // plantilla, no se redacta para este caso.
+              autor: "cadencia" as const,
             });
             // El cliente abre ESTA url (censo wa.me a cero): el saliente ya
             // quedó persistido en el hilo antes de devolverla.

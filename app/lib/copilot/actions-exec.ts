@@ -177,6 +177,10 @@ async function execEnviarWhatsappLead(env: ExecEnv, p: any): Promise<ExecResult>
       leadId: lead.id,
       telefono: lead.telefono,
       contenido: mensaje,
+      // El copiloto lo dispara una persona, pero el texto lo redactó la IA:
+      // por eso los dos campos, y por eso no son el mismo campo.
+      autor: "persona",
+      sugeridoPorIa: true,
     });
   }
 
@@ -271,6 +275,8 @@ async function execEnviarWhatsappPresupuesto(env: ExecEnv, p: any): Promise<Exec
     presupuestoId: access.rec.id,
     telefono,
     contenido: mensaje,
+    autor: "persona",
+    sugeridoPorIa: true,
   });
   return {
     ok: true,
@@ -481,6 +487,10 @@ async function execEnviarRecordatorioPago(
       contenido: texto,
       pacienteId: paciente.id,
       fuente: "Modo_A_manual",
+      // Igual que las otras dos acciones del copiloto: lo dispara una persona,
+      // lo redacta la IA.
+      autor: "persona",
+      sugeridoPorIa: true,
     };
     const out = await servicio.enviarMensaje(params);
     if (!out.ok) {

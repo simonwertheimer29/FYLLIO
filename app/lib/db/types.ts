@@ -30,6 +30,7 @@ import type {
   Tabla_configuracion_automatizaciones,
   Tabla_pacientes,
   Tabla_presupuestos,
+  Tabla_mensajes_whatsapp,
 } from "./types-generado";
 
 // Todo lo generado se reexporta desde aquí: quien importa tipos importa de
@@ -145,6 +146,17 @@ type ExtraPresupuestos = {
   intencion_propuesta: string | null;
 };
 
+/** 018 — los cimientos de Mensajería. `autor` y `sugerido_por_ia` son dos
+ *  preguntas distintas: quién pulsó enviar, y de dónde salió el texto. En modo A
+ *  el agente escribe y la persona manda, así que hace falta el segundo para
+ *  poder responder «qué ha estado diciendo el agente» sin esperar al modo B. */
+type ExtraMensajesWhatsApp = {
+  autor: "persona" | "agente" | "cadencia" | null;
+  sugerido_por_ia: boolean | null;
+  /** Nombre de perfil de WhatsApp. Último recurso antes de enseñar un número. */
+  nombre_perfil: string | null;
+};
+
 // ─── El esquema real ────────────────────────────────────────────────────────
 
 export interface DB
@@ -154,6 +166,7 @@ export interface DB
     | "pacientes"
     | "configuracion_automatizaciones"
     | "presupuestos"
+    | "mensajes_whatsapp"
   > {
   // Generadas, con columnas añadidas después.
   alertas_enviadas: Tabla_alertas_enviadas & ExtraAlertasEnviadas;
@@ -161,6 +174,7 @@ export interface DB
   configuracion_automatizaciones: Tabla_configuracion_automatizaciones &
     ExtraConfiguracionAutomatizaciones;
   presupuestos: Tabla_presupuestos & ExtraPresupuestos;
+  mensajes_whatsapp: Tabla_mensajes_whatsapp & ExtraMensajesWhatsApp;
 
   // Creadas después.
   alertas_pospuestas: Tabla_alertas_pospuestas;

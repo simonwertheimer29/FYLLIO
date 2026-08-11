@@ -182,7 +182,13 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
           : String(telF["Teléfono"] ?? "");
       try {
         if (tipo === "WhatsApp enviado") {
-          await servicio.enviarMensaje({ presupuestoId, telefono, contenido: mensaje });
+          await servicio.enviarMensaje({
+            presupuestoId,
+            telefono,
+            contenido: mensaje,
+            // La coordinadora registra algo que YA mandó ella por su cuenta.
+            autor: "persona",
+          });
         } else {
           await servicio.recibirMensaje({ presupuestoId, telefono, contenido: mensaje });
         }

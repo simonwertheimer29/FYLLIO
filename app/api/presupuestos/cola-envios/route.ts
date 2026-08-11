@@ -192,6 +192,7 @@ export const PATCH = withPresupuestosAuth(async (session, req: Request) => {
             telefono,
             contenido,
             fuente: "Plantilla_automatica",
+        autor: "cadencia" as const,
           });
         } catch (err) {
           console.error("[cola-envios] Error registering in Mensajes_WhatsApp:", err);

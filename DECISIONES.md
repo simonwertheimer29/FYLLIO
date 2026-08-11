@@ -2327,3 +2327,38 @@ número de conexiones abiertas en el panel de Supabase.
 
 Y lo que sigue funcionando bien: las dos veces, la aplicación enseñó su error honesto en vez de una
 pantalla de ceros.
+
+## 2026-08-11 — Los cimientos de Mensajería: autoría, nombre de perfil y una sola clave de hilo
+Antes de construir la bandeja, tres cosas de las que dependía y no existían (diagnóstico completo en
+la conversación; migración 018).
+
+**La autoría no se podía saber.** `fuente` valía `Modo_A_manual` en los 1.114 mensajes y
+`eventos_automatizacion` estaba vacía, así que la pestaña «Ha respondido el agente» —la razón de ser
+de la pantalla— no se podía derivar de nada. Se guardan **dos** campos, porque son dos preguntas:
+`autor` (quién pulsó enviar) y `sugerido_por_ia` (quién redactó el texto). Un solo campo no sirve:
+en modo A el agente escribe y la persona manda, así que «lo que ha dicho el agente» son los mensajes
+que él redactó y otro envió. Con los dos, la pestaña tiene contenido hoy y sigue teniéndolo el día
+que el agente envíe solo.
+
+`autor` es **obligatorio en el tipo** a propósito: el compilador señaló los **once** sitios que
+envían mensajes y obligó a clasificarlos uno a uno (persona · agente · cadencia). Diez los tenía
+censados a mano; el undécimo lo encontró el compilador. Es el mismo mecanismo que el Record
+exhaustivo del §12: que añadir una vía de envío nueva no compile hasta declarar quién escribe.
+
+**Una sola clave de hilo.** El webhook guardaba el teléfono en dígitos sin `+` y el resto del sistema
+en E.164 con `+` — los 166 pacientes, los 268 leads y los 1.114 mensajes del seed. Conviviendo los
+dos formatos, agrupar la bandeja por teléfono **partía a la misma persona en dos conversaciones**:
+una con lo que le mandamos y otra con lo que nos manda. Se unifica en E.164. Poner el `+` no es
+adivinar un prefijo: el `wa_id` de WhatsApp es internacional por definición. El emparejamiento contra
+presupuestos y leads sigue comparando dígitos, que era y sigue siendo correcto.
+
+**El nombre de perfil que se tiraba.** `contacts[].profile.name` llega en cada entrante, estaba
+declarado en el tipo del webhook, y se descartaba. Ahora se guarda: cierra la cadena paciente → lead
+→ perfil → número, que es lo que evita que la bandeja sea una lista de teléfonos.
+
+Y el índice `(cliente, telefono, timestamp desc)`, que no existía: agrupar conversaciones era un seq
+scan. Verificado que el plan pasa a `Index Scan`.
+
+**El guard de tipos hizo su trabajo el primer día que se podía comprobar:** `db:migrate` avisó de las
+tres columnas sin declarar en el mismo comando que aplicó la migración. Se escribió hace cuatro días
+justamente para esto.
