@@ -113,3 +113,41 @@ export async function createConfigWABARaw(fields: Record<string, unknown>): Prom
     await trx.insertInto("configuracion_waba").values({ cliente, clinica_id: c.id, ...set } as any).execute();
   });
 }
+
+/**
+ * La clínica a la que llega un mensaje, por el NÚMERO que lo recibe.
+ *
+ * Es el eslabón que faltaba (migración 019). Hasta hoy la clínica de un mensaje
+ * se derivaba del caso —presupuesto o lead— y eso tiene un agujero por
+ * construcción: un mensaje de alguien que no está fichado no puede tener
+ * clínica nunca, y esos son justo los que la bandeja viene a hacer visibles.
+ *
+ * Devuelve `null` cuando el número no es de ninguna clínica concreta: o es de
+ * red (compartido) o no está configurado. **`null` significa «todavía no se
+ * sabe», nunca «todas»** — es el mismo fallo que el `clinica: null` que fue el
+ * riesgo nº1 de la auditoría, y aquí se evita no eligiendo.
+ */
+export async function clinicaDelNumeroWABA(
+  phoneNumberId: string | null | undefined,
+): Promise<string | null> {
+  if (!phoneNumberId) return null;
+  const { runWithClienteDb } = await import("../db/context");
+  const { requireCliente } = await import("../cliente-contexto");
+  const cliente = requireCliente("waba/clinica-del-numero");
+  try {
+    return await runWithClienteDb(cliente, async (trx) => {
+      const r = await trx
+        .selectFrom("configuracion_waba")
+        .select("clinica_id")
+        .where("phone_number_id", "=", phoneNumberId)
+        .executeTakeFirst();
+      return r?.clinica_id ?? null;
+    });
+  } catch (err) {
+    // Un fallo aquí NO puede tumbar la recepción de un mensaje de un paciente
+    // (§1: primero se persiste). Se degrada a «no se sabe la clínica», que la
+    // bandeja ya sabe tratar, y queda observable (§9).
+    console.error("[waba] no se pudo resolver la clínica del número:", err);
+    return null;
+  }
+}

@@ -2362,3 +2362,56 @@ scan. Verificado que el plan pasa a `Index Scan`.
 **El guard de tipos hizo su trabajo el primer día que se podía comprobar:** `db:migrate` avisó de las
 tres columnas sin declarar en el mismo comando que aplicó la migración. Se escribió hace cuatro días
 justamente para esto.
+
+## 2026-08-11 — Un dato sin clínica no se enseña a quien tiene acceso limitado; se declara su existencia
+**Decisión de producto y de aislamiento, tomada a sabiendas.** El spec del módulo de Mensajería decía
+que las conversaciones sin clínica «no pueden quedarse fuera del filtro por defecto». La intención es
+correcta —son justo las que la bandeja viene a hacer visibles— pero la consecuencia no lo era: una
+coordinadora tiene el acceso limitado a SUS clínicas, y una conversación sin clínica asignada podría
+ser de otra. Enseñársela es una fuga, con el agravante de que el contenido es una conversación con
+un paciente.
+
+La regla que queda:
+
+- **Quien tiene acceso de red** (admin, «Todas las clínicas») ve la banda «Sin asignar» con su
+  contenido, y con una acción: decir quién es. Es una cola, no un cementerio — sin salida, en tres
+  meses son 200 líneas que nadie mira, que es como mueren estas bandas.
+- **Quien tiene el acceso limitado** NO ve su contenido, pero **sí sabe cuántas hay**: se declara su
+  existencia en el aviso de filtro activo. Sabe que están sin poder saber de quién son.
+
+Y la causa de raíz, que es lo que evita que esto crezca: **la clínica de un mensaje deja de
+derivarse y pasa a guardarse** al recibirlo, del número que lo recibe (migración 019 —
+`configuracion_waba.phone_number_id`, que ya tenía `clinica_id` y solo le faltaba la otra punta).
+Derivarla por el presupuesto o el lead tenía un agujero por construcción: un mensaje de alguien que
+no está fichado no puede tener clínica nunca. Si el número es de red, `clinica_id` se queda NULL y
+**no se elige una** — un `clinica_id` inventado es el «sin clínica = todas» de la auditoría con otra
+cara.
+
+**Comprobado intentando saltárselo, no leyendo el código** (§5). El QA siembra un huérfano de verdad,
+porque en DEMO todo tiene clínica y sin él la comprobación habría dado un falso aprobado — que es
+exactamente lo que avisa el §5 sobre entornos vacíos. Resultado: el admin lo ve, la coordinadora no,
+la coordinadora sabe que existe, el hilo por URL directa devuelve 403, y una coordinadora sin
+clínicas ve **cero** conversaciones (fail-closed, no «todas»). Y el nombre del huérfano sale del
+perfil de WhatsApp —«Marta»— en vez de un número, que es la cadena que cerró la migración 018.
+
+## 2026-08-11 — La bandeja de Mensajería, y el layout que la hacía no ser una bandeja
+`/mensajeria`: tres columnas —lista · conversación · contexto— como pantalla propia del nav, no como
+vista de Seguimiento. Son la misma fuente leída de dos formas: Seguimiento responde «¿qué hago
+ahora?» y filtra; la bandeja responde «¿qué está pasando?» y no filtra nada.
+
+**La conversación es un TELÉFONO, no un caso.** Es la diferencia de fondo con Seguimiento, y no es
+teórica: hoy hay 26 teléfonos que son lead Y paciente a la vez, y en el WhatsApp de esa persona eso
+es una sola conversación. Solo se pudo hacer porque la migración 018 unificó la clave del hilo.
+
+**Se escribe por las MISMAS rutas que Seguimiento**, pudiendo haber hecho una propia y más cómoda.
+Una segunda vía de envío sería una segunda forma de registrar la autoría, el quiebre y la
+coincidencia, y eso es el patrón paralelo que llevamos dos meses matando.
+
+**Y un fallo que solo se vio midiendo:** con 60 conversaciones la página medía **11.000 px** — las
+columnas no hacían scroll cada una por su lado, estiraban la pantalla, y el hilo quedaba perdido
+arriba del todo. La causa es que el layout de `(authed)` usa `min-h-screen`, que crece con el
+contenido, así que no hay altura definida contra la que contener un scroll interno. Se resta la
+cabecera global **medida en el navegador** (102 px), no estimada, y se verifica con una medición:
+documento 900 px = viewport, y la lista con scroll propio. El arreglo de fondo sería que el layout
+diera altura definida, pero eso toca trece pantallas y no era trabajo de esta — queda anotado en el
+comentario, donde lo verá quien lo cambie.

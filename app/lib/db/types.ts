@@ -31,6 +31,7 @@ import type {
   Tabla_pacientes,
   Tabla_presupuestos,
   Tabla_mensajes_whatsapp,
+  Tabla_configuracion_waba,
 } from "./types-generado";
 
 // Todo lo generado se reexporta desde aquí: quien importa tipos importa de
@@ -155,6 +156,16 @@ type ExtraMensajesWhatsApp = {
   sugerido_por_ia: boolean | null;
   /** Nombre de perfil de WhatsApp. Último recurso antes de enseñar un número. */
   nombre_perfil: string | null;
+  /** 019 — clínica del mensaje, escrita al recibirlo o enviarlo. NULL NO
+   *  significa «todas»: significa «todavía no se sabe», y la bandeja lo trata
+   *  como tal (no se enseña a quien tiene acceso limitado). */
+  clinica_id: string | null;
+};
+
+/** 019 — el número de WhatsApp de esta clínica, para saber a qué clínica llega
+ *  un mensaje sin depender de que el remitente esté fichado. */
+type ExtraConfiguracionWaba = {
+  phone_number_id: string | null;
 };
 
 // ─── El esquema real ────────────────────────────────────────────────────────
@@ -167,6 +178,7 @@ export interface DB
     | "configuracion_automatizaciones"
     | "presupuestos"
     | "mensajes_whatsapp"
+    | "configuracion_waba"
   > {
   // Generadas, con columnas añadidas después.
   alertas_enviadas: Tabla_alertas_enviadas & ExtraAlertasEnviadas;
@@ -175,6 +187,7 @@ export interface DB
     ExtraConfiguracionAutomatizaciones;
   presupuestos: Tabla_presupuestos & ExtraPresupuestos;
   mensajes_whatsapp: Tabla_mensajes_whatsapp & ExtraMensajesWhatsApp;
+  configuracion_waba: Tabla_configuracion_waba & ExtraConfiguracionWaba;
 
   // Creadas después.
   alertas_pospuestas: Tabla_alertas_pospuestas;

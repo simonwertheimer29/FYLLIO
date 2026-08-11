@@ -186,6 +186,9 @@ export async function createMensajeWhatsAppPg(fields: Record<string, unknown>): 
     sugerido_por_ia:
       fields["Sugerido_por_IA"] == null ? null : Boolean(fields["Sugerido_por_IA"]),
     nombre_perfil: refOrNull(fields["Nombre_perfil"]),
+    // 019 — la clínica se escribe al recibir o enviar. Si el caller no la sabe
+    // queda NULL, que la bandeja lee como «todavía no se sabe», no como «todas».
+    clinica_id: refOrNull(fields["Clinica_id"]),
   };
   const inserted = await runWithClienteDb(cli(), async (trx) => {
     return trx.insertInto("mensajes_whatsapp").values(row as any).returning("id").executeTakeFirstOrThrow();

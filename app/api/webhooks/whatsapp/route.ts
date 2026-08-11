@@ -18,6 +18,7 @@ import {
   getWABACredentials,
   isWABAEnabled,
   normalizarTelefono,
+  clinicaDelNumeroWABA,
 } from "../../../lib/presupuestos/waba-credentials";
 import { getServicioMensajeria } from "../../../lib/presupuestos/mensajeria";
 import { clasificarRespuesta, guardarClasificacion } from "../../../lib/presupuestos/intervencion";
@@ -222,6 +223,11 @@ async function processIncomingMessage(body: unknown): Promise<void> {
   // solo dice un número.
   const nombrePerfil = contact?.profile?.name?.trim() || null;
 
+  // La clínica, del NÚMERO que recibe el mensaje (migración 019). Se sabe antes
+  // de saber quién escribe, así que también la tienen los mensajes de gente que
+  // no está en ningún caso — que era el agujero de derivarla por el presupuesto.
+  const clinicaId = await clinicaDelNumeroWABA(value?.metadata?.phone_number_id);
+
   // Deduplicación atómica por WABA_message_id vía KV (P0.7). Meta reentrega el
   // mismo mensaje si no recibió el 200 a tiempo. El anterior "consultar-y-crear"
   // contra Airtable era race-prone: dos entregas concurrentes leían ambas "no
@@ -249,6 +255,7 @@ async function processIncomingMessage(body: unknown): Promise<void> {
   await servicio.recibirMensaje({
     telefono,
     nombrePerfil,
+    clinicaId,
     contenido,
     presupuestoId: presupuestoInfo?.id,
     leadId: leadInfo?.id,

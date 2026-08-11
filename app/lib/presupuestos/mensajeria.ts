@@ -133,6 +133,9 @@ export interface RecibirMensajeParams {
    *  y hasta hoy se descartaba. Es el último recurso para poner nombre a un
    *  hilo de alguien que no es paciente ni lead. */
   nombrePerfil?: string | null;
+  /** Clínica del NÚMERO que recibió el mensaje (migración 019). `null` = no se
+   *  sabe; nunca «todas». */
+  clinicaId?: string | null;
 }
 
 export interface RecibirMensajeResult {
@@ -284,6 +287,7 @@ class ServicioMensajeriaManual implements ServicioMensajeria {
       Fuente: "Modo_A_manual",
       Procesado_por_IA: false,
       Nombre_perfil: params.nombrePerfil ?? null,
+      Clinica_id: params.clinicaId ?? null,
     };
 
     if (params.presupuestoId) fields.Presupuesto = params.presupuestoId;
@@ -406,6 +410,7 @@ class ServicioMensajeriaWABA implements ServicioMensajeria {
       Fuente: "Modo_B_WABA",
       Procesado_por_IA: false,
       Nombre_perfil: params.nombrePerfil ?? null,
+      Clinica_id: params.clinicaId ?? null,
     };
 
     if (params.presupuestoId) fields.Presupuesto = params.presupuestoId;

@@ -20,6 +20,7 @@ type NavItem = { href: string; label: string };
 const NAV_COORD: NavItem[] = [
   { href: "/pacientes",       label: "Pacientes" },
   { href: "/seguimiento",     label: "Seguimiento" },
+  { href: "/mensajeria",      label: "Mensajería" },
   { href: "/leads",           label: "Leads" },
   { href: "/presupuestos",    label: "Presupuestos" },
   { href: "/cobros",          label: "Cobros" },
@@ -34,6 +35,7 @@ const NAV_ADMIN: NavItem[] = [
   { href: "/alertas",         label: "Alertas" },
   { href: "/pacientes",       label: "Pacientes" },
   { href: "/seguimiento",     label: "Seguimiento" },
+  { href: "/mensajeria",      label: "Mensajería" },
   { href: "/leads",           label: "Leads" },
   { href: "/presupuestos",    label: "Presupuestos" },
   { href: "/cobros",          label: "Cobros" },
