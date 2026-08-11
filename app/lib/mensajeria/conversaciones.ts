@@ -205,3 +205,36 @@ export async function hiloDe(telefono: string, limite = 200) {
     }));
   });
 }
+
+
+/**
+ * Cuántas conversaciones necesitan una persona, por clínica.
+ *
+ * Se calcula con la MISMA función que la bandeja y con el mismo filtro, en vez
+ * de con una consulta propia sobre `presupuestos`. Podría hacerse más directo;
+ * sería también un segundo cálculo del mismo número, y el día que divergieran
+ * /red diría 7 y la bandeja enseñaría 5 al hacer clic. Es exactamente el patrón
+ * paralelo que llevamos dos meses matando.
+ *
+ * Las que no tienen clínica NO se reparten ni se suman a ninguna: aparecen
+ * aparte, con la misma regla de aislamiento que la banda «Sin asignar».
+ */
+export async function necesitanPersonaPorClinica(args: {
+  clinicasPermitidas: string[] | null;
+}): Promise<{ porClinica: Record<string, number>; sinClinica: number }> {
+  const { conversaciones } = await listarConversaciones({
+    filtro: "necesita-persona",
+    clinicasPermitidas: args.clinicasPermitidas,
+    limite: 200,
+  });
+  const porClinica: Record<string, number> = {};
+  let sinClinica = 0;
+  for (const c of conversaciones) {
+    if (!c.clinicaId) {
+      sinClinica++;
+      continue;
+    }
+    porClinica[c.clinicaId] = (porClinica[c.clinicaId] ?? 0) + 1;
+  }
+  return { porClinica, sinClinica };
+}

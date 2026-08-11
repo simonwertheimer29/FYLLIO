@@ -2415,3 +2415,31 @@ cabecera global **medida en el navegador** (102 px), no estimada, y se verifica 
 documento 900 px = viewport, y la lista con scroll propio. El arreglo de fondo sería que el layout
 diera altura definida, pero eso toca trece pantallas y no era trabajo de esta — queda anotado en el
 comentario, donde lo verá quien lo cambie.
+
+## 2026-08-11 — /red: solo «Necesitan persona», y por qué la otra columna espera
+De las dos columnas que pedía el spec del módulo de Mensajería, entra **una**. «Necesitan persona»
+mide algo que pasa hoy y responde una pregunta de manager: qué clínica está dejando su WhatsApp sin
+atender. «Conversaciones abiertas» espera al modo B, porque con el agente en modo A mediría **cuánto
+escribe el equipo**, que es otra pregunta y en la misma tabla confundiría (decisión de Simon).
+
+Por lo mismo, **«¿Escribe bien?» partido por clínica también espera al modo B**: hoy el dato es de la
+coordinadora, no del agente, así que la comparación entre clínicas diría algo cierto sobre el equipo
+y falso sobre el agente.
+
+**La cifra sale de la MISMA consulta que la bandeja** (`necesitanPersonaPorClinica` llama a
+`listarConversaciones` con su filtro), no de una consulta propia sobre `presupuestos`. Era más
+directo hacerlo aparte; sería también un segundo cálculo del mismo número, y el día que divergieran
+/red diría 7 y al hacer clic la bandeja enseñaría 5. Si la consulta falla queda `null` y la tabla
+pone «sin dato», no un cero: un cero afirmaría que esa clínica lo lleva al día (§4).
+
+**Dos cosas que solo se vieron probando, y las dos eran falsos aprobados:**
+1. La primera versión usaba `await import()` dinámico y devolvía `is not a function`, con el fallo
+   escondido en el catch: la columna salía `null` en las cuatro clínicas y podría haberse dado por
+   buena. Se cambió al import estático, que es lo que ya hacía el archivo dos líneas más arriba.
+2. Con el import arreglado salía **0 en las cuatro**, y la comprobación «/red y la bandeja cuadran»
+   pasaba con `0 === 0`. Se marcó un presupuesto de verdad para comprobarlo con dato (1 = 1), y se
+   revirtió después. Sin ese paso, la verificación no demostraba nada.
+
+**Consecuencia operativa que conviene saber:** `requiere_persona` lo escribe el clasificador, que
+necesita la API de Anthropic — bloqueada por saldo. Así que **hasta que se recarguen créditos esta
+columna leerá 0**, y eso no significa que no haya casos que necesiten a alguien.

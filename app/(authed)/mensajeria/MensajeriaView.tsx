@@ -22,6 +22,7 @@
 // hacer con ellos.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
@@ -55,8 +56,30 @@ type MensajeHilo = {
 
 export function MensajeriaView() {
   const { selectedClinicaId, setSelectedClinicaId, clinicas } = useClinic();
+  const params = useSearchParams();
 
-  const [filtro, setFiltro] = useState<FiltroBandeja>("pendientes");
+  // La bandeja se abre desde fuera: la columna «Necesitan persona» de /red
+  // enlaza aquí con su filtro y su clínica. Sin esto el clic llevaría a la
+  // bandeja sin filtrar y el número de /red no cuadraría con lo que se ve —
+  // que es justo lo que la columna promete al ser un enlace.
+  const filtroDeUrl = params.get("filtro");
+  const [filtro, setFiltro] = useState<FiltroBandeja>(
+    FILTROS.some((f) => f.id === filtroDeUrl)
+      ? (filtroDeUrl as FiltroBandeja)
+      : "pendientes",
+  );
+
+  // La clínica de la URL manda sobre la del selector, una sola vez al llegar.
+  // Después el selector vuelve a ser el que manda: si no, cambiarlo no haría
+  // nada y parecería roto.
+  const clinicaDeUrl = params.get("clinicaId");
+  useEffect(() => {
+    if (clinicaDeUrl && clinicaDeUrl !== selectedClinicaId) {
+      setSelectedClinicaId(clinicaDeUrl);
+    }
+    // Solo al llegar con el parámetro puesto.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clinicaDeUrl]);
   const [lista, setLista] = useState<RespuestaLista | null>(null);
   const [cargandoLista, setCargandoLista] = useState(true);
   const [errorLista, setErrorLista] = useState<string | null>(null);

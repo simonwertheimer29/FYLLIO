@@ -397,13 +397,14 @@ function Embudo({ etapas, meses }: { etapas: EmbudoEtapa[]; meses: number }) {
 }
 
 // ─── Vista ──────────────────────────────────────────────────────────────
-type OrdenClinicas = "tendencia" | "conversion" | "aceptado" | "vencido";
+type OrdenClinicas = "tendencia" | "conversion" | "aceptado" | "vencido" | "necesitan";
 
 const CAPTION_ORDEN: Record<OrdenClinicas, string> = {
   tendencia: "Ordenadas por evolución del € aceptado, de la mayor caída a la mayor subida.",
   conversion: "Ordenadas por conversión, de mayor a menor.",
   aceptado: "Ordenadas por € aceptado, de mayor a menor.",
   vencido: "Ordenadas por € vencido, de mayor a menor.",
+  necesitan: "Ordenadas por conversaciones esperando a una persona, de más a menos.",
 };
 /** Los dos órdenes derivados de un ratio mandan al final a las clínicas con
  *  pocos presupuestos: el pie tiene que decirlo o vuelve a mentir. */
@@ -527,6 +528,11 @@ export function RedView({ user: _user }: { user: UserSession }) {
       filas.sort((a, b) => cortaAlFinal(a, b) || (b.conversionPct ?? -1) - (a.conversionPct ?? -1));
     if (orden === "aceptado") filas.sort((a, b) => b.aceptadoMes - a.aceptadoMes);
     if (orden === "vencido") filas.sort((a, b) => b.vencido - a.vencido);
+    // `null` es «no se pudo consultar», así que va al final y no compite con
+    // los ceros: ordenar por esta columna busca a las que MÁS tienen, y una
+    // clínica sin dato no es una clínica al día.
+    if (orden === "necesitan")
+      filas.sort((a, b) => (b.necesitanPersona ?? -1) - (a.necesitanPersona ?? -1));
     return filas;
   }, [data, orden]);
 
@@ -1004,9 +1010,18 @@ export function RedView({ user: _user }: { user: UserSession }) {
                         ["aceptado", "€ aceptado", "Importe firmado en el mismo tramo del mes."],
                         ["vencido", "€ vencido", "Importe firmado que ya superó su plazo de pago."],
                         ["tendencia", "Evolución €", "Cambio del € aceptado frente al mismo tramo del mes anterior."],
+                        ["necesitan", "Necesitan persona", "Conversaciones esperando el criterio de alguien. Clic para verlas."],
                       ] as Array<[OrdenClinicas, string, string]>
                     ).map(([k, l, ayuda]) => (
-                      <th key={k} className="text-right font-semibold px-3 py-2 whitespace-nowrap">
+                      <th
+                        key={k}
+                        // «Necesitan persona» es la cabecera más larga y en un
+                        // panel de 4 columnas de dinero empujaba la cifra fuera
+                        // del borde. Es la única que envuelve.
+                        className={`text-right font-semibold px-3 py-2 ${
+                          k === "necesitan" ? "max-w-[5.5rem]" : "whitespace-nowrap"
+                        }`}
+                      >
                         <button
                           type="button"
                           onClick={() => setOrden(k)}
@@ -1055,12 +1070,38 @@ export function RedView({ user: _user }: { user: UserSession }) {
                         <td className="px-3 py-3 text-right">
                           <EvolucionClinica c={c} />
                         </td>
+                        {/* La única cifra de la tabla que NO es dinero, y va la
+                            última por eso. Mide algo que hoy pasa de verdad:
+                            qué clínica está dejando su WhatsApp sin atender.
+                            («Conversaciones abiertas» espera al modo B: hoy
+                            mediría cuánto escribe el equipo, que es otra
+                            pregunta y confundiría — decisión del 11 ago.) */}
+                        <td className="px-3 py-3 text-right tabular-nums">
+                          {c.necesitanPersona == null ? (
+                            <span
+                              className="text-[var(--color-muted)]"
+                              title="No se pudo consultar. No significa que no haya ninguna."
+                            >
+                              sin dato
+                            </span>
+                          ) : c.necesitanPersona === 0 ? (
+                            <span className="text-[var(--color-muted)]">—</span>
+                          ) : (
+                            <Link
+                              href={`/mensajeria?filtro=necesita-persona&clinicaId=${c.id}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="font-semibold text-[var(--color-danger)] underline-offset-2 hover:underline"
+                            >
+                              {c.necesitanPersona}
+                            </Link>
+                          )}
+                        </td>
                       </tr>
                     );
                   })}
                   {clinicasOrdenadas.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="px-5 py-6 text-center text-[var(--color-muted)]">
+                      <td colSpan={6} className="px-5 py-6 text-center text-[var(--color-muted)]">
                         No tienes clínicas asignadas.
                       </td>
                     </tr>

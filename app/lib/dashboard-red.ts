@@ -23,6 +23,7 @@ import { selectPresupuestosRaw } from "./presupuestos/repo";
 import { listPagosResumen } from "./pagos";
 import { listAllOpciones } from "./configuraciones/configuraciones";
 import { ultimosMensajesPorConversacion } from "./presupuestos/mensajeria";
+import { necesitanPersonaPorClinica } from "./mensajeria/conversaciones";
 import { ultimasAccionesDireccionPorLead } from "./leads/acciones";
 import { esIntencionDeCierre } from "./presupuestos/intenciones";
 import { conversacionDePresupuesto } from "./presupuestos/conversacion-presupuesto";
@@ -145,6 +146,13 @@ export type ClinicaFila = {
   tendenciaPct: number | null;
   /** Pocos presupuestos en juego: ni pinta señal ni encabeza el ranking. */
   muestraCorta: boolean;
+  /** Conversaciones esperando el criterio de una persona en esta clínica.
+   *  Sale de la MISMA consulta que la bandeja (`necesitanPersonaPorClinica`),
+   *  no de un cálculo propio: al hacer clic tienen que salir exactamente estas.
+   *
+   *  `null` = no se pudo consultar, que NO es lo mismo que cero. Un cero
+   *  inventado aquí diría «esta clínica lo lleva al día» sobre un fallo. */
+  necesitanPersona: number | null;
 };
 
 /** Embudo de conversión sobre la COHORTE de leads captados en la ventana.
@@ -687,6 +695,23 @@ export async function calcularDashboardRed(opts: {
   }
 
   // ── Sección 3 · clínicas ─────────────────────────────────────────────
+  //
+  // «Necesitan persona» sale de la MISMA consulta que la bandeja, no de un
+  // cálculo propio sobre presupuestos: al hacer clic en la cifra tienen que
+  // salir exactamente esas conversaciones. Dos cálculos del mismo número
+  // divergen tarde o temprano, y entonces /red dice 7 y la bandeja enseña 5.
+  //
+  // Si falla, queda `null` y la tabla lo dice: un cero inventado aquí afirmaría
+  // que la clínica lo lleva al día (§4).
+  let necesitanPersona: { porClinica: Record<string, number>; sinClinica: number } | null = null;
+  try {
+    necesitanPersona = await necesitanPersonaPorClinica({
+      clinicasPermitidas: opts.clinicaIds,
+    });
+  } catch (err) {
+    console.error("[dashboard-red] no se pudo contar «necesitan persona»:", err);
+  }
+
   const filas: ClinicaFila[] = clinicas.map((c) => {
     const deClinica = (rs: ReadonlyArray<{ fields: Record<string, unknown> }>) =>
       rs.filter((r) => pacDe(r)?.clinicaId === c.id);
@@ -717,6 +742,7 @@ export async function calcularDashboardRed(opts: {
           : null,
       muestraCorta:
         cohorte.total < BASE_MINIMA_COHORTE || cohortePrevia.total < BASE_MINIMA_COHORTE,
+      necesitanPersona: necesitanPersona ? (necesitanPersona.porClinica[c.id] ?? 0) : null,
     };
   });
   // Orden por defecto: mayor caída arriba. Las clínicas con muestra corta van
