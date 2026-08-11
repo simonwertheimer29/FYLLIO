@@ -20,7 +20,7 @@
 // invitación a mandarlo, y si hace falta una persona es precisamente porque hay
 // que pensar qué se dice.
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Composer } from "../../components/shared/panel-accion-ui";
 import { AlertTriangle } from "../../components/icons";
@@ -41,6 +41,40 @@ export function ComposerBandeja({
   // el autor del texto es él. Se desmarca en cuanto una persona lo reescribe.
   const [textoDeIA, setTextoDeIA] = useState(false);
 
+  // ─── El fallo que tenía esta pantalla, y por qué importaba ────────────
+  //
+  // La primera versión enviaba SIEMPRE por `enviar-manual` y decía «Mensaje
+  // enviado». Pero el modo manual —que es el único que hay hoy— no envía nada:
+  // registra el saliente y devuelve una URL de wa.me para que la persona
+  // termine el envío allí. El panel de Seguimiento la abre; esta no lo hacía.
+  //
+  // O sea: desde la bandeja se pulsaba Enviar, el mensaje aparecía en el hilo,
+  // salía «Mensaje enviado»… y el paciente no recibía nada. Es el §1 exacto —
+  // confirmar un éxito que no ocurrió— con el agravante de que el hilo, que es
+  // el registro de lo que se le ha dicho a esa persona, quedaba mintiendo.
+  //
+  // Ahora hace lo mismo que el panel: elige la vía según si WABA está activo en
+  // esa clínica, y en manual abre wa.me en vez de dar por hecho el envío.
+  const [wabaActivo, setWabaActivo] = useState<boolean | null>(null);
+
+  const clinicaNombre = conversacion.clinicaNombre;
+  useEffect(() => {
+    let cancelado = false;
+    const qs = clinicaNombre ? `?clinica=${encodeURIComponent(clinicaNombre)}` : "";
+    fetch(`/api/presupuestos/configuracion-waba${qs}`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (cancelado) return;
+        setWabaActivo(d?.credencialesConfiguradas === true && d?.activoParaClinica === true);
+      })
+      // Ante la duda, manual: abrir wa.me de más es un incordio; dar por
+      // enviado un mensaje que no salió, no.
+      .catch(() => !cancelado && setWabaActivo(false));
+    return () => {
+      cancelado = true;
+    };
+  }, [clinicaNombre]);
+
   // Sin caso no hay ruta de envío: las que existen escriben contra un
   // presupuesto o un lead. Se dice en vez de enseñar un campo que no funciona.
   const sinCaso = !conversacion.presupuestoId && !conversacion.leadId;
@@ -51,9 +85,10 @@ export function ComposerBandeja({
     setEnviando(true);
     setError(null);
     try {
+      const via = wabaActivo ? "enviar-waba" : "enviar-manual";
       const ruta = conversacion.presupuestoId
-        ? "/api/presupuestos/intervencion/enviar-manual"
-        : "/api/leads/intervencion/enviar-manual";
+        ? `/api/presupuestos/intervencion/${via}`
+        : `/api/leads/intervencion/${via}`;
       const cuerpo = conversacion.presupuestoId
         ? { presupuestoId: conversacion.presupuestoId }
         : { leadId: conversacion.leadId };
@@ -72,9 +107,20 @@ export function ComposerBandeja({
         const d = await res.json().catch(() => ({}));
         throw new Error(d?.error ?? `El servidor respondió ${res.status}`);
       }
+      const data = await res.json().catch(() => ({}));
+
       setTexto("");
       setTextoDeIA(false);
-      toast.success("Mensaje enviado");
+
+      if (data?.urlWhatsApp) {
+        // Modo manual: el mensaje está REGISTRADO, no enviado. Se abre WhatsApp
+        // para que lo mande de verdad una persona, y el aviso lo dice tal cual
+        // en vez de «enviado», que sería falso hasta que le dé a enviar allí.
+        window.open(data.urlWhatsApp, "_blank");
+        toast.success("Mensaje preparado — termina de enviarlo en WhatsApp");
+      } else {
+        toast.success("Mensaje enviado");
+      }
       onEnviado();
     } catch (e) {
       // No se limpia el campo: lo escrito no se pierde por un fallo de red.
@@ -129,8 +175,11 @@ export function ComposerBandeja({
         // no enseñarlas — el composer las acepta el día que se decida cuál toca.
         plantillas={[]}
         onPlantilla={() => {}}
-        disabled={sinCaso}
-        disabledTitle="Sin paciente ni lead asociado"
+        disabled={sinCaso || wabaActivo === null}
+        disabledTitle={
+          sinCaso ? "Sin paciente ni lead asociado" : "Comprobando cómo enviar…"
+        }
+        modoManual={wabaActivo === false}
         error={error}
       />
     </div>

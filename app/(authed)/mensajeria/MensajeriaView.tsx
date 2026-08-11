@@ -40,6 +40,7 @@ type RespuestaLista = {
   conversaciones: Conversacion[];
   sinClinica: number;
   accesoDeRed: boolean;
+  totalDelFiltro: number;
 };
 
 type MensajeHilo = {
@@ -252,12 +253,23 @@ export function MensajeriaView() {
                     />
                   </div>
                 ) : (
-                  <ListaConversaciones
-                    conversaciones={lista?.conversaciones ?? []}
-                    seleccionada={abierta}
-                    onSeleccionar={setAbierta}
-                    mostrarClinica={!selectedClinicaId}
-                  />
+                  <>
+                    <ListaConversaciones
+                      conversaciones={lista?.conversaciones ?? []}
+                      seleccionada={abierta}
+                      onSeleccionar={setAbierta}
+                      mostrarClinica={!selectedClinicaId}
+                    />
+                    {/* Un tope que no se declara se lee como «esto es todo lo
+                        que hay». La lista es acotada a propósito, pero decirlo
+                        es la diferencia entre acotada y engañosa. */}
+                    {lista && lista.totalDelFiltro > lista.conversaciones.length && (
+                      <p className="border-t border-[var(--color-border)] px-3 py-2.5 text-[11px] text-[var(--color-muted)]">
+                        Se enseñan las {lista.conversaciones.length} más recientes de{" "}
+                        {lista.totalDelFiltro}. Afina con el filtro o con la clínica.
+                      </p>
+                    )}
+                  </>
                 )}
               </>
             )}

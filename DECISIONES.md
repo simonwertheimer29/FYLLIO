@@ -2443,3 +2443,29 @@ pone «sin dato», no un cero: un cero afirmaría que esa clínica lo lleva al d
 **Consecuencia operativa que conviene saber:** `requiere_persona` lo escribe el clasificador, que
 necesita la API de Anthropic — bloqueada por saldo. Así que **hasta que se recarguen créditos esta
 columna leerá 0**, y eso no significa que no haya casos que necesiten a alguien.
+
+## 2026-08-11 — Revisión de mi propia bandeja: decía «Mensaje enviado» sin enviar nada
+Repaso pedido antes de seguir. Salieron tres cosas, y la primera es seria.
+
+**1 · El compositor confirmaba un envío que no ocurría.** Enviaba siempre por `enviar-manual` y
+sacaba «Mensaje enviado». Pero el modo manual —el único que hay hoy— **no envía**: registra el
+saliente y devuelve una URL de wa.me para que la persona termine el envío allí. El panel de
+Seguimiento la abre; mi bandeja no. Resultado: pulsar Enviar metía el mensaje en el hilo, decía
+«enviado», y **el paciente no recibía nada**. Es el §1 exacto, y con el agravante de que el hilo es
+el registro de lo que se le ha dicho a esa persona: quedaba mintiendo para siempre, no solo en un
+toast. Arreglado eligiendo la vía según WABA como hace el panel, abriendo wa.me en manual, y con el
+aviso diciendo «Mensaje preparado — termina de enviarlo en WhatsApp», que es lo que pasa. Mientras
+no se sabe por qué vía va, el botón está bloqueado: ante la duda, manual.
+
+**2 · El límite de 60 conversaciones no se declaraba.** La lista es acotada a propósito (el spec
+pedía que no hubiera scroll infinito), pero un tope mudo se lee como «esto es todo lo que hay».
+Ahora dice «se enseñan las 60 más recientes de N».
+
+**3 · El filtro «Necesita persona» solo puede marcar presupuestos.** Sale de
+`presupuestos.requiere_persona`, así que **una conversación de un lead nunca se marca**. No es un
+olvido: el clasificador de leads se quedó fuera del rediseño «decisión primero» (recorte del 6 de
+agosto). Queda escrito en el tipo, donde lo verá quien se pregunte por qué un lead quebrado no sale.
+
+Lo que la revisión NO encontró y conviene decir: el aislamiento aguantó los tres intentos de
+saltárselo, y el contador de pendientes no necesita «marcar como leído» —se deriva de los entrantes
+posteriores a la última salida—, así que no hay estado que sincronizar y no puede desincronizarse.

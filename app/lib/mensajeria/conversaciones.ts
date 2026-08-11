@@ -49,7 +49,13 @@ export type Conversacion = {
   /** ¿La última respuesta la escribió el agente? (la redactó él, la mandara
    *  quien la mandara — ver `sugerido_por_ia` en la migración 018). */
   ultimaDelAgente: boolean;
-  /** El caso está quebrado: necesita criterio de una persona. */
+  /** El caso está quebrado: necesita criterio de una persona.
+   *
+   *  OJO CON EL ALCANCE: sale de `presupuestos.requiere_persona`, así que hoy
+   *  **una conversación de un lead nunca puede marcarse**. No es un olvido: el
+   *  clasificador de leads se quedó fuera del rediseño «decisión primero» (el
+   *  recorte del 6 de agosto, escrito en PLAN-AGENTE). Cuando entre, esta
+   *  bandera pasa a mirar también el lead y el filtro se completa solo. */
   necesitaPersona: boolean;
 };
 
@@ -72,7 +78,14 @@ export async function listarConversaciones(args: {
    *  Fail-closed: una lista vacía no ve nada, no lo ve todo. */
   clinicasPermitidas: string[] | null;
   limite?: number;
-}): Promise<{ conversaciones: Conversacion[]; sinClinica: number }> {
+}): Promise<{
+  conversaciones: Conversacion[];
+  sinClinica: number;
+  /** Cuántas había ANTES de cortar por el límite. La lista es acotada a
+   *  propósito (no hay scroll infinito), pero un tope que no se declara es un
+   *  tope que se lee como «esto es todo lo que hay». */
+  totalDelFiltro: number;
+}> {
   const cliente = requireCliente("mensajeria/conversaciones");
   const limite = Math.min(args.limite ?? 60, 200);
   const esRed = args.clinicasPermitidas === null;
@@ -158,6 +171,7 @@ export async function listarConversaciones(args: {
   });
 
   return {
+    totalDelFiltro: conFiltro.length,
     conversaciones: conFiltro.slice(0, limite).map((f) => ({
       telefono: String(f.telefono),
       nombre: String(f.nom ?? "") || String(f.telefono),

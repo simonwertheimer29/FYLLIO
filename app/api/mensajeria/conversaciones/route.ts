@@ -41,6 +41,7 @@ export const GET = withAuth(async (session, req) => {
     return NextResponse.json({
       conversaciones: out.conversaciones,
       sinClinica: out.sinClinica,
+      totalDelFiltro: out.totalDelFiltro,
       // Que la UI sepa si puede enseñar la banda o solo declararla.
       accesoDeRed: clinicasPermitidas === null,
     });
