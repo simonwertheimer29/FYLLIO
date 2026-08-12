@@ -2588,3 +2588,12 @@ escribió lo último». Verificado: filtro 3 = /red 3 = aviso.
 Y la corrección visual aprobada: contacto arriba, UN solo bloque de contexto con la alarma dentro
 (dos recuadros decían casi lo mismo ocupando el doble), sin repetir la frase del paciente que ya se
 ve en el hilo de al lado, y pasada de aire.
+
+## 2026-08-13 — Línea base del §10 congelada: salió degenerada, y eso ES el hallazgo
+Antes de tocar el modelo ofensivo se midió cuánto tarda un caso en cerrarse desde la primera
+respuesta del paciente y cuántos toques lleva (`npm run medir:linea-base`, congelado en
+`LINEA-BASE-CIERRE.md`). Resultado: 94/95 cerrados medibles, y TODOS dan 0 días y 1 toque — el seed
+siembra cada cierre como un solo intercambio (1 entrante, 2 salientes por hilo, verificado). O sea:
+sobre DEMO el «tiene que bajar» del §10 no se puede demostrar; hará falta seed con negociación real
+o datos del piloto. El método queda repetible; el número, congelado como forma del seed, no como
+rendimiento.

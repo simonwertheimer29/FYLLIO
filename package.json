@@ -23,6 +23,7 @@
     "qa:telefonos": "tsx scripts/qa-telefonos.mts",
     "qa:automatizacion": "tsx scripts/qa-automatizacion.mts",
     "qa:evals": "tsx scripts/qa-evals.mts",
+    "medir:linea-base": "tsx scripts/medir-linea-base.mts",
     "qa:evals:acuerdo": "tsx scripts/qa-evals-acuerdo.mts",
     "verificar:produccion": "node scripts/verificar-produccion.mjs",
     "guard:rls": "node scripts/guard-service-role.mjs",
