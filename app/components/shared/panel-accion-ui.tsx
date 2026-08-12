@@ -409,7 +409,12 @@ export function Composer({
           type="button"
           onClick={onEnviar}
           disabled={disabled || enviando || !value.trim()}
-          className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 h-8 rounded-lg bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)] disabled:opacity-40 transition-colors"
+          // Acento del sistema, no el verde de WhatsApp (2026-08-11). Ese verde
+          // venía del color de MARCA del canal, no de una decisión de diseño, y
+          // se colaba como «éxito»: enviar no es un éxito, es una acción, y las
+          // acciones van con el acento. Es el mismo botón en el panel de
+          // Seguimiento y en la bandeja, así que esta línea cambia los dos.
+          className="inline-flex items-center gap-1.5 text-xs font-semibold px-4 h-8 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40 transition-colors"
         >
           <Send size={13} strokeWidth={ICON_STROKE} aria-hidden />
           {enviando ? "Enviando…" : "Enviar"}

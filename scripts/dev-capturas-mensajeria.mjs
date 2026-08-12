@@ -68,8 +68,9 @@ await shot("/mensajeria", "mensajeria-movil", { width: 390, height: 844 });
   await page.goto(`${BASE}/mensajeria`, { waitUntil: "networkidle", timeout: 60000 });
   await page.getByRole("button", { name: "Todas" }).first().click();
   await page.waitForTimeout(1500);
-  const primera = page.locator("aside button").first();
-  await primera.click();
+  // Una FILA de la lista, no un botón cualquiera del aside: los filtros viven
+  // ahora dentro de la columna izquierda y `aside button` pulsaba uno de ellos.
+  await page.locator("aside li button").first().click();
   await page.waitForTimeout(2000);
   await page.screenshot({ path: `${OUT}/mensajeria-conversacion.png` });
   await ctx.close();

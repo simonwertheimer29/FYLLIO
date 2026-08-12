@@ -35,7 +35,11 @@ chispas (ver §3).
 
 **Colores semánticos** (mismos en ambos temas, ajustando tono vía tokens):
 
-- Éxito = esmeralda (`#059669`) — es también el verde de WhatsApp ya formalizado
+- Éxito = esmeralda (`#059669`). **Solo para decir que algo salió bien**, nunca para una acción.
+  El verde de WhatsApp se retiró de los botones de enviar el 2026-08-11: venía del color de MARCA
+  del canal, no de una decisión de diseño, y se leía como «éxito» cuando **enviar no es un éxito,
+  es una acción** — y las acciones van con el acento. Queda el verde como icono de canal (el
+  logotipo de WhatsApp en una lista), que sí es identidad y no acción.
 - Aviso = ámbar (`#D97706`)
 - Error = rosa intenso (`#E11D48`)
 
@@ -107,6 +111,8 @@ Se usa en el móvil de la coordinadora. Cada pantalla que toques:
 
 - ❌ Nunca un hex escrito a mano → siempre `var(--color-*)`.
 - ❌ Nunca un segundo azul ni el violeta viejo → un solo acento.
+- ❌ Nunca un color de marca de un tercero como color de acción (el verde de WhatsApp en un botón
+  de enviar) → el acento. Un color de marca ajeno identifica un canal, no una acción nuestra.
 - ❌ Nunca emojis como iconos → lucide.
 - ❌ Nunca `alert()` / `confirm()` nativos del navegador → modal + toast propios.
 - ❌ Nunca un error disfrazado de éxito → error honesto + reintentar.

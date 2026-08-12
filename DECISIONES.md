@@ -2469,3 +2469,37 @@ agosto). Queda escrito en el tipo, donde lo verá quien se pregunte por qué un 
 Lo que la revisión NO encontró y conviene decir: el aislamiento aguantó los tres intentos de
 saltárselo, y el contador de pendientes no necesita «marcar como leído» —se deriva de los entrantes
 posteriores a la última salida—, así que no hay estado que sincronizar y no puede desincronizarse.
+
+## 2026-08-11 — Pulido de la bandeja: la capa de acción, y el verde de WhatsApp fuera
+El fallo de fondo que señaló Simon: sin capa de acción, /mensajeria era un WhatsApp Web con pasos
+extra. Puesta, con lo que ya existía y sin duplicar nada.
+
+**`situacionPresupuesto` sale de `IntervencionSidePanel` a `lib/presupuestos/situacion.ts`.** Era una
+función local de 90 líneas de criterio de negocio —qué pasa con este caso y qué hacer— y la bandeja
+necesitaba exactamente lo mismo. Copiarla habría dado dos criterios para la misma frase, que divergen
+el día que alguien toque uno. Ahora las dos pantallas dicen lo mismo porque **es lo mismo**.
+
+**La decisión que faltaba del diseño: qué caso manda cuando un teléfono toca dos.** Regla: manda el
+ABIERTO; si hubiera varios, el de actividad más reciente; los cerrados son historial y van al panel
+derecho. Los datos cambian de qué clase de problema se trata: **cero teléfonos con más de un caso
+abierto**, y los 26 que tocan dos son lead `Convertido` + presupuesto — la misma historia contada dos
+veces, un ciclo de vida y no una ambigüedad. Por eso no hay selector de caso: metería una decisión en
+la cabeza de la coordinadora en las 346 conversaciones donde no hay nada que decidir. Cuando ocurra
+de verdad, se avisa por log (§9) en vez de que alguien note que la pantalla eligió sola. **El hilo NO
+se parte**: es uno solo, completo — lo que se elige es qué caso manda en el panel, no qué mensajes se
+enseñan.
+
+**El verde de WhatsApp, retirado de todos los botones de enviar** (Composer compartido → los dos
+paneles a la vez, más los dos de IntervencionView y su barra). Venía del color de MARCA del canal, no
+de una decisión de diseño, y se colaba como «éxito»: **enviar no es un éxito, es una acción**, y las
+acciones van con el acento. Se queda como icono de canal, que sí es identidad. Regla actualizada en
+el skill visual, con una prohibición nueva: ningún color de marca de un tercero como color de acción.
+
+**Y dos fallos míos que encontró el pulido:**
+1. Al cambiar de pestaña, la conversación abierta se buscaba dentro de la lista nueva y quedaba
+   `null` si no estaba: **la misma persona perdía su nombre y pasaba a mostrar el teléfono**, con el
+   panel derecho vacío. Ahora tiene estado propio; se actualiza si la lista la trae, no se borra.
+2. La capa pedía las plantillas a `/api/presupuestos/plantillas`, **que borré yo el 10 de agosto** al
+   unificar los editores. Daba 404 en cada apertura y no se veía, porque mi `catch` lo convertía en
+   «no hay plantillas». Es el §9 en mi propio código, cazado por el indicador de Next, no por mis
+   capturas — que solo miraban `pageerror` y no la consola. El catch ahora registra el fallo.

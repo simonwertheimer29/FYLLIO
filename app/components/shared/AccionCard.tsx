@@ -241,9 +241,11 @@ export function AccionCard({
               a.variant === "primary"
                 ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
                 : a.variant === "emerald"
-                  ? // Sprint 13 — verde WA formalizado: --fyllio-wa-green
-                    // (emerald-600 solido) en lugar de pill claro.
-                    "bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]"
+                  ? // Era el verde de WhatsApp; hoy es el acento (2026-08-11).
+                    // La variante se conserva porque está en el tipo, pero NO
+                    // TIENE NINGÚN CONSUMIDOR — se comprobó al retirar el verde.
+                    // Si alguien la usa, que se vea igual que las demás acciones.
+                    "bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
                   : a.variant === "rose"
                     ? "bg-rose-50 text-rose-700 hover:bg-rose-100 dark:bg-rose-500/10 dark:text-rose-300 dark:hover:bg-rose-500/20"
                     : "bg-[var(--color-surface-muted)] text-[var(--color-foreground)] hover:bg-[var(--color-border)]";

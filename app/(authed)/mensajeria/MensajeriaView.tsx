@@ -29,30 +29,24 @@ import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
 import { ErrorState, EmptyState } from "../../components/ui/Feedback";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
 import { MessageCircle, ICON_STROKE } from "../../components/icons";
-import { Burbujas } from "../../components/shared/panel-accion-ui";
-import type { MensajeWhatsApp } from "../../lib/presupuestos/types";
 import type { Conversacion, FiltroBandeja } from "../../lib/mensajeria/conversaciones";
-import { ListaConversaciones, BandaSinAsignar, FILTROS } from "./ListaConversaciones";
+import {
+  ListaConversaciones,
+  BandaSinAsignar,
+  FiltrosBandeja,
+  Buscador,
+  filtrarPorBusqueda,
+  FILTROS,
+} from "./ListaConversaciones";
 import { ContextoConversacion } from "./ContextoConversacion";
-import { ComposerBandeja } from "./ComposerBandeja";
+import { CapaDeAccion } from "./CapaDeAccion";
+import { HiloMensajes, type MensajeHilo } from "./HiloMensajes";
 
 type RespuestaLista = {
   conversaciones: Conversacion[];
   sinClinica: number;
   accesoDeRed: boolean;
   totalDelFiltro: number;
-};
-
-type MensajeHilo = {
-  id: string;
-  contenido: string;
-  direccion: "Entrante" | "Saliente";
-  timestamp: string;
-  autor: string | null;
-  sugeridoPorIa: boolean;
-  presupuestoId: string | null;
-  leadId: string | null;
-  pacienteId: string | null;
 };
 
 export function MensajeriaView() {
@@ -73,6 +67,8 @@ export function MensajeriaView() {
   // La clínica de la URL manda sobre la del selector, una sola vez al llegar.
   // Después el selector vuelve a ser el que manda: si no, cambiarlo no haría
   // nada y parecería roto.
+  const [busqueda, setBusqueda] = useState("");
+
   const clinicaDeUrl = params.get("clinicaId");
   useEffect(() => {
     if (clinicaDeUrl && clinicaDeUrl !== selectedClinicaId) {
@@ -134,22 +130,34 @@ export function MensajeriaView() {
     if (abierta) cargarHilo(abierta);
   }, [abierta, cargarHilo]);
 
-  const conversacion = useMemo(
-    () => lista?.conversaciones.find((c) => c.telefono === abierta) ?? null,
-    [lista, abierta],
-  );
+  // ─── §2 · la conversación abierta NO se deriva de la lista ───────────
+  //
+  // Antes era `lista.conversaciones.find(...)`. Al cambiar de pestaña, la nueva
+  // lista podía no contenerla y quedaba `null`: el hilo seguía abierto pero
+  // perdía el nombre (caía al teléfono) y el panel derecho se vaciaba. **La
+  // misma persona con dos nombres según la pestaña.**
+  //
+  // Ahora la conversación abierta tiene su propio estado y sobrevive al cambio
+  // de filtro. Se ACTUALIZA si la nueva lista la trae —para que el contador de
+  // pendientes o el quiebre no se queden viejos— pero nunca se borra por no
+  // estar. Cerrar el hilo al cambiar de filtro sería la otra salida, y castiga
+  // el gesto normal de mirar lo mismo desde otro contexto.
+  const [conversacion, setConversacion] = useState<Conversacion | null>(null);
 
-  // `Burbujas` espera el tipo del panel de acción. Se adapta aquí en vez de
-  // duplicar el componente: es el mismo hilo, pintado igual en los dos sitios.
-  const burbujas = useMemo<MensajeWhatsApp[]>(
-    () =>
-      (hilo ?? []).map((m) => ({
-        id: m.id,
-        contenido: m.contenido,
-        direccion: m.direccion,
-        timestamp: m.timestamp,
-      })) as MensajeWhatsApp[],
-    [hilo],
+  useEffect(() => {
+    if (!abierta) {
+      setConversacion(null);
+      return;
+    }
+    const enLista = lista?.conversaciones.find((c) => c.telefono === abierta);
+    if (enLista) setConversacion(enLista);
+  }, [lista, abierta]);
+
+  // El buscador filtra sobre lo ya cargado: la lista viene acotada, así que es
+  // inmediato y no gasta una consulta por tecla.
+  const visibles = useMemo(
+    () => filtrarPorBusqueda(lista?.conversaciones ?? [], busqueda),
+    [lista, busqueda],
   );
 
   const nombreClinica =
@@ -192,34 +200,20 @@ export function MensajeriaView() {
           </div>
         )}
 
-        {/* Pestañas de filtro. La de «Ha respondido el agente» es la razón de
-            ser de la pantalla: ninguna herramienta genérica la tiene. */}
-        <nav className="mt-3 flex gap-1 overflow-x-auto border-b border-[var(--color-border)]">
-          {FILTROS.map((f) => (
-            <button
-              key={f.id}
-              type="button"
-              onClick={() => setFiltro(f.id)}
-              className={`whitespace-nowrap px-3 py-2 text-sm font-semibold transition-colors ${
-                filtro === f.id
-                  ? "border-b-2 border-[var(--color-accent)] text-[var(--color-accent)]"
-                  : "text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </nav>
       </header>
 
-      <div className="flex-1 min-h-0 flex gap-0 px-4 lg:px-6 pb-4 lg:pb-6 pt-3">
+      <div className="flex-1 min-h-0 flex gap-3 px-4 lg:px-6 pb-4 lg:pb-6 pt-3">
         {/* ── Izquierda: la lista ─────────────────────────────────────── */}
         <aside
-          className={`flex min-h-0 w-full flex-col overflow-hidden rounded-l-2xl border border-[var(--color-border)] bg-[var(--color-surface)] md:w-80 md:shrink-0 ${
+          className={`flex min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] md:w-80 md:shrink-0 ${
             abierta ? "hidden md:flex" : "flex"
           }`}
         >
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="shrink-0 border-b border-[var(--color-border)]">
+            <Buscador valor={busqueda} onCambiar={setBusqueda} />
+            <FiltrosBandeja activo={filtro} onCambiar={setFiltro} />
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto pt-2">
             {cargandoLista && !lista ? (
               <div className="p-3">
                 <CardListSkeleton />
@@ -237,25 +231,29 @@ export function MensajeriaView() {
                   n={lista?.sinClinica ?? 0}
                   accesoDeRed={lista?.accesoDeRed ?? false}
                 />
-                {lista && lista.conversaciones.length === 0 ? (
+                {lista && visibles.length === 0 ? (
                   <div className="p-4">
                     <EmptyState
                       title={
-                        filtro === "agente"
-                          ? "El agente todavía no ha contestado nada"
-                          : "No hay conversaciones aquí"
+                        busqueda.trim()
+                          ? "Nadie con ese nombre ni ese teléfono"
+                          : filtro === "agente"
+                            ? "El agente todavía no ha contestado nada"
+                            : "No hay conversaciones aquí"
                       }
                       hint={
-                        filtro === "agente"
-                          ? "Aparecerán los mensajes que redacte el agente, los mande él o los mande alguien tal cual."
-                          : "Cuando entre o salga un mensaje, aparecerá en esta lista."
+                        busqueda.trim()
+                          ? "Prueba con menos letras, o quita el filtro."
+                          : filtro === "agente"
+                            ? "Aparecerán los mensajes que redacte el agente, los mande él o los mande alguien tal cual."
+                            : "Cuando entre o salga un mensaje, aparecerá en esta lista."
                       }
                     />
                   </div>
                 ) : (
                   <>
                     <ListaConversaciones
-                      conversaciones={lista?.conversaciones ?? []}
+                      conversaciones={visibles}
                       seleccionada={abierta}
                       onSeleccionar={setAbierta}
                       mostrarClinica={!selectedClinicaId}
@@ -263,7 +261,7 @@ export function MensajeriaView() {
                     {/* Un tope que no se declara se lee como «esto es todo lo
                         que hay». La lista es acotada a propósito, pero decirlo
                         es la diferencia entre acotada y engañosa. */}
-                    {lista && lista.totalDelFiltro > lista.conversaciones.length && (
+                    {lista && !busqueda.trim() && lista.totalDelFiltro > lista.conversaciones.length && (
                       <p className="border-t border-[var(--color-border)] px-3 py-2.5 text-[11px] text-[var(--color-muted)]">
                         Se enseñan las {lista.conversaciones.length} más recientes de{" "}
                         {lista.totalDelFiltro}. Afina con el filtro o con la clínica.
@@ -278,7 +276,7 @@ export function MensajeriaView() {
 
         {/* ── Centro: la conversación ─────────────────────────────────── */}
         <section
-          className={`min-h-0 flex-1 flex-col overflow-hidden border-y border-[var(--color-border)] bg-[var(--color-surface)] ${
+          className={`min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] ${
             abierta ? "flex" : "hidden md:flex"
           }`}
         >
@@ -327,7 +325,7 @@ export function MensajeriaView() {
                     onRetry={() => abierta && cargarHilo(abierta)}
                   />
                 ) : (
-                  <Burbujas mensajes={burbujas} />
+                  <HiloMensajes mensajes={hilo ?? []} />
                 )}
               </div>
 
@@ -335,33 +333,18 @@ export function MensajeriaView() {
                   bandeja usa las MISMAS rutas que el panel de Seguimiento —no
                   hay una segunda vía de envío—, así que la autoría, el quiebre
                   y la coincidencia se registran igual desde los dos sitios. */}
-              <CapaDeAccion conversacion={conversacion} onEnviado={cargarLista} />
+              {conversacion && (
+                <CapaDeAccion conversacion={conversacion} onEnviado={cargarLista} />
+              )}
             </>
           )}
         </section>
 
         {/* ── Derecha: el contexto ────────────────────────────────────── */}
-        <aside className="hidden min-h-0 w-72 shrink-0 overflow-y-auto rounded-r-2xl border border-[var(--color-border)] bg-[var(--color-surface)] lg:block">
+        <aside className="hidden min-h-0 w-72 shrink-0 overflow-y-auto rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] lg:block">
           <ContextoConversacion conversacion={conversacion} />
         </aside>
       </div>
-    </div>
-  );
-}
-
-/** El compositor con su capa de acción. En un archivo aparte cuando crezca; hoy
- *  es el mínimo honesto: si el caso está quebrado, lo dice y no prepara nada. */
-function CapaDeAccion({
-  conversacion,
-  onEnviado,
-}: {
-  conversacion: Conversacion | null;
-  onEnviado: () => void;
-}) {
-  if (!conversacion) return null;
-  return (
-    <div className="shrink-0 border-t border-[var(--color-border)]">
-      <ComposerBandeja conversacion={conversacion} onEnviado={onEnviado} />
     </div>
   );
 }

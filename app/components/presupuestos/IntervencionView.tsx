@@ -306,7 +306,7 @@ function BulkSendModal({
             <div className="space-y-3">
               <div className="w-full h-1.5 bg-[var(--color-surface-muted)] rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-[var(--fyllio-wa-green)] rounded-full transition-all"
+                  className="h-full bg-[var(--color-accent)] rounded-full transition-all"
                   style={{ width: `${((enviados) / sendableItems.length) * 100}%` }}
                 />
               </div>
@@ -319,7 +319,7 @@ function BulkSendModal({
               <button
                 onClick={handleSendCurrent}
                 disabled={enviando}
-                className="w-full text-sm font-semibold py-2.5 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)] disabled:opacity-50"
+                className="w-full text-sm font-semibold py-2.5 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
               >
                 {enviando ? "Registrando…" : `Enviar a ${sendableItems[currentIndex].patientName}`}
               </button>
@@ -795,7 +795,7 @@ export default function IntervencionView({
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <button
             onClick={() => setBulkSendOpen(true)}
-            className="text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--fyllio-wa-green)] text-white hover:bg-[var(--fyllio-wa-green-hover)]"
+            className="text-xs font-semibold px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
           >
             Enviar uno a uno · {bulkSendable.length} de {filteredItems.length}
           </button>

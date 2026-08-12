@@ -64,6 +64,14 @@ export function ContextoConversacion({
     cargar();
   }, [cargar]);
 
+  // El caso vivo primero; los cerrados, historial. Es la regla del 2026-08-11
+  // aplicada también aquí: el panel enseña de qué se está hablando, no todo lo
+  // que esta persona ha tenido alguna vez.
+  const CERRADOS = new Set(["ACEPTADO", "PERDIDO", "RECHAZADO"]);
+  const abiertos = (ficha?.presupuestos ?? []).filter((p) => !CERRADOS.has(p.estado ?? ""));
+  const ultimo = abiertos[0] ?? ficha?.presupuestos?.[0] ?? null;
+  const anteriores = (ficha?.presupuestos ?? []).filter((p) => p.id !== ultimo?.id);
+
   if (!conversacion) {
     return (
       <div className="p-4">
@@ -119,36 +127,66 @@ export function ContextoConversacion({
         </div>
       ) : ficha ? (
         <>
-          <Dato
-            etiqueta="Pendiente de cobro"
-            valor={eur(ficha.kpisPagos?.pendiente ?? 0)}
-          />
-          <Dato etiqueta="Cobrado" valor={eur(ficha.kpisPagos?.totalFacturado ?? 0)} />
+          {/* ─── El orden es el de lo que cambia una decisión ───────────
+              Antes esto abría con «Pendiente de cobro 0 €» y «Cobrado 0 €»,
+              que en la mayoría de conversaciones son dos ceros ocupando el
+              sitio principal para no decir nada, y dejaban medio panel vacío
+              debajo. Ahora arriba va el CASO —lo que se está hablando— y el
+              dinero solo aparece cuando hay dinero. */}
+          {ultimo && (
+            <div className="rounded-xl border border-[var(--color-border)] p-3">
+              <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
+                Último presupuesto
+              </p>
+              <p className="mt-1 truncate text-[13px] font-semibold text-[var(--color-foreground)]">
+                {ultimo.tratamiento ?? "Sin tratamiento"}
+              </p>
+              <p className="mt-0.5 text-[12px] text-[var(--color-muted)]">
+                {ultimo.estado ?? "—"}
+                {ultimo.importe != null ? ` · ${eur(ultimo.importe)}` : ""}
+              </p>
+            </div>
+          )}
+
           {ficha.proximaCita?.fecha && (
             <Dato etiqueta="Próxima cita" valor={fechaClinica(ficha.proximaCita.fecha)} />
           )}
 
-          <div>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
-              Presupuestos ({ficha.presupuestos.length})
-            </p>
-            <ul className="mt-1 space-y-1">
-              {ficha.presupuestos.slice(0, 4).map((p) => (
-                <li
-                  key={p.id}
-                  className="rounded-lg border border-[var(--color-border)] px-2.5 py-2"
-                >
-                  <p className="truncate text-[13px] text-[var(--color-foreground)]">
-                    {p.tratamiento ?? "Sin tratamiento"}
-                  </p>
-                  <p className="text-[11px] text-[var(--color-muted)]">
-                    {p.estado ?? "—"}
-                    {p.importe != null ? ` · ${eur(p.importe)}` : ""}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {/* Los ceros, abajo y solo si NO son cero. Un «0 €» no informa de
+              nada y ocupa lo mismo que un dato. */}
+          {(ficha.kpisPagos?.pendiente ?? 0) > 0 && (
+            <Dato etiqueta="Pendiente de cobro" valor={eur(ficha.kpisPagos!.pendiente!)} />
+          )}
+          {(ficha.kpisPagos?.totalFacturado ?? 0) > 0 && (
+            <Dato etiqueta="Cobrado" valor={eur(ficha.kpisPagos!.totalFacturado!)} />
+          )}
+
+          {/* El historial: los casos anteriores de esta persona. Es donde va lo
+              que la regla del «caso vivo» deja fuera del panel de acción —
+              existe, se ve, pero no compite con lo que se está hablando. */}
+          {anteriores.length > 0 && (
+            <div>
+              <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
+                Antes ({anteriores.length})
+              </p>
+              <ul className="mt-1.5 space-y-1">
+                {anteriores.slice(0, 4).map((p) => (
+                  <li
+                    key={p.id}
+                    className="rounded-lg border border-[var(--color-border)] px-2.5 py-1.5"
+                  >
+                    <p className="truncate text-[12.5px] text-[var(--color-muted)]">
+                      {p.tratamiento ?? "Sin tratamiento"}
+                    </p>
+                    <p className="text-[11px] text-[var(--color-muted)]">
+                      {p.estado ?? "—"}
+                      {p.importe != null ? ` · ${eur(p.importe)}` : ""}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           <Link
             href={`/pacientes/${pacienteId}`}
