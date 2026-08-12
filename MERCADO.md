@@ -50,6 +50,45 @@ Esto convierte la rigidez señalada por Flores en argumento de venta: *"este es 
 
 Y cada flujo intermedio construido para un cliente **pasa a ser catálogo** para los siguientes: no es trabajo perdido, es producto.
 
+#### El setup se incluye en el plan superior, no se factura aparte
+
+**Decisión de negocio, 12 de agosto de 2026.** La configuración inicial —los flujos intermedios, el
+vocabulario, y con el agente orientado a objetivo también la definición de «caso listo» de cada
+etapa ([`PLAN-AGENTE.md` fase 4](PLAN-AGENTE.md))— **se incluye en el plan superior como argumento
+de venta**. No hay línea de «puesta en marcha».
+
+El argumento comercial que habilita: *«el setup lo hacemos nosotros y va incluido»* frente a
+Zolutium, que cobra **~1.200 USD de puesta en marcha a un consultor externo** (§2.1, observado por
+dentro el 5 ago de 2026). Convierte un coste de entrada del competidor en una razón para subir de
+plan con nosotros.
+
+**El aviso, y hay que dejarlo escrito porque la cuenta no es obvia:** incluir el setup significa
+**adelantarlo**. La cuenta solo funciona si esa inversión **se recupera en 6-12 meses con la
+diferencia entre planes**. Si la diferencia estándar↔premium es pequeña, o si la clínica se va antes
+de ese plazo, cada alta premium pierde dinero — y lo pierde de forma silenciosa, porque en la
+contabilidad aparece como una venta.
+
+Dos números que hacen falta antes de fijar precios y que **hoy no tenemos**: cuántas horas cuesta de
+verdad configurar una clínica, y cuál es la permanencia media. Sin ellos, «se recupera en 6-12
+meses» es una intención, no una previsión.
+
+#### La condición dura: la configuración es una pantalla, no una tarea de ingeniería
+
+**El modelo entero depende de esto.** La configuración tiene que ser **una pantalla que el cliente
+podría usar solo** — aunque en la práctica la rellenemos nosotros en el alta.
+
+**Si configurar requiere tocar código, el modelo deja de escalar.** No es una preferencia técnica:
+
+- Cada alta pasa a consumir tiempo de desarrollo, que es el recurso que no se puede contratar rápido.
+- El setup deja de ser un coste conocido y pasa a ser uno variable, con lo que la cuenta de arriba
+  —recuperarlo en 6-12 meses— ya no se puede hacer.
+- Y se acaba en el sitio del que este modelo quería salir: **facturando horas**, que es exactamente
+  lo que [`PLAN-AGENTE.md`](PLAN-AGENTE.md) descarta al decir que el entrenamiento es producto y no
+  servicio.
+
+La prueba de si se cumple es concreta y se puede hacer sin clientes: **dar de alta una clínica nueva
+entera sin abrir el editor**. Si no se puede, la configuración todavía no es un producto.
+
 ---
 
 ## 2 · Evidencia
@@ -281,6 +320,16 @@ es exactamente la clase de afirmación que esta sección existe para no dar por 
 - **Adjuntar la fuente citable** de las ~3.582 clínicas de Madrid y de las ~23.000 de España (INE, Consejo General de Dentistas, colegios profesionales). *(La cifra ya está en §2.2; lo que falta es poder citarla en el pitch sin que dependa de nuestra palabra.)*
 - **Confirmar con Infomed** si Gesden ONE expone API o webhooks. Algunas fuentes de terceros lo afirman; no hay documentación pública. *(Cambia la arquitectura entera — ver §3.)*
 - **Asesoría jurídica** sobre el DPA de Meta para datos de categoría especial, antes de tratar cualquier dato de salud por WhatsApp. Es el punto que el informe deja explícitamente sin resolver.
+- **Reglamento europeo de IA — obligación de transparencia, en vigor desde el 2 de agosto de 2026.**
+  Quien habla con un sistema de IA **tiene derecho a saberlo**. Nuestro primer mensaje dice hoy *«soy
+  asesor de la clínica»*, y **probablemente no basta**: identifica al emisor, no a la naturaleza del
+  interlocutor. Hay que preguntar por escrito **qué formulación cumple y dónde tiene que aparecer**
+  — solo en el primer mensaje de cada conversación, o también al reanudar después de días.
+  *(Es la pregunta con más superficie de producto de las tres legales: afecta al **primer mensaje de
+  cada conversación**, o sea al texto de las plantillas que abren cadencia
+  ([`PLANTILLAS-WHATSAPP.md`](PLANTILLAS-WHATSAPP.md)) y al tono de todo el agente. Y toca H9: si la
+  declaración obligatoria enfría la conversación, eso se suma al efecto del mensaje neutro que esa
+  hipótesis ya mide.)*
 - **Convocatoria vigente de Kit Digital** en acelerapyme.gob.es: importes reales y requisitos para darse de alta como agente digitalizador.
 - ¿El comprador de una clínica de 2-3 sillones tiene el mismo dolor que una red de 10? ¿Paga lo mismo?
 - ¿Cuál es el precio de referencia de los softwares de pago único con los que competimos y qué incluyen?
