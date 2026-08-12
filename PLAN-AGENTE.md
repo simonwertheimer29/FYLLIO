@@ -394,6 +394,13 @@ Eso es lo que mide la hipótesis **H9** de [`MERCADO.md`](MERCADO.md).
 con su texto completo, sus variables con ejemplos y qué conversación abre cada una. El texto está
 **aprobado por Simon**: es criterio de negocio, no técnico.
 
+> 🔴 **Y desde el 12 de agosto son DOS dependencias, no una.** Además del alta fiscal, el texto
+> depende de la **consulta legal del Reglamento europeo de IA**: si la fórmula de transparencia va
+> dentro de la plantilla, no se puede enviar el catálogo antes de saber qué dice — cambiar una
+> aprobada es una **reedición que vuelve a revisión de Meta**. La consulta **no depende de Hacienda**
+> y se puede lanzar hoy, así que las dos corren en paralelo. Ver la tabla de bloqueos de
+> [`ESTADO.md`](ESTADO.md).
+>
 > ⏸️ **Tenerlas escritas NO adelanta plazo, y conviene no confundirlo.** Enviarlas a aprobación exige
 > una cuenta de Meta Business con el nombre legal y el NIF, así que **el reloj de Meta no ha empezado
 > a correr y no empieza hasta que se resuelva el alta fiscal**. Lo que se ha ganado es que ese día el

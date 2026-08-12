@@ -265,7 +265,7 @@ es exactamente la clase de afirmación que esta sección existe para no dar por 
 | H6 | El tipo de tratamiento predice el no-show mejor que el historial del paciente | Abierta | Con datos reales del piloto: cruzar tasa de ausencia por tipo de tratamiento. No requiere reactivar el módulo, solo medir |
 | H7 | Convivir con el PMS (no sustituirlo) es lo que hace vendible a Fyllio en una clínica que ya tiene Gesden | Abierta | Preguntar a RB si cambiarían de PMS por Fyllio. Si la respuesta es "ni de broma", la capa es obligatoria y la integración deja de ser opcional. Si es "nos lo plantearíamos", se abre una vía mucho más barata |
 | H8 | El diferenciador defendible no es ser capa, sino el panel diario de presupuestos que se enfrían + cobros | Abierta | Enseñar a RB el panel al lado de la lista de estados de Gesden y ver si distinguen el valor sin que se lo expliquemos. Si no lo distinguen, el foso no existe todavía |
-| H9 | Un mensaje neutro (sin tratamiento ni importe) convierte igual que uno explícito | Abierta | A/B en el piloto: mismo caso, mitad con plantilla neutra + enlace, mitad con la actual. Si el neutro convierte igual, el cumplimiento sale gratis. **Si convierte menos, hay un conflicto real entre lo legal y lo eficaz, y se decide con la cifra delante** |
+| H9 | Un mensaje neutro (sin tratamiento ni importe) convierte igual que uno explícito | Abierta | A/B en el piloto: mismo caso, mitad con plantilla neutra + enlace, mitad con la actual. Si el neutro convierte igual, el cumplimiento sale gratis. **Si convierte menos, hay un conflicto real entre lo legal y lo eficaz, y se decide con la cifra delante**. ⚠️ **El diseño hay que cerrarlo ANTES de tener datos — ver la nota de abajo** |
 | H10 | Una red de 3-15 clínicas paga 89-149 €/mes por clínica sin que el precio sea la objeción | Abierta | Presentar el precio a RB en la reunión de agosto. Señal negativa: piden precio por red en vez de por clínica |
 | H11 | Decide gerencia, pero la coordinadora puede matar la venta | Abierta | En la reunión de RB, ver quién habla y quién pregunta por el día a día. Y en el piloto, medir uso real por usuaria: si la coordinadora no entra a diario, la renovación está en riesgo aunque gerencia esté contenta |
 
@@ -275,6 +275,38 @@ es exactamente la clase de afirmación que esta sección existe para no dar por 
 |---|---|---|
 | R1 | "El 52% de los pacientes no viene de un lead, luego el mercado es de cartera" | El dato salía del seed de DEMO, que es inventado. No describía ningún mercado. 30 jul 2026 |
 | R2 | "Más de 9.000 clínicas dentales solo en Madrid" | Confusión de unidad: 9.515 son los **dentistas colegiados** de Madrid, no las clínicas. Las clínicas son ~3.582 — 2,6 veces menos. El fundamento de densidad sobrevive; el número no. 31 jul 2026 |
+
+---
+
+### ⚠️ H9 y la declaración de IA se van a medir juntas si nadie lo impide
+
+**Problema de diseño, detectado el 12 de agosto de 2026 al anotar el Reglamento europeo de IA.**
+
+Las plantillas que abren cadencia van a cambiar por **dos motivos a la vez**: el mensaje neutro que
+exige el art. 9 (lo que mide H9) y la **declaración de que hay un sistema de IA detrás** (lo que
+exige el Reglamento, §5). Si las dos entran en el mismo texto y se lanza el A/B, la caída de
+conversión —si la hay— **no se podrá atribuir a ninguna de las dos**, y H9 quedará contestada con un
+número que no significa lo que dice.
+
+Y no es una preocupación teórica: **el orden de los acontecimientos empuja justo a eso.** Las
+plantillas se envían a Meta cuando se resuelva el alta fiscal; la consulta legal está pendiente; lo
+natural es meter las dos cosas en la misma versión del texto y mandarlas. Nadie tendría que hacer
+nada mal para que las dos variables se confundan.
+
+**Hay que decidir cómo separarlas ANTES de tener el primer dato**, porque después ya no se puede:
+los datos ya estarán mezclados. Tres salidas posibles, sin elegir todavía:
+
+1. **Brazo de control con las dos**, y medir H9 solo contra ese brazo. Cuesta un tercer grupo, y con
+   el volumen de una clínica piloto puede que no dé para tres.
+2. **Escalonar en el tiempo**: primero la declaración de IA en todos, medir el nuevo suelo, y
+   después el A/B del mensaje neutro sobre esa línea base. Es lo más limpio y lo más lento.
+3. **Aceptar que se miden juntas** y reformular H9 como *«el mensaje conforme —neutro y declarado—
+   convierte igual que el actual»*. Pierde la capacidad de saber cuál de las dos pesa, pero es la
+   pregunta que el negocio tiene que responder de todas formas: las dos son obligatorias.
+
+La tercera es la honesta si no da el volumen, y en ese caso **hay que reescribir H9 con esa
+formulación**, no dejarla como está y contestarla con datos de otra cosa. Lo que no puede pasar es
+llegar al A/B sin haberlo decidido.
 
 ---
 

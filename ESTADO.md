@@ -12,7 +12,7 @@ Dónde está Fyllio hoy, en una pantalla. Se lee al abrir sesión y se regenera 
 > [`guion-demo-fyllio.md`](guion-demo-fyllio.md) ·
 > [`PLAN-AGENTE.md`](PLAN-AGENTE.md).
 
-**Regenerado:** 7 de agosto de 2026.
+**Regenerado:** 12 de agosto de 2026.
 
 ---
 
@@ -142,15 +142,38 @@ enseña.
 |---|---|---|
 | Piloto con datos reales de RB | Sin art. 28 y NDA firmados no se toca un dato de paciente | Firma de ambas partes |
 | **Medir el clasificador** | **Se agotaron los créditos de la API de Anthropic** (6 ago). El eval no corre: su sonda aborta con código 2, que es lo correcto —«no pude comprobar» no es «falla»— pero deja sin medir el último cambio. **Último número fiable: 98 % (42/43)**, de ANTES de la regla de los dos intentos, que está **implementada y sin medir**. Y hay **sospecha de que ese 98 % estuviera inflado**: la red vieja de «Sin clasificar → quiebra» cazaba por accidente disparadores de fase 2 (tono negativo, pide persona), y en las dos corridas con crédito antes de agotarse (89 % y 87 %) fallaban justo esos | Simon: recargar créditos |
+| **Consulta legal · Reglamento europeo de IA** | **En vigor desde el 2 de agosto de 2026:** quien habla con un sistema de IA tiene derecho a saberlo. El primer mensaje dice hoy *«soy asesor de la clínica»* — identifica al emisor, **no la naturaleza del interlocutor**, y probablemente no basta. Hay que preguntar **qué formulación cumple y dónde va** (¿solo el primer mensaje de cada conversación, o también al reanudar?). Detalle en [`MERCADO.md` §5](MERCADO.md) | Simon: asesoría jurídica |
 | **Enviar las 11 plantillas a Meta** | **Escritas y revisadas el 7 ago** ([`PLANTILLAS-WHATSAPP.md`](PLANTILLAS-WHATSAPP.md)), texto aprobado, sin enviar. Exige cuenta de Meta Business con nombre legal y NIF → **depende del alta fiscal**. Tenerlas escritas **NO adelanta plazo**: el reloj de Meta no ha empezado a correr. **Ninguna está bloqueada por datos**: `seguimiento_sigue_vigente` lo estuvo y se reescribió sin el plazo de validez ([MEJORAS 89](MEJORAS-PENDIENTES.md)) para que las once salgan el mismo día | Solo el alta fiscal |
 | **Piloto real por WhatsApp — fase 0 de [`PLAN-AGENTE.md`](PLAN-AGENTE.md)** | **Cadena de dependencia declarada: sin registro fiscal no hay verificación de empresa de Meta, y sin verificación no hay piloto real.** El 036/037 con NIF (o Fyllio S.L. constituida) es lo que habilita la verificación; la verificación es lo que da el **número real** de la clínica, quita el techo de **250 destinatarios únicos / 24 h** y es requisito de Tech Provider (fase 5). Es **el camino crítico del piloto, y no es código** | Simon: alta fiscal ante Hacienda **+** email de dominio propio |
+
+**Lo legal NO corre en paralelo: bloquea la fase 3.** Es la consecuencia que apareció al anotar el
+Reglamento el 12 de agosto, y cambia el orden de las cosas. Si la fórmula de transparencia tiene que
+ir **dentro del texto** de las plantillas, entonces:
+
+- **el catálogo no se puede enviar a Meta antes de saber qué dice**, porque cambiar una plantilla ya
+  aprobada es una **reedición que vuelve a revisión** — y el reloj de Meta se reinicia;
+- así que la consulta legal deja de ser un pendiente de fondo y pasa a ser **camino crítico de la
+  fase 3**, al lado del alta fiscal y no detrás de ella;
+- y conviene lanzarla **ya**, porque no depende de Hacienda: se puede resolver mientras el alta
+  fiscal avanza, y es lo único de los dos que hoy no está esperando a nadie.
+
+Traducción: **dos bloqueos en paralelo, no uno detrás de otro.** El alta fiscal habilita la cuenta;
+la consulta legal fija el texto. Faltando cualquiera de los dos, el catálogo no sale.
+
+**Y arrastra una decisión de medición que no se puede posponer** ([`MERCADO.md` §4](MERCADO.md)): las
+plantillas van a cambiar por dos motivos a la vez —el mensaje neutro del art. 9, que es lo que mide
+**H9**, y la declaración de IA— y si entran juntas en el mismo texto, **la caída de conversión no se
+podrá atribuir a ninguna de las dos**. Hay que decidir cómo separarlas **antes del primer dato**,
+porque después ya estarán mezclados.
 
 **Dónde corta exactamente, para no declarar el bloqueo más grande de lo que es.** Sin registro
 fiscal se puede crear la app de Meta, coger el **número de prueba** con su plantilla ya aprobada,
 montar el webhook y **enviar y recibir mensajes reales a cinco destinatarios**: o sea, **construir y
 probar la fase 3 entera**. El alta fiscal desbloquea tres cosas y ninguna es de código —
 verificación de empresa, número real, y salir de los 250 destinatarios diarios. **Bloquea atender
-pacientes a escala, no el desarrollo.** Las fases 1, 2 y 3 pueden avanzar hoy.
+pacientes a escala, no el desarrollo.** Las fases 1 y 2 pueden avanzar hoy, y **la 3 también en
+código** — lo que no puede avanzar de la 3 es **enviar el catálogo**, que ahora espera a dos cosas
+(alta fiscal y consulta legal), no a una.
 
 Y con la auditoría de arriba, ese margen es aún mayor de lo que parecía: buena parte de la fase 3
 **ya está escrita**.
