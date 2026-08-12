@@ -72,6 +72,13 @@ El agente necesita saber cuándo ha terminado. Hoy clasifica intenciones sueltas
 
 Cada clínica ajusta qué necesita antes de que le pasen un caso. Es lo que decide cuánto trabajo hace el agente y cuánto la persona.
 
+**Ojo con el pago, que es donde alguien lo va a implementar mal.** «Cómo quiere pagar» está en la
+definición de caso listo del presupuesto, y el pago es a la vez lo que dispara el quiebre
+**aplazable** del §1. No es una contradicción: **recoger cómo quiere pagar el paciente no es
+negociar el pago.** Anotar «pregunta si se puede fraccionar a 8 meses» es recoger; contestar «sí, te
+lo fraccionamos» es decidir, y eso no sale de A. La frontera del §6 vale entera aquí: el agente
+informa de lo que ya está decidido —una tabla de planes publicada— y anota todo lo demás.
+
 ---
 
 ## 3 · Seguimiento — la cola se reordena
