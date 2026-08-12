@@ -87,6 +87,29 @@ intención — mismos tamaños y pesos en todas partes, no improvisar por pantal
   dice "Enviar" produce un toast "Enviado". La pantalla de referencia de madurez es
   `LlamadasView` (Card + Skeleton + toast + drawer).
 
+## 4 bis. Dónde va cada cosa en una pantalla de conversación
+
+Regla fijada el 2026-08-11 en `/mensajeria`, y vale para cualquier pantalla con hilo:
+
+> **El centro es SOLO el hilo de mensajes y la caja de escribir. Todo contexto,
+> recomendación y aviso va a la columna lateral, sin excepciones.**
+
+El «sin excepciones» es la parte que importa. Cada recuadro que se mete en el centro parece
+razonable por su cuenta —la situación del caso, el aviso de que necesita criterio, una fila de
+botones— y entre los tres empujan la conversación fuera de la pantalla. La pantalla existe para leer
+lo que ha dicho un paciente y contestarle; lo demás acompaña.
+
+Dos corolarios:
+
+- **Un botón que lleva a donde ya estás, no va.** «Escribir» tenía sentido en un panel donde abría
+  el compositor; en una pantalla donde el compositor ya está abierto debajo, es ruido.
+- **Las acciones sobre la PERSONA van en la cabecera** (llamar, abrir su ficha), no en el cuerpo.
+  Las acciones sobre el MENSAJE van en el compositor. Si una acción no es ninguna de las dos, casi
+  siempre es contexto disfrazado de botón.
+
+Y el orden de la columna lateral es **el de lo que decide antes**: primero qué pasa y si hace falta
+criterio, después los datos de ficha. Un aviso enterrado bajo tres datos no es un aviso.
+
 ## 5. Tono del texto (copy)
 
 El usuario es una coordinadora, no un ingeniero. El texto habla su idioma:

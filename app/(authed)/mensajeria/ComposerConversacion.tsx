@@ -1,30 +1,32 @@
 "use client";
 
-// La capa de acción: lo que separa esta bandeja de un WhatsApp Web.
+// El compositor de la conversación.
 //
-// Un WhatsApp Web enseña mensajes. Esto enseña mensajes y dice **qué pasa con
-// este caso y qué hacer**, con el mismo criterio y las mismas palabras que el
-// panel de Seguimiento — `situacionPresupuesto` es una sola función compartida,
-// no dos copias que se van separando.
+// ─── LA REGLA DE ESTA PANTALLA ─────────────────────────────────────────────
 //
-// Y cuando NO hay caso, la capa lo declara en vez de desaparecer: hay que saber
-// que no hay contexto, no que no hay pantalla.
+// **El centro es SOLO el hilo de mensajes y la caja de escribir. Todo contexto,
+// recomendación y aviso va a la columna derecha, sin excepciones.**
+//
+// Aquí vivían el recuadro de situación, el aviso de quiebre y una fila de
+// botones Escribir/Llamar. Se fueron a la derecha (2026-08-11). Los botones
+// directamente desaparecieron: «Escribir» venía del panel de Seguimiento, donde
+// abría el compositor — aquí el compositor ya está abierto justo debajo, así
+// que era un botón para llegar a donde ya estás. «Llamar» subió a la cabecera,
+// que es donde van las acciones sobre la persona.
+//
+// La regla está en el estándar visual. Es lo que evita que dentro de dos meses
+// esta columna vuelva a llenarse de recuadros.
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
-  ContextoRecomendacion,
   Composer,
-  btnAccionPrimario,
-  btnAccionSecundario,
   type PlantillaComposer,
 } from "../../components/shared/panel-accion-ui";
-import { AlertTriangle, MessageCircle, Phone, ICON_STROKE } from "../../components/icons";
-import { situacionPresupuesto } from "../../lib/presupuestos/situacion";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import type { Conversacion } from "../../lib/mensajeria/conversaciones";
 import type { PresupuestoIntervencion } from "../../lib/presupuestos/types";
-import { useCasoDeConversacion } from "./useCasoDeConversacion";
+import type { CasoDeConversacion } from "./useCasoDeConversacion";
 
 /** El caso está quebrado. Se lee de `automatizacion.estado`, igual que en el
  *  panel de Seguimiento — `requierePersona` vive en la clasificación, no en el
@@ -33,15 +35,22 @@ function quebrado(item: PresupuestoIntervencion): boolean {
   return item.automatizacion?.estado === "quebrado";
 }
 
-export function CapaDeAccion({
+export function ComposerConversacion({
   conversacion,
+  caso,
+  recargarCaso,
   onEnviado,
 }: {
   conversacion: Conversacion;
+  /** El caso lo pide la pantalla UNA vez y lo comparten las dos columnas: la
+   *  derecha para contar qué pasa, esta para el borrador y el envío. Pedirlo
+   *  dos veces sería dos verdades sobre el mismo caso. */
+  caso: CasoDeConversacion | null;
+  recargarCaso: () => void;
   onEnviado: () => void;
 }) {
-  const { caso, cargando, error: errorCaso, recargar } = useCasoDeConversacion(conversacion);
   const item = caso?.item ?? null;
+  const recargar = recargarCaso;
 
   const [texto, setTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
@@ -199,106 +208,8 @@ export function CapaDeAccion({
     }
   }
 
-  const situacion = item ? situacionPresupuesto(item) : null;
-
   return (
-    <div className="border-t border-[var(--color-border)]">
-      <div className="px-3 pt-3">
-        {sinCaso ? (
-          // La capa NO desaparece cuando no hay caso: declara que no hay
-          // contexto. Un hueco se lee como un fallo de la pantalla.
-          <div className="rounded-xl border border-dashed border-[var(--color-border)] px-3.5 py-3">
-            <p className="text-[13px] font-semibold text-[var(--color-foreground)]">
-              Sin contexto: no sabemos quién es
-            </p>
-            <p className="mt-0.5 text-[12.5px] leading-relaxed text-[var(--color-muted)]">
-              Esta conversación no está asociada a ningún paciente ni lead, así que no hay caso
-              del que decir qué pasa ni qué hacer — y tampoco vía por la que responder. Créale
-              una ficha y vuelve.
-            </p>
-          </div>
-        ) : errorCaso ? (
-          <div className="rounded-xl border border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)] bg-[var(--color-danger-soft)] px-3.5 py-3">
-            <p className="text-[13px] font-semibold text-[var(--color-foreground)]">
-              No se pudo cargar el caso
-            </p>
-            <p className="mt-0.5 text-[12.5px] text-[var(--color-muted)]">
-              {errorCaso} Sin él no hay recomendación — pero el hilo y el envío siguen
-              funcionando.
-            </p>
-            <button
-              type="button"
-              onClick={recargar}
-              className="mt-2 text-[12px] font-semibold text-[var(--color-accent)] hover:underline"
-            >
-              Reintentar
-            </button>
-          </div>
-        ) : !conversacion.presupuestoId ? (
-          // ─── Un LEAD ────────────────────────────────────────────────
-          //
-          // Tiene caso, así que no es «sin contexto» — pero la recomendación
-          // del agente no lo cubre: el clasificador de leads se quedó fuera del
-          // rediseño «decisión primero» (recorte del 6 de agosto, escrito en
-          // PLAN-AGENTE). Antes esto pintaba un ContextoRecomendacion con las
-          // dos frases VACÍAS: un recuadro con dos botones y nada dentro, que
-          // se lee como que la pantalla está rota.
-          //
-          // Se dice lo que hay y lo que falta. Escribir sigue funcionando.
-          <div className="rounded-xl border border-[var(--color-border)] px-3.5 py-3">
-            <p className="text-[13px] font-semibold text-[var(--color-foreground)]">
-              Es un lead, no un presupuesto
-            </p>
-            <p className="mt-0.5 text-[12.5px] leading-relaxed text-[var(--color-muted)]">
-              El agente todavía no analiza conversaciones de leads, así que aquí no hay
-              recomendación ni borrador — puedes escribirle igual. Su ficha está en Leads.
-            </p>
-          </div>
-        ) : (
-          <ContextoRecomendacion
-            cargando={cargando && !situacion}
-            quePasa={situacion?.quePasa ?? ""}
-            recomendacion={situacion?.recomendacion ?? ""}
-            etiqueta={item?.intencionDetectada ?? null}
-            acciones={
-              <div className="grid grid-cols-2 gap-2">
-                <span className={`${btnAccionPrimario} justify-center`}>
-                  <MessageCircle size={14} strokeWidth={ICON_STROKE} aria-hidden />
-                  Escribir
-                </span>
-                <a
-                  href={`tel:${conversacion.telefono}`}
-                  className={`${btnAccionSecundario} justify-center`}
-                >
-                  <Phone size={14} strokeWidth={ICON_STROKE} aria-hidden />
-                  Llamar
-                </a>
-              </div>
-            }
-          />
-        )}
-      </div>
-
-      {/* El bloque del quiebre. Mismo texto, palabra por palabra, que el panel
-          de Seguimiento: es la misma decisión, y decirla distinto en cada sitio
-          la convertiría en dos decisiones. */}
-      {item && quebrado(item) && !texto.trim() && (
-        <div className="mx-3 mt-2 flex gap-2.5 rounded-lg border border-[color-mix(in_srgb,var(--color-danger)_25%,transparent)] bg-[var(--color-danger-soft)] px-3.5 py-2.5">
-          <AlertTriangle
-            className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-danger)]"
-            aria-hidden
-          />
-          <div className="min-w-0 text-[13px] leading-relaxed text-[var(--color-foreground)]">
-            <p className="font-medium">Esto necesita tu criterio</p>
-            <p className="mt-0.5 text-[var(--color-muted)]">
-              {item.automatizacion?.motivo ? `${item.automatizacion.motivo}. ` : ""}
-              No he preparado ningún borrador a propósito: lo que se conteste aquí lo sostiene la
-              clínica.
-            </p>
-          </div>
-        </div>
-      )}
-
+    <div className="border-t border-[var(--color-border)] pt-2">
       <Composer
         value={texto}
         onChange={(v) => {

@@ -2503,3 +2503,36 @@ el skill visual, con una prohibición nueva: ningún color de marca de un tercer
    unificar los editores. Daba 404 en cada apertura y no se veía, porque mi `catch` lo convertía en
    «no hay plantillas». Es el §9 en mi propio código, cazado por el indicador de Next, no por mis
    capturas — que solo miraban `pageerror` y no la consola. El catch ahora registra el fallo.
+
+## 2026-08-11 — La regla del centro: hilo y caja de escribir, nada más
+Regla de producto, escrita en el estándar visual porque es lo que evita que la pantalla se sature
+otra vez dentro de dos meses:
+
+> **El centro es SOLO el hilo de mensajes y la caja de escribir. Todo contexto, recomendación y
+> aviso va a la columna lateral, sin excepciones.**
+
+El «sin excepciones» es la parte que importa. Cada recuadro parecía razonable por su cuenta —la
+situación del caso, el aviso de que necesita criterio, una fila de botones— y entre los tres
+empujaban la conversación fuera de la pantalla. La pantalla existe para leer lo que ha dicho un
+paciente y contestarle.
+
+Se movieron a la derecha el recuadro de situación y recomendación —**como contexto, no como
+botonera**— y el aviso rojo de criterio con su motivo. Y la columna se ordenó por **lo que decide
+antes**: primero si necesita criterio, luego qué pasa, y solo después contacto y presupuesto. Un
+aviso enterrado bajo tres datos de ficha no es un aviso.
+
+**Los botones «Escribir» y «Llamar» desaparecieron del cuerpo.** «Escribir» venía del panel de
+Seguimiento, donde abría el compositor; aquí el compositor ya está abierto justo debajo, así que era
+un botón para llegar a donde ya estás. «Llamar» subió a la cabecera de la conversación: es una
+acción sobre la PERSONA, y registra por el camino central de siempre (`registrar-respuesta` con
+`tipo: "Llamada realizada"`, el mismo que usa Seguimiento) para que una llamada hecha desde la
+bandeja cuente igual que una hecha desde la cola. Sin caso no hay dónde registrarla, y se dice — una
+llamada que nadie anotó es una llamada que el equipo repetirá.
+
+Dos corolarios que quedan en el skill: **un botón que lleva a donde ya estás no va**, y **las
+acciones sobre la persona van en la cabecera, las acciones sobre el mensaje en el compositor** — lo
+que no es ninguna de las dos suele ser contexto disfrazado de botón.
+
+De paso, dos cosas que se vieron al mover: la columna derecha decía **dos veces** que era un lead
+(el recuadro nuevo y el viejo de «sin ficha»), y las capturas seguían saliendo con los esqueletos de
+carga puestos porque esperaban un reloj en vez del contenido. Las dos arregladas.

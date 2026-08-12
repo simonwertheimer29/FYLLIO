@@ -39,7 +39,10 @@ import {
   FILTROS,
 } from "./ListaConversaciones";
 import { ContextoConversacion } from "./ContextoConversacion";
-import { CapaDeAccion } from "./CapaDeAccion";
+import { ComposerConversacion } from "./ComposerConversacion";
+import { useCasoDeConversacion } from "./useCasoDeConversacion";
+import { toast } from "sonner";
+import { Phone } from "../../components/icons";
 import { HiloMensajes, type MensajeHilo } from "./HiloMensajes";
 
 type RespuestaLista = {
@@ -152,6 +155,52 @@ export function MensajeriaView() {
     const enLista = lista?.conversaciones.find((c) => c.telefono === abierta);
     if (enLista) setConversacion(enLista);
   }, [lista, abierta]);
+
+  // El caso se pide UNA vez y lo comparten las dos columnas: la derecha para
+  // contar qué pasa, el compositor para el borrador y el envío. Dos peticiones
+  // serían dos verdades sobre el mismo caso.
+  const {
+    caso,
+    cargando: cargandoCaso,
+    error: errorCaso,
+    recargar: recargarCaso,
+  } = useCasoDeConversacion(conversacion);
+
+  // Llamar es una acción sobre la PERSONA, así que vive en la cabecera de la
+  // conversación, no en el cuerpo. Se registra por el camino central de
+  // siempre — el mismo `registrar-respuesta` que usa el panel de Seguimiento —
+  // para que una llamada hecha desde aquí cuente igual que una hecha desde allí.
+  const [llamando, setLlamando] = useState(false);
+  async function llamar() {
+    if (!conversacion || llamando) return;
+    setLlamando(true);
+    window.open(`tel:${conversacion.telefono}`, "_self");
+    try {
+      if (conversacion.presupuestoId) {
+        const res = await fetch("/api/presupuestos/intervencion/registrar-respuesta", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            presupuestoId: conversacion.presupuestoId,
+            tipo: "Llamada realizada",
+          }),
+        });
+        if (!res.ok) throw new Error(`El servidor respondió ${res.status}`);
+        toast.success(`Llamada registrada · ${conversacion.nombre}`);
+        recargarCaso();
+        cargarLista();
+      } else {
+        // Sin caso no hay dónde registrarla. Se dice, en vez de dar por hecho
+        // que quedó anotada: una llamada que nadie registró es una llamada que
+        // el equipo repetirá.
+        toast.info("Llamada abierta — sin caso asociado, no queda registrada");
+      }
+    } catch (e) {
+      toast.error(`La llamada no se pudo registrar. ${mensajeDeError(e)}`);
+    } finally {
+      setLlamando(false);
+    }
+  }
 
   // El buscador filtra sobre lo ya cargado: la lista viene acotada, así que es
   // inmediato y no gasta una consulta por tecla.
@@ -304,7 +353,7 @@ export function MensajeriaView() {
                 >
                   ← Volver
                 </button>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-semibold text-[var(--color-foreground)]">
                     {conversacion?.nombre ?? abierta}
                   </p>
@@ -314,6 +363,16 @@ export function MensajeriaView() {
                     </p>
                   )}
                 </div>
+                <button
+                  type="button"
+                  onClick={llamar}
+                  disabled={llamando}
+                  title={`Llamar a ${conversacion?.nombre ?? ""}`}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-[12.5px] font-semibold text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
+                >
+                  <Phone size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                  Llamar
+                </button>
               </header>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
@@ -334,7 +393,12 @@ export function MensajeriaView() {
                   hay una segunda vía de envío—, así que la autoría, el quiebre
                   y la coincidencia se registran igual desde los dos sitios. */}
               {conversacion && (
-                <CapaDeAccion conversacion={conversacion} onEnviado={cargarLista} />
+                <ComposerConversacion
+                  conversacion={conversacion}
+                  caso={caso}
+                  recargarCaso={recargarCaso}
+                  onEnviado={cargarLista}
+                />
               )}
             </>
           )}
@@ -342,7 +406,13 @@ export function MensajeriaView() {
 
         {/* ── Derecha: el contexto ────────────────────────────────────── */}
         <aside className="hidden min-h-0 w-72 shrink-0 overflow-y-auto rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] lg:block">
-          <ContextoConversacion conversacion={conversacion} />
+          <ContextoConversacion
+            conversacion={conversacion}
+            caso={caso}
+            cargandoCaso={cargandoCaso}
+            errorCaso={errorCaso}
+            recargarCaso={recargarCaso}
+          />
         </aside>
       </div>
     </div>

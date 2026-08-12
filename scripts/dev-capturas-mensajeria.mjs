@@ -71,7 +71,10 @@ await shot("/mensajeria", "mensajeria-movil", { width: 390, height: 844 });
   // Una FILA de la lista, no un botón cualquiera del aside: los filtros viven
   // ahora dentro de la columna izquierda y `aside button` pulsaba uno de ellos.
   await page.locator("aside li button").first().click();
-  await page.waitForTimeout(2000);
+  // Se espera al HILO, no a un reloj: con 2 s la captura salía con los
+  // esqueletos de carga puestos y parecía una pantalla rota.
+  await page.getByRole("button", { name: /Llamar/ }).first().waitFor({ timeout: 20000 });
+  await page.waitForTimeout(2500);
   await page.screenshot({ path: `${OUT}/mensajeria-conversacion.png` });
   await ctx.close();
   if (errs.length) problemas.push(`conversacion: ${errs[0]}`);
