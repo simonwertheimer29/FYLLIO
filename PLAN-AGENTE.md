@@ -28,6 +28,7 @@ Tres archivos y tres preguntas distintas. Si algo de aquí contradice a los otro
 | [`MERCADO.md`](MERCADO.md) | **Por qué** esto tiene sentido: la evidencia, las hipótesis y lo que aún no sabemos |
 | [`DECISIONES.md`](DECISIONES.md) | **Qué** se decide y qué se arregla. Una fase pasa a estar decidida cuando aparece ahí, no aquí |
 | **Este plan** | **Qué se construiría** si se decide, en qué orden y cómo se pone a prueba |
+| [`PLAN-AGENTE-OFENSIVO.md`](PLAN-AGENTE-OFENSIVO.md) | **Cómo se comporta** el agente (reactivo → orientado a objetivo) y qué arrastra en la app. Manda en comportamiento; este manda en orden y dependencias |
 
 Lo detectado pero no aprobado sigue yendo a [`MEJORAS-PENDIENTES.md`](MEJORAS-PENDIENTES.md).
 
@@ -41,7 +42,7 @@ Lo detectado pero no aprobado sigue yendo a [`MEJORAS-PENDIENTES.md`](MEJORAS-PE
 | **1** · Estado de automatización y cola de quiebre | La tercera coordenada de cada caso, su cohorte en Seguimiento, **la tasa de coincidencia agente-humano** y **el conjunto de evaluación** | ✅ **Decidida** — no depende de WhatsApp |
 | **2** · Clasificador completo + simulador | **Enganchar el clasificador de leads** (existe; solo falta el disparador — medio día) y **los 3 disparadores que faltan**, ambos medidos contra los evals. Más el simulador | ⬜ **No decidida** |
 | **3** · Modo B — el agente envía lo rutinario | **Conectar** el envío/recepción (ya construidos) y **construir el catálogo de 11 plantillas** | ⬜ **No decidida** — reescrita el 3 ago tras censar el código |
-| **4** · Modo C, configuración e **entrenamiento continuo** | **El agente pasa de reactivo a orientado a objetivo** (caso listo · quiebre en tres · resumen de traspaso), autonomía hasta el quiebre, matriz por intención, y el bucle que aprende de las correcciones **sin cobrar por configurar** | ⬜ **No decidida** |
+| **4** · Modo C, configuración e **entrenamiento continuo** | Autonomía hasta el quiebre, matriz por intención, y el bucle que aprende de las correcciones **sin cobrar por configurar**. El **cambio de modelo del agente** (reactivo → orientado a objetivo) vive en [`PLAN-AGENTE-OFENSIVO.md`](PLAN-AGENTE-OFENSIVO.md), y **sus fases A-F corren en modo A: no esperan a Meta** | ⬜ **No decidida** |
 | **5** · Tech Provider y alta de clientes | Embedded Signup, una WABA por clínica | ⬜ **No decidida** |
 
 ---
@@ -482,88 +483,34 @@ día. Lo que no cabe es dar por hecha la aprobación en una fecha comprometida c
 
 ### El cambio de modelo: de reactivo a orientado a objetivo
 
-**No decidido.** Es el cambio conceptual más grande del plan, y conviene leerlo como lo que es: hasta
-aquí, todo lo diseñado describe un agente que **reacciona**. Llega un mensaje, lo clasifica, decide
-si contesta o quiebra. Sabe cuándo callarse — que no es poco, y es lo que se midió en la fase 1.
+> **Desarrollado en [`PLAN-AGENTE-OFENSIVO.md`](PLAN-AGENTE-OFENSIVO.md) (12 ago 2026), que es el
+> documento que manda en el comportamiento del agente.** Aquí queda el resumen y su encaje con las
+> fases; el detalle vive allí. Si los dos divergen, manda el otro — dos versiones del mismo modelo
+> es el patrón paralelo de siempre, aplicado a documentos.
 
-Lo que no sabe es **qué está intentando conseguir**. Y sin eso, cada conversación es una secuencia de
-reacciones sin destino: el agente no puede saber si va bien, si le falta algo, ni cuándo ha terminado.
+Hasta aquí, todo lo diseñado describe un agente que **reacciona**: llega un mensaje, lo clasifica,
+decide si contesta o quiebra. Sabe cuándo callarse — que no es poco, y es lo que se midió en la
+fase 1. Lo que no sabe es **qué está intentando conseguir**.
 
-#### «Caso listo»: la definición que falta
+Cuatro piezas, todas detalladas en el documento nuevo:
 
-Cada etapa gana una definición explícita de **qué datos hacen falta para que una persona pueda
-cerrar el caso**. No es un guion de conversación: es una lista de huecos que rellenar.
+- **«Caso listo» por etapa** — qué datos hacen falta para que una persona pueda cerrar.
+  Configurable por clínica.
+- **El quiebre se parte en tres** — aplazable (lo anota y sigue), detiene el guion (para sin urgir),
+  rompe ya (sube a la cola). Solo uno interrumpe.
+- **El resumen de traspaso** — qué se recogió, a qué punto llegó, y la lista numerada de lo pendiente
+  de decidir. Es la pieza de más valor.
+- **El aplazamiento como promesa**, con insistencia acotada. Nunca infinita.
 
-Un ejemplo del embudo de captación, para fijar la idea: *nombre · tratamiento de interés · franja
-horaria que le viene bien · si tiene seguro · si ya es paciente*. Con esos cinco, la coordinadora
-puede coger el caso y cerrarlo. Sin ellos, tiene que empezar preguntando.
+**Y una consecuencia de calendario que importa para este plan:** las fases A-F del documento nuevo
+**corren todas en modo A**, o sea que **no dependen de Meta ni del alta fiscal**. Las fases 0-5 de
+aquí sí. Por eso las dos numeraciones conviven en vez de fundirse: fundirlas daría una secuencia
+falsa en la que el modelo nuevo parece venir después de la fase 5, cuando puede empezar hoy.
 
-**Configurable por clínica**, porque es exactamente donde se nota la diferencia entre una clínica de
-dos sillones y una red: lo que una necesita saber antes de dar cita, la otra lo pregunta en la
-visita. Va por la misma pantalla de configuración que el resto de la fase — ver la condición dura
-que esto le impone al modelo de negocio en [`MERCADO.md` §1](MERCADO.md).
-
-#### El quiebre se parte en tres
-
-Hoy el quiebre es binario: o el agente sigue, o para y llama a una persona. Eso trata igual dos
-cosas muy distintas — «¿me lo podéis fraccionar?» y «llevo tres días esperando y estoy harto» — y al
-tratarlas igual, la primera **interrumpe la conversación sin necesidad**: el agente para de recoger
-datos que todavía podría recoger.
-
-| Tipo | Qué lo dispara | Qué hace el agente |
-|---|---|---|
-| **Aplazable** | Dinero, condiciones, fraccionamiento | Lo **anota**, dice que un asesor lo resolverá, y **sigue** recogiendo lo que falta |
-| **Detiene el guion** | Duda clínica real | No sigue como si nada — pero **no urge**. El caso queda parado esperando criterio |
-| **Rompe ya** | Queja, enfado, petición explícita de persona | Corta y sube a la cola inmediatamente |
-
-Los tres siguen siendo quiebre —el agente no decide ninguno de ellos— pero **solo uno interrumpe**.
-La diferencia entre «no lo decido yo» y «no puedo seguir» es la que hoy no existe.
-
-#### El traspaso ES el producto
-
-Cuando el caso está listo, llega a la cola con un **resumen de traspaso**: qué se recogió, a qué
-punto llegó la conversación, y **la lista numerada de lo que quedó pendiente de decidir**.
-
-Esto es lo que convierte veinte minutos de leer una conversación entera en cinco de resolverla, y es
-la parte del cambio que más se nota en el trabajo real de una coordinadora. Todo lo demás —los tres
-tipos de quiebre, la definición de caso listo— existe para que este resumen se pueda escribir.
-
-#### El aplazamiento es una promesa, y hay que cumplirla
-
-**«Un asesor te contactará en breve» compromete a la clínica.** Un caso aplazado no puede caer en la
-cola general a competir por atención: tiene que llegar **con urgencia real y verse el mismo día**.
-
-Si no se cumple, el agente **empeora la situación** en vez de mejorarla — el paciente ha esperado
-por una promesa nuestra, y a la espera se le suma haberla anunciado. Es la misma regla que la nº 7
-del catálogo de plantillas: una promesa que la cadencia no cumple es peor que no haberla hecho.
-
-#### La insistencia tiene tope
-
-Cuántas veces aplaza el agente antes de romper es **configurable, con un máximo**. Nunca infinito.
-
-El motivo es que la degradación aquí no da error: un agente que aplaza indefinidamente parece que
-funciona —contesta, recoge datos, promete un asesor— mientras acumula promesas que nadie va a
-cumplir. El tope es lo que convierte eso en un quiebre visible.
-
-#### Lo que puede obligar a cambiar el primer mensaje: el Reglamento europeo de IA
-
-**Pendiente legal, no decisión de producto — pero condiciona el texto.** Desde el **2 de agosto de
-2026** hay obligación de transparencia: quien habla con un sistema de IA tiene derecho a saberlo. El
-primer mensaje dice hoy *«soy asesor de la clínica»*, que identifica al emisor pero **no la
-naturaleza del interlocutor**, y probablemente no basta.
-
-Afecta a este plan en dos sitios: al **texto de las plantillas que abren cadencia**
-([`PLANTILLAS-WHATSAPP.md`](PLANTILLAS-WHATSAPP.md) — y cambiarlas después de aprobadas es una
-reedición que vuelve a revisión de Meta) y al **tono del agente entero**. Está en la consulta legal
-pendiente de [`MERCADO.md` §5](MERCADO.md); conviene resolverlo **antes** de enviar el catálogo a
-aprobación, no después.
-
-#### Qué NO cambia
-
-El techo de la tabla de abajo. Un agente orientado a objetivo tiene más margen para recoger, no más
-margen para decidir: **«cualquier cosa que roce el precio» y las preguntas clínicas siguen sin salir
-de A**, y los disparadores de dinero y clínicos siguen sin poder quitarse. Recoger el dato de que
-alguien quiere fraccionar no es negociar el fraccionamiento.
+**Qué NO cambia con el modelo nuevo.** El techo de la tabla de abajo. Un agente orientado a objetivo
+tiene más margen para **recoger**, no más para **decidir**: «cualquier cosa que roce el precio» y las
+preguntas clínicas siguen sin salir de A, y los disparadores de dinero y clínicos siguen sin poder
+quitarse. Recoger el dato de que alguien quiere fraccionar no es negociar el fraccionamiento.
 
 ### La autonomía se concede por intención, no por fase entera
 

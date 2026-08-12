@@ -78,6 +78,23 @@ cierre está en [`DECISIONES.md`](DECISIONES.md).
 **La pasada visual pantalla por pantalla está TERMINADA:** `/red` · `/kpis` · `/presupuestos` ·
 `/cobros` · `/pacientes` · `/leads` · `/llamadas` · `/alertas` · `/seguimiento`.
 
+### El plan nuevo del agente (12 ago) — no espera a nadie
+
+**[`PLAN-AGENTE-OFENSIVO.md`](PLAN-AGENTE-OFENSIVO.md)** replantea el modelo: el agente pasa de
+**reactivo** (sabe cuándo callarse) a **orientado a objetivo** (sabe qué persigue). Arrastra
+mensajería, seguimiento, configuración por clínica y la reorganización de ventanas.
+
+**Plan de producto, no hoja de ruta comprometida** — ninguna de sus fases A-F está decidida.
+
+**Lo que lo hace distinto de todo lo demás de esta pantalla: no depende de nadie de fuera.** Sus
+seis fases corren **en modo A** —el agente prepara, la persona envía— así que **no esperan a Meta ni
+al alta fiscal**, que es lo que bloquea la mitad de la tabla de abajo. Es el trabajo disponible hoy
+con más recorrido.
+
+Y la pieza de más valor, según el propio plan, es la **ficha del caso listo** (§4): qué quiere, qué
+falta resolver, qué se recogió. Es lo que convierte veinte minutos de leer un hilo en cinco de
+resolverlo.
+
 ### En cola, ya aprobado, para después de la reunión
 
 - ~~Fusión de `/automatizaciones` + `/ajustes`~~ · ~~`/informes` como pantalla propia~~ —
