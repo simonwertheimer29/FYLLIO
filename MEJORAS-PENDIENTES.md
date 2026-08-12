@@ -1694,3 +1694,20 @@ verdad: un editor, un vocabulario, un renderizador.
   a ser generado de verdad y `qa:tipos` cubre el resto.
 - **Impacto:** bajo hoy, **medio al dar de alta el primer cliente nuevo**.
 - **Fecha:** 2026-08-07 · 🔵
+
+## 92. El clasificador no puede responder «¿a qué hora tenéis hueco?» — y el dato EXISTE
+- **Detectado:** 2026-08-12, diagnóstico C del pulido de /mensajeria. Cristina pregunta a qué hora
+  hay hueco el jueves; la generación con IA produce un genérico de reactivación.
+- **Qué recibe hoy esa llamada:** el presupuesto (importe, tratamiento, estado), UNA respuesta del
+  paciente y el nº de entrantes sin responder. **Ni el hilo, ni la agenda.** El modelo, que no puede
+  inventar horas (la lección del IVA, §17), degenera a un mensaje genérico — el seed en cambio
+  inventaba «16:30 o 18:00» porque es demo.
+- **La lectura del §17:** la primera pregunta es si el dato existe. **Existe**:
+  `lib/scheduler/availability.ts` calcula huecos reales por clínica. Lo que no existe es la conexión
+  clasificador→agenda.
+- **Mejora (decisión de producto pendiente):** o darle disponibilidad al clasificador cuando la
+  intención es de cita (con qué límites: ¿ofrece huecos él solo?), o que «pregunta por hueco» quiebre
+  con motivo «necesita la agenda» hasta que esa conexión se decida. Hoy hace la tercera cosa, que es
+  la peor: contesta genérico como si no pasara nada.
+- **Impacto:** alto en cuanto el agente responda solo; hoy medio (el texto se revisa antes de enviar).
+- **Fecha:** 2026-08-12 · 🔵

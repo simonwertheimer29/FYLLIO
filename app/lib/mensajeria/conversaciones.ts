@@ -25,6 +25,7 @@
 import { sql } from "kysely";
 import { runWithClienteDb } from "../db/context";
 import { requireCliente } from "../cliente-contexto";
+import { INTENCIONES_QUE_QUIEBRAN } from "../automatizacion/estado";
 
 export type FiltroBandeja = "pendientes" | "todas" | "agente" | "necesita-persona";
 
@@ -94,12 +95,35 @@ export async function listarConversaciones(args: {
     const r: any = await sql`
       with ultimo as (
         select distinct on (telefono)
-               telefono, contenido, direccion, "timestamp", clinica_id,
-               paciente_id, lead_id, presupuesto_id, nombre_perfil,
+               telefono, contenido, direccion, "timestamp",
                (autor = 'agente' or sugerido_por_ia is true) as del_agente
           from mensajes_whatsapp
          where telefono is not null and "timestamp" is not null
          order by telefono, "timestamp" desc
+      ),
+      -- ─── El CASO del hilo: el último valor NO NULO de cada campo ─────
+      --
+      -- Antes todo salía del ÚLTIMO mensaje, y eso rompió en producción el
+      -- 12 de agosto: «Registrar respuesta» crea entrantes que llegan solo
+      -- con presupuesto_id, así que UNA acción degradaba la fila entera —
+      -- «Cristina Muñoz · Clínica Demo Centro» pasaba a ser un teléfono
+      -- pelado «sin clínica». La identidad de una conversación es del HILO,
+      -- no de su último mensaje.
+      caso as (
+        select telefono,
+               (array_agg(paciente_id order by "timestamp" desc)
+                  filter (where paciente_id is not null))[1]    as paciente_id,
+               (array_agg(lead_id order by "timestamp" desc)
+                  filter (where lead_id is not null))[1]        as lead_id,
+               (array_agg(presupuesto_id order by "timestamp" desc)
+                  filter (where presupuesto_id is not null))[1] as presupuesto_id,
+               (array_agg(clinica_id order by "timestamp" desc)
+                  filter (where clinica_id is not null))[1]     as clinica_id,
+               (array_agg(nombre_perfil order by "timestamp" desc)
+                  filter (where nombre_perfil is not null and nombre_perfil <> ''))[1] as nombre_perfil
+          from mensajes_whatsapp
+         where telefono is not null and "timestamp" is not null
+         group by telefono
       ),
       pend as (
         select m.telefono, count(*)::int as n
@@ -110,32 +134,34 @@ export async function listarConversaciones(args: {
                    where s.telefono = m.telefono and s.direccion = 'Saliente'),
                  '-infinity'::timestamptz)
          group by m.telefono
-      ),
-      -- El nombre, resuelto en la misma pasada. El orden es el de fiabilidad:
-      -- un paciente fichado manda sobre un lead, y los dos sobre el nombre que
-      -- la persona se haya puesto en WhatsApp.
-      nombre as (
-        select u.telefono,
-               coalesce(pa.nombre, l.nombre, nullif(u.nombre_perfil, '')) as nom,
-               case when pa.nombre is not null then 'paciente'
-                    when l.nombre  is not null then 'lead'
-                    when nullif(u.nombre_perfil, '') is not null then 'perfil'
-                    else 'telefono' end as origen
-          from ultimo u
-          left join pacientes pa on pa.cliente = ${cliente} and pa.id = u.paciente_id
-          left join leads     l  on l.cliente  = ${cliente} and l.id  = u.lead_id
       )
-      select u.telefono, u.contenido, u.direccion, u."timestamp", u.clinica_id,
-             u.paciente_id, u.lead_id, u.presupuesto_id, u.del_agente,
+      select u.telefono, u.contenido, u.direccion, u."timestamp", u.del_agente,
+             k.clinica_id, k.paciente_id, k.lead_id, k.presupuesto_id,
              coalesce(p.n, 0) as pendientes,
-             n.nom, n.origen,
+             coalesce(pa.nombre, l.nombre, k.nombre_perfil) as nom,
+             case when pa.nombre is not null then 'paciente'
+                  when l.nombre  is not null then 'lead'
+                  when k.nombre_perfil is not null then 'perfil'
+                  else 'telefono' end as origen,
              c.nombre as clinica_nombre,
-             coalesce(pr.requiere_persona, false) as necesita_persona
+             -- El MISMO criterio que estadoAutomatizacion, no una copia a ojo:
+             -- decisión explícita (requiere_persona) o, en filas sin decisión,
+             -- el fallback por intención — y solo si el paciente escribió lo
+             -- último (pendientes > 0), igual que el estado derivado exige
+             -- pendiente_responder. La lista de intenciones viene POR PARÁMETRO
+             -- del propio estado.ts: una sola fuente para el filtro y el aviso.
+             (coalesce(p.n, 0) > 0 and (
+                pr.requiere_persona is true
+                or (pr.requiere_persona is null
+                    and pr.intencion_detectada = any(${INTENCIONES_QUE_QUIEBRAN as string[]}))
+             )) as necesita_persona
         from ultimo u
+        join caso k using (telefono)
         left join pend p on p.telefono = u.telefono
-        left join nombre n on n.telefono = u.telefono
-        left join clinicas c on c.cliente = ${cliente} and c.id = u.clinica_id
-        left join presupuestos pr on pr.cliente = ${cliente} and pr.id = u.presupuesto_id
+        left join pacientes pa on pa.cliente = ${cliente} and pa.id = k.paciente_id
+        left join leads     l  on l.cliente  = ${cliente} and l.id  = k.lead_id
+        left join clinicas  c  on c.cliente  = ${cliente} and c.id  = k.clinica_id
+        left join presupuestos pr on pr.cliente = ${cliente} and pr.id = k.presupuesto_id
        order by u."timestamp" desc
     `.execute(trx);
     return r.rows as any[];

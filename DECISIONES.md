@@ -2536,3 +2536,55 @@ que no es ninguna de las dos suele ser contexto disfrazado de botón.
 De paso, dos cosas que se vieron al mover: la columna derecha decía **dos veces** que era un lead
 (el recuadro nuevo y el viejo de «sin ficha»), y las capturas seguían saliendo con los esqueletos de
 carga puestos porque esperaban un reloj en vez del contenido. Las dos arregladas.
+
+## 2026-08-12 — Diagnóstico de /mensajeria: cinco síntomas, y ninguna causa era la aparente
+Simon reportó cinco fallos (A-E). El diagnóstico desmontó las cinco hipótesis de partida, la mía
+incluida.
+
+**A · «Conversaciones duplicadas» — la clave del teléfono NO estaba partida.** Cero variantes de
+cadena en 1.119 filas (comprobado agrupando por dígitos). Lo que pasó: «Registrar respuesta» crea
+entrantes que llegaban **solo con presupuesto_id** —sin paciente, sin clínica— y la lista resolvía
+nombre y clínica **mirando solo el último mensaje**. Una sola acción degradaba la fila entera:
+«Cristina Muñoz · Demo Norte» pasaba a ser un teléfono pelado «sin clínica». Y el segundo hilo
+«duplicado» era **Ana Torres**: el seed repite guiones, y dos personas distintas con el mismo texto
+—una degradada y sin nombre— parecen la misma persona dos veces. Arreglo doble: la identidad de una
+conversación sale ahora del **hilo entero** (último valor no nulo de cada campo), y el punto único de
+escritura **completa el caso** antes de insertar (paciente y clínica desde el presupuesto, §6). Las
+«3 conversaciones sin clínica» eran exactamente esto: con el fix, cero — el aviso desapareció solo,
+como Simon sospechaba.
+
+**B · El mensaje triplicado: 1 del seed + 2 re-registros manuales.** El camino de registro manual no
+tenía dedup (§2): no hay waba_message_id, así que registrar dos veces el mismo texto creaba dos filas
+sin aviso. Borrados los 5 re-registros de prueba (conservando los originales) y añadida ventana de
+dedup de 3 minutos en ese camino — corta a propósito: el mismo texto con días de diferencia son dos
+mensajes de verdad.
+
+**C · La IA que «ignora la conversación» — y la sorpresa: HAY SALDO.** La sonda dio 200: la
+generación fue del modelo en vivo, no un fallback. Lo que recibe esa llamada: presupuesto + UNA
+respuesta + nº de entrantes sin responder. **Ni el hilo ni la agenda.** «¿A qué hora tenéis hueco?»
+necesita disponibilidad, el modelo no puede inventar horas (§17), y degeneró a un genérico. El dato
+EXISTE (`lib/scheduler/availability`) pero no está conectado → MEJORAS 92, decisión pendiente. Fix
+aplicado: la bandeja pasa ahora el último entrante REAL del hilo visible, no el persistido del caso.
+
+**D · La recomendación «inestable» no era no-determinismo: era una sobrescritura con dos autores.**
+Captura 1 = lo que escribió el SEED («Responder y cerrarle la cita» · «Acepta sin condiciones»,
+db-seed-demo-rico:416). Captura 2 = lo que el CLASIFICADOR EN VIVO persistió al procesar el
+re-registro («Confirmar disponibilidad de horarios» · «Logística»). Cada clasificación PERSISTE
+(guardarClasificacion), así que cada clic puede cambiar la recomendación. Y «Logística» aparecía
+porque la columna enseñaba la intención CRUDA — vocabulario interno en pantalla (§5). Fuera el chip.
+Nota de fondo: seed y modelo discrepan sobre la misma frase, que es exactamente la pregunta abierta
+nº 1 del corpus de evals (¿cierre o logística?).
+
+**E · El botón de IA:** la regla real es «solo con presupuesto» — el clasificador de leads quedó
+fuera del rediseño (recorte del 6 ago). Declarado en el bloque del lead desde ayer.
+
+**#4 · El filtro «Tu criterio» y el aviso leían fuentes distintas.** El filtro: `requiere_persona` a
+pelo (`coalesce(_, false)`). El aviso: `estadoAutomatizacion`, que tiene **fallback por intención**
+para filas sin decisión (anteriores al 06-08 y seed). Resultado: casos con aviso que el filtro no
+traía. Unificado: el SQL deriva con la MISMA lista de intenciones exportada de `estado.ts`
+(`INTENCIONES_QUE_QUIEBRAN` — una fuente, no una copia) y con la misma condición de «el paciente
+escribió lo último». Verificado: filtro 3 = /red 3 = aviso.
+
+Y la corrección visual aprobada: contacto arriba, UN solo bloque de contexto con la alarma dentro
+(dos recuadros decían casi lo mismo ocupando el doble), sin repetir la frase del paciente que ya se
+ve en el hilo de al lado, y pasada de aire.

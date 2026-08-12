@@ -47,7 +47,7 @@ export function HiloMensajes({ mensajes }: { mensajes: MensajeHilo[] }) {
   let ultimoDia = "";
 
   return (
-    <div className="flex min-h-full flex-col justify-end gap-1 px-4 py-4">
+    <div className="flex min-h-full flex-col justify-end gap-1.5 px-4 py-4">
       {mensajes.map((m) => {
         const dia = hoyISO(new Date(m.timestamp));
         const nuevoDia = dia !== ultimoDia;

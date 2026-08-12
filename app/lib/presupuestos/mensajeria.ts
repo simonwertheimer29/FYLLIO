@@ -275,6 +275,25 @@ class ServicioMensajeriaManual implements ServicioMensajeria {
   }
 
   async recibirMensaje(params: RecibirMensajeParams): Promise<RecibirMensajeResult> {
+    // §2 — dedup del registro manual. Este camino no tiene waba_message_id
+    // (lo escribe una persona desde el panel), así que un doble clic o un
+    // doble registro creaba dos filas idénticas sin que nada avisara — pasó
+    // el 12 ago: el mismo texto tres veces en el hilo de una paciente. La
+    // ventana es corta a propósito: el mismo texto dos veces con días de
+    // diferencia son dos mensajes de verdad.
+    {
+      const { entranteDuplicadoRecientePg } = await import("./mensajeria-pg");
+      const existente = await entranteDuplicadoRecientePg({
+        telefono: params.telefono,
+        contenido: params.contenido,
+        ventanaMinutos: 3,
+      });
+      if (existente) {
+        console.warn("[mensajeria] entrante duplicado en <3 min — no se inserta otra vez");
+        return { ok: true, mensajeId: existente };
+      }
+    }
+
     const ts = params.timestamp
       ?? DateTime.now().setZone(ZONE).toISO()
       ?? new Date().toISOString();

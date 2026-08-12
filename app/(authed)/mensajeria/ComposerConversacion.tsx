@@ -40,8 +40,14 @@ export function ComposerConversacion({
   caso,
   recargarCaso,
   onEnviado,
+  ultimoEntrante,
 }: {
   conversacion: Conversacion;
+  /** El último mensaje DEL PACIENTE en el hilo que se está viendo. La
+   *  generación con IA clasifica ESTO — antes mandaba
+   *  `item.ultimaRespuestaPaciente`, que es lo que el caso tenga persistido y
+   *  puede ir por detrás del hilo que el usuario tiene delante. */
+  ultimoEntrante: string | null;
   /** El caso lo pide la pantalla UNA vez y lo comparten las dos columnas: la
    *  derecha para contar qué pasa, esta para el borrador y el envío. Pedirlo
    *  dos veces sería dos verdades sobre el mismo caso. */
@@ -143,7 +149,7 @@ export function ComposerConversacion({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             presupuestoId: conversacion.presupuestoId,
-            respuestaPaciente: item?.ultimaRespuestaPaciente ?? "",
+            respuestaPaciente: ultimoEntrante ?? item?.ultimaRespuestaPaciente ?? "",
           }),
         },
       );
@@ -159,7 +165,7 @@ export function ComposerConversacion({
     } finally {
       setGenerandoIA(false);
     }
-  }, [conversacion.presupuestoId, generandoIA, item?.ultimaRespuestaPaciente, recargar]);
+  }, [conversacion.presupuestoId, generandoIA, ultimoEntrante, item?.ultimaRespuestaPaciente, recargar]);
 
   async function enviar() {
     const contenido = texto.trim();

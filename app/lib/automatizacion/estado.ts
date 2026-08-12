@@ -105,6 +105,15 @@ const INTENCION_A_DISPARADOR: Partial<Record<IntencionDetectada, Disparador>> = 
   "Sin clasificar": "ambiguedad",
 };
 
+/** Las intenciones que quiebran POR SÍ MISMAS cuando la fila no trae la
+ *  decisión (`requiere_persona` NULL — clasificaciones anteriores al
+ *  2026-08-06 y datos del seed). La lista de la bandeja filtra en SQL con
+ *  ESTA misma lista: si el filtro y el aviso usan dos fuentes, discrepan —
+ *  y discreparon (fallo del 12 ago: casos con aviso que el filtro no traía). */
+export const INTENCIONES_QUE_QUIEBRAN: readonly IntencionDetectada[] = Object.keys(
+  INTENCION_A_DISPARADOR,
+) as IntencionDetectada[];
+
 export function disparadorDeIntencion(intencion: IntencionDetectada | null | undefined): Disparador | null {
   if (!intencion) return null;
   return INTENCION_A_DISPARADOR[intencion] ?? null;

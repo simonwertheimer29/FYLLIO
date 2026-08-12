@@ -251,7 +251,7 @@ export function MensajeriaView() {
 
       </header>
 
-      <div className="flex-1 min-h-0 flex gap-3 px-4 lg:px-6 pb-4 lg:pb-6 pt-3">
+      <div className="flex-1 min-h-0 flex gap-4 px-4 lg:px-6 pb-4 lg:pb-6 pt-3">
         {/* ── Izquierda: la lista ─────────────────────────────────────── */}
         <aside
           className={`flex min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] md:w-80 md:shrink-0 ${
@@ -398,6 +398,10 @@ export function MensajeriaView() {
                   caso={caso}
                   recargarCaso={recargarCaso}
                   onEnviado={cargarLista}
+                  ultimoEntrante={
+                    [...(hilo ?? [])].reverse().find((m) => m.direccion === "Entrante")
+                      ?.contenido ?? null
+                  }
                 />
               )}
             </>

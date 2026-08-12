@@ -79,7 +79,7 @@ export function FiltrosBandeja({
   onCambiar: (f: FiltroBandeja) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-1.5 px-3 pb-3">
+    <div className="grid grid-cols-2 gap-2 px-3 pb-3">
       {FILTROS.map((f) => {
         const on = activo === f.id;
         return (
@@ -160,7 +160,7 @@ export function ListaConversaciones({
   mostrarClinica: boolean;
 }) {
   return (
-    <ul className="space-y-1 px-2 pb-3">
+    <ul className="space-y-1.5 px-2 pb-3">
       {conversaciones.map((c) => {
         const activa = c.telefono === seleccionada;
         const señales =

@@ -191,7 +191,59 @@ export async function createMensajeWhatsAppPg(fields: Record<string, unknown>): 
     clinica_id: refOrNull(fields["Clinica_id"]),
   };
   const inserted = await runWithClienteDb(cli(), async (trx) => {
+    // ─── Completar el caso ANTES de insertar (§6) ─────────────────────
+    //
+    // «Registrar respuesta» manda solo presupuesto_id; el webhook, según el
+    // match, solo lead_id. Sin esto, el mensaje se insertaba sin paciente ni
+    // clínica y el ÚLTIMO mensaje del hilo degradaba la conversación entera
+    // (el fallo del 12 ago: Cristina Muñoz convertida en un teléfono pelado
+    // «sin clínica»). Se resuelve aquí, en el único punto de escritura, para
+    // que ningún caller pueda olvidarlo.
+    if (row.presupuesto_id && (!row.paciente_id || !row.clinica_id)) {
+      const pres = await trx
+        .selectFrom("presupuestos")
+        .select(["paciente_id", "clinica_id"])
+        .where("id", "=", row.presupuesto_id)
+        .executeTakeFirst();
+      if (pres) {
+        row.paciente_id = row.paciente_id ?? pres.paciente_id ?? null;
+        row.clinica_id = row.clinica_id ?? pres.clinica_id ?? null;
+      }
+    } else if (row.lead_id && !row.clinica_id) {
+      const lead = await trx
+        .selectFrom("leads")
+        .select(["clinica_id"])
+        .where("id", "=", row.lead_id)
+        .executeTakeFirst();
+      if (lead) row.clinica_id = lead.clinica_id ?? null;
+    }
     return trx.insertInto("mensajes_whatsapp").values(row as any).returning("id").executeTakeFirstOrThrow();
   });
   return { id: (inserted as any).id };
+}
+
+/** ¿Existe ya un entrante idéntico y reciente en este hilo? (§2 — dedup del
+ *  registro manual: el mismo texto registrado dos veces en un par de minutos
+ *  es un doble clic, no dos mensajes del paciente. El webhook tiene su propio
+ *  dedup por waba_message_id; este cubre el camino SIN id de Meta.) */
+export async function entranteDuplicadoRecientePg(args: {
+  telefono: string;
+  contenido: string;
+  ventanaMinutos: number;
+}): Promise<string | null> {
+  return runWithClienteDb(cli(), async (trx) => {
+    const r = await trx
+      .selectFrom("mensajes_whatsapp")
+      .select("id")
+      .where("telefono", "=", args.telefono)
+      .where("direccion", "=", "Entrante")
+      .where("contenido", "=", args.contenido)
+      .where(
+        "timestamp",
+        ">",
+        new Date(Date.now() - args.ventanaMinutos * 60_000),
+      )
+      .executeTakeFirst();
+    return r?.id ? String(r.id) : null;
+  });
 }
