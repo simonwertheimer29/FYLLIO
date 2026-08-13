@@ -45,15 +45,25 @@ export type EstadoAutomatizacion =
   /** Aceptó, pagó, se perdió, o pasó a la fase siguiente. */
   | "cerrado";
 
-/** Eventos humanos que persiste `eventos_automatizacion`. */
+/** Eventos que persiste `eventos_automatizacion`: decisiones humanas y, desde
+ *  la migración 020, aplazamientos del agente. Los dos de aplazamiento NO
+ *  fijan estado en la derivación de abajo — un aplazado significa «el agente
+ *  sigue», así que el caso vuelve a la derivación, igual que
+ *  `devuelto_al_agente`. La cohorte «pendientes de resolver» (fase B) se
+ *  deriva por recuento de estos eventos, no de un estado. */
 export type EventoAutomatizacion =
   | "quiebre_reconocido"
   | "asumido"
   | "devuelto_al_agente"
   | "asumido_manual"
-  | "mensaje_enviado";
+  | "mensaje_enviado"
+  | "aplazado"
+  | "aplazado_resuelto";
 
-export type TipoCaso = "presupuesto" | "lead" | "cobro";
+/** `conversacion` (020) usa el teléfono E.164 como `caso_id`: un aplazamiento
+ *  puede ocurrir en un hilo que aún no tiene caso — la conversación ES el caso
+ *  hasta que exista uno. */
+export type TipoCaso = "presupuesto" | "lead" | "cobro" | "conversacion";
 
 // ─── Los disparadores universales ────────────────────────────────────────────
 

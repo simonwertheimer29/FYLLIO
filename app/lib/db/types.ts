@@ -65,20 +65,29 @@ export interface Tabla_seguimiento_vistos {
   created_at: Generated<Date>;
 }
 
-/** Log append-only de decisiones humanas sobre la automatización de un caso
- *  (014). No guarda estado: el estado se deriva y solo se combina con el último
- *  evento de aquí. Ver `lib/automatizacion/estado.ts`. */
+/** Log append-only de eventos sobre la automatización de un caso (014):
+ *  decisiones humanas y, desde la 020, aplazamientos del agente. No guarda
+ *  estado: el estado se deriva y solo se combina con los eventos de aquí.
+ *  Ver `lib/automatizacion/estado.ts`. */
 export interface Tabla_eventos_automatizacion {
   id: Generated<string>;
   cliente: "RB" | "INDEP" | "DEMO";
-  tipo_caso: "presupuesto" | "lead" | "cobro";
+  /** 020 — `conversacion` usa el teléfono E.164 como `caso_id`: un
+   *  aplazamiento puede ocurrir en un hilo que aún no tiene caso. */
+  tipo_caso: "presupuesto" | "lead" | "cobro" | "conversacion";
   caso_id: string;
   evento:
     | "quiebre_reconocido"
     | "asumido"
     | "devuelto_al_agente"
     | "asumido_manual"
-    | "mensaje_enviado";
+    | "mensaje_enviado"
+    /** 020 — el agente anotó algo que no puede resolver y SIGUE. `motivo_texto`
+     *  dice qué, citando al paciente. Pendientes de un caso = max(0,
+     *  count(aplazado) − count(aplazado_resuelto)) — recuento, sin referencia
+     *  uno a uno. */
+    | "aplazado"
+    | "aplazado_resuelto";
   actor_id: string | null;
   actor_nombre: string | null;
   motivo_texto: string | null;
@@ -128,9 +137,13 @@ type ExtraPacientes = {
   tipo_paciente: string | null;
 };
 
-/** 014 — cuántos toques antes de dar la cadencia por agotada. */
+/** 014 — cuántos toques antes de dar la cadencia por agotada.
+ *  020 — `objetivos`: definición de «caso listo» por etapa, JSON-string con la
+ *  forma de `lib/automatizacion/objetivos.ts` (valida al leer, cae al default
+ *  del código si no lo entiende). NULL = valores por defecto. */
 type ExtraConfiguracionAutomatizaciones = {
   toques_antes_de_agotar: number | null;
+  objetivos: string | null;
 };
 
 /** 016 — el rediseño «decisión primero»: la decisión se guarda aparte de la
