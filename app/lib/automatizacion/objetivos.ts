@@ -118,21 +118,26 @@ export const OBJETIVOS_POR_DEFECTO: readonly ObjetivoAgente[] = [
 
 // ─── El parser de la configuración guardada ────────────────────────────────
 //
-// `configuracion_automatizaciones.objetivos` es un JSON-string (D5). NULL =
-// defaults. Un JSON que no se entiende también cae a los defaults, pero
-// AVISANDO — un fallback mudo esconde el desajuste igual que un catch mudo
-// (lecciones §12). Se rechaza la configuración ENTERA si cualquier parte está
-// mal: mezclar mitad configuración y mitad default sería imposible de razonar
-// desde la pantalla de la fase D.
+// `configuracion_automatizaciones.objetivos` es un JSON-string (D5).
+//
+//   · NULL / vacío  → defaults, EN SILENCIO. Es el estado normal de una
+//     clínica sin configuración propia, no un error.
+//   · presente e ilegible → LANZA, con el motivo. Caer al default aquí sería
+//     un fallback mudo con datos de comportamiento: la clínica creería estar
+//     persiguiendo sus objetivos mientras persigue los genéricos (endurecido
+//     el 2026-08-13; antes avisaba y caía al default).
+//
+// Quién enseña el fallo, por consumidor: el evaluador lo captura en su borde
+// y lo convierte en quiebre fail-closed («Necesita persona — la configuración
+// de objetivos no se pudo leer»: la cola ES la pantalla); la pantalla de la
+// fase D valida con ESTE MISMO parser al guardar, así que un JSON malo no
+// llega a la base salvo edición manual.
+//
+// Se rechaza la configuración ENTERA si cualquier parte está mal: mezclar
+// mitad configuración y mitad default sería imposible de razonar desde la
+// pantalla de la fase D.
 
 const ETAPAS: readonly string[] = ["identificar", "cita", "presupuesto", "cobro"];
-
-const avisadas = new Set<string>();
-function avisarUnaVez(clave: string, motivo: string): void {
-  if (avisadas.has(clave)) return;
-  avisadas.add(clave);
-  console.warn(`[objetivos] configuración ignorada (${motivo}) — se usan los valores por defecto`);
-}
 
 function esCampoValido(c: unknown): c is CampoObjetivo {
   if (typeof c !== "object" || c === null) return false;
@@ -154,24 +159,30 @@ function esObjetivoValido(o: unknown): o is ObjetivoAgente {
   );
 }
 
+/** El error del parser, distinguible en el borde del evaluador y con lo
+ *  necesario para arreglar la configuración sin ir a buscar más contexto. */
+export class ObjetivosIlegiblesError extends Error {
+  constructor(motivo: string, raw: string) {
+    super(`configuración de objetivos ilegible (${motivo}): «${raw.slice(0, 120)}…»`);
+    this.name = "ObjetivosIlegiblesError";
+  }
+}
+
 /**
- * La configuración guardada, o los defaults. `raw` NULL/vacío no avisa (es el
- * estado normal de una clínica sin configuración propia); un raw ilegible
- * avisa una vez por contenido distinto.
+ * La configuración guardada, o los defaults si no hay ninguna (NULL/vacío).
+ * Un raw presente e ilegible LANZA `ObjetivosIlegiblesError` — nunca cae al
+ * default: ver la nota de arriba.
  */
 export function parseObjetivos(raw: string | null | undefined): readonly ObjetivoAgente[] {
   if (raw == null || raw.trim() === "") return OBJETIVOS_POR_DEFECTO;
-  const claveAviso = raw.slice(0, 80);
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    avisarUnaVez(claveAviso, "JSON ilegible");
-    return OBJETIVOS_POR_DEFECTO;
+    throw new ObjetivosIlegiblesError("JSON ilegible", raw);
   }
   if (!Array.isArray(parsed) || parsed.length === 0 || !parsed.every(esObjetivoValido)) {
-    avisarUnaVez(claveAviso, "forma no reconocida");
-    return OBJETIVOS_POR_DEFECTO;
+    throw new ObjetivosIlegiblesError("forma no reconocida", raw);
   }
   return parsed;
 }

@@ -2605,3 +2605,21 @@ Migración 020 (objetivos en `configuracion_automatizaciones`, el log aprende `a
 El QA censal (346 hilos) destapó un matiz: «identificar» pasó a exigir que NO exista ninguna fila
 —un lead «No interesado» no abre cita, pero sabemos su nombre, y preguntárselo sería absurdo; 167
 hilos salían mal clasificados por eso. `npm run qa:contexto` contrasta contra SQL independiente.
+
+## 2026-08-13 — Decisión de producto: objetivo múltiple, con tope de dos
+Cuando la precedencia apunta a un objetivo distinto del que trae el mensaje del paciente, el caso
+persigue AMBOS: el orden de la conversación lo marca el paciente, el cierre exige cubrir los dos.
+Tope: máximo 2 objetivos simultáneos; la precedencia decide cuáles entran. «Caso listo» deja de ser
+global y se evalúa POR OBJETIVO — puede quedar uno cerrado y otro abierto, y la ficha de la fase B
+lo refleja así, no como un sí/no único.
+
+## 2026-08-13 — Los aplazamientos llevan clave cerrada con naturaleza, y el parser falla a la cara
+Migración 021: `clave_aplazado` obligatoria en aplazado/aplazado_resuelto (8 claves salidas del
+corpus de evals + `agenda_disponibilidad` del plan §11). La naturaleza (decision | dato_ausente) se
+DERIVA del enum en `aplazamientos.ts` — no son el mismo problema: una se corrige configurando el
+alcance, la otra conectando una fuente. Pendiente ⇔ existe aplazado posterior al último resuelto de
+su clave (sustituye a la resta: el re-aplazamiento tras resolución sale solo). Y `parseObjetivos`
+pasa de fallback-con-aviso a LANZAR: el agente nunca persigue objetivos genéricos creyendo la
+clínica que son los suyos. `agenda_disponibilidad` NO se dispara por recoger disponibilidad
+declarada (eso es un dato del objetivo §2): solo ante huecos concretos sin agenda conectada — es el
+único aplazamiento que la clínica elimina sola conectando una fuente (fase D).

@@ -6,7 +6,8 @@ import { sql } from "kysely";
 import { runWithClienteDb } from "../db/context";
 import { requireCliente } from "../cliente-contexto";
 import type { EventoAutomatizacion, TipoCaso } from "./estado";
-import { OBJETIVOS_POR_DEFECTO, parseObjetivos, type ObjetivoAgente } from "./objetivos";
+import { parseObjetivos, type ObjetivoAgente } from "./objetivos";
+import type { ClaveAplazado } from "./aplazamientos";
 
 /**
  * Último evento humano de cada caso de un tipo. Una sola consulta para toda la
@@ -45,6 +46,10 @@ export type RegistrarEventoArgs = {
    *  se puede reconstruir: el clasificador la reescribe en la siguiente
    *  respuesta del paciente. */
   intencion?: string | null;
+  /** Clave de taxonomía del aplazamiento (021). OBLIGATORIA en
+   *  aplazado/aplazado_resuelto — el constraint de la base lo impone, y aquí
+   *  el tipo lo recuerda antes. */
+  claveAplazado?: ClaveAplazado | null;
 };
 
 /**
@@ -73,6 +78,7 @@ export async function registrarEvento(args: RegistrarEventoArgs): Promise<void> 
         distancia_edicion: args.distanciaEdicion ?? null,
         largo_sugerido: args.largoSugerido ?? null,
         intencion: args.intencion ?? null,
+        clave_aplazado: args.claveAplazado ?? null,
       } as never)
       .execute(),
   );
@@ -127,28 +133,29 @@ export async function toquesAntesDeAgotar(clinicaId?: string | null): Promise<nu
 }
 
 /**
- * Los objetivos del agente para una clínica (020). Sin fila, o con la columna
- * NULL, o con un JSON que no se entiende → los defaults del código, que es el
- * mismo criterio que `toquesAntesDeAgotar`: una clínica sin configurar se
- * comporta como una configurada por defecto. El aviso del JSON ilegible lo da
- * `parseObjetivos`, una vez.
+ * Los objetivos del agente para una clínica (020). Sin fila o con la columna
+ * NULL → los defaults del código: una clínica sin configurar se comporta como
+ * una configurada por defecto.
+ *
+ * **LANZA** ante un JSON ilegible Y ante un fallo de consulta (endurecido el
+ * 2026-08-13; antes caía al default con un log). Caer al default aquí sería
+ * el agente persiguiendo objetivos que la clínica no eligió creyendo que sí —
+ * el mismo pecado que `?? []` sobre un fetch (§10), con comportamiento en vez
+ * de datos. El evaluador captura en SU borde y convierte a quiebre
+ * fail-closed; a diferencia de `toquesAntesDeAgotar`, cuya validez la
+ * garantiza el CHECK de la base, aquí el parser es la única puerta.
  */
 export async function objetivosDeClinica(
   clinicaId?: string | null,
 ): Promise<readonly ObjetivoAgente[]> {
   const cliente = requireCliente("objetivosDeClinica");
-  try {
-    const r: any = await runWithClienteDb(cliente, (trx) =>
-      sql`select objetivos
-          from configuracion_automatizaciones
-          where ${clinicaId ? sql`clinica_id = ${clinicaId}` : sql`clinica_id is null`}
-          limit 1`.execute(trx),
-    );
-    return parseObjetivos(r.rows?.[0]?.objetivos ?? null);
-  } catch (err) {
-    console.error("[automatizacion] objetivosDeClinica:", err instanceof Error ? err.message : err);
-    return OBJETIVOS_POR_DEFECTO;
-  }
+  const r: any = await runWithClienteDb(cliente, (trx) =>
+    sql`select objetivos
+        from configuracion_automatizaciones
+        where ${clinicaId ? sql`clinica_id = ${clinicaId}` : sql`clinica_id is null`}
+        limit 1`.execute(trx),
+  );
+  return parseObjetivos(r.rows?.[0]?.objetivos ?? null);
 }
 
 /** Distancias de los envíos medibles, para la tasa de coincidencia. */

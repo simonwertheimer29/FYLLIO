@@ -98,6 +98,19 @@ export interface Tabla_eventos_automatizacion {
   /** Intención EN EL MOMENTO del envío (015). No se resuelve después: el
    *  clasificador la reescribe y el histórico cambiaría de significado. */
   intencion: string | null;
+  /** 021 — clave de taxonomía cerrada del aplazamiento
+   *  (`lib/automatizacion/aplazamientos.ts`). Obligatoria en
+   *  aplazado/aplazado_resuelto, NULL en el resto (constraint). */
+  clave_aplazado:
+    | "precio_descuento"
+    | "plan_pago"
+    | "cobertura_seguro"
+    | "cambio_tratamiento"
+    | "garantia_condiciones"
+    | "dato_presupuesto"
+    | "agenda_disponibilidad"
+    | "otro"
+    | null;
   created_at: Generated<Date>;
 }
 

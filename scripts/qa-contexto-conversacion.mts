@@ -193,19 +193,30 @@ await runWithCliente("DEMO", async () => {
     fallo("+34600000001", "sintético: el nombre debería caer al propio número");
 });
 
-console.log(`\n${telefonos.length} hilos + 1 sintético · cobro=${nCobro} presupuesto=${nPresu} cita=${nCita} identificar=${nIdent} sin objetivo=${nSinObjetivo}`);
+// ── informe: la cobertura real y la sintética NO se suman ──────────────────
+// Un «346 en verde» que mezcla las dos leería como cuatro ramas cubiertas con
+// datos reales, y no es verdad: una rama cubierta solo por un caso que existe
+// dentro de este script no está probada contra el producto.
+console.log(`\nCobertura REAL (${telefonos.length} hilos del seed): cobro=${nCobro} · presupuesto=${nPresu} · cita=${nCita} · identificar=${nIdent} · sin objetivo=${nSinObjetivo}`);
+console.log(`Cobertura SINTÉTICA (1 caso): identificar`);
 
-// Cobertura: si el seed no ejercita un objetivo, el QA de arriba es vacuo.
-for (const [nombre, n] of [["cobro", nCobro], ["presupuesto", nPresu], ["cita", nCita]] as const) {
+const ramasReales = [["cobro", nCobro], ["presupuesto", nPresu], ["cita", nCita], ["identificar", nIdent]] as const;
+// Las tres primeras las TIENE que ejercitar el seed; sin eso la invariante es vacua.
+for (const [nombre, n] of ramasReales.slice(0, 3)) {
   if (n === 0) {
     console.error(`✗ cobertura: ningún hilo del DEMO ejercita «${nombre}» — invariante vacua`);
     fallos++;
   }
 }
-if (nIdent === 0) console.log("  (identificar sin casos en seed — cubierto solo por el sintético; esperable hasta que haya huérfanos)");
+if (nIdent === 0)
+  console.warn(
+    "⚠ «identificar» sin datos reales: el seed no tiene huérfanos y la rama solo la cubre el sintético.\n" +
+      "  Fixture de huérfanos aprobado y diferido al paso 5 de la fase A (2026-08-13).",
+  );
 
 if (fallos > 0) {
   console.error(`\n✗ ${fallos} fallo(s)`);
   process.exit(1);
 }
-console.log("✓ contexto de conversación consistente con el SQL independiente");
+const conDatos = ramasReales.filter(([, n]) => n > 0).length;
+console.log(`✓ invariantes OK — ${conDatos} de 4 ramas con datos reales${nIdent === 0 ? "; «identificar» solo sintética" : ""}`);
