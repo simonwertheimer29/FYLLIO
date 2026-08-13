@@ -2623,3 +2623,26 @@ pasa de fallback-con-aviso a LANZAR: el agente nunca persigue objetivos genéric
 clínica que son los suyos. `agenda_disponibilidad` NO se dispara por recoger disponibilidad
 declarada (eso es un dato del objetivo §2): solo ante huecos concretos sin agenda conectada — es el
 único aplazamiento que la clínica elimina sola conectando una fuente (fase D).
+
+## 2026-08-13 — CORRECCIÓN: el tope de 2 objetivos se elimina (deroga la entrada de hoy)
+La entrada «objetivo múltiple, con tope de dos» queda derogada: con tope de 2, el tercer objetivo se
+caía EN SILENCIO — un cobro vencido descartado sin traza es exactamente lo que el producto existe
+para evitar. Lo que se limita es la CONVERSACIÓN, no el caso: un caso puede tener N objetivos
+abiertos y todos se resuelven, uno a uno, en el orden que marque el paciente. ACTIVO hay exactamente
+uno por turno (el que trae el mensaje; si no apunta a ninguno, el de mayor precedencia). Al cerrar
+el activo, el agente recuerda los demás abiertos — tope de 2 recordatorios POR MENSAJE, por
+precedencia; el resto queda abierto sin mencionar (cuatro recordatorios en un mensaje es una
+factura, no una conversación). Si el paciente no responde, vuelven por seguimiento. «Caso listo» es
+POR OBJETIVO: el caso se entrega al cerrar el activo, con los demás visibles en la ficha B como
+«abierto, no trabajado» — la coordinadora no puede cerrar creyendo que está todo resuelto.
+
+## 2026-08-13 — Restricción legal del recordatorio: ni tratamiento ni importe (art. 9 RGPD)
+Un recordatorio de cobro o presupuesto NO puede nombrar el tratamiento ni el importe asociados a la
+persona: dato de salud, art. 9 RGPD. Mensaje neutro + enlace al portal, el criterio que las
+plantillas de Meta ya cumplen (PLANTILLAS-WHATSAPP.md §1). NO depende de la asesoría legal — la
+prohibición de base no es opinable; la asesoría afinará la frontera del mensaje neutro y si el
+enlace exige identificación. El censo del 13-08 encontró que NO está garantizado en código: el
+generador de la cola (`cola-envios/generar`, sustitución `{tratamiento}`/`{importe}` y prompts IA) y
+`generarMensajeSugerido` nombran tratamiento e importe. Hoy no hay envío real (motor apagado,
+generador fuera de los crons), así que no hay exposición viva — pero la regla entra como GUARDA DURA
+en código, no configurable por clínica, antes de enganchar nada al envío (paso 5 / fase 3).

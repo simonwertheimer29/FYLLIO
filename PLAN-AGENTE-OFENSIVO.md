@@ -215,3 +215,32 @@ Y el eval sigue siendo la vara: cada cambio de prompt pasa por él antes y despu
 - **La obligación de identificarse como IA.** El Reglamento europeo de IA aplica desde el 2 de agosto: quien habla con un sistema de IA tiene derecho a saberlo. "Soy asesor de la clínica" probablemente no basta. Afecta al primer mensaje de cada conversación y entra en la consulta legal pendiente.
 - **La agenda.** Un paciente que pregunta por horarios es el caso más frecuente y hoy el agente no tiene el dato. Decisión por clínica: o se conecta la disponibilidad, o preguntar por horarios es de lo que se aplaza.
 - **La verificación de Meta**, que sigue bloqueando el envío real.
+
+---
+
+## 12 · El portal del paciente — pieza prevista, no fase
+
+Anotado el 13 de agosto de 2026. No se construye ahora; se diseña con él presente.
+
+**Dentro de A-F:** consultar presupuestos y cobros, y **aceptar un presupuesto**.
+**Fuera de A-F:** pagar. Pasarela, PCI y conciliación son otro proyecto y ninguna clínica lo ha
+pedido todavía. Se decide en el piloto.
+
+**La consecuencia de diseño que importa desde ya:** si el paciente acepta un presupuesto en el
+portal, ese objetivo se cierra **sin que el agente participe**, y el agente tiene que enterarse al
+turno siguiente o perseguirá algo ya resuelto. Esto ya funciona, verificado el 13-08: el portal
+escribe `Estado: ACEPTADO` por el gate del dominio comprobando que la escritura tocó una fila
+(`api/portal/[token]/responder`), y el contexto del agente deriva sus objetivos del estado en cada
+turno — un presupuesto aceptado deja de estar «vivo» sin que nadie avise a nadie. Ninguna pieza
+nueva puede romper esta cadena: **el portal escribe donde el agente lee, y el estado se deriva,
+nunca se copia.**
+
+**La ficha de la fase B distingue quién cerró:** «lo cerró el paciente» se deriva del historial
+(`portal_aceptado`/`portal_rechazado`, escritos con `obligatorio: true` — son la firma); lo demás es
+«lo recogió el agente» o «lo cerró una persona». No es cosmética: a la coordinadora le cambia la
+llamada que viene después.
+
+**Y la restricción del art. 9 RGPD aplica también aquí:** el enlace al portal ES el mecanismo que
+permite que el recordatorio sea neutro — el detalle (tratamiento, importe) vive detrás del enlace,
+no en el mensaje. Si la asesoría exige identificación antes de mostrar el detalle, se resuelve en el
+portal, no re-metiendo el dato en el WhatsApp.
