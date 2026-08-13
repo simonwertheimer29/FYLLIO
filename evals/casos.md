@@ -2,6 +2,12 @@
 
 **Sintéticos.** Escritos el 5 de agosto de 2026. Ver [`README.md`](README.md) para el método.
 
+> **Qué mide este conjunto (anotado el 13 ago 2026): EL MOTOR con la configuración por defecto.**
+> No es la vara de un agente configurado por una clínica — un agente con su tabla de precios o su
+> agenda cargada contesta cosas que aquí puntúan como aplazar o quebrar, y compararlo contra este
+> número sería medir otra cosa. Si dentro de tres meses alguien quiere medir un agente configurado,
+> necesita su propio conjunto con esa configuración puesta.
+
 Cada caso es **el último mensaje que ha escrito el paciente**, con el contexto mínimo necesario para
 que la pregunta tenga sentido — un «vale» significa cosas distintas según qué le mandamos antes.
 

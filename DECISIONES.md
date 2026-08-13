@@ -2646,3 +2646,21 @@ generador de la cola (`cola-envios/generar`, sustitución `{tratamiento}`/`{impo
 `generarMensajeSugerido` nombran tratamiento e importe. Hoy no hay envío real (motor apagado,
 generador fuera de los crons), así que no hay exposición viva — pero la regla entra como GUARDA DURA
 en código, no configurable por clínica, antes de enganchar nada al envío (paso 5 / fase 3).
+
+## 2026-08-13 — Un solo agente: el genérico es la configuración por defecto, no otro producto
+Decidido en firme el modelo de agente y planes. **Un solo agente**: el genérico no es un producto
+aparte sino la configuración por defecto del mismo motor — la arquitectura se diseña para
+personalizarse, no hay dos motores que mantener. El genérico es un **producto completo**, no una
+demo capada: contesta 24/7, recoge datos y ahorra trabajo real; escala por CAPACIDADES QUE DEPENDEN
+DE QUE LA CLÍNICA APORTE ALGO SUYO (sus precios, su agenda), no por interruptores. **Básico** =
+genérico sin acceso a la pantalla de configuración (si una clínica se configura mal, el agente
+responde mal y la culpa es de Fyllio — ese churn no es asumible). **Premium** = la personalización
+la hacemos nosotros en el onboarding (entrevista, prompt a medida, ajuste tras las pruebas): se paga
+quién lo hace y la integración, no el permiso. **Precio plano sin coste por mensaje, también en
+premium** — cobrar por longitud de prompt penaliza a quien mejor configura, el coste de API es
+marginal; el coste real es tiempo de onboarding y va en cuota de alta o en el plan. **La puesta a
+prueba fuera de producción (fase E) está en TODOS los planes**: se cobra poder configurar, no poder
+comprobar — sin ella el básico nunca gana confianza para subir su automatización, que es lo que el
+producto necesita que pase. Y el eval del repo mide EL MOTOR con la configuración por defecto, no
+la vara de un agente configurado (anotado en el encabezado del corpus). Los niveles de precio y qué
+entra en cada plan: sin decidir (MERCADO.md §4).

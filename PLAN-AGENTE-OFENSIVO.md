@@ -146,6 +146,31 @@ Dentro de cada vista, el buscador y el filtro por clínica que ya existen. **Nad
 
 **Condición dura del modelo de negocio:** la configuración tiene que ser una pantalla que el cliente podría usar solo, aunque la rellenemos nosotros en el onboarding. Si requiere acceso al código, el producto deja de escalar y volvemos a ser consultoría.
 
+**Diseño previsto de la pantalla (anotado el 13 ago 2026; no se construye ahora):**
+
+- **Pantalla guiada, no un cuadro de texto libre.** Campos separados — personalidad y tono ·
+  objetivos y punto de transferencia · información adicional · enlaces · agenda — cada uno con su
+  ejemplo. La usamos nosotros en el onboarding, y el manager tiene que entender qué se configuró al
+  leerla.
+- **Cada campo enseña LA CONSECUENCIA, no solo el ejemplo:** «si publicas tu tabla de precios, el
+  agente contesta a cuánto cuesta; si no, lo aplaza». La clínica está decidiendo cuánto trabajo hace
+  la máquina y cuánto su coordinadora.
+- **Barrido de capacidades.** Encima de la pantalla, una lista viva de qué es capaz el agente con
+  esa configuración: qué puede informar, qué aplaza, cuándo transfiere. Dos requisitos: se **DERIVA
+  de la configuración**, nunca se le pregunta al modelo qué cree que puede hacer (diría que sí a
+  casi todo) — hay tabla de precios cargada ⇒ informa precios; agenda en nivel 2 ⇒ dice huecos, no
+  reserva. Y se muestra también **EN NEGATIVO**: «no puede decir horarios», «no puede confirmar
+  cobertura de seguro» — ahí es donde la clínica ve el hueco (y donde H12 de MERCADO.md espera que
+  nazca el salto de plan).
+- **El prompt ensamblado es VISIBLE para el manager.** Si no ve qué se le dice a sus pacientes, no
+  sube de modo A nunca.
+- **El punto de transferencia lo decide la clínica, no es rígido.** Lo que no se configura es que el
+  agente DETECTE bien lo que pasa; qué hacer con ello, sí.
+- **Archivos y documentos, FUERA de A-F.** Subir un PDF de precios exige extraer, indexar y citar
+  sin inventar: es un proyecto propio. En A-F, campos de texto estructurados y enlaces planos.
+- **Los campos de un plan no contratado se muestran BLOQUEADOS Y VISIBLES, no escondidos.** Un campo
+  escondido no vende nada.
+
 ---
 
 ## 7 · Pon a prueba tu agente
@@ -161,6 +186,11 @@ Dos funciones, y sirve para lo mismo desde dos sitios: **dar confianza para auto
 **Qué se hace con las correcciones:** se acumulan y se proponen. Nunca se aplican solas. Cuando hay varias del mismo tipo, el sistema sugiere el ajuste y alguien lo aprueba.
 
 **Y una regla de higiene que ya nos costó una vez:** lo que sale del banco de pruebas es sintético y lo que sale de producción es real. **No se mezclan al medir.** Se etiquetan por origen y se reportan por separado.
+
+**Aislamiento de las correcciones (anotado el 13 ago 2026):** las correcciones de una clínica
+afectan SOLO a esa clínica. Nunca se propagan al prompt de otra ni al prompt base. **Sin
+excepciones** — si un patrón se repite en varias clínicas y merece entrar al motor, ese es un cambio
+del motor: pasa por el eval y por una decisión explícita, no por propagación.
 
 ---
 

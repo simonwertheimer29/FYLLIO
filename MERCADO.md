@@ -268,6 +268,7 @@ es exactamente la clase de afirmación que esta sección existe para no dar por 
 | H9 | **El mensaje conforme convierte lo suficiente.** «Conforme» = sin tratamiento ni importe (art. 9) **y** declarando que hay un sistema de IA detrás (Reglamento europeo de IA) | Abierta | A/B en el piloto: mismo caso, mitad con el mensaje conforme + enlace al portal, mitad con el actual. **Reformulada el 12 ago de 2026** — antes preguntaba solo por el mensaje neutro. Ver por qué abajo |
 | H10 | Una red de 3-15 clínicas paga 89-149 €/mes por clínica sin que el precio sea la objeción | Abierta | Presentar el precio a RB en la reunión de agosto. Señal negativa: piden precio por red en vez de por clínica |
 | H11 | Decide gerencia, pero la coordinadora puede matar la venta | Abierta | En la reunión de RB, ver quién habla y quién pregunta por el día a día. Y en el piloto, medir uso real por usuaria: si la coordinadora no entra a diario, la renovación está en riesgo aunque gerencia esté contenta |
+| H12 | **El aplazamiento medido dispara el salto a premium**: la clínica ve «tu agente aplazó 47 preguntas de horario este mes» y pide conectar su agenda. El dato vende, no un comercial | Abierta | En el piloto, con el agente genérico: enseñar el recuento de aplazamientos por clave y naturaleza (la taxonomía de la migración 021 existe en parte como soporte de esta hipótesis) y ver si la clínica pide conectar su fuente. La métrica que debería probar el valor del premium: **% de conversaciones transferidas en genérico frente a configurado** — medible con lo ya construido. Añadida 13 ago 2026 |
 
 **Refutadas** *(no se borran: evitan repetir el error)*
 
@@ -275,6 +276,10 @@ es exactamente la clase de afirmación que esta sección existe para no dar por 
 |---|---|---|
 | R1 | "El 52% de los pacientes no viene de un lead, luego el mercado es de cartera" | El dato salía del seed de DEMO, que es inventado. No describía ningún mercado. 30 jul 2026 |
 | R2 | "Más de 9.000 clínicas dentales solo en Madrid" | Confusión de unidad: 9.515 son los **dentistas colegiados** de Madrid, no las clínicas. Las clínicas son ~3.582 — 2,6 veces menos. El fundamento de densidad sobrevive; el número no. 31 jul 2026 |
+
+**Sin decidir (13 ago 2026):** los niveles de precio y qué entra exactamente en cada plan. Lo
+decidido en firme del modelo de agente único (básico/premium, precio plano, la puesta a prueba en
+todos los planes) está en `DECISIONES.md` con esa fecha; esto de aquí es lo que falta.
 
 ---
 
