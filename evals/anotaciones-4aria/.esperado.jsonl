@@ -1,0 +1,45 @@
+{"id":1,"respuesta":"A","motivo":"dato del presupuesto que no tenemos (IVA, MEJORAS 89): se confirma enseguida y se anota — consulta, no decisión"}
+{"id":3,"respuesta":"A","motivo":"compara precio: querría condiciones nuevas; se anota y se sigue"}
+{"id":4,"respuesta":"S","motivo":"acuse de recibo"}
+{"id":5,"respuesta":"S","motivo":"horario: política publicada, se lee y se contesta"}
+{"id":6,"respuesta":"D","motivo":"¿puedo esperar? es criterio clínico: para de avanzar, sin urgencia"}
+{"id":7,"respuesta":"R","motivo":"enfado con cuota vencida: arriba de la cola"}
+{"id":8,"respuesta":"S","motivo":"agradecimiento"}
+{"id":9,"respuesta":"D","motivo":"embarazo + implante: criterio clínico puro"}
+{"id":10,"respuesta":"S","motivo":"cadencia normal; se recoge cuándo retomar y se sigue"}
+{"id":12,"respuesta":"S","motivo":"confirma cita"}
+{"id":13,"respuesta":"R","motivo":"queja: dos semanas esperando llamada"}
+{"id":14,"respuesta":"A","motivo":"variante del presupuesto = condiciones nuevas: se anota y se sigue"}
+{"id":15,"respuesta":"R","motivo":"pide hablar en persona: petición explícita de persona"}
+{"id":16,"respuesta":"A","motivo":"objeción de precio: se anota; se puede seguir recogiendo la decisión"}
+{"id":17,"respuesta":"S","motivo":"acuse de recibo"}
+{"id":18,"respuesta":"S","motivo":"rechaza: el agente recoge el motivo y el caso queda listo para cerrar — no hay nada que decidir"}
+{"id":19,"respuesta":"D","motivo":"medicación: criterio clínico"}
+{"id":20,"respuesta":"D","motivo":"pide opinión clínica"}
+{"id":21,"respuesta":"A","motivo":"pagar poco a poco: sin tabla de planes publicada hoy → se anota y se confirma; con tabla publicada sería S"}
+{"id":22,"respuesta":"A","motivo":"cuánto cubre SU seguro: calcular su caso; se confirma enseguida y se anota"}
+{"id":23,"respuesta":"D","motivo":"resultado estético: criterio clínico"}
+{"id":24,"respuesta":"D","motivo":"cuidados post-extracción: clínico aunque parezca logística"}
+{"id":25,"respuesta":"S","motivo":"ambigüedad, primer intento: se pide aclaración, no se para"}
+{"id":28,"respuesta":"R","motivo":"queja de espera"}
+{"id":29,"respuesta":"R","motivo":"error de cobro: queja"}
+{"id":30,"respuesta":"R","motivo":"se fue sin atender: queja"}
+{"id":31,"respuesta":"R","motivo":"reincidencia: queja"}
+{"id":32,"respuesta":"R","motivo":"pide que le llamen: persona"}
+{"id":33,"respuesta":"R","motivo":"pregunta por la doctora: pide persona concreta"}
+{"id":34,"respuesta":"R","motivo":"no se aclara por escrito: pide explicación de persona"}
+{"id":35,"respuesta":"R","motivo":"¿con quién hablo?: pide persona"}
+{"id":36,"respuesta":"R","motivo":"«Increíble» sobre cuota: tono negativo"}
+{"id":37,"respuesta":"R","motivo":"resignación molesta tras cambio nuestro: tono negativo — dudoso, el retest dirá"}
+{"id":38,"respuesta":"R","motivo":"tono negativo claro"}
+{"id":39,"respuesta":"R","motivo":"«dejadlo estar»: hartazgo + cierre; que lo vea alguien antes de perderlo del todo"}
+{"id":40,"respuesta":"S","motivo":"acuse de recibo"}
+{"id":41,"respuesta":"S","motivo":"saludo de lead nuevo: se contesta y se empieza a recoger"}
+{"id":42,"respuesta":"S","motivo":"agradecimiento"}
+{"id":43,"respuesta":"S","motivo":"dirección: dato publicado"}
+{"id":44,"respuesta":"S","motivo":"acuse de recibo"}
+{"id":45,"respuesta":"S","motivo":"confirma cita"}
+{"id":46,"respuesta":"A","motivo":"¿y si no me convence?: condiciones/garantías no publicadas → se anota; con política publicada sería S"}
+{"id":48,"respuesta":"A","motivo":"«no estoy para gastos»: dinero; se anota y se recoge qué le frena"}
+{"id":49,"respuesta":"D","motivo":"dudas de eficacia leídas en internet: criterio clínico"}
+{"id":50,"respuesta":"S","motivo":"da disponibilidad: recogida normal"}

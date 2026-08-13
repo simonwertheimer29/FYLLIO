@@ -2597,3 +2597,11 @@ siembra cada cierre como un solo intercambio (1 entrante, 2 salientes por hilo, 
 sobre DEMO el «tiene que bajar» del §10 no se puede demostrar; hará falta seed con negociación real
 o datos del piloto. El método queda repetible; el número, congelado como forma del seed, no como
 rendimiento.
+
+## 2026-08-13 — Fase A, pasos 1-2: objetivos como configuración y contexto por conversación
+Migración 020 (objetivos en `configuracion_automatizaciones`, el log aprende `aplazado` y
+`tipo_caso='conversacion'`), defaults aprobados en `lib/automatizacion/objetivos.ts` y
+`contextoDeConversacion()` (teléfono → identidad + objetivos abiertos, derivado y sin persistir).
+El QA censal (346 hilos) destapó un matiz: «identificar» pasó a exigir que NO exista ninguna fila
+—un lead «No interesado» no abre cita, pero sabemos su nombre, y preguntárselo sería absurdo; 167
+hilos salían mal clasificados por eso. `npm run qa:contexto` contrasta contra SQL independiente.

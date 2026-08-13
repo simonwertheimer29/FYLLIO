@@ -22,6 +22,7 @@
     "qa:tipos": "node scripts/qa-tipos-db.mjs",
     "qa:telefonos": "tsx scripts/qa-telefonos.mts",
     "qa:automatizacion": "tsx scripts/qa-automatizacion.mts",
+    "qa:contexto": "tsx scripts/qa-contexto-conversacion.mts",
     "qa:evals": "tsx scripts/qa-evals.mts",
     "medir:linea-base": "tsx scripts/medir-linea-base.mts",
     "qa:evals:acuerdo": "tsx scripts/qa-evals-acuerdo.mts",
