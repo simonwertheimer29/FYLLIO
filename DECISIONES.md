@@ -2664,3 +2664,14 @@ comprobar — sin ella el básico nunca gana confianza para subir su automatizac
 producto necesita que pase. Y el eval del repo mide EL MOTOR con la configuración por defecto, no
 la vara de un agente configurado (anotado en el encabezado del corpus). Los niveles de precio y qué
 entra en cada plan: sin decidir (MERCADO.md §4).
+
+## 2026-08-13 — R1 anotada: 82 % de acuerdo, y la frontera A/D queda señalada como decisión abierta
+Simon reanotó a ciegas los 45 casos con la pregunta 4-aria. Acuerdo con la sellada: 32/39 (82 %)
+sobre respuestas únicas; la vara es la anotación de Simon (los 7 desacuerdos van con su etiqueta).
+El desacuerdo no está repartido: (1) la frontera A/D en dudas clínicas —sus dobles y los dos D→A
+sugieren «D solo cuando la respuesta clínica condiciona la decisión o la seguridad»; la tanda C1
+lleva esa familia y su anotación a ciegas ES la decisión—; (2) rechazo/desgaste → R (18, 16, 49):
+quiere persona pronto cuando el caso se muere; (3) el caso del IVA → S implica contestar de ley
+general — ojo con la estética (no exenta), la solución limpia sigue siendo MEJORAS 89. Análisis
+completo en evals/anotaciones-4aria/ANALISIS-R1.md. Fuera puntuables: 4, 25, 46 (?) y 14, 20, 24
+(frontera), señalados como los ⊘.

@@ -1,0 +1,24 @@
+{"id":"C1","decision":"A","listo":"F","motivo":"precio sin tabla cargada: se anota y se sigue recogiendo; faltan nombre, urgencia y disponibilidad"}
+{"id":"C2","decision":"S","listo":"L","motivo":"todo recogido; «sin preferencia» es respuesta válida, no un hueco"}
+{"id":"C3","decision":"S","listo":"F","motivo":"falta la sede — el cliente tiene dos"}
+{"id":"C4","decision":"A","listo":"F","motivo":"pide hueco HOY sin agenda conectada → aplaza agenda_disponibilidad; urgencia dolor recogida"}
+{"id":"C5","decision":"S","listo":"F","motivo":"preferencia de doctora anotada (dato, no aplazamiento); faltan urgencia y disponibilidad"}
+{"id":"C6","decision":"S","listo":"F","motivo":"aceptó y dio disponibilidad; falta cómo quiere pagar"}
+{"id":"C7","decision":"S","listo":"L","motivo":"decisión + pago + disponibilidad: caso listo en un turno"}
+{"id":"C8","decision":"S","listo":"F","motivo":"lo piensa; falta qué le frena (el «unos días» vale como cuándo retomar)"}
+{"id":"C9","decision":"R","listo":"F","motivo":"vara R1 (caso 18): el rechazo lo ve una persona pronto; falta el motivo real"}
+{"id":"C10","decision":"A","listo":"F","motivo":"contesta la cita, aplaza plan_pago (deuda registrada); el activo pasa a cobro por precedencia"}
+{"id":"C11","decision":"A","listo":"F","motivo":"cuota que NO consta = dato ausente (§17), no criterio: se anota y se confirma"}
+{"id":"C12","decision":"R","listo":"F","motivo":"queja gana a todo, con el presupuesto a medio recoger"}
+{"id":"C13","decision":"A","listo":"F","motivo":"vara R1 (caso 9): duda clínica anotable para el doctor; la recogida sigue"}
+{"id":"C14","decision":"S","listo":"L","motivo":"el activo (presupuesto) queda listo; el mensaje recuerda el cobro pendiente en neutro (art. 9)"}
+{"id":"C15","decision":"S","listo":"F","motivo":"el cobro pasó a activo; «lo miro» no es confirmación — faltan vía y fecha"}
+{"id":"C16","decision":"A","listo":"F","motivo":"primera insistencia: se re-aplaza recordando la promesa del asesor"}
+{"id":"C17","decision":"R","listo":"F","motivo":"segunda insistencia con hartazgo: tope alcanzado, rompe"}
+{"id":"C18","decision":"A","listo":"F","motivo":"clave nueva (seguro) no es insistencia: aplaza normal; el contador por caso suma pero no rompe"}
+{"id":"C19","decision":"S","listo":"F","motivo":"la decisión la cerró el paciente en el portal; siguen faltando cómo pagar y disponibilidad de primera cita"}
+{"id":"C20","decision":"S","listo":"L","motivo":"pendiente = 0 consta: informar de lo que ya está escrito es leer"}
+{"id":"C21","decision":"D","listo":"F","motivo":"vara R1 (caso 19): la seguridad del plan está en duda — se detiene sin urgencia"}
+{"id":"C22","decision":"A","listo":"F","motivo":"frontera A/D: el miedo se acompaña y se anota para el doctor; no bloquea la conversación por sí solo"}
+{"id":"C23","decision":"D","listo":"F","motivo":"frontera A/D: la decisión de compra DEPENDE de la respuesta clínica — sin ella no hay avance que hacer"}
+{"id":"C24","decision":"A","listo":"F","motivo":"huérfano: se anota el precio (sin tabla) y se recoge quién es y qué necesita"}
