@@ -86,7 +86,10 @@ const FAQS = [
   },
   {
     q: "¿Ofrecéis financiación?",
-    a: "Sí. Contacta con la clínica y te explicarán las opciones de pago aplazado disponibles. Muchos tratamientos se pueden financiar a 12 o 24 meses.",
+    // Sin plazos ni condiciones concretas: las opciones de pago son de cada
+    // clínica, y comprometer aquí un «12 o 24 meses» genérico es prometer
+    // dinero que nadie decidió (regla dura del §6 del plan, 2026-08-13).
+    a: "Las opciones de pago dependen de cada clínica. Escríbenos y te explicamos las disponibles en tu caso.",
   },
 ];
 

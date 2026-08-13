@@ -429,7 +429,11 @@ export async function generarMensajeSugerido(args: {
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 200,
-        system: "Eres un coordinador de ventas de una clínica dental en España. Escribe UN mensaje de WhatsApp breve (2-3 frases), en español, sin emojis, tono cálido y profesional.",
+        // Misma regla dura que el clasificador y la cola (§6 del plan): este
+        // prompt no la tenía y el modelo podía inventar condiciones de pago
+        // en un sugerido que la coordinadora envía a mano (2026-08-13).
+        system:
+          "Eres un coordinador de ventas de una clínica dental en España. Escribe UN mensaje de WhatsApp breve (2-3 frases), en español, sin emojis, tono cálido y profesional. NO prometas precios, descuentos, plazos ni condiciones de pago: solo puedes mencionar los datos que te den arriba; para todo lo demás, un asesor se lo confirma.",
         messages: [{ role: "user", content: userPrompt }],
       }),
     });

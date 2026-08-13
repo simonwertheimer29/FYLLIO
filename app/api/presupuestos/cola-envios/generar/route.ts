@@ -111,15 +111,25 @@ async function generarMensajeIA(prompt: string): Promise<string> {
   }
 }
 
+// La regla dura del §6 del plan, en TODOS los prompts que redactan hacia un
+// paciente: el agente informa de lo decidido, jamás compromete condiciones
+// nuevas. El prompt de «Detalles de pago» venía instruyendo al modelo a
+// inventar «6 meses sin intereses» — dinero que ninguna clínica decidió, con
+// salida real en modo A (la coordinadora podía enviarlo a mano). Arreglado el
+// 2026-08-13. Cuando la tabla de planes de la clínica exista como dato
+// cargado, informarla será leer (§17) y este texto podrá citarla.
+const REGLA_NO_COMPROMETER =
+  " NO nombres precios, descuentos, plazos, porcentajes ni condiciones de pago concretas: no las conoces, y lo que digas lo tendría que sostener la clínica. Si toca hablar de pago, di que un asesor se lo explica.";
+
 const IA_PROMPTS: Record<TipoPlantilla, (ctx: { nombre: string; tratamiento: string; doctor?: string }) => string> = {
   "Primer contacto": (ctx) =>
-    `Redacta un mensaje de WhatsApp breve (2-3 frases) y profesional para hacer primer contacto con ${ctx.nombre}, paciente de clínica dental que recibió presupuesto de ${ctx.tratamiento}${ctx.doctor ? ` con ${ctx.doctor}` : ""}. Invita a resolver dudas. Sin emojis excesivos. En español.`,
+    `Redacta un mensaje de WhatsApp breve (2-3 frases) y profesional para hacer primer contacto con ${ctx.nombre}, paciente de clínica dental que recibió presupuesto de ${ctx.tratamiento}${ctx.doctor ? ` con ${ctx.doctor}` : ""}. Invita a resolver dudas. Sin emojis excesivos. En español.${REGLA_NO_COMPROMETER}`,
   "Recordatorio": (ctx) =>
-    `Redacta un mensaje de WhatsApp breve (2-3 frases), amable y sin presión, de recordatorio para ${ctx.nombre}, que recibió presupuesto de ${ctx.tratamiento} y no ha respondido. En español.`,
+    `Redacta un mensaje de WhatsApp breve (2-3 frases), amable y sin presión, de recordatorio para ${ctx.nombre}, que recibió presupuesto de ${ctx.tratamiento} y no ha respondido. En español.${REGLA_NO_COMPROMETER}`,
   "Detalles de pago": (ctx) =>
-    `Redacta un mensaje de WhatsApp con opciones de pago para ${ctx.nombre}, que aceptó presupuesto de ${ctx.tratamiento}. Incluye: pago único con descuento, financiación 6 meses sin intereses, financiación 12 meses. Breve y profesional. En español.`,
+    `Redacta un mensaje de WhatsApp breve y profesional para ${ctx.nombre}, que aceptó su presupuesto de ${ctx.tratamiento}. Dile que existen opciones de pago y que un asesor de la clínica se las explicará enseguida. En español.${REGLA_NO_COMPROMETER}`,
   "Reactivacion": (ctx) =>
-    `Redacta un mensaje de WhatsApp de reactivación breve y cálido para ${ctx.nombre}, que mostró interés en ${ctx.tratamiento} pero no aceptó. Sin presión. En español.`,
+    `Redacta un mensaje de WhatsApp de reactivación breve y cálido para ${ctx.nombre}, que mostró interés en ${ctx.tratamiento} pero no aceptó. Sin presión. En español.${REGLA_NO_COMPROMETER}`,
 };
 
 function daysSince(dateStr: string): number {
