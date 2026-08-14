@@ -24,6 +24,8 @@ import { getServicioMensajeria } from "../../../lib/presupuestos/mensajeria";
 import { clasificarRespuesta, guardarClasificacion } from "../../../lib/presupuestos/intervencion";
 import { crearNotificacion } from "../../../lib/presupuestos/notificaciones";
 import { isDuplicateMessage } from "../../../lib/scheduler/idempotency";
+import { evaluadorActivo } from "../../../lib/automatizacion/pg";
+import { evaluarEntranteConversacion } from "../../../lib/agente/evaluar-entrante";
 import { buscarLeadActivoPorTelefono } from "../../../lib/leads/leads";
 import { runWithCliente, currentCliente, type Cliente } from "../../../lib/airtable";
 import { PILOT_CLIENTE } from "../../../lib/multi-cliente-pendiente";
@@ -262,6 +264,54 @@ async function processIncomingMessage(body: unknown): Promise<void> {
     timestamp,
     wabaMessageId: msg.id,
   });
+
+  // ── FASE A · PASO 5 — EL EVALUADOR, POR CLÍNICA Y APAGADO POR DEFECTO ──
+  // Con el interruptor encendido, TODO entrante de la clínica se evalúa:
+  // presupuestos, leads y huérfanos (aquí muere el recorte del 6 de agosto).
+  // El interruptor se resuelve por la clínica DEL MENSAJE (019); sin clínica
+  // → fila global; sin fila o fallo → APAGADO (fail-closed: el flujo viejo).
+  // El mensaje YA está persistido: la evaluación es secundaria al registro y
+  // corre en after() — un fallo pierde un turno de juicio que el siguiente
+  // entrante re-deriva del hilo entero, jamás un dato del paciente.
+  const evaluadorOn = await evaluadorActivo(clinicaId ?? null);
+  if (evaluadorOn) {
+    // El registro por rama se conserva (timeline del lead, visibilidad
+    // temprana del presupuesto en la cola) — es registro, no evaluación.
+    if (leadInfo) {
+      try {
+        const { appendLeadLog } = await import("../../../lib/leads/leads");
+        await appendLeadLog(leadInfo.id, `Mensaje recibido: ${contenido.slice(0, 80)}`);
+        const { logAccionLead } = await import("../../../lib/leads/acciones");
+        await logAccionLead({ leadId: leadInfo.id, tipo: "WhatsApp_Entrante", timestamp, detalles: contenido.slice(0, 500) });
+      } catch (err) {
+        console.error("[waba webhook] registro de lead (rama evaluador):", sanitizeError(err));
+      }
+    }
+    if (presupuestoInfo) {
+      await preGuardarRespuesta(presupuestoInfo.id, contenido).catch((err) => {
+        console.error("[waba webhook] preGuardarRespuesta (rama evaluador):", sanitizeError(err));
+      });
+    }
+    const clienteEval = currentCliente();
+    const entrada = {
+      telefono,
+      mensajeId: msg.id,
+      contenido,
+      presupuestoId: presupuestoInfo?.id ?? null,
+      clinicaId: clinicaId ?? null,
+    };
+    after(async () => {
+      if (!clienteEval) return;
+      await runWithCliente(clienteEval, async () => {
+        try {
+          await evaluarEntranteConversacion(entrada);
+        } catch (err) {
+          console.error("[waba webhook] evaluador:", sanitizeError(err));
+        }
+      });
+    });
+    return;
+  }
 
   // Si el mensaje pertenece a un lead activo, lo guardamos pero NO clasificamos
   // (la pipeline de intención está atada a presupuestos — Sprint 10 cubrirá

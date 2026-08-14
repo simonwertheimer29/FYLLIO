@@ -19,8 +19,9 @@
 //   6. pendienteCobro nunca negativo; solo > 0 con paciente
 //
 // Cobertura (§5: un entorno sin casos da falsos aprobados): exige que el DEMO
-// ejercite cobro, presupuesto y cita al menos una vez. `identificar` no existe
-// en el seed (sin huérfanos hoy) y se ejercita con un teléfono sintético.
+// ejercite LAS CUATRO ramas con datos reales — identificar incluida, desde el
+// fixture de huérfanos del paso 5 (2026-08-14). El teléfono sintético se
+// mantiene: cubre «jamás visto, sin un solo mensaje», que el seed no puede.
 //
 // Códigos de salida (§9): 0 = todo bien · 1 = invariante rota · 2 = no se
 // pudo comprobar (entorno/conexión) — nunca se confunden.
@@ -122,7 +123,9 @@ const fallo = (tel: string, msg: string) => {
 
 // Concurrencia limitada: cada contexto son varias consultas a Supabase (y
 // finanzasDePaciente carga las finanzas completas); en serie el censo entero
-// tarda >5 min y un QA que tarda eso no se corre. Ocho a la vez lo deja en ~1.
+// tarda >5 min y un QA que tarda eso no se corre. CUATRO a la vez equilibra:
+// con 8, tras el reseed grande, finanzasPorPaciente (2 consultas pesadas por
+// contexto) agotaba el pool de conexiones y el QA moría por timeout.
 async function enLotes<T>(items: T[], n: number, f: (t: T) => Promise<void>): Promise<void> {
   let i = 0;
   let hechos = 0;
@@ -139,7 +142,7 @@ async function enLotes<T>(items: T[], n: number, f: (t: T) => Promise<void>): Pr
 }
 
 await runWithCliente("DEMO", async () => {
-  await enLotes(telefonos, 8, async (tel) => {
+  await enLotes(telefonos, 4, async (tel) => {
     const d = dig(tel);
     const ctx = await contextoDeConversacion(tel);
     const abiertos = ctx.objetivosAbiertos;
@@ -201,18 +204,15 @@ console.log(`\nCobertura REAL (${telefonos.length} hilos del seed): cobro=${nCob
 console.log(`Cobertura SINTÉTICA (1 caso): identificar`);
 
 const ramasReales = [["cobro", nCobro], ["presupuesto", nPresu], ["cita", nCita], ["identificar", nIdent]] as const;
-// Las tres primeras las TIENE que ejercitar el seed; sin eso la invariante es vacua.
-for (const [nombre, n] of ramasReales.slice(0, 3)) {
+// Las CUATRO ramas las tiene que ejercitar el seed (endurecido con el paso 5,
+// 2026-08-14: el fixture de huérfanos existe — sin él la invariante de
+// «identificar» era vacua y solo la cubría el sintético).
+for (const [nombre, n] of ramasReales) {
   if (n === 0) {
     console.error(`✗ cobertura: ningún hilo del DEMO ejercita «${nombre}» — invariante vacua`);
     fallos++;
   }
 }
-if (nIdent === 0)
-  console.warn(
-    "⚠ «identificar» sin datos reales: el seed no tiene huérfanos y la rama solo la cubre el sintético.\n" +
-      "  Fixture de huérfanos aprobado y diferido al paso 5 de la fase A (2026-08-13).",
-  );
 
 if (fallos > 0) {
   console.error(`\n✗ ${fallos} fallo(s)`);

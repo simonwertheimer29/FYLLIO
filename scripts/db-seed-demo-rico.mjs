@@ -338,8 +338,16 @@ try {
   // presupuestos antiguos ya están casi todos decididos, así que la cartera
   // abierta pesa hacia los meses recientes. 40 % este mes · 30 % el anterior ·
   // 20 % · 10 %. Determinista (sin azar) para que `demo:reset` sea reproducible.
-  const PESOS_REPARTO = [0.4, 0.3, 0.2, 0.1];
   const diaDelMes = HOY.getDate();
+  // El peso del MES EN CURSO se escala por los días transcurridos (d/30).
+  // Sin esto, el 40 % de la cartera caía entera en los días 1..hoy y la
+  // invariante C (mismo TRAMO contra el mes anterior) daba ratio 40/d — el
+  // seed solo pasaba a final de mes y reventaba cualquier día antes del 20.
+  // Escalado, el ratio del tramo es 0,4/0,3 = 1,33 constante, corras el día
+  // que corras (§13: la misma lección del umbral, en el propio seed — dos
+  // decisiones correctas por separado que se contradecían por fecha).
+  const PESOS_REPARTO = [0.4 * Math.min(1, diaDelMes / 30), 0.3, 0.2, 0.1];
+  const SUMA_PESOS = PESOS_REPARTO.reduce((a, b) => a + b, 0);
   /** Offsets en días, uno por caso abierto, repartidos dentro de cada mes. */
   function calendarioReparto(total) {
     const offs = [];
@@ -348,7 +356,7 @@ try {
       // Días disponibles del mes m hacia atrás: el mes en curso solo llega a hoy.
       const inicio = m === 0 ? 0 : -(diaDelMes + 30 * (m - 1));
       const largo = m === 0 ? diaDelMes : 30;
-      let cuantos = Math.max(1, Math.round(total * PESOS_REPARTO[m])) + arrastre;
+      let cuantos = Math.max(1, Math.round((total * PESOS_REPARTO[m]) / SUMA_PESOS)) + arrastre;
       arrastre = 0;
       // Si el mes en curso NO tiene días donde repartir (correr `demo:reset` el
       // día 1, o el 2), su cuota se arrastra al mes anterior en vez de apilar
@@ -914,6 +922,9 @@ try {
         lead_id: lid, paciente_id: null, presupuesto_id: null,
         telefono, direccion: g.dir, contenido: g.txt, timestamp: g.ts,
         fuente: "Modo_A_manual", procesado_por_ia: g.dir === "Entrante", intencion_detectada: g.intn ?? null,
+        // La invariante de autoría (b005c80) aplica también al volumen: sin
+        // esto, demo:reset revienta — llevaba roto desde el 11-08 sin correrse.
+        autor: g.dir === "Saliente" ? "persona" : null, sugerido_por_ia: g.dir === "Saliente" ? false : null,
       });
     });
     await insMany("acciones_lead", accVolRows);
@@ -1013,6 +1024,7 @@ try {
         lead_id: null, paciente_id: pac.id, presupuesto_id: pid, telefono: pac.tel, direccion: g.dir,
         contenido: g.txt, timestamp: g.ts, fuente: "Modo_A_manual",
         procesado_por_ia: g.dir === "Entrante", intencion_detectada: g.intn ?? null,
+        autor: g.dir === "Saliente" ? "persona" : null, sugerido_por_ia: g.dir === "Saliente" ? false : null,
       });
       for (const g of guion.filter((x) => x.dir === "Saliente")) contVolRows.push({
         presupuesto_id: pid, tipo_contacto: "WhatsApp", resultado: "Enviado", fecha_hora: g.ts,
@@ -1163,6 +1175,28 @@ try {
     await ins("plantillas_mensaje", { nombre, tipo, categoria, contenido, variables_detectadas: vars, activa: true });
   }
   console.log(`plantillas: ${PLANTILLAS_LEAD.length} de leads · ${PLANTILLAS_PRESUPUESTO.length} de presupuestos`);
+
+  // ── HUÉRFANOS (fase A · paso 5, 2026-08-14): dos hilos sin caso ───────
+  //  Gente que escribe a la clínica sin ser paciente ni lead. La bandeja los
+  //  pinta desde la 018; con el evaluador encendido, se atienden. qa:contexto
+  //  EXIGE que existan: la rama `identificar` deja de estar cubierta solo por
+  //  el teléfono sintético del QA.
+  await ins("mensajes_whatsapp", {
+    telefono: "+34611999001", clinica_id: CENTRO, direccion: "Entrante",
+    contenido: "Hola, ¿cuánto cuesta una limpieza dental? Nunca he ido a vuestra clínica.",
+    timestamp: hAgo(3), fuente: "Modo_A_manual", procesado_por_ia: false,
+  });
+  await ins("mensajes_whatsapp", {
+    telefono: "+34611999002", clinica_id: NORTE, direccion: "Entrante", nombre_perfil: "Mónica G.",
+    contenido: "Buenas, ¿abrís los sábados por la mañana?",
+    timestamp: hAgo(26), fuente: "Modo_A_manual", procesado_por_ia: false,
+  });
+  await ins("mensajes_whatsapp", {
+    telefono: "+34611999002", clinica_id: NORTE, direccion: "Entrante", nombre_perfil: "Mónica G.",
+    contenido: "¿Hola? ¿Me podéis decir el horario del sábado?",
+    timestamp: hAgo(2), fuente: "Modo_A_manual", procesado_por_ia: false,
+  });
+  console.log("huérfanos: 2 hilos (3 mensajes) sin paciente ni lead — la rama identificar del QA");
 
   // ── OBJETIVOS, CONFIG, MISC ──────────────────────────────────────────
   for (const cid of [CENTRO, NORTE, SUR, ESTE]) {

@@ -184,6 +184,9 @@ type ExtraPacientes = {
 type ExtraConfiguracionAutomatizaciones = {
   toques_antes_de_agotar: number | null;
   objetivos: string | null;
+  /** 025 — interruptor del evaluador por clínica. Default false (apagado);
+   *  sin fila = apagado; se lee con evaluadorActivo(), fail-closed. */
+  evaluador_activo: boolean | null;
 };
 
 /** 016 — el rediseño «decisión primero»: la decisión se guarda aparte de la

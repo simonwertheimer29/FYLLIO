@@ -1723,3 +1723,14 @@ verdad: un editor, un vocabulario, un renderizador.
 - **Dónde:** `app/lib/agente/persistir-turno.ts` (proyectarCompatPresupuesto / Fallback).
 - **Impacto:** ninguno mientras la fase B no llegue; deuda estructural si la sobrevive.
 - **Fecha:** 2026-08-14 · 🔵
+
+## 94. El clasificador viejo — SEGUNDA COPIA CON FECHA DE MUERTE
+- **Qué es:** con el interruptor `evaluador_activo` apagado (el default), el webhook sigue usando
+  `clasificarRespuesta`/`guardarClasificacion` para presupuestos y guardar-sin-evaluar para leads y
+  huérfanos. Es la rama OFF del paso 5 — el flujo de producción actual, intacto a propósito.
+- **La condición explícita:** SE RETIRA cuando todas las clínicas tengan el evaluador encendido y
+  observado. Mantener dos clasificadores «porque funcionan» es el duplicado que sobrevive por
+  inercia; la señal de retirada es el interruptor a true en todas las filas de
+  `configuracion_automatizaciones` + un período de observación sin sustos.
+- **Dónde:** `app/api/webhooks/whatsapp/route.ts` (rama OFF) + `lib/presupuestos/intervencion.ts`.
+- **Fecha:** 2026-08-14 · 🔵

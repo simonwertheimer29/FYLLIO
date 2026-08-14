@@ -2792,3 +2792,23 @@ proyección compat sobre `presupuestos` queda anotada como copia con fecha de mu
 retira en fase B). Fallback = sin eventos (no hubo juicio), solo la vía compat. QA completo en verde
 al primer intento: roundtrip del payload, doble entrega, contador que sí crece con mensaje nuevo,
 compat restaurable, fallback limpio.
+
+## 2026-08-14 — Paso 5: el evaluador entra al webhook, por clínica y apagado por defecto
+Migración 025 (`evaluador_activo`, default false, fail-closed en cada eslabón: sin fila o fallo →
+flujo viejo byte a byte). Con el interruptor encendido, TODO entrante de la clínica se evalúa —
+presupuestos, leads y huérfanos: aquí muere el recorte del 6 de agosto. El registro manda: el
+mensaje se persiste síncrono antes del 200 (como siempre) y la evaluación corre en after(); un fallo
+pierde un turno de juicio que el siguiente entrante re-deriva del hilo entero. Push SOLO cola
+prioritaria (criterio anotado en el PLAN §3: el push es para lo que no puede esperar). Fixture de
+huérfanos en el seed (2 hilos) y qa:contexto exige las 4 ramas con datos reales. El clasificador
+viejo queda como rama OFF = segunda copia con fecha de muerte (MEJORAS 94).
+
+## 2026-08-14 — El fixture de huérfanos destapó que demo:reset llevaba TRES DÍAS roto
+Dos fallos latentes, ninguno del fixture: (1) los mensajes de VOLUMEN nunca pusieron `autor` a sus
+salientes — la invariante de autoría (b005c80, 11-08) reventaba el seed entero, y nadie había
+corrido demo:reset desde entonces; (2) el reparto ponderado de presentados (40 % al mes en curso,
+entero en los días 1..hoy) contradecía matemáticamente su propia invariante del tramo (ratio 40/d:
+solo pasaba a final de mes). Arreglos: autoría en el volumen, y el peso del mes en curso escalado
+por días transcurridos (ratio 1,33 constante, corras el día que corras). Aviso: el salto quedó en
+×2,0 justo en el tope — si vuelve a saltar otro día, lo siguiente es repartir también el volumen.
+La lección es la §13 de siempre, esta vez dentro del propio seed.

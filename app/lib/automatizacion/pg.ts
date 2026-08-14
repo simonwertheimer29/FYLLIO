@@ -177,6 +177,28 @@ export async function toquesAntesDeAgotar(clinicaId?: string | null): Promise<nu
 }
 
 /**
+ * El interruptor del evaluador (025). FAIL-CLOSED en cada eslabón: sin fila
+ * → false; fallo de consulta → false con log. El estado seguro es el flujo
+ * viejo, que está en producción — a diferencia de `objetivosDeClinica`, aquí
+ * degradar SÍ es lo correcto: apagado no miente, solo observa menos.
+ */
+export async function evaluadorActivo(clinicaId?: string | null): Promise<boolean> {
+  const cliente = requireCliente("evaluadorActivo");
+  try {
+    const r: any = await runWithClienteDb(cliente, (trx) =>
+      sql`select evaluador_activo
+          from configuracion_automatizaciones
+          where ${clinicaId ? sql`clinica_id = ${clinicaId}` : sql`clinica_id is null`}
+          limit 1`.execute(trx),
+    );
+    return r.rows?.[0]?.evaluador_activo === true;
+  } catch (err) {
+    console.error("[automatizacion] evaluadorActivo:", err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+
+/**
  * Los objetivos del agente para una clínica (020). Sin fila o con la columna
  * NULL → los defaults del código: una clínica sin configurar se comporta como
  * una configurada por defecto.

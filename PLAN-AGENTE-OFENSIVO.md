@@ -123,6 +123,13 @@ Hoy la cola es "lo que exige criterio ahora". Pasa a ser "lo que te toca cerrar"
 
 **Regla de precedencia:** un caso listo con cosas aplazadas va a "Listos para cerrar", no a "Pendientes". Las cosas aplazadas viven **dentro** del caso, no como cohorte propia. Es el caso más común y no puede estar en dos sitios.
 
+**El push es para lo que no puede esperar, no para lo que hay que hacer** (criterio, 14-08).
+Notificación push **solo para la cola prioritaria**: urgencia, antecedente médico con cita próxima,
+y petición/queja con malestar. Todo lo demás —incluido derivar por caso completo, que es donde
+estará el volumen— llega a la bandeja sin interrumpir a nadie: una coordinadora con veinte avisos
+al día deja de mirarlos, y ahí se pierden los que importan. Si algún día se quiere avisar de casos
+listos, será un **resumen periódico**, nunca un aviso por caso.
+
 **La cohorte de quiebre de la fase 1 no se tira: se reparte.** Lo que rompe de verdad va a la primera; lo aplazado, a la tercera.
 
 ---
