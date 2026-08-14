@@ -23,6 +23,7 @@
 
 import { construirMapaAnonimizacion, anonimizarTexto, desanonimizarTexto } from "../anonimizacion";
 import { eur } from "../dinero";
+import { juzgarBorrador, plantillaNeutra } from "./juez-borrador";
 import {
   CLAVES_APLAZADO,
   type ClaveAplazado,
@@ -103,6 +104,14 @@ export type EvaluacionTurno = {
   respuesta: string;
   /** «Puede faltar algo que el paciente ya dijo» — viaja a la ficha. */
   hiloTruncado: boolean;
+  /** TRAZA de la guarda de reglas duras: el borrador del modelo se descartó
+   *  y `respuesta` es la plantilla neutra. `frase` = lo que lo provocó.
+   *  Si la tasa de descartes sube, el prompt del generador se degradó — es
+   *  el número que evita descubrirlo dentro de tres meses. */
+  borradorDescartado?: {
+    motivo: "clinica" | "economica" | "juez_no_respondio";
+    frase: string | null;
+  };
   /** El modelo no contestó o contestó ilegible: fail-closed compat
    *  (requiere_persona + MOTIVO_FALLBACK en el caller), SIN eventos. */
   fallback: boolean;
@@ -542,6 +551,7 @@ export async function evaluarTurno(
   if (juicio.urgenciaMedica) {
     // Regla dura: el borrador del modelo SE DESCARTA. La respuesta la pone
     // código, o el texto LITERAL de la clínica si no atiende urgencias.
+    // (Aquí no corre el juez: no hay borrador del modelo que juzgar.)
     const urg = e.urgencias ?? { atiende: true };
     const respuesta = urg.atiende
       ? RESPUESTA_URGENCIA_ATIENDE
@@ -555,13 +565,50 @@ export async function evaluarTurno(
     };
   }
 
+  // ── LA GUARDA DE REGLAS DURAS (juez-borrador) ──
+  // Todo borrador del modelo pasa por el juez ANTES de salir. Si infringe
+  // (clínica o económica) o el juez no responde → FAIL-CLOSED: plantilla
+  // neutra + traza. La regla vive en código, no en la obediencia del prompt.
+  const datosQueConstan = [
+    ...e.presupuestosVivos.map(
+      (p) => `Presupuesto emitido: ${p.tratamiento ?? "tratamiento"}${p.importe != null ? ` (${eur(p.importe)})` : ""}`,
+    ),
+    e.pendienteCobro > 0 ? `Pago pendiente: ${eur(e.pendienteCobro)}` : null,
+  ]
+    .filter((x): x is string => x !== null)
+    .join("\n");
+
+  let respuestaFinal = juicio.respuesta;
+  let borradorDescartado: EvaluacionTurno["borradorDescartado"];
+  if (respuestaFinal.trim() !== "") {
+    const veredicto = await juzgarBorrador({ borrador: respuestaFinal, datosQueConstan });
+    if (veredicto?.usage && base.usage) {
+      base.usage = {
+        inputTokens: base.usage.inputTokens + veredicto.usage.inputTokens,
+        outputTokens: base.usage.outputTokens + veredicto.usage.outputTokens,
+      };
+    }
+    if (veredicto == null) {
+      respuestaFinal = plantillaNeutra(e.nombre);
+      borradorDescartado = { motivo: "juez_no_respondio", frase: null };
+      console.warn("[evaluador] juez no respondió: borrador descartado (fail-closed)");
+    } else if (veredicto.infringe) {
+      respuestaFinal = plantillaNeutra(e.nombre);
+      borradorDescartado = { motivo: veredicto.categoria ?? "clinica", frase: veredicto.frase };
+      console.warn(
+        `[evaluador] borrador descartado (${veredicto.categoria}): «${veredicto.frase ?? "?"}»`,
+      );
+    }
+  }
+
   if (antecedenteConCita) {
     return {
       ...base,
       decision: "deriva",
       causa: "antecedente_medico",
       cola: colaDeDerivacion("antecedente_medico", null),
-      respuesta: juicio.respuesta,
+      respuesta: respuestaFinal,
+      borradorDescartado,
     };
   }
 
@@ -572,7 +619,8 @@ export async function evaluarTurno(
       causa: "peticion_queja",
       cola: colaDeDerivacion("peticion_queja", juicio.malestar),
       malestar: juicio.malestar,
-      respuesta: juicio.respuesta,
+      respuesta: respuestaFinal,
+      borradorDescartado,
     };
   }
 
@@ -582,7 +630,8 @@ export async function evaluarTurno(
       decision: "deriva",
       causa: "insistencia",
       cola: colaDeDerivacion("insistencia", null),
-      respuesta: juicio.respuesta,
+      respuesta: respuestaFinal,
+      borradorDescartado,
     };
   }
 
@@ -592,9 +641,10 @@ export async function evaluarTurno(
       decision: "deriva",
       causa: "caso_completo",
       cola: colaDeDerivacion("caso_completo", null),
-      respuesta: juicio.respuesta,
+      respuesta: respuestaFinal,
+      borradorDescartado,
     };
   }
 
-  return { ...base, decision: "sigue", respuesta: juicio.respuesta };
+  return { ...base, decision: "sigue", respuesta: respuestaFinal, borradorDescartado };
 }

@@ -2757,3 +2757,16 @@ ambos → techo de la tarea, no del modelo), mantiene el 16 (conflicto 3-vs-16 d
 en preguntas simples (5, 43, C5, C20 → S→A). Además 2 timeouts a 20 s (thinking) y $0,0219/turno
 (5,5× Haiku; ~$66/mes por 1.000 conversaciones vs $12). Decisión técnica recomendada: producción en
 Haiku; la fiabilidad clínica no se le pide al modelo sino a la guarda en código (diagnóstico aparte).
+
+## 2026-08-14 — La guarda de reglas duras (juez de borradores) queda en código, con su propia vara
+Opción A implementada: todo borrador del generador pasa por un juez independiente (Haiku, prompt
+estrecho de detección, dos preguntas en una llamada: clínica + económica). Si infringe o el juez no
+responde → FAIL-CLOSED: plantilla neutra + traza (motivo y frase exacta en `borradorDescartado` —
+la tasa de descartes es el termómetro del generador; si sube, el prompt se degradó). Vara propia del
+juez (qa:juez): 19 casos con las dos direcciones medidas POR SEPARADO — 0 falsos negativos sobre 9
+infractores que no se parecen a C22, y 0 falsos positivos sobre 10 limpios que sí se le parecen
+(el error que mata la conversación sin que ninguna métrica lo enseñe). En la vara grande el juez
+cazó EN VIVO infracciones que el prompt dejó pasar: financiación inventada (C6) y el «puedes esperar
+sin problema» de la regresión del 6. Estado de la vara grande con la guarda puesta: 90-92 % en tres
+corridas (varianza ±2 puntos, run a run cambian 1-2 casos frontera); coste con juez incluido:
+$0,0048/turno (~$14/mes por 1.000 conversaciones). Producción: Haiku, confirmado.

@@ -502,6 +502,15 @@ if (casosD.length > 0) {
   }
 }
 
+// ─── Tasa de descartes del juez (la traza que pide la guarda) ──────────────
+const descartes = resultados.filter((x) => x.r.borradorDescartado);
+console.log(`\n══ GUARDA (juez de borradores) — descartes: ${descartes.length}/${resultados.length} (${Math.round((descartes.length / resultados.length) * 100)} %)`);
+for (const x of descartes) {
+  const d = x.r.borradorDescartado!;
+  console.log(`  [${x.id}] ${d.motivo}${d.frase ? ` · «${d.frase.slice(0, 120)}»` : ""}`);
+}
+if (descartes.length === 0) console.log("  (ninguno — el generador no infringió en esta pasada)");
+
 // ─── Coste medido ──────────────────────────────────────────────────────────
 
 const conUso = resultados.filter((x) => x.r.usage);
