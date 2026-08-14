@@ -44,19 +44,44 @@ Las reglas de quiebre eran defensivas: aparece algo que no puede resolver, para 
 
 ---
 
-## 1 · Los tres tipos de quiebre
+## 1 · Qué deriva el caso a una persona
 
-Hoy hay uno. Pasan a ser tres, y la diferencia es qué hace el agente después.
+> **Sustituido el 14 de agosto de 2026.** El modelo anterior tenía tres tipos de quiebre
+> (aplazable / detiene el guion / rompe ya). Las tandas R1 y C1 del eval enseñaron que el del
+> medio era mudo y el tercero, demasiado ancho. Este es el modelo vigente.
 
-| Tipo | Qué lo dispara | Qué hace el agente |
+**Nada tapona por sí mismo.** El agente siempre anota lo que no puede resolver y sigue
+recogiendo datos. No existe el estado mudo: el agente en espera **acompaña** — calma, orienta,
+dice el siguiente paso — y lo único que deja de hacer es empujar al cierre.
+
+Solo tres cosas derivan el caso a una persona:
+
+| Disparador | Qué es | Cola |
 |---|---|---|
-| **Aplazable** | Dinero, condiciones, promociones, plazos específicos | Lo anota, dice que un asesor lo resolverá, **y sigue** recogiendo lo que falta |
-| **Detiene el guion** | Duda clínica real, algo fuera de su alcance que impide avanzar | Para de avanzar pero no urge. El caso espera con lo recogido hasta ahí |
-| **Rompe ya** | Queja, enfado, petición explícita de hablar con una persona | Se detiene y el caso sube arriba de la cola inmediatamente |
+| **Insistencia** | El paciente vuelve sobre algo que el agente no puede resolver y deja claro que lo quiere antes de seguir. **Umbral: 2 toques sobre el mismo tema, no 1** — repetir una vez es preguntar otra vez, no insistir. Configurable con tope (§6) | Normal |
+| **Urgencia médica** | Dolor agudo, rotura, infección, «hoy» | **Prioritaria — el asesor responde ya** |
+| **Caso completo** | El objetivo activo está cubierto | Normal |
 
-**Insistencia.** Si el paciente vuelve a preguntar lo aplazado, el agente puede aplazarlo un número configurable de veces y luego rompe. **Nunca infinito**: un agente que esquiva la misma pregunta cinco veces hace más daño que uno que rompe pronto.
+Lo demás se anota y la conversación sigue.
 
-**El aplazamiento es una promesa.** "Un asesor te contactará en breve" obliga a que ese caso llegue con urgencia real y se vea el mismo día. Si el paciente escribe el martes y le contestan el jueves, el agente ha empeorado la situación.
+**La derivación no se revierte.** Una vez derivado, el caso es de la persona: el agente no
+vuelve a entrar aunque el paciente escriba de otro tema — sin esto hay dos voces hablando con
+el mismo paciente. Consecuencia aceptada: derivar por insistencia arrastra a manos humanas los
+demás objetivos abiertos del caso. Es el precio correcto, y la razón del umbral de 2.
+
+**Urgencia — regla dura, no configurable por nadie:** ante una urgencia médica el agente
+**nunca orienta clínicamente**. Deriva, dice que alguien contacta de inmediato, y nada más. No
+sugiere qué hacer, no valora gravedad, no recomienda acudir a ningún sitio por criterio propio.
+Lo configurable por clínica (fase D) son tres campos: **(a)** qué considera urgencia (partiendo
+de un default razonable); **(b)** si atiende urgencias o no; **(c)** si NO atiende, un texto
+fijo escrito por la clínica que el agente **reproduce literal, sin generar** — «no atendemos
+urgencias» a secas ante alguien con dolor es inaceptable, y dejar que el modelo improvise ahí
+es exactamente donde no queremos que improvise. La clínica decide qué se dice y asume ese texto.
+
+**El aplazamiento es una promesa, y la promesa transfiere.** «Un asesor te contactará» obliga:
+con el caso listo o una promesa pendiente, la siguiente pregunta del paciente es del asesor, no
+del agente. Si el paciente escribe el martes y le contestan el jueves, el agente ha empeorado
+la situación — por eso la primera métrica del §10 mide exactamente ese tiempo.
 
 ---
 
@@ -139,8 +164,9 @@ Dentro de cada vista, el buscador y el filtro por clínica que ya existen. **Nad
 | Objetivos por etapa (qué es "caso listo") | ✅ |
 | Base de conocimiento: tratamientos, precios publicados, políticas, horarios | ✅ |
 | Alcance: qué puede informar y qué aplaza | ✅ dentro de los límites |
-| Cuántas veces aplaza antes de romper | ✅ con tope |
-| **Las reglas duras** — no comprometer dinero no decidido, no dar criterio clínico, no negociar | ❌ nunca |
+| Cuántas veces aplaza antes de romper (umbral de insistencia, §1) | ✅ con tope |
+| Urgencias: qué se considera urgencia · si se atienden · y si no, el texto LITERAL que responde el agente (§1) | ✅ el texto lo escribe y asume la clínica |
+| **Las reglas duras** — no comprometer dinero no decidido, no dar criterio clínico, no negociar, y ante urgencia médica JAMÁS orientar clínicamente | ❌ nunca |
 
 **La frontera, que no cambia:** el agente informa de lo que ya está decidido; la persona decide lo que no lo está. Lo configurable es **cuántas cosas están decididas**, no dónde está la línea. Una clínica que publica su tabla de precios y sus planes de pago hace que el agente pueda informarlos — eso es leer, no negociar.
 
@@ -230,6 +256,11 @@ Y las pantallas de dirección — Red, KPIs, Informes — se mantienen, con la m
 
 ## 10 · Lo que hay que medir para saber si funciona
 
+- **Tiempo desde que el agente entrega un caso hasta la primera respuesta humana, por cola
+  (prioritaria / normal).** Es la primera de todas: la única que detecta que el producto esté
+  EMPEORANDO la situación — el paciente ha recibido una promesa que sin agente no habría
+  recibido, y si esa cifra sube, el agente hace daño por bien que clasifique. (Derivable ya:
+  evento de derivación → primer saliente con `autor='persona'`.)
 - **Cuántos casos llegan listos** frente a cuántos rompen. Es la métrica del modelo entero.
 - **Cuánto tarda un caso listo en cerrarse** — si el agente entrega bien, esto tiene que bajar.
 - **Cuántas veces se aplaza antes de romper** — si sube mucho, el agente está esquivando.

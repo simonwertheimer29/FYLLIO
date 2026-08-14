@@ -2685,3 +2685,26 @@ quien gane el tema; D es acompañar sin avanzar, no callar; y la firma en el por
 objetivo aunque queden flecos. Detalle y casos en evals/anotaciones-4aria/ANALISIS-C1.md. Abiertas:
 la contradicción del embarazo (R1#9 A vs C13 D) y la redacción de «¿Listo?» para futuras tandas.
 Las seis reglas pasan a ser la especificación del evaluador cuando Simon las confirme.
+
+## 2026-08-14 — El modelo de quiebre se sustituye: nada tapona, tres derivaciones, sin vuelta atrás
+Los tres tipos del §1 (aplazable / detiene / rompe) quedan sustituidos. El agente SIEMPRE anota y
+sigue — no existe el estado mudo: en espera acompaña, calma y orienta, solo deja de empujar al
+cierre. Derivan a persona únicamente: INSISTENCIA (2 toques sobre el mismo tema, no 1; configurable
+con tope) → cola normal; URGENCIA MÉDICA → derivación inmediata, cola prioritaria; CASO COMPLETO →
+cola normal. La derivación NO se revierte: el caso pasa a ser de la persona aunque el paciente
+cambie de tema (dos voces con el mismo paciente, jamás); se acepta que derivar por insistencia
+arrastre los demás objetivos abiertos. Regla dura no configurable: ante urgencia médica el agente
+NUNCA orienta clínicamente — deriva y dice que alguien contacta ya; lo configurable (fase D) es qué
+cuenta como urgencia, si se atienden, y el texto LITERAL (escrito y asumido por la clínica, jamás
+generado) si no se atienden. Y entra la primera métrica del §10: tiempo de entrega → primera
+respuesta humana, por cola — la única que detecta que el producto empeore la situación.
+
+## 2026-08-14 — Confirmadas las reglas de la C1 (con la contradicción del embarazo resuelta)
+De ANALISIS-C1.md, confirmadas por Simon: precio sin presupuesto emitido SE CONTESTA («depende de tu
+caso, te hacemos una valoración») — precio_descuento solo aplaza con presupuesto emitido que el
+paciente quiere mover · aplazar es prometer y la promesa transfiere (con caso listo o promesa
+pendiente, la siguiente pregunta es del asesor) · renegociar un pago es de persona, y un dato que
+CONTRADICE al sistema no se confirma en automático — lo aclara la coordinadora (falta de dato ≠
+contradicción) · el agente en espera acompaña, no se calla · el portal cierra el objetivo (la firma
+formal supersede los campos pendientes) · embarazo: gana la lectura conversacional — acompañar sin
+empujar al cierre (resuelve R1#9 vs C13).
