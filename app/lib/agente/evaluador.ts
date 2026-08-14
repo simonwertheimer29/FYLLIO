@@ -317,9 +317,20 @@ type JuicioModelo = {
 
 const ETAPAS_VALIDAS: readonly string[] = ["cobro", "presupuesto", "cita", "identificar"];
 
+/** Modelos admitidos. Haiku es el de producción; `sonnet` existe para MEDIR
+ *  la comparación (pasada 3, 2026-08-14) — Sonnet corre con su comportamiento
+ *  por defecto (thinking adaptativo) y techo de tokens con holgura, porque la
+ *  pregunta es qué da el modelo tal cual, no recortado. */
+const MODELOS = {
+  haiku: { id: "claude-haiku-4-5-20251001", maxTokens: 900 },
+  sonnet: { id: "claude-sonnet-5", maxTokens: 2500 },
+} as const;
+export type ModeloEvaluador = keyof typeof MODELOS;
+
 async function juzgar(
   e: EntradaEvaluador,
   promptOverride?: string,
+  modelo: ModeloEvaluador = "haiku",
 ): Promise<{ juicio: JuicioModelo | null; usage?: EvaluacionTurno["usage"] }> {
   const apiKey = process.env["ANTHROPIC_API_KEY"];
   if (!apiKey) return { juicio: null };
@@ -339,8 +350,8 @@ async function juzgar(
         "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 900,
+        model: MODELOS[modelo].id,
+        max_tokens: MODELOS[modelo].maxTokens,
         system: promptOverride ?? SYSTEM_PROMPT_EVALUADOR,
         messages: [{ role: "user", content: anonimizarTexto(texto, mapa) }],
       }),
@@ -354,7 +365,12 @@ async function juzgar(
     const usage = data.usage
       ? { inputTokens: Number(data.usage.input_tokens ?? 0), outputTokens: Number(data.usage.output_tokens ?? 0) }
       : undefined;
-    const raw: string = data.content?.[0]?.text?.trim() ?? "";
+    // El bloque de TEXTO, no el [0]: con thinking adaptativo (Sonnet) el
+    // primer bloque puede ser thinking y el JSON viene después.
+    const raw: string =
+      (data.content as { type: string; text?: string }[] | undefined)
+        ?.find((b) => b.type === "text")
+        ?.text?.trim() ?? "";
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       console.error("[evaluador] sin JSON en la respuesta:", raw.slice(0, 200));
@@ -421,7 +437,7 @@ async function juzgar(
 
 export async function evaluarTurno(
   e: EntradaEvaluador,
-  opts?: { _promptOverride?: string },
+  opts?: { _promptOverride?: string; modelo?: ModeloEvaluador },
 ): Promise<EvaluacionTurno> {
   // No-reversión: el caso es de la persona. Ni se llama al modelo.
   if (e.yaDerivado) {
@@ -440,7 +456,7 @@ export async function evaluarTurno(
   }
 
   const { truncado } = renderEntrada(e);
-  const { juicio, usage } = await juzgar(e, opts?._promptOverride);
+  const { juicio, usage } = await juzgar(e, opts?._promptOverride, opts?.modelo ?? "haiku");
 
   if (!juicio) {
     // Fail-closed compat: «no pude evaluar» no es una causa de derivación —

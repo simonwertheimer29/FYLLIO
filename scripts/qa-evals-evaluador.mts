@@ -40,11 +40,18 @@ import { OBJETIVOS_POR_DEFECTO, type ObjetivoAgente } from "../app/lib/automatiz
 const DIR = join(process.cwd(), "evals");
 const soloIdx = process.argv.indexOf("--solo");
 const solo = soloIdx >= 0 ? process.argv[soloIdx + 1] : null;
+const modeloIdx = process.argv.indexOf("--modelo");
+const MODELO = (modeloIdx >= 0 ? process.argv[modeloIdx + 1] : "haiku") as "haiku" | "sonnet";
 
-// Precio Haiku 4.5 (claude-api, 2026-08): $1/M entrada · $5/M salida. Solo
-// convierte tokens MEDIDOS a dólares; los tokens salen de usage de la API.
-const USD_IN = 1 / 1_000_000;
-const USD_OUT = 5 / 1_000_000;
+// Precios de lista (claude-api, 2026-08), solo para convertir tokens MEDIDOS
+// a dólares — los tokens salen de usage de la API. Sonnet 5: lista 3/15 (hay
+// intro 2/10 hasta 2026-08-31; se reporta a lista, el peor caso).
+const PRECIOS = {
+  haiku: { in: 1 / 1_000_000, out: 5 / 1_000_000 },
+  sonnet: { in: 3 / 1_000_000, out: 15 / 1_000_000 },
+} as const;
+const USD_IN = PRECIOS[MODELO].in;
+const USD_OUT = PRECIOS[MODELO].out;
 
 const OBJ = (etapa: string): ObjetivoAgente =>
   OBJETIVOS_POR_DEFECTO.find((o) => o.etapa === etapa)!;
@@ -376,7 +383,7 @@ if (!process.env.ANTHROPIC_API_KEY) {
 // Sonda: una evaluación trivial. Si cae en fallback, no estamos midiendo el
 // evaluador — estamos midiendo la falta de crédito o la API caída.
 {
-  const sonda = await evaluarTurno(entradaR1({ tipo: "nada" }, "Gracias"));
+  const sonda = await evaluarTurno(entradaR1({ tipo: "nada" }, "Gracias"), { modelo: MODELO });
   if (sonda.fallback) {
     console.error("✗ La sonda cayó en fallback: el evaluador NO está respondiendo (clave, crédito o API).");
     console.error("  Esto es «NO PUDE MEDIR», no un 0 %.");
@@ -425,7 +432,7 @@ await Promise.all(
   Array.from({ length: 4 }, async () => {
     while (i < trabajos.length) {
       const t = trabajos[i++];
-      const r = await evaluarTurno(t.entrada);
+      const r = await evaluarTurno(t.entrada, { modelo: MODELO });
       const letra = letraDe(r);
       const puntuable = ["S", "A", "D", "R"].includes(t.esperado);
       // «Sin objetivo abierto» no es «listo» cuando queda algo por responder
@@ -462,7 +469,7 @@ resultados.sort((a, b) => a.familia.localeCompare(b.familia) || a.id.localeCompa
 const puntuados = resultados.filter((x) => x.okDecision !== undefined);
 const aciertos = puntuados.filter((x) => x.okDecision).length;
 
-console.log(`\n══ DECISIÓN — global: ${aciertos}/${puntuados.length} (${Math.round((aciertos / puntuados.length) * 100)} %)${fallbacks ? ` · fallbacks: ${fallbacks}` : ""}`);
+console.log(`\n══ DECISIÓN [${MODELO}] — global: ${aciertos}/${puntuados.length} (${Math.round((aciertos / puntuados.length) * 100)} %)${fallbacks ? ` · fallbacks: ${fallbacks}` : ""}`);
 
 const familias = [...new Set(resultados.map((x) => x.familia))];
 for (const f of familias) {
@@ -502,7 +509,7 @@ const inTok = conUso.reduce((s, x) => s + (x.r.usage?.inputTokens ?? 0), 0);
 const outTok = conUso.reduce((s, x) => s + (x.r.usage?.outputTokens ?? 0), 0);
 const usd = inTok * USD_IN + outTok * USD_OUT;
 const porTurno = usd / Math.max(1, conUso.length);
-console.log(`\n══ COSTE MEDIDO (usage de la API, Haiku 4.5 a 1 $/M in · 5 $/M out)`);
+console.log(`\n══ COSTE MEDIDO (usage de la API, modelo ${MODELO} a ${(USD_IN*1e6).toFixed(0)} $/M in · ${(USD_OUT*1e6).toFixed(0)} $/M out)`);
 console.log(`  Turnos medidos: ${conUso.length} · entrada: ${inTok} tok (media ${Math.round(inTok / conUso.length)}) · salida: ${outTok} tok (media ${Math.round(outTok / conUso.length)})`);
 console.log(`  Coste medio por turno: $${porTurno.toFixed(5)} · por conversación de 3 turnos del paciente: $${(porTurno * 3).toFixed(5)}`);
 console.log(`  Coste de esta pasada completa: $${usd.toFixed(4)}`);

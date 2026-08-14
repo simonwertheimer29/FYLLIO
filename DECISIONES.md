@@ -2748,3 +2748,12 @@ fallos de decisión: 4 genuinos del modelo (33, 35, 49, y una REGRESIÓN en el 6
 regla dura) + el 16, que es la inconsistencia 3-vs-16 de la propia vara (retest pendiente). ¿Listo?
 19/21 — la extracción de no_aplica (C2, C7) es el candidato a subir de modelo. Coste medido v2:
 2.782/242 tok por turno → $0,004/turno.
+
+## 2026-08-14 — Tercera pasada (Sonnet 5, mismo prompt): 89 % — pierde contra Haiku (92 %) y cuesta 5,5×
+Comparación limpia sobre la misma vara: Sonnet arregla 2 de los 3 fallos duros (el 6 y el 33, con
+borradores más limpios — el C22 deja de afirmar hechos clínicos) pero NO el 49 (desgaste, falla en
+ambos → techo de la tarea, no del modelo), mantiene el 16 (conflicto 3-vs-16 de la vara) y el C2
+(no_aplica falla en ambos → problema de prompt/tarea), e introduce SU familia de fallos: sobre-anota
+en preguntas simples (5, 43, C5, C20 → S→A). Además 2 timeouts a 20 s (thinking) y $0,0219/turno
+(5,5× Haiku; ~$66/mes por 1.000 conversaciones vs $12). Decisión técnica recomendada: producción en
+Haiku; la fiabilidad clínica no se le pide al modelo sino a la guarda en código (diagnóstico aparte).
