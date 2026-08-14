@@ -26,6 +26,7 @@
     "qa:evals": "tsx scripts/qa-evals.mts",
     "medir:linea-base": "tsx scripts/medir-linea-base.mts",
     "qa:evals:acuerdo": "tsx scripts/qa-evals-acuerdo.mts",
+    "qa:evals-evaluador": "tsx scripts/qa-evals-evaluador.mts",
     "verificar:produccion": "node scripts/verificar-produccion.mjs",
     "guard:rls": "node scripts/guard-service-role.mjs",
     "db:smoke-rls": "node scripts/db-smoke-rls.mjs"

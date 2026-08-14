@@ -2721,3 +2721,16 @@ de guardar la medida y no la categoría) · `devuelto_al_agente` retirado del vo
 vacía (la derivación no se revierte; «en manos humanas» = EXISTS desde el último cierre) ·
 `duda_clinica` entra al catálogo (9/69 casos; ninguna configuración la elimina — al barrido de la
 fase D como límite, no como upgrade). El fleco de la conversación huérfana sin cierre queda para B.
+
+## 2026-08-14 — Evaluador construido y primera pasada cruda: 78 % (49/63), y los fallos son 3 problemas distintos
+Paso 3 de la fase A: lib/agente/evaluador.ts (el modelo juzga el texto, el código decide y cuenta;
+hilo truncado por presupuesto priorizando entrantes; urgencia con respuesta de código, regla dura) +
+harness qa:evals-evaluador contra R1+C1 con mapeo declarado. Primera pasada SIN ajustar: 78 %
+global, 0 fallbacks. Los 14 fallos se parten en: (a) ~6 errores genuinos del modelo (pide-persona
+sutil, tono pasivo, anotaciones que se le escapan, extracción de no_aplica); (b) ~8 CONFLICTOS
+vara-vs-modelo-dictado que no se arreglan con prompt — la vara R1/C1 se anotó ANTES de la corrección
+de los 4 disparadores (rechazo→R vs caso_completo; insistencia 1ª→R vs umbral 2; pago roto; urgencia
+temporal del Sintrom; el IVA); (c) 2 artefactos del mapeo de ¿Listo? sin objetivo abierto. Coste
+MEDIDO: 2.143 tok entrada / 208 salida por turno → $0,0032/turno, ~$0,0095 por conversación de 3
+turnos (Haiku 4.5). Nada se ajusta hasta resolver (b) con Simon: ajustar contra una vara en
+conflicto consigo misma es optimizar a ciegas con extra pasos.
