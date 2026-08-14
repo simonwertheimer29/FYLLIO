@@ -2770,3 +2770,13 @@ cazó EN VIVO infracciones que el prompt dejó pasar: financiación inventada (C
 sin problema» de la regresión del 6. Estado de la vara grande con la guarda puesta: 90-92 % en tres
 corridas (varianza ±2 puntos, run a run cambian 1-2 casos frontera); coste con juez incluido:
 $0,0048/turno (~$14/mes por 1.000 conversaciones). Producción: Haiku, confirmado.
+
+## 2026-08-14 — Retest 3-vs-16: los dos aplazan, y la regla que sale de ahí
+Simon reanotó la pareja (objeción de precio con un tercero de por medio): AMBOS son A. El 16 pasa de
+R a A en el harness, marcado como retest y no anotación original. La regla, en firme: UNA OBJECIÓN
+DE PRECIO NO DERIVA POR QUIÉN LA TRAE NI POR CÓMO ESTÉ FORMULADA — deriva por insistencia (2 toques)
+o por caso completo, como todo lo demás. El desgaste del caso (días transcurridos, toques previos)
+es una dimensión DISTINTA y hoy no dispara nada; si algún día debe hacerlo, será una regla explícita
+de seguimiento contada del log, no un juicio del modelo sobre el tono. Confirmado en corrida real:
+la vara sube el caso previsto (95 % en esa corrida; banda honesta 90-95 %). Nota: bajo esta regla,
+el 49 («opiniones de todo» → R por desgaste) merece revisión en un próximo retest.

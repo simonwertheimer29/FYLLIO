@@ -360,6 +360,11 @@ const LISTO_EXCLUIDOS = new Set(["C14", "C15", "C19"]); // lectura distinta, ANA
 const REMAPEO_DECISION: Record<string, string> = {
   "1": "A", "18": "S", "39": "S",
   C9: "S", C10: "A", C16: "A", C18: "A",
+  //  · 16 → A por RETEST de Simon (2026-08-14), no anotación original: la
+  //    pareja 3-vs-16 (objeción de precio con un tercero de por medio) se
+  //    reanotó y LOS DOS aplazan. Una objeción de precio no deriva por quién
+  //    la trae ni por cómo esté formulada.
+  "16": "A",
 };
 const REMAPEO_LISTO: Record<string, string> = { C10: "L" };
 
