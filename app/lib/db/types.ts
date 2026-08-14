@@ -76,18 +76,22 @@ export interface Tabla_eventos_automatizacion {
    *  aplazamiento puede ocurrir en un hilo que aún no tiene caso. */
   tipo_caso: "presupuesto" | "lead" | "cobro" | "conversacion";
   caso_id: string;
+  /** `devuelto_al_agente` se RETIRÓ en la 022 (la derivación no se revierte);
+   *  nunca tuvo filas. */
   evento:
     | "quiebre_reconocido"
     | "asumido"
-    | "devuelto_al_agente"
     | "asumido_manual"
     | "mensaje_enviado"
     /** 020 — el agente anotó algo que no puede resolver y SIGUE. `motivo_texto`
-     *  dice qué, citando al paciente. Pendientes de un caso = max(0,
-     *  count(aplazado) − count(aplazado_resuelto)) — recuento, sin referencia
-     *  uno a uno. */
+     *  dice qué, citando al paciente. Pendiente ⇔ aplazado posterior al último
+     *  resuelto de su clave. */
     | "aplazado"
-    | "aplazado_resuelto";
+    | "aplazado_resuelto"
+    /** 022 — el agente entregó el caso a una persona. No se revierte: «en manos
+     *  humanas» ⇔ EXISTS derivado/asumido/asumido_manual posterior al último
+     *  cierre del caso. */
+    | "derivado";
   actor_id: string | null;
   actor_nombre: string | null;
   motivo_texto: string | null;
@@ -109,8 +113,16 @@ export interface Tabla_eventos_automatizacion {
     | "garantia_condiciones"
     | "dato_presupuesto"
     | "agenda_disponibilidad"
+    | "duda_clinica"
     | "otro"
     | null;
+  /** 022 — por qué el agente entregó el caso. Obligatoria en `derivado`, NULL
+   *  en el resto. La COLA no se persiste: prioritaria ⇔ urgencia OR
+   *  (peticion_queja AND malestar). */
+  causa_derivacion: "peticion_queja" | "insistencia" | "urgencia" | "caso_completo" | null;
+  /** 022 — juicio del modelo al derivar por peticion_queja (¿hay malestar?).
+   *  Se guarda el hecho, no la cola, para recalibrar sin perder histórico. */
+  malestar: boolean | null;
   created_at: Generated<Date>;
 }
 

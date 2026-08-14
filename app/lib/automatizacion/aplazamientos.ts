@@ -17,6 +17,7 @@ export type ClaveAplazado =
   | "garantia_condiciones"
   | "dato_presupuesto"
   | "agenda_disponibilidad"
+  | "duda_clinica"
   | "otro";
 
 /**
@@ -42,6 +43,9 @@ export type NaturalezaAplazado = "decision" | "dato_ausente";
  * criterio. Qué cae en «otro» se revisa antes de cerrar la fase B.
  */
 export const NATURALEZA_DE_CLAVE: Record<ClaveAplazado, NaturalezaAplazado> = {
+  // OJO (C1-P1, 2026-08-14): precio_descuento solo aplaza cuando hay un
+  // PRESUPUESTO EMITIDO que el paciente quiere mover. «¿Cuánto cuesta?» de un
+  // lead nuevo se CONTESTA («depende de tu caso, te hacemos una valoración»).
   precio_descuento: "decision",
   plan_pago: "decision",
   cobertura_seguro: "decision",
@@ -49,6 +53,11 @@ export const NATURALEZA_DE_CLAVE: Record<ClaveAplazado, NaturalezaAplazado> = {
   garantia_condiciones: "decision",
   dato_presupuesto: "dato_ausente",
   agenda_disponibilidad: "dato_ausente",
+  /** 022 — 9 de 69 casos anotados (R1+C1). Criterio del doctor: es la ÚNICA
+   *  clave que NINGUNA configuración elimina (regla dura: el agente jamás da
+   *  criterio clínico) — en el barrido de capacidades de la fase D no debe
+   *  aparecer como hueco configurable. */
+  duda_clinica: "decision",
   otro: "decision",
 };
 
@@ -63,6 +72,7 @@ export const ETIQUETA_CLAVE: Record<ClaveAplazado, string> = {
   garantia_condiciones: "Garantías y condiciones",
   dato_presupuesto: "Dato del presupuesto que falta",
   agenda_disponibilidad: "Huecos de agenda",
+  duda_clinica: "Duda clínica (para el doctor)",
   otro: "Otro",
 };
 

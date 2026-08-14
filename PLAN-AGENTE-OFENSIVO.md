@@ -54,15 +54,19 @@ Las reglas de quiebre eran defensivas: aparece algo que no puede resolver, para 
 recogiendo datos. No existe el estado mudo: el agente en espera **acompaña** — calma, orienta,
 dice el siguiente paso — y lo único que deja de hacer es empujar al cierre.
 
-Solo tres cosas derivan el caso a una persona:
+Solo cuatro cosas derivan el caso a una persona *(corregido el 14-08: petición y queja son
+disparador propio, no una lectura ancha de la insistencia)*:
 
 | Disparador | Qué es | Cola |
 |---|---|---|
-| **Insistencia** | El paciente vuelve sobre algo que el agente no puede resolver y deja claro que lo quiere antes de seguir. **Umbral: 2 toques sobre el mismo tema, no 1** — repetir una vez es preguntar otra vez, no insistir. Configurable con tope (§6) | Normal |
+| **Petición o queja** | Pide hablar con una persona, o se queja del trato, la espera o el servicio. Deriva al **primer** toque. **Queja ≠ insatisfacción**: «me parece caro» es una objeción y el agente la trabaja; «llevo dos días esperando y esto es un desastre» deriva. Esta distinción va explícita en el prompt — es donde el modelo se equivocará, y derivar cada objeción de precio mata la conversación que el producto existe para tener | **Prioritaria si hay malestar**; normal si la petición es rutinaria («que me llame alguien para cerrar la cita») — no todo lo que menciona a una persona es un incendio |
+| **Insistencia** | Vuelve sobre un tema que el agente no puede resolver. **Umbral: 2 toques sobre el mismo tema, no 1** — repetir una vez es preguntar otra vez, no insistir. Configurable con tope (§6) | Normal |
 | **Urgencia médica** | Dolor agudo, rotura, infección, «hoy» | **Prioritaria — el asesor responde ya** |
-| **Caso completo** | El objetivo activo está cubierto | Normal |
+| **Caso completo** | El objetivo activo está cubierto. **Incluye el rechazo**: la decisión está recogida, el motivo se pide en el mismo turno | Normal |
 
-Lo demás se anota y la conversación sigue.
+Lo demás se anota y la conversación sigue. La cola no se persiste: se guarda el hecho (causa, y
+el juicio de malestar en petición/queja) y la cola se deriva — si mañana cambia la política de
+colas, el histórico no se pierde.
 
 **La derivación no se revierte.** Una vez derivado, el caso es de la persona: el agente no
 vuelve a entrar aunque el paciente escriba de otro tema — sin esto hay dos voces hablando con
@@ -187,7 +191,9 @@ Dentro de cada vista, el buscador y el filtro por clínica que ya existen. **Nad
   casi todo) — hay tabla de precios cargada ⇒ informa precios; agenda en nivel 2 ⇒ dice huecos, no
   reserva. Y se muestra también **EN NEGATIVO**: «no puede decir horarios», «no puede confirmar
   cobertura de seguro» — ahí es donde la clínica ve el hueco (y donde H12 de MERCADO.md espera que
-  nazca el salto de plan).
+  nazca el salto de plan). Con una excepción que el barrido debe enseñar distinto: la **duda
+  clínica** no es un hueco configurable — NINGUNA configuración la elimina (regla dura: el agente
+  jamás da criterio clínico), así que se muestra como límite del producto, no como upgrade.
 - **El prompt ensamblado es VISIBLE para el manager.** Si no ve qué se le dice a sus pacientes, no
   sube de modo A nunca.
 - **El punto de transferencia lo decide la clínica, no es rígido.** Lo que no se configura es que el

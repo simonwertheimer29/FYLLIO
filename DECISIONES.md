@@ -2708,3 +2708,16 @@ CONTRADICE al sistema no se confirma en automático — lo aclara la coordinador
 contradicción) · el agente en espera acompaña, no se calla · el portal cierra el objetivo (la firma
 formal supersede los campos pendientes) · embarazo: gana la lectura conversacional — acompañar sin
 empujar al cierre (resuelve R1#9 vs C13).
+
+## 2026-08-14 — Cuatro disparadores, no tres: petición o queja es disparador propio
+Corrección sobre la entrada de hoy: estirar «insistencia» para cubrir la queja al primer toque
+enturbiaba el prompt y la anotación. Disparadores definitivos: PETICIÓN O QUEJA (primer toque;
+queja ≠ insatisfacción — «me parece caro» se trabaja, «esto es un desastre» deriva; cola prioritaria
+solo si hay malestar) · INSISTENCIA (2 toques, configurable) · URGENCIA MÉDICA (inmediata,
+prioritaria) · CASO COMPLETO (incluye el rechazo con su motivo). Con esta lectura los 19 casos R de
+R1+C1 caben sin reanotar. Migración 022: evento `derivado` + `causa_derivacion` + `malestar` (se
+guarda el HECHO; la cola se DERIVA — prioritaria ⇔ urgencia ∨ (petición_queja ∧ malestar), doctrina
+de guardar la medida y no la categoría) · `devuelto_al_agente` retirado del vocabulario con la tabla
+vacía (la derivación no se revierte; «en manos humanas» = EXISTS desde el último cierre) ·
+`duda_clinica` entra al catálogo (9/69 casos; ninguna configuración la elimina — al barrido de la
+fase D como límite, no como upgrade). El fleco de la conversación huérfana sin cierre queda para B.

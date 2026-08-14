@@ -5,7 +5,7 @@
 import { sql } from "kysely";
 import { runWithClienteDb } from "../db/context";
 import { requireCliente } from "../cliente-contexto";
-import type { EventoAutomatizacion, TipoCaso } from "./estado";
+import type { CausaDerivacion, EventoAutomatizacion, TipoCaso } from "./estado";
 import { parseObjetivos, type ObjetivoAgente } from "./objetivos";
 import type { ClaveAplazado } from "./aplazamientos";
 
@@ -50,13 +50,17 @@ export type RegistrarEventoArgs = {
    *  aplazado/aplazado_resuelto — el constraint de la base lo impone, y aquí
    *  el tipo lo recuerda antes. */
   claveAplazado?: ClaveAplazado | null;
+  /** Causa de la derivación (022). OBLIGATORIA en `derivado`, y `malestar`
+   *  obligatorio cuando la causa es `peticion_queja` (decide la cola). */
+  causaDerivacion?: CausaDerivacion | null;
+  malestar?: boolean | null;
 };
 
 /**
  * Inserta un evento. **LANZA si falla**, a propósito.
  *
- * No es telemetría: es el dato. Si «devolver al agente» no se registra, el caso
- * se queda en manos de alguien para siempre y la coordinadora cree que lo soltó.
+ * No es telemetría: es el dato. Si un «asumido» o un «derivado» no se registra,
+ * la cola entera cree otra cosa sobre quién lleva el caso.
  * Un catch silencioso aquí convierte una decisión en un caso perdido — que es
  * exactamente el fallo que costó semanas en `logAccionLead` (§9).
  *
@@ -79,6 +83,8 @@ export async function registrarEvento(args: RegistrarEventoArgs): Promise<void> 
         largo_sugerido: args.largoSugerido ?? null,
         intencion: args.intencion ?? null,
         clave_aplazado: args.claveAplazado ?? null,
+        causa_derivacion: args.causaDerivacion ?? null,
+        malestar: args.malestar ?? null,
       } as never)
       .execute(),
   );

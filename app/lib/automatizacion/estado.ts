@@ -45,20 +45,35 @@ export type EstadoAutomatizacion =
   /** Aceptó, pagó, se perdió, o pasó a la fase siguiente. */
   | "cerrado";
 
-/** Eventos que persiste `eventos_automatizacion`: decisiones humanas y, desde
- *  la migración 020, aplazamientos del agente. Los dos de aplazamiento NO
- *  fijan estado en la derivación de abajo — un aplazado significa «el agente
- *  sigue», así que el caso vuelve a la derivación, igual que
- *  `devuelto_al_agente`. La cohorte «pendientes de resolver» (fase B) se
- *  deriva por recuento de estos eventos, no de un estado. */
+/** Eventos que persiste `eventos_automatizacion`: decisiones humanas,
+ *  aplazamientos del agente (020) y la derivación (022). Los de aplazamiento
+ *  NO fijan estado — un aplazado significa «el agente sigue». `derivado` es
+ *  lo contrario y NO SE REVIERTE: «en manos humanas» ⇔ existe un
+ *  derivado/asumido/asumido_manual posterior al último cierre del caso — un
+ *  EXISTS, no un «último evento», para que nada posterior lo tape. Esa
+ *  derivación exists-based llega con el evaluador (paso 3-4); hasta entonces
+ *  ningún dato produce `derivado`. `devuelto_al_agente` se retiró en la 022:
+ *  la derivación no se revierte, y nunca tuvo filas. */
 export type EventoAutomatizacion =
   | "quiebre_reconocido"
   | "asumido"
-  | "devuelto_al_agente"
   | "asumido_manual"
   | "mensaje_enviado"
   | "aplazado"
-  | "aplazado_resuelto";
+  | "aplazado_resuelto"
+  | "derivado";
+
+/** Por qué el agente entregó el caso (022). Cuatro disparadores, decididos el
+ *  2026-08-14: nada más deriva — lo demás se anota y la conversación sigue. */
+export type CausaDerivacion = "peticion_queja" | "insistencia" | "urgencia" | "caso_completo";
+
+/** La cola se DERIVA del hecho, no se persiste: si mañana cambia la política,
+ *  el histórico (causa + malestar) no se pierde. */
+export function colaDeDerivacion(causa: CausaDerivacion, malestar: boolean | null): "prioritaria" | "normal" {
+  return causa === "urgencia" || (causa === "peticion_queja" && malestar === true)
+    ? "prioritaria"
+    : "normal";
+}
 
 /** `conversacion` (020) usa el teléfono E.164 como `caso_id`: un aplazamiento
  *  puede ocurrir en un hilo que aún no tiene caso — la conversación ES el caso
@@ -210,10 +225,12 @@ export function estadoAutomatizacion(e: EntradaEstado): EstadoDerivado {
   if (e.ultimoEvento === "asumido" || e.ultimoEvento === "quiebre_reconocido") {
     return sin("en_manos_de_alguien");
   }
-  // `devuelto_al_agente` y `mensaje_enviado` NO fijan estado: devuelven el caso
-  // a la derivación, que es justo lo que significan. Por eso la reanudación
-  // «donde estaba» no necesita guardar posición: el siguiente toque es
-  // `toques + 1` y sale del contador que ya existe.
+  // `mensaje_enviado` y los aplazamientos NO fijan estado: devuelven el caso a
+  // la derivación, que es lo que significan. `derivado` fija «en manos de
+  // alguien» — y cuando el evaluador (paso 3-4) traiga la derivación
+  // exists-based, esta rama pasará de mirar el último evento a un EXISTS
+  // desde el último cierre, que es lo que hace la no-reversión estructural.
+  if (e.ultimoEvento === "derivado") return sin("en_manos_de_alguien");
 
   // 3 · Quiebre. Solo si el paciente ha escrito lo último: si contestamos
   //     después, el quiebre ya se atendió aunque nadie lo registrara.

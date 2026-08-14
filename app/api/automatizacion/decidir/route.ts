@@ -24,11 +24,12 @@ export const dynamic = "force-dynamic";
 const TIPOS: readonly TipoCaso[] = ["presupuesto", "lead", "cobro"];
 
 /** Solo las decisiones humanas. `mensaje_enviado` NO entra aquí: lo escribe el
- *  camino del envío, con su medida, y no un cliente que podría inventarla. */
+ *  camino del envío, con su medida, y no un cliente que podría inventarla.
+ *  `devuelto_al_agente` se retiró en la 022 (la derivación no se revierte) y
+ *  `derivado` tampoco entra: lo emite el evaluador, no un botón. */
 const DECISIONES: readonly EventoAutomatizacion[] = [
   "quiebre_reconocido",
   "asumido",
-  "devuelto_al_agente",
   "asumido_manual",
 ];
 
