@@ -63,14 +63,23 @@ export type EventoAutomatizacion =
   | "aplazado_resuelto"
   | "derivado";
 
-/** Por qué el agente entregó el caso (022). Cuatro disparadores, decididos el
- *  2026-08-14: nada más deriva — lo demás se anota y la conversación sigue. */
-export type CausaDerivacion = "peticion_queja" | "insistencia" | "urgencia" | "caso_completo";
+/** Por qué el agente entregó el caso (022 + 023). Nada más deriva — lo demás
+ *  se anota y la conversación sigue. `antecedente_medico` (023, caso Sintrom):
+ *  mención FACTUAL de medicación/condición (el modelo no valora gravedad
+ *  nunca) + cita próxima contada por código. */
+export type CausaDerivacion =
+  | "peticion_queja"
+  | "insistencia"
+  | "urgencia"
+  | "caso_completo"
+  | "antecedente_medico";
 
 /** La cola se DERIVA del hecho, no se persiste: si mañana cambia la política,
  *  el histórico (causa + malestar) no se pierde. */
 export function colaDeDerivacion(causa: CausaDerivacion, malestar: boolean | null): "prioritaria" | "normal" {
-  return causa === "urgencia" || (causa === "peticion_queja" && malestar === true)
+  return causa === "urgencia" ||
+    causa === "antecedente_medico" ||
+    (causa === "peticion_queja" && malestar === true)
     ? "prioritaria"
     : "normal";
 }

@@ -64,6 +64,13 @@ export type EntradaEvaluador = {
   umbralInsistencia?: number;
   /** Config de urgencias (default razonable hasta la fase D). */
   urgencias?: { atiende: boolean; textoNoAtiende?: string | null };
+  /** Días de calendario de la clínica hasta la próxima cita registrada de la
+   *  persona, contados por CÓDIGO (§13). null = sin cita conocida. Alimenta
+   *  la regla del antecedente médico (023): mención + cita próxima → deriva. */
+  diasHastaProximaCita?: number | null;
+  /** Umbral de «cita próxima» en días. Default 7; configurable con tope en
+   *  fase D. */
+  umbralCitaProximaDias?: number;
   /** EXISTS derivado/asumido/asumido_manual desde el último cierre. Si es
    *  true el agente NO entra — se comprueba aquí además de en el caller para
    *  que la no-reversión no dependa de que todos los callers se acuerden. */
@@ -105,6 +112,12 @@ export type EvaluacionTurno = {
 // ─── Constantes ─────────────────────────────────────────────────────────────
 
 export const UMBRAL_INSISTENCIA_DEFAULT = 2;
+
+/** «Cita próxima» para el antecedente médico: dentro de la semana en curso de
+ *  planificación — el horizonte en el que el aplazamiento normal (que se
+ *  resuelve «el mismo día») aún deja margen para revisar y, si toca,
+ *  reprogramar sin perder el hueco. En días de la clínica (§13). */
+export const UMBRAL_CITA_PROXIMA_DIAS_DEFAULT = 7;
 
 /** Presupuesto del hilo en CARACTERES (~4 chars/token). Corte por presupuesto
  *  real y no por número de mensajes (corrección del 2026-08-14): en una
@@ -182,15 +195,19 @@ Exactamente uno de: "cobro" (pagos, cuotas, facturas) · "presupuesto" (la decis
 
 ━━ JUICIO "urgenciaMedica" — true si describe dolor agudo, rotura, infección, sangrado, hinchazón, o necesita que le vean HOY. Un «me duele un poco a veces» no es urgencia; «se me ha roto una muela y me duele bastante, ¿me veis hoy?» sí.
 
-━━ JUICIO "peticionOQueja" — true si pide hablar con una persona (por teléfono, en persona, con alguien concreto) o se queja del trato, la espera o el servicio.
-LA FRONTERA, Y ES DONDE MÁS SE FALLA: queja ≠ insatisfacción. «Me parece caro» es una objeción y la trabajas tú — NO deriva. «Llevo dos días esperando y esto es un desastre» deriva. Un rechazo educado del presupuesto («al final no vamos a hacerlo, gracias») NO es queja: es una decisión, la recoges.
+━━ JUICIO "peticionOQueja" — true si pide hablar con una persona o se queja del trato, la espera o el servicio.
+Cuentan como pedir persona: pedir que le llamen, preguntar por alguien concreto («¿está la doctora?»), y decir que prefiere tratarlo en persona o por teléfono.
+Cuentan como queja: también las frases SECAS o irónicas como reacción a algo que salió mal por nuestra parte («pues nada, gracias» tras un cambio que pedimos nosotros, «increíble» tras un aviso) — la brevedad ahí es malestar, no cortesía.
+LA FRONTERA, Y ES DONDE MÁS SE FALLA: queja ≠ insatisfacción. «Me parece caro» es una objeción y la trabajas tú — NO deriva. «Llevo dos días esperando y esto es un desastre» deriva. Un rechazo educado del presupuesto («al final no vamos a hacerlo, gracias») NO es queja: es una decisión, la recoges. Y «¿con quién hablo de esto?» sobre un enlace o un trámite es navegación, no petición de persona.
 "malestar" — solo significativo si peticionOQueja es true: ¿hay enfado, hartazgo o malestar real? «¿Me puede llamar alguien para cerrar la cita?» es una petición rutinaria: peticionOQueja true, malestar false. No todo lo que menciona a una persona es un incendio.
+
+━━ JUICIO "mencionaAntecedenteMedico" — true si la persona MENCIONA una medicación, condición médica, embarazo o antecedente relevante (Sintrom, diabetes, cardiopatía, alergias…). SOLO detectas la mención: NO valoras gravedad, ni riesgo, ni si importa — eso no es tuyo nunca. Qué se hace con la mención lo decide el sistema con los datos de la cita.
 
 ━━ JUICIO "vuelveSobreAplazado" — el contexto te lista los temas YA ANOTADOS pendientes de un asesor. Si el último mensaje VUELVE sobre uno de ellos (pregunta si ya se sabe, insiste), pon su clave. Si no, null. Una pregunta NUEVA sobre otro tema no es volver.
 
 ━━ JUICIO "aplazamientosNuevos" — qué anotas ESTE turno porque no lo puedes resolver tú. Lista de {clave, motivo}, con el motivo citando a la persona («pregunta si se puede fraccionar a 8 meses»). Claves:
 - "precio_descuento": pide rebaja, compara precio, pregunta por promociones — SOLO si hay un presupuesto emitido que quiere mover. Si NO hay presupuesto y pregunta cuánto cuesta algo, NO lo anotes: se contesta («depende de cada caso, te hacemos una valoración sin compromiso»).
-- "plan_pago": fraccionar, aplazar, un plan a medida.
+- "plan_pago": fraccionar, aplazar, un plan a medida — incluye «no estoy para gastos ahora», «no puedo pagarlo este mes»: quiere poder pagarlo de otra forma, y eso lo ve un asesor.
 - "cobertura_seguro": cuánto le cubriría SU seguro.
 - "cambio_tratamiento": variantes del presupuesto para que baje o cambie.
 - "garantia_condiciones": garantías, «¿y si no me convence?».
@@ -199,9 +216,15 @@ LA FRONTERA, Y ES DONDE MÁS SE FALLA: queja ≠ insatisfacción. «Me parece ca
 - "otro": lo que no encaja, con el motivo claro.
 LAS REGLAS DEL DINERO (no se saltan): leer una política que ya existe se contesta; adaptarla a esta persona se anota. «¿Trabajáis con Sanitas?» se contesta; «¿cuánto me cubriría a mí?» se anota. «¿Cómo se puede pagar?» se contesta si el contexto lo dice; «¿me lo dejáis en cuatro plazos?» se anota. Y no tener un dato NO es motivo de parar: «te lo confirmamos enseguida» + anotarlo.
 
-━━ JUICIO "camposRecogidos" — para CADA objetivo abierto del contexto, extrae del HILO ENTERO (no solo del último mensaje) el valor de cada campo: {"<etapa>": {"<clave_campo>": valor}}. Valor: el dato en pocas palabras si la persona lo ha dado · null si falta · "no_aplica" si la condición del campo no aplica (p. ej. «solo si acepta» y ha rechazado, o «solo si la menciona» y no la mencionó y ya se le preguntó o no toca preguntar). Si la persona corrigió un dato, vale el último.
+━━ JUICIO "camposRecogidos" — para CADA objetivo abierto del contexto, extrae del HILO ENTERO (no solo del último mensaje) el valor de cada campo: {"<etapa>": {"<clave_campo>": valor}}. Valor: el dato en pocas palabras si la persona lo ha dado · null si falta de verdad · "no_aplica" si la condición del campo no se cumple. LAS REGLAS DEL no_aplica, que es donde más se falla:
+- Un campo condicional JAMÁS se queda en null cuando su rama no aplica: si la decisión es «acepta», los campos de «solo si se lo piensa» y «solo si rechaza» son "no_aplica" (y al revés).
+- «Solo si la menciona»: si se le preguntó y dijo que no tiene preferencia, el valor es «sin preferencia» (dato recogido, no null); si nadie lo mencionó, "no_aplica".
+- «Solo si el cliente tiene más de una clínica»: si el contexto no dice que las haya, "no_aplica".
+- COBRO: si la persona dice que NO puede pagar, eso ES la respuesta del objetivo — confirma_pago = «no puede, hay que renegociar», via_pago y fecha_pago = "no_aplica" (y anotas plan_pago). No dejes el objetivo a medias esperando un sí que ya te han dicho que no.
+Si la persona corrigió un dato, vale el último.
 
-━━ JUICIO "respuesta" — el borrador del mensaje de este turno. 2-4 frases, tono cálido y profesional, sin emojis, solo el primer nombre. Contesta lo que preguntó; si anotaste algo, di que se lo confirma un asesor enseguida; si falta un campo del objetivo, pregunta UNO. Si anotaste "duda_clinica": ACOMPAÑA — tranquiliza, di el siguiente paso en genérico («el doctor te lo resuelve en la valoración») — y NO empujes al cierre en ese mensaje. REGLAS QUE NO SE SALTAN: solo puedes afirmar datos que estén en el contexto; NUNCA des criterio clínico (ni «seguro que no pasa nada»); NUNCA prometas precios, descuentos, plazos ni condiciones de pago que no estén en el contexto.
+━━ JUICIO "respuesta" — el borrador del mensaje de este turno. 2-4 frases, tono cálido y profesional, sin emojis, solo el primer nombre. Contesta lo que preguntó; si anotaste algo, di que se lo confirma un asesor enseguida; si falta un campo del objetivo, pregunta UNO. Si anotaste "duda_clinica": ACOMPAÑA — tranquiliza y remite al doctor — y NO empujes al cierre en ese mensaje.
+REGLAS QUE NO SE SALTAN: solo puedes afirmar datos que estén en el contexto. NUNCA prometas precios, descuentos, plazos ni condiciones de pago que no estén en el contexto. Y NUNCA afirmes NADA sobre dolor, resultado, duración, riesgos o seguridad de un tratamiento — AUNQUE SEA CIERTO EN GENERAL: «se hace con anestesia y no duele», «no suele dar problemas», «es muy seguro» son garantías clínicas en nombre de la clínica y NO son tuyas. Acompañar es calmar y remitir al doctor («es una duda muy normal; el doctor te lo explica en tu caso»), no tranquilizar con un hecho clínico.
 
 RESPONDE EXCLUSIVAMENTE con un JSON válido:
 {
@@ -209,6 +232,7 @@ RESPONDE EXCLUSIVAMENTE con un JSON válido:
   "urgenciaMedica": false,
   "peticionOQueja": false,
   "malestar": false,
+  "mencionaAntecedenteMedico": false,
   "vuelveSobreAplazado": null,
   "aplazamientosNuevos": [],
   "camposRecogidos": {},
@@ -282,6 +306,9 @@ type JuicioModelo = {
   urgenciaMedica: boolean;
   peticionOQueja: boolean;
   malestar: boolean;
+  /** Mención FACTUAL de medicación/condición/antecedente. El modelo no valora
+   *  gravedad — qué se hace con la mención lo decide código con la cita. */
+  mencionaAntecedenteMedico: boolean;
   vuelveSobreAplazado: ClaveAplazado | null;
   aplazamientosNuevos: { clave: ClaveAplazado; motivo: string }[];
   camposRecogidos: CamposRecogidos;
@@ -374,6 +401,7 @@ async function juzgar(
         // borrador lo valida el descarte de abajo, no la confianza.
         peticionOQueja: p.peticionOQueja === true,
         malestar: p.malestar === true,
+        mencionaAntecedenteMedico: p.mencionaAntecedenteMedico === true,
         vuelveSobreAplazado: vuelve,
         aplazamientosNuevos: aplazamientos,
         camposRecogidos: campos,
@@ -464,6 +492,23 @@ export async function evaluarTurno(
     });
   }
 
+  // Antecedente médico (023): la mención es del modelo (factual, sin valorar
+  // gravedad); la proximidad de la cita la cuenta código, en días de clínica.
+  const dias = e.diasHastaProximaCita ?? null;
+  const umbralCita = e.umbralCitaProximaDias ?? UMBRAL_CITA_PROXIMA_DIAS_DEFAULT;
+  const antecedenteConCita =
+    juicio.mencionaAntecedenteMedico && dias != null && dias <= umbralCita;
+  // Sin cita próxima, la mención NO deriva pero TAMPOCO se pierde: red de
+  // seguridad determinista — si el modelo no lo anotó, se anota duda_clinica
+  // aquí, para que el doctor lo vea en la ficha antes de cualquier cita.
+  if (
+    juicio.mencionaAntecedenteMedico &&
+    !antecedenteConCita &&
+    !aplazamientos.some((a) => a.clave === "duda_clinica")
+  ) {
+    aplazamientos.push({ clave: "duda_clinica", motivo: "menciona un antecedente médico" });
+  }
+
   // La derivación, por precedencia: urgencia > petición/queja > insistencia
   // > caso completo. Los aplazamientos anotados viajan igual — van a la ficha.
   const base = {
@@ -491,6 +536,16 @@ export async function evaluarTurno(
       causa: "urgencia",
       cola: colaDeDerivacion("urgencia", null),
       respuesta,
+    };
+  }
+
+  if (antecedenteConCita) {
+    return {
+      ...base,
+      decision: "deriva",
+      causa: "antecedente_medico",
+      cola: colaDeDerivacion("antecedente_medico", null),
+      respuesta: juicio.respuesta,
     };
   }
 

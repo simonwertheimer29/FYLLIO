@@ -116,10 +116,16 @@ export interface Tabla_eventos_automatizacion {
     | "duda_clinica"
     | "otro"
     | null;
-  /** 022 — por qué el agente entregó el caso. Obligatoria en `derivado`, NULL
-   *  en el resto. La COLA no se persiste: prioritaria ⇔ urgencia OR
-   *  (peticion_queja AND malestar). */
-  causa_derivacion: "peticion_queja" | "insistencia" | "urgencia" | "caso_completo" | null;
+  /** 022/023 — por qué el agente entregó el caso. Obligatoria en `derivado`,
+   *  NULL en el resto. La COLA no se persiste: prioritaria ⇔ urgencia ∨
+   *  antecedente_medico ∨ (peticion_queja ∧ malestar). */
+  causa_derivacion:
+    | "peticion_queja"
+    | "insistencia"
+    | "urgencia"
+    | "caso_completo"
+    | "antecedente_medico"
+    | null;
   /** 022 — juicio del modelo al derivar por peticion_queja (¿hay malestar?).
    *  Se guarda el hecho, no la cola, para recalibrar sin perder histórico. */
   malestar: boolean | null;

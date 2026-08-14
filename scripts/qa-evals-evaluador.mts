@@ -272,6 +272,7 @@ const C1_FIX: Record<string, EntradaEvaluador> = {
     hilo: [E("¿Os llegó bien la transferencia que hice ayer?", 0)],
   }),
   C21: base({
+    diasHastaProximaCita: 5, // la cita de la semana que viene — la cuenta código
     hilo: [E("He hablado con mi cardiólogo y me dice que con el Sintrom igual no puedo hacerme la extracción de la semana que viene. ¿Lo veis vosotros?", 0)],
   }),
   C22: base({
@@ -335,6 +336,26 @@ const FAMILIA_C1: Record<string, string> = {
 };
 const LISTO_EXCLUIDOS = new Set(["C14", "C15", "C19"]); // lectura distinta, ANALISIS-C1
 
+// ─── REMAPEO DE VARA (decisiones de Simon, 2026-08-14) ─────────────────────
+// La anotación original NO se toca (R1.md/C1.md son su registro): el remapeo
+// vive aquí, documentado caso a caso.
+//  · Rechazo → caso_completo, no R (18, 39, C9 → S: el evaluador recoge el
+//    motivo y entrega; en el mapeo, la entrega no es R).
+//  · 1ª insistencia → umbral 2, no R (C16, C18 → A). Comprobado antes de
+//    remapear: en esos fixtures NO había `derivado` (aplazado ≠ derivado, el
+//    caso no estaba entregado) — es umbral, no no-reversión.
+//  · «No puedo pagar» → caso_completo con plan_pago anotado (C10 → A; y su
+//    ¿Listo? pasa a L: el dato decisivo está recogido).
+//  · IVA → SE APLAZA (dato_presupuesto) hasta que exista incluye_iva
+//    (MEJORAS 89): caso 1 → A. En dental el IVA depende del tratamiento y lo
+//    estético (lo caro) no está exento.
+//  · C21 (Sintrom) queda R: lo cubre `antecedente_medico` (migración 023).
+const REMAPEO_DECISION: Record<string, string> = {
+  "1": "A", "18": "S", "39": "S",
+  C9: "S", C10: "A", C16: "A", C18: "A",
+};
+const REMAPEO_LISTO: Record<string, string> = { C10: "L" };
+
 // ─── Mapeo resultado → letra ───────────────────────────────────────────────
 
 function letraDe(r: EvaluacionTurno): string {
@@ -374,7 +395,8 @@ if (solo !== "C") {
   for (const c of cargarR1()) {
     const fix = R1_FIX[Number(c.id)];
     if (!fix) continue;
-    trabajos.push({ id: c.id, familia: c.familia, esperado: c.esperado, entrada: entradaR1(fix, c.mensaje) });
+    const esperado = REMAPEO_DECISION[c.id] ?? c.esperado;
+    trabajos.push({ id: c.id, familia: `R1-${esperado}`, esperado, entrada: entradaR1(fix, c.mensaje) });
   }
 }
 if (solo !== "R") {
@@ -382,7 +404,13 @@ if (solo !== "R") {
   for (const [id, entrada] of Object.entries(C1_FIX)) {
     const v = vara.get(id);
     if (!v) continue;
-    trabajos.push({ id, familia: FAMILIA_C1[id], esperado: v.decision, esperadoListo: v.listo, entrada });
+    trabajos.push({
+      id,
+      familia: FAMILIA_C1[id],
+      esperado: REMAPEO_DECISION[id] ?? v.decision,
+      esperadoListo: REMAPEO_LISTO[id] ?? v.listo,
+      entrada,
+    });
   }
 }
 if (trabajos.length === 0) {
@@ -400,7 +428,12 @@ await Promise.all(
       const r = await evaluarTurno(t.entrada);
       const letra = letraDe(r);
       const puntuable = ["S", "A", "D", "R"].includes(t.esperado);
-      const listoActual = r.casoCompleto || t.entrada.objetivosAbiertos.length === 0;
+      // «Sin objetivo abierto» no es «listo» cuando queda algo por responder
+      // (corrección del 2026-08-14): solo cuenta como listo si además no se
+      // anotó nada este turno ni el caso se derivó.
+      const listoActual =
+        r.casoCompleto ||
+        (t.entrada.objetivosAbiertos.length === 0 && r.aplazamientos.length === 0 && r.decision !== "deriva");
       resultados.push({
         id: t.id, familia: t.familia, esperado: t.esperado, esperadoListo: t.esperadoListo,
         r, letra,

@@ -2734,3 +2734,17 @@ temporal del Sintrom; el IVA); (c) 2 artefactos del mapeo de ¿Listo? sin objeti
 MEDIDO: 2.143 tok entrada / 208 salida por turno → $0,0032/turno, ~$0,0095 por conversación de 3
 turnos (Haiku 4.5). Nada se ajusta hasta resolver (b) con Simon: ajustar contra una vara en
 conflicto consigo misma es optimizar a ciegas con extra pasos.
+
+## 2026-08-14 — Segunda pasada del evaluador: 92 % (58/63) tras remapeo e iteración
+Vara remapeada según las 5 decisiones de Simon (rechazo→caso_completo; 1ª insistencia→umbral 2,
+comprobado que los casos NO estaban derivados; «no puedo pagar»→caso_completo+plan_pago; IVA→se
+aplaza hasta incluye_iva; Sintrom→gana su letra). Migración 023: causa `antecedente_medico` — el
+modelo solo detecta la MENCIÓN (nunca valora gravedad), código cuenta la cita próxima (default 7
+días de clínica, configurable en fase D); sin cita, se anota duda_clinica con red de seguridad
+determinista. Prompt v2 contra el bloque (a): persona concreta, tono seco tras contratiempo,
+plan_pago en «no estoy para gastos», reglas de no_aplica, y regla dura clínica explícita (nada de
+afirmar dolor/resultado/seguridad aunque sea cierto en general). C1 entera al 24/24. Quedan 5
+fallos de decisión: 4 genuinos del modelo (33, 35, 49, y una REGRESIÓN en el 6 que además roza la
+regla dura) + el 16, que es la inconsistencia 3-vs-16 de la propia vara (retest pendiente). ¿Listo?
+19/21 — la extracción de no_aplica (C2, C7) es el candidato a subir de modelo. Coste medido v2:
+2.782/242 tok por turno → $0,004/turno.
