@@ -28,6 +28,7 @@
     "qa:evals:acuerdo": "tsx scripts/qa-evals-acuerdo.mts",
     "qa:evals-evaluador": "tsx scripts/qa-evals-evaluador.mts",
     "qa:juez": "tsx scripts/qa-juez-borrador.mts",
+    "qa:turno": "tsx scripts/qa-persistir-turno.mts",
     "verificar:produccion": "node scripts/verificar-produccion.mjs",
     "guard:rls": "node scripts/guard-service-role.mjs",
     "db:smoke-rls": "node scripts/db-smoke-rls.mjs"

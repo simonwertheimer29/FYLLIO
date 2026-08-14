@@ -61,7 +61,10 @@ export type EventoAutomatizacion =
   | "mensaje_enviado"
   | "aplazado"
   | "aplazado_resuelto"
-  | "derivado";
+  | "derivado"
+  /** 024 — los juicios de un turno evaluado. NO fija estado: es el registro
+   *  del juicio, y el estado se deriva de datos + derivado/asumido. */
+  | "evaluacion";
 
 /** Por qué el agente entregó el caso (022 + 023). Nada más deriva — lo demás
  *  se anota y la conversación sigue. `antecedente_medico` (023, caso Sintrom):

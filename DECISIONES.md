@@ -2780,3 +2780,15 @@ es una dimensión DISTINTA y hoy no dispara nada; si algún día debe hacerlo, s
 de seguimiento contada del log, no un juicio del modelo sobre el tono. Confirmado en corrida real:
 la vara sube el caso previsto (95 % en esa corrida; banda honesta 90-95 %). Nota: bajo esta regla,
 el 49 («opiniones de todo» → R por desgaste) merece revisión en un próximo retest.
+
+## 2026-08-14 — Paso 4: la persistencia del turno, con idempotencia estructural
+Migración 024: evento `evaluacion` (payload `evaluacion_json` con LOS JUICIOS del modelo: tema,
+petición/queja, malestar, urgencia, antecedente, campos recogidos, hiloTruncado, borradorDescartado
+y el borrador — aprobado para la vista de supervisión de la fase C) + `mensaje_id` con índice único
+parcial: una DOBLE ENTREGA no puede sumar dos aplazados de la misma clave, probado como prueba
+nominal en qa:turno (el contador de insistencia decide derivaciones; el dedup deja de vivir solo en
+el KV de 24 h). Nada derivable se persiste: listo, cola, en-manos y activo se calculan al leer. La
+proyección compat sobre `presupuestos` queda anotada como copia con fecha de muerte (MEJORAS 93: se
+retira en fase B). Fallback = sin eventos (no hubo juicio), solo la vía compat. QA completo en verde
+al primer intento: roundtrip del payload, doble entrega, contador que sí crece con mensaje nuevo,
+compat restaurable, fallback limpio.

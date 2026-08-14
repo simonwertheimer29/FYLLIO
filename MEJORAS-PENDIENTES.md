@@ -1711,3 +1711,15 @@ verdad: un editor, un vocabulario, un renderizador.
   la peor: contesta genérico como si no pasara nada.
 - **Impacto:** alto en cuanto el agente responda solo; hoy medio (el texto se revisa antes de enviar).
 - **Fecha:** 2026-08-12 · 🔵
+
+## 93. La proyección compat del evaluador sobre `presupuestos` — COPIA CON FECHA DE MUERTE
+- **Qué es:** `persistirTurno()` (fase A, paso 4) escribe en columnas de `presupuestos`
+  (`requiere_persona`, `motivo_quiebre`, `mensaje_sugerido`, `urgencia_intervencion`,
+  `accion_sugerida`, `fase_seguimiento`) además de en el log `eventos_automatizacion`. Existe SOLO
+  porque la bandeja, /red, las cohortes y la cola de intervención leen hoy esas columnas.
+- **La condición explícita:** SE RETIRA EN LA FASE B, cuando esas pantallas lean del log. No es una
+  segunda fuente: el log manda, y esta copia funciona — que es exactamente el tipo de duplicado que
+  sobrevive por inercia. La fase B no está terminada mientras esta proyección exista.
+- **Dónde:** `app/lib/agente/persistir-turno.ts` (proyectarCompatPresupuesto / Fallback).
+- **Impacto:** ninguno mientras la fase B no llegue; deuda estructural si la sobrevive.
+- **Fecha:** 2026-08-14 · 🔵

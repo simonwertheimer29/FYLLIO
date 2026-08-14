@@ -91,7 +91,10 @@ export interface Tabla_eventos_automatizacion {
     /** 022 — el agente entregó el caso a una persona. No se revierte: «en manos
      *  humanas» ⇔ EXISTS derivado/asumido/asumido_manual posterior al último
      *  cierre del caso. */
-    | "derivado";
+    | "derivado"
+    /** 024 — los juicios del modelo sobre un turno evaluado. Payload en
+     *  `evaluacion_json`; nada derivable se guarda. */
+    | "evaluacion";
   actor_id: string | null;
   actor_nombre: string | null;
   motivo_texto: string | null;
@@ -129,6 +132,12 @@ export interface Tabla_eventos_automatizacion {
   /** 022 — juicio del modelo al derivar por peticion_queja (¿hay malestar?).
    *  Se guarda el hecho, no la cola, para recalibrar sin perder histórico. */
   malestar: boolean | null;
+  /** 024 — solo en evento='evaluacion': los juicios del turno (JSON-string,
+   *  forma en lib/agente/persistir-turno.ts). */
+  evaluacion_json: string | null;
+  /** 024 — waba_message_id del mensaje evaluado. Con el índice parcial único
+   *  hace imposible que una doble entrega duplique aplazados. */
+  mensaje_id: string | null;
   created_at: Generated<Date>;
 }
 

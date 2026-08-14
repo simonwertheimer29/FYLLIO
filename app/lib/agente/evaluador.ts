@@ -88,6 +88,17 @@ export type EvaluacionTurno = {
   /** false ⇔ el caso ya es de una persona (no-reversión): ni modelo ni nada. */
   actuar: boolean;
   decision: "sigue" | "deriva";
+  /** Los JUICIOS crudos del modelo — lo que el paso 4 persiste tal cual
+   *  (evento `evaluacion`). Lo derivable (cola, listo, activo) NO viaja aquí
+   *  como verdad: se recalcula al leer. */
+  juicios?: {
+    tema: string;
+    peticionOQueja: boolean;
+    malestar: boolean;
+    urgenciaMedica: boolean;
+    mencionaAntecedenteMedico: boolean;
+    vuelveSobreAplazado: ClaveAplazado | null;
+  };
   causa?: CausaDerivacion;
   cola?: "prioritaria" | "normal";
   /** El HECHO que persiste la 022 (solo significativo con peticion_queja). */
@@ -538,6 +549,14 @@ export async function evaluarTurno(
   // > caso completo. Los aplazamientos anotados viajan igual — van a la ficha.
   const base = {
     actuar: true as const,
+    juicios: {
+      tema: juicio.tema,
+      peticionOQueja: juicio.peticionOQueja,
+      malestar: juicio.malestar,
+      urgenciaMedica: juicio.urgenciaMedica,
+      mencionaAntecedenteMedico: juicio.mencionaAntecedenteMedico,
+      vuelveSobreAplazado: juicio.vuelveSobreAplazado,
+    },
     objetivoActivo,
     aplazamientos,
     camposRecogidos: juicio.camposRecogidos,

@@ -91,6 +91,44 @@ export async function registrarEvento(args: RegistrarEventoArgs): Promise<void> 
 }
 
 /**
+ * Insert IDEMPOTENTE (024): mismo (cliente, evento, clave, mensaje_id) → una
+ * sola fila, y el reintento es un no-op declarado, no un error. Es lo que hace
+ * imposible que una doble entrega duplique aplazados — y el contador de
+ * insistencia DECIDE derivaciones, así que un duplicado derivaría un caso que
+ * no tocaba. Lanza si falla de verdad (§1); devuelve si insertó o ya estaba.
+ */
+export async function registrarEventoIdempotente(
+  args: RegistrarEventoArgs & { mensajeId: string; evaluacionJson?: string | null },
+): Promise<{ insertado: boolean }> {
+  const cliente = requireCliente("registrarEventoIdempotente");
+  const res = await runWithClienteDb(cliente, (trx) =>
+    trx
+      .insertInto("eventos_automatizacion" as never)
+      .values({
+        cliente,
+        tipo_caso: args.tipoCaso,
+        caso_id: args.casoId,
+        evento: args.evento,
+        actor_id: args.actorId ?? null,
+        actor_nombre: args.actorNombre ?? null,
+        motivo_texto: args.motivoTexto ?? null,
+        distancia_edicion: args.distanciaEdicion ?? null,
+        largo_sugerido: args.largoSugerido ?? null,
+        intencion: args.intencion ?? null,
+        clave_aplazado: args.claveAplazado ?? null,
+        causa_derivacion: args.causaDerivacion ?? null,
+        malestar: args.malestar ?? null,
+        evaluacion_json: args.evaluacionJson ?? null,
+        mensaje_id: args.mensajeId,
+      } as never)
+      .onConflict((oc) => oc.doNothing())
+      .execute(),
+  );
+  const n = Number(res?.[0]?.numInsertedOrUpdatedRows ?? 0);
+  return { insertado: n > 0 };
+}
+
+/**
  * Registra la medida de coincidencia de un envío. A DIFERENCIA de `registrarEvento`,
  * este NO lanza: el mensaje ya salió, y tumbar la respuesta de un envío correcto
  * porque no se pudo anotar una métrica sería cambiar un dato perdido por un envío
