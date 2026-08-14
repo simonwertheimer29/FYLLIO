@@ -2675,3 +2675,13 @@ quiere persona pronto cuando el caso se muere; (3) el caso del IVA → S implica
 general — ojo con la estética (no exenta), la solución limpia sigue siendo MEJORAS 89. Análisis
 completo en evals/anotaciones-4aria/ANALISIS-R1.md. Fuera puntuables: 4, 25, 46 (?) y 14, 20, 24
 (frontera), señalados como los ⊘.
+
+## 2026-08-14 — C1 anotada: 58 % de acuerdo, y los desacuerdos son seis reglas que el plan no tenía
+La tanda conversacional destapó lo que la de mensajes sueltos no podía: con el caso delante, Simon
+aplica reglas sistemáticas sin escribir — precio sin presupuesto emitido se contesta (no se aplaza);
+aplazar es prometer y la promesa transfiere el caso al asesor (insistencia 1ª → rompe); el pago roto
+es de persona y el dato que contradice al sistema se aclara dentro; la urgencia temporal rompe gane
+quien gane el tema; D es acompañar sin avanzar, no callar; y la firma en el portal entrega el
+objetivo aunque queden flecos. Detalle y casos en evals/anotaciones-4aria/ANALISIS-C1.md. Abiertas:
+la contradicción del embarazo (R1#9 A vs C13 D) y la redacción de «¿Listo?» para futuras tandas.
+Las seis reglas pasan a ser la especificación del evaluador cuando Simon las confirme.
