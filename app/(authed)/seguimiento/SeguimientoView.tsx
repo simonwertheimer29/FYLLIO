@@ -50,6 +50,7 @@ import {
 import { QueSeDetecta } from "../../components/automatizacion/QueSeDetecta";
 import { EstadoAutomatizacionPill } from "../../components/automatizacion/EstadoAutomatizacionPill";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
+import { CasosDelAgente } from "./CasosDelAgente";
 import { EmptyState } from "../../components/ui/Feedback";
 import { AlertTriangle, Inbox, ICON_STROKE } from "../../components/icons";
 import { toast } from "sonner";
@@ -210,6 +211,11 @@ export function SeguimientoView({
             onVerTodas={() => setSelectedClinicaId(null)}
           />
         )}
+
+        {/* Fase B (B2): lo que el agente ENTREGÓ y nadie resolvió — una línea
+            por caso; al abrirla, LA ficha (el mismo componente que Mensajería).
+            El aislamiento lo resuelve /api/agente/casos con la sesión. */}
+        <CasosDelAgente />
 
         {tab === "leads" ? (
           <LeadsTab

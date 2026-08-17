@@ -37,6 +37,8 @@ export type FichaCaso = {
   telefono: string;
   nombre: string;
   esPaciente: boolean;
+  /** Para el aislamiento del caller (mejor esfuerzo, del contexto). */
+  clinicaId: string | null;
   /** false = el agente NO ha evaluado este hilo (caso a): la ficha lo dice,
    *  no lo rellena. */
   evaluado: boolean;
@@ -185,6 +187,7 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
     telefono,
     nombre: ctx.nombre,
     esPaciente: ctx.pacienteId != null,
+    clinicaId: ctx.clinicaId ?? null,
     evaluado,
     espera:
       !sem.verde && sem.motivo === "espera" && sem.hasta

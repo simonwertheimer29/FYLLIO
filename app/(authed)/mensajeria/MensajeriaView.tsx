@@ -84,7 +84,12 @@ export function MensajeriaView() {
   const [cargandoLista, setCargandoLista] = useState(true);
   const [errorLista, setErrorLista] = useState<string | null>(null);
 
-  const [abierta, setAbierta] = useState<string | null>(null);
+  // B2: «Ver la conversación» desde la ficha de Seguimiento llega con
+  // ?telefono= — se abre ese hilo directamente (misma doctrina que ?filtro=:
+  // el enlace promete llegar a lo que enlaza). La clave es el string exacto
+  // del hilo, que el caller ya tiene de la ficha.
+  const telefonoDeUrl = params.get("telefono");
+  const [abierta, setAbierta] = useState<string | null>(telefonoDeUrl || null);
   const [hilo, setHilo] = useState<MensajeHilo[] | null>(null);
   const [cargandoHilo, setCargandoHilo] = useState(false);
   const [errorHilo, setErrorHilo] = useState<string | null>(null);
@@ -410,13 +415,9 @@ export function MensajeriaView() {
 
         {/* ── Derecha: el contexto ────────────────────────────────────── */}
         <aside className="hidden min-h-0 w-72 shrink-0 overflow-y-auto rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] lg:block">
-          <ContextoConversacion
-            conversacion={conversacion}
-            caso={caso}
-            cargandoCaso={cargandoCaso}
-            errorCaso={errorCaso}
-            recargarCaso={recargarCaso}
-          />
+          {/* B2: la ficha del caso sustituye al resumen viejo; el `caso` del
+              clasificador sigue alimentando SOLO al compositor (borrador). */}
+          <ContextoConversacion conversacion={conversacion} />
         </aside>
       </div>
     </div>

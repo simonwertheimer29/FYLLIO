@@ -38,6 +38,7 @@ export {
   CalendarClock,
   CalendarDays,
   CheckCircle2,
+  PauseCircle,
   ChevronDown,
   ChevronLeft,
   CircleDollarSign,

@@ -329,7 +329,9 @@ async function correr(r: Recorrido): Promise<boolean> {
 
   // Descartes del juez en este flujo — se acumulan para el % de la pasada
   // (métrica vigilada del 17-08: si sube, el generador se degrada).
-  for (const p of payloads) if (p.borradorDescartado) descartesPasada.push(p.borradorDescartado.motivo);
+  for (const [i, p] of payloads.entries())
+    if (p.borradorDescartado)
+      descartesPasada.push({ flujo: r.id, turno: i + 1, motivo: p.borradorDescartado.motivo, frase: p.borradorDescartado.frase });
   turnosPasada += payloads.length;
 
   const verde = fallos.length === 0;
@@ -520,8 +522,11 @@ clinicaId = clin.rows[0].id;
 const doc = await q(`select nombre from doctores_presupuestos limit 1`);
 doctorNombre = doc.rows[0]?.nombre ?? "Dra. Demo";
 
-// Acumuladores de la MÉTRICA VIGILADA (17-08): descartes del juez por pasada.
-const descartesPasada: string[] = [];
+// Acumuladores de la MÉTRICA VIGILADA (17-08): descartes del juez por
+// pasada, CON flujo, turno y frase — un descarte sin su frase no dice si es
+// el patrón del cobro o uno nuevo (se pagó el 17-08: la pasada borró los
+// payloads al limpiar y la frase se perdió).
+const descartesPasada: { flujo: string; turno: number; motivo: string; frase: string | null }[] = [];
 let turnosPasada = 0;
 
 // Filtro por id para diagnosticar un flujo suelto: npm run qa:recorridos -- R1 R3
@@ -548,12 +553,14 @@ console.log("\n  ✓ mini-mundos y eventos limpiados");
 
 // La métrica vigilada, en CADA pasada (orden del 17-08): si sube, el prompt
 // del generador se está degradando; si baja, el arreglo cala.
-const porMotivo = descartesPasada.reduce<Record<string, number>>((m, x) => ({ ...m, [x]: (m[x] ?? 0) + 1 }), {});
+const porMotivo = descartesPasada.reduce<Record<string, number>>((m, x) => ({ ...m, [x.motivo]: (m[x.motivo] ?? 0) + 1 }), {});
 console.log(
   `\n══ DESCARTES DEL JUEZ en la pasada: ${descartesPasada.length}/${turnosPasada} turnos (${turnosPasada ? Math.round((descartesPasada.length / turnosPasada) * 100) : 0} %)${
     descartesPasada.length ? ` · ${Object.entries(porMotivo).map(([k, n]) => `${k}=${n}`).join(" · ")}` : ""
   }`,
 );
+for (const d of descartesPasada)
+  console.log(`  [${d.flujo} · turno ${d.turno}] ${d.motivo}${d.frase ? ` · «${d.frase.slice(0, 110)}»` : ""}`);
 
 console.log(`\n══ RESULTADO: ${verdes}/${A_CORRER.length} recorridos en verde ══`);
 const sorpresas = resultados.filter((x) => (x.verde ? "verde" : "rojo") !== x.predicho);

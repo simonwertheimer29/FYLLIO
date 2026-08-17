@@ -2955,3 +2955,16 @@ Recorridos ganan la aserción de ficha en los 6 flujos + la MÉTRICA VIGILADA en
 (descartes del juez: 2/11 turnos, promesa=1 · datos_sensibles=1). B5 queda PREPARADO y PARADO:
 encender el evaluador es decisión de producto de Simon, no un refactor — si el clasificador viejo
 sigue vivo al llegar a B4, no es deuda, es que la decisión no está tomada.
+
+## 2026-08-17 — Fase B, B2: la ficha en pantalla — un componente, dos sitios, cero resúmenes dobles
+`FichaCasoPanel` (el componente ÚNICO, 5 bloques en el orden dictado, tokens y lucide) montado en
+DOS sitios: Seguimiento estrena «Casos del agente» — una línea por caso entregado (paciente · qué
+quiere · cuánto lleva), los viejos primero, despliegue a la ficha — y en Mensajería la ficha
+SUSTITUYE al resumen viejo del clasificador y a las tarjetas de datos (la columna no puede tener
+dos resúmenes); Contacto se queda arriba (identidad, no resumen) y «Ver ficha completa» como
+salida al detalle. Deep-link `?telefono=` en /mensajeria para el «Ver la conversación» de la
+ficha. El harness imprime ahora cada descarte CON flujo, turno y frase — y la primera pasada
+detallada destapó que los 2 descartes eran FALSOS POSITIVOS DEL JUEZ (mató el recordatorio
+genérico permitido en R6 y una pregunta de recogida en R2): el generador ya obedece; el que roza
+es el juez. Pendiente de OK para medir el ajuste (vara del juez). Recorridos 6/6 con aserción de
+ficha; iteración entera con QA determinista (regla de costes).
