@@ -2917,3 +2917,16 @@ lo que descarta: un aplazamiento tragado era una duda del paciente que no llegab
 El clasificador viejo queda FUERA a propósito (fecha de muerte, MEJORAS 94): invertir en él es
 tirar trabajo. El corte de raíz del patrón mayúsculas (normalización en el borde) va con
 diagnóstico aparte antes de ejecutarse.
+
+## 2026-08-17 — El corte de raíz: la etiqueta del modelo muere en el borde (mandamiento 19)
+La instancia no se arregla: se corta la clase. `etiquetas.ts` → `etiquetaDelModelo` canoniza (trim,
+minúsculas, sin acentos) contra el vocabulario UNA vez, en el parse (`parsearJuicio`, puro y
+exportado); aguas abajo solo circulan uniones canónicas — comparar sin normalizar es imposible por
+construcción, y el A-1 del barrido (`juicio.tema`, el bug de «CITA» vivo 90 líneas más arriba del
+fix) desaparece en vez de arreglarse. Lo descartado se CUENTA, no solo se avisa (orden del 17-08:
+nadie mira consola): viaja en `etiquetasDescartadas` del payload persistido y sale como número en
+el harness de evals — hoy: 0 en 69 turnos. `qa:parseo` es la vara determinista del borde (sin
+modelo, coste 0): mayúsculas, acentos, claves inventadas, fences. Mandamiento 19 en el skill con su
+checklist. Y un fleco medido de camino: el recuerdo genérico del cobro pasó de prompt a CÓDIGO
+(oscilaba entre volcarlo con cifra —el juez lo mataba— y omitirlo; como la respuesta de urgencia).
+Varas: recorridos 6/6 · vara vieja 95 % en banda · juez 24/24 · qa:parseo 16/16.

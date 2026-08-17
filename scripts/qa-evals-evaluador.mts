@@ -516,6 +516,16 @@ for (const x of descartes) {
 }
 if (descartes.length === 0) console.log("  (ninguno — el generador no infringió en esta pasada)");
 
+// ─── Etiquetas fuera de vocabulario (borde canónico, 17-08) ────────────────
+// El contable que pidió Simon: si el modelo empieza a devolver etiquetas
+// fuera de la lista, se ve AQUÍ en un número — y en producción, en el campo
+// etiquetasDescartadas del payload persistido de cada turno.
+const conEtiquetasMalas = resultados.filter((x) => x.r.etiquetasDescartadas?.length);
+const totalEtiquetas = resultados.reduce((s, x) => s + (x.r.etiquetasDescartadas?.length ?? 0), 0);
+console.log(`\n══ ETIQUETAS fuera de vocabulario (descartadas en el borde): ${totalEtiquetas} en ${conEtiquetasMalas.length}/${resultados.length} turnos`);
+for (const x of conEtiquetasMalas) console.log(`  [${x.id}] ${x.r.etiquetasDescartadas!.join(" · ")}`);
+if (totalEtiquetas === 0) console.log("  (ninguna — el modelo se mantiene en vocabulario)");
+
 // ─── Coste medido ──────────────────────────────────────────────────────────
 
 const conUso = resultados.filter((x) => x.r.usage);

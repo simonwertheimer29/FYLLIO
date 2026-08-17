@@ -45,6 +45,10 @@ export type PayloadEvaluacion = {
   /** 026 (aditivo) — la espera que fijó el turno, si la hubo. El evento
    *  espera_fijada es la verdad; aquí viaja para la supervisión. */
   esperaHasta?: string | null;
+  /** Aditivo (17-08) — etiquetas del modelo fuera de vocabulario descartadas
+   *  en el borde. CONTABLE como la tasa de descartes del juez: si sube, el
+   *  modelo deriva de su vocabulario y se ve en un número, no en consola. */
+  etiquetasDescartadas?: string[];
 };
 
 export type TurnoAPersistir = {
@@ -177,6 +181,7 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
     borradorDescartado: ev.borradorDescartado ?? null,
     respuesta: ev.respuesta,
     esperaHasta: ev.esperaHasta ?? null,
+    etiquetasDescartadas: ev.etiquetasDescartadas?.length ? ev.etiquetasDescartadas : undefined,
   };
   cuenta(
     await registrarEventoIdempotente({

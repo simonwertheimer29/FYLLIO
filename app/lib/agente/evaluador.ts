@@ -34,6 +34,7 @@ import {
 } from "../automatizacion/estado";
 import type { EtapaObjetivo, ObjetivoAgente } from "../automatizacion/objetivos";
 import { hoyISO } from "../time";
+import { etiquetaDelModelo } from "./etiquetas";
 
 /** Para la línea «HOY es…» del contexto (la espera necesita resolver «el
  *  viernes» a un día). getUTCDay() sobre las 12:00Z del día de clínica. */
@@ -132,6 +133,10 @@ export type EvaluacionTurno = {
    *  código: el caso pasa a una persona y manda ella, no una pausa). Un
    *  entrante de OTRA cosa no la levanta. */
   esperaLevantar: boolean;
+  /** Etiquetas del modelo fuera de vocabulario, descartadas en el borde
+   *  (etiquetas.ts) — CONTABLES en el payload como la tasa de descartes del
+   *  juez: si suben, el modelo está derivando de su vocabulario. */
+  etiquetasDescartadas: string[];
   camposRecogidos: CamposRecogidos;
   /** Claves del objetivo activo sin valor ni no_aplica. */
   camposFaltantes: string[];
@@ -413,7 +418,7 @@ type JuicioModelo = {
   respuesta: string;
 };
 
-const ETAPAS_VALIDAS: readonly string[] = ["cobro", "presupuesto", "cita", "identificar"];
+const ETAPAS_VALIDAS: readonly EtapaObjetivo[] = ["cobro", "presupuesto", "cita", "identificar"];
 
 /** Modelos admitidos. Haiku es el de producción; `sonnet` existe para MEDIR
  *  la comparación (pasada 3, 2026-08-14) — Sonnet corre con su comportamiento
@@ -429,7 +434,7 @@ async function juzgar(
   e: EntradaEvaluador,
   promptOverride?: string,
   modelo: ModeloEvaluador = "haiku",
-): Promise<{ juicio: JuicioModelo | null; usage?: EvaluacionTurno["usage"] }> {
+): Promise<{ juicio: JuicioModelo | null; descartes?: string[]; usage?: EvaluacionTurno["usage"] }> {
   const apiKey = process.env["ANTHROPIC_API_KEY"];
   if (!apiKey) return { juicio: null };
 
@@ -474,85 +479,107 @@ async function juzgar(
       (data.content as { type: string; text?: string }[] | undefined)
         ?.find((b) => b.type === "text")
         ?.text?.trim() ?? "";
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
+    const parseado = parsearJuicio(raw, mapa);
+    if (!parseado) {
       console.error("[evaluador] sin JSON en la respuesta:", raw.slice(0, 200));
       return { juicio: null, usage };
     }
-    const p = JSON.parse(jsonMatch[0]);
-
-    // Validación de forma: lo ilegible es fallback, no un default optimista.
-    const aplazamientos: { clave: ClaveAplazado; motivo: string }[] = [];
-    if (Array.isArray(p.aplazamientosNuevos)) {
-      for (const a of p.aplazamientosNuevos as unknown[]) {
-        const clave = typeof a === "object" && a !== null ? (a as { clave?: unknown }).clave : undefined;
-        const motivo = typeof a === "object" && a !== null ? (a as { motivo?: unknown }).motivo : undefined;
-        if (CLAVES_APLAZADO.includes(clave as ClaveAplazado) && typeof motivo === "string") {
-          aplazamientos.push({ clave: clave as ClaveAplazado, motivo: motivo.slice(0, 200) });
-        } else {
-          // §9: un aplazamiento descartado es una duda del paciente que no
-          // llega al asesor — se AVISA, nunca se traga (barrido 17-08, B-1).
-          console.warn(`[evaluador] aplazamiento del modelo descartado (clave o motivo ilegibles): ${JSON.stringify(a).slice(0, 120)}`);
-        }
-      }
-    }
-    const vuelve =
-      typeof p.vuelveSobreAplazado === "string" && CLAVES_APLAZADO.includes(p.vuelveSobreAplazado)
-        ? (p.vuelveSobreAplazado as ClaveAplazado)
-        : null;
-    const campos: CamposRecogidos = {};
-    if (typeof p.camposRecogidos === "object" && p.camposRecogidos !== null) {
-      for (const [etapaRaw, valores] of Object.entries(p.camposRecogidos as Record<string, unknown>)) {
-        // El render enseña los objetivos en MAYÚSCULAS («· CITA —») y el
-        // modelo devuelve la clave tal cual la vio: "CITA". Descartarla por
-        // case exacto vació camposRecogidos EN SILENCIO durante días (los
-        // recorridos R2/R3 lo destaparon el 17-08) — se normaliza, y lo que
-        // aun así no encaje se AVISA en vez de tragarse (§9/§12).
-        const etapa = etapaRaw.toLowerCase().trim();
-        if (!ETAPAS_VALIDAS.includes(etapa) || typeof valores !== "object" || valores === null) {
-          if (!ETAPAS_VALIDAS.includes(etapa))
-            console.warn(`[evaluador] camposRecogidos con etapa desconocida descartada: «${etapaRaw}»`);
-          continue;
-        }
-        const limpio: Record<string, string | null> = {};
-        for (const [k, v] of Object.entries(valores as Record<string, unknown>)) {
-          limpio[k] = v == null ? null : String(v).slice(0, 200);
-        }
-        campos[etapa as EtapaObjetivo] = limpio;
-      }
-    }
-
-    return {
-      juicio: {
-        tema: typeof p.tema === "string" ? p.tema : "ninguno",
-        urgenciaMedica: p.urgenciaMedica === true,
-        // Lado seguro asimétrico SOLO en lo que sube a persona: un flag
-        // ilegible no inventa una urgencia ni una queja (=== true), pero un
-        // borrador lo valida el descarte de abajo, no la confianza.
-        peticionOQueja: p.peticionOQueja === true,
-        malestar: p.malestar === true,
-        mencionaAntecedenteMedico: p.mencionaAntecedenteMedico === true,
-        vuelveSobreAplazado: vuelve,
-        aplazamientosNuevos: aplazamientos,
-        // Forma YYYY-MM-DD o nada — el tope y la validez temporal los pone
-        // evaluarTurno, que tiene el `hoy` inyectado.
-        esperaSolicitada:
-          typeof p.esperaSolicitada === "string" && /^\d{4}-\d{2}-\d{2}$/.test(p.esperaSolicitada)
-            ? p.esperaSolicitada
-            : null,
-        pideAccion: p.pideAccion === true,
-        respondeAlMotivoDeEspera: p.respondeAlMotivoDeEspera === true,
-        camposRecogidos: campos,
-        respuesta: desanonimizarTexto(String(p.respuesta ?? ""), mapa).slice(0, 1200),
-      },
-      usage,
-    };
+    return { juicio: parseado.juicio, descartes: parseado.descartes, usage };
   } catch (err) {
     console.error("[evaluador] juzgar error:", err instanceof Error ? err.message : err);
     return { juicio: null };
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+// ─── El parse: EL BORDE donde muere la etiqueta cruda ───────────────────────
+//
+// Exportado y PURO para que qa:parseo lo pruebe sin modelo. Toda etiqueta
+// pasa por etiquetaDelModelo (canónica o descarte CONTABLE); aguas abajo de
+// esta función no existe texto crudo del modelo — comparar sin normalizar es
+// imposible por construcción, no por disciplina (nos mordió dos veces en la
+// misma función el 17-08).
+
+const TEMAS_VALIDOS = ["cobro", "presupuesto", "cita", "identificar", "otro", "ninguno"] as const;
+
+export function parsearJuicio(
+  raw: string,
+  mapa?: Parameters<typeof desanonimizarTexto>[1],
+): { juicio: JuicioModelo; descartes: string[] } | null {
+  const jsonMatch = raw.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+  let p: any;
+  try {
+    p = JSON.parse(jsonMatch[0]);
+  } catch {
+    return null;
+  }
+  const descartes: string[] = [];
+
+  const aplazamientos: { clave: ClaveAplazado; motivo: string }[] = [];
+  if (Array.isArray(p.aplazamientosNuevos)) {
+    for (const a of p.aplazamientosNuevos as unknown[]) {
+      const claveCruda = typeof a === "object" && a !== null ? (a as { clave?: unknown }).clave : undefined;
+      const motivo = typeof a === "object" && a !== null ? (a as { motivo?: unknown }).motivo : undefined;
+      const clave = etiquetaDelModelo(claveCruda, CLAVES_APLAZADO, "aplazamiento.clave", descartes);
+      if (clave != null && typeof motivo === "string") {
+        aplazamientos.push({ clave, motivo: motivo.slice(0, 200) });
+      } else if (clave != null || claveCruda != null) {
+        // Clave válida sin motivo, o clave ilegible ya contada arriba: en
+        // ambos casos el aplazamiento se pierde y se deja constancia (§9 —
+        // es una duda del paciente que no llega al asesor).
+        if (clave != null) descartes.push(`aplazamiento.sin_motivo:${clave}`);
+        console.warn(`[evaluador] aplazamiento del modelo descartado: ${JSON.stringify(a).slice(0, 120)}`);
+      }
+    }
+  }
+
+  const campos: CamposRecogidos = {};
+  if (typeof p.camposRecogidos === "object" && p.camposRecogidos !== null) {
+    for (const [etapaRaw, valores] of Object.entries(p.camposRecogidos as Record<string, unknown>)) {
+      const etapa = etiquetaDelModelo(etapaRaw, ETAPAS_VALIDAS, "camposRecogidos.etapa", descartes);
+      if (etapa == null || typeof valores !== "object" || valores === null) continue;
+      const limpio: Record<string, string | null> = {};
+      for (const [k, v] of Object.entries(valores as Record<string, unknown>)) {
+        limpio[k] = v == null ? null : String(v).slice(0, 200);
+      }
+      campos[etapa] = limpio;
+    }
+  }
+
+  let esperaSolicitada: string | null = null;
+  if (typeof p.esperaSolicitada === "string" && p.esperaSolicitada.trim() !== "") {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(p.esperaSolicitada.trim())) {
+      esperaSolicitada = p.esperaSolicitada.trim();
+    } else {
+      // Una espera pedida con fecha ilegible se PIERDE (el agente volvería a
+      // escribir): contable, como toda etiqueta fuera de forma.
+      descartes.push(`esperaSolicitada:${String(p.esperaSolicitada).slice(0, 40)}`);
+      console.warn(`[evaluador] esperaSolicitada ilegible descartada: «${String(p.esperaSolicitada).slice(0, 40)}»`);
+    }
+  }
+
+  return {
+    juicio: {
+      tema: etiquetaDelModelo(p.tema, TEMAS_VALIDOS, "tema", descartes) ?? "ninguno",
+      urgenciaMedica: p.urgenciaMedica === true,
+      // Lado seguro asimétrico SOLO en lo que sube a persona: un flag
+      // ilegible no inventa una urgencia ni una queja (=== true), pero un
+      // borrador lo valida el descarte de abajo, no la confianza.
+      peticionOQueja: p.peticionOQueja === true,
+      malestar: p.malestar === true,
+      mencionaAntecedenteMedico: p.mencionaAntecedenteMedico === true,
+      vuelveSobreAplazado: etiquetaDelModelo(p.vuelveSobreAplazado, CLAVES_APLAZADO, "vuelveSobreAplazado", descartes),
+      aplazamientosNuevos: aplazamientos,
+      esperaSolicitada,
+      pideAccion: p.pideAccion === true,
+      respondeAlMotivoDeEspera: p.respondeAlMotivoDeEspera === true,
+      camposRecogidos: campos,
+      respuesta: mapa ? desanonimizarTexto(String(p.respuesta ?? ""), mapa).slice(0, 1200) : String(p.respuesta ?? "").slice(0, 1200),
+    },
+    descartes,
+  };
 }
 
 // ─── La decisión determinista ───────────────────────────────────────────────
@@ -570,6 +597,7 @@ export async function evaluarTurno(
       aplazamientos: [],
       esperaHasta: null,
       esperaLevantar: false,
+      etiquetasDescartadas: [],
       camposRecogidos: {},
       camposFaltantes: [],
       casoCompleto: false,
@@ -580,7 +608,7 @@ export async function evaluarTurno(
   }
 
   const { truncado } = renderEntrada(e);
-  const { juicio, usage } = await juzgar(e, opts?._promptOverride, opts?.modelo ?? "haiku");
+  const { juicio, descartes, usage } = await juzgar(e, opts?._promptOverride, opts?.modelo ?? "haiku");
 
   if (!juicio) {
     // Fail-closed compat: «no pude evaluar» no es una causa de derivación —
@@ -593,6 +621,7 @@ export async function evaluarTurno(
       aplazamientos: [],
       esperaHasta: null,
       esperaLevantar: false,
+      etiquetasDescartadas: [],
       camposRecogidos: {},
       camposFaltantes: [],
       casoCompleto: false,
@@ -604,6 +633,10 @@ export async function evaluarTurno(
   }
 
   // Objetivo activo: el tema si está abierto; si no, el de mayor precedencia.
+  // `juicio.tema` ya es CANÓNICO (parsearJuicio lo pasa por el borde de
+  // etiquetas.ts): esta comparación es constante-contra-constante — era la
+  // instancia viva del bug de «CITA» (barrido 17-08, A-1) y ya no puede
+  // reaparecer por construcción.
   const abiertas = e.objetivosAbiertos.map((o) => o.etapa);
   const objetivoActivo: EtapaObjetivo | null = (abiertas as string[]).includes(juicio.tema)
     ? (juicio.tema as EtapaObjetivo)
@@ -687,6 +720,7 @@ export async function evaluarTurno(
     // modelo, decisión de código). La regla 4 (el turno DERIVA → se levanta,
     // manda la persona) se aplica en cada retorno de derivación, explícita.
     esperaLevantar: e.esperaVigente != null && juicio.respondeAlMotivoDeEspera,
+    etiquetasDescartadas: descartes ?? [],
     camposRecogidos: juicio.camposRecogidos,
     camposFaltantes,
     casoCompleto,
@@ -756,6 +790,22 @@ export async function evaluarTurno(
       borradorDescartado = { motivo, frase: veredicto.frase };
       console.warn(`[evaluador] borrador descartado (${motivo}): «${veredicto.frase ?? "?"}»`);
     }
+  }
+
+  // EL RECUERDO DEL COBRO LO ESCRIBE CÓDIGO (17-08). Pedírselo al prompt
+  // oscilaba entre volcarlo CON cifra (y el juez lo mataba) y omitirlo. Como
+  // la respuesta de urgencia: el texto fijo, conforme al art. 9 (sin cifra,
+  // sin tratamiento), se añade cuando hay pendiente y la conversación va de
+  // otra cosa — y jamás sobre una plantilla de descarte ni un borrador que
+  // ya lo menciona.
+  if (
+    e.pendienteCobro > 0 &&
+    juicio.tema !== "cobro" &&
+    !borradorDescartado &&
+    respuestaFinal.trim() !== "" &&
+    !/pag|cobr|importe|pendiente/i.test(respuestaFinal)
+  ) {
+    respuestaFinal = `${respuestaFinal.trim()} Por cierto: tienes un pago pendiente con la clínica — administración te lo confirma cuando quieras, sin prisa.`;
   }
 
   if (antecedenteConCita) {

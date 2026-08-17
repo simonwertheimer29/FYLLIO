@@ -34,6 +34,7 @@
     "qa:entrante": "tsx scripts/qa-evaluador-entrante.mts",
     "qa:semaforo": "tsx scripts/qa-semaforo.mts",
     "qa:recorridos": "tsx scripts/qa-recorridos.mts",
+    "qa:parseo": "tsx scripts/qa-parseo.mts",
     "verificar:produccion": "node scripts/verificar-produccion.mjs",
     "guard:rls": "node scripts/guard-service-role.mjs",
     "db:smoke-rls": "node scripts/db-smoke-rls.mjs"

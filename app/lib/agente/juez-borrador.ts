@@ -21,6 +21,10 @@
 
 const TIMEOUT_MS = 10_000;
 
+import { etiquetaDelModelo } from "./etiquetas";
+
+const CATEGORIAS_JUEZ = ["clinica", "economica", "datos_sensibles"] as const;
+
 export type VeredictoJuez = {
   infringe: boolean;
   categoria: "clinica" | "economica" | "datos_sensibles" | null;
@@ -109,12 +113,11 @@ export async function juzgarBorrador(args: {
     if (!m) return null;
     const p = JSON.parse(m[0]);
     if (typeof p.infringe !== "boolean") return null;
-    const categoria =
-      p.categoria === "clinica" || p.categoria === "economica" || p.categoria === "datos_sensibles"
-        ? p.categoria
-        : null;
-    // §9: un veredicto que infringe con categoría ilegible se AVISA — el
-    // caller lo archiva como sin_categoria, jamás como una categoría real.
+    // Por el borde canónico (etiquetas.ts): «Clinica» o «económica» con
+    // acento son la misma categoría. Lo que no encaje → sin_categoria en el
+    // caller, con su warn contable aquí.
+    const descartesJuez: string[] = [];
+    const categoria = etiquetaDelModelo(p.categoria, CATEGORIAS_JUEZ, "juez.categoria", descartesJuez);
     if (p.infringe === true && categoria == null && p.categoria != null) {
       console.warn(`[juez-borrador] categoría ilegible en veredicto que infringe: «${String(p.categoria).slice(0, 60)}»`);
     }

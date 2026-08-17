@@ -300,6 +300,24 @@ lo declarado y que corra solo (`qa:tipos`, enganchado a `db:migrate`).
 > escribir el guard, la primera ejecución encontró **cuatro cosas sin tipo de esa misma semana**,
 > entre ellas una tabla que llevaba tres días usándose con `sql` crudo y un `any`.
 
+### 19. La etiqueta del modelo muere en el borde; aguas abajo solo circula lo canónico
+Comparar texto crudo del modelo contra texto fijo es el `DICC[x]` a pelo del §12, con el modelo en
+vez de la base: el tipo no garantiza nada, la coincidencia exacta menos, y el descarte es mudo. La
+regla tiene tres partes: **(a)** toda etiqueta que devuelve el modelo se canoniza UNA vez, en el
+parse (`lib/agente/etiquetas.ts` → `etiquetaDelModelo`: trim + minúsculas + sin acentos, contra su
+vocabulario) — aguas abajo solo existen uniones canónicas y comparar vuelve a ser
+constante-contra-constante; **(b)** lo que no encaje se descarta **CONTANDO** (`descartes` → el
+payload persistido del turno), no solo con un warn que nadie mira — si el modelo deriva de su
+vocabulario se ve en un número; **(c)** cada juicio nuevo añade su caso a `qa:parseo`, la vara
+determinista del borde (sin modelo, coste cero). Y de propina: los juicios se piden con
+`temperature: 0` y el esquema JSON del prompt enseña FORMA con huecos, nunca valores vacíos — en
+greedy el modelo calca el ejemplo.
+> **Nos lo enseñó:** el mismo bug DOS veces en la misma función (17-08): el render enseña «· CITA —»
+> en mayúsculas, el modelo devolvía la clave "CITA", y el parser la descartaba en silencio por case
+> exacto — `camposRecogidos` llegó vacío durante días y ningún recorrido entregaba. Se arregló la
+> instancia que mordió y quedó viva la de 90 líneas más arriba (`juicio.tema`), que eligió objetivos
+> equivocados hasta el barrido. La instancia no se arregla: se corta la clase.
+
 ## Checklist antes de dar por bueno un cambio de backend
 
 - [ ] ¿Todo "éxito" que comunico está **persistido antes** de comunicarse? (§1)
@@ -323,6 +341,7 @@ lo declarado y que corra solo (`qa:tipos`, enganchado a `db:migrate`).
 - [ ] Si el bug solo aparece ciertos días u horas, ¿el test **simula el reloj** en vez de confiar en cuándo se ejecute? (§16, §13)
 - [ ] Si el agente no puede contestar algo, ¿he mirado si **el dato existe** antes de tocar el prompt? ¿Y estoy tratando una consulta como si fuera una decisión? (§17)
 - [ ] Si escribí una migración, ¿la tabla o la columna está **declarada en los tipos**? (`npm run qa:tipos`) ¿Y estoy metiendo trabajo a mano en un archivo que un script reescribe? (§18)
+- [ ] Si añadí un juicio del modelo, ¿su etiqueta pasa por `etiquetaDelModelo` en el borde, su descarte **se cuenta**, y tiene su caso en `qa:parseo`? ¿La llamada fija `temperature` y el esquema del prompt enseña huecos, no valores vacíos? (§19)
 
 ## Cómo crece este skill
 
