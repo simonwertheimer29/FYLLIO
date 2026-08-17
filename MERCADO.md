@@ -89,6 +89,40 @@ podría usar solo** — aunque en la práctica la rellenemos nosotros en el alta
 La prueba de si se cumple es concreta y se puede hacer sin clientes: **dar de alta una clínica nueva
 entera sin abrir el editor**. Si no se puede, la configuración todavía no es un producto.
 
+### Posicionamiento — la orquesta invisible
+
+**Tesis del fundador, 17 de agosto de 2026.**
+
+El mercado vende agentes sueltos (la «recepcionista 24/7») o plataformas donde tú diseñas tu
+automatización (HubSpot + IA, Zolutium — §2.1). Ambos cobran un **peaje de entrada**: dinero, tiempo
+o experiencia para configurar. Nuestra posición: **ese peaje no existe.**
+
+- **La clínica no orquesta agentes ni ve agentes.** Ve resultados por proceso: leads contestados a
+  cualquier hora, presupuestos que no se enfrían, cobros perseguidos, y el dinero recuperado al mes.
+  La orquesta es nuestra y es invisible.
+- **No nos adaptamos a la clínica: llegamos sabidos.** El producto conoce el negocio dental antes
+  del onboarding — qué es un presupuesto frío, un no-show, un «me lo pienso». Configurar es darle
+  tus datos (precios, horarios, tono), no enseñarle tu negocio. Esto es lo que un CRM horizontal no
+  puede copiar sin rehacerse. (Es la otra cara de la condición dura de arriba: llegar sabido solo
+  vale si lo que queda por configurar cabe en una pantalla.)
+- **Frase de posicionamiento:** *«El CRM dental que trae la IA puesta. Tú pones tu clínica; la
+  orquesta ya trabaja.»*
+
+**Secuencia de expansión** (hipótesis — cada piloto valida la siguiente, no se adelanta):
+
+1. **WhatsApp**: captación + seguimiento + cobros (construido, fase A de
+   [`PLAN-AGENTE-OFENSIVO.md`](PLAN-AGENTE-OFENSIVO.md); sin datos de piloto aún).
+2. **Llamadas IA** — SOLO tras datos de recuperación del piloto WhatsApp.
+3. **Recall de higiene, reactivación de dormidos, confirmación de citas** — según pidan los pilotos.
+
+Regla de la secuencia: **una petición de un cliente es un dato; un patrón repetido es roadmap.** No
+se construye para uno.
+
+Y el **FOMO como táctica, no como promesa**: se genera enseñando resultados medidos de otros
+pilotos, nunca prometiendo capacidades que no corren aún. (Exige tener la medición: la métrica
+primera del agente — [`PLAN-AGENTE-OFENSIVO.md` §10](PLAN-AGENTE-OFENSIVO.md) — y la línea base
+congelada de [`LINEA-BASE-CIERRE.md`](LINEA-BASE-CIERRE.md) son la infraestructura de esta táctica.)
+
 ---
 
 ## 2 · Evidencia
