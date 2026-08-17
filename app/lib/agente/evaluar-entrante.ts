@@ -159,6 +159,12 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     diasHastaProximaCita,
     yaDerivado,
     hoy: e.hoy,
+    // Punto 5: si hay espera vigente, el modelo juzga si este entrante
+    // responde a su motivo; el levantamiento lo decide código.
+    esperaVigente:
+      !sem.verde && sem.motivo === "espera" && sem.hasta
+        ? { hasta: sem.hasta, motivo: sem.esperaMotivo ?? null }
+        : null,
   });
 
   if (!evaluacion.actuar) return;

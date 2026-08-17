@@ -61,6 +61,9 @@ export type EstadoSemaforo = {
   desde?: string;
   /** Solo en `espera`: hasta cuándo (YYYY-MM-DD, inclusive). */
   hasta?: string;
+  /** Solo en `espera`: la frase que la fijó — el MOTIVO que el evaluador
+   *  necesita para juzgar si un entrante «responde al motivo» (punto 5). */
+  esperaMotivo?: string | null;
 };
 
 type EventoSemaforo = {
@@ -69,6 +72,7 @@ type EventoSemaforo = {
   causa_derivacion: CausaDerivacion | null;
   objetivo_activo: EtapaObjetivo | null;
   hasta: Date | string | null;
+  motivo_texto: string | null;
   created_at: Date;
 };
 
@@ -91,7 +95,7 @@ const soloDigitos = (raw: string): string => raw.replace(/[^0-9]/g, "");
 async function cargarEventosSemaforo(): Promise<EventoSemaforo[]> {
   const cliente = requireCliente("cargarEventosSemaforo");
   const r: any = await runWithClienteDb(cliente, (trx) =>
-    sql`select caso_id, evento, causa_derivacion, objetivo_activo, hasta, created_at
+    sql`select caso_id, evento, causa_derivacion, objetivo_activo, hasta, motivo_texto, created_at
         from eventos_automatizacion
         where tipo_caso = 'conversacion'
           and evento in ('derivado','resuelto_manual','asumido_manual','soltado','espera_fijada','espera_levantada')
@@ -129,7 +133,7 @@ function derivarDeEventos(eventos: EventoSemaforo[], hoy: string): Omit<EstadoSe
   //     día de clínica (§13), inclusive: «hasta el viernes» cubre el viernes.
   const esperas = eventos.filter((e) => e.evento === "espera_fijada");
   const ultimaEspera = esperas[esperas.length - 1] ?? null;
-  let esperaVigente: { desde: string; hasta: string } | null = null;
+  let esperaVigente: { desde: string; hasta: string; motivo: string | null } | null = null;
   if (ultimaEspera?.hasta != null) {
     const levantadaDespues = eventos.some(
       (e) => e.evento === "espera_levantada" && e.created_at > ultimaEspera.created_at,
@@ -137,7 +141,7 @@ function derivarDeEventos(eventos: EventoSemaforo[], hoy: string): Omit<EstadoSe
     const hasta =
       ultimaEspera.hasta instanceof Date ? hoyISO(ultimaEspera.hasta) : String(ultimaEspera.hasta).slice(0, 10);
     if (!levantadaDespues && hasta >= hoy) {
-      esperaVigente = { desde: ultimaEspera.created_at.toISOString(), hasta };
+      esperaVigente = { desde: ultimaEspera.created_at.toISOString(), hasta, motivo: ultimaEspera.motivo_texto };
     }
   }
 
@@ -155,7 +159,14 @@ function derivarDeEventos(eventos: EventoSemaforo[], hoy: string): Omit<EstadoSe
     return { verde: false, motivo: "hilo_asumido", desde: ultimoAsumido.created_at.toISOString(), pendienteHechos: null };
   }
   if (esperaVigente) {
-    return { verde: false, motivo: "espera", desde: esperaVigente.desde, hasta: esperaVigente.hasta, pendienteHechos: null };
+    return {
+      verde: false,
+      motivo: "espera",
+      desde: esperaVigente.desde,
+      hasta: esperaVigente.hasta,
+      esperaMotivo: esperaVigente.motivo,
+      pendienteHechos: null,
+    };
   }
   return { verde: true, pendienteHechos: null };
 }

@@ -128,6 +128,23 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
     );
   }
 
+  // 2a · Levantamiento de la espera (punto 5): la persona respondió al
+  //      motivo, o el turno deriva y manda la persona. VA ANTES de una
+  //      posible espera nueva del mismo turno («ya está decidido... os
+  //      confirmo el jueves cuál»): levantar la vieja y fijar la nueva.
+  if (ev.esperaLevantar) {
+    cuenta(
+      await registrarEventoIdempotente({
+        tipoCaso: "conversacion",
+        casoId: t.telefono,
+        evento: "espera_levantada",
+        motivoTexto: ev.decision === "deriva" ? "el caso pasa a una persona" : "respondió al motivo de la espera",
+        actorNombre: "agente",
+        mensajeId: t.mensajeId,
+      }),
+    );
+  }
+
   // 2b · La espera (026): el paciente pidió tiempo con fecha concreta y el
   //      tope ya lo aplicó evaluarTurno. Suspende cadencias vía el semáforo;
   //      idempotente por mensaje como todo lo del turno.

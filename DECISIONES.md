@@ -2894,3 +2894,15 @@ enseña objetivos en MAYÚSCULAS («· CITA —»), el modelo devolvía la clave
 DESCARTABA EN SILENCIO por case exacto — camposRecogidos vacío durante días sin un solo aviso
 (§12: el fallback mudo). Normalizado + warning. Las tres las destapó la vara de flujos en una
 tarde; la de mensajes no podía verlas porque fija sus propias entradas.
+
+## 2026-08-17 — Fase B punto 5: la espera con las cuatro reglas — recorridos 6/6, vara vieja 97 %
+Las reglas dictadas, tal cual: (1) responder AL MOTIVO (dar la decisión) → `espera_levantada` — el
+modelo juzga «¿resuelve aquello?» con el motivo de la espera delante (el semáforo se lo pasa al
+evaluador); (2) fecha nueva → la espera SE MUEVE (espera_fijada nueva con los mismos candados);
+(3) otra cosa → la espera aguanta y el agente responde igual; (4) el turno DERIVA → se levanta en
+CÓDIGO, explícito en cada retorno de derivación — manda la persona, no una pausa. R5 verde con el
+ciclo entero (fijada viernes → movida mañana → levantada al aceptar → entrega, cadencia callada
+entre medias): **recorridos 6/6**. Vara vieja **97 % (61/63)**, su mejor registro — solo 35 y 49,
+el techo conocido. Nota operativa: correr las dos varas EN PARALELO comparte rate limit y tumba al
+evaluador a fallback — el harness de evals se negó a reportar («36/69 en fallback: no fiable»),
+que es §9 funcionando; las varas se corren en serie.

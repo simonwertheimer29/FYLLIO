@@ -418,7 +418,8 @@ const RECORRIDOS: Recorrido[] = [
       { entra: "Lo tengo que consultar, dame un par de días — el viernes os digo" },
       { cadencia: true }, // con la espera vigente: NADIE le escribe
       { entra: "Al final mañana os digo algo seguro, perdona" }, // la espera SE MUEVE
-      { entra: "Ya está decidido: adelante con la ortodoncia" }, // responde al motivo → se LEVANTA + entrega
+      { entra: "Ya está decidido: adelante con la ortodoncia" }, // responde al motivo → se LEVANTA
+      { entra: "Pagaría con tarjeta, y para la primera cita puedo el lunes por la tarde" }, // completa la rama acepta → entrega
     ],
     esperado: {
       derivaciones: { total: 1, causa: "caso_completo", cola: "normal" },
@@ -427,7 +428,7 @@ const RECORRIDOS: Recorrido[] = [
       esperas: { fijadas: 2, levantadas: 1 },
       enColaEnvios: 0,
     },
-    hoyDebeDar: "rojo", // movida y levantada-por-motivo no existen aún (reglas del 17-08)
+    hoyDebeDar: "verde", // VOLTEADO por fase B punto 5 (las cuatro reglas de la espera)
   },
   {
     id: "R6",

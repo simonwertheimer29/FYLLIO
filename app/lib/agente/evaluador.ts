@@ -87,6 +87,10 @@ export type EntradaEvaluador = {
    *  que el eval fije el instante. Default: hoyISO(). Resuelve la espera
    *  («el viernes» → fecha) y su tope. */
   hoy?: string;
+  /** La espera VIGENTE del hilo, si la hay (punto 5, reglas del 17-08). El
+   *  modelo juzga si el entrante RESPONDE AL MOTIVO; el código decide el
+   *  levantamiento. `motivo` = la frase que la fijó. */
+  esperaVigente?: { hasta: string; motivo: string | null } | null;
 };
 
 // ─── Salida ─────────────────────────────────────────────────────────────────
@@ -123,6 +127,11 @@ export type EvaluacionTurno = {
    *  el semáforo; el agente sigue contestando entrantes (responder no es
    *  contactar). */
   esperaHasta: string | null;
+  /** 026/punto 5 — la espera vigente SE LEVANTA este turno: la persona
+   *  respondió al motivo (juicio del modelo) o el turno DERIVA (regla de
+   *  código: el caso pasa a una persona y manda ella, no una pausa). Un
+   *  entrante de OTRA cosa no la levanta. */
+  esperaLevantar: boolean;
   camposRecogidos: CamposRecogidos;
   /** Claves del objetivo activo sin valor ni no_aplica. */
   camposFaltantes: string[];
@@ -259,6 +268,8 @@ LA FRONTERA, Y ES DONDE MÁS SE FALLA: queja ≠ insatisfacción. «Me parece ca
 - "otro": lo que no encaja, con el motivo claro.
 LAS REGLAS DEL DINERO (no se saltan): leer una política que ya existe se contesta; adaptarla a esta persona se anota. «¿Trabajáis con Sanitas?» se contesta; «¿cuánto me cubriría a mí?» se anota. «¿Cómo se puede pagar?» se contesta si el contexto lo dice; «¿me lo dejáis en cuatro plazos?» se anota. Y no tener un dato NO es motivo de parar: «te lo confirmamos enseguida» + anotarlo.
 
+━━ JUICIO "respondeAlMotivoDeEspera" — SOLO aplica si el contexto trae una ESPERA VIGENTE (la persona pidió tiempo). true si el último mensaje RESUELVE lo que dijo que iba a decidir — da la decisión: acepta, rechaza, «ya lo tengo claro». Posponer otra vez («mejor mañana os digo») NO es resolver: eso va en esperaSolicitada con la fecha nueva. Hablar de OTRA cosa tampoco lo es. Sin espera vigente en el contexto: false.
+
 ━━ JUICIO "pideAccion" — true si el último mensaje pide algo que exige que la CLÍNICA HAGA: dar o cambiar una cita, emitir una factura, que le llamen para un trámite, empezar un tratamiento. Preguntar información NO es pedir acción («¿abrís los sábados?» false; «dadme cita el sábado» true). Aceptar un presupuesto y querer empezar SÍ lo es.
 
 ━━ JUICIO "esperaSolicitada" — SOLO si la persona pide explícitamente tiempo con un plazo o una fecha CONCRETOS antes de volver a hablar («el viernes te digo», «dame dos semanas», «hasta después del puente no puedo», «te contesto a final de mes»), la fecha resultante en formato YYYY-MM-DD (usa la fecha de HOY del contexto para calcularla). Si no da plazo concreto («déjame pensarlo», «ya te diré») o no pide tiempo: null. NO la inventes ni la redondees: si dice «el viernes», es ese viernes.
@@ -287,6 +298,7 @@ RESPONDE EXCLUSIVAMENTE con un JSON válido con TODAS estas claves. El esquema d
   "vuelveSobreAplazado": <"clave"|null>,
   "aplazamientosNuevos": [<{"clave": "...", "motivo": "..."}...>],
   "pideAccion": <true|false>,
+  "respondeAlMotivoDeEspera": <true|false>,
   "esperaSolicitada": <"YYYY-MM-DD"|null>,
   "camposRecogidos": {<"etapa_abierta": {"clave_campo": "valor extraído del hilo" | null | "no_aplica"}...>},
   "respuesta": "<el borrador>"
@@ -344,6 +356,11 @@ export function renderEntrada(e: EntradaEvaluador): {
       ? `Pago pendiente que consta: ${eur(e.pendienteCobro)}`
       : "Pagos pendientes que consten: ninguno.",
   );
+  if (e.esperaVigente) {
+    lineas.push(
+      `ESPERA VIGENTE: la persona pidió que no se le contactara hasta el ${e.esperaVigente.hasta}${e.esperaVigente.motivo ? ` — dijo: ${e.esperaVigente.motivo}` : ""}. Tú respondes igualmente (responder no es contactar); juzga en "respondeAlMotivoDeEspera" si este mensaje RESUELVE aquello.`,
+    );
+  }
   lineas.push("");
   lineas.push(renderObjetivos(e.objetivosAbiertos));
   lineas.push("");
@@ -386,6 +403,9 @@ type JuicioModelo = {
    *  cambio, factura, llamada)? Alimenta la red del punto 2: sin objetivo
    *  que lo recoja, se deriva igualmente. */
   pideAccion: boolean;
+  /** Con espera vigente: ¿el mensaje RESUELVE su motivo (da la decisión)?
+   *  Posponer con fecha nueva NO es resolver (eso es esperaSolicitada). */
+  respondeAlMotivoDeEspera: boolean;
   camposRecogidos: CamposRecogidos;
   respuesta: string;
 };
@@ -517,6 +537,7 @@ async function juzgar(
             ? p.esperaSolicitada
             : null,
         pideAccion: p.pideAccion === true,
+        respondeAlMotivoDeEspera: p.respondeAlMotivoDeEspera === true,
         camposRecogidos: campos,
         respuesta: desanonimizarTexto(String(p.respuesta ?? ""), mapa).slice(0, 1200),
       },
@@ -544,6 +565,7 @@ export async function evaluarTurno(
       objetivoActivo: null,
       aplazamientos: [],
       esperaHasta: null,
+      esperaLevantar: false,
       camposRecogidos: {},
       camposFaltantes: [],
       casoCompleto: false,
@@ -566,6 +588,7 @@ export async function evaluarTurno(
       objetivoActivo: null,
       aplazamientos: [],
       esperaHasta: null,
+      esperaLevantar: false,
       camposRecogidos: {},
       camposFaltantes: [],
       casoCompleto: false,
@@ -656,6 +679,10 @@ export async function evaluarTurno(
     objetivoActivo,
     aplazamientos,
     esperaHasta,
+    // Regla 1 del punto 5: respondió al motivo → se levanta (juicio del
+    // modelo, decisión de código). La regla 4 (el turno DERIVA → se levanta,
+    // manda la persona) se aplica en cada retorno de derivación, explícita.
+    esperaLevantar: e.esperaVigente != null && juicio.respondeAlMotivoDeEspera,
     camposRecogidos: juicio.camposRecogidos,
     camposFaltantes,
     casoCompleto,
@@ -677,6 +704,7 @@ export async function evaluarTurno(
       decision: "deriva",
       causa: "urgencia",
       cola: colaDeDerivacion("urgencia", null),
+      esperaLevantar: e.esperaVigente != null, // regla 4: manda la persona
       respuesta,
     };
   }
@@ -730,6 +758,7 @@ export async function evaluarTurno(
       decision: "deriva",
       causa: "antecedente_medico",
       cola: colaDeDerivacion("antecedente_medico", null),
+      esperaLevantar: e.esperaVigente != null, // regla 4: manda la persona
       respuesta: respuestaFinal,
       borradorDescartado,
     };
@@ -741,6 +770,7 @@ export async function evaluarTurno(
       decision: "deriva",
       causa: "peticion_queja",
       cola: colaDeDerivacion("peticion_queja", juicio.malestar),
+      esperaLevantar: e.esperaVigente != null, // regla 4: manda la persona
       malestar: juicio.malestar,
       respuesta: respuestaFinal,
       borradorDescartado,
@@ -753,6 +783,7 @@ export async function evaluarTurno(
       decision: "deriva",
       causa: "insistencia",
       cola: colaDeDerivacion("insistencia", null),
+      esperaLevantar: e.esperaVigente != null, // regla 4: manda la persona
       respuesta: respuestaFinal,
       borradorDescartado,
     };
@@ -764,6 +795,7 @@ export async function evaluarTurno(
       decision: "deriva",
       causa: "caso_completo",
       cola: colaDeDerivacion("caso_completo", null),
+      esperaLevantar: e.esperaVigente != null, // regla 4: manda la persona
       respuesta: respuestaFinal,
       borradorDescartado,
     };
@@ -781,6 +813,7 @@ export async function evaluarTurno(
       decision: "deriva",
       causa: "caso_completo",
       cola: colaDeDerivacion("caso_completo", null),
+      esperaLevantar: e.esperaVigente != null, // regla 4: manda la persona
       respuesta: respuestaFinal,
       borradorDescartado,
     };
