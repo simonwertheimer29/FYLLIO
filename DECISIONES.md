@@ -2941,3 +2941,17 @@ una promesa) y el recuerdo del cobro en código se añade también sobre descart
 **31/31** (incluye «voy a coordinar» del recorrido como I12 y la MISMA frase limpia con entrega
 como L14) · recorridos 6/6 · evals 94 % en banda · descartes 13 % — tasa vigilada: el generador
 aún promete en turnos sigue y el juez lo suprime.
+
+## 2026-08-17 — Fase B, B1: la ficha del caso — una fuente, todo derivado, honesta sin evaluación
+`fichaDeCaso(telefono)` en lib + `GET /api/agente/ficha` (aislamiento = el mismo criterio que la
+bandeja: sesión manda, fail-closed, hilo sin clínica solo para rol de red). Todo derivado al leer:
+espera del semáforo (con la frase que la fijó), intentos contados de mensajes, «qué quiere»
+COMPUESTO POR CÓDIGO desde los campos recogidos (nunca un resumen generado), pendientes por la
+regla del posterior con la frase del paciente, y el cierre por el PACIENTE derivado de la firma del
+portal en el historial (`portal_aceptado/rechazado`) — distinguible de la entrega del agente sin
+migración. Caso a: sin evaluación, `evaluado:false` y quéQuiere null — ni blanco ni fingido.
+`qa:ficha` DETERMINISTA (fixtures a mano, cero modelo — regla de costes del 17-08): 17/17.
+Recorridos ganan la aserción de ficha en los 6 flujos + la MÉTRICA VIGILADA en cada pasada
+(descartes del juez: 2/11 turnos, promesa=1 · datos_sensibles=1). B5 queda PREPARADO y PARADO:
+encender el evaluador es decisión de producto de Simon, no un refactor — si el clasificador viejo
+sigue vivo al llegar a B4, no es deuda, es que la decisión no está tomada.

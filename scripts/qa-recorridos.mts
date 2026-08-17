@@ -39,6 +39,7 @@ import { semaforoDeContacto, type MotivoRojo } from "../app/lib/automatizacion/s
 import { colaDeDerivacion, type CausaDerivacion } from "../app/lib/automatizacion/estado";
 import { generarColaDelDia } from "../app/lib/presupuestos/generar-cola";
 import { hoyISO } from "../app/lib/time";
+import { fichaDeCaso } from "../app/lib/agente/ficha-caso";
 import type { PayloadEvaluacion } from "../app/lib/agente/persistir-turno";
 
 for (const v of ["SUPABASE_DB_URL_APP", "SUPABASE_DB_URL_ADMIN", "ANTHROPIC_API_KEY"]) {
@@ -308,6 +309,29 @@ async function correr(r: Recorrido): Promise<boolean> {
     ok(`filas en cola de envíos: ${e.enColaEnvios}`, enCola === e.enColaEnvios, `hay ${enCola}`);
   }
 
+  // ── LA FICHA (B1): coherente con el final del flujo, en todos los flujos ──
+  // La misma fuente que verán Seguimiento y Mensajería, afirmada contra lo
+  // que este recorrido dejó en el log.
+  const ficha = await fichaDeCaso(r.tel, { hoy });
+  ok("ficha: `evaluado` refleja el log", ficha.evaluado === payloads.length > 0);
+  ok(
+    "ficha: el semáforo de la ficha ES el del flujo",
+    (e.semaforo === "verde") === ficha.semaforo.verde &&
+      (e.semaforo === "verde" || ficha.semaforo.motivo === e.semaforo),
+  );
+  if (payloads.length > 0) {
+    ok("ficha: quéQuiere compuesto (nunca null con evaluación y objetivo)", ficha.objetivoActivo == null || ficha.queQuiere != null, ficha.queQuiere ?? "null");
+  }
+  ok(
+    "ficha: la espera de arriba coincide con el semáforo",
+    (ficha.semaforo.motivo === "espera") === (ficha.espera != null),
+  );
+
+  // Descartes del juez en este flujo — se acumulan para el % de la pasada
+  // (métrica vigilada del 17-08: si sube, el generador se degrada).
+  for (const p of payloads) if (p.borradorDescartado) descartesPasada.push(p.borradorDescartado.motivo);
+  turnosPasada += payloads.length;
+
   const verde = fallos.length === 0;
   if (!verde) {
     // Diagnóstico del rojo: qué juzgó el modelo turno a turno (§9 — un rojo
@@ -496,6 +520,10 @@ clinicaId = clin.rows[0].id;
 const doc = await q(`select nombre from doctores_presupuestos limit 1`);
 doctorNombre = doc.rows[0]?.nombre ?? "Dra. Demo";
 
+// Acumuladores de la MÉTRICA VIGILADA (17-08): descartes del juez por pasada.
+const descartesPasada: string[] = [];
+let turnosPasada = 0;
+
 // Filtro por id para diagnosticar un flujo suelto: npm run qa:recorridos -- R1 R3
 const filtro = process.argv.slice(2).filter((a) => /^R\d+$/i.test(a));
 const A_CORRER = filtro.length ? RECORRIDOS.filter((r) => filtro.includes(r.id)) : RECORRIDOS;
@@ -517,6 +545,15 @@ await runWithCliente("DEMO", async () => {
 
 await limpiar();
 console.log("\n  ✓ mini-mundos y eventos limpiados");
+
+// La métrica vigilada, en CADA pasada (orden del 17-08): si sube, el prompt
+// del generador se está degradando; si baja, el arreglo cala.
+const porMotivo = descartesPasada.reduce<Record<string, number>>((m, x) => ({ ...m, [x]: (m[x] ?? 0) + 1 }), {});
+console.log(
+  `\n══ DESCARTES DEL JUEZ en la pasada: ${descartesPasada.length}/${turnosPasada} turnos (${turnosPasada ? Math.round((descartesPasada.length / turnosPasada) * 100) : 0} %)${
+    descartesPasada.length ? ` · ${Object.entries(porMotivo).map(([k, n]) => `${k}=${n}`).join(" · ")}` : ""
+  }`,
+);
 
 console.log(`\n══ RESULTADO: ${verdes}/${A_CORRER.length} recorridos en verde ══`);
 const sorpresas = resultados.filter((x) => (x.verde ? "verde" : "rojo") !== x.predicho);
