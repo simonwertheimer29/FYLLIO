@@ -2930,3 +2930,14 @@ modelo, coste 0): mayúsculas, acentos, claves inventadas, fences. Mandamiento 1
 checklist. Y un fleco medido de camino: el recuerdo genérico del cobro pasó de prompt a CÓDIGO
 (oscilaba entre volcarlo con cifra —el juez lo mataba— y omitirlo; como la respuesta de urgencia).
 Varas: recorridos 6/6 · vara vieja 95 % en banda · juez 24/24 · qa:parseo 16/16.
+
+## 2026-08-17 — Fase B punto 3: la cuarta regla dura — no prometer sin entregar
+El juez recibe «ESTE TURNO ENTREGA: sí/no» (código: deriva ∨ anota; fijar una espera NO es entrega
+— nadie llama el jueves) y descarta promesas de TERCEROS sin entrega. La frontera se calibró con
+los FP de la primera pasada, por QUIÉN hace la acción: pedir a la persona no es prometer; invitar a
+valoración es el trabajo; lo que el agente hace en el chat es suyo; solo infringe el compromiso de
+que un tercero inicie acción. La plantilla neutra dejó de prometer («te lo confirma el equipo» era
+una promesa) y el recuerdo del cobro en código se añade también sobre descartes. Vara del juez
+**31/31** (incluye «voy a coordinar» del recorrido como I12 y la MISMA frase limpia con entrega
+como L14) · recorridos 6/6 · evals 94 % en banda · descartes 13 % — tasa vigilada: el generador
+aún promete en turnos sigue y el juez lo suprime.

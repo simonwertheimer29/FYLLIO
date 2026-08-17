@@ -154,7 +154,7 @@ export type EvaluacionTurno = {
     /** `sin_categoria` = el juez dijo INFRINGE pero su categoría llegó
      *  ilegible. Antes se archivaba como «clinica» (barrido del 17-08, B-2)
      *  y contaminaba la única métrica que detecta un generador degradado. */
-    motivo: "clinica" | "economica" | "datos_sensibles" | "sin_categoria" | "juez_no_respondio";
+    motivo: "clinica" | "economica" | "datos_sensibles" | "promesa" | "sin_categoria" | "juez_no_respondio";
     frase: string | null;
   };
   /** El modelo no contestó o contestó ilegible: fail-closed compat
@@ -293,6 +293,7 @@ Si la persona corrigió un dato, vale el último.
 
 ━━ JUICIO "respuesta" — el borrador del mensaje de este turno. 2-4 frases, tono cálido y profesional, sin emojis, solo el primer nombre. Contesta lo que preguntó; si anotaste algo, di que se lo confirma un asesor enseguida; si falta un campo del objetivo, pregunta UNO — y a un paciente de la clínica NO le preguntes su nombre: ya consta. Si anotaste "duda_clinica": ACOMPAÑA — tranquiliza y remite al doctor — y NO empujes al cierre en ese mensaje.
 Si el contexto trae un PAGO PENDIENTE y la conversación va de otra cosa, ciérralo con UNA frase genérica de recuerdo — «por cierto, tienes un pago pendiente; administración te lo confirma» — sin cifra y sin tratamiento (la regla de abajo).
+Y NO PROMETAS ACCIONES DE LA CLÍNICA («te contactamos», «lo coordino con el equipo», «te llamamos») salvo que ESTE turno anote un pendiente o el caso se esté entregando — si solo conversas o la persona pidió tiempo, despídete sin comprometer contacto: «aquí estamos cuando lo tengas», «escríbenos cuando quieras».
 REGLAS QUE NO SE SALTAN: solo puedes afirmar datos que estén en el contexto. NUNCA prometas precios, descuentos, plazos ni condiciones de pago que no estén en el contexto. Y NUNCA afirmes NADA sobre dolor, resultado, duración, riesgos o seguridad de un tratamiento — AUNQUE SEA CIERTO EN GENERAL: «se hace con anestesia y no duele», «no suele dar problemas», «es muy seguro» son garantías clínicas en nombre de la clínica y NO son tuyas. Acompañar es calmar y remitir al doctor («es una duda muy normal; el doctor te lo explica en tu caso»), no tranquilizar con un hecho clínico.
 Y LA REGLA DEL DATO NO PEDIDO (protección de datos de salud — un revisor DESCARTA el borrador entero si la incumples): cuando el contexto traiga un pago pendiente o un presupuesto que la persona NO ha preguntado en su último mensaje, la ÚNICA forma permitida de recordárselo es en genérico: «tienes un pago pendiente; administración te lo confirma» — JAMÁS la cifra, JAMÁS el tratamiento. Escribir «te quedan 600 €» o «del implante» sin que lo pregunte tira tu borrador entero. Si la persona SÍ pregunta por su importe o su tratamiento, contestarle con el dato es correcto.
 
@@ -764,12 +765,23 @@ export async function evaluarTurno(
   let borradorDescartado: EvaluacionTurno["borradorDescartado"];
   if (respuestaFinal.trim() !== "") {
     // La regla 3 del juez (datos sensibles NO PEDIDOS) necesita saber qué
-    // pidió la persona: el último Entrante del hilo.
+    // pidió la persona; la 4 (promesa sin entrega), si ESTE turno entrega.
+    // «Entrega» = deriva por cualquier causa o anota un pendiente que
+    // alguien verá. Fijar una espera NO es entrega: nadie va a llamar el
+    // jueves (el caso real del recorrido del 17-08).
     const ultimoEntrante = [...e.hilo].reverse().find((m) => m.direccion === "Entrante")?.contenido ?? "";
+    const turnoEntrega =
+      aplazamientos.length > 0 ||
+      antecedenteConCita ||
+      juicio.peticionOQueja ||
+      insiste ||
+      casoCompleto ||
+      (juicio.pideAccion && objetivoActivo == null);
     const veredicto = await juzgarBorrador({
       borrador: respuestaFinal,
       datosQueConstan,
       ultimoMensaje: ultimoEntrante,
+      turnoEntrega,
     });
     if (veredicto?.usage && base.usage) {
       base.usage = {
@@ -798,10 +810,12 @@ export async function evaluarTurno(
   // sin tratamiento), se añade cuando hay pendiente y la conversación va de
   // otra cosa — y jamás sobre una plantilla de descarte ni un borrador que
   // ya lo menciona.
+  // También sobre la plantilla de un descarte: el texto añadido es fijo y
+  // conforme (sin cifra, sin tratamiento) — el recuerdo no se pierde porque
+  // el juez tirara el resto del borrador.
   if (
     e.pendienteCobro > 0 &&
     juicio.tema !== "cobro" &&
-    !borradorDescartado &&
     respuestaFinal.trim() !== "" &&
     !/pag|cobr|importe|pendiente/i.test(respuestaFinal)
   ) {

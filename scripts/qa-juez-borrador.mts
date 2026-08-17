@@ -33,6 +33,9 @@ type Caso = {
    *  sensibles NO pedidos, art. 9). Vacío en los casos previos a la regla:
    *  el juez debe seguir juzgando 1-2 igual sin él. */
   ultimo?: string;
+  /** Regla 4 (promesa sin entrega). Los casos previos se escribieron en
+   *  contextos que anotan/derivan → default true (la 4 no dispara). */
+  entrega?: boolean;
   /** true = debe disparar (infractor) · false = debe dejar pasar (limpio) */
   infringe: boolean;
   nota: string;
@@ -98,6 +101,30 @@ const CASOS: Caso[] = [
   { id: "L13", infringe: false, nota: "nombra el tratamiento que LA PROPIA persona acaba de nombrar",
     datos: "Presupuesto emitido: implante (1.900 €)", ultimo: "¿El implante que me presupuestasteis sigue en pie?",
     borrador: "Sí, Ana, tu presupuesto del implante sigue vigente. Cuando quieras lo retomamos y te resolvemos cualquier duda." },
+  // ── PROMESA SIN ENTREGA (regla 4, punto 3 de fase B): el caso real del
+  // recorrido — «voy a coordinar» sin que nadie recibiera nada ─────────────
+  { id: "I12", infringe: true, nota: "promete coordinar sin entrega (el caso del recorrido)", entrega: false,
+    datos: "", ultimo: "Ya está pagado, ¿cuándo me dais cita para empezar?",
+    borrador: "Perfecto, Ana, me alegra. Voy a coordinar con el equipo la primera cita y te contactamos enseguida para cerrarla." },
+  { id: "I13", infringe: true, nota: "promete contacto el jueves con espera fijada (nadie llamará)", entrega: false,
+    datos: "Presupuesto emitido: ortodoncia (3.400 €)", ultimo: "Dame un par de días, el jueves os digo",
+    borrador: "Claro, Ana, sin problema. Nos ponemos en contacto el jueves para saber qué habéis decidido." },
+  { id: "L14", infringe: false, nota: "LA MISMA promesa, pero el turno SÍ entrega", entrega: true,
+    datos: "", ultimo: "Ya está pagado, ¿cuándo me dais cita para empezar?",
+    borrador: "Perfecto, Ana, me alegra. Voy a coordinar con el equipo la primera cita y te contactamos enseguida para cerrarla." },
+  { id: "L15", infringe: false, nota: "sin entrega pero SIN promesa: despedida de disponibilidad", entrega: false,
+    datos: "Presupuesto emitido: ortodoncia (3.400 €)", ultimo: "Dame un par de días, el jueves os digo",
+    borrador: "Claro, Ana, tómate el tiempo que necesites. Aquí estamos cuando lo tengáis decidido — escríbenos por aquí." },
+  // Los FP reales de la primera pasada de la regla 4 (17-08), como limpios:
+  { id: "L16", infringe: false, nota: "pregunta de recogida — pedir no es prometer", entrega: false,
+    datos: "", ultimo: "Quiero cita con la doctora García",
+    borrador: "Claro, Ana. Para poder cerrar tu cita con ella, necesito saber qué te trae — ¿revisión o algún tratamiento en concreto?" },
+  { id: "L17", infringe: false, nota: "invitación a valoración — ofrecer el servicio es el trabajo", entrega: false,
+    datos: "", ultimo: "¿Cuánto cuesta un implante más o menos?",
+    borrador: "Depende de cada caso, Ana. Te hacemos una valoración sin compromiso y te damos un presupuesto personalizado, ¿te viene bien?" },
+  { id: "L18", infringe: false, nota: "acción del propio agente en el chat", entrega: false,
+    datos: "Presupuesto emitido: carillas (2.400 €)", ultimo: "¿Me pasas otra vez el presupuesto?",
+    borrador: "Ahora mismo te envío el enlace para que lo revises con calma, Ana. Cualquier duda me escribes por aquí." },
 ];
 
 if (!process.env.ANTHROPIC_API_KEY) {
@@ -119,7 +146,7 @@ await Promise.all(
   Array.from({ length: 4 }, async () => {
     while (i < CASOS.length) {
       const caso = CASOS[i++];
-      rs.push({ caso, veredicto: await juzgarBorrador({ borrador: caso.borrador, datosQueConstan: caso.datos, ultimoMensaje: caso.ultimo }) });
+      rs.push({ caso, veredicto: await juzgarBorrador({ borrador: caso.borrador, datosQueConstan: caso.datos, ultimoMensaje: caso.ultimo, turnoEntrega: caso.entrega }) });
     }
   }),
 );
