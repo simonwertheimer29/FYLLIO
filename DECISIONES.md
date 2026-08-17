@@ -2968,3 +2968,20 @@ detallada destapó que los 2 descartes eran FALSOS POSITIVOS DEL JUEZ (mató el 
 genérico permitido en R6 y una pregunta de recogida en R2): el generador ya obedece; el que roza
 es el juez. Pendiente de OK para medir el ajuste (vara del juez). Recorridos 6/6 con aserción de
 ficha; iteración entera con QA determinista (regla de costes).
+
+## 2026-08-17 — Fase B, P1: la cola de Seguimiento — CUATRO cohortes que no crecen
+Corrección de fondo dictada: las cohortes son las cuatro del §3 (Necesita respuesta · Listos para
+cerrar · Pendientes de resolver · Sin actividad) y TODO lo demás es filtro — cada cohorte vieja cae
+en una de las cuatro o se vuelve detalle, ninguna sobrevive como categoría. `lib/seguimiento/cola`:
+`cohorteDeCaso` PURA (guardas en el orden del §3 + residual + `never` de totalidad) y
+`colaDeSeguimiento` fusionando tres orígenes (presupuestos > leads por teléfono, + casos de
+conversación del agente) con el clasificador viejo vía su función REAL (no réplica). Decisiones
+dictadas dentro: paciente-escribió → Necesita respuesta; nuevos y CITADOS → Sin actividad —
+citados CON CONDICIÓN ANOTADA: se quedan hasta que exista la pantalla que recoja
+confirmar/recordar; «Casos del agente» desaparece como sección (entregado caso_completo → Listos;
+resto de causas → Necesita respuesta). Cabecera de dinero PARADO solo con hechos: € de presupuestos
+abiertos, leads CONTADOS (no llevan importe en datos — valorarlos sería inventar), caso más viejo.
+`qa:cola` 23/23 determinista (partición, precedencias, censo contra SQL, fixtures del log). La lib
+vieja sigue intacta para LeadsView/Intervención//red hasta P4. UNA interpretación mía señalada: el
+dictado «en conversación → Necesita respuesta» se aplicó por su RAZÓN (paciente esperando = trabajo)
+— en_espera_paciente (esperamos nosotros) va a Sin actividad, no a Necesita.
