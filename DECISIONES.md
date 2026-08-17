@@ -2812,3 +2812,17 @@ solo pasaba a final de mes). Arreglos: autoría en el volumen, y el peso del mes
 por días transcurridos (ratio 1,33 constante, corras el día que corras). Aviso: el salto quedó en
 ×2,0 justo en el tope — si vuelve a saltar otro día, lo siguiente es repartir también el volumen.
 La lección es la §13 de siempre, esta vez dentro del propio seed.
+
+## 2026-08-17 — Herramienta `demo:entrante`: ver el agente sin pedir un informe
+Simular un entrante en la DEMO era imposible (el webhook exige firma de Meta y solo mapea el número
+de RB — la DEMO es inalcanzable por diseño). `npm run demo:entrante` hace la MISMA secuencia que el
+webhook con el interruptor encendido (registrar mensaje + evaluar) y cuenta el resultado en frases;
+interruptores por clínica incluidos. Documentado en `DEMO-ENTRANTE.md`. El criterio: el fundador
+comprueba el agente por sí mismo — la herramienta lee el LOG persistido, no variables en memoria.
+
+## 2026-08-17 — Trampa del pooler: `set_config` de sesión + RLS = lecturas vacías en silencio
+La primera versión de `demo-entrante` leía el log recién escrito, volvía vacío, y pintaba un «el
+evaluador no pudo evaluar» FALSO con la evaluación bien persistida. Causa: `SUPABASE_DB_URL_APP` va
+por el pooler en modo transacción (6543); un `set_config('app.cliente',...,false)` de sesión no
+sobrevive entre queries y RLS filtra todo sin error. Regla: consulta directa ⇒ su transacción con
+`set_config(..., true)`. Dos QA llevan el patrón frágil y pasan por suerte (MEJORAS 95).

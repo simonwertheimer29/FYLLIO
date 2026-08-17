@@ -434,6 +434,9 @@ type PresupuestoInfo = {
 // El match de lead activo por teléfono (Sprint 9 fix unificación) vive ahora
 // en lib/leads/leads → buscarLeadActivoPorTelefono (FASE 1 migración).
 
+// OJO: scripts/demo-entrante.mts lleva una COPIA del matching de esta función
+// (no está exportada para no acoplar la ruta a un script). Si cambia aquí,
+// cambiarla allí.
 async function buscarPresupuestoPorTelefono(telefonoNormalizado: string): Promise<PresupuestoInfo | null> {
   // Buscar el teléfono en Paciente_Telefono o Teléfono, comparando normalizado.
   // El telefonoNormalizado ya es sin símbolos; FIND busca literal contra texto,

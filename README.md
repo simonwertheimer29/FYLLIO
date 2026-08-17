@@ -24,6 +24,7 @@ Se mantienen a mano y hay que leerlos antes de tocar su terreno:
 | [`PLAN-AGENTE-OFENSIVO.md`](PLAN-AGENTE-OFENSIVO.md) | **Cómo se comporta** el agente: de reactivo (sabe callarse) a orientado a objetivo (sabe qué persigue), y lo que arrastra en mensajería, seguimiento y configuración. **Plan de producto, no hoja de ruta comprometida.** Sus fases A-F corren en modo A, así que no esperan a Meta | Cuando cambie el modelo del agente |
 | [`REUNION-RB-DENTAL.md`](REUNION-RB-DENTAL.md) | El guion de la reunión con el cliente piloto: qué preguntar, en qué orden, qué hipótesis cierra cada pregunta, y los pendientes de onboarding | Antes de cada reunión, y el mismo día después |
 | [`guion-demo-fyllio.md`](guion-demo-fyllio.md) | Cómo se enseña el producto: el hilo narrativo, qué pantalla en qué orden, qué NO se enseña y qué responder a las preguntas que van a hacer | Cuando cambie el producto que se demuestra |
+| [`DEMO-ENTRANTE.md`](DEMO-ENTRANTE.md) | Cómo **ver el agente funcionando** en la DEMO sin depender de nadie: `npm run demo:entrante` — interruptores por clínica, simular un entrante, dónde mirar cada resultado y los 4 casos de prueba | Cuando cambie el evaluador o sus pantallas |
 | [`AUDITORIA_FABLE.md`](AUDITORIA_FABLE.md) | La auditoría técnica de julio de 2026 y su tabla de fiabilidad (S1-S12) | Congelado; es referencia histórica |
 
 Y las **investigaciones externas**, que son fotos fechadas y **no se editan** — cuando haya

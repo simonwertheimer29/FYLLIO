@@ -11,6 +11,7 @@
     "clean": "rm -rf .next",
     "dev:fresh": "rm -rf .next && next dev",
     "demo:reset": "node scripts/db-seed-demo-rico.mjs",
+    "demo:entrante": "tsx scripts/demo-entrante.mts",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:migrate:dry": "node scripts/db-migrate.mjs --dry",
     "db:password": "node scripts/db-password.mjs",

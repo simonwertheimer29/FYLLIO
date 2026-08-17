@@ -1734,3 +1734,16 @@ verdad: un editor, un vocabulario, un renderizador.
   `configuracion_automatizaciones` + un período de observación sin sustos.
 - **Dónde:** `app/api/webhooks/whatsapp/route.ts` (rama OFF) + `lib/presupuestos/intervencion.ts`.
 - **Fecha:** 2026-08-14 · 🔵
+
+## 95. QA sobre el pooler: `set_config` de sesión no es fiable
+- **Qué es:** `qa-evaluador-entrante.mts` y `qa-persistir-turno.mts` fijan `app.cliente` con un
+  `set_config(..., false)` de sesión sobre `SUPABASE_DB_URL_APP`, que pasa por el pooler de Supabase
+  en modo transacción (puerto 6543). Cada query fuera de transacción puede caer en otro backend sin
+  el contexto, y RLS devuelve cero filas EN SILENCIO: un QA que a veces lee vacío lo que acaba de
+  escribir. Se descubrió construyendo `demo-entrante` (2026-08-17): su primera versión pintaba un
+  «no pudo evaluar» falso con la evaluación bien persistida.
+- **El arreglo:** el patrón de `qa-contexto-conversacion.mts` y de `demo-entrante.mts` — cada
+  consulta directa en su transacción con `set_config(..., true)` (local).
+- **Impacto:** hoy los QA pasan por suerte de pinning; el día que fallen, fallarán como flaky
+  inexplicable y quemarán una tarde.
+- **Fecha:** 2026-08-17 · 🔵
