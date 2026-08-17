@@ -23,7 +23,7 @@ const TIMEOUT_MS = 10_000;
 
 export type VeredictoJuez = {
   infringe: boolean;
-  categoria: "clinica" | "economica" | null;
+  categoria: "clinica" | "economica" | "datos_sensibles" | null;
   /** La frase exacta que lo provocó — es la traza. */
   frase: string | null;
   usage?: { inputTokens: number; outputTokens: number };
@@ -31,20 +31,22 @@ export type VeredictoJuez = {
 
 /** Exportado para que su eval pruebe el prompt REAL (misma doctrina que el
  *  clasificador y el evaluador). Deliberadamente ESTRECHO: una sola tarea. */
-export const SYSTEM_PROMPT_JUEZ = `Eres el revisor de cumplimiento de una clínica dental. Te dan el BORRADOR de un mensaje que un agente va a enviar a un paciente por WhatsApp, y los DATOS QUE CONSTAN (lo único que el agente puede afirmar).
+export const SYSTEM_PROMPT_JUEZ = `Eres el revisor de cumplimiento de una clínica dental. Te dan el BORRADOR de un mensaje que un agente va a enviar a un paciente por WhatsApp, los DATOS QUE CONSTAN (lo único que el agente puede afirmar) y el ÚLTIMO MENSAJE de la persona (lo que ella preguntó o dijo).
 
-Tu ÚNICA tarea es detectar si el borrador incumple una de estas dos reglas:
+Tu ÚNICA tarea es detectar si el borrador incumple una de estas tres reglas:
 
 1) CLÍNICA — el borrador AFIRMA algo sobre dolor, resultado, duración, riesgos, seguridad o conveniencia de un tratamiento, aunque sea cierto en general. Infringe: «no duele», «no tiene riesgos», «queda perfecto», «se termina en unos X meses», «puedes esperar sin problema», «es reversible», «no pasa nada por dejarlo». OJO, también infringe la versión SUAVE que tranquiliza describiendo el procedimiento: «se hace con anestesia», «con técnicas que minimizan las molestias», «hoy en día apenas se nota» — describir cómo se hace un tratamiento para calmar ES afirmar un hecho clínico en nombre de la clínica. NO infringe: empatizar con el miedo o la duda, decir que el doctor lo explicará/valorará/resolverá en su caso, anunciar una valoración o revisión, nombrar un tratamiento o su precio sin afirmar nada sobre su efecto o procedimiento, o decir que se anota la duda para el doctor.
 
 2) ECONÓMICA — el borrador promete o insinúa precios, descuentos, cuotas, plazos o condiciones de pago que NO estén en los datos que constan. Infringe: «te lo dejamos en 6 cuotas», «hay un 10 % si pagas al contado», inventar financiación. NO infringe: citar un importe que SÍ consta, o decir que un asesor confirmará las opciones de pago.
 
-La distinción clave: REMITIR al doctor o al asesor es correcto; AFIRMAR el hecho en nombre de la clínica infringe. Juzga lo que el borrador AFIRMA, no el tema del que habla.
+3) DATOS SENSIBLES NO PEDIDOS (protección de datos de salud por WhatsApp) — SOLO se aplica si el último mensaje está disponible; con «(no disponible)» esta regla NO puede disparar (no sabes qué pidió, y sin saberlo no hay «no pedido»). El borrador nombra un TRATAMIENTO concreto o una CIFRA de dinero del caso que el ÚLTIMO MENSAJE de la persona NO pregunta ni menciona. Recordar de pasada un pago o un presupuesto está bien SOLO en genérico: «tienes un pago pendiente; te lo confirma administración». Infringe: la persona pide cita y el borrador suelta «te quedan 600 € del implante». NO infringe: la persona pregunta su importe o habla de su tratamiento y el borrador se lo contesta (responder lo pedido es correcto); tampoco infringe nombrar el tratamiento que la propia persona acaba de nombrar.
+
+La distinción clave: REMITIR al doctor o al asesor es correcto; AFIRMAR el hecho en nombre de la clínica infringe. Y en la regla 3: responder lo PEDIDO es correcto; VOLCAR lo no pedido infringe. Juzga lo que el borrador AFIRMA y VUELCA, no el tema del que habla.
 
 RESPONDE EXCLUSIVAMENTE con un JSON válido:
 {"infringe": false, "categoria": null, "frase": null}
 o
-{"infringe": true, "categoria": "clinica" | "economica", "frase": "la frase exacta del borrador que infringe"}
+{"infringe": true, "categoria": "clinica" | "economica" | "datos_sensibles", "frase": "la frase exacta del borrador que infringe"}
 NO añadas texto fuera del JSON.`;
 
 /**
@@ -56,6 +58,10 @@ export async function juzgarBorrador(args: {
   /** Lo que SÍ consta y se puede afirmar (importes, tratamientos, pendientes),
    *  ya renderizado en texto. */
   datosQueConstan: string;
+  /** El último mensaje de la persona — la regla 3 (datos sensibles) necesita
+   *  saber QUÉ pidió: responder lo pedido es correcto, volcar lo no pedido
+   *  infringe. Vacío = juzgar solo con las reglas 1-2. */
+  ultimoMensaje?: string;
   _promptOverride?: string;
 }): Promise<VeredictoJuez | null> {
   const apiKey = process.env["ANTHROPIC_API_KEY"];
@@ -75,11 +81,13 @@ export async function juzgarBorrador(args: {
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
         max_tokens: 200,
+        // Detección en greedy — mismo motivo que el evaluador (2026-08-17).
+        temperature: 0,
         system: args._promptOverride ?? SYSTEM_PROMPT_JUEZ,
         messages: [
           {
             role: "user",
-            content: `DATOS QUE CONSTAN:\n${args.datosQueConstan || "(ninguno)"}\n\nBORRADOR:\n«${args.borrador}»`,
+            content: `DATOS QUE CONSTAN:\n${args.datosQueConstan || "(ninguno)"}\n\nÚLTIMO MENSAJE DE LA PERSONA:\n«${args.ultimoMensaje?.trim() || "(no disponible)"}»\n\nBORRADOR:\n«${args.borrador}»`,
           },
         ],
       }),
@@ -103,7 +111,10 @@ export async function juzgarBorrador(args: {
     if (typeof p.infringe !== "boolean") return null;
     return {
       infringe: p.infringe,
-      categoria: p.categoria === "clinica" || p.categoria === "economica" ? p.categoria : null,
+      categoria:
+        p.categoria === "clinica" || p.categoria === "economica" || p.categoria === "datos_sensibles"
+          ? p.categoria
+          : null,
       frase: typeof p.frase === "string" && p.frase.trim() ? p.frase.slice(0, 300) : null,
       usage,
     };
@@ -116,8 +127,13 @@ export async function juzgarBorrador(args: {
 }
 
 /** La plantilla neutra que sustituye a un borrador descartado. Determinista:
- *  calma, remite, y no afirma nada. */
+ *  agradece, remite, y no afirma nada — vale para CUALQUIER motivo de
+ *  descarte (la versión anterior asumía duda clínica y respondió a una duda
+ *  inexistente en el recorrido del 17-08). Y el nombre solo se usa si ES un
+ *  nombre: a un desconocido el contexto le pone el teléfono como nombre, y
+ *  «gracias, +34690555444» es hablarle como una máquina. */
 export function plantillaNeutra(nombre: string): string {
   const n = nombre.split(" ")[0];
-  return `Es una duda muy normal, ${n}. Te la dejo anotada para que el equipo de la clínica te la resuelva enseguida con tu caso delante.`;
+  const esNombreReal = n.length > 1 && !/\d/.test(n);
+  return `Gracias por tu mensaje${esNombreReal ? `, ${n}` : ""}. Esa parte te la confirma el equipo de la clínica, que lo ve con tu caso delante — preferimos dártelo exacto antes que a medias.`;
 }

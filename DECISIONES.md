@@ -2870,3 +2870,27 @@ diagnóstico predijo** — R4 (urgencia) verde; los otros cinco rojos por las ca
 importe del cobro) y R5 demostró que la espera ya «se mueve» (la nueva fecha supersede) — falta la
 levantada. La vara vieja sigue como regresión; los fixes de la lista van uno a uno volviendo verde
 su recorrido.
+
+## 2026-08-17 — Fase B, puntos 1+2 + art. 9: cuatro recorridos volteados sin romper el embudo
+El ciclo de vida del paciente existente: «cita» deja de ser solo de leads — abierta para
+cualquier PACIENTE sin cita futura registrada (contexto, con su invariante en qa:contexto), y los
+campos que el sistema ya sabe no se piden (nombre_completo de un paciente fichado no cuenta como
+faltante). La red del punto 2: juicio `pideAccion` del modelo + condición en código — petición
+accionable sin objetivo que la recoja → deriva caso_completo igualmente. Y el ART. 9 como TERCERA
+REGLA DURA del juez (adelantado por orden del 17-08: es la única ilegal): tratamiento o cifra que
+el último mensaje no pide → descarte; el juez recibe ahora ese último mensaje; su vara sube a
+24/24 (FN=0, FP=0) con el caso real de R6 («600 €» en un recordatorio) como infractor I10.
+Plantilla neutra reescrita (era solo-para-duda-clínica y usaba el teléfono como nombre).
+Resultado medido con LAS DOS varas: recorridos 1/6 → **5/6** (solo R5-espera pendiente, punto 5);
+vara vieja **95 % (60/63), banda intacta** — arreglar la entrada del paciente NO rompió la
+captación — y ¿Listo? SUBIÓ a 20/21.
+
+## 2026-08-17 — Dos trampas de determinismo cazadas por los recorridos
+(1) El evaluador y el juez llamaban al modelo SIN temperatura: juicios muestreados — la extracción
+salía distinta entre corridas idénticas. Ahora temperature 0: un juicio no se muestrea. (2) En
+greedy, Haiku COPIABA el ejemplo del prompt («"camposRecogidos": {}») — el esquema de respuesta
+enseña ahora FORMA con huecos, nunca valores vacíos que calcar. Y la tercera, la peor: el render
+enseña objetivos en MAYÚSCULAS («· CITA —»), el modelo devolvía la clave "CITA" y el parser la
+DESCARTABA EN SILENCIO por case exacto — camposRecogidos vacío durante días sin un solo aviso
+(§12: el fallback mudo). Normalizado + warning. Las tres las destapó la vara de flujos en una
+tarde; la de mensajes no podía verlas porque fija sus propias entradas.

@@ -12,7 +12,9 @@
 // Invariantes:
 //   1. cobro abierto ⇔ el paciente emparejado tiene firmado − cobrado > 0
 //   2. presupuesto abierto ⇔ existe presupuesto vivo por teléfono o paciente
-//   3. cita abierta ⇔ existe lead activo (estado activo y no convertido)
+//   3. cita abierta ⇔ lead activo (estado activo, no convertido) O paciente
+//      SIN cita futura registrada (fase B punto 1, 2026-08-17: el ciclo de
+//      vida del paciente existente — antes cita era solo del embudo)
 //   4. identificar ⇔ ningún paciente y ningún lead EN NINGÚN ESTADO (un lead
 //      cerrado no abre cita, pero sabemos quién es) — excluyente con ambos
 //   5. objetivosAbiertos respeta la precedencia cobro > presupuesto > cita
@@ -96,6 +98,13 @@ const vivosTel = (
   )
 ).rows as { paciente_telefono: string | null; paciente_id: string | null }[];
 
+// Pacientes CON cita futura — para la mitad nueva de la invariante 3.
+const conCitaFutura = new Set(
+  (
+    await db.query(`select distinct paciente_id from citas where paciente_id is not null and hora_inicio >= now()`)
+  ).rows.map((r) => String(r.paciente_id)),
+);
+
 const pendientePorPaciente = new Map<string, number>();
 for (const r of (
   await db.query(
@@ -150,7 +159,9 @@ await runWithCliente("DEMO", async () => {
     // Expectativas por CONTENCIÓN de dígitos, la misma semántica de
     // emparejamiento que usa todo el sistema.
     const pacienteEsperado = pacientes.find((p) => dig(p.telefono).includes(d) || d.includes(dig(p.telefono))) ?? null;
-    const esperaCita = leadsActivos.some((l) => l.includes(d) || d.includes(l));
+    const esperaCita =
+      leadsActivos.some((l) => l.includes(d) || d.includes(l)) ||
+      (pacienteEsperado != null && !conCitaFutura.has(pacienteEsperado.id));
     const esperaPresu = vivosTel.some(
       (v) =>
         (v.paciente_telefono && (dig(v.paciente_telefono).includes(d) || d.includes(dig(v.paciente_telefono)))) ||

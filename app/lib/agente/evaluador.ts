@@ -137,7 +137,7 @@ export type EvaluacionTurno = {
    *  Si la tasa de descartes sube, el prompt del generador se degradó — es
    *  el número que evita descubrirlo dentro de tres meses. */
   borradorDescartado?: {
-    motivo: "clinica" | "economica" | "juez_no_respondio";
+    motivo: "clinica" | "economica" | "datos_sensibles" | "juez_no_respondio";
     frase: string | null;
   };
   /** El modelo no contestó o contestó ilegible: fail-closed compat
@@ -236,7 +236,7 @@ Tu forma de trabajar: contestas lo que la persona pregunta, recoges los campos q
 ━━ JUICIO "tema" — ¿de qué habla el ÚLTIMO mensaje?
 Exactamente uno de: "cobro" (pagos, cuotas, facturas) · "presupuesto" (la decisión sobre un presupuesto emitido) · "cita" (quiere cita, da disponibilidad, pregunta por tratamientos para venir) · "identificar" (dice quién es) · "otro" (logística, agradecimientos, quejas, clínico…) · "ninguno" (no se entiende).
 
-━━ JUICIO "urgenciaMedica" — true si describe dolor agudo, rotura, infección, sangrado, hinchazón, o necesita que le vean HOY. Un «me duele un poco a veces» no es urgencia; «se me ha roto una muela y me duele bastante, ¿me veis hoy?» sí.
+━━ JUICIO "urgenciaMedica" — true si el ÚLTIMO mensaje describe dolor agudo, rotura, infección, sangrado, hinchazón, o necesita que le vean HOY. Un «me duele un poco a veces» no es urgencia; «se me ha roto una muela y me duele bastante, ¿me veis hoy?» sí. Y si la persona dice que YA la están atendiendo o YA tiene la cita por ese motivo («gracias, ya tengo cita», «ya me vieron»), NO es una urgencia nueva — la urgencia fue de un mensaje anterior, no de este.
 
 ━━ JUICIO "peticionOQueja" — true si pide hablar con una persona o se queja del trato, la espera o el servicio.
 Cuentan como pedir persona: pedir que le llamen, preguntar por alguien concreto («¿está la doctora?»), y decir que prefiere tratarlo en persona o por teléfono.
@@ -259,6 +259,8 @@ LA FRONTERA, Y ES DONDE MÁS SE FALLA: queja ≠ insatisfacción. «Me parece ca
 - "otro": lo que no encaja, con el motivo claro.
 LAS REGLAS DEL DINERO (no se saltan): leer una política que ya existe se contesta; adaptarla a esta persona se anota. «¿Trabajáis con Sanitas?» se contesta; «¿cuánto me cubriría a mí?» se anota. «¿Cómo se puede pagar?» se contesta si el contexto lo dice; «¿me lo dejáis en cuatro plazos?» se anota. Y no tener un dato NO es motivo de parar: «te lo confirmamos enseguida» + anotarlo.
 
+━━ JUICIO "pideAccion" — true si el último mensaje pide algo que exige que la CLÍNICA HAGA: dar o cambiar una cita, emitir una factura, que le llamen para un trámite, empezar un tratamiento. Preguntar información NO es pedir acción («¿abrís los sábados?» false; «dadme cita el sábado» true). Aceptar un presupuesto y querer empezar SÍ lo es.
+
 ━━ JUICIO "esperaSolicitada" — SOLO si la persona pide explícitamente tiempo con un plazo o una fecha CONCRETOS antes de volver a hablar («el viernes te digo», «dame dos semanas», «hasta después del puente no puedo», «te contesto a final de mes»), la fecha resultante en formato YYYY-MM-DD (usa la fecha de HOY del contexto para calcularla). Si no da plazo concreto («déjame pensarlo», «ya te diré») o no pide tiempo: null. NO la inventes ni la redondees: si dice «el viernes», es ese viernes.
 
 ━━ JUICIO "camposRecogidos" — para CADA objetivo abierto del contexto, extrae del HILO ENTERO (no solo del último mensaje) el valor de cada campo: {"<etapa>": {"<clave_campo>": valor}}. Valor: el dato en pocas palabras si la persona lo ha dado · null si falta de verdad · "no_aplica" si la condición del campo no se cumple. LAS REGLAS DEL no_aplica, que es donde más se falla:
@@ -266,24 +268,30 @@ LAS REGLAS DEL DINERO (no se saltan): leer una política que ya existe se contes
 - «Solo si la menciona»: si se le preguntó y dijo que no tiene preferencia, el valor es «sin preferencia» (dato recogido, no null); si nadie lo mencionó, "no_aplica".
 - «Solo si el cliente tiene más de una clínica»: si el contexto no dice que las haya, "no_aplica".
 - COBRO: si la persona dice que NO puede pagar, eso ES la respuesta del objetivo — confirma_pago = «no puede, hay que renegociar», via_pago y fecha_pago = "no_aplica" (y anotas plan_pago). No dejes el objetivo a medias esperando un sí que ya te han dicho que no.
+- IDENTIFICAR: sus campos (nombre, es_paciente, que_necesita) casi siempre están YA en el hilo — «me llamo X», «nunca he ido», «quiero ortodoncia» SON los valores. Extráelos SIEMPRE que existan: dejarlos en null con la respuesta delante es el fallo más caro de este juicio, porque completar este objetivo es lo que ENTREGA el caso.
+- PRESUPUESTO: «sí, adelante», «lo hacemos» ES decision = «acepta» — extráela, y los campos de las otras ramas («solo si se lo piensa», «solo si rechaza») pasan a "no_aplica". Una aceptación con decision en null es un caso que nunca llega a la clínica.
 Si la persona corrigió un dato, vale el último.
 
-━━ JUICIO "respuesta" — el borrador del mensaje de este turno. 2-4 frases, tono cálido y profesional, sin emojis, solo el primer nombre. Contesta lo que preguntó; si anotaste algo, di que se lo confirma un asesor enseguida; si falta un campo del objetivo, pregunta UNO. Si anotaste "duda_clinica": ACOMPAÑA — tranquiliza y remite al doctor — y NO empujes al cierre en ese mensaje.
+━━ JUICIO "respuesta" — el borrador del mensaje de este turno. 2-4 frases, tono cálido y profesional, sin emojis, solo el primer nombre. Contesta lo que preguntó; si anotaste algo, di que se lo confirma un asesor enseguida; si falta un campo del objetivo, pregunta UNO — y a un paciente de la clínica NO le preguntes su nombre: ya consta. Si anotaste "duda_clinica": ACOMPAÑA — tranquiliza y remite al doctor — y NO empujes al cierre en ese mensaje.
+Si el contexto trae un PAGO PENDIENTE y la conversación va de otra cosa, ciérralo con UNA frase genérica de recuerdo — «por cierto, tienes un pago pendiente; administración te lo confirma» — sin cifra y sin tratamiento (la regla de abajo).
 REGLAS QUE NO SE SALTAN: solo puedes afirmar datos que estén en el contexto. NUNCA prometas precios, descuentos, plazos ni condiciones de pago que no estén en el contexto. Y NUNCA afirmes NADA sobre dolor, resultado, duración, riesgos o seguridad de un tratamiento — AUNQUE SEA CIERTO EN GENERAL: «se hace con anestesia y no duele», «no suele dar problemas», «es muy seguro» son garantías clínicas en nombre de la clínica y NO son tuyas. Acompañar es calmar y remitir al doctor («es una duda muy normal; el doctor te lo explica en tu caso»), no tranquilizar con un hecho clínico.
+Y LA REGLA DEL DATO NO PEDIDO (protección de datos de salud — un revisor DESCARTA el borrador entero si la incumples): cuando el contexto traiga un pago pendiente o un presupuesto que la persona NO ha preguntado en su último mensaje, la ÚNICA forma permitida de recordárselo es en genérico: «tienes un pago pendiente; administración te lo confirma» — JAMÁS la cifra, JAMÁS el tratamiento. Escribir «te quedan 600 €» o «del implante» sin que lo pregunte tira tu borrador entero. Si la persona SÍ pregunta por su importe o su tratamiento, contestarle con el dato es correcto.
 
-RESPONDE EXCLUSIVAMENTE con un JSON válido:
+RESPONDE EXCLUSIVAMENTE con un JSON válido con TODAS estas claves. El esquema de abajo enseña la FORMA — los <ángulos> son huecos que TÚ rellenas con tus juicios reales, no valores por defecto que copiar:
 {
-  "tema": "...",
-  "urgenciaMedica": false,
-  "peticionOQueja": false,
-  "malestar": false,
-  "mencionaAntecedenteMedico": false,
-  "vuelveSobreAplazado": null,
-  "aplazamientosNuevos": [],
-  "esperaSolicitada": null,
-  "camposRecogidos": {},
-  "respuesta": "..."
+  "tema": "<cobro|presupuesto|cita|identificar|otro|ninguno>",
+  "urgenciaMedica": <true|false>,
+  "peticionOQueja": <true|false>,
+  "malestar": <true|false>,
+  "mencionaAntecedenteMedico": <true|false>,
+  "vuelveSobreAplazado": <"clave"|null>,
+  "aplazamientosNuevos": [<{"clave": "...", "motivo": "..."}...>],
+  "pideAccion": <true|false>,
+  "esperaSolicitada": <"YYYY-MM-DD"|null>,
+  "camposRecogidos": {<"etapa_abierta": {"clave_campo": "valor extraído del hilo" | null | "no_aplica"}...>},
+  "respuesta": "<el borrador>"
 }
+camposRecogidos NUNCA se deja vacío si hay objetivos abiertos: cada campo de cada objetivo abierto aparece con su valor, null o "no_aplica".
 NO añadas texto fuera del JSON.`;
 
 // ─── Render del contexto (el mensaje de usuario) ────────────────────────────
@@ -374,6 +382,10 @@ type JuicioModelo = {
   /** Fecha YYYY-MM-DD SOLO si el paciente pidió tiempo con plazo concreto.
    *  El modelo la extrae; el CÓDIGO la valida y la topa (evaluarTurno). */
   esperaSolicitada: string | null;
+  /** ¿El último mensaje pide algo que exige que la CLÍNICA haga (cita,
+   *  cambio, factura, llamada)? Alimenta la red del punto 2: sin objetivo
+   *  que lo recoja, se deriva igualmente. */
+  pideAccion: boolean;
   camposRecogidos: CamposRecogidos;
   respuesta: string;
 };
@@ -415,6 +427,11 @@ async function juzgar(
       body: JSON.stringify({
         model: MODELOS[modelo].id,
         max_tokens: MODELOS[modelo].maxTokens,
+        // Juicios en greedy: sin fijarla, la extracción de campos salía
+        // distinta entre corridas IDÉNTICAS (R1 del harness: dos rojas y dos
+        // sondas verdes con el mismo código, 2026-08-17). Un juicio no se
+        // muestrea.
+        temperature: 0,
         system: promptOverride ?? SYSTEM_PROMPT_EVALUADOR,
         messages: [{ role: "user", content: anonimizarTexto(texto, mapa) }],
       }),
@@ -461,8 +478,18 @@ async function juzgar(
         : null;
     const campos: CamposRecogidos = {};
     if (typeof p.camposRecogidos === "object" && p.camposRecogidos !== null) {
-      for (const [etapa, valores] of Object.entries(p.camposRecogidos as Record<string, unknown>)) {
-        if (!ETAPAS_VALIDAS.includes(etapa) || typeof valores !== "object" || valores === null) continue;
+      for (const [etapaRaw, valores] of Object.entries(p.camposRecogidos as Record<string, unknown>)) {
+        // El render enseña los objetivos en MAYÚSCULAS («· CITA —») y el
+        // modelo devuelve la clave tal cual la vio: "CITA". Descartarla por
+        // case exacto vació camposRecogidos EN SILENCIO durante días (los
+        // recorridos R2/R3 lo destaparon el 17-08) — se normaliza, y lo que
+        // aun así no encaje se AVISA en vez de tragarse (§9/§12).
+        const etapa = etapaRaw.toLowerCase().trim();
+        if (!ETAPAS_VALIDAS.includes(etapa) || typeof valores !== "object" || valores === null) {
+          if (!ETAPAS_VALIDAS.includes(etapa))
+            console.warn(`[evaluador] camposRecogidos con etapa desconocida descartada: «${etapaRaw}»`);
+          continue;
+        }
         const limpio: Record<string, string | null> = {};
         for (const [k, v] of Object.entries(valores as Record<string, unknown>)) {
           limpio[k] = v == null ? null : String(v).slice(0, 200);
@@ -489,6 +516,7 @@ async function juzgar(
           typeof p.esperaSolicitada === "string" && /^\d{4}-\d{2}-\d{2}$/.test(p.esperaSolicitada)
             ? p.esperaSolicitada
             : null,
+        pideAccion: p.pideAccion === true,
         camposRecogidos: campos,
         respuesta: desanonimizarTexto(String(p.respuesta ?? ""), mapa).slice(0, 1200),
       },
@@ -560,6 +588,10 @@ export async function evaluarTurno(
   const camposFaltantes = (defActivo?.campos ?? [])
     .map((c) => c.clave)
     .filter((clave) => {
+      // Lo que el SISTEMA ya sabe no se le pide a la persona (fase B): el
+      // objetivo cita nació para leads y pedía nombre completo; un paciente
+      // fichado lo tiene en la ficha — sin esto, su caso no completaba NUNCA.
+      if (objetivoActivo === "cita" && clave === "nombre_completo" && e.esPacienteConocido) return false;
       const v = valoresActivo[clave];
       return v == null || String(v).trim() === "";
     });
@@ -665,7 +697,14 @@ export async function evaluarTurno(
   let respuestaFinal = juicio.respuesta;
   let borradorDescartado: EvaluacionTurno["borradorDescartado"];
   if (respuestaFinal.trim() !== "") {
-    const veredicto = await juzgarBorrador({ borrador: respuestaFinal, datosQueConstan });
+    // La regla 3 del juez (datos sensibles NO PEDIDOS) necesita saber qué
+    // pidió la persona: el último Entrante del hilo.
+    const ultimoEntrante = [...e.hilo].reverse().find((m) => m.direccion === "Entrante")?.contenido ?? "";
+    const veredicto = await juzgarBorrador({
+      borrador: respuestaFinal,
+      datosQueConstan,
+      ultimoMensaje: ultimoEntrante,
+    });
     if (veredicto?.usage && base.usage) {
       base.usage = {
         inputTokens: base.usage.inputTokens + veredicto.usage.inputTokens,
@@ -720,6 +759,23 @@ export async function evaluarTurno(
   }
 
   if (casoCompleto) {
+    return {
+      ...base,
+      decision: "deriva",
+      causa: "caso_completo",
+      cola: colaDeDerivacion("caso_completo", null),
+      respuesta: respuestaFinal,
+      borradorDescartado,
+    };
+  }
+
+  // LA RED (fase B, punto 2): NINGUNA PETICIÓN ACCIONABLE MUERE EN EL HILO.
+  // Si la persona pide algo que exige que la clínica HAGA y no hay objetivo
+  // abierto que lo recoja, se entrega igualmente — «ya pagué, dadme cita»
+  // tiene que llegar a alguien SIEMPRE, haya objetivo o no. El juicio
+  // (¿pide acción?) es del modelo; la condición (¿hay objetivo que la
+  // recoja?) se comprueba aquí, en código.
+  if (juicio.pideAccion && objetivoActivo == null) {
     return {
       ...base,
       decision: "deriva",

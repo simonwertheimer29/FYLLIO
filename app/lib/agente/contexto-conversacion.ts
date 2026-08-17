@@ -99,6 +99,8 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
       clinica_id: string | null;
     }[];
     perfil: { nombre_perfil: string | null; clinica_id: string | null } | null;
+    /** Fase B, punto 1: el paciente tiene una cita futura registrada. */
+    citaFutura: boolean;
   };
 
   const filas: Filas = await runWithClienteDb(cliente, async (trx) => {
@@ -153,7 +155,21 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
         .limit(1)
         .executeTakeFirst()) ?? null;
 
-    return { paciente, leads, vivos, perfil };
+    // Fase B, punto 1 (2026-08-17): ¿tiene el PACIENTE una cita futura? Sin
+    // ella, el objetivo «cita» se abre también para pacientes — el ciclo de
+    // vida no se acaba en el embudo. El recorrido R3 lo destapó: «ya pagué,
+    // dadme cita» moría en el hilo porque cita era solo de leads.
+    const citaFutura = paciente
+      ? ((await trx
+          .selectFrom("citas")
+          .select("id")
+          .where("paciente_id", "=", paciente.id)
+          .where("hora_inicio", ">=", sql<Date>`now()`)
+          .limit(1)
+          .executeTakeFirst()) ?? null)
+      : null;
+
+    return { paciente, leads, vivos, perfil, citaFutura: citaFutura != null };
   });
 
   const leadActivoFila =
@@ -183,7 +199,13 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
   const abiertos = new Set<EtapaObjetivo>();
   if (pendienteCobro > 0) abiertos.add("cobro");
   if (presupuestosVivos.length > 0) abiertos.add("presupuesto");
+  // «cita» abierta para un lead ACTIVO — y desde la fase B (punto 1) también
+  // para un PACIENTE sin cita futura: el ciclo de vida del paciente existente
+  // (pedir cita, volver semanas después) no estaba modelado y el agente
+  // conversaba indefinidamente sin entregar. Un paciente CON cita futura no
+  // la tiene abierta: no hay nada que cerrar.
   if (leadActivo) abiertos.add("cita");
+  if (filas.paciente && !filas.citaFutura) abiertos.add("cita");
   // «identificar» = no hay NINGUNA fila que diga quién es — ni paciente ni
   // lead en ningún estado. Un lead cerrado («No interesado») no abre cita,
   // pero sabemos su nombre: preguntárselo sería absurdo. Lo destapó el censo

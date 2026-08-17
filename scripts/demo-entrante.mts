@@ -442,6 +442,7 @@ await runWithCliente("DEMO", async () => {
   if (p.borradorDescartado) {
     const razon = p.borradorDescartado.motivo === "clinica" ? "regla clínica (afirmaba algo sobre dolor/resultado/riesgo)"
       : p.borradorDescartado.motivo === "economica" ? "regla económica (comprometía condiciones que no constan)"
+      : p.borradorDescartado.motivo === "datos_sensibles" ? "art. 9 (volcaba tratamiento o importe que nadie pidió)"
       : "el juez no contestó (fail-closed)";
     console.log(`  ⚠ El borrador del modelo se DESCARTÓ — ${razon}${p.borradorDescartado.frase ? `; la frase: «${p.borradorDescartado.frase}»` : ""}.`);
     console.log("  Lo de arriba es la plantilla neutra. Una vez es la guarda funcionando; en cada mensaje, es el generador degradado.");

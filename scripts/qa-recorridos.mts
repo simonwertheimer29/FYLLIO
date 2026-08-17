@@ -89,8 +89,9 @@ type Esperado = {
    *  valor real dentro de la etapa. */
   camposEntregados?: { etapa: string; claves: string[] };
   esperas?: { fijadas: number; levantadas: number };
-  /** El último borrador NO puede contener estos textos (art. 9: tratamiento
-   *  e importes en un recordatorio de cobro) y SÍ alguno de los otros. */
+  /** Art. 9: NINGÚN borrador del flujo puede contener estos textos
+   *  (tratamiento/importes volcados), y ALGUNO tiene que mencionar el cobro
+   *  en genérico — la regla vale para toda la conversación, no un turno. */
   borradorFinal?: { sinTextos?: string[]; conAlguno?: string[] };
   /** Filas en cola_envios para el teléfono del flujo (la cadencia calló). */
   enColaEnvios?: number;
@@ -290,15 +291,16 @@ async function correr(r: Recorrido): Promise<boolean> {
     ok(`esperas levantadas: ${e.esperas.levantadas}`, levantadas === e.esperas.levantadas, `hay ${levantadas}`);
   }
   if (e.borradorFinal) {
-    const borrador = payloads[payloads.length - 1]?.respuesta ?? "";
+    const borradores = payloads.map((p) => p.respuesta ?? "");
     for (const t of e.borradorFinal.sinTextos ?? []) {
-      ok(`el borrador NO nombra «${t}» (art. 9)`, !borrador.toLowerCase().includes(t.toLowerCase()));
+      const culpable = borradores.find((b) => b.toLowerCase().includes(t.toLowerCase()));
+      ok(`NINGÚN borrador nombra «${t}» (art. 9)`, culpable == null, culpable ? `«${culpable.slice(0, 80)}…»` : "");
     }
     if (e.borradorFinal.conAlguno) {
       ok(
-        `el borrador menciona el cobro (alguno de: ${e.borradorFinal.conAlguno.join("/")})`,
-        e.borradorFinal.conAlguno.some((t) => borrador.toLowerCase().includes(t.toLowerCase())),
-        `borrador: «${borrador.slice(0, 90)}…»`,
+        `algún borrador menciona el cobro (alguno de: ${e.borradorFinal.conAlguno.join("/")})`,
+        borradores.some((b) => e.borradorFinal!.conAlguno!.some((t) => b.toLowerCase().includes(t.toLowerCase()))),
+        `último: «${(borradores[borradores.length - 1] ?? "").slice(0, 80)}…»`,
       );
     }
   }
@@ -307,6 +309,15 @@ async function correr(r: Recorrido): Promise<boolean> {
   }
 
   const verde = fallos.length === 0;
+  if (!verde) {
+    // Diagnóstico del rojo: qué juzgó el modelo turno a turno (§9 — un rojo
+    // sin sus juicios delante obliga a reproducir a mano).
+    for (const [i, p] of payloads.entries()) {
+      console.log(
+        `      turno ${i + 1}: tema=${p.tema} campos=${JSON.stringify(p.camposRecogidos)}${p.borradorDescartado ? ` descartado=${p.borradorDescartado.motivo}` : ""}`,
+      );
+    }
+  }
   console.log(`  ${verde ? "🟢 VERDE" : `🔴 ROJO (${fallos.length} aserciones)`} · el diagnóstico del 17-08 predecía: ${r.hoyDebeDar.toUpperCase()}`);
   return verde;
 }
@@ -330,7 +341,7 @@ const RECORRIDOS: Recorrido[] = [
       semaforo: "derivado_sin_resolver",
       camposEntregados: { etapa: "identificar", claves: ["nombre", "que_necesita"] },
     },
-    hoyDebeDar: "rojo", // extracción de identificar vacía + sin entrega (diagnóstico b2)
+    hoyDebeDar: "verde", // VOLTEADO por fase B (extracción + entrega del identificar)
   },
   {
     id: "R2",
@@ -340,14 +351,19 @@ const RECORRIDOS: Recorrido[] = [
       paciente: { nombre: "QA Berta Rico" },
       presupuesto: { importe: 900, estado: "PRESENTADO", tratamiento: "Corona sobre implante", haceDias: 5 },
     },
-    pasos: [{ entra: "Lo hemos pensado y sí, adelante con el tratamiento. Cuando queráis empezamos" }],
+    pasos: [
+      { entra: "Lo hemos pensado y sí, adelante con el tratamiento. Cuando queráis empezamos" },
+      // El agente recoge los campos de la rama «acepta» (cómo pagar, primera
+      // cita) — un turno de vuelta, como en la conversación real.
+      { entra: "Con tarjeta, sin problema. Y para la primera cita puedo cualquier tarde de esta semana" },
+    ],
     esperado: {
       derivaciones: { total: 1, causa: "caso_completo", cola: "normal" },
       push: 0,
       semaforo: "derivado_sin_resolver",
       camposEntregados: { etapa: "presupuesto", claves: ["decision"] },
     },
-    hoyDebeDar: "rojo", // la aceptación no entregó en el recorrido real (no_aplica a medias)
+    hoyDebeDar: "verde", // VOLTEADO por fase B (decisión extraída + recogida de la rama acepta)
   },
   {
     id: "R3",
@@ -356,13 +372,16 @@ const RECORRIDOS: Recorrido[] = [
     mundo: { paciente: { nombre: "QA Aurora Gil" } },
     pasos: [
       { entra: "Hola, soy paciente vuestra. Querría cita para una limpieza, mejor por las tardes" },
+      // El agente pregunta lo que falte del objetivo (urgencia, etc.) — la
+      // conversación real tiene ida y vuelta; el flujo lo modela.
+      { entra: "Sin ninguna prisa, es rutina. Cualquier tarde me viene bien" },
     ],
     esperado: {
       derivaciones: { total: 1, causa: "caso_completo", cola: "normal" },
       push: 0,
       semaforo: "derivado_sin_resolver",
     },
-    hoyDebeDar: "rojo", // el fallo nº1: sin objetivo para pacientes, nada entrega
+    hoyDebeDar: "verde", // VOLTEADO por fase B punto 1 (cita para pacientes sin cita futura)
   },
   {
     id: "R4",
@@ -421,6 +440,7 @@ const RECORRIDOS: Recorrido[] = [
     },
     pasos: [
       { entra: "Hola, querría cita para empezar el tratamiento. Me viene bien por las tardes" },
+      { entra: "Sin prisa, cuando tengáis hueco. Por la tarde mejor, sí" },
     ],
     esperado: {
       derivaciones: { total: 1, causa: "caso_completo", cola: "normal" },
@@ -431,7 +451,7 @@ const RECORRIDOS: Recorrido[] = [
         conAlguno: ["pago", "pendiente", "cobro", "importe"],
       },
     },
-    hoyDebeDar: "rojo", // hoy el único objetivo es cobro: ni entrega la cita ni una sola derivación limpia
+    hoyDebeDar: "verde", // VOLTEADO por fase B puntos 1+2 + art. 9 en el juez
   },
 ];
 
@@ -475,10 +495,14 @@ clinicaId = clin.rows[0].id;
 const doc = await q(`select nombre from doctores_presupuestos limit 1`);
 doctorNombre = doc.rows[0]?.nombre ?? "Dra. Demo";
 
+// Filtro por id para diagnosticar un flujo suelto: npm run qa:recorridos -- R1 R3
+const filtro = process.argv.slice(2).filter((a) => /^R\d+$/i.test(a));
+const A_CORRER = filtro.length ? RECORRIDOS.filter((r) => filtro.includes(r.id)) : RECORRIDOS;
+
 let verdes = 0;
 const resultados: { id: string; verde: boolean; predicho: string }[] = [];
 await runWithCliente("DEMO", async () => {
-  for (const r of RECORRIDOS) {
+  for (const r of A_CORRER) {
     try {
       const verde = await correr(r);
       if (verde) verdes++;
@@ -493,7 +517,7 @@ await runWithCliente("DEMO", async () => {
 await limpiar();
 console.log("\n  ✓ mini-mundos y eventos limpiados");
 
-console.log(`\n══ RESULTADO: ${verdes}/${RECORRIDOS.length} recorridos en verde ══`);
+console.log(`\n══ RESULTADO: ${verdes}/${A_CORRER.length} recorridos en verde ══`);
 const sorpresas = resultados.filter((x) => (x.verde ? "verde" : "rojo") !== x.predicho);
 if (sorpresas.length) {
   console.log(`  ⚠ SORPRESAS vs el diagnóstico (revisar si el recorrido está bien escrito):`);
@@ -503,4 +527,4 @@ if (sorpresas.length) {
 }
 
 await app.end();
-process.exit(verdes === RECORRIDOS.length ? 0 : 1);
+process.exit(verdes === A_CORRER.length ? 0 : 1);
