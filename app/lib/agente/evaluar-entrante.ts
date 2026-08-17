@@ -39,6 +39,10 @@ export type EntranteAEvaluar = {
   contenido: string;
   presupuestoId?: string | null;
   clinicaId?: string | null;
+  /** Día de clínica inyectado desde el borde (§14) — lo usan el calendario
+   *  de la espera, el semáforo y la cuenta de días hasta la cita. Default:
+   *  hoy real. Los recorridos del QA viajan en el tiempo con esto. */
+  hoy?: string;
 };
 
 export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<void> {
@@ -130,12 +134,12 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
   // mudo a Carlos tras un reset, y en producción cada derivación mataba su
   // hilo para siempre. La ESPERA no calla al evaluador: responder a quien
   // escribe no es contactar — la espera suspende lo PROACTIVO (cadencias).
-  const sem = await semaforoDeContacto(e.telefono);
+  const sem = await semaforoDeContacto(e.telefono, { hoy: e.hoy });
   const yaDerivado = !sem.verde && sem.motivo !== "espera";
 
   let diasHastaProximaCita: number | null = null;
   if (datos.proximaCita) {
-    const hoy = hoyISO();
+    const hoy = e.hoy ?? hoyISO();
     const diaCita = hoyISO(datos.proximaCita);
     diasHastaProximaCita = Math.round(
       (new Date(`${diaCita}T00:00:00Z`).getTime() - new Date(`${hoy}T00:00:00Z`).getTime()) / 86_400_000,
@@ -154,6 +158,7 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     aplazadosPorClave,
     diasHastaProximaCita,
     yaDerivado,
+    hoy: e.hoy,
   });
 
   if (!evaluacion.actuar) return;

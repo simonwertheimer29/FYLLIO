@@ -224,15 +224,19 @@ async function hechoCierra(derivado: EventoSemaforo): Promise<boolean> {
   return false;
 }
 
+/** El instante se inyecta desde el borde (§14): los recorridos del QA
+ *  necesitan «vencer» esperas sin esperar al jueves. Default: hoy real. */
+export type OpcionesSemaforo = { hoy?: string };
+
 /** El semáforo de un hilo. Lee el log + los hechos. */
-export async function semaforoDeContacto(telefono: string): Promise<EstadoSemaforo> {
+export async function semaforoDeContacto(telefono: string, opts?: OpcionesSemaforo): Promise<EstadoSemaforo> {
   const todos = await cargarEventosSemaforo();
   const dig = soloDigitos(telefono);
   const propios = todos.filter((e) => {
     const d = soloDigitos(e.caso_id);
     return d.includes(dig) || dig.includes(d);
   });
-  return resolverConHechos(propios);
+  return resolverConHechos(propios, opts?.hoy);
 }
 
 /**
@@ -242,7 +246,7 @@ export async function semaforoDeContacto(telefono: string): Promise<EstadoSemafo
  * distintos («+34 613 128 152» vs «34613128152») y la clave del mapa los
  * partiría en dos — mismo bug que ya partió la bandeja (migración 018).
  */
-export async function semaforosParaCadencia(): Promise<(telefono: string | null | undefined) => Promise<EstadoSemaforo>> {
+export async function semaforosParaCadencia(opts?: OpcionesSemaforo): Promise<(telefono: string | null | undefined) => Promise<EstadoSemaforo>> {
   const todos = await cargarEventosSemaforo();
   const cache = new Map<string, EstadoSemaforo>();
   return async (telefono) => {
@@ -254,20 +258,21 @@ export async function semaforosParaCadencia(): Promise<(telefono: string | null 
       const d = soloDigitos(e.caso_id);
       return d.includes(dig) || dig.includes(d);
     });
-    const estado = await resolverConHechos(propios);
+    const estado = await resolverConHechos(propios, opts?.hoy);
     cache.set(dig, estado);
     return estado;
   };
 }
 
-async function resolverConHechos(eventos: EventoSemaforo[]): Promise<EstadoSemaforo> {
-  const base = derivarDeEventos(eventos, hoyISO());
+async function resolverConHechos(eventos: EventoSemaforo[], hoyInyectado?: string): Promise<EstadoSemaforo> {
+  const hoy = hoyInyectado ?? hoyISO();
+  const base = derivarDeEventos(eventos, hoy);
   if (base.pendienteHechos) {
     if (await hechoCierra(base.pendienteHechos)) {
       // El asunto se cerró por hecho del sistema: se re-deriva SIN el derivado
       // (puede quedar debajo un asumido o una espera vigentes).
       const sinDerivado = eventos.filter((e) => e.evento !== "derivado");
-      const resto = derivarDeEventos(sinDerivado, hoyISO());
+      const resto = derivarDeEventos(sinDerivado, hoy);
       const { pendienteHechos: _r, ...estadoResto } = resto;
       return estadoResto;
     }
@@ -305,7 +310,7 @@ export type CensoSemaforo = {
   filas: FilaCensoSemaforo[];
 };
 
-export async function censoSemaforo(): Promise<CensoSemaforo> {
+export async function censoSemaforo(opts?: OpcionesSemaforo): Promise<CensoSemaforo> {
   const todos = await cargarEventosSemaforo();
   // Se agrupa por DÍGITOS, no por el string del caso_id: el mismo hilo puede
   // tener eventos con «+34 613 128 152» y «+34613128152» (el derivado del
@@ -319,10 +324,10 @@ export async function censoSemaforo(): Promise<CensoSemaforo> {
     porCaso.set(clave, grupo);
   }
 
-  const hoy = hoyISO();
+  const hoy = opts?.hoy ?? hoyISO();
   const filas: FilaCensoSemaforo[] = [];
   for (const [, { telefono, eventos }] of porCaso) {
-    const estado = await resolverConHechos(eventos);
+    const estado = await resolverConHechos(eventos, hoy);
     if (estado.verde || !estado.motivo || !estado.desde) continue;
     const edadDias = Math.max(
       0,
