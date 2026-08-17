@@ -83,7 +83,10 @@ export type ResultadoEjecucion =
   | "skipped_optout"
   | "skipped_horario"
   | "skipped_test"
-  | "skipped_dedupe";
+  | "skipped_dedupe"
+  /** 026 — el semáforo de contacto estaba en rojo (asunto derivado con una
+   *  persona, hilo asumido, o espera vigente). Solo contacto comercial. */
+  | "skipped_semaforo";
 
 /**
  * Mantenimiento jul-2026 — el envío WA del motor es un skeleton

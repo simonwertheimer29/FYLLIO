@@ -36,7 +36,24 @@ for (const v of ["SUPABASE_DB_URL_APP", "SUPABASE_DB_URL_ADMIN", "ANTHROPIC_API_
 
 const app = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL_APP, ssl: { rejectUnauthorized: false } });
 await app.connect();
-await app.query("select set_config('app.cliente','DEMO',false)");
+
+// MEJORAS 95 (resuelta aquí el 2026-08-17): la URL de la app pasa por el
+// pooler en modo transacción — un set_config de SESIÓN no sobrevive entre
+// queries y RLS vacía lecturas/updates EN SILENCIO (este QA falló así:
+// «el huérfano no existe» con el huérfano en la base). Cada consulta va en
+// su transacción con set_config LOCAL, como qa-contexto y demo-entrante.
+async function q(texto: string, params?: unknown[]): Promise<{ rows: any[]; rowCount: number | null }> {
+  await app.query("begin");
+  try {
+    await app.query("select set_config('app.cliente','DEMO',true)");
+    const r = await app.query(texto, params);
+    await app.query("commit");
+    return r as { rows: any[]; rowCount: number | null };
+  } catch (e) {
+    await app.query("rollback").catch(() => {});
+    throw e;
+  }
+}
 
 let fallos = 0;
 const ok = (n: string, c: boolean, extra = "") => {
@@ -56,7 +73,7 @@ await runWithCliente("DEMO", async () => {
   console.log("\n1 · El interruptor: fail-closed y por clínica (clínica REAL, con restauración)");
   // clinica_id lleva FK compuesta a clinicas (D2): no hay clínicas fantasma.
   // Se usa una real del DEMO, snapshot → toggle → restaurar.
-  const cfg = (await app.query(
+  const cfg = (await q(
     `select clinica_id, evaluador_activo from configuracion_automatizaciones where clinica_id is not null limit 1`,
   )).rows[0];
   if (!cfg) {
@@ -67,13 +84,13 @@ await runWithCliente("DEMO", async () => {
   ok("tras demo:reset, el interruptor arranca APAGADO", cfg.evaluador_activo === false, `clinica=${cfg.clinica_id}`);
   ok("evaluadorActivo() lo lee apagado", (await evaluadorActivo(cfg.clinica_id)) === false);
   ok("clínica inexistente → apagado (fail-closed, sin fila)", (await evaluadorActivo("no-existe")) === false);
-  await app.query(`update configuracion_automatizaciones set evaluador_activo=true where clinica_id=$1`, [cfg.clinica_id]);
+  await q(`update configuracion_automatizaciones set evaluador_activo=true where clinica_id=$1`, [cfg.clinica_id]);
   ok("encendido por clínica → true", (await evaluadorActivo(cfg.clinica_id)) === true);
-  await app.query(`update configuracion_automatizaciones set evaluador_activo=$2 where clinica_id=$1`, [cfg.clinica_id, cfg.evaluador_activo]);
+  await q(`update configuracion_automatizaciones set evaluador_activo=$2 where clinica_id=$1`, [cfg.clinica_id, cfg.evaluador_activo]);
   ok("restaurado al estado original", (await evaluadorActivo(cfg.clinica_id)) === cfg.evaluador_activo);
 
   console.log("\n2 · El orquestador, de punta a punta sobre el huérfano del seed");
-  const huerfano = (await app.query(`select count(*)::int n from mensajes_whatsapp where telefono=$1`, [TEL_HUERFANO])).rows[0];
+  const huerfano = (await q(`select count(*)::int n from mensajes_whatsapp where telefono=$1`, [TEL_HUERFANO])).rows[0];
   if (huerfano.n === 0) {
     console.error("✗ el huérfano del seed no existe — corre `npm run demo:reset` antes de este QA");
     fallos++;
@@ -85,7 +102,7 @@ await runWithCliente("DEMO", async () => {
       presupuestoId: null,
       clinicaId: null,
     });
-    const evs = (await app.query(
+    const evs = (await q(
       `select evento, evaluacion_json from eventos_automatizacion where caso_id=$1 order by created_at`,
       [TEL_HUERFANO],
     )).rows;
@@ -102,7 +119,7 @@ await runWithCliente("DEMO", async () => {
       contenido: "Hola, ¿cuánto cuesta una limpieza dental? Nunca he ido a vuestra clínica.",
       presupuestoId: null, clinicaId: null,
     });
-    const n2 = (await app.query(
+    const n2 = (await q(
       `select count(*)::int n from eventos_automatizacion where caso_id=$1 and evento='evaluacion'`,
       [TEL_HUERFANO],
     )).rows[0].n;

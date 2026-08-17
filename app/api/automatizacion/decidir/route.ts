@@ -21,16 +21,36 @@ import type { EventoAutomatizacion, TipoCaso } from "../../../lib/automatizacion
 
 export const dynamic = "force-dynamic";
 
-const TIPOS: readonly TipoCaso[] = ["presupuesto", "lead", "cobro"];
+const TIPOS: readonly TipoCaso[] = ["presupuesto", "lead", "cobro", "conversacion"];
 
 /** Solo las decisiones humanas. `mensaje_enviado` NO entra aquí: lo escribe el
  *  camino del envío, con su medida, y no un cliente que podría inventarla.
  *  `devuelto_al_agente` se retiró en la 022 (la derivación no se revierte) y
- *  `derivado` tampoco entra: lo emite el evaluador, no un botón. */
+ *  `derivado` tampoco entra: lo emite el evaluador, no un botón.
+ *
+ *  026 — las decisiones del semáforo, sobre `conversacion` (caso = teléfono):
+ *  `resuelto_manual` es UN SOLO botón para todas las causas — la causa ya
+ *  está en el log y la coordinadora no repite taxonomía al cerrar. Es la
+ *  salida para los asuntos sin hecho observable (queja atendida, urgencia
+ *  resuelta por teléfono, negociación que quedó en llamar). `soltado` suelta
+ *  el «este hilo es mío». `espera_fijada` manual lleva fecha y NO tiene tope
+ *  (el tope de 14 días es del agente); `espera_levantada` la retira. */
 const DECISIONES: readonly EventoAutomatizacion[] = [
   "quiebre_reconocido",
   "asumido",
   "asumido_manual",
+  "resuelto_manual",
+  "soltado",
+  "espera_fijada",
+  "espera_levantada",
+];
+
+/** Las del semáforo solo tienen sentido sobre el HILO (tipo conversacion). */
+const SOLO_CONVERSACION: readonly EventoAutomatizacion[] = [
+  "resuelto_manual",
+  "soltado",
+  "espera_fijada",
+  "espera_levantada",
 ];
 
 export const POST = withPresupuestosAuth(async (session, req: Request) => {
@@ -48,6 +68,25 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
   }
   if (!evento || !DECISIONES.includes(evento)) {
     return NextResponse.json({ error: "evento no válido" }, { status: 400 });
+  }
+  if (SOLO_CONVERSACION.includes(evento) && tipoCaso !== "conversacion") {
+    return NextResponse.json({ error: `${evento} solo aplica a tipoCaso=conversacion` }, { status: 400 });
+  }
+
+  // La espera manual: fecha obligatoria, futura, y NADA de texto libre en la
+  // decisión — el campo de nota (motivoTexto) es para la siguiente persona,
+  // el sistema solo lee la fecha. Sin tope: el de 14 días es del AGENTE.
+  let hasta: string | null = null;
+  if (evento === "espera_fijada") {
+    const cruda = typeof body?.hasta === "string" ? body.hasta : "";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(cruda)) {
+      return NextResponse.json({ error: "espera_fijada requiere hasta=YYYY-MM-DD" }, { status: 400 });
+    }
+    const { hoyISO } = await import("../../../lib/time");
+    if (cruda <= hoyISO()) {
+      return NextResponse.json({ error: "hasta debe ser una fecha futura" }, { status: 400 });
+    }
+    hasta = cruda;
   }
 
   // Aislamiento por clínica (§5): un caso de otra clínica no se toca, ni para
@@ -68,6 +107,7 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
       actorId: session.email ?? null,
       actorNombre: session.nombre ?? null,
       motivoTexto,
+      hasta,
     });
     // El estado NO se devuelve desde aquí: se deriva en la siguiente carga, con
     // el resto de señales. Devolverlo ahora obligaría a calcularlo dos veces y

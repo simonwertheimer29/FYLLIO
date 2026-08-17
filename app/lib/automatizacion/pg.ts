@@ -54,6 +54,12 @@ export type RegistrarEventoArgs = {
    *  obligatorio cuando la causa es `peticion_queja` (decide la cola). */
   causaDerivacion?: CausaDerivacion | null;
   malestar?: boolean | null;
+  /** 026 — qué perseguía el agente al derivar (solo en `derivado`). Hecho del
+   *  turno; decide qué hecho del sistema cierra el asunto (semaforo.ts). */
+  objetivoActivo?: "identificar" | "cita" | "presupuesto" | "cobro" | null;
+  /** 026 — «sin contacto hasta» (YYYY-MM-DD). OBLIGATORIA en `espera_fijada`
+   *  y solo ahí (constraint). */
+  hasta?: string | null;
 };
 
 /**
@@ -85,6 +91,8 @@ export async function registrarEvento(args: RegistrarEventoArgs): Promise<void> 
         clave_aplazado: args.claveAplazado ?? null,
         causa_derivacion: args.causaDerivacion ?? null,
         malestar: args.malestar ?? null,
+        objetivo_activo: args.objetivoActivo ?? null,
+        hasta: args.hasta ?? null,
       } as never)
       .execute(),
   );
@@ -118,6 +126,8 @@ export async function registrarEventoIdempotente(
         clave_aplazado: args.claveAplazado ?? null,
         causa_derivacion: args.causaDerivacion ?? null,
         malestar: args.malestar ?? null,
+        objetivo_activo: args.objetivoActivo ?? null,
+        hasta: args.hasta ?? null,
         evaluacion_json: args.evaluacionJson ?? null,
         mensaje_id: args.mensajeId,
       } as never)

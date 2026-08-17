@@ -44,10 +44,22 @@ for (const v of ["SUPABASE_DB_URL_APP", "SUPABASE_DB_URL_ADMIN"]) {
 
 const app = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL_APP, ssl: { rejectUnauthorized: false } });
 await app.connect();
-await app.query("select set_config('app.cliente','DEMO',false)");
-if ((await app.query("select current_setting('app.cliente', true) c")).rows[0].c !== "DEMO") {
-  console.error("✗ contexto no es DEMO");
-  process.exit(2);
+
+// MEJORAS 95 (resuelta el 2026-08-17): sobre el pooler en modo transacción un
+// set_config de SESIÓN no sobrevive entre queries — RLS vacía lecturas y
+// updates en silencio. Cada consulta va en su transacción con set_config
+// LOCAL, como qa-contexto y demo-entrante.
+async function q(texto: string, params?: unknown[]): Promise<{ rows: any[]; rowCount: number | null }> {
+  await app.query("begin");
+  try {
+    await app.query("select set_config('app.cliente','DEMO',true)");
+    const r = await app.query(texto, params);
+    await app.query("commit");
+    return r as { rows: any[]; rowCount: number | null };
+  } catch (e) {
+    await app.query("rollback").catch(() => {});
+    throw e;
+  }
 }
 
 let fallos = 0;
@@ -56,7 +68,7 @@ const ok = (nombre: string, cond: boolean, extra = "") => {
   if (!cond) fallos++;
 };
 const eventos = async (where = "") =>
-  (await app.query(`select evento, clave_aplazado, causa_derivacion, malestar, evaluacion_json, mensaje_id
+  (await q(`select evento, clave_aplazado, causa_derivacion, malestar, evaluacion_json, mensaje_id
                       from eventos_automatizacion where caso_id = $1 ${where} order by created_at`, [TEL])).rows;
 
 async function limpiar() {
@@ -135,7 +147,7 @@ await runWithCliente("DEMO", async () => {
 
   // ── 4 · Proyección compat sobre un presupuesto real, y restaurar ─────────
   console.log("\n4 · Proyección compat (copia con fecha de muerte: fase B)");
-  const presu = (await app.query(
+  const presu = (await q(
     `select id, requiere_persona, motivo_quiebre, mensaje_sugerido, urgencia_intervencion,
             accion_sugerida, ultima_respuesta_paciente, fecha_ultima_respuesta, fase_seguimiento
        from presupuestos where estado not in ('ACEPTADO','PERDIDO') limit 1`,
@@ -148,16 +160,16 @@ await runWithCliente("DEMO", async () => {
       telefono: TEL, mensajeId: "qa_turno_msg_0003", respuestaPaciente: "[QA] mensaje compat",
       evaluacion: evalBase, presupuestoId: presu.id,
     });
-    const tras = (await app.query(`select requiere_persona, urgencia_intervencion, mensaje_sugerido from presupuestos where id=$1`, [presu.id])).rows[0];
+    const tras = (await q(`select requiere_persona, urgencia_intervencion, mensaje_sugerido from presupuestos where id=$1`, [presu.id])).rows[0];
     ok("deriva → requiere_persona=true y urgencia por cola (prioritaria→CRÍTICO)", tras.requiere_persona === true && tras.urgencia_intervencion === "CRÍTICO");
     ok("al derivar por queja, el sugerido queda VACÍO (no se invita a mandarlo)", (tras.mensaje_sugerido ?? "") === "");
-    await app.query(
+    await q(
       `update presupuestos set requiere_persona=$2, motivo_quiebre=$3, mensaje_sugerido=$4, urgencia_intervencion=$5,
               accion_sugerida=$6, ultima_respuesta_paciente=$7, fecha_ultima_respuesta=$8, fase_seguimiento=$9 where id=$1`,
       [presu.id, presu.requiere_persona, presu.motivo_quiebre, presu.mensaje_sugerido, presu.urgencia_intervencion,
        presu.accion_sugerida, presu.ultima_respuesta_paciente, presu.fecha_ultima_respuesta, presu.fase_seguimiento],
     );
-    const restaurado = (await app.query(`select requiere_persona from presupuestos where id=$1`, [presu.id])).rows[0];
+    const restaurado = (await q(`select requiere_persona from presupuestos where id=$1`, [presu.id])).rows[0];
     ok("estado del presupuesto restaurado", restaurado.requiere_persona === presu.requiere_persona);
   }
 

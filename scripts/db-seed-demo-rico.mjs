@@ -112,6 +112,27 @@ try {
   for (const t of WIPE) { const r = await db.query(`delete from ${t} where cliente='DEMO'`); borradas += r.rowCount; }
   console.log(`wipe transaccional DEMO: ${borradas} filas fuera`);
 
+  // ── WIPE de eventos_automatizacion — VÍA ADMIN, y obligatorio ─────────
+  // El rol de la app solo tiene SELECT/INSERT sobre el log (append-only a
+  // propósito), así que esta tabla NO puede ir en la lista de arriba. Se
+  // aprendió el 2026-08-17: un `derivado` de una prueba sobrevivió al reset,
+  // el semáforo lo leyó, y el agente enmudeció «sin motivo» en un hilo
+  // recién sembrado. Sin la URL admin se ABORTA — un reset que deja el log
+  // sucio no es un reset, es una demo que miente (§15).
+  if (!process.env.SUPABASE_DB_URL_ADMIN) {
+    throw new Error("Falta SUPABASE_DB_URL_ADMIN: sin ella no se puede limpiar eventos_automatizacion (append-only para la app) y el reset quedaría a medias.");
+  }
+  {
+    const admin = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL_ADMIN, ssl: { rejectUnauthorized: false } });
+    await admin.connect();
+    try {
+      const r = await admin.query(`delete from eventos_automatizacion where cliente='DEMO'`);
+      console.log(`wipe admin eventos_automatizacion DEMO: ${r.rowCount} filas fuera`);
+    } finally {
+      await admin.end();
+    }
+  }
+
   // ── PACIENTES (46): financiero coherente para KPIs ───────────────────
   const NOMBRES = ["María Sánchez", "Javier Ortega", "Lucía Romero", "Carlos Herrera", "Elena Navarro",
     "Pablo Gil", "Marta Vidal", "Sergio Ramos", "Ana Torres", "David Castro", "Cristina Muñoz", "Alberto Ruiz",

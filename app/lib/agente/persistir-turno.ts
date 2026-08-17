@@ -42,6 +42,9 @@ export type PayloadEvaluacion = {
   /** El borrador del turno — lo necesita la vista de supervisión (fase C) y
    *  es el único sitio donde vive en hilos sin presupuesto. */
   respuesta: string;
+  /** 026 (aditivo) — la espera que fijó el turno, si la hubo. El evento
+   *  espera_fijada es la verdad; aquí viaja para la supervisión. */
+  esperaHasta?: string | null;
 };
 
 export type TurnoAPersistir = {
@@ -105,8 +108,9 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
     );
   }
 
-  // 2 · Derivación, si la hubo — con el HECHO (causa, malestar); la cola se
-  //     deriva al leer.
+  // 2 · Derivación, si la hubo — con el HECHO (causa, malestar, y desde la
+  //     026 el objetivo que perseguía: sin él no se sabe qué hecho del
+  //     sistema cierra el asunto); la cola se deriva al leer.
   if (ev.decision === "deriva" && ev.causa) {
     const frase = t.respuestaPaciente.trim().replace(/\s+/g, " ").slice(0, 120);
     cuenta(
@@ -116,6 +120,25 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
         evento: "derivado",
         causaDerivacion: ev.causa,
         malestar: ev.causa === "peticion_queja" ? (ev.malestar ?? false) : null,
+        objetivoActivo: ev.objetivoActivo,
+        motivoTexto: frase ? `«${frase}»` : null,
+        actorNombre: "agente",
+        mensajeId: t.mensajeId,
+      }),
+    );
+  }
+
+  // 2b · La espera (026): el paciente pidió tiempo con fecha concreta y el
+  //      tope ya lo aplicó evaluarTurno. Suspende cadencias vía el semáforo;
+  //      idempotente por mensaje como todo lo del turno.
+  if (ev.esperaHasta) {
+    const frase = t.respuestaPaciente.trim().replace(/\s+/g, " ").slice(0, 120);
+    cuenta(
+      await registrarEventoIdempotente({
+        tipoCaso: "conversacion",
+        casoId: t.telefono,
+        evento: "espera_fijada",
+        hasta: ev.esperaHasta,
         motivoTexto: frase ? `«${frase}»` : null,
         actorNombre: "agente",
         mensajeId: t.mensajeId,
@@ -136,6 +159,7 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
     hiloTruncado: ev.hiloTruncado,
     borradorDescartado: ev.borradorDescartado ?? null,
     respuesta: ev.respuesta,
+    esperaHasta: ev.esperaHasta ?? null,
   };
   cuenta(
     await registrarEventoIdempotente({

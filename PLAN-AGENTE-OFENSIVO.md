@@ -132,6 +132,28 @@ listos, será un **resumen periódico**, nunca un aviso por caso.
 
 **La cohorte de quiebre de la fase 1 no se tira: se reparte.** Lo que rompe de verdad va a la primera; lo aplazado, a la tercera.
 
+**EL SEMÁFORO DE CONTACTO** (criterio, 17-08 · construido en la 026). Un solo criterio y lo miran
+los dos lados — el evaluador antes de contestar y las cadencias/automatizaciones antes de
+dispararse: **rojo ⇔ hay un asunto derivado sin resolver con una persona, o un «este hilo es mío»
+sin soltar, o una espera vigente.** El disparador de la vuelta no es un mensaje, es **el cierre del
+asunto**: un hecho del sistema (la cita creada, el cobro registrado, el presupuesto cerrado) o el
+botón «resuelto» — uno solo para todas las causas; la causa ya está en el log. Sin expiración por
+tiempo: caducar tapa el fallo en vez de enseñarlo — la presión es el **censo de rojos con su edad**
+(`npm run semaforo` / `GET /api/automatizacion/semaforo`), que además es la alarma del único punto
+por el que el producto entero puede enmudecer en silencio.
+
+**La espera («sin contacto hasta [fecha]»)** resuelve dos casos con una pieza: el paciente que pide
+plazo («el viernes te digo») y el acuerdo por teléfono invisible para el sistema. La fija el agente
+—solo con fecha CONCRETA extraída del texto del paciente, tope 14 días; por encima, una persona— o
+una persona a mano. Suspende **también** las cadencias, por el mismo semáforo. Al vencer, solo se
+levanta la pausa: nada dispara solo. Y el agente sigue contestando entrantes durante la espera —
+responder a quien escribe no es contactar.
+
+**Recordatorios de CITA: exentos del semáforo** (criterio, 17-08). La cita es un compromiso
+existente del paciente, no un contacto comercial — y son los mensajes RGPD-limpios. Todo lo demás
+que toca al paciente (cadencias de presupuesto, reactivaciones, reglas con plantilla) pasa por el
+semáforo sin excepción.
+
 ---
 
 ## 4 · La ficha del caso listo — el producto de verdad

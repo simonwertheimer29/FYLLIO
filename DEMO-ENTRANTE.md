@@ -1,5 +1,9 @@
 # Ver el agente funcionando en la DEMO — `demo:entrante`
 
+> Actualizado 2026-08-17 con el **semáforo de contacto** (migración 026): una derivación ya no es
+> eterna — el agente calla mientras el asunto esté con una persona, y vuelve cuando el sistema ve
+> el hecho de cierre (la cita creada, el cobro…) o cuando alguien lo marca resuelto.
+
 La herramienta para **comprobar el agente sin pedir un informe**: simula un mensaje
 entrante de WhatsApp en la DEMO, lo evalúa por el mismo camino que producción, y cuenta
 en frases qué entendió, qué decidió, qué anotó y qué borrador propone.
@@ -25,9 +29,20 @@ npm run demo:entrante -- "+34 613 128 152" "Hola, ¿me recordáis el importe del
 # Número nuevo sin hilo previo: decir qué clínica lo recibe (y opcionalmente el
 # nombre de perfil de WhatsApp que Meta mandaría)
 npm run demo:entrante -- "+34699111222" "¿Hacéis ortodoncia invisible?" --clinica norte --nombre "Ana R."
+
+# El botón «resuelto» de la coordinadora (hasta que exista la pantalla):
+# cierra el asunto derivado y el agente vuelve a contestar en ese hilo
+npm run demo:entrante -- --resolver "+34 613 128 152"
+
+# El censo del semáforo: cuántos hilos están en rojo, por qué, y su edad
+npm run semaforo
 ```
 
-Limpieza total (mensajes, evaluaciones e interruptores): `npm run demo:reset`.
+Limpieza total (mensajes, evaluaciones, derivaciones e interruptores): `npm run demo:reset`.
+Exige `SUPABASE_DB_URL_ADMIN` en `.env.local` — el log de eventos es append-only para la app y
+solo el rol admin puede vaciarlo; sin la variable el reset aborta en vez de dejar el log sucio
+(un `derivado` viejo que sobrevive al reset enmudece al agente en un hilo recién sembrado — pasó
+el 17 de agosto y costó una mañana).
 
 ## Dónde se ve en pantalla (con `npm run dev` corriendo)
 
@@ -42,8 +57,9 @@ Limpieza total (mensajes, evaluaciones e interruptores): `npm run demo:reset`.
 ## Los 4 casos que enseñan comportamientos distintos
 
 Con **Norte encendida** y las demás apagadas. Pacientes reales del seed (estables entre
-reseeds). El orden importa: una derivación es **definitiva** para el hilo (no-reversión),
-por eso Carlos hace primero el caso 1 y luego el 3.
+reseeds). El orden importa: tras derivar, el hilo queda **en rojo hasta que el asunto se
+cierre** (hecho del sistema o `--resolver`), por eso Carlos hace primero el caso 1 y luego
+el 3 — y después del 3 puedes enseñar la vuelta: `--resolver` y un mensaje más.
 
 **1 · Resuelve solo** — Carlos Herrera, presupuesto vivo de 300 €:
 ```bash

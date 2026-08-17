@@ -33,6 +33,11 @@ import {
   type CausaDerivacion,
 } from "../automatizacion/estado";
 import type { EtapaObjetivo, ObjetivoAgente } from "../automatizacion/objetivos";
+import { hoyISO } from "../time";
+
+/** Para la línea «HOY es…» del contexto (la espera necesita resolver «el
+ *  viernes» a un día). getUTCDay() sobre las 12:00Z del día de clínica. */
+const DIA_SEMANA = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"] as const;
 
 // ─── Entrada ────────────────────────────────────────────────────────────────
 
@@ -74,8 +79,14 @@ export type EntradaEvaluador = {
   umbralCitaProximaDias?: number;
   /** EXISTS derivado/asumido/asumido_manual desde el último cierre. Si es
    *  true el agente NO entra — se comprueba aquí además de en el caller para
-   *  que la no-reversión no dependa de que todos los callers se acuerden. */
+   *  que la no-reversión no dependa de que todos los callers se acuerden.
+   *  Desde la 026 el caller lo deriva del SEMÁFORO (asunto abierto con una
+   *  persona), no de un EXISTS eterno. */
   yaDerivado: boolean;
+  /** Día de clínica de HOY (YYYY-MM-DD), inyectado desde el borde (§14) para
+   *  que el eval fije el instante. Default: hoyISO(). Resuelve la espera
+   *  («el viernes» → fecha) y su tope. */
+  hoy?: string;
 };
 
 // ─── Salida ─────────────────────────────────────────────────────────────────
@@ -106,6 +117,12 @@ export type EvaluacionTurno = {
   objetivoActivo: EtapaObjetivo | null;
   /** Eventos `aplazado` a emitir este turno (nuevos + re-aplazos). */
   aplazamientos: { clave: ClaveAplazado; motivo: string }[];
+  /** 026 — «sin contacto hasta [fecha]» pedida por el paciente con fecha
+   *  CONCRETA, validada y topada por CÓDIGO (≤ hoy+14 días; por encima la
+   *  fija una persona). null = sin espera este turno. Suspende cadencias por
+   *  el semáforo; el agente sigue contestando entrantes (responder no es
+   *  contactar). */
+  esperaHasta: string | null;
   camposRecogidos: CamposRecogidos;
   /** Claves del objetivo activo sin valor ni no_aplica. */
   camposFaltantes: string[];
@@ -132,6 +149,12 @@ export type EvaluacionTurno = {
 // ─── Constantes ─────────────────────────────────────────────────────────────
 
 export const UMBRAL_INSISTENCIA_DEFAULT = 2;
+
+/** Tope de la espera que el agente puede fijar SOLO (2026-08-17): un paciente
+ *  que pide tiempo habla de días, y 30 días de silencio en un presupuesto
+ *  vivo es un presupuesto muerto — callar de más cuesta más que escribir un
+ *  día antes. Por encima, la fija una persona. */
+export const ESPERA_TOPE_DIAS = 14;
 
 /** «Cita próxima» para el antecedente médico: dentro de la semana en curso de
  *  planificación — el horizonte en el que el aplazamiento normal (que se
@@ -236,6 +259,8 @@ LA FRONTERA, Y ES DONDE MÁS SE FALLA: queja ≠ insatisfacción. «Me parece ca
 - "otro": lo que no encaja, con el motivo claro.
 LAS REGLAS DEL DINERO (no se saltan): leer una política que ya existe se contesta; adaptarla a esta persona se anota. «¿Trabajáis con Sanitas?» se contesta; «¿cuánto me cubriría a mí?» se anota. «¿Cómo se puede pagar?» se contesta si el contexto lo dice; «¿me lo dejáis en cuatro plazos?» se anota. Y no tener un dato NO es motivo de parar: «te lo confirmamos enseguida» + anotarlo.
 
+━━ JUICIO "esperaSolicitada" — SOLO si la persona pide explícitamente tiempo con un plazo o una fecha CONCRETOS antes de volver a hablar («el viernes te digo», «dame dos semanas», «hasta después del puente no puedo», «te contesto a final de mes»), la fecha resultante en formato YYYY-MM-DD (usa la fecha de HOY del contexto para calcularla). Si no da plazo concreto («déjame pensarlo», «ya te diré») o no pide tiempo: null. NO la inventes ni la redondees: si dice «el viernes», es ese viernes.
+
 ━━ JUICIO "camposRecogidos" — para CADA objetivo abierto del contexto, extrae del HILO ENTERO (no solo del último mensaje) el valor de cada campo: {"<etapa>": {"<clave_campo>": valor}}. Valor: el dato en pocas palabras si la persona lo ha dado · null si falta de verdad · "no_aplica" si la condición del campo no se cumple. LAS REGLAS DEL no_aplica, que es donde más se falla:
 - Un campo condicional JAMÁS se queda en null cuando su rama no aplica: si la decisión es «acepta», los campos de «solo si se lo piensa» y «solo si rechaza» son "no_aplica" (y al revés).
 - «Solo si la menciona»: si se le preguntó y dijo que no tiene preferencia, el valor es «sin preferencia» (dato recogido, no null); si nadie lo mencionó, "no_aplica".
@@ -255,6 +280,7 @@ RESPONDE EXCLUSIVAMENTE con un JSON válido:
   "mencionaAntecedenteMedico": false,
   "vuelveSobreAplazado": null,
   "aplazamientosNuevos": [],
+  "esperaSolicitada": null,
   "camposRecogidos": {},
   "respuesta": "..."
 }
@@ -281,6 +307,20 @@ export function renderEntrada(e: EntradaEvaluador): {
   const { hilo, truncado, omitidos } = truncarHilo(e.hilo);
   const lineas: string[] = [];
 
+  // La fecha, para que «el viernes» sea un día y no una interpretación. Y el
+  // CALENDARIO entero del tope: en la primera prueba en vivo el modelo
+  // convirtió «el viernes» (desde un lunes) en un domingo — la aritmética de
+  // fechas no es suya. El código imprime los días y el modelo BUSCA, no
+  // calcula (§«lo que se puede contar, se cuenta»).
+  const hoy = e.hoy ?? hoyISO();
+  const calendario: string[] = [];
+  for (let i = 1; i <= 14; i++) {
+    const d = new Date(`${hoy}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + i);
+    calendario.push(`${DIA_SEMANA[d.getUTCDay()]} ${d.toISOString().slice(0, 10)}`);
+  }
+  lineas.push(`HOY es ${hoy} (${DIA_SEMANA[new Date(`${hoy}T12:00:00Z`).getUTCDay()]}).`);
+  lineas.push(`CALENDARIO de los próximos 14 días (para fechas tipo «el viernes», usa EXACTAMENTE la fecha de aquí): ${calendario.join(" · ")}.`);
   lineas.push(`Persona: ${e.nombre.split(" ")[0]}${e.esPacienteConocido ? " (paciente de la clínica)" : " (no consta como paciente)"}`);
   if (e.presupuestosVivos.length > 0) {
     for (const p of e.presupuestosVivos) {
@@ -331,6 +371,9 @@ type JuicioModelo = {
   mencionaAntecedenteMedico: boolean;
   vuelveSobreAplazado: ClaveAplazado | null;
   aplazamientosNuevos: { clave: ClaveAplazado; motivo: string }[];
+  /** Fecha YYYY-MM-DD SOLO si el paciente pidió tiempo con plazo concreto.
+   *  El modelo la extrae; el CÓDIGO la valida y la topa (evaluarTurno). */
+  esperaSolicitada: string | null;
   camposRecogidos: CamposRecogidos;
   respuesta: string;
 };
@@ -440,6 +483,12 @@ async function juzgar(
         mencionaAntecedenteMedico: p.mencionaAntecedenteMedico === true,
         vuelveSobreAplazado: vuelve,
         aplazamientosNuevos: aplazamientos,
+        // Forma YYYY-MM-DD o nada — el tope y la validez temporal los pone
+        // evaluarTurno, que tiene el `hoy` inyectado.
+        esperaSolicitada:
+          typeof p.esperaSolicitada === "string" && /^\d{4}-\d{2}-\d{2}$/.test(p.esperaSolicitada)
+            ? p.esperaSolicitada
+            : null,
         camposRecogidos: campos,
         respuesta: desanonimizarTexto(String(p.respuesta ?? ""), mapa).slice(0, 1200),
       },
@@ -466,6 +515,7 @@ export async function evaluarTurno(
       decision: "sigue",
       objetivoActivo: null,
       aplazamientos: [],
+      esperaHasta: null,
       camposRecogidos: {},
       camposFaltantes: [],
       casoCompleto: false,
@@ -487,6 +537,7 @@ export async function evaluarTurno(
       decision: "sigue",
       objetivoActivo: null,
       aplazamientos: [],
+      esperaHasta: null,
       camposRecogidos: {},
       camposFaltantes: [],
       casoCompleto: false,
@@ -545,6 +596,19 @@ export async function evaluarTurno(
     aplazamientos.push({ clave: "duda_clinica", motivo: "menciona un antecedente médico" });
   }
 
+  // La espera (026): el modelo extrajo la fecha; el CÓDIGO la valida — tiene
+  // que ser futura y caber en el tope. Fuera de tope NO se recorta: se
+  // descarta (por encima de 14 días la fija una persona, no el agente).
+  const hoy = e.hoy ?? hoyISO();
+  let esperaHasta: string | null = null;
+  if (juicio.esperaSolicitada && juicio.esperaSolicitada > hoy) {
+    const tope = new Date(`${hoy}T00:00:00Z`);
+    tope.setUTCDate(tope.getUTCDate() + ESPERA_TOPE_DIAS);
+    if (juicio.esperaSolicitada <= tope.toISOString().slice(0, 10)) {
+      esperaHasta = juicio.esperaSolicitada;
+    }
+  }
+
   // La derivación, por precedencia: urgencia > petición/queja > insistencia
   // > caso completo. Los aplazamientos anotados viajan igual — van a la ficha.
   const base = {
@@ -559,6 +623,7 @@ export async function evaluarTurno(
     },
     objetivoActivo,
     aplazamientos,
+    esperaHasta,
     camposRecogidos: juicio.camposRecogidos,
     camposFaltantes,
     casoCompleto,

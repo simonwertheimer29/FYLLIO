@@ -12,6 +12,7 @@
     "dev:fresh": "rm -rf .next && next dev",
     "demo:reset": "node scripts/db-seed-demo-rico.mjs",
     "demo:entrante": "tsx scripts/demo-entrante.mts",
+    "semaforo": "tsx scripts/semaforo-censo.mts",
     "db:migrate": "node scripts/db-migrate.mjs",
     "db:migrate:dry": "node scripts/db-migrate.mjs --dry",
     "db:password": "node scripts/db-password.mjs",
@@ -31,6 +32,7 @@
     "qa:juez": "tsx scripts/qa-juez-borrador.mts",
     "qa:turno": "tsx scripts/qa-persistir-turno.mts",
     "qa:entrante": "tsx scripts/qa-evaluador-entrante.mts",
+    "qa:semaforo": "tsx scripts/qa-semaforo.mts",
     "verificar:produccion": "node scripts/verificar-produccion.mjs",
     "guard:rls": "node scripts/guard-service-role.mjs",
     "db:smoke-rls": "node scripts/db-smoke-rls.mjs"

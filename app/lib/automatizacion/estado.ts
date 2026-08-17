@@ -64,7 +64,16 @@ export type EventoAutomatizacion =
   | "derivado"
   /** 024 — los juicios de un turno evaluado. NO fija estado: es el registro
    *  del juicio, y el estado se deriva de datos + derivado/asumido. */
-  | "evaluacion";
+  | "evaluacion"
+  /** 026 — el semáforo de contacto. `resuelto_manual` cierra el asunto
+   *  derivado (un botón, todas las causas); `soltado` suelta el
+   *  asumido_manual; las esperas suspenden agente Y cadencias hasta `hasta`.
+   *  Ninguno fija estado aquí: los deriva `semaforo.ts` con un EXISTS +
+   *  hechos del sistema, no el «último evento». */
+  | "resuelto_manual"
+  | "soltado"
+  | "espera_fijada"
+  | "espera_levantada";
 
 /** Por qué el agente entregó el caso (022 + 023). Nada más deriva — lo demás
  *  se anota y la conversación sigue. `antecedente_medico` (023, caso Sintrom):

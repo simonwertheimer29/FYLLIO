@@ -22,6 +22,7 @@ import { contextoDeConversacion } from "./contexto-conversacion";
 import { evaluarTurno, MOTIVO_FALLBACK_EVALUADOR, type MensajeHilo } from "./evaluador";
 import { persistirTurno } from "./persistir-turno";
 import { objetivosDeClinica } from "../automatizacion/pg";
+import { semaforoDeContacto } from "../automatizacion/semaforo";
 import {
   pendientesDeAplazados,
   type ClaveAplazado,
@@ -86,7 +87,7 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
       .select(["evento", "clave_aplazado", "motivo_texto", "created_at"])
       .where("tipo_caso", "=", "conversacion")
       .where("caso_id", "=", e.telefono)
-      .where("evento", "in", ["aplazado", "aplazado_resuelto", "derivado", "asumido", "asumido_manual"])
+      .where("evento", "in", ["aplazado", "aplazado_resuelto"])
       .orderBy("created_at", "asc")
       .execute();
 
@@ -123,12 +124,14 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     aplazadosPorClave[x.clave] = (aplazadosPorClave[x.clave] ?? 0) + 1;
   }
 
-  // No-reversión: EXISTS derivado/asumido para el caso. (El corte «desde el
-  // último cierre» de la conversación huérfana es el fleco declarado de la
-  // fase B; hasta entonces, una derivación es definitiva para el hilo.)
-  const yaDerivado = datos.eventos.some(
-    (x) => x.evento === "derivado" || x.evento === "asumido" || x.evento === "asumido_manual",
-  );
+  // EL SEMÁFORO (026): el agente calla mientras el ASUNTO derivado siga sin
+  // resolver (hecho del sistema o resuelto_manual) o el hilo esté asumido.
+  // Ya no es un EXISTS eterno — el derivado de una prueba de agosto dejó
+  // mudo a Carlos tras un reset, y en producción cada derivación mataba su
+  // hilo para siempre. La ESPERA no calla al evaluador: responder a quien
+  // escribe no es contactar — la espera suspende lo PROACTIVO (cadencias).
+  const sem = await semaforoDeContacto(e.telefono);
+  const yaDerivado = !sem.verde && sem.motivo !== "espera";
 
   let diasHastaProximaCita: number | null = null;
   if (datos.proximaCita) {

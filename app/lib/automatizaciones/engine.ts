@@ -160,6 +160,32 @@ export async function evaluarRegla(
     }
   }
 
+  // 6. semáforo de contacto (026) — SOLO contacto comercial. Un hilo con un
+  // asunto derivado sin resolver, asumido por una persona o en espera («sin
+  // contacto hasta») no recibe toques de regla: sin esto, el disparo
+  // automático caía justo mientras la coordinadora negociaba. Los
+  // recordatorios de CITA (enviar_plantilla_personalizada /
+  // enviar_recordatorio_extra, atados a cita_id) están EXENTOS por criterio
+  // (PLAN §3): la cita es un compromiso del paciente, no contacto comercial.
+  // Sin teléfono resoluble no se bloquea: sin hilo no hay semáforo que
+  // proteger (y sin teléfono tampoco hay envío posible).
+  if (regla.acciones.some((a) => a.tipo === "enviar_whatsapp_template")) {
+    const telefono = await telefonoDeEvento(evento);
+    if (telefono) {
+      const { semaforoDeContacto } = await import("../automatizacion/semaforo");
+      const sem = await semaforoDeContacto(telefono);
+      if (!sem.verde) {
+        await logAccion({
+          reglaId: regla.id,
+          ...idsLink(evento),
+          resultado: "skipped_semaforo",
+          detalle: { motivo: sem.motivo, causa: sem.causa ?? null, desde: sem.desde ?? null },
+        });
+        return;
+      }
+    }
+  }
+
   // ── Ejecutar acciones ──
   const detalleEjecucion: Array<Record<string, unknown>> = [];
   let huboError = false;
@@ -410,6 +436,28 @@ function pacienteIdDeEvento(evento: EventoSistema): string | null {
   if (evento.entidadTipo === "Paciente") return evento.entidadId;
   const pid = evento.payload?.pacienteId;
   return typeof pid === "string" ? pid : null;
+}
+
+/** El teléfono del destinatario, para el semáforo (026): del payload si
+ *  viaja, y si no, del paciente. `null` = no resoluble — y entonces NO se
+ *  bloquea: sin teléfono no hay hilo que proteger ni envío posible. */
+async function telefonoDeEvento(evento: EventoSistema): Promise<string | null> {
+  const directo = evento.payload?.telefono ?? evento.payload?.phone;
+  if (typeof directo === "string" && directo.trim()) return directo.trim();
+  const pacienteId = pacienteIdDeEvento(evento);
+  if (!pacienteId) return null;
+  try {
+    const { runWithClienteDb } = await import("../db/context");
+    const { requireCliente } = await import("../cliente-contexto");
+    const cliente = requireCliente("telefonoDeEvento");
+    const fila = await runWithClienteDb(cliente, (trx) =>
+      trx.selectFrom("pacientes").select("telefono").where("id", "=", pacienteId).executeTakeFirst(),
+    );
+    return fila?.telefono ?? null;
+  } catch (err) {
+    console.error("[engine] telefonoDeEvento:", err instanceof Error ? err.message : err);
+    return null;
+  }
 }
 
 function idsLink(evento: EventoSistema): {

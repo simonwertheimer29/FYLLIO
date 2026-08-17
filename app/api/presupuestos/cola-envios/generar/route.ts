@@ -16,6 +16,7 @@ import type {
 } from "../../../../lib/presupuestos/types";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { nombresClinicasPermitidas, permiteClinica } from "../../../../lib/presupuestos/clinica-scope";
+import { semaforosParaCadencia } from "../../../../lib/automatizacion/semaforo";
 
 const ZONE = "Europe/Madrid";
 
@@ -227,6 +228,15 @@ export const POST = withPresupuestosAuth(async (session) => {
 
     const candidatos: EnvioCandidate[] = [];
     let omitidos = 0;
+    // EL SEMÁFORO (026): antes de proponer un toque se mira si el hilo está
+    // en rojo — asunto derivado con una persona, hilo asumido, o espera
+    // vigente («sin contacto hasta»). Sin esto, la cadencia proponía escribir
+    // justo mientras la coordinadora negociaba, o el jueves cuando el
+    // paciente pidió hasta el viernes. Los recordatorios de CITA no pasan
+    // por aquí y están exentos por criterio (PLAN §3): la cita es un
+    // compromiso del paciente, no contacto comercial.
+    const semaforoDe = await semaforosParaCadencia();
+    let enRojo = 0;
     const ACTIVOS = ["PRESENTADO", "INTERESADO", "EN_DUDA", "EN_NEGOCIACION"];
 
     // Sprint B Fase 4 — aislamiento por clínica: un coord solo genera la cola de
@@ -320,6 +330,13 @@ export const POST = withPresupuestosAuth(async (session) => {
       }
 
       if (!tipoEnvio || !tipoPlantilla) {
+        omitidos++;
+        continue;
+      }
+
+      const sem = await semaforoDe(phone);
+      if (!sem.verde) {
+        enRojo++;
         omitidos++;
         continue;
       }
@@ -431,7 +448,7 @@ export const POST = withPresupuestosAuth(async (session) => {
       }
     }
 
-    return NextResponse.json({ generados, omitidos, errores, limitados });
+    return NextResponse.json({ generados, omitidos, errores, limitados, enSemaforoRojo: enRojo });
   } catch (err) {
     console.error("[cola-envios/generar] Error:", err);
     return NextResponse.json({ error: "Error al generar cola" }, { status: 500 });

@@ -94,7 +94,16 @@ export interface Tabla_eventos_automatizacion {
     | "derivado"
     /** 024 — los juicios del modelo sobre un turno evaluado. Payload en
      *  `evaluacion_json`; nada derivable se guarda. */
-    | "evaluacion";
+    | "evaluacion"
+    /** 026 — una persona cierra el asunto derivado. UN botón para todas las
+     *  causas: la causa ya está en el log. */
+    | "resuelto_manual"
+    /** 026 — suelta el asumido_manual («ya no es mío»). */
+    | "soltado"
+    /** 026 — sin contacto hasta `hasta`. Suspende agente Y cadencias. */
+    | "espera_fijada"
+    /** 026 — levanta la espera antes de la fecha. */
+    | "espera_levantada";
   actor_id: string | null;
   actor_nombre: string | null;
   motivo_texto: string | null;
@@ -138,6 +147,14 @@ export interface Tabla_eventos_automatizacion {
   /** 024 — waba_message_id del mensaje evaluado. Con el índice parcial único
    *  hace imposible que una doble entrega duplique aplazados. */
   mensaje_id: string | null;
+  /** 026 — solo en evento='derivado': qué perseguía el agente al entregar.
+   *  Hecho del turno, no derivable después; decide qué hecho del sistema
+   *  cierra el asunto (lib/automatizacion/semaforo.ts). NULL pre-026 y en
+   *  derivaciones sin objetivo abierto. */
+  objetivo_activo: "identificar" | "cita" | "presupuesto" | "cobro" | null;
+  /** 026 — solo en evento='espera_fijada': sin contacto hasta esta fecha
+   *  (día de clínica, inclusive). Al vencer solo se levanta la pausa. */
+  hasta: Date | null;
   created_at: Generated<Date>;
 }
 

@@ -1746,4 +1746,6 @@ verdad: un editor, un vocabulario, un renderizador.
   consulta directa en su transacción con `set_config(..., true)` (local).
 - **Impacto:** hoy los QA pasan por suerte de pinning; el día que fallen, fallarán como flaky
   inexplicable y quemarán una tarde.
-- **Fecha:** 2026-08-17 · 🔵
+- **Fecha:** 2026-08-17 · ✅ **RESUELTA el 2026-08-17** — mordió a las pocas horas, el mismo día (qa:entrante
+  falló con «el huérfano no existe» y un toggle de cero filas); los dos QA llevan ya el patrón
+  transaccional. Ver DECISIONES 2026-08-17.

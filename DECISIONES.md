@@ -2826,3 +2826,27 @@ evaluador no pudo evaluar» FALSO con la evaluación bien persistida. Causa: `SU
 por el pooler en modo transacción (6543); un `set_config('app.cliente',...,false)` de sesión no
 sobrevive entre queries y RLS filtra todo sin error. Regla: consulta directa ⇒ su transacción con
 `set_config(..., true)`. Dos QA llevan el patrón frágil y pasan por suerte (MEJORAS 95).
+
+## 2026-08-17 — El EXISTS eterno casi enmudece el producto: nace el semáforo de contacto (026)
+Carlos salía «este hilo ya es de una persona» tras un reset limpio. El diagnóstico encontró DOS
+cosas: el derivado era residuo de una prueba (demo:reset no podía borrar el log — arreglado, wipe
+vía admin y aborta sin la URL), y el diseño real: la no-reversión era un EXISTS sin cierre — cada
+derivación mataba su hilo para siempre. La regla nueva (dictada): **el agente calla mientras exista
+un asunto derivado sin resolver, y «resuelto» es un HECHO DEL SISTEMA** (cita creada, cobro,
+presupuesto cerrado — por eso el derivado persiste ahora su objetivo) **o el botón «resuelto»** —
+uno solo para todas las causas. Sin hecho observable (queja, insistencia) → solo manual, sin
+inventar. Se descartó «vuelve cuando una persona responde» (se metería encima de la coordinadora) y
+la caducidad por tiempo (tapa el fallo); la presión es el censo de rojos con edad (`npm run
+semaforo`). UN SOLO SEMÁFORO lo miran evaluador, cola de envíos y motor de reglas — hasta la 026,
+NINGUNO miraba nada: la cadencia proponía toques con la coordinadora negociando. Recordatorios de
+cita exentos (compromiso del paciente, no contacto comercial). Y la espera «sin contacto hasta
+[fecha]»: la fija el agente con fecha concreta del paciente (tope 14 días — un paciente que pide
+tiempo habla de días) o una persona sin tope; suspende también las cadencias; al vencer solo se
+levanta la pausa.
+
+## 2026-08-17 — MEJORAS 95 resuelta el día que mordió
+El patrón frágil del pooler (set_config de sesión + RLS) anotado por la mañana falló horas después en
+qa:entrante: «el huérfano no existe» con el huérfano en la base, y un toggle que actualizaba cero
+filas en silencio. qa:entrante y qa:turno llevan ahora el mismo patrón que qa-contexto y
+demo-entrante: cada consulta directa en su transacción con set_config LOCAL. Regla desde hoy:
+ningún script habla con la base de la app fuera de una transacción con su contexto dentro.

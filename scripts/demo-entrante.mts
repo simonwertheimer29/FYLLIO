@@ -32,7 +32,8 @@ process.env.DATA_BACKEND_PG_CLIENTES = process.env.DATA_BACKEND_PG_CLIENTES || "
 
 import pg from "pg";
 import { runWithCliente } from "../app/lib/airtable";
-import { evaluadorActivo } from "../app/lib/automatizacion/pg";
+import { evaluadorActivo, registrarEvento } from "../app/lib/automatizacion/pg";
+import { semaforoDeContacto, ETIQUETA_MOTIVO_ROJO } from "../app/lib/automatizacion/semaforo";
 import { evaluarEntranteConversacion } from "../app/lib/agente/evaluar-entrante";
 import { contextoDeConversacion } from "../app/lib/agente/contexto-conversacion";
 import { getServicioMensajeria } from "../app/lib/presupuestos/mensajeria";
@@ -101,6 +102,7 @@ const AYUDA = `Uso:
   npm run demo:entrante -- --on <clinica>      (norte | sur | centro | este)
   npm run demo:entrante -- --off <clinica>
   npm run demo:entrante -- "<telefono>" "<texto del mensaje>" [--clinica <c>] [--nombre "<perfil>"]
+  npm run demo:entrante -- --resolver "<telefono>"   (una persona cierra el asunto derivado)
 
 Documentación completa: DEMO-ENTRANTE.md`;
 
@@ -150,6 +152,36 @@ if (argv.includes("--estado") || flagOn || flagOff) {
     console.log(`\n${flagOn ? "🟢 Encendido" : "⚪ Apagado"} el agente en ${cl.nombre}.`);
   }
   await pintarInterruptores();
+  await db.end();
+  process.exit(0);
+}
+
+// ─── modo resolver: el botón «resuelto» de la coordinadora, en terminal ─────
+// (hasta que exista la pantalla de fase C). UN botón para todas las causas:
+// la causa ya está en el log.
+const flagResolver = sacarFlag("--resolver");
+if (flagResolver) {
+  await runWithCliente("DEMO", async () => {
+    const sem = await semaforoDeContacto(flagResolver);
+    if (sem.verde) {
+      console.log(`\n🟢 ${flagResolver} ya está en verde — no hay asunto que resolver.`);
+      return;
+    }
+    await registrarEvento({
+      tipoCaso: "conversacion",
+      casoId: flagResolver.trim(),
+      evento: "resuelto_manual",
+      actorNombre: "persona (demo)",
+      motivoTexto: "resuelto desde demo-entrante",
+    });
+    const despues = await semaforoDeContacto(flagResolver);
+    console.log(`\n✓ Asunto resuelto (era: ${sem.motivo ? ETIQUETA_MOTIVO_ROJO[sem.motivo] : "?"}${sem.causa ? ` · ${sem.causa}` : ""}).`);
+    console.log(
+      despues.verde
+        ? "🟢 El hilo vuelve a estar en verde: el agente contestará el próximo mensaje."
+        : `⚠ Sigue en rojo: ${despues.motivo ? ETIQUETA_MOTIVO_ROJO[despues.motivo] : "?"}${despues.hasta ? ` (hasta ${despues.hasta})` : ""}.`,
+    );
+  });
   await db.end();
   process.exit(0);
 }
@@ -271,15 +303,11 @@ await runWithCliente("DEMO", async () => {
   // Quién es, ANTES de insertar nada — para el encabezado y para enseñar qué
   // persigue el agente en este hilo.
   const ctx = await contextoDeConversacion(telefono);
-  const yaDerivado =
-    (
-      await q(
-        `select 1 from eventos_automatizacion
-          where tipo_caso='conversacion' and caso_id=$1
-            and evento in ('derivado','asumido','asumido_manual') limit 1`,
-        [telefono],
-      )
-    ).rows.length > 0;
+  // EL SEMÁFORO (026): ya no hay EXISTS eterno — el agente calla solo
+  // mientras el asunto derivado siga sin resolver o el hilo esté asumido.
+  // Una espera vigente NO lo calla (responder no es contactar).
+  const sem = await semaforoDeContacto(telefono);
+  const agenteCalla = !sem.verde && sem.motivo !== "espera";
 
   const presupuestoId = await buscarPresupuestoId(dig(telefono));
   const leadInfo = presupuestoId ? null : await buscarLeadActivoPorTelefono(dig(telefono));
@@ -316,14 +344,19 @@ await runWithCliente("DEMO", async () => {
   });
   console.log("✓ Mensaje registrado en el hilo (visible en /mensajeria).\n");
 
-  if (yaDerivado) {
+  if (agenteCalla) {
     linea();
-    console.log("Este hilo YA ES DE UNA PERSONA (se derivó antes). El agente no");
-    console.log("actúa — no-reversión: una vez derivado, no vuelve a meterse.");
-    console.log("Producción haría exactamente esto. Para verlo actuar de nuevo,");
-    console.log("usa otro número o `npm run demo:reset`.");
+    console.log(`SEMÁFORO EN ROJO: ${sem.motivo ? ETIQUETA_MOTIVO_ROJO[sem.motivo] : "?"}${sem.causa ? ` (causa: ${sem.causa}${sem.objetivo ? ` · objetivo: ${sem.objetivo}` : ""})` : ""}.`);
+    console.log("El agente no actúa mientras el asunto esté con una persona. Se");
+    console.log("cierra cuando el sistema ve el hecho (la cita creada, el cobro,");
+    console.log("el presupuesto cerrado) o cuando una persona lo marca resuelto:");
+    console.log(`  npm run demo:entrante -- --resolver "${telefono}"`);
+    console.log("Producción hace exactamente esto. El censo: npm run semaforo");
     linea();
     return;
+  }
+  if (!sem.verde && sem.motivo === "espera") {
+    console.log(`(en espera hasta ${sem.hasta} — el agente responde igualmente al entrante; son las CADENCIAS las que callan)`);
   }
 
   // 2 · Evaluar — la MISMA llamada que hace el webhook en after().
@@ -333,7 +366,7 @@ await runWithCliente("DEMO", async () => {
   //     que se enseña es lo que quedó guardado de verdad.
   const evs = (
     await q(
-      `select evento, clave_aplazado, causa_derivacion, malestar, motivo_texto, evaluacion_json
+      `select evento, clave_aplazado, causa_derivacion, malestar, motivo_texto, evaluacion_json, hasta
          from eventos_automatizacion where mensaje_id=$1 order by created_at`,
       [mensajeId],
     )
@@ -387,15 +420,22 @@ await runWithCliente("DEMO", async () => {
       console.log("  Cola normal: SIN aviso push (el push es solo para lo que no puede esperar).");
       if (presupuestoId) console.log("  Tarjeta en /presupuestos → Intervención con urgencia ALTO.");
     }
-    console.log("  Desde ahora el hilo es de la persona: el agente no volverá a contestar aquí.");
+    console.log("  El hilo queda EN ROJO hasta que el asunto se cierre: por hecho del sistema");
+    console.log("  (cita creada, cobro, presupuesto cerrado) o con --resolver. Censo: npm run semaforo");
   } else {
     console.log("  SIGUE — el agente continúa la conversación. Nadie tiene que intervenir.");
   }
 
   console.log("\nQUÉ ANOTÓ");
-  if (aplazados.length === 0) console.log("  Nada nuevo pendiente.");
+  const espera = evs.find((e) => e.evento === "espera_fijada");
+  if (aplazados.length === 0 && !espera) console.log("  Nada nuevo pendiente.");
   for (const a of aplazados)
     console.log(`  Pendiente para la clínica: ${ETIQUETA_CLAVE[a.clave_aplazado!]} — «${a.motivo_texto ?? ""}»\n  (el agente ya le dijo al paciente que se le confirmará; cuando la clínica responda, se cierra)`);
+  if (espera) {
+    const hastaTxt = (espera as any).hasta instanceof Date ? (espera as any).hasta.toISOString().slice(0, 10) : String((espera as any).hasta).slice(0, 10);
+    console.log(`  ESPERA fijada: sin contacto hasta el ${hastaTxt} (lo pidió el paciente).`);
+    console.log("  Las cadencias no le escribirán hasta entonces; si él escribe, el agente responde.");
+  }
 
   console.log("\nBORRADOR QUE PROPONE (nadie lo envía — modo A, lo envía la persona)");
   console.log(`  «${p.respuesta}»`);
