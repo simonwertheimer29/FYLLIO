@@ -2850,3 +2850,23 @@ qa:entrante: «el huérfano no existe» con el huérfano en la base, y un toggle
 filas en silencio. qa:entrante y qa:turno llevan ahora el mismo patrón que qa-contexto y
 demo-entrante: cada consulta directa en su transacción con set_config LOCAL. Regla desde hoy:
 ningún script habla con la base de la app fuera de una transacción con su contexto dentro.
+
+## 2026-08-17 — El reloj se inyecta y la cadencia sale de la ruta (fase B, paso previo)
+`hoy` enhebrado por el semáforo, el orquestador y la generación de cola (§14): sin reloj
+inyectable, «pasan 7 días» y «vence la espera» no eran medibles — medio producto sin vara. Y la
+cadencia extraída de la ruta con sesión a `lib/presupuestos/generar-cola` (`generarColaDelDia`):
+NO es un efecto colateral, es el paso previo del punto 6 de la lista de fase B — la generación no
+tenía ningún caller (ni pantalla ni cron; EnviosView quedó en un worktree sin mergear) y dentro
+del withAuth era inalcanzable para un cron o un QA. La tesis central del producto sigue sin correr
+sola: falta el cron que la llame y la pantalla que despache lo generado.
+
+## 2026-08-17 — La vara de FLUJOS: qa:recorridos, y la primera pasada dio los rojos prometidos
+Seis recorridos completos como datos (lead→entrega · presupuesto→acepta · paciente-pide-cita ·
+urgencia→vuelta · espera fijada→movida→levantada · varios-asuntos con art. 9), corriendo el bucle
+REAL con mini-mundos propios y aserciones de RESULTADO (derivaciones/cola/push/semáforo/campos/
+textos prohibidos), nunca de texto. Primera pasada: **1/6 en verde, exactamente lo que el
+diagnóstico predijo** — R4 (urgencia) verde; los otros cinco rojos por las causas diagnosticadas
+(0 entregas). Regalos de la pasada: R6 cazó la violación art. 9 real (el borrador nombró «600», el
+importe del cobro) y R5 demostró que la espera ya «se mueve» (la nueva fecha supersede) — falta la
+levantada. La vara vieja sigue como regresión; los fixes de la lista van uno a uno volviendo verde
+su recorrido.
