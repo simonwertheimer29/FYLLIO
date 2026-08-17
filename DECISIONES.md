@@ -2906,3 +2906,14 @@ entre medias): **recorridos 6/6**. Vara vieja **97 % (61/63)**, su mejor registr
 el techo conocido. Nota operativa: correr las dos varas EN PARALELO comparte rate limit y tumba al
 evaluador a fallback — el harness de evals se negó a reportar («36/69 en fallback: no fiable»),
 que es §9 funcionando; las varas se corren en serie.
+
+## 2026-08-17 — Del barrido de fallos silenciosos: tres arreglos directos (el opt-out era RGPD)
+(1) `getOptoutPaciente` era FAIL-OPEN: consulta fallida = «no pidió baja» = se envía. Ahora
+bloquea con motivo propio (`optout_no_comprobable`) — enviar a quien pidió baja no es un bug de
+calidad, es ilegal; cierra el follow-up nº 10. (2) La traza del juez ya no miente: categoría
+ilegible en un veredicto que infringe → `sin_categoria` con warn, nunca archivada como «clinica»
+(contaminaba la métrica que detecta un generador degradado). (3) El filter de aplazamientos AVISA
+lo que descarta: un aplazamiento tragado era una duda del paciente que no llegaba al asesor.
+El clasificador viejo queda FUERA a propósito (fecha de muerte, MEJORAS 94): invertir en él es
+tirar trabajo. El corte de raíz del patrón mayúsculas (normalización en el borde) va con
+diagnóstico aparte antes de ejecutarse.

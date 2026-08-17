@@ -109,12 +109,18 @@ export async function juzgarBorrador(args: {
     if (!m) return null;
     const p = JSON.parse(m[0]);
     if (typeof p.infringe !== "boolean") return null;
+    const categoria =
+      p.categoria === "clinica" || p.categoria === "economica" || p.categoria === "datos_sensibles"
+        ? p.categoria
+        : null;
+    // §9: un veredicto que infringe con categoría ilegible se AVISA — el
+    // caller lo archiva como sin_categoria, jamás como una categoría real.
+    if (p.infringe === true && categoria == null && p.categoria != null) {
+      console.warn(`[juez-borrador] categoría ilegible en veredicto que infringe: «${String(p.categoria).slice(0, 60)}»`);
+    }
     return {
       infringe: p.infringe,
-      categoria:
-        p.categoria === "clinica" || p.categoria === "economica" || p.categoria === "datos_sensibles"
-          ? p.categoria
-          : null,
+      categoria,
       frase: typeof p.frase === "string" && p.frase.trim() ? p.frase.slice(0, 300) : null,
       usage,
     };

@@ -146,7 +146,10 @@ export type EvaluacionTurno = {
    *  Si la tasa de descartes sube, el prompt del generador se degradó — es
    *  el número que evita descubrirlo dentro de tres meses. */
   borradorDescartado?: {
-    motivo: "clinica" | "economica" | "datos_sensibles" | "juez_no_respondio";
+    /** `sin_categoria` = el juez dijo INFRINGE pero su categoría llegó
+     *  ilegible. Antes se archivaba como «clinica» (barrido del 17-08, B-2)
+     *  y contaminaba la única métrica que detecta un generador degradado. */
+    motivo: "clinica" | "economica" | "datos_sensibles" | "sin_categoria" | "juez_no_respondio";
     frase: string | null;
   };
   /** El modelo no contestó o contestó ilegible: fail-closed compat
@@ -479,19 +482,20 @@ async function juzgar(
     const p = JSON.parse(jsonMatch[0]);
 
     // Validación de forma: lo ilegible es fallback, no un default optimista.
-    const aplazamientos = Array.isArray(p.aplazamientosNuevos)
-      ? p.aplazamientosNuevos
-          .filter(
-            (a: unknown): a is { clave: ClaveAplazado; motivo: string } =>
-              typeof a === "object" && a !== null &&
-              CLAVES_APLAZADO.includes((a as { clave: ClaveAplazado }).clave) &&
-              typeof (a as { motivo: unknown }).motivo === "string",
-          )
-          .map((a: { clave: ClaveAplazado; motivo: string }) => ({
-            clave: a.clave,
-            motivo: a.motivo.slice(0, 200),
-          }))
-      : [];
+    const aplazamientos: { clave: ClaveAplazado; motivo: string }[] = [];
+    if (Array.isArray(p.aplazamientosNuevos)) {
+      for (const a of p.aplazamientosNuevos as unknown[]) {
+        const clave = typeof a === "object" && a !== null ? (a as { clave?: unknown }).clave : undefined;
+        const motivo = typeof a === "object" && a !== null ? (a as { motivo?: unknown }).motivo : undefined;
+        if (CLAVES_APLAZADO.includes(clave as ClaveAplazado) && typeof motivo === "string") {
+          aplazamientos.push({ clave: clave as ClaveAplazado, motivo: motivo.slice(0, 200) });
+        } else {
+          // §9: un aplazamiento descartado es una duda del paciente que no
+          // llega al asesor — se AVISA, nunca se traga (barrido 17-08, B-1).
+          console.warn(`[evaluador] aplazamiento del modelo descartado (clave o motivo ilegibles): ${JSON.stringify(a).slice(0, 120)}`);
+        }
+      }
+    }
     const vuelve =
       typeof p.vuelveSobreAplazado === "string" && CLAVES_APLAZADO.includes(p.vuelveSobreAplazado)
         ? (p.vuelveSobreAplazado as ClaveAplazado)
@@ -745,10 +749,12 @@ export async function evaluarTurno(
       console.warn("[evaluador] juez no respondió: borrador descartado (fail-closed)");
     } else if (veredicto.infringe) {
       respuestaFinal = plantillaNeutra(e.nombre);
-      borradorDescartado = { motivo: veredicto.categoria ?? "clinica", frase: veredicto.frase };
-      console.warn(
-        `[evaluador] borrador descartado (${veredicto.categoria}): «${veredicto.frase ?? "?"}»`,
-      );
+      // La categoría ilegible NO se disfraza de «clinica»: se archiva como
+      // sin_categoria — la traza de descartes es la métrica que detecta un
+      // generador degradado y no puede mentir (barrido 17-08, B-2).
+      const motivo = veredicto.categoria ?? "sin_categoria";
+      borradorDescartado = { motivo, frase: veredicto.frase };
+      console.warn(`[evaluador] borrador descartado (${motivo}): «${veredicto.frase ?? "?"}»`);
     }
   }
 

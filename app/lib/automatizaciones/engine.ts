@@ -109,16 +109,16 @@ export async function evaluarRegla(
     }
   }
 
-  // 3. opt-out paciente
+  // 3. opt-out paciente — RGPD fail-closed: no comprobable = no se envía.
   const pacienteId = pacienteIdDeEvento(evento);
   if (pacienteId) {
     const optout = await getOptoutPaciente(pacienteId);
-    if (optout) {
+    if (optout.bloquear) {
       await logAccion({
         reglaId: regla.id,
         ...idsLink(evento),
         resultado: "skipped_optout",
-        detalle: { motivo: "paciente_optout" },
+        detalle: { motivo: optout.motivo },
       });
       return;
     }
@@ -477,16 +477,34 @@ function idsLink(evento: EventoSistema): {
   }
 }
 
-async function getOptoutPaciente(pacienteId: string): Promise<boolean> {
+/** RGPD FAIL-CLOSED (orden del 17-08, cierra el follow-up nº 10): si el
+ *  consentimiento no se puede COMPROBAR, NO se envía. Enviar a quien pidió
+ *  baja no es un bug de calidad — es ilegal. `bloquear=true` con su motivo
+ *  real, para que el log no disfrace un fallo de consulta de opt-out. */
+async function getOptoutPaciente(
+  pacienteId: string,
+): Promise<{ bloquear: boolean; motivo: "paciente_optout" | "optout_no_comprobable" | null }> {
   try {
-    // FASE 1 migración: lectura via repo del dominio Pacientes. getPaciente
-    // devuelve null si no existe o la query falla → false (mismo criterio;
-    // sigue siendo la salvaguarda-silenciosa anotada como follow-up nº 10).
     const { getPaciente } = await import("../pacientes/pacientes");
     const p = await getPaciente(pacienteId);
-    return p?.optoutAutomatizaciones ?? false;
-  } catch {
-    return false;
+    if (p == null) {
+      // Sin ficha no hay consentimiento comprobable (getPaciente devuelve
+      // null tanto si no existe como si su consulta falló por dentro).
+      console.error(
+        `[engine] opt-out NO comprobable (paciente ${pacienteId} sin ficha o consulta fallida) — envío bloqueado (RGPD fail-closed)`,
+      );
+      return { bloquear: true, motivo: "optout_no_comprobable" };
+    }
+    return p.optoutAutomatizaciones
+      ? { bloquear: true, motivo: "paciente_optout" }
+      : { bloquear: false, motivo: null };
+  } catch (err) {
+    console.error(
+      "[engine] opt-out NO comprobable:",
+      err instanceof Error ? err.message : err,
+      "— envío bloqueado (RGPD fail-closed)",
+    );
+    return { bloquear: true, motivo: "optout_no_comprobable" };
   }
 }
 
