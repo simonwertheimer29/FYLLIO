@@ -17,7 +17,7 @@ import type {
 import type { Lead } from "../leads/types";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { useVistosHoy } from "../../lib/seguimiento/useVistosHoy";
-import { SeguimientoHeader } from "../../components/shared/SeguimientoHeader";
+import { CabeceraCola } from "../../components/shared/CabeceraCola";
 import { AccionCard } from "../../components/shared/AccionCard";
 import { AccionPanel } from "../../components/shared/AccionPanel";
 import { ColaTabs } from "../../components/shared/ColaTabs";
@@ -625,18 +625,10 @@ function LeadsTab({
 
   return (
     <>
-      <SeguimientoHeader
-        subtitle="Leads activos"
-        kpis={{
-          pendientes: nPendientes,
-          atendidosHoy: clasificados.length - nPendientes,
-          vistosSinAccion: vistosEntrePendientes,
-          tiempoMedioMin,
-        }}
-        lastUpdate={lastUpdate}
-        onRefresh={fetchLeads}
-        loading={loading}
-      />
+      {/* Delta P1 (18-08): la cabecera es la cola de tres cohortes — dinero
+          parado, desglose y el caso más viejo. El «% del plan de hoy» murió:
+          era una métrica inventada, nadie fijó un plan. */}
+      <CabeceraCola />
 
       {sinConexion && (
         <span className="inline-flex items-center gap-1.5 self-start rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-700 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300">

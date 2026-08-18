@@ -3043,3 +3043,19 @@ VISIBLES («se propusieron y nadie los envió» — la medida del equipo). Aviso
 plantilla (opción b). De paso se cerró un IDOR: el PATCH no verificaba nada para filas sin
 presupuesto — ahora las filas de cita verifican la clínica de su cita. B6 COMPLETO: generación
 saneada (B6.2), cola por tipos (B6.1), día con caducidad en el cron (B6.3), pantalla (B6.4).
+
+## 2026-08-18 — Delta P1: las TRES cohortes en la lib, y la cabecera deja de inventar un plan
+`cohorteDeCaso` pasa a devolver una de TRES (Necesita respuesta · Listos para cerrar · Fuera de
+plazo) **o null** — null = no exige persona: aplazados sin entrega (Mensajería > En curso), citados
+(Envíos/agenda — cayó la condición anotada del 17-08), esperando al paciente y rezagados (Tablas/
+cadencia), y presupuesto sin hilo (su primer toque es de la cola de Envíos; el LEAD sin hilo sí
+entra: no hay cadencia de leads). Agotado sube a Necesita respuesta (toca llamar). FUERA DE PLAZO
+es escalada, no estado: umbral por obligación en minutos LABORABLES (urgencia 30 · respuesta 120 ·
+cierre 240 · lead nuevo 60 — dictados; llamada 240 default nuestro), reloj puro inyectable
+(`tiempo-laborable.ts`, no corre de noche ni en finde) y el detalle se conserva al escalar. La
+cabecera de Seguimiento (`CabeceraCola` + /api/seguimiento/resumen) sustituye al «13% del plan de
+hoy» — métrica inventada, nadie fijó un plan — por hechos: dinero parado EN LA COLA, desglose por
+cohorte, leads contados y el caso más viejo. En el seed: 33 casos en cola (todos fuera de plazo —
+el seed simula un equipo que no atiende) y 18 presupuestos abiertos legítimamente fuera. `qa:cola`
+reescrito: 29 checks (reloj laborable en días de riesgo, partición, escalada con reloj fijado,
+fixtures del log — el aplazado sin entrega ahora SALE de la cola y se afirma).

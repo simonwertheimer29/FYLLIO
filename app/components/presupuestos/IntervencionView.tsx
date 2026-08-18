@@ -17,7 +17,7 @@ import { useClinic } from "../../lib/context/ClinicContext";
 import { ErrorState, EmptyState } from "../ui/Feedback";
 import { AccionCard } from "../shared/AccionCard";
 import type { useVistosHoy } from "../../lib/seguimiento/useVistosHoy";
-import { SeguimientoHeader } from "../shared/SeguimientoHeader";
+import { CabeceraCola } from "../shared/CabeceraCola";
 import { ColaTabs } from "../shared/ColaTabs";
 import { QueSeDetecta } from "../automatizacion/QueSeDetecta";
 import { EstadoAutomatizacionPill } from "../automatizacion/EstadoAutomatizacionPill";
@@ -693,20 +693,9 @@ export default function IntervencionView({
 
   return (
     <div className="space-y-4">
-      {/* MISMA cabecera que la vista Leads. "Atendidos" = en espera del
-          paciente (ya actuaste; la pelota es suya). */}
-      <SeguimientoHeader
-        subtitle="Presupuestos abiertos"
-        kpis={{
-          pendientes: nPendientes,
-          atendidosHoy: globalFiltered.length - nPendientes,
-          vistosSinAccion: vistosEntrePendientes,
-          tiempoMedioMin,
-        }}
-        lastUpdate={lastUpdate}
-        onRefresh={() => { setLoading(true); fetchData(); }}
-        loading={loading}
-      />
+      {/* MISMA cabecera que la vista Leads (delta P1, 18-08): la cola de tres
+          cohortes — dinero parado, desglose y el caso más viejo. */}
+      <CabeceraCola />
 
       {/* Global filters — el selector de clínica vive en el GlobalHeader
           (Sprint 7 Fase 5). Aquí solo quedan filtros específicos del área. */}
