@@ -173,12 +173,25 @@ export const PATCH = withPresupuestosAuth(async (session, req: Request) => {
       if (permiso !== "ok") {
         return NextResponse.json({ error: "No encontrado" }, { status: 404 });
       }
+    } else if (f["Cita_id"]) {
+      // B6.4 — misma regla para las filas de recordatorio de cita (027): la
+      // clínica se resuelve por la cita. Fail-closed: usuario limitado + cita
+      // sin clínica resoluble → 404.
+      const acc = session.clinicasAccesibles;
+      if (!(acc && acc.includes("*"))) {
+        const { clinicaIdDeCita } = await import("../../../lib/envios/vista-envios");
+        const clinicaId = await clinicaIdDeCita(String(f["Cita_id"]));
+        if (!clinicaId || !(acc ?? []).includes(clinicaId)) {
+          return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+        }
+      }
     }
 
     // Update the record
     await updateColaEnvioRaw(id, update);
 
     // If sent, also register in Mensajes_WhatsApp
+    let urlWhatsApp: string | undefined;
     if (estado === "Enviado") {
       const telefono = String(f["Telefono"] ?? "");
       const contenido = String(f["Contenido"] ?? "");
@@ -187,20 +200,23 @@ export const PATCH = withPresupuestosAuth(async (session, req: Request) => {
       if (telefono && contenido) {
         try {
           const svc = getServicioMensajeria("manual");
-          await svc.enviarMensaje({
-            presupuestoId,
+          const r = await svc.enviarMensaje({
+            ...(presupuestoId ? { presupuestoId } : {}),
             telefono,
             contenido,
             fuente: "Plantilla_automatica",
-        autor: "cadencia" as const,
+            autor: "cadencia" as const,
           });
+          // Modo A, uno a uno (B6.4): la persona firma el envío — se le abre
+          // WhatsApp con el texto puesto; ella pulsa enviar.
+          urlWhatsApp = r.urlWhatsApp;
         } catch (err) {
           console.error("[cola-envios] Error registering in Mensajes_WhatsApp:", err);
         }
       }
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, ...(urlWhatsApp ? { urlWhatsApp } : {}) });
   } catch (err) {
     console.error("[cola-envios] PATCH error:", err);
     return NextResponse.json({ error: "Error al actualizar envío" }, { status: 500 });

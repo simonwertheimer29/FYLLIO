@@ -52,7 +52,8 @@ import { EstadoAutomatizacionPill } from "../../components/automatizacion/Estado
 import { CardListSkeleton } from "../../components/ui/Skeleton";
 import { CasosDelAgente } from "./CasosDelAgente";
 import { EmptyState } from "../../components/ui/Feedback";
-import { AlertTriangle, Inbox, ICON_STROKE } from "../../components/icons";
+import Link from "next/link";
+import { AlertTriangle, Inbox, Send, ICON_STROKE } from "../../components/icons";
 import { toast } from "sonner";
 import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
 
@@ -193,14 +194,25 @@ export function SeguimientoView({
               Todos tus pacientes activos, ordenados por lo que toca hacer.
             </p>
           </div>
-          <SegmentedToggle
-            options={[
-              { id: "leads" as Tab, label: "Leads" },
-              { id: "presupuestos" as Tab, label: "Presupuestos" },
-            ]}
-            active={tab}
-            onChange={setTab}
-          />
+          <div className="flex items-center gap-2">
+            {/* B6.4 — la otra mitad de la cola de trabajo: lo que va a SALIR
+                hoy (la cola de envíos) frente a lo que toca hacer aquí. */}
+            <Link
+              href="/envios"
+              className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
+            >
+              <Send size={14} strokeWidth={ICON_STROKE} />
+              Envíos
+            </Link>
+            <SegmentedToggle
+              options={[
+                { id: "leads" as Tab, label: "Leads" },
+                { id: "presupuestos" as Tab, label: "Presupuestos" },
+              ]}
+              active={tab}
+              onChange={setTab}
+            />
+          </div>
         </header>
         {/* El filtro de clínica PERSISTE en localStorage: se puede llegar
             aquí con él puesto sin haberlo tocado en esta sesión, y las cifras

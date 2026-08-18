@@ -3029,3 +3029,17 @@ una-cita-un-recordatorio-por-día, y `sustituirLlaves` compartido en lib/plantil
 «ninguna llave sobrevive». Sustituye al canal muerto de Twilio del cron daily como camino de los
 recordatorios. `qa:generar-cola` ampliado a 27 checks (fila real, dedupe en reejecución, opt-out
 con cita). El envío sigue siendo modo A: una persona, uno a uno.
+
+## 2026-08-18 — B6.4: la pantalla de la cola única (/envios) — uno a uno, estados honestos, caducados a la vista
+Nueva sección /envios (enlazada desde Seguimiento: lo que va a SALIR frente a lo que toca hacer),
+servida por `lib/envios/vista-envios` — todo resuelto en servidor, scope por IDs de clínica
+fail-closed (la clínica de cada fila se resuelve por su origen: presupuesto o cita; sin clínica
+resoluble, solo admin la ve). Cuatro bloques: por enviar HOY con el texto completo a la vista y
+envío UNO A UNO (dictado: la coordinadora firma lo que sale — el PATCH registra con
+autor='cadencia' y abre WhatsApp con el texto puesto; sin botón de enviar-todo); citas próximas
+48 h con recordatorio enviado y sin respuesta (comparación de teléfonos por dígitos); procesado
+hoy con estado HONESTO (nada de entregado/leído sin statuses del webhook); y caducados de 7 días
+VISIBLES («se propusieron y nadie los envió» — la medida del equipo). Aviso ámbar de huecos sin
+plantilla (opción b). De paso se cerró un IDOR: el PATCH no verificaba nada para filas sin
+presupuesto — ahora las filas de cita verifican la clínica de su cita. B6 COMPLETO: generación
+saneada (B6.2), cola por tipos (B6.1), día con caducidad en el cron (B6.3), pantalla (B6.4).
