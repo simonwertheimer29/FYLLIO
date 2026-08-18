@@ -89,6 +89,35 @@ podría usar solo** — aunque en la práctica la rellenemos nosotros en el alta
 La prueba de si se cumple es concreta y se puede hacer sin clientes: **dar de alta una clínica nueva
 entera sin abrir el editor**. Si no se puede, la configuración todavía no es un producto.
 
+#### Coste variable por clínica — MEDIDO (18 de agosto de 2026)
+
+- **API del modelo**: ~$14/mes con 1.000 conversaciones de 3 turnos (medido en la fase A,
+  evaluador + juez incluidos).
+- **WhatsApp** (Meta, tarifas España julio 2026): plantilla *utility* ~0,017 €, *marketing*
+  ~0,051 €. Las respuestas dentro de la ventana de 24 h son gratis hoy. Con 300 mensajes
+  iniciados al mes: **5-15 €**.
+- **Total: ~20-30 €/mes por clínica.**
+
+Esto **VALIDA el precio plano sin coste por mensaje**: el variable es marginal frente al plan.
+
+**RIESGO A VIGILAR**: hay indicios de que desde el **1 de octubre de 2026** Meta cobraría también
+los mensajes fuera de plantilla enviados **dentro** de la ventana de 24 h. Sin confirmar en la
+documentación oficial. Si se confirma, cada respuesta del agente pasa a costar (~50 €/mes con
+1.000 conversaciones). **Verificar antes del piloto.**
+
+**Categoría de las plantillas — revisar antes de enviarlas a Meta**: el recordatorio de cita es
+*utility* (barato); el seguimiento de un presupuesto es reactivación comercial y Meta lo clasifica
+*marketing* (3× más caro y sin descuento por volumen). Revisar cómo están clasificadas las once
+plantillas.
+
+#### Precio — HIPÓTESIS, SIN VALIDAR
+
+Básico **~150 €/mes**, premium **~250-300 €/mes**. El coste variable está medido; el precio NO. Lo
+que lo convierte en dato es **cuánto dinero recupera una clínica al mes** — sale del piloto.
+
+Y la razón del premium **NO es cubrir la API** (el básico ya la cubre de sobra): es el **onboarding
+y las integraciones**, que es el coste que escala mal.
+
 ### Posicionamiento — la orquesta invisible
 
 **Tesis del fundador, 17 de agosto de 2026.**
