@@ -37,6 +37,7 @@
     "qa:parseo": "tsx scripts/qa-parseo.mts",
     "qa:ficha": "tsx scripts/qa-ficha-caso.mts",
     "qa:cola": "tsx scripts/qa-cola.mts",
+    "qa:generar-cola": "tsx scripts/qa-generar-cola.mts",
     "verificar:produccion": "node scripts/verificar-produccion.mjs",
     "guard:rls": "node scripts/guard-service-role.mjs",
     "db:smoke-rls": "node scripts/db-smoke-rls.mjs"

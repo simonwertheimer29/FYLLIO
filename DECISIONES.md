@@ -3003,3 +3003,17 @@ Agotados y nuevos-sin-conversación → Necesita respuesta con detalle (agotado-
 antes que el delta de P1 y que la vista** — sin cadencia corriendo, sacar casos de la cola los
 deja enfriándose invisibles. B6 es UNA cola para todo tipo de mensaje propuesto (presupuestos,
 recordatorios de cita, reactivaciones; no-shows como integración futura, MEJORAS 98).
+
+## 2026-08-18 — B6.2: los tres agujeros del generador de la cola, cerrados antes de enchufar el cron
+El diagnóstico de B6 destapó que `generarColaDelDia` (a) filtraba plantillas por un vocabulario
+nominal que casi ninguna fila tiene tras la 017 → casi todo caía a redacción con Haiku SIN juez;
+(b) sustituía llave SIMPLE `{nombre}` cuando la 017 migró todo a `{{nombre}}` → al paciente le
+habría llegado «Hola {Ana}»; y (c) no miraba ni opt-out ni horario (solo semáforo). Cerrado con la
+decisión dictada (opción b): la redacción con IA se RETIRA — sin plantilla no se genera y se cuenta
+(`sinPlantilla` por tipo, `llavesSinResolver` por plantilla), porque un mensaje que sale sin que
+nadie lo mire tiene que ser plantilla revisada — y fuera de la ventana de 24 h Meta solo permite
+plantillas aprobadas, así que el texto libre ni era enviable. Correspondencia de tipos declarada
+(§16), sustitución de dobles llaves donde NINGUNA llave superviviente pasa como buena, y opt-out
+RGPD fail-closed ANTES de que la fila exista (`bloqueadosOptout` contado). `qa:generar-cola`
+20/20 determinista (helpers puros + fixtures reales con opt-out). Ninguno de los tres agujeros
+mordía aún porque nada llamaba al generador — el orden B6.2→B6.3 existe para eso.
