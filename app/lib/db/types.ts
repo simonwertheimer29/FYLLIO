@@ -32,6 +32,7 @@ import type {
   Tabla_presupuestos,
   Tabla_mensajes_whatsapp,
   Tabla_configuracion_waba,
+  Tabla_cola_envios,
 } from "./types-generado";
 
 // Todo lo generado se reexporta desde aquí: quien importa tipos importa de
@@ -241,6 +242,18 @@ type ExtraConfiguracionWaba = {
   phone_number_id: string | null;
 };
 
+/** 027 — la cola única de envíos (B6): `origen` es el filtro por tipo de la
+ *  pantalla; `cita_id`/`lead_id`, la referencia de los orígenes que no son un
+ *  presupuesto. `estado` se redeclara entero (no intersección: una intersección
+ *  de uniones no puede AÑADIR 'Caducado') — Caducado = la cola es del día y
+ *  nadie lo envió; Cancelado = una persona decidió no enviarlo. */
+type ExtraColaEnvios = {
+  origen: "seguimiento_presupuesto" | "recordatorio_cita" | "reactivacion";
+  cita_id: string | null;
+  lead_id: string | null;
+  estado: "Pendiente" | "Enviado" | "Fallido" | "Cancelado" | "Caducado" | null;
+};
+
 // ─── El esquema real ────────────────────────────────────────────────────────
 
 export interface DB
@@ -252,6 +265,7 @@ export interface DB
     | "presupuestos"
     | "mensajes_whatsapp"
     | "configuracion_waba"
+    | "cola_envios"
   > {
   // Generadas, con columnas añadidas después.
   alertas_enviadas: Tabla_alertas_enviadas & ExtraAlertasEnviadas;
@@ -261,6 +275,7 @@ export interface DB
   presupuestos: Tabla_presupuestos & ExtraPresupuestos;
   mensajes_whatsapp: Tabla_mensajes_whatsapp & ExtraMensajesWhatsApp;
   configuracion_waba: Tabla_configuracion_waba & ExtraConfiguracionWaba;
+  cola_envios: Omit<Tabla_cola_envios, "estado"> & ExtraColaEnvios;
 
   // Creadas después.
   alertas_pospuestas: Tabla_alertas_pospuestas;

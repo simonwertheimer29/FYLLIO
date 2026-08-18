@@ -1256,6 +1256,17 @@ try {
     const vars = [...new Set([...contenido.matchAll(/\{\{([a-zA-Z_]+)\}\}/g)].map((m) => m[1]))].join(", ");
     await ins("plantillas_mensaje", { nombre, tipo: "Cobranza", categoria: "cobranza", contenido, variables_detectadas: vars, activa: true });
   }
+  // Recordatorio de CITA (B6.1, 18-08): el generador de la cola única
+  // (lib/envios/recordatorios-cita) busca categoria='cita_recordatorio' y con
+  // la opción (b) —sin plantilla no se genera— un seed sin esta fila deja la
+  // demo enseñando «sin plantilla» en vez de la cola. Las variables son las
+  // que ESE contexto resuelve ({{fecha_cita}}, {{hora_cita}} — §16).
+  {
+    const contenido =
+      "Hola {{nombre}}, te recordamos tu cita de {{tratamiento}} {{fecha_cita}} a las {{hora_cita}} en {{nombre_clinica}}. Si necesitas cambiarla o cancelarla, respóndenos por aquí.";
+    const vars = [...new Set([...contenido.matchAll(/\{\{([a-zA-Z_]+)\}\}/g)].map((m) => m[1]))].join(", ");
+    await ins("plantillas_mensaje", { nombre: "Recordatorio de cita", tipo: "Recordatorio de cita", categoria: "cita_recordatorio", contenido, variables_detectadas: vars, activa: true });
+  }
   // INVARIANTE (§15) — mensajería: todo saliente declara quién lo escribió, y
   // todo teléfono va en E.164. Lo segundo es la CLAVE DEL HILO de la bandeja:
   // si el seed y el webhook guardan formatos distintos, la misma persona sale

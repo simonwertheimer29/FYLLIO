@@ -501,9 +501,16 @@ export type TipoEnvio =
   | "Recordatorio 2"
   | "Recordatorio 3"
   | "Detalles de pago"
-  | "Reactivacion";
+  | "Reactivacion"
+  /** 027 — B6.1: la cola es única para todo mensaje propuesto. */
+  | "Recordatorio de cita";
 
-export type EstadoEnvio = "Pendiente" | "Enviado" | "Fallido" | "Cancelado";
+/** 027 — Caducado: la cola es del día y nadie lo envió (lo marca el cron).
+ *  Cancelado sigue siendo una decisión de persona. */
+export type EstadoEnvio = "Pendiente" | "Enviado" | "Fallido" | "Cancelado" | "Caducado";
+
+/** 027 — de qué generador salió la fila; el filtro por tipo de la pantalla B6. */
+export type OrigenEnvio = "seguimiento_presupuesto" | "recordatorio_cita" | "reactivacion";
 
 export type EnvioItem = {
   id: string;

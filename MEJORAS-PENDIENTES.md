@@ -1777,3 +1777,24 @@ verdad: un editor, un vocabulario, un renderizador.
   con su filtro.
 - **Decisión (Simon, 2026-08-18):** anotado como integración futura. **No tocar el módulo ahora.**
 - **Fecha:** 2026-08-18
+
+## 99. El agente que ELIGE la plantilla — después de B6, con umbral claro
+- **Qué es:** idea dictada (18-08): en vez de una regla fija por tipo, el agente podría elegir qué
+  plantilla del catálogo encaja con el estado del caso. Diagnóstico: HOY no aporta — el catálogo
+  real tiene UNA candidata por hueco (censo 18-08: 'Seguimiento de presupuesto' para toda la
+  cadencia, 'Detalles de pago', 'Reactivación', 1 de cita), así que «elegir» sería elegir entre
+  una. La regla fija basta y es determinista.
+- **El umbral que lo activa:** cuando una clínica tenga >1 plantilla candidata por hueco (variantes
+  por tono, tratamiento, momento). Entonces es un juicio barato y seguro: el modelo elige un ID de
+  plantilla revisada, no redacta — el riesgo de texto libre no vuelve.
+- **Fecha:** 2026-08-18 · decisión: **va después de B6**
+
+## 100. Cadencia de LEADS — no existe, y queda fuera de B6 a propósito
+- **Qué es:** la cola de envíos solo genera para presupuestos (seguimiento + reactivación ≥90d de
+  PERDIDO). Un lead sin conversación no recibe ningún toque automático: por eso «nuevo sin
+  contactar» entra en Necesita respuesta de la cola de Seguimiento (decisión 18-08) — es trabajo de
+  persona mientras esta cadencia no exista.
+- **Qué haría falta:** generador propio (origen nuevo en `cola_envios`), secuencia por clínica, y
+  la decisión de producto de qué se le dice a un lead que nunca escribió (plantilla marketing,
+  ventana 24h de Meta no aplica — plantilla siempre).
+- **Fecha:** 2026-08-18 · decisión de Simon: **fuera de B6, anotada**

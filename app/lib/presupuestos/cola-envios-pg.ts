@@ -38,6 +38,10 @@ function toShim(r: any): Shim {
       "Importe": r.importe != null ? Number(r.importe) : undefined,
       "Doctor": r.doctor,
       "Enviado_en": r.enviado_en ? iso(r.enviado_en) : undefined,
+      // 027 — cola única por tipos (B6.1).
+      "Origen": r.origen,
+      "Cita_id": r.cita_id,
+      "Lead_id": r.lead_id,
     },
     iso(r.created_at),
   );
@@ -57,6 +61,10 @@ const COL: Record<string, string> = {
   Importe: "importe",
   Doctor: "doctor",
   Enviado_en: "enviado_en",
+  // 027 — cola única por tipos (B6.1).
+  Origen: "origen",
+  Cita_id: "cita_id",
+  Lead_id: "lead_id",
 };
 
 function fieldsToRow(fields: Record<string, unknown>): Record<string, unknown> {

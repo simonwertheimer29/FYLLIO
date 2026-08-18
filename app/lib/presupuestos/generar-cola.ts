@@ -17,7 +17,7 @@
 // están exentos por criterio (PLAN §3).
 
 import { listConfigRecordatorios } from "./recordatorios-config";
-import { selectPlantillasMensajeRaw } from "../plantillas/plantillas";
+import { selectPlantillasMensajeRaw, sustituirLlaves } from "../plantillas/plantillas";
 import { selectColaEnviosRaw, createColaEnvioRaw } from "./cola-envios-repo";
 import { selectPresupuestosRaw } from "./repo";
 import { DateTime } from "luxon";
@@ -31,6 +31,9 @@ const ZONE = "Europe/Madrid";
 const MAX_ENVIOS_POR_CLINICA_DIA = 30;
 
 const PRIORIDAD_ENVIO: Record<TipoEnvio, number> = {
+  // Los recordatorios de cita no salen de este generador (tienen el suyo,
+  // lib/envios/recordatorios-cita), pero el union es uno: prioridad máxima.
+  "Recordatorio de cita": 0,
   "Detalles de pago": 1,
   "Recordatorio 3": 2,
   "Primer contacto": 3,
@@ -67,29 +70,15 @@ export function sustituirVariables(
   contenido: string,
   datos: { nombre: string; tratamiento: string; importe?: number; doctor?: string; clinica?: string },
 ): { texto: string; sinResolver: string[] } {
-  const valores: Record<string, string> = {
+  // El contrato «ninguna llave sobrevive» vive en sustituirLlaves (dominio
+  // plantillas); aquí solo se declaran LOS VALORES de esta pregunta.
+  return sustituirLlaves(contenido, {
     nombre: datos.nombre,
     tratamiento: datos.tratamiento,
     importe: datos.importe != null ? `${datos.importe.toLocaleString("es-ES")}€` : "",
     nombre_doctor: datos.doctor ?? "",
     nombre_clinica: datos.clinica ?? "",
-  };
-  const sinResolver: string[] = [];
-  const texto = contenido.replace(/\{\{\s*([a-z_]+)\s*\}\}/g, (todo, clave: string) => {
-    const v = valores[clave];
-    if (v == null || v === "") {
-      sinResolver.push(clave);
-      return todo;
-    }
-    return v;
   });
-  // Cualquier llave que sobreviva —{{desconocida}} ya contada, o una llave
-  // SIMPLE {nombre} de una plantilla mal escrita— invalida el texto: al
-  // paciente no le llega ni una llave, ni simple ni doble.
-  for (const m of texto.matchAll(/\{+\s*([a-z_]+)\s*\}+/g)) {
-    if (!sinResolver.includes(m[1])) sinResolver.push(m[1]);
-  }
-  return { texto, sinResolver };
 }
 
 /**
@@ -478,6 +467,7 @@ export async function generarColaDelDia(opts: {
 
     try {
       await createColaEnvioRaw({
+        Origen: cand.tipoEnvio === "Reactivacion" ? "reactivacion" : "seguimiento_presupuesto",
         Presupuesto: cand.recId,
         Paciente: cand.patientName,
         Telefono: cand.phone,

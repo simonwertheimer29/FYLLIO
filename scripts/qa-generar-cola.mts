@@ -28,6 +28,7 @@ dotenv.config();
 process.env.DATA_BACKEND_PG_CLIENTES = process.env.DATA_BACKEND_PG_CLIENTES || "DEMO";
 
 import pg from "pg";
+import { DateTime } from "luxon";
 import { runWithCliente } from "../app/lib/airtable";
 import {
   generarColaDelDia,
@@ -35,6 +36,7 @@ import {
   seleccionarPlantilla,
   type PlantillaFila,
 } from "../app/lib/presupuestos/generar-cola";
+import { generarRecordatoriosDeCita } from "../app/lib/envios/recordatorios-cita";
 import { hoyISO } from "../app/lib/time";
 
 for (const v of ["SUPABASE_DB_URL_APP", "SUPABASE_DB_URL_ADMIN"]) {
@@ -129,13 +131,17 @@ async function q(sqlText: string, params: unknown[] = []) {
 const ARRANQUE = new Date();
 const TEL_OPTOUT = "+34600990001";
 const TEL_VERDE = "+34600990002";
-const NOMBRES = ["QA GenCola Optout", "QA GenCola Verde"];
+const TEL_CITA = "+34600990003";
+const NOMBRES = ["QA GenCola Optout", "QA GenCola Verde", "QA GenCola Cita"];
+const PLANTILLA_QA_CITA = "QA Recordatorio de cita";
 
 async function limpiar() {
-  await q(`delete from cola_envios where telefono in ($1, $2) or created_at >= $3`, [TEL_OPTOUT, TEL_VERDE, ARRANQUE.toISOString()]);
+  await q(`delete from cola_envios where telefono in ($1, $2, $3) or created_at >= $4`, [TEL_OPTOUT, TEL_VERDE, TEL_CITA, ARRANQUE.toISOString()]);
+  await q(`delete from plantillas_mensaje where nombre = $1`, [PLANTILLA_QA_CITA]);
   const pacs = await q(`select id from pacientes where nombre = any($1)`, [NOMBRES]);
   const ids = pacs.rows.map((x: any) => x.id);
   if (ids.length) {
+    await q(`delete from citas where paciente_id = any($1)`, [ids]);
     await q(`delete from presupuestos where paciente_id = any($1)`, [ids]);
     await q(`delete from pacientes where id = any($1)`, [ids]);
   }
@@ -184,7 +190,7 @@ try {
     ok("opt-out: el resultado lo CUENTA (bloqueadosOptout ≥ 1)", res.bloqueadosOptout >= 1, String(res.bloqueadosOptout));
 
     const filaVerde = await q(
-      `select contenido, plantilla_usada, estado, tipo from cola_envios where telefono = $1`,
+      `select contenido, plantilla_usada, estado, tipo, origen from cola_envios where telefono = $1`,
       [TEL_VERDE],
     );
     ok("paciente verde: fila creada (Primer contacto, contact_count=0)", filaVerde.rows.length === 1);
@@ -195,7 +201,61 @@ try {
         f.plantilla_usada !== "Generado por IA" && String(f.plantilla_usada ?? "").length > 0, String(f.plantilla_usada));
       ok("estado Pendiente", f.estado === "Pendiente");
       ok("tipo 'Primer contacto'", f.tipo === "Primer contacto");
+      ok("origen 'seguimiento_presupuesto' (027)", f.origen === "seguimiento_presupuesto");
     }
+
+    // ── C · Recordatorios de cita (B6.1) ─────────────────────────────────
+    console.log("\nC · generarRecordatoriosDeCita: fila propia, dedupe, opt-out");
+
+    // Plantilla fixture GLOBAL de cita_recordatorio (el seed viejo no la trae;
+    // el QA no depende de correr demo:reset con el seed nuevo).
+    await q(
+      `insert into plantillas_mensaje (cliente, nombre, tipo, categoria, contenido, variables_detectadas, activa)
+       values ('DEMO', $1, 'Recordatorio de cita', 'cita_recordatorio', $2, 'fecha_cita, hora_cita, nombre, tratamiento', true)`,
+      [PLANTILLA_QA_CITA, "Hola {{nombre}}, te recordamos tu cita de {{tratamiento}} {{fecha_cita}} a las {{hora_cita}}. Si necesitas cambiarla, respóndenos."],
+    );
+
+    const pacCita = await q(
+      `insert into pacientes (cliente, nombre, telefono, clinica_id, consentimiento_whatsapp, activo, optout_automatizaciones)
+       values ('DEMO', $1, $2, $3, true, true, false) returning id`,
+      [NOMBRES[2], TEL_CITA, clinicaId],
+    );
+    const inicioCita = DateTime.fromISO(hoy, { zone: "Europe/Madrid" }).plus({ days: 1 }).set({ hour: 11, minute: 0, second: 0, millisecond: 0 });
+    await q(
+      `insert into citas (cliente, nombre, paciente_id, clinica_id, hora_inicio, hora_final, estado, origen)
+       values ('DEMO', 'Revisión implante', $1, $2, $3, $4, 'Confirmada', 'Coordinación')`,
+      [pacCita.rows[0].id, clinicaId, inicioCita.toISO(), inicioCita.plus({ minutes: 30 }).toISO()],
+    );
+    // El paciente con opt-out también tiene cita mañana: NO debe recibir fila.
+    const pacOptout = await q(`select id from pacientes where nombre = $1`, [NOMBRES[0]]);
+    await q(
+      `insert into citas (cliente, nombre, paciente_id, clinica_id, hora_inicio, hora_final, estado, origen)
+       values ('DEMO', 'Limpieza', $1, $2, $3, $4, 'Pendiente', 'Coordinación')`,
+      [pacOptout.rows[0].id, clinicaId, inicioCita.toISO(), inicioCita.plus({ minutes: 30 }).toISO()],
+    );
+
+    const rc = await generarRecordatoriosDeCita({ hoy });
+    console.log(`  … generados=${rc.generados} · yaGenerados=${rc.yaGenerados} · optout=${rc.bloqueadosOptout} · sinPlantilla=${rc.sinPlantilla} · sinTel=${rc.sinTelefono}`);
+
+    const filaCita = await q(
+      `select contenido, tipo, origen, cita_id, estado from cola_envios where telefono = $1`,
+      [TEL_CITA],
+    );
+    ok("cita de mañana → fila creada", filaCita.rows.length === 1);
+    if (filaCita.rows.length === 1) {
+      const f = filaCita.rows[0];
+      ok("origen 'recordatorio_cita' + cita_id (la referencia de SU origen)",
+        f.origen === "recordatorio_cita" && String(f.cita_id ?? "").length > 0);
+      ok("tipo 'Recordatorio de cita', estado Pendiente", f.tipo === "Recordatorio de cita" && f.estado === "Pendiente");
+      ok("contenido sin llaves y con la hora real", !/\{/.test(String(f.contenido)) && String(f.contenido).includes("11:00"),
+        String(f.contenido).slice(0, 70));
+    }
+    ok("paciente con opt-out y cita mañana → SIN fila (RGPD también en citas)", rc.bloqueadosOptout >= 1);
+
+    const rc2 = await generarRecordatoriosDeCita({ hoy });
+    const filasCitaTras2 = await q(`select id from cola_envios where telefono = $1`, [TEL_CITA]);
+    ok("reejecución del mismo día → dedupe (yaGenerados, sin fila duplicada)",
+      rc2.yaGenerados >= 1 && filasCitaTras2.rows.length === 1);
   });
 } catch (err) {
   console.error("✗ No pude comprobar (fallo de entorno/fixtures):", err instanceof Error ? err.message : err);

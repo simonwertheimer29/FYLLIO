@@ -3017,3 +3017,15 @@ plantillas aprobadas, así que el texto libre ni era enviable. Correspondencia d
 RGPD fail-closed ANTES de que la fila exista (`bloqueadosOptout` contado). `qa:generar-cola`
 20/20 determinista (helpers puros + fixtures reales con opt-out). Ninguno de los tres agujeros
 mordía aún porque nada llamaba al generador — el orden B6.2→B6.3 existe para eso.
+
+## 2026-08-18 — B6.1: la cola de envíos se hace única (origen + cita_id, 027) y las citas entran
+`cola_envios` gana `origen` (seguimiento_presupuesto · recordatorio_cita · reactivacion — el filtro
+por tipo de la pantalla; no-shows entrarán como origen nuevo, MEJORAS 98), `cita_id`/`lead_id`, y
+el estado `Caducado` (la cola es del día; Cancelado queda para la decisión de persona). Segundo
+generador: `lib/envios/recordatorios-cita` — citas de mañana (Pendiente/Confirmada) → fila de la
+cola con plantilla de categoría `cita_recordatorio` (nueva en el seed), EXENTO del semáforo
+(PLAN §3: la cita es compromiso, no contacto comercial) pero CON opt-out RGPD fail-closed, dedupe
+una-cita-un-recordatorio-por-día, y `sustituirLlaves` compartido en lib/plantillas con el contrato
+«ninguna llave sobrevive». Sustituye al canal muerto de Twilio del cron daily como camino de los
+recordatorios. `qa:generar-cola` ampliado a 27 checks (fila real, dedupe en reejecución, opt-out
+con cita). El envío sigue siendo modo A: una persona, uno a uno.
