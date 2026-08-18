@@ -114,14 +114,30 @@ informa de lo que ya está decidido —una tabla de planes publicada— y anota 
 
 Hoy la cola es "lo que exige criterio ahora". Pasa a ser "lo que te toca cerrar", con lo urgente arriba.
 
-**Cuatro cohortes, en este orden:**
+**Tres cohortes, en este orden** (criterio, 18-08 — sustituye a las cuatro del 17-08). La regla de
+entrada: **solo entra lo que exige que una PERSONA haga algo.** Todo lo demás es filtro, o es
+Mensajería, o es consulta (Tablas).
 
-1. **Necesita respuesta** — rompió de verdad. Queja, enfado, petición de persona. Lo único que interrumpe.
-2. **Listos para cerrar** — el agente terminó. Aquí estará el volumen.
-3. **Pendientes de resolver** — el agente aplazó algo y **sigue trabajando**; el caso todavía no está listo pero ya acumuló preguntas.
-4. **Sin actividad** — enfriados, agotados, sin contactar. Lo que ya existe.
+1. **Necesita respuesta** — hay una persona (paciente o equipo) esperando una acción humana:
+   quiebre, caso entregado, entrante sin responder. Incluye como **detalles** el lead nuevo sin
+   conversación (primer contacto humano mientras no haya cadencia de leads) y el agotado al que
+   toca llamar.
+2. **Listos para cerrar** — el agente terminó. Aquí estará el volumen. Un caso listo CON
+   aplazados va aquí, y los aplazados se ven **dentro de la ficha**, no como cohorte.
+3. **Fuera de plazo** — le tocaba a una persona y no se hizo dentro del umbral. Con el agente y
+   las cadencias corriendo nadie se enfría solo: llegar aquí es un **fallo del equipo** — el censo
+   de rojos viejos hecho cohorte. El umbral es un **compromiso de servicio de la clínica**, distinto
+   por tipo, configurable en la pantalla del agente (fase D, §6 — no en Ajustes). Defaults en
+   código mientras tanto: **urgencia 30 min · paciente esperando respuesta 2 h · caso listo para
+   cerrar 4 h · lead nuevo sin contactar 1 h**. Y el reloj **solo corre en horario de la clínica**:
+   si corriera de noche, la cohorte se llenaría cada mañana y dejaría de significar nada.
 
-**Regla de precedencia:** un caso listo con cosas aplazadas va a "Listos para cerrar", no a "Pendientes". Las cosas aplazadas viven **dentro** del caso, no como cohorte propia. Es el caso más común y no puede estar en dos sitios.
+**«Pendientes de resolver» se eliminó** (18-08): si el agente sigue trabajando el caso, no hay nada
+que una persona tenga que hacer — eso es supervisión, no cola de trabajo, y vive en Mensajería >
+En curso. **Citados** tampoco están en la cola: su único pendiente es el recordatorio automático, y
+si de ahí surge una duda el agente la trabaja y la entrega por la puerta normal. «¿Quién viene esta
+semana?» se contesta con la **agenda** (feature dependiente del nivel de integración — nivel 2,
+lectura), no con un filtro en la cola de trabajo.
 
 **El push es para lo que no puede esperar, no para lo que hay que hacer** (criterio, 14-08).
 Notificación push **solo para la cola prioritaria**: urgencia, antecedente médico con cita próxima,

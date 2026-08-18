@@ -2985,3 +2985,21 @@ abiertos, leads CONTADOS (no llevan importe en datos — valorarlos sería inven
 vieja sigue intacta para LeadsView/Intervención//red hasta P4. UNA interpretación mía señalada: el
 dictado «en conversación → Necesita respuesta» se aplicó por su RAZÓN (paciente esperando = trabajo)
 — en_espera_paciente (esperamos nosotros) va a Sin actividad, no a Necesita.
+
+## 2026-08-18 — Las cohortes son TRES, y B6 pasa delante
+Corrección dictada sobre P1: **Necesita respuesta · Listos para cerrar · Fuera de plazo.** La regla
+de entrada: solo entra lo que exige que una PERSONA haga algo — lo demás es filtro, Mensajería o
+consulta (Tablas). «Pendientes de resolver» se elimina (agente trabajando = supervisión, vive en
+Mensajería > En curso); «Sin actividad» se convierte en **Fuera de plazo**: con agente y cadencias
+nadie se enfría solo, llegar ahí es fallo del equipo. Umbral = compromiso de servicio de la clínica,
+por tipo, configurable en la pantalla del agente (fase D); defaults en código: urgencia 30 min ·
+respuesta 2 h · cierre 4 h · lead nuevo 1 h — y el reloj SOLO corre en horario de clínica (de
+noche, la cohorte se llenaría y dejaría de significar nada). Los defaults primeros que propuse
+(1-2 días) medían mal: el estándar es la clínica con recepcionista que contesta el mismo día, y el
+número acaba en la venta. Citados: ni cohorte ni filtro — su pendiente es el recordatorio
+automático y las dudas entran por la puerta normal; «¿quién viene?» es la agenda (MEJORAS 97).
+Agotados y nuevos-sin-conversación → Necesita respuesta con detalle (agotado-como-juicio: MEJORAS
+96; formularios → MERCADO). Y el ORDEN cambia: **B6 (cola única de envíos, cron + pantalla) va
+antes que el delta de P1 y que la vista** — sin cadencia corriendo, sacar casos de la cola los
+deja enfriándose invisibles. B6 es UNA cola para todo tipo de mensaje propuesto (presupuestos,
+recordatorios de cita, reactivaciones; no-shows como integración futura, MEJORAS 98).

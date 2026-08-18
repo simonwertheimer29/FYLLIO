@@ -123,6 +123,18 @@ pilotos, nunca prometiendo capacidades que no corren aún. (Exige tener la medic
 primera del agente — [`PLAN-AGENTE-OFENSIVO.md` §10](PLAN-AGENTE-OFENSIVO.md) — y la línea base
 congelada de [`LINEA-BASE-CIERRE.md`](LINEA-BASE-CIERRE.md) son la infraestructura de esta táctica.)
 
+### Recomendación de producto — el formulario web muere en un enlace a WhatsApp
+
+**Criterio del fundador, 18 de agosto de 2026.** El formulario existe para que la clínica sepa por
+qué la llaman antes de llamar — y el agente hace eso mismo mejor y sin que nadie rellene campos. La
+recomendación a las clínicas: sustituir el formulario por un **enlace a WhatsApp con mensaje
+predefinido** («me interesa…»), que convierte el formulario en conversación desde el primer
+segundo. Además resuelve el coste: **el paciente escribe primero**, así que no hay que pagar
+plantilla ni depender de la ventana de 24 h de Meta.
+
+Para las clínicas que mantengan formulario: una **cola de formularios pendientes en LEADS**, no en
+Seguimiento — un formulario sin conversación no es un caso del agente.
+
 ---
 
 ## 2 · Evidencia

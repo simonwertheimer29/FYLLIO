@@ -1749,3 +1749,31 @@ verdad: un editor, un vocabulario, un renderizador.
 - **Fecha:** 2026-08-17 · ✅ **RESUELTA el 2026-08-17** — mordió a las pocas horas, el mismo día (qa:entrante
   falló con «el huérfano no existe» y un toggle de cero filas); los dos QA llevan ya el patrón
   transaccional. Ver DECISIONES 2026-08-17.
+
+## 96. «Agotado» es un contador de toques y debería ser un juicio
+- **Qué es:** hoy un caso queda «agotado» cuando la cadencia consume sus toques
+  (`toques >= toquesAntesDeAgotar`). Es un contador, no un juicio: un paciente que dice «ahora no
+  puedo» no está agotado; uno que lleva tres mensajes sin abrir, sí. El contador trata igual los
+  dos.
+- **Qué haría falta:** que el estado «agotado» incorpore señales de la conversación (respondió
+  alguna vez, qué dijo, entregas/lecturas si existen) — probablemente un juicio del evaluador, no
+  una regla.
+- **Decisión (Simon, 2026-08-18):** anotado como pregunta abierta. **Fase D o después, no ahora.**
+- **Fecha:** 2026-08-18
+
+## 97. La agenda como vista — «¿quién viene esta semana?» no se contesta con la cola
+- **Qué es:** al pasar la cola de Seguimiento a tres cohortes (criterio 18-08), los CITADOS salen
+  de la cola: ni cohorte ni filtro. Su único pendiente es el recordatorio automático, y una duda
+  que surja de él entra por la puerta normal (Necesita respuesta). La pregunta de consulta —
+  «¿quién viene esta semana?» — se contesta con una **agenda**, que hoy no existe como vista.
+- **Decisión (Simon, 2026-08-18):** feature anotada como **dependiente del nivel de integración de
+  cada clínica (nivel 2, lectura)**. No es parte de la fase B.
+- **Fecha:** 2026-08-18
+
+## 98. No-shows: integración futura a la cola única de envíos (B6)
+- **Qué es:** el módulo de no-shows existe pero está desactualizado y no es prioridad. Cuando se
+  reactive, sus mensajes NO estrenan pantalla: se enchufan como un TIPO más a la cola única de
+  envíos de B6 (seguimiento de presupuestos · recordatorios de cita · reactivaciones · no-shows),
+  con su filtro.
+- **Decisión (Simon, 2026-08-18):** anotado como integración futura. **No tocar el módulo ahora.**
+- **Fecha:** 2026-08-18
