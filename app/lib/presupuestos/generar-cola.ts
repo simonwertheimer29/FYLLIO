@@ -254,7 +254,6 @@ export async function generarColaDelDia(opts: {
       "Paciente", "Paciente_nombre", "Paciente_Telefono", "Teléfono",
       "Tratamiento_nombre", "Estado", "Fecha", "Clinica",
       "ContactCount", "Reactivacion", "Importe", "Doctor",
-      "Intencion_detectada",
     ],
     maxRecords: 2000,
   });
@@ -314,7 +313,6 @@ export async function generarColaDelDia(opts: {
     const importe = f["Importe"] != null ? Number(f["Importe"]) : undefined;
     const contactCount = Number(f["ContactCount"] ?? 0);
     const reactivacion = f["Reactivacion"] === true;
-    const intencion = String(f["Intencion_detectada"] ?? "");
     const fechaRaw = String(f["Fecha"] ?? "").slice(0, 10);
     const ds = fechaRaw ? daysSince(fechaRaw) : 0;
 
@@ -327,15 +325,14 @@ export async function generarColaDelDia(opts: {
     let tipoPlantilla: TipoPlantilla | null = null;
 
     if (ACTIVOS.includes(estado)) {
-      if (intencion === "Acepta pero pregunta pago") {
-        const dedupeKey = `${rec.id}::Detalles de pago`;
-        if (!enviosExistentes.has(dedupeKey)) {
-          tipoEnvio = "Detalles de pago";
-          tipoPlantilla = "Detalles de pago";
-        }
-      }
-
-      if (!tipoEnvio) {
+      // (Aquí vivía el envío de «Detalles de pago» para intención "Acepta pero
+      // pregunta pago". RETIRADO por decisión del 18-08: la cola es para
+      // recordar un presupuesto sin decidir y confirmar citas — las
+      // condiciones de pago se hablan DENTRO de la conversación con el agente,
+      // gratis y sin plantilla, cuando el paciente pregunta. Mandarlas de
+      // oficio era empujar, y las plantillas de pago traían condiciones
+      // inventadas que nadie sostenía.)
+      {
         if (contactCount === 0) {
           const dedupeKey = `${rec.id}::Primer contacto`;
           if (!enviosExistentes.has(dedupeKey)) {

@@ -203,7 +203,8 @@ export async function vistaEnvios(opts: {
   if (!tipos.has("Seguimiento") && !tipos.has("Primer contacto") && !tipos.has("Recordatorio")) {
     huecosSinPlantilla.push("Seguimiento de presupuestos");
   }
-  if (!tipos.has("Detalles de pago")) huecosSinPlantilla.push("Detalles de pago");
+  // «Detalles de pago» ya no es un hueco de la cola (18-08): las condiciones
+  // de pago se hablan dentro de la conversación, no se mandan de oficio.
   if (!tipos.has("Reactivacion")) huecosSinPlantilla.push("Reactivación");
   if (!categorias.has("cita_recordatorio")) huecosSinPlantilla.push("Recordatorio de cita");
 

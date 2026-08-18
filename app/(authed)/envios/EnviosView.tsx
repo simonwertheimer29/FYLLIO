@@ -13,9 +13,11 @@
 //  · Opción (b): un hueco sin plantilla no genera — el aviso lo dice claro.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  ChevronLeft,
   CalendarClock,
   Hourglass,
   Phone,
@@ -193,6 +195,13 @@ export function EnviosView() {
       {/* Cabecera: solo hechos */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
+          <Link
+            href="/seguimiento"
+            className="inline-flex items-center gap-1 text-[13px] text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
+          >
+            <ChevronLeft size={14} strokeWidth={ICON_STROKE} />
+            Seguimiento
+          </Link>
           <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">Envíos</h1>
           <p className="mt-1 text-[13px] text-[var(--color-muted)]">
             {vista.pendientes.length} por enviar hoy · {vista.procesadasHoy.length} procesados hoy ·{" "}

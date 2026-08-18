@@ -91,8 +91,6 @@ ok("'Recordatorio' encuentra la de tipo 'Seguimiento' (el agujero: antes no enca
   seleccionarPlantilla(CATALOGO, "Recordatorio", "", "", "Norte")?.id === "p1");
 ok("'Primer contacto' también cae a 'Seguimiento'",
   seleccionarPlantilla(CATALOGO, "Primer contacto", "", "", "Norte")?.id === "p1");
-ok("'Detalles de pago' encuentra la suya",
-  seleccionarPlantilla(CATALOGO, "Detalles de pago", "", "", "Norte")?.id === "p2");
 ok("'Cobranza' NUNCA sale para la cadencia de presupuestos",
   [seleccionarPlantilla(CATALOGO, "Recordatorio", "", "", "Norte")?.id,
    seleccionarPlantilla(CATALOGO, "Primer contacto", "", "", "Norte")?.id].every((id) => id !== "p4"));
@@ -167,10 +165,13 @@ try {
         [nombre, tel, clinicaId, optout],
       );
       const pacienteId = pac.rows[0].id as string;
+      // Intención "Acepta pero pregunta pago" A PROPÓSITO: desde el 18-08 la
+      // cola NO manda «Detalles de pago» (las condiciones se hablan en la
+      // conversación) — este caso debe salir como 'Primer contacto' normal.
       await q(
         `insert into presupuestos (cliente, paciente_id, clinica_id, tratamiento_nombre, estado, importe,
-           fecha, fecha_alta, doctor, paciente_telefono, contact_count)
-         values ('DEMO', $1, $2, 'Implante QA', 'PRESENTADO', 950, $3, $3, 'Dra. Demo', $4, 0)`,
+           fecha, fecha_alta, doctor, paciente_telefono, contact_count, intencion_detectada)
+         values ('DEMO', $1, $2, 'Implante QA', 'PRESENTADO', 950, $3, $3, 'Dra. Demo', $4, 0, 'Acepta pero pregunta pago')`,
         [pacienteId, clinicaId, hoy, tel],
       );
       return pacienteId;

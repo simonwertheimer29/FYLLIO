@@ -285,6 +285,20 @@ El modelo nuevo cambia lo que va en cada ventana, así que la reorganización en
 
 Y las pantallas de dirección — Red, KPIs, Informes — se mantienen, con la métrica nueva que aporta el agente: cuánto resuelve solo, cuánto entrega listo, y cuánto rompe.
 
+**EL CICLO DEL CASO — criterio de navegación (dictado, 18-08).** Un caso vive en **Envíos** hasta
+que alguien contesta; cuando contesta, entra el agente y pasa a **Seguimiento**; al cerrarse,
+vuelve a Envíos. **Nunca está en los dos a la vez.** Envíos es cinta transportadora (revisar y
+pulsar); Seguimiento es mesa de trabajo (leer, decidir, escribir). No se mezclan — y por eso
+«citas próximas sin respuesta» NO vive en Envíos: llamar es trabajo humano y su sitio es
+Seguimiento > Necesita respuesta (reestructura pendiente, MEJORAS 101).
+
+**La barra (para la fase F, dictado 18-08):** hoy son 12 entradas y varias son la misma cosa en
+distinto formato. Tres familias: **consulta** (Leads, Presupuestos, Cobros, Pacientes, Tablas) ·
+**trabajo** (Seguimiento, Envíos, Mensajería) · **dirección** (Red, KPIs, Informes). Vertical
+aguanta esa agrupación y el crecimiento; la horizontal ya está al límite. Pero la decisión real es
+**cuántas ventanas quedan**, no dónde va la barra — y antes de proponer nada, releer la tabla de
+verbos de arriba: ya está escrita y se parte de ahí.
+
 ---
 
 ## 9 · Qué hay que construir, en orden

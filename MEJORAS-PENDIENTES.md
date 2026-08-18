@@ -1798,3 +1798,17 @@ verdad: un editor, un vocabulario, un renderizador.
   la decisión de producto de qué se le dice a un lead que nunca escribió (plantilla marketing,
   ventana 24h de Meta no aplica — plantilla siempre).
 - **Fecha:** 2026-08-18 · decisión de Simon: **fuera de B6, anotada**
+
+## 101. /envios — reestructura pendiente (dictada, NO construir ahora)
+- **Qué es:** la v1 de B6.4 apila cuatro secciones, y solo UNA es trabajo (por enviar); el resto es
+  información. Lo dictado (18-08):
+  1. **Una fila de cifras arriba** (por enviar · esperando respuesta · caducados · procesados)
+     donde cada cifra FILTRA una única lista debajo. Un solo bloque de contenido, estado completo
+     sin scroll.
+  2. **Modo automático y semiautomático son pantallas distintas**, no la misma con botones
+     ocultos: en automático no hay nada que pulsar y los caducados no existen — es un panel de
+     vigilancia, no una cola de trabajo.
+  3. **«Citas próximas sin respuesta» SALE de Envíos**: llamar es trabajo humano y su sitio es
+     Seguimiento > Necesita respuesta (si se queda aquí, la coordinadora tiene su trabajo
+     repartido en dos pantallas). Ver el criterio del ciclo del caso en PLAN §8.
+- **Fecha:** 2026-08-18 · dictado por Simon; entra con la vista de cohortes o después, no en B6.
