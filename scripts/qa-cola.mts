@@ -1,17 +1,18 @@
 #!/usr/bin/env tsx
-// QA de LA COLA DE SEGUIMIENTO (fase B, P1) — determinista, SIN modelo.
+// QA de LA COLA DE SEGUIMIENTO (fase B, P1 — TRES cohortes, delta 18-08) —
+// determinista, SIN modelo.
 //
 //   npx tsx scripts/qa-cola.mts   (= npm run qa:cola)
 //
-// Dos capas, como la lib:
-//   A · cohorteDeCaso PURA: cada combinación cae en EXACTAMENTE una de las
-//       CUATRO (que no crecen), con las precedencias del §3 y la condición
-//       anotada de citados.
-//   B · colaDeSeguimiento contra el seed: ningún activo invisible (censo
-//       contra SQL independiente), dedupe presupuesto>lead, el resumen de
-//       dinero parado cuadra con la suma independiente, y los fixtures del
-//       log del agente mueven casos a su cohorte (entregado → Listos;
-//       aplazado vivo → Pendientes; huérfano con eventos → aparece).
+// Tres capas, como la lib:
+//   A · minutosLaborablesEntre PURA: el reloj de Fuera de plazo no corre de
+//       noche ni en fin de semana (días de riesgo fijados a mano).
+//   B · cohorteDeCaso PURA: solo entra lo que exige PERSONA; lo demás es
+//       null (Mensajería/Envíos/Tablas). Fuera de plazo = escalada por
+//       umbral con reloj INYECTADO (§14), conservando el detalle.
+//   C · colaDeSeguimiento contra el seed: partición sobre las tres, dinero
+//       parado = SOLO lo que espera persona, y los fixtures del log mueven
+//       casos (entregado → Listos; aplazado sin entrega → FUERA de la cola).
 //
 // Salidas §9: 0 · 1 · 2.
 
@@ -22,8 +23,17 @@ dotenv.config();
 process.env.DATA_BACKEND_PG_CLIENTES = process.env.DATA_BACKEND_PG_CLIENTES || "DEMO";
 
 import pg from "pg";
+import { DateTime } from "luxon";
 import { runWithCliente } from "../app/lib/airtable";
-import { cohorteDeCaso, colaDeSeguimiento, ORDEN_COHORTES } from "../app/lib/seguimiento/cola";
+import {
+  cohorteDeCaso,
+  colaDeSeguimiento,
+  ORDEN_COHORTES,
+  UMBRAL_FUERA_DE_PLAZO_MIN,
+  type EntradaCohorte,
+  type RelojDePlazos,
+} from "../app/lib/seguimiento/cola";
+import { minutosLaborablesEntre } from "../app/lib/seguimiento/tiempo-laborable";
 import { registrarEvento } from "../app/lib/automatizacion/pg";
 import { hoyISO } from "../app/lib/time";
 
@@ -40,36 +50,88 @@ const ok = (n: string, c: boolean, extra = "") => {
   if (!c) fallos++;
 };
 
-// ─── A · La función pura: partición y precedencias ──────────────────────────
-console.log("\nA · cohorteDeCaso: cuatro cohortes, precedencias del §3");
+// ─── A · El reloj laborable (horario default: L-V 09:00–20:00) ─────────────
+console.log("\nA · minutosLaborablesEntre: el reloj no corre de noche ni en finde");
+
+const Z = "Europe/Madrid";
+const lunes = DateTime.fromISO("2026-08-10T00:00", { zone: Z });
+if (lunes.weekday !== 1) {
+  // Sonda (§9): si la fecha ancla no es lunes, todo lo demás mentiría.
+  console.error("✗ 2026-08-10 no es lunes en esta zona — QA mal anclado.");
+  process.exit(2);
+}
+const d = (dia: number, hora: string) => lunes.plus({ days: dia }).set({
+  hour: Number(hora.split(":")[0]), minute: Number(hora.split(":")[1]),
+}).toJSDate();
+
+ok("mismo día laborable: mié 10:00 → 12:30 = 150",
+  minutosLaborablesEntre(d(2, "10:00"), d(2, "12:30")) === 150);
+ok("cruza la noche: mié 19:30 → jue 09:30 = 60 (30 antes del cierre + 30 tras abrir)",
+  minutosLaborablesEntre(d(2, "19:30"), d(3, "09:30")) === 60);
+ok("cruza el fin de semana: vie 19:00 → lun 09:30 = 90",
+  minutosLaborablesEntre(d(4, "19:00"), d(7, "09:30")) === 90);
+ok("todo fuera de horario: mar 22:00 → mié 08:00 = 0",
+  minutosLaborablesEntre(d(1, "22:00"), d(2, "08:00")) === 0);
+ok("desde de madrugada: el reloj arranca cuando abre (mié 03:00 → mié 10:00 = 60)",
+  minutosLaborablesEntre(d(2, "03:00"), d(2, "10:00")) === 60);
+
+// ─── B · La función pura: tres cohortes, null = no es cola ──────────────────
+console.log("\nB · cohorteDeCaso: solo entra lo que exige persona; Fuera de plazo escala");
+
 const hoy = hoyISO();
-const c = (e: Parameters<typeof cohorteDeCaso>[0]) => cohorteDeCaso(e);
+const c = (e: Partial<EntradaCohorte> & Pick<EntradaCohorte, "conversacion">, reloj?: RelojDePlazos) =>
+  cohorteDeCaso({ tipoCaso: "presupuesto", hoy, ...e }, reloj);
 
-ok("quebrado → Necesita respuesta", c({ conversacion: "reactivable", automatizacion: "quebrado", hoy }).cohorte === "necesita_respuesta");
+ok("quebrado → Necesita respuesta", c({ conversacion: "reactivable", automatizacion: "quebrado" })?.cohorte === "necesita_respuesta");
 ok("entrega del agente NO-caso_completo (urgencia) → Necesita respuesta",
-  c({ conversacion: "en_espera_paciente", hoy, agente: { entregadoCausa: "urgencia", aplazadosVivos: 0 } }).cohorte === "necesita_respuesta");
-ok("paciente escribió lo último → Necesita respuesta (decisión 17-08)",
-  c({ conversacion: "pendiente_responder", hoy }).cohorte === "necesita_respuesta");
-ok("entrega caso_completo → Listos para cerrar",
-  c({ conversacion: "en_espera_paciente", hoy, agente: { entregadoCausa: "caso_completo", aplazadosVivos: 1 } }).cohorte === "listos_para_cerrar");
-ok("cierre pendiente (Rechaza, clasificador viejo) → Listos para cerrar",
-  c({ conversacion: "reactivable", automatizacion: "cierre_pendiente", hoy }).cohorte === "listos_para_cerrar");
-ok("aplazados vivos sin entrega → Pendientes de resolver",
-  c({ conversacion: "en_espera_paciente", hoy, agente: { entregadoCausa: null, aplazadosVivos: 2 } }).cohorte === "pendientes_de_resolver");
+  c({ conversacion: "en_espera_paciente", agente: { entregadoCausa: "urgencia", aplazadosVivos: 0 } })?.cohorte === "necesita_respuesta");
+ok("paciente escribió lo último → Necesita respuesta",
+  c({ conversacion: "pendiente_responder" })?.cohorte === "necesita_respuesta");
+ok("entrega caso_completo CON aplazados → Listos (los aplazados van en la ficha)",
+  c({ conversacion: "en_espera_paciente", agente: { entregadoCausa: "caso_completo", aplazadosVivos: 2 } })?.cohorte === "listos_para_cerrar");
+ok("cierre pendiente (clasificador viejo) → Listos para cerrar",
+  c({ conversacion: "reactivable", automatizacion: "cierre_pendiente" })?.cohorte === "listos_para_cerrar");
+ok("agotado → Necesita respuesta · agotado (toca llamar; dictado 18-08)",
+  (() => { const r = c({ conversacion: "reactivable", automatizacion: "agotado" }); return r?.cohorte === "necesita_respuesta" && r.detalle === "agotado"; })());
+ok("LEAD nuevo sin hilo → Necesita respuesta (no hay cadencia de leads)",
+  (() => { const r = cohorteDeCaso({ tipoCaso: "lead", conversacion: "sin_conversacion", hoy }); return r?.cohorte === "necesita_respuesta" && r.detalle === "nuevo_sin_contactar"; })());
+ok("PRESUPUESTO nuevo sin hilo → null (su primer toque es de la cola de Envíos)",
+  c({ conversacion: "sin_conversacion" }) === null);
+ok("aplazados vivos SIN entrega → null (el agente sigue: Mensajería > En curso)",
+  c({ conversacion: "en_espera_paciente", agente: { entregadoCausa: null, aplazadosVivos: 2 } }) === null);
+ok("esperando al paciente → null (consulta: Tablas)",
+  c({ conversacion: "en_espera_paciente" }) === null);
+ok("sin respuesta (rezagados) → null (la cadencia de Envíos los toca)",
+  c({ conversacion: "reactivable" }) === null);
 ok("PRECEDENCIA: aplazados vivos + paciente escribió → Necesita respuesta",
-  c({ conversacion: "pendiente_responder", hoy, agente: { entregadoCausa: null, aplazadosVivos: 2 } }).cohorte === "necesita_respuesta");
-ok("PRECEDENCIA: entregado listo + citado → Listos (no citados)",
-  c({ conversacion: "en_espera_paciente", fechaCita: hoy, hoy, agente: { entregadoCausa: "caso_completo", aplazadosVivos: 0 } }).cohorte === "listos_para_cerrar");
-ok("citado → Sin actividad·citado (CONDICIÓN ANOTADA: hasta pantalla propia)",
-  (() => { const r = c({ conversacion: "en_espera_paciente", fechaCita: hoy, hoy }); return r.cohorte === "sin_actividad" && r.detalle === "citado"; })());
-ok("agotado → Sin actividad (toca llamar queda como detalle/filtro)",
-  (() => { const r = c({ conversacion: "reactivable", automatizacion: "agotado", hoy }); return r.cohorte === "sin_actividad" && r.detalle === "agotado"; })());
-ok("nuevo sin contactar → Sin actividad", c({ conversacion: "sin_conversacion", hoy }).cohorte === "sin_actividad");
-ok("esperando al paciente (nosotros escribimos) → Sin actividad — NO Necesita",
-  (() => { const r = c({ conversacion: "en_espera_paciente", hoy }); return r.cohorte === "sin_actividad" && r.detalle === "esperando_al_paciente"; })());
-ok("sin respuesta (rezagados) → Sin actividad", c({ conversacion: "reactivable", hoy }).cohorte === "sin_actividad");
+  c({ conversacion: "pendiente_responder", agente: { entregadoCausa: null, aplazadosVivos: 2 } })?.cohorte === "necesita_respuesta");
 
-// ─── B · Con el seed real ───────────────────────────────────────────────────
+// Escalada a Fuera de plazo — reloj FIJADO a mano (§14).
+const relojDe = (min: number): RelojDePlazos => ({ minutosLaborablesDesde: () => min });
+const t0 = "2026-08-10T09:00:00.000Z";
+
+ok("paciente esperando 121 min laborables → FUERA DE PLAZO (umbral 120), detalle intacto",
+  (() => {
+    const r = c({ conversacion: "pendiente_responder", ultimoEntranteISO: t0 }, relojDe(121));
+    return r?.cohorte === "fuera_de_plazo" && r.detalle === "paciente_escribio";
+  })());
+ok("paciente esperando 119 min → sigue en Necesita respuesta",
+  c({ conversacion: "pendiente_responder", ultimoEntranteISO: t0 }, relojDe(119))?.cohorte === "necesita_respuesta");
+ok("urgencia entregada hace 31 min laborables → FUERA DE PLAZO (umbral 30)",
+  c({ conversacion: "en_espera_paciente", agente: { entregadoCausa: "urgencia", aplazadosVivos: 0 }, entregadoEnISO: t0 }, relojDe(31))?.cohorte === "fuera_de_plazo");
+ok("caso listo hace 241 min laborables → FUERA DE PLAZO (umbral 240)",
+  c({ conversacion: "en_espera_paciente", agente: { entregadoCausa: "caso_completo", aplazadosVivos: 0 }, entregadoEnISO: t0 }, relojDe(241))?.cohorte === "fuera_de_plazo");
+ok("lead nuevo esperando 61 min laborables → FUERA DE PLAZO (umbral 60)",
+  cohorteDeCaso({ tipoCaso: "lead", conversacion: "sin_conversacion", hoy, creadoISO: t0 }, relojDe(61))?.cohorte === "fuera_de_plazo");
+ok("sin instante que arranque el reloj → NO escala (no se inventa antigüedad)",
+  c({ conversacion: "en_espera_paciente", agente: { entregadoCausa: "urgencia", aplazadosVivos: 0 } }, relojDe(9999))?.cohorte === "necesita_respuesta");
+ok("umbral configurado (fase D) manda sobre el default",
+  c({ conversacion: "pendiente_responder", ultimoEntranteISO: t0 }, { minutosLaborablesDesde: () => 121, umbralesMin: { respuesta: 300 } })?.cohorte === "necesita_respuesta");
+ok("los defaults dictados están escritos: 30 · 120 · 240 · 60",
+  UMBRAL_FUERA_DE_PLAZO_MIN.urgencia === 30 && UMBRAL_FUERA_DE_PLAZO_MIN.respuesta === 120 &&
+  UMBRAL_FUERA_DE_PLAZO_MIN.cierre === 240 && UMBRAL_FUERA_DE_PLAZO_MIN.lead_nuevo === 60);
+
+// ─── C · Con el seed real ───────────────────────────────────────────────────
 const app = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL_APP, ssl: { rejectUnauthorized: false } });
 await app.connect();
 async function q(texto: string, params?: unknown[]) {
@@ -86,12 +148,12 @@ async function q(texto: string, params?: unknown[]) {
 }
 
 const TEL_FIXTURE_LISTO = "+34611998031"; // paciente propio de este QA
-const TEL_HUERFANO_PEND = "+34611999002"; // huérfana del seed (Mónica)
+const TEL_HUERFANO = "+34611999002"; // huérfana del seed (Mónica)
 
 async function limpiar() {
   const admin = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL_ADMIN, ssl: { rejectUnauthorized: false } });
   await admin.connect();
-  await admin.query(`delete from eventos_automatizacion where cliente='DEMO' and caso_id = any($1)`, [[TEL_FIXTURE_LISTO, TEL_HUERFANO_PEND]]);
+  await admin.query(`delete from eventos_automatizacion where cliente='DEMO' and caso_id = any($1)`, [[TEL_FIXTURE_LISTO, TEL_HUERFANO]]);
   await admin.end();
   const pacs = await q(`select id from pacientes where telefono=$1`, [TEL_FIXTURE_LISTO]);
   for (const p of pacs.rows) {
@@ -99,48 +161,42 @@ async function limpiar() {
     await q(`delete from pacientes where id=$1`, [p.id]);
   }
   // Solo el saliente que insertó ESTE QA — los mensajes del seed no se tocan.
-  await q(`delete from mensajes_whatsapp where telefono=$1 and contenido like '[QA-COLA]%'`, [TEL_HUERFANO_PEND]);
+  await q(`delete from mensajes_whatsapp where telefono=$1 and contenido like '[QA-COLA]%'`, [TEL_HUERFANO]);
 }
 await limpiar();
 
 await runWithCliente("DEMO", async () => {
-  console.log("\nB · colaDeSeguimiento contra el seed (censo independiente)");
+  console.log("\nC · colaDeSeguimiento contra el seed");
   const base = await colaDeSeguimiento();
 
-  // Censo independiente, vocabulario declarado a mano (como qa:contexto).
-  const ACTIVOS = ["Nuevo", "Contactado", "Citado", "Citados Hoy"];
-  const nLeadsActivos = Number((await q(
-    `select count(*)::int n from leads where estado = any($1) and coalesce(convertido_a_paciente,false)=false`, [ACTIVOS],
-  )).rows[0].n);
+  ok("cada caso en EXACTAMENTE una de las TRES (partición)",
+    base.casos.every((x) => ORDEN_COHORTES.includes(x.cohorte)) &&
+      ORDEN_COHORTES.reduce((s, co) => s + base.casos.filter((x) => x.cohorte === co).length, 0) === base.casos.length);
+  ok("dinero parado = SOLO presupuestos en cola (consistencia interna)",
+    Math.round(base.resumen.dineroParado) ===
+      Math.round(base.casos.filter((x) => x.tipo === "presupuesto").reduce((s, x) => s + (x.importe ?? 0), 0)),
+    `${base.resumen.dineroParado} €`);
+  ok("leads contados, no valorados",
+    base.resumen.leadsSinImporte === base.casos.filter((x) => x.tipo === "lead").length &&
+      base.casos.filter((x) => x.tipo === "lead").every((x) => x.importe === null));
+
+  // La cola YA NO es el censo de activos: un presupuesto abierto puede estar
+  // legítimamente fuera (cadencia/Tablas). Lo que se afirma es la dirección:
+  // cola ⊆ activos.
   const nPresuAbiertos = Number((await q(
     `select count(*)::int n from presupuestos where estado is null or estado not in ('ACEPTADO','PERDIDO')`,
   )).rows[0].n);
-  const sumaImportes = Number((await q(
-    `select coalesce(sum(importe),0) s from presupuestos where estado is null or estado not in ('ACEPTADO','PERDIDO')`,
-  )).rows[0].s);
+  const enCola = base.casos.filter((x) => x.tipo === "presupuesto").length;
+  ok("cola de presupuestos ⊆ presupuestos abiertos (lo demás es Envíos/Tablas)",
+    enCola <= nPresuAbiertos, `cola=${enCola} abiertos=${nPresuAbiertos}`);
 
-  const porTipo = { lead: 0, presupuesto: 0, conversacion: 0 };
-  for (const x of base.casos) porTipo[x.tipo]++;
-  ok("ningún presupuesto abierto invisible", porTipo.presupuesto === nPresuAbiertos, `cola=${porTipo.presupuesto} sql=${nPresuAbiertos}`);
-  ok("leads activos = en cola + solapados con presupuesto (dedupe, no pérdida)",
-    porTipo.lead <= nLeadsActivos, `cola=${porTipo.lead} activos=${nLeadsActivos}`);
-  ok("cada caso en EXACTAMENTE una cohorte (partición)",
-    base.casos.every((x) => ORDEN_COHORTES.includes(x.cohorte)) &&
-      ORDEN_COHORTES.reduce((s, co) => s + base.casos.filter((x) => x.cohorte === co).length, 0) === base.casos.length);
-  ok("dinero parado = suma independiente de presupuestos abiertos",
-    Math.round(base.resumen.dineroParado) === Math.round(sumaImportes),
-    `cola=${base.resumen.dineroParado} sql=${sumaImportes}`);
-  ok("leads contados, no valorados (el importe de un lead NO existe en datos)",
-    base.resumen.leadsSinImporte === porTipo.lead && base.casos.filter((x) => x.tipo === "lead").every((x) => x.importe === null));
-  ok("el caso más viejo tiene edad", base.resumen.masViejoDias != null && base.resumen.masViejoDias >= 0, `${base.resumen.masViejoDias} días`);
-
-  // La foto para el reporte: distribución por cohorte.
-  console.log("\n  Distribución del seed:");
+  console.log("\n  Distribución del seed (tres cohortes):");
   for (const co of ORDEN_COHORTES) {
     const del = base.casos.filter((x) => x.cohorte === co);
     const detalles = [...new Set(del.map((x) => x.detalle))].join(", ");
     console.log(`    ${co}: ${del.length}${del.length ? ` (${detalles})` : ""}`);
   }
+  console.log(`    (fuera de la cola: ${nPresuAbiertos - enCola} presupuestos abiertos en Envíos/Tablas)`);
 
   // ── Fixtures del log del agente ─────────────────────────────────────────
   console.log("\n  Fixtures del agente mueven casos:");
@@ -156,35 +212,37 @@ await runWithCliente("DEMO", async () => {
     [pac.rows[0].id, clin, hoy, TEL_FIXTURE_LISTO],
   );
   await registrarEvento({ tipoCaso: "conversacion", casoId: TEL_FIXTURE_LISTO, evento: "derivado", causaDerivacion: "caso_completo", objetivoActivo: "presupuesto", actorNombre: "qa" } as any);
-  await registrarEvento({ tipoCaso: "conversacion", casoId: TEL_HUERFANO_PEND, evento: "aplazado", claveAplazado: "agenda_disponibilidad", motivoTexto: "pregunta por el sábado", actorNombre: "qa" } as any);
+  await registrarEvento({ tipoCaso: "conversacion", casoId: TEL_HUERFANO, evento: "aplazado", claveAplazado: "agenda_disponibilidad", motivoTexto: "pregunta por el sábado", actorNombre: "qa" } as any);
 
-  // El seed deja a la huérfana con su último mensaje SIN responder →
-  // «paciente escribió» manda sobre el aplazado (precedencia de A). Se
-  // afirma ESO primero, y después se le responde para ver el caso caer a
-  // Pendientes de resolver.
   const tras = await colaDeSeguimiento();
   const casoListo = tras.casos.find((x) => x.telefono === TEL_FIXTURE_LISTO);
-  ok("entregado caso_completo → su presupuesto cae en Listos para cerrar",
+  ok("entregado caso_completo AHORA MISMO → Listos (recién entregado, no escala)",
     casoListo?.cohorte === "listos_para_cerrar" && casoListo.detalle === "entregado_listo",
     `${casoListo?.cohorte ?? "no está"}`);
-  const casoHuerfano = tras.casos.find((x) => x.tipo === "conversacion" && x.telefono === TEL_HUERFANO_PEND);
-  ok("huérfano con eventos APARECE en la cola, y con paciente esperando manda Necesita respuesta",
-    casoHuerfano?.cohorte === "necesita_respuesta" && casoHuerfano.detalle === "paciente_escribio",
+  // La huérfana del seed tiene su último mensaje SIN responder: paciente
+  // esperando. La COHORTE depende de cuánto lleve esperando en horario de
+  // clínica (el seed siembra relativo a la hora de ejecución) — lo estable
+  // es el DETALLE y que esté en cola.
+  const casoHuerfano = tras.casos.find((x) => x.tipo === "conversacion" && x.telefono === TEL_HUERFANO);
+  ok("huérfano con paciente esperando ESTÁ en la cola (Necesita o Fuera de plazo)",
+    casoHuerfano != null && casoHuerfano.detalle === "paciente_escribio" &&
+      (casoHuerfano.cohorte === "necesita_respuesta" || casoHuerfano.cohorte === "fuera_de_plazo"),
     `${casoHuerfano?.cohorte ?? "no está"}`);
-
-  await q(
-    `insert into mensajes_whatsapp (cliente, telefono, direccion, contenido, "timestamp", fuente)
-     values ('DEMO',$1,'Saliente','[QA-COLA] Te contesto enseguida', now(), 'Modo_A_manual')`,
-    [TEL_HUERFANO_PEND],
-  );
-  const tras2 = await colaDeSeguimiento();
-  const huerfano2 = tras2.casos.find((x) => x.tipo === "conversacion" && x.telefono === TEL_HUERFANO_PEND);
-  ok("respondida la persona, el aplazado vivo lo baja a Pendientes de resolver",
-    huerfano2?.cohorte === "pendientes_de_resolver" && huerfano2.detalle === "aplazados_vivos",
-    `${huerfano2?.cohorte ?? "no está"}`);
   ok("y el dinero parado subió exactamente el importe del fixture (650)",
     Math.round(tras.resumen.dineroParado - base.resumen.dineroParado) === 650,
     `Δ=${tras.resumen.dineroParado - base.resumen.dineroParado}`);
+
+  // Al responderle, queda un aplazado vivo SIN entrega → el agente sigue →
+  // el caso SALE de la cola (18-08: eso es supervisión, no trabajo).
+  await q(
+    `insert into mensajes_whatsapp (cliente, telefono, direccion, contenido, "timestamp", fuente, autor)
+     values ('DEMO',$1,'Saliente','[QA-COLA] Te contesto enseguida', now(), 'Modo_A_manual','persona')`,
+    [TEL_HUERFANO],
+  );
+  const tras2 = await colaDeSeguimiento();
+  const huerfano2 = tras2.casos.find((x) => x.tipo === "conversacion" && x.telefono === TEL_HUERFANO);
+  ok("respondida la persona, el aplazado sin entrega SALE de la cola (Mensajería > En curso)",
+    huerfano2 == null, huerfano2 ? `sigue como ${huerfano2.cohorte}` : "fuera, correcto");
 });
 
 await limpiar();
@@ -195,4 +253,4 @@ if (fallos > 0) {
   console.error(`\n✗ ${fallos} fallo(s)`);
   process.exit(1);
 }
-console.log("✓ la cola: cuatro cohortes que no crecen, partición total, dinero parado que cuadra");
+console.log("✓ la cola: tres cohortes que no crecen, solo trabajo de persona, y el plazo corre en horario de clínica");

@@ -1,43 +1,45 @@
 // app/lib/seguimiento/cola.ts
 //
-// LA COLA DE SEGUIMIENTO (fase B, P1 — mapeo corregido el 17-08).
+// LA COLA DE SEGUIMIENTO (fase B, P1 — TRES cohortes desde el 18-08).
 //
-// LAS COHORTES SON CUATRO Y NO CRECEN (dictado): Necesita respuesta ·
-// Listos para cerrar · Pendientes de resolver · Sin actividad. La cola
-// contesta UNA pregunta —¿qué me toca ahora?— y todo lo demás
-// (lead/presupuesto, doctor, tratamiento, origen, citado, agotado…) es
-// FILTRO sobre las cuatro, nunca una quinta categoría.
+// LAS COHORTES SON TRES Y NO CRECEN (dictado, §3 del PLAN): **Necesita
+// respuesta · Listos para cerrar · Fuera de plazo.** La regla de entrada:
+// SOLO entra lo que exige que una PERSONA haga algo. Todo lo demás no es
+// cola — es Mensajería (supervisión del agente), Envíos (cadencia) o
+// consulta (Tablas) — y aquí se representa como `null`.
 //
-// El mapeo de las cohortes viejas, bajo esa regla:
+// El mapeo, bajo esa regla:
 //   quiebre                → Necesita respuesta
-//   en conversación        → Necesita respuesta SI el paciente escribió lo
-//                            último (pendiente_responder) — en modo A un
-//                            paciente esperando ES trabajo; si esperamos
-//                            NOSOTROS su respuesta (en_espera_paciente), no
-//                            hay nada que hacer AHORA → Sin actividad.
+//   paciente escribió      → Necesita respuesta
+//   entregas del agente    → caso_completo → Listos; resto de causas
+//                            (urgencia, queja, antecedente…) → Necesita.
 //   cierra y anota         → Listos para cerrar
-//   entregas del agente    → causa caso_completo → Listos para cerrar;
-//                            resto de causas (urgencia, queja, insistencia,
-//                            antecedente) → Necesita respuesta («rompió de
-//                            verdad» del §3).
-//   aplazados vivos        → Pendientes de resolver (el agente sigue)
-//   toca llamar (agotado)  → Sin actividad (§3 lo dice explícito)
-//   sin respuesta          → Sin actividad
-//   nuevos sin contactar   → Sin actividad (con su señal de urgencia)
-//   citados                → Sin actividad — CONDICIÓN ANOTADA (17-08): se
-//                            quedan en la cola HASTA QUE EXISTA la pantalla
-//                            que recoja confirmar/recordar citas; ese
-//                            trabajo no puede quedarse sin vivir en ninguna
-//                            parte. Cuando exista, salen a filtro.
+//   agotado (toca llamar)  → Necesita respuesta (detalle) — la cadencia se
+//                            acabó y lo que queda es una llamada humana.
+//   lead nuevo sin hilo    → Necesita respuesta (detalle) — la cadencia de
+//                            leads NO existe (MEJORAS 100); el primer toque
+//                            es de una persona. Un PRESUPUESTO sin hilo NO:
+//                            su primer toque lo propone la cola de Envíos.
+//   aplazados sin entrega  → null — el agente sigue trabajando: supervisión,
+//                            vive en Mensajería > En curso (18-08: se
+//                            eliminó «Pendientes de resolver»).
+//   citados                → null — su pendiente es el recordatorio
+//                            automático (Envíos); «¿quién viene?» es la
+//                            agenda (MEJORAS 97). Cayó la condición anotada.
+//   esperando al paciente  → null — consulta (Tablas).
+//   sin respuesta          → null — consulta; la cadencia de Envíos lo toca.
 //
-// La partición es TOTAL POR CONSTRUCCIÓN: guardas en el orden del §3
-// (Necesita > Listos > Pendientes) y Sin actividad como residual — el mismo
-// mecanismo que sostiene la invariante de la lib vieja, vigilado por
-// qa:cola. La lib vieja (cohortes.ts) NO se toca aquí: LeadsView,
-// Intervención y /red siguen sobre ella hasta P4.
+// FUERA DE PLAZO no es un estado nuevo: es la ESCALADA de las otras dos.
+// «Le tocaba a una persona y no se hizo dentro del umbral» — llegar ahí es
+// un fallo del equipo (el censo de rojos viejos hecho cohorte). El umbral es
+// un compromiso de servicio POR TIPO (configurable en la pantalla del
+// agente, fase D; defaults dictados abajo) y su reloj SOLO corre en horario
+// de clínica (tiempo-laborable.ts).
 //
-// Módulo con dos capas: `cohorteDeCaso` PURA (client-safe, la prueba el QA
-// sin base) y `colaDeSeguimiento` con datos (solo servidor).
+// Módulo con dos capas: `cohorteDeCaso` PURA (client-safe; el reloj
+// laborable se INYECTA como callback, así el QA lo fija sin base) y
+// `colaDeSeguimiento` con datos (solo servidor). La lib vieja (cohortes.ts)
+// NO se toca: LeadsView, Intervención y /red siguen sobre ella hasta P4.
 
 import { sql } from "kysely";
 import { runWithClienteDb } from "../db/context";
@@ -58,63 +60,142 @@ import {
 import type { IntencionDetectada } from "../presupuestos/types";
 import { ultimosEventosPorCaso, toquesAntesDeAgotar } from "../automatizacion/pg";
 import { esLeadActivo } from "../leads/pipeline";
+import { minutosLaborablesEntre } from "./tiempo-laborable";
 
-// ─── Las cuatro. No crecen. ─────────────────────────────────────────────────
+// ─── Las tres. No crecen. ───────────────────────────────────────────────────
 
 export type Cohorte =
   | "necesita_respuesta"
   | "listos_para_cerrar"
-  | "pendientes_de_resolver"
-  | "sin_actividad";
+  | "fuera_de_plazo";
 
 export const ORDEN_COHORTES: readonly Cohorte[] = [
   "necesita_respuesta",
   "listos_para_cerrar",
-  "pendientes_de_resolver",
-  "sin_actividad",
+  "fuera_de_plazo",
 ];
 
 export const ETIQUETA_COHORTE: Record<Cohorte, string> = {
   necesita_respuesta: "Necesita respuesta",
   listos_para_cerrar: "Listos para cerrar",
-  pendientes_de_resolver: "Pendientes de resolver",
-  sin_actividad: "Sin actividad",
+  fuera_de_plazo: "Fuera de plazo",
 };
 
 /** El PORQUÉ dentro de la cohorte — para la card y los FILTROS, jamás una
- *  quinta cohorte. */
+ *  cuarta cohorte. Fuera de plazo CONSERVA el detalle de su obligación. */
 export type DetalleCohorte =
   | "quebrado"
   | "paciente_escribio"
   | "entregado_urgente"
   | "entregado_listo"
   | "cierre_pendiente"
-  | "aplazados_vivos"
-  | "citado"
   | "agotado"
-  | "nuevo_sin_contactar"
-  | "sin_respuesta"
-  | "esperando_al_paciente";
+  | "nuevo_sin_contactar";
 
-// ─── La función pura: un caso, una cohorte, siempre ────────────────────────
+// ─── Fuera de plazo: umbrales por tipo de obligación ───────────────────────
+
+export type ObligacionPlazo = "urgencia" | "respuesta" | "cierre" | "lead_nuevo" | "llamada";
+
+/** Defaults DICTADOS (18-08), en minutos LABORABLES: el estándar es la
+ *  clínica con recepcionista que contesta el mismo día — el número acaba en
+ *  la venta y no puede bajar el listón. Configurable por clínica y por tipo
+ *  en la pantalla del agente (fase D). `llamada` es default nuestro (no
+ *  dictado): el agotado toca llamarlo dentro de la jornada. */
+export const UMBRAL_FUERA_DE_PLAZO_MIN: Record<ObligacionPlazo, number> = {
+  urgencia: 30,
+  respuesta: 120,
+  cierre: 240,
+  lead_nuevo: 60,
+  llamada: 240,
+};
+
+export const OBLIGACION_DE_DETALLE: Record<DetalleCohorte, ObligacionPlazo> = {
+  quebrado: "respuesta",
+  paciente_escribio: "respuesta",
+  entregado_urgente: "urgencia",
+  entregado_listo: "cierre",
+  cierre_pendiente: "cierre",
+  agotado: "llamada",
+  nuevo_sin_contactar: "lead_nuevo",
+};
+
+// ─── La función pura: un caso → una de las tres, o null (no es cola) ───────
 
 export type EntradaCohorte = {
+  /** Un presupuesto sin hilo lo toca la cadencia de Envíos; un lead sin hilo
+   *  lo toca una PERSONA (no hay cadencia de leads) — el tipo decide. */
+  tipoCaso: "lead" | "presupuesto" | "conversacion";
   conversacion: EstadoConversacion;
   /** Del clasificador viejo (compat 93/94, sigue vivo hasta que Simon
    *  encienda el evaluador): quebrado/agotado/cierre_pendiente. */
   automatizacion?: EstadoAutomatizacion | null;
-  /** Cita futura (leads y pacientes) — condición anotada de citados. */
-  fechaCita?: string | null;
   hoy: string;
   /** Del LOG del agente, por teléfono (contado por el caller, no juzgado). */
   agente?: {
     entregadoCausa: CausaDerivacion | null;
     aplazadosVivos: number;
   } | null;
+  /** Instantes que arrancan el reloj de cada obligación (ISO). Sin el que
+   *  toca, el caso no puede escalar a Fuera de plazo — se queda en su
+   *  cohorte base, nunca inventa una antigüedad. */
+  ultimoEntranteISO?: string | null;
+  ultimoSalienteISO?: string | null;
+  entregadoEnISO?: string | null;
+  creadoISO?: string | null;
 };
 
-export function cohorteDeCaso(e: EntradaCohorte): { cohorte: Cohorte; detalle: DetalleCohorte } {
-  // 1 · NECESITA RESPUESTA — lo único que interrumpe (§3), en su orden.
+export type RelojDePlazos = {
+  /** Minutos LABORABLES desde el instante dado hasta ahora (lo inyecta el
+   *  caller; el QA lo fija a mano — §14). */
+  minutosLaborablesDesde: (iso: string) => number;
+  umbralesMin?: Partial<Record<ObligacionPlazo, number>>;
+};
+
+export type ResultadoCohorte = {
+  cohorte: Cohorte;
+  detalle: DetalleCohorte;
+  /** Desde cuándo espera a la persona (ISO) — la edad que mide el plazo. */
+  esperandoDesde: string | null;
+  /** Minutos laborables esperando, si el reloj pudo medirlos. */
+  esperandoMinLaborables: number | null;
+};
+
+/** El instante en que la obligación pasó a manos de una persona. */
+function desdeDeObligacion(detalle: DetalleCohorte, e: EntradaCohorte): string | null {
+  switch (detalle) {
+    case "paciente_escribio":
+      return e.ultimoEntranteISO ?? null;
+    case "quebrado":
+    case "cierre_pendiente":
+      return e.ultimoEntranteISO ?? e.ultimoSalienteISO ?? e.creadoISO ?? null;
+    case "entregado_urgente":
+    case "entregado_listo":
+      return e.entregadoEnISO ?? null;
+    case "agotado":
+      return e.ultimoSalienteISO ?? e.creadoISO ?? null;
+    case "nuevo_sin_contactar":
+      return e.creadoISO ?? null;
+  }
+}
+
+export function cohorteDeCaso(e: EntradaCohorte, reloj?: RelojDePlazos): ResultadoCohorte | null {
+  const base = cohorteBase(e);
+  if (!base) return null;
+
+  const esperandoDesde = desdeDeObligacion(base.detalle, e);
+  let esperandoMinLaborables: number | null = null;
+  let cohorte: Cohorte = base.cohorte;
+  if (reloj && esperandoDesde) {
+    esperandoMinLaborables = reloj.minutosLaborablesDesde(esperandoDesde);
+    const umbral = reloj.umbralesMin?.[OBLIGACION_DE_DETALLE[base.detalle]]
+      ?? UMBRAL_FUERA_DE_PLAZO_MIN[OBLIGACION_DE_DETALLE[base.detalle]];
+    if (esperandoMinLaborables > umbral) cohorte = "fuera_de_plazo";
+  }
+  return { cohorte, detalle: base.detalle, esperandoDesde, esperandoMinLaborables };
+}
+
+function cohorteBase(e: EntradaCohorte): { cohorte: Exclude<Cohorte, "fuera_de_plazo">; detalle: DetalleCohorte } | null {
+  // 1 · NECESITA RESPUESTA — hay una persona esperando una acción humana.
   if (e.automatizacion === "quebrado") return { cohorte: "necesita_respuesta", detalle: "quebrado" };
   if (e.agente?.entregadoCausa && e.agente.entregadoCausa !== "caso_completo") {
     return { cohorte: "necesita_respuesta", detalle: "entregado_urgente" };
@@ -123,7 +204,8 @@ export function cohorteDeCaso(e: EntradaCohorte): { cohorte: Cohorte; detalle: D
     return { cohorte: "necesita_respuesta", detalle: "paciente_escribio" };
   }
 
-  // 2 · LISTOS PARA CERRAR — el agente terminó; aquí estará el volumen.
+  // 2 · LISTOS PARA CERRAR — el agente terminó; aquí estará el volumen. Un
+  //     listo CON aplazados va aquí: los aplazados se ven DENTRO de la ficha.
   if (e.agente?.entregadoCausa === "caso_completo") {
     return { cohorte: "listos_para_cerrar", detalle: "entregado_listo" };
   }
@@ -131,31 +213,27 @@ export function cohorteDeCaso(e: EntradaCohorte): { cohorte: Cohorte; detalle: D
     return { cohorte: "listos_para_cerrar", detalle: "cierre_pendiente" };
   }
 
-  // 3 · PENDIENTES DE RESOLVER — el agente aplazó algo y SIGUE trabajando.
-  if ((e.agente?.aplazadosVivos ?? 0) > 0) {
-    return { cohorte: "pendientes_de_resolver", detalle: "aplazados_vivos" };
+  // 3 · Lo que aún exige persona sin ser respuesta ni cierre.
+  if (e.automatizacion === "agotado") return { cohorte: "necesita_respuesta", detalle: "agotado" };
+  if (e.conversacion === "sin_conversacion" && e.tipoCaso === "lead") {
+    return { cohorte: "necesita_respuesta", detalle: "nuevo_sin_contactar" };
   }
 
-  // 4 · SIN ACTIVIDAD — el residual. El detalle alimenta filtros y señales,
-  //     nunca una cohorte nueva.
-  if (e.fechaCita && e.fechaCita >= e.hoy) return { cohorte: "sin_actividad", detalle: "citado" };
-  if (e.automatizacion === "agotado") return { cohorte: "sin_actividad", detalle: "agotado" };
+  // 4 · NO ES COLA (18-08). El switch mantiene la TOTALIDAD: un valor nuevo
+  //     de EstadoConversacion rompe la compilación en vez de colarse.
+  // (pendiente_responder ya salió en la guarda 1: el narrowing lo excluye.)
   switch (e.conversacion) {
-    case "sin_conversacion":
-      return { cohorte: "sin_actividad", detalle: "nuevo_sin_contactar" };
-    case "en_espera_paciente":
-      return { cohorte: "sin_actividad", detalle: "esperando_al_paciente" };
-    case "reactivable":
-      return { cohorte: "sin_actividad", detalle: "sin_respuesta" };
+    case "sin_conversacion": // presupuesto/conversación sin hilo → Envíos (cadencia)
+    case "en_espera_paciente": // esperamos NOSOTROS → consulta (Tablas)
+    case "reactivable": // rezagados → la cadencia de Envíos los toca
+      return null;
+    default:
+      return exhaustivo(e.conversacion);
   }
-  // Inalcanzable: pendiente_responder salió en la guarda 1. El `never` de
-  // abajo mantiene la TOTALIDAD — un valor nuevo de EstadoConversacion rompe
-  // la compilación aquí en vez de colarse en silencio.
-  return exhaustivo(e.conversacion);
 }
 
 function exhaustivo(x: never): never {
-  throw new Error(`EstadoConversacion sin cohorte: ${String(x)}`);
+  throw new Error(`EstadoConversacion sin destino: ${String(x)}`);
 }
 
 // ─── La cola con datos ──────────────────────────────────────────────────────
@@ -176,12 +254,15 @@ export type CasoDeCola = {
   origen: string | null;
   /** Días de clínica que lleva parado (desde el último toque o el alta). */
   paradoDias: number;
+  /** Minutos laborables que la obligación lleva esperando a la persona. */
+  esperandoMinLaborables: number | null;
   /** Espera vigente («sin contacto hasta») — la card lo señala. */
   enEspera: boolean;
 };
 
 export type ResumenCola = {
-  /** € parados en la cola = suma de importes de presupuestos abiertos. */
+  /** € parados EN LA COLA = presupuestos que esperan a una persona. Lo que
+   *  trabaja el agente o la cadencia no está «parado por nosotros». */
   dineroParado: number;
   dineroPresupuestos: number;
   /** Los leads no tienen importe: HECHO, no estimación — se cuentan. */
@@ -238,9 +319,9 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
           and evento in ('derivado','resuelto_manual','asumido_manual','soltado','espera_fijada','espera_levantada','aplazado','aplazado_resuelto')
         order by created_at asc`.execute(trx);
 
-    // Citas futuras por paciente (condición anotada de citados).
-    const c: any = await sql`select distinct paciente_id from citas
-        where paciente_id is not null and hora_inicio >= now()`.execute(trx);
+    // (La consulta de citas futuras murió con la condición anotada de
+    //  citados, 18-08: un citado ya no es cola — su recordatorio vive en
+    //  Envíos y «¿quién viene?» es la agenda.)
 
     return {
       leads,
@@ -248,12 +329,11 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       pacientes,
       mensajes: (m.rows ?? []) as { telefono: string; ultimo_entrante: Date | null; ultimo_saliente: Date | null }[],
       eventos: (ev.rows ?? []) as { caso_id: string; evento: string; causa_derivacion: CausaDerivacion | null; clave_aplazado: string | null; hasta: Date | string | null; created_at: Date }[],
-      conCitaFutura: new Set(((c.rows ?? []) as { paciente_id: string }[]).map((x) => String(x.paciente_id))),
     };
   });
 
   // ── El log del agente, agrupado por dígitos del hilo ──────────────────────
-  type EstadoAgente = { entregadoCausa: CausaDerivacion | null; aplazadosVivos: number; enEspera: boolean; telefono: string };
+  type EstadoAgente = { entregadoCausa: CausaDerivacion | null; entregadoEn: string | null; aplazadosVivos: number; enEspera: boolean; telefono: string };
   const agentePorDigitos = new Map<string, EstadoAgente>();
   {
     const grupos = new Map<string, typeof datos.eventos>();
@@ -291,6 +371,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       agentePorDigitos.set(k, {
         telefono: evs[0].caso_id,
         entregadoCausa: ultimo && !resueltoDespues ? ultimo.causa_derivacion : null,
+        entregadoEn: ultimo && !resueltoDespues ? ultimo.created_at.toISOString() : null,
         aplazadosVivos,
         enEspera: hastaISO != null && !esperaLevantada && hastaISO >= hoy,
       });
@@ -319,10 +400,17 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
   const casos: CasoDeCola[] = [];
   const digitosCubiertos = new Set<string>();
 
+  // El reloj de plazos, uno para toda la pasada: minutos LABORABLES hasta
+  // `ahora` con el horario default de la casa (el de cada clínica llega con
+  // la pantalla del agente, fase D).
+  const reloj: RelojDePlazos = {
+    minutosLaborablesDesde: (iso) => minutosLaborablesEntre(new Date(iso), ahora),
+  };
+
   const clasificar = (args: {
+    tipoCaso: "lead" | "presupuesto" | "conversacion";
     telefono: string | null;
     automatizacion?: EstadoAutomatizacion | null;
-    fechaCita?: string | null;
     creadoAt: Date | string | null;
     /** UMBRAL_REACTIVACION_DIAS.lead|presupuesto — el del tipo del caso. */
     umbralDias: number;
@@ -337,13 +425,21 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       ahora,
     ).estado;
     const agente = buscarAgente(args.telefono);
-    const r = cohorteDeCaso({
-      conversacion,
-      automatizacion: args.automatizacion ?? null,
-      fechaCita: args.fechaCita ?? null,
-      hoy,
-      agente: agente ? { entregadoCausa: agente.entregadoCausa, aplazadosVivos: agente.aplazadosVivos } : null,
-    });
+    const r = cohorteDeCaso(
+      {
+        tipoCaso: args.tipoCaso,
+        conversacion,
+        automatizacion: args.automatizacion ?? null,
+        hoy,
+        agente: agente ? { entregadoCausa: agente.entregadoCausa, aplazadosVivos: agente.aplazadosVivos } : null,
+        ultimoEntranteISO: men.entrante,
+        ultimoSalienteISO: men.saliente,
+        entregadoEnISO: agente?.entregadoEn ?? null,
+        creadoISO: args.creadoAt ? new Date(args.creadoAt).toISOString() : null,
+      },
+      reloj,
+    );
+    if (!r) return null; // no es cola de trabajo (Mensajería / Envíos / Tablas)
     const ultimoToque = [men.entrante, men.saliente].filter(Boolean).sort().pop() ?? null;
     const desde = ultimoToque ?? (args.creadoAt ? new Date(args.creadoAt).toISOString() : null);
     const paradoDias = desde ? Math.max(0, diasDeClinicaEntre(new Date(desde), ahora)) : 0;
@@ -374,13 +470,16 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       ultimoEvento: evPresupuesto.get(pr.id) ?? null,
     }).estado;
     const k = clasificar({
+      tipoCaso: "presupuesto",
       telefono,
       automatizacion: autom,
-      fechaCita: pr.paciente_id && datos.conCitaFutura.has(String(pr.paciente_id)) ? hoy : null,
       creadoAt: pr.fecha ?? pr.created_at,
       umbralDias: UMBRAL_REACTIVACION_DIAS.presupuesto,
     });
+    // El teléfono queda cubierto AUNQUE el presupuesto no entre en cola: el
+    // dedupe presupuesto>lead es del caso, no de su cohorte.
     if (telefono) digitosCubiertos.add(dig(telefono));
+    if (!k) continue;
     casos.push({
       id: `presupuesto:${pr.id}`,
       tipo: "presupuesto",
@@ -393,6 +492,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       tratamiento: pr.tratamiento_nombre ?? null,
       origen: null,
       paradoDias: k.paradoDias,
+      esperandoMinLaborables: k.esperandoMinLaborables,
       enEspera: k.enEspera,
     });
   }
@@ -420,8 +520,9 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       toquesAntesDeAgotar: umbralToques,
       ultimoEvento: evLead.get(l.id) ?? null,
     }).estado;
-    const k = clasificar({ telefono: l.telefono, automatizacion: automL, fechaCita: l.fecha_cita, creadoAt: l.created_at, umbralDias: UMBRAL_REACTIVACION_DIAS.lead });
+    const k = clasificar({ tipoCaso: "lead", telefono: l.telefono, automatizacion: automL, creadoAt: l.created_at, umbralDias: UMBRAL_REACTIVACION_DIAS.lead });
     if (d) digitosCubiertos.add(d);
+    if (!k) continue;
     casos.push({
       id: `lead:${l.id}`,
       tipo: "lead",
@@ -434,6 +535,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       tratamiento: l.tratamiento_interes ?? null,
       origen: l.canal_captacion ?? null,
       paradoDias: k.paradoDias,
+      esperandoMinLaborables: k.esperandoMinLaborables,
       enEspera: k.enEspera,
     });
   }
@@ -443,7 +545,8 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
   for (const [k, a] of agentePorDigitos) {
     if ([...digitosCubiertos].some((d) => d.includes(k) || k.includes(d))) continue;
     if (a.entregadoCausa == null && a.aplazadosVivos === 0) continue;
-    const kk = clasificar({ telefono: a.telefono, creadoAt: null, umbralDias: UMBRAL_REACTIVACION_DIAS.presupuesto });
+    const kk = clasificar({ tipoCaso: "conversacion", telefono: a.telefono, creadoAt: null, umbralDias: UMBRAL_REACTIVACION_DIAS.presupuesto });
+    if (!kk) continue;
     casos.push({
       id: `conversacion:${a.telefono}`,
       tipo: "conversacion",
@@ -456,11 +559,15 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       tratamiento: null,
       origen: null,
       paradoDias: kk.paradoDias,
+      esperandoMinLaborables: kk.esperandoMinLaborables,
       enEspera: kk.enEspera,
     });
   }
 
-  // ── La cabecera: dinero PARADO — hechos, nunca estimaciones ──────────────
+  // ── La cabecera: dinero PARADO EN LA COLA — hechos, nunca estimaciones ───
+  // Solo suma lo que espera a una PERSONA (los casos de la cola). Lo que
+  // trabaja el agente o la cadencia no está parado por nosotros — el total
+  // de presupuestos abiertos ya vive en /presupuestos y /red.
   const dineroPresupuestos = casos
     .filter((c) => c.tipo === "presupuesto" && c.importe != null)
     .reduce((s, c) => s + (c.importe ?? 0), 0);
