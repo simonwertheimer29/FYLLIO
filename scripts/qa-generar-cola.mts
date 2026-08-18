@@ -256,6 +256,28 @@ try {
     const filasCitaTras2 = await q(`select id from cola_envios where telefono = $1`, [TEL_CITA]);
     ok("reejecución del mismo día → dedupe (yaGenerados, sin fila duplicada)",
       rc2.yaGenerados >= 1 && filasCitaTras2.rows.length === 1);
+
+    // ── D · Caducidad (B6.3): la cola es DEL DÍA ─────────────────────────
+    console.log("\nD · caducarPendientesAnteriores: lo de ayer caduca, lo de hoy no");
+
+    await q(
+      `insert into cola_envios (cliente, origen, paciente_nombre, telefono, contenido, tipo, estado, programado_para, plantilla_usada)
+       values ('DEMO', 'seguimiento_presupuesto', $1, $2, 'Mensaje de ayer que nadie envió', 'Recordatorio 1', 'Pendiente', $3, 'QA')`,
+      [NOMBRES[1], TEL_VERDE, DateTime.fromISO(hoy, { zone: "Europe/Madrid" }).minus({ days: 1 }).set({ hour: 9 }).toISO()],
+    );
+    const { caducarPendientesAnteriores } = await import("../app/lib/envios/generar-envios-del-dia");
+    const caducados = await caducarPendientesAnteriores({ hoy });
+    ok("el Pendiente de AYER pasa a Caducado", caducados >= 1, `caducados=${caducados}`);
+    const estados = await q(
+      `select estado, programado_para from cola_envios where telefono = $1 order by programado_para`,
+      [TEL_VERDE],
+    );
+    const deAyer = estados.rows.find((r: any) => String(r.contenido ?? "") === "" || DateTime.fromJSDate(r.programado_para).toISODate()! < hoy);
+    const deHoy = estados.rows.find((r: any) => DateTime.fromJSDate(r.programado_para).toISODate()! >= hoy);
+    ok("…y queda VISIBLE como Caducado (no borrado, no Cancelado)", deAyer?.estado === "Caducado");
+    ok("el Pendiente de HOY no se toca", deHoy?.estado === "Pendiente");
+    const caducados2 = await caducarPendientesAnteriores({ hoy });
+    ok("reejecutar no re-caduca nada (idempotente)", caducados2 === 0, `segunda pasada=${caducados2}`);
   });
 } catch (err) {
   console.error("✗ No pude comprobar (fallo de entorno/fixtures):", err instanceof Error ? err.message : err);

@@ -327,6 +327,20 @@ async function runDailyCron(): Promise<NextResponse> {
     errors.push(`voice_outer: ${String(err)}`);
   }
 
+  // ── B6.3 (18-08) — la cola única de envíos: caducar + generar ─────────
+  // La cola es DEL DÍA: lo pendiente de ayer caduca (y se ve), y lo de hoy
+  // se genera con datos de hoy. Va en este cron y no en uno propio: el plan
+  // de Vercel limita los cron jobs y este ya corre a las 07:00 UTC, antes
+  // de la mañana de la clínica. Aislado: nunca rompe el resto del cron.
+  let enviosDelDia: unknown = null;
+  try {
+    const { generarEnviosDelDia } = await import("../../../lib/envios/generar-envios-del-dia");
+    enviosDelDia = await generarEnviosDelDia({ clinicasPermitidas: null, clinicaIdsPermitidas: null });
+  } catch (err) {
+    console.error("[daily envios]", err);
+    errors.push(`envios: ${motivoFallo(err)}`);
+  }
+
   // ── Sprint 18 Bloque 3 — re-evaluación de riesgo de no-show ───────────
   // Re-evalúa las citas próximas (now → +48h) y persiste la predicción en
   // Supabase (factores_no_show). Aislado en try/catch: nunca rompe el cron.
@@ -364,6 +378,7 @@ async function runDailyCron(): Promise<NextResponse> {
       errores: llamadasIaError,
     },
     noShows: { evaluadas: noShowsEvaluadas, errores: noShowsErrores },
+    envios: enviosDelDia,
     // P0.9: fases que se cortaron por presupuesto de tiempo (no truncado silencioso).
     truncated: [...new Set(truncated)],
     errors,

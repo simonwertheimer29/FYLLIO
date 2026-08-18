@@ -1,19 +1,26 @@
 // app/api/presupuestos/cola-envios/generar/route.ts
-// POST — genera la cola de envíos del día. La LÓGICA vive en
-// lib/presupuestos/generar-cola (extraída en fase B, 2026-08-17): esta ruta
-// solo aporta la sesión y su scope de clínicas. Así la misma generación la
-// pueden invocar un cron (scope null) y el QA de recorridos (con `hoy`
-// inyectado) — que era imposible mientras vivía dentro del withAuth.
+// POST — el paso diario de la cola de envíos, disparado a mano desde la
+// pantalla. La LÓGICA vive en lib/envios/generar-envios-del-dia (B6.3):
+// caducar lo pendiente de días anteriores + generar con datos de hoy
+// (presupuestos + recordatorios de cita). Esta ruta solo aporta la sesión y
+// su scope; el cron diario invoca la misma lib con scope null.
 
 import { NextResponse } from "next/server";
 import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
 import { nombresClinicasPermitidas } from "../../../../lib/presupuestos/clinica-scope";
-import { generarColaDelDia } from "../../../../lib/presupuestos/generar-cola";
+import { generarEnviosDelDia } from "../../../../lib/envios/generar-envios-del-dia";
 
 export const POST = withPresupuestosAuth(async (session) => {
   try {
     const permitidas = await nombresClinicasPermitidas(session);
-    const resultado = await generarColaDelDia({ clinicasPermitidas: permitidas });
+    // El generador de citas scopea por IDs (los datos de citas guardan
+    // clinica_id); mismo criterio fail-closed que los nombres: "*" = null.
+    const acc = session.clinicasAccesibles;
+    const idsPermitidas = acc && acc.includes("*") ? null : new Set(acc ?? []);
+    const resultado = await generarEnviosDelDia({
+      clinicasPermitidas: permitidas,
+      clinicaIdsPermitidas: idsPermitidas,
+    });
     return NextResponse.json(resultado);
   } catch (err) {
     console.error("[cola-envios/generar] Error:", err);

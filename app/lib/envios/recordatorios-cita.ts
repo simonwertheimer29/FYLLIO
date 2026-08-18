@@ -61,6 +61,8 @@ type FilaCita = {
 
 export async function generarRecordatoriosDeCita(opts?: {
   hoy?: string;
+  /** Ids de clínica del scope del caller (sesión). null = sin restricción (cron). */
+  clinicaIdsPermitidas?: ReadonlySet<string> | null;
 }): Promise<ResultadoRecordatoriosCita> {
   const cliente = currentCliente();
   if (!cliente) throw new Error("[recordatorios-cita] sin cliente (fail-closed)");
@@ -120,7 +122,11 @@ export async function generarRecordatoriosDeCita(opts?: {
     return plantillasPorClinica.get(clave)![0] ?? null;
   }
 
+  const idsPermitidas = opts?.clinicaIdsPermitidas ?? null;
   for (const cita of citas) {
+    // Scope del caller (fail-closed): una cita sin clínica solo la genera un
+    // caller sin restricción (cron / admin).
+    if (idsPermitidas && (!cita.clinica_id || !idsPermitidas.has(cita.clinica_id))) continue;
     if (yaConFila.has(cita.id)) {
       res.yaGenerados++;
       continue;
