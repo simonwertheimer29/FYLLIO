@@ -1722,7 +1722,13 @@ verdad: un editor, un vocabulario, un renderizador.
   sobrevive por inercia. La fase B no está terminada mientras esta proyección exista.
 - **Dónde:** `app/lib/agente/persistir-turno.ts` (proyectarCompatPresupuesto / Fallback).
 - **Impacto:** ninguno mientras la fase B no llegue; deuda estructural si la sobrevive.
-- **Fecha:** 2026-08-14 · 🔵
+- **Fecha:** 2026-08-14 · ✅ **RESUELTA el 2026-08-21 (B4)** — la proyección murió entera
+  (proyectarCompatPresupuesto y el fallback). Las pantallas de la fase B leen del log: la cola de
+  Seguimiento deriva cohortes de eventos, la ficha lee el log, y la bandeja marca «necesita
+  persona» también por derivado-sin-resolver del log (cubre leads y huérfanos, el hueco
+  documentado). El fallback ya no proyecta un quiebre falso: el entrante sin responder es Necesita
+  respuesta por construcción. Las columnas de presupuestos quedan como salida EXCLUSIVA del
+  clasificador viejo (94, muere con B5). qa:turno afirma la muerte: un turno no toca las columnas.
 
 ## 94. El clasificador viejo — SEGUNDA COPIA CON FECHA DE MUERTE
 - **Qué es:** con el interruptor `evaluador_activo` apagado (el default), el webhook sigue usando

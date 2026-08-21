@@ -145,32 +145,29 @@ await runWithCliente("DEMO", async () => {
   const trasMsg2 = (await eventos(`and evento='aplazado' and clave_aplazado='precio_descuento'`)).length;
   ok("con mensaje nuevo, count(aplazado, precio_descuento) = 2", trasMsg2 === 2, `count=${trasMsg2}`);
 
-  // ── 4 · Proyección compat sobre un presupuesto real, y restaurar ─────────
-  console.log("\n4 · Proyección compat (copia con fecha de muerte: fase B)");
+  // ── 4 · La proyección compat MURIÓ (B4, 21-08 — MEJORAS 93) ──────────────
+  // Un turno que deriva ya NO toca `presupuestos`: el log es la única verdad
+  // del evaluador. Se afirma la MUERTE: las columnas quedan intactas.
+  console.log("\n4 · Sin proyección compat: un turno no toca las columnas de presupuestos");
   const presu = (await q(
-    `select id, requiere_persona, motivo_quiebre, mensaje_sugerido, urgencia_intervencion,
-            accion_sugerida, ultima_respuesta_paciente, fecha_ultima_respuesta, fase_seguimiento
+    `select id, requiere_persona, mensaje_sugerido, fase_seguimiento
        from presupuestos where estado not in ('ACEPTADO','PERDIDO') limit 1`,
   )).rows[0];
   if (!presu) {
-    console.error("✗ no hay presupuesto abierto en DEMO para probar compat — no puedo comprobar");
+    console.error("✗ no hay presupuesto abierto en DEMO — no puedo comprobar");
     fallos++;
   } else {
     await persistirTurno({
-      telefono: TEL, mensajeId: "qa_turno_msg_0003", respuestaPaciente: "[QA] mensaje compat",
-      evaluacion: evalBase, presupuestoId: presu.id,
+      telefono: TEL, mensajeId: "qa_turno_msg_0003", respuestaPaciente: "[QA] mensaje sin compat",
+      evaluacion: evalBase,
     });
-    const tras = (await q(`select requiere_persona, urgencia_intervencion, mensaje_sugerido from presupuestos where id=$1`, [presu.id])).rows[0];
-    ok("deriva → requiere_persona=true y urgencia por cola (prioritaria→CRÍTICO)", tras.requiere_persona === true && tras.urgencia_intervencion === "CRÍTICO");
-    ok("al derivar por queja, el sugerido queda VACÍO (no se invita a mandarlo)", (tras.mensaje_sugerido ?? "") === "");
-    await q(
-      `update presupuestos set requiere_persona=$2, motivo_quiebre=$3, mensaje_sugerido=$4, urgencia_intervencion=$5,
-              accion_sugerida=$6, ultima_respuesta_paciente=$7, fecha_ultima_respuesta=$8, fase_seguimiento=$9 where id=$1`,
-      [presu.id, presu.requiere_persona, presu.motivo_quiebre, presu.mensaje_sugerido, presu.urgencia_intervencion,
-       presu.accion_sugerida, presu.ultima_respuesta_paciente, presu.fecha_ultima_respuesta, presu.fase_seguimiento],
-    );
-    const restaurado = (await q(`select requiere_persona from presupuestos where id=$1`, [presu.id])).rows[0];
-    ok("estado del presupuesto restaurado", restaurado.requiere_persona === presu.requiere_persona);
+    const tras = (await q(`select requiere_persona, mensaje_sugerido, fase_seguimiento from presupuestos where id=$1`, [presu.id])).rows[0];
+    ok("las columnas del presupuesto quedan EXACTAMENTE como estaban",
+      tras.requiere_persona === presu.requiere_persona &&
+        (tras.mensaje_sugerido ?? "") === (presu.mensaje_sugerido ?? "") &&
+        (tras.fase_seguimiento ?? "") === (presu.fase_seguimiento ?? ""));
+    const derivadoEnLog = await eventos(`and evento='derivado'`);
+    ok("…y la derivación vive en el LOG (la única verdad)", derivadoEnLog.length >= 1, `derivados=${derivadoEnLog.length}`);
   }
 
   // ── 5 · Fallback: sin eventos ────────────────────────────────────────────
@@ -191,4 +188,4 @@ if (fallos > 0) {
   console.error(`\n✗ ${fallos} fallo(s)`);
   process.exit(1);
 }
-console.log("✓ persistencia del turno: idempotente, íntegra y con compat restaurable");
+console.log("✓ persistencia del turno: idempotente, íntegra, y sin copia compat — el log manda solo");

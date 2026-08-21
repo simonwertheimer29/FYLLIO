@@ -174,7 +174,6 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     mensajeId: e.mensajeId,
     respuestaPaciente: e.contenido,
     evaluacion,
-    presupuestoId: e.presupuestoId ?? null,
   });
 
   if (evaluacion.fallback) {

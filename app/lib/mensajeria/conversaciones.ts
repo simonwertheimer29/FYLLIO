@@ -50,13 +50,12 @@ export type Conversacion = {
   /** ¿La última respuesta la escribió el agente? (la redactó él, la mandara
    *  quien la mandara — ver `sugerido_por_ia` en la migración 018). */
   ultimaDelAgente: boolean;
-  /** El caso está quebrado: necesita criterio de una persona.
-   *
-   *  OJO CON EL ALCANCE: sale de `presupuestos.requiere_persona`, así que hoy
-   *  **una conversación de un lead nunca puede marcarse**. No es un olvido: el
-   *  clasificador de leads se quedó fuera del rediseño «decisión primero» (el
-   *  recorte del 6 de agosto, escrito en PLAN-AGENTE). Cuando entre, esta
-   *  bandera pasa a mirar también el lead y el filtro se completa solo. */
+  /** El caso necesita criterio de una persona. Dos fuentes (B4, 21-08):
+   *  el quiebre del clasificador viejo (`presupuestos.requiere_persona`,
+   *  solo presupuestos — recorte del 6 de agosto) y el DERIVADO sin
+   *  resolver del log del evaluador, que cubre también leads y huérfanos.
+   *  La proyección compat murió (MEJORAS 93): el log es la única verdad
+   *  del evaluador. */
   necesitaPersona: boolean;
 };
 
@@ -144,17 +143,33 @@ export async function listarConversaciones(args: {
                   when k.nombre_perfil is not null then 'perfil'
                   else 'telefono' end as origen,
              c.nombre as clinica_nombre,
-             -- El MISMO criterio que estadoAutomatizacion, no una copia a ojo:
-             -- decisión explícita (requiere_persona) o, en filas sin decisión,
-             -- el fallback por intención — y solo si el paciente escribió lo
-             -- último (pendientes > 0), igual que el estado derivado exige
-             -- pendiente_responder. La lista de intenciones viene POR PARÁMETRO
-             -- del propio estado.ts: una sola fuente para el filtro y el aviso.
+             -- Dos fuentes, cada una la verdad de SU motor (B4, 21-08):
+             --  · Clasificador VIEJO (94): requiere_persona / intención sobre
+             --    el presupuesto, solo si el paciente escribió lo último —
+             --    mismo criterio que estadoAutomatizacion, no copia a ojo.
+             --  · EVALUADOR: derivado sin resuelto_manual posterior en el LOG
+             --    (la proyección compat murió con MEJORAS 93). Cubre también
+             --    leads y huérfanos — el hueco documentado arriba. El cierre
+             --    por HECHOS del semáforo no se re-deriva aquí (igual que en
+             --    la cola): se marca de más, jamás de menos; la ficha lo dice
+             --    exacto.
              (coalesce(p.n, 0) > 0 and (
                 pr.requiere_persona is true
                 or (pr.requiere_persona is null
                     and pr.intencion_detectada = any(${INTENCIONES_QUE_QUIEBRAN as string[]}))
-             )) as necesita_persona
+             ))
+             or exists (
+               select 1 from eventos_automatizacion d
+                where d.cliente = ${cliente} and d.tipo_caso = 'conversacion'
+                  and d.evento = 'derivado'
+                  and regexp_replace(d.caso_id, '\\D', '', 'g') = regexp_replace(u.telefono, '\\D', '', 'g')
+                  and not exists (
+                    select 1 from eventos_automatizacion rs
+                     where rs.cliente = d.cliente and rs.tipo_caso = 'conversacion'
+                       and rs.evento = 'resuelto_manual'
+                       and regexp_replace(rs.caso_id, '\\D', '', 'g') = regexp_replace(d.caso_id, '\\D', '', 'g')
+                       and rs.created_at > d.created_at)
+             ) as necesita_persona
         from ultimo u
         join caso k using (telefono)
         left join pend p on p.telefono = u.telefono

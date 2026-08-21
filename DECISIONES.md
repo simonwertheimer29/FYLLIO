@@ -3098,3 +3098,16 @@ sus cohortes de pipeline (Citados · Nuevos · …) — es pantalla de CONSULTA,
 la fase F con la tabla de verbos del §8; y las CIFRAS de las cards de /red siguen saliendo de la
 lib vieja (cohortes.ts + estado-conversacion), que es coherente mientras el clasificador viejo
 viva (94) — remapearlas a colaDeSeguimiento entra cuando B4/B5 decidan qué motor queda.
+
+## 2026-08-21 — B4: muere la proyección compat (MEJORAS 93) — el log ya no tiene copia
+`persistirTurno` deja de escribir en columnas de `presupuestos` (requiere_persona, motivo_quiebre,
+mensaje_sugerido, urgencia, acción, fase): la condición de la mejora se cumplió — las pantallas de
+la fase B leen del log (cola por eventos, ficha por log) y la BANDEJA gana la segunda fuente que le
+faltaba: «necesita persona» también por derivado-sin-resolver del log del evaluador, que además
+cubre leads y huérfanos (el hueco que la doc del tipo declaraba). El FALLBACK del evaluador ya no
+proyecta un quiebre falso «para que lo lea alguien»: en el modelo de tres cohortes, un entrante sin
+responder ES Necesita respuesta por construcción — visible sin flag, y el error queda logueado
+(§9). Las columnas quedan como salida EXCLUSIVA del clasificador viejo (MEJORAS 94, fecha de
+muerte B5): un solo escritor por columna, cero copias. qa:turno reescrito: afirma que un turno que
+deriva NO toca el presupuesto y que la derivación vive en el log. Con esto, B4 cerrado — la fase B
+completa salvo B5, que es decisión de producto de Simon (encender el evaluador por clínica).

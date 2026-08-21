@@ -6,25 +6,22 @@
 // el evento `evaluacion` con los juicios); NADA derivable se guarda — listo,
 // cola, en-manos se calculan al leer, siempre. Ver migración 024.
 //
-// ORDEN (§1): aplazados → derivado → evaluación → proyección compat. Todo
-// idempotente por (evento, clave, mensaje_id): un reintento del after() o
-// una reentrega que se cuele tras el dedup de KV es un no-op, no un
-// duplicado — y un aplazado duplicado derivaría por insistencia un caso que
-// no tocaba.
+// ORDEN (§1): aplazados → derivado → evaluación. Todo idempotente por
+// (evento, clave, mensaje_id): un reintento del after() o una reentrega que
+// se cuele tras el dedup de KV es un no-op, no un duplicado — y un aplazado
+// duplicado derivaría por insistencia un caso que no tocaba.
 //
-// LA PROYECCIÓN COMPAT sobre `presupuestos` es una COPIA CON FECHA DE MUERTE
-// (MEJORAS-PENDIENTES): existe porque la bandeja, /red y las cohortes leen
-// hoy columnas de presupuestos; se RETIRA en la fase B cuando esas pantallas
-// lean del log. El log manda.
+// LA PROYECCIÓN COMPAT sobre `presupuestos` MURIÓ AQUÍ (B4, 21-08 — MEJORAS
+// 93 cumplida): las pantallas de la fase B leen del log — la cola de
+// Seguimiento deriva cohortes de los eventos, la ficha lee el log, y la
+// bandeja marca «necesita persona» también por derivado-sin-resolver del
+// log. Las columnas de `presupuestos` (requiere_persona, mensaje_sugerido…)
+// quedan como salida EXCLUSIVA del clasificador viejo (MEJORAS 94), que
+// muere con B5. El log manda — y ya no tiene copia.
 
-import { DateTime } from "luxon";
 import { registrarEventoIdempotente } from "../automatizacion/pg";
 import type { EvaluacionTurno } from "./evaluador";
-import { MOTIVO_FALLBACK_EVALUADOR } from "./evaluador";
 import type { ClaveAplazado } from "../automatizacion/aplazamientos";
-import { colaDeDerivacion } from "../automatizacion/estado";
-
-const ZONE = "Europe/Madrid";
 
 /** La forma del payload de `evaluacion_json`. Cambiarla es cambiar el
  *  histórico: solo añadir campos, nunca renombrar. */
@@ -56,19 +53,9 @@ export type TurnoAPersistir = {
   telefono: string;
   /** waba_message_id del entrante evaluado — la clave de idempotencia. */
   mensajeId: string;
-  /** El texto del entrante, para el motivo legible y la proyección compat. */
+  /** El texto del entrante, para el motivo legible del derivado. */
   respuestaPaciente: string;
   evaluacion: EvaluacionTurno;
-  /** Si el hilo tiene presupuesto, se proyecta compat sobre sus columnas. */
-  presupuestoId?: string | null;
-};
-
-const ACCION_POR_CAUSA: Record<string, string> = {
-  urgencia: "Contactar de inmediato",
-  antecedente_medico: "Revisar el antecedente antes de la cita",
-  peticion_queja: "Atender a la persona",
-  insistencia: "Responder lo que quedó aplazado",
-  caso_completo: "Cerrar el caso",
 };
 
 export async function persistirTurno(t: TurnoAPersistir): Promise<{
@@ -81,12 +68,13 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
   // No-reversión: el caso es de una persona, el turno no produce nada.
   if (!ev.actuar) return { eventosNuevos: 0, reentrega: false };
 
-  // Fallback: NO hubo juicio — sin eventos (un `evaluacion` vacío contaminaría
-  // el «trabajado»). Solo la vía compat de siempre: que lo lea alguien.
+  // Fallback: NO hubo juicio — sin eventos (un `evaluacion` vacío
+  // contaminaría el «trabajado»). El caso queda VISIBLE por construcción:
+  // el entrante sin responder es `pendiente_responder` → Necesita respuesta
+  // en la cola y contador en la bandeja — ya no hace falta proyectar un
+  // quiebre falso para que alguien lo lea (B4; el error queda logueado en
+  // evaluar-entrante, §9).
   if (ev.fallback) {
-    if (t.presupuestoId) {
-      await proyectarCompatFallback(t.presupuestoId, t.respuestaPaciente);
-    }
     return { eventosNuevos: 0, reentrega: false };
   }
 
@@ -194,57 +182,8 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
     }),
   );
 
-  // 4 · Proyección compat — SOLO después de que el log tenga la verdad.
-  if (t.presupuestoId) {
-    await proyectarCompatPresupuesto(t.presupuestoId, t.respuestaPaciente, ev);
-  }
+  // (Aquí vivía la proyección compat sobre `presupuestos`. B4, 21-08: murió
+  //  con las pantallas ya leyendo del log — ver la cabecera del archivo.)
 
   return { eventosNuevos: nuevos, reentrega: nuevos === 0 && repetidos > 0 };
-}
-
-// ─── Proyección compat sobre `presupuestos` ─────────────────────────────────
-//
-// COPIA CON FECHA DE MUERTE (fase B): las pantallas actuales leen estas
-// columnas; hasta que lean del log, esto evita que mientan. Escribe por el
-// gate del dominio (recuento de filas, §1).
-
-async function proyectarCompatPresupuesto(
-  presupuestoId: string,
-  respuestaPaciente: string,
-  ev: EvaluacionTurno,
-): Promise<void> {
-  const { updatePresupuestoRaw } = await import("../presupuestos/repo");
-  const now = DateTime.now().setZone(ZONE).toISO() ?? new Date().toISOString();
-  const deriva = ev.decision === "deriva" && ev.causa != null;
-  const cola = deriva ? colaDeDerivacion(ev.causa!, ev.malestar ?? null) : null;
-  const frase = respuestaPaciente.trim().replace(/\s+/g, " ").slice(0, 120);
-  // El borrador solo queda como sugerido cuando el agente sigue o entrega un
-  // caso completo; en el resto de derivaciones, vacío — un borrador esperando
-  // es una invitación a mandarlo sin pensar (regla del clasificador).
-  const sugerible = ev.decision === "sigue" || ev.causa === "caso_completo";
-  await updatePresupuestoRaw(presupuestoId, {
-    Ultima_respuesta_paciente: respuestaPaciente,
-    Fecha_ultima_respuesta: now,
-    Requiere_persona: deriva,
-    Motivo_quiebre: deriva ? `${ACCION_POR_CAUSA[ev.causa!] ?? ev.causa}: «${frase}»` : null,
-    Urgencia_intervencion: deriva ? (cola === "prioritaria" ? "CRÍTICO" : "ALTO") : "BAJO",
-    Accion_sugerida: deriva ? (ACCION_POR_CAUSA[ev.causa!] ?? "Revisar") : "Sigue el agente",
-    Mensaje_sugerido: sugerible ? ev.respuesta : "",
-    Fase_seguimiento: deriva ? "En intervención" : "Esperando respuesta",
-  });
-}
-
-async function proyectarCompatFallback(presupuestoId: string, respuestaPaciente: string): Promise<void> {
-  const { updatePresupuestoRaw } = await import("../presupuestos/repo");
-  const now = DateTime.now().setZone(ZONE).toISO() ?? new Date().toISOString();
-  await updatePresupuestoRaw(presupuestoId, {
-    Ultima_respuesta_paciente: respuestaPaciente,
-    Fecha_ultima_respuesta: now,
-    Requiere_persona: true,
-    Motivo_quiebre: MOTIVO_FALLBACK_EVALUADOR,
-    Urgencia_intervencion: "MEDIO",
-    Accion_sugerida: "Revisar manualmente",
-    Mensaje_sugerido: "",
-    Fase_seguimiento: "En intervención",
-  });
 }
