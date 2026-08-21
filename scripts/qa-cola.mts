@@ -106,6 +106,25 @@ ok("sin respuesta (rezagados) → null (la cadencia de Envíos los toca)",
 ok("PRECEDENCIA: aplazados vivos + paciente escribió → Necesita respuesta",
   c({ conversacion: "pendiente_responder", agente: { entregadoCausa: null, aplazadosVivos: 2 } })?.cohorte === "necesita_respuesta");
 
+// MEJORAS 102 — la espera («llamé y no contesta», o la 026 del agente) saca
+// de la cola lo que era iniciativa NUESTRA, pero no tapa al paciente.
+ok("agotado + espera vigente → null (llamé, no contesta: vuelve solo mañana)",
+  c({ conversacion: "reactivable", automatizacion: "agotado", enEspera: true }) === null);
+ok("lead nuevo + espera vigente → null",
+  cohorteDeCaso({ tipoCaso: "lead", conversacion: "sin_conversacion", hoy, enEspera: true }) === null);
+ok("paciente escribió DURANTE la espera → sigue siendo trabajo (Necesita respuesta)",
+  c({ conversacion: "pendiente_responder", enEspera: true })?.cohorte === "necesita_respuesta");
+ok("entrega del agente + espera → la entrega manda (Necesita respuesta)",
+  c({ conversacion: "en_espera_paciente", agente: { entregadoCausa: "urgencia", aplazadosVivos: 0 }, enEspera: true })?.cohorte === "necesita_respuesta");
+
+// El día de la vuelta: proximoDiaLaborable salta el fin de semana.
+{
+  const { proximoDiaLaborable } = await import("../app/lib/seguimiento/tiempo-laborable");
+  ok("viernes → lunes (la espera de «no contesta» no vence en sábado)",
+    proximoDiaLaborable("2026-08-14") === "2026-08-17");
+  ok("miércoles → jueves", proximoDiaLaborable("2026-08-12") === "2026-08-13");
+}
+
 // Escalada a Fuera de plazo — reloj FIJADO a mano (§14).
 const relojDe = (min: number): RelojDePlazos => ({ minutosLaborablesDesde: () => min });
 const t0 = "2026-08-10T09:00:00.000Z";
@@ -157,6 +176,7 @@ async function limpiar() {
   await admin.end();
   const pacs = await q(`select id from pacientes where telefono=$1`, [TEL_FIXTURE_LISTO]);
   for (const p of pacs.rows) {
+    await q(`delete from contactos_presupuesto where presupuesto_id in (select id from presupuestos where paciente_id=$1)`, [p.id]);
     await q(`delete from presupuestos where paciente_id=$1`, [p.id]);
     await q(`delete from pacientes where id=$1`, [p.id]);
   }
@@ -243,6 +263,40 @@ await runWithCliente("DEMO", async () => {
   const huerfano2 = tras2.casos.find((x) => x.tipo === "conversacion" && x.telefono === TEL_HUERFANO);
   ok("respondida la persona, el aplazado sin entrega SALE de la cola (Mensajería > En curso)",
     huerfano2 == null, huerfano2 ? `sigue como ${huerfano2.cohorte}` : "fuera, correcto");
+
+  // ── MEJORAS 102 end-to-end: «llamé y no contesta» sobre un caso vivo ────
+  // El fixture Listo (entregado) se resuelve y se agota a base de toques: la
+  // vía rápida es registrar la llamada sobre él y ver la ESPERA en el log +
+  // el caso del teléfono FUERA de la cola aunque siga siendo cola candidata.
+  const { registrarLlamada } = await import("../app/lib/seguimiento/registrar-llamada");
+  const presuFix = await q(`select id from presupuestos where paciente_telefono=$1 limit 1`, [TEL_FIXTURE_LISTO]);
+  await registrarEvento({ tipoCaso: "conversacion", casoId: TEL_FIXTURE_LISTO, evento: "resuelto_manual", actorNombre: "qa" } as any);
+  const r102 = await registrarLlamada({
+    telefono: TEL_FIXTURE_LISTO,
+    tipo: "presupuesto",
+    casoId: String(presuFix.rows[0].id),
+    resultado: "no_contesta",
+    nota: "buzón",
+    actor: { nombre: "qa" },
+  });
+  ok("«no contesta» fija espera hasta el PRÓXIMO día laborable", r102.esperaHasta != null && r102.esperaHasta > hoy, String(r102.esperaHasta));
+  const evEspera = await q(
+    `select motivo_texto, hasta from eventos_automatizacion where caso_id=$1 and evento='espera_fijada' order by created_at desc limit 1`,
+    [TEL_FIXTURE_LISTO],
+  );
+  ok("la espera está en el log con su motivo («Llamada sin respuesta…»)",
+    evEspera.rows.length === 1 && /Llamada sin respuesta/.test(String(evEspera.rows[0].motivo_texto ?? "")));
+  const contacto = await q(
+    `select resultado, nota from contactos_presupuesto where presupuesto_id=$1 order by created_at desc limit 1`,
+    [presuFix.rows[0].id],
+  );
+  ok("el contacto de la llamada quedó registrado (resultado + nota)",
+    contacto.rows.length === 1 && /no contest/i.test(String(contacto.rows[0].resultado ?? "")) && String(contacto.rows[0].nota ?? "") === "buzón",
+    contacto.rows.length ? `${contacto.rows[0].resultado}` : "sin fila");
+  const tras3 = await colaDeSeguimiento();
+  ok("con la espera vigente, el caso del teléfono NO está en la cola",
+    !tras3.casos.some((x) => x.telefono === TEL_FIXTURE_LISTO),
+    tras3.casos.find((x) => x.telefono === TEL_FIXTURE_LISTO)?.cohorte ?? "fuera, correcto");
 });
 
 await limpiar();

@@ -16,8 +16,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
+import { fechaClinica } from "../../lib/time";
 import { AccionCard } from "../../components/shared/AccionCard";
 import { FichaCasoPanel } from "../../components/agente/FichaCasoPanel";
 import { ChatEmbebido } from "./ChatEmbebido";
@@ -75,6 +77,73 @@ const ETIQUETA_TIPO: Record<Caso["tipo"], string> = {
   presupuesto: "Presupuesto",
   conversacion: "Conversación",
 };
+
+// MEJORAS 102 — registrar la llamada Y que la cola se entere: «no contesta»
+// fija espera de 1 día laborable (el caso sale y vuelve solo); «hablé» solo
+// registra — la conversación manda.
+function RegistrarLlamada({ caso, onHecho }: { caso: Caso; onHecho: () => void }) {
+  const [nota, setNota] = useState("");
+  const [enviando, setEnviando] = useState<string | null>(null);
+
+  async function registrar(resultado: "no_contesta" | "hablado") {
+    if (enviando || !caso.telefono) return;
+    setEnviando(resultado);
+    try {
+      const r = await cargarJSON<{ esperaHasta: string | null }>("/api/seguimiento/llamada", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          telefono: caso.telefono,
+          tipo: caso.tipo,
+          casoId: caso.id.split(":").slice(1).join(":"),
+          resultado,
+          nota: nota.trim() || null,
+        }),
+      });
+      toast.success(
+        r.esperaHasta
+          ? `Llamada registrada — vuelve a la cola el ${fechaClinica(r.esperaHasta)}`
+          : "Llamada registrada",
+      );
+      setNota("");
+      onHecho();
+    } catch (e) {
+      toast.error(mensajeDeError(e));
+    } finally {
+      setEnviando(null);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
+        Registrar llamada
+      </p>
+      <input
+        value={nota}
+        onChange={(e) => setNota(e.target.value)}
+        placeholder="Qué pasó (opcional)"
+        className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-[13px] text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+      />
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button
+          onClick={() => registrar("no_contesta")}
+          disabled={enviando != null}
+          className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
+        >
+          {enviando === "no_contesta" ? "Registrando…" : "No contesta — reintentar mañana"}
+        </button>
+        <button
+          onClick={() => registrar("hablado")}
+          disabled={enviando != null}
+          className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
+        >
+          {enviando === "hablado" ? "Registrando…" : "Hablé — lo registro"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function esperaLegible(min: number | null, paradoDias: number): string {
   if (min != null && min > 0) {
@@ -266,6 +335,13 @@ export function ColaPorCohortes() {
                                 Llamar
                               </a>
                             </div>
+                            <RegistrarLlamada
+                              caso={caso}
+                              onHecho={() => {
+                                setDesplegado(null);
+                                void cargar();
+                              }}
+                            />
                             <FichaCasoPanel telefono={caso.telefono} modo="seguimiento" />
                           </div>
                         </div>

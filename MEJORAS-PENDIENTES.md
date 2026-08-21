@@ -1829,6 +1829,10 @@ verdad: un editor, un vocabulario, un renderizador.
   Técnica: ruta única POST (telefono + tipo + casoId + resultado + nota) que despacha el registro
   por tipo y emite la espera; funciona también para huérfanos (la espera es por teléfono). UI: dos
   botones en la ficha del despliegue.
-- **Por qué no entró en P2:** el mapeo resultado→efecto (cuánto dura la espera, qué pasa con un
-  agotado tras hablar sin resolver) es decisión de producto, no de código. Con el OK, es ~1 sesión.
 - **Fecha:** 2026-08-18 · detectado por Simon mirando la cohorte de agotados
+- ✅ **RESUELTA el 2026-08-21** con las dos decisiones dictadas: espera de 1 DÍA LABORABLE en
+  «no contesta» (viernes → lunes; `proximoDiaLaborable`), y «la conversación manda» sobre el
+  agotado tras hablar (solo registro; el estado se mueve por mensajes o flujos de cierre).
+  `lib/seguimiento/registrar-llamada` + POST /api/seguimiento/llamada (IDOR por tipo) + bloque
+  «Registrar llamada» en el despliegue. La ESPERA además saca de la cola la iniciativa nuestra
+  (agotado, lead nuevo) sin tapar al paciente — 8 checks nuevos en qa:cola (40 en total).

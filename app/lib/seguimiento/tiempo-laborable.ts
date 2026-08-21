@@ -34,6 +34,25 @@ function tramoDelDia(d: DateTime, horario: HorarioLaboral): { abre: DateTime; ci
  * de horario no cuenta hasta la próxima apertura; `hasta` de madrugada corta
  * en el último cierre. Si `hasta <= desde`, 0.
  */
+/**
+ * El PRÓXIMO día con horario activo después de `desdeISO` (YYYY-MM-DD).
+ * Viernes → lunes con el horario default. Para la espera corta de «llamé y
+ * no contesta» (MEJORAS 102): el caso vuelve a la cola cuando la clínica
+ * vuelve a abrir, no un sábado.
+ */
+export function proximoDiaLaborable(
+  desdeISO: string,
+  horario: HorarioLaboral = HORARIO_DEFAULT,
+): string {
+  let dia = DateTime.fromISO(desdeISO, { zone: ZONE }).startOf("day");
+  for (let i = 0; i < 14; i++) {
+    dia = dia.plus({ days: 1 });
+    if (horario[DIAS[dia.weekday - 1]]?.activo) return dia.toISODate()!;
+  }
+  // 14 días sin abrir = horario roto; mañana natural antes que no volver nunca.
+  return DateTime.fromISO(desdeISO, { zone: ZONE }).plus({ days: 1 }).toISODate()!;
+}
+
 export function minutosLaborablesEntre(
   desde: Date,
   hasta: Date,

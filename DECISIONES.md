@@ -3074,3 +3074,15 @@ fallo MÍO de ayer en /api/seguimiento/resumen: scopeaba con IDs CENTRALES contr
 deep-links de /red (?vista=&cohorte= apuntan al vocabulario viejo) e IntervencionView queda sin
 caller. El cierre de llamadas desde la ficha: diagnóstico en MEJORAS 102 (registrar existe pero la
 cola lo ignora; el diseño «no contesta→espera corta / hablé→flujos existentes» espera OK).
+
+## 2026-08-21 — MEJORAS 102 ejecutada: la llamada se registra Y la cola se entera
+Con las dos decisiones dictadas: «no contesta» → contacto registrado (contactos_presupuesto con
+ContactCount, o acción de lead) + ESPERA de 1 DÍA LABORABLE con la pieza 026 (viernes → lunes,
+`proximoDiaLaborable`) — el caso sale de la cola y vuelve solo; «hablé» → solo registro, LA
+CONVERSACIÓN MANDA (el estado se mueve por mensajes o por los cierres de siempre — hablar sin
+cerrar no es cerrar, y el caso se queda a la vista a propósito). Pieza nueva en la lib pura: la
+espera vigente saca de la cola lo que era iniciativa NUESTRA (agotado, lead nuevo) pero NO tapa lo
+que provoca el paciente (escribió, quiebre) ni las entregas del agente. Ruta única POST
+/api/seguimiento/llamada con IDOR por tipo (presupuesto→verificador Sprint B; lead→clínica del
+lead; huérfano→clínica del hilo, sin clínica solo red). UI: bloque «Registrar llamada» (nota +
+dos botones) en el despliegue de la card. qa:cola 40 checks, con el end-to-end del fixture.

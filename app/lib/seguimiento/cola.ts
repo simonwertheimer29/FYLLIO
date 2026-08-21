@@ -135,6 +135,11 @@ export type EntradaCohorte = {
     entregadoCausa: CausaDerivacion | null;
     aplazadosVivos: number;
   } | null;
+  /** Espera vigente («sin contacto hasta») — 026, o la de «llamé y no
+   *  contesta» (MEJORAS 102). Saca de la cola lo que era iniciativa NUESTRA
+   *  (agotado, lead nuevo): el caso vuelve solo al vencer. NO tapa lo que el
+   *  paciente provoca (escribió, quiebre) ni las entregas del agente. */
+  enEspera?: boolean;
   /** Instantes que arrancan el reloj de cada obligación (ISO). Sin el que
    *  toca, el caso no puede escalar a Fuera de plazo — se queda en su
    *  cohorte base, nunca inventa una antigüedad. */
@@ -213,10 +218,15 @@ function cohorteBase(e: EntradaCohorte): { cohorte: Exclude<Cohorte, "fuera_de_p
     return { cohorte: "listos_para_cerrar", detalle: "cierre_pendiente" };
   }
 
-  // 3 · Lo que aún exige persona sin ser respuesta ni cierre.
-  if (e.automatizacion === "agotado") return { cohorte: "necesita_respuesta", detalle: "agotado" };
-  if (e.conversacion === "sin_conversacion" && e.tipoCaso === "lead") {
-    return { cohorte: "necesita_respuesta", detalle: "nuevo_sin_contactar" };
+  // 3 · Lo que aún exige persona sin ser respuesta ni cierre. La ESPERA
+  //     vigente lo saca (MEJORAS 102: «llamé y no contesta» fija espera de
+  //     1 día laborable y el caso vuelve SOLO): estos dos son iniciativa
+  //     nuestra, y una espera dice exactamente «no toca iniciativa».
+  if (!e.enEspera) {
+    if (e.automatizacion === "agotado") return { cohorte: "necesita_respuesta", detalle: "agotado" };
+    if (e.conversacion === "sin_conversacion" && e.tipoCaso === "lead") {
+      return { cohorte: "necesita_respuesta", detalle: "nuevo_sin_contactar" };
+    }
   }
 
   // 4 · NO ES COLA (18-08). El switch mantiene la TOTALIDAD: un valor nuevo
@@ -432,6 +442,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
         automatizacion: args.automatizacion ?? null,
         hoy,
         agente: agente ? { entregadoCausa: agente.entregadoCausa, aplazadosVivos: agente.aplazadosVivos } : null,
+        enEspera: agente?.enEspera ?? false,
         ultimoEntranteISO: men.entrante,
         ultimoSalienteISO: men.saliente,
         entregadoEnISO: agente?.entregadoEn ?? null,
