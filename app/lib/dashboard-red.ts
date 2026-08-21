@@ -409,7 +409,9 @@ export async function calcularDashboardRed(opts: {
       importe: reactivablesImporte,
       titulo: "Presupuestos sin seguimiento",
       detalle: `Se escribió a ${reactivablesN} paciente${s(reactivablesN)}, no ${v(reactivablesN, "respondió", "respondieron")} y nadie ha vuelto a insistir.`,
-      href: "/seguimiento?vista=presupuestos&cohorte=sin-respuesta",
+      // P4 (21-08): los rezagados salieron de la cola de Seguimiento — la
+      // insistencia es de la CADENCIA, y su pantalla es la cola de Envíos.
+      href: "/envios",
     });
   }
   if (vencidosN > 0) {
@@ -429,7 +431,7 @@ export async function calcularDashboardRed(opts: {
       importe: cierreImporte,
       titulo: "Cierres esperando tu respuesta",
       detalle: `${cierreN} paciente${s(cierreN)} ya ${v(cierreN, "dijo que quiere aceptar y espera", "dijeron que quieren aceptar y esperan")} respuesta para cerrar.`,
-      href: "/seguimiento?vista=presupuestos&cohorte=conversacion",
+      href: "/seguimiento?cohorte=necesita_respuesta",
     });
   }
   if (sinContactoN > 0) {
@@ -439,7 +441,7 @@ export async function calcularDashboardRed(opts: {
       importe: null,
       titulo: "Leads sin primer contacto",
       detalle: `${sinContactoN} lead${s(sinContactoN)} nuevo${s(sinContactoN)} todavía no ${v(sinContactoN, "ha", "han")} recibido ni un mensaje ni una llamada.`,
-      href: "/seguimiento?vista=leads&cohorte=nuevos",
+      href: "/seguimiento?cohorte=necesita_respuesta",
     });
   }
 
@@ -921,7 +923,7 @@ export async function calcularDashboardRed(opts: {
         quien: l.nombre,
         horaCita: l.horaCita ? String(l.horaCita).slice(0, 5) : null,
         deQueVa: l.intencionDetectada ?? null,
-        href: `/seguimiento?vista=leads`,
+        href: "/seguimiento",
       });
     }
     // La cita más temprana primero: es la que antes deja de poder atenderse.

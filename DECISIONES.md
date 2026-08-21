@@ -3086,3 +3086,15 @@ que provoca el paciente (escribió, quiebre) ni las entregas del agente. Ruta ú
 /api/seguimiento/llamada con IDOR por tipo (presupuesto→verificador Sprint B; lead→clínica del
 lead; huérfano→clínica del hilo, sin clínica solo red). UI: bloque «Registrar llamada» (nota +
 dos botones) en el despliegue de la card. qa:cola 40 checks, con el end-to-end del fixture.
+
+## 2026-08-21 — P4: /red habla el vocabulario nuevo y muere el código de las pestañas
+Las cards de riesgo de /red se remapearon al modelo de tres colas: «Presupuestos sin seguimiento»
+(rezagados) enlaza a /ENVÍOS — la insistencia ya no es trabajo de persona, es la cadencia; «Cierres
+esperando tu respuesta» y «Leads sin primer contacto» enlazan a /seguimiento?cohorte=
+necesita_respuesta (deep-link con el vocabulario NUEVO, validado en la page). El redirect de
+/actuar-hoy descarta los parámetros viejos en vez de traducirlos a medias. Borrados
+IntervencionView y SeguimientoHeader (muertos desde P2). QUEDA FUERA a propósito: /leads conserva
+sus cohortes de pipeline (Citados · Nuevos · …) — es pantalla de CONSULTA, su reorganización es de
+la fase F con la tabla de verbos del §8; y las CIFRAS de las cards de /red siguen saliendo de la
+lib vieja (cohortes.ts + estado-conversacion), que es coherente mientras el clasificador viejo
+viva (94) — remapearlas a colaDeSeguimiento entra cuando B4/B5 decidan qué motor queda.

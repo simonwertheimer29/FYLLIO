@@ -156,7 +156,12 @@ function esperaLegible(min: number | null, paradoDias: number): string {
   return "de hoy";
 }
 
-export function ColaPorCohortes() {
+export function ColaPorCohortes({
+  cohorteInicial = null,
+}: {
+  /** Deep-link (?cohorte=): esa cohorte arranca abierta en vez de la primera. */
+  cohorteInicial?: Cohorte | null;
+}) {
   const { selectedClinicaId } = useClinic();
   const [casos, setCasos] = useState<Caso[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -197,12 +202,13 @@ export function ColaPorCohortes() {
   }, [visibles]);
 
   // La primera cohorte CON contenido arranca abierta; las demás, cerradas
-  // con su número. El usuario puede abrir/cerrar lo que quiera después.
+  // con su número. Un deep-link (?cohorte=) manda sobre ese default. El
+  // usuario puede abrir/cerrar lo que quiera después.
   useEffect(() => {
     if (casos == null || abiertas != null) return;
-    const primera = ORDEN.find((c) => (porCohorte.get(c)?.length ?? 0) > 0);
+    const primera = cohorteInicial ?? ORDEN.find((c) => (porCohorte.get(c)?.length ?? 0) > 0);
     setAbiertas(new Set(primera ? [primera] : []));
-  }, [casos, abiertas, porCohorte]);
+  }, [casos, abiertas, porCohorte, cohorteInicial]);
 
   if (error && casos == null) {
     return <ErrorState title="No se pudo cargar la cola" detail={error} onRetry={cargar} />;

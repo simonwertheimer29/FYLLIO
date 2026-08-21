@@ -21,7 +21,12 @@ import { ColaPorCohortes } from "./ColaPorCohortes";
 import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
 import { Send, ICON_STROKE } from "../../components/icons";
 
-export function SeguimientoView() {
+export function SeguimientoView({
+  cohorteInicial,
+}: {
+  /** Deep-link de /red (?cohorte=, vocabulario nuevo). null = default. */
+  cohorteInicial?: "necesita_respuesta" | "listos_para_cerrar" | "fuera_de_plazo" | null;
+}) {
   const { selectedClinicaId, selectedClinicaNombre, setSelectedClinicaId } = useClinic();
   const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
 
@@ -56,7 +61,7 @@ export function SeguimientoView() {
         )}
 
         <CabeceraCola />
-        <ColaPorCohortes />
+        <ColaPorCohortes cohorteInicial={cohorteInicial ?? null} />
       </div>
     </div>
   );
