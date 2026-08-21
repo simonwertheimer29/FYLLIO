@@ -25,7 +25,8 @@ process.env.DATA_BACKEND_PG_CLIENTES = process.env.DATA_BACKEND_PG_CLIENTES || "
 import pg from "pg";
 import { runWithCliente } from "../app/lib/airtable";
 import { registrarEventoIdempotente, registrarEvento } from "../app/lib/automatizacion/pg";
-import { fichaDeCaso } from "../app/lib/agente/ficha-caso";
+import { fichaDeCaso, type FichaCaso } from "../app/lib/agente/ficha-caso";
+import { contextoParaEntrada } from "../app/lib/agente/borrador-entrada";
 import { hoyISO } from "../app/lib/time";
 
 const TEL_SIN_EVAL = "+34611999002"; // huérfana del seed (Mónica): mensajes, cero evaluación
@@ -166,6 +167,32 @@ await runWithCliente("DEMO", async () => {
   const fc = await fichaDeCaso(TEL_FICHA);
   ok("con la firma del portal: cierrePorPaciente = aceptado", fc.cierrePorPaciente?.accion === "aceptado");
 });
+
+// ── d · B3: el contexto del borrador de entrada (PURO, sin modelo) ─────────
+console.log("\nd · contextoParaEntrada: lo recogido consta, lo pendiente con su frase");
+{
+  const fichaFixture: FichaCaso = {
+    telefono: "+34600000000", nombre: "Ana QA", esPaciente: true, clinicaId: null,
+    evaluado: true, espera: { hasta: "2026-08-25", frase: "el lunes os digo" },
+    intentos: { salientes: 2, ultimo: null }, semaforo: { verde: true } as any,
+    cierrePorPaciente: null, queQuiere: "Quiere cita — revisión · tardes",
+    objetivoActivo: "cita", otrosObjetivos: [],
+    pendientes: [{ clave: "agenda_disponibilidad" as any, etiqueta: "Hueco de agenda", frase: "¿tenéis sábados?" }],
+    recogido: [
+      { campo: "preferencia_horaria", valor: "tardes" },
+      { campo: "telefono_alternativo", valor: null },
+      { campo: "motivo", valor: "no_aplica" },
+    ],
+    linea: { paciente: "Ana QA", queQuiere: "Quiere cita", esperandoDesde: null },
+  };
+  const ctx = contextoParaEntrada(fichaFixture);
+  ok("lo RECOGIDO con valor entra («no repreguntar» parte de aquí)", ctx.includes("Ya recogido — preferencia_horaria: tardes"));
+  ok("un campo sin valor o no_aplica NO entra (no hay nada que no repreguntar)",
+    !ctx.includes("telefono_alternativo") && !ctx.includes("no_aplica"));
+  ok("lo PENDIENTE entra con la frase real del paciente", ctx.includes("¿tenéis sábados?"));
+  ok("la espera pactada se declara (que la entrada no la pise a ciegas)", ctx.includes("2026-08-25"));
+  ok("qué quiere, arriba", ctx.includes("Quiere cita — revisión · tardes"));
+}
 
 await limpiar();
 console.log("\n  ✓ mini-mundo y eventos limpiados");

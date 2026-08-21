@@ -14,7 +14,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { HiloMensajes, type MensajeHilo } from "../mensajeria/HiloMensajes";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
-import { Send, ICON_STROKE } from "../../components/icons";
+import { Send, Sparkles, ICON_STROKE } from "../../components/icons";
 import { ErrorState } from "../../components/ui/Feedback";
 
 export function ChatEmbebido({
@@ -22,6 +22,7 @@ export function ChatEmbebido({
   tipo,
   casoId,
   mensajeSugerido,
+  evaluado = false,
 }: {
   telefono: string;
   tipo: "lead" | "presupuesto" | "conversacion";
@@ -30,12 +31,18 @@ export function ChatEmbebido({
   /** Borrador del motor (P3): se PRECARGA para que el envío quede medido
    *  contra lo que la persona vio y editó — y quien no lo quiera, lo borra. */
   mensajeSugerido?: string | null;
+  /** B3: el agente evaluó este hilo → hay botón «Redactar entrada». Sin
+   *  evaluación NO hay botón (confirmado): no hay nada de lo que partir. */
+  evaluado?: boolean;
 }) {
   const [hilo, setHilo] = useState<MensajeHilo[] | null>(null);
   const [errorHilo, setErrorHilo] = useState<string | null>(null);
   const [texto, setTexto] = useState(mensajeSugerido ?? "");
   const [textoDeIA, setTextoDeIA] = useState(!!mensajeSugerido);
   const [enviando, setEnviando] = useState(false);
+  const [redactando, setRedactando] = useState(false);
+  // El original del borrador de entrada — al enviar, la edición se MIDE.
+  const entradaOriginal = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const cargarHilo = useCallback(async () => {
@@ -83,6 +90,17 @@ export function ChatEmbebido({
       });
       setTexto("");
       setTextoDeIA(false);
+      // B3: si el texto nació del borrador de entrada, la edición se mide —
+      // best-effort declarado (el envío ya salió; un fallo aquí se loguea).
+      if (entradaOriginal.current) {
+        const sugerido = entradaOriginal.current;
+        entradaOriginal.current = null;
+        cargarJSON("/api/agente/entrada/medir", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ telefono, sugerido, enviado: contenido }),
+        }).catch((e) => console.error("[entrada/medir]", e));
+      }
       if (data?.urlWhatsApp) {
         window.open(data.urlWhatsApp, "_blank", "noopener");
         toast.success("Mensaje preparado — termina de enviarlo en WhatsApp");
@@ -125,7 +143,40 @@ export function ChatEmbebido({
           </Link>
         </div>
       ) : (
-        <div className="flex items-end gap-2 border-t border-[var(--color-border)] p-3">
+        <div className="border-t border-[var(--color-border)] p-3">
+          {/* B3 — solo con evaluación: la presentación de quien retoma. */}
+          {evaluado && (
+            <button
+              onClick={async () => {
+                if (redactando) return;
+                if (texto.trim() && texto !== (mensajeSugerido ?? "") && texto !== entradaOriginal.current) {
+                  toast.error("Hay un texto escrito — bórralo antes de redactar la entrada");
+                  return;
+                }
+                setRedactando(true);
+                try {
+                  const r = await cargarJSON<{ borrador: string }>("/api/agente/entrada", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ telefono }),
+                  });
+                  entradaOriginal.current = r.borrador;
+                  setTexto(r.borrador);
+                  setTextoDeIA(true);
+                } catch (e) {
+                  toast.error(mensajeDeError(e));
+                } finally {
+                  setRedactando(false);
+                }
+              }}
+              disabled={redactando}
+              className="fyllio-ia-gradient mb-2 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-semibold hover:opacity-90 disabled:opacity-50"
+            >
+              <Sparkles size={14} strokeWidth={ICON_STROKE} />
+              {redactando ? "Redactando…" : "Redactar entrada"}
+            </button>
+          )}
+          <div className="flex items-end gap-2">
           <textarea
             value={texto}
             onChange={(e) => {
@@ -150,6 +201,7 @@ export function ChatEmbebido({
             <Send size={14} strokeWidth={ICON_STROKE} />
             Enviar
           </button>
+          </div>
         </div>
       )}
     </div>

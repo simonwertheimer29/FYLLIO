@@ -3111,3 +3111,18 @@ responder ES Necesita respuesta por construcción — visible sin flag, y el err
 muerte B5): un solo escritor por columna, cero copias. qa:turno reescrito: afirma que un turno que
 deriva NO toca el presupuesto y que la derivación vive en el log. Con esto, B4 cerrado — la fase B
 completa salvo B5, que es decisión de producto de Simon (encender el evaluador por clínica).
+
+## 2026-08-21 — B3: el borrador de entrada — la presentación de quien retoma, medida
+`lib/agente/borrador-entrada`: partir de la FICHA (una sola verdad), redactar la presentación de la
+coordinadora al retomar un caso del agente — preséntate, usa lo YA recogido (regla dura: repreguntar
+es decir que nadie leyó), avanza lo pendiente — y pasar por EL MISMO JUEZ que los borradores del
+agente (turnoEntrega=true: las promesas de la persona son suyas; con el último mensaje real para el
+art. 9). SIN evaluación no hay botón (confirmado) — el flag `evaluado` viaja en la cola y la lib lo
+re-verifica fail-closed. Si el juez descarta, NO sale plantilla: sale el motivo con su frase (una
+plantilla neutra como presentación sería peor que nada). La EDICIÓN SE MIDE: el chat conserva el
+original y al enviar registra la distancia (medirYRegistrarEnvio → mensaje_enviado con
+distancia_edicion), la misma métrica que la coincidencia agente-humano. Antes, el ajuste del juez
+autorizado: los 2 FP de los recorridos (recuerdo genérico del cobro = disponibilidad, no promesa;
+pregunta de recogida con acción contingente no promete) + refuerzo del futuro inmediato del propio
+agente — vara 33/33, FN 0/13 · FP 0/20, reportados por separado. CON ESTO LA FASE B ESTÁ COMPLETA
+salvo B5 (encender el evaluador), que es decisión de producto de Simon.

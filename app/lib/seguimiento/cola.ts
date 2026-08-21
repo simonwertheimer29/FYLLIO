@@ -272,6 +272,9 @@ export type CasoDeCola = {
    *  el chat embebido para que el envío quede MEDIDO contra lo que la
    *  persona realmente vio y editó. */
   mensajeSugerido: string | null;
+  /** El agente evaluó este hilo (hay evento `evaluacion` en el log) — B3:
+   *  gobierna el botón «Redactar entrada»; sin evaluación, sin botón. */
+  evaluado: boolean;
 };
 
 export type ResumenCola = {
@@ -330,7 +333,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
     const ev: any = await sql`select caso_id, evento, causa_derivacion, clave_aplazado, hasta, created_at
         from eventos_automatizacion
         where tipo_caso = 'conversacion'
-          and evento in ('derivado','resuelto_manual','asumido_manual','soltado','espera_fijada','espera_levantada','aplazado','aplazado_resuelto')
+          and evento in ('derivado','resuelto_manual','asumido_manual','soltado','espera_fijada','espera_levantada','aplazado','aplazado_resuelto','evaluacion')
         order by created_at asc`.execute(trx);
 
     // (La consulta de citas futuras murió con la condición anotada de
@@ -347,7 +350,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
   });
 
   // ── El log del agente, agrupado por dígitos del hilo ──────────────────────
-  type EstadoAgente = { entregadoCausa: CausaDerivacion | null; entregadoEn: string | null; aplazadosVivos: number; enEspera: boolean; telefono: string };
+  type EstadoAgente = { entregadoCausa: CausaDerivacion | null; entregadoEn: string | null; aplazadosVivos: number; enEspera: boolean; evaluado: boolean; telefono: string };
   const agentePorDigitos = new Map<string, EstadoAgente>();
   {
     const grupos = new Map<string, typeof datos.eventos>();
@@ -384,6 +387,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
         : null;
       agentePorDigitos.set(k, {
         telefono: evs[0].caso_id,
+        evaluado: evs.some((x) => x.evento === "evaluacion"),
         entregadoCausa: ultimo && !resueltoDespues ? ultimo.causa_derivacion : null,
         entregadoEn: ultimo && !resueltoDespues ? ultimo.created_at.toISOString() : null,
         aplazadosVivos,
@@ -510,6 +514,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       esperandoMinLaborables: k.esperandoMinLaborables,
       enEspera: k.enEspera,
       mensajeSugerido: pr.mensaje_sugerido ?? null,
+      evaluado: buscarAgente(telefono)?.evaluado ?? false,
     });
   }
 
@@ -554,6 +559,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       esperandoMinLaborables: k.esperandoMinLaborables,
       enEspera: k.enEspera,
       mensajeSugerido: null,
+      evaluado: buscarAgente(l.telefono)?.evaluado ?? false,
     });
   }
 
@@ -579,6 +585,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       esperandoMinLaborables: kk.esperandoMinLaborables,
       enEspera: kk.enEspera,
       mensajeSugerido: null,
+      evaluado: a.evaluado,
     });
   }
 

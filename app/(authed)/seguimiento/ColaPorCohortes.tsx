@@ -46,6 +46,7 @@ type Caso = {
   esperandoMinLaborables: number | null;
   enEspera: boolean;
   mensajeSugerido: string | null;
+  evaluado: boolean;
 };
 
 const ORDEN: Cohorte[] = ["necesita_respuesta", "listos_para_cerrar", "fuera_de_plazo"];
@@ -329,6 +330,7 @@ export function ColaPorCohortes({
                               tipo={caso.tipo}
                               casoId={idDesnudo}
                               mensajeSugerido={caso.mensajeSugerido}
+                              evaluado={caso.evaluado}
                             />
                           </div>
                           <div className="flex flex-col gap-2">
