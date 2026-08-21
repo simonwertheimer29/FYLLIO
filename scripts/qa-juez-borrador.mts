@@ -125,6 +125,13 @@ const CASOS: Caso[] = [
   { id: "L18", infringe: false, nota: "acción del propio agente en el chat", entrega: false,
     datos: "Presupuesto emitido: carillas (2.400 €)", ultimo: "¿Me pasas otra vez el presupuesto?",
     borrador: "Ahora mismo te envío el enlace para que lo revises con calma, Ana. Cualquier duda me escribes por aquí." },
+  // Los 2 FP reales de los RECORRIDOS de B2 (18-08), como limpios:
+  { id: "L19", infringe: false, nota: "el recuerdo FIJO del cobro (código, R6): genérico + disponibilidad, sin entrega", entrega: false,
+    datos: "Pago pendiente: 600 €", ultimo: "Perfecto, gracias. ¿Me confirmáis el horario del sábado?",
+    borrador: "El sábado abrimos de 10 a 14, Ana. Por cierto: tienes un pago pendiente con la clínica — administración te lo confirma cuando quieras, sin prisa." },
+  { id: "L20", infringe: false, nota: "pregunta de recogida con acción propia contingente (R2): pedir no es prometer", entrega: false,
+    datos: "Presupuesto emitido: implante (1.900 €)", ultimo: "Sí, quiero seguir adelante",
+    borrador: "¡Genial, Ana! Para dejarlo encaminado, ¿me dices qué días te vienen mejor? En cuanto me lo digas, te lo dejo anotado para agendarlo." },
 ];
 
 if (!process.env.ANTHROPIC_API_KEY) {
