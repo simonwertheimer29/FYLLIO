@@ -3059,3 +3059,18 @@ cohorte, leads contados y el caso más viejo. En el seed: 33 casos en cola (todo
 el seed simula un equipo que no atiende) y 18 presupuestos abiertos legítimamente fuera. `qa:cola`
 reescrito: 29 checks (reloj laborable en días de riesgo, partición, escalada con reloj fijado,
 fixtures del log — el aplazado sin entrega ahora SALE de la cola y se afirma).
+
+## 2026-08-18 — P2: Seguimiento ES la cola de tres cohortes (y murió la pantalla de pestañas)
+/seguimiento reescrito: las cohortes son la división principal (plegadas, la primera con contenido
+abierta, las demás con su número), card compacta recuperada (tags · importe · teléfono · edad
+laborable) como gatillo, y despliegue EN EL SITIO con la ficha (FichaCasoPanel) + CHAT EMBEBIDO en
+escritorio (hilo real + envío por el mismo camino manual de Mensajería: registrar + wa.me) y botón
+a la conversación en móvil. Leads/Presupuestos pasó a filtro; «Casos del agente» desapareció como
+sección (los entregados SON la cola); las pestañas viejas con sus paneles murieron de esta pantalla
+— los cierres de presupuesto siguen en /presupuestos hasta B3+. Nuevas rutas /api/seguimiento/cola
+(scope + remapeo negocio→central para que el selector de clínica case) y de paso se arregló un
+fallo MÍO de ayer en /api/seguimiento/resumen: scopeaba con IDs CENTRALES contra datos de NEGOCIO
+— a una coordinadora le habría dado la cabecera a cero. Pendiente anotado: P4 remapea los
+deep-links de /red (?vista=&cohorte= apuntan al vocabulario viejo) e IntervencionView queda sin
+caller. El cierre de llamadas desde la ficha: diagnóstico en MEJORAS 102 (registrar existe pero la
+cola lo ignora; el diseño «no contesta→espera corta / hablé→flujos existentes» espera OK).

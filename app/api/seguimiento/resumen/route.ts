@@ -10,8 +10,8 @@
 
 import { NextResponse } from "next/server";
 import { withAuth } from "../../../lib/auth/session";
-import { listClinicaIdsForUser } from "../../../lib/auth/users";
 import { runWithCliente } from "../../../lib/airtable";
+import { clinicasNegocioAccesibles } from "../../../lib/clinicas-negocio";
 import { colaDeSeguimiento, ORDEN_COHORTES, type Cohorte } from "../../../lib/seguimiento/cola";
 
 export const dynamic = "force-dynamic";
@@ -28,17 +28,22 @@ export const GET = withAuth(async (session) => {
   if (!session.cliente) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
-  const clinicasPermitidas =
-    session.rol === "admin" ? null : await listClinicaIdsForUser(session.userId);
-
   try {
     return await runWithCliente(session.cliente, async () => {
+      // Los casos llevan IDs de clínica de NEGOCIO; la sesión trae CENTRALES.
+      // El scope correcto es el puente del Sprint B — con listClinicaIdsForUser
+      // una coordinadora vería cifras a CERO (los espacios no casan).
+      const scope = await clinicasNegocioAccesibles({
+        userId: session.userId,
+        rol: session.rol,
+        cliente: session.cliente!,
+      });
       const { casos } = await colaDeSeguimiento();
       // El resumen se calcula DESPUÉS de recortar al scope: el dinero que ve
       // una coordinadora es el de sus clínicas, no el de la red.
-      const visibles = clinicasPermitidas
-        ? casos.filter((c) => c.clinicaId != null && clinicasPermitidas.includes(c.clinicaId))
-        : casos;
+      const visibles = scope.ids === null
+        ? casos
+        : casos.filter((c) => c.clinicaId != null && scope.ids!.includes(c.clinicaId));
       const porCohorte = Object.fromEntries(ORDEN_COHORTES.map((c) => [c, 0])) as Record<Cohorte, number>;
       for (const c of visibles) porCohorte[c.cohorte]++;
       const resumen: ResumenSeguimiento = {

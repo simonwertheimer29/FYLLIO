@@ -1812,3 +1812,23 @@ verdad: un editor, un vocabulario, un renderizador.
      Seguimiento > Necesita respuesta (si se queda aquí, la coordinadora tiene su trabajo
      repartido en dos pantallas). Ver el criterio del ciclo del caso en PLAN §8.
 - **Fecha:** 2026-08-18 · dictado por Simon; entra con la vista de cohortes o después, no en B6.
+
+## 102. Registrar una llamada y que la COLA se entere — el cierre del caso «toca llamar»
+- **Qué es:** la cohorte de agotados dice «toca llamar» pero no hay dónde marcar que se llamó ni
+  qué pasó. Y lo que existe es PEOR que nada: registrar el contacto SÍ se puede (presupuestos →
+  `/api/presupuestos/contactos`; leads → acciones de lead), pero la cola lo IGNORA — el estado de
+  conversación es de MENSAJES (una llamada no es un mensaje) y el clasificador solo cambia por
+  eventos del log. Llamas, registras, y el caso sigue en «toca llamar»/Fuera de plazo como si nada.
+- **Diseño propuesto (pendiente de OK):** dos resultados desde la ficha, cada uno con su efecto:
+  1. **«No contesta»** → registra el contacto + fija una ESPERA corta (hasta mañana) con la pieza
+     026 que YA existe (espera fijada por persona): el caso sale de la cola, las cadencias quedan
+     suspendidas, y vuelve SOLO al vencer — sin estado nuevo, sin caducidad.
+  2. **«Hablé con él/ella»** → registra el contacto con nota; el cierre real es el de siempre (el
+     estado del presupuesto si se resolvió, el botón «resuelto» si había asunto derivado, o la
+     conversación si sigue viva). No se inventa un «cerrado por llamada».
+  Técnica: ruta única POST (telefono + tipo + casoId + resultado + nota) que despacha el registro
+  por tipo y emite la espera; funciona también para huérfanos (la espera es por teléfono). UI: dos
+  botones en la ficha del despliegue.
+- **Por qué no entró en P2:** el mapeo resultado→efecto (cuánto dura la espera, qué pasa con un
+  agotado tras hablar sin resolver) es decisión de producto, no de código. Con el OK, es ~1 sesión.
+- **Fecha:** 2026-08-18 · detectado por Simon mirando la cohorte de agotados
