@@ -21,15 +21,20 @@ export function ChatEmbebido({
   telefono,
   tipo,
   casoId,
+  mensajeSugerido,
 }: {
   telefono: string;
   tipo: "lead" | "presupuesto" | "conversacion";
   /** Id desnudo del caso (sin el prefijo `tipo:`). */
   casoId: string;
+  /** Borrador del motor (P3): se PRECARGA para que el envío quede medido
+   *  contra lo que la persona vio y editó — y quien no lo quiera, lo borra. */
+  mensajeSugerido?: string | null;
 }) {
   const [hilo, setHilo] = useState<MensajeHilo[] | null>(null);
   const [errorHilo, setErrorHilo] = useState<string | null>(null);
-  const [texto, setTexto] = useState("");
+  const [texto, setTexto] = useState(mensajeSugerido ?? "");
+  const [textoDeIA, setTextoDeIA] = useState(!!mensajeSugerido);
   const [enviando, setEnviando] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -72,9 +77,12 @@ export function ChatEmbebido({
       const data = await cargarJSON<{ urlWhatsApp?: string }>(ruta, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...cuerpo, telefono, contenido, sugeridoPorIa: false }),
+        // sugeridoPorIa = el texto NACIÓ del borrador del motor (aunque se
+        // edite): es lo que separa «qué dice el agente» de lo escrito a mano.
+        body: JSON.stringify({ ...cuerpo, telefono, contenido, sugeridoPorIa: textoDeIA }),
       });
       setTexto("");
+      setTextoDeIA(false);
       if (data?.urlWhatsApp) {
         window.open(data.urlWhatsApp, "_blank", "noopener");
         toast.success("Mensaje preparado — termina de enviarlo en WhatsApp");
@@ -120,7 +128,10 @@ export function ChatEmbebido({
         <div className="flex items-end gap-2 border-t border-[var(--color-border)] p-3">
           <textarea
             value={texto}
-            onChange={(e) => setTexto(e.target.value)}
+            onChange={(e) => {
+              setTexto(e.target.value);
+              if (e.target.value.trim() === "") setTextoDeIA(false);
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();

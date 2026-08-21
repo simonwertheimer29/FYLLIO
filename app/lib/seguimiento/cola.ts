@@ -268,6 +268,10 @@ export type CasoDeCola = {
   esperandoMinLaborables: number | null;
   /** Espera vigente («sin contacto hasta») — la card lo señala. */
   enEspera: boolean;
+  /** Borrador del motor (solo presupuestos, si existe) — P3: se precarga en
+   *  el chat embebido para que el envío quede MEDIDO contra lo que la
+   *  persona realmente vio y editó. */
+  mensajeSugerido: string | null;
 };
 
 export type ResumenCola = {
@@ -307,7 +311,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
 
     const presupuestos = await trx
       .selectFrom("presupuestos")
-      .select(["id", "paciente_id", "paciente_telefono", "tratamiento_nombre", "estado", "importe", "clinica_id", "fecha", "created_at", "requiere_persona", "intencion_detectada", "contact_count", "fase_seguimiento"])
+      .select(["id", "paciente_id", "paciente_telefono", "tratamiento_nombre", "estado", "importe", "clinica_id", "fecha", "created_at", "requiere_persona", "intencion_detectada", "contact_count", "fase_seguimiento", "mensaje_sugerido"])
       .where((eb) => eb.or([eb("estado", "is", null), eb("estado", "not in", ["ACEPTADO", "PERDIDO"])]))
       .execute();
 
@@ -505,6 +509,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       paradoDias: k.paradoDias,
       esperandoMinLaborables: k.esperandoMinLaborables,
       enEspera: k.enEspera,
+      mensajeSugerido: pr.mensaje_sugerido ?? null,
     });
   }
 
@@ -548,6 +553,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       paradoDias: k.paradoDias,
       esperandoMinLaborables: k.esperandoMinLaborables,
       enEspera: k.enEspera,
+      mensajeSugerido: null,
     });
   }
 
@@ -572,6 +578,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       paradoDias: kk.paradoDias,
       esperandoMinLaborables: kk.esperandoMinLaborables,
       enEspera: kk.enEspera,
+      mensajeSugerido: null,
     });
   }
 

@@ -45,6 +45,7 @@ type Caso = {
   paradoDias: number;
   esperandoMinLaborables: number | null;
   enEspera: boolean;
+  mensajeSugerido: string | null;
 };
 
 const ORDEN: Cohorte[] = ["necesita_respuesta", "listos_para_cerrar", "fuera_de_plazo"];
@@ -317,7 +318,12 @@ export function ColaPorCohortes() {
                         <div className="mt-2 grid gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-3 lg:grid-cols-2">
                           {/* Escritorio: chat embebido. Móvil: botón (dictado). */}
                           <div className="hidden min-h-0 lg:block">
-                            <ChatEmbebido telefono={caso.telefono} tipo={caso.tipo} casoId={idDesnudo} />
+                            <ChatEmbebido
+                              telefono={caso.telefono}
+                              tipo={caso.tipo}
+                              casoId={idDesnudo}
+                              mensajeSugerido={caso.mensajeSugerido}
+                            />
                           </div>
                           <div className="flex flex-col gap-2">
                             <div className="flex flex-wrap gap-2 lg:hidden">
