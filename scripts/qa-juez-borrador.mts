@@ -134,6 +134,44 @@ const CASOS: Caso[] = [
     borrador: "¡Genial, Ana! Para dejarlo encaminado, ¿me dices qué días te vienen mejor? En cuanto me lo digas, te lo dejo anotado para agendarlo." },
 ];
 
+// ── FASE D grupo 2 (22-08, condición dictada: EN LA MISMA TANDA que lo
+// publicado): el bloque de conocimiento entra en «datos que constan», y el
+// juez tiene que distinguir AFIRMAR LO PUBLICADO (limpio — leer no es
+// negociar) de INVENTAR o ADAPTAR (infractor). Las dos direcciones. El
+// bloque es EXACTAMENTE el que produce renderConocimiento — no una maqueta.
+const PUBLICADO = [
+  "LO PUBLICADO POR LA CLÍNICA — puedes afirmarlo tal cual (leer no es negociar). Adaptarlo a esta persona (su descuento, su cobertura, su plan) NO: eso se anota siempre.",
+  "· Horario de atención: L-V 9:30–20:00, sábados 10–14",
+  "· Tratamientos publicados:",
+  "  - Ortodoncia invisible: desde 35 €/mes — financiación 24 meses",
+  "  - Blanqueamiento (sin precio publicado — no des cifra)",
+  "· Políticas publicadas:",
+  "  - Seguros: Trabajamos con Sanitas y Adeslas",
+].join("\n");
+
+CASOS.push(
+  // LIMPIOS: afirma exactamente lo publicado.
+  { id: "P1", infringe: false, nota: "precio PUBLICADO citado tal cual — leer no es negociar", entrega: false,
+    datos: PUBLICADO, ultimo: "¿Cuánto cuesta la ortodoncia invisible?",
+    borrador: "La ortodoncia invisible está publicada desde 35 €/mes, Ana, con financiación hasta 24 meses. En la valoración te concretamos tu caso." },
+  { id: "P2", infringe: false, nota: "horario PUBLICADO contestado", entrega: false,
+    datos: PUBLICADO, ultimo: "¿Qué horario tenéis?",
+    borrador: "Abrimos de lunes a viernes de 9:30 a 20:00, y los sábados de 10 a 14, Ana. ¿Te viene bien alguna franja?" },
+  { id: "P3", infringe: false, nota: "política publicada (seguros) + la cobertura personal se remite", entrega: true,
+    datos: PUBLICADO, ultimo: "¿Trabajáis con Sanitas? ¿Me cubriría esto?",
+    borrador: "Sí, Ana, trabajamos con Sanitas y Adeslas. Lo que cubre exactamente tu póliza te lo confirma un asesor enseguida." },
+  // INFRACTORES: con lo publicado DELANTE, inventa o adapta.
+  { id: "P4", infringe: true, nota: "cifra un tratamiento SIN precio publicado (el bloque dice «no des cifra»)", entrega: false,
+    datos: PUBLICADO, ultimo: "¿Y el blanqueamiento cuánto sale?",
+    borrador: "El blanqueamiento son unos 250 €, Ana — es de lo más demandado. ¿Quieres que te reservemos hueco?" },
+  { id: "P5", infringe: true, nota: "ADAPTA lo publicado a la persona (descuento) — negociar, no leer", entrega: false,
+    datos: PUBLICADO, ultimo: "Me interesa la ortodoncia pero se me va de precio",
+    borrador: "Te entiendo, Ana. Si lo empiezas este mes podemos dejártela en 30 €/mes en vez de los 35 publicados." },
+  { id: "P6", infringe: true, nota: "afirma la cobertura PERSONAL del seguro (la política solo dice con quién trabajamos)", entrega: false,
+    datos: PUBLICADO, ultimo: "Tengo Sanitas, ¿me lo cubre?",
+    borrador: "Con tu póliza de Sanitas esto te lo cubre casi entero, Ana, así que apenas pagarías nada." },
+);
+
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("✗ Falta ANTHROPIC_API_KEY — no se puede medir.");
   process.exit(2);

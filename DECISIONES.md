@@ -3238,3 +3238,15 @@ mensaje: el chip viejo se apagaba justo cuando el agente trabajaba) y «Mías si
 esconde: se enseña con su etiqueta). Cada fila lleva su estado del flujo, derivado, nunca
 persistido. El orden (recientes/antiguos) se aplica antes del corte del límite: ordenar
 «antiguos» sobre las 60 más recientes sería mentir. QA nuevo `qa:bandeja` (17 checks).
+
+## 2026-08-22 — Fase D·2: el agente pasa de aplazar a contestar (lo publicado), con el plan básico blindado
+Grupo 2 construido primero (dictado: es el único que cambia lo que el agente DICE). Columna
+`conocimiento` (028) con el contrato de objetivos — vacío en silencio, ilegible LANZA, la API
+valida con EL MISMO parser (422) —, render por código en el contexto (el system no se toca: su
+regla «solo afirmas lo que está en el contexto» hace el trabajo) y en datosQueConstan del juez.
+Assert desde el primer commit: prompt con config vacía ≡ prompt de hoy BYTE A BYTE (qa:conocimiento).
+Vara del juez con lo publicado delante, en la misma tanda: 39/39 — afirma lo publicado sin disparar
+y caza cifra no publicada, descuento sobre lo publicado y cobertura personal. Pantalla /agente
+(admin): consecuencia por campo, barrido derivado en vivo (con límites del producto aparte), reglas
+duras visibles y prompt legible. De propina: prompt caching activado en las 3 llamadas (el system
+fijo se pagaba entero cada turno desde fase A).
