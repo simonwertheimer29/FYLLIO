@@ -466,6 +466,101 @@ export function AgenteConfigView() {
             />
           </Seccion>
 
+          {/* ── GRUPO 4 · Plazos de respuesta ─────────────────────────── */}
+          <Seccion
+            titulo="Plazos de respuesta"
+            consecuencia="Cuánto puede esperar cada cosa antes de marcarse «Fuera de plazo» en Seguimiento. El reloj solo corre cuando la clínica está abierta — con tu horario de abajo; sin él, el estándar (L-V de 9:00 a 20:00)."
+          >
+            <div className="grid gap-2 sm:grid-cols-2">
+              {([
+                { clave: "urgenciaMin" as const, etiqueta: "Una urgencia", def: 30, min: 10, max: 120 },
+                { clave: "respuestaMin" as const, etiqueta: "Un paciente esperando respuesta", def: 120, min: 30, max: 480 },
+                { clave: "cierreMin" as const, etiqueta: "Un caso listo para cerrar", def: 240, min: 60, max: 960 },
+                { clave: "leadNuevoMin" as const, etiqueta: "Un lead nuevo sin contactar", def: 60, min: 15, max: 240 },
+              ]).map((p) => (
+                <label key={p.clave} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
+                  <span>{p.etiqueta}</span>
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    <input
+                      type="number"
+                      min={p.min}
+                      max={p.max}
+                      value={config.plazos[p.clave] ?? ""}
+                      placeholder={String(p.def)}
+                      onChange={(e) =>
+                        setConfig({
+                          ...config,
+                          plazos: { ...config.plazos, [p.clave]: e.target.value === "" ? null : Number(e.target.value) },
+                        })
+                      }
+                      className={INPUT + " w-20 text-right tabular-nums"}
+                    />
+                    <span className="text-[11px] text-[var(--color-muted)]">min ({p.min}–{p.max})</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <div className="pt-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[13px] font-medium text-[var(--color-foreground)]">Horario laboral de la clínica</p>
+                {config.plazos.horario == null ? (
+                  <button
+                    type="button"
+                    onClick={() => setConfig({ ...config, plazos: { ...config.plazos, horario: HORARIO_INICIAL() } })}
+                    className="text-[12.5px] font-semibold text-[var(--color-accent)] hover:underline"
+                  >
+                    Definir el horario
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfig({ ...config, plazos: { ...config.plazos, horario: null } })}
+                    className="text-[12.5px] font-medium text-[var(--color-muted)] underline hover:text-[var(--color-foreground)]"
+                  >
+                    Volver al estándar (L-V 9:00–20:00)
+                  </button>
+                )}
+              </div>
+              {config.plazos.horario != null && (
+                <div className="mt-2 space-y-1">
+                  {DIAS_SEMANA.map((dia) => {
+                    const h = config.plazos.horario![dia.clave];
+                    const setDia = (v: Partial<typeof h>) =>
+                      setConfig({
+                        ...config,
+                        plazos: {
+                          ...config.plazos,
+                          horario: { ...config.plazos.horario!, [dia.clave]: { ...h, ...v } },
+                        },
+                      });
+                    return (
+                      <div key={dia.clave} className="flex items-center gap-2 text-[13px] text-[var(--color-foreground)]">
+                        <label className="flex w-28 cursor-pointer items-center gap-1.5">
+                          <input
+                            type="checkbox"
+                            checked={h.activo}
+                            onChange={(e) => setDia({ activo: e.target.checked })}
+                            className="accent-[var(--color-accent)]"
+                          />
+                          {dia.etiqueta}
+                        </label>
+                        {h.activo ? (
+                          <>
+                            <input type="time" value={h.inicio} onChange={(e) => setDia({ inicio: e.target.value })} className={INPUT + " w-28"} />
+                            <span className="text-[var(--color-muted)]">a</span>
+                            <input type="time" value={h.fin} onChange={(e) => setDia({ fin: e.target.value })} className={INPUT + " w-28"} />
+                          </>
+                        ) : (
+                          <span className="text-[12px] text-[var(--color-muted)]">cerrado</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </Seccion>
+
           {/* ── REGLAS DURAS: se leen, no se editan ───────────────────── */}
           <section className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-4">
             <h2 className="font-display flex items-center gap-1.5 text-[15px] font-semibold text-[var(--color-foreground)]">
@@ -533,6 +628,31 @@ export function AgenteConfigView() {
 
 const INPUT =
   "rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-[13px] text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] focus:outline-none";
+
+const DIAS_SEMANA = [
+  { clave: "lunes" as const, etiqueta: "Lunes" },
+  { clave: "martes" as const, etiqueta: "Martes" },
+  { clave: "miercoles" as const, etiqueta: "Miércoles" },
+  { clave: "jueves" as const, etiqueta: "Jueves" },
+  { clave: "viernes" as const, etiqueta: "Viernes" },
+  { clave: "sabado" as const, etiqueta: "Sábado" },
+  { clave: "domingo" as const, etiqueta: "Domingo" },
+];
+
+/** El punto de partida al definir horario: el estándar de la casa, editable.
+ *  Función y no constante: cada clic da un objeto NUEVO (no se comparte). */
+function HORARIO_INICIAL() {
+  const dia = { activo: true, inicio: "09:00", fin: "20:00" };
+  return {
+    lunes: { ...dia },
+    martes: { ...dia },
+    miercoles: { ...dia },
+    jueves: { ...dia },
+    viernes: { ...dia },
+    sabado: { activo: false, inicio: "10:00", fin: "14:00" },
+    domingo: { activo: false, inicio: "10:00", fin: "14:00" },
+  };
+}
 
 function Seccion({
   titulo,

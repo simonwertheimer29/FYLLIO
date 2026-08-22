@@ -60,6 +60,7 @@ import {
 import type { IntencionDetectada } from "../presupuestos/types";
 import { ultimosEventosPorCaso, toquesAntesDeAgotar } from "../automatizacion/pg";
 import { esLeadActivo } from "../leads/pipeline";
+import { parseConocimiento, plazosParaReloj } from "../agente/conocimiento";
 import { minutosLaborablesEntre } from "./tiempo-laborable";
 import { elegirPresupuestoActivo } from "./presupuesto-activo";
 
@@ -345,6 +346,12 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
           and evento in ('derivado','resuelto_manual','asumido_manual','soltado','espera_fijada','espera_levantada','aplazado','aplazado_resuelto','evaluacion')
         order by created_at asc`.execute(trx);
 
+    // Fase D grupo 4: los PLAZOS y el HORARIO por clínica viven en la
+    // configuración del agente — el reloj de cada caso se construye con los
+    // de SU clínica (fila clinica_id null = la global de la red).
+    const cfg: any = await sql`select clinica_id, conocimiento
+        from configuracion_automatizaciones`.execute(trx);
+
     // (La consulta de citas futuras murió con la condición anotada de
     //  citados, 18-08: un citado ya no es cola — su recordatorio vive en
     //  Envíos y «¿quién viene?» es la agenda.)
@@ -355,6 +362,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       pacientes,
       mensajes: (m.rows ?? []) as { telefono: string; ultimo_entrante: Date | null; ultimo_saliente: Date | null }[],
       eventos: (ev.rows ?? []) as { caso_id: string; evento: string; causa_derivacion: CausaDerivacion | null; clave_aplazado: string | null; hasta: Date | string | null; created_at: Date; evaluacion_json: unknown }[],
+      configs: (cfg.rows ?? []) as { clinica_id: string | null; conocimiento: string | null }[],
     };
   });
 
@@ -440,16 +448,38 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
   const casos: CasoDeCola[] = [];
   const digitosCubiertos = new Set<string>();
 
-  // El reloj de plazos, uno para toda la pasada: minutos LABORABLES hasta
-  // `ahora` con el horario default de la casa (el de cada clínica llega con
-  // la pantalla del agente, fase D).
-  const reloj: RelojDePlazos = {
-    minutosLaborablesDesde: (iso) => minutosLaborablesEntre(new Date(iso), ahora),
+  // El reloj de plazos, POR CLÍNICA (fase D grupo 4): umbrales y horario de
+  // la configuración del agente; sin config (o rota — se loguea, §9), los
+  // defaults de la casa. Conservador y visible: una config ilegible NUNCA
+  // tumba la cola ni esconde un caso.
+  const plazosPorClinica = new Map<string | null, ReturnType<typeof plazosParaReloj>>();
+  for (const fila of datos.configs) {
+    try {
+      plazosPorClinica.set(
+        fila.clinica_id ? String(fila.clinica_id) : null,
+        plazosParaReloj(parseConocimiento(fila.conocimiento ?? null)),
+      );
+    } catch (err) {
+      console.error(
+        `[cola] configuración de plazos ilegible (clínica ${fila.clinica_id ?? "global"}) — el caso corre con los defaults:`,
+        err instanceof Error ? err.message : err,
+      );
+    }
+  }
+  const relojDe = (clinicaId: string | null): RelojDePlazos => {
+    const p = plazosPorClinica.get(clinicaId) ?? plazosPorClinica.get(null);
+    if (!p) return { minutosLaborablesDesde: (iso) => minutosLaborablesEntre(new Date(iso), ahora) };
+    return {
+      minutosLaborablesDesde: (iso) => minutosLaborablesEntre(new Date(iso), ahora, p.horario ?? undefined),
+      umbralesMin: p.umbralesMin,
+    };
   };
 
   const clasificar = (args: {
     tipoCaso: "lead" | "presupuesto" | "conversacion";
     telefono: string | null;
+    /** La clínica del caso — decide QUÉ reloj mide sus plazos (grupo 4). */
+    clinicaId?: string | null;
     automatizacion?: EstadoAutomatizacion | null;
     creadoAt: Date | string | null;
     /** UMBRAL_REACTIVACION_DIAS.lead|presupuesto — el del tipo del caso. */
@@ -478,7 +508,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
         entregadoEnISO: agente?.entregadoEn ?? null,
         creadoISO: args.creadoAt ? new Date(args.creadoAt).toISOString() : null,
       },
-      reloj,
+      relojDe(args.clinicaId ?? null),
     );
     if (!r) return null; // no es cola de trabajo (Mensajería / Envíos / Tablas)
     const ultimoToque = [men.entrante, men.saliente].filter(Boolean).sort().pop() ?? null;
@@ -527,6 +557,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
     const k = clasificar({
       tipoCaso: "presupuesto",
       telefono,
+      clinicaId: pr.clinica_id == null ? null : String(pr.clinica_id),
       automatizacion: autom,
       creadoAt: pr.fecha ?? pr.created_at,
       umbralDias: UMBRAL_REACTIVACION_DIAS.presupuesto,
@@ -606,7 +637,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       toquesAntesDeAgotar: umbralToques,
       ultimoEvento: evLead.get(l.id) ?? null,
     }).estado;
-    const k = clasificar({ tipoCaso: "lead", telefono: l.telefono, automatizacion: automL, creadoAt: l.created_at, umbralDias: UMBRAL_REACTIVACION_DIAS.lead });
+    const k = clasificar({ tipoCaso: "lead", telefono: l.telefono, clinicaId: l.clinica_id == null ? null : String(l.clinica_id), automatizacion: automL, creadoAt: l.created_at, umbralDias: UMBRAL_REACTIVACION_DIAS.lead });
     if (d) digitosCubiertos.add(d);
     if (!k) continue;
     casos.push({

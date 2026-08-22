@@ -18,9 +18,18 @@ import {
   parseConocimiento,
   renderConocimiento,
   esConocimientoVacio,
+  plazosParaReloj,
   CONOCIMIENTO_VACIO,
   ConocimientoIlegibleError,
 } from "../app/lib/agente/conocimiento";
+
+/** Horario válido de referencia para los checks del grupo 4 (con sábado). */
+const dia = { activo: true, inicio: "09:00", fin: "20:00" };
+const HORARIO_QA = {
+  lunes: { ...dia }, martes: { ...dia }, miercoles: { ...dia }, jueves: { ...dia },
+  viernes: { ...dia }, sabado: { activo: true, inicio: "10:00", fin: "14:00" },
+  domingo: { activo: false, inicio: "10:00", fin: "14:00" },
+};
 import { renderEntrada, type EntradaEvaluador } from "../app/lib/agente/evaluador";
 
 let fallos = 0;
@@ -81,6 +90,20 @@ ok("grupo 3: «no atendemos urgencias» SIN texto literal se rechaza — el mode
 ok("grupo 1: trato solo tu | usted",
   lanza(JSON.stringify({ quienesSois: { trato: "vos" } })) &&
     parseConocimiento(JSON.stringify({ quienesSois: { trato: "usted" } })).quienesSois.trato === "usted");
+ok("grupo 4: umbrales con TOPE (urgencia 5 y 200 se rechazan; 45 pasa)",
+  lanza(JSON.stringify({ plazos: { urgenciaMin: 5 } })) &&
+    lanza(JSON.stringify({ plazos: { urgenciaMin: 200 } })) &&
+    parseConocimiento(JSON.stringify({ plazos: { urgenciaMin: 45 } })).plazos.urgenciaMin === 45);
+ok("grupo 4: un horario que cierra antes de abrir, o sin ningún día activo, se rechaza",
+  lanza(JSON.stringify({ plazos: { horario: { ...HORARIO_QA, lunes: { activo: true, inicio: "20:00", fin: "09:00" } } } })) &&
+    lanza(JSON.stringify({ plazos: { horario: Object.fromEntries(Object.keys(HORARIO_QA).map((d) => [d, { activo: false, inicio: "09:00", fin: "20:00" }])) } })));
+{
+  const p = parseConocimiento(JSON.stringify({ plazos: { respuestaMin: 480, horario: HORARIO_QA } }));
+  const reloj = plazosParaReloj(p);
+  ok("grupo 4: plazosParaReloj mapea umbrales por obligación y entrega el horario",
+    reloj.umbralesMin.respuesta === 480 && reloj.umbralesMin.urgencia === undefined &&
+      reloj.horario?.sabado.activo === true);
+}
 
 // ─── B · EL ASSERT DEL PLAN BÁSICO ─────────────────────────────────────────
 console.log("\nB · plan básico: prompt con config vacía ≡ prompt de hoy, byte a byte");

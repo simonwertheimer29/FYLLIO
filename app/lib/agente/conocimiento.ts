@@ -16,6 +16,8 @@
 // «desde 35 €/mes», «600–900 € según caso», «primera visita gratuita». Un
 // number obligaría a inventar precisión que la clínica no publicó.
 
+import type { HorarioLaboral } from "../automatizaciones/types";
+
 export type TratamientoPublicado = {
   nombre: string;
   /** El precio TAL CUAL está publicado («desde 35 €/mes»). null = el
@@ -77,6 +79,25 @@ export type AlcanceAgente = {
   urgenciaDefinicionExtra: string | null;
 };
 
+/** GRUPO 4 — PLAZOS DE RESPUESTA. Minutos LABORABLES antes de que un caso
+ *  escale a Fuera de plazo, por obligación (null = default de la casa), y el
+ *  HORARIO LABORAL de la clínica — que NACE aquí: no existía como dato en
+ *  ninguna parte (solo staff.horario_laboral, por empleado). Esta config es
+ *  LA fuente; el reloj de la cola la lee. Nada de esto va al prompt: son
+ *  reglas del sistema, no conocimiento del modelo. */
+export type PlazosRespuesta = {
+  /** Default 30 · tope 10–120. */
+  urgenciaMin: number | null;
+  /** Default 120 · tope 30–480. */
+  respuestaMin: number | null;
+  /** Default 240 · tope 60–960. */
+  cierreMin: number | null;
+  /** Default 60 · tope 15–240. */
+  leadNuevoMin: number | null;
+  /** null = el default de la casa (L-V 9:00–20:00). */
+  horario: HorarioLaboral | null;
+};
+
 export type ConocimientoClinica = {
   quienesSois: QuienesSois;
   tratamientos: TratamientoPublicado[];
@@ -88,11 +109,20 @@ export type ConocimientoClinica = {
   enlaces: EnlacePublicado[];
   agendaNivel: NivelAgenda;
   alcance: AlcanceAgente;
+  plazos: PlazosRespuesta;
 };
 
 /** El plan básico: nada publicado, agenda sin conexión. Con esto el prompt
  *  es IDÉNTICO al de hoy (assert en qa:conocimiento) — una clínica sin
  *  configurar no se degrada. */
+export const PLAZOS_VACIOS: PlazosRespuesta = {
+  urgenciaMin: null,
+  respuestaMin: null,
+  cierreMin: null,
+  leadNuevoMin: null,
+  horario: null,
+};
+
 export const CONOCIMIENTO_VACIO: ConocimientoClinica = {
   quienesSois: { presentacion: null, trato: null },
   tratamientos: [],
@@ -101,6 +131,7 @@ export const CONOCIMIENTO_VACIO: ConocimientoClinica = {
   enlaces: [],
   agendaNivel: 1,
   alcance: { umbralInsistencia: null, urgencias: null, urgenciaDefinicionExtra: null },
+  plazos: PLAZOS_VACIOS,
 };
 
 export function esConocimientoVacio(c: ConocimientoClinica): boolean {
@@ -239,6 +270,51 @@ export function parseConocimiento(raw: string | null | undefined): ConocimientoC
     throw new ConocimientoIlegibleError("definición extra de urgencia no válida", raw);
   }
 
+  // Grupo 4 — plazos con TOPE por obligación: un umbral fuera de rango no es
+  // una preferencia, es la cola dejando de significar nada (1 min llenaría
+  // Fuera de plazo cada pausa del café; 5 días la vaciaría para siempre).
+  const plRaw = (x["plazos"] ?? {}) as Record<string, unknown>;
+  if (typeof plRaw !== "object" || plRaw === null || Array.isArray(plRaw)) {
+    throw new ConocimientoIlegibleError("plazos no válidos", raw);
+  }
+  const minutos = (clave: string, min: number, max: number): number | null => {
+    const v = plRaw[clave] ?? null;
+    if (v === null) return null;
+    if (!Number.isInteger(v) || (v as number) < min || (v as number) > max) {
+      throw new ConocimientoIlegibleError(`${clave} fuera de tope (${min}–${max} min)`, raw);
+    }
+    return v as number;
+  };
+  const horRaw = plRaw["horario"] ?? null;
+  let horario: HorarioLaboral | null = null;
+  if (horRaw !== null) {
+    if (typeof horRaw !== "object" || Array.isArray(horRaw)) {
+      throw new ConocimientoIlegibleError("horario laboral no válido", raw);
+    }
+    const DIAS = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"] as const;
+    const h: Record<string, { activo: boolean; inicio: string; fin: string }> = {};
+    for (const dia of DIAS) {
+      const d = (horRaw as Record<string, unknown>)[dia];
+      if (
+        typeof d !== "object" || d === null ||
+        typeof (d as Record<string, unknown>)["activo"] !== "boolean" ||
+        !/^\d{2}:\d{2}$/.test(String((d as Record<string, unknown>)["inicio"])) ||
+        !/^\d{2}:\d{2}$/.test(String((d as Record<string, unknown>)["fin"]))
+      ) {
+        throw new ConocimientoIlegibleError(`horario laboral: ${dia} no válido`, raw);
+      }
+      const dd = d as { activo: boolean; inicio: string; fin: string };
+      if (dd.activo && dd.fin <= dd.inicio) {
+        throw new ConocimientoIlegibleError(`horario laboral: ${dia} cierra antes de abrir`, raw);
+      }
+      h[dia] = { activo: dd.activo, inicio: dd.inicio, fin: dd.fin };
+    }
+    if (DIAS.every((d) => !h[d].activo)) {
+      throw new ConocimientoIlegibleError("horario laboral sin ningún día activo", raw);
+    }
+    horario = h as HorarioLaboral;
+  }
+
   return {
     quienesSois: {
       presentacion:
@@ -264,7 +340,29 @@ export function parseConocimiento(raw: string | null | undefined): ConocimientoC
           ? alRaw["urgenciaDefinicionExtra"].trim()
           : null,
     },
+    plazos: {
+      urgenciaMin: minutos("urgenciaMin", 10, 120),
+      respuestaMin: minutos("respuestaMin", 30, 480),
+      cierreMin: minutos("cierreMin", 60, 960),
+      leadNuevoMin: minutos("leadNuevoMin", 15, 240),
+      horario,
+    },
   };
+}
+
+/** Lo que el RELOJ de la cola necesita de una config, con los null resueltos
+ *  a nada (el caller aplica sus defaults). Pura — la testea qa:conocimiento;
+ *  la cola solo hace el wiring. */
+export function plazosParaReloj(c: ConocimientoClinica): {
+  umbralesMin: Partial<Record<"urgencia" | "respuesta" | "cierre" | "lead_nuevo", number>>;
+  horario: HorarioLaboral | null;
+} {
+  const umbralesMin: Partial<Record<"urgencia" | "respuesta" | "cierre" | "lead_nuevo", number>> = {};
+  if (c.plazos.urgenciaMin != null) umbralesMin.urgencia = c.plazos.urgenciaMin;
+  if (c.plazos.respuestaMin != null) umbralesMin.respuesta = c.plazos.respuestaMin;
+  if (c.plazos.cierreMin != null) umbralesMin.cierre = c.plazos.cierreMin;
+  if (c.plazos.leadNuevoMin != null) umbralesMin.lead_nuevo = c.plazos.leadNuevoMin;
+  return { umbralesMin, horario: c.plazos.horario };
 }
 
 // ─── El render — el bloque «LA CLÍNICA» del contexto del evaluador ─────────
