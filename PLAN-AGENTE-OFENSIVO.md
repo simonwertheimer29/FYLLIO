@@ -248,6 +248,38 @@ Dentro de cada vista, el buscador y el filtro por clínica que ya existen. **Nad
 - **Los campos de un plan no contratado se muestran BLOQUEADOS Y VISIBLES, no escondidos.** Un campo
   escondido no vende nada.
 
+**Los cuatro grupos, en el orden del onboarding (dictado 22 ago 2026)** — de lo que cualquiera sabe
+contestar a lo que exige pensar: **1 · Quiénes sois** (tono y personalidad) · **2 · Qué sabe el
+agente** (tratamientos, precios publicados, políticas, horarios, enlaces — aquí pasa de aplazar a
+contestar) · **3 · Hasta dónde llega** (qué informa y qué aplaza, tope de aplazamientos antes de
+derivar, qué considera urgencia, si atiende urgencias y el texto LITERAL si no — se reproduce, no se
+genera) · **4 · Plazos de respuesta** (urgencia, paciente esperando, caso listo, lead nuevo — con el
+horario laboral de la clínica, que ya existe como dato).
+
+**5 · Cadencias y recordatorios van AQUÍ, no en Automatizaciones (dictado 22 ago 2026).** Cada
+cuánto se toca un presupuesto sin respuesta, cuántas veces antes de agotarlo, cuándo se recuerda una
+cita, cuándo se reactiva un caso frío. Motivo: el agente y las cadencias comparten el semáforo, los
+plazos y al paciente — si la clínica configura «cada 3 días» en una pantalla y los plazos de
+respuesta en otra, acaba con un agente que espera al viernes y una cadencia que escribe el martes.
+Y la clínica no piensa en «automatizaciones»: piensa en «cómo perseguimos un presupuesto», que es
+una sola decisión.
+
+**El criterio de fondo, porque va a reaparecer:** las automatizaciones no son un módulo aparte —
+son lo que el agente hace cuando nadie escribe. El producto es el agente; las cadencias son su
+comportamiento en silencio.
+
+**Consecuencia para la fase F (anotada, NO decidida):** si la configuración del agente absorbe las
+cadencias, la ventana de Automatizaciones se queda solo con las reglas del motor viejo (Sprint 16b:
+triggers/condiciones/acciones) — que probablemente sobran cuando el evaluador esté encendido.
+Probablemente sobra como ventana. Se decide en fase F.
+
+**Medición de coste pendiente (encargo 22 ago 2026):** cuando la pantalla exista, medir el coste
+REAL por turno con un prompt completo (tono + precios + políticas + horarios + alcance) contra el
+genérico de hoy (~$0,005/turno con juez). Reportar: por turno, por conversación de 3 turnos, y al
+mes con 1.000 conversaciones. Y si el prompt caching aplica (el prompt de una clínica es idéntico
+en todas sus conversaciones, debería) — hoy la llamada del evaluador NO usa `cache_control` ni
+siquiera para el system fijo. Medirlo, no estimarlo: es dato del modelo de negocio.
+
 ---
 
 ## 7 · Pon a prueba tu agente
