@@ -205,6 +205,10 @@ type ExtraConfiguracionAutomatizaciones = {
   /** 025 — interruptor del evaluador por clínica. Default false (apagado);
    *  sin fila = apagado; se lee con evaluadorActivo(), fail-closed. */
   evaluador_activo: boolean | null;
+  /** 028 — fase D grupo 2: lo PUBLICADO por la clínica (JSON
+   *  ConocimientoClinica). NULL = nada publicado (el agente aplaza todo).
+   *  Se valida SIEMPRE con parseConocimiento — ilegible LANZA. */
+  conocimiento: string | null;
 };
 
 /** 016 — el rediseño «decisión primero»: la decisión se guarda aparte de la

@@ -7,6 +7,7 @@ import { runWithClienteDb } from "../db/context";
 import { requireCliente } from "../cliente-contexto";
 import type { CausaDerivacion, EventoAutomatizacion, TipoCaso } from "./estado";
 import { parseObjetivos, type ObjetivoAgente } from "./objetivos";
+import { parseConocimiento, type ConocimientoClinica } from "../agente/conocimiento";
 import type { ClaveAplazado } from "./aplazamientos";
 
 /**
@@ -232,6 +233,28 @@ export async function objetivosDeClinica(
         limit 1`.execute(trx),
   );
   return parseObjetivos(r.rows?.[0]?.objetivos ?? null);
+}
+
+/**
+ * Lo PUBLICADO por la clínica (028, fase D grupo 2). Sin fila o columna NULL
+ * → CONOCIMIENTO_VACIO: el agente aplaza todo, el comportamiento de hoy.
+ *
+ * **LANZA** ante un JSON ilegible Y ante un fallo de consulta — el mismo
+ * contrato que `objetivosDeClinica`, por la misma razón: caer al vacío en
+ * silencio sería el agente aplazando precios que la clínica cree publicados
+ * (comportamiento en vez de datos, §10). El evaluador captura en SU borde.
+ */
+export async function conocimientoDeClinica(
+  clinicaId?: string | null,
+): Promise<ConocimientoClinica> {
+  const cliente = requireCliente("conocimientoDeClinica");
+  const r: any = await runWithClienteDb(cliente, (trx) =>
+    sql`select conocimiento
+        from configuracion_automatizaciones
+        where ${clinicaId ? sql`clinica_id = ${clinicaId}` : sql`clinica_id is null`}
+        limit 1`.execute(trx),
+  );
+  return parseConocimiento(r.rows?.[0]?.conocimiento ?? null);
 }
 
 /** Distancias de los envíos medibles, para la tasa de coincidencia. */

@@ -21,7 +21,8 @@ import { requireCliente } from "../cliente-contexto";
 import { contextoDeConversacion } from "./contexto-conversacion";
 import { evaluarTurno, MOTIVO_FALLBACK_EVALUADOR, type MensajeHilo } from "./evaluador";
 import { persistirTurno } from "./persistir-turno";
-import { objetivosDeClinica } from "../automatizacion/pg";
+import { objetivosDeClinica, conocimientoDeClinica } from "../automatizacion/pg";
+import type { ConocimientoClinica } from "./conocimiento";
 import { semaforoDeContacto } from "../automatizacion/semaforo";
 import {
   pendientesDeAplazados,
@@ -56,14 +57,18 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
   //     el agente no actúa con objetivos que la clínica no eligió; el caso
   //     sube a persona por la vía compat con motivo visible.
   let objetivosConfig: readonly ObjetivoAgente[];
+  let conocimiento: ConocimientoClinica;
   try {
     objetivosConfig = await objetivosDeClinica(ctx.clinicaId ?? e.clinicaId ?? null);
+    // Fase D grupo 2 — lo publicado, con el MISMO contrato fail-closed: una
+    // config ilegible no degrada en silencio a «aplaza todo».
+    conocimiento = await conocimientoDeClinica(ctx.clinicaId ?? e.clinicaId ?? null);
   } catch (err) {
     // B4 (21-08): aquí vivía el ÚLTIMO escritor compat sobre `presupuestos`
     // (un quiebre proyectado «para que alguien lo lea»). Muerto con los
     // demás: el caso queda visible por construcción — entrante sin responder
     // = Necesita respuesta en la cola — y el fallo, logueado (§9).
-    console.error("[evaluar-entrante] configuración de objetivos ilegible:", err instanceof Error ? err.message : err);
+    console.error("[evaluar-entrante] configuración ilegible (objetivos o conocimiento):", err instanceof Error ? err.message : err);
     return;
   }
   const objetivosAbiertos = ctx.objetivosAbiertos
@@ -151,6 +156,7 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     hilo,
     aplazadosPendientes: pendientes.flatMap((p) => p.motivos.map((motivo) => ({ clave: p.clave, motivo }))),
     aplazadosPorClave,
+    conocimiento,
     diasHastaProximaCita,
     yaDerivado,
     hoy: e.hoy,

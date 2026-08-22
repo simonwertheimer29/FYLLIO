@@ -33,6 +33,7 @@ import {
   type CausaDerivacion,
 } from "../automatizacion/estado";
 import type { EtapaObjetivo, ObjetivoAgente } from "../automatizacion/objetivos";
+import { renderConocimiento, type ConocimientoClinica } from "./conocimiento";
 import { hoyISO } from "../time";
 import { etiquetaDelModelo } from "./etiquetas";
 
@@ -94,6 +95,13 @@ export type EntradaEvaluador = {
    *  modelo juzga si el entrante RESPONDE AL MOTIVO; el código decide el
    *  levantamiento. `motivo` = la frase que la fijó. */
   esperaVigente?: { hasta: string; motivo: string | null } | null;
+  /** Fase D grupo 2 — lo PUBLICADO por la clínica (conocimientoDeClinica).
+   *  Vacío o ausente = nada publicado: el prompt queda BYTE A BYTE como sin
+   *  configuración (assert de qa:conocimiento — el plan básico no se
+   *  degrada). El system no cambia: publicar es meter el dato en el
+   *  contexto, y su regla «solo afirmas lo que está en el contexto» hace el
+   *  resto. */
+  conocimiento?: ConocimientoClinica | null;
 };
 
 // ─── Salida ─────────────────────────────────────────────────────────────────
@@ -381,6 +389,13 @@ export function renderEntrada(e: EntradaEvaluador): {
     lineas.push(
       `ESPERA VIGENTE: la persona pidió que no se le contactara hasta el ${e.esperaVigente.hasta}${e.esperaVigente.motivo ? ` — dijo: ${e.esperaVigente.motivo}` : ""}. Tú respondes igualmente (responder no es contactar); juzga en "respondeAlMotivoDeEspera" si este mensaje RESUELVE aquello.`,
     );
+  }
+  // Fase D grupo 2 — lo publicado, ANTES de los objetivos: es contexto de
+  // «qué puedes afirmar», no de «qué persigues». Vacío → ni una línea.
+  const publicado = renderConocimiento(e.conocimiento);
+  if (publicado.length > 0) {
+    lineas.push("");
+    lineas.push(...publicado);
   }
   lineas.push("");
   lineas.push(renderObjetivos(e.objetivosAbiertos));
@@ -783,11 +798,16 @@ export async function evaluarTurno(
   // Todo borrador del modelo pasa por el juez ANTES de salir. Si infringe
   // (clínica o económica) o el juez no responde → FAIL-CLOSED: plantilla
   // neutra + traza. La regla vive en código, no en la obediencia del prompt.
+  // Fase D grupo 2: lo PUBLICADO entra en «datos que constan» con el MISMO
+  // render que ve el evaluador (una fuente). Sin esto, el juez mataría un
+  // borrador que afirma un precio publicado — correcto para el evaluador,
+  // infractor para un juez que no lo ve (el riesgo medido en qa:juez).
   const datosQueConstan = [
     ...e.presupuestosVivos.map(
       (p) => `Presupuesto emitido: ${p.tratamiento ?? "tratamiento"}${p.importe != null ? ` (${eur(p.importe)})` : ""}`,
     ),
     e.pendienteCobro > 0 ? `Pago pendiente: ${eur(e.pendienteCobro)}` : null,
+    ...renderConocimiento(e.conocimiento),
   ]
     .filter((x): x is string => x !== null)
     .join("\n");
