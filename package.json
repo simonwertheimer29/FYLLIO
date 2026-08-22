@@ -40,7 +40,8 @@
     "qa:generar-cola": "tsx scripts/qa-generar-cola.mts",
     "verificar:produccion": "node scripts/verificar-produccion.mjs",
     "guard:rls": "node scripts/guard-service-role.mjs",
-    "db:smoke-rls": "node scripts/db-smoke-rls.mjs"
+    "db:smoke-rls": "node scripts/db-smoke-rls.mjs",
+    "qa:bandeja": "tsx scripts/qa-bandeja.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

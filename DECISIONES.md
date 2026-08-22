@@ -3227,3 +3227,14 @@ los tres botones del semáforo viven junto al estado que tocan (resolver · solt
 espera) — hasta hoy solo existían por terminal. De paso se cerró el hueco que la UI hacía
 inaceptable: `/api/automatizacion/decidir` no comprobaba clínica para `conversacion` — ahora
 IDOR por tipo, el mismo patrón que `/api/seguimiento/llamada`, fail-closed.
+
+## 2026-08-22 — Fase C·2/3: la bandeja es la lista completa, con tres lentes y un solo cálculo
+Cambio de fondo dictado: fuera el conmutador de dos vistas — Mensajería es TODO, lo más
+reciente primero, y encima tres filtros no excluyentes: «Necesitan de mí» (= LA cola de
+Seguimiento; murió el `necesita_persona` paralelo y /red cuenta ahora de la cola — el número
+crece porque el viejo mentía por defecto), «Las lleva el agente» (último SALIENTE, no último
+mensaje: el chip viejo se apagaba justo cuando el agente trabajaba) y «Mías sin respuesta»
+(saliente humano sin contestar — donde el caso se enfría solo; una espera pactada no se
+esconde: se enseña con su etiqueta). Cada fila lleva su estado del flujo, derivado, nunca
+persistido. El orden (recientes/antiguos) se aplica antes del corte del límite: ordenar
+«antiguos» sobre las 60 más recientes sería mentir. QA nuevo `qa:bandeja` (17 checks).
