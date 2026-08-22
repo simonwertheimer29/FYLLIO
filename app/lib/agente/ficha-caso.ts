@@ -23,6 +23,7 @@ import { sql } from "kysely";
 import { runWithClienteDb } from "../db/context";
 import { requireCliente } from "../cliente-contexto";
 import { contextoDeConversacion } from "./contexto-conversacion";
+import { elegirPresupuestoActivo } from "../seguimiento/presupuesto-activo";
 import { semaforoDeContacto, type EstadoSemaforo } from "../automatizacion/semaforo";
 import {
   pendientesDeAplazados,
@@ -68,6 +69,15 @@ export type FichaCaso = {
 
   // ── 3 · Qué recogió el agente ──
   recogido: { campo: string; valor: string | null }[] | null;
+
+  // ── Los presupuestos del caso (21-08): de CUÁL se habla, y los demás
+  //    NOMBRADOS. La fuente se declara — un activo elegido en silencio es
+  //    peor que dos cards. null = sin presupuestos vivos. ──
+  presupuestos: {
+    activo: { id: string; importe: number | null; tratamiento: string | null };
+    otros: { id: string; importe: number | null; tratamiento: string | null }[];
+    fuente: "conversacion" | "proxy";
+  } | null;
 
   // ── La línea de la cola (Seguimiento): paciente · qué quiere · espera ──
   linea: { paciente: string; queQuiere: string; esperandoDesde: string | null };
@@ -155,6 +165,31 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
     : null;
   const evaluado = payload != null;
 
+  // El último juicio que identificó de QUÉ presupuesto se habla (un turno
+  // sobre otra cosa no borra el último conocido) — mata el proxy del activo.
+  let presupuestoReferidoId: string | null = null;
+  for (let i = filasEvaluacion.length - 1; i >= 0; i--) {
+    const raw = filasEvaluacion[i]?.evaluacion_json;
+    if (!raw) continue;
+    try {
+      const pj = JSON.parse(String(raw)) as PayloadEvaluacion;
+      if (pj.presupuestoReferidoId) {
+        presupuestoReferidoId = pj.presupuestoReferidoId;
+        break;
+      }
+    } catch { /* payload ilegible: no se inventa */ }
+  }
+  const eleccionActivo = elegirPresupuestoActivo(
+    ctx.presupuestosVivos.map((v) => ({
+      id: v.id,
+      importe: v.importe,
+      tratamiento: v.tratamiento,
+      fechaISO: v.fechaISO,
+      conSenalClasificador: v.senalClasificador,
+    })),
+    { referidoId: presupuestoReferidoId },
+  );
+
   // Objetivo activo: la MISMA regla que el evaluador (tema si está abierto;
   // si no, el de mayor precedencia). Con lo abierto de HOY, no lo del turno.
   const abiertos = ctx.objetivosAbiertos;
@@ -206,6 +241,13 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
     otrosObjetivos,
     pendientes,
     recogido,
+    presupuestos: eleccionActivo
+      ? {
+          activo: { id: eleccionActivo.activo.id, importe: eleccionActivo.activo.importe, tratamiento: eleccionActivo.activo.tratamiento },
+          otros: eleccionActivo.otros.map((o) => ({ id: o.id, importe: o.importe, tratamiento: o.tratamiento })),
+          fuente: eleccionActivo.fuente,
+        }
+      : null,
     linea: {
       paciente: ctx.nombre,
       queQuiere: queQuiere ?? (evaluado ? "(sin objetivo abierto)" : "Sin evaluar por el agente"),

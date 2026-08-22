@@ -30,6 +30,10 @@ export type PresupuestoVivo = {
   tratamiento: string | null;
   importe: number | null;
   clinicaId: string | null;
+  /** Emisión (ISO) — el desempate del proxy del «activo» (21-08). */
+  fechaISO: string | null;
+  /** El clasificador viejo dejó huella en ESTE documento (quiebre/intención). */
+  senalClasificador: boolean;
 };
 
 export type LeadActivoContexto = {
@@ -97,6 +101,10 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
       tratamiento_nombre: string | null;
       importe: number | string | null;
       clinica_id: string | null;
+      fecha: Date | string | null;
+      created_at: Date | string | null;
+      requiere_persona: boolean | null;
+      intencion_detectada: string | null;
     }[];
     perfil: { nombre_perfil: string | null; clinica_id: string | null } | null;
     /** Fase B, punto 1: el paciente tiene una cita futura registrada. */
@@ -138,7 +146,7 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
     const porTelefono = sql<boolean>`replace(replace(replace(coalesce(paciente_telefono,''), ' ', ''), '+', ''), '-', '') like ${patron}`;
     const vivos = await trx
       .selectFrom("presupuestos")
-      .select(["id", "estado", "tratamiento_nombre", "importe", "clinica_id"])
+      .select(["id", "estado", "tratamiento_nombre", "importe", "clinica_id", "fecha", "created_at", "requiere_persona", "intencion_detectada"])
       .where((eb) =>
         eb.or([porTelefono, ...(paciente ? [eb("paciente_id", "=", paciente.id)] : [])]),
       )
@@ -192,6 +200,8 @@ export async function contextoDeConversacion(telefonoRaw: string): Promise<Conte
     tratamiento: v.tratamiento_nombre,
     importe: v.importe == null ? null : Number(v.importe),
     clinicaId: v.clinica_id,
+    fechaISO: (v.fecha ?? v.created_at) ? new Date((v.fecha ?? v.created_at)!).toISOString() : null,
+    senalClasificador: v.requiere_persona === true || v.intencion_detectada != null,
   }));
 
   const pendienteCobro = filas.paciente ? (await finanzasDePaciente(filas.paciente.id)).pendiente : 0;

@@ -46,6 +46,9 @@ export type PayloadEvaluacion = {
    *  en el borde. CONTABLE como la tasa de descartes del juez: si sube, el
    *  modelo deriva de su vocabulario y se ve en un número, no en consola. */
   etiquetasDescartadas?: string[];
+  /** Aditivo (21-08) — de QUÉ presupuesto habla el turno (id resuelto por
+   *  código desde la letra del juicio). Mata el proxy del activo. */
+  presupuestoReferidoId?: string | null;
 };
 
 export type TurnoAPersistir = {
@@ -170,6 +173,7 @@ export async function persistirTurno(t: TurnoAPersistir): Promise<{
     respuesta: ev.respuesta,
     esperaHasta: ev.esperaHasta ?? null,
     etiquetasDescartadas: ev.etiquetasDescartadas?.length ? ev.etiquetasDescartadas : undefined,
+    presupuestoReferidoId: ev.presupuestoReferidoId ?? null,
   };
   cuenta(
     await registrarEventoIdempotente({

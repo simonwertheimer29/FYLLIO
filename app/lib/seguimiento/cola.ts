@@ -61,6 +61,7 @@ import type { IntencionDetectada } from "../presupuestos/types";
 import { ultimosEventosPorCaso, toquesAntesDeAgotar } from "../automatizacion/pg";
 import { esLeadActivo } from "../leads/pipeline";
 import { minutosLaborablesEntre } from "./tiempo-laborable";
+import { elegirPresupuestoActivo } from "./presupuesto-activo";
 
 // ─── Las tres. No crecen. ───────────────────────────────────────────────────
 
@@ -275,6 +276,16 @@ export type CasoDeCola = {
   /** El agente evaluó este hilo (hay evento `evaluacion` en el log) — B3:
    *  gobierna el botón «Redactar entrada»; sin evaluación, sin botón. */
   evaluado: boolean;
+  /** Agrupación 21-08 (el caso es la CONVERSACIÓN): suma de TODOS los
+   *  presupuestos vivos del caso — lo que suma la cabecera. null en leads. */
+  importeTotal: number | null;
+  /** Los demás presupuestos vivos, NOMBRADOS (condición dictada: el otro se
+   *  recuerda, no solo se cuenta). */
+  otrosPresupuestos: { id: string; importe: number | null; tratamiento: string | null }[];
+  /** De dónde salió el activo — "conversacion" (el evaluador capturó de cuál
+   *  hablan) o "proxy" (señal del clasificador o el más reciente). Visible:
+   *  un activo elegido en silencio es peor que dos cards. */
+  activoFuente: "conversacion" | "proxy" | null;
 };
 
 export type ResumenCola = {
@@ -330,7 +341,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       from mensajes_whatsapp where telefono is not null group by telefono`.execute(trx);
 
     // El LOG del agente: derivados/cierres/aplazados/esperas por caso.
-    const ev: any = await sql`select caso_id, evento, causa_derivacion, clave_aplazado, hasta, created_at
+    const ev: any = await sql`select caso_id, evento, causa_derivacion, clave_aplazado, hasta, created_at, evaluacion_json
         from eventos_automatizacion
         where tipo_caso = 'conversacion'
           and evento in ('derivado','resuelto_manual','asumido_manual','soltado','espera_fijada','espera_levantada','aplazado','aplazado_resuelto','evaluacion')
@@ -345,12 +356,12 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       presupuestos,
       pacientes,
       mensajes: (m.rows ?? []) as { telefono: string; ultimo_entrante: Date | null; ultimo_saliente: Date | null }[],
-      eventos: (ev.rows ?? []) as { caso_id: string; evento: string; causa_derivacion: CausaDerivacion | null; clave_aplazado: string | null; hasta: Date | string | null; created_at: Date }[],
+      eventos: (ev.rows ?? []) as { caso_id: string; evento: string; causa_derivacion: CausaDerivacion | null; clave_aplazado: string | null; hasta: Date | string | null; created_at: Date; evaluacion_json: unknown }[],
     };
   });
 
   // ── El log del agente, agrupado por dígitos del hilo ──────────────────────
-  type EstadoAgente = { entregadoCausa: CausaDerivacion | null; entregadoEn: string | null; aplazadosVivos: number; enEspera: boolean; evaluado: boolean; telefono: string };
+  type EstadoAgente = { entregadoCausa: CausaDerivacion | null; entregadoEn: string | null; aplazadosVivos: number; enEspera: boolean; evaluado: boolean; presupuestoReferidoId: string | null; telefono: string };
   const agentePorDigitos = new Map<string, EstadoAgente>();
   {
     const grupos = new Map<string, typeof datos.eventos>();
@@ -388,6 +399,19 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       agentePorDigitos.set(k, {
         telefono: evs[0].caso_id,
         evaluado: evs.some((x) => x.evento === "evaluacion"),
+        // El ÚLTIMO juicio que identificó de qué presupuesto se habla — un
+        // turno sobre otra cosa (referido null) NO borra el último conocido.
+        presupuestoReferidoId: (() => {
+          for (let i = evs.length - 1; i >= 0; i--) {
+            const x = evs[i] as { evento: string; evaluacion_json?: unknown };
+            if (x.evento !== "evaluacion" || x.evaluacion_json == null) continue;
+            try {
+              const pj = JSON.parse(String(x.evaluacion_json));
+              if (pj?.presupuestoReferidoId) return String(pj.presupuestoReferidoId);
+            } catch { /* payload ilegible: se ignora, no se inventa */ }
+          }
+          return null;
+        })(),
         entregadoCausa: ultimo && !resueltoDespues ? ultimo.causa_derivacion : null,
         entregadoEn: ultimo && !resueltoDespues ? ultimo.created_at.toISOString() : null,
         aplazadosVivos,
@@ -465,8 +489,22 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
     return { ...r, paradoDias, enEspera: agente?.enEspera ?? false, conversacion };
   };
 
-  // 1 · Presupuestos abiertos (ganan al lead del mismo teléfono).
+  // 1 · Presupuestos abiertos, AGRUPADOS POR CONVERSACIÓN (21-08, dictado):
+  //     un paciente con dos presupuestos vivos es UN caso con dos documentos
+  //     — el caso es la conversación, no el papel. El ACTIVO lo decide la
+  //     conversación (elegirPresupuestoActivo: juicio del evaluador > señal
+  //     del clasificador > el más reciente — y la fuente SE DECLARA). La
+  //     cohorte del caso es LA PEOR de sus miembros: se asume de más, jamás
+  //     de menos. (La cola de ENVÍOS sigue por documento a propósito: la
+  //     cadencia es del papel; el caso, de la persona.)
   const pacientesPorId = new Map(datos.pacientes.map((p) => [p.id, p]));
+  type MiembroPresupuesto = {
+    pr: (typeof datos.presupuestos)[number];
+    telefono: string | null;
+    k: ReturnType<typeof clasificar>;
+    conSenal: boolean;
+  };
+  const grupos = new Map<string, MiembroPresupuesto[]>();
   for (const pr of datos.presupuestos) {
     const pac = pr.paciente_id ? pacientesPorId.get(pr.paciente_id) : null;
     const telefono = pr.paciente_telefono ?? pac?.telefono ?? null;
@@ -498,23 +536,53 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
     // El teléfono queda cubierto AUNQUE el presupuesto no entre en cola: el
     // dedupe presupuesto>lead es del caso, no de su cohorte.
     if (telefono) digitosCubiertos.add(dig(telefono));
-    if (!k) continue;
+    const clave = dig(telefono) || `sin-tel:${pr.id}`;
+    const conSenal = pr.requiere_persona === true || pr.intencion_detectada != null;
+    (grupos.get(clave) ?? grupos.set(clave, []).get(clave)!).push({ pr, telefono, k, conSenal });
+  }
+
+  const RANGO_PEOR: Record<Cohorte, number> = { fuera_de_plazo: 3, necesita_respuesta: 2, listos_para_cerrar: 1 };
+  for (const miembros of grupos.values()) {
+    const enCola = miembros.filter((m) => m.k != null);
+    if (enCola.length === 0) continue; // ninguno exige persona → no es cola
+    const peor = enCola.reduce((a, b) => (RANGO_PEOR[b.k!.cohorte] > RANGO_PEOR[a.k!.cohorte] ? b : a));
+    const telefono = miembros[0].telefono;
+    const agente = buscarAgente(telefono);
+    const fechaISO = (pr: MiembroPresupuesto["pr"]): string | null => {
+      const f = pr.fecha ?? pr.created_at;
+      return f ? new Date(f).toISOString() : null;
+    };
+    const eleccion = elegirPresupuestoActivo(
+      miembros.map((m) => ({
+        id: String(m.pr.id),
+        importe: m.pr.importe == null ? null : Number(m.pr.importe),
+        tratamiento: m.pr.tratamiento_nombre ?? null,
+        fechaISO: fechaISO(m.pr),
+        conSenalClasificador: m.conSenal,
+      })),
+      { referidoId: agente?.presupuestoReferidoId ?? null },
+    )!;
+    const activo = miembros.find((m) => String(m.pr.id) === eleccion.activo.id)!;
+    const pacActivo = activo.pr.paciente_id ? pacientesPorId.get(activo.pr.paciente_id) : null;
     casos.push({
-      id: `presupuesto:${pr.id}`,
+      id: `presupuesto:${eleccion.activo.id}`,
       tipo: "presupuesto",
       telefono,
-      nombre: pac?.nombre ?? "Paciente",
-      clinicaId: pr.clinica_id == null ? null : String(pr.clinica_id),
-      cohorte: k.cohorte,
-      detalle: k.detalle,
-      importe: pr.importe == null ? null : Number(pr.importe),
-      tratamiento: pr.tratamiento_nombre ?? null,
+      nombre: pacActivo?.nombre ?? "Paciente",
+      clinicaId: activo.pr.clinica_id == null ? null : String(activo.pr.clinica_id),
+      cohorte: peor.k!.cohorte,
+      detalle: peor.k!.detalle,
+      importe: eleccion.activo.importe,
+      importeTotal: miembros.reduce((sum, m) => sum + (m.pr.importe == null ? 0 : Number(m.pr.importe)), 0),
+      otrosPresupuestos: eleccion.otros.map((o) => ({ id: o.id, importe: o.importe, tratamiento: o.tratamiento })),
+      activoFuente: eleccion.fuente,
+      tratamiento: eleccion.activo.tratamiento,
       origen: null,
-      paradoDias: k.paradoDias,
-      esperandoMinLaborables: k.esperandoMinLaborables,
-      enEspera: k.enEspera,
-      mensajeSugerido: pr.mensaje_sugerido ?? null,
-      evaluado: buscarAgente(telefono)?.evaluado ?? false,
+      paradoDias: peor.k!.paradoDias,
+      esperandoMinLaborables: peor.k!.esperandoMinLaborables,
+      enEspera: peor.k!.enEspera,
+      mensajeSugerido: activo.pr.mensaje_sugerido ?? null,
+      evaluado: agente?.evaluado ?? false,
     });
   }
 
@@ -560,6 +628,9 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       enEspera: k.enEspera,
       mensajeSugerido: null,
       evaluado: buscarAgente(l.telefono)?.evaluado ?? false,
+      importeTotal: null,
+      otrosPresupuestos: [],
+      activoFuente: null,
     });
   }
 
@@ -586,6 +657,9 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       enEspera: kk.enEspera,
       mensajeSugerido: null,
       evaluado: a.evaluado,
+      importeTotal: null,
+      otrosPresupuestos: [],
+      activoFuente: null,
     });
   }
 
@@ -594,8 +668,8 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
   // trabaja el agente o la cadencia no está parado por nosotros — el total
   // de presupuestos abiertos ya vive en /presupuestos y /red.
   const dineroPresupuestos = casos
-    .filter((c) => c.tipo === "presupuesto" && c.importe != null)
-    .reduce((s, c) => s + (c.importe ?? 0), 0);
+    .filter((c) => c.tipo === "presupuesto")
+    .reduce((s, c) => s + (c.importeTotal ?? c.importe ?? 0), 0);
   const resumen: ResumenCola = {
     dineroParado: dineroPresupuestos,
     dineroPresupuestos,

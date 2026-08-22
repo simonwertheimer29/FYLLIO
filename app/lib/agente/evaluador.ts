@@ -57,7 +57,9 @@ export type EntradaEvaluador = {
   /** Objetivos ABIERTOS de la conversación, en orden de precedencia
    *  (contextoDeConversacion + objetivosDeClinica). Vacío es válido. */
   objetivosAbiertos: readonly ObjetivoAgente[];
-  presupuestosVivos: { tratamiento: string | null; importe: number | null }[];
+  /** Con `id` para que el juicio «presupuestoReferido» resuelva a documento
+   *  real (el modelo ve LETRAS, jamás ids — el código traduce). */
+  presupuestosVivos: { id?: string | null; tratamiento: string | null; importe: number | null }[];
   pendienteCobro: number;
   hilo: MensajeHilo[];
   /** Aplazados VIVOS del caso (regla del posterior), para que no re-conteste
@@ -137,6 +139,10 @@ export type EvaluacionTurno = {
    *  (etiquetas.ts) — CONTABLES en el payload como la tasa de descartes del
    *  juez: si suben, el modelo está derivando de su vocabulario. */
   etiquetasDescartadas: string[];
+  /** El presupuesto del que HABLA el último mensaje (juicio del modelo por
+   *  letra, resuelto a id por código). null = no identificado. Es lo que
+   *  mata el proxy del «activo» en la cola/ficha (21-08). */
+  presupuestoReferidoId?: string | null;
   camposRecogidos: CamposRecogidos;
   /** Claves del objetivo activo sin valor ni no_aplica. */
   camposFaltantes: string[];
@@ -278,6 +284,8 @@ LAS REGLAS DEL DINERO (no se saltan): leer una política que ya existe se contes
 
 ━━ JUICIO "respondeAlMotivoDeEspera" — SOLO aplica si el contexto trae una ESPERA VIGENTE (la persona pidió tiempo). true si el último mensaje RESUELVE lo que dijo que iba a decidir — da la decisión: acepta, rechaza, «ya lo tengo claro». Posponer otra vez («mejor mañana os digo») NO es resolver: eso va en esperaSolicitada con la fecha nueva. Hablar de OTRA cosa tampoco lo es. Sin espera vigente en el contexto: false.
 
+━━ JUICIO "presupuestoReferido" — si hay presupuestos emitidos en el contexto (llevan letra: [A], [B]…): la LETRA del que el ÚLTIMO MENSAJE identifica — porque lo nombra («el blanqueamiento»), cita su importe, o responde claramente sobre él. "ninguno" si el mensaje no identifica de cuál habla o habla de otra cosa. NUNCA adivines por importe ni por orden: identificar es que el TEXTO lo diga.
+
 ━━ JUICIO "pideAccion" — true si el último mensaje pide algo que exige que la CLÍNICA HAGA: dar o cambiar una cita, emitir una factura, que le llamen para un trámite, empezar un tratamiento. Preguntar información NO es pedir acción («¿abrís los sábados?» false; «dadme cita el sábado» true). Aceptar un presupuesto y querer empezar SÍ lo es.
 
 ━━ JUICIO "esperaSolicitada" — SOLO si la persona pide explícitamente tiempo con un plazo o una fecha CONCRETOS antes de volver a hablar («el viernes te digo», «dame dos semanas», «hasta después del puente no puedo», «te contesto a final de mes»), la fecha resultante en formato YYYY-MM-DD (usa la fecha de HOY del contexto para calcularla). Si no da plazo concreto («déjame pensarlo», «ya te diré») o no pide tiempo: null. NO la inventes ni la redondees: si dice «el viernes», es ese viernes.
@@ -309,6 +317,7 @@ RESPONDE EXCLUSIVAMENTE con un JSON válido con TODAS estas claves. El esquema d
   "pideAccion": <true|false>,
   "respondeAlMotivoDeEspera": <true|false>,
   "esperaSolicitada": <"YYYY-MM-DD"|null>,
+  "presupuestoReferido": "<letra del presupuesto|ninguno>",
   "camposRecogidos": {<"etapa_abierta": {"clave_campo": "valor extraído del hilo" | null | "no_aplica"}...>},
   "respuesta": "<el borrador>"
 }
@@ -352,11 +361,14 @@ export function renderEntrada(e: EntradaEvaluador): {
   lineas.push(`CALENDARIO de los próximos 14 días (para fechas tipo «el viernes», usa EXACTAMENTE la fecha de aquí): ${calendario.join(" · ")}.`);
   lineas.push(`Persona: ${e.nombre.split(" ")[0]}${e.esPacienteConocido ? " (paciente de la clínica)" : " (no consta como paciente)"}`);
   if (e.presupuestosVivos.length > 0) {
-    for (const p of e.presupuestosVivos) {
+    // Cada presupuesto lleva su LETRA: el juicio «presupuestoReferido» la
+    // devuelve y el código la traduce a id (borde canónico — el modelo no
+    // ve ids). Con uno solo también: «habla de A» sigue siendo información.
+    e.presupuestosVivos.forEach((p, i) => {
       lineas.push(
-        `Presupuesto emitido pendiente de decisión: ${p.tratamiento ?? "tratamiento"}${p.importe != null ? ` (${eur(p.importe)})` : ""}`,
+        `Presupuesto emitido pendiente de decisión [${String.fromCharCode(65 + i)}]: ${p.tratamiento ?? "tratamiento"}${p.importe != null ? ` (${eur(p.importe)})` : ""}`,
       );
-    }
+    });
   } else {
     lineas.push("Presupuesto emitido: ninguno pendiente de decisión.");
   }
@@ -412,6 +424,9 @@ type JuicioModelo = {
    *  cambio, factura, llamada)? Alimenta la red del punto 2: sin objetivo
    *  que lo recoja, se deriva igualmente. */
   pideAccion: boolean;
+  /** Letra del presupuesto del contexto que el último mensaje identifica —
+   *  null si "ninguno" o ilegible. El CÓDIGO la resuelve a id. */
+  presupuestoReferido: string | null;
   /** Con espera vigente: ¿el mensaje RESUELVE su motivo (da la decisión)?
    *  Posponer con fecha nueva NO es resolver (eso es esperaSolicitada). */
   respondeAlMotivoDeEspera: boolean;
@@ -575,6 +590,10 @@ export function parsearJuicio(
       aplazamientosNuevos: aplazamientos,
       esperaSolicitada,
       pideAccion: p.pideAccion === true,
+      presupuestoReferido:
+        typeof p.presupuestoReferido === "string" && /^[a-z]$/i.test(p.presupuestoReferido.trim())
+          ? p.presupuestoReferido.trim().toUpperCase()
+          : null,
       respondeAlMotivoDeEspera: p.respondeAlMotivoDeEspera === true,
       camposRecogidos: campos,
       respuesta: mapa ? desanonimizarTexto(String(p.respuesta ?? ""), mapa).slice(0, 1200) : String(p.respuesta ?? "").slice(0, 1200),
@@ -722,6 +741,15 @@ export async function evaluarTurno(
     // manda la persona) se aplica en cada retorno de derivación, explícita.
     esperaLevantar: e.esperaVigente != null && juicio.respondeAlMotivoDeEspera,
     etiquetasDescartadas: descartes ?? [],
+    // Letra → id, en código (el modelo nunca ve ids). Letra fuera de rango
+    // = ilegible → null, contable como toda etiqueta fuera de vocabulario.
+    presupuestoReferidoId: (() => {
+      if (juicio.presupuestoReferido == null) return null;
+      const i = juicio.presupuestoReferido.charCodeAt(0) - 65;
+      const id = e.presupuestosVivos[i]?.id ?? null;
+      if (id == null) (descartes ?? []).push(`presupuestoReferido:${juicio.presupuestoReferido}`);
+      return id;
+    })(),
     camposRecogidos: juicio.camposRecogidos,
     camposFaltantes,
     casoCompleto,

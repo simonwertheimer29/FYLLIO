@@ -34,6 +34,7 @@ import {
   type RelojDePlazos,
 } from "../app/lib/seguimiento/cola";
 import { minutosLaborablesEntre } from "../app/lib/seguimiento/tiempo-laborable";
+import { elegirPresupuestoActivo } from "../app/lib/seguimiento/presupuesto-activo";
 import { registrarEvento } from "../app/lib/automatizacion/pg";
 import { hoyISO } from "../app/lib/time";
 
@@ -150,6 +151,28 @@ ok("los defaults dictados están escritos: 30 · 120 · 240 · 60",
   UMBRAL_FUERA_DE_PLAZO_MIN.urgencia === 30 && UMBRAL_FUERA_DE_PLAZO_MIN.respuesta === 120 &&
   UMBRAL_FUERA_DE_PLAZO_MIN.cierre === 240 && UMBRAL_FUERA_DE_PLAZO_MIN.lead_nuevo === 60);
 
+// ─── El ACTIVO de un caso con varios presupuestos (21-08): la conversación
+//     decide, y la fuente SE DECLARA ───────────────────────────────────────
+{
+  const dos = [
+    { id: "p-viejo", importe: 3400, tratamiento: "implante", fechaISO: "2026-08-01T10:00:00Z", conSenalClasificador: false },
+    { id: "p-nuevo", importe: 300, tratamiento: "blanqueamiento", fechaISO: "2026-08-15T10:00:00Z", conSenalClasificador: false },
+  ];
+  ok("el juicio del evaluador MANDA (fuente 'conversacion') — no el importe",
+    (() => { const r = elegirPresupuestoActivo(dos, { referidoId: "p-viejo" }); return r?.activo.id === "p-viejo" && r.fuente === "conversacion"; })());
+  ok("sin juicio: la señal del clasificador gana al más reciente (proxy)",
+    (() => {
+      const r = elegirPresupuestoActivo([{ ...dos[0], conSenalClasificador: true }, dos[1]]);
+      return r?.activo.id === "p-viejo" && r.fuente === "proxy";
+    })());
+  ok("sin juicio ni señal: el EMITIDO más reciente (proxy) — el de 300 gana al de 3.400",
+    (() => { const r = elegirPresupuestoActivo(dos); return r?.activo.id === "p-nuevo" && r.fuente === "proxy"; })());
+  ok("un referido que ya no está vivo NO manda (cae al proxy, jamás señala un cerrado)",
+    (() => { const r = elegirPresupuestoActivo(dos, { referidoId: "p-cerrado" }); return r?.activo.id === "p-nuevo" && r.fuente === "proxy"; })());
+  ok("los otros quedan NOMBRADOS, no solo contados",
+    elegirPresupuestoActivo(dos)?.otros[0]?.tratamiento === "implante");
+}
+
 // ─── C · Con el seed real ───────────────────────────────────────────────────
 const app = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL_APP, ssl: { rejectUnauthorized: false } });
 await app.connect();
@@ -192,9 +215,9 @@ await runWithCliente("DEMO", async () => {
   ok("cada caso en EXACTAMENTE una de las TRES (partición)",
     base.casos.every((x) => ORDEN_COHORTES.includes(x.cohorte)) &&
       ORDEN_COHORTES.reduce((s, co) => s + base.casos.filter((x) => x.cohorte === co).length, 0) === base.casos.length);
-  ok("dinero parado = SOLO presupuestos en cola (consistencia interna)",
+  ok("dinero parado = SOLO presupuestos en cola, con TODOS los vivos de cada caso (importeTotal)",
     Math.round(base.resumen.dineroParado) ===
-      Math.round(base.casos.filter((x) => x.tipo === "presupuesto").reduce((s, x) => s + (x.importe ?? 0), 0)),
+      Math.round(base.casos.filter((x) => x.tipo === "presupuesto").reduce((s, x) => s + (x.importeTotal ?? x.importe ?? 0), 0)),
     `${base.resumen.dineroParado} €`);
   ok("leads contados, no valorados",
     base.resumen.leadsSinImporte === base.casos.filter((x) => x.tipo === "lead").length &&
@@ -231,14 +254,30 @@ await runWithCliente("DEMO", async () => {
      values ('DEMO',$1,$2,'Endodoncia molar','PRESENTADO',650,$3,$3,'Dra. QA',$4,1)`,
     [pac.rows[0].id, clin, hoy, TEL_FIXTURE_LISTO],
   );
+  // SEGUNDO presupuesto vivo del mismo teléfono (fallo Carlos, 21-08): el
+  // caso es LA CONVERSACIÓN — una card, no dos.
+  await q(
+    `insert into presupuestos (cliente, paciente_id, clinica_id, tratamiento_nombre, estado, importe, fecha, fecha_alta, doctor, paciente_telefono, contact_count)
+     values ('DEMO',$1,$2,'Férula de descarga','PRESENTADO',200,($3::date - 5),($3::date - 5),'Dra. QA',$4,1)`,
+    [pac.rows[0].id, clin, hoy, TEL_FIXTURE_LISTO],
+  );
   await registrarEvento({ tipoCaso: "conversacion", casoId: TEL_FIXTURE_LISTO, evento: "derivado", causaDerivacion: "caso_completo", objetivoActivo: "presupuesto", actorNombre: "qa" } as any);
   await registrarEvento({ tipoCaso: "conversacion", casoId: TEL_HUERFANO, evento: "aplazado", claveAplazado: "agenda_disponibilidad", motivoTexto: "pregunta por el sábado", actorNombre: "qa" } as any);
 
   const tras = await colaDeSeguimiento();
-  const casoListo = tras.casos.find((x) => x.telefono === TEL_FIXTURE_LISTO);
+  const casosDelTel = tras.casos.filter((x) => x.telefono === TEL_FIXTURE_LISTO);
+  const casoListo = casosDelTel[0];
+  ok("DOS presupuestos vivos → UNA card (el caso es la conversación)",
+    casosDelTel.length === 1, `cards=${casosDelTel.length}`);
   ok("entregado caso_completo AHORA MISMO → Listos (recién entregado, no escala)",
     casoListo?.cohorte === "listos_para_cerrar" && casoListo.detalle === "entregado_listo",
     `${casoListo?.cohorte ?? "no está"}`);
+  ok("el activo es el EMITIDO más reciente (650, proxy) y la fuente se declara",
+    casoListo?.importe === 650 && casoListo.activoFuente === "proxy",
+    `importe=${casoListo?.importe} fuente=${casoListo?.activoFuente}`);
+  ok("el otro queda NOMBRADO en la card (200 € · férula)",
+    casoListo?.otrosPresupuestos.length === 1 && casoListo.otrosPresupuestos[0].importe === 200);
+  ok("importeTotal = la suma de los vivos (850)", casoListo?.importeTotal === 850);
   // La huérfana del seed tiene su último mensaje SIN responder: paciente
   // esperando. La COHORTE depende de cuánto lleve esperando en horario de
   // clínica (el seed siembra relativo a la hora de ejecución) — lo estable
@@ -248,9 +287,24 @@ await runWithCliente("DEMO", async () => {
     casoHuerfano != null && casoHuerfano.detalle === "paciente_escribio" &&
       (casoHuerfano.cohorte === "necesita_respuesta" || casoHuerfano.cohorte === "fuera_de_plazo"),
     `${casoHuerfano?.cohorte ?? "no está"}`);
-  ok("y el dinero parado subió exactamente el importe del fixture (650)",
-    Math.round(tras.resumen.dineroParado - base.resumen.dineroParado) === 650,
+  ok("y el dinero parado subió la SUMA de los dos presupuestos del fixture (850)",
+    Math.round(tras.resumen.dineroParado - base.resumen.dineroParado) === 850,
     `Δ=${tras.resumen.dineroParado - base.resumen.dineroParado}`);
+
+  // El juicio del evaluador MATA el proxy: una evaluación que identifica el
+  // presupuesto de 200 → el activo cambia y la fuente pasa a 'conversacion'.
+  const pres200 = await q(`select id from presupuestos where paciente_telefono=$1 and importe=200`, [TEL_FIXTURE_LISTO]);
+  const { registrarEventoIdempotente } = await import("../app/lib/automatizacion/pg");
+  await registrarEventoIdempotente({
+    tipoCaso: "conversacion", casoId: TEL_FIXTURE_LISTO, evento: "evaluacion",
+    actorNombre: "qa", mensajeId: "qa_cola_referido_1",
+    evaluacionJson: JSON.stringify({ v: 1, tema: "presupuesto", presupuestoReferidoId: pres200.rows[0].id }),
+  } as any);
+  const trasReferido = await colaDeSeguimiento();
+  const casoReferido = trasReferido.casos.find((x) => x.telefono === TEL_FIXTURE_LISTO);
+  ok("con juicio del evaluador, el activo es DEL QUE SE HABLA (200) y fuente='conversacion'",
+    casoReferido?.importe === 200 && casoReferido.activoFuente === "conversacion",
+    `importe=${casoReferido?.importe} fuente=${casoReferido?.activoFuente}`);
 
   // Al responderle, queda un aplazado vivo SIN entrega → el agente sigue →
   // el caso SALE de la cola (18-08: eso es supervisión, no trabajo).

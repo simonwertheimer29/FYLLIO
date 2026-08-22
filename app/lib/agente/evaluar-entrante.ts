@@ -59,16 +59,11 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
   try {
     objetivosConfig = await objetivosDeClinica(ctx.clinicaId ?? e.clinicaId ?? null);
   } catch (err) {
+    // B4 (21-08): aquí vivía el ÚLTIMO escritor compat sobre `presupuestos`
+    // (un quiebre proyectado «para que alguien lo lea»). Muerto con los
+    // demás: el caso queda visible por construcción — entrante sin responder
+    // = Necesita respuesta en la cola — y el fallo, logueado (§9).
     console.error("[evaluar-entrante] configuración de objetivos ilegible:", err instanceof Error ? err.message : err);
-    if (e.presupuestoId) {
-      const { updatePresupuestoRaw } = await import("../presupuestos/repo");
-      await updatePresupuestoRaw(e.presupuestoId, {
-        Requiere_persona: true,
-        Motivo_quiebre: "La configuración de objetivos de la clínica no se pudo leer",
-        Urgencia_intervencion: "MEDIO",
-        Accion_sugerida: "Revisar la configuración",
-      });
-    }
     return;
   }
   const objetivosAbiertos = ctx.objetivosAbiertos
@@ -151,7 +146,7 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     nombre: ctx.nombre,
     esPacienteConocido: ctx.pacienteId != null,
     objetivosAbiertos,
-    presupuestosVivos: ctx.presupuestosVivos.map((p) => ({ tratamiento: p.tratamiento, importe: p.importe })),
+    presupuestosVivos: ctx.presupuestosVivos.map((p) => ({ id: p.id, tratamiento: p.tratamiento, importe: p.importe })),
     pendienteCobro: ctx.pendienteCobro,
     hilo,
     aplazadosPendientes: pendientes.flatMap((p) => p.motivos.map((motivo) => ({ clave: p.clave, motivo }))),

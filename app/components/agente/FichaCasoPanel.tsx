@@ -23,6 +23,7 @@ import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import { ErrorState } from "../ui/Feedback";
 import { fechaClinica } from "../../lib/time";
 import { Clock, PauseCircle, UserCheck, CheckCircle2 } from "../icons";
+import { eur as eurUI } from "../shared/Cifra";
 import type { FichaCaso } from "../../lib/agente/ficha-caso";
 
 const ETIQUETA_OTRO: Record<string, string> = {
@@ -127,6 +128,29 @@ export function FichaCasoPanel({
             <p className="mt-1 text-[12px] text-[var(--color-muted)]">
               Además: {ficha.otrosObjetivos.map((o) => ETIQUETA_OTRO[o] ?? o).join(" · ")}
             </p>
+          )}
+          {/* 21-08: con varios presupuestos vivos, se DECLARA de cuál se
+              habla y de dónde salió la elección — un activo en silencio es
+              peor que dos cards. Los demás, nombrados. */}
+          {ficha.presupuestos && ficha.presupuestos.otros.length > 0 && (
+            <div className="mt-2 border-t border-[var(--color-border)] pt-2">
+              <p className="text-[12px] text-[var(--color-foreground)]">
+                Se habla del presupuesto de{" "}
+                <span className="font-semibold">
+                  {ficha.presupuestos.activo.tratamiento ?? "tratamiento"}
+                  {ficha.presupuestos.activo.importe != null ? ` (${eurUI(ficha.presupuestos.activo.importe)})` : ""}
+                </span>
+                {ficha.presupuestos.fuente === "proxy" && (
+                  <span className="text-[var(--color-muted)]"> — elegido por ser el más señalado o reciente; compruébalo en el hilo</span>
+                )}
+              </p>
+              {ficha.presupuestos.otros.map((o) => (
+                <p key={o.id} className="mt-0.5 text-[12px] text-[var(--color-muted)]">
+                  También vivo: {o.tratamiento ?? "tratamiento"}
+                  {o.importe != null ? ` (${eurUI(o.importe)})` : ""}
+                </p>
+              ))}
+            </div>
           )}
         </div>
       ) : (

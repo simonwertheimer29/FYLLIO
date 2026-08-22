@@ -47,6 +47,9 @@ type Caso = {
   enEspera: boolean;
   mensajeSugerido: string | null;
   evaluado: boolean;
+  importeTotal: number | null;
+  otrosPresupuestos: { id: string; importe: number | null; tratamiento: string | null }[];
+  activoFuente: "conversacion" | "proxy" | null;
 };
 
 const ORDEN: Cohorte[] = ["necesita_respuesta", "listos_para_cerrar", "fuera_de_plazo"];
@@ -312,6 +315,12 @@ export function ColaPorCohortes({
                           { label: ETIQUETA_DETALLE[caso.detalle] ?? caso.detalle, tone: "sky" as const },
                           { label: ETIQUETA_TIPO[caso.tipo], tone: "neutral" as const },
                           ...(caso.tratamiento ? [{ label: caso.tratamiento, tone: "neutral" as const }] : []),
+                          // 21-08: un caso, varios presupuestos — el activo va
+                          // en el importe del título; los demás se recuerdan.
+                          ...caso.otrosPresupuestos.map((o) => ({
+                            label: `+ otro de ${o.importe != null ? eur(o.importe) : (o.tratamiento ?? "?")}`,
+                            tone: "neutral" as const,
+                          })),
                           ...(caso.enEspera ? [{ label: "En espera pactada", tone: "rose" as const }] : []),
                         ]}
                         meta={[

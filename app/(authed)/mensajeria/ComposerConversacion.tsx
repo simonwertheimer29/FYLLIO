@@ -138,34 +138,30 @@ export function ComposerConversacion({
   const sinCaso = !conversacion.presupuestoId && !conversacion.leadId;
 
   const generarConIA = useCallback(async () => {
-    if (!conversacion.presupuestoId || generandoIA) return;
+    if (generandoIA) return;
     setGenerandoIA(true);
     setError(null);
     try {
-      const d = await cargarJSON<{ clasificacion?: { mensajeSugerido?: string } }>(
-        "/api/presupuestos/intervencion/clasificar",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            presupuestoId: conversacion.presupuestoId,
-            respuestaPaciente: ultimoEntrante ?? item?.ultimaRespuestaPaciente ?? "",
-          }),
-        },
-      );
-      if (d.clasificacion?.mensajeSugerido) {
-        setTextoDeIA(true);
-        setTexto(d.clasificacion.mensajeSugerido);
-        recargar();
-      } else {
-        setError("El agente no ha propuesto ningún mensaje para este caso.");
-      }
+      // 21-08 (dictado): UNA sola pieza para los dos sitios — el mismo camino
+      // que el botón de Seguimiento (sale de la ficha, pasa por el juez, no
+      // repregunta lo recogido). Aquí generaba el clasificador VIEJO, el que
+      // inventaba condiciones de financiación y no pasaba por el juez.
+      const d = await cargarJSON<{ borrador: string }>("/api/agente/entrada", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ telefono: conversacion.telefono }),
+      });
+      setTextoDeIA(true);
+      setTexto(d.borrador);
+      recargar();
     } catch (e) {
+      // Los motivos honestos de la ruta (sin evaluación, descartado por el
+      // juez, modelo caído) llegan tal cual — jamás un texto inventado.
       setError(mensajeDeError(e));
     } finally {
       setGenerandoIA(false);
     }
-  }, [conversacion.presupuestoId, generandoIA, ultimoEntrante, item?.ultimaRespuestaPaciente, recargar]);
+  }, [conversacion.telefono, generandoIA, recargar]);
 
   async function enviar() {
     const contenido = texto.trim();
@@ -226,7 +222,10 @@ export function ComposerConversacion({
         onEnviar={enviar}
         enviando={enviando}
         // Sin caso no hay a quién clasificar, así que tampoco botón de IA.
-        onIA={conversacion.presupuestoId ? generarConIA : undefined}
+        // 21-08: el camino nuevo (ficha→juez) vale para CUALQUIER hilo
+        // evaluado — leads y huérfanos incluidos; los motivos de no-poder
+        // llegan honestos de la ruta (409/422/503).
+        onIA={generarConIA}
         generandoIA={generandoIA}
         plantillas={plantillas.map((p) => ({ id: p.id, nombre: p.nombre }))}
         onPlantilla={(id) => {

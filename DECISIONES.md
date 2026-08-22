@@ -3126,3 +3126,24 @@ autorizado: los 2 FP de los recorridos (recuerdo genérico del cobro = disponibi
 pregunta de recogida con acción contingente no promete) + refuerzo del futuro inmediato del propio
 agente — vara 33/33, FN 0/13 · FP 0/20, reportados por separado. CON ESTO LA FASE B ESTÁ COMPLETA
 salvo B5 (encender el evaluador), que es decisión de producto de Simon.
+
+## 2026-08-21 — El caso ES la conversación: agrupación en la cola, y el evaluador captura de QUÉ presupuesto se habla
+Fallo Carlos: dos cards por paciente (una por presupuesto), con la card en 3.400 € y el hilo
+hablando del de 300. La cola agrupa ahora por conversación (dígitos): UNA card, cohorte = LA PEOR
+de sus miembros (se asume de más), importe del ACTIVO en el título y los demás NOMBRADOS como tag
+(«+ otro de 3.400 €») y en la ficha («Se habla del presupuesto de X · También vivo: Y»). El ACTIVO
+lo decide LA CONVERSACIÓN con una sola pieza para cola y ficha (`elegirPresupuestoActivo`):
+1) el juicio nuevo del evaluador `presupuestoReferido` — el modelo ve los presupuestos con LETRA y
+devuelve la del que el último mensaje identifica; el código traduce letra→id (borde canónico),
+viaja aditivo en el payload (`presupuestoReferidoId`) y un turno sobre otra cosa NO borra el último
+conocido; 2) sin juicio, PROXY DECLARADO (condición dictada: se ve que es proxy — la ficha dice
+«elegido por ser el más señalado o reciente; compruébalo en el hilo»): señal del clasificador viejo
+> el emitido más reciente. El proxy nace con fecha de muerte: muere solo a medida que el evaluador
+evalúe turnos. La cabecera suma TODOS los vivos del caso (importeTotal — misma cifra, menos cards);
+los deep-links y acciones usan el id del activo sin tocar rutas; la cola de ENVÍOS sigue por
+documento a propósito (la cadencia es del papel; el caso, de la persona). El juicio nuevo es cambio
+de prompt del evaluador: su pasada de vara viaja con la próxima autorizada — el modo de fallo es
+benigno (ilegible/null → proxy, contable). De paso murió el ÚLTIMO escritor compat superviviente
+(la rama de config-ilegible de evaluar-entrante). Y el botón de generar de MENSAJERÍA dejó el
+clasificador viejo: usa /api/agente/entrada — una sola pieza con Seguimiento (ficha → juez → sin
+repreguntar), para cualquier hilo evaluado, con errores honestos. qa:cola 52 checks.
