@@ -40,10 +40,47 @@ export function contextoParaEntrada(ficha: FichaCaso): string {
     if (r.valor && r.valor !== "no_aplica") lineas.push(`Ya recogido — ${r.campo}: ${r.valor}`);
   }
   for (const p of ficha.pendientes) {
-    lineas.push(`Pendiente de resolver — ${p.etiqueta}: «${p.frase}»`);
+    // La dirección importa (fallo Elena, 21-08): esto es lo que LA PERSONA
+    // preguntó y quedó aplazado — la coordinadora lo TRAE resuelto, no lo
+    // repregunta. La etiqueta del contexto lo dice para que el redactor no
+    // lo lea como hueco que rellenar con el paciente.
+    lineas.push(`Pregunta de la persona que TÚ traes resuelta (quedó aplazada) — ${p.etiqueta}: «${p.frase}»`);
   }
   if (ficha.espera) lineas.push(`OJO: hay una espera pactada hasta ${ficha.espera.hasta} («sin contacto hasta entonces»).`);
   return lineas.join("\n");
+}
+
+/**
+ * LA GUARDA EN CÓDIGO del fallo Elena (21-08): si es regla dura, no puede
+ * depender de la obediencia del redactor (mismo criterio que parió al juez).
+ * Una frase interrogativa del borrador que comparta un término distintivo con
+ * un pendiente aplazado ES devolverle a la persona su propia pregunta →
+ * se descarta con motivo. Determinista, puro, exportado para el QA.
+ * Se asume de más a propósito («¿te llamo para contarte lo del IVA?» también
+ * cae): un descarte obliga a escribir a mano; una repregunta llega al
+ * paciente.
+ */
+export function repreguntaPendiente(
+  borrador: string,
+  pendientes: ReadonlyArray<{ etiqueta: string; frase: string }>,
+): string | null {
+  if (pendientes.length === 0) return null;
+  const norm = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const PARADA = new Set(["para", "pero", "este", "esta", "esto", "como", "cuando", "donde", "sobre", "tiene", "tienes", "lleva", "llevan", "sabes", "quiero", "puedo", "podeis", "vale", "euros", "precio"]);
+  const terminosDe = (s: string) =>
+    norm(s).split(/[^a-z0-9€]+/).filter((t) => t.length >= 3 && !PARADA.has(t));
+  const terminosPendientes = new Set(pendientes.flatMap((p) => [...terminosDe(p.frase), ...terminosDe(p.etiqueta)]));
+
+  // Frase a frase: interrogativa (¿…? o termina en ?) que comparta término.
+  for (const frase of borrador.split(/(?<=[.!?…])\s+|\n+/)) {
+    const esPregunta = /\?/.test(frase);
+    if (!esPregunta) continue;
+    if (terminosDe(frase).some((t) => terminosPendientes.has(t))) {
+      return frase.trim().slice(0, 200);
+    }
+  }
+  return null;
 }
 
 /** Exportado para su eval — misma doctrina que el juez y el evaluador. */
@@ -53,6 +90,7 @@ Redacta TU PRIMER MENSAJE al retomar: preséntate con tu nombre como parte del e
 
 REGLAS DURAS:
 - JAMÁS repreguntes un dato que figure como «Ya recogido»: repreguntar dice que nadie leyó la conversación.
+- Los PENDIENTES del contexto son preguntas DE LA PERSONA que quedaron aplazadas. NUNCA se los devuelvas como pregunta ni le pidas ese dato — ella preguntó, tú respondes. Para cada pendiente: o lo omites, o anuncias que vienes a resolverlo («te confirmo ya lo del IVA» / «vengo con la respuesta de X»), sin inventar el dato si no consta. Preguntarle a la persona lo que ella preguntó es el fallo exacto que este mensaje existe para evitar.
 - No afirmes hechos clínicos (dolor, resultado, duración, riesgos) — eso lo valora el doctor.
 - No prometas ni insinúes precios, descuentos, cuotas o plazos que no consten en el contexto.
 - Si consta un pago pendiente y la persona no lo ha preguntado en su último mensaje, solo puedes recordarlo en genérico (sin cifra, sin tratamiento).
@@ -114,6 +152,13 @@ export async function borradorDeEntrada(args: {
     clearTimeout(timeoutId);
   }
   if (!borrador) return { ok: false, motivo: "modelo_no_disponible" };
+
+  // Guarda de CÓDIGO antes del juez: un pendiente aplazado devuelto como
+  // pregunta no llega ni a juzgarse (regla dictada, 21-08).
+  const repregunta = repreguntaPendiente(borrador, ficha.pendientes);
+  if (repregunta) {
+    return { ok: false, motivo: "descartado", categoria: "repregunta_pendiente", frase: repregunta };
+  }
 
   // El MISMO juez que los borradores del agente. turnoEntrega=true: quien
   // habla ES la persona — sus promesas son suyas y valen.

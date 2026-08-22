@@ -26,7 +26,7 @@ import pg from "pg";
 import { runWithCliente } from "../app/lib/airtable";
 import { registrarEventoIdempotente, registrarEvento } from "../app/lib/automatizacion/pg";
 import { fichaDeCaso, type FichaCaso } from "../app/lib/agente/ficha-caso";
-import { contextoParaEntrada } from "../app/lib/agente/borrador-entrada";
+import { contextoParaEntrada, repreguntaPendiente } from "../app/lib/agente/borrador-entrada";
 import { hoyISO } from "../app/lib/time";
 
 const TEL_SIN_EVAL = "+34611999002"; // huérfana del seed (Mónica): mensajes, cero evaluación
@@ -192,6 +192,21 @@ console.log("\nd · contextoParaEntrada: lo recogido consta, lo pendiente con su
   ok("lo PENDIENTE entra con la frase real del paciente", ctx.includes("¿tenéis sábados?"));
   ok("la espera pactada se declara (que la entrada no la pise a ciegas)", ctx.includes("2026-08-25"));
   ok("qué quiere, arriba", ctx.includes("Quiere cita — revisión · tardes"));
+  ok("el pendiente se declara como pregunta DE LA PERSONA que se trae resuelta",
+    ctx.includes("TÚ traes resuelta"));
+
+  // La guarda en CÓDIGO del fallo Elena (21-08): un pendiente aplazado
+  // devuelto como pregunta al paciente se descarta, sin depender del prompt.
+  const PEND_IVA = [{ etiqueta: "Condición del presupuesto", frase: "¿los 4.200 € llevan IVA?" }];
+  ok("devolver el IVA como pregunta → DESCARTE (el caso Elena)",
+    repreguntaPendiente("Hola Elena, soy Marta. Sobre tu presupuesto: ¿sabes si los 4.200 € llevan IVA?", PEND_IVA) != null);
+  ok("también cae la variante indirecta («¿te llamo para contarte lo del IVA?»: se asume de más)",
+    repreguntaPendiente("¿Te viene bien que te llame y vemos lo del IVA?", PEND_IVA) != null);
+  ok("ANUNCIAR que se trae la respuesta NO cae (afirmación, no pregunta)",
+    repreguntaPendiente("Hola Elena, soy Marta. Te confirmo ya lo del IVA de tu presupuesto y lo dejamos cerrado.", PEND_IVA) === null);
+  ok("una pregunta que NO toca el pendiente no cae («¿te viene bien el martes?»)",
+    repreguntaPendiente("Te confirmo lo del IVA en cuanto lo tenga. ¿Te viene bien que te llame el martes?", PEND_IVA) === null);
+  ok("sin pendientes, nada que vigilar", repreguntaPendiente("¿Quieres cita el martes?", []) === null);
 }
 
 await limpiar();

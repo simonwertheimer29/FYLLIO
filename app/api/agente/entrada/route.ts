@@ -54,13 +54,10 @@ export const POST = withAuth(async (session, req) => {
         );
       }
       if (r.motivo === "descartado") {
-        return NextResponse.json(
-          {
-            error: `El revisor descartó el borrador${r.frase ? `: «${r.frase}»` : ""}. Escríbelo a mano.`,
-            categoria: r.categoria,
-          },
-          { status: 422 },
-        );
+        const detalle = r.categoria === "repregunta_pendiente"
+          ? `El borrador devolvía al paciente su propia pregunta${r.frase ? ` («${r.frase}»)` : ""} — lo pendiente se trae resuelto, no se repregunta. Escríbelo a mano.`
+          : `El revisor descartó el borrador${r.frase ? `: «${r.frase}»` : ""}. Escríbelo a mano.`;
+        return NextResponse.json({ error: detalle, categoria: r.categoria }, { status: 422 });
       }
       return NextResponse.json(
         { error: "No se pudo redactar ahora mismo — inténtalo en un momento o escríbelo a mano" },
