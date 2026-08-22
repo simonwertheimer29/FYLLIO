@@ -19,6 +19,7 @@
 // desaparece al cambiar de pestaña se lee como un fallo; uno que dice "esto aquí
 // no aplica, y por qué" enseña cómo funciona el producto.
 
+import { toast } from "sonner";
 import { useCallback, useEffect, useState } from "react";
 import type { UserSession } from "../../lib/presupuestos/types";
 import KpiView from "../../components/presupuestos/KpiView";
@@ -81,9 +82,13 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
       validar: traeLista("doctores"),
     })
       .then((d) => setDoctores(d.doctores.map((x) => x.nombre).filter(Boolean)))
-      // Sin lista de doctores el filtro se queda vacío y se dice; lo que no se
-      // hace es tumbar la pantalla entera por un desplegable.
-      .catch(() => setDoctores([]));
+      // Censo 21-08: el comentario de antes decía «se dice» y NO se decía —
+      // el fallo vaciaba el filtro en silencio. Ahora se dice de verdad y se
+      // CONSERVA la última lista buena (§10): vaciar es perder información.
+      .catch((e) => {
+        console.error("[kpis] filtro de doctores no cargado:", e);
+        toast.error("No se pudo cargar el filtro de doctores — reintenta");
+      });
   }, [selectedClinicaNombre]);
   useEffect(() => { cargarDoctores(); }, [cargarDoctores]);
 

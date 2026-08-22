@@ -326,7 +326,8 @@ export default function PresupuestosShell({
             nota: "Reactivación programada — 90 días",
             fechaHora: fecha90,
           }),
-        }).catch(() => {});
+          // caída-declarada: nota de reactivación TRAS el cierre ya guardado — se loguea; perderla no revierte el estado y se puede re-anotar.
+        }).catch((e) => console.error("[presupuestos] nota de reactivación no registrada:", e));
       }
     } catch {
       // Rollback puntual del estado (antes hacía un refetch completo que

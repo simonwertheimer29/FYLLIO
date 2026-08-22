@@ -92,7 +92,8 @@ function TabCola({ user }: { user: UserSession }) {
       localStorage.setItem(STORAGE_KEY, String(ahora));
       fetch("/api/automatizaciones/procesar", { method: "POST" })
         .then(fetchSecuencias)
-        .catch(() => {});
+        // caída-declarada: disparo horario best-effort — el intervalo reintenta en una hora y el cron diario es la red de verdad.
+        .catch((e) => console.error("[automatizaciones] disparo horario falló:", e));
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

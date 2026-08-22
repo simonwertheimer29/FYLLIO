@@ -3171,3 +3171,19 @@ DOBLES por `sustituirLlaves` — que se movió a módulo PURO client-safe (lib/p
 porque el motivo de que el panel siguiera con llave simple era que la función correcta vivía en un
 módulo con imports de servidor. Contrato duro también en UI: una plantilla con huecos
 ({{pendiente}} y compañía) no se inserta rota — se avisa nombrando las llaves.
+
+## 2026-08-21 — Censo de catch→vacío en red: 5 culpables, 12 declarados, y el trinquete que evita el próximo
+El barrido que pidió Simon tras MEJORAS 105 (¿cuántos catch convierten un fallo de red en «no hay
+nada»?). De los 93 candidatos: ~35 eran parseo de body con validación posterior (legítimos por
+construcción), ~20 errores YA honestos (el patrón bueno), un bloque de fire-and-forget de
+escritura, y CINCO CULPABLES de lectura que pintaban datos de negocio vacíos en silencio:
+plantillas del panel de leads (el gemelo exacto de 105), el catálogo de tipos del importador CSV
+(¡el CSV se resolvía CONTRA un catálogo vacío sin que nadie lo supiera!), el filtro de doctores de
+/kpis (cuyo comentario decía «se dice» y no se decía), y los dos del panel de presupuestos (105,
+ya pagados). Los legítimos que quedan llevan su porqué EN LÍNEA (dictado: si el que llega después
+no ve la razón ahí mismo, lo copia como patrón) con el marcador «caída-declarada:», y los
+fire-and-forget de escritura ganaron console.error (§9). LO IMPORTANTE: qa:sin-fallbacks tiene el
+punto 4 — ningún catch→vacío en cliente sin porqué en línea, trinquete EN CERO desde el día uno,
+con sonda verificada (se plantó una violación y disparó). El bug de 105 ya no puede repetirse por
+debajo de la vara. Pendiente listado (no urgente): ~44 componentes con fetch() a pelo que sí
+comprueban ok/toast — migrables a cargarJSON de paso, como la deuda del `?? []` de julio.

@@ -96,6 +96,7 @@ export default function IntervencionSidePanel({
       // no había hilo previo (censo 2026-07-29).
       .catch(() => ({ mensajes: null }))
       .then((mData) => {
+        // caída-declarada: normaliza la FORMA tras el catch de arriba — el fallo real ya enciende errorMensajes (error visible con reintento).
         setMensajes(Array.isArray(mData.mensajes) ? mData.mensajes : []);
         setErrorMensajes(!Array.isArray(mData.mensajes));
         setLoadingMensajes(false);
@@ -116,6 +117,7 @@ export default function IntervencionSidePanel({
     fetch(`/api/presupuestos/configuracion-waba${qs}`)
       .then((r) => r.json())
       .then((d) => setWabaActivo(d?.credencialesConfiguradas === true && d?.activoParaClinica === true))
+      // caída-declarada: interruptor FAIL-CLOSED — sin señal, modo manual (el lado seguro).
       .catch(() => setWabaActivo(false));
   }, [item.id, item.clinica]);
 
@@ -259,7 +261,8 @@ export default function IntervencionSidePanel({
           body: JSON.stringify({ presupuestoId: item.id, tipo: "WhatsApp enviado" }),
         })
           .then(() => onRefresh())
-          .catch(() => {});
+          // caída-declarada: bookkeeping TRAS un envío ya hecho — abortar no lo deshace; se loguea y el ContactCount se reconcilia en el siguiente.
+          .catch((e) => console.error("[intervencion] registrar-respuesta falló:", e));
         toast.success("Mensaje enviado");
       } else {
         const res = await fetch("/api/presupuestos/intervencion/enviar-manual", {
@@ -288,7 +291,8 @@ export default function IntervencionSidePanel({
           body: JSON.stringify({ presupuestoId: item.id, tipo: "WhatsApp enviado" }),
         })
           .then(() => onRefresh())
-          .catch(() => {});
+          // caída-declarada: bookkeeping TRAS un envío ya hecho — abortar no lo deshace; se loguea y el ContactCount se reconcilia en el siguiente.
+          .catch((e) => console.error("[intervencion] registrar-respuesta falló:", e));
         toast.success("Mensaje registrado — termina el envío en WhatsApp");
       }
     } catch (err) {

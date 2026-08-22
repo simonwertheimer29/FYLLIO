@@ -320,7 +320,8 @@ export function LeadAccionPanel({
           entranteAt: d?.ultimaEntrantePorLead?.[lead.id] ?? null,
         }),
       )
-      .catch(() => setAccionDir({}));
+      // caída-declarada: señal auxiliar del chip «esperando respuesta» — el hilo visible es la verdad y el panel funciona sin ella; se loguea, no se bloquea.
+      .catch((e) => { console.error("[lead-panel] dirección de acción no cargada:", e); setAccionDir({}); });
   }, [lead.id]);
 
   // Cargar hilo. Error visible con reintento (no un "sin mensajes" mentiroso).
@@ -346,10 +347,15 @@ export function LeadAccionPanel({
   }, [cargarMensajes]);
 
   useEffect(() => {
-    fetch("/api/leads/plantillas")
-      .then((r) => r.json())
-      .then((d) => setPlantillas(Array.isArray(d?.plantillas) ? d.plantillas : []))
-      .catch(() => setPlantillas([]));
+    // Censo 21-08: esto era el mismo silencio que MEJORAS 105 — un fallo se
+    // pintaba como «no hay plantillas». Ahora el fallo SE DICE.
+    cargarJSON<{ plantillas: PlantillaLead[] }>("/api/leads/plantillas")
+      .then((d) => setPlantillas(d.plantillas))
+      .catch((e) => {
+        console.error("[lead-panel] plantillas no cargadas:", e);
+        toast.error("No se pudieron cargar las plantillas — puedes escribir a mano");
+        setPlantillas([]);
+      });
   }, []);
 
   useEffect(() => {
@@ -361,6 +367,7 @@ export function LeadAccionPanel({
       .then((d) =>
         setWabaActivo(d?.credencialesConfiguradas === true && d?.activoParaClinica === true)
       )
+      // caída-declarada: interruptor FAIL-CLOSED — sin señal, modo manual (el lado seguro); un fallo aquí nunca debe parecer WABA activo.
       .catch(() => setWabaActivo(false));
   }, [lead.id, lead.clinicaNombre]);
 
@@ -513,7 +520,8 @@ export function LeadAccionPanel({
         })
           .then((r) => r.json())
           .then((d) => d?.lead && onChanged(adoptarClinicaNombre(d.lead, lead)))
-          .catch(() => {});
+          // caída-declarada: bookkeeping TRAS un envío ya hecho (wa.me abierto) — abortar aquí no puede deshacerlo; se loguea y el siguiente envío reconcilia.
+          .catch((e) => console.error("[lead-panel] registrar-respuesta falló:", e));
         toast.success("Mensaje registrado — termina el envío en WhatsApp");
       }
     } catch (err) {

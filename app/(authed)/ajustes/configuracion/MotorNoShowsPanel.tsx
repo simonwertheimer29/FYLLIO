@@ -76,6 +76,7 @@ export function MotorNoShowsPanel({ clinicaId }: { clinicaId: string }) {
         body: JSON.stringify(config),
       });
       if (!res.ok) throw new Error();
+      // caída-declarada: parse del ECO tras un PUT ya confirmado (res.ok) — sin eco se mantiene lo local, el guardado no depende de esto.
       const saved = (await res.json().catch(() => null)) as Config | null;
       if (saved) setConfig({ ...DEFAULTS, ...saved });
       toast.success("Configuración guardada.");

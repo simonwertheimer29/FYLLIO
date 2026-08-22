@@ -110,6 +110,7 @@ export function LoginFlow() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), pin: pinValue }),
       });
+      // caída-declarada: parse del cuerpo de ERROR para dar detalle — el fallo ya se decide por status, esto solo mejora el mensaje.
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         pinRef.current = "";
@@ -149,6 +150,7 @@ export function LoginFlow() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ identToken: clinicaCtx.identToken, clinicaId }),
       });
+      // caída-declarada: parse del cuerpo de ERROR para dar detalle — el fallo ya se decide por status, esto solo mejora el mensaje.
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         if (data?.expired) {

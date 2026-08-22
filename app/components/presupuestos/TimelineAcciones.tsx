@@ -126,6 +126,7 @@ export default function TimelineAcciones({ presupuestoId }: { presupuestoId: str
         ),
       ]);
       setContactos(dc.contactos);
+      // caída-declarada: normaliza la FORMA tras cargarJSON (la ruta devuelve array a pelo) — el fallo real cae al catch con setError(true).
       setHistorial(Array.isArray(dh) ? dh : []);
     } catch {
       setContactos([]);

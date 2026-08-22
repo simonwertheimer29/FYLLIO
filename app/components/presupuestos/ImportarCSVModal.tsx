@@ -8,6 +8,7 @@ import { useState, useRef, useMemo, useEffect } from "react";
 import Papa from "papaparse";
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
+import { cargarJSON } from "../../lib/fetch-json";
 import { Check, X, FolderOpen, CheckCircle2, AlertTriangle, ChevronLeft, ArrowRight, ICON_STROKE } from "../icons";
 import type { Presupuesto, UserSession } from "../../lib/presupuestos/types";
 import { resolverTipoPaciente, type TipoPacienteOpcion } from "../../lib/pacientes/tipos-paciente-puro";
@@ -186,10 +187,15 @@ export default function ImportarCSVModal({
   // contra una heurística que escribía siempre la misma aseguradora.
   const [catalogo, setCatalogo] = useState<TipoPacienteOpcion[]>([]);
   useEffect(() => {
-    fetch("/api/pacientes/tipos")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => setCatalogo(d?.tipos ?? []))
-      .catch(() => {});
+    // Censo 21-08: el CSV se resuelve CONTRA este catálogo; cargarlo en
+    // silencio como vacío hacía que una importación entera resolviera tipos
+    // contra la nada sin que nadie lo supiera. El fallo SE DICE.
+    cargarJSON<{ tipos: TipoPacienteOpcion[] }>("/api/pacientes/tipos")
+      .then((d) => setCatalogo(d.tipos))
+      .catch((e) => {
+        console.error("[importar-csv] catálogo de tipos no cargado:", e);
+        toast.error("No se pudo cargar el catálogo de tipos — los tipos del CSV no se resolverán; cierra y reintenta");
+      });
   }, []);
 
   // Step 1

@@ -154,6 +154,50 @@ for (const f of archivos("app")) {
   }
 }
 
+// ── 4 · ningún catch→vacío en CLIENTE sin su porqué EN LÍNEA ───────────
+//
+// El bug de MEJORAS 105 (2026-08-21): un panel pedía plantillas a una ruta
+// borrada y un `catch` lo pintaba como «no hay plantillas» — ONCE DÍAS
+// mintiendo, por debajo de la vara del `?? []` (es el mismo bug con otra
+// sintaxis; ya pasó una vez con `.then(` en julio). Tres formas nuevas:
+//
+//   a) `.catch(() => setX([] | {} | null | false | 0))` — el fallo se vuelve
+//      estado vacío.
+//   b) `.catch(() => [] | {} | null)` — el fallo se vuelve valor vacío.
+//   c) `Array.isArray(x) ? x : []` — la forma sin catch del mismo default.
+//
+// La regla NO es «prohibido»: algunos son correctos (un interruptor
+// fail-closed, el parse del cuerpo de un error, normalizar la forma tras un
+// error ya señalado). La regla es que EL PORQUÉ VA EN LA LÍNEA (decisión de
+// Simon, 21-08): un marcador `// caída-declarada: <motivo>` en la misma
+// línea o la inmediatamente anterior. Sin porqué visible, el que llega
+// después lo copia como patrón — y eso es exactamente cómo se propagó.
+//
+// Trinquete en CERO desde el día uno: todo lo existente se arregló o se
+// declaró en la misma tanda (censo del 21-08). Solo puede seguir en cero.
+for (const f of archivos("app")) {
+  const raw = readFileSync(join(RAIZ, f), "utf8");
+  if (!raw.includes('"use client"')) continue; // el censo es de lo que VE un usuario
+  const lineas = raw.split("\n");
+  for (let i = 0; i < lineas.length; i++) {
+    const l = lineas[i];
+    // Una línea de COMENTARIO que cita el patrón (los avisos históricos de
+    // «Antes: .catch(() => {})») no es una aparición del patrón.
+    if (/^\s*(\/\/|\*)/.test(l)) continue;
+    const a = /\.catch\(\(\) => set[A-Z]\w*\((\[\]|\{\}|null|false|0)\)\)/.test(l);
+    const b = /\.catch\(\(\) => (\[\]|\{\}|null)\)/.test(l);
+    const c = /Array\.isArray\([^)]*\)\s*\?\s*[^:]+:\s*\[\]/.test(l);
+    if (!(a || b || c)) continue;
+    const marcada =
+      /caída-declarada:\s*\S/.test(l) || (i > 0 && /caída-declarada:\s*\S/.test(lineas[i - 1]));
+    if (!marcada) {
+      fallos.push(
+        `${f}:${i + 1} convierte un fallo en vacío sin porqué — cargarJSON + error honesto, o declara el motivo EN LÍNEA («// caída-declarada: …»)`,
+      );
+    }
+  }
+}
+
 if (fallos.length > 0) {
   console.error(`✗ ${fallos.length} problemas:\n`);
   for (const x of fallos) console.error("  ·", x);
@@ -162,5 +206,6 @@ if (fallos.length > 0) {
 }
 console.log(
   "✓ Sin fallbacks a datos inventados, sin variables fuera del contrato,\n" +
-  `  y ningún \`?? []\` nuevo (quedan ${DEUDA.size} de deuda conocida, y solo pueden bajar).`,
+  `  ningún \`?? []\` nuevo (quedan ${DEUDA.size} de deuda conocida, y solo pueden bajar),\n` +
+  "  y ningún catch→vacío en cliente sin su porqué en línea (caída-declarada).",
 );
