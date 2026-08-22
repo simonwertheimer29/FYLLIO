@@ -7,22 +7,33 @@
 import { NextResponse } from "next/server";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../lib/auth/users";
-import { listarConversaciones, type FiltroBandeja } from "../../../lib/mensajeria/conversaciones";
+import {
+  listarConversaciones,
+  type FiltroBandeja,
+  type OrdenBandeja,
+} from "../../../lib/mensajeria/conversaciones";
 import { runWithCliente } from "../../../lib/airtable";
 
 export const dynamic = "force-dynamic";
 
-const FILTROS: FiltroBandeja[] = ["pendientes", "todas", "agente", "necesita-persona"];
+// Fase C: tres lentes sobre la lista completa; sin filtro = todo. El nombre
+// viejo `necesita-persona` se acepta y se remapea — hay enlaces guardados.
+const FILTROS: FiltroBandeja[] = ["necesitan-de-mi", "agente", "sin-respuesta"];
 
 export const GET = withAuth(async (session, req) => {
   if (!session.cliente) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   const url = new URL(req.url);
-  const filtroRaw = url.searchParams.get("filtro") ?? "todas";
-  const filtro = (FILTROS as string[]).includes(filtroRaw)
-    ? (filtroRaw as FiltroBandeja)
-    : "todas";
+  const filtroRaw = url.searchParams.get("filtro");
+  const filtro: FiltroBandeja | null =
+    filtroRaw === "necesita-persona"
+      ? "necesitan-de-mi"
+      : (FILTROS as string[]).includes(filtroRaw ?? "")
+        ? (filtroRaw as FiltroBandeja)
+        : null;
+  const orden: OrdenBandeja =
+    url.searchParams.get("orden") === "antiguos" ? "antiguos" : "recientes";
   const clinicaId = url.searchParams.get("clinicaId");
 
   // Un admin ve la red entera (null); cualquier otro rol ve SOLO sus clínicas.
@@ -36,7 +47,7 @@ export const GET = withAuth(async (session, req) => {
 
   try {
     const out = await runWithCliente(session.cliente, () =>
-      listarConversaciones({ filtro, clinicaId, clinicasPermitidas }),
+      listarConversaciones({ filtro, orden, clinicaId, clinicasPermitidas }),
     );
     return NextResponse.json({
       conversaciones: out.conversaciones,

@@ -1088,7 +1088,7 @@ export function RedView({ user: _user }: { user: UserSession }) {
                             <span className="text-[var(--color-muted)]">—</span>
                           ) : (
                             <Link
-                              href={`/mensajeria?filtro=necesita-persona&clinicaId=${c.id}`}
+                              href={`/mensajeria?filtro=necesitan-de-mi&clinicaId=${c.id}`}
                               onClick={(e) => e.stopPropagation()}
                               className="font-semibold text-[var(--color-danger)] underline-offset-2 hover:underline"
                             >

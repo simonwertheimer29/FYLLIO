@@ -23,7 +23,7 @@ import { selectPresupuestosRaw } from "./presupuestos/repo";
 import { listPagosResumen } from "./pagos";
 import { listAllOpciones } from "./configuraciones/configuraciones";
 import { ultimosMensajesPorConversacion } from "./presupuestos/mensajeria";
-import { necesitanPersonaPorClinica } from "./mensajeria/conversaciones";
+import { colaDeSeguimiento } from "./seguimiento/cola";
 import { ultimasAccionesDireccionPorLead } from "./leads/acciones";
 import { esIntencionDeCierre } from "./presupuestos/intenciones";
 import { conversacionDePresupuesto } from "./presupuestos/conversacion-presupuesto";
@@ -146,9 +146,11 @@ export type ClinicaFila = {
   tendenciaPct: number | null;
   /** Pocos presupuestos en juego: ni pinta señal ni encabeza el ranking. */
   muestraCorta: boolean;
-  /** Conversaciones esperando el criterio de una persona en esta clínica.
-   *  Sale de la MISMA consulta que la bandeja (`necesitanPersonaPorClinica`),
-   *  no de un cálculo propio: al hacer clic tienen que salir exactamente estas.
+  /** Casos esperando a una persona en esta clínica. Fase C: sale de LA COLA
+   *  de Seguimiento — el mismo cálculo que el filtro «necesitan de mí» de la
+   *  bandeja y que las cohortes de /seguimiento. Es un número MAYOR que el
+   *  viejo (incluye pendientes de responder y listos para cerrar, no solo
+   *  quiebres/derivados): el viejo mentía por defecto.
    *
    *  `null` = no se pudo consultar, que NO es lo mismo que cero. Un cero
    *  inventado aquí diría «esta clínica lo lleva al día» sobre un fallo. */
@@ -698,18 +700,28 @@ export async function calcularDashboardRed(opts: {
 
   // ── Sección 3 · clínicas ─────────────────────────────────────────────
   //
-  // «Necesitan persona» sale de la MISMA consulta que la bandeja, no de un
-  // cálculo propio sobre presupuestos: al hacer clic en la cifra tienen que
-  // salir exactamente esas conversaciones. Dos cálculos del mismo número
+  // «Necesitan persona» sale de LA COLA de Seguimiento (fase C), no de un
+  // cálculo propio: al hacer clic en la cifra tienen que salir exactamente
+  // esos casos — el filtro «necesitan de mí» de la bandeja y las cohortes de
+  // /seguimiento cuentan con la misma función. Dos cálculos del mismo número
   // divergen tarde o temprano, y entonces /red dice 7 y la bandeja enseña 5.
   //
   // Si falla, queda `null` y la tabla lo dice: un cero inventado aquí afirmaría
   // que la clínica lo lleva al día (§4).
   let necesitanPersona: { porClinica: Record<string, number>; sinClinica: number } | null = null;
   try {
-    necesitanPersona = await necesitanPersonaPorClinica({
-      clinicasPermitidas: opts.clinicaIds,
-    });
+    const { casos } = await colaDeSeguimiento();
+    const porClinica: Record<string, number> = {};
+    let sinClinica = 0;
+    for (const caso of casos) {
+      if (!caso.clinicaId) {
+        sinClinica++;
+        continue;
+      }
+      if (opts.clinicaIds != null && !opts.clinicaIds.includes(caso.clinicaId)) continue;
+      porClinica[caso.clinicaId] = (porClinica[caso.clinicaId] ?? 0) + 1;
+    }
+    necesitanPersona = { porClinica, sinClinica };
   } catch (err) {
     console.error("[dashboard-red] no se pudo contar «necesitan persona»:", err);
   }

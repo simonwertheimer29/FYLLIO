@@ -29,7 +29,11 @@ import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
 import { ErrorState, EmptyState } from "../../components/ui/Feedback";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
 import { MessageCircle, ICON_STROKE } from "../../components/icons";
-import type { Conversacion, FiltroBandeja } from "../../lib/mensajeria/conversaciones";
+import type {
+  Conversacion,
+  FiltroBandeja,
+  OrdenBandeja,
+} from "../../lib/mensajeria/conversaciones";
 import {
   ListaConversaciones,
   BandaSinAsignar,
@@ -60,12 +64,19 @@ export function MensajeriaView() {
   // enlaza aquí con su filtro y su clínica. Sin esto el clic llevaría a la
   // bandeja sin filtrar y el número de /red no cuadraría con lo que se ve —
   // que es justo lo que la columna promete al ser un enlace.
+  //
+  // Fase C: por defecto NO hay filtro — la bandeja es la lista completa. El
+  // nombre viejo del enlace (`necesita-persona`) se remapea: hay marcadores
+  // guardados que no se actualizan solos.
   const filtroDeUrl = params.get("filtro");
-  const [filtro, setFiltro] = useState<FiltroBandeja>(
-    FILTROS.some((f) => f.id === filtroDeUrl)
-      ? (filtroDeUrl as FiltroBandeja)
-      : "pendientes",
+  const [filtro, setFiltro] = useState<FiltroBandeja | null>(
+    filtroDeUrl === "necesita-persona"
+      ? "necesitan-de-mi"
+      : FILTROS.some((f) => f.id === filtroDeUrl)
+        ? (filtroDeUrl as FiltroBandeja)
+        : null,
   );
+  const [orden, setOrden] = useState<OrdenBandeja>("recientes");
 
   // La clínica de la URL manda sobre la del selector, una sola vez al llegar.
   // Después el selector vuelve a ser el que manda: si no, cambiarlo no haría
@@ -98,7 +109,9 @@ export function MensajeriaView() {
     setCargandoLista(true);
     setErrorLista(null);
     try {
-      const params = new URLSearchParams({ filtro });
+      const params = new URLSearchParams();
+      if (filtro) params.set("filtro", filtro);
+      if (orden === "antiguos") params.set("orden", orden);
       if (selectedClinicaId) params.set("clinicaId", selectedClinicaId);
       // `cargarJSON` y no `fetch` + `?? []` (§10): una bandeja vacía por un
       // fallo de red es indistinguible de «no hay conversaciones», y la
@@ -112,7 +125,7 @@ export function MensajeriaView() {
     } finally {
       setCargandoLista(false);
     }
-  }, [filtro, selectedClinicaId]);
+  }, [filtro, orden, selectedClinicaId]);
 
   useEffect(() => {
     cargarLista();
@@ -265,7 +278,7 @@ export function MensajeriaView() {
         >
           <div className="shrink-0 border-b border-[var(--color-border)]">
             <Buscador valor={busqueda} onCambiar={setBusqueda} />
-            <FiltrosBandeja activo={filtro} onCambiar={setFiltro} />
+            <FiltrosBandeja activo={filtro} onCambiar={setFiltro} orden={orden} onOrden={setOrden} />
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto pt-2">
             {cargandoLista && !lista ? (
@@ -291,16 +304,24 @@ export function MensajeriaView() {
                       title={
                         busqueda.trim()
                           ? "Nadie con ese nombre ni ese teléfono"
-                          : filtro === "agente"
-                            ? "El agente todavía no ha contestado nada"
-                            : "No hay conversaciones aquí"
+                          : filtro === "necesitan-de-mi"
+                            ? "Nada espera una acción tuya"
+                            : filtro === "agente"
+                              ? "El agente no lleva ninguna conversación ahora"
+                              : filtro === "sin-respuesta"
+                                ? "Nada tuyo sin contestar"
+                                : "No hay conversaciones aquí"
                       }
                       hint={
                         busqueda.trim()
                           ? "Prueba con menos letras, o quita el filtro."
-                          : filtro === "agente"
-                            ? "Aparecerán los mensajes que redacte el agente, los mande él o los mande alguien tal cual."
-                            : "Cuando entre o salga un mensaje, aparecerá en esta lista."
+                          : filtro === "necesitan-de-mi"
+                            ? "Aquí aparece lo mismo que en la cola de Seguimiento: lo que exige a una persona."
+                            : filtro === "agente"
+                              ? "Aparecerán las conversaciones donde la última respuesta la redactó el agente."
+                              : filtro === "sin-respuesta"
+                                ? "Aparecerán las conversaciones donde escribiste tú y el paciente aún no ha respondido."
+                                : "Cuando entre o salga un mensaje, aparecerá en esta lista."
                       }
                     />
                   </div>

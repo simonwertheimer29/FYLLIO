@@ -298,6 +298,37 @@ async function resolverConHechos(eventos: EventoSemaforo[], hoyInyectado?: strin
   return estado;
 }
 
+/**
+ * ESPERAS Y ASUMIDOS por dígitos, sin hechos — fase C, la etiqueta de estado
+ * de la bandeja. El asunto DERIVADO no sale de aquí: su etiqueta la pone la
+ * cola de Seguimiento (que asume de más por doctrina declarada). Los hechos
+ * del sistema no mueven ni esperas ni asumidos, así que esta lectura es
+ * exacta con UNA consulta. Se deriva con las MISMAS reglas
+ * (`derivarDeEventos`, filtrando los derivados fuera) — no con una copia del
+ * criterio: quién suelta un asumido o vence una espera se decide en un solo
+ * sitio. Si concurren, gana el asumido — la precedencia del semáforo, no una
+ * inventada aquí.
+ */
+export async function esperasYAsumidosPorDigitos(
+  opts?: OpcionesSemaforo,
+): Promise<Map<string, { asumido: boolean; espera: { hasta: string } | null }>> {
+  const todos = await cargarEventosSemaforo();
+  const hoy = opts?.hoy ?? hoyISO();
+  const porCaso = new Map<string, EventoSemaforo[]>();
+  for (const e of todos) {
+    const clave = soloDigitos(e.caso_id) || e.caso_id;
+    (porCaso.get(clave) ?? porCaso.set(clave, []).get(clave)!).push(e);
+  }
+  const out = new Map<string, { asumido: boolean; espera: { hasta: string } | null }>();
+  for (const [k, eventos] of porCaso) {
+    const est = derivarDeEventos(eventos.filter((e) => e.evento !== "derivado"), hoy);
+    const asumido = est.motivo === "hilo_asumido";
+    const espera = est.motivo === "espera" && est.hasta ? { hasta: est.hasta } : null;
+    if (asumido || espera) out.set(k, { asumido, espera });
+  }
+  return out;
+}
+
 // ─── El censo: el número que se mira ────────────────────────────────────────
 //
 // El semáforo es el único punto por el que todo el producto puede enmudecer,

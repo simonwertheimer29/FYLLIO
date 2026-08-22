@@ -25,9 +25,50 @@
 import { sql } from "kysely";
 import { runWithClienteDb } from "../db/context";
 import { requireCliente } from "../cliente-contexto";
-import { INTENCIONES_QUE_QUIEBRAN } from "../automatizacion/estado";
+import { colaDeSeguimiento, type Cohorte } from "../seguimiento/cola";
+import { esperasYAsumidosPorDigitos } from "../automatizacion/semaforo";
+import { esLeadActivo } from "../leads/pipeline";
 
-export type FiltroBandeja = "pendientes" | "todas" | "agente" | "necesita-persona";
+// ─── Fase C (22-08): la bandeja es LA LISTA COMPLETA ───────────────────────
+//
+// Sin elegir nada al entrar. Encima, TRES filtros que estrechan la misma
+// lista (lentes, no carpetas — los conjuntos se solapan; uno activo a la
+// vez, o ninguno):
+//   · necesitan-de-mi — el teléfono tiene un caso en la COLA de Seguimiento.
+//     El criterio es la cola, no una fórmula propia: aquí murió el
+//     `necesita_persona` paralelo (quiebre viejo OR derivado), que ni
+//     incluía pendiente_responder ni los listos para cerrar.
+//   · agente — el último SALIENTE del hilo lo redactó el agente y nadie ha
+//     asumido el hilo. OJO: no «el último mensaje» — eso apagaba la señal
+//     justo cuando el paciente escribía, o sea, justo cuando el agente
+//     estaba trabajando.
+//   · sin-respuesta — el último mensaje del hilo es un saliente HUMANO:
+//     escribiste tú y ahí se quedó. Es donde el caso se enfría solo — no
+//     reclama, no sale en Seguimiento. Una espera pactada cumple el criterio
+//     y NO se esconde: su etiqueta la explica.
+export type FiltroBandeja = "necesitan-de-mi" | "agente" | "sin-respuesta";
+
+/** El orden REORDENA, no filtra (dictado): recientes (default) o antiguos
+ *  primero — «lo que llevo más tiempo sin tocar». Se aplica ANTES del corte
+ *  del límite: ordenar «antiguos» sobre las 60 más recientes sería mentir. */
+export type OrdenBandeja = "recientes" | "antiguos";
+
+/** La etiqueta de estado del flujo de la fila (fase C): en qué punto está el
+ *  caso SIN abrir la conversación. Derivada, nunca persistida. Una por fila,
+ *  por precedencia: cohorte de la cola (mismas palabras y mismo cálculo que
+ *  Seguimiento) > semáforo (asumido gana a espera, su precedencia) >
+ *  seguimiento automático (caso vivo que trabaja la cadencia) > nada. */
+export type EstadoFlujo = {
+  clase:
+    | "necesita_respuesta"
+    | "listo_para_cerrar"
+    | "fuera_de_plazo"
+    | "asumido"
+    | "espera"
+    | "automatico";
+  /** Solo `espera`: hasta cuándo (YYYY-MM-DD, inclusive). */
+  hasta?: string;
+};
 
 export type Conversacion = {
   /** El teléfono en E.164. Es la clave del hilo. */
@@ -47,16 +88,16 @@ export type Conversacion = {
   pacienteId: string | null;
   leadId: string | null;
   presupuestoId: string | null;
-  /** ¿La última respuesta la escribió el agente? (la redactó él, la mandara
-   *  quien la mandara — ver `sugerido_por_ia` en la migración 018). */
-  ultimaDelAgente: boolean;
-  /** El caso necesita criterio de una persona. Dos fuentes (B4, 21-08):
-   *  el quiebre del clasificador viejo (`presupuestos.requiere_persona`,
-   *  solo presupuestos — recorte del 6 de agosto) y el DERIVADO sin
-   *  resolver del log del evaluador, que cubre también leads y huérfanos.
-   *  La proyección compat murió (MEJORAS 93): el log es la única verdad
-   *  del evaluador. */
-  necesitaPersona: boolean;
+  /** El último SALIENTE del hilo lo redactó el agente (lo mandara quien lo
+   *  mandara — `sugerido_por_ia`, 018) y nadie ha asumido el hilo: el agente
+   *  es quien está contestando. Fase C: antes se miraba el último MENSAJE y
+   *  la señal se apagaba en cuanto el paciente escribía. */
+  agenteAlMando: boolean;
+  /** El último mensaje del hilo es un saliente HUMANO (fase C): escribiste
+   *  tú y el paciente no ha contestado, desde este instante. */
+  sinRespuestaDesde: string | null;
+  /** La etiqueta de estado del flujo (fase C) — ver `EstadoFlujo`. */
+  estadoFlujo: EstadoFlujo | null;
 };
 
 /**
@@ -71,7 +112,9 @@ function previsualizacion(raw: unknown): string {
 }
 
 export async function listarConversaciones(args: {
-  filtro: FiltroBandeja;
+  /** null = la lista completa, sin lente (fase C: es la vista por defecto). */
+  filtro: FiltroBandeja | null;
+  orden?: OrdenBandeja;
   /** null = todas las que el usuario pueda ver. */
   clinicaId?: string | null;
   /** Clínicas a las que esta sesión tiene acceso. `null` = red completa.
@@ -98,6 +141,19 @@ export async function listarConversaciones(args: {
                (autor = 'agente' or sugerido_por_ia is true) as del_agente
           from mensajes_whatsapp
          where telefono is not null and "timestamp" is not null
+         order by telefono, "timestamp" desc
+      ),
+      -- El último SALIENTE, aparte del último mensaje (fase C): la señal
+      -- «lo lleva el agente» se lee de quién CONTESTÓ por última vez, no
+      -- del último mensaje — que la apagaba justo cuando el paciente
+      -- escribía, o sea, justo cuando el agente estaba trabajando.
+      ult_sal as (
+        select distinct on (telefono)
+               telefono,
+               (autor = 'agente' or sugerido_por_ia is true) as del_agente
+          from mensajes_whatsapp
+         where telefono is not null and "timestamp" is not null
+           and direccion = 'Saliente'
          order by telefono, "timestamp" desc
       ),
       -- ─── El CASO del hilo: el último valor NO NULO de cada campo ─────
@@ -143,36 +199,16 @@ export async function listarConversaciones(args: {
                   when k.nombre_perfil is not null then 'perfil'
                   else 'telefono' end as origen,
              c.nombre as clinica_nombre,
-             -- Dos fuentes, cada una la verdad de SU motor (B4, 21-08):
-             --  · Clasificador VIEJO (94): requiere_persona / intención sobre
-             --    el presupuesto, solo si el paciente escribió lo último —
-             --    mismo criterio que estadoAutomatizacion, no copia a ojo.
-             --  · EVALUADOR: derivado sin resuelto_manual posterior en el LOG
-             --    (la proyección compat murió con MEJORAS 93). Cubre también
-             --    leads y huérfanos — el hueco documentado arriba. El cierre
-             --    por HECHOS del semáforo no se re-deriva aquí (igual que en
-             --    la cola): se marca de más, jamás de menos; la ficha lo dice
-             --    exacto.
-             (coalesce(p.n, 0) > 0 and (
-                pr.requiere_persona is true
-                or (pr.requiere_persona is null
-                    and pr.intencion_detectada = any(${INTENCIONES_QUE_QUIEBRAN as string[]}))
-             ))
-             or exists (
-               select 1 from eventos_automatizacion d
-                where d.cliente = ${cliente} and d.tipo_caso = 'conversacion'
-                  and d.evento = 'derivado'
-                  and regexp_replace(d.caso_id, '\\D', '', 'g') = regexp_replace(u.telefono, '\\D', '', 'g')
-                  and not exists (
-                    select 1 from eventos_automatizacion rs
-                     where rs.cliente = d.cliente and rs.tipo_caso = 'conversacion'
-                       and rs.evento = 'resuelto_manual'
-                       and regexp_replace(rs.caso_id, '\\D', '', 'g') = regexp_replace(d.caso_id, '\\D', '', 'g')
-                       and rs.created_at > d.created_at)
-             ) as necesita_persona
+             us.del_agente as sal_del_agente,
+             -- Para la etiqueta «seguimiento automático»: si el caso del
+             -- hilo sigue VIVO (mismo criterio que la cola: presupuesto no
+             -- cerrado / lead activo), la cadencia lo trabaja.
+             pr.estado as pr_estado,
+             l.estado  as lead_estado
         from ultimo u
         join caso k using (telefono)
         left join pend p on p.telefono = u.telefono
+        left join ult_sal us on us.telefono = u.telefono
         left join pacientes pa on pa.cliente = ${cliente} and pa.id = k.paciente_id
         left join leads     l  on l.cliente  = ${cliente} and l.id  = k.lead_id
         left join clinicas  c  on c.cliente  = ${cliente} and c.id  = k.clinica_id
@@ -181,6 +217,55 @@ export async function listarConversaciones(args: {
     `.execute(trx);
     return r.rows as any[];
   });
+
+  // ─── Las dos fuentes del estado del flujo (fase C), en paralelo ───────────
+  //
+  //  · LA COLA de Seguimiento: el criterio de «necesitan de mí» y las tres
+  //    etiquetas de cohorte. UN cálculo en todo el producto — aquí murió el
+  //    `necesita_persona` paralelo. La cola asume de más (no re-deriva los
+  //    cierres por hechos); la ficha lo dice exacto — doctrina declarada.
+  //  · EL SEMÁFORO sin hechos: esperas vigentes y asumidos, con sus reglas.
+  const [cola, semaforos] = await Promise.all([
+    colaDeSeguimiento(),
+    esperasYAsumidosPorDigitos(),
+  ]);
+  const dig = (t: unknown) => String(t ?? "").replace(/\D/g, "");
+  const cohortePorDigitos = new Map<string, Cohorte>();
+  for (const caso of cola.casos) {
+    const d = dig(caso.telefono);
+    if (d) cohortePorDigitos.set(d, caso.cohorte);
+  }
+  // Los teléfonos llegan en formatos distintos («+34 613…» vs «34613…»):
+  // el matching es por dígitos con inclusión bidireccional — la semántica
+  // de todo el sistema (018), no una igualdad de strings.
+  function buscarPorDigitos<T>(mapa: Map<string, T>, d: string): T | null {
+    if (!d) return null;
+    const exacto = mapa.get(d);
+    if (exacto !== undefined) return exacto;
+    for (const [k, v] of mapa) if (k.includes(d) || d.includes(k)) return v;
+    return null;
+  }
+
+  const COHORTE_A_CLASE: Record<Cohorte, EstadoFlujo["clase"]> = {
+    necesita_respuesta: "necesita_respuesta",
+    listos_para_cerrar: "listo_para_cerrar",
+    fuera_de_plazo: "fuera_de_plazo",
+  };
+
+  const derivarFlujo = (f: any): EstadoFlujo | null => {
+    const d = dig(f.telefono);
+    const cohorte = buscarPorDigitos(cohortePorDigitos, d);
+    if (cohorte) return { clase: COHORTE_A_CLASE[cohorte] };
+    const sem = buscarPorDigitos(semaforos, d);
+    if (sem?.asumido) return { clase: "asumido" };
+    if (sem?.espera) return { clase: "espera", hasta: sem.espera.hasta };
+    const presupuestoVivo =
+      f.presupuesto_id != null &&
+      (f.pr_estado == null || !["ACEPTADO", "PERDIDO"].includes(String(f.pr_estado)));
+    const leadVivo = f.lead_id != null && esLeadActivo(String(f.lead_estado ?? ""));
+    if (presupuestoVivo || leadVivo) return { clase: "automatico" };
+    return null;
+  };
 
   // El aislamiento se aplica AQUÍ y no en el SQL a propósito: así el recuento de
   // «sin clínica» se puede dar sin enseñar ni una línea de su contenido, que es
@@ -198,22 +283,48 @@ export async function listarConversaciones(args: {
   // cuántas; lo que no ve es de quién son.
   const sinClinica = filas.filter((f) => f.clinica_id == null).length;
 
-  const conFiltro = visibles.filter((f) => {
+  // Las señales derivadas, UNA vez por fila (las usan el filtro y la salida).
+  const EN_COLA: ReadonlySet<EstadoFlujo["clase"]> = new Set([
+    "necesita_respuesta",
+    "listo_para_cerrar",
+    "fuera_de_plazo",
+  ]);
+  const derivadas = visibles.map((f) => {
+    const estadoFlujo = derivarFlujo(f);
+    const asumido = estadoFlujo?.clase === "asumido" ||
+      buscarPorDigitos(semaforos, dig(f.telefono))?.asumido === true;
+    return {
+      f,
+      estadoFlujo,
+      agenteAlMando: f.sal_del_agente === true && !asumido,
+      sinRespuestaDesde:
+        f.direccion === "Saliente" && f.del_agente !== true
+          ? new Date(f.timestamp).toISOString()
+          : null,
+    };
+  });
+
+  const conFiltro = derivadas.filter((x) => {
     switch (args.filtro) {
-      case "pendientes":
-        return Number(f.pendientes) > 0;
+      case "necesitan-de-mi":
+        return x.estadoFlujo != null && EN_COLA.has(x.estadoFlujo.clase);
       case "agente":
-        return f.del_agente === true;
-      case "necesita-persona":
-        return f.necesita_persona === true;
-      case "todas":
+        return x.agenteAlMando;
+      case "sin-respuesta":
+        return x.sinRespuestaDesde != null;
+      case null:
         return true;
     }
   });
 
+  // El orden se aplica sobre el conjunto COMPLETO del filtro, antes del
+  // corte del límite: «antiguos primero» sobre las 60 más recientes
+  // enseñaría justo lo contrario de lo que promete.
+  if (args.orden === "antiguos") conFiltro.reverse();
+
   return {
     totalDelFiltro: conFiltro.length,
-    conversaciones: conFiltro.slice(0, limite).map((f) => ({
+    conversaciones: conFiltro.slice(0, limite).map(({ f, estadoFlujo, agenteAlMando, sinRespuestaDesde }) => ({
       telefono: String(f.telefono),
       nombre: String(f.nom ?? "") || String(f.telefono),
       origenNombre: String(f.origen ?? "telefono") as Conversacion["origenNombre"],
@@ -226,8 +337,9 @@ export async function listarConversaciones(args: {
       pacienteId: f.paciente_id ? String(f.paciente_id) : null,
       leadId: f.lead_id ? String(f.lead_id) : null,
       presupuestoId: f.presupuesto_id ? String(f.presupuesto_id) : null,
-      ultimaDelAgente: f.del_agente === true,
-      necesitaPersona: f.necesita_persona === true,
+      agenteAlMando,
+      sinRespuestaDesde,
+      estadoFlujo,
     })),
     sinClinica,
   };
@@ -262,34 +374,6 @@ export async function hiloDe(telefono: string, limite = 200) {
 }
 
 
-/**
- * Cuántas conversaciones necesitan una persona, por clínica.
- *
- * Se calcula con la MISMA función que la bandeja y con el mismo filtro, en vez
- * de con una consulta propia sobre `presupuestos`. Podría hacerse más directo;
- * sería también un segundo cálculo del mismo número, y el día que divergieran
- * /red diría 7 y la bandeja enseñaría 5 al hacer clic. Es exactamente el patrón
- * paralelo que llevamos dos meses matando.
- *
- * Las que no tienen clínica NO se reparten ni se suman a ninguna: aparecen
- * aparte, con la misma regla de aislamiento que la banda «Sin asignar».
- */
-export async function necesitanPersonaPorClinica(args: {
-  clinicasPermitidas: string[] | null;
-}): Promise<{ porClinica: Record<string, number>; sinClinica: number }> {
-  const { conversaciones } = await listarConversaciones({
-    filtro: "necesita-persona",
-    clinicasPermitidas: args.clinicasPermitidas,
-    limite: 200,
-  });
-  const porClinica: Record<string, number> = {};
-  let sinClinica = 0;
-  for (const c of conversaciones) {
-    if (!c.clinicaId) {
-      sinClinica++;
-      continue;
-    }
-    porClinica[c.clinicaId] = (porClinica[c.clinicaId] ?? 0) + 1;
-  }
-  return { porClinica, sinClinica };
-}
+// (fase C: `necesitanPersonaPorClinica` murió aquí — /red cuenta ahora
+//  directamente de la COLA de Seguimiento, el mismo cálculo que el filtro
+//  «necesitan de mí» de la bandeja. Un solo número en todo el producto.)

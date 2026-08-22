@@ -16,36 +16,52 @@
 //      cadena la resuelve el servidor —paciente → lead → perfil de WhatsApp →
 //      número— y aquí solo se dice de dónde salió cuando no es fiable.
 
-import { useMemo, useState } from "react";
 import {
   AlertTriangle,
   Sparkles,
-  MessageCircle,
-  Inbox,
   UserCheck,
+  Hourglass,
   Search,
   ICON_STROKE,
 } from "../../components/icons";
 import { iniciales } from "../../components/shared/panel-accion-ui";
 import { fechaClinica, horaClinica, hoyISO } from "../../lib/time";
-import type { Conversacion, FiltroBandeja } from "../../lib/mensajeria/conversaciones";
+import type {
+  Conversacion,
+  EstadoFlujo,
+  FiltroBandeja,
+  OrdenBandeja,
+} from "../../lib/mensajeria/conversaciones";
 
+// Fase C (22-08): la bandeja es la lista COMPLETA y estos tres son LENTES que
+// la estrechan — uno activo o ninguno (volver a pulsarlo lo apaga). No son
+// carpetas: los conjuntos se solapan y nada se reparte ni desaparece.
 export const FILTROS: Array<{
   id: FiltroBandeja;
   label: string;
-  Icono: typeof Inbox;
+  Icono: typeof UserCheck;
   ayuda: string;
 }> = [
-  { id: "pendientes", label: "Pendientes", Icono: Inbox, ayuda: "Han escrito y no se ha contestado" },
-  { id: "todas", label: "Todas", Icono: MessageCircle, ayuda: "Todas las conversaciones" },
-  // El que ninguna herramienta genérica tiene: qué ha estado contestando el
-  // agente. En modo A son los mensajes que él redactó y una persona envió.
-  { id: "agente", label: "Agente", Icono: Sparkles, ayuda: "Ha respondido el agente" },
   {
-    id: "necesita-persona",
-    label: "Tu criterio",
+    id: "necesitan-de-mi",
+    label: "Necesitan de mí",
     Icono: UserCheck,
-    ayuda: "Necesitan que decida una persona",
+    ayuda: "Esperan una acción tuya — el mismo criterio que la cola de Seguimiento",
+  },
+  {
+    id: "agente",
+    label: "Las lleva el agente",
+    Icono: Sparkles,
+    ayuda: "El agente es quien está contestando",
+  },
+  // El que no existe en ninguna otra parte del producto, y donde se pierde el
+  // dinero: escribiste tú, nadie contesta, y el caso se enfría solo — no
+  // reclama y no sale en Seguimiento.
+  {
+    id: "sin-respuesta",
+    label: "Mías sin respuesta",
+    Icono: Hourglass,
+    ayuda: "Escribiste tú y el paciente no ha contestado",
   },
 ];
 
@@ -74,32 +90,50 @@ function tonoDe(nombre: string): string {
 export function FiltrosBandeja({
   activo,
   onCambiar,
+  orden,
+  onOrden,
 }: {
-  activo: FiltroBandeja;
-  onCambiar: (f: FiltroBandeja) => void;
+  /** null = sin lente: la lista completa (la vista por defecto). */
+  activo: FiltroBandeja | null;
+  onCambiar: (f: FiltroBandeja | null) => void;
+  orden: OrdenBandeja;
+  onOrden: (o: OrdenBandeja) => void;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-2 px-3 pb-3">
+    // Filtros a la izquierda, ORDEN a la derecha — separados a propósito
+    // (dictado): los filtros reducen la lista, el orden la reordena; en la
+    // misma fila de botones serían indistinguibles.
+    <div className="flex flex-wrap items-center gap-1.5 px-3 pb-3">
       {FILTROS.map((f) => {
         const on = activo === f.id;
         return (
           <button
             key={f.id}
             type="button"
-            onClick={() => onCambiar(f.id)}
+            onClick={() => onCambiar(on ? null : f.id)}
             title={f.ayuda}
             aria-pressed={on}
-            className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-left text-[12px] font-semibold transition-colors ${
+            className={`flex items-center gap-1 rounded-lg border px-2 py-1.5 text-left text-[11.5px] font-semibold transition-colors ${
               on
                 ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
                 : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
             }`}
           >
-            <f.Icono size={14} strokeWidth={ICON_STROKE} className="shrink-0" aria-hidden />
+            <f.Icono size={13} strokeWidth={ICON_STROKE} className="shrink-0" aria-hidden />
             <span className="truncate">{f.label}</span>
           </button>
         );
       })}
+      <select
+        value={orden}
+        onChange={(e) => onOrden(e.target.value === "antiguos" ? "antiguos" : "recientes")}
+        aria-label="Orden de la lista"
+        title="«Más antiguos» sube lo que llevas más tiempo sin tocar"
+        className="ml-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-1.5 py-1.5 text-[11.5px] font-medium text-[var(--color-muted)] focus:border-[var(--color-accent)] focus:outline-none"
+      >
+        <option value="recientes">Más recientes</option>
+        <option value="antiguos">Más antiguos</option>
+      </select>
     </div>
   );
 }
@@ -163,9 +197,14 @@ export function ListaConversaciones({
     <ul className="space-y-1.5 px-2 pb-3">
       {conversaciones.map((c) => {
         const activa = c.telefono === seleccionada;
+        // «Sin respuesta» solo cuando lleva ≥1 día de clínica: recién
+        // enviado un mensaje, el chip sería ruido en cada fila saliente.
+        // El filtro «Mías sin respuesta» sí las trae todas.
+        const diasSinRespuesta = c.sinRespuestaDesde ? diasDeClinica(c.sinRespuestaDesde) : null;
         const señales =
-          c.necesitaPersona ||
-          c.ultimaDelAgente ||
+          c.estadoFlujo != null ||
+          c.agenteAlMando ||
+          (diasSinRespuesta != null && diasSinRespuesta >= 1) ||
           c.origenNombre === "perfil" ||
           c.origenNombre === "telefono";
         return (
@@ -214,14 +253,20 @@ export function ListaConversaciones({
 
                 {(señales || (mostrarClinica && c.clinicaNombre)) && (
                   <span className="mt-2 flex flex-wrap items-center gap-1">
-                    {c.necesitaPersona && (
-                      <Marca tono="danger" Icono={AlertTriangle}>
-                        Tu criterio
-                      </Marca>
-                    )}
-                    {c.ultimaDelAgente && !c.necesitaPersona && (
+                    {/* Fase C: la etiqueta de ESTADO DEL FLUJO — en qué punto
+                        está el caso, sin abrir la conversación. Mismas
+                        palabras que Seguimiento cuando es una cohorte. */}
+                    {c.estadoFlujo && <MarcaFlujo flujo={c.estadoFlujo} />}
+                    {c.agenteAlMando && (
                       <Marca tono="accent" Icono={Sparkles}>
                         Agente
+                      </Marca>
+                    )}
+                    {diasSinRespuesta != null && diasSinRespuesta >= 1 && (
+                      <Marca tono="neutro" Icono={Hourglass}>
+                        {diasSinRespuesta === 1
+                          ? "1 día sin respuesta"
+                          : `${diasSinRespuesta} días sin respuesta`}
                       </Marca>
                     )}
                     {/* Un nombre de perfil de WhatsApp NO es un paciente fichado.
@@ -244,12 +289,44 @@ export function ListaConversaciones({
   );
 }
 
+/** Días de CLÍNICA desde un instante (§13): la cifra solo cambia a las
+ *  00:00, no al segundo — dos recargas seguidas enseñan lo mismo. */
+function diasDeClinica(iso: string): number {
+  const desde = new Date(`${hoyISO(new Date(iso))}T00:00:00Z`).getTime();
+  const hoy = new Date(`${hoyISO()}T00:00:00Z`).getTime();
+  return Math.max(0, Math.round((hoy - desde) / 86_400_000));
+}
+
+/** La etiqueta de estado del flujo (fase C). Las cohortes, con las MISMAS
+ *  palabras que Seguimiento; el resto, lo que el semáforo o la cadencia ya
+ *  saben. Tonos: rojo = te espera; ámbar = qué NO hacer; neutro = informa. */
+function MarcaFlujo({ flujo }: { flujo: EstadoFlujo }) {
+  switch (flujo.clase) {
+    case "fuera_de_plazo":
+      return <Marca tono="danger" Icono={AlertTriangle}>Fuera de plazo</Marca>;
+    case "necesita_respuesta":
+      return <Marca tono="danger" Icono={AlertTriangle}>Necesita respuesta</Marca>;
+    case "listo_para_cerrar":
+      return <Marca tono="accent" Icono={UserCheck}>Listo para cerrar</Marca>;
+    case "espera":
+      return (
+        <Marca tono="warning">
+          {flujo.hasta ? `En espera hasta el ${fechaClinica(flujo.hasta)}` : "En espera"}
+        </Marca>
+      );
+    case "asumido":
+      return <Marca tono="neutro" Icono={UserCheck}>Lo lleva una persona</Marca>;
+    case "automatico":
+      return <Marca tono="neutro">Seguimiento automático</Marca>;
+  }
+}
+
 function Marca({
   tono,
   Icono,
   children,
 }: {
-  tono: "danger" | "accent" | "neutro";
+  tono: "danger" | "accent" | "warning" | "neutro";
   Icono?: typeof AlertTriangle;
   children: React.ReactNode;
 }) {
@@ -258,7 +335,9 @@ function Marca({
       ? "border-[color-mix(in_srgb,var(--color-danger)_30%,transparent)] bg-[var(--color-danger-soft)] text-[var(--color-danger)]"
       : tono === "accent"
         ? "border-transparent bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
-        : "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-muted)]";
+        : tono === "warning"
+          ? "border-transparent bg-[var(--color-warning-soft)] text-[var(--color-warning)]"
+          : "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-muted)]";
   return (
     <span
       className={`inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] font-semibold ${cls}`}
