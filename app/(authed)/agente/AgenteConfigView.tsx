@@ -43,8 +43,18 @@ import {
 type RespuestaConfig = {
   conocimiento: ConocimientoClinica;
   evaluadorActivo: boolean;
+  toquesAntesDeAgotar: number;
   bloquePrompt: string;
   systemPrompt: string;
+};
+
+type Cadencia = {
+  clinica: string;
+  secuenciaDias: number[];
+  recordatorioMax: number;
+  horaEnvio: string;
+  diasRechazoAuto: number;
+  activa: boolean;
 };
 
 export function AgenteConfigView() {
@@ -52,6 +62,12 @@ export function AgenteConfigView() {
   const [config, setConfig] = useState<ConocimientoClinica | null>(null);
   const [systemPrompt, setSystemPrompt] = useState<string>("");
   const [evaluadorActivo, setEvaluadorActivo] = useState(false);
+  const [toques, setToques] = useState(3);
+  // Grupo 5 — la cadencia vive en SU config por clínica (secuencia 3/7/10,
+  // hora, tope) y se edita aquí porque es la misma decisión que los plazos:
+  // cómo perseguimos un presupuesto. `secuenciaTexto` es el campo editable.
+  const [cadencia, setCadencia] = useState<Cadencia | null>(null);
+  const [secuenciaTexto, setSecuenciaTexto] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
@@ -70,6 +86,18 @@ export function AgenteConfigView() {
       setConfig(d.conocimiento);
       setSystemPrompt(d.systemPrompt);
       setEvaluadorActivo(d.evaluadorActivo);
+      setToques(d.toquesAntesDeAgotar);
+      // La cadencia es POR CLÍNICA (no hay fila de red): solo con una elegida.
+      const nombre = clinicas.find((c) => c.id === selectedClinicaId)?.nombre ?? null;
+      if (nombre) {
+        const r = await cargarJSON<{ configuracion: Cadencia }>(
+          `/api/presupuestos/recordatorios/configuracion?clinica=${encodeURIComponent(nombre)}`,
+        );
+        setCadencia({ ...r.configuracion, clinica: nombre });
+        setSecuenciaTexto(r.configuracion.secuenciaDias.join(", "));
+      } else {
+        setCadencia(null);
+      }
     } catch (e) {
       // Conservar lo último bueno + error honesto (§10): el formulario no se
       // vacía — vaciarlo y dejar guardar PISARÍA la config que no se pudo leer.
@@ -77,7 +105,7 @@ export function AgenteConfigView() {
     } finally {
       setCargando(false);
     }
-  }, [selectedClinicaId]);
+  }, [selectedClinicaId, clinicas]);
 
   useEffect(() => {
     void cargar();
@@ -100,9 +128,28 @@ export function AgenteConfigView() {
       await cargarJSON("/api/agente/configuracion", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clinicaId: selectedClinicaId, conocimiento: limpio }),
+        body: JSON.stringify({ clinicaId: selectedClinicaId, conocimiento: limpio, toquesAntesDeAgotar: toques }),
       });
       setConfig(limpio);
+      // Grupo 5 — la cadencia va a SU API (por nombre de clínica). Se guarda
+      // en la misma acción: para la clínica es UNA decisión, no dos pantallas.
+      if (cadencia) {
+        const dias = secuenciaTexto
+          .split(",")
+          .map((s) => Number(s.trim()))
+          .filter((n) => Number.isFinite(n) && n > 0);
+        if (dias.length === 0) {
+          toast.error("La secuencia de la cadencia necesita al menos un día (p. ej. «3, 7, 10»)");
+          return;
+        }
+        await cargarJSON("/api/presupuestos/recordatorios/configuracion", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...cadencia, secuenciaDias: dias }),
+        });
+        setCadencia({ ...cadencia, secuenciaDias: dias });
+        setSecuenciaTexto(dias.join(", "));
+      }
       toast.success("Configuración guardada — el agente la usa desde el próximo mensaje");
     } catch (e) {
       toast.error(mensajeDeError(e));
@@ -559,6 +606,95 @@ export function AgenteConfigView() {
                 </div>
               )}
             </div>
+          </Seccion>
+
+          {/* ── GRUPO 5 · Cadencias y recordatorios — aquí, no en
+              Automatizaciones (dictado 22-08): el agente y la cadencia
+              comparten el semáforo, los plazos y al paciente. ──────────── */}
+          <Seccion
+            titulo="Cadencias y recordatorios"
+            consecuencia="Cómo se persigue un presupuesto sin respuesta: cada cuánto se toca, cuántas veces antes de darlo por agotado (y recomendar llamada), y a qué hora salen los envíos. Es la misma decisión que los plazos de arriba — el agente en silencio."
+          >
+            <label className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
+              <span>Toques sin respuesta antes de dar la cadencia por agotada</span>
+              <span className="flex shrink-0 items-center gap-1.5">
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  value={toques}
+                  onChange={(e) => setToques(Number(e.target.value))}
+                  className={INPUT + " w-16 text-right tabular-nums"}
+                />
+                <span className="text-[11px] text-[var(--color-muted)]">(1–10)</span>
+              </span>
+            </label>
+            {cadencia ? (
+              <>
+                <label className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
+                  <span>Días de la secuencia tras presentar un presupuesto</span>
+                  <input
+                    value={secuenciaTexto}
+                    onChange={(e) => setSecuenciaTexto(e.target.value)}
+                    placeholder="3, 7, 10"
+                    className={INPUT + " w-32 text-right tabular-nums"}
+                  />
+                </label>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <label className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
+                    <span>Máx. recordatorios</span>
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={cadencia.recordatorioMax}
+                      onChange={(e) => setCadencia({ ...cadencia, recordatorioMax: Number(e.target.value) })}
+                      className={INPUT + " w-16 text-right tabular-nums"}
+                    />
+                  </label>
+                  <label className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
+                    <span>Hora de envío</span>
+                    <input
+                      type="time"
+                      value={cadencia.horaEnvio}
+                      onChange={(e) => setCadencia({ ...cadencia, horaEnvio: e.target.value })}
+                      className={INPUT + " w-28"}
+                    />
+                  </label>
+                  <label className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
+                    <span>Rechazo auto. tras</span>
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      <input
+                        type="number"
+                        min={7}
+                        max={120}
+                        value={cadencia.diasRechazoAuto}
+                        onChange={(e) => setCadencia({ ...cadencia, diasRechazoAuto: Number(e.target.value) })}
+                        className={INPUT + " w-16 text-right tabular-nums"}
+                      />
+                      <span className="text-[11px] text-[var(--color-muted)]">días</span>
+                    </span>
+                  </label>
+                </div>
+                <label className="flex cursor-pointer items-center gap-2 text-[13px] text-[var(--color-foreground)]">
+                  <input
+                    type="checkbox"
+                    checked={cadencia.activa}
+                    onChange={(e) => setCadencia({ ...cadencia, activa: e.target.checked })}
+                    className="accent-[var(--color-accent)]"
+                  />
+                  Cadencia activa en {cadencia.clinica}
+                </label>
+              </>
+            ) : (
+              <p className="rounded-lg border border-dashed border-[var(--color-border)] px-3 py-2.5 text-[12.5px] text-[var(--color-muted)]">
+                La cadencia de presupuestos es por clínica — elige una arriba para configurar la suya.
+              </p>
+            )}
+            <p className="text-[12px] text-[var(--color-muted)]">
+              Además, fijo por ahora: el recordatorio de cita se propone la víspera a las 09:00, y hay un
+              tope de 30 envíos por clínica y día.
+            </p>
           </Seccion>
 
           {/* ── REGLAS DURAS: se leen, no se editan ───────────────────── */}

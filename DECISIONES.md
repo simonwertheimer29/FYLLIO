@@ -3250,3 +3250,16 @@ y caza cifra no publicada, descuento sobre lo publicado y cobertura personal. Pa
 (admin): consecuencia por campo, barrido derivado en vivo (con límites del producto aparte), reglas
 duras visibles y prompt legible. De propina: prompt caching activado en las 3 llamadas (el system
 fijo se pagaba entero cada turno desde fase A).
+
+## 2026-08-22 — Fase D completa (grupos 1–5): la configuración del agente, entera y en orden de onboarding
+Tras el grupo 2: quiénes sois (presentación + trato, al contexto), hasta dónde llega (umbral de
+insistencia con tope, urgencias con texto LITERAL obligatorio si no se atienden, definición extra
+de urgencia — todo alimentando hooks que el evaluador ya tenía), plazos de respuesta (umbrales con
+tope + horario laboral por clínica, que NACE aquí: no existía como dato — solo staff.horario_laboral,
+por empleado; el reloj de la cola lo lee por caso, y una config rota cae a defaults CON log, jamás
+tumba la cola) y cadencias (toques-antes-de-agotar + la config de recordatorios existente, editadas
+desde /agente: para la clínica es UNA decisión). Nivel de agenda visible (1 activo · 2 bloqueado
+hasta MEJORAS 97 — el parser RECHAZA un 2 guardado hoy: prometería huecos que el agente no ve).
+Hallazgo de la vara: los 25 descartes de presupuestoReferido eran fixtures del harness sin id — el
+juicio funcionaba; arreglado. El crédito de la API se agotó a mitad de una re-pasada del eval
+(error operativo: se relanzó la vara entera para releer una cabecera ya impresa).

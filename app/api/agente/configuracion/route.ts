@@ -36,7 +36,7 @@ export const GET = withAuth(async (session, req) => {
   try {
     return await runWithCliente(session.cliente, async () => {
       const r: any = await runWithClienteDb(session.cliente!, (trx) =>
-        sql`select conocimiento, evaluador_activo
+        sql`select conocimiento, evaluador_activo, toques_antes_de_agotar
             from configuracion_automatizaciones
             where ${clinicaId ? sql`clinica_id = ${clinicaId}` : sql`clinica_id is null`}
             limit 1`.execute(trx),
@@ -48,6 +48,9 @@ export const GET = withAuth(async (session, req) => {
       return NextResponse.json({
         conocimiento,
         evaluadorActivo: r.rows?.[0]?.evaluador_activo === true,
+        // Grupo 5 — columna propia (014), no parte del JSON: la lee la
+        // cadencia con su propio CHECK de base (1–10).
+        toquesAntesDeAgotar: Number(r.rows?.[0]?.toques_antes_de_agotar ?? 3),
         // El bloque EXACTO que entra en el prompt — la misma función que usa
         // el evaluador, no una copia para enseñar.
         bloquePrompt: renderConocimiento(conocimiento).join("\n"),
@@ -90,6 +93,15 @@ export const PUT = withAuth(async (session, req) => {
       { status: 422 },
     );
   }
+  // Grupo 5 — toques antes de agotar (columna propia, CHECK 1–10 en base):
+  // se valida AQUÍ igualmente para que el error sea legible, no un 500.
+  const toques = body.toquesAntesDeAgotar ?? null;
+  if (toques !== null && (!Number.isInteger(toques) || toques < 1 || toques > 10)) {
+    return NextResponse.json(
+      { error: "toques antes de agotar fuera de tope (1–10)" },
+      { status: 422 },
+    );
+  }
 
   try {
     return await runWithCliente(session.cliente, async () => {
@@ -105,11 +117,13 @@ export const PUT = withAuth(async (session, req) => {
             limit 1`.execute(trx);
         if (existe.rows?.length) {
           await sql`update configuracion_automatizaciones
-              set conocimiento = ${raw}, actualizado_en = now()
+              set conocimiento = ${raw},
+                  toques_antes_de_agotar = coalesce(${toques}, toques_antes_de_agotar),
+                  actualizado_en = now()
               where id = ${String(existe.rows[0].id)}`.execute(trx);
         } else {
-          await sql`insert into configuracion_automatizaciones (cliente, clinica_id, conocimiento, actualizado_en)
-              values (${session.cliente}, ${clinicaId}, ${raw}, now())`.execute(trx);
+          await sql`insert into configuracion_automatizaciones (cliente, clinica_id, conocimiento, toques_antes_de_agotar, actualizado_en)
+              values (${session.cliente}, ${clinicaId}, ${raw}, coalesce(${toques}, 3), now())`.execute(trx);
         }
       });
       return NextResponse.json({ ok: true });
