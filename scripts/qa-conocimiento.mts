@@ -64,6 +64,10 @@ ok("una config válida se parsea entera, con los textos recortados",
 ok("campos ausentes = secciones vacías, no error (se publica por partes)",
   !lanza(JSON.stringify({ horarios: "L-V 9-20" })) &&
     parseConocimiento(JSON.stringify({ horarios: "L-V 9-20" })).tratamientos.length === 0);
+ok("agenda: ausente → nivel 1 (sin conexión), el único que existe",
+  parseConocimiento(JSON.stringify({ horarios: "L-V 9-20" })).agendaNivel === 1);
+ok("agenda: nivel 2 guardado HOY se rechaza — prometería huecos que el agente no ve (MEJORAS 97)",
+  lanza(JSON.stringify({ agendaNivel: 2 })) && lanza(JSON.stringify({ agendaNivel: 3 })));
 
 // ─── B · EL ASSERT DEL PLAN BÁSICO ─────────────────────────────────────────
 console.log("\nB · plan básico: prompt con config vacía ≡ prompt de hoy, byte a byte");

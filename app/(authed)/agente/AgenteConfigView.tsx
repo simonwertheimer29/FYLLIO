@@ -28,12 +28,15 @@ import {
   ShieldCheck,
   ChevronDown,
   ChevronRight,
+  Lock,
   ICON_STROKE,
 } from "../../components/icons";
 import {
   capacidadesDe,
   renderConocimiento,
   REGLAS_DURAS,
+  SUGERENCIAS_TRATAMIENTOS,
+  SUGERENCIAS_POLITICAS,
   type ConocimientoClinica,
 } from "../../lib/agente/conocimiento";
 
@@ -84,11 +87,22 @@ export function AgenteConfigView() {
     if (!config || guardando) return;
     setGuardando(true);
     try {
+      // Las filas COMPLETAMENTE vacías (un «añadir» que quedó sin rellenar)
+      // se quitan antes de guardar: no son datos, son huecos del formulario.
+      // Una fila a medias (precio sin nombre, política sin texto) NO se
+      // quita — el 422 con su motivo es la respuesta honesta.
+      const limpio: ConocimientoClinica = {
+        ...config,
+        tratamientos: config.tratamientos.filter((t) => t.nombre.trim() || t.precio || t.nota),
+        politicas: config.politicas.filter((p) => p.titulo.trim() || p.texto.trim()),
+        enlaces: config.enlaces.filter((e) => e.etiqueta.trim() || e.url.trim()),
+      };
       await cargarJSON("/api/agente/configuracion", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clinicaId: selectedClinicaId, conocimiento: config }),
+        body: JSON.stringify({ clinicaId: selectedClinicaId, conocimiento: limpio }),
       });
+      setConfig(limpio);
       toast.success("Configuración guardada — el agente la usa desde el próximo mensaje");
     } catch (e) {
       toast.error(mensajeDeError(e));
@@ -122,7 +136,9 @@ export function AgenteConfigView() {
         <p className="mt-0.5 text-[13px] text-[var(--color-muted)]">
           {nombreClinica ? `Para ${nombreClinica}` : "Para toda la red (las clínicas sin configuración propia usan esta)"}
           {" · "}
-          {evaluadorActivo ? "el agente está ENCENDIDO aquí" : "el agente está apagado aquí — la configuración se aplica al encenderlo"}
+          {evaluadorActivo
+            ? "el agente está encendido y usa esta configuración"
+            : "déjalo todo configurado ya — en cuanto se encienda el agente, empieza a usarlo"}
         </p>
       </header>
 
@@ -200,6 +216,17 @@ export function AgenteConfigView() {
               etiqueta="Añadir tratamiento"
               onClick={() => setConfig({ ...config, tratamientos: [...config.tratamientos, { nombre: "", precio: null, nota: null }] })}
             />
+            {/* SUGERENCIAS, no datos (22-08): un clic las acepta con el
+                precio vacío — ese lo pone la clínica. Nada se guarda solo. */}
+            <ChipsSugerencia
+              titulo="Los habituales — un clic los añade, el precio lo pones tú:"
+              opciones={SUGERENCIAS_TRATAMIENTOS.filter(
+                (s) => !config.tratamientos.some((t) => t.nombre.trim().toLowerCase() === s.toLowerCase()),
+              )}
+              onElegir={(s) =>
+                setConfig({ ...config, tratamientos: [...config.tratamientos, { nombre: s, precio: null, nota: null }] })
+              }
+            />
           </Seccion>
 
           <Seccion
@@ -217,7 +244,10 @@ export function AgenteConfigView() {
                 <textarea
                   value={p.texto}
                   onChange={(e) => setConfig(actualizaLista(config, "politicas", i, { ...p, texto: e.target.value }))}
-                  placeholder="Texto publicado (Efectivo, tarjeta y financiación hasta 24 meses sin intereses)"
+                  placeholder={
+                    SUGERENCIAS_POLITICAS.find((s) => s.titulo.toLowerCase() === p.titulo.trim().toLowerCase())
+                      ?.ejemplo ?? "Texto publicado (lo que el agente puede afirmar tal cual)"
+                  }
                   rows={2}
                   className={INPUT + " min-w-[16rem] flex-1 resize-y"}
                 />
@@ -227,6 +257,15 @@ export function AgenteConfigView() {
             <BotonAnadir
               etiqueta="Añadir política"
               onClick={() => setConfig({ ...config, politicas: [...config.politicas, { titulo: "", texto: "" }] })}
+            />
+            <ChipsSugerencia
+              titulo="Las típicas — un clic añade el título, el texto lo escribes tú:"
+              opciones={SUGERENCIAS_POLITICAS.filter(
+                (s) => !config.politicas.some((p) => p.titulo.trim().toLowerCase() === s.titulo.toLowerCase()),
+              ).map((s) => s.titulo)}
+              onElegir={(titulo) =>
+                setConfig({ ...config, politicas: [...config.politicas, { titulo, texto: "" }] })
+              }
             />
           </Seccion>
 
@@ -240,6 +279,37 @@ export function AgenteConfigView() {
               placeholder="L-V 9:30–20:00, sábados 10–14"
               className={INPUT + " w-full max-w-xl"}
             />
+          </Seccion>
+
+          {/* ── AGENDA: la decisión de los tres niveles (PLAN §11). El nivel
+              3 (reservar por su cuenta) está FUERA de A-F: ni se ofrece. ── */}
+          <Seccion
+            titulo="Agenda"
+            consecuencia="Es el aplazamiento más frecuente: «¿tenéis hueco el jueves?». Sin conexión, el agente recoge la disponibilidad de la persona y tu equipo confirma. Conectando tu agenda (solo lectura), pasa a informar de los huecos — reservar lo hace siempre tu equipo."
+          >
+            <label className="flex cursor-pointer items-start gap-2.5 rounded-lg border border-[var(--color-accent)] bg-[var(--color-accent-soft)] p-3">
+              <input type="radio" name="agenda" checked readOnly className="mt-0.5 accent-[var(--color-accent)]" />
+              <span className="min-w-0">
+                <span className="block text-[13px] font-semibold text-[var(--color-foreground)]">
+                  Sin conexión — recoge disponibilidad
+                </span>
+                <span className="mt-0.5 block text-[12px] leading-relaxed text-[var(--color-muted)]">
+                  El agente pregunta días y franjas, lo deja recogido en el caso, y tu equipo cierra la cita.
+                </span>
+              </span>
+            </label>
+            <div className="flex items-start gap-2.5 rounded-lg border border-dashed border-[var(--color-border)] p-3 opacity-70">
+              <Lock size={15} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-muted)]" aria-hidden />
+              <span className="min-w-0">
+                <span className="block text-[13px] font-semibold text-[var(--color-foreground)]">
+                  Solo lectura — informa de huecos, no reserva
+                </span>
+                <span className="mt-0.5 block text-[12px] leading-relaxed text-[var(--color-muted)]">
+                  «El jueves hay hueco a las 16:30 y a las 18:00.» Requiere conectar tu agenda — cuando la
+                  conexión esté disponible, se activa desde aquí.
+                </span>
+              </span>
+            </div>
           </Seccion>
 
           <Seccion
@@ -354,6 +424,39 @@ function Seccion({
       <p className="mt-0.5 text-[12.5px] leading-relaxed text-[var(--color-muted)]">{consecuencia}</p>
       <div className="mt-3 space-y-2">{children}</div>
     </section>
+  );
+}
+
+/** Sugerencias que se ACEPTAN con un clic — nunca datos precargados: guardar
+ *  «hacemos implantes» en una clínica que no los hace sería inventar. Las ya
+ *  añadidas desaparecen de la lista (el caller filtra por nombre). */
+function ChipsSugerencia({
+  titulo,
+  opciones,
+  onElegir,
+}: {
+  titulo: string;
+  opciones: readonly string[];
+  onElegir: (opcion: string) => void;
+}) {
+  if (opciones.length === 0) return null;
+  return (
+    <div className="border-t border-[var(--color-border)] pt-2.5">
+      <p className="text-[11.5px] text-[var(--color-muted)]">{titulo}</p>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        {opciones.map((s) => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => onElegir(s)}
+            className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-2.5 py-1 text-[12px] font-medium text-[var(--color-foreground)] transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+          >
+            <Plus size={12} strokeWidth={ICON_STROKE} aria-hidden />
+            {s}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

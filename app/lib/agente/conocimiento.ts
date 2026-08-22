@@ -37,6 +37,19 @@ export type EnlacePublicado = {
   url: string;
 };
 
+/** LOS NIVELES DE AGENDA (acordados, PLAN §11 — el aplazamiento con más
+ *  volumen y el único que la clínica elimina sola conectando una fuente):
+ *    1 · sin conexión — el agente recoge la disponibilidad DECLARADA de la
+ *        persona (días/franjas) y el equipo confirma. Es el comportamiento
+ *        base del system: por eso el nivel 1 NO se renderiza al prompt.
+ *    2 · solo lectura — el agente informa de huecos, no reserva. Requiere
+ *        la conexión de agenda (MEJORAS 97): hasta que exista, la pantalla
+ *        lo enseña BLOQUEADO Y VISIBLE, y el parser no lo acepta — un 2
+ *        guardado hoy haría al agente prometer huecos que no puede ver.
+ *    3 · escritura — FUERA de A-F: ni se ofrece ni se menciona.
+ */
+export type NivelAgenda = 1 | 2;
+
 export type ConocimientoClinica = {
   tratamientos: TratamientoPublicado[];
   politicas: PoliticaPublicada[];
@@ -45,15 +58,18 @@ export type ConocimientoClinica = {
    *  el horario que CALCULA plazos es clinicas.horario_laboral (grupo 4). */
   horarios: string | null;
   enlaces: EnlacePublicado[];
+  agendaNivel: NivelAgenda;
 };
 
-/** El plan básico: nada publicado. Con esto el prompt es IDÉNTICO al de hoy
- *  (assert en qa:conocimiento) — una clínica sin configurar no se degrada. */
+/** El plan básico: nada publicado, agenda sin conexión. Con esto el prompt
+ *  es IDÉNTICO al de hoy (assert en qa:conocimiento) — una clínica sin
+ *  configurar no se degrada. */
 export const CONOCIMIENTO_VACIO: ConocimientoClinica = {
   tratamientos: [],
   politicas: [],
   horarios: null,
   enlaces: [],
+  agendaNivel: 1,
 };
 
 export function esConocimientoVacio(c: ConocimientoClinica): boolean {
@@ -133,6 +149,13 @@ export function parseConocimiento(raw: string | null | undefined): ConocimientoC
   if (!Array.isArray(enlaces) || !enlaces.every(esEnlaceValido)) {
     throw new ConocimientoIlegibleError("enlaces no válidos", raw);
   }
+  // Agenda: ausente → nivel 1 (sin conexión). El nivel 2 se RECHAZA hasta
+  // que la conexión de agenda exista (MEJORAS 97): guardarlo hoy sería un
+  // agente prometiendo huecos que no puede ver.
+  const agendaNivel = x["agendaNivel"] ?? 1;
+  if (agendaNivel !== 1) {
+    throw new ConocimientoIlegibleError("agendaNivel no disponible (solo 1 hasta conectar la agenda)", raw);
+  }
   return {
     tratamientos: tratamientos.map((t) => ({
       nombre: t.nombre.trim(),
@@ -142,6 +165,7 @@ export function parseConocimiento(raw: string | null | undefined): ConocimientoC
     politicas: politicas.map((p) => ({ titulo: p.titulo.trim(), texto: p.texto.trim() })),
     horarios: typeof horarios === "string" && horarios.trim() !== "" ? horarios.trim() : null,
     enlaces: enlaces.map((e) => ({ etiqueta: e.etiqueta.trim(), url: e.url.trim() })),
+    agendaNivel: 1,
   };
 }
 
@@ -196,6 +220,15 @@ export function capacidadesDe(c: ConocimientoClinica): BarridoCapacidades {
   } else {
     noPuede.push("No puede compartir enlaces (reserva online, web) — no hay ninguno");
   }
+  // El nivel de agenda — el aplazamiento con más volumen (PLAN §11). Con
+  // nivel 1, recoger disponibilidad SÍ (ya está arriba, es el trabajo base);
+  // el hueco es no ver la agenda, y es el único que se elimina conectando
+  // una fuente — el argumento de esta pantalla.
+  if (c.agendaNivel === 1) {
+    noPuede.push("No puede decir los huecos libres de la agenda — recoge la disponibilidad de la persona y tu equipo confirma la cita. Se elimina conectando tu agenda (solo lectura)");
+  } else {
+    puede.push("Informar de los huecos libres de la agenda (solo lectura — reservar lo hace tu equipo)");
+  }
 
   return {
     puede,
@@ -207,6 +240,34 @@ export function capacidadesDe(c: ConocimientoClinica): BarridoCapacidades {
   };
 }
 
+// ─── Sugerencias para la pantalla — NUNCA datos (22-08) ────────────────────
+//
+// Un «Añadir tratamiento» sobre una lista vacía es un lienzo en blanco —
+// justo lo que el producto existe para evitar. Estas sugerencias se ofrecen
+// como chips que la clínica ACEPTA con un clic (con el precio vacío: ese lo
+// pone ella), edita o ignora. JAMÁS se guardan solas: guardar «hacemos
+// implantes» en una clínica que no los hace sería inventar un dato.
+
+export const SUGERENCIAS_TRATAMIENTOS: readonly string[] = [
+  "Primera visita y valoración",
+  "Higiene bucodental (limpieza)",
+  "Empaste",
+  "Endodoncia",
+  "Implante unitario",
+  "Corona",
+  "Ortodoncia invisible",
+  "Brackets",
+  "Blanqueamiento",
+  "Extracción",
+];
+
+export const SUGERENCIAS_POLITICAS: readonly { titulo: string; ejemplo: string }[] = [
+  { titulo: "Vías de pago", ejemplo: "Efectivo, tarjeta y transferencia" },
+  { titulo: "Financiación", ejemplo: "Hasta 24 meses sin intereses, sujeta a aprobación" },
+  { titulo: "Seguros", ejemplo: "Trabajamos con Sanitas, Adeslas y DKV" },
+  { titulo: "Cancelaciones", ejemplo: "Cambiar o anular una cita hasta 24 h antes, sin coste" },
+];
+
 /** Las REGLAS DURAS — se muestran en la pantalla, no se editan (PLAN §6). */
 export const REGLAS_DURAS: readonly string[] = [
   "No compromete dinero no decidido: ni precios, ni descuentos, ni plazos que no estén publicados o emitidos.",
@@ -216,6 +277,10 @@ export const REGLAS_DURAS: readonly string[] = [
 ];
 
 export function renderConocimiento(c: ConocimientoClinica | null | undefined): string[] {
+  // El nivel de agenda NO se renderiza mientras solo exista el 1: recoger
+  // disponibilidad declarada YA es el comportamiento del system — repetirlo
+  // aquí rompería el assert del plan básico sin cambiar nada. Cuando el
+  // nivel 2 exista (MEJORAS 97), su bloque entra aquí con sus huecos.
   if (!c || esConocimientoVacio(c)) return [];
   const lineas: string[] = [];
   lineas.push(
