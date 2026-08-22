@@ -30,7 +30,7 @@ export type VeredictoJuez = {
   categoria: "clinica" | "economica" | "datos_sensibles" | "promesa" | null;
   /** La frase exacta que lo provocó — es la traza. */
   frase: string | null;
-  usage?: { inputTokens: number; outputTokens: number };
+  usage?: { inputTokens: number; outputTokens: number; cacheEscritura?: number; cacheLectura?: number };
 };
 
 /** Exportado para que su eval pruebe el prompt REAL (misma doctrina que el
@@ -119,7 +119,12 @@ export async function juzgarBorrador(args: {
     }
     const data = await res.json();
     const usage = data.usage
-      ? { inputTokens: Number(data.usage.input_tokens ?? 0), outputTokens: Number(data.usage.output_tokens ?? 0) }
+      ? {
+          inputTokens: Number(data.usage.input_tokens ?? 0),
+          outputTokens: Number(data.usage.output_tokens ?? 0),
+          cacheEscritura: Number(data.usage.cache_creation_input_tokens ?? 0),
+          cacheLectura: Number(data.usage.cache_read_input_tokens ?? 0),
+        }
       : undefined;
     const raw: string =
       (data.content as { type: string; text?: string }[] | undefined)

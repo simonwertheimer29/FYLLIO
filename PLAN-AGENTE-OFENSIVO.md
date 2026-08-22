@@ -273,12 +273,16 @@ cadencias, la ventana de Automatizaciones se queda solo con las reglas del motor
 triggers/condiciones/acciones) — que probablemente sobran cuando el evaluador esté encendido.
 Probablemente sobra como ventana. Se decide en fase F.
 
-**Medición de coste pendiente (encargo 22 ago 2026):** cuando la pantalla exista, medir el coste
-REAL por turno con un prompt completo (tono + precios + políticas + horarios + alcance) contra el
-genérico de hoy (~$0,005/turno con juez). Reportar: por turno, por conversación de 3 turnos, y al
-mes con 1.000 conversaciones. Y si el prompt caching aplica (el prompt de una clínica es idéntico
-en todas sus conversaciones, debería) — hoy la llamada del evaluador NO usa `cache_control` ni
-siquiera para el system fijo. Medirlo, no estimarlo: es dato del modelo de negocio.
+**Medición de coste — HECHA el 22 ago 2026 (`scripts/medir-coste-agente.mts`, medido en real con
+evaluador+juez, Haiku 4.5):** genérico $0,0084/turno · $0,0253/conversación de 3 turnos ·
+$25,26/mes con 1.000 conversaciones. Con el grupo 2 cargado (5 tratamientos, 3 políticas, horario,
+2 enlaces): $0,0092/turno · $0,0277/conversación · $27,70/mes — **+10 %**. (La estimación vieja de
+~$0,005/turno se quedaba un 68 % corta: por eso se mide.) **Prompt caching:** `cache_control`
+activado en las 3 llamadas y el mecanismo VERIFICADO (Sonnet: 5.225 tokens escritos y releídos a
+0,1×), pero en Haiku 4.5 hoy NO cachea: su mínimo cacheable es 4.096 tokens y el system son 3.938 —
+se ignora en silencio, coste extra cero. Cuando los grupos 1 y 3 engorden el system por encima de
+4.096, el caché se activa solo (el marcador ya está puesto) y ahorraría ~40 % del coste del turno.
+Re-medir entonces con este mismo script.
 
 ---
 

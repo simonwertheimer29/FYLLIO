@@ -174,7 +174,10 @@ export type EvaluacionTurno = {
   /** El modelo no contestó o contestó ilegible: fail-closed compat
    *  (requiere_persona + MOTIVO_FALLBACK en el caller), SIN eventos. */
   fallback: boolean;
-  usage?: { inputTokens: number; outputTokens: number };
+  /** cacheEscritura/cacheLectura (22-08): tokens del prefijo cacheado —
+   *  aditivos y opcionales; los precios son distintos (1.25× / 0.1×) y sin
+   *  separarlos la medición de coste del plan de negocio saldría inflada. */
+  usage?: { inputTokens: number; outputTokens: number; cacheEscritura?: number; cacheLectura?: number };
 };
 
 // ─── Constantes ─────────────────────────────────────────────────────────────
@@ -505,7 +508,12 @@ async function juzgar(
     }
     const data = await res.json();
     const usage = data.usage
-      ? { inputTokens: Number(data.usage.input_tokens ?? 0), outputTokens: Number(data.usage.output_tokens ?? 0) }
+      ? {
+          inputTokens: Number(data.usage.input_tokens ?? 0),
+          outputTokens: Number(data.usage.output_tokens ?? 0),
+          cacheEscritura: Number(data.usage.cache_creation_input_tokens ?? 0),
+          cacheLectura: Number(data.usage.cache_read_input_tokens ?? 0),
+        }
       : undefined;
     // El bloque de TEXTO, no el [0]: con thinking adaptativo (Sonnet) el
     // primer bloque puede ser thinking y el JSON viene después.
@@ -838,6 +846,8 @@ export async function evaluarTurno(
       base.usage = {
         inputTokens: base.usage.inputTokens + veredicto.usage.inputTokens,
         outputTokens: base.usage.outputTokens + veredicto.usage.outputTokens,
+        cacheEscritura: (base.usage.cacheEscritura ?? 0) + (veredicto.usage.cacheEscritura ?? 0),
+        cacheLectura: (base.usage.cacheLectura ?? 0) + (veredicto.usage.cacheLectura ?? 0),
       };
     }
     if (veredicto == null) {
