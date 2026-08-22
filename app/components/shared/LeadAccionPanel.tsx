@@ -525,50 +525,30 @@ export function LeadAccionPanel({
     }
   }
 
-  // Botón IA: genera el mensaje directamente en el campo. Si hay una
-  // respuesta nueva del lead, clasifica y sugiere (actualiza también la
-  // etiqueta de intención); si no, genera el mensaje según el contexto.
+  // Botón IA (21-08, censo de generadores): antes generaban el clasificador
+  // de leads y /api/leads/ia/mensaje — texto a paciente SIN regla dura. Ahora
+  // es EL MISMO camino que Seguimiento y Mensajería: la ficha del caso → el
+  // juez → sin repreguntar lo recogido. Errores honestos de la ruta.
   async function handleIA() {
     if (generandoIA) return;
     setGenerandoIA(true);
     try {
-      const orden = [...mensajes].sort((a, b) =>
-        String(a.timestamp ?? "").localeCompare(String(b.timestamp ?? "")),
-      );
-      const ultimo = orden[orden.length - 1];
-      if (ultimo && ultimo.direccion === "Entrante") {
-        const res = await fetch("/api/leads/intervencion/clasificar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ leadId: lead.id, respuestaPaciente: ultimo.contenido }),
-        });
-        const d = await res.json();
-        if (d.clasificacion?.mensajeSugerido) {
-          setTextoDeIA(true);
-          setComposerTexto(d.clasificacion.mensajeSugerido);
-          if (d.lead) onChanged(adoptarClinicaNombre(d.lead, lead));
-          return;
-        }
-        if (d.lead) onChanged(adoptarClinicaNombre(d.lead, lead));
+      if (!lead.telefono) {
+        toast.error("Este lead no tiene teléfono registrado — no hay conversación de la que partir.");
+        return;
       }
-      const diasDesde = Math.floor(
-        (Date.now() - new Date(lead.createdAt).getTime()) / 86400000,
-      );
-      const res = await fetch("/api/leads/ia/mensaje", {
+      const res = await fetch("/api/agente/entrada", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          leadNombre: lead.nombre,
-          tratamiento: lead.tratamiento,
-          canal: lead.canal,
-          estadoPipeline: lead.estado,
-          diasDesdeCaptacion: diasDesde,
-          tono: "empatico",
-        }),
+        body: JSON.stringify({ telefono: lead.telefono }),
       });
-      const d = await res.json();
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(typeof d?.error === "string" ? d.error : "No se pudo generar el mensaje.");
+        return;
+      }
       setTextoDeIA(true);
-      if (d.mensaje) setComposerTexto(d.mensaje);
+      setComposerTexto(String(d.borrador ?? ""));
     } catch {
       toast.error("No se pudo generar el mensaje. Inténtalo de nuevo.");
     } finally {

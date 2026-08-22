@@ -3147,3 +3147,17 @@ benigno (ilegible/null → proxy, contable). De paso murió el ÚLTIMO escritor 
 (la rama de config-ilegible de evaluar-entrante). Y el botón de generar de MENSAJERÍA dejó el
 clasificador viejo: usa /api/agente/entrada — una sola pieza con Seguimiento (ficha → juez → sin
 repreguntar), para cualquier hilo evaluado, con errores honestos. qa:cola 52 checks.
+
+## 2026-08-21 — Censo de generadores ejecutado: todo texto a paciente pasa por regla dura
+Con el OK al censo: BORRADOS los tres huérfanos (`lib/whatsapp/llm.ts` — el bot del scheduler
+Twilio; `/api/ai/insights-semana`; `/api/ai/siguiente-accion`) y los dos generadores sin juez que
+escribían a pacientes (`/api/presupuestos/ia/mensaje`, `/api/leads/ia/mensaje`): sus paneles
+(IntervencionSidePanel, LeadAccionPanel) generan ahora por /api/agente/entrada — la MISMA pieza que
+Seguimiento y Mensajería (ficha → juez → sin repreguntar), con errores honestos. Las rutas del
+clasificador viejo (`*/intervencion/clasificar`) quedaron sin caller de generación pero NO se tocan:
+son territorio 94 y mueren con B5. Plantillas-IA y Copilot se quedan CON CRITERIO escrito
+(MEJORAS 103: la revisión humana los salva hoy; si el texto puede salir sin que nadie lo lea,
+pasan por el juez). Las llamadas de voz quedan DECLARADAS como censo pendiente (MEJORAS 104). De
+propina, el swap destapó MEJORAS 105: el SidePanel lleva desde el 10-08 pidiendo plantillas a una
+ruta borrada — 404 mudo. Resultado del censo: HOY ningún texto generado por modelo llega a un
+paciente sin pasar por el juez.

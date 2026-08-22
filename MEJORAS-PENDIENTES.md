@@ -1842,3 +1842,34 @@ verdad: un editor, un vocabulario, un renderizador.
   `lib/seguimiento/registrar-llamada` + POST /api/seguimiento/llamada (IDOR por tipo) + bloque
   «Registrar llamada» en el despliegue. La ESPERA además saca de la cola la iniciativa nuestra
   (agotado, lead nuevo) sin tapar al paciente — 8 checks nuevos en qa:cola (40 en total).
+
+## 103. Generadores de texto con revisión humana — el criterio que los salva (y su límite)
+- **Qué es:** tras el censo del 21-08, quedan DOS generadores de texto con modelo fuera del camino
+  del agente, y se quedan A PROPÓSITO: el generador de plantillas de Ajustes
+  (`/api/presupuestos/plantillas/generar-ia` — escribe borradores de plantilla que una persona
+  revisa y guarda ANTES de que existan) y el Copilot (chat interno de coordinación — redacta para
+  que una persona copie a mano si quiere).
+- **EL CRITERIO (dictado):** la revisión humana los salva HOY porque hay alguien mirando. **Si
+  algún día ese texto puede salir hacia un paciente sin que nadie lo lea** (una plantilla que se
+  autoaprueba, un copilot con botón de enviar), **pasan por el juez** — sin discusión nueva: es
+  este criterio aplicándose.
+- **Fecha:** 2026-08-21
+
+## 104. Llamadas de voz (Vapi) — censo de reglas duras PENDIENTE
+- **Qué es:** las llamadas IA son OTRO canal generativo con sus propios prompts
+  (`lib/llamadas/*`, webhook de Vapi) y hoy están fuera del censo de reglas duras: nada equivalente
+  al juez revisa lo que la voz afirma (hechos clínicos, condiciones económicas, art. 9 en voz).
+  Las mismas reglas duras deberían aplicar.
+- **Decisión (Simon, 2026-08-21):** anotado como censo pendiente — NO tocar ahora, pero declarado.
+- **Fecha:** 2026-08-21
+
+## 105. IntervencionSidePanel pide plantillas a una ruta BORRADA el 10-08 (404 silencioso)
+- **Qué es:** visto durante el swap del censo: `IntervencionSidePanel` hace
+  `fetch("/api/presupuestos/plantillas")` — ruta eliminada el 10 de agosto al unificar los
+  editores. El catch lo convierte en «no hay plantillas» (§9/§10: fallo sistemático mudo), así que
+  su selector de plantillas y la precarga de «Confirmación de aceptación» llevan muertos desde
+  entonces sin que nadie lo viera. Además su `aplicarPlantilla` sustituye llave SIMPLE `{nombre}`
+  (el mismo bug de B6.2: con el vocabulario post-017 produciría «{Ana}»).
+- **El arreglo:** apuntar a `/api/plantillas` (el editor único) + `sustituirLlaves`. Hoy no muerde
+  SOLO porque el fetch muere antes.
+- **Fecha:** 2026-08-21

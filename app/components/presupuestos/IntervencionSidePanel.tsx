@@ -279,42 +279,29 @@ export default function IntervencionSidePanel({
     if (generandoIA) return;
     setGenerandoIA(true);
     try {
-      const orden = [...mensajes].sort((a, b) =>
-        String(a.timestamp ?? "").localeCompare(String(b.timestamp ?? "")),
-      );
-      const ultimo = orden[orden.length - 1];
-      const respuesta = ultimo?.direccion === "Entrante" ? ultimo.contenido : item.ultimaRespuestaPaciente;
-      if (respuesta) {
-        const res = await fetch("/api/presupuestos/intervencion/clasificar", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ presupuestoId: item.id, respuestaPaciente: respuesta }),
-        });
-        const d = await res.json();
-        if (d.clasificacion?.mensajeSugerido) {
-          setTextoDeIA(true);
-          setComposerTexto(d.clasificacion.mensajeSugerido);
-          onRefresh();
-          return;
-        }
+      // 21-08 (censo de generadores): aquí generaban el clasificador viejo y
+      // /api/presupuestos/ia/mensaje — texto a paciente SIN regla dura.
+      // Ahora es EL MISMO camino que Seguimiento y Mensajería: la ficha del
+      // caso → el juez → sin repreguntar lo recogido. Errores honestos de la
+      // ruta (sin evaluación, descartado, modelo caído) — jamás texto
+      // inventado.
+      if (!item.patientPhone) {
+        toast.error("Este caso no tiene teléfono registrado — no hay conversación de la que partir.");
+        return;
       }
-      const res = await fetch("/api/presupuestos/ia/mensaje", {
+      const res = await fetch("/api/agente/entrada", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patientName: item.patientName,
-          treatments: item.treatments,
-          estado: item.estado,
-          daysSince: item.daysSince,
-          lastContactDaysAgo: item.diasDesdeUltimoContacto,
-          contactCount: item.contactCount,
-          amount: item.amount,
-          motivoDuda: item.motivoDuda,
-          tono: "empatico",
-        }),
+        body: JSON.stringify({ telefono: item.patientPhone }),
       });
-      const d = await res.json();
-      if (d.mensaje) setComposerTexto(d.mensaje);
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(typeof d?.error === "string" ? d.error : "No se pudo generar el mensaje.");
+        return;
+      }
+      setTextoDeIA(true);
+      setComposerTexto(String(d.borrador ?? ""));
+      onRefresh();
     } catch {
       toast.error("No se pudo generar el mensaje. Inténtalo de nuevo.");
     } finally {
