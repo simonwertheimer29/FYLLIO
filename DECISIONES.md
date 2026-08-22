@@ -3161,3 +3161,13 @@ pasan por el juez). Las llamadas de voz quedan DECLARADAS como censo pendiente (
 propina, el swap destapó MEJORAS 105: el SidePanel lleva desde el 10-08 pidiendo plantillas a una
 ruta borrada — 404 mudo. Resultado del censo: HOY ningún texto generado por modelo llega a un
 paciente sin pasar por el juez.
+
+## 2026-08-21 — MEJORAS 105 ejecutada: el panel deja de mentir sobre las plantillas
+`IntervencionSidePanel` pedía plantillas a una ruta borrada el 10-08 y un catch mudo lo convertía
+en «no hay plantillas»: once días de selector muerto que nadie vio — el fallo silencioso de libro
+(§9/§10), en zona de vocabulario viejo pero MINTIENDO igual. Ahora: editor único
+(/api/plantillas, lead_seguimiento + cobranza) vía cargarJSON, fallo dicho con toast, y llaves
+DOBLES por `sustituirLlaves` — que se movió a módulo PURO client-safe (lib/plantillas/llaves)
+porque el motivo de que el panel siguiera con llave simple era que la función correcta vivía en un
+módulo con imports de servidor. Contrato duro también en UI: una plantilla con huecos
+({{pendiente}} y compañía) no se inserta rota — se avisa nombrando las llaves.

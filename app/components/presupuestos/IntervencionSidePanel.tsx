@@ -45,6 +45,8 @@ import { Check, MessageCircle, Phone, XCircle, ICON_STROKE, AlertTriangle } from
 import TimelineAcciones from "./TimelineAcciones";
 import { Pause } from "lucide-react";
 import { eur } from "../shared/Cifra";
+import { cargarJSON } from "../../lib/fetch-json";
+import { sustituirLlaves } from "../../lib/plantillas/llaves";
 
 type PlantillaMensaje = { id: string; nombre: string; contenido: string };
 
@@ -118,11 +120,29 @@ export default function IntervencionSidePanel({
   }, [item.id, item.clinica]);
 
   useEffect(() => {
-    const qs = item.clinica ? `?clinica=${encodeURIComponent(item.clinica)}` : "";
-    fetch(`/api/presupuestos/plantillas${qs}`)
-      .then((r) => r.json())
-      .then((d) => setPlantillas(Array.isArray(d?.plantillas) ? d.plantillas : []))
-      .catch(() => setPlantillas([]));
+    // MEJORAS 105 (21-08): esto pedía /api/presupuestos/plantillas — BORRADA
+    // el 10-08 al unificar los editores — y el catch convertía el 404 en «no
+    // hay plantillas»: once días de selector muerto en silencio (§9/§10).
+    // Ahora: el editor ÚNICO, las dos categorías de este panel, y el fallo
+    // SE DICE — sin plantillas se puede escribir a mano, pero sabiéndolo.
+    let cancelado = false;
+    Promise.all(
+      (["lead_seguimiento", "cobranza"] as const).map((categoria) =>
+        cargarJSON<{ plantillas: Array<{ id: string; nombre: string; contenido: string }> }>(
+          `/api/plantillas?categoria=${categoria}`,
+        ),
+      ),
+    )
+      .then((partes) => !cancelado && setPlantillas(partes.flatMap((d) => d.plantillas)))
+      .catch((e) => {
+        if (cancelado) return;
+        console.error("[intervencion] no se pudieron cargar las plantillas:", e);
+        toast.error("No se pudieron cargar las plantillas — puedes escribir a mano");
+        setPlantillas([]);
+      });
+    return () => {
+      cancelado = true;
+    };
   }, [item.clinica]);
 
   useEffect(() => {
@@ -144,14 +164,21 @@ export default function IntervencionSidePanel({
       const trat = (item.treatments ?? [])[0] ?? "tu tratamiento";
       const importe = item.amount != null ? eur(item.amount) : "";
       const tpl = plantillas.find((p) => p.nombre === "Confirmación de aceptación");
+      // Llaves DOBLES (el vocabulario real desde la 017 — aquí vivía el bug
+      // de B6.2 con llave simple) y NINGUNA llave superviviente: con huecos,
+      // el texto fijo de siempre antes que un «{{nombre_doctor}}» al paciente.
+      const relleno = tpl
+        ? sustituirLlaves(tpl.contenido, {
+            nombre,
+            tratamiento: trat,
+            importe,
+            nombre_doctor: item.doctor ?? "",
+            nombre_clinica: item.clinica ?? "",
+          })
+        : null;
       setComposerTexto(
-        tpl
-          ? tpl.contenido
-              .replace(/\{nombre\}/g, nombre)
-              .replace(/\{tratamiento\}/g, trat)
-              .replace(/\{importe\}/g, importe)
-              .replace(/\{doctor\}/g, item.doctor ?? "tu doctor")
-              .replace(/\{clinica\}/g, item.clinica ?? "")
+        relleno && relleno.sinResolver.length === 0
+          ? relleno.texto
           : `¡Enhorabuena ${nombre}! Hemos registrado la aceptación de tu presupuesto de ${trat}${importe ? ` (${importe})` : ""}. El siguiente paso es agendar el inicio del tratamiento — ¿te viene bien esta semana?`,
       );
       toast.success("Presupuesto aceptado — mensaje de enhorabuena listo para enviar");
@@ -316,14 +343,20 @@ export default function IntervencionSidePanel({
     const nombre = item.patientName.split(" ")[0];
     const tratamiento = (item.treatments ?? [])[0] ?? "tu tratamiento";
     const importe = item.amount != null ? eur(item.amount) : "";
-    setComposerTexto(
-      tpl.contenido
-        .replace(/\{nombre\}/g, nombre)
-        .replace(/\{tratamiento\}/g, tratamiento)
-        .replace(/\{importe\}/g, importe)
-        .replace(/\{doctor\}/g, item.doctor ?? "")
-        .replace(/\{clinica\}/g, item.clinica ?? ""),
-    );
+    // Llaves DOBLES + contrato duro: una plantilla con huecos ({{pendiente}}
+    // y compañía, que este panel no tiene) NO se inserta rota — se dice.
+    const { texto, sinResolver } = sustituirLlaves(tpl.contenido, {
+      nombre,
+      tratamiento,
+      importe,
+      nombre_doctor: item.doctor ?? "",
+      nombre_clinica: item.clinica ?? "",
+    });
+    if (sinResolver.length > 0) {
+      toast.error(`Esa plantilla usa datos que este panel no tiene (${sinResolver.join(", ")}) — úsala desde su pantalla o escribe a mano.`);
+      return;
+    }
+    setComposerTexto(texto);
     composerRef.current?.focus();
   }
 

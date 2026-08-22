@@ -1872,4 +1872,8 @@ verdad: un editor, un vocabulario, un renderizador.
   (el mismo bug de B6.2: con el vocabulario post-017 produciría «{Ana}»).
 - **El arreglo:** apuntar a `/api/plantillas` (el editor único) + `sustituirLlaves`. Hoy no muerde
   SOLO porque el fetch muere antes.
-- **Fecha:** 2026-08-21
+- **Fecha:** 2026-08-21 · ✅ **RESUELTA el 2026-08-21** — el panel pide al editor único
+  (lead_seguimiento + cobranza) con `cargarJSON` y el fallo SE DICE (toast, no catch mudo);
+  `sustituirLlaves` movida a módulo client-safe (`lib/plantillas/llaves`) y usada en la precarga de
+  «Confirmación de aceptación» y en `aplicarPlantilla` — una plantilla con huecos no se inserta
+  rota: se avisa con sus llaves.
