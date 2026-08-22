@@ -1881,9 +1881,12 @@ verdad: un editor, un vocabulario, un renderizador.
 ## 106. Tres pares de «dos fuentes del mismo concepto» — limpieza cuando muera el motor viejo (B5)
 - **Qué es:** el diagnóstico de fase D (22-08) encontró TRES solapes de la misma familia — dos
   fuentes del mismo concepto, el patrón que llevamos semanas matando:
-  1. **Dos horarios laborables default:** `lib/seguimiento/tiempo-laborable.ts` (L-V 9-20, el de
-     la cola) y `lib/automatizaciones/types.ts` `HORARIO_DEFAULT` (con sábado, el del motor viejo)
-     — y `clinicas.horario_laboral` existe desde la 001 sin que la cola lo lea.
+  1. **Dos lectores de horario laborable:** ~~dos defaults~~ (corregido 22-08: tiempo-laborable
+     IMPORTA el `HORARIO_DEFAULT` del motor viejo — es el mismo objeto). El solape real: el motor
+     viejo lee su horario de `configuraciones_clinica` (categoría horario_laboral, hoy sin filas)
+     y la cola lo lee ahora de la configuración del agente (grupo 4, donde el dato NACE — en
+     `clinicas` nunca existió: solo `staff.horario_laboral`, por empleado). Al morir el motor
+     viejo, queda una sola fuente: la del agente.
   2. **Dos fuentes de «caso frío»:** `UMBRAL_REACTIVACION_DIAS` hardcoded (lead 2 / presupuesto 3,
      `estado-conversacion.ts`) vs `configuracion_automatizaciones.dias_reactivacion` /
      `dias_inactividad_alerta` (por clínica, solo los lee el motor viejo).
