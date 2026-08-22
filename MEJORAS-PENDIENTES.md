@@ -1877,3 +1877,19 @@ verdad: un editor, un vocabulario, un renderizador.
   `sustituirLlaves` movida a módulo client-safe (`lib/plantillas/llaves`) y usada en la precarga de
   «Confirmación de aceptación» y en `aplicarPlantilla` — una plantilla con huecos no se inserta
   rota: se avisa con sus llaves.
+
+## 106. Tres pares de «dos fuentes del mismo concepto» — limpieza cuando muera el motor viejo (B5)
+- **Qué es:** el diagnóstico de fase D (22-08) encontró TRES solapes de la misma familia — dos
+  fuentes del mismo concepto, el patrón que llevamos semanas matando:
+  1. **Dos horarios laborables default:** `lib/seguimiento/tiempo-laborable.ts` (L-V 9-20, el de
+     la cola) y `lib/automatizaciones/types.ts` `HORARIO_DEFAULT` (con sábado, el del motor viejo)
+     — y `clinicas.horario_laboral` existe desde la 001 sin que la cola lo lea.
+  2. **Dos fuentes de «caso frío»:** `UMBRAL_REACTIVACION_DIAS` hardcoded (lead 2 / presupuesto 3,
+     `estado-conversacion.ts`) vs `configuracion_automatizaciones.dias_reactivacion` /
+     `dias_inactividad_alerta` (por clínica, solo los lee el motor viejo).
+  3. **Dos frenos de mensajes al mismo paciente:** el cooldown del engine viejo (3 msg/24 h) y el
+     tope diario de la cadencia (`MAX_ENVIOS_POR_CLINICA_DIA=30`, hardcoded en `generar-cola.ts`).
+- **Decisión (Simon, 2026-08-22):** NO arreglar ahora. Cuando el motor viejo de Automatizaciones
+  muera con B5, esta es la limpieza: una sola fuente por concepto, leída de la configuración del
+  agente (fase D grupo 4/5).
+- **Fecha:** 2026-08-22

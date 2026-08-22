@@ -101,7 +101,9 @@ export async function juzgarBorrador(args: {
         max_tokens: 200,
         // Detección en greedy — mismo motivo que el evaluador (2026-08-17).
         temperature: 0,
-        system: args._promptOverride ?? SYSTEM_PROMPT_JUEZ,
+        // System fijo → cacheable (22-08). Si queda bajo el mínimo del
+        // modelo, la API lo ignora sin coste — nunca es peor que no ponerlo.
+        system: [{ type: "text", text: args._promptOverride ?? SYSTEM_PROMPT_JUEZ, cache_control: { type: "ephemeral" } }],
         messages: [
           {
             role: "user",

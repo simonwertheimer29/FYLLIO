@@ -126,7 +126,8 @@ export async function borradorDeEntrada(args: {
         model: "claude-haiku-4-5-20251001",
         max_tokens: 300,
         temperature: 0,
-        system: SYSTEM_PROMPT_ENTRADA,
+        // System fijo → cacheable (22-08), mismo criterio que el evaluador.
+        system: [{ type: "text", text: SYSTEM_PROMPT_ENTRADA, cache_control: { type: "ephemeral" } }],
         messages: [
           {
             role: "user",

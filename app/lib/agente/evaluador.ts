@@ -476,7 +476,10 @@ async function juzgar(
         // sondas verdes con el mismo código, 2026-08-17). Un juicio no se
         // muestrea.
         temperature: 0,
-        system: promptOverride ?? SYSTEM_PROMPT_EVALUADOR,
+        // El system es IDÉNTICO en todos los turnos de todas las clínicas:
+        // se cachea (22-08 — hasta hoy se pagaba entero en cada turno). La
+        // escritura cuesta 1.25× una vez por ventana; las lecturas, 0.1×.
+        system: [{ type: "text", text: promptOverride ?? SYSTEM_PROMPT_EVALUADOR, cache_control: { type: "ephemeral" } }],
         messages: [{ role: "user", content: anonimizarTexto(texto, mapa) }],
       }),
       signal: controller.signal,
