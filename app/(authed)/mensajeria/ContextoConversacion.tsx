@@ -21,8 +21,12 @@ import { FichaCasoPanel } from "../../components/agente/FichaCasoPanel";
 
 export function ContextoConversacion({
   conversacion,
+  onCambio,
 }: {
   conversacion: Conversacion | null;
+  /** Una decisión del semáforo desde la ficha cambia también la bandeja y el
+   *  caso del compositor — este callback los recarga (fase C). */
+  onCambio?: () => void;
 }) {
   const pacienteId = conversacion?.pacienteId ?? null;
 
@@ -57,7 +61,7 @@ export function ContextoConversacion({
       </div>
 
       {/* ─── 2 · LA FICHA DEL CASO — el único resumen ─────────────────── */}
-      <FichaCasoPanel telefono={conversacion.telefono} modo="mensajeria" />
+      <FichaCasoPanel telefono={conversacion.telefono} modo="mensajeria" onCambio={onCambio} />
 
       {/* ─── 3 · La salida al detalle financiero del paciente ─────────── */}
       {pacienteId && (

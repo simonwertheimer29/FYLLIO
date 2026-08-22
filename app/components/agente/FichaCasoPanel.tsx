@@ -17,14 +17,16 @@
 // HONESTIDAD: sin evaluación del agente, la ficha lo dice con todas las
 // letras — ni blanco ni resumen fingido (§4 del estándar + caso a).
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { toast } from "sonner";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import { ErrorState } from "../ui/Feedback";
 import { fechaClinica } from "../../lib/time";
 import { AlertTriangle, Clock, PauseCircle, UserCheck, CheckCircle2 } from "../icons";
 import { eur as eurUI } from "../shared/Cifra";
 import type { FichaCaso } from "../../lib/agente/ficha-caso";
+import type { CausaDerivacion } from "../../lib/automatizacion/estado";
 
 const ETIQUETA_OTRO: Record<string, string> = {
   cobro: "un pago pendiente",
@@ -33,14 +35,38 @@ const ETIQUETA_OTRO: Record<string, string> = {
   identificar: "identificar a la persona",
 };
 
+// ── El asunto derivado, en lenguaje de coordinadora (fase C) ──────────────
+// Hasta hoy la ficha solo enseñaba la causa cuando era una queja: nadie
+// sabía POR QUÉ le llegó un caso. El título dice la causa; la frase del
+// paciente, cuando existe, dice el resto.
+const TITULO_DERIVADO: Record<CausaDerivacion, string> = {
+  peticion_queja: "Pidió hablar con una persona",
+  urgencia: "Urgencia — no puede esperar",
+  antecedente_medico: "Mencionó una medicación o condición médica",
+  caso_completo: "El agente terminó su parte — queda cerrarlo",
+  insistencia: "Insistió varias veces — el agente no le resuelve",
+};
+/** Rojo para lo que exige atención inmediata (el mismo criterio que la cola
+ *  prioritaria de la derivación); el resto informa sin alarmar. */
+const CAUSA_PRIORITARIA: ReadonlySet<CausaDerivacion> = new Set([
+  "peticion_queja",
+  "urgencia",
+  "antecedente_medico",
+]);
+
 export function FichaCasoPanel({
   telefono,
   modo,
+  onCambio,
 }: {
   telefono: string;
   /** «mensajeria»: la conversación está al lado — sin enlace al hilo.
    *  «seguimiento»: el hilo se enlaza, cerrado por defecto. */
   modo: "mensajeria" | "seguimiento";
+  /** Tras una decisión del semáforo (resolver, soltar, levantar espera): la
+   *  ficha ya se recarga sola, pero la cola/bandeja del caller también
+   *  cambió — este callback es su aviso. */
+  onCambio?: () => void;
 }) {
   const [ficha, setFicha] = useState<FichaCaso | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -65,6 +91,13 @@ export function FichaCasoPanel({
     cargar();
   }, [cargar]);
 
+  // Tras una decisión: la ficha se recarga (el estado que enseñaba cambió) y
+  // se avisa al caller — la cola de Seguimiento o la bandeja también cambiaron.
+  const alCambiar = useCallback(() => {
+    void cargar();
+    onCambio?.();
+  }, [cargar, onCambio]);
+
   if (error) {
     return <ErrorState detail={`La ficha del caso no se pudo cargar. ${error}`} onRetry={cargar} />;
   }
@@ -81,31 +114,68 @@ export function FichaCasoPanel({
 
   return (
     <div className="space-y-3">
-      {/* ── 0 · ANTES DE TODO: la queja/petición de persona (21-08). Un tag
-          y un pendiente en una lista no bastan — si la coordinadora no lo
-          lee, le escribe «como si nada» a alguien enfadado. Rojo, arriba,
-          con la frase del paciente: es lo que hay que resolver ANTES de
-          cerrar el caso. */}
-      {ficha.semaforo.motivo === "derivado_sin_resolver" &&
-        ficha.semaforo.causa === "peticion_queja" && (
-          <div className="flex gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 dark:border-rose-500/25 dark:bg-rose-500/10">
+      {/* ── 0 · ANTES DE TODO: el asunto derivado (21-08 la queja; fase C,
+          todas las causas). Un tag y un pendiente en una lista no bastan —
+          si la coordinadora no sabe por qué le llegó el caso, le escribe
+          «como si nada» a alguien enfadado o cierra sin cerrar lo que el
+          agente entregó. Arriba, con la frase del paciente, y el botón que
+          lo cierra: «Marcar resuelto» es UNO para todas las causas (026) —
+          la causa ya está en el log. */}
+      {ficha.semaforo.motivo === "derivado_sin_resolver" && (
+        <div
+          className={`flex gap-2 rounded-xl border px-3 py-2.5 ${
+            !ficha.semaforo.causa || CAUSA_PRIORITARIA.has(ficha.semaforo.causa)
+              ? "border-rose-200 bg-rose-50 dark:border-rose-500/25 dark:bg-rose-500/10"
+              : "border-[var(--color-border)] bg-[var(--color-surface-muted)]"
+          }`}
+        >
+          {!ficha.semaforo.causa || CAUSA_PRIORITARIA.has(ficha.semaforo.causa) ? (
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-danger)]" aria-hidden />
-            <p className="min-w-0 text-[12.5px] leading-snug text-[var(--color-foreground)]">
-              <span className="font-semibold">Pidió hablar con una persona{ficha.semaforo.desde ? ` — ${fechaClinica(ficha.semaforo.desde)}` : ""}.</span>
+          ) : (
+            <UserCheck className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-accent)]" aria-hidden />
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="text-[12.5px] leading-snug text-[var(--color-foreground)]">
+              <span className="font-semibold">
+                {ficha.semaforo.causa
+                  ? TITULO_DERIVADO[ficha.semaforo.causa]
+                  : "Derivado al equipo"}
+                {ficha.semaforo.desde ? ` — ${fechaClinica(ficha.semaforo.desde)}` : ""}.
+              </span>
+              {ficha.semaforo.causa === "caso_completo" && ficha.semaforo.objetivo
+                ? ` Queda ${ETIQUETA_OTRO[ficha.semaforo.objetivo] ?? ficha.semaforo.objetivo}.`
+                : ""}
               {ficha.semaforo.frase ? ` Sus palabras: ${ficha.semaforo.frase}` : ""}
-              {" "}Resuélvelo antes de cerrar nada.
+              {ficha.semaforo.causa === "peticion_queja" ? " Resuélvelo antes de cerrar nada." : ""}
             </p>
+            <BotonSemaforo
+              telefono={ficha.telefono}
+              evento="resuelto_manual"
+              etiqueta="Marcar resuelto"
+              hecho="Asunto marcado como resuelto"
+              onHecho={alCambiar}
+            />
           </div>
-        )}
+        </div>
+      )}
       {/* ── La espera (qué NO hacer) y lo intentado ── */}
       {ficha.espera && (
         <div className="flex gap-2 rounded-xl bg-[var(--color-warning-soft)] px-3 py-2.5">
           <PauseCircle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" aria-hidden />
-          <p className="min-w-0 text-[12.5px] leading-snug text-[var(--color-foreground)]">
-            <span className="font-semibold">No escribir hasta el {fechaClinica(ficha.espera.hasta)}</span>
-            {" — pidió tiempo"}
-            {ficha.espera.frase ? `: ${ficha.espera.frase}` : "."}
-          </p>
+          <div className="min-w-0 flex-1">
+            <p className="text-[12.5px] leading-snug text-[var(--color-foreground)]">
+              <span className="font-semibold">No escribir hasta el {fechaClinica(ficha.espera.hasta)}</span>
+              {" — pidió tiempo"}
+              {ficha.espera.frase ? `: ${ficha.espera.frase}` : "."}
+            </p>
+            <BotonSemaforo
+              telefono={ficha.telefono}
+              evento="espera_levantada"
+              etiqueta="Levantar la espera"
+              hecho="Espera levantada — se puede volver a escribir"
+              onHecho={alCambiar}
+            />
+          </div>
         </div>
       )}
       <p className="flex items-center gap-1.5 text-[12px] text-[var(--color-muted)]">
@@ -115,10 +185,20 @@ export function FichaCasoPanel({
           : `${ficha.intentos.salientes} ${ficha.intentos.salientes === 1 ? "mensaje enviado" : "mensajes enviados"} · último el ${fechaClinica(ficha.intentos.ultimo!)}`}
       </p>
       {ficha.semaforo.motivo === "hilo_asumido" && (
-        <p className="flex items-center gap-1.5 text-[12px] font-semibold text-[var(--color-foreground)]">
-          <UserCheck className="h-3.5 w-3.5 shrink-0 text-[var(--color-accent)]" aria-hidden />
-          Lo lleva una persona.
-        </p>
+        <div className="flex items-center justify-between gap-2">
+          <p className="flex items-center gap-1.5 text-[12px] font-semibold text-[var(--color-foreground)]">
+            <UserCheck className="h-3.5 w-3.5 shrink-0 text-[var(--color-accent)]" aria-hidden />
+            Lo lleva una persona.
+          </p>
+          <BotonSemaforo
+            telefono={ficha.telefono}
+            evento="soltado"
+            etiqueta="Soltar el hilo"
+            hecho="Hilo soltado — deja de estar en manos de nadie"
+            onHecho={alCambiar}
+            sinMargen
+          />
+        </div>
       )}
       {ficha.cierrePorPaciente && (
         <p className="flex items-center gap-1.5 text-[12px] text-[var(--color-foreground)]">
@@ -252,6 +332,75 @@ export function FichaCasoPanel({
         </Link>
       )}
     </div>
+  );
+}
+
+/** Un botón de decisión del semáforo (fase C): resuelto · soltar · levantar
+ *  espera. Confirmación en dos clics —el log es append-only y un resuelto
+ *  por error cierra un asunto de verdad—, sin `confirm()` nativo (estándar)
+ *  y sin inventar un modal nuevo para tres botones. El segundo clic dispara;
+ *  si no llega en unos segundos, el botón vuelve a su texto. */
+function BotonSemaforo({
+  telefono,
+  evento,
+  etiqueta,
+  hecho,
+  onHecho,
+  sinMargen = false,
+}: {
+  telefono: string;
+  evento: "resuelto_manual" | "soltado" | "espera_levantada";
+  etiqueta: string;
+  /** El toast de éxito: dice qué pasó, no «hecho». */
+  hecho: string;
+  onHecho: () => void;
+  sinMargen?: boolean;
+}) {
+  const [confirmando, setConfirmando] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  }, []);
+
+  async function pulsar() {
+    if (enviando) return;
+    if (!confirmando) {
+      setConfirmando(true);
+      timeoutRef.current = setTimeout(() => setConfirmando(false), 5000);
+      return;
+    }
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    setEnviando(true);
+    try {
+      await cargarJSON("/api/automatizacion/decidir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tipoCaso: "conversacion", casoId: telefono, evento }),
+      });
+      toast.success(hecho);
+      onHecho();
+    } catch (e) {
+      toast.error(mensajeDeError(e));
+    } finally {
+      setEnviando(false);
+      setConfirmando(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={pulsar}
+      disabled={enviando}
+      className={`${sinMargen ? "" : "mt-2 "}inline-flex shrink-0 items-center rounded-md border px-2.5 py-1 text-[12px] font-semibold transition-colors disabled:opacity-50 ${
+        confirmando
+          ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-white hover:opacity-90"
+          : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
+      }`}
+    >
+      {enviando ? "Guardando…" : confirmando ? `¿Seguro? ${etiqueta}` : etiqueta}
+    </button>
   );
 }
 

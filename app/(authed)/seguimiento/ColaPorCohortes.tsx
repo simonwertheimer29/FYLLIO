@@ -388,7 +388,11 @@ export function ColaPorCohortes({
                                 void cargar();
                               }}
                             />
-                            <FichaCasoPanel telefono={caso.telefono} modo="seguimiento" />
+                            <FichaCasoPanel
+                              telefono={caso.telefono}
+                              modo="seguimiento"
+                              onCambio={() => void cargar()}
+                            />
                           </div>
                         </div>
                       )}

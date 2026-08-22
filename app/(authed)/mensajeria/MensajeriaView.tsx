@@ -417,7 +417,13 @@ export function MensajeriaView() {
         <aside className="hidden min-h-0 w-72 shrink-0 overflow-y-auto rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] lg:block">
           {/* B2: la ficha del caso sustituye al resumen viejo; el `caso` del
               clasificador sigue alimentando SOLO al compositor (borrador). */}
-          <ContextoConversacion conversacion={conversacion} />
+          <ContextoConversacion
+            conversacion={conversacion}
+            onCambio={() => {
+              recargarCaso();
+              void cargarLista();
+            }}
+          />
         </aside>
       </div>
     </div>

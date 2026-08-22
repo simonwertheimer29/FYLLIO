@@ -3218,3 +3218,12 @@ banda azul con chispas «Borrador del agente — revísalo: lo envías con tu no
 montada en el COMPOSER COMPARTIDO (panel-accion-ui — Mensajería y los dos paneles la heredan) y en
 el chat embebido. Conecta con la obligación del Reglamento de IA pendiente de consulta legal: la
 persona sabe qué está firmando. qa:cola actualizado a la regla nueva (54 checks).
+
+## 2026-08-22 — Fase C·1: el asunto derivado se ve (y se cierra) desde la ficha
+La ficha solo enseñaba la causa de una derivación cuando era una queja: para urgencia, caso
+completo, insistencia o antecedente médico, nadie sabía POR QUÉ le llegó un caso. Ahora el
+bloque de arriba cubre las cinco causas (rojo las prioritarias) con la frase del paciente, y
+los tres botones del semáforo viven junto al estado que tocan (resolver · soltar · levantar
+espera) — hasta hoy solo existían por terminal. De paso se cerró el hueco que la UI hacía
+inaceptable: `/api/automatizacion/decidir` no comprobaba clínica para `conversacion` — ahora
+IDOR por tipo, el mismo patrón que `/api/seguimiento/llamada`, fail-closed.

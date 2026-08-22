@@ -14,9 +14,10 @@
 // al agente es, literalmente, dejar de tener un evento humano por encima.
 
 import { NextResponse } from "next/server";
-import { withPresupuestosAuth } from "@/lib/auth/legacy-presupuestos";
+import { withAuth } from "../../../lib/auth/session";
+import { listClinicaIdsForUser } from "../../../lib/auth/users";
+import { runWithCliente } from "../../../lib/airtable";
 import { registrarEvento } from "../../../lib/automatizacion/pg";
-import { verificarPresupuestoPermitido } from "../../../lib/presupuestos/clinica-scope";
 import type { EventoAutomatizacion, TipoCaso } from "../../../lib/automatizacion/estado";
 
 export const dynamic = "force-dynamic";
@@ -53,7 +54,10 @@ const SOLO_CONVERSACION: readonly EventoAutomatizacion[] = [
   "espera_levantada",
 ];
 
-export const POST = withPresupuestosAuth(async (session, req: Request) => {
+export const POST = withAuth(async (session, req) => {
+  if (!session.cliente) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
   const body = await req.json().catch(() => null);
   const tipoCaso = body?.tipoCaso as TipoCaso | undefined;
   const casoId = body?.casoId as string | undefined;
@@ -89,30 +93,55 @@ export const POST = withPresupuestosAuth(async (session, req: Request) => {
     hasta = cruda;
   }
 
-  // Aislamiento por clínica (§5): un caso de otra clínica no se toca, ni para
-  // registrar una decisión sobre él. Se comprueba lo que se puede comprobar hoy
-  // —presupuestos tiene su verificador— y se declara lo que no.
-  if (tipoCaso === "presupuesto") {
-    const permiso = await verificarPresupuestoPermitido(session, casoId);
-    if (permiso !== "ok") {
-      return NextResponse.json({ error: "No encontrado" }, { status: 404 });
-    }
-  }
-
   try {
-    await registrarEvento({
-      tipoCaso,
-      casoId,
-      evento,
-      actorId: session.email ?? null,
-      actorNombre: session.nombre ?? null,
-      motivoTexto,
-      hasta,
+    return await runWithCliente(session.cliente, async () => {
+      // Aislamiento por clínica (§5) — IDOR por tipo, el mismo criterio que
+      // /api/seguimiento/llamada (fase C: con botón en pantalla, «cualquier
+      // sesión resuelve cualquier hilo» dejó de ser aceptable). Fail-closed:
+      // sin clínica resoluble, solo red. `cobro` queda declarado sin
+      // verificador propio (no tiene ruta de UI que emita decisiones hoy).
+      if (session.rol !== "admin") {
+        const permitidas = await listClinicaIdsForUser(session.userId);
+        if (tipoCaso === "presupuesto") {
+          const { verificarPresupuestoPermitido } = await import("../../../lib/presupuestos/clinica-scope");
+          const permiso = await verificarPresupuestoPermitido(
+            { ...session, clinicasAccesibles: permitidas } as any,
+            casoId,
+          );
+          if (permiso !== "ok") {
+            return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+          }
+        } else if (tipoCaso === "lead") {
+          const { getLead } = await import("../../../lib/leads/leads");
+          const lead = await getLead(casoId);
+          if (!lead || !lead.clinicaId || !permitidas.includes(lead.clinicaId)) {
+            return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+          }
+        } else if (tipoCaso === "conversacion") {
+          // El caso ES el teléfono: la clínica se resuelve del hilo (019).
+          const { hiloDe } = await import("../../../lib/mensajeria/conversaciones");
+          const mensajes = await hiloDe(casoId);
+          const clinicaDelHilo = [...mensajes].reverse().find((m) => m.clinicaId)?.clinicaId ?? null;
+          if (!clinicaDelHilo || !permitidas.includes(clinicaDelHilo)) {
+            return NextResponse.json({ error: "No encontrado" }, { status: 404 });
+          }
+        }
+      }
+
+      await registrarEvento({
+        tipoCaso,
+        casoId,
+        evento,
+        actorId: session.userId ?? null,
+        actorNombre: session.nombre ?? null,
+        motivoTexto,
+        hasta,
+      });
+      // El estado NO se devuelve desde aquí: se deriva en la siguiente carga, con
+      // el resto de señales. Devolverlo ahora obligaría a calcularlo dos veces y
+      // abriría la puerta a que el cliente y el servidor discrepen.
+      return NextResponse.json({ ok: true });
     });
-    // El estado NO se devuelve desde aquí: se deriva en la siguiente carga, con
-    // el resto de señales. Devolverlo ahora obligaría a calcularlo dos veces y
-    // abriría la puerta a que el cliente y el servidor discrepen.
-    return NextResponse.json({ ok: true });
   } catch (err) {
     // §1 — el registro ES el dato: si no se guardó, no se confirma. Un
     // "devuelto al agente" que se pierde deja el caso en manos de alguien para
