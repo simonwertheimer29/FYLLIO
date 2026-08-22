@@ -157,6 +157,10 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
     aplazadosPendientes: pendientes.flatMap((p) => p.motivos.map((motivo) => ({ clave: p.clave, motivo }))),
     aplazadosPorClave,
     conocimiento,
+    // Grupo 3: los hooks que el evaluador ya tenía, alimentados por fin
+    // desde la configuración (null/ausente → los defaults del código).
+    umbralInsistencia: conocimiento.alcance.umbralInsistencia ?? undefined,
+    urgencias: conocimiento.alcance.urgencias ?? undefined,
     diasHastaProximaCita,
     yaDerivado,
     hoy: e.hoy,

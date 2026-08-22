@@ -50,7 +50,35 @@ export type EnlacePublicado = {
  */
 export type NivelAgenda = 1 | 2;
 
+/** GRUPO 1 — QUIÉNES SOIS: identidad y trato. El TONO base (cálido,
+ *  profesional, sin emojis) es del system y no se configura; esto es lo que
+ *  la clínica sí decide: cómo se presenta y si tutea. */
+export type QuienesSois = {
+  /** 1–2 frases de presentación («Clínica familiar en Chamberí, 20 años
+   *  cuidando bocas del barrio»). El agente la usa como identidad. */
+  presentacion: string | null;
+  /** null = tuteo (el default de siempre). */
+  trato: "tu" | "usted" | null;
+};
+
+/** GRUPO 3 — HASTA DÓNDE LLEGA. Los tres campos alimentan hooks que el
+ *  evaluador YA tiene (`umbralInsistencia`, `urgencias`): configurar es
+ *  pasar el valor, no cambiar reglas. */
+export type AlcanceAgente = {
+  /** Vueltas sobre el mismo tema aplazado antes de derivar. Default 2;
+   *  CON TOPE 1–4 (dictado): más de 4 es marear a una persona que insiste. */
+  umbralInsistencia: number | null;
+  /** ¿La clínica atiende urgencias? Si NO, `textoNoAtiende` es OBLIGATORIO
+   *  y se reproduce LITERAL — lo escribe y lo asume la clínica, el modelo
+   *  no genera nada ahí. */
+  urgencias: { atiende: boolean; textoNoAtiende: string | null } | null;
+  /** Qué considera urgencia ESTA clínica, ADEMÁS de la definición base
+   *  (dolor agudo, sangrado, traumatismo…). Entra al contexto del juicio. */
+  urgenciaDefinicionExtra: string | null;
+};
+
 export type ConocimientoClinica = {
+  quienesSois: QuienesSois;
   tratamientos: TratamientoPublicado[];
   politicas: PoliticaPublicada[];
   /** Lo que el agente puede DECIR del horario («L-V 9:30–20:00, sábados
@@ -59,25 +87,35 @@ export type ConocimientoClinica = {
   horarios: string | null;
   enlaces: EnlacePublicado[];
   agendaNivel: NivelAgenda;
+  alcance: AlcanceAgente;
 };
 
 /** El plan básico: nada publicado, agenda sin conexión. Con esto el prompt
  *  es IDÉNTICO al de hoy (assert en qa:conocimiento) — una clínica sin
  *  configurar no se degrada. */
 export const CONOCIMIENTO_VACIO: ConocimientoClinica = {
+  quienesSois: { presentacion: null, trato: null },
   tratamientos: [],
   politicas: [],
   horarios: null,
   enlaces: [],
   agendaNivel: 1,
+  alcance: { umbralInsistencia: null, urgencias: null, urgenciaDefinicionExtra: null },
 };
 
 export function esConocimientoVacio(c: ConocimientoClinica): boolean {
+  // `alcance` y `agendaNivel` no cuentan aquí a propósito: esta función
+  // decide si se emite el BLOQUE del prompt, y esos dos viajan por sus
+  // propios canales (hooks del evaluador / decisión de pantalla), no por el
+  // bloque. El vacío del prompt es «nada que afirmar».
   return (
+    c.quienesSois.presentacion == null &&
+    c.quienesSois.trato == null &&
     c.tratamientos.length === 0 &&
     c.politicas.length === 0 &&
     (c.horarios == null || c.horarios.trim() === "") &&
-    c.enlaces.length === 0
+    c.enlaces.length === 0 &&
+    c.alcance.urgenciaDefinicionExtra == null
   );
 }
 
@@ -156,7 +194,59 @@ export function parseConocimiento(raw: string | null | undefined): ConocimientoC
   if (agendaNivel !== 1) {
     throw new ConocimientoIlegibleError("agendaNivel no disponible (solo 1 hasta conectar la agenda)", raw);
   }
+
+  // Grupo 1 — quiénes sois.
+  const qsRaw = (x["quienesSois"] ?? {}) as Record<string, unknown>;
+  if (typeof qsRaw !== "object" || qsRaw === null || Array.isArray(qsRaw)) {
+    throw new ConocimientoIlegibleError("quienesSois no válido", raw);
+  }
+  if (!esTextoONull(qsRaw["presentacion"] ?? null)) {
+    throw new ConocimientoIlegibleError("presentación no válida", raw);
+  }
+  const trato = qsRaw["trato"] ?? null;
+  if (trato !== null && trato !== "tu" && trato !== "usted") {
+    throw new ConocimientoIlegibleError("trato no válido (tu | usted)", raw);
+  }
+
+  // Grupo 3 — hasta dónde llega.
+  const alRaw = (x["alcance"] ?? {}) as Record<string, unknown>;
+  if (typeof alRaw !== "object" || alRaw === null || Array.isArray(alRaw)) {
+    throw new ConocimientoIlegibleError("alcance no válido", raw);
+  }
+  const umbral = alRaw["umbralInsistencia"] ?? null;
+  if (umbral !== null && (!Number.isInteger(umbral) || (umbral as number) < 1 || (umbral as number) > 4)) {
+    throw new ConocimientoIlegibleError("umbral de insistencia fuera de tope (1–4)", raw);
+  }
+  const urgRaw = alRaw["urgencias"] ?? null;
+  let urgencias: AlcanceAgente["urgencias"] = null;
+  if (urgRaw !== null) {
+    if (typeof urgRaw !== "object" || Array.isArray(urgRaw) || typeof (urgRaw as Record<string, unknown>)["atiende"] !== "boolean") {
+      throw new ConocimientoIlegibleError("urgencias no válidas", raw);
+    }
+    const atiende = (urgRaw as Record<string, unknown>)["atiende"] as boolean;
+    const textoNoAtiende = (urgRaw as Record<string, unknown>)["textoNoAtiende"] ?? null;
+    if (!esTextoONull(textoNoAtiende)) {
+      throw new ConocimientoIlegibleError("texto de urgencias no válido", raw);
+    }
+    // El texto literal es OBLIGATORIO si no se atienden: sin él, el modelo
+    // tendría que improvisar justo en el mensaje que la clínica debe asumir.
+    if (!atiende && (typeof textoNoAtiende !== "string" || textoNoAtiende.trim() === "")) {
+      throw new ConocimientoIlegibleError("si no se atienden urgencias, el texto literal es obligatorio", raw);
+    }
+    urgencias = { atiende, textoNoAtiende: typeof textoNoAtiende === "string" && textoNoAtiende.trim() !== "" ? textoNoAtiende.trim() : null };
+  }
+  if (!esTextoONull(alRaw["urgenciaDefinicionExtra"] ?? null)) {
+    throw new ConocimientoIlegibleError("definición extra de urgencia no válida", raw);
+  }
+
   return {
+    quienesSois: {
+      presentacion:
+        typeof qsRaw["presentacion"] === "string" && qsRaw["presentacion"].trim() !== ""
+          ? qsRaw["presentacion"].trim()
+          : null,
+      trato: (trato as "tu" | "usted" | null),
+    },
     tratamientos: tratamientos.map((t) => ({
       nombre: t.nombre.trim(),
       precio: t.precio?.trim() || null,
@@ -166,6 +256,14 @@ export function parseConocimiento(raw: string | null | undefined): ConocimientoC
     horarios: typeof horarios === "string" && horarios.trim() !== "" ? horarios.trim() : null,
     enlaces: enlaces.map((e) => ({ etiqueta: e.etiqueta.trim(), url: e.url.trim() })),
     agendaNivel: 1,
+    alcance: {
+      umbralInsistencia: (umbral as number | null),
+      urgencias,
+      urgenciaDefinicionExtra:
+        typeof alRaw["urgenciaDefinicionExtra"] === "string" && alRaw["urgenciaDefinicionExtra"].trim() !== ""
+          ? alRaw["urgenciaDefinicionExtra"].trim()
+          : null,
+    },
   };
 }
 
@@ -230,6 +328,10 @@ export function capacidadesDe(c: ConocimientoClinica): BarridoCapacidades {
     puede.push("Informar de los huecos libres de la agenda (solo lectura — reservar lo hace tu equipo)");
   }
 
+  if (c.alcance.urgencias?.atiende === false) {
+    puede.push("Ante una urgencia responde EXACTAMENTE tu texto (aquí no se atienden) y la deriva igualmente a una persona");
+  }
+
   return {
     puede,
     noPuede,
@@ -283,24 +385,53 @@ export function renderConocimiento(c: ConocimientoClinica | null | undefined): s
   // nivel 2 exista (MEJORAS 97), su bloque entra aquí con sus huecos.
   if (!c || esConocimientoVacio(c)) return [];
   const lineas: string[] = [];
-  lineas.push(
-    "LO PUBLICADO POR LA CLÍNICA — puedes afirmarlo tal cual (leer no es negociar). Adaptarlo a esta persona (su descuento, su cobertura, su plan) NO: eso se anota siempre.",
-  );
-  if (c.horarios) lineas.push(`· Horario de atención: ${c.horarios}`);
-  if (c.tratamientos.length > 0) {
-    lineas.push("· Tratamientos publicados:");
-    for (const t of c.tratamientos) {
-      const precio = t.precio ? `: ${t.precio}` : " (sin precio publicado — no des cifra)";
-      lineas.push(`  - ${t.nombre}${precio}${t.nota ? ` — ${t.nota}` : ""}`);
+  // Grupo 1 — la identidad va ANTES de lo publicado: primero quién habla,
+  // después qué puede afirmar.
+  if (c.quienesSois.presentacion || c.quienesSois.trato) {
+    lineas.push("QUIÉNES SOIS (tu identidad al hablar):");
+    if (c.quienesSois.presentacion) lineas.push(`· ${c.quienesSois.presentacion}`);
+    if (c.quienesSois.trato) {
+      lineas.push(
+        c.quienesSois.trato === "usted"
+          ? "· Trata a la persona de USTED, siempre."
+          : "· Tutea a la persona.",
+      );
+    }
+    lineas.push("");
+  }
+  // Grupo 3 — la definición ampliada de urgencia de ESTA clínica: se SUMA a
+  // la base del system, nunca la sustituye.
+  if (c.alcance.urgenciaDefinicionExtra) {
+    lineas.push(
+      `URGENCIA — además de la definición base, esta clínica considera urgencia: ${c.alcance.urgenciaDefinicionExtra}`,
+    );
+    lineas.push("");
+  }
+  const hayPublicado =
+    c.horarios != null || c.tratamientos.length > 0 || c.politicas.length > 0 || c.enlaces.length > 0;
+  if (hayPublicado) {
+    lineas.push(
+      "LO PUBLICADO POR LA CLÍNICA — puedes afirmarlo tal cual (leer no es negociar). Adaptarlo a esta persona (su descuento, su cobertura, su plan) NO: eso se anota siempre.",
+    );
+    if (c.horarios) lineas.push(`· Horario de atención: ${c.horarios}`);
+    if (c.tratamientos.length > 0) {
+      lineas.push("· Tratamientos publicados:");
+      for (const t of c.tratamientos) {
+        const precio = t.precio ? `: ${t.precio}` : " (sin precio publicado — no des cifra)";
+        lineas.push(`  - ${t.nombre}${precio}${t.nota ? ` — ${t.nota}` : ""}`);
+      }
+    }
+    if (c.politicas.length > 0) {
+      lineas.push("· Políticas publicadas:");
+      for (const p of c.politicas) lineas.push(`  - ${p.titulo}: ${p.texto}`);
+    }
+    if (c.enlaces.length > 0) {
+      lineas.push("· Enlaces que puedes compartir:");
+      for (const e of c.enlaces) lineas.push(`  - ${e.etiqueta}: ${e.url}`);
     }
   }
-  if (c.politicas.length > 0) {
-    lineas.push("· Políticas publicadas:");
-    for (const p of c.politicas) lineas.push(`  - ${p.titulo}: ${p.texto}`);
-  }
-  if (c.enlaces.length > 0) {
-    lineas.push("· Enlaces que puedes compartir:");
-    for (const e of c.enlaces) lineas.push(`  - ${e.etiqueta}: ${e.url}`);
-  }
+  // Sin nada que decir, la última línea en blanco del bloque de identidad
+  // sobra — el caller une con "\n" y el prompt no lleva colas vacías.
+  while (lineas.length > 0 && lineas[lineas.length - 1] === "") lineas.pop();
   return lineas;
 }

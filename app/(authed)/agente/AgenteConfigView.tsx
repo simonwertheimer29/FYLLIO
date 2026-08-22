@@ -184,6 +184,40 @@ export function AgenteConfigView() {
             </div>
           </section>
 
+          {/* ── GRUPO 1 · Quiénes sois — lo primero del onboarding: lo que
+              cualquiera sabe contestar ─────────────────────────────────── */}
+          <Seccion
+            titulo="Quiénes sois"
+            consecuencia="Cómo se presenta el agente y cómo trata a la gente. Sin esto, habla correcto pero genérico; con una o dos frases vuestras, suena a tu clínica."
+          >
+            <textarea
+              value={config.quienesSois.presentacion ?? ""}
+              onChange={(e) =>
+                setConfig({ ...config, quienesSois: { ...config.quienesSois, presentacion: e.target.value || null } })
+              }
+              placeholder="Clínica familiar en Chamberí — 20 años cuidando las bocas del barrio, con la Dra. Ruiz al frente."
+              rows={2}
+              className={INPUT + " w-full max-w-2xl resize-y"}
+            />
+            <div className="flex items-center gap-4 pt-1">
+              {([
+                { valor: null, etiqueta: "Tutear (lo habitual)" },
+                { valor: "usted" as const, etiqueta: "De usted, siempre" },
+              ]).map((o) => (
+                <label key={o.etiqueta} className="flex cursor-pointer items-center gap-1.5 text-[13px] text-[var(--color-foreground)]">
+                  <input
+                    type="radio"
+                    name="trato"
+                    checked={(config.quienesSois.trato === "usted") === (o.valor === "usted")}
+                    onChange={() => setConfig({ ...config, quienesSois: { ...config.quienesSois, trato: o.valor } })}
+                    className="accent-[var(--color-accent)]"
+                  />
+                  {o.etiqueta}
+                </label>
+              ))}
+            </div>
+          </Seccion>
+
           {/* ── GRUPO 2 · Qué sabe el agente ──────────────────────────── */}
           <Seccion
             titulo="Tratamientos y precios publicados"
@@ -310,6 +344,99 @@ export function AgenteConfigView() {
                 </span>
               </span>
             </div>
+          </Seccion>
+
+          {/* ── GRUPO 3 · Hasta dónde llega ───────────────────────────── */}
+          <Seccion
+            titulo="Hasta dónde llega"
+            consecuencia="Qué informa ya lo decide lo publicado de arriba. Aquí decides cuántas veces aplaza un tema antes de pasártelo, y qué pasa con las urgencias."
+          >
+            <label className="block text-[13px] text-[var(--color-foreground)]">
+              <span className="font-medium">Vueltas sobre un tema aplazado antes de derivarlo</span>
+              <select
+                value={config.alcance.umbralInsistencia ?? 2}
+                onChange={(e) =>
+                  setConfig({
+                    ...config,
+                    alcance: { ...config.alcance, umbralInsistencia: Number(e.target.value) === 2 ? null : Number(e.target.value) },
+                  })
+                }
+                className={INPUT + " ml-2 w-auto"}
+              >
+                {[1, 2, 3, 4].map((n) => (
+                  <option key={n} value={n}>
+                    {n === 2 ? "2 (recomendado)" : String(n)}
+                  </option>
+                ))}
+              </select>
+              <span className="ml-2 text-[12px] text-[var(--color-muted)]">
+                Si la persona vuelve a preguntar por algo aplazado esta cantidad de veces, el caso pasa a una persona.
+              </span>
+            </label>
+            <div className="pt-2">
+              <p className="text-[13px] font-medium text-[var(--color-foreground)]">Urgencias</p>
+              <div className="mt-1.5 flex items-center gap-4">
+                {([
+                  { atiende: true, etiqueta: "Se atienden — el agente tranquiliza y deriva de inmediato" },
+                  { atiende: false, etiqueta: "No se atienden aquí" },
+                ]).map((o) => (
+                  <label key={String(o.atiende)} className="flex cursor-pointer items-center gap-1.5 text-[13px] text-[var(--color-foreground)]">
+                    <input
+                      type="radio"
+                      name="urgencias"
+                      checked={(config.alcance.urgencias?.atiende ?? true) === o.atiende}
+                      onChange={() =>
+                        setConfig({
+                          ...config,
+                          alcance: {
+                            ...config.alcance,
+                            urgencias: o.atiende
+                              ? null
+                              : { atiende: false, textoNoAtiende: config.alcance.urgencias?.textoNoAtiende ?? null },
+                          },
+                        })
+                      }
+                      className="accent-[var(--color-accent)]"
+                    />
+                    {o.etiqueta}
+                  </label>
+                ))}
+              </div>
+              {config.alcance.urgencias?.atiende === false && (
+                <div className="mt-2">
+                  <p className="text-[12px] text-[var(--color-muted)]">
+                    El texto EXACTO que responde ante una urgencia — se reproduce tal cual, sin generar nada:
+                    lo escribes y lo asumes tú. Obligatorio.
+                  </p>
+                  <textarea
+                    value={config.alcance.urgencias.textoNoAtiende ?? ""}
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        alcance: { ...config.alcance, urgencias: { atiende: false, textoNoAtiende: e.target.value || null } },
+                      })
+                    }
+                    placeholder="En esta clínica no atendemos urgencias. Si es urgente, llama al 112 o acude al servicio de urgencias dentales de [X], en [dirección]."
+                    rows={2}
+                    className={INPUT + " mt-1 w-full max-w-2xl resize-y"}
+                  />
+                </div>
+              )}
+            </div>
+            <label className="block pt-1 text-[13px] text-[var(--color-foreground)]">
+              <span className="font-medium">¿Algo más que aquí cuente como urgencia?</span>
+              <span className="ml-2 text-[12px] text-[var(--color-muted)]">
+                Se suma a la definición base (dolor agudo, sangrado, rotura…), nunca la sustituye.
+              </span>
+              <input
+                value={config.alcance.urgenciaDefinicionExtra ?? ""}
+                onChange={(e) =>
+                  setConfig({ ...config, alcance: { ...config.alcance, urgenciaDefinicionExtra: e.target.value || null } })
+                }
+                placeholder="Caída de brackets con rozadura, dolor postoperatorio de implante"
+                className={INPUT + " mt-1.5 block w-full max-w-2xl"}
+              />
+            </label>
           </Seccion>
 
           <Seccion

@@ -69,6 +69,19 @@ ok("agenda: ausente → nivel 1 (sin conexión), el único que existe",
 ok("agenda: nivel 2 guardado HOY se rechaza — prometería huecos que el agente no ve (MEJORAS 97)",
   lanza(JSON.stringify({ agendaNivel: 2 })) && lanza(JSON.stringify({ agendaNivel: 3 })));
 
+// Grupos 1 y 3 (22-08):
+ok("grupo 3: umbral de insistencia CON TOPE — 0 y 5 se rechazan, 1–4 pasan",
+  lanza(JSON.stringify({ alcance: { umbralInsistencia: 0 } })) &&
+    lanza(JSON.stringify({ alcance: { umbralInsistencia: 5 } })) &&
+    parseConocimiento(JSON.stringify({ alcance: { umbralInsistencia: 3 } })).alcance.umbralInsistencia === 3);
+ok("grupo 3: «no atendemos urgencias» SIN texto literal se rechaza — el modelo no improvisa ese mensaje",
+  lanza(JSON.stringify({ alcance: { urgencias: { atiende: false } } })) &&
+    parseConocimiento(JSON.stringify({ alcance: { urgencias: { atiende: false, textoNoAtiende: "Llama al 112" } } }))
+      .alcance.urgencias?.textoNoAtiende === "Llama al 112");
+ok("grupo 1: trato solo tu | usted",
+  lanza(JSON.stringify({ quienesSois: { trato: "vos" } })) &&
+    parseConocimiento(JSON.stringify({ quienesSois: { trato: "usted" } })).quienesSois.trato === "usted");
+
 // ─── B · EL ASSERT DEL PLAN BÁSICO ─────────────────────────────────────────
 console.log("\nB · plan básico: prompt con config vacía ≡ prompt de hoy, byte a byte");
 
@@ -110,6 +123,23 @@ ok("horario, políticas y enlaces presentes",
 ok("y el resto del prompt no cambió (todo lo de antes sigue: presupuesto, hilo, calendario)",
   conDatos.includes("Endodoncia") && conDatos.includes("CALENDARIO") &&
     conDatos.includes("cuánto cuesta una limpieza"));
+
+// ─── D · Grupos 1 y 3 en el render ─────────────────────────────────────────
+console.log("\nD · identidad y alcance en el bloque");
+
+const conIdentidad = parseConocimiento(JSON.stringify({
+  quienesSois: { presentacion: "Clínica familiar en Chamberí, 20 años en el barrio", trato: "usted" },
+  alcance: { urgenciaDefinicionExtra: "dolor postoperatorio de implante" },
+}));
+const rIdentidad = renderConocimiento(conIdentidad).join("\n");
+ok("la identidad va PRIMERO (quién habla antes de qué afirma) y el trato de usted se dice",
+  rIdentidad.startsWith("QUIÉNES SOIS") && rIdentidad.includes("USTED"));
+ok("la urgencia extra SE SUMA a la base («además de la definición base»)",
+  rIdentidad.includes("además de la definición base") && rIdentidad.includes("dolor postoperatorio"));
+ok("sin nada PUBLICADO, la cabecera «LO PUBLICADO» no aparece — un título sin contenido es ruido",
+  !rIdentidad.includes("LO PUBLICADO POR LA CLÍNICA"));
+ok("y el assert del plan básico SIGUE: los campos nuevos en null no emiten ni un byte",
+  renderConocimiento(parseConocimiento(JSON.stringify({ quienesSois: {}, alcance: {} }))).length === 0);
 
 if (fallos > 0) {
   console.error(`\n✗ ${fallos} fallo(s)`);

@@ -125,7 +125,7 @@ function entradaR1(fix: FixR1, mensaje: string): EntradaEvaluador {
     esPacienteConocido: fix.tipo !== "lead",
     objetivosAbiertos:
       fix.tipo === "presu" ? [OBJ("presupuesto")] : fix.tipo === "lead" ? [OBJ("cita")] : fix.tipo === "cobro" ? [OBJ("cobro")] : [],
-    presupuestosVivos: fix.tipo === "presu" ? [{ tratamiento: fix.trat ?? null, importe: fix.importe ?? null }] : [],
+    presupuestosVivos: fix.tipo === "presu" ? [{ id: "eval-presu", tratamiento: fix.trat ?? null, importe: fix.importe ?? null }] : [],
     pendienteCobro: fix.tipo === "cobro" ? 300 : 0,
     hilo,
     aplazadosPendientes: [],
@@ -194,19 +194,19 @@ const C1_FIX: Record<string, EntradaEvaluador> = {
     hilo: [E("Hola, soy Andrés. ¿Sigue trabajando la Dra. Marín? Me gustaría que me viera ella, me trató hace años.", 0)],
   }),
   C6: base({
-    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ tratamiento: "endodoncia", importe: 680 }],
+    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ id: "eval-presu", tratamiento: "endodoncia", importe: 680 }],
     hilo: [S("Hola, Ana, ¿habéis podido pensarlo?", 0), E("Sí, lo hemos decidido: adelante. Para empezar, por las mañanas me viene bien.", 1)],
   }),
   C7: base({
-    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ tratamiento: "carillas", importe: 2400 }],
+    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ id: "eval-presu", tratamiento: "carillas", importe: 2400 }],
     hilo: [E("Adelante, sí. Pagaré con tarjeta ahí mismo, y puedo los martes y jueves por la tarde.", 0)],
   }),
   C8: base({
-    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ tratamiento: "implante", importe: 1900 }],
+    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ id: "eval-presu", tratamiento: "implante", importe: 1900 }],
     hilo: [E("Lo estamos pensando todavía, danos unos días y os digo algo.", 0)],
   }),
   C9: base({
-    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ tratamiento: "ortodoncia", importe: 3200 }],
+    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ id: "eval-presu", tratamiento: "ortodoncia", importe: 3200 }],
     hilo: [E("Lo hemos hablado en casa y al final no vamos a hacerlo. Gracias por todo.", 0)],
   }),
   C10: base({
@@ -217,7 +217,7 @@ const C1_FIX: Record<string, EntradaEvaluador> = {
     hilo: [E("Oye, que este mes no puedo pagar la cuota, que lo sepáis.", 0)],
   }),
   C12: base({
-    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ tratamiento: "implante", importe: 1900 }],
+    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ id: "eval-presu", tratamiento: "implante", importe: 1900 }],
     hilo: [S("¿Te encaja empezar la semana que viene?", 0), E("Antes de nada: el otro día llamé y vuestra recepcionista me colgó. Muy mal, la verdad.", 1)],
   }),
   C13: base({
@@ -230,7 +230,7 @@ const C1_FIX: Record<string, EntradaEvaluador> = {
   }),
   C14: base({
     objetivosAbiertos: [OBJ("cobro"), OBJ("presupuesto")], pendienteCobro: 400,
-    presupuestosVivos: [{ tratamiento: "endodoncia", importe: 680 }],
+    presupuestosVivos: [{ id: "eval-presu", tratamiento: "endodoncia", importe: 680 }],
     hilo: [E("Adelante con la endodoncia. Pago con tarjeta, y los lunes por la mañana puedo.", 0)],
   }),
   C15: base({
@@ -241,7 +241,7 @@ const C1_FIX: Record<string, EntradaEvaluador> = {
     ],
   }),
   C16: base({
-    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ tratamiento: "carillas", importe: 2400 }],
+    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ id: "eval-presu", tratamiento: "carillas", importe: 2400 }],
     aplazadosPendientes: [{ clave: "precio_descuento", motivo: "pregunta si hay descuento" }],
     aplazadosPorClave: { precio_descuento: 1 },
     hilo: [
@@ -251,7 +251,7 @@ const C1_FIX: Record<string, EntradaEvaluador> = {
     ],
   }),
   C17: base({
-    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ tratamiento: "carillas", importe: 2400 }],
+    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ id: "eval-presu", tratamiento: "carillas", importe: 2400 }],
     aplazadosPendientes: [{ clave: "precio_descuento", motivo: "pregunta si hay descuento" }],
     aplazadosPorClave: { precio_descuento: 2 },
     hilo: [
@@ -263,7 +263,7 @@ const C1_FIX: Record<string, EntradaEvaluador> = {
     ],
   }),
   C18: base({
-    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ tratamiento: "carillas", importe: 2400 }],
+    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ id: "eval-presu", tratamiento: "carillas", importe: 2400 }],
     aplazadosPendientes: [{ clave: "precio_descuento", motivo: "pregunta si hay descuento" }],
     aplazadosPorClave: { precio_descuento: 1 },
     hilo: [
@@ -283,11 +283,11 @@ const C1_FIX: Record<string, EntradaEvaluador> = {
     hilo: [E("He hablado con mi cardiólogo y me dice que con el Sintrom igual no puedo hacerme la extracción de la semana que viene. ¿Lo veis vosotros?", 0)],
   }),
   C22: base({
-    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ tratamiento: "implante", importe: 1900 }],
+    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ id: "eval-presu", tratamiento: "implante", importe: 1900 }],
     hilo: [E("Antes de decir nada… ¿esto duele mucho? Es que soy muy miedosa con el dentista.", 0)],
   }),
   C23: base({
-    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ tratamiento: "carillas", importe: 2400 }],
+    objetivosAbiertos: [OBJ("presupuesto")], presupuestosVivos: [{ id: "eval-presu", tratamiento: "carillas", importe: 2400 }],
     hilo: [E("Necesito saber si con la encía como la tengo tiene sentido la carilla o mejor corona. Hasta que no sepa eso no puedo decidir.", 0)],
   }),
   C24: base({
