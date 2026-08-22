@@ -21,6 +21,7 @@ import {
   Sparkles,
   UserCheck,
   Hourglass,
+  MessageCircle,
   Search,
   ICON_STROKE,
 } from "../../components/icons";
@@ -99,41 +100,50 @@ export function FiltrosBandeja({
   orden: OrdenBandeja;
   onOrden: (o: OrdenBandeja) => void;
 }) {
+  // «Todas» delante y por defecto (22-08): sin él, ver todo era un estado
+  // sin botón — había que descubrir que pulsar el filtro activo lo apagaba.
+  const botones: Array<{ id: FiltroBandeja | null; label: string; Icono: typeof UserCheck; ayuda: string }> = [
+    { id: null, label: "Todas", Icono: MessageCircle, ayuda: "Todas las conversaciones" },
+    ...FILTROS,
+  ];
   return (
-    // Filtros a la izquierda, ORDEN a la derecha — separados a propósito
-    // (dictado): los filtros reducen la lista, el orden la reordena; en la
-    // misma fila de botones serían indistinguibles.
-    <div className="flex flex-wrap items-center gap-1.5 px-3 pb-3">
-      {FILTROS.map((f) => {
-        const on = activo === f.id;
-        return (
-          <button
-            key={f.id}
-            type="button"
-            onClick={() => onCambiar(on ? null : f.id)}
-            title={f.ayuda}
-            aria-pressed={on}
-            className={`flex items-center gap-1 rounded-lg border px-2 py-1.5 text-left text-[11.5px] font-semibold transition-colors ${
-              on
-                ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
-                : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
-            }`}
-          >
-            <f.Icono size={13} strokeWidth={ICON_STROKE} className="shrink-0" aria-hidden />
-            <span className="truncate">{f.label}</span>
-          </button>
-        );
-      })}
-      <select
-        value={orden}
-        onChange={(e) => onOrden(e.target.value === "antiguos" ? "antiguos" : "recientes")}
-        aria-label="Orden de la lista"
-        title="«Más antiguos» sube lo que llevas más tiempo sin tocar"
-        className="ml-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-1.5 py-1.5 text-[11.5px] font-medium text-[var(--color-muted)] focus:border-[var(--color-accent)] focus:outline-none"
-      >
-        <option value="recientes">Más recientes</option>
-        <option value="antiguos">Más antiguos</option>
-      </select>
+    <div>
+      <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2">
+        {botones.map((f) => {
+          const on = activo === f.id;
+          return (
+            <button
+              key={f.id ?? "todas"}
+              type="button"
+              onClick={() => onCambiar(on ? null : f.id)}
+              title={f.ayuda}
+              aria-pressed={on}
+              className={`flex items-center gap-1 rounded-lg border px-2 py-1.5 text-left text-[11.5px] font-semibold transition-colors ${
+                on
+                  ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
+                  : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
+              }`}
+            >
+              <f.Icono size={13} strokeWidth={ICON_STROKE} className="shrink-0" aria-hidden />
+              <span className="truncate">{f.label}</span>
+            </button>
+          );
+        })}
+      </div>
+      {/* El ORDEN, abajo y separado (dictado): los filtros REDUCEN la lista,
+          esto la REORDENA — en la misma fila parecía un filtro más. */}
+      <div className="flex justify-center pb-2.5">
+        <select
+          value={orden}
+          onChange={(e) => onOrden(e.target.value === "antiguos" ? "antiguos" : "recientes")}
+          aria-label="Orden de la lista"
+          title="«Más antiguos» sube lo que llevas más tiempo sin tocar"
+          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-1.5 py-1 text-[11.5px] font-medium text-[var(--color-muted)] focus:border-[var(--color-accent)] focus:outline-none"
+        >
+          <option value="recientes">Más recientes primero</option>
+          <option value="antiguos">Más antiguos primero</option>
+        </select>
+      </div>
     </div>
   );
 }
