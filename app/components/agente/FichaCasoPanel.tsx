@@ -150,22 +150,41 @@ export function FichaCasoPanel({
               peor que dos cards. Los demás, nombrados. */}
           {ficha.presupuestos && ficha.presupuestos.otros.length > 0 && (
             <div className="mt-2 border-t border-[var(--color-border)] pt-2">
-              <p className="text-[12px] text-[var(--color-foreground)]">
-                Se habla del presupuesto de{" "}
-                <span className="font-semibold">
-                  {ficha.presupuestos.activo.tratamiento ?? "tratamiento"}
-                  {ficha.presupuestos.activo.importe != null ? ` (${eurUI(ficha.presupuestos.activo.importe)})` : ""}
-                </span>
-                {ficha.presupuestos.fuente === "proxy" && (
-                  <span className="text-[var(--color-muted)]"> — elegido por ser el más señalado o reciente; compruébalo en el hilo</span>
-                )}
-              </p>
-              {ficha.presupuestos.otros.map((o) => (
-                <p key={o.id} className="mt-0.5 text-[12px] text-[var(--color-muted)]">
-                  También vivo: {o.tratamiento ?? "tratamiento"}
-                  {o.importe != null ? ` (${eurUI(o.importe)})` : ""}
-                </p>
-              ))}
+              {ficha.presupuestos.fuente === "sin_senal" ? (
+                <>
+                  {/* 21-08: sin señal de la conversación NO se elige — decir
+                      «se habla de X» cuando no se habla de ninguno era mentir
+                      con aviso en letra pequeña. */}
+                  <p className="text-[12px] font-semibold text-[var(--color-foreground)]">
+                    {1 + ficha.presupuestos.otros.length} presupuestos vivos — la conversación no señala cuál.
+                  </p>
+                  {[ficha.presupuestos.activo, ...ficha.presupuestos.otros].map((o) => (
+                    <p key={o.id} className="mt-0.5 text-[12px] text-[var(--color-muted)]">
+                      · {o.tratamiento ?? "tratamiento"}
+                      {o.importe != null ? ` (${eurUI(o.importe)})` : ""}
+                    </p>
+                  ))}
+                </>
+              ) : (
+                <>
+                  <p className="text-[12px] text-[var(--color-foreground)]">
+                    Se habla del presupuesto de{" "}
+                    <span className="font-semibold">
+                      {ficha.presupuestos.activo.tratamiento ?? "tratamiento"}
+                      {ficha.presupuestos.activo.importe != null ? ` (${eurUI(ficha.presupuestos.activo.importe)})` : ""}
+                    </span>
+                    {ficha.presupuestos.fuente === "proxy" && (
+                      <span className="text-[var(--color-muted)]"> — elegido por la señal más reciente; compruébalo en el hilo</span>
+                    )}
+                  </p>
+                  {ficha.presupuestos.otros.map((o) => (
+                    <p key={o.id} className="mt-0.5 text-[12px] text-[var(--color-muted)]">
+                      También vivo: {o.tratamiento ?? "tratamiento"}
+                      {o.importe != null ? ` (${eurUI(o.importe)})` : ""}
+                    </p>
+                  ))}
+                </>
+              )}
             </div>
           )}
         </div>

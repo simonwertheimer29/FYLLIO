@@ -48,7 +48,7 @@ type Caso = {
   evaluado: boolean;
   importeTotal: number | null;
   otrosPresupuestos: { id: string; importe: number | null; tratamiento: string | null }[];
-  activoFuente: "conversacion" | "proxy" | null;
+  activoFuente: "conversacion" | "proxy" | "sin_senal" | null;
 };
 
 const ORDEN: Cohorte[] = ["necesita_respuesta", "listos_para_cerrar", "fuera_de_plazo"];
@@ -320,7 +320,16 @@ export function ColaPorCohortes({
                         borderColor={COLOR_COHORTE[cohorte]}
                         title={caso.nombre}
                         titleRight={
-                          caso.importe != null ? (
+                          // sin_senal: nadie señaló un favorito — el título
+                          // lleva el TOTAL en juego, no un elegido a dedo.
+                          caso.activoFuente === "sin_senal" && caso.importeTotal != null ? (
+                            <span className="font-display text-sm font-bold tabular-nums text-[var(--color-foreground)]">
+                              {eur(caso.importeTotal)}
+                              <span className="ml-1 text-[11px] font-medium text-[var(--color-muted)]">
+                                en {1 + caso.otrosPresupuestos.length}
+                              </span>
+                            </span>
+                          ) : caso.importe != null ? (
                             <span className="font-display text-sm font-bold tabular-nums text-[var(--color-foreground)]">
                               {eur(caso.importe)}
                             </span>
@@ -348,7 +357,7 @@ export function ColaPorCohortes({
                       {abiertoCaso && caso.telefono && (
                         <div className="mt-2 grid gap-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] p-3 lg:grid-cols-2">
                           {/* Escritorio: chat embebido. Móvil: botón (dictado). */}
-                          <div className="hidden min-h-0 lg:block">
+                          <div className="hidden min-h-0 lg:flex lg:flex-col">
                             <ChatEmbebido
                               telefono={caso.telefono}
                               tipo={caso.tipo}

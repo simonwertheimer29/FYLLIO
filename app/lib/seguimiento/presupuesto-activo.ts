@@ -27,9 +27,12 @@ export type PresupuestoParaActivo = {
 };
 
 export type PresupuestoActivo = {
+  /** Con fuente "sin_senal" el activo es SOLO ancla técnica (rutas de envío
+   *  y llamada necesitan un id): la UI no debe presentarlo como «de lo que
+   *  se habla» — no se habla de ninguno. */
   activo: PresupuestoParaActivo;
   otros: PresupuestoParaActivo[];
-  fuente: "conversacion" | "proxy";
+  fuente: "conversacion" | "proxy" | "sin_senal";
 };
 
 export function elegirPresupuestoActivo(
@@ -53,6 +56,16 @@ export function elegirPresupuestoActivo(
   // 2a · Señal del clasificador (la única huella por-documento que la
   //      conversación deja hoy), la más reciente si hay varias.
   const conSenal = porReciente.find((v) => v.conSenalClasificador);
-  const activo = conSenal ?? porReciente[0];
-  return { activo, otros: vivos.filter((v) => v.id !== activo.id), fuente: "proxy" };
+  if (conSenal) {
+    return { activo: conSenal, otros: vivos.filter((v) => v.id !== conSenal.id), fuente: "proxy" };
+  }
+  // 2b · SIN señal de nadie: con UN vivo, elegirlo es obvio; con varios,
+  //      elegir sería mentir (21-08: «no se habla de ninguno») — el más
+  //      reciente queda como ancla técnica y la fuente lo declara.
+  const activo = porReciente[0];
+  return {
+    activo,
+    otros: vivos.filter((v) => v.id !== activo.id),
+    fuente: vivos.length > 1 ? "sin_senal" : "proxy",
+  };
 }

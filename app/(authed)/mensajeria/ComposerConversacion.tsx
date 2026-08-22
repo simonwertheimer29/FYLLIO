@@ -209,6 +209,11 @@ export function ComposerConversacion({
         // evaluado — leads y huérfanos incluidos; los motivos de no-poder
         // llegan honestos de la ruta (409/422/503).
         onIA={generarConIA}
+        textoDeIA={textoDeIA}
+        onDescartarIA={() => {
+          setTexto("");
+          setTextoDeIA(false);
+        }}
         generandoIA={generandoIA}
         plantillas={plantillas.map((p) => ({ id: p.id, nombre: p.nombre }))}
         onPlantilla={(id) => {

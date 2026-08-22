@@ -76,7 +76,7 @@ export type FichaCaso = {
   presupuestos: {
     activo: { id: string; importe: number | null; tratamiento: string | null };
     otros: { id: string; importe: number | null; tratamiento: string | null }[];
-    fuente: "conversacion" | "proxy";
+    fuente: "conversacion" | "proxy" | "sin_senal";
   } | null;
 
   // ── La línea de la cola (Seguimiento): paciente · qué quiere · espera ──

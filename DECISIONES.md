@@ -3204,3 +3204,17 @@ en el resto, plegado tras un botón pequeño. (4) Los mensajes duplicados de Ele
 registro real: una fila de la herramienta de demo (waba sim_) y un registro manual 11 minutos
 después — la ventana anti-doble-registro es de 3 min a propósito (el mismo texto días después son
 dos mensajes reales). No serio, no se toca.
+
+## 2026-08-21 — Sin señal no se elige, el chat llena su sitio, y el borrador dice quién lo escribió
+(1) La elección del activo gana el tercer estado `sin_senal`: con VARIOS presupuestos vivos y sin
+señal de la conversación ni del clasificador, elegir el más reciente era mentir con aviso en letra
+pequeña — la ficha dice ahora «N presupuestos vivos — la conversación no señala cuál» y los LISTA;
+la card lleva el TOTAL en juego («3.700 € en 2») en vez de un favorito a dedo; el más reciente
+queda solo como ancla técnica de rutas (envío/llamada). Con UN vivo, elegirlo es obvio y no hay
+aviso. (2) El hilo del chat embebido llena el alto del despliegue (antes tres mensajes y media
+pantalla en blanco) con tope 65vh, y la caja de escribir CRECE con el contenido hasta 200px (el
+borrador ya no se corta a media frase). (3) El borrador del agente SE IDENTIFICA y SE DESCARTA:
+banda azul con chispas «Borrador del agente — revísalo: lo envías con tu nombre» + botón Descartar,
+montada en el COMPOSER COMPARTIDO (panel-accion-ui — Mensajería y los dos paneles la heredan) y en
+el chat embebido. Conecta con la obligación del Reglamento de IA pendiente de consulta legal: la
+persona sabe qué está firmando. qa:cola actualizado a la regla nueva (54 checks).

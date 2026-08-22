@@ -280,6 +280,8 @@ export function Composer({
   enviando,
   onIA,
   generandoIA,
+  textoDeIA,
+  onDescartarIA,
   plantillas,
   onPlantilla,
   disabled,
@@ -297,6 +299,12 @@ export function Composer({
    *  el mensaje sale de plantilla — no abrimos un 4º generador IA). */
   onIA?: () => void;
   generandoIA?: boolean;
+  /** 21-08 — el texto del campo NACIÓ del agente: se identifica («lo envías
+   *  con tu nombre») y se puede DESCARTAR sin borrar a mano. Conecta con la
+   *  obligación del Reglamento de IA (pendiente de consulta legal): la
+   *  persona debe saber qué está firmando. */
+  textoDeIA?: boolean;
+  onDescartarIA?: () => void;
   plantillas: PlantillaComposer[];
   onPlantilla: (id: string) => void;
   disabled?: boolean;
@@ -337,6 +345,23 @@ export function Composer({
   return (
     <div className="pt-2 border-t border-[var(--color-border)] shrink-0" title={disabled ? disabledTitle : undefined}>
       {error && <p className="text-[11px] text-[var(--color-danger)] mb-1.5">{error}</p>}
+      {textoDeIA && (
+        <div className="mb-1.5 flex items-center justify-between gap-2 rounded-md bg-[var(--color-accent-soft)] px-2.5 py-1.5">
+          <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[var(--color-accent)]">
+            <Sparkles size={13} strokeWidth={ICON_STROKE} />
+            Borrador del agente — revísalo: lo envías con tu nombre.
+          </span>
+          {onDescartarIA && (
+            <button
+              type="button"
+              onClick={onDescartarIA}
+              className="shrink-0 text-[12px] font-medium text-[var(--color-muted)] underline hover:text-[var(--color-foreground)]"
+            >
+              Descartar
+            </button>
+          )}
+        </div>
+      )}
       <textarea
         ref={(el) => {
           innerRef.current = el;

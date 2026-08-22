@@ -278,10 +278,12 @@ export type CasoDeCola = {
   /** Los demás presupuestos vivos, NOMBRADOS (condición dictada: el otro se
    *  recuerda, no solo se cuenta). */
   otrosPresupuestos: { id: string; importe: number | null; tratamiento: string | null }[];
-  /** De dónde salió el activo — "conversacion" (el evaluador capturó de cuál
-   *  hablan) o "proxy" (señal del clasificador o el más reciente). Visible:
+  /** De dónde salió el activo — "conversacion" (el evaluador capturó de
+   *  cuál hablan), "proxy" (señal del clasificador, o único/más reciente) o
+   *  "sin_senal" (varios vivos y nadie señaló ninguno: el activo es solo
+   *  ancla técnica y la UI no lo presenta como elegido). Visible siempre:
    *  un activo elegido en silencio es peor que dos cards. */
-  activoFuente: "conversacion" | "proxy" | null;
+  activoFuente: "conversacion" | "proxy" | "sin_senal" | null;
 };
 
 export type ResumenCola = {

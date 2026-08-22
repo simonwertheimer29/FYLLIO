@@ -767,6 +767,11 @@ export function LeadAccionPanel({
           onEnviar={handleEnviar}
           enviando={enviando}
           onIA={handleIA}
+            textoDeIA={textoDeIA}
+            onDescartarIA={() => {
+              setComposerTexto("");
+              setTextoDeIA(false);
+            }}
           generandoIA={generandoIA}
           plantillas={plantillas.map((p) => ({ id: p.id, nombre: p.nombre }))}
           onPlantilla={aplicarPlantilla}

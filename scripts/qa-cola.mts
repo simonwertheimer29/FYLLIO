@@ -165,10 +165,12 @@ ok("los defaults dictados están escritos: 30 · 120 · 240 · 60",
       const r = elegirPresupuestoActivo([{ ...dos[0], conSenalClasificador: true }, dos[1]]);
       return r?.activo.id === "p-viejo" && r.fuente === "proxy";
     })());
-  ok("sin juicio ni señal: el EMITIDO más reciente (proxy) — el de 300 gana al de 3.400",
-    (() => { const r = elegirPresupuestoActivo(dos); return r?.activo.id === "p-nuevo" && r.fuente === "proxy"; })());
-  ok("un referido que ya no está vivo NO manda (cae al proxy, jamás señala un cerrado)",
-    (() => { const r = elegirPresupuestoActivo(dos, { referidoId: "p-cerrado" }); return r?.activo.id === "p-nuevo" && r.fuente === "proxy"; })());
+  ok("sin juicio ni señal con VARIOS vivos → 'sin_senal' (no se elige: no se habla de ninguno; el más reciente queda de ancla)",
+    (() => { const r = elegirPresupuestoActivo(dos); return r?.activo.id === "p-nuevo" && r.fuente === "sin_senal"; })());
+  ok("con UN solo vivo, elegirlo es obvio (proxy sin aviso de ficción)",
+    (() => { const r = elegirPresupuestoActivo([dos[0]]); return r?.activo.id === "p-viejo" && r.fuente === "proxy"; })());
+  ok("un referido que ya no está vivo NO manda (cae a sin_senal: jamás señala un cerrado ni inventa otro)",
+    (() => { const r = elegirPresupuestoActivo(dos, { referidoId: "p-cerrado" }); return r?.activo.id === "p-nuevo" && r.fuente === "sin_senal"; })());
   ok("los otros quedan NOMBRADOS, no solo contados",
     elegirPresupuestoActivo(dos)?.otros[0]?.tratamiento === "implante");
 }
@@ -272,8 +274,8 @@ await runWithCliente("DEMO", async () => {
   ok("entregado caso_completo AHORA MISMO → Listos (recién entregado, no escala)",
     casoListo?.cohorte === "listos_para_cerrar" && casoListo.detalle === "entregado_listo",
     `${casoListo?.cohorte ?? "no está"}`);
-  ok("el activo es el EMITIDO más reciente (650, proxy) y la fuente se declara",
-    casoListo?.importe === 650 && casoListo.activoFuente === "proxy",
+  ok("sin señal de nadie: fuente 'sin_senal' (el 650 es solo ancla — la ficha lista los dos)",
+    casoListo?.importe === 650 && casoListo.activoFuente === "sin_senal",
     `importe=${casoListo?.importe} fuente=${casoListo?.activoFuente}`);
   ok("el otro queda NOMBRADO en la card (200 € · férula)",
     casoListo?.otrosPresupuestos.length === 1 && casoListo.otrosPresupuestos[0].importe === 200);

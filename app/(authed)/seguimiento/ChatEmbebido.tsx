@@ -43,6 +43,16 @@ export function ChatEmbebido({
   // El original del borrador de entrada — al enviar, la edición se MIDE.
   const entradaOriginal = useRef<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const cajaRef = useRef<HTMLTextAreaElement>(null);
+
+  // La caja CRECE con el contenido (cortaba el borrador a media frase) hasta
+  // un tope razonable; a partir de ahí, scroll. También al precargar.
+  useEffect(() => {
+    const el = cajaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, [texto]);
 
   const cargarHilo = useCallback(async () => {
     try {
@@ -121,7 +131,11 @@ export function ChatEmbebido({
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
-      <div ref={scrollRef} className="min-h-0 max-h-72 flex-1 overflow-y-auto p-3">
+      {/* 21-08: el hilo LLENA el alto del despliegue (antes max-h-72: tres
+          mensajes y media pantalla en blanco) y arranca abajo, como
+          cualquier chat. El tope alto evita que un hilo largo coma la
+          página entera. */}
+      <div ref={scrollRef} className="min-h-[18rem] max-h-[65vh] flex-1 overflow-y-auto p-3">
         {hilo == null ? (
           <div className="h-24 animate-pulse rounded-md bg-[var(--color-surface-muted)]" />
         ) : hilo.length === 0 ? (
@@ -175,8 +189,27 @@ export function ChatEmbebido({
               {redactando ? "Redactando…" : "Redactar entrada"}
             </button>
           )}
+          {textoDeIA && (
+            <div className="mb-2 flex items-center justify-between gap-2 rounded-md bg-[var(--color-accent-soft)] px-2.5 py-1.5">
+              <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[var(--color-accent)]">
+                <Sparkles size={13} strokeWidth={ICON_STROKE} />
+                Borrador del agente — revísalo: lo envías con tu nombre.
+              </span>
+              <button
+                onClick={() => {
+                  setTexto("");
+                  setTextoDeIA(false);
+                  entradaOriginal.current = null;
+                }}
+                className="shrink-0 text-[12px] font-medium text-[var(--color-muted)] underline hover:text-[var(--color-foreground)]"
+              >
+                Descartar
+              </button>
+            </div>
+          )}
           <div className="flex items-end gap-2">
           <textarea
+            ref={cajaRef}
             value={texto}
             onChange={(e) => {
               setTexto(e.target.value);
@@ -190,7 +223,7 @@ export function ChatEmbebido({
             }}
             rows={2}
             placeholder="Escribe la respuesta…"
-            className="min-h-[44px] flex-1 resize-y rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+            className="max-h-[200px] min-h-[44px] flex-1 resize-none overflow-y-auto rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
           />
           <button
             onClick={enviar}
