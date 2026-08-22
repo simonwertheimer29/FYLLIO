@@ -22,6 +22,7 @@ import {
   renderConocimiento,
   ConocimientoIlegibleError,
 } from "../../../lib/agente/conocimiento";
+import { SYSTEM_PROMPT_EVALUADOR } from "../../../lib/agente/evaluador";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,10 @@ export const GET = withAuth(async (session, req) => {
         // El bloque EXACTO que entra en el prompt — la misma función que usa
         // el evaluador, no una copia para enseñar.
         bloquePrompt: renderConocimiento(conocimiento).join("\n"),
+        // Y las instrucciones base del agente, enteras: el manager tiene que
+        // poder leer qué se le dice a sus pacientes (PLAN §6 — sin esto no
+        // sube de modo A nunca).
+        systemPrompt: SYSTEM_PROMPT_EVALUADOR,
       });
     });
   } catch (err) {

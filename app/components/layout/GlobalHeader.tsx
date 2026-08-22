@@ -43,6 +43,8 @@ const NAV_ADMIN: NavItem[] = [
   { href: "/informes",        label: "Informes" },
   { href: "/automatizaciones",label: "Automatizaciones" },
   { href: "/llamadas",        label: "Llamadas IA" },
+  // Fase D: la configuración del agente — admin (rol de red) solamente.
+  { href: "/agente",          label: "Agente" },
   { href: "/ajustes",         label: "Ajustes" },
 ];
 

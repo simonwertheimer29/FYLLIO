@@ -154,6 +154,67 @@ export function parseConocimiento(raw: string | null | undefined): ConocimientoC
 // contexto» es exactamente la que hace que esto funcione — publicar es meter
 // el dato en el contexto.
 
+// ─── El barrido de capacidades — derivado de la config, NUNCA del modelo ───
+//
+// (Preguntarle al modelo qué cree que puede hacer diría que sí a casi todo.)
+// En positivo Y EN NEGATIVO: el negativo es donde la clínica ve el hueco.
+// `limites` va aparte: son límites del PRODUCTO — ninguna configuración los
+// quita — y enseñarlos como huecos configurables sería vender un upgrade que
+// no existe (duda_clinica, PLAN §6).
+
+export type BarridoCapacidades = {
+  puede: string[];
+  noPuede: string[];
+  /** Límites del producto: se muestran distinto, no son huecos. */
+  limites: string[];
+};
+
+export function capacidadesDe(c: ConocimientoClinica): BarridoCapacidades {
+  const puede: string[] = [
+    "Contestar mensajes, recoger los datos de cada caso (decisión, disponibilidad, forma de pago elegida…) y entregarlo listo para cerrar",
+  ];
+  const noPuede: string[] = [];
+
+  const conPrecio = c.tratamientos.filter((t) => t.precio != null);
+  if (conPrecio.length > 0) {
+    puede.push(`Decir el precio publicado de ${conPrecio.length === 1 ? "1 tratamiento" : `${conPrecio.length} tratamientos`}`);
+  } else {
+    noPuede.push("No puede decir precios — no hay ninguno publicado: «¿cuánto cuesta?» lo resuelve tu equipo");
+  }
+  if (c.horarios) {
+    puede.push("Decir el horario de atención");
+  } else {
+    noPuede.push("No puede decir horarios — no están publicados");
+  }
+  if (c.politicas.length > 0) {
+    puede.push(`Contestar las políticas publicadas (${c.politicas.map((p) => p.titulo.toLowerCase()).join(", ")})`);
+  } else {
+    noPuede.push("No puede contestar políticas (vías de pago, seguros con los que trabajáis, cancelaciones…) — no hay ninguna publicada");
+  }
+  if (c.enlaces.length > 0) {
+    puede.push(`Compartir ${c.enlaces.length === 1 ? "el enlace publicado" : `los ${c.enlaces.length} enlaces publicados`}`);
+  } else {
+    noPuede.push("No puede compartir enlaces (reserva online, web) — no hay ninguno");
+  }
+
+  return {
+    puede,
+    noPuede,
+    limites: [
+      "Las dudas clínicas (dolor, riesgos, medicación, cuidados) SIEMPRE van al doctor — acompaña, no opina. Límite del producto: ninguna configuración lo cambia",
+      "La cobertura del seguro DE una persona no se confirma nunca — informar con qué aseguradoras trabajáis sí, si lo publicas",
+    ],
+  };
+}
+
+/** Las REGLAS DURAS — se muestran en la pantalla, no se editan (PLAN §6). */
+export const REGLAS_DURAS: readonly string[] = [
+  "No compromete dinero no decidido: ni precios, ni descuentos, ni plazos que no estén publicados o emitidos.",
+  "No da criterio clínico jamás — tampoco «tranquilizar» con hechos médicos.",
+  "No negocia: adaptar una condición a una persona concreta lo hace siempre tu equipo.",
+  "En recordatorios, ningún dato de salud no pedido (art. 9): ni cifra ni tratamiento si la persona no lo pregunta.",
+];
+
 export function renderConocimiento(c: ConocimientoClinica | null | undefined): string[] {
   if (!c || esConocimientoVacio(c)) return [];
   const lineas: string[] = [];
