@@ -21,24 +21,23 @@ export function ChatEmbebido({
   telefono,
   tipo,
   casoId,
-  mensajeSugerido,
   evaluado = false,
 }: {
   telefono: string;
   tipo: "lead" | "presupuesto" | "conversacion";
   /** Id desnudo del caso (sin el prefijo `tipo:`). */
   casoId: string;
-  /** Borrador del motor (P3): se PRECARGA para que el envío quede medido
-   *  contra lo que la persona vio y editó — y quien no lo quiera, lo borra. */
-  mensajeSugerido?: string | null;
   /** B3: el agente evaluó este hilo → hay botón «Redactar entrada». Sin
-   *  evaluación NO hay botón (confirmado): no hay nada de lo que partir. */
+   *  evaluación NO hay botón (confirmado): no hay nada de lo que partir.
+   *  (21-08: la PRECARGA automática murió — venía de la columna del
+   *  clasificador viejo y pisaba al borrador de entrada con texto genérico.
+   *  El único generador de esta caja es el botón.) */
   evaluado?: boolean;
 }) {
   const [hilo, setHilo] = useState<MensajeHilo[] | null>(null);
   const [errorHilo, setErrorHilo] = useState<string | null>(null);
-  const [texto, setTexto] = useState(mensajeSugerido ?? "");
-  const [textoDeIA, setTextoDeIA] = useState(!!mensajeSugerido);
+  const [texto, setTexto] = useState("");
+  const [textoDeIA, setTextoDeIA] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const [redactando, setRedactando] = useState(false);
   // El original del borrador de entrada — al enviar, la edición se MIDE.
@@ -149,7 +148,7 @@ export function ChatEmbebido({
             <button
               onClick={async () => {
                 if (redactando) return;
-                if (texto.trim() && texto !== (mensajeSugerido ?? "") && texto !== entradaOriginal.current) {
+                if (texto.trim() && texto !== entradaOriginal.current) {
                   toast.error("Hay un texto escrito — bórralo antes de redactar la entrada");
                   return;
                 }

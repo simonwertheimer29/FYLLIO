@@ -28,13 +28,6 @@ import type { Conversacion } from "../../lib/mensajeria/conversaciones";
 import type { PresupuestoIntervencion } from "../../lib/presupuestos/types";
 import type { CasoDeConversacion } from "./useCasoDeConversacion";
 
-/** El caso está quebrado. Se lee de `automatizacion.estado`, igual que en el
- *  panel de Seguimiento — `requierePersona` vive en la clasificación, no en el
- *  item de la cola, y usar dos fuentes para lo mismo es como se separan. */
-function quebrado(item: PresupuestoIntervencion): boolean {
-  return item.automatizacion?.estado === "quebrado";
-}
-
 export function ComposerConversacion({
   conversacion,
   caso,
@@ -66,20 +59,10 @@ export function ComposerConversacion({
   const [plantillas, setPlantillas] = useState<PlantillaComposer[]>([]);
   const [wabaActivo, setWabaActivo] = useState<boolean | null>(null);
 
-  // El motor ya trae mensaje sugerido: se precarga sin llamar a nadie. Salvo si
-  // el caso está quebrado — ahí el campo se queda vacío A PROPÓSITO.
-  useEffect(() => {
-    if (!item) return;
-    if (quebrado(item)) {
-      setTexto("");
-      setTextoDeIA(false);
-      return;
-    }
-    if (item.mensajeSugerido) {
-      setTexto(item.mensajeSugerido);
-      setTextoDeIA(true);
-    }
-  }, [item?.id, item?.automatizacion?.estado, item?.mensajeSugerido]);
+  // (21-08: aquí se PRECARGABA item.mensajeSugerido — la columna del
+  // clasificador viejo, texto de reactivación genérico que pisaba al borrador
+  // del agente. La precarga automática MURIÓ en las dos pantallas: el único
+  // generador de esta caja es el botón, que va por /api/agente/entrada.)
 
   // ─── Cómo se envía ────────────────────────────────────────────────────
   //

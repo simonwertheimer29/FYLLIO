@@ -295,34 +295,12 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       items = items.filter((p) => p.clinica === clinicaFilter);
     }
 
-    // Generate missing mensajeSugerido (batch, max 5 at a time to avoid slowness)
-    const sinMensaje = items.filter((p) => !p.mensajeSugerido).slice(0, 5);
-    if (sinMensaje.length > 0) {
-      const generaciones = sinMensaje.map(async (p) => {
-        const msg = await generarMensajeSugerido({
-          patientName: p.patientName,
-          treatments: p.treatments,
-          estado: p.estado,
-          amount: p.amount,
-          intencion: p.intencionDetectada,
-          clinica: p.clinica,
-        });
-        if (msg) {
-          p.mensajeSugerido = msg;
-          // MEJORA nº 25 (2026-07-23): la escritura de la caché se ESPERA y
-          // se loguea. Fire-and-forget aquí significaba que en serverless la
-          // promesa podía morir tras responder → los mismos 5 casos se
-          // regeneraban en CADA refresh de 15 s (hasta ~1.200 llamadas
-          // IA/hora por pestaña abierta) sin ninguna señal.
-          try {
-            await updatePresupuestoRaw(p.id, { Mensaje_sugerido: msg });
-          } catch (e) {
-            console.error("[intervencion] no se pudo persistir Mensaje_sugerido de", p.id, e);
-          }
-        }
-      });
-      await Promise.all(generaciones);
-    }
+    // (Aquí vivía la generación de `mensajeSugerido` AL LEER — lotes de 5
+    // por carga, escribiendo en la columna del clasificador viejo. MUERTA el
+    // 21-08: era el generador que el censo no vio (un generador dentro de un
+    // GET) y la fuente de las precargas genéricas («nos gustaría retomar el
+    // contacto») que pisaban al borrador de entrada. La generación de texto
+    // vive SOLO en el camino del agente: /api/agente/entrada, bajo demanda.)
 
     // ── Tercera coordenada: quién lleva el caso (fase 1 de PLAN-AGENTE) ──
     // Se resuelve DESPUÉS del filtro de clínica: no se consulta el estado de

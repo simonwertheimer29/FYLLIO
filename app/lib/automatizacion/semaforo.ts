@@ -57,6 +57,11 @@ export type EstadoSemaforo = {
   /** En `derivado_sin_resolver`: la causa y el objetivo del derivado. */
   causa?: CausaDerivacion;
   objetivo?: EtapaObjetivo | null;
+  /** En `derivado_sin_resolver`: la FRASE del paciente que lo provocó (el
+   *  motivo_texto del derivado) — la ficha la enseña arriba cuando la causa
+   *  es queja/petición (21-08): escribirle «como si nada» a alguien enfadado
+   *  es el fallo que ese aviso evita. */
+  frase?: string | null;
   /** ISO del evento que puso el rojo — para calcular la edad. */
   desde?: string;
   /** Solo en `espera`: hasta cuándo (YYYY-MM-DD, inclusive). */
@@ -150,6 +155,7 @@ function derivarDeEventos(eventos: EventoSemaforo[], hoy: string): Omit<EstadoSe
       verde: false,
       motivo: "derivado_sin_resolver",
       causa: derivadoAbierto.causa_derivacion ?? undefined,
+      frase: derivadoAbierto.motivo_texto ?? null,
       objetivo: derivadoAbierto.objetivo_activo ?? null,
       desde: derivadoAbierto.created_at.toISOString(),
       pendienteHechos: derivadoAbierto,

@@ -66,8 +66,9 @@ export default function IntervencionSidePanel({
   const [mensajes, setMensajes] = useState<MensajeWhatsApp[]>([]);
   const [loadingMensajes, setLoadingMensajes] = useState(true);
   const [errorMensajes, setErrorMensajes] = useState(false);
-  // El motor ya trae mensaje sugerido: se precarga en el campo (sin llamada).
-  const [composerTexto, setComposerTexto] = useState(item.mensajeSugerido ?? "");
+  // (21-08: aquí se precargaba item.mensajeSugerido — clasificador viejo.
+  // La precarga automática murió; el botón IA genera por el camino del agente.)
+  const [composerTexto, setComposerTexto] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [composerError, setComposerError] = useState<string | null>(null);
   const [generandoIA, setGenerandoIA] = useState(false);
@@ -108,9 +109,9 @@ export default function IntervencionSidePanel({
   }, [cargarConversacion]);
 
   useEffect(() => {
-    setComposerTexto(item.mensajeSugerido ?? "");
+    setComposerTexto("");
     setComposerError(null);
-  }, [item.id, item.mensajeSugerido]);
+  }, [item.id]);
 
   useEffect(() => {
     const qs = item.clinica ? `?clinica=${encodeURIComponent(item.clinica)}` : "";

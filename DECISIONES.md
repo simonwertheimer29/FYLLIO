@@ -3187,3 +3187,20 @@ punto 4 — ningún catch→vacío en cliente sin porqué en línea, trinquete E
 con sonda verificada (se plantó una violación y disparó). El bug de 105 ya no puede repetirse por
 debajo de la vara. Pendiente listado (no urgente): ~44 componentes con fetch() a pelo que sí
 comprueban ok/toast — migrables a cargarJSON de paso, como la deuda del `?? []` de julio.
+
+## 2026-08-21 — La precarga vieja muere en la raíz: había un GENERADOR escondido en un GET
+Los cuatro fallos de la demo de Seguimiento. El de fondo (1): la precarga automática del chat
+(«nos gustaría retomar el contacto…») no era el borrador de entrada — era `mensaje_sugerido`, la
+columna del clasificador viejo, llegando a TRES vistas (chat embebido vía la cola, el compositor
+de Mensajería y el SidePanel). Y la caza destapó al que el censo de generadores NO vio: la ruta
+GET de intervención GENERABA sugeridos al leer (lotes de 5 por carga, Haiku, sin juez, escribiendo
+la columna) — un generador dentro de un GET, invisible al censo porque no parece un generador.
+Arreglo en la pieza compartida: la generación-al-leer MUERTA, la columna deja de viajar (fuera de
+CasoDeCola) y las tres precargas automáticas eliminadas — el ÚNICO generador de las cajas es el
+botón, por /api/agente/entrada. (2) La queja/petición de persona ya no se esconde: bloque ROJO
+arriba del todo de la ficha con la frase del paciente (`semaforo.frase`, aditivo) — «resuélvelo
+antes de cerrar nada». (3) Registrar llamada solo es protagonista cuando toca llamar (agotado);
+en el resto, plegado tras un botón pequeño. (4) Los mensajes duplicados de Elena NO son el
+registro real: una fila de la herramienta de demo (waba sim_) y un registro manual 11 minutos
+después — la ventana anti-doble-registro es de 3 min a propósito (el mismo texto días después son
+dos mensajes reales). No serio, no se toca.

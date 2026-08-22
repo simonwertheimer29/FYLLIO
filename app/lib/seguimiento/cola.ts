@@ -269,10 +269,6 @@ export type CasoDeCola = {
   esperandoMinLaborables: number | null;
   /** Espera vigente («sin contacto hasta») — la card lo señala. */
   enEspera: boolean;
-  /** Borrador del motor (solo presupuestos, si existe) — P3: se precarga en
-   *  el chat embebido para que el envío quede MEDIDO contra lo que la
-   *  persona realmente vio y editó. */
-  mensajeSugerido: string | null;
   /** El agente evaluó este hilo (hay evento `evaluacion` en el log) — B3:
    *  gobierna el botón «Redactar entrada»; sin evaluación, sin botón. */
   evaluado: boolean;
@@ -325,7 +321,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
 
     const presupuestos = await trx
       .selectFrom("presupuestos")
-      .select(["id", "paciente_id", "paciente_telefono", "tratamiento_nombre", "estado", "importe", "clinica_id", "fecha", "created_at", "requiere_persona", "intencion_detectada", "contact_count", "fase_seguimiento", "mensaje_sugerido"])
+      .select(["id", "paciente_id", "paciente_telefono", "tratamiento_nombre", "estado", "importe", "clinica_id", "fecha", "created_at", "requiere_persona", "intencion_detectada", "contact_count", "fase_seguimiento"])
       .where((eb) => eb.or([eb("estado", "is", null), eb("estado", "not in", ["ACEPTADO", "PERDIDO"])]))
       .execute();
 
@@ -581,7 +577,6 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       paradoDias: peor.k!.paradoDias,
       esperandoMinLaborables: peor.k!.esperandoMinLaborables,
       enEspera: peor.k!.enEspera,
-      mensajeSugerido: activo.pr.mensaje_sugerido ?? null,
       evaluado: agente?.evaluado ?? false,
     });
   }
@@ -626,7 +621,6 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       paradoDias: k.paradoDias,
       esperandoMinLaborables: k.esperandoMinLaborables,
       enEspera: k.enEspera,
-      mensajeSugerido: null,
       evaluado: buscarAgente(l.telefono)?.evaluado ?? false,
       importeTotal: null,
       otrosPresupuestos: [],
@@ -655,7 +649,6 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       paradoDias: kk.paradoDias,
       esperandoMinLaborables: kk.esperandoMinLaborables,
       enEspera: kk.enEspera,
-      mensajeSugerido: null,
       evaluado: a.evaluado,
       importeTotal: null,
       otrosPresupuestos: [],

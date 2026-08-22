@@ -22,7 +22,7 @@ import Link from "next/link";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import { ErrorState } from "../ui/Feedback";
 import { fechaClinica } from "../../lib/time";
-import { Clock, PauseCircle, UserCheck, CheckCircle2 } from "../icons";
+import { AlertTriangle, Clock, PauseCircle, UserCheck, CheckCircle2 } from "../icons";
 import { eur as eurUI } from "../shared/Cifra";
 import type { FichaCaso } from "../../lib/agente/ficha-caso";
 
@@ -81,7 +81,23 @@ export function FichaCasoPanel({
 
   return (
     <div className="space-y-3">
-      {/* ── 0 · ANTES DE NADA: la espera (qué NO hacer) y lo intentado ── */}
+      {/* ── 0 · ANTES DE TODO: la queja/petición de persona (21-08). Un tag
+          y un pendiente en una lista no bastan — si la coordinadora no lo
+          lee, le escribe «como si nada» a alguien enfadado. Rojo, arriba,
+          con la frase del paciente: es lo que hay que resolver ANTES de
+          cerrar el caso. */}
+      {ficha.semaforo.motivo === "derivado_sin_resolver" &&
+        ficha.semaforo.causa === "peticion_queja" && (
+          <div className="flex gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 dark:border-rose-500/25 dark:bg-rose-500/10">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-danger)]" aria-hidden />
+            <p className="min-w-0 text-[12.5px] leading-snug text-[var(--color-foreground)]">
+              <span className="font-semibold">Pidió hablar con una persona{ficha.semaforo.desde ? ` — ${fechaClinica(ficha.semaforo.desde)}` : ""}.</span>
+              {ficha.semaforo.frase ? ` Sus palabras: ${ficha.semaforo.frase}` : ""}
+              {" "}Resuélvelo antes de cerrar nada.
+            </p>
+          </div>
+        )}
+      {/* ── La espera (qué NO hacer) y lo intentado ── */}
       {ficha.espera && (
         <div className="flex gap-2 rounded-xl bg-[var(--color-warning-soft)] px-3 py-2.5">
           <PauseCircle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-warning)]" aria-hidden />

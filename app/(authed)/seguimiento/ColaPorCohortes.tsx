@@ -45,7 +45,6 @@ type Caso = {
   paradoDias: number;
   esperandoMinLaborables: number | null;
   enEspera: boolean;
-  mensajeSugerido: string | null;
   evaluado: boolean;
   importeTotal: number | null;
   otrosPresupuestos: { id: string; importe: number | null; tratamiento: string | null }[];
@@ -89,6 +88,10 @@ const ETIQUETA_TIPO: Record<Caso["tipo"], string> = {
 function RegistrarLlamada({ caso, onHecho }: { caso: Caso; onHecho: () => void }) {
   const [nota, setNota] = useState("");
   const [enviando, setEnviando] = useState<string | null>(null);
+  // 21-08: el bloque solo es protagonista cuando LLAMAR es el siguiente paso
+  // (toca llamar); en el resto de casos vive plegado tras un botón pequeño —
+  // ocupaba el sitio de honor de la ficha y casi nunca servía.
+  const [abierto, setAbierto] = useState(caso.detalle === "agotado");
 
   async function registrar(resultado: "no_contesta" | "hablado") {
     if (enviando || !caso.telefono) return;
@@ -117,6 +120,18 @@ function RegistrarLlamada({ caso, onHecho }: { caso: Caso; onHecho: () => void }
     } finally {
       setEnviando(null);
     }
+  }
+
+  if (!abierto) {
+    return (
+      <button
+        onClick={() => setAbierto(true)}
+        className="inline-flex items-center gap-1.5 self-start rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[12px] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
+      >
+        <Phone size={12} strokeWidth={ICON_STROKE} />
+        Registrar llamada
+      </button>
+    );
   }
 
   return (
@@ -338,7 +353,6 @@ export function ColaPorCohortes({
                               telefono={caso.telefono}
                               tipo={caso.tipo}
                               casoId={idDesnudo}
-                              mensajeSugerido={caso.mensajeSugerido}
                               evaluado={caso.evaluado}
                             />
                           </div>
