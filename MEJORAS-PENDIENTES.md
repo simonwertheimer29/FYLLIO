@@ -1905,3 +1905,12 @@ verdad: un editor, un vocabulario, un renderizador.
 - **Regla que ya aplica desde el día 1:** lo sintético y lo real no se mezclan al medir (§7 del
   plan) — todo lo que el banco registre vive en su propia tabla, etiquetado por origen.
 - **Fecha:** 2026-08-22
+
+## 108. El agente se presenta con nombre propio — BLOQUEADA por la consulta legal del Reglamento de IA
+- **Qué es:** que el agente abra con un nombre («Soy Leo, del equipo de la clínica») en vez de
+  hablar sin identidad. Mejoraría la naturalidad de la conversación y de la demo.
+- **Decisión (Simon, 2026-08-23):** APARCADA, no implementar — choca con la obligación de
+  identificarse como IA del Reglamento europeo de IA, que está en la consulta legal pendiente
+  (la misma que cubre la banda del borrador en el composer). Se decide cuando vuelva la consulta;
+  cualquier presentación tendrá que convivir con la identificación como sistema automático.
+- **Fecha:** 2026-08-23

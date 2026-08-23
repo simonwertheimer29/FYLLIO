@@ -23,7 +23,7 @@ export function AgenteView() {
   if (!esAdmin) {
     // Sin pestañas: solo el banco, con la nota de dónde vive lo demás.
     return (
-      <div className="mx-auto max-w-5xl space-y-4 px-4 py-6 lg:px-6">
+      <div className="mx-auto max-w-[100rem] space-y-4 px-4 py-6 lg:px-8">
         <header>
           <h1 className="font-display flex items-center gap-2 text-xl font-semibold text-[var(--color-foreground)]">
             <Sparkles size={18} strokeWidth={ICON_STROKE} className="text-[var(--color-accent)]" aria-hidden />
@@ -40,7 +40,7 @@ export function AgenteView() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-6 lg:px-6">
+    <div className="mx-auto max-w-[100rem] px-4 py-6 lg:px-8">
       <div className="mb-4 flex gap-1 border-b border-[var(--color-border)]">
         {([
           { id: "configuracion" as const, label: "Configuración" },

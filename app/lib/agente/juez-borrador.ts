@@ -206,10 +206,23 @@ const PREGUNTA_SEGURA: Record<string, string> = {
   es_paciente: "¿habías venido antes a la clínica?",
 };
 
-export function plantillaNeutraConRecogida(nombre: string, camposFaltantes: readonly string[]): string {
-  const pregunta = camposFaltantes.map((c) => PREGUNTA_SEGURA[c]).find((p) => p != null);
-  if (!pregunta) return plantillaNeutra(nombre);
+export function plantillaNeutraConRecogida(
+  nombre: string,
+  camposFaltantes: readonly string[],
+  /** 22/23-08: si el turno DERIVA, el reemplazo anuncia LA ENTREGA — es
+   *  verdad, no inventa nada y cierra bien. La fórmula vacía queda solo para
+   *  cuando no hay ni campo que pedir ni entrega que anunciar. */
+  opts?: { entrega?: boolean; objetivo?: string | null },
+): string {
   const n = nombre.split(" ")[0];
   const esNombreReal = n.length > 1 && !/\d/.test(n);
-  return `Gracias${esNombreReal ? `, ${n}` : ""}. Para poder ayudarte, ${pregunta}`;
+  const coNombre = esNombreReal ? `, ${n}` : "";
+  if (opts?.entrega) {
+    return opts.objetivo === "cita"
+      ? `Ya tengo todo lo que necesito${coNombre}. Alguien del equipo te contacta con los horarios disponibles.`
+      : `Ya lo tengo todo${coNombre}. Lo paso al equipo de la clínica y alguien te contacta enseguida.`;
+  }
+  const pregunta = camposFaltantes.map((c) => PREGUNTA_SEGURA[c]).find((p) => p != null);
+  if (!pregunta) return plantillaNeutra(nombre);
+  return `Gracias${coNombre}. Para poder ayudarte, ${pregunta}`;
 }

@@ -897,14 +897,20 @@ export async function evaluarTurno(
       const v = rec?.["identificar"]?.["nombre"] ?? rec?.["cita"]?.["nombre_completo"];
       return typeof v === "string" && v.trim() !== "" && v !== "no_aplica" ? v : e.nombre;
     })();
+    // ¿Este turno DERIVA? (la urgencia nunca llega aquí: su respuesta la
+    // escribe código antes). Si deriva, el reemplazo anuncia la ENTREGA.
+    const derivaEsteTurno =
+      juicio.peticionOQueja || insiste || casoCompleto || antecedenteConCita ||
+      (juicio.pideAccion && objetivoActivo == null);
+    const plantillaOpts = { entrega: derivaEsteTurno, objetivo: objetivoActivo };
     if (veredicto == null) {
-      respuestaFinal = plantillaNeutraConRecogida(nombreParaPlantilla, camposFaltantes);
+      respuestaFinal = plantillaNeutraConRecogida(nombreParaPlantilla, camposFaltantes, plantillaOpts);
       borradorDescartado = { motivo: "juez_no_respondio", frase: null };
       console.warn("[evaluador] juez no respondió: borrador descartado (fail-closed)");
     } else if (veredicto.infringe) {
       // El reemplazo determinista RECOGE si sabe qué falta (22-08): la
       // plantilla protege sin matar la conversación.
-      respuestaFinal = plantillaNeutraConRecogida(nombreParaPlantilla, camposFaltantes);
+      respuestaFinal = plantillaNeutraConRecogida(nombreParaPlantilla, camposFaltantes, plantillaOpts);
       // La categoría ilegible NO se disfraza de «clinica»: se archiva como
       // sin_categoria — la traza de descartes es la métrica que detecta un
       // generador degradado y no puede mentir (barrido 17-08, B-2).
