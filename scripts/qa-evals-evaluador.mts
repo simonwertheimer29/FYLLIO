@@ -365,8 +365,19 @@ const REMAPEO_DECISION: Record<string, string> = {
   //    reanotó y LOS DOS aplazan. Una objeción de precio no deriva por quién
   //    la trae ni por cómo esté formulada.
   "16": "A",
+  //  · 49 → A (Simon, 2026-08-22): «opiniones de todo en internet» no
+  //    merece una causa nueva («desconfianza») por un caso único — aplazar
+  //    deja la reticencia delante del asesor igual. OJO: el remapeo cambia
+  //    QUÉ fallo es, no lo elimina — el modelo dio S (no anotó nada), así
+  //    que 49 sigue rojo hasta que anote. CONOCIDOS aceptados (22-08): el
+  //    35 (deriva «¿con quién hablo de esto?» pese a instrucción literal —
+  //    techo de Haiku, no de redacción; coste conservador) y este 49.
+  "49": "A",
 };
-const REMAPEO_LISTO: Record<string, string> = { C10: "L" };
+// C13 → L (Simon, 2026-08-22, literal): la anotación es ANTERIOR a la
+// decisión del 18-08 — un listo CON aplazados ES listo, la duda se ve
+// dentro de la ficha — y esa decisión manda.
+const REMAPEO_LISTO: Record<string, string> = { C10: "L", C13: "L" };
 
 // ─── Mapeo resultado → letra ───────────────────────────────────────────────
 

@@ -1,0 +1,25 @@
+[dotenv@17.2.3] injecting env (33) from .env.local -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+Midiendo — 6 turnos reales de evaluador+juez (Haiku 4.5)…
+[evaluador] borrador descartado (promesa): «necesitamos verte para valorar tu sonrisa y darte un presupuesto sin compromiso»
+[evaluador] borrador descartado (promesa): «te recomendamos una primera visita gratuita con radiografía para que el doctor valore tu sonrisa y te dé un presupuesto personalizado. ¿Te gustaría reservar cita?»
+
+── GENÉRICO (hoy) ──
+  turno 1: $0.008442  (in=6332 out=422 cacheW=0 cacheR=0)
+  turno 2: $0.008420  (in=6390 out=406 cacheW=0 cacheR=0)
+  turno 3: $0.008546  (in=6471 out=415 cacheW=0 cacheR=0)
+  por turno (media): $0.008469
+  conversación de 3 turnos: $0.025408
+  al mes, 1.000 conversaciones: $25.41
+
+── COMPLETO (tono/precios/políticas/horarios vía grupo 2) ──
+  turno 1: $0.009408  (in=7043 out=473 cacheW=0 cacheR=0)
+  turno 2: $0.009049  (in=7069 out=396 cacheW=0 cacheR=0)
+  turno 3: $0.009320  (in=7170 out=430 cacheW=0 cacheR=0)
+  por turno (media): $0.009259
+  conversación de 3 turnos: $0.027777
+  al mes, 1.000 conversaciones: $27.78
+
+══ Δ por conversación de 3 turnos: $0.002369 (9 % sobre el genérico)
+══ caché: sin lecturas en esta pasada (prefijo recién escrito o >5 min entre llamadas)
+   (el prompt de una clínica es idéntico en todas sus conversaciones: en producción, con tráfico, la lectura domina)
