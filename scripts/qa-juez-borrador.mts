@@ -283,6 +283,17 @@ console.log(`\n══ FALSOS POSITIVOS (limpios que dispara — matan la convers
 for (const r of fp) {
   console.log(`  ✗ ${r.caso.id} (${r.caso.nota}) — frase señalada: «${r.veredicto!.frase ?? "?"}»`);
 }
+
+// COSTE MEDIDO de la pasada (regla 22-08: cada pasada dice lo que costó —
+// las del juez eran estimación y la cuenta de Simon no cuadraba).
+{
+  const inTok = rs.reduce((a, r) => a + (r.veredicto?.usage?.inputTokens ?? 0), 0);
+  const outTok = rs.reduce((a, r) => a + (r.veredicto?.usage?.outputTokens ?? 0), 0);
+  const cW = rs.reduce((a, r) => a + (r.veredicto?.usage?.cacheEscritura ?? 0), 0);
+  const cR = rs.reduce((a, r) => a + (r.veredicto?.usage?.cacheLectura ?? 0), 0);
+  const usd = (inTok * 1 + outTok * 5 + cW * 1.25 + cR * 0.1) / 1_000_000;
+  console.log(`\n══ COSTE de esta pasada: $${usd.toFixed(4)} (${rs.length} casos · in=${inTok} out=${outTok} cacheW=${cW} cacheR=${cR}) — apúntalo en evals/pasadas/GASTO.md`);
+}
 if (sinRespuesta.length) console.log(`\n  (${sinRespuesta.length} sin respuesta del juez — fail-closed en producción)`);
 
 const total = infractores.length + limpios.length;
