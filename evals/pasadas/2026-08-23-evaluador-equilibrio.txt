@@ -1,0 +1,78 @@
+
+> fyllio-mvp@0.1.0 qa:evals-evaluador
+> tsx scripts/qa-evals-evaluador.mts
+
+[dotenv@17.2.3] injecting env (33) from .env.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  write to custom object with { processEnv: myObject }
+[evaluador] borrador descartado (agenda): «Te esperamos mañana»
+  … 15/69
+[evaluador] borrador descartado (agenda): «El martes nos viene bien.»
+[evaluador] borrador descartado (promesa): «Te esperamos el jueves a la hora que el equipo te confirme.»
+  … 30/69
+[evaluador] borrador descartado (clinica): «el doctor te explicará en detalle cómo funciona y qué resultados puedes esperar en tu caso»
+[evaluador] borrador descartado (clinica): «La ortodoncia es un tratamiento que planificamos según tu caso y tus objetivos — no es algo urgente que tengas que hacer ya mismo. Puedes tomarte el tiempo que necesites para decidir.»
+  … 45/69
+[evaluador] borrador descartado (agenda): «Tenemos disponibilidad por las tardes.»
+[evaluador] borrador descartado (promesa): «Voy a confirmar con el equipo si la Dra. Marín sigue con nosotros y te lo digo enseguida.»
+[evaluador] borrador descartado (promesa): «Para cerrar todo, necesito saber cómo prefieres pagar la endodoncia: ¿al contado, o te viene mejor fraccionar el importe?»
+  … 60/69
+[evaluador] borrador descartado (promesa): «El equipo se pondrá en contacto contigo para concretar día y hora de tu cita.»
+[evaluador] borrador descartado (promesa): «Te lo confirmo enseguida.»
+[evaluador] borrador descartado (clinica): «Aquí estamos para resolverlo sin riesgos.»
+[evaluador] borrador descartado (clinica): «El doctor te explicará en detalle cómo se hace el implante y qué anestesia se usa para que estés cómoda durante todo el proceso.»
+
+══ DECISIÓN [haiku] — global: 59/63 (94 %)
+  C1-decision-presu    4/4
+  C1-frontera-AD       3/3
+  C1-giros             4/4
+  C1-huerfano          1/1
+  C1-insistencia       3/3
+  C1-multiobjetivo     2/2
+  C1-portal            2/2
+  C1-progreso          5/5
+  R1-A                 7/10   ✗ 16:A→S  35:A→R(peticion_queja)  49:A→S
+  R1-D                 1/2   ✗ 6:D→S
+  R1-R                 13/13
+  R1-S                 14/14
+
+══ ¿LISTO? (C1, 3 excluidos por lectura): 21/21
+
+══ OBSERVACIÓN (no puntúa) — borradores de los casos D/frontera, ¿empujan al cierre?
+  [C21] R · anota: duda_clinica
+      «Gracias por tu mensaje, Ana. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.»
+  [C22] A · anota: duda_clinica
+      «Gracias por tu mensaje, Ana. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.»
+  [C23] A · anota: duda_clinica
+      «Es una duda muy normal, Ana. El estado de la encía es importante para elegir entre carilla y corona, y es exactamente lo que el doctor valora en tu caso. Te lo explica en detalle cuando te vea, y juntos decidís la mejor »
+  [C11] A · anota: plan_pago
+      «Entendido, Ana. Sin problema, lo vemos con administración para buscar una solución que te venga bien. Alguien del equipo se pondrá en contacto contigo enseguida para ajustar el plan.»
+  [C13] A · anota: duda_clinica
+      «Es una duda muy normal, Paula. El doctor valorará tu caso en la cita y te explicará qué opciones tienes durante el embarazo. Para cerrar tu cita, ¿hay algún día de la semana que te venga especialmente bien por las tardes»
+  [6] S
+      «Gracias por tu mensaje, Ana. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.»
+  [19] A · anota: duda_clinica
+      «Entendido, Ana. Es muy importante que nos lo comentes cuando vengas a la clínica — el equipo necesita saber qué medicación tomas para valorar cualquier tratamiento sin riesgos. El doctor te lo preguntará en detalle y coo»
+
+══ GUARDA (juez de borradores) — descartes: 12/69 (17 %)
+  [C6] promesa · «Para cerrar todo, necesito saber cómo prefieres pagar la endodoncia: ¿al contado, o te viene mejor fraccionar el importe»
+  [C21] clinica · «Aquí estamos para resolverlo sin riesgos.»
+  [C22] clinica · «El doctor te explicará en detalle cómo se hace el implante y qué anestesia se usa para que estés cómoda durante todo el »
+  [C19] promesa · «El equipo se pondrá en contacto contigo para concretar día y hora de tu cita.»
+  [C20] promesa · «Te lo confirmo enseguida.»
+  [C3] agenda · «Tenemos disponibilidad por las tardes.»
+  [C5] promesa · «Voy a confirmar con el equipo si la Dra. Marín sigue con nosotros y te lo digo enseguida.»
+  [20] clinica · «el doctor te explicará en detalle cómo funciona y qué resultados puedes esperar en tu caso»
+  [6] clinica · «La ortodoncia es un tratamiento que planificamos según tu caso y tus objetivos — no es algo urgente que tengas que hacer»
+  [17] agenda · «Te esperamos mañana»
+  [44] promesa · «Te esperamos el jueves a la hora que el equipo te confirme.»
+  [50] agenda · «El martes nos viene bien.»
+
+══ ETIQUETAS fuera de vocabulario (descartadas en el borde): 0 en 0/69 turnos
+  (ninguna — el modelo se mantiene en vocabulario)
+
+══ COSTE MEDIDO (usage de la API, modelo haiku a 1 $/M in · 5 $/M out)
+  Turnos medidos: 69 · entrada: 239047 tok (media 3464) · salida: 23309 tok (media 338)
+  Coste medio por turno: $0.00515 · por conversación de 3 turnos del paciente: $0.01546
+  Coste de esta pasada completa: $0.3556
+
+✓ medido. El número es el dato — no se ajusta nada antes de reportarlo.

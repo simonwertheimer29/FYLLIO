@@ -9,3 +9,7 @@ Reconstruida a posteriori (el fallo que motivó esta regla): 5,6 pasadas del eva
 medido), 7 del juez (~$0,28 est.), 8 repros (~$0,30 est.), aguante ×2 (~$0,60 est.),
 medir-coste ($0,06), sondas caché ($0,02). Detalle en el informe del 22-08 y en los ficheros
 de esta carpeta. Pendiente al reabrir crédito: vara del evaluador post-equilibrio (~$0,55).
+
+## Sesión 2026-08-23
+- 23-08 · qa:evals-evaluador (post-reequilibrio) · **$0,36 medido** · cierre del punto de ayer,
+  aprobada por Simon · acumulado sesión: **$0,36**
