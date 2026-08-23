@@ -110,7 +110,15 @@ export const OBJETIVOS_POR_DEFECTO: readonly ObjetivoAgente[] = [
     proposito: "Saber quién es y qué necesita, para encaminar la conversación.",
     campos: [
       { clave: "nombre", pregunta: "¿Cómo se llama?" },
-      { clave: "es_paciente", pregunta: "¿Ya ha sido paciente de la clínica?" },
+      // 22-08 (dictado): NO se pregunta activamente — si el teléfono está
+      // fichado el sistema YA lo sabe (este objetivo ni se abre), y con un
+      // número desconocido puede ser un paciente antiguo desde otro móvil:
+      // no es un dato que la persona deba deletrear. Si lo dice, se recoge.
+      {
+        clave: "es_paciente",
+        pregunta: "¿Ya ha sido paciente de la clínica?",
+        condicion: "solo si lo menciona; no se pregunta activamente",
+      },
       { clave: "que_necesita", pregunta: "¿Qué necesita?" },
     ],
   },

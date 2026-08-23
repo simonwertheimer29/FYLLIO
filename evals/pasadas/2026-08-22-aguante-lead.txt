@@ -1,0 +1,50 @@
+[dotenv@17.2.3] injecting env (33) from .env.local -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+── PROMPT PRE-AGENDA (975758f) ──
+  [viejo rep1] deriva en turno 5 (caso_completo)
+  [viejo rep2] deriva en turno 5 (caso_completo)
+[evaluador] borrador descartado (promesa): «El coste depende de cada caso y lo valoramos sin compromiso en la primera cita.»
+[evaluador] borrador descartado (promesa): «Para cerrar tu cita por las tardes, ¿me das tu apellido completo y qué días te vienen mejor?»
+[evaluador] borrador descartado (agenda): «Solo necesito tu apellido o nombre completo para cerrar la cita»
+[evaluador] borrador descartado (agenda): «Solo necesito tu apellido para cerrar la cita de revisión de ortodoncia en horario de tarde a partir de las 17:00»
+[evaluador] borrador descartado (agenda): «Solo necesito tu apellido o nombre completo para cerrar la cita»
+  [viejo rep3] NO derivó en 6 turnos
+── PROMPT ACTUAL ──
+  [actual rep1] deriva en turno 4 (caso_completo)
+[evaluador] borrador descartado (promesa): «en la revisión el equipo valora tu ortodoncia y te damos un presupuesto sin compromiso»
+[evaluador] borrador descartado (agenda): «Tenemos disponibilidad por las tardes»
+  [actual rep2] deriva en turno 5 (caso_completo)
+  [actual rep3] deriva en turno 5 (caso_completo)
+
+══ AGUANTE (turnos hasta derivar; 7 = no derivó en el guion)
+  pre-agenda: 5, 5, 7 → media 5.7
+  actual:     4, 5, 5 → media 4.7
+  ⚠ EL AGUANTE BAJÓ — la cautela se pasó de frenada.
+[dotenv@17.2.3] injecting env (33) from .env.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+── PROMPT PRE-AGENDA (975758f) ──
+[evaluador] borrador descartado (promesa): «El coste depende de cada caso y lo valoramos sin compromiso en la primera cita.»
+[evaluador] borrador descartado (agenda): «Solo necesito tu apellido completo para cerrar la cita»
+[evaluador] borrador descartado (agenda): «Solo necesito tu apellido o nombre completo para cerrar la cita»
+[evaluador] borrador descartado (agenda): «Solo necesito tu apellido o nombre completo para cerrar la cita de revisión de ortodoncia por las tardes»
+[evaluador] borrador descartado (agenda): «para cerrar la cita de revisión de ortodoncia en horario de tarde»
+  [viejo rep1] NO derivó en 6 turnos
+[evaluador] borrador descartado (promesa): «Para poder cerrar tu cita sin volver a preguntar, ¿cuál es tu nombre completo?»
+[evaluador] borrador descartado (agenda): «Tenemos disponibilidad por las tardes.»
+  [viejo rep2] deriva en turno 5 (caso_completo) · faltantes al derivar: NINGUNO — entrega cocinada · recogido: {"nombre_completo":"Marta","tratamiento_o_molestia":"Revisión de ortodoncia","urgencia":"Sin prisa","disponibilidad":"Tardes a partir de las 17:00","preferencia_doctor":"no_aplica","clinica_preferida":"no_aplica"}
+[evaluador] borrador descartado (promesa): «Para poder cerrar tu cita sin volver a preguntar, ¿cuál es tu nombre completo?»
+[evaluador] borrador descartado (agenda): «Así te cierro la cita sin volver a molestarte.»
+  [viejo rep3] deriva en turno 4 (caso_completo) · faltantes al derivar: NINGUNO — entrega cocinada · recogido: {"nombre_completo":"Marta","tratamiento_o_molestia":"revisión de ortodoncia","urgencia":"sin prisa","disponibilidad":"tardes a partir de las 17:00","preferencia_doctor":"no_aplica","clinica_preferida":"no_aplica"}
+── PROMPT ACTUAL ──
+[evaluador] borrador descartado (agenda): «me gustaría tener tu nombre completo para poder ayudarte a cerrar la cita»
+[evaluador] borrador descartado (agenda): «Tenemos disponibilidad por las tardes»
+  [actual rep1] deriva en turno 5 (caso_completo) · faltantes al derivar: NINGUNO — entrega cocinada · recogido: {"nombre_completo":"Marta","tratamiento_o_molestia":"revisión de ortodoncia","urgencia":"sin prisa","disponibilidad":"tardes a partir de las 17:00","preferencia_doctor":"no_aplica","clinica_preferida":"no_aplica"}
+[evaluador] borrador descartado (promesa): «en la revisión el equipo valora tu ortodoncia y te damos un presupuesto sin compromiso»
+[evaluador] borrador descartado (agenda): «Tenemos disponibilidad por las tardes»
+  [actual rep2] deriva en turno 5 (caso_completo) · faltantes al derivar: NINGUNO — entrega cocinada · recogido: {"nombre_completo":"Marta","tratamiento_o_molestia":"revisión de ortodoncia","urgencia":"sin prisa","disponibilidad":"tardes a partir de las 17:00","preferencia_doctor":"no_aplica","clinica_preferida":"no_aplica"}
+[evaluador] borrador descartado (promesa): «en la revisión el equipo valora tu ortodoncia y te damos un presupuesto sin compromiso»
+[evaluador] borrador descartado (agenda): «Tenemos disponibilidad por las tardes»
+  [actual rep3] deriva en turno 5 (caso_completo) · faltantes al derivar: NINGUNO — entrega cocinada · recogido: {"nombre_completo":"Marta","tratamiento_o_molestia":"revisión de ortodoncia","urgencia":"sin prisa","disponibilidad":"tardes a partir de las 17:00","preferencia_doctor":"no_aplica","clinica_preferida":"no_aplica"}
+
+══ AGUANTE (turnos hasta derivar; 7 = no derivó en el guion)
+  pre-agenda: 7, 5, 4 → media 5.3
+  actual:     5, 5, 5 → media 5.0
+  ⚠ EL AGUANTE BAJÓ — la cautela se pasó de frenada.

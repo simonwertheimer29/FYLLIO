@@ -3337,3 +3337,20 @@ imita producción también en el desconocido (teléfono como nombre → la plant
 número). Evaluador 95 % con solo los 3 conocidos, ¿Listo? 21/21 (C9 remapeado). Queda la
 intermitencia proceso-vs-promesa del juez (techo Haiku): amortiguada — el peor caso ahora es una
 pregunta de recogida educada, no una fórmula vacía.
+
+## 2026-08-22 — Los tres fallos del lead: el peor era de CÓDIGO, y la métrica de aguante desmonta su propia cifra
+(1) La derivación temprana NO era cautela del modelo: `casoCompleto` miraba solo el objetivo ACTIVO,
+y al dar la persona su nombre el activo saltaba a `identificar` (3 campos) y ENTREGABA con `cita` a
+medias — contradiciendo la doctrina escrita («identificar es transitorio»). Fix de código: identificar
+completo con otro objetivo a medias PASA el activo al siguiente; los demás objetivos mantienen la
+regla del plan (C14 intacto). (2) `es_paciente` pasa a «solo si lo menciona»: fichado se mira en la
+base, y un número nuevo puede ser un paciente antiguo — no es un dato que la persona deletree.
+(3+4) System reequilibrado con el corte dictado: primero LO QUE HACE (confirmar lo que la clínica
+hace, anunciar el proceso, preguntar lo que falta — «cauteloso no es callado»), después LO ÚNICO
+prohibido (huecos inventados, reservar él, datos que no constan). MEDICIÓN de aguante (2 pasadas,
+guion fijo, prompt actual vs pre-agenda con el MISMO código): la cifra cruda baja (5,0 vs 5,3-5,7)
+pero el detalle la desmonta — el actual deriva 5-5-5 SIEMPRE cocinado y en el turno del último dato;
+el viejo era errático (7,5,4: a veces no cerraba, a veces infería la urgencia). Cero entregas con
+faltantes en 6/6 del actual: la métrica que responde a la preocupación no es «cuántos turnos» sino
+«¿derivó con faltantes?» — y es 0. Vara del evaluador post-equilibrio PENDIENTE: crédito agotado a
+mitad (10/69 fallback, exit 2 honesto).

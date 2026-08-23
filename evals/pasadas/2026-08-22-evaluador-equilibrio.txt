@@ -1,0 +1,35 @@
+
+> fyllio-mvp@0.1.0 qa:evals-evaluador
+> tsx scripts/qa-evals-evaluador.mts
+
+[dotenv@17.2.3] injecting env (33) from .env.local -- tip: ⚙️  enable debug logging with { debug: true }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops
+[evaluador] borrador descartado (agenda): «Te esperamos mañana»
+  … 15/69
+[evaluador] borrador descartado (agenda): «El martes nos viene bien.»
+[evaluador] borrador descartado (promesa): «Te esperamos el jueves a la hora que el equipo te confirme.»
+  … 30/69
+[evaluador] borrador descartado (clinica): «El blanqueamiento es un tratamiento que muchas pacientes eligen cuando quieren mejorar el tono de sus dientes»
+[evaluador] borrador descartado (clinica): «La ortodoncia es un tratamiento que planificamos según tu caso y tus objetivos — no es algo urgente que tengas que hacer ya mismo. Puedes tomarte el tiempo que necesites para decidir.»
+  … 45/69
+[evaluador] borrador descartado (agenda): «Tenemos disponibilidad por las tardes.»
+[evaluador] borrador descartado (promesa): «En cuanto tenga ese dato, el equipo te contacta para concretar día y hora por la mañana.»
+[evaluador] borrador descartado (promesa): «Voy a confirmar con el equipo si la Dra. Marín sigue con nosotros y te lo digo enseguida.»
+[evaluador] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011CeJxuZRxKY4iLFs8r3YbU"}
+[evaluador] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011CeJxubkcQDTqGQ3EoDm82"}
+[juez-borrador] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011CeJxubjs29PGSCPovqeE7"}
+[evaluador] juez no respondió: borrador descartado (fail-closed)
+[evaluador] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011CeJxudEAD2vVz9dPQuUQ8"}
+  … 60/69
+[evaluador] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011CeJxudAwTEZoCefsVjGHA"}
+[evaluador] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011CeJxuenfmpMbYmQVL8UEr"}
+[evaluador] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011CeJxueoAY4oHdMfGLJUxV"}
+[evaluador] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011CeJxugGU77QXRQ4imkga7"}
+[evaluador] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011CeJxugUsZ5Et8pkaFrPaw"}
+[juez-borrador] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011CeJxuiDo1D9HQsQSoXBUW"}
+[evaluador] juez no respondió: borrador descartado (fail-closed)
+[evaluador] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011CeJxuiFXkRGLuMQHCLdJw"}
+[evaluador] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011CeJxuiH275nxddMjg3Syj"}
+[juez-borrador] Claude API error: 400 {"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."},"request_id":"req_011CeJxuik3sh4h2nMwQGrmf"}
+[evaluador] juez no respondió: borrador descartado (fail-closed)
+✗ 10/69 evaluaciones en fallback: la medición no es fiable (API/crédito).

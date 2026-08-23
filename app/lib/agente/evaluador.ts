@@ -314,8 +314,12 @@ Si la persona corrigió un dato, vale el último.
 Si el contexto trae un PAGO PENDIENTE y la conversación va de otra cosa, ciérralo con UNA frase genérica de recuerdo — «por cierto, tienes un pago pendiente; administración te lo confirma» — sin cifra y sin tratamiento (la regla de abajo).
 Y NO PROMETAS ACCIONES DE LA CLÍNICA («te contactamos», «lo coordino con el equipo», «te llamamos») salvo que ESTE turno anote un pendiente o el caso se esté entregando — si solo conversas o la persona pidió tiempo, despídete sin comprometer contacto: «aquí estamos cuando lo tengas», «escríbenos cuando quieras».
 REGLAS QUE NO SE SALTAN: solo puedes afirmar datos que estén en el contexto. NUNCA prometas precios, descuentos, plazos ni condiciones de pago que no estén en el contexto. Y NUNCA afirmes NADA sobre dolor, resultado, duración, riesgos o seguridad de un tratamiento — AUNQUE SEA CIERTO EN GENERAL: «se hace con anestesia y no duele», «no suele dar problemas», «es muy seguro» son garantías clínicas en nombre de la clínica y NO son tuyas. Acompañar es calmar y remitir al doctor («es una duda muy normal; el doctor te lo explica en tu caso»), no tranquilizar con un hecho clínico.
-Y LA AGENDA — el corte es INVENTAR, no anunciar (22-08): NO la ves, así que NUNCA afirmes huecos, días u horas libres concretos («tenemos hueco el martes», «hay disponibilidad por las tardes» son inventados), y NUNCA digas que TÚ reservas, cierras o agendas la cita («te cierro la cita», «te la reservo»): reservar lo hace el equipo. Pero ANUNCIAR EL PROCESO es correcto y es lo que debes hacer mientras recoges — da contexto y es verdad: «en cuanto tenga tus datos, alguien de la clínica te contacta para concretar día y hora», «el equipo te ayudará a cerrar la cita con la disponibilidad que tengáis». La diferencia: el proceso se anuncia; los huecos y la reserva propia, jamás. Evita solo el plazo incondicional en turnos de pura recogida («te llamamos hoy mismo» cuando aún faltan datos): condiciona al dato («en cuanto me lo digas…») y es verdad siempre.
-EL FLUJO DE CITA, lo que funciona: pregunta UN dato por turno; anuncia el proceso si ayuda; usa el NOMBRE QUE LA PERSONA HA DICHO EN LA CONVERSACIÓN para dirigirte a ella — manda sobre el nombre del contexto, que puede ser un alias de perfil («Persona: Rocket88» que dice «soy Simón» ES Simón). Cuando el caso se completa y lo entregas, el mensaje es corto y sin recapitular tratamiento ni días (repetirlos te expone a convertir SU disponibilidad en huecos de la clínica): «¡Perfecto, [nombre]! Ya tengo todo lo que necesito. El equipo te contacta para concretar día y hora.» Y al confirmar que un tratamiento se hace, dilo sin valorarlo («sí, trabajamos con ello» — nada de «excelente opción»: valorar es afirmar conveniencia, regla clínica). Un dato que CONSTA se afirma directamente (un pago registrado se confirma, un importe emitido se cita).
+TU TRABAJO ES AVANZAR — las prohibiciones de abajo son pocas y exactas, y NO son excusa para no hablar: un turno que ni responde, ni recoge un dato, ni entrega, es un turno fallado. Cauteloso no es callado. En concreto, SÍ haces siempre:
+- CONFIRMAR lo que la clínica HACE: revisiones, limpiezas, valoraciones y los tratamientos habituales de una clínica dental se confirman con naturalidad («sí, hacemos revisiones de ortodoncia») — sin valorarlos («excelente opción» no: valorar es afirmar conveniencia, regla clínica) y sin precio si no consta. Si no puedes confirmar ni que existe una revisión, no sirves para nada.
+- ANUNCIAR EL PROCESO mientras recoges — da contexto y es verdad: «en cuanto tenga tus datos, alguien de la clínica te contacta para concretar día y hora», «el equipo te ayudará a cerrar la cita con la disponibilidad que tengáis». Condiciona al dato o no pongas plazo; evita solo el plazo incondicional con datos aún por recoger («te llamamos hoy mismo»).
+- PREGUNTAR el campo que falta, uno por turno, y usar el NOMBRE QUE LA PERSONA HA DICHO EN LA CONVERSACIÓN — manda sobre el del contexto, que puede ser un alias de perfil («Persona: Rocket88» que dice «soy Simón» ES Simón).
+LO ÚNICO PROHIBIDO en este terreno, y es exactamente esto: (1) afirmar huecos, días u horas libres concretos de la agenda («tenemos hueco el martes» — no la ves, son inventados); (2) decir que TÚ reservas, cierras o agendas la cita («te la reservo» — reservar lo hace el equipo); (3) inventar cualquier dato que no conste (precios, condiciones, coberturas).
+Cuando el caso se completa y lo entregas, el mensaje es corto y sin recapitular tratamiento ni días (repetirlos te expone a convertir SU disponibilidad en huecos de la clínica): «¡Perfecto, [nombre]! Ya tengo todo lo que necesito. El equipo te contacta para concretar día y hora.» Un dato que CONSTA se afirma directamente (un pago registrado se confirma, un importe emitido se cita).
 Y LA REGLA DEL DATO NO PEDIDO (protección de datos de salud — un revisor DESCARTA el borrador entero si la incumples): cuando el contexto traiga un pago pendiente o un presupuesto que la persona NO ha preguntado en su último mensaje, la ÚNICA forma permitida de recordárselo es en genérico: «tienes un pago pendiente; administración te lo confirma» — JAMÁS la cifra, JAMÁS el tratamiento. Escribir «te quedan 600 €» o «del implante» sin que lo pregunte tira tu borrador entero. Si la persona SÍ pregunta por su importe o su tratamiento, contestarle con el dato es correcto.
 
 RESPONDE EXCLUSIVAMENTE con un JSON válido con TODAS estas claves. El esquema de abajo enseña la FORMA — los <ángulos> son huecos que TÚ rellenas con tus juicios reales, no valores por defecto que copiar:
@@ -686,23 +690,46 @@ export async function evaluarTurno(
   // instancia viva del bug de «CITA» (barrido 17-08, A-1) y ya no puede
   // reaparecer por construcción.
   const abiertas = e.objetivosAbiertos.map((o) => o.etapa);
-  const objetivoActivo: EtapaObjetivo | null = (abiertas as string[]).includes(juicio.tema)
+  // Campos faltantes de UNA etapa: contado, no opinado.
+  const faltantesDe = (etapa: EtapaObjetivo): string[] => {
+    const def = e.objetivosAbiertos.find((o) => o.etapa === etapa);
+    const valores = juicio.camposRecogidos[etapa] ?? {};
+    return (def?.campos ?? [])
+      .map((c) => c.clave)
+      .filter((clave) => {
+        // Lo que el SISTEMA ya sabe no se le pide a la persona (fase B): el
+        // objetivo cita nació para leads y pedía nombre completo; un paciente
+        // fichado lo tiene en la ficha — sin esto, su caso no completaba NUNCA.
+        if (etapa === "cita" && clave === "nombre_completo" && e.esPacienteConocido) return false;
+        const v = valores[clave];
+        return v == null || String(v).trim() === "";
+      });
+  };
+
+  let objetivoActivo: EtapaObjetivo | null = (abiertas as string[]).includes(juicio.tema)
     ? (juicio.tema as EtapaObjetivo)
     : (abiertas[0] ?? null);
+  let camposFaltantes = objetivoActivo ? faltantesDe(objetivoActivo) : [];
 
-  // Campos del activo: contado, no opinado.
+  // IDENTIFICAR ES TRANSITORIO (doctrina de la 020: «en cuanto se sabe quién
+  // es, la conversación pasa a otra etapa») — completarlo NO entrega si otro
+  // objetivo abierto sigue a medias: el activo PASA a él y se sigue
+  // recogiendo. Sin esto, dar el nombre cerraba el caso del lead con cita a
+  // medias (el fallo del banco, 22-08): el agente soltaba la pelota justo
+  // cuando el diseño ofensivo le pide llegar lejos. Los DEMÁS objetivos
+  // mantienen la regla del plan (§1): el ACTIVO cubierto entrega — cerrar el
+  // presupuesto con una deuda detrás sigue entregando (C14).
+  if (objetivoActivo === "identificar" && camposFaltantes.length === 0) {
+    const siguiente = e.objetivosAbiertos.find(
+      (o) => o.etapa !== "identificar" && faltantesDe(o.etapa).length > 0,
+    );
+    if (siguiente) {
+      objetivoActivo = siguiente.etapa;
+      camposFaltantes = faltantesDe(siguiente.etapa);
+    }
+  }
+
   const defActivo = e.objetivosAbiertos.find((o) => o.etapa === objetivoActivo);
-  const valoresActivo = objetivoActivo ? (juicio.camposRecogidos[objetivoActivo] ?? {}) : {};
-  const camposFaltantes = (defActivo?.campos ?? [])
-    .map((c) => c.clave)
-    .filter((clave) => {
-      // Lo que el SISTEMA ya sabe no se le pide a la persona (fase B): el
-      // objetivo cita nació para leads y pedía nombre completo; un paciente
-      // fichado lo tiene en la ficha — sin esto, su caso no completaba NUNCA.
-      if (objetivoActivo === "cita" && clave === "nombre_completo" && e.esPacienteConocido) return false;
-      const v = valoresActivo[clave];
-      return v == null || String(v).trim() === "";
-    });
   const casoCompleto = defActivo != null && camposFaltantes.length === 0;
 
   // Aplazamientos del turno: nuevos + re-aplazo si vuelve y no toca derivar.
