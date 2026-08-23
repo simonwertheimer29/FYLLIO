@@ -1,0 +1,56 @@
+[dotenv@17.2.3] injecting env (33) from .env.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+
+════ ESCENARIO: lead_nuevo ════
+
+Paciente: «Hola, ¿hacéis ortodoncia invisible? ¿Cuánto cuesta más o menos?»
+[evaluador] borrador descartado (promesa): «te hacemos una valoración sin compromiso y te damos un presupuesto personalizado»
+Agente: «Gracias por tu mensaje, Lucía. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.»
+  · entendió: tema=cita urgencia=false queja=false
+  · persigue: cita · faltan: nombre_completo,urgencia,disponibilidad · completo: false
+  · decidió: sigue
+  · JUEZ descartó (promesa): «te hacemos una valoración sin compromiso y te damos un presupuesto personalizado»
+
+Paciente: «Vale. Soy Lucía, nunca he ido. Por las tardes me viene bien.»
+[evaluador] borrador descartado (promesa): «Para cerrar tu cita de ortodoncia invisible, necesito tu nombre completo y saber qué días de tarde te vienen mejor — ¿tienes alguna preferencia de semana?»
+Agente: «Gracias por tu mensaje, Lucía. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.»
+  · entendió: tema=cita urgencia=false queja=false
+  · persigue: cita · faltan: nombre_completo · completo: false
+  · decidió: sigue
+  · JUEZ descartó (promesa): «Para cerrar tu cita de ortodoncia invisible, necesito tu nombre completo y saber qué días de tarde te vienen mejor — ¿tienes alguna preferencia de semana?»
+
+════ ESCENARIO: presupuesto ════
+
+Paciente: «He estado pensando el presupuesto del implante… ¿me lo podéis dejar en cuotas?»
+Agente: «Claro, Prueba. El implante es una inversión importante y entendemos que quieras opciones de pago flexibles. Un asesor te contactará enseguida para explicarte los planes de cuotas disponibles y cerrar los detalles. ¿Hay algo más que necesites saber mientras tanto?»
+  · entendió: tema=presupuesto urgencia=false queja=false
+  · persigue: presupuesto · faltan: decision,como_pagar,que_le_frena · completo: false
+  · anotó: plan_pago(«pregunta si se puede fraccionar el implante en cuotas»)
+  · decidió: sigue
+
+Paciente: «Vale, pues adelante entonces. ¿Cuándo podría empezar?»
+[evaluador] borrador descartado (promesa): «un asesor te contactará enseguida»
+Agente: «Gracias por tu mensaje, Prueba. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.»
+  · entendió: tema=presupuesto urgencia=false queja=false
+  · persigue: presupuesto · faltan: disponibilidad_primera_cita · completo: false
+  · decidió: sigue
+  · JUEZ descartó (promesa): «un asesor te contactará enseguida»
+
+════ ESCENARIO: cobro ════
+
+Paciente: «Me ha llegado el aviso del pago. Ahora mismo no puedo pagarlo todo…»
+Agente: «Entiendo, Prueba. No hay problema — podemos buscar una forma que te venga mejor. ¿Cómo te gustaría organizarlo? Un asesor te contactará enseguida para ver las opciones de fraccionamiento o aplazamiento que tenemos.»
+  · entendió: tema=cobro urgencia=false queja=false
+  · persigue: cobro · faltan: via_pago,fecha_pago · completo: false
+  · anotó: plan_pago(«no puede pagar el importe completo ahora; necesita fraccionar o aplazar»)
+  · decidió: sigue
+
+════ ESCENARIO: al_dia ════
+
+Paciente: «Hola, me duele muchísimo una muela desde anoche, ¿me podéis ver hoy?»
+Agente: «Lo paso ahora mismo al equipo de la clínica para que te contacten de inmediato.»
+  · entendió: tema=cita urgencia=true queja=false
+  · persigue: nada · faltan: — · completo: false
+  · decidió: deriva (urgencia, cola prioritaria)
+
+✓ calibración: 0 fallback(s); contador de la clínica sintética limpiado

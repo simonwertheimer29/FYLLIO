@@ -3274,3 +3274,16 @@ la objeción de precio en vez de anotarla — y su borrador lo mató el juez por
 contuvo el fallo) y 2 conflictos de vara reportados aparte (49: R exigiría una causa «desconfianza»
 que el modelo no tiene — decisión de producto; C13: listo-con-aplazados, la anotación es anterior a
 la decisión del 18-08 de que un listo con aplazados ES listo). Coste estable: $0,0079/turno.
+
+## 2026-08-22 — Fase E: el banco de pruebas — el agente real, cero escritura, y un panel que enseña que DECIDE
+/agente pasa a dos pestañas (criterio anotado en el PLAN: subpestañas solo cuando son dos caras del
+mismo objeto). El banco llama a evaluarTurno — la MISMA función de producción, sin flag ni variante:
+la frontera evaluar/persistir de la 024 es el aislamiento — y su única escritura es su contador
+(uso_banco_pruebas, 029; tope 100/día por clínica que corta CON su motivo). qa:banco vigila la regla
+dura con foto de TODAS las tablas (50 recuentos+checksums antes/después de un turno real). La
+situación la elige quien prueba (4 escenarios = 4 objetivos, datos sintéticos); la config se lee EN
+CADA turno (ajustas → el siguiente mensaje ya la usa: el ciclo). Coordinación entra por nav y ni ve
+la pestaña de Configuración. Calibración con modelo: 4/4 escenarios coherentes (urgencia deriva
+prioritaria, cobro anota plan_pago, lead recoge); observación: 2 descartes del juez en vivo con
+pinta de FP tipo L16/L17 (pregunta de recogida e invitación a valoración) — en la vara pasan, en
+vivo a veces disparan; techo de Haiku conocido, reportado sin ajustar.
