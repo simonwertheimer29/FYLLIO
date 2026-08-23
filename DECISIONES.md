@@ -3263,3 +3263,14 @@ hasta MEJORAS 97 — el parser RECHAZA un 2 guardado hoy: prometería huecos que
 Hallazgo de la vara: los 25 descartes de presupuestoReferido eran fixtures del harness sin id — el
 juicio funcionaba; arreglado. El crédito de la API se agotó a mitad de una re-pasada del eval
 (error operativo: se relanzó la vara entera para releer una cabecera ya impresa).
+
+## 2026-08-22 — Re-pasada del evaluador con el prompt de fase D: 95 % (60/63), y la vara ya escribe a fichero
+Regla nueva aplicada: toda pasada escribe su salida completa a `evals/pasadas/` — nunca se repite
+una pasada para recuperar un dato ya generado. Resultado: 92 % → 95 % desde el 14-08 (los fallos 33
+y 6-regresión desaparecieron), ¿Listo? 20/21, CERO etiquetas fuera de vocabulario (los 25 descartes
+de presupuestoReferido eran fixtures del harness sin id — arreglado, el juicio estaba bien). Quedan
+2 errores del modelo (35: deriva «¿con quién hablo de esto?» pese a instrucción literal; 16: trabaja
+la objeción de precio en vez de anotarla — y su borrador lo mató el juez por promesa: la guarda
+contuvo el fallo) y 2 conflictos de vara reportados aparte (49: R exigiría una causa «desconfianza»
+que el modelo no tiene — decisión de producto; C13: listo-con-aplazados, la anotación es anterior a
+la decisión del 18-08 de que un listo con aplazados ES listo). Coste estable: $0,0079/turno.

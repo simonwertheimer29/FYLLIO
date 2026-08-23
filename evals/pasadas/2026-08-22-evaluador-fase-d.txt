@@ -1,0 +1,73 @@
+
+> fyllio-mvp@0.1.0 qa:evals-evaluador
+> tsx scripts/qa-evals-evaluador.mts
+
+[dotenv@17.2.3] injecting env (33) from .env.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: ⚙️  override existing env vars with { override: true }
+  … 15/69
+[evaluador] borrador descartado (promesa): «coordinamos la hora exacta y la forma de pago»
+  … 30/69
+[evaluador] borrador descartado (clinica): «El blanqueamiento es un tratamiento que muchos pacientes valoran porque mejora la sonrisa de forma rápida y segura.»
+[evaluador] borrador descartado (promesa): «a veces hay formas de ajustarlo»
+  … 45/69
+[evaluador] borrador descartado (clinica): «hay situaciones donde es más urgente y otras donde se puede esperar sin problema»
+[evaluador] borrador descartado (promesa): «Así coordinamos todo con administración.»
+[evaluador] borrador descartado (promesa): «Administración te contacta enseguida para coordinar la primera cita y confirmar los detalles del pago pendiente.»
+  … 60/69
+[evaluador] borrador descartado (promesa): «Ahora administración te confirmará los detalles de tu cita y los próximos pasos.»
+[evaluador] borrador descartado (promesa): «déjame que lo compruebe con administración y te lo confirmo enseguida»
+[evaluador] borrador descartado (clinica): «El implante se realiza con anestesia local y técnicas modernas que minimizan las molestias»
+
+══ DECISIÓN [haiku] — global: 60/63 (95 %)
+  C1-decision-presu    4/4
+  C1-frontera-AD       3/3
+  C1-giros             4/4
+  C1-huerfano          1/1
+  C1-insistencia       3/3
+  C1-multiobjetivo     2/2
+  C1-portal            2/2
+  C1-progreso          5/5
+  R1-A                 7/9   ✗ 16:A→S  35:A→R(peticion_queja)
+  R1-D                 2/2
+  R1-R                 13/14   ✗ 49:R→S
+  R1-S                 14/14
+
+══ ¿LISTO? (C1, 3 excluidos por lectura): 20/21
+  ✗ C13:F
+
+══ OBSERVACIÓN (no puntúa) — borradores de los casos D/frontera, ¿empujan al cierre?
+  [C21] R · anota: duda_clinica
+      «Entendido, Ana. Es muy importante que lo coordines con tu cardiólogo — es una duda muy normal con anticoagulantes. El doctor revisará tu caso y se pondrá en contacto contigo para confirmar si podemos hacerlo la próxima s»
+  [C22] A · anota: duda_clinica
+      «Gracias por tu mensaje, Ana. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.»
+  [C23] A · anota: duda_clinica
+      «Es una duda muy normal, Ana. El estado de la encía es importante para elegir entre carilla y corona, y es algo que el doctor valora en tu caso concreto. Te lo explica en detalle cuando nos vemos, y si es necesario ajusta»
+  [C11] A · anota: plan_pago
+      «Entendido, Ana. Sin problema, lo vemos con administración para buscar una solución que te venga bien. Te contactan enseguida para arreglarlo.»
+  [C13] A · anota: duda_clinica
+      «Es una duda muy normal, Paula. El doctor valorará tu caso en la consulta teniendo en cuenta tu embarazo — es algo que se ve en cada situación. Te confirma enseguida si hay alguna consideración especial para ti. Mientras »
+  [6] A · anota: duda_clinica
+      «Gracias por tu mensaje, Ana. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.»
+  [19] A · anota: duda_clinica
+      «Entendido, Ana. Es muy importante que nos lo comentes al doctor cuando vengas — él lo valorará con tu historial y la medicación que tomas para asegurar que todo es seguro. Aquí estamos cuando lo necesites.»
+
+══ GUARDA (juez de borradores) — descartes: 9/69 (13 %)
+  [C6] promesa · «Así coordinamos todo con administración.»
+  [C22] clinica · «El implante se realiza con anestesia local y técnicas modernas que minimizan las molestias»
+  [C14] promesa · «Administración te contacta enseguida para coordinar la primera cita y confirmar los detalles del pago pendiente.»
+  [C19] promesa · «Ahora administración te confirmará los detalles de tu cita y los próximos pasos.»
+  [C20] promesa · «déjame que lo compruebe con administración y te lo confirmo enseguida»
+  [16] promesa · «a veces hay formas de ajustarlo»
+  [20] clinica · «El blanqueamiento es un tratamiento que muchos pacientes valoran porque mejora la sonrisa de forma rápida y segura.»
+  [6] clinica · «hay situaciones donde es más urgente y otras donde se puede esperar sin problema»
+  [50] promesa · «coordinamos la hora exacta y la forma de pago»
+
+══ ETIQUETAS fuera de vocabulario (descartadas en el borde): 0 en 0/69 turnos
+  (ninguna — el modelo se mantiene en vocabulario)
+
+══ COSTE MEDIDO (usage de la API, modelo haiku a 1 $/M in · 5 $/M out)
+  Turnos medidos: 69 · entrada: 426252 tok (media 6178) · salida: 23299 tok (media 338)
+  Coste medio por turno: $0.00787 · por conversación de 3 turnos del paciente: $0.02360
+  Coste de esta pasada completa: $0.5427
+
+✓ medido. El número es el dato — no se ajusta nada antes de reportarlo.
