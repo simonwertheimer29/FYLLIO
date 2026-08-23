@@ -288,6 +288,16 @@ Re-medir entonces con este mismo script.
 
 ## 7 · Pon a prueba tu agente
 
+**Dónde vive (dictado 22-08):** /agente con dos pestañas — «Configuración» y «Pruebas». Sin la
+palabra «prompting» ni jerga técnica: la usa una coordinadora. **Criterio general de subpestañas:
+solo cuando son dos caras del mismo objeto** — configurar y probar son el mismo ciclo (pruebas, ves
+un fallo, ajustas, repites). Envíos y Seguimiento no lo eran.
+
+**Alcance de la fase E (dictado):** SOLO el banco de pruebas. El bucle de correcciones (marcar
+«esto está mal», acumular, proponer ajustes) queda para después — MEJORAS 107. Para septiembre lo
+que hace falta es que alguien escriba al agente y VEA QUE DECIDE; el bucle es lo de más valor a
+largo plazo, pero no vende la demo.
+
 Dos funciones, y sirve para lo mismo desde dos sitios: **dar confianza para automatizar más, y mejorar al agente sin tocar producción.**
 
 **a) El banco de pruebas.** Una conversación de mentira con el agente, fuera de producción. Le escribes como si fueras un paciente, ves cómo responde, y si algo no te gusta se lo dices: qué estuvo mal y cómo debería haber respondido. Esa corrección se guarda.

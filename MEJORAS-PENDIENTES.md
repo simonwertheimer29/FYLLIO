@@ -1896,3 +1896,12 @@ verdad: un editor, un vocabulario, un renderizador.
   muera con B5, esta es la limpieza: una sola fuente por concepto, leída de la configuración del
   agente (fase D grupo 4/5).
 - **Fecha:** 2026-08-22
+
+## 107. El bucle de correcciones del banco de pruebas (fase E+, anotado 22-08)
+- **Qué es:** sobre el banco de pruebas de /agente: marcar «esto está mal» en una respuesta,
+  acumular las marcas, y proponer ajustes de configuración a partir de ellas. Es lo de más valor
+  a largo plazo del banco — y lo dictado es que NO entra en fase E: para septiembre basta con que
+  alguien escriba al agente y vea que decide.
+- **Regla que ya aplica desde el día 1:** lo sintético y lo real no se mezclan al medir (§7 del
+  plan) — todo lo que el banco registre vive en su propia tabla, etiquetado por origen.
+- **Fecha:** 2026-08-22
