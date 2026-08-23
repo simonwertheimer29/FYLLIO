@@ -98,6 +98,14 @@ entera sin abrir el editor**. Si no se puede, la configuración todavía no es u
   (medido: $0,0079/turno el 21-08). El caché descuenta un **40 %** y se activó solo al cruzar el
   system los 4.096 tokens; cada instrucción nueva a partir de aquí viaja casi gratis (lectura a
   0,1×). La cifra se re-mide con `scripts/medir-coste-agente.mts` tras cada cambio de prompt.
+
+  **La consecuencia para el modelo de negocio (22-08):** la personalización profunda del premium
+  —tono, precios publicados, políticas, horarios, alcance, todo el grupo 2 cargado— es **casi
+  gratis en coste variable**: el prefijo por clínica se cachea y cada instrucción nueva viaja a
+  0,1× (medido: la config completa añade ~10 % al turno, y el prompt puede seguir creciendo sin
+  mover la cifra). El coste NO escala con cuánto se configura — escala con cuánto se conversa.
+  Eso **refuerza el precio plano por valor**: el premium se cobra por lo que el agente puede
+  hacer, no por lo que cuesta hacerlo funcionar.
 - **WhatsApp** (Meta, tarifas España julio 2026): plantilla *utility* ~0,017 €, *marketing*
   ~0,051 €. Las respuestas dentro de la ventana de 24 h son gratis hoy. Con 300 mensajes
   iniciados al mes: **5-15 €**.

@@ -377,7 +377,10 @@ const REMAPEO_DECISION: Record<string, string> = {
 // C13 → L (Simon, 2026-08-22, literal): la anotación es ANTERIOR a la
 // decisión del 18-08 — un listo CON aplazados ES listo, la duda se ve
 // dentro de la ficha — y esa decisión manda.
-const REMAPEO_LISTO: Record<string, string> = { C10: "L", C13: "L" };
+// C9 → L (Simon, 2026-08-22): misma doctrina — un RECHAZO con el motivo
+// recogido es caso completo (la decisión está tomada y consta el porqué);
+// la anotación F es anterior a esa decisión.
+const REMAPEO_LISTO: Record<string, string> = { C10: "L", C13: "L", C9: "L" };
 
 // ─── Mapeo resultado → letra ───────────────────────────────────────────────
 
