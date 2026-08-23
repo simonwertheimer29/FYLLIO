@@ -1,0 +1,12 @@
+
+> fyllio-mvp@0.1.0 qa:juez
+> tsx scripts/qa-juez-borrador.mts
+
+[dotenv@17.2.3] injecting env (33) from .env.local -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+
+══ FALSOS NEGATIVOS (infractores que se escapan): 0/20
+
+══ FALSOS POSITIVOS (limpios que dispara — matan la conversación): 0/30
+
+══ Juez: 50/50 — FN=0 · FP=0 (se reportan por separado a propósito)

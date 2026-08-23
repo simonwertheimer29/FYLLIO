@@ -3320,3 +3320,20 @@ alternan — moneda al aire de Haiku). Nuevo candidato a remapeo reportado: C9-l
 conversaciones (MERCADO actualizado — el prompt es mucho más largo que en fase A y cuesta lo mismo).
 Banco: panel a la derecha sticky, estructurado como la ficha, y el bloque «QUÉ VA A HACER EN EL
 SIGUIENTE MENSAJE» derivado por código — se ve que persigue, no que contesta.
+
+## 2026-08-22 — El corte corregido: lo prohibido es INVENTAR, no anunciar — y la plantilla que recoge
+Dos fallos del banco (Simon): el agente llamaba «Prueba» a quien acababa de decir su nombre, y la
+plantilla neutra no conversaba. Y la corrección de fondo dictada: la regla se pasó de frenada —
+anunciar el PROCESO («en cuanto tenga tus datos, alguien te contacta para concretar día y hora»,
+«el equipo te ayudará a cerrar la cita») es lo que el agente DEBE decir mientras recoge; infringe
+solo inventar (huecos concretos, precios, coberturas) y reservar él. Arreglos: system con el corte
+nuevo + el nombre DICHO en la conversación manda sobre el del contexto (un alias de perfil no es la
+persona); regla 4 del juez con la exención del anuncio condicional del proceso (vara 50/50 con los
+dos ejemplos dictados como limpios; L19 corregido — el juez marcaba con razón un horario que no
+constaba, caso pre-grupo-2); y `plantillaNeutraConRecogida`: si el borrador muere y el sistema sabe
+qué campo falta, el reemplazo determinista LO PIDE (mapa de preguntas seguras, sin dinero) con el
+nombre extraído por el juicio — el descarte ya no arruina la conversación, la avanza. El banco
+imita producción también en el desconocido (teléfono como nombre → la plantilla no saluda a un
+número). Evaluador 95 % con solo los 3 conocidos, ¿Listo? 21/21 (C9 remapeado). Queda la
+intermitencia proceso-vs-promesa del juez (techo Haiku): amortiguada — el peor caso ahora es una
+pregunta de recogida educada, no una fórmula vacía.

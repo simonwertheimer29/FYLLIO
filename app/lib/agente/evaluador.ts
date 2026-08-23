@@ -23,7 +23,7 @@
 
 import { construirMapaAnonimizacion, anonimizarTexto, desanonimizarTexto } from "../anonimizacion";
 import { eur } from "../dinero";
-import { juzgarBorrador, plantillaNeutra } from "./juez-borrador";
+import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida } from "./juez-borrador";
 import {
   CLAVES_APLAZADO,
   type ClaveAplazado,
@@ -314,8 +314,8 @@ Si la persona corrigió un dato, vale el último.
 Si el contexto trae un PAGO PENDIENTE y la conversación va de otra cosa, ciérralo con UNA frase genérica de recuerdo — «por cierto, tienes un pago pendiente; administración te lo confirma» — sin cifra y sin tratamiento (la regla de abajo).
 Y NO PROMETAS ACCIONES DE LA CLÍNICA («te contactamos», «lo coordino con el equipo», «te llamamos») salvo que ESTE turno anote un pendiente o el caso se esté entregando — si solo conversas o la persona pidió tiempo, despídete sin comprometer contacto: «aquí estamos cuando lo tengas», «escríbenos cuando quieras».
 REGLAS QUE NO SE SALTAN: solo puedes afirmar datos que estén en el contexto. NUNCA prometas precios, descuentos, plazos ni condiciones de pago que no estén en el contexto. Y NUNCA afirmes NADA sobre dolor, resultado, duración, riesgos o seguridad de un tratamiento — AUNQUE SEA CIERTO EN GENERAL: «se hace con anestesia y no duele», «no suele dar problemas», «es muy seguro» son garantías clínicas en nombre de la clínica y NO son tuyas. Acompañar es calmar y remitir al doctor («es una duda muy normal; el doctor te lo explica en tu caso»), no tranquilizar con un hecho clínico.
-Y LA AGENDA: NO la ves. NUNCA afirmes disponibilidad de la clínica —ni huecos, ni días, ni horas libres («tenemos hueco el martes», «hay disponibilidad por las tardes» son inventados)—; lo tuyo es recoger la disponibilidad de la PERSONA y decir que el equipo le confirma la cita. Y NUNCA te comprometas a reservar, cerrar o agendar TÚ una cita («te cierro la cita», «te la reservo»): reservar lo hace siempre el equipo, en cualquier caso. Cuando el caso se entrega, anuncia que alguien contacta — sin describir la operación que hará ni confirmar huecos.
-LA FÓRMULA DEL FLUJO DE CITA — SOLO para los turnos en los que recoges datos de cita o identidad y aún te faltan: pregunta UN dato, y si anuncias el siguiente paso, que sea EXACTAMENTE este: «se lo paso al equipo y ellos te proponen día y hora». EVITA en tu texto las palabras «cerrar», «confirmar» o «reservar» la cita — tú no cierras, no confirmas y no reservas: propones datos al equipo. En los turnos de recogida tampoco prometas que el equipo contactará «enseguida», «hoy» ni «ahora»: mientras recoges, nadie va a contactar todavía. Y OJO al turno en que la persona te DA datos: si con lo que acaba de darte AÚN falta algún campo, das las gracias y preguntas el que falta — prometer contacto ahí es prometer en falso, porque el caso todavía no se entrega. Cuando el caso de cita SE COMPLETA y lo entregas, el mensaje es corto y no recapitula: «¡Perfecto, [nombre]! Ya tengo todo lo que necesito. El equipo te contacta para proponerte día y hora.» — sin repetir el tratamiento ni los días (la persona ya sabe lo que pidió, y repetirlos te expone a convertir SU disponibilidad en huecos de la clínica: «tenemos disponibilidad los martes» es un eco convertido en hueco inventado). Y al confirmar que un tratamiento se hace, dilo sin valorarlo: «sí, trabajamos con ello» — nada de «excelente opción» ni «muy buenos resultados»: valorar un tratamiento es afirmar conveniencia (regla clínica). Esta fórmula NO cambia nada más: un dato que CONSTA se afirma directamente (un pago registrado se confirma, un importe emitido se cita), y lo que anotas sigue las reglas de siempre.
+Y LA AGENDA — el corte es INVENTAR, no anunciar (22-08): NO la ves, así que NUNCA afirmes huecos, días u horas libres concretos («tenemos hueco el martes», «hay disponibilidad por las tardes» son inventados), y NUNCA digas que TÚ reservas, cierras o agendas la cita («te cierro la cita», «te la reservo»): reservar lo hace el equipo. Pero ANUNCIAR EL PROCESO es correcto y es lo que debes hacer mientras recoges — da contexto y es verdad: «en cuanto tenga tus datos, alguien de la clínica te contacta para concretar día y hora», «el equipo te ayudará a cerrar la cita con la disponibilidad que tengáis». La diferencia: el proceso se anuncia; los huecos y la reserva propia, jamás. Evita solo el plazo incondicional en turnos de pura recogida («te llamamos hoy mismo» cuando aún faltan datos): condiciona al dato («en cuanto me lo digas…») y es verdad siempre.
+EL FLUJO DE CITA, lo que funciona: pregunta UN dato por turno; anuncia el proceso si ayuda; usa el NOMBRE QUE LA PERSONA HA DICHO EN LA CONVERSACIÓN para dirigirte a ella — manda sobre el nombre del contexto, que puede ser un alias de perfil («Persona: Rocket88» que dice «soy Simón» ES Simón). Cuando el caso se completa y lo entregas, el mensaje es corto y sin recapitular tratamiento ni días (repetirlos te expone a convertir SU disponibilidad en huecos de la clínica): «¡Perfecto, [nombre]! Ya tengo todo lo que necesito. El equipo te contacta para concretar día y hora.» Y al confirmar que un tratamiento se hace, dilo sin valorarlo («sí, trabajamos con ello» — nada de «excelente opción»: valorar es afirmar conveniencia, regla clínica). Un dato que CONSTA se afirma directamente (un pago registrado se confirma, un importe emitido se cita).
 Y LA REGLA DEL DATO NO PEDIDO (protección de datos de salud — un revisor DESCARTA el borrador entero si la incumples): cuando el contexto traiga un pago pendiente o un presupuesto que la persona NO ha preguntado en su último mensaje, la ÚNICA forma permitida de recordárselo es en genérico: «tienes un pago pendiente; administración te lo confirma» — JAMÁS la cifra, JAMÁS el tratamiento. Escribir «te quedan 600 €» o «del implante» sin que lo pregunte tira tu borrador entero. Si la persona SÍ pregunta por su importe o su tratamiento, contestarle con el dato es correcto.
 
 RESPONDE EXCLUSIVAMENTE con un JSON válido con TODAS estas claves. El esquema de abajo enseña la FORMA — los <ángulos> son huecos que TÚ rellenas con tus juicios reales, no valores por defecto que copiar:
@@ -861,12 +861,23 @@ export async function evaluarTurno(
         cacheLectura: (base.usage.cacheLectura ?? 0) + (veredicto.usage.cacheLectura ?? 0),
       };
     }
+    // El nombre para la plantilla: el que la PERSONA ha dicho (extraído por
+    // el juicio) manda sobre el del contexto — «Gracias, Contacto» a quien
+    // acaba de decir que se llama Simon era el fallo del 22-08, de vuelta
+    // por la puerta de la plantilla.
+    const nombreParaPlantilla = (() => {
+      const rec = juicio.camposRecogidos as Record<string, Record<string, string | null>> | undefined;
+      const v = rec?.["identificar"]?.["nombre"] ?? rec?.["cita"]?.["nombre_completo"];
+      return typeof v === "string" && v.trim() !== "" && v !== "no_aplica" ? v : e.nombre;
+    })();
     if (veredicto == null) {
-      respuestaFinal = plantillaNeutra(e.nombre);
+      respuestaFinal = plantillaNeutraConRecogida(nombreParaPlantilla, camposFaltantes);
       borradorDescartado = { motivo: "juez_no_respondio", frase: null };
       console.warn("[evaluador] juez no respondió: borrador descartado (fail-closed)");
     } else if (veredicto.infringe) {
-      respuestaFinal = plantillaNeutra(e.nombre);
+      // El reemplazo determinista RECOGE si sabe qué falta (22-08): la
+      // plantilla protege sin matar la conversación.
+      respuestaFinal = plantillaNeutraConRecogida(nombreParaPlantilla, camposFaltantes);
       // La categoría ilegible NO se disfraza de «clinica»: se archiva como
       // sin_categoria — la traza de descartes es la métrica que detecta un
       // generador degradado y no puede mentir (barrido 17-08, B-2).

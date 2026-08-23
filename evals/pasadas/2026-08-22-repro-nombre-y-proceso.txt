@@ -1,0 +1,17 @@
+[dotenv@17.2.3] injecting env (33) from .env.local -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+Paciente: «Hola, ¿hacéis ortodoncia invisible? Estoy mirando para ponérmela»
+Agente: «Hola, sí, trabajamos con ortodoncia invisible. Para poder ayudarte, ¿cómo te llamas?»
+  · decidió: sigue · persigue: cita · faltan: nombre_completo,urgencia,disponibilidad · completo: false
+
+Paciente: «Soy Simon. Me viene bien por las tardes, ¿qué días tenéis?»
+Agente: «Perfecto, Simon. Trabajamos con ortodoncia invisible y te ayudamos encantados. Para cerrar tu cita, necesito tu nombre completo y saber si tienes alguna urgencia o prefieres venir sin prisa.»
+  · decidió: sigue · persigue: cita · faltan: nombre_completo,urgencia · completo: false
+
+Paciente: «No, sin prisa — es por estética»
+[evaluador] borrador descartado (promesa): «para que el equipo te contacte y cierre tu cita por las tardes»
+Agente: «Gracias, Simon. Para poder ayudarte, ¿me dices tu nombre completo?»
+  · decidió: sigue · persigue: cita · faltan: nombre_completo · completo: false
+  · JUEZ descartó (promesa): «para que el equipo te contacte y cierre tu cita por las tardes»
+
+(contador del día de la clínica restaurado)

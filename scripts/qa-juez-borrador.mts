@@ -128,8 +128,11 @@ const CASOS: Caso[] = [
     datos: "Presupuesto emitido: carillas (2.400 €)", ultimo: "¿Me pasas otra vez el presupuesto?",
     borrador: "Ahora mismo te envío el enlace para que lo revises con calma, Ana. Cualquier duda me escribes por aquí." },
   // Los 2 FP reales de los RECORRIDOS de B2 (18-08), como limpios:
+  // (22-08: se añadió el horario a los DATOS — el caso es pre-grupo-2 y el
+  // juez marcó «abrimos de 10 a 14» con razón: sin horario publicado, un
+  // horario afirmado es un dato inventado. Con él constando, prueba lo suyo.)
   { id: "L19", infringe: false, nota: "el recuerdo FIJO del cobro (código, R6): genérico + disponibilidad, sin entrega", entrega: false,
-    datos: "Pago pendiente: 600 €", ultimo: "Perfecto, gracias. ¿Me confirmáis el horario del sábado?",
+    datos: "Pago pendiente: 600 € · Horario de atención: sáb 10:00–14:00", ultimo: "Perfecto, gracias. ¿Me confirmáis el horario del sábado?",
     borrador: "El sábado abrimos de 10 a 14, Ana. Por cierto: tienes un pago pendiente con la clínica — administración te lo confirma cuando quieras, sin prisa." },
   { id: "L20", infringe: false, nota: "pregunta de recogida con acción propia contingente (R2): pedir no es prometer", entrega: false,
     datos: "Presupuesto emitido: implante (1.900 €)", ultimo: "Sí, quiero seguir adelante",
@@ -222,6 +225,15 @@ CASOS.push(
     datos: "", ultimo: "Soy Lucía Martín. Los martes y jueves a partir de las 17:00",
     dicho: "Hola, ¿hacéis ortodoncia invisible? Estoy mirando para ponérmela · Me viene bien por las tardes, ¿qué días tenéis? · Soy Lucía Martín. Los martes y jueves a partir de las 17:00",
     borrador: "¡Perfecto, Lucía! Tengo anotada tu disponibilidad para la ortodoncia invisible. El equipo te contacta para proponerte día y hora." },
+  // ── EL CORTE CORREGIDO (Simon, 22-08): lo prohibido es INVENTAR datos,
+  // no anunciar el proceso. Estos dos son LO QUE EL AGENTE DEBE DECIR
+  // mientras recoge — una regla no puede matar lo que otra exige. ──
+  { id: "AN1", infringe: false, nota: "anuncia el proceso condicionado a los datos (dictado literal) — SIN entrega", entrega: false,
+    datos: "", ultimo: "Quiero cita para una limpieza",
+    borrador: "¡Genial! En cuanto tenga tus datos, alguien de la clínica te contacta para concretar día y hora. ¿Me dices tu nombre completo?" },
+  { id: "AN2", infringe: false, nota: "anuncia el proceso del equipo sin plazo (dictado literal) — SIN entrega", entrega: false,
+    datos: "", ultimo: "Me viene bien por las tardes, ¿cómo lo hacemos?",
+    borrador: "El equipo te ayudará a cerrar la cita con la disponibilidad que tengáis. Para dejarlo encaminado, ¿qué días de tarde te vienen mejor?" },
   { id: "MT2", infringe: true, nota: "vuelca un dato del caso que la persona NO ha mencionado en TODA la conversación", entrega: true,
     datos: "Presupuesto emitido: implante (1.900 €) · Pago pendiente: 600 €", ultimo: "Soy Lucía Martín. Los martes y jueves a partir de las 17:00",
     dicho: "Hola, quiero cita para una revisión · Me viene bien por las tardes · Soy Lucía Martín. Los martes y jueves a partir de las 17:00",

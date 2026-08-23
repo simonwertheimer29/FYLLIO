@@ -51,7 +51,8 @@ LA FRONTERA DE LA 4, donde más se falla — pregúntate QUIÉN hace la acción:
 · La hace EL PROPIO AGENTE en este chat («te envío el enlace», «te escribo por aquí») → NO infringe, aunque esté en futuro inmediato («ahora mismo te envío», «te lo paso enseguida»): mandar algo por este mismo chat es una acción del agente, no de un tercero.
 · Es una INVITACIÓN al servicio («te hacemos una valoración sin compromiso», «te damos un presupuesto personalizado», «¿te busco hueco?») → NO infringe: ofrecer es el trabajo del agente, la acción ocurre cuando la persona viene.
 · La DISPONIBILIDAD a demanda de la persona tampoco es promesa: «administración te lo confirma cuando quieras/cuando vengas», «pregúntanos y te lo miramos» — nadie de la clínica inicia nada; es la persona quien pide si quiere. En particular, el recordatorio GENÉRICO de un pago pendiente que remite a administración (la fórmula obligada de la regla 3) NO infringe la 4, entregue o no el turno.
-· La inicia UN TERCERO de la clínica sin que la persona haga nada («te llamamos», «un asesor te contacta», «lo coordino con el equipo», «administración se pondrá en contacto») → infringe SI el turno no entrega.
+· El ANUNCIO DEL PROCESO — describir lo que pasará como parte normal del servicio, CONDICIONADO a los datos que se están pidiendo o sin plazo concreto («en cuanto tenga tus datos, alguien de la clínica te contacta para concretar día y hora», «el equipo te ayudará a cerrar la cita con la disponibilidad que tengáis») → NO infringe aunque el turno no entregue: no es una promesa vacía, es contexto VERDADERO de cómo funciona — cuando los datos estén, la entrega ocurrirá.
+· La inicia UN TERCERO de la clínica sin que la persona haga nada, INCONDICIONAL o con plazo («te llamamos», «te llamamos hoy mismo», «un asesor te contacta enseguida», «lo coordino con el equipo», «administración se pondrá en contacto») → infringe SI el turno no entrega: ahí sí, nadie va a hacerlo.
 Despedirse sin compromiso y citar una cita ya existente tampoco infringen.
 
 5) AGENDA — dos cosas distintas, y la segunda no depende de nada:
@@ -184,4 +185,31 @@ export function plantillaNeutra(nombre: string): string {
   // regla 4 no puede tener a SU plantilla incumpliéndola cuando el turno no
   // entrega): disponibilidad, no compromiso.
   return `Gracias por tu mensaje${esNombreReal ? `, ${n}` : ""}. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.`;
+}
+
+// ─── La plantilla que ADEMÁS recoge (22-08) ────────────────────────────────
+//
+// «La plantilla sirve para no hacer daño, no para conversar» — y en el flujo
+// de recogida el sistema SABE qué dato tocaba pedir (camposFaltantes). Si el
+// primer campo que falta tiene pregunta segura, el reemplazo determinista la
+// hace: la conversación avanza aunque el borrador muriera. Solo claves cuya
+// pregunta no toca dinero ni datos del caso — el resto cae a la neutra.
+
+const PREGUNTA_SEGURA: Record<string, string> = {
+  nombre: "¿me dices tu nombre?",
+  nombre_completo: "¿me dices tu nombre completo?",
+  tratamiento_o_molestia: "¿qué tratamiento te interesa, o qué molestia tienes?",
+  que_necesita: "¿qué necesitas?",
+  urgencia: "¿tienes dolor ahora o es una consulta sin prisa?",
+  disponibilidad: "¿qué días y franjas te vienen mejor?",
+  disponibilidad_primera_cita: "¿qué días y franjas te vienen mejor para la primera cita?",
+  es_paciente: "¿habías venido antes a la clínica?",
+};
+
+export function plantillaNeutraConRecogida(nombre: string, camposFaltantes: readonly string[]): string {
+  const pregunta = camposFaltantes.map((c) => PREGUNTA_SEGURA[c]).find((p) => p != null);
+  if (!pregunta) return plantillaNeutra(nombre);
+  const n = nombre.split(" ")[0];
+  const esNombreReal = n.length > 1 && !/\d/.test(n);
+  return `Gracias${esNombreReal ? `, ${n}` : ""}. Para poder ayudarte, ${pregunta}`;
 }

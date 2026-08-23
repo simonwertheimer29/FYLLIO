@@ -102,8 +102,12 @@ export function construirEntradaDePrueba(args: {
     },
   ];
   return {
-    nombre: e.nombre?.trim() || "Prueba",
-    // Lead nuevo = no consta como paciente; el resto de escenarios, sí.
+    // Lead nuevo: el nombre NO consta — EXACTAMENTE como en producción, donde
+    // un desconocido lleva su TELÉFONO como nombre (y la plantilla neutra ya
+    // sabe no saludar a un número). «Prueba»/«Contacto» como nombre visible
+    // era el fallo del 22-08: el agente saludaba al placeholder en vez de a
+    // quien acababa de decir que se llama Simon.
+    nombre: e.nombre?.trim() || (e.tipo === "lead_nuevo" ? "+34600000000" : "Ana García"),
     esPacienteConocido: e.tipo !== "lead_nuevo",
     clinica: args.clinicaNombre,
     objetivosAbiertos,
