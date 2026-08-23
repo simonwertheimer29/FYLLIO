@@ -108,6 +108,10 @@ export function BancoPruebasView() {
 
   const derivadoPrevio = turnos.some((t) => t.evaluacion?.decision === "deriva");
   const ultimaEvaluacion = [...turnos].reverse().find((t) => t.evaluacion)?.evaluacion ?? null;
+  // El panel enseña el último estado COMPLETO (23-08): tras derivar, un
+  // mensaje más devolvía actuar:false y borraba lo recogido — justo cuando
+  // el caso entregado ES el resultado de la prueba. El aviso va encima.
+  const ultimaConContenido = [...turnos].reverse().find((t) => t.evaluacion?.actuar)?.evaluacion ?? null;
 
   async function enviar() {
     const mensaje = texto.trim();
@@ -253,7 +257,7 @@ export function BancoPruebasView() {
       {/* OJO sintaxis Tailwind: en valores arbitrarios el separador es `_`,
           no la coma — con coma el CSS salía inválido y el grid JAMÁS aplicó
           (el panel caía debajo en cualquier ancho; bug visto por Simon). */}
-      <div className="grid gap-5 md:grid-cols-[1fr_minmax(22rem,28rem)]">
+      <div className="grid gap-5 md:grid-cols-[1fr_minmax(26rem,34rem)]">
         {/* ── El chat de mentira ──────────────────────────────────────── */}
         <div className="flex min-h-[24rem] flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
           <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-2.5">
@@ -348,13 +352,19 @@ export function BancoPruebasView() {
           <h3 className="font-display text-[14px] font-semibold text-[var(--color-foreground)]">
             Qué ha hecho por dentro
           </h3>
-          {!ultimaEvaluacion ? (
+          {ultimaEvaluacion && !ultimaEvaluacion.actuar && (
+            <p className="mt-2 rounded-lg border border-dashed border-[var(--color-border)] px-2.5 py-2 text-[12px] leading-relaxed text-[var(--color-muted)]">
+              El caso ya es de tu equipo: el agente no vuelve a entrar (la derivación no se
+              revierte). Abajo, lo que dejó recogido — el resultado de la prueba.
+            </p>
+          )}
+          {!ultimaConContenido ? (
             <p className="mt-2 text-[12.5px] leading-relaxed text-[var(--color-muted)]">
               Con cada respuesta verás aquí qué entendió, qué persigue, qué anotó para tu equipo, qué
               decidió — y si el control de seguridad descartó su borrador.
             </p>
           ) : (
-            <PorDentro ev={ultimaEvaluacion} />
+            <PorDentro ev={ultimaConContenido} />
           )}
           <p className="mt-3 border-t border-[var(--color-border)] pt-2 text-[11.5px] leading-relaxed text-[var(--color-muted)]">
             Cada mensaje usa la configuración vigente: cambia algo en «Configuración» y el siguiente
@@ -385,14 +395,6 @@ function siguientePaso(ev: EvaluacionTurno): string {
 /** La evaluación del último turno, ESTRUCTURADA con la forma de la ficha del
  *  caso (22-08): bloques, no párrafo corrido. */
 function PorDentro({ ev }: { ev: EvaluacionTurno }) {
-  if (!ev.actuar) {
-    return (
-      <p className="mt-2 text-[12.5px] leading-relaxed text-[var(--color-foreground)]">
-        El caso ya estaba en manos de una persona: el agente no entra. La derivación no se revierte —
-        dos voces con el mismo paciente es lo peor que puede hacer un sistema así.
-      </p>
-    );
-  }
   if (ev.fallback) {
     return (
       <p className="mt-2 text-[12.5px] leading-relaxed text-[var(--color-danger)]">
