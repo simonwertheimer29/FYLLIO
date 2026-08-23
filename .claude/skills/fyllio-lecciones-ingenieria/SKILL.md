@@ -103,6 +103,18 @@ código, todavía no sabes qué estás arreglando.
 > siguió esta regla ("revisión de código real, no asunciones") y por eso cada hallazgo fue
 > accionable.
 
+**Matiz — también aplica a lo que uno mismo escribió, y al DISEÑAR, no solo al arreglar.**
+Dar por hecho que el system prohíbe algo sin leerlo es el mismo pecado que dar por buena una
+prueba sin ejecutarla: medir antes de afirmar. Antes de decidir «esto no hace falta porque ya
+lo cubre X», se abre X y se busca la línea que lo cubre; si no se puede citar, no lo cubre.
+> **Nos lo enseñó:** en fase D se decidió no renderizar el nivel 1 de agenda al prompt
+> «porque recoger disponibilidad ya es el comportamiento del system». Verdad para RECOGER —
+> pero el system jamás tuvo la prohibición de AFIRMAR huecos, y nadie lo leyó para
+> comprobarlo. Resultado: la pantalla anunciaba «no puede decir huecos» y el agente los
+> inventó («¿te vendría bien el martes 25? Dime qué día y te cierro la cita») delante del
+> fundador, en el banco de pruebas (22-08). El costo del renglón no leído: una regla dura
+> nueva del juez, dos pasadas de vara y una re-pasada del evaluador.
+
 ### 8. Los links de Airtable no cruzan bases — verifícalos al mover tablas
 Un linked record solo puede apuntar a registros de **su misma base**. Al separar o mover
 tablas entre bases (o crear una base nueva), se audita cada linked field que las

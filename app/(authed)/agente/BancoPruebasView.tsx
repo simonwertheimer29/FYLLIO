@@ -65,6 +65,7 @@ const ETIQUETA_MOTIVO_JUEZ: Record<string, string> = {
   economica: "comprometía dinero no decidido",
   datos_sensibles: "soltaba un dato de salud no pedido",
   promesa: "prometía algo que nadie iba a hacer",
+  agenda: "afirmaba huecos que no ve, o se comprometía a reservar la cita",
   sin_categoria: "infringía una regla dura",
   juez_no_respondio: "el control no respondió (se descartó por seguridad)",
 };

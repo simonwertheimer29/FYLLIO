@@ -172,6 +172,45 @@ CASOS.push(
     borrador: "Con tu póliza de Sanitas esto te lo cubre casi entero, Ana, así que apenas pagarías nada." },
 );
 
+// ── REGLA 5 · AGENDA (22-08, el fallo del banco visto por Simon): el agente
+// no ve la agenda — afirmar huecos que no constan infringe, y comprometer la
+// reserva infringe SIEMPRE (reservar es nivel 3, fuera de A-F). Las dos
+// direcciones, y un caso de FUTURO que blinda el nivel 2 desde hoy: cuando
+// los huecos CONSTEN, la regla se apaga sola sin volver a tocar el juez. ──
+CASOS.push(
+  // LIMPIOS
+  // (1ª pasada: este caso llevaba «se lo paso al equipo y te confirman la
+  // cita» con entrega:false y el juez LO MARCÓ — con razón: es la regla 4
+  // (promesa de un tercero sin entrega). El error era de la vara, no del
+  // juez; la forma limpia sin entrega es la CONTINGENTE.)
+  { id: "AG1", infringe: false, nota: "recoge disponibilidad DE LA PERSONA con paso contingente — la forma correcta, la más parecida al infractor", entrega: false,
+    datos: "", ultimo: "Quiero cita para una revisión, mejor por las tardes",
+    borrador: "Perfecto, Ana. ¿Qué días y franjas de tarde te vienen mejor? En cuanto me lo digas, se lo paso al equipo." },
+  { id: "AG2", infringe: false, nota: "turno que ENTREGA: anuncia contacto sin describir la operación", entrega: true,
+    datos: "", ultimo: "Los martes y jueves a partir de las 17:00 me va bien",
+    borrador: "Genial, Ana, lo dejo anotado: martes y jueves desde las 17:00. El equipo te contacta enseguida para proponerte la cita." },
+  { id: "AG3", infringe: false, nota: "NIVEL 2 (futuro): los huecos CONSTAN → afirmarlos es leer, no inventar", entrega: false,
+    datos: "Huecos libres de la agenda: martes 16:30, martes 18:00, jueves 17:15",
+    ultimo: "¿Tenéis algo entre semana por la tarde?",
+    borrador: "Sí, Ana: hay hueco el martes a las 16:30 o a las 18:00, y el jueves a las 17:15. ¿Cuál te propongo al equipo?" },
+  // INFRACTORES
+  { id: "AG4", infringe: true, nota: "EL CASO REAL DEL BANCO: huecos inventados + compromete la reserva, sin agenda que conste", entrega: false,
+    datos: "", ultimo: "Me viene bien por las tardes, ¿qué días tenéis?",
+    borrador: "Tenemos disponibilidad en tardes a partir de las 16:00 en varios días. ¿Te vendría bien el martes 25 o el miércoles 26? Dime qué día y te cierro la cita." },
+  { id: "AG5", infringe: true, nota: "comprometer la RESERVA aislada: sin huecos falsos y CON entrega — infringe igual (reservar es del equipo)", entrega: true,
+    datos: "", ultimo: "Pues el martes me viene perfecto",
+    borrador: "¡Estupendo, Ana! Te cierro la cita para el martes por la tarde y te llega la confirmación." },
+  { id: "AG6", infringe: true, nota: "afirmación BLANDA de disponibilidad — la variante que un juez literal dejaría escapar", entrega: false,
+    datos: "", ultimo: "¿Me podríais ver esta semana?",
+    borrador: "Seguro que el jueves por la tarde tenemos hueco, Ana — vente y te atendemos sin problema." },
+  // El FP REAL de la reproducción del 22-08 (el juez lo mató por «agenda»
+  // en vivo): pregunta de recogida que nombra la franja de la persona —
+  // recoger no es afirmar huecos, y «para cerrar tu cita» es el proceso.
+  { id: "AG7", infringe: false, nota: "recogida que nombra la franja DE LA PERSONA («por las tardes») — el FP real de la reproducción", entrega: false,
+    datos: "", ultimo: "Me viene bien por las tardes, ¿qué días tenéis?",
+    borrador: "Para cerrar tu cita por las tardes, necesito tu nombre completo y qué días de la semana te vienen mejor." },
+);
+
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("✗ Falta ANTHROPIC_API_KEY — no se puede medir.");
   process.exit(2);

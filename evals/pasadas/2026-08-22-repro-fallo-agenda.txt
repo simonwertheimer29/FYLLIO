@@ -1,0 +1,30 @@
+[dotenv@17.2.3] injecting env (33) from .env.local -- tip: 📡 add observability to secrets: https://dotenvx.com/ops
+
+Paciente: «Hola, ¿hacéis ortodoncia invisible? Estoy mirando para ponérmela»
+[evaluador] borrador descartado (clinica): «sí, trabajamos con ortodoncia invisible y es una opción excelente»
+Agente: «Gracias por tu mensaje, Lucía. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.»
+  · decidió: sigue · persigue: cita
+  · JUEZ descartó (clinica): «sí, trabajamos con ortodoncia invisible y es una opción excelente»
+
+Paciente: «Me viene bien por las tardes, ¿qué días tenéis?»
+[evaluador] borrador descartado (agenda): «Para cerrar tu cita por las tardes, necesito tu nombre completo y qué días de la semana te vienen mejor.»
+Agente: «Gracias por tu mensaje, Lucía. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.»
+  · decidió: sigue · persigue: cita
+  · JUEZ descartó (agenda): «Para cerrar tu cita por las tardes, necesito tu nombre completo y qué días de la semana te vienen mejor.»
+
+(contador del día de la clínica restaurado)
+[dotenv@17.2.3] injecting env (33) from .env.local -- tip: ⚙️  suppress all logs with { quiet: true }
+
+Paciente: «Hola, ¿hacéis ortodoncia invisible? Estoy mirando para ponérmela»
+[evaluador] borrador descartado (promesa): «Para poder ofrecerte una valoración sin compromiso y cerrar tu cita, necesito tu nombre completo»
+Agente: «Gracias por tu mensaje, Lucía. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.»
+  · decidió: sigue · persigue: cita
+  · JUEZ descartó (promesa): «Para poder ofrecerte una valoración sin compromiso y cerrar tu cita, necesito tu nombre completo»
+
+Paciente: «Me viene bien por las tardes, ¿qué días tenéis?»
+[evaluador] borrador descartado (promesa): «El equipo te confirma la cita enseguida.»
+Agente: «Gracias por tu mensaje, Lucía. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.»
+  · decidió: sigue · persigue: cita
+  · JUEZ descartó (promesa): «El equipo te confirma la cita enseguida.»
+
+(contador del día de la clínica restaurado)

@@ -3287,3 +3287,20 @@ la pestaña de Configuración. Calibración con modelo: 4/4 escenarios coherente
 prioritaria, cobro anota plan_pago, lead recoge); observación: 2 descartes del juez en vivo con
 pinta de FP tipo L16/L17 (pregunta de recogida e invitación a valoración) — en la vara pasan, en
 vivo a veces disparan; techo de Haiku conocido, reportado sin ajustar.
+
+## 2026-08-22 — Regla 5 del juez (AGENDA) + system: el fallo del banco muerto — y el caché encendido de propina
+El fallo visto por Simon en el banco (huecos inventados + «te cierro la cita» en nivel 1) era una
+regla dura SIN respaldo: el system nunca prohibió afirmar disponibilidad, la decisión de fase D lo
+asumió sin leerlo (lección al skill, mandamiento 7), y el juez no tenía regla que la mirara — «te
+cierro la cita» además pasaba por la excepción L18 de acción-propia. Arreglo en dos capas: system
+(la agenda NO se ve; recoger disponibilidad de la persona sí, afirmar huecos jamás; reservar es del
+equipo SIEMPRE — y el mensaje que entrega anuncia contacto sin describir la operación) + regla 5
+del juez con la mecánica de los precios: afirmar huecos infringe SALVO que consten — cuando el
+nivel 2 exista, los huecos leídos constarán y la regla se apaga sola; comprometer la reserva
+infringe siempre. Vara 46/46 (7 casos nuevos, incl. el caso real, el nivel-2 futuro y el FP vivo de
+la reproducción; 1 caso de vara corregido — el juez tenía razón). Evaluador re-pasado: 95 % estable,
+solo los 3 conocidos. Y las líneas nuevas empujaron el system a 4.113 tokens — cruzó el mínimo de
+Haiku (4.096) y el caché se ACTIVÓ SOLO como estaba previsto: $0,0047/turno, −40 %.
+Pendiente reportado: en la reproducción el flujo de cita del lead encadena descartes (FP conocidos
+L16/L17 intermitentes + el generador prometiendo «enseguida» sin entrega — descarte CORRECTO):
+fail-closed seguro, demo coja. Decisión de Simon si se itera el generador.
