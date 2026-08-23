@@ -1,5 +1,5 @@
-import { AgenteConfigView } from "./AgenteConfigView";
+import { AgenteView } from "./AgenteView";
 
 export default function AgentePage() {
-  return <AgenteConfigView />;
+  return <AgenteView />;
 }

@@ -175,7 +175,9 @@ export function AgenteConfigView() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5 px-4 py-6 lg:px-6">
+    // El contenedor exterior (padding de página) lo pone AgenteView — esta
+    // vista vive siempre dentro de su pestaña.
+    <div className="mx-auto max-w-4xl space-y-5">
       <header>
         <h1 className="font-display flex items-center gap-2 text-xl font-semibold text-[var(--color-foreground)]">
           <Sparkles size={18} strokeWidth={ICON_STROKE} className="text-[var(--color-accent)]" aria-hidden />

@@ -28,6 +28,9 @@ const NAV_COORD: NavItem[] = [
   { href: "/informes",        label: "Informes" },
   { href: "/automatizaciones",label: "Automatizaciones" },
   { href: "/llamadas",        label: "Llamadas IA" },
+  // Fase E: coordinación entra a /agente y aterriza en «Pruebas» (la
+  // pestaña de Configuración ni se le muestra).
+  { href: "/agente",          label: "Agente" },
 ];
 
 const NAV_ADMIN: NavItem[] = [
