@@ -102,15 +102,17 @@ export type ConocimientoClinica = {
   quienesSois: QuienesSois;
   tratamientos: TratamientoPublicado[];
   politicas: PoliticaPublicada[];
-  /** Lo que el agente puede DECIR del horario («L-V 9:30–20:00, sábados
-   *  10–14»). Texto, no estructura: es para contestar, no para calcular —
-   *  el horario que CALCULA plazos es clinicas.horario_laboral (grupo 4). */
-  horarios: string | null;
   enlaces: EnlacePublicado[];
   agendaNivel: NivelAgenda;
   alcance: AlcanceAgente;
   plazos: PlazosRespuesta;
 };
+// (22-08: el «horario de atención» de texto libre MURIÓ — era el hallazgo de
+// los dos horarios vivo en la pantalla: la clínica rellenaba uno creyendo
+// rellenar los dos. UN solo dato, `plazos.horario`, con dos consecuencias:
+// el agente lo DICE (el texto se deriva con `horarioLegible`, determinista)
+// y el reloj de plazos lo USA. Un JSON guardado con el campo viejo
+// `horarios` no rompe: el parser ignora campos desconocidos.)
 
 /** El plan básico: nada publicado, agenda sin conexión. Con esto el prompt
  *  es IDÉNTICO al de hoy (assert en qa:conocimiento) — una clínica sin
@@ -127,7 +129,6 @@ export const CONOCIMIENTO_VACIO: ConocimientoClinica = {
   quienesSois: { presentacion: null, trato: null },
   tratamientos: [],
   politicas: [],
-  horarios: null,
   enlaces: [],
   agendaNivel: 1,
   alcance: { umbralInsistencia: null, urgencias: null, urgenciaDefinicionExtra: null },
@@ -135,19 +136,44 @@ export const CONOCIMIENTO_VACIO: ConocimientoClinica = {
 };
 
 export function esConocimientoVacio(c: ConocimientoClinica): boolean {
-  // `alcance` y `agendaNivel` no cuentan aquí a propósito: esta función
-  // decide si se emite el BLOQUE del prompt, y esos dos viajan por sus
-  // propios canales (hooks del evaluador / decisión de pantalla), no por el
-  // bloque. El vacío del prompt es «nada que afirmar».
+  // `alcance.umbral/urgencias`, `agendaNivel` y los MINUTOS de plazos no
+  // cuentan aquí: esta función decide si se emite el BLOQUE del prompt, y
+  // esos viajan por sus propios canales (hooks del evaluador / reloj de la
+  // cola). `plazos.horario` SÍ cuenta: definido, el agente lo dice.
   return (
     c.quienesSois.presentacion == null &&
     c.quienesSois.trato == null &&
     c.tratamientos.length === 0 &&
     c.politicas.length === 0 &&
-    (c.horarios == null || c.horarios.trim() === "") &&
     c.enlaces.length === 0 &&
-    c.alcance.urgenciaDefinicionExtra == null
+    c.alcance.urgenciaDefinicionExtra == null &&
+    c.plazos.horario == null
   );
+}
+
+// ─── El horario, LEGIBLE — derivado de la estructura, determinista ─────────
+//
+// Un solo dato con dos consecuencias: el reloj lo usa tal cual y el agente
+// lo DICE con este texto («lun–vie 9:30–20:00 · sáb 10:00–14:00»). Días
+// consecutivos con el mismo tramo se agrupan; el que no abre, no aparece.
+
+const DIA_CORTO = ["lun", "mar", "mié", "jue", "vie", "sáb", "dom"] as const;
+const DIAS_ORDEN = ["lunes", "martes", "miercoles", "jueves", "viernes", "sabado", "domingo"] as const;
+const sinCeroInicial = (hhmm: string) => hhmm.replace(/^0/, "");
+
+export function horarioLegible(h: HorarioLaboral): string {
+  const tramos: { desde: number; hasta: number; tramo: string }[] = [];
+  DIAS_ORDEN.forEach((dia, i) => {
+    const d = h[dia];
+    if (!d.activo) return;
+    const tramo = `${sinCeroInicial(d.inicio)}–${sinCeroInicial(d.fin)}`;
+    const ultimo = tramos[tramos.length - 1];
+    if (ultimo && ultimo.hasta === i - 1 && ultimo.tramo === tramo) ultimo.hasta = i;
+    else tramos.push({ desde: i, hasta: i, tramo });
+  });
+  return tramos
+    .map((t) => `${t.desde === t.hasta ? DIA_CORTO[t.desde] : `${DIA_CORTO[t.desde]}–${DIA_CORTO[t.hasta]}`} ${t.tramo}`)
+    .join(" · ");
 }
 
 // ─── El parser — mismo contrato que parseObjetivos (endurecido 13-08) ──────
@@ -204,16 +230,12 @@ export function parseConocimiento(raw: string | null | undefined): ConocimientoC
   const x = parsed as Record<string, unknown>;
   const tratamientos = x["tratamientos"] ?? [];
   const politicas = x["politicas"] ?? [];
-  const horarios = x["horarios"] ?? null;
   const enlaces = x["enlaces"] ?? [];
   if (!Array.isArray(tratamientos) || !tratamientos.every(esTratamientoValido)) {
     throw new ConocimientoIlegibleError("tratamientos no válidos", raw);
   }
   if (!Array.isArray(politicas) || !politicas.every(esPoliticaValida)) {
     throw new ConocimientoIlegibleError("políticas no válidas", raw);
-  }
-  if (!esTextoONull(horarios)) {
-    throw new ConocimientoIlegibleError("horarios no válidos", raw);
   }
   if (!Array.isArray(enlaces) || !enlaces.every(esEnlaceValido)) {
     throw new ConocimientoIlegibleError("enlaces no válidos", raw);
@@ -329,7 +351,6 @@ export function parseConocimiento(raw: string | null | undefined): ConocimientoC
       nota: t.nota?.trim() || null,
     })),
     politicas: politicas.map((p) => ({ titulo: p.titulo.trim(), texto: p.texto.trim() })),
-    horarios: typeof horarios === "string" && horarios.trim() !== "" ? horarios.trim() : null,
     enlaces: enlaces.map((e) => ({ etiqueta: e.etiqueta.trim(), url: e.url.trim() })),
     agendaNivel: 1,
     alcance: {
@@ -401,10 +422,10 @@ export function capacidadesDe(c: ConocimientoClinica): BarridoCapacidades {
   } else {
     noPuede.push("No puede decir precios — no hay ninguno publicado: «¿cuánto cuesta?» lo resuelve tu equipo");
   }
-  if (c.horarios) {
+  if (c.plazos.horario) {
     puede.push("Decir el horario de atención");
   } else {
-    noPuede.push("No puede decir horarios — no están publicados");
+    noPuede.push("No puede decir horarios — no está definido el horario de la clínica");
   }
   if (c.politicas.length > 0) {
     puede.push(`Contestar las políticas publicadas (${c.politicas.map((p) => p.titulo.toLowerCase()).join(", ")})`);
@@ -506,12 +527,14 @@ export function renderConocimiento(c: ConocimientoClinica | null | undefined): s
     lineas.push("");
   }
   const hayPublicado =
-    c.horarios != null || c.tratamientos.length > 0 || c.politicas.length > 0 || c.enlaces.length > 0;
+    c.plazos.horario != null || c.tratamientos.length > 0 || c.politicas.length > 0 || c.enlaces.length > 0;
   if (hayPublicado) {
     lineas.push(
       "LO PUBLICADO POR LA CLÍNICA — puedes afirmarlo tal cual (leer no es negociar). Adaptarlo a esta persona (su descuento, su cobertura, su plan) NO: eso se anota siempre.",
     );
-    if (c.horarios) lineas.push(`· Horario de atención: ${c.horarios}`);
+    // UN dato, dos consecuencias: el mismo horario que mide los plazos es el
+    // que el agente dice — el texto se deriva, no se escribe dos veces.
+    if (c.plazos.horario) lineas.push(`· Horario de atención: ${horarioLegible(c.plazos.horario)}`);
     if (c.tratamientos.length > 0) {
       lineas.push("· Tratamientos publicados:");
       for (const t of c.tratamientos) {

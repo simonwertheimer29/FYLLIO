@@ -34,6 +34,7 @@ import {
 import {
   capacidadesDe,
   renderConocimiento,
+  horarioLegible,
   REGLAS_DURAS,
   SUGERENCIAS_TRATAMIENTOS,
   SUGERENCIAS_POLITICAS,
@@ -350,16 +351,71 @@ export function AgenteConfigView() {
             />
           </Seccion>
 
+          {/* ── UN SOLO HORARIO (22-08): el mismo dato hace las dos cosas —
+              se DICE y MIDE los plazos. Dos campos eran el hallazgo de los
+              dos horarios vivo en la pantalla. ─────────────────────────── */}
           <Seccion
-            titulo="Horario de atención"
-            consecuencia="Si lo publicas, el agente contesta «¿a qué hora abrís?»; si no, lo aplaza. Es el horario que se DICE — el que calcula los plazos de respuesta es el de la ficha de la clínica."
+            titulo="Horario de la clínica"
+            consecuencia="Un solo horario, dos consecuencias: el agente contesta «¿a qué hora abrís?» con él, y el reloj de los plazos de respuesta solo corre cuando estáis abiertos. Sin definirlo, el agente no da horarios y los plazos usan el estándar (L-V de 9:00 a 20:00)."
           >
-            <input
-              value={config.horarios ?? ""}
-              onChange={(e) => setConfig({ ...config, horarios: e.target.value || null })}
-              placeholder="L-V 9:30–20:00, sábados 10–14"
-              className={INPUT + " w-full max-w-xl"}
-            />
+            {config.plazos.horario == null ? (
+              <button
+                type="button"
+                onClick={() => setConfig({ ...config, plazos: { ...config.plazos, horario: HORARIO_INICIAL() } })}
+                className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-[12.5px] font-semibold text-[var(--color-accent)] hover:bg-[var(--color-surface-muted)]"
+              >
+                <Plus size={14} strokeWidth={ICON_STROKE} aria-hidden />
+                Definir el horario
+              </button>
+            ) : (
+              <>
+                <div className="space-y-1">
+                  {DIAS_SEMANA.map((dia) => {
+                    const h = config.plazos.horario![dia.clave];
+                    const setDia = (v: Partial<typeof h>) =>
+                      setConfig({
+                        ...config,
+                        plazos: {
+                          ...config.plazos,
+                          horario: { ...config.plazos.horario!, [dia.clave]: { ...h, ...v } },
+                        },
+                      });
+                    return (
+                      <div key={dia.clave} className="flex items-center gap-2 text-[13px] text-[var(--color-foreground)]">
+                        <label className="flex w-28 cursor-pointer items-center gap-1.5">
+                          <input
+                            type="checkbox"
+                            checked={h.activo}
+                            onChange={(e) => setDia({ activo: e.target.checked })}
+                            className="accent-[var(--color-accent)]"
+                          />
+                          {dia.etiqueta}
+                        </label>
+                        {h.activo ? (
+                          <>
+                            <input type="time" value={h.inicio} onChange={(e) => setDia({ inicio: e.target.value })} className={INPUT + " w-28"} />
+                            <span className="text-[var(--color-muted)]">a</span>
+                            <input type="time" value={h.fin} onChange={(e) => setDia({ fin: e.target.value })} className={INPUT + " w-28"} />
+                          </>
+                        ) : (
+                          <span className="text-[12px] text-[var(--color-muted)]">cerrado</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+                <p className="text-[12px] text-[var(--color-muted)]">
+                  Así lo dirá el agente: «{horarioLegible(config.plazos.horario)}»
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setConfig({ ...config, plazos: { ...config.plazos, horario: null } })}
+                  className="text-[12px] font-medium text-[var(--color-muted)] underline hover:text-[var(--color-foreground)]"
+                >
+                  Quitar y volver al estándar
+                </button>
+              </>
+            )}
           </Seccion>
 
           {/* ── AGENDA: la decisión de los tres niveles (PLAN §11). El nivel
@@ -417,14 +473,21 @@ export function AgenteConfigView() {
                 ))}
               </select>
               <span className="ml-2 text-[12px] text-[var(--color-muted)]">
-                Si la persona vuelve a preguntar por algo aplazado esta cantidad de veces, el caso pasa a una persona.
+                Con {config.alcance.umbralInsistencia ?? 2}: si pregunta{" "}
+                {(config.alcance.umbralInsistencia ?? 2) + 1} veces por lo mismo, el caso pasa a tu equipo.
               </span>
             </label>
             <div className="pt-2">
               <p className="text-[13px] font-medium text-[var(--color-foreground)]">Urgencias</p>
+              {/* La única sección que puede acabar en un problema serio: su
+                  consecuencia va delante, no en letra pequeña (22-08). */}
+              <p className="mt-0.5 text-[12px] leading-relaxed text-[var(--color-muted)]">
+                Si las atiendes, el agente tranquiliza y deriva de inmediato. Si no las atiendes, escribe
+                qué le decimos a alguien con dolor — el agente reproduce ese texto literal y no improvisa.
+              </p>
               <div className="mt-1.5 flex items-center gap-4">
                 {([
-                  { atiende: true, etiqueta: "Se atienden — el agente tranquiliza y deriva de inmediato" },
+                  { atiende: true, etiqueta: "Se atienden" },
                   { atiende: false, etiqueta: "No se atienden aquí" },
                 ]).map((o) => (
                   <label key={String(o.atiende)} className="flex cursor-pointer items-center gap-1.5 text-[13px] text-[var(--color-foreground)]">
@@ -452,8 +515,7 @@ export function AgenteConfigView() {
               {config.alcance.urgencias?.atiende === false && (
                 <div className="mt-2">
                   <p className="text-[12px] text-[var(--color-muted)]">
-                    El texto EXACTO que responde ante una urgencia — se reproduce tal cual, sin generar nada:
-                    lo escribes y lo asumes tú. Obligatorio.
+                    Obligatorio — lo escribes y lo asumes tú; el agente lo reproduce tal cual y deriva el caso.
                   </p>
                   <textarea
                     value={config.alcance.urgencias.textoNoAtiende ?? ""}
@@ -516,7 +578,7 @@ export function AgenteConfigView() {
           {/* ── GRUPO 4 · Plazos de respuesta ─────────────────────────── */}
           <Seccion
             titulo="Plazos de respuesta"
-            consecuencia="Cuánto puede esperar cada cosa antes de marcarse «Fuera de plazo» en Seguimiento. El reloj solo corre cuando la clínica está abierta — con tu horario de abajo; sin él, el estándar (L-V de 9:00 a 20:00)."
+            consecuencia="Cuánto puede esperar cada cosa antes de marcarse «Fuera de plazo» en Seguimiento. El reloj solo corre cuando la clínica está abierta — con el horario de la sección «Horario de la clínica»."
           >
             <div className="grid gap-2 sm:grid-cols-2">
               {([
@@ -546,65 +608,6 @@ export function AgenteConfigView() {
                   </span>
                 </label>
               ))}
-            </div>
-            <div className="pt-2">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[13px] font-medium text-[var(--color-foreground)]">Horario laboral de la clínica</p>
-                {config.plazos.horario == null ? (
-                  <button
-                    type="button"
-                    onClick={() => setConfig({ ...config, plazos: { ...config.plazos, horario: HORARIO_INICIAL() } })}
-                    className="text-[12.5px] font-semibold text-[var(--color-accent)] hover:underline"
-                  >
-                    Definir el horario
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setConfig({ ...config, plazos: { ...config.plazos, horario: null } })}
-                    className="text-[12.5px] font-medium text-[var(--color-muted)] underline hover:text-[var(--color-foreground)]"
-                  >
-                    Volver al estándar (L-V 9:00–20:00)
-                  </button>
-                )}
-              </div>
-              {config.plazos.horario != null && (
-                <div className="mt-2 space-y-1">
-                  {DIAS_SEMANA.map((dia) => {
-                    const h = config.plazos.horario![dia.clave];
-                    const setDia = (v: Partial<typeof h>) =>
-                      setConfig({
-                        ...config,
-                        plazos: {
-                          ...config.plazos,
-                          horario: { ...config.plazos.horario!, [dia.clave]: { ...h, ...v } },
-                        },
-                      });
-                    return (
-                      <div key={dia.clave} className="flex items-center gap-2 text-[13px] text-[var(--color-foreground)]">
-                        <label className="flex w-28 cursor-pointer items-center gap-1.5">
-                          <input
-                            type="checkbox"
-                            checked={h.activo}
-                            onChange={(e) => setDia({ activo: e.target.checked })}
-                            className="accent-[var(--color-accent)]"
-                          />
-                          {dia.etiqueta}
-                        </label>
-                        {h.activo ? (
-                          <>
-                            <input type="time" value={h.inicio} onChange={(e) => setDia({ inicio: e.target.value })} className={INPUT + " w-28"} />
-                            <span className="text-[var(--color-muted)]">a</span>
-                            <input type="time" value={h.fin} onChange={(e) => setDia({ fin: e.target.value })} className={INPUT + " w-28"} />
-                          </>
-                        ) : (
-                          <span className="text-[12px] text-[var(--color-muted)]">cerrado</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
             </div>
           </Seccion>
 
@@ -687,8 +690,11 @@ export function AgenteConfigView() {
                 </label>
               </>
             ) : (
-              <p className="rounded-lg border border-dashed border-[var(--color-border)] px-3 py-2.5 text-[12.5px] text-[var(--color-muted)]">
-                La cadencia de presupuestos es por clínica — elige una arriba para configurar la suya.
+              <p className="rounded-lg border border-dashed border-[var(--color-border)] px-3 py-2.5 text-[12.5px] leading-relaxed text-[var(--color-muted)]">
+                Estás viendo toda la red y la cadencia de presupuestos es por clínica: elige una en el
+                selector de clínica de la cabecera para ajustar la suya. Sin tocar nada, todas usan el
+                estándar — seguimiento a los 3, 7 y 10 días, máximo 3 recordatorios, envíos a las 9:00 y
+                rechazo automático a los 30 días.
               </p>
             )}
             <p className="text-[12px] text-[var(--color-muted)]">

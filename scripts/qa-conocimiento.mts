@@ -19,6 +19,7 @@ import {
   renderConocimiento,
   esConocimientoVacio,
   plazosParaReloj,
+  horarioLegible,
   CONOCIMIENTO_VACIO,
   ConocimientoIlegibleError,
 } from "../app/lib/agente/conocimiento";
@@ -64,17 +65,17 @@ const bueno = parseConocimiento(JSON.stringify({
     { nombre: "Blanqueamiento", precio: null, nota: null },
   ],
   politicas: [{ titulo: "Seguros", texto: "Trabajamos con Sanitas y Adeslas" }],
-  horarios: "L-V 9:30–20:00, sábados 10–14",
+  plazos: { horario: HORARIO_QA },
   enlaces: [{ etiqueta: "Reserva online", url: "https://clinica.example/reserva" }],
 }));
 ok("una config válida se parsea entera, con los textos recortados",
   bueno.tratamientos.length === 2 && bueno.tratamientos[0].precio === "desde 35 €/mes" &&
-    bueno.politicas.length === 1 && bueno.horarios != null && bueno.enlaces.length === 1);
+    bueno.politicas.length === 1 && bueno.plazos.horario != null && bueno.enlaces.length === 1);
 ok("campos ausentes = secciones vacías, no error (se publica por partes)",
-  !lanza(JSON.stringify({ horarios: "L-V 9-20" })) &&
-    parseConocimiento(JSON.stringify({ horarios: "L-V 9-20" })).tratamientos.length === 0);
+  !lanza(JSON.stringify({ enlaces: [] })) &&
+    parseConocimiento(JSON.stringify({ enlaces: [] })).tratamientos.length === 0);
 ok("agenda: ausente → nivel 1 (sin conexión), el único que existe",
-  parseConocimiento(JSON.stringify({ horarios: "L-V 9-20" })).agendaNivel === 1);
+  parseConocimiento(JSON.stringify({ enlaces: [] })).agendaNivel === 1);
 ok("agenda: nivel 2 guardado HOY se rechaza — prometería huecos que el agente no ve (MEJORAS 97)",
   lanza(JSON.stringify({ agendaNivel: 2 })) && lanza(JSON.stringify({ agendaNivel: 3 })));
 
@@ -104,6 +105,10 @@ ok("grupo 4: un horario que cierra antes de abrir, o sin ningún día activo, se
     reloj.umbralesMin.respuesta === 480 && reloj.umbralesMin.urgencia === undefined &&
       reloj.horario?.sabado.activo === true);
 }
+ok("horarioLegible agrupa días contiguos con el mismo tramo y omite los cerrados",
+  horarioLegible(HORARIO_QA) === "lun–vie 9:00–20:00 · sáb 10:00–14:00" &&
+    horarioLegible({ ...HORARIO_QA, miercoles: { activo: false, inicio: "09:00", fin: "20:00" } }) ===
+      "lun–mar 9:00–20:00 · jue–vie 9:00–20:00 · sáb 10:00–14:00");
 
 // ─── B · EL ASSERT DEL PLAN BÁSICO ─────────────────────────────────────────
 console.log("\nB · plan básico: prompt con config vacía ≡ prompt de hoy, byte a byte");
@@ -140,8 +145,9 @@ ok("el precio publicado viaja TAL CUAL («desde 35 €/mes» — texto, no numbe
   conDatos.includes("Ortodoncia invisible: desde 35 €/mes"));
 ok("un tratamiento sin precio lo dice: «sin precio publicado — no des cifra»",
   conDatos.includes("Blanqueamiento (sin precio publicado — no des cifra)"));
-ok("horario, políticas y enlaces presentes",
-  conDatos.includes("L-V 9:30–20:00") && conDatos.includes("Sanitas") &&
+ok("horario (DERIVADO del único dato — 22-08, murió el texto libre), políticas y enlaces presentes",
+  conDatos.includes("Horario de atención: lun–vie 9:00–20:00 · sáb 10:00–14:00") &&
+    conDatos.includes("Sanitas") &&
     conDatos.includes("https://clinica.example/reserva"));
 ok("y el resto del prompt no cambió (todo lo de antes sigue: presupuesto, hilo, calendario)",
   conDatos.includes("Endodoncia") && conDatos.includes("CALENDARIO") &&

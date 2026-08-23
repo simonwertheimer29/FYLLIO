@@ -43,7 +43,15 @@ const CONOCIMIENTO = parseConocimiento(JSON.stringify({
     { titulo: "Seguros", texto: "Trabajamos con Sanitas, Adeslas y DKV; la cobertura concreta la confirma cada aseguradora" },
     { titulo: "Cancelaciones", texto: "Se puede cambiar o anular una cita hasta 24 h antes sin coste" },
   ],
-  horarios: "L-V 9:30–20:00, sábados 10–14",
+  plazos: { horario: {
+    lunes: { activo: true, inicio: "09:30", fin: "20:00" },
+    martes: { activo: true, inicio: "09:30", fin: "20:00" },
+    miercoles: { activo: true, inicio: "09:30", fin: "20:00" },
+    jueves: { activo: true, inicio: "09:30", fin: "20:00" },
+    viernes: { activo: true, inicio: "09:30", fin: "20:00" },
+    sabado: { activo: true, inicio: "10:00", fin: "14:00" },
+    domingo: { activo: false, inicio: "10:00", fin: "14:00" },
+  } },
   enlaces: [
     { etiqueta: "Reserva online", url: "https://clinica.example/reserva" },
     { etiqueta: "Cómo llegar", url: "https://maps.example/clinica" },
