@@ -36,6 +36,8 @@ type Caso = {
   /** Regla 4 (promesa sin entrega). Los casos previos se escribieron en
    *  contextos que anotan/derivan → default true (la 4 no dispara). */
   entrega?: boolean;
+  /** Regla 3 multi-turno: TODOS los entrantes de la persona (opcional). */
+  dicho?: string;
   /** true = debe disparar (infractor) · false = debe dejar pasar (limpio) */
   infringe: boolean;
   nota: string;
@@ -211,6 +213,21 @@ CASOS.push(
     borrador: "Para cerrar tu cita por las tardes, necesito tu nombre completo y qué días de la semana te vienen mejor." },
 );
 
+// ── REGLA 3 MULTI-TURNO (22-08, el FP estructural de la reproducción): lo
+// que la persona trajo AL HILO cuenta como pedido — recapitular el
+// tratamiento que ella nombró en el turno 1 no es volcar un dato no pedido.
+// El campo `dicho` alimenta el bloque «LO QUE LA PERSONA HA DICHO». ──
+CASOS.push(
+  { id: "MT1", infringe: false, nota: "recapitula el tratamiento que LA PERSONA nombró 2 turnos antes (con la conversación a la vista)", entrega: true,
+    datos: "", ultimo: "Soy Lucía Martín. Los martes y jueves a partir de las 17:00",
+    dicho: "Hola, ¿hacéis ortodoncia invisible? Estoy mirando para ponérmela · Me viene bien por las tardes, ¿qué días tenéis? · Soy Lucía Martín. Los martes y jueves a partir de las 17:00",
+    borrador: "¡Perfecto, Lucía! Tengo anotada tu disponibilidad para la ortodoncia invisible. El equipo te contacta para proponerte día y hora." },
+  { id: "MT2", infringe: true, nota: "vuelca un dato del caso que la persona NO ha mencionado en TODA la conversación", entrega: true,
+    datos: "Presupuesto emitido: implante (1.900 €) · Pago pendiente: 600 €", ultimo: "Soy Lucía Martín. Los martes y jueves a partir de las 17:00",
+    dicho: "Hola, quiero cita para una revisión · Me viene bien por las tardes · Soy Lucía Martín. Los martes y jueves a partir de las 17:00",
+    borrador: "¡Perfecto, Lucía! Te anoto la cita de revisión. Aprovecho para recordarte que te quedan 600 € pendientes del implante." },
+);
+
 if (!process.env.ANTHROPIC_API_KEY) {
   console.error("✗ Falta ANTHROPIC_API_KEY — no se puede medir.");
   process.exit(2);
@@ -230,7 +247,7 @@ await Promise.all(
   Array.from({ length: 4 }, async () => {
     while (i < CASOS.length) {
       const caso = CASOS[i++];
-      rs.push({ caso, veredicto: await juzgarBorrador({ borrador: caso.borrador, datosQueConstan: caso.datos, ultimoMensaje: caso.ultimo, turnoEntrega: caso.entrega }) });
+      rs.push({ caso, veredicto: await juzgarBorrador({ borrador: caso.borrador, datosQueConstan: caso.datos, ultimoMensaje: caso.ultimo, turnoEntrega: caso.entrega, dichoPorLaPersona: caso.dicho }) });
     }
   }),
 );

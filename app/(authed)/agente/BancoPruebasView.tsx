@@ -26,6 +26,7 @@ import {
   ICON_STROKE,
 } from "../../components/icons";
 import { ETIQUETA_CLAVE, type ClaveAplazado } from "../../lib/automatizacion/aplazamientos";
+import { legibleCampo } from "../../components/agente/FichaCasoPanel";
 import type { EvaluacionTurno } from "../../lib/agente/evaluador";
 import type { EscenarioPrueba } from "../../lib/agente/banco-pruebas";
 
@@ -246,7 +247,10 @@ export function BancoPruebasView() {
         )}
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1fr,22rem]">
+      {/* Chat a la izquierda, panel AL LADO desde md (22-08): el panel es lo
+          que se mira MIENTRAS conversas — debajo queda fuera de vista justo
+          cuando importa. Sticky: no se va con el scroll del hilo. */}
+      <div className="grid gap-4 md:grid-cols-[1fr,minmax(19rem,22rem)]">
         {/* ── El chat de mentira ──────────────────────────────────────── */}
         <div className="flex min-h-[24rem] flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
           <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-2.5">
@@ -337,7 +341,7 @@ export function BancoPruebasView() {
         </div>
 
         {/* ── QUÉ HA HECHO POR DENTRO — lo que impresiona ─────────────── */}
-        <aside className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+        <aside className="self-start rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 md:sticky md:top-4">
           <h3 className="font-display text-[14px] font-semibold text-[var(--color-foreground)]">
             Qué ha hecho por dentro
           </h3>
@@ -359,7 +363,24 @@ export function BancoPruebasView() {
   );
 }
 
-/** La evaluación del último turno, en frases de coordinadora. */
+/** Qué hará el agente en el SIGUIENTE mensaje — derivado de la evaluación,
+ *  por código. Es lo que hace entender que el agente PERSIGUE algo, no que
+ *  contesta: se ve que le faltan dos datos concretos y que va a por ellos. */
+function siguientePaso(ev: EvaluacionTurno): string {
+  if (ev.decision === "deriva") {
+    return "Nada — el caso ya es de tu equipo. El agente no vuelve a entrar en esta conversación.";
+  }
+  if (ev.camposFaltantes.length > 0) {
+    return `Ir a por «${legibleCampo(ev.camposFaltantes[0]).toLowerCase()}» — pregunta UN dato por mensaje, como una conversación, no como un formulario.`;
+  }
+  if (ev.aplazamientos.length > 0) {
+    return "Esperar: lo anotado lo resuelve tu equipo, y el agente se lo dirá a la persona cuando conteste.";
+  }
+  return "Acompañar la conversación — no hay nada abierto que recoger.";
+}
+
+/** La evaluación del último turno, ESTRUCTURADA con la forma de la ficha del
+ *  caso (22-08): bloques, no párrafo corrido. */
 function PorDentro({ ev }: { ev: EvaluacionTurno }) {
   if (!ev.actuar) {
     return (
@@ -382,43 +403,60 @@ function PorDentro({ ev }: { ev: EvaluacionTurno }) {
   const recogidos = activo ? Object.entries(ev.camposRecogidos[activo] ?? {}) : [];
   const conValor = recogidos.filter(([, v]) => v != null && v !== "no_aplica");
   return (
-    <div className="mt-2 space-y-2.5 text-[12.5px] leading-relaxed text-[var(--color-foreground)]">
-      {j && (
-        <Linea titulo="Entendió">
-          Habla de {ETIQUETA_TEMA[j.tema] ?? j.tema}
-          {j.urgenciaMedica && <Tag tono="danger">urgencia médica</Tag>}
-          {j.peticionOQueja && <Tag tono="danger">{j.malestar ? "queja con malestar" : "pide persona"}</Tag>}
-          {j.mencionaAntecedenteMedico && <Tag tono="warning">antecedente médico</Tag>}
-        </Linea>
-      )}
-      <Linea titulo="Persigue">
+    <div className="mt-2.5 space-y-2.5 text-[12.5px] leading-relaxed text-[var(--color-foreground)]">
+      <Bloque titulo="Qué persigue ahora">
         {activo ? `Completar ${ETIQUETA_TEMA[activo] ?? activo}` : "Nada — solo conversación"}
-        {activo && (
-          <span className="block text-[11.5px] text-[var(--color-muted)]">
-            {conValor.length > 0 && <>Recogido: {conValor.map(([k, v]) => `${k.replace(/_/g, " ")}: ${v}`).join(" · ")}. </>}
-            {ev.camposFaltantes.length > 0
-              ? `Le falta: ${ev.camposFaltantes.map((c) => c.replace(/_/g, " ")).join(", ")}.`
-              : ev.casoCompleto
-                ? "No le falta nada — caso completo."
-                : ""}
+        {j && (j.urgenciaMedica || j.peticionOQueja || j.mencionaAntecedenteMedico) && (
+          <span className="mt-1 block">
+            {j.urgenciaMedica && <Tag tono="danger">urgencia médica</Tag>}
+            {j.peticionOQueja && <Tag tono="danger">{j.malestar ? "queja con malestar" : "pide persona"}</Tag>}
+            {j.mencionaAntecedenteMedico && <Tag tono="warning">antecedente médico</Tag>}
           </span>
         )}
-      </Linea>
+      </Bloque>
+      {conValor.length > 0 && (
+        <Bloque titulo="Qué lleva recogido">
+          <dl className="space-y-0.5">
+            {conValor.map(([k, v]) => (
+              <div key={k} className="flex items-baseline justify-between gap-2">
+                <dt className="text-[11.5px] text-[var(--color-muted)]">{legibleCampo(k)}</dt>
+                <dd className="text-right text-[12px] font-medium">{String(v)}</dd>
+              </div>
+            ))}
+          </dl>
+        </Bloque>
+      )}
+      {ev.camposFaltantes.length > 0 && (
+        <Bloque titulo="Qué le falta">
+          {ev.camposFaltantes.map((c) => (
+            <span key={c} className="mr-1 inline-block rounded bg-[var(--color-surface-muted)] px-1.5 py-0.5 text-[11.5px] text-[var(--color-muted)]">
+              {legibleCampo(c)}
+            </span>
+          ))}
+        </Bloque>
+      )}
+      {/* Lo que más vende: se ve que va A POR lo que falta. */}
+      <div className="rounded-lg border border-[var(--color-accent)] bg-[var(--color-accent-soft)] px-2.5 py-2">
+        <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-accent)]">
+          Qué va a hacer en el siguiente mensaje
+        </p>
+        <p className="mt-0.5 text-[12.5px]">{siguientePaso(ev)}</p>
+      </div>
       {ev.aplazamientos.length > 0 && (
-        <Linea titulo="Anotó para tu equipo">
+        <Bloque titulo="Qué anotó para tu equipo">
           {ev.aplazamientos.map((a, i) => (
             <span key={i} className="block">
               · {ETIQUETA_CLAVE[a.clave as ClaveAplazado] ?? a.clave} — «{a.motivo}»
             </span>
           ))}
-        </Linea>
+        </Bloque>
       )}
       {ev.esperaHasta && (
-        <Linea titulo="Espera pactada">
+        <Bloque titulo="Espera pactada">
           La persona pidió tiempo: sin contacto proactivo hasta el {ev.esperaHasta}.
-        </Linea>
+        </Bloque>
       )}
-      <Linea titulo="Decidió">
+      <Bloque titulo="Qué decidió">
         {ev.decision === "deriva" ? (
           <span className="inline-flex flex-wrap items-center gap-1">
             <AlertTriangle size={13} strokeWidth={ICON_STROKE} className="text-[var(--color-danger)]" aria-hidden />
@@ -431,23 +469,23 @@ function PorDentro({ ev }: { ev: EvaluacionTurno }) {
             Sigue la conversación él
           </span>
         )}
-      </Linea>
+      </Bloque>
       {ev.borradorDescartado && (
-        <Linea titulo="El control de seguridad actuó">
+        <Bloque titulo="El control de seguridad actuó">
           <span className="text-[var(--color-danger)]">
             Descartó el borrador del agente porque {ETIQUETA_MOTIVO_JUEZ[ev.borradorDescartado.motivo] ?? "infringía una regla"}
             {ev.borradorDescartado.frase ? ` («${ev.borradorDescartado.frase}»)` : ""}.
           </span>{" "}
           Respondió con la fórmula segura — ese filtro revisa cada mensaje, también en producción.
-        </Linea>
+        </Bloque>
       )}
     </div>
   );
 }
 
-function Linea({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+function Bloque({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div className="rounded-lg border border-[var(--color-border)] px-2.5 py-2">
       <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">{titulo}</p>
       <div className="mt-0.5">{children}</div>
     </div>

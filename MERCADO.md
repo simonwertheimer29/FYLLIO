@@ -89,10 +89,15 @@ podría usar solo** — aunque en la práctica la rellenemos nosotros en el alta
 La prueba de si se cumple es concreta y se puede hacer sin clientes: **dar de alta una clínica nueva
 entera sin abrir el editor**. Si no se puede, la configuración todavía no es un producto.
 
-#### Coste variable por clínica — MEDIDO (18 de agosto de 2026)
+#### Coste variable por clínica — MEDIDO (actualizado 22 de agosto de 2026, con caché)
 
-- **API del modelo**: ~$14/mes con 1.000 conversaciones de 3 turnos (medido en la fase A,
-  evaluador + juez incluidos).
+- **API del modelo**: **~$15/mes** con 1.000 conversaciones de 3 turnos ($0,0050/turno medido,
+  evaluador + juez incluidos, **prompt caching activo**). El matiz que importa para escalar: el
+  prompt de hoy es MUCHO más largo que el de la fase A (reglas duras de agenda, conocimiento de
+  clínica, fórmulas) y aun así cuesta casi lo mismo que entonces — sin caché serían ~$24/mes
+  (medido: $0,0079/turno el 21-08). El caché descuenta un **40 %** y se activó solo al cruzar el
+  system los 4.096 tokens; cada instrucción nueva a partir de aquí viaja casi gratis (lectura a
+  0,1×). La cifra se re-mide con `scripts/medir-coste-agente.mts` tras cada cambio de prompt.
 - **WhatsApp** (Meta, tarifas España julio 2026): plantilla *utility* ~0,017 €, *marketing*
   ~0,051 €. Las respuestas dentro de la ventana de 24 h son gratis hoy. Con 300 mensajes
   iniciados al mes: **5-15 €**.

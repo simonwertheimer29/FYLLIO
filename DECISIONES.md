@@ -3304,3 +3304,19 @@ Haiku (4.096) y el caché se ACTIVÓ SOLO como estaba previsto: $0,0047/turno, �
 Pendiente reportado: en la reproducción el flujo de cita del lead encadena descartes (FP conocidos
 L16/L17 intermitentes + el generador prometiendo «enseguida» sin entrega — descarte CORRECTO):
 fail-closed seguro, demo coja. Decisión de Simon si se itera el generador.
+
+## 2026-08-22 — El flujo de cita del lead, verde de punta a punta — y la regla 3 aprende a leer la conversación
+La iteración del generador (fórmula del flujo de cita: un dato por turno, paso contingente «se lo
+paso al equipo y ellos te proponen día y hora», vocabulario que evita «cerrar/confirmar/reservar»,
+entrega corta sin recapitular, confirmar tratamientos sin valorarlos) no bastaba: el FP de fondo era
+ESTRUCTURAL — la regla 3 del juez solo veía el ÚLTIMO mensaje, y recapitular el tratamiento que la
+persona nombró en el turno 1 contaba como «dato no pedido». Arreglo de contrato: el juez recibe
+`dichoPorLaPersona` (todos sus entrantes, acotados) — lo que ELLA trajo al hilo cuenta como pedido,
+y el bloque AMPLÍA lo pedido sin relajar la regla (MT2 cazó al juez relajándose con la cifra jamás
+mencionada; cerrado en el prompt). Vara 48/48. Reproducción de la conversación de Simon: CUATRO
+turnos sin un solo descarte, con entrega limpia. Evaluador 95 % estable (35 y 49 dictados; 16/6 se
+alternan — moneda al aire de Haiku). Nuevo candidato a remapeo reportado: C9-listo (rechazo completo
+= listo, misma doctrina que C13). Coste re-medido con caché: $0,0050/turno → ~$15/mes por 1.000
+conversaciones (MERCADO actualizado — el prompt es mucho más largo que en fase A y cuesta lo mismo).
+Banco: panel a la derecha sticky, estructurado como la ficha, y el bloque «QUÉ VA A HACER EN EL
+SIGUIENTE MENSAJE» derivado por código — se ve que persigue, no que contesta.

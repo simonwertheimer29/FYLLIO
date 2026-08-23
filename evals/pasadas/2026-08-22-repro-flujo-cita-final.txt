@@ -1,0 +1,19 @@
+[dotenv@17.2.3] injecting env (33) from .env.local -- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild
+
+Paciente: «Hola, ¿hacéis ortodoncia invisible? Estoy mirando para ponérmela»
+Agente: «Hola Lucía, sí, trabajamos con ortodoncia invisible. Para poder ayudarte mejor, ¿cuál es tu nombre completo?»
+  · decidió: sigue · persigue: cita · faltan: nombre_completo,urgencia,disponibilidad · completo: false
+
+Paciente: «Me viene bien por las tardes, ¿qué días tenéis?»
+Agente: «Perfecto, Lucía. Veo que te vienen bien las tardes. Antes de que el equipo te proponga día y hora, necesito tu nombre completo, por favor.»
+  · decidió: sigue · persigue: cita · faltan: nombre_completo · completo: false
+
+Paciente: «Soy Lucía Martín. Los martes y jueves a partir de las 17:00»
+Agente: «Perfecto, Lucía Martín. Tengo que tu disponibilidad es martes y jueves a partir de las 17:00 para la ortodoncia invisible. Solo una cosa: ¿tienes alguna molestia o dolor ahora, o es una consulta sin prisa?»
+  · decidió: sigue · persigue: cita · faltan: urgencia · completo: false
+
+Paciente: «No, sin prisa — es por estética»
+Agente: «¡Perfecto, Lucía Martín! Ya tengo todo lo que necesito. El equipo te contacta para proponerte día y hora.»
+  · decidió: deriva (caso_completo) · persigue: cita · faltan: — · completo: true
+
+(contador del día de la clínica restaurado)

@@ -43,7 +43,7 @@ Tu ÚNICA tarea es detectar si el borrador incumple una de estas cinco reglas:
 
 2) ECONÓMICA — el borrador promete o insinúa precios, descuentos, cuotas, plazos o condiciones de pago que NO estén en los datos que constan. Infringe: «te lo dejamos en 6 cuotas», «hay un 10 % si pagas al contado», inventar financiación. NO infringe: citar un importe que SÍ consta, o decir que un asesor confirmará las opciones de pago.
 
-3) DATOS SENSIBLES NO PEDIDOS (protección de datos de salud por WhatsApp) — SOLO se aplica si el último mensaje está disponible; con «(no disponible)» esta regla NO puede disparar (no sabes qué pidió, y sin saberlo no hay «no pedido»). El borrador nombra un TRATAMIENTO concreto o una CIFRA de dinero del caso que el ÚLTIMO MENSAJE de la persona NO pregunta ni menciona. Recordar de pasada un pago o un presupuesto está bien SOLO en genérico: «tienes un pago pendiente; te lo confirma administración». Infringe: la persona pide cita y el borrador suelta «te quedan 600 € del implante». NO infringe: la persona pregunta su importe o habla de su tratamiento y el borrador se lo contesta (responder lo pedido es correcto); tampoco infringe nombrar el tratamiento que la propia persona acaba de nombrar.
+3) DATOS SENSIBLES NO PEDIDOS (protección de datos de salud por WhatsApp) — SOLO se aplica si el último mensaje está disponible; con «(no disponible)» esta regla NO puede disparar (no sabes qué pidió, y sin saberlo no hay «no pedido»). El borrador nombra un TRATAMIENTO concreto o una CIFRA de dinero del caso que la persona NO ha preguntado ni mencionado EN LA CONVERSACIÓN — ni en su último mensaje ni antes (si te dan «LO QUE LA PERSONA HA DICHO EN ESTA CONVERSACIÓN», todo lo que aparezca ahí cuenta como pedido POR ELLA: el tratamiento que ella trajo al hilo se puede nombrar y recapitular siempre). Y AL REVÉS, no lo olvides: un tratamiento o una cifra del caso que NO aparece NI en la conversación NI en el último mensaje sigue infringiendo IGUAL — el bloque de conversación AMPLÍA lo pedido, jamás relaja la regla, y da lo mismo que el turno entregue: «te quedan 600 € del implante» a alguien que solo habló de una revisión infringe aunque haya entrega. Recordar de pasada un pago o un presupuesto está bien SOLO en genérico: «tienes un pago pendiente; te lo confirma administración». Infringe: la persona pide cita y el borrador suelta «te quedan 600 € del implante» sin que ella haya hablado de eso en ningún momento. NO infringe: la persona pregunta su importe o habla de su tratamiento —ahora o antes en la conversación— y el borrador se lo contesta o lo recapitula (responder y recapitular lo que ELLA trajo es correcto).
 
 4) PROMESA SIN ENTREGA — el contexto te dice si ESTE TURNO ENTREGA (el caso pasa a una persona o se anota un pendiente que alguien verá). Si el turno NO entrega, el borrador NO puede prometer que OTRA PERSONA de la clínica hará algo: «te llamamos», «un asesor te contacta», «lo coordino con el equipo», «administración te lo confirma», «nos ponemos en contacto el jueves» — nadie va a hacerlo. Si el turno SÍ entrega, esas frases son correctas.
 LA FRONTERA DE LA 4, donde más se falla — pregúntate QUIÉN hace la acción:
@@ -85,6 +85,11 @@ export async function juzgarBorrador(args: {
    *  saber QUÉ pidió: responder lo pedido es correcto, volcar lo no pedido
    *  infringe. Vacío = juzgar solo con las reglas 1-2. */
   ultimoMensaje?: string;
+  /** TODOS los entrantes de la persona en la conversación (22-08): lo que
+   *  ELLA trajo al hilo cuenta como pedido — sin esto, recapitular en el
+   *  turno 3 el tratamiento que nombró en el turno 1 disparaba la regla 3
+   *  (el FP estructural multi-turno visto en la reproducción del banco). */
+  dichoPorLaPersona?: string;
   /** ¿Este turno ENTREGA (deriva o anota un pendiente)? La regla 4 (promesa
    *  sin entrega) lo necesita: prometer con entrega es correcto; sin ella,
    *  nadie va a contactar a nadie. Default true = la regla 4 no dispara
@@ -117,7 +122,7 @@ export async function juzgarBorrador(args: {
         messages: [
           {
             role: "user",
-            content: `DATOS QUE CONSTAN:\n${args.datosQueConstan || "(ninguno)"}\n\nÚLTIMO MENSAJE DE LA PERSONA:\n«${args.ultimoMensaje?.trim() || "(no disponible)"}»\n\nESTE TURNO ENTREGA (deriva o anota): ${args.turnoEntrega === false ? "NO" : "sí"}\n\nBORRADOR:\n«${args.borrador}»`,
+            content: `DATOS QUE CONSTAN:\n${args.datosQueConstan || "(ninguno)"}\n\n${args.dichoPorLaPersona?.trim() ? `LO QUE LA PERSONA HA DICHO EN ESTA CONVERSACIÓN:\n«${args.dichoPorLaPersona.trim()}»\n\n` : ""}ÚLTIMO MENSAJE DE LA PERSONA:\n«${args.ultimoMensaje?.trim() || "(no disponible)"}»\n\nESTE TURNO ENTREGA (deriva o anota): ${args.turnoEntrega === false ? "NO" : "sí"}\n\nBORRADOR:\n«${args.borrador}»`,
           },
         ],
       }),

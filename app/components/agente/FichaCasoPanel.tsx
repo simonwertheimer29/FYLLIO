@@ -405,8 +405,9 @@ function BotonSemaforo({
 }
 
 /** Claves internas → lenguaje de coordinadora (§5 del estándar: nada de
- *  enums crudos en pantalla). */
-function legibleCampo(clave: string): string {
+ *  enums crudos en pantalla). Exportada: el banco de pruebas pinta los
+ *  mismos campos — una sola traducción (§16). */
+export function legibleCampo(clave: string): string {
   const MAPA: Record<string, string> = {
     nombre_completo: "Nombre completo",
     tratamiento_o_molestia: "Qué necesita",

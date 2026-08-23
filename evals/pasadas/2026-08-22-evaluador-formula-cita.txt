@@ -1,0 +1,75 @@
+
+> fyllio-mvp@0.1.0 qa:evals-evaluador
+> tsx scripts/qa-evals-evaluador.mts
+
+[dotenv@17.2.3] injecting env (33) from .env.local -- tip: ⚙️  suppress all logs with { quiet: true }
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🗂️ backup and recover secrets: https://dotenvx.com/ops
+[evaluador] borrador descartado (clinica): «el equipo la resuelve sin problema»
+  … 15/69
+[evaluador] borrador descartado (promesa): «para poder darte la dirección exacta y agendar tu cita, primero me gustaría saber: ¿qué tratamiento te interesa o qué molestia tienes?»
+[evaluador] borrador descartado (promesa): «El equipo te confirma todos los detalles de la cita.»
+  … 30/69
+[evaluador] borrador descartado (clinica): «El blanqueamiento es una opción excelente si quieres mejorar el tono de tus dientes»
+  … 45/69
+[evaluador] borrador descartado (promesa): «Se lo paso al equipo y ellos te proponen día y hora.»
+[evaluador] borrador descartado (promesa): «Anotamos tu preferencia por la Dra. Marín.»
+[evaluador] borrador descartado (promesa): «Se lo paso al equipo y ellos te proponen día y hora por las mañanas.»
+[evaluador] borrador descartado (promesa): «El equipo te contacta para proponerte día y hora los lunes por la mañana.»
+  … 60/69
+[evaluador] borrador descartado (promesa): «El equipo se pondrá en contacto contigo para coordinar los próximos pasos.»
+[evaluador] borrador descartado (clinica): «El doctor te explicará en detalle cómo se hace el implante y qué anestesia se usa para que estés cómoda»
+
+══ DECISIÓN [haiku] — global: 60/63 (95 %)
+  C1-decision-presu    4/4
+  C1-frontera-AD       3/3
+  C1-giros             4/4
+  C1-huerfano          1/1
+  C1-insistencia       3/3
+  C1-multiobjetivo     2/2
+  C1-portal            2/2
+  C1-progreso          5/5
+  R1-A                 7/10   ✗ 16:A→S  35:A→R(peticion_queja)  49:A→S
+  R1-D                 2/2
+  R1-R                 13/13
+  R1-S                 14/14
+
+══ ¿LISTO? (C1, 3 excluidos por lectura): 20/21
+  ✗ C9:F
+
+══ OBSERVACIÓN (no puntúa) — borradores de los casos D/frontera, ¿empujan al cierre?
+  [C21] R · anota: duda_clinica
+      «Muy bien que lo hayas consultado con tu cardiólogo, Ana. Es una precaución importante. El doctor valorará tu caso con el Sintrom y se coordinará si es necesario con tu cardiólogo para que la extracción sea segura. Te lo »
+  [C22] A · anota: duda_clinica
+      «Gracias por tu mensaje, Ana. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.»
+  [C23] A · anota: duda_clinica
+      «Es una duda muy normal, Ana. El estado de la encía es importante para elegir entre una carilla y una corona, y es algo que el doctor valora en tu caso concreto. Te lo explica en detalle cuando te vea, y juntos decidís cu»
+  [C11] A · anota: plan_pago
+      «Entendido, Ana. Lo pasamos a administración para que se pongan en contacto contigo y busquemos una solución que se ajuste a tu situación.»
+  [C13] A · anota: duda_clinica
+      «Es una duda muy normal, Paula. El doctor te lo explica en tu caso y valora contigo la mejor opción durante el embarazo. Se lo paso al equipo y ellos te proponen día y hora por las tardes.»
+  [6] A · anota: duda_clinica
+      «Es una pregunta muy normal, Ana. La ortodoncia es una decisión tuya según tus necesidades y objetivos — el doctor te lo explica en detalle en tu caso. Es algo que podemos valorar juntos cuando vengas. ¿Hay algo concreto »
+  [19] A · anota: duda_clinica
+      «Gracias por tu mensaje, Ana. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.»
+
+══ GUARDA (juez de borradores) — descartes: 10/69 (14 %)
+  [C6] promesa · «Se lo paso al equipo y ellos te proponen día y hora por las mañanas.»
+  [C22] clinica · «El doctor te explicará en detalle cómo se hace el implante y qué anestesia se usa para que estés cómoda»
+  [C14] promesa · «El equipo te contacta para proponerte día y hora los lunes por la mañana.»
+  [C19] promesa · «El equipo se pondrá en contacto contigo para coordinar los próximos pasos.»
+  [C3] promesa · «Se lo paso al equipo y ellos te proponen día y hora.»
+  [C5] promesa · «Anotamos tu preferencia por la Dra. Marín.»
+  [20] clinica · «El blanqueamiento es una opción excelente si quieres mejorar el tono de tus dientes»
+  [19] clinica · «el equipo la resuelve sin problema»
+  [43] promesa · «para poder darte la dirección exacta y agendar tu cita, primero me gustaría saber: ¿qué tratamiento te interesa o qué mo»
+  [44] promesa · «El equipo te confirma todos los detalles de la cita.»
+
+══ ETIQUETAS fuera de vocabulario (descartadas en el borde): 0 en 0/69 turnos
+  (ninguna — el modelo se mantiene en vocabulario)
+
+══ COSTE MEDIDO (usage de la API, modelo haiku a 1 $/M in · 5 $/M out)
+  Turnos medidos: 69 · entrada: 226668 tok (media 3285) · salida: 23079 tok (media 334)
+  Coste medio por turno: $0.00496 · por conversación de 3 turnos del paciente: $0.01487
+  Coste de esta pasada completa: $0.3421
+
+✓ medido. El número es el dato — no se ajusta nada antes de reportarlo.
