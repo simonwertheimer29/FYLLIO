@@ -250,7 +250,10 @@ export function BancoPruebasView() {
       {/* Chat a la izquierda, panel AL LADO desde md (22-08): el panel es lo
           que se mira MIENTRAS conversas — debajo queda fuera de vista justo
           cuando importa. Sticky: no se va con el scroll del hilo. */}
-      <div className="grid gap-4 md:grid-cols-[1fr,minmax(19rem,22rem)]">
+      {/* OJO sintaxis Tailwind: en valores arbitrarios el separador es `_`,
+          no la coma — con coma el CSS salía inválido y el grid JAMÁS aplicó
+          (el panel caía debajo en cualquier ancho; bug visto por Simon). */}
+      <div className="grid gap-4 md:grid-cols-[1fr_minmax(19rem,22rem)]">
         {/* ── El chat de mentira ──────────────────────────────────────── */}
         <div className="flex min-h-[24rem] flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
           <div className="flex items-center justify-between border-b border-[var(--color-border)] px-4 py-2.5">
