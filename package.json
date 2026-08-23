@@ -42,7 +42,8 @@
     "guard:rls": "node scripts/guard-service-role.mjs",
     "db:smoke-rls": "node scripts/db-smoke-rls.mjs",
     "qa:bandeja": "tsx scripts/qa-bandeja.mts",
-    "qa:conocimiento": "tsx scripts/qa-conocimiento.mts"
+    "qa:conocimiento": "tsx scripts/qa-conocimiento.mts",
+    "qa:banco": "tsx scripts/qa-banco-pruebas.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

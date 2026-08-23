@@ -209,7 +209,20 @@ type ExtraConfiguracionAutomatizaciones = {
    *  ConocimientoClinica). NULL = nada publicado (el agente aplaza todo).
    *  Se valida SIEMPRE con parseConocimiento — ilegible LANZA. */
   conocimiento: string | null;
+  /** 029 — fase E: si coordinación puede usar el banco de pruebas. Default
+   *  true; sin fila = true; admin puede siempre. */
+  pruebas_coordinacion: boolean | null;
 };
+
+/** 029 — fase E: contador diario del banco de pruebas, por clínica. La ÚNICA
+ *  tabla que el banco escribe (regla dura: nada de producción se toca). */
+export interface Tabla_uso_banco_pruebas {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  clinica_id: string;
+  dia: Date;
+  turnos: number;
+}
 
 /** 016 — el rediseño «decisión primero»: la decisión se guarda aparte de la
  *  categoría, porque son dos preguntas distintas y mezclarlas fue lo que dejó el
@@ -283,6 +296,7 @@ export interface DB
 
   // Creadas después.
   alertas_pospuestas: Tabla_alertas_pospuestas;
+  uso_banco_pruebas: Tabla_uso_banco_pruebas;
   seguimiento_vistos: Tabla_seguimiento_vistos;
   eventos_automatizacion: Tabla_eventos_automatizacion;
   sugerencias_categoria: Tabla_sugerencias_categoria;
