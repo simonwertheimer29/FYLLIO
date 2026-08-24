@@ -65,6 +65,7 @@ export {
   LoaderCircle,
   Lock,
   Mail,
+  Menu,
   MapPin,
   Megaphone,
   MessageSquare,

@@ -256,6 +256,13 @@ derivar, qué considera urgencia, si atiende urgencias y el texto LITERAL si no 
 genera) · **4 · Plazos de respuesta** (urgencia, paciente esperando, caso listo, lead nuevo — con el
 horario laboral de la clínica, que ya existe como dato).
 
+**El umbral de cobros del grupo 4 (precisión dictada 23-08, para F5):** los 7 y 30 días son
+DEFAULTS configurables por clínica — y el campo NO se presenta como preferencia de plazo sino como
+LA POLÍTICA DE COBRO de esa clínica: una que financia a 12 meses tiene otro concepto de «vencido»
+que una que cobra al contado. La pregunta del campo es «¿cuándo consideráis que un pago está
+vencido?» (entra en la cola de Seguimiento) y «¿cuándo pasa a fuera de plazo?» — no «cuántos días
+quiere esperar».
+
 **5 · Cadencias y recordatorios van AQUÍ, no en Automatizaciones (dictado 22 ago 2026).** Cada
 cuánto se toca un presupuesto sin respuesta, cuántas veces antes de agotarlo, cuándo se recuerda una
 cita, cuándo se reactiva un caso frío. Motivo: el agente y las cadencias comparten el semáforo, los

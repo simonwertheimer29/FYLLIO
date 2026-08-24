@@ -10,7 +10,7 @@ import {
   type ClinicContextSession,
   type Clinica as CtxClinica,
 } from "../lib/context/ClinicContext";
-import { GlobalHeader } from "../components/layout/GlobalHeader";
+import { AppShell } from "../components/layout/AppShell";
 import { FyllioCopilot } from "../components/copilot/FyllioCopilot";
 
 export const dynamic = "force-dynamic";
@@ -47,10 +47,9 @@ export default async function AuthedLayout({
 
   return (
     <ClinicProvider session={ctxSession} clinicas={clinicas}>
-      <div className="min-h-screen flex flex-col">
-        <GlobalHeader />
-        <div className="flex-1 min-h-0 flex flex-col">{children}</div>
-      </div>
+      {/* Fase F piloto: AppShell decide — sidebar vertical en Seguimiento/
+          Envíos, header horizontal en el resto (condición dictada 23-08). */}
+      <AppShell>{children}</AppShell>
       <FyllioCopilot />
     </ClinicProvider>
   );

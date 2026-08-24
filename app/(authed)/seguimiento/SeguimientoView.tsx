@@ -14,12 +14,10 @@
 // La vista vieja (tabs + paneles) vivía aquí; los cierres de presupuesto
 // siguen en /presupuestos hasta que el cierre llegue por la ficha (B3+).
 
-import Link from "next/link";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { CabeceraCola } from "../../components/shared/CabeceraCola";
 import { ColaPorCohortes } from "./ColaPorCohortes";
 import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
-import { Send, ICON_STROKE } from "../../components/icons";
 
 export function SeguimientoView({
   cohorteInicial,
@@ -33,22 +31,10 @@ export function SeguimientoView({
   return (
     <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-background)] overflow-hidden">
       <div className="flex-1 min-h-0 flex flex-col overflow-auto p-4 lg:p-6 gap-4">
-        <header className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <h1 className="font-display text-xl font-semibold tracking-tight text-[var(--color-foreground)]">Seguimiento</h1>
-            <p className="text-xs text-[var(--color-muted)]">
-              Lo que te toca hacer, con lo más urgente arriba.
-            </p>
-          </div>
-          {/* La otra mitad de la cola de trabajo: lo que va a SALIR hoy. */}
-          <Link
-            href="/envios"
-            className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
-          >
-            <Send size={14} strokeWidth={ICON_STROKE} />
-            Envíos
-          </Link>
-        </header>
+        {/* Fase F piloto (23-08): el h1 «Seguimiento», el subtítulo y el
+            botón Envíos MURIERON aquí — los da la barra lateral (la ventana
+            activa y su subpestaña). La ganancia de alto es el objetivo:
+            esta pantalla es una lista, y el alto vale más que el título. */}
 
         {/* El filtro de clínica PERSISTE en localStorage: se puede llegar
             aquí con él puesto sin haberlo tocado en esta sesión, y las cifras
