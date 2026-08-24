@@ -280,7 +280,7 @@ ok("la política es DE LA CLÍNICA: con vencidoDias 14, los 8 días ya no entran
 
 await runWithCliente("DEMO", async () => {
   console.log("\nC · colaDeSeguimiento contra el seed");
-  const base = await colaDeSeguimiento();
+  const base = await colaDeSeguimiento({ ahora: new Date(`${hoy}T12:00:00Z`) });
 
   ok("cada caso en EXACTAMENTE una de las TRES (partición)",
     base.casos.every((x) => ORDEN_COHORTES.includes(x.cohorte)) &&
@@ -335,7 +335,7 @@ await runWithCliente("DEMO", async () => {
   await anclar();
   await registrarEvento({ tipoCaso: "conversacion", casoId: TEL_HUERFANO, evento: "aplazado", claveAplazado: "agenda_disponibilidad", motivoTexto: "pregunta por el sábado", actorNombre: "qa" } as any);
 
-  const tras = await colaDeSeguimiento();
+  const tras = await colaDeSeguimiento({ ahora: new Date(`${hoy}T12:00:00Z`) });
   const casosDelTel = tras.casos.filter((x) => x.telefono === TEL_FIXTURE_LISTO);
   const casoListo = casosDelTel[0];
   ok("DOS presupuestos vivos → UNA card (el caso es la conversación)",
@@ -372,7 +372,7 @@ await runWithCliente("DEMO", async () => {
     evaluacionJson: JSON.stringify({ v: 1, tema: "presupuesto", presupuestoReferidoId: pres200.rows[0].id }),
   } as any);
   await anclar();
-  const trasReferido = await colaDeSeguimiento();
+  const trasReferido = await colaDeSeguimiento({ ahora: new Date(`${hoy}T12:00:00Z`) });
   const casoReferido = trasReferido.casos.find((x) => x.telefono === TEL_FIXTURE_LISTO);
   ok("con juicio del evaluador, el activo es DEL QUE SE HABLA (200) y fuente='conversacion'",
     casoReferido?.importe === 200 && casoReferido.activoFuente === "conversacion",
@@ -386,7 +386,7 @@ await runWithCliente("DEMO", async () => {
     [TEL_HUERFANO],
   );
   await anclar();
-  const tras2 = await colaDeSeguimiento();
+  const tras2 = await colaDeSeguimiento({ ahora: new Date(`${hoy}T12:00:00Z`) });
   const huerfano2 = tras2.casos.find((x) => x.tipo === "conversacion" && x.telefono === TEL_HUERFANO);
   ok("respondida la persona, el aplazado sin entrega SALE de la cola (Mensajería > En curso)",
     huerfano2 == null, huerfano2 ? `sigue como ${huerfano2.cohorte}` : "fuera, correcto");
@@ -421,7 +421,7 @@ await runWithCliente("DEMO", async () => {
     contacto.rows.length === 1 && /no contest/i.test(String(contacto.rows[0].resultado ?? "")) && String(contacto.rows[0].nota ?? "") === "buzón",
     contacto.rows.length ? `${contacto.rows[0].resultado}` : "sin fila");
   await anclar();
-  const tras3 = await colaDeSeguimiento();
+  const tras3 = await colaDeSeguimiento({ ahora: new Date(`${hoy}T12:00:00Z`) });
   ok("con la espera vigente, el caso del teléfono NO está en la cola",
     !tras3.casos.some((x) => x.telefono === TEL_FIXTURE_LISTO),
     tras3.casos.find((x) => x.telefono === TEL_FIXTURE_LISTO)?.cohorte ?? "fuera, correcto");
@@ -467,7 +467,7 @@ await runWithCliente("DEMO", async () => {
     [pacD.rows[0].id, clin, hoy, TEL_DEUDA],
   );
   await anclar();
-  const conCobros = await colaDeSeguimiento();
+  const conCobros = await colaDeSeguimiento({ ahora: new Date(`${hoy}T12:00:00Z`) });
   const casosMerge = conCobros.casos.filter((x) => x.telefono === TEL_MERGE);
   ok("presupuesto vivo + deuda vencida = UN caso (el cobro se ANEXA, jamás una segunda card)",
     casosMerge.length === 1 && casosMerge[0].cobro != null,

@@ -1946,4 +1946,6 @@ verdad: un editor, un vocabulario, un renderizador.
   cambiar dentro del día — el mandamiento 13 habla de umbrales de NEGOCIO en días, y estos son
   plazos operativos de minutos), o los umbrales asumen la granularidad del ancla. La primera parece
   la correcta: sin reloj vivo, «30 minutos» no significa 30 minutos.
-- **Fecha:** 2026-08-23
+- **Fecha:** 2026-08-23 · ✅ **RESUELTA el 2026-08-23** (dictado): reloj VIVO para los plazos
+  operativos (`ahora = new Date()` salvo inyección); lo diario sigue en días de clínica (§13); el
+  QA inyecta su instante fijo (§14) y los fixtures siguen anclados.

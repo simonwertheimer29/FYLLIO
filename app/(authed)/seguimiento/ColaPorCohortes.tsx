@@ -190,7 +190,7 @@ export function ColaPorCohortes({
   const { selectedClinicaId } = useClinic();
   const [casos, setCasos] = useState<Caso[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [filtroTipo, setFiltroTipo] = useState<"todos" | "lead" | "presupuesto">("todos");
+  const [filtroTipo, setFiltroTipo] = useState<"todos" | "lead" | "presupuesto" | "cobro">("todos");
   const [abiertas, setAbiertas] = useState<Set<Cohorte> | null>(null);
   const [desplegado, setDesplegado] = useState<string | null>(null);
   // F5 — registrar un cobro desde la cola: el MISMO PagoModal de la ficha.
@@ -214,7 +214,11 @@ export function ColaPorCohortes({
   const visibles = useMemo(() => {
     let v = casos ?? [];
     if (selectedClinicaId) v = v.filter((c) => c.clinicaId === selectedClinicaId);
-    if (filtroTipo !== "todos") v = v.filter((c) => c.tipo === filtroTipo);
+    // «Cobros» ataca la deuda EN BLOQUE (dictado): entra el caso puro de
+    // cobro Y el caso de conversación con deuda anexada — lo que se
+    // persigue es el pago, viva donde viva.
+    if (filtroTipo === "cobro") v = v.filter((c) => c.cobro != null);
+    else if (filtroTipo !== "todos") v = v.filter((c) => c.tipo === filtroTipo);
     return v;
   }, [casos, selectedClinicaId, filtroTipo]);
 
@@ -253,7 +257,7 @@ export function ColaPorCohortes({
 
       {/* Leads/Presupuestos es FILTRO, no división (dictado). */}
       <div className="flex flex-wrap gap-1.5">
-        {(["todos", "lead", "presupuesto"] as const).map((t) => (
+        {(["todos", "lead", "presupuesto", "cobro"] as const).map((t) => (
           <button
             key={t}
             onClick={() => setFiltroTipo(t)}
@@ -263,7 +267,7 @@ export function ColaPorCohortes({
                 : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
             }`}
           >
-            {t === "todos" ? "Todos" : t === "lead" ? "Leads" : "Presupuestos"}
+            {t === "todos" ? "Todos" : t === "lead" ? "Leads" : t === "presupuesto" ? "Presupuestos" : "Cobros"}
           </button>
         ))}
       </div>

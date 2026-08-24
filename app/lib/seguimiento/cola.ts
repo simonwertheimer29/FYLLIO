@@ -339,13 +339,21 @@ export type ResumenCola = {
   masViejoDias: number | null;
 };
 
-export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
+export async function colaDeSeguimiento(opts?: { hoy?: string; ahora?: Date }): Promise<{
   casos: CasoDeCola[];
   resumen: ResumenCola;
 }> {
   const cliente = requireCliente("colaDeSeguimiento");
-  const hoy = opts?.hoy ?? hoyISO();
-  const ahora = new Date(`${hoy}T12:00:00Z`);
+  // RELOJ VIVO (MEJORAS 111, dictada 23-08): el «ahora» de los plazos
+  // operativos es el instante real — con el ancla vieja de mediodía, una
+  // urgencia de las 15:00 no podía escalar hasta el día siguiente y el
+  // umbral de 30 min no significaba nada. Lo DIARIO (paradoDias, estados de
+  // conversación) sigue contando en días de clínica y no se mueve dentro
+  // del día (§13): solo el reloj fino cobra vida. `ahora` se inyecta desde
+  // el QA (§14) para que los fixtures anclados midan siempre lo mismo;
+  // `hoy` inyectado sin `ahora` conserva el mediodía de antes.
+  const ahora = opts?.ahora ?? (opts?.hoy ? new Date(`${opts.hoy}T12:00:00Z`) : new Date());
+  const hoy = opts?.hoy ?? hoyISO(ahora);
   const dig = (t: string | null | undefined) => String(t ?? "").replace(/[^0-9]/g, "");
 
   // El clasificador VIEJO, con su función real (no una réplica que pierda
