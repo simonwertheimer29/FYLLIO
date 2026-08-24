@@ -123,6 +123,7 @@ export function EstadoPresupuestoFlow({
     return (
       <MotivoPerdidaModal
         patientName={pacienteNombre}
+        presupuestoId={sel?.id}
         onConfirm={confirmarPerdido}
         onCancel={() => setModal(null)}
       />

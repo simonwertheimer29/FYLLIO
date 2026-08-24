@@ -652,6 +652,7 @@ export default function PresupuestosShell({
       {motivoPerdido && (
         <MotivoPerdidaModal
           patientName={motivoPerdido.patientName ?? ""}
+          presupuestoId={motivoPerdido.id}
           onConfirm={(motivo, texto, reactivar) => {
             const { id } = motivoPerdido;
             setMotivoPerdido(null);

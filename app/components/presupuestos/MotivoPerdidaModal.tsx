@@ -1,31 +1,56 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { MotivoPerdida } from "../../lib/presupuestos/types";
-import { Droplet, ICON_STROKE } from "../icons";
+import { cargarJSON } from "../../lib/fetch-json";
+import { sugerirMotivoPerdida, type MotivoDelLog } from "../../lib/agente/motivo-sugerido";
+import { Droplet, Sparkles, ICON_STROKE } from "../icons";
 
-const MOTIVOS: { valor: MotivoPerdida; label: string }[] = [
-  { valor: "precio_alto",           label: "Precio alto" },
-  { valor: "otra_clinica",          label: "Eligió otra clínica" },
-  { valor: "sin_urgencia",          label: "Sin urgencia percibida" },
-  { valor: "necesita_financiacion", label: "Necesita financiación" },
-  { valor: "miedo_tratamiento",     label: "Miedo al tratamiento" },
-  { valor: "no_responde",           label: "No responde tras múltiples intentos" },
-  { valor: "otro",                  label: "Otro (especificar)" },
-];
+import { MOTIVOS_PERDIDA as MOTIVOS } from "../../lib/presupuestos/motivos-perdida";
 
 export default function MotivoPerdidaModal({
   patientName,
+  presupuestoId,
   onConfirm,
   onCancel,
 }: {
   patientName: string;
+  /** F7 — con id, el modal PRE-RELLENA desde el log lo que el agente ya
+   *  recogió (motivo_rechazo / que_le_frena). La persona confirma: la
+   *  columna la escribe ella, una vez — escritor único humano. */
+  presupuestoId?: string;
   onConfirm: (motivo: MotivoPerdida, texto?: string, reactivar?: boolean) => void;
   onCancel: () => void;
 }) {
   const [seleccionado, setSeleccionado] = useState<MotivoPerdida | null>(null);
   const [texto, setTexto] = useState("");
   const [reactivar, setReactivar] = useState(false);
+  // La sugerencia del agente: contexto SIEMPRE que exista; preselección solo
+  // con mapeo léxico inequívoco, y solo si la persona no ha tocado nada aún.
+  const [sugerencia, setSugerencia] = useState<MotivoDelLog | null>(null);
+  const tocadoRef = useRef(false);
+  useEffect(() => {
+    if (!presupuestoId) return;
+    let vivo = true;
+    void (async () => {
+      try {
+        const d = await cargarJSON<{ sugerencia: MotivoDelLog | null }>(
+          `/api/agente/motivo-sugerido?presupuestoId=${encodeURIComponent(presupuestoId)}`,
+        );
+        if (!vivo || !d.sugerencia) return;
+        setSugerencia(d.sugerencia);
+        if (!tocadoRef.current) {
+          const mapeado = sugerirMotivoPerdida(d.sugerencia.frase);
+          if (mapeado) setSeleccionado((prev) => prev ?? mapeado);
+        }
+      } catch {
+        // caída-declarada: sin sugerencia el modal funciona como siempre — el pre-relleno es ayuda, no requisito
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [presupuestoId]);
 
   function handleConfirm() {
     if (!seleccionado) return;
@@ -46,6 +71,17 @@ export default function MotivoPerdidaModal({
           <span className="font-bold text-[var(--color-danger)]">Perdido</span>
         </p>
 
+        {sugerencia && (
+          <div className="mb-3 flex items-start gap-2 rounded-xl bg-[var(--color-accent-soft)] px-3 py-2.5">
+            <Sparkles size={13} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-accent)]" aria-hidden />
+            <p className="text-[11.5px] leading-relaxed text-[var(--color-foreground)]">
+              El agente recogió en la conversación:{" "}
+              <span className="font-medium">«{sugerencia.frase}»</span>
+              {sugerencia.decision ? ` (decisión: ${sugerencia.decision})` : ""}. Confírmalo o corrígelo — lo que se guarda lo decides tú.
+            </p>
+          </div>
+        )}
+
         <div className="space-y-2 mb-4">
           {MOTIVOS.map((m) => (
             <label
@@ -61,7 +97,12 @@ export default function MotivoPerdidaModal({
                 name="motivo"
                 value={m.valor}
                 checked={seleccionado === m.valor}
-                onChange={() => setSeleccionado(m.valor)}
+                onChange={() => {
+                  tocadoRef.current = true;
+                  setSeleccionado(m.valor);
+                  // «Otro» hereda la frase del agente como punto de partida.
+                  if (m.valor === "otro" && sugerencia && texto === "") setTexto(sugerencia.frase);
+                }}
                 className="accent-[var(--color-danger)]"
               />
               <span className="text-xs font-medium text-[var(--color-foreground)]">{m.label}</span>

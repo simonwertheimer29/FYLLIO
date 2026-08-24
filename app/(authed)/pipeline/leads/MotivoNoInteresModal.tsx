@@ -8,19 +8,50 @@
 // libre es lo que rompió el dato en la nº 41— y cada motivo dice si el caso
 // aún se puede rescatar, que es lo que decide dónde vive después.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MOTIVOS_ORDENADOS, MOTIVO_DEF, type MotivoLead } from "../../../lib/leads/motivos";
+import { cargarJSON } from "../../../lib/fetch-json";
+import { sugerirMotivoLead, type MotivoDelLog } from "../../../lib/agente/motivo-sugerido";
+import { Sparkles, ICON_STROKE } from "../../../components/icons";
 
 export function MotivoNoInteresModal({
   nombre,
+  telefono,
   onConfirm,
   onCancel,
 }: {
   nombre: string;
+  /** F7 — con teléfono, el modal PRE-RELLENA desde el log lo que el agente
+   *  ya recogió. La persona confirma; el vocabulario sigue CERRADO. */
+  telefono?: string | null;
   onConfirm: (motivo: MotivoLead) => void;
   onCancel: () => void;
 }) {
   const [seleccionado, setSeleccionado] = useState<MotivoLead | null>(null);
+  const [sugerencia, setSugerencia] = useState<MotivoDelLog | null>(null);
+  const tocadoRef = useRef(false);
+  useEffect(() => {
+    if (!telefono) return;
+    let vivo = true;
+    void (async () => {
+      try {
+        const d = await cargarJSON<{ sugerencia: MotivoDelLog | null }>(
+          `/api/agente/motivo-sugerido?telefono=${encodeURIComponent(telefono)}`,
+        );
+        if (!vivo || !d.sugerencia) return;
+        setSugerencia(d.sugerencia);
+        if (!tocadoRef.current) {
+          const mapeado = sugerirMotivoLead(d.sugerencia.frase);
+          if (mapeado) setSeleccionado((prev) => prev ?? mapeado);
+        }
+      } catch {
+        // caída-declarada: sin sugerencia el modal funciona como siempre — el pre-relleno es ayuda, no requisito
+      }
+    })();
+    return () => {
+      vivo = false;
+    };
+  }, [telefono]);
 
   const reactivables = MOTIVOS_ORDENADOS.filter((m) => MOTIVO_DEF[m].reactivable);
   const descartados = MOTIVOS_ORDENADOS.filter((m) => !MOTIVO_DEF[m].reactivable);
@@ -39,7 +70,10 @@ export function MotivoNoInteresModal({
         name="motivo-no-interes"
         value={m}
         checked={seleccionado === m}
-        onChange={() => setSeleccionado(m)}
+        onChange={() => {
+          tocadoRef.current = true;
+          setSeleccionado(m);
+        }}
         className="accent-[var(--color-danger)] mt-0.5"
       />
       <span>
@@ -66,6 +100,16 @@ export function MotivoNoInteresModal({
           <span className="font-semibold">{nombre}</span> — se moverá a{" "}
           <span className="font-bold text-[var(--color-danger)]">No Interesado</span>
         </p>
+
+        {sugerencia && (
+          <div className="mb-3 flex items-start gap-2 rounded-xl bg-[var(--color-accent-soft)] px-3 py-2.5">
+            <Sparkles size={13} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-accent)]" aria-hidden />
+            <p className="text-[11.5px] leading-relaxed text-[var(--color-foreground)]">
+              El agente recogió en la conversación:{" "}
+              <span className="font-medium">«{sugerencia.frase}»</span>. Confírmalo o corrígelo — lo que se guarda lo decides tú.
+            </p>
+          </div>
+        )}
 
         <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-warning)] mb-1.5">
           Se puede retomar

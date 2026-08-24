@@ -209,6 +209,51 @@ console.log("\nd · contextoParaEntrada: lo recogido consta, lo pendiente con su
   ok("sin pendientes, nada que vigilar", repreguntaPendiente("¿Quieres cita el martes?", []) === null);
 }
 
+// ─── F7 · motivo-sugerido: el pre-relleno del cierre, puro ─────────────────
+{
+  console.log("\n  F7 — motivo sugerido desde el log (puro):");
+  const { extraerMotivoDelLog, sugerirMotivoPerdida, sugerirMotivoLead } =
+    await import("../app/lib/agente/motivo-sugerido");
+
+  const ev = (json: unknown, iso = "2026-08-20T10:00:00Z") =>
+    ({ evaluacionJson: JSON.stringify(json), createdAtISO: iso });
+
+  ok("el ÚLTIMO juicio con motivo manda (recorre hacia atrás)",
+    extraerMotivoDelLog([
+      ev({ camposRecogidos: { presupuesto: { motivo_rechazo: "muy caro" } } }, "2026-08-18T10:00:00Z"),
+      ev({ camposRecogidos: { presupuesto: { motivo_rechazo: "se lo hace en otra clínica" } } }, "2026-08-20T10:00:00Z"),
+    ])?.frase === "se lo hace en otra clínica");
+  ok("motivo_rechazo manda sobre que_le_frena; sin rechazo, el freno vale",
+    extraerMotivoDelLog([ev({ camposRecogidos: { presupuesto: { motivo_rechazo: "caro", que_le_frena: "duda" } } })])?.frase === "caro" &&
+    extraerMotivoDelLog([ev({ camposRecogidos: { presupuesto: { que_le_frena: "quiere consultarlo en casa" } } })])?.frase === "quiere consultarlo en casa");
+  ok("null y «no_aplica» NO son motivo; payload ilegible se ignora sin romper",
+    extraerMotivoDelLog([
+      ev({ camposRecogidos: { presupuesto: { motivo_rechazo: "no_aplica", que_le_frena: null } } }),
+      { evaluacionJson: "{roto", createdAtISO: null },
+    ]) === null);
+  ok("turnos posteriores SIN motivo no borran el último conocido",
+    extraerMotivoDelLog([
+      ev({ camposRecogidos: { presupuesto: { motivo_rechazo: "le da miedo el implante" } } }),
+      ev({ camposRecogidos: { cita: { nombre_completo: "Ana" } } }),
+    ])?.frase === "le da miedo el implante");
+
+  ok("mapeo léxico presupuesto: caro→precio, financiación gana a precio, otra clínica, miedo, sin prisa",
+    sugerirMotivoPerdida("me parece muy caro") === "precio_alto" &&
+    sugerirMotivoPerdida("no puede pagarlo sin financiación") === "necesita_financiacion" &&
+    sugerirMotivoPerdida("se lo hace en otra clínica más barata") === "otra_clinica" &&
+    sugerirMotivoPerdida("le da pánico el torno") === "miedo_tratamiento" &&
+    sugerirMotivoPerdida("dice que de momento no, más adelante") === "sin_urgencia");
+  ok("CONSERVADOR: una frase ambigua no preselecciona nada",
+    sugerirMotivoPerdida("no le convence") === null &&
+    sugerirMotivoPerdida("prefiere pensarlo con su mujer") === null);
+  ok("mapeo léxico lead: precio, otra clínica, horarios, ya-no-necesita; ambiguo → null",
+    sugerirMotivoLead("es muy caro para él") === "Precio" &&
+    sugerirMotivoLead("se fue a otra clínica") === "Otra_Clinica" &&
+    sugerirMotivoLead("no le cuadra el horario") === "Horarios" &&
+    sugerirMotivoLead("ya se lo hizo en verano") === "Ya_No_Necesita" &&
+    sugerirMotivoLead("no contesta bien") === null);
+}
+
 await limpiar();
 console.log("\n  ✓ mini-mundo y eventos limpiados");
 await app.end();

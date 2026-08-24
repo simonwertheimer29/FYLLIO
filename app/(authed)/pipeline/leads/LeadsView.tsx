@@ -613,6 +613,7 @@ export function LeadsView({
       {pendingNoInteres && (
         <MotivoNoInteresModal
           nombre={pendingNoInteres.lead.nombre}
+          telefono={pendingNoInteres.lead.telefono}
           onCancel={() => setPendingNoInteres(null)}
           onConfirm={(motivo) => {
             const { lead, destColumn } = pendingNoInteres;

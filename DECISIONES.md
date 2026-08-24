@@ -3403,3 +3403,14 @@ duplicado de cadencias de Ajustes murió — dos editores del mismo almacén era
 esperando; queda el del agente y Ajustes enlaza («donde se ve, no se edita» aplicado a los dos
 lados). Los fixtures rotos del seed de reglas (MEJORAS 110) quedan como están: mueren con el motor
 en B5, no se arreglan.
+
+## 2026-08-24 · F7 — el resultado final y su motivo, del log del agente a la columna que audita Tablas
+El agente ya recogía motivo_rechazo/que_le_frena pero morían en evaluacion_json; la columna la
+escribe la PERSONA al cerrar (B4 sigue muerto). F7 cierra el hueco sin resucitarlo: los dos modales
+de cierre PRE-RELLENAN desde el log (/api/agente/motivo-sugerido, scoping de ficha) — la frase del
+agente se enseña SIEMPRE como contexto identificado («El agente recogió: …»), y la preselección del
+enum es un mapeo léxico CONSERVADOR (ante la duda, nada: un enum equivocado con un clic de confirmar
+es un dato falso en la tabla). Tablas filtra por la columna: /tablas/leads con select de motivo y
+/tablas/presupuestos con el motivo bajo el estado + filtro cuyo vocabulario es el enum ∪ lo presente
+en la base (los textos legacy no se esconden). De regalo: el seed escribe motivo_perdida fuera del
+enum (MEJORAS 112, mismo patrón que la 110). Con F7 la fase F queda COMPLETA.

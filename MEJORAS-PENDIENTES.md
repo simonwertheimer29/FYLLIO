@@ -1949,3 +1949,13 @@ verdad: un editor, un vocabulario, un renderizador.
 - **Fecha:** 2026-08-23 · ✅ **RESUELTA el 2026-08-23** (dictado): reloj VIVO para los plazos
   operativos (`ahora = new Date()` salvo inyección); lo diario sigue en días de clínica (§13); el
   QA inyecta su instante fijo (§14) y los fixtures siguen anclados.
+
+## 112. El seed demo escribe motivo_perdida FUERA del enum (texto libre)
+- **Qué es:** los perdidos del seed llevan `motivo_perdida` = «Precio», «Cambió de opinión»,
+  «Se fue a otra clínica», «Sin respuesta tras 3 contactos» — texto libre, no el enum del modal
+  (`precio_alto`, `otra_clinica`…). Mandamiento 15 (el seed respeta el vocabulario real), el mismo
+  patrón que la 110. Lo destapó el filtro por motivo de F7: filtrar por el enum daba vacío en la
+  demo. Mitigado en la UI: el filtro de /tablas/presupuestos lista el enum ∪ los valores presentes
+  (también cubre datos legacy reales), y la celda enseña el texto tal cual.
+- **El arreglo:** demo-seed escribe el enum (y la invariante del seed lo comprueba, §15).
+- **Fecha:** 2026-08-24

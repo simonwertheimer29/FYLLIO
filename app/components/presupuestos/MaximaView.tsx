@@ -17,6 +17,7 @@ import { hoyISO, fechaClinica } from "../../lib/time";
 import { type RangoKanban } from "../shared/RangoTemporal";
 import { seVeConRango } from "../../lib/presupuestos/pipeline";
 import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
+import { MOTIVOS_PERDIDA, labelMotivoPerdida } from "../../lib/presupuestos/motivos-perdida";
 import { eur } from "../shared/Cifra";
 
 // ─── Filter pill categories ─────────────────────────────────────────────────
@@ -89,6 +90,8 @@ export default function MaximaView({
   // (selectedClinicaNombre). Este Shell filtra por `p.clinica === nombre`.
   // Sprint 15 Bloque 6 — initial state lee ?doctor= del URL para que el
   // link "Menor tasa: Dr. X" del CommandCenter pre-filtre la vista.
+  // F7 — Tablas audita el RESULTADO: filtro por la columna de motivo.
+  const [filtroMotivo, setFiltroMotivo] = useState("");
   const [filtroDoctor, setFiltroDoctor] = useState(() => {
     if (typeof window === "undefined") return "";
     return new URLSearchParams(window.location.search).get("doctor") ?? "";
@@ -149,6 +152,13 @@ export default function MaximaView({
     if (filtroDoctor) {
       items = items.filter((p) => p.doctor === filtroDoctor);
     }
+    if (filtroMotivo) {
+      items = items.filter((p) =>
+        filtroMotivo === "sin_motivo"
+          ? p.estado === "PERDIDO" && !p.motivoPerdida
+          : p.motivoPerdida === filtroMotivo,
+      );
+    }
     // Treatment filter
     if (filtroTratamiento) {
       items = items.filter((p) => p.treatments.some((t) => t === filtroTratamiento));
@@ -187,7 +197,7 @@ export default function MaximaView({
     });
 
     return sorted;
-  }, [data, enRango, selectedClinicaNombre, filtroDoctor, filtroTratamiento, pillActiva, searchQuery, sortField, sortDir]);
+  }, [data, enRango, selectedClinicaNombre, filtroDoctor, filtroMotivo, filtroTratamiento, pillActiva, searchQuery, sortField, sortDir]);
 
   // ─── Pill counts ────────────────────────────────────────────────────────────
 
@@ -318,6 +328,29 @@ export default function MaximaView({
           {data.tratamientosUnicos.map((t) => (
             <option key={t} value={t}>{t}</option>
           ))}
+        </select>
+
+        {/* Motivo de pérdida (F7 — el resultado se audita por columna). Las
+            opciones son el vocabulario REAL: el enum del modal ∪ lo que haya
+            escrito en la base (datos legacy con texto libre) — un filtro que
+            solo lista el enum ESCONDE los valores viejos. */}
+        <select
+          value={filtroMotivo}
+          onChange={(e) => setFiltroMotivo(e.target.value)}
+          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-xs text-[var(--color-muted)] outline-none focus:border-[var(--color-accent)]"
+        >
+          <option value="">Motivo de pérdida: todos</option>
+          {MOTIVOS_PERDIDA.map((m) => (
+            <option key={m.valor} value={m.valor}>{m.label}</option>
+          ))}
+          {[...new Set(
+            (data?.presupuestos ?? [])
+              .map((p) => p.motivoPerdida as string | undefined)
+              .filter((v): v is string => !!v && !MOTIVOS_PERDIDA.some((m) => m.valor === v)),
+          )].sort().map((v) => (
+            <option key={v} value={v}>{v}</option>
+          ))}
+          <option value="sin_motivo">Perdidos sin motivo</option>
         </select>
 
         {/* Search */}
@@ -461,6 +494,15 @@ export default function MaximaView({
                     <StatePill variant={ESTADO_VISUAL_VARIANTE[p.estadoVisual]}>
                       {p.estadoVisual}
                     </StatePill>
+                    {/* F7 — el resultado lleva su PORQUÉ al lado: sin el
+                        motivo, un «Perdido» no se puede auditar. */}
+                    {p.estado === "PERDIDO" && (
+                      <p className="mt-1 text-[10.5px] leading-tight text-[var(--color-muted)]" title={p.motivoPerdidaTexto ?? undefined}>
+                        {p.motivoPerdida
+                          ? `${labelMotivoPerdida(p.motivoPerdida)}${p.motivoPerdidaTexto ? ` — ${p.motivoPerdidaTexto}` : ""}`
+                          : "sin motivo registrado"}
+                      </p>
+                    )}
                   </td>
                   {/* Última acción */}
                   <td className="truncate px-3 py-2.5 text-[var(--color-muted)]">

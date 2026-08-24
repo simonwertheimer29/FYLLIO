@@ -13,7 +13,7 @@ import { useMemo, useState } from "react";
 import { useClinic } from "../../../lib/context/ClinicContext";
 import { AvisoFiltroClinica } from "../../../components/shared/AvisoFiltroClinica";
 import { Card } from "../../../components/ui/Card";
-import { labelMotivo } from "../../../lib/leads/motivos";
+import { labelMotivo, MOTIVOS_ORDENADOS, MOTIVO_LEGACY } from "../../../lib/leads/motivos";
 import type { Lead } from "../../pipeline/leads/types";
 
 type Resultado = "en_curso" | "convertido" | "no_interesado";
@@ -43,11 +43,20 @@ export function TablaLeadsView({ leads }: { leads: Lead[] }) {
   const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
   const [search, setSearch] = useState("");
   const [filtro, setFiltro] = useState<"todos" | Resultado>("todos");
+  // F7 — Tablas filtra por la COLUMNA de motivo (el log queda para la ficha).
+  const [filtroMotivo, setFiltroMotivo] = useState<string>("todos");
 
   const visibles = useMemo(() => {
     let out = leads;
     if (selectedClinicaId) out = out.filter((l) => l.clinicaId === selectedClinicaId);
     if (filtro !== "todos") out = out.filter((l) => resultadoDe(l) === filtro);
+    if (filtroMotivo !== "todos") {
+      out = out.filter((l) =>
+        filtroMotivo === "sin_motivo"
+          ? resultadoDe(l) === "no_interesado" && !l.motivoNoInteres
+          : l.motivoNoInteres === filtroMotivo,
+      );
+    }
     const q = search.trim().toLowerCase();
     if (q) {
       out = out.filter((l) =>
@@ -57,7 +66,7 @@ export function TablaLeadsView({ leads }: { leads: Lead[] }) {
     }
     // Auditoría: lo más reciente primero, orden estable.
     return [...out].sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1));
-  }, [leads, selectedClinicaId, filtro, search]);
+  }, [leads, selectedClinicaId, filtro, filtroMotivo, search]);
 
   const totales = useMemo(() => {
     const base = selectedClinicaId
@@ -128,6 +137,19 @@ export function TablaLeadsView({ leads }: { leads: Lead[] }) {
             </button>
           ))}
         </div>
+        <select
+          value={filtroMotivo}
+          onChange={(e) => setFiltroMotivo(e.target.value)}
+          aria-label="Filtrar por motivo"
+          className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[11px] font-semibold text-[var(--color-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+        >
+          <option value="todos">Motivo: todos</option>
+          {MOTIVOS_ORDENADOS.map((m) => (
+            <option key={m} value={m}>{labelMotivo(m)}</option>
+          ))}
+          <option value={MOTIVO_LEGACY}>{labelMotivo(MOTIVO_LEGACY)}</option>
+          <option value="sin_motivo">Sin motivo registrado</option>
+        </select>
         <input
           type="search"
           placeholder="Buscar por nombre, teléfono o tratamiento…"

@@ -785,6 +785,7 @@ export function LeadAccionPanel({
       {pidiendoMotivo && (
         <MotivoNoInteresModal
           nombre={lead.nombre}
+          telefono={lead.telefono}
           onCancel={() => setPidiendoMotivo(false)}
           onConfirm={(motivo) => {
             setPidiendoMotivo(false);

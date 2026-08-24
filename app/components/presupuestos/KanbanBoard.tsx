@@ -582,6 +582,7 @@ export default function KanbanBoard({
       {pendingPerdido && pendingPerdidoCard && (
         <MotivoPerdidaModal
           patientName={pendingPerdidoCard.patientName}
+          presupuestoId={pendingPerdido.id}
           onConfirm={handleConfirmPerdido}
           onCancel={() => setPendingPerdido(null)}
         />
