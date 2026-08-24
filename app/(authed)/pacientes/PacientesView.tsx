@@ -407,7 +407,12 @@ export function PacientesView({
   }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-background)] p-6 gap-4 overflow-auto">
+    // Página que FLUYE (23-08): el scroll lo pone el wrapper del shell. El
+    // `flex-1 min-h-0 overflow-auto` del layout viejo la convertía en columna
+    // de alto fijo, y la card de la tabla —flex item con overflow-hidden, que
+    // ANULA su altura mínima de contenido— se encogía al hueco restante y
+    // RECORTABA la tabla en vez de generar scroll (medido: 2.617px→397px).
+    <div className="flex flex-col bg-[var(--color-background)] p-6 gap-4">
       <header>
         <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
           Pacientes
