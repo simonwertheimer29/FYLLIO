@@ -17,6 +17,7 @@ import { eur } from "./Cifra";
 
 type Resumen = {
   dineroParado: number;
+  dineroCobros: number;
   leadsSinImporte: number;
   masViejoDias: number | null;
   porCohorte: Record<string, number>;
@@ -60,6 +61,13 @@ export function CabeceraCola() {
             <>
               <h2 className="font-display text-4xl font-bold mt-2 tracking-tight tabular-nums text-[var(--color-foreground)]">
                 {eur(resumen.dineroParado)}
+                {/* F5 — DOS bolsillos: el cobro vencido no es presupuesto por
+                    cerrar; se dice aparte, jamás sumado. */}
+                {resumen.dineroCobros > 0 && (
+                  <span className="ml-2 text-xl font-semibold text-[var(--color-danger)]">
+                    + {eur(resumen.dineroCobros)} vencidos
+                  </span>
+                )}
                 {resumen.leadsSinImporte > 0 && (
                   <span className="ml-2 text-xl font-semibold text-[var(--color-muted)]">
                     + {resumen.leadsSinImporte} lead{resumen.leadsSinImporte !== 1 ? "s" : ""}

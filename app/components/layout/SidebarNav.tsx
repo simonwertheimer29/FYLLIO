@@ -58,10 +58,6 @@ const ITEMS: Item[] = [
     hijos: [
       { label: "Pendientes", href: "/seguimiento" },
       { label: "Envíos", href: "/envios" },
-      // F4b: la COLA de cobros (Actuar) cuelga aquí temporalmente — F5 la
-      // funde en las cohortes y esta entrada muere. Sin ella, al llevarse
-      // Tablas el Registro, la cola quedaba inalcanzable desde la barra.
-      { label: "Cobros", href: "/cobros" },
     ],
   },
   {

@@ -27,6 +27,7 @@ import { DateTime } from "luxon";
 import { runWithCliente } from "../app/lib/airtable";
 import {
   cohorteDeCaso,
+  cohorteDeCobro,
   colaDeSeguimiento,
   ORDEN_COHORTES,
   UMBRAL_FUERA_DE_PLAZO_MIN,
@@ -80,6 +81,39 @@ ok("desde de madrugada: el reloj arranca cuando abre (mié 03:00 → mié 10:00 
 console.log("\nB · cohorteDeCaso: solo entra lo que exige persona; Fuera de plazo escala");
 
 const hoy = hoyISO();
+
+// EL RELOJ DEL FIXTURE SE FIJA (23-08, §14): la cola ancla su «ahora» a las
+// T12:00Z del día, pero registrarEvento escribe con el reloj real — corrido
+// por la MAÑANA, «entregado ahora mismo» medía 300 min laborables y
+// escalaba a Fuera de plazo (flake que solo existía antes de mediodía; por
+// la tarde los minutos daban 0 y nadie lo vio). `anclar()` re-escribe los
+// created_at de TODOS los eventos del fixture a la ventana 11:00–11:59Z
+// CONSERVANDO su orden relativo: ninguno mide más de 60 min laborables y
+// el orden derivado→resuelto→espera sigue significando lo mismo. Se llama
+// antes de CADA lectura de la cola.
+// (los ids son uuid — sin orden de inserción: solo se anclan los eventos
+//  NUEVOS, detrás de los ya anclados, y el orden real se conserva.)
+let anclados = 0;
+const anclar = async () => {
+  const admin = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL_ADMIN, ssl: { rejectUnauthorized: false } });
+  await admin.connect();
+  const nuevos = await admin.query(
+    `select id from eventos_automatizacion
+     where cliente='DEMO' and caso_id = any($2)
+       and created_at not between ($1 || 'T11:00:00Z')::timestamptz and ($1 || 'T11:59:59Z')::timestamptz
+     order by created_at asc`,
+    [hoy, [TEL_FIXTURE_LISTO, TEL_HUERFANO, TEL_MERGE, TEL_DEUDA]],
+  );
+  for (const fila of nuevos.rows) {
+    anclados++;
+    await admin.query(
+      `update eventos_automatizacion set created_at = ($1 || 'T11:00:00Z')::timestamptz + ($2 * interval '10 seconds') where id = $3`,
+      [hoy, anclados, fila.id],
+    );
+  }
+  await admin.end();
+};
+
 const c = (e: Partial<EntradaCohorte> & Pick<EntradaCohorte, "conversacion">, reloj?: RelojDePlazos) =>
   cohorteDeCaso({ tipoCaso: "presupuesto", hoy, ...e }, reloj);
 
@@ -193,15 +227,18 @@ async function q(texto: string, params?: unknown[]) {
 
 const TEL_FIXTURE_LISTO = "+34611998031"; // paciente propio de este QA
 const TEL_HUERFANO = "+34611999002"; // huérfana del seed (Mónica)
+const TEL_MERGE = "+34611998032"; // F5: presupuesto vivo + deuda = UN caso
+const TEL_DEUDA = "+34611998033"; // F5: deuda sin conversación = caso "cobro"
 
 async function limpiar() {
   const admin = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL_ADMIN, ssl: { rejectUnauthorized: false } });
   await admin.connect();
-  await admin.query(`delete from eventos_automatizacion where cliente='DEMO' and caso_id = any($1)`, [[TEL_FIXTURE_LISTO, TEL_HUERFANO]]);
+  await admin.query(`delete from eventos_automatizacion where cliente='DEMO' and caso_id = any($1)`, [[TEL_FIXTURE_LISTO, TEL_HUERFANO, TEL_MERGE, TEL_DEUDA]]);
   await admin.end();
-  const pacs = await q(`select id from pacientes where telefono=$1`, [TEL_FIXTURE_LISTO]);
+  const pacs = await q(`select id from pacientes where telefono = any($1)`, [[TEL_FIXTURE_LISTO, TEL_MERGE, TEL_DEUDA]]);
   for (const p of pacs.rows) {
     await q(`delete from contactos_presupuesto where presupuesto_id in (select id from presupuestos where paciente_id=$1)`, [p.id]);
+    await q(`delete from pagos_paciente where paciente_id=$1`, [p.id]);
     await q(`delete from presupuestos where paciente_id=$1`, [p.id]);
     await q(`delete from pacientes where id=$1`, [p.id]);
   }
@@ -209,6 +246,37 @@ async function limpiar() {
   await q(`delete from mensajes_whatsapp where telefono=$1 and contenido like '[QA-COLA]%'`, [TEL_HUERFANO]);
 }
 await limpiar();
+
+// ─── D · cohorteDeCobro: la política de cobro decide, en DÍAS ──────────────
+//
+// F5: el vencido entra por la política de cobro de la clínica («cuándo
+// considera que un pago está vencido» — 7/30 default), en días de
+// calendario, nunca por el reloj laborable. Estancados y por-vencer NO son
+// cola. La liquidación pactada tampoco: hay acuerdo, no se persigue.
+console.log("\nD · cohorteDeCobro: la política de cobro decide, en días");
+
+const POL = { vencidoDias: 7, fueraDePlazoDias: 30 };
+ok("6 días vencido con política de 7 → NO entra (aún no está vencido para esta clínica)",
+  cohorteDeCobro({ pendiente: 500, diasVencido: 6, tieneLiquidacion: false, politica: POL }) === null);
+ok("7 días exactos → NO entra (el umbral se supera, no se toca)",
+  cohorteDeCobro({ pendiente: 500, diasVencido: 7, tieneLiquidacion: false, politica: POL }) === null);
+ok("8 días → Necesita respuesta, detalle cobro_vencido",
+  (() => { const r = cohorteDeCobro({ pendiente: 500, diasVencido: 8, tieneLiquidacion: false, politica: POL });
+    return r?.cohorte === "necesita_respuesta" && r.detalle === "cobro_vencido"; })());
+ok("31 días → escala a Fuera de plazo (el detalle se conserva)",
+  (() => { const r = cohorteDeCobro({ pendiente: 500, diasVencido: 31, tieneLiquidacion: false, politica: POL });
+    return r?.cohorte === "fuera_de_plazo" && r.detalle === "cobro_vencido"; })());
+ok("30 exactos → sigue en Necesita respuesta (misma regla de superar, no tocar)",
+  cohorteDeCobro({ pendiente: 500, diasVencido: 30, tieneLiquidacion: false, politica: POL })?.cohorte === "necesita_respuesta");
+ok("con liquidación pactada NO entra, ni con 40 días — hay acuerdo, no se persigue",
+  cohorteDeCobro({ pendiente: 500, diasVencido: 40, tieneLiquidacion: true, politica: POL }) === null);
+ok("sin pendiente no hay caso (pagado no es cola), y sin fecha de vencimiento tampoco",
+  cohorteDeCobro({ pendiente: 0, diasVencido: 40, tieneLiquidacion: false, politica: POL }) === null &&
+  cohorteDeCobro({ pendiente: 500, diasVencido: null, tieneLiquidacion: false, politica: POL }) === null);
+ok("la política es DE LA CLÍNICA: con vencidoDias 14, los 8 días ya no entran; con 0, entran al día 1",
+  cohorteDeCobro({ pendiente: 500, diasVencido: 8, tieneLiquidacion: false, politica: { vencidoDias: 14, fueraDePlazoDias: 30 } }) === null &&
+  cohorteDeCobro({ pendiente: 500, diasVencido: 1, tieneLiquidacion: false, politica: { vencidoDias: 0, fueraDePlazoDias: 30 } })?.cohorte === "necesita_respuesta");
+
 
 await runWithCliente("DEMO", async () => {
   console.log("\nC · colaDeSeguimiento contra el seed");
@@ -264,6 +332,7 @@ await runWithCliente("DEMO", async () => {
     [pac.rows[0].id, clin, hoy, TEL_FIXTURE_LISTO],
   );
   await registrarEvento({ tipoCaso: "conversacion", casoId: TEL_FIXTURE_LISTO, evento: "derivado", causaDerivacion: "caso_completo", objetivoActivo: "presupuesto", actorNombre: "qa" } as any);
+  await anclar();
   await registrarEvento({ tipoCaso: "conversacion", casoId: TEL_HUERFANO, evento: "aplazado", claveAplazado: "agenda_disponibilidad", motivoTexto: "pregunta por el sábado", actorNombre: "qa" } as any);
 
   const tras = await colaDeSeguimiento();
@@ -273,7 +342,7 @@ await runWithCliente("DEMO", async () => {
     casosDelTel.length === 1, `cards=${casosDelTel.length}`);
   ok("entregado caso_completo AHORA MISMO → Listos (recién entregado, no escala)",
     casoListo?.cohorte === "listos_para_cerrar" && casoListo.detalle === "entregado_listo",
-    `${casoListo?.cohorte ?? "no está"}`);
+    `${casoListo?.cohorte ?? "no está"} · detalle=${casoListo?.detalle} · cobro=${JSON.stringify(casoListo?.cobro)} · esperandoMin=${casoListo?.esperandoMinLaborables}`);
   ok("sin señal de nadie: fuente 'sin_senal' (el 650 es solo ancla — la ficha lista los dos)",
     casoListo?.importe === 650 && casoListo.activoFuente === "sin_senal",
     `importe=${casoListo?.importe} fuente=${casoListo?.activoFuente}`);
@@ -302,6 +371,7 @@ await runWithCliente("DEMO", async () => {
     actorNombre: "qa", mensajeId: "qa_cola_referido_1",
     evaluacionJson: JSON.stringify({ v: 1, tema: "presupuesto", presupuestoReferidoId: pres200.rows[0].id }),
   } as any);
+  await anclar();
   const trasReferido = await colaDeSeguimiento();
   const casoReferido = trasReferido.casos.find((x) => x.telefono === TEL_FIXTURE_LISTO);
   ok("con juicio del evaluador, el activo es DEL QUE SE HABLA (200) y fuente='conversacion'",
@@ -315,6 +385,7 @@ await runWithCliente("DEMO", async () => {
      values ('DEMO',$1,'Saliente','[QA-COLA] Te contesto enseguida', now(), 'Modo_A_manual','persona')`,
     [TEL_HUERFANO],
   );
+  await anclar();
   const tras2 = await colaDeSeguimiento();
   const huerfano2 = tras2.casos.find((x) => x.tipo === "conversacion" && x.telefono === TEL_HUERFANO);
   ok("respondida la persona, el aplazado sin entrega SALE de la cola (Mensajería > En curso)",
@@ -349,10 +420,69 @@ await runWithCliente("DEMO", async () => {
   ok("el contacto de la llamada quedó registrado (resultado + nota)",
     contacto.rows.length === 1 && /no contest/i.test(String(contacto.rows[0].resultado ?? "")) && String(contacto.rows[0].nota ?? "") === "buzón",
     contacto.rows.length ? `${contacto.rows[0].resultado}` : "sin fila");
+  await anclar();
   const tras3 = await colaDeSeguimiento();
   ok("con la espera vigente, el caso del teléfono NO está en la cola",
     !tras3.casos.some((x) => x.telefono === TEL_FIXTURE_LISTO),
     tras3.casos.find((x) => x.telefono === TEL_FIXTURE_LISTO)?.cohorte ?? "fuera, correcto");
+});
+
+// ── F5 · cobros en la cola: merge por conversación y caso puro ────────────
+await runWithCliente("DEMO", async () => {
+  console.log("\n  F5 — cobros vencidos en la cola:");
+  const clin = (await q(`select id from clinicas where nombre ilike '%norte%' limit 1`)).rows[0].id;
+  // MERGE: presupuesto vivo + deuda vencida (15 d con la política default
+  // 7/30) en el MISMO teléfono → UNA card con el cobro ANEXADO, y la
+  // cohorte se queda con la peor (listos vs NR-cobro → NR).
+  const pacM = await q(
+    `insert into pacientes (cliente, nombre, telefono, clinica_id, consentimiento_whatsapp, activo)
+     values ('DEMO','QA Cobro Merge',$1,$2,true,true) returning id`,
+    [TEL_MERGE, clin],
+  );
+  await q(
+    `insert into presupuestos (cliente, paciente_id, clinica_id, tratamiento_nombre, estado, importe, fecha, fecha_alta, doctor, paciente_telefono, contact_count)
+     values ('DEMO',$1,$2,'Implante unitario','PRESENTADO',1200,$3,$3,'Dra. QA',$4,1)`,
+    [pacM.rows[0].id, clin, hoy, TEL_MERGE],
+  );
+  await q(
+    `insert into presupuestos (cliente, paciente_id, clinica_id, tratamiento_nombre, estado, importe, fecha, fecha_alta, fecha_aceptado, doctor, paciente_telefono, contact_count)
+     values ('DEMO',$1,$2,'Endodoncia previa','ACEPTADO',1000,($3::date - 105),($3::date - 105),($3::date - 105),'Dra. QA',$4,1)`,
+    [pacM.rows[0].id, clin, hoy, TEL_MERGE],
+  );
+  await q(
+    `insert into pagos_paciente (cliente, paciente_id, fecha_pago, importe, metodo, tipo)
+     values ('DEMO',$1,($2::date - 100),100,'Tarjeta','Senal')`,
+    [pacM.rows[0].id, hoy],
+  );
+  await registrarEvento({ tipoCaso: "conversacion", casoId: TEL_MERGE, evento: "derivado", causaDerivacion: "caso_completo", objetivoActivo: "presupuesto", actorNombre: "qa" } as any);
+  // CASO PURO: deuda vencida sin conversación ni caso — entra sola.
+  const pacD = await q(
+    `insert into pacientes (cliente, nombre, telefono, clinica_id, consentimiento_whatsapp, activo)
+     values ('DEMO','QA Solo Deuda',$1,$2,true,true) returning id`,
+    [TEL_DEUDA, clin],
+  );
+  await q(
+    `insert into presupuestos (cliente, paciente_id, clinica_id, tratamiento_nombre, estado, importe, fecha, fecha_alta, fecha_aceptado, doctor, paciente_telefono, contact_count)
+     values ('DEMO',$1,$2,'Corona','ACEPTADO',800,($3::date - 100),($3::date - 100),($3::date - 100),'Dra. QA',$4,1)`,
+    [pacD.rows[0].id, clin, hoy, TEL_DEUDA],
+  );
+  await anclar();
+  const conCobros = await colaDeSeguimiento();
+  const casosMerge = conCobros.casos.filter((x) => x.telefono === TEL_MERGE);
+  ok("presupuesto vivo + deuda vencida = UN caso (el cobro se ANEXA, jamás una segunda card)",
+    casosMerge.length === 1 && casosMerge[0].cobro != null,
+    `cards=${casosMerge.length} cobro=${JSON.stringify(casosMerge[0]?.cobro)}`);
+  ok("la deuda del merge es la real (1000 aceptado − 100 pagado = 900) y lleva sus días de vencido",
+    casosMerge[0]?.cobro?.pendiente === 900 && (casosMerge[0]?.cobro?.diasVencido ?? 0) >= 14);
+  ok("la cohorte se queda con LA PEOR: el listos-para-cerrar sube a Necesita respuesta por el cobro",
+    casosMerge[0]?.cohorte === "necesita_respuesta" && casosMerge[0]?.detalle === "cobro_vencido");
+  const casoDeuda = conCobros.casos.find((x) => x.telefono === TEL_DEUDA);
+  ok("la deuda SIN conversación crea su caso tipo «cobro» — sin cadencia de cobro, si no entra muere invisible",
+    casoDeuda?.tipo === "cobro" && casoDeuda.cohorte === "necesita_respuesta" && casoDeuda.detalle === "cobro_vencido" &&
+      casoDeuda.cobro?.pendiente === 800);
+  ok("DOS bolsillos en el resumen: dineroCobros suma las deudas y NO se mezcla con dineroParado",
+    conCobros.resumen.dineroCobros >= 1700 &&
+      conCobros.resumen.dineroParado === conCobros.resumen.dineroPresupuestos);
 });
 
 await limpiar();

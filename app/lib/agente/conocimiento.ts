@@ -96,6 +96,16 @@ export type PlazosRespuesta = {
   leadNuevoMin: number | null;
   /** null = el default de la casa (L-V 9:00–20:00). */
   horario: HorarioLaboral | null;
+  /** LA POLÍTICA DE COBRO (F5, dictado): no es una preferencia de plazo —
+   *  es cuándo considera ESTA clínica que un pago está VENCIDO: N días
+   *  después del plazo de pago sin liquidación, el caso entra en la cola.
+   *  Default 7 · tope 0–60. En DÍAS de calendario de la clínica, no en
+   *  minutos laborables: el vencimiento es del dinero, no de una persona
+   *  esperando en horario. */
+  cobroVencidoDias: number | null;
+  /** Cuándo un vencido escala a Fuera de plazo. Default 30 · tope 2–180,
+   *  y siempre mayor que cobroVencidoDias. */
+  cobroFueraDePlazoDias: number | null;
 };
 
 export type ConocimientoClinica = {
@@ -123,6 +133,8 @@ export const PLAZOS_VACIOS: PlazosRespuesta = {
   cierreMin: null,
   leadNuevoMin: null,
   horario: null,
+  cobroVencidoDias: null,
+  cobroFueraDePlazoDias: null,
 };
 
 export const CONOCIMIENTO_VACIO: ConocimientoClinica = {
@@ -307,6 +319,25 @@ export function parseConocimiento(raw: string | null | undefined): ConocimientoC
     }
     return v as number;
   };
+  const dias = (clave: string, min: number, max: number): number | null => {
+    const v = plRaw[clave] ?? null;
+    if (v === null) return null;
+    if (!Number.isInteger(v) || (v as number) < min || (v as number) > max) {
+      throw new ConocimientoIlegibleError(`${clave} fuera de tope (${min}–${max} días)`, raw);
+    }
+    return v as number;
+  };
+  const cobroVencidoDias = dias("cobroVencidoDias", 0, 60);
+  const cobroFueraDePlazoDias = dias("cobroFueraDePlazoDias", 2, 180);
+  if (
+    cobroVencidoDias != null && cobroFueraDePlazoDias != null &&
+    cobroFueraDePlazoDias <= cobroVencidoDias
+  ) {
+    throw new ConocimientoIlegibleError(
+      "la escalada de cobro debe ser posterior al vencido (cobroFueraDePlazoDias > cobroVencidoDias)",
+      raw,
+    );
+  }
   const horRaw = plRaw["horario"] ?? null;
   let horario: HorarioLaboral | null = null;
   if (horRaw !== null) {
@@ -367,7 +398,23 @@ export function parseConocimiento(raw: string | null | undefined): ConocimientoC
       cierreMin: minutos("cierreMin", 60, 960),
       leadNuevoMin: minutos("leadNuevoMin", 15, 240),
       horario,
+      cobroVencidoDias,
+      cobroFueraDePlazoDias,
     },
+  };
+}
+
+/** La política de cobro RESUELTA (defaults 7/30 dictados). Pura — la testea
+ *  qa:conocimiento; la cola solo hace el wiring. */
+export const POLITICA_COBRO_DEFAULT = { vencidoDias: 7, fueraDePlazoDias: 30 } as const;
+
+export function politicaCobro(c: ConocimientoClinica): {
+  vencidoDias: number;
+  fueraDePlazoDias: number;
+} {
+  return {
+    vencidoDias: c.plazos.cobroVencidoDias ?? POLITICA_COBRO_DEFAULT.vencidoDias,
+    fueraDePlazoDias: c.plazos.cobroFueraDePlazoDias ?? POLITICA_COBRO_DEFAULT.fueraDePlazoDias,
   };
 }
 

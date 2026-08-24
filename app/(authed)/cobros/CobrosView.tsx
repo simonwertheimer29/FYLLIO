@@ -13,14 +13,12 @@ import { useClinic } from "../../lib/context/ClinicContext";
 import { Skeleton, TableRowSkeleton } from "../../components/ui/Skeleton";
 import { Card } from "../../components/ui/Card";
 import { ColaTabs } from "../../components/shared/ColaTabs";
-import { SegmentedToggle } from "../../components/shared/SegmentedToggle";
 import { Cifra, Comparativa } from "../../components/shared/Cifra";
 import { ErrorState, EmptyState } from "../../components/ui/Feedback";
 import { StatePill, type StatePillVariant } from "../../components/ui/StatePill";
 import { AccionCard } from "../../components/shared/AccionCard";
 import { PagoModal } from "../../components/pacientes/PagoModal";
 import { Inbox, ICON_STROKE } from "../../components/icons";
-import { CobroPanel } from "./CobroPanel";
 import { type CobroItem, type CobrosApiResponse, type EstadoCobro, copyEstado, fmtEUR } from "./types";
 import { fechaClinica } from "../../lib/time";
 import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
@@ -48,7 +46,7 @@ const ESTADO_VARIANT: Record<EstadoCobro, StatePillVariant> = {
 const SELECT_CLASS =
   "text-xs px-3 py-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]";
 
-export function CobrosView({ vistaFija }: { vistaFija: "actuar" | "registro" }) {
+export function CobrosView() {
   const { selectedClinicaId, selectedClinicaNombre, setSelectedClinicaId } = useClinic();
   // Con clínica elegida la pantalla cambia de ámbito y hay que decirlo.
   const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
@@ -56,19 +54,7 @@ export function CobrosView({ vistaFija }: { vistaFija: "actuar" | "registro" }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const [abierto, setAbierto] = useState<CobroItem | null>(null);
-  // Cards atenuadas tras actuar (además de las contactadas ≤3d del server).
-  const [actuados, setActuados] = useState<Set<string>>(new Set());
   // Actuar / Registro — toggle segmentado en cabecera (patrón Seguimiento).
-  // ?vista=registro (el "Ver todos →" de la columna Aceptado del kanban)
-  // abre directamente el Registro.
-  // F4b (fase F): el Registro vive en /tablas/cobros y la cola en /cobros
-  // (hasta que F5 la funda en Seguimiento) — cada página fija su pestaña y
-  // el conmutador murió. El estado queda porque las dos zonas lo comparten.
-  const [pestana] = useState<"actuar" | "registro">(vistaFija);
-  // Sub-pestañas de Actuar (mismo componente): un bucket a la vista, la
-  // visión de conjunto vive en los contadores + Σ€ de cada pestaña.
-  const [bucket, setBucket] = useState<"vencidos" | "por_vencer" | "estancados">("vencidos");
   // Zona 2 · Registro — filtros de presentación (el payload ya es el scope).
   // ?urgencia=vencido (link del dashboard de Red) preselecciona el estado.
   const [filtroEstado, setFiltroEstado] = useState<"todos" | EstadoCobro>(() => {
@@ -103,32 +89,6 @@ export function CobrosView({ vistaFija }: { vistaFija: "actuar" | "registro" }) 
 
   const kpis = data?.kpis;
 
-  // ── Zona 1: buckets por urgencia, contactados recientes al final ──────
-  const buckets = useMemo(() => {
-    const items = data?.items ?? [];
-    const contactadoReciente = (i: CobroItem) =>
-      actuados.has(i.pacienteId) || (i.diasDesdeUltimaContacto ?? Infinity) <= 3 ? 1 : 0;
-    const conPenalizacion = (arr: CobroItem[], cmp: (a: CobroItem, b: CobroItem) => number) =>
-      [...arr].sort((a, b) => contactadoReciente(a) - contactadoReciente(b) || cmp(a, b));
-    return {
-      vencidos: conPenalizacion(
-        items.filter((i) => i.urgencia === "vencido"),
-        (a, b) => (b.diasVencido ?? 0) - (a.diasVencido ?? 0),
-      ),
-      porVencer: conPenalizacion(
-        items.filter((i) => i.urgencia === "por_vencer"),
-        (a, b) => (a.diasParaVencer ?? 9999) - (b.diasParaVencer ?? 9999),
-      ),
-      estancados: conPenalizacion(
-        items.filter((i) => i.urgencia === "estancado"),
-        (a, b) => b.pendiente - a.pendiente,
-      ),
-    };
-  }, [data, actuados]);
-
-  const totalActuar =
-    buckets.vencidos.length + buckets.porVencer.length + buckets.estancados.length;
-
   // ── Zona 2: registro filtrado — vencidos primero, luego mayor pendiente ──
   const registro = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -155,10 +115,6 @@ export function CobrosView({ vistaFija }: { vistaFija: "actuar" | "registro" }) 
   const registroVisible = mostrarCobrados
     ? [...registroConPendiente, ...registroCobrados]
     : registroConPendiente;
-
-  function marcarActuado(pacienteId: string) {
-    setActuados((prev) => new Set(prev).add(pacienteId));
-  }
 
   if (error) {
     return (
@@ -187,9 +143,7 @@ export function CobrosView({ vistaFija }: { vistaFija: "actuar" | "registro" }) 
               Cobros
             </h1>
             <p className="text-[13px] text-[var(--color-muted)] mt-0.5">
-              {vistaFija === "registro"
-                ? "El registro completo: cada paciente con su aceptado, su pagado y su pendiente."
-                : "Del presupuesto aceptado al dinero cobrado."}
+              El registro completo: cada paciente con su aceptado, su pagado y su pendiente.
             </p>
           </div>
 
@@ -244,85 +198,11 @@ export function CobrosView({ vistaFija }: { vistaFija: "actuar" | "registro" }) 
         />
       )}
 
-      {/* ── Zona 1 · Actuar ─────────────────────────────────────────── */}
-      {pestana === "actuar" && (
-      <section className="space-y-4">
-        <div>
-          <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">
-            ¿Qué cobro reclamo hoy?
-          </h2>
-          <p className="text-xs text-[var(--color-muted)] mt-0.5">
-            Vencidos primero, luego los que están a punto. Abre la card para
-            leer la conversación y recordar el pago.
-          </p>
-        </div>
+      {/* (F5: la Zona 1 «Actuar» MURIÓ — los vencidos viven en las
+          cohortes de Seguimiento por la política de cobro; estancados y
+          por-vencer son señal de campana. Aquí queda solo el Registro.) */}
 
-        {loading && !data ? (
-          <ColaCobrosSkeleton />
-        ) : (
-          <>
-            {/* Sub-pestañas de bucket — contador + Σ€ en la propia pestaña
-                mantienen la visión de conjunto; un bucket vacío muestra su
-                pestaña con 0, nunca desaparece. */}
-            <ColaTabs
-              tabs={[
-                {
-                  id: "vencidos" as const,
-                  label: `Vencidos · ${buckets.vencidos.length} · ${fmtEUR(sumPendiente(buckets.vencidos))}`,
-                },
-                {
-                  id: "por_vencer" as const,
-                  label: `Por vencer · ${buckets.porVencer.length} · ${fmtEUR(sumPendiente(buckets.porVencer))}`,
-                },
-                {
-                  id: "estancados" as const,
-                  label: `Estancados · ${buckets.estancados.length} · ${fmtEUR(sumPendiente(buckets.estancados))}`,
-                },
-              ]}
-              active={bucket}
-              onChange={setBucket}
-            />
-            {bucket === "vencidos" && (
-              <Bucket
-                items={buckets.vencidos}
-                actuados={actuados}
-                onOpen={setAbierto}
-                emphasis
-                vacio={{
-                  titulo: "Sin cobros vencidos",
-                  hint: "Cuando un pago supere el plazo de su clínica, aparecerá aquí.",
-                }}
-              />
-            )}
-            {bucket === "por_vencer" && (
-              <Bucket
-                items={buckets.porVencer}
-                actuados={actuados}
-                onOpen={setAbierto}
-                vacio={{
-                  titulo: "Nada vence esta semana",
-                  hint: "Los pagos cuyo plazo cumpla en 7 días o menos aparecerán aquí.",
-                }}
-              />
-            )}
-            {bucket === "estancados" && (
-              <Bucket
-                items={buckets.estancados}
-                actuados={actuados}
-                onOpen={setAbierto}
-                vacio={{
-                  titulo: "Sin cobros estancados",
-                  hint: "Presupuestos altos aceptados hace más de 30 días sin ningún pago aparecerán aquí.",
-                }}
-              />
-            )}
-          </>
-        )}
-      </section>
-      )}
-
-      {/* ── Zona 2 · Registro ───────────────────────────────────────── */}
-      {pestana === "registro" && (
+      {/* ── El Registro ─────────────────────────────────────────────── */}
       <section className="space-y-4">
         <div>
           <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">
@@ -485,15 +365,7 @@ export function CobrosView({ vistaFija }: { vistaFija: "actuar" | "registro" }) 
           </div>
         )}
       </section>
-      )}
 
-      {abierto && (
-        <CobroPanel
-          item={abierto}
-          onClose={() => setAbierto(null)}
-          onActuado={marcarActuado}
-        />
-      )}
 
       {/* Registrar cobro — el MISMO PagoModal de la ficha (registro origen:
           el pago). Al terminar se recarga la cola y el registro. */}
@@ -517,82 +389,6 @@ export function CobrosView({ vistaFija }: { vistaFija: "actuar" | "registro" }) 
 function sumPendiente(items: CobroItem[]): number {
   return items.reduce((s, i) => s + i.pendiente, 0);
 }
-
-function Bucket({
-  items,
-  actuados,
-  onOpen,
-  emphasis,
-  vacio,
-}: {
-  items: CobroItem[];
-  actuados: Set<string>;
-  onOpen: (i: CobroItem) => void;
-  /** Máxima urgencia (vencidos): card con más presencia + importe tamaño KPI. */
-  emphasis?: boolean;
-  /** Estado vacío honesto del bucket (la pestaña nunca desaparece). */
-  vacio: { titulo: string; hint: string };
-}) {
-  if (items.length === 0) {
-    return (
-      <EmptyState
-        icon={<Inbox size={24} strokeWidth={ICON_STROKE} />}
-        title={vacio.titulo}
-        hint={vacio.hint}
-      />
-    );
-  }
-  return (
-    <ul className="space-y-1.5">
-      {items.map((it, i) => {
-        const estado = copyEstado(it);
-        const faded =
-          actuados.has(it.pacienteId) || (it.diasDesdeUltimaContacto ?? Infinity) <= 3;
-        // UNA destacada por cola: la primera del orden, y solo si el bucket es
-        // el urgente. Antes `emphasis` iba a las OCHO cards de vencidos —
-        // cuando todas gritan, ninguna destaca (misma doctrina que /red).
-        const destacada = !!emphasis && i === 0 && !faded;
-        return (
-          <li
-            key={it.pacienteId}
-            className="fyllio-fade-in"
-            style={{ animationDelay: `${Math.min(i * 30, 400)}ms` }}
-          >
-            <AccionCard
-              densidad="compacta"
-              borderColor={BORDER[it.urgencia] ?? "var(--color-border)"}
-              faded={faded}
-              emphasis={destacada}
-              title={it.nombre}
-              titleRight={
-                // Un solo peso para el importe en toda la cola: antes la card
-                // destacada lo ponía en 24px junto a un nombre de 14px, y el
-                // número pesaba más que la persona a la que hay que llamar.
-                <span className="font-display font-bold text-base text-[var(--color-danger)] tabular-nums">
-                  {fmtEUR(it.pendiente)}
-                </span>
-              }
-              tags={it.tratamientos.slice(0, 1).map((t) => ({ label: t }))}
-              meta={[
-                it.clinicaNombre,
-                it.doctorNombre,
-                it.diasDesdeUltimaContacto != null
-                  ? `último contacto hace ${it.diasDesdeUltimaContacto}d`
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-              estado={estado}
-              onOpen={() => onOpen(it)}
-            />
-          </li>
-        );
-      })}
-    </ul>
-  );
-}
-
-// ─── Skeletons con la forma real (cards con borde-izq / tabla) ──────────
 
 function ColaCobrosSkeleton() {
   return (

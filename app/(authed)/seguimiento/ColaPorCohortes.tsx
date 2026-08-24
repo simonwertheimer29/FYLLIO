@@ -26,13 +26,14 @@ import { ChatEmbebido } from "./ChatEmbebido";
 import { ErrorState, EmptyState } from "../../components/ui/Feedback";
 import { CardListSkeleton } from "../../components/ui/Skeleton";
 import { eur } from "../../components/shared/Cifra";
+import { PagoModal } from "../../components/pacientes/PagoModal";
 import { ChevronDown, ChevronRight, Inbox, Phone, ICON_STROKE } from "../../components/icons";
 
 // Tipos espejo de la ruta (el servidor es la fuente; aquí solo forma).
 type Cohorte = "necesita_respuesta" | "listos_para_cerrar" | "fuera_de_plazo";
 type Caso = {
   id: string;
-  tipo: "lead" | "presupuesto" | "conversacion";
+  tipo: "lead" | "presupuesto" | "conversacion" | "cobro";
   telefono: string | null;
   nombre: string;
   clinicaId: string | null;
@@ -49,6 +50,9 @@ type Caso = {
   importeTotal: number | null;
   otrosPresupuestos: { id: string; importe: number | null; tratamiento: string | null }[];
   activoFuente: "conversacion" | "proxy" | "sin_senal" | null;
+  /** F5 — el pago vencido del caso: anexado a un caso existente (dos
+   *  objetivos, una card) o el caso entero si no había conversación. */
+  cobro: { pacienteId: string; pendiente: number; diasVencido: number } | null;
 };
 
 const ORDEN: Cohorte[] = ["necesita_respuesta", "listos_para_cerrar", "fuera_de_plazo"];
@@ -67,6 +71,7 @@ const COLOR_COHORTE: Record<Cohorte, string> = {
 };
 
 const ETIQUETA_DETALLE: Record<string, string> = {
+  cobro_vencido: "Pago vencido",
   quebrado: "Necesita criterio",
   paciente_escribio: "Te escribió",
   entregado_urgente: "Urgente del agente",
@@ -80,6 +85,7 @@ const ETIQUETA_TIPO: Record<Caso["tipo"], string> = {
   lead: "Lead",
   presupuesto: "Presupuesto",
   conversacion: "Conversación",
+  cobro: "Cobro",
 };
 
 // MEJORAS 102 — registrar la llamada Y que la cola se entere: «no contesta»
@@ -187,6 +193,8 @@ export function ColaPorCohortes({
   const [filtroTipo, setFiltroTipo] = useState<"todos" | "lead" | "presupuesto">("todos");
   const [abiertas, setAbiertas] = useState<Set<Cohorte> | null>(null);
   const [desplegado, setDesplegado] = useState<string | null>(null);
+  // F5 — registrar un cobro desde la cola: el MISMO PagoModal de la ficha.
+  const [pagoDe, setPagoDe] = useState<Caso | null>(null);
 
   const cargar = useCallback(async () => {
     try {
@@ -333,6 +341,10 @@ export function ColaPorCohortes({
                             <span className="font-display text-sm font-bold tabular-nums text-[var(--color-foreground)]">
                               {eur(caso.importe)}
                             </span>
+                          ) : caso.tipo === "cobro" && caso.cobro ? (
+                            <span className="font-display text-sm font-bold tabular-nums text-[var(--color-danger)]">
+                              {eur(caso.cobro.pendiente)}
+                            </span>
                           ) : undefined
                         }
                         tags={[
@@ -345,6 +357,12 @@ export function ColaPorCohortes({
                             label: `+ otro de ${o.importe != null ? eur(o.importe) : (o.tratamiento ?? "?")}`,
                             tone: "neutral" as const,
                           })),
+                          ...(caso.cobro && caso.tipo !== "cobro"
+                            ? [{ label: `+ pago vencido: ${eur(caso.cobro.pendiente)} (hace ${caso.cobro.diasVencido} d)`, tone: "rose" as const }]
+                            : []),
+                          ...(caso.tipo === "cobro" && caso.cobro
+                            ? [{ label: `vencido hace ${caso.cobro.diasVencido} días`, tone: "rose" as const }]
+                            : []),
                           ...(caso.enEspera ? [{ label: "En espera pactada", tone: "rose" as const }] : []),
                         ]}
                         meta={[
@@ -360,7 +378,9 @@ export function ColaPorCohortes({
                           <div className="hidden min-h-0 lg:flex lg:flex-col">
                             <ChatEmbebido
                               telefono={caso.telefono}
-                              tipo={caso.tipo}
+                              // El chat de un caso de cobro es la conversación
+                              // del teléfono — el cobro no es un tipo de hilo.
+                              tipo={caso.tipo === "cobro" ? "conversacion" : caso.tipo}
                               casoId={idDesnudo}
                               evaluado={caso.evaluado}
                             />
@@ -381,6 +401,15 @@ export function ColaPorCohortes({
                                 Llamar
                               </a>
                             </div>
+                            {caso.cobro && (
+                              <button
+                                type="button"
+                                onClick={() => setPagoDe(caso)}
+                                className="inline-flex w-fit items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
+                              >
+                                Registrar cobro · {eur(caso.cobro.pendiente)}
+                              </button>
+                            )}
                             <RegistrarLlamada
                               caso={caso}
                               onHecho={() => {
@@ -397,9 +426,20 @@ export function ColaPorCohortes({
                         </div>
                       )}
                       {abiertoCaso && !caso.telefono && (
-                        <p className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">
-                          Este caso no tiene teléfono registrado — sin él no hay conversación que abrir.
-                        </p>
+                        <div className="mt-2 space-y-2">
+                          <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">
+                            Este caso no tiene teléfono registrado — sin él no hay conversación que abrir.
+                          </p>
+                          {caso.cobro && (
+                            <button
+                              type="button"
+                              onClick={() => setPagoDe(caso)}
+                              className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
+                            >
+                              Registrar cobro · {eur(caso.cobro.pendiente)}
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   );
@@ -409,6 +449,18 @@ export function ColaPorCohortes({
           </section>
         );
       })}
+      {pagoDe?.cobro && (
+        <PagoModal
+          mode="create"
+          pacienteId={pagoDe.cobro.pacienteId}
+          clinicaId={pagoDe.clinicaId}
+          onClose={() => setPagoDe(null)}
+          onDone={() => {
+            setPagoDe(null);
+            void cargar();
+          }}
+        />
+      )}
     </div>
   );
 }

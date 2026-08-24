@@ -611,6 +611,58 @@ export function AgenteConfigView() {
                 </label>
               ))}
             </div>
+
+            {/* F5 — LA POLÍTICA DE COBRO (dictado): no pregunta cuántos días
+                quiere esperar la clínica — pregunta cuándo considera que un
+                pago ESTÁ vencido. En días de calendario, no en minutos
+                laborables: el vencimiento es del dinero. */}
+            <div className="mt-3 space-y-2">
+              <p className="text-[13px] font-semibold text-[var(--color-foreground)]">Política de cobro</p>
+              <p className="text-[12px] text-[var(--color-muted)]">
+                Un pago con plazo cumplido y sin liquidación entra en la cola de Seguimiento
+                cuando la clínica lo considera vencido.
+              </p>
+              <label className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
+                <span>¿Cuándo considera esta clínica que un pago está vencido?</span>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  <input
+                    type="number"
+                    min={0}
+                    max={60}
+                    value={config.plazos.cobroVencidoDias ?? ""}
+                    placeholder="7"
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        plazos: { ...config.plazos, cobroVencidoDias: e.target.value === "" ? null : Number(e.target.value) },
+                      })
+                    }
+                    className={INPUT + " w-20 text-right tabular-nums"}
+                  />
+                  <span className="text-[11px] text-[var(--color-muted)]">días tras el plazo (0–60)</span>
+                </span>
+              </label>
+              <label className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-border)] px-3 py-2 text-[13px] text-[var(--color-foreground)]">
+                <span>¿Cuándo pasa un vencido a «Fuera de plazo»?</span>
+                <span className="flex shrink-0 items-center gap-1.5">
+                  <input
+                    type="number"
+                    min={2}
+                    max={180}
+                    value={config.plazos.cobroFueraDePlazoDias ?? ""}
+                    placeholder="30"
+                    onChange={(e) =>
+                      setConfig({
+                        ...config,
+                        plazos: { ...config.plazos, cobroFueraDePlazoDias: e.target.value === "" ? null : Number(e.target.value) },
+                      })
+                    }
+                    className={INPUT + " w-20 text-right tabular-nums"}
+                  />
+                  <span className="text-[11px] text-[var(--color-muted)]">días vencido (2–180)</span>
+                </span>
+              </label>
+            </div>
           </Seccion>
 
           {/* ── GRUPO 5 · Cadencias y recordatorios — aquí, no en

@@ -1,22 +1,18 @@
 // app/(authed)/cobros/page.tsx
-// F4b (fase F): aquí queda SOLO la cola de cobros (Actuar) — hasta que F5
-// la funda en las cohortes de Seguimiento. El Registro (la base consultable)
-// vive en /tablas/cobros; los links viejos ?vista=registro redirigen allí
-// conservando el resto de params (?urgencia= filtra el registro).
+// F5 (fase F): la cola de cobros MURIÓ como pantalla — los vencidos entran
+// en las cohortes de Seguimiento por la política de cobro de cada clínica
+// (los estancados y por-vencer son señal de campana, no cola). El registro
+// vive en /tablas/cobros; los links viejos ?vista=registro siguen llegando.
 
 import { redirect } from "next/navigation";
-import { getSession } from "../../lib/auth/session";
-import { CobrosView } from "./CobrosView";
 
 export const dynamic = "force-dynamic";
 
-export default async function CobrosPage({
+export default async function CobrosRedirect({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const s = await getSession();
-  if (!s) redirect("/login");
   const params = await searchParams;
   const vista = Array.isArray(params.vista) ? params.vista[0] : params.vista;
   if (vista === "registro") {
@@ -29,5 +25,5 @@ export default async function CobrosPage({
     const qs = q.toString();
     redirect(`/tablas/cobros${qs ? `?${qs}` : ""}`);
   }
-  return <CobrosView vistaFija="actuar" />;
+  redirect("/seguimiento");
 }

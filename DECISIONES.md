@@ -3381,3 +3381,14 @@ API ya filtraba por sesión, fail-closed) y aterrizaje post-login de todos; KPIs
 /resultados/* bajo el grupo Resultados; redirects permanentes en las rutas viejas (marcadores);
 SeccionRota y los gates no-admin rebotan a /inicio. Las APIs conservan su nombre a propósito —
 ninguna coordinadora las ve.
+
+## 2026-08-23 · F5 — los cobros vencidos entran en la cola por la POLÍTICA DE COBRO
+El cobro entra por las puertas de siempre (el caso es la conversación: escribió → NR; entregado →
+Listos); lo único nuevo es el VENCIDO SIN CONVERSACIÓN (detalle `cobro_vencido`), que sin cadencia
+de cobro moría invisible. El umbral es la política de cobro de la clínica —«cuándo considera que un
+pago está vencido», 7/30 default, en DÍAS de calendario, jamás minutos laborables— configurable en
+el grupo 4. Un paciente con presupuesto vivo Y deuda es UN caso con dos objetivos (el cobro se
+anexa; la cohorte se queda con la peor). El resumen lleva DOS bolsillos (presupuestos ≠ deudas).
+/cobros murió como pantalla (cola→cohortes; registro→/tablas/cobros; estancados y por-vencer→
+campana). De regalo, el flake de qa:cola destapó que el reloj de la cola está anclado a mediodía
+con umbrales de minutos (MEJORAS 111 — el QA ahora ancla sus fixtures y es determinista).

@@ -60,7 +60,12 @@ import {
 import type { IntencionDetectada } from "../presupuestos/types";
 import { ultimosEventosPorCaso, toquesAntesDeAgotar } from "../automatizacion/pg";
 import { esLeadActivo } from "../leads/pipeline";
-import { parseConocimiento, plazosParaReloj } from "../agente/conocimiento";
+import { parseConocimiento, plazosParaReloj, politicaCobro, POLITICA_COBRO_DEFAULT } from "../agente/conocimiento";
+import { calcularCobrosPorPaciente } from "../cobros";
+import { listPacientes } from "../pacientes/pacientes";
+import { listPagosResumen } from "../pagos";
+import { selectPresupuestosRaw } from "../presupuestos/repo";
+import { listAllOpciones } from "../configuraciones/configuraciones";
 import { minutosLaborablesEntre } from "./tiempo-laborable";
 import { elegirPresupuestoActivo } from "./presupuesto-activo";
 
@@ -92,7 +97,13 @@ export type DetalleCohorte =
   | "entregado_listo"
   | "cierre_pendiente"
   | "agotado"
-  | "nuevo_sin_contactar";
+  | "nuevo_sin_contactar"
+  | "cobro_vencido";
+
+/** Los detalles de CONVERSACIÓN — los únicos que mide el reloj laborable.
+ *  El cobro escala por DÍAS de la política de cobro (F5), nunca por minutos:
+ *  el vencimiento es del dinero, no de una persona esperando en horario. */
+export type DetalleConversacion = Exclude<DetalleCohorte, "cobro_vencido">;
 
 // ─── Fuera de plazo: umbrales por tipo de obligación ───────────────────────
 
@@ -111,7 +122,7 @@ export const UMBRAL_FUERA_DE_PLAZO_MIN: Record<ObligacionPlazo, number> = {
   llamada: 240,
 };
 
-export const OBLIGACION_DE_DETALLE: Record<DetalleCohorte, ObligacionPlazo> = {
+export const OBLIGACION_DE_DETALLE: Record<DetalleConversacion, ObligacionPlazo> = {
   quebrado: "respuesta",
   paciente_escribio: "respuesta",
   entregado_urgente: "urgencia",
@@ -168,7 +179,7 @@ export type ResultadoCohorte = {
 };
 
 /** El instante en que la obligación pasó a manos de una persona. */
-function desdeDeObligacion(detalle: DetalleCohorte, e: EntradaCohorte): string | null {
+function desdeDeObligacion(detalle: DetalleConversacion, e: EntradaCohorte): string | null {
   switch (detalle) {
     case "paciente_escribio":
       return e.ultimoEntranteISO ?? null;
@@ -201,7 +212,7 @@ export function cohorteDeCaso(e: EntradaCohorte, reloj?: RelojDePlazos): Resulta
   return { cohorte, detalle: base.detalle, esperandoDesde, esperandoMinLaborables };
 }
 
-function cohorteBase(e: EntradaCohorte): { cohorte: Exclude<Cohorte, "fuera_de_plazo">; detalle: DetalleCohorte } | null {
+function cohorteBase(e: EntradaCohorte): { cohorte: Exclude<Cohorte, "fuera_de_plazo">; detalle: DetalleConversacion } | null {
   // 1 · NECESITA RESPUESTA — hay una persona esperando una acción humana.
   if (e.automatizacion === "quebrado") return { cohorte: "necesita_respuesta", detalle: "quebrado" };
   if (e.agente?.entregadoCausa && e.agente.entregadoCausa !== "caso_completo") {
@@ -248,12 +259,36 @@ function exhaustivo(x: never): never {
   throw new Error(`EstadoConversacion sin destino: ${String(x)}`);
 }
 
+// ─── El cobro vencido: cohorte por DÍAS (F5) ───────────────────────────────
+//
+// El cobro entra por las mismas puertas que el presupuesto donde ya hay
+// conversación (paciente escribió → NR; el agente entregó → Listos). Lo
+// único genuinamente nuevo es el VENCIDO SIN CONVERSACIÓN: sin cadencia de
+// cobro, si no entra en cola muere invisible. La política de cobro de la
+// clínica decide cuándo: vencido > N días → Necesita respuesta; > M días →
+// Fuera de plazo. Estancados y por-vencer NO son cola (señal en campana).
+
+export function cohorteDeCobro(args: {
+  pendiente: number;
+  diasVencido: number | null;
+  tieneLiquidacion: boolean;
+  politica: { vencidoDias: number; fueraDePlazoDias: number };
+}): { cohorte: Cohorte; detalle: "cobro_vencido" } | null {
+  if (args.pendiente <= 0) return null;
+  if (args.tieneLiquidacion) return null; // hay acuerdo de liquidación: no se persigue
+  if (args.diasVencido == null || args.diasVencido <= args.politica.vencidoDias) return null;
+  return {
+    cohorte: args.diasVencido > args.politica.fueraDePlazoDias ? "fuera_de_plazo" : "necesita_respuesta",
+    detalle: "cobro_vencido",
+  };
+}
+
 // ─── La cola con datos ──────────────────────────────────────────────────────
 
 export type CasoDeCola = {
-  /** lead:<id> · presupuesto:<id> · conversacion:<telefono> */
+  /** lead:<id> · presupuesto:<id> · conversacion:<telefono> · cobro:<pacienteId> */
   id: string;
-  tipo: "lead" | "presupuesto" | "conversacion";
+  tipo: "lead" | "presupuesto" | "conversacion" | "cobro";
   telefono: string | null;
   nombre: string;
   clinicaId: string | null;
@@ -285,13 +320,20 @@ export type CasoDeCola = {
    *  ancla técnica y la UI no lo presenta como elegido). Visible siempre:
    *  un activo elegido en silencio es peor que dos cards. */
   activoFuente: "conversacion" | "proxy" | "sin_senal" | null;
+  /** F5 — el pago vencido del caso (política de cobro superada). En un caso
+   *  con presupuesto vivo Y deuda es EL MISMO caso con dos objetivos: el
+   *  cobro se anexa, jamás crea una segunda card. */
+  cobro: { pacienteId: string; pendiente: number; diasVencido: number } | null;
 };
 
 export type ResumenCola = {
   /** € parados EN LA COLA = presupuestos que esperan a una persona. Lo que
    *  trabaja el agente o la cadencia no está «parado por nosotros». */
+  /** DOS bolsillos (F5, dictado): presupuestos por cerrar y cobros vencidos
+   *  no se suman — dineroParado queda como la cifra de presupuestos. */
   dineroParado: number;
   dineroPresupuestos: number;
+  dineroCobros: number;
   /** Los leads no tienen importe: HECHO, no estimación — se cuentan. */
   leadsSinImporte: number;
   masViejoDias: number | null;
@@ -453,12 +495,13 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
   // defaults de la casa. Conservador y visible: una config ilegible NUNCA
   // tumba la cola ni esconde un caso.
   const plazosPorClinica = new Map<string | null, ReturnType<typeof plazosParaReloj>>();
+  const politicaPorClinica = new Map<string | null, ReturnType<typeof politicaCobro>>();
   for (const fila of datos.configs) {
     try {
-      plazosPorClinica.set(
-        fila.clinica_id ? String(fila.clinica_id) : null,
-        plazosParaReloj(parseConocimiento(fila.conocimiento ?? null)),
-      );
+      const con = parseConocimiento(fila.conocimiento ?? null);
+      const clave = fila.clinica_id ? String(fila.clinica_id) : null;
+      plazosPorClinica.set(clave, plazosParaReloj(con));
+      politicaPorClinica.set(clave, politicaCobro(con));
     } catch (err) {
       console.error(
         `[cola] configuración de plazos ilegible (clínica ${fila.clinica_id ?? "global"}) — el caso corre con los defaults:`,
@@ -466,6 +509,8 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       );
     }
   }
+  const politicaDe = (clinicaId: string | null) =>
+    politicaPorClinica.get(clinicaId) ?? politicaPorClinica.get(null) ?? POLITICA_COBRO_DEFAULT;
   const relojDe = (clinicaId: string | null): RelojDePlazos => {
     const p = plazosPorClinica.get(clinicaId) ?? plazosPorClinica.get(null);
     if (!p) return { minutosLaborablesDesde: (iso) => minutosLaborablesEntre(new Date(iso), ahora) };
@@ -611,6 +656,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       esperandoMinLaborables: peor.k!.esperandoMinLaborables,
       enEspera: peor.k!.enEspera,
       evaluado: agente?.evaluado ?? false,
+      cobro: null,
     });
   }
 
@@ -658,6 +704,7 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       importeTotal: null,
       otrosPresupuestos: [],
       activoFuente: null,
+      cobro: null,
     });
   }
 
@@ -686,7 +733,82 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
       importeTotal: null,
       otrosPresupuestos: [],
       activoFuente: null,
+      cobro: null,
     });
+  }
+
+  // 4 · COBROS VENCIDOS (F5): la política de cobro de cada clínica decide
+  //     cuándo un pago pasa a la cola. MISMA derivación que /tablas/cobros y
+  //     el dashboard (calcularCobrosPorPaciente) — cero cálculo paralelo. El
+  //     caso es la conversación: si el teléfono ya tiene caso, el cobro se
+  //     ANEXA (dos objetivos, una card) y la cohorte queda en la peor; solo
+  //     el vencido sin caso crea uno nuevo (tipo "cobro").
+  {
+    const [pacientesCompletos, pagos, presupRaw, opciones] = await Promise.all([
+      listPacientes({}),
+      listPagosResumen(),
+      selectPresupuestosRaw({
+        fields: ["Paciente", "Estado", "Importe", "Fecha_Aceptado", "FechaAlta", "Tratamiento_nombre"],
+      }),
+      listAllOpciones(),
+    ]);
+    const cobros = calcularCobrosPorPaciente({
+      pacientes: pacientesCompletos,
+      presupuestos: presupRaw as any,
+      pagos,
+      opciones,
+      ahoraMs: ahora.getTime(),
+    });
+    const pacCompletoPorId = new Map(pacientesCompletos.map((pc) => [pc.id, pc]));
+    const casoPorDigitos = new Map<string, CasoDeCola>();
+    for (const c of casos) {
+      const d = dig(c.telefono);
+      if (d) casoPorDigitos.set(d, c);
+    }
+    for (const cb of cobros) {
+      const r = cohorteDeCobro({
+        pendiente: cb.pendiente,
+        diasVencido: cb.diasVencido,
+        tieneLiquidacion: cb.tieneLiquidacion,
+        politica: politicaDe(cb.clinicaId),
+      });
+      if (!r) continue;
+      const pac = pacCompletoPorId.get(cb.pacienteId);
+      const d = dig(pac?.telefono);
+      const objetivo = { pacienteId: cb.pacienteId, pendiente: cb.pendiente, diasVencido: cb.diasVencido! };
+      const existente = d ? casoPorDigitos.get(d) : undefined;
+      if (existente) {
+        // UN caso, dos objetivos. La cohorte se queda con LA PEOR; si el
+        // cobro la empeora, el detalle lo dice.
+        existente.cobro = objetivo;
+        if (RANGO_PEOR[r.cohorte] > RANGO_PEOR[existente.cohorte]) {
+          existente.cohorte = r.cohorte;
+          existente.detalle = r.detalle;
+        }
+        continue;
+      }
+      casos.push({
+        id: `cobro:${cb.pacienteId}`,
+        tipo: "cobro",
+        telefono: pac?.telefono ?? null,
+        nombre: pac?.nombre ?? "Paciente",
+        clinicaId: cb.clinicaId,
+        cohorte: r.cohorte,
+        detalle: r.detalle,
+        importe: null,
+        tratamiento: cb.tratamientos.length ? cb.tratamientos.join(", ") : null,
+        origen: null,
+        // El cobro lleva parado lo que lleva vencido — días de la clínica.
+        paradoDias: cb.diasVencido!,
+        esperandoMinLaborables: null,
+        enEspera: false,
+        evaluado: d ? (buscarAgente(pac?.telefono ?? null)?.evaluado ?? false) : false,
+        importeTotal: null,
+        otrosPresupuestos: [],
+        activoFuente: null,
+        cobro: objetivo,
+      });
+    }
   }
 
   // ── La cabecera: dinero PARADO EN LA COLA — hechos, nunca estimaciones ───
@@ -696,9 +818,11 @@ export async function colaDeSeguimiento(opts?: { hoy?: string }): Promise<{
   const dineroPresupuestos = casos
     .filter((c) => c.tipo === "presupuesto")
     .reduce((s, c) => s + (c.importeTotal ?? c.importe ?? 0), 0);
+  const dineroCobros = casos.reduce((s2, c) => s2 + (c.cobro?.pendiente ?? 0), 0);
   const resumen: ResumenCola = {
     dineroParado: dineroPresupuestos,
     dineroPresupuestos,
+    dineroCobros,
     leadsSinImporte: casos.filter((c) => c.tipo === "lead").length,
     masViejoDias: casos.length ? Math.max(...casos.map((c) => c.paradoDias)) : null,
   };

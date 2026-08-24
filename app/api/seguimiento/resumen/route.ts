@@ -18,6 +18,10 @@ export const dynamic = "force-dynamic";
 
 export type ResumenSeguimiento = {
   dineroParado: number;
+  /** F5 — segundo bolsillo: cobros vencidos EN LA COLA. No se suma al
+   *  dineroParado (dictado): presupuestos por cerrar y deudas vencidas no
+   *  son el mismo dinero. */
+  dineroCobros: number;
   leadsSinImporte: number;
   masViejoDias: number | null;
   porCohorte: Record<Cohorte, number>;
@@ -50,6 +54,7 @@ export const GET = withAuth(async (session) => {
         dineroParado: visibles
           .filter((c) => c.tipo === "presupuesto" && c.importe != null)
           .reduce((s, c) => s + (c.importe ?? 0), 0),
+        dineroCobros: visibles.reduce((s, c) => s + (c.cobro?.pendiente ?? 0), 0),
         leadsSinImporte: visibles.filter((c) => c.tipo === "lead").length,
         masViejoDias: visibles.length ? Math.max(...visibles.map((c) => c.paradoDias)) : null,
         porCohorte,

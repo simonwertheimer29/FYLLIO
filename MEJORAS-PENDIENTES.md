@@ -1933,3 +1933,17 @@ verdad: un editor, un vocabulario, un renderizador.
 - **Decisión pendiente:** si el motor viejo muere en fase F/B5, el arreglo es borrar el seed de
   reglas, no corregirlo.
 - **Fecha:** 2026-08-23
+
+## 111. El reloj de la cola está anclado a mediodía — la escalada a Fuera de plazo solo cambia una vez al día
+- **Qué es:** `colaDeSeguimiento` fija su «ahora» a las `T12:00Z` del día (14:00 Madrid) — el ancla
+  del mandamiento 13 (clasificación estable). Pero los umbrales de Fuera de plazo son de MINUTOS
+  laborables (30/120/240): con el ahora congelado, una urgencia entregada a las 15:00 no puede
+  escalar hasta el mediodía siguiente, y por la mañana los casos de ayer tarde miden de más. El
+  ancla de estabilidad y los umbrales finos se contradicen. Lo destapó un flake de `qa:cola`
+  el 23-08 («entregado ahora mismo» medía 300 min corriendo el QA por la mañana; el QA ahora
+  ancla sus fixtures y es determinista — el fondo queda).
+- **El arreglo (a decidir):** o el «ahora» de la cola pasa a ser el instante real (la cohorte puede
+  cambiar dentro del día — el mandamiento 13 habla de umbrales de NEGOCIO en días, y estos son
+  plazos operativos de minutos), o los umbrales asumen la granularidad del ancla. La primera parece
+  la correcta: sin reloj vivo, «30 minutos» no significa 30 minutos.
+- **Fecha:** 2026-08-23

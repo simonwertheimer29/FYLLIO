@@ -171,6 +171,25 @@ ok("sin nada PUBLICADO, la cabecera «LO PUBLICADO» no aparece — un título s
 ok("y el assert del plan básico SIGUE: los campos nuevos en null no emiten ni un byte",
   renderConocimiento(parseConocimiento(JSON.stringify({ quienesSois: {}, alcance: {} }))).length === 0);
 
+// ─── D2 · La política de cobro (F5) ────────────────────────────────────────
+console.log("\nD2 · política de cobro: topes del parser y defaults 7/30");
+
+const { politicaCobro, POLITICA_COBRO_DEFAULT } = await import("../app/lib/agente/conocimiento");
+ok("sin configurar → los defaults dictados (7 días vencido, 30 a Fuera de plazo)",
+  politicaCobro(parseConocimiento(null)).vencidoDias === 7 &&
+  politicaCobro(parseConocimiento(null)).fueraDePlazoDias === 30 &&
+  POLITICA_COBRO_DEFAULT.vencidoDias === 7);
+ok("configurada → la de la clínica (14/60)",
+  (() => { const c = parseConocimiento(JSON.stringify({ plazos: { cobroVencidoDias: 14, cobroFueraDePlazoDias: 60 } }));
+    return politicaCobro(c).vencidoDias === 14 && politicaCobro(c).fueraDePlazoDias === 60; })());
+ok("fuera de tope se RECHAZA (61 días vencido; 181 escalada) — fail-closed, no se recorta",
+  (() => { try { parseConocimiento(JSON.stringify({ plazos: { cobroVencidoDias: 61 } })); return false; } catch { }
+    try { parseConocimiento(JSON.stringify({ plazos: { cobroFueraDePlazoDias: 181 } })); return false; } catch { return true; } })());
+ok("escalada ≤ vencido se RECHAZA (30/30): escalar antes de vencer no significa nada",
+  (() => { try { parseConocimiento(JSON.stringify({ plazos: { cobroVencidoDias: 30, cobroFueraDePlazoDias: 30 } })); return false; } catch { return true; } })());
+ok("el plan básico NO cambia: los campos nuevos en null no emiten ni un byte al prompt",
+  renderConocimiento(parseConocimiento(JSON.stringify({ plazos: { cobroVencidoDias: 10, cobroFueraDePlazoDias: 40 } }))).length === 0);
+
 // ─── E · El veto determinista de agenda (23-08) ────────────────────────────
 //
 // El fallo «tenemos disponibilidad…» volvió TRES veces por tres puertas; la
