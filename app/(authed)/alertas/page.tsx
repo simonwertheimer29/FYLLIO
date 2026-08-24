@@ -1,16 +1,7 @@
-// app/(authed)/alertas/page.tsx
-// Sprint 8 D.7 — admin only. Delega a client view para polling + acciones.
-
+// F3 (fase F): Alertas dejó de ser ventana — es LA CAMPANA de la barra
+// lateral (interrumpe, no se visita). Redirect para marcadores.
 import { redirect } from "next/navigation";
-import { getSession } from "../../lib/auth/session";
-import { AlertasView } from "./AlertasView";
-
 export const dynamic = "force-dynamic";
-
-export default async function AlertasPage() {
-  const s = await getSession();
-  if (!s) redirect("/login");
-  if (s.rol !== "admin") redirect("/inicio");
-
-  return <AlertasView />;
+export default function AlertasRedirect() {
+  redirect("/inicio");
 }

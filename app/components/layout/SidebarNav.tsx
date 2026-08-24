@@ -20,9 +20,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { ClinicSelector } from "./ClinicSelector";
+import { CampanaAlertas } from "./CampanaAlertas";
 import { ThemeToggle } from "./ThemeToggle";
 import {
-  Bell,
   ChevronDown,
   ChevronRight,
   Home,
@@ -163,16 +163,8 @@ export function SidebarNav({ onNavegar }: { onNavegar?: () => void }) {
           <Image src="/isotipo.png" alt="Fyllio" width={28} height={28} priority className="h-7 w-7" />
           <span className="font-display text-[15px] font-semibold text-[var(--color-foreground)]">Fyllio</span>
         </Link>
-        {esAdmin && (
-          // La CAMPANA (F3 le pone badge y desplegable; hoy lleva a Alertas).
-          <Link
-            href="/alertas"
-            aria-label="Alertas"
-            className="rounded-md p-1.5 text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-foreground)]"
-          >
-            <Bell size={16} strokeWidth={ICON_STROKE} aria-hidden />
-          </Link>
-        )}
+        {/* F3: la CAMPANA — las alertas interrumpen, no se visitan. */}
+        {esAdmin && <CampanaAlertas />}
       </div>
       <div className="px-3 pt-3">
         <ClinicSelector />
