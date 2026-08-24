@@ -9,7 +9,7 @@
 // aún se puede rescatar, que es lo que decide dónde vive después.
 
 import { useState } from "react";
-import { MOTIVOS_ORDENADOS, MOTIVO_DEF, type MotivoLead } from "../../lib/leads/motivos";
+import { MOTIVOS_ORDENADOS, MOTIVO_DEF, type MotivoLead } from "../../../lib/leads/motivos";
 
 export function MotivoNoInteresModal({
   nombre,

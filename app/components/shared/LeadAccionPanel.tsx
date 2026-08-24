@@ -22,7 +22,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import type { Lead } from "../../(authed)/leads/types";
+import type { Lead } from "../../(authed)/pipeline/leads/types";
 import type { MensajeWhatsApp } from "../../lib/presupuestos/types";
 import {
   estadoConversacion,
@@ -56,7 +56,7 @@ import {
 } from "../icons";
 import { RotateCcw } from "lucide-react";
 import { labelMotivo } from "../../lib/leads/motivos";
-import { MotivoNoInteresModal } from "../../(authed)/leads/MotivoNoInteresModal";
+import { MotivoNoInteresModal } from "../../(authed)/pipeline/leads/MotivoNoInteresModal";
 import { hoyISO, sumaDias, fechaClinica } from "../../lib/time";
 import { esLeadCaliente, leadPideCita } from "../../lib/leads/intenciones";
 

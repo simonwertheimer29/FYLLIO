@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Phone, MessageCircle, Check, Copy, Plus, AlertTriangle, ICON_STROKE } from "../../components/icons";
+import { Phone, MessageCircle, Check, Copy, Plus, AlertTriangle, ICON_STROKE } from "../../../components/icons";
 import {
   DndContext,
   DragOverlay,
@@ -19,17 +19,17 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from "@dnd-kit/core";
-import { useClinic } from "../../lib/context/ClinicContext";
-import { contarPipeline, textoPipeline, seVeLeadConRango } from "../../lib/leads/pipeline";
+import { useClinic } from "../../../lib/context/ClinicContext";
+import { contarPipeline, textoPipeline, seVeLeadConRango } from "../../../lib/leads/pipeline";
 import { NewLeadModal } from "./NewLeadModal";
-import { AccionPanel } from "../../components/shared/AccionPanel";
+import { AccionPanel } from "../../../components/shared/AccionPanel";
 import { AgendarModal } from "./AgendarModal";
 import { MotivoNoInteresModal } from "./MotivoNoInteresModal";
-import { esReactivable, labelMotivo } from "../../lib/leads/motivos";
-import { haceTexto } from "../../lib/presupuestos/estado-conversacion";
-import { hoyISO, horaClinica, fechaClinica } from "../../lib/time";
-import { cohorteLead, esNuevoUrgente } from "../../lib/seguimiento/cohortes";
-import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
+import { esReactivable, labelMotivo } from "../../../lib/leads/motivos";
+import { haceTexto } from "../../../lib/presupuestos/estado-conversacion";
+import { hoyISO, horaClinica, fechaClinica } from "../../../lib/time";
+import { cohorteLead, esNuevoUrgente } from "../../../lib/seguimiento/cohortes";
+import { AvisoFiltroClinica } from "../../../components/shared/AvisoFiltroClinica";
 import { AsistenciaModal } from "./AsistenciaModal";
 import type { Lead, LeadEstado } from "./types";
 import {
@@ -37,7 +37,7 @@ import {
   RANGO_DEFAULT,
   NOTA_RANGO_SOLO_CERRADOS,
   type RangoKanban,
-} from "../../components/shared/RangoTemporal";
+} from "../../../components/shared/RangoTemporal";
 
 export type { Lead } from "./types";
 

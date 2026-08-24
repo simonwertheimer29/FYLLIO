@@ -11,7 +11,7 @@ import type {
   PresupuestoIntervencion,
   PresupuestoEstado,
 } from "../../lib/presupuestos/types";
-import type { Lead } from "../../(authed)/leads/types";
+import type { Lead } from "../../(authed)/pipeline/leads/types";
 
 type Props =
   | {

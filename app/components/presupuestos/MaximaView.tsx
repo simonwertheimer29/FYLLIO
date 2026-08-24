@@ -436,7 +436,7 @@ export default function MaximaView({
                     {/* Sprint 14a Bloque 1.5 — link al hub del paciente
                         vía redirect legacy (resuelve nombre→id en server). */}
                     <a
-                      href={`/presupuestos/paciente/${encodeURIComponent(p.patientName)}`}
+                      href={`/pipeline/presupuestos/paciente/${encodeURIComponent(p.patientName)}`}
                       onClick={(e) => e.stopPropagation()}
                       className="hover:text-[var(--color-accent)] hover:underline"
                     >

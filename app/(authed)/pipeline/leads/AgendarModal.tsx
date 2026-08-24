@@ -7,9 +7,9 @@
 // y el lead se queda en Contactado.
 
 import { useState } from "react";
-import { X, ICON_STROKE } from "../../components/icons";
+import { X, ICON_STROKE } from "../../../components/icons";
 import type { Lead } from "./types";
-import { hoyISO } from "../../lib/time";
+import { hoyISO } from "../../../lib/time";
 
 const TRATAMIENTOS = [
   "Implantología",

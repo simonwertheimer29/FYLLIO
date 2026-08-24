@@ -25,7 +25,7 @@ export type Lead = {
   horaCita: string | null;
   doctorAsignadoId: string | null;
   tipoVisita: "Primera visita" | "Revisión" | "Urgencia" | null;
-  motivoNoInteres: import("../../lib/leads/motivos").MotivoLeadAlmacenado | null;
+  motivoNoInteres: import("../../../lib/leads/motivos").MotivoLeadAlmacenado | null;
   /** Cuándo se cerró (Convertido / No Interesado). Null = cerrado antes de
    *  que el dato existiera, o todavía abierto. */
   fechaCierre: string | null;
@@ -52,7 +52,7 @@ export type Lead = {
    *  /red), calculado en el servidor. La card lo usa para decir algo cierto
    *  sobre el tiempo: "sin respuesta hace 3 días" no se puede medir desde la
    *  captación. Opcional porque los modales construyen Leads parciales. */
-  conversacion?: import("../../lib/presupuestos/estado-conversacion").EstadoConversacion;
+  conversacion?: import("../../../lib/presupuestos/estado-conversacion").EstadoConversacion;
   /** Último mensaje/acción ENTRANTE y SALIENTE (ISO), de las mismas fuentes. */
   entranteAt?: string | null;
   salienteAt?: string | null;
@@ -62,8 +62,8 @@ export type Lead = {
    *  corte. Sí vale "agotado", que sale de `whatsappEnviados`. Ver
    *  PLAN-AGENTE §fase 1, recorte 4. */
   automatizacion?: {
-    estado: import("../../lib/automatizacion/estado").EstadoAutomatizacion;
-    disparador: import("../../lib/automatizacion/estado").Disparador | null;
+    estado: import("../../../lib/automatizacion/estado").EstadoAutomatizacion;
+    disparador: import("../../../lib/automatizacion/estado").Disparador | null;
     motivo: string | null;
   };
 };

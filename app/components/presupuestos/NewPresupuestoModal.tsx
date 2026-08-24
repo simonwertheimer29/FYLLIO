@@ -346,7 +346,7 @@ export default function NewPresupuestoModal({
                               : `Todavía no es paciente: tiene cita ${l.fechaCita ? fechaHumana(l.fechaCita, hoy) : "pendiente"}${l.horaCita ? ` a las ${l.horaCita}` : ""} y falta marcar su asistencia.`}
                           </p>
                           <a
-                            href={`/leads?lead=${encodeURIComponent(l.id)}`}
+                            href={`/pipeline/leads?lead=${encodeURIComponent(l.id)}`}
                             className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-semibold text-[var(--color-accent)] hover:underline"
                           >
                             Ir a su ficha en Leads

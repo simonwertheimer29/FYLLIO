@@ -62,19 +62,19 @@ const ITEMS: Item[] = [
   },
   {
     label: "Pipeline",
-    href: "/leads",
+    href: "/pipeline/leads",
     Icono: TrendingUp,
     hijos: [
-      { label: "Leads", href: "/leads" },
-      { label: "Presupuestos", href: "/presupuestos" },
+      { label: "Leads", href: "/pipeline/leads" },
+      { label: "Presupuestos", href: "/pipeline/presupuestos" },
     ],
   },
   {
     label: "Tablas",
-    href: "/presupuestos?vista=maxima",
+    href: "/pipeline/presupuestos?vista=maxima",
     Icono: FileSpreadsheet,
     hijos: [
-      { label: "Presupuestos", href: "/presupuestos?vista=maxima" },
+      { label: "Presupuestos", href: "/pipeline/presupuestos?vista=maxima" },
       { label: "Cobros", href: "/cobros?vista=registro" },
     ],
   },
@@ -130,7 +130,7 @@ export function SidebarNav({ onNavegar }: { onNavegar?: () => void }) {
     }
     // Un href SIN query no está activo si otra hermana CON query lo está
     // (p. ej. Pipeline·Presupuestos vs Tablas·Presupuestos).
-    if (query.toString() === "" && path === "/presupuestos" && params.get("vista") === "maxima") return false;
+    if (query.toString() === "" && path === "/pipeline/presupuestos" && params.get("vista") === "maxima") return false;
     if (query.toString() === "" && path === "/cobros" && params.get("vista") === "registro") return false;
     return true;
   }

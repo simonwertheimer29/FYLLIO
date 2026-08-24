@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, ICON_STROKE } from "../../components/icons";
+import { X, ICON_STROKE } from "../../../components/icons";
 import type { Lead } from "./types";
 
 const TRATAMIENTOS = [

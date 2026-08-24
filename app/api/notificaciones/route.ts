@@ -20,7 +20,7 @@ function recordToNotificacion(r: any): Notificacion {
     tipo: f["Tipo"] ?? "Sistema",
     titulo: String(f["Titulo"] ?? ""),
     mensaje: String(f["Mensaje"] ?? ""),
-    link: String(f["Link"] ?? "/presupuestos"),
+    link: String(f["Link"] ?? "/pipeline/presupuestos"),
     leida: f["Leida"] === true,
     fechaCreacion: String(f["Fecha_creacion"] ?? ""),
   };

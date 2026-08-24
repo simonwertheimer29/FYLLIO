@@ -405,7 +405,7 @@ async function processIncomingMessage(body: unknown): Promise<void> {
           ? `Intervención urgente: ${infoParaClasificar.patientName}`
           : `Nuevo mensaje de ${infoParaClasificar.patientName}`,
         mensaje: contenido.slice(0, 120),
-        link: `/presupuestos?tab=intervencion&item=${infoParaClasificar.id}`,
+        link: `/pipeline/presupuestos?tab=intervencion&item=${infoParaClasificar.id}`,
       });
     } catch (err) {
       console.error("[waba webhook] clasificación/notificación error:", sanitizeError(err));

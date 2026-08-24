@@ -196,7 +196,7 @@ export async function evaluarEntranteConversacion(e: EntranteAEvaluar): Promise<
         tipo: "Intervencion_urgente",
         titulo: `Atención inmediata: ${ctx.nombre.split(" ")[0]}`,
         mensaje: e.contenido.slice(0, 120),
-        link: e.presupuestoId ? `/presupuestos?tab=intervencion&item=${e.presupuestoId}` : "/mensajeria",
+        link: e.presupuestoId ? `/pipeline/presupuestos?tab=intervencion&item=${e.presupuestoId}` : "/mensajeria",
       });
     } catch (err) {
       console.error("[evaluar-entrante] notificación:", err instanceof Error ? err.message : err);

@@ -8,7 +8,7 @@
 // Cerrar sin guardar NO marca asistido (el checkbox vuelve a off).
 
 import { useState } from "react";
-import { X, ICON_STROKE } from "../../components/icons";
+import { X, ICON_STROKE } from "../../../components/icons";
 import type { Lead } from "./types";
 
 const TRATAMIENTOS = [

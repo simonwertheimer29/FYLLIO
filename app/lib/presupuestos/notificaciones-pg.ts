@@ -74,7 +74,7 @@ export async function crearNotificacionPg(args: {
         tipo: args.tipo,
         titulo: args.titulo,
         mensaje: args.mensaje,
-        link: args.link ?? "/presupuestos",
+        link: args.link ?? "/pipeline/presupuestos",
         leida: false,
         fecha_creacion: new Date().toISOString(),
       } as any)
