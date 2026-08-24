@@ -289,6 +289,7 @@ LA FRONTERA, Y ES DONDE MÁS SE FALLA: queja ≠ insatisfacción. «Me parece ca
 - "cambio_tratamiento": variantes del presupuesto para que baje o cambie.
 - "garantia_condiciones": garantías, «¿y si no me convence?».
 - "dato_presupuesto": un dato del documento emitido que no tienes (si lleva IVA, hasta cuándo vale, qué incluye) — o algo que la persona afirma y NO CONSTA en el contexto (una cuota que no aparece): eso no se le confirma, se anota para aclararlo dentro.
+- "dato_cita": un dato de SU cita YA programada que no está en el contexto — cuándo es, a qué hora era, con qué doctor quedó. NO lo inventes ni digas que lo mirarás tú: anótalo («pregunta cuándo es su próxima cita») y di que se lo confirman.
 - "duda_clinica": dudas de tratamiento, dolor, riesgos, medicación, embarazo, cuidados antes y después. OJO: «¿cuánto tiempo sin comer?», «¿puedo conducir después?» PARECEN logística y son clínicas.
 - "otro": lo que no encaja, con el motivo claro.
 LAS REGLAS DEL DINERO (no se saltan): leer una política que ya existe se contesta; adaptarla a esta persona se anota. «¿Trabajáis con Sanitas?» se contesta; «¿cuánto me cubriría a mí?» se anota. «¿Cómo se puede pagar?» se contesta si el contexto lo dice; «¿me lo dejáis en cuatro plazos?» se anota. Y no tener un dato NO es motivo de parar: «te lo confirmamos enseguida» + anotarlo.
@@ -844,6 +845,12 @@ export async function evaluarTurno(
       (p) => `Presupuesto emitido: ${p.tratamiento ?? "tratamiento"}${p.importe != null ? ` (${eur(p.importe)})` : ""}`,
     ),
     e.pendienteCobro > 0 ? `Pago pendiente: ${eur(e.pendienteCobro)}` : null,
+    // 23-08: la CITA programada CONSTA — sin esta línea, el juez marcaba
+    // «te esperamos mañana» como hueco inventado (los 3 FP restantes del
+    // corpus compartían esta causa: el juez no veía la cita).
+    e.diasHastaProximaCita != null
+      ? `Cita ya programada: ${e.diasHastaProximaCita === 0 ? "HOY" : e.diasHastaProximaCita === 1 ? "MAÑANA" : `dentro de ${e.diasHastaProximaCita} días`}`
+      : null,
     ...renderConocimiento(e.conocimiento),
   ]
     .filter((x): x is string => x !== null)
@@ -993,7 +1000,13 @@ export async function evaluarTurno(
   // tiene que llegar a alguien SIEMPRE, haya objetivo o no. El juicio
   // (¿pide acción?) es del modelo; la condición (¿hay objetivo que la
   // recoja?) se comprueba aquí, en código.
-  if (juicio.pideAccion && objetivoActivo == null) {
+  // Ampliada el 23-08 (dictado): NO TENER EL DATO también es motivo de
+  // entrega — si el agente no puede contestar lo preguntado (anota un
+  // pendiente) y no hay nada más que recoger, el caso pasa a una persona:
+  // la clave sirve para contarlo, la derivación para que alguien lo
+  // resuelva. Con un objetivo abierto a medias, el pendiente viaja en la
+  // ficha y la conversación sigue — ahí sí hay trabajo del agente.
+  if ((juicio.pideAccion || aplazamientos.length > 0) && objetivoActivo == null) {
     return {
       ...base,
       decision: "deriva",

@@ -43,7 +43,8 @@
     "db:smoke-rls": "node scripts/db-smoke-rls.mjs",
     "qa:bandeja": "tsx scripts/qa-bandeja.mts",
     "qa:conocimiento": "tsx scripts/qa-conocimiento.mts",
-    "qa:banco": "tsx scripts/qa-banco-pruebas.mts"
+    "qa:banco": "tsx scripts/qa-banco-pruebas.mts",
+    "qa:juez-vivo": "tsx scripts/qa-juez-vivo.mts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

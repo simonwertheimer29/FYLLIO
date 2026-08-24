@@ -3354,3 +3354,19 @@ el viejo era errático (7,5,4: a veces no cerraba, a veces infería la urgencia)
 faltantes en 6/6 del actual: la métrica que responde a la preocupación no es «cuántos turnos» sino
 «¿derivó con faltantes?» — y es 0. Vara del evaluador post-equilibrio PENDIENTE: crédito agotado a
 mitad (10/69 fallback, exit 2 honesto).
+
+## 2026-08-23 — La regla 4 del juez, RETIRADA con dato — y no tener el dato ya deriva
+El criterio dictado («el juez mata lo que no se puede deshacer; ante la duda deja pasar») se midió
+antes de aplicarse, sobre un CORPUS de 69 entradas reales del juez (capturadas de una pasada del
+evaluador — la vara de frases mide fronteras, no producción). El dato que decidió: la regla 4
+(promesa sin entrega) produjo 3 descartes en 69 turnos y LOS TRES eran cortesía — cero aciertos en
+distribución real. Un prompt reescrito con el criterio (V2) se descartó también con dato: movía los
+FP de sitio y dejaba pasar un hueco inventado. Lo aplicado: la 4 RETIRADA quirúrgicamente (13 % →
+10 % de descartes, sin perder un acierto; I12/I13 reanotados como regresión), la cita programada
+ENTRA en los datos del juez (causa común de los 3 FP restantes: «te esperamos mañana» parecía hueco
+inventado), y la exención de invitación («te buscamos hueco») repuesta en la regla 5 — se había ido
+con la 4. Y el punto B: clave `dato_cita` (030) + la red de fase B ampliada — si el agente ANOTA un
+pendiente y no hay nada más que recoger, DERIVA: «la clave sirve para contarlo, la derivación para
+que alguien lo resuelva». Verificado: «¿cuándo es mi próxima cita?» → anota dato_cita, deriva, y el
+mensaje sale natural. Vara frases 50/50 · evaluador 95 % (los 3 conocidos) · descartes 10 %.
+qa:juez-vivo queda como herramienta permanente de tasa sobre corpus real.

@@ -1,0 +1,68 @@
+
+> fyllio-mvp@0.1.0 qa:evals-evaluador
+> tsx scripts/qa-evals-evaluador.mts
+
+[dotenv@17.2.3] injecting env (33) from .env.local -- tip: ✅ audit secrets and track compliance: https://dotenvx.com/ops
+[dotenv@17.2.3] injecting env (0) from .env -- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops
+  … 15/69
+[evaluador] borrador descartado (agenda): «Te confirmo enseguida la nueva fecha que te proponemos para que lo tengas claro.»
+[evaluador] borrador descartado (agenda): «El martes 25 te viene bien para empezar.»
+[evaluador] borrador descartado (agenda): «Te esperamos el jueves a la hora que ya tienes anotada.»
+  … 30/69
+[evaluador] borrador descartado (clinica): «el doctor te explicará en detalle cómo funciona en tu caso y qué resultados puedes esperar»
+  … 45/69
+[evaluador] borrador descartado (clinica): «no es algo urgente que tengas que hacer ya mismo»
+[evaluador] borrador descartado (agenda): «Para cerrar la cita, necesito saber cómo prefieres pagar: ¿en un único pago o en cuotas? El equipo te contacta enseguida para concretar día y hora por la mañana.»
+  … 60/69
+[evaluador] borrador descartado (clinica): «trabajamos con anestesia y técnicas que minimizan cualquier molestia»
+
+══ DECISIÓN [haiku] — global: 60/63 (95 %)
+  C1-decision-presu    4/4
+  C1-frontera-AD       3/3
+  C1-giros             4/4
+  C1-huerfano          1/1
+  C1-insistencia       3/3
+  C1-multiobjetivo     2/2
+  C1-portal            2/2
+  C1-progreso          5/5
+  R1-A                 8/10   ✗ 35:A→R(peticion_queja)  49:A→S
+  R1-D                 1/2   ✗ 6:D→S
+  R1-R                 13/13
+  R1-S                 14/14
+
+══ ¿LISTO? (C1, 3 excluidos por lectura): 21/21
+
+══ OBSERVACIÓN (no puntúa) — borradores de los casos D/frontera, ¿empujan al cierre?
+  [C21] R · anota: duda_clinica
+      «Es una duda muy importante y completamente normal. El equipo clínico valora cada caso con medicación como el Sintrom de forma individual — el doctor hablará contigo antes de la extracción para coordinar todo con tu cardi»
+  [C22] A · anota: duda_clinica
+      «Gracias por tu mensaje, Ana. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.»
+  [C23] A · anota: duda_clinica
+      «Es una duda muy normal, Ana. El estado de la encía es importante para elegir entre carilla y corona, y es algo que el doctor valora en tu caso concreto. Te lo explica en detalle cuando te vea, y juntos decidís cuál es la»
+  [C11] A · anota: plan_pago
+      «Entendido, Ana. Sin problema, administración se pondrá en contacto contigo para buscar una solución que se ajuste a tu situación. Aquí estamos para ayudarte.»
+  [C13] A · anota: duda_clinica
+      «Es una duda muy normal, Paula. El doctor valorará tu caso en la consulta teniendo en cuenta tu embarazo y te explicará qué opciones tienes. Para cerrar tu cita, ¿hay algún día de tarde en concreto que te venga mejor esta»
+  [6] S
+      «Gracias por tu mensaje, Ana. Preferimos dártelo exacto antes que a medias — seguimos por aquí para lo que necesites.»
+  [19] A · anota: duda_clinica
+      «Entendido, Ana. Es muy importante que nos lo cuentes al equipo — el doctor valorará tu medicación antes de cualquier tratamiento y se coordinará con tu médico si es necesario. Cuando vengas, trae la información de lo que»
+
+══ GUARDA (juez de borradores) — descartes: 7/69 (10 %)
+  [C6] agenda · «Para cerrar la cita, necesito saber cómo prefieres pagar: ¿en un único pago o en cuotas? El equipo te contacta enseguida»
+  [C22] clinica · «trabajamos con anestesia y técnicas que minimizan cualquier molestia»
+  [20] clinica · «el doctor te explicará en detalle cómo funciona en tu caso y qué resultados puedes esperar»
+  [6] clinica · «no es algo urgente que tengas que hacer ya mismo»
+  [37] agenda · «Te confirmo enseguida la nueva fecha que te proponemos para que lo tengas claro.»
+  [44] agenda · «Te esperamos el jueves a la hora que ya tienes anotada.»
+  [50] agenda · «El martes 25 te viene bien para empezar.»
+
+══ ETIQUETAS fuera de vocabulario (descartadas en el borde): 0 en 0/69 turnos
+  (ninguna — el modelo se mantiene en vocabulario)
+
+══ COSTE MEDIDO (usage de la API, modelo haiku a 1 $/M in · 5 $/M out)
+  Turnos medidos: 69 · entrada: 190774 tok (media 2765) · salida: 23195 tok (media 336)
+  Coste medio por turno: $0.00445 · por conversación de 3 turnos del paciente: $0.01334
+  Coste de esta pasada completa: $0.3067
+
+✓ medido. El número es el dato — no se ajusta nada antes de reportarlo.

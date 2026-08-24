@@ -17,6 +17,7 @@ export type ClaveAplazado =
   | "garantia_condiciones"
   | "dato_presupuesto"
   | "agenda_disponibilidad"
+  | "dato_cita"
   | "duda_clinica"
   | "otro";
 
@@ -53,6 +54,10 @@ export const NATURALEZA_DE_CLAVE: Record<ClaveAplazado, NaturalezaAplazado> = {
   garantia_condiciones: "decision",
   dato_presupuesto: "dato_ausente",
   agenda_disponibilidad: "dato_ausente",
+  /** 030 — dato de SU cita ya programada («¿cuándo era?», «¿a qué hora?»)
+   *  que el sistema no ve en nivel 1. Se anota, jamás se inventa; con la
+   *  agenda conectada (MEJORAS 97) constará y se contestará solo. */
+  dato_cita: "dato_ausente",
   /** 022 — 9 de 69 casos anotados (R1+C1). Criterio del doctor: es la ÚNICA
    *  clave que NINGUNA configuración elimina (regla dura: el agente jamás da
    *  criterio clínico) — en el barrido de capacidades de la fase D no debe
@@ -72,6 +77,7 @@ export const ETIQUETA_CLAVE: Record<ClaveAplazado, string> = {
   garantia_condiciones: "Garantías y condiciones",
   dato_presupuesto: "Dato del presupuesto que falta",
   agenda_disponibilidad: "Huecos de agenda",
+  dato_cita: "Dato de su cita (día u hora)",
   duda_clinica: "Duda clínica (para el doctor)",
   otro: "Otro",
 };

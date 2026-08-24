@@ -1,0 +1,4 @@
+[dotenv@17.2.3] injecting env (33) from .env.local -- tip: ⚙️  enable debug logging with { debug: true }
+Paciente (al día): «Hola, ¿me podéis decir cuándo es mi próxima cita?»
+Agente: «Hola Ana, claro. Déjame que administración te lo confirme enseguida — te damos el día y la hora de tu próxima cita sin demora.»
+· decidió: deriva (caso_completo) · anotó: dato_cita
