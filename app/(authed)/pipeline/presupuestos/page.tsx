@@ -1,7 +1,8 @@
-// app/(authed)/presupuestos/page.tsx
-// Server Component — usa la sesión global Sprint 7. El guard ya vive en
-// (authed)/layout.tsx; aquí solo mapeamos la sesión global a la forma
-// `UserSession` legacy que espera el Shell.
+// app/(authed)/pipeline/presupuestos/page.tsx
+// F4b (fase F): aquí vive SOLO el kanban (Pipeline = el trabajo vivo). La
+// tabla completa —la base consultable donde se audita— está en
+// /tablas/presupuestos; los links viejos ?vista=maxima redirigen allí
+// conservando el resto de params (?doctor= filtra la tabla).
 
 import { redirect } from "next/navigation";
 import { getSession } from "../../../lib/auth/session";
@@ -15,15 +16,20 @@ export default async function PresupuestosPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  // ?vista se resuelve en SERVIDOR: leerlo de window.location en el estado
-  // inicial provoca mismatch de hidratación (React #418, ya pagado en
-  // Seguimiento el 2026-07-26).
   const params = await searchParams;
   const v = params.vista;
-  const vistaInicial = (Array.isArray(v) ? v[0] : v) === "maxima" ? "maxima" : "kanban";
+  if ((Array.isArray(v) ? v[0] : v) === "maxima") {
+    const q = new URLSearchParams();
+    for (const [k, val0] of Object.entries(params)) {
+      if (k === "vista") continue;
+      const val = Array.isArray(val0) ? val0[0] : val0;
+      if (val != null) q.set(k, val);
+    }
+    const qs = q.toString();
+    redirect(`/tablas/presupuestos${qs ? `?${qs}` : ""}`);
+  }
 
   const s = await getSession();
-  // El layout authed ya hace redirect si falta sesión — defensa en profundidad.
   if (!s) redirect("/login");
 
   const user: UserSession = {
@@ -33,5 +39,5 @@ export default async function PresupuestosPage({
     clinica: null,
   };
 
-  return <PresupuestosShell user={user} vistaInicial={vistaInicial} />;
+  return <PresupuestosShell user={user} vistaFija="kanban" />;
 }

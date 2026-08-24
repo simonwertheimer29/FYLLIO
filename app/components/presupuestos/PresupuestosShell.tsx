@@ -111,13 +111,20 @@ function usePresupuestos() {
 export default function PresupuestosShell({
   user,
   vistaInicial = "kanban",
+  vistaFija,
 }: {
   user: UserSession;
   /** ?vista=maxima resuelto en servidor (el "Ver todos →" de la columna
    *  Perdido aterriza ahí). Leerlo aquí de window rompía la hidratación. */
   vistaInicial?: Tab;
+  /** F4b (fase F): el shell sirve a DOS ventanas — Pipeline (kanban, el
+   *  trabajo vivo) y Tablas (la base consultable donde se audita). Con
+   *  vistaFija el conmutador muere y cruzar de lente es NAVEGAR entre
+   *  ventanas, no cambiar de pestaña. El estado interno `tab` queda como
+   *  compat de vistaInicial. */
+  vistaFija?: Tab;
 }) {
-  const [tab, setTab] = useState<Tab>(vistaInicial);
+  const [tab, setTab] = useState<Tab>(vistaFija ?? vistaInicial);
   // Rango temporal del tablero — control único compartido con Leads.
   const [rango, setRango] = useState<RangoKanban>(RANGO_DEFAULT);
   const [currentFilters, setCurrentFilters] = useState<Filters>(EMPTY_FILTERS);
@@ -394,7 +401,9 @@ export default function PresupuestosShell({
                 Presupuestos
               </h1>
               <p className="text-[13px] text-[var(--color-muted)] mt-0.5">
-                Del presupuesto presentado al tratamiento aceptado.
+                {vistaFija === "maxima"
+                  ? "Todos los presupuestos, con su recorrido y su resultado."
+                  : "Del presupuesto presentado al tratamiento aceptado."}
               </p>
             </div>
 
@@ -416,14 +425,16 @@ export default function PresupuestosShell({
                   {NOTA_RANGO_SOLO_CERRADOS}
                 </p>
               </div>
-              <SegmentedToggle
-                options={[
-                  { id: "kanban", label: "Tablero" },
-                  { id: "maxima", label: "Tabla" },
-                ]}
-                active={tab}
-                onChange={(id) => setTab(id)}
-              />
+              {!vistaFija && (
+                <SegmentedToggle
+                  options={[
+                    { id: "kanban", label: "Tablero" },
+                    { id: "maxima", label: "Tabla" },
+                  ]}
+                  active={tab}
+                  onChange={(id) => setTab(id)}
+                />
+              )}
             </div>
           </div>
 
@@ -607,7 +618,9 @@ export default function PresupuestosShell({
                     // viven su vida financiera en Cobros; los perdidos, en la
                     // tabla completa (vista "Tabla").
                     if (estado === "ACEPTADO") {
-                      window.location.href = "/cobros?vista=registro";
+                      window.location.href = "/tablas/cobros";
+                    } else if (vistaFija) {
+                      window.location.href = "/tablas/presupuestos";
                     } else {
                       setTab("maxima");
                     }

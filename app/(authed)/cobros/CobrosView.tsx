@@ -48,7 +48,7 @@ const ESTADO_VARIANT: Record<EstadoCobro, StatePillVariant> = {
 const SELECT_CLASS =
   "text-xs px-3 py-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]";
 
-export function CobrosView() {
+export function CobrosView({ vistaFija }: { vistaFija: "actuar" | "registro" }) {
   const { selectedClinicaId, selectedClinicaNombre, setSelectedClinicaId } = useClinic();
   // Con clínica elegida la pantalla cambia de ámbito y hay que decirlo.
   const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
@@ -62,12 +62,10 @@ export function CobrosView() {
   // Actuar / Registro — toggle segmentado en cabecera (patrón Seguimiento).
   // ?vista=registro (el "Ver todos →" de la columna Aceptado del kanban)
   // abre directamente el Registro.
-  const [pestana, setPestana] = useState<"actuar" | "registro">(() => {
-    if (typeof window === "undefined") return "actuar";
-    return new URLSearchParams(window.location.search).get("vista") === "registro"
-      ? "registro"
-      : "actuar";
-  });
+  // F4b (fase F): el Registro vive en /tablas/cobros y la cola en /cobros
+  // (hasta que F5 la funda en Seguimiento) — cada página fija su pestaña y
+  // el conmutador murió. El estado queda porque las dos zonas lo comparten.
+  const [pestana] = useState<"actuar" | "registro">(vistaFija);
   // Sub-pestañas de Actuar (mismo componente): un bucket a la vista, la
   // visión de conjunto vive en los contadores + Σ€ de cada pestaña.
   const [bucket, setBucket] = useState<"vencidos" | "por_vencer" | "estancados">("vencidos");
@@ -189,18 +187,12 @@ export function CobrosView() {
               Cobros
             </h1>
             <p className="text-[13px] text-[var(--color-muted)] mt-0.5">
-              Del presupuesto aceptado al dinero cobrado.
+              {vistaFija === "registro"
+                ? "El registro completo: cada paciente con su aceptado, su pagado y su pendiente."
+                : "Del presupuesto aceptado al dinero cobrado."}
             </p>
           </div>
-          {/* Conmutador de vista en cabecera — mismo patrón que Seguimiento. */}
-          <SegmentedToggle
-            options={[
-              { id: "actuar" as const, label: "Actuar", count: totalActuar },
-              { id: "registro" as const, label: "Registro", count: (data?.items ?? []).length },
-            ]}
-            active={pestana}
-            onChange={setPestana}
-          />
+
         </div>
 
         <Card padding="none" className="px-5 py-3.5">

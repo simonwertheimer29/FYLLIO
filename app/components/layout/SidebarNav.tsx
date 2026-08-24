@@ -58,6 +58,10 @@ const ITEMS: Item[] = [
     hijos: [
       { label: "Pendientes", href: "/seguimiento" },
       { label: "Envíos", href: "/envios" },
+      // F4b: la COLA de cobros (Actuar) cuelga aquí temporalmente — F5 la
+      // funde en las cohortes y esta entrada muere. Sin ella, al llevarse
+      // Tablas el Registro, la cola quedaba inalcanzable desde la barra.
+      { label: "Cobros", href: "/cobros" },
     ],
   },
   {
@@ -71,11 +75,12 @@ const ITEMS: Item[] = [
   },
   {
     label: "Tablas",
-    href: "/pipeline/presupuestos?vista=maxima",
+    href: "/tablas/leads",
     Icono: FileSpreadsheet,
     hijos: [
-      { label: "Presupuestos", href: "/pipeline/presupuestos?vista=maxima" },
-      { label: "Cobros", href: "/cobros?vista=registro" },
+      { label: "Leads", href: "/tablas/leads" },
+      { label: "Presupuestos", href: "/tablas/presupuestos" },
+      { label: "Cobros", href: "/tablas/cobros" },
     ],
   },
   { label: "Pacientes", href: "/pacientes", Icono: Users },
@@ -128,10 +133,6 @@ export function SidebarNav({ onNavegar }: { onNavegar?: () => void }) {
     for (const [k, v] of query.entries()) {
       if (params.get(k) !== v) return false;
     }
-    // Un href SIN query no está activo si otra hermana CON query lo está
-    // (p. ej. Pipeline·Presupuestos vs Tablas·Presupuestos).
-    if (query.toString() === "" && path === "/pipeline/presupuestos" && params.get("vista") === "maxima") return false;
-    if (query.toString() === "" && path === "/cobros" && params.get("vista") === "registro") return false;
     return true;
   }
 
