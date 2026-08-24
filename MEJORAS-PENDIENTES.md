@@ -1914,3 +1914,21 @@ verdad: un editor, un vocabulario, un renderizador.
   (la misma que cubre la banda del borrador en el composer). Se decide cuando vuelva la consulta;
   cualquier presentación tendrá que convivir con la identificación como sistema automático.
 - **Fecha:** 2026-08-23
+
+## 109. Fetch muerto a /api/no-shows/config (404 silencioso en Ajustes)
+- **Qué es:** `MotorNoShowsPanel` (Ajustes → Configuración) fetchea `/api/no-shows/config/[clinicaId]`
+  y esa ruta NO existe (el módulo no-shows está congelado). 404 en cada carga del panel (§9/§10).
+  Visto en el censo de fase F (23-08).
+- **El arreglo:** o el panel se retira con el módulo congelado, o declara el estado («módulo no
+  activo») sin fetch. No dejar el 404 mudo.
+- **Fecha:** 2026-08-23
+
+## 110. El seed de reglas_automatizacion escribe valores FUERA del enum (reglas decorativas)
+- **Qué es:** `db-seed-demo-rico` escribe `trigger_tipo` con valores que no existen en TriggerTipo
+  («cita_proxima», «presupuesto_estancado», «lead_inactivo», «paciente_inactivo»), condiciones «{}»
+  (no array) y acciones como string plano — el engine nunca las encuentra ni las ejecuta: las 5
+  reglas demo son decorativas. Mandamiento 15 (el seed respeta el vocabulario real). Visto en el
+  censo de fase F.
+- **Decisión pendiente:** si el motor viejo muere en fase F/B5, el arreglo es borrar el seed de
+  reglas, no corregirlo.
+- **Fecha:** 2026-08-23
