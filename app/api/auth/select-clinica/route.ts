@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         }
       }
       return buildLoginResponse({ ...user, cliente }, ["*"], {
-        redirect: "/red",
+        redirect: "/inicio",
         selectedClinicaId: clinicaId,
       });
     }
@@ -70,7 +70,7 @@ export async function POST(req: Request) {
     }
 
     return buildLoginResponse({ ...user, cliente }, [elegida.id], {
-      redirect: "/seguimiento",
+      redirect: "/inicio",
       selectedClinicaId: elegida.id,
     });
   } catch {

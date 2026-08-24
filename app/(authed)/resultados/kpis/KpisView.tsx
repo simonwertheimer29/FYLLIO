@@ -21,21 +21,21 @@
 
 import { toast } from "sonner";
 import { useCallback, useEffect, useState } from "react";
-import type { UserSession } from "../../lib/presupuestos/types";
-import KpiView from "../../components/presupuestos/KpiView";
+import type { UserSession } from "../../../lib/presupuestos/types";
+import KpiView from "../../../components/presupuestos/KpiView";
 import { KpisLeadsView } from "./KpisLeadsView";
 import { KpisCobrosView } from "./KpisCobrosView";
 import { KpisNoShowsView } from "./KpisNoShowsView";
-import { SegmentedToggle } from "../../components/shared/SegmentedToggle";
-import { ColaTabs } from "../../components/shared/ColaTabs";
-import { Card } from "../../components/ui/Card";
+import { SegmentedToggle } from "../../../components/shared/SegmentedToggle";
+import { ColaTabs } from "../../../components/shared/ColaTabs";
+import { Card } from "../../../components/ui/Card";
 import {
   PERIODOS_KPI, PERIODO_DEFAULT, etiquetaComparacion, type PeriodoKpi,
-} from "../../lib/periodo";
+} from "../../../lib/periodo";
 import Link from "next/link";
-import { useClinic } from "../../lib/context/ClinicContext";
-import { cargarJSON, traeLista } from "../../lib/fetch-json";
-import { AvisoFiltroClinica } from "../../components/shared/AvisoFiltroClinica";
+import { useClinic } from "../../../lib/context/ClinicContext";
+import { cargarJSON, traeLista } from "../../../lib/fetch-json";
+import { AvisoFiltroClinica } from "../../../components/shared/AvisoFiltroClinica";
 
 type SubTab = "presupuestos" | "leads" | "cobros" | "no-shows";
 
@@ -133,7 +133,7 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
                   captura gráficas a PNG — cosa que un cajón que se desmonta al
                   cerrarse hacía frágil. */}
               <Link
-                href="/informes"
+                href="/resultados/informes"
                 className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] text-xs font-semibold px-3 py-1.5 hover:bg-[var(--color-surface-muted)] transition-colors whitespace-nowrap"
               >
                 Informe mensual

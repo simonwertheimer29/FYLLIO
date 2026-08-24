@@ -3370,3 +3370,14 @@ pendiente y no hay nada más que recoger, DERIVA: «la clave sirve para contarlo
 que alguien lo resuelva». Verificado: «¿cuándo es mi próxima cita?» → anota dato_cita, deriva, y el
 mensaje sale natural. Vara frases 50/50 · evaluador 95 % (los 3 conocidos) · descartes 10 %.
 qa:juez-vivo queda como herramienta permanente de tasa sobre corpus real.
+
+## 2026-08-23 — Fase F: la barra vertical (aprobada en piloto) + F1 — Inicio para todos
+El piloto de Seguimiento se aprobó y la barra se extendió a toda la app: muere GlobalHeader, las
+subpestañas viven indentadas en la lista (Resultados y Agentes de IA nacieron ya como grupos — por
+eso la barra fue ANTES de F1), iconos por entrada, drawer en móvil, y la regla nueva de extensión:
+TODA pantalla ocupa el ancho disponible; con la navegación siempre a la vista, los back-links
+mueren (Envíos perdió el «‹ Seguimiento» y el h1). F1: /red → /inicio ABIERTA a coordinación (el
+API ya filtraba por sesión, fail-closed) y aterrizaje post-login de todos; KPIs e Informes →
+/resultados/* bajo el grupo Resultados; redirects permanentes en las rutas viejas (marcadores);
+SeccionRota y los gates no-admin rebotan a /inicio. Las APIs conservan su nombre a propósito —
+ninguna coordinadora las ve.

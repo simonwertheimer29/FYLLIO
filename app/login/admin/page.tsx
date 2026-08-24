@@ -24,7 +24,7 @@ export default function AdminLoginPage() {
         return;
       }
       // Sprint 8: admin aterriza en /red (dashboard macro, admin-only).
-      router.push("/red");
+      router.push("/inicio");
       router.refresh();
     } catch {
       setError("Error de red. Inténtalo de nuevo.");

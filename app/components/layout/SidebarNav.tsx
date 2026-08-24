@@ -49,7 +49,7 @@ type Item = {
 
 // El orden dictado (§7 de la fase F): diario → flujo → configuración.
 const ITEMS: Item[] = [
-  { label: "Inicio", href: "/red", Icono: Home, soloAdmin: true }, // se abre a coordinación en F1
+  { label: "Inicio", href: "/inicio", Icono: Home }, // F1: abierta a coordinación — su aterrizaje
   { label: "Mensajería", href: "/mensajeria", Icono: MessageCircle },
   {
     label: "Seguimiento",
@@ -91,11 +91,11 @@ const ITEMS: Item[] = [
   },
   {
     label: "Resultados",
-    href: "/kpis",
+    href: "/resultados/kpis",
     Icono: BarChart3,
     hijos: [
-      { label: "KPIs", href: "/kpis" },
-      { label: "Informes", href: "/informes" },
+      { label: "KPIs", href: "/resultados/kpis" },
+      { label: "Informes", href: "/resultados/informes" },
     ],
   },
   { label: "Ajustes", href: "/ajustes", Icono: Settings, soloAdmin: true },

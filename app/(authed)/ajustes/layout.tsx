@@ -18,7 +18,7 @@ export default async function AjustesLayout({
 }) {
   const session = await getSession();
   if (!session) redirect("/login");
-  if (session.rol !== "admin") redirect("/seguimiento");
+  if (session.rol !== "admin") redirect("/inicio");
 
   return (
     // En móvil la navegación va arriba en horizontal, así que la caja apila;

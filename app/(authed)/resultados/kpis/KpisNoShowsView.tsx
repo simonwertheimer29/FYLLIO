@@ -13,14 +13,14 @@
 // Respeta el selector de clínica global (useClinic).
 
 import { useEffect, useState } from "react";
-import { useClinic } from "../../lib/context/ClinicContext";
-import type { PeriodoKpi } from "../../lib/periodo";
-import { Card } from "../../components/ui/Card";
-import { KpiCard } from "../../components/ui/KpiCard";
-import { StatePill } from "../../components/ui/StatePill";
-import { KpiCardSkeleton } from "../../components/ui/Skeleton";
-import { ErrorState } from "../../components/ui/Feedback";
-import { eur } from "../../components/shared/Cifra";
+import { useClinic } from "../../../lib/context/ClinicContext";
+import type { PeriodoKpi } from "../../../lib/periodo";
+import { Card } from "../../../components/ui/Card";
+import { KpiCard } from "../../../components/ui/KpiCard";
+import { StatePill } from "../../../components/ui/StatePill";
+import { KpiCardSkeleton } from "../../../components/ui/Skeleton";
+import { ErrorState } from "../../../components/ui/Feedback";
+import { eur } from "../../../components/shared/Cifra";
 
 type ApiResponse = {
   periodo: "mes";

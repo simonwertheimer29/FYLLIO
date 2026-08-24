@@ -1,25 +1,11 @@
-// app/(authed)/red/page.tsx
-// Sprint 8 D.3 — dashboard macro admin-only. Integra Leads + Presupuestos
-// + Pacientes.
-
+// F1 (fase F): /red se renombró a /inicio — «Red» presuponía varias clínicas
+// y no siempre las hay; es la vista de entrada. Redirect permanente para
+// marcadores guardados. (La API /api/red/dashboard CONSERVA su nombre a
+// propósito: renombrar rutas de API no lo ve ninguna coordinadora.)
 import { redirect } from "next/navigation";
-import { getSession } from "../../lib/auth/session";
-import type { UserSession } from "../../lib/presupuestos/types";
-import { RedView } from "./RedView";
 
 export const dynamic = "force-dynamic";
 
-export default async function RedPage() {
-  const s = await getSession();
-  if (!s) redirect("/login");
-  if (s.rol !== "admin") redirect("/seguimiento");
-
-  const user: UserSession = {
-    email: "",
-    nombre: s.nombre,
-    rol: "manager_general",
-    clinica: null,
-  };
-
-  return <RedView user={user} />;
+export default function RedRedirect() {
+  redirect("/inicio");
 }

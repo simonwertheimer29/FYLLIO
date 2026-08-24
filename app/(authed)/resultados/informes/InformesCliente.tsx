@@ -5,10 +5,10 @@
 // mismo motivo por el que ya lo hacía en /kpis y en PresupuestosShell.
 
 import NextDynamic from "next/dynamic";
-import type { UserSession } from "../../lib/presupuestos/types";
+import type { UserSession } from "../../../lib/presupuestos/types";
 
 const InformesView = NextDynamic(
-  () => import("../../components/presupuestos/InformesView"),
+  () => import("../../../components/presupuestos/InformesView"),
   {
     ssr: false,
     loading: () => (

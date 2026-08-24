@@ -5,7 +5,7 @@
 // salida. Esta pantalla monta gráficas y captura nodos a PNG, así que tiene más
 // superficie de fallo de render que la media.
 
-import { ErrorState } from "../../components/ui/Feedback";
+import { ErrorState } from "../../../components/ui/Feedback";
 
 export default function InformesError({ reset }: { error: Error; reset: () => void }) {
   return (

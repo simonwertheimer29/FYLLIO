@@ -18,16 +18,16 @@ import {
   Line,
 } from "recharts";
 import { Trophy, TrendingDown } from "lucide-react";
-import { Card } from "../../components/ui/Card";
-import { StatePill } from "../../components/ui/StatePill";
-import { KpiCard } from "../../components/ui/KpiCard";
-import { Comparativa } from "../../components/shared/Cifra";
-import { KpiCardSkeleton } from "../../components/ui/Skeleton";
-import { ErrorState } from "../../components/ui/Feedback";
-import { X, ICON_STROKE } from "../../components/icons";
-import { useClinic } from "../../lib/context/ClinicContext";
-import { colorCategoria } from "../../components/shared/paleta-grafica";
-import type { PeriodoKpi } from "../../lib/periodo";
+import { Card } from "../../../components/ui/Card";
+import { StatePill } from "../../../components/ui/StatePill";
+import { KpiCard } from "../../../components/ui/KpiCard";
+import { Comparativa } from "../../../components/shared/Cifra";
+import { KpiCardSkeleton } from "../../../components/ui/Skeleton";
+import { ErrorState } from "../../../components/ui/Feedback";
+import { X, ICON_STROKE } from "../../../components/icons";
+import { useClinic } from "../../../lib/context/ClinicContext";
+import { colorCategoria } from "../../../components/shared/paleta-grafica";
+import type { PeriodoKpi } from "../../../lib/periodo";
 
 // El vocabulario del periodo y su control viven en la cabecera de /kpis
 // (`lib/periodo`): aquí había una COPIA de la lista y otra del markup de las

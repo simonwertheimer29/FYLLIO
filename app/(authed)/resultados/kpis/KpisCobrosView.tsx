@@ -13,20 +13,20 @@ import {
   ResponsiveContainer,
   Tooltip as ReTooltip,
 } from "recharts";
-import { useClinic } from "../../lib/context/ClinicContext";
-import { colorCategoria } from "../../components/shared/paleta-grafica";
-import type { PeriodoKpi } from "../../lib/periodo";
-import { KpiCard } from "../../components/ui/KpiCard";
-import { KpiCardSkeleton } from "../../components/ui/Skeleton";
-import { ErrorState, EmptyState } from "../../components/ui/Feedback";
-import { eur } from "../../components/shared/Cifra";
+import { useClinic } from "../../../lib/context/ClinicContext";
+import { colorCategoria } from "../../../components/shared/paleta-grafica";
+import type { PeriodoKpi } from "../../../lib/periodo";
+import { KpiCard } from "../../../components/ui/KpiCard";
+import { KpiCardSkeleton } from "../../../components/ui/Skeleton";
+import { ErrorState, EmptyState } from "../../../components/ui/Feedback";
+import { eur } from "../../../components/shared/Cifra";
 import {
   X,
   Building2,
   CreditCard,
   Users,
   ICON_STROKE,
-} from "../../components/icons";
+} from "../../../components/icons";
 
 // El vocabulario del periodo y su control viven en la cabecera de /kpis
 // (`lib/periodo`): esta lista era la gemela de la de Leads.

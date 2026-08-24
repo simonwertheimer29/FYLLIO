@@ -74,7 +74,7 @@ export function SeccionRota({
             Reintentar
           </button>
           <Link
-            href="/red"
+            href="/inicio"
             className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm font-medium text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-surface-muted)]"
           >
             Ir al panel

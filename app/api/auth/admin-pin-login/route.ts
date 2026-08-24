@@ -83,7 +83,7 @@ export async function POST(req: Request) {
       ok: true,
       user: { id: matched.id, nombre: matched.nombre, rol: "admin" },
       // Sprint 8: admin aterriza en /red.
-      redirect: "/red",
+      redirect: "/inicio",
     });
     setSessionCookie(res, token);
     // Emite cookies legacy para que los endpoints de Sprints 1-5

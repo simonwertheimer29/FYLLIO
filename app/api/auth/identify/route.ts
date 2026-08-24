@@ -89,7 +89,7 @@ export async function POST(req: Request) {
       const clinicas = await listClinicas({ onlyActivas: true, cliente });
       if (clinicas.length <= 1) {
         return buildLoginResponse({ ...matched, cliente }, ["*"], {
-          redirect: "/red",
+          redirect: "/inicio",
           selectedClinicaId: "__all__",
         });
       }
@@ -119,7 +119,7 @@ export async function POST(req: Request) {
     if (clinicas.length === 1) {
       const unica = clinicas[0]!;
       return buildLoginResponse({ ...matched, cliente }, [unica.id], {
-        redirect: "/seguimiento",
+        redirect: "/inicio",
         selectedClinicaId: unica.id,
       });
     }
