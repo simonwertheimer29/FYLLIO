@@ -1921,7 +1921,8 @@ verdad: un editor, un vocabulario, un renderizador.
   Visto en el censo de fase F (23-08).
 - **El arreglo:** o el panel se retira con el módulo congelado, o declara el estado («módulo no
   activo») sin fetch. No dejar el 404 mudo.
-- **Fecha:** 2026-08-23
+- **Fecha:** 2026-08-23 · ✅ **RESUELTA el 2026-08-23** — el panel declara el módulo congelado
+  (sin formulario fingido, sin fetch); vuelve con sus ajustes cuando el módulo se reactive.
 
 ## 110. El seed de reglas_automatizacion escribe valores FUERA del enum (reglas decorativas)
 - **Qué es:** `db-seed-demo-rico` escribe `trigger_tipo` con valores que no existen en TriggerTipo
