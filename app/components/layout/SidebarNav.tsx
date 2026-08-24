@@ -21,11 +21,27 @@ import { useState } from "react";
 import { useClinic } from "../../lib/context/ClinicContext";
 import { ClinicSelector } from "./ClinicSelector";
 import { ThemeToggle } from "./ThemeToggle";
-import { Bell, ChevronDown, ChevronRight, ICON_STROKE } from "../icons";
+import {
+  Bell,
+  ChevronDown,
+  ChevronRight,
+  Home,
+  MessageCircle,
+  ClipboardList,
+  TrendingUp,
+  FileSpreadsheet,
+  Users,
+  Repeat,
+  Sparkles,
+  BarChart3,
+  Settings,
+  ICON_STROKE,
+} from "../icons";
 
 type Item = {
   label: string;
   href: string;
+  Icono: typeof Home;
   /** Sub-vistas indentadas (dos caras del mismo objeto, PLAN §7). */
   hijos?: { label: string; href: string }[];
   soloAdmin?: boolean;
@@ -33,11 +49,12 @@ type Item = {
 
 // El orden dictado (§7 de la fase F): diario → flujo → configuración.
 const ITEMS: Item[] = [
-  { label: "Inicio", href: "/red", soloAdmin: true }, // se abre a coordinación en F1
-  { label: "Mensajería", href: "/mensajeria" },
+  { label: "Inicio", href: "/red", Icono: Home, soloAdmin: true }, // se abre a coordinación en F1
+  { label: "Mensajería", href: "/mensajeria", Icono: MessageCircle },
   {
     label: "Seguimiento",
     href: "/seguimiento",
+    Icono: ClipboardList,
     hijos: [
       { label: "Pendientes", href: "/seguimiento" },
       { label: "Envíos", href: "/envios" },
@@ -46,6 +63,7 @@ const ITEMS: Item[] = [
   {
     label: "Pipeline",
     href: "/leads",
+    Icono: TrendingUp,
     hijos: [
       { label: "Leads", href: "/leads" },
       { label: "Presupuestos", href: "/presupuestos" },
@@ -54,16 +72,18 @@ const ITEMS: Item[] = [
   {
     label: "Tablas",
     href: "/presupuestos?vista=maxima",
+    Icono: FileSpreadsheet,
     hijos: [
       { label: "Presupuestos", href: "/presupuestos?vista=maxima" },
       { label: "Cobros", href: "/cobros?vista=registro" },
     ],
   },
-  { label: "Pacientes", href: "/pacientes" },
-  { label: "Automatizaciones", href: "/automatizaciones" },
+  { label: "Pacientes", href: "/pacientes", Icono: Users },
+  { label: "Automatizaciones", href: "/automatizaciones", Icono: Repeat },
   {
     label: "Agentes de IA",
     href: "/agente",
+    Icono: Sparkles,
     hijos: [
       { label: "Conversacional", href: "/agente" },
       { label: "Llamadas", href: "/llamadas" },
@@ -72,12 +92,13 @@ const ITEMS: Item[] = [
   {
     label: "Resultados",
     href: "/kpis",
+    Icono: BarChart3,
     hijos: [
       { label: "KPIs", href: "/kpis" },
       { label: "Informes", href: "/informes" },
     ],
   },
-  { label: "Ajustes", href: "/ajustes", soloAdmin: true },
+  { label: "Ajustes", href: "/ajustes", Icono: Settings, soloAdmin: true },
 ];
 
 function rutaDe(href: string): { path: string; query: URLSearchParams } {
@@ -159,7 +180,7 @@ export function SidebarNav({ onNavegar }: { onNavegar?: () => void }) {
 
       {/* ── La lista ───────────────────────────────────────────────────── */}
       <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
-        <ul className="space-y-0.5">
+        <ul className="space-y-1.5">
           {items.map((item) => {
             const conHijos = (item.hijos?.length ?? 0) > 0;
             const enGrupo = grupoActivo(item);
@@ -171,12 +192,13 @@ export function SidebarNav({ onNavegar }: { onNavegar?: () => void }) {
                   <Link
                     href={item.href}
                     onClick={onNavegar}
-                    className={`font-display flex-1 rounded-md px-2.5 py-1.5 text-[13.5px] font-medium transition-colors ${
+                    className={`font-display flex flex-1 items-center gap-2.5 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors ${
                       activoSolo || (conHijos && enGrupo && !desplegado)
                         ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
                         : "text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
                     }`}
                   >
+                    <item.Icono size={16} strokeWidth={ICON_STROKE} className="shrink-0" aria-hidden />
                     {item.label}
                   </Link>
                   {conHijos && (
@@ -195,13 +217,13 @@ export function SidebarNav({ onNavegar }: { onNavegar?: () => void }) {
                   )}
                 </div>
                 {desplegado && (
-                  <ul className="mt-0.5 space-y-0.5 border-l border-[var(--color-border)] pl-2 ml-3.5">
+                  <ul className="mt-1 space-y-0.5 border-l border-[var(--color-border)] pl-2 ml-[1.4rem]">
                     {item.hijos!.map((h) => (
                       <li key={h.label}>
                         <Link
                           href={h.href}
                           onClick={onNavegar}
-                          className={`block rounded-md px-2.5 py-1 text-[13px] transition-colors ${
+                          className={`block rounded-md px-2.5 py-1.5 text-[13px] transition-colors ${
                             activo(h.href, true)
                               ? "bg-[var(--color-accent-soft)] font-medium text-[var(--color-accent)]"
                               : "text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-foreground)]"

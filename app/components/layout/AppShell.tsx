@@ -1,10 +1,9 @@
 "use client";
 
-// EL SHELL DEL PILOTO (fase F, 23-08): la barra vertical se estrena en UNA
-// zona — Seguimiento y su subpestaña Envíos — y el resto sigue con el header
-// horizontal. Condición dictada: se mira en una pantalla; si no convence, se
-// descarta sin haber tocado diez ventanas. Al aprobarla, este condicional
-// desaparece y la sidebar pasa a ser el shell de todo (authed).
+// EL SHELL (fase F): barra vertical en TODA la app — el piloto en
+// Seguimiento se aprobó el 23-08 y el condicional murió. Regla dictada al
+// extender: TODA pantalla ocupa el ancho disponible (la barra ya cuesta
+// espacio; el resto se aprovecha entero).
 //
 // MÓVIL (diagnóstico 23-08): la sidebar no cabe → patrón drawer, el mismo de
 // Vercel/Supabase: barra superior mínima (hamburguesa + logo + campana) y la
@@ -15,28 +14,15 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { GlobalHeader } from "./GlobalHeader";
 import { SidebarNav } from "./SidebarNav";
 import { Menu, X, ICON_STROKE } from "../icons";
 
-const RUTAS_PILOTO = ["/seguimiento", "/envios"];
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
-  const piloto = RUTAS_PILOTO.some((r) => pathname === r || pathname.startsWith(r + "/"));
   const [drawer, setDrawer] = useState(false);
 
   // El drawer no sobrevive a una navegación (se cierra al cambiar de ruta).
   useEffect(() => setDrawer(false), [pathname]);
-
-  if (!piloto) {
-    return (
-      <div className="min-h-screen flex flex-col">
-        <GlobalHeader />
-        <div className="flex-1 min-h-0 flex flex-col">{children}</div>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-dvh min-h-0 overflow-hidden">

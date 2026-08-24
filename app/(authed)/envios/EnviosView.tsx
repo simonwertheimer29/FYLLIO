@@ -168,7 +168,7 @@ export function EnviosView() {
 
   if (cargando && !vista) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-6">
+      <div className="w-full px-4 py-5 lg:px-6">
         <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">Envíos</h1>
         <div className="mt-4">
           <CardListSkeleton />
@@ -179,7 +179,7 @@ export function EnviosView() {
 
   if (error && !vista) {
     return (
-      <div className="mx-auto max-w-4xl px-4 py-6">
+      <div className="w-full px-4 py-5 lg:px-6">
         <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">Envíos</h1>
         <div className="mt-4">
           <ErrorState detail={error} onRetry={cargar} />
@@ -191,18 +191,12 @@ export function EnviosView() {
   if (!vista) return null;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 space-y-6">
+    <div className="w-full px-4 py-5 lg:px-6 space-y-6">
       {/* Cabecera: solo hechos */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Link
-            href="/seguimiento"
-            className="inline-flex items-center gap-1 text-[13px] text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
-          >
-            <ChevronLeft size={14} strokeWidth={ICON_STROKE} />
-            Seguimiento
-          </Link>
-          <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">Envíos</h1>
+          {/* Fase F: el back-link y el h1 murieron — la barra lateral da la
+              ventana y la vuelta; solo quedan los hechos. */}
           <p className="mt-1 text-[13px] text-[var(--color-muted)]">
             {vista.pendientes.length} por enviar hoy · {vista.procesadasHoy.length} procesados hoy ·{" "}
             {vista.caducadasRecientes.length} caducados en 7 días

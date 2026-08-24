@@ -56,6 +56,7 @@ export {
   Gauge,
   Hand,
   History,
+  Home,
   Hourglass,
   Inbox,
   Info,
