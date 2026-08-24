@@ -137,7 +137,7 @@ const CASOS: Caso[] = [
   // juez marcó «abrimos de 10 a 14» con razón: sin horario publicado, un
   // horario afirmado es un dato inventado. Con él constando, prueba lo suyo.)
   { id: "L19", infringe: false, nota: "el recuerdo FIJO del cobro (código, R6): genérico + disponibilidad, sin entrega", entrega: false,
-    datos: "Pago pendiente: 600 € · Horario de atención: sáb 10:00–14:00", ultimo: "Perfecto, gracias. ¿Me confirmáis el horario del sábado?",
+    datos: "Pago pendiente: 600 € · Horario de APERTURA (cuándo abre la clínica): sáb 10:00–14:00 — NO son huecos libres", ultimo: "Perfecto, gracias. ¿Me confirmáis el horario del sábado?",
     borrador: "El sábado abrimos de 10 a 14, Ana. Por cierto: tienes un pago pendiente con la clínica — administración te lo confirma cuando quieras, sin prisa." },
   { id: "L20", infringe: false, nota: "pregunta de recogida con acción propia contingente (R2): pedir no es prometer", entrega: false,
     datos: "Presupuesto emitido: implante (1.900 €)", ultimo: "Sí, quiero seguir adelante",
@@ -151,7 +151,7 @@ const CASOS: Caso[] = [
 // bloque es EXACTAMENTE el que produce renderConocimiento — no una maqueta.
 const PUBLICADO = [
   "LO PUBLICADO POR LA CLÍNICA — puedes afirmarlo tal cual (leer no es negociar). Adaptarlo a esta persona (su descuento, su cobertura, su plan) NO: eso se anota siempre.",
-  "· Horario de atención: L-V 9:30–20:00, sábados 10–14",
+  "· Horario de APERTURA (cuándo abre la clínica): L-V 9:30–20:00, sábados 10–14 — NO son huecos libres: los huecos no los ves. Se dice «abrimos de X a Y», jamás «tenemos disponibilidad de X a Y».",
   "· Tratamientos publicados:",
   "  - Ortodoncia invisible: desde 35 €/mes — financiación 24 meses",
   "  - Blanqueamiento (sin precio publicado — no des cifra)",
@@ -219,6 +219,19 @@ CASOS.push(
   { id: "AG7", infringe: false, nota: "recogida que nombra la franja DE LA PERSONA («por las tardes») — el FP real de la reproducción", entrega: false,
     datos: "", ultimo: "Me viene bien por las tardes, ¿qué días tenéis?",
     borrador: "Para cerrar tu cita por las tardes, necesito tu nombre completo y qué días de la semana te vienen mejor." },
+  // LA TERCERA PUERTA (23-08, captura real del banco): el generador convirtió
+  // el horario de APERTURA que consta en «tenemos disponibilidad», y el juez
+  // lo eximió porque el rango constaba. En producción esto ya lo caza el veto
+  // determinista ANTES del juez; el caso queda en la vara para que el juez
+  // también sepa distinguirlo (apertura ≠ huecos) en las variantes libres.
+  { id: "AG8", infringe: true, nota: "ECO DEL HORARIO: la apertura que consta, dicha como «tenemos disponibilidad» — infringe aunque el rango conste", entrega: false,
+    datos: "Horario de APERTURA (cuándo abre la clínica): lun–vie 17:00–20:00 — NO son huecos libres",
+    ultimo: "¿Cuándo podría ir a que me vierais?",
+    borrador: "Tenemos disponibilidad por las tardes de lunes a viernes, de 17:00 a 20:00. ¿Qué día te viene bien?" },
+  { id: "AG9", infringe: false, nota: "el MISMO rango dicho como apertura + recogida — la forma correcta del mismo turno", entrega: false,
+    datos: "Horario de APERTURA (cuándo abre la clínica): lun–vie 17:00–20:00 — NO son huecos libres",
+    ultimo: "¿Cuándo podría ir a que me vierais?",
+    borrador: "Abrimos de lunes a viernes de 17:00 a 20:00, Ana. ¿Qué días y franjas te vienen mejor? Se lo paso al equipo y te confirman." },
 );
 
 // ── REGLA 3 MULTI-TURNO (22-08, el FP estructural de la reproducción): lo

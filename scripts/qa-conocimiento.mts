@@ -145,8 +145,9 @@ ok("el precio publicado viaja TAL CUAL («desde 35 €/mes» — texto, no numbe
   conDatos.includes("Ortodoncia invisible: desde 35 €/mes"));
 ok("un tratamiento sin precio lo dice: «sin precio publicado — no des cifra»",
   conDatos.includes("Blanqueamiento (sin precio publicado — no des cifra)"));
-ok("horario (DERIVADO del único dato — 22-08, murió el texto libre), políticas y enlaces presentes",
-  conDatos.includes("Horario de atención: lun–vie 9:00–20:00 · sáb 10:00–14:00") &&
+ok("horario (DERIVADO del único dato; 23-08: se presenta como APERTURA, no como huecos), políticas y enlaces presentes",
+  conDatos.includes("Horario de APERTURA (cuándo abre la clínica): lun–vie 9:00–20:00 · sáb 10:00–14:00") &&
+    conDatos.includes("NO son huecos libres") &&
     conDatos.includes("Sanitas") &&
     conDatos.includes("https://clinica.example/reserva"));
 ok("y el resto del prompt no cambió (todo lo de antes sigue: presupuesto, hilo, calendario)",
@@ -169,6 +170,41 @@ ok("sin nada PUBLICADO, la cabecera «LO PUBLICADO» no aparece — un título s
   !rIdentidad.includes("LO PUBLICADO POR LA CLÍNICA"));
 ok("y el assert del plan básico SIGUE: los campos nuevos en null no emiten ni un byte",
   renderConocimiento(parseConocimiento(JSON.stringify({ quienesSois: {}, alcance: {} }))).length === 0);
+
+// ─── E · El veto determinista de agenda (23-08) ────────────────────────────
+//
+// El fallo «tenemos disponibilidad…» volvió TRES veces por tres puertas; la
+// tercera fue el ECO DEL HORARIO («Tenemos disponibilidad por las tardes de
+// lunes a viernes, de 17:00 a 20:00») — el generador convertía la apertura en
+// huecos y el juez lo eximía porque el rango constaba. El cierre de raíz es
+// CÓDIGO: estas frases-firma no salen nunca en nivel 1, obedezca quien
+// obedezca. Los tres casos históricos se prueban LITERALES.
+console.log("\nE · veto determinista de agenda: las frases-firma no salen");
+
+const { vetoAgendaDeterminista } = await import("../app/lib/agente/juez-borrador");
+const veta = (b: string) => vetoAgendaDeterminista(b) != null;
+
+ok("caso 1 (huecos inventados): «tenemos hueco el martes a las 16:00» → vetado",
+  veta("Tenemos hueco el martes a las 16:00, ¿te viene bien?"));
+ok("caso 2 (eco de disponibilidad): «tenemos disponibilidad los martes y jueves» → vetado",
+  veta("¡Perfecto! Tenemos disponibilidad los martes y jueves por la tarde."));
+ok("caso 3, LA CAPTURA DEL 23-08 (eco del horario): «Tenemos disponibilidad por las tardes de lunes a viernes, de 17:00 a 20:00» → vetado",
+  veta("Tenemos disponibilidad por las tardes de lunes a viernes, de 17:00 a 20:00. ¿Qué día te viene bien?"));
+ok("variantes: «hay disponibilidad a partir de las 16:00» y «nos queda un hueco» → vetadas",
+  veta("Hay disponibilidad a partir de las 16:00.") && veta("Nos queda un hueco el jueves."));
+ok("reservar-él: «te cierro la cita» y «queda agendada» → vetadas SIEMPRE",
+  veta("Dime qué día y te cierro la cita.") && veta("Queda agendada tu cita para el martes."));
+ok("la apertura dicha COMO apertura pasa: «abrimos de 17:00 a 20:00» no es afirmar huecos",
+  !veta("Abrimos de lunes a viernes de 17:00 a 20:00. ¿Qué días y franjas te vienen bien?"));
+ok("recoger la disponibilidad DE LA PERSONA pasa: preguntar no es afirmar",
+  !veta("¿Qué disponibilidad tienes esta semana?") &&
+  !veta("En cuanto me digas tu disponibilidad, se lo paso al equipo."));
+ok("anunciar al EQUIPO pasa: «el equipo te confirma la cita» no la reserva el agente",
+  !veta("Se lo paso al equipo y te confirman la cita enseguida.") &&
+  !veta("Te buscamos hueco por las tardes y te decimos algo hoy."));
+ok("nivel 2 (huecosConstan): la disponibilidad se permite, reservar-él se veta IGUAL",
+  vetoAgendaDeterminista("Tenemos hueco el martes a las 16:00.", { huecosConstan: true }) == null &&
+  vetoAgendaDeterminista("Te reservo el martes a las 16:00.", { huecosConstan: true }) != null);
 
 if (fallos > 0) {
   console.error(`\n✗ ${fallos} fallo(s)`);

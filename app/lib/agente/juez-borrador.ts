@@ -46,7 +46,7 @@ Tu ÚNICA tarea es detectar si el borrador incumple una de estas cuatro reglas:
 3) DATOS SENSIBLES NO PEDIDOS (protección de datos de salud por WhatsApp) — SOLO se aplica si el último mensaje está disponible; con «(no disponible)» esta regla NO puede disparar (no sabes qué pidió, y sin saberlo no hay «no pedido»). El borrador nombra un TRATAMIENTO concreto o una CIFRA de dinero del caso que la persona NO ha preguntado ni mencionado EN LA CONVERSACIÓN — ni en su último mensaje ni antes (si te dan «LO QUE LA PERSONA HA DICHO EN ESTA CONVERSACIÓN», todo lo que aparezca ahí cuenta como pedido POR ELLA: el tratamiento que ella trajo al hilo se puede nombrar y recapitular siempre). Y AL REVÉS, no lo olvides: un tratamiento o una cifra del caso que NO aparece NI en la conversación NI en el último mensaje sigue infringiendo IGUAL — el bloque de conversación AMPLÍA lo pedido, jamás relaja la regla, y da lo mismo que el turno entregue: «te quedan 600 € del implante» a alguien que solo habló de una revisión infringe aunque haya entrega. Recordar de pasada un pago o un presupuesto está bien SOLO en genérico: «tienes un pago pendiente; te lo confirma administración». Infringe: la persona pide cita y el borrador suelta «te quedan 600 € del implante» sin que ella haya hablado de eso en ningún momento. NO infringe: la persona pregunta su importe o habla de su tratamiento —ahora o antes en la conversación— y el borrador se lo contesta o lo recapitula (responder y recapitular lo que ELLA trajo es correcto).
 
 5) AGENDA — dos cosas distintas, y la segunda no depende de nada:
-· AFIRMAR DISPONIBILIDAD DE LA CLÍNICA — el borrador afirma huecos, días u horas libres («tenemos hueco el martes», «hay disponibilidad por las tardes a partir de las 16:00», «seguro que el jueves te podemos ver») → infringe SALVO que esos huecos estén en los DATOS QUE CONSTAN. El agente no ve la agenda: los huecos que no constan son inventados. NO infringe: recoger la disponibilidad DE LA PERSONA («¿qué días y franjas te vienen bien?») — preguntar no es afirmar —, ni citar el HORARIO de apertura que conste (abrir hasta las 20:00 no es tener hueco libre).
+· AFIRMAR DISPONIBILIDAD DE LA CLÍNICA — el borrador afirma huecos, días u horas libres («tenemos hueco el martes», «hay disponibilidad por las tardes a partir de las 16:00», «seguro que el jueves te podemos ver») → infringe SALVO que esos huecos estén en los DATOS QUE CONSTAN. El agente no ve la agenda: los huecos que no constan son inventados. NO infringe: recoger la disponibilidad DE LA PERSONA («¿qué días y franjas te vienen bien?») — preguntar no es afirmar —, ni citar el HORARIO DE APERTURA que conste — pero SOLO dicho como apertura («abrimos de 17:00 a 20:00»): convertir ese mismo rango en disponibilidad («tenemos disponibilidad de 17:00 a 20:00») ES afirmar huecos e infringe AUNQUE el horario conste — a qué hora abre la clínica no es qué huecos quedan libres.
 · COMPROMETER LA RESERVA — el borrador dice que EL PROPIO AGENTE cierra, reserva o agenda la cita («te cierro la cita», «te la reservo», «te la dejo agendada», «dime qué día y te cierro la cita») → infringe SIEMPRE, consten o no los huecos y entregue o no el turno: reservar lo hace el equipo, nunca el agente. Esta parte GANA a la excepción de «acción del propio agente» de la regla 4 — reservar una cita NO es una acción del chat como enviar un enlace.
 LA PREGUNTA GUÍA DE LA RESERVA, donde más se falla: ¿QUIÉN reserva?
 - El EQUIPO o la clínica («se lo paso al equipo y te confirman la cita», «te contactamos enseguida para cerrarla», «el equipo te propone hueco») → NO infringe esta regla: anunciar el trabajo del equipo es correcto — si ese contacto puede prometerse lo decide la regla 4 con la entrega, no esta.
@@ -193,6 +193,48 @@ export async function juzgarBorrador(args: {
  *  inexistente en el recorrido del 17-08). Y el nombre solo se usa si ES un
  *  nombre: a un desconocido el contexto le pone el teléfono como nombre, y
  *  «gracias, +34690555444» es hablarle como una máquina. */
+// ─── EL VETO DETERMINISTA DE AGENDA (23-08) ────────────────────────────────
+//
+// El fallo de «tenemos disponibilidad…» volvió TRES veces por tres puertas
+// (huecos inventados → eco de la disponibilidad del paciente → eco del
+// horario de apertura). Las dos primeras se cerraron con prompts — que son
+// OBEDIENCIA, y la frontera léxica es fina: siempre aparece una puerta
+// nueva. Si es regla dura, no depende de la obediencia (doctrina de la
+// casa): estas FRASES-FIRMA, en nivel 1, jamás son legítimas en boca del
+// agente, venga el rango de donde venga — se vetan en CÓDIGO, antes y
+// además del juez. Lista corta y de alta precisión a propósito: el juez
+// sigue cubriendo las variantes libres; esto cierra las formas que
+// reinciden. Con la agenda conectada (nivel 2), `huecosConstan` desactiva
+// las de disponibilidad — la de reservar-él veta SIEMPRE.
+
+const FIRMAS_DISPONIBILIDAD: RegExp[] = [
+  /\b(?:tenemos|tendr[ií]amos|hay|nos queda(?:n)?)\s+(?:disponibilidad|huecos?|sitio|un hueco)/i,
+  /\bnos (?:viene|vendr[ií]a) bien el\b/i,
+  /\bte (?:podemos|podr[ií]amos) (?:ver|atender) (?:el|los|este|esta|mañana|hoy)\b/i,
+];
+const FIRMAS_RESERVA: RegExp[] = [
+  /\bte (?:la |lo )?(?:cierro|reservo|agendo)\b/i,
+  /\bqueda (?:agendada|reservada|cerrada)\b/i,
+];
+
+/** La frase vetada, o null. Puro y sin modelo — lo testea qa:conocimiento. */
+export function vetoAgendaDeterminista(
+  borrador: string,
+  opts?: { huecosConstan?: boolean },
+): string | null {
+  for (const re of FIRMAS_RESERVA) {
+    const m = re.exec(borrador);
+    if (m) return m[0];
+  }
+  if (!opts?.huecosConstan) {
+    for (const re of FIRMAS_DISPONIBILIDAD) {
+      const m = re.exec(borrador);
+      if (m) return m[0];
+    }
+  }
+  return null;
+}
+
 export function plantillaNeutra(nombre: string): string {
   const n = nombre.split(" ")[0];
   const esNombreReal = n.length > 1 && !/\d/.test(n);

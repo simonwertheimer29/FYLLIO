@@ -18,6 +18,10 @@ de esta carpeta. Pendiente al reabrir crédito: vara del evaluador post-equilibr
 - qa:juez frases · **$0,12 medido** · ⚠ DESPERDICIADA — un edit falló y la pasada corrió sin el cambio · ac. $1,31
 - qa:juez frases (50/50) · **$0,12 medido** · verificación del retiro de la 4 + exención invitación · ac. $1,43
 - qa:evals-evaluador (dato_cita + red) · **$0,31 medido** · cierre del punto B · ac. $1,74
-- repro escenario paciente-al-día · **~$0,03** · verificación dictada · ac. **$1,77**
+- repro escenario paciente-al-día · **~$0,03** · verificación dictada · ac. $1,77
   (anunciado $0,90 + $0,40 del punto B = $1,30; el exceso: $0,15 del V3 no previsto, $0,12
   desperdiciados, y varas más caras de lo estimado)
+- qa:juez frases (52/52, +AG8 eco-horario +AG9 apertura-bien-dicha) · **$0,13 medido** ·
+  verificación del cierre de raíz de agenda (veto determinista + matiz regla 5) · ac. **$1,90**
+  (anunciado $0,15 con el repro; el repro con modelo NO se corrió — el veto es código y
+  qa:conocimiento prueba la frase LITERAL de la captura sin gastar)

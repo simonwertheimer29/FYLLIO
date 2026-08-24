@@ -534,7 +534,7 @@ export function renderConocimiento(c: ConocimientoClinica | null | undefined): s
     );
     // UN dato, dos consecuencias: el mismo horario que mide los plazos es el
     // que el agente dice — el texto se deriva, no se escribe dos veces.
-    if (c.plazos.horario) lineas.push(`· Horario de atención: ${horarioLegible(c.plazos.horario)}`);
+    if (c.plazos.horario) lineas.push(`· Horario de APERTURA (cuándo abre la clínica): ${horarioLegible(c.plazos.horario)} — NO son huecos libres: los huecos no los ves. Se dice «abrimos de X a Y», jamás «tenemos disponibilidad de X a Y».`);
     if (c.tratamientos.length > 0) {
       lineas.push("· Tratamientos publicados:");
       for (const t of c.tratamientos) {

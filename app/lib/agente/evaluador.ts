@@ -23,7 +23,7 @@
 
 import { construirMapaAnonimizacion, anonimizarTexto, desanonimizarTexto } from "../anonimizacion";
 import { eur } from "../dinero";
-import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida } from "./juez-borrador";
+import { juzgarBorrador, plantillaNeutra, plantillaNeutraConRecogida, vetoAgendaDeterminista, type VeredictoJuez } from "./juez-borrador";
 import {
   CLAVES_APLAZADO,
   type ClaveAplazado,
@@ -319,7 +319,7 @@ TU TRABAJO ES AVANZAR — las prohibiciones de abajo son pocas y exactas, y NO s
 - CONFIRMAR lo que la clínica HACE: revisiones, limpiezas, valoraciones y los tratamientos habituales de una clínica dental se confirman con naturalidad («sí, hacemos revisiones de ortodoncia») — sin valorarlos («excelente opción» no: valorar es afirmar conveniencia, regla clínica) y sin precio si no consta. Si no puedes confirmar ni que existe una revisión, no sirves para nada.
 - ANUNCIAR EL PROCESO mientras recoges — da contexto y es verdad: «en cuanto tenga tus datos, alguien de la clínica te contacta para concretar día y hora», «el equipo te ayudará a cerrar la cita con la disponibilidad que tengáis». Condiciona al dato o no pongas plazo; evita solo el plazo incondicional con datos aún por recoger («te llamamos hoy mismo»).
 - PREGUNTAR el campo que falta, uno por turno, y usar el NOMBRE QUE LA PERSONA HA DICHO EN LA CONVERSACIÓN — manda sobre el del contexto, que puede ser un alias de perfil («Persona: Rocket88» que dice «soy Simón» ES Simón).
-LO ÚNICO PROHIBIDO en este terreno, y es exactamente esto: (1) afirmar huecos, días u horas libres concretos de la agenda («tenemos hueco el martes» — no la ves, son inventados); (2) decir que TÚ reservas, cierras o agendas la cita («te la reservo» — reservar lo hace el equipo); (3) inventar cualquier dato que no conste (precios, condiciones, coberturas).
+El horario de APERTURA que conste se dice como apertura («abrimos de 17:00 a 20:00») — NUNCA como disponibilidad tuya: «tenemos disponibilidad de 17 a 20» convierte la apertura en huecos que no ves.\nLO ÚNICO PROHIBIDO en este terreno, y es exactamente esto: (1) afirmar huecos, días u horas libres concretos de la agenda («tenemos hueco el martes» — no la ves, son inventados); (2) decir que TÚ reservas, cierras o agendas la cita («te la reservo» — reservar lo hace el equipo); (3) inventar cualquier dato que no conste (precios, condiciones, coberturas).
 Cuando el caso se completa y lo entregas, el mensaje es corto y sin recapitular tratamiento ni días (repetirlos te expone a convertir SU disponibilidad en huecos de la clínica): «¡Perfecto, [nombre]! Ya tengo todo lo que necesito. El equipo te contacta para concretar día y hora.» Un dato que CONSTA se afirma directamente (un pago registrado se confirma, un importe emitido se cita).
 Y LA REGLA DEL DATO NO PEDIDO (protección de datos de salud — un revisor DESCARTA el borrador entero si la incumples): cuando el contexto traiga un pago pendiente o un presupuesto que la persona NO ha preguntado en su último mensaje, la ÚNICA forma permitida de recordárselo es en genérico: «tienes un pago pendiente; administración te lo confirma» — JAMÁS la cifra, JAMÁS el tratamiento. Escribir «te quedan 600 €» o «del implante» sin que lo pregunte tira tu borrador entero. Si la persona SÍ pregunta por su importe o su tratamiento, contestarle con el dato es correcto.
 
@@ -880,13 +880,19 @@ export async function evaluarTurno(
       insiste ||
       casoCompleto ||
       (juicio.pideAccion && objetivoActivo == null);
-    const veredicto = await juzgarBorrador({
-      borrador: respuestaFinal,
-      datosQueConstan,
-      ultimoMensaje: ultimoEntrante,
-      dichoPorLaPersona,
-      turnoEntrega,
-    });
+    // EL VETO DETERMINISTA primero (23-08): las frases-firma de agenda no
+    // dependen de la obediencia de ningún prompt — código, y ni se paga el
+    // juez si cazan. El juez sigue después para las variantes libres.
+    const fraseVetada = vetoAgendaDeterminista(respuestaFinal);
+    const veredicto: VeredictoJuez | null = fraseVetada
+      ? { infringe: true, categoria: "agenda", frase: fraseVetada }
+      : await juzgarBorrador({
+          borrador: respuestaFinal,
+          datosQueConstan,
+          ultimoMensaje: ultimoEntrante,
+          dichoPorLaPersona,
+          turnoEntrega,
+        });
     if (veredicto?.usage && base.usage) {
       base.usage = {
         inputTokens: base.usage.inputTokens + veredicto.usage.inputTokens,
