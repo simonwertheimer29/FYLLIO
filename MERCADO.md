@@ -477,3 +477,11 @@ Después de cada conversación con una clínica, cinco minutos:
 Cuando llegue una **investigación externa**, se guarda como archivo propio con su fecha (`INVESTIGACION-MERCADO-AAAA-MM.md`), **no se edita nunca**, y de ahí se vuelca: los datos con fuente a §2.2, las conclusiones a §3 marcadas como interpretación, las hipótesis nuevas a §4 en abierto. Sus recomendaciones **no se implementan** por estar escritas: necesitan una decisión explícita en `DECISIONES.md`.
 
 Cuando una hipótesis validada cambie el producto, la decisión va a `DECISIONES.md` citando la entrada de este documento que la justifica. `DECISIONES.md` guarda qué se decidió; `MERCADO.md` guarda por qué tenía sentido.
+
+#### Automatizaciones a medida = personalización de pago (anotado 23-08, fase F)
+
+Automatizar un flujo propio de una clínica es personalización de PAGO — y lo que se construye
+para una puede servir a otras: es la vía natural de crecimiento del catálogo de automatizaciones.
+La pantalla de Automatizaciones (fase F: ver estado y resultado, con las inactivas visibles y qué
+aportarían) es el escaparate donde ese catálogo se vende solo — pariente directo de H12 (el hueco
+visible dispara el upgrade).

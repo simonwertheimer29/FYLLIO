@@ -338,6 +338,12 @@ pulsar); Seguimiento es mesa de trabajo (leer, decidir, escribir). No se mezclan
 «citas próximas sin respuesta» NO vive en Envíos: llamar es trabajo humano y su sitio es
 Seguimiento > Necesita respuesta (reestructura pendiente, MEJORAS 101).
 
+**DONDE SE VE, NO SE EDITA (regla de la fase F, dictada 23-08):** Automatizaciones muestra
+estado y resultado; el ajuste vive donde ya vive. Las cadencias enlazan a la configuración del
+agente. Las que no son del agente se configuran ahí mismo, porque no viven en ningún otro sitio.
+Si algo se puede editar en dos pantallas, se desincroniza — es el patrón que llevamos dos meses
+matando.
+
 **La barra (para la fase F, dictado 18-08):** hoy son 12 entradas y varias son la misma cosa en
 distinto formato. Tres familias: **consulta** (Leads, Presupuestos, Cobros, Pacientes, Tablas) ·
 **trabajo** (Seguimiento, Envíos, Mensajería) · **dirección** (Red, KPIs, Informes). Vertical
