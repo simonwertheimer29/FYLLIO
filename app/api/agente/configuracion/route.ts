@@ -33,6 +33,27 @@ export const GET = withAuth(async (session, req) => {
   const url = new URL(req.url);
   const clinicaId = url.searchParams.get("clinicaId");
 
+  // F6 — el catálogo de /automatizaciones pide el estado del agente de TODAS
+  // las clínicas de una vez: una consulta de dos columnas, no N lecturas de
+  // la config completa.
+  if (url.searchParams.get("estado") === "todas") {
+    try {
+      const r: any = await runWithClienteDb(session.cliente, (trx) =>
+        sql`select clinica_id, evaluador_activo from configuracion_automatizaciones
+            where clinica_id is not null`.execute(trx),
+      );
+      return NextResponse.json({
+        estados: (r.rows ?? []).map((f: any) => ({
+          clinicaId: String(f.clinica_id),
+          evaluadorActivo: f.evaluador_activo === true,
+        })),
+      });
+    } catch (err) {
+      console.error("[agente/configuracion] GET estado:", err instanceof Error ? err.message : err);
+      return NextResponse.json({ error: "No se pudo leer el estado" }, { status: 500 });
+    }
+  }
+
   try {
     return await runWithCliente(session.cliente, async () => {
       const r: any = await runWithClienteDb(session.cliente!, (trx) =>

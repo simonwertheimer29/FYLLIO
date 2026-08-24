@@ -3392,3 +3392,14 @@ anexa; la cohorte se queda con la peor). El resumen lleva DOS bolsillos (presupu
 /cobros murió como pantalla (cola→cohortes; registro→/tablas/cobros; estancados y por-vencer→
 campana). De regalo, el flake de qa:cola destapó que el reloj de la cola está anclado a mediodía
 con umbrales de minutos (MEJORAS 111 — el QA ahora ancla sus fixtures y es determinista).
+
+## 2026-08-24 · F6 — Automatizaciones pasa a VER-NO-EDITAR y el Motor viejo muere de la vista
+La ventana enseña el CATÁLOGO (qué hace el sistema solo, en código — las automatizaciones son
+piezas fijas del producto, no reglas configurables), el estado real del agente por clínica (una
+consulta, `?estado=todas`) y dónde se ve cada resultado y dónde se edita. La pestaña «Motor» y
+MotorReglasView murieron: en toda base limpia la tabla de reglas estaba vacía, sin UI para crearlas,
+y su acción de WhatsApp jamás envió nada. «Operativo» aguanta hasta B5 y muere con él. Y el editor
+duplicado de cadencias de Ajustes murió — dos editores del mismo almacén era una incoherencia
+esperando; queda el del agente y Ajustes enlaza («donde se ve, no se edita» aplicado a los dos
+lados). Los fixtures rotos del seed de reglas (MEJORAS 110) quedan como están: mueren con el motor
+en B5, no se arreglan.
