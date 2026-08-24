@@ -133,7 +133,7 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
                   captura gráficas a PNG — cosa que un cajón que se desmonta al
                   cerrarse hacía frágil. */}
               <Link
-                href="/resultados/informes"
+                href="/analiticas/informes"
                 className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] text-xs font-semibold px-3 py-1.5 hover:bg-[var(--color-surface-muted)] transition-colors whitespace-nowrap"
               >
                 Informe mensual

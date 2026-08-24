@@ -10,8 +10,8 @@
 // configuración. Admin ve las dos.
 
 import { useState } from "react";
-import { useClinic } from "../../lib/context/ClinicContext";
-import { Sparkles, ICON_STROKE } from "../../components/icons";
+import { useClinic } from "../../../lib/context/ClinicContext";
+import { Sparkles, ICON_STROKE } from "../../../components/icons";
 import { AgenteConfigView } from "./AgenteConfigView";
 import { BancoPruebasView } from "./BancoPruebasView";
 

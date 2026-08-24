@@ -4,7 +4,7 @@
 // components/ui/SeccionRota: sin esto, un fallo de render aquí tumbaba la
 // navegación entera de la aplicación.
 
-import { SeccionRota, type ErrorDeSeccion } from "../../components/ui/SeccionRota";
+import { SeccionRota, type ErrorDeSeccion } from "../../../components/ui/SeccionRota";
 
 export default function Error({
   error,

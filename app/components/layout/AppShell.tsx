@@ -46,7 +46,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Image src="/isotipo.png" alt="Fyllio" width={24} height={24} className="h-6 w-6" />
           </Link>
         </div>
-        <div className="min-h-0 flex-1 overflow-hidden flex flex-col">{children}</div>
+        {/* Scroll por defecto AQUÍ (23-08): el shell es h-dvh y sin esto toda
+            página larga quedaba sin scroll (el bug de Pacientes). Las vistas
+            de alto fijo (Mensajería, Seguimiento, kanbans) declaran h-full y
+            gestionan su scroll interior. */}
+        <div className="min-h-0 flex-1 overflow-y-auto flex flex-col">{children}</div>
       </div>
 
       {drawer && (

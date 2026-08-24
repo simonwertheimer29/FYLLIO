@@ -245,7 +245,7 @@ export function MensajeriaView() {
     // se queda corto o largo. El arreglo de fondo sería que el layout diera
     // altura definida (`h-dvh`), pero eso afecta a las trece pantallas y no es
     // trabajo de esta.
-    <div className="flex h-[calc(100dvh-102px)] min-h-0 flex-col overflow-hidden bg-[var(--color-background)]">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[var(--color-background)]">
       <header className="shrink-0 px-4 lg:px-6 pt-4 lg:pt-5">
         <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">
           Mensajería

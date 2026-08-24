@@ -5,18 +5,18 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Card } from "../../components/ui/Card";
-import { KpiCard } from "../../components/ui/KpiCard";
+import { Card } from "../../../components/ui/Card";
+import { KpiCard } from "../../../components/ui/KpiCard";
 import {
   KpiCardSkeleton,
   CardListSkeleton,
-} from "../../components/ui/Skeleton";
-import { ErrorState, EmptyState } from "../../components/ui/Feedback";
+} from "../../../components/ui/Skeleton";
+import { ErrorState, EmptyState } from "../../../components/ui/Feedback";
 import { toast } from "sonner";
-import { Phone, RefreshCw, X, User, Info, ICON_STROKE } from "../../components/icons";
-import { deDiccionario } from "../../lib/diccionario";
-import { fechaHoraClinica } from "../../lib/time";
-import { cargarJSON, traeLista, mensajeDeError } from "../../lib/fetch-json";
+import { Phone, RefreshCw, X, User, Info, ICON_STROKE } from "../../../components/icons";
+import { deDiccionario } from "../../../lib/diccionario";
+import { fechaHoraClinica } from "../../../lib/time";
+import { cargarJSON, traeLista, mensajeDeError } from "../../../lib/fetch-json";
 
 type Llamada = {
   id: string;

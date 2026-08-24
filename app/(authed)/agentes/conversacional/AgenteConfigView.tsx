@@ -17,9 +17,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { useClinic } from "../../lib/context/ClinicContext";
-import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
-import { ErrorState } from "../../components/ui/Feedback";
+import { useClinic } from "../../../lib/context/ClinicContext";
+import { cargarJSON, mensajeDeError } from "../../../lib/fetch-json";
+import { ErrorState } from "../../../components/ui/Feedback";
 import {
   Sparkles,
   Check,
@@ -30,7 +30,7 @@ import {
   ChevronRight,
   Lock,
   ICON_STROKE,
-} from "../../components/icons";
+} from "../../../components/icons";
 import {
   capacidadesDe,
   renderConocimiento,
@@ -39,7 +39,7 @@ import {
   SUGERENCIAS_TRATAMIENTOS,
   SUGERENCIAS_POLITICAS,
   type ConocimientoClinica,
-} from "../../lib/agente/conocimiento";
+} from "../../../lib/agente/conocimiento";
 
 type RespuestaConfig = {
   conocimiento: ConocimientoClinica;

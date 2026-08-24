@@ -380,8 +380,8 @@ export default function PresupuestosShell({
   }
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-background)] overflow-hidden">
-      <main className="flex-1 min-h-0 overflow-auto flex flex-col w-full max-w-[1400px] mx-auto px-3 sm:px-6 py-6 gap-4">
+    <div className="h-full min-h-0 flex flex-col bg-[var(--color-background)] overflow-hidden">
+      <main className="flex-1 min-h-0 overflow-auto flex flex-col w-full px-3 sm:px-6 py-6 gap-4">
         {/* Cabecera con la ANATOMÍA del resto del producto (Cobros, Pacientes):
             título y subtítulo dentro del cuerpo y el conmutador al extremo
             derecho, alineado con el título. Antes esto era una barra propia
@@ -594,7 +594,7 @@ export default function PresupuestosShell({
                 />
               </div>
             ) : (
-              <div className="flex-1 min-h-0">
+              <div className="flex-1 min-h-0 flex flex-col">
                 <KanbanBoard
                   presupuestos={presupuestos}
                   onChangeEstado={handleChangeEstado}

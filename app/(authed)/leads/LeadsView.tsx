@@ -486,7 +486,7 @@ export function LeadsView({
   const draggingLead = draggingId ? leads.find((l) => l.id === draggingId) : null;
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-background)] p-6 gap-4 overflow-auto">
+    <div className="h-full min-h-0 flex flex-col bg-[var(--color-background)] p-6 gap-4 overflow-auto">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>

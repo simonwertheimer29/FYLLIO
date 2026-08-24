@@ -82,20 +82,20 @@ const ITEMS: Item[] = [
   { label: "Automatizaciones", href: "/automatizaciones", Icono: Repeat },
   {
     label: "Agentes de IA",
-    href: "/agente",
+    href: "/agentes/conversacional",
     Icono: Sparkles,
     hijos: [
-      { label: "Conversacional", href: "/agente" },
-      { label: "Llamadas", href: "/llamadas" },
+      { label: "Conversacional", href: "/agentes/conversacional" },
+      { label: "Llamadas", href: "/agentes/llamadas" },
     ],
   },
   {
-    label: "Resultados",
-    href: "/resultados/kpis",
+    label: "Analíticas",
+    href: "/analiticas/kpis",
     Icono: BarChart3,
     hijos: [
-      { label: "KPIs", href: "/resultados/kpis" },
-      { label: "Informes", href: "/resultados/informes" },
+      { label: "KPIs", href: "/analiticas/kpis" },
+      { label: "Informes", href: "/analiticas/informes" },
     ],
   },
   { label: "Ajustes", href: "/ajustes", Icono: Settings, soloAdmin: true },

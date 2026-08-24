@@ -13,9 +13,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { useClinic } from "../../lib/context/ClinicContext";
-import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
-import { ErrorState } from "../../components/ui/Feedback";
+import { useClinic } from "../../../lib/context/ClinicContext";
+import { cargarJSON, mensajeDeError } from "../../../lib/fetch-json";
+import { ErrorState } from "../../../components/ui/Feedback";
 import {
   Sparkles,
   Send,
@@ -24,11 +24,11 @@ import {
   CheckCircle2,
   RefreshCw,
   ICON_STROKE,
-} from "../../components/icons";
-import { ETIQUETA_CLAVE, type ClaveAplazado } from "../../lib/automatizacion/aplazamientos";
-import { legibleCampo } from "../../components/agente/FichaCasoPanel";
-import type { EvaluacionTurno } from "../../lib/agente/evaluador";
-import type { EscenarioPrueba } from "../../lib/agente/banco-pruebas";
+} from "../../../components/icons";
+import { ETIQUETA_CLAVE, type ClaveAplazado } from "../../../lib/automatizacion/aplazamientos";
+import { legibleCampo } from "../../../components/agente/FichaCasoPanel";
+import type { EvaluacionTurno } from "../../../lib/agente/evaluador";
+import type { EscenarioPrueba } from "../../../lib/agente/banco-pruebas";
 
 type Turno = {
   direccion: "Entrante" | "Saliente";

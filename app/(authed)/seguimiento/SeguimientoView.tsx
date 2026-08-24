@@ -29,7 +29,7 @@ export function SeguimientoView({
   const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
 
   return (
-    <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-background)] overflow-hidden">
+    <div className="h-full min-h-0 flex flex-col bg-[var(--color-background)] overflow-hidden">
       <div className="flex-1 min-h-0 flex flex-col overflow-auto p-4 lg:p-6 gap-4">
         {/* Fase F piloto (23-08): el h1 «Seguimiento», el subtítulo y el
             botón Envíos MURIERON aquí — los da la barra lateral (la ventana
