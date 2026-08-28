@@ -1959,3 +1959,17 @@ verdad: un editor, un vocabulario, un renderizador.
   (también cubre datos legacy reales), y la celda enseña el texto tal cual.
 - **El arreglo:** demo-seed escribe el enum (y la invariante del seed lo comprueba, §15).
 - **Fecha:** 2026-08-24
+
+## 113. Sillones como restricción de agenda — PREGUNTA ABIERTA (validar con RB antes de modelar)
+- **Qué es:** decisión de diseño de la agenda (2026-08-27, dictada): los sillones quedan FUERA del
+  modelo de disponibilidad. La agenda que manda es la del doctor — el nº de sillones no cambia
+  cuándo puede atender un doctor concreto. El único caso donde el sillón restringe de verdad es
+  si hay MÁS doctores trabajando a la vez que sillones disponibles: dos doctores libres a la misma
+  hora no podrían atender los dos.
+- **Qué falta:** validar con RB si ese caso se da en la práctica. Si se da, el sillón entra al
+  cálculo como tope de concurrencia por clínica (nº de citas simultáneas ≤ sillones), no como
+  asignación por cita. Si no se da, no se modela.
+- **Contexto:** el motor de huecos del MVP (`lib/scheduler/availability.ts`, sin callers) colisionaba
+  por sillón con un `chairId` sintético (regex de dígitos sobre códigos `CHR_01` de la era Airtable,
+  índices 1..N inventados desde una config in-memory) — un argumento más para no reutilizarlo.
+- **Fecha:** 2026-08-27
