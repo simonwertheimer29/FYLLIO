@@ -28,15 +28,34 @@ const TRATAMIENTOS = [
 const TIPOS_VISITA = ["Primera visita", "Revisión", "Urgencia"] as const;
 
 type Doctor = { id: string; nombre: string; clinicaId: string | null };
+type TratamientoCat = { id: string; nombre: string; duracionMin: number | null; clinicaId: string | null };
+
+// G2c — preselección CONSERVADORA del tipo de cita desde el interés del lead
+// (mismo criterio que F7): solo si UN candidato del catálogo encaja de forma
+// inequívoca; ante la duda, nada.
+const norm = (t: string) => t.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+function sugerirTipoCita(interes: string | null | undefined, catalogo: TratamientoCat[]): string {
+  if (!interes || interes === "Otro") return "";
+  const n = norm(interes);
+  const candidatos = catalogo.filter((t) => {
+    const c = norm(t.nombre);
+    return c === n || c.startsWith(`${n} `) || n.startsWith(`${c} `);
+  });
+  return candidatos.length === 1 ? candidatos[0].id : "";
+}
 
 export function AgendarModal({
   lead,
   doctores,
+  tratamientosCatalogo,
   onClose,
   onSaved,
 }: {
   lead: Lead;
   doctores: Doctor[];
+  /** G2c — catálogo real: el tipo de cita define la DURACIÓN de la cita que
+   *  esta acción crea en la agenda. */
+  tratamientosCatalogo: TratamientoCat[];
   onClose: () => void;
   onSaved: (updated: Lead) => void;
 }) {
@@ -54,6 +73,15 @@ export function AgendarModal({
   const doctoresClinica = lead.clinicaId
     ? doctores.filter((d) => d.clinicaId === lead.clinicaId)
     : doctores;
+
+  // G2c — catálogo de la clínica del lead (con clínica sin catálogo propio se
+  // enseña el general, que es lo que hay — no se esconde la opción).
+  const catalogoClinica = (() => {
+    if (!lead.clinicaId) return tratamientosCatalogo;
+    const propios = tratamientosCatalogo.filter((t) => !t.clinicaId || t.clinicaId === lead.clinicaId);
+    return propios.length ? propios : tratamientosCatalogo;
+  })();
+  const [tipoCitaId, setTipoCitaId] = useState<string>(() => sugerirTipoCita(lead.tratamiento, catalogoClinica));
 
   const canSave =
     Boolean(fechaCita) &&
@@ -80,6 +108,8 @@ export function AgendarModal({
           tratamiento,
           tipoVisita,
           notas: notas || undefined,
+          // G2c — para la cita REAL de la agenda (duración del catálogo).
+          tratamientoAgendaId: tipoCitaId || null,
         }),
       });
       const d = await res.json().catch(() => ({}));
@@ -178,6 +208,30 @@ export function AgendarModal({
               </option>
             ))}
           </select>
+        </Labeled>
+
+        {/* G2c — el tipo de cita del CATÁLOGO define la duración de la cita
+            real que se crea en /agenda. Sin él, la cita existe igual pero ese
+            día la agenda no puede afirmar huecos — y se dice aquí. */}
+        <Labeled label="Tipo de cita en agenda (define la duración)">
+          <select
+            value={tipoCitaId}
+            onChange={(e) => setTipoCitaId(e.target.value)}
+            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          >
+            <option value="">— Sin duración definida —</option>
+            {catalogoClinica.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.nombre}
+                {t.duracionMin != null ? ` · ${t.duracionMin} min` : " · sin duración configurada"}
+              </option>
+            ))}
+          </select>
+          {!tipoCitaId && (
+            <p className="text-[10px] text-[var(--color-warning)] mt-1">
+              Sin tipo de cita, la agenda no podrá afirmar huecos libres ese día.
+            </p>
+          )}
         </Labeled>
 
         <Labeled label="Tipo de visita" required>

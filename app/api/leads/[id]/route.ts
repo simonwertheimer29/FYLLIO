@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 import { withAuth } from "../../../lib/auth/session";
 import { listClinicaIdsForUser } from "../../../lib/auth/users";
 import { getLead, updateLead } from "../../../lib/leads/leads";
+import { upsertCitaDeLead, cancelarCitaDeLead } from "../../../lib/agenda/cita-de-lead";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,49 @@ export const PATCH = withAuth<Ctx>(async (session, req, ctx) => {
     );
   }
 
-  const updated = await updateLead(id, body);
+  // G2c — `tratamientoAgendaId` es para la CITA (catálogo, define duración),
+  // no una columna del lead: se separa antes de escribir el lead.
+  const { tratamientoAgendaId, ...leadPatch } = body;
+  const updated = await updateLead(id, leadPatch);
+
+  // G2c — agendar un lead crea/reprograma una cita REAL; sacarlo de Citado la
+  // cancela. Antes «Agendar» era texto dentro de leads y la agenda no se
+  // enteraba jamás (dos universos de citas reconciliados adivinando).
+  try {
+    const esCitado = updated.estado === "Citado" || updated.estado === "Citados Hoy";
+    const tocaAgenda =
+      body.fechaCita !== undefined || body.horaCita !== undefined ||
+      body.doctorAsignadoId !== undefined || tratamientoAgendaId !== undefined ||
+      body.estado !== undefined;
+    if (tocaAgenda) {
+      if (esCitado && updated.fechaCita && updated.horaCita) {
+        await upsertCitaDeLead({
+          cliente: session.cliente!,
+          lead: {
+            id: updated.id,
+            nombre: updated.nombre,
+            clinicaId: updated.clinicaId ?? null,
+            pacienteId: updated.pacienteId ?? null,
+            fechaCita: updated.fechaCita,
+            horaCita: updated.horaCita,
+            doctorAsignadoId: updated.doctorAsignadoId ?? null,
+          },
+          tratamientoId: typeof tratamientoAgendaId === "string" && tratamientoAgendaId ? tratamientoAgendaId : null,
+        });
+      } else if (body.estado !== undefined && !esCitado) {
+        await cancelarCitaDeLead({ cliente: session.cliente!, leadId: updated.id });
+      }
+    }
+  } catch (err) {
+    // §1/§9 — el lead SÍ se guardó pero la agenda no: se dice exactamente
+    // eso, nunca un éxito a medias mudo. Reintentar es seguro (upsert por
+    // lead_id, §2).
+    console.error("[leads PATCH] cita de agenda:", err instanceof Error ? err.message : err);
+    return NextResponse.json(
+      { error: "El lead se guardó, pero su cita no se pudo escribir en la agenda. Reintenta Agendar." },
+      { status: 500 },
+    );
+  }
+
   return NextResponse.json({ lead: updated });
 });

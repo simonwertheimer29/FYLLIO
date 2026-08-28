@@ -3427,3 +3427,14 @@ validar con RB). De regalo, dos bugs vivos que el vocabulario abierto escondía:
 filtraban por 'Pendiente' (las Programada eran invisibles) y Vapi escribía 'Cancelada'. Config nueva
 en /ajustes/agenda (especialidades M:N, horarios con jornada partida, bloqueos, duraciones), catálogo
 DEMO en db-seed-agenda-catalogo.mjs, y E2E verde en Chrome con escritura releída (§1).
+
+## 2026-08-28 — Agenda G2: la ventana /agenda y la muerte del Agendar-de-texto
+La ventana (nivel 1): semana por doctor con citas, bloqueos y huecos LIBRES del motor de G1c —
+aviso fijo «tu software puede tener más», filtro por especialidad (unión etiquetada por doctor,
+nunca una hora anónima) y por doctor (su agenda sola). Un día con una cita sin duración NO afirma
+huecos: libres=null con motivo (§4). «Cerradas en Fyllio, pendientes de pasar a tu software» con
+marca reversible (trasladada_en) resuelve el olvido de pasar la cita. Y el bug de fondo: «Agendar»
+un lead escribía TEXTO en leads y citas no se enteraba — ahora crea/reprograma una cita REAL
+enlazada (citas.lead_id único, 032; upsert idempotente §2; reprogramar resetea el traslado; salir
+de Citado cancela, no borra). El seed marca su agenda como origen_sistema='importado' — la lista
+de pendientes es solo para lo nacido en Fyllio. E2E Chrome 17/17 con verificación en base.

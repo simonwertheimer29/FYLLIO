@@ -7,6 +7,7 @@ import { getSession } from "../../../lib/auth/session";
 import { listClinicas } from "../../../lib/auth/users";
 import { listLeads } from "../../../lib/leads/leads";
 import { listDoctores } from "@/lib/staff/doctores";
+import { listTratamientosCatalogo } from "../../../lib/agenda/catalogo-tratamientos";
 import { runWithCliente } from "../../../lib/cliente-contexto";
 import { clinicasNegocioAccesibles, negocioIdToCentralId } from "../../../lib/clinicas-negocio";
 import { ultimosMensajesPorConversacion } from "../../../lib/presupuestos/mensajeria";
@@ -28,7 +29,7 @@ export default async function LeadsPage() {
   // cliente. Filtramos por IDs de clínica de NEGOCIO y remapeamos cada clinicaId
   // al ID CENTRAL (por nombre) para que el filtro cliente-side por ClinicContext
   // coincida. Sin esto, el coord veía la tabla de leads vacía.
-  const { allClinicas, doctores, leadsWithClinica } = await runWithCliente(
+  const { allClinicas, doctores, leadsWithClinica, tratamientosCatalogo } = await runWithCliente(
     session.cliente,
     async () => {
       const [allClinicas, scope, doctores] = await Promise.all([
@@ -67,7 +68,13 @@ export default async function LeadsPage() {
         ...d,
         clinicaId: negocioIdToCentralId(scope, d.clinicaId),
       }));
-      return { allClinicas, doctores: doctoresCentral, leadsWithClinica };
+      // G2c — el catálogo para el TIPO DE CITA del AgendarModal (define la
+      // duración de la cita real). Mismo remap de clínica que los doctores.
+      const tratamientosCatalogo = (await listTratamientosCatalogo()).map((t) => ({
+        ...t,
+        clinicaId: negocioIdToCentralId(scope, t.clinicaId),
+      }));
+      return { allClinicas, doctores: doctoresCentral, leadsWithClinica, tratamientosCatalogo };
     },
   );
 
@@ -76,6 +83,7 @@ export default async function LeadsPage() {
       initialLeads={leadsWithClinica}
       clinicasSelectables={allClinicas.map((c) => ({ id: c.id, nombre: c.nombre }))}
       doctores={doctores}
+      tratamientosCatalogo={tratamientosCatalogo}
     />
   );
 }

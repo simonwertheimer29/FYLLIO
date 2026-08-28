@@ -740,6 +740,10 @@ try {
       await ins("citas", {
         nombre: pac.nombre, hora_inicio: dPlus(off, 9 + k, 0).toISOString(), hora_final: dPlus(off, 9 + k, 30).toISOString(),
         estado, notas: estado === "No_show" ? "No se presentó." : null, origen: "Coordinación",
+        // 032: el seed simula la agenda que la clínica YA tenía en su
+        // software — 'importado', no 'fyllio': la lista «pendientes de pasar»
+        // es SOLO para lo que nace en Fyllio.
+        origen_sistema: "importado",
         paciente_id: pac.id, tratamiento_id: trat.id, profesional_id: docEn(pac.cid).id, sillon_id: silEn(pac.cid).id, clinica_id: pac.cid,
       }); citasN++;
     }
@@ -1114,6 +1118,7 @@ try {
             nombre: pac.nombre, hora_inicio: dPlus(off, h, m30).toISOString(),
             hora_final: dPlus(off, h, m30 + 30).toISOString(), estado,
             notas: noShow ? "No se presentó." : null, origen: "Coordinación",
+            origen_sistema: "importado", // 032: agenda preexistente, no nacida en Fyllio
             paciente_id: pac.id, tratamiento_id: trat.id, profesional_id: docEn(cid).id,
             sillon_id: silEn(cid).id, clinica_id: cid, created_at: reservadaEn, agendada_en: reservadaEn,
           });

@@ -185,10 +185,13 @@ export function LeadsView({
   initialLeads,
   clinicasSelectables,
   doctores,
+  tratamientosCatalogo,
 }: {
   initialLeads: Lead[];
   clinicasSelectables: Array<{ id: string; nombre: string }>;
   doctores: Doctor[];
+  /** G2c — catálogo real para el tipo de cita del AgendarModal (duración). */
+  tratamientosCatalogo: Array<{ id: string; nombre: string; duracionMin: number | null; clinicaId: string | null }>;
 }) {
   const { selectedClinicaId, selectedClinicaNombre, setSelectedClinicaId } = useClinic();
   // Con clínica elegida la pantalla cambia de ámbito y hay que decirlo.
@@ -602,6 +605,7 @@ export function LeadsView({
         <AgendarModal
           lead={agendarLead}
           doctores={doctores}
+          tratamientosCatalogo={tratamientosCatalogo}
           onClose={() => setAgendarLead(null)}
           onSaved={(updated) => {
             onLeadUpdated(updated);

@@ -27,6 +27,7 @@ import {
   ChevronRight,
   Home,
   MessageCircle,
+  CalendarDays,
   ClipboardList,
   TrendingUp,
   FileSpreadsheet,
@@ -51,6 +52,7 @@ type Item = {
 const ITEMS: Item[] = [
   { label: "Inicio", href: "/inicio", Icono: Home }, // F1: abierta a coordinación — su aterrizaje
   { label: "Mensajería", href: "/mensajeria", Icono: MessageCircle },
+  { label: "Agenda", href: "/agenda", Icono: CalendarDays }, // G2: diario — el día/semana de la clínica
   {
     label: "Seguimiento",
     href: "/seguimiento",

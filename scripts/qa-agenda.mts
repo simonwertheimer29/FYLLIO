@@ -251,6 +251,20 @@ check("2026-08-30 es domingo (7)", diaSemanaISO("2026-08-30") === 7);
   );
 }
 
+// ── I · instanteDeCita (G2c: la cita real del lead) ────────────────────
+// fecha+hora locales de clínica → instante UTC. Verano e invierno, y la
+// entrada ilegible devuelve null (el caller decide el error).
+{
+  const { instanteDeCita } = await import("../app/lib/agenda/cita-de-lead");
+  const v = instanteDeCita("2026-08-31", "9:30");
+  check("verano: 09:30 Madrid = 07:30Z", v !== null && v.toISOString() === "2026-08-31T07:30:00.000Z", v?.toISOString() ?? "null");
+  const i = instanteDeCita("2026-01-15", "16:00");
+  check("invierno: 16:00 Madrid = 15:00Z", i !== null && i.toISOString() === "2026-01-15T15:00:00.000Z", i?.toISOString() ?? "null");
+  for (const [f, h] of [["2026-8-1", "10:00"], ["2026-08-01", "25:00"], ["2026-08-01", "basura"]] as const) {
+    check(`instanteDeCita("${f}", "${h}") → null`, instanteDeCita(f, h) === null);
+  }
+}
+
 // ── resultado ──────────────────────────────────────────────────────────
 if (fallos.length > 0) {
   console.error(`✗ ${fallos.length} fallos:`);

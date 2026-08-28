@@ -290,6 +290,12 @@ type ExtraCitas = {
   agendada_en: Generated<Date>;
   origen_sistema: Generated<"fyllio" | "importado">;
   external_id: string | null;
+  /** 032 — lead del que nació la cita (única por lead: re-agendar actualiza).
+   *  NULL = no vino de un lead. */
+  lead_id: string | null;
+  /** 032 — nivel 1: cuándo se marcó como pasada al software clínico.
+   *  NULL = pendiente (si origen_sistema='fyllio'). */
+  trasladada_en: Date | null;
 };
 
 /** 031 — especialidades de la clínica (Ortodoncia, Implantes…). Sin defaults
