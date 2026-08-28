@@ -3414,3 +3414,16 @@ es un dato falso en la tabla). Tablas filtra por la columna: /tablas/leads con s
 /tablas/presupuestos con el motivo bajo el estado + filtro cuyo vocabulario es el enum ∪ lo presente
 en la base (los textos legacy no se esconden). De regalo: el seed escribe motivo_perdida fuera del
 enum (MEJORAS 112, mismo patrón que la 110). Con F7 la fase F queda COMPLETA.
+
+## 2026-08-28 — Agenda G1: el modelo se ADOPTA, el motor del MVP se TIRA
+El diagnóstico (27-08) destapó que la tabla `citas` ya existía con casi todo y que había un motor de
+huecos entero sin un solo caller. Decisión dictada: adoptar y sanear la tabla (031: CHECK de estado
+con No_show de primera clase, agendada_en, origen_sistema/external_id; antes «no-show» era un prefijo
+en notas con la detección repetida en 5 sitios), y TIRAR el motor (respondía a otra pregunta — primer
+hueco para reagendar, no la semana — con sillón sintético, horario sin días y reloj del servidor). El
+nuevo (lib/agenda/disponibilidad.ts, 41 checks): franjas − bloqueos − citas, por doctor y día local,
+sin defaults del sector (duración sin configurar LANZA). Sillones fuera del modelo (MEJORAS 113, a
+validar con RB). De regalo, dos bugs vivos que el vocabulario abierto escondía: los recordatorios
+filtraban por 'Pendiente' (las Programada eran invisibles) y Vapi escribía 'Cancelada'. Config nueva
+en /ajustes/agenda (especialidades M:N, horarios con jornada partida, bloqueos, duraciones), catálogo
+DEMO en db-seed-agenda-catalogo.mjs, y E2E verde en Chrome con escritura releída (§1).

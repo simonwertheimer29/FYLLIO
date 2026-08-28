@@ -24,6 +24,7 @@ import { usePathname } from "next/navigation";
 const SECCIONES = [
   { href: "/ajustes/objetivos", label: "Objetivos del mes" },
   { href: "/ajustes/automatizaciones", label: "Automatizaciones" },
+  { href: "/ajustes/agenda", label: "Agenda" },
   { href: "/ajustes/configuracion", label: "Configuración" },
   { href: "/ajustes/whatsapp", label: "WhatsApp" },
   { href: "/ajustes/notificaciones", label: "Notificaciones" },

@@ -1972,4 +1972,19 @@ verdad: un editor, un vocabulario, un renderizador.
 - **Contexto:** el motor de huecos del MVP (`lib/scheduler/availability.ts`, sin callers) colisionaba
   por sillón con un `chairId` sintético (regex de dígitos sobre códigos `CHR_01` de la era Airtable,
   índices 1..N inventados desde una config in-memory) — un argumento más para no reutilizarlo.
+  RESUELTO en parte el 28-08: el motor se tiró (G1b) y el nuevo no sabe de sillones; queda la
+  validación con RB.
 - **Fecha:** 2026-08-27
+
+## 114. Dos fuentes de «doctor» y dos horarios de clínica — unificación pendiente post-agenda
+- **Qué es:** (a) `staff` (la agenda, G1) y `doctores_presupuestos` (el filtro ?doctor de
+  /tablas y /pipeline, por NOMBRE como string) siguen siendo dos registros sin relación — renombrar
+  un doctor rompe el histórico de presupuestos; (b) el horario de APERTURA vive dos veces con el
+  mismo tipo TS: `conocimiento.plazos.horario` (agente + reloj de la cola, la fuente viva) y
+  `configuraciones_clinica[horario_laboral]` (lo lee el engine de automatizaciones y lo edita
+  HorarioLaboralPanel). La 031 NO los unificó a propósito: G1 no debía tocar presupuestos ni el
+  motor viejo, que muere en B5.
+- **El arreglo:** tras B5, presupuestos resuelve doctor contra `staff` (id, no nombre) y
+  `doctores_presupuestos` pasa a vista/compat; el horario viejo muere con el engine y
+  HorarioLaboralPanel enlaza al del agente.
+- **Fecha:** 2026-08-28
