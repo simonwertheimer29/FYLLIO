@@ -160,8 +160,10 @@ export async function cancelAppointmentPg(citaId: string, origin?: string): Prom
 export async function completeAppointmentPg(citaId: string): Promise<void> {
   await setCita(citaId, { estado: "Completado" });
 }
-export async function markNoShowPg(citaId: string, notas: string): Promise<void> {
-  await setCita(citaId, { estado: "Cancelado", notas });
+export async function markNoShowPg(citaId: string, notas?: string): Promise<void> {
+  // 031 — No_show es estado propio; el prefijo [NO_SHOW] en notas murió con
+  // la migración. Sin notas nuevas, las existentes no se pisan.
+  await setCita(citaId, notas !== undefined ? { estado: "No_show", notas } : { estado: "No_show" });
 }
 export async function confirmAppointmentPg(citaId: string): Promise<void> {
   await setCita(citaId, { estado: "Confirmada" });

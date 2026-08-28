@@ -95,7 +95,10 @@ export async function generarRecordatoriosDeCita(opts?: {
         from citas ci
         join pacientes p on p.cliente = ci.cliente and p.id = ci.paciente_id
         left join clinicas cl on cl.cliente = ci.cliente and cl.id = ci.clinica_id
-       where ci.estado in ('Pendiente', 'Confirmada')
+       -- 031: 'Programada' es el estado real de una cita sin confirmar (el
+       -- filtro viejo buscaba 'Pendiente', que no existía — esas citas jamás
+       -- recibían recordatorio, en silencio).
+       where ci.estado in ('Programada', 'Confirmada')
          and ci.hora_inicio >= ${inicioManana.toISO()}
          and ci.hora_inicio < ${finManana.toISO()}`.execute(trx);
     const dd: any = await sql`

@@ -47,12 +47,13 @@ export type CitaDeLead = {
   asistio: boolean | null;
 };
 
-/** Estados reales de `citas` (Completado · Cancelado · Confirmada · Programada).
- *  Programada/Confirmada no afirman nada todavía: null, no false. */
+/** Estados reales de `citas` (031: Programada · Confirmada · Completado ·
+ *  Cancelado · No_show). Programada/Confirmada no afirman nada todavía:
+ *  null, no false. */
 function asistioSegunEstado(estado: string | null): boolean | null {
   const e = (estado ?? "").toLowerCase();
   if (e.startsWith("completad")) return true;
-  if (e.startsWith("cancelad") || e.includes("no asist")) return false;
+  if (e.startsWith("cancelad") || e.startsWith("no_show") || e.includes("no asist")) return false;
   return null;
 }
 

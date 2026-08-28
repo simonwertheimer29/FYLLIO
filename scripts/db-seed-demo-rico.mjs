@@ -728,8 +728,10 @@ try {
   console.log(`doctores_presupuestos: ${dentistas.length}`);
 
   // ── CITAS (28): hoy/mañana/semana/pasadas ────────────────────────────
+  // 031: No_show es estado propio del vocabulario — el prefijo [NO_SHOW] en
+  // notas murió con la migración (la nota humana se queda).
   const citasPlan = [[0, 6, "Confirmada"], [1, 5, "Confirmada"], [3, 4, "Programada"], [4, 3, "Programada"],
-    [-2, 4, "Completado"], [-5, 3, "Completado"], [-3, 3, "Cancelado"]];
+    [-2, 4, "Completado"], [-5, 3, "Completado"], [-3, 3, "No_show"]];
   let nc = 0; let citasN = 0;
   for (const [off, cnt, estado] of citasPlan) {
     for (let k = 0; k < cnt; k++) {
@@ -737,7 +739,7 @@ try {
       const trat = tratamientos[nc % tratamientos.length];
       await ins("citas", {
         nombre: pac.nombre, hora_inicio: dPlus(off, 9 + k, 0).toISOString(), hora_final: dPlus(off, 9 + k, 30).toISOString(),
-        estado, notas: estado === "Cancelado" ? "[NO_SHOW] no se presentó" : null, origen: "Coordinación",
+        estado, notas: estado === "No_show" ? "No se presentó." : null, origen: "Coordinación",
         paciente_id: pac.id, tratamiento_id: trat.id, profesional_id: docEn(pac.cid).id, sillon_id: silEn(pac.cid).id, clinica_id: pac.cid,
       }); citasN++;
     }
@@ -1097,17 +1099,23 @@ try {
           const trat = tratamientos[Math.floor(rnd() * tratamientos.length)];
           const pasada = off < 0;
           const r = rnd();
+          // 031: No_show es estado propio (~2/3 de las que antes eran
+          // "Cancelado + [NO_SHOW]" en notas).
+          const noShow = pasada && r >= 0.87 && r < 0.845 + 0.087;
           const estado = !pasada
             ? (r < 0.6 ? "Confirmada" : "Programada")
-            : r < 0.87 ? "Completado" : "Cancelado";
-          const noShow = pasada && estado === "Cancelado" && r < 0.845 + 0.087; // ~2/3 de las canceladas son no-show
+            : r < 0.87 ? "Completado" : noShow ? "No_show" : "Cancelado";
           const h = 9 + (k % 9); const m30 = rnd() < 0.5 ? 0 : 30;
+          // 031: agendada_en = cuándo se reservó. Para el histórico sembrado
+          // es el mismo instante retroactivo que created_at — el factor de
+          // antelación del predictor lee esto, no un default de hoy.
+          const reservadaEn = dPlus(Math.min(off - 3, -1), 9).toISOString();
           citaVolRows.push({
             nombre: pac.nombre, hora_inicio: dPlus(off, h, m30).toISOString(),
             hora_final: dPlus(off, h, m30 + 30).toISOString(), estado,
-            notas: noShow ? "[NO_SHOW] no se presentó" : null, origen: "Coordinación",
+            notas: noShow ? "No se presentó." : null, origen: "Coordinación",
             paciente_id: pac.id, tratamiento_id: trat.id, profesional_id: docEn(cid).id,
-            sillon_id: silEn(cid).id, clinica_id: cid, created_at: dPlus(Math.min(off - 3, -1), 9).toISOString(),
+            sillon_id: silEn(cid).id, clinica_id: cid, created_at: reservadaEn, agendada_en: reservadaEn,
           });
         }
       }
@@ -1305,6 +1313,29 @@ try {
           `o variables de una sola llave, que el renderizador no sustituye: ` +
           malas.map((m) => m.nombre).join(", "),
       );
+    }
+  }
+
+  // INVARIANTE (§15, 031): citas.estado del VOCABULARIO CERRADO, declarado a
+  // mano — que ampliar el union sin pensar en el seed (o al revés) reviente en
+  // el próximo `demo:reset` con un error legible, no con un abort críptico del
+  // CHECK a mitad de transacción. Y la demo tiene que ENSEÑAR el vocabulario:
+  // sin ningún No_show, los KPIs de no-show de Analíticas quedan a cero y
+  // parecen rotos.
+  {
+    const { rows } = await db.query(
+      `select estado, count(*)::int n from citas where cliente = 'DEMO' group by estado`,
+    );
+    const VOCAB_ESTADO_CITA = new Set(["Programada", "Confirmada", "Completado", "Cancelado", "No_show"]);
+    const fuera = rows.filter((r) => !VOCAB_ESTADO_CITA.has(r.estado));
+    if (fuera.length) {
+      throw new Error(
+        `[seed] citas con estado fuera del vocabulario (031): ` +
+          fuera.map((f) => `${f.estado} (${f.n})`).join(", "),
+      );
+    }
+    if (!rows.some((r) => r.estado === "No_show")) {
+      throw new Error("[seed] la demo quedó sin ninguna cita No_show — los KPIs de no-show saldrían a cero");
     }
   }
 

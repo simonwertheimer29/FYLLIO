@@ -33,6 +33,7 @@ import type {
   Tabla_mensajes_whatsapp,
   Tabla_configuracion_waba,
   Tabla_cola_envios,
+  Tabla_citas,
 } from "./types-generado";
 
 // Todo lo generado se reexporta desde aquí: quien importa tipos importa de
@@ -271,6 +272,73 @@ type ExtraColaEnvios = {
   estado: "Pendiente" | "Enviado" | "Fallido" | "Cancelado" | "Caducado" | null;
 };
 
+// ─── Agenda G1 (031) ────────────────────────────────────────────────────────
+
+/** 031 — el vocabulario cerrado de una cita. `No_show` es estado propio desde
+ *  la 031 (antes: prefijo «[NO_SHOW]» en notas, con la detección duplicada en
+ *  5 sitios). Cancelado = no vino a pasar; No_show = no se presentó. */
+export type EstadoCita = "Programada" | "Confirmada" | "Completado" | "Cancelado" | "No_show";
+
+/** 031 — saneamiento de citas. `estado` se redeclara entero (pasa a NOT NULL
+ *  con vocabulario cerrado); `agendada_en` es cuándo se RESERVÓ (para filas
+ *  importadas de un PMS, `created_at` deja de significar eso y el factor de
+ *  antelación del predictor mentiría en silencio); `origen_sistema` +
+ *  `external_id` son la trazabilidad de importación/sync (el external_id hace
+ *  idempotente reimportar: índice único parcial por cliente). */
+type ExtraCitas = {
+  estado: Generated<EstadoCita>;
+  agendada_en: Generated<Date>;
+  origen_sistema: Generated<"fyllio" | "importado">;
+  external_id: string | null;
+};
+
+/** 031 — especialidades de la clínica (Ortodoncia, Implantes…). Sin defaults
+ *  del sector: las define cada clínica en Ajustes. Se desactivan, no se
+ *  borran — el histórico las referencia. */
+export interface Tabla_especialidades {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  nombre: string;
+  activa: Generated<boolean>;
+  created_at: Generated<Date>;
+}
+
+/** 031 — qué doctores atienden cada especialidad (M:N). La vista por
+ *  especialidad de /agenda es la unión de los huecos de sus doctores, cada
+ *  hueco etiquetado con el suyo. */
+export interface Tabla_staff_especialidades {
+  cliente: "RB" | "INDEP" | "DEMO";
+  staff_id: string;
+  especialidad_id: string;
+  created_at: Generated<Date>;
+}
+
+/** 031 — franjas de trabajo por doctor y día de semana (ISO: 1=lunes …
+ *  7=domingo), "HH:MM" locales de clínica. VARIAS filas por día = jornada
+ *  partida. Sin filas = sin horario configurado: la agenda lo dice, no
+ *  inventa uno. */
+export interface Tabla_horarios_staff {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  staff_id: string;
+  dia_semana: number;
+  inicio: string;
+  fin: string;
+  created_at: Generated<Date>;
+}
+
+/** 031 — ausencias, vacaciones y huecos no disponibles de un doctor. Se
+ *  RESTAN de sus franjas al calcular disponibilidad. */
+export interface Tabla_bloqueos_staff {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  staff_id: string;
+  inicio: Date;
+  fin: Date;
+  motivo: string | null;
+  created_at: Generated<Date>;
+}
+
 // ─── El esquema real ────────────────────────────────────────────────────────
 
 export interface DB
@@ -283,6 +351,7 @@ export interface DB
     | "mensajes_whatsapp"
     | "configuracion_waba"
     | "cola_envios"
+    | "citas"
   > {
   // Generadas, con columnas añadidas después.
   alertas_enviadas: Tabla_alertas_enviadas & ExtraAlertasEnviadas;
@@ -293,6 +362,7 @@ export interface DB
   mensajes_whatsapp: Tabla_mensajes_whatsapp & ExtraMensajesWhatsApp;
   configuracion_waba: Tabla_configuracion_waba & ExtraConfiguracionWaba;
   cola_envios: Omit<Tabla_cola_envios, "estado"> & ExtraColaEnvios;
+  citas: Omit<Tabla_citas, "estado"> & ExtraCitas;
 
   // Creadas después.
   alertas_pospuestas: Tabla_alertas_pospuestas;
@@ -300,4 +370,8 @@ export interface DB
   seguimiento_vistos: Tabla_seguimiento_vistos;
   eventos_automatizacion: Tabla_eventos_automatizacion;
   sugerencias_categoria: Tabla_sugerencias_categoria;
+  especialidades: Tabla_especialidades;
+  staff_especialidades: Tabla_staff_especialidades;
+  horarios_staff: Tabla_horarios_staff;
+  bloqueos_staff: Tabla_bloqueos_staff;
 }

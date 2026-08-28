@@ -224,7 +224,9 @@ async function aplicarSideEffects(args: {
     }
   } else if (resultado === "cancelada" && citaId) {
     try {
-      await updateCitaEstado(citaId, "Cancelada", { typecast: true });
+      // 031 — el vocabulario es 'Cancelado' (masculino): "Cancelada" habría
+      // sido una fila fantasma que ningún filtro veía; ahora el CHECK lo veta.
+      await updateCitaEstado(citaId, "Cancelado", { typecast: true });
     } catch (err) {
       console.error("[webhooks/vapi] update cita Cancelada:", err);
     }

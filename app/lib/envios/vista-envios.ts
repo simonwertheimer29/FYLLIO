@@ -106,7 +106,8 @@ export async function vistaEnvios(opts: {
         join cola_envios ce on ce.cliente = ci.cliente and ce.cita_id = ci.id
              and ce.origen = 'recordatorio_cita' and ce.estado = 'Enviado'
         left join clinicas cl on cl.cliente = ci.cliente and cl.id = ci.clinica_id
-       where ci.estado in ('Pendiente', 'Confirmada')
+       -- 031: 'Programada', no 'Pendiente' (mismo arreglo que recordatorios-cita).
+       where ci.estado in ('Programada', 'Confirmada')
          and ci.hora_inicio >= ${inicioHoy.toISO()}
          and ci.hora_inicio < ${finCitasProximas.toISO()}
        group by ci.id, ci.nombre, ci.hora_inicio, ci.clinica_id, p.nombre, p.telefono, cl.nombre`.execute(trx);

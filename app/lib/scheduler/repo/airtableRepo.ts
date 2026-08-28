@@ -238,8 +238,9 @@ export async function markNoShow(params: {
   appointmentRecordId: string;
   existingNotes?: string;
 }) {
-  const notes = [params.existingNotes, "[NO_SHOW]"].filter(Boolean).join(" | ");
-  await (await import("./pg")).markNoShowPg(params.appointmentRecordId, notes);
+  // 031 — el no-show es estado propio (No_show); ya no se marca con el
+  // prefijo [NO_SHOW] en notas.
+  await (await import("./pg")).markNoShowPg(params.appointmentRecordId, params.existingNotes);
   
   fireCitaEvento("no_show", params.appointmentRecordId);
 }
