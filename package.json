@@ -44,6 +44,7 @@
     "qa:bandeja": "tsx scripts/qa-bandeja.mts",
     "qa:conocimiento": "tsx scripts/qa-conocimiento.mts",
     "qa:banco": "tsx scripts/qa-banco-pruebas.mts",
+    "qa:agenda": "tsx scripts/qa-agenda.mts",
     "qa:juez-vivo": "tsx scripts/qa-juez-vivo.mts"
   },
   "dependencies": {
