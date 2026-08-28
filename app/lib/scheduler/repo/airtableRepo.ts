@@ -1,6 +1,20 @@
 // app/lib/scheduler/repo/airtableRepo.ts
-import type { Appointment } from "../../types";
 import { DateTime } from "luxon";
+
+/** Forma que devuelven listAppointmentsByDay/Week. Antes vivía en
+ *  `lib/types.ts`, que murió en G1b con el motor de huecos del MVP; el repo
+ *  es su único productor y la conserva local para no tocar a sus
+ *  consumidores (crons de confirmación/recordatorio). */
+export type Appointment = {
+  id: string;
+  patientName: string;
+  start: string;
+  end: string;
+  type: string;
+  chairId?: number;
+  providerId?: string;
+  patientPhone?: string;
+};
 
 /**
  * Helpers simples para leer fields de Airtable sin rompernos.
