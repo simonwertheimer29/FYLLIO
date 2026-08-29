@@ -28,6 +28,7 @@ import { hoyISO, sumaDias } from "../../lib/time";
 import { aMin, deMin, diaSemanaISO } from "../../lib/agenda/disponibilidad";
 import { resumenDeAgendaDia } from "../../lib/agenda/resumen";
 import { CitaModal, type CitaEnEdicion } from "./CitaModal";
+import { CitaPanel } from "./CitaPanel";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import {
   CalendarDays,
@@ -47,7 +48,11 @@ type DoctorSemana = {
   id: string; nombre: string; clinicaId: string | null; clinicaNombre: string | null;
   especialidadIds: string[]; sinHorario: boolean;
 };
-type CitaDia = { id: string; inicioMin: number; finMin: number | null; nombre: string | null; estado: string; tratamiento: string | null; tratamientoId: string | null; deLead: boolean; sinPasar: boolean; esFyllio: boolean };
+type CitaDia = {
+  id: string; inicioMin: number; finMin: number | null; nombre: string | null; estado: string;
+  tratamiento: string | null; tratamientoId: string | null; deLead: boolean; sinPasar: boolean; esFyllio: boolean;
+  telefono: string | null; recordatorio: { estado: string; enviadoEnISO: string | null } | null; agenteActivo: boolean;
+};
 type PorDoctor = {
   staffId: string;
   franjas: Array<{ inicio: string; fin: string }>;
@@ -135,6 +140,9 @@ export function AgendaView() {
     }
   }, [cargar, desde]);
 
+  // G3-panel — clic en una cita: su estado + la ficha del caso.
+  const [panelCita, setPanelCita] = useState<null | { cita: CitaDia; carril: { fecha: string; staffId: string } }>(null);
+
   // G2.5 — arrastre terminado: CONFIRMAR antes de aplicar (dictado).
   const [confirmMover, setConfirmMover] = useState<null | {
     cita: CitaDia; origen: { fecha: string; staffId: string }; destino: DestinoMovimiento; aplicando: boolean;
@@ -162,8 +170,14 @@ export function AgendaView() {
     }
   }, [confirmMover, cargar, desde]);
 
-  // G2.4 — clic en una cita nacida en Fyllio → moverla (las importadas se
-  // cambian en el software de la clínica; ni se ofrece).
+  // G3-panel — el clic abre el PANEL (estado + ficha); mover vive dentro y
+  // en el arrastre. Se abre también para citas importadas: su estado y su
+  // conversación importan aunque no se puedan mover desde aquí.
+  const abrirPanel = useCallback((c: CitaDia, carril: { fecha: string; staffId: string }) => {
+    setPanelCita({ cita: c, carril });
+  }, []);
+
+  // G2.4 — mover desde el panel (las importadas ni tienen el botón).
   const abrirMover = useCallback((c: CitaDia, carril: { fecha: string; staffId: string }) => {
     setModalCita({
       modo: "mover",
@@ -350,7 +364,7 @@ export function AgendaView() {
               docMovil={docMovilEfectivo}
               onDocMovil={setDocMovil}
               ejeBase={ejeBase}
-              onCita={abrirMover}
+              onCita={abrirPanel}
               onCrearEnHueco={(carril, horaMin) =>
                 setModalCita({ modo: "crear", prefill: { fecha: carril.fecha, hora: deMin(horaMin), doctorId: carril.staffId } })}
               onMoverSolicitado={(c, origen, destino) => setConfirmMover({ cita: c, origen, destino, aplicando: false })}
@@ -363,13 +377,13 @@ export function AgendaView() {
               docSemana={docSemana}
               onDocSemana={setDocSemana}
               ejeBase={ejeBase}
-              onCita={abrirMover}
+              onCita={abrirPanel}
               onCrearEnHueco={(carril, horaMin) =>
                 setModalCita({ modo: "crear", prefill: { fecha: carril.fecha, hora: deMin(horaMin), doctorId: carril.staffId } })}
               onMoverSolicitado={(c, origen, destino) => setConfirmMover({ cita: c, origen, destino, aplicando: false })}
             />
           ) : (
-            <VistaLista data={data} visibles={visibles} hoy={hoy} onCita={abrirMover} />
+            <VistaLista data={data} visibles={visibles} hoy={hoy} onCita={abrirPanel} />
           )}
         </div>
       ) : null}
@@ -427,6 +441,37 @@ export function AgendaView() {
             </ul>
           )}
         </Card>
+      )}
+
+      {/* G3-panel — estado de la cita + la ficha del caso intacta */}
+      {panelCita && data && (
+        <CitaPanel
+          cita={{
+            id: panelCita.cita.id,
+            nombre: panelCita.cita.nombre,
+            estado: panelCita.cita.estado,
+            fecha: panelCita.carril.fecha,
+            hora: deMin(panelCita.cita.inicioMin),
+            doctorNombre: data.doctores.find((d) => d.id === panelCita.carril.staffId)?.nombre ?? "—",
+            sinPasar: panelCita.cita.sinPasar,
+            esFyllio: panelCita.cita.esFyllio,
+            telefono: panelCita.cita.telefono,
+            recordatorio: panelCita.cita.recordatorio,
+            agenteActivo: panelCita.cita.agenteActivo,
+          }}
+          onClose={() => setPanelCita(null)}
+          onMover={() => {
+            const pc = panelCita;
+            setPanelCita(null);
+            abrirMover(pc.cita, pc.carril);
+          }}
+          onTrasladada={() => {
+            const pc = panelCita;
+            setPanelCita(null);
+            void marcarTrasladada(pc.cita.id);
+          }}
+          onCambio={() => void cargar(desde)}
+        />
       )}
 
       {/* G2.5 — confirmación del arrastre, con el aviso de nivel 1 */}
@@ -684,12 +729,12 @@ function Carriles({
                   return (
                   <div
                     key={c.id}
-                    role={c.esFyllio && onCita ? "button" : undefined}
-                    tabIndex={c.esFyllio && onCita ? 0 : undefined}
+                    role={onCita ? "button" : undefined}
+                    tabIndex={onCita ? 0 : undefined}
                     onClick={
                       // Con arrastre activo el clic lo resuelve pointerup;
-                      // sin él (Lista no arrastra), clic directo.
-                      c.esFyllio && onCita && !arrastrable ? () => onCita(c, carril) : undefined
+                      // las importadas no arrastran → clic directo al panel.
+                      onCita && !arrastrable ? () => onCita(c, carril) : undefined
                     }
                     onPointerDown={
                       arrastrable
@@ -713,8 +758,8 @@ function Carriles({
                         : undefined
                     }
                     onPointerUp={arrastrable && drag?.cita.id === c.id ? finDeArrastre : undefined}
-                    title={c.esFyllio ? "Clic: mover · arrastra a otra hora o doctor" : "Esta cita vive en tu software clínico — se cambia allí"}
-                    className={`absolute inset-x-0.5 overflow-hidden rounded-md border px-1 py-0.5 ${c.esFyllio && (onCita || arrastrable) ? "cursor-pointer hover:ring-1 hover:ring-[var(--color-accent)]" : ""} ${enDrag ? "z-20 opacity-80 ring-2 ring-[var(--color-accent)]" : ""} ${ESTILO_ESTADO[c.estado] ?? "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]"}`}
+                    title={c.esFyllio ? "Clic: estado y ficha · arrastra para mover" : "Clic: estado y ficha (se mueve en tu software clínico)"}
+                    className={`absolute inset-x-0.5 overflow-hidden rounded-md border px-1 py-0.5 ${onCita || arrastrable ? "cursor-pointer hover:ring-1 hover:ring-[var(--color-accent)]" : ""} ${enDrag ? "z-20 opacity-80 ring-2 ring-[var(--color-accent)]" : ""} ${ESTILO_ESTADO[c.estado] ?? "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]"}`}
                     style={{
                       top: y(c.inicioMin),
                       height: Math.max(22, ((c.finMin ?? c.inicioMin + 30) - c.inicioMin) * PX_MIN),
@@ -993,10 +1038,10 @@ function RecuadroDoctorDia({
       <div className="space-y-1 border-t border-[var(--color-border)] px-2 py-1.5">
         {pd.citas.map((c) => (
           <div key={c.id}
-            role={c.esFyllio && onCita ? "button" : undefined}
-            onClick={c.esFyllio && onCita ? () => onCita(c, { fecha, staffId: pd.staffId }) : undefined}
-            title={c.esFyllio ? "Mover o reagendar" : "Esta cita vive en tu software clínico — se cambia allí"}
-            className={`rounded-lg border px-1.5 py-1 text-[10.5px] leading-tight ${c.esFyllio && onCita ? "cursor-pointer hover:ring-1 hover:ring-[var(--color-accent)]" : ""} ${ESTILO_ESTADO[c.estado] ?? "border-[var(--color-border)] text-[var(--color-foreground)]"}`}>
+            role={onCita ? "button" : undefined}
+            onClick={onCita ? () => onCita(c, { fecha, staffId: pd.staffId }) : undefined}
+            title={c.esFyllio ? "Clic: estado y ficha" : "Clic: estado y ficha (se mueve en tu software clínico)"}
+            className={`rounded-lg border px-1.5 py-1 text-[10.5px] leading-tight ${onCita ? "cursor-pointer hover:ring-1 hover:ring-[var(--color-accent)]" : ""} ${ESTILO_ESTADO[c.estado] ?? "border-[var(--color-border)] text-[var(--color-foreground)]"}`}>
             <span className="font-semibold [font-variant-numeric:tabular-nums]">
               {deMin(c.inicioMin)}{c.finMin !== null ? `–${deMin(c.finMin)}` : ""}
             </span>{" "}

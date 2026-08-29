@@ -3494,3 +3494,15 @@ apagado, sin color nuevo, y la franja de trabajo es superficie limpia; leyenda d
 La Lista reduce el resumen a lo esencial con jerarquía (las horas libres DESTACAN; las horas
 concretas solo al desplegar; resumenDeAgendaDia devuelve partes con énfasis, no una frase plana).
 E2E Chrome 15/15 + capturas.
+
+## 2026-08-30 — Agenda: el panel de cita reutiliza LA ficha (no se construyó una nueva)
+Clic en cualquier cita (importadas incluidas — su estado y su conversación importan aunque no se
+muevan aquí) → panel lateral (PanelAccionShell): cabecera DE LA CITA (estado, recordatorio desde
+cola_envios, marca de traslado, botones Mover/«Ya está en mi software» solo donde aplican) y debajo
+FichaCasoPanel INTACTO en modo seguimiento (trae el enlace a la conversación gratis). El chip del
+agente dice algo útil (dictado): el semáforo cubría los rojos pero NO afirmaba el caso verde —
+faltaba cruzar semáforo × interruptor de clínica, y ahora con hilo libre y evaluador encendido el
+panel dice «el agente lleva esta conversación — si escribes tú, puedes pisarle». Cita sin teléfono
+(nombre libre): «sin conversación vinculada», jamás una ficha vacía. La API de la semana ganó
+telefono (coalesce paciente/lead), recordatorio por cita (una consulta, sin N+1) y agente por
+clínica (sin fila = apagado). E2E Chrome 10/10 + captura.

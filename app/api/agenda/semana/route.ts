@@ -69,16 +69,36 @@ export const GET = withAuth(async (session, req) => {
         const citas = await trx
           .selectFrom("citas")
           .leftJoin("tratamientos", (j) => j.onRef("tratamientos.id", "=", "citas.tratamiento_id"))
+          .leftJoin("pacientes", (j) => j.onRef("pacientes.id", "=", "citas.paciente_id"))
+          .leftJoin("leads", (j) => j.onRef("leads.id", "=", "citas.lead_id"))
           .select([
             "citas.id", "citas.nombre", "citas.hora_inicio", "citas.hora_final", "citas.estado",
             "citas.profesional_id", "citas.clinica_id", "citas.origen_sistema", "citas.lead_id",
             "citas.trasladada_en", "citas.tratamiento_id",
             "tratamientos.nombre as tratamiento_nombre",
+            // G3-panel: el teléfono enlaza la cita con SU conversación/ficha.
+            "pacientes.telefono as pac_telefono", "leads.telefono as lead_telefono",
           ])
           .where("citas.hora_inicio", ">=", desdeUTC)
           .where("citas.hora_inicio", "<", hastaUTC)
           .where("citas.estado", "in", ["Programada", "Confirmada", "Completado"])
           .execute();
+        // G3-panel: el último recordatorio de cada cita (una consulta para la
+        // semana entera, sin N+1) + el interruptor del agente por clínica
+        // (sin fila = apagado, fail-closed — mismo contrato que 025).
+        const citaIds = citas.map((c: any) => c.id);
+        const recordatorios = citaIds.length
+          ? await trx
+              .selectFrom("cola_envios")
+              .select(["cita_id", "estado", "enviado_en", "created_at"])
+              .where("origen", "=", "recordatorio_cita")
+              .where("cita_id", "in", citaIds)
+              .orderBy("created_at", "desc")
+              .execute()
+          : [];
+        const agentePorClinica: any = await sql`
+          select clinica_id, evaluador_activo from configuracion_automatizaciones
+           where clinica_id is not null`.execute(trx);
         // Pendientes de pasar al software: origen fyllio, sin marca, de los
         // últimos 7 días hacia adelante (no solo esta semana — la lista es de
         // TRABAJO, no del rango visible).
@@ -97,7 +117,7 @@ export const GET = withAuth(async (session, req) => {
              and c.hora_inicio >= now() - interval '7 days'
            order by c.hora_inicio asc
            limit 100`.execute(trx);
-        return { staff, especialidades, asignaciones, horarios, bloqueos, citas, catalogoTratamientos, pendientes: pendientes.rows ?? [] };
+        return { staff, especialidades, asignaciones, horarios, bloqueos, citas, recordatorios, agentePorClinica: agentePorClinica.rows ?? [], catalogoTratamientos, pendientes: pendientes.rows ?? [] };
       });
 
       // ── Scoping fail-closed: coordinación solo SUS clínicas ─────────────
@@ -107,6 +127,18 @@ export const GET = withAuth(async (session, req) => {
       const doctorIds = new Set(doctores.map((s: any) => s.id));
       const citas = d.citas.filter((c: any) => enScope(c.clinica_id));
       const pendientes = d.pendientes.filter((p: any) => enScope(p.clinica_id));
+
+      // G3-panel: primer recordatorio por cita (ya ordenados desc) y el
+      // interruptor del agente por clínica.
+      const recordatorioPorCita = new Map<string, { estado: string; enviadoEn: Date | null }>();
+      for (const r of d.recordatorios as any[]) {
+        if (r.cita_id && !recordatorioPorCita.has(r.cita_id)) {
+          recordatorioPorCita.set(r.cita_id, { estado: String(r.estado ?? "Pendiente"), enviadoEn: r.enviado_en ? new Date(r.enviado_en) : null });
+        }
+      }
+      const agenteActivoEn = new Map<string, boolean>(
+        (d.agentePorClinica as any[]).map((f) => [String(f.clinica_id), f.evaluador_activo === true]),
+      );
 
       // ── Composición por día y doctor (el motor puro de G1c) ─────────────
       const horariosPorDoctor = new Map<string, Array<{ dia_semana: number; inicio: string; fin: string }>>();
@@ -126,7 +158,11 @@ export const GET = withAuth(async (session, req) => {
             const p = proyectarAlDia({ inicio: new Date(b.inicio as any), fin: new Date(b.fin as any) }, fecha);
             if (p) bloqueosDia.push({ ...p, motivo: (b as any).motivo ?? null });
           }
-          const citasDia: Array<{ id: string; inicioMin: number; finMin: number | null; nombre: string | null; estado: string; tratamiento: string | null; tratamientoId: string | null; deLead: boolean; sinPasar: boolean; esFyllio: boolean }> = [];
+          const citasDia: Array<{
+            id: string; inicioMin: number; finMin: number | null; nombre: string | null; estado: string;
+            tratamiento: string | null; tratamientoId: string | null; deLead: boolean; sinPasar: boolean; esFyllio: boolean;
+            telefono: string | null; recordatorio: { estado: string; enviadoEnISO: string | null } | null; agenteActivo: boolean;
+          }> = [];
           let sinDuracion = false;
           for (const c of citas) {
             if (c.profesional_id !== doc.id || !c.hora_inicio) continue;
@@ -148,6 +184,13 @@ export const GET = withAuth(async (session, req) => {
               sinPasar: c.origen_sistema === "fyllio" && c.trasladada_en === null,
               // G2.4 — solo lo nacido en Fyllio se puede mover desde aquí.
               esFyllio: c.origen_sistema === "fyllio",
+              // G3-panel: la conversación de la cita y su estado operativo.
+              telefono: (c as any).pac_telefono ?? (c as any).lead_telefono ?? null,
+              recordatorio: (() => {
+                const r = recordatorioPorCita.get(c.id);
+                return r ? { estado: r.estado, enviadoEnISO: r.enviadoEn ? r.enviadoEn.toISOString() : null } : null;
+              })(),
+              agenteActivo: c.clinica_id ? (agenteActivoEn.get(String(c.clinica_id)) ?? false) : false,
             });
           }
           citasDia.sort((a, b) => a.inicioMin - b.inicioMin);
