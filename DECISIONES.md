@@ -3438,3 +3438,17 @@ un lead escribía TEXTO en leads y citas no se enteraba — ahora crea/reprogram
 enlazada (citas.lead_id único, 032; upsert idempotente §2; reprogramar resetea el traslado; salir
 de Citado cancela, no borra). El seed marca su agenda como origen_sistema='importado' — la lista
 de pendientes es solo para lo nacido en Fyllio. E2E Chrome 17/17 con verificación en base.
+
+## 2026-08-29 — Agenda, 2ª iteración (G2.1) + los niveles sin ambigüedad
+Corrección dictada de los niveles: 1 = sin acceso (Fyllio solo conoce SUS citas) · 2 = LECTURA de
+la agenda real (huecos afirmables) · 3 = el agente cierra solo (tras B5 y modo B). MISMO producto en
+los tres: no hay escritura hacia el software de la clínica en ninguno (Gesden sin API; donde la
+haya, proyecto propio — hipótesis lejana), así que «pendientes de pasar» es una constante del
+producto, no una carencia del nivel 1. La rejilla pinta huecos también en nivel 1, pero con la
+advertencia PEGADA A LOS HUECOS: cada bloque dice «libre según Fyllio» y la frase completa
+(«estas horas libres no son reales — la agenda de verdad está en tu software») vive al pie de la
+rejilla, no solo en la cabecera. El agente sigue vetado: la rejilla es para quien sabe qué mira.
+G2.1 entrega la vista DÍA (carriles por doctor con sombreado del horario laboral, sticky de horas,
+scroll horizontal interno, móvil = un doctor a la vez) + selector Día·Lista. Numeración ordenada:
+la serie H muere — la iteración son revisiones G2.1–G2.4 (Día · Lista plegada · Semana de un
+doctor · crear/mover); G3–G6 siguen siendo los de siempre. E2E Chrome 20/20 + capturas.
