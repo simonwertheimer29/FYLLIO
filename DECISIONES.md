@@ -3461,3 +3461,11 @@ dentro de la frase. Las citas fuera del horario del doctor se DICEN («fuera de 
 se esconden. Badge ámbar «N sin pasar a tu software» por recuadro (la API marca sinPasar por
 cita: origen fyllio sin trasladar). Al desplegar, el detalle de siempre; un día sin nada no tiene
 details — el resumen ES todo. resumenDeAgendaDia es puro y lo testea qa:agenda (55 checks).
+
+## 2026-08-29 — Agenda G2.3: la Semana de UN doctor
+Con varios doctores la semana no cabe (dictado): si no hay doctor filtrado se AUTO-SELECCIONA el
+primero visible y la vista lo DICE en su selector prominente («Semana de: Dra. Ruiz») — forzar con
+declaración, no caer a Lista. El selector es local y no pisa el filtro global; el filtro global,
+cuando está, manda. El renderer de carriles de G2.1 se generalizó (carril = doctor en Día, carril =
+día en Semana): una sola implementación de eje, sombreado, citas, bloqueos y huecos-con-advertencia.
+E2E Chrome 11/11 + captura.

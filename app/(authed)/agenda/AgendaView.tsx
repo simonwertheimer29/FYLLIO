@@ -63,7 +63,7 @@ type Semana = {
   dias: Array<{ fecha: string; porDoctor: PorDoctor[] }>;
   pendientes: Pendiente[];
 };
-type Vista = "dia" | "lista";
+type Vista = "dia" | "semana" | "lista";
 
 const lunesDe = (fecha: string) => sumaDias(fecha, 1 - diaSemanaISO(fecha));
 const LABEL_DIA = ["", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
@@ -90,6 +90,8 @@ export function AgendaView() {
   const [filtroDoc, setFiltroDoc] = useState("");
   // Móvil: los carriles no caben — un doctor a la vez.
   const [docMovil, setDocMovil] = useState("");
+  // Semana: el doctor elegido EN la vista (local — no pisa el filtro global).
+  const [docSemana, setDocSemana] = useState("");
 
   const cargar = useCallback(async (semanaDesde: string) => {
     setCargando(true);
@@ -178,7 +180,7 @@ export function AgendaView() {
       {/* Controles: vista + navegación + filtros */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="flex rounded-xl border border-[var(--color-border)] p-0.5" role="tablist" aria-label="Vista">
-          {([["dia", "Día"], ["lista", "Lista"]] as Array<[Vista, string]>).map(([v, label]) => (
+          {([["dia", "Día"], ["semana", "Semana"], ["lista", "Lista"]] as Array<[Vista, string]>).map(([v, label]) => (
             <button
               key={v}
               type="button"
@@ -271,6 +273,14 @@ export function AgendaView() {
               docMovil={docMovilEfectivo}
               onDocMovil={setDocMovil}
             />
+          ) : vista === "semana" ? (
+            <VistaSemana
+              data={data}
+              visibles={visibles}
+              hoy={hoy}
+              docSemana={docSemana}
+              onDocSemana={setDocSemana}
+            />
           ) : (
             <VistaLista data={data} visibles={visibles} hoy={hoy} />
           )}
@@ -335,44 +345,28 @@ export function AgendaView() {
   );
 }
 
-// ─── DÍA: carriles por doctor ────────────────────────────────────────────────
+// ─── CARRILES: el renderer compartido de Día y Semana ───────────────────────
 //
-// Horas a la izquierda (sticky), una columna por doctor, agrupadas por
-// clínica. Con muchos doctores: scroll horizontal DENTRO del contenedor (la
-// página nunca scrollea en horizontal). El sombreado claro es el horario
-// laboral del doctor — se ve cuándo trabaja sin ir a su configuración.
+// Horas a la izquierda (sticky), una columna por CARRIL — en Día el carril es
+// un doctor; en Semana (G2.3) es un día del mismo doctor. Con muchos
+// carriles: scroll horizontal DENTRO del contenedor (la página nunca
+// scrollea en horizontal). El sombreado claro es el horario laboral — se ve
+// cuándo trabaja sin ir a su configuración (todos los niveles).
 
 const PX_MIN = 1.1; // 1 minuto ≈ 1.1px → una jornada de 12 h ≈ 790px
 
-function VistaDia({
-  dia,
-  visibles,
-  docMovil,
-  onDocMovil,
-}: {
-  dia: { fecha: string; porDoctor: PorDoctor[] } | null;
-  visibles: DoctorSemana[];
-  docMovil: string;
-  onDocMovil: (id: string) => void;
-}) {
-  if (!dia) {
-    // El día activo cayó fuera de la semana cargada (transición de fetch).
-    return <div className="h-[28rem] animate-pulse rounded-2xl bg-[var(--color-surface-muted)]" />;
-  }
-  const lanes = visibles
-    .map((doc) => ({ doc, pd: dia.porDoctor.find((p) => p.staffId === doc.id) }))
-    .filter((l): l is { doc: DoctorSemana; pd: PorDoctor } => l.pd !== undefined);
+type Carril = {
+  key: string;
+  titulo: string;
+  subtitulo?: string | null;
+  destacado?: boolean; // hoy, en la vista Semana
+  ocultaEnMovil?: boolean; // Día: un doctor a la vez en el móvil
+  pd: PorDoctor;
+};
 
-  if (lanes.length === 0) {
-    return (
-      <Card padding="none" className="px-5 py-8 text-center">
-        <p className="text-xs text-[var(--color-muted)]">No hay doctores que enseñar con este filtro.</p>
-      </Card>
-    );
-  }
-
+function Carriles({ lanes }: { lanes: Carril[] }) {
   // Eje vertical: de la primera franja/cita/bloqueo a la última, a horas
-  // redondas. Día sin nada: 09:00–20:00 para que el vacío se vea como vacío.
+  // redondas. Sin nada: 09:00–20:00 para que el vacío se vea como vacío.
   let ejeMin = Infinity;
   let ejeMax = -Infinity;
   for (const { pd } of lanes) {
@@ -391,19 +385,7 @@ function VistaDia({
   const hayHuecosPintados = lanes.some(({ pd }) => (pd.libres ?? []).length > 0);
 
   return (
-    <Card padding="none" className="px-3 py-3">
-      {/* Móvil: un doctor a la vez — los carriles no caben en una mano. */}
-      {lanes.length > 1 && (
-        <select
-          value={docMovil}
-          onChange={(e) => onDocMovil(e.target.value)}
-          aria-label="Doctor visible en móvil"
-          className="mb-2 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs text-[var(--color-foreground)] lg:hidden"
-        >
-          {lanes.map(({ doc }) => <option key={doc.id} value={doc.id}>{doc.nombre}</option>)}
-        </select>
-      )}
-
+    <>
       <div className="overflow-x-auto">
         <div className="flex min-w-fit">
           {/* Columna de horas, sticky para que sobreviva al scroll horizontal */}
@@ -418,14 +400,14 @@ function VistaDia({
             </div>
           </div>
 
-          {lanes.map(({ doc, pd }) => (
+          {lanes.map(({ key, titulo, subtitulo, destacado, ocultaEnMovil, pd }) => (
             <div
-              key={doc.id}
-              className={`w-44 min-w-44 flex-1 border-l border-[var(--color-border)] px-1 ${doc.id === docMovil ? "" : "hidden lg:block"}`}
+              key={key}
+              className={`w-44 min-w-44 flex-1 border-l border-[var(--color-border)] px-1 ${ocultaEnMovil ? "hidden lg:block" : ""}`}
             >
               <div className="flex h-9 flex-col justify-center px-1">
-                <p className="truncate text-[11px] font-semibold text-[var(--color-foreground)]">{doc.nombre}</p>
-                {doc.clinicaNombre && <p className="truncate text-[9.5px] text-[var(--color-muted)]">{doc.clinicaNombre}</p>}
+                <p className={`truncate text-[11px] font-semibold ${destacado ? "text-[var(--color-accent)]" : "text-[var(--color-foreground)]"}`}>{titulo}</p>
+                {subtitulo && <p className="truncate text-[9.5px] text-[var(--color-muted)]">{subtitulo}</p>}
               </div>
               <div className="relative rounded-lg bg-[var(--color-surface-muted)]" style={{ height: alto }}>
                 {/* Rejilla de horas */}
@@ -498,6 +480,118 @@ function VistaDia({
           {AVISO_HUECOS} Aquí, libre = libre solo en lo que Fyllio conoce.
         </p>
       )}
+    </>
+  );
+}
+
+// ─── DÍA: un carril por doctor ──────────────────────────────────────────────
+
+function VistaDia({
+  dia,
+  visibles,
+  docMovil,
+  onDocMovil,
+}: {
+  dia: { fecha: string; porDoctor: PorDoctor[] } | null;
+  visibles: DoctorSemana[];
+  docMovil: string;
+  onDocMovil: (id: string) => void;
+}) {
+  if (!dia) {
+    // El día activo cayó fuera de la semana cargada (transición de fetch).
+    return <div className="h-[28rem] animate-pulse rounded-2xl bg-[var(--color-surface-muted)]" />;
+  }
+  const lanes: Carril[] = visibles
+    .map((doc) => ({ doc, pd: dia.porDoctor.find((p) => p.staffId === doc.id) }))
+    .filter((l): l is { doc: DoctorSemana; pd: PorDoctor } => l.pd !== undefined)
+    .map(({ doc, pd }) => ({
+      key: doc.id,
+      titulo: doc.nombre,
+      subtitulo: doc.clinicaNombre,
+      ocultaEnMovil: doc.id !== docMovil,
+      pd,
+    }));
+
+  if (lanes.length === 0) {
+    return (
+      <Card padding="none" className="px-5 py-8 text-center">
+        <p className="text-xs text-[var(--color-muted)]">No hay doctores que enseñar con este filtro.</p>
+      </Card>
+    );
+  }
+
+  return (
+    <Card padding="none" className="px-3 py-3">
+      {/* Móvil: un doctor a la vez — los carriles no caben en una mano. */}
+      {lanes.length > 1 && (
+        <select
+          value={docMovil}
+          onChange={(e) => onDocMovil(e.target.value)}
+          aria-label="Doctor visible en móvil"
+          className="mb-2 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs text-[var(--color-foreground)] lg:hidden"
+        >
+          {visibles.map((doc) => <option key={doc.id} value={doc.id}>{doc.nombre}</option>)}
+        </select>
+      )}
+      <Carriles lanes={lanes} />
+    </Card>
+  );
+}
+
+// ─── SEMANA: los siete días de UN doctor (G2.3) ─────────────────────────────
+//
+// Con varios doctores la semana no cabe y se vuelve ilegible (dictado): si no
+// hay doctor filtrado se AUTO-SELECCIONA el primero visible y la vista lo
+// DICE en su propio selector prominente — forzar con declaración, no caer a
+// Lista ni pedir deberes. El selector es local: no pisa el filtro global.
+
+function VistaSemana({
+  data,
+  visibles,
+  hoy,
+  docSemana,
+  onDocSemana,
+}: {
+  data: Semana;
+  visibles: DoctorSemana[];
+  hoy: string;
+  docSemana: string;
+  onDocSemana: (id: string) => void;
+}) {
+  const doc = visibles.find((d) => d.id === docSemana) ?? visibles[0] ?? null;
+  if (!doc) {
+    return (
+      <Card padding="none" className="px-5 py-8 text-center">
+        <p className="text-xs text-[var(--color-muted)]">No hay doctores que enseñar con este filtro.</p>
+      </Card>
+    );
+  }
+  const lanes: Carril[] = data.dias
+    .map((dia) => ({ dia, pd: dia.porDoctor.find((p) => p.staffId === doc.id) }))
+    .filter((l): l is { dia: Semana["dias"][number]; pd: PorDoctor } => l.pd !== undefined)
+    .map(({ dia, pd }) => ({
+      key: dia.fecha,
+      titulo: `${LABEL_DIA[diaSemanaISO(dia.fecha)]} ${dia.fecha.slice(8)}`,
+      subtitulo: dia.fecha === hoy ? "hoy" : null,
+      destacado: dia.fecha === hoy,
+      pd,
+    }));
+
+  return (
+    <Card padding="none" className="px-3 py-3">
+      <div className="mb-2 flex items-center gap-2">
+        <span className="text-xs font-semibold text-[var(--color-foreground)]">Semana de:</span>
+        <select
+          value={doc.id}
+          onChange={(e) => onDocSemana(e.target.value)}
+          aria-label="Doctor de la semana"
+          className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs font-semibold text-[var(--color-accent)]"
+        >
+          {visibles.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
+        </select>
+        {doc.clinicaNombre && <span className="text-[11px] text-[var(--color-muted)]">{doc.clinicaNombre}</span>}
+      </div>
+      <Carriles lanes={lanes} />
     </Card>
   );
 }
