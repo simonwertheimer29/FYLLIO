@@ -81,6 +81,31 @@ const TID = Object.fromEntries(tratamientos.map((t) => [t.nombre, t.id]));
 const sillones = (await db.query("select id, clinica_id from sillones where cliente='DEMO'")).rows;
 const docEn = (cid) => dentistas.find((d) => d.clinica_id === cid) ?? dentistas[0];
 const silEn = (cid) => sillones.find((s) => s.clinica_id === cid) ?? sillones[0];
+// G2.6 — COHERENCIA CON LA AGENDA (el rayado «donde no toca» de la revisión
+// del 30-08 eran citas sembradas fuera del horario del doctor): las citas se
+// siembran DENTRO de las franjas de horarios_staff. Doctor sin franjas ese
+// día → se intenta otro dentista de la clínica; ninguno trabaja → sin cita.
+const horariosStaff = (await db.query("select staff_id, dia_semana, inicio, fin from horarios_staff where cliente='DEMO'")).rows;
+const franjasDe = (staffId, dow) =>
+  horariosStaff.filter((h) => h.staff_id === staffId && Number(h.dia_semana) === dow);
+const aMinSeed = (hhmm) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+/** Doctor de la clínica que trabaje ese día + un arranque de cita (min del
+ *  día, en punto o y-media) dentro de una de sus franjas; null = nadie. */
+function citaEnHorario(cid, fechaJs, r) {
+  const dow = fechaJs.getDay() === 0 ? 7 : fechaJs.getDay();
+  const candidatos = [docEn(cid), ...dentistas.filter((d) => d.clinica_id === cid)];
+  for (const doc of candidatos) {
+    const franjas = franjasDe(doc.id, dow);
+    if (!franjas.length) continue;
+    const f = franjas[Math.floor(r * franjas.length) % franjas.length];
+    const ini = aMinSeed(f.inicio);
+    const fin = aMinSeed(f.fin);
+    const slots = Math.max(1, Math.floor((fin - ini - 30) / 30) + 1);
+    const min = ini + (Math.floor(r * 997) % slots) * 30;
+    return { doc, h: Math.floor(min / 60), m: min % 60 };
+  }
+  return null;
+}
 // especialidad estable por dentista → KPI por doctor + catálogo de doctores
 const ESPEC = ["Implantología", "Ortodoncia", "Endodoncia", "Estética dental", "Odontología general"];
 const especPorDoc = Object.fromEntries(dentistas.map((d, i) => [d.id, ESPEC[i % ESPEC.length]]));
@@ -737,14 +762,17 @@ try {
     for (let k = 0; k < cnt; k++) {
       const pac = pacientes[nc % pacientes.length]; nc++;
       const trat = tratamientos[nc % tratamientos.length];
+      // G2.6: dentro del horario real del doctor; sin doctor ese día, sin cita.
+      const hueco = citaEnHorario(pac.cid, dPlus(off), (nc * 0.137) % 1);
+      if (!hueco) continue;
       await ins("citas", {
-        nombre: pac.nombre, hora_inicio: dPlus(off, 9 + k, 0).toISOString(), hora_final: dPlus(off, 9 + k, 30).toISOString(),
+        nombre: pac.nombre, hora_inicio: dPlus(off, hueco.h, hueco.m).toISOString(), hora_final: dPlus(off, hueco.h, hueco.m + 30).toISOString(),
         estado, notas: estado === "No_show" ? "No se presentó." : null, origen: "Coordinación",
         // 032: el seed simula la agenda que la clínica YA tenía en su
         // software — 'importado', no 'fyllio': la lista «pendientes de pasar»
         // es SOLO para lo que nace en Fyllio.
         origen_sistema: "importado",
-        paciente_id: pac.id, tratamiento_id: trat.id, profesional_id: docEn(pac.cid).id, sillon_id: silEn(pac.cid).id, clinica_id: pac.cid,
+        paciente_id: pac.id, tratamiento_id: trat.id, profesional_id: hueco.doc.id, sillon_id: silEn(pac.cid).id, clinica_id: pac.cid,
       }); citasN++;
     }
   }
@@ -1109,17 +1137,19 @@ try {
           const estado = !pasada
             ? (r < 0.6 ? "Confirmada" : "Programada")
             : r < 0.87 ? "Completado" : noShow ? "No_show" : "Cancelado";
-          const h = 9 + (k % 9); const m30 = rnd() < 0.5 ? 0 : 30;
+          // G2.6: dentro del horario real del doctor; nadie trabaja → sin cita.
+          const hueco = citaEnHorario(cid, d, rnd());
+          if (!hueco) continue;
           // 031: agendada_en = cuándo se reservó. Para el histórico sembrado
           // es el mismo instante retroactivo que created_at — el factor de
           // antelación del predictor lee esto, no un default de hoy.
           const reservadaEn = dPlus(Math.min(off - 3, -1), 9).toISOString();
           citaVolRows.push({
-            nombre: pac.nombre, hora_inicio: dPlus(off, h, m30).toISOString(),
-            hora_final: dPlus(off, h, m30 + 30).toISOString(), estado,
+            nombre: pac.nombre, hora_inicio: dPlus(off, hueco.h, hueco.m).toISOString(),
+            hora_final: dPlus(off, hueco.h, hueco.m + 30).toISOString(), estado,
             notas: noShow ? "No se presentó." : null, origen: "Coordinación",
             origen_sistema: "importado", // 032: agenda preexistente, no nacida en Fyllio
-            paciente_id: pac.id, tratamiento_id: trat.id, profesional_id: docEn(cid).id,
+            paciente_id: pac.id, tratamiento_id: trat.id, profesional_id: hueco.doc.id,
             sillon_id: silEn(cid).id, clinica_id: cid, created_at: reservadaEn, agendada_en: reservadaEn,
           });
         }
@@ -1341,6 +1371,21 @@ try {
     }
     if (!rows.some((r) => r.estado === "No_show")) {
       throw new Error("[seed] la demo quedó sin ninguna cita No_show — los KPIs de no-show saldrían a cero");
+    }
+    // G2.6 — coherencia con la agenda: ninguna cita sembrada puede caer fuera
+    // del horario configurado de su doctor (era el «rayado donde no toca»).
+    const fueraHorario = await db.query(`
+      select count(*)::int n from citas c
+       where c.cliente = 'DEMO' and c.profesional_id is not null
+         and exists (select 1 from horarios_staff h where h.staff_id = c.profesional_id)
+         and not exists (
+           select 1 from horarios_staff h
+            where h.staff_id = c.profesional_id
+              and h.dia_semana = extract(isodow from c.hora_inicio at time zone 'Europe/Madrid')::int
+              and to_char(c.hora_inicio at time zone 'Europe/Madrid', 'HH24:MI') >= h.inicio
+              and to_char(c.hora_inicio at time zone 'Europe/Madrid', 'HH24:MI') < h.fin)`);
+    if (fueraHorario.rows[0].n > 0) {
+      throw new Error(`[seed] ${fueraHorario.rows[0].n} cita(s) fuera del horario de su doctor — el seed tiene que sembrar dentro de las franjas`);
     }
   }
 

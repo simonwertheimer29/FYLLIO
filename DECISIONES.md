@@ -3506,3 +3506,19 @@ panel dice «el agente lleva esta conversación — si escribes tú, puedes pisa
 (nombre libre): «sin conversación vinculada», jamás una ficha vacía. La API de la semana ganó
 telefono (coalesce paciente/lead), recordatorio por cita (una consulta, sin N+1) y agente por
 clínica (sin fila = apagado). E2E Chrome 10/10 + captura.
+
+## 2026-08-29 — Agenda G2.6: el bug del rayado era del SEED, y la rejilla cobra vida
+El «rayado donde no toca» (revisión) NO era el pintado ni jornada partida mal leída: la Dra. Ferrer
+trabaja L·X·V 15–20 y el seed repartía citas 9–18 SIN mirar horarios_staff — citas fuera del
+horario del doctor por toda la demo. Arreglo de raíz: el seed siembra DENTRO de las franjas
+(doctor sin franjas ese día → otro dentista de la clínica → sin cita) + invariante transaccional
+que revienta el demo:reset si una cita cae fuera. El drag: el vertical funcionaba; el CRUCE de
+doctor no — al seguir al puntero en X, el propio bloque tapaba elementFromPoint y el destino era
+siempre el carril de origen; fix canónico pointer-events:none durante el arrastre (la captura de
+puntero sigue entregando los eventos). Crear con vida: dibujar sobre la rejilla pinta el bloque
+«Nueva cita…» mientras arrastras y al soltar abre el formulario con la franja puesta. Línea de
+AHORA (roja, se recoloca sola) verificada fijando el reloj del navegador. Fechas en español en
+toda la agenda (lib/agenda/fechas, qa). Acabado tipo Google Calendar: rejilla de horas al 30%
+(estructura), bloques con borde izquierdo de estado y hora visible sin ir al eje, cabeceras de
+Semana con número de día y hoy en círculo de acento, rayado fuera-de-horario más sutil, Lista con
+el dato libre en COLOR DE ACENTO y aire. E2E 9/9 con capturas A MITAD de cada gesto como evidencia.

@@ -24,9 +24,10 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Card } from "../../components/ui/Card";
 import { cargarJSON } from "../../lib/fetch-json";
-import { hoyISO, sumaDias } from "../../lib/time";
+import { hoyISO, sumaDias, horaClinica } from "../../lib/time";
 import { aMin, deMin, diaSemanaISO } from "../../lib/agenda/disponibilidad";
 import { resumenDeAgendaDia } from "../../lib/agenda/resumen";
+import { fechaCorta, fechaLarga, diaMes, diaMesCorto } from "../../lib/agenda/fechas";
 import { CitaModal, type CitaEnEdicion } from "./CitaModal";
 import { CitaPanel } from "./CitaPanel";
 import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
@@ -296,7 +297,7 @@ export function AgendaView() {
               <ChevronRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
             </button>
             <span className="ml-1 text-xs font-medium text-[var(--color-muted)]">
-              {LABEL_DIA_LARGO[diaSemanaISO(fecha)]} {fecha}{fecha === hoy && " · hoy"}
+              {fechaLarga(fecha)}{fecha === hoy && " · hoy"}
             </span>
           </div>
         ) : (
@@ -313,7 +314,7 @@ export function AgendaView() {
               className="rounded-lg border border-[var(--color-border)] p-1.5 text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">
               <ChevronRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
             </button>
-            <span className="ml-1 text-xs font-medium text-[var(--color-muted)]">Semana del {desde}</span>
+            <span className="ml-1 text-xs font-medium text-[var(--color-muted)]">Semana del {diaMes(desde)}</span>
           </div>
         )}
 
@@ -364,6 +365,7 @@ export function AgendaView() {
               docMovil={docMovilEfectivo}
               onDocMovil={setDocMovil}
               ejeBase={ejeBase}
+              hoy={hoy}
               onCita={abrirPanel}
               onCrearEnHueco={(carril, horaMin) =>
                 setModalCita({ modo: "crear", prefill: { fecha: carril.fecha, hora: deMin(horaMin), doctorId: carril.staffId } })}
@@ -413,7 +415,7 @@ export function AgendaView() {
                 <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2">
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-[var(--color-foreground)]">
-                      <span className="[font-variant-numeric:tabular-nums]">{p.fecha} · {p.hora}</span> — {p.nombre ?? "—"}
+                      <span className="[font-variant-numeric:tabular-nums]">{p.fecha ? diaMesCorto(p.fecha) : "—"} · {p.hora}</span> — {p.nombre ?? "—"}
                     </p>
                     <p className="text-[11px] text-[var(--color-muted)]">
                       {[p.doctorNombre, p.clinicaNombre].filter(Boolean).join(" · ") || "—"}
@@ -479,7 +481,7 @@ export function AgendaView() {
         <ConfirmDialog
           open
           title="¿Mover la cita?"
-          description={`${confirmMover.cita.nombre ?? "La cita"}: ${confirmMover.origen.fecha} · ${deMin(confirmMover.cita.inicioMin)} → ${confirmMover.destino.fecha} · ${deMin(confirmMover.destino.horaMin)}${
+          description={`${confirmMover.cita.nombre ?? "La cita"}: ${diaMesCorto(confirmMover.origen.fecha)} · ${deMin(confirmMover.cita.inicioMin)} → ${diaMesCorto(confirmMover.destino.fecha)} · ${deMin(confirmMover.destino.horaMin)}${
             confirmMover.destino.staffId !== confirmMover.origen.staffId
               ? ` con ${data.doctores.find((d) => d.id === confirmMover.destino.staffId)?.nombre ?? "otro doctor"}`
               : ""
@@ -522,12 +524,14 @@ export function AgendaView() {
 // cuándo trabaja sin ir a su configuración (todos los niveles).
 
 const PX_MIN = 1.1; // 1 minuto ≈ 1.1px → una jornada de 12 h ≈ 790px
-const SNAP_MIN = 15; // arrastre y doble clic redondean a cuartos de hora
+const SNAP_MIN = 15; // arrastres y doble clic redondean a cuartos de hora
 
 type Carril = {
   key: string;
   titulo: string;
   subtitulo?: string | null;
+  /** Vista Semana: el número del día, para la cabecera tipo calendario. */
+  diaNumero?: number;
   destacado?: boolean; // hoy, en la vista Semana
   ocultaEnMovil?: boolean; // Día: un doctor a la vez en el móvil
   fecha: string; // el día del carril (para mover desde el bloque)
@@ -537,14 +541,21 @@ type Carril = {
 
 type DestinoMovimiento = { fecha: string; staffId: string; horaMin: number };
 
-// Leyenda de colores (dictado 30-08): sin ella nadie sabe qué significa qué.
+// Colores por estado: borde izquierdo sólido (identidad del bloque) + fondo
+// suave. La leyenda de abajo usa los mismos.
+const BLOQUE_ESTADO: Record<string, { borde: string; fondo: string }> = {
+  Confirmada: { borde: "var(--color-success)", fondo: "var(--color-success-soft)" },
+  Programada: { borde: "var(--color-accent)", fondo: "var(--color-accent-soft)" },
+  Completado: { borde: "var(--color-border)", fondo: "var(--color-surface-muted)" },
+};
+
 function LeyendaCarriles() {
   const chip = "inline-flex items-center gap-1.5 text-[10px] text-[var(--color-muted)]";
   return (
-    <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 px-1">
-      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm bg-[var(--color-success-soft)] border border-[var(--color-success)]/40" /> Confirmada</span>
-      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm bg-[var(--color-accent-soft)] border border-[var(--color-accent)]/40" /> Programada</span>
-      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm bg-[var(--color-surface-muted)] border border-[var(--color-border)]" /> Completada</span>
+    <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 px-1">
+      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm border-l-2 border-[var(--color-success)] bg-[var(--color-success-soft)]" /> Confirmada</span>
+      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm border-l-2 border-[var(--color-accent)] bg-[var(--color-accent-soft)]" /> Programada</span>
+      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm border-l-2 border-[var(--color-border)] bg-[var(--color-surface-muted)]" /> Completada</span>
       <span className={chip}><span className="h-2.5 w-2.5 rounded-sm border border-dashed border-[var(--color-warning)]" /> Libre según Fyllio</span>
       <span className={chip}>
         <span className="h-2.5 w-2.5 rounded-sm border border-[var(--color-border)]" style={{ backgroundImage: "repeating-linear-gradient(135deg, transparent 0 3px, var(--color-border) 3px 4px)" }} />
@@ -557,6 +568,7 @@ function LeyendaCarriles() {
 function Carriles({
   lanes,
   ejeBase,
+  hoy,
   onCita,
   onCrearEnHueco,
   onMoverSolicitado,
@@ -565,19 +577,32 @@ function Carriles({
   /** El eje SIEMPRE cubre la jornada completa de los doctores visibles en la
    *  semana cargada (dictado 30-08) — no se encoge al día con menos trabajo. */
   ejeBase: { min: number; max: number } | null;
+  hoy: string;
   onCita?: (c: CitaDia, carril: Carril) => void;
-  /** Doble clic en un hueco del carril → crear con día/hora/doctor puestos. */
+  /** Doble clic o DIBUJAR una franja arrastrando → crear con todo puesto. */
   onCrearEnHueco?: (carril: Carril, horaMin: number) => void;
-  /** Fin de un arrastre: el caller CONFIRMA antes de aplicar (dictado). */
+  /** Fin de un arrastre de bloque: el caller CONFIRMA antes de aplicar. */
   onMoverSolicitado?: (c: CitaDia, origen: Carril, destino: DestinoMovimiento) => void;
 }) {
-  // Arrastre nativo por pointer events (sin librería): umbral de 6px para
-  // distinguirlo del clic; el destino se resuelve con elementFromPoint sobre
-  // los data-lane. touch-action se corta solo en los bloques arrastrables.
+  // Arrastre de BLOQUE (mover) y arrastre de LIENZO (dibujar para crear),
+  // por pointer events sin librería. Umbral de 6px separa clic de arrastre.
   const [drag, setDrag] = useState<null | {
     cita: CitaDia; origen: Carril; startX: number; startY: number;
-    deltaY: number; overKey: string | null; movio: boolean;
+    deltaX: number; deltaY: number; overKey: string | null; movio: boolean;
   }>(null);
+  const [dibujo, setDibujo] = useState<null | { carrilKey: string; inicioMin: number; actualMin: number }>(null);
+
+  // La línea de AHORA (roja): lo que hace que una agenda se sienta viva. Se
+  // recoloca sola cada medio minuto; solo se pinta en el carril de HOY.
+  const [ahoraMin, setAhoraMin] = useState<number>(() => aMin(horaClinica(new Date())));
+  const [hoyVivo, setHoyVivo] = useState<string>(() => hoyISO());
+  useEffect(() => {
+    const t = setInterval(() => {
+      setAhoraMin(aMin(horaClinica(new Date())));
+      setHoyVivo(hoyISO());
+    }, 30000);
+    return () => clearInterval(t);
+  }, []);
 
   let ejeMin = ejeBase?.min ?? Infinity;
   let ejeMax = ejeBase?.max ?? -Infinity;
@@ -595,8 +620,8 @@ function Carriles({
   for (let h = ejeMin; h <= ejeMax; h += 60) horas.push(h);
 
   const hayHuecosPintados = lanes.some(({ pd }) => (pd.libres ?? []).length > 0);
-
   const snap = (min: number) => Math.round(min / SNAP_MIN) * SNAP_MIN;
+  const clampEje = (min: number) => Math.max(ejeMin, Math.min(ejeMax - SNAP_MIN, min));
 
   const finDeArrastre = (e: React.PointerEvent) => {
     if (!drag) return;
@@ -609,22 +634,34 @@ function Carriles({
     if (!onMoverSolicitado) return;
     const laneEl = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-lane]") as HTMLElement | null;
     const destinoCarril = lanes.find((l) => l.key === (laneEl?.dataset.lane ?? d.origen.key)) ?? d.origen;
-    const horaMin = Math.max(ejeMin, Math.min(ejeMax - SNAP_MIN, snap(d.cita.inicioMin + d.deltaY / PX_MIN)));
+    const horaMin = clampEje(snap(d.cita.inicioMin + d.deltaY / PX_MIN));
     if (destinoCarril.key === d.origen.key && horaMin === d.cita.inicioMin) return; // no se movió de sitio
     onMoverSolicitado(d.cita, d.origen, { fecha: destinoCarril.fecha, staffId: destinoCarril.staffId, horaMin });
+  };
+
+  const moverPuntero = (e: React.PointerEvent) => {
+    if (!drag) return;
+    const laneEl = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-lane]") as HTMLElement | null;
+    setDrag((d) => d && {
+      ...d,
+      deltaX: e.clientX - d.startX,
+      deltaY: e.clientY - d.startY,
+      overKey: laneEl?.dataset.lane ?? d.overKey,
+      movio: d.movio || Math.abs(e.clientY - d.startY) + Math.abs(e.clientX - d.startX) > 6,
+    });
   };
 
   return (
     <>
       <LeyendaCarriles />
       <div className="overflow-x-auto">
-        <div className="flex min-w-fit pb-3">
+        <div className="flex min-w-fit select-none pb-4">
           {/* Columna de horas, sticky para que sobreviva al scroll horizontal */}
-          <div className="sticky left-0 z-10 w-12 shrink-0 bg-[var(--color-surface)]">
-            <div className="h-9" />
-            <div className="relative" style={{ height: alto + 8 }}>
+          <div className="sticky left-0 z-10 w-14 shrink-0 bg-[var(--color-surface)]">
+            <div className="h-12" />
+            <div className="relative" style={{ height: alto + 10 }}>
               {horas.map((h) => (
-                <span key={h} className="absolute right-2 -translate-y-1/2 text-[10px] text-[var(--color-muted)] [font-variant-numeric:tabular-nums]" style={{ top: y(h) }}>
+                <span key={h} className="absolute right-2.5 -translate-y-1/2 text-[10px] text-[var(--color-muted)] opacity-80 [font-variant-numeric:tabular-nums]" style={{ top: y(h) }}>
                   {deMin(h)}
                 </span>
               ))}
@@ -632,54 +669,87 @@ function Carriles({
           </div>
 
           {lanes.map((carril) => {
-            const { key, titulo, subtitulo, destacado, ocultaEnMovil, pd } = carril;
+            const { key, titulo, subtitulo, diaNumero, destacado, ocultaEnMovil, pd } = carril;
             const esDestinoDeDrag = drag?.movio && drag.overKey === key;
+            const esHoyCarril = carril.fecha === hoyVivo;
+            const ahoraVisible = esHoyCarril && ahoraMin >= ejeMin && ahoraMin <= ejeMax;
             return (
             <div
               key={key}
-              className={`w-44 min-w-44 flex-1 border-l border-[var(--color-border)] px-1 ${ocultaEnMovil ? "hidden lg:block" : ""}`}
+              className={`w-48 min-w-48 flex-1 px-1 ${ocultaEnMovil ? "hidden lg:block" : ""}`}
             >
-              <div className="flex h-9 flex-col justify-center px-1">
-                <p className={`truncate text-[11px] font-semibold ${destacado ? "text-[var(--color-accent)]" : "text-[var(--color-foreground)]"}`}>{titulo}</p>
-                {subtitulo && <p className="truncate text-[9.5px] text-[var(--color-muted)]">{subtitulo}</p>}
-              </div>
+              {/* Cabecera del carril: doctor (Día) o día del mes (Semana). */}
+              {diaNumero !== undefined ? (
+                <div className="flex h-12 flex-col items-center justify-center gap-0.5">
+                  <p className="text-[9.5px] font-medium uppercase tracking-wide text-[var(--color-muted)]">{titulo}</p>
+                  <p className={`flex h-6 w-6 items-center justify-center rounded-full text-[13px] font-semibold [font-variant-numeric:tabular-nums] ${
+                    destacado ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]" : "text-[var(--color-foreground)]"
+                  }`}>
+                    {diaNumero}
+                  </p>
+                </div>
+              ) : (
+                <div className="flex h-12 flex-col justify-center px-1.5">
+                  <p className={`truncate text-[11.5px] font-semibold ${destacado ? "text-[var(--color-accent)]" : "text-[var(--color-foreground)]"}`}>{titulo}</p>
+                  {subtitulo && <p className="truncate text-[9.5px] text-[var(--color-muted)]">{subtitulo}</p>}
+                </div>
+              )}
               <div
                 data-lane={key}
                 onDoubleClick={
                   onCrearEnHueco
                     ? (e) => {
                         const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                        const min = Math.max(ejeMin, Math.min(ejeMax - SNAP_MIN, snap(ejeMin + (e.clientY - rect.top) / PX_MIN)));
-                        onCrearEnHueco(carril, min);
+                        onCrearEnHueco(carril, clampEje(snap(ejeMin + (e.clientY - rect.top) / PX_MIN)));
+                      }
+                    : undefined
+                }
+                onPointerDown={
+                  onCrearEnHueco
+                    ? (e) => {
+                        // Dibujar para crear: solo sobre el lienzo, nunca
+                        // arrancando sobre una cita o un bloqueo.
+                        if ((e.target as HTMLElement).closest("[data-bloque]")) return;
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        const min = clampEje(snap(ejeMin + (e.clientY - rect.top) / PX_MIN));
+                        (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+                        setDibujo({ carrilKey: key, inicioMin: min, actualMin: min + SNAP_MIN });
                       }
                     : undefined
                 }
                 onPointerMove={
-                  drag
+                  dibujo?.carrilKey === key
                     ? (e) => {
-                        const laneEl = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-lane]") as HTMLElement | null;
-                        setDrag((d) => d && {
-                          ...d,
-                          deltaY: e.clientY - d.startY,
-                          overKey: laneEl?.dataset.lane ?? d.overKey,
-                          movio: d.movio || Math.abs(e.clientY - d.startY) + Math.abs(e.clientX - d.startX) > 6,
-                        });
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        const min = clampEje(snap(ejeMin + (e.clientY - rect.top) / PX_MIN));
+                        setDibujo((d) => d && { ...d, actualMin: min });
                       }
-                    : undefined
+                    : drag
+                      ? moverPuntero
+                      : undefined
                 }
-                onPointerUp={drag ? finDeArrastre : undefined}
-                title={onCrearEnHueco ? "Doble clic: nueva cita a esa hora" : undefined}
+                onPointerUp={
+                  dibujo?.carrilKey === key
+                    ? () => {
+                        const d = dibujo;
+                        setDibujo(null);
+                        if (d && onCrearEnHueco) onCrearEnHueco(carril, Math.min(d.inicioMin, d.actualMin));
+                      }
+                    : drag
+                      ? finDeArrastre
+                      : undefined
+                }
+                title={onCrearEnHueco ? "Arrastra o haz doble clic para crear una cita" : undefined}
                 // FUERA del horario laboral = rayado apagado (contraste
-                // invertido, dictado 30-08); la franja de trabajo lo tapa
-                // con superficie limpia. Sin otro color nuevo.
-                className={`relative rounded-lg bg-[var(--color-surface-muted)] ${esDestinoDeDrag ? "ring-2 ring-[var(--color-accent)]" : ""}`}
+                // invertido); la franja de trabajo lo tapa con superficie
+                // limpia. Sin colores nuevos.
+                className={`relative rounded-xl bg-[var(--color-surface-muted)] ${esDestinoDeDrag ? "ring-2 ring-[var(--color-accent)]" : ""}`}
                 style={{
                   height: alto,
-                  backgroundImage: "repeating-linear-gradient(135deg, transparent 0 5px, var(--color-border) 5px 6px)",
+                  backgroundImage: "repeating-linear-gradient(135deg, transparent 0 7px, var(--color-border) 7px 8px)",
                 }}
               >
-                {/* Sombreado del HORARIO LABORAL (todos los niveles):
-                    superficie limpia = trabaja. */}
+                {/* Sombreado del HORARIO LABORAL: superficie limpia = trabaja. */}
                 {pd.franjas.map((f, i) => (
                   <div
                     key={`f${i}`}
@@ -687,16 +757,16 @@ function Carriles({
                     style={{ top: y(aMin(f.inicio)), height: (aMin(f.fin) - aMin(f.inicio)) * PX_MIN }}
                   />
                 ))}
-                {/* Rejilla de horas, por encima del sombreado */}
+                {/* Rejilla de horas: estructura, no contenido — muy ligera. */}
                 {horas.map((h) => (
-                  <div key={h} className="pointer-events-none absolute inset-x-0 border-t border-[var(--color-border)] opacity-50" style={{ top: y(h) }} />
+                  <div key={h} className="pointer-events-none absolute inset-x-0 border-t border-[var(--color-border)] opacity-30" style={{ top: y(h) }} />
                 ))}
                 {/* Huecos libres — con la advertencia PEGADA (nivel 1) */}
                 {(pd.libres ?? []).map((l, i) => (
                   <div
                     key={`l${i}`}
-                    className="pointer-events-none absolute inset-x-0.5 rounded-md border border-dashed border-[var(--color-warning)] px-1 py-0.5"
-                    style={{ top: y(l.inicio), height: Math.max(18, (l.fin - l.inicio) * PX_MIN) }}
+                    className="pointer-events-none absolute inset-x-1 rounded-lg border border-dashed border-[var(--color-warning)]/70 px-1.5 py-1"
+                    style={{ top: y(l.inicio) + 1, height: Math.max(18, (l.fin - l.inicio) * PX_MIN - 2) }}
                     title={AVISO_HUECOS}
                   >
                     <p className="text-[9.5px] font-medium leading-tight text-[var(--color-warning)]">
@@ -705,7 +775,7 @@ function Carriles({
                   </div>
                 ))}
                 {pd.libres === null && pd.franjas.length > 0 && (
-                  <p className="absolute inset-x-1 top-1 text-[9.5px] text-[var(--color-warning)]">
+                  <p className="absolute inset-x-1.5 top-1 text-[9.5px] text-[var(--color-warning)]">
                     Cita sin duración: los huecos no se pueden afirmar.
                   </p>
                 )}
@@ -713,68 +783,100 @@ function Carriles({
                 {pd.bloqueos.map((b, i) => (
                   <div
                     key={`b${i}`}
-                    className="absolute inset-x-0.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-1 py-0.5"
-                    style={{ top: y(b.inicio), height: Math.max(18, (b.fin - b.inicio) * PX_MIN) }}
+                    data-bloque
+                    className="absolute inset-x-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-1.5 py-1"
+                    style={{ top: y(b.inicio) + 1, height: Math.max(18, (b.fin - b.inicio) * PX_MIN - 2) }}
                   >
                     <p className="truncate text-[9.5px] text-[var(--color-muted)]">
                       <span className="[font-variant-numeric:tabular-nums]">{deMin(b.inicio)}–{deMin(b.fin)}</span> {b.motivo ?? "bloqueado"}
                     </p>
                   </div>
                 ))}
-                {/* Citas: clic = detalle/mover · arrastre = mover sobre la
-                    rejilla (solo lo nacido en Fyllio). */}
+                {/* El bloque que se está DIBUJANDO (crear con vida) */}
+                {dibujo?.carrilKey === key && (
+                  <div
+                    className="pointer-events-none absolute inset-x-1 z-20 rounded-lg border border-[var(--color-accent)] bg-[var(--color-accent-soft)] px-1.5 py-1"
+                    style={{
+                      top: y(Math.min(dibujo.inicioMin, dibujo.actualMin)),
+                      height: Math.max(SNAP_MIN * PX_MIN, Math.abs(dibujo.actualMin - dibujo.inicioMin) * PX_MIN),
+                    }}
+                  >
+                    <p className="text-[10px] font-semibold leading-tight text-[var(--color-accent)] [font-variant-numeric:tabular-nums]">
+                      {deMin(Math.min(dibujo.inicioMin, dibujo.actualMin))}–{deMin(Math.max(dibujo.inicioMin, dibujo.actualMin))}
+                    </p>
+                    <p className="text-[9px] leading-tight text-[var(--color-accent)] opacity-80">Nueva cita…</p>
+                  </div>
+                )}
+                {/* Citas: clic = panel · arrastre = mover (solo lo de Fyllio) */}
                 {pd.citas.map((c) => {
                   const arrastrable = c.esFyllio && Boolean(onMoverSolicitado);
                   const enDrag = drag?.cita.id === c.id && drag.movio;
+                  const altura = Math.max(22, ((c.finMin ?? c.inicioMin + 30) - c.inicioMin) * PX_MIN - 2);
+                  const dosLineas = altura >= 34;
+                  const horaMostrada = enDrag
+                    ? deMin(clampEje(snap(c.inicioMin + drag!.deltaY / PX_MIN)))
+                    : deMin(c.inicioMin);
+                  const est = BLOQUE_ESTADO[c.estado] ?? { borde: "var(--color-border)", fondo: "var(--color-surface)" };
                   return (
                   <div
                     key={c.id}
+                    data-bloque
                     role={onCita ? "button" : undefined}
                     tabIndex={onCita ? 0 : undefined}
-                    onClick={
-                      // Con arrastre activo el clic lo resuelve pointerup;
-                      // las importadas no arrastran → clic directo al panel.
-                      onCita && !arrastrable ? () => onCita(c, carril) : undefined
-                    }
+                    onClick={onCita && !arrastrable ? () => onCita(c, carril) : undefined}
                     onPointerDown={
                       arrastrable
                         ? (e) => {
+                            e.stopPropagation();
                             (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-                            setDrag({ cita: c, origen: carril, startX: e.clientX, startY: e.clientY, deltaY: 0, overKey: key, movio: false });
+                            setDrag({ cita: c, origen: carril, startX: e.clientX, startY: e.clientY, deltaX: 0, deltaY: 0, overKey: key, movio: false });
                           }
                         : undefined
                     }
-                    onPointerMove={
-                      arrastrable && drag?.cita.id === c.id
-                        ? (e) => {
-                            const laneEl = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-lane]") as HTMLElement | null;
-                            setDrag((d) => d && {
-                              ...d,
-                              deltaY: e.clientY - d.startY,
-                              overKey: laneEl?.dataset.lane ?? d.overKey,
-                              movio: d.movio || Math.abs(e.clientY - d.startY) + Math.abs(e.clientX - d.startX) > 6,
-                            });
-                          }
-                        : undefined
-                    }
+                    onPointerMove={arrastrable && drag?.cita.id === c.id ? moverPuntero : undefined}
                     onPointerUp={arrastrable && drag?.cita.id === c.id ? finDeArrastre : undefined}
                     title={c.esFyllio ? "Clic: estado y ficha · arrastra para mover" : "Clic: estado y ficha (se mueve en tu software clínico)"}
-                    className={`absolute inset-x-0.5 overflow-hidden rounded-md border px-1 py-0.5 ${onCita || arrastrable ? "cursor-pointer hover:ring-1 hover:ring-[var(--color-accent)]" : ""} ${enDrag ? "z-20 opacity-80 ring-2 ring-[var(--color-accent)]" : ""} ${ESTILO_ESTADO[c.estado] ?? "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]"}`}
+                    className={`absolute inset-x-1 overflow-hidden rounded-lg px-1.5 py-1 ${onCita || arrastrable ? "hover:shadow-sm hover:brightness-[0.98]" : ""} ${arrastrable ? "cursor-grab active:cursor-grabbing" : onCita ? "cursor-pointer" : ""} ${enDrag ? "z-30 opacity-90 shadow-lg ring-2 ring-[var(--color-accent)]" : ""}`}
                     style={{
-                      top: y(c.inicioMin),
-                      height: Math.max(22, ((c.finMin ?? c.inicioMin + 30) - c.inicioMin) * PX_MIN),
+                      top: y(c.inicioMin) + 1,
+                      height: altura,
+                      background: est.fondo,
+                      borderLeft: `3px solid ${est.borde}`,
+                      color: c.estado === "Completado" ? "var(--color-muted)" : "var(--color-foreground)",
                       ...(arrastrable ? { touchAction: "none" as const } : {}),
-                      ...(enDrag ? { transform: `translateY(${drag!.deltaY}px)` } : {}),
+                      // En arrastre el bloque sigue al puntero en los DOS
+                      // ejes — y se hace transparente al hit-testing: si no,
+                      // elementFromPoint devuelve el propio bloque y el
+                      // carril destino jamás se detecta (la captura de
+                      // puntero le sigue entregando los eventos igual).
+                      ...(enDrag ? { transform: `translate(${drag!.deltaX}px, ${drag!.deltaY}px)`, pointerEvents: "none" as const } : {}),
                     }}
                   >
-                    <p className="truncate text-[10px] font-semibold leading-tight">
-                      <span className="[font-variant-numeric:tabular-nums]">{deMin(c.inicioMin)}{c.finMin !== null ? `–${deMin(c.finMin)}` : ""}</span> {c.nombre ?? "—"}
+                    <p className="truncate text-[10.5px] font-semibold leading-tight">
+                      {dosLineas ? (c.nombre ?? "—") : (
+                        <>
+                          <span className="[font-variant-numeric:tabular-nums]">{horaMostrada}</span> {c.nombre ?? "—"}
+                        </>
+                      )}
                     </p>
-                    {c.tratamiento && <p className="truncate text-[9px] leading-tight opacity-80">{c.tratamiento}</p>}
+                    {dosLineas && (
+                      <p className="truncate text-[9.5px] leading-tight opacity-75 [font-variant-numeric:tabular-nums]">
+                        {horaMostrada}{c.finMin !== null ? `–${deMin(clampEje(snap(c.inicioMin + (enDrag ? drag!.deltaY / PX_MIN : 0))) + (c.finMin - c.inicioMin))}` : ""}
+                        {c.tratamiento ? ` · ${c.tratamiento}` : ""}
+                      </p>
+                    )}
                     {c.finMin === null && <p className="text-[9px] leading-tight text-[var(--color-warning)]">sin duración</p>}
                   </div>
                   );
                 })}
+                {/* La línea de AHORA */}
+                {ahoraVisible && (
+                  <div data-ahora className="pointer-events-none absolute inset-x-0 z-20" style={{ top: y(ahoraMin) }}>
+                    <div className="relative border-t-2 border-[var(--color-danger)]">
+                      <span className="absolute -left-1 -top-[5px] h-2 w-2 rounded-full bg-[var(--color-danger)]" />
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             );
@@ -801,6 +903,7 @@ function VistaDia({
   docMovil,
   onDocMovil,
   ejeBase,
+  hoy,
   onCita,
   onCrearEnHueco,
   onMoverSolicitado,
@@ -810,6 +913,7 @@ function VistaDia({
   docMovil: string;
   onDocMovil: (id: string) => void;
   ejeBase: { min: number; max: number } | null;
+  hoy: string;
   onCita?: (c: CitaDia, carril: Carril) => void;
   onCrearEnHueco?: (carril: Carril, horaMin: number) => void;
   onMoverSolicitado?: (c: CitaDia, origen: Carril, destino: DestinoMovimiento) => void;
@@ -852,7 +956,7 @@ function VistaDia({
           {visibles.map((doc) => <option key={doc.id} value={doc.id}>{doc.nombre}</option>)}
         </select>
       )}
-      <Carriles lanes={lanes} ejeBase={ejeBase} onCita={onCita} onCrearEnHueco={onCrearEnHueco} onMoverSolicitado={onMoverSolicitado} />
+      <Carriles lanes={lanes} ejeBase={ejeBase} hoy={hoy} onCita={onCita} onCrearEnHueco={onCrearEnHueco} onMoverSolicitado={onMoverSolicitado} />
     </Card>
   );
 }
@@ -898,8 +1002,8 @@ function VistaSemana({
     .filter((l): l is { dia: Semana["dias"][number]; pd: PorDoctor } => l.pd !== undefined)
     .map(({ dia, pd }) => ({
       key: dia.fecha,
-      titulo: `${LABEL_DIA[diaSemanaISO(dia.fecha)]} ${dia.fecha.slice(8)}`,
-      subtitulo: dia.fecha === hoy ? "hoy" : null,
+      titulo: LABEL_DIA[diaSemanaISO(dia.fecha)],
+      diaNumero: Number(dia.fecha.slice(8)),
       destacado: dia.fecha === hoy,
       fecha: dia.fecha,
       staffId: doc.id,
@@ -920,7 +1024,7 @@ function VistaSemana({
         </select>
         {doc.clinicaNombre && <span className="text-[11px] text-[var(--color-muted)]">{doc.clinicaNombre}</span>}
       </div>
-      <Carriles lanes={lanes} ejeBase={ejeBase} onCita={onCita} onCrearEnHueco={onCrearEnHueco} onMoverSolicitado={onMoverSolicitado} />
+      <Carriles lanes={lanes} ejeBase={ejeBase} hoy={hoy} onCita={onCita} onCrearEnHueco={onCrearEnHueco} onMoverSolicitado={onMoverSolicitado} />
     </Card>
   );
 }
@@ -961,7 +1065,7 @@ function VistaLista({
           return (
             <Card key={dia.fecha} padding="none" className={`px-2 py-2 ${esHoy ? "ring-1 ring-[var(--color-accent)]" : ""}`}>
               <p className={`mb-1.5 px-0.5 text-[11px] font-semibold uppercase tracking-wide ${esHoy ? "text-[var(--color-accent)]" : "text-[var(--color-muted)]"}`}>
-                {LABEL_DIA[diaSemanaISO(dia.fecha)]} {dia.fecha.slice(8)}
+                {fechaCorta(dia.fecha)}
                 {esHoy && " · hoy"}
               </p>
               <div className="space-y-1.5">
@@ -1006,31 +1110,33 @@ function RecuadroDoctorDia({
 
   // Jerarquía dictada (30-08): lo esencial — y las horas LIBRES destacan
   // sobre el resto. Las horas concretas viven en el detalle, no aquí.
+  // Jerarquía dictada (30-08, 2ª pasada): el dato libre en COLOR PROPIO (el
+  // acento), no en negro — es lo que se busca al escanear. El resto, apagado.
   const ESTILO_LIBRES = {
-    destacado: "text-[11px] font-semibold text-[var(--color-foreground)]",
-    apagado: "text-[10px] text-[var(--color-muted)]",
-    aviso: "text-[10px] font-medium text-[var(--color-warning)]",
+    destacado: "text-[12px] font-semibold text-[var(--color-accent)]",
+    apagado: "text-[10.5px] text-[var(--color-muted)]",
+    aviso: "text-[10.5px] font-medium text-[var(--color-warning)]",
   } as const;
 
   return (
-    <details className="group rounded-xl border border-[var(--color-border)]">
-      <summary className="cursor-pointer list-none px-2 py-1.5 [&::-webkit-details-marker]:hidden">
+    <details className="group rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+      <summary className="cursor-pointer list-none px-2.5 py-2 [&::-webkit-details-marker]:hidden">
         <div className="flex items-start justify-between gap-1">
-          <p className="truncate text-[10.5px] font-semibold text-[var(--color-foreground)]">{nombre}</p>
+          <p className="truncate text-[11px] font-semibold text-[var(--color-foreground)]">{nombre}</p>
           <ChevronDown size={11} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-muted)] transition-transform group-open:rotate-180" aria-hidden />
         </div>
         {resumen.libres && (
-          <p className={ESTILO_LIBRES[resumen.libres.enfasis]} title={resumen.libres.enfasis === "destacado" ? AVISO_HUECOS : undefined}>
+          <p className={`mt-1 ${ESTILO_LIBRES[resumen.libres.enfasis]}`} title={resumen.libres.enfasis === "destacado" ? AVISO_HUECOS : undefined}>
             {resumen.libres.texto}
             {resumen.libres.enfasis === "destacado" && <span className="ml-1 text-[9px] font-normal text-[var(--color-muted)]">según Fyllio</span>}
           </p>
         )}
-        <p className="text-[10px] leading-snug text-[var(--color-muted)]">
+        <p className="mt-0.5 text-[10px] leading-snug text-[var(--color-muted)]">
           {resumen.citas}
           {resumen.fueraDeHorario && " · fuera de su horario"}
         </p>
         {sinPasar > 0 && (
-          <p className="mt-0.5 inline-flex rounded-full bg-[var(--color-warning)]/15 px-1.5 py-px text-[9.5px] font-semibold text-[var(--color-warning)]">
+          <p className="mt-1 inline-flex rounded-full bg-[var(--color-warning)]/15 px-1.5 py-px text-[9.5px] font-semibold text-[var(--color-warning)]">
             {sinPasar === 1 ? "1 sin pasar a tu software" : `${sinPasar} sin pasar a tu software`}
           </p>
         )}

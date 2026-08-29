@@ -304,6 +304,17 @@ check("2026-08-30 es domingo (7)", diaSemanaISO("2026-08-30") === 7);
   }
 }
 
+// ── K · fechas en español (G2.6) ───────────────────────────────────────
+{
+  const { fechaCorta, fechaLarga, diaMes, diaMesCorto } = await import("../app/lib/agenda/fechas");
+  check("fechaCorta: «Lun 31 ago»", fechaCorta("2026-08-31") === "Lun 31 ago", fechaCorta("2026-08-31"));
+  check("fechaLarga: «Lunes, 31 de agosto»", fechaLarga("2026-08-31") === "Lunes, 31 de agosto", fechaLarga("2026-08-31"));
+  check("diaMes: «31 de agosto»", diaMes("2026-08-31") === "31 de agosto", diaMes("2026-08-31"));
+  check("diaMesCorto: «31 ago»", diaMesCorto("2026-08-31") === "31 ago", diaMesCorto("2026-08-31"));
+  // El ancla a mediodía UTC: ningún huso desplaza el día (misma lección que qa:fechas).
+  check("fin de año no se desplaza de día", fechaCorta("2026-01-01").includes("1 ene"), fechaCorta("2026-01-01"));
+}
+
 // ── resultado ──────────────────────────────────────────────────────────
 if (fallos.length > 0) {
   console.error(`✗ ${fallos.length} fallos:`);

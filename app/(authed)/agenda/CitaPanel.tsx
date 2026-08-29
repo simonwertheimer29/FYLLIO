@@ -22,6 +22,7 @@ import { PanelAccionShell, btnAccionSecundario } from "../../components/shared/p
 import { FichaCasoPanel } from "../../components/agente/FichaCasoPanel";
 import { cargarJSON } from "../../lib/fetch-json";
 import { fechaClinica } from "../../lib/time";
+import { fechaCorta } from "../../lib/agenda/fechas";
 import {
   X,
   Sparkles,
@@ -141,7 +142,7 @@ export function CitaPanel({
               {cita.nombre ?? "—"}
             </p>
             <p className="text-xs text-[var(--color-muted)]">
-              <span className="[font-variant-numeric:tabular-nums]">{cita.fecha} · {cita.hora}</span> — {cita.doctorNombre}
+              <span className="[font-variant-numeric:tabular-nums]">{fechaCorta(cita.fecha)} · {cita.hora}</span> — {cita.doctorNombre}
             </p>
           </div>
           <button type="button" onClick={onClose} aria-label="Cerrar"
