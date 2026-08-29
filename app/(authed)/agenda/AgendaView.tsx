@@ -26,8 +26,10 @@ import { Card } from "../../components/ui/Card";
 import { cargarJSON } from "../../lib/fetch-json";
 import { hoyISO, sumaDias } from "../../lib/time";
 import { aMin, deMin, diaSemanaISO } from "../../lib/agenda/disponibilidad";
+import { resumenDeAgendaDia } from "../../lib/agenda/resumen";
 import {
   CalendarDays,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Info,
@@ -42,7 +44,7 @@ type DoctorSemana = {
   id: string; nombre: string; clinicaId: string | null; clinicaNombre: string | null;
   especialidadIds: string[]; sinHorario: boolean;
 };
-type CitaDia = { id: string; inicioMin: number; finMin: number | null; nombre: string | null; estado: string; tratamiento: string | null; deLead: boolean };
+type CitaDia = { id: string; inicioMin: number; finMin: number | null; nombre: string | null; estado: string; tratamiento: string | null; deLead: boolean; sinPasar: boolean };
 type PorDoctor = {
   staffId: string;
   franjas: Array<{ inicio: string; fin: string }>;
@@ -500,7 +502,12 @@ function VistaDia({
   );
 }
 
-// ─── LISTA: la semana en tarjetas (se pliega en H2) ─────────────────────────
+// ─── LISTA: la semana plegada — un recuadro por doctor y día (G2.2) ─────────
+//
+// El resumen no repite el detalle: es para escanear una semana de cinco
+// doctores sin abrir nada («2 h libres según Fyllio: 16:00 y 18:30» · «sin
+// horas libres» · «no trabaja»), con la marca «sin pasar» donde toque. Al
+// desplegar, el detalle de siempre.
 
 function VistaLista({ data, visibles, hoy }: { data: Semana; visibles: DoctorSemana[]; hoy: string }) {
   const nombreDe = (id: string) => data.doctores.find((d) => d.id === id)?.nombre ?? "—";
@@ -519,59 +526,15 @@ function VistaLista({ data, visibles, hoy }: { data: Semana; visibles: DoctorSem
           const esHoy = dia.fecha === hoy;
           const bloques = dia.porDoctor.filter((pd) => visibles.some((v) => v.id === pd.staffId));
           return (
-            <Card key={dia.fecha} padding="none" className={`px-2.5 py-2 ${esHoy ? "ring-1 ring-[var(--color-accent)]" : ""}`}>
-              <p className={`mb-1.5 text-[11px] font-semibold uppercase tracking-wide ${esHoy ? "text-[var(--color-accent)]" : "text-[var(--color-muted)]"}`}>
+            <Card key={dia.fecha} padding="none" className={`px-2 py-2 ${esHoy ? "ring-1 ring-[var(--color-accent)]" : ""}`}>
+              <p className={`mb-1.5 px-0.5 text-[11px] font-semibold uppercase tracking-wide ${esHoy ? "text-[var(--color-accent)]" : "text-[var(--color-muted)]"}`}>
                 {LABEL_DIA[diaSemanaISO(dia.fecha)]} {dia.fecha.slice(8)}
                 {esHoy && " · hoy"}
               </p>
-              <div className="space-y-2">
-                {bloques.map((pd) => {
-                  // Una cita CONSTA aunque el doctor no tenga franjas ese día.
-                  const trabaja = pd.franjas.length > 0;
-                  const hayAlgo = pd.citas.length > 0 || pd.bloqueos.length > 0;
-                  return (
-                    <div key={pd.staffId}>
-                      {visibles.length > 1 && (
-                        <p className="mb-0.5 truncate text-[10.5px] font-semibold text-[var(--color-foreground)]">{nombreDe(pd.staffId)}</p>
-                      )}
-                      {!trabaja && !hayAlgo ? (
-                        <p className="text-[10.5px] text-[var(--color-muted)]">no trabaja</p>
-                      ) : (
-                        <div className="space-y-1">
-                          {pd.citas.map((c) => (
-                            <div key={c.id}
-                              className={`rounded-lg border px-1.5 py-1 text-[10.5px] leading-tight ${ESTILO_ESTADO[c.estado] ?? "border-[var(--color-border)] text-[var(--color-foreground)]"}`}>
-                              <span className="font-semibold [font-variant-numeric:tabular-nums]">
-                                {deMin(c.inicioMin)}{c.finMin !== null ? `–${deMin(c.finMin)}` : ""}
-                              </span>{" "}
-                              {c.nombre ?? "—"}
-                              {c.finMin === null && <span className="text-[var(--color-warning)]"> · sin duración</span>}
-                            </div>
-                          ))}
-                          {pd.bloqueos.map((b, i) => (
-                            <div key={`b${i}`} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-1.5 py-1 text-[10.5px] text-[var(--color-muted)]">
-                              <span className="[font-variant-numeric:tabular-nums]">{deMin(b.inicio)}–{deMin(b.fin)}</span> {b.motivo ?? "bloqueado"}
-                            </div>
-                          ))}
-                          {pd.libres === null ? (
-                            <p className="text-[10px] text-[var(--color-warning)]">
-                              Hay una cita sin duración: los huecos de este día no se pueden afirmar.
-                            </p>
-                          ) : (
-                            pd.libres.map((l, i) => (
-                              <div key={`l${i}`}
-                                title={AVISO_HUECOS}
-                                className="rounded-lg border border-dashed border-[var(--color-warning)] px-1.5 py-1 text-[10.5px] text-[var(--color-warning)]">
-                                <span className="[font-variant-numeric:tabular-nums]">{deMin(l.inicio)}–{deMin(l.fin)}</span> libre según Fyllio
-                                {visibles.length > 1 && <span className="text-[10px]"> · {nombreDe(pd.staffId)}</span>}
-                              </div>
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="space-y-1.5">
+                {bloques.map((pd) => (
+                  <RecuadroDoctorDia key={pd.staffId} pd={pd} nombre={nombreDe(pd.staffId)} />
+                ))}
                 {bloques.length === 0 && <p className="text-[10.5px] text-[var(--color-muted)]">—</p>}
               </div>
             </Card>
@@ -579,5 +542,70 @@ function VistaLista({ data, visibles, hoy }: { data: Semana; visibles: DoctorSem
         })}
       </div>
     </>
+  );
+}
+
+function RecuadroDoctorDia({ pd, nombre }: { pd: PorDoctor; nombre: string }) {
+  const trabaja = pd.franjas.length > 0;
+  const sinPasar = pd.citas.filter((c) => c.sinPasar).length;
+  const resumen = resumenDeAgendaDia({ trabaja, nCitas: pd.citas.length, libres: pd.libres });
+  const vacio = !trabaja && pd.citas.length === 0 && pd.bloqueos.length === 0;
+
+  // Un día sin nada no tiene detalle que desplegar: el resumen ES todo.
+  if (vacio) {
+    return (
+      <div className="rounded-xl border border-[var(--color-border)] px-2 py-1.5">
+        <p className="truncate text-[10.5px] font-semibold text-[var(--color-foreground)]">{nombre}</p>
+        <p className="text-[10px] text-[var(--color-muted)]">{resumen}</p>
+      </div>
+    );
+  }
+
+  return (
+    <details className="group rounded-xl border border-[var(--color-border)]">
+      <summary className="cursor-pointer list-none px-2 py-1.5 [&::-webkit-details-marker]:hidden">
+        <div className="flex items-start justify-between gap-1">
+          <p className="truncate text-[10.5px] font-semibold text-[var(--color-foreground)]">{nombre}</p>
+          <ChevronDown size={11} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-muted)] transition-transform group-open:rotate-180" aria-hidden />
+        </div>
+        <p className="text-[10px] leading-snug text-[var(--color-muted)]">{resumen}</p>
+        {sinPasar > 0 && (
+          <p className="mt-0.5 inline-flex rounded-full bg-[var(--color-warning)]/15 px-1.5 py-px text-[9.5px] font-semibold text-[var(--color-warning)]">
+            {sinPasar === 1 ? "1 sin pasar a tu software" : `${sinPasar} sin pasar a tu software`}
+          </p>
+        )}
+      </summary>
+      <div className="space-y-1 border-t border-[var(--color-border)] px-2 py-1.5">
+        {pd.citas.map((c) => (
+          <div key={c.id}
+            className={`rounded-lg border px-1.5 py-1 text-[10.5px] leading-tight ${ESTILO_ESTADO[c.estado] ?? "border-[var(--color-border)] text-[var(--color-foreground)]"}`}>
+            <span className="font-semibold [font-variant-numeric:tabular-nums]">
+              {deMin(c.inicioMin)}{c.finMin !== null ? `–${deMin(c.finMin)}` : ""}
+            </span>{" "}
+            {c.nombre ?? "—"}
+            {c.sinPasar && <span className="text-[var(--color-warning)]"> · sin pasar</span>}
+            {c.finMin === null && <span className="text-[var(--color-warning)]"> · sin duración</span>}
+          </div>
+        ))}
+        {pd.bloqueos.map((b, i) => (
+          <div key={`b${i}`} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-1.5 py-1 text-[10.5px] text-[var(--color-muted)]">
+            <span className="[font-variant-numeric:tabular-nums]">{deMin(b.inicio)}–{deMin(b.fin)}</span> {b.motivo ?? "bloqueado"}
+          </div>
+        ))}
+        {pd.libres === null ? (
+          <p className="text-[10px] text-[var(--color-warning)]">
+            Hay una cita sin duración: los huecos de este día no se pueden afirmar.
+          </p>
+        ) : (
+          pd.libres.map((l, i) => (
+            <div key={`l${i}`}
+              title={AVISO_HUECOS}
+              className="rounded-lg border border-dashed border-[var(--color-warning)] px-1.5 py-1 text-[10.5px] text-[var(--color-warning)]">
+              <span className="[font-variant-numeric:tabular-nums]">{deMin(l.inicio)}–{deMin(l.fin)}</span> libre según Fyllio
+            </div>
+          ))
+        )}
+      </div>
+    </details>
   );
 }

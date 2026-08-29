@@ -66,6 +66,7 @@ export const GET = withAuth(async (session, req) => {
           .select([
             "citas.id", "citas.nombre", "citas.hora_inicio", "citas.hora_final", "citas.estado",
             "citas.profesional_id", "citas.clinica_id", "citas.origen_sistema", "citas.lead_id",
+            "citas.trasladada_en",
             "tratamientos.nombre as tratamiento_nombre",
           ])
           .where("citas.hora_inicio", ">=", desdeUTC)
@@ -119,7 +120,7 @@ export const GET = withAuth(async (session, req) => {
             const p = proyectarAlDia({ inicio: new Date(b.inicio as any), fin: new Date(b.fin as any) }, fecha);
             if (p) bloqueosDia.push({ ...p, motivo: (b as any).motivo ?? null });
           }
-          const citasDia: Array<{ id: string; inicioMin: number; finMin: number | null; nombre: string | null; estado: string; tratamiento: string | null; deLead: boolean }> = [];
+          const citasDia: Array<{ id: string; inicioMin: number; finMin: number | null; nombre: string | null; estado: string; tratamiento: string | null; deLead: boolean; sinPasar: boolean }> = [];
           let sinDuracion = false;
           for (const c of citas) {
             if (c.profesional_id !== doc.id || !c.hora_inicio) continue;
@@ -135,6 +136,9 @@ export const GET = withAuth(async (session, req) => {
             citasDia.push({
               id: c.id, inicioMin, finMin, nombre: c.nombre ?? null, estado: String(c.estado),
               tratamiento: (c as any).tratamiento_nombre ?? null, deLead: c.lead_id !== null,
+              // G2.2 — nacida en Fyllio y aún sin pasar al software: el
+              // resumen plegado lo cuenta donde se escanea.
+              sinPasar: c.origen_sistema === "fyllio" && c.trasladada_en === null,
             });
           }
           citasDia.sort((a, b) => a.inicioMin - b.inicioMin);

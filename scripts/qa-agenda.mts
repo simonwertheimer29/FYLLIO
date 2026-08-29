@@ -265,6 +265,44 @@ check("2026-08-30 es domingo (7)", diaSemanaISO("2026-08-30") === 7);
   }
 }
 
+// ── J · resumen plegado de la Lista (G2.2) ─────────────────────────────
+{
+  const { resumenDeAgendaDia, formatoDuracion } = await import("../app/lib/agenda/resumen");
+  check("formatoDuracion 120 = «2 h»", formatoDuracion(120) === "2 h");
+  check("formatoDuracion 90 = «1 h 30 min»", formatoDuracion(90) === "1 h 30 min");
+  check("formatoDuracion 45 = «45 min»", formatoDuracion(45) === "45 min");
+  check(
+    "resumen: no trabaja y sin citas",
+    resumenDeAgendaDia({ trabaja: false, nCitas: 0, libres: [] }) === "no trabaja",
+  );
+  check(
+    "resumen: citas fuera de su horario se DICEN, no se esconden",
+    resumenDeAgendaDia({ trabaja: false, nCitas: 2, libres: [] }) === "2 citas · fuera de su horario",
+  );
+  check(
+    "resumen: sin horas libres",
+    resumenDeAgendaDia({ trabaja: true, nCitas: 3, libres: [] }) === "3 citas · sin horas libres",
+  );
+  check(
+    "resumen: el dictado — «2 h libres según Fyllio: 16:00 y 18:30»",
+    resumenDeAgendaDia({
+      trabaja: true, nCitas: 2,
+      libres: [{ inicio: aMin("16:00"), fin: aMin("17:30") }, { inicio: aMin("18:30"), fin: aMin("19:00") }],
+    }) === "2 citas · 2 h libres según Fyllio: 16:00 y 18:30",
+  );
+  check(
+    "resumen: cita sin duración → huecos no afirmables",
+    resumenDeAgendaDia({ trabaja: true, nCitas: 1, libres: null }) === "1 cita · huecos no afirmables (cita sin duración)",
+  );
+  check(
+    "resumen: cinco huecos se truncan a tres «y 2 más»",
+    resumenDeAgendaDia({
+      trabaja: true, nCitas: 0,
+      libres: [600, 700, 800, 900, 1000].map((m) => ({ inicio: m, fin: m + 30 })),
+    }) === "sin citas · 2 h 30 min libres según Fyllio: 10:00, 11:40, 13:20 y 2 más",
+  );
+}
+
 // ── resultado ──────────────────────────────────────────────────────────
 if (fallos.length > 0) {
   console.error(`✗ ${fallos.length} fallos:`);

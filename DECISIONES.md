@@ -3452,3 +3452,12 @@ G2.1 entrega la vista DÍA (carriles por doctor con sombreado del horario labora
 scroll horizontal interno, móvil = un doctor a la vez) + selector Día·Lista. Numeración ordenada:
 la serie H muere — la iteración son revisiones G2.1–G2.4 (Día · Lista plegada · Semana de un
 doctor · crear/mover); G3–G6 siguen siendo los de siempre. E2E Chrome 20/20 + capturas.
+
+## 2026-08-29 — Agenda G2.2: la Lista se pliega
+Un recuadro por doctor y día, plegado, con el RESUMEN para escanear una semana de cinco doctores
+sin abrir nada: «N citas · 2 h libres según Fyllio: 16:00 y 18:30» · «sin horas libres» ·
+«no trabaja» · «huecos no afirmables (cita sin duración)» — la advertencia de nivel 1 viaja
+dentro de la frase. Las citas fuera del horario del doctor se DICEN («fuera de su horario»), no
+se esconden. Badge ámbar «N sin pasar a tu software» por recuadro (la API marca sinPasar por
+cita: origen fyllio sin trasladar). Al desplegar, el detalle de siempre; un día sin nada no tiene
+details — el resumen ES todo. resumenDeAgendaDia es puro y lo testea qa:agenda (55 checks).
