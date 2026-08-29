@@ -3482,3 +3482,15 @@ kanban no puede enseñar la hora vieja). Mover resetea la marca de traslado y de
 también en tu software». E2E Chrome 13/13 con verificación en base + captura. Con G2.4 cierran las
 cuatro revisiones G2.1–G2.4; siguen pendientes G3 (modal desde la ficha), G4 (el agente acota),
 G5 (nivel 2) y G6 (nivel 3).
+
+## 2026-08-30 — Agenda G2.5: la interacción que faltaba en G2.4 + legibilidad de la rejilla
+G2.4 se cerró incompleto (señalado): faltaba trabajar SOBRE la rejilla. G2.5 lo entrega — doble
+clic en un hueco crea con día/hora/doctor puestos (snap 15 min); arrastrar un bloque a otra hora u
+otro doctor pide CONFIRMACIÓN antes de aplicar (con el aviso de nivel 1 dentro) y aplica con las
+reglas duras de G2.4 intactas. Y tres arreglos de legibilidad dictados: el eje cubre SIEMPRE la
+jornada completa de la semana de los doctores visibles (el sábado encogía la rejilla a 10–14 y
+«cortaba» las columnas); contraste invertido — lo que está FUERA del horario laboral va rayado y
+apagado, sin color nuevo, y la franja de trabajo es superficie limpia; leyenda de colores visible.
+La Lista reduce el resumen a lo esencial con jerarquía (las horas libres DESTACAN; las horas
+concretas solo al desplegar; resumenDeAgendaDia devuelve partes con énfasis, no una frase plana).
+E2E Chrome 15/15 + capturas.

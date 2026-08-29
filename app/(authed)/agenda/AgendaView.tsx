@@ -28,6 +28,7 @@ import { hoyISO, sumaDias } from "../../lib/time";
 import { aMin, deMin, diaSemanaISO } from "../../lib/agenda/disponibilidad";
 import { resumenDeAgendaDia } from "../../lib/agenda/resumen";
 import { CitaModal, type CitaEnEdicion } from "./CitaModal";
+import { ConfirmDialog } from "../../components/ui/ConfirmDialog";
 import {
   CalendarDays,
   ChevronDown,
@@ -96,7 +97,7 @@ export function AgendaView() {
   // Semana: el doctor elegido EN la vista (local — no pisa el filtro global).
   const [docSemana, setDocSemana] = useState("");
   // G2.4 — crear/mover desde la rejilla.
-  const [modalCita, setModalCita] = useState<null | { modo: "crear" } | { modo: "mover"; cita: CitaEnEdicion }>(null);
+  const [modalCita, setModalCita] = useState<null | { modo: "crear"; prefill?: { fecha: string; hora?: string; doctorId?: string } } | { modo: "mover"; cita: CitaEnEdicion }>(null);
 
   const cargar = useCallback(async (semanaDesde: string) => {
     setCargando(true);
@@ -134,6 +135,33 @@ export function AgendaView() {
     }
   }, [cargar, desde]);
 
+  // G2.5 — arrastre terminado: CONFIRMAR antes de aplicar (dictado).
+  const [confirmMover, setConfirmMover] = useState<null | {
+    cita: CitaDia; origen: { fecha: string; staffId: string }; destino: DestinoMovimiento; aplicando: boolean;
+  }>(null);
+
+  const aplicarMovimiento = useCallback(async () => {
+    if (!confirmMover) return;
+    setConfirmMover((c) => c && { ...c, aplicando: true });
+    try {
+      await cargarJSON(`/api/agenda/citas/${confirmMover.cita.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          fecha: confirmMover.destino.fecha,
+          hora: deMin(confirmMover.destino.horaMin),
+          doctorId: confirmMover.destino.staffId,
+        }),
+      });
+      toast.success("Cita movida. Recuerda cambiarla también en tu software.");
+      setConfirmMover(null);
+      await cargar(desde);
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : "No se pudo mover.");
+      setConfirmMover(null);
+    }
+  }, [confirmMover, cargar, desde]);
+
   // G2.4 — clic en una cita nacida en Fyllio → moverla (las importadas se
   // cambian en el software de la clínica; ni se ofrece).
   const abrirMover = useCallback((c: CitaDia, carril: { fecha: string; staffId: string }) => {
@@ -161,6 +189,26 @@ export function AgendaView() {
   }, [data, filtroDoc, filtroEsp]);
 
   const docMovilEfectivo = visibles.some((d) => d.id === docMovil) ? docMovil : (visibles[0]?.id ?? "");
+
+  // G2.5 — el eje cubre SIEMPRE la jornada completa de los doctores visibles
+  // en la semana (dictado): un sábado corto o un doctor sin citas no encogen
+  // la rejilla.
+  const ejeBase = useMemo(() => {
+    if (!data) return null;
+    const ids = new Set(visibles.map((v) => v.id));
+    let min = Infinity;
+    let max = -Infinity;
+    for (const dia of data.dias) {
+      for (const pd of dia.porDoctor) {
+        if (!ids.has(pd.staffId)) continue;
+        for (const f of pd.franjas) {
+          min = Math.min(min, aMin(f.inicio));
+          max = Math.max(max, aMin(f.fin));
+        }
+      }
+    }
+    return Number.isFinite(min) ? { min, max } : null;
+  }, [data, visibles]);
 
   if (error && !data) {
     return (
@@ -301,7 +349,11 @@ export function AgendaView() {
               visibles={visibles}
               docMovil={docMovilEfectivo}
               onDocMovil={setDocMovil}
+              ejeBase={ejeBase}
               onCita={abrirMover}
+              onCrearEnHueco={(carril, horaMin) =>
+                setModalCita({ modo: "crear", prefill: { fecha: carril.fecha, hora: deMin(horaMin), doctorId: carril.staffId } })}
+              onMoverSolicitado={(c, origen, destino) => setConfirmMover({ cita: c, origen, destino, aplicando: false })}
             />
           ) : vista === "semana" ? (
             <VistaSemana
@@ -310,7 +362,11 @@ export function AgendaView() {
               hoy={hoy}
               docSemana={docSemana}
               onDocSemana={setDocSemana}
+              ejeBase={ejeBase}
               onCita={abrirMover}
+              onCrearEnHueco={(carril, horaMin) =>
+                setModalCita({ modo: "crear", prefill: { fecha: carril.fecha, hora: deMin(horaMin), doctorId: carril.staffId } })}
+              onMoverSolicitado={(c, origen, destino) => setConfirmMover({ cita: c, origen, destino, aplicando: false })}
             />
           ) : (
             <VistaLista data={data} visibles={visibles} hoy={hoy} onCita={abrirMover} />
@@ -373,11 +429,32 @@ export function AgendaView() {
         </Card>
       )}
 
+      {/* G2.5 — confirmación del arrastre, con el aviso de nivel 1 */}
+      {confirmMover && data && (
+        <ConfirmDialog
+          open
+          title="¿Mover la cita?"
+          description={`${confirmMover.cita.nombre ?? "La cita"}: ${confirmMover.origen.fecha} · ${deMin(confirmMover.cita.inicioMin)} → ${confirmMover.destino.fecha} · ${deMin(confirmMover.destino.horaMin)}${
+            confirmMover.destino.staffId !== confirmMover.origen.staffId
+              ? ` con ${data.doctores.find((d) => d.id === confirmMover.destino.staffId)?.nombre ?? "otro doctor"}`
+              : ""
+          }. Recuerda cambiarla también en tu software clínico.`}
+          confirmLabel="Mover cita"
+          busy={confirmMover.aplicando}
+          onConfirm={() => void aplicarMovimiento()}
+          onClose={() => setConfirmMover(null)}
+        />
+      )}
+
       {/* G2.4 — crear/mover desde la rejilla */}
       {modalCita && data && (
         <CitaModal
           modo={modalCita.modo}
-          inicial={modalCita.modo === "crear" ? { fecha: vista === "dia" ? fecha : hoy } : modalCita.cita}
+          inicial={
+            modalCita.modo === "crear"
+              ? { fecha: vista === "dia" ? fecha : hoy, ...modalCita.prefill }
+              : modalCita.cita
+          }
           doctores={data.doctores.map((d) => ({ id: d.id, nombre: d.nombre, clinicaId: d.clinicaId }))}
           tratamientos={data.tratamientos}
           onClose={() => setModalCita(null)}
@@ -400,6 +477,7 @@ export function AgendaView() {
 // cuándo trabaja sin ir a su configuración (todos los niveles).
 
 const PX_MIN = 1.1; // 1 minuto ≈ 1.1px → una jornada de 12 h ≈ 790px
+const SNAP_MIN = 15; // arrastre y doble clic redondean a cuartos de hora
 
 type Carril = {
   key: string;
@@ -412,11 +490,52 @@ type Carril = {
   pd: PorDoctor;
 };
 
-function Carriles({ lanes, onCita }: { lanes: Carril[]; onCita?: (c: CitaDia, carril: Carril) => void }) {
-  // Eje vertical: de la primera franja/cita/bloqueo a la última, a horas
-  // redondas. Sin nada: 09:00–20:00 para que el vacío se vea como vacío.
-  let ejeMin = Infinity;
-  let ejeMax = -Infinity;
+type DestinoMovimiento = { fecha: string; staffId: string; horaMin: number };
+
+// Leyenda de colores (dictado 30-08): sin ella nadie sabe qué significa qué.
+function LeyendaCarriles() {
+  const chip = "inline-flex items-center gap-1.5 text-[10px] text-[var(--color-muted)]";
+  return (
+    <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 px-1">
+      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm bg-[var(--color-success-soft)] border border-[var(--color-success)]/40" /> Confirmada</span>
+      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm bg-[var(--color-accent-soft)] border border-[var(--color-accent)]/40" /> Programada</span>
+      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm bg-[var(--color-surface-muted)] border border-[var(--color-border)]" /> Completada</span>
+      <span className={chip}><span className="h-2.5 w-2.5 rounded-sm border border-dashed border-[var(--color-warning)]" /> Libre según Fyllio</span>
+      <span className={chip}>
+        <span className="h-2.5 w-2.5 rounded-sm border border-[var(--color-border)]" style={{ backgroundImage: "repeating-linear-gradient(135deg, transparent 0 3px, var(--color-border) 3px 4px)" }} />
+        Fuera del horario laboral
+      </span>
+    </div>
+  );
+}
+
+function Carriles({
+  lanes,
+  ejeBase,
+  onCita,
+  onCrearEnHueco,
+  onMoverSolicitado,
+}: {
+  lanes: Carril[];
+  /** El eje SIEMPRE cubre la jornada completa de los doctores visibles en la
+   *  semana cargada (dictado 30-08) — no se encoge al día con menos trabajo. */
+  ejeBase: { min: number; max: number } | null;
+  onCita?: (c: CitaDia, carril: Carril) => void;
+  /** Doble clic en un hueco del carril → crear con día/hora/doctor puestos. */
+  onCrearEnHueco?: (carril: Carril, horaMin: number) => void;
+  /** Fin de un arrastre: el caller CONFIRMA antes de aplicar (dictado). */
+  onMoverSolicitado?: (c: CitaDia, origen: Carril, destino: DestinoMovimiento) => void;
+}) {
+  // Arrastre nativo por pointer events (sin librería): umbral de 6px para
+  // distinguirlo del clic; el destino se resuelve con elementFromPoint sobre
+  // los data-lane. touch-action se corta solo en los bloques arrastrables.
+  const [drag, setDrag] = useState<null | {
+    cita: CitaDia; origen: Carril; startX: number; startY: number;
+    deltaY: number; overKey: string | null; movio: boolean;
+  }>(null);
+
+  let ejeMin = ejeBase?.min ?? Infinity;
+  let ejeMax = ejeBase?.max ?? -Infinity;
   for (const { pd } of lanes) {
     for (const f of pd.franjas) { ejeMin = Math.min(ejeMin, aMin(f.inicio)); ejeMax = Math.max(ejeMax, aMin(f.fin)); }
     for (const c of pd.citas) { ejeMin = Math.min(ejeMin, c.inicioMin); ejeMax = Math.max(ejeMax, c.finMin ?? c.inicioMin + 30); }
@@ -432,14 +551,33 @@ function Carriles({ lanes, onCita }: { lanes: Carril[]; onCita?: (c: CitaDia, ca
 
   const hayHuecosPintados = lanes.some(({ pd }) => (pd.libres ?? []).length > 0);
 
+  const snap = (min: number) => Math.round(min / SNAP_MIN) * SNAP_MIN;
+
+  const finDeArrastre = (e: React.PointerEvent) => {
+    if (!drag) return;
+    const d = drag;
+    setDrag(null);
+    if (!d.movio) {
+      onCita?.(d.cita, d.origen);
+      return;
+    }
+    if (!onMoverSolicitado) return;
+    const laneEl = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-lane]") as HTMLElement | null;
+    const destinoCarril = lanes.find((l) => l.key === (laneEl?.dataset.lane ?? d.origen.key)) ?? d.origen;
+    const horaMin = Math.max(ejeMin, Math.min(ejeMax - SNAP_MIN, snap(d.cita.inicioMin + d.deltaY / PX_MIN)));
+    if (destinoCarril.key === d.origen.key && horaMin === d.cita.inicioMin) return; // no se movió de sitio
+    onMoverSolicitado(d.cita, d.origen, { fecha: destinoCarril.fecha, staffId: destinoCarril.staffId, horaMin });
+  };
+
   return (
     <>
+      <LeyendaCarriles />
       <div className="overflow-x-auto">
-        <div className="flex min-w-fit">
+        <div className="flex min-w-fit pb-3">
           {/* Columna de horas, sticky para que sobreviva al scroll horizontal */}
           <div className="sticky left-0 z-10 w-12 shrink-0 bg-[var(--color-surface)]">
             <div className="h-9" />
-            <div className="relative" style={{ height: alto }}>
+            <div className="relative" style={{ height: alto + 8 }}>
               {horas.map((h) => (
                 <span key={h} className="absolute right-2 -translate-y-1/2 text-[10px] text-[var(--color-muted)] [font-variant-numeric:tabular-nums]" style={{ top: y(h) }}>
                   {deMin(h)}
@@ -450,6 +588,7 @@ function Carriles({ lanes, onCita }: { lanes: Carril[]; onCita?: (c: CitaDia, ca
 
           {lanes.map((carril) => {
             const { key, titulo, subtitulo, destacado, ocultaEnMovil, pd } = carril;
+            const esDestinoDeDrag = drag?.movio && drag.overKey === key;
             return (
             <div
               key={key}
@@ -459,13 +598,43 @@ function Carriles({ lanes, onCita }: { lanes: Carril[]; onCita?: (c: CitaDia, ca
                 <p className={`truncate text-[11px] font-semibold ${destacado ? "text-[var(--color-accent)]" : "text-[var(--color-foreground)]"}`}>{titulo}</p>
                 {subtitulo && <p className="truncate text-[9.5px] text-[var(--color-muted)]">{subtitulo}</p>}
               </div>
-              <div className="relative rounded-lg bg-[var(--color-surface-muted)]" style={{ height: alto }}>
-                {/* Rejilla de horas */}
-                {horas.map((h) => (
-                  <div key={h} className="absolute inset-x-0 border-t border-[var(--color-border)] opacity-50" style={{ top: y(h) }} />
-                ))}
-                {/* Sombreado del HORARIO LABORAL (todos los niveles): claro =
-                    trabaja; el fondo apagado = fuera de su horario. */}
+              <div
+                data-lane={key}
+                onDoubleClick={
+                  onCrearEnHueco
+                    ? (e) => {
+                        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                        const min = Math.max(ejeMin, Math.min(ejeMax - SNAP_MIN, snap(ejeMin + (e.clientY - rect.top) / PX_MIN)));
+                        onCrearEnHueco(carril, min);
+                      }
+                    : undefined
+                }
+                onPointerMove={
+                  drag
+                    ? (e) => {
+                        const laneEl = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-lane]") as HTMLElement | null;
+                        setDrag((d) => d && {
+                          ...d,
+                          deltaY: e.clientY - d.startY,
+                          overKey: laneEl?.dataset.lane ?? d.overKey,
+                          movio: d.movio || Math.abs(e.clientY - d.startY) + Math.abs(e.clientX - d.startX) > 6,
+                        });
+                      }
+                    : undefined
+                }
+                onPointerUp={drag ? finDeArrastre : undefined}
+                title={onCrearEnHueco ? "Doble clic: nueva cita a esa hora" : undefined}
+                // FUERA del horario laboral = rayado apagado (contraste
+                // invertido, dictado 30-08); la franja de trabajo lo tapa
+                // con superficie limpia. Sin otro color nuevo.
+                className={`relative rounded-lg bg-[var(--color-surface-muted)] ${esDestinoDeDrag ? "ring-2 ring-[var(--color-accent)]" : ""}`}
+                style={{
+                  height: alto,
+                  backgroundImage: "repeating-linear-gradient(135deg, transparent 0 5px, var(--color-border) 5px 6px)",
+                }}
+              >
+                {/* Sombreado del HORARIO LABORAL (todos los niveles):
+                    superficie limpia = trabaja. */}
                 {pd.franjas.map((f, i) => (
                   <div
                     key={`f${i}`}
@@ -473,11 +642,15 @@ function Carriles({ lanes, onCita }: { lanes: Carril[]; onCita?: (c: CitaDia, ca
                     style={{ top: y(aMin(f.inicio)), height: (aMin(f.fin) - aMin(f.inicio)) * PX_MIN }}
                   />
                 ))}
+                {/* Rejilla de horas, por encima del sombreado */}
+                {horas.map((h) => (
+                  <div key={h} className="pointer-events-none absolute inset-x-0 border-t border-[var(--color-border)] opacity-50" style={{ top: y(h) }} />
+                ))}
                 {/* Huecos libres — con la advertencia PEGADA (nivel 1) */}
                 {(pd.libres ?? []).map((l, i) => (
                   <div
                     key={`l${i}`}
-                    className="absolute inset-x-0.5 rounded-md border border-dashed border-[var(--color-warning)] px-1 py-0.5"
+                    className="pointer-events-none absolute inset-x-0.5 rounded-md border border-dashed border-[var(--color-warning)] px-1 py-0.5"
                     style={{ top: y(l.inicio), height: Math.max(18, (l.fin - l.inicio) * PX_MIN) }}
                     title={AVISO_HUECOS}
                   >
@@ -503,16 +676,51 @@ function Carriles({ lanes, onCita }: { lanes: Carril[]; onCita?: (c: CitaDia, ca
                     </p>
                   </div>
                 ))}
-                {/* Citas */}
-                {pd.citas.map((c) => (
+                {/* Citas: clic = detalle/mover · arrastre = mover sobre la
+                    rejilla (solo lo nacido en Fyllio). */}
+                {pd.citas.map((c) => {
+                  const arrastrable = c.esFyllio && Boolean(onMoverSolicitado);
+                  const enDrag = drag?.cita.id === c.id && drag.movio;
+                  return (
                   <div
                     key={c.id}
                     role={c.esFyllio && onCita ? "button" : undefined}
                     tabIndex={c.esFyllio && onCita ? 0 : undefined}
-                    onClick={c.esFyllio && onCita ? () => onCita(c, carril) : undefined}
-                    title={c.esFyllio ? "Mover o reagendar" : "Esta cita vive en tu software clínico — se cambia allí"}
-                    className={`absolute inset-x-0.5 overflow-hidden rounded-md border px-1 py-0.5 ${c.esFyllio && onCita ? "cursor-pointer hover:ring-1 hover:ring-[var(--color-accent)]" : ""} ${ESTILO_ESTADO[c.estado] ?? "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]"}`}
-                    style={{ top: y(c.inicioMin), height: Math.max(22, ((c.finMin ?? c.inicioMin + 30) - c.inicioMin) * PX_MIN) }}
+                    onClick={
+                      // Con arrastre activo el clic lo resuelve pointerup;
+                      // sin él (Lista no arrastra), clic directo.
+                      c.esFyllio && onCita && !arrastrable ? () => onCita(c, carril) : undefined
+                    }
+                    onPointerDown={
+                      arrastrable
+                        ? (e) => {
+                            (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+                            setDrag({ cita: c, origen: carril, startX: e.clientX, startY: e.clientY, deltaY: 0, overKey: key, movio: false });
+                          }
+                        : undefined
+                    }
+                    onPointerMove={
+                      arrastrable && drag?.cita.id === c.id
+                        ? (e) => {
+                            const laneEl = document.elementFromPoint(e.clientX, e.clientY)?.closest("[data-lane]") as HTMLElement | null;
+                            setDrag((d) => d && {
+                              ...d,
+                              deltaY: e.clientY - d.startY,
+                              overKey: laneEl?.dataset.lane ?? d.overKey,
+                              movio: d.movio || Math.abs(e.clientY - d.startY) + Math.abs(e.clientX - d.startX) > 6,
+                            });
+                          }
+                        : undefined
+                    }
+                    onPointerUp={arrastrable && drag?.cita.id === c.id ? finDeArrastre : undefined}
+                    title={c.esFyllio ? "Clic: mover · arrastra a otra hora o doctor" : "Esta cita vive en tu software clínico — se cambia allí"}
+                    className={`absolute inset-x-0.5 overflow-hidden rounded-md border px-1 py-0.5 ${c.esFyllio && (onCita || arrastrable) ? "cursor-pointer hover:ring-1 hover:ring-[var(--color-accent)]" : ""} ${enDrag ? "z-20 opacity-80 ring-2 ring-[var(--color-accent)]" : ""} ${ESTILO_ESTADO[c.estado] ?? "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]"}`}
+                    style={{
+                      top: y(c.inicioMin),
+                      height: Math.max(22, ((c.finMin ?? c.inicioMin + 30) - c.inicioMin) * PX_MIN),
+                      ...(arrastrable ? { touchAction: "none" as const } : {}),
+                      ...(enDrag ? { transform: `translateY(${drag!.deltaY}px)` } : {}),
+                    }}
                   >
                     <p className="truncate text-[10px] font-semibold leading-tight">
                       <span className="[font-variant-numeric:tabular-nums]">{deMin(c.inicioMin)}{c.finMin !== null ? `–${deMin(c.finMin)}` : ""}</span> {c.nombre ?? "—"}
@@ -520,7 +728,8 @@ function Carriles({ lanes, onCita }: { lanes: Carril[]; onCita?: (c: CitaDia, ca
                     {c.tratamiento && <p className="truncate text-[9px] leading-tight opacity-80">{c.tratamiento}</p>}
                     {c.finMin === null && <p className="text-[9px] leading-tight text-[var(--color-warning)]">sin duración</p>}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
             );
@@ -546,13 +755,19 @@ function VistaDia({
   visibles,
   docMovil,
   onDocMovil,
+  ejeBase,
   onCita,
+  onCrearEnHueco,
+  onMoverSolicitado,
 }: {
   dia: { fecha: string; porDoctor: PorDoctor[] } | null;
   visibles: DoctorSemana[];
   docMovil: string;
   onDocMovil: (id: string) => void;
+  ejeBase: { min: number; max: number } | null;
   onCita?: (c: CitaDia, carril: Carril) => void;
+  onCrearEnHueco?: (carril: Carril, horaMin: number) => void;
+  onMoverSolicitado?: (c: CitaDia, origen: Carril, destino: DestinoMovimiento) => void;
 }) {
   if (!dia) {
     // El día activo cayó fuera de la semana cargada (transición de fetch).
@@ -592,7 +807,7 @@ function VistaDia({
           {visibles.map((doc) => <option key={doc.id} value={doc.id}>{doc.nombre}</option>)}
         </select>
       )}
-      <Carriles lanes={lanes} onCita={onCita} />
+      <Carriles lanes={lanes} ejeBase={ejeBase} onCita={onCita} onCrearEnHueco={onCrearEnHueco} onMoverSolicitado={onMoverSolicitado} />
     </Card>
   );
 }
@@ -610,14 +825,20 @@ function VistaSemana({
   hoy,
   docSemana,
   onDocSemana,
+  ejeBase,
   onCita,
+  onCrearEnHueco,
+  onMoverSolicitado,
 }: {
   data: Semana;
   visibles: DoctorSemana[];
   hoy: string;
   docSemana: string;
   onDocSemana: (id: string) => void;
+  ejeBase: { min: number; max: number } | null;
   onCita?: (c: CitaDia, carril: Carril) => void;
+  onCrearEnHueco?: (carril: Carril, horaMin: number) => void;
+  onMoverSolicitado?: (c: CitaDia, origen: Carril, destino: DestinoMovimiento) => void;
 }) {
   const doc = visibles.find((d) => d.id === docSemana) ?? visibles[0] ?? null;
   if (!doc) {
@@ -654,7 +875,7 @@ function VistaSemana({
         </select>
         {doc.clinicaNombre && <span className="text-[11px] text-[var(--color-muted)]">{doc.clinicaNombre}</span>}
       </div>
-      <Carriles lanes={lanes} onCita={onCita} />
+      <Carriles lanes={lanes} ejeBase={ejeBase} onCita={onCita} onCrearEnHueco={onCrearEnHueco} onMoverSolicitado={onMoverSolicitado} />
     </Card>
   );
 }
@@ -733,10 +954,18 @@ function RecuadroDoctorDia({
     return (
       <div className="rounded-xl border border-[var(--color-border)] px-2 py-1.5">
         <p className="truncate text-[10.5px] font-semibold text-[var(--color-foreground)]">{nombre}</p>
-        <p className="text-[10px] text-[var(--color-muted)]">{resumen}</p>
+        <p className="text-[10px] text-[var(--color-muted)]">{resumen.nota}</p>
       </div>
     );
   }
+
+  // Jerarquía dictada (30-08): lo esencial — y las horas LIBRES destacan
+  // sobre el resto. Las horas concretas viven en el detalle, no aquí.
+  const ESTILO_LIBRES = {
+    destacado: "text-[11px] font-semibold text-[var(--color-foreground)]",
+    apagado: "text-[10px] text-[var(--color-muted)]",
+    aviso: "text-[10px] font-medium text-[var(--color-warning)]",
+  } as const;
 
   return (
     <details className="group rounded-xl border border-[var(--color-border)]">
@@ -745,7 +974,16 @@ function RecuadroDoctorDia({
           <p className="truncate text-[10.5px] font-semibold text-[var(--color-foreground)]">{nombre}</p>
           <ChevronDown size={11} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0 text-[var(--color-muted)] transition-transform group-open:rotate-180" aria-hidden />
         </div>
-        <p className="text-[10px] leading-snug text-[var(--color-muted)]">{resumen}</p>
+        {resumen.libres && (
+          <p className={ESTILO_LIBRES[resumen.libres.enfasis]} title={resumen.libres.enfasis === "destacado" ? AVISO_HUECOS : undefined}>
+            {resumen.libres.texto}
+            {resumen.libres.enfasis === "destacado" && <span className="ml-1 text-[9px] font-normal text-[var(--color-muted)]">según Fyllio</span>}
+          </p>
+        )}
+        <p className="text-[10px] leading-snug text-[var(--color-muted)]">
+          {resumen.citas}
+          {resumen.fueraDeHorario && " · fuera de su horario"}
+        </p>
         {sinPasar > 0 && (
           <p className="mt-0.5 inline-flex rounded-full bg-[var(--color-warning)]/15 px-1.5 py-px text-[9.5px] font-semibold text-[var(--color-warning)]">
             {sinPasar === 1 ? "1 sin pasar a tu software" : `${sinPasar} sin pasar a tu software`}
