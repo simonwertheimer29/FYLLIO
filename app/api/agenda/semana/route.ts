@@ -54,6 +54,12 @@ export const GET = withAuth(async (session, req) => {
         const especialidades = await trx.selectFrom("especialidades").select(["id", "nombre", "activa"]).orderBy("nombre").execute();
         const asignaciones = await trx.selectFrom("staff_especialidades").select(["staff_id", "especialidad_id"]).execute();
         const horarios = await trx.selectFrom("horarios_staff").select(["staff_id", "dia_semana", "inicio", "fin"]).execute();
+        // G2.4 — el catálogo para el modal de crear/mover (la duración real).
+        const catalogoTratamientos = await trx
+          .selectFrom("tratamientos")
+          .select(["id", "nombre", "duracion_min", "clinica_id"])
+          .orderBy("nombre", "asc")
+          .execute();
         const bloqueos = await trx
           .selectFrom("bloqueos_staff")
           .select(["staff_id", "inicio", "fin", "motivo"])
@@ -66,7 +72,7 @@ export const GET = withAuth(async (session, req) => {
           .select([
             "citas.id", "citas.nombre", "citas.hora_inicio", "citas.hora_final", "citas.estado",
             "citas.profesional_id", "citas.clinica_id", "citas.origen_sistema", "citas.lead_id",
-            "citas.trasladada_en",
+            "citas.trasladada_en", "citas.tratamiento_id",
             "tratamientos.nombre as tratamiento_nombre",
           ])
           .where("citas.hora_inicio", ">=", desdeUTC)
@@ -91,7 +97,7 @@ export const GET = withAuth(async (session, req) => {
              and c.hora_inicio >= now() - interval '7 days'
            order by c.hora_inicio asc
            limit 100`.execute(trx);
-        return { staff, especialidades, asignaciones, horarios, bloqueos, citas, pendientes: pendientes.rows ?? [] };
+        return { staff, especialidades, asignaciones, horarios, bloqueos, citas, catalogoTratamientos, pendientes: pendientes.rows ?? [] };
       });
 
       // ── Scoping fail-closed: coordinación solo SUS clínicas ─────────────
@@ -120,7 +126,7 @@ export const GET = withAuth(async (session, req) => {
             const p = proyectarAlDia({ inicio: new Date(b.inicio as any), fin: new Date(b.fin as any) }, fecha);
             if (p) bloqueosDia.push({ ...p, motivo: (b as any).motivo ?? null });
           }
-          const citasDia: Array<{ id: string; inicioMin: number; finMin: number | null; nombre: string | null; estado: string; tratamiento: string | null; deLead: boolean; sinPasar: boolean }> = [];
+          const citasDia: Array<{ id: string; inicioMin: number; finMin: number | null; nombre: string | null; estado: string; tratamiento: string | null; tratamientoId: string | null; deLead: boolean; sinPasar: boolean; esFyllio: boolean }> = [];
           let sinDuracion = false;
           for (const c of citas) {
             if (c.profesional_id !== doc.id || !c.hora_inicio) continue;
@@ -135,10 +141,13 @@ export const GET = withAuth(async (session, req) => {
             if (finMin === null) sinDuracion = true;
             citasDia.push({
               id: c.id, inicioMin, finMin, nombre: c.nombre ?? null, estado: String(c.estado),
-              tratamiento: (c as any).tratamiento_nombre ?? null, deLead: c.lead_id !== null,
+              tratamiento: (c as any).tratamiento_nombre ?? null, tratamientoId: c.tratamiento_id ?? null,
+              deLead: c.lead_id !== null,
               // G2.2 — nacida en Fyllio y aún sin pasar al software: el
               // resumen plegado lo cuenta donde se escanea.
               sinPasar: c.origen_sistema === "fyllio" && c.trasladada_en === null,
+              // G2.4 — solo lo nacido en Fyllio se puede mover desde aquí.
+              esFyllio: c.origen_sistema === "fyllio",
             });
           }
           citasDia.sort((a, b) => a.inicioMin - b.inicioMin);
@@ -168,6 +177,9 @@ export const GET = withAuth(async (session, req) => {
           .filter((e: any) => e.activa === true)
           .map((e: any) => ({ id: e.id, nombre: e.nombre })),
         dias,
+        tratamientos: d.catalogoTratamientos.map((t: any) => ({
+          id: t.id, nombre: t.nombre ?? "", duracionMin: t.duracion_min ?? null, clinicaId: t.clinica_id ?? null,
+        })),
         pendientes: pendientes.map((p: any) => ({
           id: p.id,
           nombre: p.nombre ?? null,

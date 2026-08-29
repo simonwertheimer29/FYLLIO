@@ -3469,3 +3469,16 @@ declaración, no caer a Lista. El selector es local y no pisa el filtro global; 
 cuando está, manda. El renderer de carriles de G2.1 se generalizó (carril = doctor en Día, carril =
 día en Semana): una sola implementación de eje, sombreado, citas, bloqueos y huecos-con-advertencia.
 E2E Chrome 11/11 + captura.
+
+## 2026-08-30 — Agenda G2.4: crear y mover desde la rejilla — la iteración G2.x queda COMPLETA
+Crear («Nueva cita»: paciente por búsqueda vinculada a ficha o nombre libre — sin ficha no hay
+recordatorios y el modal lo dice ANTES de guardar) y mover (clic en el bloque, modal pre-relleno)
+con los CamposCita compartidos con el AgendarModal de leads: una sola implementación de «el tipo de
+cita define la duración». Las dos reglas duras dictadas, en la API: solo se mueve lo
+origen_sistema='fyllio' (una importada → 422 con motivo; en la UI ni es botón, con el porqué en el
+title) y mover una cita de lead SINCRONIZA leads.fecha_cita/hora_cita en la misma transacción (el
+kanban no puede enseñar la hora vieja). Mover resetea la marca de traslado y devuelve a Programada
+(el paciente confirmó la hora VIEJA), y el toast lleva el aviso dictado: «recuerda cambiarla
+también en tu software». E2E Chrome 13/13 con verificación en base + captura. Con G2.4 cierran las
+cuatro revisiones G2.1–G2.4; siguen pendientes G3 (modal desde la ficha), G4 (el agente acota),
+G5 (nivel 2) y G6 (nivel 3).

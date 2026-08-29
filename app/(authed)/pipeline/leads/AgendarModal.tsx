@@ -10,6 +10,7 @@ import { useState } from "react";
 import { X, ICON_STROKE } from "../../../components/icons";
 import type { Lead } from "./types";
 import { hoyISO } from "../../../lib/time";
+import { CamposCita, Labeled } from "../../../components/agenda/CamposCita";
 
 const TRATAMIENTOS = [
   "Implantología",
@@ -69,10 +70,6 @@ export function AgendarModal({
   const [notas, setNotas] = useState<string>(lead.notas ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const doctoresClinica = lead.clinicaId
-    ? doctores.filter((d) => d.clinicaId === lead.clinicaId)
-    : doctores;
 
   // G2c — catálogo de la clínica del lead (con clínica sin catálogo propio se
   // enseña el general, que es lo que hay — no se esconde la opción).
@@ -151,48 +148,22 @@ export function AgendarModal({
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <Labeled label="Fecha de cita" required>
-            <input
-              type="date"
-              required
-              min={hoy}
-              value={fechaCita}
-              onChange={(e) => setFechaCita(e.target.value)}
-              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-            />
-          </Labeled>
-          <Labeled label="Hora" required>
-            <input
-              type="time"
-              required
-              value={horaCita}
-              onChange={(e) => setHoraCita(e.target.value)}
-              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-            />
-          </Labeled>
-        </div>
-
-        <Labeled label="Doctor" required>
-          <select
-            required
-            value={doctorId}
-            onChange={(e) => setDoctorId(e.target.value)}
-            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-          >
-            <option value="">— Selecciona —</option>
-            {doctoresClinica.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.nombre}
-              </option>
-            ))}
-          </select>
-          {doctoresClinica.length === 0 && (
-            <p className="text-[10px] text-[var(--color-warning)] mt-1">
-              La clínica no tiene dentistas cargados. Añade uno desde Ajustes.
-            </p>
-          )}
-        </Labeled>
+        {/* G2.4 — fecha/hora/doctor/tipo-de-cita son los CamposCita
+            compartidos con el CitaModal de la rejilla: una sola
+            implementación de «el tipo de cita define la duración». */}
+        <CamposCita
+          fecha={fechaCita}
+          setFecha={setFechaCita}
+          hora={horaCita}
+          setHora={setHoraCita}
+          doctorId={doctorId}
+          setDoctorId={setDoctorId}
+          tipoCitaId={tipoCitaId}
+          setTipoCitaId={setTipoCitaId}
+          doctores={doctores}
+          tratamientos={tratamientosCatalogo}
+          clinicaId={lead.clinicaId}
+        />
 
         <Labeled label="Tratamiento" required>
           <select
@@ -208,30 +179,6 @@ export function AgendarModal({
               </option>
             ))}
           </select>
-        </Labeled>
-
-        {/* G2c — el tipo de cita del CATÁLOGO define la duración de la cita
-            real que se crea en /agenda. Sin él, la cita existe igual pero ese
-            día la agenda no puede afirmar huecos — y se dice aquí. */}
-        <Labeled label="Tipo de cita en agenda (define la duración)">
-          <select
-            value={tipoCitaId}
-            onChange={(e) => setTipoCitaId(e.target.value)}
-            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-          >
-            <option value="">— Sin duración definida —</option>
-            {catalogoClinica.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.nombre}
-                {t.duracionMin != null ? ` · ${t.duracionMin} min` : " · sin duración configurada"}
-              </option>
-            ))}
-          </select>
-          {!tipoCitaId && (
-            <p className="text-[10px] text-[var(--color-warning)] mt-1">
-              Sin tipo de cita, la agenda no podrá afirmar huecos libres ese día.
-            </p>
-          )}
         </Labeled>
 
         <Labeled label="Tipo de visita" required>
@@ -289,22 +236,3 @@ export function AgendarModal({
   );
 }
 
-function Labeled({
-  label,
-  required,
-  children,
-}: {
-  label: string;
-  required?: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-[var(--color-muted)] mb-1">
-        {label}
-        {required && <span className="text-[var(--color-danger)] ml-0.5">*</span>}
-      </label>
-      {children}
-    </div>
-  );
-}

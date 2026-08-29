@@ -27,6 +27,7 @@ import { cargarJSON } from "../../lib/fetch-json";
 import { hoyISO, sumaDias } from "../../lib/time";
 import { aMin, deMin, diaSemanaISO } from "../../lib/agenda/disponibilidad";
 import { resumenDeAgendaDia } from "../../lib/agenda/resumen";
+import { CitaModal, type CitaEnEdicion } from "./CitaModal";
 import {
   CalendarDays,
   ChevronDown,
@@ -35,6 +36,7 @@ import {
   Info,
   MessageCircle,
   Check,
+  Plus,
   AlertTriangle,
   RefreshCw,
   ICON_STROKE,
@@ -44,7 +46,7 @@ type DoctorSemana = {
   id: string; nombre: string; clinicaId: string | null; clinicaNombre: string | null;
   especialidadIds: string[]; sinHorario: boolean;
 };
-type CitaDia = { id: string; inicioMin: number; finMin: number | null; nombre: string | null; estado: string; tratamiento: string | null; deLead: boolean; sinPasar: boolean };
+type CitaDia = { id: string; inicioMin: number; finMin: number | null; nombre: string | null; estado: string; tratamiento: string | null; tratamientoId: string | null; deLead: boolean; sinPasar: boolean; esFyllio: boolean };
 type PorDoctor = {
   staffId: string;
   franjas: Array<{ inicio: string; fin: string }>;
@@ -61,6 +63,7 @@ type Semana = {
   doctores: DoctorSemana[];
   especialidades: Array<{ id: string; nombre: string }>;
   dias: Array<{ fecha: string; porDoctor: PorDoctor[] }>;
+  tratamientos: Array<{ id: string; nombre: string; duracionMin: number | null; clinicaId: string | null }>;
   pendientes: Pendiente[];
 };
 type Vista = "dia" | "semana" | "lista";
@@ -92,6 +95,8 @@ export function AgendaView() {
   const [docMovil, setDocMovil] = useState("");
   // Semana: el doctor elegido EN la vista (local — no pisa el filtro global).
   const [docSemana, setDocSemana] = useState("");
+  // G2.4 — crear/mover desde la rejilla.
+  const [modalCita, setModalCita] = useState<null | { modo: "crear" } | { modo: "mover"; cita: CitaEnEdicion }>(null);
 
   const cargar = useCallback(async (semanaDesde: string) => {
     setCargando(true);
@@ -128,6 +133,22 @@ export function AgendaView() {
       toast.error(e instanceof Error && e.message ? e.message : "No se pudo guardar.");
     }
   }, [cargar, desde]);
+
+  // G2.4 — clic en una cita nacida en Fyllio → moverla (las importadas se
+  // cambian en el software de la clínica; ni se ofrece).
+  const abrirMover = useCallback((c: CitaDia, carril: { fecha: string; staffId: string }) => {
+    setModalCita({
+      modo: "mover",
+      cita: {
+        id: c.id,
+        nombre: c.nombre,
+        fecha: carril.fecha,
+        hora: deMin(c.inicioMin),
+        doctorId: carril.staffId,
+        tratamientoId: c.tratamientoId,
+      },
+    });
+  }, []);
 
   const visibles = useMemo(() => {
     if (!data) return [];
@@ -254,6 +275,14 @@ export function AgendaView() {
             .filter((d) => !filtroEsp || d.especialidadIds.includes(filtroEsp))
             .map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
         </select>
+        <button
+          type="button"
+          onClick={() => setModalCita({ modo: "crear" })}
+          disabled={!data}
+          className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-[var(--color-on-accent)] hover:opacity-90 disabled:opacity-40"
+        >
+          <Plus size={13} strokeWidth={ICON_STROKE} aria-hidden /> Nueva cita
+        </button>
         {error && data && (
           <button type="button" onClick={() => void cargar(desde)}
             className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-danger)] hover:underline">
@@ -272,6 +301,7 @@ export function AgendaView() {
               visibles={visibles}
               docMovil={docMovilEfectivo}
               onDocMovil={setDocMovil}
+              onCita={abrirMover}
             />
           ) : vista === "semana" ? (
             <VistaSemana
@@ -280,9 +310,10 @@ export function AgendaView() {
               hoy={hoy}
               docSemana={docSemana}
               onDocSemana={setDocSemana}
+              onCita={abrirMover}
             />
           ) : (
-            <VistaLista data={data} visibles={visibles} hoy={hoy} />
+            <VistaLista data={data} visibles={visibles} hoy={hoy} onCita={abrirMover} />
           )}
         </div>
       ) : null}
@@ -341,6 +372,21 @@ export function AgendaView() {
           )}
         </Card>
       )}
+
+      {/* G2.4 — crear/mover desde la rejilla */}
+      {modalCita && data && (
+        <CitaModal
+          modo={modalCita.modo}
+          inicial={modalCita.modo === "crear" ? { fecha: vista === "dia" ? fecha : hoy } : modalCita.cita}
+          doctores={data.doctores.map((d) => ({ id: d.id, nombre: d.nombre, clinicaId: d.clinicaId }))}
+          tratamientos={data.tratamientos}
+          onClose={() => setModalCita(null)}
+          onSaved={() => {
+            setModalCita(null);
+            void cargar(desde);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -361,10 +407,12 @@ type Carril = {
   subtitulo?: string | null;
   destacado?: boolean; // hoy, en la vista Semana
   ocultaEnMovil?: boolean; // Día: un doctor a la vez en el móvil
+  fecha: string; // el día del carril (para mover desde el bloque)
+  staffId: string;
   pd: PorDoctor;
 };
 
-function Carriles({ lanes }: { lanes: Carril[] }) {
+function Carriles({ lanes, onCita }: { lanes: Carril[]; onCita?: (c: CitaDia, carril: Carril) => void }) {
   // Eje vertical: de la primera franja/cita/bloqueo a la última, a horas
   // redondas. Sin nada: 09:00–20:00 para que el vacío se vea como vacío.
   let ejeMin = Infinity;
@@ -400,7 +448,9 @@ function Carriles({ lanes }: { lanes: Carril[] }) {
             </div>
           </div>
 
-          {lanes.map(({ key, titulo, subtitulo, destacado, ocultaEnMovil, pd }) => (
+          {lanes.map((carril) => {
+            const { key, titulo, subtitulo, destacado, ocultaEnMovil, pd } = carril;
+            return (
             <div
               key={key}
               className={`w-44 min-w-44 flex-1 border-l border-[var(--color-border)] px-1 ${ocultaEnMovil ? "hidden lg:block" : ""}`}
@@ -457,7 +507,11 @@ function Carriles({ lanes }: { lanes: Carril[] }) {
                 {pd.citas.map((c) => (
                   <div
                     key={c.id}
-                    className={`absolute inset-x-0.5 overflow-hidden rounded-md border px-1 py-0.5 ${ESTILO_ESTADO[c.estado] ?? "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]"}`}
+                    role={c.esFyllio && onCita ? "button" : undefined}
+                    tabIndex={c.esFyllio && onCita ? 0 : undefined}
+                    onClick={c.esFyllio && onCita ? () => onCita(c, carril) : undefined}
+                    title={c.esFyllio ? "Mover o reagendar" : "Esta cita vive en tu software clínico — se cambia allí"}
+                    className={`absolute inset-x-0.5 overflow-hidden rounded-md border px-1 py-0.5 ${c.esFyllio && onCita ? "cursor-pointer hover:ring-1 hover:ring-[var(--color-accent)]" : ""} ${ESTILO_ESTADO[c.estado] ?? "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]"}`}
                     style={{ top: y(c.inicioMin), height: Math.max(22, ((c.finMin ?? c.inicioMin + 30) - c.inicioMin) * PX_MIN) }}
                   >
                     <p className="truncate text-[10px] font-semibold leading-tight">
@@ -469,7 +523,8 @@ function Carriles({ lanes }: { lanes: Carril[] }) {
                 ))}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -491,11 +546,13 @@ function VistaDia({
   visibles,
   docMovil,
   onDocMovil,
+  onCita,
 }: {
   dia: { fecha: string; porDoctor: PorDoctor[] } | null;
   visibles: DoctorSemana[];
   docMovil: string;
   onDocMovil: (id: string) => void;
+  onCita?: (c: CitaDia, carril: Carril) => void;
 }) {
   if (!dia) {
     // El día activo cayó fuera de la semana cargada (transición de fetch).
@@ -509,6 +566,8 @@ function VistaDia({
       titulo: doc.nombre,
       subtitulo: doc.clinicaNombre,
       ocultaEnMovil: doc.id !== docMovil,
+      fecha: dia.fecha,
+      staffId: doc.id,
       pd,
     }));
 
@@ -533,7 +592,7 @@ function VistaDia({
           {visibles.map((doc) => <option key={doc.id} value={doc.id}>{doc.nombre}</option>)}
         </select>
       )}
-      <Carriles lanes={lanes} />
+      <Carriles lanes={lanes} onCita={onCita} />
     </Card>
   );
 }
@@ -551,12 +610,14 @@ function VistaSemana({
   hoy,
   docSemana,
   onDocSemana,
+  onCita,
 }: {
   data: Semana;
   visibles: DoctorSemana[];
   hoy: string;
   docSemana: string;
   onDocSemana: (id: string) => void;
+  onCita?: (c: CitaDia, carril: Carril) => void;
 }) {
   const doc = visibles.find((d) => d.id === docSemana) ?? visibles[0] ?? null;
   if (!doc) {
@@ -574,6 +635,8 @@ function VistaSemana({
       titulo: `${LABEL_DIA[diaSemanaISO(dia.fecha)]} ${dia.fecha.slice(8)}`,
       subtitulo: dia.fecha === hoy ? "hoy" : null,
       destacado: dia.fecha === hoy,
+      fecha: dia.fecha,
+      staffId: doc.id,
       pd,
     }));
 
@@ -591,7 +654,7 @@ function VistaSemana({
         </select>
         {doc.clinicaNombre && <span className="text-[11px] text-[var(--color-muted)]">{doc.clinicaNombre}</span>}
       </div>
-      <Carriles lanes={lanes} />
+      <Carriles lanes={lanes} onCita={onCita} />
     </Card>
   );
 }
@@ -603,7 +666,17 @@ function VistaSemana({
 // horas libres» · «no trabaja»), con la marca «sin pasar» donde toque. Al
 // desplegar, el detalle de siempre.
 
-function VistaLista({ data, visibles, hoy }: { data: Semana; visibles: DoctorSemana[]; hoy: string }) {
+function VistaLista({
+  data,
+  visibles,
+  hoy,
+  onCita,
+}: {
+  data: Semana;
+  visibles: DoctorSemana[];
+  hoy: string;
+  onCita?: (c: CitaDia, carril: { fecha: string; staffId: string }) => void;
+}) {
   const nombreDe = (id: string) => data.doctores.find((d) => d.id === id)?.nombre ?? "—";
   const hayHuecos = data.dias.some((dia) =>
     dia.porDoctor.some((pd) => visibles.some((v) => v.id === pd.staffId) && (pd.libres ?? []).length > 0));
@@ -627,7 +700,7 @@ function VistaLista({ data, visibles, hoy }: { data: Semana; visibles: DoctorSem
               </p>
               <div className="space-y-1.5">
                 {bloques.map((pd) => (
-                  <RecuadroDoctorDia key={pd.staffId} pd={pd} nombre={nombreDe(pd.staffId)} />
+                  <RecuadroDoctorDia key={pd.staffId} pd={pd} nombre={nombreDe(pd.staffId)} fecha={dia.fecha} onCita={onCita} />
                 ))}
                 {bloques.length === 0 && <p className="text-[10.5px] text-[var(--color-muted)]">—</p>}
               </div>
@@ -639,7 +712,17 @@ function VistaLista({ data, visibles, hoy }: { data: Semana; visibles: DoctorSem
   );
 }
 
-function RecuadroDoctorDia({ pd, nombre }: { pd: PorDoctor; nombre: string }) {
+function RecuadroDoctorDia({
+  pd,
+  nombre,
+  fecha,
+  onCita,
+}: {
+  pd: PorDoctor;
+  nombre: string;
+  fecha: string;
+  onCita?: (c: CitaDia, carril: { fecha: string; staffId: string }) => void;
+}) {
   const trabaja = pd.franjas.length > 0;
   const sinPasar = pd.citas.filter((c) => c.sinPasar).length;
   const resumen = resumenDeAgendaDia({ trabaja, nCitas: pd.citas.length, libres: pd.libres });
@@ -672,7 +755,10 @@ function RecuadroDoctorDia({ pd, nombre }: { pd: PorDoctor; nombre: string }) {
       <div className="space-y-1 border-t border-[var(--color-border)] px-2 py-1.5">
         {pd.citas.map((c) => (
           <div key={c.id}
-            className={`rounded-lg border px-1.5 py-1 text-[10.5px] leading-tight ${ESTILO_ESTADO[c.estado] ?? "border-[var(--color-border)] text-[var(--color-foreground)]"}`}>
+            role={c.esFyllio && onCita ? "button" : undefined}
+            onClick={c.esFyllio && onCita ? () => onCita(c, { fecha, staffId: pd.staffId }) : undefined}
+            title={c.esFyllio ? "Mover o reagendar" : "Esta cita vive en tu software clínico — se cambia allí"}
+            className={`rounded-lg border px-1.5 py-1 text-[10.5px] leading-tight ${c.esFyllio && onCita ? "cursor-pointer hover:ring-1 hover:ring-[var(--color-accent)]" : ""} ${ESTILO_ESTADO[c.estado] ?? "border-[var(--color-border)] text-[var(--color-foreground)]"}`}>
             <span className="font-semibold [font-variant-numeric:tabular-nums]">
               {deMin(c.inicioMin)}{c.finMin !== null ? `–${deMin(c.finMin)}` : ""}
             </span>{" "}
