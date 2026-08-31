@@ -134,7 +134,7 @@ export function KpisView({ user, isAdmin }: { user: UserSession; isAdmin: boolea
                   cerrarse hacía frágil. */}
               <Link
                 href="/analiticas/informes"
-                className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] text-xs font-semibold px-3 py-1.5 hover:bg-[var(--color-surface-muted)] transition-colors whitespace-nowrap"
+                className="inline-flex h-9 items-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[12.5px] font-semibold text-[var(--color-foreground)] shadow-sm transition-colors hover:bg-[var(--color-surface-muted)] whitespace-nowrap"
               >
                 Informe mensual
               </Link>
@@ -201,7 +201,7 @@ function DoctorFiltro({
         : vacio ? "No se pudo cargar la lista de doctores"
         : "Filtrar por doctor"
       }
-      className={`rounded-md border px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)] ${
+      className={`h-9 rounded-lg border px-2.5 text-[12.5px] font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent-soft)] ${
         !habilitado || vacio
           ? "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-muted)] cursor-not-allowed"
           : valor

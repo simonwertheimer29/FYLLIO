@@ -194,7 +194,7 @@ function TabGeneral({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                 <stop offset="95%" stopColor={COLOR_ACEPTADO} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+            <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border)" strokeOpacity={0.5} />
             <XAxis dataKey="label" tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} allowDecimals={false} />
             <Tooltip contentStyle={TOOLTIP_STYLE} labelStyle={{ fontWeight: 700 }} />
@@ -229,7 +229,7 @@ function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {bloques.map(({ tipo, mes, prev }) => (
           <div key={tipo} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-            <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">{tipo} — {mesLabel}</p>
+            <p className="text-[11px] font-medium text-[var(--color-muted)] uppercase tracking-wider mb-2">{tipo} — {mesLabel}</p>
             <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">{mes?.total ?? 0}</p>
             <p className="text-xs text-[var(--color-muted)] mt-1">
               {mes?.aceptados ?? 0} aceptados · {mes ? `${textoTasa(mes.tasa)} se cierran` : "—"}
@@ -250,7 +250,7 @@ function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
         <p className="text-xs text-[var(--color-muted)] mb-4">Barras claras = ofrecidos · Barras oscuras = aceptados</p>
         <ResponsiveContainer width="100%" height={240}>
           <BarChart data={kpis.tendenciaPorTarifa} margin={{ top: 4, right: 8, left: -20, bottom: 0 }} barGap={1} barCategoryGap="25%">
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+            <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border)" strokeOpacity={0.5} />
             <XAxis dataKey="label" tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} allowDecimals={false} />
             <Tooltip contentStyle={TOOLTIP_STYLE} />
@@ -284,7 +284,7 @@ function TabTarifas({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
 
       {/* Tabla resumen — todos los meses */}
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
-        <p className="px-4 py-3 text-xs font-bold text-[var(--color-foreground)] border-b border-[var(--color-border)] uppercase tracking-wide">Resumen por tarifa — {mesLabel}</p>
+        <p className="px-4 py-3 text-[11px] font-medium text-[var(--color-muted)] border-b border-[var(--color-border)] uppercase tracking-wider">Resumen por tarifa — {mesLabel}</p>
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-[var(--color-border)]">
@@ -328,7 +328,7 @@ function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
           const prev = kpisPrevMes.porTipoVisita.find((x) => x.tipo === t.tipo);
           return (
             <div key={t.tipo} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-              <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">{tipoLabel(t.tipo)} — {mesLabel}</p>
+              <p className="text-[11px] font-medium text-[var(--color-muted)] uppercase tracking-wider mb-2">{tipoLabel(t.tipo)} — {mesLabel}</p>
               <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">{t.total}</p>
               <p className="text-xs text-[var(--color-muted)] mt-1">{t.aceptados} aceptados · {textoTasa(t.tasa)} se cierran</p>
               {t.importe > 0 && <p className="text-xs font-semibold text-[var(--color-success)] mt-0.5">{eur(t.importe)} aceptado</p>}
@@ -343,7 +343,7 @@ function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
         <p className="text-xs text-[var(--color-muted)] mb-4">Azul = 1ª Visita (nuevos) · Turquesa = Con historial (recurrentes)</p>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={kpis.tendenciaPorVisita} margin={{ top: 4, right: 8, left: -20, bottom: 0 }} barGap={1} barCategoryGap="25%">
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+            <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border)" strokeOpacity={0.5} />
             <XAxis dataKey="label" tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} allowDecimals={false} />
             <Tooltip contentStyle={TOOLTIP_STYLE} />
@@ -362,7 +362,7 @@ function TabPaciente({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
       </div>
 
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
-        <p className="px-4 py-3 text-xs font-bold text-[var(--color-foreground)] border-b border-[var(--color-border)] uppercase tracking-wide">Resumen por tipo de paciente — {mesLabel}</p>
+        <p className="px-4 py-3 text-[11px] font-medium text-[var(--color-muted)] border-b border-[var(--color-border)] uppercase tracking-wider">Resumen por tipo de paciente — {mesLabel}</p>
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-[var(--color-border)]">
@@ -500,7 +500,7 @@ function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: 
         ) : (
           <ResponsiveContainer width="100%" height={260}>
             <BarChart data={top8} layout="vertical" margin={{ top: 4, right: 40, left: 100, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
+              <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border)" strokeOpacity={0.5} horizontal={false} />
               <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} unit="%" />
               <YAxis type="category" dataKey="grupo" tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} width={100} />
               <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`${v}%`, "Tasa"]} />
@@ -512,7 +512,7 @@ function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: 
 
       {/* Table this month */}
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
-        <p className="px-4 py-3 text-xs font-bold text-[var(--color-foreground)] border-b border-[var(--color-border)] uppercase tracking-wide">Tratamientos — {mesLabel}</p>
+        <p className="px-4 py-3 text-[11px] font-medium text-[var(--color-muted)] border-b border-[var(--color-border)] uppercase tracking-wider">Tratamientos — {mesLabel}</p>
         {kpisMes.porTratamiento.length === 0 ? (
           <p className="px-4 py-6 text-sm text-[var(--color-muted)]">Sin datos para este mes</p>
         ) : (
@@ -561,7 +561,7 @@ function TabTratamientos({ kpisMes, kpis, mesLabel }: { kpisMes: KpiData; kpis: 
         <p className="text-sm font-bold text-[var(--color-foreground)] mb-4">Top 8 tratamientos — histórico (todos los tiempos)</p>
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={top8HistAll} layout="vertical" margin={{ top: 4, right: 40, left: 100, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" horizontal={false} />
+            <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border)" strokeOpacity={0.5} horizontal={false} />
             <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} unit="%" />
             <YAxis type="category" dataKey="grupo" tick={{ fontSize: 10, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} width={100} />
             <Tooltip contentStyle={TOOLTIP_STYLE} formatter={(v) => [`${v}%`, "Tasa"]} />
@@ -731,7 +731,7 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
                                   <stop offset="95%" stopColor="var(--color-accent)" stopOpacity={0} />
                                 </linearGradient>
                               </defs>
-                              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
+                              <CartesianGrid strokeDasharray="2 4" stroke="var(--color-border)" strokeOpacity={0.5} />
                               <XAxis dataKey="label" tick={{ fontSize: 9, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} />
                               <YAxis tick={{ fontSize: 9, fill: "var(--color-muted)" }} axisLine={false} tickLine={false} allowDecimals={false} />
                               <Tooltip contentStyle={TOOLTIP_STYLE} />
@@ -752,7 +752,7 @@ function TabDoctores({ kpisMes, kpisPrevMes, kpis, mesLabel }: {
 
       {/* Historical comparison table */}
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
-        <p className="px-4 py-3 text-xs font-bold text-[var(--color-foreground)] border-b border-[var(--color-border)] uppercase tracking-wide">Histórico total — todos los tiempos</p>
+        <p className="px-4 py-3 text-[11px] font-medium text-[var(--color-muted)] border-b border-[var(--color-border)] uppercase tracking-wider">Histórico total — todos los tiempos</p>
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
@@ -815,7 +815,7 @@ function TabBenchmark({ kpis, isManager }: { kpis: KpiData; isManager: boolean }
                 <div key={o.origen} className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
                   <div className="flex items-center gap-1.5 mb-2">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: colorCategoria(i) }} />
-                    <p className="text-[10px] font-bold text-[var(--color-muted)] uppercase truncate">{o.label}</p>
+                    <p className="text-[10px] font-medium text-[var(--color-muted)] uppercase tracking-wide truncate">{o.label}</p>
                   </div>
                   <p className="font-display text-2xl font-bold tabular-nums text-[var(--color-foreground)]">{textoTasa(o.tasa)}</p>
                   <p className="text-[10px] text-[var(--color-muted)] mt-1">{notaTasa(o.tasa)}</p>
@@ -1054,12 +1054,12 @@ function TabMotorIA({ stats, loading, isDemo, error }: {
       {/* Summary cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-          <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">Mensajes IA enviados</p>
+          <p className="text-[11px] font-medium text-[var(--color-muted)] uppercase tracking-wider mb-2">Mensajes IA enviados</p>
           <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">{total}</p>
           <p className="text-xs text-[var(--color-muted)] mt-1">contactos con asistente IA</p>
         </div>
         <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
-          <p className="text-[11px] font-semibold text-[var(--color-muted)] uppercase tracking-wide mb-2">Tasa global IA</p>
+          <p className="text-[11px] font-medium text-[var(--color-muted)] uppercase tracking-wider mb-2">Tasa global IA</p>
           <p className="font-display text-3xl font-bold tabular-nums text-[var(--color-foreground)]">{tasaGlobal != null ? `${tasaGlobal}%` : "—"}</p>
           <p className="text-xs text-[var(--color-muted)] mt-1">{totalAcep} aceptados de {total}</p>
         </div>
@@ -1081,7 +1081,7 @@ function TabMotorIA({ stats, loading, isDemo, error }: {
 
       {/* Per-tono table */}
       <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
-        <p className="px-4 py-3 text-xs font-bold text-[var(--color-foreground)] border-b border-[var(--color-border)] uppercase tracking-wide">
+        <p className="px-4 py-3 text-[11px] font-medium text-[var(--color-muted)] border-b border-[var(--color-border)] uppercase tracking-wider">
           A/B por tono — histórico acumulado
         </p>
         <table className="w-full text-xs">

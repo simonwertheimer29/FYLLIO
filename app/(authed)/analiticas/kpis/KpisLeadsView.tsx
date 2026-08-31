@@ -353,7 +353,7 @@ function FunnelBlock({ data }: { data: ApiResponse | null }) {
   const base = etapas[0]?.total ?? 0;
   return (
     <Card padding="lg">
-      <p className="text-xs font-semibold tracking-wide text-[var(--color-muted)] uppercase">
+      <p className="text-[11px] font-medium tracking-wider text-[var(--color-muted)] uppercase">
         Embudo de conversión
       </p>
       {/* Mismo patrón que el embudo de /red, no una segunda invención: barras
@@ -603,13 +603,13 @@ function ClinicKpiDrawer({
                 <MiniKpi label="Cobrado" value={formatEUR(data.kpis.facturado.actual)} />
               </div>
               <Card padding="md">
-                <p className="text-[10px] uppercase tracking-widest font-semibold text-[var(--color-muted)] mb-2">
+                <p className="text-[10px] uppercase tracking-widest font-medium text-[var(--color-muted)] mb-2">
                   Origen
                 </p>
                 <DonutOrigen distribucion={data.distribucionOrigen} compact />
               </Card>
               <Card padding="md">
-                <p className="text-[10px] uppercase tracking-widest font-semibold text-[var(--color-muted)] mb-2">
+                <p className="text-[10px] uppercase tracking-widest font-medium text-[var(--color-muted)] mb-2">
                   Top doctores · Conversión
                 </p>
                 {data.rankingDoctores.length === 0 ? (
@@ -644,7 +644,7 @@ function ClinicKpiDrawer({
 function MiniKpi({ label, value }: { label: string; value: string }) {
   return (
     <Card padding="md">
-      <p className="text-[10px] uppercase tracking-widest font-semibold text-[var(--color-muted)]">
+      <p className="text-[10px] uppercase tracking-widest font-medium text-[var(--color-muted)]">
         {label}
       </p>
       <p className="font-display text-2xl font-bold mt-1 tabular-nums text-[var(--color-foreground)]">
@@ -662,13 +662,13 @@ function Distribuciones({ data }: { data: ApiResponse | null }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       <Card padding="lg">
-        <p className="text-[10px] uppercase tracking-widest font-semibold text-[var(--color-muted)] mb-3">
+        <p className="text-[10px] uppercase tracking-widest font-medium text-[var(--color-muted)] mb-3">
           Leads por origen
         </p>
         <DonutOrigen distribucion={data?.distribucionOrigen ?? []} />
       </Card>
       <Card padding="lg">
-        <p className="text-[10px] uppercase tracking-widest font-semibold text-[var(--color-muted)] mb-3">
+        <p className="text-[10px] uppercase tracking-widest font-medium text-[var(--color-muted)] mb-3">
           Leads por tratamiento
         </p>
         <BarHorizontal data={data?.distribucionTratamiento ?? []} />
@@ -892,7 +892,7 @@ function ContactacionRespuesta({ data }: { data: ApiResponse | null }) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
       <Card padding="lg">
-        <p className="text-xs font-semibold tracking-wide text-[var(--color-muted)] uppercase">
+        <p className="text-[11px] font-medium tracking-wider text-[var(--color-muted)] uppercase">
           Tasa de contactación
         </p>
         <p
@@ -937,7 +937,7 @@ function ContactacionRespuesta({ data }: { data: ApiResponse | null }) {
         )}
       </Card>
       <Card padding="lg">
-        <p className="text-xs font-semibold tracking-wide text-[var(--color-muted)] uppercase">
+        <p className="text-[11px] font-medium tracking-wider text-[var(--color-muted)] uppercase">
           Tiempo medio respuesta
         </p>
         <div className="flex items-baseline justify-between gap-2 mt-2 flex-wrap">
