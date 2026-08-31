@@ -3617,3 +3617,12 @@ construyeron con el patrón; el barrido de radios cerró lo demás): cero cambio
 hace falta no se fabrica. Con esto, el «acabado pendiente» del mapa se reduce a: Seguimiento/Envíos,
 la pasada tipográfica de Mensajería, y E3 (Ajustes, Pacientes/360 tras decidir el duplicado,
 Automatizaciones, Inicio, Agentes).
+
+## 2026-08-31 — E2 tanda 4 (Seguimiento + Envíos) y el pool local que degradaba el QA
+Seguimiento/Envíos ya estaban casi a estándar: solo restos de 6px fuera de la escala cerrada
+(avisos, botones del despliegue, compositor del chat, cuerpo del mensaje en Envíos → 8px) y el
+skeleton a mano del chat al primitivo. De la pasada salió un arreglo compartido: ErrorState ya no
+repite el mismo texto como título y detalle (se veía duplicado en un fallo real). Y el hallazgo de
+entorno: el servidor local 3100 daba «timeout exceeded when trying to connect» intermitente porque
+PG_POOL_MAX default=3 (pensado para serverless, donde cada invocación tiene su instancia) se agota
+cuando UN proceso sirve todas las páginas en ráfaga — PG_POOL_MAX=10 en .env.local, Vercel intacto.
