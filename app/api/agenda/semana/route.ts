@@ -13,8 +13,9 @@
 // Scoping: vista para todos los roles; coordinación solo ve doctores y citas
 // de SUS clínicas (clinicasNegocioAccesibles, fail-closed).
 
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { sql } from "kysely";
+import { sincronizarAgendasExternas, SYNC_FRESCO_MS } from "../../../lib/agenda/agenda-externa";
 import { withAuth } from "../../../lib/auth/session";
 import { runWithCliente } from "../../../lib/airtable";
 import { runWithClienteDb } from "../../../lib/db/context";
@@ -117,7 +118,24 @@ export const GET = withAuth(async (session, req) => {
              and c.hora_inicio >= now() - interval '7 days'
            order by c.hora_inicio asc
            limit 100`.execute(trx);
-        return { staff, especialidades, asignaciones, horarios, bloqueos, citas, recordatorios, agentePorClinica: agentePorClinica.rows ?? [], catalogoTratamientos, pendientes: pendientes.rows ?? [] };
+        // NIVEL 2 — las agendas externas conectadas y sus ocupaciones del
+        // rango. Se FUSIONAN como una ocupación más (el motor no distingue) y
+        // se pintan aparte, con la EDAD de la lectura siempre a la vista.
+        const agendasExternas = await trx
+          .selectFrom("agendas_externas")
+          .select(["id", "staff_id", "fuente", "activa", "ultimo_sync_ok", "ultimo_error", "ultimo_error_en"])
+          .where("activa", "=", true)
+          .execute();
+        const ocupacionesExternas = agendasExternas.length
+          ? await trx
+              .selectFrom("ocupaciones_externas")
+              .select(["agenda_externa_id", "external_id", "inicio", "fin", "etiqueta", "dia_entero"])
+              .where("agenda_externa_id", "in", agendasExternas.map((a) => a.id))
+              .where("fin", ">", desdeUTC)
+              .where("inicio", "<", hastaUTC)
+              .execute()
+          : [];
+        return { staff, especialidades, asignaciones, horarios, bloqueos, citas, recordatorios, agentePorClinica: agentePorClinica.rows ?? [], catalogoTratamientos, pendientes: pendientes.rows ?? [], agendasExternas, ocupacionesExternas };
       });
 
       // ── Scoping fail-closed: coordinación solo SUS clínicas ─────────────
@@ -194,6 +212,19 @@ export const GET = withAuth(async (session, req) => {
             });
           }
           citasDia.sort((a, b) => a.inicioMin - b.inicioMin);
+          // NIVEL 2 — las ocupaciones externas del doctor proyectadas al día:
+          // para el motor son ocupado y ya (opacas); para la UI, bloques
+          // aparte con su etiqueta.
+          const agendaIdsDoc = new Set(
+            d.agendasExternas.filter((a: any) => a.staff_id === doc.id).map((a: any) => a.id),
+          );
+          const externasDia: Array<IntervaloMin & { etiqueta: string | null; diaEntero: boolean }> = [];
+          for (const o of d.ocupacionesExternas) {
+            if (!agendaIdsDoc.has(o.agenda_externa_id)) continue;
+            const p = proyectarAlDia({ inicio: new Date(o.inicio as any), fin: new Date(o.fin as any) }, fecha);
+            if (p) externasDia.push({ ...p, etiqueta: o.etiqueta ?? null, diaEntero: Boolean(o.dia_entero) });
+          }
+          externasDia.sort((a, b) => a.inicio - b.inicio);
           // Huecos: solo si TODAS las ocupaciones del día se pueden medir.
           const libres = sinDuracion
             ? null
@@ -202,15 +233,44 @@ export const GET = withAuth(async (session, req) => {
                 ocupaciones: [
                   ...bloqueosDia.map(({ inicio, fin }) => ({ inicio, fin })),
                   ...citasDia.map((c) => ({ inicio: c.inicioMin, fin: c.finMin! })),
+                  ...externasDia.map(({ inicio, fin }) => ({ inicio, fin })),
                 ],
               });
-          return { staffId: doc.id, franjas, bloqueos: bloqueosDia, citas: citasDia, libres };
+          return { staffId: doc.id, franjas, bloqueos: bloqueosDia, citas: citasDia, externas: externasDia, libres };
         });
         return { fecha, porDoctor };
       });
 
+      // NIVEL 2 — sync on-read: si alguna agenda externa está rancia (o
+      // nunca leída), se refresca EN SEGUNDO PLANO tras responder. after()
+      // solo para lo prescindible (§1): esta respuesta sale con lo que hay,
+      // y la edad del dato lo dice.
+      const hayRancia = d.agendasExternas.some(
+        (a: any) => !a.ultimo_sync_ok || Date.now() - new Date(a.ultimo_sync_ok).getTime() >= SYNC_FRESCO_MS,
+      );
+      if (hayRancia) {
+        after(async () => {
+          try {
+            await runWithCliente(session.cliente!, () => sincronizarAgendasExternas());
+          } catch (e) {
+            // El fallo ya queda persistido en agendas_externas.ultimo_error
+            // por el propio sync; esto caza solo el fallo ANTES de llegar ahí.
+            console.error("[agenda/semana] sync on-read:", e instanceof Error ? e.message : e);
+          }
+        });
+      }
+
       return NextResponse.json({
         desde,
+        // NIVEL 2 — la salud de cada agenda conectada: la UI enseña la EDAD
+        // («leída hace 3 min») y el error si el sync está roto.
+        agendasExternas: d.agendasExternas.map((a: any) => ({
+          staffId: a.staff_id,
+          fuente: a.fuente,
+          leidoEnISO: a.ultimo_sync_ok ? new Date(a.ultimo_sync_ok).toISOString() : null,
+          error: a.ultimo_error ?? null,
+          errorEnISO: a.ultimo_error_en ? new Date(a.ultimo_error_en).toISOString() : null,
+        })),
         doctores: doctores.map((s: any) => ({
           id: s.id, nombre: s.nombre ?? "", clinicaId: s.clinica_id ?? null, clinicaNombre: s.clinica_nombre ?? null,
           especialidadIds: d.asignaciones.filter((a: any) => a.staff_id === s.id).map((a: any) => a.especialidad_id),

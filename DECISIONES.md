@@ -3673,3 +3673,17 @@ panel flotante (AgendarLeadPanel): la conversación sigue legible y scrolleable 
 hueco, y no se cierra al clicar fuera. La regla, en el skill (§4 ter): si lo de detrás es el
 CONTEXTO de la decisión, el panel no oscurece; oscurecer se reserva para atención exclusiva
 (confirmaciones destructivas, errores). Los modales existentes se adaptan al tocarlos, sin barrido.
+
+## 2026-08-31 — Nivel 2: la capa de agenda externa, con Google Calendar como primer conector
+Modelo GENÉRICO (033: agendas_externas + ocupaciones_externas, RLS 002) con el contrato del
+conector nacido para el PMS que vendrá — paciente/tratamiento/sillón opcionales, Calendar los deja
+a null y NUNCA se adivinan del título. Una cita externa cuenta como ocupado y ya: el motor la resta
+como un intervalo más (cero cambios en el motor). Lo específico de Google es UN archivo
+(conectores/google-calendar: cuenta de servicio, syncToken, 410→resync; los casos raros —cancelado,
+transparent, día entero con la medianoche de MADRID, no un offset fijo— viven en qa:agenda-externa,
+18 checks). La honestidad va en el producto desde el día uno (dictado): la edad de la lectura
+SIEMPRE visible («leída hace 3 min»), el aviso de nivel cambia de forma pero no desaparece, y el
+sync roto se dice en rojo en la agenda Y en la campana (tipo agenda_externa). Sync on-read con
+after() + botón; sin cron nuevo. E2E 13/13 de la capa genérica contra producción (fusión, UI, roto,
+campana, ajustes, cascade); el camino vivo contra Google queda pendiente SOLO de la credencial
+(GOOGLE_SERVICE_ACCOUNT_JSON, declarada en lib/entorno). Festivos por clínica → MEJORAS 116.

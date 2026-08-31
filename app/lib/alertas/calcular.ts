@@ -12,6 +12,7 @@ import { listPagosResumen } from "../pagos";
 import type { TipoAlerta } from "./templates";
 import { hoyISO } from "../time";
 import { calcularCobrosPorPaciente } from "../cobros";
+import { agendasExternasRotas } from "../agenda/agenda-externa";
 
 export type AlertaClinica = {
   clinicaId: string;
@@ -68,6 +69,7 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
         cobro_vence_3d: 0,
         cobro_vencido_7d: 0,
         pendiente_alto_estancado: 0,
+        agenda_externa: 0,
       });
     }
     result.get(clinicaId)![tipo] += n;
@@ -200,6 +202,20 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
     }
   }
 
+  // 8. Nivel 2 — AGENDA EXTERNA rota: el sync de un doctor no puede leer y
+  //    los huecos se calculan sobre una lectura rancia (dictado: pantalla Y
+  //    campana). La clínica llega por NOMBRE (el mismo puente que 3 y 4).
+  try {
+    for (const rota of await agendasExternasRotas()) {
+      const cid = rota.clinicaNombre ? clinicaByNombre.get(rota.clinicaNombre) : undefined;
+      if (cid) add(cid, "agenda_externa");
+    }
+  } catch (e) {
+    // caída-declarada: la campana sigue con el resto de tipos; el fallo del
+    // propio cálculo queda en el log (y la agenda YA enseña el error en pantalla).
+    console.error("[alertas] agendasExternasRotas:", e instanceof Error ? e.message : e);
+  }
+
   const totalOf = (c: Record<TipoAlerta, number>) =>
     c.leads +
     c.presupuestos +
@@ -208,7 +224,8 @@ export async function calcularAlertas(): Promise<AlertaClinica[]> {
     c.automatizaciones +
     c.cobro_vence_3d +
     c.cobro_vencido_7d +
-    c.pendiente_alto_estancado;
+    c.pendiente_alto_estancado +
+    c.agenda_externa;
 
   const out: AlertaClinica[] = [];
   for (const [clinicaId, counts] of result) {

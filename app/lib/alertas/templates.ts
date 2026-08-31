@@ -14,7 +14,10 @@ export type TipoAlerta =
   // Sprint 14b Bloque 3 — cobros financieros.
   | "cobro_vence_3d"
   | "cobro_vencido_7d"
-  | "pendiente_alto_estancado";
+  | "pendiente_alto_estancado"
+  // Nivel 2 (31-08) — el sync de una agenda externa está roto: los huecos se
+  // calculan sobre una lectura rancia y hay que saberlo (dictado: pantalla Y campana).
+  | "agenda_externa";
 
 /** Los OCHO tipos, en un solo sitio. Estaban escritos a mano en tres listas
  *  distintas (la ruta GET con cinco, la whitelist del POST con ocho, las
@@ -29,6 +32,7 @@ export const TIPOS_ALERTA: TipoAlerta[] = [
   "cobro_vence_3d",
   "cobro_vencido_7d",
   "pendiente_alto_estancado",
+  "agenda_externa",
 ];
 
 const TEMPLATES: Record<TipoAlerta, string> = {
@@ -48,6 +52,8 @@ const TEMPLATES: Record<TipoAlerta, string> = {
     "Hola {nombre}, en {clinica} hay {n} liquidaciones vencidas hace más de 7 días. Necesitan acción inmediata.",
   pendiente_alto_estancado:
     "Hola {nombre}, en {clinica} hay {n} presupuestos altos (>2.000€) aceptados hace más de 30 días sin actividad de cobro. Revisa qué pasa.",
+  agenda_externa:
+    "Hola {nombre}, la agenda externa de {n} doctor(es) de {clinica} no se puede leer — los huecos de la agenda no incluyen sus últimos cambios. Revísalo en Ajustes → Agenda.",
 };
 
 export function renderAlertaMessage(

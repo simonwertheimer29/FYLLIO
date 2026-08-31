@@ -18,7 +18,8 @@ import { Bell, ICON_STROKE } from "../icons";
 
 type Tipo =
   | "leads" | "presupuestos" | "citados" | "asistencias" | "automatizaciones"
-  | "cobro_vence_3d" | "cobro_vencido_7d" | "pendiente_alto_estancado";
+  | "cobro_vence_3d" | "cobro_vencido_7d" | "pendiente_alto_estancado"
+  | "agenda_externa";
 
 type AlertaFila = {
   clinicaId: string;
@@ -38,11 +39,14 @@ const TIPO_LABEL: Record<Tipo, string> = {
   cobro_vence_3d: "Liquidaciones a punto de vencer",
   cobro_vencido_7d: "Liquidaciones vencidas",
   pendiente_alto_estancado: "Presupuestos altos estancados",
+  agenda_externa: "Agenda externa sin poder leer",
 };
 
 /** El orden por daño de la ventana vieja: primero con €, luego urgencia fija. */
 const PRIORIDAD: Tipo[] = [
   "cobro_vencido_7d", "cobro_vence_3d", "pendiente_alto_estancado",
+  // La agenda rota va alta: cada hueco ofrecido mientras tanto puede ser falso.
+  "agenda_externa",
   "leads", "asistencias", "presupuestos", "citados", "automatizaciones",
 ];
 

@@ -27,6 +27,7 @@ import {
   RefreshCw,
 } from "../../../components/icons";
 import { ICON_STROKE } from "../../../components/icons";
+import { edadLegible } from "../../../lib/agenda/fechas";
 
 type Doctor = { id: string; nombre: string; clinicaId: string | null; clinicaNombre: string | null };
 type Especialidad = { id: string; nombre: string; activa: boolean; doctorIds: string[] };
@@ -128,7 +129,149 @@ export default function AgendaConfigView() {
       <SeccionHorarios config={config} guardar={guardar} />
       <SeccionBloqueos config={config} guardar={guardar} />
       <SeccionDuraciones config={config} guardar={guardar} />
+      <SeccionAgendaExterna doctores={config.doctores} />
     </div>
+  );
+}
+
+// ── 5 · Agenda externa (nivel 2) ─────────────────────────────────────────────
+// Su propio endpoint (/api/agenda/externa): conectar el Google Calendar de un
+// doctor, ver la SALUD de la lectura, y desconectar. El email de la cuenta de
+// servicio se enseña aquí porque es EL paso de la clínica: compartir su
+// calendario con esa dirección (solo lectura).
+
+type AgendaExternaFila = {
+  staffId: string;
+  fuente: string;
+  referenciaExterna: string;
+  activa: boolean;
+  leidoEnISO: string | null;
+  error: string | null;
+};
+
+function SeccionAgendaExterna({ doctores }: { doctores: Doctor[] }) {
+  const [datos, setDatos] = useState<{ agendas: AgendaExternaFila[]; emailServicio: string | null } | null>(null);
+  const [error, setError] = useState(false);
+  const [editando, setEditando] = useState<Record<string, string>>({});
+  const [operando, setOperando] = useState<string | null>(null);
+
+  const cargar = useCallback(async () => {
+    try {
+      setError(false);
+      setDatos(await cargarJSON<{ agendas: AgendaExternaFila[]; emailServicio: string | null }>("/api/agenda/externa"));
+    } catch {
+      // caída-declarada: la sección enseña su error con Reintentar abajo
+      setError(true);
+    }
+  }, []);
+  useEffect(() => { void cargar(); }, [cargar]);
+
+  async function conectar(staffId: string, calendarId: string | null) {
+    if (operando) return;
+    setOperando(staffId);
+    try {
+      await cargarJSON("/api/agenda/externa", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ staffId, calendarId }),
+      });
+      toast.success(calendarId ? "Calendario conectado — primera lectura hecha" : "Calendario desconectado");
+      setEditando((e) => ({ ...e, [staffId]: "" }));
+      await cargar();
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : "No se pudo guardar la conexión.");
+      // El PUT pudo dejar la conexión con su error persistido: recargar para verlo.
+      await cargar();
+    } finally {
+      setOperando(null);
+    }
+  }
+
+  const porDoctor = new Map((datos?.agendas ?? []).map((a) => [a.staffId, a]));
+
+  return (
+    <Card padding="lg">
+      <h2 className="font-display text-base font-semibold text-[var(--color-foreground)]">Agenda externa</h2>
+      <p className="mt-0.5 text-xs text-[var(--color-muted)]">
+        Lectura del Google Calendar de un doctor: sus eventos cuentan como ocupado al calcular huecos.
+        Solo lectura — Fyllio nunca escribe en el calendario de la clínica.
+      </p>
+
+      {error && (
+        <p className="mt-3 text-[13px] text-[var(--color-danger)]">
+          No se pudo cargar el estado de las agendas externas.{" "}
+          <button onClick={() => void cargar()} className="font-medium underline">Reintentar</button>
+        </p>
+      )}
+      {!error && !datos && <div className="fyllio-skeleton mt-3 h-24" />}
+      {!error && datos && (
+        <>
+          {datos.emailServicio ? (
+            <p className="mt-3 rounded-lg bg-[var(--color-accent-soft)] px-3 py-2 text-[12.5px] text-[var(--color-foreground)]">
+              El paso de la clínica: compartir su calendario (solo «ver todos los detalles») con{" "}
+              <strong className="break-all">{datos.emailServicio}</strong> y pegar aquí el identificador del calendario.
+            </p>
+          ) : (
+            <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">
+              La lectura de Google Calendar no está configurada en este entorno — las conexiones no podrán leerse hasta configurarla.
+            </p>
+          )}
+          <ul className="mt-3 divide-y divide-[var(--color-border)]">
+            {doctores.map((d) => {
+              const con = porDoctor.get(d.id);
+              return (
+                <li key={d.id} className="flex flex-wrap items-center gap-2 py-2.5">
+                  <span className="min-w-[11rem] text-[13px] font-medium text-[var(--color-foreground)]">
+                    {d.nombre}
+                  </span>
+                  {con ? (
+                    <>
+                      <span className="min-w-0 flex-1 truncate text-[12px] tabular-nums text-[var(--color-muted)]" title={con.referenciaExterna}>
+                        {con.referenciaExterna}
+                      </span>
+                      {con.error ? (
+                        <span className="text-[12px] font-medium text-[var(--color-danger)]" title={con.error}>
+                          Sin poder leer
+                        </span>
+                      ) : con.leidoEnISO ? (
+                        <span className="text-[12px] text-[var(--color-muted)]">leída {edadLegible(con.leidoEnISO)}</span>
+                      ) : (
+                        <span className="text-[12px] text-[var(--color-muted)]">sin primera lectura</span>
+                      )}
+                      <button
+                        type="button"
+                        disabled={operando === d.id}
+                        onClick={() => void conectar(d.id, null)}
+                        className="rounded-lg border border-[var(--color-border)] px-2.5 py-1 text-[12px] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
+                      >
+                        Desconectar
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <input
+                        value={editando[d.id] ?? ""}
+                        onChange={(e) => setEditando((s) => ({ ...s, [d.id]: e.target.value }))}
+                        placeholder="Identificador del calendario (…@group.calendar.google.com)"
+                        className="h-8 min-w-0 flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-2 text-[12px] text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        disabled={operando === d.id || !(editando[d.id] ?? "").trim()}
+                        onClick={() => void conectar(d.id, (editando[d.id] ?? "").trim())}
+                        className="rounded-lg bg-[var(--color-accent)] px-2.5 py-1 text-[12px] font-medium text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+                      >
+                        {operando === d.id ? "Conectando…" : "Conectar"}
+                      </button>
+                    </>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </>
+      )}
+    </Card>
   );
 }
 

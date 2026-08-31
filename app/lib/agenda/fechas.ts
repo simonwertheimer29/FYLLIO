@@ -32,3 +32,30 @@ export function diaMes(fecha: string): string {
 export function diaMesCorto(fecha: string): string {
   return FMT_DIA_MES_CORTO.format(anclada(fecha)).replace(/\.$/, "").replace(". ", " ");
 }
+
+// ─── Nivel 2 · la EDAD de una lectura externa ───────────────────────────────
+// El dato externo lleva siempre su edad (dictado): «hace 3 min» se entiende;
+// un timestamp crudo no. A partir de un día, la fecha corta con hora.
+
+/** ISO → "hace 3 min" · "hace 2 h" · "el Lun 31 ago a las 09:15". */
+export function edadLegible(iso: string, ahora: Date = new Date()): string {
+  const ms = ahora.getTime() - new Date(iso).getTime();
+  const min = Math.floor(ms / 60_000);
+  if (min < 1) return "hace menos de un minuto";
+  if (min < 60) return `hace ${min} min`;
+  const h = Math.floor(min / 60);
+  if (h < 24) return `hace ${h} h`;
+  return `el ${fechaHoraLegible(iso)}`;
+}
+
+/** ISO → "Lun 31 ago a las 09:15" (en la zona de la clínica). */
+export function fechaHoraLegible(iso: string): string {
+  const d = new Date(iso);
+  const fecha = new Intl.DateTimeFormat("es-ES", {
+    weekday: "short", day: "numeric", month: "short", timeZone: "Europe/Madrid",
+  }).format(d).replace(/\.$/, "").replace(". ", " ").replace(/^(\w)/, (m) => m.toUpperCase());
+  const hora = new Intl.DateTimeFormat("es-ES", {
+    hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "Europe/Madrid",
+  }).format(d);
+  return `${fecha} a las ${hora}`;
+}

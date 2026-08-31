@@ -345,6 +345,41 @@ export interface Tabla_bloqueos_staff {
   created_at: Generated<Date>;
 }
 
+/** 033 — Nivel 2: conexión doctor ↔ agenda externa (Calendar primero, PMS
+ *  después). `ultimo_sync_ok` es la EDAD del dato que la UI enseña siempre;
+ *  `ultimo_error != null` = sync roto: se dice en pantalla y campana. */
+export interface Tabla_agendas_externas {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  staff_id: string;
+  fuente: "google_calendar";
+  referencia_externa: string;
+  activa: Generated<boolean>;
+  sync_cursor: string | null;
+  ultimo_sync_ok: Date | null;
+  ultimo_error: string | null;
+  ultimo_error_en: Date | null;
+  created_at: Generated<Date>;
+}
+
+/** 033 — Nivel 2: intervalos OPACOS leídos de la agenda externa. Cuentan
+ *  como ocupado en el motor; paciente/tratamiento/sillón son opcionales del
+ *  contrato del conector (para el PMS futuro), jamás adivinados. */
+export interface Tabla_ocupaciones_externas {
+  id: Generated<string>;
+  cliente: "RB" | "INDEP" | "DEMO";
+  agenda_externa_id: string;
+  external_id: string;
+  inicio: Date;
+  fin: Date;
+  etiqueta: string | null;
+  dia_entero: Generated<boolean>;
+  paciente_texto: string | null;
+  tratamiento_texto: string | null;
+  sillon_texto: string | null;
+  sync_at: Generated<Date>;
+}
+
 // ─── El esquema real ────────────────────────────────────────────────────────
 
 export interface DB
@@ -380,4 +415,6 @@ export interface DB
   staff_especialidades: Tabla_staff_especialidades;
   horarios_staff: Tabla_horarios_staff;
   bloqueos_staff: Tabla_bloqueos_staff;
+  agendas_externas: Tabla_agendas_externas;
+  ocupaciones_externas: Tabla_ocupaciones_externas;
 }

@@ -2000,3 +2000,11 @@ verdad: un editor, un vocabulario, un renderizador.
 - **El arreglo:** sin match exacto → no se propone mensaje (hueco honesto, como la opción (b) de
   la cola de envíos), nunca un desempate. Hacerlo como precondición de B5, no después.
 - **Fecha:** 2026-08-31
+
+## 116. Calendario de CLÍNICA para festivos y cierres (nivel 2, «sí pero después»)
+- **Qué es:** el mapeo del nivel 2 es un calendario POR DOCTOR. Falta el de clínica: festivos,
+  cierres y vacaciones colectivas que bloquean a TODOS los doctores de una clínica a la vez.
+- **El arreglo:** extensión natural del modelo 033 — `agendas_externas.staff_id` nullable +
+  `clinica_id`, y sus ocupaciones se restan como bloqueo global en el compositor. El conector no
+  cambia. Dictado el 31-08: «sí, pero después».
+- **Fecha:** 2026-08-31

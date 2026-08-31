@@ -63,6 +63,12 @@ export const CONTRATO: Requisito[] = [
     nivel: "funcional",
   },
   {
+    nombre: "GOOGLE_SERVICE_ACCOUNT_JSON",
+    rompe:
+      "La lectura de agendas externas (nivel 2, Google Calendar): las conectadas dejan de refrescarse y lo dicen.",
+    nivel: "funcional",
+  },
+  {
     nombre: "WABA_PHONE_NUMBER_ID",
     rompe: "El envío de WhatsApp: falta el número emisor.",
     nivel: "funcional",

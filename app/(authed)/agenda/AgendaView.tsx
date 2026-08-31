@@ -28,7 +28,7 @@ import { hoyISO, sumaDias, horaClinica } from "../../lib/time";
 import { aMin, deMin, diaSemanaISO } from "../../lib/agenda/disponibilidad";
 import { AVISO_HUECOS } from "../../lib/agenda/avisos";
 import { resumenDeAgendaDia } from "../../lib/agenda/resumen";
-import { fechaCorta, fechaLarga, diaMes, diaMesCorto } from "../../lib/agenda/fechas";
+import { fechaCorta, fechaLarga, diaMes, diaMesCorto, edadLegible, fechaHoraLegible } from "../../lib/agenda/fechas";
 import { CitaPanel } from "./CitaPanel";
 import { nombreCortoDoctor } from "../../lib/agenda/nombres";
 import { EditorCitaFlotante, type BorradorCita } from "./EditorCitaFlotante";
@@ -63,6 +63,8 @@ type PorDoctor = {
   franjas: Array<{ inicio: string; fin: string }>;
   bloqueos: Array<{ inicio: number; fin: number; motivo: string | null }>;
   citas: CitaDia[];
+  /** Nivel 2 — ocupaciones leídas de la agenda externa: opacas, no editables. */
+  externas: Array<{ inicio: number; fin: number; etiqueta: string | null; diaEntero: boolean }>;
   libres: Array<{ inicio: number; fin: number }> | null;
 };
 type Pendiente = {
@@ -71,6 +73,15 @@ type Pendiente = {
 };
 type Semana = {
   desde: string;
+  /** Nivel 2 — salud de cada agenda externa conectada: la EDAD de la lectura
+   *  se enseña siempre; con error, el sync está roto y se dice. */
+  agendasExternas: Array<{
+    staffId: string;
+    fuente: string;
+    leidoEnISO: string | null;
+    error: string | null;
+    errorEnISO: string | null;
+  }>;
   doctores: DoctorSemana[];
   especialidades: Array<{ id: string; nombre: string }>;
   dias: Array<{ fecha: string; porDoctor: PorDoctor[] }>;
@@ -453,11 +464,48 @@ export function AgendaView() {
         )}
       </div>
 
-      {/* El aviso de nivel: línea propia — cabe SIEMPRE, envuelve si hace falta */}
-      <p data-aviso-nivel className="mb-3 flex items-start gap-1.5 text-[11px] leading-snug text-[var(--color-muted)]">
-        <Info size={12} strokeWidth={ICON_STROKE} className="mt-px shrink-0 text-[var(--color-accent)]" aria-hidden />
-        <span>Las horas libres son orientativas: dependen del nivel de integración con la agenda real de tu clínica.</span>
-      </p>
+      {/* El aviso de nivel: línea propia — cabe SIEMPRE, envuelve si hace falta.
+          Nivel 2 (dictado): con agenda externa conectada el aviso CAMBIA DE
+          FORMA pero no desaparece — la edad de la lectura va siempre; y un
+          sync roto se dice en rojo, jamás huecos frescos sobre lectura rancia. */}
+      {(() => {
+        const conectadas = data?.agendasExternas ?? [];
+        const rota = conectadas.find((a) => a.error != null);
+        if (rota) {
+          const doc = data?.doctores.find((x) => x.id === rota.staffId);
+          return (
+            <p data-aviso-nivel className="mb-3 flex items-start gap-1.5 text-[11px] leading-snug text-[var(--color-danger)]">
+              <AlertTriangle size={12} strokeWidth={ICON_STROKE} className="mt-px shrink-0" aria-hidden />
+              <span>
+                La agenda externa{doc ? ` de ${nombreCortoDoctor(doc.nombre)}` : ""} no se puede leer
+                {rota.errorEnISO ? ` desde ${fechaHoraLegible(rota.errorEnISO)}` : ""} — los huecos NO incluyen sus últimos cambios.
+                {rota.leidoEnISO ? ` Última lectura buena: ${fechaHoraLegible(rota.leidoEnISO)}.` : " Nunca se ha podido leer."}
+              </span>
+            </p>
+          );
+        }
+        if (conectadas.length > 0) {
+          // La edad que se enseña es la PEOR: una agenda jamás leída manda.
+          const masVieja = conectadas.some((a) => a.leidoEnISO == null)
+            ? null
+            : conectadas.map((a) => a.leidoEnISO!).sort()[0];
+          return (
+            <p data-aviso-nivel className="mb-3 flex items-start gap-1.5 text-[11px] leading-snug text-[var(--color-muted)]">
+              <Info size={12} strokeWidth={ICON_STROKE} className="mt-px shrink-0 text-[var(--color-accent)]" aria-hidden />
+              <span>
+                Huecos calculados con la agenda externa
+                {masVieja ? ` — leída ${edadLegible(masVieja)}` : " — todavía sin primera lectura"}. Pueden cambiar entre lecturas: confirma antes de prometer una hora.
+              </span>
+            </p>
+          );
+        }
+        return (
+          <p data-aviso-nivel className="mb-3 flex items-start gap-1.5 text-[11px] leading-snug text-[var(--color-muted)]">
+            <Info size={12} strokeWidth={ICON_STROKE} className="mt-px shrink-0 text-[var(--color-accent)]" aria-hidden />
+            <span>Las horas libres son orientativas: dependen del nivel de integración con la agenda real de tu clínica.</span>
+          </p>
+        );
+      })()}
 
       {!data && cargando ? (
         <div className="h-[28rem] animate-pulse rounded-xl bg-[var(--color-surface-muted)]" />
@@ -939,6 +987,19 @@ function Carriles({
                     style={{ top: y(b.inicio) + 1, height: Math.max(20, (b.fin - b.inicio) * PX_MIN - 2) }}>
                     <p className="truncate text-[10px] text-[var(--color-muted)]">
                       <span className="[font-variant-numeric:tabular-nums]">{deMin(b.inicio)}–{deMin(b.fin)}</span> {b.motivo ?? "bloqueado"}
+                    </p>
+                  </div>
+                ))}
+                {/* Nivel 2 — ocupaciones de la agenda EXTERNA: opacas, sin
+                    gestos (no son nuestras: ni mover ni estirar ni abrir).
+                    Borde punteado = «leído de fuera», distinto del bloqueo. */}
+                {pd.externas?.map((o, i) => (
+                  <div key={`x${i}`} data-externa
+                    className="absolute inset-x-1 rounded border border-dashed border-[var(--color-border)] bg-[var(--color-surface-muted)]/80 px-1.5 py-1"
+                    style={{ top: y(o.inicio) + 1, height: Math.max(20, (o.fin - o.inicio) * PX_MIN - 2) }}>
+                    <p className="truncate text-[10px] text-[var(--color-muted)]">
+                      <span className="[font-variant-numeric:tabular-nums]">{deMin(o.inicio)}–{deMin(o.fin)}</span>{" "}
+                      {o.etiqueta ?? "ocupado"} · externo
                     </p>
                   </div>
                 ))}
