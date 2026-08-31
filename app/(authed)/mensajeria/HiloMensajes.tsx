@@ -68,7 +68,7 @@ export function HiloMensajes({ mensajes }: { mensajes: MensajeHilo[] }) {
               {/* Ancho máximo: una burbuja a todo lo ancho no se lee como una
                   conversación, se lee como un documento. */}
               <div
-                className={`max-w-[min(34rem,78%)] rounded-2xl px-3.5 py-2.5 ${
+                className={`max-w-[min(34rem,78%)] rounded-xl px-3.5 py-2.5 ${
                   mio
                     ? "rounded-br-md bg-[var(--color-accent)] text-[var(--color-on-accent)]"
                     : "rounded-bl-md border border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-foreground)]"

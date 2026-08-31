@@ -982,7 +982,7 @@ function PlantillaEditor({
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/40 flex items-center justify-center p-4">
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="px-5 py-4 border-b border-[var(--color-border)]">
           <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">
             {mode === "create" ? "Nueva plantilla" : "Editar plantilla"}

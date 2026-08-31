@@ -86,7 +86,7 @@ export function AsistenciaModal({
       <form
         onClick={(e) => e.stopPropagation()}
         onSubmit={submit}
-        className="w-full max-w-md rounded-3xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl p-6 space-y-3"
+        className="w-full max-w-md rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl p-6 space-y-3"
       >
         <div className="flex items-center justify-between">
           <div>
@@ -121,7 +121,7 @@ export function AsistenciaModal({
                 required
                 value={tratamiento}
                 onChange={(e) => setTratamiento(e.target.value)}
-                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+                className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
               >
                 <option value="">— Selecciona —</option>
                 {TRATAMIENTOS.map((t) => (
@@ -140,7 +140,7 @@ export function AsistenciaModal({
                 value={importe}
                 onChange={(e) => setImporte(e.target.value)}
                 placeholder="1500"
-                className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+                className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
               />
             </Labeled>
           </div>
@@ -152,7 +152,7 @@ export function AsistenciaModal({
             onChange={(e) => setNotasAdicionales(e.target.value)}
             rows={2}
             placeholder="Observaciones del día, financiación, etc."
-            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           />
         </Labeled>
 
@@ -173,7 +173,7 @@ export function AsistenciaModal({
           <button
             type="submit"
             disabled={!canSave}
-            className="flex-1 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2.5 hover:bg-[var(--color-accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2.5 hover:bg-[var(--color-accent-hover)] disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Guardando…" : "Confirmar asistencia"}
           </button>

@@ -96,7 +96,7 @@ export default function AgendaConfigView() {
         <button
           type="button"
           onClick={() => void cargar()}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-on-accent)] hover:opacity-90"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-on-accent)] hover:opacity-90"
         >
           <RefreshCw size={14} strokeWidth={ICON_STROKE} aria-hidden /> Reintentar
         </button>
@@ -108,7 +108,7 @@ export default function AgendaConfigView() {
     return (
       <div className="mx-auto max-w-3xl space-y-4">
         {[0, 1, 2, 3].map((i) => (
-          <div key={i} className="h-32 animate-pulse rounded-2xl bg-[var(--color-surface-muted)]" />
+          <div key={i} className="h-32 animate-pulse rounded-xl bg-[var(--color-surface-muted)]" />
         ))}
       </div>
     );
@@ -222,12 +222,12 @@ function SeccionEspecialidades({ config, guardar }: SeccionProps) {
           onChange={(e) => setNueva(e.target.value)}
           placeholder="Nueva especialidad (p. ej. Ortodoncia)"
           maxLength={60}
-          className="flex-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted)]"
+          className="flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted)]"
         />
         <button
           type="submit"
           disabled={!nueva.trim()}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--color-accent)] px-3 py-2 text-sm font-semibold text-[var(--color-on-accent)] hover:opacity-90 disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-sm font-semibold text-[var(--color-on-accent)] hover:opacity-90 disabled:opacity-40"
         >
           <Plus size={14} strokeWidth={ICON_STROKE} aria-hidden /> Crear
         </button>
@@ -268,7 +268,7 @@ function SeccionHorarios({ config, guardar }: SeccionProps) {
           <select
             value={staffId}
             onChange={(e) => { setStaffId(e.target.value); setBorrador(null); }}
-            className="mb-3 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)] sm:w-72"
+            className="mb-3 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)] sm:w-72"
           >
             {config.doctores.map((d) => (
               <option key={d.id} value={d.id}>
@@ -350,7 +350,7 @@ function SeccionHorarios({ config, guardar }: SeccionProps) {
                   .then((ok) => { if (ok) setBorrador(null); })
                   .finally(() => setGuardando(false));
               }}
-              className="rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-on-accent)] hover:opacity-90 disabled:opacity-40"
+              className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-on-accent)] hover:opacity-90 disabled:opacity-40"
             >
               Guardar horario
             </button>
@@ -432,7 +432,7 @@ function SeccionBloqueos({ config, guardar }: SeccionProps) {
           <select
             value={staffId}
             onChange={(e) => setStaffId(e.target.value)}
-            className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)] sm:col-span-2"
+            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)] sm:col-span-2"
           >
             {config.doctores.map((d) => (
               <option key={d.id} value={d.id}>{d.nombre}</option>
@@ -441,24 +441,24 @@ function SeccionBloqueos({ config, guardar }: SeccionProps) {
           <label className="text-[11px] font-medium text-[var(--color-muted)]">
             Desde
             <input type="datetime-local" required value={inicio} onChange={(e) => setInicio(e.target.value)}
-              className="mt-0.5 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)]" />
+              className="mt-0.5 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)]" />
           </label>
           <label className="text-[11px] font-medium text-[var(--color-muted)]">
             Hasta
             <input type="datetime-local" required value={fin} onChange={(e) => setFin(e.target.value)}
-              className="mt-0.5 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)]" />
+              className="mt-0.5 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)]" />
           </label>
           <input
             value={motivo}
             onChange={(e) => setMotivo(e.target.value)}
             placeholder="Motivo (opcional): vacaciones, congreso…"
             maxLength={200}
-            className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] sm:col-span-2"
+            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] sm:col-span-2"
           />
           <button
             type="submit"
             disabled={!inicio || !fin}
-            className="inline-flex w-fit items-center gap-1.5 rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-on-accent)] hover:opacity-90 disabled:opacity-40"
+            className="inline-flex w-fit items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-on-accent)] hover:opacity-90 disabled:opacity-40"
           >
             <Plus size={14} strokeWidth={ICON_STROKE} aria-hidden /> Añadir bloqueo
           </button>

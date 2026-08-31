@@ -139,7 +139,7 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
           <button
             type="button"
             onClick={() => setModalClinica("new")}
-            className="rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-semibold px-3 py-1.5 hover:bg-[var(--color-accent-hover)]"
+            className="rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-semibold px-3 py-1.5 hover:bg-[var(--color-accent-hover)]"
           >
             + Añadir clínica
           </button>
@@ -206,7 +206,7 @@ export function ClinicaEquipoView({ initialClinicas, initialUsuarios }: Props) {
           <button
             type="button"
             onClick={() => setModalUsuario("new")}
-            className="rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-semibold px-3 py-1.5 hover:bg-[var(--color-accent-hover)]"
+            className="rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-semibold px-3 py-1.5 hover:bg-[var(--color-accent-hover)]"
           >
             + Añadir usuario
           </button>
@@ -619,14 +619,14 @@ function PinShownModal({
           {nombre} ({rol === "admin" ? "Administrador" : "Coordinación"}). Este PIN solo se
           muestra esta vez — cópialo ahora y entrégalo al usuario.
         </p>
-        <div className="rounded-2xl bg-[var(--color-foreground)] text-[var(--color-background)] font-mono text-4xl font-bold text-center py-6 tracking-[0.35em]">
+        <div className="rounded-xl bg-[var(--color-foreground)] text-[var(--color-background)] font-mono text-4xl font-bold text-center py-6 tracking-[0.35em]">
           {pin}
         </div>
         <div className="flex gap-2">
           <button
             type="button"
             onClick={copy}
-            className="flex-1 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2.5 hover:bg-[var(--color-accent-hover)]"
+            className="flex-1 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2.5 hover:bg-[var(--color-accent-hover)]"
           >
             {copied ? "Copiado" : "Copiar PIN"}
           </button>
@@ -663,7 +663,7 @@ function ModalShell({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-3xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl p-6"
+        className="w-full max-w-md rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl p-6"
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">{title}</h3>
@@ -703,7 +703,7 @@ function LabeledInput({
         value={value}
         required={required}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent)]"
+        className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-foreground)] focus:outline-none focus:border-[var(--color-accent)]"
       />
     </div>
   );
@@ -730,7 +730,7 @@ function ModalFooter({
       <button
         type="submit"
         disabled={submitting}
-        className="flex-1 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2.5 hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+        className="flex-1 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2.5 hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
       >
         {submitting ? "Guardando…" : label}
       </button>

@@ -332,13 +332,13 @@ function HeroKpis({ data, loading }: { data: ApiResponse | null; loading: boolea
 function BloquesEsqueleto() {
   return (
     <div className="space-y-12" aria-hidden>
-      <div className="fyllio-skeleton h-[260px] rounded-2xl" />
-      <div className="fyllio-skeleton h-[220px] rounded-2xl" />
+      <div className="fyllio-skeleton h-[260px] rounded-xl" />
+      <div className="fyllio-skeleton h-[220px] rounded-xl" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <div className="fyllio-skeleton h-[280px] rounded-2xl" />
-        <div className="fyllio-skeleton h-[280px] rounded-2xl" />
+        <div className="fyllio-skeleton h-[280px] rounded-xl" />
+        <div className="fyllio-skeleton h-[280px] rounded-xl" />
       </div>
-      <div className="fyllio-skeleton h-[200px] rounded-2xl" />
+      <div className="fyllio-skeleton h-[200px] rounded-xl" />
     </div>
   );
 }

@@ -136,7 +136,7 @@ export function EstadoPresupuestoFlow({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl"
+        className="w-full max-w-sm rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border)]">

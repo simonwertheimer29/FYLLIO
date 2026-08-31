@@ -268,7 +268,7 @@ export function CobrosView() {
             hint="Cuando un presupuesto se acepte, su cobro aparecerá aquí. Prueba a cambiar los filtros."
           />
         ) : (
-          <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-x-auto">
+          <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-x-auto">
             <table className="w-full text-sm min-w-[860px]">
               <thead>
                 <tr className="text-left text-[11px] uppercase tracking-wide text-[var(--color-muted)] border-b border-[var(--color-border)]">
@@ -400,7 +400,7 @@ function ColaCobrosSkeleton() {
             {Array.from({ length: n }).map((_, i) => (
               <div
                 key={i}
-                className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
+                className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4"
                 style={{ borderLeft: `${b === 0 ? 6 : 4}px solid var(--color-border)` }}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -424,7 +424,7 @@ function ColaCobrosSkeleton() {
 function RegistroSkeleton() {
   return (
     <div
-      className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden"
+      className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden"
       aria-hidden
     >
       <div className="px-4 py-3 border-b border-[var(--color-border)]">

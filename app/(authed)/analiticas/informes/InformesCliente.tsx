@@ -14,7 +14,7 @@ const InformesView = NextDynamic(
     loading: () => (
       <div className="space-y-3 p-4 lg:p-6 animate-pulse">
         {[0, 1, 2].map((i) => (
-          <div key={i} className="h-28 rounded-2xl bg-[var(--color-surface-muted)]" />
+          <div key={i} className="h-28 rounded-xl bg-[var(--color-surface-muted)]" />
         ))}
       </div>
     ),

@@ -286,7 +286,7 @@ export function BancoPruebasView() {
             {turnos.map((t, i) =>
               t.direccion === "Entrante" ? (
                 <div key={i} className="flex justify-end">
-                  <div className="max-w-[80%] rounded-xl rounded-br-sm bg-[var(--color-accent)] px-3 py-2 text-[13px] text-white">
+                  <div className="max-w-[80%] rounded-lg rounded-br-sm bg-[var(--color-accent)] px-3 py-2 text-[13px] text-white">
                     {t.contenido}
                   </div>
                 </div>

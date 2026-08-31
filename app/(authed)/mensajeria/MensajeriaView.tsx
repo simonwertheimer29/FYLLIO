@@ -272,7 +272,7 @@ export function MensajeriaView() {
       <div className="flex-1 min-h-0 flex gap-4 px-4 lg:px-6 pb-4 lg:pb-6 pt-3">
         {/* ── Izquierda: la lista ─────────────────────────────────────── */}
         <aside
-          className={`flex min-h-0 w-full flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] md:w-80 md:shrink-0 ${
+          className={`flex min-h-0 w-full flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] md:w-80 md:shrink-0 ${
             abierta ? "hidden md:flex" : "flex"
           }`}
         >
@@ -351,7 +351,7 @@ export function MensajeriaView() {
 
         {/* ── Centro: la conversación ─────────────────────────────────── */}
         <section
-          className={`min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] ${
+          className={`min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] ${
             abierta ? "flex" : "hidden md:flex"
           }`}
         >
@@ -435,7 +435,7 @@ export function MensajeriaView() {
         </section>
 
         {/* ── Derecha: el contexto ────────────────────────────────────── */}
-        <aside className="hidden min-h-0 w-72 shrink-0 overflow-y-auto rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] lg:block">
+        <aside className="hidden min-h-0 w-72 shrink-0 overflow-y-auto rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] lg:block">
           {/* B2: la ficha del caso sustituye al resumen viejo; el `caso` del
               clasificador sigue alimentando SOLO al compositor (borrador). */}
           <ContextoConversacion

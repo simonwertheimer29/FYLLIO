@@ -92,7 +92,7 @@ export function MotivoNoInteresModal({
         if (e.target === e.currentTarget) onCancel();
       }}
     >
-      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-2xl shadow-2xl p-6 w-full max-w-sm max-h-[90dvh] overflow-y-auto">
+      <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-xl shadow-2xl p-6 w-full max-w-sm max-h-[90dvh] overflow-y-auto">
         <p className="font-display text-base font-semibold text-[var(--color-foreground)] mb-1">
           ¿Por qué se descarta este lead?
         </p>
@@ -125,7 +125,7 @@ export function MotivoNoInteresModal({
           <button
             type="button"
             onClick={onCancel}
-            className="flex-1 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold py-2 hover:bg-[var(--color-surface-muted)]"
+            className="flex-1 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] text-sm font-semibold py-2 hover:bg-[var(--color-surface-muted)]"
           >
             Cancelar
           </button>
@@ -133,7 +133,7 @@ export function MotivoNoInteresModal({
             type="button"
             onClick={() => seleccionado && onConfirm(seleccionado)}
             disabled={!seleccionado}
-            className="flex-1 rounded-xl bg-[var(--color-danger)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 rounded-lg bg-[var(--color-danger)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Confirmar y mover
           </button>

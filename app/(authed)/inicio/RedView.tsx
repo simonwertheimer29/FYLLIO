@@ -287,7 +287,7 @@ function FranjaSenales({
   const color = COLOR_TONO[tono];
   return (
     <section
-      className="rounded-2xl p-3 sm:p-4 h-full"
+      className="rounded-xl p-3 sm:p-4 h-full"
       style={{
         background: FONDO_TONO[tono],
         border: `1px solid color-mix(in srgb, ${color} 22%, transparent)`,
@@ -561,8 +561,8 @@ export function RedView({ user: _user }: { user: UserSession }) {
         <div className="max-w-screen-2xl mx-auto p-4 lg:p-8 space-y-8">
           <Skeleton className="h-8 w-40 rounded-lg" />
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-            <Skeleton className="h-[220px] lg:col-span-3 rounded-2xl" />
-            <Skeleton className="h-[220px] lg:col-span-2 rounded-2xl" />
+            <Skeleton className="h-[220px] lg:col-span-3 rounded-xl" />
+            <Skeleton className="h-[220px] lg:col-span-2 rounded-xl" />
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 lg:gap-8">
             <Skeleton className="h-72 lg:col-span-3 rounded-xl" />
@@ -719,7 +719,7 @@ export function RedView({ user: _user }: { user: UserSession }) {
                   ahora. Solo aparece si hay algo — una franja vacía más en la
                   pantalla del dinero es ruido. */}
               {hoy.avisos.length > 0 && (
-                <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+                <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
                   <div className="flex items-center gap-2">
                     <Clock
                       size={18}

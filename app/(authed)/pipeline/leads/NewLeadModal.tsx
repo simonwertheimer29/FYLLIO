@@ -76,7 +76,7 @@ export function NewLeadModal({
       <form
         onSubmit={submit}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md rounded-3xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl p-6 space-y-3"
+        className="w-full max-w-md rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] shadow-xl p-6 space-y-3"
       >
         <div className="flex items-center justify-between">
           <h3 className="font-display text-base font-semibold text-[var(--color-foreground)]">Nuevo lead</h3>
@@ -96,7 +96,7 @@ export function NewLeadModal({
             value={nombre}
             required
             onChange={(e) => setNombre(e.target.value)}
-            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           />
         </Labeled>
 
@@ -106,7 +106,7 @@ export function NewLeadModal({
               type="tel"
               value={telefono}
               onChange={(e) => setTelefono(e.target.value)}
-              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
             />
           </Labeled>
           <Labeled label="Email">
@@ -114,7 +114,7 @@ export function NewLeadModal({
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
             />
           </Labeled>
         </div>
@@ -124,7 +124,7 @@ export function NewLeadModal({
             value={clinicaId}
             required
             onChange={(e) => setClinicaId(e.target.value)}
-            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           >
             {clinicas.map((c) => (
               <option key={c.id} value={c.id}>
@@ -139,7 +139,7 @@ export function NewLeadModal({
             <select
               value={tratamiento}
               onChange={(e) => setTratamiento(e.target.value)}
-              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
             >
               <option value="">—</option>
               {TRATAMIENTOS.map((t) => (
@@ -153,7 +153,7 @@ export function NewLeadModal({
             <select
               value={canal}
               onChange={(e) => setCanal(e.target.value)}
-              className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
             >
               <option value="">—</option>
               {CANALES.map((c) => (
@@ -170,7 +170,7 @@ export function NewLeadModal({
             type="date"
             value={fechaCita}
             onChange={(e) => setFechaCita(e.target.value)}
-            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           />
         </Labeled>
 
@@ -179,7 +179,7 @@ export function NewLeadModal({
             value={notas}
             onChange={(e) => setNotas(e.target.value)}
             rows={2}
-            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
           />
         </Labeled>
 
@@ -200,7 +200,7 @@ export function NewLeadModal({
           <button
             type="submit"
             disabled={saving}
-            className="flex-1 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2.5 hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
+            className="flex-1 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold py-2.5 hover:bg-[var(--color-accent-hover)] disabled:opacity-50"
           >
             {saving ? "Guardando…" : "Crear lead"}
           </button>

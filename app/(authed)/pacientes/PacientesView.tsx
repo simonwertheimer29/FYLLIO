@@ -517,7 +517,7 @@ export function PacientesView({
       </div>
 
       {/* Tabla */}
-      <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="bg-[var(--color-surface-muted)] text-[var(--color-muted)] text-[10px] uppercase tracking-wider">

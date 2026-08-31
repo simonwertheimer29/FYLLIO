@@ -283,7 +283,7 @@ export function AgendaView() {
           <button
             type="button"
             onClick={() => void cargar(desde)}
-            className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-on-accent)] hover:opacity-90"
+            className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-4 py-2 text-sm font-semibold text-[var(--color-on-accent)] hover:opacity-90"
           >
             <RefreshCw size={14} strokeWidth={ICON_STROKE} aria-hidden /> Reintentar
           </button>
@@ -459,7 +459,7 @@ export function AgendaView() {
       </p>
 
       {!data && cargando ? (
-        <div className="h-[28rem] animate-pulse rounded-2xl bg-[var(--color-surface-muted)]" />
+        <div className="h-[28rem] animate-pulse rounded-xl bg-[var(--color-surface-muted)]" />
       ) : data ? (
         <div className={cargando ? "opacity-60" : ""}>
           {vista === "dia" ? (
@@ -1121,7 +1121,7 @@ function VistaDia({
 } & PropsCarrilesComunes) {
   if (!dia) {
     // El día activo cayó fuera de la semana cargada (transición de fetch).
-    return <div className="h-[28rem] animate-pulse rounded-2xl bg-[var(--color-surface-muted)]" />;
+    return <div className="h-[28rem] animate-pulse rounded-xl bg-[var(--color-surface-muted)]" />;
   }
   const lanes: Carril[] = visibles
     .map((doc) => ({ doc, pd: dia.porDoctor.find((p) => p.staffId === doc.id) }))
@@ -1154,7 +1154,7 @@ function VistaDia({
           value={docMovil}
           onChange={(e) => onDocMovil(e.target.value)}
           aria-label="Doctor visible en móvil"
-          className="mb-2 w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs text-[var(--color-foreground)] lg:hidden"
+          className="mb-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs text-[var(--color-foreground)] lg:hidden"
         >
           {visibles.map((doc) => <option key={doc.id} value={doc.id}>{doc.nombre}</option>)}
         </select>
@@ -1219,7 +1219,7 @@ function VistaSemana({
           value={doc.id}
           onChange={(e) => onDocSemana(e.target.value)}
           aria-label="Doctor de la semana"
-          className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs font-semibold text-[var(--color-accent)]"
+          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs font-semibold text-[var(--color-accent)]"
         >
           {visibles.map((d) => <option key={d.id} value={d.id}>{d.nombre}</option>)}
         </select>

@@ -275,7 +275,7 @@ function ComparativaClinicas({
           hint="Cuando haya cobros registrados, la comparativa aparecerá aquí."
         />
       ) : (
-        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden">
+        <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-surface-muted)] text-[11px] uppercase tracking-wide text-[var(--color-muted)] font-semibold">
               <tr>
@@ -365,7 +365,7 @@ function DistribucionMetodos({ data }: { data: ApiResponse | null }) {
           hint="Los pagos que se registren aparecerán aquí."
         />
       ) : (
-        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] p-5 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+        <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] p-5 grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -446,7 +446,7 @@ function TopPacientesPendientes({ data }: { data: ApiResponse | null }) {
           hint="Cuando un paciente tenga saldo por cobrar, aparecerá aquí."
         />
       ) : (
-        <div className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] overflow-hidden">
+        <div className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] overflow-hidden">
           <table className="w-full text-sm">
             <thead className="bg-[var(--color-surface-muted)] text-[11px] uppercase tracking-wide text-[var(--color-muted)] font-semibold">
               <tr>
@@ -602,7 +602,7 @@ function CobrosDrillDrawer({
                   title="Sin pacientes pendientes"
                 />
               ) : (
-                <ul className="bg-[var(--color-surface)] rounded-2xl border border-[var(--color-border)] divide-y divide-[var(--color-border)]">
+                <ul className="bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] divide-y divide-[var(--color-border)]">
                   {data.topPacientesPendientes.slice(0, 5).map((p) => (
                     <li key={p.pacienteId} className="px-4 py-3 flex items-center gap-3">
                       <Link
