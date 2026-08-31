@@ -55,6 +55,10 @@ export const GET = withAuth<Ctx>(async (session, req, ctx) => {
   ]);
 
   const plantillaNombre = plantillaParaUrgencia(urgencia, pagos.length > 0);
+  // CADUCA ANTES DE B5 (MEJORAS 115): el `?? plantillas[0]` es tolerable solo
+  // porque una PERSONA lee este texto antes de enviarlo. En modo B el agente
+  // envía solo — coger la primera plantilla al azar sería mandar un mensaje
+  // equivocado sin que nadie lo vea. Ahí: sin match, no se propone mensaje.
   const match = plantillas.find((p) => p.nombre === plantillaNombre) ?? plantillas[0] ?? null;
 
   let mensaje = "";

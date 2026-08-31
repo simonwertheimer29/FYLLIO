@@ -1988,3 +1988,15 @@ verdad: un editor, un vocabulario, un renderizador.
   `doctores_presupuestos` pasa a vista/compat; el horario viejo muere con el engine y
   HorarioLaboralPanel enlaza al del agente.
 - **Fecha:** 2026-08-28
+
+## 115. El desempate de plantillas por «la primera de la lista» CAE ANTES DE B5
+- **Qué es:** `app/api/cobros/[pacienteId]/panel/route.ts:58` propone mensaje de cobro con
+  `plantillas.find(nombre) ?? plantillas[0]` — si el nombre esperado no existe, coge la primera
+  plantilla activa de cobranza al azar. Hay 3 sitios más que casan plantilla por nombre pero SIN
+  desempate ciego (actions-exec, no-shows/acciones, copilot/chat: sin match no proponen).
+- **La condición, explícita (dictada 31-08):** hoy es tolerable únicamente porque una persona lee
+  el texto antes de enviarlo (modo A, envío uno a uno). **Deja de serlo con B5 y el modo B**:
+  cuando el agente envíe solo, la primera plantilla al azar es un mensaje equivocado que nadie ve.
+- **El arreglo:** sin match exacto → no se propone mensaje (hueco honesto, como la opción (b) de
+  la cola de envíos), nunca un desempate. Hacerlo como precondición de B5, no después.
+- **Fecha:** 2026-08-31
