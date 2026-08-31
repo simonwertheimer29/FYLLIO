@@ -212,7 +212,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
     const recs = await selectPresupuestosRaw({
       fields: [
         // Campos base (kanban)
-        "Paciente_nombre", "Teléfono", "Tratamiento_nombre",
+        "Paciente", "Paciente_nombre", "Teléfono", "Tratamiento_nombre",
         "Importe", "Estado", "Fecha", "Notas",
         "Paciente_Telefono", "Doctor", "Doctor_Especialidad",
         "TipoPaciente", "TipoVisita", "FechaAlta", "Clinica",
@@ -320,6 +320,7 @@ export const GET = withPresupuestosAuth(async (session, req: Request) => {
       const p: PresupuestoMaxima = {
         id: r.id,
         patientName,
+        pacienteId: Array.isArray(f["Paciente"]) ? String(f["Paciente"][0] ?? "") || null : null,
         patientPhone: patientPhone || undefined,
         treatments,
         doctor: doctor || undefined,

@@ -330,6 +330,24 @@ greedy el modelo calca el ejemplo.
 > instancia que mordió y quedó viva la de 90 líneas más arriba (`juicio.tema`), que eligió objetivos
 > equivocados hasta el barrido. La instancia no se arregla: se corta la clase.
 
+### 20. La identidad de una persona se resuelve por id, nunca por nombre
+Un nombre no identifica: identifica un id. Resolver "quién es" comparando nombres —y peor,
+cayendo al **primer match** cuando no hay exacto— abre la ficha de OTRA persona en cuanto hay un
+homónimo o un match parcial, y en un CRM clínico eso es un **error de datos clínicos**, no una
+molestia de UX. Reglas:
+- **La identidad viaja por id de punta a punta**: si una pantalla necesita enlazar a una persona,
+  su payload lleva el id (aunque haya que añadirlo al API), no se "resuelve luego" desde el nombre.
+- **Un buscador por nombre devuelve CANDIDATOS, nunca elige**: cero o varios matches se le enseñan
+  a la persona (o al agente) para que decida; `resultados[0]` como desempate está prohibido.
+- **Sin id no hay enlace**: mejor un nombre sin link que un link que puede llevar a otro paciente.
+- El mismo criterio, en menor grado, aplica a doctores y clínicas; las PLANTILLAS por nombre son
+  config, no identidad — ahí el patrón es tolerable pero un `?? lista[0]` sigue oliendo.
+> **Nos lo enseñó:** la ruta legacy `/presupuestos/paciente/[nombre]` (retirada el 31-08) resolvía
+> con `listPacientes({search})` y, sin match exacto, redirigía a `pacs[0]`: un match parcial o un
+> homónimo abría la ficha de otro paciente. Llevaba meses siendo la puerta de entrada desde la
+> tabla Maxima porque su payload no llevaba `pacienteId` — el arreglo no fue mejorar el matcher,
+> fue hacer viajar el id.
+
 ## Checklist antes de dar por bueno un cambio de backend
 
 - [ ] ¿Todo "éxito" que comunico está **persistido antes** de comunicarse? (§1)
@@ -354,6 +372,7 @@ greedy el modelo calca el ejemplo.
 - [ ] Si el agente no puede contestar algo, ¿he mirado si **el dato existe** antes de tocar el prompt? ¿Y estoy tratando una consulta como si fuera una decisión? (§17)
 - [ ] Si escribí una migración, ¿la tabla o la columna está **declarada en los tipos**? (`npm run qa:tipos`) ¿Y estoy metiendo trabajo a mano en un archivo que un script reescribe? (§18)
 - [ ] Si añadí un juicio del modelo, ¿su etiqueta pasa por `etiquetaDelModelo` en el borde, su descarte **se cuenta**, y tiene su caso en `qa:parseo`? ¿La llamada fija `temperature` y el esquema del prompt enseña huecos, no valores vacíos? (§19)
+- [ ] Si enlazo o resuelvo a una **persona**, ¿viaja su **id** en el payload? ¿Hay algún match por nombre que elija solo? (§20)
 
 ## Cómo crece este skill
 

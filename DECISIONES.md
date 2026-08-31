@@ -3626,3 +3626,14 @@ repite el mismo texto como título y detalle (se veía duplicado en un fallo rea
 entorno: el servidor local 3100 daba «timeout exceeded when trying to connect» intermitente porque
 PG_POOL_MAX default=3 (pensado para serverless, donde cada invocación tiene su instancia) se agota
 cuando UN proceso sirve todas las páginas en ráfaga — PG_POOL_MAX=10 en .env.local, Vercel intacto.
+
+## 2026-08-31 — Retirada de la Paciente360View legacy (y el patrón que la mató)
+La vista por nombre (components/presupuestos, 640 líneas) y su API /api/presupuestos/paciente
+mueren. La razón principal NO es la limpieza: la ruta resolvía la identidad por nombre y, sin
+match exacto, redirigía a pacs[0] — un homónimo o un match parcial abría la ficha de OTRA persona.
+Error de datos clínicos. El arreglo hace viajar el id: Maxima expone pacienteId y enlaza directo a
+/pacientes/[id] (sin id, sin enlace); la ruta legacy solo redirige con UN match exacto y con cero
+o varios enseña una pantalla honesta que manda a /pacientes?q=. Destilado como mandamiento §20
+(identidad por id, nunca por nombre; un buscador devuelve candidatos, jamás elige). Censo: el
+copilot ya lo hacía bien (devuelve candidatos); queda el puente clinicas-negocio por nombre de
+clínica como deuda declarada en su propio archivo.

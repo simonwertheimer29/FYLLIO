@@ -466,15 +466,20 @@ export default function MaximaView({
                   </td>
                   {/* Paciente */}
                   <td className="truncate px-3 py-2.5 font-medium text-[var(--color-foreground)]">
-                    {/* Sprint 14a Bloque 1.5 — link al hub del paciente
-                        vía redirect legacy (resuelve nombre→id en server). */}
-                    <a
-                      href={`/pipeline/presupuestos/paciente/${encodeURIComponent(p.patientName)}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="hover:text-[var(--color-accent)] hover:underline"
-                    >
-                      {p.patientName}
-                    </a>
+                    {/* La identidad viaja por pacienteId, nunca por nombre
+                        (un homónimo abriría la ficha de OTRA persona). Sin
+                        ficha vinculada no hay enlace que ofrecer. */}
+                    {p.pacienteId ? (
+                      <a
+                        href={`/pacientes/${p.pacienteId}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="hover:text-[var(--color-accent)] hover:underline"
+                      >
+                        {p.patientName}
+                      </a>
+                    ) : (
+                      p.patientName
+                    )}
                   </td>
                   {/* Doctor */}
                   <td className="truncate px-3 py-2.5 text-[var(--color-muted)]">

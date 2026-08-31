@@ -16,9 +16,16 @@ import { PacientesView } from "./PacientesView";
 export const dynamic = "force-dynamic";
 
 
-export default async function PacientesPage() {
+export default async function PacientesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   const session = await getSession();
   if (!session) redirect("/login");
+  // ?q= — enlaces que llegan con una búsqueda puesta (p. ej. la ruta legacy
+  // por nombre cuando no puede identificar al paciente).
+  const { q } = await searchParams;
 
   // Sprint B — el render llama a base() (Staff, Pacientes); fijar el contexto de
   // cliente. Los pacientes se filtran por IDs de clínica de NEGOCIO (los que
@@ -77,6 +84,7 @@ export default async function PacientesPage() {
       clinicas={allClinicas.map((c) => ({ id: c.id, nombre: c.nombre }))}
       doctores={doctores}
       tiposPaciente={tiposPaciente}
+      busquedaInicial={q ?? ""}
     />
   );
 }

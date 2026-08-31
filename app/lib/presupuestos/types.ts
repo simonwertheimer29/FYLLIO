@@ -59,6 +59,9 @@ export type TipoAccion =
 export type Presupuesto = {
   id: string;
   patientName: string;
+  /** Id del paciente vinculado. La IDENTIDAD viaja por aquí, nunca por
+   *  patientName: resolver por nombre abre la ficha de un homónimo. */
+  pacienteId?: string | null;
   patientPhone?: string;
   treatments: string[];
   doctor?: string;

@@ -1,52 +1,24 @@
-// app/(authed)/presupuestos/paciente/[nombre]/page.tsx
+// Ruta legacy de enlaces por NOMBRE (bookmarks, mensajes antiguos). Desde la
+// retirada de la vista por nombre (2026-08-31) aquí solo se REDIRIGE:
 //
-// Sprint 14a Bloque 1.5 — ruta legacy. Resuelve el nombre al
-// recordId del primer paciente match y redirige al hub central
-// /pacientes/[id]. Mantiene retrocompat con los links legados
-// (Kanban Presupuestos, MaximaView, etc.) sin tener que actualizarlos
-// uno a uno.
+//   · UN match exacto en Pacientes → /pacientes/[id].
+//   · Cero, o VARIOS con el mismo nombre → pantalla honesta. Elegir "el
+//     primero de la lista" abría la ficha de OTRA persona con homónimos —
+//     un error de datos clínicos, no una molestia. La identidad se resuelve
+//     por id, nunca por nombre (patrón en fyllio-lecciones-ingenieria).
 //
-// Si el nombre no resuelve a ningún paciente, intentamos extraer el id
-// vía Presupuestos.Paciente (puede haber pacientes "ghost" creados solo
-// como linked record desde un presupuesto). Si tampoco, fallback al
-// componente legacy con vista por nombre — no rompemos QA antiguo.
+// Ningún enlace del producto entra ya por aquí (MaximaView enlaza por
+// pacienteId); esto queda por retrocompat de enlaces guardados.
 
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSession } from "../../../../../lib/auth/session";
 import { listPacientes } from "../../../../../lib/pacientes/pacientes";
 import { runWithCliente } from "../../../../../lib/airtable";
-import Paciente360ViewLegacy from "../../../../../components/presupuestos/Paciente360View";
-import type { UserSession } from "../../../../../lib/presupuestos/types";
 
 export const dynamic = "force-dynamic";
 
-async function resolvePacienteId(nombre: string): Promise<string | null> {
-  // 1) Match exacto en tabla Pacientes (case-insensitive).
-  try {
-    const pacs = await listPacientes({ search: nombre });
-    const exact = pacs.find((p) => p.nombre.toLowerCase() === nombre.toLowerCase());
-    if (exact) return exact.id;
-    if (pacs[0]) return pacs[0].id;
-  } catch {
-    /* fallback */
-  }
-  // 2) Match desde Presupuestos.Paciente (linked record).
-  try {
-    const { selectPresupuestosRaw } = await import("../../../../../lib/presupuestos/repo");
-    const recs = await selectPresupuestosRaw({
-      filterByFormula: `LOWER({Paciente_nombre}) = LOWER("${nombre.replace(/['"\\]/g, "")}")`,
-      fields: ["Paciente"],
-      maxRecords: 1,
-    });
-    const links = ((recs[0]?.fields as any)?.["Paciente"] ?? []) as string[];
-    if (links[0]) return links[0];
-  } catch {
-    /* fallback */
-  }
-  return null;
-}
-
-export default async function PacientePage({
+export default async function PacientePorNombrePage({
   params,
 }: {
   params: Promise<{ nombre: string }>;
@@ -57,18 +29,34 @@ export default async function PacientePage({
   const { nombre } = await params;
   const decoded = decodeURIComponent(nombre);
 
-  // Sprint B — resolvePacienteId llama a base(); fijar el contexto de cliente.
-  const pacienteId = await runWithCliente(s.cliente, () => resolvePacienteId(decoded));
-  if (pacienteId) {
-    redirect(`/pacientes/${pacienteId}`);
+  const exactos = await runWithCliente(s.cliente, async () => {
+    const pacs = await listPacientes({ search: decoded });
+    return pacs.filter((p) => p.nombre.toLowerCase() === decoded.toLowerCase());
+  });
+
+  if (exactos.length === 1) {
+    redirect(`/pacientes/${exactos[0].id}`);
   }
 
-  // Fallback: nombre no resoluble — render legacy view (cero break).
-  const user: UserSession = {
-    email: "",
-    nombre: s.nombre,
-    rol: s.rol === "admin" ? "manager_general" : "encargada_ventas",
-    clinica: null,
-  };
-  return <Paciente360ViewLegacy user={user} nombre={decoded} />;
+  const motivo =
+    exactos.length === 0
+      ? `No hay ningún paciente registrado con el nombre «${decoded}».`
+      : `Hay ${exactos.length} pacientes con el nombre «${decoded}» — este enlace no dice a cuál se refiere, y abrir uno al azar sería enseñar la ficha de otra persona.`;
+
+  return (
+    <div className="flex min-h-[60vh] items-center justify-center px-4">
+      <div className="w-full max-w-md rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 text-center">
+        <p className="text-sm font-semibold text-[var(--color-foreground)]">
+          Este enlace no identifica a un paciente
+        </p>
+        <p className="mt-2 text-sm text-[var(--color-muted)]">{motivo}</p>
+        <Link
+          href={`/pacientes?q=${encodeURIComponent(decoded)}`}
+          className="mt-4 inline-flex items-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
+        >
+          Buscarlo en Pacientes
+        </Link>
+      </div>
+    </div>
+  );
 }

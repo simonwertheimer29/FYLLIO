@@ -171,6 +171,7 @@ export function PacientesView({
   clinicas,
   doctores,
   tiposPaciente,
+  busquedaInicial = "",
 }: {
   initialPacientes: Paciente[];
   clinicas: Array<{ id: string; nombre: string }>;
@@ -178,12 +179,14 @@ export function PacientesView({
   /** Catálogo configurable de la clínica (Privado + sus aseguradoras). Nunca
    *  un enum: dar de alta una mutua no puede exigir un despliegue. */
   tiposPaciente: Array<{ valor: string; esAseguradora: boolean }>;
+  /** ?q= de la URL: el buscador arranca con ella puesta. */
+  busquedaInicial?: string;
 }) {
   const { selectedClinicaId, selectedClinicaNombre, setSelectedClinicaId } = useClinic();
   // Con clínica elegida la pantalla cambia de ámbito y hay que decirlo.
   const clinicaFiltrada = !!selectedClinicaId && !!selectedClinicaNombre;
   const [pacientes, setPacientes] = useState<Paciente[]>(initialPacientes);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(busquedaInicial);
   const [dateFilter, setDateFilter] = useState<DateFilter>("todo");
   const [editingNotas, setEditingNotas] = useState<string | null>(null);
   const [editingDoctor, setEditingDoctor] = useState<string | null>(null);
