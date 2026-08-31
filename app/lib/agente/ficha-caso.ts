@@ -33,6 +33,7 @@ import {
 } from "../automatizacion/aplazamientos";
 import type { EtapaObjetivo } from "../automatizacion/objetivos";
 import type { PayloadEvaluacion } from "./persistir-turno";
+import { buscarLeadActivoPorTelefono, getLead } from "../leads/leads";
 
 export type FichaCaso = {
   telefono: string;
@@ -81,6 +82,18 @@ export type FichaCaso = {
 
   // ── La línea de la cola (Seguimiento): paciente · qué quiere · espera ──
   linea: { paciente: string; queQuiere: string; esperandoDesde: string | null };
+
+  // ── G3 · El LEAD del teléfono, si existe y no se convirtió ──
+  /** La cita del caso es la cita del lead: el modal de agendar cuelga de
+   *  aquí. null = sin lead activo (paciente convertido o contacto suelto). */
+  lead: {
+    id: string;
+    nombre: string;
+    estado: string;
+    fechaCita: string | null;
+    horaCita: string | null;
+    doctorAsignadoId: string | null;
+  } | null;
 };
 
 const ETIQUETA_OBJETIVO: Record<EtapaObjetivo, string> = {
@@ -106,6 +119,32 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
   const cliente = requireCliente("fichaDeCaso");
   const ctx = await contextoDeConversacion(telefono);
   const sem = await semaforoDeContacto(telefono, { hoy: opts?.hoy });
+
+  // G3 — el lead del teléfono (activo = no convertido). caída-declarada: si
+  // la búsqueda falla, la ficha sigue sin el botón de agendar, no se cae.
+  const lead = await (async () => {
+    try {
+      const digitos = telefono.replace(/[^0-9]/g, "");
+      // §20: menos de 7 dígitos con LIKE %…% casaría leads AJENOS — sin
+      // identificador suficiente, no hay lead, no «el primero que cuadre».
+      if (digitos.length < 7) return null;
+      const ref = await buscarLeadActivoPorTelefono(digitos);
+      if (!ref) return null;
+      const l = await getLead(ref.id);
+      if (!l) return null;
+      return {
+        id: l.id,
+        nombre: l.nombre,
+        estado: String(l.estado),
+        fechaCita: l.fechaCita,
+        horaCita: l.horaCita,
+        doctorAsignadoId: l.doctorAsignadoId,
+      };
+    } catch (e) {
+      console.error("[ficha-caso] lead por teléfono:", e instanceof Error ? e.message : e);
+      return null;
+    }
+  })();
 
   const datos = await runWithClienteDb(cliente, async (trx) => {
     // Intentos: salientes contados del hilo, y el último de cada dirección.
@@ -253,5 +292,6 @@ export async function fichaDeCaso(telefono: string, opts?: { hoy?: string }): Pr
       queQuiere: queQuiere ?? (evaluado ? "(sin objetivo abierto)" : "Sin evaluar por el agente"),
       esperandoDesde,
     },
+    lead,
   };
 }

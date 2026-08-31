@@ -23,7 +23,9 @@ import { toast } from "sonner";
 import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import { ErrorState } from "../ui/Feedback";
 import { fechaClinica } from "../../lib/time";
-import { AlertTriangle, Clock, PauseCircle, UserCheck, CheckCircle2 } from "../icons";
+import { AlertTriangle, CalendarDays, Clock, PauseCircle, UserCheck, CheckCircle2, ICON_STROKE } from "../icons";
+import { AgendarLeadModal } from "../agenda/AgendarLeadModal";
+import { fechaCorta } from "../../lib/agenda/fechas";
 import { eur as eurUI } from "../shared/Cifra";
 import type { FichaCaso } from "../../lib/agente/ficha-caso";
 import type { CausaDerivacion } from "../../lib/automatizacion/estado";
@@ -71,6 +73,8 @@ export function FichaCasoPanel({
   const [ficha, setFicha] = useState<FichaCaso | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
+  // G3 — el modal de agendar, montado desde la ficha misma.
+  const [agendando, setAgendando] = useState(false);
 
   const cargar = useCallback(async () => {
     setCargando(true);
@@ -277,6 +281,29 @@ export function FichaCasoPanel({
             No hay nada recogido: lo que sepas, tendrás que leerlo del hilo.
           </p>
         </div>
+      )}
+
+      {/* ── G3 · Cerrar la cita SIN salir de aquí. Solo con lead activo: la
+          cita del caso es la cita del lead (un paciente convertido se agenda
+          desde la agenda). El botón dice lo que ya hay — mover no es crear. */}
+      {ficha.lead && (
+        <button
+          type="button"
+          onClick={() => setAgendando(true)}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-[13px] font-medium text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)]"
+        >
+          <CalendarDays size={14} strokeWidth={ICON_STROKE} aria-hidden />
+          {ficha.lead.fechaCita
+            ? `Mover su cita del ${fechaCorta(ficha.lead.fechaCita)}${ficha.lead.horaCita ? ` (${ficha.lead.horaCita})` : ""}`
+            : "Agendar cita"}
+        </button>
+      )}
+      {agendando && ficha.lead && (
+        <AgendarLeadModal
+          lead={ficha.lead}
+          onClose={() => setAgendando(false)}
+          onHecho={alCambiar}
+        />
       )}
 
       {/* ── 2 · Qué falta resolver (vacío = nada, sin relleno) ── */}

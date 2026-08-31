@@ -3656,3 +3656,13 @@ necesitó la pasada fina: dos etiquetas a tracking-wider y el marcador ✦ de IA
 icono Sparkles (§3). Pendiente menor anotado: conviven tres trackings en etiquetas uppercase
 (wide 48 · wider 21 · widest 16, KpiCard incluido) — unificar es decisión de vocabulario, no
 barrido. Excluidos deliberados del estándar: portal del paciente y landing pública.
+
+## 2026-08-31 — G3: agendar desde la ficha del caso
+La pieza que ahorra el viaje: conversación abierta → «Agendar cita» en la ficha → modal con
+doctor + tipo de cita (la duración del catálogo define los slots) + días de la semana + huecos
+con el AVISO de nivel 1 PEGADO (AVISO_HUECOS ahora compartido en lib/agenda/avisos) → «Cerrar la
+cita». Cero rutas de escritura nuevas: el modal escribe por PATCH /api/leads/[id], el MISMO
+camino que el kanban (lead a Citado + upsert de la cita real, única por lead_id). La ficha ahora
+resuelve el lead del teléfono (≥7 dígitos o nada — §20: sin identificador suficiente no se elige
+un lead «que cuadre»). E2E 15/15 contra producción con verificación en DB: lead Citado, cita
+fyllio con fin, pendiente de pasar. libres:null y tipo sin duración se dicen con su motivo.

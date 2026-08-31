@@ -26,6 +26,7 @@ import { Card } from "../../components/ui/Card";
 import { cargarJSON } from "../../lib/fetch-json";
 import { hoyISO, sumaDias, horaClinica } from "../../lib/time";
 import { aMin, deMin, diaSemanaISO } from "../../lib/agenda/disponibilidad";
+import { AVISO_HUECOS } from "../../lib/agenda/avisos";
 import { resumenDeAgendaDia } from "../../lib/agenda/resumen";
 import { fechaCorta, fechaLarga, diaMes, diaMesCorto } from "../../lib/agenda/fechas";
 import { CitaPanel } from "./CitaPanel";
@@ -88,8 +89,8 @@ const ESTILO_ESTADO: Record<string, string> = {
   Completado: "border-[var(--color-border)] bg-[var(--color-surface-muted)] text-[var(--color-muted)]",
 };
 
-// La frase dictada, una sola y siempre igual — cada «libre» remite a ella.
-const AVISO_HUECOS = "Estas horas libres no son reales — la agenda de verdad está en tu software.";
+// La frase dictada («AVISO_HUECOS») vive en lib/agenda/avisos desde G3 —
+// compartida con el modal de agendar.
 
 export function AgendaView() {
   const hoy = hoyISO();
