@@ -94,7 +94,7 @@ export function RangoTemporal({
           key={o.id}
           type="button"
           onClick={() => onChange(o.id)}
-          className={`text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap ${
+          className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-colors whitespace-nowrap ${
             value === o.id
               ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
               : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:border-[var(--color-muted)]"

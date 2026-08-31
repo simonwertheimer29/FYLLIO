@@ -32,13 +32,13 @@ export function SegmentedToggle<T extends string>({
   onChange: (id: T) => void;
 }) {
   return (
-    <div className="flex gap-1 rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
+    <div className="flex gap-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5">
       {options.map((o) => (
         <button
           key={o.id}
           type="button"
           onClick={() => onChange(o.id)}
-          className={`text-xs font-semibold px-4 py-1.5 rounded-full transition-colors whitespace-nowrap ${
+          className={`text-xs font-semibold px-4 py-1.5 rounded-md transition-colors whitespace-nowrap ${
             o.id === active
               ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
               : "text-[var(--color-muted)] hover:text-[var(--color-foreground)]"

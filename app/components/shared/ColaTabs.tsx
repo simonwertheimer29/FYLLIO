@@ -29,7 +29,7 @@ export function ColaTabs<T extends string>({
             key={t.id}
             type="button"
             onClick={() => onChange(t.id)}
-            className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full transition-colors ${
+            className={`shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors ${
               isActive
                 ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
                 : "bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
