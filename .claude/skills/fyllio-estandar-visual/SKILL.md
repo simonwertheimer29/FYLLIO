@@ -88,9 +88,15 @@ salvo decisión nueva del fundador.
 **La referencia de acabado es la agenda** (`/agenda`, iteración G2.x): densidad de dato,
 contraste real entre estructura (líneas y ejes al 30–70 % de opacidad, etiquetas pequeñas en
 mayúsculas con tracking) y contenido (bloques sólidos con texto claro encima, cifras
-tabulares), controles a altura común `h-9` con sombra sutil, y jerarquía tipográfica donde el
+tabulares), controles a altura común con sombra sutil, y jerarquía tipográfica donde el
 dato pesa y la estructura acompaña. La aplicación al resto del producto se hace por
 diagnóstico y OK previos, no en silencio.
+
+**Altura de controles — el matiz táctil (2026-08-31):** `h-9` (36 px) SOLO en toolbars densas
+de escritorio (filtros, tabs, buscadores de pantallas tipo agenda/tablas). En las pantallas
+que se usan con el pulgar (kanban, mensajería, seguimiento en móvil), los **controles
+primarios** van a `h-10`/`h-11`: 36 px queda por debajo del objetivo táctil cómodo del §6 y
+la densidad nunca justifica fallar un toque.
 
 ## 3. Iconos e identidad de IA
 
