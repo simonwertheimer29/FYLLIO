@@ -3666,3 +3666,10 @@ camino que el kanban (lead a Citado + upsert de la cita real, única por lead_id
 resuelve el lead del teléfono (≥7 dígitos o nada — §20: sin identificador suficiente no se elige
 un lead «que cuadre»). E2E 15/15 contra producción con verificación en DB: lead Citado, cita
 fyllio con fin, pendiente de pasar. libres:null y tipo sin duración se dicen con su motivo.
+
+## 2026-08-31 — El panel de agendar no oscurece, y la regla general queda escrita
+G3 nació como modal con fondo oscurecido — incoherente con el patrón de la agenda. Rehecho como
+panel flotante (AgendarLeadPanel): la conversación sigue legible y scrolleable mientras se elige
+hueco, y no se cierra al clicar fuera. La regla, en el skill (§4 ter): si lo de detrás es el
+CONTEXTO de la decisión, el panel no oscurece; oscurecer se reserva para atención exclusiva
+(confirmaciones destructivas, errores). Los modales existentes se adaptan al tocarlos, sin barrido.

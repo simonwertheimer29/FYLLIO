@@ -4,6 +4,11 @@
 // coordinadora tiene la conversación abierta, sabe qué quiere el paciente, y
 // cierra la cita AQUÍ — sin irse a la agenda ni al kanban.
 //
+// PANEL FLOTANTE, no modal (regla del estándar, dictada 31-08): lo que hay
+// detrás es el CONTEXTO de la decisión — la conversación se sigue leyendo y
+// scrolleando mientras se elige hueco. Por eso no oscurece ni se cierra al
+// clicar fuera; oscurecer queda para lo que exige atención exclusiva.
+//
 // Decisiones que hereda (todas dictadas en la serie G):
 //  · Los huecos se ENSEÑAN también en nivel 1, con el AVISO PEGADO a ellos
 //    (AVISO_HUECOS) — Fyllio calcula sobre su configuración, no sobre el
@@ -61,7 +66,7 @@ function lunesDe(fecha: string): string {
   return sumaDias(fecha, 1 - diaSemanaISO(fecha));
 }
 
-export function AgendarLeadModal({
+export function AgendarLeadPanel({
   lead,
   onClose,
   onHecho,
@@ -149,16 +154,16 @@ export function AgendarLeadModal({
   }
 
   return (
+    // Panel FLOTANTE, sin oscurecer (regla del estándar, dictada 31-08): lo
+    // que hay detrás es el CONTEXTO de esta decisión — la conversación, la
+    // cola de la que salió el caso. Se puede leer y scrollear el hilo
+    // mientras se elige hueco; por eso tampoco se cierra al clicar fuera.
+    // Oscurecer queda para lo que exige atención exclusiva.
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
+      className="fixed right-4 top-16 z-50 flex max-h-[calc(100vh-5rem)] w-[30rem] max-w-[calc(100vw-2rem)] flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl"
       role="dialog"
-      aria-modal="true"
       aria-label={`Agendar a ${lead.nombre}`}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
     >
-      <div className="flex max-h-[min(40rem,92vh)] w-full max-w-2xl flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl">
         {/* ── Cabecera ── */}
         <div className="flex items-start justify-between gap-3 border-b border-[var(--color-border)] px-5 py-4">
           <div className="min-w-0">
@@ -359,7 +364,6 @@ export function AgendarLeadModal({
             </button>
           </div>
         </div>
-      </div>
     </div>
   );
 }

@@ -24,7 +24,7 @@ import { cargarJSON, mensajeDeError } from "../../lib/fetch-json";
 import { ErrorState } from "../ui/Feedback";
 import { fechaClinica } from "../../lib/time";
 import { AlertTriangle, CalendarDays, Clock, PauseCircle, UserCheck, CheckCircle2, ICON_STROKE } from "../icons";
-import { AgendarLeadModal } from "../agenda/AgendarLeadModal";
+import { AgendarLeadPanel } from "../agenda/AgendarLeadPanel";
 import { fechaCorta } from "../../lib/agenda/fechas";
 import { eur as eurUI } from "../shared/Cifra";
 import type { FichaCaso } from "../../lib/agente/ficha-caso";
@@ -73,7 +73,7 @@ export function FichaCasoPanel({
   const [ficha, setFicha] = useState<FichaCaso | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
-  // G3 — el modal de agendar, montado desde la ficha misma.
+  // G3 — el panel de agendar, montado desde la ficha misma.
   const [agendando, setAgendando] = useState(false);
 
   const cargar = useCallback(async () => {
@@ -299,7 +299,7 @@ export function FichaCasoPanel({
         </button>
       )}
       {agendando && ficha.lead && (
-        <AgendarLeadModal
+        <AgendarLeadPanel
           lead={ficha.lead}
           onClose={() => setAgendando(false)}
           onHecho={alCambiar}

@@ -189,6 +189,26 @@ Dos corolarios:
 Y el orden de la columna lateral es **el de lo que decide antes**: primero qué pasa y si hace falta
 criterio, después los datos de ficha. Un aviso enterrado bajo tres datos no es un aviso.
 
+## 4 ter. Cuándo un panel oscurece el fondo (regla dictada 2026-08-31)
+
+> **Si lo que hay detrás es el CONTEXTO de la decisión que se está tomando —la
+> conversación, la rejilla de la agenda, la lista de la que salió el caso— el
+> panel NO oscurece.** Es un panel flotante: el fondo sigue legible y usable
+> (se puede scrollear el hilo mientras se elige), y por eso tampoco se cierra
+> al clicar fuera — se cierra con la X, Escape o su acción.
+>
+> **Oscurecer el fondo se reserva para lo que exige atención EXCLUSIVA**:
+> confirmaciones destructivas, errores que hay que leer antes de seguir. Ahí
+> el fondo no aporta — distrae.
+
+La prueba: ¿la persona querría mirar lo de detrás ANTES de decidir dentro del
+panel? Sí → flotante sin oscurecer. No → modal con fondo oscurecido.
+
+Referencias: el editor de cita de la agenda y el panel de agendar desde la
+ficha (flotantes); ConfirmDialog (oscurece — confirma algo irreversible).
+Los modales existentes que oscurecen sin exigir atención exclusiva se adaptan
+al tocarlos por otro motivo, no en barrido dedicado.
+
 ## 5. Tono del texto (copy)
 
 El usuario es una coordinadora, no un ingeniero. El texto habla su idioma:
