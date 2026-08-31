@@ -245,7 +245,7 @@ function InformeCard({
         action={
           <button
             onClick={onGenerar}
-            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold hover:bg-[var(--color-accent-hover)] transition-colors"
+            className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-sm font-semibold hover:bg-[var(--color-accent-hover)] transition-colors"
           >
             <Sparkles size={14} strokeWidth={ICON_STROKE} aria-hidden />
             Generar con IA

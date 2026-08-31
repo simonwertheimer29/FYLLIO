@@ -432,7 +432,7 @@ export default function IntervencionSidePanel({
                 <button
                   type="button"
                   onClick={() => onChangeEstado(item.id, "ACEPTADO")}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30 dark:hover:bg-emerald-500/20 transition-colors"
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30 dark:hover:bg-emerald-500/20 transition-colors"
                 >
                   <Check size={12} strokeWidth={ICON_STROKE} aria-hidden />
                   Aceptó y pagó
@@ -440,7 +440,7 @@ export default function IntervencionSidePanel({
                 <button
                   type="button"
                   onClick={() => onChangeEstado(item.id, "PERDIDO")}
-                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-md bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30 dark:hover:bg-rose-500/20 transition-colors"
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30 dark:hover:bg-rose-500/20 transition-colors"
                 >
                   <XCircle size={12} strokeWidth={ICON_STROKE} aria-hidden />
                   Rechazó
@@ -448,7 +448,7 @@ export default function IntervencionSidePanel({
                 <button
                   type="button"
                   onClick={handlePausar}
-                  className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-md text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
+                  className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-lg text-[var(--color-muted)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
                 >
                   <Pause size={12} strokeWidth={ICON_STROKE} aria-hidden />
                   Pausar

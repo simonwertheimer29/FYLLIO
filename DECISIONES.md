@@ -3596,3 +3596,14 @@ que VES o marca lo que ES? (filtro de vista → 8px; pertenencia que se enciende
 de bando aplicado: SegmentedToggle/RangoTemporal/ColaTabs (compartidos) + 9 filtros locales + 4
 buscadores redondos + botón Nuevo paciente. Los chips doctor↔especialidad se quedan redondos por
 decisión (selección de pertenencia, no filtro). 132 etiquetas pasivas intactas.
+
+## 2026-08-31 — Barrido único de radios COMPLETO: el vocabulario queda cerrado en todo el producto
+Con el tema sin remapeo (B fijada) y los cuatro patrones aprobados, una sola pasada final:
+controles interactivos a rounded-lg (8 reales) en 43 ficheros con guardias de patrón (cajas de
+modal, filas-tarjeta y dropzones siguen contenedor), las públicas que se escaparon del censo
+(landing, early-access, login viejo: 20 contenedores 2xl/3xl→xl), y los sueltos a mano — select
+«Motivo: todos» de Tablas, selector de clínica del shell, select de doctor de FiltersBar, y la
+caja del ChatEmbebido a contenedor. Verificación de cierre: rounded-2xl/3xl solo sobrevive en el
+portal del paciente (exclusión deliberada) y todos los rounded-full interactivos restantes son
+excepciones declaradas del skill (switches, días del calendario, FAB, chips de pertenencia,
+avatares, spinners, barras). Smoke en producción sin errores.

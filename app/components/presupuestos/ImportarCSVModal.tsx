@@ -622,7 +622,7 @@ export default function ImportarCSVModal({
             {paso > 1 && paso < 5 && (
               <button
                 onClick={() => setPaso((paso - 1) as 1 | 2 | 3 | 4 | 5)}
-                className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
+                className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
               >
                 <ChevronLeft size={12} strokeWidth={ICON_STROKE} aria-hidden />
                 Anterior
@@ -636,7 +636,7 @@ export default function ImportarCSVModal({
               <button
                 onClick={applyMappingAndContinue}
                 disabled={!mappingValid}
-                className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
               >
                 Aplicar mapeo
                 <ArrowRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
@@ -646,7 +646,7 @@ export default function ImportarCSVModal({
               <button
                 onClick={() => { if (aImportar.length > 0) setPaso(4); }}
                 disabled={aImportar.length === 0}
-                className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
               >
                 Continuar ({aImportar.length})
                 <ArrowRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
@@ -656,7 +656,7 @@ export default function ImportarCSVModal({
               <button
                 onClick={handleImportar}
                 disabled={aImportar.length === 0}
-                className="text-sm px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
+                className="text-sm px-4 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)] disabled:opacity-40"
               >
                 Confirmar importación
               </button>
@@ -664,7 +664,7 @@ export default function ImportarCSVModal({
             {paso === 5 && !importing && resultado && (
               <button
                 onClick={() => { onImported(); onClose(); }}
-                className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-xl bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)]"
+                className="inline-flex items-center gap-1.5 text-sm px-4 py-2 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] font-semibold hover:bg-[var(--color-accent-hover)]"
               >
                 Ver en Panel
                 <ArrowRight size={14} strokeWidth={ICON_STROKE} aria-hidden />

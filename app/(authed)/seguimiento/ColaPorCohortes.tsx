@@ -132,7 +132,7 @@ function RegistrarLlamada({ caso, onHecho }: { caso: Caso; onHecho: () => void }
     return (
       <button
         onClick={() => setAbierto(true)}
-        className="inline-flex items-center gap-1.5 self-start rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[12px] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
+        className="inline-flex items-center gap-1.5 self-start rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-[12px] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
       >
         <Phone size={12} strokeWidth={ICON_STROKE} />
         Registrar llamada
@@ -149,20 +149,20 @@ function RegistrarLlamada({ caso, onHecho }: { caso: Caso; onHecho: () => void }
         value={nota}
         onChange={(e) => setNota(e.target.value)}
         placeholder="Qué pasó (opcional)"
-        className="mt-2 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-[13px] text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+        className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-1.5 text-[13px] text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
       />
       <div className="mt-2 flex flex-wrap gap-2">
         <button
           onClick={() => registrar("no_contesta")}
           disabled={enviando != null}
-          className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
+          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
         >
           {enviando === "no_contesta" ? "Registrando…" : "No contesta — reintentar mañana"}
         </button>
         <button
           onClick={() => registrar("hablado")}
           disabled={enviando != null}
-          className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
+          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
         >
           {enviando === "hablado" ? "Registrando…" : "Hablé — lo registro"}
         </button>
@@ -409,7 +409,7 @@ export function ColaPorCohortes({
                               <button
                                 type="button"
                                 onClick={() => setPagoDe(caso)}
-                                className="inline-flex w-fit items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
+                                className="inline-flex w-fit items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
                               >
                                 Registrar cobro · {eur(caso.cobro.pendiente)}
                               </button>
@@ -438,7 +438,7 @@ export function ColaPorCohortes({
                             <button
                               type="button"
                               onClick={() => setPagoDe(caso)}
-                              className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
+                              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
                             >
                               Registrar cobro · {eur(caso.cobro.pendiente)}
                             </button>

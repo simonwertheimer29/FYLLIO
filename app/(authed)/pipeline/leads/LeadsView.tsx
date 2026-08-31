@@ -504,7 +504,7 @@ export function LeadsView({
         <button
           type="button"
           onClick={() => setNewLeadOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-semibold px-3.5 py-2 hover:bg-[var(--color-accent-hover)] transition-colors"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] text-xs font-semibold px-3.5 py-2 hover:bg-[var(--color-accent-hover)] transition-colors"
         >
           <Plus size={14} strokeWidth={ICON_STROKE} aria-hidden />
           Nuevo lead
@@ -938,7 +938,7 @@ function LeadCardBody({ lead, onOpenFicha }: { lead: Lead; onOpenFicha?: () => v
             <a
               href={`tel:${lead.telefono}`}
               onClick={(e) => e.stopPropagation()}
-              className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-medium py-1.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-medium py-1.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
             >
               <Phone size={12} strokeWidth={ICON_STROKE} aria-hidden />
               Llamar
@@ -953,7 +953,7 @@ function LeadCardBody({ lead, onOpenFicha }: { lead: Lead; onOpenFicha?: () => v
                 e.stopPropagation();
                 onOpenFicha?.();
               }}
-              className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-medium py-1.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-medium py-1.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
             >
               <MessageCircle size={12} strokeWidth={ICON_STROKE} aria-hidden />
               WhatsApp

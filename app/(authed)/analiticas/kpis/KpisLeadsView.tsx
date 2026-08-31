@@ -476,7 +476,7 @@ function ComparativaClinicas({
               key={id}
               type="button"
               onClick={() => setCrit(id)}
-              className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors border ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors border ${
                 crit === id
                   ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
                   : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
@@ -574,7 +574,7 @@ function ClinicKpiDrawer({
           <button
             type="button"
             onClick={onClose}
-            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-md flex items-center justify-center hover:bg-[var(--color-surface-muted)]"
+            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--color-surface-muted)]"
             aria-label="Cerrar"
           >
             <X size={16} strokeWidth={ICON_STROKE} aria-hidden />

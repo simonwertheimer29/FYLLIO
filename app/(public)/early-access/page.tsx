@@ -51,7 +51,7 @@ export default function EarlyAccessPage() {
 
           <div className="mx-auto mt-10 w-full max-w-md">
             {submitted ? (
-              <div className="rounded-2xl bg-white/80 p-8 ring-1 ring-slate-200 backdrop-blur">
+              <div className="rounded-xl bg-white/80 p-8 ring-1 ring-slate-200 backdrop-blur">
                 <h3 className="text-xl font-bold text-slate-900">¡Listo! ✅</h3>
                 <p className="mt-2 text-slate-600">Te avisaremos cuando la demo esté lista.</p>
                 <TrackedCta href="/" source="early-access-back" className="btn-fyllio mt-6 inline-flex w-full justify-center">
@@ -59,7 +59,7 @@ export default function EarlyAccessPage() {
                 </TrackedCta>
               </div>
             ) : (
-              <form onSubmit={handleSubmit} className="rounded-2xl bg-white/70 p-6 ring-1 ring-slate-200 backdrop-blur">
+              <form onSubmit={handleSubmit} className="rounded-xl bg-white/70 p-6 ring-1 ring-slate-200 backdrop-blur">
                 <label className="mb-2 block text-left text-xs font-semibold text-slate-600">
                   Correo profesional
                 </label>
@@ -69,7 +69,7 @@ export default function EarlyAccessPage() {
                   type="email"
                   required
                   placeholder="tu@clinica.com"
-                  className="w-full rounded-xl border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-300"
+                  className="w-full rounded-lg border border-slate-200 bg-white/80 px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-300"
                 />
 
                 <button

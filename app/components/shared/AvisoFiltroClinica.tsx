@@ -44,7 +44,7 @@ export function AvisoFiltroClinica({
       <button
         type="button"
         onClick={onVerTodas}
-        className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-semibold text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)]"
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-semibold text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)]"
       >
         <X size={13} strokeWidth={ICON_STROKE} aria-hidden />
         Ver toda la red

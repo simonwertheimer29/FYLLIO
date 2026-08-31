@@ -118,7 +118,7 @@ export default function PagoCierreModal({
           type="button"
           onClick={() => confirmar({ importe, metodo })}
           disabled={!importeValido || enviado}
-          className="w-full inline-flex items-center justify-center gap-1.5 rounded-xl bg-[var(--color-success)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed mb-2"
+          className="w-full inline-flex items-center justify-center gap-1.5 rounded-lg bg-[var(--color-success)] text-[var(--color-on-accent)] text-sm font-semibold py-2 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed mb-2"
         >
           <Check size={14} strokeWidth={ICON_STROKE} aria-hidden />
           {importeValido

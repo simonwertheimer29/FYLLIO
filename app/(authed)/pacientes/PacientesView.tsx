@@ -745,7 +745,7 @@ export function PacientesView({
                           type="button"
                           disabled={cargandoFlujo === p.id}
                           onClick={() => abrirRegistrarCobro(p)}
-                          className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[var(--color-accent)] hover:bg-[var(--color-surface-muted)] transition-colors disabled:opacity-50"
+                          className="inline-flex items-center justify-center w-6 h-6 rounded-lg text-[var(--color-accent)] hover:bg-[var(--color-surface-muted)] transition-colors disabled:opacity-50"
                           title="Registrar cobro (modal de pago de la ficha)"
                           aria-label={`Registrar cobro de ${p.nombre}`}
                         >
@@ -754,7 +754,7 @@ export function PacientesView({
                         <button
                           type="button"
                           onClick={() => setPresupuestoDe(p)}
-                          className="inline-flex items-center justify-center w-6 h-6 rounded-md text-[var(--color-accent)] hover:bg-[var(--color-surface-muted)] transition-colors"
+                          className="inline-flex items-center justify-center w-6 h-6 rounded-lg text-[var(--color-accent)] hover:bg-[var(--color-surface-muted)] transition-colors"
                           title="Crear presupuesto para este paciente"
                           aria-label={`Crear presupuesto para ${p.nombre}`}
                         >

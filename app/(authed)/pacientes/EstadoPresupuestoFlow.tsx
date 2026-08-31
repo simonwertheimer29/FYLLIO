@@ -187,7 +187,7 @@ export function EstadoPresupuestoFlow({
                   key={e}
                   disabled={guardando}
                   onClick={() => elegirEstado(e)}
-                  className="w-full text-left text-xs font-semibold rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] px-4 py-2.5 text-[var(--color-foreground)] disabled:opacity-40"
+                  className="w-full text-left text-xs font-semibold rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] hover:bg-[var(--color-surface-muted)] px-4 py-2.5 text-[var(--color-foreground)] disabled:opacity-40"
                 >
                   {ESTADO_CONFIG[e]?.label ?? e}
                   {e === "ACEPTADO" && (

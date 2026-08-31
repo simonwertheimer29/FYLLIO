@@ -645,7 +645,7 @@ export default function Paciente360View({ pacienteId }: { pacienteId: string }) 
         <button
           onClick={() => router.back()}
           aria-label="Volver"
-          className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] p-1 -ml-1 rounded-md transition-colors"
+          className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] p-1 -ml-1 rounded-lg transition-colors"
         >
           <ChevronLeft size={18} strokeWidth={ICON_STROKE} aria-hidden />
         </button>
@@ -1115,7 +1115,7 @@ function FaltaDatoAccion({
       <button
         type="button"
         onClick={() => setAbierto(true)}
-        className="inline-flex items-center gap-1 text-[11px] font-semibold rounded-md px-2 py-1 bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/25 dark:hover:bg-amber-500/20 transition-colors"
+        className="inline-flex items-center gap-1 text-[11px] font-semibold rounded-lg px-2 py-1 bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/25 dark:hover:bg-amber-500/20 transition-colors"
       >
         <Plus size={11} strokeWidth={ICON_STROKE} aria-hidden />
         Falta {label} — añadir
@@ -1137,7 +1137,7 @@ function FaltaDatoAccion({
         type="button"
         onClick={guardar}
         disabled={saving || !valor.trim()}
-        className="px-2.5 py-1.5 text-[11px] font-semibold rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50 shrink-0"
+        className="px-2.5 py-1.5 text-[11px] font-semibold rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-50 shrink-0"
       >
         {saving ? "…" : "Guardar"}
       </button>

@@ -130,7 +130,7 @@ export function ChatEmbebido({
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
+    <div className="flex h-full min-h-0 flex-col rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
       {/* 21-08: el hilo LLENA el alto del despliegue (antes max-h-72: tres
           mensajes y media pantalla en blanco) y arranca abajo, como
           cualquier chat. El tope alto evita que un hilo largo coma la
@@ -228,7 +228,7 @@ export function ChatEmbebido({
           <button
             onClick={enviar}
             disabled={enviando || !texto.trim()}
-            className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-2 text-[13px] font-medium text-white hover:opacity-90 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-[13px] font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
             <Send size={14} strokeWidth={ICON_STROKE} />
             Enviar

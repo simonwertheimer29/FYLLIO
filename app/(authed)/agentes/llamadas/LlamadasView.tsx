@@ -478,7 +478,7 @@ function LlamadaDrawer({
             type="button"
             onClick={onClose}
             aria-label="Cerrar"
-            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-md flex items-center justify-center hover:bg-[var(--color-surface-muted)]"
+            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--color-surface-muted)]"
           >
             <X size={16} strokeWidth={ICON_STROKE} />
           </button>

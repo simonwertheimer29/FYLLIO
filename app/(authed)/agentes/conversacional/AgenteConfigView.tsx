@@ -923,7 +923,7 @@ function BotonQuitar({ onClick }: { onClick: () => void }) {
       onClick={onClick}
       title="Quitar"
       aria-label="Quitar"
-      className="mt-1.5 shrink-0 rounded-md p-1 text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-danger)]"
+      className="mt-1.5 shrink-0 rounded-lg p-1 text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-danger)]"
     >
       <X size={15} strokeWidth={ICON_STROKE} aria-hidden />
     </button>

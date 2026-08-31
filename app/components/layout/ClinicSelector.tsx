@@ -54,7 +54,7 @@ export function ClinicSelector() {
       <select
         value={currentValue}
         onChange={(e) => onChange(e.target.value)}
-        className="text-xs rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 font-semibold text-[var(--color-foreground)] max-w-[260px] truncate"
+        className="text-xs rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 font-semibold text-[var(--color-foreground)] max-w-[260px] truncate"
       >
         {isAdmin && <option value={TODAS}>Todas las clínicas</option>}
         {clinicasSelectables.map((c) => (

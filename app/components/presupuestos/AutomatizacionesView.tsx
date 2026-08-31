@@ -168,7 +168,7 @@ function TabCola({ user }: { user: UserSession }) {
             <select
               value={clinicaFilter}
               onChange={(e) => setClinicaFilter(e.target.value)}
-              className="text-xs border border-[var(--color-border)] rounded-xl px-3 py-1.5 bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-accent)]"
+              className="text-xs border border-[var(--color-border)] rounded-lg px-3 py-1.5 bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-accent)]"
             >
               <option value="__todas__">Todas las clínicas</option>
               {clinicas.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -178,7 +178,7 @@ function TabCola({ user }: { user: UserSession }) {
             <select
               value={tipoFilter}
               onChange={(e) => setTipoFilter(e.target.value)}
-              className="text-xs border border-[var(--color-border)] rounded-xl px-3 py-1.5 bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-accent)]"
+              className="text-xs border border-[var(--color-border)] rounded-lg px-3 py-1.5 bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-accent)]"
             >
               <option value="__todos__">Todos los tipos</option>
               {(["presupuesto_inactivo", "portal_visto_sin_respuesta", "reactivacion_programada", "presupuesto_aceptado_notificacion"] as TipoEvento[]).map((t) => (
@@ -234,7 +234,7 @@ function TabCola({ user }: { user: UserSession }) {
                       value={editVal}
                       onChange={(e) => setEditVal(e.target.value)}
                       rows={3}
-                      className="w-full border border-[var(--color-border)] rounded-xl px-3 py-2 text-sm resize-none focus:outline-none focus:border-[var(--color-accent)] mt-1"
+                      className="w-full border border-[var(--color-border)] rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:border-[var(--color-accent)] mt-1"
                       autoFocus
                     />
                   ) : (
@@ -373,7 +373,7 @@ function TabHistorial({ user }: { user: UserSession }) {
         <select
           value={mesFilter}
           onChange={(e) => setMesFilter(e.target.value)}
-          className="text-xs border border-[var(--color-border)] rounded-xl px-3 py-1.5 bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-accent)]"
+          className="text-xs border border-[var(--color-border)] rounded-lg px-3 py-1.5 bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-accent)]"
         >
           <option value={currentMonth}>Este mes</option>
           <option value={prevMonth}>Mes anterior</option>
@@ -383,7 +383,7 @@ function TabHistorial({ user }: { user: UserSession }) {
           <select
             value={clinicaFilter}
             onChange={(e) => setClinicaFilter(e.target.value)}
-            className="text-xs border border-[var(--color-border)] rounded-xl px-3 py-1.5 bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-accent)]"
+            className="text-xs border border-[var(--color-border)] rounded-lg px-3 py-1.5 bg-[var(--color-surface)] focus:outline-none focus:border-[var(--color-accent)]"
           >
             <option value="__todas__">Todas las clínicas</option>
             {clinicas.map((c) => <option key={c} value={c}>{c}</option>)}
@@ -545,14 +545,14 @@ function TabProximas({ user }: { user: UserSession }) {
               <button
                 onClick={() => cancelarReactivacion(p.id)}
                 disabled={cancellingId === p.id}
-                className="text-xs font-medium px-3 py-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] hover:text-rose-500 hover:border-rose-200 dark:hover:border-rose-500/40 disabled:opacity-40"
+                className="text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] hover:text-rose-500 hover:border-rose-200 dark:hover:border-rose-500/40 disabled:opacity-40"
               >
                 {cancellingId === p.id ? "Cancelando…" : "Cancelar"}
               </button>
               <button
                 disabled
                 title="Próximamente"
-                className="text-xs font-medium px-3 py-1.5 rounded-xl border border-[var(--color-border)] text-[var(--color-muted)] cursor-not-allowed"
+                className="text-xs font-medium px-3 py-1.5 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] cursor-not-allowed"
               >
                 Cambiar fecha
               </button>
@@ -591,7 +591,7 @@ export default function AutomatizacionesView({ user }: Props) {
           <button
             key={t.id}
             onClick={() => setSubTab(t.id)}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
               subTab === t.id
                 ? "bg-[var(--color-surface)] text-[var(--color-accent)] shadow-sm"
                 : "text-[var(--color-muted)] hover:text-[var(--color-foreground)]"

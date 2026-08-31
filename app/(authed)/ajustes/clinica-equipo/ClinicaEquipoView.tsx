@@ -511,7 +511,7 @@ function UsuarioModal({
                   key={r}
                   type="button"
                   onClick={() => setRol(r)}
-                  className={`flex-1 text-xs font-semibold px-3 py-2 rounded-xl border ${
+                  className={`flex-1 text-xs font-semibold px-3 py-2 rounded-lg border ${
                     rol === r
                       ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
                       : "bg-[var(--color-surface)] text-[var(--color-foreground)] border-[var(--color-border)]"
@@ -633,7 +633,7 @@ function PinShownModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-xl bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-sm font-semibold py-2.5 hover:bg-[var(--color-border)]"
+            className="flex-1 rounded-lg bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-sm font-semibold py-2.5 hover:bg-[var(--color-border)]"
           >
             He guardado el PIN
           </button>
@@ -723,7 +723,7 @@ function ModalFooter({
       <button
         type="button"
         onClick={onClose}
-        className="flex-1 rounded-xl bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-sm font-semibold py-2.5 hover:bg-[var(--color-border)]"
+        className="flex-1 rounded-lg bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-sm font-semibold py-2.5 hover:bg-[var(--color-border)]"
       >
         Cancelar
       </button>

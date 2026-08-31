@@ -68,7 +68,7 @@ export function SeccionRota({
           <button
             type="button"
             onClick={reset}
-            className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-sm font-semibold text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)]"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-sm font-semibold text-[var(--color-on-accent)] transition-colors hover:bg-[var(--color-accent-hover)]"
           >
             <RefreshCw size={14} strokeWidth={ICON_STROKE} aria-hidden />
             Reintentar

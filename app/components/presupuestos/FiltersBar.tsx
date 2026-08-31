@@ -108,7 +108,7 @@ export default function FiltersBar({
       <select
         value={filters.doctor}
         onChange={(e) => updateImmediate("doctor", e.target.value)}
-        className={`rounded-full border px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] ${
+        className={`rounded-lg border px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] ${
           filters.doctor
             ? "border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)] font-semibold"
             : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)]"

@@ -220,7 +220,7 @@ export function CobrosView() {
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
             placeholder="Buscar paciente…"
-            className="text-xs px-3 py-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] min-w-[180px] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+            className="text-xs px-3 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] min-w-[180px] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
           />
           <select
             value={filtroEstado}

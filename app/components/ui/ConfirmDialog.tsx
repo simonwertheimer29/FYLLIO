@@ -88,7 +88,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onClose}
             disabled={busy}
-            className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50 transition-colors"
+            className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50 transition-colors"
           >
             {cancelLabel}
           </button>
@@ -97,7 +97,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onConfirm}
             disabled={busy}
-            className={`rounded-md px-3 py-1.5 text-sm font-semibold disabled:opacity-50 transition-colors ${confirmClass}`}
+            className={`rounded-lg px-3 py-1.5 text-sm font-semibold disabled:opacity-50 transition-colors ${confirmClass}`}
           >
             {busy ? "Un momento…" : confirmLabel}
           </button>

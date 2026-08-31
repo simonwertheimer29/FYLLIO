@@ -38,7 +38,7 @@ export function SegmentedToggle<T extends string>({
           key={o.id}
           type="button"
           onClick={() => onChange(o.id)}
-          className={`text-xs font-semibold px-4 py-1.5 rounded-md transition-colors whitespace-nowrap ${
+          className={`text-xs font-semibold px-4 py-1.5 rounded-lg transition-colors whitespace-nowrap ${
             o.id === active
               ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
               : "text-[var(--color-muted)] hover:text-[var(--color-foreground)]"

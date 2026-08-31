@@ -38,7 +38,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             type="button"
             aria-label="Abrir menú"
             onClick={() => setDrawer(true)}
-            className="rounded-md p-1.5 text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
+            className="rounded-lg p-1.5 text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
           >
             <Menu size={18} strokeWidth={ICON_STROKE} aria-hidden />
           </button>
@@ -66,7 +66,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 type="button"
                 aria-label="Cerrar menú"
                 onClick={() => setDrawer(false)}
-                className="rounded-md p-1.5 text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
+                className="rounded-lg p-1.5 text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
               >
                 <X size={16} strokeWidth={ICON_STROKE} aria-hidden />
               </button>

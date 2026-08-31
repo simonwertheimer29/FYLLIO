@@ -197,7 +197,7 @@ export function SidebarNav({ onNavegar }: { onNavegar?: () => void }) {
                       type="button"
                       aria-label={`${desplegado ? "Plegar" : "Desplegar"} ${item.label}`}
                       onClick={() => setAbiertos((a) => ({ ...a, [item.label]: !desplegado }))}
-                      className="rounded-md p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
+                      className="rounded-lg p-1 text-[var(--color-muted)] hover:text-[var(--color-foreground)]"
                     >
                       {desplegado ? (
                         <ChevronDown size={14} strokeWidth={ICON_STROKE} aria-hidden />
@@ -214,7 +214,7 @@ export function SidebarNav({ onNavegar }: { onNavegar?: () => void }) {
                         <Link
                           href={h.href}
                           onClick={onNavegar}
-                          className={`block rounded-md px-2.5 py-1.5 text-[13px] transition-colors ${
+                          className={`block rounded-lg px-2.5 py-1.5 text-[13px] transition-colors ${
                             activo(h.href, true)
                               ? "bg-[var(--color-accent-soft)] font-medium text-[var(--color-accent)]"
                               : "text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-foreground)]"
@@ -249,7 +249,7 @@ export function SidebarNav({ onNavegar }: { onNavegar?: () => void }) {
               type="button"
               onClick={handleLogout}
               disabled={loggingOut}
-              className="rounded-md border border-[var(--color-border)] px-2 py-1 text-[11.5px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
+              className="rounded-lg border border-[var(--color-border)] px-2 py-1 text-[11.5px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
             >
               {loggingOut ? "…" : "Salir"}
             </button>

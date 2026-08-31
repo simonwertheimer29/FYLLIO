@@ -42,7 +42,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm space-y-6">
         {/* Logo */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-600 text-white text-2xl font-extrabold shadow-lg">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-violet-600 text-white text-2xl font-extrabold shadow-lg">
             P
           </div>
           <h1 className="text-xl font-extrabold text-slate-900">Presupuestos</h1>
@@ -52,7 +52,7 @@ export default function LoginPage() {
         {/* Form */}
         <form
           onSubmit={handleSubmit}
-          className="rounded-3xl bg-white border border-slate-200 shadow-sm p-6 space-y-4"
+          className="rounded-xl bg-white border border-slate-200 shadow-sm p-6 space-y-4"
         >
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5">

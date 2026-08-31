@@ -205,7 +205,7 @@ export function EnviosView() {
         <button
           onClick={generarHoy}
           disabled={generando}
-          className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
         >
           <RefreshCw size={14} strokeWidth={ICON_STROKE} className={generando ? "animate-spin" : ""} />
           Generar la cola de hoy
@@ -221,7 +221,7 @@ export function EnviosView() {
 
       {/* Opción (b): un hueco sin plantilla no genera — se dice, no se tapa */}
       {vista.huecosSinPlantilla.length > 0 && (
-        <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">
           <AlertTriangle size={15} strokeWidth={ICON_STROKE} className="mt-0.5 shrink-0" />
           <span>
             Faltan plantillas de: <strong>{vista.huecosSinPlantilla.join(" · ")}</strong>. Esos
@@ -281,14 +281,14 @@ export function EnviosView() {
                   <button
                     onClick={() => marcar(f, "Cancelado")}
                     disabled={operando === f.id}
-                    className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-[13px] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
+                    className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-[13px] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
                   >
                     Cancelar
                   </button>
                   <button
                     onClick={() => marcar(f, "Enviado")}
                     disabled={operando === f.id}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-medium text-white hover:opacity-90 disabled:opacity-50"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-medium text-white hover:opacity-90 disabled:opacity-50"
                   >
                     <Send size={14} strokeWidth={ICON_STROKE} />
                     Enviar

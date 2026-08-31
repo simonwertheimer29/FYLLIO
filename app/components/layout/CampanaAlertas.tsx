@@ -135,7 +135,7 @@ export function CampanaAlertas() {
           setAbierta((v) => !v);
           if (!abierta) void cargar();
         }}
-        className="relative rounded-md p-1.5 text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-foreground)]"
+        className="relative rounded-lg p-1.5 text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] hover:text-[var(--color-foreground)]"
       >
         <Bell size={16} strokeWidth={ICON_STROKE} aria-hidden />
         {activas.length > 0 && (
@@ -181,7 +181,7 @@ export function CampanaAlertas() {
                     type="button"
                     disabled={s.enCooldown || ocupada != null}
                     onClick={() => accion(s, "enviar")}
-                    className="rounded-md border border-[var(--color-border)] px-2 py-0.5 text-[11.5px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface)] disabled:opacity-50"
+                    className="rounded-lg border border-[var(--color-border)] px-2 py-0.5 text-[11.5px] font-medium text-[var(--color-foreground)] hover:bg-[var(--color-surface)] disabled:opacity-50"
                   >
                     {s.enCooldown ? "Avisada" : "Avisar"}
                   </button>
@@ -189,7 +189,7 @@ export function CampanaAlertas() {
                     type="button"
                     disabled={ocupada != null}
                     onClick={() => accion(s, "posponer")}
-                    className="rounded-md px-2 py-0.5 text-[11.5px] text-[var(--color-muted)] hover:text-[var(--color-foreground)] disabled:opacity-50"
+                    className="rounded-lg px-2 py-0.5 text-[11.5px] text-[var(--color-muted)] hover:text-[var(--color-foreground)] disabled:opacity-50"
                   >
                     Posponer
                   </button>

@@ -217,7 +217,7 @@ export function SectionAutomatizaciones({ user }: { user: UserSession }) {
           <button
             onClick={seedDemo}
             disabled={seedLoading}
-            className={`inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-xl border transition-colors disabled:opacity-50 ${
+            className={`inline-flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors disabled:opacity-50 ${
               seedDone
                 ? "border-emerald-300 dark:border-emerald-500/40 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
                 : "border-[var(--color-border)] bg-[var(--color-accent-soft)] text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
@@ -296,7 +296,7 @@ export function SectionAutomatizaciones({ user }: { user: UserSession }) {
                   <button
                     onClick={() => saveConfig(clinica)}
                     disabled={isSaving}
-                    className={`inline-flex items-center gap-1 text-sm font-semibold px-4 py-2 rounded-xl transition-colors disabled:opacity-50 ${
+                    className={`inline-flex items-center gap-1 text-sm font-semibold px-4 py-2 rounded-lg transition-colors disabled:opacity-50 ${
                       isSaved
                         ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-500/30"
                         : "bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)]"
@@ -492,7 +492,7 @@ export function SectionNotificaciones() {
               <button
                 onClick={activarNotificaciones}
                 disabled={activating}
-                className="text-xs font-semibold px-3 py-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-accent-soft)] text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] transition-colors disabled:opacity-50"
+                className="text-xs font-semibold px-3 py-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-accent-soft)] text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] transition-colors disabled:opacity-50"
               >
                 {activating ? "Activando…" : "Activar notificaciones"}
               </button>

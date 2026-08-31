@@ -121,7 +121,7 @@ export default function MotivoPerdidaModal({
         )}
 
         {/* Reactivar checkbox */}
-        <label className="flex items-center gap-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-accent-soft)] px-3 py-2.5 cursor-pointer mb-4 select-none">
+        <label className="flex items-center gap-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-accent-soft)] px-3 py-2.5 cursor-pointer mb-4 select-none">
           <input
             type="checkbox"
             checked={reactivar}

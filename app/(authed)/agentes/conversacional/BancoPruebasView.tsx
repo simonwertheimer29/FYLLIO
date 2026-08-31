@@ -339,7 +339,7 @@ export function BancoPruebasView() {
             <button
               onClick={enviar}
               disabled={enviando || !texto.trim()}
-              className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-2 text-[13px] font-medium text-white hover:opacity-90 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-[13px] font-medium text-white hover:opacity-90 disabled:opacity-50"
             >
               <Send size={14} strokeWidth={ICON_STROKE} aria-hidden />
               Enviar

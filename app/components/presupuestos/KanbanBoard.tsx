@@ -176,7 +176,7 @@ function CompactCardBody({
               href={`tel:${p.patientPhone}`}
               onClick={(e) => e.stopPropagation()}
               draggable={false}
-              className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-medium py-1.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-medium py-1.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
             >
               <Phone size={12} strokeWidth={ICON_STROKE} aria-hidden />
               Llamar
@@ -187,7 +187,7 @@ function CompactCardBody({
                 e.stopPropagation();
                 onOpenFicha(p);
               }}
-              className="flex-1 inline-flex items-center justify-center gap-1 rounded-md border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-medium py-1.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
+              className="flex-1 inline-flex items-center justify-center gap-1 rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-medium py-1.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
             >
               <MessageCircle size={12} strokeWidth={ICON_STROKE} aria-hidden />
               Escribir
@@ -200,7 +200,7 @@ function CompactCardBody({
             e.stopPropagation();
             onEdit(p);
           }}
-          className="inline-flex items-center justify-center rounded-md border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-medium px-2.5 py-1.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
+          className="inline-flex items-center justify-center rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] text-[11px] font-medium px-2.5 py-1.5 hover:text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] transition-colors"
           aria-label={`Editar presupuesto de ${p.patientName}`}
         >
           <Pencil size={12} strokeWidth={ICON_STROKE} aria-hidden />

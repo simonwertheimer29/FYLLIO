@@ -393,7 +393,7 @@ function BotonSemaforo({
       type="button"
       onClick={pulsar}
       disabled={enviando}
-      className={`${sinMargen ? "" : "mt-2 "}inline-flex shrink-0 items-center rounded-md border px-2.5 py-1 text-[12px] font-semibold transition-colors disabled:opacity-50 ${
+      className={`${sinMargen ? "" : "mt-2 "}inline-flex shrink-0 items-center rounded-lg border px-2.5 py-1 text-[12px] font-semibold transition-colors disabled:opacity-50 ${
         confirmando
           ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-white hover:opacity-90"
           : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"

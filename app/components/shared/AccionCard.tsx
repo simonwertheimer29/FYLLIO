@@ -255,7 +255,7 @@ export function AccionCard({
                 type="button"
                 onClick={a.onClick}
                 disabled={a.disabled}
-                className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-xl disabled:opacity-40 ${cls}`}
+                className={`flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg disabled:opacity-40 ${cls}`}
               >
                 {a.label}
               </button>

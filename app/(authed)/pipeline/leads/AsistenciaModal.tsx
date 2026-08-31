@@ -166,7 +166,7 @@ export function AsistenciaModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-xl bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-sm font-semibold py-2.5 hover:bg-[var(--color-border)]"
+            className="flex-1 rounded-lg bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-sm font-semibold py-2.5 hover:bg-[var(--color-border)]"
           >
             Cancelar
           </button>

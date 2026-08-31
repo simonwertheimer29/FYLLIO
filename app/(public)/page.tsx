@@ -13,10 +13,10 @@ export default function HomePage() {
   const mailchimpAction = process.env.NEXT_PUBLIC_MAILCHIMP_ACTION_URL || "#";
 
   const cardBad =
-  "flex items-center gap-3 rounded-2xl bg-rose-50/70 px-4 py-3 text-sm text-rose-900 ring-1 ring-rose-200";
+  "flex items-center gap-3 rounded-xl bg-rose-50/70 px-4 py-3 text-sm text-rose-900 ring-1 ring-rose-200";
 
 const cardGood =
-  "flex items-center gap-3 rounded-2xl bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900 ring-1 ring-emerald-200";
+  "flex items-center gap-3 rounded-xl bg-emerald-50/70 px-4 py-3 text-sm text-emerald-900 ring-1 ring-emerald-200";
 
 
   const cardSoft =
@@ -127,8 +127,8 @@ const IconCheck = () => (
 
    <div className="mx-auto mt-10 grid w-full max-w-6xl gap-6 md:grid-cols-3 items-stretch">
   {/* CARD 1 */}
-  <div className="rounded-3xl bg-sky-50/55 p-8 ring-1 ring-slate-200/60 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm text-center">
-    <div className="mx-auto mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-100/70 ring-1 ring-sky-200">
+  <div className="rounded-xl bg-sky-50/55 p-8 ring-1 ring-slate-200/60 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm text-center">
+    <div className="mx-auto mb-6 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-sky-100/70 ring-1 ring-sky-200">
       {/* clock icon */}
       <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-700" fill="none" stroke="currentColor" strokeWidth="2">
         <path strokeLinecap="round" d="M12 8v5l3 2" />
@@ -145,8 +145,8 @@ const IconCheck = () => (
   </div>
 
   {/* CARD 2 */}
-  <div className="rounded-3xl bg-sky-50/55 p-8 ring-1 ring-slate-200/60 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm text-center">
-    <div className="mx-auto mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-100/70 ring-1 ring-sky-200">
+  <div className="rounded-xl bg-sky-50/55 p-8 ring-1 ring-slate-200/60 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm text-center">
+    <div className="mx-auto mb-6 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-sky-100/70 ring-1 ring-sky-200">
       {/* users icon */}
       <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-700" fill="none" stroke="currentColor" strokeWidth="2">
         <path strokeLinecap="round" d="M16 11a4 4 0 10-8 0 4 4 0 008 0z" />
@@ -163,8 +163,8 @@ const IconCheck = () => (
   </div>
 
   {/* CARD 3 */}
-  <div className="rounded-3xl bg-sky-50/55 p-8 ring-1 ring-slate-200/60 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm text-center">
-    <div className="mx-auto mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-100/70 ring-1 ring-sky-200">
+  <div className="rounded-xl bg-sky-50/55 p-8 ring-1 ring-slate-200/60 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm text-center">
+    <div className="mx-auto mb-6 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-sky-100/70 ring-1 ring-sky-200">
       {/* trending down icon */}
       <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-700" fill="none" stroke="currentColor" strokeWidth="2">
         <path strokeLinecap="round" d="M3 7v14h18" />
@@ -261,12 +261,12 @@ const IconCheck = () => (
 
     <div className="mt-12 grid gap-6 md:grid-cols-4">
       {/* 01 */}
-      <div className="relative overflow-hidden rounded-3xl bg-white/70 p-8 ring-1 ring-slate-200/70 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm">
+      <div className="relative overflow-hidden rounded-xl bg-white/70 p-8 ring-1 ring-slate-200/70 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm">
         <div className="absolute right-6 top-6 text-5xl font-extrabold text-slate-200/70">
           01
         </div>
 
-        <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-100/70 ring-1 ring-sky-200">
+        <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-sky-100/70 ring-1 ring-sky-200">
           {/* gear icon */}
           <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-700" fill="none" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z" />
@@ -283,12 +283,12 @@ const IconCheck = () => (
       </div>
 
       {/* 02 */}
-      <div className="relative overflow-hidden rounded-3xl bg-white/70 p-8 ring-1 ring-slate-200/70 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm">
+      <div className="relative overflow-hidden rounded-xl bg-white/70 p-8 ring-1 ring-slate-200/70 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm">
         <div className="absolute right-6 top-6 text-5xl font-extrabold text-slate-200/70">
           02
         </div>
 
-        <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-100/70 ring-1 ring-sky-200">
+        <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-sky-100/70 ring-1 ring-sky-200">
           {/* bell icon */}
           <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-700" fill="none" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" d="M12 22a2 2 0 002-2H10a2 2 0 002 2z" />
@@ -305,12 +305,12 @@ const IconCheck = () => (
       </div>
 
       {/* 03 */}
-      <div className="relative overflow-hidden rounded-3xl bg-white/70 p-8 ring-1 ring-slate-200/70 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm">
+      <div className="relative overflow-hidden rounded-xl bg-white/70 p-8 ring-1 ring-slate-200/70 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm">
         <div className="absolute right-6 top-6 text-5xl font-extrabold text-slate-200/70">
           03
         </div>
 
-        <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-100/70 ring-1 ring-sky-200">
+        <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-sky-100/70 ring-1 ring-sky-200">
           {/* bolt icon */}
           <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-700" fill="none" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" d="M13 2L3 14h7l-1 8 10-12h-7l1-8z" />
@@ -326,12 +326,12 @@ const IconCheck = () => (
       </div>
 
       {/* 04 */}
-      <div className="relative overflow-hidden rounded-3xl bg-white/70 p-8 ring-1 ring-slate-200/70 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm">
+      <div className="relative overflow-hidden rounded-xl bg-white/70 p-8 ring-1 ring-slate-200/70 shadow-[0_18px_55px_rgba(2,6,23,0.06)] backdrop-blur-sm">
         <div className="absolute right-6 top-6 text-5xl font-extrabold text-slate-200/70">
           04
         </div>
 
-        <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-sky-100/70 ring-1 ring-sky-200">
+        <div className="mb-6 inline-flex h-14 w-14 items-center justify-center rounded-xl bg-sky-100/70 ring-1 ring-sky-200">
           {/* chart icon */}
           <svg viewBox="0 0 24 24" className="h-7 w-7 text-sky-700" fill="none" stroke="currentColor" strokeWidth="2">
             <path strokeLinecap="round" d="M4 19V5" />

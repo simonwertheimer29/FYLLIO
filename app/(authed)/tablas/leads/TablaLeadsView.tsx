@@ -141,7 +141,7 @@ export function TablaLeadsView({ leads }: { leads: Lead[] }) {
           value={filtroMotivo}
           onChange={(e) => setFiltroMotivo(e.target.value)}
           aria-label="Filtrar por motivo"
-          className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[11px] font-semibold text-[var(--color-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[11px] font-semibold text-[var(--color-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
         >
           <option value="todos">Motivo: todos</option>
           {MOTIVOS_ORDENADOS.map((m) => (

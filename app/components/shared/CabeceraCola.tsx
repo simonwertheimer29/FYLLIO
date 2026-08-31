@@ -102,7 +102,7 @@ export function CabeceraCola() {
           type="button"
           onClick={cargar}
           disabled={cargando}
-          className="text-xs font-medium px-3 py-1.5 rounded-md bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50 transition-colors inline-flex items-center gap-1.5"
+          className="text-xs font-medium px-3 py-1.5 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50 transition-colors inline-flex items-center gap-1.5"
         >
           <RefreshCw size={12} strokeWidth={ICON_STROKE} className={cargando ? "animate-spin" : ""} />
           {cargando ? "Actualizando…" : "Actualizar"}

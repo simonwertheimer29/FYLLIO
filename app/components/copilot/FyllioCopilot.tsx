@@ -448,7 +448,7 @@ export function FyllioCopilot() {
                   <button
                     type="button"
                     onClick={reset}
-                    className="text-[11px] font-medium text-[var(--color-muted)] hover:text-[var(--color-foreground)] px-2 py-1 rounded-md hover:bg-[var(--color-surface-muted)] transition-colors"
+                    className="text-[11px] font-medium text-[var(--color-muted)] hover:text-[var(--color-foreground)] px-2 py-1 rounded-lg hover:bg-[var(--color-surface-muted)] transition-colors"
                   >
                     Reiniciar
                   </button>
@@ -457,14 +457,14 @@ export function FyllioCopilot() {
                   type="button"
                   onClick={() => setShowHistory(true)}
                   aria-label="Historial"
-                  className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-md flex items-center justify-center hover:bg-[var(--color-surface-muted)] transition-colors"
+                  className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--color-surface-muted)] transition-colors"
                 >
                   <History size={16} strokeWidth={ICON_STROKE} />
                 </button>
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-md flex items-center justify-center hover:bg-[var(--color-surface-muted)] transition-colors"
+                  className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-8 h-8 rounded-lg flex items-center justify-center hover:bg-[var(--color-surface-muted)] transition-colors"
                   aria-label="Cerrar"
                 >
                   <X size={16} strokeWidth={ICON_STROKE} />
@@ -535,7 +535,7 @@ export function FyllioCopilot() {
                   onClick={recording ? detenerGrabacion : empezarGrabacion}
                   disabled={loading || transcribing}
                   aria-label={recording ? "Detener grabación" : "Grabar audio"}
-                  className={`w-9 h-9 rounded-md disabled:opacity-40 transition-colors flex items-center justify-center ${
+                  className={`w-9 h-9 rounded-lg disabled:opacity-40 transition-colors flex items-center justify-center ${
                     recording
                       ? "bg-[var(--color-danger)] text-[var(--color-on-accent)] hover:opacity-90"
                       : "bg-[var(--color-surface-muted)] text-[var(--color-muted)] hover:bg-[var(--color-border)]"
@@ -552,7 +552,7 @@ export function FyllioCopilot() {
                   onClick={() => send()}
                   disabled={!draft.trim() || loading}
                   aria-label="Enviar"
-                  className="w-9 h-9 rounded-md bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40 transition-colors flex items-center justify-center"
+                  className="w-9 h-9 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] hover:bg-[var(--color-accent-hover)] disabled:opacity-40 transition-colors flex items-center justify-center"
                 >
                   <ArrowUp size={16} strokeWidth={ICON_STROKE} />
                 </button>
@@ -640,7 +640,7 @@ function HistoryPanel({
           <button
             type="button"
             onClick={onClose}
-            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-7 h-7 rounded-md flex items-center justify-center hover:bg-[var(--color-surface-muted)]"
+            className="text-[var(--color-muted)] hover:text-[var(--color-foreground)] w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[var(--color-surface-muted)]"
             aria-label="Cerrar historial"
           >
             <X size={14} strokeWidth={ICON_STROKE} />
@@ -871,7 +871,7 @@ function ChatBubble({
                         type="button"
                         onClick={() => onCancel(a, msgIndex)}
                         disabled={busy}
-                        className="text-xs font-medium px-3 py-1.5 rounded-md border bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
+                        className="text-xs font-medium px-3 py-1.5 rounded-lg border bg-[var(--color-surface)] border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)] disabled:opacity-50"
                       >
                         Cancelar
                       </button>

@@ -188,7 +188,7 @@ export function AgendarModal({
                 key={tv}
                 type="button"
                 onClick={() => setTipoVisita(tv)}
-                className={`flex-1 text-xs font-semibold px-2 py-2 rounded-xl border transition-colors ${
+                className={`flex-1 text-xs font-semibold px-2 py-2 rounded-lg border transition-colors ${
                   tipoVisita === tv
                     ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-[var(--color-accent)]"
                     : "bg-[var(--color-surface)] text-[var(--color-foreground)] border-[var(--color-border)] hover:border-[var(--color-muted)]"
@@ -219,7 +219,7 @@ export function AgendarModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 rounded-xl bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-sm font-semibold py-2.5 hover:bg-[var(--color-border)]"
+            className="flex-1 rounded-lg bg-[var(--color-surface-muted)] text-[var(--color-foreground)] text-sm font-semibold py-2.5 hover:bg-[var(--color-border)]"
           >
             Cancelar
           </button>
