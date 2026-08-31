@@ -79,7 +79,7 @@ solo radio para todo borra esa información.
 | **Dato denso**: bloques de cita, huecos, bloqueos, chips de dato en listas | 4 px | `rounded` |
 | **Controles y campos**: botones, inputs, selects, tabs (contenedor), filas desplegables | 8 px | `rounded-lg` (interior de tabs: `rounded-md`) |
 | **Contenedores**: tarjetas, paneles, modales, popovers, lienzos de rejilla | 12 px | `rounded-xl` |
-| **Píldoras**: badges, chips de estado, leyendas, avatares | redondo | `rounded-full` |
+| **Píldoras**: badges, leyendas, avatares (estados de tabla: ver excepción StatePill) | redondo | `rounded-full` |
 
 Sin puntos intermedios (decisión explícita: controles a 8, no a 10). Al tocar una pantalla,
 sus radios se ajustan a esta escala; `rounded-2xl`/`rounded-3xl` quedan fuera del vocabulario
@@ -89,6 +89,15 @@ salvo decisión nueva del fundador.
 etiqueta pasiva — un estado, una categoría que solo informa («Confirmada»). Un filtro de
 pestaña se PULSA para cambiar lo que VES: es un control y va a 8 px, aunque esté dibujado
 como píldora («Hoy · Semana · Mes» es un control).
+
+**Excepción declarada — StatePill se queda a 6 px (`rounded-md`), decisión del fundador
+2026-08-31.** El primitivo de estados (`Aceptado`/`Perdido`/`Enviado`/`Completada`…) vive
+sobre todo en TABLAS DENSAS, rodeado de filtros y botones redondeados: a 6 px se lee como
+dato de la fila; redondo del todo competiría en forma con los filtros-píldora y a ese tamaño
+parecería pulsable. Es una elección de forma defendible, no una inconsistencia — y aplica al
+PRIMITIVO: un chip de estado hecho a mano se hace con `StatePill`, no copiando su radio.
+Los badges pasivos que NO son estados de tabla (canal de origen, tratamiento, «LO MÁS
+URGENTE», etiquetas uppercase de KpiCard) siguen redondos según la tabla.
 
 Y el criterio para resolver el caso dudoso sin volver a preguntar — dos preguntas, en orden:
 
