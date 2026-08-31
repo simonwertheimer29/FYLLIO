@@ -100,6 +100,29 @@ Y el criterio para resolver el caso dudoso sin volver a preguntar — dos pregun
    etiqueta encendible → redonda, aunque sea interactiva. La forma sigue al significado:
    los filtros conmutan, las etiquetas pertenecen.
 
+**Los cuatro patrones resueltos (2026-08-31), con su porqué — no solo la asignación:**
+
+1. **Pestaña-con-contador es control, y el contador va DENTRO** («Todos · 12»). El elemento
+   informa y filtra a la vez, y manda su FUNCIÓN: se pulsa para conmutar la vista → 8 px.
+   El número es contenido del control, jamás una píldora aparte pegada al lado — dos formas
+   para un solo gesto es la ambigüedad que este criterio elimina.
+2. **La fila-tarjeta clicable sigue siendo contenedor** (una conversación de la lista, una
+   AccionCard). El radio sigue al TAMAÑO y la densidad, no al clic: «se pulsa → 8 px» aplica
+   a controles, y una tarjeta no se convierte en botón por ser clicable — es una superficie
+   que se abre.
+3. **La superficie interactiva grande, igual: contenedor** (una dropzone). Mismo porqué que
+   el patrón 2: la interacción no cambia la naturaleza de la superficie.
+4. **El estado-que-abre sigue siendo etiqueta; lo clicable es LA FILA.** Una pill de estado
+   que abre el detalle no conmuta la vista — informa. Si hace falta clic, se hace clicable
+   la fila que la contiene, nunca la pill: cuando la etiqueta se vuelve botón, deja de leerse
+   como estado.
+
+**Los valores de radio NO se remapean en el tema (decisión 2026-08-31).** El `@theme` llegó a
+redefinir `md=8/lg=12/xl=16` y las clases mintieron un punto entero durante semanas: la escala
+se razona en los valores REALES de Tailwind (`rounded`=4 · `md`=6 · `lg`=8 · `xl`=12). Si un
+valor no convence, se cambia LA CLASE en el sitio afectado — jamás el significado global de la
+clase, que es la garantía de que esto no vuelva a pasar.
+
 **La referencia de acabado es la agenda** (`/agenda`, iteración G2.x): densidad de dato,
 contraste real entre estructura (líneas y ejes al 30–70 % de opacidad, etiquetas pequeñas en
 mayúsculas con tracking) y contenido (bloques sólidos con texto claro encima, cifras
