@@ -102,7 +102,7 @@ export default function FiltersBar({
         placeholder="Buscar paciente, tratamiento, importe…"
         value={filters.q}
         onChange={(e) => updateSearch(e.target.value)}
-        className="flex-1 min-w-[180px] max-w-sm rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+        className="flex-1 min-w-[180px] max-w-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
       />
 
       <select

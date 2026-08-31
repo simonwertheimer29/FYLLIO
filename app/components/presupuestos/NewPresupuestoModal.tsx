@@ -395,7 +395,7 @@ export default function NewPresupuestoModal({
                       type="button"
                       onClick={() => alternarTratamiento(t.nombre)}
                       aria-pressed={activo}
-                      className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                         activo
                           ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
                           : "bg-[var(--color-surface-muted)] text-[var(--color-muted)] hover:text-[var(--color-foreground)]"

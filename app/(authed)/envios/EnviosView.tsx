@@ -236,7 +236,7 @@ export function EnviosView() {
           <button
             key={o}
             onClick={() => setFiltro(o)}
-            className={`rounded-full border px-3 py-1 text-[13px] ${
+            className={`rounded-lg border px-3 py-1 text-[13px] ${
               filtro === o
                 ? "border-transparent bg-[var(--color-accent)] text-white"
                 : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"

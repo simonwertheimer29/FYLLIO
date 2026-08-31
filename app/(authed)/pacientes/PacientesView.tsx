@@ -486,7 +486,7 @@ export function PacientesView({
               key={k}
               type="button"
               onClick={() => setDateFilter(k)}
-              className={`text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+              className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
                 dateFilter === k
                   ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent"
                   : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
@@ -501,7 +501,7 @@ export function PacientesView({
           placeholder="Buscar paciente…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-[180px] max-w-sm rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          className="flex-1 min-w-[180px] max-w-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
         />
         {/* Crear presupuesto también desde arriba: si la coordinadora ya sabe a
             quién, no tiene por qué buscar su fila primero. Es el MISMO modal,
@@ -509,7 +509,7 @@ export function PacientesView({
         <button
           type="button"
           onClick={() => setPresupuestoNuevo(true)}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-[var(--color-accent)] text-[var(--color-on-accent)] px-4 py-1.5 text-xs font-semibold hover:bg-[var(--color-accent-hover)] transition-colors"
+          className="ml-auto inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] text-[var(--color-on-accent)] px-4 py-1.5 text-xs font-semibold hover:bg-[var(--color-accent-hover)] transition-colors"
         >
           <FileText size={14} strokeWidth={ICON_STROKE} aria-hidden />
           Nuevo presupuesto

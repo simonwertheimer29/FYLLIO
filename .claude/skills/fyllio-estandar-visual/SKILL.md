@@ -85,13 +85,20 @@ Sin puntos intermedios (decisión explícita: controles a 8, no a 10). Al tocar 
 sus radios se ajustan a esta escala; `rounded-2xl`/`rounded-3xl` quedan fuera del vocabulario
 salvo decisión nueva del fundador.
 
-**La línea del chip (2026-08-31): un chip es una ETIQUETA PASIVA** — un estado, una categoría
-que solo informa. Eso es lo único que va redondo. **Un filtro de pestaña se PULSA: es un
-control y va a 8 px**, aunque hoy esté dibujado como píldora («Hoy · Semana · Mes» es un
-control; el badge «Confirmada» es un chip). Excepciones declaradas, no ampliables sin OK:
-los interruptores tipo switch (el redondo es su forma), los días del mini calendario (el
-círculo del día es identidad de calendario) y los botones circulares de icono (FAB, teclado
-del PIN).
+**La línea del chip (2026-08-31): redondo = etiqueta, 8 px = control.** Un chip es una
+etiqueta pasiva — un estado, una categoría que solo informa («Confirmada»). Un filtro de
+pestaña se PULSA para cambiar lo que VES: es un control y va a 8 px, aunque esté dibujado
+como píldora («Hoy · Semana · Mes» es un control).
+
+Y el criterio para resolver el caso dudoso sin volver a preguntar — dos preguntas, en orden:
+
+1. **¿Lo circular ES el objeto?** Un switch, el día de un calendario, un botón de icono
+   (FAB, tecla del PIN): ahí el redondo es la FORMA del elemento, no decoración — se queda
+   redondo aunque se pulse.
+2. **¿El clic cambia lo que VES o marca lo que ES?** Cambiar la vista o el filtro = control
+   → 8 px. Encender una PERTENENCIA («este doctor hace ortodoncia», un tag que se activa) =
+   etiqueta encendible → redonda, aunque sea interactiva. La forma sigue al significado:
+   los filtros conmutan, las etiquetas pertenecen.
 
 **La referencia de acabado es la agenda** (`/agenda`, iteración G2.x): densidad de dato,
 contraste real entre estructura (líneas y ejes al 30–70 % de opacidad, etiquetas pequeñas en

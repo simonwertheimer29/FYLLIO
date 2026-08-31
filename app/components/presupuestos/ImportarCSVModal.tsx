@@ -515,7 +515,7 @@ export default function ImportarCSVModal({
                           {r.isDuplicate ? (
                             <button
                               onClick={() => toggleIgnorar(r.idx)}
-                              className={`text-[10px] font-semibold px-2 py-0.5 rounded-full transition-colors ${
+                              className={`text-[10px] font-semibold px-2 py-0.5 rounded transition-colors ${
                                 r.ignorar
                                   ? "bg-[var(--color-border)] text-[var(--color-muted)] hover:bg-emerald-100 dark:hover:bg-emerald-500/20 hover:text-emerald-700 dark:hover:text-emerald-300"
                                   : "bg-amber-100 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 hover:bg-[var(--color-border)] hover:text-[var(--color-muted)]"

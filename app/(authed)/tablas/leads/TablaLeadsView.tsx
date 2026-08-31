@@ -127,7 +127,7 @@ export function TablaLeadsView({ leads }: { leads: Lead[] }) {
               key={f.id}
               type="button"
               onClick={() => setFiltro(f.id)}
-              className={`text-[11px] font-semibold px-3 py-1.5 rounded-full border transition-colors ${
+              className={`text-[11px] font-semibold px-3 py-1.5 rounded-lg border transition-colors ${
                 filtro === f.id
                   ? "bg-[var(--color-accent)] text-[var(--color-on-accent)] border-transparent"
                   : "bg-[var(--color-surface)] text-[var(--color-muted)] border-[var(--color-border)] hover:bg-[var(--color-surface-muted)]"
@@ -155,7 +155,7 @@ export function TablaLeadsView({ leads }: { leads: Lead[] }) {
           placeholder="Buscar por nombre, teléfono o tratamiento…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-[200px] max-w-sm rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
+          className="flex-1 min-w-[200px] max-w-sm rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-4 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
         />
       </div>
 

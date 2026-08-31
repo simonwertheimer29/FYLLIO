@@ -372,7 +372,7 @@ export default function MaximaView({
             <button
               key={pill.id}
               onClick={() => setPillActiva(pill.id)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+              className={`rounded-lg px-3 py-1 text-xs font-medium transition-colors ${
                 active
                   ? "bg-[var(--color-accent)] text-[var(--color-on-accent)]"
                   : "bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
