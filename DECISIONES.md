@@ -3647,3 +3647,12 @@ Automatizaciones, Agentes y Llamadas verificadas conformes SIN cambios. Queda un
 abierta: StatePill (el primitivo de estados) es rounded-md 6px, fuera de la escala cerrada — por
 el criterio del chip (etiqueta pasiva) tocaría redondo, pero repinta decenas de pantallas ya
 aprobadas: decisión del fundador, no de barrido.
+
+## 2026-08-31 — StatePill declarada excepción + Mensajería: el ACABADO queda cerrado
+StatePill se queda a 6px por decisión del fundador: los estados en tablas densas van a 6px para
+NO parecer filtros — elección de forma defendible, no inconsistencia; escrita en el skill con la
+regla operativa (un estado a mano se hace con el primitivo, no copiando su radio). Mensajería solo
+necesitó la pasada fina: dos etiquetas a tracking-wider y el marcador ✦ de IA sustituido por el
+icono Sparkles (§3). Pendiente menor anotado: conviven tres trackings en etiquetas uppercase
+(wide 48 · wider 21 · widest 16, KpiCard incluido) — unificar es decisión de vocabulario, no
+barrido. Excluidos deliberados del estándar: portal del paciente y landing pública.

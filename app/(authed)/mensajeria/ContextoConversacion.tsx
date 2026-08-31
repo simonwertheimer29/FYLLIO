@@ -44,7 +44,7 @@ export function ContextoConversacion({
     <div className="space-y-5 p-4">
       {/* ─── 1 · Quién es (identidad, no resumen — se queda) ──────────── */}
       <div>
-        <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--color-muted)]">
+        <p className="text-[10px] font-medium uppercase tracking-wider text-[var(--color-muted)]">
           Contacto
         </p>
         <p className="mt-1.5 text-[15px] font-semibold text-[var(--color-foreground)]">

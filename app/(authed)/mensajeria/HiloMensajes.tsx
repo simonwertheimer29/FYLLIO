@@ -14,6 +14,7 @@
 
 import { useEffect, useRef } from "react";
 import { fechaClinica, horaClinica, hoyISO } from "../../lib/time";
+import { Sparkles, ICON_STROKE } from "../../components/icons";
 
 export type MensajeHilo = {
   id: string;
@@ -58,7 +59,7 @@ export function HiloMensajes({ mensajes }: { mensajes: MensajeHilo[] }) {
             {nuevoDia && (
               <div className="my-4 flex items-center gap-3">
                 <span className="h-px flex-1 bg-[var(--color-border)]" />
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-muted)]">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-muted)]">
                   {etiquetaDeDia(m.timestamp)}
                 </span>
                 <span className="h-px flex-1 bg-[var(--color-border)]" />
@@ -83,7 +84,11 @@ export function HiloMensajes({ mensajes }: { mensajes: MensajeHilo[] }) {
                     mio ? "text-[var(--color-on-accent)]/70" : "text-[var(--color-muted)]"
                   }`}
                 >
-                  {m.sugeridoPorIa && <span title="Lo redactó el agente">✦ </span>}
+                  {m.sugeridoPorIa && (
+                    <span title="Lo redactó el agente" className="mr-1 inline-flex align-middle">
+                      <Sparkles size={10} strokeWidth={ICON_STROKE} aria-label="Lo redactó el agente" />
+                    </span>
+                  )}
                   {horaClinica(new Date(m.timestamp))}
                 </p>
               </div>
