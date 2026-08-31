@@ -3560,3 +3560,14 @@ en cabeceras de Día y recuadros de Lista es un ENLACE a su semana individual. L
 acabado que la rejilla (cabecera de día con número grande y hoy en círculo, chips sólidos, libres
 en acento 13px). Tipografía con jerarquía real (dato vs estructura). Nombres largos abreviados por
 el NOMBRE, nunca el apellido («Dra. P. Iglesias»), con qa propio. E2E 12/12 en producción.
+
+## 2026-08-31 — Agenda G2.9: el corte era el min-width:auto del shell, y verificación a anchos reales
+El «se sigue cortando» tenía causa técnica precisa: el min-content de los carriles se propagaba a
+través del overflow-x-auto hasta el flex item del shell (sin min-w-0), que no encogía — la agenda
+se pintaba RECORTADA sin scroll. Fix local sin tocar el shell: w-0 min-w-full en el contenedor de
+scroll (min-content 0). Además: mínimo por carril a 152px (seis doctores enteros a 1280 con la
+barra lateral; scroll interno solo a partir de ahí), el aviso de nivel a LÍNEA PROPIA de ancho
+completo (envuelve, jamás se sale), y viveza en lo que quedaba plano — tabs, filtros, buscador y
+botones a altura h-9 con sombra y peso, leyenda en píldoras. La verificación pasa a ANCHOS REALES:
+1280/1440/1920 × Día y Semana con asserts de página-sin-scroll, carriles enteros, último doctor no
+partido y aviso dentro (15/15). E2E previo 12/12 intacto.

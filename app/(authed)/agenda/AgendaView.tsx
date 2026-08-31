@@ -297,22 +297,14 @@ export function AgendaView() {
   return (
     <div className="p-4 sm:p-6">
       {/* Cabecera */}
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <CalendarDays size={20} strokeWidth={ICON_STROKE} className="text-[var(--color-accent)]" aria-hidden />
-          <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">Agenda</h1>
-        </div>
-        <div className="flex items-center gap-1.5 rounded-xl bg-[var(--color-accent-soft)] px-3 py-1.5">
-          <Info size={13} strokeWidth={ICON_STROKE} className="shrink-0 text-[var(--color-accent)]" aria-hidden />
-          <p className="text-[11.5px] text-[var(--color-foreground)]">
-            Las horas libres son orientativas: dependen del nivel de integración con la agenda real de tu clínica.
-          </p>
-        </div>
+      <div className="mb-2 flex items-center gap-2">
+        <CalendarDays size={20} strokeWidth={ICON_STROKE} className="text-[var(--color-accent)]" aria-hidden />
+        <h1 className="font-display text-xl font-semibold text-[var(--color-foreground)]">Agenda</h1>
       </div>
 
       {/* Controles: vista + navegación + filtros */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="flex rounded-xl border border-[var(--color-border)] p-0.5" role="tablist" aria-label="Vista">
+        <div className="flex h-9 items-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5 shadow-sm" role="tablist" aria-label="Vista">
           {([["dia", "Día"], ["semana", "Semana"], ["lista", "Lista"]] as Array<[Vista, string]>).map(([v, label]) => (
             <button
               key={v}
@@ -320,7 +312,7 @@ export function AgendaView() {
               role="tab"
               aria-selected={vista === v}
               onClick={() => setVista(v)}
-              className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+              className={`rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors ${
                 vista === v
                   ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
                   : "text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
@@ -334,30 +326,30 @@ export function AgendaView() {
         {vista === "dia" ? (
           <div className="flex items-center gap-1">
             <button type="button" aria-label="Día anterior" onClick={() => irADia(sumaDias(fecha, -1))}
-              className="rounded-lg border border-[var(--color-border)] p-1.5 text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-sm hover:bg-[var(--color-surface-muted)]">
               <ChevronLeft size={14} strokeWidth={ICON_STROKE} aria-hidden />
             </button>
             <button type="button" onClick={() => irADia(hoyISO())}
-              className="rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]">
+              className="h-9 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[12.5px] font-semibold text-[var(--color-foreground)] shadow-sm hover:bg-[var(--color-surface-muted)]">
               Hoy
             </button>
             <button type="button" aria-label="Día siguiente" onClick={() => irADia(sumaDias(fecha, 1))}
-              className="rounded-lg border border-[var(--color-border)] p-1.5 text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-sm hover:bg-[var(--color-surface-muted)]">
               <ChevronRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
             </button>
           </div>
         ) : (
           <div className="flex items-center gap-1">
             <button type="button" aria-label="Semana anterior" onClick={() => setDesde(sumaDias(desde, -7))}
-              className="rounded-lg border border-[var(--color-border)] p-1.5 text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-sm hover:bg-[var(--color-surface-muted)]">
               <ChevronLeft size={14} strokeWidth={ICON_STROKE} aria-hidden />
             </button>
             <button type="button" onClick={() => setDesde(lunesDe(hoyISO()))}
-              className="rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]">
+              className="h-9 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[12.5px] font-semibold text-[var(--color-foreground)] shadow-sm hover:bg-[var(--color-surface-muted)]">
               Hoy
             </button>
             <button type="button" aria-label="Semana siguiente" onClick={() => setDesde(sumaDias(desde, 7))}
-              className="rounded-lg border border-[var(--color-border)] p-1.5 text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]">
+              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-sm hover:bg-[var(--color-surface-muted)]">
               <ChevronRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
             </button>
           </div>
@@ -368,7 +360,7 @@ export function AgendaView() {
           <button
             type="button"
             onClick={() => setCalAbierto((v) => !v)}
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 font-display text-[15px] font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
+            className="inline-flex h-9 items-center gap-1 rounded-xl px-2.5 font-display text-[15px] font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
           >
             {vista === "dia" ? fechaLarga(fecha) : `Semana del ${diaMes(desde)}`}
             {vista === "dia" && fecha === hoy && <span className="text-[11px] font-normal text-[var(--color-muted)]"> · hoy</span>}
@@ -397,7 +389,7 @@ export function AgendaView() {
           value={filtroEsp}
           onChange={(e) => { setFiltroEsp(e.target.value); setFiltroDoc(""); }}
           aria-label="Filtrar por especialidad"
-          className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs text-[var(--color-foreground)]"
+          className="h-9 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[12.5px] font-medium text-[var(--color-foreground)] shadow-sm"
         >
           <option value="">Todas las especialidades</option>
           {data?.especialidades.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
@@ -406,7 +398,7 @@ export function AgendaView() {
           value={filtroDoc}
           onChange={(e) => setFiltroDoc(e.target.value)}
           aria-label="Filtrar por doctor"
-          className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1.5 text-xs text-[var(--color-foreground)]"
+          className="h-9 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[12.5px] font-medium text-[var(--color-foreground)] shadow-sm"
         >
           <option value="">Todos los doctores</option>
           {data?.doctores
@@ -421,7 +413,7 @@ export function AgendaView() {
             if (doc) crearBorrador({ fecha: f, staffId: doc.id }, 10 * 60, 30);
           }}
           disabled={!data}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-[var(--color-on-accent)] hover:opacity-90 disabled:opacity-40"
+          className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[var(--color-accent)] px-3.5 text-[12.5px] font-semibold text-[var(--color-on-accent)] shadow-sm hover:opacity-90 disabled:opacity-40"
         >
           <Plus size={13} strokeWidth={ICON_STROKE} aria-hidden /> Nueva cita
         </button>
@@ -433,7 +425,7 @@ export function AgendaView() {
             onChange={(e) => setBusqDoc(e.target.value)}
             placeholder="Buscar doctor…"
             aria-label="Buscar doctor"
-            className="w-40 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] py-1.5 pl-7 pr-2.5 text-xs text-[var(--color-foreground)] placeholder:text-[var(--color-muted)]"
+            className="h-9 w-44 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] pl-7 pr-2.5 text-[12.5px] font-medium text-[var(--color-foreground)] shadow-sm placeholder:font-normal placeholder:text-[var(--color-muted)]"
           />
           {busqDoc.trim().length >= 2 && data && (
             <div className="absolute left-0 top-full z-40 mt-1 w-56 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl">
@@ -459,6 +451,12 @@ export function AgendaView() {
           </button>
         )}
       </div>
+
+      {/* El aviso de nivel: línea propia — cabe SIEMPRE, envuelve si hace falta */}
+      <p data-aviso-nivel className="mb-3 flex items-start gap-1.5 text-[11px] leading-snug text-[var(--color-muted)]">
+        <Info size={12} strokeWidth={ICON_STROKE} className="mt-px shrink-0 text-[var(--color-accent)]" aria-hidden />
+        <span>Las horas libres son orientativas: dependen del nivel de integración con la agenda real de tu clínica.</span>
+      </p>
 
       {!data && cargando ? (
         <div className="h-[28rem] animate-pulse rounded-2xl bg-[var(--color-surface-muted)]" />
@@ -655,9 +653,9 @@ const BLOQUE_ESTADO: Record<string, { bg: string; fg: string; borde?: string }> 
 };
 
 function LeyendaCarriles() {
-  const chip = "inline-flex items-center gap-1.5 text-[10px] text-[var(--color-muted)]";
+  const chip = "inline-flex items-center gap-1.5 rounded-full bg-[var(--color-surface-muted)] px-2.5 py-1 text-[10.5px] font-medium text-[var(--color-muted)]";
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 px-1">
+    <div className="mb-3 flex flex-wrap items-center gap-1.5 px-1">
       <span className={chip}><span className="h-2.5 w-2.5 rounded-sm bg-[var(--color-success)]" /> Confirmada</span>
       <span className={chip}><span className="h-2.5 w-2.5 rounded-sm bg-[var(--color-accent)]" /> Programada</span>
       <span className={chip}><span className="h-2.5 w-2.5 rounded-sm border border-[var(--color-border)] bg-[var(--color-surface-muted)]" /> Completada</span>
@@ -834,7 +832,10 @@ function Carriles({
   return (
     <>
       <LeyendaCarriles />
-      <div className="overflow-x-auto">
+      {/* w-0 min-w-full: el min-content de los carriles NO se propaga al
+          shell (su flex item sin min-w-0 no encogería y la agenda se
+          pintaría recortada sin scroll — visto a 1280 en Semana). */}
+      <div className="w-0 min-w-full overflow-x-auto">
         <div className="flex min-w-fit select-none pb-4">
           {/* Columna de horas (sticky al scroll horizontal) */}
           <div className="sticky left-0 z-10 w-14 shrink-0 bg-[var(--color-surface)]">
@@ -856,7 +857,7 @@ function Carriles({
             const ahoraVisible = esHoyCarril && ahoraMin >= ejeMin && ahoraMin <= ejeMax;
             const borradorAqui = borrador && borrador.staffId === carril.staffId && borrador.fecha === carril.fecha;
             return (
-            <div key={key} className={`min-w-52 flex-1 basis-52 px-1 ${ocultaEnMovil ? "hidden lg:block" : ""}`}>
+            <div key={key} className={`min-w-[9.5rem] flex-1 basis-[9.5rem] px-1 ${ocultaEnMovil ? "hidden lg:block" : ""}`}>
               {diaNumero !== undefined ? (
                 <div className="flex h-14 flex-col items-center justify-center gap-0.5">
                   <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--color-muted)]">{titulo}</p>
