@@ -31,7 +31,7 @@ export type BorradorCita = {
 };
 
 const INPUT =
-  "w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]";
+  "w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-foreground)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]";
 
 export function EditorCitaFlotante({
   borrador,
@@ -146,7 +146,7 @@ export function EditorCitaFlotante({
   return (
     <div
       data-editor-cita
-      className="fixed z-50 w-80 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-2xl"
+      className="fixed z-50 w-80 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 shadow-2xl"
       style={pos ? { left: pos.left, top: pos.top } : { right: 24, top: 112 }}
       onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}
     >
@@ -161,7 +161,7 @@ export function EditorCitaFlotante({
       </div>
 
       {/* Lo YA elegido con el ratón: una línea, no un formulario. */}
-      <div className="mb-3 flex items-start justify-between gap-2 rounded-xl bg-[var(--color-surface-muted)] px-3 py-2">
+      <div className="mb-3 flex items-start justify-between gap-2 rounded-lg bg-[var(--color-surface-muted)] px-3 py-2">
         <p className="text-[12px] font-medium text-[var(--color-foreground)] [font-variant-numeric:tabular-nums]">
           {fechaCorta(borrador.fecha)} · {deMin(borrador.inicioMin)}–{deMin(finMin)}
           <span className="block text-[11px] font-normal text-[var(--color-muted)]">{doctor?.nombre ?? "—"}</span>
@@ -204,7 +204,7 @@ export function EditorCitaFlotante({
             className={`${INPUT} text-[15px] font-medium`}
           />
           {sugerencias.length > 0 && (
-            <div className="mt-1 overflow-hidden rounded-xl border border-[var(--color-border)]">
+            <div className="mt-1 overflow-hidden rounded-lg border border-[var(--color-border)]">
               {sugerencias.map((p) => (
                 <button key={p.id} type="button"
                   onClick={() => { onCambia({ nombre: p.nombre, pacienteId: p.id }); setSugerencias([]); }}
@@ -244,18 +244,18 @@ export function EditorCitaFlotante({
       </p>
 
       {error && (
-        <p className="mt-2 rounded-xl border border-[var(--color-danger)]/25 bg-[var(--color-danger-soft)] px-3 py-2 text-xs text-[var(--color-danger)]">
+        <p className="mt-2 rounded-lg border border-[var(--color-danger)]/25 bg-[var(--color-danger-soft)] px-3 py-2 text-xs text-[var(--color-danger)]">
           {error}
         </p>
       )}
 
       <div className="mt-3 flex gap-2">
         <button type="button" onClick={onClose}
-          className="flex-1 rounded-xl bg-[var(--color-surface-muted)] py-2 text-sm font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-border)]">
+          className="flex-1 rounded-lg bg-[var(--color-surface-muted)] py-2 text-sm font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-border)]">
           Cancelar
         </button>
         <button type="button" onClick={() => void guardar()} disabled={!puedeGuardar}
-          className="flex-1 rounded-xl bg-[var(--color-accent)] py-2 text-sm font-semibold text-[var(--color-on-accent)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
+          className="flex-1 rounded-lg bg-[var(--color-accent)] py-2 text-sm font-semibold text-[var(--color-on-accent)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50">
           {saving ? "Guardando…" : "Guardar"}
         </button>
       </div>

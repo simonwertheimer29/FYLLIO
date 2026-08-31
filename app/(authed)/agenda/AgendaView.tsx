@@ -304,7 +304,7 @@ export function AgendaView() {
 
       {/* Controles: vista + navegación + filtros */}
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="flex h-9 items-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5 shadow-sm" role="tablist" aria-label="Vista">
+        <div className="flex h-9 items-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-0.5 shadow-sm" role="tablist" aria-label="Vista">
           {([["dia", "Día"], ["semana", "Semana"], ["lista", "Lista"]] as Array<[Vista, string]>).map(([v, label]) => (
             <button
               key={v}
@@ -312,7 +312,7 @@ export function AgendaView() {
               role="tab"
               aria-selected={vista === v}
               onClick={() => setVista(v)}
-              className={`rounded-lg px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors ${
+              className={`rounded-md px-3.5 py-1.5 text-[12.5px] font-semibold transition-colors ${
                 vista === v
                   ? "bg-[var(--color-accent-soft)] text-[var(--color-accent)]"
                   : "text-[var(--color-muted)] hover:bg-[var(--color-surface-muted)]"
@@ -326,30 +326,30 @@ export function AgendaView() {
         {vista === "dia" ? (
           <div className="flex items-center gap-1">
             <button type="button" aria-label="Día anterior" onClick={() => irADia(sumaDias(fecha, -1))}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-sm hover:bg-[var(--color-surface-muted)]">
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-sm hover:bg-[var(--color-surface-muted)]">
               <ChevronLeft size={14} strokeWidth={ICON_STROKE} aria-hidden />
             </button>
             <button type="button" onClick={() => irADia(hoyISO())}
-              className="h-9 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[12.5px] font-semibold text-[var(--color-foreground)] shadow-sm hover:bg-[var(--color-surface-muted)]">
+              className="h-9 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[12.5px] font-semibold text-[var(--color-foreground)] shadow-sm hover:bg-[var(--color-surface-muted)]">
               Hoy
             </button>
             <button type="button" aria-label="Día siguiente" onClick={() => irADia(sumaDias(fecha, 1))}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-sm hover:bg-[var(--color-surface-muted)]">
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-sm hover:bg-[var(--color-surface-muted)]">
               <ChevronRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
             </button>
           </div>
         ) : (
           <div className="flex items-center gap-1">
             <button type="button" aria-label="Semana anterior" onClick={() => setDesde(sumaDias(desde, -7))}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-sm hover:bg-[var(--color-surface-muted)]">
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-sm hover:bg-[var(--color-surface-muted)]">
               <ChevronLeft size={14} strokeWidth={ICON_STROKE} aria-hidden />
             </button>
             <button type="button" onClick={() => setDesde(lunesDe(hoyISO()))}
-              className="h-9 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[12.5px] font-semibold text-[var(--color-foreground)] shadow-sm hover:bg-[var(--color-surface-muted)]">
+              className="h-9 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 text-[12.5px] font-semibold text-[var(--color-foreground)] shadow-sm hover:bg-[var(--color-surface-muted)]">
               Hoy
             </button>
             <button type="button" aria-label="Semana siguiente" onClick={() => setDesde(sumaDias(desde, 7))}
-              className="flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-sm hover:bg-[var(--color-surface-muted)]">
+              className="flex h-9 w-9 items-center justify-center rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-muted)] shadow-sm hover:bg-[var(--color-surface-muted)]">
               <ChevronRight size={14} strokeWidth={ICON_STROKE} aria-hidden />
             </button>
           </div>
@@ -360,7 +360,7 @@ export function AgendaView() {
           <button
             type="button"
             onClick={() => setCalAbierto((v) => !v)}
-            className="inline-flex h-9 items-center gap-1 rounded-xl px-2.5 font-display text-[15px] font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
+            className="inline-flex h-9 items-center gap-1 rounded-lg px-2.5 font-display text-[15px] font-semibold text-[var(--color-foreground)] hover:bg-[var(--color-surface-muted)]"
           >
             {vista === "dia" ? fechaLarga(fecha) : `Semana del ${diaMes(desde)}`}
             {vista === "dia" && fecha === hoy && <span className="text-[11px] font-normal text-[var(--color-muted)]"> · hoy</span>}
@@ -369,7 +369,7 @@ export function AgendaView() {
           {calAbierto && (
             <>
               <div className="fixed inset-0 z-30" onClick={() => setCalAbierto(false)} />
-              <div className="absolute left-0 top-full z-40 mt-1 rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-2xl">
+              <div className="absolute left-0 top-full z-40 mt-1 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-3 shadow-2xl">
                 <MiniCalendario
                   seleccionada={vista === "dia" ? fecha : desde}
                   hoy={hoy}
@@ -389,7 +389,7 @@ export function AgendaView() {
           value={filtroEsp}
           onChange={(e) => { setFiltroEsp(e.target.value); setFiltroDoc(""); }}
           aria-label="Filtrar por especialidad"
-          className="h-9 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[12.5px] font-medium text-[var(--color-foreground)] shadow-sm"
+          className="h-9 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[12.5px] font-medium text-[var(--color-foreground)] shadow-sm"
         >
           <option value="">Todas las especialidades</option>
           {data?.especialidades.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
@@ -398,7 +398,7 @@ export function AgendaView() {
           value={filtroDoc}
           onChange={(e) => setFiltroDoc(e.target.value)}
           aria-label="Filtrar por doctor"
-          className="h-9 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[12.5px] font-medium text-[var(--color-foreground)] shadow-sm"
+          className="h-9 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 text-[12.5px] font-medium text-[var(--color-foreground)] shadow-sm"
         >
           <option value="">Todos los doctores</option>
           {data?.doctores
@@ -413,7 +413,7 @@ export function AgendaView() {
             if (doc) crearBorrador({ fecha: f, staffId: doc.id }, 10 * 60, 30);
           }}
           disabled={!data}
-          className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-[var(--color-accent)] px-3.5 text-[12.5px] font-semibold text-[var(--color-on-accent)] shadow-sm hover:opacity-90 disabled:opacity-40"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3.5 text-[12.5px] font-semibold text-[var(--color-on-accent)] shadow-sm hover:opacity-90 disabled:opacity-40"
         >
           <Plus size={13} strokeWidth={ICON_STROKE} aria-hidden /> Nueva cita
         </button>
@@ -425,10 +425,10 @@ export function AgendaView() {
             onChange={(e) => setBusqDoc(e.target.value)}
             placeholder="Buscar doctor…"
             aria-label="Buscar doctor"
-            className="h-9 w-44 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] pl-7 pr-2.5 text-[12.5px] font-medium text-[var(--color-foreground)] shadow-sm placeholder:font-normal placeholder:text-[var(--color-muted)]"
+            className="h-9 w-44 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] pl-7 pr-2.5 text-[12.5px] font-medium text-[var(--color-foreground)] shadow-sm placeholder:font-normal placeholder:text-[var(--color-muted)]"
           />
           {busqDoc.trim().length >= 2 && data && (
-            <div className="absolute left-0 top-full z-40 mt-1 w-56 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl">
+            <div className="absolute left-0 top-full z-40 mt-1 w-56 overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] shadow-xl">
               {(() => {
                 const n = (t: string) => t.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
                 const hits = data.doctores.filter((d) => n(d.nombre).includes(n(busqDoc.trim()))).slice(0, 6);
@@ -896,7 +896,7 @@ function Carriles({
                     : undefined
                 }
                 title={onCrear ? "Arrastra o haz clic para crear una cita" : undefined}
-                className={`relative rounded-xl bg-[var(--color-surface-muted)] ${esDestinoDeDrag ? "ring-2 ring-[var(--color-accent)]" : ""}`}
+                className={`relative rounded-lg bg-[var(--color-surface-muted)] ${esDestinoDeDrag ? "ring-2 ring-[var(--color-accent)]" : ""}`}
                 style={{
                   height: alto,
                   backgroundImage: "repeating-linear-gradient(135deg, transparent 0 7px, var(--color-border) 7px 8px)",
@@ -919,7 +919,7 @@ function Carriles({
                 {/* Huecos libres — sin coletilla por bloque: el aviso es ÚNICO, arriba */}
                 {(pd.libres ?? []).map((l, i) => (
                   <div key={`l${i}`}
-                    className="pointer-events-none absolute inset-x-1 rounded-lg border border-dashed border-[var(--color-warning)]/70 px-1.5 py-1"
+                    className="pointer-events-none absolute inset-x-1 rounded border border-dashed border-[var(--color-warning)]/70 px-1.5 py-1"
                     style={{ top: y(l.inicio) + 1, height: Math.max(20, (l.fin - l.inicio) * PX_MIN - 2) }}>
                     <p className="text-[10px] font-medium leading-tight text-[var(--color-warning)] [font-variant-numeric:tabular-nums]">
                       {deMin(l.inicio)}–{deMin(l.fin)} libre
@@ -934,7 +934,7 @@ function Carriles({
                 {/* Bloqueos */}
                 {pd.bloqueos.map((b, i) => (
                   <div key={`b${i}`} data-bloque
-                    className="absolute inset-x-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-1.5 py-1"
+                    className="absolute inset-x-1 rounded border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-1.5 py-1"
                     style={{ top: y(b.inicio) + 1, height: Math.max(20, (b.fin - b.inicio) * PX_MIN - 2) }}>
                     <p className="truncate text-[10px] text-[var(--color-muted)]">
                       <span className="[font-variant-numeric:tabular-nums]">{deMin(b.inicio)}–{deMin(b.fin)}</span> {b.motivo ?? "bloqueado"}
@@ -943,7 +943,7 @@ function Carriles({
                 ))}
                 {/* El bloque que se está DIBUJANDO */}
                 {g?.tipo === "dibujo" && g.carril.key === key && (
-                  <div className="pointer-events-none absolute inset-x-1 z-20 rounded-lg border-2 border-[var(--color-accent)] bg-[var(--color-accent-soft)] px-1.5 py-1"
+                  <div className="pointer-events-none absolute inset-x-1 z-20 rounded border-2 border-[var(--color-accent)] bg-[var(--color-accent-soft)] px-1.5 py-1"
                     style={{
                       top: y(Math.min(g.inicioMin, g.actualMin)),
                       height: Math.max(SNAP_MIN * PX_MIN, Math.abs(g.actualMin - g.inicioMin) * PX_MIN),
@@ -962,7 +962,7 @@ function Carriles({
                       e.stopPropagation();
                       iniciarGesto({ tipo: "borrador", accion: "mover", startX: e.clientX, startY: e.clientY, inicio0: borrador!.inicioMin, dur0: borrador!.duracionMin }, e);
                     }}
-                    className={`absolute inset-x-1 z-30 cursor-grab rounded-lg border-2 border-[var(--color-accent)] bg-[var(--color-accent)] px-1.5 py-1 shadow-lg active:cursor-grabbing ${g?.tipo === "borrador" ? "opacity-90" : ""}`}
+                    className={`absolute inset-x-1 z-30 cursor-grab rounded border-2 border-[var(--color-accent)] bg-[var(--color-accent)] px-1.5 py-1 shadow-lg active:cursor-grabbing ${g?.tipo === "borrador" ? "opacity-90" : ""}`}
                     style={{ top: y(borrador!.inicioMin), height: Math.max(26, borrador!.duracionMin * PX_MIN), touchAction: "none", ...(g?.tipo === "borrador" && g.accion === "mover" ? { pointerEvents: "none" as const } : {}) }}
                   >
                     <div
@@ -1019,7 +1019,7 @@ function Carriles({
                     }
                     onClick={onCita && !arrastrable ? () => onCita(c, carril) : undefined}
                     title={c.esFyllio ? "Clic: estado y ficha · arrastra para mover · estira los bordes para cambiar la duración" : "Clic: estado y ficha (se mueve en tu software clínico)"}
-                    className={`absolute inset-x-1 overflow-hidden rounded-lg px-2 py-1 shadow-sm ${onCita || arrastrable ? "hover:brightness-[1.06] hover:shadow-md" : ""} ${arrastrable ? "cursor-grab active:cursor-grabbing" : onCita ? "cursor-pointer" : ""} ${enMover || enResize ? "z-30 ring-2 ring-[var(--color-danger)]/0 opacity-90 shadow-lg" : ""}`}
+                    className={`absolute inset-x-1 overflow-hidden rounded px-2 py-1 shadow-sm ${onCita || arrastrable ? "hover:brightness-[1.06] hover:shadow-md" : ""} ${arrastrable ? "cursor-grab active:cursor-grabbing" : onCita ? "cursor-pointer" : ""} ${enMover || enResize ? "z-30 ring-2 ring-[var(--color-danger)]/0 opacity-90 shadow-lg" : ""}`}
                     style={{
                       top: y(iniVis) + 1,
                       height: altura,
@@ -1303,7 +1303,7 @@ function RecuadroDoctorDia({
   // Un día sin nada no tiene detalle que desplegar: el resumen ES todo.
   if (vacio) {
     return (
-      <div className="rounded-xl border border-[var(--color-border)] px-2.5 py-2">
+      <div className="rounded-lg border border-[var(--color-border)] px-2.5 py-2">
         <button type="button" onClick={() => onVerSemana(pd.staffId)} title={`Ver la semana de ${nombre}`}
           className="block max-w-full truncate text-[11.5px] font-semibold text-[var(--color-foreground)] hover:text-[var(--color-accent)] hover:underline">
           {nombre}
@@ -1324,7 +1324,7 @@ function RecuadroDoctorDia({
   } as const;
 
   return (
-    <details className="group rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] transition-shadow hover:shadow-sm">
+    <details className="group rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] transition-shadow hover:shadow-sm">
       <summary className="cursor-pointer list-none px-2.5 py-2 [&::-webkit-details-marker]:hidden">
         <div className="flex items-start justify-between gap-1">
           <button
@@ -1360,7 +1360,7 @@ function RecuadroDoctorDia({
             role={onCita ? "button" : undefined}
             onClick={onCita ? () => onCita(c, { fecha, staffId: pd.staffId }) : undefined}
             title={c.esFyllio ? "Clic: estado y ficha" : "Clic: estado y ficha (se mueve en tu software clínico)"}
-            className={`rounded-lg px-2 py-1 text-[10.5px] leading-tight shadow-sm ${onCita ? "cursor-pointer hover:brightness-[1.06]" : ""}`}
+            className={`rounded px-2 py-1 text-[10.5px] leading-tight shadow-sm ${onCita ? "cursor-pointer hover:brightness-[1.06]" : ""}`}
             style={{ background: est.bg, color: est.fg, ...(est.borde ? { border: `1px solid ${est.borde}` } : {}) }}>
             <span className="font-semibold [font-variant-numeric:tabular-nums]">
               {deMin(c.inicioMin)}{c.finMin !== null ? `–${deMin(c.finMin)}` : ""}
@@ -1372,7 +1372,7 @@ function RecuadroDoctorDia({
           );
         })}
         {pd.bloqueos.map((b, i) => (
-          <div key={`b${i}`} className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-1.5 py-1 text-[10.5px] text-[var(--color-muted)]">
+          <div key={`b${i}`} className="rounded border border-[var(--color-border)] bg-[var(--color-surface-muted)] px-1.5 py-1 text-[10.5px] text-[var(--color-muted)]">
             <span className="[font-variant-numeric:tabular-nums]">{deMin(b.inicio)}–{deMin(b.fin)}</span> {b.motivo ?? "bloqueado"}
           </div>
         ))}
@@ -1384,7 +1384,7 @@ function RecuadroDoctorDia({
           pd.libres.map((l, i) => (
             <div key={`l${i}`}
               title={AVISO_HUECOS}
-              className="rounded-lg border border-dashed border-[var(--color-warning)] px-1.5 py-1 text-[10.5px] text-[var(--color-warning)]">
+              className="rounded border border-dashed border-[var(--color-warning)] px-1.5 py-1 text-[10.5px] text-[var(--color-warning)]">
               <span className="[font-variant-numeric:tabular-nums]">{deMin(l.inicio)}–{deMin(l.fin)}</span> libre
             </div>
           ))
