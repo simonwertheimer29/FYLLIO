@@ -53,11 +53,12 @@
   --color-danger: #e11d48;
   --color-danger-soft: #fff1f2;
 
-  /* Radios — máximo 16px (xl). */
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  /* Radios: SIN remapeo — las clases valen lo que dicen (decisión 31-08).
+     El remapeo viejo (sm=6/md=8/lg=12/xl=16) hizo que durante semanas las
+     clases mintieran un punto entero: la escala del estándar visual se
+     razona en los valores REALES de Tailwind (rounded=4 · md=6 · lg=8 ·
+     xl=12). Si un valor no gusta, se cambia LA CLASE en el sitio, jamás el
+     significado global de la clase. */
 }
 
 /* Variante dark: permite `dark:` puntual, aunque la norma es usar tokens. */
@@ -252,7 +253,7 @@ body {
   );
   background-size: 200% 100%;
   animation: fyllioShimmer 1.4s ease infinite;
-  border-radius: var(--radius-md);
+  border-radius: 6px; /* skeleton: radio bajo fijo (el token del tema murió con el remapeo) */
 }
 
 @keyframes fyllioCheckPop {
