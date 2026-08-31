@@ -213,7 +213,7 @@ export function EnviosView() {
       </div>
 
       {error && (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300">
           No se pudo actualizar — estás viendo los últimos datos cargados.{" "}
           <button onClick={cargar} className="font-medium underline">Reintentar</button>
         </div>
@@ -270,7 +270,7 @@ export function EnviosView() {
                   <span className="text-[13px] text-[var(--color-muted)]">{f.clinicaNombre}</span>
                 )}
               </div>
-              <p className="mt-2 whitespace-pre-wrap rounded-md bg-[var(--color-surface-muted)] px-3 py-2 text-[13px] leading-relaxed text-[var(--color-foreground)]">
+              <p className="mt-2 whitespace-pre-wrap rounded-lg bg-[var(--color-surface-muted)] px-3 py-2 text-[13px] leading-relaxed text-[var(--color-foreground)]">
                 {f.contenido}
               </p>
               <div className="mt-3 flex items-center justify-between gap-2">
@@ -324,7 +324,7 @@ export function EnviosView() {
               </div>
               <a
                 href={`tel:${c.telefono}`}
-                className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)]"
               >
                 <Phone size={14} strokeWidth={ICON_STROKE} />
                 Llamar

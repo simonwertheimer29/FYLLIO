@@ -249,7 +249,7 @@ export function ColaPorCohortes({
   return (
     <div className="space-y-4">
       {error && (
-        <div className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300">
+        <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[13px] text-rose-700 dark:border-rose-500/25 dark:bg-rose-500/10 dark:text-rose-300">
           No se pudo actualizar — estás viendo los últimos datos cargados.{" "}
           <button onClick={cargar} className="font-medium underline">Reintentar</button>
         </div>
@@ -393,13 +393,13 @@ export function ColaPorCohortes({
                             <div className="flex flex-wrap gap-2 lg:hidden">
                               <Link
                                 href={`/mensajeria?telefono=${encodeURIComponent(caso.telefono)}`}
-                                className="inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-medium text-white"
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-medium text-white"
                               >
                                 Abrir la conversación
                               </Link>
                               <a
                                 href={`tel:${caso.telefono}`}
-                                className="inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-accent)]"
+                                className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-accent)]"
                               >
                                 <Phone size={14} strokeWidth={ICON_STROKE} />
                                 Llamar
@@ -431,7 +431,7 @@ export function ColaPorCohortes({
                       )}
                       {abiertoCaso && !caso.telefono && (
                         <div className="mt-2 space-y-2">
-                          <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">
+                          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] text-amber-700 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-300">
                             Este caso no tiene teléfono registrado — sin él no hay conversación que abrir.
                           </p>
                           {caso.cobro && (

@@ -32,7 +32,9 @@ export function ErrorState({
         aria-hidden
       />
       <p className="mt-2 text-sm font-semibold text-[var(--color-foreground)]">{title}</p>
-      {detail && <p className="mt-1 text-sm text-[var(--color-muted)]">{detail}</p>}
+      {/* Varias rutas devuelven como error el mismo texto que la pantalla usa
+          de título — repetirlo debajo no añade nada. */}
+      {detail && detail !== title && <p className="mt-1 text-sm text-[var(--color-muted)]">{detail}</p>}
       {onRetry && (
         <button
           type="button"

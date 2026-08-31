@@ -137,7 +137,7 @@ export function ChatEmbebido({
           página entera. */}
       <div ref={scrollRef} className="min-h-[18rem] max-h-[65vh] flex-1 overflow-y-auto p-3">
         {hilo == null ? (
-          <div className="h-24 animate-pulse rounded-md bg-[var(--color-surface-muted)]" />
+          <div className="fyllio-skeleton h-24" />
         ) : hilo.length === 0 ? (
           <p className="py-6 text-center text-[13px] text-[var(--color-muted)]">
             Aún no hay conversación con este contacto — este mensaje será el primero.
@@ -183,14 +183,14 @@ export function ChatEmbebido({
                 }
               }}
               disabled={redactando}
-              className="fyllio-ia-gradient mb-2 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] font-semibold hover:opacity-90 disabled:opacity-50"
+              className="fyllio-ia-gradient mb-2 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-semibold hover:opacity-90 disabled:opacity-50"
             >
               <Sparkles size={14} strokeWidth={ICON_STROKE} />
               {redactando ? "Redactando…" : "Redactar entrada"}
             </button>
           )}
           {textoDeIA && (
-            <div className="mb-2 flex items-center justify-between gap-2 rounded-md bg-[var(--color-accent-soft)] px-2.5 py-1.5">
+            <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-[var(--color-accent-soft)] px-2.5 py-1.5">
               <span className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[var(--color-accent)]">
                 <Sparkles size={13} strokeWidth={ICON_STROKE} />
                 Borrador del agente — revísalo: lo envías con tu nombre.
@@ -223,7 +223,7 @@ export function ChatEmbebido({
             }}
             rows={2}
             placeholder="Escribe la respuesta…"
-            className="max-h-[200px] min-h-[44px] flex-1 resize-none overflow-y-auto rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
+            className="max-h-[200px] min-h-[44px] flex-1 resize-none overflow-y-auto rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent)]"
           />
           <button
             onClick={enviar}
