@@ -3578,3 +3578,12 @@ tarjetas/paneles a 12px, píldoras redondas — sin puntos intermedios. El crite
 skill: el radio baja según sube la densidad del elemento; la jerarquía por forma es intencional
 (la silueta dice qué es cada cosa antes de leerla). El acabado de la agenda pasa a ser la
 referencia del producto; su aplicación al resto, por diagnóstico y OK previos.
+
+## 2026-08-31 — E1: la escala de radios aplicada a todo el producto (3 zonas, 3 commits)
+Pasada mecánica con revisión: 141 contenedores 2xl/3xl→12px y 63 controles con señal fuerte
+(button/input/select con patrón de campo o acento) →8px, en ~40 ficheros — presupuestos-components,
+resto de components, pantallas (authed)+login. Portal del paciente y FAB excluidos según el plan
+aprobado. Los controles con señal débil quedan para las pasadas por pantalla de E2/E3 (mejor un
+xl de más hoy que un contenedor aplastado por un sed). Card y ConfirmDialog ya cumplían. Smoke
+en producción sin errores de página. El skill ganó además el matiz táctil dictado: h-9 solo en
+toolbars densas de escritorio; h-10/11 en controles primarios de pantallas de pulgar.
