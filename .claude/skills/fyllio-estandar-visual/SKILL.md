@@ -85,6 +85,14 @@ Sin puntos intermedios (decisión explícita: controles a 8, no a 10). Al tocar 
 sus radios se ajustan a esta escala; `rounded-2xl`/`rounded-3xl` quedan fuera del vocabulario
 salvo decisión nueva del fundador.
 
+**La línea del chip (2026-08-31): un chip es una ETIQUETA PASIVA** — un estado, una categoría
+que solo informa. Eso es lo único que va redondo. **Un filtro de pestaña se PULSA: es un
+control y va a 8 px**, aunque hoy esté dibujado como píldora («Hoy · Semana · Mes» es un
+control; el badge «Confirmada» es un chip). Excepciones declaradas, no ampliables sin OK:
+los interruptores tipo switch (el redondo es su forma), los días del mini calendario (el
+círculo del día es identidad de calendario) y los botones circulares de icono (FAB, teclado
+del PIN).
+
 **La referencia de acabado es la agenda** (`/agenda`, iteración G2.x): densidad de dato,
 contraste real entre estructura (líneas y ejes al 30–70 % de opacidad, etiquetas pequeñas en
 mayúsculas con tracking) y contenido (bloques sólidos con texto claro encima, cifras
