@@ -3571,3 +3571,10 @@ completo (envuelve, jamás se sale), y viveza en lo que quedaba plano — tabs, 
 botones a altura h-9 con sombra y peso, leyenda en píldoras. La verificación pasa a ANCHOS REALES:
 1280/1440/1920 × Día y Semana con asserts de página-sin-scroll, carriles enteros, último doctor no
 partido y aviso dentro (15/15). E2E previo 12/12 intacto.
+
+## 2026-08-31 — La escala de radios queda fijada (ganó B) y sube al estándar visual
+Decisión tras prueba A/B con capturas a 1440: bloques de dato a 4px, controles y campos a 8px,
+tarjetas/paneles a 12px, píldoras redondas — sin puntos intermedios. El criterio, escrito en el
+skill: el radio baja según sube la densidad del elemento; la jerarquía por forma es intencional
+(la silueta dice qué es cada cosa antes de leerla). El acabado de la agenda pasa a ser la
+referencia del producto; su aplicación al resto, por diagnóstico y OK previos.

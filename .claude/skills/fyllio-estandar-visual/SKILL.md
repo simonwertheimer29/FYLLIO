@@ -66,6 +66,32 @@ intención — mismos tamaños y pesos en todas partes, no improvisar por pantal
 - Dos pesos por familia como máximo. Nada de font-black / extrabold sueltos.
 - Los números que se comparan (KPIs, tablas, importes) van en cifras tabulares.
 
+## 2 bis. Escala de radios (decisión A/B del 2026-08-31, ganó B en todo)
+
+**El criterio: el radio BAJA según sube la densidad del elemento.** Un bloque de 30 minutos
+es bajo; con esquinas muy redondas pierde altura útil y se lee como pastilla en vez de como
+franja de tiempo. La jerarquía por forma es **intencional, no decorativa**: la silueta dice
+qué es cada cosa antes de leerla — dato casi recto, contenedor suave, píldora redonda. Un
+solo radio para todo borra esa información.
+
+| Tipo de elemento | Radio | Tailwind |
+|---|---|---|
+| **Dato denso**: bloques de cita, huecos, bloqueos, chips de dato en listas | 4 px | `rounded` |
+| **Controles y campos**: botones, inputs, selects, tabs (contenedor), filas desplegables | 8 px | `rounded-lg` (interior de tabs: `rounded-md`) |
+| **Contenedores**: tarjetas, paneles, modales, popovers, lienzos de rejilla | 12 px | `rounded-xl` |
+| **Píldoras**: badges, chips de estado, leyendas, avatares | redondo | `rounded-full` |
+
+Sin puntos intermedios (decisión explícita: controles a 8, no a 10). Al tocar una pantalla,
+sus radios se ajustan a esta escala; `rounded-2xl`/`rounded-3xl` quedan fuera del vocabulario
+salvo decisión nueva del fundador.
+
+**La referencia de acabado es la agenda** (`/agenda`, iteración G2.x): densidad de dato,
+contraste real entre estructura (líneas y ejes al 30–70 % de opacidad, etiquetas pequeñas en
+mayúsculas con tracking) y contenido (bloques sólidos con texto claro encima, cifras
+tabulares), controles a altura común `h-9` con sombra sutil, y jerarquía tipográfica donde el
+dato pesa y la estructura acompaña. La aplicación al resto del producto se hace por
+diagnóstico y OK previos, no en silencio.
+
 ## 3. Iconos e identidad de IA
 
 - **Un solo set: lucide.** Nunca emojis como UI (📞 💬 ✓ 🔴 ⚠️ 🎉…). Cada concepto, su
